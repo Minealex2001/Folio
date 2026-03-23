@@ -22,18 +22,19 @@ class FolioRpUser {
   List<String> transports;
 
   Map<String, dynamic> toJson() => {
-        'name': name,
-        'id': id,
-        'credentialID': credentialID,
-        'transports': transports,
-      };
+    'name': name,
+    'id': id,
+    'credentialID': credentialID,
+    'transports': transports,
+  };
 
   factory FolioRpUser.fromJson(Map<String, dynamic> j) {
     return FolioRpUser(
       name: j['name'] as String,
       id: j['id'] as String,
       credentialID: j['credentialID'] as String?,
-      transports: (j['transports'] as List<dynamic>?)
+      transports:
+          (j['transports'] as List<dynamic>?)
               ?.map((e) => e as String)
               .toList() ??
           [],
@@ -70,8 +71,9 @@ class FolioRpServer {
       final users = map['users'] as Map<String, dynamic>? ?? {};
       _users.clear();
       for (final e in users.entries) {
-        _users[e.key] =
-            FolioRpUser.fromJson(Map<String, dynamic>.from(e.value as Map));
+        _users[e.key] = FolioRpUser.fromJson(
+          Map<String, dynamic>.from(e.value as Map),
+        );
       }
     } catch (_) {
       _users.clear();
@@ -103,10 +105,7 @@ class FolioRpServer {
 
     final request = <String, dynamic>{
       'challenge': challenge,
-      'rp': {
-        'name': 'Folio',
-        'id': folioRpId,
-      },
+      'rp': {'name': 'Folio', 'id': folioRpId},
       'user': {
         'id': base64Url.encode(userID.codeUnits),
         'name': defaultUserName,
@@ -135,7 +134,8 @@ class FolioRpServer {
 
     final raw = addBase64Padding(clientDataJSON);
     final clientData =
-        jsonDecode(String.fromCharCodes(base64.decode(raw))) as Map<String, dynamic>;
+        jsonDecode(String.fromCharCodes(base64.decode(raw)))
+            as Map<String, dynamic>;
 
     final challenge = clientData['challenge'] as String;
     final user = _inFlight[challenge];
@@ -184,7 +184,8 @@ class FolioRpServer {
 
     final raw = addBase64Padding(clientDataJSON);
     final clientData =
-        jsonDecode(String.fromCharCodes(base64.decode(raw))) as Map<String, dynamic>;
+        jsonDecode(String.fromCharCodes(base64.decode(raw)))
+            as Map<String, dynamic>;
 
     final challenge = clientData['challenge'] as String;
     final user = _inFlight[challenge];

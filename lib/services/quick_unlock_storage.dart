@@ -3,7 +3,7 @@ import 'dart:typed_data';
 
 import 'package:shared_preferences/shared_preferences.dart';
 
-/// Copia de la DEK para desbloqueo rápido (Hello / biometría / passkey).
+/// Copia de la DEK para desbloqueo rápido (Hello / biometría / passkey), **por cofre** ([vaultId]).
 ///
 /// Usa [SharedPreferences]: en escritorio el almacén suele ser legible para el
 /// usuario del SO; para mayor seguridad en producción conviene volver a un
@@ -12,29 +12,31 @@ import 'package:shared_preferences/shared_preferences.dart';
 class QuickUnlockStorage {
   QuickUnlockStorage();
 
-  static const _dekKey = 'folio_quick_unlock_dek_b64';
-  static const _enabledKey = 'folio_quick_unlock_enabled';
+  static String _dekKey(String vaultId) =>
+      'folio_quick_unlock_dek_b64_$vaultId';
+  static String _enabledKey(String vaultId) =>
+      'folio_quick_unlock_enabled_$vaultId';
 
-  Future<bool> isEnabled() async {
+  Future<bool> isEnabled(String vaultId) async {
     final p = await SharedPreferences.getInstance();
-    return p.getString(_enabledKey) == '1';
+    return p.getString(_enabledKey(vaultId)) == '1';
   }
 
-  Future<void> enableWithDek(Uint8List dek) async {
+  Future<void> enableWithDek(String vaultId, Uint8List dek) async {
     final p = await SharedPreferences.getInstance();
-    await p.setString(_dekKey, base64Encode(dek));
-    await p.setString(_enabledKey, '1');
+    await p.setString(_dekKey(vaultId), base64Encode(dek));
+    await p.setString(_enabledKey(vaultId), '1');
   }
 
-  Future<void> disable() async {
+  Future<void> disable(String vaultId) async {
     final p = await SharedPreferences.getInstance();
-    await p.remove(_dekKey);
-    await p.setString(_enabledKey, '0');
+    await p.remove(_dekKey(vaultId));
+    await p.setString(_enabledKey(vaultId), '0');
   }
 
-  Future<Uint8List?> readDek() async {
+  Future<Uint8List?> readDek(String vaultId) async {
     final p = await SharedPreferences.getInstance();
-    final b64 = p.getString(_dekKey);
+    final b64 = p.getString(_dekKey(vaultId));
     if (b64 == null || b64.isEmpty) return null;
     return Uint8List.fromList(base64Decode(b64));
   }

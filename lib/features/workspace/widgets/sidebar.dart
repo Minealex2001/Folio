@@ -1,15 +1,50 @@
 import 'package:flutter/material.dart';
 
+import '../../../data/vault_registry.dart';
 import '../../../models/folio_page.dart';
 import '../../../session/vault_session.dart';
 
-class Sidebar extends StatelessWidget {
-  const Sidebar({
-    super.key,
-    required this.session,
-  });
+class Sidebar extends StatefulWidget {
+  const Sidebar({super.key, required this.session});
 
   final VaultSession session;
+
+  @override
+  State<Sidebar> createState() => _SidebarState();
+}
+
+class _SidebarState extends State<Sidebar> {
+  VaultSession get session => widget.session;
+
+  List<VaultEntry> _vaults = [];
+  var _vaultsLoading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    session.addListener(_onSession);
+    _reloadVaults();
+  }
+
+  @override
+  void dispose() {
+    session.removeListener(_onSession);
+    super.dispose();
+  }
+
+  void _onSession() {
+    _reloadVaults();
+  }
+
+  Future<void> _reloadVaults() async {
+    final list = await session.listVaultEntries();
+    if (mounted) {
+      setState(() {
+        _vaults = list;
+        _vaultsLoading = false;
+      });
+    }
+  }
 
   List<FolioPage> _childrenOf(List<FolioPage> all, String? parentId) {
     final out = <FolioPage>[];
@@ -24,6 +59,258 @@ class Sidebar extends StatelessWidget {
   bool _hasChildren(FolioPage p) =>
       session.pages.any((x) => x.parentId == p.id);
 
+  Future<void> _confirmSwitchVault(String vaultId) async {
+    if (vaultId == session.activeVaultId) return;
+    final go = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Cambiar de cofre'),
+        content: const Text(
+          'Se cerrará la sesión de este cofre y tendrás que desbloquear el otro con su contraseña, '
+          'Hello o passkey (si los tienes configurados allí).',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancelar'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Cambiar'),
+          ),
+        ],
+      ),
+    );
+    if (go == true && mounted) {
+      await session.switchVault(vaultId);
+    }
+  }
+
+  Future<void> _addVault() async {
+    try {
+      await session.prepareNewVault();
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('$e')));
+      }
+    }
+  }
+
+  Future<void> _renameActiveVault() async {
+    final activeId = session.activeVaultId;
+    if (activeId == null) return;
+    VaultEntry? entry;
+    for (final e in _vaults) {
+      if (e.id == activeId) {
+        entry = e;
+        break;
+      }
+    }
+    final controller = TextEditingController(text: entry?.displayName ?? '');
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Renombrar cofre'),
+        content: TextField(
+          controller: controller,
+          autofocus: true,
+          decoration: const InputDecoration(labelText: 'Nombre'),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancelar'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Guardar'),
+          ),
+        ],
+      ),
+    );
+    if (ok == true && mounted) {
+      await session.renameActiveVault(controller.text);
+    }
+    controller.dispose();
+  }
+
+  Future<void> _deleteOtherVault() async {
+    final active = session.activeVaultId;
+    final others = _vaults.where((e) => e.id != active).toList();
+    if (others.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('No hay otros cofres que borrar.')),
+      );
+      return;
+    }
+    VaultEntry? picked;
+    await showDialog<void>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Eliminar otro cofre'),
+        content: SizedBox(
+          width: double.maxFinite,
+          child: ListView(
+            shrinkWrap: true,
+            children: others
+                .map(
+                  (e) => ListTile(
+                    title: Text(e.displayName),
+                    subtitle: Text(
+                      e.id,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    onTap: () {
+                      picked = e;
+                      Navigator.pop(ctx);
+                    },
+                  ),
+                )
+                .toList(),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Cancelar'),
+          ),
+        ],
+      ),
+    );
+    if (picked == null || !mounted) return;
+    final target = picked!;
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('¿Eliminar cofre?'),
+        content: Text(
+          'Se borrará por completo «${target.displayName}». No se puede deshacer.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancelar'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Eliminar'),
+          ),
+        ],
+      ),
+    );
+    if (confirm == true && mounted) {
+      try {
+        await session.deleteVaultById(target.id);
+        if (mounted) {
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(const SnackBar(content: Text('Cofre eliminado.')));
+        }
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(SnackBar(content: Text('$e')));
+        }
+      }
+    }
+  }
+
+  Widget _vaultToolbar(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    if (_vaultsLoading || _vaults.isEmpty) {
+      return const SizedBox.shrink();
+    }
+    final activeId = session.activeVaultId;
+    VaultEntry? current;
+    for (final e in _vaults) {
+      if (e.id == activeId) {
+        current = e;
+        break;
+      }
+    }
+    current ??= _vaults.first;
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(8, 8, 8, 4),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text(
+            'Cofre',
+            style: Theme.of(context).textTheme.labelSmall?.copyWith(
+              color: scheme.onSurfaceVariant,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          const SizedBox(height: 6),
+          Row(
+            children: [
+              Expanded(
+                child: DropdownButtonHideUnderline(
+                  child: DropdownButton<String>(
+                    isExpanded: true,
+                    value: current.id,
+                    items: _vaults
+                        .map(
+                          (e) => DropdownMenuItem(
+                            value: e.id,
+                            child: Text(
+                              e.displayName,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        )
+                        .toList(),
+                    onChanged: (id) {
+                      if (id != null) _confirmSwitchVault(id);
+                    },
+                  ),
+                ),
+              ),
+              IconButton(
+                tooltip: 'Añadir cofre',
+                icon: const Icon(Icons.add_circle_outline),
+                onPressed: _addVault,
+              ),
+              PopupMenuButton<String>(
+                tooltip: 'Más',
+                icon: const Icon(Icons.more_vert),
+                onSelected: (value) {
+                  if (value == 'rename') _renameActiveVault();
+                  if (value == 'deleteOther') _deleteOtherVault();
+                },
+                itemBuilder: (ctx) => [
+                  const PopupMenuItem(
+                    value: 'rename',
+                    child: ListTile(
+                      leading: Icon(Icons.edit_outlined),
+                      title: Text('Renombrar cofre activo'),
+                      contentPadding: EdgeInsets.zero,
+                    ),
+                  ),
+                  if (_vaults.length > 1)
+                    const PopupMenuItem(
+                      value: 'deleteOther',
+                      child: ListTile(
+                        leading: Icon(Icons.delete_outline),
+                        title: Text('Eliminar otro cofre…'),
+                        contentPadding: EdgeInsets.zero,
+                      ),
+                    ),
+                ],
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
   void _rename(BuildContext context, FolioPage page) {
     final titleController = TextEditingController(text: page.title);
     showDialog<void>(
@@ -33,10 +320,7 @@ class Sidebar extends StatelessWidget {
         content: TextField(
           controller: titleController,
           autofocus: true,
-          decoration: const InputDecoration(
-            labelText: 'Título',
-            border: OutlineInputBorder(),
-          ),
+          decoration: const InputDecoration(labelText: 'Título'),
           onSubmitted: (_) => Navigator.of(ctx).pop(),
         ),
         actions: [
@@ -95,20 +379,19 @@ class Sidebar extends StatelessWidget {
     );
   }
 
-  Widget _tile(
-    BuildContext context,
-    FolioPage page,
-    double indent,
-  ) {
+  Widget _tile(BuildContext context, FolioPage page, double indent) {
+    final scheme = Theme.of(context).colorScheme;
     final selected = page.id == session.selectedPageId;
     final canDelete = session.pages.length > 1 && !_hasChildren(page);
     return Padding(
       padding: EdgeInsets.only(left: indent),
       child: Material(
-        color: selected ? Colors.white.withValues(alpha: 0.85) : Colors.transparent,
-        borderRadius: BorderRadius.circular(6),
+        color: selected
+            ? scheme.surfaceContainerHigh.withValues(alpha: 0.85)
+            : Colors.transparent,
+        borderRadius: BorderRadius.circular(10),
         child: InkWell(
-          borderRadius: BorderRadius.circular(6),
+          borderRadius: BorderRadius.circular(10),
           onTap: () => session.selectPage(page.id),
           onDoubleTap: () => _rename(context, page),
           child: Padding(
@@ -117,13 +400,18 @@ class Sidebar extends StatelessWidget {
               children: [
                 Expanded(
                   child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 6,
+                    ),
                     child: Text(
                       page.title,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(
-                        fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
+                        fontWeight: selected
+                            ? FontWeight.w600
+                            : FontWeight.w400,
                       ),
                     ),
                   ),
@@ -152,7 +440,9 @@ class Sidebar extends StatelessWidget {
                   icon: const Icon(Icons.delete_outline, size: 20),
                   tooltip: 'Eliminar',
                   visualDensity: VisualDensity.compact,
-                  onPressed: canDelete ? () => session.deletePage(page.id) : null,
+                  onPressed: canDelete
+                      ? () => session.deletePage(page.id)
+                      : null,
                 ),
               ],
             ),
@@ -162,7 +452,11 @@ class Sidebar extends StatelessWidget {
     );
   }
 
-  List<Widget> _buildLevel(BuildContext context, String? parentId, double indent) {
+  List<Widget> _buildLevel(
+    BuildContext context,
+    String? parentId,
+    double indent,
+  ) {
     final kids = _childrenOf(session.pages, parentId);
     final tiles = <Widget>[];
     for (final p in kids) {
@@ -179,6 +473,8 @@ class Sidebar extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
+        _vaultToolbar(context),
+        const Divider(height: 1),
         Padding(
           padding: const EdgeInsets.fromLTRB(12, 10, 4, 8),
           child: Row(
@@ -186,9 +482,9 @@ class Sidebar extends StatelessWidget {
               Text(
                 'Páginas',
                 style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                      color: Colors.black54,
-                      fontWeight: FontWeight.w600,
-                    ),
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  fontWeight: FontWeight.w600,
+                ),
               ),
               const Spacer(),
               IconButton(

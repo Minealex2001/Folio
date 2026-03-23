@@ -1,14 +1,21 @@
 import 'package:flutter/material.dart';
-import 'package:passkeys/exceptions.dart';
 
+import '../../app/app_settings.dart';
 import '../../session/vault_session.dart';
+import '../settings/settings_page.dart';
 import 'widgets/block_editor.dart';
+import 'widgets/page_history_sheet.dart';
 import 'widgets/sidebar.dart';
 
 class WorkspacePage extends StatefulWidget {
-  const WorkspacePage({super.key, required this.session});
+  const WorkspacePage({
+    super.key,
+    required this.session,
+    required this.appSettings,
+  });
 
   final VaultSession session;
+  final AppSettings appSettings;
 
   @override
   State<WorkspacePage> createState() => _WorkspacePageState();
@@ -51,113 +58,19 @@ class _WorkspacePageState extends State<WorkspacePage> {
     }
   }
 
-  Future<void> _openSettings(BuildContext context) async {
-    final quick = await _s.quickUnlockEnabled;
-    final pk = await _s.hasPasskey;
-    if (!context.mounted) return;
-    await showModalBottomSheet<void>(
-      context: context,
-      showDragHandle: true,
-      builder: (ctx) {
-        return SafeArea(
-          child: ListView(
-            shrinkWrap: true,
-            children: [
-              const ListTile(title: Text('Seguridad')),
-              ListTile(
-                leading: const Icon(Icons.fingerprint),
-                title: const Text('Desbloqueo rápido (Hello / biometría)'),
-                subtitle: Text(quick ? 'Activado' : 'Desactivado'),
-                trailing: quick
-                    ? TextButton(
-                        onPressed: () async {
-                          await _s.disableQuickUnlock();
-                          if (ctx.mounted) Navigator.pop(ctx);
-                          if (context.mounted) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(content: Text('Desbloqueo rápido desactivado')),
-                            );
-                          }
-                        },
-                        child: const Text('Quitar'),
-                      )
-                    : FilledButton.tonal(
-                        onPressed: () async {
-                          try {
-                            await _s.enableDeviceQuickUnlock();
-                            if (ctx.mounted) Navigator.pop(ctx);
-                            if (context.mounted) {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(content: Text('Desbloqueo rápido activado')),
-                              );
-                            }
-                          } catch (e) {
-                            if (context.mounted) {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(content: Text('$e')),
-                              );
-                            }
-                          }
-                        },
-                        child: const Text('Activar'),
-                      ),
-              ),
-              ListTile(
-                leading: const Icon(Icons.key_rounded),
-                title: const Text('Registrar passkey'),
-                subtitle: const Text('WebAuthn en este dispositivo'),
-                trailing: pk
-                    ? TextButton(
-                        onPressed: () async {
-                          await _s.revokePasskey();
-                          if (ctx.mounted) Navigator.pop(ctx);
-                          if (context.mounted) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                content: Text('Passkey revocada'),
-                              ),
-                            );
-                          }
-                        },
-                        child: const Text('Revocar'),
-                      )
-                    : FilledButton.tonal(
-                        onPressed: () async {
-                          try {
-                            await _s.registerPasskey();
-                            if (ctx.mounted) Navigator.pop(ctx);
-                            if (context.mounted) {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(content: Text('Passkey registrada')),
-                              );
-                            }
-                          } on PasskeyAuthCancelledException {
-                            // ignorar
-                          } catch (e) {
-                            if (context.mounted) {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(content: Text('Passkey: $e')),
-                              );
-                            }
-                          }
-                        },
-                        child: const Text('Registrar'),
-                      ),
-              ),
-              const Divider(),
-              ListTile(
-                leading: const Icon(Icons.lock_outline),
-                title: const Text('Bloquear ahora'),
-                onTap: () {
-                  Navigator.pop(ctx);
-                  _s.lock();
-                },
-              ),
-            ],
-          ),
-        );
-      },
+  void _openSettings() {
+    Navigator.of(context).push<void>(
+      MaterialPageRoute<void>(
+        builder: (ctx) =>
+            SettingsPage(session: _s, appSettings: widget.appSettings),
+      ),
     );
+  }
+
+  void _openPageHistoryScreen() {
+    final page = _s.selectedPage;
+    if (page == null) return;
+    openPageHistoryScreen(context: context, session: _s, page: page);
   }
 
   @override
@@ -165,15 +78,61 @@ class _WorkspacePageState extends State<WorkspacePage> {
     final page = _s.selectedPage;
 
     final scheme = Theme.of(context).colorScheme;
+    final theme = Theme.of(context);
     return Scaffold(
       backgroundColor: scheme.surface,
       appBar: AppBar(
         title: const Text('Folio'),
         actions: [
+          if (_s.hasPendingDiskSave || _s.isPersistingToDisk)
+            Padding(
+              padding: const EdgeInsetsDirectional.only(end: 4),
+              child: Center(
+                child: Tooltip(
+                  message: _s.isPersistingToDisk
+                      ? 'Guardando el cofre cifrado en disco…'
+                      : 'Guardado automático en unos instantes…',
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      if (_s.isPersistingToDisk)
+                        SizedBox(
+                          width: 18,
+                          height: 18,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: scheme.primary,
+                          ),
+                        )
+                      else
+                        Icon(
+                          Icons.save_outlined,
+                          size: 22,
+                          color: scheme.primary.withValues(alpha: 0.85),
+                        ),
+                      const SizedBox(width: 8),
+                      Text(
+                        _s.isPersistingToDisk ? 'Guardando…' : 'Por guardar',
+                        style: theme.textTheme.labelLarge?.copyWith(
+                          color: scheme.onSurfaceVariant,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          if (page != null)
+            IconButton(
+              tooltip: 'Historial de la página',
+              icon: const Icon(Icons.history_rounded),
+              onPressed: _openPageHistoryScreen,
+            ),
           IconButton(
             tooltip: 'Ajustes',
             icon: const Icon(Icons.settings_outlined),
-            onPressed: () => _openSettings(context),
+            onPressed: _openSettings,
           ),
           IconButton(
             tooltip: 'Bloquear',
@@ -192,16 +151,34 @@ class _WorkspacePageState extends State<WorkspacePage> {
               child: Sidebar(session: _s),
             ),
           ),
-          VerticalDivider(
-            width: 1,
-            thickness: 1,
-            color: scheme.outlineVariant,
-          ),
+          VerticalDivider(width: 1, thickness: 1, color: scheme.outlineVariant),
           Expanded(
             child: Material(
               color: scheme.surface,
               child: page == null
-                  ? const Center(child: Text('Sin páginas'))
+                  ? Center(
+                      child: Padding(
+                        padding: const EdgeInsets.all(32),
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(
+                              Icons.description_outlined,
+                              size: 56,
+                              color: scheme.onSurfaceVariant.withValues(
+                                alpha: 0.6,
+                              ),
+                            ),
+                            const SizedBox(height: 16),
+                            Text(
+                              'Sin páginas',
+                              style: Theme.of(context).textTheme.titleMedium
+                                  ?.copyWith(color: scheme.onSurfaceVariant),
+                            ),
+                          ],
+                        ),
+                      ),
+                    )
                   : Padding(
                       padding: const EdgeInsets.fromLTRB(28, 20, 28, 12),
                       child: Column(
@@ -209,7 +186,8 @@ class _WorkspacePageState extends State<WorkspacePage> {
                         children: [
                           TextField(
                             controller: _titleController,
-                            style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                            style: Theme.of(context).textTheme.headlineSmall
+                                ?.copyWith(
                                   fontWeight: FontWeight.w600,
                                   color: scheme.onSurface,
                                 ),
@@ -219,7 +197,9 @@ class _WorkspacePageState extends State<WorkspacePage> {
                               hintText: 'Sin título',
                               isDense: true,
                               hintStyle: TextStyle(
-                                color: scheme.onSurfaceVariant.withValues(alpha: 0.7),
+                                color: scheme.onSurfaceVariant.withValues(
+                                  alpha: 0.7,
+                                ),
                               ),
                             ),
                             onChanged: (v) {
@@ -231,7 +211,7 @@ class _WorkspacePageState extends State<WorkspacePage> {
                           const SizedBox(height: 8),
                           Expanded(
                             child: BlockEditor(
-                              key: ValueKey(page.id),
+                              key: ValueKey('${page.id}-${_s.contentEpoch}'),
                               session: _s,
                             ),
                           ),

@@ -48,11 +48,7 @@ class VaultCrypto {
     final s = salt != null ? Uint8List.fromList(salt) : randomBytes(saltLength);
     final kek = await deriveKekFromPassword(password: password, salt: s);
     final nonce = randomBytes(nonceLength);
-    final box = await _aes.encrypt(
-      dek,
-      secretKey: kek,
-      nonce: nonce,
-    );
+    final box = await _aes.encrypt(dek, secretKey: kek, nonce: nonce);
     final out = BytesBuilder(copy: false);
     out.add(s);
     out.add(box.nonce);
@@ -91,11 +87,7 @@ class VaultCrypto {
     required SecretKey dek,
   }) async {
     final nonce = randomBytes(nonceLength);
-    final box = await _aes.encrypt(
-      plain,
-      secretKey: dek,
-      nonce: nonce,
-    );
+    final box = await _aes.encrypt(plain, secretKey: dek, nonce: nonce);
     final out = BytesBuilder(copy: false);
     out.add(box.nonce);
     out.add(box.cipherText);

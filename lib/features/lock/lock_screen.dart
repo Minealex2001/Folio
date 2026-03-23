@@ -91,6 +91,7 @@ class _LockScreenState extends State<LockScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
     return Scaffold(
       body: SafeArea(
         child: Center(
@@ -106,26 +107,23 @@ class _LockScreenState extends State<LockScreen> {
                     'Folio',
                     textAlign: TextAlign.center,
                     style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                          fontWeight: FontWeight.w700,
-                        ),
+                      fontWeight: FontWeight.w700,
+                    ),
                   ),
                   const SizedBox(height: 8),
                   Text(
                     'Cofre cifrado',
                     textAlign: TextAlign.center,
                     style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                          color: Colors.black54,
-                        ),
+                      color: scheme.onSurfaceVariant,
+                    ),
                   ),
                   const SizedBox(height: 32),
                   TextField(
                     controller: _password,
                     obscureText: true,
                     enabled: !_busy,
-                    decoration: const InputDecoration(
-                      labelText: 'Contraseña',
-                      border: OutlineInputBorder(),
-                    ),
+                    decoration: const InputDecoration(labelText: 'Contraseña'),
                     onSubmitted: (_) => _unlockPassword(),
                   ),
                   const SizedBox(height: 12),
@@ -153,7 +151,7 @@ class _LockScreenState extends State<LockScreen> {
                     const SizedBox(height: 16),
                     Text(
                       _error!,
-                      style: const TextStyle(color: Colors.redAccent),
+                      style: TextStyle(color: scheme.error),
                       textAlign: TextAlign.center,
                     ),
                   ],

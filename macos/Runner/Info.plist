@@ -28,5 +28,7 @@
 	<string>MainMenu</string>
 	<key>NSPrincipalClass</key>
 	<string>NSApplication</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>Folio necesita acceso a tu biblioteca de fotos para insertar imágenes en las notas.</string>
 </dict>
 </plist>

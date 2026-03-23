@@ -1,29 +1,43 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
+import 'package:system_theme/system_theme.dart';
 
 import '../features/lock/lock_screen.dart';
 import '../features/onboarding/onboarding_flow.dart';
 import '../features/workspace/workspace_page.dart';
 import '../session/vault_session.dart';
+import 'app_settings.dart';
+import 'folio_theme.dart';
 
 class FolioApp extends StatefulWidget {
-  const FolioApp({super.key, required this.session});
+  const FolioApp({super.key, required this.session, required this.appSettings});
 
   final VaultSession session;
+  final AppSettings appSettings;
 
   @override
   State<FolioApp> createState() => _FolioAppState();
 }
 
 class _FolioAppState extends State<FolioApp> {
+  StreamSubscription<SystemAccentColor>? _accentSub;
+
   @override
   void initState() {
     super.initState();
     widget.session.addListener(_onSession);
+    widget.appSettings.addListener(_onSettings);
     widget.session.bootstrap();
+    _accentSub = SystemTheme.onChange.listen((_) {
+      if (mounted) setState(() {});
+    });
   }
 
   @override
   void dispose() {
+    _accentSub?.cancel();
+    widget.appSettings.removeListener(_onSettings);
     widget.session.removeListener(_onSession);
     super.dispose();
   }
@@ -32,93 +46,61 @@ class _FolioAppState extends State<FolioApp> {
     if (mounted) setState(() {});
   }
 
+  void _onSettings() {
+    if (mounted) setState(() {});
+  }
+
   @override
   Widget build(BuildContext context) {
-    final colorScheme = ColorScheme.fromSeed(
-      seedColor: const Color(0xFF455A64),
-      brightness: Brightness.light,
-    );
+    final seed = SystemTheme.accentColor.accent;
     return MaterialApp(
       title: 'Folio',
-      theme: ThemeData(
-        useMaterial3: true,
-        colorScheme: colorScheme,
-        scaffoldBackgroundColor: colorScheme.surface,
-        appBarTheme: AppBarTheme(
-          centerTitle: false,
-          elevation: 0,
-          scrolledUnderElevation: 1,
-          backgroundColor: colorScheme.surfaceContainerLow,
-          foregroundColor: colorScheme.onSurface,
-          surfaceTintColor: colorScheme.surfaceTint,
-        ),
-        cardTheme: CardThemeData(
-          elevation: 0,
-          color: colorScheme.surfaceContainerLowest,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
-            side: BorderSide(color: colorScheme.outlineVariant),
-          ),
-        ),
-        dividerTheme: DividerThemeData(
-          color: colorScheme.outlineVariant,
-          thickness: 1,
-        ),
-        listTileTheme: ListTileThemeData(
-          iconColor: colorScheme.onSurfaceVariant,
-          contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-          horizontalTitleGap: 12,
-          minLeadingWidth: 40,
-        ),
-        snackBarTheme: SnackBarThemeData(
-          behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
-          ),
-        ),
-        dialogTheme: DialogThemeData(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        ),
-        inputDecorationTheme: InputDecorationTheme(
-          filled: true,
-          fillColor: colorScheme.surfaceContainerHighest.withValues(alpha: 0.35),
-          border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(12),
-            borderSide: BorderSide(color: colorScheme.outlineVariant),
-          ),
-          enabledBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(12),
-            borderSide: BorderSide(color: colorScheme.outlineVariant),
-          ),
-          focusedBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(12),
-            borderSide: BorderSide(color: colorScheme.primary, width: 2),
-          ),
-        ),
+      theme: folioLightTheme(seed),
+      darkTheme: folioDarkTheme(seed),
+      themeMode: widget.appSettings.themeMode,
+      home: _HomeByState(
+        session: widget.session,
+        appSettings: widget.appSettings,
       ),
-      home: _HomeByState(session: widget.session),
     );
   }
 }
 
 class _HomeByState extends StatelessWidget {
-  const _HomeByState({required this.session});
+  const _HomeByState({required this.session, required this.appSettings});
 
   final VaultSession session;
+  final AppSettings appSettings;
 
   @override
   Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final textTheme = Theme.of(context).textTheme;
     switch (session.state) {
       case VaultFlowState.initializing:
-        return const Scaffold(
-          body: Center(child: CircularProgressIndicator()),
+        return Scaffold(
+          body: Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                CircularProgressIndicator(color: scheme.primary),
+                const SizedBox(height: 16),
+                Text(
+                  'Cargando…',
+                  style: textTheme.bodyMedium?.copyWith(
+                    color: scheme.onSurfaceVariant,
+                  ),
+                ),
+              ],
+            ),
+          ),
         );
       case VaultFlowState.needsOnboarding:
         return OnboardingFlow(session: session);
       case VaultFlowState.locked:
         return LockScreen(session: session);
       case VaultFlowState.unlocked:
-        return WorkspacePage(session: session);
+        return WorkspacePage(session: session, appSettings: appSettings);
     }
   }
 }

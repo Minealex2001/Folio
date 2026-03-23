@@ -13,10 +13,14 @@ class VaultRepository {
     List<FolioPage>? initialPages,
   }) async {
     final dekBytes = VaultCrypto.randomBytes(VaultCrypto.dekLength);
-    final wrapped = await VaultCrypto.wrapDek(dek: dekBytes, password: password);
+    final wrapped = await VaultCrypto.wrapDek(
+      dek: dekBytes,
+      password: password,
+    );
     final dek = await VaultCrypto.dekFromBytes(dekBytes);
     final payload = VaultPayload(
-      pages: initialPages ??
+      pages:
+          initialPages ??
           [
             FolioPage(
               id: 'p1',
@@ -43,9 +47,7 @@ class VaultRepository {
             FolioPage(
               id: 'p3',
               title: 'Borrador',
-              blocks: [
-                FolioBlock(id: 'p3_b0', type: 'paragraph', text: ''),
-              ],
+              blocks: [FolioBlock(id: 'p3_b0', type: 'paragraph', text: '')],
             ),
           ],
     );
