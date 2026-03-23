@@ -1,16 +1,14 @@
+import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:folio/app/app.dart';
+import 'package:folio/app/folio_app.dart';
+import 'package:folio/session/vault_session.dart';
 
 void main() {
-  testWidgets('Muestra Folio y la primera página mock', (WidgetTester tester) async {
-    await tester.pumpWidget(const App());
-
-    expect(find.text('Folio'), findsWidgets);
-    expect(find.text('Bienvenida'), findsNWidgets(2));
-    expect(
-      find.textContaining('Esta es Folio'),
-      findsOneWidget,
-    );
+  testWidgets('MaterialApp de Folio se monta', (WidgetTester tester) async {
+    final session = VaultSession();
+    await tester.pumpWidget(FolioApp(session: session));
+    await tester.pump();
+    expect(find.byType(MaterialApp), findsOneWidget);
   });
 }

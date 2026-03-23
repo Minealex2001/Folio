@@ -1,184 +1,243 @@
-import 'dart:math';
-
 import 'package:flutter/material.dart';
+import 'package:passkeys/exceptions.dart';
 
-import '../../models/folio_page.dart';
-import 'widgets/editor_area.dart';
+import '../../session/vault_session.dart';
+import 'widgets/block_editor.dart';
 import 'widgets/sidebar.dart';
 
 class WorkspacePage extends StatefulWidget {
-  const WorkspacePage({super.key});
+  const WorkspacePage({super.key, required this.session});
+
+  final VaultSession session;
 
   @override
   State<WorkspacePage> createState() => _WorkspacePageState();
 }
 
 class _WorkspacePageState extends State<WorkspacePage> {
-  static final _random = Random();
+  late final TextEditingController _titleController;
 
-  late final List<FolioPage> _pages;
-  late String _selectedPageId;
-  late final TextEditingController _contentController;
-
-  FolioPage get _selectedPage =>
-      _pages.firstWhere((p) => p.id == _selectedPageId);
+  VaultSession get _s => widget.session;
 
   @override
   void initState() {
     super.initState();
-    _pages = [
-      FolioPage(
-        id: '1',
-        title: 'Bienvenida',
-        content:
-            'Esta es Folio, un espacio de trabajo simple.\n\n'
-            'Puedes crear, renombrar y eliminar páginas; el contenido se guarda en memoria mientras la app está abierta.',
-      ),
-      FolioPage(
-        id: '2',
-        title: 'Notas del día',
-        content:
-            '- Probar crear una página nueva con +\n'
-            '- Renombrar con doble clic o el lápiz\n'
-            '- Eliminar con la papelera (queda al menos una)',
-      ),
-      FolioPage(
-        id: '3',
-        title: 'Borrador',
-        content: '',
-      ),
-    ];
-    _selectedPageId = _pages.first.id;
-    _contentController = TextEditingController(text: _selectedPage.content);
+    _titleController = TextEditingController();
+    _s.addListener(_onSession);
+    _syncTitleFromSession();
   }
 
   @override
   void dispose() {
-    _contentController.dispose();
+    _s.removeListener(_onSession);
+    _titleController.dispose();
     super.dispose();
   }
 
-  void _syncControllerToSelection() {
-    _contentController.text = _selectedPage.content;
-    _contentController.selection = TextSelection.collapsed(
-      offset: _contentController.text.length,
-    );
+  void _onSession() {
+    if (!mounted) return;
+    _syncTitleFromSession();
+    setState(() {});
   }
 
-  void _selectPage(String id) {
-    setState(() {
-      _selectedPageId = id;
-    });
-    _syncControllerToSelection();
-  }
-
-  void _onContentChanged(String value) {
-    _selectedPage.content = value;
-  }
-
-  void _addPage() {
-    final id = '${DateTime.now().microsecondsSinceEpoch}_${_random.nextInt(1 << 20)}';
-    final page = FolioPage(
-      id: id,
-      title: 'Nueva página',
-      content: '',
-    );
-    setState(() {
-      _pages.add(page);
-      _selectedPageId = id;
-    });
-    _syncControllerToSelection();
-  }
-
-  void _deletePage(String id) {
-    if (_pages.length <= 1) return;
-    final index = _pages.indexWhere((p) => p.id == id);
-    if (index < 0) return;
-    final wasSelected = _selectedPageId == id;
-    setState(() {
-      _pages.removeAt(index);
-      if (wasSelected) {
-        final newIndex = index.clamp(0, _pages.length - 1);
-        _selectedPageId = _pages[newIndex].id;
-      }
-    });
-    if (wasSelected) {
-      _syncControllerToSelection();
+  void _syncTitleFromSession() {
+    final p = _s.selectedPage;
+    final next = p?.title ?? '';
+    if (_titleController.text != next) {
+      _titleController.value = TextEditingValue(
+        text: next,
+        selection: TextSelection.collapsed(offset: next.length),
+      );
     }
   }
 
-  void _renamePage(BuildContext context, FolioPage page) {
-    final titleController = TextEditingController(text: page.title);
-    showDialog<void>(
+  Future<void> _openSettings(BuildContext context) async {
+    final quick = await _s.quickUnlockEnabled;
+    final pk = await _s.hasPasskey;
+    if (!context.mounted) return;
+    await showModalBottomSheet<void>(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Renombrar página'),
-        content: TextField(
-          controller: titleController,
-          autofocus: true,
-          decoration: const InputDecoration(
-            labelText: 'Título',
-            border: OutlineInputBorder(),
+      showDragHandle: true,
+      builder: (ctx) {
+        return SafeArea(
+          child: ListView(
+            shrinkWrap: true,
+            children: [
+              const ListTile(title: Text('Seguridad')),
+              ListTile(
+                leading: const Icon(Icons.fingerprint),
+                title: const Text('Desbloqueo rápido (Hello / biometría)'),
+                subtitle: Text(quick ? 'Activado' : 'Desactivado'),
+                trailing: quick
+                    ? TextButton(
+                        onPressed: () async {
+                          await _s.disableQuickUnlock();
+                          if (ctx.mounted) Navigator.pop(ctx);
+                          if (context.mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(content: Text('Desbloqueo rápido desactivado')),
+                            );
+                          }
+                        },
+                        child: const Text('Quitar'),
+                      )
+                    : FilledButton.tonal(
+                        onPressed: () async {
+                          try {
+                            await _s.enableDeviceQuickUnlock();
+                            if (ctx.mounted) Navigator.pop(ctx);
+                            if (context.mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(content: Text('Desbloqueo rápido activado')),
+                              );
+                            }
+                          } catch (e) {
+                            if (context.mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(content: Text('$e')),
+                              );
+                            }
+                          }
+                        },
+                        child: const Text('Activar'),
+                      ),
+              ),
+              ListTile(
+                leading: const Icon(Icons.key_rounded),
+                title: const Text('Registrar passkey'),
+                subtitle: const Text('WebAuthn en este dispositivo'),
+                trailing: pk
+                    ? TextButton(
+                        onPressed: () async {
+                          await _s.revokePasskey();
+                          if (ctx.mounted) Navigator.pop(ctx);
+                          if (context.mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text('Passkey revocada'),
+                              ),
+                            );
+                          }
+                        },
+                        child: const Text('Revocar'),
+                      )
+                    : FilledButton.tonal(
+                        onPressed: () async {
+                          try {
+                            await _s.registerPasskey();
+                            if (ctx.mounted) Navigator.pop(ctx);
+                            if (context.mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(content: Text('Passkey registrada')),
+                              );
+                            }
+                          } on PasskeyAuthCancelledException {
+                            // ignorar
+                          } catch (e) {
+                            if (context.mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(content: Text('Passkey: $e')),
+                              );
+                            }
+                          }
+                        },
+                        child: const Text('Registrar'),
+                      ),
+              ),
+              const Divider(),
+              ListTile(
+                leading: const Icon(Icons.lock_outline),
+                title: const Text('Bloquear ahora'),
+                onTap: () {
+                  Navigator.pop(ctx);
+                  _s.lock();
+                },
+              ),
+            ],
           ),
-          onSubmitted: (_) => Navigator.of(ctx).pop(),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(),
-            child: const Text('Cancelar'),
-          ),
-          TextButton(
-            onPressed: () {
-              final next = titleController.text.trim();
-              if (next.isNotEmpty) {
-                setState(() => page.title = next);
-              }
-              Navigator.of(ctx).pop();
-            },
-            child: const Text('Guardar'),
-          ),
-        ],
-      ),
-    ).then((_) => titleController.dispose());
+        );
+      },
+    );
   }
 
   @override
   Widget build(BuildContext context) {
+    final page = _s.selectedPage;
+
+    final scheme = Theme.of(context).colorScheme;
     return Scaffold(
-      backgroundColor: const Color(0xFFFAFAFA),
+      backgroundColor: scheme.surface,
       appBar: AppBar(
         title: const Text('Folio'),
-        backgroundColor: const Color(0xFFE8E8E8),
-        foregroundColor: Colors.black87,
-        elevation: 0,
+        actions: [
+          IconButton(
+            tooltip: 'Ajustes',
+            icon: const Icon(Icons.settings_outlined),
+            onPressed: () => _openSettings(context),
+          ),
+          IconButton(
+            tooltip: 'Bloquear',
+            icon: const Icon(Icons.lock_outline),
+            onPressed: () => _s.lock(),
+          ),
+        ],
       ),
       body: Row(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           SizedBox(
-            width: 280,
-            child: ColoredBox(
-              color: const Color(0xFFEEEEEE),
-              child: Sidebar(
-                pages: _pages,
-                selectedPageId: _selectedPageId,
-                onPageSelected: _selectPage,
-                onAddPage: _addPage,
-                onDeletePage: _deletePage,
-                onRenamePage: _renamePage,
-                canDelete: _pages.length > 1,
-              ),
+            width: 300,
+            child: Material(
+              color: scheme.surfaceContainerLow,
+              child: Sidebar(session: _s),
             ),
           ),
-          const VerticalDivider(width: 1, thickness: 1),
+          VerticalDivider(
+            width: 1,
+            thickness: 1,
+            color: scheme.outlineVariant,
+          ),
           Expanded(
-            child: ColoredBox(
-              color: Colors.white,
-              child: EditorArea(
-                pageTitle: _selectedPage.title,
-                contentController: _contentController,
-                onContentChanged: _onContentChanged,
-              ),
+            child: Material(
+              color: scheme.surface,
+              child: page == null
+                  ? const Center(child: Text('Sin páginas'))
+                  : Padding(
+                      padding: const EdgeInsets.fromLTRB(28, 20, 28, 12),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          TextField(
+                            controller: _titleController,
+                            style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                                  fontWeight: FontWeight.w600,
+                                  color: scheme.onSurface,
+                                ),
+                            decoration: InputDecoration(
+                              border: InputBorder.none,
+                              filled: false,
+                              hintText: 'Sin título',
+                              isDense: true,
+                              hintStyle: TextStyle(
+                                color: scheme.onSurfaceVariant.withValues(alpha: 0.7),
+                              ),
+                            ),
+                            onChanged: (v) {
+                              if (page.id == _s.selectedPageId) {
+                                _s.renamePage(page.id, v);
+                              }
+                            },
+                          ),
+                          const SizedBox(height: 8),
+                          Expanded(
+                            child: BlockEditor(
+                              key: ValueKey(page.id),
+                              session: _s,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
             ),
           ),
         ],

@@ -1,0 +1,168 @@
+import 'package:flutter/material.dart';
+import 'package:passkeys/exceptions.dart';
+
+import '../../session/vault_session.dart';
+
+class LockScreen extends StatefulWidget {
+  const LockScreen({super.key, required this.session});
+
+  final VaultSession session;
+
+  @override
+  State<LockScreen> createState() => _LockScreenState();
+}
+
+class _LockScreenState extends State<LockScreen> {
+  final _password = TextEditingController();
+  var _busy = false;
+  String? _error;
+  var _quickEnabled = false;
+  var _passkeyRegistered = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _refreshFlags();
+  }
+
+  Future<void> _refreshFlags() async {
+    final q = await widget.session.quickUnlockEnabled;
+    final p = await widget.session.hasPasskey;
+    if (mounted) {
+      setState(() {
+        _quickEnabled = q;
+        _passkeyRegistered = p;
+      });
+    }
+  }
+
+  @override
+  void dispose() {
+    _password.dispose();
+    super.dispose();
+  }
+
+  Future<void> _unlockPassword() async {
+    setState(() {
+      _busy = true;
+      _error = null;
+    });
+    try {
+      await widget.session.unlockWithPassword(_password.text);
+    } catch (e) {
+      setState(() {
+        _error = 'Contraseña incorrecta o cofre dañado.';
+        _busy = false;
+      });
+    }
+  }
+
+  Future<void> _unlockDevice() async {
+    setState(() {
+      _busy = true;
+      _error = null;
+    });
+    try {
+      await widget.session.unlockWithDeviceAuth();
+    } catch (e) {
+      setState(() {
+        _error = '$e';
+        _busy = false;
+      });
+    }
+  }
+
+  Future<void> _unlockPasskey() async {
+    setState(() {
+      _busy = true;
+      _error = null;
+    });
+    try {
+      await widget.session.unlockWithPasskey();
+    } on PasskeyAuthCancelledException {
+      setState(() => _busy = false);
+    } catch (e) {
+      setState(() {
+        _error = '$e';
+        _busy = false;
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      body: SafeArea(
+        child: Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 400),
+            child: Padding(
+              padding: const EdgeInsets.all(24),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Text(
+                    'Folio',
+                    textAlign: TextAlign.center,
+                    style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                          fontWeight: FontWeight.w700,
+                        ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    'Cofre cifrado',
+                    textAlign: TextAlign.center,
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                          color: Colors.black54,
+                        ),
+                  ),
+                  const SizedBox(height: 32),
+                  TextField(
+                    controller: _password,
+                    obscureText: true,
+                    enabled: !_busy,
+                    decoration: const InputDecoration(
+                      labelText: 'Contraseña',
+                      border: OutlineInputBorder(),
+                    ),
+                    onSubmitted: (_) => _unlockPassword(),
+                  ),
+                  const SizedBox(height: 12),
+                  FilledButton(
+                    onPressed: _busy ? null : _unlockPassword,
+                    child: const Text('Desbloquear'),
+                  ),
+                  if (_quickEnabled) ...[
+                    const SizedBox(height: 16),
+                    OutlinedButton.icon(
+                      onPressed: _busy ? null : _unlockDevice,
+                      icon: const Icon(Icons.fingerprint),
+                      label: const Text('Hello / biometría'),
+                    ),
+                  ],
+                  if (_passkeyRegistered) ...[
+                    const SizedBox(height: 8),
+                    OutlinedButton.icon(
+                      onPressed: _busy ? null : _unlockPasskey,
+                      icon: const Icon(Icons.key_rounded),
+                      label: const Text('Passkey'),
+                    ),
+                  ],
+                  if (_error != null) ...[
+                    const SizedBox(height: 16),
+                    Text(
+                      _error!,
+                      style: const TextStyle(color: Colors.redAccent),
+                      textAlign: TextAlign.center,
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
