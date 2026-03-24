@@ -300,7 +300,9 @@ class _HistoryHeaderCard extends StatelessWidget {
                   children: [
                     _InfoChip(
                       icon: Icons.bookmarks_outlined,
-                      label: AppLocalizations.of(context).versionsCount(versionCount),
+                      label: AppLocalizations.of(
+                        context,
+                      ).versionsCount(versionCount),
                       scheme: scheme,
                       textTheme: textTheme,
                     ),
@@ -422,7 +424,9 @@ class _RevisionCard extends StatelessWidget {
             ),
           ),
           title: Text(
-            rev.title.isEmpty ? AppLocalizations.of(context).untitledFallback : rev.title,
+            rev.title.isEmpty
+                ? AppLocalizations.of(context).untitledFallback
+                : rev.title,
             maxLines: 2,
             overflow: TextOverflow.ellipsis,
             style: textTheme.titleSmall?.copyWith(
@@ -475,8 +479,12 @@ class _RevisionCard extends StatelessWidget {
                       Expanded(
                         child: Text(
                           older == null
-                              ? AppLocalizations.of(context).changesFromEmptyStart
-                              : AppLocalizations.of(context).comparedWithPrevious,
+                              ? AppLocalizations.of(
+                                  context,
+                                ).changesFromEmptyStart
+                              : AppLocalizations.of(
+                                  context,
+                                ).comparedWithPrevious,
                           style: textTheme.labelLarge?.copyWith(
                             color: scheme.onSurface,
                             fontWeight: FontWeight.w600,

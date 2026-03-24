@@ -106,7 +106,9 @@ class VaultRepository {
 
   Future<void> savePayload(VaultPayload payload, List<int>? dekBytes) async {
     if (await isPlaintextVault()) {
-      await (await VaultPaths.cipherPayloadPath()).writeAsBytes(payload.encodeUtf8());
+      await (await VaultPaths.cipherPayloadPath()).writeAsBytes(
+        payload.encodeUtf8(),
+      );
       return;
     }
     if (dekBytes == null) {
@@ -130,7 +132,10 @@ class VaultRepository {
       wrapped: wrapped,
       password: currentPassword,
     );
-    final rewrapped = await VaultCrypto.wrapDek(dek: dek, password: newPassword);
+    final rewrapped = await VaultCrypto.wrapDek(
+      dek: dek,
+      password: newPassword,
+    );
     await wrappedPath.writeAsBytes(rewrapped, flush: true);
   }
 }

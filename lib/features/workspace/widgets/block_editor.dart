@@ -27,129 +27,129 @@ import 'folio_text_format.dart';
 import 'table_block_editor.dart';
 
 /// Metadatos para el selector visual de tipos (orden de aparición).
-const _blockTypeCatalog = <_BlockTypeDef>[
-  _BlockTypeDef(
+const blockTypeCatalog = <BlockTypeDef>[
+  BlockTypeDef(
     key: 'paragraph',
     label: 'Párrafo',
     hint: 'Texto corrido sin formato',
     icon: Icons.notes_rounded,
-    section: _BlockTypeSection.text,
+    section: BlockTypeSection.text,
   ),
-  _BlockTypeDef(
+  BlockTypeDef(
     key: 'h1',
     label: 'Encabezado 1',
     hint: '#  ·  título destacado',
     icon: Icons.looks_one_rounded,
-    section: _BlockTypeSection.text,
+    section: BlockTypeSection.text,
   ),
-  _BlockTypeDef(
+  BlockTypeDef(
     key: 'h2',
     label: 'Encabezado 2',
     hint: '##  ·  sección',
     icon: Icons.looks_two_rounded,
-    section: _BlockTypeSection.text,
+    section: BlockTypeSection.text,
   ),
-  _BlockTypeDef(
+  BlockTypeDef(
     key: 'h3',
     label: 'Encabezado 3',
     hint: '###  ·  subtítulo',
     icon: Icons.looks_3_rounded,
-    section: _BlockTypeSection.text,
+    section: BlockTypeSection.text,
   ),
-  _BlockTypeDef(
+  BlockTypeDef(
     key: 'bullet',
     label: 'Lista con viñetas',
     hint: '-  o *  ·  lista no numerada',
     icon: Icons.format_list_bulleted_rounded,
-    section: _BlockTypeSection.list,
+    section: BlockTypeSection.list,
   ),
-  _BlockTypeDef(
+  BlockTypeDef(
     key: 'todo',
     label: 'Lista de tareas',
     hint: '[ ]  ·  casillas',
     icon: Icons.check_box_outlined,
-    section: _BlockTypeSection.list,
+    section: BlockTypeSection.list,
   ),
-  _BlockTypeDef(
+  BlockTypeDef(
     key: 'code',
     label: 'Código',
     hint: '/codigo  ·  ``` espacio',
     icon: Icons.code_rounded,
-    section: _BlockTypeSection.media,
+    section: BlockTypeSection.media,
   ),
-  _BlockTypeDef(
+  BlockTypeDef(
     key: 'image',
     label: 'Imagen',
     hint: '/imagen  ·  archivo en el cofre',
     icon: Icons.image_rounded,
-    section: _BlockTypeSection.media,
+    section: BlockTypeSection.media,
   ),
-  _BlockTypeDef(
+  BlockTypeDef(
     key: 'table',
     label: 'Tabla',
     hint: '/tabla  ·  celdas editables',
     icon: Icons.table_chart_rounded,
-    section: _BlockTypeSection.media,
+    section: BlockTypeSection.media,
   ),
-  _BlockTypeDef(
+  BlockTypeDef(
     key: 'database',
     label: 'Base de datos',
     hint: '/database  ·  tabla/tablero/calendario',
     icon: Icons.dataset_rounded,
-    section: _BlockTypeSection.media,
+    section: BlockTypeSection.media,
   ),
-  _BlockTypeDef(
+  BlockTypeDef(
     key: 'quote',
     label: 'Cita',
     hint: '”  ·  texto destacado',
     icon: Icons.format_quote_rounded,
-    section: _BlockTypeSection.text,
+    section: BlockTypeSection.text,
   ),
-  _BlockTypeDef(
+  BlockTypeDef(
     key: 'divider',
     label: 'Separador',
     hint: '---  ·  línea horizontal',
     icon: Icons.horizontal_rule_rounded,
-    section: _BlockTypeSection.media,
+    section: BlockTypeSection.media,
   ),
-  _BlockTypeDef(
+  BlockTypeDef(
     key: 'callout',
     label: 'Destacado',
     hint: '💡  ·  caja con icono',
     icon: Icons.lightbulb_outline_rounded,
-    section: _BlockTypeSection.text,
+    section: BlockTypeSection.text,
   ),
-  _BlockTypeDef(
+  BlockTypeDef(
     key: 'file',
     label: 'Archivo',
     hint: '/archivo  ·  adjunto',
     icon: Icons.attach_file_rounded,
-    section: _BlockTypeSection.media,
+    section: BlockTypeSection.media,
   ),
-  _BlockTypeDef(
+  BlockTypeDef(
     key: 'video',
     label: 'Video',
     hint: '/video  ·  reproductor',
     icon: Icons.play_circle_outline_rounded,
-    section: _BlockTypeSection.media,
+    section: BlockTypeSection.media,
   ),
 ];
 
-enum _BlockTypeSection { text, list, media }
+enum BlockTypeSection { text, list, media }
 
-String _blockSectionTitle(_BlockTypeSection s) {
+String blockSectionTitle(BlockTypeSection s) {
   switch (s) {
-    case _BlockTypeSection.text:
+    case BlockTypeSection.text:
       return 'Texto';
-    case _BlockTypeSection.list:
+    case BlockTypeSection.list:
       return 'Listas';
-    case _BlockTypeSection.media:
+    case BlockTypeSection.media:
       return 'Medios y datos';
   }
 }
 
-class _BlockTypeDef {
-  const _BlockTypeDef({
+class BlockTypeDef {
+  const BlockTypeDef({
     required this.key,
     required this.label,
     required this.hint,
@@ -161,7 +161,7 @@ class _BlockTypeDef {
   final String label;
   final String hint;
   final IconData icon;
-  final _BlockTypeSection section;
+  final BlockTypeSection section;
 }
 
 /// `null` si el texto del bloque no es comando `/…`; si no, filtro tras la `/` (puede ser vacío).
@@ -173,10 +173,10 @@ String? _slashFilterFromBlockText(String text) {
   return tail;
 }
 
-List<_BlockTypeDef> _catalogFiltered(String q) {
+List<BlockTypeDef> _catalogFiltered(String q) {
   final qq = q.trim().toLowerCase();
-  if (qq.isEmpty) return _blockTypeCatalog;
-  return _blockTypeCatalog.where((d) {
+  if (qq.isEmpty) return blockTypeCatalog;
+  return blockTypeCatalog.where((d) {
     return d.key.contains(qq) ||
         d.label.toLowerCase().contains(qq) ||
         d.hint.toLowerCase().contains(qq);
@@ -230,7 +230,9 @@ class _BlockEditorState extends State<BlockEditor> {
     final uri = Uri.tryParse(t);
     if (uri == null) return false;
     if (!(uri.scheme == 'http' || uri.scheme == 'https')) return false;
-    return _imageUrlExt.hasMatch(uri.path + (uri.hasQuery ? '?${uri.query}' : ''));
+    return _imageUrlExt.hasMatch(
+      uri.path + (uri.hasQuery ? '?${uri.query}' : ''),
+    );
   }
 
   double _imageWidthFor(FolioBlock block) {
@@ -330,11 +332,11 @@ class _BlockEditorState extends State<BlockEditor> {
     _slashBlockId = null;
     _slashPageId = null;
     _ignoreShortcuts = true;
-    
+
     // Remove the trailing slash command from the block's text
     _s.updateBlockText(pid, id, '');
     _s.changeBlockType(pid, id, typeKey);
-    
+
     var newText = '';
     final pageAfter = _s.selectedPage;
     if (pageAfter != null) {
@@ -725,7 +727,16 @@ class _BlockEditorState extends State<BlockEditor> {
       _ignoreShortcuts = false;
       return;
     }
-    const slashTypes = {'paragraph', 'h1', 'h2', 'h3', 'bullet', 'todo', 'quote', 'callout'};
+    const slashTypes = {
+      'paragraph',
+      'h1',
+      'h2',
+      'h3',
+      'bullet',
+      'todo',
+      'quote',
+      'callout',
+    };
     if (!slashTypes.contains(btype)) {
       return;
     }
@@ -798,7 +809,7 @@ class _BlockEditorState extends State<BlockEditor> {
       useSafeArea: true,
       backgroundColor: Colors.transparent,
       barrierColor: Theme.of(context).colorScheme.scrim.withValues(alpha: 0.4),
-      builder: (ctx) => _BlockTypePickerSheet(catalog: _blockTypeCatalog),
+      builder: (ctx) => BlockTypePickerSheet(catalog: blockTypeCatalog),
     );
   }
 
@@ -955,7 +966,9 @@ class _BlockEditorState extends State<BlockEditor> {
       final base = p.basename(normalized);
       if (base.isNotEmpty) {
         final vault = await VaultPaths.vaultDirectory();
-        final dir = Directory(p.join(vault.path, VaultPaths.attachmentsDirName));
+        final dir = Directory(
+          p.join(vault.path, VaultPaths.attachmentsDirName),
+        );
         if (dir.existsSync()) {
           for (final e in dir.listSync(followLinks: false)) {
             if (e is File && p.basename(e.path) == base) {
@@ -1306,15 +1319,18 @@ class _BlockEditorState extends State<BlockEditor> {
                       label: const Text('Mas'),
                     ),
                     OutlinedButton(
-                      onPressed: () => _s.setBlockImageWidth(page.id, block.id, 0.5),
+                      onPressed: () =>
+                          _s.setBlockImageWidth(page.id, block.id, 0.5),
                       child: const Text('50%'),
                     ),
                     OutlinedButton(
-                      onPressed: () => _s.setBlockImageWidth(page.id, block.id, 0.75),
+                      onPressed: () =>
+                          _s.setBlockImageWidth(page.id, block.id, 0.75),
                       child: const Text('75%'),
                     ),
                     OutlinedButton(
-                      onPressed: () => _s.setBlockImageWidth(page.id, block.id, 1.0),
+                      onPressed: () =>
+                          _s.setBlockImageWidth(page.id, block.id, 1.0),
                       child: const Text('100%'),
                     ),
                   ],
@@ -1340,30 +1356,38 @@ class _BlockEditorState extends State<BlockEditor> {
                                 fit: BoxFit.contain,
                                 errorBuilder: (context, error, stackTrace) =>
                                     Padding(
-                                  padding:
-                                      const EdgeInsets.symmetric(vertical: 8),
-                                  child: Text(
-                                    AppLocalizations.of(context)
-                                        .couldNotLoadImage,
-                                    style: TextStyle(
-                                        color: scheme.error, fontSize: 13),
-                                  ),
-                                ),
+                                      padding: const EdgeInsets.symmetric(
+                                        vertical: 8,
+                                      ),
+                                      child: Text(
+                                        AppLocalizations.of(
+                                          context,
+                                        ).couldNotLoadImage,
+                                        style: TextStyle(
+                                          color: scheme.error,
+                                          fontSize: 13,
+                                        ),
+                                      ),
+                                    ),
                               )
                             : Image.file(
                                 file!,
                                 fit: BoxFit.contain,
                                 errorBuilder: (context, error, stackTrace) =>
                                     Padding(
-                                  padding:
-                                      const EdgeInsets.symmetric(vertical: 8),
-                                  child: Text(
-                                    AppLocalizations.of(context)
-                                        .couldNotLoadImage,
-                                    style: TextStyle(
-                                        color: scheme.error, fontSize: 13),
-                                  ),
-                                ),
+                                      padding: const EdgeInsets.symmetric(
+                                        vertical: 8,
+                                      ),
+                                      child: Text(
+                                        AppLocalizations.of(
+                                          context,
+                                        ).couldNotLoadImage,
+                                        style: TextStyle(
+                                          color: scheme.error,
+                                          fontSize: 13,
+                                        ),
+                                      ),
+                                    ),
                               ),
                       ),
                     ),
@@ -1376,7 +1400,10 @@ class _BlockEditorState extends State<BlockEditor> {
                 padding: const EdgeInsets.only(top: 4),
                 child: Text(
                   'Ancho: ${(widthFactor * 100).round()}%',
-                  style: TextStyle(color: scheme.onSurfaceVariant, fontSize: 12),
+                  style: TextStyle(
+                    color: scheme.onSurfaceVariant,
+                    fontSize: 12,
+                  ),
                 ),
               ),
           ],
@@ -1463,87 +1490,89 @@ class _BlockEditorState extends State<BlockEditor> {
 
     return FocusTraversalGroup(
       child: Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        Padding(
-          padding: const EdgeInsets.fromLTRB(4, 0, 4, 8),
-          child: Text(
-            'Enter: bloque nuevo (en código: Enter = línea) · Shift+Enter: línea · / tipos · # · ## · ### · - · * · [] · ``` espacio · tabla/imagen en / · formato: barra al enfocar o ** _ <u> ` ~~ · vista previa al salir',
-            style: mono,
-          ),
-        ),
-        Expanded(
-          child: Theme(
-            data: theme.copyWith(
-              inputDecorationTheme: const InputDecorationTheme(
-                filled: false,
-                border: InputBorder.none,
-                enabledBorder: InputBorder.none,
-                focusedBorder: InputBorder.none,
-                disabledBorder: InputBorder.none,
-                errorBorder: InputBorder.none,
-                focusedErrorBorder: InputBorder.none,
-              ),
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(4, 0, 4, 8),
+            child: Text(
+              'Enter: bloque nuevo (en código: Enter = línea) · Shift+Enter: línea · / tipos · # · ## · ### · - · * · [] · ``` espacio · tabla/imagen en / · formato: barra al enfocar o ** _ <u> ` ~~ · vista previa al salir',
+              style: mono,
             ),
-            child: ReorderableListView.builder(
-              padding: const EdgeInsets.only(bottom: 24),
-              buildDefaultDragHandles: false,
-              itemCount: page.blocks.length,
-              onReorder: (oldIndex, newIndex) =>
-                  _onBlocksReordered(page, oldIndex, newIndex),
-              itemBuilder: (context, index) {
-                final b = page.blocks[index];
-                final ctrl = _controllers[index];
-                final focus = _focusNodes[index];
-                final style = _styleFor(b.type, theme.textTheme);
-                final showActions =
-                    _hoveredBlockIndex == index ||
-                    focus.hasFocus ||
-                    _menuOpenBlockId == b.id ||
-                    MediaQuery.sizeOf(context).width < 900;
+          ),
+          Expanded(
+            child: Theme(
+              data: theme.copyWith(
+                inputDecorationTheme: const InputDecorationTheme(
+                  filled: false,
+                  border: InputBorder.none,
+                  enabledBorder: InputBorder.none,
+                  focusedBorder: InputBorder.none,
+                  disabledBorder: InputBorder.none,
+                  errorBorder: InputBorder.none,
+                  focusedErrorBorder: InputBorder.none,
+                ),
+              ),
+              child: ReorderableListView.builder(
+                padding: const EdgeInsets.only(bottom: 24),
+                buildDefaultDragHandles: false,
+                itemCount: page.blocks.length,
+                onReorder: (oldIndex, newIndex) =>
+                    _onBlocksReordered(page, oldIndex, newIndex),
+                itemBuilder: (context, index) {
+                  final b = page.blocks[index];
+                  final ctrl = _controllers[index];
+                  final focus = _focusNodes[index];
+                  final style = _styleFor(b.type, theme.textTheme);
+                  final showActions =
+                      _hoveredBlockIndex == index ||
+                      focus.hasFocus ||
+                      _menuOpenBlockId == b.id ||
+                      MediaQuery.sizeOf(context).width < 900;
 
-                return KeyedSubtree(
-                  key: ValueKey(b.id),
-                  child: MouseRegion(
-                    onEnter: (_) => setState(() => _hoveredBlockIndex = index),
-                    onExit: (_) {
-                      if (_hoveredBlockIndex == index) {
-                        setState(() => _hoveredBlockIndex = null);
-                      }
-                    },
-                    child: AnimatedContainer(
-                      duration: const Duration(milliseconds: 120),
-                      curve: Curves.easeOut,
-                      margin: const EdgeInsets.only(bottom: 1),
-                      decoration: BoxDecoration(
-                        color: _blockRowFill(scheme, index, focus),
-                        borderRadius: BorderRadius.circular(6),
-                      ),
-                      child: _buildBlockRow(
-                        context: context,
-                        scheme: scheme,
-                        page: page,
-                        block: b,
-                        index: index,
-                        ctrl: ctrl,
-                        focus: focus,
-                        style: style,
-                        showActions: showActions,
+                  return KeyedSubtree(
+                    key: ValueKey(b.id),
+                    child: MouseRegion(
+                      onEnter: (_) =>
+                          setState(() => _hoveredBlockIndex = index),
+                      onExit: (_) {
+                        if (_hoveredBlockIndex == index) {
+                          setState(() => _hoveredBlockIndex = null);
+                        }
+                      },
+                      child: AnimatedContainer(
+                        duration: const Duration(milliseconds: 120),
+                        curve: Curves.easeOut,
+                        margin: const EdgeInsets.only(bottom: 1),
+                        decoration: BoxDecoration(
+                          color: _blockRowFill(scheme, index, focus),
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: _buildBlockRow(
+                          context: context,
+                          scheme: scheme,
+                          page: page,
+                          block: b,
+                          index: index,
+                          ctrl: ctrl,
+                          focus: focus,
+                          style: style,
+                          showActions: showActions,
+                        ),
                       ),
                     ),
-                  ),
-                );
-              },
+                  );
+                },
+              ),
             ),
           ),
-        ),
-        FilledButton.tonalIcon(
-          onPressed: () => _addBlock(page.id),
-          icon: const Icon(Icons.add, size: 20),
-          label: Text(AppLocalizations.of(context).addBlock),
-        ),
-      ],
-    ));
+          FilledButton.tonalIcon(
+            onPressed: () => _addBlock(page.id),
+            icon: const Icon(Icons.add, size: 20),
+            label: Text(AppLocalizations.of(context).addBlock),
+          ),
+        ],
+      ),
+    );
   }
 
   PopupMenuButton<String> _blockMenuButton({
@@ -1613,9 +1642,9 @@ class _BlockEditorState extends State<BlockEditor> {
               );
             } catch (e) {
               if (!mounted) return;
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(content: Text('Error IA: $e')),
-              );
+              ScaffoldMessenger.of(
+                context,
+              ).showSnackBar(SnackBar(content: Text('Error IA: $e')));
             }
           });
         } else if (v == 'pick_type') {
@@ -1898,21 +1927,22 @@ class _BlockEditorState extends State<BlockEditor> {
           width: _markerColumnWidth,
           child: Align(
             alignment: Alignment.centerLeft,
-              child: Semantics(
-                label: 'Marcar tarea completada',
-                toggled: block.checked ?? false,
-                child: Transform.translate(
-              offset: const Offset(-2, 0),
-              child: Checkbox(
-                materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                visualDensity: VisualDensity.compact,
-                value: block.checked ?? false,
-                onChanged: (v) {
-                  if (v != null) {
-                    _s.setBlockChecked(page.id, block.id, v);
-                  }
-                },
-              )),
+            child: Semantics(
+              label: 'Marcar tarea completada',
+              toggled: block.checked ?? false,
+              child: Transform.translate(
+                offset: const Offset(-2, 0),
+                child: Checkbox(
+                  materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  visualDensity: VisualDensity.compact,
+                  value: block.checked ?? false,
+                  onChanged: (v) {
+                    if (v != null) {
+                      _s.setBlockChecked(page.id, block.id, v);
+                    }
+                  },
+                ),
+              ),
             ),
           ),
         );
@@ -2221,9 +2251,12 @@ class _BlockEditorState extends State<BlockEditor> {
                           ),
                           const SizedBox(height: 8),
                           FilledButton.tonalIcon(
-                            onPressed: () => _pickFileForBlock(page.id, block.id),
+                            onPressed: () =>
+                                _pickFileForBlock(page.id, block.id),
                             icon: const Icon(Icons.attach_file_rounded),
-                            label: Text(AppLocalizations.of(context).replaceFile),
+                            label: Text(
+                              AppLocalizations.of(context).replaceFile,
+                            ),
                           ),
                         ],
                       );
@@ -2242,7 +2275,8 @@ class _BlockEditorState extends State<BlockEditor> {
                             ),
                           const SizedBox(height: 8),
                           FilledButton.tonalIcon(
-                            onPressed: () => _pickFileForBlock(page.id, block.id),
+                            onPressed: () =>
+                                _pickFileForBlock(page.id, block.id),
                             icon: const Icon(Icons.attach_file_rounded),
                             label: Text(
                               (block.url ?? '').trim().isEmpty
@@ -2253,8 +2287,11 @@ class _BlockEditorState extends State<BlockEditor> {
                           if ((block.url ?? '').trim().isNotEmpty) ...[
                             const SizedBox(height: 4),
                             TextButton(
-                              onPressed: () => _clearBlockUrl(page.id, block.id),
-                              child: Text(AppLocalizations.of(context).removeFile),
+                              onPressed: () =>
+                                  _clearBlockUrl(page.id, block.id),
+                              child: Text(
+                                AppLocalizations.of(context).removeFile,
+                              ),
                             ),
                           ],
                         ],
@@ -2292,7 +2329,9 @@ class _BlockEditorState extends State<BlockEditor> {
                 decoration: BoxDecoration(
                   color: scheme.surfaceContainerHighest.withValues(alpha: 0.5),
                   borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: scheme.outlineVariant.withValues(alpha: 0.5)),
+                  border: Border.all(
+                    color: scheme.outlineVariant.withValues(alpha: 0.5),
+                  ),
                 ),
                 clipBehavior: Clip.antiAlias,
                 child: FutureBuilder<File?>(
@@ -2313,8 +2352,11 @@ class _BlockEditorState extends State<BlockEditor> {
                           ),
                           const SizedBox(height: 8),
                           FilledButton.tonal(
-                            onPressed: () => _pickVideoForBlock(page.id, block.id),
-                            child: Text(AppLocalizations.of(context).replaceVideo),
+                            onPressed: () =>
+                                _pickVideoForBlock(page.id, block.id),
+                            child: Text(
+                              AppLocalizations.of(context).replaceVideo,
+                            ),
                           ),
                         ],
                       );
@@ -2333,7 +2375,8 @@ class _BlockEditorState extends State<BlockEditor> {
                             ),
                           const SizedBox(height: 8),
                           FilledButton.tonal(
-                            onPressed: () => _pickVideoForBlock(page.id, block.id),
+                            onPressed: () =>
+                                _pickVideoForBlock(page.id, block.id),
                             child: Text(
                               (block.url ?? '').trim().isEmpty
                                   ? AppLocalizations.of(context).chooseVideo
@@ -2343,8 +2386,11 @@ class _BlockEditorState extends State<BlockEditor> {
                           if ((block.url ?? '').trim().isNotEmpty) ...[
                             const SizedBox(height: 4),
                             TextButton(
-                              onPressed: () => _clearBlockUrl(page.id, block.id),
-                              child: Text(AppLocalizations.of(context).removeVideo),
+                              onPressed: () =>
+                                  _clearBlockUrl(page.id, block.id),
+                              child: Text(
+                                AppLocalizations.of(context).removeVideo,
+                              ),
                             ),
                           ],
                         ],
@@ -2368,7 +2414,16 @@ class _BlockEditorState extends State<BlockEditor> {
     final isParagraph = block.type == 'paragraph';
     final isListLine = block.type == 'todo' || block.type == 'bullet';
 
-    const slashTypes = {'paragraph', 'h1', 'h2', 'h3', 'bullet', 'todo', 'quote', 'callout'};
+    const slashTypes = {
+      'paragraph',
+      'h1',
+      'h2',
+      'h3',
+      'bullet',
+      'todo',
+      'quote',
+      'callout',
+    };
     final allowsSlash = slashTypes.contains(block.type);
     final String? slashTail = allowsSlash
         ? _slashFilterFromBlockText(ctrl.text)
@@ -2376,7 +2431,7 @@ class _BlockEditorState extends State<BlockEditor> {
     final showSlashMenu = slashTail != null && _slashBlockId == block.id;
     final slashItems = showSlashMenu
         ? _catalogFiltered(slashTail)
-        : const <_BlockTypeDef>[];
+        : const <BlockTypeDef>[];
     final slashPanelMaxH = math.min(
       192.0,
       math.max(100.0, MediaQuery.sizeOf(context).height * 0.25),
@@ -2451,7 +2506,9 @@ class _BlockEditorState extends State<BlockEditor> {
       textContainer = Container(
         padding: const EdgeInsets.only(left: 12, top: 2, bottom: 2),
         decoration: BoxDecoration(
-          border: Border(left: BorderSide(color: scheme.outlineVariant, width: 4)),
+          border: Border(
+            left: BorderSide(color: scheme.outlineVariant, width: 4),
+          ),
         ),
         child: stackedField,
       );
@@ -2477,7 +2534,10 @@ class _BlockEditorState extends State<BlockEditor> {
                       _s.updateBlockIcon(page.id, block.id, emoji);
                     }
                   },
-                  child: Text(block.icon ?? '💡', style: const TextStyle(fontSize: 20)),
+                  child: Text(
+                    block.icon ?? '💡',
+                    style: const TextStyle(fontSize: 20),
+                  ),
                 ),
               ),
             ),
@@ -2612,7 +2672,9 @@ class _DragHandleWidgetState extends State<_DragHandleWidget> {
         alignment: Alignment.center,
         decoration: BoxDecoration(
           color: _hovered
-              ? Theme.of(context).colorScheme.onSurfaceVariant.withValues(alpha: 0.12)
+              ? Theme.of(
+                  context,
+                ).colorScheme.onSurfaceVariant.withValues(alpha: 0.12)
               : Colors.transparent,
           borderRadius: BorderRadius.circular(6),
         ),
@@ -2640,14 +2702,14 @@ class _InlineSlashList extends StatelessWidget {
   final ScrollController scrollController;
   final ThemeData theme;
   final ColorScheme scheme;
-  final List<_BlockTypeDef> items;
+  final List<BlockTypeDef> items;
   final bool showSections;
   final void Function(String typeKey) onPick;
 
   @override
   Widget build(BuildContext context) {
     final children = <Widget>[];
-    _BlockTypeSection? prev;
+    BlockTypeSection? prev;
     for (final def in items) {
       if (showSections && prev != def.section) {
         prev = def.section;
@@ -2655,7 +2717,7 @@ class _InlineSlashList extends StatelessWidget {
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 12, 16, 6),
             child: Text(
-              _blockSectionTitle(def.section),
+              blockSectionTitle(def.section),
               style: theme.textTheme.labelSmall?.copyWith(
                 color: scheme.primary,
                 fontWeight: FontWeight.w700,
@@ -2675,7 +2737,10 @@ class _InlineSlashList extends StatelessWidget {
               borderRadius: BorderRadius.circular(8),
               onTap: () => onPick(def.key),
               child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 8,
+                ),
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
@@ -2705,42 +2770,42 @@ class _InlineSlashList extends StatelessWidget {
                                   maxLines: 1,
                                   overflow: TextOverflow.ellipsis,
                                   style: theme.textTheme.bodyMedium?.copyWith(
-                                  fontWeight: FontWeight.w600,
-                                  fontSize: 13,
-                                  height: 1.15,
+                                    fontWeight: FontWeight.w600,
+                                    fontSize: 13,
+                                    height: 1.15,
+                                  ),
                                 ),
-                              ),
-                              Text(
-                                def.hint,
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: theme.textTheme.bodySmall?.copyWith(
-                                  color: scheme.onSurfaceVariant,
-                                  fontSize: 11,
-                                  height: 1.15,
+                                Text(
+                                  def.hint,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: theme.textTheme.bodySmall?.copyWith(
+                                    color: scheme.onSurfaceVariant,
+                                    fontSize: 11,
+                                    height: 1.15,
+                                  ),
                                 ),
+                              ],
+                            )
+                          : Text(
+                              def.label,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: theme.textTheme.bodyMedium?.copyWith(
+                                fontWeight: FontWeight.w600,
+                                fontSize: 13,
+                                height: 1.2,
                               ),
-                            ],
-                          )
-                        : Text(
-                            def.label,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: theme.textTheme.bodyMedium?.copyWith(
-                              fontWeight: FontWeight.w600,
-                              fontSize: 13,
-                              height: 1.2,
                             ),
-                          ),
-                  ),
-                ],
+                    ),
+                  ],
+                ),
               ),
             ),
           ),
         ),
-      ),
-    );
-  }
+      );
+    }
 
     return ListView(
       controller: scrollController,
@@ -2752,16 +2817,16 @@ class _InlineSlashList extends StatelessWidget {
   }
 }
 
-class _BlockTypePickerSheet extends StatefulWidget {
-  const _BlockTypePickerSheet({required this.catalog});
+class BlockTypePickerSheet extends StatefulWidget {
+  const BlockTypePickerSheet({required this.catalog});
 
-  final List<_BlockTypeDef> catalog;
+  final List<BlockTypeDef> catalog;
 
   @override
-  State<_BlockTypePickerSheet> createState() => _BlockTypePickerSheetState();
+  State<BlockTypePickerSheet> createState() => BlockTypePickerSheetState();
 }
 
-class _BlockTypePickerSheetState extends State<_BlockTypePickerSheet> {
+class BlockTypePickerSheetState extends State<BlockTypePickerSheet> {
   final _filter = TextEditingController();
   var _query = '';
 
@@ -2777,7 +2842,7 @@ class _BlockTypePickerSheetState extends State<_BlockTypePickerSheet> {
     super.dispose();
   }
 
-  List<_BlockTypeDef> _filtered() {
+  List<BlockTypeDef> _filtered() {
     final q = _query.trim().toLowerCase();
     if (q.isEmpty) return widget.catalog;
     return widget.catalog.where((d) {
@@ -2852,7 +2917,9 @@ class _BlockTypePickerSheetState extends State<_BlockTypePickerSheet> {
                     controller: _filter,
                     autofocus: true,
                     decoration: InputDecoration(
-                      hintText: AppLocalizations.of(context).searchByNameOrShortcut,
+                      hintText: AppLocalizations.of(
+                        context,
+                      ).searchByNameOrShortcut,
                       filled: true,
                       fillColor: scheme.surfaceContainerHighest.withValues(
                         alpha: 0.42,
@@ -2910,10 +2977,10 @@ class _BlockTypePickerSheetState extends State<_BlockTypePickerSheet> {
     BuildContext context,
     ThemeData theme,
     ColorScheme scheme,
-    List<_BlockTypeDef> items,
+    List<BlockTypeDef> items,
   ) {
     final out = <Widget>[];
-    _BlockTypeSection? prev;
+    BlockTypeSection? prev;
     for (final def in items) {
       if (prev != def.section) {
         prev = def.section;
@@ -2921,7 +2988,7 @@ class _BlockTypePickerSheetState extends State<_BlockTypePickerSheet> {
           Padding(
             padding: const EdgeInsets.fromLTRB(12, 14, 12, 6),
             child: Text(
-              _blockSectionTitle(def.section),
+              blockSectionTitle(def.section),
               style: theme.textTheme.labelLarge?.copyWith(
                 color: scheme.primary,
                 fontWeight: FontWeight.w700,
@@ -2944,7 +3011,7 @@ class _BlockTypeTile extends StatelessWidget {
     required this.theme,
   });
 
-  final _BlockTypeDef def;
+  final BlockTypeDef def;
   final ColorScheme scheme;
   final ThemeData theme;
 

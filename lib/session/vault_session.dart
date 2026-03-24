@@ -54,7 +54,8 @@ class VaultSession extends ChangeNotifier {
     if (b.type == 'image' && _isManagedAttachmentPath(b.text)) {
       yield b.text.trim();
     }
-    if ((b.type == 'file' || b.type == 'video') && _isManagedAttachmentPath(b.url)) {
+    if ((b.type == 'file' || b.type == 'video') &&
+        _isManagedAttachmentPath(b.url)) {
       yield b.url!.trim();
     }
   }
@@ -327,9 +328,14 @@ class VaultSession extends ChangeNotifier {
       ..clear()
       ..addAll(payload.aiChatThreads);
     if (_aiChatThreads.isEmpty) {
-      _aiChatThreads.add(const AiChatThreadData(id: 'chat_0', title: 'Chat 1', messages: []));
+      _aiChatThreads.add(
+        const AiChatThreadData(id: 'chat_0', title: 'Chat 1', messages: []),
+      );
     }
-    _aiActiveChatIndex = payload.aiActiveChatIndex.clamp(0, _aiChatThreads.length - 1);
+    _aiActiveChatIndex = payload.aiActiveChatIndex.clamp(
+      0,
+      _aiChatThreads.length - 1,
+    );
   }
 
   Future<void> completeOnboarding({
@@ -513,11 +519,16 @@ class VaultSession extends ChangeNotifier {
           icon: b.icon,
           url: b.url,
         );
-        await _importBlockAttachmentIfNeeded(copied, baseDir: src.sourceDirPath);
+        await _importBlockAttachmentIfNeeded(
+          copied,
+          baseDir: src.sourceDirPath,
+        );
         page.blocks.add(copied);
       }
       if (page.blocks.isEmpty) {
-        page.blocks.add(FolioBlock(id: _newBlockId(page.id), type: 'paragraph', text: ''));
+        page.blocks.add(
+          FolioBlock(id: _newBlockId(page.id), type: 'paragraph', text: ''),
+        );
       }
     }
 
@@ -570,8 +581,11 @@ class VaultSession extends ChangeNotifier {
   }
 
   /// Importa un ZIP exportado por Notion al cofre actual (debe estar desbloqueado).
-  Future<NotionParsedExport> importNotionIntoCurrentVault(String zipPath) async {
-    if (_state != VaultFlowState.unlocked || (vaultUsesEncryption && _dek == null)) {
+  Future<NotionParsedExport> importNotionIntoCurrentVault(
+    String zipPath,
+  ) async {
+    if (_state != VaultFlowState.unlocked ||
+        (vaultUsesEncryption && _dek == null)) {
       throw StateError('Debes desbloquear el cofre para importar.');
     }
     final temp = await Directory.systemTemp.createTemp('folio_notion_import_');
@@ -630,7 +644,9 @@ class VaultSession extends ChangeNotifier {
           pages: _pages,
           pageRevisions: const {},
           pageAcl: const {},
-          localProfiles: [LocalProfile(id: 'local-default', name: 'Local user')],
+          localProfiles: [
+            LocalProfile(id: 'local-default', name: 'Local user'),
+          ],
           comments: const [],
         ),
         _dek!,
@@ -805,7 +821,9 @@ class VaultSession extends ChangeNotifier {
     _pageRevisions.clear();
     _aiChatThreads
       ..clear()
-      ..add(const AiChatThreadData(id: 'chat_0', title: 'Chat 1', messages: []));
+      ..add(
+        const AiChatThreadData(id: 'chat_0', title: 'Chat 1', messages: []),
+      );
     _aiActiveChatIndex = 0;
     _contentEpoch = 0;
     _selectedPageId = null;
@@ -826,7 +844,9 @@ class VaultSession extends ChangeNotifier {
   }
 
   void touchActivity() {
-    if (_state != VaultFlowState.unlocked || (vaultUsesEncryption && _dek == null)) return;
+    if (_state != VaultFlowState.unlocked ||
+        (vaultUsesEncryption && _dek == null))
+      return;
     _restartIdleLockTimer();
   }
 
@@ -949,7 +969,8 @@ class VaultSession extends ChangeNotifier {
 
   void appendMessageToActiveAiChat(AiChatMessage message) {
     final current = _aiChatThreads[_aiActiveChatIndex];
-    final nextMessages = List<AiChatMessage>.from(current.messages)..add(message);
+    final nextMessages = List<AiChatMessage>.from(current.messages)
+      ..add(message);
     _aiChatThreads[_aiActiveChatIndex] = AiChatThreadData(
       id: current.id,
       title: current.title,
@@ -1041,7 +1062,9 @@ class VaultSession extends ChangeNotifier {
   }) {
     final t = text.trim();
     if (t.isEmpty) return;
-    final aid = authorProfileId ?? (_localProfiles.isEmpty ? 'local-default' : _localProfiles.first.id);
+    final aid =
+        authorProfileId ??
+        (_localProfiles.isEmpty ? 'local-default' : _localProfiles.first.id);
     _comments.add(
       LocalPageComment(
         id: _uuid.v4(),
@@ -1238,6 +1261,18 @@ class VaultSession extends ChangeNotifier {
     notifyListeners();
     scheduleSave(trackRevisionForPageId: pageId);
   }
+
+  void appendBlock({
+    required String pageId,
+    required FolioBlock block,
+  }) {
+    final page = _pageById(pageId);
+    if (page == null) return;
+    page.blocks.add(block);
+    notifyListeners();
+    scheduleSave(trackRevisionForPageId: pageId);
+  }
+
 
   /// Divide un bloque en dos en el cursor: [before] queda en el actual, [after] en uno nuevo debajo.
   void splitBlockAtCaret({
@@ -1511,7 +1546,9 @@ class VaultSession extends ChangeNotifier {
             ),
           ),
           pageAcl: Map<String, Map<String, String>>.fromEntries(
-            _pageAcl.entries.map((e) => MapEntry(e.key, Map<String, String>.from(e.value))),
+            _pageAcl.entries.map(
+              (e) => MapEntry(e.key, Map<String, String>.from(e.value)),
+            ),
           ),
           localProfiles: List<LocalProfile>.from(_localProfiles),
           comments: List<LocalPageComment>.from(_comments),
@@ -1614,7 +1651,9 @@ class VaultSession extends ChangeNotifier {
       _pageRevisions.clear();
       _aiChatThreads
         ..clear()
-        ..add(const AiChatThreadData(id: 'chat_0', title: 'Chat 1', messages: []));
+        ..add(
+          const AiChatThreadData(id: 'chat_0', title: 'Chat 1', messages: []),
+        );
       _aiActiveChatIndex = 0;
       _contentEpoch = 0;
       _selectedPageId = null;
@@ -1632,7 +1671,9 @@ class VaultSession extends ChangeNotifier {
     _pageRevisions.clear();
     _aiChatThreads
       ..clear()
-      ..add(const AiChatThreadData(id: 'chat_0', title: 'Chat 1', messages: []));
+      ..add(
+        const AiChatThreadData(id: 'chat_0', title: 'Chat 1', messages: []),
+      );
     _aiActiveChatIndex = 0;
     _contentEpoch = 0;
     _selectedPageId = null;
@@ -1661,7 +1702,9 @@ class VaultSession extends ChangeNotifier {
     if (_dek == null) {
       throw StateError('Cofre no desbloqueado');
     }
-    final currentOk = await verifyPasswordMatchesUnlockedSession(currentPassword);
+    final currentOk = await verifyPasswordMatchesUnlockedSession(
+      currentPassword,
+    );
     if (!currentOk) {
       throw StateError('Contraseña actual incorrecta');
     }
@@ -1679,12 +1722,11 @@ class VaultSession extends ChangeNotifier {
     touchActivity();
   }
 
-  List<VaultSearchResult> searchGlobal(
-    String query, {
-    int limit = 80,
-  }) {
+  List<VaultSearchResult> searchGlobal(String query, {int limit = 80}) {
     final q = query.trim().toLowerCase();
-    if (_state != VaultFlowState.unlocked || (vaultUsesEncryption && _dek == null) || q.isEmpty) {
+    if (_state != VaultFlowState.unlocked ||
+        (vaultUsesEncryption && _dek == null) ||
+        q.isEmpty) {
       return const [];
     }
     touchActivity();
@@ -1763,7 +1805,8 @@ class VaultSession extends ChangeNotifier {
     required String instruction,
     List<AiFileAttachment> attachments = const [],
   }) async {
-    if (_state != VaultFlowState.unlocked || (vaultUsesEncryption && _dek == null)) {
+    if (_state != VaultFlowState.unlocked ||
+        (vaultUsesEncryption && _dek == null)) {
       throw StateError('Debes desbloquear el cofre para usar IA.');
     }
     final ai = _aiService;
@@ -1795,7 +1838,8 @@ class VaultSession extends ChangeNotifier {
     String pageId, {
     List<AiFileAttachment> attachments = const [],
   }) async {
-    if (_state != VaultFlowState.unlocked || (vaultUsesEncryption && _dek == null)) {
+    if (_state != VaultFlowState.unlocked ||
+        (vaultUsesEncryption && _dek == null)) {
       throw StateError('Debes desbloquear el cofre para usar IA.');
     }
     final ai = _aiService;
@@ -1821,7 +1865,8 @@ class VaultSession extends ChangeNotifier {
     required String prompt,
     List<AiFileAttachment> attachments = const [],
   }) async {
-    if (_state != VaultFlowState.unlocked || (vaultUsesEncryption && _dek == null)) {
+    if (_state != VaultFlowState.unlocked ||
+        (vaultUsesEncryption && _dek == null)) {
       throw StateError('Debes desbloquear el cofre para usar IA.');
     }
     final ai = _aiService;
@@ -1859,7 +1904,8 @@ class VaultSession extends ChangeNotifier {
     String? parentId,
     List<AiFileAttachment> attachments = const [],
   }) async {
-    if (_state != VaultFlowState.unlocked || (vaultUsesEncryption && _dek == null)) {
+    if (_state != VaultFlowState.unlocked ||
+        (vaultUsesEncryption && _dek == null)) {
       throw StateError('Debes desbloquear el cofre para usar IA.');
     }
     final ai = _aiService;
@@ -1875,7 +1921,10 @@ class VaultSession extends ChangeNotifier {
         attachments: attachments,
       ),
     );
-    final draft = _parseAiHybridOutput(result.text, defaultTitle: 'Nueva página IA');
+    final draft = _parseAiHybridOutput(
+      result.text,
+      defaultTitle: 'Nueva página IA',
+    );
     final id = _uuid.v4();
     final blocks = _materializeAiBlocks(id, draft.blocks);
     _pages.add(
@@ -1898,7 +1947,8 @@ class VaultSession extends ChangeNotifier {
     String? scopePageId,
     List<AiFileAttachment> attachments = const [],
   }) async {
-    if (_state != VaultFlowState.unlocked || (vaultUsesEncryption && _dek == null)) {
+    if (_state != VaultFlowState.unlocked ||
+        (vaultUsesEncryption && _dek == null)) {
       throw StateError('Debes desbloquear el cofre para usar IA.');
     }
     final ai = _aiService;
@@ -1925,14 +1975,17 @@ class VaultSession extends ChangeNotifier {
     List<AiFileAttachment> attachments = const [],
     String languageCode = 'es',
   }) async {
-    if (_state != VaultFlowState.unlocked || (vaultUsesEncryption && _dek == null)) {
+    if (_state != VaultFlowState.unlocked ||
+        (vaultUsesEncryption && _dek == null)) {
       throw StateError('Debes desbloquear el cofre para usar IA.');
     }
     final ai = _aiService;
     if (ai == null) throw StateError('IA no configurada.');
     final isEs = languageCode.toLowerCase().startsWith('es');
     final scopePage = scopePageId == null ? null : _pageById(scopePageId);
-    final pageBlocksContext = scopePage == null ? '' : _buildAgentPageBlocksContext(scopePage);
+    final pageBlocksContext = scopePage == null
+        ? ''
+        : _buildAgentPageBlocksContext(scopePage);
     final pageContext = scopePage == null
         ? (isEs ? 'No hay página activa.' : 'No active page.')
         : (isEs
@@ -1987,17 +2040,24 @@ class VaultSession extends ChangeNotifier {
             reason: reason,
             reply: reply.isNotEmpty
                 ? reply
-                : (isEs ? 'No hay página activa para resumir.' : 'There is no active page to summarize.'),
+                : (isEs
+                      ? 'No hay página activa para resumir.'
+                      : 'There is no active page to summarize.'),
             isEs: isEs,
           );
         }
-        final summary = await summarizePageWithAi(scopePage.id, attachments: attachments);
+        final summary = await summarizePageWithAi(
+          scopePage.id,
+          attachments: attachments,
+        );
         return _formatAgentDecisionReply(
           mode: mode,
           reason: reason,
           reply: summary.isNotEmpty
               ? summary
-              : (reply.isNotEmpty ? reply : (isEs ? 'Resumen vacío.' : 'Empty summary.')),
+              : (reply.isNotEmpty
+                    ? reply
+                    : (isEs ? 'Resumen vacío.' : 'Empty summary.')),
           isEs: isEs,
         );
       }
@@ -2009,7 +2069,9 @@ class VaultSession extends ChangeNotifier {
             reason: reason,
             reply: reply.isNotEmpty
                 ? reply
-                : (isEs ? 'No hay página activa para editar.' : 'There is no active page to edit.'),
+                : (isEs
+                      ? 'No hay página activa para editar.'
+                      : 'There is no active page to edit.'),
             isEs: isEs,
           );
         }
@@ -2040,7 +2102,9 @@ class VaultSession extends ChangeNotifier {
             reason: reason,
             reply: reply.isNotEmpty
                 ? reply
-                : (isEs ? 'No hay página activa para editar.' : 'There is no active page to edit.'),
+                : (isEs
+                      ? 'No hay página activa para editar.'
+                      : 'There is no active page to edit.'),
             isEs: isEs,
           );
         }
@@ -2055,8 +2119,12 @@ class VaultSession extends ChangeNotifier {
           reply: reply.isNotEmpty
               ? reply
               : (changed
-                    ? (isEs ? 'He editado bloques existentes de la página.' : 'I edited existing page blocks.')
-                    : (isEs ? 'No se pudieron aplicar cambios en bloques existentes.' : 'Could not apply edits to existing blocks.')),
+                    ? (isEs
+                          ? 'He editado bloques existentes de la página.'
+                          : 'I edited existing page blocks.')
+                    : (isEs
+                          ? 'No se pudieron aplicar cambios en bloques existentes.'
+                          : 'Could not apply edits to existing blocks.')),
           isEs: isEs,
         );
       }
@@ -2116,7 +2184,12 @@ class VaultSession extends ChangeNotifier {
             isEs: isEs,
           );
         }
-        return _formatAgentDecisionReply(mode: mode, reason: reason, reply: reply, isEs: isEs);
+        return _formatAgentDecisionReply(
+          mode: mode,
+          reason: reason,
+          reply: reply,
+          isEs: isEs,
+        );
       }
       final fallbackChat = await chatWithAi(
         messages: messages,
@@ -2124,7 +2197,12 @@ class VaultSession extends ChangeNotifier {
         scopePageId: scopePageId,
         attachments: attachments,
       );
-      return _formatAgentDecisionReply(mode: mode, reason: reason, reply: fallbackChat, isEs: isEs);
+      return _formatAgentDecisionReply(
+        mode: mode,
+        reason: reason,
+        reply: fallbackChat,
+        isEs: isEs,
+      );
     } catch (_) {
       if (scopePage != null) {
         try {
@@ -2151,7 +2229,10 @@ class VaultSession extends ChangeNotifier {
           final reason = (recovered['reason'] as String? ?? '').trim();
           final reply = (recovered['reply'] as String? ?? '').trim();
           if (mode == 'edit_current') {
-            final changed = _applyAgentEditOperations(scopePage, recovered['operations']);
+            final changed = _applyAgentEditOperations(
+              scopePage,
+              recovered['operations'],
+            );
             if (changed) {
               notifyListeners();
               scheduleSave(trackRevisionForPageId: scopePage.id);
@@ -2195,7 +2276,11 @@ class VaultSession extends ChangeNotifier {
   String _buildAgentPageBlocksContext(FolioPage page) {
     final items = page.blocks.map((b) {
       final preview = _agentBlockPreview(b);
-      final m = <String, dynamic>{'id': b.id, 'type': b.type, 'preview': preview};
+      final m = <String, dynamic>{
+        'id': b.id,
+        'type': b.type,
+        'preview': preview,
+      };
       if (b.type == 'table') {
         final t = FolioTableData.tryParse(b.text);
         if (t != null) {
@@ -2209,7 +2294,11 @@ class VaultSession extends ChangeNotifier {
   }
 
   String _agentBlockPreview(FolioBlock block) {
-    final raw = (block.type == 'table' ? FolioTableData.plainTextFromJson(block.text) : block.text).trim();
+    final raw =
+        (block.type == 'table'
+                ? FolioTableData.plainTextFromJson(block.text)
+                : block.text)
+            .trim();
     if (raw.isEmpty) return '';
     return raw.length <= 140 ? raw : '${raw.substring(0, 140)}...';
   }
@@ -2222,7 +2311,9 @@ class VaultSession extends ChangeNotifier {
       final op = Map<String, dynamic>.from(opRaw);
       final kind = (op['kind'] as String? ?? '').trim().toLowerCase();
       final blockId = (op['blockId'] as String? ?? '').trim();
-      final index = blockId.isEmpty ? -1 : page.blocks.indexWhere((b) => b.id == blockId);
+      final index = blockId.isEmpty
+          ? -1
+          : page.blocks.indexWhere((b) => b.id == blockId);
 
       if (kind == 'update_block_text') {
         final text = (op['text'] as String? ?? '').trim();
@@ -2236,7 +2327,9 @@ class VaultSession extends ChangeNotifier {
       if (kind == 'replace_block') {
         final blockMap = op['block'];
         if (index >= 0 && blockMap is Map) {
-          final parsed = _parseAiBlocksFromDynamicList([Map<String, dynamic>.from(blockMap)]);
+          final parsed = _parseAiBlocksFromDynamicList([
+            Map<String, dynamic>.from(blockMap),
+          ]);
           final mats = _materializeAiBlocks(page.id, parsed);
           if (mats.isNotEmpty) {
             page.blocks[index] = mats.first;
@@ -2273,7 +2366,9 @@ class VaultSession extends ChangeNotifier {
         if (table == null) continue;
         final header = (op['header'] as String? ?? '').trim();
         final valuesRaw = op['values'];
-        final values = valuesRaw is List ? valuesRaw.map((e) => e?.toString() ?? '').toList() : const <String>[];
+        final values = valuesRaw is List
+            ? valuesRaw.map((e) => e?.toString() ?? '').toList()
+            : const <String>[];
         final previousCols = table.cols;
         table.addCol();
         final newCol = previousCols;
@@ -2394,19 +2489,20 @@ class VaultSession extends ChangeNotifier {
     final markdownSpecs = _parseMarkdownToSpecs(cleaned);
     final chosen = htmlSpecs.isNotEmpty ? htmlSpecs : markdownSpecs;
     final finalSpecs = chosen.isEmpty
-        ? <_AiBlockSpec>[
-            _AiBlockSpec(type: 'paragraph', text: cleaned.trim()),
-          ]
+        ? <_AiBlockSpec>[_AiBlockSpec(type: 'paragraph', text: cleaned.trim())]
         : chosen;
     if (finalSpecs.isEmpty || cleaned.trim().isEmpty) return null;
     final id = _uuid.v4();
     final blocks = _materializeAiBlocks(id, finalSpecs);
-    final title = _extractTitleFromHtml(cleaned) ??
+    final title =
+        _extractTitleFromHtml(cleaned) ??
         (isEs ? 'Nueva página IA' : 'New AI page');
     _pages.add(
       FolioPage(
         id: id,
-        title: title.trim().isEmpty ? (isEs ? 'Nueva página IA' : 'New AI page') : title.trim(),
+        title: title.trim().isEmpty
+            ? (isEs ? 'Nueva página IA' : 'New AI page')
+            : title.trim(),
         blocks: blocks,
       ),
     );
@@ -2468,12 +2564,18 @@ class VaultSession extends ChangeNotifier {
   }
 
   String? _extractTitleFromHtml(String html) {
-    final titleMatch = RegExp(r'<title[^>]*>([\s\S]*?)</title>', caseSensitive: false).firstMatch(html);
+    final titleMatch = RegExp(
+      r'<title[^>]*>([\s\S]*?)</title>',
+      caseSensitive: false,
+    ).firstMatch(html);
     if (titleMatch != null) {
       final t = _stripHtmlTags(titleMatch.group(1) ?? '').trim();
       if (t.isNotEmpty) return t;
     }
-    final h1Match = RegExp(r'<h1[^>]*>([\s\S]*?)</h1>', caseSensitive: false).firstMatch(html);
+    final h1Match = RegExp(
+      r'<h1[^>]*>([\s\S]*?)</h1>',
+      caseSensitive: false,
+    ).firstMatch(html);
     if (h1Match != null) {
       final t = _stripHtmlTags(h1Match.group(1) ?? '').trim();
       if (t.isNotEmpty) return t;
@@ -2494,23 +2596,49 @@ class VaultSession extends ChangeNotifier {
     );
     final specs = <_AiBlockSpec>[];
 
-    final h1 = RegExp(r'<h1[^>]*>(.*?)</h1>', caseSensitive: false, dotAll: true);
-    final h2 = RegExp(r'<h2[^>]*>(.*?)</h2>', caseSensitive: false, dotAll: true);
-    final h3 = RegExp(r'<h3[^>]*>(.*?)</h3>', caseSensitive: false, dotAll: true);
+    final h1 = RegExp(
+      r'<h1[^>]*>(.*?)</h1>',
+      caseSensitive: false,
+      dotAll: true,
+    );
+    final h2 = RegExp(
+      r'<h2[^>]*>(.*?)</h2>',
+      caseSensitive: false,
+      dotAll: true,
+    );
+    final h3 = RegExp(
+      r'<h3[^>]*>(.*?)</h3>',
+      caseSensitive: false,
+      dotAll: true,
+    );
     final p = RegExp(r'<p[^>]*>(.*?)</p>', caseSensitive: false, dotAll: true);
-    final li = RegExp(r'<li[^>]*>(.*?)</li>', caseSensitive: false, dotAll: true);
-    final bq = RegExp(r'<blockquote[^>]*>(.*?)</blockquote>', caseSensitive: false, dotAll: true);
-    final pre = RegExp(r'<pre[^>]*>(.*?)</pre>', caseSensitive: false, dotAll: true);
+    final li = RegExp(
+      r'<li[^>]*>(.*?)</li>',
+      caseSensitive: false,
+      dotAll: true,
+    );
+    final bq = RegExp(
+      r'<blockquote[^>]*>(.*?)</blockquote>',
+      caseSensitive: false,
+      dotAll: true,
+    );
+    final pre = RegExp(
+      r'<pre[^>]*>(.*?)</pre>',
+      caseSensitive: false,
+      dotAll: true,
+    );
     final hr = RegExp(r'<hr[^>]*/?>', caseSensitive: false, dotAll: true);
 
     final table = _parseFirstHtmlTable(html);
     if (table != null) {
-      specs.add(_AiBlockSpec(
-        type: 'table',
-        text: '',
-        tableCols: table.cols,
-        tableRows: _tableRowsFromData(table),
-      ));
+      specs.add(
+        _AiBlockSpec(
+          type: 'table',
+          text: '',
+          tableCols: table.cols,
+          tableRows: _tableRowsFromData(table),
+        ),
+      );
     }
     for (final m in h1.allMatches(html)) {
       final t = _stripHtmlTags(m.group(1) ?? '').trim();
@@ -2538,7 +2666,8 @@ class VaultSession extends ChangeNotifier {
     }
     for (final m in pre.allMatches(html)) {
       final t = _stripHtmlTags(m.group(1) ?? '').trim();
-      if (t.isNotEmpty) specs.add(_AiBlockSpec(type: 'code', text: t, codeLanguage: 'text'));
+      if (t.isNotEmpty)
+        specs.add(_AiBlockSpec(type: 'code', text: t, codeLanguage: 'text'));
     }
     if (hr.hasMatch(html)) {
       specs.add(const _AiBlockSpec(type: 'divider', text: ''));
@@ -2558,7 +2687,10 @@ class VaultSession extends ChangeNotifier {
 
   String _stripHtmlTags(String s) {
     return s
-        .replaceAll(RegExp(r'<br\s*/?>', caseSensitive: false, dotAll: true), '\n')
+        .replaceAll(
+          RegExp(r'<br\s*/?>', caseSensitive: false, dotAll: true),
+          '\n',
+        )
         .replaceAll(RegExp(r'<[^>]+>', caseSensitive: false, dotAll: true), '')
         .replaceAll('&nbsp;', ' ')
         .replaceAll('&amp;', '&')
@@ -2569,19 +2701,27 @@ class VaultSession extends ChangeNotifier {
   }
 
   FolioTableData? _parseFirstHtmlTable(String html) {
-    final tableMatch = RegExp(r'<table[^>]*>(.*?)</table>', caseSensitive: false, dotAll: true)
-        .firstMatch(html);
+    final tableMatch = RegExp(
+      r'<table[^>]*>(.*?)</table>',
+      caseSensitive: false,
+      dotAll: true,
+    ).firstMatch(html);
     if (tableMatch == null) return null;
     final tableHtml = tableMatch.group(1) ?? '';
-    final rowMatches = RegExp(r'<tr[^>]*>(.*?)</tr>', caseSensitive: false, dotAll: true)
-        .allMatches(tableHtml)
-        .toList();
+    final rowMatches = RegExp(
+      r'<tr[^>]*>(.*?)</tr>',
+      caseSensitive: false,
+      dotAll: true,
+    ).allMatches(tableHtml).toList();
     if (rowMatches.isEmpty) return null;
     final rows = <List<String>>[];
     for (final rowMatch in rowMatches) {
       final rowHtml = rowMatch.group(1) ?? '';
-      final cellMatches = RegExp(r'<t[hd][^>]*>(.*?)</t[hd]>', caseSensitive: false, dotAll: true)
-          .allMatches(rowHtml);
+      final cellMatches = RegExp(
+        r'<t[hd][^>]*>(.*?)</t[hd]>',
+        caseSensitive: false,
+        dotAll: true,
+      ).allMatches(rowHtml);
       final row = <String>[];
       for (final cell in cellMatches) {
         row.add(_stripHtmlTags(cell.group(1) ?? ''));
@@ -2589,7 +2729,9 @@ class VaultSession extends ChangeNotifier {
       if (row.isNotEmpty) rows.add(row);
     }
     if (rows.isEmpty) return null;
-    final cols = rows.fold<int>(0, (m, r) => r.length > m ? r.length : m).clamp(1, 32);
+    final cols = rows
+        .fold<int>(0, (m, r) => r.length > m ? r.length : m)
+        .clamp(1, 32);
     final cells = <String>[];
     for (final row in rows) {
       for (var c = 0; c < cols; c++) {
@@ -2631,7 +2773,9 @@ class VaultSession extends ChangeNotifier {
         j++;
       }
       if (rows.isEmpty) return null;
-      final cols = rows.fold<int>(0, (m, r) => r.length > m ? r.length : m).clamp(1, 32);
+      final cols = rows
+          .fold<int>(0, (m, r) => r.length > m ? r.length : m)
+          .clamp(1, 32);
       final cells = <String>[];
       for (final row in rows) {
         for (var c = 0; c < cols; c++) {
@@ -2677,7 +2821,9 @@ class VaultSession extends ChangeNotifier {
               ? 'Selección automática según el contexto del mensaje.'
               : 'Automatic selection based on message context.')
         : reason.trim();
-    final cleanReply = reply.trim().isEmpty ? (isEs ? 'Listo.' : 'Done.') : reply.trim();
+    final cleanReply = reply.trim().isEmpty
+        ? (isEs ? 'Listo.' : 'Done.')
+        : reply.trim();
     final decisionLabel = isEs ? 'Decisión del agente' : 'Agent decision';
     final reasonLabel = isEs ? 'Motivo' : 'Reason';
     return '🧠 **$decisionLabel:** `$cleanMode`\n'
@@ -2691,7 +2837,8 @@ class VaultSession extends ChangeNotifier {
     required List<AiChatMessage> messages,
     List<AiFileAttachment> attachments = const [],
   }) async {
-    if (_state != VaultFlowState.unlocked || (vaultUsesEncryption && _dek == null)) {
+    if (_state != VaultFlowState.unlocked ||
+        (vaultUsesEncryption && _dek == null)) {
       throw StateError('Debes desbloquear el cofre para usar IA.');
     }
     final ai = _aiService;
@@ -2760,8 +2907,15 @@ class VaultSession extends ChangeNotifier {
     return reply.isNotEmpty ? reply : 'No se aplicaron cambios.';
   }
 
-  _AiPageDraft _parseAiHybridOutput(String raw, {required String defaultTitle}) {
-    final cleaned = raw.trim().replaceAll('```json', '').replaceAll('```', '').trim();
+  _AiPageDraft _parseAiHybridOutput(
+    String raw, {
+    required String defaultTitle,
+  }) {
+    final cleaned = raw
+        .trim()
+        .replaceAll('```json', '')
+        .replaceAll('```', '')
+        .trim();
     try {
       final map = _decodeJsonObjectLenient(cleaned);
       final title = (map['title'] as String? ?? defaultTitle).trim();
@@ -2822,7 +2976,9 @@ class VaultSession extends ChangeNotifier {
       }
       if (e is! Map) continue;
       final map = Map<String, dynamic>.from(e);
-      final type = _normalizeAiBlockType((map['type'] as String? ?? 'paragraph').trim());
+      final type = _normalizeAiBlockType(
+        (map['type'] as String? ?? 'paragraph').trim(),
+      );
       if (type == 'divider') {
         blocks.add(const _AiBlockSpec(type: 'divider', text: ''));
         continue;
@@ -2940,12 +3096,24 @@ class VaultSession extends ChangeNotifier {
       }
       if (line.startsWith('- [ ] ') || line.startsWith('* [ ] ')) {
         flushParagraph();
-        out.add(_AiBlockSpec(type: 'todo', text: line.substring(6).trim(), checked: false));
+        out.add(
+          _AiBlockSpec(
+            type: 'todo',
+            text: line.substring(6).trim(),
+            checked: false,
+          ),
+        );
         continue;
       }
       if (line.startsWith('- [x] ') || line.startsWith('* [x] ')) {
         flushParagraph();
-        out.add(_AiBlockSpec(type: 'todo', text: line.substring(6).trim(), checked: true));
+        out.add(
+          _AiBlockSpec(
+            type: 'todo',
+            text: line.substring(6).trim(),
+            checked: true,
+          ),
+        );
         continue;
       }
       if (line.startsWith('- ') || line.startsWith('* ')) {
@@ -2965,12 +3133,20 @@ class VaultSession extends ChangeNotifier {
     flushCode();
     if (out.isEmpty) {
       final fallback = markdown.trim();
-      out.add(_AiBlockSpec(type: 'paragraph', text: fallback.isEmpty ? 'Sin contenido' : fallback));
+      out.add(
+        _AiBlockSpec(
+          type: 'paragraph',
+          text: fallback.isEmpty ? 'Sin contenido' : fallback,
+        ),
+      );
     }
     return out;
   }
 
-  List<FolioBlock> _materializeAiBlocks(String pageId, List<_AiBlockSpec> specs) {
+  List<FolioBlock> _materializeAiBlocks(
+    String pageId,
+    List<_AiBlockSpec> specs,
+  ) {
     final out = <FolioBlock>[];
     for (final s in specs) {
       final type = _normalizeAiBlockType(s.type);
@@ -2982,16 +3158,20 @@ class VaultSession extends ChangeNotifier {
           type: type,
           text: type == 'divider'
               ? ''
-              : (type == 'table'
-                    ? _buildTableBlockText(s)
-                    : text),
+              : (type == 'table' ? _buildTableBlockText(s) : text),
           checked: type == 'todo' ? (s.checked ?? false) : null,
-          codeLanguage: type == 'code' ? (s.codeLanguage?.trim().isEmpty ?? true ? 'dart' : s.codeLanguage) : null,
+          codeLanguage: type == 'code'
+              ? (s.codeLanguage?.trim().isEmpty ?? true
+                    ? 'dart'
+                    : s.codeLanguage)
+              : null,
         ),
       );
     }
     if (out.isEmpty) {
-      out.add(FolioBlock(id: '${pageId}_${_uuid.v4()}', type: 'paragraph', text: ''));
+      out.add(
+        FolioBlock(id: '${pageId}_${_uuid.v4()}', type: 'paragraph', text: ''),
+      );
     }
     return out;
   }
@@ -3032,7 +3212,10 @@ class VaultSession extends ChangeNotifier {
     var cols = colsFromSpec > 0 ? colsFromSpec : 0;
     final rows = spec.tableRows ?? const <List<String>>[];
     if (cols <= 0 && rows.isNotEmpty) {
-      cols = rows.fold<int>(0, (maxCols, row) => row.length > maxCols ? row.length : maxCols);
+      cols = rows.fold<int>(
+        0,
+        (maxCols, row) => row.length > maxCols ? row.length : maxCols,
+      );
     }
     cols = cols.clamp(1, 32);
     final cells = <String>[];

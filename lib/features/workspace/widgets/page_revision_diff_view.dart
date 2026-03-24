@@ -42,7 +42,7 @@ class PageRevisionDiffView extends StatelessWidget {
       children: [
         if (titleChanged) ...[
           Text(
-          l10n.titleLabelSimple,
+            l10n.titleLabelSimple,
             style: theme.textTheme.labelSmall?.copyWith(
               color: scheme.onSurfaceVariant,
             ),

@@ -97,92 +97,138 @@ class _LockScreenState extends State<LockScreen> {
     final l10n = AppLocalizations.of(context);
     final scheme = Theme.of(context).colorScheme;
     return Scaffold(
+      backgroundColor: scheme.surface,
       body: SafeArea(
         child: Center(
           child: ConstrainedBox(
             constraints: const BoxConstraints(maxWidth: 400),
-            child: Padding(
-              padding: const EdgeInsets.all(FolioSpace.lg),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  Text(
-                    'Folio',
-                    textAlign: TextAlign.center,
-                    style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                      fontWeight: FontWeight.w700,
+            child: Card.filled(
+              margin: const EdgeInsets.all(FolioSpace.lg),
+              color: scheme.surfaceContainerHighest,
+              elevation: 0,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(24),
+              ),
+              child: Padding(
+                padding: const EdgeInsets.all(FolioSpace.xl),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Icon(
+                      Icons.lock_outline_rounded,
+                      size: 48,
+                      color: scheme.primary,
                     ),
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    l10n.encryptedVault,
-                    textAlign: TextAlign.center,
-                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      color: scheme.onSurfaceVariant,
+                    const SizedBox(height: FolioSpace.md),
+                    Text(
+                      'Folio',
+                      textAlign: TextAlign.center,
+                      style: Theme.of(context).textTheme.headlineMedium
+                          ?.copyWith(
+                            fontWeight: FontWeight.w700,
+                            color: scheme.onSurface,
+                          ),
                     ),
-                  ),
-                  const SizedBox(height: 32),
-                  TextField(
-                    controller: _password,
-                    obscureText: _obscurePassword,
-                    enabled: !_busy,
-                    decoration: InputDecoration(
-                      labelText: l10n.passwordLabel,
-                      suffixIcon: IconButton(
-                        onPressed: _busy
-                            ? null
-                            : () => setState(
-                                () => _obscurePassword = !_obscurePassword,
-                              ),
-                        icon: Icon(
-                          _obscurePassword
-                              ? Icons.visibility
-                              : Icons.visibility_off,
-                        ),
-                        tooltip: _obscurePassword
-                            ? l10n.showPassword
-                            : l10n.hidePassword,
+                    const SizedBox(height: FolioSpace.xs),
+                    Text(
+                      l10n.encryptedVault,
+                      textAlign: TextAlign.center,
+                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                        color: scheme.onSurfaceVariant,
                       ),
                     ),
-                    onSubmitted: (_) => _unlockPassword(),
-                  ),
-                  const SizedBox(height: 12),
-                  FilledButton(
-                    onPressed: _busy ? null : _unlockPassword,
-                    child: Text(l10n.unlock),
-                  ),
-                  if (_quickEnabled) ...[
-                    const SizedBox(height: 16),
-                    OutlinedButton.icon(
-                      onPressed: _busy ? null : _unlockDevice,
-                      icon: const Icon(Icons.fingerprint),
-                      label: Text(l10n.quickUnlock),
+                    const SizedBox(height: FolioSpace.xl),
+                    TextField(
+                      controller: _password,
+                      obscureText: _obscurePassword,
+                      enabled: !_busy,
+                      decoration: InputDecoration(
+                        labelText: l10n.passwordLabel,
+                        border: const OutlineInputBorder(),
+                        filled: true,
+                        fillColor: scheme.surface,
+                        suffixIcon: IconButton(
+                          onPressed: _busy
+                              ? null
+                              : () => setState(
+                                  () => _obscurePassword = !_obscurePassword,
+                                ),
+                          icon: Icon(
+                            _obscurePassword
+                                ? Icons.visibility
+                                : Icons.visibility_off,
+                          ),
+                          tooltip: _obscurePassword
+                              ? l10n.showPassword
+                              : l10n.hidePassword,
+                        ),
+                      ),
+                      onSubmitted: (_) => _unlockPassword(),
                     ),
-                  ],
-                  if (_passkeyRegistered) ...[
-                    const SizedBox(height: 8),
-                    OutlinedButton.icon(
-                      onPressed: _busy ? null : _unlockPasskey,
-                      icon: const Icon(Icons.key_rounded),
-                      label: Text(l10n.passkey),
-                    ),
-                  ],
-                  if (_error != null) ...[
-                    const SizedBox(height: 16),
-                    Text(
-                      _error!,
-                      style: TextStyle(color: scheme.error),
-                      textAlign: TextAlign.center,
-                    ),
-                    const SizedBox(height: 8),
-                    TextButton.icon(
+                    const SizedBox(height: FolioSpace.lg),
+                    FilledButton(
+                      style: FilledButton.styleFrom(
+                        padding: const EdgeInsets.all(FolioSpace.md),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
                       onPressed: _busy ? null : _unlockPassword,
-                      icon: const Icon(Icons.refresh_rounded),
-                      label: Text(l10n.retry),
+                      child: Text(l10n.unlock),
                     ),
+                    if (_quickEnabled) ...[
+                      const SizedBox(height: FolioSpace.md),
+                      OutlinedButton.icon(
+                        style: OutlinedButton.styleFrom(
+                          padding: const EdgeInsets.all(FolioSpace.md),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
+                        onPressed: _busy ? null : _unlockDevice,
+                        icon: const Icon(Icons.fingerprint),
+                        label: Text(l10n.quickUnlock),
+                      ),
+                    ],
+                    if (_passkeyRegistered) ...[
+                      const SizedBox(height: FolioSpace.sm),
+                      OutlinedButton.icon(
+                        style: OutlinedButton.styleFrom(
+                          padding: const EdgeInsets.all(FolioSpace.md),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
+                        onPressed: _busy ? null : _unlockPasskey,
+                        icon: const Icon(Icons.key_rounded),
+                        label: Text(l10n.passkey),
+                      ),
+                    ],
+                    if (_error != null) ...[
+                      const SizedBox(height: FolioSpace.lg),
+                      Container(
+                        padding: const EdgeInsets.all(FolioSpace.md),
+                        decoration: BoxDecoration(
+                          color: scheme.errorContainer,
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Text(
+                          _error!,
+                          style: TextStyle(color: scheme.onErrorContainer),
+                          textAlign: TextAlign.center,
+                        ),
+                      ),
+                      const SizedBox(height: FolioSpace.sm),
+                      TextButton.icon(
+                        onPressed: _busy ? null : _unlockPassword,
+                        icon: const Icon(Icons.refresh_rounded),
+                        label: Text(l10n.retry),
+                      ),
+                    ],
                   ],
-                ],
+                ),
               ),
             ),
           ),

@@ -170,7 +170,9 @@ class _MiniUnlockDialogState extends State<MiniUnlockDialog> {
           decoration: InputDecoration(
             labelText: l10n.masterPassword,
             suffixIcon: IconButton(
-              onPressed: _busy ? null : () => setState(() => _obscure = !_obscure),
+              onPressed: _busy
+                  ? null
+                  : () => setState(() => _obscure = !_obscure),
               icon: Icon(_obscure ? Icons.visibility : Icons.visibility_off),
             ),
           ),
@@ -181,7 +183,10 @@ class _MiniUnlockDialogState extends State<MiniUnlockDialog> {
         if (_error != null)
           Padding(
             padding: const EdgeInsets.only(right: 8),
-            child: Text(_error!, style: TextStyle(color: Theme.of(context).colorScheme.error)),
+            child: Text(
+              _error!,
+              style: TextStyle(color: Theme.of(context).colorScheme.error),
+            ),
           ),
         TextButton(
           onPressed: _busy ? null : () => Navigator.of(context).pop(false),

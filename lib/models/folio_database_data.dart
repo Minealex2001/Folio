@@ -85,7 +85,8 @@ class FolioDbFilterGroup {
   };
 
   factory FolioDbFilterGroup.fromJson(Map<String, dynamic> j) {
-    final rawLogical = j['logical'] as String? ?? FolioDbLogicalOperator.and.name;
+    final rawLogical =
+        j['logical'] as String? ?? FolioDbLogicalOperator.and.name;
     return FolioDbFilterGroup(
       logical: FolioDbLogicalOperator.values.firstWhere(
         (e) => e.name == rawLogical,
@@ -93,7 +94,10 @@ class FolioDbFilterGroup {
       ),
       conditions: (j['conditions'] as List<dynamic>? ?? [])
           .whereType<Map>()
-          .map((e) => FolioDbFilterCondition.fromJson(Map<String, dynamic>.from(e)))
+          .map(
+            (e) =>
+                FolioDbFilterCondition.fromJson(Map<String, dynamic>.from(e)),
+          )
           .toList(),
       groups: (j['groups'] as List<dynamic>? ?? [])
           .whereType<Map>()
@@ -155,16 +159,16 @@ class FolioDbProperty {
   factory FolioDbProperty.fromJson(Map<String, dynamic> j) {
     final rawType = j['type'] as String? ?? 'text';
     return FolioDbProperty(
-      id: j['id'] as String,
-      name: j['name'] as String? ?? 'Propiedad',
-      type: FolioDbPropertyType.values.firstWhere(
-        (e) => e.name == rawType,
-        orElse: () => FolioDbPropertyType.text,
-      ),
-      options: (j['options'] as List<dynamic>? ?? [])
-          .map((e) => e.toString())
-          .toList(),
-    )
+        id: j['id'] as String,
+        name: j['name'] as String? ?? 'Propiedad',
+        type: FolioDbPropertyType.values.firstWhere(
+          (e) => e.name == rawType,
+          orElse: () => FolioDbPropertyType.text,
+        ),
+        options: (j['options'] as List<dynamic>? ?? [])
+            .map((e) => e.toString())
+            .toList(),
+      )
       ..formulaExpression = j['formulaExpression'] as String?
       ..relationTargetDatabaseId = j['relationTargetDatabaseId'] as String?
       ..rollupRelationPropertyId = j['rollupRelationPropertyId'] as String?
@@ -299,7 +303,11 @@ class FolioDatabaseData {
       name: 'Fecha',
       type: FolioDbPropertyType.date,
     );
-    final table = FolioDbView(id: 'v_table', name: 'Tabla', type: FolioDbViewType.table);
+    final table = FolioDbView(
+      id: 'v_table',
+      name: 'Tabla',
+      type: FolioDbViewType.table,
+    );
     final board = FolioDbView(
       id: 'v_board',
       name: 'Tablero',
@@ -320,10 +328,17 @@ class FolioDatabaseData {
     );
   }
 
-  factory FolioDatabaseData.fromLegacyTable(FolioTableData t, {String rowIdPrefix = 'r'}) {
+  factory FolioDatabaseData.fromLegacyTable(
+    FolioTableData t, {
+    String rowIdPrefix = 'r',
+  }) {
     final db = FolioDatabaseData.empty();
     db.properties = [
-      FolioDbProperty(id: 'p_title', name: 'Columna 1', type: FolioDbPropertyType.text),
+      FolioDbProperty(
+        id: 'p_title',
+        name: 'Columna 1',
+        type: FolioDbPropertyType.text,
+      ),
       for (var i = 1; i < t.cols; i++)
         FolioDbProperty(
           id: 'p_c$i',
@@ -358,7 +373,8 @@ class FolioDatabaseData {
       final decoded = jsonDecode(text);
       if (decoded is! Map) return null;
       final m = Map<String, dynamic>.from(decoded);
-      final version = (m['schemaVersion'] as num?)?.toInt() ??
+      final version =
+          (m['schemaVersion'] as num?)?.toInt() ??
           (m['v'] as num?)?.toInt() ??
           1;
       final properties = (m['properties'] as List<dynamic>? ?? [])
@@ -617,7 +633,9 @@ class FolioDatabaseData {
         return args.isEmpty ? '' : '${args.first ?? ''}'.toLowerCase();
       case 'contains':
         if (args.length < 2) return false;
-        return '${args[0] ?? ''}'.toLowerCase().contains('${args[1] ?? ''}'.toLowerCase());
+        return '${args[0] ?? ''}'.toLowerCase().contains(
+          '${args[1] ?? ''}'.toLowerCase(),
+        );
       case 'add':
         if (args.length < 2) return 0;
         return _asNum(args[0]) + _asNum(args[1]);
@@ -636,7 +654,8 @@ class FolioDatabaseData {
         return DateTime.now().toIso8601String();
       case 'date':
         if (args.isEmpty) return '';
-        return DateTime.tryParse('${args.first ?? ''}')?.toIso8601String() ?? '';
+        return DateTime.tryParse('${args.first ?? ''}')?.toIso8601String() ??
+            '';
       case 'daysbetween':
         if (args.length < 2) return 0;
         final a = DateTime.tryParse('${args[0] ?? ''}');
@@ -719,4 +738,3 @@ class FolioDatabaseData {
 extension _FirstOrNullExt<T> on Iterable<T> {
   T? get firstOrNull => isEmpty ? null : first;
 }
-

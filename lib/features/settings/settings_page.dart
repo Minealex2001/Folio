@@ -42,7 +42,9 @@ class _SettingsPageState extends State<SettingsPage> {
   void initState() {
     super.initState();
     _aiBaseUrlController = TextEditingController(text: _app.aiBaseUrl);
-    _aiTimeoutController = TextEditingController(text: _app.aiTimeoutMs.toString());
+    _aiTimeoutController = TextEditingController(
+      text: _app.aiTimeoutMs.toString(),
+    );
     _refreshSecurityFlags();
   }
 
@@ -112,11 +114,14 @@ class _SettingsPageState extends State<SettingsPage> {
   }
 
   AiService _buildAiServiceFromInputs() {
-    final uri = AiSafetyPolicy.parseAndNormalizeUrl(_aiBaseUrlController.text.trim());
+    final uri = AiSafetyPolicy.parseAndNormalizeUrl(
+      _aiBaseUrlController.text.trim(),
+    );
     if (uri == null) {
       throw StateError('URL inválida. Usa http://localhost:1234');
     }
-    final timeoutMs = int.tryParse(_aiTimeoutController.text.trim()) ?? _app.aiTimeoutMs;
+    final timeoutMs =
+        int.tryParse(_aiTimeoutController.text.trim()) ?? _app.aiTimeoutMs;
     final timeout = Duration(milliseconds: timeoutMs.clamp(3000, 120000));
     switch (_app.aiProvider) {
       case AiProvider.ollama:
@@ -167,7 +172,9 @@ class _SettingsPageState extends State<SettingsPage> {
         _availableModels = models;
       });
       if (models.isNotEmpty) {
-        final selected = models.contains(_app.aiModel) ? _app.aiModel : models.first;
+        final selected = models.contains(_app.aiModel)
+            ? _app.aiModel
+            : models.first;
         await _app.setAiModel(selected);
       }
     } catch (e) {
@@ -342,8 +349,12 @@ class _SettingsPageState extends State<SettingsPage> {
       if (mode == _NotionImportMode.currentVault) {
         final report = await _s.importNotionIntoCurrentVault(fp);
         if (!mounted) return;
-        final kind = report.format == NotionExportFormat.markdown ? 'Markdown' : 'HTML';
-        _snack('Importado desde Notion ($kind): ${report.pages.length} paginas.');
+        final kind = report.format == NotionExportFormat.markdown
+            ? 'Markdown'
+            : 'HTML';
+        _snack(
+          'Importado desde Notion ($kind): ${report.pages.length} paginas.',
+        );
       } else {
         final newPassword = await showDialog<String>(
           context: context,
@@ -445,433 +456,548 @@ class _SettingsPageState extends State<SettingsPage> {
             listenable: _s,
             builder: (context, _) {
               return ListView(
-                padding: const EdgeInsets.symmetric(vertical: 8),
+                padding: const EdgeInsets.symmetric(
+                  vertical: 24,
+                  horizontal: 16,
+                ),
                 children: [
                   _SectionHeader(title: l10n.appearance, scheme: scheme),
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
-                    child: Text(
-                      l10n.settingsAppearanceHint,
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: scheme.onSurfaceVariant,
-                      ),
-                    ),
-                  ),
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 16),
-                    child: SegmentedButton<ThemeMode>(
-                      segments: [
-                        ButtonSegment<ThemeMode>(
-                          value: ThemeMode.system,
-                          label: Text(l10n.systemTheme),
-                          icon: Icon(Icons.brightness_auto, size: 18),
+                  Card(
+                    margin: const EdgeInsets.only(bottom: 24),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        Padding(
+                          padding: const EdgeInsets.fromLTRB(16, 16, 16, 16),
+                          child: Text(
+                            l10n.settingsAppearanceHint,
+                            style: Theme.of(context).textTheme.bodySmall
+                                ?.copyWith(color: scheme.onSurfaceVariant),
+                          ),
                         ),
-                        ButtonSegment<ThemeMode>(
-                          value: ThemeMode.light,
-                          label: Text(l10n.lightTheme),
-                          icon: Icon(Icons.light_mode_outlined, size: 18),
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 16),
+                          child: SegmentedButton<ThemeMode>(
+                            segments: [
+                              ButtonSegment<ThemeMode>(
+                                value: ThemeMode.system,
+                                label: Text(l10n.systemTheme),
+                                icon: const Icon(
+                                  Icons.brightness_auto,
+                                  size: 18,
+                                ),
+                              ),
+                              ButtonSegment<ThemeMode>(
+                                value: ThemeMode.light,
+                                label: Text(l10n.lightTheme),
+                                icon: const Icon(
+                                  Icons.light_mode_outlined,
+                                  size: 18,
+                                ),
+                              ),
+                              ButtonSegment<ThemeMode>(
+                                value: ThemeMode.dark,
+                                label: Text(l10n.darkTheme),
+                                icon: const Icon(
+                                  Icons.dark_mode_outlined,
+                                  size: 18,
+                                ),
+                              ),
+                            ],
+                            selected: {_app.themeMode},
+                            onSelectionChanged: (s) {
+                              _app.setThemeMode(s.first);
+                            },
+                          ),
                         ),
-                        ButtonSegment<ThemeMode>(
-                          value: ThemeMode.dark,
-                          label: Text(l10n.darkTheme),
-                          icon: Icon(Icons.dark_mode_outlined, size: 18),
+                        const SizedBox(height: 16),
+                        const Divider(height: 1),
+                        ListTile(
+                          leading: const Icon(Icons.translate_rounded),
+                          title: Text(l10n.language),
+                          subtitle: Text(
+                            _app.locale == null
+                                ? l10n.useSystemLanguage
+                                : (_app.locale!.languageCode == 'es'
+                                      ? l10n.spanishLanguage
+                                      : l10n.englishLanguage),
+                          ),
+                          trailing: DropdownButton<String?>(
+                            value: _app.locale?.languageCode,
+                            underline: const SizedBox.shrink(),
+                            onChanged: (code) {
+                              _app.setLocale(
+                                code == null ? null : Locale(code),
+                              );
+                            },
+                            items: [
+                              DropdownMenuItem<String?>(
+                                value: null,
+                                child: Text(l10n.useSystemLanguage),
+                              ),
+                              DropdownMenuItem<String?>(
+                                value: 'es',
+                                child: Text(l10n.spanishLanguage),
+                              ),
+                              DropdownMenuItem<String?>(
+                                value: 'en',
+                                child: Text(l10n.englishLanguage),
+                              ),
+                            ],
+                          ),
                         ),
                       ],
-                      selected: {_app.themeMode},
-                      onSelectionChanged: (s) {
-                        _app.setThemeMode(s.first);
-                      },
                     ),
                   ),
-                  ListTile(
-                    leading: const Icon(Icons.translate_rounded),
-                    title: Text(l10n.language),
-                    subtitle: Text(
-                      _app.locale == null
-                          ? l10n.useSystemLanguage
-                          : (_app.locale!.languageCode == 'es'
-                                ? l10n.spanishLanguage
-                                : l10n.englishLanguage),
-                    ),
-                    trailing: DropdownButton<String?>(
-                      value: _app.locale?.languageCode,
-                      onChanged: (code) {
-                        _app.setLocale(code == null ? null : Locale(code));
-                      },
-                      items: [
-                        DropdownMenuItem<String?>(
-                          value: null,
-                          child: Text(l10n.useSystemLanguage),
-                        ),
-                        DropdownMenuItem<String?>(
-                          value: 'es',
-                          child: Text(l10n.spanishLanguage),
-                        ),
-                        DropdownMenuItem<String?>(
-                          value: 'en',
-                          child: Text(l10n.englishLanguage),
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 16),
+
                   _SectionHeader(title: l10n.security, scheme: scheme),
-                  ListTile(
-                    leading: const Icon(Icons.fingerprint),
-                    title: Text(l10n.quickUnlockTitle),
-                    subtitle: Text(_quickEnabled ? l10n.active : l10n.inactive),
-                    trailing: _quickEnabled
-                        ? TextButton(
-                            onPressed: () async {
-                              await _s.disableQuickUnlock();
-                              await _refreshSecurityFlags();
-                              _snack(l10n.quickUnlockDisabledSnack);
-                            },
-                            child: Text(l10n.remove),
-                          )
-                        : FilledButton.tonal(
-                            onPressed: () async {
-                              try {
-                                await _s.enableDeviceQuickUnlock();
-                                await _refreshSecurityFlags();
-                                _snack(l10n.quickUnlockEnabledSnack);
-                              } catch (e) {
-                                _snack('$e');
-                              }
-                            },
-                            child: Text(l10n.enable),
+                  Card(
+                    margin: const EdgeInsets.only(bottom: 24),
+                    child: Column(
+                      children: [
+                        ListTile(
+                          leading: const Icon(Icons.fingerprint),
+                          title: Text(l10n.quickUnlockTitle),
+                          subtitle: Text(
+                            _quickEnabled ? l10n.active : l10n.inactive,
                           ),
-                  ),
-                  ListTile(
-                    leading: const Icon(Icons.key_rounded),
-                    title: Text(l10n.passkey),
-                    subtitle: Text(l10n.passkeyThisDevice),
-                    trailing: _passkeyRegistered
-                        ? TextButton(
-                            onPressed: () async {
-                              await _s.revokePasskey();
-                              await _refreshSecurityFlags();
-                              _snack(l10n.passkeyRevokedSnack);
-                            },
-                            child: Text(l10n.revoke),
-                          )
-                        : FilledButton.tonal(
-                            onPressed: () async {
-                              try {
-                                await _s.registerPasskey();
-                                await _refreshSecurityFlags();
-                                _snack(l10n.passkeyRegisteredSnack);
-                              } on PasskeyAuthCancelledException {
-                                // ignorar
-                              } catch (e) {
-                                _snack('Passkey: $e');
-                              }
-                            },
-                            child: Text(l10n.register),
+                          trailing: _quickEnabled
+                              ? TextButton(
+                                  onPressed: () async {
+                                    await _s.disableQuickUnlock();
+                                    await _refreshSecurityFlags();
+                                    _snack(l10n.quickUnlockDisabledSnack);
+                                  },
+                                  child: Text(l10n.remove),
+                                )
+                              : FilledButton.tonal(
+                                  onPressed: () async {
+                                    try {
+                                      await _s.enableDeviceQuickUnlock();
+                                      await _refreshSecurityFlags();
+                                      _snack(l10n.quickUnlockEnabledSnack);
+                                    } catch (e) {
+                                      _snack('');
+                                    }
+                                  },
+                                  child: Text(l10n.enable),
+                                ),
+                        ),
+                        const Divider(height: 1),
+                        ListTile(
+                          leading: const Icon(Icons.key_rounded),
+                          title: Text(l10n.passkey),
+                          subtitle: Text(l10n.passkeyThisDevice),
+                          trailing: _passkeyRegistered
+                              ? TextButton(
+                                  onPressed: () async {
+                                    await _s.revokePasskey();
+                                    await _refreshSecurityFlags();
+                                    _snack(l10n.passkeyRevokedSnack);
+                                  },
+                                  child: Text(l10n.revoke),
+                                )
+                              : FilledButton.tonal(
+                                  onPressed: () async {
+                                    try {
+                                      await _s.registerPasskey();
+                                      await _refreshSecurityFlags();
+                                      _snack(l10n.passkeyRegisteredSnack);
+                                    } on PasskeyAuthCancelledException {
+                                      // ignorar
+                                    } catch (e) {
+                                      _snack('Passkey: ');
+                                    }
+                                  },
+                                  child: Text(l10n.register),
+                                ),
+                        ),
+                        const Divider(height: 1),
+                        ListTile(
+                          leading: const Icon(Icons.lock_outline),
+                          title: Text(l10n.lockNow),
+                          onTap: () {
+                            _s.lock();
+                            Navigator.pop(context);
+                          },
+                        ),
+                        const Divider(height: 1),
+                        ListTile(
+                          leading: const Icon(Icons.timer_outlined),
+                          title: Text(l10n.lockAutoByInactivity),
+                          subtitle: Text(
+                            l10n.minutesShort(_app.vaultIdleLockMinutes),
                           ),
-                  ),
-                  ListTile(
-                    leading: const Icon(Icons.lock_outline),
-                    title: Text(l10n.lockNow),
-                    onTap: () {
-                      _s.lock();
-                      Navigator.pop(context);
-                    },
-                  ),
-                  ListTile(
-                    leading: const Icon(Icons.timer_outlined),
-                    title: Text(l10n.lockAutoByInactivity),
-                    subtitle: Text(l10n.minutesShort(_app.vaultIdleLockMinutes)),
-                    trailing: DropdownButton<int>(
-                      value: _app.vaultIdleLockMinutes,
-                      onChanged: (value) {
-                        if (value == null) return;
-                        _app.setVaultIdleLockMinutes(value);
-                      },
-                      items: _idleOptions
-                          .map(
-                            (m) => DropdownMenuItem<int>(
-                              value: m,
-                              child: Text(l10n.minutesShort(m)),
-                            ),
-                          )
-                          .toList(),
-                    ),
-                  ),
-                  SwitchListTile(
-                    secondary: const Icon(Icons.minimize_rounded),
-                    title: Text(l10n.lockOnMinimize),
-                    value: _app.vaultLockOnMinimize,
-                    onChanged: _app.setVaultLockOnMinimize,
-                  ),
-                  ListTile(
-                    leading: const Icon(Icons.password_rounded),
-                    title: Text(l10n.changeMasterPassword),
-                    subtitle: Text(l10n.requiresCurrentPassword),
-                    onTap: _openChangeMasterPasswordFlow,
-                  ),
-                  const SizedBox(height: 16),
-                  _SectionHeader(title: l10n.desktopSection, scheme: scheme),
-                  SwitchListTile(
-                    secondary: const Icon(Icons.keyboard_rounded),
-                    title: Text(l10n.globalSearchHotkey),
-                    subtitle: Text(
-                      _app.enableGlobalSearchHotkey
-                          ? _app.globalSearchHotkey
-                          : l10n.inactive,
-                    ),
-                    value: _app.enableGlobalSearchHotkey,
-                    onChanged: _app.setEnableGlobalSearchHotkey,
-                  ),
-                  ListTile(
-                    leading: const Icon(Icons.tune_rounded),
-                    title: Text(l10n.hotkeyCombination),
-                    subtitle: Text(_app.globalSearchHotkey),
-                    trailing: DropdownButton<String>(
-                      value: _app.globalSearchHotkey,
-                      onChanged: _app.enableGlobalSearchHotkey
-                          ? (value) {
-                              if (value != null) {
-                                _app.setGlobalSearchHotkey(value);
-                              }
-                            }
-                          : null,
-                      items: [
-                        DropdownMenuItem(
-                          value: 'Alt+Space',
-                          child: Text(l10n.hotkeyAltSpace),
+                          trailing: DropdownButton<int>(
+                            value: _app.vaultIdleLockMinutes,
+                            underline: const SizedBox.shrink(),
+                            onChanged: (value) {
+                              if (value == null) return;
+                              _app.setVaultIdleLockMinutes(value);
+                            },
+                            items: _idleOptions
+                                .map(
+                                  (m) => DropdownMenuItem<int>(
+                                    value: m,
+                                    child: Text(l10n.minutesShort(m)),
+                                  ),
+                                )
+                                .toList(),
+                          ),
                         ),
-                        DropdownMenuItem(
-                          value: 'Ctrl+Shift+Space',
-                          child: Text(l10n.hotkeyCtrlShiftSpace),
+                        const Divider(height: 1),
+                        SwitchListTile(
+                          secondary: const Icon(Icons.minimize_rounded),
+                          title: Text(l10n.lockOnMinimize),
+                          value: _app.vaultLockOnMinimize,
+                          onChanged: _app.setVaultLockOnMinimize,
                         ),
-                        DropdownMenuItem(
-                          value: 'Ctrl+Shift+K',
-                          child: Text(l10n.hotkeyCtrlShiftK),
-                        ),
-                        const DropdownMenuItem(
-                          value: 'Ctrl+Shift+F',
-                          child: Text('Ctrl + Shift + F'),
-                        ),
-                        const DropdownMenuItem(
-                          value: 'Ctrl+Alt+Space',
-                          child: Text('Ctrl + Alt + Space'),
+                        const Divider(height: 1),
+                        ListTile(
+                          leading: const Icon(Icons.password_rounded),
+                          title: Text(l10n.changeMasterPassword),
+                          subtitle: Text(l10n.requiresCurrentPassword),
+                          onTap: _openChangeMasterPasswordFlow,
                         ),
                       ],
                     ),
                   ),
-                  SwitchListTile(
-                    secondary: const Icon(Icons.minimize_outlined),
-                    title: Text(l10n.minimizeToTray),
-                    value: _app.minimizeToTray,
-                    onChanged: _app.setMinimizeToTray,
+
+                  _SectionHeader(title: l10n.desktopSection, scheme: scheme),
+                  Card(
+                    margin: const EdgeInsets.only(bottom: 24),
+                    child: Column(
+                      children: [
+                        SwitchListTile(
+                          secondary: const Icon(Icons.keyboard_rounded),
+                          title: Text(l10n.globalSearchHotkey),
+                          subtitle: Text(
+                            _app.enableGlobalSearchHotkey
+                                ? _app.globalSearchHotkey
+                                : l10n.inactive,
+                          ),
+                          value: _app.enableGlobalSearchHotkey,
+                          onChanged: _app.setEnableGlobalSearchHotkey,
+                        ),
+                        const Divider(height: 1),
+                        ListTile(
+                          leading: const Icon(Icons.tune_rounded),
+                          title: Text(l10n.hotkeyCombination),
+                          subtitle: Text(_app.globalSearchHotkey),
+                          trailing: DropdownButton<String>(
+                            value: _app.globalSearchHotkey,
+                            underline: const SizedBox.shrink(),
+                            onChanged: _app.enableGlobalSearchHotkey
+                                ? (value) {
+                                    if (value != null) {
+                                      _app.setGlobalSearchHotkey(value);
+                                    }
+                                  }
+                                : null,
+                            items: [
+                              DropdownMenuItem(
+                                value: 'Alt+Space',
+                                child: Text(l10n.hotkeyAltSpace),
+                              ),
+                              DropdownMenuItem(
+                                value: 'Ctrl+Shift+Space',
+                                child: Text(l10n.hotkeyCtrlShiftSpace),
+                              ),
+                              DropdownMenuItem(
+                                value: 'Ctrl+Shift+K',
+                                child: Text(l10n.hotkeyCtrlShiftK),
+                              ),
+                              const DropdownMenuItem(
+                                value: 'Ctrl+Shift+F',
+                                child: Text('Ctrl + Shift + F'),
+                              ),
+                              const DropdownMenuItem(
+                                value: 'Ctrl+Alt+Space',
+                                child: Text('Ctrl + Alt + Space'),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const Divider(height: 1),
+                        SwitchListTile(
+                          secondary: const Icon(Icons.minimize_outlined),
+                          title: Text(l10n.minimizeToTray),
+                          value: _app.minimizeToTray,
+                          onChanged: _app.setMinimizeToTray,
+                        ),
+                        const Divider(height: 1),
+                        SwitchListTile(
+                          secondary: const Icon(Icons.close_rounded),
+                          title: Text(l10n.closeToTray),
+                          value: _app.closeToTray,
+                          onChanged: _app.setCloseToTray,
+                        ),
+                      ],
+                    ),
                   ),
-                  SwitchListTile(
-                    secondary: const Icon(Icons.close_rounded),
-                    title: Text(l10n.closeToTray),
-                    value: _app.closeToTray,
-                    onChanged: _app.setCloseToTray,
-                  ),
+
                   if (_app.isAiAvailable) ...[
-                    const SizedBox(height: 16),
                     _SectionHeader(title: 'IA', scheme: scheme),
-                    SwitchListTile(
-                      secondary: const Icon(Icons.smart_toy_outlined),
-                      title: const Text('Habilitar IA'),
-                      subtitle: Text(_app.aiEnabled ? l10n.active : l10n.inactive),
-                      value: _app.aiEnabled,
-                      onChanged: (v) async {
-                        await _saveAiFields();
-                        await _app.setAiEnabled(v);
-                      },
-                    ),
-                    SwitchListTile(
-                      secondary: const Icon(Icons.psychology_outlined),
-                      title: Text(l10n.aiAlwaysShowThought),
-                      subtitle: Text(l10n.aiAlwaysShowThoughtHint),
-                      value: _app.aiAlwaysShowThought,
-                      onChanged: _app.aiEnabled ? _app.setAiAlwaysShowThought : null,
-                    ),
-                    ListTile(
-                      leading: const Icon(Icons.hub_outlined),
-                      title: const Text('Proveedor'),
-                      trailing: DropdownButton<AiProvider>(
-                        value: _app.aiProvider,
-                        onChanged: (value) async {
-                          if (value == null) return;
-                          try {
-                            setState(() {
-                              _availableModels = const [];
-                            });
-                            await _app.setAiProvider(value);
-                            if (!mounted) return;
-                            _aiBaseUrlController.text = _app.defaultUrlForProvider(value);
-                            await _saveAiFields();
-                          } catch (e) {
-                            if (!mounted) return;
-                            _snack('Error al cambiar proveedor: $e');
-                          }
-                        },
-                        items: const [
-                          DropdownMenuItem(
-                            value: AiProvider.none,
-                            child: Text('Ninguno'),
+                    Card(
+                      margin: const EdgeInsets.only(bottom: 24),
+                      child: Column(
+                        children: [
+                          SwitchListTile(
+                            secondary: const Icon(Icons.smart_toy_outlined),
+                            title: const Text('Habilitar IA'),
+                            subtitle: Text(
+                              _app.aiEnabled ? l10n.active : l10n.inactive,
+                            ),
+                            value: _app.aiEnabled,
+                            onChanged: (v) async {
+                              await _saveAiFields();
+                              await _app.setAiEnabled(v);
+                            },
                           ),
-                          DropdownMenuItem(
-                            value: AiProvider.ollama,
-                            child: Text('Ollama'),
+                          const Divider(height: 1),
+                          SwitchListTile(
+                            secondary: const Icon(Icons.psychology_outlined),
+                            title: Text(l10n.aiAlwaysShowThought),
+                            subtitle: Text(l10n.aiAlwaysShowThoughtHint),
+                            value: _app.aiAlwaysShowThought,
+                            onChanged: _app.aiEnabled
+                                ? _app.setAiAlwaysShowThought
+                                : null,
                           ),
-                          DropdownMenuItem(
-                            value: AiProvider.lmStudio,
-                            child: Text('LM Studio'),
+                          const Divider(height: 1),
+                          ListTile(
+                            leading: const Icon(Icons.hub_outlined),
+                            title: const Text('Proveedor'),
+                            trailing: DropdownButton<AiProvider>(
+                              value: _app.aiProvider,
+                              underline: const SizedBox.shrink(),
+                              onChanged: (value) async {
+                                if (value == null) return;
+                                try {
+                                  setState(() {
+                                    _availableModels = const [];
+                                  });
+                                  await _app.setAiProvider(value);
+                                  if (!mounted) return;
+                                  _aiBaseUrlController.text = _app
+                                      .defaultUrlForProvider(value);
+                                  await _saveAiFields();
+                                } catch (e) {
+                                  if (!mounted) return;
+                                  _snack('Error al cambiar proveedor: ');
+                                }
+                              },
+                              items: const [
+                                DropdownMenuItem(
+                                  value: AiProvider.none,
+                                  child: Text('Ninguno'),
+                                ),
+                                DropdownMenuItem(
+                                  value: AiProvider.ollama,
+                                  child: Text('Ollama'),
+                                ),
+                                DropdownMenuItem(
+                                  value: AiProvider.lmStudio,
+                                  child: Text('LM Studio'),
+                                ),
+                              ],
+                            ),
+                          ),
+                          const Divider(height: 1),
+                          ListTile(
+                            leading: const Icon(Icons.link_rounded),
+                            title: const Text('Endpoint'),
+                            subtitle: TextField(
+                              controller: _aiBaseUrlController,
+                              decoration: const InputDecoration(
+                                hintText: 'http://127.0.0.1:11434',
+                                border: InputBorder.none,
+                                enabledBorder: InputBorder.none,
+                                focusedBorder: InputBorder.none,
+                                contentPadding: EdgeInsets.zero,
+                              ),
+                              onSubmitted: (_) => _saveAiFields(),
+                            ),
+                          ),
+                          const Divider(height: 1),
+                          ListTile(
+                            leading: const Icon(Icons.psychology_alt_outlined),
+                            title: const Text('Modelo'),
+                            subtitle: _loadingModels
+                                ? const Padding(
+                                    padding: EdgeInsets.symmetric(vertical: 8),
+                                    child: LinearProgressIndicator(),
+                                  )
+                                : DropdownButton<String>(
+                                    value:
+                                        _availableModels.contains(_app.aiModel)
+                                        ? _app.aiModel
+                                        : null,
+                                    hint: const Text(
+                                      'Conecta para listar modelos',
+                                    ),
+                                    isExpanded: true,
+                                    underline: const SizedBox.shrink(),
+                                    onChanged: _availableModels.isEmpty
+                                        ? null
+                                        : (value) {
+                                            if (value != null) {
+                                              _app.setAiModel(value);
+                                            }
+                                          },
+                                    items: _availableModels
+                                        .map(
+                                          (m) => DropdownMenuItem<String>(
+                                            value: m,
+                                            child: Text(m),
+                                          ),
+                                        )
+                                        .toList(),
+                                  ),
+                          ),
+                          const Divider(height: 1),
+                          ListTile(
+                            leading: const Icon(Icons.timer_outlined),
+                            title: const Text('Timeout (ms)'),
+                            subtitle: TextField(
+                              controller: _aiTimeoutController,
+                              keyboardType: TextInputType.number,
+                              decoration: const InputDecoration(
+                                hintText: '30000',
+                                border: InputBorder.none,
+                                enabledBorder: InputBorder.none,
+                                focusedBorder: InputBorder.none,
+                                contentPadding: EdgeInsets.zero,
+                              ),
+                              onSubmitted: (_) => _saveAiFields(),
+                            ),
+                          ),
+                          const Divider(height: 1),
+                          SwitchListTile(
+                            secondary: const Icon(Icons.public_outlined),
+                            title: const Text('Permitir endpoint remoto'),
+                            subtitle: Text(
+                              _app.aiEndpointMode == AiEndpointMode.allowRemote
+                                  ? 'Remoto permitido'
+                                  : 'Solo localhost',
+                            ),
+                            value:
+                                _app.aiEndpointMode ==
+                                AiEndpointMode.allowRemote,
+                            onChanged: (v) async {
+                              await _app.setAiEndpointMode(
+                                v
+                                    ? AiEndpointMode.allowRemote
+                                    : AiEndpointMode.localhostOnly,
+                              );
+                              if (v) {
+                                await _confirmRemoteEndpointIfNeeded();
+                              }
+                            },
+                          ),
+                          if (_app.aiEndpointMode ==
+                                  AiEndpointMode.allowRemote &&
+                              !_app.aiRemoteEndpointConfirmed)
+                            const Padding(
+                              padding: EdgeInsets.fromLTRB(16, 0, 16, 16),
+                              child: Text(
+                                'Endpoint remoto aún no confirmado.',
+                                style: TextStyle(color: Colors.orange),
+                              ),
+                            ),
+                          const Divider(height: 1),
+                          ListTile(
+                            leading: const Icon(Icons.network_check_rounded),
+                            title: const Text('Conectar y listar modelos'),
+                            onTap: _testAiConnection,
                           ),
                         ],
                       ),
                     ),
-                    ListTile(
-                      leading: const Icon(Icons.link_rounded),
-                      title: const Text('Endpoint'),
-                      subtitle: TextField(
-                        controller: _aiBaseUrlController,
-                        decoration: const InputDecoration(
-                          hintText: 'http://127.0.0.1:11434',
-                        ),
-                        onSubmitted: (_) => _saveAiFields(),
-                      ),
-                    ),
-                    ListTile(
-                      leading: const Icon(Icons.psychology_alt_outlined),
-                      title: const Text('Modelo'),
-                      subtitle: _loadingModels
-                          ? const Padding(
-                              padding: EdgeInsets.symmetric(vertical: 8),
-                              child: LinearProgressIndicator(),
-                            )
-                          : DropdownButton<String>(
-                              value: _availableModels.contains(_app.aiModel)
-                                  ? _app.aiModel
-                                  : null,
-                              hint: const Text('Conecta para listar modelos'),
-                              isExpanded: true,
-                              onChanged: _availableModels.isEmpty
-                                  ? null
-                                  : (value) {
-                                      if (value != null) {
-                                        _app.setAiModel(value);
-                                      }
-                                    },
-                              items: _availableModels
-                                  .map(
-                                    (m) => DropdownMenuItem<String>(
-                                      value: m,
-                                      child: Text(m),
-                                    ),
-                                  )
-                                  .toList(),
-                            ),
-                    ),
-                    ListTile(
-                      leading: const Icon(Icons.timer_outlined),
-                      title: const Text('Timeout (ms)'),
-                      subtitle: TextField(
-                        controller: _aiTimeoutController,
-                        keyboardType: TextInputType.number,
-                        decoration: const InputDecoration(hintText: '30000'),
-                        onSubmitted: (_) => _saveAiFields(),
-                      ),
-                    ),
-                    SwitchListTile(
-                      secondary: const Icon(Icons.public_outlined),
-                      title: const Text('Permitir endpoint remoto'),
-                      subtitle: Text(
-                        _app.aiEndpointMode == AiEndpointMode.allowRemote
-                            ? 'Remoto permitido'
-                            : 'Solo localhost',
-                      ),
-                      value: _app.aiEndpointMode == AiEndpointMode.allowRemote,
-                      onChanged: (v) async {
-                        await _app.setAiEndpointMode(
-                          v ? AiEndpointMode.allowRemote : AiEndpointMode.localhostOnly,
-                        );
-                        if (v) {
-                          await _confirmRemoteEndpointIfNeeded();
-                        }
-                      },
-                    ),
-                    if (_app.aiEndpointMode == AiEndpointMode.allowRemote &&
-                        !_app.aiRemoteEndpointConfirmed)
-                      const Padding(
-                        padding: EdgeInsets.fromLTRB(16, 0, 16, 8),
-                        child: Text(
-                          'Endpoint remoto aún no confirmado.',
-                          style: TextStyle(color: Colors.orange),
-                        ),
-                      ),
-                    ListTile(
-                      leading: const Icon(Icons.network_check_rounded),
-                      title: const Text('Conectar y listar modelos'),
-                      onTap: _testAiConnection,
-                    ),
                   ],
-                  const SizedBox(height: 16),
+
                   _SectionHeader(title: l10n.vaultBackup, scheme: scheme),
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
-                    child: Text(
-                      l10n.backupInfoBody,
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: scheme.onSurfaceVariant,
-                        height: 1.4,
-                      ),
+                  Card(
+                    margin: const EdgeInsets.only(bottom: 24),
+                    child: Column(
+                      children: [
+                        Padding(
+                          padding: const EdgeInsets.all(16.0),
+                          child: Text(
+                            l10n.backupInfoBody,
+                            style: Theme.of(context).textTheme.bodySmall
+                                ?.copyWith(
+                                  color: scheme.onSurfaceVariant,
+                                  height: 1.4,
+                                ),
+                          ),
+                        ),
+                        const Divider(height: 1),
+                        ListTile(
+                          leading: const Icon(Icons.file_download_outlined),
+                          title: Text(l10n.exportZipTitle),
+                          subtitle: Text(l10n.exportZipSubtitle),
+                          onTap: _s.state == VaultFlowState.unlocked
+                              ? _openExportBackupFlow
+                              : null,
+                        ),
+                        const Divider(height: 1),
+                        ListTile(
+                          leading: const Icon(Icons.file_upload_outlined),
+                          title: Text(l10n.importZipTitle),
+                          subtitle: Text(l10n.importZipSubtitle),
+                          onTap: _s.state == VaultFlowState.unlocked
+                              ? _openImportBackupFlow
+                              : null,
+                        ),
+                        const Divider(height: 1),
+                        ListTile(
+                          leading: const Icon(Icons.note_add_outlined),
+                          title: const Text('Importar desde Notion (.zip)'),
+                          subtitle: const Text(
+                            'Soporta export en Markdown y HTML',
+                          ),
+                          onTap: _s.state == VaultFlowState.unlocked
+                              ? _openImportNotionFlow
+                              : null,
+                        ),
+                      ],
                     ),
                   ),
-                  ListTile(
-                    leading: const Icon(Icons.file_download_outlined),
-                    title: Text(l10n.exportZipTitle),
-                    subtitle: Text(l10n.exportZipSubtitle),
-                    onTap: _s.state == VaultFlowState.unlocked
-                        ? _openExportBackupFlow
-                        : null,
-                  ),
-                  ListTile(
-                    leading: const Icon(Icons.file_upload_outlined),
-                    title: Text(l10n.importZipTitle),
-                    subtitle: Text(l10n.importZipSubtitle),
-                    onTap: _s.state == VaultFlowState.unlocked
-                        ? _openImportBackupFlow
-                        : null,
-                  ),
-                  ListTile(
-                    leading: const Icon(Icons.note_add_outlined),
-                    title: const Text('Importar desde Notion (.zip)'),
-                    subtitle: const Text('Soporta export en Markdown y HTML'),
-                    onTap: _s.state == VaultFlowState.unlocked
-                        ? _openImportNotionFlow
-                        : null,
-                  ),
-                  const SizedBox(height: 16),
+
                   _SectionHeader(title: l10n.data, scheme: scheme),
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
-                    child: Card(
-                      child: ListTile(
-                        leading: Icon(
-                          Icons.delete_forever_outlined,
-                          color: scheme.error,
-                        ),
-                        title: Text(
-                          l10n.wipeCardTitle,
-                          style: TextStyle(color: scheme.error),
-                        ),
-                        subtitle: Text(
-                          l10n.wipeCardSubtitle,
-                          style: Theme.of(context).textTheme.bodySmall
-                              ?.copyWith(color: scheme.onSurfaceVariant),
-                        ),
-                        onTap: _openWipeFlow,
+                  Card(
+                    margin: const EdgeInsets.only(bottom: 24),
+                    color: scheme.errorContainer.withValues(alpha: 0.2),
+                    elevation: 0,
+                    shape: RoundedRectangleBorder(
+                      side: BorderSide(
+                        color: scheme.error.withValues(alpha: 0.5),
                       ),
+                      borderRadius: const BorderRadius.all(Radius.circular(24)),
+                    ),
+                    child: ListTile(
+                      leading: Icon(
+                        Icons.delete_forever_outlined,
+                        color: scheme.error,
+                      ),
+                      title: Text(
+                        l10n.wipeCardTitle,
+                        style: TextStyle(
+                          color: scheme.error,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      subtitle: Text(
+                        l10n.wipeCardSubtitle,
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: scheme.error.withValues(alpha: 0.8),
+                        ),
+                      ),
+                      onTap: _openWipeFlow,
                     ),
                   ),
+                  const SizedBox(height: 24),
                 ],
               );
             },
@@ -954,7 +1080,8 @@ class _NotionImportModeDialog extends StatelessWidget {
           child: Text(AppLocalizations.of(context).cancel),
         ),
         OutlinedButton(
-          onPressed: () => Navigator.pop(context, _NotionImportMode.currentVault),
+          onPressed: () =>
+              Navigator.pop(context, _NotionImportMode.currentVault),
           child: const Text('Cofre actual'),
         ),
         FilledButton(
@@ -970,7 +1097,8 @@ class _NewVaultPasswordDialog extends StatefulWidget {
   const _NewVaultPasswordDialog();
 
   @override
-  State<_NewVaultPasswordDialog> createState() => _NewVaultPasswordDialogState();
+  State<_NewVaultPasswordDialog> createState() =>
+      _NewVaultPasswordDialogState();
 }
 
 class _NewVaultPasswordDialogState extends State<_NewVaultPasswordDialog> {
@@ -991,7 +1119,9 @@ class _NewVaultPasswordDialogState extends State<_NewVaultPasswordDialog> {
     final a = _password.text.trim();
     final b = _confirm.text.trim();
     if (a.length < 10) {
-      setState(() => _error = 'La contrasena debe tener al menos 10 caracteres.');
+      setState(
+        () => _error = 'La contrasena debe tener al menos 10 caracteres.',
+      );
       return;
     }
     if (a != b) {
@@ -1035,7 +1165,10 @@ class _NewVaultPasswordDialogState extends State<_NewVaultPasswordDialog> {
           ),
           if (_error != null) ...[
             const SizedBox(height: 8),
-            Text(_error!, style: TextStyle(color: Theme.of(context).colorScheme.error)),
+            Text(
+              _error!,
+              style: TextStyle(color: Theme.of(context).colorScheme.error),
+            ),
           ],
         ],
       ),
@@ -1044,10 +1177,7 @@ class _NewVaultPasswordDialogState extends State<_NewVaultPasswordDialog> {
           onPressed: () => Navigator.pop(context),
           child: Text(AppLocalizations.of(context).cancel),
         ),
-        FilledButton(
-          onPressed: _submit,
-          child: const Text('Crear e importar'),
-        ),
+        FilledButton(onPressed: _submit, child: const Text('Crear e importar')),
       ],
     );
   }
@@ -1080,7 +1210,8 @@ class _ChangeMasterPasswordDialog extends StatefulWidget {
       _ChangeMasterPasswordDialogState();
 }
 
-class _ChangeMasterPasswordDialogState extends State<_ChangeMasterPasswordDialog> {
+class _ChangeMasterPasswordDialogState
+    extends State<_ChangeMasterPasswordDialog> {
   final _current = TextEditingController();
   final _next = TextEditingController();
   final _confirm = TextEditingController();
@@ -1102,20 +1233,29 @@ class _ChangeMasterPasswordDialogState extends State<_ChangeMasterPasswordDialog
     final currentPassword = _current.text;
     final nextPassword = _next.text;
     final confirmPassword = _confirm.text;
-    if (currentPassword.isEmpty || nextPassword.isEmpty || confirmPassword.isEmpty) {
+    if (currentPassword.isEmpty ||
+        nextPassword.isEmpty ||
+        confirmPassword.isEmpty) {
       setState(() => _error = AppLocalizations.of(context).fillAllFieldsError);
       return;
     }
     if (nextPassword != confirmPassword) {
-      setState(() => _error = AppLocalizations.of(context).newPasswordsMismatchError);
+      setState(
+        () => _error = AppLocalizations.of(context).newPasswordsMismatchError,
+      );
       return;
     }
     if (_passwordStrengthFor(nextPassword) != _PasswordStrength.strong) {
-      setState(() => _error = AppLocalizations.of(context).newPasswordMustBeStrongError);
+      setState(
+        () =>
+            _error = AppLocalizations.of(context).newPasswordMustBeStrongError,
+      );
       return;
     }
     if (currentPassword == nextPassword) {
-      setState(() => _error = AppLocalizations.of(context).newPasswordMustDifferError);
+      setState(
+        () => _error = AppLocalizations.of(context).newPasswordMustDifferError,
+      );
       return;
     }
     setState(() {
@@ -1190,7 +1330,9 @@ class _ChangeMasterPasswordDialogState extends State<_ChangeMasterPasswordDialog
                   onPressed: _busy
                       ? null
                       : () => setState(() => _obscureNext = !_obscureNext),
-                  icon: Icon(_obscureNext ? Icons.visibility : Icons.visibility_off),
+                  icon: Icon(
+                    _obscureNext ? Icons.visibility : Icons.visibility_off,
+                  ),
                 ),
               ),
             ),
@@ -1219,7 +1361,10 @@ class _ChangeMasterPasswordDialogState extends State<_ChangeMasterPasswordDialog
             ),
             if (_error != null) ...[
               const SizedBox(height: 8),
-              Text(_error!, style: TextStyle(color: Theme.of(context).colorScheme.error)),
+              Text(
+                _error!,
+                style: TextStyle(color: Theme.of(context).colorScheme.error),
+              ),
             ],
           ],
         ),
@@ -1229,10 +1374,7 @@ class _ChangeMasterPasswordDialogState extends State<_ChangeMasterPasswordDialog
           onPressed: _busy ? null : () => Navigator.pop(context, false),
           child: Text(l10n.cancel),
         ),
-        FilledButton(
-          onPressed: _busy ? null : _submit,
-          child: Text(l10n.save),
-        ),
+        FilledButton(onPressed: _busy ? null : _submit, child: Text(l10n.save)),
       ],
     );
   }
@@ -1247,12 +1389,12 @@ class _SectionHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+      padding: const EdgeInsets.fromLTRB(8, 0, 8, 8),
       child: Text(
         title,
-        style: Theme.of(context).textTheme.titleSmall?.copyWith(
+        style: Theme.of(context).textTheme.labelLarge?.copyWith(
           color: scheme.primary,
-          fontWeight: FontWeight.w700,
+          fontWeight: FontWeight.w600,
         ),
       ),
     );
@@ -1380,10 +1522,10 @@ class _VaultIdentityVerifyDialogState
                   onPressed: _busy
                       ? null
                       : () => setState(() => _obscure = !_obscure),
-                  icon: Icon(_obscure ? Icons.visibility : Icons.visibility_off),
-                  tooltip: _obscure
-                      ? l10n.showPassword
-                      : l10n.hidePassword,
+                  icon: Icon(
+                    _obscure ? Icons.visibility : Icons.visibility_off,
+                  ),
+                  tooltip: _obscure ? l10n.showPassword : l10n.hidePassword,
                 ),
               ),
               onSubmitted: (_) => _verifyPassword(),

@@ -32,7 +32,8 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
 
   static const _minLen = 10;
 
-  _PasswordStrength get _passwordStrength => _passwordStrengthFor(_password.text);
+  _PasswordStrength get _passwordStrength =>
+      _passwordStrengthFor(_password.text);
 
   @override
   void dispose() {
@@ -194,9 +195,13 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
                   horizontal: FolioSpace.lg,
                   vertical: FolioSpace.md,
                 ),
-                child: Material(
-                  color: scheme.surfaceContainerHigh,
-                  borderRadius: BorderRadius.circular(FolioRadius.lg),
+                child: Card.filled(
+                  margin: EdgeInsets.zero,
+                  color: scheme.surfaceContainerHighest,
+                  elevation: 0,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(24),
+                  ),
                   child: Padding(
                     padding: const EdgeInsets.all(FolioSpace.xl),
                     child: Column(
@@ -206,7 +211,8 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
                         Center(
                           child: Text(
                             'Folio',
-                            style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                            style: Theme.of(context).textTheme.headlineMedium
+                                ?.copyWith(
                                   fontWeight: FontWeight.w700,
                                   color: scheme.primary,
                                 ),
@@ -216,9 +222,8 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
                         Center(
                           child: Text(
                             _stepLabel,
-                            style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                                  color: scheme.onSurfaceVariant,
-                                ),
+                            style: Theme.of(context).textTheme.labelLarge
+                                ?.copyWith(color: scheme.onSurfaceVariant),
                           ),
                         ),
                         const SizedBox(height: FolioSpace.lg),
@@ -234,7 +239,10 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
                           Row(
                             children: [
                               Expanded(
-                                child: Text(_error!, style: TextStyle(color: scheme.error)),
+                                child: Text(
+                                  _error!,
+                                  style: TextStyle(color: scheme.error),
+                                ),
                               ),
                               const SizedBox(width: FolioSpace.xs),
                               TextButton.icon(
@@ -283,9 +291,9 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
         const SizedBox(height: FolioSpace.lg),
         Text(
           'Crear cofre sin cifrado',
-          style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                fontWeight: FontWeight.w700,
-              ),
+          style: Theme.of(
+            context,
+          ).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w700),
           textAlign: TextAlign.center,
         ),
         const SizedBox(height: FolioSpace.md),
@@ -293,9 +301,9 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
           'Tus datos quedaran guardados sin contraseña y sin cifrado. '
           'Cualquier persona con acceso al dispositivo podra leerlos.',
           style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                color: scheme.onSurfaceVariant,
-                height: 1.45,
-              ),
+            color: scheme.onSurfaceVariant,
+            height: 1.45,
+          ),
           textAlign: TextAlign.center,
         ),
         const SizedBox(height: FolioSpace.xl),
@@ -311,7 +319,9 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
             FilledButton(
               style: FilledButton.styleFrom(
                 minimumSize: const Size(120, 48),
-                shape: const StadiumBorder(),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
               ),
               onPressed: _nextCreatePassword,
               child: Text(l10n.continueAction),
@@ -335,7 +345,9 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
         const SizedBox(height: FolioSpace.lg),
         Text(
           AppLocalizations.of(context).welcomeTitle,
-          style: Theme.of(context).textTheme.headlineMedium?.copyWith(fontWeight: FontWeight.w700),
+          style: Theme.of(
+            context,
+          ).textTheme.headlineMedium?.copyWith(fontWeight: FontWeight.w700),
           textAlign: TextAlign.center,
         ),
         const SizedBox(height: FolioSpace.md),
@@ -348,7 +360,9 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
         FilledButton(
           style: FilledButton.styleFrom(
             minimumSize: const Size.fromHeight(56),
-            shape: const StadiumBorder(),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
           ),
           onPressed: _chooseCreateNew,
           child: Text(AppLocalizations.of(context).createNewVault),
@@ -357,7 +371,9 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
         OutlinedButton(
           style: OutlinedButton.styleFrom(
             minimumSize: const Size.fromHeight(56),
-            shape: const StadiumBorder(),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
           ),
           onPressed: () {
             setState(() {
@@ -373,7 +389,9 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
         OutlinedButton(
           style: OutlinedButton.styleFrom(
             minimumSize: const Size.fromHeight(56),
-            shape: const StadiumBorder(),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
           ),
           onPressed: _chooseImport,
           child: Text(AppLocalizations.of(context).importBackupZip),
@@ -395,23 +413,27 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
         const SizedBox(height: FolioSpace.lg),
         Text(
           AppLocalizations.of(context).importBackupTitle,
-          style: Theme.of(context).textTheme.headlineMedium?.copyWith(fontWeight: FontWeight.w700),
+          style: Theme.of(
+            context,
+          ).textTheme.headlineMedium?.copyWith(fontWeight: FontWeight.w700),
           textAlign: TextAlign.center,
         ),
         const SizedBox(height: FolioSpace.md),
         Text(
           AppLocalizations.of(context).importBackupBody,
           style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                height: 1.45,
-                color: Theme.of(context).colorScheme.onSurfaceVariant,
-              ),
+            height: 1.45,
+            color: Theme.of(context).colorScheme.onSurfaceVariant,
+          ),
           textAlign: TextAlign.center,
         ),
         const SizedBox(height: FolioSpace.xl),
         OutlinedButton.icon(
           style: OutlinedButton.styleFrom(
             minimumSize: const Size.fromHeight(56),
-            shape: const StadiumBorder(),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
           ),
           onPressed: _busy ? null : _pickBackupFile,
           icon: const Icon(Icons.folder_open_outlined),
@@ -438,6 +460,9 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
           enabled: !_busy,
           decoration: InputDecoration(
             labelText: AppLocalizations.of(context).backupPasswordLabel,
+            border: const OutlineInputBorder(),
+            filled: true,
+            fillColor: Theme.of(context).colorScheme.surface,
             suffixIcon: IconButton(
               onPressed: _busy
                   ? null
@@ -445,7 +470,9 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
                       () => _obscureBackupPassword = !_obscureBackupPassword,
                     ),
               icon: Icon(
-                _obscureBackupPassword ? Icons.visibility : Icons.visibility_off,
+                _obscureBackupPassword
+                    ? Icons.visibility
+                    : Icons.visibility_off,
               ),
               tooltip: _obscureBackupPassword
                   ? AppLocalizations.of(context).showPassword
@@ -473,7 +500,9 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
             FilledButton(
               style: FilledButton.styleFrom(
                 minimumSize: const Size(120, 48),
-                shape: const StadiumBorder(),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
               ),
               onPressed: _busy ? null : _finishImport,
               child: _busy
@@ -502,11 +531,18 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
       _PasswordStrength.strong => 1.0,
     };
     final strengthLabel = switch (strength) {
-      _PasswordStrength.veryWeak =>
-        AppLocalizations.of(context).passwordStrengthVeryWeak,
-      _PasswordStrength.weak => AppLocalizations.of(context).passwordStrengthWeak,
-      _PasswordStrength.fair => AppLocalizations.of(context).passwordStrengthFair,
-      _PasswordStrength.strong => AppLocalizations.of(context).passwordStrengthStrong,
+      _PasswordStrength.veryWeak => AppLocalizations.of(
+        context,
+      ).passwordStrengthVeryWeak,
+      _PasswordStrength.weak => AppLocalizations.of(
+        context,
+      ).passwordStrengthWeak,
+      _PasswordStrength.fair => AppLocalizations.of(
+        context,
+      ).passwordStrengthFair,
+      _PasswordStrength.strong => AppLocalizations.of(
+        context,
+      ).passwordStrengthStrong,
     };
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -520,16 +556,18 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
         const SizedBox(height: FolioSpace.lg),
         Text(
           AppLocalizations.of(context).masterPasswordTitle,
-          style: Theme.of(context).textTheme.headlineMedium?.copyWith(fontWeight: FontWeight.w700),
+          style: Theme.of(
+            context,
+          ).textTheme.headlineMedium?.copyWith(fontWeight: FontWeight.w700),
           textAlign: TextAlign.center,
         ),
         const SizedBox(height: FolioSpace.md),
         Text(
           AppLocalizations.of(context).masterPasswordHint(_minLen),
           style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                color: Theme.of(context).colorScheme.onSurfaceVariant,
-                height: 1.45,
-              ),
+            color: Theme.of(context).colorScheme.onSurfaceVariant,
+            height: 1.45,
+          ),
           textAlign: TextAlign.center,
         ),
         const SizedBox(height: FolioSpace.xl),
@@ -539,10 +577,15 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
           onChanged: (_) => setState(() {}),
           decoration: InputDecoration(
             labelText: AppLocalizations.of(context).passwordLabel,
+            border: const OutlineInputBorder(),
+            filled: true,
+            fillColor: Theme.of(context).colorScheme.surface,
             suffixIcon: IconButton(
               onPressed: () =>
                   setState(() => _obscurePassword = !_obscurePassword),
-              icon: Icon(_obscurePassword ? Icons.visibility : Icons.visibility_off),
+              icon: Icon(
+                _obscurePassword ? Icons.visibility : Icons.visibility_off,
+              ),
               tooltip: _obscurePassword
                   ? AppLocalizations.of(context).showPassword
                   : AppLocalizations.of(context).hidePassword,
@@ -563,9 +606,15 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
           obscureText: _obscureConfirm,
           decoration: InputDecoration(
             labelText: AppLocalizations.of(context).confirmPasswordLabel,
+            border: const OutlineInputBorder(),
+            filled: true,
+            fillColor: Theme.of(context).colorScheme.surface,
             suffixIcon: IconButton(
-              onPressed: () => setState(() => _obscureConfirm = !_obscureConfirm),
-              icon: Icon(_obscureConfirm ? Icons.visibility : Icons.visibility_off),
+              onPressed: () =>
+                  setState(() => _obscureConfirm = !_obscureConfirm),
+              icon: Icon(
+                _obscureConfirm ? Icons.visibility : Icons.visibility_off,
+              ),
               tooltip: _obscureConfirm
                   ? AppLocalizations.of(context).showPassword
                   : AppLocalizations.of(context).hidePassword,
@@ -588,7 +637,9 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
             FilledButton(
               style: FilledButton.styleFrom(
                 minimumSize: const Size(120, 48),
-                shape: const StadiumBorder(),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
               ),
               onPressed: _nextCreatePassword,
               child: Text(AppLocalizations.of(context).next),
@@ -612,7 +663,9 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
         const SizedBox(height: FolioSpace.lg),
         Text(
           AppLocalizations.of(context).readyTitle,
-          style: Theme.of(context).textTheme.headlineMedium?.copyWith(fontWeight: FontWeight.w700),
+          style: Theme.of(
+            context,
+          ).textTheme.headlineMedium?.copyWith(fontWeight: FontWeight.w700),
           textAlign: TextAlign.center,
         ),
         const SizedBox(height: FolioSpace.md),
@@ -636,7 +689,9 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
             FilledButton(
               style: FilledButton.styleFrom(
                 minimumSize: const Size(120, 48),
-                shape: const StadiumBorder(),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
               ),
               onPressed: _busy ? null : _finishCreate,
               child: _busy

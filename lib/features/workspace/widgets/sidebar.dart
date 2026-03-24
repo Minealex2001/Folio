@@ -142,9 +142,9 @@ class _SidebarState extends State<Sidebar> {
     final active = session.activeVaultId;
     final others = _vaults.where((e) => e.id != active).toList();
     if (others.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(l10n.noOtherVaultsSnack)),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(l10n.noOtherVaultsSnack)));
       return;
     }
     VaultEntry? picked;
@@ -188,9 +188,7 @@ class _SidebarState extends State<Sidebar> {
       context: context,
       builder: (ctx) => AlertDialog(
         title: Text(l10n.deleteVaultConfirmTitle),
-        content: Text(
-          l10n.deleteVaultConfirmBody(target.displayName),
-        ),
+        content: Text(l10n.deleteVaultConfirmBody(target.displayName)),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
@@ -338,10 +336,7 @@ class _SidebarState extends State<Sidebar> {
                   ],
                 ),
               ),
-              Icon(
-                Icons.unfold_more,
-                color: scheme.onSurfaceVariant,
-              ),
+              Icon(Icons.unfold_more, color: scheme.onSurfaceVariant),
             ],
           ),
         ),
@@ -427,9 +422,7 @@ class _SidebarState extends State<Sidebar> {
     return Padding(
       padding: EdgeInsets.only(left: indent),
       child: Material(
-        color: selected
-            ? scheme.secondaryContainer
-            : Colors.transparent,
+        color: selected ? scheme.secondaryContainer : Colors.transparent,
         borderRadius: BorderRadius.circular(FolioRadius.lg),
         clipBehavior: Clip.antiAlias,
         child: InkWell(
@@ -453,8 +446,8 @@ class _SidebarState extends State<Sidebar> {
                         fontWeight: selected
                             ? FontWeight.bold
                             : FontWeight.w500,
-                        color: selected 
-                            ? scheme.onSecondaryContainer 
+                        color: selected
+                            ? scheme.onSecondaryContainer
                             : scheme.onSurface,
                       ),
                     ),
@@ -464,7 +457,9 @@ class _SidebarState extends State<Sidebar> {
                   icon: const Icon(Icons.add, size: 20),
                   tooltip: l10n.subpage,
                   visualDensity: VisualDensity.compact,
-                  color: selected ? scheme.onSecondaryContainer : scheme.onSurfaceVariant,
+                  color: selected
+                      ? scheme.onSecondaryContainer
+                      : scheme.onSurfaceVariant,
                   onPressed: () {
                     session.addPage(parentId: page.id);
                   },
@@ -473,21 +468,27 @@ class _SidebarState extends State<Sidebar> {
                   icon: const Icon(Icons.drive_file_move_outline, size: 20),
                   tooltip: l10n.move,
                   visualDensity: VisualDensity.compact,
-                  color: selected ? scheme.onSecondaryContainer : scheme.onSurfaceVariant,
+                  color: selected
+                      ? scheme.onSecondaryContainer
+                      : scheme.onSurfaceVariant,
                   onPressed: () => _move(context, page),
                 ),
                 IconButton(
                   icon: const Icon(Icons.edit_outlined, size: 20),
                   tooltip: l10n.rename,
                   visualDensity: VisualDensity.compact,
-                  color: selected ? scheme.onSecondaryContainer : scheme.onSurfaceVariant,
+                  color: selected
+                      ? scheme.onSecondaryContainer
+                      : scheme.onSurfaceVariant,
                   onPressed: () => _rename(context, page),
                 ),
                 IconButton(
                   icon: const Icon(Icons.delete_outline, size: 20),
                   tooltip: l10n.delete,
                   visualDensity: VisualDensity.compact,
-                  color: selected ? scheme.onSecondaryContainer : scheme.onSurfaceVariant,
+                  color: selected
+                      ? scheme.onSecondaryContainer
+                      : scheme.onSurfaceVariant,
                   onPressed: canDelete
                       ? () => session.deletePage(page.id)
                       : null,

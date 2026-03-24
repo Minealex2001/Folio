@@ -3,6 +3,7 @@ import 'package:flutter_markdown_plus/flutter_markdown_plus.dart';
 import 'package:markdown/markdown.dart' as md;
 
 import '../../../l10n/generated/app_localizations.dart';
+
 /// Escapa `<` salvo las etiquetas de subrayado permitidas (`<u>`, `</u>`).
 String folioSanitizeMarkdownForPreview(String source) {
   const open = '<u>';
@@ -226,8 +227,12 @@ class FolioFormatToolbar extends StatelessWidget {
             children: [
               TextField(
                 controller: labelCtrl,
-                decoration: InputDecoration(labelText: AppLocalizations.of(context).visibleTextLabel),
-                autofocus: defaultLabel == AppLocalizations.of(context).defaultLinkText,
+                decoration: InputDecoration(
+                  labelText: AppLocalizations.of(context).visibleTextLabel,
+                ),
+                autofocus:
+                    defaultLabel ==
+                    AppLocalizations.of(context).defaultLinkText,
               ),
               const SizedBox(height: 12),
               TextField(
@@ -237,7 +242,9 @@ class FolioFormatToolbar extends StatelessWidget {
                   hintText: AppLocalizations.of(context).urlHint,
                 ),
                 keyboardType: TextInputType.url,
-                autofocus: defaultLabel != AppLocalizations.of(context).defaultLinkText,
+                autofocus:
+                    defaultLabel !=
+                    AppLocalizations.of(context).defaultLinkText,
               ),
             ],
           ),
@@ -279,10 +286,15 @@ class FolioFormatToolbar extends StatelessWidget {
       required String tip,
       required VoidCallback onPressed,
     }) {
-      return Tooltip(
-        message: tip,
+      return Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 2.0),
         child: IconButton(
-          style: IconButton.styleFrom(visualDensity: VisualDensity.compact),
+          style: IconButton.styleFrom(
+            visualDensity: VisualDensity.compact,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(8),
+            ),
+          ),
           icon: Icon(icon, size: 20, color: iconColor),
           onPressed: onPressed,
           tooltip: tip,
@@ -297,51 +309,64 @@ class FolioFormatToolbar extends StatelessWidget {
         canRequestFocus: false,
         descendantsAreFocusable: false,
         child: Material(
-          color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.45),
-          borderRadius: BorderRadius.circular(8),
+          elevation: 0,
+          color: colorScheme.surfaceContainerLowest,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+            side: BorderSide(
+              color: colorScheme.outlineVariant.withValues(alpha: 0.5),
+            ),
+          ),
           clipBehavior: Clip.antiAlias,
-          child: SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                btn(
-                  icon: Icons.format_bold_rounded,
-                  tip: AppLocalizations.of(context).boldTip,
-                  onPressed: () =>
-                      applyFormat(() => folioToggleWrap(controller, '**', '**')),
-                ),
-                btn(
-                  icon: Icons.format_italic_rounded,
-                  tip: AppLocalizations.of(context).italicTip,
-                  onPressed: () =>
-                      applyFormat(() => folioToggleWrap(controller, '_', '_')),
-                ),
-                btn(
-                  icon: Icons.format_underlined_rounded,
-                  tip: AppLocalizations.of(context).underlineTip,
-                  onPressed: () => applyFormat(
-                    () => folioToggleWrap(controller, '<u>', '</u>'),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+            child: SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  btn(
+                    icon: Icons.format_bold_rounded,
+                    tip: AppLocalizations.of(context).boldTip,
+                    onPressed: () => applyFormat(
+                      () => folioToggleWrap(controller, '**', '**'),
+                    ),
                   ),
-                ),
-                btn(
-                  icon: Icons.code_rounded,
-                  tip: AppLocalizations.of(context).inlineCodeTip,
-                  onPressed: () =>
-                      applyFormat(() => folioToggleWrap(controller, '`', '`')),
-                ),
-                btn(
-                  icon: Icons.strikethrough_s_rounded,
-                  tip: AppLocalizations.of(context).strikeTip,
-                  onPressed: () =>
-                      applyFormat(() => folioToggleWrap(controller, '~~', '~~')),
-                ),
-                btn(
-                  icon: Icons.link_rounded,
-                  tip: AppLocalizations.of(context).linkTip,
-                  onPressed: () => _link(context),
-                ),
-              ],
+                  btn(
+                    icon: Icons.format_italic_rounded,
+                    tip: AppLocalizations.of(context).italicTip,
+                    onPressed: () => applyFormat(
+                      () => folioToggleWrap(controller, '_', '_'),
+                    ),
+                  ),
+                  btn(
+                    icon: Icons.format_underlined_rounded,
+                    tip: AppLocalizations.of(context).underlineTip,
+                    onPressed: () => applyFormat(
+                      () => folioToggleWrap(controller, '<u>', '</u>'),
+                    ),
+                  ),
+                  btn(
+                    icon: Icons.code_rounded,
+                    tip: AppLocalizations.of(context).inlineCodeTip,
+                    onPressed: () => applyFormat(
+                      () => folioToggleWrap(controller, '`', '`'),
+                    ),
+                  ),
+                  btn(
+                    icon: Icons.strikethrough_s_rounded,
+                    tip: AppLocalizations.of(context).strikeTip,
+                    onPressed: () => applyFormat(
+                      () => folioToggleWrap(controller, '~~', '~~'),
+                    ),
+                  ),
+                  btn(
+                    icon: Icons.link_rounded,
+                    tip: AppLocalizations.of(context).linkTip,
+                    onPressed: () => _link(context),
+                  ),
+                ],
+              ),
             ),
           ),
         ),

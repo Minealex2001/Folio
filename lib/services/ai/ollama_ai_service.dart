@@ -26,14 +26,18 @@ class OllamaAiService implements AiService {
       final httpReq = await client.postUrl(endpoint).timeout(timeout);
       httpReq.headers.contentType = ContentType.json;
       final mergedPrompt = _buildPrompt(request);
-      final imageAttachments = request.attachments.where((a) => a.mimeType.startsWith('image/')).toList();
+      final imageAttachments = request.attachments
+          .where((a) => a.mimeType.startsWith('image/'))
+          .toList();
       final payload = <String, dynamic>{
         'model': request.model == 'auto' ? defaultModel : request.model,
         'stream': false,
         'messages': [
           if ((request.systemPrompt ?? '').trim().isNotEmpty)
             {'role': 'system', 'content': request.systemPrompt!.trim()},
-          ...request.messages.map((m) => {'role': m.role, 'content': m.content}),
+          ...request.messages.map(
+            (m) => {'role': m.role, 'content': m.content},
+          ),
           {
             'role': 'user',
             'content': mergedPrompt,
@@ -66,7 +70,9 @@ class OllamaAiService implements AiService {
   Future<void> ping() async {
     final client = HttpClient();
     try {
-      final req = await client.getUrl(baseUrl.resolve('/api/tags')).timeout(timeout);
+      final req = await client
+          .getUrl(baseUrl.resolve('/api/tags'))
+          .timeout(timeout);
       final res = await req.close().timeout(timeout);
       if (res.statusCode < 200 || res.statusCode >= 300) {
         throw StateError('Ollama no disponible (${res.statusCode})');
@@ -81,7 +87,9 @@ class OllamaAiService implements AiService {
   Future<List<String>> listModels() async {
     final client = HttpClient();
     try {
-      final req = await client.getUrl(baseUrl.resolve('/api/tags')).timeout(timeout);
+      final req = await client
+          .getUrl(baseUrl.resolve('/api/tags'))
+          .timeout(timeout);
       final res = await req.close().timeout(timeout);
       final body = await utf8.decodeStream(res).timeout(timeout);
       if (res.statusCode < 200 || res.statusCode >= 300) {
@@ -100,8 +108,12 @@ class OllamaAiService implements AiService {
 
   String _buildPrompt(AiCompletionRequest request) {
     final b = StringBuffer(request.prompt.trim());
-    final textAttachments = request.attachments.where((a) => !a.mimeType.startsWith('image/')).toList();
-    final imageAttachments = request.attachments.where((a) => a.mimeType.startsWith('image/')).toList();
+    final textAttachments = request.attachments
+        .where((a) => !a.mimeType.startsWith('image/'))
+        .toList();
+    final imageAttachments = request.attachments
+        .where((a) => a.mimeType.startsWith('image/'))
+        .toList();
     if (textAttachments.isNotEmpty) {
       b.write('\n\nAdjuntos:\n');
       for (final a in textAttachments) {
@@ -109,9 +121,10 @@ class OllamaAiService implements AiService {
       }
     }
     if (imageAttachments.isNotEmpty) {
-      b.write('\n\nSe adjuntaron ${imageAttachments.length} imagen(es). Analízalas junto al mensaje.\n');
+      b.write(
+        '\n\nSe adjuntaron ${imageAttachments.length} imagen(es). Analízalas junto al mensaje.\n',
+      );
     }
     return b.toString().trim();
   }
 }
-

@@ -119,7 +119,9 @@ class _FolioAppState extends State<FolioApp> with WidgetsBindingObserver {
       widget.session.setAiService(null);
       return;
     }
-    final uri = AiSafetyPolicy.parseAndNormalizeUrl(widget.appSettings.aiBaseUrl);
+    final uri = AiSafetyPolicy.parseAndNormalizeUrl(
+      widget.appSettings.aiBaseUrl,
+    );
     if (uri == null) {
       widget.session.setAiService(null);
       return;

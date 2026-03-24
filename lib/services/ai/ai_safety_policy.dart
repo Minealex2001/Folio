@@ -16,7 +16,8 @@ class AiSafetyPolicy {
     if (lower.endsWith('.gif')) return 'image/gif';
     if (lower.endsWith('.bmp')) return 'image/bmp';
     if (lower.endsWith('.pdf')) return 'application/pdf';
-    if (lower.endsWith('.md') || lower.endsWith('.markdown')) return 'text/markdown';
+    if (lower.endsWith('.md') || lower.endsWith('.markdown'))
+      return 'text/markdown';
     if (lower.endsWith('.json')) return 'application/json';
     if (lower.endsWith('.csv')) return 'text/csv';
     if (lower.endsWith('.txt')) return 'text/plain';
@@ -41,7 +42,8 @@ class AiSafetyPolicy {
     if (value.isEmpty) return null;
     final parsed = Uri.tryParse(value);
     if (parsed == null) return null;
-    if (!parsed.hasScheme || !(parsed.scheme == 'http' || parsed.scheme == 'https')) {
+    if (!parsed.hasScheme ||
+        !(parsed.scheme == 'http' || parsed.scheme == 'https')) {
       return null;
     }
     if (parsed.host.trim().isEmpty) return null;
@@ -68,7 +70,11 @@ class AiSafetyPolicy {
     if (uri == null) {
       return 'URL inválida. Usa http://host:puerto.';
     }
-    if (!isEndpointAllowed(uri: uri, mode: mode, remoteConfirmed: remoteConfirmed)) {
+    if (!isEndpointAllowed(
+      uri: uri,
+      mode: mode,
+      remoteConfirmed: remoteConfirmed,
+    )) {
       return 'Endpoint remoto no permitido sin confirmación.';
     }
     return null;
@@ -77,7 +83,9 @@ class AiSafetyPolicy {
   static Future<String?> readAttachmentAsContext(File file) async {
     final bytes = await file.readAsBytes();
     if (bytes.isEmpty) return null;
-    final fileName = file.uri.pathSegments.isEmpty ? file.path : file.uri.pathSegments.last;
+    final fileName = file.uri.pathSegments.isEmpty
+        ? file.path
+        : file.uri.pathSegments.last;
     final ext = file.path.toLowerCase();
     if (ext.endsWith('.pdf')) {
       final extracted = _extractPdfText(bytes);
@@ -145,4 +153,3 @@ class AiSafetyPolicy {
     }
   }
 }
-

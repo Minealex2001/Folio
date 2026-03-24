@@ -26,7 +26,8 @@ class FolioEmbeddedVideoPlayer extends StatefulWidget {
   final Future<void> Function() onOpenExternal;
 
   @override
-  State<FolioEmbeddedVideoPlayer> createState() => _FolioEmbeddedVideoPlayerState();
+  State<FolioEmbeddedVideoPlayer> createState() =>
+      _FolioEmbeddedVideoPlayerState();
 }
 
 class _FolioEmbeddedVideoPlayerState extends State<FolioEmbeddedVideoPlayer> {
@@ -137,7 +138,9 @@ class _FolioEmbeddedVideoPlayerState extends State<FolioEmbeddedVideoPlayer> {
                       setState(() {});
                     },
                     icon: Icon(
-                      c.value.isPlaying ? Icons.pause_rounded : Icons.play_arrow_rounded,
+                      c.value.isPlaying
+                          ? Icons.pause_rounded
+                          : Icons.play_arrow_rounded,
                       color: Colors.white,
                     ),
                   ),
@@ -162,14 +165,19 @@ class _FolioEmbeddedVideoPlayerState extends State<FolioEmbeddedVideoPlayer> {
                       setState(() {});
                     },
                     icon: Icon(
-                      _muted ? Icons.volume_off_rounded : Icons.volume_up_rounded,
+                      _muted
+                          ? Icons.volume_off_rounded
+                          : Icons.volume_up_rounded,
                       color: Colors.white,
                     ),
                   ),
                   IconButton(
                     tooltip: AppLocalizations.of(context).openExternal,
                     onPressed: () => unawaited(widget.onOpenExternal()),
-                    icon: const Icon(Icons.open_in_new_rounded, color: Colors.white),
+                    icon: const Icon(
+                      Icons.open_in_new_rounded,
+                      color: Colors.white,
+                    ),
                   ),
                 ],
               ),
@@ -210,9 +218,18 @@ class FolioFilePreviewCard extends StatelessWidget {
     if (canPreviewPdf) {
       preview = _PdfPreview(file: file, scheme: scheme);
     } else if (canPreviewText) {
-      preview = _TextLikePreview(file: file, ext: ext, theme: theme, scheme: scheme);
+      preview = _TextLikePreview(
+        file: file,
+        ext: ext,
+        theme: theme,
+        scheme: scheme,
+      );
     } else {
-      preview = _UnsupportedPreview(theme: theme, scheme: scheme, fileName: fileName);
+      preview = _UnsupportedPreview(
+        theme: theme,
+        scheme: scheme,
+        fileName: fileName,
+      );
     }
 
     return Column(
@@ -220,7 +237,10 @@ class FolioFilePreviewCard extends StatelessWidget {
       children: [
         Row(
           children: [
-            Icon(Icons.insert_drive_file_outlined, color: scheme.onSurfaceVariant),
+            Icon(
+              Icons.insert_drive_file_outlined,
+              color: scheme.onSurfaceVariant,
+            ),
             const SizedBox(width: 8),
             Expanded(
               child: Text(
@@ -258,7 +278,9 @@ class FolioFilePreviewCard extends StatelessWidget {
             decoration: BoxDecoration(
               color: scheme.surfaceContainer.withValues(alpha: 0.4),
               borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: scheme.outlineVariant.withValues(alpha: 0.5)),
+              border: Border.all(
+                color: scheme.outlineVariant.withValues(alpha: 0.5),
+              ),
             ),
             clipBehavior: Clip.antiAlias,
             child: preview,
@@ -358,7 +380,11 @@ class _TextLikePreview extends StatelessWidget {
             padding: const EdgeInsets.all(12),
             child: FolioMarkdownPreview(
               data: raw,
-              styleSheet: folioMarkdownStyleSheet(context, theme.textTheme.bodyMedium!, scheme),
+              styleSheet: folioMarkdownStyleSheet(
+                context,
+                theme.textTheme.bodyMedium!,
+                scheme,
+              ),
             ),
           );
         }
@@ -375,7 +401,10 @@ class _TextLikePreview extends StatelessWidget {
           padding: const EdgeInsets.all(12),
           child: SelectableText(
             shown,
-            style: theme.textTheme.bodySmall?.copyWith(fontFamily: 'monospace', height: 1.45),
+            style: theme.textTheme.bodySmall?.copyWith(
+              fontFamily: 'monospace',
+              height: 1.45,
+            ),
           ),
         );
       },
@@ -402,17 +431,25 @@ class _UnsupportedPreview extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.preview_outlined, size: 36, color: scheme.onSurfaceVariant),
+            Icon(
+              Icons.preview_outlined,
+              size: 36,
+              color: scheme.onSurfaceVariant,
+            ),
             const SizedBox(height: 8),
             Text(
               AppLocalizations.of(context).noEmbeddedPreview,
-              style: theme.textTheme.bodyMedium?.copyWith(color: scheme.onSurfaceVariant),
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: scheme.onSurfaceVariant,
+              ),
             ),
             const SizedBox(height: 4),
             Text(
               fileName,
               textAlign: TextAlign.center,
-              style: theme.textTheme.bodySmall?.copyWith(color: scheme.onSurfaceVariant),
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: scheme.onSurfaceVariant,
+              ),
             ),
           ],
         ),
@@ -438,7 +475,11 @@ class _VideoFallback extends StatelessWidget {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(Icons.videocam_off_outlined, size: 42, color: scheme.onSurfaceVariant),
+          Icon(
+            Icons.videocam_off_outlined,
+            size: 42,
+            color: scheme.onSurfaceVariant,
+          ),
           const SizedBox(height: 8),
           Text(title),
           const SizedBox(height: 8),

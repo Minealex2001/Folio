@@ -45,11 +45,7 @@ class AiCompletionRequest {
 }
 
 class AiCompletionResult {
-  const AiCompletionResult({
-    required this.text,
-    this.provider,
-    this.model,
-  });
+  const AiCompletionResult({required this.text, this.provider, this.model});
 
   final String text;
   final String? provider;
@@ -85,4 +81,3 @@ class AiChatThreadData {
     );
   }
 }
-

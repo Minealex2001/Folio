@@ -46,7 +46,8 @@ class DesktopIntegration with TrayListener, WindowListener {
   var _initialized = false;
   var _quitting = false;
 
-  bool get _isDesktop => !kIsWeb && (Platform.isWindows || Platform.isLinux || Platform.isMacOS);
+  bool get _isDesktop =>
+      !kIsWeb && (Platform.isWindows || Platform.isLinux || Platform.isMacOS);
 
   Future<void> initialize() async {
     if (_initialized || !_isDesktop) return;

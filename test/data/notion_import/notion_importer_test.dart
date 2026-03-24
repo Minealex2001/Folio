@@ -6,7 +6,9 @@ import 'package:folio/data/notion_import/notion_importer.dart';
 void main() {
   group('notion importer', () {
     test('detecta markdown y convierte bloques basicos', () async {
-      final temp = await Directory.systemTemp.createTemp('folio_notion_test_md_');
+      final temp = await Directory.systemTemp.createTemp(
+        'folio_notion_test_md_',
+      );
       addTearDown(() async {
         if (temp.existsSync()) await temp.delete(recursive: true);
       });
@@ -35,7 +37,9 @@ print("hola");
     });
 
     test('detecta html y convierte encabezados/parrafos', () async {
-      final temp = await Directory.systemTemp.createTemp('folio_notion_test_html_');
+      final temp = await Directory.systemTemp.createTemp(
+        'folio_notion_test_html_',
+      );
       addTearDown(() async {
         if (temp.existsSync()) await temp.delete(recursive: true);
       });
@@ -52,13 +56,18 @@ print("hola");
       expect(parsed.format, NotionExportFormat.html);
       expect(parsed.pages, hasLength(1));
       final blocks = parsed.pages.first.blocks;
-      expect(blocks.any((b) => b.type == 'h1' && b.text.contains('Mi Pagina')), isTrue);
+      expect(
+        blocks.any((b) => b.type == 'h1' && b.text.contains('Mi Pagina')),
+        isTrue,
+      );
       expect(blocks.any((b) => b.type == 'paragraph'), isTrue);
       expect(blocks.any((b) => b.type == 'todo' && b.checked == true), isTrue);
     });
 
     test('detecta csv y lo convierte a database data', () async {
-      final temp = await Directory.systemTemp.createTemp('folio_notion_test_csv_');
+      final temp = await Directory.systemTemp.createTemp(
+        'folio_notion_test_csv_',
+      );
       addTearDown(() async {
         if (temp.existsSync()) await temp.delete(recursive: true);
       });

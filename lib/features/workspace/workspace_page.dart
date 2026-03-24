@@ -2,10 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter_markdown_plus/flutter_markdown_plus.dart';
 import 'package:flutter/services.dart';
+import 'package:uuid/uuid.dart';
 
 import '../../app/app_settings.dart';
 import '../../app/ui_tokens.dart';
 import '../../models/folio_page.dart';
+import '../../models/block.dart';
 import '../../services/ai/ai_types.dart';
 import '../../l10n/generated/app_localizations.dart';
 import '../../session/vault_session.dart';
@@ -50,14 +52,12 @@ class _WorkspacePageState extends State<WorkspacePage> {
     required Color textColor,
   }) {
     final normalizedContent = _normalizeHtmlForChat(content);
-    final base = Theme.of(context).textTheme.bodyMedium?.copyWith(
-      color: textColor,
-      height: 1.35,
-    );
-    final code = Theme.of(context).textTheme.bodySmall?.copyWith(
-      color: textColor,
-      fontFamily: 'monospace',
-    );
+    final base = Theme.of(
+      context,
+    ).textTheme.bodyMedium?.copyWith(color: textColor, height: 1.35);
+    final code = Theme.of(
+      context,
+    ).textTheme.bodySmall?.copyWith(color: textColor, fontFamily: 'monospace');
     final sheet = MarkdownStyleSheet.fromTheme(Theme.of(context)).copyWith(
       p: base,
       h1: base?.copyWith(fontSize: 20, fontWeight: FontWeight.w700),
@@ -92,10 +92,12 @@ class _WorkspacePageState extends State<WorkspacePage> {
     if (lines.length < 2) return (thought: null, body: normalized);
     final first = lines[0].trimLeft();
     final second = lines[1].trimLeft();
-    final hasDecision = first.startsWith('🧠') ||
+    final hasDecision =
+        first.startsWith('🧠') ||
         first.toLowerCase().contains('**decisión del agente:**') ||
         first.toLowerCase().contains('**agent decision:**');
-    final hasReason = second.startsWith('💡') ||
+    final hasReason =
+        second.startsWith('💡') ||
         second.toLowerCase().contains('**motivo:**') ||
         second.toLowerCase().contains('**reason:**');
     if (!hasDecision || !hasReason) {
@@ -112,14 +114,18 @@ class _WorkspacePageState extends State<WorkspacePage> {
 
   String _normalizeHtmlForChat(String raw) {
     final lower = raw.toLowerCase();
-    final looksHtml = lower.contains('<html') ||
+    final looksHtml =
+        lower.contains('<html') ||
         lower.contains('<body') ||
         lower.contains('<p>') ||
         lower.contains('<h1') ||
         lower.contains('<table');
     if (!looksHtml) return raw;
     var out = raw;
-    out = out.replaceAll(RegExp(r'<br\s*/?>', caseSensitive: false, dotAll: true), '\n');
+    out = out.replaceAll(
+      RegExp(r'<br\s*/?>', caseSensitive: false, dotAll: true),
+      '\n',
+    );
     out = out.replaceAllMapped(
       RegExp(r'<h1[^>]*>(.*?)</h1>', caseSensitive: false, dotAll: true),
       (m) => '\n# ${_stripHtmlTagsForChat(m.group(1) ?? '')}\n',
@@ -140,7 +146,10 @@ class _WorkspacePageState extends State<WorkspacePage> {
       RegExp(r'<li[^>]*>(.*?)</li>', caseSensitive: false, dotAll: true),
       (m) => '- ${_stripHtmlTagsForChat(m.group(1) ?? '')}\n',
     );
-    out = out.replaceAll(RegExp(r'<[^>]+>', caseSensitive: false, dotAll: true), '');
+    out = out.replaceAll(
+      RegExp(r'<[^>]+>', caseSensitive: false, dotAll: true),
+      '',
+    );
     out = out.replaceAll('&nbsp;', ' ');
     out = out.replaceAll('&amp;', '&');
     out = out.replaceAll('&lt;', '<');
@@ -150,7 +159,9 @@ class _WorkspacePageState extends State<WorkspacePage> {
   }
 
   String _stripHtmlTagsForChat(String s) {
-    return s.replaceAll(RegExp(r'<[^>]+>', caseSensitive: false, dotAll: true), '').trim();
+    return s
+        .replaceAll(RegExp(r'<[^>]+>', caseSensitive: false, dotAll: true), '')
+        .trim();
   }
 
   @override
@@ -251,7 +262,9 @@ class _WorkspacePageState extends State<WorkspacePage> {
     try {
       final reply = await _runAiFromChat(text, _activeChat.messages);
       if (!mounted) return;
-      _s.appendMessageToActiveAiChat(AiChatMessage(role: 'assistant', content: reply));
+      _s.appendMessageToActiveAiChat(
+        AiChatMessage(role: 'assistant', content: reply),
+      );
     } catch (e) {
       if (!mounted) return;
       final l10n = AppLocalizations.of(context);
@@ -265,7 +278,10 @@ class _WorkspacePageState extends State<WorkspacePage> {
     }
   }
 
-  Future<String> _runAiFromChat(String text, List<AiChatMessage> threadMessages) async {
+  Future<String> _runAiFromChat(
+    String text,
+    List<AiChatMessage> threadMessages,
+  ) async {
     final t = text.trim();
     final languageCode = Localizations.localeOf(context).languageCode;
     final attachments = await _collectAiAttachments();
@@ -303,7 +319,9 @@ class _WorkspacePageState extends State<WorkspacePage> {
         color: scheme.surface,
         elevation: compact ? 0 : 2,
         shadowColor: scheme.shadow.withValues(alpha: 0.1),
-        borderRadius: compact ? BorderRadius.zero : BorderRadius.circular(FolioRadius.lg),
+        borderRadius: compact
+            ? BorderRadius.zero
+            : BorderRadius.circular(FolioRadius.lg),
         clipBehavior: Clip.antiAlias,
         child: page == null
             ? Center(
@@ -320,9 +338,8 @@ class _WorkspacePageState extends State<WorkspacePage> {
                       const SizedBox(height: 16),
                       Text(
                         AppLocalizations.of(context).noPages,
-                        style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                          color: scheme.onSurfaceVariant,
-                        ),
+                        style: Theme.of(context).textTheme.titleMedium
+                            ?.copyWith(color: scheme.onSurfaceVariant),
                       ),
                       const SizedBox(height: FolioSpace.md),
                       FilledButton.icon(
@@ -346,10 +363,11 @@ class _WorkspacePageState extends State<WorkspacePage> {
                   children: [
                     TextField(
                       controller: _titleController,
-                      style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                        fontWeight: FontWeight.w600,
-                        color: scheme.onSurface,
-                      ),
+                      style: Theme.of(context).textTheme.headlineSmall
+                          ?.copyWith(
+                            fontWeight: FontWeight.w600,
+                            color: scheme.onSurface,
+                          ),
                       decoration: InputDecoration(
                         border: InputBorder.none,
                         filled: false,
@@ -390,11 +408,12 @@ class _WorkspacePageState extends State<WorkspacePage> {
           children: [
             Container(
               margin: const EdgeInsets.fromLTRB(10, 10, 10, 8),
-              padding: const EdgeInsets.fromLTRB(12, 10, 10, 10),
+              padding: const EdgeInsets.fromLTRB(16, 12, 12, 12),
               decoration: BoxDecoration(
-                color: scheme.surface,
-                borderRadius: BorderRadius.circular(14),
-                border: Border.all(color: scheme.outlineVariant.withValues(alpha: 0.45)),
+                color: scheme.surfaceContainerHigh,
+                borderRadius: BorderRadius.circular(
+                  FolioRadius.xl,
+                ), // fully rounded top section
               ),
               child: Row(
                 children: [
@@ -434,8 +453,11 @@ class _WorkspacePageState extends State<WorkspacePage> {
                     ),
                   ),
                   IconButton(
-                    tooltip: _aiPanelCollapsed ? l10n.aiExpand : l10n.aiCollapse,
-                    onPressed: () => setState(() => _aiPanelCollapsed = !_aiPanelCollapsed),
+                    tooltip: _aiPanelCollapsed
+                        ? l10n.aiExpand
+                        : l10n.aiCollapse,
+                    onPressed: () =>
+                        setState(() => _aiPanelCollapsed = !_aiPanelCollapsed),
                     icon: Icon(
                       _aiPanelCollapsed
                           ? Icons.keyboard_arrow_left_rounded
@@ -483,36 +505,6 @@ class _WorkspacePageState extends State<WorkspacePage> {
               ),
             ),
             const SizedBox(height: 10),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 10),
-              child: Wrap(
-                spacing: 6,
-                runSpacing: 6,
-                children: [
-                  FilledButton.tonalIcon(
-                    onPressed: _pickAiAttachments,
-                    icon: const Icon(Icons.attach_file_rounded, size: 18),
-                    label: Text(l10n.aiAttach),
-                  ),
-                ],
-              ),
-            ),
-            if (_aiAttachmentPaths.isNotEmpty)
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-                child: Wrap(
-                  spacing: 6,
-                  children: _aiAttachmentPaths
-                      .map(
-                        (p) => InputChip(
-                          label: Text(p.split('\\').last),
-                          onDeleted: () => setState(() => _aiAttachmentPaths.remove(p)),
-                        ),
-                      )
-                      .toList(),
-                ),
-              ),
-            const SizedBox(height: 2),
             Expanded(
               child: _activeChat.messages.isEmpty
                   ? Center(
@@ -538,30 +530,37 @@ class _WorkspacePageState extends State<WorkspacePage> {
                         final thought = split.thought;
                         final bodyContent = split.body;
                         final msgKey = '${_activeChat.id}#$i';
-                        final alwaysShowThought = widget.appSettings.aiAlwaysShowThought;
-                        final thoughtExpanded = alwaysShowThought || _expandedThoughtMessageKeys.contains(msgKey);
+                        final alwaysShowThought =
+                            widget.appSettings.aiAlwaysShowThought;
+                        final thoughtExpanded =
+                            alwaysShowThought ||
+                            _expandedThoughtMessageKeys.contains(msgKey);
                         final bubbleColor = isUser
                             ? scheme.primaryContainer
-                            : scheme.surface;
+                            : Colors.transparent;
                         final textColor = isUser
                             ? scheme.onPrimaryContainer
                             : scheme.onSurface;
                         return Padding(
-                          padding: const EdgeInsets.only(bottom: 10),
+                          padding: const EdgeInsets.only(bottom: 16),
                           child: Row(
                             mainAxisAlignment: isUser
                                 ? MainAxisAlignment.end
                                 : MainAxisAlignment.start,
-                            crossAxisAlignment: CrossAxisAlignment.end,
+                            crossAxisAlignment: CrossAxisAlignment
+                                .start, // ChatGPT style is top aligned
                             children: [
                               if (!isUser)
                                 Container(
-                                  width: 26,
-                                  height: 26,
-                                  margin: const EdgeInsets.only(right: 8, bottom: 2),
+                                  width: 28,
+                                  height: 28,
+                                  margin: const EdgeInsets.only(
+                                    right: 12,
+                                    top: 2,
+                                  ),
                                   decoration: BoxDecoration(
                                     color: scheme.secondaryContainer,
-                                    borderRadius: BorderRadius.circular(8),
+                                    shape: BoxShape.circle, // Circular avatar
                                   ),
                                   child: Icon(
                                     Icons.smart_toy_outlined,
@@ -571,30 +570,39 @@ class _WorkspacePageState extends State<WorkspacePage> {
                                 ),
                               Flexible(
                                 child: Container(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 12,
-                                    vertical: 10,
+                                  padding: EdgeInsets.symmetric(
+                                    horizontal: isUser ? 16 : 4,
+                                    vertical: isUser ? 12 : 4,
                                   ),
                                   decoration: BoxDecoration(
                                     color: bubbleColor,
-                                    borderRadius: BorderRadius.circular(14),
-                                    border: Border.all(
-                                      color: scheme.outlineVariant.withValues(alpha: 0.35),
-                                    ),
+                                    borderRadius: BorderRadius.circular(20)
+                                        .copyWith(
+                                          bottomRight: isUser
+                                              ? Radius.zero
+                                              : null,
+                                          topLeft: !isUser ? Radius.zero : null,
+                                        ),
                                   ),
                                   child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.stretch,
                                     children: [
-                                      if (!isUser && thought != null && thought.isNotEmpty)
+                                      if (!isUser &&
+                                          thought != null &&
+                                          thought.isNotEmpty)
                                         InkWell(
                                           onTap: alwaysShowThought
                                               ? null
                                               : () {
                                                   setState(() {
-                                                    if (_expandedThoughtMessageKeys.contains(msgKey)) {
-                                                      _expandedThoughtMessageKeys.remove(msgKey);
+                                                    if (_expandedThoughtMessageKeys
+                                                        .contains(msgKey)) {
+                                                      _expandedThoughtMessageKeys
+                                                          .remove(msgKey);
                                                     } else {
-                                                      _expandedThoughtMessageKeys.add(msgKey);
+                                                      _expandedThoughtMessageKeys
+                                                          .add(msgKey);
                                                     }
                                                   });
                                                 },
@@ -602,25 +610,41 @@ class _WorkspacePageState extends State<WorkspacePage> {
                                             children: [
                                               Icon(
                                                 thoughtExpanded
-                                                    ? Icons.keyboard_arrow_down_rounded
-                                                    : Icons.keyboard_arrow_right_rounded,
+                                                    ? Icons
+                                                          .keyboard_arrow_down_rounded
+                                                    : Icons
+                                                          .keyboard_arrow_right_rounded,
                                                 size: 18,
-                                                color: textColor.withValues(alpha: 0.9),
+                                                color: textColor.withValues(
+                                                  alpha: 0.9,
+                                                ),
                                               ),
                                               const SizedBox(width: 4),
                                               Expanded(
                                                 child: Text(
-                                                  AppLocalizations.of(context).aiAgentThought,
-                                                  style: theme.textTheme.labelMedium?.copyWith(
-                                                    color: textColor.withValues(alpha: 0.9),
-                                                    fontWeight: FontWeight.w700,
-                                                  ),
+                                                  AppLocalizations.of(
+                                                    context,
+                                                  ).aiAgentThought,
+                                                  style: theme
+                                                      .textTheme
+                                                      .labelMedium
+                                                      ?.copyWith(
+                                                        color: textColor
+                                                            .withValues(
+                                                              alpha: 0.9,
+                                                            ),
+                                                        fontWeight:
+                                                            FontWeight.w700,
+                                                      ),
                                                 ),
                                               ),
                                             ],
                                           ),
                                         ),
-                                      if (!isUser && thought != null && thought.isNotEmpty && thoughtExpanded) ...[
+                                      if (!isUser &&
+                                          thought != null &&
+                                          thought.isNotEmpty &&
+                                          thoughtExpanded) ...[
                                         const SizedBox(height: 6),
                                         _buildMarkdownMessage(
                                           context: context,
@@ -631,13 +655,17 @@ class _WorkspacePageState extends State<WorkspacePage> {
                                         const SizedBox(height: 8),
                                         Divider(
                                           height: 1,
-                                          color: textColor.withValues(alpha: 0.18),
+                                          color: textColor.withValues(
+                                            alpha: 0.18,
+                                          ),
                                         ),
                                         const SizedBox(height: 8),
                                       ],
                                       _buildMarkdownMessage(
                                         context: context,
-                                        content: bodyContent.isEmpty ? m.content : bodyContent,
+                                        content: bodyContent.isEmpty
+                                            ? m.content
+                                            : bodyContent,
                                         isUser: isUser,
                                         textColor: textColor,
                                       ),
@@ -645,21 +673,6 @@ class _WorkspacePageState extends State<WorkspacePage> {
                                   ),
                                 ),
                               ),
-                              if (isUser)
-                                Container(
-                                  width: 26,
-                                  height: 26,
-                                  margin: const EdgeInsets.only(left: 8, bottom: 2),
-                                  decoration: BoxDecoration(
-                                    color: scheme.primaryContainer,
-                                    borderRadius: BorderRadius.circular(8),
-                                  ),
-                                  child: Icon(
-                                    Icons.person_outline_rounded,
-                                    size: 16,
-                                    color: scheme.onPrimaryContainer,
-                                  ),
-                                ),
                             ],
                           ),
                         );
@@ -668,39 +681,74 @@ class _WorkspacePageState extends State<WorkspacePage> {
             ),
             Padding(
               padding: const EdgeInsets.fromLTRB(10, 8, 10, 10),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  Container(
-                    padding: const EdgeInsets.fromLTRB(10, 8, 8, 8),
-                    decoration: BoxDecoration(
-                      color: scheme.surface,
-                      borderRadius: BorderRadius.circular(14),
-                      border: Border.all(color: scheme.outlineVariant.withValues(alpha: 0.45)),
-                    ),
-                    child: Row(
+              child: Container(
+                padding: const EdgeInsets.fromLTRB(8, 8, 8, 8),
+                decoration: BoxDecoration(
+                  color: scheme.surfaceContainerHighest,
+                  borderRadius: BorderRadius.circular(24),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    if (_aiAttachmentPaths.isNotEmpty)
+                      Padding(
+                        padding: const EdgeInsets.only(
+                          bottom: 8,
+                          left: 8,
+                          right: 8,
+                          top: 4,
+                        ),
+                        child: Wrap(
+                          spacing: 6,
+                          runSpacing: 6,
+                          children: _aiAttachmentPaths
+                              .map(
+                                (p) => InputChip(
+                                  label: Text(p.split('\\').last),
+                                  onDeleted: () => setState(
+                                    () => _aiAttachmentPaths.remove(p),
+                                  ),
+                                ),
+                              )
+                              .toList(),
+                        ),
+                      ),
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.end,
                       children: [
+                        IconButton(
+                          onPressed: _pickAiAttachments,
+                          icon: const Icon(Icons.add_circle_outline_rounded),
+                          tooltip: l10n.aiAttach,
+                          padding: const EdgeInsets.all(12),
+                          color: scheme.onSurfaceVariant,
+                        ),
+                        const SizedBox(width: 4),
                         Expanded(
-                          child: TextField(
-                            controller: _chatInputController,
-                            minLines: 1,
-                            maxLines: 5,
-                            decoration: InputDecoration(
-                              border: InputBorder.none,
-                              hintText: l10n.aiInputHint,
-                              isDense: true,
+                          child: Padding(
+                            padding: const EdgeInsets.only(bottom: 2),
+                            child: TextField(
+                              controller: _chatInputController,
+                              minLines: 1,
+                              maxLines: 5,
+                              decoration: InputDecoration(
+                                border: InputBorder.none,
+                                hintText: l10n.aiInputHint,
+                                isDense: true,
+                                contentPadding: const EdgeInsets.symmetric(
+                                  vertical: 10,
+                                ),
+                              ),
+                              onSubmitted: (_) => _sendAiChat(),
                             ),
-                            onSubmitted: (_) => _sendAiChat(),
                           ),
                         ),
-                        const SizedBox(width: 6),
+                        const SizedBox(width: 8),
                         FilledButton(
                           onPressed: _aiChatBusy ? null : _sendAiChat,
                           style: FilledButton.styleFrom(
                             minimumSize: const Size(44, 44),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12),
-                            ),
+                            shape: const CircleBorder(),
                             padding: EdgeInsets.zero,
                           ),
                           child: _aiChatBusy
@@ -712,12 +760,15 @@ class _WorkspacePageState extends State<WorkspacePage> {
                                     color: Colors.white,
                                   ),
                                 )
-                              : const Icon(Icons.send_rounded, size: 20),
+                              : const Icon(
+                                  Icons.arrow_upward_rounded,
+                                  size: 20,
+                                ),
                         ),
                       ],
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
             ),
           ],
@@ -776,125 +827,170 @@ class _WorkspacePageState extends State<WorkspacePage> {
               )
             : null,
         appBar: AppBar(
-        title: Text(l10n.appTitle),
-        leading: compact
-            ? IconButton(
-                tooltip: MaterialLocalizations.of(context).openAppDrawerTooltip,
-                icon: const Icon(Icons.menu_rounded),
-                onPressed: () => _scaffoldKey.currentState?.openDrawer(),
-              )
-            : null,
-        actions: [
-          if (widget.appSettings.isAiRuntimeEnabled && _s.aiEnabled)
-            IconButton(
-              tooltip: _aiPanelCollapsed ? l10n.aiShowPanel : l10n.aiHidePanel,
-              icon: Icon(
-                _aiPanelCollapsed
-                    ? Icons.chat_bubble_outline_rounded
-                    : Icons.close_fullscreen_rounded,
+          title: Text(l10n.appTitle),
+          leading: compact
+              ? IconButton(
+                  tooltip: MaterialLocalizations.of(
+                    context,
+                  ).openAppDrawerTooltip,
+                  icon: const Icon(Icons.menu_rounded),
+                  onPressed: () => _scaffoldKey.currentState?.openDrawer(),
+                )
+              : null,
+          actions: [
+            if (widget.appSettings.isAiRuntimeEnabled && _s.aiEnabled)
+              IconButton(
+                tooltip: _aiPanelCollapsed
+                    ? l10n.aiShowPanel
+                    : l10n.aiHidePanel,
+                icon: Icon(
+                  _aiPanelCollapsed
+                      ? Icons.chat_bubble_outline_rounded
+                      : Icons.close_fullscreen_rounded,
+                ),
+                onPressed: () =>
+                    setState(() => _aiPanelCollapsed = !_aiPanelCollapsed),
               ),
-              onPressed: () => setState(() => _aiPanelCollapsed = !_aiPanelCollapsed),
-            ),
-          if (_s.hasPendingDiskSave || _s.isPersistingToDisk)
-            Padding(
-              padding: const EdgeInsetsDirectional.only(end: FolioSpace.xs),
-              child: Center(
-                child: Tooltip(
-                  message: _s.isPersistingToDisk
-                      ? l10n.savingVaultTooltip
-                      : l10n.autosaveSoonTooltip,
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      if (_s.isPersistingToDisk)
-                        SizedBox(
-                          width: 18,
-                          height: 18,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            color: scheme.primary,
+            if (_s.hasPendingDiskSave || _s.isPersistingToDisk)
+              Padding(
+                padding: const EdgeInsetsDirectional.only(end: FolioSpace.xs),
+                child: Center(
+                  child: Tooltip(
+                    message: _s.isPersistingToDisk
+                        ? l10n.savingVaultTooltip
+                        : l10n.autosaveSoonTooltip,
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        if (_s.isPersistingToDisk)
+                          SizedBox(
+                            width: 18,
+                            height: 18,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: scheme.primary,
+                            ),
+                          )
+                        else
+                          Icon(
+                            Icons.save_outlined,
+                            size: 22,
+                            color: scheme.primary.withValues(alpha: 0.85),
                           ),
-                        )
-                      else
-                        Icon(
-                          Icons.save_outlined,
-                          size: 22,
-                          color: scheme.primary.withValues(alpha: 0.85),
+                        const SizedBox(width: 8),
+                        Text(
+                          _s.isPersistingToDisk
+                              ? l10n.saveInProgress
+                              : l10n.savePending,
+                          style: theme.textTheme.labelLarge?.copyWith(
+                            color: scheme.onSurfaceVariant,
+                            fontWeight: FontWeight.w600,
+                          ),
                         ),
-                      const SizedBox(width: 8),
-                      Text(
-                        _s.isPersistingToDisk
-                            ? l10n.saveInProgress
-                            : l10n.savePending,
-                        style: theme.textTheme.labelLarge?.copyWith(
-                          color: scheme.onSurfaceVariant,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
                 ),
               ),
-            ),
-          if (page != null)
+            if (page != null)
+              IconButton(
+                tooltip: l10n.pageHistory,
+                icon: const Icon(Icons.history_rounded),
+                onPressed: _openPageHistoryScreen,
+              ),
+            if (page != null)
+              IconButton(
+                tooltip: l10n.closeCurrentPage,
+                icon: const Icon(Icons.tab_unselected_rounded),
+                onPressed: _s.clearSelectedPage,
+              ),
             IconButton(
-              tooltip: l10n.pageHistory,
-              icon: const Icon(Icons.history_rounded),
-              onPressed: _openPageHistoryScreen,
+              tooltip: l10n.search,
+              icon: const Icon(Icons.search_rounded),
+              onPressed: widget.onOpenSearch,
             ),
-          if (page != null)
             IconButton(
-              tooltip: l10n.closeCurrentPage,
-              icon: const Icon(Icons.tab_unselected_rounded),
-              onPressed: _s.clearSelectedPage,
+              tooltip: l10n.settings,
+              icon: const Icon(Icons.settings_outlined),
+              onPressed: _openSettings,
             ),
-          IconButton(
-            tooltip: l10n.search,
-            icon: const Icon(Icons.search_rounded),
-            onPressed: widget.onOpenSearch,
-          ),
-          IconButton(
-            tooltip: l10n.settings,
-            icon: const Icon(Icons.settings_outlined),
-            onPressed: _openSettings,
-          ),
-          IconButton(
-            tooltip: l10n.lockNow,
-            icon: const Icon(Icons.lock_outline),
-            onPressed: () => _s.lock(),
-          ),
-        ],
-      ),
+            IconButton(
+              tooltip: l10n.lockNow,
+              icon: const Icon(Icons.lock_outline),
+              onPressed: () => _s.lock(),
+            ),
+          ],
+        ),
         body: Row(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          if (!compact) SizedBox(width: 320, child: sidePanel),
-          Expanded(child: _buildEditorContent(context: context, compact: compact, scheme: scheme, page: page)),
-          if (!compact &&
-              widget.appSettings.isAiRuntimeEnabled &&
-              _s.aiEnabled &&
-              !_aiPanelCollapsed)
-            MouseRegion(
-              cursor: SystemMouseCursors.resizeColumn,
-              child: GestureDetector(
-                behavior: HitTestBehavior.opaque,
-                onHorizontalDragUpdate: (d) {
-                  final screenW = MediaQuery.sizeOf(context).width;
-                  final maxW = (screenW * 0.55).clamp(320.0, 700.0);
-                  setState(() {
-                    _aiPanelWidth = (_aiPanelWidth - d.delta.dx).clamp(280.0, maxW);
-                  });
-                },
-                child: Container(width: 6, color: scheme.outlineVariant.withValues(alpha: 0.3)),
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            if (!compact) SizedBox(width: 320, child: sidePanel),
+            Expanded(
+              child: _buildEditorContent(
+                context: context,
+                compact: compact,
+                scheme: scheme,
+                page: page,
               ),
             ),
-          if (!compact &&
-              widget.appSettings.isAiRuntimeEnabled &&
-              _s.aiEnabled &&
-              !_aiPanelCollapsed)
-            SizedBox(width: _aiPanelWidth, child: _buildAiPanel(context)),
-        ],
+            if (!compact &&
+                widget.appSettings.isAiRuntimeEnabled &&
+                _s.aiEnabled &&
+                !_aiPanelCollapsed)
+              MouseRegion(
+                cursor: SystemMouseCursors.resizeColumn,
+                child: GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  onHorizontalDragUpdate: (d) {
+                    final screenW = MediaQuery.sizeOf(context).width;
+                    final maxW = (screenW * 0.55).clamp(320.0, 700.0);
+                    setState(() {
+                      _aiPanelWidth = (_aiPanelWidth - d.delta.dx).clamp(
+                        280.0,
+                        maxW,
+                      );
+                    });
+                  },
+                  child: Container(
+                    width: 6,
+                    color: scheme.outlineVariant.withValues(alpha: 0.3),
+                  ),
+                ),
+              ),
+            if (!compact &&
+                widget.appSettings.isAiRuntimeEnabled &&
+                _s.aiEnabled &&
+                !_aiPanelCollapsed)
+              SizedBox(width: _aiPanelWidth, child: _buildAiPanel(context)),
+          ],
         ),
+        floatingActionButton: page != null
+            ? FloatingActionButton(
+                onPressed: () async {
+                  final type = await showModalBottomSheet<String>(
+                    context: context,
+                    isScrollControlled: true,
+                    backgroundColor: Colors.transparent,
+                    builder: (_) => const BlockTypePickerSheet(
+                      catalog: blockTypeCatalog,
+                    ),
+                  );
+                  if (type != null && mounted) {
+                    _s.appendBlock(
+                      pageId: page.id,
+                      block: FolioBlock(
+                        id: '${page.id}_${const Uuid().v4()}',
+                        type: type,
+                        text: '',
+                        checked: type == 'todo' ? false : null,
+                        codeLanguage: type == 'code' ? 'dart' : null,
+                      ),
+                    );
+                  }
+                },
+                child: const Icon(Icons.add_rounded),
+              )
+            : null,
       ),
     );
   }

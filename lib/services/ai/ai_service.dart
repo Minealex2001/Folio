@@ -9,4 +9,3 @@ abstract class AiService {
 
   Future<List<String>> listModels();
 }
-

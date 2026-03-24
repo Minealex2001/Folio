@@ -13,7 +13,8 @@ class AppSettings extends ChangeNotifier {
   static const _localeCodeKey = 'folio_locale_code';
   static const _vaultIdleLockMinutesKey = 'folio_vault_idle_lock_minutes';
   static const _vaultLockOnMinimizeKey = 'folio_vault_lock_on_minimize';
-  static const _enableGlobalSearchHotkeyKey = 'folio_enable_global_search_hotkey';
+  static const _enableGlobalSearchHotkeyKey =
+      'folio_enable_global_search_hotkey';
   static const _globalSearchHotkeyKey = 'folio_global_search_hotkey';
   static const _minimizeToTrayKey = 'folio_minimize_to_tray';
   static const _closeToTrayKey = 'folio_close_to_tray';
@@ -23,7 +24,8 @@ class AppSettings extends ChangeNotifier {
   static const _aiModelKey = 'folio_ai_model';
   static const _aiTimeoutMsKey = 'folio_ai_timeout_ms';
   static const _aiEndpointModeKey = 'folio_ai_endpoint_mode';
-  static const _aiRemoteEndpointConfirmedKey = 'folio_ai_remote_endpoint_confirmed';
+  static const _aiRemoteEndpointConfirmedKey =
+      'folio_ai_remote_endpoint_confirmed';
   static const _aiAlwaysShowThoughtKey = 'folio_ai_always_show_thought';
   static const int defaultVaultIdleLockMinutes = 15;
   static const String defaultGlobalSearchHotkey = 'Ctrl+Shift+K';
@@ -78,24 +80,24 @@ class AppSettings extends ChangeNotifier {
         ? null
         : Locale(localeCode);
     final idleMinutes = p.getInt(_vaultIdleLockMinutesKey);
-    _vaultIdleLockMinutes =
-        (idleMinutes == null || idleMinutes <= 0)
-            ? defaultVaultIdleLockMinutes
-            : idleMinutes;
+    _vaultIdleLockMinutes = (idleMinutes == null || idleMinutes <= 0)
+        ? defaultVaultIdleLockMinutes
+        : idleMinutes;
     _vaultLockOnMinimize = p.getBool(_vaultLockOnMinimizeKey) ?? false;
-    _enableGlobalSearchHotkey =
-        p.getBool(_enableGlobalSearchHotkeyKey) ?? true;
+    _enableGlobalSearchHotkey = p.getBool(_enableGlobalSearchHotkeyKey) ?? true;
     _globalSearchHotkey =
         p.getString(_globalSearchHotkeyKey) ?? defaultGlobalSearchHotkey;
     _minimizeToTray = p.getBool(_minimizeToTrayKey) ?? true;
     _closeToTray = p.getBool(_closeToTrayKey) ?? true;
     _aiEnabled = p.getBool(_aiEnabledKey) ?? false;
     _aiProvider = _parseAiProvider(p.getString(_aiProviderKey));
-    _aiBaseUrl = p.getString(_aiBaseUrlKey) ?? defaultUrlForProvider(_aiProvider);
+    _aiBaseUrl =
+        p.getString(_aiBaseUrlKey) ?? defaultUrlForProvider(_aiProvider);
     _aiModel = p.getString(_aiModelKey) ?? defaultModelForProvider(_aiProvider);
     _aiTimeoutMs = _sanitizeTimeoutMs(p.getInt(_aiTimeoutMsKey));
     _aiEndpointMode = _parseAiEndpointMode(p.getString(_aiEndpointModeKey));
-    _aiRemoteEndpointConfirmed = p.getBool(_aiRemoteEndpointConfirmedKey) ?? false;
+    _aiRemoteEndpointConfirmed =
+        p.getBool(_aiRemoteEndpointConfirmedKey) ?? false;
     _aiAlwaysShowThought = p.getBool(_aiAlwaysShowThoughtKey) ?? false;
     notifyListeners();
   }
@@ -214,7 +216,9 @@ class AppSettings extends ChangeNotifier {
   }
 
   Future<void> setGlobalSearchHotkey(String value) async {
-    final safe = value.trim().isEmpty ? defaultGlobalSearchHotkey : value.trim();
+    final safe = value.trim().isEmpty
+        ? defaultGlobalSearchHotkey
+        : value.trim();
     if (_globalSearchHotkey == safe) return;
     _globalSearchHotkey = safe;
     notifyListeners();

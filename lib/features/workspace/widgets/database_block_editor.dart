@@ -71,7 +71,8 @@ class _DatabaseBlockEditorState extends State<DatabaseBlockEditor> {
     return _data.views.first;
   }
 
-  List<FolioDbRow> _visibleRowsFor(FolioDbView view) => _data.materializeRows(view);
+  List<FolioDbRow> _visibleRowsFor(FolioDbView view) =>
+      _data.materializeRows(view);
 
   void _addRow() {
     final row = FolioDbRow(id: 'r_${_uuid.v4()}');
@@ -110,7 +111,9 @@ class _DatabaseBlockEditorState extends State<DatabaseBlockEditor> {
     setState(() {});
   }
 
-  bool get _isEs => Localizations.localeOf(context).languageCode.toLowerCase().startsWith('es');
+  bool get _isEs => Localizations.localeOf(
+    context,
+  ).languageCode.toLowerCase().startsWith('es');
 
   String _t(String es, String en) => _isEs ? es : en;
 
@@ -128,8 +131,14 @@ class _DatabaseBlockEditorState extends State<DatabaseBlockEditor> {
             SegmentedButton<String>(
               segments: [
                 ButtonSegment(value: 'table', label: Text('Tabla')),
-                ButtonSegment(value: 'board', label: Text(_t('Tablero', 'Board'))),
-                ButtonSegment(value: 'calendar', label: Text(_t('Calendario', 'Calendar'))),
+                ButtonSegment(
+                  value: 'board',
+                  label: Text(_t('Tablero', 'Board')),
+                ),
+                ButtonSegment(
+                  value: 'calendar',
+                  label: Text(_t('Calendario', 'Calendar')),
+                ),
               ],
               selected: {active.type.name},
               onSelectionChanged: (s) {
@@ -182,7 +191,9 @@ class _DatabaseBlockEditorState extends State<DatabaseBlockEditor> {
               onPressed: () {
                 final first = _data.properties.firstOrNull;
                 if (first == null) return;
-                active.sorts = [FolioDbSortSpec(propertyId: first.id, desc: false)];
+                active.sorts = [
+                  FolioDbSortSpec(propertyId: first.id, desc: false),
+                ];
                 _emit();
                 setState(() {});
               },
@@ -199,7 +210,10 @@ class _DatabaseBlockEditorState extends State<DatabaseBlockEditor> {
           decoration: InputDecoration(
             border: OutlineInputBorder(),
             isDense: true,
-            labelText: _t('Filtro rápido (columna principal)', 'Quick filter (main column)'),
+            labelText: _t(
+              'Filtro rápido (columna principal)',
+              'Quick filter (main column)',
+            ),
           ),
           onSubmitted: (_) {
             setState(() {});
@@ -251,10 +265,8 @@ class _DatabaseBlockEditorState extends State<DatabaseBlockEditor> {
                       isDense: true,
                       items: FolioDbPropertyType.values
                           .map(
-                            (t) => DropdownMenuItem(
-                              value: t,
-                              child: Text(t.name),
-                            ),
+                            (t) =>
+                                DropdownMenuItem(value: t, child: Text(t.name)),
                           )
                           .toList(),
                       onChanged: (v) {
@@ -560,7 +572,8 @@ class _DatabaseBlockEditorState extends State<DatabaseBlockEditor> {
           return DataRow(
             cells: _data.properties.map((p) {
               final value = (r.values[p.id] ?? '').toString();
-              final isComputed = p.type == FolioDbPropertyType.formula ||
+              final isComputed =
+                  p.type == FolioDbPropertyType.formula ||
                   p.type == FolioDbPropertyType.rollup;
               final computed = _data.resolvedValue(r, p);
               final isRelation = p.type == FolioDbPropertyType.relation;
@@ -623,12 +636,7 @@ class _DatabaseBlockEditorState extends State<DatabaseBlockEditor> {
               DropdownButtonFormField<FolioDbPropertyType>(
                 initialValue: type,
                 items: FolioDbPropertyType.values
-                    .map(
-                      (t) => DropdownMenuItem(
-                        value: t,
-                        child: Text(t.name),
-                      ),
-                    )
+                    .map((t) => DropdownMenuItem(value: t, child: Text(t.name)))
                     .toList(),
                 onChanged: (v) {
                   if (v != null) type = v;
@@ -666,7 +674,9 @@ class _DatabaseBlockEditorState extends State<DatabaseBlockEditor> {
       text: property.formulaExpression ?? '',
     );
     final relPropId = ValueNotifier<String?>(property.rollupRelationPropertyId);
-    final rollupTargetId = ValueNotifier<String?>(property.rollupTargetPropertyId);
+    final rollupTargetId = ValueNotifier<String?>(
+      property.rollupTargetPropertyId,
+    );
     final rollupOp = ValueNotifier<String>(property.rollupOperation ?? 'count');
     final relationTarget = ValueNotifier<String?>(
       property.relationTargetDatabaseId,
@@ -692,10 +702,8 @@ class _DatabaseBlockEditorState extends State<DatabaseBlockEditor> {
                     initialValue: property.type,
                     items: FolioDbPropertyType.values
                         .map(
-                          (t) => DropdownMenuItem(
-                            value: t,
-                            child: Text(t.name),
-                          ),
+                          (t) =>
+                              DropdownMenuItem(value: t, child: Text(t.name)),
                         )
                         .toList(),
                     onChanged: (v) {
@@ -719,88 +727,97 @@ class _DatabaseBlockEditorState extends State<DatabaseBlockEditor> {
                   if (property.type == FolioDbPropertyType.relation) ...[
                     ValueListenableBuilder<String?>(
                       valueListenable: relationTarget,
-                      builder: (context, v, child) => DropdownButtonFormField<String>(
-                        initialValue: v,
-                        items: const [
-                          DropdownMenuItem(
-                            value: 'local-db',
-                            child: Text('DB local actual'),
+                      builder: (context, v, child) =>
+                          DropdownButtonFormField<String>(
+                            initialValue: v,
+                            items: const [
+                              DropdownMenuItem(
+                                value: 'local-db',
+                                child: Text('DB local actual'),
+                              ),
+                            ],
+                            onChanged: (nv) => relationTarget.value = nv,
+                            decoration: const InputDecoration(
+                              labelText: 'Target DB',
+                            ),
                           ),
-                        ],
-                        onChanged: (nv) => relationTarget.value = nv,
-                        decoration: const InputDecoration(
-                          labelText: 'Target DB',
-                        ),
-                      ),
                     ),
                   ],
                   if (property.type == FolioDbPropertyType.rollup) ...[
                     ValueListenableBuilder<String?>(
                       valueListenable: relPropId,
-                      builder: (context, v, child) => DropdownButtonFormField<String>(
-                        initialValue: v,
-                        items: _data.properties
-                            .where((p) => p.type == FolioDbPropertyType.relation)
-                            .map(
-                              (p) => DropdownMenuItem(
-                                value: p.id,
-                                child: Text(p.name),
-                              ),
-                            )
-                            .toList(),
-                        onChanged: (nv) => relPropId.value = nv,
-                        decoration: const InputDecoration(
-                          labelText: 'Propiedad relation',
-                        ),
-                      ),
+                      builder: (context, v, child) =>
+                          DropdownButtonFormField<String>(
+                            initialValue: v,
+                            items: _data.properties
+                                .where(
+                                  (p) => p.type == FolioDbPropertyType.relation,
+                                )
+                                .map(
+                                  (p) => DropdownMenuItem(
+                                    value: p.id,
+                                    child: Text(p.name),
+                                  ),
+                                )
+                                .toList(),
+                            onChanged: (nv) => relPropId.value = nv,
+                            decoration: const InputDecoration(
+                              labelText: 'Propiedad relation',
+                            ),
+                          ),
                     ),
                     const SizedBox(height: 8),
                     ValueListenableBuilder<String?>(
                       valueListenable: rollupTargetId,
-                      builder: (context, v, child) => DropdownButtonFormField<String>(
-                        initialValue: v,
-                        items: _data.properties
-                            .where((p) => p.type != FolioDbPropertyType.rollup)
-                            .map(
-                              (p) => DropdownMenuItem(
-                                value: p.id,
-                                child: Text(p.name),
-                              ),
-                            )
-                            .toList(),
-                        onChanged: (nv) => rollupTargetId.value = nv,
-                        decoration: const InputDecoration(
-                          labelText: 'Propiedad target',
-                        ),
-                      ),
+                      builder: (context, v, child) =>
+                          DropdownButtonFormField<String>(
+                            initialValue: v,
+                            items: _data.properties
+                                .where(
+                                  (p) => p.type != FolioDbPropertyType.rollup,
+                                )
+                                .map(
+                                  (p) => DropdownMenuItem(
+                                    value: p.id,
+                                    child: Text(p.name),
+                                  ),
+                                )
+                                .toList(),
+                            onChanged: (nv) => rollupTargetId.value = nv,
+                            decoration: const InputDecoration(
+                              labelText: 'Propiedad target',
+                            ),
+                          ),
                     ),
                     const SizedBox(height: 8),
                     ValueListenableBuilder<String>(
                       valueListenable: rollupOp,
-                      builder: (context, v, child) => DropdownButtonFormField<String>(
-                        initialValue: v,
-                        items: const [
-                          'count',
-                          'sum',
-                          'avg',
-                          'min',
-                          'max',
-                          'percent_checked',
-                        ]
-                            .map(
-                              (op) => DropdownMenuItem(
-                                value: op,
-                                child: Text(op),
-                              ),
-                            )
-                            .toList(),
-                        onChanged: (nv) {
-                          if (nv != null) rollupOp.value = nv;
-                        },
-                        decoration: const InputDecoration(
-                          labelText: 'Operación rollup',
-                        ),
-                      ),
+                      builder: (context, v, child) =>
+                          DropdownButtonFormField<String>(
+                            initialValue: v,
+                            items:
+                                const [
+                                      'count',
+                                      'sum',
+                                      'avg',
+                                      'min',
+                                      'max',
+                                      'percent_checked',
+                                    ]
+                                    .map(
+                                      (op) => DropdownMenuItem(
+                                        value: op,
+                                        child: Text(op),
+                                      ),
+                                    )
+                                    .toList(),
+                            onChanged: (nv) {
+                              if (nv != null) rollupOp.value = nv;
+                            },
+                            decoration: const InputDecoration(
+                              labelText: 'Operación rollup',
+                            ),
+                          ),
                     ),
                   ],
                 ],
@@ -836,7 +853,10 @@ class _DatabaseBlockEditorState extends State<DatabaseBlockEditor> {
     );
   }
 
-  Future<void> _showRelationPicker(FolioDbRow host, FolioDbProperty relationProp) async {
+  Future<void> _showRelationPicker(
+    FolioDbRow host,
+    FolioDbProperty relationProp,
+  ) async {
     final l10n = AppLocalizations.of(context);
     final current = _data
         .sanitizedValue(relationProp, host.values[relationProp.id])
@@ -858,7 +878,7 @@ class _DatabaseBlockEditorState extends State<DatabaseBlockEditor> {
                 final row = allRows[i];
                 final titleProp = _data.properties.first.id;
                 final label = (row.values[titleProp] ?? row.id).toString();
-                    final checked = selected.contains(row.id);
+                final checked = selected.contains(row.id);
                 return CheckboxListTile(
                   value: checked,
                   title: Text(label),
@@ -932,7 +952,9 @@ class _DatabaseBlockEditorState extends State<DatabaseBlockEditor> {
                     margin: const EdgeInsets.only(bottom: 8),
                     child: Padding(
                       padding: const EdgeInsets.all(10),
-                      child: Text((r.values[titleProp] ?? 'Sin título').toString()),
+                      child: Text(
+                        (r.values[titleProp] ?? 'Sin título').toString(),
+                      ),
                     ),
                   );
                 }),
@@ -972,7 +994,9 @@ class _DatabaseBlockEditorState extends State<DatabaseBlockEditor> {
                 const SizedBox(height: 6),
                 ...group.map((r) {
                   final titleProp = _data.properties.first.id;
-                  return Text('- ${(r.values[titleProp] ?? 'Sin título').toString()}');
+                  return Text(
+                    '- ${(r.values[titleProp] ?? 'Sin título').toString()}',
+                  );
                 }),
               ],
             ),
@@ -986,4 +1010,3 @@ class _DatabaseBlockEditorState extends State<DatabaseBlockEditor> {
 extension<T> on Iterable<T> {
   T? get firstOrNull => isEmpty ? null : first;
 }
-

@@ -85,17 +85,22 @@ NotionParsedExport parseNotionExportDirectory(Directory rootDir) {
     if (entity is! File) continue;
     final lower = entity.path.toLowerCase();
     if (lower.endsWith('.md')) mdFiles.add(entity);
-    if (lower.endsWith('.html') || lower.endsWith('.htm')) htmlFiles.add(entity);
+    if (lower.endsWith('.html') || lower.endsWith('.htm'))
+      htmlFiles.add(entity);
     if (lower.endsWith('.csv')) csvFiles.add(entity);
   }
 
   if (mdFiles.isEmpty && htmlFiles.isEmpty && csvFiles.isEmpty) {
-    throw NotionImportException('No se detectaron archivos Markdown, HTML ni CSV.');
+    throw NotionImportException(
+      'No se detectaron archivos Markdown, HTML ni CSV.',
+    );
   }
 
   final useMarkdown = mdFiles.length >= htmlFiles.length;
   final files = useMarkdown ? mdFiles : htmlFiles;
-  final format = useMarkdown ? NotionExportFormat.markdown : NotionExportFormat.html;
+  final format = useMarkdown
+      ? NotionExportFormat.markdown
+      : NotionExportFormat.html;
   final warnings = <NotionImportWarning>[];
 
   final pages = files.map((f) {
@@ -116,13 +121,14 @@ NotionParsedExport parseNotionExportDirectory(Directory rootDir) {
       title: title.isEmpty ? 'Untitled' : title,
       blocks: safeBlocks,
     );
-  }).toList()
-    ..sort((a, b) => a.sourcePath.compareTo(b.sourcePath));
+  }).toList()..sort((a, b) => a.sourcePath.compareTo(b.sourcePath));
 
   final databases = <NotionParsedDatabase>[];
   for (final csv in csvFiles) {
     try {
-      final rel = p.relative(csv.path, from: rootDir.path).replaceAll(r'\', '/');
+      final rel = p
+          .relative(csv.path, from: rootDir.path)
+          .replaceAll(r'\', '/');
       final title = _cleanTitle(p.basenameWithoutExtension(csv.path));
       final raw = csv.readAsStringSync();
       final data = _parseCsvAsDatabase(raw, titleHint: title);
@@ -134,7 +140,9 @@ NotionParsedExport parseNotionExportDirectory(Directory rootDir) {
         ),
       );
     } catch (e) {
-      warnings.add(NotionImportWarning('No se pudo parsear DB CSV: ${csv.path} ($e)'));
+      warnings.add(
+        NotionImportWarning('No se pudo parsear DB CSV: ${csv.path} ($e)'),
+      );
     }
   }
 
@@ -146,7 +154,10 @@ NotionParsedExport parseNotionExportDirectory(Directory rootDir) {
   );
 }
 
-FolioDatabaseData _parseCsvAsDatabase(String rawCsv, {required String titleHint}) {
+FolioDatabaseData _parseCsvAsDatabase(
+  String rawCsv, {
+  required String titleHint,
+}) {
   final lines = rawCsv
       .replaceAll('\r\n', '\n')
       .split('\n')
@@ -159,7 +170,9 @@ FolioDatabaseData _parseCsvAsDatabase(String rawCsv, {required String titleHint}
   final db = FolioDatabaseData.empty();
   db.properties = [];
   for (var i = 0; i < header.length; i++) {
-    final name = header[i].trim().isEmpty ? 'Column ${i + 1}' : header[i].trim();
+    final name = header[i].trim().isEmpty
+        ? 'Column ${i + 1}'
+        : header[i].trim();
     db.properties.add(
       FolioDbProperty(
         id: i == 0 ? 'p_title' : 'p_${i + 1}',
@@ -170,7 +183,11 @@ FolioDatabaseData _parseCsvAsDatabase(String rawCsv, {required String titleHint}
   }
   if (db.properties.isEmpty) {
     db.properties.add(
-      FolioDbProperty(id: 'p_title', name: titleHint, type: FolioDbPropertyType.text),
+      FolioDbProperty(
+        id: 'p_title',
+        name: titleHint,
+        type: FolioDbPropertyType.text,
+      ),
     );
   }
   db.rows = [];
@@ -214,7 +231,11 @@ List<String> _parseCsvLine(String line) {
   return out;
 }
 
-String? _resolveParentSourcePath(String relPath, List<File> files, String rootPath) {
+String? _resolveParentSourcePath(
+  String relPath,
+  List<File> files,
+  String rootPath,
+) {
   final fileSet = files
       .map((f) => p.relative(f.path, from: rootPath).replaceAll(r'\', '/'))
       .toSet();
@@ -285,17 +306,23 @@ List<FolioBlock> _parseMarkdownBlocks(
       continue;
     }
     if (t.startsWith('# ')) {
-      out.add(FolioBlock(id: 'tmp', type: 'h1', text: _stripMdInline(t.substring(2))));
+      out.add(
+        FolioBlock(id: 'tmp', type: 'h1', text: _stripMdInline(t.substring(2))),
+      );
       i++;
       continue;
     }
     if (t.startsWith('## ')) {
-      out.add(FolioBlock(id: 'tmp', type: 'h2', text: _stripMdInline(t.substring(3))));
+      out.add(
+        FolioBlock(id: 'tmp', type: 'h2', text: _stripMdInline(t.substring(3))),
+      );
       i++;
       continue;
     }
     if (t.startsWith('### ')) {
-      out.add(FolioBlock(id: 'tmp', type: 'h3', text: _stripMdInline(t.substring(4))));
+      out.add(
+        FolioBlock(id: 'tmp', type: 'h3', text: _stripMdInline(t.substring(4))),
+      );
       i++;
       continue;
     }
@@ -305,13 +332,23 @@ List<FolioBlock> _parseMarkdownBlocks(
       continue;
     }
     if (t.startsWith('> ')) {
-      out.add(FolioBlock(id: 'tmp', type: 'quote', text: _stripMdInline(t.substring(2))));
+      out.add(
+        FolioBlock(
+          id: 'tmp',
+          type: 'quote',
+          text: _stripMdInline(t.substring(2)),
+        ),
+      );
       i++;
       continue;
     }
-    if (t.startsWith('- ') || t.startsWith('* ') || RegExp(r'^\d+\.\s+').hasMatch(t)) {
+    if (t.startsWith('- ') ||
+        t.startsWith('* ') ||
+        RegExp(r'^\d+\.\s+').hasMatch(t)) {
       final bulletText = t.replaceFirst(RegExp(r'^(-|\*|\d+\.)\s+'), '');
-      out.add(FolioBlock(id: 'tmp', type: 'bullet', text: _stripMdInline(bulletText)));
+      out.add(
+        FolioBlock(id: 'tmp', type: 'bullet', text: _stripMdInline(bulletText)),
+      );
       i++;
       continue;
     }
@@ -372,12 +409,17 @@ List<FolioBlock> _parseMarkdownBlocks(
   }
 
   if (out.isEmpty) {
-    warnings.add(const NotionImportWarning('Pagina vacia importada como parrafo vacio.'));
+    warnings.add(
+      const NotionImportWarning('Pagina vacia importada como parrafo vacio.'),
+    );
   }
   return out;
 }
 
-List<FolioBlock> _parseHtmlBlocks(String input, List<NotionImportWarning> warnings) {
+List<FolioBlock> _parseHtmlBlocks(
+  String input,
+  List<NotionImportWarning> warnings,
+) {
   final out = <FolioBlock>[];
   final html = input.replaceAll('\r\n', '\n');
 
@@ -445,14 +487,20 @@ List<FolioBlock> _parseHtmlBlocks(String input, List<NotionImportWarning> warnin
         }
         break;
       default:
-        warnings.add(NotionImportWarning('Etiqueta HTML no soportada: <$tag>.'));
+        warnings.add(
+          NotionImportWarning('Etiqueta HTML no soportada: <$tag>.'),
+        );
     }
   }
 
   if (out.isEmpty) {
     final fallback = _stripHtml(html);
     out.add(FolioBlock(id: 'tmp', type: 'paragraph', text: fallback));
-    warnings.add(const NotionImportWarning('HTML sin bloques reconocibles; se aplico fallback de texto.'));
+    warnings.add(
+      const NotionImportWarning(
+        'HTML sin bloques reconocibles; se aplico fallback de texto.',
+      ),
+    );
   }
   return out;
 }

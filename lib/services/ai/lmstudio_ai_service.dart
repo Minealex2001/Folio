@@ -25,16 +25,28 @@ class LmStudioAiService implements AiService {
       final endpoint = baseUrl.resolve('/v1/chat/completions');
       final httpReq = await client.postUrl(endpoint).timeout(timeout);
       httpReq.headers.contentType = ContentType.json;
-      final textAttachments = request.attachments.where((a) => !a.mimeType.startsWith('image/')).toList();
-      final imageAttachments = request.attachments.where((a) => a.mimeType.startsWith('image/')).toList();
+      final textAttachments = request.attachments
+          .where((a) => !a.mimeType.startsWith('image/'))
+          .toList();
+      final imageAttachments = request.attachments
+          .where((a) => a.mimeType.startsWith('image/'))
+          .toList();
       final userMessageContent = imageAttachments.isEmpty
           ? _buildPrompt(request)
           : <Map<String, dynamic>>[
-              {'type': 'text', 'text': _buildPromptWithTextAttachments(request.prompt, textAttachments)},
+              {
+                'type': 'text',
+                'text': _buildPromptWithTextAttachments(
+                  request.prompt,
+                  textAttachments,
+                ),
+              },
               ...imageAttachments.map(
                 (a) => {
                   'type': 'image_url',
-                  'image_url': {'url': 'data:${a.mimeType};base64,${a.content.trim()}'},
+                  'image_url': {
+                    'url': 'data:${a.mimeType};base64,${a.content.trim()}',
+                  },
                 },
               ),
             ];
@@ -43,7 +55,9 @@ class LmStudioAiService implements AiService {
         'messages': [
           if ((request.systemPrompt ?? '').trim().isNotEmpty)
             {'role': 'system', 'content': request.systemPrompt!.trim()},
-          ...request.messages.map((m) => {'role': m.role, 'content': m.content}),
+          ...request.messages.map(
+            (m) => {'role': m.role, 'content': m.content},
+          ),
           {'role': 'user', 'content': userMessageContent},
         ],
       };
@@ -58,11 +72,13 @@ class LmStudioAiService implements AiService {
       }
       final json = jsonDecode(body) as Map<String, dynamic>;
       final choices = json['choices'] as List<dynamic>? ?? const [];
-      if (choices.isEmpty) throw StateError('LM Studio devolvió respuesta vacía');
+      if (choices.isEmpty)
+        throw StateError('LM Studio devolvió respuesta vacía');
       final first = choices.first as Map<String, dynamic>;
       final msg = (first['message'] as Map<String, dynamic>?) ?? const {};
       final content = (msg['content'] as String? ?? '').trim();
-      if (content.isEmpty) throw StateError('LM Studio devolvió respuesta vacía');
+      if (content.isEmpty)
+        throw StateError('LM Studio devolvió respuesta vacía');
       return AiCompletionResult(
         text: content,
         provider: providerName,
@@ -77,7 +93,9 @@ class LmStudioAiService implements AiService {
   Future<void> ping() async {
     final client = HttpClient();
     try {
-      final req = await client.getUrl(baseUrl.resolve('/v1/models')).timeout(timeout);
+      final req = await client
+          .getUrl(baseUrl.resolve('/v1/models'))
+          .timeout(timeout);
       final res = await req.close().timeout(timeout);
       if (res.statusCode < 200 || res.statusCode >= 300) {
         throw StateError('LM Studio no disponible (${res.statusCode})');
@@ -92,7 +110,9 @@ class LmStudioAiService implements AiService {
   Future<List<String>> listModels() async {
     final client = HttpClient();
     try {
-      final req = await client.getUrl(baseUrl.resolve('/v1/models')).timeout(timeout);
+      final req = await client
+          .getUrl(baseUrl.resolve('/v1/models'))
+          .timeout(timeout);
       final res = await req.close().timeout(timeout);
       final body = await utf8.decodeStream(res).timeout(timeout);
       if (res.statusCode < 200 || res.statusCode >= 300) {
@@ -111,11 +131,16 @@ class LmStudioAiService implements AiService {
   }
 
   String _buildPrompt(AiCompletionRequest request) {
-    final textAttachments = request.attachments.where((a) => !a.mimeType.startsWith('image/')).toList();
+    final textAttachments = request.attachments
+        .where((a) => !a.mimeType.startsWith('image/'))
+        .toList();
     return _buildPromptWithTextAttachments(request.prompt, textAttachments);
   }
 
-  String _buildPromptWithTextAttachments(String prompt, List<AiFileAttachment> textAttachments) {
+  String _buildPromptWithTextAttachments(
+    String prompt,
+    List<AiFileAttachment> textAttachments,
+  ) {
     final b = StringBuffer(prompt.trim());
     if (textAttachments.isNotEmpty) {
       b.write('\n\nAdjuntos:\n');
@@ -126,4 +151,3 @@ class LmStudioAiService implements AiService {
     return b.toString().trim();
   }
 }
-

@@ -32,13 +32,27 @@ ThemeData folioDarkTheme(Color seedColor) {
 
 ThemeData _folioThemeFromBase(ThemeData base, ColorScheme colorScheme) {
   final expressiveText = GoogleFonts.outfitTextTheme(base.textTheme).copyWith(
-    displayLarge: base.textTheme.displayLarge?.copyWith(fontWeight: FontWeight.w700),
-    displayMedium: base.textTheme.displayMedium?.copyWith(fontWeight: FontWeight.w700),
-    headlineLarge: base.textTheme.headlineLarge?.copyWith(fontWeight: FontWeight.w700),
-    headlineMedium: base.textTheme.headlineMedium?.copyWith(fontWeight: FontWeight.w700),
-    titleLarge: base.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w600),
-    titleMedium: base.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600),
-    labelLarge: base.textTheme.labelLarge?.copyWith(fontWeight: FontWeight.w600),
+    displayLarge: base.textTheme.displayLarge?.copyWith(
+      fontWeight: FontWeight.w700,
+    ),
+    displayMedium: base.textTheme.displayMedium?.copyWith(
+      fontWeight: FontWeight.w700,
+    ),
+    headlineLarge: base.textTheme.headlineLarge?.copyWith(
+      fontWeight: FontWeight.w700,
+    ),
+    headlineMedium: base.textTheme.headlineMedium?.copyWith(
+      fontWeight: FontWeight.w700,
+    ),
+    titleLarge: base.textTheme.titleLarge?.copyWith(
+      fontWeight: FontWeight.w600,
+    ),
+    titleMedium: base.textTheme.titleMedium?.copyWith(
+      fontWeight: FontWeight.w600,
+    ),
+    labelLarge: base.textTheme.labelLarge?.copyWith(
+      fontWeight: FontWeight.w600,
+    ),
   );
   return base.copyWith(
     textTheme: expressiveText,
@@ -53,17 +67,20 @@ ThemeData _folioThemeFromBase(ThemeData base, ColorScheme colorScheme) {
       centerTitle: false,
       elevation: 0,
       scrolledUnderElevation: 1,
-      backgroundColor: Colors.transparent, // Let surface color show through or handle natively 
+      backgroundColor: Colors
+          .transparent, // Let surface color show through or handle natively
       foregroundColor: colorScheme.onSurface,
       surfaceTintColor: colorScheme.surfaceTint,
     ),
     filledButtonTheme: FilledButtonThemeData(
       style: FilledButton.styleFrom(
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(FolioRadius.sm),
+          borderRadius: BorderRadius.circular(
+            FolioRadius.xl,
+          ), // Pill shape for M3
         ),
         padding: const EdgeInsets.symmetric(
-          horizontal: FolioSpace.md,
+          horizontal: FolioSpace.lg,
           vertical: FolioSpace.sm,
         ),
       ),
@@ -71,11 +88,13 @@ ThemeData _folioThemeFromBase(ThemeData base, ColorScheme colorScheme) {
     outlinedButtonTheme: OutlinedButtonThemeData(
       style: OutlinedButton.styleFrom(
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(FolioRadius.sm),
+          borderRadius: BorderRadius.circular(
+            FolioRadius.xl,
+          ), // Pill shape for M3
         ),
         side: BorderSide(color: colorScheme.outlineVariant),
         padding: const EdgeInsets.symmetric(
-          horizontal: FolioSpace.md,
+          horizontal: FolioSpace.lg,
           vertical: FolioSpace.sm,
         ),
       ),
@@ -83,7 +102,13 @@ ThemeData _folioThemeFromBase(ThemeData base, ColorScheme colorScheme) {
     textButtonTheme: TextButtonThemeData(
       style: TextButton.styleFrom(
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(FolioRadius.sm),
+          borderRadius: BorderRadius.circular(
+            FolioRadius.xl,
+          ), // Pill shape for M3
+        ),
+        padding: const EdgeInsets.symmetric(
+          horizontal: FolioSpace.md,
+          vertical: FolioSpace.xxs,
         ),
       ),
     ),
@@ -91,9 +116,13 @@ ThemeData _folioThemeFromBase(ThemeData base, ColorScheme colorScheme) {
       elevation: 0,
       color: colorScheme.surfaceContainerLow,
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(FolioRadius.md),
-        side: BorderSide(color: colorScheme.outlineVariant),
+        borderRadius: BorderRadius.circular(FolioRadius.md), // 12
+        side: BorderSide(
+          color: colorScheme.outlineVariant.withValues(alpha: 0.5),
+        ),
       ),
+      margin: EdgeInsets.zero,
+      clipBehavior: Clip.antiAlias,
     ),
     dividerTheme: DividerThemeData(
       color: colorScheme.outlineVariant,
@@ -108,12 +137,12 @@ ThemeData _folioThemeFromBase(ThemeData base, ColorScheme colorScheme) {
     snackBarTheme: SnackBarThemeData(
       behavior: SnackBarBehavior.floating,
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(FolioRadius.md),
+        borderRadius: BorderRadius.circular(FolioRadius.sm),
       ),
     ),
     dialogTheme: DialogThemeData(
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(FolioRadius.lg),
+        borderRadius: BorderRadius.circular(FolioRadius.xl),
       ),
     ),
     navigationDrawerTheme: NavigationDrawerThemeData(
@@ -131,16 +160,20 @@ ThemeData _folioThemeFromBase(ThemeData base, ColorScheme colorScheme) {
       filled: true,
       fillColor: colorScheme.surfaceContainerHighest.withValues(alpha: 0.35),
       border: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(FolioRadius.sm),
+        borderRadius: BorderRadius.circular(FolioRadius.md),
         borderSide: BorderSide(color: colorScheme.outlineVariant),
       ),
       enabledBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(FolioRadius.sm),
+        borderRadius: BorderRadius.circular(FolioRadius.md),
         borderSide: BorderSide(color: colorScheme.outlineVariant),
       ),
       focusedBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(FolioRadius.sm),
+        borderRadius: BorderRadius.circular(FolioRadius.md),
         borderSide: BorderSide(color: colorScheme.primary, width: 2),
+      ),
+      contentPadding: const EdgeInsets.symmetric(
+        horizontal: FolioSpace.md,
+        vertical: FolioSpace.sm,
       ),
     ),
   );
