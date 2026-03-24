@@ -1565,11 +1565,6 @@ class _BlockEditorState extends State<BlockEditor> {
               ),
             ),
           ),
-          FilledButton.tonalIcon(
-            onPressed: () => _addBlock(page.id),
-            icon: const Icon(Icons.add, size: 20),
-            label: Text(AppLocalizations.of(context).addBlock),
-          ),
         ],
       ),
     );
@@ -2479,27 +2474,21 @@ class _BlockEditorState extends State<BlockEditor> {
     );
 
     final mdSheet = folioMarkdownStyleSheet(context, style, scheme);
-    final stackedField = Stack(
-      children: [
-        field,
-        if (showInlinePreview)
-          Positioned.fill(
-            child: GestureDetector(
-              behavior: HitTestBehavior.opaque,
-              onTap: () => focus.requestFocus(),
-              child: Align(
-                alignment: isParagraph
-                    ? AlignmentDirectional.topStart
-                    : AlignmentDirectional.centerStart,
-                child: FolioMarkdownPreview(
-                  data: ctrl.text,
-                  styleSheet: mdSheet,
-                ),
+    final stackedField = showInlinePreview
+        ? GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onTap: () => focus.requestFocus(),
+            child: Align(
+              alignment: isParagraph
+                  ? AlignmentDirectional.topStart
+                  : AlignmentDirectional.centerStart,
+              child: FolioMarkdownPreview(
+                data: ctrl.text,
+                styleSheet: mdSheet,
               ),
             ),
-          ),
-      ],
-    );
+          )
+        : field;
 
     Widget textContainer = stackedField;
     if (block.type == 'quote') {

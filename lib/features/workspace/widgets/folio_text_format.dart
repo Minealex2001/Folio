@@ -95,13 +95,19 @@ class FolioMarkdownPreview extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return MarkdownBody(
-      data: folioSanitizeMarkdownForPreview(data),
-      styleSheet: styleSheet,
-      shrinkWrap: true,
-      fitContent: true,
-      selectable: false,
-      extensionSet: md.ExtensionSet.gitHubFlavored,
+    return SingleChildScrollView(
+      // Evita overflows cuando el preview se renderiza dentro de una altura fija
+      // y permite desplazar contenido largo (p. ej., tablas).
+      physics: const ClampingScrollPhysics(),
+      clipBehavior: Clip.hardEdge,
+      child: MarkdownBody(
+        data: folioSanitizeMarkdownForPreview(data),
+        styleSheet: styleSheet,
+        shrinkWrap: true,
+        fitContent: true,
+        selectable: false,
+        extensionSet: md.ExtensionSet.gitHubFlavored,
+      ),
     );
   }
 }

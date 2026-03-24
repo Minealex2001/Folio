@@ -435,11 +435,38 @@ class _WorkspacePageState extends State<WorkspacePage> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(
-                          l10n.aiAssistantTitle,
-                          style: theme.textTheme.titleSmall?.copyWith(
-                            fontWeight: FontWeight.w700,
-                          ),
+                        Row(
+                          children: [
+                            Flexible(
+                              child: Text(
+                                l10n.aiAssistantTitle,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: theme.textTheme.titleSmall?.copyWith(
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 8,
+                                vertical: 2,
+                              ),
+                              decoration: BoxDecoration(
+                                color: scheme.tertiaryContainer,
+                                borderRadius: BorderRadius.circular(999),
+                              ),
+                              child: Text(
+                                l10n.aiBetaBadge,
+                                style: theme.textTheme.labelSmall?.copyWith(
+                                  color: scheme.onTertiaryContainer,
+                                  fontWeight: FontWeight.w800,
+                                  letterSpacing: 0.6,
+                                ),
+                              ),
+                            ),
+                          ],
                         ),
                         Text(
                           _s.selectedPage?.title ?? l10n.aiNoPageSelected,
@@ -786,6 +813,12 @@ class _WorkspacePageState extends State<WorkspacePage> {
     final theme = Theme.of(context);
     final width = MediaQuery.sizeOf(context).width;
     final compact = width < 1000;
+    final isAiPanelVisible =
+        !compact &&
+        widget.appSettings.isAiRuntimeEnabled &&
+        _s.aiEnabled &&
+        !_aiPanelCollapsed;
+    final fabRightOffset = isAiPanelVisible ? _aiPanelWidth + 18 : 0.0;
     final sidePanel = Material(
       color: scheme.surfaceContainerLow,
       child: Sidebar(session: _s),
@@ -933,10 +966,7 @@ class _WorkspacePageState extends State<WorkspacePage> {
                 page: page,
               ),
             ),
-            if (!compact &&
-                widget.appSettings.isAiRuntimeEnabled &&
-                _s.aiEnabled &&
-                !_aiPanelCollapsed)
+            if (isAiPanelVisible)
               MouseRegion(
                 cursor: SystemMouseCursors.resizeColumn,
                 child: GestureDetector(
@@ -957,38 +987,38 @@ class _WorkspacePageState extends State<WorkspacePage> {
                   ),
                 ),
               ),
-            if (!compact &&
-                widget.appSettings.isAiRuntimeEnabled &&
-                _s.aiEnabled &&
-                !_aiPanelCollapsed)
+            if (isAiPanelVisible)
               SizedBox(width: _aiPanelWidth, child: _buildAiPanel(context)),
           ],
         ),
         floatingActionButton: page != null
-            ? FloatingActionButton(
-                onPressed: () async {
-                  final type = await showModalBottomSheet<String>(
-                    context: context,
-                    isScrollControlled: true,
-                    backgroundColor: Colors.transparent,
-                    builder: (_) => const BlockTypePickerSheet(
-                      catalog: blockTypeCatalog,
-                    ),
-                  );
-                  if (type != null && mounted) {
-                    _s.appendBlock(
-                      pageId: page.id,
-                      block: FolioBlock(
-                        id: '${page.id}_${const Uuid().v4()}',
-                        type: type,
-                        text: '',
-                        checked: type == 'todo' ? false : null,
-                        codeLanguage: type == 'code' ? 'dart' : null,
+            ? Padding(
+                padding: EdgeInsets.only(right: fabRightOffset),
+                child: FloatingActionButton(
+                  onPressed: () async {
+                    final type = await showModalBottomSheet<String>(
+                      context: context,
+                      isScrollControlled: true,
+                      backgroundColor: Colors.transparent,
+                      builder: (_) => const BlockTypePickerSheet(
+                        catalog: blockTypeCatalog,
                       ),
                     );
-                  }
-                },
-                child: const Icon(Icons.add_rounded),
+                    if (type != null && mounted) {
+                      _s.appendBlock(
+                        pageId: page.id,
+                        block: FolioBlock(
+                          id: '${page.id}_${const Uuid().v4()}',
+                          type: type,
+                          text: '',
+                          checked: type == 'todo' ? false : null,
+                          codeLanguage: type == 'code' ? 'dart' : null,
+                        ),
+                      );
+                    }
+                  },
+                  child: const Icon(Icons.add_rounded),
+                ),
               )
             : null,
       ),

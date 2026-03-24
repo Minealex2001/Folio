@@ -255,6 +255,10 @@
   ,"aiAgentThought": "Pensamiento del agente"
   ,"aiAlwaysShowThought": "Mostrar siempre pensamiento de IA"
   ,"aiAlwaysShowThoughtHint": "Si está desactivado, se mostrará plegado con flecha en cada mensaje."
+  ,"aiBetaBadge": "BETA"
+  ,"aiBetaEnableTitle": "IA en fase BETA"
+  ,"aiBetaEnableBody": "Esta funcionalidad está en fase BETA y puede fallar o comportarse de forma inesperada.\n\n¿Quieres activarla igualmente?"
+  ,"aiBetaEnableConfirm": "Activar BETA"
   ,"searchByNameOrShortcut": "Buscar por nombre o atajo…",
   "search": "Buscar",
   "open": "Abrir",

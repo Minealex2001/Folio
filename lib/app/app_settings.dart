@@ -27,6 +27,7 @@ class AppSettings extends ChangeNotifier {
   static const _aiRemoteEndpointConfirmedKey =
       'folio_ai_remote_endpoint_confirmed';
   static const _aiAlwaysShowThoughtKey = 'folio_ai_always_show_thought';
+  static const _aiModelsPrefix = 'folio_ai_models_';
   static const int defaultVaultIdleLockMinutes = 15;
   static const String defaultGlobalSearchHotkey = 'Ctrl+Shift+K';
   static const int defaultAiTimeoutMs = 30000;
@@ -51,6 +52,7 @@ class AppSettings extends ChangeNotifier {
   AiEndpointMode _aiEndpointMode = AiEndpointMode.localhostOnly;
   bool _aiRemoteEndpointConfirmed = false;
   bool _aiAlwaysShowThought = false;
+  final Map<AiProvider, List<String>> _cachedAiModelsByProvider = {};
 
   ThemeMode get themeMode => _themeMode;
   Locale? get locale => _locale;
@@ -99,6 +101,18 @@ class AppSettings extends ChangeNotifier {
     _aiRemoteEndpointConfirmed =
         p.getBool(_aiRemoteEndpointConfirmedKey) ?? false;
     _aiAlwaysShowThought = p.getBool(_aiAlwaysShowThoughtKey) ?? false;
+    _cachedAiModelsByProvider
+      ..clear()
+      ..addAll({
+        AiProvider.ollama: List<String>.from(
+          p.getStringList(_aiModelsKeyForProvider(AiProvider.ollama)) ??
+              const <String>[],
+        ),
+        AiProvider.lmStudio: List<String>.from(
+          p.getStringList(_aiModelsKeyForProvider(AiProvider.lmStudio)) ??
+              const <String>[],
+        ),
+      });
     notifyListeners();
   }
 
@@ -162,6 +176,32 @@ class AppSettings extends ChangeNotifier {
       case AiProvider.none:
         return defaultOllamaModel;
     }
+  }
+
+  String _aiModelsKeyForProvider(AiProvider provider) {
+    return '$_aiModelsPrefix${provider.name}';
+  }
+
+  List<String> cachedAiModelsFor(AiProvider provider) {
+    if (provider == AiProvider.none) return const [];
+    return List<String>.from(_cachedAiModelsByProvider[provider] ?? const []);
+  }
+
+  Future<void> setCachedAiModelsFor(
+    AiProvider provider,
+    List<String> models,
+  ) async {
+    if (provider == AiProvider.none) return;
+    final cleaned = models
+        .map((m) => m.trim())
+        .where((m) => m.isNotEmpty)
+        .toSet()
+        .toList();
+    cleaned.sort();
+    final sp = await SharedPreferences.getInstance();
+    await sp.setStringList(_aiModelsKeyForProvider(provider), cleaned);
+    _cachedAiModelsByProvider[provider] = cleaned;
+    notifyListeners();
   }
 
   Future<void> setThemeMode(ThemeMode mode) async {

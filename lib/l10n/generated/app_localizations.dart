@@ -1466,6 +1466,30 @@ abstract class AppLocalizations {
   /// **'Si está desactivado, se mostrará plegado con flecha en cada mensaje.'**
   String get aiAlwaysShowThoughtHint;
 
+  /// No description provided for @aiBetaBadge.
+  ///
+  /// In es, this message translates to:
+  /// **'BETA'**
+  String get aiBetaBadge;
+
+  /// No description provided for @aiBetaEnableTitle.
+  ///
+  /// In es, this message translates to:
+  /// **'IA en fase BETA'**
+  String get aiBetaEnableTitle;
+
+  /// No description provided for @aiBetaEnableBody.
+  ///
+  /// In es, this message translates to:
+  /// **'Esta funcionalidad está en fase BETA y puede fallar o comportarse de forma inesperada.\n\n¿Quieres activarla igualmente?'**
+  String get aiBetaEnableBody;
+
+  /// No description provided for @aiBetaEnableConfirm.
+  ///
+  /// In es, this message translates to:
+  /// **'Activar BETA'**
+  String get aiBetaEnableConfirm;
+
   /// No description provided for @searchByNameOrShortcut.
   ///
   /// In es, this message translates to:

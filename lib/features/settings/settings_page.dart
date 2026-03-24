@@ -45,6 +45,7 @@ class _SettingsPageState extends State<SettingsPage> {
     _aiTimeoutController = TextEditingController(
       text: _app.aiTimeoutMs.toString(),
     );
+    _availableModels = _app.cachedAiModelsFor(_app.aiProvider);
     _refreshSecurityFlags();
   }
 
@@ -113,6 +114,28 @@ class _SettingsPageState extends State<SettingsPage> {
     await _confirmRemoteEndpointIfNeeded();
   }
 
+  Future<bool> _confirmAiBetaEnable() async {
+    final l10n = AppLocalizations.of(context);
+    final go = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(l10n.aiBetaEnableTitle),
+        content: Text(l10n.aiBetaEnableBody),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: Text(l10n.cancel),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: Text(l10n.aiBetaEnableConfirm),
+          ),
+        ],
+      ),
+    );
+    return go == true;
+  }
+
   AiService _buildAiServiceFromInputs() {
     final uri = AiSafetyPolicy.parseAndNormalizeUrl(
       _aiBaseUrlController.text.trim(),
@@ -171,6 +194,7 @@ class _SettingsPageState extends State<SettingsPage> {
       setState(() {
         _availableModels = models;
       });
+      await _app.setCachedAiModelsFor(_app.aiProvider, models);
       if (models.isNotEmpty) {
         final selected = models.contains(_app.aiModel)
             ? _app.aiModel
@@ -750,6 +774,10 @@ class _SettingsPageState extends State<SettingsPage> {
                             ),
                             value: _app.aiEnabled,
                             onChanged: (v) async {
+                            if (v && !_app.aiEnabled) {
+                              final confirmed = await _confirmAiBetaEnable();
+                              if (!confirmed) return;
+                            }
                               await _saveAiFields();
                               await _app.setAiEnabled(v);
                             },
@@ -774,11 +802,17 @@ class _SettingsPageState extends State<SettingsPage> {
                               onChanged: (value) async {
                                 if (value == null) return;
                                 try {
-                                  setState(() {
-                                    _availableModels = const [];
-                                  });
                                   await _app.setAiProvider(value);
                                   if (!mounted) return;
+                                  setState(() {
+                                    _availableModels = _app.cachedAiModelsFor(
+                                      value,
+                                    );
+                                  });
+                                  if (_availableModels.isNotEmpty &&
+                                      !_availableModels.contains(_app.aiModel)) {
+                                    await _app.setAiModel(_availableModels.first);
+                                  }
                                   _aiBaseUrlController.text = _app
                                       .defaultUrlForProvider(value);
                                   await _saveAiFields();

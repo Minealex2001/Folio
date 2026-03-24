@@ -749,6 +749,19 @@ class AppLocalizationsEn extends AppLocalizations {
       'If disabled, it appears collapsed with an arrow in each message.';
 
   @override
+  String get aiBetaBadge => 'BETA';
+
+  @override
+  String get aiBetaEnableTitle => 'AI is in BETA';
+
+  @override
+  String get aiBetaEnableBody =>
+      'This feature is currently in BETA and may fail or behave unexpectedly.\n\nDo you want to enable it anyway?';
+
+  @override
+  String get aiBetaEnableConfirm => 'Enable BETA';
+
+  @override
   String get searchByNameOrShortcut => 'Search by name or shortcut…';
 
   @override

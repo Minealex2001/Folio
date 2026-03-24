@@ -25,7 +25,9 @@ import '../models/folio_table_data.dart';
 import '../services/folio_rp_server.dart';
 import '../services/ai/ai_safety_policy.dart';
 import '../services/ai/ai_service.dart';
+import '../services/ai/ai_intent_hints.dart';
 import '../services/ai/ai_types.dart';
+import '../services/app_logger.dart';
 import '../services/quick_unlock_storage.dart';
 
 enum VaultFlowState { initializing, needsOnboarding, locked, unlocked }
@@ -845,8 +847,9 @@ class VaultSession extends ChangeNotifier {
 
   void touchActivity() {
     if (_state != VaultFlowState.unlocked ||
-        (vaultUsesEncryption && _dek == null))
+        (vaultUsesEncryption && _dek == null)) {
       return;
+    }
     _restartIdleLockTimer();
   }
 
@@ -1983,6 +1986,23 @@ class VaultSession extends ChangeNotifier {
     if (ai == null) throw StateError('IA no configurada.');
     final isEs = languageCode.toLowerCase().startsWith('es');
     final scopePage = scopePageId == null ? null : _pageById(scopePageId);
+    final wantsSubpage = _looksLikeSubpageIntent(
+      prompt,
+      languageCode: languageCode,
+    );
+    final promptTrimmed = prompt.trim();
+    AppLogger.info(
+      'Agent chat started',
+      tag: 'ai.agent',
+      context: {
+        'languageCode': languageCode,
+        'hasScopePage': scopePage != null,
+        'wantsSubpage': wantsSubpage,
+        'promptPreview': promptTrimmed.length > 140
+            ? '${promptTrimmed.substring(0, 140)}...'
+            : promptTrimmed,
+      },
+    );
     final pageBlocksContext = scopePage == null
         ? ''
         : _buildAgentPageBlocksContext(scopePage);
@@ -2032,6 +2052,16 @@ class VaultSession extends ChangeNotifier {
       final parsedBlocks = rawBlocks is List
           ? _parseAiBlocksFromDynamicList(rawBlocks)
           : const <_AiBlockSpec>[];
+      AppLogger.info(
+        'Agent mode selected',
+        tag: 'ai.agent',
+        context: {
+          'mode': mode,
+          'reason': reason,
+          'blocksCount': parsedBlocks.length,
+          'hasOperations': rawOperations is List && rawOperations.isNotEmpty,
+        },
+      );
 
       if (mode == 'summarize_current') {
         if (scopePage == null) {
@@ -2130,19 +2160,44 @@ class VaultSession extends ChangeNotifier {
       }
 
       if (mode == 'create_page') {
+        if (wantsSubpage && scopePage == null) {
+          return _formatAgentDecisionReply(
+            mode: mode,
+            reason: reason.isNotEmpty
+                ? reason
+                : (isEs
+                      ? 'Solicitaste crear una subpágina pero no hay página activa.'
+                      : 'You requested a subpage but there is no active page.'),
+            reply: isEs
+                ? 'Selecciona una página y vuelvo a crear la subpágina dentro de ella.'
+                : 'Select a page and I will create the subpage inside it.',
+            isEs: isEs,
+          );
+        }
         final id = _uuid.v4();
         final blocks = _materializeAiBlocks(id, parsedBlocks);
         _pages.add(
           FolioPage(
             id: id,
             title: title.isEmpty ? 'Nueva página IA' : title,
-            parentId: null,
+            parentId: wantsSubpage ? scopePage?.id : null,
             blocks: blocks,
           ),
         );
         _selectedPageId = id;
         notifyListeners();
         scheduleSave(trackRevisionForPageId: id);
+        AppLogger.info(
+          'Page created by agent',
+          tag: 'ai.agent',
+          context: {
+            'pageId': id,
+            'isSubpage': wantsSubpage,
+            'parentId': wantsSubpage ? scopePage?.id : null,
+            'title': title.isEmpty ? 'Nueva página IA' : title,
+            'blocksCount': blocks.length,
+          },
+        );
         return _formatAgentDecisionReply(
           mode: mode,
           reason: reason,
@@ -2152,9 +2207,35 @@ class VaultSession extends ChangeNotifier {
       }
 
       if (reply.isNotEmpty) {
-        if (mode == 'chat' && _looksLikeCreatePageIntent(prompt)) {
-          final createdId = _createPageFromRecoveredReply(reply, isEs: isEs);
+        if (mode == 'chat' &&
+            _looksLikeCreatePageIntent(prompt, languageCode: languageCode)) {
+          if (wantsSubpage && scopePage == null) {
+            return _formatAgentDecisionReply(
+              mode: 'create_page',
+              reason: isEs
+                  ? 'Detecté intención de crear subpágina pero no hay página activa.'
+                  : 'Detected subpage creation intent but there is no active page.',
+              reply: isEs
+                  ? 'Selecciona primero una página para crear la subpágina dentro.'
+                  : 'Select a page first to create the subpage inside it.',
+              isEs: isEs,
+            );
+          }
+          final createdId = _createPageFromRecoveredReply(
+            reply,
+            isEs: isEs,
+            parentId: wantsSubpage ? scopePage?.id : null,
+          );
           if (createdId != null) {
+            AppLogger.info(
+              'Recovered page creation from agent reply',
+              tag: 'ai.agent',
+              context: {
+                'pageId': createdId,
+                'isSubpage': wantsSubpage,
+                'parentId': wantsSubpage ? scopePage?.id : null,
+              },
+            );
             return _formatAgentDecisionReply(
               mode: 'create_page',
               reason: isEs
@@ -2169,7 +2250,7 @@ class VaultSession extends ChangeNotifier {
         }
         if (scopePage != null &&
             mode == 'chat' &&
-            _looksLikeEditIntent(prompt) &&
+            _looksLikeEditIntent(prompt, languageCode: languageCode) &&
             _applyRecoveredEditFromChatReply(scopePage, reply)) {
           notifyListeners();
           scheduleSave(trackRevisionForPageId: scopePage.id);
@@ -2197,13 +2278,24 @@ class VaultSession extends ChangeNotifier {
         scopePageId: scopePageId,
         attachments: attachments,
       );
+      AppLogger.warn(
+        'Agent returned non-actionable response, using chat fallback',
+        tag: 'ai.agent',
+        context: {'mode': mode, 'reason': reason},
+      );
       return _formatAgentDecisionReply(
         mode: mode,
         reason: reason,
         reply: fallbackChat,
         isEs: isEs,
       );
-    } catch (_) {
+    } catch (e, st) {
+      AppLogger.error(
+        'Agent JSON flow failed, attempting recovery',
+        tag: 'ai.agent',
+        error: e,
+        stackTrace: st,
+      );
       if (scopePage != null) {
         try {
           final recovery = await ai.complete(
@@ -2252,7 +2344,14 @@ class VaultSession extends ChangeNotifier {
               );
             }
           }
-        } catch (_) {
+        } catch (recoveryError, recoveryStack) {
+          AppLogger.error(
+            'Agent edit recovery failed',
+            tag: 'ai.agent',
+            error: recoveryError,
+            stackTrace: recoveryStack,
+            context: {'scopePageId': scopePage.id},
+          );
           // Si también falla la recuperación, caemos a chat.
         }
       }
@@ -2262,6 +2361,48 @@ class VaultSession extends ChangeNotifier {
         scopePageId: scopePageId,
         attachments: attachments,
       );
+      final wantsCreate =
+          _looksLikeCreatePageIntent(prompt, languageCode: languageCode);
+      if (wantsCreate) {
+        if (wantsSubpage && scopePage == null) {
+          return _formatAgentDecisionReply(
+            mode: 'create_page',
+            reason: isEs
+                ? 'Detecté intención de crear subpágina pero no hay página activa.'
+                : 'Detected subpage creation intent but there is no active page.',
+            reply: isEs
+                ? 'Selecciona primero una página para crear la subpágina dentro.'
+                : 'Select a page first to create the subpage inside it.',
+            isEs: isEs,
+          );
+        }
+        final createdId = _createPageFromRecoveredReply(
+          fallbackChat,
+          isEs: isEs,
+          parentId: wantsSubpage ? scopePage?.id : null,
+        );
+        if (createdId != null) {
+          AppLogger.warn(
+            'Created page from fallback chat recovery',
+            tag: 'ai.agent',
+            context: {
+              'pageId': createdId,
+              'isSubpage': wantsSubpage,
+              'parentId': wantsSubpage ? scopePage?.id : null,
+            },
+          );
+          return _formatAgentDecisionReply(
+            mode: 'create_page',
+            reason: isEs
+                ? 'No pude estructurar JSON, pero recuperé el contenido y creé la página.'
+                : 'Could not structure JSON, but recovered content and created the page.',
+            reply: isEs
+                ? 'He creado una página con el contenido generado.'
+                : 'I created a page with the generated content.',
+            isEs: isEs,
+          );
+        }
+      }
       return _formatAgentDecisionReply(
         mode: 'chat',
         reason: isEs
@@ -2403,52 +2544,55 @@ class VaultSession extends ChangeNotifier {
     return changed;
   }
 
-  bool _looksLikeEditIntent(String prompt) {
-    final p = prompt.toLowerCase();
-    const hints = [
-      'edita',
-      'editar',
-      'modifica',
-      'modificar',
-      'actualiza',
-      'actualizar',
-      'añade',
-      'agrega',
-      'tabla',
-      'columna',
-      'bloque',
-    ];
+  bool _looksLikeEditIntent(String prompt, {required String languageCode}) {
+    final p = _normalizeIntentText(prompt);
+    final hints = AiIntentHints.hintsFor(
+      intent: AiIntentHints.edit,
+      languageCode: languageCode,
+    );
     return hints.any(p.contains);
   }
 
-  bool _looksLikeCreatePageIntent(String prompt) {
-    final p = prompt.toLowerCase();
-    const hints = [
-      'genera una pagina',
-      'generar una pagina',
-      'crear una pagina',
-      'crea una pagina',
-      'creame una pagina',
-      'créame una página',
-      'nueva pagina',
-      'nueva página',
-      'hazme una pagina',
-      'hazme una página',
-      'new page',
-      'create page',
-      'generate page',
-    ];
+  bool _looksLikeCreatePageIntent(
+    String prompt, {
+    required String languageCode,
+  }) {
+    final p = _normalizeIntentText(prompt);
+    final hints = AiIntentHints.hintsFor(
+      intent: AiIntentHints.createPage,
+      languageCode: languageCode,
+    );
     if (hints.any(p.contains)) return true;
-    final hasPagina = p.contains('pagina') || p.contains('página');
+    final hasPagina = p.contains('pagina') || p.contains('page');
     final hasCreateVerb =
         p.contains('crea') ||
         p.contains('crear') ||
         p.contains('creame') ||
-        p.contains('créame') ||
         p.contains('genera') ||
-        p.contains('genera') ||
+        p.contains('generate') ||
+        p.contains('create') ||
         p.contains('hazme');
     return hasPagina && hasCreateVerb;
+  }
+
+  bool _looksLikeSubpageIntent(String prompt, {required String languageCode}) {
+    final p = _normalizeIntentText(prompt);
+    final hints = AiIntentHints.hintsFor(
+      intent: AiIntentHints.subpage,
+      languageCode: languageCode,
+    );
+    return hints.any(p.contains);
+  }
+
+  String _normalizeIntentText(String input) {
+    return input
+        .toLowerCase()
+        .replaceAll('á', 'a')
+        .replaceAll('é', 'e')
+        .replaceAll('í', 'i')
+        .replaceAll('ó', 'o')
+        .replaceAll('ú', 'u')
+        .replaceAll('ñ', 'n');
   }
 
   bool _applyRecoveredEditFromChatReply(FolioPage page, String reply) {
@@ -2483,8 +2627,13 @@ class VaultSession extends ChangeNotifier {
     return true;
   }
 
-  String? _createPageFromRecoveredReply(String reply, {required bool isEs}) {
-    final cleaned = _stripAgentDecisionHeader(reply);
+  String? _createPageFromRecoveredReply(
+    String reply, {
+    required bool isEs,
+    String? parentId,
+  }) {
+    final cleanedRaw = _stripAgentDecisionHeader(reply);
+    final cleaned = _stripConversationalPreambleForRecoveredPage(cleanedRaw);
     final htmlSpecs = _parseHtmlToSpecs(cleaned);
     final markdownSpecs = _parseMarkdownToSpecs(cleaned);
     final chosen = htmlSpecs.isNotEmpty ? htmlSpecs : markdownSpecs;
@@ -2495,6 +2644,7 @@ class VaultSession extends ChangeNotifier {
     final id = _uuid.v4();
     final blocks = _materializeAiBlocks(id, finalSpecs);
     final title =
+        _extractRecoveredPageTitle(cleanedRaw) ??
         _extractTitleFromHtml(cleaned) ??
         (isEs ? 'Nueva página IA' : 'New AI page');
     _pages.add(
@@ -2503,6 +2653,7 @@ class VaultSession extends ChangeNotifier {
         title: title.trim().isEmpty
             ? (isEs ? 'Nueva página IA' : 'New AI page')
             : title.trim(),
+        parentId: parentId,
         blocks: blocks,
       ),
     );
@@ -2510,6 +2661,95 @@ class VaultSession extends ChangeNotifier {
     notifyListeners();
     scheduleSave(trackRevisionForPageId: id);
     return id;
+  }
+
+  String? _extractRecoveredPageTitle(String text) {
+    final lines = text.replaceAll('\r\n', '\n').split('\n');
+    final subpageRe = RegExp(
+      r'^\s*(?:[-*]\s*)?(?:📌\s*)?(?:\*\*)?(?:subp[aá]gina|subpage|child page)(?:\*\*)?\s*:\s*["“]?(.+?)["”]?\s*$',
+      caseSensitive: false,
+    );
+    final headingRe = RegExp(r'^\s*#{1,2}\s+(.+?)\s*$');
+    for (final raw in lines) {
+      final line = raw.trim();
+      if (line.isEmpty) continue;
+      final sub = subpageRe.firstMatch(line);
+      if (sub != null) {
+        final t = _stripMarkdownInlineDecorations(sub.group(1) ?? '');
+        if (t.isNotEmpty) return t;
+      }
+      final heading = headingRe.firstMatch(line);
+      if (heading != null) {
+        final t = _stripMarkdownInlineDecorations(heading.group(1) ?? '');
+        if (t.isNotEmpty) return t;
+      }
+    }
+    return null;
+  }
+
+  String _stripConversationalPreambleForRecoveredPage(String text) {
+    final lines = text.replaceAll('\r\n', '\n').split('\n');
+    final kept = <String>[];
+    var started = false;
+    final subpageRe = RegExp(
+      r'^\s*(?:[-*]\s*)?(?:📌\s*)?(?:\*\*)?(?:subp[aá]gina|subpage|child page)(?:\*\*)?\s*:\s*',
+      caseSensitive: false,
+    );
+    bool isStructural(String l) {
+      final t = l.trimLeft();
+      if (t.startsWith('#') ||
+          t.startsWith('- ') ||
+          t.startsWith('* ') ||
+          t.startsWith('>') ||
+          t.startsWith('|') ||
+          t.startsWith('```')) {
+        return true;
+      }
+      if (RegExp(r'^\d+\.\s').hasMatch(t)) return true;
+      return subpageRe.hasMatch(t);
+    }
+
+    for (final line in lines) {
+      final trimmed = line.trim();
+      final normalized = _normalizeIntentText(trimmed);
+      if (!started) {
+        final looksPreamble = normalized.startsWith('aqui tienes') ||
+            normalized.startsWith('te dejo') ||
+            normalized.startsWith('a continuacion') ||
+            normalized.startsWith('here is') ||
+            normalized.startsWith('here you have') ||
+            normalized.startsWith('i created');
+        if (trimmed.isEmpty ||
+            looksPreamble ||
+            trimmed == '---' ||
+            trimmed == '___') {
+          continue;
+        }
+        if (isStructural(trimmed)) {
+          started = true;
+          if (!subpageRe.hasMatch(trimmed)) {
+            kept.add(line);
+          }
+          continue;
+        }
+        started = true;
+        kept.add(line);
+        continue;
+      }
+      if (subpageRe.hasMatch(trimmed)) {
+        // Ya usamos esta línea como posible título.
+        continue;
+      }
+      kept.add(line);
+    }
+    return kept.join('\n').trim();
+  }
+
+  String _stripMarkdownInlineDecorations(String input) {
+    var out = input.trim();
+    out = out.replaceAll(RegExp(r'[*_`]+'), '');
+    out = out.replaceAll(RegExp(r'\s+'), ' ');
+    return out.trim();
   }
 
   String _stripAgentDecisionHeader(String text) {
@@ -2666,8 +2906,9 @@ class VaultSession extends ChangeNotifier {
     }
     for (final m in pre.allMatches(html)) {
       final t = _stripHtmlTags(m.group(1) ?? '').trim();
-      if (t.isNotEmpty)
+      if (t.isNotEmpty) {
         specs.add(_AiBlockSpec(type: 'code', text: t, codeLanguage: 'text'));
+      }
     }
     if (hr.hasMatch(html)) {
       specs.add(const _AiBlockSpec(type: 'divider', text: ''));

@@ -751,6 +751,19 @@ class AppLocalizationsEs extends AppLocalizations {
       'Si está desactivado, se mostrará plegado con flecha en cada mensaje.';
 
   @override
+  String get aiBetaBadge => 'BETA';
+
+  @override
+  String get aiBetaEnableTitle => 'IA en fase BETA';
+
+  @override
+  String get aiBetaEnableBody =>
+      'Esta funcionalidad está en fase BETA y puede fallar o comportarse de forma inesperada.\n\n¿Quieres activarla igualmente?';
+
+  @override
+  String get aiBetaEnableConfirm => 'Activar BETA';
+
+  @override
   String get searchByNameOrShortcut => 'Buscar por nombre o atajo…';
 
   @override
