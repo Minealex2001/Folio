@@ -3,6 +3,7 @@ import 'package:system_theme/system_theme.dart';
 
 import 'app/app_settings.dart';
 import 'app/folio_app.dart';
+import 'services/platform/launch_arguments.dart';
 import 'session/vault_session.dart';
 
 Future<void> main() async {
@@ -12,5 +13,12 @@ Future<void> main() async {
   final appSettings = AppSettings();
   await appSettings.load();
   final session = VaultSession();
-  runApp(FolioApp(session: session, appSettings: appSettings));
+  final initialLaunchArgs = await PlatformLaunchArguments.initialArguments();
+  runApp(
+    FolioApp(
+      session: session,
+      appSettings: appSettings,
+      initialLaunchArgs: initialLaunchArgs,
+    ),
+  );
 }

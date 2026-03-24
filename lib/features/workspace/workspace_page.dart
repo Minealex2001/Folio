@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
@@ -18,6 +19,7 @@ import '../../models/folio_template_button_data.dart';
 import '../../models/folio_toggle_data.dart';
 import '../../services/ai/ai_types.dart';
 import '../../l10n/generated/app_localizations.dart';
+import '../../services/run2doc/run2doc_markdown_codec.dart';
 import '../../session/vault_session.dart';
 import '../settings/settings_page.dart';
 import 'widgets/ai_typing_indicator.dart';
@@ -25,6 +27,8 @@ import 'widgets/block_editor.dart';
 import 'widgets/page_history_sheet.dart';
 import 'widgets/mermaid_markdown_builder.dart';
 import 'widgets/sidebar.dart';
+import 'widgets/workspace_editor_surface.dart';
+import 'widgets/workspace_shell.dart';
 
 class WorkspacePage extends StatefulWidget {
   const WorkspacePage({
@@ -61,6 +65,110 @@ class _WorkspacePageState extends State<WorkspacePage> {
 
   VaultSession get _s => widget.session;
   AiChatThreadData get _activeChat => _s.activeAiChat;
+
+  void _snack(String message) {
+    if (!mounted || message.trim().isEmpty) return;
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(message)));
+  }
+
+  String _suggestMarkdownFileName(String title) {
+    final base = title.trim().isEmpty ? 'page' : title.trim();
+    final safe = base
+        .replaceAll(RegExp(r'[\\/:*?"<>|]'), '_')
+        .replaceAll(RegExp(r'\s+'), ' ')
+        .trim();
+    return '${safe.isEmpty ? 'page' : safe}.md';
+  }
+
+  Future<FolioMarkdownImportMode?> _askMarkdownImportMode() {
+    final page = _s.selectedPage;
+    if (page == null) {
+      return Future.value(FolioMarkdownImportMode.newPage);
+    }
+    return showDialog<FolioMarkdownImportMode>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Importar Markdown'),
+        content: const Text('Elige cómo quieres aplicar el archivo Markdown.'),
+        actions: [
+          TextButton(
+            onPressed: () =>
+                Navigator.pop(ctx, FolioMarkdownImportMode.newPage),
+            child: const Text('Página nueva'),
+          ),
+          TextButton(
+            onPressed: () =>
+                Navigator.pop(ctx, FolioMarkdownImportMode.appendToCurrentPage),
+            child: const Text('Anexar a la actual'),
+          ),
+          FilledButton(
+            onPressed: () =>
+                Navigator.pop(ctx, FolioMarkdownImportMode.replaceCurrentPage),
+            child: const Text('Reemplazar actual'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _importMarkdownFile() async {
+    if (_s.state != VaultFlowState.unlocked) return;
+    final pick = await FilePicker.platform.pickFiles(
+      type: FileType.custom,
+      allowedExtensions: const ['md', 'markdown'],
+      allowMultiple: false,
+    );
+    if (pick == null || pick.files.isEmpty || !mounted) return;
+    final path = pick.files.single.path;
+    if (path == null || path.trim().isEmpty) {
+      _snack('No se pudo leer la ruta del archivo.');
+      return;
+    }
+    final mode = await _askMarkdownImportMode();
+    if (mode == null) return;
+    try {
+      final markdown = await File(path).readAsString();
+      final title = pick.files.single.name.replaceFirst(
+        RegExp(r'\.(md|markdown)$', caseSensitive: false),
+        '',
+      );
+      final result = _s.importMarkdownDocument(
+        markdown,
+        title: title,
+        mode: mode,
+      );
+      if (!mounted) return;
+      _snack(
+        'Markdown importado: ${result.pageTitle} (${result.blockCount} bloques).',
+      );
+    } catch (e) {
+      if (!mounted) return;
+      _snack('No se pudo importar el Markdown: $e');
+    }
+  }
+
+  Future<void> _exportCurrentPageToMarkdown() async {
+    final page = _s.selectedPage;
+    if (page == null || _s.state != VaultFlowState.unlocked) return;
+    final destination = await FilePicker.platform.saveFile(
+      dialogTitle: 'Exportar página a Markdown',
+      fileName: _suggestMarkdownFileName(page.title),
+      type: FileType.custom,
+      allowedExtensions: const ['md'],
+    );
+    if (destination == null || destination.trim().isEmpty) return;
+    try {
+      final markdown = _s.exportPageAsMarkdown(page.id);
+      await File(destination).writeAsString(markdown);
+      if (!mounted) return;
+      _snack('Página exportada a Markdown.');
+    } catch (e) {
+      if (!mounted) return;
+      _snack('No se pudo exportar la página: $e');
+    }
+  }
 
   Widget _buildMarkdownMessage({
     required BuildContext context,
@@ -509,6 +617,66 @@ class _WorkspacePageState extends State<WorkspacePage> {
     openPageHistoryScreen(context: context, session: _s, page: page);
   }
 
+  Future<String?> _showBlockTypePicker({required bool compact}) {
+    if (compact) {
+      return showModalBottomSheet<String>(
+        context: context,
+        isScrollControlled: true,
+        backgroundColor: Colors.transparent,
+        builder: (_) => const BlockTypePickerSheet(catalog: blockTypeCatalog),
+      );
+    }
+    return showDialog<String>(
+      context: context,
+      builder: (dialogContext) => Dialog(
+        insetPadding: const EdgeInsets.all(FolioSpace.xl),
+        clipBehavior: Clip.antiAlias,
+        child: SizedBox(
+          width: 620,
+          height: 720,
+          child: const BlockTypePickerSheet(catalog: blockTypeCatalog),
+        ),
+      ),
+    );
+  }
+
+  void _appendBlockToPage(FolioPage page, String type) {
+    var text = '';
+    bool? expanded;
+    String? codeLanguage;
+    if (type == 'toggle') {
+      text = FolioToggleData.empty().encode();
+      expanded = false;
+    } else if (type == 'template_button') {
+      text = FolioTemplateButtonData.defaultNew().encode();
+    } else if (type == 'column_list') {
+      text = FolioColumnsData.empty().encode();
+    } else if (type == 'equation') {
+      text = r'E = mc^2';
+      codeLanguage = 'plaintext';
+    }
+    if (type == 'code') codeLanguage = 'dart';
+    _s.appendBlock(
+      pageId: page.id,
+      block: FolioBlock(
+        id: '${page.id}_${const Uuid().v4()}',
+        type: type,
+        text: text,
+        checked: type == 'todo' ? false : null,
+        expanded: expanded,
+        codeLanguage: codeLanguage,
+      ),
+    );
+  }
+
+  Future<void> _addBlockToCurrentPage({required bool compact}) async {
+    final page = _s.selectedPage;
+    if (page == null) return;
+    final type = await _showBlockTypePicker(compact: compact);
+    if (type == null || !mounted) return;
+    _appendBlockToPage(page, type);
+  }
+
   Future<List<AiFileAttachment>> _collectAiAttachments() async {
     return _s.buildAiAttachmentsFromPaths(_aiAttachmentPaths);
   }
@@ -768,136 +936,6 @@ class _WorkspacePageState extends State<WorkspacePage> {
     _s.syncActiveAiChatAttachmentPaths(_aiAttachmentPaths);
     setState(() => _lastChatTokenUsage = null);
     _s.deleteActiveAiChat();
-  }
-
-  Widget _buildEditorContent({
-    required BuildContext context,
-    required bool compact,
-    required ColorScheme scheme,
-    required FolioPage? page,
-  }) {
-    return Padding(
-      padding: EdgeInsets.fromLTRB(
-        compact ? 0 : FolioSpace.sm,
-        0,
-        compact ? 0 : FolioSpace.md,
-        compact ? 0 : FolioSpace.md,
-      ),
-      child: Material(
-        color: scheme.surface,
-        elevation: compact ? 0 : 2,
-        shadowColor: scheme.shadow.withValues(alpha: 0.1),
-        borderRadius: compact
-            ? BorderRadius.zero
-            : BorderRadius.circular(FolioRadius.lg),
-        clipBehavior: Clip.antiAlias,
-        child: page == null
-            ? Center(
-                child: Padding(
-                  padding: const EdgeInsets.all(FolioSpace.xl),
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(
-                        Icons.description_outlined,
-                        size: 56,
-                        color: scheme.onSurfaceVariant.withValues(alpha: 0.6),
-                      ),
-                      const SizedBox(height: 16),
-                      Text(
-                        AppLocalizations.of(context).noPages,
-                        style: Theme.of(context).textTheme.titleMedium
-                            ?.copyWith(color: scheme.onSurfaceVariant),
-                      ),
-                      const SizedBox(height: FolioSpace.md),
-                      FilledButton.icon(
-                        onPressed: () => _s.addPage(parentId: null),
-                        icon: const Icon(Icons.add_rounded),
-                        label: Text(AppLocalizations.of(context).createPage),
-                      ),
-                    ],
-                  ),
-                ),
-              )
-            : Padding(
-                padding: const EdgeInsets.fromLTRB(
-                  FolioSpace.lg,
-                  FolioSpace.md,
-                  FolioSpace.lg,
-                  FolioSpace.sm,
-                ),
-                child: Align(
-                  alignment: Alignment.topCenter,
-                  child: ConstrainedBox(
-                    constraints: BoxConstraints(
-                      maxWidth: compact ? double.infinity : 880,
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        Row(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Expanded(
-                              child: TextField(
-                                controller: _titleController,
-                                style: Theme.of(context).textTheme.headlineSmall
-                                    ?.copyWith(
-                                      fontWeight: FontWeight.w600,
-                                      color: scheme.onSurface,
-                                    ),
-                                decoration: InputDecoration(
-                                  border: InputBorder.none,
-                                  filled: false,
-                                  hintText: AppLocalizations.of(
-                                    context,
-                                  ).untitled,
-                                  isDense: true,
-                                  hintStyle: TextStyle(
-                                    color: scheme.onSurfaceVariant.withValues(
-                                      alpha: 0.7,
-                                    ),
-                                  ),
-                                ),
-                                onChanged: (v) {
-                                  if (page.id == _s.selectedPageId) {
-                                    _s.renamePage(page.id, v);
-                                  }
-                                },
-                              ),
-                            ),
-                            if (!compact) ...[
-                              IconButton(
-                                tooltip: AppLocalizations.of(
-                                  context,
-                                ).pageHistory,
-                                icon: const Icon(Icons.history_rounded),
-                                onPressed: _openPageHistoryScreen,
-                              ),
-                              IconButton(
-                                tooltip: AppLocalizations.of(
-                                  context,
-                                ).closeCurrentPage,
-                                icon: const Icon(Icons.close_rounded),
-                                onPressed: _s.clearSelectedPage,
-                              ),
-                            ],
-                          ],
-                        ),
-                        const SizedBox(height: 8),
-                        Expanded(
-                          child: BlockEditor(
-                            key: ValueKey('${page.id}-${_s.contentEpoch}'),
-                            session: _s,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-      ),
-    );
   }
 
   Widget _buildAiTypingRow(
@@ -1510,13 +1548,16 @@ class _WorkspacePageState extends State<WorkspacePage> {
     final scheme = Theme.of(context).colorScheme;
     final theme = Theme.of(context);
     final width = MediaQuery.sizeOf(context).width;
-    final compact = width < 1000;
+    final compact = width < FolioDesktop.compactBreakpoint;
+    final medium = width < FolioDesktop.mediumBreakpoint;
     final isAiPanelVisible =
         !compact &&
         widget.appSettings.isAiRuntimeEnabled &&
         _s.aiEnabled &&
         !_aiPanelCollapsed;
-    final fabRightOffset = isAiPanelVisible ? _aiPanelWidth + 18 : 0.0;
+    final sidePanelWidth = medium
+        ? FolioDesktop.sidebarWidth
+        : FolioDesktop.sidebarWideWidth;
     final sidePanel = Material(
       color: scheme.surfaceContainerLow,
       child: Sidebar(
@@ -1556,6 +1597,154 @@ class _WorkspacePageState extends State<WorkspacePage> {
         if (_shouldHandleShortcut()) widget.onOpenSearch();
       };
     }
+    final appBarActions = <Widget>[
+      IconButton(
+        tooltip: 'Importar Markdown',
+        icon: const Icon(Icons.file_upload_outlined),
+        onPressed: _importMarkdownFile,
+      ),
+      if (page != null)
+        IconButton(
+          tooltip: 'Exportar Markdown',
+          icon: const Icon(Icons.file_download_outlined),
+          onPressed: _exportCurrentPageToMarkdown,
+        ),
+      if (widget.appSettings.isAiRuntimeEnabled && _s.aiEnabled)
+        IconButton(
+          tooltip: _aiPanelCollapsed ? l10n.aiShowPanel : l10n.aiHidePanel,
+          icon: Icon(
+            _aiPanelCollapsed
+                ? Icons.chat_bubble_outline_rounded
+                : Icons.close_fullscreen_rounded,
+          ),
+          onPressed: () =>
+              setState(() => _aiPanelCollapsed = !_aiPanelCollapsed),
+        ),
+      if (_s.hasPendingDiskSave || _s.isPersistingToDisk)
+        Padding(
+          padding: const EdgeInsetsDirectional.only(end: FolioSpace.xs),
+          child: Center(
+            child: Tooltip(
+              message: _s.isPersistingToDisk
+                  ? l10n.savingVaultTooltip
+                  : l10n.autosaveSoonTooltip,
+              child: Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: FolioSpace.sm,
+                  vertical: FolioSpace.xs,
+                ),
+                decoration: BoxDecoration(
+                  color: scheme.surfaceContainerHigh,
+                  borderRadius: BorderRadius.circular(FolioRadius.xl),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    if (_s.isPersistingToDisk)
+                      SizedBox(
+                        width: 18,
+                        height: 18,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: scheme.primary,
+                        ),
+                      )
+                    else
+                      Icon(
+                        Icons.save_outlined,
+                        size: 20,
+                        color: scheme.primary.withValues(alpha: 0.85),
+                      ),
+                    const SizedBox(width: FolioSpace.xs),
+                    Text(
+                      _s.isPersistingToDisk
+                          ? l10n.saveInProgress
+                          : l10n.savePending,
+                      style: theme.textTheme.labelLarge?.copyWith(
+                        color: scheme.onSurfaceVariant,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
+      if (compact) ...[
+        if (page != null)
+          IconButton(
+            tooltip: l10n.pageHistory,
+            icon: const Icon(Icons.history_rounded),
+            onPressed: _openPageHistoryScreen,
+          ),
+        if (page != null)
+          IconButton(
+            tooltip: l10n.closeCurrentPage,
+            icon: const Icon(Icons.tab_unselected_rounded),
+            onPressed: _s.clearSelectedPage,
+          ),
+        IconButton(
+          tooltip: l10n.search,
+          icon: const Icon(Icons.search_rounded),
+          onPressed: widget.onOpenSearch,
+        ),
+        IconButton(
+          tooltip: l10n.settings,
+          icon: const Icon(Icons.settings_rounded),
+          onPressed: _openSettings,
+        ),
+        IconButton(
+          tooltip: l10n.lockNow,
+          icon: const Icon(Icons.lock_outline_rounded),
+          onPressed: () => _s.lock(),
+        ),
+      ],
+    ];
+    final editorContent = WorkspaceEditorSurface(
+      compact: compact,
+      page: page,
+      titleController: _titleController,
+      onTitleChanged: (value) {
+        if (page != null && page.id == _s.selectedPageId) {
+          _s.renamePage(page.id, value);
+        }
+      },
+      onCreatePage: () => _s.addPage(parentId: null),
+      trailingActions: [
+        FilledButton.icon(
+          onPressed: () => _addBlockToCurrentPage(compact: compact),
+          icon: const Icon(Icons.add_rounded),
+          label: Text(l10n.addBlock),
+        ),
+        IconButton(
+          tooltip: 'Importar Markdown',
+          icon: const Icon(Icons.file_upload_outlined),
+          onPressed: _importMarkdownFile,
+        ),
+        IconButton(
+          tooltip: 'Exportar Markdown',
+          icon: const Icon(Icons.file_download_outlined),
+          onPressed: _exportCurrentPageToMarkdown,
+        ),
+        IconButton(
+          tooltip: l10n.pageHistory,
+          icon: const Icon(Icons.history_rounded),
+          onPressed: _openPageHistoryScreen,
+        ),
+        IconButton(
+          tooltip: l10n.closeCurrentPage,
+          icon: const Icon(Icons.close_rounded),
+          onPressed: _s.clearSelectedPage,
+        ),
+      ],
+      editor: page == null
+          ? const SizedBox.shrink()
+          : BlockEditor(
+              key: ValueKey('${page.id}-${_s.contentEpoch}'),
+              session: _s,
+            ),
+    );
     return CallbackShortcuts(
       bindings: shortcutBindings,
       child: Scaffold(
@@ -1567,207 +1756,45 @@ class _WorkspacePageState extends State<WorkspacePage> {
                 child: SafeArea(child: sidePanel),
               )
             : null,
-        appBar: AppBar(
-          title: Text(l10n.appTitle),
-          leading: compact
-              ? IconButton(
-                  tooltip: MaterialLocalizations.of(
-                    context,
-                  ).openAppDrawerTooltip,
-                  icon: const Icon(Icons.menu_rounded),
-                  onPressed: () => _scaffoldKey.currentState?.openDrawer(),
-                )
+        appBar: WorkspaceTopAppBar(
+          title: l10n.appTitle,
+          compact: compact,
+          actions: appBarActions,
+          onOpenDrawer: () => _scaffoldKey.currentState?.openDrawer(),
+        ),
+        body: WorkspaceBodyShell(
+          compact: compact,
+          sidePanelWidth: sidePanelWidth,
+          sidePanel: sidePanel,
+          editorContent: editorContent,
+          showAiPanel: isAiPanelVisible,
+          aiPanelWidth: _aiPanelWidth,
+          onResizeAiPanel: (delta) {
+            final screenW = MediaQuery.sizeOf(context).width;
+            final maxW = (screenW * 0.55).clamp(340.0, 720.0);
+            setState(() {
+              _aiPanelWidth = (_aiPanelWidth - delta).clamp(
+                FolioDesktop.aiPanelWidth,
+                maxW,
+              );
+            });
+          },
+          scheme: scheme,
+          betaBanner: widget.appSettings.shouldShowBetaBanner
+              ? _buildBetaBanner(scheme, l10n)
               : null,
-          actions: [
-            if (widget.appSettings.isAiRuntimeEnabled && _s.aiEnabled)
-              IconButton(
-                tooltip: _aiPanelCollapsed
-                    ? l10n.aiShowPanel
-                    : l10n.aiHidePanel,
-                icon: Icon(
-                  _aiPanelCollapsed
-                      ? Icons.chat_bubble_outline_rounded
-                      : Icons.close_fullscreen_rounded,
-                ),
-                onPressed: () =>
-                    setState(() => _aiPanelCollapsed = !_aiPanelCollapsed),
-              ),
-            if (_s.hasPendingDiskSave || _s.isPersistingToDisk)
-              Padding(
-                padding: const EdgeInsetsDirectional.only(end: FolioSpace.xs),
-                child: Center(
-                  child: Tooltip(
-                    message: _s.isPersistingToDisk
-                        ? l10n.savingVaultTooltip
-                        : l10n.autosaveSoonTooltip,
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        if (_s.isPersistingToDisk)
-                          SizedBox(
-                            width: 18,
-                            height: 18,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2,
-                              color: scheme.primary,
-                            ),
-                          )
-                        else
-                          Icon(
-                            Icons.save_outlined,
-                            size: 22,
-                            color: scheme.primary.withValues(alpha: 0.85),
-                          ),
-                        const SizedBox(width: 8),
-                        Text(
-                          _s.isPersistingToDisk
-                              ? l10n.saveInProgress
-                              : l10n.savePending,
-                          style: theme.textTheme.labelLarge?.copyWith(
-                            color: scheme.onSurfaceVariant,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-            if (compact) ...[
-              if (page != null)
-                IconButton(
-                  tooltip: l10n.pageHistory,
-                  icon: const Icon(Icons.history_rounded),
-                  onPressed: _openPageHistoryScreen,
-                ),
-              if (page != null)
-                IconButton(
-                  tooltip: l10n.closeCurrentPage,
-                  icon: const Icon(Icons.tab_unselected_rounded),
-                  onPressed: _s.clearSelectedPage,
-                ),
-              IconButton(
-                tooltip: l10n.search,
-                icon: const Icon(Icons.search_rounded),
-                onPressed: widget.onOpenSearch,
-              ),
-              IconButton(
-                tooltip: l10n.settings,
-                icon: const Icon(Icons.settings_rounded),
-                onPressed: _openSettings,
-              ),
-              IconButton(
-                tooltip: l10n.lockNow,
-                icon: const Icon(Icons.lock_outline_rounded),
-                onPressed: () => _s.lock(),
-              ),
-            ],
-          ],
+          aiPanel: isAiPanelVisible ? _buildAiPanel(context) : null,
+          overlay: _showQuillWorkspaceTour
+              ? _buildQuillWorkspaceTourCard(theme, scheme, l10n)
+              : null,
         ),
-        body: Stack(
-          children: [
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                if (widget.appSettings.shouldShowBetaBanner)
-                  _buildBetaBanner(scheme, l10n),
-                Expanded(
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      if (!compact) SizedBox(width: 320, child: sidePanel),
-                      Expanded(
-                        child: _buildEditorContent(
-                          context: context,
-                          compact: compact,
-                          scheme: scheme,
-                          page: page,
-                        ),
-                      ),
-                      if (isAiPanelVisible)
-                        MouseRegion(
-                          cursor: SystemMouseCursors.resizeColumn,
-                          child: GestureDetector(
-                            behavior: HitTestBehavior.opaque,
-                            onHorizontalDragUpdate: (d) {
-                              final screenW = MediaQuery.sizeOf(context).width;
-                              final maxW = (screenW * 0.55).clamp(320.0, 700.0);
-                              setState(() {
-                                _aiPanelWidth = (_aiPanelWidth - d.delta.dx)
-                                    .clamp(280.0, maxW);
-                              });
-                            },
-                            child: Container(
-                              width: 6,
-                              color: scheme.outlineVariant.withValues(
-                                alpha: 0.3,
-                              ),
-                            ),
-                          ),
-                        ),
-                      if (isAiPanelVisible)
-                        SizedBox(
-                          width: _aiPanelWidth,
-                          child: _buildAiPanel(context),
-                        ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-            if (_showQuillWorkspaceTour)
-              SafeArea(
-                child: Align(
-                  alignment: compact ? Alignment.topCenter : Alignment.topRight,
-                  child: Padding(
-                    padding: EdgeInsets.fromLTRB(12, 12, compact ? 12 : 18, 0),
-                    child: _buildQuillWorkspaceTourCard(theme, scheme, l10n),
-                  ),
-                ),
-              ),
-          ],
-        ),
-        floatingActionButton: page != null
+        floatingActionButton: compact && page != null
             ? Padding(
-                padding: EdgeInsets.only(right: fabRightOffset),
+                padding: EdgeInsets.only(
+                  right: isAiPanelVisible ? _aiPanelWidth + 18 : 0,
+                ),
                 child: FloatingActionButton(
-                  onPressed: () async {
-                    final type = await showModalBottomSheet<String>(
-                      context: context,
-                      isScrollControlled: true,
-                      backgroundColor: Colors.transparent,
-                      builder: (_) =>
-                          const BlockTypePickerSheet(catalog: blockTypeCatalog),
-                    );
-                    if (type != null && mounted) {
-                      var text = '';
-                      bool? expanded;
-                      String? codeLanguage;
-                      if (type == 'toggle') {
-                        text = FolioToggleData.empty().encode();
-                        expanded = false;
-                      } else if (type == 'template_button') {
-                        text = FolioTemplateButtonData.defaultNew().encode();
-                      } else if (type == 'column_list') {
-                        text = FolioColumnsData.empty().encode();
-                      } else if (type == 'equation') {
-                        text = r'E = mc^2';
-                        codeLanguage = 'plaintext';
-                      }
-                      if (type == 'code') codeLanguage = 'dart';
-                      _s.appendBlock(
-                        pageId: page.id,
-                        block: FolioBlock(
-                          id: '${page.id}_${const Uuid().v4()}',
-                          type: type,
-                          text: text,
-                          checked: type == 'todo' ? false : null,
-                          expanded: expanded,
-                          codeLanguage: codeLanguage,
-                        ),
-                      );
-                    }
-                  },
+                  onPressed: () => _addBlockToCurrentPage(compact: true),
                   child: const Icon(Icons.add_rounded),
                 ),
               )

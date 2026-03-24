@@ -30,6 +30,7 @@ import '../services/ai/ai_safety_policy.dart';
 import '../services/ai/ai_service.dart';
 import '../services/ai/ai_intent_hints.dart';
 import '../services/ai/ai_types.dart';
+import '../services/run2doc/run2doc_markdown_codec.dart';
 import '../services/app_logger.dart';
 import '../services/quick_unlock_storage.dart';
 
@@ -198,6 +199,7 @@ class VaultSession extends ChangeNotifier {
   bool get lockOnAppBackground => _lockOnAppBackground;
   bool get aiEnabled => _aiService != null;
   bool get vaultUsesEncryption => _vaultUsesEncryption;
+  bool get isUnlocked => _state == VaultFlowState.unlocked;
   List<AiChatThreadData> get aiChatThreads => List.unmodifiable(_aiChatThreads);
   int get aiActiveChatIndex => _aiActiveChatIndex;
   AiChatThreadData get activeAiChat => _aiChatThreads[_aiActiveChatIndex];
@@ -428,8 +430,9 @@ class VaultSession extends ChangeNotifier {
     if (resume == null) return;
     await _registry.load();
     final cur = VaultPaths.activeVaultId;
-    final orphanId =
-        cur != null && !await VaultPaths.vaultExistsForId(cur) ? cur : null;
+    final orphanId = cur != null && !await VaultPaths.vaultExistsForId(cur)
+        ? cur
+        : null;
     VaultPaths.setActiveVaultId(resume);
     await _registry.setActiveVaultId(resume);
     if (orphanId != null) {
@@ -609,7 +612,9 @@ class VaultSession extends ChangeNotifier {
       final imported = await importPath(block.text.trim());
       if (imported != null) block.text = imported;
     }
-    if ((block.type == 'file' || block.type == 'video' || block.type == 'audio') &&
+    if ((block.type == 'file' ||
+            block.type == 'video' ||
+            block.type == 'audio') &&
         (block.url?.trim().isNotEmpty ?? false)) {
       final imported = await importPath(block.url!.trim());
       if (imported != null) block.url = imported;
@@ -1082,8 +1087,9 @@ class VaultSession extends ChangeNotifier {
     String? rawThreadTitle, {
     required List<AiChatMessage> conversationMessages,
   }) {
-    final userCount =
-        conversationMessages.where((m) => m.role == 'user').length;
+    final userCount = conversationMessages
+        .where((m) => m.role == 'user')
+        .length;
     if (userCount != 1) return;
     final t = _clampAiChatTitle(rawThreadTitle ?? '');
     if (t.isEmpty) return;
@@ -1155,6 +1161,128 @@ class VaultSession extends ChangeNotifier {
     _selectedPageId = id;
     notifyListeners();
     scheduleSave(trackRevisionForPageId: id);
+  }
+
+  FolioMarkdownImportResult importMarkdownDocument(
+    String markdown, {
+    String? title,
+    String? parentId,
+    String? sourceApp,
+    String? sourceUrl,
+    FolioMarkdownImportMode mode = FolioMarkdownImportMode.newPage,
+  }) {
+    if (!isUnlocked) {
+      throw StateError('Unlock Folio before importing.');
+    }
+
+    final trimmed = markdown.trim();
+    if (trimmed.isEmpty) {
+      throw ArgumentError('Markdown vacío.');
+    }
+
+    final targetPageId = _selectedPageId;
+    if (mode != FolioMarkdownImportMode.newPage && targetPageId == null) {
+      throw StateError('No hay página activa para importar.');
+    }
+
+    switch (mode) {
+      case FolioMarkdownImportMode.newPage:
+        final id = _uuid.v4();
+        final doc = FolioMarkdownCodec.parseDocument(
+          trimmed,
+          pageId: id,
+          fallbackTitle: title,
+          sourceApp: sourceApp,
+          sourceUrl: sourceUrl,
+        );
+        _pages.add(
+          FolioPage(
+            id: id,
+            title: doc.title.trim().isEmpty
+                ? 'Imported page'
+                : doc.title.trim(),
+            parentId: parentId,
+            blocks: doc.blocks,
+          ),
+        );
+        _selectedPageId = id;
+        notifyListeners();
+        scheduleSave(trackRevisionForPageId: id);
+        return FolioMarkdownImportResult(
+          pageId: id,
+          pageTitle: doc.title.trim().isEmpty
+              ? 'Imported page'
+              : doc.title.trim(),
+          mode: mode,
+          blockCount: doc.blocks.length,
+        );
+      case FolioMarkdownImportMode.replaceCurrentPage:
+        final page = selectedPage;
+        if (page == null) {
+          throw StateError('No hay página activa para reemplazar.');
+        }
+        final doc = FolioMarkdownCodec.parseDocument(
+          trimmed,
+          pageId: page.id,
+          fallbackTitle: title ?? page.title,
+          sourceApp: sourceApp,
+          sourceUrl: sourceUrl,
+        );
+        page.title = doc.title.trim().isEmpty ? page.title : doc.title.trim();
+        page.blocks = doc.blocks;
+        _selectedPageId = page.id;
+        _contentEpoch++;
+        notifyListeners();
+        scheduleSave(trackRevisionForPageId: page.id);
+        return FolioMarkdownImportResult(
+          pageId: page.id,
+          pageTitle: page.title,
+          mode: mode,
+          blockCount: doc.blocks.length,
+        );
+      case FolioMarkdownImportMode.appendToCurrentPage:
+        final page = selectedPage;
+        if (page == null) {
+          throw StateError('No hay página activa para anexar contenido.');
+        }
+        final doc = FolioMarkdownCodec.parseDocument(
+          trimmed,
+          pageId: page.id,
+          fallbackTitle: title ?? page.title,
+          sourceApp: sourceApp,
+          sourceUrl: sourceUrl,
+        );
+        final existingSingleEmpty =
+            page.blocks.length == 1 &&
+            page.blocks.first.type == 'paragraph' &&
+            page.blocks.first.text.trim().isEmpty;
+        if (existingSingleEmpty) {
+          page.blocks = doc.blocks;
+        } else {
+          page.blocks.addAll(doc.blocks);
+        }
+        _selectedPageId = page.id;
+        _contentEpoch++;
+        notifyListeners();
+        scheduleSave(trackRevisionForPageId: page.id);
+        return FolioMarkdownImportResult(
+          pageId: page.id,
+          pageTitle: page.title,
+          mode: mode,
+          blockCount: doc.blocks.length,
+        );
+    }
+  }
+
+  String exportPageAsMarkdown(String pageId, {bool includeFrontMatter = true}) {
+    final page = _pageById(pageId);
+    if (page == null) {
+      throw StateError('Página no encontrada.');
+    }
+    return FolioMarkdownCodec.exportPage(
+      page,
+      includeFrontMatter: includeFrontMatter,
+    );
   }
 
   bool _hasChildren(String id) => _pages.any((p) => p.parentId == id);
@@ -1345,14 +1473,7 @@ class VaultSession extends ChangeNotifier {
     if (page == null) return;
     final b = _blockById(page, blockId);
     if (b == null) return;
-    const mediaTypes = {
-      'image',
-      'file',
-      'video',
-      'audio',
-      'bookmark',
-      'embed',
-    };
+    const mediaTypes = {'image', 'file', 'video', 'audio', 'bookmark', 'embed'};
     if (!mediaTypes.contains(b.type)) return;
     final clamped = width.clamp(0.2, 1.0);
     final current = b.imageWidth ?? 1.0;
@@ -1572,17 +1693,13 @@ class VaultSession extends ChangeNotifier {
     scheduleSave(trackRevisionForPageId: newId);
   }
 
-  void appendBlock({
-    required String pageId,
-    required FolioBlock block,
-  }) {
+  void appendBlock({required String pageId, required FolioBlock block}) {
     final page = _pageById(pageId);
     if (page == null) return;
     page.blocks.add(block);
     notifyListeners();
     scheduleSave(trackRevisionForPageId: pageId);
   }
-
 
   /// Divide un bloque en dos en el cursor: [before] queda en el actual, [after] en uno nuevo debajo.
   void splitBlockAtCaret({
@@ -2376,7 +2493,8 @@ Ayuda frecuente (respuestas breves y concretas):
 • Otros bloques: mismo botón + o comando / en párrafo (tabla, archivo, código, etc.).
 • Panel de chat con Quill (si está activo): a la derecha; icono de libro incluye u omite texto de páginas en el contexto; otro icono elige varias páginas de referencia.
 • Ajustes: engranaje. Búsqueda: lupa. Bloquear cofre: candado.
-'''.trim();
+'''
+          .trim();
     }
     return '''
 IDENTITY: Your name is Quill. When you introduce yourself or refer to yourself, use that name.
@@ -2390,7 +2508,8 @@ Quick help (be concise):
 • Other blocks: same + button or / in a paragraph.
 • Quill chat panel (when enabled): on the right; book icon toggles page text in context; another icon picks multiple reference pages.
 • Settings: gear. Search: magnifying glass. Lock vault: padlock.
-'''.trim();
+'''
+        .trim();
   }
 
   Future<({String text, AiTokenUsage? usage})> chatWithAi({
@@ -2413,8 +2532,9 @@ Quick help (be concise):
       contextPageIds: contextPageIds,
       scopePageId: scopePageId,
     );
-    final scopedContext =
-        includePageContext ? _plainChatContextFromPageIds(effective) : '';
+    final scopedContext = includePageContext
+        ? _plainChatContextFromPageIds(effective)
+        : '';
     final isEsChat = languageCode.toLowerCase().startsWith('es');
     final folioGuide = _folioAgentInAppGuide(isEs: isEsChat);
     final result = await ai.complete(
@@ -2591,16 +2711,18 @@ Quick help (be concise):
 
       if (mode == 'append_current' || mode == 'replace_current') {
         if (scopePage == null) {
-          return finish(_formatAgentDecisionReply(
-            mode: mode,
-            reason: reason,
-            reply: reply.isNotEmpty
-                ? reply
-                : (isEs
-                      ? 'No hay página activa para editar.'
-                      : 'There is no active page to edit.'),
-            isEs: isEs,
-          ));
+          return finish(
+            _formatAgentDecisionReply(
+              mode: mode,
+              reason: reason,
+              reply: reply.isNotEmpty
+                  ? reply
+                  : (isEs
+                        ? 'No hay página activa para editar.'
+                        : 'There is no active page to edit.'),
+              isEs: isEs,
+            ),
+          );
         }
         final materialized = _materializeAiBlocks(scopePage.id, parsedBlocks);
         if (mode == 'replace_current') {
@@ -2610,66 +2732,74 @@ Quick help (be concise):
         }
         notifyListeners();
         scheduleSave(trackRevisionForPageId: scopePage.id);
-        return finish(_formatAgentDecisionReply(
-          mode: mode,
-          reason: reason,
-          reply: reply.isNotEmpty
-              ? reply
-              : (mode == 'replace_current'
-                    ? 'He actualizado la página.'
-                    : 'He añadido contenido a la página.'),
-          isEs: isEs,
-        ));
-      }
-
-      if (mode == 'edit_current') {
-        if (scopePage == null) {
-          return finish(_formatAgentDecisionReply(
+        return finish(
+          _formatAgentDecisionReply(
             mode: mode,
             reason: reason,
             reply: reply.isNotEmpty
                 ? reply
-                : (isEs
-                      ? 'No hay página activa para editar.'
-                      : 'There is no active page to edit.'),
+                : (mode == 'replace_current'
+                      ? 'He actualizado la página.'
+                      : 'He añadido contenido a la página.'),
             isEs: isEs,
-          ));
+          ),
+        );
+      }
+
+      if (mode == 'edit_current') {
+        if (scopePage == null) {
+          return finish(
+            _formatAgentDecisionReply(
+              mode: mode,
+              reason: reason,
+              reply: reply.isNotEmpty
+                  ? reply
+                  : (isEs
+                        ? 'No hay página activa para editar.'
+                        : 'There is no active page to edit.'),
+              isEs: isEs,
+            ),
+          );
         }
         final changed = _applyAgentEditOperations(scopePage, rawOperations);
         if (changed) {
           notifyListeners();
           scheduleSave(trackRevisionForPageId: scopePage.id);
         }
-        return finish(_formatAgentDecisionReply(
-          mode: mode,
-          reason: reason,
-          reply: reply.isNotEmpty
-              ? reply
-              : (changed
-                    ? (isEs
-                          ? 'He editado bloques existentes de la página.'
-                          : 'I edited existing page blocks.')
-                    : (isEs
-                          ? 'No se pudieron aplicar cambios en bloques existentes.'
-                          : 'Could not apply edits to existing blocks.')),
-          isEs: isEs,
-        ));
+        return finish(
+          _formatAgentDecisionReply(
+            mode: mode,
+            reason: reason,
+            reply: reply.isNotEmpty
+                ? reply
+                : (changed
+                      ? (isEs
+                            ? 'He editado bloques existentes de la página.'
+                            : 'I edited existing page blocks.')
+                      : (isEs
+                            ? 'No se pudieron aplicar cambios en bloques existentes.'
+                            : 'Could not apply edits to existing blocks.')),
+            isEs: isEs,
+          ),
+        );
       }
 
       if (mode == 'create_page') {
         if (wantsSubpage && scopePage == null) {
-          return finish(_formatAgentDecisionReply(
-            mode: mode,
-            reason: reason.isNotEmpty
-                ? reason
-                : (isEs
-                      ? 'Solicitaste crear una subpágina pero no hay página activa.'
-                      : 'You requested a subpage but there is no active page.'),
-            reply: isEs
-                ? 'Selecciona una página y vuelvo a crear la subpágina dentro de ella.'
-                : 'Select a page and I will create the subpage inside it.',
-            isEs: isEs,
-          ));
+          return finish(
+            _formatAgentDecisionReply(
+              mode: mode,
+              reason: reason.isNotEmpty
+                  ? reason
+                  : (isEs
+                        ? 'Solicitaste crear una subpágina pero no hay página activa.'
+                        : 'You requested a subpage but there is no active page.'),
+              reply: isEs
+                  ? 'Selecciona una página y vuelvo a crear la subpágina dentro de ella.'
+                  : 'Select a page and I will create the subpage inside it.',
+              isEs: isEs,
+            ),
+          );
         }
         final id = _uuid.v4();
         final blocks = _materializeAiBlocks(id, parsedBlocks);
@@ -2695,28 +2825,32 @@ Quick help (be concise):
             'blocksCount': blocks.length,
           },
         );
-        return finish(_formatAgentDecisionReply(
-          mode: mode,
-          reason: reason,
-          reply: reply.isNotEmpty ? reply : 'He creado una nueva página.',
-          isEs: isEs,
-        ));
+        return finish(
+          _formatAgentDecisionReply(
+            mode: mode,
+            reason: reason,
+            reply: reply.isNotEmpty ? reply : 'He creado una nueva página.',
+            isEs: isEs,
+          ),
+        );
       }
 
       if (reply.isNotEmpty) {
         if (mode == 'chat' &&
             _looksLikeCreatePageIntent(prompt, languageCode: languageCode)) {
           if (wantsSubpage && scopePage == null) {
-            return finish(_formatAgentDecisionReply(
-              mode: 'create_page',
-              reason: isEs
-                  ? 'Detecté intención de crear subpágina pero no hay página activa.'
-                  : 'Detected subpage creation intent but there is no active page.',
-              reply: isEs
-                  ? 'Selecciona primero una página para crear la subpágina dentro.'
-                  : 'Select a page first to create the subpage inside it.',
-              isEs: isEs,
-            ));
+            return finish(
+              _formatAgentDecisionReply(
+                mode: 'create_page',
+                reason: isEs
+                    ? 'Detecté intención de crear subpágina pero no hay página activa.'
+                    : 'Detected subpage creation intent but there is no active page.',
+                reply: isEs
+                    ? 'Selecciona primero una página para crear la subpágina dentro.'
+                    : 'Select a page first to create the subpage inside it.',
+                isEs: isEs,
+              ),
+            );
           }
           final createdId = _createPageFromRecoveredReply(
             reply,
@@ -2733,16 +2867,18 @@ Quick help (be concise):
                 'parentId': wantsSubpage ? scopePage?.id : null,
               },
             );
-            return finish(_formatAgentDecisionReply(
-              mode: 'create_page',
-              reason: isEs
-                  ? 'Detecté intención de crear página y recuperé contenido HTML/Markdown.'
-                  : 'Detected page-creation intent and recovered HTML/Markdown content.',
-              reply: isEs
-                  ? 'He creado una página con el contenido generado.'
-                  : 'I created a page with the generated content.',
-              isEs: isEs,
-            ));
+            return finish(
+              _formatAgentDecisionReply(
+                mode: 'create_page',
+                reason: isEs
+                    ? 'Detecté intención de crear página y recuperé contenido HTML/Markdown.'
+                    : 'Detected page-creation intent and recovered HTML/Markdown content.',
+                reply: isEs
+                    ? 'He creado una página con el contenido generado.'
+                    : 'I created a page with the generated content.',
+                isEs: isEs,
+              ),
+            );
           }
         }
         if (scopePage != null &&
@@ -2752,23 +2888,27 @@ Quick help (be concise):
             _applyRecoveredEditFromChatReply(scopePage, reply)) {
           notifyListeners();
           scheduleSave(trackRevisionForPageId: scopePage.id);
-          return finish(_formatAgentDecisionReply(
-            mode: 'edit_current',
-            reason: isEs
-                ? 'Detecté edición implícita y apliqué la tabla devuelta en Markdown.'
-                : 'Detected implicit edit intent and applied markdown table output.',
-            reply: isEs
-                ? 'He actualizado la tabla existente de la página.'
-                : 'I updated the existing table in the page.',
-            isEs: isEs,
-          ));
+          return finish(
+            _formatAgentDecisionReply(
+              mode: 'edit_current',
+              reason: isEs
+                  ? 'Detecté edición implícita y apliqué la tabla devuelta en Markdown.'
+                  : 'Detected implicit edit intent and applied markdown table output.',
+              reply: isEs
+                  ? 'He actualizado la tabla existente de la página.'
+                  : 'I updated the existing table in the page.',
+              isEs: isEs,
+            ),
+          );
         }
-        return finish(_formatAgentDecisionReply(
-          mode: mode,
-          reason: reason,
-          reply: reply,
-          isEs: isEs,
-        ));
+        return finish(
+          _formatAgentDecisionReply(
+            mode: mode,
+            reason: reason,
+            reply: reply,
+            isEs: isEs,
+          ),
+        );
       }
       final fallbackChat = await chatWithAi(
         messages: messages,
@@ -2785,12 +2925,14 @@ Quick help (be concise):
         context: {'mode': mode, 'reason': reason},
       );
       lastUsage = fallbackChat.usage ?? lastUsage;
-      return finish(_formatAgentDecisionReply(
-        mode: mode,
-        reason: reason,
-        reply: fallbackChat.text,
-        isEs: isEs,
-      ));
+      return finish(
+        _formatAgentDecisionReply(
+          mode: mode,
+          reason: reason,
+          reply: fallbackChat.text,
+          isEs: isEs,
+        ),
+      );
     } catch (e, st) {
       AppLogger.error(
         'Agent JSON flow failed, attempting recovery',
@@ -2832,20 +2974,22 @@ Quick help (be concise):
             if (changed) {
               notifyListeners();
               scheduleSave(trackRevisionForPageId: scopePage.id);
-              return finish(_formatAgentDecisionReply(
-                mode: mode,
-                reason: reason.isEmpty
-                    ? (isEs
-                          ? 'Recuperé una salida estructurada y apliqué la edición.'
-                          : 'Recovered structured output and applied the edit.')
-                    : reason,
-                reply: reply.isEmpty
-                    ? (isEs
-                          ? 'He editado bloques existentes de la página.'
-                          : 'I edited existing page blocks.')
-                    : reply,
-                isEs: isEs,
-              ));
+              return finish(
+                _formatAgentDecisionReply(
+                  mode: mode,
+                  reason: reason.isEmpty
+                      ? (isEs
+                            ? 'Recuperé una salida estructurada y apliqué la edición.'
+                            : 'Recovered structured output and applied the edit.')
+                      : reason,
+                  reply: reply.isEmpty
+                      ? (isEs
+                            ? 'He editado bloques existentes de la página.'
+                            : 'I edited existing page blocks.')
+                      : reply,
+                  isEs: isEs,
+                ),
+              );
             }
           }
         } catch (recoveryError, recoveryStack) {
@@ -2869,20 +3013,24 @@ Quick help (be concise):
         languageCode: languageCode,
       );
       lastUsage = fallbackChat.usage ?? lastUsage;
-      final wantsCreate =
-          _looksLikeCreatePageIntent(prompt, languageCode: languageCode);
+      final wantsCreate = _looksLikeCreatePageIntent(
+        prompt,
+        languageCode: languageCode,
+      );
       if (wantsCreate) {
         if (wantsSubpage && scopePage == null) {
-          return finish(_formatAgentDecisionReply(
-            mode: 'create_page',
-            reason: isEs
-                ? 'Detecté intención de crear subpágina pero no hay página activa.'
-                : 'Detected subpage creation intent but there is no active page.',
-            reply: isEs
-                ? 'Selecciona primero una página para crear la subpágina dentro.'
-                : 'Select a page first to create the subpage inside it.',
-            isEs: isEs,
-          ));
+          return finish(
+            _formatAgentDecisionReply(
+              mode: 'create_page',
+              reason: isEs
+                  ? 'Detecté intención de crear subpágina pero no hay página activa.'
+                  : 'Detected subpage creation intent but there is no active page.',
+              reply: isEs
+                  ? 'Selecciona primero una página para crear la subpágina dentro.'
+                  : 'Select a page first to create the subpage inside it.',
+              isEs: isEs,
+            ),
+          );
         }
         final createdId = _createPageFromRecoveredReply(
           fallbackChat.text,
@@ -2899,26 +3047,30 @@ Quick help (be concise):
               'parentId': wantsSubpage ? scopePage?.id : null,
             },
           );
-          return finish(_formatAgentDecisionReply(
-            mode: 'create_page',
-            reason: isEs
-                ? 'No pude estructurar JSON, pero recuperé el contenido y creé la página.'
-                : 'Could not structure JSON, but recovered content and created the page.',
-            reply: isEs
-                ? 'He creado una página con el contenido generado.'
-                : 'I created a page with the generated content.',
-            isEs: isEs,
-          ));
+          return finish(
+            _formatAgentDecisionReply(
+              mode: 'create_page',
+              reason: isEs
+                  ? 'No pude estructurar JSON, pero recuperé el contenido y creé la página.'
+                  : 'Could not structure JSON, but recovered content and created the page.',
+              reply: isEs
+                  ? 'He creado una página con el contenido generado.'
+                  : 'I created a page with the generated content.',
+              isEs: isEs,
+            ),
+          );
         }
       }
-      return finish(_formatAgentDecisionReply(
-        mode: 'chat',
-        reason: isEs
-            ? 'No pude estructurar la acción; respondo en modo conversación.'
-            : 'I could not structure the action; responding in chat mode.',
-        reply: fallbackChat.text,
-        isEs: isEs,
-      ));
+      return finish(
+        _formatAgentDecisionReply(
+          mode: 'chat',
+          reason: isEs
+              ? 'No pude estructurar la acción; respondo en modo conversación.'
+              : 'I could not structure the action; responding in chat mode.',
+          reply: fallbackChat.text,
+          isEs: isEs,
+        ),
+      );
     }
   }
 
@@ -3231,7 +3383,8 @@ Quick help (be concise):
       final trimmed = line.trim();
       final normalized = _normalizeIntentText(trimmed);
       if (!started) {
-        final looksPreamble = normalized.startsWith('aqui tienes') ||
+        final looksPreamble =
+            normalized.startsWith('aqui tienes') ||
             normalized.startsWith('te dejo') ||
             normalized.startsWith('a continuacion') ||
             normalized.startsWith('here is') ||

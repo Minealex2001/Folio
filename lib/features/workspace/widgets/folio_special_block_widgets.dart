@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:audioplayers/audioplayers.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_math_fork/flutter_math.dart';
+import 'package:uuid/uuid.dart';
 
 import '../../../models/block.dart';
 import '../../../models/folio_page.dart';
@@ -91,7 +92,8 @@ class _FolioAudioBlockPlayerState extends State<FolioAudioBlockPlayer> {
               ),
               if (_dur > Duration.zero)
                 Slider(
-                  value: _pos.inMilliseconds.clamp(0, _dur.inMilliseconds)
+                  value: _pos.inMilliseconds
+                      .clamp(0, _dur.inMilliseconds)
                       .toDouble(),
                   max: _dur.inMilliseconds.toDouble(),
                   onChanged: (v) async {
@@ -131,16 +133,10 @@ class FolioEquationPreview extends StatelessWidget {
     try {
       return SingleChildScrollView(
         scrollDirection: Axis.horizontal,
-        child: Math.tex(
-          t,
-          textStyle: textStyle,
-        ),
+        child: Math.tex(t, textStyle: textStyle),
       );
     } catch (_) {
-      return Text(
-        t,
-        style: textStyle?.copyWith(color: scheme.error),
-      );
+      return Text(t, style: textStyle?.copyWith(color: scheme.error));
     }
   }
 }
@@ -183,7 +179,8 @@ class _FolioToggleBlockBodyState extends State<FolioToggleBlockBody> {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.block.text != widget.block.text) {
       final d =
-          FolioToggleData.tryParse(widget.block.text) ?? FolioToggleData.empty();
+          FolioToggleData.tryParse(widget.block.text) ??
+          FolioToggleData.empty();
       if (_title.text != d.title) _title.text = d.title;
       if (_body.text != d.body) _body.text = d.body;
     }
@@ -307,7 +304,11 @@ class FolioTocBlockBody extends StatelessWidget {
           return InkWell(
             onTap: () => session.requestScrollToBlock(e.id),
             child: Padding(
-              padding: EdgeInsetsDirectional.only(start: pad, top: 4, bottom: 4),
+              padding: EdgeInsetsDirectional.only(
+                start: pad,
+                top: 4,
+                bottom: 4,
+              ),
               child: Text(
                 e.text,
                 style: textTheme.bodyMedium?.copyWith(
@@ -397,6 +398,7 @@ class FolioColumnListBlockBody extends StatefulWidget {
     required this.session,
     required this.scheme,
     required this.textTheme,
+    required this.showActions,
   });
 
   final String pageId;
@@ -404,6 +406,7 @@ class FolioColumnListBlockBody extends StatefulWidget {
   final VaultSession session;
   final ColorScheme scheme;
   final TextTheme textTheme;
+  final bool showActions;
 
   @override
   State<FolioColumnListBlockBody> createState() =>
@@ -411,71 +414,666 @@ class FolioColumnListBlockBody extends StatefulWidget {
 }
 
 class _FolioColumnListBlockBodyState extends State<FolioColumnListBlockBody> {
-  late List<TextEditingController> _cols;
+  static const _uuid = Uuid();
+  static const _allowedTypes = <String>[
+    'paragraph',
+    'h1',
+    'h2',
+    'h3',
+    'bullet',
+    'numbered',
+    'todo',
+    'quote',
+    'callout',
+    'code',
+    'equation',
+    'divider',
+  ];
+
+  late FolioColumnsData _data;
+  final Map<String, TextEditingController> _controllers = {};
+  bool _editing = false;
 
   @override
   void initState() {
     super.initState();
-    final d =
-        FolioColumnsData.tryParse(widget.block.text) ?? FolioColumnsData.empty();
-    _cols = d.columns.map((c) => TextEditingController(text: c)).toList();
+    _bootstrap();
   }
 
   @override
   void didUpdateWidget(covariant FolioColumnListBlockBody oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.block.text != widget.block.text) {
-      final d = FolioColumnsData.tryParse(widget.block.text) ??
-          FolioColumnsData.empty();
-      for (final c in _cols) {
-        c.dispose();
-      }
-      _cols = d.columns.map((c) => TextEditingController(text: c)).toList();
+      _bootstrap();
     }
   }
 
   @override
   void dispose() {
-    for (final c in _cols) {
-      c.dispose();
-    }
+    _disposeControllers();
     super.dispose();
   }
 
+  void _disposeControllers() {
+    for (final controller in _controllers.values) {
+      controller.dispose();
+    }
+    _controllers.clear();
+  }
+
+  void _bootstrap() {
+    _data =
+        FolioColumnsData.tryParse(widget.block.text) ??
+        FolioColumnsData.empty();
+    _syncControllers();
+  }
+
+  void _setEditing(bool value) {
+    if (_editing == value) return;
+    setState(() => _editing = value);
+  }
+
+  void _syncControllers() {
+    final liveIds = <String>{};
+    for (final column in _data.columns) {
+      for (final block in column.blocks) {
+        liveIds.add(block.id);
+        final current = _controllers[block.id];
+        if (current == null) {
+          _controllers[block.id] = TextEditingController(text: block.text);
+        } else if (current.text != block.text) {
+          current.value = TextEditingValue(
+            text: block.text,
+            selection: TextSelection.collapsed(offset: block.text.length),
+          );
+        }
+      }
+    }
+    final staleIds = _controllers.keys
+        .where((id) => !liveIds.contains(id))
+        .toList();
+    for (final id in staleIds) {
+      _controllers.remove(id)?.dispose();
+    }
+  }
+
+  String _t(String es, String en) {
+    return Localizations.localeOf(
+          context,
+        ).languageCode.toLowerCase().startsWith('es')
+        ? es
+        : en;
+  }
+
+  String _typeLabel(String type) {
+    switch (type) {
+      case 'h1':
+        return 'H1';
+      case 'h2':
+        return 'H2';
+      case 'h3':
+        return 'H3';
+      case 'bullet':
+        return _t('Lista', 'Bullets');
+      case 'numbered':
+        return _t('Numerada', 'Numbered');
+      case 'todo':
+        return _t('Tarea', 'Todo');
+      case 'quote':
+        return _t('Cita', 'Quote');
+      case 'callout':
+        return _t('Callout', 'Callout');
+      case 'code':
+        return _t('Código', 'Code');
+      case 'equation':
+        return _t('Ecuación', 'Equation');
+      case 'divider':
+        return _t('Divisor', 'Divider');
+      default:
+        return _t('Texto', 'Text');
+    }
+  }
+
+  IconData _typeIcon(String type) {
+    switch (type) {
+      case 'h1':
+      case 'h2':
+      case 'h3':
+        return Icons.title_rounded;
+      case 'bullet':
+        return Icons.format_list_bulleted_rounded;
+      case 'numbered':
+        return Icons.format_list_numbered_rounded;
+      case 'todo':
+        return Icons.check_box_outlined;
+      case 'quote':
+        return Icons.format_quote_rounded;
+      case 'callout':
+        return Icons.campaign_outlined;
+      case 'code':
+        return Icons.code_rounded;
+      case 'equation':
+        return Icons.functions_rounded;
+      case 'divider':
+        return Icons.horizontal_rule_rounded;
+      default:
+        return Icons.notes_rounded;
+    }
+  }
+
   void _emit() {
-    final data = FolioColumnsData(
-      columns: _cols.map((c) => c.text).toList(),
-    );
     widget.session.updateBlockText(
       widget.pageId,
       widget.block.id,
-      data.encode(),
+      _data.encode(),
+    );
+  }
+
+  void _setBlockText(FolioBlock block, String text) {
+    block.text = text;
+    _emit();
+  }
+
+  void _setBlockChecked(FolioBlock block, bool value) {
+    block.checked = value;
+    _emit();
+    setState(() {});
+  }
+
+  void _changeBlockType(FolioBlock block, String type) {
+    setState(() {
+      block.type = type;
+      if (type == 'todo') {
+        block.checked ??= false;
+      } else {
+        block.checked = null;
+      }
+      if (type == 'divider') {
+        block.text = '';
+        _controllers[block.id]?.text = '';
+      } else if ((type == 'code' || type == 'equation') &&
+          _controllers[block.id]?.text.trim().isEmpty == true) {
+        final seed = type == 'equation' ? r'E = mc^2' : '';
+        block.text = seed;
+        _controllers[block.id]?.text = seed;
+      }
+      _emit();
+    });
+  }
+
+  void _addBlock(int columnIndex, {String type = 'paragraph'}) {
+    setState(() {
+      _data.columns[columnIndex].blocks.add(
+        FolioBlock(
+          id: 'col_${_uuid.v4()}',
+          type: type,
+          text: type == 'equation' ? r'E = mc^2' : '',
+          checked: type == 'todo' ? false : null,
+        ),
+      );
+      _syncControllers();
+      _emit();
+    });
+  }
+
+  void _removeBlock(int columnIndex, int blockIndex) {
+    setState(() {
+      final blocks = _data.columns[columnIndex].blocks;
+      if (blocks.length == 1) {
+        blocks[blockIndex] = FolioBlock(
+          id: 'col_${_uuid.v4()}',
+          type: 'paragraph',
+          text: '',
+        );
+      } else {
+        final removed = blocks.removeAt(blockIndex);
+        _controllers.remove(removed.id)?.dispose();
+      }
+      _emit();
+    });
+  }
+
+  void _addColumn() {
+    if (_data.columns.length >= 3) return;
+    setState(() {
+      _data.columns.add(FolioColumnData.empty());
+      _syncControllers();
+      _emit();
+    });
+  }
+
+  void _removeColumn(int columnIndex) {
+    if (_data.columns.length <= 2) return;
+    setState(() {
+      final removed = _data.columns.removeAt(columnIndex);
+      for (final block in removed.blocks) {
+        _controllers.remove(block.id)?.dispose();
+      }
+      _emit();
+    });
+  }
+
+  Widget _buildBlockEditor(FolioBlock block) {
+    final controller = _controllers[block.id]!;
+    final isCodeLike = block.type == 'code' || block.type == 'equation';
+    if (block.type == 'divider') {
+      return Container(
+        padding: const EdgeInsets.symmetric(vertical: 10),
+        alignment: Alignment.center,
+        child: Divider(color: widget.scheme.outlineVariant),
+      );
+    }
+    if (block.type == 'todo') {
+      return Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Checkbox(
+            value: block.checked ?? false,
+            onChanged: (value) => _setBlockChecked(block, value ?? false),
+          ),
+          Expanded(
+            child: TextField(
+              controller: controller,
+              minLines: 1,
+              maxLines: 6,
+              style: widget.textTheme.bodyMedium,
+              decoration: InputDecoration(
+                labelText: _t('Contenido', 'Content'),
+                border: const OutlineInputBorder(),
+              ),
+              onChanged: (value) => _setBlockText(block, value),
+            ),
+          ),
+        ],
+      );
+    }
+    return TextField(
+      controller: controller,
+      minLines: isCodeLike ? 4 : 1,
+      maxLines: isCodeLike ? 12 : 6,
+      style: (block.type == 'h1')
+          ? widget.textTheme.headlineSmall
+          : (block.type == 'h2')
+          ? widget.textTheme.titleLarge
+          : (block.type == 'h3')
+          ? widget.textTheme.titleMedium
+          : isCodeLike
+          ? widget.textTheme.bodyMedium?.copyWith(fontFamily: 'monospace')
+          : widget.textTheme.bodyMedium,
+      decoration: InputDecoration(
+        labelText: _t('Contenido', 'Content'),
+        border: const OutlineInputBorder(),
+        alignLabelWithHint: isCodeLike,
+      ),
+      onChanged: (value) => _setBlockText(block, value),
+    );
+  }
+
+  Widget _buildColumnBlockCard(
+    int columnIndex,
+    int blockIndex,
+    FolioBlock block,
+  ) {
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 220),
+      curve: Curves.easeOutCubic,
+      margin: const EdgeInsets.only(bottom: 10),
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(
+        color: widget.scheme.surface,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: widget.scheme.outlineVariant.withValues(alpha: 0.45),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            children: [
+              Icon(
+                _typeIcon(block.type),
+                size: 18,
+                color: widget.scheme.primary,
+              ),
+              const SizedBox(width: 8),
+              PopupMenuButton<String>(
+                onSelected: (value) => _changeBlockType(block, value),
+                itemBuilder: (context) => _allowedTypes
+                    .map(
+                      (type) => PopupMenuItem<String>(
+                        value: type,
+                        child: Row(
+                          children: [
+                            Icon(_typeIcon(type), size: 18),
+                            const SizedBox(width: 8),
+                            Text(_typeLabel(type)),
+                          ],
+                        ),
+                      ),
+                    )
+                    .toList(),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 6,
+                  ),
+                  decoration: BoxDecoration(
+                    color: widget.scheme.surfaceContainerHigh,
+                    borderRadius: BorderRadius.circular(999),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        _typeLabel(block.type),
+                        style: widget.textTheme.labelLarge,
+                      ),
+                      const SizedBox(width: 4),
+                      const Icon(Icons.arrow_drop_down_rounded, size: 18),
+                    ],
+                  ),
+                ),
+              ),
+              const Spacer(),
+              IconButton(
+                tooltip: _t('Eliminar bloque', 'Remove block'),
+                onPressed: () => _removeBlock(columnIndex, blockIndex),
+                icon: const Icon(Icons.delete_outline_rounded),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          _buildBlockEditor(block),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPreviewBlock(FolioBlock block, int index) {
+    final base = widget.textTheme.bodyMedium?.copyWith(
+      color: widget.scheme.onSurface,
+      height: 1.35,
+    );
+    switch (block.type) {
+      case 'h1':
+        return Text(
+          block.text.isEmpty ? 'H1' : block.text,
+          style: widget.textTheme.headlineSmall?.copyWith(
+            fontWeight: FontWeight.w700,
+          ),
+        );
+      case 'h2':
+        return Text(
+          block.text.isEmpty ? 'H2' : block.text,
+          style: widget.textTheme.titleLarge?.copyWith(
+            fontWeight: FontWeight.w700,
+          ),
+        );
+      case 'h3':
+        return Text(
+          block.text.isEmpty ? 'H3' : block.text,
+          style: widget.textTheme.titleMedium?.copyWith(
+            fontWeight: FontWeight.w700,
+          ),
+        );
+      case 'bullet':
+        return Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('• ', style: base),
+            Expanded(child: Text(block.text, style: base)),
+          ],
+        );
+      case 'numbered':
+        return Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('${index + 1}. ', style: base),
+            Expanded(child: Text(block.text, style: base)),
+          ],
+        );
+      case 'todo':
+        return Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Icon(
+              block.checked == true
+                  ? Icons.check_box_rounded
+                  : Icons.check_box_outline_blank_rounded,
+              size: 18,
+              color: widget.scheme.primary,
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                block.text,
+                style: base?.copyWith(
+                  decoration: block.checked == true
+                      ? TextDecoration.lineThrough
+                      : TextDecoration.none,
+                ),
+              ),
+            ),
+          ],
+        );
+      case 'quote':
+        return Container(
+          padding: const EdgeInsets.only(left: 12),
+          decoration: BoxDecoration(
+            border: Border(
+              left: BorderSide(color: widget.scheme.outlineVariant, width: 3),
+            ),
+          ),
+          child: Text(
+            block.text,
+            style: base?.copyWith(fontStyle: FontStyle.italic),
+          ),
+        );
+      case 'callout':
+        return Container(
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: widget.scheme.secondaryContainer.withValues(alpha: 0.5),
+            borderRadius: BorderRadius.circular(14),
+          ),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Icon(
+                Icons.campaign_outlined,
+                size: 18,
+                color: widget.scheme.primary,
+              ),
+              const SizedBox(width: 8),
+              Expanded(child: Text(block.text, style: base)),
+            ],
+          ),
+        );
+      case 'code':
+      case 'equation':
+        return Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: widget.scheme.surfaceContainerHigh,
+            borderRadius: BorderRadius.circular(14),
+          ),
+          child: Text(
+            block.text,
+            style: widget.textTheme.bodySmall?.copyWith(
+              fontFamily: 'monospace',
+            ),
+          ),
+        );
+      case 'divider':
+        return Divider(color: widget.scheme.outlineVariant);
+      default:
+        return Text(block.text, style: base);
+    }
+  }
+
+  Widget _buildPreviewColumn(int columnIndex) {
+    final blocks = _data.columns[columnIndex].blocks;
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 220),
+      curve: Curves.easeOutCubic,
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: widget.scheme.surfaceContainerLow,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(
+          color: widget.scheme.outlineVariant.withValues(alpha: 0.35),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          for (var i = 0; i < blocks.length; i++) ...[
+            _buildPreviewBlock(blocks[i], i),
+            if (i < blocks.length - 1) const SizedBox(height: 10),
+          ],
+        ],
+      ),
     );
   }
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        for (var i = 0; i < _cols.length; i++) ...[
-          if (i > 0) const SizedBox(width: 12),
-          Expanded(
-            child: TextField(
-              controller: _cols[i],
-              minLines: 3,
-              maxLines: 12,
-              style: widget.textTheme.bodyMedium,
-              decoration: InputDecoration(
-                labelText: 'Columna ${i + 1}',
-                border: const OutlineInputBorder(),
-                alignLabelWithHint: true,
-              ),
-              onChanged: (_) => _emit(),
-            ),
+    _syncControllers();
+    return FocusScope(
+      onFocusChange: (hasFocus) {
+        if (!hasFocus) _setEditing(false);
+      },
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          AnimatedSwitcher(
+            duration: const Duration(milliseconds: 200),
+            child: (_editing || widget.showActions)
+                ? Row(
+                    key: const ValueKey('columns_toolbar'),
+                    children: [
+                      Text(
+                        _t('Columnas', 'Columns'),
+                        style: widget.textTheme.titleSmall?.copyWith(
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                      const Spacer(),
+                      if (!_editing)
+                        FilledButton.tonalIcon(
+                          onPressed: () => _setEditing(true),
+                          icon: const Icon(Icons.edit_outlined, size: 18),
+                          label: Text(_t('Editar', 'Edit')),
+                        )
+                      else ...[
+                        if (_data.columns.length < 3)
+                          FilledButton.tonalIcon(
+                            onPressed: _addColumn,
+                            icon: const Icon(
+                              Icons.view_week_outlined,
+                              size: 18,
+                            ),
+                            label: Text(_t('Añadir columna', 'Add column')),
+                          ),
+                        const SizedBox(width: 8),
+                        OutlinedButton.icon(
+                          onPressed: () {
+                            FocusScope.of(context).unfocus();
+                            _setEditing(false);
+                          },
+                          icon: const Icon(Icons.check_rounded, size: 18),
+                          label: Text(_t('Hecho', 'Done')),
+                        ),
+                      ],
+                    ],
+                  )
+                : const SizedBox.shrink(
+                    key: ValueKey('columns_toolbar_hidden'),
+                  ),
+          ),
+          if (_editing || widget.showActions) const SizedBox(height: 12),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              for (var i = 0; i < _data.columns.length; i++) ...[
+                if (i > 0) const SizedBox(width: 12),
+                Expanded(
+                  child: _editing
+                      ? AnimatedContainer(
+                          duration: const Duration(milliseconds: 240),
+                          curve: Curves.easeOutCubic,
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: widget.scheme.surfaceContainerLow,
+                            borderRadius: BorderRadius.circular(20),
+                            border: Border.all(
+                              color: widget.scheme.outlineVariant.withValues(
+                                alpha: 0.35,
+                              ),
+                            ),
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              Row(
+                                children: [
+                                  Text(
+                                    '${_t('Columna', 'Column')} ${i + 1}',
+                                    style: widget.textTheme.titleSmall
+                                        ?.copyWith(fontWeight: FontWeight.w700),
+                                  ),
+                                  const Spacer(),
+                                  if (_data.columns.length > 2)
+                                    IconButton(
+                                      tooltip: _t(
+                                        'Quitar columna',
+                                        'Remove column',
+                                      ),
+                                      onPressed: () => _removeColumn(i),
+                                      icon: const Icon(Icons.close_rounded),
+                                    ),
+                                ],
+                              ),
+                              const SizedBox(height: 8),
+                              AnimatedSize(
+                                duration: const Duration(milliseconds: 220),
+                                curve: Curves.easeOutCubic,
+                                child: Column(
+                                  children: [
+                                    for (
+                                      var blockIndex = 0;
+                                      blockIndex <
+                                          _data.columns[i].blocks.length;
+                                      blockIndex++
+                                    )
+                                      _buildColumnBlockCard(
+                                        i,
+                                        blockIndex,
+                                        _data.columns[i].blocks[blockIndex],
+                                      ),
+                                  ],
+                                ),
+                              ),
+                              Align(
+                                alignment: Alignment.centerLeft,
+                                child: FilledButton.tonalIcon(
+                                  onPressed: () => _addBlock(i),
+                                  icon: const Icon(Icons.add_rounded, size: 18),
+                                  label: Text(_t('Añadir bloque', 'Add block')),
+                                ),
+                              ),
+                            ],
+                          ),
+                        )
+                      : _buildPreviewColumn(i),
+                ),
+              ],
+            ],
           ),
         ],
-      ],
+      ),
     );
   }
 }
@@ -498,7 +1096,8 @@ class FolioTemplateButtonBlockBody extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final data = FolioTemplateButtonData.tryParse(block.text) ??
+    final data =
+        FolioTemplateButtonData.tryParse(block.text) ??
         FolioTemplateButtonData.defaultNew();
     return Align(
       alignment: Alignment.centerLeft,

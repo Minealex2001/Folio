@@ -3914,6 +3914,7 @@ class _BlockEditorState extends State<BlockEditor> {
                 session: _s,
                 scheme: scheme,
                 textTheme: theme.textTheme,
+                showActions: showActions,
               ),
             ),
           ],

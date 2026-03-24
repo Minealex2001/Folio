@@ -1,8 +1,11 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart'
+    show TargetPlatform, defaultTargetPlatform, kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter/services.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 import 'package:system_theme/system_theme.dart';
 
 import '../desktop/desktop_integration.dart';
@@ -11,6 +14,8 @@ import '../services/ai/ai_provider_launcher.dart';
 import '../services/ai/ai_safety_policy.dart';
 import '../services/ai/lmstudio_ai_service.dart';
 import '../services/ai/ollama_ai_service.dart';
+import '../services/run2doc/run2doc_bridge.dart';
+import '../services/run2doc/run2doc_markdown_codec.dart';
 import '../services/updater/github_release_updater.dart';
 import '../features/lock/lock_screen.dart';
 import '../features/onboarding/onboarding_flow.dart';
@@ -21,10 +26,16 @@ import 'app_settings.dart';
 import 'folio_theme.dart';
 
 class FolioApp extends StatefulWidget {
-  const FolioApp({super.key, required this.session, required this.appSettings});
+  const FolioApp({
+    super.key,
+    required this.session,
+    required this.appSettings,
+    this.initialLaunchArgs = const <String>[],
+  });
 
   final VaultSession session;
   final AppSettings appSettings;
+  final List<String> initialLaunchArgs;
 
   @override
   State<FolioApp> createState() => _FolioAppState();
@@ -34,9 +45,12 @@ class _FolioAppState extends State<FolioApp> with WidgetsBindingObserver {
   StreamSubscription<SystemAccentColor>? _accentSub;
   final GlobalKey<NavigatorState> _navKey = GlobalKey<NavigatorState>();
   DesktopIntegration? _desktop;
+  late final Run2DocBridgeController _run2DocBridge;
+  String? _installedVersionLabel;
   var _openingByHotkey = false;
   String _desktopSettingsSignature = '';
   bool _updateDialogShown = false;
+  bool _handledInitialLaunchArgs = false;
 
   @override
   void initState() {
@@ -44,11 +58,19 @@ class _FolioAppState extends State<FolioApp> with WidgetsBindingObserver {
     WidgetsBinding.instance.addObserver(this);
     widget.session.addListener(_onSession);
     widget.appSettings.addListener(_onSettings);
+    _run2DocBridge = Run2DocBridgeController(
+      onImport: _importRun2DocMarkdown,
+      appInfoProvider: _run2DocAppInfo,
+      onEvent: _showSnack,
+    );
     _applySessionSecurityPolicy();
     _applyAiSettings();
     _maybeLaunchAiProvider();
     widget.session.bootstrap();
+    unawaited(_loadInstalledVersionInfo());
+    unawaited(_startRun2DocBridge());
     _initDesktopIntegration();
+    unawaited(_handleInitialLaunchArgs());
     _checkForUpdatesOnStartup();
     _accentSub = SystemTheme.onChange.listen((_) {
       if (mounted) setState(() {});
@@ -58,6 +80,7 @@ class _FolioAppState extends State<FolioApp> with WidgetsBindingObserver {
   @override
   void dispose() {
     _accentSub?.cancel();
+    unawaited(_run2DocBridge.dispose());
     WidgetsBinding.instance.removeObserver(this);
     unawaited(_desktop?.dispose());
     widget.appSettings.removeListener(_onSettings);
@@ -73,6 +96,32 @@ class _FolioAppState extends State<FolioApp> with WidgetsBindingObserver {
       }
     }
     if (mounted) setState(() {});
+  }
+
+  void _showSnack(String message) {
+    final ctx = _navKey.currentContext;
+    if (ctx == null || message.trim().isEmpty) return;
+    ScaffoldMessenger.of(ctx).showSnackBar(SnackBar(content: Text(message)));
+  }
+
+  Future<void> _loadInstalledVersionInfo() async {
+    try {
+      final info = await PackageInfo.fromPlatform();
+      if (!mounted) return;
+      setState(() {
+        _installedVersionLabel = '${info.version}+${info.buildNumber}';
+      });
+    } catch (_) {
+      _installedVersionLabel ??= 'unknown';
+    }
+  }
+
+  Future<void> _startRun2DocBridge() async {
+    try {
+      await _run2DocBridge.start();
+    } catch (e) {
+      _showSnack('No se pudo iniciar el bridge Run2Doc: $e');
+    }
   }
 
   void _onSettings() {
@@ -235,6 +284,74 @@ class _FolioAppState extends State<FolioApp> with WidgetsBindingObserver {
 
   Future<void> _handleExitRequested() async {
     await SystemNavigator.pop();
+  }
+
+  Future<FolioMarkdownImportResult> _importRun2DocMarkdown(
+    Run2DocMarkdownImportRequest request,
+  ) async {
+    return widget.session.importMarkdownDocument(
+      request.markdown,
+      title: request.title,
+      parentId: request.parentPageId,
+      sourceApp: request.sourceApp,
+      sourceUrl: request.sourceUrl,
+      mode: request.importMode,
+    );
+  }
+
+  Map<String, Object?> _run2DocAppInfo() {
+    final page = widget.session.selectedPage;
+    final activeSession = _run2DocBridge.activeSession;
+    return <String, Object?>{
+      'name': 'Folio',
+      'version': _installedVersionLabel ?? 'unknown',
+      'platform': 'windows',
+      'state': widget.session.state.name,
+      'isUnlocked': widget.session.isUnlocked,
+      'vaultUsesEncryption': widget.session.vaultUsesEncryption,
+      'activeVaultId': widget.session.activeVaultId,
+      'selectedPage': page == null
+          ? null
+          : <String, Object?>{
+              'id': page.id,
+              'title': page.title,
+              'blockCount': page.blocks.length,
+            },
+      'aiEnabled': widget.session.aiEnabled,
+      'bridgePort': Run2DocLaunchSession.fixedPort,
+      'importSession': activeSession == null
+          ? null
+          : <String, Object?>{
+              'sessionId': activeSession.sessionId,
+              'port': activeSession.port,
+            },
+      'timestampUtc': DateTime.now().toUtc().toIso8601String(),
+    };
+  }
+
+  Future<void> _handleInitialLaunchArgs() async {
+    if (_handledInitialLaunchArgs) return;
+    _handledInitialLaunchArgs = true;
+    if (kIsWeb ||
+        defaultTargetPlatform != TargetPlatform.windows ||
+        widget.initialLaunchArgs.isEmpty) {
+      return;
+    }
+    Uri? launchUri;
+    for (final arg in widget.initialLaunchArgs) {
+      final uri = Uri.tryParse(arg);
+      if (uri != null && uri.scheme == 'folio') {
+        launchUri = uri;
+        break;
+      }
+    }
+    if (launchUri == null) return;
+    try {
+      await _run2DocBridge.activateFromUri(launchUri);
+      await _desktop?.showAndFocus();
+    } catch (e) {
+      _showSnack('No se pudo activar la integración Run2Doc: $e');
+    }
   }
 
   Future<void> _checkForUpdatesOnStartup() async {

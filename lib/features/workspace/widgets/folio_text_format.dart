@@ -7,6 +7,7 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../../../data/folio_internal_link.dart';
 import '../../../l10n/generated/app_localizations.dart';
+import 'mermaid_markdown_builder.dart';
 import 'folio_youtube.dart';
 
 /// Escapa `<` salvo las etiquetas de subrayado permitidas (`<u>`, `</u>`).
@@ -55,11 +56,11 @@ MarkdownStyleSheet folioMarkdownStyleSheet(
   final baseHeight = baseStyle.height ?? 1.45;
 
   TextStyle heading(double bump, FontWeight w) => baseStyle.copyWith(
-        fontSize: baseSize + bump,
-        fontWeight: w,
-        height: 1.2,
-        letterSpacing: w == FontWeight.w700 ? -0.3 : -0.2,
-      );
+    fontSize: baseSize + bump,
+    fontWeight: w,
+    height: 1.2,
+    letterSpacing: w == FontWeight.w700 ? -0.3 : -0.2,
+  );
 
   return from.copyWith(
     p: baseStyle,
@@ -185,6 +186,12 @@ class FolioMarkdownPreview extends StatelessWidget {
             onTapLink: wrappedTap,
             onFolioPageLink: onFolioPageLink,
           ),
+          'pre': FolioMermaidMarkdownBuilder(),
+          'blockquote': _FolioMarkdownBlockquoteBuilder(
+            styleSheet: styleSheet,
+            onTapLink: wrappedTap,
+            onFolioPageLink: onFolioPageLink,
+          ),
         },
       ),
     );
@@ -192,10 +199,7 @@ class FolioMarkdownPreview extends StatelessWidget {
 }
 
 class _FolioMarkdownAnchorBuilder extends MarkdownElementBuilder {
-  _FolioMarkdownAnchorBuilder({
-    required this.onTapLink,
-    this.onFolioPageLink,
-  });
+  _FolioMarkdownAnchorBuilder({required this.onTapLink, this.onFolioPageLink});
 
   final void Function(String text, String? href, String title) onTapLink;
   final void Function(String pageId)? onFolioPageLink;
@@ -244,6 +248,132 @@ class _FolioMarkdownAnchorBuilder extends MarkdownElementBuilder {
       ),
     );
   }
+}
+
+class _FolioMarkdownBlockquoteBuilder extends MarkdownElementBuilder {
+  _FolioMarkdownBlockquoteBuilder({
+    required this.styleSheet,
+    required this.onTapLink,
+    this.onFolioPageLink,
+  });
+
+  final MarkdownStyleSheet styleSheet;
+  final void Function(String text, String? href, String title) onTapLink;
+  final void Function(String pageId)? onFolioPageLink;
+
+  @override
+  Widget? visitElementAfterWithContext(
+    BuildContext context,
+    md.Element element,
+    TextStyle? preferredStyle,
+    TextStyle? parentStyle,
+  ) {
+    final raw = _collectMarkdownText(element).trim();
+    if (raw.isEmpty) return const SizedBox.shrink();
+    final alert = _parseAlert(raw);
+    final scheme = Theme.of(context).colorScheme;
+    final child = MarkdownBody(
+      data: alert?.body ?? raw,
+      shrinkWrap: true,
+      fitContent: true,
+      selectable: false,
+      softLineBreak: true,
+      styleSheet: styleSheet,
+      extensionSet: md.ExtensionSet.gitHubFlavored,
+      builders: {
+        'a': _FolioMarkdownAnchorBuilder(
+          onTapLink: onTapLink,
+          onFolioPageLink: onFolioPageLink,
+        ),
+        'pre': FolioMermaidMarkdownBuilder(),
+      },
+    );
+    if (alert == null) {
+      return Container(
+        padding: const EdgeInsets.only(left: 10, top: 2, bottom: 2),
+        decoration: BoxDecoration(
+          border: Border(
+            left: BorderSide(
+              color: scheme.outlineVariant.withValues(alpha: 0.85),
+              width: 3,
+            ),
+          ),
+        ),
+        child: child,
+      );
+    }
+    return Container(
+      margin: const EdgeInsets.symmetric(vertical: 4),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(
+        color: scheme.primaryContainer.withValues(alpha: 0.28),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: scheme.primaryContainer),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(alert.icon, style: const TextStyle(fontSize: 18)),
+          const SizedBox(width: 8),
+          Expanded(child: child),
+        ],
+      ),
+    );
+  }
+}
+
+String _collectMarkdownText(md.Node node) {
+  final buffer = StringBuffer();
+  void walk(md.Node current) {
+    if (current is md.Text) {
+      buffer.write(current.text);
+      return;
+    }
+    if (current is md.Element) {
+      if (current.tag == 'br') {
+        buffer.write('\n');
+      }
+      final children = current.children ?? const <md.Node>[];
+      for (final child in children) {
+        walk(child);
+      }
+      if (current.tag == 'p' || current.tag == 'li') {
+        buffer.write('\n');
+      }
+    }
+  }
+
+  walk(node);
+  return buffer.toString().trim();
+}
+
+({String icon, String body})? _parseAlert(String raw) {
+  final lines = raw.split('\n').map((line) => line.trimRight()).toList();
+  if (lines.isEmpty) return null;
+  final match = RegExp(
+    r'^\[!(NOTE|TIP|IMPORTANT|WARNING|CAUTION)\]\s*(.*)$',
+    caseSensitive: false,
+  ).firstMatch(lines.first.trim());
+  if (match == null) return null;
+  final kind = match.group(1)!.toUpperCase();
+  final bodyLines = <String>[];
+  final firstTail = match.group(2)?.trim() ?? '';
+  if (firstTail.isNotEmpty) {
+    bodyLines.add(firstTail);
+  }
+  if (lines.length > 1) {
+    bodyLines.addAll(lines.skip(1));
+  }
+  return (
+    icon: switch (kind) {
+      'TIP' => '💡',
+      'IMPORTANT' => '📌',
+      'WARNING' => '⚠️',
+      'CAUTION' => '⛔',
+      _ => '📝',
+    },
+    body: bodyLines.join('\n').trim(),
+  );
 }
 
 /// Aplica o quita un par de delimitadores alrededor de la selección (o inserta

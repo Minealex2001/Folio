@@ -24,3 +24,14 @@ class FolioMotion {
   static const Duration medium1 = Duration(milliseconds: 280);
   static const Curve emphasized = Curves.easeOutCubic;
 }
+
+class FolioDesktop {
+  static const double compactBreakpoint = 900;
+  static const double mediumBreakpoint = 1180;
+  static const double sidebarWidth = 320;
+  static const double sidebarWideWidth = 336;
+  static const double aiPanelWidth = 380;
+  static const double editorMaxWidth = 920;
+  static const double settingsRailWidth = 264;
+  static const double pageMaxWidth = 1440;
+}

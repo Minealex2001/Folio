@@ -1,11 +1,15 @@
 #include "flutter_window.h"
 
+#include <flutter/method_channel.h>
+#include <flutter/standard_method_codec.h>
+
 #include <optional>
 
 #include "flutter/generated_plugin_registrant.h"
 
-FlutterWindow::FlutterWindow(const flutter::DartProject& project)
-    : project_(project) {}
+FlutterWindow::FlutterWindow(const flutter::DartProject& project,
+                             std::vector<std::string> launch_arguments)
+    : project_(project), launch_arguments_(std::move(launch_arguments)) {}
 
 FlutterWindow::~FlutterWindow() {}
 
@@ -26,6 +30,23 @@ bool FlutterWindow::OnCreate() {
   }
   RegisterPlugins(flutter_controller_->engine());
   SetChildContent(flutter_controller_->view()->GetNativeWindow());
+
+  auto channel = std::make_unique<flutter::MethodChannel<flutter::EncodableValue>>(
+      flutter_controller_->engine()->messenger(), "folio/windows_launch_args",
+      &flutter::StandardMethodCodec::GetInstance());
+  channel->SetMethodCallHandler(
+      [this](const flutter::MethodCall<flutter::EncodableValue>& call,
+             std::unique_ptr<flutter::MethodResult<flutter::EncodableValue>> result) {
+        if (call.method_name() == "getInitialLaunchArguments") {
+          flutter::EncodableList out;
+          for (const auto& arg : launch_arguments_) {
+            out.push_back(flutter::EncodableValue(arg));
+          }
+          result->Success(flutter::EncodableValue(out));
+          return;
+        }
+        result->NotImplemented();
+      });
 
   flutter_controller_->engine()->SetNextFrameCallback([&]() {
     this->Show();

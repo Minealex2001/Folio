@@ -395,28 +395,30 @@ class _SidebarState extends State<Sidebar> {
           )
           .map((p) => MapEntry(p.id, p.title)),
     ];
-    showModalBottomSheet<void>(
+    showDialog<void>(
       context: context,
-      showDragHandle: true,
       builder: (ctx) {
-        return SafeArea(
-          child: ListView(
-            shrinkWrap: true,
-            children: [
-              ListTile(title: Text(l10n.movePageTitle(page.title))),
-              ...options.map(
-                (e) => ListTile(
-                  title: Text(e.value),
-                  trailing: page.parentId == e.key
-                      ? const Icon(Icons.check, size: 20)
-                      : null,
-                  onTap: () {
-                    session.setPageParent(page.id, e.key);
-                    Navigator.pop(ctx);
-                  },
-                ),
-              ),
-            ],
+        return AlertDialog(
+          title: Text(l10n.movePageTitle(page.title)),
+          content: SizedBox(
+            width: 420,
+            child: ListView(
+              shrinkWrap: true,
+              children: options
+                  .map(
+                    (e) => ListTile(
+                      title: Text(e.value),
+                      trailing: page.parentId == e.key
+                          ? const Icon(Icons.check, size: 20)
+                          : null,
+                      onTap: () {
+                        session.setPageParent(page.id, e.key);
+                        Navigator.pop(ctx);
+                      },
+                    ),
+                  )
+                  .toList(),
+            ),
           ),
         );
       },
@@ -429,23 +431,26 @@ class _SidebarState extends State<Sidebar> {
     final selected = page.id == session.selectedPageId;
     final canDelete = session.pages.length > 1 && !_hasChildren(page);
     return Padding(
-      padding: EdgeInsets.only(left: indent),
+      padding: EdgeInsets.fromLTRB(indent, 0, 0, FolioSpace.xs),
       child: Material(
-        color: selected ? scheme.secondaryContainer : Colors.transparent,
+        color: selected ? scheme.secondaryContainer : scheme.surface,
         borderRadius: BorderRadius.circular(FolioRadius.lg),
         clipBehavior: Clip.antiAlias,
         child: InkWell(
           onTap: () => session.selectPage(page.id),
           onDoubleTap: () => _rename(context, page),
           child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 6),
+            padding: const EdgeInsets.symmetric(
+              horizontal: FolioSpace.xs,
+              vertical: FolioSpace.xs,
+            ),
             child: Row(
               children: [
                 Expanded(
                   child: Padding(
                     padding: const EdgeInsets.symmetric(
-                      horizontal: 8,
-                      vertical: 6,
+                      horizontal: FolioSpace.sm,
+                      vertical: FolioSpace.xs,
                     ),
                     child: Text(
                       page.title,
@@ -462,45 +467,63 @@ class _SidebarState extends State<Sidebar> {
                     ),
                   ),
                 ),
-                IconButton(
-                  icon: const Icon(Icons.add, size: 20),
-                  tooltip: l10n.subpage,
-                  visualDensity: VisualDensity.compact,
-                  color: selected
-                      ? scheme.onSecondaryContainer
-                      : scheme.onSurfaceVariant,
-                  onPressed: () {
-                    session.addPage(parentId: page.id);
-                  },
-                ),
-                IconButton(
-                  icon: const Icon(Icons.drive_file_move_outline, size: 20),
-                  tooltip: l10n.move,
-                  visualDensity: VisualDensity.compact,
-                  color: selected
-                      ? scheme.onSecondaryContainer
-                      : scheme.onSurfaceVariant,
-                  onPressed: () => _move(context, page),
-                ),
-                IconButton(
-                  icon: const Icon(Icons.edit_outlined, size: 20),
-                  tooltip: l10n.rename,
-                  visualDensity: VisualDensity.compact,
-                  color: selected
-                      ? scheme.onSecondaryContainer
-                      : scheme.onSurfaceVariant,
-                  onPressed: () => _rename(context, page),
-                ),
-                IconButton(
-                  icon: const Icon(Icons.delete_outline, size: 20),
-                  tooltip: l10n.delete,
-                  visualDensity: VisualDensity.compact,
-                  color: selected
-                      ? scheme.onSecondaryContainer
-                      : scheme.onSurfaceVariant,
-                  onPressed: canDelete
-                      ? () => session.deletePage(page.id)
-                      : null,
+                Container(
+                  decoration: BoxDecoration(
+                    color: selected
+                        ? scheme.onSecondaryContainer.withValues(alpha: 0.08)
+                        : scheme.surfaceContainerHighest.withValues(
+                            alpha: 0.45,
+                          ),
+                    borderRadius: BorderRadius.circular(FolioRadius.md),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      IconButton(
+                        icon: const Icon(Icons.add, size: 18),
+                        tooltip: l10n.subpage,
+                        visualDensity: VisualDensity.compact,
+                        color: selected
+                            ? scheme.onSecondaryContainer
+                            : scheme.onSurfaceVariant,
+                        onPressed: () {
+                          session.addPage(parentId: page.id);
+                        },
+                      ),
+                      IconButton(
+                        icon: const Icon(
+                          Icons.drive_file_move_outline,
+                          size: 18,
+                        ),
+                        tooltip: l10n.move,
+                        visualDensity: VisualDensity.compact,
+                        color: selected
+                            ? scheme.onSecondaryContainer
+                            : scheme.onSurfaceVariant,
+                        onPressed: () => _move(context, page),
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.edit_outlined, size: 18),
+                        tooltip: l10n.rename,
+                        visualDensity: VisualDensity.compact,
+                        color: selected
+                            ? scheme.onSecondaryContainer
+                            : scheme.onSurfaceVariant,
+                        onPressed: () => _rename(context, page),
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.delete_outline, size: 18),
+                        tooltip: l10n.delete,
+                        visualDensity: VisualDensity.compact,
+                        color: selected
+                            ? scheme.onSecondaryContainer
+                            : scheme.onSurfaceVariant,
+                        onPressed: canDelete
+                            ? () => session.deletePage(page.id)
+                            : null,
+                      ),
+                    ],
+                  ),
                 ),
               ],
             ),
@@ -533,36 +556,56 @@ class _SidebarState extends State<Sidebar> {
         widget.onSearch != null &&
         widget.onOpenSettings != null &&
         widget.onLock != null;
+    final scheme = Theme.of(context).colorScheme;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         _vaultToolbar(context),
         if (showDeskTools)
           Padding(
-            padding: const EdgeInsets.fromLTRB(2, 2, 2, 0),
-            child: Row(
-              children: [
-                IconButton(
-                  tooltip: l10n.search,
-                  icon: const Icon(Icons.search_rounded),
-                  onPressed: widget.onSearch,
-                ),
-                IconButton(
-                  tooltip: l10n.settings,
-                  icon: const Icon(Icons.settings_rounded),
-                  onPressed: widget.onOpenSettings,
-                ),
-                IconButton(
-                  tooltip: l10n.lockNow,
-                  icon: const Icon(Icons.lock_outline_rounded),
-                  onPressed: widget.onLock,
-                ),
-              ],
+            padding: const EdgeInsets.fromLTRB(
+              FolioSpace.sm,
+              0,
+              FolioSpace.sm,
+              FolioSpace.sm,
+            ),
+            child: Container(
+              padding: const EdgeInsets.all(FolioSpace.xs),
+              decoration: BoxDecoration(
+                color: scheme.surfaceContainerHigh,
+                borderRadius: BorderRadius.circular(FolioRadius.lg),
+              ),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: FilledButton.tonalIcon(
+                      onPressed: widget.onSearch,
+                      icon: const Icon(Icons.search_rounded),
+                      label: Text(l10n.search),
+                    ),
+                  ),
+                  const SizedBox(width: FolioSpace.xs),
+                  IconButton(
+                    tooltip: l10n.settings,
+                    icon: const Icon(Icons.settings_rounded),
+                    onPressed: widget.onOpenSettings,
+                  ),
+                  IconButton(
+                    tooltip: l10n.lockNow,
+                    icon: const Icon(Icons.lock_outline_rounded),
+                    onPressed: widget.onLock,
+                  ),
+                ],
+              ),
             ),
           ),
-        const Divider(height: 1),
         Padding(
-          padding: const EdgeInsets.fromLTRB(12, 10, 4, 8),
+          padding: const EdgeInsets.fromLTRB(
+            FolioSpace.md,
+            FolioSpace.sm,
+            FolioSpace.sm,
+            FolioSpace.sm,
+          ),
           child: Row(
             children: [
               Text(
@@ -573,19 +616,41 @@ class _SidebarState extends State<Sidebar> {
                 ),
               ),
               const Spacer(),
-              IconButton(
+              FilledButton.tonalIcon(
                 onPressed: () => session.addPage(parentId: null),
-                icon: const Icon(Icons.add),
-                tooltip: l10n.newRootPageTooltip,
-                visualDensity: VisualDensity.compact,
+                icon: const Icon(Icons.add_rounded),
+                label: Text(l10n.createPage),
               ),
             ],
           ),
         ),
         Expanded(
-          child: ListView(
-            padding: const EdgeInsets.symmetric(horizontal: 4),
-            children: _buildLevel(context, null, 4),
+          child: Container(
+            margin: const EdgeInsets.fromLTRB(
+              FolioSpace.sm,
+              0,
+              FolioSpace.sm,
+              FolioSpace.sm,
+            ),
+            padding: const EdgeInsets.fromLTRB(
+              FolioSpace.xs,
+              FolioSpace.xs,
+              FolioSpace.xs,
+              FolioSpace.sm,
+            ),
+            decoration: BoxDecoration(
+              color: scheme.surfaceContainerLow,
+              borderRadius: BorderRadius.circular(FolioRadius.xl),
+              border: Border.all(
+                color: scheme.outlineVariant.withValues(alpha: 0.35),
+              ),
+            ),
+            child: Scrollbar(
+              child: ListView(
+                padding: EdgeInsets.zero,
+                children: _buildLevel(context, null, 4),
+              ),
+            ),
           ),
         ),
       ],

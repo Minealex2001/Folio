@@ -57,9 +57,13 @@ ThemeData _folioThemeFromBase(ThemeData base, ColorScheme colorScheme) {
   return base.copyWith(
     textTheme: expressiveText,
     scaffoldBackgroundColor: colorScheme.surface,
+    visualDensity: const VisualDensity(horizontal: -1, vertical: -1),
+    materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
     pageTransitionsTheme: const PageTransitionsTheme(
       builders: {
         TargetPlatform.android: FadeForwardsPageTransitionsBuilder(),
+        TargetPlatform.linux: FadeForwardsPageTransitionsBuilder(),
+        TargetPlatform.macOS: FadeForwardsPageTransitionsBuilder(),
         TargetPlatform.windows: FadeForwardsPageTransitionsBuilder(),
       },
     ),
@@ -67,10 +71,27 @@ ThemeData _folioThemeFromBase(ThemeData base, ColorScheme colorScheme) {
       centerTitle: false,
       elevation: 0,
       scrolledUnderElevation: 1,
+      toolbarHeight: 64,
       backgroundColor: Colors
           .transparent, // Let surface color show through or handle natively
       foregroundColor: colorScheme.onSurface,
       surfaceTintColor: colorScheme.surfaceTint,
+      titleTextStyle: expressiveText.titleLarge?.copyWith(
+        color: colorScheme.onSurface,
+        fontWeight: FontWeight.w700,
+      ),
+    ),
+    iconButtonTheme: IconButtonThemeData(
+      style: IconButton.styleFrom(
+        foregroundColor: colorScheme.onSurfaceVariant,
+        hoverColor: colorScheme.surfaceContainerHighest,
+        highlightColor: colorScheme.surfaceContainerHigh,
+        padding: const EdgeInsets.all(FolioSpace.xs),
+        minimumSize: const Size(40, 40),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(FolioRadius.md),
+        ),
+      ),
     ),
     filledButtonTheme: FilledButtonThemeData(
       style: FilledButton.styleFrom(
@@ -130,9 +151,13 @@ ThemeData _folioThemeFromBase(ThemeData base, ColorScheme colorScheme) {
     ),
     listTileTheme: ListTileThemeData(
       iconColor: colorScheme.onSurfaceVariant,
-      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-      horizontalTitleGap: 12,
+      contentPadding: const EdgeInsets.symmetric(
+        horizontal: FolioSpace.md,
+        vertical: FolioSpace.xs,
+      ),
+      horizontalTitleGap: FolioSpace.sm,
       minLeadingWidth: 40,
+      minVerticalPadding: FolioSpace.xs,
     ),
     snackBarTheme: SnackBarThemeData(
       behavior: SnackBarBehavior.floating,
@@ -141,8 +166,24 @@ ThemeData _folioThemeFromBase(ThemeData base, ColorScheme colorScheme) {
       ),
     ),
     dialogTheme: DialogThemeData(
+      backgroundColor: colorScheme.surfaceContainerLow,
+      surfaceTintColor: colorScheme.surfaceTint,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(FolioRadius.xl),
+      ),
+    ),
+    popupMenuTheme: PopupMenuThemeData(
+      color: colorScheme.surfaceContainerHigh,
+      surfaceTintColor: colorScheme.surfaceTint,
+      elevation: 4,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(FolioRadius.lg),
+        side: BorderSide(
+          color: colorScheme.outlineVariant.withValues(alpha: 0.5),
+        ),
+      ),
+      textStyle: expressiveText.bodyMedium?.copyWith(
+        color: colorScheme.onSurface,
       ),
     ),
     navigationDrawerTheme: NavigationDrawerThemeData(
@@ -155,6 +196,63 @@ ThemeData _folioThemeFromBase(ThemeData base, ColorScheme colorScheme) {
         borderRadius: BorderRadius.circular(FolioRadius.sm),
       ),
       backgroundColor: colorScheme.surfaceContainerLow,
+    ),
+    tooltipTheme: TooltipThemeData(
+      decoration: BoxDecoration(
+        color: colorScheme.inverseSurface,
+        borderRadius: BorderRadius.circular(FolioRadius.sm),
+      ),
+      textStyle: expressiveText.bodySmall?.copyWith(
+        color: colorScheme.onInverseSurface,
+      ),
+      padding: const EdgeInsets.symmetric(
+        horizontal: FolioSpace.sm,
+        vertical: FolioSpace.xs,
+      ),
+      margin: const EdgeInsets.all(FolioSpace.sm),
+      waitDuration: FolioMotion.short2,
+      preferBelow: false,
+    ),
+    scrollbarTheme: ScrollbarThemeData(
+      radius: const Radius.circular(FolioRadius.sm),
+      thickness: WidgetStatePropertyAll(10),
+      thumbColor: WidgetStateProperty.resolveWith((states) {
+        if (states.contains(WidgetState.dragged)) {
+          return colorScheme.primary.withValues(alpha: 0.85);
+        }
+        if (states.contains(WidgetState.hovered)) {
+          return colorScheme.onSurfaceVariant.withValues(alpha: 0.85);
+        }
+        return colorScheme.onSurfaceVariant.withValues(alpha: 0.55);
+      }),
+      trackColor: WidgetStatePropertyAll(
+        colorScheme.surfaceContainerHighest.withValues(alpha: 0.35),
+      ),
+    ),
+    chipTheme: base.chipTheme.copyWith(
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(FolioRadius.xl),
+      ),
+      side: BorderSide(color: colorScheme.outlineVariant),
+      labelStyle: expressiveText.labelLarge?.copyWith(
+        color: colorScheme.onSurface,
+      ),
+    ),
+    segmentedButtonTheme: SegmentedButtonThemeData(
+      style: ButtonStyle(
+        visualDensity: const VisualDensity(horizontal: -1, vertical: -1),
+        padding: const WidgetStatePropertyAll(
+          EdgeInsets.symmetric(
+            horizontal: FolioSpace.md,
+            vertical: FolioSpace.sm,
+          ),
+        ),
+        shape: WidgetStatePropertyAll(
+          RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(FolioRadius.lg),
+          ),
+        ),
+      ),
     ),
     inputDecorationTheme: InputDecorationTheme(
       filled: true,

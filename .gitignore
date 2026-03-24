@@ -43,3 +43,5 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+docs/RUN2DOC_INTEGRATION.md
+docs/postman/Run2Doc-Folio.postman_collection.json

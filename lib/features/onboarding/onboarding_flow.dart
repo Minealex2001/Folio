@@ -180,6 +180,84 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
     final scheme = Theme.of(context).colorScheme;
+    final flowCard = SingleChildScrollView(
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 560),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(
+            horizontal: FolioSpace.lg,
+            vertical: FolioSpace.md,
+          ),
+          child: Card.filled(
+            margin: EdgeInsets.zero,
+            color: scheme.surface,
+            elevation: 0,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(28),
+            ),
+            child: Padding(
+              padding: const EdgeInsets.all(FolioSpace.xl),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Center(
+                    child: Text(
+                      'Folio',
+                      style: Theme.of(context).textTheme.headlineMedium
+                          ?.copyWith(
+                            fontWeight: FontWeight.w700,
+                            color: scheme.primary,
+                          ),
+                    ),
+                  ),
+                  const SizedBox(height: FolioSpace.xs),
+                  Center(
+                    child: Text(
+                      _stepLabel,
+                      style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                        color: scheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: FolioSpace.lg),
+                  AnimatedSwitcher(
+                    duration: const Duration(milliseconds: 300),
+                    child: KeyedSubtree(
+                      key: ValueKey('step_$_importMode$_page'),
+                      child: _buildCurrentStep(context),
+                    ),
+                  ),
+                  if (_error != null) ...[
+                    const SizedBox(height: FolioSpace.md),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            _error!,
+                            style: TextStyle(color: scheme.error),
+                          ),
+                        ),
+                        const SizedBox(width: FolioSpace.xs),
+                        TextButton.icon(
+                          onPressed: _busy
+                              ? null
+                              : () {
+                                  setState(() => _error = null);
+                                },
+                          icon: const Icon(Icons.close_rounded),
+                          label: Text(l10n.retry),
+                        ),
+                      ],
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
     return Scaffold(
       backgroundColor: scheme.surfaceContainerLowest,
       appBar: widget.session.canCancelNewVaultOnboarding
@@ -195,84 +273,82 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
             )
           : null,
       body: SafeArea(
-        child: Center(
-          child: SingleChildScrollView(
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 520),
-              child: Padding(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: FolioSpace.lg,
-                  vertical: FolioSpace.md,
-                ),
-                child: Card.filled(
-                  margin: EdgeInsets.zero,
-                  color: scheme.surfaceContainerHighest,
-                  elevation: 0,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(24),
-                  ),
-                  child: Padding(
-                    padding: const EdgeInsets.all(FolioSpace.xl),
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        Center(
-                          child: Text(
-                            'Folio',
-                            style: Theme.of(context).textTheme.headlineMedium
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            final wide = constraints.maxWidth >= 1100;
+            if (!wide) {
+              return Center(child: flowCard);
+            }
+            return Padding(
+              padding: const EdgeInsets.all(FolioSpace.xl),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Container(
+                      margin: const EdgeInsets.only(right: FolioSpace.xl),
+                      padding: const EdgeInsets.all(36),
+                      decoration: BoxDecoration(
+                        color: scheme.primaryContainer.withValues(alpha: 0.4),
+                        borderRadius: BorderRadius.circular(36),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Container(
+                            width: 72,
+                            height: 72,
+                            decoration: BoxDecoration(
+                              color: scheme.surface,
+                              borderRadius: BorderRadius.circular(24),
+                            ),
+                            child: Icon(
+                              _importMode
+                                  ? Icons.archive_outlined
+                                  : Icons.shield_outlined,
+                              size: 34,
+                              color: scheme.primary,
+                            ),
+                          ),
+                          const SizedBox(height: FolioSpace.xl),
+                          Text(
+                            _importMode
+                                ? l10n.importBackupTitle
+                                : l10n.welcomeTitle,
+                            style: Theme.of(context).textTheme.displaySmall
                                 ?.copyWith(
                                   fontWeight: FontWeight.w700,
-                                  color: scheme.primary,
+                                  color: scheme.onSurface,
                                 ),
                           ),
-                        ),
-                        const SizedBox(height: FolioSpace.xs),
-                        Center(
-                          child: Text(
-                            _stepLabel,
-                            style: Theme.of(context).textTheme.labelLarge
-                                ?.copyWith(color: scheme.onSurfaceVariant),
-                          ),
-                        ),
-                        const SizedBox(height: FolioSpace.lg),
-                        AnimatedSwitcher(
-                          duration: const Duration(milliseconds: 300),
-                          child: KeyedSubtree(
-                            key: ValueKey('step_$_importMode$_page'),
-                            child: _buildCurrentStep(context),
-                          ),
-                        ),
-                        if (_error != null) ...[
                           const SizedBox(height: FolioSpace.md),
-                          Row(
-                            children: [
-                              Expanded(
-                                child: Text(
-                                  _error!,
-                                  style: TextStyle(color: scheme.error),
-                                ),
-                              ),
-                              const SizedBox(width: FolioSpace.xs),
-                              TextButton.icon(
-                                onPressed: _busy
-                                    ? null
-                                    : () {
-                                        setState(() => _error = null);
-                                      },
-                                icon: const Icon(Icons.close_rounded),
-                                label: Text(l10n.retry),
-                              ),
-                            ],
+                          ConstrainedBox(
+                            constraints: const BoxConstraints(maxWidth: 560),
+                            child: Text(
+                              _importMode
+                                  ? l10n.importBackupBody
+                                  : l10n.welcomeBody,
+                              style: Theme.of(context).textTheme.headlineSmall
+                                  ?.copyWith(
+                                    color: scheme.onSurfaceVariant,
+                                    height: 1.35,
+                                  ),
+                            ),
+                          ),
+                          const SizedBox(height: FolioSpace.lg),
+                          Chip(
+                            avatar: const Icon(Icons.flag_outlined, size: 18),
+                            label: Text(_stepLabel),
                           ),
                         ],
-                      ],
+                      ),
                     ),
                   ),
-                ),
+                  Center(child: flowCard),
+                ],
               ),
-            ),
-          ),
+            );
+          },
         ),
       ),
     );
