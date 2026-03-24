@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'folio_build_flags.dart';
+import 'folio_in_app_shortcuts.dart';
 import '../services/updater/update_release_channel.dart';
 
 enum AiProvider { none, ollama, lmStudio }
@@ -29,10 +31,16 @@ class AppSettings extends ChangeNotifier {
   static const _aiRemoteEndpointConfirmedKey =
       'folio_ai_remote_endpoint_confirmed';
   static const _aiAlwaysShowThoughtKey = 'folio_ai_always_show_thought';
-  static const _aiLaunchProviderWithAppKey = 'folio_ai_launch_provider_with_app';
+  static const _aiLaunchProviderWithAppKey =
+      'folio_ai_launch_provider_with_app';
   static const _aiContextWindowTokensKey = 'folio_ai_context_window_tokens';
   static const _aiModelsPrefix = 'folio_ai_models_';
+  static const _hasSeenQuillIntroKey = 'folio_has_seen_quill_intro';
+  static const _hasSeenQuillWorkspaceTourKey =
+      'folio_has_seen_quill_workspace_tour';
   static const _updateReleaseChannelKey = 'folio_update_release_channel';
+  static const _betaBannerDismissedKey = 'folio_beta_banner_dismissed';
+  static const _inAppShortcutsKey = 'folio_in_app_shortcuts_json';
   static const int defaultVaultIdleLockMinutes = 15;
   static const String defaultGlobalSearchHotkey = 'Ctrl+Shift+K';
   static const int defaultAiTimeoutMs = 30000;
@@ -66,7 +74,12 @@ class AppSettings extends ChangeNotifier {
   bool _aiLaunchProviderWithApp = false;
   int _aiContextWindowTokens = defaultAiContextWindowTokens;
   final Map<AiProvider, List<String>> _cachedAiModelsByProvider = {};
+  bool _hasSeenQuillIntro = false;
+  bool _hasSeenQuillWorkspaceTour = false;
   UpdateReleaseChannel _updateReleaseChannel = defaultUpdateReleaseChannel;
+  bool _betaBannerDismissed = false;
+  Map<FolioInAppShortcut, SingleActivator> _inAppShortcuts =
+      defaultShortcutMap();
 
   ThemeMode get themeMode => _themeMode;
   Locale? get locale => _locale;
@@ -88,10 +101,22 @@ class AppSettings extends ChangeNotifier {
   int get aiContextWindowTokens => _aiContextWindowTokens;
   bool get isAiAvailable => true;
   bool get isAiRuntimeEnabled => _aiEnabled;
+  bool get hasSeenQuillIntro => _hasSeenQuillIntro;
+  bool get hasSeenQuillWorkspaceTour => _hasSeenQuillWorkspaceTour;
   String get updaterGithubOwner => defaultUpdaterGithubOwner;
   String get updaterGithubRepo => defaultUpdaterGithubRepo;
   bool get checkUpdatesOnStartup => defaultCheckUpdatesOnStartup;
   UpdateReleaseChannel get updateReleaseChannel => _updateReleaseChannel;
+
+  /// Aviso BETA en la UI (no forma parte del cofre). Controlado por [kFolioShowBetaBanner].
+  bool get shouldShowBetaBanner =>
+      kFolioShowBetaBanner && !_betaBannerDismissed;
+
+  SingleActivator inAppShortcut(FolioInAppShortcut id) =>
+      _inAppShortcuts[id] ?? id.defaultActivator;
+
+  String describeInAppShortcut(FolioInAppShortcut id) =>
+      describeActivator(inAppShortcut(id));
 
   Future<void> load() async {
     final p = await SharedPreferences.getInstance();
@@ -121,13 +146,20 @@ class AppSettings extends ChangeNotifier {
     _aiRemoteEndpointConfirmed =
         p.getBool(_aiRemoteEndpointConfirmedKey) ?? false;
     _aiAlwaysShowThought = p.getBool(_aiAlwaysShowThoughtKey) ?? false;
-    _aiLaunchProviderWithApp =
-        p.getBool(_aiLaunchProviderWithAppKey) ?? false;
+    _aiLaunchProviderWithApp = p.getBool(_aiLaunchProviderWithAppKey) ?? false;
     _aiContextWindowTokens = _sanitizeContextWindowTokens(
       p.getInt(_aiContextWindowTokensKey),
     );
+    _hasSeenQuillIntro = p.getBool(_hasSeenQuillIntroKey) ?? false;
+    _hasSeenQuillWorkspaceTour =
+        p.getBool(_hasSeenQuillWorkspaceTourKey) ?? false;
     _updateReleaseChannel = _parseUpdateReleaseChannel(
       p.getString(_updateReleaseChannelKey),
+    );
+    _betaBannerDismissed = p.getBool(_betaBannerDismissedKey) ?? false;
+    _inAppShortcuts = parseShortcutOverrides(
+      p.getString(_inAppShortcutsKey),
+      defaultShortcutMap(),
     );
     _cachedAiModelsByProvider
       ..clear()
@@ -420,11 +452,55 @@ class AppSettings extends ChangeNotifier {
     await p.setInt(_aiContextWindowTokensKey, safe);
   }
 
+  Future<void> setHasSeenQuillIntro(bool value) async {
+    if (_hasSeenQuillIntro == value) return;
+    _hasSeenQuillIntro = value;
+    notifyListeners();
+    final p = await SharedPreferences.getInstance();
+    await p.setBool(_hasSeenQuillIntroKey, value);
+  }
+
+  Future<void> setHasSeenQuillWorkspaceTour(bool value) async {
+    if (_hasSeenQuillWorkspaceTour == value) return;
+    _hasSeenQuillWorkspaceTour = value;
+    notifyListeners();
+    final p = await SharedPreferences.getInstance();
+    await p.setBool(_hasSeenQuillWorkspaceTourKey, value);
+  }
+
   Future<void> setUpdateReleaseChannel(UpdateReleaseChannel value) async {
     if (_updateReleaseChannel == value) return;
     _updateReleaseChannel = value;
     notifyListeners();
     final p = await SharedPreferences.getInstance();
     await p.setString(_updateReleaseChannelKey, value.name);
+  }
+
+  Future<void> setBetaBannerDismissed(bool value) async {
+    if (_betaBannerDismissed == value) return;
+    _betaBannerDismissed = value;
+    notifyListeners();
+    final p = await SharedPreferences.getInstance();
+    await p.setBool(_betaBannerDismissedKey, value);
+  }
+
+  Future<void> setInAppShortcut(
+    FolioInAppShortcut id,
+    SingleActivator activator,
+  ) async {
+    _inAppShortcuts[id] = activator;
+    notifyListeners();
+    final p = await SharedPreferences.getInstance();
+    await p.setString(
+      _inAppShortcutsKey,
+      serializeShortcutOverrides(_inAppShortcuts),
+    );
+  }
+
+  Future<void> resetInAppShortcutsToDefaults() async {
+    _inAppShortcuts = defaultShortcutMap();
+    notifyListeners();
+    final p = await SharedPreferences.getInstance();
+    await p.remove(_inAppShortcutsKey);
   }
 }

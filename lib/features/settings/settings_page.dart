@@ -4,6 +4,8 @@ import 'package:package_info_plus/package_info_plus.dart';
 import 'package:passkeys/exceptions.dart';
 
 import '../../app/app_settings.dart';
+import '../../app/folio_in_app_shortcuts.dart';
+import 'in_app_shortcut_capture_dialog.dart';
 import '../../data/notion_import/notion_importer.dart';
 import '../../l10n/generated/app_localizations.dart';
 import '../../data/vault_backup.dart';
@@ -98,6 +100,17 @@ class _SettingsPageState extends State<SettingsPage> {
   void _snack(String msg) {
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
+  }
+
+  Future<void> _openEncryptPlainVaultDialog() async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => _EncryptPlainVaultDialog(session: _s),
+    );
+    if (ok != true || !mounted) return;
+    await _refreshSecurityFlags();
+    if (!mounted) return;
+    _snack(AppLocalizations.of(context).encryptPlainVaultSuccessSnack);
   }
 
   Future<void> _confirmRemoteEndpointIfNeeded() async {
@@ -803,10 +816,11 @@ class _SettingsPageState extends State<SettingsPage> {
                   ),
 
                   _SectionHeader(title: l10n.security, scheme: scheme),
-                  Card(
-                    margin: const EdgeInsets.only(bottom: 24),
-                    child: Column(
-                      children: [
+                  if (_s.vaultUsesEncryption)
+                    Card(
+                      margin: const EdgeInsets.only(bottom: 24),
+                      child: Column(
+                        children: [
                         ListTile(
                           leading: const Icon(Icons.fingerprint),
                           title: Text(l10n.quickUnlockTitle),
@@ -911,9 +925,35 @@ class _SettingsPageState extends State<SettingsPage> {
                           subtitle: Text(l10n.requiresCurrentPassword),
                           onTap: _openChangeMasterPasswordFlow,
                         ),
-                      ],
+                        ],
+                      ),
+                    )
+                  else
+                    Card(
+                      margin: const EdgeInsets.only(bottom: 24),
+                      child: Padding(
+                        padding: const EdgeInsets.all(20),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            Text(
+                              l10n.plainVaultSecurityNotice,
+                              style: Theme.of(context).textTheme.bodyMedium
+                                  ?.copyWith(
+                                    color: scheme.onSurfaceVariant,
+                                    height: 1.45,
+                                  ),
+                            ),
+                            const SizedBox(height: 16),
+                            FilledButton.icon(
+                              onPressed: () => _openEncryptPlainVaultDialog(),
+                              icon: const Icon(Icons.lock_rounded, size: 20),
+                              label: Text(l10n.encryptPlainVaultConfirm),
+                            ),
+                          ],
+                        ),
+                      ),
                     ),
-                  ),
 
                   _SectionHeader(title: l10n.desktopSection, scheme: scheme),
                   Card(
@@ -983,6 +1023,73 @@ class _SettingsPageState extends State<SettingsPage> {
                           title: Text(l10n.closeToTray),
                           value: _app.closeToTray,
                           onChanged: _app.setCloseToTray,
+                        ),
+                      ],
+                    ),
+                  ),
+
+                  _SectionHeader(title: l10n.keyboardShortcutsSection, scheme: scheme),
+                  Card(
+                    margin: const EdgeInsets.only(bottom: 24),
+                    child: Column(
+                      children: [
+                        for (final id in FolioInAppShortcut.values) ...[
+                          if (id != FolioInAppShortcut.values.first)
+                            const Divider(height: 1),
+                          ListTile(
+                            leading: const Icon(Icons.keyboard_rounded),
+                            title: Text(id.settingsLabel),
+                            subtitle: Text(_app.describeInAppShortcut(id)),
+                            trailing: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                TextButton(
+                                  onPressed: () {
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      SnackBar(
+                                        content: Text(
+                                          l10n.shortcutTestHint(
+                                            _app.describeInAppShortcut(id),
+                                          ),
+                                        ),
+                                      ),
+                                    );
+                                  },
+                                  child: Text(l10n.shortcutTestAction),
+                                ),
+                                TextButton(
+                                  onPressed: () async {
+                                    final next =
+                                        await showDialog<SingleActivator>(
+                                      context: context,
+                                      builder: (ctx) =>
+                                          const InAppShortcutCaptureDialog(),
+                                    );
+                                    if (next != null && context.mounted) {
+                                      await _app.setInAppShortcut(id, next);
+                                    }
+                                  },
+                                  child: Text(l10n.shortcutChangeAction),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                        const Divider(height: 1),
+                        ListTile(
+                          leading: const Icon(Icons.restore_rounded),
+                          title: Text(l10n.shortcutResetAllTitle),
+                          subtitle: Text(l10n.shortcutResetAllSubtitle),
+                          onTap: () async {
+                            await _app.resetInAppShortcutsToDefaults();
+                            if (context.mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: Text(l10n.shortcutResetDoneSnack),
+                                ),
+                              );
+                            }
+                          },
                         ),
                       ],
                     ),
@@ -1610,6 +1717,159 @@ _PasswordStrength _passwordStrengthFor(String text) {
   if (score == 2) return _PasswordStrength.weak;
   if (score == 3 || score == 4) return _PasswordStrength.fair;
   return _PasswordStrength.strong;
+}
+
+class _EncryptPlainVaultDialog extends StatefulWidget {
+  const _EncryptPlainVaultDialog({required this.session});
+
+  final VaultSession session;
+
+  @override
+  State<_EncryptPlainVaultDialog> createState() =>
+      _EncryptPlainVaultDialogState();
+}
+
+class _EncryptPlainVaultDialogState extends State<_EncryptPlainVaultDialog> {
+  final _password = TextEditingController();
+  final _confirm = TextEditingController();
+  var _busy = false;
+  var _obscurePw = true;
+  var _obscureConfirm = true;
+  String? _error;
+
+  @override
+  void dispose() {
+    _password.dispose();
+    _confirm.dispose();
+    super.dispose();
+  }
+
+  Future<void> _submit() async {
+    final pw = _password.text;
+    final c = _confirm.text;
+    final l10n = AppLocalizations.of(context);
+    if (pw.isEmpty || c.isEmpty) {
+      setState(() => _error = l10n.fillAllFieldsError);
+      return;
+    }
+    if (pw != c) {
+      setState(() => _error = l10n.passwordMismatchError);
+      return;
+    }
+    if (_passwordStrengthFor(pw) != _PasswordStrength.strong) {
+      setState(() => _error = l10n.passwordMustBeStrongError);
+      return;
+    }
+    setState(() {
+      _busy = true;
+      _error = null;
+    });
+    try {
+      await widget.session.enableVaultEncryption(pw);
+      if (!mounted) return;
+      Navigator.pop(context, true);
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _busy = false;
+        _error = '$e';
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+    final strength = _passwordStrengthFor(_password.text);
+    final strengthValue = switch (strength) {
+      _PasswordStrength.veryWeak => 0.25,
+      _PasswordStrength.weak => 0.5,
+      _PasswordStrength.fair => 0.75,
+      _PasswordStrength.strong => 1.0,
+    };
+    final strengthLabel = switch (strength) {
+      _PasswordStrength.veryWeak => l10n.passwordStrengthVeryWeak,
+      _PasswordStrength.weak => l10n.passwordStrengthWeak,
+      _PasswordStrength.fair => l10n.passwordStrengthFair,
+      _PasswordStrength.strong => l10n.passwordStrengthStrong,
+    };
+    return AlertDialog(
+      title: Text(l10n.encryptPlainVaultTitle),
+      content: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text(
+              l10n.encryptPlainVaultBody,
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  ),
+            ),
+            const SizedBox(height: 16),
+            TextField(
+              controller: _password,
+              obscureText: _obscurePw,
+              enabled: !_busy,
+              onChanged: (_) => setState(() {}),
+              decoration: InputDecoration(
+                labelText: l10n.newPasswordLabel,
+                suffixIcon: IconButton(
+                  onPressed: _busy
+                      ? null
+                      : () => setState(() => _obscurePw = !_obscurePw),
+                  icon: Icon(
+                    _obscurePw ? Icons.visibility : Icons.visibility_off,
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(height: 8),
+            LinearProgressIndicator(value: strengthValue),
+            const SizedBox(height: 4),
+            Text(l10n.passwordStrengthWithValue(strengthLabel)),
+            const SizedBox(height: 12),
+            TextField(
+              controller: _confirm,
+              obscureText: _obscureConfirm,
+              enabled: !_busy,
+              onSubmitted: (_) => _submit(),
+              decoration: InputDecoration(
+                labelText: l10n.confirmNewPasswordLabel,
+                suffixIcon: IconButton(
+                  onPressed: _busy
+                      ? null
+                      : () => setState(
+                            () => _obscureConfirm = !_obscureConfirm,
+                          ),
+                  icon: Icon(
+                    _obscureConfirm ? Icons.visibility : Icons.visibility_off,
+                  ),
+                ),
+              ),
+            ),
+            if (_error != null) ...[
+              const SizedBox(height: 8),
+              Text(
+                _error!,
+                style: TextStyle(color: Theme.of(context).colorScheme.error),
+              ),
+            ],
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: _busy ? null : () => Navigator.pop(context, false),
+          child: Text(l10n.cancel),
+        ),
+        FilledButton(
+          onPressed: _busy ? null : _submit,
+          child: Text(l10n.encryptPlainVaultConfirm),
+        ),
+      ],
+    );
+  }
 }
 
 class _ChangeMasterPasswordDialog extends StatefulWidget {

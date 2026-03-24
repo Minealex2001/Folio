@@ -95,20 +95,37 @@ class AiChatThreadData {
     required this.id,
     required this.title,
     required this.messages,
+    this.attachmentPaths = const [],
+    this.includePageContext = true,
+    this.contextPageIds = const [],
   });
 
   final String id;
   final String title;
   final List<AiChatMessage> messages;
 
+  /// Rutas locales de archivos adjuntos al contexto de este hilo (persisten con el cofre).
+  final List<String> attachmentPaths;
+
+  /// Si es false, no se envía texto ni bloques de páginas al modelo (solo chat general).
+  final bool includePageContext;
+
+  /// Páginas cuyo texto entra en el contexto. Vacío = al enviar se usa la página abierta.
+  final List<String> contextPageIds;
+
   Map<String, dynamic> toJson() => {
     'id': id,
     'title': title,
     'messages': messages.map((m) => m.toJson()).toList(),
+    if (attachmentPaths.isNotEmpty) 'attachmentPaths': attachmentPaths,
+    'includePageContext': includePageContext,
+    'contextPageIds': contextPageIds,
   };
 
   factory AiChatThreadData.fromJson(Map<String, dynamic> json) {
     final rawMessages = json['messages'] as List<dynamic>? ?? const [];
+    final rawAtt = json['attachmentPaths'] as List<dynamic>? ?? const [];
+    final rawCtx = json['contextPageIds'] as List<dynamic>? ?? const [];
     return AiChatThreadData(
       id: json['id'] as String? ?? 'chat_0',
       title: json['title'] as String? ?? 'Chat',
@@ -116,6 +133,9 @@ class AiChatThreadData {
           .whereType<Map>()
           .map((m) => AiChatMessage.fromJson(Map<String, dynamic>.from(m)))
           .toList(),
+      attachmentPaths: rawAtt.map((e) => '$e').toList(),
+      includePageContext: json['includePageContext'] as bool? ?? true,
+      contextPageIds: rawCtx.map((e) => '$e').toList(),
     );
   }
 }

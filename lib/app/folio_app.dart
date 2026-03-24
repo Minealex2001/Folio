@@ -200,7 +200,7 @@ class _FolioAppState extends State<FolioApp> with WidgetsBindingObserver {
       open: l10n.open,
       search: l10n.search,
       lock: l10n.lockNow,
-      exit: l10n.exit,
+      exit: l10n.trayMenuCloseApplication,
     );
   }
 
@@ -370,7 +370,7 @@ class _HomeByState extends StatelessWidget {
           ),
         );
       case VaultFlowState.needsOnboarding:
-        return OnboardingFlow(session: session);
+        return OnboardingFlow(session: session, appSettings: appSettings);
       case VaultFlowState.locked:
         return LockScreen(session: session);
       case VaultFlowState.unlocked:

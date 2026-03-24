@@ -1,8 +1,13 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_markdown_plus/flutter_markdown_plus.dart';
 import 'package:markdown/markdown.dart' as md;
+import 'package:url_launcher/url_launcher.dart';
 
+import '../../../data/folio_internal_link.dart';
 import '../../../l10n/generated/app_localizations.dart';
+import 'folio_youtube.dart';
 
 /// Escapa `<` salvo las etiquetas de subrayado permitidas (`<u>`, `</u>`).
 String folioSanitizeMarkdownForPreview(String source) {
@@ -46,21 +51,40 @@ MarkdownStyleSheet folioMarkdownStyleSheet(
 ) {
   final theme = Theme.of(context);
   final from = MarkdownStyleSheet.fromTheme(theme);
+  final baseSize = baseStyle.fontSize ?? 15.0;
+  final baseHeight = baseStyle.height ?? 1.45;
+
+  TextStyle heading(double bump, FontWeight w) => baseStyle.copyWith(
+        fontSize: baseSize + bump,
+        fontWeight: w,
+        height: 1.2,
+        letterSpacing: w == FontWeight.w700 ? -0.3 : -0.2,
+      );
+
   return from.copyWith(
     p: baseStyle,
     pPadding: EdgeInsets.zero,
-    h1: baseStyle,
-    h1Padding: EdgeInsets.zero,
-    h2: baseStyle,
-    h2Padding: EdgeInsets.zero,
-    h3: baseStyle,
-    h3Padding: EdgeInsets.zero,
-    h4: baseStyle,
-    h4Padding: EdgeInsets.zero,
-    h5: baseStyle,
-    h5Padding: EdgeInsets.zero,
-    h6: baseStyle,
-    h6Padding: EdgeInsets.zero,
+    h1: heading(11, FontWeight.w700),
+    h1Padding: const EdgeInsets.only(top: 8, bottom: 4),
+    h2: heading(7, FontWeight.w700),
+    h2Padding: const EdgeInsets.only(top: 6, bottom: 3),
+    h3: heading(4, FontWeight.w600),
+    h3Padding: const EdgeInsets.only(top: 4, bottom: 2),
+    h4: heading(2, FontWeight.w600),
+    h4Padding: const EdgeInsets.only(top: 2, bottom: 2),
+    h5: baseStyle.copyWith(
+      fontSize: baseSize + 1,
+      fontWeight: FontWeight.w600,
+      height: baseHeight,
+    ),
+    h5Padding: const EdgeInsets.only(top: 2, bottom: 1),
+    h6: baseStyle.copyWith(
+      fontSize: baseSize,
+      fontWeight: FontWeight.w600,
+      color: scheme.onSurfaceVariant,
+      height: baseHeight,
+    ),
+    h6Padding: const EdgeInsets.only(top: 2, bottom: 1),
     strong: baseStyle.copyWith(fontWeight: FontWeight.w700),
     em: baseStyle.copyWith(fontStyle: FontStyle.italic),
     code: baseStyle.copyWith(
@@ -76,9 +100,31 @@ MarkdownStyleSheet folioMarkdownStyleSheet(
       color: scheme.primary,
       decoration: TextDecoration.underline,
     ),
-    blockSpacing: 0,
-    listIndent: 20,
-    blockquotePadding: const EdgeInsets.only(left: 8),
+    blockquote: baseStyle.copyWith(
+      fontStyle: FontStyle.italic,
+      color: scheme.onSurfaceVariant,
+      height: baseHeight,
+    ),
+    blockquotePadding: const EdgeInsets.only(left: 10, top: 2, bottom: 2),
+    blockquoteDecoration: BoxDecoration(
+      border: Border(
+        left: BorderSide(
+          color: scheme.outlineVariant.withValues(alpha: 0.85),
+          width: 3,
+        ),
+      ),
+    ),
+    listBullet: baseStyle.copyWith(height: baseHeight),
+    horizontalRuleDecoration: BoxDecoration(
+      border: Border(
+        top: BorderSide(
+          color: scheme.outlineVariant.withValues(alpha: 0.55),
+          width: 1,
+        ),
+      ),
+    ),
+    blockSpacing: 4,
+    listIndent: 22,
   );
 }
 
@@ -88,13 +134,39 @@ class FolioMarkdownPreview extends StatelessWidget {
     super.key,
     required this.data,
     required this.styleSheet,
+    this.onTapLink,
+    this.onFolioPageLink,
   });
 
   final String data;
   final MarkdownStyleSheet styleSheet;
 
+  /// Si es null, enlaces http(s) se abren en el navegador externo.
+  final void Function(String text, String? href, String title)? onTapLink;
+
+  /// Enlaces `folio://open/…` navegan a la página del cofre.
+  final void Function(String pageId)? onFolioPageLink;
+
+  static Future<void> _defaultOpenExternal(String? href) async {
+    if (href == null || href.isEmpty) return;
+    final u = Uri.tryParse(href);
+    if (u == null || !u.hasScheme) return;
+    if (u.scheme != 'http' && u.scheme != 'https') return;
+    if (await canLaunchUrl(u)) {
+      await launchUrl(u, mode: LaunchMode.externalApplication);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
+    void wrappedTap(String text, String? href, String title) {
+      if (onTapLink != null) {
+        onTapLink!(text, href, title);
+      } else {
+        unawaited(_defaultOpenExternal(href));
+      }
+    }
+
     return SingleChildScrollView(
       // Evita overflows cuando el preview se renderiza dentro de una altura fija
       // y permite desplazar contenido largo (p. ej., tablas).
@@ -105,8 +177,70 @@ class FolioMarkdownPreview extends StatelessWidget {
         styleSheet: styleSheet,
         shrinkWrap: true,
         fitContent: true,
+        softLineBreak: true,
         selectable: false,
         extensionSet: md.ExtensionSet.gitHubFlavored,
+        builders: {
+          'a': _FolioMarkdownAnchorBuilder(
+            onTapLink: wrappedTap,
+            onFolioPageLink: onFolioPageLink,
+          ),
+        },
+      ),
+    );
+  }
+}
+
+class _FolioMarkdownAnchorBuilder extends MarkdownElementBuilder {
+  _FolioMarkdownAnchorBuilder({
+    required this.onTapLink,
+    this.onFolioPageLink,
+  });
+
+  final void Function(String text, String? href, String title) onTapLink;
+  final void Function(String pageId)? onFolioPageLink;
+
+  @override
+  Widget? visitElementAfterWithContext(
+    BuildContext context,
+    md.Element element,
+    TextStyle? preferredStyle,
+    TextStyle? parentStyle,
+  ) {
+    final href = element.attributes['href']?.trim() ?? '';
+    final titleAttr = element.attributes['title'] ?? '';
+    final label = element.textContent;
+    final merged = preferredStyle?.merge(parentStyle) ?? parentStyle;
+
+    final pageId = folioPageIdFromFolioUri(href);
+    if (pageId != null && onFolioPageLink != null) {
+      return GestureDetector(
+        onTap: () => onFolioPageLink!(pageId),
+        child: Text(
+          label.isEmpty ? href : label,
+          style: merged?.copyWith(decoration: TextDecoration.underline),
+        ),
+      );
+    }
+
+    final yt = folioYoutubeVideoIdFromUrl(href);
+    if (yt != null) {
+      return Padding(
+        padding: const EdgeInsets.symmetric(vertical: 6),
+        child: FolioYoutubePreviewCard(
+          pageUrl: href,
+          videoId: yt,
+          scheme: Theme.of(context).colorScheme,
+          compact: true,
+        ),
+      );
+    }
+
+    return GestureDetector(
+      onTap: () => onTapLink(label, href.isEmpty ? null : href, titleAttr),
+      child: Text(
+        label.isEmpty ? href : label,
+        style: merged?.copyWith(decoration: TextDecoration.underline),
       ),
     );
   }
@@ -200,11 +334,27 @@ class FolioFormatToolbar extends StatelessWidget {
     required this.controller,
     required this.colorScheme,
     required this.textFocusNode,
+    this.onMentionPage,
+    this.onInsertUserMention,
+    this.onInsertDateMention,
+    this.onInsertInlineMath,
   });
 
   final TextEditingController controller;
   final ColorScheme colorScheme;
   final FocusNode textFocusNode;
+
+  /// Mención @página → enlace [folio://open/…].
+  final Future<void> Function(BuildContext context)? onMentionPage;
+
+  /// Inserta marcador de @usuario.
+  final VoidCallback? onInsertUserMention;
+
+  /// Inserta fecha local (recordatorio / @fecha).
+  final VoidCallback? onInsertDateMention;
+
+  /// Inserta marcadores LaTeX en línea `\\( … \\)`.
+  final VoidCallback? onInsertInlineMath;
 
   Future<void> _link(BuildContext context) async {
     final value = controller.value;
@@ -371,6 +521,33 @@ class FolioFormatToolbar extends StatelessWidget {
                     tip: AppLocalizations.of(context).linkTip,
                     onPressed: () => _link(context),
                   ),
+                  if (onMentionPage != null)
+                    btn(
+                      icon: Icons.insert_link_outlined,
+                      tip: 'Mencionar página (@página)',
+                      onPressed: () async {
+                        await onMentionPage!(context);
+                        textFocusNode.requestFocus();
+                      },
+                    ),
+                  if (onInsertUserMention != null)
+                    btn(
+                      icon: Icons.alternate_email_rounded,
+                      tip: '@usuario',
+                      onPressed: () => applyFormat(onInsertUserMention!),
+                    ),
+                  if (onInsertDateMention != null)
+                    btn(
+                      icon: Icons.event_rounded,
+                      tip: '@fecha',
+                      onPressed: () => applyFormat(onInsertDateMention!),
+                    ),
+                  if (onInsertInlineMath != null)
+                    btn(
+                      icon: Icons.functions_rounded,
+                      tip: 'Matemáticas en línea \\( \\)',
+                      onPressed: () => applyFormat(onInsertInlineMath!),
+                    ),
                 ],
               ),
             ),

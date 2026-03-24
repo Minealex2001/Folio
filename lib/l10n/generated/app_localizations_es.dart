@@ -124,6 +124,46 @@ class AppLocalizationsEs extends AppLocalizations {
       'Se creará un cofre cifrado en este equipo. Podrás añadir después Windows Hello, biometría o una passkey para desbloquear más rápido (Ajustes).';
 
   @override
+  String get quillIntroTitle => 'Conoce a Quill';
+
+  @override
+  String get quillIntroBody =>
+      'Quill es la asistente integrada de Folio. Puede ayudarte a escribir, editar y entender tus páginas, además de resolver dudas sobre cómo usar la app.';
+
+  @override
+  String get quillIntroCapabilityWrite =>
+      'Puede redactar, resumir o reescribir contenido dentro de tus páginas.';
+
+  @override
+  String get quillIntroCapabilityExplain =>
+      'También responde preguntas sobre Folio, atajos, bloques y cómo organizar tus notas.';
+
+  @override
+  String get quillIntroCapabilityContext =>
+      'Puedes dejar que use la página abierta como contexto o elegir varias páginas de referencia.';
+
+  @override
+  String get quillIntroCapabilityExamples =>
+      'Lo mejor es hablarle de forma natural: Quill decide si responder o editar.';
+
+  @override
+  String get quillIntroExamplesTitle => 'Ejemplos rápidos';
+
+  @override
+  String get quillIntroExampleOne => 'Resume esta página en tres puntos.';
+
+  @override
+  String get quillIntroExampleTwo =>
+      'Cambia el título y mejora la introducción.';
+
+  @override
+  String get quillIntroExampleThree => '¿Cómo añado una imagen o una tabla?';
+
+  @override
+  String get quillIntroFootnote =>
+      'Si todavía no activas la IA, podrás hacerlo más tarde. Esta introducción es para que sepas qué puede hacer Quill cuando la uses.';
+
+  @override
   String get createVault => 'Crear cofre';
 
   @override
@@ -594,6 +634,95 @@ class AppLocalizationsEs extends AppLocalizations {
   String get couldNotPreviewPdf => 'No se pudo previsualizar el PDF';
 
   @override
+  String get openInYoutubeBrowser => 'Abrir en el navegador';
+
+  @override
+  String get pasteUrlTitle => 'Pegar enlace como';
+
+  @override
+  String get pasteAsUrl => 'URL';
+
+  @override
+  String get pasteAsEmbed => 'Insertar';
+
+  @override
+  String get pasteAsBookmark => 'Marcador';
+
+  @override
+  String get pasteAsMention => 'Mención';
+
+  @override
+  String get pasteAsUrlSubtitle => 'Insertar enlace markdown en el texto';
+
+  @override
+  String get pasteAsEmbedSubtitle =>
+      'Bloque vídeo con vista previa (YouTube) o marcador';
+
+  @override
+  String get pasteAsBookmarkSubtitle => 'Tarjeta con título y enlace';
+
+  @override
+  String get pasteAsMentionSubtitle => 'Enlace a una página de este cofre';
+
+  @override
+  String get pickPageForMention => 'Elegir página';
+
+  @override
+  String get bookmarkTitleHint => 'Título';
+
+  @override
+  String get bookmarkOpenLink => 'Abrir enlace';
+
+  @override
+  String get bookmarkSetUrl => 'Establecer URL…';
+
+  @override
+  String get bookmarkBlockHint => 'Pega un enlace o usa el menú del bloque';
+
+  @override
+  String get bookmarkRemove => 'Quitar marcador';
+
+  @override
+  String get embedUnavailable =>
+      'La vista web embebida no está disponible en esta plataforma. Abre el enlace en el navegador.';
+
+  @override
+  String get embedOpenBrowser => 'Abrir en el navegador';
+
+  @override
+  String get embedSetUrl => 'Establecer URL del inserto…';
+
+  @override
+  String get embedRemove => 'Quitar inserto';
+
+  @override
+  String get embedEmptyHint =>
+      'Pega un enlace o establece la URL desde el menú del bloque';
+
+  @override
+  String get blockSizeSmaller => 'Más pequeño';
+
+  @override
+  String get blockSizeLarger => 'Más grande';
+
+  @override
+  String get blockSizeHalf => '50%';
+
+  @override
+  String get blockSizeThreeQuarter => '75%';
+
+  @override
+  String get blockSizeFull => '100%';
+
+  @override
+  String get pasteAsEmbedSubtitleWeb =>
+      'Mostrar la página dentro del bloque (si el sistema lo permite)';
+
+  @override
+  String get pasteAsMentionSubtitleRich =>
+      'Enlace con título de la página (p. ej. YouTube)';
+
+  @override
   String get formatToolbar => 'Barra de formato';
 
   @override
@@ -699,10 +828,100 @@ class AppLocalizationsEs extends AppLocalizations {
   String get noTextChanges => 'Sin cambios en el texto.';
 
   @override
-  String get aiAssistantTitle => 'Asistente IA';
+  String get aiAssistantTitle => 'Quill';
 
   @override
   String get aiNoPageSelected => 'Sin página seleccionada';
+
+  @override
+  String get aiChatContextDisabledSubtitle =>
+      'No se envía texto de páginas al modelo';
+
+  @override
+  String aiChatContextUsesCurrentPage(Object title) {
+    return 'Contexto: página actual ($title)';
+  }
+
+  @override
+  String get aiChatContextOnePageFallback => 'Contexto: 1 página';
+
+  @override
+  String aiChatContextNPages(int count) {
+    return '$count páginas en el contexto del chat';
+  }
+
+  @override
+  String get aiChatPageContextTooltip =>
+      'Incluir texto de páginas en el contexto del modelo';
+
+  @override
+  String get aiChatChooseContextPagesTooltip =>
+      'Elegir qué páginas aportan texto al contexto';
+
+  @override
+  String get aiChatContextPagesDialogTitle => 'Páginas en el contexto del chat';
+
+  @override
+  String get aiChatContextPagesClear => 'Vaciar lista';
+
+  @override
+  String get aiChatContextPagesApply => 'Aplicar';
+
+  @override
+  String get aiTypingSemantics => 'Quill está escribiendo';
+
+  @override
+  String get aiRenameChatTooltip => 'Renombrar chat';
+
+  @override
+  String get aiRenameChatDialogTitle => 'Título del chat';
+
+  @override
+  String get aiRenameChatLabel => 'Texto en la pestaña';
+
+  @override
+  String get quillWorkspaceTourTitle => 'Quill te puede acompañar aquí';
+
+  @override
+  String get quillWorkspaceTourBodyReady =>
+      'Tienes el chat de Quill listo para preguntar, editar páginas y trabajar con contexto de notas.';
+
+  @override
+  String get quillWorkspaceTourBodyUnavailable =>
+      'Aunque ahora no esté activa, Quill vive en este espacio de trabajo y puedes activarla más tarde desde Ajustes.';
+
+  @override
+  String get quillWorkspaceTourPointsTitle => 'Qué conviene saber';
+
+  @override
+  String get quillWorkspaceTourPointOne =>
+      'Sirve tanto para conversar como para editar títulos y bloques.';
+
+  @override
+  String get quillWorkspaceTourPointTwo =>
+      'Puede usar la página abierta o varias páginas como contexto.';
+
+  @override
+  String get quillWorkspaceTourPointThree =>
+      'Si tocas un ejemplo de abajo, se rellenará el chat cuando Quill esté disponible.';
+
+  @override
+  String get quillWorkspaceTourExamplesTitle => 'Prueba con mensajes como';
+
+  @override
+  String get quillWorkspaceTourExampleOne =>
+      'Explícame cómo organizar esta página.';
+
+  @override
+  String get quillWorkspaceTourExampleTwo =>
+      'Usa estas dos páginas para hacer un resumen común.';
+
+  @override
+  String get quillWorkspaceTourExampleThree =>
+      'Reescribe este bloque con un tono más claro.';
+
+  @override
+  String get quillTourDismiss => 'Entendido';
 
   @override
   String get aiExpand => 'Expandir';
@@ -721,10 +940,10 @@ class AppLocalizationsEs extends AppLocalizations {
 
   @override
   String get aiChatEmptyHint =>
-      'Empieza una conversación.\nLa IA decidirá automáticamente qué hacer con tu mensaje.';
+      'Empieza una conversación.\nQuill decidirá automáticamente qué hacer con tu mensaje.\nTambién puedes preguntar cómo usar Folio (atajos, ajustes, páginas o este chat).';
 
   @override
-  String get aiInputHint => 'Escribe tu mensaje. La IA actuará como agente.';
+  String get aiInputHint => 'Escribe tu mensaje. Quill actuará como agente.';
 
   @override
   String get aiShowPanel => 'Mostrar panel IA';
@@ -776,7 +995,7 @@ class AppLocalizationsEs extends AppLocalizations {
   String get aiChatKeyboardHint => 'Enter para enviar · Ctrl+Enter nueva línea';
 
   @override
-  String get aiAgentThought => 'Pensamiento del agente';
+  String get aiAgentThought => 'Pensamiento de Quill';
 
   @override
   String get aiAlwaysShowThought => 'Mostrar siempre pensamiento de IA';
@@ -861,6 +1080,33 @@ class AppLocalizationsEs extends AppLocalizations {
   String get exit => 'Salir';
 
   @override
+  String get trayMenuCloseApplication => 'Cerrar aplicación';
+
+  @override
+  String get keyboardShortcutsSection => 'Teclado (en la app)';
+
+  @override
+  String get shortcutTestAction => 'Probar';
+
+  @override
+  String get shortcutChangeAction => 'Cambiar';
+
+  @override
+  String shortcutTestHint(Object combo) {
+    return 'Con el foco fuera de un campo de texto, “$combo” debería funcionar en el escritorio.';
+  }
+
+  @override
+  String get shortcutResetAllTitle => 'Restaurar atajos por defecto';
+
+  @override
+  String get shortcutResetAllSubtitle =>
+      'Vuelve a poner todos los atajos de la app como al instalar Folio.';
+
+  @override
+  String get shortcutResetDoneSnack => 'Atajos restaurados.';
+
+  @override
   String get desktopSection => 'Desktop';
 
   @override
@@ -935,4 +1181,38 @@ class AppLocalizationsEs extends AppLocalizations {
   String importNotionError(Object error) {
     return 'No se pudo importar Notion: $error';
   }
+
+  @override
+  String get appBetaBannerMessage =>
+      'Estás usando una versión beta. Puede haber fallos; haz copias de seguridad del cofre con frecuencia.';
+
+  @override
+  String get appBetaBannerDismiss => 'Entendido';
+
+  @override
+  String get noEncryptionConfirmTitle => 'Crear cofre sin cifrado';
+
+  @override
+  String get noEncryptionConfirmBody =>
+      'Tus datos se guardarán sin contraseña y sin cifrado. Cualquier persona con acceso a este dispositivo podrá leerlos.';
+
+  @override
+  String get createVaultWithoutEncryption => 'Crear sin cifrado';
+
+  @override
+  String get plainVaultSecurityNotice =>
+      'Este cofre no está cifrado: no aplican la passkey, el desbloqueo rápido (Hello), el bloqueo por inactividad, el bloqueo al minimizar ni la contraseña maestra.';
+
+  @override
+  String get encryptPlainVaultTitle => 'Cifrar este cofre';
+
+  @override
+  String get encryptPlainVaultBody =>
+      'Elige una contraseña maestra. Todo lo guardado en este dispositivo se cifrará. Si la olvidas, no podremos recuperar los datos.';
+
+  @override
+  String get encryptPlainVaultConfirm => 'Cifrar cofre';
+
+  @override
+  String get encryptPlainVaultSuccessSnack => 'El cofre ya está cifrado';
 }

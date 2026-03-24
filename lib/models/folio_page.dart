@@ -75,6 +75,34 @@ String _folioBlockPlainText(FolioBlock b) {
     case 'video':
       final u = b.url?.trim() ?? '';
       return u.isEmpty ? '' : '[video] $u';
+    case 'bookmark':
+      final u = b.url?.trim() ?? '';
+      final t = b.text.trim();
+      if (u.isEmpty) return t.isEmpty ? '' : '[bookmark] $t';
+      return t.isEmpty ? '[bookmark] $u' : '[bookmark] $t $u';
+    case 'embed':
+      final u = b.url?.trim() ?? '';
+      return u.isEmpty ? '' : '[embed] $u';
+    case 'audio':
+      final u = b.url?.trim() ?? '';
+      return u.isEmpty ? '' : '[audio] $u';
+    case 'child_page':
+      final id = b.text.trim();
+      return id.isEmpty ? '' : '[página] $id';
+    case 'template_button':
+      return '[plantilla]';
+    case 'toc':
+      return '[índice]';
+    case 'breadcrumb':
+      return '[migas]';
+    case 'column_list':
+      return '[columnas]';
+    case 'equation':
+      return b.text.trim().isEmpty ? '' : '[ecuación] ${b.text.trim()}';
+    case 'toggle':
+      return b.text.trim().isEmpty ? '' : '[toggle] ${b.text.trim()}';
+    case 'numbered':
+      return b.text;
     case 'table':
       return FolioTableData.plainTextFromJson(b.text);
     case 'database':

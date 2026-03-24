@@ -124,6 +124,46 @@ class AppLocalizationsEn extends AppLocalizations {
       'An encrypted vault will be created on this device. Later you can add Windows Hello, biometrics, or a passkey for faster unlock (Settings).';
 
   @override
+  String get quillIntroTitle => 'Meet Quill';
+
+  @override
+  String get quillIntroBody =>
+      'Quill is Folio\'s built-in assistant. It can help you write, edit, and understand your pages, and also answer questions about how to use the app.';
+
+  @override
+  String get quillIntroCapabilityWrite =>
+      'It can draft, summarize, or rewrite content inside your pages.';
+
+  @override
+  String get quillIntroCapabilityExplain =>
+      'It also answers questions about Folio, shortcuts, blocks, and how to organize your notes.';
+
+  @override
+  String get quillIntroCapabilityContext =>
+      'You can let it use the current page as context or choose multiple reference pages.';
+
+  @override
+  String get quillIntroCapabilityExamples =>
+      'The best part: talk naturally to it and Quill will decide whether to answer or edit.';
+
+  @override
+  String get quillIntroExamplesTitle => 'Quick examples';
+
+  @override
+  String get quillIntroExampleOne => 'Summarize this page in three bullets.';
+
+  @override
+  String get quillIntroExampleTwo =>
+      'Change the title and improve the introduction.';
+
+  @override
+  String get quillIntroExampleThree => 'How do I add an image or a table?';
+
+  @override
+  String get quillIntroFootnote =>
+      'If AI is not enabled yet, you can activate it later. This intro is here so you understand what Quill can do when you use it.';
+
+  @override
   String get createVault => 'Create vault';
 
   @override
@@ -592,6 +632,95 @@ class AppLocalizationsEn extends AppLocalizations {
   String get couldNotPreviewPdf => 'Could not preview PDF';
 
   @override
+  String get openInYoutubeBrowser => 'Open in browser';
+
+  @override
+  String get pasteUrlTitle => 'Paste link as';
+
+  @override
+  String get pasteAsUrl => 'URL';
+
+  @override
+  String get pasteAsEmbed => 'Embed';
+
+  @override
+  String get pasteAsBookmark => 'Bookmark';
+
+  @override
+  String get pasteAsMention => 'Mention';
+
+  @override
+  String get pasteAsUrlSubtitle => 'Insert markdown link in text';
+
+  @override
+  String get pasteAsEmbedSubtitle =>
+      'Video block with preview (YouTube) or bookmark';
+
+  @override
+  String get pasteAsBookmarkSubtitle => 'Card with title and link';
+
+  @override
+  String get pasteAsMentionSubtitle => 'Link to a page in this vault';
+
+  @override
+  String get pickPageForMention => 'Choose page';
+
+  @override
+  String get bookmarkTitleHint => 'Title';
+
+  @override
+  String get bookmarkOpenLink => 'Open link';
+
+  @override
+  String get bookmarkSetUrl => 'Set URL…';
+
+  @override
+  String get bookmarkBlockHint => 'Paste a link or use the block menu';
+
+  @override
+  String get bookmarkRemove => 'Remove bookmark';
+
+  @override
+  String get embedUnavailable =>
+      'Embedded web view is not available on this platform. Open the link in your browser.';
+
+  @override
+  String get embedOpenBrowser => 'Open in browser';
+
+  @override
+  String get embedSetUrl => 'Set embed URL…';
+
+  @override
+  String get embedRemove => 'Remove embed';
+
+  @override
+  String get embedEmptyHint =>
+      'Paste a link or set the URL from the block menu';
+
+  @override
+  String get blockSizeSmaller => 'Smaller';
+
+  @override
+  String get blockSizeLarger => 'Larger';
+
+  @override
+  String get blockSizeHalf => '50%';
+
+  @override
+  String get blockSizeThreeQuarter => '75%';
+
+  @override
+  String get blockSizeFull => '100%';
+
+  @override
+  String get pasteAsEmbedSubtitleWeb =>
+      'Show the page inside the block (when supported)';
+
+  @override
+  String get pasteAsMentionSubtitleRich =>
+      'Link with page title (e.g. YouTube)';
+
+  @override
   String get formatToolbar => 'Format toolbar';
 
   @override
@@ -697,10 +826,99 @@ class AppLocalizationsEn extends AppLocalizations {
   String get noTextChanges => 'No text changes.';
 
   @override
-  String get aiAssistantTitle => 'AI Assistant';
+  String get aiAssistantTitle => 'Quill';
 
   @override
   String get aiNoPageSelected => 'No page selected';
+
+  @override
+  String get aiChatContextDisabledSubtitle => 'Page text not sent to the model';
+
+  @override
+  String aiChatContextUsesCurrentPage(Object title) {
+    return 'Context: current page ($title)';
+  }
+
+  @override
+  String get aiChatContextOnePageFallback => 'Context: 1 page';
+
+  @override
+  String aiChatContextNPages(int count) {
+    return '$count pages in chat context';
+  }
+
+  @override
+  String get aiChatPageContextTooltip =>
+      'Include page text in the model context';
+
+  @override
+  String get aiChatChooseContextPagesTooltip =>
+      'Choose which pages add text to context';
+
+  @override
+  String get aiChatContextPagesDialogTitle => 'Pages in chat context';
+
+  @override
+  String get aiChatContextPagesClear => 'Clear list';
+
+  @override
+  String get aiChatContextPagesApply => 'Apply';
+
+  @override
+  String get aiTypingSemantics => 'Quill is typing';
+
+  @override
+  String get aiRenameChatTooltip => 'Rename chat';
+
+  @override
+  String get aiRenameChatDialogTitle => 'Chat title';
+
+  @override
+  String get aiRenameChatLabel => 'Title shown on the tab';
+
+  @override
+  String get quillWorkspaceTourTitle => 'Quill can help from here';
+
+  @override
+  String get quillWorkspaceTourBodyReady =>
+      'Your Quill chat is ready for questions, page edits, and note context workflows.';
+
+  @override
+  String get quillWorkspaceTourBodyUnavailable =>
+      'Even if it is not active right now, Quill belongs in this workspace and you can enable it later from Settings.';
+
+  @override
+  String get quillWorkspaceTourPointsTitle => 'What is worth knowing';
+
+  @override
+  String get quillWorkspaceTourPointOne =>
+      'It works both as a conversational assistant and as an editor for titles and blocks.';
+
+  @override
+  String get quillWorkspaceTourPointTwo =>
+      'It can use the current page or multiple pages as context.';
+
+  @override
+  String get quillWorkspaceTourPointThree =>
+      'If you tap an example below, it will prefill the chat when Quill is available.';
+
+  @override
+  String get quillWorkspaceTourExamplesTitle => 'Try prompts like';
+
+  @override
+  String get quillWorkspaceTourExampleOne =>
+      'Explain how to organize this page.';
+
+  @override
+  String get quillWorkspaceTourExampleTwo =>
+      'Use these two pages to make a shared summary.';
+
+  @override
+  String get quillWorkspaceTourExampleThree =>
+      'Rewrite this block in a clearer tone.';
+
+  @override
+  String get quillTourDismiss => 'Got it';
 
   @override
   String get aiExpand => 'Expand';
@@ -719,10 +937,10 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get aiChatEmptyHint =>
-      'Start a conversation.\nAI will automatically decide what to do with your message.';
+      'Start a conversation.\nQuill will automatically decide what to do with your message.\nYou can also ask how to use Folio (shortcuts, settings, pages, or this chat).';
 
   @override
-  String get aiInputHint => 'Type your message. AI will act as an agent.';
+  String get aiInputHint => 'Type your message. Quill will act as an agent.';
 
   @override
   String get aiShowPanel => 'Show AI panel';
@@ -774,7 +992,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get aiChatKeyboardHint => 'Enter to send · Ctrl+Enter for new line';
 
   @override
-  String get aiAgentThought => 'Agent thought';
+  String get aiAgentThought => 'Quill\'s thought';
 
   @override
   String get aiAlwaysShowThought => 'Always show AI thought';
@@ -859,6 +1077,33 @@ class AppLocalizationsEn extends AppLocalizations {
   String get exit => 'Exit';
 
   @override
+  String get trayMenuCloseApplication => 'Close application';
+
+  @override
+  String get keyboardShortcutsSection => 'Keyboard (in app)';
+
+  @override
+  String get shortcutTestAction => 'Test';
+
+  @override
+  String get shortcutChangeAction => 'Change';
+
+  @override
+  String shortcutTestHint(Object combo) {
+    return 'With focus outside a text field, “$combo” should work in the workspace.';
+  }
+
+  @override
+  String get shortcutResetAllTitle => 'Restore default shortcuts';
+
+  @override
+  String get shortcutResetAllSubtitle =>
+      'Resets all in-app shortcuts to Folio defaults.';
+
+  @override
+  String get shortcutResetDoneSnack => 'Shortcuts restored to defaults.';
+
+  @override
   String get desktopSection => 'Desktop';
 
   @override
@@ -933,4 +1178,38 @@ class AppLocalizationsEn extends AppLocalizations {
   String importNotionError(Object error) {
     return 'Could not import Notion: $error';
   }
+
+  @override
+  String get appBetaBannerMessage =>
+      'You are using a beta build. You may run into bugs; back up your vault regularly.';
+
+  @override
+  String get appBetaBannerDismiss => 'Got it';
+
+  @override
+  String get noEncryptionConfirmTitle => 'Create vault without encryption';
+
+  @override
+  String get noEncryptionConfirmBody =>
+      'Your data will be stored without a password and without encryption. Anyone with access to this device can read it.';
+
+  @override
+  String get createVaultWithoutEncryption => 'Create without encryption';
+
+  @override
+  String get plainVaultSecurityNotice =>
+      'This vault is not encrypted. Passkey, quick unlock (Hello), auto-lock after idle time, lock on minimize, and master password do not apply.';
+
+  @override
+  String get encryptPlainVaultTitle => 'Encrypt this vault';
+
+  @override
+  String get encryptPlainVaultBody =>
+      'Choose a master password. All data on this device will be encrypted. If you forget it, your data cannot be recovered.';
+
+  @override
+  String get encryptPlainVaultConfirm => 'Encrypt vault';
+
+  @override
+  String get encryptPlainVaultSuccessSnack => 'Vault is now encrypted';
 }

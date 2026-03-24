@@ -47,6 +47,17 @@
   "next": "Siguiente",
   "readyTitle": "Todo listo",
   "readyBody": "Se creará un cofre cifrado en este equipo. Podrás añadir después Windows Hello, biometría o una passkey para desbloquear más rápido (Ajustes).",
+  "quillIntroTitle": "Conoce a Quill",
+  "quillIntroBody": "Quill es la asistente integrada de Folio. Puede ayudarte a escribir, editar y entender tus páginas, además de resolver dudas sobre cómo usar la app.",
+  "quillIntroCapabilityWrite": "Puede redactar, resumir o reescribir contenido dentro de tus páginas.",
+  "quillIntroCapabilityExplain": "También responde preguntas sobre Folio, atajos, bloques y cómo organizar tus notas.",
+  "quillIntroCapabilityContext": "Puedes dejar que use la página abierta como contexto o elegir varias páginas de referencia.",
+  "quillIntroCapabilityExamples": "Lo mejor es hablarle de forma natural: Quill decide si responder o editar.",
+  "quillIntroExamplesTitle": "Ejemplos rápidos",
+  "quillIntroExampleOne": "Resume esta página en tres puntos.",
+  "quillIntroExampleTwo": "Cambia el título y mejora la introducción.",
+  "quillIntroExampleThree": "¿Cómo añado una imagen o una tabla?",
+  "quillIntroFootnote": "Si todavía no activas la IA, podrás hacerlo más tarde. Esta introducción es para que sepas qué puede hacer Quill cuando la uses.",
   "createVault": "Crear cofre",
   "minCharactersError": "Mínimo {min} caracteres.",
   "@minCharactersError": {
@@ -206,6 +217,34 @@
   "couldNotReadFile": "No se pudo leer el archivo",
   "couldNotLoadVideo": "No se pudo cargar el video",
   "couldNotPreviewPdf": "No se pudo previsualizar el PDF",
+  "openInYoutubeBrowser": "Abrir en el navegador",
+  "pasteUrlTitle": "Pegar enlace como",
+  "pasteAsUrl": "URL",
+  "pasteAsEmbed": "Insertar",
+  "pasteAsBookmark": "Marcador",
+  "pasteAsMention": "Mención",
+  "pasteAsUrlSubtitle": "Insertar enlace markdown en el texto",
+  "pasteAsEmbedSubtitle": "Bloque vídeo con vista previa (YouTube) o marcador",
+  "pasteAsBookmarkSubtitle": "Tarjeta con título y enlace",
+  "pasteAsMentionSubtitle": "Enlace a una página de este cofre",
+  "pickPageForMention": "Elegir página",
+  "bookmarkTitleHint": "Título",
+  "bookmarkOpenLink": "Abrir enlace",
+  "bookmarkSetUrl": "Establecer URL…",
+  "bookmarkBlockHint": "Pega un enlace o usa el menú del bloque",
+  "bookmarkRemove": "Quitar marcador",
+  "embedUnavailable": "La vista web embebida no está disponible en esta plataforma. Abre el enlace en el navegador.",
+  "embedOpenBrowser": "Abrir en el navegador",
+  "embedSetUrl": "Establecer URL del inserto…",
+  "embedRemove": "Quitar inserto",
+  "embedEmptyHint": "Pega un enlace o establece la URL desde el menú del bloque",
+  "blockSizeSmaller": "Más pequeño",
+  "blockSizeLarger": "Más grande",
+  "blockSizeHalf": "50%",
+  "blockSizeThreeQuarter": "75%",
+  "blockSizeFull": "100%",
+  "pasteAsEmbedSubtitleWeb": "Mostrar la página dentro del bloque (si el sistema lo permite)",
+  "pasteAsMentionSubtitleRich": "Enlace con título de la página (p. ej. YouTube)",
   "formatToolbar": "Barra de formato",
   "linkTitle": "Enlace",
   "visibleTextLabel": "Texto visible",
@@ -238,15 +277,42 @@
   "titleLabelSimple": "Título",
   "emptyValue": "(vacío)",
   "noTextChanges": "Sin cambios en el texto."
-  ,"aiAssistantTitle": "Asistente IA"
+  ,"aiAssistantTitle": "Quill"
   ,"aiNoPageSelected": "Sin página seleccionada"
+  ,"aiChatContextDisabledSubtitle": "No se envía texto de páginas al modelo"
+  ,"aiChatContextUsesCurrentPage": "Contexto: página actual ({title})"
+  ,"@aiChatContextUsesCurrentPage": {"placeholders": {"title": {}}}
+  ,"aiChatContextOnePageFallback": "Contexto: 1 página"
+  ,"aiChatContextNPages": "{count} páginas en el contexto del chat"
+  ,"@aiChatContextNPages": {"placeholders": {"count": {"type": "int"}}}
+  ,"aiChatPageContextTooltip": "Incluir texto de páginas en el contexto del modelo"
+  ,"aiChatChooseContextPagesTooltip": "Elegir qué páginas aportan texto al contexto"
+  ,"aiChatContextPagesDialogTitle": "Páginas en el contexto del chat"
+  ,"aiChatContextPagesClear": "Vaciar lista"
+  ,"aiChatContextPagesApply": "Aplicar"
+  ,"aiTypingSemantics": "Quill está escribiendo"
+  ,"aiRenameChatTooltip": "Renombrar chat"
+  ,"aiRenameChatDialogTitle": "Título del chat"
+  ,"aiRenameChatLabel": "Texto en la pestaña"
+  ,"quillWorkspaceTourTitle": "Quill te puede acompañar aquí"
+  ,"quillWorkspaceTourBodyReady": "Tienes el chat de Quill listo para preguntar, editar páginas y trabajar con contexto de notas."
+  ,"quillWorkspaceTourBodyUnavailable": "Aunque ahora no esté activa, Quill vive en este espacio de trabajo y puedes activarla más tarde desde Ajustes."
+  ,"quillWorkspaceTourPointsTitle": "Qué conviene saber"
+  ,"quillWorkspaceTourPointOne": "Sirve tanto para conversar como para editar títulos y bloques."
+  ,"quillWorkspaceTourPointTwo": "Puede usar la página abierta o varias páginas como contexto."
+  ,"quillWorkspaceTourPointThree": "Si tocas un ejemplo de abajo, se rellenará el chat cuando Quill esté disponible."
+  ,"quillWorkspaceTourExamplesTitle": "Prueba con mensajes como"
+  ,"quillWorkspaceTourExampleOne": "Explícame cómo organizar esta página."
+  ,"quillWorkspaceTourExampleTwo": "Usa estas dos páginas para hacer un resumen común."
+  ,"quillWorkspaceTourExampleThree": "Reescribe este bloque con un tono más claro."
+  ,"quillTourDismiss": "Entendido"
   ,"aiExpand": "Expandir"
   ,"aiCollapse": "Colapsar"
   ,"aiDeleteCurrentChat": "Borrar chat actual"
   ,"aiNewChat": "Nuevo"
   ,"aiAttach": "Adjuntar"
-  ,"aiChatEmptyHint": "Empieza una conversación.\nLa IA decidirá automáticamente qué hacer con tu mensaje."
-  ,"aiInputHint": "Escribe tu mensaje. La IA actuará como agente."
+  ,"aiChatEmptyHint": "Empieza una conversación.\nQuill decidirá automáticamente qué hacer con tu mensaje.\nTambién puedes preguntar cómo usar Folio (atajos, ajustes, páginas o este chat)."
+  ,"aiInputHint": "Escribe tu mensaje. Quill actuará como agente."
   ,"aiShowPanel": "Mostrar panel IA"
   ,"aiHidePanel": "Ocultar panel IA"
   ,"closeCurrentPage": "Cerrar página actual"
@@ -263,7 +329,7 @@
   ,"aiContextUsageTooltip": "Última petición respecto a la ventana configurada ({window} tokens)."
   ,"@aiContextUsageTooltip": {"placeholders": {"window": {"type": "int"}}}
   ,"aiChatKeyboardHint": "Enter para enviar · Ctrl+Enter nueva línea"
-  ,"aiAgentThought": "Pensamiento del agente"
+  ,"aiAgentThought": "Pensamiento de Quill"
   ,"aiAlwaysShowThought": "Mostrar siempre pensamiento de IA"
   ,"aiAlwaysShowThoughtHint": "Si está desactivado, se mostrará plegado con flecha en cada mensaje."
   ,"aiBetaBadge": "BETA"
@@ -289,6 +355,15 @@
   "search": "Buscar",
   "open": "Abrir",
   "exit": "Salir",
+  "trayMenuCloseApplication": "Cerrar aplicación",
+  "keyboardShortcutsSection": "Teclado (en la app)",
+  "shortcutTestAction": "Probar",
+  "shortcutChangeAction": "Cambiar",
+  "shortcutTestHint": "Con el foco fuera de un campo de texto, “{combo}” debería funcionar en el escritorio.",
+  "@shortcutTestHint": {"placeholders": {"combo": {}}},
+  "shortcutResetAllTitle": "Restaurar atajos por defecto",
+  "shortcutResetAllSubtitle": "Vuelve a poner todos los atajos de la app como al instalar Folio.",
+  "shortcutResetDoneSnack": "Atajos restaurados.",
   "desktopSection": "Desktop",
   "globalSearchHotkey": "Atajo global de búsqueda",
   "hotkeyCombination": "Combinación de teclas",
@@ -314,4 +389,14 @@
   ,"importNotionSuccessNew": "Cofre nuevo importado desde Notion."
   ,"importNotionError": "No se pudo importar Notion: {error}"
   ,"@importNotionError": {"placeholders": {"error": {}}}
+  ,"appBetaBannerMessage": "Estás usando una versión beta. Puede haber fallos; haz copias de seguridad del cofre con frecuencia."
+  ,"appBetaBannerDismiss": "Entendido"
+  ,"noEncryptionConfirmTitle": "Crear cofre sin cifrado"
+  ,"noEncryptionConfirmBody": "Tus datos se guardarán sin contraseña y sin cifrado. Cualquier persona con acceso a este dispositivo podrá leerlos."
+  ,"createVaultWithoutEncryption": "Crear sin cifrado"
+  ,"plainVaultSecurityNotice": "Este cofre no está cifrado: no aplican la passkey, el desbloqueo rápido (Hello), el bloqueo por inactividad, el bloqueo al minimizar ni la contraseña maestra."
+  ,"encryptPlainVaultTitle": "Cifrar este cofre"
+  ,"encryptPlainVaultBody": "Elige una contraseña maestra. Todo lo guardado en este dispositivo se cifrará. Si la olvidas, no podremos recuperar los datos."
+  ,"encryptPlainVaultConfirm": "Cifrar cofre"
+  ,"encryptPlainVaultSuccessSnack": "El cofre ya está cifrado"
 }

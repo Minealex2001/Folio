@@ -22,6 +22,9 @@ import '../models/folio_page_revision.dart';
 import '../models/folio_database_data.dart';
 import '../models/local_collab.dart';
 import '../models/folio_table_data.dart';
+import '../models/folio_toggle_data.dart';
+import '../models/folio_columns_data.dart';
+import '../models/folio_template_button_data.dart';
 import '../services/folio_rp_server.dart';
 import '../services/ai/ai_safety_policy.dart';
 import '../services/ai/ai_service.dart';
@@ -47,6 +50,12 @@ class VaultSearchResult {
 }
 
 class VaultSession extends ChangeNotifier {
+  /// Nombre de la asistente en la app; se repite en los prompts para que el modelo lo mantenga.
+  static const String _quillIdentityLeadEs =
+      'Tu nombre es Quill. Eres la asistente de IA integrada en Folio.\n\n';
+  static const String _quillIdentityLeadEn =
+      "Your name is Quill. You are Folio's built-in AI assistant.\n\n";
+
   bool _isManagedAttachmentPath(String? path) {
     final p = path?.trim();
     return p != null && p.startsWith('${VaultPaths.attachmentsDirName}/');
@@ -197,6 +206,9 @@ class VaultSession extends ChangeNotifier {
   /// cuando los ids de bloque coinciden pero el texto cambió.
   int get contentEpoch => _contentEpoch;
   int _contentEpoch = 0;
+
+  /// El editor hace scroll a este bloque tras el siguiente frame (TOC / enlaces internos).
+  String? pendingScrollToBlockId;
 
   FolioPage? get selectedPage {
     if (_selectedPageId == null) return null;
@@ -393,9 +405,20 @@ class VaultSession extends ChangeNotifier {
     }
     _resumeVaultIdAfterNewVault = current;
     final newId = _uuid.v4();
+    await VaultPaths.vaultDirectoryForId(newId);
+    final ordinal = _registry.vaults.length + 1;
+    await _registry.add(
+      VaultEntry(
+        id: newId,
+        displayName: 'Cofre $ordinal',
+        createdAtMs: DateTime.now().millisecondsSinceEpoch,
+      ),
+    );
     VaultPaths.setActiveVaultId(newId);
     await _registry.setActiveVaultId(newId);
-    lock();
+    _clearVaultSessionMemory();
+    _state = VaultFlowState.initializing;
+    notifyListeners();
     await bootstrap();
   }
 
@@ -403,12 +426,18 @@ class VaultSession extends ChangeNotifier {
   Future<void> cancelPrepareNewVault() async {
     final resume = _resumeVaultIdAfterNewVault;
     if (resume == null) return;
+    await _registry.load();
     final cur = VaultPaths.activeVaultId;
-    if (cur != null && !await VaultPaths.vaultExistsForId(cur)) {
-      await VaultPaths.deleteVaultDirectory(cur);
-    }
+    final orphanId =
+        cur != null && !await VaultPaths.vaultExistsForId(cur) ? cur : null;
     VaultPaths.setActiveVaultId(resume);
     await _registry.setActiveVaultId(resume);
+    if (orphanId != null) {
+      await VaultPaths.deleteVaultDirectory(orphanId);
+      if (_registry.containsVault(orphanId)) {
+        await _registry.remove(orphanId);
+      }
+    }
     _resumeVaultIdAfterNewVault = null;
     await bootstrap();
   }
@@ -520,6 +549,7 @@ class VaultSession extends ChangeNotifier {
           type: b.type,
           text: b.text,
           checked: b.checked,
+          expanded: b.expanded,
           codeLanguage: b.codeLanguage,
           depth: b.depth,
           icon: b.icon,
@@ -579,7 +609,7 @@ class VaultSession extends ChangeNotifier {
       final imported = await importPath(block.text.trim());
       if (imported != null) block.text = imported;
     }
-    if ((block.type == 'file' || block.type == 'video') &&
+    if ((block.type == 'file' || block.type == 'video' || block.type == 'audio') &&
         (block.url?.trim().isNotEmpty ?? false)) {
       final imported = await importPath(block.url!.trim());
       if (imported != null) block.url = imported;
@@ -813,8 +843,8 @@ class VaultSession extends ChangeNotifier {
     notifyListeners();
   }
 
-  void lock() {
-    if (!vaultUsesEncryption) return;
+  /// Vacía el estado en memoria del cofre (sin fijar [VaultFlowState]).
+  void _clearVaultSessionMemory() {
     _saveDebounce?.cancel();
     _saveDebounce = null;
     _revisionIdleTimer?.cancel();
@@ -825,6 +855,11 @@ class VaultSession extends ChangeNotifier {
     _dek = null;
     _pages = [];
     _pageRevisions.clear();
+    _pageAcl.clear();
+    _localProfiles
+      ..clear()
+      ..add(LocalProfile(id: 'local-default', name: 'Local user'));
+    _comments.clear();
     _aiChatThreads
       ..clear()
       ..add(
@@ -833,6 +868,11 @@ class VaultSession extends ChangeNotifier {
     _aiActiveChatIndex = 0;
     _contentEpoch = 0;
     _selectedPageId = null;
+  }
+
+  void lock() {
+    if (!vaultUsesEncryption) return;
+    _clearVaultSessionMemory();
     _state = VaultFlowState.locked;
     notifyListeners();
   }
@@ -926,6 +966,17 @@ class VaultSession extends ChangeNotifier {
     notifyListeners();
   }
 
+  void requestScrollToBlock(String blockId) {
+    pendingScrollToBlockId = blockId;
+    notifyListeners();
+  }
+
+  void clearPendingScrollToBlock() {
+    if (pendingScrollToBlockId == null) return;
+    pendingScrollToBlockId = null;
+    notifyListeners();
+  }
+
   void clearSelectedPage() {
     if (_selectedPageId == null) return;
     touchActivity();
@@ -940,6 +991,105 @@ class VaultSession extends ChangeNotifier {
     scheduleSave();
   }
 
+  static const _stringListEq = ListEquality<String>();
+
+  /// Persiste las rutas de adjuntos del hilo de chat activo (p. ej. antes de cambiar de hilo).
+  void syncActiveAiChatAttachmentPaths(List<String> paths) {
+    if (_state != VaultFlowState.unlocked) return;
+    final i = _aiActiveChatIndex;
+    if (i < 0 || i >= _aiChatThreads.length) return;
+    final cur = _aiChatThreads[i];
+    if (_stringListEq.equals(cur.attachmentPaths, paths)) return;
+    _aiChatThreads[i] = AiChatThreadData(
+      id: cur.id,
+      title: cur.title,
+      messages: cur.messages,
+      attachmentPaths: List<String>.from(paths),
+      includePageContext: cur.includePageContext,
+      contextPageIds: cur.contextPageIds,
+    );
+    scheduleSave();
+  }
+
+  void setActiveAiChatIncludePageContext(bool value) {
+    if (_state != VaultFlowState.unlocked) return;
+    final i = _aiActiveChatIndex;
+    if (i < 0 || i >= _aiChatThreads.length) return;
+    final cur = _aiChatThreads[i];
+    if (cur.includePageContext == value) return;
+    _aiChatThreads[i] = AiChatThreadData(
+      id: cur.id,
+      title: cur.title,
+      messages: cur.messages,
+      attachmentPaths: cur.attachmentPaths,
+      includePageContext: value,
+      contextPageIds: cur.contextPageIds,
+    );
+    notifyListeners();
+    scheduleSave();
+  }
+
+  void setActiveAiChatContextPageIds(List<String> ids) {
+    if (_state != VaultFlowState.unlocked) return;
+    final i = _aiActiveChatIndex;
+    if (i < 0 || i >= _aiChatThreads.length) return;
+    final cur = _aiChatThreads[i];
+    final next = List<String>.from(ids);
+    if (_stringListEq.equals(cur.contextPageIds, next)) return;
+    _aiChatThreads[i] = AiChatThreadData(
+      id: cur.id,
+      title: cur.title,
+      messages: cur.messages,
+      attachmentPaths: cur.attachmentPaths,
+      includePageContext: cur.includePageContext,
+      contextPageIds: next,
+    );
+    notifyListeners();
+    scheduleSave();
+  }
+
+  static const int _maxAiChatTitleLength = 80;
+
+  String _clampAiChatTitle(String raw) {
+    var t = raw.trim().replaceAll(RegExp(r'\s+'), ' ');
+    if (t.length > _maxAiChatTitleLength) {
+      t = t.substring(0, _maxAiChatTitleLength).trim();
+    }
+    return t;
+  }
+
+  /// Renombra un hilo de chat (persiste con el cofre).
+  void renameAiChatAt(int index, String title) {
+    if (_state != VaultFlowState.unlocked) return;
+    if (index < 0 || index >= _aiChatThreads.length) return;
+    final t = _clampAiChatTitle(title);
+    if (t.isEmpty) return;
+    final cur = _aiChatThreads[index];
+    if (cur.title == t) return;
+    _aiChatThreads[index] = AiChatThreadData(
+      id: cur.id,
+      title: t,
+      messages: cur.messages,
+      attachmentPaths: cur.attachmentPaths,
+      includePageContext: cur.includePageContext,
+      contextPageIds: cur.contextPageIds,
+    );
+    notifyListeners();
+    scheduleSave();
+  }
+
+  void _maybeApplyAgentThreadTitle(
+    String? rawThreadTitle, {
+    required List<AiChatMessage> conversationMessages,
+  }) {
+    final userCount =
+        conversationMessages.where((m) => m.role == 'user').length;
+    if (userCount != 1) return;
+    final t = _clampAiChatTitle(rawThreadTitle ?? '');
+    if (t.isEmpty) return;
+    renameAiChatAt(_aiActiveChatIndex, t);
+  }
+
   void createNewAiChat() {
     final next = _aiChatThreads.length + 1;
     _aiChatThreads.add(
@@ -947,6 +1097,8 @@ class VaultSession extends ChangeNotifier {
         id: 'chat_${DateTime.now().microsecondsSinceEpoch}',
         title: 'Chat $next',
         messages: const [],
+        includePageContext: true,
+        contextPageIds: const [],
       ),
     );
     _aiActiveChatIndex = _aiChatThreads.length - 1;
@@ -982,6 +1134,9 @@ class VaultSession extends ChangeNotifier {
       id: current.id,
       title: current.title,
       messages: nextMessages,
+      attachmentPaths: current.attachmentPaths,
+      includePageContext: current.includePageContext,
+      contextPageIds: current.contextPageIds,
     );
     notifyListeners();
     scheduleSave();
@@ -1018,13 +1173,20 @@ class VaultSession extends ChangeNotifier {
           excludingBlockId: b.id,
         );
       }
-      if ((b.type == 'file' || b.type == 'video') &&
+      if ((b.type == 'file' || b.type == 'video' || b.type == 'audio') &&
           _isManagedAttachmentPath(b.url)) {
         _deleteManagedAttachmentIfUnused(
           b.url!,
           excludingPageId: doomed.id,
           excludingBlockId: b.id,
         );
+      }
+    }
+    for (final p in _pages) {
+      for (final b in p.blocks) {
+        if (b.type == 'child_page' && b.text.trim() == id) {
+          b.text = '';
+        }
       }
     }
     final wasSelected = _selectedPageId == id;
@@ -1140,6 +1302,16 @@ class VaultSession extends ChangeNotifier {
     scheduleSave(trackRevisionForPageId: pageId);
   }
 
+  void setBlockExpanded(String pageId, String blockId, bool expanded) {
+    final page = _pageById(pageId);
+    if (page == null) return;
+    final b = _blockById(page, blockId);
+    if (b == null || b.type != 'toggle') return;
+    b.expanded = expanded;
+    notifyListeners();
+    scheduleSave(trackRevisionForPageId: pageId);
+  }
+
   void updateBlockIcon(String pageId, String blockId, String? icon) {
     final page = _pageById(pageId);
     if (page == null) return;
@@ -1172,7 +1344,16 @@ class VaultSession extends ChangeNotifier {
     final page = _pageById(pageId);
     if (page == null) return;
     final b = _blockById(page, blockId);
-    if (b == null || b.type != 'image') return;
+    if (b == null) return;
+    const mediaTypes = {
+      'image',
+      'file',
+      'video',
+      'audio',
+      'bookmark',
+      'embed',
+    };
+    if (!mediaTypes.contains(b.type)) return;
     final clamped = width.clamp(0.2, 1.0);
     final current = b.imageWidth ?? 1.0;
     if ((current - clamped).abs() < 0.001) return;
@@ -1194,7 +1375,7 @@ class VaultSession extends ChangeNotifier {
         excludingBlockId: blockId,
       );
     }
-    if ((oldType == 'file' || oldType == 'video') &&
+    if ((oldType == 'file' || oldType == 'video' || oldType == 'audio') &&
         newType != oldType &&
         _isManagedAttachmentPath(b.url)) {
       _deleteManagedAttachmentIfUnused(
@@ -1202,6 +1383,21 @@ class VaultSession extends ChangeNotifier {
         excludingPageId: pageId,
         excludingBlockId: blockId,
       );
+      b.url = null;
+    }
+    if (oldType == 'embed' && newType != 'embed') {
+      final u = b.url?.trim() ?? '';
+      if (u.isNotEmpty) {
+        b.text = u;
+      }
+      b.url = null;
+    }
+    if (oldType == 'bookmark' && newType != 'bookmark') {
+      final u = b.url?.trim() ?? '';
+      final title = b.text.trim();
+      if (u.isNotEmpty) {
+        b.text = title.isEmpty ? u : '[$title]($u)';
+      }
       b.url = null;
     }
     if (oldType == 'image' && newType != 'image') {
@@ -1216,6 +1412,11 @@ class VaultSession extends ChangeNotifier {
       b.checked = null;
     } else {
       b.checked = b.checked ?? false;
+    }
+    if (newType != 'toggle') {
+      b.expanded = null;
+    } else {
+      b.expanded = b.expanded ?? false;
     }
     if (newType == 'table') {
       if (b.text.isEmpty || FolioTableData.tryParse(b.text) == null) {
@@ -1235,10 +1436,33 @@ class VaultSession extends ChangeNotifier {
     } else if (newType == 'image' && oldType != 'image') {
       b.text = '';
     }
+    if (newType == 'toggle' && oldType != 'toggle') {
+      b.text = FolioToggleData.empty().encode();
+    }
+    if (newType == 'equation' &&
+        oldType != 'equation' &&
+        b.text.trim().isEmpty) {
+      b.text = r'E = mc^2';
+    }
+    if (newType == 'toc' || newType == 'breadcrumb') {
+      b.text = '';
+    }
+    if (newType == 'child_page' && oldType != 'child_page') {
+      b.text = '';
+    }
+    if (newType == 'template_button' && oldType != 'template_button') {
+      b.text = FolioTemplateButtonData.defaultNew().encode();
+    }
+    if (newType == 'column_list' && oldType != 'column_list') {
+      b.text = FolioColumnsData.empty().encode();
+    }
     if (newType == 'code' && oldType != 'code') {
       b.codeLanguage ??= 'dart';
     }
-    if (newType != 'code') {
+    if (newType == 'equation' && oldType != 'equation') {
+      b.codeLanguage ??= 'plaintext';
+    }
+    if (newType != 'code' && newType != 'equation') {
       b.codeLanguage = null;
     }
     notifyListeners();
@@ -1269,6 +1493,85 @@ class VaultSession extends ChangeNotifier {
     scheduleSave(trackRevisionForPageId: pageId);
   }
 
+  void insertBlocksAfterMany({
+    required String pageId,
+    required String afterBlockId,
+    required List<FolioBlock> blocks,
+  }) {
+    if (blocks.isEmpty) return;
+    final page = _pageById(pageId);
+    if (page == null) return;
+    final i = page.blocks.indexWhere((b) => b.id == afterBlockId);
+    if (i < 0) return;
+    page.blocks.insertAll(i + 1, blocks);
+    notifyListeners();
+    scheduleSave(trackRevisionForPageId: pageId);
+  }
+
+  List<FolioBlock> cloneBlocksWithNewIds(
+    String pageIdPrefix,
+    List<FolioBlock> source,
+  ) {
+    return source
+        .map(
+          (b) => FolioBlock(
+            id: '${pageIdPrefix}_${_uuid.v4()}',
+            type: b.type,
+            text: b.text,
+            checked: b.checked,
+            expanded: b.expanded,
+            codeLanguage: b.codeLanguage,
+            depth: b.depth,
+            icon: b.icon,
+            url: b.url,
+            imageWidth: b.imageWidth,
+          ),
+        )
+        .toList();
+  }
+
+  void insertTemplateFromButton({
+    required String pageId,
+    required String templateBlockId,
+  }) {
+    final page = _pageById(pageId);
+    if (page == null) return;
+    final b = _blockById(page, templateBlockId);
+    if (b == null || b.type != 'template_button') return;
+    final data = FolioTemplateButtonData.tryParse(b.text);
+    if (data == null) return;
+    final clones = cloneBlocksWithNewIds(pageId, data.blocks);
+    insertBlocksAfterMany(
+      pageId: pageId,
+      afterBlockId: templateBlockId,
+      blocks: clones,
+    );
+  }
+
+  /// Crea una subpágina bajo la página actual y enlaza el bloque [child_page].
+  void createChildPageLinkedToBlock({
+    required String pageId,
+    required String blockId,
+  }) {
+    final page = _pageById(pageId);
+    if (page == null) return;
+    final b = _blockById(page, blockId);
+    if (b == null || b.type != 'child_page') return;
+    final newId = _uuid.v4();
+    _pages.add(
+      FolioPage(
+        id: newId,
+        title: 'Subpágina',
+        parentId: pageId,
+        blocks: [FolioBlock(id: '${newId}_b0', type: 'paragraph', text: '')],
+      ),
+    );
+    b.text = newId;
+    notifyListeners();
+    scheduleSave(trackRevisionForPageId: pageId);
+    scheduleSave(trackRevisionForPageId: newId);
+  }
+
   void appendBlock({
     required String pageId,
     required FolioBlock block,
@@ -1294,17 +1597,22 @@ class VaultSession extends ChangeNotifier {
     if (i < 0) return;
     final cur = page.blocks[i];
     cur.text = before;
-    final sameListType = cur.type == 'bullet' || cur.type == 'todo';
-    final sameCode = cur.type == 'code';
+    final sameListType =
+        cur.type == 'bullet' || cur.type == 'todo' || cur.type == 'numbered';
+    final sameCode = cur.type == 'code' || cur.type == 'equation';
     final nextType = sameListType
         ? cur.type
-        : (sameCode ? 'code' : 'paragraph');
+        : (sameCode ? cur.type : 'paragraph');
     final newBlock = FolioBlock(
       id: '${pageId}_${_uuid.v4()}',
       type: nextType,
       text: after,
       checked: nextType == 'todo' ? false : null,
-      codeLanguage: nextType == 'code' ? cur.codeLanguage : null,
+      expanded: nextType == 'toggle' ? false : null,
+      codeLanguage: nextType == 'code' || nextType == 'equation'
+          ? cur.codeLanguage
+          : null,
+      depth: cur.depth,
     );
     page.blocks.insert(i + 1, newBlock);
     notifyListeners();
@@ -1729,6 +2037,51 @@ class VaultSession extends ChangeNotifier {
     touchActivity();
   }
 
+  /// Cifra un cofre que estaba solo en disco en texto plano. La sesión sigue abierta.
+  Future<void> enableVaultEncryption(String password) async {
+    if (_state != VaultFlowState.unlocked) {
+      throw StateError('Cofre no desbloqueado');
+    }
+    if (vaultUsesEncryption) {
+      throw StateError('El cofre ya está cifrado');
+    }
+    if (!(await _repo.isPlaintextVault())) {
+      throw StateError('Cofre no reconocido como texto plano');
+    }
+    if (password.isEmpty) {
+      throw ArgumentError('Contraseña vacía');
+    }
+
+    final payload = VaultPayload(
+      version: kVaultPayloadVersion,
+      pages: _pages,
+      pageRevisions: Map<String, List<FolioPageRevision>>.fromEntries(
+        _pageRevisions.entries.map(
+          (e) => MapEntry(e.key, List<FolioPageRevision>.from(e.value)),
+        ),
+      ),
+      pageAcl: Map<String, Map<String, String>>.fromEntries(
+        _pageAcl.entries.map(
+          (e) => MapEntry(e.key, Map<String, String>.from(e.value)),
+        ),
+      ),
+      localProfiles: List<LocalProfile>.from(_localProfiles),
+      comments: List<LocalPageComment>.from(_comments),
+      aiChatThreads: List<AiChatThreadData>.from(_aiChatThreads),
+      aiActiveChatIndex: _aiActiveChatIndex,
+    );
+
+    final dekBytes = await _repo.encryptPlainVaultWithPassword(
+      payload: payload,
+      password: password,
+    );
+    _dek = dekBytes.toList();
+    _vaultUsesEncryption = true;
+    touchActivity();
+    _restartIdleLockTimer();
+    notifyListeners();
+  }
+
   List<VaultSearchResult> searchGlobal(String query, {int limit = 80}) {
     final q = query.trim().toLowerCase();
     if (_state != VaultFlowState.unlocked ||
@@ -1823,6 +2176,7 @@ class VaultSession extends ChangeNotifier {
     final block = _blockById(page, blockId);
     if (block == null) throw StateError('Bloque no encontrado.');
     final prompt =
+        '$_quillIdentityLeadEs'
         'Tarea: reescribir un bloque sin resumir la página completa. '
         'Devuelve exclusivamente el texto final del bloque, sin markdown fences ni explicación.\n\n'
         'Página: ${page.title}\n'
@@ -1854,6 +2208,7 @@ class VaultSession extends ChangeNotifier {
     final page = _pageById(pageId);
     if (page == null) throw StateError('Página no encontrada.');
     final prompt =
+        '$_quillIdentityLeadEs'
         'Resume esta página en español de forma breve y accionable.\n'
         'Título: ${page.title}\n'
         'Contenido:\n${page.plainTextContent}';
@@ -1881,6 +2236,7 @@ class VaultSession extends ChangeNotifier {
     final page = _pageById(pageId);
     if (page == null) throw StateError('Página no encontrada.');
     final fullPrompt =
+        '$_quillIdentityLeadEs'
         'Genera NUEVO contenido para insertar en una página existente. '
         'No hagas resumen del contexto salvo que se pida explícitamente.\n'
         'Salida preferida: JSON válido con forma {"blocks":[{"type":"paragraph|h1|h2|h3|bullet|todo|quote|code|divider","text":"...","checked":false,"codeLanguage":"dart"}]}.\n'
@@ -1920,6 +2276,7 @@ class VaultSession extends ChangeNotifier {
     final result = await ai.complete(
       AiCompletionRequest(
         prompt:
+            '$_quillIdentityLeadEs'
             'Genera una página completa de notas.\n'
             'Salida preferida: JSON válido con forma {"title":"...","blocks":[{"type":"paragraph|h1|h2|h3|bullet|todo|quote|code|divider","text":"...","checked":false,"codeLanguage":"dart"}]}.\n'
             'Si no puedes JSON, devuelve markdown estructurado. Sin markdown fences.\n\n'
@@ -1948,11 +2305,102 @@ class VaultSession extends ChangeNotifier {
     return id;
   }
 
+  List<String> _resolveAiChatContextPageIds({
+    required bool includePageContext,
+    required List<String> contextPageIds,
+    String? scopePageId,
+  }) {
+    if (!includePageContext) return const [];
+    final seen = <String>{};
+    final out = <String>[];
+    void add(String id) {
+      if (_pageById(id) == null) return;
+      if (seen.add(id)) out.add(id);
+    }
+
+    if (contextPageIds.isNotEmpty) {
+      for (final id in contextPageIds) {
+        add(id);
+      }
+      return out;
+    }
+    if (scopePageId != null) add(scopePageId);
+    return out;
+  }
+
+  String _buildAiChatPagesTextContext(
+    List<String> pageIds, {
+    required bool isEs,
+  }) {
+    if (pageIds.isEmpty) {
+      return isEs
+          ? '(No hay páginas de texto en el contexto.)'
+          : '(No pages in the text context.)';
+    }
+    final buf = StringBuffer();
+    for (var i = 0; i < pageIds.length; i++) {
+      final p = _pageById(pageIds[i]);
+      if (p == null) continue;
+      if (buf.isNotEmpty) buf.writeln();
+      buf.writeln('--- ${i + 1}. ${p.title} ---');
+      buf.writeln(p.plainTextContent);
+    }
+    return buf.toString();
+  }
+
+  String _plainChatContextFromPageIds(List<String> pageIds) {
+    if (pageIds.isEmpty) return '';
+    final b = StringBuffer('\n\nContexto de páginas:\n');
+    for (final id in pageIds) {
+      final p = _pageById(id);
+      if (p == null) continue;
+      b.writeln('Título: ${p.title}');
+      b.writeln(p.plainTextContent);
+      b.writeln();
+    }
+    return b.toString();
+  }
+
+  /// Ayuda in-app inyectada en el agente: evita que «página» se interprete como web genérica.
+  String _folioAgentInAppGuide({required bool isEs}) {
+    if (isEs) {
+      return '''
+IDENTIDAD: Tu nombre es Quill. Si te presentas o hablas de ti, usa ese nombre.
+
+=== Folio — no confundir con sitios web genéricos ===
+En Folio, «página» = nota del árbol lateral con bloques (párrafo, imagen, tabla…). El usuario pregunta por Folio salvo que cite explícitamente WordPress, HTML, React, etc.
+NO respondas con etiquetas HTML <img>, CMS ni frameworks web ante frases como «añadir imagen a la página», «bloque», «nota», «mi página en Folio».
+
+Ayuda frecuente (respuestas breves y concretas):
+• Imagen: con una página abierta, botón flotante + (abajo a la derecha) → bloque «Imagen». Alternativa: en un párrafo escribe / y elige «Imagen». En bloque vacío, «Elegir imagen»: en escritorio suele abrir el selector de archivos; en móvil, galería. Pegar una URL directa a un archivo de imagen en un bloque de texto puede convertirlo en bloque imagen. Menú ⋮ del bloque: cambiar o quitar imagen; puedes ajustar el ancho mostrado.
+• Otros bloques: mismo botón + o comando / en párrafo (tabla, archivo, código, etc.).
+• Panel de chat con Quill (si está activo): a la derecha; icono de libro incluye u omite texto de páginas en el contexto; otro icono elige varias páginas de referencia.
+• Ajustes: engranaje. Búsqueda: lupa. Bloquear cofre: candado.
+'''.trim();
+    }
+    return '''
+IDENTITY: Your name is Quill. When you introduce yourself or refer to yourself, use that name.
+
+=== Folio — not a generic website ===
+In Folio a "page" is a sidebar note made of blocks. The user means Folio unless they explicitly name WordPress, HTML, React, etc.
+Do NOT answer Folio how-to questions with HTML <img>, CMS steps, or web frameworks.
+
+Quick help (be concise):
+• Image: With a page open, floating + (bottom-right) → "Image" block. Or type / in a paragraph and pick Image. In an empty image block use "Choose image" (desktop: file picker; mobile: gallery). Pasting a direct image file URL in a text block may turn it into an image block. Block ⋮ menu: replace/clear; adjust width.
+• Other blocks: same + button or / in a paragraph.
+• Quill chat panel (when enabled): on the right; book icon toggles page text in context; another icon picks multiple reference pages.
+• Settings: gear. Search: magnifying glass. Lock vault: padlock.
+'''.trim();
+  }
+
   Future<({String text, AiTokenUsage? usage})> chatWithAi({
     required List<AiChatMessage> messages,
     required String prompt,
     String? scopePageId,
+    bool includePageContext = true,
+    List<String> contextPageIds = const [],
     List<AiFileAttachment> attachments = const [],
+    String languageCode = 'es',
   }) async {
     if (_state != VaultFlowState.unlocked ||
         (vaultUsesEncryption && _dek == null)) {
@@ -1960,13 +2408,18 @@ class VaultSession extends ChangeNotifier {
     }
     final ai = _aiService;
     if (ai == null) throw StateError('IA no configurada.');
-    final scopePage = scopePageId == null ? null : _pageById(scopePageId);
-    final scopedContext = scopePage == null
-        ? ''
-        : '\n\nContexto de página:\nTítulo: ${scopePage.title}\n${scopePage.plainTextContent}';
+    final effective = _resolveAiChatContextPageIds(
+      includePageContext: includePageContext,
+      contextPageIds: contextPageIds,
+      scopePageId: scopePageId,
+    );
+    final scopedContext =
+        includePageContext ? _plainChatContextFromPageIds(effective) : '';
+    final isEsChat = languageCode.toLowerCase().startsWith('es');
+    final folioGuide = _folioAgentInAppGuide(isEs: isEsChat);
     final result = await ai.complete(
       AiCompletionRequest(
-        prompt: '${prompt.trim()}$scopedContext',
+        prompt: '$folioGuide\n\n${prompt.trim()}$scopedContext',
         model: 'auto',
         messages: messages,
         attachments: attachments,
@@ -1979,6 +2432,8 @@ class VaultSession extends ChangeNotifier {
     required List<AiChatMessage> messages,
     required String prompt,
     String? scopePageId,
+    bool includePageContext = true,
+    List<String> contextPageIds = const [],
     List<AiFileAttachment> attachments = const [],
     String languageCode = 'es',
   }) async {
@@ -1994,6 +2449,11 @@ class VaultSession extends ChangeNotifier {
         AgentChatOutcome(reply: reply, usage: lastUsage);
     final isEs = languageCode.toLowerCase().startsWith('es');
     final scopePage = scopePageId == null ? null : _pageById(scopePageId);
+    final effectiveContextIds = _resolveAiChatContextPageIds(
+      includePageContext: includePageContext,
+      contextPageIds: contextPageIds,
+      scopePageId: scopePageId,
+    );
     final wantsSubpage = _looksLikeSubpageIntent(
       prompt,
       languageCode: languageCode,
@@ -2005,45 +2465,63 @@ class VaultSession extends ChangeNotifier {
       context: {
         'languageCode': languageCode,
         'hasScopePage': scopePage != null,
+        'includePageContext': includePageContext,
+        'contextPageCount': effectiveContextIds.length,
         'wantsSubpage': wantsSubpage,
         'promptPreview': promptTrimmed.length > 140
             ? '${promptTrimmed.substring(0, 140)}...'
             : promptTrimmed,
       },
     );
-    final pageBlocksContext = scopePage == null
-        ? ''
-        : _buildAgentPageBlocksContext(scopePage);
-    final pageContext = scopePage == null
-        ? (isEs ? 'No hay página activa.' : 'No active page.')
+    final referencePagesText = includePageContext
+        ? _buildAiChatPagesTextContext(effectiveContextIds, isEs: isEs)
         : (isEs
-              ? 'Página activa:\nTítulo: ${scopePage.title}\nContenido:\n${scopePage.plainTextContent}'
-              : 'Active page:\nTitle: ${scopePage.title}\nContent:\n${scopePage.plainTextContent}');
+              ? 'El usuario desactivó el contexto de páginas: no debes asumir ni citar contenido de notas.'
+              : 'The user disabled page context: do not assume or quote note contents.');
+    final pageBlocksContext = includePageContext && scopePage != null
+        ? _buildAgentPageBlocksContext(scopePage)
+        : '';
+    final editTargetLine = scopePage == null
+        ? (isEs
+              ? 'Página en edición: ninguna abierta.'
+              : 'Page under edit: none open.')
+        : (isEs
+              ? 'Página en edición (resumen/añadir/reemplazar/editar bloques aplican SOLO aquí): ${scopePage.title}'
+              : 'Page under edit (summarize/append/replace/edit blocks apply ONLY here): ${scopePage.title}');
     try {
       final result = await ai.complete(
         AiCompletionRequest(
           prompt:
-              '${isEs ? 'Eres un agente para una app de notas. Decide la acción correcta según el mensaje del usuario.' : 'You are an agent for a note-taking app. Decide the correct action based on the user message.'}\n'
+              '${isEs ? 'Eres Quill, la asistente de IA integrada en Folio (notas locales, árbol de páginas, editor por bloques, búsqueda, cofre con cifrado opcional, panel de chat a la derecha). Ayudas con el contenido de las notas y con cómo usar la app; en modo chat sé clara, útil y natural.' : 'You are Quill, Folio\'s built-in AI assistant (local notes, page tree, block editor, search, optional encrypted vault, chat panel on the side). You help with note content and how to use the app; in chat mode be clear, helpful, and natural.'}\n'
+              '${_folioAgentInAppGuide(isEs: isEs)}\n\n'
               '${isEs ? 'Devuelve SOLO JSON válido con este esquema:' : 'Return ONLY valid JSON with this schema:'}\n'
               '{'
               '"mode":"chat|summarize_current|append_current|replace_current|edit_current|create_page",'
               '"reason":"${isEs ? 'explicación breve (1 frase) de por qué eliges ese modo' : 'brief explanation (1 sentence) of why you chose this mode'}",'
               '"reply":"${isEs ? 'texto breve para usuario' : 'brief user-facing text'}",'
               '"title":"${isEs ? 'solo para create_page' : 'only for create_page'}",'
+              '"threadTitle":"${isEs ? 'opcional: título corto para la pestaña de ESTE chat (2-8 palabras), resume el tema de la pregunta; solo si en el hilo hay exactamente un mensaje del usuario (el actual); cadena vacía si no aplica o en turnos posteriores' : 'optional: short tab title for THIS chat (2-8 words) summarizing the question; only if the thread has exactly one user message (this one); empty string if N/A or on later turns'}",'
               '"blocks":[{"type":"paragraph|h1|h2|h3|bullet|todo|quote|code|divider|table","text":"...","checked":false,"codeLanguage":"dart","cols":2,"rows":[["a","b"]]}],'
-              '"operations":[{"kind":"update_block_text|replace_block|insert_after|delete_block|table_add_column|table_set_cell","blockId":"id","text":"...","block":{},"blocks":[],"header":"...","values":[],"row":0,"col":0,"value":"..."}]'
+              '"operations":[{"kind":"update_page_title|update_block_text|replace_block|insert_after|delete_block|table_add_column|table_set_cell","title":"${isEs ? 'nuevo título (solo update_page_title)' : 'new title (update_page_title only)'}","blockId":"id","text":"...","block":{},"blocks":[],"header":"...","values":[],"row":0,"col":0,"value":"..."}]'
               '}\n'
               '${isEs ? 'Reglas:' : 'Rules:'}\n'
               '- summarize_current: ${isEs ? 'resume la página activa' : 'summarize the active page'}.\n'
               '- append_current: ${isEs ? 'añade bloques a la página activa' : 'append blocks to the active page'}.\n'
               '- replace_current: ${isEs ? 'sustituye bloques de la página activa' : 'replace blocks in the active page'}.\n'
-              '- edit_current: ${isEs ? 'edita bloques existentes con operations (preferir blockId)' : 'edit existing blocks with operations (prefer blockId)'}.\n'
+              '- edit_current: ${isEs ? 'edita con operations: bloques (blockId) y/o título de página (update_page_title + title)' : 'edit with operations: blocks (blockId) and/or page title (update_page_title + title)'}.\n'
               '- create_page: ${isEs ? 'crea una nueva página con title + blocks' : 'create a new page with title + blocks'}.\n'
-              '- chat: ${isEs ? 'respuesta conversacional sin modificar datos' : 'conversational response without modifying data'}.\n'
+              '- chat: ${isEs ? 'respuesta conversacional sin modificar datos; puedes referirte a ti como Quill cuando encaje; ayuda sobre Folio (interfaz, ajustes, atajos, páginas, bloques) cuando pregunte por la app' : 'conversational response without modifying data; you may refer to yourself as Quill when it fits; help with Folio (UI, settings, shortcuts, pages, blocks) when the user asks about the app'}.\n'
+              '- ${isEs ? 'Preguntas del tipo «cómo hago…», «dónde está…», «qué es…» en Folio → modo chat; sé útil y directo; no inventes funciones: si no lo sabes, dilo y sugiere revisar Ajustes o probar en la interfaz' : 'Questions like how/where/what in Folio → chat mode; be helpful and direct; do not invent features—if unsure, say so and suggest Settings or exploring the UI'}.\n'
+              '- ${isEs ? 'Para ayuda de uso de Folio, basa la respuesta en el bloque «=== Folio» de arriba. NUNCA des tutoriales de páginas web (HTML <img>, WordPress, Wix, React, FTP…) salvo que el usuario pida explícitamente eso.' : 'For Folio how-to, base answers on the «=== Folio» block above. NEVER give generic web tutorials (HTML <img>, WordPress, Wix, React, FTP…) unless the user explicitly asks for that.'}\n'
               '- ${isEs ? 'Si no hay página activa, NO uses summarize_current/append_current/replace_current/edit_current' : 'If there is no active page, DO NOT use summarize_current/append_current/replace_current/edit_current'}.\n'
+              '- ${isEs ? 'Si el contexto de páginas está desactivado, usa solo modo chat (no resumas ni edites páginas).' : 'If page context is disabled, use chat mode only (do not summarize or edit pages).'}\n'
+              '- ${isEs ? 'Si hay varias páginas en el texto de referencia, solo la «página en edición» y sus ids de bloque sirven para operaciones que modifican bloques.' : 'If multiple pages appear in reference text, only the page under edit and its block ids are valid for block-changing operations.'}\n'
+              '- ${isEs ? 'threadTitle es distinto de title: threadTitle renombra la pestaña del chat; title solo sirve para create_page (nueva página de notas).' : 'threadTitle is not title: threadTitle renames the chat tab; title is only for create_page (new note page).'}\n'
+              '- ${isEs ? 'Identidad: siempre eres Quill; no uses otro nombre para ti misma.' : 'Identity: you are always Quill; do not use another name for yourself.'}\n'
               '- ${isEs ? 'No uses markdown fences ni texto fuera del JSON' : 'Do not use markdown fences or extra text outside JSON'}.\n\n'
-              '${isEs ? 'Bloques de la página (ids para editar):' : 'Page blocks (ids for editing):'}\n$pageBlocksContext\n\n'
-              '$pageContext\n\n'
+              '${isEs ? 'Contenido de páginas (referencia; puede haber varias):' : 'Page contents (reference; there may be several):'}\n$referencePagesText\n\n'
+              '$editTargetLine\n'
+              '${isEs ? 'Bloques de la página en edición (ids para edit_current y similares):' : 'Blocks of the page under edit (ids for edit_current, etc.):'}\n$pageBlocksContext\n\n'
               '${isEs ? 'Mensaje del usuario:' : 'User message:'}\n${prompt.trim()}',
           model: 'auto',
           messages: messages,
@@ -2070,6 +2548,11 @@ class VaultSession extends ChangeNotifier {
           'blocksCount': parsedBlocks.length,
           'hasOperations': rawOperations is List && rawOperations.isNotEmpty,
         },
+      );
+
+      _maybeApplyAgentThreadTitle(
+        decoded['threadTitle'] as String?,
+        conversationMessages: messages,
       );
 
       if (mode == 'summarize_current') {
@@ -2263,6 +2746,7 @@ class VaultSession extends ChangeNotifier {
           }
         }
         if (scopePage != null &&
+            includePageContext &&
             mode == 'chat' &&
             _looksLikeEditIntent(prompt, languageCode: languageCode) &&
             _applyRecoveredEditFromChatReply(scopePage, reply)) {
@@ -2290,7 +2774,10 @@ class VaultSession extends ChangeNotifier {
         messages: messages,
         prompt: prompt,
         scopePageId: scopePageId,
+        includePageContext: includePageContext,
+        contextPageIds: contextPageIds,
         attachments: attachments,
+        languageCode: languageCode,
       );
       AppLogger.warn(
         'Agent returned non-actionable response, using chat fallback',
@@ -2311,17 +2798,18 @@ class VaultSession extends ChangeNotifier {
         error: e,
         stackTrace: st,
       );
-      if (scopePage != null) {
+      if (scopePage != null && includePageContext) {
         try {
           final recovery = await ai.complete(
             AiCompletionRequest(
               prompt:
+                  '${isEs ? _quillIdentityLeadEs : _quillIdentityLeadEn}'
                   '${isEs ? 'La respuesta anterior no fue JSON válido. Corrige y devuelve SOLO JSON para editar la página actual.' : 'The previous response was not valid JSON. Fix it and return ONLY JSON to edit the current page.'}\n'
                   '{'
                   '"mode":"edit_current",'
                   '"reason":"${isEs ? 'motivo breve' : 'short reason'}",'
                   '"reply":"${isEs ? 'texto breve' : 'short text'}",'
-                  '"operations":[{"kind":"update_block_text|replace_block|insert_after|delete_block|table_add_column|table_set_cell","blockId":"id","text":"...","block":{},"blocks":[],"header":"...","values":[],"row":0,"col":0,"value":"..."}]'
+                  '"operations":[{"kind":"update_page_title|update_block_text|replace_block|insert_after|delete_block|table_add_column|table_set_cell","title":"...","blockId":"id","text":"...","block":{},"blocks":[],"header":"...","values":[],"row":0,"col":0,"value":"..."}]'
                   '}\n'
                   '${isEs ? 'No escribas explicación, solo JSON.' : 'Do not write explanations, only JSON.'}\n\n'
                   '${isEs ? 'Bloques de la página (ids):' : 'Page blocks (ids):'}\n${_buildAgentPageBlocksContext(scopePage)}\n\n'
@@ -2375,7 +2863,10 @@ class VaultSession extends ChangeNotifier {
         messages: messages,
         prompt: prompt,
         scopePageId: scopePageId,
+        includePageContext: includePageContext,
+        contextPageIds: contextPageIds,
         attachments: attachments,
+        languageCode: languageCode,
       );
       lastUsage = fallbackChat.usage ?? lastUsage;
       final wantsCreate =
@@ -2468,6 +2959,16 @@ class VaultSession extends ChangeNotifier {
       if (opRaw is! Map) continue;
       final op = Map<String, dynamic>.from(opRaw);
       final kind = (op['kind'] as String? ?? '').trim().toLowerCase();
+
+      if (kind == 'update_page_title') {
+        final newTitle = (op['title'] as String? ?? '').trim();
+        if (newTitle.isNotEmpty) {
+          page.title = newTitle;
+          changed = true;
+        }
+        continue;
+      }
+
       final blockId = (op['blockId'] as String? ?? '').trim();
       final index = blockId.isEmpty
           ? -1
@@ -3082,7 +3583,7 @@ class VaultSession extends ChangeNotifier {
     final cleanReply = reply.trim().isEmpty
         ? (isEs ? 'Listo.' : 'Done.')
         : reply.trim();
-    final decisionLabel = isEs ? 'Decisión del agente' : 'Agent decision';
+    final decisionLabel = isEs ? 'Decisión de Quill' : "Quill's decision";
     final reasonLabel = isEs ? 'Motivo' : 'Reason';
     return '🧠 **$decisionLabel:** `$cleanMode`\n'
         '💡 **$reasonLabel:** $cleanReason\n\n'
@@ -3106,13 +3607,15 @@ class VaultSession extends ChangeNotifier {
     final result = await ai.complete(
       AiCompletionRequest(
         prompt:
+            '$_quillIdentityLeadEs'
             'Decide si la solicitud del usuario es para editar la página activa o para responder en chat.\n'
             'Devuelve SOLO JSON válido con este esquema:\n'
             '{'
             '"mode":"edit|chat",'
             '"reply":"texto breve para el usuario",'
-            '"operations":[{"kind":"append_blocks|replace_page","blocks":[...]}]'
+            '"operations":[{"kind":"update_page_title|append_blocks|replace_page","title":"nuevo título si renombrar","blocks":[...]}]'
             '}\n'
+            'Para renombrar la página usa una operación {"kind":"update_page_title","title":"..."} (puede ir sola o junto a otras).\n'
             'Bloques permitidos: paragraph,h1,h2,h3,bullet,todo,quote,code,divider,table.\n'
             'Para table usa: {"type":"table","cols":N,"rows":[["c1","c2"],["v1","v2"]]}.\n'
             'Para code puedes añadir codeLanguage. Para todo puedes añadir checked.\n'
@@ -3141,6 +3644,14 @@ class VaultSession extends ChangeNotifier {
     for (final op in ops) {
       if (op is! Map<String, dynamic>) continue;
       final kind = (op['kind'] as String? ?? '').trim().toLowerCase();
+      if (kind == 'update_page_title') {
+        final newTitle = (op['title'] as String? ?? '').trim();
+        if (newTitle.isNotEmpty) {
+          page.title = newTitle;
+          changed = true;
+        }
+        continue;
+      }
       final rawBlocks = op['blocks'];
       if (rawBlocks is! List) continue;
       final parsedBlocks = _parseAiBlocksFromDynamicList(rawBlocks);
@@ -3499,10 +4010,12 @@ class VaultSession extends ChangeNotifier {
             type: b.type,
             text: b.text,
             checked: b.checked,
+            expanded: b.expanded,
             codeLanguage: b.codeLanguage,
             depth: b.depth,
             icon: b.icon,
             url: b.url,
+            imageWidth: b.imageWidth,
           ),
         )
         .toList();

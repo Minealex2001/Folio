@@ -4,6 +4,7 @@ class FolioBlock {
     required this.type,
     required this.text,
     this.checked,
+    this.expanded,
     this.codeLanguage,
     this.depth = 0,
     this.icon,
@@ -13,12 +14,16 @@ class FolioBlock {
 
   final String id;
 
-  /// paragraph | h1 | h2 | h3 | bullet | todo | code | image | table | database | quote | divider | callout | file | video
+  /// paragraph | h1 | h2 | h3 | bullet | numbered | todo | toggle | code | mermaid | equation | image | table | database |
+  /// quote | divider | callout | file | video | audio | bookmark | embed | toc | breadcrumb | child_page | template_button | column_list
   String type;
 
   /// En texto y encabezados puede incluir Markdown inline (negrita, cursiva, código, tachado, subrayado, enlaces).
   String text;
   bool? checked;
+
+  /// Solo [type] == `toggle`: panel de contenido abierto.
+  bool? expanded;
 
   /// Id de gramática highlight (`dart`, `javascript`, …); solo para `type == 'code'`.
   String? codeLanguage;
@@ -40,6 +45,7 @@ class FolioBlock {
     'type': type,
     'text': text,
     if (checked != null) 'checked': checked,
+    if (expanded != null) 'expanded': expanded,
     if (codeLanguage != null) 'codeLanguage': codeLanguage,
     if (depth > 0) 'depth': depth,
     if (icon != null) 'icon': icon,
@@ -53,6 +59,7 @@ class FolioBlock {
       type: j['type'] as String? ?? 'paragraph',
       text: j['text'] as String? ?? '',
       checked: j['checked'] as bool?,
+      expanded: j['expanded'] as bool?,
       codeLanguage: j['codeLanguage'] as String?,
       depth: j['depth'] as int? ?? 0,
       icon: j['icon'] as String?,
@@ -65,6 +72,7 @@ class FolioBlock {
     String? text,
     String? type,
     bool? checked,
+    bool? expanded,
     String? codeLanguage,
     int? depth,
     String? icon,
@@ -76,6 +84,7 @@ class FolioBlock {
       type: type ?? this.type,
       text: text ?? this.text,
       checked: checked ?? this.checked,
+      expanded: expanded ?? this.expanded,
       codeLanguage: codeLanguage ?? this.codeLanguage,
       depth: depth ?? this.depth,
       icon: icon ?? this.icon,
@@ -87,12 +96,32 @@ class FolioBlock {
 
 /// Si se permite fusionar [cur] en [prev] con retroceso al inicio de línea.
 bool folioBlocksCanMerge(FolioBlock prev, FolioBlock cur) {
-  const structural = {'image', 'table', 'database'};
+  const structural = {
+    'image',
+    'table',
+    'database',
+    'mermaid',
+    'bookmark',
+    'embed',
+    'audio',
+    'video',
+    'file',
+    'divider',
+    'toc',
+    'breadcrumb',
+    'child_page',
+    'template_button',
+    'column_list',
+    'toggle',
+  };
   if (structural.contains(prev.type) || structural.contains(cur.type)) {
     return false;
   }
   if (prev.type == 'code' || cur.type == 'code') {
     return prev.type == 'code' && cur.type == 'code';
+  }
+  if (prev.type == 'equation' || cur.type == 'equation') {
+    return prev.type == 'equation' && cur.type == 'equation';
   }
   return true;
 }

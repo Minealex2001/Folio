@@ -314,6 +314,72 @@ abstract class AppLocalizations {
   /// **'Se creará un cofre cifrado en este equipo. Podrás añadir después Windows Hello, biometría o una passkey para desbloquear más rápido (Ajustes).'**
   String get readyBody;
 
+  /// No description provided for @quillIntroTitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Conoce a Quill'**
+  String get quillIntroTitle;
+
+  /// No description provided for @quillIntroBody.
+  ///
+  /// In es, this message translates to:
+  /// **'Quill es la asistente integrada de Folio. Puede ayudarte a escribir, editar y entender tus páginas, además de resolver dudas sobre cómo usar la app.'**
+  String get quillIntroBody;
+
+  /// No description provided for @quillIntroCapabilityWrite.
+  ///
+  /// In es, this message translates to:
+  /// **'Puede redactar, resumir o reescribir contenido dentro de tus páginas.'**
+  String get quillIntroCapabilityWrite;
+
+  /// No description provided for @quillIntroCapabilityExplain.
+  ///
+  /// In es, this message translates to:
+  /// **'También responde preguntas sobre Folio, atajos, bloques y cómo organizar tus notas.'**
+  String get quillIntroCapabilityExplain;
+
+  /// No description provided for @quillIntroCapabilityContext.
+  ///
+  /// In es, this message translates to:
+  /// **'Puedes dejar que use la página abierta como contexto o elegir varias páginas de referencia.'**
+  String get quillIntroCapabilityContext;
+
+  /// No description provided for @quillIntroCapabilityExamples.
+  ///
+  /// In es, this message translates to:
+  /// **'Lo mejor es hablarle de forma natural: Quill decide si responder o editar.'**
+  String get quillIntroCapabilityExamples;
+
+  /// No description provided for @quillIntroExamplesTitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Ejemplos rápidos'**
+  String get quillIntroExamplesTitle;
+
+  /// No description provided for @quillIntroExampleOne.
+  ///
+  /// In es, this message translates to:
+  /// **'Resume esta página en tres puntos.'**
+  String get quillIntroExampleOne;
+
+  /// No description provided for @quillIntroExampleTwo.
+  ///
+  /// In es, this message translates to:
+  /// **'Cambia el título y mejora la introducción.'**
+  String get quillIntroExampleTwo;
+
+  /// No description provided for @quillIntroExampleThree.
+  ///
+  /// In es, this message translates to:
+  /// **'¿Cómo añado una imagen o una tabla?'**
+  String get quillIntroExampleThree;
+
+  /// No description provided for @quillIntroFootnote.
+  ///
+  /// In es, this message translates to:
+  /// **'Si todavía no activas la IA, podrás hacerlo más tarde. Esta introducción es para que sepas qué puede hacer Quill cuando la uses.'**
+  String get quillIntroFootnote;
+
   /// No description provided for @createVault.
   ///
   /// In es, this message translates to:
@@ -1184,6 +1250,174 @@ abstract class AppLocalizations {
   /// **'No se pudo previsualizar el PDF'**
   String get couldNotPreviewPdf;
 
+  /// No description provided for @openInYoutubeBrowser.
+  ///
+  /// In es, this message translates to:
+  /// **'Abrir en el navegador'**
+  String get openInYoutubeBrowser;
+
+  /// No description provided for @pasteUrlTitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Pegar enlace como'**
+  String get pasteUrlTitle;
+
+  /// No description provided for @pasteAsUrl.
+  ///
+  /// In es, this message translates to:
+  /// **'URL'**
+  String get pasteAsUrl;
+
+  /// No description provided for @pasteAsEmbed.
+  ///
+  /// In es, this message translates to:
+  /// **'Insertar'**
+  String get pasteAsEmbed;
+
+  /// No description provided for @pasteAsBookmark.
+  ///
+  /// In es, this message translates to:
+  /// **'Marcador'**
+  String get pasteAsBookmark;
+
+  /// No description provided for @pasteAsMention.
+  ///
+  /// In es, this message translates to:
+  /// **'Mención'**
+  String get pasteAsMention;
+
+  /// No description provided for @pasteAsUrlSubtitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Insertar enlace markdown en el texto'**
+  String get pasteAsUrlSubtitle;
+
+  /// No description provided for @pasteAsEmbedSubtitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Bloque vídeo con vista previa (YouTube) o marcador'**
+  String get pasteAsEmbedSubtitle;
+
+  /// No description provided for @pasteAsBookmarkSubtitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Tarjeta con título y enlace'**
+  String get pasteAsBookmarkSubtitle;
+
+  /// No description provided for @pasteAsMentionSubtitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Enlace a una página de este cofre'**
+  String get pasteAsMentionSubtitle;
+
+  /// No description provided for @pickPageForMention.
+  ///
+  /// In es, this message translates to:
+  /// **'Elegir página'**
+  String get pickPageForMention;
+
+  /// No description provided for @bookmarkTitleHint.
+  ///
+  /// In es, this message translates to:
+  /// **'Título'**
+  String get bookmarkTitleHint;
+
+  /// No description provided for @bookmarkOpenLink.
+  ///
+  /// In es, this message translates to:
+  /// **'Abrir enlace'**
+  String get bookmarkOpenLink;
+
+  /// No description provided for @bookmarkSetUrl.
+  ///
+  /// In es, this message translates to:
+  /// **'Establecer URL…'**
+  String get bookmarkSetUrl;
+
+  /// No description provided for @bookmarkBlockHint.
+  ///
+  /// In es, this message translates to:
+  /// **'Pega un enlace o usa el menú del bloque'**
+  String get bookmarkBlockHint;
+
+  /// No description provided for @bookmarkRemove.
+  ///
+  /// In es, this message translates to:
+  /// **'Quitar marcador'**
+  String get bookmarkRemove;
+
+  /// No description provided for @embedUnavailable.
+  ///
+  /// In es, this message translates to:
+  /// **'La vista web embebida no está disponible en esta plataforma. Abre el enlace en el navegador.'**
+  String get embedUnavailable;
+
+  /// No description provided for @embedOpenBrowser.
+  ///
+  /// In es, this message translates to:
+  /// **'Abrir en el navegador'**
+  String get embedOpenBrowser;
+
+  /// No description provided for @embedSetUrl.
+  ///
+  /// In es, this message translates to:
+  /// **'Establecer URL del inserto…'**
+  String get embedSetUrl;
+
+  /// No description provided for @embedRemove.
+  ///
+  /// In es, this message translates to:
+  /// **'Quitar inserto'**
+  String get embedRemove;
+
+  /// No description provided for @embedEmptyHint.
+  ///
+  /// In es, this message translates to:
+  /// **'Pega un enlace o establece la URL desde el menú del bloque'**
+  String get embedEmptyHint;
+
+  /// No description provided for @blockSizeSmaller.
+  ///
+  /// In es, this message translates to:
+  /// **'Más pequeño'**
+  String get blockSizeSmaller;
+
+  /// No description provided for @blockSizeLarger.
+  ///
+  /// In es, this message translates to:
+  /// **'Más grande'**
+  String get blockSizeLarger;
+
+  /// No description provided for @blockSizeHalf.
+  ///
+  /// In es, this message translates to:
+  /// **'50%'**
+  String get blockSizeHalf;
+
+  /// No description provided for @blockSizeThreeQuarter.
+  ///
+  /// In es, this message translates to:
+  /// **'75%'**
+  String get blockSizeThreeQuarter;
+
+  /// No description provided for @blockSizeFull.
+  ///
+  /// In es, this message translates to:
+  /// **'100%'**
+  String get blockSizeFull;
+
+  /// No description provided for @pasteAsEmbedSubtitleWeb.
+  ///
+  /// In es, this message translates to:
+  /// **'Mostrar la página dentro del bloque (si el sistema lo permite)'**
+  String get pasteAsEmbedSubtitleWeb;
+
+  /// No description provided for @pasteAsMentionSubtitleRich.
+  ///
+  /// In es, this message translates to:
+  /// **'Enlace con título de la página (p. ej. YouTube)'**
+  String get pasteAsMentionSubtitleRich;
+
   /// No description provided for @formatToolbar.
   ///
   /// In es, this message translates to:
@@ -1373,7 +1607,7 @@ abstract class AppLocalizations {
   /// No description provided for @aiAssistantTitle.
   ///
   /// In es, this message translates to:
-  /// **'Asistente IA'**
+  /// **'Quill'**
   String get aiAssistantTitle;
 
   /// No description provided for @aiNoPageSelected.
@@ -1381,6 +1615,156 @@ abstract class AppLocalizations {
   /// In es, this message translates to:
   /// **'Sin página seleccionada'**
   String get aiNoPageSelected;
+
+  /// No description provided for @aiChatContextDisabledSubtitle.
+  ///
+  /// In es, this message translates to:
+  /// **'No se envía texto de páginas al modelo'**
+  String get aiChatContextDisabledSubtitle;
+
+  /// No description provided for @aiChatContextUsesCurrentPage.
+  ///
+  /// In es, this message translates to:
+  /// **'Contexto: página actual ({title})'**
+  String aiChatContextUsesCurrentPage(Object title);
+
+  /// No description provided for @aiChatContextOnePageFallback.
+  ///
+  /// In es, this message translates to:
+  /// **'Contexto: 1 página'**
+  String get aiChatContextOnePageFallback;
+
+  /// No description provided for @aiChatContextNPages.
+  ///
+  /// In es, this message translates to:
+  /// **'{count} páginas en el contexto del chat'**
+  String aiChatContextNPages(int count);
+
+  /// No description provided for @aiChatPageContextTooltip.
+  ///
+  /// In es, this message translates to:
+  /// **'Incluir texto de páginas en el contexto del modelo'**
+  String get aiChatPageContextTooltip;
+
+  /// No description provided for @aiChatChooseContextPagesTooltip.
+  ///
+  /// In es, this message translates to:
+  /// **'Elegir qué páginas aportan texto al contexto'**
+  String get aiChatChooseContextPagesTooltip;
+
+  /// No description provided for @aiChatContextPagesDialogTitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Páginas en el contexto del chat'**
+  String get aiChatContextPagesDialogTitle;
+
+  /// No description provided for @aiChatContextPagesClear.
+  ///
+  /// In es, this message translates to:
+  /// **'Vaciar lista'**
+  String get aiChatContextPagesClear;
+
+  /// No description provided for @aiChatContextPagesApply.
+  ///
+  /// In es, this message translates to:
+  /// **'Aplicar'**
+  String get aiChatContextPagesApply;
+
+  /// No description provided for @aiTypingSemantics.
+  ///
+  /// In es, this message translates to:
+  /// **'Quill está escribiendo'**
+  String get aiTypingSemantics;
+
+  /// No description provided for @aiRenameChatTooltip.
+  ///
+  /// In es, this message translates to:
+  /// **'Renombrar chat'**
+  String get aiRenameChatTooltip;
+
+  /// No description provided for @aiRenameChatDialogTitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Título del chat'**
+  String get aiRenameChatDialogTitle;
+
+  /// No description provided for @aiRenameChatLabel.
+  ///
+  /// In es, this message translates to:
+  /// **'Texto en la pestaña'**
+  String get aiRenameChatLabel;
+
+  /// No description provided for @quillWorkspaceTourTitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Quill te puede acompañar aquí'**
+  String get quillWorkspaceTourTitle;
+
+  /// No description provided for @quillWorkspaceTourBodyReady.
+  ///
+  /// In es, this message translates to:
+  /// **'Tienes el chat de Quill listo para preguntar, editar páginas y trabajar con contexto de notas.'**
+  String get quillWorkspaceTourBodyReady;
+
+  /// No description provided for @quillWorkspaceTourBodyUnavailable.
+  ///
+  /// In es, this message translates to:
+  /// **'Aunque ahora no esté activa, Quill vive en este espacio de trabajo y puedes activarla más tarde desde Ajustes.'**
+  String get quillWorkspaceTourBodyUnavailable;
+
+  /// No description provided for @quillWorkspaceTourPointsTitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Qué conviene saber'**
+  String get quillWorkspaceTourPointsTitle;
+
+  /// No description provided for @quillWorkspaceTourPointOne.
+  ///
+  /// In es, this message translates to:
+  /// **'Sirve tanto para conversar como para editar títulos y bloques.'**
+  String get quillWorkspaceTourPointOne;
+
+  /// No description provided for @quillWorkspaceTourPointTwo.
+  ///
+  /// In es, this message translates to:
+  /// **'Puede usar la página abierta o varias páginas como contexto.'**
+  String get quillWorkspaceTourPointTwo;
+
+  /// No description provided for @quillWorkspaceTourPointThree.
+  ///
+  /// In es, this message translates to:
+  /// **'Si tocas un ejemplo de abajo, se rellenará el chat cuando Quill esté disponible.'**
+  String get quillWorkspaceTourPointThree;
+
+  /// No description provided for @quillWorkspaceTourExamplesTitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Prueba con mensajes como'**
+  String get quillWorkspaceTourExamplesTitle;
+
+  /// No description provided for @quillWorkspaceTourExampleOne.
+  ///
+  /// In es, this message translates to:
+  /// **'Explícame cómo organizar esta página.'**
+  String get quillWorkspaceTourExampleOne;
+
+  /// No description provided for @quillWorkspaceTourExampleTwo.
+  ///
+  /// In es, this message translates to:
+  /// **'Usa estas dos páginas para hacer un resumen común.'**
+  String get quillWorkspaceTourExampleTwo;
+
+  /// No description provided for @quillWorkspaceTourExampleThree.
+  ///
+  /// In es, this message translates to:
+  /// **'Reescribe este bloque con un tono más claro.'**
+  String get quillWorkspaceTourExampleThree;
+
+  /// No description provided for @quillTourDismiss.
+  ///
+  /// In es, this message translates to:
+  /// **'Entendido'**
+  String get quillTourDismiss;
 
   /// No description provided for @aiExpand.
   ///
@@ -1415,13 +1799,13 @@ abstract class AppLocalizations {
   /// No description provided for @aiChatEmptyHint.
   ///
   /// In es, this message translates to:
-  /// **'Empieza una conversación.\nLa IA decidirá automáticamente qué hacer con tu mensaje.'**
+  /// **'Empieza una conversación.\nQuill decidirá automáticamente qué hacer con tu mensaje.\nTambién puedes preguntar cómo usar Folio (atajos, ajustes, páginas o este chat).'**
   String get aiChatEmptyHint;
 
   /// No description provided for @aiInputHint.
   ///
   /// In es, this message translates to:
-  /// **'Escribe tu mensaje. La IA actuará como agente.'**
+  /// **'Escribe tu mensaje. Quill actuará como agente.'**
   String get aiInputHint;
 
   /// No description provided for @aiShowPanel.
@@ -1505,7 +1889,7 @@ abstract class AppLocalizations {
   /// No description provided for @aiAgentThought.
   ///
   /// In es, this message translates to:
-  /// **'Pensamiento del agente'**
+  /// **'Pensamiento de Quill'**
   String get aiAgentThought;
 
   /// No description provided for @aiAlwaysShowThought.
@@ -1652,6 +2036,54 @@ abstract class AppLocalizations {
   /// **'Salir'**
   String get exit;
 
+  /// No description provided for @trayMenuCloseApplication.
+  ///
+  /// In es, this message translates to:
+  /// **'Cerrar aplicación'**
+  String get trayMenuCloseApplication;
+
+  /// No description provided for @keyboardShortcutsSection.
+  ///
+  /// In es, this message translates to:
+  /// **'Teclado (en la app)'**
+  String get keyboardShortcutsSection;
+
+  /// No description provided for @shortcutTestAction.
+  ///
+  /// In es, this message translates to:
+  /// **'Probar'**
+  String get shortcutTestAction;
+
+  /// No description provided for @shortcutChangeAction.
+  ///
+  /// In es, this message translates to:
+  /// **'Cambiar'**
+  String get shortcutChangeAction;
+
+  /// No description provided for @shortcutTestHint.
+  ///
+  /// In es, this message translates to:
+  /// **'Con el foco fuera de un campo de texto, “{combo}” debería funcionar en el escritorio.'**
+  String shortcutTestHint(Object combo);
+
+  /// No description provided for @shortcutResetAllTitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Restaurar atajos por defecto'**
+  String get shortcutResetAllTitle;
+
+  /// No description provided for @shortcutResetAllSubtitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Vuelve a poner todos los atajos de la app como al instalar Folio.'**
+  String get shortcutResetAllSubtitle;
+
+  /// No description provided for @shortcutResetDoneSnack.
+  ///
+  /// In es, this message translates to:
+  /// **'Atajos restaurados.'**
+  String get shortcutResetDoneSnack;
+
   /// No description provided for @desktopSection.
   ///
   /// In es, this message translates to:
@@ -1795,6 +2227,66 @@ abstract class AppLocalizations {
   /// In es, this message translates to:
   /// **'No se pudo importar Notion: {error}'**
   String importNotionError(Object error);
+
+  /// No description provided for @appBetaBannerMessage.
+  ///
+  /// In es, this message translates to:
+  /// **'Estás usando una versión beta. Puede haber fallos; haz copias de seguridad del cofre con frecuencia.'**
+  String get appBetaBannerMessage;
+
+  /// No description provided for @appBetaBannerDismiss.
+  ///
+  /// In es, this message translates to:
+  /// **'Entendido'**
+  String get appBetaBannerDismiss;
+
+  /// No description provided for @noEncryptionConfirmTitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Crear cofre sin cifrado'**
+  String get noEncryptionConfirmTitle;
+
+  /// No description provided for @noEncryptionConfirmBody.
+  ///
+  /// In es, this message translates to:
+  /// **'Tus datos se guardarán sin contraseña y sin cifrado. Cualquier persona con acceso a este dispositivo podrá leerlos.'**
+  String get noEncryptionConfirmBody;
+
+  /// No description provided for @createVaultWithoutEncryption.
+  ///
+  /// In es, this message translates to:
+  /// **'Crear sin cifrado'**
+  String get createVaultWithoutEncryption;
+
+  /// No description provided for @plainVaultSecurityNotice.
+  ///
+  /// In es, this message translates to:
+  /// **'Este cofre no está cifrado: no aplican la passkey, el desbloqueo rápido (Hello), el bloqueo por inactividad, el bloqueo al minimizar ni la contraseña maestra.'**
+  String get plainVaultSecurityNotice;
+
+  /// No description provided for @encryptPlainVaultTitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Cifrar este cofre'**
+  String get encryptPlainVaultTitle;
+
+  /// No description provided for @encryptPlainVaultBody.
+  ///
+  /// In es, this message translates to:
+  /// **'Elige una contraseña maestra. Todo lo guardado en este dispositivo se cifrará. Si la olvidas, no podremos recuperar los datos.'**
+  String get encryptPlainVaultBody;
+
+  /// No description provided for @encryptPlainVaultConfirm.
+  ///
+  /// In es, this message translates to:
+  /// **'Cifrar cofre'**
+  String get encryptPlainVaultConfirm;
+
+  /// No description provided for @encryptPlainVaultSuccessSnack.
+  ///
+  /// In es, this message translates to:
+  /// **'El cofre ya está cifrado'**
+  String get encryptPlainVaultSuccessSnack;
 }
 
 class _AppLocalizationsDelegate

@@ -17,7 +17,7 @@ enum FolioDbPropertyType {
   formula,
 }
 
-enum FolioDbViewType { table, board, calendar }
+enum FolioDbViewType { table, list, board, calendar }
 
 enum FolioDbFilterOperator {
   equals,
@@ -278,7 +278,7 @@ class FolioDatabaseData {
        rows = List<FolioDbRow>.from(rows),
        views = List<FolioDbView>.from(views);
 
-  static const int currentVersion = 3;
+  static const int currentVersion = 4;
 
   List<FolioDbProperty> properties;
   List<FolioDbRow> rows;
@@ -308,6 +308,11 @@ class FolioDatabaseData {
       name: 'Tabla',
       type: FolioDbViewType.table,
     );
+    final list = FolioDbView(
+      id: 'v_list',
+      name: 'Lista',
+      type: FolioDbViewType.list,
+    );
     final board = FolioDbView(
       id: 'v_board',
       name: 'Tablero',
@@ -323,7 +328,7 @@ class FolioDatabaseData {
     return FolioDatabaseData(
       properties: [titleProp, statusProp, dateProp],
       rows: [],
-      views: [table, board, calendar],
+      views: [table, list, board, calendar],
       activeViewId: table.id,
     );
   }
@@ -418,6 +423,19 @@ class FolioDatabaseData {
         }
       }
       schemaVersion = 3;
+    }
+    if (schemaVersion < 4) {
+      if (!views.any((v) => v.type == FolioDbViewType.list)) {
+        views.insert(
+          1,
+          FolioDbView(
+            id: 'v_list',
+            name: 'Lista',
+            type: FolioDbViewType.list,
+          ),
+        );
+      }
+      schemaVersion = 4;
     }
   }
 

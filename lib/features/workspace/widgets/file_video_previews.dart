@@ -293,7 +293,10 @@ class FolioFilePreviewCard extends StatelessWidget {
 
 bool get _supportsEmbeddedPdfPreview {
   if (kIsWeb) return false;
-  return Platform.isAndroid || Platform.isIOS || Platform.isMacOS;
+  return Platform.isAndroid ||
+      Platform.isIOS ||
+      Platform.isMacOS ||
+      Platform.isWindows;
 }
 
 class _PdfPreview extends StatefulWidget {

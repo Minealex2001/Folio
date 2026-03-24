@@ -7,9 +7,18 @@ import '../../../models/folio_page.dart';
 import '../../../session/vault_session.dart';
 
 class Sidebar extends StatefulWidget {
-  const Sidebar({super.key, required this.session});
+  const Sidebar({
+    super.key,
+    required this.session,
+    this.onSearch,
+    this.onOpenSettings,
+    this.onLock,
+  });
 
   final VaultSession session;
+  final VoidCallback? onSearch;
+  final VoidCallback? onOpenSettings;
+  final VoidCallback? onLock;
 
   @override
   State<Sidebar> createState() => _SidebarState();
@@ -520,10 +529,37 @@ class _SidebarState extends State<Sidebar> {
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
+    final showDeskTools =
+        widget.onSearch != null &&
+        widget.onOpenSettings != null &&
+        widget.onLock != null;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         _vaultToolbar(context),
+        if (showDeskTools)
+          Padding(
+            padding: const EdgeInsets.fromLTRB(2, 2, 2, 0),
+            child: Row(
+              children: [
+                IconButton(
+                  tooltip: l10n.search,
+                  icon: const Icon(Icons.search_rounded),
+                  onPressed: widget.onSearch,
+                ),
+                IconButton(
+                  tooltip: l10n.settings,
+                  icon: const Icon(Icons.settings_rounded),
+                  onPressed: widget.onOpenSettings,
+                ),
+                IconButton(
+                  tooltip: l10n.lockNow,
+                  icon: const Icon(Icons.lock_outline_rounded),
+                  onPressed: widget.onLock,
+                ),
+              ],
+            ),
+          ),
         const Divider(height: 1),
         Padding(
           padding: const EdgeInsets.fromLTRB(12, 10, 4, 8),

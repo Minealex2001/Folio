@@ -1,15 +1,21 @@
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 
+import '../../app/app_settings.dart';
 import '../../app/ui_tokens.dart';
 import '../../data/vault_backup.dart';
 import '../../l10n/generated/app_localizations.dart';
 import '../../session/vault_session.dart';
 
 class OnboardingFlow extends StatefulWidget {
-  const OnboardingFlow({super.key, required this.session});
+  const OnboardingFlow({
+    super.key,
+    required this.session,
+    required this.appSettings,
+  });
 
   final VaultSession session;
+  final AppSettings appSettings;
 
   @override
   State<OnboardingFlow> createState() => _OnboardingFlowState();
@@ -35,6 +41,8 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
   _PasswordStrength get _passwordStrength =>
       _passwordStrengthFor(_password.text);
 
+  bool get _shouldShowQuillIntro => !widget.appSettings.hasSeenQuillIntro;
+
   @override
   void dispose() {
     _password.dispose();
@@ -48,7 +56,7 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
     if (_importMode) {
       return l10n.stepOfTotal(_page + 1, 2);
     }
-    return l10n.stepOfTotal(_page + 1, 3);
+    return l10n.stepOfTotal(_page + 1, _shouldShowQuillIntro ? 4 : 3);
   }
 
   void _goPage(int i) {
@@ -159,6 +167,7 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
         password: _createWithoutEncryption ? null : _password.text,
         encrypted: !_createWithoutEncryption,
       );
+      await widget.appSettings.setHasSeenQuillIntro(true);
     } catch (e) {
       setState(() {
         _busy = false;
@@ -276,7 +285,9 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
     } else {
       if (_page == 0) return _stepWelcome(context);
       if (_page == 1) return _stepPassword(context);
-      return _stepReady(context);
+      if (!_shouldShowQuillIntro) return _stepReady(context);
+      if (_page == 2) return _stepReady(context);
+      return _stepQuillIntro(context);
     }
   }
 
@@ -290,7 +301,7 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
         Icon(Icons.warning_amber_rounded, size: 64, color: scheme.error),
         const SizedBox(height: FolioSpace.lg),
         Text(
-          'Crear cofre sin cifrado',
+          l10n.noEncryptionConfirmTitle,
           style: Theme.of(
             context,
           ).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w700),
@@ -298,8 +309,7 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
         ),
         const SizedBox(height: FolioSpace.md),
         Text(
-          'Tus datos quedaran guardados sin contraseña y sin cifrado. '
-          'Cualquier persona con acceso al dispositivo podra leerlos.',
+          l10n.noEncryptionConfirmBody,
           style: Theme.of(context).textTheme.bodyLarge?.copyWith(
             color: scheme.onSurfaceVariant,
             height: 1.45,
@@ -383,7 +393,9 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
             });
             _goPage(1);
           },
-          child: const Text('Crear sin cifrado'),
+          child: Text(
+            AppLocalizations.of(context).createVaultWithoutEncryption,
+          ),
         ),
         const SizedBox(height: FolioSpace.md),
         OutlinedButton(
@@ -693,6 +705,156 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
                   borderRadius: BorderRadius.circular(12),
                 ),
               ),
+              onPressed: _busy
+                  ? null
+                  : () {
+                      if (_shouldShowQuillIntro) {
+                        _goPage(3);
+                      } else {
+                        _finishCreate();
+                      }
+                    },
+              child: _busy
+                  ? const SizedBox(
+                      width: 22,
+                      height: 22,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : Text(
+                      _shouldShowQuillIntro
+                          ? AppLocalizations.of(context).continueAction
+                          : AppLocalizations.of(context).createVault,
+                    ),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  Widget _stepQuillIntro(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+    final scheme = Theme.of(context).colorScheme;
+    final theme = Theme.of(context);
+    Widget capability(IconData icon, String text) {
+      return Container(
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: scheme.surface,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+            color: scheme.outlineVariant.withValues(alpha: 0.5),
+          ),
+        ),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Icon(icon, color: scheme.primary),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                text,
+                style: theme.textTheme.bodyMedium?.copyWith(height: 1.35),
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    Widget exampleChip(String text) {
+      return Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        decoration: BoxDecoration(
+          color: scheme.primaryContainer.withValues(alpha: 0.6),
+          borderRadius: BorderRadius.circular(999),
+        ),
+        child: Text(
+          text,
+          style: theme.textTheme.bodySmall?.copyWith(
+            color: scheme.onPrimaryContainer,
+          ),
+        ),
+      );
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        const SizedBox(height: FolioSpace.lg),
+        Icon(Icons.auto_awesome_rounded, size: 64, color: scheme.primary),
+        const SizedBox(height: FolioSpace.lg),
+        Text(
+          l10n.quillIntroTitle,
+          style: theme.textTheme.headlineMedium?.copyWith(
+            fontWeight: FontWeight.w700,
+          ),
+          textAlign: TextAlign.center,
+        ),
+        const SizedBox(height: FolioSpace.md),
+        Text(
+          l10n.quillIntroBody,
+          style: theme.textTheme.bodyLarge?.copyWith(
+            color: scheme.onSurfaceVariant,
+            height: 1.45,
+          ),
+          textAlign: TextAlign.center,
+        ),
+        const SizedBox(height: FolioSpace.lg),
+        capability(Icons.edit_note_rounded, l10n.quillIntroCapabilityWrite),
+        const SizedBox(height: FolioSpace.sm),
+        capability(
+          Icons.text_snippet_outlined,
+          l10n.quillIntroCapabilityExplain,
+        ),
+        const SizedBox(height: FolioSpace.sm),
+        capability(Icons.menu_book_outlined, l10n.quillIntroCapabilityContext),
+        const SizedBox(height: FolioSpace.sm),
+        capability(
+          Icons.lightbulb_outline_rounded,
+          l10n.quillIntroCapabilityExamples,
+        ),
+        const SizedBox(height: FolioSpace.lg),
+        Text(
+          l10n.quillIntroExamplesTitle,
+          style: theme.textTheme.titleMedium?.copyWith(
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+        const SizedBox(height: FolioSpace.sm),
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: [
+            exampleChip(l10n.quillIntroExampleOne),
+            exampleChip(l10n.quillIntroExampleTwo),
+            exampleChip(l10n.quillIntroExampleThree),
+          ],
+        ),
+        const SizedBox(height: FolioSpace.md),
+        Text(
+          l10n.quillIntroFootnote,
+          style: theme.textTheme.bodySmall?.copyWith(
+            color: scheme.onSurfaceVariant,
+            height: 1.35,
+          ),
+          textAlign: TextAlign.center,
+        ),
+        const SizedBox(height: FolioSpace.xl),
+        Row(
+          children: [
+            TextButton(
+              onPressed: _busy ? null : () => _goPage(2),
+              child: Text(l10n.back),
+            ),
+            const SizedBox(width: FolioSpace.md),
+            FilledButton(
+              style: FilledButton.styleFrom(
+                minimumSize: const Size(120, 48),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
               onPressed: _busy ? null : _finishCreate,
               child: _busy
                   ? const SizedBox(
@@ -700,7 +862,7 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
                       height: 22,
                       child: CircularProgressIndicator(strokeWidth: 2),
                     )
-                  : Text(AppLocalizations.of(context).createVault),
+                  : Text(l10n.createVault),
             ),
           ],
         ),

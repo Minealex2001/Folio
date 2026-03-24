@@ -75,7 +75,7 @@ class DesktopIntegration with TrayListener, WindowListener {
 
   Future<void> _setupTray() async {
     try {
-      await trayManager.setIcon('app_icon.ico');
+      await trayManager.setIcon('assets/icons/folio.ico');
     } catch (_) {}
     await trayManager.setToolTip('Folio');
     final labels = labelsBuilder();

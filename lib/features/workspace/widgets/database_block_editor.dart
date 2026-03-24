@@ -131,6 +131,7 @@ class _DatabaseBlockEditorState extends State<DatabaseBlockEditor> {
             SegmentedButton<String>(
               segments: [
                 ButtonSegment(value: 'table', label: Text('Tabla')),
+                ButtonSegment(value: 'list', label: Text(_t('Lista', 'List'))),
                 ButtonSegment(
                   value: 'board',
                   label: Text(_t('Tablero', 'Board')),
@@ -541,9 +542,63 @@ class _DatabaseBlockEditorState extends State<DatabaseBlockEditor> {
         return _buildBoard(view, rows);
       case FolioDbViewType.calendar:
         return _buildCalendar(view, rows);
+      case FolioDbViewType.list:
+        return _buildList(view, rows);
       case FolioDbViewType.table:
         return _buildTable(view, rows);
     }
+  }
+
+  Widget _buildList(FolioDbView view, List<FolioDbRow> rows) {
+    if (_data.properties.isEmpty) {
+      return const SizedBox.shrink();
+    }
+    final titleProp = _data.properties.first;
+    return ListView.separated(
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      itemCount: rows.length,
+      separatorBuilder: (context, i) => const SizedBox(height: 8),
+      itemBuilder: (context, i) {
+        final r = rows[i];
+        final title = (r.values[titleProp.id] ?? '').toString();
+        final rest = _data.properties
+            .skip(1)
+            .take(4)
+            .map((p) {
+              final v = (r.values[p.id] ?? '').toString();
+              if (v.isEmpty) return null;
+              return '${p.name}: $v';
+            })
+            .whereType<String>()
+            .join(' · ');
+        return Material(
+          color: widget.scheme.surfaceContainerHighest.withValues(alpha: 0.45),
+          borderRadius: BorderRadius.circular(12),
+          child: Padding(
+            padding: const EdgeInsets.all(14),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Text(
+                  title.isEmpty ? '—' : title,
+                  style: widget.textTheme.titleSmall,
+                ),
+                if (rest.isNotEmpty) ...[
+                  const SizedBox(height: 6),
+                  Text(
+                    rest,
+                    style: widget.textTheme.bodySmall?.copyWith(
+                      color: widget.scheme.onSurfaceVariant,
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+        );
+      },
+    );
   }
 
   Widget _buildTable(FolioDbView view, List<FolioDbRow> rows) {
