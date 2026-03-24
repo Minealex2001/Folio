@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -9,9 +11,77 @@ enum AiProvider { none, ollama, lmStudio }
 
 enum AiEndpointMode { localhostOnly, allowRemote }
 
+class IntegrationAppApproval {
+  const IntegrationAppApproval({
+    required this.appId,
+    required this.appName,
+    required this.appVersion,
+    required this.integrationVersion,
+    required this.approvedAtMs,
+  });
+
+  final String appId;
+  final String appName;
+  final String appVersion;
+  final String integrationVersion;
+  final int approvedAtMs;
+
+  factory IntegrationAppApproval.fromStored(String appId, Object? raw) {
+    final safeAppId = appId.trim();
+    if (raw is String) {
+      return IntegrationAppApproval(
+        appId: safeAppId,
+        appName: raw.trim().isEmpty ? safeAppId : raw.trim(),
+        appVersion: '',
+        integrationVersion: '',
+        approvedAtMs: 0,
+      );
+    }
+    if (raw is Map) {
+      final appName = (raw['appName'] as String? ?? '').trim();
+      final appVersion = (raw['appVersion'] as String? ?? '').trim();
+      final integrationVersion = (raw['integrationVersion'] as String? ?? '')
+          .trim();
+      final approvedAtRaw = raw['approvedAtMs'];
+      final approvedAtMs = approvedAtRaw is num ? approvedAtRaw.toInt() : 0;
+      return IntegrationAppApproval(
+        appId: safeAppId,
+        appName: appName.isEmpty ? safeAppId : appName,
+        appVersion: appVersion,
+        integrationVersion: integrationVersion,
+        approvedAtMs: approvedAtMs,
+      );
+    }
+    return IntegrationAppApproval(
+      appId: safeAppId,
+      appName: safeAppId,
+      appVersion: '',
+      integrationVersion: '',
+      approvedAtMs: 0,
+    );
+  }
+
+  Map<String, Object?> toJson() {
+    return <String, Object?>{
+      'appName': appName,
+      'appVersion': appVersion,
+      'integrationVersion': integrationVersion,
+      'approvedAtMs': approvedAtMs,
+    };
+  }
+
+  bool matches({required String integrationVersion}) {
+    return _normalize(this.integrationVersion) ==
+        _normalize(integrationVersion);
+  }
+
+  static String _normalize(String value) => value.trim();
+}
+
 /// Preferencias de la app persistidas (p. ej. tema). No se borran al eliminar el cofre.
 class AppSettings extends ChangeNotifier {
-  AppSettings();
+  AppSettings({String integrationSecret = ''})
+    : _configuredIntegrationSecret = integrationSecret.trim();
 
   static const _themeModeKey = 'folio_theme_mode';
   static const _localeCodeKey = 'folio_locale_code';
@@ -41,6 +111,7 @@ class AppSettings extends ChangeNotifier {
   static const _updateReleaseChannelKey = 'folio_update_release_channel';
   static const _betaBannerDismissedKey = 'folio_beta_banner_dismissed';
   static const _inAppShortcutsKey = 'folio_in_app_shortcuts_json';
+  static const _approvedIntegrationAppsKey = 'folio_approved_integration_apps';
   static const int defaultVaultIdleLockMinutes = 15;
   static const String defaultGlobalSearchHotkey = 'Ctrl+Shift+K';
   static const int defaultAiTimeoutMs = 30000;
@@ -80,6 +151,9 @@ class AppSettings extends ChangeNotifier {
   bool _betaBannerDismissed = false;
   Map<FolioInAppShortcut, SingleActivator> _inAppShortcuts =
       defaultShortcutMap();
+  final String _configuredIntegrationSecret;
+  String _integrationSecret = '';
+  Map<String, IntegrationAppApproval> _approvedIntegrationApps = {};
 
   ThemeMode get themeMode => _themeMode;
   Locale? get locale => _locale;
@@ -107,6 +181,16 @@ class AppSettings extends ChangeNotifier {
   String get updaterGithubRepo => defaultUpdaterGithubRepo;
   bool get checkUpdatesOnStartup => defaultCheckUpdatesOnStartup;
   UpdateReleaseChannel get updateReleaseChannel => _updateReleaseChannel;
+  String get integrationSecret => _integrationSecret;
+  List<IntegrationAppApproval> get approvedIntegrationAppApprovals =>
+      _approvedIntegrationApps.values.toList(growable: false);
+  Map<String, String> get approvedIntegrationApps {
+    final mapped = <String, String>{};
+    for (final entry in _approvedIntegrationApps.entries) {
+      mapped[entry.key] = entry.value.appName;
+    }
+    return Map<String, String>.unmodifiable(mapped);
+  }
 
   /// Aviso BETA en la UI (no forma parte del cofre). Controlado por [kFolioShowBetaBanner].
   bool get shouldShowBetaBanner =>
@@ -161,6 +245,25 @@ class AppSettings extends ChangeNotifier {
       p.getString(_inAppShortcutsKey),
       defaultShortcutMap(),
     );
+    _integrationSecret = _configuredIntegrationSecret;
+    final approvedRaw = p.getString(_approvedIntegrationAppsKey);
+    if (approvedRaw != null && approvedRaw.trim().isNotEmpty) {
+      try {
+        final decoded = jsonDecode(approvedRaw);
+        if (decoded is Map) {
+          final parsed = <String, IntegrationAppApproval>{};
+          for (final entry in decoded.entries) {
+            final key = '${entry.key}';
+            parsed[key] = IntegrationAppApproval.fromStored(key, entry.value);
+          }
+          _approvedIntegrationApps = parsed;
+        }
+      } catch (_) {
+        _approvedIntegrationApps = {};
+      }
+    } else {
+      _approvedIntegrationApps = {};
+    }
     _cachedAiModelsByProvider
       ..clear()
       ..addAll({
@@ -502,5 +605,96 @@ class AppSettings extends ChangeNotifier {
     notifyListeners();
     final p = await SharedPreferences.getInstance();
     await p.remove(_inAppShortcutsKey);
+  }
+
+  bool isIntegrationAppApproved(String appId, {String? integrationVersion}) {
+    final key = appId.trim();
+    if (key.isEmpty) return false;
+    final approval = _approvedIntegrationApps[key];
+    if (approval == null) return false;
+    final requiresVersionMatch = integrationVersion?.trim().isNotEmpty ?? false;
+    if (!requiresVersionMatch) return true;
+    return approval.matches(integrationVersion: integrationVersion ?? '');
+  }
+
+  IntegrationAppApproval? integrationAppApproval(String appId) {
+    return _approvedIntegrationApps[appId.trim()];
+  }
+
+  String integrationAppName(String appId) {
+    return _approvedIntegrationApps[appId.trim()]?.appName ?? appId.trim();
+  }
+
+  Map<String, Object?> _serializeApprovedIntegrationApps() {
+    final serialized = <String, Object?>{};
+    for (final entry in _approvedIntegrationApps.entries) {
+      serialized[entry.key] = entry.value.toJson();
+    }
+    return serialized;
+  }
+
+  Future<void> approveIntegrationApp({
+    required String appId,
+    required String appName,
+    required String appVersion,
+    required String integrationVersion,
+  }) async {
+    final key = appId.trim();
+    if (key.isEmpty) return;
+    final label = appName.trim().isEmpty ? key : appName.trim();
+    _approvedIntegrationApps[key] = IntegrationAppApproval(
+      appId: key,
+      appName: label,
+      appVersion: appVersion.trim(),
+      integrationVersion: integrationVersion.trim(),
+      approvedAtMs: DateTime.now().millisecondsSinceEpoch,
+    );
+    notifyListeners();
+    final p = await SharedPreferences.getInstance();
+    await p.setString(
+      _approvedIntegrationAppsKey,
+      jsonEncode(_serializeApprovedIntegrationApps()),
+    );
+  }
+
+  Future<void> revokeIntegrationApp(String appId) async {
+    final key = appId.trim();
+    if (key.isEmpty || !_approvedIntegrationApps.containsKey(key)) return;
+    _approvedIntegrationApps.remove(key);
+    notifyListeners();
+    final p = await SharedPreferences.getInstance();
+    await p.setString(
+      _approvedIntegrationAppsKey,
+      jsonEncode(_serializeApprovedIntegrationApps()),
+    );
+  }
+
+  Future<void> syncApprovedIntegrationAppObservation({
+    required String appId,
+    required String appName,
+    required String appVersion,
+    required String integrationVersion,
+  }) async {
+    final key = appId.trim();
+    final current = _approvedIntegrationApps[key];
+    if (key.isEmpty || current == null) return;
+    if (!current.matches(integrationVersion: integrationVersion)) return;
+    final safeName = appName.trim().isEmpty ? key : appName.trim();
+    final safeVersion = appVersion.trim();
+    if (current.appName == safeName && current.appVersion == safeVersion)
+      return;
+    _approvedIntegrationApps[key] = IntegrationAppApproval(
+      appId: current.appId,
+      appName: safeName,
+      appVersion: safeVersion,
+      integrationVersion: current.integrationVersion,
+      approvedAtMs: current.approvedAtMs,
+    );
+    notifyListeners();
+    final p = await SharedPreferences.getInstance();
+    await p.setString(
+      _approvedIntegrationAppsKey,
+      jsonEncode(_serializeApprovedIntegrationApps()),
+    );
   }
 }

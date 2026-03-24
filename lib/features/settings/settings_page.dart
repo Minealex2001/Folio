@@ -37,7 +37,7 @@ class _SettingsPageState extends State<SettingsPage> {
   VaultSession get _s => widget.session;
   AppSettings get _app => widget.appSettings;
   final ScrollController _settingsScrollController = ScrollController();
-  final List<GlobalKey> _sectionKeys = List.generate(8, (_) => GlobalKey());
+  final List<GlobalKey> _sectionKeys = List.generate(9, (_) => GlobalKey());
   int _selectedDesktopSection = 0;
 
   var _quickEnabled = false;
@@ -119,6 +119,11 @@ class _SettingsPageState extends State<SettingsPage> {
   void _snack(String msg) {
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
+  }
+
+  Future<void> _revokeIntegrationApp(String appId) async {
+    await _app.revokeIntegrationApp(appId);
+    _snack('App revocada: $appId');
   }
 
   Future<void> _openEncryptPlainVaultDialog() async {
@@ -740,10 +745,11 @@ class _SettingsPageState extends State<SettingsPage> {
         keyIndex: 3,
       ),
       if (_app.isAiAvailable)
-        const _SettingsSectionNavItem(label: 'IA', keyIndex: 4),
+        _SettingsSectionNavItem(label: l10n.ai, keyIndex: 4),
       _SettingsSectionNavItem(label: l10n.vaultBackup, keyIndex: 5),
-      const _SettingsSectionNavItem(label: 'Acerca de', keyIndex: 6),
-      _SettingsSectionNavItem(label: l10n.data, keyIndex: 7),
+      _SettingsSectionNavItem(label: l10n.integrations, keyIndex: 6),
+      _SettingsSectionNavItem(label: l10n.about, keyIndex: 7),
+      _SettingsSectionNavItem(label: l10n.data, keyIndex: 8),
     ];
     return AnimatedBuilder(
       animation: _app,
@@ -1342,10 +1348,10 @@ class _SettingsPageState extends State<SettingsPage> {
                                         _snack('Error al cambiar proveedor: ');
                                       }
                                     },
-                                    items: const [
+                                    items: [
                                       DropdownMenuItem(
                                         value: AiProvider.none,
-                                        child: Text('Ninguno'),
+                                        child: Text(l10n.aiProviderNone),
                                       ),
                                       DropdownMenuItem(
                                         value: AiProvider.ollama,
@@ -1361,7 +1367,7 @@ class _SettingsPageState extends State<SettingsPage> {
                                 const Divider(height: 1),
                                 ListTile(
                                   leading: const Icon(Icons.link_rounded),
-                                  title: const Text('Endpoint'),
+                                  title: Text(l10n.aiEndpoint),
                                   subtitle: TextField(
                                     controller: _aiBaseUrlController,
                                     decoration: const InputDecoration(
@@ -1379,7 +1385,7 @@ class _SettingsPageState extends State<SettingsPage> {
                                   leading: const Icon(
                                     Icons.psychology_alt_outlined,
                                   ),
-                                  title: const Text('Modelo'),
+                                  title: Text(l10n.aiModel),
                                   subtitle: _loadingModels
                                       ? const Padding(
                                           padding: EdgeInsets.symmetric(
@@ -1394,8 +1400,8 @@ class _SettingsPageState extends State<SettingsPage> {
                                               )
                                               ? _app.aiModel
                                               : null,
-                                          hint: const Text(
-                                            'Conecta para listar modelos',
+                                          hint: Text(
+                                            l10n.aiConnectToListModels,
                                           ),
                                           isExpanded: true,
                                           underline: const SizedBox.shrink(),
@@ -1419,7 +1425,7 @@ class _SettingsPageState extends State<SettingsPage> {
                                 const Divider(height: 1),
                                 ListTile(
                                   leading: const Icon(Icons.timer_outlined),
-                                  title: const Text('Timeout (ms)'),
+                                  title: Text(l10n.aiTimeoutMs),
                                   subtitle: TextField(
                                     controller: _aiTimeoutController,
                                     keyboardType: TextInputType.number,
@@ -1436,12 +1442,12 @@ class _SettingsPageState extends State<SettingsPage> {
                                 const Divider(height: 1),
                                 SwitchListTile(
                                   secondary: const Icon(Icons.public_outlined),
-                                  title: const Text('Permitir endpoint remoto'),
+                                  title: Text(l10n.aiAllowRemoteEndpoint),
                                   subtitle: Text(
                                     _app.aiEndpointMode ==
                                             AiEndpointMode.allowRemote
-                                        ? 'Remoto permitido'
-                                        : 'Solo localhost',
+                                        ? l10n.aiAllowRemoteEndpointAllowed
+                                        : l10n.aiAllowRemoteEndpointLocalhostOnly,
                                   ),
                                   value:
                                       _app.aiEndpointMode ==
@@ -1460,10 +1466,10 @@ class _SettingsPageState extends State<SettingsPage> {
                                 if (_app.aiEndpointMode ==
                                         AiEndpointMode.allowRemote &&
                                     !_app.aiRemoteEndpointConfirmed)
-                                  const Padding(
+                                  Padding(
                                     padding: EdgeInsets.fromLTRB(16, 0, 16, 16),
                                     child: Text(
-                                      'Endpoint remoto aún no confirmado.',
+                                      l10n.aiAllowRemoteEndpointNotConfirmed,
                                       style: TextStyle(color: Colors.orange),
                                     ),
                                   ),
@@ -1472,9 +1478,7 @@ class _SettingsPageState extends State<SettingsPage> {
                                   leading: const Icon(
                                     Icons.network_check_rounded,
                                   ),
-                                  title: const Text(
-                                    'Conectar y listar modelos',
-                                  ),
+                                  title: Text(l10n.aiConnectToListModels),
                                   onTap: _testAiConnection,
                                 ),
                               ],
@@ -1525,12 +1529,8 @@ class _SettingsPageState extends State<SettingsPage> {
                               const Divider(height: 1),
                               ListTile(
                                 leading: const Icon(Icons.note_add_outlined),
-                                title: const Text(
-                                  'Importar desde Notion (.zip)',
-                                ),
-                                subtitle: const Text(
-                                  'Soporta export en Markdown y HTML',
-                                ),
+                                title: Text(l10n.importNotionTitle),
+                                subtitle: Text(l10n.importNotionSubtitle),
                                 onTap: _s.state == VaultFlowState.unlocked
                                     ? _openImportNotionFlow
                                     : null,
@@ -1541,7 +1541,108 @@ class _SettingsPageState extends State<SettingsPage> {
 
                         _SectionHeader(
                           key: _sectionKeys[6],
-                          title: 'Acerca de',
+                          title: l10n.integrations,
+                          scheme: scheme,
+                        ),
+                        Card(
+                          margin: const EdgeInsets.only(bottom: 24),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              Padding(
+                                padding: const EdgeInsets.fromLTRB(
+                                  16,
+                                  16,
+                                  16,
+                                  8,
+                                ),
+                                child: Text(
+                                  l10n.integrationsAppsApprovedHint,
+                                  style: Theme.of(context).textTheme.bodySmall
+                                      ?.copyWith(
+                                        color: scheme.onSurfaceVariant,
+                                        height: 1.4,
+                                      ),
+                                ),
+                              ),
+                              const Divider(height: 1),
+                              Padding(
+                                padding: const EdgeInsets.fromLTRB(
+                                  16,
+                                  12,
+                                  16,
+                                  8,
+                                ),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      l10n.integrationsAppsApprovedTitle,
+                                      style: Theme.of(
+                                        context,
+                                      ).textTheme.titleSmall,
+                                    ),
+                                    const SizedBox(height: 8),
+                                    if (_app
+                                        .approvedIntegrationAppApprovals
+                                        .isEmpty)
+                                      Text(
+                                        l10n.integrationsAppsApprovedNone,
+                                        style: Theme.of(context)
+                                            .textTheme
+                                            .bodySmall
+                                            ?.copyWith(
+                                              color: scheme.onSurfaceVariant,
+                                            ),
+                                      )
+                                    else
+                                      ..._app.approvedIntegrationAppApprovals.map(
+                                        (entry) => ListTile(
+                                          contentPadding: EdgeInsets.zero,
+                                          leading: const Icon(
+                                            Icons.verified_user_outlined,
+                                          ),
+                                          title: Text(entry.appName),
+                                          subtitle: Text(
+                                            l10n.integrationsApprovedAppDetails(
+                                              entry.appId,
+                                              entry.appVersion.isEmpty
+                                                  ? l10n.integrationApprovalUnknownVersion
+                                                  : entry.appVersion,
+                                              entry.integrationVersion.isEmpty
+                                                  ? l10n.integrationApprovalUnknownVersion
+                                                  : entry.integrationVersion,
+                                            ),
+                                            style: Theme.of(context)
+                                                .textTheme
+                                                .bodySmall
+                                                ?.copyWith(
+                                                  fontFamily: 'monospace',
+                                                ),
+                                          ),
+                                          trailing: IconButton(
+                                            tooltip: l10n
+                                                .integrationsAppsApprovedRevoke,
+                                            onPressed: () =>
+                                                _revokeIntegrationApp(
+                                                  entry.appId,
+                                                ),
+                                            icon: const Icon(
+                                              Icons.delete_outline_rounded,
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+
+                        _SectionHeader(
+                          key: _sectionKeys[7],
+                          title: l10n.about,
                           scheme: scheme,
                         ),
                         Card(
@@ -1550,15 +1651,13 @@ class _SettingsPageState extends State<SettingsPage> {
                             children: [
                               ListTile(
                                 leading: const Icon(Icons.info_outline_rounded),
-                                title: const Text('Versión instalada'),
+                                title: Text(l10n.installedVersion),
                                 subtitle: Text(_installedVersionLabel),
                               ),
                               const Divider(height: 1),
                               ListTile(
                                 leading: const Icon(Icons.cloud_outlined),
-                                title: const Text(
-                                  'Repositorio de actualizaciones',
-                                ),
+                                title: Text(l10n.updaterGithubRepository),
                                 subtitle: Text(
                                   '${_app.updaterGithubOwner}/${_app.updaterGithubRepo}',
                                 ),
@@ -1610,8 +1709,8 @@ class _SettingsPageState extends State<SettingsPage> {
                                     Text(
                                       _app.updateReleaseChannel ==
                                               UpdateReleaseChannel.beta
-                                          ? 'Las betas son releases en GitHub marcadas como pre-release.'
-                                          : 'Solo se considera la última release estable.',
+                                          ? l10n.updaterBetaDescription
+                                          : l10n.updaterStableDescription,
                                       style: Theme.of(context)
                                           .textTheme
                                           .bodySmall
@@ -1627,7 +1726,7 @@ class _SettingsPageState extends State<SettingsPage> {
                                 leading: const Icon(
                                   Icons.system_update_rounded,
                                 ),
-                                title: const Text('Buscar actualizaciones'),
+                                title: Text(l10n.checkUpdates),
                                 trailing: _checkingUpdates
                                     ? const SizedBox(
                                         height: 20,
@@ -1646,7 +1745,7 @@ class _SettingsPageState extends State<SettingsPage> {
                         ),
 
                         _SectionHeader(
-                          key: _sectionKeys[7],
+                          key: _sectionKeys[8],
                           title: l10n.data,
                           scheme: scheme,
                         ),
@@ -1791,24 +1890,23 @@ class _NotionImportModeDialog extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     return AlertDialog(
-      title: const Text('Destino de la importacion'),
-      content: const Text(
-        'Elige si quieres importar las paginas en el cofre actual o crear un cofre nuevo.',
-      ),
+      title: Text(l10n.importNotionSelectTargetTitle),
+      content: Text(l10n.importNotionSelectTargetBody),
       actions: [
         TextButton(
           onPressed: () => Navigator.pop(context),
-          child: Text(AppLocalizations.of(context).cancel),
+          child: Text(l10n.cancel),
         ),
         OutlinedButton(
           onPressed: () =>
               Navigator.pop(context, _NotionImportMode.currentVault),
-          child: const Text('Cofre actual'),
+          child: Text(l10n.importNotionTargetCurrent),
         ),
         FilledButton(
           onPressed: () => Navigator.pop(context, _NotionImportMode.newVault),
-          child: const Text('Cofre nuevo'),
+          child: Text(l10n.importNotionTargetNew),
         ),
       ],
     );
@@ -1856,8 +1954,9 @@ class _NewVaultPasswordDialogState extends State<_NewVaultPasswordDialog> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     return AlertDialog(
-      title: const Text('Contrasena para cofre nuevo'),
+      title: Text(l10n.importNotionNewVaultPasswordTitle),
       content: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
@@ -1865,7 +1964,7 @@ class _NewVaultPasswordDialogState extends State<_NewVaultPasswordDialog> {
             controller: _password,
             obscureText: _obscureA,
             decoration: InputDecoration(
-              labelText: AppLocalizations.of(context).passwordLabel,
+              labelText: l10n.passwordLabel,
               suffixIcon: IconButton(
                 onPressed: () => setState(() => _obscureA = !_obscureA),
                 icon: Icon(_obscureA ? Icons.visibility : Icons.visibility_off),
@@ -1878,7 +1977,7 @@ class _NewVaultPasswordDialogState extends State<_NewVaultPasswordDialog> {
             obscureText: _obscureB,
             onSubmitted: (_) => _submit(),
             decoration: InputDecoration(
-              labelText: AppLocalizations.of(context).confirmPasswordLabel,
+              labelText: l10n.confirmPasswordLabel,
               suffixIcon: IconButton(
                 onPressed: () => setState(() => _obscureB = !_obscureB),
                 icon: Icon(_obscureB ? Icons.visibility : Icons.visibility_off),
@@ -1897,9 +1996,9 @@ class _NewVaultPasswordDialogState extends State<_NewVaultPasswordDialog> {
       actions: [
         TextButton(
           onPressed: () => Navigator.pop(context),
-          child: Text(AppLocalizations.of(context).cancel),
+          child: Text(l10n.cancel),
         ),
-        FilledButton(onPressed: _submit, child: const Text('Crear e importar')),
+        FilledButton(onPressed: _submit, child: Text(l10n.importAction)),
       ],
     );
   }

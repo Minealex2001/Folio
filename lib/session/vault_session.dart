@@ -25,6 +25,7 @@ import '../models/folio_table_data.dart';
 import '../models/folio_toggle_data.dart';
 import '../models/folio_columns_data.dart';
 import '../models/folio_template_button_data.dart';
+import '../models/folio_page_import_info.dart';
 import '../services/folio_rp_server.dart';
 import '../services/ai/ai_safety_policy.dart';
 import '../services/ai/ai_service.dart';
@@ -1169,6 +1170,10 @@ class VaultSession extends ChangeNotifier {
     String? parentId,
     String? sourceApp,
     String? sourceUrl,
+    String? clientAppId,
+    String? clientAppName,
+    String? sessionId,
+    Map<String, Object?> metadata = const <String, Object?>{},
     FolioMarkdownImportMode mode = FolioMarkdownImportMode.newPage,
   }) {
     if (!isUnlocked) {
@@ -1202,6 +1207,15 @@ class VaultSession extends ChangeNotifier {
                 ? 'Imported page'
                 : doc.title.trim(),
             parentId: parentId,
+            lastImportInfo: _buildImportInfo(
+              clientAppId: clientAppId,
+              clientAppName: clientAppName,
+              sessionId: sessionId,
+              sourceApp: sourceApp,
+              sourceUrl: sourceUrl,
+              metadata: metadata,
+              mode: mode,
+            ),
             blocks: doc.blocks,
           ),
         );
@@ -1230,6 +1244,15 @@ class VaultSession extends ChangeNotifier {
         );
         page.title = doc.title.trim().isEmpty ? page.title : doc.title.trim();
         page.blocks = doc.blocks;
+        page.lastImportInfo = _buildImportInfo(
+          clientAppId: clientAppId,
+          clientAppName: clientAppName,
+          sessionId: sessionId,
+          sourceApp: sourceApp,
+          sourceUrl: sourceUrl,
+          metadata: metadata,
+          mode: mode,
+        );
         _selectedPageId = page.id;
         _contentEpoch++;
         notifyListeners();
@@ -1261,6 +1284,15 @@ class VaultSession extends ChangeNotifier {
         } else {
           page.blocks.addAll(doc.blocks);
         }
+        page.lastImportInfo = _buildImportInfo(
+          clientAppId: clientAppId,
+          clientAppName: clientAppName,
+          sessionId: sessionId,
+          sourceApp: sourceApp,
+          sourceUrl: sourceUrl,
+          metadata: metadata,
+          mode: mode,
+        );
         _selectedPageId = page.id;
         _contentEpoch++;
         notifyListeners();
@@ -1282,6 +1314,33 @@ class VaultSession extends ChangeNotifier {
     return FolioMarkdownCodec.exportPage(
       page,
       includeFrontMatter: includeFrontMatter,
+    );
+  }
+
+  FolioPageImportInfo _buildImportInfo({
+    String? clientAppId,
+    String? clientAppName,
+    String? sessionId,
+    String? sourceApp,
+    String? sourceUrl,
+    required Map<String, Object?> metadata,
+    required FolioMarkdownImportMode mode,
+  }) {
+    final appId = clientAppId?.trim().isNotEmpty == true
+        ? clientAppId!.trim()
+        : 'unknown-client';
+    final appName = clientAppName?.trim().isNotEmpty == true
+        ? clientAppName!.trim()
+        : appId;
+    return FolioPageImportInfo(
+      clientAppId: appId,
+      clientAppName: appName,
+      sessionId: sessionId?.trim().isEmpty ?? true ? null : sessionId!.trim(),
+      sourceApp: sourceApp?.trim().isEmpty ?? true ? null : sourceApp!.trim(),
+      sourceUrl: sourceUrl?.trim().isEmpty ?? true ? null : sourceUrl!.trim(),
+      importedAtMs: DateTime.now().millisecondsSinceEpoch,
+      importMode: mode.name,
+      metadata: metadata,
     );
   }
 

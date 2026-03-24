@@ -1928,11 +1928,65 @@ abstract class AppLocalizations {
   /// **'Activar BETA'**
   String get aiBetaEnableConfirm;
 
+  /// No description provided for @ai.
+  ///
+  /// In es, this message translates to:
+  /// **'IA'**
+  String get ai;
+
   /// No description provided for @aiProviderNone.
   ///
   /// In es, this message translates to:
   /// **'Ninguno'**
   String get aiProviderNone;
+
+  /// No description provided for @aiEndpoint.
+  ///
+  /// In es, this message translates to:
+  /// **'Endpoint'**
+  String get aiEndpoint;
+
+  /// No description provided for @aiModel.
+  ///
+  /// In es, this message translates to:
+  /// **'Modelo'**
+  String get aiModel;
+
+  /// No description provided for @aiTimeoutMs.
+  ///
+  /// In es, this message translates to:
+  /// **'Timeout (ms)'**
+  String get aiTimeoutMs;
+
+  /// No description provided for @aiAllowRemoteEndpoint.
+  ///
+  /// In es, this message translates to:
+  /// **'Permitir endpoint remoto'**
+  String get aiAllowRemoteEndpoint;
+
+  /// No description provided for @aiAllowRemoteEndpointAllowed.
+  ///
+  /// In es, this message translates to:
+  /// **'Hosts remotos permitidos'**
+  String get aiAllowRemoteEndpointAllowed;
+
+  /// No description provided for @aiAllowRemoteEndpointLocalhostOnly.
+  ///
+  /// In es, this message translates to:
+  /// **'Solo localhost'**
+  String get aiAllowRemoteEndpointLocalhostOnly;
+
+  /// No description provided for @aiAllowRemoteEndpointNotConfirmed.
+  ///
+  /// In es, this message translates to:
+  /// **'El acceso a endpoints remotos esta habilitado, pero todavia no se ha confirmado.'**
+  String get aiAllowRemoteEndpointNotConfirmed;
+
+  /// No description provided for @aiConnectToListModels.
+  ///
+  /// In es, this message translates to:
+  /// **'Conectar para listar modelos'**
+  String get aiConnectToListModels;
 
   /// No description provided for @aiProviderAutoConfigured.
   ///
@@ -2192,6 +2246,12 @@ abstract class AppLocalizations {
   /// **'Destino de la importación'**
   String get importNotionSelectTargetTitle;
 
+  /// No description provided for @importNotionSelectTargetBody.
+  ///
+  /// In es, this message translates to:
+  /// **'Elige si quieres importar la exportacion de Notion en el cofre actual o crear un cofre nuevo a partir de ella.'**
+  String get importNotionSelectTargetBody;
+
   /// No description provided for @importNotionTargetCurrent.
   ///
   /// In es, this message translates to:
@@ -2239,6 +2299,216 @@ abstract class AppLocalizations {
   /// In es, this message translates to:
   /// **'Entendido'**
   String get appBetaBannerDismiss;
+
+  /// No description provided for @integrations.
+  ///
+  /// In es, this message translates to:
+  /// **'Integraciones'**
+  String get integrations;
+
+  /// No description provided for @integrationsAppsApprovedHint.
+  ///
+  /// In es, this message translates to:
+  /// **'Las apps externas aprobadas pueden usar el puente de integracion local.'**
+  String get integrationsAppsApprovedHint;
+
+  /// No description provided for @integrationsAppsApprovedTitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Apps externas aprobadas'**
+  String get integrationsAppsApprovedTitle;
+
+  /// No description provided for @integrationsAppsApprovedNone.
+  ///
+  /// In es, this message translates to:
+  /// **'Todavia no has aprobado ninguna app externa.'**
+  String get integrationsAppsApprovedNone;
+
+  /// No description provided for @integrationsAppsApprovedRevoke.
+  ///
+  /// In es, this message translates to:
+  /// **'Revocar acceso'**
+  String get integrationsAppsApprovedRevoke;
+
+  /// No description provided for @integrationsApprovedAppDetails.
+  ///
+  /// In es, this message translates to:
+  /// **'{appId} · App {appVersion} · Integracion {integrationVersion}'**
+  String integrationsApprovedAppDetails(
+    Object appId,
+    Object appVersion,
+    Object integrationVersion,
+  );
+
+  /// No description provided for @integrationApprovalTitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Aprobar integracion externa'**
+  String get integrationApprovalTitle;
+
+  /// No description provided for @integrationApprovalUpdateTitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Aprobar actualizacion de integracion'**
+  String get integrationApprovalUpdateTitle;
+
+  /// No description provided for @integrationApprovalBody.
+  ///
+  /// In es, this message translates to:
+  /// **'\"{appName}\" quiere conectarse a Folio usando la version {appVersion} de la app y la version {integrationVersion} de la integracion.'**
+  String integrationApprovalBody(
+    Object appName,
+    Object appVersion,
+    Object integrationVersion,
+  );
+
+  /// No description provided for @integrationApprovalUpdateBody.
+  ///
+  /// In es, this message translates to:
+  /// **'\"{appName}\" ya habia sido aprobada con la version {previousVersion} de la integracion. Ahora quiere conectarse con la version {integrationVersion} de la integracion, asi que Folio necesita tu aprobacion otra vez.'**
+  String integrationApprovalUpdateBody(
+    Object appName,
+    Object previousVersion,
+    Object integrationVersion,
+  );
+
+  /// No description provided for @integrationApprovalUnknownVersion.
+  ///
+  /// In es, this message translates to:
+  /// **'desconocida'**
+  String get integrationApprovalUnknownVersion;
+
+  /// No description provided for @integrationApprovalAppId.
+  ///
+  /// In es, this message translates to:
+  /// **'ID de la app'**
+  String get integrationApprovalAppId;
+
+  /// No description provided for @integrationApprovalAppVersion.
+  ///
+  /// In es, this message translates to:
+  /// **'Version de la app'**
+  String get integrationApprovalAppVersion;
+
+  /// No description provided for @integrationApprovalProtocolVersion.
+  ///
+  /// In es, this message translates to:
+  /// **'Version de la integracion'**
+  String get integrationApprovalProtocolVersion;
+
+  /// No description provided for @integrationApprovalCanDoTitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Lo que esta integracion puede hacer'**
+  String get integrationApprovalCanDoTitle;
+
+  /// No description provided for @integrationApprovalCanDoSessions.
+  ///
+  /// In es, this message translates to:
+  /// **'Crear sesiones efimeras de importacion en Folio.'**
+  String get integrationApprovalCanDoSessions;
+
+  /// No description provided for @integrationApprovalCanDoImport.
+  ///
+  /// In es, this message translates to:
+  /// **'Enviar documentacion en Markdown para crear o actualizar paginas mediante el puente de importacion.'**
+  String get integrationApprovalCanDoImport;
+
+  /// No description provided for @integrationApprovalCanDoMetadata.
+  ///
+  /// In es, this message translates to:
+  /// **'Guardar trazas de importacion como la app cliente, la sesion y metadatos de origen en las paginas importadas.'**
+  String get integrationApprovalCanDoMetadata;
+
+  /// No description provided for @integrationApprovalCanDoUnlockedVault.
+  ///
+  /// In es, this message translates to:
+  /// **'Importar solo mientras el cofre este disponible y la peticion incluya el secreto configurado.'**
+  String get integrationApprovalCanDoUnlockedVault;
+
+  /// No description provided for @integrationApprovalCannotDoTitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Lo que no puede hacer'**
+  String get integrationApprovalCannotDoTitle;
+
+  /// No description provided for @integrationApprovalCannotDoRead.
+  ///
+  /// In es, this message translates to:
+  /// **'No puede leer el contenido de tu cofre a traves de este puente.'**
+  String get integrationApprovalCannotDoRead;
+
+  /// No description provided for @integrationApprovalCannotDoBypassLock.
+  ///
+  /// In es, this message translates to:
+  /// **'No puede saltarse el bloqueo del cofre, el cifrado ni tu aprobacion explicita.'**
+  String get integrationApprovalCannotDoBypassLock;
+
+  /// No description provided for @integrationApprovalCannotDoWithoutSecret.
+  ///
+  /// In es, this message translates to:
+  /// **'No puede acceder a endpoints protegidos sin el secreto compartido.'**
+  String get integrationApprovalCannotDoWithoutSecret;
+
+  /// No description provided for @integrationApprovalCannotDoRemoteAccess.
+  ///
+  /// In es, this message translates to:
+  /// **'No puede usar el puente desde fuera de localhost.'**
+  String get integrationApprovalCannotDoRemoteAccess;
+
+  /// No description provided for @integrationApprovalDeny.
+  ///
+  /// In es, this message translates to:
+  /// **'Denegar'**
+  String get integrationApprovalDeny;
+
+  /// No description provided for @integrationApprovalApprove.
+  ///
+  /// In es, this message translates to:
+  /// **'Aprobar'**
+  String get integrationApprovalApprove;
+
+  /// No description provided for @integrationApprovalApproveUpdate.
+  ///
+  /// In es, this message translates to:
+  /// **'Aprobar esta actualizacion'**
+  String get integrationApprovalApproveUpdate;
+
+  /// No description provided for @about.
+  ///
+  /// In es, this message translates to:
+  /// **'Acerca de'**
+  String get about;
+
+  /// No description provided for @installedVersion.
+  ///
+  /// In es, this message translates to:
+  /// **'Version instalada'**
+  String get installedVersion;
+
+  /// No description provided for @updaterGithubRepository.
+  ///
+  /// In es, this message translates to:
+  /// **'Repositorio de actualizaciones'**
+  String get updaterGithubRepository;
+
+  /// No description provided for @updaterBetaDescription.
+  ///
+  /// In es, this message translates to:
+  /// **'Las betas son releases de GitHub marcadas como pre-release.'**
+  String get updaterBetaDescription;
+
+  /// No description provided for @updaterStableDescription.
+  ///
+  /// In es, this message translates to:
+  /// **'Solo se tiene en cuenta la ultima release estable.'**
+  String get updaterStableDescription;
+
+  /// No description provided for @checkUpdates.
+  ///
+  /// In es, this message translates to:
+  /// **'Buscar actualizaciones'**
+  String get checkUpdates;
 
   /// No description provided for @noEncryptionConfirmTitle.
   ///

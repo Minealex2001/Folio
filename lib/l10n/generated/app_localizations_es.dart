@@ -1018,7 +1018,35 @@ class AppLocalizationsEs extends AppLocalizations {
   String get aiBetaEnableConfirm => 'Activar BETA';
 
   @override
+  String get ai => 'IA';
+
+  @override
   String get aiProviderNone => 'Ninguno';
+
+  @override
+  String get aiEndpoint => 'Endpoint';
+
+  @override
+  String get aiModel => 'Modelo';
+
+  @override
+  String get aiTimeoutMs => 'Timeout (ms)';
+
+  @override
+  String get aiAllowRemoteEndpoint => 'Permitir endpoint remoto';
+
+  @override
+  String get aiAllowRemoteEndpointAllowed => 'Hosts remotos permitidos';
+
+  @override
+  String get aiAllowRemoteEndpointLocalhostOnly => 'Solo localhost';
+
+  @override
+  String get aiAllowRemoteEndpointNotConfirmed =>
+      'El acceso a endpoints remotos esta habilitado, pero todavia no se ha confirmado.';
+
+  @override
+  String get aiConnectToListModels => 'Conectar para listar modelos';
 
   @override
   String aiProviderAutoConfigured(Object provider) {
@@ -1162,6 +1190,10 @@ class AppLocalizationsEs extends AppLocalizations {
   String get importNotionSelectTargetTitle => 'Destino de la importación';
 
   @override
+  String get importNotionSelectTargetBody =>
+      'Elige si quieres importar la exportacion de Notion en el cofre actual o crear un cofre nuevo a partir de ella.';
+
+  @override
   String get importNotionTargetCurrent => 'Cofre actual';
 
   @override
@@ -1188,6 +1220,137 @@ class AppLocalizationsEs extends AppLocalizations {
 
   @override
   String get appBetaBannerDismiss => 'Entendido';
+
+  @override
+  String get integrations => 'Integraciones';
+
+  @override
+  String get integrationsAppsApprovedHint =>
+      'Las apps externas aprobadas pueden usar el puente de integracion local.';
+
+  @override
+  String get integrationsAppsApprovedTitle => 'Apps externas aprobadas';
+
+  @override
+  String get integrationsAppsApprovedNone =>
+      'Todavia no has aprobado ninguna app externa.';
+
+  @override
+  String get integrationsAppsApprovedRevoke => 'Revocar acceso';
+
+  @override
+  String integrationsApprovedAppDetails(
+    Object appId,
+    Object appVersion,
+    Object integrationVersion,
+  ) {
+    return '$appId · App $appVersion · Integracion $integrationVersion';
+  }
+
+  @override
+  String get integrationApprovalTitle => 'Aprobar integracion externa';
+
+  @override
+  String get integrationApprovalUpdateTitle =>
+      'Aprobar actualizacion de integracion';
+
+  @override
+  String integrationApprovalBody(
+    Object appName,
+    Object appVersion,
+    Object integrationVersion,
+  ) {
+    return '\"$appName\" quiere conectarse a Folio usando la version $appVersion de la app y la version $integrationVersion de la integracion.';
+  }
+
+  @override
+  String integrationApprovalUpdateBody(
+    Object appName,
+    Object previousVersion,
+    Object integrationVersion,
+  ) {
+    return '\"$appName\" ya habia sido aprobada con la version $previousVersion de la integracion. Ahora quiere conectarse con la version $integrationVersion de la integracion, asi que Folio necesita tu aprobacion otra vez.';
+  }
+
+  @override
+  String get integrationApprovalUnknownVersion => 'desconocida';
+
+  @override
+  String get integrationApprovalAppId => 'ID de la app';
+
+  @override
+  String get integrationApprovalAppVersion => 'Version de la app';
+
+  @override
+  String get integrationApprovalProtocolVersion => 'Version de la integracion';
+
+  @override
+  String get integrationApprovalCanDoTitle =>
+      'Lo que esta integracion puede hacer';
+
+  @override
+  String get integrationApprovalCanDoSessions =>
+      'Crear sesiones efimeras de importacion en Folio.';
+
+  @override
+  String get integrationApprovalCanDoImport =>
+      'Enviar documentacion en Markdown para crear o actualizar paginas mediante el puente de importacion.';
+
+  @override
+  String get integrationApprovalCanDoMetadata =>
+      'Guardar trazas de importacion como la app cliente, la sesion y metadatos de origen en las paginas importadas.';
+
+  @override
+  String get integrationApprovalCanDoUnlockedVault =>
+      'Importar solo mientras el cofre este disponible y la peticion incluya el secreto configurado.';
+
+  @override
+  String get integrationApprovalCannotDoTitle => 'Lo que no puede hacer';
+
+  @override
+  String get integrationApprovalCannotDoRead =>
+      'No puede leer el contenido de tu cofre a traves de este puente.';
+
+  @override
+  String get integrationApprovalCannotDoBypassLock =>
+      'No puede saltarse el bloqueo del cofre, el cifrado ni tu aprobacion explicita.';
+
+  @override
+  String get integrationApprovalCannotDoWithoutSecret =>
+      'No puede acceder a endpoints protegidos sin el secreto compartido.';
+
+  @override
+  String get integrationApprovalCannotDoRemoteAccess =>
+      'No puede usar el puente desde fuera de localhost.';
+
+  @override
+  String get integrationApprovalDeny => 'Denegar';
+
+  @override
+  String get integrationApprovalApprove => 'Aprobar';
+
+  @override
+  String get integrationApprovalApproveUpdate => 'Aprobar esta actualizacion';
+
+  @override
+  String get about => 'Acerca de';
+
+  @override
+  String get installedVersion => 'Version instalada';
+
+  @override
+  String get updaterGithubRepository => 'Repositorio de actualizaciones';
+
+  @override
+  String get updaterBetaDescription =>
+      'Las betas son releases de GitHub marcadas como pre-release.';
+
+  @override
+  String get updaterStableDescription =>
+      'Solo se tiene en cuenta la ultima release estable.';
+
+  @override
+  String get checkUpdates => 'Buscar actualizaciones';
 
   @override
   String get noEncryptionConfirmTitle => 'Crear cofre sin cifrado';

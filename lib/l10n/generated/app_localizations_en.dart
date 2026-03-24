@@ -1015,7 +1015,35 @@ class AppLocalizationsEn extends AppLocalizations {
   String get aiBetaEnableConfirm => 'Enable BETA';
 
   @override
+  String get ai => 'AI';
+
+  @override
   String get aiProviderNone => 'None';
+
+  @override
+  String get aiEndpoint => 'Endpoint';
+
+  @override
+  String get aiModel => 'Model';
+
+  @override
+  String get aiTimeoutMs => 'Timeout (ms)';
+
+  @override
+  String get aiAllowRemoteEndpoint => 'Allow remote endpoint';
+
+  @override
+  String get aiAllowRemoteEndpointAllowed => 'Remote hosts allowed';
+
+  @override
+  String get aiAllowRemoteEndpointLocalhostOnly => 'Localhost only';
+
+  @override
+  String get aiAllowRemoteEndpointNotConfirmed =>
+      'Remote endpoint access is enabled but has not been confirmed yet.';
+
+  @override
+  String get aiConnectToListModels => 'Connect to list models';
 
   @override
   String aiProviderAutoConfigured(Object provider) {
@@ -1159,6 +1187,10 @@ class AppLocalizationsEn extends AppLocalizations {
   String get importNotionSelectTargetTitle => 'Import target';
 
   @override
+  String get importNotionSelectTargetBody =>
+      'Choose whether to import the Notion export into your current vault or create a new vault from it.';
+
+  @override
   String get importNotionTargetCurrent => 'Current vault';
 
   @override
@@ -1185,6 +1217,135 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get appBetaBannerDismiss => 'Got it';
+
+  @override
+  String get integrations => 'Integrations';
+
+  @override
+  String get integrationsAppsApprovedHint =>
+      'Approved external apps can use the local integration bridge.';
+
+  @override
+  String get integrationsAppsApprovedTitle => 'Approved external apps';
+
+  @override
+  String get integrationsAppsApprovedNone =>
+      'You have not approved any external apps yet.';
+
+  @override
+  String get integrationsAppsApprovedRevoke => 'Revoke access';
+
+  @override
+  String integrationsApprovedAppDetails(
+    Object appId,
+    Object appVersion,
+    Object integrationVersion,
+  ) {
+    return '$appId · App $appVersion · Integration $integrationVersion';
+  }
+
+  @override
+  String get integrationApprovalTitle => 'Approve external integration';
+
+  @override
+  String get integrationApprovalUpdateTitle => 'Approve updated integration';
+
+  @override
+  String integrationApprovalBody(
+    Object appName,
+    Object appVersion,
+    Object integrationVersion,
+  ) {
+    return '\"$appName\" wants to connect to Folio using app version $appVersion and integration version $integrationVersion.';
+  }
+
+  @override
+  String integrationApprovalUpdateBody(
+    Object appName,
+    Object previousVersion,
+    Object integrationVersion,
+  ) {
+    return '\"$appName\" was previously approved with integration version $previousVersion. It now wants to connect with integration version $integrationVersion, so Folio needs your approval again.';
+  }
+
+  @override
+  String get integrationApprovalUnknownVersion => 'unknown';
+
+  @override
+  String get integrationApprovalAppId => 'App ID';
+
+  @override
+  String get integrationApprovalAppVersion => 'App version';
+
+  @override
+  String get integrationApprovalProtocolVersion => 'Integration version';
+
+  @override
+  String get integrationApprovalCanDoTitle => 'What this integration can do';
+
+  @override
+  String get integrationApprovalCanDoSessions =>
+      'Create short-lived import sessions in Folio.';
+
+  @override
+  String get integrationApprovalCanDoImport =>
+      'Send Markdown documentation to create or update pages through the import bridge.';
+
+  @override
+  String get integrationApprovalCanDoMetadata =>
+      'Store import provenance such as the client app, session, and source metadata on imported pages.';
+
+  @override
+  String get integrationApprovalCanDoUnlockedVault =>
+      'Import only while the vault is available and the request includes the configured secret.';
+
+  @override
+  String get integrationApprovalCannotDoTitle => 'What it cannot do';
+
+  @override
+  String get integrationApprovalCannotDoRead =>
+      'It cannot read your vault contents through this bridge.';
+
+  @override
+  String get integrationApprovalCannotDoBypassLock =>
+      'It cannot bypass the vault lock, encryption, or your explicit approval.';
+
+  @override
+  String get integrationApprovalCannotDoWithoutSecret =>
+      'It cannot access protected endpoints without the shared secret.';
+
+  @override
+  String get integrationApprovalCannotDoRemoteAccess =>
+      'It cannot use the bridge from outside localhost.';
+
+  @override
+  String get integrationApprovalDeny => 'Deny';
+
+  @override
+  String get integrationApprovalApprove => 'Approve';
+
+  @override
+  String get integrationApprovalApproveUpdate => 'Approve this update';
+
+  @override
+  String get about => 'About';
+
+  @override
+  String get installedVersion => 'Installed version';
+
+  @override
+  String get updaterGithubRepository => 'Update repository';
+
+  @override
+  String get updaterBetaDescription =>
+      'Betas are GitHub releases marked as pre-release.';
+
+  @override
+  String get updaterStableDescription =>
+      'Only the latest stable release is considered.';
+
+  @override
+  String get checkUpdates => 'Check for updates';
 
   @override
   String get noEncryptionConfirmTitle => 'Create vault without encryption';

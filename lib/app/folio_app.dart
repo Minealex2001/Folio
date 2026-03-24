@@ -60,6 +60,13 @@ class _FolioAppState extends State<FolioApp> with WidgetsBindingObserver {
     widget.appSettings.addListener(_onSettings);
     _run2DocBridge = Run2DocBridgeController(
       onImport: _importRun2DocMarkdown,
+      onApproveClient: _approveRun2DocClient,
+      onClientObserved: _syncObservedRun2DocClient,
+      isClientApproved: (client) => widget.appSettings.isIntegrationAppApproved(
+        client.appId,
+        integrationVersion: client.integrationVersion,
+      ),
+      secretProvider: () => widget.appSettings.integrationSecret,
       appInfoProvider: _run2DocAppInfo,
       onEvent: _showSnack,
     );
@@ -295,7 +302,51 @@ class _FolioAppState extends State<FolioApp> with WidgetsBindingObserver {
       parentId: request.parentPageId,
       sourceApp: request.sourceApp,
       sourceUrl: request.sourceUrl,
+      clientAppId: request.clientAppId,
+      clientAppName: request.clientAppName,
+      sessionId: request.sessionId,
+      metadata: request.metadata,
       mode: request.importMode,
+    );
+  }
+
+  Future<bool> _approveRun2DocClient(Run2DocClientIdentity client) async {
+    if (widget.appSettings.isIntegrationAppApproved(
+      client.appId,
+      integrationVersion: client.integrationVersion,
+    )) {
+      return true;
+    }
+    final ctx = _navKey.currentContext ?? context;
+    final previousApproval = widget.appSettings.integrationAppApproval(
+      client.appId,
+    );
+    final approved = await showDialog<bool>(
+      context: ctx,
+      barrierDismissible: false,
+      builder: (dialogContext) => _IntegrationApprovalDialog(
+        client: client,
+        previousApproval: previousApproval,
+      ),
+    );
+    if (approved == true) {
+      await widget.appSettings.approveIntegrationApp(
+        appId: client.appId,
+        appName: client.appName,
+        appVersion: client.appVersion,
+        integrationVersion: client.integrationVersion,
+      );
+      return true;
+    }
+    return false;
+  }
+
+  Future<void> _syncObservedRun2DocClient(Run2DocClientIdentity client) {
+    return widget.appSettings.syncApprovedIntegrationAppObservation(
+      appId: client.appId,
+      appName: client.appName,
+      appVersion: client.appVersion,
+      integrationVersion: client.integrationVersion,
     );
   }
 
@@ -316,14 +367,30 @@ class _FolioAppState extends State<FolioApp> with WidgetsBindingObserver {
               'id': page.id,
               'title': page.title,
               'blockCount': page.blocks.length,
+              'lastImportInfo': page.lastImportInfo?.toJson(),
             },
       'aiEnabled': widget.session.aiEnabled,
       'bridgePort': Run2DocLaunchSession.fixedPort,
+      'approvedClients': widget.appSettings.approvedIntegrationAppApprovals
+          .map(
+            (entry) => <String, Object?>{
+              'appId': entry.appId,
+              'appName': entry.appName,
+              'appVersion': entry.appVersion,
+              'integrationVersion': entry.integrationVersion,
+              'approvedAtMs': entry.approvedAtMs,
+            },
+          )
+          .toList(),
       'importSession': activeSession == null
           ? null
           : <String, Object?>{
               'sessionId': activeSession.sessionId,
               'port': activeSession.port,
+              'clientAppId': activeSession.client.appId,
+              'clientAppName': activeSession.client.appName,
+              'clientAppVersion': activeSession.client.appVersion,
+              'integrationVersion': activeSession.client.integrationVersion,
             },
       'timestampUtc': DateTime.now().toUtc().toIso8601String(),
     };
@@ -447,6 +514,166 @@ class _FolioAppState extends State<FolioApp> with WidgetsBindingObserver {
         appSettings: widget.appSettings,
         onOpenSearch: _handleSearchRequested,
       ),
+    );
+  }
+}
+
+class _IntegrationApprovalDialog extends StatelessWidget {
+  const _IntegrationApprovalDialog({
+    required this.client,
+    required this.previousApproval,
+  });
+
+  final Run2DocClientIdentity client;
+  final IntegrationAppApproval? previousApproval;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+    final scheme = Theme.of(context).colorScheme;
+    final isUpdate =
+        previousApproval != null &&
+        (previousApproval?.integrationVersion.trim() ?? '') !=
+            client.integrationVersion;
+
+    Widget capabilityRow(IconData icon, String text, {Color? color}) {
+      return Padding(
+        padding: const EdgeInsets.only(bottom: 10),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Icon(icon, size: 18, color: color ?? scheme.primary),
+            const SizedBox(width: 10),
+            Expanded(child: Text(text)),
+          ],
+        ),
+      );
+    }
+
+    return AlertDialog(
+      title: Text(
+        isUpdate
+            ? l10n.integrationApprovalUpdateTitle
+            : l10n.integrationApprovalTitle,
+      ),
+      content: SizedBox(
+        width: 560,
+        child: SingleChildScrollView(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                isUpdate
+                    ? l10n.integrationApprovalUpdateBody(
+                        client.appName,
+                        (previousApproval?.integrationVersion.trim() ?? '')
+                                .isEmpty
+                            ? l10n.integrationApprovalUnknownVersion
+                            : previousApproval!.integrationVersion.trim(),
+                        client.integrationVersion,
+                      )
+                    : l10n.integrationApprovalBody(
+                        client.appName,
+                        client.appVersion,
+                        client.integrationVersion,
+                      ),
+              ),
+              const SizedBox(height: 16),
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: scheme.surfaceContainerHighest.withValues(alpha: 0.55),
+                  borderRadius: BorderRadius.circular(18),
+                  border: Border.all(
+                    color: scheme.outlineVariant.withValues(alpha: 0.6),
+                  ),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      client.appName,
+                      style: Theme.of(context).textTheme.titleMedium,
+                    ),
+                    const SizedBox(height: 8),
+                    Text('${l10n.integrationApprovalAppId}: ${client.appId}'),
+                    Text(
+                      '${l10n.integrationApprovalAppVersion}: ${client.appVersion}',
+                    ),
+                    Text(
+                      '${l10n.integrationApprovalProtocolVersion}: ${client.integrationVersion}',
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 16),
+              Text(
+                l10n.integrationApprovalCanDoTitle,
+                style: Theme.of(context).textTheme.titleSmall,
+              ),
+              const SizedBox(height: 10),
+              capabilityRow(
+                Icons.playlist_add_check_circle_outlined,
+                l10n.integrationApprovalCanDoSessions,
+              ),
+              capabilityRow(
+                Icons.description_outlined,
+                l10n.integrationApprovalCanDoImport,
+              ),
+              capabilityRow(
+                Icons.history_toggle_off_rounded,
+                l10n.integrationApprovalCanDoMetadata,
+              ),
+              capabilityRow(
+                Icons.lock_open_outlined,
+                l10n.integrationApprovalCanDoUnlockedVault,
+              ),
+              const SizedBox(height: 12),
+              Text(
+                l10n.integrationApprovalCannotDoTitle,
+                style: Theme.of(context).textTheme.titleSmall,
+              ),
+              const SizedBox(height: 10),
+              capabilityRow(
+                Icons.visibility_off_outlined,
+                l10n.integrationApprovalCannotDoRead,
+                color: scheme.error,
+              ),
+              capabilityRow(
+                Icons.shield_outlined,
+                l10n.integrationApprovalCannotDoBypassLock,
+                color: scheme.error,
+              ),
+              capabilityRow(
+                Icons.key_off_outlined,
+                l10n.integrationApprovalCannotDoWithoutSecret,
+                color: scheme.error,
+              ),
+              capabilityRow(
+                Icons.public_off_outlined,
+                l10n.integrationApprovalCannotDoRemoteAccess,
+                color: scheme.error,
+              ),
+            ],
+          ),
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context, false),
+          child: Text(l10n.integrationApprovalDeny),
+        ),
+        FilledButton(
+          onPressed: () => Navigator.pop(context, true),
+          child: Text(
+            isUpdate
+                ? l10n.integrationApprovalApproveUpdate
+                : l10n.integrationApprovalApprove,
+          ),
+        ),
+      ],
     );
   }
 }
