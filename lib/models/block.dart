@@ -8,11 +8,12 @@ class FolioBlock {
     this.depth = 0,
     this.icon,
     this.url,
+    this.imageWidth,
   });
 
   final String id;
 
-  /// paragraph | h1 | h2 | h3 | bullet | todo | code | image | table | quote | divider | callout | file | video
+  /// paragraph | h1 | h2 | h3 | bullet | todo | code | image | table | database | quote | divider | callout | file | video
   String type;
 
   /// En texto y encabezados puede incluir Markdown inline (negrita, cursiva, código, tachado, subrayado, enlaces).
@@ -31,6 +32,9 @@ class FolioBlock {
   /// Ruta de archivo local o URL para bloques de file o video
   String? url;
 
+  /// Ancho relativo para bloques de imagen (0.2 .. 1.0).
+  double? imageWidth;
+
   Map<String, dynamic> toJson() => {
     'id': id,
     'type': type,
@@ -40,6 +44,7 @@ class FolioBlock {
     if (depth > 0) 'depth': depth,
     if (icon != null) 'icon': icon,
     if (url != null) 'url': url,
+    if (imageWidth != null && imageWidth != 1.0) 'imageWidth': imageWidth,
   };
 
   factory FolioBlock.fromJson(Map<String, dynamic> j) {
@@ -52,6 +57,7 @@ class FolioBlock {
       depth: j['depth'] as int? ?? 0,
       icon: j['icon'] as String?,
       url: j['url'] as String?,
+      imageWidth: (j['imageWidth'] as num?)?.toDouble(),
     );
   }
 
@@ -63,6 +69,7 @@ class FolioBlock {
     int? depth,
     String? icon,
     String? url,
+    double? imageWidth,
   }) {
     return FolioBlock(
       id: id,
@@ -73,13 +80,14 @@ class FolioBlock {
       depth: depth ?? this.depth,
       icon: icon ?? this.icon,
       url: url ?? this.url,
+      imageWidth: imageWidth ?? this.imageWidth,
     );
   }
 }
 
 /// Si se permite fusionar [cur] en [prev] con retroceso al inicio de línea.
 bool folioBlocksCanMerge(FolioBlock prev, FolioBlock cur) {
-  const structural = {'image', 'table'};
+  const structural = {'image', 'table', 'database'};
   if (structural.contains(prev.type) || structural.contains(cur.type)) {
     return false;
   }

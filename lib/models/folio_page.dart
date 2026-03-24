@@ -1,4 +1,5 @@
 import 'block.dart';
+import 'folio_database_data.dart';
 import 'folio_table_data.dart';
 
 class FolioPage {
@@ -37,7 +38,7 @@ class FolioPage {
     final id = j['id'] as String;
     return FolioPage(
       id: id,
-      title: j['title'] as String? ?? 'Sin título',
+      title: j['title'] as String? ?? 'Untitled',
       parentId: j['parentId'] as String?,
       blocks: blocks,
     );
@@ -76,6 +77,8 @@ String _folioBlockPlainText(FolioBlock b) {
       return u.isEmpty ? '' : '[video] $u';
     case 'table':
       return FolioTableData.plainTextFromJson(b.text);
+    case 'database':
+      return FolioDatabaseData.plainTextFromJson(b.text);
     case 'code':
       final lang = b.codeLanguage?.trim();
       if (lang == null || lang.isEmpty) return b.text;

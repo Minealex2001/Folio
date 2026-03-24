@@ -16,10 +16,12 @@ import 'package:emoji_picker_flutter/emoji_picker_flutter.dart';
 import '../../../l10n/generated/app_localizations.dart';
 import '../../../data/vault_paths.dart';
 import '../../../models/block.dart';
+import '../../../models/folio_database_data.dart';
 import '../../../models/folio_page.dart';
 import '../../../models/folio_table_data.dart';
 import '../../../session/vault_session.dart';
 import 'code_block_languages.dart';
+import 'database_block_editor.dart';
 import 'file_video_previews.dart';
 import 'folio_text_format.dart';
 import 'table_block_editor.dart';
@@ -87,6 +89,13 @@ const _blockTypeCatalog = <_BlockTypeDef>[
     label: 'Tabla',
     hint: '/tabla  ·  celdas editables',
     icon: Icons.table_chart_rounded,
+    section: _BlockTypeSection.media,
+  ),
+  _BlockTypeDef(
+    key: 'database',
+    label: 'Base de datos',
+    hint: '/database  ·  tabla/tablero/calendario',
+    icon: Icons.dataset_rounded,
     section: _BlockTypeSection.media,
   ),
   _BlockTypeDef(
@@ -209,6 +218,29 @@ class _BlockEditorState extends State<BlockEditor> {
   Timer? _formatStickyClearTimer;
 
   VaultSession get _s => widget.session;
+
+  static final RegExp _imageUrlExt = RegExp(
+    r'\.(png|jpe?g|gif|webp|bmp|svg)(\?.*)?$',
+    caseSensitive: false,
+  );
+
+  bool _isImageUrl(String text) {
+    final t = text.trim();
+    if (t.isEmpty) return false;
+    final uri = Uri.tryParse(t);
+    if (uri == null) return false;
+    if (!(uri.scheme == 'http' || uri.scheme == 'https')) return false;
+    return _imageUrlExt.hasMatch(uri.path + (uri.hasQuery ? '?${uri.query}' : ''));
+  }
+
+  double _imageWidthFor(FolioBlock block) {
+    return (block.imageWidth ?? 1.0).clamp(0.2, 1.0);
+  }
+
+  void _nudgeImageWidth(FolioPage page, FolioBlock block, double delta) {
+    final next = (_imageWidthFor(block) + delta).clamp(0.2, 1.0);
+    _s.setBlockImageWidth(page.id, block.id, next);
+  }
 
   static const _slashFormatTypes = {
     'paragraph',
@@ -680,6 +712,19 @@ class _BlockEditorState extends State<BlockEditor> {
     if (bi < 0) return;
     final btype = pg.blocks[bi].type;
     _s.updateBlockText(pageId, blockId, text);
+    if (btype != 'image' && _isImageUrl(text)) {
+      _ignoreShortcuts = true;
+      _s.changeBlockType(pageId, blockId, 'image');
+      _s.updateBlockText(pageId, blockId, text.trim());
+      if (index < _controllers.length) {
+        _controllers[index].value = TextEditingValue(
+          text: text.trim(),
+          selection: TextSelection.collapsed(offset: text.trim().length),
+        );
+      }
+      _ignoreShortcuts = false;
+      return;
+    }
     const slashTypes = {'paragraph', 'h1', 'h2', 'h3', 'bullet', 'todo', 'quote', 'callout'};
     if (!slashTypes.contains(btype)) {
       return;
@@ -1184,6 +1229,7 @@ class _BlockEditorState extends State<BlockEditor> {
     FolioBlock block,
     FolioPage page,
     int index,
+    bool showControls,
   ) {
     final rel = block.text.trim();
     if (rel.isEmpty) {
@@ -1199,56 +1245,141 @@ class _BlockEditorState extends State<BlockEditor> {
             ),
             const SizedBox(height: 6),
             Text(
-              'Sin imagen · menú ⋮ o botón de abajo',
+              AppLocalizations.of(context).noImageHint,
               style: TextStyle(color: scheme.onSurfaceVariant, fontSize: 13),
             ),
             TextButton.icon(
               onPressed: () =>
                   unawaited(_pickImageForBlock(page.id, block.id, index)),
               icon: const Icon(Icons.upload_rounded, size: 20),
-              label: const Text('Elegir imagen'),
+              label: Text(AppLocalizations.of(context).chooseImage),
             ),
           ],
         ),
       );
     }
 
+    final widthFactor = _imageWidthFor(block);
+    final isRemote = rel.startsWith('http://') || rel.startsWith('https://');
     return FutureBuilder<Directory>(
       key: ValueKey(rel),
       future: VaultPaths.vaultDirectory(),
       builder: (context, snap) {
-        if (!snap.hasData) {
+        if (!isRemote && !snap.hasData) {
           return const SizedBox(
             height: 100,
             child: Center(child: CircularProgressIndicator()),
           );
         }
-        final file = File(p.join(snap.data!.path, rel));
-        if (!file.existsSync()) {
+        File? file;
+        if (!isRemote) {
+          file = File(p.join(snap.data!.path, rel));
+        }
+        if (!isRemote && (file == null || !file.existsSync())) {
           return Padding(
             padding: const EdgeInsets.symmetric(vertical: 8),
             child: Text(
-              'Archivo no encontrado',
+              AppLocalizations.of(context).fileNotFound,
               style: TextStyle(color: scheme.error, fontSize: 13),
             ),
           );
         }
-        return ClipRRect(
-          borderRadius: BorderRadius.circular(8),
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxHeight: 280),
-            child: Image.file(
-              file,
-              fit: BoxFit.contain,
-              errorBuilder: (context, error, stackTrace) => Padding(
-                padding: const EdgeInsets.symmetric(vertical: 8),
-                child: Text(
-                  'No se pudo cargar la imagen',
-                  style: TextStyle(color: scheme.error, fontSize: 13),
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            if (showControls)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 6),
+                child: Wrap(
+                  spacing: 6,
+                  runSpacing: 6,
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  children: [
+                    FilledButton.tonalIcon(
+                      onPressed: () => _nudgeImageWidth(page, block, -0.1),
+                      icon: const Icon(Icons.remove, size: 16),
+                      label: const Text('Menos'),
+                    ),
+                    FilledButton.tonalIcon(
+                      onPressed: () => _nudgeImageWidth(page, block, 0.1),
+                      icon: const Icon(Icons.add, size: 16),
+                      label: const Text('Mas'),
+                    ),
+                    OutlinedButton(
+                      onPressed: () => _s.setBlockImageWidth(page.id, block.id, 0.5),
+                      child: const Text('50%'),
+                    ),
+                    OutlinedButton(
+                      onPressed: () => _s.setBlockImageWidth(page.id, block.id, 0.75),
+                      child: const Text('75%'),
+                    ),
+                    OutlinedButton(
+                      onPressed: () => _s.setBlockImageWidth(page.id, block.id, 1.0),
+                      child: const Text('100%'),
+                    ),
+                  ],
                 ),
               ),
+            LayoutBuilder(
+              builder: (context, constraints) {
+                final maxW = constraints.maxWidth.isFinite
+                    ? constraints.maxWidth
+                    : MediaQuery.sizeOf(context).width;
+                final targetW = (maxW * widthFactor).clamp(120.0, maxW);
+                return Align(
+                  alignment: Alignment.centerLeft,
+                  child: SizedBox(
+                    width: targetW,
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(8),
+                      child: ConstrainedBox(
+                        constraints: const BoxConstraints(maxHeight: 380),
+                        child: isRemote
+                            ? Image.network(
+                                rel,
+                                fit: BoxFit.contain,
+                                errorBuilder: (context, error, stackTrace) =>
+                                    Padding(
+                                  padding:
+                                      const EdgeInsets.symmetric(vertical: 8),
+                                  child: Text(
+                                    AppLocalizations.of(context)
+                                        .couldNotLoadImage,
+                                    style: TextStyle(
+                                        color: scheme.error, fontSize: 13),
+                                  ),
+                                ),
+                              )
+                            : Image.file(
+                                file!,
+                                fit: BoxFit.contain,
+                                errorBuilder: (context, error, stackTrace) =>
+                                    Padding(
+                                  padding:
+                                      const EdgeInsets.symmetric(vertical: 8),
+                                  child: Text(
+                                    AppLocalizations.of(context)
+                                        .couldNotLoadImage,
+                                    style: TextStyle(
+                                        color: scheme.error, fontSize: 13),
+                                  ),
+                                ),
+                              ),
+                      ),
+                    ),
+                  ),
+                );
+              },
             ),
-          ),
+            if (showControls)
+              Padding(
+                padding: const EdgeInsets.only(top: 4),
+                child: Text(
+                  'Ancho: ${(widthFactor * 100).round()}%',
+                  style: TextStyle(color: scheme.onSurfaceVariant, fontSize: 12),
+                ),
+              ),
+          ],
         );
       },
     );
@@ -1409,7 +1540,7 @@ class _BlockEditorState extends State<BlockEditor> {
         FilledButton.tonalIcon(
           onPressed: () => _addBlock(page.id),
           icon: const Icon(Icons.add, size: 20),
-          label: const Text('Añadir bloque'),
+          label: Text(AppLocalizations.of(context).addBlock),
         ),
       ],
     ));
@@ -1424,10 +1555,10 @@ class _BlockEditorState extends State<BlockEditor> {
     return PopupMenuButton<String>(
       icon: Semantics(
         button: true,
-        label: 'Opciones del bloque',
+        label: AppLocalizations.of(context).blockOptions,
         child: Icon(Icons.more_vert_rounded, size: 22),
       ),
-      tooltip: 'Opciones del bloque',
+      tooltip: AppLocalizations.of(context).blockOptions,
       style: IconButton.styleFrom(visualDensity: VisualDensity.compact),
       onOpened: () => setState(() => _menuOpenBlockId = b.id),
       onCanceled: () {
@@ -1446,6 +1577,47 @@ class _BlockEditorState extends State<BlockEditor> {
             _pendingCursorOffset = 0;
           }
           _s.removeBlockIfMultiple(page.id, b.id);
+        } else if (v == 'ai_rewrite') {
+          WidgetsBinding.instance.addPostFrameCallback((_) async {
+            if (!mounted) return;
+            final c = TextEditingController();
+            final go = await showDialog<bool>(
+              context: menuContext,
+              builder: (ctx) => AlertDialog(
+                title: const Text('Reescribir con IA'),
+                content: TextField(
+                  controller: c,
+                  maxLines: 4,
+                  decoration: const InputDecoration(
+                    hintText: 'Ejemplo: hazlo más claro y breve',
+                  ),
+                ),
+                actions: [
+                  TextButton(
+                    onPressed: () => Navigator.pop(ctx, false),
+                    child: const Text('Cancelar'),
+                  ),
+                  FilledButton(
+                    onPressed: () => Navigator.pop(ctx, true),
+                    child: const Text('Aplicar'),
+                  ),
+                ],
+              ),
+            );
+            if (go != true || c.text.trim().isEmpty) return;
+            try {
+              await _s.rewriteBlockWithAi(
+                pageId: page.id,
+                blockId: b.id,
+                instruction: c.text.trim(),
+              );
+            } catch (e) {
+              if (!mounted) return;
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(content: Text('Error IA: $e')),
+              );
+            }
+          });
         } else if (v == 'pick_type') {
           WidgetsBinding.instance.addPostFrameCallback((_) async {
             if (!mounted) return;
@@ -1491,6 +1663,20 @@ class _BlockEditorState extends State<BlockEditor> {
           _mutateTable(page.id, b.id, index, (d) => d.addCol());
         } else if (v == 'table_col_rem') {
           _mutateTable(page.id, b.id, index, (d) => d.removeLastCol());
+        } else if (v == 'db_row_add') {
+          _mutateDatabase(page.id, b.id, index, (d) {
+            d.rows.add(FolioDbRow(id: '${page.id}_r_${_uuid.v4()}'));
+          });
+        } else if (v == 'db_col_add') {
+          _mutateDatabase(page.id, b.id, index, (d) {
+            d.properties.add(
+              FolioDbProperty(
+                id: 'p_${_uuid.v4()}',
+                name: 'Propiedad ${d.properties.length + 1}',
+                type: FolioDbPropertyType.text,
+              ),
+            );
+          });
         } else if (v == 'code_lang') {
           WidgetsBinding.instance.addPostFrameCallback((_) async {
             if (!mounted) return;
@@ -1502,9 +1688,17 @@ class _BlockEditorState extends State<BlockEditor> {
       },
       itemBuilder: (ctx) {
         final data = b.type == 'table' ? FolioTableData.tryParse(b.text) : null;
+        final db = b.type == 'database'
+            ? FolioDatabaseData.tryParse(b.text)
+            : null;
         final rows = data?.rowCount ?? 0;
         final cols = data?.cols ?? 0;
         return [
+          if (_s.aiEnabled)
+            const PopupMenuItem(
+              value: 'ai_rewrite',
+              child: Text('Reescribir con IA…'),
+            ),
           if (index > 0)
             const PopupMenuItem(value: 'up', child: Text('Mover arriba')),
           if (index < page.blocks.length - 1)
@@ -1573,6 +1767,17 @@ class _BlockEditorState extends State<BlockEditor> {
                 child: Text('Quitar última columna'),
               ),
           ],
+          if (b.type == 'database' && db != null) ...[
+            const PopupMenuDivider(),
+            const PopupMenuItem(
+              value: 'db_row_add',
+              child: Text('Añadir fila'),
+            ),
+            const PopupMenuItem(
+              value: 'db_col_add',
+              child: Text('Añadir propiedad'),
+            ),
+          ],
           const PopupMenuDivider(),
           PopupMenuItem(
             value: 'pick_type',
@@ -1610,6 +1815,24 @@ class _BlockEditorState extends State<BlockEditor> {
     final d = FolioTableData.tryParse(raw) ?? FolioTableData.empty();
     op(d);
     d.normalize();
+    final enc = d.encode();
+    _onTableEncoded(pageId, blockId, index, enc);
+    setState(() {});
+  }
+
+  void _mutateDatabase(
+    String pageId,
+    String blockId,
+    int index,
+    void Function(FolioDatabaseData d) op,
+  ) {
+    final page = _s.selectedPage;
+    if (page == null) return;
+    final bi = page.blocks.indexWhere((b) => b.id == blockId);
+    if (bi < 0) return;
+    final raw = page.blocks[bi].text;
+    final d = FolioDatabaseData.tryParse(raw) ?? FolioDatabaseData.empty();
+    op(d);
     final enc = d.encode();
     _onTableEncoded(pageId, blockId, index, enc);
     setState(() {});
@@ -1655,12 +1878,12 @@ class _BlockEditorState extends State<BlockEditor> {
 
     final dragHandle = showActions
         ? Tooltip(
-            message: 'Arrastrar para reordenar',
+            message: AppLocalizations.of(context).dragToReorder,
             waitDuration: const Duration(milliseconds: 400),
             child: ReorderableDragStartListener(
               index: index,
               child: Semantics(
-                label: 'Arrastrar para reordenar',
+                label: AppLocalizations.of(context).dragToReorder,
                 button: true,
                 child: _DragHandleWidget(iconColor: iconColor),
               ),
@@ -1727,7 +1950,13 @@ class _BlockEditorState extends State<BlockEditor> {
                 child: GestureDetector(
                   onTap: () => focus.requestFocus(),
                   behavior: HitTestBehavior.opaque,
-                  child: _imageBlockBody(scheme, block, page, index),
+                  child: _imageBlockBody(
+                    scheme,
+                    block,
+                    page,
+                    index,
+                    showActions || focus.hasFocus,
+                  ),
                 ),
               ),
             ),
@@ -1751,6 +1980,29 @@ class _BlockEditorState extends State<BlockEditor> {
                 scheme: scheme,
                 textTheme: theme.textTheme,
                 firstCellFocusNode: focus,
+                onChanged: (enc) =>
+                    _onTableEncoded(page.id, block.id, index, enc),
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    if (block.type == 'database') {
+      return Padding(
+        padding: EdgeInsetsDirectional.fromSTEB(block.depth * 28.0, 2, 4, 2),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _blockMenuSlot(showActions: showActions, menu: menu),
+            dragHandle,
+            marker,
+            Expanded(
+              child: DatabaseBlockEditor(
+                json: block.text,
+                scheme: scheme,
+                textTheme: theme.textTheme,
                 onChanged: (enc) =>
                     _onTableEncoded(page.id, block.id, index, enc),
               ),
@@ -1962,7 +2214,7 @@ class _BlockEditorState extends State<BlockEditor> {
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
                           Text(
-                            'Error resolviendo archivo',
+                            AppLocalizations.of(context).fileResolveError,
                             style: theme.textTheme.bodyMedium?.copyWith(
                               color: scheme.error,
                             ),
@@ -1971,7 +2223,7 @@ class _BlockEditorState extends State<BlockEditor> {
                           FilledButton.tonalIcon(
                             onPressed: () => _pickFileForBlock(page.id, block.id),
                             icon: const Icon(Icons.attach_file_rounded),
-                            label: const Text('Cambiar archivo'),
+                            label: Text(AppLocalizations.of(context).replaceFile),
                           ),
                         ],
                       );
@@ -1983,7 +2235,7 @@ class _BlockEditorState extends State<BlockEditor> {
                         children: [
                           if ((block.url ?? '').trim().isNotEmpty)
                             Text(
-                              'No se encuentra el archivo',
+                              AppLocalizations.of(context).fileMissing,
                               style: theme.textTheme.bodyMedium?.copyWith(
                                 color: scheme.error,
                               ),
@@ -1994,15 +2246,15 @@ class _BlockEditorState extends State<BlockEditor> {
                             icon: const Icon(Icons.attach_file_rounded),
                             label: Text(
                               (block.url ?? '').trim().isEmpty
-                                  ? 'Elegir archivo'
-                                  : 'Cambiar archivo',
+                                  ? AppLocalizations.of(context).chooseFile
+                                  : AppLocalizations.of(context).replaceFile,
                             ),
                           ),
                           if ((block.url ?? '').trim().isNotEmpty) ...[
                             const SizedBox(height: 4),
                             TextButton(
                               onPressed: () => _clearBlockUrl(page.id, block.id),
-                              child: const Text('Quitar archivo'),
+                              child: Text(AppLocalizations.of(context).removeFile),
                             ),
                           ],
                         ],
@@ -2054,7 +2306,7 @@ class _BlockEditorState extends State<BlockEditor> {
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
                           Text(
-                            'Error resolviendo video',
+                            AppLocalizations.of(context).videoResolveError,
                             style: theme.textTheme.bodyMedium?.copyWith(
                               color: scheme.error,
                             ),
@@ -2062,7 +2314,7 @@ class _BlockEditorState extends State<BlockEditor> {
                           const SizedBox(height: 8),
                           FilledButton.tonal(
                             onPressed: () => _pickVideoForBlock(page.id, block.id),
-                            child: const Text('Cambiar video'),
+                            child: Text(AppLocalizations.of(context).replaceVideo),
                           ),
                         ],
                       );
@@ -2074,7 +2326,7 @@ class _BlockEditorState extends State<BlockEditor> {
                         children: [
                           if ((block.url ?? '').trim().isNotEmpty)
                             Text(
-                              'No se encuentra el video',
+                              AppLocalizations.of(context).videoMissing,
                               style: theme.textTheme.bodyMedium?.copyWith(
                                 color: scheme.error,
                               ),
@@ -2084,15 +2336,15 @@ class _BlockEditorState extends State<BlockEditor> {
                             onPressed: () => _pickVideoForBlock(page.id, block.id),
                             child: Text(
                               (block.url ?? '').trim().isEmpty
-                                  ? 'Elegir video'
-                                  : 'Cambiar video',
+                                  ? AppLocalizations.of(context).chooseVideo
+                                  : AppLocalizations.of(context).replaceVideo,
                             ),
                           ),
                           if ((block.url ?? '').trim().isNotEmpty) ...[
                             const SizedBox(height: 4),
                             TextButton(
                               onPressed: () => _clearBlockUrl(page.id, block.id),
-                              child: const Text('Quitar video'),
+                              child: Text(AppLocalizations.of(context).removeVideo),
                             ),
                           ],
                         ],
@@ -2600,7 +2852,7 @@ class _BlockTypePickerSheetState extends State<_BlockTypePickerSheet> {
                     controller: _filter,
                     autofocus: true,
                     decoration: InputDecoration(
-                      hintText: 'Buscar por nombre o atajo…',
+                      hintText: AppLocalizations.of(context).searchByNameOrShortcut,
                       filled: true,
                       fillColor: scheme.surfaceContainerHighest.withValues(
                         alpha: 0.42,

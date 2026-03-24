@@ -16,6 +16,7 @@ class VaultPaths {
   static const String attachmentsDirName = 'attachments';
   static const String wrappedDekFile = 'vault.keys';
   static const String cipherPayloadFile = 'vault.bin';
+  static const String vaultModeFile = 'vault.mode';
   static const String rpStateFile = 'webauthn_rp.json';
 
   static const _uuid = Uuid();
@@ -156,20 +157,25 @@ class VaultPaths {
     return File(p.join(d.path, rpStateFile));
   }
 
+  static Future<File> vaultModePath() async {
+    final d = await vaultDirectory();
+    return File(p.join(d.path, vaultModeFile));
+  }
+
   static Future<bool> vaultExists() async {
     final id = _activeVaultId;
     if (id == null || id.isEmpty) return false;
-    final f = File(
-      p.join((await vaultDirectoryForId(id)).path, wrappedDekFile),
-    );
-    return f.existsSync();
+    final root = (await vaultDirectoryForId(id)).path;
+    final wrapped = File(p.join(root, wrappedDekFile));
+    final payload = File(p.join(root, cipherPayloadFile));
+    return wrapped.existsSync() || payload.existsSync();
   }
 
   static Future<bool> vaultExistsForId(String vaultId) async {
-    final f = File(
-      p.join((await vaultDirectoryForId(vaultId)).path, wrappedDekFile),
-    );
-    return f.existsSync();
+    final root = (await vaultDirectoryForId(vaultId)).path;
+    final wrapped = File(p.join(root, wrappedDekFile));
+    final payload = File(p.join(root, cipherPayloadFile));
+    return wrapped.existsSync() || payload.existsSync();
   }
 
   /// Borra el material cifrado del cofre activo (no toca otras prefs globales antiguas).
@@ -181,6 +187,10 @@ class VaultPaths {
     final c = await cipherPayloadPath();
     if (c.existsSync()) {
       await c.delete();
+    }
+    final m = await vaultModePath();
+    if (m.existsSync()) {
+      await m.delete();
     }
     await clearAttachmentsDirectory();
   }

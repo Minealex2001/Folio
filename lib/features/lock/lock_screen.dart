@@ -17,6 +17,7 @@ class LockScreen extends StatefulWidget {
 class _LockScreenState extends State<LockScreen> {
   final _password = TextEditingController();
   var _busy = false;
+  var _obscurePassword = true;
   String? _error;
   var _quickEnabled = false;
   var _passkeyRegistered = false;
@@ -124,9 +125,26 @@ class _LockScreenState extends State<LockScreen> {
                   const SizedBox(height: 32),
                   TextField(
                     controller: _password,
-                    obscureText: true,
+                    obscureText: _obscurePassword,
                     enabled: !_busy,
-                    decoration: InputDecoration(labelText: l10n.passwordLabel),
+                    decoration: InputDecoration(
+                      labelText: l10n.passwordLabel,
+                      suffixIcon: IconButton(
+                        onPressed: _busy
+                            ? null
+                            : () => setState(
+                                () => _obscurePassword = !_obscurePassword,
+                              ),
+                        icon: Icon(
+                          _obscurePassword
+                              ? Icons.visibility
+                              : Icons.visibility_off,
+                        ),
+                        tooltip: _obscurePassword
+                            ? l10n.showPassword
+                            : l10n.hidePassword,
+                      ),
+                    ),
                     onSubmitted: (_) => _unlockPassword(),
                   ),
                   const SizedBox(height: 12),

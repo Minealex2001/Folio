@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../app/ui_tokens.dart';
 import '../../../data/vault_registry.dart';
+import '../../../l10n/generated/app_localizations.dart';
 import '../../../models/folio_page.dart';
 import '../../../session/vault_session.dart';
 
@@ -61,23 +62,21 @@ class _SidebarState extends State<Sidebar> {
       session.pages.any((x) => x.parentId == p.id);
 
   Future<void> _confirmSwitchVault(String vaultId) async {
+    final l10n = AppLocalizations.of(context);
     if (vaultId == session.activeVaultId) return;
     final go = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Cambiar de cofre'),
-        content: const Text(
-          'Se cerrará la sesión de este cofre y tendrás que desbloquear el otro con su contraseña, '
-          'Hello o passkey (si los tienes configurados allí).',
-        ),
+        title: Text(l10n.switchVaultTitle),
+        content: Text(l10n.switchVaultBody),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('Cancelar'),
+            child: Text(l10n.cancel),
           ),
           FilledButton(
             onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('Cambiar'),
+            child: Text(l10n.change),
           ),
         ],
       ),
@@ -100,6 +99,7 @@ class _SidebarState extends State<Sidebar> {
   }
 
   Future<void> _renameActiveVault() async {
+    final l10n = AppLocalizations.of(context);
     final activeId = session.activeVaultId;
     if (activeId == null) return;
     VaultEntry? entry;
@@ -113,20 +113,20 @@ class _SidebarState extends State<Sidebar> {
     final ok = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Renombrar cofre'),
+        title: Text(l10n.renameVaultTitle),
         content: TextField(
           controller: controller,
           autofocus: true,
-          decoration: const InputDecoration(labelText: 'Nombre'),
+          decoration: InputDecoration(labelText: l10n.nameLabel),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('Cancelar'),
+            child: Text(l10n.cancel),
           ),
           FilledButton(
             onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('Guardar'),
+            child: Text(l10n.save),
           ),
         ],
       ),
@@ -138,11 +138,12 @@ class _SidebarState extends State<Sidebar> {
   }
 
   Future<void> _deleteOtherVault() async {
+    final l10n = AppLocalizations.of(context);
     final active = session.activeVaultId;
     final others = _vaults.where((e) => e.id != active).toList();
     if (others.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('No hay otros cofres que borrar.')),
+        SnackBar(content: Text(l10n.noOtherVaultsSnack)),
       );
       return;
     }
@@ -150,7 +151,7 @@ class _SidebarState extends State<Sidebar> {
     await showDialog<void>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Eliminar otro cofre'),
+        title: Text(l10n.deleteOtherVaultTitle),
         content: SizedBox(
           width: double.maxFinite,
           child: ListView(
@@ -176,7 +177,7 @@ class _SidebarState extends State<Sidebar> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
-            child: const Text('Cancelar'),
+            child: Text(l10n.cancel),
           ),
         ],
       ),
@@ -186,18 +187,18 @@ class _SidebarState extends State<Sidebar> {
     final confirm = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('¿Eliminar cofre?'),
+        title: Text(l10n.deleteVaultConfirmTitle),
         content: Text(
-          'Se borrará por completo «${target.displayName}». No se puede deshacer.',
+          l10n.deleteVaultConfirmBody(target.displayName),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('Cancelar'),
+            child: Text(l10n.cancel),
           ),
           FilledButton(
             onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('Eliminar'),
+            child: Text(l10n.delete),
           ),
         ],
       ),
@@ -208,7 +209,7 @@ class _SidebarState extends State<Sidebar> {
         if (mounted) {
           ScaffoldMessenger.of(
             context,
-          ).showSnackBar(const SnackBar(content: Text('Cofre eliminado.')));
+          ).showSnackBar(SnackBar(content: Text(l10n.vaultDeletedSnack)));
         }
       } catch (e) {
         if (mounted) {
@@ -221,6 +222,7 @@ class _SidebarState extends State<Sidebar> {
   }
 
   Widget _vaultToolbar(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     final scheme = Theme.of(context).colorScheme;
     final textTheme = Theme.of(context).textTheme;
     if (_vaultsLoading || _vaults.isEmpty) {
@@ -239,7 +241,7 @@ class _SidebarState extends State<Sidebar> {
     return Padding(
       padding: const EdgeInsets.all(FolioSpace.sm),
       child: PopupMenuButton<String>(
-        tooltip: 'Cambiar cofre',
+        tooltip: l10n.switchVaultTooltip,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(FolioRadius.md),
         ),
@@ -267,28 +269,28 @@ class _SidebarState extends State<Sidebar> {
               ),
             ),
           const PopupMenuDivider(),
-          const PopupMenuItem(
+          PopupMenuItem(
             value: 'add',
             child: ListTile(
               leading: Icon(Icons.add_circle_outline),
-              title: Text('Añadir cofre'),
+              title: Text(l10n.addVault),
               contentPadding: EdgeInsets.zero,
             ),
           ),
-          const PopupMenuItem(
+          PopupMenuItem(
             value: 'rename',
             child: ListTile(
               leading: Icon(Icons.edit_outlined),
-              title: Text('Renombrar cofre activo'),
+              title: Text(l10n.renameActiveVault),
               contentPadding: EdgeInsets.zero,
             ),
           ),
           if (_vaults.length > 1)
-            const PopupMenuItem(
+            PopupMenuItem(
               value: 'deleteOther',
               child: ListTile(
                 leading: Icon(Icons.delete_outline),
-                title: Text('Eliminar otro cofre…'),
+                title: Text(l10n.deleteOtherVault),
                 contentPadding: EdgeInsets.zero,
               ),
             ),
@@ -319,7 +321,7 @@ class _SidebarState extends State<Sidebar> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'Cofre activo',
+                      l10n.activeVaultLabel,
                       style: textTheme.labelSmall?.copyWith(
                         color: scheme.onSurfaceVariant,
                       ),
@@ -348,28 +350,29 @@ class _SidebarState extends State<Sidebar> {
   }
 
   void _rename(BuildContext context, FolioPage page) {
+    final l10n = AppLocalizations.of(context);
     final titleController = TextEditingController(text: page.title);
     showDialog<void>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Renombrar página'),
+        title: Text(l10n.renamePageTitle),
         content: TextField(
           controller: titleController,
           autofocus: true,
-          decoration: const InputDecoration(labelText: 'Título'),
+          decoration: InputDecoration(labelText: l10n.titleLabel),
           onSubmitted: (_) => Navigator.of(ctx).pop(),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(ctx).pop(),
-            child: const Text('Cancelar'),
+            child: Text(l10n.cancel),
           ),
           TextButton(
             onPressed: () {
               session.renamePage(page.id, titleController.text);
               Navigator.of(ctx).pop();
             },
-            child: const Text('Guardar'),
+            child: Text(l10n.save),
           ),
         ],
       ),
@@ -377,8 +380,9 @@ class _SidebarState extends State<Sidebar> {
   }
 
   void _move(BuildContext context, FolioPage page) {
+    final l10n = AppLocalizations.of(context);
     final options = <MapEntry<String?, String>>[
-      const MapEntry(null, 'Raíz'),
+      MapEntry(null, l10n.rootPage),
       ...session.pages
           .where(
             (p) =>
@@ -395,7 +399,7 @@ class _SidebarState extends State<Sidebar> {
           child: ListView(
             shrinkWrap: true,
             children: [
-              ListTile(title: Text('Mover «${page.title}»')),
+              ListTile(title: Text(l10n.movePageTitle(page.title))),
               ...options.map(
                 (e) => ListTile(
                   title: Text(e.value),
@@ -416,6 +420,7 @@ class _SidebarState extends State<Sidebar> {
   }
 
   Widget _tile(BuildContext context, FolioPage page, double indent) {
+    final l10n = AppLocalizations.of(context);
     final scheme = Theme.of(context).colorScheme;
     final selected = page.id == session.selectedPageId;
     final canDelete = session.pages.length > 1 && !_hasChildren(page);
@@ -457,7 +462,7 @@ class _SidebarState extends State<Sidebar> {
                 ),
                 IconButton(
                   icon: const Icon(Icons.add, size: 20),
-                  tooltip: 'Subpágina',
+                  tooltip: l10n.subpage,
                   visualDensity: VisualDensity.compact,
                   color: selected ? scheme.onSecondaryContainer : scheme.onSurfaceVariant,
                   onPressed: () {
@@ -466,21 +471,21 @@ class _SidebarState extends State<Sidebar> {
                 ),
                 IconButton(
                   icon: const Icon(Icons.drive_file_move_outline, size: 20),
-                  tooltip: 'Mover',
+                  tooltip: l10n.move,
                   visualDensity: VisualDensity.compact,
                   color: selected ? scheme.onSecondaryContainer : scheme.onSurfaceVariant,
                   onPressed: () => _move(context, page),
                 ),
                 IconButton(
                   icon: const Icon(Icons.edit_outlined, size: 20),
-                  tooltip: 'Renombrar',
+                  tooltip: l10n.rename,
                   visualDensity: VisualDensity.compact,
                   color: selected ? scheme.onSecondaryContainer : scheme.onSurfaceVariant,
                   onPressed: () => _rename(context, page),
                 ),
                 IconButton(
                   icon: const Icon(Icons.delete_outline, size: 20),
-                  tooltip: 'Eliminar',
+                  tooltip: l10n.delete,
                   visualDensity: VisualDensity.compact,
                   color: selected ? scheme.onSecondaryContainer : scheme.onSurfaceVariant,
                   onPressed: canDelete
@@ -513,6 +518,7 @@ class _SidebarState extends State<Sidebar> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -523,7 +529,7 @@ class _SidebarState extends State<Sidebar> {
           child: Row(
             children: [
               Text(
-                'Páginas',
+                l10n.pages,
                 style: Theme.of(context).textTheme.titleSmall?.copyWith(
                   color: Theme.of(context).colorScheme.onSurfaceVariant,
                   fontWeight: FontWeight.w600,
@@ -533,7 +539,7 @@ class _SidebarState extends State<Sidebar> {
               IconButton(
                 onPressed: () => session.addPage(parentId: null),
                 icon: const Icon(Icons.add),
-                tooltip: 'Nueva página (raíz)',
+                tooltip: l10n.newRootPageTooltip,
                 visualDensity: VisualDensity.compact,
               ),
             ],

@@ -332,6 +332,54 @@ abstract class AppLocalizations {
   /// **'Las contraseñas no coinciden.'**
   String get passwordMismatchError;
 
+  /// No description provided for @passwordMustBeStrongError.
+  ///
+  /// In es, this message translates to:
+  /// **'La contraseña debe ser Fuerte para continuar.'**
+  String get passwordMustBeStrongError;
+
+  /// No description provided for @passwordStrengthLabel.
+  ///
+  /// In es, this message translates to:
+  /// **'Seguridad'**
+  String get passwordStrengthLabel;
+
+  /// No description provided for @passwordStrengthVeryWeak.
+  ///
+  /// In es, this message translates to:
+  /// **'Muy débil'**
+  String get passwordStrengthVeryWeak;
+
+  /// No description provided for @passwordStrengthWeak.
+  ///
+  /// In es, this message translates to:
+  /// **'Débil'**
+  String get passwordStrengthWeak;
+
+  /// No description provided for @passwordStrengthFair.
+  ///
+  /// In es, this message translates to:
+  /// **'Aceptable'**
+  String get passwordStrengthFair;
+
+  /// No description provided for @passwordStrengthStrong.
+  ///
+  /// In es, this message translates to:
+  /// **'Fuerte'**
+  String get passwordStrengthStrong;
+
+  /// No description provided for @showPassword.
+  ///
+  /// In es, this message translates to:
+  /// **'Mostrar contraseña'**
+  String get showPassword;
+
+  /// No description provided for @hidePassword.
+  ///
+  /// In es, this message translates to:
+  /// **'Ocultar contraseña'**
+  String get hidePassword;
+
   /// No description provided for @chooseZipError.
   ///
   /// In es, this message translates to:
@@ -451,6 +499,1140 @@ abstract class AppLocalizations {
   /// In es, this message translates to:
   /// **'Inglés'**
   String get englishLanguage;
+
+  /// No description provided for @active.
+  ///
+  /// In es, this message translates to:
+  /// **'Activado'**
+  String get active;
+
+  /// No description provided for @inactive.
+  ///
+  /// In es, this message translates to:
+  /// **'Desactivado'**
+  String get inactive;
+
+  /// No description provided for @remove.
+  ///
+  /// In es, this message translates to:
+  /// **'Quitar'**
+  String get remove;
+
+  /// No description provided for @enable.
+  ///
+  /// In es, this message translates to:
+  /// **'Activar'**
+  String get enable;
+
+  /// No description provided for @register.
+  ///
+  /// In es, this message translates to:
+  /// **'Registrar'**
+  String get register;
+
+  /// No description provided for @revoke.
+  ///
+  /// In es, this message translates to:
+  /// **'Revocar'**
+  String get revoke;
+
+  /// No description provided for @save.
+  ///
+  /// In es, this message translates to:
+  /// **'Guardar'**
+  String get save;
+
+  /// No description provided for @delete.
+  ///
+  /// In es, this message translates to:
+  /// **'Eliminar'**
+  String get delete;
+
+  /// No description provided for @rename.
+  ///
+  /// In es, this message translates to:
+  /// **'Renombrar'**
+  String get rename;
+
+  /// No description provided for @change.
+  ///
+  /// In es, this message translates to:
+  /// **'Cambiar'**
+  String get change;
+
+  /// No description provided for @importAction.
+  ///
+  /// In es, this message translates to:
+  /// **'Importar'**
+  String get importAction;
+
+  /// No description provided for @masterPassword.
+  ///
+  /// In es, this message translates to:
+  /// **'Contraseña maestra'**
+  String get masterPassword;
+
+  /// No description provided for @confirmIdentity.
+  ///
+  /// In es, this message translates to:
+  /// **'Confirma identidad'**
+  String get confirmIdentity;
+
+  /// No description provided for @quickUnlockTitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Desbloqueo rápido (Hello / biometría)'**
+  String get quickUnlockTitle;
+
+  /// No description provided for @passkeyThisDevice.
+  ///
+  /// In es, this message translates to:
+  /// **'WebAuthn en este dispositivo'**
+  String get passkeyThisDevice;
+
+  /// No description provided for @lockOnMinimize.
+  ///
+  /// In es, this message translates to:
+  /// **'Bloquear al minimizar'**
+  String get lockOnMinimize;
+
+  /// No description provided for @changeMasterPassword.
+  ///
+  /// In es, this message translates to:
+  /// **'Cambiar contraseña maestra'**
+  String get changeMasterPassword;
+
+  /// No description provided for @requiresCurrentPassword.
+  ///
+  /// In es, this message translates to:
+  /// **'Requiere contraseña actual'**
+  String get requiresCurrentPassword;
+
+  /// No description provided for @lockAutoByInactivity.
+  ///
+  /// In es, this message translates to:
+  /// **'Bloqueo automático por inactividad'**
+  String get lockAutoByInactivity;
+
+  /// No description provided for @minutesShort.
+  ///
+  /// In es, this message translates to:
+  /// **'{minutes} min'**
+  String minutesShort(int minutes);
+
+  /// No description provided for @settingsAppearanceHint.
+  ///
+  /// In es, this message translates to:
+  /// **'El color principal sigue al acento de Windows cuando está disponible.'**
+  String get settingsAppearanceHint;
+
+  /// No description provided for @backupFilePasswordLabel.
+  ///
+  /// In es, this message translates to:
+  /// **'Contraseña del archivo de copia'**
+  String get backupFilePasswordLabel;
+
+  /// No description provided for @backupFilePasswordHelper.
+  ///
+  /// In es, this message translates to:
+  /// **'Es la contraseña maestra con la que se creó la copia, no la de otro dispositivo.'**
+  String get backupFilePasswordHelper;
+
+  /// No description provided for @backupPasswordDialogTitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Contraseña de la copia'**
+  String get backupPasswordDialogTitle;
+
+  /// No description provided for @currentPasswordLabel.
+  ///
+  /// In es, this message translates to:
+  /// **'Contraseña actual'**
+  String get currentPasswordLabel;
+
+  /// No description provided for @newPasswordLabel.
+  ///
+  /// In es, this message translates to:
+  /// **'Nueva contraseña'**
+  String get newPasswordLabel;
+
+  /// No description provided for @confirmNewPasswordLabel.
+  ///
+  /// In es, this message translates to:
+  /// **'Confirmar nueva contraseña'**
+  String get confirmNewPasswordLabel;
+
+  /// No description provided for @passwordStrengthWithValue.
+  ///
+  /// In es, this message translates to:
+  /// **'Seguridad: {value}'**
+  String passwordStrengthWithValue(Object value);
+
+  /// No description provided for @fillAllFieldsError.
+  ///
+  /// In es, this message translates to:
+  /// **'Completa todos los campos.'**
+  String get fillAllFieldsError;
+
+  /// No description provided for @newPasswordsMismatchError.
+  ///
+  /// In es, this message translates to:
+  /// **'Las contraseñas nuevas no coinciden.'**
+  String get newPasswordsMismatchError;
+
+  /// No description provided for @newPasswordMustBeStrongError.
+  ///
+  /// In es, this message translates to:
+  /// **'La nueva contraseña debe ser Fuerte.'**
+  String get newPasswordMustBeStrongError;
+
+  /// No description provided for @newPasswordMustDifferError.
+  ///
+  /// In es, this message translates to:
+  /// **'La nueva contraseña debe ser distinta.'**
+  String get newPasswordMustDifferError;
+
+  /// No description provided for @incorrectPasswordError.
+  ///
+  /// In es, this message translates to:
+  /// **'Contraseña incorrecta.'**
+  String get incorrectPasswordError;
+
+  /// No description provided for @useHelloBiometrics.
+  ///
+  /// In es, this message translates to:
+  /// **'Usar Hello / biometría'**
+  String get useHelloBiometrics;
+
+  /// No description provided for @usePasskey.
+  ///
+  /// In es, this message translates to:
+  /// **'Usar passkey'**
+  String get usePasskey;
+
+  /// No description provided for @quickUnlockEnabledSnack.
+  ///
+  /// In es, this message translates to:
+  /// **'Desbloqueo rápido activado'**
+  String get quickUnlockEnabledSnack;
+
+  /// No description provided for @quickUnlockDisabledSnack.
+  ///
+  /// In es, this message translates to:
+  /// **'Desbloqueo rápido desactivado'**
+  String get quickUnlockDisabledSnack;
+
+  /// No description provided for @passkeyRegisteredSnack.
+  ///
+  /// In es, this message translates to:
+  /// **'Passkey registrada'**
+  String get passkeyRegisteredSnack;
+
+  /// No description provided for @passkeyRevokedSnack.
+  ///
+  /// In es, this message translates to:
+  /// **'Passkey revocada'**
+  String get passkeyRevokedSnack;
+
+  /// No description provided for @masterPasswordUpdatedSnack.
+  ///
+  /// In es, this message translates to:
+  /// **'Contraseña maestra actualizada'**
+  String get masterPasswordUpdatedSnack;
+
+  /// No description provided for @backupSavedSuccessSnack.
+  ///
+  /// In es, this message translates to:
+  /// **'Copia guardada correctamente.'**
+  String get backupSavedSuccessSnack;
+
+  /// No description provided for @exportFailedError.
+  ///
+  /// In es, this message translates to:
+  /// **'No se pudo exportar: {error}'**
+  String exportFailedError(Object error);
+
+  /// No description provided for @importFailedGenericError.
+  ///
+  /// In es, this message translates to:
+  /// **'No se pudo importar: {error}'**
+  String importFailedGenericError(Object error);
+
+  /// No description provided for @wipeFailedError.
+  ///
+  /// In es, this message translates to:
+  /// **'No se pudo borrar el cofre: {error}'**
+  String wipeFailedError(Object error);
+
+  /// No description provided for @filePathReadError.
+  ///
+  /// In es, this message translates to:
+  /// **'No se pudo leer la ruta del archivo.'**
+  String get filePathReadError;
+
+  /// No description provided for @importedVaultSuccessSnack.
+  ///
+  /// In es, this message translates to:
+  /// **'Cofre importado. Aparece en el selector del panel lateral; el actual sigue igual.'**
+  String get importedVaultSuccessSnack;
+
+  /// No description provided for @exportVaultDialogTitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Exportar copia del cofre'**
+  String get exportVaultDialogTitle;
+
+  /// No description provided for @exportVaultDialogBody.
+  ///
+  /// In es, this message translates to:
+  /// **'Para crear un archivo de copia, confirma tu identidad con el cofre actual desbloqueado.'**
+  String get exportVaultDialogBody;
+
+  /// No description provided for @verifyAndExport.
+  ///
+  /// In es, this message translates to:
+  /// **'Verificar y exportar'**
+  String get verifyAndExport;
+
+  /// No description provided for @saveVaultBackupDialogTitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Guardar copia del cofre'**
+  String get saveVaultBackupDialogTitle;
+
+  /// No description provided for @importVaultDialogTitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Importar copia del cofre'**
+  String get importVaultDialogTitle;
+
+  /// No description provided for @importVaultDialogBody.
+  ///
+  /// In es, this message translates to:
+  /// **'Se añadirá un cofre nuevo desde el archivo. El cofre que tienes abierto ahora no se borra ni se modifica.\n\nLa contraseña del archivo será la del cofre importado (para abrirlo al cambiar de cofre).\n\nLa passkey y el desbloqueo rápido (Hello / biometría) no van en la copia y no son transferibles; podrás configurarlos en ese cofre después.\n\n¿Continuar?'**
+  String get importVaultDialogBody;
+
+  /// No description provided for @verifyAndContinue.
+  ///
+  /// In es, this message translates to:
+  /// **'Verificar y continuar'**
+  String get verifyAndContinue;
+
+  /// No description provided for @verifyAndDelete.
+  ///
+  /// In es, this message translates to:
+  /// **'Verificar con contraseña y borrar'**
+  String get verifyAndDelete;
+
+  /// No description provided for @importIdentityBody.
+  ///
+  /// In es, this message translates to:
+  /// **'Demuestra que eres tú con el cofre actual desbloqueado antes de importar.'**
+  String get importIdentityBody;
+
+  /// No description provided for @wipeVaultDialogTitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Borrar cofre'**
+  String get wipeVaultDialogTitle;
+
+  /// No description provided for @wipeVaultDialogBody.
+  ///
+  /// In es, this message translates to:
+  /// **'Se eliminarán todas las páginas y la contraseña maestra dejará de ser válida. Esta acción no se puede deshacer.\n\n¿Seguro que quieres continuar?'**
+  String get wipeVaultDialogBody;
+
+  /// No description provided for @wipeIdentityBody.
+  ///
+  /// In es, this message translates to:
+  /// **'Para borrar el cofre, demuestra que eres tú.'**
+  String get wipeIdentityBody;
+
+  /// No description provided for @exportZipTitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Exportar copia (.zip)'**
+  String get exportZipTitle;
+
+  /// No description provided for @exportZipSubtitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Contraseña, Hello o passkey del cofre actual'**
+  String get exportZipSubtitle;
+
+  /// No description provided for @importZipTitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Importar copia (.zip)'**
+  String get importZipTitle;
+
+  /// No description provided for @importZipSubtitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Añade cofre nuevo · identidad actual + contraseña del archivo'**
+  String get importZipSubtitle;
+
+  /// No description provided for @backupInfoBody.
+  ///
+  /// In es, this message translates to:
+  /// **'El archivo contiene los mismos datos cifrados que en disco (vault.keys y vault.bin), sin exponer el contenido en claro. Las imágenes en adjuntos van tal cual.\n\nLa passkey y el desbloqueo rápido no se incluyen en la copia y no son transferibles entre dispositivos; en cada cofre importado podrás configurarlos de nuevo.\n\nImportar añade un cofre nuevo; no sustituye el que tienes abierto.'**
+  String get backupInfoBody;
+
+  /// No description provided for @wipeCardTitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Borrar cofre y empezar de cero'**
+  String get wipeCardTitle;
+
+  /// No description provided for @wipeCardSubtitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Requiere contraseña, Hello o passkey.'**
+  String get wipeCardSubtitle;
+
+  /// No description provided for @switchVaultTooltip.
+  ///
+  /// In es, this message translates to:
+  /// **'Cambiar cofre'**
+  String get switchVaultTooltip;
+
+  /// No description provided for @switchVaultTitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Cambiar de cofre'**
+  String get switchVaultTitle;
+
+  /// No description provided for @switchVaultBody.
+  ///
+  /// In es, this message translates to:
+  /// **'Se cerrará la sesión de este cofre y tendrás que desbloquear el otro con su contraseña, Hello o passkey (si los tienes configurados allí).'**
+  String get switchVaultBody;
+
+  /// No description provided for @renameVaultTitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Renombrar cofre'**
+  String get renameVaultTitle;
+
+  /// No description provided for @nameLabel.
+  ///
+  /// In es, this message translates to:
+  /// **'Nombre'**
+  String get nameLabel;
+
+  /// No description provided for @deleteOtherVaultTitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Eliminar otro cofre'**
+  String get deleteOtherVaultTitle;
+
+  /// No description provided for @deleteVaultConfirmTitle.
+  ///
+  /// In es, this message translates to:
+  /// **'¿Eliminar cofre?'**
+  String get deleteVaultConfirmTitle;
+
+  /// No description provided for @deleteVaultConfirmBody.
+  ///
+  /// In es, this message translates to:
+  /// **'Se borrará por completo «{name}». No se puede deshacer.'**
+  String deleteVaultConfirmBody(Object name);
+
+  /// No description provided for @vaultDeletedSnack.
+  ///
+  /// In es, this message translates to:
+  /// **'Cofre eliminado.'**
+  String get vaultDeletedSnack;
+
+  /// No description provided for @noOtherVaultsSnack.
+  ///
+  /// In es, this message translates to:
+  /// **'No hay otros cofres que borrar.'**
+  String get noOtherVaultsSnack;
+
+  /// No description provided for @addVault.
+  ///
+  /// In es, this message translates to:
+  /// **'Añadir cofre'**
+  String get addVault;
+
+  /// No description provided for @renameActiveVault.
+  ///
+  /// In es, this message translates to:
+  /// **'Renombrar cofre activo'**
+  String get renameActiveVault;
+
+  /// No description provided for @deleteOtherVault.
+  ///
+  /// In es, this message translates to:
+  /// **'Eliminar otro cofre…'**
+  String get deleteOtherVault;
+
+  /// No description provided for @activeVaultLabel.
+  ///
+  /// In es, this message translates to:
+  /// **'Cofre activo'**
+  String get activeVaultLabel;
+
+  /// No description provided for @renamePageTitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Renombrar página'**
+  String get renamePageTitle;
+
+  /// No description provided for @titleLabel.
+  ///
+  /// In es, this message translates to:
+  /// **'Título'**
+  String get titleLabel;
+
+  /// No description provided for @rootPage.
+  ///
+  /// In es, this message translates to:
+  /// **'Raíz'**
+  String get rootPage;
+
+  /// No description provided for @movePageTitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Mover «{title}»'**
+  String movePageTitle(Object title);
+
+  /// No description provided for @subpage.
+  ///
+  /// In es, this message translates to:
+  /// **'Subpágina'**
+  String get subpage;
+
+  /// No description provided for @move.
+  ///
+  /// In es, this message translates to:
+  /// **'Mover'**
+  String get move;
+
+  /// No description provided for @pages.
+  ///
+  /// In es, this message translates to:
+  /// **'Páginas'**
+  String get pages;
+
+  /// No description provided for @newRootPageTooltip.
+  ///
+  /// In es, this message translates to:
+  /// **'Nueva página (raíz)'**
+  String get newRootPageTooltip;
+
+  /// No description provided for @blockOptions.
+  ///
+  /// In es, this message translates to:
+  /// **'Opciones del bloque'**
+  String get blockOptions;
+
+  /// No description provided for @dragToReorder.
+  ///
+  /// In es, this message translates to:
+  /// **'Arrastrar para reordenar'**
+  String get dragToReorder;
+
+  /// No description provided for @addBlock.
+  ///
+  /// In es, this message translates to:
+  /// **'Añadir bloque'**
+  String get addBlock;
+
+  /// No description provided for @fileNotFound.
+  ///
+  /// In es, this message translates to:
+  /// **'Archivo no encontrado'**
+  String get fileNotFound;
+
+  /// No description provided for @couldNotLoadImage.
+  ///
+  /// In es, this message translates to:
+  /// **'No se pudo cargar la imagen'**
+  String get couldNotLoadImage;
+
+  /// No description provided for @noImageHint.
+  ///
+  /// In es, this message translates to:
+  /// **'Sin imagen · menú ⋮ o botón de abajo'**
+  String get noImageHint;
+
+  /// No description provided for @chooseImage.
+  ///
+  /// In es, this message translates to:
+  /// **'Elegir imagen'**
+  String get chooseImage;
+
+  /// No description provided for @replaceFile.
+  ///
+  /// In es, this message translates to:
+  /// **'Cambiar archivo'**
+  String get replaceFile;
+
+  /// No description provided for @removeFile.
+  ///
+  /// In es, this message translates to:
+  /// **'Quitar archivo'**
+  String get removeFile;
+
+  /// No description provided for @replaceVideo.
+  ///
+  /// In es, this message translates to:
+  /// **'Cambiar video'**
+  String get replaceVideo;
+
+  /// No description provided for @removeVideo.
+  ///
+  /// In es, this message translates to:
+  /// **'Quitar video'**
+  String get removeVideo;
+
+  /// No description provided for @openExternal.
+  ///
+  /// In es, this message translates to:
+  /// **'Abrir externo'**
+  String get openExternal;
+
+  /// No description provided for @openVideoExternal.
+  ///
+  /// In es, this message translates to:
+  /// **'Abrir video externo'**
+  String get openVideoExternal;
+
+  /// No description provided for @play.
+  ///
+  /// In es, this message translates to:
+  /// **'Reproducir'**
+  String get play;
+
+  /// No description provided for @pause.
+  ///
+  /// In es, this message translates to:
+  /// **'Pausar'**
+  String get pause;
+
+  /// No description provided for @mute.
+  ///
+  /// In es, this message translates to:
+  /// **'Silenciar'**
+  String get mute;
+
+  /// No description provided for @unmute.
+  ///
+  /// In es, this message translates to:
+  /// **'Activar sonido'**
+  String get unmute;
+
+  /// No description provided for @fileResolveError.
+  ///
+  /// In es, this message translates to:
+  /// **'Error resolviendo archivo'**
+  String get fileResolveError;
+
+  /// No description provided for @videoResolveError.
+  ///
+  /// In es, this message translates to:
+  /// **'Error resolviendo video'**
+  String get videoResolveError;
+
+  /// No description provided for @fileMissing.
+  ///
+  /// In es, this message translates to:
+  /// **'No se encuentra el archivo'**
+  String get fileMissing;
+
+  /// No description provided for @videoMissing.
+  ///
+  /// In es, this message translates to:
+  /// **'No se encuentra el video'**
+  String get videoMissing;
+
+  /// No description provided for @chooseFile.
+  ///
+  /// In es, this message translates to:
+  /// **'Elegir archivo'**
+  String get chooseFile;
+
+  /// No description provided for @chooseVideo.
+  ///
+  /// In es, this message translates to:
+  /// **'Elegir video'**
+  String get chooseVideo;
+
+  /// No description provided for @noEmbeddedPreview.
+  ///
+  /// In es, this message translates to:
+  /// **'Sin preview embebido para este tipo'**
+  String get noEmbeddedPreview;
+
+  /// No description provided for @couldNotReadFile.
+  ///
+  /// In es, this message translates to:
+  /// **'No se pudo leer el archivo'**
+  String get couldNotReadFile;
+
+  /// No description provided for @couldNotLoadVideo.
+  ///
+  /// In es, this message translates to:
+  /// **'No se pudo cargar el video'**
+  String get couldNotLoadVideo;
+
+  /// No description provided for @couldNotPreviewPdf.
+  ///
+  /// In es, this message translates to:
+  /// **'No se pudo previsualizar el PDF'**
+  String get couldNotPreviewPdf;
+
+  /// No description provided for @formatToolbar.
+  ///
+  /// In es, this message translates to:
+  /// **'Barra de formato'**
+  String get formatToolbar;
+
+  /// No description provided for @linkTitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Enlace'**
+  String get linkTitle;
+
+  /// No description provided for @visibleTextLabel.
+  ///
+  /// In es, this message translates to:
+  /// **'Texto visible'**
+  String get visibleTextLabel;
+
+  /// No description provided for @urlLabel.
+  ///
+  /// In es, this message translates to:
+  /// **'URL'**
+  String get urlLabel;
+
+  /// No description provided for @urlHint.
+  ///
+  /// In es, this message translates to:
+  /// **'https://…'**
+  String get urlHint;
+
+  /// No description provided for @insert.
+  ///
+  /// In es, this message translates to:
+  /// **'Insertar'**
+  String get insert;
+
+  /// No description provided for @defaultLinkText.
+  ///
+  /// In es, this message translates to:
+  /// **'texto'**
+  String get defaultLinkText;
+
+  /// No description provided for @boldTip.
+  ///
+  /// In es, this message translates to:
+  /// **'Negrita (**)'**
+  String get boldTip;
+
+  /// No description provided for @italicTip.
+  ///
+  /// In es, this message translates to:
+  /// **'Cursiva (_)'**
+  String get italicTip;
+
+  /// No description provided for @underlineTip.
+  ///
+  /// In es, this message translates to:
+  /// **'Subrayado (<u>)'**
+  String get underlineTip;
+
+  /// No description provided for @inlineCodeTip.
+  ///
+  /// In es, this message translates to:
+  /// **'Código inline (`)'**
+  String get inlineCodeTip;
+
+  /// No description provided for @strikeTip.
+  ///
+  /// In es, this message translates to:
+  /// **'Tachado (~~)'**
+  String get strikeTip;
+
+  /// No description provided for @linkTip.
+  ///
+  /// In es, this message translates to:
+  /// **'Enlace'**
+  String get linkTip;
+
+  /// No description provided for @pageHistoryTitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Historial de versiones'**
+  String get pageHistoryTitle;
+
+  /// No description provided for @restoreVersionTitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Restaurar versión'**
+  String get restoreVersionTitle;
+
+  /// No description provided for @restoreVersionBody.
+  ///
+  /// In es, this message translates to:
+  /// **'Se sustituirá el título y el contenido de la página por esta versión. El estado actual se guardará antes en el historial.'**
+  String get restoreVersionBody;
+
+  /// No description provided for @restore.
+  ///
+  /// In es, this message translates to:
+  /// **'Restaurar'**
+  String get restore;
+
+  /// No description provided for @deleteVersionTitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Borrar versión'**
+  String get deleteVersionTitle;
+
+  /// No description provided for @deleteVersionBody.
+  ///
+  /// In es, this message translates to:
+  /// **'Esta entrada desaparecerá del historial. El texto actual de la página no cambia.'**
+  String get deleteVersionBody;
+
+  /// No description provided for @noVersionsYet.
+  ///
+  /// In es, this message translates to:
+  /// **'Sin versiones todavía'**
+  String get noVersionsYet;
+
+  /// No description provided for @historyAppearsHint.
+  ///
+  /// In es, this message translates to:
+  /// **'Cuando dejes de escribir unos segundos, aquí aparecerá el historial de cambios.'**
+  String get historyAppearsHint;
+
+  /// No description provided for @versionControl.
+  ///
+  /// In es, this message translates to:
+  /// **'Control de versiones'**
+  String get versionControl;
+
+  /// No description provided for @historyHeaderBody.
+  ///
+  /// In es, this message translates to:
+  /// **'El cofre se guarda en seguida; el historial añade una entrada cuando dejas de editar y el contenido cambió.'**
+  String get historyHeaderBody;
+
+  /// No description provided for @versionsCount.
+  ///
+  /// In es, this message translates to:
+  /// **'{count} {count, plural, one {versión} other {versiones}}'**
+  String versionsCount(int count);
+
+  /// No description provided for @untitledFallback.
+  ///
+  /// In es, this message translates to:
+  /// **'Sin título'**
+  String get untitledFallback;
+
+  /// No description provided for @comparedWithPrevious.
+  ///
+  /// In es, this message translates to:
+  /// **'Comparado con la versión anterior'**
+  String get comparedWithPrevious;
+
+  /// No description provided for @changesFromEmptyStart.
+  ///
+  /// In es, this message translates to:
+  /// **'Cambios desde el inicio vacío'**
+  String get changesFromEmptyStart;
+
+  /// No description provided for @contentLabel.
+  ///
+  /// In es, this message translates to:
+  /// **'Contenido'**
+  String get contentLabel;
+
+  /// No description provided for @titleLabelSimple.
+  ///
+  /// In es, this message translates to:
+  /// **'Título'**
+  String get titleLabelSimple;
+
+  /// No description provided for @emptyValue.
+  ///
+  /// In es, this message translates to:
+  /// **'(vacío)'**
+  String get emptyValue;
+
+  /// No description provided for @noTextChanges.
+  ///
+  /// In es, this message translates to:
+  /// **'Sin cambios en el texto.'**
+  String get noTextChanges;
+
+  /// No description provided for @aiAssistantTitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Asistente IA'**
+  String get aiAssistantTitle;
+
+  /// No description provided for @aiNoPageSelected.
+  ///
+  /// In es, this message translates to:
+  /// **'Sin página seleccionada'**
+  String get aiNoPageSelected;
+
+  /// No description provided for @aiExpand.
+  ///
+  /// In es, this message translates to:
+  /// **'Expandir'**
+  String get aiExpand;
+
+  /// No description provided for @aiCollapse.
+  ///
+  /// In es, this message translates to:
+  /// **'Colapsar'**
+  String get aiCollapse;
+
+  /// No description provided for @aiDeleteCurrentChat.
+  ///
+  /// In es, this message translates to:
+  /// **'Borrar chat actual'**
+  String get aiDeleteCurrentChat;
+
+  /// No description provided for @aiNewChat.
+  ///
+  /// In es, this message translates to:
+  /// **'Nuevo'**
+  String get aiNewChat;
+
+  /// No description provided for @aiAttach.
+  ///
+  /// In es, this message translates to:
+  /// **'Adjuntar'**
+  String get aiAttach;
+
+  /// No description provided for @aiChatEmptyHint.
+  ///
+  /// In es, this message translates to:
+  /// **'Empieza una conversación.\nLa IA decidirá automáticamente qué hacer con tu mensaje.'**
+  String get aiChatEmptyHint;
+
+  /// No description provided for @aiInputHint.
+  ///
+  /// In es, this message translates to:
+  /// **'Escribe tu mensaje. La IA actuará como agente.'**
+  String get aiInputHint;
+
+  /// No description provided for @aiShowPanel.
+  ///
+  /// In es, this message translates to:
+  /// **'Mostrar panel IA'**
+  String get aiShowPanel;
+
+  /// No description provided for @aiHidePanel.
+  ///
+  /// In es, this message translates to:
+  /// **'Ocultar panel IA'**
+  String get aiHidePanel;
+
+  /// No description provided for @closeCurrentPage.
+  ///
+  /// In es, this message translates to:
+  /// **'Cerrar página actual'**
+  String get closeCurrentPage;
+
+  /// No description provided for @aiErrorWithDetails.
+  ///
+  /// In es, this message translates to:
+  /// **'Error IA: {error}'**
+  String aiErrorWithDetails(Object error);
+
+  /// No description provided for @aiAgentThought.
+  ///
+  /// In es, this message translates to:
+  /// **'Pensamiento del agente'**
+  String get aiAgentThought;
+
+  /// No description provided for @aiAlwaysShowThought.
+  ///
+  /// In es, this message translates to:
+  /// **'Mostrar siempre pensamiento de IA'**
+  String get aiAlwaysShowThought;
+
+  /// No description provided for @aiAlwaysShowThoughtHint.
+  ///
+  /// In es, this message translates to:
+  /// **'Si está desactivado, se mostrará plegado con flecha en cada mensaje.'**
+  String get aiAlwaysShowThoughtHint;
+
+  /// No description provided for @searchByNameOrShortcut.
+  ///
+  /// In es, this message translates to:
+  /// **'Buscar por nombre o atajo…'**
+  String get searchByNameOrShortcut;
+
+  /// No description provided for @search.
+  ///
+  /// In es, this message translates to:
+  /// **'Buscar'**
+  String get search;
+
+  /// No description provided for @open.
+  ///
+  /// In es, this message translates to:
+  /// **'Abrir'**
+  String get open;
+
+  /// No description provided for @exit.
+  ///
+  /// In es, this message translates to:
+  /// **'Salir'**
+  String get exit;
+
+  /// No description provided for @desktopSection.
+  ///
+  /// In es, this message translates to:
+  /// **'Desktop'**
+  String get desktopSection;
+
+  /// No description provided for @globalSearchHotkey.
+  ///
+  /// In es, this message translates to:
+  /// **'Atajo global de búsqueda'**
+  String get globalSearchHotkey;
+
+  /// No description provided for @hotkeyCombination.
+  ///
+  /// In es, this message translates to:
+  /// **'Combinación de teclas'**
+  String get hotkeyCombination;
+
+  /// No description provided for @hotkeyAltSpace.
+  ///
+  /// In es, this message translates to:
+  /// **'Alt + Space'**
+  String get hotkeyAltSpace;
+
+  /// No description provided for @hotkeyCtrlShiftSpace.
+  ///
+  /// In es, this message translates to:
+  /// **'Ctrl + Shift + Space'**
+  String get hotkeyCtrlShiftSpace;
+
+  /// No description provided for @hotkeyCtrlShiftK.
+  ///
+  /// In es, this message translates to:
+  /// **'Ctrl + Shift + K'**
+  String get hotkeyCtrlShiftK;
+
+  /// No description provided for @minimizeToTray.
+  ///
+  /// In es, this message translates to:
+  /// **'Minimizar a bandeja'**
+  String get minimizeToTray;
+
+  /// No description provided for @closeToTray.
+  ///
+  /// In es, this message translates to:
+  /// **'Cerrar a bandeja'**
+  String get closeToTray;
+
+  /// No description provided for @searchAllVaultHint.
+  ///
+  /// In es, this message translates to:
+  /// **'Buscar en todo el cofre...'**
+  String get searchAllVaultHint;
+
+  /// No description provided for @typeToSearch.
+  ///
+  /// In es, this message translates to:
+  /// **'Escribe para buscar'**
+  String get typeToSearch;
+
+  /// No description provided for @noSearchResults.
+  ///
+  /// In es, this message translates to:
+  /// **'Sin resultados'**
+  String get noSearchResults;
+
+  /// No description provided for @unlockVaultTitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Desbloquear cofre'**
+  String get unlockVaultTitle;
+
+  /// No description provided for @miniUnlockFailed.
+  ///
+  /// In es, this message translates to:
+  /// **'No se pudo desbloquear.'**
+  String get miniUnlockFailed;
+
+  /// No description provided for @importNotionTitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Importar desde Notion (.zip)'**
+  String get importNotionTitle;
+
+  /// No description provided for @importNotionSubtitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Export ZIP de Notion (Markdown/HTML)'**
+  String get importNotionSubtitle;
+
+  /// No description provided for @importNotionDialogTitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Importar desde Notion'**
+  String get importNotionDialogTitle;
+
+  /// No description provided for @importNotionDialogBody.
+  ///
+  /// In es, this message translates to:
+  /// **'Importa un ZIP exportado por Notion. Puedes añadirlo al cofre actual o crear uno nuevo.'**
+  String get importNotionDialogBody;
+
+  /// No description provided for @importNotionSelectTargetTitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Destino de la importación'**
+  String get importNotionSelectTargetTitle;
+
+  /// No description provided for @importNotionTargetCurrent.
+  ///
+  /// In es, this message translates to:
+  /// **'Cofre actual'**
+  String get importNotionTargetCurrent;
+
+  /// No description provided for @importNotionTargetNew.
+  ///
+  /// In es, this message translates to:
+  /// **'Cofre nuevo'**
+  String get importNotionTargetNew;
+
+  /// No description provided for @importNotionNewVaultPasswordTitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Contraseña para cofre nuevo'**
+  String get importNotionNewVaultPasswordTitle;
+
+  /// No description provided for @importNotionSuccessCurrent.
+  ///
+  /// In es, this message translates to:
+  /// **'Notion importado en el cofre actual.'**
+  String get importNotionSuccessCurrent;
+
+  /// No description provided for @importNotionSuccessNew.
+  ///
+  /// In es, this message translates to:
+  /// **'Cofre nuevo importado desde Notion.'**
+  String get importNotionSuccessNew;
+
+  /// No description provided for @importNotionError.
+  ///
+  /// In es, this message translates to:
+  /// **'No se pudo importar Notion: {error}'**
+  String importNotionError(Object error);
 }
 
 class _AppLocalizationsDelegate

@@ -2,20 +2,37 @@ import 'dart:convert';
 
 import '../models/folio_page.dart';
 import '../models/folio_page_revision.dart';
+import '../models/local_collab.dart';
+import '../services/ai/ai_types.dart';
 
-/// Esquema 2: añade [pageRevisions] (historial por página).
-const int kVaultPayloadVersion = 2;
+/// Esquema 4: añade persistencia de chats de IA.
+const int kVaultPayloadVersion = 4;
 
 class VaultPayload {
   VaultPayload({
     this.version = kVaultPayloadVersion,
     required this.pages,
     Map<String, List<FolioPageRevision>>? pageRevisions,
-  }) : pageRevisions = pageRevisions ?? {};
+    Map<String, Map<String, String>>? pageAcl,
+    List<LocalProfile>? localProfiles,
+    List<LocalPageComment>? comments,
+    List<AiChatThreadData>? aiChatThreads,
+    int? aiActiveChatIndex,
+  }) : pageRevisions = pageRevisions ?? {},
+       pageAcl = pageAcl ?? {},
+       localProfiles = localProfiles ?? const [],
+       comments = comments ?? const [],
+       aiChatThreads = aiChatThreads ?? const [],
+       aiActiveChatIndex = aiActiveChatIndex ?? 0;
 
   final int version;
   final List<FolioPage> pages;
   final Map<String, List<FolioPageRevision>> pageRevisions;
+  final Map<String, Map<String, String>> pageAcl;
+  final List<LocalProfile> localProfiles;
+  final List<LocalPageComment> comments;
+  final List<AiChatThreadData> aiChatThreads;
+  final int aiActiveChatIndex;
 
   Map<String, dynamic> toJson() => {
     'version': version,
@@ -23,6 +40,11 @@ class VaultPayload {
     'pageRevisions': pageRevisions.map(
       (k, v) => MapEntry(k, v.map((r) => r.toJson()).toList()),
     ),
+    'pageAcl': pageAcl,
+    'localProfiles': localProfiles.map((p) => p.toJson()).toList(),
+    'comments': comments.map((c) => c.toJson()).toList(),
+    'aiChatThreads': aiChatThreads.map((t) => t.toJson()).toList(),
+    'aiActiveChatIndex': aiActiveChatIndex,
   };
 
   factory VaultPayload.fromJson(Map<String, dynamic> j) {
@@ -44,10 +66,37 @@ class VaultPayload {
             .toList();
       }
     }
+    final acl = <String, Map<String, String>>{};
+    final rawAcl = j['pageAcl'];
+    if (rawAcl is Map) {
+      for (final e in rawAcl.entries) {
+        acl[e.key as String] = Map<String, String>.from(
+          (e.value as Map?)?.map((k, v) => MapEntry('$k', '$v')) ?? const {},
+        );
+      }
+    }
+    final profiles = (j['localProfiles'] as List<dynamic>? ?? [])
+        .whereType<Map>()
+        .map((e) => LocalProfile.fromJson(Map<String, dynamic>.from(e)))
+        .toList();
+    final comments = (j['comments'] as List<dynamic>? ?? [])
+        .whereType<Map>()
+        .map((e) => LocalPageComment.fromJson(Map<String, dynamic>.from(e)))
+        .toList();
+    final aiThreads = (j['aiChatThreads'] as List<dynamic>? ?? [])
+        .whereType<Map>()
+        .map((e) => AiChatThreadData.fromJson(Map<String, dynamic>.from(e)))
+        .toList();
+    final aiIndex = (j['aiActiveChatIndex'] as num?)?.toInt() ?? 0;
     return VaultPayload(
       version: j['version'] as int? ?? 1,
       pages: list,
       pageRevisions: pageRevisions,
+      pageAcl: acl,
+      localProfiles: profiles,
+      comments: comments,
+      aiChatThreads: aiThreads,
+      aiActiveChatIndex: aiIndex,
     );
   }
 

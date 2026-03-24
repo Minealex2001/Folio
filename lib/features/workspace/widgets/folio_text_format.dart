@@ -212,7 +212,7 @@ class FolioFormatToolbar extends StatelessWidget {
     final defaultLabel =
         (start >= 0 && end >= 0 && start != end && end <= text.length)
         ? text.substring(start, end)
-        : 'texto';
+        : AppLocalizations.of(context).defaultLinkText;
 
     final labelCtrl = TextEditingController(text: defaultLabel);
     final urlCtrl = TextEditingController();
@@ -220,24 +220,24 @@ class FolioFormatToolbar extends StatelessWidget {
       final ok = await showDialog<bool>(
         context: context,
         builder: (ctx) => AlertDialog(
-          title: const Text('Enlace'),
+          title: Text(AppLocalizations.of(context).linkTitle),
           content: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
               TextField(
                 controller: labelCtrl,
-                decoration: const InputDecoration(labelText: 'Texto visible'),
-                autofocus: defaultLabel == 'texto',
+                decoration: InputDecoration(labelText: AppLocalizations.of(context).visibleTextLabel),
+                autofocus: defaultLabel == AppLocalizations.of(context).defaultLinkText,
               ),
               const SizedBox(height: 12),
               TextField(
                 controller: urlCtrl,
-                decoration: const InputDecoration(
-                  labelText: 'URL',
-                  hintText: 'https://…',
+                decoration: InputDecoration(
+                  labelText: AppLocalizations.of(context).urlLabel,
+                  hintText: AppLocalizations.of(context).urlHint,
                 ),
                 keyboardType: TextInputType.url,
-                autofocus: defaultLabel != 'texto',
+                autofocus: defaultLabel != AppLocalizations.of(context).defaultLinkText,
               ),
             ],
           ),
@@ -248,7 +248,7 @@ class FolioFormatToolbar extends StatelessWidget {
             ),
             FilledButton(
               onPressed: () => Navigator.pop(ctx, true),
-              child: const Text('Insertar'),
+              child: Text(AppLocalizations.of(context).insert),
             ),
           ],
         ),
@@ -292,7 +292,7 @@ class FolioFormatToolbar extends StatelessWidget {
 
     return Semantics(
       container: true,
-      label: 'Barra de formato',
+      label: AppLocalizations.of(context).formatToolbar,
       child: Focus(
         canRequestFocus: false,
         descendantsAreFocusable: false,
@@ -307,38 +307,38 @@ class FolioFormatToolbar extends StatelessWidget {
               children: [
                 btn(
                   icon: Icons.format_bold_rounded,
-                  tip: 'Negrita (**)',
+                  tip: AppLocalizations.of(context).boldTip,
                   onPressed: () =>
                       applyFormat(() => folioToggleWrap(controller, '**', '**')),
                 ),
                 btn(
                   icon: Icons.format_italic_rounded,
-                  tip: 'Cursiva (_)',
+                  tip: AppLocalizations.of(context).italicTip,
                   onPressed: () =>
                       applyFormat(() => folioToggleWrap(controller, '_', '_')),
                 ),
                 btn(
                   icon: Icons.format_underlined_rounded,
-                  tip: 'Subrayado (<u>)',
+                  tip: AppLocalizations.of(context).underlineTip,
                   onPressed: () => applyFormat(
                     () => folioToggleWrap(controller, '<u>', '</u>'),
                   ),
                 ),
                 btn(
                   icon: Icons.code_rounded,
-                  tip: 'Código inline (`)',
+                  tip: AppLocalizations.of(context).inlineCodeTip,
                   onPressed: () =>
                       applyFormat(() => folioToggleWrap(controller, '`', '`')),
                 ),
                 btn(
                   icon: Icons.strikethrough_s_rounded,
-                  tip: 'Tachado (~~)',
+                  tip: AppLocalizations.of(context).strikeTip,
                   onPressed: () =>
                       applyFormat(() => folioToggleWrap(controller, '~~', '~~')),
                 ),
                 btn(
                   icon: Icons.link_rounded,
-                  tip: 'Enlace',
+                  tip: AppLocalizations.of(context).linkTip,
                   onPressed: () => _link(context),
                 ),
               ],

@@ -154,7 +154,7 @@ class VaultRegistry {
 
     final entry = VaultEntry(
       id: id,
-      displayName: 'Cofre',
+      displayName: 'Vault',
       createdAtMs: DateTime.now().millisecondsSinceEpoch,
     );
     _vaults = [entry];

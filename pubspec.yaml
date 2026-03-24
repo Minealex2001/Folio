@@ -58,6 +58,10 @@ dependencies:
   url_launcher: ^6.3.2
   emoji_picker_flutter: ^4.4.0
   syncfusion_flutter_pdfviewer: ^31.1.21
+  hotkey_manager: ^0.2.3
+  window_manager: ^0.5.1
+  tray_manager: ^0.5.1
+  syncfusion_flutter_pdf: ^31.2.18
 
 dev_dependencies:
   flutter_test:

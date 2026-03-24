@@ -1,6 +1,7 @@
 import 'package:diff_match_patch/diff_match_patch.dart';
 import 'package:flutter/material.dart';
 
+import '../../../l10n/generated/app_localizations.dart';
 import '../../../models/folio_page_revision.dart';
 import '../../../models/folio_page.dart';
 
@@ -13,6 +14,7 @@ class PageRevisionDiffView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     final scheme = Theme.of(context).colorScheme;
     final theme = Theme.of(context);
     final oldTitle = older?.title ?? '';
@@ -40,7 +42,7 @@ class PageRevisionDiffView extends StatelessWidget {
       children: [
         if (titleChanged) ...[
           Text(
-            'Título',
+          l10n.titleLabelSimple,
             style: theme.textTheme.labelSmall?.copyWith(
               color: scheme.onSurfaceVariant,
             ),
@@ -57,7 +59,7 @@ class PageRevisionDiffView extends StatelessWidget {
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: Text(
-                    oldTitle.isEmpty ? '(vacío)' : oldTitle,
+                    oldTitle.isEmpty ? l10n.emptyValue : oldTitle,
                     style: mono?.copyWith(
                       color: scheme.onErrorContainer,
                       decoration: TextDecoration.lineThrough,
@@ -82,7 +84,7 @@ class PageRevisionDiffView extends StatelessWidget {
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: Text(
-                    newTitle.isEmpty ? '(vacío)' : newTitle,
+                    newTitle.isEmpty ? l10n.emptyValue : newTitle,
                     style: mono?.copyWith(
                       color: scheme.onPrimaryContainer,
                       fontWeight: FontWeight.w600,
@@ -95,7 +97,7 @@ class PageRevisionDiffView extends StatelessWidget {
           const SizedBox(height: 12),
         ],
         Text(
-          'Contenido',
+          l10n.contentLabel,
           style: theme.textTheme.labelSmall?.copyWith(
             color: scheme.onSurfaceVariant,
           ),
@@ -104,7 +106,7 @@ class PageRevisionDiffView extends StatelessWidget {
         if (!bodyUnchanged) ..._diffWidgets(bodyDiffs, scheme, mono),
         if (bodyUnchanged)
           Text(
-            'Sin cambios en el texto.',
+            l10n.noTextChanges,
             style: mono?.copyWith(color: scheme.onSurfaceVariant),
           ),
       ],

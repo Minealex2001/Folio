@@ -1,7 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:file_picker/file_picker.dart';
+import 'package:flutter_markdown_plus/flutter_markdown_plus.dart';
+import 'package:flutter/services.dart';
 
 import '../../app/app_settings.dart';
 import '../../app/ui_tokens.dart';
+import '../../models/folio_page.dart';
+import '../../services/ai/ai_types.dart';
 import '../../l10n/generated/app_localizations.dart';
 import '../../session/vault_session.dart';
 import '../settings/settings_page.dart';
@@ -14,10 +19,12 @@ class WorkspacePage extends StatefulWidget {
     super.key,
     required this.session,
     required this.appSettings,
+    required this.onOpenSearch,
   });
 
   final VaultSession session;
   final AppSettings appSettings;
+  final VoidCallback onOpenSearch;
 
   @override
   State<WorkspacePage> createState() => _WorkspacePageState();
@@ -26,8 +33,125 @@ class WorkspacePage extends StatefulWidget {
 class _WorkspacePageState extends State<WorkspacePage> {
   late final TextEditingController _titleController;
   final _scaffoldKey = GlobalKey<ScaffoldState>();
+  final TextEditingController _chatInputController = TextEditingController();
+  final List<String> _aiAttachmentPaths = [];
+  bool _aiChatBusy = false;
+  double _aiPanelWidth = 360;
+  bool _aiPanelCollapsed = false;
+  final Set<String> _expandedThoughtMessageKeys = <String>{};
 
   VaultSession get _s => widget.session;
+  AiChatThreadData get _activeChat => _s.activeAiChat;
+
+  Widget _buildMarkdownMessage({
+    required BuildContext context,
+    required String content,
+    required bool isUser,
+    required Color textColor,
+  }) {
+    final normalizedContent = _normalizeHtmlForChat(content);
+    final base = Theme.of(context).textTheme.bodyMedium?.copyWith(
+      color: textColor,
+      height: 1.35,
+    );
+    final code = Theme.of(context).textTheme.bodySmall?.copyWith(
+      color: textColor,
+      fontFamily: 'monospace',
+    );
+    final sheet = MarkdownStyleSheet.fromTheme(Theme.of(context)).copyWith(
+      p: base,
+      h1: base?.copyWith(fontSize: 20, fontWeight: FontWeight.w700),
+      h2: base?.copyWith(fontSize: 18, fontWeight: FontWeight.w700),
+      h3: base?.copyWith(fontSize: 16, fontWeight: FontWeight.w700),
+      blockquote: base,
+      code: code,
+      codeblockDecoration: BoxDecoration(
+        color: Colors.black.withValues(alpha: isUser ? 0.14 : 0.08),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      horizontalRuleDecoration: BoxDecoration(
+        border: Border(
+          top: BorderSide(color: textColor.withValues(alpha: 0.28)),
+        ),
+      ),
+      listBullet: base,
+    );
+    return MarkdownBody(
+      data: normalizedContent,
+      selectable: true,
+      softLineBreak: true,
+      shrinkWrap: true,
+      styleSheet: sheet,
+    );
+  }
+
+  ({String? thought, String body}) _splitAgentThought(String content) {
+    final normalized = content.replaceAll('\r\n', '\n').trim();
+    if (normalized.isEmpty) return (thought: null, body: '');
+    final lines = normalized.split('\n');
+    if (lines.length < 2) return (thought: null, body: normalized);
+    final first = lines[0].trimLeft();
+    final second = lines[1].trimLeft();
+    final hasDecision = first.startsWith('🧠') ||
+        first.toLowerCase().contains('**decisión del agente:**') ||
+        first.toLowerCase().contains('**agent decision:**');
+    final hasReason = second.startsWith('💡') ||
+        second.toLowerCase().contains('**motivo:**') ||
+        second.toLowerCase().contains('**reason:**');
+    if (!hasDecision || !hasReason) {
+      return (thought: null, body: normalized);
+    }
+    var bodyStart = 2;
+    while (bodyStart < lines.length && lines[bodyStart].trim().isEmpty) {
+      bodyStart++;
+    }
+    final thought = '${lines[0].trimRight()}\n${lines[1].trimRight()}'.trim();
+    final body = lines.sublist(bodyStart).join('\n').trim();
+    return (thought: thought, body: body);
+  }
+
+  String _normalizeHtmlForChat(String raw) {
+    final lower = raw.toLowerCase();
+    final looksHtml = lower.contains('<html') ||
+        lower.contains('<body') ||
+        lower.contains('<p>') ||
+        lower.contains('<h1') ||
+        lower.contains('<table');
+    if (!looksHtml) return raw;
+    var out = raw;
+    out = out.replaceAll(RegExp(r'<br\s*/?>', caseSensitive: false, dotAll: true), '\n');
+    out = out.replaceAllMapped(
+      RegExp(r'<h1[^>]*>(.*?)</h1>', caseSensitive: false, dotAll: true),
+      (m) => '\n# ${_stripHtmlTagsForChat(m.group(1) ?? '')}\n',
+    );
+    out = out.replaceAllMapped(
+      RegExp(r'<h2[^>]*>(.*?)</h2>', caseSensitive: false, dotAll: true),
+      (m) => '\n## ${_stripHtmlTagsForChat(m.group(1) ?? '')}\n',
+    );
+    out = out.replaceAllMapped(
+      RegExp(r'<h3[^>]*>(.*?)</h3>', caseSensitive: false, dotAll: true),
+      (m) => '\n### ${_stripHtmlTagsForChat(m.group(1) ?? '')}\n',
+    );
+    out = out.replaceAllMapped(
+      RegExp(r'<p[^>]*>(.*?)</p>', caseSensitive: false, dotAll: true),
+      (m) => '\n${_stripHtmlTagsForChat(m.group(1) ?? '')}\n',
+    );
+    out = out.replaceAllMapped(
+      RegExp(r'<li[^>]*>(.*?)</li>', caseSensitive: false, dotAll: true),
+      (m) => '- ${_stripHtmlTagsForChat(m.group(1) ?? '')}\n',
+    );
+    out = out.replaceAll(RegExp(r'<[^>]+>', caseSensitive: false, dotAll: true), '');
+    out = out.replaceAll('&nbsp;', ' ');
+    out = out.replaceAll('&amp;', '&');
+    out = out.replaceAll('&lt;', '<');
+    out = out.replaceAll('&gt;', '>');
+    out = out.replaceAll('&quot;', '"');
+    return out.trim();
+  }
+
+  String _stripHtmlTagsForChat(String s) {
+    return s.replaceAll(RegExp(r'<[^>]+>', caseSensitive: false, dotAll: true), '').trim();
+  }
 
   @override
   void initState() {
@@ -41,6 +165,7 @@ class _WorkspacePageState extends State<WorkspacePage> {
   void dispose() {
     _s.removeListener(_onSession);
     _titleController.dispose();
+    _chatInputController.dispose();
     super.dispose();
   }
 
@@ -70,10 +195,535 @@ class _WorkspacePageState extends State<WorkspacePage> {
     );
   }
 
+  bool _shouldHandleShortcut() {
+    final focusedContext = FocusManager.instance.primaryFocus?.context;
+    final focusedWidget = focusedContext?.widget;
+    return focusedWidget is! EditableText;
+  }
+
+  void _selectAdjacentPage(int delta) {
+    final pages = _s.pages;
+    if (pages.isEmpty) return;
+    final currentId = _s.selectedPageId;
+    final currentIndex = pages.indexWhere((p) => p.id == currentId);
+    if (currentIndex < 0) {
+      _s.selectPage(pages.first.id);
+      return;
+    }
+    final next = (currentIndex + delta).clamp(0, pages.length - 1);
+    if (next != currentIndex) {
+      _s.selectPage(pages[next].id);
+    }
+  }
+
   void _openPageHistoryScreen() {
     final page = _s.selectedPage;
     if (page == null) return;
     openPageHistoryScreen(context: context, session: _s, page: page);
+  }
+
+  Future<List<AiFileAttachment>> _collectAiAttachments() async {
+    return _s.buildAiAttachmentsFromPaths(_aiAttachmentPaths);
+  }
+
+  Future<void> _pickAiAttachments() async {
+    final result = await FilePicker.platform.pickFiles(allowMultiple: true);
+    if (result == null) return;
+    for (final f in result.files) {
+      final path = f.path;
+      if (path == null || path.trim().isEmpty) continue;
+      if (!_aiAttachmentPaths.contains(path)) {
+        _aiAttachmentPaths.add(path);
+      }
+    }
+    if (mounted) setState(() {});
+  }
+
+  Future<void> _sendAiChat() async {
+    if (_aiChatBusy) return;
+    final text = _chatInputController.text.trim();
+    if (text.isEmpty) return;
+    setState(() {
+      _aiChatBusy = true;
+      _chatInputController.clear();
+    });
+    _s.appendMessageToActiveAiChat(AiChatMessage(role: 'user', content: text));
+    try {
+      final reply = await _runAiFromChat(text, _activeChat.messages);
+      if (!mounted) return;
+      _s.appendMessageToActiveAiChat(AiChatMessage(role: 'assistant', content: reply));
+    } catch (e) {
+      if (!mounted) return;
+      final l10n = AppLocalizations.of(context);
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(l10n.aiErrorWithDetails(e))));
+    } finally {
+      if (mounted) {
+        setState(() => _aiChatBusy = false);
+      }
+    }
+  }
+
+  Future<String> _runAiFromChat(String text, List<AiChatMessage> threadMessages) async {
+    final t = text.trim();
+    final languageCode = Localizations.localeOf(context).languageCode;
+    final attachments = await _collectAiAttachments();
+    return _s.agentChatWithAi(
+      messages: threadMessages,
+      prompt: t,
+      scopePageId: _s.selectedPageId,
+      attachments: attachments,
+      languageCode: languageCode,
+    );
+  }
+
+  void _createNewChat() {
+    _s.createNewAiChat();
+  }
+
+  void _deleteActiveChat() {
+    _s.deleteActiveAiChat();
+  }
+
+  Widget _buildEditorContent({
+    required BuildContext context,
+    required bool compact,
+    required ColorScheme scheme,
+    required FolioPage? page,
+  }) {
+    return Padding(
+      padding: EdgeInsets.fromLTRB(
+        compact ? 0 : FolioSpace.sm,
+        0,
+        compact ? 0 : FolioSpace.md,
+        compact ? 0 : FolioSpace.md,
+      ),
+      child: Material(
+        color: scheme.surface,
+        elevation: compact ? 0 : 2,
+        shadowColor: scheme.shadow.withValues(alpha: 0.1),
+        borderRadius: compact ? BorderRadius.zero : BorderRadius.circular(FolioRadius.lg),
+        clipBehavior: Clip.antiAlias,
+        child: page == null
+            ? Center(
+                child: Padding(
+                  padding: const EdgeInsets.all(FolioSpace.xl),
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(
+                        Icons.description_outlined,
+                        size: 56,
+                        color: scheme.onSurfaceVariant.withValues(alpha: 0.6),
+                      ),
+                      const SizedBox(height: 16),
+                      Text(
+                        AppLocalizations.of(context).noPages,
+                        style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                          color: scheme.onSurfaceVariant,
+                        ),
+                      ),
+                      const SizedBox(height: FolioSpace.md),
+                      FilledButton.icon(
+                        onPressed: () => _s.addPage(parentId: null),
+                        icon: const Icon(Icons.add_rounded),
+                        label: Text(AppLocalizations.of(context).createPage),
+                      ),
+                    ],
+                  ),
+                ),
+              )
+            : Padding(
+                padding: const EdgeInsets.fromLTRB(
+                  FolioSpace.lg,
+                  FolioSpace.md,
+                  FolioSpace.lg,
+                  FolioSpace.sm,
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    TextField(
+                      controller: _titleController,
+                      style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                        fontWeight: FontWeight.w600,
+                        color: scheme.onSurface,
+                      ),
+                      decoration: InputDecoration(
+                        border: InputBorder.none,
+                        filled: false,
+                        hintText: AppLocalizations.of(context).untitled,
+                        isDense: true,
+                        hintStyle: TextStyle(
+                          color: scheme.onSurfaceVariant.withValues(alpha: 0.7),
+                        ),
+                      ),
+                      onChanged: (v) {
+                        if (page.id == _s.selectedPageId) {
+                          _s.renamePage(page.id, v);
+                        }
+                      },
+                    ),
+                    const SizedBox(height: 8),
+                    Expanded(
+                      child: BlockEditor(
+                        key: ValueKey('${page.id}-${_s.contentEpoch}'),
+                        session: _s,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+      ),
+    );
+  }
+
+  Widget _buildAiPanel(BuildContext context) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    final l10n = AppLocalizations.of(context);
+    return Material(
+      color: scheme.surfaceContainerLow,
+      child: SafeArea(
+        child: Column(
+          children: [
+            Container(
+              margin: const EdgeInsets.fromLTRB(10, 10, 10, 8),
+              padding: const EdgeInsets.fromLTRB(12, 10, 10, 10),
+              decoration: BoxDecoration(
+                color: scheme.surface,
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(color: scheme.outlineVariant.withValues(alpha: 0.45)),
+              ),
+              child: Row(
+                children: [
+                  Container(
+                    width: 34,
+                    height: 34,
+                    decoration: BoxDecoration(
+                      color: scheme.primaryContainer.withValues(alpha: 0.7),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Icon(
+                      Icons.auto_awesome_rounded,
+                      size: 20,
+                      color: scheme.onPrimaryContainer,
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          l10n.aiAssistantTitle,
+                          style: theme.textTheme.titleSmall?.copyWith(
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                        Text(
+                          _s.selectedPage?.title ?? l10n.aiNoPageSelected,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: scheme.onSurfaceVariant,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  IconButton(
+                    tooltip: _aiPanelCollapsed ? l10n.aiExpand : l10n.aiCollapse,
+                    onPressed: () => setState(() => _aiPanelCollapsed = !_aiPanelCollapsed),
+                    icon: Icon(
+                      _aiPanelCollapsed
+                          ? Icons.keyboard_arrow_left_rounded
+                          : Icons.keyboard_arrow_right_rounded,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Container(
+              height: 44,
+              margin: const EdgeInsets.symmetric(horizontal: 10),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: ListView.separated(
+                      scrollDirection: Axis.horizontal,
+                      itemCount: _s.aiChatThreads.length,
+                      separatorBuilder: (_, _) => const SizedBox(width: 6),
+                      itemBuilder: (context, i) {
+                        final active = i == _s.aiActiveChatIndex;
+                        return ChoiceChip(
+                          label: Text(
+                            _s.aiChatThreads[i].title,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          selected: active,
+                          onSelected: (_) => _s.selectAiChat(i),
+                        );
+                      },
+                    ),
+                  ),
+                  const SizedBox(width: 6),
+                  IconButton(
+                    tooltip: l10n.aiDeleteCurrentChat,
+                    onPressed: _deleteActiveChat,
+                    icon: const Icon(Icons.delete_outline_rounded),
+                  ),
+                  const SizedBox(width: 2),
+                  FilledButton.tonal(
+                    onPressed: _createNewChat,
+                    child: Text(l10n.aiNewChat),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 10),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 10),
+              child: Wrap(
+                spacing: 6,
+                runSpacing: 6,
+                children: [
+                  FilledButton.tonalIcon(
+                    onPressed: _pickAiAttachments,
+                    icon: const Icon(Icons.attach_file_rounded, size: 18),
+                    label: Text(l10n.aiAttach),
+                  ),
+                ],
+              ),
+            ),
+            if (_aiAttachmentPaths.isNotEmpty)
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                child: Wrap(
+                  spacing: 6,
+                  children: _aiAttachmentPaths
+                      .map(
+                        (p) => InputChip(
+                          label: Text(p.split('\\').last),
+                          onDeleted: () => setState(() => _aiAttachmentPaths.remove(p)),
+                        ),
+                      )
+                      .toList(),
+                ),
+              ),
+            const SizedBox(height: 2),
+            Expanded(
+              child: _activeChat.messages.isEmpty
+                  ? Center(
+                      child: Padding(
+                        padding: const EdgeInsets.all(24),
+                        child: Text(
+                          l10n.aiChatEmptyHint,
+                          textAlign: TextAlign.center,
+                          style: theme.textTheme.bodyMedium?.copyWith(
+                            color: scheme.onSurfaceVariant,
+                            height: 1.45,
+                          ),
+                        ),
+                      ),
+                    )
+                  : ListView.builder(
+                      padding: const EdgeInsets.fromLTRB(10, 8, 10, 8),
+                      itemCount: _activeChat.messages.length,
+                      itemBuilder: (context, i) {
+                        final m = _activeChat.messages[i];
+                        final isUser = m.role == 'user';
+                        final split = _splitAgentThought(m.content);
+                        final thought = split.thought;
+                        final bodyContent = split.body;
+                        final msgKey = '${_activeChat.id}#$i';
+                        final alwaysShowThought = widget.appSettings.aiAlwaysShowThought;
+                        final thoughtExpanded = alwaysShowThought || _expandedThoughtMessageKeys.contains(msgKey);
+                        final bubbleColor = isUser
+                            ? scheme.primaryContainer
+                            : scheme.surface;
+                        final textColor = isUser
+                            ? scheme.onPrimaryContainer
+                            : scheme.onSurface;
+                        return Padding(
+                          padding: const EdgeInsets.only(bottom: 10),
+                          child: Row(
+                            mainAxisAlignment: isUser
+                                ? MainAxisAlignment.end
+                                : MainAxisAlignment.start,
+                            crossAxisAlignment: CrossAxisAlignment.end,
+                            children: [
+                              if (!isUser)
+                                Container(
+                                  width: 26,
+                                  height: 26,
+                                  margin: const EdgeInsets.only(right: 8, bottom: 2),
+                                  decoration: BoxDecoration(
+                                    color: scheme.secondaryContainer,
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                  child: Icon(
+                                    Icons.smart_toy_outlined,
+                                    size: 16,
+                                    color: scheme.onSecondaryContainer,
+                                  ),
+                                ),
+                              Flexible(
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 12,
+                                    vertical: 10,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: bubbleColor,
+                                    borderRadius: BorderRadius.circular(14),
+                                    border: Border.all(
+                                      color: scheme.outlineVariant.withValues(alpha: 0.35),
+                                    ),
+                                  ),
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                                    children: [
+                                      if (!isUser && thought != null && thought.isNotEmpty)
+                                        InkWell(
+                                          onTap: alwaysShowThought
+                                              ? null
+                                              : () {
+                                                  setState(() {
+                                                    if (_expandedThoughtMessageKeys.contains(msgKey)) {
+                                                      _expandedThoughtMessageKeys.remove(msgKey);
+                                                    } else {
+                                                      _expandedThoughtMessageKeys.add(msgKey);
+                                                    }
+                                                  });
+                                                },
+                                          child: Row(
+                                            children: [
+                                              Icon(
+                                                thoughtExpanded
+                                                    ? Icons.keyboard_arrow_down_rounded
+                                                    : Icons.keyboard_arrow_right_rounded,
+                                                size: 18,
+                                                color: textColor.withValues(alpha: 0.9),
+                                              ),
+                                              const SizedBox(width: 4),
+                                              Expanded(
+                                                child: Text(
+                                                  AppLocalizations.of(context).aiAgentThought,
+                                                  style: theme.textTheme.labelMedium?.copyWith(
+                                                    color: textColor.withValues(alpha: 0.9),
+                                                    fontWeight: FontWeight.w700,
+                                                  ),
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                      if (!isUser && thought != null && thought.isNotEmpty && thoughtExpanded) ...[
+                                        const SizedBox(height: 6),
+                                        _buildMarkdownMessage(
+                                          context: context,
+                                          content: thought,
+                                          isUser: isUser,
+                                          textColor: textColor,
+                                        ),
+                                        const SizedBox(height: 8),
+                                        Divider(
+                                          height: 1,
+                                          color: textColor.withValues(alpha: 0.18),
+                                        ),
+                                        const SizedBox(height: 8),
+                                      ],
+                                      _buildMarkdownMessage(
+                                        context: context,
+                                        content: bodyContent.isEmpty ? m.content : bodyContent,
+                                        isUser: isUser,
+                                        textColor: textColor,
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                              if (isUser)
+                                Container(
+                                  width: 26,
+                                  height: 26,
+                                  margin: const EdgeInsets.only(left: 8, bottom: 2),
+                                  decoration: BoxDecoration(
+                                    color: scheme.primaryContainer,
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                  child: Icon(
+                                    Icons.person_outline_rounded,
+                                    size: 16,
+                                    color: scheme.onPrimaryContainer,
+                                  ),
+                                ),
+                            ],
+                          ),
+                        );
+                      },
+                    ),
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(10, 8, 10, 10),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Container(
+                    padding: const EdgeInsets.fromLTRB(10, 8, 8, 8),
+                    decoration: BoxDecoration(
+                      color: scheme.surface,
+                      borderRadius: BorderRadius.circular(14),
+                      border: Border.all(color: scheme.outlineVariant.withValues(alpha: 0.45)),
+                    ),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: TextField(
+                            controller: _chatInputController,
+                            minLines: 1,
+                            maxLines: 5,
+                            decoration: InputDecoration(
+                              border: InputBorder.none,
+                              hintText: l10n.aiInputHint,
+                              isDense: true,
+                            ),
+                            onSubmitted: (_) => _sendAiChat(),
+                          ),
+                        ),
+                        const SizedBox(width: 6),
+                        FilledButton(
+                          onPressed: _aiChatBusy ? null : _sendAiChat,
+                          style: FilledButton.styleFrom(
+                            minimumSize: const Size(44, 44),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            padding: EdgeInsets.zero,
+                          ),
+                          child: _aiChatBusy
+                              ? const SizedBox(
+                                  width: 18,
+                                  height: 18,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                    color: Colors.white,
+                                  ),
+                                )
+                              : const Icon(Icons.send_rounded, size: 20),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   @override
@@ -89,16 +739,43 @@ class _WorkspacePageState extends State<WorkspacePage> {
       color: scheme.surfaceContainerLow,
       child: Sidebar(session: _s),
     );
-    return Scaffold(
-      key: _scaffoldKey,
-      backgroundColor: scheme.surfaceContainerLow,
-      drawer: compact
-          ? Drawer(
-              width: width.clamp(260, 340),
-              child: SafeArea(child: sidePanel),
-            )
-          : null,
-      appBar: AppBar(
+    return CallbackShortcuts(
+      bindings: {
+        const SingleActivator(LogicalKeyboardKey.keyK, control: true): () {
+          if (_shouldHandleShortcut()) widget.onOpenSearch();
+        },
+        const SingleActivator(LogicalKeyboardKey.keyF, control: true): () {
+          if (_shouldHandleShortcut()) widget.onOpenSearch();
+        },
+        const SingleActivator(LogicalKeyboardKey.keyN, control: true): () {
+          if (_shouldHandleShortcut()) _s.addPage(parentId: null);
+        },
+        const SingleActivator(LogicalKeyboardKey.comma, control: true): () {
+          if (_shouldHandleShortcut()) _openSettings();
+        },
+        const SingleActivator(LogicalKeyboardKey.keyL, control: true): () {
+          if (_shouldHandleShortcut()) _s.lock();
+        },
+        const SingleActivator(LogicalKeyboardKey.bracketRight, alt: true): () {
+          if (_shouldHandleShortcut()) _selectAdjacentPage(1);
+        },
+        const SingleActivator(LogicalKeyboardKey.bracketLeft, alt: true): () {
+          if (_shouldHandleShortcut()) _selectAdjacentPage(-1);
+        },
+        const SingleActivator(LogicalKeyboardKey.keyW, control: true): () {
+          if (_shouldHandleShortcut()) _s.clearSelectedPage();
+        },
+      },
+      child: Scaffold(
+        key: _scaffoldKey,
+        backgroundColor: scheme.surfaceContainerLow,
+        drawer: compact
+            ? Drawer(
+                width: width.clamp(260, 340),
+                child: SafeArea(child: sidePanel),
+              )
+            : null,
+        appBar: AppBar(
         title: Text(l10n.appTitle),
         leading: compact
             ? IconButton(
@@ -108,6 +785,16 @@ class _WorkspacePageState extends State<WorkspacePage> {
               )
             : null,
         actions: [
+          if (widget.appSettings.isAiRuntimeEnabled && _s.aiEnabled)
+            IconButton(
+              tooltip: _aiPanelCollapsed ? l10n.aiShowPanel : l10n.aiHidePanel,
+              icon: Icon(
+                _aiPanelCollapsed
+                    ? Icons.chat_bubble_outline_rounded
+                    : Icons.close_fullscreen_rounded,
+              ),
+              onPressed: () => setState(() => _aiPanelCollapsed = !_aiPanelCollapsed),
+            ),
           if (_s.hasPendingDiskSave || _s.isPersistingToDisk)
             Padding(
               padding: const EdgeInsetsDirectional.only(end: FolioSpace.xs),
@@ -155,6 +842,17 @@ class _WorkspacePageState extends State<WorkspacePage> {
               icon: const Icon(Icons.history_rounded),
               onPressed: _openPageHistoryScreen,
             ),
+          if (page != null)
+            IconButton(
+              tooltip: l10n.closeCurrentPage,
+              icon: const Icon(Icons.tab_unselected_rounded),
+              onPressed: _s.clearSelectedPage,
+            ),
+          IconButton(
+            tooltip: l10n.search,
+            icon: const Icon(Icons.search_rounded),
+            onPressed: widget.onOpenSearch,
+          ),
           IconButton(
             tooltip: l10n.settings,
             icon: const Icon(Icons.settings_outlined),
@@ -167,104 +865,36 @@ class _WorkspacePageState extends State<WorkspacePage> {
           ),
         ],
       ),
-      body: Row(
+        body: Row(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           if (!compact) SizedBox(width: 320, child: sidePanel),
-          Expanded(
-            child: Padding(
-              padding: EdgeInsets.fromLTRB(
-                compact ? 0 : FolioSpace.sm,
-                0,
-                compact ? 0 : FolioSpace.md,
-                compact ? 0 : FolioSpace.md,
-              ),
-              child: Material(
-                color: scheme.surface,
-                elevation: compact ? 0 : 2,
-                shadowColor: scheme.shadow.withValues(alpha: 0.1),
-                borderRadius: compact
-                    ? BorderRadius.zero
-                    : BorderRadius.circular(FolioRadius.lg),
-                clipBehavior: Clip.antiAlias,
-              child: page == null
-                  ? Center(
-                      child: Padding(
-                        padding: const EdgeInsets.all(FolioSpace.xl),
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Icon(
-                              Icons.description_outlined,
-                              size: 56,
-                              color: scheme.onSurfaceVariant.withValues(
-                                alpha: 0.6,
-                              ),
-                            ),
-                            const SizedBox(height: 16),
-                            Text(
-                              l10n.noPages,
-                              style: Theme.of(context).textTheme.titleMedium
-                                  ?.copyWith(color: scheme.onSurfaceVariant),
-                            ),
-                            const SizedBox(height: FolioSpace.md),
-                            FilledButton.icon(
-                              onPressed: () => _s.addPage(parentId: null),
-                              icon: const Icon(Icons.add_rounded),
-                              label: Text(l10n.createPage),
-                            ),
-                          ],
-                        ),
-                      ),
-                    )
-                  : Padding(
-                      padding: const EdgeInsets.fromLTRB(
-                        FolioSpace.lg,
-                        FolioSpace.md,
-                        FolioSpace.lg,
-                        FolioSpace.sm,
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: [
-                          TextField(
-                            controller: _titleController,
-                            style: Theme.of(context).textTheme.headlineSmall
-                                ?.copyWith(
-                                  fontWeight: FontWeight.w600,
-                                  color: scheme.onSurface,
-                                ),
-                            decoration: InputDecoration(
-                              border: InputBorder.none,
-                              filled: false,
-                              hintText: l10n.untitled,
-                              isDense: true,
-                              hintStyle: TextStyle(
-                                color: scheme.onSurfaceVariant.withValues(
-                                  alpha: 0.7,
-                                ),
-                              ),
-                            ),
-                            onChanged: (v) {
-                              if (page.id == _s.selectedPageId) {
-                                _s.renamePage(page.id, v);
-                              }
-                            },
-                          ),
-                          const SizedBox(height: 8),
-                          Expanded(
-                            child: BlockEditor(
-                              key: ValueKey('${page.id}-${_s.contentEpoch}'),
-                              session: _s,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
+          Expanded(child: _buildEditorContent(context: context, compact: compact, scheme: scheme, page: page)),
+          if (!compact &&
+              widget.appSettings.isAiRuntimeEnabled &&
+              _s.aiEnabled &&
+              !_aiPanelCollapsed)
+            MouseRegion(
+              cursor: SystemMouseCursors.resizeColumn,
+              child: GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onHorizontalDragUpdate: (d) {
+                  final screenW = MediaQuery.sizeOf(context).width;
+                  final maxW = (screenW * 0.55).clamp(320.0, 700.0);
+                  setState(() {
+                    _aiPanelWidth = (_aiPanelWidth - d.delta.dx).clamp(280.0, maxW);
+                  });
+                },
+                child: Container(width: 6, color: scheme.outlineVariant.withValues(alpha: 0.3)),
               ),
             ),
-          ),
+          if (!compact &&
+              widget.appSettings.isAiRuntimeEnabled &&
+              _s.aiEnabled &&
+              !_aiPanelCollapsed)
+            SizedBox(width: _aiPanelWidth, child: _buildAiPanel(context)),
         ],
+        ),
       ),
     );
   }

@@ -9,6 +9,7 @@ import 'package:syncfusion_flutter_pdfviewer/pdfviewer.dart';
 import 'package:video_player/video_player.dart';
 
 import 'folio_text_format.dart';
+import '../../../l10n/generated/app_localizations.dart';
 
 const int _kPreviewMaxChars = 120000;
 
@@ -65,7 +66,7 @@ class _FolioEmbeddedVideoPlayerState extends State<FolioEmbeddedVideoPlayer> {
       if (!mounted) return;
       setState(() {
         _controller = null;
-        _error = 'No se pudo cargar el video';
+        _error = AppLocalizations.of(context).couldNotLoadVideo;
       });
     }
   }
@@ -124,7 +125,9 @@ class _FolioEmbeddedVideoPlayerState extends State<FolioEmbeddedVideoPlayer> {
               child: Row(
                 children: [
                   IconButton(
-                    tooltip: c.value.isPlaying ? 'Pausar' : 'Reproducir',
+                    tooltip: c.value.isPlaying
+                        ? AppLocalizations.of(context).pause
+                        : AppLocalizations.of(context).play,
                     onPressed: () {
                       if (c.value.isPlaying) {
                         c.pause();
@@ -150,7 +153,9 @@ class _FolioEmbeddedVideoPlayerState extends State<FolioEmbeddedVideoPlayer> {
                     ),
                   ),
                   IconButton(
-                    tooltip: _muted ? 'Activar sonido' : 'Silenciar',
+                    tooltip: _muted
+                        ? AppLocalizations.of(context).unmute
+                        : AppLocalizations.of(context).mute,
                     onPressed: () {
                       _muted = !_muted;
                       c.setVolume(_muted ? 0 : 1);
@@ -162,7 +167,7 @@ class _FolioEmbeddedVideoPlayerState extends State<FolioEmbeddedVideoPlayer> {
                     ),
                   ),
                   IconButton(
-                    tooltip: 'Abrir externo',
+                    tooltip: AppLocalizations.of(context).openExternal,
                     onPressed: () => unawaited(widget.onOpenExternal()),
                     icon: const Icon(Icons.open_in_new_rounded, color: Colors.white),
                   ),
@@ -225,18 +230,25 @@ class FolioFilePreviewCard extends StatelessWidget {
                 style: theme.textTheme.bodyMedium,
               ),
             ),
+          ],
+        ),
+        const SizedBox(height: 6),
+        Wrap(
+          spacing: 6,
+          runSpacing: 6,
+          children: [
             TextButton.icon(
               onPressed: () => unawaited(onOpenExternal()),
               icon: const Icon(Icons.open_in_new_rounded, size: 18),
-              label: const Text('Abrir'),
+              label: Text(AppLocalizations.of(context).openExternal),
             ),
             TextButton(
               onPressed: onReplace,
-              child: const Text('Cambiar'),
+              child: Text(AppLocalizations.of(context).replaceFile),
             ),
             TextButton(
               onPressed: onClear,
-              child: const Text('Quitar'),
+              child: Text(AppLocalizations.of(context).removeFile),
             ),
           ],
         ),
@@ -294,7 +306,7 @@ class _PdfPreviewState extends State<_PdfPreview> {
       onDocumentLoadFailed: (details) {
         if (!mounted) return;
         setState(() {
-          _error = 'No se pudo previsualizar el PDF';
+          _error = AppLocalizations.of(context).couldNotPreviewPdf;
         });
       },
     );
@@ -335,7 +347,7 @@ class _TextLikePreview extends StatelessWidget {
         if (snap.hasError) {
           return Center(
             child: Text(
-              'No se pudo leer el archivo',
+              AppLocalizations.of(context).couldNotReadFile,
               style: theme.textTheme.bodyMedium?.copyWith(color: scheme.error),
             ),
           );
@@ -393,7 +405,7 @@ class _UnsupportedPreview extends StatelessWidget {
             Icon(Icons.preview_outlined, size: 36, color: scheme.onSurfaceVariant),
             const SizedBox(height: 8),
             Text(
-              'Sin preview embebido para este tipo',
+              AppLocalizations.of(context).noEmbeddedPreview,
               style: theme.textTheme.bodyMedium?.copyWith(color: scheme.onSurfaceVariant),
             ),
             const SizedBox(height: 4),
@@ -433,7 +445,7 @@ class _VideoFallback extends StatelessWidget {
           TextButton.icon(
             onPressed: () => unawaited(onOpenExternal()),
             icon: const Icon(Icons.open_in_new_rounded),
-            label: const Text('Abrir video externo'),
+            label: Text(AppLocalizations.of(context).openVideoExternal),
           ),
         ],
       ),

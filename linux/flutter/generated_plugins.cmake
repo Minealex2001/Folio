@@ -5,9 +5,13 @@
 list(APPEND FLUTTER_PLUGIN_LIST
   emoji_picker_flutter
   file_selector_linux
+  hotkey_manager_linux
+  screen_retriever_linux
   syncfusion_pdfviewer_linux
   system_theme
+  tray_manager
   url_launcher_linux
+  window_manager
 )
 
 list(APPEND FLUTTER_FFI_PLUGIN_LIST

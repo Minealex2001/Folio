@@ -16,7 +16,6 @@ class OnboardingFlow extends StatefulWidget {
 }
 
 class _OnboardingFlowState extends State<OnboardingFlow> {
-  final _pageController = PageController();
   final _password = TextEditingController();
   final _confirm = TextEditingController();
   final _backupPassword = TextEditingController();
@@ -26,12 +25,17 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
   String? _backupZipPath;
   String? _error;
   var _busy = false;
+  var _obscurePassword = true;
+  var _obscureConfirm = true;
+  var _obscureBackupPassword = true;
+  var _createWithoutEncryption = false;
 
   static const _minLen = 10;
 
+  _PasswordStrength get _passwordStrength => _passwordStrengthFor(_password.text);
+
   @override
   void dispose() {
-    _pageController.dispose();
     _password.dispose();
     _confirm.dispose();
     _backupPassword.dispose();
@@ -48,17 +52,13 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
 
   void _goPage(int i) {
     setState(() => _page = i);
-    _pageController.animateToPage(
-      i,
-      duration: const Duration(milliseconds: 280),
-      curve: Curves.easeOutCubic,
-    );
   }
 
   void _chooseCreateNew() {
     setState(() {
       _error = null;
       _importMode = false;
+      _createWithoutEncryption = false;
     });
     _goPage(1);
   }
@@ -76,10 +76,18 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
     setState(() {
       _error = null;
       if (_page == 1) {
+        if (_createWithoutEncryption) {
+          _page = 2;
+          return;
+        }
         final p = _password.text;
         final c = _confirm.text;
         if (p.length < _minLen) {
           _error = AppLocalizations.of(context).minCharactersError(_minLen);
+          return;
+        }
+        if (_passwordStrength != _PasswordStrength.strong) {
+          _error = AppLocalizations.of(context).passwordMustBeStrongError;
           return;
         }
         if (p != c) {
@@ -88,11 +96,6 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
         }
       }
       _page = 2;
-      _pageController.animateToPage(
-        2,
-        duration: const Duration(milliseconds: 280),
-        curve: Curves.easeOutCubic,
-      );
     });
   }
 
@@ -151,7 +154,10 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
       _error = null;
     });
     try {
-      await widget.session.completeOnboarding(_password.text);
+      await widget.session.completeOnboarding(
+        password: _createWithoutEncryption ? null : _password.text,
+        encrypted: !_createWithoutEncryption,
+      );
     } catch (e) {
       setState(() {
         _busy = false;
@@ -266,6 +272,56 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
     }
   }
 
+  Widget _stepNoEncryptionConfirm(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+    final scheme = Theme.of(context).colorScheme;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        const SizedBox(height: FolioSpace.xl),
+        Icon(Icons.warning_amber_rounded, size: 64, color: scheme.error),
+        const SizedBox(height: FolioSpace.lg),
+        Text(
+          'Crear cofre sin cifrado',
+          style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                fontWeight: FontWeight.w700,
+              ),
+          textAlign: TextAlign.center,
+        ),
+        const SizedBox(height: FolioSpace.md),
+        Text(
+          'Tus datos quedaran guardados sin contraseña y sin cifrado. '
+          'Cualquier persona con acceso al dispositivo podra leerlos.',
+          style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                color: scheme.onSurfaceVariant,
+                height: 1.45,
+              ),
+          textAlign: TextAlign.center,
+        ),
+        const SizedBox(height: FolioSpace.xl),
+        Row(
+          children: [
+            TextButton(
+              onPressed: () {
+                setState(() => _createWithoutEncryption = false);
+              },
+              child: Text(l10n.back),
+            ),
+            const SizedBox(width: FolioSpace.md),
+            FilledButton(
+              style: FilledButton.styleFrom(
+                minimumSize: const Size(120, 48),
+                shape: const StadiumBorder(),
+              ),
+              onPressed: _nextCreatePassword,
+              child: Text(l10n.continueAction),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
   Widget _stepWelcome(BuildContext context) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.center,
@@ -296,6 +352,22 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
           ),
           onPressed: _chooseCreateNew,
           child: Text(AppLocalizations.of(context).createNewVault),
+        ),
+        const SizedBox(height: FolioSpace.md),
+        OutlinedButton(
+          style: OutlinedButton.styleFrom(
+            minimumSize: const Size.fromHeight(56),
+            shape: const StadiumBorder(),
+          ),
+          onPressed: () {
+            setState(() {
+              _error = null;
+              _importMode = false;
+              _createWithoutEncryption = true;
+            });
+            _goPage(1);
+          },
+          child: const Text('Crear sin cifrado'),
         ),
         const SizedBox(height: FolioSpace.md),
         OutlinedButton(
@@ -362,10 +434,23 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
         const SizedBox(height: FolioSpace.lg),
         TextField(
           controller: _backupPassword,
-          obscureText: true,
+          obscureText: _obscureBackupPassword,
           enabled: !_busy,
           decoration: InputDecoration(
             labelText: AppLocalizations.of(context).backupPasswordLabel,
+            suffixIcon: IconButton(
+              onPressed: _busy
+                  ? null
+                  : () => setState(
+                      () => _obscureBackupPassword = !_obscureBackupPassword,
+                    ),
+              icon: Icon(
+                _obscureBackupPassword ? Icons.visibility : Icons.visibility_off,
+              ),
+              tooltip: _obscureBackupPassword
+                  ? AppLocalizations.of(context).showPassword
+                  : AppLocalizations.of(context).hidePassword,
+            ),
           ),
           onSubmitted: (_) {
             if (!_busy) _finishImport();
@@ -380,7 +465,6 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
                   : () {
                       setState(() {
                         _page = 0;
-                        _pageController.jumpToPage(0);
                       });
                     },
               child: Text(AppLocalizations.of(context).back),
@@ -407,6 +491,23 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
   }
 
   Widget _stepPassword(BuildContext context) {
+    if (_createWithoutEncryption) {
+      return _stepNoEncryptionConfirm(context);
+    }
+    final strength = _passwordStrength;
+    final strengthValue = switch (strength) {
+      _PasswordStrength.veryWeak => 0.25,
+      _PasswordStrength.weak => 0.5,
+      _PasswordStrength.fair => 0.75,
+      _PasswordStrength.strong => 1.0,
+    };
+    final strengthLabel = switch (strength) {
+      _PasswordStrength.veryWeak =>
+        AppLocalizations.of(context).passwordStrengthVeryWeak,
+      _PasswordStrength.weak => AppLocalizations.of(context).passwordStrengthWeak,
+      _PasswordStrength.fair => AppLocalizations.of(context).passwordStrengthFair,
+      _PasswordStrength.strong => AppLocalizations.of(context).passwordStrengthStrong,
+    };
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -434,18 +535,41 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
         const SizedBox(height: FolioSpace.xl),
         TextField(
           controller: _password,
-          obscureText: true,
+          obscureText: _obscurePassword,
+          onChanged: (_) => setState(() {}),
           decoration: InputDecoration(
             labelText: AppLocalizations.of(context).passwordLabel,
+            suffixIcon: IconButton(
+              onPressed: () =>
+                  setState(() => _obscurePassword = !_obscurePassword),
+              icon: Icon(_obscurePassword ? Icons.visibility : Icons.visibility_off),
+              tooltip: _obscurePassword
+                  ? AppLocalizations.of(context).showPassword
+                  : AppLocalizations.of(context).hidePassword,
+            ),
           ),
           textInputAction: TextInputAction.next,
+        ),
+        const SizedBox(height: FolioSpace.sm),
+        LinearProgressIndicator(value: strengthValue),
+        const SizedBox(height: FolioSpace.xs),
+        Text(
+          '${AppLocalizations.of(context).passwordStrengthLabel}: $strengthLabel',
+          style: Theme.of(context).textTheme.bodySmall,
         ),
         const SizedBox(height: FolioSpace.md),
         TextField(
           controller: _confirm,
-          obscureText: true,
+          obscureText: _obscureConfirm,
           decoration: InputDecoration(
             labelText: AppLocalizations.of(context).confirmPasswordLabel,
+            suffixIcon: IconButton(
+              onPressed: () => setState(() => _obscureConfirm = !_obscureConfirm),
+              icon: Icon(_obscureConfirm ? Icons.visibility : Icons.visibility_off),
+              tooltip: _obscureConfirm
+                  ? AppLocalizations.of(context).showPassword
+                  : AppLocalizations.of(context).hidePassword,
+            ),
           ),
           onSubmitted: (_) => _nextCreatePassword(),
         ),
@@ -456,7 +580,6 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
               onPressed: () {
                 setState(() {
                   _page = 0;
-                  _pageController.jumpToPage(0);
                 });
               },
               child: Text(AppLocalizations.of(context).back),
@@ -505,7 +628,6 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
               onPressed: () {
                 setState(() {
                   _page = 1;
-                  _pageController.jumpToPage(1);
                 });
               },
               child: Text(AppLocalizations.of(context).back),
@@ -530,4 +652,21 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
       ],
     );
   }
+}
+
+enum _PasswordStrength { veryWeak, weak, fair, strong }
+
+_PasswordStrength _passwordStrengthFor(String text) {
+  var score = 0;
+  if (text.length >= 10) score++;
+  if (text.length >= 14) score++;
+  if (RegExp(r'[a-z]').hasMatch(text) && RegExp(r'[A-Z]').hasMatch(text)) {
+    score++;
+  }
+  if (RegExp(r'\d').hasMatch(text)) score++;
+  if (RegExp(r'[^A-Za-z0-9]').hasMatch(text)) score++;
+  if (score <= 1) return _PasswordStrength.veryWeak;
+  if (score == 2) return _PasswordStrength.weak;
+  if (score == 3 || score == 4) return _PasswordStrength.fair;
+  return _PasswordStrength.strong;
 }

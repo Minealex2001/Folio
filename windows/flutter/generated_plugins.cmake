@@ -5,11 +5,15 @@
 list(APPEND FLUTTER_PLUGIN_LIST
   emoji_picker_flutter
   file_selector_windows
+  hotkey_manager_windows
   local_auth_windows
   passkeys_windows
+  screen_retriever_windows
   syncfusion_pdfviewer_windows
   system_theme
+  tray_manager
   url_launcher_windows
+  window_manager
 )
 
 list(APPEND FLUTTER_FFI_PLUGIN_LIST

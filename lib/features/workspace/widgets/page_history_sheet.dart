@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../l10n/generated/app_localizations.dart';
 import '../../../models/folio_page.dart';
 import '../../../models/folio_page_revision.dart';
 import '../../../session/vault_session.dart';
@@ -38,6 +39,7 @@ class PageHistoryScreen extends StatelessWidget {
     BuildContext screenContext,
     FolioPageRevision rev,
   ) async {
+    final l10n = AppLocalizations.of(screenContext);
     final ok = await showDialog<bool>(
       context: screenContext,
       builder: (ctx) => AlertDialog(
@@ -45,19 +47,16 @@ class PageHistoryScreen extends StatelessWidget {
           Icons.restore_rounded,
           color: Theme.of(ctx).colorScheme.primary,
         ),
-        title: const Text('Restaurar versión'),
-        content: const Text(
-          'Se sustituirá el título y el contenido de la página por esta '
-          'versión. El estado actual se guardará antes en el historial.',
-        ),
+        title: Text(l10n.restoreVersionTitle),
+        content: Text(l10n.restoreVersionBody),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('Cancelar'),
+            child: Text(l10n.cancel),
           ),
           FilledButton(
             onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('Restaurar'),
+            child: Text(l10n.restore),
           ),
         ],
       ),
@@ -71,20 +70,18 @@ class PageHistoryScreen extends StatelessWidget {
     BuildContext screenContext,
     FolioPageRevision rev,
   ) async {
+    final l10n = AppLocalizations.of(screenContext);
     final scheme = Theme.of(screenContext).colorScheme;
     final ok = await showDialog<bool>(
       context: screenContext,
       builder: (ctx) => AlertDialog(
         icon: Icon(Icons.delete_outline_rounded, color: scheme.error),
-        title: const Text('Borrar versión'),
-        content: const Text(
-          'Esta entrada desaparecerá del historial. El texto actual de la '
-          'página no cambia.',
-        ),
+        title: Text(l10n.deleteVersionTitle),
+        content: Text(l10n.deleteVersionBody),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('Cancelar'),
+            child: Text(l10n.cancel),
           ),
           FilledButton(
             style: FilledButton.styleFrom(
@@ -92,7 +89,7 @@ class PageHistoryScreen extends StatelessWidget {
               foregroundColor: scheme.onError,
             ),
             onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('Borrar'),
+            child: Text(l10n.delete),
           ),
         ],
       ),
@@ -103,6 +100,7 @@ class PageHistoryScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
     final textTheme = theme.textTheme;
@@ -116,9 +114,9 @@ class PageHistoryScreen extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Text('Historial de versiones'),
+            Text(l10n.pageHistoryTitle),
             Text(
-              page.title.isEmpty ? 'Sin título' : page.title,
+              page.title.isEmpty ? l10n.untitledFallback : page.title,
               style: textTheme.bodyMedium?.copyWith(
                 color: scheme.onSurfaceVariant,
                 fontWeight: FontWeight.w500,
@@ -171,15 +169,14 @@ class PageHistoryScreen extends StatelessWidget {
                                 ),
                                 const SizedBox(height: 20),
                                 Text(
-                                  'Sin versiones todavía',
+                                  l10n.noVersionsYet,
                                   style: textTheme.titleMedium?.copyWith(
                                     fontWeight: FontWeight.w600,
                                   ),
                                 ),
                                 const SizedBox(height: 8),
                                 Text(
-                                  'Cuando dejes de escribir unos segundos, '
-                                  'aquí aparecerá el historial de cambios.',
+                                  l10n.historyAppearsHint,
                                   textAlign: TextAlign.center,
                                   style: textTheme.bodyMedium?.copyWith(
                                     color: scheme.onSurfaceVariant,
@@ -282,7 +279,7 @@ class _HistoryHeaderCard extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Control de versiones',
+                  AppLocalizations.of(context).versionControl,
                   style: textTheme.titleMedium?.copyWith(
                     fontWeight: FontWeight.w800,
                     letterSpacing: -0.3,
@@ -290,8 +287,7 @@ class _HistoryHeaderCard extends StatelessWidget {
                 ),
                 const SizedBox(height: 6),
                 Text(
-                  'El cofre se guarda en seguida; el historial añade una '
-                  'entrada cuando dejas de editar y el contenido cambió.',
+                  AppLocalizations.of(context).historyHeaderBody,
                   style: textTheme.bodySmall?.copyWith(
                     color: scheme.onSurfaceVariant,
                     height: 1.35,
@@ -304,9 +300,7 @@ class _HistoryHeaderCard extends StatelessWidget {
                   children: [
                     _InfoChip(
                       icon: Icons.bookmarks_outlined,
-                      label: versionCount == 0
-                          ? '0 versiones'
-                          : '$versionCount ${versionCount == 1 ? 'versión' : 'versiones'}',
+                      label: AppLocalizations.of(context).versionsCount(versionCount),
                       scheme: scheme,
                       textTheme: textTheme,
                     ),
@@ -428,7 +422,7 @@ class _RevisionCard extends StatelessWidget {
             ),
           ),
           title: Text(
-            rev.title.isEmpty ? 'Sin título' : rev.title,
+            rev.title.isEmpty ? AppLocalizations.of(context).untitledFallback : rev.title,
             maxLines: 2,
             overflow: TextOverflow.ellipsis,
             style: textTheme.titleSmall?.copyWith(
@@ -481,8 +475,8 @@ class _RevisionCard extends StatelessWidget {
                       Expanded(
                         child: Text(
                           older == null
-                              ? 'Cambios desde el inicio vacío'
-                              : 'Comparado con la versión anterior',
+                              ? AppLocalizations.of(context).changesFromEmptyStart
+                              : AppLocalizations.of(context).comparedWithPrevious,
                           style: textTheme.labelLarge?.copyWith(
                             color: scheme.onSurface,
                             fontWeight: FontWeight.w600,
@@ -503,7 +497,7 @@ class _RevisionCard extends StatelessWidget {
                   child: OutlinedButton.icon(
                     onPressed: onDelete,
                     icon: const Icon(Icons.delete_outline_rounded, size: 20),
-                    label: const Text('Borrar'),
+                    label: Text(AppLocalizations.of(context).delete),
                     style: OutlinedButton.styleFrom(
                       foregroundColor: scheme.error,
                       side: BorderSide(
@@ -518,7 +512,7 @@ class _RevisionCard extends StatelessWidget {
                   child: FilledButton.tonalIcon(
                     onPressed: onRestore,
                     icon: const Icon(Icons.restore_rounded, size: 20),
-                    label: const Text('Restaurar'),
+                    label: Text(AppLocalizations.of(context).restore),
                     style: FilledButton.styleFrom(
                       padding: const EdgeInsets.symmetric(vertical: 12),
                     ),
