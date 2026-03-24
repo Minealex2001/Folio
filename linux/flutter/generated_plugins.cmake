@@ -3,7 +3,9 @@
 #
 
 list(APPEND FLUTTER_PLUGIN_LIST
+  emoji_picker_flutter
   file_selector_linux
+  syncfusion_pdfviewer_linux
   system_theme
   url_launcher_linux
 )

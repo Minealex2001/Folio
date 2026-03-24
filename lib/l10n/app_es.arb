@@ -1,0 +1,80 @@
+{
+  "@@locale": "es",
+  "appTitle": "Folio",
+  "loading": "Cargando…",
+  "newVault": "Nuevo cofre",
+  "stepOfTotal": "Paso {current} de {total}",
+  "@stepOfTotal": {
+    "placeholders": {
+      "current": {"type": "int"},
+      "total": {"type": "int"}
+    }
+  },
+  "back": "Atrás",
+  "continueAction": "Continuar",
+  "cancel": "Cancelar",
+  "retry": "Reintentar",
+  "settings": "Ajustes",
+  "lockNow": "Bloquear",
+  "pageHistory": "Historial de la página",
+  "untitled": "Sin título",
+  "noPages": "Sin páginas",
+  "createPage": "Crear página",
+  "selectPage": "Selecciona una página",
+  "saveInProgress": "Guardando…",
+  "savePending": "Por guardar",
+  "savingVaultTooltip": "Guardando el cofre cifrado en disco…",
+  "autosaveSoonTooltip": "Guardado automático en unos instantes…",
+  "welcomeTitle": "Bienvenida",
+  "welcomeBody": "Folio guarda tus páginas solo en este dispositivo, cifradas con una contraseña maestra. Si la olvidas, no podremos recuperar los datos.\n\nNo hay sincronización en la nube.",
+  "createNewVault": "Crear cofre nuevo",
+  "importBackupZip": "Importar una copia (.zip)",
+  "importBackupTitle": "Importar copia",
+  "importBackupBody": "El archivo contiene los mismos datos cifrados que en el otro equipo. Necesitas la contraseña maestra con la que se creó esa copia.\n\nLa passkey y el desbloqueo rápido (Hello) no van en el archivo y no son transferibles; podrás configurarlos después en Ajustes.",
+  "chooseZipFile": "Elegir archivo .zip",
+  "changeFile": "Cambiar archivo",
+  "backupPasswordLabel": "Contraseña de la copia",
+  "importVault": "Importar cofre",
+  "masterPasswordTitle": "Tu contraseña maestra",
+  "masterPasswordHint": "Al menos {min} caracteres. La usarás cada vez que abras Folio.",
+  "@masterPasswordHint": {
+    "placeholders": {
+      "min": {"type": "int"}
+    }
+  },
+  "passwordLabel": "Contraseña",
+  "confirmPasswordLabel": "Confirmar contraseña",
+  "next": "Siguiente",
+  "readyTitle": "Todo listo",
+  "readyBody": "Se creará un cofre cifrado en este equipo. Podrás añadir después Windows Hello, biometría o una passkey para desbloquear más rápido (Ajustes).",
+  "createVault": "Crear cofre",
+  "minCharactersError": "Mínimo {min} caracteres.",
+  "@minCharactersError": {
+    "placeholders": {
+      "min": {"type": "int"}
+    }
+  },
+  "passwordMismatchError": "Las contraseñas no coinciden.",
+  "chooseZipError": "Elige un archivo .zip.",
+  "enterBackupPasswordError": "Introduce la contraseña de la copia.",
+  "importFailedError": "No se pudo importar: {error}",
+  "@importFailedError": {"placeholders": {"error": {}}},
+  "createVaultFailedError": "No se pudo crear el cofre: {error}",
+  "@createVaultFailedError": {"placeholders": {"error": {}}},
+  "encryptedVault": "Cofre cifrado",
+  "unlock": "Desbloquear",
+  "quickUnlock": "Hello / biometría",
+  "passkey": "Passkey",
+  "unlockFailed": "Contraseña incorrecta o cofre dañado.",
+  "appearance": "Apariencia",
+  "security": "Seguridad",
+  "vaultBackup": "Copia del cofre",
+  "data": "Datos",
+  "systemTheme": "Sistema",
+  "lightTheme": "Claro",
+  "darkTheme": "Oscuro",
+  "language": "Idioma",
+  "useSystemLanguage": "Usar idioma del sistema",
+  "spanishLanguage": "Español",
+  "englishLanguage": "Inglés"
+}

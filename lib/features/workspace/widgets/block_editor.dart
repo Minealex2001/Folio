@@ -10,13 +10,17 @@ import 'package:flutter_code_editor/flutter_code_editor.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:path/path.dart' as p;
 import 'package:uuid/uuid.dart';
+import 'package:url_launcher/url_launcher.dart';
+import 'package:emoji_picker_flutter/emoji_picker_flutter.dart';
 
+import '../../../l10n/generated/app_localizations.dart';
 import '../../../data/vault_paths.dart';
 import '../../../models/block.dart';
 import '../../../models/folio_page.dart';
 import '../../../models/folio_table_data.dart';
 import '../../../session/vault_session.dart';
 import 'code_block_languages.dart';
+import 'file_video_previews.dart';
 import 'folio_text_format.dart';
 import 'table_block_editor.dart';
 
@@ -83,6 +87,41 @@ const _blockTypeCatalog = <_BlockTypeDef>[
     label: 'Tabla',
     hint: '/tabla  ·  celdas editables',
     icon: Icons.table_chart_rounded,
+    section: _BlockTypeSection.media,
+  ),
+  _BlockTypeDef(
+    key: 'quote',
+    label: 'Cita',
+    hint: '”  ·  texto destacado',
+    icon: Icons.format_quote_rounded,
+    section: _BlockTypeSection.text,
+  ),
+  _BlockTypeDef(
+    key: 'divider',
+    label: 'Separador',
+    hint: '---  ·  línea horizontal',
+    icon: Icons.horizontal_rule_rounded,
+    section: _BlockTypeSection.media,
+  ),
+  _BlockTypeDef(
+    key: 'callout',
+    label: 'Destacado',
+    hint: '💡  ·  caja con icono',
+    icon: Icons.lightbulb_outline_rounded,
+    section: _BlockTypeSection.text,
+  ),
+  _BlockTypeDef(
+    key: 'file',
+    label: 'Archivo',
+    hint: '/archivo  ·  adjunto',
+    icon: Icons.attach_file_rounded,
+    section: _BlockTypeSection.media,
+  ),
+  _BlockTypeDef(
+    key: 'video',
+    label: 'Video',
+    hint: '/video  ·  reproductor',
+    icon: Icons.play_circle_outline_rounded,
     section: _BlockTypeSection.media,
   ),
 ];
@@ -163,6 +202,7 @@ class _BlockEditorState extends State<BlockEditor> {
   String? _slashBlockId;
   String? _slashPageId;
   final ScrollController _slashListScrollController = ScrollController();
+  final Map<String, Future<File?>> _resolvedFileFutureByUrl = {};
 
   /// Bloque de texto cuya barra de formato sigue visible aunque el foco se mueva al pulsarla (p. ej. ScrollView).
   String? _formatStickyBlockId;
@@ -177,6 +217,8 @@ class _BlockEditorState extends State<BlockEditor> {
     'h3',
     'bullet',
     'todo',
+    'quote',
+    'callout',
   };
 
   void _syncFormatStickyBlockId() {
@@ -218,6 +260,7 @@ class _BlockEditorState extends State<BlockEditor> {
   void dispose() {
     _formatStickyClearTimer?.cancel();
     _slashListScrollController.dispose();
+    _resolvedFileFutureByUrl.clear();
     _s.removeListener(_onSession);
     _disposeControllers();
     super.dispose();
@@ -255,7 +298,11 @@ class _BlockEditorState extends State<BlockEditor> {
     _slashBlockId = null;
     _slashPageId = null;
     _ignoreShortcuts = true;
+    
+    // Remove the trailing slash command from the block's text
+    _s.updateBlockText(pid, id, '');
     _s.changeBlockType(pid, id, typeKey);
+    
     var newText = '';
     final pageAfter = _s.selectedPage;
     if (pageAfter != null) {
@@ -522,6 +569,15 @@ class _BlockEditorState extends State<BlockEditor> {
     TextEditingController ctrl,
     KeyDownEvent event,
   ) {
+    if (event.logicalKey == LogicalKeyboardKey.tab) {
+      if (HardwareKeyboard.instance.isShiftPressed) {
+        _s.unindentBlock(page.id, blockId);
+      } else {
+        _s.indentBlock(page.id, blockId);
+      }
+      return KeyEventResult.handled;
+    }
+
     final blockType = page.blocks[index].type;
     if (blockType == 'code' &&
         event.logicalKey == LogicalKeyboardKey.enter &&
@@ -624,7 +680,7 @@ class _BlockEditorState extends State<BlockEditor> {
     if (bi < 0) return;
     final btype = pg.blocks[bi].type;
     _s.updateBlockText(pageId, blockId, text);
-    const slashTypes = {'paragraph', 'h1', 'h2', 'h3', 'bullet', 'todo'};
+    const slashTypes = {'paragraph', 'h1', 'h2', 'h3', 'bullet', 'todo', 'quote', 'callout'};
     if (!slashTypes.contains(btype)) {
       return;
     }
@@ -795,6 +851,114 @@ class _BlockEditorState extends State<BlockEditor> {
     setState(() {});
   }
 
+  Future<void> _pickFileForBlock(String pageId, String blockId) async {
+    final result = await FilePicker.platform.pickFiles();
+    if (result != null && result.files.single.path != null) {
+      final rel = await VaultPaths.importAttachmentFile(
+        File(result.files.single.path!),
+        preserveExtension: true,
+        preserveFileName: true,
+      );
+      _s.updateBlockUrl(pageId, blockId, rel);
+    }
+  }
+
+  Future<void> _pickVideoForBlock(String pageId, String blockId) async {
+    final result = await FilePicker.platform.pickFiles(type: FileType.video);
+    if (result != null && result.files.single.path != null) {
+      final rel = await VaultPaths.importAttachmentFile(
+        File(result.files.single.path!),
+        preserveExtension: true,
+        preserveFileName: true,
+      );
+      _s.updateBlockUrl(pageId, blockId, rel);
+    }
+  }
+
+  void _clearBlockUrl(String pageId, String blockId) {
+    _s.updateBlockUrl(pageId, blockId, null);
+    if (mounted) setState(() {});
+  }
+
+  Future<File?> _resolveBlockUrlFile(String? rawUrl) async {
+    final raw0 = rawUrl?.trim();
+    if (raw0 == null || raw0.isEmpty) return null;
+    final normalized = raw0.replaceAll(r'\', '/');
+
+    Future<File?> tryFilePath(String path) async {
+      final f = File(path);
+      return f.existsSync() ? f : null;
+    }
+
+    try {
+      if (normalized.startsWith('file://')) {
+        final fromUri = await tryFilePath(Uri.parse(normalized).toFilePath());
+        if (fromUri != null) return fromUri;
+      }
+
+      final direct = await tryFilePath(raw0);
+      if (direct != null) return direct;
+
+      if (normalized.startsWith('${VaultPaths.attachmentsDirName}/') ||
+          !p.isAbsolute(raw0)) {
+        final vault = await VaultPaths.vaultDirectory();
+        final candidate = await tryFilePath(p.join(vault.path, normalized));
+        if (candidate != null) return candidate;
+      }
+
+      // Fallback tolerante para rutas antiguas/movidas: buscar por nombre en attachments.
+      final base = p.basename(normalized);
+      if (base.isNotEmpty) {
+        final vault = await VaultPaths.vaultDirectory();
+        final dir = Directory(p.join(vault.path, VaultPaths.attachmentsDirName));
+        if (dir.existsSync()) {
+          for (final e in dir.listSync(followLinks: false)) {
+            if (e is File && p.basename(e.path) == base) {
+              return e;
+            }
+          }
+        }
+      }
+    } catch (_) {
+      // Ignoramos y devolvemos null para que la UI muestre estado recuperable.
+    }
+    return null;
+  }
+
+  Future<File?> _resolveBlockUrlFileCached(String? rawUrl) {
+    final key = rawUrl?.trim();
+    if (key == null || key.isEmpty) return Future<File?>.value(null);
+    return _resolvedFileFutureByUrl.putIfAbsent(
+      key,
+      () => _resolveBlockUrlFile(key),
+    );
+  }
+
+  Future<void> _openBlockUrlExternal(String? rawUrl) async {
+    final file = await _resolveBlockUrlFile(rawUrl);
+    if (file == null) return;
+    await launchUrl(Uri.file(file.path));
+  }
+
+  Future<String?> _pickEmoji(BuildContext context) async {
+    String? selectedEmoji;
+    await showModalBottomSheet(
+      context: context,
+      builder: (ctx) {
+        return SizedBox(
+          height: 300,
+          child: EmojiPicker(
+            onEmojiSelected: (category, emoji) {
+              selectedEmoji = emoji.emoji;
+              Navigator.pop(ctx);
+            },
+          ),
+        );
+      },
+    );
+    return selectedEmoji;
+  }
+
   List<CodeLanguageOption> _codeLanguageOptionsForBlock(FolioBlock block) {
     final out = List<CodeLanguageOption>.from(kCodeLanguagePickerOptions);
     final s = block.codeLanguage?.trim();
@@ -829,12 +993,11 @@ class _BlockEditorState extends State<BlockEditor> {
   ) {
     _s.setBlockCodeLanguage(pageId, blockId, languageId);
     if (index >= 0 && index < _controllers.length) {
-      final c = _controllers[index];
-      if (c is CodeController) {
-        c.language = modeForLanguageId(languageId);
-      }
+      _pendingFocusIndex = index;
+      final base = _controllers[index].selection.baseOffset;
+      _pendingCursorOffset = base >= 0 ? base : _controllers[index].text.length;
     }
-    setState(() {});
+    if (mounted) setState(() {});
   }
 
   Future<String?> _openCodeLanguageSheet(
@@ -1147,7 +1310,7 @@ class _BlockEditorState extends State<BlockEditor> {
   Widget build(BuildContext context) {
     final page = _s.selectedPage;
     if (page == null) {
-      return const Center(child: Text('Selecciona una página'));
+      return Center(child: Text(AppLocalizations.of(context).selectPage));
     }
     if (_controllers.length != page.blocks.length) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -1167,7 +1330,8 @@ class _BlockEditorState extends State<BlockEditor> {
       fontFamily: 'monospace',
     );
 
-    return Column(
+    return FocusTraversalGroup(
+      child: Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         Padding(
@@ -1204,7 +1368,8 @@ class _BlockEditorState extends State<BlockEditor> {
                 final showActions =
                     _hoveredBlockIndex == index ||
                     focus.hasFocus ||
-                    _menuOpenBlockId == b.id;
+                    _menuOpenBlockId == b.id ||
+                    MediaQuery.sizeOf(context).width < 900;
 
                 return KeyedSubtree(
                   key: ValueKey(b.id),
@@ -1247,7 +1412,7 @@ class _BlockEditorState extends State<BlockEditor> {
           label: const Text('Añadir bloque'),
         ),
       ],
-    );
+    ));
   }
 
   PopupMenuButton<String> _blockMenuButton({
@@ -1257,7 +1422,11 @@ class _BlockEditorState extends State<BlockEditor> {
     required int index,
   }) {
     return PopupMenuButton<String>(
-      icon: const Icon(Icons.more_vert_rounded, size: 22),
+      icon: Semantics(
+        button: true,
+        label: 'Opciones del bloque',
+        child: Icon(Icons.more_vert_rounded, size: 22),
+      ),
       tooltip: 'Opciones del bloque',
       style: IconButton.styleFrom(visualDensity: VisualDensity.compact),
       onOpened: () => setState(() => _menuOpenBlockId = b.id),
@@ -1306,6 +1475,14 @@ class _BlockEditorState extends State<BlockEditor> {
           unawaited(_pickImageForBlock(page.id, b.id, index));
         } else if (v == 'img_clear') {
           unawaited(_clearImageBlock(page.id, b.id, index));
+        } else if (v == 'file_pick') {
+          unawaited(_pickFileForBlock(page.id, b.id));
+        } else if (v == 'file_clear') {
+          _clearBlockUrl(page.id, b.id);
+        } else if (v == 'video_pick') {
+          unawaited(_pickVideoForBlock(page.id, b.id));
+        } else if (v == 'video_clear') {
+          _clearBlockUrl(page.id, b.id);
         } else if (v == 'table_row_add') {
           _mutateTable(page.id, b.id, index, (d) => d.addRow());
         } else if (v == 'table_row_rem') {
@@ -1350,6 +1527,30 @@ class _BlockEditorState extends State<BlockEditor> {
               value: 'code_lang',
               child: Text('Lenguaje del código…'),
             ),
+          ],
+          if (b.type == 'file') ...[
+            const PopupMenuDivider(),
+            const PopupMenuItem(
+              value: 'file_pick',
+              child: Text('Cambiar archivo…'),
+            ),
+            if ((b.url ?? '').trim().isNotEmpty)
+              const PopupMenuItem(
+                value: 'file_clear',
+                child: Text('Quitar archivo'),
+              ),
+          ],
+          if (b.type == 'video') ...[
+            const PopupMenuDivider(),
+            const PopupMenuItem(
+              value: 'video_pick',
+              child: Text('Cambiar video…'),
+            ),
+            if ((b.url ?? '').trim().isNotEmpty)
+              const PopupMenuItem(
+                value: 'video_clear',
+                child: Text('Quitar video'),
+              ),
           ],
           if (b.type == 'table' && data != null) ...[
             const PopupMenuDivider(),
@@ -1458,17 +1659,10 @@ class _BlockEditorState extends State<BlockEditor> {
             waitDuration: const Duration(milliseconds: 400),
             child: ReorderableDragStartListener(
               index: index,
-              child: MouseRegion(
-                cursor: SystemMouseCursors.grab,
-                child: SizedBox(
-                  width: _dragGutterWidth,
-                  height: 32,
-                  child: Icon(
-                    Icons.drag_indicator_rounded,
-                    size: 20,
-                    color: iconColor,
-                  ),
-                ),
+              child: Semantics(
+                label: 'Arrastrar para reordenar',
+                button: true,
+                child: _DragHandleWidget(iconColor: iconColor),
               ),
             ),
           )
@@ -1481,7 +1675,10 @@ class _BlockEditorState extends State<BlockEditor> {
           width: _markerColumnWidth,
           child: Align(
             alignment: Alignment.centerLeft,
-            child: Transform.translate(
+              child: Semantics(
+                label: 'Marcar tarea completada',
+                toggled: block.checked ?? false,
+                child: Transform.translate(
               offset: const Offset(-2, 0),
               child: Checkbox(
                 materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
@@ -1492,7 +1689,7 @@ class _BlockEditorState extends State<BlockEditor> {
                     _s.setBlockChecked(page.id, block.id, v);
                   }
                 },
-              ),
+              )),
             ),
           ),
         );
@@ -1517,7 +1714,7 @@ class _BlockEditorState extends State<BlockEditor> {
 
     if (block.type == 'image') {
       return Padding(
-        padding: const EdgeInsetsDirectional.fromSTEB(0, 2, 4, 2),
+        padding: EdgeInsetsDirectional.fromSTEB(block.depth * 28.0, 2, 4, 2),
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -1541,7 +1738,7 @@ class _BlockEditorState extends State<BlockEditor> {
 
     if (block.type == 'table') {
       return Padding(
-        padding: const EdgeInsetsDirectional.fromSTEB(0, 2, 4, 2),
+        padding: EdgeInsetsDirectional.fromSTEB(block.depth * 28.0, 2, 4, 2),
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -1566,7 +1763,7 @@ class _BlockEditorState extends State<BlockEditor> {
     if (block.type == 'code') {
       final codeCtrl = ctrl as CodeController;
       return Padding(
-        padding: const EdgeInsetsDirectional.fromSTEB(0, 2, 4, 2),
+        padding: EdgeInsetsDirectional.fromSTEB(block.depth * 28.0, 2, 4, 2),
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -1719,10 +1916,207 @@ class _BlockEditorState extends State<BlockEditor> {
       );
     }
 
+    if (block.type == 'divider') {
+      return Padding(
+        padding: EdgeInsetsDirectional.fromSTEB(block.depth * 28.0, 12, 4, 12),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            _blockMenuSlot(showActions: showActions, menu: menu),
+            dragHandle,
+            marker,
+            const Expanded(child: Divider()),
+          ],
+        ),
+      );
+    }
+
+    if (block.type == 'file') {
+      return Padding(
+        padding: EdgeInsetsDirectional.fromSTEB(block.depth * 28.0, 4, 4, 4),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _blockMenuSlot(showActions: showActions, menu: menu),
+            dragHandle,
+            marker,
+            Expanded(
+              child: Container(
+                padding: const EdgeInsets.all(12),
+                height: 260,
+                decoration: BoxDecoration(
+                  color: scheme.surfaceContainerHighest.withValues(alpha: 0.3),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                    color: scheme.outlineVariant.withValues(alpha: 0.5),
+                  ),
+                ),
+                child: FutureBuilder<File?>(
+                  future: _resolveBlockUrlFileCached(block.url),
+                  builder: (context, snap) {
+                    if (snap.connectionState == ConnectionState.waiting) {
+                      return const Center(child: CircularProgressIndicator());
+                    }
+                    if (snap.hasError) {
+                      return Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Text(
+                            'Error resolviendo archivo',
+                            style: theme.textTheme.bodyMedium?.copyWith(
+                              color: scheme.error,
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          FilledButton.tonalIcon(
+                            onPressed: () => _pickFileForBlock(page.id, block.id),
+                            icon: const Icon(Icons.attach_file_rounded),
+                            label: const Text('Cambiar archivo'),
+                          ),
+                        ],
+                      );
+                    }
+                    final file = snap.data;
+                    if (file == null) {
+                      return Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          if ((block.url ?? '').trim().isNotEmpty)
+                            Text(
+                              'No se encuentra el archivo',
+                              style: theme.textTheme.bodyMedium?.copyWith(
+                                color: scheme.error,
+                              ),
+                            ),
+                          const SizedBox(height: 8),
+                          FilledButton.tonalIcon(
+                            onPressed: () => _pickFileForBlock(page.id, block.id),
+                            icon: const Icon(Icons.attach_file_rounded),
+                            label: Text(
+                              (block.url ?? '').trim().isEmpty
+                                  ? 'Elegir archivo'
+                                  : 'Cambiar archivo',
+                            ),
+                          ),
+                          if ((block.url ?? '').trim().isNotEmpty) ...[
+                            const SizedBox(height: 4),
+                            TextButton(
+                              onPressed: () => _clearBlockUrl(page.id, block.id),
+                              child: const Text('Quitar archivo'),
+                            ),
+                          ],
+                        ],
+                      );
+                    }
+                    return FolioFilePreviewCard(
+                      file: file,
+                      theme: theme,
+                      scheme: scheme,
+                      onOpenExternal: () => _openBlockUrlExternal(block.url),
+                      onReplace: () => _pickFileForBlock(page.id, block.id),
+                      onClear: () => _clearBlockUrl(page.id, block.id),
+                    );
+                  },
+                ),
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    if (block.type == 'video') {
+      return Padding(
+        padding: EdgeInsetsDirectional.fromSTEB(block.depth * 28.0, 4, 4, 4),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _blockMenuSlot(showActions: showActions, menu: menu),
+            dragHandle,
+            marker,
+            Expanded(
+              child: Container(
+                height: 200,
+                decoration: BoxDecoration(
+                  color: scheme.surfaceContainerHighest.withValues(alpha: 0.5),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: scheme.outlineVariant.withValues(alpha: 0.5)),
+                ),
+                clipBehavior: Clip.antiAlias,
+                child: FutureBuilder<File?>(
+                  future: _resolveBlockUrlFileCached(block.url),
+                  builder: (context, snap) {
+                    if (snap.connectionState == ConnectionState.waiting) {
+                      return const Center(child: CircularProgressIndicator());
+                    }
+                    if (snap.hasError) {
+                      return Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Text(
+                            'Error resolviendo video',
+                            style: theme.textTheme.bodyMedium?.copyWith(
+                              color: scheme.error,
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          FilledButton.tonal(
+                            onPressed: () => _pickVideoForBlock(page.id, block.id),
+                            child: const Text('Cambiar video'),
+                          ),
+                        ],
+                      );
+                    }
+                    final file = snap.data;
+                    if (file == null) {
+                      return Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          if ((block.url ?? '').trim().isNotEmpty)
+                            Text(
+                              'No se encuentra el video',
+                              style: theme.textTheme.bodyMedium?.copyWith(
+                                color: scheme.error,
+                              ),
+                            ),
+                          const SizedBox(height: 8),
+                          FilledButton.tonal(
+                            onPressed: () => _pickVideoForBlock(page.id, block.id),
+                            child: Text(
+                              (block.url ?? '').trim().isEmpty
+                                  ? 'Elegir video'
+                                  : 'Cambiar video',
+                            ),
+                          ),
+                          if ((block.url ?? '').trim().isNotEmpty) ...[
+                            const SizedBox(height: 4),
+                            TextButton(
+                              onPressed: () => _clearBlockUrl(page.id, block.id),
+                              child: const Text('Quitar video'),
+                            ),
+                          ],
+                        ],
+                      );
+                    }
+                    return FolioEmbeddedVideoPlayer(
+                      key: ValueKey(file.path),
+                      file: file,
+                      scheme: scheme,
+                      onOpenExternal: () => _openBlockUrlExternal(block.url),
+                    );
+                  },
+                ),
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
     final isParagraph = block.type == 'paragraph';
     final isListLine = block.type == 'todo' || block.type == 'bullet';
 
-    const slashTypes = {'paragraph', 'h1', 'h2', 'h3', 'bullet', 'todo'};
+    const slashTypes = {'paragraph', 'h1', 'h2', 'h3', 'bullet', 'todo', 'quote', 'callout'};
     final allowsSlash = slashTypes.contains(block.type);
     final String? slashTail = allowsSlash
         ? _slashFilterFromBlockText(ctrl.text)
@@ -1739,17 +2133,26 @@ class _BlockEditorState extends State<BlockEditor> {
     final showInlinePreview =
         allowsSlash && !focus.hasFocus && ctrl.text.trim().isNotEmpty;
 
+    var currentStyle = style;
+    if (block.type == 'quote') {
+      currentStyle = currentStyle.copyWith(
+        fontStyle: FontStyle.italic,
+        fontSize: currentStyle.fontSize! * 1.05,
+        color: scheme.onSurface.withValues(alpha: 0.8),
+      );
+    }
+
     final field = TextField(
       controller: ctrl,
       focusNode: focus,
       maxLines: null,
       minLines: isParagraph ? 2 : 1,
       style: showInlinePreview
-          ? style.copyWith(
+          ? currentStyle.copyWith(
               color: Colors.transparent,
               decoration: TextDecoration.none,
             )
-          : style,
+          : currentStyle,
       textAlignVertical: isParagraph
           ? TextAlignVertical.top
           : TextAlignVertical.center,
@@ -1791,6 +2194,47 @@ class _BlockEditorState extends State<BlockEditor> {
       ],
     );
 
+    Widget textContainer = stackedField;
+    if (block.type == 'quote') {
+      textContainer = Container(
+        padding: const EdgeInsets.only(left: 12, top: 2, bottom: 2),
+        decoration: BoxDecoration(
+          border: Border(left: BorderSide(color: scheme.outlineVariant, width: 4)),
+        ),
+        child: stackedField,
+      );
+    } else if (block.type == 'callout') {
+      textContainer = Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        decoration: BoxDecoration(
+          color: scheme.primaryContainer.withValues(alpha: 0.3),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: scheme.primaryContainer),
+        ),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Padding(
+              padding: const EdgeInsets.only(right: 12),
+              child: MouseRegion(
+                cursor: SystemMouseCursors.click,
+                child: GestureDetector(
+                  onTap: () async {
+                    final emoji = await _pickEmoji(context);
+                    if (emoji != null) {
+                      _s.updateBlockIcon(page.id, block.id, emoji);
+                    }
+                  },
+                  child: Text(block.icon ?? '💡', style: const TextStyle(fontSize: 20)),
+                ),
+              ),
+            ),
+            Expanded(child: stackedField),
+          ],
+        ),
+      );
+    }
+
     final editorSlot = Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       mainAxisSize: MainAxisSize.min,
@@ -1803,7 +2247,7 @@ class _BlockEditorState extends State<BlockEditor> {
           ),
           const SizedBox(height: 6),
         ],
-        stackedField,
+        textContainer,
       ],
     );
 
@@ -1816,17 +2260,17 @@ class _BlockEditorState extends State<BlockEditor> {
         children: [
           editorSlot,
           Padding(
-            padding: const EdgeInsets.only(top: 4),
+            padding: const EdgeInsets.only(top: 8),
             child: Material(
               type: MaterialType.canvas,
-              elevation: 6,
-              shadowColor: scheme.shadow.withValues(alpha: 0.18),
-              color: scheme.surface,
+              elevation: 12,
+              shadowColor: scheme.shadow.withValues(alpha: 0.25),
+              color: scheme.surfaceContainerHigh,
               surfaceTintColor: Colors.transparent,
               shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
+                borderRadius: BorderRadius.circular(14),
                 side: BorderSide(
-                  color: scheme.outlineVariant.withValues(alpha: 0.55),
+                  color: scheme.outlineVariant.withValues(alpha: 0.4),
                 ),
               ),
               clipBehavior: Clip.antiAlias,
@@ -1886,8 +2330,46 @@ class _BlockEditorState extends State<BlockEditor> {
     );
 
     return Padding(
-      padding: const EdgeInsetsDirectional.fromSTEB(0, 2, 4, 2),
+      padding: EdgeInsetsDirectional.fromSTEB(block.depth * 28.0, 2, 4, 2),
       child: row,
+    );
+  }
+}
+
+class _DragHandleWidget extends StatefulWidget {
+  final Color iconColor;
+  const _DragHandleWidget({required this.iconColor});
+
+  @override
+  State<_DragHandleWidget> createState() => _DragHandleWidgetState();
+}
+
+class _DragHandleWidgetState extends State<_DragHandleWidget> {
+  bool _hovered = false;
+
+  @override
+  Widget build(BuildContext context) {
+    return MouseRegion(
+      cursor: SystemMouseCursors.grab,
+      onEnter: (_) => setState(() => _hovered = true),
+      onExit: (_) => setState(() => _hovered = false),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 150),
+        width: 22,
+        height: 28,
+        alignment: Alignment.center,
+        decoration: BoxDecoration(
+          color: _hovered
+              ? Theme.of(context).colorScheme.onSurfaceVariant.withValues(alpha: 0.12)
+              : Colors.transparent,
+          borderRadius: BorderRadius.circular(6),
+        ),
+        child: Icon(
+          Icons.drag_indicator,
+          size: 18,
+          color: widget.iconColor.withValues(alpha: _hovered ? 1.0 : 0.6),
+        ),
+      ),
     );
   }
 }
@@ -1919,55 +2401,58 @@ class _InlineSlashList extends StatelessWidget {
         prev = def.section;
         children.add(
           Padding(
-            padding: const EdgeInsets.fromLTRB(8, 6, 8, 2),
+            padding: const EdgeInsets.fromLTRB(16, 12, 16, 6),
             child: Text(
               _blockSectionTitle(def.section),
               style: theme.textTheme.labelSmall?.copyWith(
                 color: scheme.primary,
                 fontWeight: FontWeight.w700,
-                fontSize: 10.5,
-                letterSpacing: 0.5,
+                fontSize: 11,
+                letterSpacing: 0.8,
               ),
             ),
           ),
         );
       }
       children.add(
-        Material(
-          color: Colors.transparent,
-          child: InkWell(
-            onTap: () => onPick(def.key),
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.center,
-                children: [
-                  Container(
-                    width: 26,
-                    height: 26,
-                    alignment: Alignment.center,
-                    decoration: BoxDecoration(
-                      color: scheme.primaryContainer.withValues(alpha: 0.42),
-                      borderRadius: BorderRadius.circular(7),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+          child: Material(
+            color: Colors.transparent,
+            child: InkWell(
+              borderRadius: BorderRadius.circular(8),
+              onTap: () => onPick(def.key),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    Container(
+                      width: 28,
+                      height: 28,
+                      alignment: Alignment.center,
+                      decoration: BoxDecoration(
+                        color: scheme.primaryContainer.withValues(alpha: 0.5),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Icon(
+                        def.icon,
+                        size: 16,
+                        color: scheme.onPrimaryContainer,
+                      ),
                     ),
-                    child: Icon(
-                      def.icon,
-                      size: 15,
-                      color: scheme.onPrimaryContainer,
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: showSections
-                        ? Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Text(
-                                def.label,
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: theme.textTheme.bodyMedium?.copyWith(
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: showSections
+                          ? Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Text(
+                                  def.label,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: theme.textTheme.bodyMedium?.copyWith(
                                   fontWeight: FontWeight.w600,
                                   fontSize: 13,
                                   height: 1.15,
@@ -2001,8 +2486,9 @@ class _InlineSlashList extends StatelessWidget {
             ),
           ),
         ),
-      );
-    }
+      ),
+    );
+  }
 
     return ListView(
       controller: scrollController,

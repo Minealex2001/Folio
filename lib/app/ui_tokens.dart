@@ -1,0 +1,24 @@
+import 'package:flutter/material.dart';
+
+class FolioRadius {
+  static const double xs = 8;
+  static const double sm = 16;
+  static const double md = 24;
+  static const double lg = 32;
+}
+
+class FolioSpace {
+  static const double xxs = 4;
+  static const double xs = 8;
+  static const double sm = 12;
+  static const double md = 16;
+  static const double lg = 24;
+  static const double xl = 40;
+}
+
+class FolioMotion {
+  static const Duration short1 = Duration(milliseconds: 120);
+  static const Duration short2 = Duration(milliseconds: 200);
+  static const Duration medium1 = Duration(milliseconds: 280);
+  static const Curve emphasized = Curves.easeOutCubic;
+}

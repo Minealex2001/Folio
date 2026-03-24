@@ -1,7 +1,9 @@
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 
+import '../../app/ui_tokens.dart';
 import '../../data/vault_backup.dart';
+import '../../l10n/generated/app_localizations.dart';
 import '../../session/vault_session.dart';
 
 class OnboardingFlow extends StatefulWidget {
@@ -37,10 +39,11 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
   }
 
   String get _stepLabel {
+    final l10n = AppLocalizations.of(context);
     if (_importMode) {
-      return 'Paso ${_page + 1} de 2';
+      return l10n.stepOfTotal(_page + 1, 2);
     }
-    return 'Paso ${_page + 1} de 3';
+    return l10n.stepOfTotal(_page + 1, 3);
   }
 
   void _goPage(int i) {
@@ -76,11 +79,11 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
         final p = _password.text;
         final c = _confirm.text;
         if (p.length < _minLen) {
-          _error = 'Mínimo $_minLen caracteres.';
+          _error = AppLocalizations.of(context).minCharactersError(_minLen);
           return;
         }
         if (p != c) {
-          _error = 'Las contraseñas no coinciden.';
+          _error = AppLocalizations.of(context).passwordMismatchError;
           return;
         }
       }
@@ -109,12 +112,14 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
 
   Future<void> _finishImport() async {
     if (_backupZipPath == null) {
-      setState(() => _error = 'Elige un archivo .zip.');
+      setState(() => _error = AppLocalizations.of(context).chooseZipError);
       return;
     }
     final pwd = _backupPassword.text;
     if (pwd.isEmpty) {
-      setState(() => _error = 'Introduce la contraseña de la copia.');
+      setState(
+        () => _error = AppLocalizations.of(context).enterBackupPasswordError,
+      );
       return;
     }
     setState(() {
@@ -134,7 +139,7 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
       if (mounted) {
         setState(() {
           _busy = false;
-          _error = 'No se pudo importar: $e';
+          _error = AppLocalizations.of(context).importFailedError('$e');
         });
       }
     }
@@ -150,101 +155,156 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
     } catch (e) {
       setState(() {
         _busy = false;
-        _error = 'No se pudo crear el cofre: $e';
+        _error = AppLocalizations.of(context).createVaultFailedError('$e');
       });
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     final scheme = Theme.of(context).colorScheme;
     return Scaffold(
+      backgroundColor: scheme.surfaceContainerLowest,
       appBar: widget.session.canCancelNewVaultOnboarding
           ? AppBar(
+              backgroundColor: Colors.transparent,
               leading: IconButton(
                 icon: const Icon(Icons.arrow_back),
                 onPressed: () async {
                   await widget.session.cancelPrepareNewVault();
                 },
               ),
-              title: const Text('Nuevo cofre'),
+              title: Text(l10n.newVault),
             )
           : null,
       body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 20),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Row(
-                children: [
-                  Text(
-                    'Folio',
-                    style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                      fontWeight: FontWeight.w700,
-                      color: scheme.onSurface,
+        child: Center(
+          child: SingleChildScrollView(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 520),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: FolioSpace.lg,
+                  vertical: FolioSpace.md,
+                ),
+                child: Material(
+                  color: scheme.surfaceContainerHigh,
+                  borderRadius: BorderRadius.circular(FolioRadius.lg),
+                  child: Padding(
+                    padding: const EdgeInsets.all(FolioSpace.xl),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        Center(
+                          child: Text(
+                            'Folio',
+                            style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                                  fontWeight: FontWeight.w700,
+                                  color: scheme.primary,
+                                ),
+                          ),
+                        ),
+                        const SizedBox(height: FolioSpace.xs),
+                        Center(
+                          child: Text(
+                            _stepLabel,
+                            style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                                  color: scheme.onSurfaceVariant,
+                                ),
+                          ),
+                        ),
+                        const SizedBox(height: FolioSpace.lg),
+                        AnimatedSwitcher(
+                          duration: const Duration(milliseconds: 300),
+                          child: KeyedSubtree(
+                            key: ValueKey('step_$_importMode$_page'),
+                            child: _buildCurrentStep(context),
+                          ),
+                        ),
+                        if (_error != null) ...[
+                          const SizedBox(height: FolioSpace.md),
+                          Row(
+                            children: [
+                              Expanded(
+                                child: Text(_error!, style: TextStyle(color: scheme.error)),
+                              ),
+                              const SizedBox(width: FolioSpace.xs),
+                              TextButton.icon(
+                                onPressed: _busy
+                                    ? null
+                                    : () {
+                                        setState(() => _error = null);
+                                      },
+                                icon: const Icon(Icons.close_rounded),
+                                label: Text(l10n.retry),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ],
                     ),
                   ),
-                ],
-              ),
-              const SizedBox(height: 8),
-              Text(
-                _stepLabel,
-                style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                  color: scheme.onSurfaceVariant,
                 ),
               ),
-              Expanded(
-                child: PageView(
-                  controller: _pageController,
-                  physics: const NeverScrollableScrollPhysics(),
-                  children: [
-                    _stepWelcome(context),
-                    _importMode
-                        ? _stepImportBackup(context)
-                        : _stepPassword(context),
-                    _importMode ? const SizedBox.shrink() : _stepReady(context),
-                  ],
-                ),
-              ),
-              if (_error != null) ...[
-                Text(_error!, style: TextStyle(color: scheme.error)),
-                const SizedBox(height: 8),
-              ],
-            ],
+            ),
           ),
         ),
       ),
     );
   }
 
+  Widget _buildCurrentStep(BuildContext context) {
+    if (_importMode) {
+      if (_page == 0) return _stepWelcome(context);
+      return _stepImportBackup(context);
+    } else {
+      if (_page == 0) return _stepWelcome(context);
+      if (_page == 1) return _stepPassword(context);
+      return _stepReady(context);
+    }
+  }
+
   Widget _stepWelcome(BuildContext context) {
     return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+      crossAxisAlignment: CrossAxisAlignment.center,
       children: [
-        const SizedBox(height: 32),
+        const SizedBox(height: FolioSpace.xl),
+        Icon(
+          Icons.shield_outlined,
+          size: 80,
+          color: Theme.of(context).colorScheme.primary,
+        ),
+        const SizedBox(height: FolioSpace.lg),
         Text(
-          'Bienvenida',
-          style: Theme.of(
-            context,
-          ).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w600),
+          AppLocalizations.of(context).welcomeTitle,
+          style: Theme.of(context).textTheme.headlineMedium?.copyWith(fontWeight: FontWeight.w700),
+          textAlign: TextAlign.center,
         ),
-        const SizedBox(height: 16),
-        const Text(
-          'Folio guarda tus páginas solo en este dispositivo, cifradas con una contraseña maestra. '
-          'Si la olvidas, no podremos recuperar los datos.\n\n'
-          'No hay sincronización en la nube.',
-          style: TextStyle(height: 1.45, fontSize: 15),
+        const SizedBox(height: FolioSpace.md),
+        Text(
+          AppLocalizations.of(context).welcomeBody,
+          style: Theme.of(context).textTheme.bodyLarge?.copyWith(height: 1.45),
+          textAlign: TextAlign.center,
         ),
-        const SizedBox(height: 24),
+        const SizedBox(height: FolioSpace.xl),
         FilledButton(
+          style: FilledButton.styleFrom(
+            minimumSize: const Size.fromHeight(56),
+            shape: const StadiumBorder(),
+          ),
           onPressed: _chooseCreateNew,
-          child: const Text('Crear cofre nuevo'),
+          child: Text(AppLocalizations.of(context).createNewVault),
         ),
-        const SizedBox(height: 12),
+        const SizedBox(height: FolioSpace.md),
         OutlinedButton(
+          style: OutlinedButton.styleFrom(
+            minimumSize: const Size.fromHeight(56),
+            shape: const StadiumBorder(),
+          ),
           onPressed: _chooseImport,
-          child: const Text('Importar una copia (.zip)'),
+          child: Text(AppLocalizations.of(context).importBackupZip),
         ),
       ],
     );
@@ -252,56 +312,66 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
 
   Widget _stepImportBackup(BuildContext context) {
     return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        const SizedBox(height: 32),
-        Text(
-          'Importar copia',
-          style: Theme.of(
-            context,
-          ).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w600),
+        const SizedBox(height: FolioSpace.xl),
+        Icon(
+          Icons.settings_backup_restore_rounded,
+          size: 64,
+          color: Theme.of(context).colorScheme.primary,
         ),
-        const SizedBox(height: 12),
+        const SizedBox(height: FolioSpace.lg),
         Text(
-          'El archivo contiene los mismos datos cifrados que en el otro equipo. '
-          'Necesitas la contraseña maestra con la que se creó esa copia.\n\n'
-          'La passkey y el desbloqueo rápido (Hello) no van en el archivo y no son transferibles; '
-          'podrás configurarlos después en Ajustes.',
-          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-            height: 1.45,
-            color: Theme.of(context).colorScheme.onSurfaceVariant,
-          ),
+          AppLocalizations.of(context).importBackupTitle,
+          style: Theme.of(context).textTheme.headlineMedium?.copyWith(fontWeight: FontWeight.w700),
+          textAlign: TextAlign.center,
         ),
-        const SizedBox(height: 20),
+        const SizedBox(height: FolioSpace.md),
+        Text(
+          AppLocalizations.of(context).importBackupBody,
+          style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                height: 1.45,
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+              ),
+          textAlign: TextAlign.center,
+        ),
+        const SizedBox(height: FolioSpace.xl),
         OutlinedButton.icon(
+          style: OutlinedButton.styleFrom(
+            minimumSize: const Size.fromHeight(56),
+            shape: const StadiumBorder(),
+          ),
           onPressed: _busy ? null : _pickBackupFile,
           icon: const Icon(Icons.folder_open_outlined),
           label: Text(
-            _backupZipPath == null ? 'Elegir archivo .zip' : 'Cambiar archivo',
+            _backupZipPath == null
+                ? AppLocalizations.of(context).chooseZipFile
+                : AppLocalizations.of(context).changeFile,
           ),
         ),
         if (_backupZipPath != null) ...[
-          const SizedBox(height: 8),
+          const SizedBox(height: FolioSpace.sm),
           Text(
             _backupZipPath!,
             style: Theme.of(context).textTheme.bodySmall,
             maxLines: 2,
             overflow: TextOverflow.ellipsis,
+            textAlign: TextAlign.center,
           ),
         ],
-        const SizedBox(height: 16),
+        const SizedBox(height: FolioSpace.lg),
         TextField(
           controller: _backupPassword,
           obscureText: true,
           enabled: !_busy,
-          decoration: const InputDecoration(
-            labelText: 'Contraseña de la copia',
+          decoration: InputDecoration(
+            labelText: AppLocalizations.of(context).backupPasswordLabel,
           ),
           onSubmitted: (_) {
             if (!_busy) _finishImport();
           },
         ),
-        const Spacer(),
+        const SizedBox(height: FolioSpace.xl),
         Row(
           children: [
             TextButton(
@@ -313,10 +383,14 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
                         _pageController.jumpToPage(0);
                       });
                     },
-              child: const Text('Atrás'),
+              child: Text(AppLocalizations.of(context).back),
             ),
-            const Spacer(),
+            const SizedBox(width: FolioSpace.md),
             FilledButton(
+              style: FilledButton.styleFrom(
+                minimumSize: const Size(120, 48),
+                shape: const StadiumBorder(),
+              ),
               onPressed: _busy ? null : _finishImport,
               child: _busy
                   ? const SizedBox(
@@ -324,7 +398,7 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
                       height: 22,
                       child: CircularProgressIndicator(strokeWidth: 2),
                     )
-                  : const Text('Importar cofre'),
+                  : Text(AppLocalizations.of(context).importVault),
             ),
           ],
         ),
@@ -334,38 +408,48 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
 
   Widget _stepPassword(BuildContext context) {
     return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        const SizedBox(height: 32),
-        Text(
-          'Tu contraseña maestra',
-          style: Theme.of(
-            context,
-          ).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w600),
+        const SizedBox(height: FolioSpace.xl),
+        Icon(
+          Icons.password_outlined,
+          size: 64,
+          color: Theme.of(context).colorScheme.primary,
         ),
-        const SizedBox(height: 12),
+        const SizedBox(height: FolioSpace.lg),
         Text(
-          'Al menos $_minLen caracteres. La usarás cada vez que abras Folio.',
-          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-            color: Theme.of(context).colorScheme.onSurfaceVariant,
-            height: 1.4,
-          ),
+          AppLocalizations.of(context).masterPasswordTitle,
+          style: Theme.of(context).textTheme.headlineMedium?.copyWith(fontWeight: FontWeight.w700),
+          textAlign: TextAlign.center,
         ),
-        const SizedBox(height: 20),
+        const SizedBox(height: FolioSpace.md),
+        Text(
+          AppLocalizations.of(context).masterPasswordHint(_minLen),
+          style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+                height: 1.45,
+              ),
+          textAlign: TextAlign.center,
+        ),
+        const SizedBox(height: FolioSpace.xl),
         TextField(
           controller: _password,
           obscureText: true,
-          decoration: const InputDecoration(labelText: 'Contraseña'),
+          decoration: InputDecoration(
+            labelText: AppLocalizations.of(context).passwordLabel,
+          ),
           textInputAction: TextInputAction.next,
         ),
-        const SizedBox(height: 12),
+        const SizedBox(height: FolioSpace.md),
         TextField(
           controller: _confirm,
           obscureText: true,
-          decoration: const InputDecoration(labelText: 'Confirmar contraseña'),
+          decoration: InputDecoration(
+            labelText: AppLocalizations.of(context).confirmPasswordLabel,
+          ),
           onSubmitted: (_) => _nextCreatePassword(),
         ),
-        const Spacer(),
+        const SizedBox(height: FolioSpace.xl),
         Row(
           children: [
             TextButton(
@@ -375,12 +459,16 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
                   _pageController.jumpToPage(0);
                 });
               },
-              child: const Text('Atrás'),
+              child: Text(AppLocalizations.of(context).back),
             ),
-            const Spacer(),
+            const SizedBox(width: FolioSpace.md),
             FilledButton(
+              style: FilledButton.styleFrom(
+                minimumSize: const Size(120, 48),
+                shape: const StadiumBorder(),
+              ),
               onPressed: _nextCreatePassword,
-              child: const Text('Siguiente'),
+              child: Text(AppLocalizations.of(context).next),
             ),
           ],
         ),
@@ -390,22 +478,27 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
 
   Widget _stepReady(BuildContext context) {
     return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        const SizedBox(height: 32),
+        const SizedBox(height: FolioSpace.xl),
+        Icon(
+          Icons.celebration_outlined,
+          size: 64,
+          color: Theme.of(context).colorScheme.primary,
+        ),
+        const SizedBox(height: FolioSpace.lg),
         Text(
-          'Todo listo',
-          style: Theme.of(
-            context,
-          ).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w600),
+          AppLocalizations.of(context).readyTitle,
+          style: Theme.of(context).textTheme.headlineMedium?.copyWith(fontWeight: FontWeight.w700),
+          textAlign: TextAlign.center,
         ),
-        const SizedBox(height: 16),
-        const Text(
-          'Se creará un cofre cifrado en este equipo. Podrás añadir después '
-          'Windows Hello, biometría o una passkey para desbloquear más rápido (Ajustes).',
-          style: TextStyle(height: 1.45, fontSize: 15),
+        const SizedBox(height: FolioSpace.md),
+        Text(
+          AppLocalizations.of(context).readyBody,
+          style: Theme.of(context).textTheme.bodyLarge?.copyWith(height: 1.45),
+          textAlign: TextAlign.center,
         ),
-        const Spacer(),
+        const SizedBox(height: FolioSpace.xl),
         Row(
           children: [
             TextButton(
@@ -415,10 +508,14 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
                   _pageController.jumpToPage(1);
                 });
               },
-              child: const Text('Atrás'),
+              child: Text(AppLocalizations.of(context).back),
             ),
-            const Spacer(),
+            const SizedBox(width: FolioSpace.md),
             FilledButton(
+              style: FilledButton.styleFrom(
+                minimumSize: const Size(120, 48),
+                shape: const StadiumBorder(),
+              ),
               onPressed: _busy ? null : _finishCreate,
               child: _busy
                   ? const SizedBox(
@@ -426,7 +523,7 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
                       height: 22,
                       child: CircularProgressIndicator(strokeWidth: 2),
                     )
-                  : const Text('Crear cofre'),
+                  : Text(AppLocalizations.of(context).createVault),
             ),
           ],
         ),

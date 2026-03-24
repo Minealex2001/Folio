@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:passkeys/exceptions.dart';
 
+import '../../app/ui_tokens.dart';
+import '../../l10n/generated/app_localizations.dart';
 import '../../session/vault_session.dart';
 
 class LockScreen extends StatefulWidget {
@@ -51,7 +53,7 @@ class _LockScreenState extends State<LockScreen> {
       await widget.session.unlockWithPassword(_password.text);
     } catch (e) {
       setState(() {
-        _error = 'Contraseña incorrecta o cofre dañado.';
+        _error = AppLocalizations.of(context).unlockFailed;
         _busy = false;
       });
     }
@@ -91,6 +93,7 @@ class _LockScreenState extends State<LockScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     final scheme = Theme.of(context).colorScheme;
     return Scaffold(
       body: SafeArea(
@@ -98,7 +101,7 @@ class _LockScreenState extends State<LockScreen> {
           child: ConstrainedBox(
             constraints: const BoxConstraints(maxWidth: 400),
             child: Padding(
-              padding: const EdgeInsets.all(24),
+              padding: const EdgeInsets.all(FolioSpace.lg),
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -112,7 +115,7 @@ class _LockScreenState extends State<LockScreen> {
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    'Cofre cifrado',
+                    l10n.encryptedVault,
                     textAlign: TextAlign.center,
                     style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                       color: scheme.onSurfaceVariant,
@@ -123,20 +126,20 @@ class _LockScreenState extends State<LockScreen> {
                     controller: _password,
                     obscureText: true,
                     enabled: !_busy,
-                    decoration: const InputDecoration(labelText: 'Contraseña'),
+                    decoration: InputDecoration(labelText: l10n.passwordLabel),
                     onSubmitted: (_) => _unlockPassword(),
                   ),
                   const SizedBox(height: 12),
                   FilledButton(
                     onPressed: _busy ? null : _unlockPassword,
-                    child: const Text('Desbloquear'),
+                    child: Text(l10n.unlock),
                   ),
                   if (_quickEnabled) ...[
                     const SizedBox(height: 16),
                     OutlinedButton.icon(
                       onPressed: _busy ? null : _unlockDevice,
                       icon: const Icon(Icons.fingerprint),
-                      label: const Text('Hello / biometría'),
+                      label: Text(l10n.quickUnlock),
                     ),
                   ],
                   if (_passkeyRegistered) ...[
@@ -144,7 +147,7 @@ class _LockScreenState extends State<LockScreen> {
                     OutlinedButton.icon(
                       onPressed: _busy ? null : _unlockPasskey,
                       icon: const Icon(Icons.key_rounded),
-                      label: const Text('Passkey'),
+                      label: Text(l10n.passkey),
                     ),
                   ],
                   if (_error != null) ...[
@@ -153,6 +156,12 @@ class _LockScreenState extends State<LockScreen> {
                       _error!,
                       style: TextStyle(color: scheme.error),
                       textAlign: TextAlign.center,
+                    ),
+                    const SizedBox(height: 8),
+                    TextButton.icon(
+                      onPressed: _busy ? null : _unlockPassword,
+                      icon: const Icon(Icons.refresh_rounded),
+                      label: Text(l10n.retry),
                     ),
                   ],
                 ],

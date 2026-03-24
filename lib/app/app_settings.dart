@@ -6,15 +6,22 @@ class AppSettings extends ChangeNotifier {
   AppSettings();
 
   static const _themeModeKey = 'folio_theme_mode';
+  static const _localeCodeKey = 'folio_locale_code';
 
   ThemeMode _themeMode = ThemeMode.system;
+  Locale? _locale;
 
   ThemeMode get themeMode => _themeMode;
+  Locale? get locale => _locale;
 
   Future<void> load() async {
     final p = await SharedPreferences.getInstance();
     final raw = p.getString(_themeModeKey);
     _themeMode = _parseThemeMode(raw) ?? ThemeMode.system;
+    final localeCode = p.getString(_localeCodeKey);
+    _locale = localeCode == null || localeCode.isEmpty
+        ? null
+        : Locale(localeCode);
     notifyListeners();
   }
 
@@ -42,5 +49,18 @@ class AppSettings extends ChangeNotifier {
       ThemeMode.system => 'system',
     };
     await p.setString(_themeModeKey, v);
+  }
+
+  Future<void> setLocale(Locale? locale) async {
+    if (_locale == locale) return;
+    _locale = locale;
+    notifyListeners();
+    final p = await SharedPreferences.getInstance();
+    final code = locale?.languageCode;
+    if (code == null || code.isEmpty) {
+      await p.remove(_localeCodeKey);
+    } else {
+      await p.setString(_localeCodeKey, code);
+    }
   }
 }

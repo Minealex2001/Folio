@@ -70,17 +70,62 @@ class VaultPaths {
   }
 
   /// Ruta relativa al directorio del cofre, p. ej. `attachments/uuid.png`.
-  static Future<String> importAttachmentFile(File source) async {
+  static Future<String> importAttachmentFile(
+    File source, {
+    bool preserveExtension = false,
+    bool preserveFileName = false,
+  }) async {
     await attachmentsDirectory();
     final vault = await vaultDirectory();
     final ext = p.extension(source.path).toLowerCase();
-    const ok = {'.jpg', '.jpeg', '.png', '.gif', '.webp', '.bmp'};
-    final safeExt = ok.contains(ext) ? ext : '.bin';
-    final name = '${_uuid.v4()}$safeExt';
+    final safeExt = preserveExtension
+        ? _safeAttachmentExtension(ext)
+        : _safeImageExtension(ext);
+    final name = preserveFileName
+        ? await _buildPreservedFileName(vault, source.path, safeExt)
+        : '${_uuid.v4()}$safeExt';
     final relative = p.join(attachmentsDirName, name);
     final dest = File(p.join(vault.path, relative));
     await source.copy(dest.path);
     return relative.replaceAll(r'\', '/');
+  }
+
+  static Future<String> _buildPreservedFileName(
+    Directory vault,
+    String sourcePath,
+    String safeExt,
+  ) async {
+    final originalBase = p.basenameWithoutExtension(sourcePath);
+    final cleanBase = _sanitizeBaseName(originalBase);
+    final direct = '$cleanBase$safeExt';
+    final directPath = p.join(vault.path, attachmentsDirName, direct);
+    if (!File(directPath).existsSync()) return direct;
+    final suffix = _uuid.v4().split('-').first;
+    return '${cleanBase}_$suffix$safeExt';
+  }
+
+  static String _sanitizeBaseName(String base) {
+    final cleaned = base
+        .replaceAll(RegExp(r'[\\/:*?"<>|]'), '_')
+        .replaceAll(RegExp(r'\s+'), ' ')
+        .trim();
+    if (cleaned.isEmpty) return 'archivo';
+    if (cleaned.length <= 64) return cleaned;
+    return cleaned.substring(0, 64).trim();
+  }
+
+  static String _safeImageExtension(String ext) {
+    const ok = {'.jpg', '.jpeg', '.png', '.gif', '.webp', '.bmp'};
+    return ok.contains(ext) ? ext : '.bin';
+  }
+
+  static String _safeAttachmentExtension(String ext) {
+    if (ext.isEmpty) return '.bin';
+    final clean = ext.replaceAll(RegExp(r'[^a-zA-Z0-9.]'), '');
+    if (clean.length < 2 || clean.length > 12 || !clean.startsWith('.')) {
+      return '.bin';
+    }
+    return clean;
   }
 
   /// [relativePath] como guardada en el bloque (`attachments/...`).

@@ -3,9 +3,11 @@
 #
 
 list(APPEND FLUTTER_PLUGIN_LIST
+  emoji_picker_flutter
   file_selector_windows
   local_auth_windows
   passkeys_windows
+  syncfusion_pdfviewer_windows
   system_theme
   url_launcher_windows
 )

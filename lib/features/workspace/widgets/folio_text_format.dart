@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_markdown_plus/flutter_markdown_plus.dart';
 import 'package:markdown/markdown.dart' as md;
 
+import '../../../l10n/generated/app_localizations.dart';
 /// Escapa `<` salvo las etiquetas de subrayado permitidas (`<u>`, `</u>`).
 String folioSanitizeMarkdownForPreview(String source) {
   const open = '<u>';
@@ -243,7 +244,7 @@ class FolioFormatToolbar extends StatelessWidget {
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(ctx, false),
-              child: const Text('Cancelar'),
+              child: Text(AppLocalizations.of(context).cancel),
             ),
             FilledButton(
               onPressed: () => Navigator.pop(ctx, true),
@@ -280,67 +281,68 @@ class FolioFormatToolbar extends StatelessWidget {
     }) {
       return Tooltip(
         message: tip,
-        child: GestureDetector(
-          behavior: HitTestBehavior.opaque,
-          onTap: onPressed,
-          child: SizedBox(
-            width: 32,
-            height: 32,
-            child: Icon(icon, size: 20, color: iconColor),
-          ),
+        child: IconButton(
+          style: IconButton.styleFrom(visualDensity: VisualDensity.compact),
+          icon: Icon(icon, size: 20, color: iconColor),
+          onPressed: onPressed,
+          tooltip: tip,
         ),
       );
     }
 
-    return Focus(
-      canRequestFocus: false,
-      descendantsAreFocusable: false,
-      child: Material(
-        color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.45),
-        borderRadius: BorderRadius.circular(8),
-        clipBehavior: Clip.antiAlias,
-        child: SingleChildScrollView(
-          scrollDirection: Axis.horizontal,
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              btn(
-                icon: Icons.format_bold_rounded,
-                tip: 'Negrita (**)',
-                onPressed: () =>
-                    applyFormat(() => folioToggleWrap(controller, '**', '**')),
-              ),
-              btn(
-                icon: Icons.format_italic_rounded,
-                tip: 'Cursiva (_)',
-                onPressed: () =>
-                    applyFormat(() => folioToggleWrap(controller, '_', '_')),
-              ),
-              btn(
-                icon: Icons.format_underlined_rounded,
-                tip: 'Subrayado (<u>)',
-                onPressed: () => applyFormat(
-                  () => folioToggleWrap(controller, '<u>', '</u>'),
+    return Semantics(
+      container: true,
+      label: 'Barra de formato',
+      child: Focus(
+        canRequestFocus: false,
+        descendantsAreFocusable: false,
+        child: Material(
+          color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.45),
+          borderRadius: BorderRadius.circular(8),
+          clipBehavior: Clip.antiAlias,
+          child: SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                btn(
+                  icon: Icons.format_bold_rounded,
+                  tip: 'Negrita (**)',
+                  onPressed: () =>
+                      applyFormat(() => folioToggleWrap(controller, '**', '**')),
                 ),
-              ),
-              btn(
-                icon: Icons.code_rounded,
-                tip: 'Código inline (`)',
-                onPressed: () =>
-                    applyFormat(() => folioToggleWrap(controller, '`', '`')),
-              ),
-              btn(
-                icon: Icons.strikethrough_s_rounded,
-                tip: 'Tachado (~~)',
-                onPressed: () =>
-                    applyFormat(() => folioToggleWrap(controller, '~~', '~~')),
-              ),
-              btn(
-                icon: Icons.link_rounded,
-                tip: 'Enlace',
-                onPressed: () => _link(context),
-              ),
-            ],
+                btn(
+                  icon: Icons.format_italic_rounded,
+                  tip: 'Cursiva (_)',
+                  onPressed: () =>
+                      applyFormat(() => folioToggleWrap(controller, '_', '_')),
+                ),
+                btn(
+                  icon: Icons.format_underlined_rounded,
+                  tip: 'Subrayado (<u>)',
+                  onPressed: () => applyFormat(
+                    () => folioToggleWrap(controller, '<u>', '</u>'),
+                  ),
+                ),
+                btn(
+                  icon: Icons.code_rounded,
+                  tip: 'Código inline (`)',
+                  onPressed: () =>
+                      applyFormat(() => folioToggleWrap(controller, '`', '`')),
+                ),
+                btn(
+                  icon: Icons.strikethrough_s_rounded,
+                  tip: 'Tachado (~~)',
+                  onPressed: () =>
+                      applyFormat(() => folioToggleWrap(controller, '~~', '~~')),
+                ),
+                btn(
+                  icon: Icons.link_rounded,
+                  tip: 'Enlace',
+                  onPressed: () => _link(context),
+                ),
+              ],
+            ),
           ),
         ),
       ),

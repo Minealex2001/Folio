@@ -23,6 +23,68 @@ import '../services/quick_unlock_storage.dart';
 enum VaultFlowState { initializing, needsOnboarding, locked, unlocked }
 
 class VaultSession extends ChangeNotifier {
+  bool _isManagedAttachmentPath(String? path) {
+    final p = path?.trim();
+    return p != null && p.startsWith('${VaultPaths.attachmentsDirName}/');
+  }
+
+  Iterable<String> _managedAttachmentPathsOfBlock(FolioBlock b) sync* {
+    if (b.type == 'image' && _isManagedAttachmentPath(b.text)) {
+      yield b.text.trim();
+    }
+    if ((b.type == 'file' || b.type == 'video') && _isManagedAttachmentPath(b.url)) {
+      yield b.url!.trim();
+    }
+  }
+
+  bool _isAttachmentReferencedAnywhere(
+    String relativePath, {
+    String? excludingPageId,
+    String? excludingBlockId,
+  }) {
+    final target = relativePath.trim();
+    if (target.isEmpty) return false;
+
+    for (final p in _pages) {
+      for (final b in p.blocks) {
+        if (excludingPageId == p.id && excludingBlockId == b.id) {
+          continue;
+        }
+        if (_managedAttachmentPathsOfBlock(b).contains(target)) {
+          return true;
+        }
+      }
+    }
+
+    for (final entry in _pageRevisions.entries) {
+      for (final rev in entry.value) {
+        for (final bj in rev.blocksJson) {
+          final b = FolioBlock.fromJson(bj);
+          if (_managedAttachmentPathsOfBlock(b).contains(target)) {
+            return true;
+          }
+        }
+      }
+    }
+    return false;
+  }
+
+  void _deleteManagedAttachmentIfUnused(
+    String relativePath, {
+    String? excludingPageId,
+    String? excludingBlockId,
+  }) {
+    if (!_isManagedAttachmentPath(relativePath)) return;
+    final inUse = _isAttachmentReferencedAnywhere(
+      relativePath,
+      excludingPageId: excludingPageId,
+      excludingBlockId: excludingBlockId,
+    );
+    if (!inUse) {
+      unawaited(VaultPaths.deleteAttachmentIfExists(relativePath));
+    }
+  }
+
   VaultSession({
     VaultRepository? repository,
     QuickUnlockStorage? quickUnlock,
@@ -505,7 +567,19 @@ class VaultSession extends ChangeNotifier {
     final doomed = _pages[idx];
     for (final b in doomed.blocks) {
       if (b.type == 'image' && b.text.isNotEmpty) {
-        unawaited(VaultPaths.deleteAttachmentIfExists(b.text));
+        _deleteManagedAttachmentIfUnused(
+          b.text,
+          excludingPageId: doomed.id,
+          excludingBlockId: b.id,
+        );
+      }
+      if ((b.type == 'file' || b.type == 'video') &&
+          _isManagedAttachmentPath(b.url)) {
+        _deleteManagedAttachmentIfUnused(
+          b.url!,
+          excludingPageId: doomed.id,
+          excludingBlockId: b.id,
+        );
       }
     }
     final wasSelected = _selectedPageId == id;
@@ -562,7 +636,11 @@ class VaultSession extends ChangeNotifier {
     final b = _blockById(page, blockId);
     if (b == null) return;
     if (b.type == 'image' && b.text.isNotEmpty && b.text != text) {
-      unawaited(VaultPaths.deleteAttachmentIfExists(b.text));
+      _deleteManagedAttachmentIfUnused(
+        b.text,
+        excludingPageId: pageId,
+        excludingBlockId: blockId,
+      );
     }
     b.text = text;
     notifyListeners();
@@ -579,6 +657,34 @@ class VaultSession extends ChangeNotifier {
     scheduleSave(trackRevisionForPageId: pageId);
   }
 
+  void updateBlockIcon(String pageId, String blockId, String? icon) {
+    final page = _pageById(pageId);
+    if (page == null) return;
+    final b = _blockById(page, blockId);
+    if (b == null) return;
+    b.icon = icon;
+    notifyListeners();
+    scheduleSave(trackRevisionForPageId: pageId);
+  }
+
+  void updateBlockUrl(String pageId, String blockId, String? url) {
+    final page = _pageById(pageId);
+    if (page == null) return;
+    final b = _blockById(page, blockId);
+    if (b == null) return;
+    final old = b.url;
+    if (_isManagedAttachmentPath(old) && old != url) {
+      _deleteManagedAttachmentIfUnused(
+        old!,
+        excludingPageId: pageId,
+        excludingBlockId: blockId,
+      );
+    }
+    b.url = url;
+    notifyListeners();
+    scheduleSave(trackRevisionForPageId: pageId);
+  }
+
   void changeBlockType(String pageId, String blockId, String newType) {
     final page = _pageById(pageId);
     if (page == null) return;
@@ -586,7 +692,21 @@ class VaultSession extends ChangeNotifier {
     if (b == null) return;
     final oldType = b.type;
     if (oldType == 'image' && newType != 'image' && b.text.isNotEmpty) {
-      unawaited(VaultPaths.deleteAttachmentIfExists(b.text));
+      _deleteManagedAttachmentIfUnused(
+        b.text,
+        excludingPageId: pageId,
+        excludingBlockId: blockId,
+      );
+    }
+    if ((oldType == 'file' || oldType == 'video') &&
+        newType != oldType &&
+        _isManagedAttachmentPath(b.url)) {
+      _deleteManagedAttachmentIfUnused(
+        b.url!,
+        excludingPageId: pageId,
+        excludingBlockId: blockId,
+      );
+      b.url = null;
     }
     if (oldType == 'image' && newType != 'image') {
       b.text = '';
@@ -718,6 +838,32 @@ class VaultSession extends ChangeNotifier {
     scheduleSave(trackRevisionForPageId: pageId);
   }
 
+  /// Aumenta la indentación del bloque actual.
+  void indentBlock(String pageId, String blockId) {
+    final page = _pageById(pageId);
+    if (page == null) return;
+    final b = _blockById(page, blockId);
+    if (b == null) return;
+    if (b.depth < 3) {
+      b.depth += 1;
+      notifyListeners();
+      scheduleSave(trackRevisionForPageId: pageId);
+    }
+  }
+
+  /// Reduce la indentación del bloque actual.
+  void unindentBlock(String pageId, String blockId) {
+    final page = _pageById(pageId);
+    if (page == null) return;
+    final b = _blockById(page, blockId);
+    if (b == null) return;
+    if (b.depth > 0) {
+      b.depth -= 1;
+      notifyListeners();
+      scheduleSave(trackRevisionForPageId: pageId);
+    }
+  }
+
   /// Reordena por arrastre. [newIndex] es el índice destino según [ReorderableListView].
   void reorderBlockAt(String pageId, int oldIndex, int newIndex) {
     final page = _pageById(pageId);
@@ -745,7 +891,20 @@ class VaultSession extends ChangeNotifier {
       }
     }
     if (victim != null && victim.type == 'image' && victim.text.isNotEmpty) {
-      unawaited(VaultPaths.deleteAttachmentIfExists(victim.text));
+      _deleteManagedAttachmentIfUnused(
+        victim.text,
+        excludingPageId: pageId,
+        excludingBlockId: victim.id,
+      );
+    }
+    if (victim != null &&
+        (victim.type == 'file' || victim.type == 'video') &&
+        _isManagedAttachmentPath(victim.url)) {
+      _deleteManagedAttachmentIfUnused(
+        victim.url!,
+        excludingPageId: pageId,
+        excludingBlockId: victim.id,
+      );
     }
     page.blocks.removeWhere((b) => b.id == blockId);
     notifyListeners();

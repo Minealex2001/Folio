@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:passkeys/exceptions.dart';
 
 import '../../app/app_settings.dart';
+import '../../l10n/generated/app_localizations.dart';
 import '../../data/vault_backup.dart';
 import '../../session/vault_session.dart';
 
@@ -236,19 +237,20 @@ class _SettingsPageState extends State<SettingsPage> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     final scheme = Theme.of(context).colorScheme;
     return AnimatedBuilder(
       animation: _app,
       builder: (context, _) {
         return Scaffold(
-          appBar: AppBar(title: const Text('Ajustes')),
+          appBar: AppBar(title: Text(l10n.settings)),
           body: ListenableBuilder(
             listenable: _s,
             builder: (context, _) {
               return ListView(
                 padding: const EdgeInsets.symmetric(vertical: 8),
                 children: [
-                  _SectionHeader(title: 'Apariencia', scheme: scheme),
+                  _SectionHeader(title: l10n.appearance, scheme: scheme),
                   Padding(
                     padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
                     child: Text(
@@ -261,20 +263,20 @@ class _SettingsPageState extends State<SettingsPage> {
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 16),
                     child: SegmentedButton<ThemeMode>(
-                      segments: const [
+                      segments: [
                         ButtonSegment<ThemeMode>(
                           value: ThemeMode.system,
-                          label: Text('Sistema'),
+                          label: Text(l10n.systemTheme),
                           icon: Icon(Icons.brightness_auto, size: 18),
                         ),
                         ButtonSegment<ThemeMode>(
                           value: ThemeMode.light,
-                          label: Text('Claro'),
+                          label: Text(l10n.lightTheme),
                           icon: Icon(Icons.light_mode_outlined, size: 18),
                         ),
                         ButtonSegment<ThemeMode>(
                           value: ThemeMode.dark,
-                          label: Text('Oscuro'),
+                          label: Text(l10n.darkTheme),
                           icon: Icon(Icons.dark_mode_outlined, size: 18),
                         ),
                       ],
@@ -284,8 +286,39 @@ class _SettingsPageState extends State<SettingsPage> {
                       },
                     ),
                   ),
+                  ListTile(
+                    leading: const Icon(Icons.translate_rounded),
+                    title: Text(l10n.language),
+                    subtitle: Text(
+                      _app.locale == null
+                          ? l10n.useSystemLanguage
+                          : (_app.locale!.languageCode == 'es'
+                                ? l10n.spanishLanguage
+                                : l10n.englishLanguage),
+                    ),
+                    trailing: DropdownButton<String?>(
+                      value: _app.locale?.languageCode,
+                      onChanged: (code) {
+                        _app.setLocale(code == null ? null : Locale(code));
+                      },
+                      items: [
+                        DropdownMenuItem<String?>(
+                          value: null,
+                          child: Text(l10n.useSystemLanguage),
+                        ),
+                        DropdownMenuItem<String?>(
+                          value: 'es',
+                          child: Text(l10n.spanishLanguage),
+                        ),
+                        DropdownMenuItem<String?>(
+                          value: 'en',
+                          child: Text(l10n.englishLanguage),
+                        ),
+                      ],
+                    ),
+                  ),
                   const SizedBox(height: 16),
-                  _SectionHeader(title: 'Seguridad', scheme: scheme),
+                  _SectionHeader(title: l10n.security, scheme: scheme),
                   ListTile(
                     leading: const Icon(Icons.fingerprint),
                     title: const Text('Desbloqueo rápido (Hello / biometría)'),
@@ -349,7 +382,7 @@ class _SettingsPageState extends State<SettingsPage> {
                     },
                   ),
                   const SizedBox(height: 16),
-                  _SectionHeader(title: 'Copia del cofre', scheme: scheme),
+                  _SectionHeader(title: l10n.vaultBackup, scheme: scheme),
                   Padding(
                     padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
                     child: Text(
@@ -385,7 +418,7 @@ class _SettingsPageState extends State<SettingsPage> {
                         : null,
                   ),
                   const SizedBox(height: 16),
-                  _SectionHeader(title: 'Datos', scheme: scheme),
+                  _SectionHeader(title: l10n.data, scheme: scheme),
                   Padding(
                     padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
                     child: Card(

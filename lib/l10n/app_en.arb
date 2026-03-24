@@ -1,0 +1,80 @@
+{
+  "@@locale": "en",
+  "appTitle": "Folio",
+  "loading": "Loading…",
+  "newVault": "New vault",
+  "stepOfTotal": "Step {current} of {total}",
+  "@stepOfTotal": {
+    "placeholders": {
+      "current": {"type": "int"},
+      "total": {"type": "int"}
+    }
+  },
+  "back": "Back",
+  "continueAction": "Continue",
+  "cancel": "Cancel",
+  "retry": "Retry",
+  "settings": "Settings",
+  "lockNow": "Lock",
+  "pageHistory": "Page history",
+  "untitled": "Untitled",
+  "noPages": "No pages",
+  "createPage": "Create page",
+  "selectPage": "Select a page",
+  "saveInProgress": "Saving…",
+  "savePending": "Pending save",
+  "savingVaultTooltip": "Saving encrypted vault to disk…",
+  "autosaveSoonTooltip": "Autosave in a moment…",
+  "welcomeTitle": "Welcome",
+  "welcomeBody": "Folio stores your pages only on this device, encrypted with a master password. If you forget it, we cannot recover your data.\n\nThere is no cloud sync.",
+  "createNewVault": "Create new vault",
+  "importBackupZip": "Import backup (.zip)",
+  "importBackupTitle": "Import backup",
+  "importBackupBody": "The file contains the same encrypted data as the other device. You need the master password used to create that backup.\n\nPasskey and quick unlock (Hello) are not included and are not transferable; you can configure them later in Settings.",
+  "chooseZipFile": "Choose .zip file",
+  "changeFile": "Change file",
+  "backupPasswordLabel": "Backup password",
+  "importVault": "Import vault",
+  "masterPasswordTitle": "Your master password",
+  "masterPasswordHint": "At least {min} characters. You will use it every time you open Folio.",
+  "@masterPasswordHint": {
+    "placeholders": {
+      "min": {"type": "int"}
+    }
+  },
+  "passwordLabel": "Password",
+  "confirmPasswordLabel": "Confirm password",
+  "next": "Next",
+  "readyTitle": "All set",
+  "readyBody": "An encrypted vault will be created on this device. Later you can add Windows Hello, biometrics, or a passkey for faster unlock (Settings).",
+  "createVault": "Create vault",
+  "minCharactersError": "Minimum {min} characters.",
+  "@minCharactersError": {
+    "placeholders": {
+      "min": {"type": "int"}
+    }
+  },
+  "passwordMismatchError": "Passwords do not match.",
+  "chooseZipError": "Choose a .zip file.",
+  "enterBackupPasswordError": "Enter the backup password.",
+  "importFailedError": "Could not import: {error}",
+  "@importFailedError": {"placeholders": {"error": {}}},
+  "createVaultFailedError": "Could not create vault: {error}",
+  "@createVaultFailedError": {"placeholders": {"error": {}}},
+  "encryptedVault": "Encrypted vault",
+  "unlock": "Unlock",
+  "quickUnlock": "Hello / biometrics",
+  "passkey": "Passkey",
+  "unlockFailed": "Incorrect password or damaged vault.",
+  "appearance": "Appearance",
+  "security": "Security",
+  "vaultBackup": "Vault backup",
+  "data": "Data",
+  "systemTheme": "System",
+  "lightTheme": "Light",
+  "darkTheme": "Dark",
+  "language": "Language",
+  "useSystemLanguage": "Use system language",
+  "spanishLanguage": "Spanish",
+  "englishLanguage": "English"
+}

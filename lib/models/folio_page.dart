@@ -67,11 +67,19 @@ String folioPlainTextFromBlocksJson(List<Map<String, dynamic>> blocksJson) {
 String _folioBlockPlainText(FolioBlock b) {
   switch (b.type) {
     case 'image':
-      return b.text.trim().isEmpty ? '' : '[imagen]';
+      return b.text.trim().isEmpty ? '' : '[imagen] ${b.text.trim()}';
+    case 'file':
+      final u = b.url?.trim() ?? '';
+      return u.isEmpty ? '' : '[archivo] $u';
+    case 'video':
+      final u = b.url?.trim() ?? '';
+      return u.isEmpty ? '' : '[video] $u';
     case 'table':
       return FolioTableData.plainTextFromJson(b.text);
     case 'code':
-      return b.text;
+      final lang = b.codeLanguage?.trim();
+      if (lang == null || lang.isEmpty) return b.text;
+      return '[code:$lang]\n${b.text}';
     default:
       return b.text;
   }

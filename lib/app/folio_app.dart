@@ -1,8 +1,10 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:system_theme/system_theme.dart';
 
+import '../l10n/generated/app_localizations.dart';
 import '../features/lock/lock_screen.dart';
 import '../features/onboarding/onboarding_flow.dart';
 import '../features/workspace/workspace_page.dart';
@@ -54,10 +56,18 @@ class _FolioAppState extends State<FolioApp> {
   Widget build(BuildContext context) {
     final seed = SystemTheme.accentColor.accent;
     return MaterialApp(
-      title: 'Folio',
+      onGenerateTitle: (context) => AppLocalizations.of(context).appTitle,
       theme: folioLightTheme(seed),
       darkTheme: folioDarkTheme(seed),
       themeMode: widget.appSettings.themeMode,
+      locale: widget.appSettings.locale,
+      supportedLocales: AppLocalizations.supportedLocales,
+      localizationsDelegates: const [
+        AppLocalizations.delegate,
+        GlobalMaterialLocalizations.delegate,
+        GlobalWidgetsLocalizations.delegate,
+        GlobalCupertinoLocalizations.delegate,
+      ],
       home: _HomeByState(
         session: widget.session,
         appSettings: widget.appSettings,
@@ -74,6 +84,7 @@ class _HomeByState extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     final scheme = Theme.of(context).colorScheme;
     final textTheme = Theme.of(context).textTheme;
     switch (session.state) {
@@ -86,7 +97,7 @@ class _HomeByState extends StatelessWidget {
                 CircularProgressIndicator(color: scheme.primary),
                 const SizedBox(height: 16),
                 Text(
-                  'Cargando…',
+                  l10n.loading,
                   style: textTheme.bodyMedium?.copyWith(
                     color: scheme.onSurfaceVariant,
                   ),

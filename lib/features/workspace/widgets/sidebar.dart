@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../app/ui_tokens.dart';
 import '../../../data/vault_registry.dart';
 import '../../../models/folio_page.dart';
 import '../../../session/vault_session.dart';
@@ -221,6 +222,7 @@ class _SidebarState extends State<Sidebar> {
 
   Widget _vaultToolbar(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
+    final textTheme = Theme.of(context).textTheme;
     if (_vaultsLoading || _vaults.isEmpty) {
       return const SizedBox.shrink();
     }
@@ -235,78 +237,112 @@ class _SidebarState extends State<Sidebar> {
     current ??= _vaults.first;
 
     return Padding(
-      padding: const EdgeInsets.fromLTRB(8, 8, 8, 4),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Text(
-            'Cofre',
-            style: Theme.of(context).textTheme.labelSmall?.copyWith(
-              color: scheme.onSurfaceVariant,
-              fontWeight: FontWeight.w600,
+      padding: const EdgeInsets.all(FolioSpace.sm),
+      child: PopupMenuButton<String>(
+        tooltip: 'Cambiar cofre',
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(FolioRadius.md),
+        ),
+        offset: const Offset(0, 64),
+        onSelected: (value) {
+          if (value == 'add') {
+            _addVault();
+          } else if (value == 'rename') {
+            _renameActiveVault();
+          } else if (value == 'deleteOther') {
+            _deleteOtherVault();
+          } else {
+            _confirmSwitchVault(value);
+          }
+        },
+        itemBuilder: (ctx) => [
+          for (final e in _vaults)
+            PopupMenuItem(
+              value: e.id,
+              child: ListTile(
+                leading: const Icon(Icons.lock_outline),
+                title: Text(e.displayName),
+                trailing: e.id == activeId ? const Icon(Icons.check) : null,
+                contentPadding: EdgeInsets.zero,
+              ),
+            ),
+          const PopupMenuDivider(),
+          const PopupMenuItem(
+            value: 'add',
+            child: ListTile(
+              leading: Icon(Icons.add_circle_outline),
+              title: Text('Añadir cofre'),
+              contentPadding: EdgeInsets.zero,
             ),
           ),
-          const SizedBox(height: 6),
-          Row(
+          const PopupMenuItem(
+            value: 'rename',
+            child: ListTile(
+              leading: Icon(Icons.edit_outlined),
+              title: Text('Renombrar cofre activo'),
+              contentPadding: EdgeInsets.zero,
+            ),
+          ),
+          if (_vaults.length > 1)
+            const PopupMenuItem(
+              value: 'deleteOther',
+              child: ListTile(
+                leading: Icon(Icons.delete_outline),
+                title: Text('Eliminar otro cofre…'),
+                contentPadding: EdgeInsets.zero,
+              ),
+            ),
+        ],
+        child: Container(
+          padding: const EdgeInsets.all(FolioSpace.sm),
+          decoration: BoxDecoration(
+            color: scheme.surfaceContainerHigh,
+            borderRadius: BorderRadius.circular(FolioRadius.md),
+          ),
+          child: Row(
             children: [
-              Expanded(
-                child: DropdownButtonHideUnderline(
-                  child: DropdownButton<String>(
-                    isExpanded: true,
-                    value: current.id,
-                    items: _vaults
-                        .map(
-                          (e) => DropdownMenuItem(
-                            value: e.id,
-                            child: Text(
-                              e.displayName,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ),
-                        )
-                        .toList(),
-                    onChanged: (id) {
-                      if (id != null) _confirmSwitchVault(id);
-                    },
-                  ),
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: scheme.primaryContainer,
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(
+                  Icons.lock,
+                  size: 20,
+                  color: scheme.onPrimaryContainer,
                 ),
               ),
-              IconButton(
-                tooltip: 'Añadir cofre',
-                icon: const Icon(Icons.add_circle_outline),
-                onPressed: _addVault,
-              ),
-              PopupMenuButton<String>(
-                tooltip: 'Más',
-                icon: const Icon(Icons.more_vert),
-                onSelected: (value) {
-                  if (value == 'rename') _renameActiveVault();
-                  if (value == 'deleteOther') _deleteOtherVault();
-                },
-                itemBuilder: (ctx) => [
-                  const PopupMenuItem(
-                    value: 'rename',
-                    child: ListTile(
-                      leading: Icon(Icons.edit_outlined),
-                      title: Text('Renombrar cofre activo'),
-                      contentPadding: EdgeInsets.zero,
-                    ),
-                  ),
-                  if (_vaults.length > 1)
-                    const PopupMenuItem(
-                      value: 'deleteOther',
-                      child: ListTile(
-                        leading: Icon(Icons.delete_outline),
-                        title: Text('Eliminar otro cofre…'),
-                        contentPadding: EdgeInsets.zero,
+              const SizedBox(width: FolioSpace.sm),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Cofre activo',
+                      style: textTheme.labelSmall?.copyWith(
+                        color: scheme.onSurfaceVariant,
                       ),
                     ),
-                ],
+                    Text(
+                      current.displayName,
+                      style: textTheme.titleSmall?.copyWith(
+                        fontWeight: FontWeight.bold,
+                        color: scheme.onSurface,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
+                ),
+              ),
+              Icon(
+                Icons.unfold_more,
+                color: scheme.onSurfaceVariant,
               ),
             ],
           ),
-        ],
+        ),
       ),
     );
   }
@@ -387,15 +423,15 @@ class _SidebarState extends State<Sidebar> {
       padding: EdgeInsets.only(left: indent),
       child: Material(
         color: selected
-            ? scheme.surfaceContainerHigh.withValues(alpha: 0.85)
+            ? scheme.secondaryContainer
             : Colors.transparent,
-        borderRadius: BorderRadius.circular(10),
+        borderRadius: BorderRadius.circular(FolioRadius.lg),
+        clipBehavior: Clip.antiAlias,
         child: InkWell(
-          borderRadius: BorderRadius.circular(10),
           onTap: () => session.selectPage(page.id),
           onDoubleTap: () => _rename(context, page),
           child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 6),
             child: Row(
               children: [
                 Expanded(
@@ -410,8 +446,11 @@ class _SidebarState extends State<Sidebar> {
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(
                         fontWeight: selected
-                            ? FontWeight.w600
-                            : FontWeight.w400,
+                            ? FontWeight.bold
+                            : FontWeight.w500,
+                        color: selected 
+                            ? scheme.onSecondaryContainer 
+                            : scheme.onSurface,
                       ),
                     ),
                   ),
@@ -420,6 +459,7 @@ class _SidebarState extends State<Sidebar> {
                   icon: const Icon(Icons.add, size: 20),
                   tooltip: 'Subpágina',
                   visualDensity: VisualDensity.compact,
+                  color: selected ? scheme.onSecondaryContainer : scheme.onSurfaceVariant,
                   onPressed: () {
                     session.addPage(parentId: page.id);
                   },
@@ -428,18 +468,21 @@ class _SidebarState extends State<Sidebar> {
                   icon: const Icon(Icons.drive_file_move_outline, size: 20),
                   tooltip: 'Mover',
                   visualDensity: VisualDensity.compact,
+                  color: selected ? scheme.onSecondaryContainer : scheme.onSurfaceVariant,
                   onPressed: () => _move(context, page),
                 ),
                 IconButton(
                   icon: const Icon(Icons.edit_outlined, size: 20),
                   tooltip: 'Renombrar',
                   visualDensity: VisualDensity.compact,
+                  color: selected ? scheme.onSecondaryContainer : scheme.onSurfaceVariant,
                   onPressed: () => _rename(context, page),
                 ),
                 IconButton(
                   icon: const Icon(Icons.delete_outline, size: 20),
                   tooltip: 'Eliminar',
                   visualDensity: VisualDensity.compact,
+                  color: selected ? scheme.onSecondaryContainer : scheme.onSurfaceVariant,
                   onPressed: canDelete
                       ? () => session.deletePage(page.id)
                       : null,

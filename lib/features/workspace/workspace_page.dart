@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 
 import '../../app/app_settings.dart';
+import '../../app/ui_tokens.dart';
+import '../../l10n/generated/app_localizations.dart';
 import '../../session/vault_session.dart';
 import '../settings/settings_page.dart';
 import 'widgets/block_editor.dart';
@@ -23,6 +25,7 @@ class WorkspacePage extends StatefulWidget {
 
 class _WorkspacePageState extends State<WorkspacePage> {
   late final TextEditingController _titleController;
+  final _scaffoldKey = GlobalKey<ScaffoldState>();
 
   VaultSession get _s => widget.session;
 
@@ -75,23 +78,44 @@ class _WorkspacePageState extends State<WorkspacePage> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     final page = _s.selectedPage;
 
     final scheme = Theme.of(context).colorScheme;
     final theme = Theme.of(context);
+    final width = MediaQuery.sizeOf(context).width;
+    final compact = width < 1000;
+    final sidePanel = Material(
+      color: scheme.surfaceContainerLow,
+      child: Sidebar(session: _s),
+    );
     return Scaffold(
-      backgroundColor: scheme.surface,
+      key: _scaffoldKey,
+      backgroundColor: scheme.surfaceContainerLow,
+      drawer: compact
+          ? Drawer(
+              width: width.clamp(260, 340),
+              child: SafeArea(child: sidePanel),
+            )
+          : null,
       appBar: AppBar(
-        title: const Text('Folio'),
+        title: Text(l10n.appTitle),
+        leading: compact
+            ? IconButton(
+                tooltip: MaterialLocalizations.of(context).openAppDrawerTooltip,
+                icon: const Icon(Icons.menu_rounded),
+                onPressed: () => _scaffoldKey.currentState?.openDrawer(),
+              )
+            : null,
         actions: [
           if (_s.hasPendingDiskSave || _s.isPersistingToDisk)
             Padding(
-              padding: const EdgeInsetsDirectional.only(end: 4),
+              padding: const EdgeInsetsDirectional.only(end: FolioSpace.xs),
               child: Center(
                 child: Tooltip(
                   message: _s.isPersistingToDisk
-                      ? 'Guardando el cofre cifrado en disco…'
-                      : 'Guardado automático en unos instantes…',
+                      ? l10n.savingVaultTooltip
+                      : l10n.autosaveSoonTooltip,
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
@@ -112,7 +136,9 @@ class _WorkspacePageState extends State<WorkspacePage> {
                         ),
                       const SizedBox(width: 8),
                       Text(
-                        _s.isPersistingToDisk ? 'Guardando…' : 'Por guardar',
+                        _s.isPersistingToDisk
+                            ? l10n.saveInProgress
+                            : l10n.savePending,
                         style: theme.textTheme.labelLarge?.copyWith(
                           color: scheme.onSurfaceVariant,
                           fontWeight: FontWeight.w600,
@@ -125,17 +151,17 @@ class _WorkspacePageState extends State<WorkspacePage> {
             ),
           if (page != null)
             IconButton(
-              tooltip: 'Historial de la página',
+              tooltip: l10n.pageHistory,
               icon: const Icon(Icons.history_rounded),
               onPressed: _openPageHistoryScreen,
             ),
           IconButton(
-            tooltip: 'Ajustes',
+            tooltip: l10n.settings,
             icon: const Icon(Icons.settings_outlined),
             onPressed: _openSettings,
           ),
           IconButton(
-            tooltip: 'Bloquear',
+            tooltip: l10n.lockNow,
             icon: const Icon(Icons.lock_outline),
             onPressed: () => _s.lock(),
           ),
@@ -144,21 +170,27 @@ class _WorkspacePageState extends State<WorkspacePage> {
       body: Row(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          SizedBox(
-            width: 300,
-            child: Material(
-              color: scheme.surfaceContainerLow,
-              child: Sidebar(session: _s),
-            ),
-          ),
-          VerticalDivider(width: 1, thickness: 1, color: scheme.outlineVariant),
+          if (!compact) SizedBox(width: 320, child: sidePanel),
           Expanded(
-            child: Material(
-              color: scheme.surface,
+            child: Padding(
+              padding: EdgeInsets.fromLTRB(
+                compact ? 0 : FolioSpace.sm,
+                0,
+                compact ? 0 : FolioSpace.md,
+                compact ? 0 : FolioSpace.md,
+              ),
+              child: Material(
+                color: scheme.surface,
+                elevation: compact ? 0 : 2,
+                shadowColor: scheme.shadow.withValues(alpha: 0.1),
+                borderRadius: compact
+                    ? BorderRadius.zero
+                    : BorderRadius.circular(FolioRadius.lg),
+                clipBehavior: Clip.antiAlias,
               child: page == null
                   ? Center(
                       child: Padding(
-                        padding: const EdgeInsets.all(32),
+                        padding: const EdgeInsets.all(FolioSpace.xl),
                         child: Column(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
@@ -171,16 +203,27 @@ class _WorkspacePageState extends State<WorkspacePage> {
                             ),
                             const SizedBox(height: 16),
                             Text(
-                              'Sin páginas',
+                              l10n.noPages,
                               style: Theme.of(context).textTheme.titleMedium
                                   ?.copyWith(color: scheme.onSurfaceVariant),
+                            ),
+                            const SizedBox(height: FolioSpace.md),
+                            FilledButton.icon(
+                              onPressed: () => _s.addPage(parentId: null),
+                              icon: const Icon(Icons.add_rounded),
+                              label: Text(l10n.createPage),
                             ),
                           ],
                         ),
                       ),
                     )
                   : Padding(
-                      padding: const EdgeInsets.fromLTRB(28, 20, 28, 12),
+                      padding: const EdgeInsets.fromLTRB(
+                        FolioSpace.lg,
+                        FolioSpace.md,
+                        FolioSpace.lg,
+                        FolioSpace.sm,
+                      ),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
@@ -194,7 +237,7 @@ class _WorkspacePageState extends State<WorkspacePage> {
                             decoration: InputDecoration(
                               border: InputBorder.none,
                               filled: false,
-                              hintText: 'Sin título',
+                              hintText: l10n.untitled,
                               isDense: true,
                               hintStyle: TextStyle(
                                 color: scheme.onSurfaceVariant.withValues(
@@ -218,6 +261,7 @@ class _WorkspacePageState extends State<WorkspacePage> {
                         ],
                       ),
                     ),
+              ),
             ),
           ),
         ],

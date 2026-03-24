@@ -5,11 +5,14 @@ class FolioBlock {
     required this.text,
     this.checked,
     this.codeLanguage,
+    this.depth = 0,
+    this.icon,
+    this.url,
   });
 
   final String id;
 
-  /// paragraph | h1 | h2 | h3 | bullet | todo | code | image | table
+  /// paragraph | h1 | h2 | h3 | bullet | todo | code | image | table | quote | divider | callout | file | video
   String type;
 
   /// En texto y encabezados puede incluir Markdown inline (negrita, cursiva, código, tachado, subrayado, enlaces).
@@ -19,12 +22,24 @@ class FolioBlock {
   /// Id de gramática highlight (`dart`, `javascript`, …); solo para `type == 'code'`.
   String? codeLanguage;
 
+  /// Nivel de indentación visual del bloque (default: 0)
+  int depth;
+
+  /// Icono opcional para bloques como callout (ej. emoji)
+  String? icon;
+
+  /// Ruta de archivo local o URL para bloques de file o video
+  String? url;
+
   Map<String, dynamic> toJson() => {
     'id': id,
     'type': type,
     'text': text,
     if (checked != null) 'checked': checked,
     if (codeLanguage != null) 'codeLanguage': codeLanguage,
+    if (depth > 0) 'depth': depth,
+    if (icon != null) 'icon': icon,
+    if (url != null) 'url': url,
   };
 
   factory FolioBlock.fromJson(Map<String, dynamic> j) {
@@ -34,6 +49,9 @@ class FolioBlock {
       text: j['text'] as String? ?? '',
       checked: j['checked'] as bool?,
       codeLanguage: j['codeLanguage'] as String?,
+      depth: j['depth'] as int? ?? 0,
+      icon: j['icon'] as String?,
+      url: j['url'] as String?,
     );
   }
 
@@ -42,6 +60,9 @@ class FolioBlock {
     String? type,
     bool? checked,
     String? codeLanguage,
+    int? depth,
+    String? icon,
+    String? url,
   }) {
     return FolioBlock(
       id: id,
@@ -49,6 +70,9 @@ class FolioBlock {
       text: text ?? this.text,
       checked: checked ?? this.checked,
       codeLanguage: codeLanguage ?? this.codeLanguage,
+      depth: depth ?? this.depth,
+      icon: icon ?? this.icon,
+      url: url ?? this.url,
     );
   }
 }
