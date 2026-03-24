@@ -1448,6 +1448,60 @@ abstract class AppLocalizations {
   /// **'Error IA: {error}'**
   String aiErrorWithDetails(Object error);
 
+  /// No description provided for @aiServiceUnreachable.
+  ///
+  /// In es, this message translates to:
+  /// **'No se pudo conectar con el servicio de IA en el endpoint configurado. Inicia Ollama o LM Studio y revisa la URL.'**
+  String get aiServiceUnreachable;
+
+  /// No description provided for @aiLaunchProviderWithApp.
+  ///
+  /// In es, this message translates to:
+  /// **'Abrir app de IA al iniciar Folio'**
+  String get aiLaunchProviderWithApp;
+
+  /// No description provided for @aiLaunchProviderWithAppHint.
+  ///
+  /// In es, this message translates to:
+  /// **'Intenta lanzar Ollama o LM Studio en Windows si el endpoint es localhost. En LM Studio puede hacer falta iniciar el servidor manualmente.'**
+  String get aiLaunchProviderWithAppHint;
+
+  /// No description provided for @aiContextWindowTokens.
+  ///
+  /// In es, this message translates to:
+  /// **'Ventana de contexto del modelo (tokens)'**
+  String get aiContextWindowTokens;
+
+  /// No description provided for @aiContextWindowTokensHint.
+  ///
+  /// In es, this message translates to:
+  /// **'Sirve para la barra de contexto del chat. Ajústala a tu modelo (p. ej. 8192, 131072).'**
+  String get aiContextWindowTokensHint;
+
+  /// No description provided for @aiContextUsageUnavailable.
+  ///
+  /// In es, this message translates to:
+  /// **'El servidor no informó del uso de tokens en la última respuesta.'**
+  String get aiContextUsageUnavailable;
+
+  /// No description provided for @aiContextUsageSummary.
+  ///
+  /// In es, this message translates to:
+  /// **'Prompt {prompt} · Salida {completion}'**
+  String aiContextUsageSummary(Object prompt, Object completion);
+
+  /// No description provided for @aiContextUsageTooltip.
+  ///
+  /// In es, this message translates to:
+  /// **'Última petición respecto a la ventana configurada ({window} tokens).'**
+  String aiContextUsageTooltip(int window);
+
+  /// No description provided for @aiChatKeyboardHint.
+  ///
+  /// In es, this message translates to:
+  /// **'Enter para enviar · Ctrl+Enter nueva línea'**
+  String get aiChatKeyboardHint;
+
   /// No description provided for @aiAgentThought.
   ///
   /// In es, this message translates to:
@@ -1489,6 +1543,90 @@ abstract class AppLocalizations {
   /// In es, this message translates to:
   /// **'Activar BETA'**
   String get aiBetaEnableConfirm;
+
+  /// No description provided for @aiProviderNone.
+  ///
+  /// In es, this message translates to:
+  /// **'Ninguno'**
+  String get aiProviderNone;
+
+  /// No description provided for @aiProviderAutoConfigured.
+  ///
+  /// In es, this message translates to:
+  /// **'Proveedor IA detectado y configurado: {provider}'**
+  String aiProviderAutoConfigured(Object provider);
+
+  /// No description provided for @aiSetupAssistantTitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Asistente de instalación IA'**
+  String get aiSetupAssistantTitle;
+
+  /// No description provided for @aiSetupAssistantSubtitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Detecta y configura Ollama o LM Studio automáticamente.'**
+  String get aiSetupAssistantSubtitle;
+
+  /// No description provided for @aiSetupWizardTitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Asistente IA'**
+  String get aiSetupWizardTitle;
+
+  /// No description provided for @aiSetupChooseProviderTitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Elige proveedor IA'**
+  String get aiSetupChooseProviderTitle;
+
+  /// No description provided for @aiSetupChooseProviderBody.
+  ///
+  /// In es, this message translates to:
+  /// **'Primero elige cuál quieres usar. Después te guiamos en su instalación y configuración.'**
+  String get aiSetupChooseProviderBody;
+
+  /// No description provided for @aiSetupNoProviderTitle.
+  ///
+  /// In es, this message translates to:
+  /// **'No se detectó ningún proveedor activo'**
+  String get aiSetupNoProviderTitle;
+
+  /// No description provided for @aiSetupNoProviderBody.
+  ///
+  /// In es, this message translates to:
+  /// **'No encontramos Ollama o LM Studio en ejecución y accesibles.\nSigue los pasos para instalar/iniciar uno de ellos y pulsa Reintentar.'**
+  String get aiSetupNoProviderBody;
+
+  /// No description provided for @aiSetupOllamaTitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Paso 1: Instalar Ollama'**
+  String get aiSetupOllamaTitle;
+
+  /// No description provided for @aiSetupOllamaBody.
+  ///
+  /// In es, this message translates to:
+  /// **'Instala Ollama, ejecuta el servicio y verifica que responda en http://127.0.0.1:11434.'**
+  String get aiSetupOllamaBody;
+
+  /// No description provided for @aiSetupLmStudioTitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Paso 2: Instalar LM Studio'**
+  String get aiSetupLmStudioTitle;
+
+  /// No description provided for @aiSetupLmStudioBody.
+  ///
+  /// In es, this message translates to:
+  /// **'Instala LM Studio, inicia su servidor local (OpenAI compatible) y verifica que responda en http://127.0.0.1:1234.'**
+  String get aiSetupLmStudioBody;
+
+  /// No description provided for @aiSetupOpenSettingsHint.
+  ///
+  /// In es, this message translates to:
+  /// **'Cuando uno de los proveedores esté operativo, pulsa Reintentar para autoconfigurarlo.'**
+  String get aiSetupOpenSettingsHint;
 
   /// No description provided for @searchByNameOrShortcut.
   ///

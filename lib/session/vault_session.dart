@@ -216,7 +216,11 @@ class VaultSession extends ChangeNotifier {
   Future<void> pingAi() async {
     final ai = _aiService;
     if (ai == null) throw StateError('IA no configurada.');
-    await ai.ping();
+    try {
+      await ai.ping();
+    } catch (e) {
+      throw AiServiceUnreachableException(e);
+    }
   }
 
   Future<List<String>> listAiModels() async {
@@ -1837,7 +1841,7 @@ class VaultSession extends ChangeNotifier {
     return text;
   }
 
-  Future<String> summarizePageWithAi(
+  Future<({String text, AiTokenUsage? usage})> summarizePageWithAi(
     String pageId, {
     List<AiFileAttachment> attachments = const [],
   }) async {
@@ -1860,7 +1864,7 @@ class VaultSession extends ChangeNotifier {
         attachments: attachments,
       ),
     );
-    return result.text.trim();
+    return (text: result.text.trim(), usage: result.usage);
   }
 
   Future<void> generateContentWithAi({
@@ -1944,7 +1948,7 @@ class VaultSession extends ChangeNotifier {
     return id;
   }
 
-  Future<String> chatWithAi({
+  Future<({String text, AiTokenUsage? usage})> chatWithAi({
     required List<AiChatMessage> messages,
     required String prompt,
     String? scopePageId,
@@ -1968,10 +1972,10 @@ class VaultSession extends ChangeNotifier {
         attachments: attachments,
       ),
     );
-    return result.text.trim();
+    return (text: result.text.trim(), usage: result.usage);
   }
 
-  Future<String> agentChatWithAi({
+  Future<AgentChatOutcome> agentChatWithAi({
     required List<AiChatMessage> messages,
     required String prompt,
     String? scopePageId,
@@ -1984,6 +1988,10 @@ class VaultSession extends ChangeNotifier {
     }
     final ai = _aiService;
     if (ai == null) throw StateError('IA no configurada.');
+    await pingAi();
+    AiTokenUsage? lastUsage;
+    AgentChatOutcome finish(String reply) =>
+        AgentChatOutcome(reply: reply, usage: lastUsage);
     final isEs = languageCode.toLowerCase().startsWith('es');
     final scopePage = scopePageId == null ? null : _pageById(scopePageId);
     final wantsSubpage = _looksLikeSubpageIntent(
@@ -2042,6 +2050,7 @@ class VaultSession extends ChangeNotifier {
           attachments: attachments,
         ),
       );
+      lastUsage = result.usage ?? lastUsage;
       final decoded = _decodeJsonObjectLenient(result.text);
       final mode = _normalizeAgentMode(decoded['mode'] as String?);
       final reason = (decoded['reason'] as String? ?? '').trim();
@@ -2065,36 +2074,41 @@ class VaultSession extends ChangeNotifier {
 
       if (mode == 'summarize_current') {
         if (scopePage == null) {
-          return _formatAgentDecisionReply(
-            mode: mode,
-            reason: reason,
-            reply: reply.isNotEmpty
-                ? reply
-                : (isEs
-                      ? 'No hay página activa para resumir.'
-                      : 'There is no active page to summarize.'),
-            isEs: isEs,
+          return finish(
+            _formatAgentDecisionReply(
+              mode: mode,
+              reason: reason,
+              reply: reply.isNotEmpty
+                  ? reply
+                  : (isEs
+                        ? 'No hay página activa para resumir.'
+                        : 'There is no active page to summarize.'),
+              isEs: isEs,
+            ),
           );
         }
         final summary = await summarizePageWithAi(
           scopePage.id,
           attachments: attachments,
         );
-        return _formatAgentDecisionReply(
-          mode: mode,
-          reason: reason,
-          reply: summary.isNotEmpty
-              ? summary
-              : (reply.isNotEmpty
-                    ? reply
-                    : (isEs ? 'Resumen vacío.' : 'Empty summary.')),
-          isEs: isEs,
+        lastUsage = summary.usage ?? lastUsage;
+        return finish(
+          _formatAgentDecisionReply(
+            mode: mode,
+            reason: reason,
+            reply: summary.text.isNotEmpty
+                ? summary.text
+                : (reply.isNotEmpty
+                      ? reply
+                      : (isEs ? 'Resumen vacío.' : 'Empty summary.')),
+            isEs: isEs,
+          ),
         );
       }
 
       if (mode == 'append_current' || mode == 'replace_current') {
         if (scopePage == null) {
-          return _formatAgentDecisionReply(
+          return finish(_formatAgentDecisionReply(
             mode: mode,
             reason: reason,
             reply: reply.isNotEmpty
@@ -2103,7 +2117,7 @@ class VaultSession extends ChangeNotifier {
                       ? 'No hay página activa para editar.'
                       : 'There is no active page to edit.'),
             isEs: isEs,
-          );
+          ));
         }
         final materialized = _materializeAiBlocks(scopePage.id, parsedBlocks);
         if (mode == 'replace_current') {
@@ -2113,7 +2127,7 @@ class VaultSession extends ChangeNotifier {
         }
         notifyListeners();
         scheduleSave(trackRevisionForPageId: scopePage.id);
-        return _formatAgentDecisionReply(
+        return finish(_formatAgentDecisionReply(
           mode: mode,
           reason: reason,
           reply: reply.isNotEmpty
@@ -2122,12 +2136,12 @@ class VaultSession extends ChangeNotifier {
                     ? 'He actualizado la página.'
                     : 'He añadido contenido a la página.'),
           isEs: isEs,
-        );
+        ));
       }
 
       if (mode == 'edit_current') {
         if (scopePage == null) {
-          return _formatAgentDecisionReply(
+          return finish(_formatAgentDecisionReply(
             mode: mode,
             reason: reason,
             reply: reply.isNotEmpty
@@ -2136,14 +2150,14 @@ class VaultSession extends ChangeNotifier {
                       ? 'No hay página activa para editar.'
                       : 'There is no active page to edit.'),
             isEs: isEs,
-          );
+          ));
         }
         final changed = _applyAgentEditOperations(scopePage, rawOperations);
         if (changed) {
           notifyListeners();
           scheduleSave(trackRevisionForPageId: scopePage.id);
         }
-        return _formatAgentDecisionReply(
+        return finish(_formatAgentDecisionReply(
           mode: mode,
           reason: reason,
           reply: reply.isNotEmpty
@@ -2156,12 +2170,12 @@ class VaultSession extends ChangeNotifier {
                           ? 'No se pudieron aplicar cambios en bloques existentes.'
                           : 'Could not apply edits to existing blocks.')),
           isEs: isEs,
-        );
+        ));
       }
 
       if (mode == 'create_page') {
         if (wantsSubpage && scopePage == null) {
-          return _formatAgentDecisionReply(
+          return finish(_formatAgentDecisionReply(
             mode: mode,
             reason: reason.isNotEmpty
                 ? reason
@@ -2172,7 +2186,7 @@ class VaultSession extends ChangeNotifier {
                 ? 'Selecciona una página y vuelvo a crear la subpágina dentro de ella.'
                 : 'Select a page and I will create the subpage inside it.',
             isEs: isEs,
-          );
+          ));
         }
         final id = _uuid.v4();
         final blocks = _materializeAiBlocks(id, parsedBlocks);
@@ -2198,19 +2212,19 @@ class VaultSession extends ChangeNotifier {
             'blocksCount': blocks.length,
           },
         );
-        return _formatAgentDecisionReply(
+        return finish(_formatAgentDecisionReply(
           mode: mode,
           reason: reason,
           reply: reply.isNotEmpty ? reply : 'He creado una nueva página.',
           isEs: isEs,
-        );
+        ));
       }
 
       if (reply.isNotEmpty) {
         if (mode == 'chat' &&
             _looksLikeCreatePageIntent(prompt, languageCode: languageCode)) {
           if (wantsSubpage && scopePage == null) {
-            return _formatAgentDecisionReply(
+            return finish(_formatAgentDecisionReply(
               mode: 'create_page',
               reason: isEs
                   ? 'Detecté intención de crear subpágina pero no hay página activa.'
@@ -2219,7 +2233,7 @@ class VaultSession extends ChangeNotifier {
                   ? 'Selecciona primero una página para crear la subpágina dentro.'
                   : 'Select a page first to create the subpage inside it.',
               isEs: isEs,
-            );
+            ));
           }
           final createdId = _createPageFromRecoveredReply(
             reply,
@@ -2236,7 +2250,7 @@ class VaultSession extends ChangeNotifier {
                 'parentId': wantsSubpage ? scopePage?.id : null,
               },
             );
-            return _formatAgentDecisionReply(
+            return finish(_formatAgentDecisionReply(
               mode: 'create_page',
               reason: isEs
                   ? 'Detecté intención de crear página y recuperé contenido HTML/Markdown.'
@@ -2245,7 +2259,7 @@ class VaultSession extends ChangeNotifier {
                   ? 'He creado una página con el contenido generado.'
                   : 'I created a page with the generated content.',
               isEs: isEs,
-            );
+            ));
           }
         }
         if (scopePage != null &&
@@ -2254,7 +2268,7 @@ class VaultSession extends ChangeNotifier {
             _applyRecoveredEditFromChatReply(scopePage, reply)) {
           notifyListeners();
           scheduleSave(trackRevisionForPageId: scopePage.id);
-          return _formatAgentDecisionReply(
+          return finish(_formatAgentDecisionReply(
             mode: 'edit_current',
             reason: isEs
                 ? 'Detecté edición implícita y apliqué la tabla devuelta en Markdown.'
@@ -2263,14 +2277,14 @@ class VaultSession extends ChangeNotifier {
                 ? 'He actualizado la tabla existente de la página.'
                 : 'I updated the existing table in the page.',
             isEs: isEs,
-          );
+          ));
         }
-        return _formatAgentDecisionReply(
+        return finish(_formatAgentDecisionReply(
           mode: mode,
           reason: reason,
           reply: reply,
           isEs: isEs,
-        );
+        ));
       }
       final fallbackChat = await chatWithAi(
         messages: messages,
@@ -2283,12 +2297,13 @@ class VaultSession extends ChangeNotifier {
         tag: 'ai.agent',
         context: {'mode': mode, 'reason': reason},
       );
-      return _formatAgentDecisionReply(
+      lastUsage = fallbackChat.usage ?? lastUsage;
+      return finish(_formatAgentDecisionReply(
         mode: mode,
         reason: reason,
-        reply: fallbackChat,
+        reply: fallbackChat.text,
         isEs: isEs,
-      );
+      ));
     } catch (e, st) {
       AppLogger.error(
         'Agent JSON flow failed, attempting recovery',
@@ -2316,6 +2331,7 @@ class VaultSession extends ChangeNotifier {
               attachments: attachments,
             ),
           );
+          lastUsage = recovery.usage ?? lastUsage;
           final recovered = _decodeJsonObjectLenient(recovery.text);
           final mode = _normalizeAgentMode(recovered['mode'] as String?);
           final reason = (recovered['reason'] as String? ?? '').trim();
@@ -2328,7 +2344,7 @@ class VaultSession extends ChangeNotifier {
             if (changed) {
               notifyListeners();
               scheduleSave(trackRevisionForPageId: scopePage.id);
-              return _formatAgentDecisionReply(
+              return finish(_formatAgentDecisionReply(
                 mode: mode,
                 reason: reason.isEmpty
                     ? (isEs
@@ -2341,7 +2357,7 @@ class VaultSession extends ChangeNotifier {
                           : 'I edited existing page blocks.')
                     : reply,
                 isEs: isEs,
-              );
+              ));
             }
           }
         } catch (recoveryError, recoveryStack) {
@@ -2361,11 +2377,12 @@ class VaultSession extends ChangeNotifier {
         scopePageId: scopePageId,
         attachments: attachments,
       );
+      lastUsage = fallbackChat.usage ?? lastUsage;
       final wantsCreate =
           _looksLikeCreatePageIntent(prompt, languageCode: languageCode);
       if (wantsCreate) {
         if (wantsSubpage && scopePage == null) {
-          return _formatAgentDecisionReply(
+          return finish(_formatAgentDecisionReply(
             mode: 'create_page',
             reason: isEs
                 ? 'Detecté intención de crear subpágina pero no hay página activa.'
@@ -2374,10 +2391,10 @@ class VaultSession extends ChangeNotifier {
                 ? 'Selecciona primero una página para crear la subpágina dentro.'
                 : 'Select a page first to create the subpage inside it.',
             isEs: isEs,
-          );
+          ));
         }
         final createdId = _createPageFromRecoveredReply(
-          fallbackChat,
+          fallbackChat.text,
           isEs: isEs,
           parentId: wantsSubpage ? scopePage?.id : null,
         );
@@ -2391,7 +2408,7 @@ class VaultSession extends ChangeNotifier {
               'parentId': wantsSubpage ? scopePage?.id : null,
             },
           );
-          return _formatAgentDecisionReply(
+          return finish(_formatAgentDecisionReply(
             mode: 'create_page',
             reason: isEs
                 ? 'No pude estructurar JSON, pero recuperé el contenido y creé la página.'
@@ -2400,17 +2417,17 @@ class VaultSession extends ChangeNotifier {
                 ? 'He creado una página con el contenido generado.'
                 : 'I created a page with the generated content.',
             isEs: isEs,
-          );
+          ));
         }
       }
-      return _formatAgentDecisionReply(
+      return finish(_formatAgentDecisionReply(
         mode: 'chat',
         reason: isEs
             ? 'No pude estructurar la acción; respondo en modo conversación.'
             : 'I could not structure the action; responding in chat mode.',
-        reply: fallbackChat,
+        reply: fallbackChat.text,
         isEs: isEs,
-      );
+      ));
     }
   }
 

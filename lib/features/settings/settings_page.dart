@@ -1,5 +1,6 @@
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 import 'package:passkeys/exceptions.dart';
 
 import '../../app/app_settings.dart';
@@ -7,9 +8,12 @@ import '../../data/notion_import/notion_importer.dart';
 import '../../l10n/generated/app_localizations.dart';
 import '../../data/vault_backup.dart';
 import '../../services/ai/ai_service.dart';
+import '../../services/ai/ai_provider_detector.dart';
 import '../../services/ai/ai_safety_policy.dart';
 import '../../services/ai/lmstudio_ai_service.dart';
 import '../../services/ai/ollama_ai_service.dart';
+import '../../services/updater/github_release_updater.dart';
+import '../../services/updater/update_release_channel.dart';
 import '../../session/vault_session.dart';
 
 class SettingsPage extends StatefulWidget {
@@ -35,8 +39,12 @@ class _SettingsPageState extends State<SettingsPage> {
   var _passkeyRegistered = false;
   late final TextEditingController _aiBaseUrlController;
   late final TextEditingController _aiTimeoutController;
+  late final TextEditingController _aiContextWindowController;
   List<String> _availableModels = const [];
   bool _loadingModels = false;
+  bool _checkingUpdates = false;
+  bool _detectingAiProvider = false;
+  String _installedVersionLabel = '...';
 
   @override
   void initState() {
@@ -45,14 +53,19 @@ class _SettingsPageState extends State<SettingsPage> {
     _aiTimeoutController = TextEditingController(
       text: _app.aiTimeoutMs.toString(),
     );
+    _aiContextWindowController = TextEditingController(
+      text: _app.aiContextWindowTokens.toString(),
+    );
     _availableModels = _app.cachedAiModelsFor(_app.aiProvider);
     _refreshSecurityFlags();
+    _loadInstalledVersionInfo();
   }
 
   @override
   void dispose() {
     _aiBaseUrlController.dispose();
     _aiTimeoutController.dispose();
+    _aiContextWindowController.dispose();
     super.dispose();
   }
 
@@ -63,6 +76,21 @@ class _SettingsPageState extends State<SettingsPage> {
       setState(() {
         _quickEnabled = q;
         _passkeyRegistered = p;
+      });
+    }
+  }
+
+  Future<void> _loadInstalledVersionInfo() async {
+    try {
+      final info = await PackageInfo.fromPlatform();
+      if (!mounted) return;
+      setState(() {
+        _installedVersionLabel = '${info.version}+${info.buildNumber}';
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _installedVersionLabel = 'desconocida';
       });
     }
   }
@@ -111,6 +139,10 @@ class _SettingsPageState extends State<SettingsPage> {
     if (timeout != null) {
       await _app.setAiTimeoutMs(timeout);
     }
+    final ctxWin = int.tryParse(_aiContextWindowController.text.trim());
+    if (ctxWin != null) {
+      await _app.setAiContextWindowTokens(ctxWin);
+    }
     await _confirmRemoteEndpointIfNeeded();
   }
 
@@ -134,6 +166,136 @@ class _SettingsPageState extends State<SettingsPage> {
       ),
     );
     return go == true;
+  }
+
+  String _providerLabel(AiProvider provider, AppLocalizations l10n) {
+    switch (provider) {
+      case AiProvider.ollama:
+        return 'Ollama';
+      case AiProvider.lmStudio:
+        return 'LM Studio';
+      case AiProvider.none:
+        return l10n.aiProviderNone;
+    }
+  }
+
+  Future<AiProvider?> _askUserProviderChoice() async {
+    final l10n = AppLocalizations.of(context);
+    return showDialog<AiProvider>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(l10n.aiSetupChooseProviderTitle),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text(l10n.aiSetupChooseProviderBody),
+            const SizedBox(height: 12),
+            ListTile(
+              leading: const Icon(Icons.hub_outlined),
+              title: const Text('Ollama'),
+              onTap: () => Navigator.pop(ctx, AiProvider.ollama),
+            ),
+            ListTile(
+              leading: const Icon(Icons.hub_outlined),
+              title: const Text('LM Studio'),
+              onTap: () => Navigator.pop(ctx, AiProvider.lmStudio),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: Text(l10n.cancel),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<bool> _autoDetectAndConfigureAiProvider() async {
+    if (_detectingAiProvider) return false;
+    setState(() => _detectingAiProvider = true);
+    try {
+      final detector = const AiProviderDetector();
+      final summary = await detector.detect(preferredProvider: _app.aiProvider);
+      final recommended = summary.recommendedProvider;
+      if (recommended != null) {
+        await _app.setAiProvider(recommended);
+        final baseUrl = recommended == AiProvider.ollama
+            ? AppSettings.defaultOllamaUrl
+            : AppSettings.defaultLmStudioUrl;
+        _aiBaseUrlController.text = baseUrl;
+        await _app.setAiBaseUrl(baseUrl);
+        await _saveAiFields();
+        await _loadAiModels();
+        if (mounted) {
+          final l10n = AppLocalizations.of(context);
+          _snack(
+            l10n.aiProviderAutoConfigured(_providerLabel(recommended, l10n)),
+          );
+        }
+        return true;
+      }
+
+      if (!mounted) return false;
+      final l10n = AppLocalizations.of(context);
+      final selectedProvider = await _askUserProviderChoice();
+      if (!mounted || selectedProvider == null) return false;
+      var retry = true;
+      while (retry && mounted) {
+        final action = await showDialog<_AiWizardAction>(
+          context: context,
+          builder: (ctx) => _AiSetupWizardDialog(
+            summary: summary,
+            selectedProvider: selectedProvider,
+            title: l10n.aiSetupWizardTitle,
+            noProviderTitle: l10n.aiSetupNoProviderTitle,
+            noProviderBody: l10n.aiSetupNoProviderBody,
+            ollamaInstallTitle: l10n.aiSetupOllamaTitle,
+            ollamaInstallBody: l10n.aiSetupOllamaBody,
+            lmStudioInstallTitle: l10n.aiSetupLmStudioTitle,
+            lmStudioInstallBody: l10n.aiSetupLmStudioBody,
+            openSettingsHint: l10n.aiSetupOpenSettingsHint,
+            retryLabel: l10n.retry,
+            closeLabel: l10n.cancel,
+          ),
+        );
+        if (action == _AiWizardAction.retry) {
+          final redetected = await detector.detect(
+            preferredProvider: _app.aiProvider,
+          );
+          final selectedResult = selectedProvider == AiProvider.ollama
+              ? redetected.ollama
+              : redetected.lmStudio;
+          if (selectedResult.reachable) {
+            await _app.setAiProvider(selectedProvider);
+            final baseUrl = selectedProvider == AiProvider.ollama
+                ? AppSettings.defaultOllamaUrl
+                : AppSettings.defaultLmStudioUrl;
+            _aiBaseUrlController.text = baseUrl;
+            await _app.setAiBaseUrl(baseUrl);
+            await _saveAiFields();
+            await _loadAiModels();
+            if (mounted) {
+              final l10n = AppLocalizations.of(context);
+              _snack(
+                l10n.aiProviderAutoConfigured(
+                  _providerLabel(selectedProvider, l10n),
+                ),
+              );
+            }
+            return true;
+          }
+          retry = true;
+          continue;
+        }
+        retry = false;
+      }
+      return false;
+    } finally {
+      if (mounted) setState(() => _detectingAiProvider = false);
+    }
   }
 
   AiService _buildAiServiceFromInputs() {
@@ -455,6 +617,72 @@ class _SettingsPageState extends State<SettingsPage> {
     }
   }
 
+  GitHubReleaseUpdater _buildUpdater() {
+    return GitHubReleaseUpdater(
+      owner: _app.updaterGithubOwner,
+      repo: _app.updaterGithubRepo,
+    );
+  }
+
+  Future<void> _checkUpdatesNow() async {
+    if (_checkingUpdates) return;
+    setState(() => _checkingUpdates = true);
+    try {
+      final updater = _buildUpdater();
+      final result = await updater.checkForUpdate(
+        channel: _app.updateReleaseChannel,
+      );
+      if (!mounted) return;
+      if (!result.supportedPlatform) {
+        _snack('El actualizador integrado solo está disponible en Windows.');
+        return;
+      }
+      if (!result.hasUpdate) {
+        final r = result.reason;
+        _snack(
+          r != null && r.isNotEmpty ? r : 'Ya tienes la versión más reciente.',
+        );
+        return;
+      }
+      final betaNote = result.isPrerelease
+          ? '\n\nEsta es una versión beta (pre-release).'
+          : '';
+      final go = await showDialog<bool>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: Text(
+            result.isPrerelease
+                ? 'Beta disponible'
+                : 'Actualización disponible',
+          ),
+          content: Text(
+            'Versión actual: ${result.currentVersion}\n'
+            'Nueva versión: ${result.releaseVersion}$betaNote\n\n'
+            '¿Descargar e instalar ahora?',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('Más tarde'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(ctx, true),
+              child: const Text('Actualizar ahora'),
+            ),
+          ],
+        ),
+      );
+      if (go != true) return;
+      final installer = await updater.downloadInstaller(result);
+      await updater.launchInstallerAndExit(installer);
+    } catch (e) {
+      if (!mounted) return;
+      _snack('No se pudo actualizar: $e');
+    } finally {
+      if (mounted) setState(() => _checkingUpdates = false);
+    }
+  }
+
   Future<void> _openChangeMasterPasswordFlow() async {
     if (_s.state != VaultFlowState.unlocked) return;
     final changed = await showDialog<bool>(
@@ -773,14 +1001,36 @@ class _SettingsPageState extends State<SettingsPage> {
                               _app.aiEnabled ? l10n.active : l10n.inactive,
                             ),
                             value: _app.aiEnabled,
-                            onChanged: (v) async {
-                            if (v && !_app.aiEnabled) {
-                              final confirmed = await _confirmAiBetaEnable();
-                              if (!confirmed) return;
-                            }
-                              await _saveAiFields();
-                              await _app.setAiEnabled(v);
-                            },
+                            onChanged: _detectingAiProvider
+                                ? null
+                                : (v) async {
+                                    if (v && !_app.aiEnabled) {
+                                      final confirmed =
+                                          await _confirmAiBetaEnable();
+                                      if (!confirmed) return;
+                                      await _app.setAiEnabled(true);
+                                      await _saveAiFields();
+                                      await _autoDetectAndConfigureAiProvider();
+                                      return;
+                                    }
+                                    await _saveAiFields();
+                                    await _app.setAiEnabled(v);
+                                  },
+                          ),
+                          if (_detectingAiProvider)
+                            const Padding(
+                              padding: EdgeInsets.fromLTRB(16, 0, 16, 12),
+                              child: LinearProgressIndicator(),
+                            ),
+                          const Divider(height: 1),
+                          ListTile(
+                            leading: const Icon(Icons.assistant_navigation),
+                            title: Text(l10n.aiSetupAssistantTitle),
+                            subtitle: Text(l10n.aiSetupAssistantSubtitle),
+                            trailing: const Icon(Icons.chevron_right_rounded),
+                            onTap: _detectingAiProvider
+                                ? null
+                                : _autoDetectAndConfigureAiProvider,
                           ),
                           const Divider(height: 1),
                           SwitchListTile(
@@ -791,6 +1041,46 @@ class _SettingsPageState extends State<SettingsPage> {
                             onChanged: _app.aiEnabled
                                 ? _app.setAiAlwaysShowThought
                                 : null,
+                          ),
+                          const Divider(height: 1),
+                          SwitchListTile(
+                            secondary: const Icon(Icons.rocket_launch_outlined),
+                            title: Text(l10n.aiLaunchProviderWithApp),
+                            subtitle: Text(l10n.aiLaunchProviderWithAppHint),
+                            value: _app.aiLaunchProviderWithApp,
+                            onChanged: _app.aiEnabled
+                                ? (v) async {
+                                    await _app.setAiLaunchProviderWithApp(v);
+                                  }
+                                : null,
+                          ),
+                          const Divider(height: 1),
+                          ListTile(
+                            leading: const Icon(Icons.memory_outlined),
+                            title: Text(l10n.aiContextWindowTokens),
+                            subtitle: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  l10n.aiContextWindowTokensHint,
+                                  style: Theme.of(context).textTheme.bodySmall
+                                      ?.copyWith(color: scheme.onSurfaceVariant),
+                                ),
+                                TextField(
+                                  controller: _aiContextWindowController,
+                                  enabled: _app.aiEnabled,
+                                  keyboardType: TextInputType.number,
+                                  decoration: const InputDecoration(
+                                    hintText: '131072',
+                                    border: InputBorder.none,
+                                    enabledBorder: InputBorder.none,
+                                    focusedBorder: InputBorder.none,
+                                    contentPadding: EdgeInsets.zero,
+                                  ),
+                                  onSubmitted: (_) => _saveAiFields(),
+                                ),
+                              ],
+                            ),
                           ),
                           const Divider(height: 1),
                           ListTile(
@@ -810,8 +1100,12 @@ class _SettingsPageState extends State<SettingsPage> {
                                     );
                                   });
                                   if (_availableModels.isNotEmpty &&
-                                      !_availableModels.contains(_app.aiModel)) {
-                                    await _app.setAiModel(_availableModels.first);
+                                      !_availableModels.contains(
+                                        _app.aiModel,
+                                      )) {
+                                    await _app.setAiModel(
+                                      _availableModels.first,
+                                    );
                                   }
                                   _aiBaseUrlController.text = _app
                                       .defaultUrlForProvider(value);
@@ -994,6 +1288,90 @@ class _SettingsPageState extends State<SettingsPage> {
                           onTap: _s.state == VaultFlowState.unlocked
                               ? _openImportNotionFlow
                               : null,
+                        ),
+                      ],
+                    ),
+                  ),
+
+                  _SectionHeader(title: 'Acerca de', scheme: scheme),
+                  Card(
+                    margin: const EdgeInsets.only(bottom: 24),
+                    child: Column(
+                      children: [
+                        ListTile(
+                          leading: const Icon(Icons.info_outline_rounded),
+                          title: const Text('Versión instalada'),
+                          subtitle: Text(_installedVersionLabel),
+                        ),
+                        const Divider(height: 1),
+                        ListTile(
+                          leading: const Icon(Icons.cloud_outlined),
+                          title: const Text('Repositorio de actualizaciones'),
+                          subtitle: Text(
+                            '${_app.updaterGithubOwner}/${_app.updaterGithubRepo}',
+                          ),
+                        ),
+                        const Divider(height: 1),
+                        Padding(
+                          padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              Text(
+                                'Canal',
+                                style: Theme.of(context).textTheme.titleSmall,
+                              ),
+                              const SizedBox(height: 8),
+                              SegmentedButton<UpdateReleaseChannel>(
+                                segments: const [
+                                  ButtonSegment<UpdateReleaseChannel>(
+                                    value: UpdateReleaseChannel.stable,
+                                    label: Text('Release'),
+                                    icon: Icon(
+                                      Icons.verified_outlined,
+                                      size: 18,
+                                    ),
+                                  ),
+                                  ButtonSegment<UpdateReleaseChannel>(
+                                    value: UpdateReleaseChannel.beta,
+                                    label: Text('Beta'),
+                                    icon: Icon(
+                                      Icons.science_outlined,
+                                      size: 18,
+                                    ),
+                                  ),
+                                ],
+                                selected: {_app.updateReleaseChannel},
+                                onSelectionChanged: (s) {
+                                  _app.setUpdateReleaseChannel(s.first);
+                                },
+                              ),
+                              const SizedBox(height: 8),
+                              Text(
+                                _app.updateReleaseChannel ==
+                                        UpdateReleaseChannel.beta
+                                    ? 'Las betas son releases en GitHub marcadas como pre-release.'
+                                    : 'Solo se considera la última release estable.',
+                                style: Theme.of(context).textTheme.bodySmall
+                                    ?.copyWith(color: scheme.onSurfaceVariant),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const Divider(height: 1),
+                        ListTile(
+                          leading: const Icon(Icons.system_update_rounded),
+                          title: const Text('Buscar actualizaciones'),
+                          trailing: _checkingUpdates
+                              ? const SizedBox(
+                                  height: 20,
+                                  width: 20,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                  ),
+                                )
+                              : null,
+                          onTap: _checkingUpdates ? null : _checkUpdatesNow,
                         ),
                       ],
                     ),
@@ -1409,6 +1787,142 @@ class _ChangeMasterPasswordDialogState
           child: Text(l10n.cancel),
         ),
         FilledButton(onPressed: _busy ? null : _submit, child: Text(l10n.save)),
+      ],
+    );
+  }
+}
+
+enum _AiWizardAction { close, retry }
+
+class _AiSetupWizardDialog extends StatefulWidget {
+  const _AiSetupWizardDialog({
+    required this.summary,
+    required this.selectedProvider,
+    required this.title,
+    required this.noProviderTitle,
+    required this.noProviderBody,
+    required this.ollamaInstallTitle,
+    required this.ollamaInstallBody,
+    required this.lmStudioInstallTitle,
+    required this.lmStudioInstallBody,
+    required this.openSettingsHint,
+    required this.retryLabel,
+    required this.closeLabel,
+  });
+
+  final AiProviderDetectionSummary summary;
+  final AiProvider selectedProvider;
+  final String title;
+  final String noProviderTitle;
+  final String noProviderBody;
+  final String ollamaInstallTitle;
+  final String ollamaInstallBody;
+  final String lmStudioInstallTitle;
+  final String lmStudioInstallBody;
+  final String openSettingsHint;
+  final String retryLabel;
+  final String closeLabel;
+
+  @override
+  State<_AiSetupWizardDialog> createState() => _AiSetupWizardDialogState();
+}
+
+class _AiSetupWizardDialogState extends State<_AiSetupWizardDialog> {
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final isOllama = widget.selectedProvider == AiProvider.ollama;
+    final selectedStatus = isOllama
+        ? widget.summary.ollama
+        : widget.summary.lmStudio;
+    return AlertDialog(
+      title: Text(widget.title),
+      content: SizedBox(
+        width: 520,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text(
+              widget.noProviderTitle,
+              style: Theme.of(context).textTheme.titleMedium,
+            ),
+            const SizedBox(height: 8),
+            Text(widget.noProviderBody),
+            const SizedBox(height: 12),
+            _ProviderStatusLine(
+              label: isOllama ? 'Ollama' : 'LM Studio',
+              installed: selectedStatus.installed,
+              reachable: selectedStatus.reachable,
+            ),
+            const SizedBox(height: 12),
+            Text(
+              isOllama
+                  ? widget.ollamaInstallTitle
+                  : widget.lmStudioInstallTitle,
+              style: Theme.of(context).textTheme.titleMedium,
+            ),
+            const SizedBox(height: 8),
+            Text(
+              isOllama ? widget.ollamaInstallBody : widget.lmStudioInstallBody,
+            ),
+            const SizedBox(height: 10),
+            SelectableText(
+              isOllama ? 'https://ollama.com/download' : 'https://lmstudio.ai/',
+              style: TextStyle(color: scheme.primary),
+            ),
+            const SizedBox(height: 14),
+            Text(
+              widget.openSettingsHint,
+              style: Theme.of(
+                context,
+              ).textTheme.bodySmall?.copyWith(color: scheme.onSurfaceVariant),
+            ),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context, _AiWizardAction.close),
+          child: Text(widget.closeLabel),
+        ),
+        FilledButton.tonal(
+          onPressed: () => Navigator.pop(context, _AiWizardAction.retry),
+          child: Text(widget.retryLabel),
+        ),
+      ],
+    );
+  }
+}
+
+class _ProviderStatusLine extends StatelessWidget {
+  const _ProviderStatusLine({
+    required this.label,
+    required this.installed,
+    required this.reachable,
+  });
+
+  final String label;
+  final bool installed;
+  final bool reachable;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Row(
+      children: [
+        Expanded(child: Text(label)),
+        Icon(
+          installed ? Icons.download_done_rounded : Icons.download_for_offline,
+          size: 16,
+          color: installed ? scheme.primary : scheme.onSurfaceVariant,
+        ),
+        const SizedBox(width: 8),
+        Icon(
+          reachable ? Icons.cloud_done_rounded : Icons.cloud_off_rounded,
+          size: 16,
+          color: reachable ? Colors.green : scheme.onSurfaceVariant,
+        ),
       ],
     );
   }

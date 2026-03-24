@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../services/updater/update_release_channel.dart';
+
 enum AiProvider { none, ollama, lmStudio }
 
 enum AiEndpointMode { localhostOnly, allowRemote }
@@ -27,7 +29,10 @@ class AppSettings extends ChangeNotifier {
   static const _aiRemoteEndpointConfirmedKey =
       'folio_ai_remote_endpoint_confirmed';
   static const _aiAlwaysShowThoughtKey = 'folio_ai_always_show_thought';
+  static const _aiLaunchProviderWithAppKey = 'folio_ai_launch_provider_with_app';
+  static const _aiContextWindowTokensKey = 'folio_ai_context_window_tokens';
   static const _aiModelsPrefix = 'folio_ai_models_';
+  static const _updateReleaseChannelKey = 'folio_update_release_channel';
   static const int defaultVaultIdleLockMinutes = 15;
   static const String defaultGlobalSearchHotkey = 'Ctrl+Shift+K';
   static const int defaultAiTimeoutMs = 30000;
@@ -35,6 +40,12 @@ class AppSettings extends ChangeNotifier {
   static const String defaultLmStudioUrl = 'http://127.0.0.1:1234';
   static const String defaultOllamaModel = 'llama3.1:8b';
   static const String defaultLmStudioModel = 'local-model';
+  static const int defaultAiContextWindowTokens = 131072;
+  static const String defaultUpdaterGithubOwner = 'aleja';
+  static const String defaultUpdaterGithubRepo = 'Folio';
+  static const bool defaultCheckUpdatesOnStartup = true;
+  static const UpdateReleaseChannel defaultUpdateReleaseChannel =
+      UpdateReleaseChannel.stable;
 
   ThemeMode _themeMode = ThemeMode.system;
   Locale? _locale;
@@ -52,7 +63,10 @@ class AppSettings extends ChangeNotifier {
   AiEndpointMode _aiEndpointMode = AiEndpointMode.localhostOnly;
   bool _aiRemoteEndpointConfirmed = false;
   bool _aiAlwaysShowThought = false;
+  bool _aiLaunchProviderWithApp = false;
+  int _aiContextWindowTokens = defaultAiContextWindowTokens;
   final Map<AiProvider, List<String>> _cachedAiModelsByProvider = {};
+  UpdateReleaseChannel _updateReleaseChannel = defaultUpdateReleaseChannel;
 
   ThemeMode get themeMode => _themeMode;
   Locale? get locale => _locale;
@@ -70,8 +84,14 @@ class AppSettings extends ChangeNotifier {
   AiEndpointMode get aiEndpointMode => _aiEndpointMode;
   bool get aiRemoteEndpointConfirmed => _aiRemoteEndpointConfirmed;
   bool get aiAlwaysShowThought => _aiAlwaysShowThought;
+  bool get aiLaunchProviderWithApp => _aiLaunchProviderWithApp;
+  int get aiContextWindowTokens => _aiContextWindowTokens;
   bool get isAiAvailable => true;
   bool get isAiRuntimeEnabled => _aiEnabled;
+  String get updaterGithubOwner => defaultUpdaterGithubOwner;
+  String get updaterGithubRepo => defaultUpdaterGithubRepo;
+  bool get checkUpdatesOnStartup => defaultCheckUpdatesOnStartup;
+  UpdateReleaseChannel get updateReleaseChannel => _updateReleaseChannel;
 
   Future<void> load() async {
     final p = await SharedPreferences.getInstance();
@@ -101,6 +121,14 @@ class AppSettings extends ChangeNotifier {
     _aiRemoteEndpointConfirmed =
         p.getBool(_aiRemoteEndpointConfirmedKey) ?? false;
     _aiAlwaysShowThought = p.getBool(_aiAlwaysShowThoughtKey) ?? false;
+    _aiLaunchProviderWithApp =
+        p.getBool(_aiLaunchProviderWithAppKey) ?? false;
+    _aiContextWindowTokens = _sanitizeContextWindowTokens(
+      p.getInt(_aiContextWindowTokensKey),
+    );
+    _updateReleaseChannel = _parseUpdateReleaseChannel(
+      p.getString(_updateReleaseChannelKey),
+    );
     _cachedAiModelsByProvider
       ..clear()
       ..addAll({
@@ -140,6 +168,13 @@ class AppSettings extends ChangeNotifier {
     }
   }
 
+  UpdateReleaseChannel _parseUpdateReleaseChannel(String? raw) {
+    return switch (raw) {
+      'beta' => UpdateReleaseChannel.beta,
+      _ => UpdateReleaseChannel.stable,
+    };
+  }
+
   AiEndpointMode _parseAiEndpointMode(String? raw) {
     switch (raw) {
       case 'allowRemote':
@@ -153,6 +188,13 @@ class AppSettings extends ChangeNotifier {
     final raw = value ?? defaultAiTimeoutMs;
     if (raw < 3000) return 3000;
     if (raw > 120000) return 120000;
+    return raw;
+  }
+
+  int _sanitizeContextWindowTokens(int? value) {
+    final raw = value ?? defaultAiContextWindowTokens;
+    if (raw < 1024) return 1024;
+    if (raw > 2000000) return 2000000;
     return raw;
   }
 
@@ -359,5 +401,30 @@ class AppSettings extends ChangeNotifier {
     notifyListeners();
     final p = await SharedPreferences.getInstance();
     await p.setBool(_aiAlwaysShowThoughtKey, value);
+  }
+
+  Future<void> setAiLaunchProviderWithApp(bool value) async {
+    if (_aiLaunchProviderWithApp == value) return;
+    _aiLaunchProviderWithApp = value;
+    notifyListeners();
+    final p = await SharedPreferences.getInstance();
+    await p.setBool(_aiLaunchProviderWithAppKey, value);
+  }
+
+  Future<void> setAiContextWindowTokens(int value) async {
+    final safe = _sanitizeContextWindowTokens(value);
+    if (_aiContextWindowTokens == safe) return;
+    _aiContextWindowTokens = safe;
+    notifyListeners();
+    final p = await SharedPreferences.getInstance();
+    await p.setInt(_aiContextWindowTokensKey, safe);
+  }
+
+  Future<void> setUpdateReleaseChannel(UpdateReleaseChannel value) async {
+    if (_updateReleaseChannel == value) return;
+    _updateReleaseChannel = value;
+    notifyListeners();
+    final p = await SharedPreferences.getInstance();
+    await p.setString(_updateReleaseChannelKey, value.name);
   }
 }

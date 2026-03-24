@@ -741,6 +741,41 @@ class AppLocalizationsEs extends AppLocalizations {
   }
 
   @override
+  String get aiServiceUnreachable =>
+      'No se pudo conectar con el servicio de IA en el endpoint configurado. Inicia Ollama o LM Studio y revisa la URL.';
+
+  @override
+  String get aiLaunchProviderWithApp => 'Abrir app de IA al iniciar Folio';
+
+  @override
+  String get aiLaunchProviderWithAppHint =>
+      'Intenta lanzar Ollama o LM Studio en Windows si el endpoint es localhost. En LM Studio puede hacer falta iniciar el servidor manualmente.';
+
+  @override
+  String get aiContextWindowTokens => 'Ventana de contexto del modelo (tokens)';
+
+  @override
+  String get aiContextWindowTokensHint =>
+      'Sirve para la barra de contexto del chat. Ajústala a tu modelo (p. ej. 8192, 131072).';
+
+  @override
+  String get aiContextUsageUnavailable =>
+      'El servidor no informó del uso de tokens en la última respuesta.';
+
+  @override
+  String aiContextUsageSummary(Object prompt, Object completion) {
+    return 'Prompt $prompt · Salida $completion';
+  }
+
+  @override
+  String aiContextUsageTooltip(int window) {
+    return 'Última petición respecto a la ventana configurada ($window tokens).';
+  }
+
+  @override
+  String get aiChatKeyboardHint => 'Enter para enviar · Ctrl+Enter nueva línea';
+
+  @override
   String get aiAgentThought => 'Pensamiento del agente';
 
   @override
@@ -762,6 +797,56 @@ class AppLocalizationsEs extends AppLocalizations {
 
   @override
   String get aiBetaEnableConfirm => 'Activar BETA';
+
+  @override
+  String get aiProviderNone => 'Ninguno';
+
+  @override
+  String aiProviderAutoConfigured(Object provider) {
+    return 'Proveedor IA detectado y configurado: $provider';
+  }
+
+  @override
+  String get aiSetupAssistantTitle => 'Asistente de instalación IA';
+
+  @override
+  String get aiSetupAssistantSubtitle =>
+      'Detecta y configura Ollama o LM Studio automáticamente.';
+
+  @override
+  String get aiSetupWizardTitle => 'Asistente IA';
+
+  @override
+  String get aiSetupChooseProviderTitle => 'Elige proveedor IA';
+
+  @override
+  String get aiSetupChooseProviderBody =>
+      'Primero elige cuál quieres usar. Después te guiamos en su instalación y configuración.';
+
+  @override
+  String get aiSetupNoProviderTitle => 'No se detectó ningún proveedor activo';
+
+  @override
+  String get aiSetupNoProviderBody =>
+      'No encontramos Ollama o LM Studio en ejecución y accesibles.\nSigue los pasos para instalar/iniciar uno de ellos y pulsa Reintentar.';
+
+  @override
+  String get aiSetupOllamaTitle => 'Paso 1: Instalar Ollama';
+
+  @override
+  String get aiSetupOllamaBody =>
+      'Instala Ollama, ejecuta el servicio y verifica que responda en http://127.0.0.1:11434.';
+
+  @override
+  String get aiSetupLmStudioTitle => 'Paso 2: Instalar LM Studio';
+
+  @override
+  String get aiSetupLmStudioBody =>
+      'Instala LM Studio, inicia su servidor local (OpenAI compatible) y verifica que responda en http://127.0.0.1:1234.';
+
+  @override
+  String get aiSetupOpenSettingsHint =>
+      'Cuando uno de los proveedores esté operativo, pulsa Reintentar para autoconfigurarlo.';
 
   @override
   String get searchByNameOrShortcut => 'Buscar por nombre o atajo…';

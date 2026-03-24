@@ -1,3 +1,6 @@
+import 'dart:async';
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter_markdown_plus/flutter_markdown_plus.dart';
@@ -36,8 +39,10 @@ class _WorkspacePageState extends State<WorkspacePage> {
   late final TextEditingController _titleController;
   final _scaffoldKey = GlobalKey<ScaffoldState>();
   final TextEditingController _chatInputController = TextEditingController();
+  final FocusNode _chatInputFocusNode = FocusNode();
   final List<String> _aiAttachmentPaths = [];
   bool _aiChatBusy = false;
+  AiTokenUsage? _lastChatTokenUsage;
   double _aiPanelWidth = 360;
   bool _aiPanelCollapsed = false;
   final Set<String> _expandedThoughtMessageKeys = <String>{};
@@ -177,6 +182,7 @@ class _WorkspacePageState extends State<WorkspacePage> {
     _s.removeListener(_onSession);
     _titleController.dispose();
     _chatInputController.dispose();
+    _chatInputFocusNode.dispose();
     super.dispose();
   }
 
@@ -250,20 +256,76 @@ class _WorkspacePageState extends State<WorkspacePage> {
     if (mounted) setState(() {});
   }
 
+  String _formatTokenCount(int? n) {
+    if (n == null) return '—';
+    if (n >= 1000000) return '${(n / 1000000).toStringAsFixed(1)}M';
+    if (n >= 10000) return '${(n / 1000).toStringAsFixed(1)}k';
+    if (n >= 1000) return '${(n / 1000).toStringAsFixed(2)}k';
+    return n.toString();
+  }
+
+  void _insertNewlineInChatInput() {
+    final c = _chatInputController;
+    final sel = c.selection;
+    if (!sel.isValid) {
+      c.text = '${c.text}\n';
+      c.selection = TextSelection.collapsed(offset: c.text.length);
+      return;
+    }
+    final t = c.text;
+    final start = sel.start;
+    final end = sel.end;
+    final newText = t.replaceRange(start, end, '\n');
+    c.value = TextEditingValue(
+      text: newText,
+      selection: TextSelection.collapsed(offset: start + 1),
+    );
+  }
+
+  KeyEventResult _onChatInputKey(FocusNode node, KeyEvent event) {
+    if (event is! KeyDownEvent) return KeyEventResult.ignored;
+    if (event.logicalKey != LogicalKeyboardKey.enter) {
+      return KeyEventResult.ignored;
+    }
+    if (HardwareKeyboard.instance.isControlPressed) {
+      _insertNewlineInChatInput();
+      return KeyEventResult.handled;
+    }
+    unawaited(_sendAiChat());
+    return KeyEventResult.handled;
+  }
+
   Future<void> _sendAiChat() async {
     if (_aiChatBusy) return;
     final text = _chatInputController.text.trim();
     if (text.isEmpty) return;
+    setState(() => _aiChatBusy = true);
+    try {
+      await _s.pingAi();
+    } catch (e) {
+      if (mounted) {
+        setState(() => _aiChatBusy = false);
+        final l10n = AppLocalizations.of(context);
+        final msg = e is AiServiceUnreachableException
+            ? l10n.aiServiceUnreachable
+            : l10n.aiErrorWithDetails(e);
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(msg)));
+      }
+      return;
+    }
+    if (!mounted) return;
     setState(() {
-      _aiChatBusy = true;
       _chatInputController.clear();
     });
     _s.appendMessageToActiveAiChat(AiChatMessage(role: 'user', content: text));
     try {
-      final reply = await _runAiFromChat(text, _activeChat.messages);
+      final outcome = await _runAiFromChat(text, _activeChat.messages);
       if (!mounted) return;
+      setState(() => _lastChatTokenUsage = outcome.usage);
       _s.appendMessageToActiveAiChat(
-        AiChatMessage(role: 'assistant', content: reply),
+        AiChatMessage(role: 'assistant', content: outcome.reply),
       );
     } catch (e) {
       if (!mounted) return;
@@ -278,7 +340,7 @@ class _WorkspacePageState extends State<WorkspacePage> {
     }
   }
 
-  Future<String> _runAiFromChat(
+  Future<AgentChatOutcome> _runAiFromChat(
     String text,
     List<AiChatMessage> threadMessages,
   ) async {
@@ -295,10 +357,12 @@ class _WorkspacePageState extends State<WorkspacePage> {
   }
 
   void _createNewChat() {
+    setState(() => _lastChatTokenUsage = null);
     _s.createNewAiChat();
   }
 
   void _deleteActiveChat() {
+    setState(() => _lastChatTokenUsage = null);
     _s.deleteActiveAiChat();
   }
 
@@ -394,6 +458,51 @@ class _WorkspacePageState extends State<WorkspacePage> {
                 ),
               ),
       ),
+    );
+  }
+
+  Widget _buildAiChatContextRow(
+    ThemeData theme,
+    ColorScheme scheme,
+    AppLocalizations l10n,
+  ) {
+    final u = _lastChatTokenUsage;
+    final window = math.max(1, widget.appSettings.aiContextWindowTokens);
+    final prompt = u?.promptTokens;
+    if (prompt == null) {
+      return Text(
+        l10n.aiContextUsageUnavailable,
+        style: theme.textTheme.labelSmall?.copyWith(
+          color: scheme.onSurfaceVariant,
+        ),
+      );
+    }
+    final frac = math.min(1.0, prompt / window);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Tooltip(
+          message: l10n.aiContextUsageTooltip(window),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(4),
+            child: LinearProgressIndicator(
+              value: frac,
+              minHeight: 5,
+              backgroundColor: scheme.surfaceContainerHigh,
+            ),
+          ),
+        ),
+        const SizedBox(height: 4),
+        Text(
+          l10n.aiContextUsageSummary(
+            _formatTokenCount(prompt),
+            _formatTokenCount(u!.completionTokens),
+          ),
+          style: theme.textTheme.labelSmall?.copyWith(
+            color: scheme.onSurfaceVariant,
+          ),
+        ),
+      ],
     );
   }
 
@@ -512,7 +621,10 @@ class _WorkspacePageState extends State<WorkspacePage> {
                             overflow: TextOverflow.ellipsis,
                           ),
                           selected: active,
-                          onSelected: (_) => _s.selectAiChat(i),
+                          onSelected: (_) {
+                            setState(() => _lastChatTokenUsage = null);
+                            _s.selectAiChat(i);
+                          },
                         );
                       },
                     ),
@@ -707,6 +819,22 @@ class _WorkspacePageState extends State<WorkspacePage> {
                     ),
             ),
             Padding(
+              padding: const EdgeInsets.fromLTRB(14, 0, 14, 6),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  _buildAiChatContextRow(theme, scheme, l10n),
+                  const SizedBox(height: 4),
+                  Text(
+                    l10n.aiChatKeyboardHint,
+                    style: theme.textTheme.labelSmall?.copyWith(
+                      color: scheme.onSurfaceVariant.withValues(alpha: 0.88),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Padding(
               padding: const EdgeInsets.fromLTRB(10, 8, 10, 10),
               child: Container(
                 padding: const EdgeInsets.fromLTRB(8, 8, 8, 8),
@@ -754,19 +882,22 @@ class _WorkspacePageState extends State<WorkspacePage> {
                         Expanded(
                           child: Padding(
                             padding: const EdgeInsets.only(bottom: 2),
-                            child: TextField(
-                              controller: _chatInputController,
-                              minLines: 1,
-                              maxLines: 5,
-                              decoration: InputDecoration(
-                                border: InputBorder.none,
-                                hintText: l10n.aiInputHint,
-                                isDense: true,
-                                contentPadding: const EdgeInsets.symmetric(
-                                  vertical: 10,
+                            child: Focus(
+                              onKeyEvent: _onChatInputKey,
+                              child: TextField(
+                                focusNode: _chatInputFocusNode,
+                                controller: _chatInputController,
+                                minLines: 1,
+                                maxLines: 5,
+                                decoration: InputDecoration(
+                                  border: InputBorder.none,
+                                  hintText: l10n.aiInputHint,
+                                  isDense: true,
+                                  contentPadding: const EdgeInsets.symmetric(
+                                    vertical: 10,
+                                  ),
                                 ),
                               ),
-                              onSubmitted: (_) => _sendAiChat(),
                             ),
                           ),
                         ),

@@ -79,10 +79,27 @@ class LmStudioAiService implements AiService {
       final content = (msg['content'] as String? ?? '').trim();
       if (content.isEmpty)
         throw StateError('LM Studio devolvió respuesta vacía');
+      final usageRaw = json['usage'];
+      AiTokenUsage? usage;
+      if (usageRaw is Map) {
+        final u = Map<String, dynamic>.from(usageRaw);
+        int? asInt(dynamic v) {
+          if (v is int) return v;
+          if (v is num) return v.round();
+          return null;
+        }
+
+        usage = AiTokenUsage(
+          promptTokens: asInt(u['prompt_tokens']),
+          completionTokens: asInt(u['completion_tokens']),
+          totalTokens: asInt(u['total_tokens']),
+        );
+      }
       return AiCompletionResult(
         text: content,
         provider: providerName,
         model: request.model == 'auto' ? defaultModel : request.model,
+        usage: usage,
       );
     } finally {
       client.close(force: true);

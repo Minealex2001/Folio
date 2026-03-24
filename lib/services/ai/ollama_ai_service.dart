@@ -56,10 +56,29 @@ class OllamaAiService implements AiService {
       final msg = (json['message'] as Map<String, dynamic>?) ?? const {};
       final content = (msg['content'] as String? ?? '').trim();
       if (content.isEmpty) throw StateError('Ollama devolvió respuesta vacía');
+      int? asInt(dynamic v) {
+        if (v is int) return v;
+        if (v is num) return v.round();
+        return null;
+      }
+
+      final promptEval = asInt(json['prompt_eval_count']);
+      final evalCount = asInt(json['eval_count']);
+      AiTokenUsage? usage;
+      if (promptEval != null || evalCount != null) {
+        usage = AiTokenUsage(
+          promptTokens: promptEval,
+          completionTokens: evalCount,
+          totalTokens: (promptEval != null && evalCount != null)
+              ? promptEval + evalCount
+              : null,
+        );
+      }
       return AiCompletionResult(
         text: content,
         provider: providerName,
         model: request.model == 'auto' ? defaultModel : request.model,
+        usage: usage,
       );
     } finally {
       client.close(force: true);

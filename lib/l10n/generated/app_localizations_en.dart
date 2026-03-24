@@ -739,6 +739,41 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
+  String get aiServiceUnreachable =>
+      'Could not reach the AI service at the configured endpoint. Start Ollama or LM Studio and check the URL.';
+
+  @override
+  String get aiLaunchProviderWithApp => 'Open AI app when Folio starts';
+
+  @override
+  String get aiLaunchProviderWithAppHint =>
+      'Tries to launch Ollama or LM Studio on Windows when the endpoint is localhost. LM Studio may still need its server started manually.';
+
+  @override
+  String get aiContextWindowTokens => 'Model context window (tokens)';
+
+  @override
+  String get aiContextWindowTokensHint =>
+      'Used for the context bar in AI chat. Match your model (e.g. 8192, 131072).';
+
+  @override
+  String get aiContextUsageUnavailable =>
+      'Token usage was not reported for the last reply.';
+
+  @override
+  String aiContextUsageSummary(Object prompt, Object completion) {
+    return 'Prompt $prompt · Output $completion';
+  }
+
+  @override
+  String aiContextUsageTooltip(int window) {
+    return 'Last request vs your configured context window ($window tokens).';
+  }
+
+  @override
+  String get aiChatKeyboardHint => 'Enter to send · Ctrl+Enter for new line';
+
+  @override
   String get aiAgentThought => 'Agent thought';
 
   @override
@@ -760,6 +795,56 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get aiBetaEnableConfirm => 'Enable BETA';
+
+  @override
+  String get aiProviderNone => 'None';
+
+  @override
+  String aiProviderAutoConfigured(Object provider) {
+    return 'AI provider detected and configured: $provider';
+  }
+
+  @override
+  String get aiSetupAssistantTitle => 'AI setup assistant';
+
+  @override
+  String get aiSetupAssistantSubtitle =>
+      'Detect and configure Ollama or LM Studio automatically.';
+
+  @override
+  String get aiSetupWizardTitle => 'AI setup assistant';
+
+  @override
+  String get aiSetupChooseProviderTitle => 'Choose AI provider';
+
+  @override
+  String get aiSetupChooseProviderBody =>
+      'First choose which provider you want to use. Then we guide you through installation and setup.';
+
+  @override
+  String get aiSetupNoProviderTitle => 'No active provider detected';
+
+  @override
+  String get aiSetupNoProviderBody =>
+      'We could not find Ollama or LM Studio running and reachable.\nFollow the steps to install/start one of them and press Retry.';
+
+  @override
+  String get aiSetupOllamaTitle => 'Step 1: Install Ollama';
+
+  @override
+  String get aiSetupOllamaBody =>
+      'Install Ollama, run the local service, and verify it responds at http://127.0.0.1:11434.';
+
+  @override
+  String get aiSetupLmStudioTitle => 'Step 2: Install LM Studio';
+
+  @override
+  String get aiSetupLmStudioBody =>
+      'Install LM Studio, start its local server (OpenAI-compatible), and verify it responds at http://127.0.0.1:1234.';
+
+  @override
+  String get aiSetupOpenSettingsHint =>
+      'When one provider is operational, press Retry to auto-configure it.';
 
   @override
   String get searchByNameOrShortcut => 'Search by name or shortcut…';

@@ -7,9 +7,11 @@ import 'package:system_theme/system_theme.dart';
 
 import '../desktop/desktop_integration.dart';
 import '../l10n/generated/app_localizations.dart';
+import '../services/ai/ai_provider_launcher.dart';
 import '../services/ai/ai_safety_policy.dart';
 import '../services/ai/lmstudio_ai_service.dart';
 import '../services/ai/ollama_ai_service.dart';
+import '../services/updater/github_release_updater.dart';
 import '../features/lock/lock_screen.dart';
 import '../features/onboarding/onboarding_flow.dart';
 import '../features/workspace/workspace_page.dart';
@@ -34,6 +36,7 @@ class _FolioAppState extends State<FolioApp> with WidgetsBindingObserver {
   DesktopIntegration? _desktop;
   var _openingByHotkey = false;
   String _desktopSettingsSignature = '';
+  bool _updateDialogShown = false;
 
   @override
   void initState() {
@@ -43,8 +46,10 @@ class _FolioAppState extends State<FolioApp> with WidgetsBindingObserver {
     widget.appSettings.addListener(_onSettings);
     _applySessionSecurityPolicy();
     _applyAiSettings();
+    _maybeLaunchAiProvider();
     widget.session.bootstrap();
     _initDesktopIntegration();
+    _checkForUpdatesOnStartup();
     _accentSub = SystemTheme.onChange.listen((_) {
       if (mounted) setState(() {});
     });
@@ -103,6 +108,16 @@ class _FolioAppState extends State<FolioApp> with WidgetsBindingObserver {
     if (next == _desktopSettingsSignature) return;
     _desktopSettingsSignature = next;
     unawaited(_desktop?.applySettings());
+  }
+
+  void _maybeLaunchAiProvider() {
+    final s = widget.appSettings;
+    if (!s.aiLaunchProviderWithApp) return;
+    if (!s.isAiRuntimeEnabled) return;
+    if (s.aiProvider == AiProvider.none) return;
+    final uri = AiSafetyPolicy.parseAndNormalizeUrl(s.aiBaseUrl);
+    if (uri == null || !AiSafetyPolicy.isLocalhostHost(uri.host)) return;
+    unawaited(AiProviderLauncher.tryLaunchProvider(s.aiProvider));
   }
 
   void _applyAiSettings() {
@@ -220,6 +235,56 @@ class _FolioAppState extends State<FolioApp> with WidgetsBindingObserver {
 
   Future<void> _handleExitRequested() async {
     await SystemNavigator.pop();
+  }
+
+  Future<void> _checkForUpdatesOnStartup() async {
+    if (!widget.appSettings.checkUpdatesOnStartup) return;
+    final updater = GitHubReleaseUpdater(
+      owner: widget.appSettings.updaterGithubOwner,
+      repo: widget.appSettings.updaterGithubRepo,
+    );
+    try {
+      final result = await updater.checkForUpdate(
+        channel: widget.appSettings.updateReleaseChannel,
+      );
+      if (!mounted || !result.hasUpdate || _updateDialogShown) return;
+      _updateDialogShown = true;
+      final betaNote = result.isPrerelease
+          ? '\n\nVersión beta (pre-release).'
+          : '';
+      final shouldInstall = await showDialog<bool>(
+        context: _navKey.currentContext ?? context,
+        builder: (ctx) {
+          return AlertDialog(
+            title: Text(
+              result.isPrerelease
+                  ? 'Beta disponible'
+                  : 'Actualización disponible',
+            ),
+            content: Text(
+              'Hay una nueva versión (${result.releaseVersion}) disponible.$betaNote\n\n'
+              '¿Quieres descargar e instalar ahora?',
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(ctx, false),
+                child: const Text('Más tarde'),
+              ),
+              FilledButton(
+                onPressed: () => Navigator.pop(ctx, true),
+                child: const Text('Actualizar ahora'),
+              ),
+            ],
+          );
+        },
+      );
+      if (shouldInstall == true) {
+        final installer = await updater.downloadInstaller(result);
+        await updater.launchInstallerAndExit(installer);
+      }
+    } catch (_) {
+      // No interrumpir el arranque si falla el chequeo.
+    }
   }
 
   @override

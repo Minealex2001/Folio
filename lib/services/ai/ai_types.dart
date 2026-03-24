@@ -26,6 +26,38 @@ class AiFileAttachment {
   final String content;
 }
 
+/// Uso de tokens devuelto por el backend (Ollama / OpenAI-compatible).
+class AiTokenUsage {
+  const AiTokenUsage({
+    this.promptTokens,
+    this.completionTokens,
+    this.totalTokens,
+  });
+
+  final int? promptTokens;
+  final int? completionTokens;
+  final int? totalTokens;
+}
+
+/// El servicio IA no respondió en el endpoint configurado (red, apagado, etc.).
+class AiServiceUnreachableException implements Exception {
+  AiServiceUnreachableException([this.cause]);
+
+  final Object? cause;
+
+  @override
+  String toString() =>
+      'AiServiceUnreachableException${cause != null ? ': $cause' : ''}';
+}
+
+/// Resultado del chat con agente para la UI (texto mostrado + métricas del último `complete`).
+class AgentChatOutcome {
+  const AgentChatOutcome({required this.reply, this.usage});
+
+  final String reply;
+  final AiTokenUsage? usage;
+}
+
 class AiCompletionRequest {
   const AiCompletionRequest({
     required this.prompt,
@@ -45,11 +77,17 @@ class AiCompletionRequest {
 }
 
 class AiCompletionResult {
-  const AiCompletionResult({required this.text, this.provider, this.model});
+  const AiCompletionResult({
+    required this.text,
+    this.provider,
+    this.model,
+    this.usage,
+  });
 
   final String text;
   final String? provider;
   final String? model;
+  final AiTokenUsage? usage;
 }
 
 class AiChatThreadData {

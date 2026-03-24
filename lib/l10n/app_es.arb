@@ -252,6 +252,17 @@
   ,"closeCurrentPage": "Cerrar página actual"
   ,"aiErrorWithDetails": "Error IA: {error}"
   ,"@aiErrorWithDetails": {"placeholders": {"error": {}}}
+  ,"aiServiceUnreachable": "No se pudo conectar con el servicio de IA en el endpoint configurado. Inicia Ollama o LM Studio y revisa la URL."
+  ,"aiLaunchProviderWithApp": "Abrir app de IA al iniciar Folio"
+  ,"aiLaunchProviderWithAppHint": "Intenta lanzar Ollama o LM Studio en Windows si el endpoint es localhost. En LM Studio puede hacer falta iniciar el servidor manualmente."
+  ,"aiContextWindowTokens": "Ventana de contexto del modelo (tokens)"
+  ,"aiContextWindowTokensHint": "Sirve para la barra de contexto del chat. Ajústala a tu modelo (p. ej. 8192, 131072)."
+  ,"aiContextUsageUnavailable": "El servidor no informó del uso de tokens en la última respuesta."
+  ,"aiContextUsageSummary": "Prompt {prompt} · Salida {completion}"
+  ,"@aiContextUsageSummary": {"placeholders": {"prompt": {}, "completion": {}}}
+  ,"aiContextUsageTooltip": "Última petición respecto a la ventana configurada ({window} tokens)."
+  ,"@aiContextUsageTooltip": {"placeholders": {"window": {"type": "int"}}}
+  ,"aiChatKeyboardHint": "Enter para enviar · Ctrl+Enter nueva línea"
   ,"aiAgentThought": "Pensamiento del agente"
   ,"aiAlwaysShowThought": "Mostrar siempre pensamiento de IA"
   ,"aiAlwaysShowThoughtHint": "Si está desactivado, se mostrará plegado con flecha en cada mensaje."
@@ -259,6 +270,21 @@
   ,"aiBetaEnableTitle": "IA en fase BETA"
   ,"aiBetaEnableBody": "Esta funcionalidad está en fase BETA y puede fallar o comportarse de forma inesperada.\n\n¿Quieres activarla igualmente?"
   ,"aiBetaEnableConfirm": "Activar BETA"
+  ,"aiProviderNone": "Ninguno"
+  ,"aiProviderAutoConfigured": "Proveedor IA detectado y configurado: {provider}"
+  ,"@aiProviderAutoConfigured": {"placeholders": {"provider": {}}}
+  ,"aiSetupAssistantTitle": "Asistente de instalación IA"
+  ,"aiSetupAssistantSubtitle": "Detecta y configura Ollama o LM Studio automáticamente."
+  ,"aiSetupWizardTitle": "Asistente IA"
+  ,"aiSetupChooseProviderTitle": "Elige proveedor IA"
+  ,"aiSetupChooseProviderBody": "Primero elige cuál quieres usar. Después te guiamos en su instalación y configuración."
+  ,"aiSetupNoProviderTitle": "No se detectó ningún proveedor activo"
+  ,"aiSetupNoProviderBody": "No encontramos Ollama o LM Studio en ejecución y accesibles.\nSigue los pasos para instalar/iniciar uno de ellos y pulsa Reintentar."
+  ,"aiSetupOllamaTitle": "Paso 1: Instalar Ollama"
+  ,"aiSetupOllamaBody": "Instala Ollama, ejecuta el servicio y verifica que responda en http://127.0.0.1:11434."
+  ,"aiSetupLmStudioTitle": "Paso 2: Instalar LM Studio"
+  ,"aiSetupLmStudioBody": "Instala LM Studio, inicia su servidor local (OpenAI compatible) y verifica que responda en http://127.0.0.1:1234."
+  ,"aiSetupOpenSettingsHint": "Cuando uno de los proveedores esté operativo, pulsa Reintentar para autoconfigurarlo."
   ,"searchByNameOrShortcut": "Buscar por nombre o atajo…",
   "search": "Buscar",
   "open": "Abrir",
