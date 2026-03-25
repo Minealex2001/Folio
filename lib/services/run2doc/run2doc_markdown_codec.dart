@@ -4,6 +4,7 @@ import '../../models/folio_database_data.dart';
 import '../../models/folio_page.dart';
 import '../../models/folio_table_data.dart';
 import '../../models/folio_toggle_data.dart';
+import '../../models/folio_task_data.dart';
 
 enum FolioMarkdownImportMode {
   newPage,
@@ -599,6 +600,19 @@ class FolioMarkdownCodec {
       case 'todo':
         _resetNumberedCounters(numberedCounters, block.depth);
         return '$indent- [${block.checked == true ? 'x' : ' '}] ${block.text.trim()}';
+      case 'task':
+        _resetNumberedCounters(numberedCounters, block.depth);
+        final task = FolioTaskData.tryParse(block.text);
+        if (task == null) return null;
+        final taskDone = task.status == 'done';
+        final taskLine = StringBuffer(
+          '$indent- [${taskDone ? 'x' : ' '}] ${task.title.trim()}',
+        );
+        final extras = <String>[];
+        if (task.priority != null) extras.add('priority: ${task.priority}');
+        if (task.dueDate != null) extras.add('due: ${task.dueDate}');
+        if (extras.isNotEmpty) taskLine.write(' <!-- ${extras.join(', ')} -->');
+        return taskLine.toString();
       case 'numbered':
         final next = (numberedCounters[block.depth] ?? 0) + 1;
         numberedCounters[block.depth] = next;

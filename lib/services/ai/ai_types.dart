@@ -66,6 +66,11 @@ class AiCompletionRequest {
     this.messages = const [],
     this.attachments = const [],
     this.maxTokens,
+    this.temperature,
+    this.topK,
+    this.topP,
+    this.stop,
+    this.responseSchema,
   });
 
   final String prompt;
@@ -74,6 +79,16 @@ class AiCompletionRequest {
   final List<AiChatMessage> messages;
   final List<AiFileAttachment> attachments;
   final int? maxTokens;
+  /// Temperatura de sampling [0,1]. 0 = determinista.
+  final double? temperature;
+  /// Top-K tokens candidatos.
+  final int? topK;
+  /// Probabilidad acumulada mínima para top-p sampling.
+  final double? topP;
+  /// Secuencias de parada.
+  final List<String>? stop;
+  /// JSON Schema para forzar salida estructurada (LM Studio: response_format; Ollama: format).
+  final Map<String, dynamic>? responseSchema;
 }
 
 class AiCompletionResult {

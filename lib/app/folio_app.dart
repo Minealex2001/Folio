@@ -10,6 +10,7 @@ import 'package:system_theme/system_theme.dart';
 
 import '../desktop/desktop_integration.dart';
 import '../l10n/generated/app_localizations.dart';
+import '../models/block.dart';
 import '../services/ai/ai_provider_launcher.dart';
 import '../services/ai/ai_safety_policy.dart';
 import '../services/ai/lmstudio_ai_service.dart';
@@ -60,6 +61,9 @@ class _FolioAppState extends State<FolioApp> with WidgetsBindingObserver {
     widget.appSettings.addListener(_onSettings);
     _run2DocBridge = Run2DocBridgeController(
       onImport: _importRun2DocMarkdown,
+      onUpdate: _updateRun2DocPage,
+      onListPages: _listRun2DocPages,
+      onImportJson: _importRun2DocJson,
       onApproveClient: _approveRun2DocClient,
       onClientObserved: _syncObservedRun2DocClient,
       isClientApproved: (client) => widget.appSettings.isIntegrationAppApproved(
@@ -307,6 +311,63 @@ class _FolioAppState extends State<FolioApp> with WidgetsBindingObserver {
       sessionId: request.sessionId,
       metadata: request.metadata,
       mode: request.importMode,
+    );
+  }
+
+  Future<FolioMarkdownImportResult> _updateRun2DocPage(
+    Run2DocPageUpdateRequest request,
+  ) async {
+    if (request.isJsonMode) {
+      final blocks = request.blocks!
+          .map((b) => FolioBlock.fromJson(b))
+          .toList();
+      return widget.session.updatePageBlocks(
+        request.pageId,
+        blocks,
+        title: request.title,
+        sourceApp: request.sourceApp,
+        sourceUrl: request.sourceUrl,
+        clientAppId: request.clientAppId,
+        clientAppName: request.clientAppName,
+        sessionId: request.sessionId,
+        metadata: request.metadata,
+        mode: request.importMode,
+      );
+    }
+    return widget.session.updatePageContent(
+      request.pageId,
+      request.markdown,
+      title: request.title,
+      sourceApp: request.sourceApp,
+      sourceUrl: request.sourceUrl,
+      clientAppId: request.clientAppId,
+      clientAppName: request.clientAppName,
+      sessionId: request.sessionId,
+      metadata: request.metadata,
+      mode: request.importMode,
+    );
+  }
+
+  Future<List<Map<String, Object?>>> _listRun2DocPages(
+    String clientAppId,
+  ) async {
+    return widget.session.listPagesByApp(clientAppId);
+  }
+
+  Future<FolioMarkdownImportResult> _importRun2DocJson(
+    Run2DocJsonImportRequest request,
+  ) async {
+    final blocks = request.blocks.map((b) => FolioBlock.fromJson(b)).toList();
+    return widget.session.importBlocksDocument(
+      request.title,
+      blocks,
+      parentId: request.parentPageId,
+      sourceApp: request.sourceApp,
+      sourceUrl: request.sourceUrl,
+      clientAppId: request.clientAppId,
+      clientAppName: request.clientAppName,
+      sessionId: request.sessionId,
+      metadata: request.metadata,
     );
   }
 

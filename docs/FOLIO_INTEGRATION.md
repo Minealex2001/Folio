@@ -342,6 +342,267 @@ Unsupported integration version:
 }
 ```
 
+## Update Page Endpoint
+
+Updates the content of a page that the calling app originally imported.
+
+**Privacy rule:** only the app whose `X-Folio-App-Id` matches the `clientAppId` stored in `page.lastImportInfo` may update that page. Native pages (created inside Folio, with no import history) are always rejected with `403 FORBIDDEN`.
+
+```http
+PATCH /pages/{pageId}
+Host: 127.0.0.1:45831
+Authorization: Bearer <nonce>
+X-Folio-App-Id: sample-docs-desktop
+X-Folio-App-Name: Sample Docs
+X-Folio-App-Version: 1.4.0
+X-Folio-Integration-Version: 1
+X-Folio-Integration-Secret: <secret>
+Content-Type: application/json
+```
+
+Path parameter:
+
+- `pageId`: the UUID of the page to update (e.g. `page_123`).
+
+Request body:
+
+```json
+{
+  "sessionId": "8f2e9c1a",
+  "title": "Updated Document",
+  "markdown": "# Updated Document\n\n## Changes\n\nContent refreshed by the external app.",
+  "importMode": "replaceCurrentPage",
+  "sourceApp": "Sample Docs",
+  "sourceUrl": "https://example.com/docs",
+  "metadata": {
+    "origin": "desktop-client",
+    "revision": "2"
+  }
+}
+```
+
+Fields:
+
+- `sessionId`: required, must match the active session.
+- `markdown`: required Markdown content.
+- `importMode`: `replaceCurrentPage` (default) or `appendToCurrentPage`. `newPage` is not accepted.
+- `title`: optional override for the page title (only applied in replace mode when the parsed Markdown does not provide its own title).
+- `sourceApp`, `sourceUrl`, `metadata`: optional provenance fields, same as the import endpoint.
+
+### Success Response
+
+```json
+{
+  "ok": true,
+  "sessionId": "8f2e9c1a",
+  "pageId": "page_123",
+  "title": "Updated Document",
+  "blockCount": 9,
+  "mode": "replaceCurrentPage",
+  "message": "Updated successfully"
+}
+```
+
+### Error Responses
+
+Page not found:
+
+```json
+{
+  "ok": false,
+  "error": "PAGE_NOT_FOUND",
+  "message": "PAGE_NOT_FOUND"
+}
+```
+
+App did not originally import this page:
+
+```json
+{
+  "ok": false,
+  "error": "FORBIDDEN",
+  "message": "App did not import this page."
+}
+```
+
+Vault locked:
+
+```json
+{
+  "ok": false,
+  "error": "VAULT_LOCKED",
+  "message": "Unlock Folio before importing."
+}
+```
+
+## List Pages Endpoint
+
+Returns all pages that the calling app originally imported into Folio. Useful for discovering `pageId` values needed by the Update Page endpoint.
+
+```http
+GET /pages?sessionId=<sessionId>
+Host: 127.0.0.1:45831
+Authorization: Bearer <nonce>
+X-Folio-App-Id: sample-docs-desktop
+X-Folio-App-Name: Sample Docs
+X-Folio-App-Version: 1.4.0
+X-Folio-Integration-Version: 1
+X-Folio-Integration-Secret: <secret>
+```
+
+Query parameter:
+
+- `sessionId`: required, must match the active session.
+
+### Success Response
+
+```json
+{
+  "ok": true,
+  "sessionId": "8f2e9c1a",
+  "pages": [
+    {
+      "pageId": "page_123",
+      "title": "My Imported Document",
+      "parentId": null,
+      "blockCount": 14,
+      "importedAtMs": 1711324800000,
+      "importMode": "newPage",
+      "sourceApp": "Sample Docs",
+      "sourceUrl": "https://example.com/docs"
+    }
+  ]
+}
+```
+
+Response fields per page:
+
+- `pageId`: UUID used in PATCH `/pages/{pageId}`.
+- `title`: current page title.
+- `parentId`: UUID of the parent page, or `null`.
+- `blockCount`: number of content blocks.
+- `importedAtMs`: Unix timestamp (ms) of the last import/update.
+- `importMode`: `newPage`, `replaceCurrentPage`, or `appendToCurrentPage`.
+- `sourceApp`, `sourceUrl`: optional provenance fields from the last import, only present when they were set.
+
+**Privacy rule:** only pages whose `lastImportInfo.clientAppId` matches the `X-Folio-App-Id` header are returned. Native pages and pages imported by other apps are never included.
+
+### Error Responses
+
+Standard errors (`UNAUTHORIZED`, `SESSION_MISMATCH`, `NO_ACTIVE_SESSION`, `VAULT_LOCKED`) follow the same shape as the Import Markdown endpoint.
+
+---
+
+## Import JSON Blocks Endpoint
+
+Creates a new page from pre-parsed JSON blocks, bypassing Markdown parsing entirely. Useful for rich content that does not translate cleanly to Markdown.
+
+```http
+POST /imports/json
+Host: 127.0.0.1:45831
+Authorization: Bearer <nonce>
+X-Folio-App-Id: sample-docs-desktop
+X-Folio-App-Name: Sample Docs
+X-Folio-App-Version: 1.4.0
+X-Folio-Integration-Version: 1
+X-Folio-Integration-Secret: <secret>
+Content-Type: application/json
+```
+
+Request body:
+
+```json
+{
+  "sessionId": "8f2e9c1a",
+  "title": "My Rich Document",
+  "blocks": [
+    { "type": "h1", "text": "My Rich Document" },
+    { "type": "paragraph", "text": "This block was sent as JSON." },
+    {
+      "type": "task",
+      "text": "{\"v\":1,\"title\":\"Review changes\",\"status\":\"todo\",\"priority\":\"high\",\"dueDate\":\"2026-06-01\"}"
+    },
+    { "type": "code", "text": "print('hello')", "codeLanguage": "python" }
+  ],
+  "parentPageId": null,
+  "sourceApp": "Sample Docs",
+  "sourceUrl": "https://example.com/doc/42",
+  "metadata": { "revision": "3" }
+}
+```
+
+Fields:
+
+- `sessionId`: required, must match the active session.
+- `title`: optional page title (default: `"Imported page"` if omitted or empty).
+- `blocks`: required non-empty array of block objects (see Block Schema below).
+- `parentPageId`: optional UUID of the parent page.
+- `sourceApp`, `sourceUrl`, `metadata`: optional provenance fields.
+
+### Block Schema
+
+| Field | Type | Required | Notes |
+|---|---|---|---|
+| `id` | `string` | No | Auto-generated UUID if absent or empty. |
+| `type` | `string` | Yes | See block type list below. |
+| `text` | `string` | No | Inline Markdown text, or JSON string for `task`/`toggle` types. |
+| `depth` | `int` | No | Indentation level (default `0`). |
+| `checked` | `bool` | No | Checked state for `todo` blocks. |
+| `expanded` | `bool` | No | Expanded state for `toggle` blocks. |
+| `codeLanguage` | `string` | No | Syntax highlight grammar for `code` blocks (e.g. `dart`, `python`). |
+| `icon` | `string` | No | Emoji icon for `callout` blocks. |
+| `url` | `string` | No | File path or URL for `file`, `video`, `audio`, `image`, `bookmark`, `embed` blocks. |
+| `imageWidth` | `float` | No | Relative width for `image` blocks (`0.2`–`1.0`, default `1.0`). |
+
+**Supported `type` values:** `paragraph`, `h1`, `h2`, `h3`, `bullet`, `numbered`, `todo`, `task`, `toggle`, `code`, `mermaid`, `equation`, `image`, `table`, `quote`, `divider`, `callout`, `file`, `video`, `audio`, `bookmark`, `embed`, `toc`, `breadcrumb`, `child_page`.
+
+**`task` block `text` format:**
+
+```json
+{"v":1,"title":"Task title","status":"todo","priority":"high","dueDate":"2026-06-01"}
+```
+
+- `status`: `"todo"` | `"in_progress"` | `"done"`.
+- `priority`: `"low"` | `"medium"` | `"high"` | `null`.
+- `dueDate`: ISO 8601 date string `"YYYY-MM-DD"` | `null`.
+
+### Success Response
+
+```json
+{
+  "ok": true,
+  "sessionId": "8f2e9c1a",
+  "pageId": "page_456",
+  "title": "My Rich Document",
+  "blockCount": 4,
+  "mode": "newPage",
+  "message": "Imported successfully"
+}
+```
+
+---
+
+## Update Page — JSON Blocks Mode
+
+The [Update Page](#update-page-endpoint) endpoint also accepts a `blocks` array instead of `markdown`. When `blocks` is present in the request body, it takes precedence and Markdown parsing is skipped entirely.
+
+```json
+{
+  "sessionId": "8f2e9c1a",
+  "importMode": "replaceCurrentPage",
+  "blocks": [
+    { "type": "h1", "text": "Refreshed Document" },
+    { "type": "paragraph", "text": "Content sourced from a structured data model." }
+  ]
+}
+```
+
+- `blocks` and `markdown` are mutually exclusive. If both are provided, `blocks` takes precedence.
+- The same ownership rule applies: only the app that originally imported the page may update it.
+- Both `replaceCurrentPage` and `appendToCurrentPage` modes are supported.
+
+---
+
 ## Fixed Port
 
 Folio uses this fixed localhost port:

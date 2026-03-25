@@ -6,9 +6,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_math_fork/flutter_math.dart';
 import 'package:uuid/uuid.dart';
 
+import '../../../app/ui_tokens.dart';
 import '../../../models/block.dart';
 import '../../../models/folio_page.dart';
 import '../../../models/folio_columns_data.dart';
+import '../../../models/folio_task_data.dart';
 import '../../../models/folio_template_button_data.dart';
 import '../../../models/folio_toggle_data.dart';
 import '../../../session/vault_session.dart';
@@ -721,9 +723,11 @@ class _FolioColumnListBlockBodyState extends State<FolioColumnListBlockBody> {
       padding: const EdgeInsets.all(10),
       decoration: BoxDecoration(
         color: widget.scheme.surface,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(FolioRadius.lg),
         border: Border.all(
-          color: widget.scheme.outlineVariant.withValues(alpha: 0.45),
+          color: widget.scheme.outlineVariant.withValues(
+            alpha: FolioAlpha.panel,
+          ),
         ),
       ),
       child: Column(
@@ -760,7 +764,7 @@ class _FolioColumnListBlockBodyState extends State<FolioColumnListBlockBody> {
                   ),
                   decoration: BoxDecoration(
                     color: widget.scheme.surfaceContainerHigh,
-                    borderRadius: BorderRadius.circular(999),
+                    borderRadius: BorderRadius.circular(FolioRadius.xl),
                   ),
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
@@ -874,8 +878,10 @@ class _FolioColumnListBlockBodyState extends State<FolioColumnListBlockBody> {
         return Container(
           padding: const EdgeInsets.all(12),
           decoration: BoxDecoration(
-            color: widget.scheme.secondaryContainer.withValues(alpha: 0.5),
-            borderRadius: BorderRadius.circular(14),
+            color: widget.scheme.secondaryContainer.withValues(
+              alpha: FolioAlpha.border,
+            ),
+            borderRadius: BorderRadius.circular(FolioRadius.lg),
           ),
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -897,7 +903,7 @@ class _FolioColumnListBlockBodyState extends State<FolioColumnListBlockBody> {
           padding: const EdgeInsets.all(12),
           decoration: BoxDecoration(
             color: widget.scheme.surfaceContainerHigh,
-            borderRadius: BorderRadius.circular(14),
+            borderRadius: BorderRadius.circular(FolioRadius.lg),
           ),
           child: Text(
             block.text,
@@ -921,9 +927,11 @@ class _FolioColumnListBlockBodyState extends State<FolioColumnListBlockBody> {
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
         color: widget.scheme.surfaceContainerLow,
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(FolioRadius.xl),
         border: Border.all(
-          color: widget.scheme.outlineVariant.withValues(alpha: 0.35),
+          color: widget.scheme.outlineVariant.withValues(
+            alpha: FolioAlpha.track,
+          ),
         ),
       ),
       child: Column(
@@ -1108,6 +1116,260 @@ class FolioTemplateButtonBlockBody extends StatelessWidget {
         ),
         icon: const Icon(Icons.post_add_rounded),
         label: Text(data.label.isEmpty ? 'Plantilla' : data.label),
+      ),
+    );
+  }
+}
+
+class FolioTaskBlockBody extends StatefulWidget {
+  const FolioTaskBlockBody({
+    super.key,
+    required this.pageId,
+    required this.block,
+    required this.session,
+    required this.scheme,
+    required this.textTheme,
+  });
+
+  final String pageId;
+  final FolioBlock block;
+  final VaultSession session;
+  final ColorScheme scheme;
+  final TextTheme textTheme;
+
+  @override
+  State<FolioTaskBlockBody> createState() => _FolioTaskBlockBodyState();
+}
+
+class _FolioTaskBlockBodyState extends State<FolioTaskBlockBody> {
+  late TextEditingController _title;
+  late FolioTaskData _data;
+
+  static const _statusLabels = {
+    'todo': 'Por hacer',
+    'in_progress': 'En progreso',
+    'done': 'Hecho',
+  };
+
+  static const _priorityLabels = <String?, String?>{
+    null: 'Sin prioridad',
+    'low': 'Baja',
+    'medium': 'Media',
+    'high': 'Alta',
+  };
+
+  @override
+  void initState() {
+    super.initState();
+    _data =
+        FolioTaskData.tryParse(widget.block.text) ?? FolioTaskData.defaults();
+    _title = TextEditingController(text: _data.title);
+  }
+
+  @override
+  void didUpdateWidget(covariant FolioTaskBlockBody oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.block.text != widget.block.text) {
+      _data =
+          FolioTaskData.tryParse(widget.block.text) ?? FolioTaskData.defaults();
+      if (_title.text != _data.title) _title.text = _data.title;
+    }
+  }
+
+  @override
+  void dispose() {
+    _title.dispose();
+    super.dispose();
+  }
+
+  void _emit(FolioTaskData updated) {
+    widget.session.updateBlockText(
+      widget.pageId,
+      widget.block.id,
+      updated.encode(),
+    );
+  }
+
+  Color _priorityColor(String? priority) {
+    switch (priority) {
+      case 'high':
+        return widget.scheme.error;
+      case 'medium':
+        return Colors.orange;
+      case 'low':
+        return widget.scheme.onSurfaceVariant;
+      default:
+        return widget.scheme.outlineVariant;
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = widget.scheme;
+    final tt = widget.textTheme;
+    return Card(
+      margin: const EdgeInsets.symmetric(vertical: 4),
+      color: scheme.surfaceContainerLow,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(FolioRadius.md),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(
+          FolioSpace.sm,
+          FolioSpace.xs,
+          FolioSpace.sm,
+          FolioSpace.sm,
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            // Status chips row
+            SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: Row(
+                children: [
+                  for (final entry in _statusLabels.entries)
+                    Padding(
+                      padding: const EdgeInsets.only(right: FolioSpace.xs),
+                      child: ChoiceChip(
+                        label: Text(entry.value),
+                        selected: _data.status == entry.key,
+                        onSelected: (_) {
+                          setState(
+                            () => _data = _data.copyWith(status: entry.key),
+                          );
+                          _emit(_data);
+                        },
+                        selectedColor: entry.key == 'done'
+                            ? scheme.primaryContainer
+                            : entry.key == 'in_progress'
+                            ? scheme.secondaryContainer
+                            : scheme.surfaceContainerHighest,
+                        labelStyle: tt.labelSmall,
+                        visualDensity: VisualDensity.compact,
+                      ),
+                    ),
+                ],
+              ),
+            ),
+            const SizedBox(height: FolioSpace.xs),
+            // Title text field
+            TextField(
+              controller: _title,
+              style: tt.bodyMedium,
+              maxLines: null,
+              decoration: InputDecoration.collapsed(
+                hintText: 'Descripción de la tarea…',
+                hintStyle: tt.bodyMedium?.copyWith(
+                  color: scheme.onSurfaceVariant,
+                ),
+              ),
+              onChanged: (v) {
+                _data = _data.copyWith(title: v);
+                _emit(_data);
+              },
+            ),
+            const SizedBox(height: FolioSpace.sm),
+            // Priority + due date row
+            Row(
+              children: [
+                // Priority selector
+                PopupMenuButton<String?>(
+                  initialValue: _data.priority,
+                  tooltip: 'Prioridad',
+                  onSelected: (p) {
+                    setState(() => _data = _data.copyWith(priority: p));
+                    _emit(_data);
+                  },
+                  itemBuilder: (_) => [
+                    for (final entry in _priorityLabels.entries)
+                      PopupMenuItem<String?>(
+                        value: entry.key,
+                        child: Row(
+                          children: [
+                            Icon(
+                              Icons.flag_rounded,
+                              size: 16,
+                              color: _priorityColor(entry.key),
+                            ),
+                            const SizedBox(width: FolioSpace.xs),
+                            Text(entry.value ?? 'Sin prioridad'),
+                          ],
+                        ),
+                      ),
+                  ],
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        Icons.flag_rounded,
+                        size: 16,
+                        color: _priorityColor(_data.priority),
+                      ),
+                      const SizedBox(width: FolioSpace.xxs),
+                      Text(
+                        _priorityLabels[_data.priority] ?? 'Sin prioridad',
+                        style: tt.labelSmall?.copyWith(
+                          color: _priorityColor(_data.priority),
+                        ),
+                      ),
+                      const Icon(Icons.arrow_drop_down, size: 16),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: FolioSpace.md),
+                // Due date
+                InkWell(
+                  borderRadius: BorderRadius.circular(FolioRadius.xs),
+                  onTap: () async {
+                    final initial = _data.dueDate != null
+                        ? DateTime.tryParse(_data.dueDate!) ?? DateTime.now()
+                        : DateTime.now();
+                    final picked = await showDatePicker(
+                      context: context,
+                      initialDate: initial,
+                      firstDate: DateTime(2000),
+                      lastDate: DateTime(2100),
+                    );
+                    if (picked != null) {
+                      final iso =
+                          '${picked.year.toString().padLeft(4, '0')}-${picked.month.toString().padLeft(2, '0')}-${picked.day.toString().padLeft(2, '0')}';
+                      setState(() => _data = _data.copyWith(dueDate: iso));
+                      _emit(_data);
+                    }
+                  },
+                  onLongPress: () {
+                    if (_data.dueDate != null) {
+                      setState(() => _data = _data.copyWith(dueDate: null));
+                      _emit(_data);
+                    }
+                  },
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        Icons.calendar_today_rounded,
+                        size: 14,
+                        color: _data.dueDate != null
+                            ? scheme.primary
+                            : scheme.onSurfaceVariant,
+                      ),
+                      const SizedBox(width: FolioSpace.xxs),
+                      Text(
+                        _data.dueDate ?? 'Sin fecha límite',
+                        style: tt.labelSmall?.copyWith(
+                          color: _data.dueDate != null
+                              ? scheme.primary
+                              : scheme.onSurfaceVariant,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
       ),
     );
   }

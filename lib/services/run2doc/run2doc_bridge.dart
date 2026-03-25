@@ -133,6 +133,158 @@ class Run2DocMarkdownImportRequest {
   }
 }
 
+/// Petición para actualizar una página ya importada (PATCH /pages/{pageId}).
+/// Solo soporta los modos [FolioMarkdownImportMode.replaceCurrentPage] y
+/// [FolioMarkdownImportMode.appendToCurrentPage].
+/// Puede enviar markdown en [markdown] o bloques JSON en [blocks]; si ambos
+/// están presentes, [blocks] tiene precedencia (ver [isJsonMode]).
+class Run2DocPageUpdateRequest {
+  const Run2DocPageUpdateRequest({
+    required this.pageId,
+    required this.sessionId,
+    this.markdown = '',
+    required this.importMode,
+    required this.clientAppId,
+    required this.clientAppName,
+    this.title,
+    this.sourceApp,
+    this.sourceUrl,
+    this.blocks,
+    this.metadata = const <String, Object?>{},
+  });
+
+  final String pageId;
+  final String sessionId;
+  final String markdown;
+
+  /// Bloques JSON preconstruidos; si no es null y no está vacío, se usa en
+  /// lugar de [markdown] (ver [isJsonMode]).
+  final List<Map<String, dynamic>>? blocks;
+
+  /// `true` cuando la petición lleva bloques JSON en lugar de Markdown.
+  bool get isJsonMode => blocks != null && blocks!.isNotEmpty;
+
+  /// Solo [FolioMarkdownImportMode.replaceCurrentPage] o
+  /// [FolioMarkdownImportMode.appendToCurrentPage].
+  final FolioMarkdownImportMode importMode;
+  final String clientAppId;
+  final String clientAppName;
+  final String? title;
+  final String? sourceApp;
+  final String? sourceUrl;
+  final Map<String, Object?> metadata;
+
+  static Run2DocPageUpdateRequest fromJson(
+    String pageId,
+    Map<String, dynamic> json,
+  ) {
+    final sessionId = (json['sessionId'] as String? ?? '').trim();
+    final markdown = (json['markdown'] as String? ?? '').trim();
+    final blocksRaw = json['blocks'];
+    List<Map<String, dynamic>>? blocks;
+    if (blocksRaw is List && blocksRaw.isNotEmpty) {
+      blocks = blocksRaw
+          .whereType<Map>()
+          .map((e) => Map<String, dynamic>.from(e))
+          .toList();
+    }
+    if (sessionId.isEmpty) {
+      throw const FormatException('Field "sessionId" is required.');
+    }
+    if (markdown.isEmpty && (blocks == null || blocks.isEmpty)) {
+      throw const FormatException('Field "markdown" or "blocks" is required.');
+    }
+    final mode = _parseUpdateMode(
+      json['importMode'] as String? ?? 'replaceCurrentPage',
+    );
+    return Run2DocPageUpdateRequest(
+      pageId: pageId,
+      sessionId: sessionId,
+      markdown: markdown,
+      blocks: blocks,
+      importMode: mode,
+      clientAppId: (json['clientAppId'] as String? ?? '').trim(),
+      clientAppName: (json['clientAppName'] as String? ?? '').trim(),
+      title: (json['title'] as String?)?.trim(),
+      sourceApp: (json['sourceApp'] as String?)?.trim(),
+      sourceUrl: (json['sourceUrl'] as String?)?.trim(),
+      metadata: json['metadata'] is Map
+          ? Map<String, Object?>.from(json['metadata'] as Map)
+          : const <String, Object?>{},
+    );
+  }
+
+  static FolioMarkdownImportMode _parseUpdateMode(String raw) {
+    switch (raw.trim()) {
+      case 'appendToCurrentPage':
+        return FolioMarkdownImportMode.appendToCurrentPage;
+      case 'replaceCurrentPage':
+      default:
+        return FolioMarkdownImportMode.replaceCurrentPage;
+    }
+  }
+}
+
+/// Petición para crear una nueva página desde bloques JSON (POST /imports/json).
+class Run2DocJsonImportRequest {
+  const Run2DocJsonImportRequest({
+    required this.sessionId,
+    required this.title,
+    required this.blocks,
+    required this.clientAppId,
+    required this.clientAppName,
+    this.parentPageId,
+    this.sourceApp,
+    this.sourceUrl,
+    this.metadata = const <String, Object?>{},
+  });
+
+  final String sessionId;
+  final String title;
+  final List<Map<String, dynamic>> blocks;
+  final String clientAppId;
+  final String clientAppName;
+  final String? parentPageId;
+  final String? sourceApp;
+  final String? sourceUrl;
+  final Map<String, Object?> metadata;
+
+  static Run2DocJsonImportRequest fromJson(Map<String, dynamic> json) {
+    final sessionId = (json['sessionId'] as String? ?? '').trim();
+    if (sessionId.isEmpty) {
+      throw const FormatException('Field "sessionId" is required.');
+    }
+    final blocksRaw = json['blocks'];
+    if (blocksRaw is! List || blocksRaw.isEmpty) {
+      throw const FormatException(
+        'Field "blocks" is required and must be a non-empty array.',
+      );
+    }
+    final blocks = blocksRaw
+        .whereType<Map>()
+        .map((e) => Map<String, dynamic>.from(e))
+        .toList();
+    if (blocks.isEmpty) {
+      throw const FormatException(
+        'Field "blocks" must contain valid block objects.',
+      );
+    }
+    return Run2DocJsonImportRequest(
+      sessionId: sessionId,
+      title: (json['title'] as String? ?? '').trim(),
+      blocks: blocks,
+      clientAppId: (json['clientAppId'] as String? ?? '').trim(),
+      clientAppName: (json['clientAppName'] as String? ?? '').trim(),
+      parentPageId: (json['parentPageId'] as String?)?.trim(),
+      sourceApp: (json['sourceApp'] as String?)?.trim(),
+      sourceUrl: (json['sourceUrl'] as String?)?.trim(),
+      metadata: json['metadata'] is Map
+          ? Map<String, Object?>.from(json['metadata'] as Map)
+          : const <String, Object?>{},
+    );
+  }
+}
+
 class Run2DocBridgeController {
   static const headerAppId = 'x-folio-app-id';
   static const headerAppName = 'x-folio-app-name';
@@ -146,6 +298,16 @@ class Run2DocBridgeController {
       Run2DocMarkdownImportRequest request,
     )
     onImport,
+    required Future<FolioMarkdownImportResult> Function(
+      Run2DocPageUpdateRequest request,
+    )
+    onUpdate,
+    required Future<List<Map<String, Object?>>> Function(String clientAppId)
+    onListPages,
+    required Future<FolioMarkdownImportResult> Function(
+      Run2DocJsonImportRequest request,
+    )
+    onImportJson,
     required Future<bool> Function(Run2DocClientIdentity client)
     onApproveClient,
     required Future<void> Function(Run2DocClientIdentity client)
@@ -155,6 +317,9 @@ class Run2DocBridgeController {
     required Map<String, Object?> Function() appInfoProvider,
     this.onEvent,
   }) : _onImport = onImport,
+       _onUpdate = onUpdate,
+       _onListPages = onListPages,
+       _onImportJson = onImportJson,
        _onApproveClient = onApproveClient,
        _onClientObserved = onClientObserved,
        _isClientApproved = isClientApproved,
@@ -165,6 +330,16 @@ class Run2DocBridgeController {
     Run2DocMarkdownImportRequest request,
   )
   _onImport;
+  final Future<FolioMarkdownImportResult> Function(
+    Run2DocPageUpdateRequest request,
+  )
+  _onUpdate;
+  final Future<List<Map<String, Object?>>> Function(String clientAppId)
+  _onListPages;
+  final Future<FolioMarkdownImportResult> Function(
+    Run2DocJsonImportRequest request,
+  )
+  _onImportJson;
   final Future<bool> Function(Run2DocClientIdentity client) _onApproveClient;
   final Future<void> Function(Run2DocClientIdentity client) _onClientObserved;
   final bool Function(Run2DocClientIdentity client) _isClientApproved;
@@ -274,14 +449,19 @@ class Run2DocBridgeController {
   Future<void> _handleRequest(HttpRequest request) async {
     final session = _activeSession;
     final path = request.uri.path;
+    final isPageUpdate =
+        request.method == 'PATCH' && path.startsWith('/pages/');
     final requiresSecret =
         path == '/health' ||
         path == '/app' ||
         path == '/status' ||
         path == '/imports/markdown' ||
+        path == '/imports/json' ||
+        path == '/pages' ||
         path == '/session/start' ||
         path == '/session/new' ||
-        path == '/start';
+        path == '/start' ||
+        isPageUpdate;
 
     Run2DocClientIdentity? client;
     if (requiresSecret) {
@@ -371,6 +551,275 @@ class Run2DocBridgeController {
       return;
     }
 
+    // ---- GET /pages ---------------------------------------------------
+    if (request.method == 'GET' && path == '/pages') {
+      final pagesAuth =
+          request.headers.value(HttpHeaders.authorizationHeader) ?? '';
+      if (pagesAuth.trim() != 'Bearer ${session.nonce}') {
+        await _writeJson(request.response, HttpStatus.unauthorized, {
+          'ok': false,
+          'error': 'UNAUTHORIZED',
+          'message': 'Invalid session token.',
+        });
+        return;
+      }
+      final querySessionId = (request.uri.queryParameters['sessionId'] ?? '')
+          .trim();
+      if (querySessionId != session.sessionId) {
+        await _writeJson(request.response, HttpStatus.unauthorized, {
+          'ok': false,
+          'error': 'SESSION_MISMATCH',
+          'message': 'Request sessionId does not match the active session.',
+        });
+        return;
+      }
+      final c = client!;
+      if (c.appId != session.client.appId) {
+        await _writeJson(request.response, HttpStatus.unauthorized, {
+          'ok': false,
+          'error': 'CLIENT_MISMATCH',
+          'message': 'Request app does not match the active session client.',
+        });
+        return;
+      }
+      try {
+        final pages = await _onListPages(c.appId);
+        await _writeJson(request.response, HttpStatus.ok, {
+          'ok': true,
+          'sessionId': session.sessionId,
+          'pages': pages,
+        });
+      } on StateError catch (e) {
+        final isLocked = e.message.contains('Unlock Folio');
+        await _writeJson(
+          request.response,
+          isLocked ? HttpStatus.locked : HttpStatus.internalServerError,
+          {
+            'ok': false,
+            'error': isLocked ? 'VAULT_LOCKED' : 'LIST_FAILED',
+            'message': e.message,
+          },
+        );
+      } catch (e) {
+        await _writeJson(request.response, HttpStatus.internalServerError, {
+          'ok': false,
+          'error': 'LIST_FAILED',
+          'message': e.toString(),
+        });
+      }
+      return;
+    }
+
+    // ---- PATCH /pages/{pageId} ----------------------------------------
+    if (isPageUpdate) {
+      final pathSegments = path.split('/');
+      final pageId = pathSegments.length >= 3 ? pathSegments[2] : '';
+      if (pageId.isEmpty) {
+        await _writeJson(request.response, HttpStatus.badRequest, {
+          'ok': false,
+          'error': 'INVALID_PATH',
+          'message': 'Missing pageId in path.',
+        });
+        return;
+      }
+      final updateAuth =
+          request.headers.value(HttpHeaders.authorizationHeader) ?? '';
+      if (updateAuth.trim() != 'Bearer ${session.nonce}') {
+        await _writeJson(request.response, HttpStatus.unauthorized, {
+          'ok': false,
+          'error': 'UNAUTHORIZED',
+          'message': 'Invalid session token.',
+        });
+        return;
+      }
+      if (request.contentLength > maxPayloadBytes) {
+        await _writeJson(request.response, HttpStatus.requestEntityTooLarge, {
+          'ok': false,
+          'error': 'PAYLOAD_TOO_LARGE',
+          'message': 'Markdown payload exceeds the maximum allowed size.',
+        });
+        return;
+      }
+      try {
+        final rawBody = await utf8.decoder.bind(request).join();
+        if (utf8.encode(rawBody).length > maxPayloadBytes) {
+          throw const HttpException('Payload too large.');
+        }
+        final decoded = jsonDecode(rawBody);
+        if (decoded is! Map) {
+          throw const FormatException('JSON object expected.');
+        }
+        final c = client!;
+        final payload = Run2DocPageUpdateRequest.fromJson(
+          pageId,
+          Map<String, dynamic>.from(decoded),
+        ).copyWithClient(c);
+        if (c.appId != session.client.appId) {
+          await _writeJson(request.response, HttpStatus.unauthorized, {
+            'ok': false,
+            'error': 'CLIENT_MISMATCH',
+            'message': 'Request app does not match the active session client.',
+          });
+          return;
+        }
+        if (payload.sessionId != session.sessionId) {
+          await _writeJson(request.response, HttpStatus.unauthorized, {
+            'ok': false,
+            'error': 'SESSION_MISMATCH',
+            'message': 'Request sessionId does not match the active session.',
+          });
+          return;
+        }
+        final result = await _onUpdate(payload);
+        onEvent?.call('Actualización Run2Doc completada: ${result.pageTitle}.');
+        await _writeJson(request.response, HttpStatus.ok, {
+          'ok': true,
+          'sessionId': session.sessionId,
+          'pageId': result.pageId,
+          'title': result.pageTitle,
+          'blockCount': result.blockCount,
+          'mode': result.mode.name,
+          'message': 'Updated successfully',
+        });
+      } on FormatException catch (e) {
+        await _writeJson(request.response, HttpStatus.badRequest, {
+          'ok': false,
+          'error': 'INVALID_PAYLOAD',
+          'message': e.message,
+        });
+      } on StateError catch (e) {
+        final isLocked = e.message.contains('Unlock Folio');
+        final isNotOwner = e.message == 'NOT_OWNER';
+        final isNotFound = e.message == 'PAGE_NOT_FOUND';
+        final statusCode = isLocked
+            ? HttpStatus.locked
+            : isNotOwner
+            ? HttpStatus.forbidden
+            : isNotFound
+            ? HttpStatus.notFound
+            : HttpStatus.conflict;
+        final errorCode = isLocked
+            ? 'VAULT_LOCKED'
+            : isNotOwner
+            ? 'FORBIDDEN'
+            : isNotFound
+            ? 'PAGE_NOT_FOUND'
+            : 'UPDATE_REJECTED';
+        await _writeJson(request.response, statusCode, {
+          'ok': false,
+          'error': errorCode,
+          'message': isNotOwner ? 'App did not import this page.' : e.message,
+        });
+      } on HttpException catch (e) {
+        await _writeJson(request.response, HttpStatus.requestEntityTooLarge, {
+          'ok': false,
+          'error': 'PAYLOAD_TOO_LARGE',
+          'message': e.message,
+        });
+      } catch (e) {
+        await _writeJson(request.response, HttpStatus.internalServerError, {
+          'ok': false,
+          'error': 'UPDATE_FAILED',
+          'message': e.toString(),
+        });
+      }
+      return;
+    }
+
+    if (request.method == 'POST' && path == '/imports/json') {
+      final jsonAuth =
+          request.headers.value(HttpHeaders.authorizationHeader) ?? '';
+      if (jsonAuth.trim() != 'Bearer ${session.nonce}') {
+        await _writeJson(request.response, HttpStatus.unauthorized, {
+          'ok': false,
+          'error': 'UNAUTHORIZED',
+          'message': 'Invalid session token.',
+        });
+        return;
+      }
+      if (request.contentLength > maxPayloadBytes) {
+        await _writeJson(request.response, HttpStatus.requestEntityTooLarge, {
+          'ok': false,
+          'error': 'PAYLOAD_TOO_LARGE',
+          'message': 'JSON payload exceeds the maximum allowed size.',
+        });
+        return;
+      }
+      try {
+        final rawBody = await utf8.decoder.bind(request).join();
+        if (utf8.encode(rawBody).length > maxPayloadBytes) {
+          throw const HttpException('Payload too large.');
+        }
+        final decoded = jsonDecode(rawBody);
+        if (decoded is! Map) {
+          throw const FormatException('JSON object expected.');
+        }
+        final c = client!;
+        final payload = Run2DocJsonImportRequest.fromJson(
+          Map<String, dynamic>.from(decoded),
+        ).copyWithClient(c);
+        if (c.appId != session.client.appId) {
+          await _writeJson(request.response, HttpStatus.unauthorized, {
+            'ok': false,
+            'error': 'CLIENT_MISMATCH',
+            'message': 'Request app does not match the active session client.',
+          });
+          return;
+        }
+        if (payload.sessionId != session.sessionId) {
+          await _writeJson(request.response, HttpStatus.unauthorized, {
+            'ok': false,
+            'error': 'SESSION_MISMATCH',
+            'message': 'Request sessionId does not match the active session.',
+          });
+          return;
+        }
+        final result = await _onImportJson(payload);
+        onEvent?.call(
+          'Importación JSON Run2Doc completada: ${result.pageTitle}.',
+        );
+        await _writeJson(request.response, HttpStatus.ok, {
+          'ok': true,
+          'sessionId': session.sessionId,
+          'pageId': result.pageId,
+          'title': result.pageTitle,
+          'blockCount': result.blockCount,
+          'mode': result.mode.name,
+          'message': 'Imported successfully',
+        });
+      } on FormatException catch (e) {
+        await _writeJson(request.response, HttpStatus.badRequest, {
+          'ok': false,
+          'error': 'INVALID_PAYLOAD',
+          'message': e.message,
+        });
+      } on StateError catch (e) {
+        final isLocked = e.message.contains('Unlock Folio');
+        await _writeJson(
+          request.response,
+          isLocked ? HttpStatus.locked : HttpStatus.conflict,
+          {
+            'ok': false,
+            'error': isLocked ? 'VAULT_LOCKED' : 'IMPORT_REJECTED',
+            'message': e.message,
+          },
+        );
+      } on HttpException catch (e) {
+        await _writeJson(request.response, HttpStatus.requestEntityTooLarge, {
+          'ok': false,
+          'error': 'PAYLOAD_TOO_LARGE',
+          'message': e.message,
+        });
+      } catch (e) {
+        await _writeJson(request.response, HttpStatus.internalServerError, {
+          'ok': false,
+          'error': 'IMPORT_FAILED',
+          'message': e.toString(),
+        });
+      }
+      return;
+    }
+
     if (request.method != 'POST' || path != '/imports/markdown') {
       await _writeJson(request.response, HttpStatus.notFound, {
         'ok': false,
@@ -409,10 +858,11 @@ class Run2DocBridgeController {
       if (decoded is! Map) {
         throw const FormatException('JSON object expected.');
       }
+      final c = client!;
       final payload = Run2DocMarkdownImportRequest.fromJson(
         Map<String, dynamic>.from(decoded),
-      ).copyWithClient(client!);
-      if (client!.appId != session.client.appId) {
+      ).copyWithClient(c);
+      if (c.appId != session.client.appId) {
         await _writeJson(request.response, HttpStatus.unauthorized, {
           'ok': false,
           'error': 'CLIENT_MISMATCH',
@@ -617,6 +1067,50 @@ extension on Run2DocMarkdownImportRequest {
       sourceApp: sourceApp,
       sourceUrl: sourceUrl,
       parentPageId: parentPageId,
+      metadata: nextMetadata,
+    );
+  }
+}
+
+extension on Run2DocPageUpdateRequest {
+  Run2DocPageUpdateRequest copyWithClient(Run2DocClientIdentity client) {
+    final nextMetadata = <String, Object?>{
+      ...metadata,
+      'clientAppVersion': client.appVersion,
+      'integrationVersion': client.integrationVersion,
+    };
+    return Run2DocPageUpdateRequest(
+      pageId: pageId,
+      sessionId: sessionId,
+      markdown: markdown,
+      blocks: blocks,
+      importMode: importMode,
+      clientAppId: client.appId,
+      clientAppName: client.appName,
+      title: title,
+      sourceApp: sourceApp,
+      sourceUrl: sourceUrl,
+      metadata: nextMetadata,
+    );
+  }
+}
+
+extension on Run2DocJsonImportRequest {
+  Run2DocJsonImportRequest copyWithClient(Run2DocClientIdentity client) {
+    final nextMetadata = <String, Object?>{
+      ...metadata,
+      'clientAppVersion': client.appVersion,
+      'integrationVersion': client.integrationVersion,
+    };
+    return Run2DocJsonImportRequest(
+      sessionId: sessionId,
+      title: title,
+      blocks: blocks,
+      clientAppId: client.appId,
+      clientAppName: client.appName,
+      parentPageId: parentPageId,
+      sourceApp: sourceApp,
+      sourceUrl: sourceUrl,
       metadata: nextMetadata,
     );
   }

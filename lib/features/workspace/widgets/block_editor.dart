@@ -17,6 +17,7 @@ import 'package:intl/intl.dart';
 import '../../../data/folio_internal_link.dart';
 import '../../../l10n/generated/app_localizations.dart';
 import '../../../data/vault_paths.dart';
+import '../../../app/ui_tokens.dart';
 import '../../../models/block.dart';
 import '../../../models/folio_template_button_data.dart';
 import '../../../models/folio_database_data.dart';
@@ -112,6 +113,13 @@ const blockTypeCatalog = <BlockTypeDef>[
     label: 'Lista de tareas',
     hint: 'to_do',
     icon: Icons.check_box_outlined,
+    section: BlockTypeSection.lists,
+  ),
+  BlockTypeDef(
+    key: 'task',
+    label: 'Tarea enriquecida',
+    hint: 'task  ·  estado / prioridad / fecha',
+    icon: Icons.task_alt_rounded,
     section: BlockTypeSection.lists,
   ),
   BlockTypeDef(
@@ -1352,7 +1360,9 @@ class _BlockEditorState extends State<BlockEditor> {
       isScrollControlled: true,
       useSafeArea: true,
       backgroundColor: Colors.transparent,
-      barrierColor: Theme.of(context).colorScheme.scrim.withValues(alpha: 0.4),
+      barrierColor: Theme.of(
+        context,
+      ).colorScheme.scrim.withValues(alpha: FolioAlpha.scrim),
       builder: (ctx) => BlockTypePickerSheet(catalog: blockTypeCatalog),
     );
   }
@@ -3886,6 +3896,29 @@ class _BlockEditorState extends State<BlockEditor> {
             marker,
             Expanded(
               child: FolioTemplateButtonBlockBody(
+                pageId: page.id,
+                block: block,
+                session: _s,
+                scheme: scheme,
+                textTheme: theme.textTheme,
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    if (block.type == 'task') {
+      return Padding(
+        padding: EdgeInsetsDirectional.fromSTEB(block.depth * 28.0, 2, 4, 2),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _blockMenuSlot(showActions: showActions, menu: menu),
+            dragHandle,
+            marker,
+            Expanded(
+              child: FolioTaskBlockBody(
                 pageId: page.id,
                 block: block,
                 session: _s,

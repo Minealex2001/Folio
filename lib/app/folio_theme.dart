@@ -69,8 +69,8 @@ ThemeData _folioThemeFromBase(ThemeData base, ColorScheme colorScheme) {
     ),
     appBarTheme: AppBarTheme(
       centerTitle: false,
-      elevation: 0,
-      scrolledUnderElevation: 1,
+      elevation: FolioElevation.none,
+      scrolledUnderElevation: FolioElevation.appBarScrolled,
       toolbarHeight: 64,
       backgroundColor: Colors
           .transparent, // Let surface color show through or handle natively
@@ -134,12 +134,14 @@ ThemeData _folioThemeFromBase(ThemeData base, ColorScheme colorScheme) {
       ),
     ),
     cardTheme: CardThemeData(
-      elevation: 0,
+      elevation: FolioElevation.none,
       color: colorScheme.surfaceContainerLow,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(FolioRadius.md), // 12
         side: BorderSide(
-          color: colorScheme.outlineVariant.withValues(alpha: 0.5),
+          color: colorScheme.outlineVariant.withValues(
+            alpha: FolioAlpha.border,
+          ),
         ),
       ),
       margin: EdgeInsets.zero,
@@ -175,11 +177,13 @@ ThemeData _folioThemeFromBase(ThemeData base, ColorScheme colorScheme) {
     popupMenuTheme: PopupMenuThemeData(
       color: colorScheme.surfaceContainerHigh,
       surfaceTintColor: colorScheme.surfaceTint,
-      elevation: 4,
+      elevation: FolioElevation.menu,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(FolioRadius.lg),
         side: BorderSide(
-          color: colorScheme.outlineVariant.withValues(alpha: 0.5),
+          color: colorScheme.outlineVariant.withValues(
+            alpha: FolioAlpha.border,
+          ),
         ),
       ),
       textStyle: expressiveText.bodyMedium?.copyWith(
@@ -218,15 +222,17 @@ ThemeData _folioThemeFromBase(ThemeData base, ColorScheme colorScheme) {
       thickness: WidgetStatePropertyAll(10),
       thumbColor: WidgetStateProperty.resolveWith((states) {
         if (states.contains(WidgetState.dragged)) {
-          return colorScheme.primary.withValues(alpha: 0.85);
+          return colorScheme.primary.withValues(alpha: FolioAlpha.thumbHover);
         }
         if (states.contains(WidgetState.hovered)) {
-          return colorScheme.onSurfaceVariant.withValues(alpha: 0.85);
+          return colorScheme.onSurfaceVariant.withValues(
+            alpha: FolioAlpha.thumbHover,
+          );
         }
-        return colorScheme.onSurfaceVariant.withValues(alpha: 0.55);
+        return colorScheme.onSurfaceVariant.withValues(alpha: FolioAlpha.thumb);
       }),
       trackColor: WidgetStatePropertyAll(
-        colorScheme.surfaceContainerHighest.withValues(alpha: 0.35),
+        colorScheme.surfaceContainerHighest.withValues(alpha: FolioAlpha.track),
       ),
     ),
     chipTheme: base.chipTheme.copyWith(
@@ -256,7 +262,9 @@ ThemeData _folioThemeFromBase(ThemeData base, ColorScheme colorScheme) {
     ),
     inputDecorationTheme: InputDecorationTheme(
       filled: true,
-      fillColor: colorScheme.surfaceContainerHighest.withValues(alpha: 0.35),
+      fillColor: colorScheme.surfaceContainerHighest.withValues(
+        alpha: FolioAlpha.track,
+      ),
       border: OutlineInputBorder(
         borderRadius: BorderRadius.circular(FolioRadius.md),
         borderSide: BorderSide(color: colorScheme.outlineVariant),

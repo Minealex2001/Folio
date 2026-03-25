@@ -13,7 +13,6 @@ class WorkspaceEditorSurface extends StatelessWidget {
     required this.onTitleChanged,
     required this.onCreatePage,
     required this.editor,
-    this.trailingActions = const <Widget>[],
   });
 
   final bool compact;
@@ -22,7 +21,6 @@ class WorkspaceEditorSurface extends StatelessWidget {
   final ValueChanged<String> onTitleChanged;
   final VoidCallback onCreatePage;
   final Widget editor;
-  final List<Widget> trailingActions;
 
   @override
   Widget build(BuildContext context) {
@@ -36,18 +34,18 @@ class WorkspaceEditorSurface extends StatelessWidget {
         compact ? 0 : FolioSpace.md,
       ),
       child: AnimatedContainer(
-        duration: const Duration(milliseconds: 240),
-        curve: Curves.easeOutCubic,
+        duration: FolioMotion.medium1,
+        curve: FolioMotion.emphasized,
         child: Material(
           color: scheme.surface,
-          elevation: compact ? 0 : 2,
-          shadowColor: scheme.shadow.withValues(alpha: 0.1),
+          elevation: compact ? FolioElevation.none : 2,
+          shadowColor: scheme.shadow.withValues(alpha: FolioAlpha.faint),
           borderRadius: compact
               ? BorderRadius.zero
               : BorderRadius.circular(FolioRadius.lg),
           clipBehavior: Clip.antiAlias,
           child: AnimatedSwitcher(
-            duration: const Duration(milliseconds: 220),
+            duration: FolioMotion.short2,
             transitionBuilder: (child, animation) => FadeTransition(
               opacity: animation,
               child: SlideTransition(
@@ -82,34 +80,26 @@ class WorkspaceEditorSurface extends StatelessWidget {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.stretch,
                           children: [
-                            Row(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Expanded(
-                                  child: TextField(
-                                    controller: titleController,
-                                    style: theme.textTheme.headlineSmall
-                                        ?.copyWith(
-                                          fontWeight: FontWeight.w600,
-                                          color: scheme.onSurface,
-                                        ),
-                                    decoration: InputDecoration(
-                                      border: InputBorder.none,
-                                      filled: false,
-                                      hintText: AppLocalizations.of(
-                                        context,
-                                      ).untitled,
-                                      isDense: true,
-                                      hintStyle: TextStyle(
-                                        color: scheme.onSurfaceVariant
-                                            .withValues(alpha: 0.7),
-                                      ),
-                                    ),
-                                    onChanged: onTitleChanged,
+                            TextField(
+                              controller: titleController,
+                              minLines: 1,
+                              maxLines: null,
+                              keyboardType: TextInputType.multiline,
+                              style: theme.textTheme.headlineSmall?.copyWith(
+                                fontWeight: FontWeight.w600,
+                                color: scheme.onSurface,
+                              ),
+                              decoration: InputDecoration(
+                                border: InputBorder.none,
+                                filled: false,
+                                hintText: AppLocalizations.of(context).untitled,
+                                hintStyle: TextStyle(
+                                  color: scheme.onSurfaceVariant.withValues(
+                                    alpha: FolioAlpha.emphasis,
                                   ),
                                 ),
-                                if (!compact) ...trailingActions,
-                              ],
+                              ),
+                              onChanged: onTitleChanged,
                             ),
                             const SizedBox(height: FolioSpace.xs),
                             Expanded(child: editor),

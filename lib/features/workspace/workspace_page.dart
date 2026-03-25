@@ -12,6 +12,7 @@ import 'package:uuid/uuid.dart';
 import '../../app/app_settings.dart';
 import '../../app/folio_in_app_shortcuts.dart';
 import '../../app/ui_tokens.dart';
+import '../../app/widgets/folio_dialog.dart';
 import '../../models/folio_page.dart';
 import '../../models/block.dart';
 import '../../models/folio_columns_data.dart';
@@ -89,7 +90,7 @@ class _WorkspacePageState extends State<WorkspacePage> {
     }
     return showDialog<FolioMarkdownImportMode>(
       context: context,
-      builder: (ctx) => AlertDialog(
+      builder: (ctx) => FolioDialog(
         title: const Text('Importar Markdown'),
         content: const Text('Elige cómo quieres aplicar el archivo Markdown.'),
         actions: [
@@ -442,29 +443,31 @@ class _WorkspacePageState extends State<WorkspacePage> {
         ),
         label: Text(prompt),
         backgroundColor: quillReady
-            ? scheme.primaryContainer.withValues(alpha: 0.9)
+          ? scheme.primaryContainer.withValues(alpha: FolioAlpha.thumbHover)
             : scheme.surfaceContainerHigh,
         labelStyle: theme.textTheme.bodySmall?.copyWith(
           color: quillReady
               ? scheme.onPrimaryContainer
               : scheme.onSurfaceVariant,
         ),
-        side: BorderSide(color: scheme.outlineVariant.withValues(alpha: 0.45)),
+        side: BorderSide(
+          color: scheme.outlineVariant.withValues(alpha: FolioAlpha.panel),
+        ),
       );
     }
 
     return Material(
       elevation: 10,
       color: scheme.surface,
-      borderRadius: BorderRadius.circular(24),
-      shadowColor: scheme.shadow.withValues(alpha: 0.18),
+      borderRadius: BorderRadius.circular(FolioRadius.xl),
+      shadowColor: scheme.shadow.withValues(alpha: FolioAlpha.soft),
       child: Container(
         constraints: const BoxConstraints(maxWidth: 400),
         padding: const EdgeInsets.all(18),
         decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(24),
+          borderRadius: BorderRadius.circular(FolioRadius.xl),
           border: Border.all(
-            color: scheme.outlineVariant.withValues(alpha: 0.45),
+            color: scheme.outlineVariant.withValues(alpha: FolioAlpha.panel),
           ),
         ),
         child: Column(
@@ -478,8 +481,10 @@ class _WorkspacePageState extends State<WorkspacePage> {
                   width: 42,
                   height: 42,
                   decoration: BoxDecoration(
-                    color: scheme.primaryContainer.withValues(alpha: 0.8),
-                    borderRadius: BorderRadius.circular(14),
+                    color: scheme.primaryContainer.withValues(
+                      alpha: FolioAlpha.thumbHover,
+                    ),
+                    borderRadius: BorderRadius.circular(FolioRadius.lg),
                   ),
                   child: Icon(
                     Icons.auto_awesome_rounded,
@@ -976,7 +981,7 @@ class _WorkspacePageState extends State<WorkspacePage> {
                 decoration: BoxDecoration(
                   color: scheme.surfaceContainerHigh.withValues(alpha: 0.65),
                   borderRadius: BorderRadius.circular(
-                    20,
+                    FolioRadius.lg,
                   ).copyWith(topLeft: Radius.zero),
                 ),
                 child: FolioAiTypingIndicator(
@@ -1013,7 +1018,7 @@ class _WorkspacePageState extends State<WorkspacePage> {
         Tooltip(
           message: l10n.aiContextUsageTooltip(window),
           child: ClipRRect(
-            borderRadius: BorderRadius.circular(4),
+            borderRadius: BorderRadius.circular(FolioRadius.xs),
             child: LinearProgressIndicator(
               value: frac,
               minHeight: 5,
@@ -1562,9 +1567,9 @@ class _WorkspacePageState extends State<WorkspacePage> {
       color: scheme.surfaceContainerLow,
       child: Sidebar(
         session: _s,
-        onSearch: compact ? null : widget.onOpenSearch,
-        onOpenSettings: compact ? null : _openSettings,
-        onLock: compact ? null : () => _s.lock(),
+        onSearch: widget.onOpenSearch,
+        onOpenSettings: _openSettings,
+        onLock: () => _s.lock(),
       ),
     );
     final a = widget.appSettings;
@@ -1598,6 +1603,12 @@ class _WorkspacePageState extends State<WorkspacePage> {
       };
     }
     final appBarActions = <Widget>[
+      if (!compact && page != null)
+        IconButton(
+          tooltip: l10n.addBlock,
+          icon: const Icon(Icons.add_rounded),
+          onPressed: () => _addBlockToCurrentPage(compact: false),
+        ),
       IconButton(
         tooltip: 'Importar Markdown',
         icon: const Icon(Icons.file_upload_outlined),
@@ -1608,6 +1619,18 @@ class _WorkspacePageState extends State<WorkspacePage> {
           tooltip: 'Exportar Markdown',
           icon: const Icon(Icons.file_download_outlined),
           onPressed: _exportCurrentPageToMarkdown,
+        ),
+      if (page != null)
+        IconButton(
+          tooltip: l10n.pageHistory,
+          icon: const Icon(Icons.history_rounded),
+          onPressed: _openPageHistoryScreen,
+        ),
+      if (page != null)
+        IconButton(
+          tooltip: l10n.closeCurrentPage,
+          icon: const Icon(Icons.tab_unselected_rounded),
+          onPressed: _s.clearSelectedPage,
         ),
       if (widget.appSettings.isAiRuntimeEnabled && _s.aiEnabled)
         IconButton(
@@ -1671,35 +1694,6 @@ class _WorkspacePageState extends State<WorkspacePage> {
             ),
           ),
         ),
-      if (compact) ...[
-        if (page != null)
-          IconButton(
-            tooltip: l10n.pageHistory,
-            icon: const Icon(Icons.history_rounded),
-            onPressed: _openPageHistoryScreen,
-          ),
-        if (page != null)
-          IconButton(
-            tooltip: l10n.closeCurrentPage,
-            icon: const Icon(Icons.tab_unselected_rounded),
-            onPressed: _s.clearSelectedPage,
-          ),
-        IconButton(
-          tooltip: l10n.search,
-          icon: const Icon(Icons.search_rounded),
-          onPressed: widget.onOpenSearch,
-        ),
-        IconButton(
-          tooltip: l10n.settings,
-          icon: const Icon(Icons.settings_rounded),
-          onPressed: _openSettings,
-        ),
-        IconButton(
-          tooltip: l10n.lockNow,
-          icon: const Icon(Icons.lock_outline_rounded),
-          onPressed: () => _s.lock(),
-        ),
-      ],
     ];
     final editorContent = WorkspaceEditorSurface(
       compact: compact,
@@ -1711,33 +1705,6 @@ class _WorkspacePageState extends State<WorkspacePage> {
         }
       },
       onCreatePage: () => _s.addPage(parentId: null),
-      trailingActions: [
-        FilledButton.icon(
-          onPressed: () => _addBlockToCurrentPage(compact: compact),
-          icon: const Icon(Icons.add_rounded),
-          label: Text(l10n.addBlock),
-        ),
-        IconButton(
-          tooltip: 'Importar Markdown',
-          icon: const Icon(Icons.file_upload_outlined),
-          onPressed: _importMarkdownFile,
-        ),
-        IconButton(
-          tooltip: 'Exportar Markdown',
-          icon: const Icon(Icons.file_download_outlined),
-          onPressed: _exportCurrentPageToMarkdown,
-        ),
-        IconButton(
-          tooltip: l10n.pageHistory,
-          icon: const Icon(Icons.history_rounded),
-          onPressed: _openPageHistoryScreen,
-        ),
-        IconButton(
-          tooltip: l10n.closeCurrentPage,
-          icon: const Icon(Icons.close_rounded),
-          onPressed: _s.clearSelectedPage,
-        ),
-      ],
       editor: page == null
           ? const SizedBox.shrink()
           : BlockEditor(

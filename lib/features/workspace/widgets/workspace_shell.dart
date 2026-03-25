@@ -78,8 +78,8 @@ class WorkspaceBodyShell extends StatelessWidget {
                 children: [
                   if (!compact)
                     AnimatedContainer(
-                      duration: const Duration(milliseconds: 220),
-                      curve: Curves.easeOutCubic,
+                      duration: FolioMotion.medium1,
+                      curve: FolioMotion.emphasized,
                       width: sidePanelWidth,
                       child: sidePanel,
                     ),
@@ -93,12 +93,14 @@ class WorkspaceBodyShell extends StatelessWidget {
                             onResizeAiPanel(details.delta.dx),
                         child: Container(
                           width: 6,
-                          color: scheme.outlineVariant.withValues(alpha: 0.3),
+                          color: scheme.outlineVariant.withValues(
+                            alpha: FolioAlpha.track,
+                          ),
                         ),
                       ),
                     ),
                   AnimatedSwitcher(
-                    duration: const Duration(milliseconds: 240),
+                    duration: FolioMotion.medium1,
                     transitionBuilder: (child, animation) => FadeTransition(
                       opacity: animation,
                       child: SizeTransition(
@@ -124,7 +126,7 @@ class WorkspaceBodyShell extends StatelessWidget {
           ],
         ),
         AnimatedSwitcher(
-          duration: const Duration(milliseconds: 220),
+          duration: FolioMotion.short2,
           transitionBuilder: (child, animation) => FadeTransition(
             opacity: animation,
             child: SlideTransition(

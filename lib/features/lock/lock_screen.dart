@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:passkeys/exceptions.dart';
 
+import '../../app/widgets/folio_password_field.dart';
 import '../../app/ui_tokens.dart';
 import '../../l10n/generated/app_localizations.dart';
 import '../../session/vault_session.dart';
@@ -101,8 +102,10 @@ class _LockScreenState extends State<LockScreen> {
       child: Card.filled(
         margin: const EdgeInsets.all(FolioSpace.lg),
         color: scheme.surface,
-        elevation: 0,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
+        elevation: FolioElevation.none,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(FolioRadius.xxl),
+        ),
         child: Padding(
           padding: const EdgeInsets.all(FolioSpace.xl),
           child: Column(
@@ -115,7 +118,7 @@ class _LockScreenState extends State<LockScreen> {
                 height: 56,
                 decoration: BoxDecoration(
                   color: scheme.primaryContainer,
-                  borderRadius: BorderRadius.circular(18),
+                  borderRadius: BorderRadius.circular(FolioRadius.lg),
                 ),
                 child: Icon(
                   Icons.lock_outline_rounded,
@@ -140,29 +143,16 @@ class _LockScreenState extends State<LockScreen> {
                 ),
               ),
               const SizedBox(height: FolioSpace.xl),
-              TextField(
+              FolioPasswordField(
                 controller: _password,
                 obscureText: _obscurePassword,
                 enabled: !_busy,
-                decoration: InputDecoration(
-                  labelText: l10n.passwordLabel,
-                  border: const OutlineInputBorder(),
-                  suffixIcon: IconButton(
-                    onPressed: _busy
-                        ? null
-                        : () => setState(
-                            () => _obscurePassword = !_obscurePassword,
-                          ),
-                    icon: Icon(
-                      _obscurePassword
-                          ? Icons.visibility
-                          : Icons.visibility_off,
-                    ),
-                    tooltip: _obscurePassword
-                        ? l10n.showPassword
-                        : l10n.hidePassword,
-                  ),
-                ),
+                labelText: l10n.passwordLabel,
+                showPasswordTooltip: l10n.showPassword,
+                hidePasswordTooltip: l10n.hidePassword,
+                onToggleObscure: () {
+                  setState(() => _obscurePassword = !_obscurePassword);
+                },
                 onSubmitted: (_) => _unlockPassword(),
               ),
               const SizedBox(height: FolioSpace.lg),
@@ -170,7 +160,7 @@ class _LockScreenState extends State<LockScreen> {
                 style: FilledButton.styleFrom(
                   padding: const EdgeInsets.all(FolioSpace.md),
                   shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(16),
+                    borderRadius: BorderRadius.circular(FolioRadius.lg),
                   ),
                 ),
                 onPressed: _busy ? null : _unlockPassword,
@@ -182,7 +172,7 @@ class _LockScreenState extends State<LockScreen> {
                   style: OutlinedButton.styleFrom(
                     padding: const EdgeInsets.all(FolioSpace.md),
                     shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(16),
+                      borderRadius: BorderRadius.circular(FolioRadius.lg),
                     ),
                   ),
                   onPressed: _busy ? null : _unlockDevice,
@@ -196,7 +186,7 @@ class _LockScreenState extends State<LockScreen> {
                   style: OutlinedButton.styleFrom(
                     padding: const EdgeInsets.all(FolioSpace.md),
                     shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(16),
+                      borderRadius: BorderRadius.circular(FolioRadius.lg),
                     ),
                   ),
                   onPressed: _busy ? null : _unlockPasskey,
@@ -210,7 +200,7 @@ class _LockScreenState extends State<LockScreen> {
                   padding: const EdgeInsets.all(FolioSpace.md),
                   decoration: BoxDecoration(
                     color: scheme.errorContainer,
-                    borderRadius: BorderRadius.circular(16),
+                    borderRadius: BorderRadius.circular(FolioRadius.lg),
                   ),
                   child: Text(
                     _error!,
@@ -247,8 +237,10 @@ class _LockScreenState extends State<LockScreen> {
                       margin: const EdgeInsets.only(right: FolioSpace.xl),
                       padding: const EdgeInsets.all(32),
                       decoration: BoxDecoration(
-                        color: scheme.primaryContainer.withValues(alpha: 0.45),
-                        borderRadius: BorderRadius.circular(36),
+                        color: scheme.primaryContainer.withValues(
+                          alpha: FolioAlpha.panel,
+                        ),
+                        borderRadius: BorderRadius.circular(FolioRadius.xxl),
                       ),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,

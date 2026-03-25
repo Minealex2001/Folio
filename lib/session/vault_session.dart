@@ -23,6 +23,7 @@ import '../models/folio_database_data.dart';
 import '../models/local_collab.dart';
 import '../models/folio_table_data.dart';
 import '../models/folio_toggle_data.dart';
+import '../models/folio_task_data.dart';
 import '../models/folio_columns_data.dart';
 import '../models/folio_template_button_data.dart';
 import '../models/folio_page_import_info.dart';
@@ -1306,6 +1307,331 @@ class VaultSession extends ChangeNotifier {
     }
   }
 
+  /// Actualiza el contenido de una página existente desde una app externa.
+  ///
+  /// Solo la app que importó originalmente la página puede actualizarla
+  /// (`page.lastImportInfo.clientAppId` debe coincidir con [clientAppId]).
+  /// Las páginas creadas de forma nativa (sin [FolioPageImportInfo]) son
+  /// siempre rechazadas.
+  ///
+  /// Lanza [StateError] con mensaje `'NOT_OWNER'` si la app no es la dueña,
+  /// `'PAGE_NOT_FOUND'` si el id no existe, o
+  /// `'Unlock Folio before importing.'` si el vault está bloqueado.
+  FolioMarkdownImportResult updatePageContent(
+    String pageId,
+    String markdown, {
+    String? title,
+    String? sourceApp,
+    String? sourceUrl,
+    String? clientAppId,
+    String? clientAppName,
+    String? sessionId,
+    Map<String, Object?> metadata = const <String, Object?>{},
+    FolioMarkdownImportMode mode = FolioMarkdownImportMode.replaceCurrentPage,
+  }) {
+    if (!isUnlocked) {
+      throw StateError('Unlock Folio before importing.');
+    }
+
+    final page = _pageById(pageId);
+    if (page == null) {
+      throw StateError('PAGE_NOT_FOUND');
+    }
+
+    final ownerId = page.lastImportInfo?.clientAppId;
+    final requesterId = clientAppId?.trim().isNotEmpty == true
+        ? clientAppId!.trim()
+        : null;
+    if (ownerId == null || requesterId == null || ownerId != requesterId) {
+      throw StateError('NOT_OWNER');
+    }
+
+    if (mode == FolioMarkdownImportMode.newPage) {
+      throw ArgumentError(
+        'importMode "newPage" no está soportado en updatePageContent.',
+      );
+    }
+
+    final trimmed = markdown.trim();
+    if (trimmed.isEmpty) {
+      throw ArgumentError('Markdown vacío.');
+    }
+
+    switch (mode) {
+      case FolioMarkdownImportMode.newPage:
+        throw ArgumentError(
+          'importMode "newPage" no está soportado en updatePageContent.',
+        );
+      case FolioMarkdownImportMode.replaceCurrentPage:
+        final doc = FolioMarkdownCodec.parseDocument(
+          trimmed,
+          pageId: page.id,
+          fallbackTitle: title ?? page.title,
+          sourceApp: sourceApp,
+          sourceUrl: sourceUrl,
+        );
+        page.title = doc.title.trim().isEmpty ? page.title : doc.title.trim();
+        page.blocks = doc.blocks;
+        page.lastImportInfo = _buildImportInfo(
+          clientAppId: clientAppId,
+          clientAppName: clientAppName,
+          sessionId: sessionId,
+          sourceApp: sourceApp,
+          sourceUrl: sourceUrl,
+          metadata: metadata,
+          mode: mode,
+        );
+        _contentEpoch++;
+        notifyListeners();
+        scheduleSave(trackRevisionForPageId: page.id);
+        return FolioMarkdownImportResult(
+          pageId: page.id,
+          pageTitle: page.title,
+          mode: mode,
+          blockCount: doc.blocks.length,
+        );
+      case FolioMarkdownImportMode.appendToCurrentPage:
+        final doc = FolioMarkdownCodec.parseDocument(
+          trimmed,
+          pageId: page.id,
+          fallbackTitle: title ?? page.title,
+          sourceApp: sourceApp,
+          sourceUrl: sourceUrl,
+        );
+        final existingSingleEmpty =
+            page.blocks.length == 1 &&
+            page.blocks.first.type == 'paragraph' &&
+            page.blocks.first.text.trim().isEmpty;
+        if (existingSingleEmpty) {
+          page.blocks = doc.blocks;
+        } else {
+          page.blocks.addAll(doc.blocks);
+        }
+        page.lastImportInfo = _buildImportInfo(
+          clientAppId: clientAppId,
+          clientAppName: clientAppName,
+          sessionId: sessionId,
+          sourceApp: sourceApp,
+          sourceUrl: sourceUrl,
+          metadata: metadata,
+          mode: mode,
+        );
+        _contentEpoch++;
+        notifyListeners();
+        scheduleSave(trackRevisionForPageId: page.id);
+        return FolioMarkdownImportResult(
+          pageId: page.id,
+          pageTitle: page.title,
+          mode: mode,
+          blockCount: doc.blocks.length,
+        );
+    }
+  }
+
+  /// Returns metadata for every page that was imported by [clientAppId].
+  List<Map<String, Object?>> listPagesByApp(String clientAppId) {
+    if (!isUnlocked) {
+      throw StateError('Unlock Folio before accessing pages.');
+    }
+    final id = clientAppId.trim();
+    return _pages
+        .where((p) => p.lastImportInfo?.clientAppId == id)
+        .map(
+          (p) => <String, Object?>{
+            'pageId': p.id,
+            'title': p.title,
+            'parentId': p.parentId,
+            'blockCount': p.blocks.length,
+            'importedAtMs': p.lastImportInfo!.importedAtMs,
+            'importMode': p.lastImportInfo!.importMode,
+            if (p.lastImportInfo!.sourceApp != null)
+              'sourceApp': p.lastImportInfo!.sourceApp,
+            if (p.lastImportInfo!.sourceUrl != null)
+              'sourceUrl': p.lastImportInfo!.sourceUrl,
+          },
+        )
+        .toList();
+  }
+
+  /// Creates a new page from a list of pre-parsed [FolioBlock] objects.
+  /// Block `id`s that are empty are replaced with generated UUIDs.
+  FolioMarkdownImportResult importBlocksDocument(
+    String title,
+    List<FolioBlock> blocks, {
+    String? parentId,
+    String? sourceApp,
+    String? sourceUrl,
+    String? clientAppId,
+    String? clientAppName,
+    String? sessionId,
+    Map<String, Object?> metadata = const <String, Object?>{},
+  }) {
+    if (!isUnlocked) {
+      throw StateError('Unlock Folio before importing.');
+    }
+    if (blocks.isEmpty) {
+      throw ArgumentError('blocks no puede estar vacío.');
+    }
+    final pageId = _uuid.v4();
+    final resolvedBlocks = blocks.map((b) {
+      if (b.id.trim().isEmpty) {
+        return FolioBlock(
+          id: _newBlockId(pageId),
+          type: b.type,
+          text: b.text,
+          checked: b.checked,
+          expanded: b.expanded,
+          codeLanguage: b.codeLanguage,
+          depth: b.depth,
+          icon: b.icon,
+          url: b.url,
+          imageWidth: b.imageWidth,
+        );
+      }
+      return b;
+    }).toList();
+    final resolvedTitle = title.trim().isEmpty ? 'Imported page' : title.trim();
+    _pages.add(
+      FolioPage(
+        id: pageId,
+        title: resolvedTitle,
+        parentId: parentId,
+        lastImportInfo: _buildImportInfo(
+          clientAppId: clientAppId,
+          clientAppName: clientAppName,
+          sessionId: sessionId,
+          sourceApp: sourceApp,
+          sourceUrl: sourceUrl,
+          metadata: metadata,
+          mode: FolioMarkdownImportMode.newPage,
+        ),
+        blocks: resolvedBlocks,
+      ),
+    );
+    _selectedPageId = pageId;
+    notifyListeners();
+    scheduleSave(trackRevisionForPageId: pageId);
+    return FolioMarkdownImportResult(
+      pageId: pageId,
+      pageTitle: resolvedTitle,
+      mode: FolioMarkdownImportMode.newPage,
+      blockCount: resolvedBlocks.length,
+    );
+  }
+
+  /// Updates an existing page with pre-parsed [FolioBlock] objects.
+  /// Only the app that originally imported the page may call this.
+  /// Block `id`s that are empty are replaced with generated UUIDs.
+  FolioMarkdownImportResult updatePageBlocks(
+    String pageId,
+    List<FolioBlock> blocks, {
+    String? title,
+    String? sourceApp,
+    String? sourceUrl,
+    String? clientAppId,
+    String? clientAppName,
+    String? sessionId,
+    Map<String, Object?> metadata = const <String, Object?>{},
+    FolioMarkdownImportMode mode = FolioMarkdownImportMode.replaceCurrentPage,
+  }) {
+    if (!isUnlocked) {
+      throw StateError('Unlock Folio before importing.');
+    }
+    final page = _pageById(pageId);
+    if (page == null) {
+      throw StateError('PAGE_NOT_FOUND');
+    }
+    final ownerId = page.lastImportInfo?.clientAppId;
+    final requesterId = clientAppId?.trim().isNotEmpty == true
+        ? clientAppId!.trim()
+        : null;
+    if (ownerId == null || requesterId == null || ownerId != requesterId) {
+      throw StateError('NOT_OWNER');
+    }
+    if (mode == FolioMarkdownImportMode.newPage) {
+      throw ArgumentError(
+        'importMode "newPage" no está soportado en updatePageBlocks.',
+      );
+    }
+    if (blocks.isEmpty) {
+      throw ArgumentError('blocks no puede estar vacío.');
+    }
+    final resolvedBlocks = blocks.map((b) {
+      if (b.id.trim().isEmpty) {
+        return FolioBlock(
+          id: _newBlockId(page.id),
+          type: b.type,
+          text: b.text,
+          checked: b.checked,
+          expanded: b.expanded,
+          codeLanguage: b.codeLanguage,
+          depth: b.depth,
+          icon: b.icon,
+          url: b.url,
+          imageWidth: b.imageWidth,
+        );
+      }
+      return b;
+    }).toList();
+    switch (mode) {
+      case FolioMarkdownImportMode.newPage:
+        throw ArgumentError(
+          'importMode "newPage" no está soportado en updatePageBlocks.',
+        );
+      case FolioMarkdownImportMode.replaceCurrentPage:
+        if (title != null && title.trim().isNotEmpty) {
+          page.title = title.trim();
+        }
+        page.blocks = resolvedBlocks;
+        page.lastImportInfo = _buildImportInfo(
+          clientAppId: clientAppId,
+          clientAppName: clientAppName,
+          sessionId: sessionId,
+          sourceApp: sourceApp,
+          sourceUrl: sourceUrl,
+          metadata: metadata,
+          mode: mode,
+        );
+        _contentEpoch++;
+        notifyListeners();
+        scheduleSave(trackRevisionForPageId: page.id);
+        return FolioMarkdownImportResult(
+          pageId: page.id,
+          pageTitle: page.title,
+          mode: mode,
+          blockCount: resolvedBlocks.length,
+        );
+      case FolioMarkdownImportMode.appendToCurrentPage:
+        final existingSingleEmpty =
+            page.blocks.length == 1 &&
+            page.blocks.first.type == 'paragraph' &&
+            page.blocks.first.text.trim().isEmpty;
+        if (existingSingleEmpty) {
+          page.blocks = resolvedBlocks;
+        } else {
+          page.blocks.addAll(resolvedBlocks);
+        }
+        page.lastImportInfo = _buildImportInfo(
+          clientAppId: clientAppId,
+          clientAppName: clientAppName,
+          sessionId: sessionId,
+          sourceApp: sourceApp,
+          sourceUrl: sourceUrl,
+          metadata: metadata,
+          mode: mode,
+        );
+        _contentEpoch++;
+        notifyListeners();
+        scheduleSave(trackRevisionForPageId: page.id);
+        return FolioMarkdownImportResult(
+          pageId: page.id,
+          pageTitle: page.title,
+          mode: mode,
+          blockCount: page.blocks.length,
+        );
+    }
+  }
+
   String exportPageAsMarkdown(String pageId, {bool includeFrontMatter = true}) {
     final page = _pageById(pageId);
     if (page == null) {
@@ -1395,6 +1721,15 @@ class VaultSession extends ChangeNotifier {
     final t = title.trim();
     if (t.isEmpty) return;
     p.title = t;
+    notifyListeners();
+    scheduleSave(trackRevisionForPageId: id);
+  }
+
+  void setPageEmoji(String id, String? emoji) {
+    final p = _pageById(id);
+    if (p == null) return;
+    final next = emoji?.trim();
+    p.emoji = (next == null || next.isEmpty) ? null : next;
     notifyListeners();
     scheduleSave(trackRevisionForPageId: id);
   }
@@ -1618,6 +1953,12 @@ class VaultSession extends ChangeNotifier {
     }
     if (newType == 'toggle' && oldType != 'toggle') {
       b.text = FolioToggleData.empty().encode();
+    }
+    if (newType == 'task' && oldType != 'task') {
+      b.text = FolioTaskData.defaults().encode();
+    }
+    if (oldType == 'task' && newType != 'task') {
+      b.text = '';
     }
     if (newType == 'equation' &&
         oldType != 'equation' &&
@@ -2414,8 +2755,9 @@ class VaultSession extends ChangeNotifier {
     final fullPrompt =
         '$_quillIdentityLeadEs'
         'Genera NUEVO contenido para insertar en una página existente. '
+        'Por defecto sé detallado y completo; adapta la extensión si el usuario dice «corto», «breve», «largo» o «detallado». '
         'No hagas resumen del contexto salvo que se pida explícitamente.\n'
-        'Salida preferida: JSON válido con forma {"blocks":[{"type":"paragraph|h1|h2|h3|bullet|todo|quote|code|divider","text":"...","checked":false,"codeLanguage":"dart"}]}.\n'
+        'Salida preferida: JSON válido con forma {"blocks":[{"type":"paragraph|h1|h2|h3|bullet|todo|quote|code|callout|divider","text":"...","checked":false,"codeLanguage":"dart","depth":0,"icon":"emoji"}]}.\n'
         'También puedes devolver markdown estructurado si no puedes JSON. Sin markdown fences.\n\n'
         'Contexto de la página: ${page.title}\n'
         'Contenido actual:\n${page.plainTextContent}\n\n'
@@ -2453,8 +2795,8 @@ class VaultSession extends ChangeNotifier {
       AiCompletionRequest(
         prompt:
             '$_quillIdentityLeadEs'
-            'Genera una página completa de notas.\n'
-            'Salida preferida: JSON válido con forma {"title":"...","blocks":[{"type":"paragraph|h1|h2|h3|bullet|todo|quote|code|divider","text":"...","checked":false,"codeLanguage":"dart"}]}.\n'
+            'Genera una página completa de notas. Por defecto sé detallado y exhaustivo (mínimo 10-15 bloques): párrafo introductorio, secciones con h2/h3, párrafos elaborados, listas y bloques de código si aplica. Si el usuario pide «corto» o «breve» limita a ~5 bloques. Adapta la extensión exactamente a lo que pida el usuario.\n'
+            'Salida preferida: JSON válido con forma {"title":"...","blocks":[{"type":"paragraph|h1|h2|h3|bullet|todo|quote|code|callout|divider","text":"...","checked":false,"codeLanguage":"dart","depth":0,"icon":"emoji"}]}.\n'
             'Si no puedes JSON, devuelve markdown estructurado. Sin markdown fences.\n\n'
             'Solicitud:\n${prompt.trim()}',
         model: 'auto',
@@ -2507,6 +2849,7 @@ class VaultSession extends ChangeNotifier {
   String _buildAiChatPagesTextContext(
     List<String> pageIds, {
     required bool isEs,
+    String? activePageId,
   }) {
     if (pageIds.isEmpty) {
       return isEs
@@ -2514,11 +2857,18 @@ class VaultSession extends ChangeNotifier {
           : '(No pages in the text context.)';
     }
     final buf = StringBuffer();
+    var refIndex = 0;
     for (var i = 0; i < pageIds.length; i++) {
       final p = _pageById(pageIds[i]);
       if (p == null) continue;
       if (buf.isNotEmpty) buf.writeln();
-      buf.writeln('--- ${i + 1}. ${p.title} ---');
+      final isActive = activePageId != null && p.id == activePageId;
+      if (isActive) {
+        buf.writeln('[ACTIVE_PAGE] ${p.title}');
+      } else {
+        refIndex++;
+        buf.writeln('[REFERENCE_PAGE $refIndex] ${p.title}');
+      }
       buf.writeln(p.plainTextContent);
     }
     return buf.toString();
@@ -2653,7 +3003,11 @@ Quick help (be concise):
       },
     );
     final referencePagesText = includePageContext
-        ? _buildAiChatPagesTextContext(effectiveContextIds, isEs: isEs)
+        ? _buildAiChatPagesTextContext(
+            effectiveContextIds,
+            isEs: isEs,
+            activePageId: scopePageId,
+          )
         : (isEs
               ? 'El usuario desactivó el contexto de páginas: no debes asumir ni citar contenido de notas.'
               : 'The user disabled page context: do not assume or quote note contents.');
@@ -2680,7 +3034,7 @@ Quick help (be concise):
               '"reply":"${isEs ? 'texto breve para usuario' : 'brief user-facing text'}",'
               '"title":"${isEs ? 'solo para create_page' : 'only for create_page'}",'
               '"threadTitle":"${isEs ? 'opcional: título corto para la pestaña de ESTE chat (2-8 palabras), resume el tema de la pregunta; solo si en el hilo hay exactamente un mensaje del usuario (el actual); cadena vacía si no aplica o en turnos posteriores' : 'optional: short tab title for THIS chat (2-8 words) summarizing the question; only if the thread has exactly one user message (this one); empty string if N/A or on later turns'}",'
-              '"blocks":[{"type":"paragraph|h1|h2|h3|bullet|todo|quote|code|divider|table","text":"...","checked":false,"codeLanguage":"dart","cols":2,"rows":[["a","b"]]}],'
+              '"blocks":[{"type":"paragraph|h1|h2|h3|bullet|numbered|todo|quote|code|callout|divider|table","text":"...","checked":false,"codeLanguage":"dart","depth":0,"icon":"emoji","cols":2,"rows":[["a","b"]]}],'
               '"operations":[{"kind":"update_page_title|update_block_text|replace_block|insert_after|delete_block|table_add_column|table_set_cell","title":"${isEs ? 'nuevo título (solo update_page_title)' : 'new title (update_page_title only)'}","blockId":"id","text":"...","block":{},"blocks":[],"header":"...","values":[],"row":0,"col":0,"value":"..."}]'
               '}\n'
               '${isEs ? 'Reglas:' : 'Rules:'}\n'
@@ -2688,7 +3042,7 @@ Quick help (be concise):
               '- append_current: ${isEs ? 'añade bloques a la página activa' : 'append blocks to the active page'}.\n'
               '- replace_current: ${isEs ? 'sustituye bloques de la página activa' : 'replace blocks in the active page'}.\n'
               '- edit_current: ${isEs ? 'edita con operations: bloques (blockId) y/o título de página (update_page_title + title)' : 'edit with operations: blocks (blockId) and/or page title (update_page_title + title)'}.\n'
-              '- create_page: ${isEs ? 'crea una nueva página con title + blocks' : 'create a new page with title + blocks'}.\n'
+              '- create_page: ${isEs ? 'crea una nueva página con title + blocks; por defecto genera contenido detallado y completo (mínimo 10-20 bloques): empieza con un párrafo introductorio, usa h2/h3 para secciones, párrafos elaborados, bullet/numbered para listas y code si aplica; si el usuario dice «corto», «breve» o «rápido» limita a ~5 bloques; si dice «largo», «detallado», «completo» o «profundo» expande todo lo posible' : 'create a new page with title + blocks; by default generate detailed, comprehensive content (minimum 10-20 blocks): start with an intro paragraph, use h2/h3 for sections, elaborate paragraphs, bullet/numbered lists, and code if relevant; if the user says «short», «brief» or «quick» limit to ~5 blocks; if they say «long», «detailed», «comprehensive» or «in depth» expand as much as possible'}.\n'
               '- chat: ${isEs ? 'respuesta conversacional sin modificar datos; puedes referirte a ti como Quill cuando encaje; ayuda sobre Folio (interfaz, ajustes, atajos, páginas, bloques) cuando pregunte por la app' : 'conversational response without modifying data; you may refer to yourself as Quill when it fits; help with Folio (UI, settings, shortcuts, pages, blocks) when the user asks about the app'}.\n'
               '- ${isEs ? 'Preguntas del tipo «cómo hago…», «dónde está…», «qué es…» en Folio → modo chat; sé útil y directo; no inventes funciones: si no lo sabes, dilo y sugiere revisar Ajustes o probar en la interfaz' : 'Questions like how/where/what in Folio → chat mode; be helpful and direct; do not invent features—if unsure, say so and suggest Settings or exploring the UI'}.\n'
               '- ${isEs ? 'Para ayuda de uso de Folio, basa la respuesta en el bloque «=== Folio» de arriba. NUNCA des tutoriales de páginas web (HTML <img>, WordPress, Wix, React, FTP…) salvo que el usuario pida explícitamente eso.' : 'For Folio how-to, base answers on the «=== Folio» block above. NEVER give generic web tutorials (HTML <img>, WordPress, Wix, React, FTP…) unless the user explicitly asks for that.'}\n'
@@ -2705,6 +3059,8 @@ Quick help (be concise):
           model: 'auto',
           messages: messages,
           attachments: attachments,
+          temperature: 0.1,
+          responseSchema: _agentResponseSchema,
         ),
       );
       lastUsage = result.usage ?? lastUsage;
@@ -2911,33 +3267,69 @@ Quick help (be concise):
               ),
             );
           }
-          final createdId = _createPageFromRecoveredReply(
-            reply,
-            isEs: isEs,
-            parentId: wantsSubpage ? scopePage?.id : null,
+          // Llamada de corrección estructurada: el modelo respondió en modo chat
+          // cuando debería haber usado create_page. Pedimos JSON directamente.
+          final createCorrection = await ai.complete(
+            AiCompletionRequest(
+              prompt:
+                  '${isEs ? _quillIdentityLeadEs : _quillIdentityLeadEn}'
+                  '${isEs ? 'Respondiste en modo chat, pero el usuario quiere crear una nueva página. Devuelve SOLO JSON con mode=create_page, el título en "title" y los bloques en "blocks" usando el formato nativo de Folio. Por defecto genera contenido detallado y completo (mínimo 10-15 bloques), salvo que el mensaje original pida algo corto.' : 'You responded in chat mode, but the user wants to create a new page. Return ONLY JSON with mode=create_page, the title in "title" and the blocks in "blocks" using Folio native block format. By default generate detailed, comprehensive content (minimum 10-15 blocks), unless the original message asked for something short.'}\n'
+                  '${isEs ? 'Formato de bloque nativo:' : 'Native block format:'} {"type":"paragraph|h1|h2|h3|bullet|numbered|todo|quote|code|callout|divider|table","text":"...","checked":false,"codeLanguage":"dart","depth":0,"icon":"emoji","cols":2,"rows":[["a","b"]]}\n'
+                  '${isEs ? 'No uses markdown fences ni texto fuera del JSON.' : 'Do not use markdown fences or text outside JSON.'}\n\n'
+                  '${isEs ? 'Mensaje original:' : 'Original message:'}\n${prompt.trim()}',
+              model: 'auto',
+              messages: messages,
+              attachments: attachments,
+              temperature: 0.1,
+              responseSchema: _agentResponseSchema,
+            ),
           );
-          if (createdId != null) {
-            AppLogger.info(
-              'Recovered page creation from agent reply',
-              tag: 'ai.agent',
-              context: {
-                'pageId': createdId,
-                'isSubpage': wantsSubpage,
-                'parentId': wantsSubpage ? scopePage?.id : null,
-              },
-            );
-            return finish(
-              _formatAgentDecisionReply(
-                mode: 'create_page',
-                reason: isEs
-                    ? 'Detecté intención de crear página y recuperé contenido HTML/Markdown.'
-                    : 'Detected page-creation intent and recovered HTML/Markdown content.',
-                reply: isEs
-                    ? 'He creado una página con el contenido generado.'
-                    : 'I created a page with the generated content.',
-                isEs: isEs,
-              ),
-            );
+          lastUsage = createCorrection.usage ?? lastUsage;
+          final createDecoded = _decodeJsonObjectLenient(createCorrection.text);
+          final createTitle =
+              (createDecoded['title'] as String? ?? '').trim();
+          final rawCreateBlocks = createDecoded['blocks'];
+          if (rawCreateBlocks is List && rawCreateBlocks.isNotEmpty) {
+            final createSpecs =
+                _parseAiBlocksFromDynamicList(rawCreateBlocks);
+            if (createSpecs.isNotEmpty) {
+              final id = _uuid.v4();
+              final blocks = _materializeAiBlocks(id, createSpecs);
+              _pages.add(
+                FolioPage(
+                  id: id,
+                  title: createTitle.isEmpty
+                      ? (isEs ? 'Nueva página IA' : 'New AI page')
+                      : createTitle,
+                  parentId: wantsSubpage ? scopePage?.id : null,
+                  blocks: blocks,
+                ),
+              );
+              _selectedPageId = id;
+              notifyListeners();
+              scheduleSave(trackRevisionForPageId: id);
+              AppLogger.info(
+                'Created page from structured JSON correction call',
+                tag: 'ai.agent',
+                context: {
+                  'pageId': id,
+                  'isSubpage': wantsSubpage,
+                  'blocksCount': blocks.length,
+                },
+              );
+              return finish(
+                _formatAgentDecisionReply(
+                  mode: 'create_page',
+                  reason: isEs
+                      ? 'Corregí el modo y generé la página en formato JSON estructurado.'
+                      : 'Corrected the mode and generated the page in structured JSON format.',
+                  reply: isEs
+                      ? 'He creado la página con el contenido generado.'
+                      : 'I created the page with the generated content.',
+                  isEs: isEs,
+                ),
+              );
+            }
           }
         }
         if (scopePage != null &&
@@ -3018,6 +3410,8 @@ Quick help (be concise):
               model: 'auto',
               messages: messages,
               attachments: attachments,
+              temperature: 0.1,
+              responseSchema: _agentResponseSchema,
             ),
           );
           lastUsage = recovery.usage ?? lastUsage;
@@ -3091,33 +3485,68 @@ Quick help (be concise):
             ),
           );
         }
-        final createdId = _createPageFromRecoveredReply(
-          fallbackChat.text,
-          isEs: isEs,
-          parentId: wantsSubpage ? scopePage?.id : null,
+        // Llamada estructurada específica para create_page (el flujo principal
+        // falló con JSON inválido — intentamos una llamada directa de creación).
+        final createFallback = await ai.complete(
+          AiCompletionRequest(
+            prompt:
+                '${isEs ? _quillIdentityLeadEs : _quillIdentityLeadEn}'
+                '${isEs ? 'La respuesta anterior no fue JSON válido. El usuario quiere crear una página. Devuelve SOLO JSON con mode=create_page, el título en "title" y los bloques en "blocks". Por defecto genera contenido detallado y completo (mínimo 10-15 bloques), salvo que el mensaje original pida algo corto.' : 'The previous response was not valid JSON. The user wants to create a page. Return ONLY JSON with mode=create_page, the title in "title" and the blocks in "blocks". By default generate detailed, comprehensive content (minimum 10-15 blocks), unless the original message asked for something short.'}\n'
+                '${isEs ? 'Formato de bloque:' : 'Block format:'} {"type":"paragraph|h1|h2|h3|bullet|numbered|todo|quote|code|callout|divider|table","text":"...","checked":false,"codeLanguage":"dart","depth":0,"icon":"emoji","cols":2,"rows":[["a","b"]]}\n'
+                '${isEs ? 'No uses markdown fences ni texto fuera del JSON.' : 'Do not use markdown fences or text outside JSON.'}\n\n'
+                '${isEs ? 'Mensaje original:' : 'Original message:'}\n${prompt.trim()}',
+            model: 'auto',
+            messages: messages,
+            attachments: attachments,
+            temperature: 0.1,
+            responseSchema: _agentResponseSchema,
+          ),
         );
-        if (createdId != null) {
-          AppLogger.warn(
-            'Created page from fallback chat recovery',
-            tag: 'ai.agent',
-            context: {
-              'pageId': createdId,
-              'isSubpage': wantsSubpage,
-              'parentId': wantsSubpage ? scopePage?.id : null,
-            },
-          );
-          return finish(
-            _formatAgentDecisionReply(
-              mode: 'create_page',
-              reason: isEs
-                  ? 'No pude estructurar JSON, pero recuperé el contenido y creé la página.'
-                  : 'Could not structure JSON, but recovered content and created the page.',
-              reply: isEs
-                  ? 'He creado una página con el contenido generado.'
-                  : 'I created a page with the generated content.',
-              isEs: isEs,
-            ),
-          );
+        lastUsage = createFallback.usage ?? lastUsage;
+        final createFbDecoded = _decodeJsonObjectLenient(createFallback.text);
+        final createFbTitle =
+            (createFbDecoded['title'] as String? ?? '').trim();
+        final rawFbBlocks = createFbDecoded['blocks'];
+        if (rawFbBlocks is List && rawFbBlocks.isNotEmpty) {
+          final fbSpecs = _parseAiBlocksFromDynamicList(rawFbBlocks);
+          if (fbSpecs.isNotEmpty) {
+            final id = _uuid.v4();
+            final blocks = _materializeAiBlocks(id, fbSpecs);
+            _pages.add(
+              FolioPage(
+                id: id,
+                title: createFbTitle.isEmpty
+                    ? (isEs ? 'Nueva página IA' : 'New AI page')
+                    : createFbTitle,
+                parentId: wantsSubpage ? scopePage?.id : null,
+                blocks: blocks,
+              ),
+            );
+            _selectedPageId = id;
+            notifyListeners();
+            scheduleSave(trackRevisionForPageId: id);
+            AppLogger.warn(
+              'Created page from structured fallback call (main JSON failed)',
+              tag: 'ai.agent',
+              context: {
+                'pageId': id,
+                'isSubpage': wantsSubpage,
+                'blocksCount': blocks.length,
+              },
+            );
+            return finish(
+              _formatAgentDecisionReply(
+                mode: 'create_page',
+                reason: isEs
+                    ? 'La respuesta inicial no fue JSON válido; generé la página con una llamada estructurada.'
+                    : 'Initial response was not valid JSON; generated the page with a structured call.',
+                reply: isEs
+                    ? 'He creado la página con el contenido generado.'
+                    : 'I created the page with the generated content.',
+                isEs: isEs,
+              ),
+            );
+          }
         }
       }
       return finish(
@@ -3140,6 +3569,7 @@ Quick help (be concise):
         'id': b.id,
         'type': b.type,
         'preview': preview,
+        if (preview.endsWith('...')) 'isTruncated': true,
       };
       if (b.type == 'table') {
         final t = FolioTableData.tryParse(b.text);
@@ -3184,6 +3614,13 @@ Quick help (be concise):
       final index = blockId.isEmpty
           ? -1
           : page.blocks.indexWhere((b) => b.id == blockId);
+      if (index < 0 && blockId.isNotEmpty && kind != 'update_page_title') {
+        AppLogger.warn(
+          'Agent operation skipped: blockId not found',
+          tag: 'ai.agent',
+          context: {'kind': kind, 'blockId': blockId},
+        );
+      }
 
       if (kind == 'update_block_text') {
         final text = (op['text'] as String? ?? '').trim();
@@ -3273,8 +3710,65 @@ Quick help (be concise):
     return changed;
   }
 
+  Map<String, dynamic> get _agentResponseSchema => <String, dynamic>{
+    'type': 'object',
+    'properties': <String, dynamic>{
+      'mode': <String, dynamic>{'type': 'string'},
+      'reason': <String, dynamic>{'type': 'string'},
+      'reply': <String, dynamic>{'type': 'string'},
+      'title': <String, dynamic>{'type': 'string'},
+      'threadTitle': <String, dynamic>{'type': 'string'},
+      'blocks': <String, dynamic>{
+        'type': 'array',
+        'items': <String, dynamic>{
+          'type': 'object',
+          'properties': <String, dynamic>{
+            'type': <String, dynamic>{'type': 'string'},
+            'text': <String, dynamic>{'type': 'string'},
+            'checked': <String, dynamic>{'type': 'boolean'},
+            'expanded': <String, dynamic>{'type': 'boolean'},
+            'codeLanguage': <String, dynamic>{'type': 'string'},
+            'depth': <String, dynamic>{'type': 'integer', 'minimum': 0},
+            'icon': <String, dynamic>{'type': 'string'},
+            'url': <String, dynamic>{'type': 'string'},
+            'imageWidth': <String, dynamic>{'type': 'number'},
+            'cols': <String, dynamic>{'type': 'integer'},
+            'rows': <String, dynamic>{
+              'type': 'array',
+              'items': <String, dynamic>{
+                'type': 'array',
+                'items': <String, dynamic>{'type': 'string'},
+              },
+            },
+          },
+          'required': <String>['type', 'text'],
+        },
+      },
+      'operations': <String, dynamic>{
+        'type': 'array',
+        'items': <String, dynamic>{'type': 'object'},
+      },
+    },
+    'required': <String>['mode', 'reply'],
+  };
+
   bool _looksLikeEditIntent(String prompt, {required String languageCode}) {
     final p = _normalizeIntentText(prompt);
+    // Preguntas conversacionales no son ediciones implícitas
+    if (p.contains('?')) return false;
+    // Negaciones explícitas al inicio descartan la intención de edición
+    const negationPrefixes = [
+      'no ',
+      'no,',
+      "don't ",
+      'dont ',
+      'do not ',
+      'sin ',
+      'evitar ',
+      'without ',
+      'avoid ',
+    ];
+    if (negationPrefixes.any(p.startsWith)) return false;
     final hints = AiIntentHints.hintsFor(
       intent: AiIntentHints.edit,
       languageCode: languageCode,
@@ -3993,6 +4487,11 @@ Quick help (be concise):
           text: text,
           checked: map['checked'] as bool?,
           codeLanguage: map['codeLanguage'] as String?,
+          depth: (map['depth'] as num?)?.toInt(),
+          icon: map['icon'] as String?,
+          url: map['url'] as String?,
+          imageWidth: (map['imageWidth'] as num?)?.toDouble(),
+          expanded: map['expanded'] as bool?,
         ),
       );
     }
@@ -4146,6 +4645,11 @@ Quick help (be concise):
                     ? 'dart'
                     : s.codeLanguage)
               : null,
+          depth: s.depth ?? 0,
+          icon: s.icon,
+          url: s.url,
+          imageWidth: s.imageWidth,
+          expanded: s.expanded,
         ),
       );
     }
@@ -4301,6 +4805,11 @@ class _AiBlockSpec {
     this.codeLanguage,
     this.tableCols,
     this.tableRows,
+    this.depth,
+    this.icon,
+    this.url,
+    this.imageWidth,
+    this.expanded,
   });
 
   final String type;
@@ -4309,4 +4818,10 @@ class _AiBlockSpec {
   final String? codeLanguage;
   final int? tableCols;
   final List<List<String>>? tableRows;
+  // Campos del formato nativo FolioBlock
+  final int? depth;
+  final String? icon;
+  final String? url;
+  final double? imageWidth;
+  final bool? expanded;
 }

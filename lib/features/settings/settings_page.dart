@@ -5,6 +5,8 @@ import 'package:passkeys/exceptions.dart';
 
 import '../../app/app_settings.dart';
 import '../../app/folio_in_app_shortcuts.dart';
+import '../../app/widgets/folio_dialog.dart';
+import '../../app/widgets/folio_password_field.dart';
 import 'in_app_shortcut_capture_dialog.dart';
 import '../../data/notion_import/notion_importer.dart';
 import '../../l10n/generated/app_localizations.dart';
@@ -145,7 +147,7 @@ class _SettingsPageState extends State<SettingsPage> {
     if (_app.aiRemoteEndpointConfirmed) return;
     final go = await showDialog<bool>(
       context: context,
-      builder: (ctx) => AlertDialog(
+      builder: (ctx) => FolioDialog(
         title: const Text('Confirmar endpoint remoto'),
         content: Text(
           'Vas a habilitar IA con un host remoto (${uri.host}). '
@@ -187,7 +189,7 @@ class _SettingsPageState extends State<SettingsPage> {
     final l10n = AppLocalizations.of(context);
     final go = await showDialog<bool>(
       context: context,
-      builder: (ctx) => AlertDialog(
+      builder: (ctx) => FolioDialog(
         title: Text(l10n.aiBetaEnableTitle),
         content: Text(l10n.aiBetaEnableBody),
         actions: [
@@ -220,7 +222,7 @@ class _SettingsPageState extends State<SettingsPage> {
     final l10n = AppLocalizations.of(context);
     return showDialog<AiProvider>(
       context: context,
-      builder: (ctx) => AlertDialog(
+      builder: (ctx) => FolioDialog(
         title: Text(l10n.aiSetupChooseProviderTitle),
         content: Column(
           mainAxisSize: MainAxisSize.min,
@@ -462,7 +464,7 @@ class _SettingsPageState extends State<SettingsPage> {
     if (_s.state != VaultFlowState.unlocked) return;
     final go = await showDialog<bool>(
       context: context,
-      builder: (ctx) => AlertDialog(
+      builder: (ctx) => FolioDialog(
         title: Text(l10n.importVaultDialogTitle),
         content: SingleChildScrollView(
           child: Text(
@@ -604,7 +606,7 @@ class _SettingsPageState extends State<SettingsPage> {
     final l10n = AppLocalizations.of(context);
     final go = await showDialog<bool>(
       context: context,
-      builder: (ctx) => AlertDialog(
+      builder: (ctx) => FolioDialog(
         title: Text(l10n.wipeVaultDialogTitle),
         content: Text(l10n.wipeVaultDialogBody),
         actions: [
@@ -686,7 +688,7 @@ class _SettingsPageState extends State<SettingsPage> {
           : '';
       final go = await showDialog<bool>(
         context: context,
-        builder: (ctx) => AlertDialog(
+        builder: (ctx) => FolioDialog(
           title: Text(
             result.isPrerelease
                 ? 'Beta disponible'
@@ -1855,21 +1857,17 @@ class _BackupPasswordDialogState extends State<_BackupPasswordDialog> {
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
-    return AlertDialog(
+    return FolioDialog(
       title: Text(l10n.backupPasswordDialogTitle),
-      content: TextField(
+      content: FolioPasswordField(
         controller: _controller,
         obscureText: _obscure,
         autofocus: true,
-        decoration: InputDecoration(
-          labelText: l10n.backupFilePasswordLabel,
-          helperText: l10n.backupFilePasswordHelper,
-          suffixIcon: IconButton(
-            onPressed: () => setState(() => _obscure = !_obscure),
-            icon: Icon(_obscure ? Icons.visibility : Icons.visibility_off),
-            tooltip: _obscure ? l10n.showPassword : l10n.hidePassword,
-          ),
-        ),
+        labelText: l10n.backupFilePasswordLabel,
+        showPasswordTooltip: l10n.showPassword,
+        hidePasswordTooltip: l10n.hidePassword,
+        helperText: l10n.backupFilePasswordHelper,
+        onToggleObscure: () => setState(() => _obscure = !_obscure),
         onSubmitted: (_) => _submit(),
       ),
       actions: [
@@ -1891,7 +1889,7 @@ class _NotionImportModeDialog extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
-    return AlertDialog(
+    return FolioDialog(
       title: Text(l10n.importNotionSelectTargetTitle),
       content: Text(l10n.importNotionSelectTargetBody),
       actions: [
@@ -1955,34 +1953,28 @@ class _NewVaultPasswordDialogState extends State<_NewVaultPasswordDialog> {
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
-    return AlertDialog(
+    return FolioDialog(
       title: Text(l10n.importNotionNewVaultPasswordTitle),
       content: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          TextField(
+          FolioPasswordField(
             controller: _password,
             obscureText: _obscureA,
-            decoration: InputDecoration(
-              labelText: l10n.passwordLabel,
-              suffixIcon: IconButton(
-                onPressed: () => setState(() => _obscureA = !_obscureA),
-                icon: Icon(_obscureA ? Icons.visibility : Icons.visibility_off),
-              ),
-            ),
+            labelText: l10n.passwordLabel,
+            showPasswordTooltip: l10n.showPassword,
+            hidePasswordTooltip: l10n.hidePassword,
+            onToggleObscure: () => setState(() => _obscureA = !_obscureA),
           ),
           const SizedBox(height: 8),
-          TextField(
+          FolioPasswordField(
             controller: _confirm,
             obscureText: _obscureB,
+            labelText: l10n.confirmPasswordLabel,
+            showPasswordTooltip: l10n.showPassword,
+            hidePasswordTooltip: l10n.hidePassword,
+            onToggleObscure: () => setState(() => _obscureB = !_obscureB),
             onSubmitted: (_) => _submit(),
-            decoration: InputDecoration(
-              labelText: l10n.confirmPasswordLabel,
-              suffixIcon: IconButton(
-                onPressed: () => setState(() => _obscureB = !_obscureB),
-                icon: Icon(_obscureB ? Icons.visibility : Icons.visibility_off),
-              ),
-            ),
           ),
           if (_error != null) ...[
             const SizedBox(height: 8),
@@ -2095,7 +2087,7 @@ class _EncryptPlainVaultDialogState extends State<_EncryptPlainVaultDialog> {
       _PasswordStrength.fair => l10n.passwordStrengthFair,
       _PasswordStrength.strong => l10n.passwordStrengthStrong,
     };
-    return AlertDialog(
+    return FolioDialog(
       title: Text(l10n.encryptPlainVaultTitle),
       content: SingleChildScrollView(
         child: Column(
@@ -2267,7 +2259,7 @@ class _ChangeMasterPasswordDialogState
       _PasswordStrength.fair => l10n.passwordStrengthFair,
       _PasswordStrength.strong => l10n.passwordStrengthStrong,
     };
-    return AlertDialog(
+    return FolioDialog(
       title: Text(l10n.changeMasterPassword),
       content: SingleChildScrollView(
         child: Column(
@@ -2396,51 +2388,47 @@ class _AiSetupWizardDialogState extends State<_AiSetupWizardDialog> {
     final selectedStatus = isOllama
         ? widget.summary.ollama
         : widget.summary.lmStudio;
-    return AlertDialog(
+    return FolioDialog(
       title: Text(widget.title),
-      content: SizedBox(
-        width: 520,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Text(
-              widget.noProviderTitle,
-              style: Theme.of(context).textTheme.titleMedium,
-            ),
-            const SizedBox(height: 8),
-            Text(widget.noProviderBody),
-            const SizedBox(height: 12),
-            _ProviderStatusLine(
-              label: isOllama ? 'Ollama' : 'LM Studio',
-              installed: selectedStatus.installed,
-              reachable: selectedStatus.reachable,
-            ),
-            const SizedBox(height: 12),
-            Text(
-              isOllama
-                  ? widget.ollamaInstallTitle
-                  : widget.lmStudioInstallTitle,
-              style: Theme.of(context).textTheme.titleMedium,
-            ),
-            const SizedBox(height: 8),
-            Text(
-              isOllama ? widget.ollamaInstallBody : widget.lmStudioInstallBody,
-            ),
-            const SizedBox(height: 10),
-            SelectableText(
-              isOllama ? 'https://ollama.com/download' : 'https://lmstudio.ai/',
-              style: TextStyle(color: scheme.primary),
-            ),
-            const SizedBox(height: 14),
-            Text(
-              widget.openSettingsHint,
-              style: Theme.of(
-                context,
-              ).textTheme.bodySmall?.copyWith(color: scheme.onSurfaceVariant),
-            ),
-          ],
-        ),
+      contentWidth: 520,
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text(
+            widget.noProviderTitle,
+            style: Theme.of(context).textTheme.titleMedium,
+          ),
+          const SizedBox(height: 8),
+          Text(widget.noProviderBody),
+          const SizedBox(height: 12),
+          _ProviderStatusLine(
+            label: isOllama ? 'Ollama' : 'LM Studio',
+            installed: selectedStatus.installed,
+            reachable: selectedStatus.reachable,
+          ),
+          const SizedBox(height: 12),
+          Text(
+            isOllama ? widget.ollamaInstallTitle : widget.lmStudioInstallTitle,
+            style: Theme.of(context).textTheme.titleMedium,
+          ),
+          const SizedBox(height: 8),
+          Text(
+            isOllama ? widget.ollamaInstallBody : widget.lmStudioInstallBody,
+          ),
+          const SizedBox(height: 10),
+          SelectableText(
+            isOllama ? 'https://ollama.com/download' : 'https://lmstudio.ai/',
+            style: TextStyle(color: scheme.primary),
+          ),
+          const SizedBox(height: 14),
+          Text(
+            widget.openSettingsHint,
+            style: Theme.of(
+              context,
+            ).textTheme.bodySmall?.copyWith(color: scheme.onSurfaceVariant),
+          ),
+        ],
       ),
       actions: [
         TextButton(

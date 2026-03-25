@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 
 import '../../app/app_settings.dart';
 import '../../app/ui_tokens.dart';
+import '../../app/widgets/folio_password_field.dart';
 import '../../data/vault_backup.dart';
 import '../../l10n/generated/app_localizations.dart';
 import '../../session/vault_session.dart';
@@ -191,9 +192,9 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
           child: Card.filled(
             margin: EdgeInsets.zero,
             color: scheme.surface,
-            elevation: 0,
+            elevation: FolioElevation.none,
             shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(28),
+              borderRadius: BorderRadius.circular(FolioRadius.xxl),
             ),
             child: Padding(
               padding: const EdgeInsets.all(FolioSpace.xl),
@@ -288,8 +289,10 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
                       margin: const EdgeInsets.only(right: FolioSpace.xl),
                       padding: const EdgeInsets.all(36),
                       decoration: BoxDecoration(
-                        color: scheme.primaryContainer.withValues(alpha: 0.4),
-                        borderRadius: BorderRadius.circular(36),
+                        color: scheme.primaryContainer.withValues(
+                          alpha: FolioAlpha.panel,
+                        ),
+                        borderRadius: BorderRadius.circular(FolioRadius.xxl),
                       ),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -406,7 +409,7 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
               style: FilledButton.styleFrom(
                 minimumSize: const Size(120, 48),
                 shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius: BorderRadius.circular(FolioRadius.md),
                 ),
               ),
               onPressed: _nextCreatePassword,
@@ -447,7 +450,7 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
           style: FilledButton.styleFrom(
             minimumSize: const Size.fromHeight(56),
             shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12),
+              borderRadius: BorderRadius.circular(FolioRadius.md),
             ),
           ),
           onPressed: _chooseCreateNew,
@@ -458,7 +461,7 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
           style: OutlinedButton.styleFrom(
             minimumSize: const Size.fromHeight(56),
             shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12),
+              borderRadius: BorderRadius.circular(FolioRadius.md),
             ),
           ),
           onPressed: () {
@@ -478,7 +481,7 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
           style: OutlinedButton.styleFrom(
             minimumSize: const Size.fromHeight(56),
             shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12),
+              borderRadius: BorderRadius.circular(FolioRadius.md),
             ),
           ),
           onPressed: _chooseImport,
@@ -542,31 +545,16 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
           ),
         ],
         const SizedBox(height: FolioSpace.lg),
-        TextField(
+        FolioPasswordField(
           controller: _backupPassword,
           obscureText: _obscureBackupPassword,
           enabled: !_busy,
-          decoration: InputDecoration(
-            labelText: AppLocalizations.of(context).backupPasswordLabel,
-            border: const OutlineInputBorder(),
-            filled: true,
-            fillColor: Theme.of(context).colorScheme.surface,
-            suffixIcon: IconButton(
-              onPressed: _busy
-                  ? null
-                  : () => setState(
-                      () => _obscureBackupPassword = !_obscureBackupPassword,
-                    ),
-              icon: Icon(
-                _obscureBackupPassword
-                    ? Icons.visibility
-                    : Icons.visibility_off,
-              ),
-              tooltip: _obscureBackupPassword
-                  ? AppLocalizations.of(context).showPassword
-                  : AppLocalizations.of(context).hidePassword,
-            ),
-          ),
+          labelText: AppLocalizations.of(context).backupPasswordLabel,
+          showPasswordTooltip: AppLocalizations.of(context).showPassword,
+          hidePasswordTooltip: AppLocalizations.of(context).hidePassword,
+          onToggleObscure: () {
+            setState(() => _obscureBackupPassword = !_obscureBackupPassword);
+          },
           onSubmitted: (_) {
             if (!_busy) _finishImport();
           },
@@ -589,7 +577,7 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
               style: FilledButton.styleFrom(
                 minimumSize: const Size(120, 48),
                 shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius: BorderRadius.circular(FolioRadius.md),
                 ),
               ),
               onPressed: _busy ? null : _finishImport,
@@ -659,26 +647,16 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
           textAlign: TextAlign.center,
         ),
         const SizedBox(height: FolioSpace.xl),
-        TextField(
+        FolioPasswordField(
           controller: _password,
           obscureText: _obscurePassword,
+          labelText: AppLocalizations.of(context).passwordLabel,
+          showPasswordTooltip: AppLocalizations.of(context).showPassword,
+          hidePasswordTooltip: AppLocalizations.of(context).hidePassword,
+          onToggleObscure: () {
+            setState(() => _obscurePassword = !_obscurePassword);
+          },
           onChanged: (_) => setState(() {}),
-          decoration: InputDecoration(
-            labelText: AppLocalizations.of(context).passwordLabel,
-            border: const OutlineInputBorder(),
-            filled: true,
-            fillColor: Theme.of(context).colorScheme.surface,
-            suffixIcon: IconButton(
-              onPressed: () =>
-                  setState(() => _obscurePassword = !_obscurePassword),
-              icon: Icon(
-                _obscurePassword ? Icons.visibility : Icons.visibility_off,
-              ),
-              tooltip: _obscurePassword
-                  ? AppLocalizations.of(context).showPassword
-                  : AppLocalizations.of(context).hidePassword,
-            ),
-          ),
           textInputAction: TextInputAction.next,
         ),
         const SizedBox(height: FolioSpace.sm),
@@ -689,25 +667,15 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
           style: Theme.of(context).textTheme.bodySmall,
         ),
         const SizedBox(height: FolioSpace.md),
-        TextField(
+        FolioPasswordField(
           controller: _confirm,
           obscureText: _obscureConfirm,
-          decoration: InputDecoration(
-            labelText: AppLocalizations.of(context).confirmPasswordLabel,
-            border: const OutlineInputBorder(),
-            filled: true,
-            fillColor: Theme.of(context).colorScheme.surface,
-            suffixIcon: IconButton(
-              onPressed: () =>
-                  setState(() => _obscureConfirm = !_obscureConfirm),
-              icon: Icon(
-                _obscureConfirm ? Icons.visibility : Icons.visibility_off,
-              ),
-              tooltip: _obscureConfirm
-                  ? AppLocalizations.of(context).showPassword
-                  : AppLocalizations.of(context).hidePassword,
-            ),
-          ),
+          labelText: AppLocalizations.of(context).confirmPasswordLabel,
+          showPasswordTooltip: AppLocalizations.of(context).showPassword,
+          hidePasswordTooltip: AppLocalizations.of(context).hidePassword,
+          onToggleObscure: () {
+            setState(() => _obscureConfirm = !_obscureConfirm);
+          },
           onSubmitted: (_) => _nextCreatePassword(),
         ),
         const SizedBox(height: FolioSpace.xl),
@@ -726,7 +694,7 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
               style: FilledButton.styleFrom(
                 minimumSize: const Size(120, 48),
                 shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius: BorderRadius.circular(FolioRadius.md),
                 ),
               ),
               onPressed: _nextCreatePassword,
@@ -778,7 +746,7 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
               style: FilledButton.styleFrom(
                 minimumSize: const Size(120, 48),
                 shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius: BorderRadius.circular(FolioRadius.md),
                 ),
               ),
               onPressed: _busy
@@ -817,9 +785,9 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
         padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
           color: scheme.surface,
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(FolioRadius.lg),
           border: Border.all(
-            color: scheme.outlineVariant.withValues(alpha: 0.5),
+            color: scheme.outlineVariant.withValues(alpha: FolioAlpha.border),
           ),
         ),
         child: Row(
@@ -842,8 +810,8 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
       return Container(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
         decoration: BoxDecoration(
-          color: scheme.primaryContainer.withValues(alpha: 0.6),
-          borderRadius: BorderRadius.circular(999),
+          color: scheme.primaryContainer.withValues(alpha: FolioAlpha.emphasis),
+          borderRadius: BorderRadius.circular(FolioRadius.xl),
         ),
         child: Text(
           text,
