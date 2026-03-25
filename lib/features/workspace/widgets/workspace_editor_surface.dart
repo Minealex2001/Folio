@@ -9,6 +9,7 @@ class WorkspaceEditorSurface extends StatelessWidget {
     super.key,
     required this.compact,
     required this.page,
+    required this.pagePath,
     required this.titleController,
     required this.onTitleChanged,
     required this.onCreatePage,
@@ -17,6 +18,7 @@ class WorkspaceEditorSurface extends StatelessWidget {
 
   final bool compact;
   final FolioPage? page;
+  final List<String> pagePath;
   final TextEditingController titleController;
   final ValueChanged<String> onTitleChanged;
   final VoidCallback onCreatePage;
@@ -80,10 +82,14 @@ class WorkspaceEditorSurface extends StatelessWidget {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.stretch,
                           children: [
+                            if (pagePath.isNotEmpty)
+                              _PagePathRow(pathSegments: pagePath),
+                            if (pagePath.isNotEmpty)
+                              const SizedBox(height: FolioSpace.xs),
                             TextField(
                               controller: titleController,
                               minLines: 1,
-                              maxLines: null,
+                              maxLines: 3,
                               keyboardType: TextInputType.multiline,
                               style: theme.textTheme.headlineSmall?.copyWith(
                                 fontWeight: FontWeight.w600,
@@ -172,6 +178,46 @@ class _WorkspaceEmptyState extends StatelessWidget {
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+class _PagePathRow extends StatelessWidget {
+  const _PagePathRow({required this.pathSegments});
+
+  final List<String> pathSegments;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    return SizedBox(
+      height: 24,
+      child: ListView.separated(
+        scrollDirection: Axis.horizontal,
+        itemCount: pathSegments.length,
+        separatorBuilder: (_, _) => Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 2),
+          child: Icon(
+            Icons.chevron_right_rounded,
+            size: 16,
+            color: scheme.onSurfaceVariant.withValues(alpha: FolioAlpha.emphasis),
+          ),
+        ),
+        itemBuilder: (context, index) {
+          return Text(
+            pathSegments[index],
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: theme.textTheme.labelMedium?.copyWith(
+              color: scheme.onSurfaceVariant,
+              fontWeight: index == pathSegments.length - 1
+                  ? FontWeight.w700
+                  : FontWeight.w500,
+            ),
+          );
+        },
       ),
     );
   }

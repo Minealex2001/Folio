@@ -108,6 +108,9 @@ class AppSettings extends ChangeNotifier {
   static const _hasSeenQuillIntroKey = 'folio_has_seen_quill_intro';
   static const _hasSeenQuillWorkspaceTourKey =
       'folio_has_seen_quill_workspace_tour';
+  static const _hasAcceptedQuillGlobalScopeKey =
+      'folio_has_accepted_quill_global_scope';
+  static const _hasCompletedQuillSetupKey = 'folio_has_completed_quill_setup';
   static const _updateReleaseChannelKey = 'folio_update_release_channel';
   static const _betaBannerDismissedKey = 'folio_beta_banner_dismissed';
   static const _inAppShortcutsKey = 'folio_in_app_shortcuts_json';
@@ -147,6 +150,8 @@ class AppSettings extends ChangeNotifier {
   final Map<AiProvider, List<String>> _cachedAiModelsByProvider = {};
   bool _hasSeenQuillIntro = false;
   bool _hasSeenQuillWorkspaceTour = false;
+  bool _hasAcceptedQuillGlobalScope = false;
+  bool _hasCompletedQuillSetup = false;
   UpdateReleaseChannel _updateReleaseChannel = defaultUpdateReleaseChannel;
   bool _betaBannerDismissed = false;
   Map<FolioInAppShortcut, SingleActivator> _inAppShortcuts =
@@ -177,6 +182,8 @@ class AppSettings extends ChangeNotifier {
   bool get isAiRuntimeEnabled => _aiEnabled;
   bool get hasSeenQuillIntro => _hasSeenQuillIntro;
   bool get hasSeenQuillWorkspaceTour => _hasSeenQuillWorkspaceTour;
+  bool get hasAcceptedQuillGlobalScope => _hasAcceptedQuillGlobalScope;
+  bool get hasCompletedQuillSetup => _hasCompletedQuillSetup;
   String get updaterGithubOwner => defaultUpdaterGithubOwner;
   String get updaterGithubRepo => defaultUpdaterGithubRepo;
   bool get checkUpdatesOnStartup => defaultCheckUpdatesOnStartup;
@@ -237,6 +244,9 @@ class AppSettings extends ChangeNotifier {
     _hasSeenQuillIntro = p.getBool(_hasSeenQuillIntroKey) ?? false;
     _hasSeenQuillWorkspaceTour =
         p.getBool(_hasSeenQuillWorkspaceTourKey) ?? false;
+    _hasAcceptedQuillGlobalScope =
+        p.getBool(_hasAcceptedQuillGlobalScopeKey) ?? false;
+    _hasCompletedQuillSetup = p.getBool(_hasCompletedQuillSetupKey) ?? false;
     _updateReleaseChannel = _parseUpdateReleaseChannel(
       p.getString(_updateReleaseChannelKey),
     );
@@ -569,6 +579,22 @@ class AppSettings extends ChangeNotifier {
     notifyListeners();
     final p = await SharedPreferences.getInstance();
     await p.setBool(_hasSeenQuillWorkspaceTourKey, value);
+  }
+
+  Future<void> setHasAcceptedQuillGlobalScope(bool value) async {
+    if (_hasAcceptedQuillGlobalScope == value) return;
+    _hasAcceptedQuillGlobalScope = value;
+    notifyListeners();
+    final p = await SharedPreferences.getInstance();
+    await p.setBool(_hasAcceptedQuillGlobalScopeKey, value);
+  }
+
+  Future<void> setHasCompletedQuillSetup(bool value) async {
+    if (_hasCompletedQuillSetup == value) return;
+    _hasCompletedQuillSetup = value;
+    notifyListeners();
+    final p = await SharedPreferences.getInstance();
+    await p.setBool(_hasCompletedQuillSetupKey, value);
   }
 
   Future<void> setUpdateReleaseChannel(UpdateReleaseChannel value) async {

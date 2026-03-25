@@ -1,5 +1,8 @@
+import 'dart:io';
+
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:passkeys/exceptions.dart';
 
@@ -8,7 +11,10 @@ import '../../app/folio_in_app_shortcuts.dart';
 import '../../app/widgets/folio_dialog.dart';
 import '../../app/widgets/folio_password_field.dart';
 import 'in_app_shortcut_capture_dialog.dart';
+import '../../crypto/vault_crypto.dart';
 import '../../data/notion_import/notion_importer.dart';
+import '../../data/vault_registry.dart';
+import '../../data/vault_paths.dart';
 import '../../l10n/generated/app_localizations.dart';
 import '../../data/vault_backup.dart';
 import '../../services/ai/ai_service.dart';
@@ -19,6 +25,7 @@ import '../../services/ai/ollama_ai_service.dart';
 import '../../services/updater/github_release_updater.dart';
 import '../../services/updater/update_release_channel.dart';
 import '../../session/vault_session.dart';
+import 'release_readiness.dart';
 
 class SettingsPage extends StatefulWidget {
   const SettingsPage({
@@ -52,6 +59,20 @@ class _SettingsPageState extends State<SettingsPage> {
   bool _checkingUpdates = false;
   bool _detectingAiProvider = false;
   String _installedVersionLabel = '...';
+  bool _releaseStatusBusy = false;
+  ReleaseReadinessSnapshot _releaseSnapshot = const ReleaseReadinessSnapshot(
+    installedVersionLabel: '... ',
+    isSemverValid: false,
+    updateReleaseChannel: UpdateReleaseChannel.stable,
+    activeVaultId: '-',
+    activeVaultPath: '-',
+    isVaultUnlocked: false,
+    isVaultEncrypted: false,
+    isAiEnabled: false,
+    isAiEndpointPolicyValid: true,
+    aiSummary: 'IA desactivada',
+    checks: const <ReleaseCheckItem>[],
+  );
 
   @override
   void initState() {
@@ -66,6 +87,7 @@ class _SettingsPageState extends State<SettingsPage> {
     _availableModels = _app.cachedAiModelsFor(_app.aiProvider);
     _refreshSecurityFlags();
     _loadInstalledVersionInfo();
+    _refreshReleaseReadiness();
   }
 
   @override
@@ -110,12 +132,46 @@ class _SettingsPageState extends State<SettingsPage> {
       setState(() {
         _installedVersionLabel = '${info.version}+${info.buildNumber}';
       });
+      await _refreshReleaseReadiness();
     } catch (_) {
       if (!mounted) return;
       setState(() {
         _installedVersionLabel = 'desconocida';
       });
+      await _refreshReleaseReadiness();
     }
+  }
+
+  Future<void> _refreshReleaseReadiness() async {
+    if (mounted) setState(() => _releaseStatusBusy = true);
+
+    final vaultId = _s.activeVaultId;
+    var vaultPath = '-';
+    try {
+      final dir = await VaultPaths.vaultDirectory();
+      vaultPath = dir.path;
+    } catch (_) {
+      vaultPath = '-';
+    }
+
+    final snapshot = evaluateReleaseReadiness(
+      installedVersionLabel: _installedVersionLabel,
+      updateReleaseChannel: _app.updateReleaseChannel,
+      activeVaultId: vaultId,
+      activeVaultPath: vaultPath,
+      isVaultUnlocked: _s.state == VaultFlowState.unlocked,
+      isVaultEncrypted: _s.vaultUsesEncryption,
+      isAiEnabled: _app.aiEnabled,
+      aiBaseUrl: _app.aiBaseUrl,
+      aiEndpointMode: _app.aiEndpointMode,
+      aiRemoteEndpointConfirmed: _app.aiRemoteEndpointConfirmed,
+    );
+
+    if (!mounted) return;
+    setState(() {
+      _releaseSnapshot = snapshot;
+      _releaseStatusBusy = false;
+    });
   }
 
   void _snack(String msg) {
@@ -123,9 +179,188 @@ class _SettingsPageState extends State<SettingsPage> {
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
   }
 
+  Future<void> _exportReleaseReadinessReport() async {
+    final destination = await FilePicker.platform.saveFile(
+      dialogTitle: 'Guardar reporte de release readiness',
+      fileName: buildReleaseReadinessFileName(DateTime.now()),
+      type: FileType.custom,
+      allowedExtensions: const ['txt'],
+    );
+    if (destination == null || destination.trim().isEmpty) return;
+    try {
+      await File(destination).writeAsString(_releaseSnapshot.toReportText());
+      if (!mounted) return;
+      _snack('Reporte guardado correctamente.');
+    } catch (e) {
+      if (!mounted) return;
+      _snack('No se pudo guardar el reporte: $e');
+    }
+  }
+
   Future<void> _revokeIntegrationApp(String appId) async {
     await _app.revokeIntegrationApp(appId);
     _snack('App revocada: $appId');
+  }
+
+  Future<bool> _vaultRequiresPassword(String vaultId) async {
+    final dir = await VaultPaths.vaultDirectoryForId(vaultId);
+    final modePath = File(
+      '${dir.path}${Platform.pathSeparator}${VaultPaths.vaultModeFile}',
+    );
+    if (!modePath.existsSync()) return true;
+    final raw = await modePath.readAsString();
+    return raw.trim().toLowerCase() != 'plain';
+  }
+
+  Future<bool> _verifyVaultPasswordForDelete(String vaultId) async {
+    final l10n = AppLocalizations.of(context);
+    final dir = await VaultPaths.vaultDirectoryForId(vaultId);
+    final keysPath = File(
+      '${dir.path}${Platform.pathSeparator}${VaultPaths.wrappedDekFile}',
+    );
+    if (!keysPath.existsSync()) return true;
+
+    final controller = TextEditingController();
+    var obscure = true;
+    String? password;
+    while (mounted) {
+      password = await showDialog<String>(
+        context: context,
+        barrierDismissible: false,
+        builder: (ctx) => StatefulBuilder(
+          builder: (ctx, setDialogState) => FolioDialog(
+            title: Text(l10n.confirmIdentity),
+            content: FolioPasswordField(
+              controller: controller,
+              obscureText: obscure,
+              autofocus: true,
+              labelText: l10n.currentPasswordLabel,
+              showPasswordTooltip: l10n.showPassword,
+              hidePasswordTooltip: l10n.hidePassword,
+              onToggleObscure: () {
+                setDialogState(() => obscure = !obscure);
+              },
+              onSubmitted: (_) => Navigator.pop(ctx, controller.text.trim()),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(ctx),
+                child: Text(l10n.cancel),
+              ),
+              FilledButton(
+                onPressed: () => Navigator.pop(ctx, controller.text.trim()),
+                child: Text(l10n.verifyAndDelete),
+              ),
+            ],
+          ),
+        ),
+      );
+      if (password == null) {
+        controller.dispose();
+        return false;
+      }
+      if (password.trim().isEmpty) {
+        _snack(l10n.incorrectPasswordError);
+        continue;
+      }
+      try {
+        final wrapped = await keysPath.readAsBytes();
+        await VaultCrypto.unwrapDek(
+          wrapped: wrapped,
+          password: password.trim(),
+        );
+        controller.dispose();
+        return true;
+      } catch (_) {
+        _snack(l10n.incorrectPasswordError);
+      }
+    }
+    controller.dispose();
+    return false;
+  }
+
+  Future<void> _deleteOtherVault() async {
+    final l10n = AppLocalizations.of(context);
+    final active = _s.activeVaultId;
+    final vaults = await _s.listVaultEntries();
+    final others = vaults.where((e) => e.id != active).toList(growable: false);
+    if (others.isEmpty) {
+      _snack(l10n.noOtherVaultsSnack);
+      return;
+    }
+
+    VaultEntry? picked;
+    await showDialog<void>(
+      context: context,
+      builder: (ctx) => FolioDialog(
+        title: Text(l10n.deleteOtherVaultTitle),
+        content: SizedBox(
+          width: double.maxFinite,
+          child: ListView(
+            shrinkWrap: true,
+            children: others
+                .map(
+                  (e) => ListTile(
+                    title: Text(e.displayName),
+                    subtitle: Text(
+                      e.id,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    onTap: () {
+                      picked = e;
+                      Navigator.pop(ctx);
+                    },
+                  ),
+                )
+                .toList(growable: false),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: Text(l10n.cancel),
+          ),
+        ],
+      ),
+    );
+    if (picked == null || !mounted) return;
+
+    final target = picked!;
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => FolioDialog(
+        title: Text(l10n.deleteVaultConfirmTitle),
+        content: Text(l10n.deleteVaultConfirmBody(target.displayName)),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: Text(l10n.cancel),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: Text(l10n.delete),
+          ),
+        ],
+      ),
+    );
+    if (confirm != true || !mounted) return;
+
+    final requiresPassword = await _vaultRequiresPassword(target.id);
+    if (!mounted) return;
+    if (requiresPassword) {
+      final verified = await _verifyVaultPasswordForDelete(target.id);
+      if (!verified || !mounted) return;
+    }
+
+    try {
+      await _s.deleteVaultById(target.id);
+      if (!mounted) return;
+      _snack(l10n.vaultDeletedSnack);
+    } catch (e) {
+      if (!mounted) return;
+      _snack('$e');
+    }
   }
 
   Future<void> _openEncryptPlainVaultDialog() async {
@@ -183,6 +418,7 @@ class _SettingsPageState extends State<SettingsPage> {
       await _app.setAiContextWindowTokens(ctxWin);
     }
     await _confirmRemoteEndpointIfNeeded();
+    await _refreshReleaseReadiness();
   }
 
   Future<bool> _confirmAiBetaEnable() async {
@@ -205,6 +441,33 @@ class _SettingsPageState extends State<SettingsPage> {
       ),
     );
     return go == true;
+  }
+
+  Future<bool> _confirmQuillGlobalScopeIfNeeded() async {
+    if (_app.hasAcceptedQuillGlobalScope) return true;
+    final l10n = AppLocalizations.of(context);
+    final accepted = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => FolioDialog(
+        title: Text(l10n.quillGlobalScopeNoticeTitle),
+        content: Text(l10n.quillGlobalScopeNoticeBody),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: Text(l10n.cancel),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: Text(l10n.quillGlobalScopeNoticeConfirm),
+          ),
+        ],
+      ),
+    );
+    if (accepted == true) {
+      await _app.setHasAcceptedQuillGlobalScope(true);
+      return true;
+    }
+    return false;
   }
 
   String _providerLabel(AiProvider provider, AppLocalizations l10n) {
@@ -543,10 +806,8 @@ class _SettingsPageState extends State<SettingsPage> {
         session: _s,
         quickEnabled: _quickEnabled,
         passkeyRegistered: _passkeyRegistered,
-        title: const Text('Importar desde Notion'),
-        body: const Text(
-          'Importa un ZIP exportado por Notion. Puedes añadirlo al cofre actual o crear un cofre nuevo.',
-        ),
+        title: Text(l10n.importNotionDialogTitle),
+        body: Text(l10n.importNotionDialogBody),
         passwordButtonLabel: l10n.verifyAndContinue,
       ),
     );
@@ -572,14 +833,9 @@ class _SettingsPageState extends State<SettingsPage> {
 
     try {
       if (mode == _NotionImportMode.currentVault) {
-        final report = await _s.importNotionIntoCurrentVault(fp);
+        await _s.importNotionIntoCurrentVault(fp);
         if (!mounted) return;
-        final kind = report.format == NotionExportFormat.markdown
-            ? 'Markdown'
-            : 'HTML';
-        _snack(
-          'Importado desde Notion ($kind): ${report.pages.length} paginas.',
-        );
+        _snack(l10n.importNotionSuccessCurrent);
       } else {
         final newPassword = await showDialog<String>(
           context: context,
@@ -590,15 +846,15 @@ class _SettingsPageState extends State<SettingsPage> {
         await _s.importNotionAsNewVault(
           fp,
           masterPassword: newPassword,
-          displayName: 'Notion importado',
+          displayName: l10n.importNotionDefaultVaultName,
         );
         if (!mounted) return;
-        _snack('Cofre importado desde Notion creado correctamente.');
+        _snack(l10n.importNotionSuccessNew);
       }
     } on NotionImportException catch (e) {
-      if (mounted) _snack('No se pudo importar Notion: $e');
+      if (mounted) _snack(l10n.importNotionError('$e'));
     } catch (e) {
-      if (mounted) _snack('No se pudo importar Notion: $e');
+      if (mounted) _snack(l10n.importNotionError('$e'));
     }
   }
 
@@ -623,20 +879,22 @@ class _SettingsPageState extends State<SettingsPage> {
     );
     if (go != true || !mounted) return;
 
-    final verified = await showDialog<bool>(
-      context: context,
-      barrierDismissible: false,
-      builder: (ctx) => _VaultIdentityVerifyDialog(
-        session: _s,
-        quickEnabled: _quickEnabled,
-        passkeyRegistered: _passkeyRegistered,
-        title: Text(l10n.confirmIdentity),
-        body: Text(l10n.wipeIdentityBody),
-        passwordButtonLabel: l10n.verifyAndDelete,
-      ),
-    );
+    if (_s.vaultUsesEncryption) {
+      final verified = await showDialog<bool>(
+        context: context,
+        barrierDismissible: false,
+        builder: (ctx) => _VaultIdentityVerifyDialog(
+          session: _s,
+          quickEnabled: _quickEnabled,
+          passkeyRegistered: _passkeyRegistered,
+          title: Text(l10n.confirmIdentity),
+          body: Text(l10n.wipeIdentityBody),
+          passwordButtonLabel: l10n.verifyAndDelete,
+        ),
+      );
 
-    if (verified != true || !context.mounted) return;
+      if (verified != true || !context.mounted) return;
+    }
 
     try {
       await _s.wipeVaultAndReset();
@@ -1202,7 +1460,7 @@ class _SettingsPageState extends State<SettingsPage> {
                         if (_app.isAiAvailable) ...[
                           _SectionHeader(
                             key: _sectionKeys[4],
-                            title: 'IA',
+                            title: l10n.ai,
                             scheme: scheme,
                           ),
                           Card(
@@ -1213,7 +1471,7 @@ class _SettingsPageState extends State<SettingsPage> {
                                   secondary: const Icon(
                                     Icons.smart_toy_outlined,
                                   ),
-                                  title: const Text('Habilitar IA'),
+                                  title: Text(l10n.aiEnableToggleTitle),
                                   subtitle: Text(
                                     _app.aiEnabled
                                         ? l10n.active
@@ -1227,9 +1485,20 @@ class _SettingsPageState extends State<SettingsPage> {
                                             final confirmed =
                                                 await _confirmAiBetaEnable();
                                             if (!confirmed) return;
-                                            await _app.setAiEnabled(true);
+                                            final acceptedScope =
+                                                await _confirmQuillGlobalScopeIfNeeded();
+                                            if (!acceptedScope) return;
+                                            if (!_app.hasCompletedQuillSetup) {
+                                              final configured =
+                                                  await _autoDetectAndConfigureAiProvider();
+                                              if (!configured) return;
+                                              await _app
+                                                  .setHasCompletedQuillSetup(
+                                                    true,
+                                                  );
+                                            }
                                             await _saveAiFields();
-                                            await _autoDetectAndConfigureAiProvider();
+                                            await _app.setAiEnabled(true);
                                             return;
                                           }
                                           await _saveAiFields();
@@ -1321,7 +1590,7 @@ class _SettingsPageState extends State<SettingsPage> {
                                 const Divider(height: 1),
                                 ListTile(
                                   leading: const Icon(Icons.hub_outlined),
-                                  title: const Text('Proveedor'),
+                                  title: Text(l10n.aiProviderLabel),
                                   trailing: DropdownButton<AiProvider>(
                                     value: _app.aiProvider,
                                     underline: const SizedBox.shrink(),
@@ -1536,6 +1805,35 @@ class _SettingsPageState extends State<SettingsPage> {
                                 onTap: _s.state == VaultFlowState.unlocked
                                     ? _openImportNotionFlow
                                     : null,
+                              ),
+                              const Divider(height: 1),
+                              Padding(
+                                padding: const EdgeInsets.all(16.0),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      l10n.notionExportGuideTitle,
+                                      style: Theme.of(context)
+                                          .textTheme
+                                          .titleSmall
+                                          ?.copyWith(
+                                            fontWeight: FontWeight.w700,
+                                          ),
+                                    ),
+                                    const SizedBox(height: 8),
+                                    Text(
+                                      l10n.notionExportGuideBody,
+                                      style: Theme.of(context)
+                                          .textTheme
+                                          .bodySmall
+                                          ?.copyWith(
+                                            color: scheme.onSurfaceVariant,
+                                            height: 1.4,
+                                          ),
+                                    ),
+                                  ],
+                                ),
                               ),
                             ],
                           ),
@@ -1785,6 +2083,15 @@ class _SettingsPageState extends State<SettingsPage> {
                             onTap: _openWipeFlow,
                           ),
                         ),
+                        Card(
+                          margin: const EdgeInsets.only(bottom: 24),
+                          child: ListTile(
+                            leading: const Icon(Icons.delete_outline),
+                            title: Text(l10n.deleteOtherVault),
+                            subtitle: Text(l10n.deleteOtherVaultTitle),
+                            onTap: _deleteOtherVault,
+                          ),
+                        ),
                         const SizedBox(height: 24),
                       ],
                     ),
@@ -1934,16 +2241,15 @@ class _NewVaultPasswordDialogState extends State<_NewVaultPasswordDialog> {
   }
 
   void _submit() {
+    final l10n = AppLocalizations.of(context);
     final a = _password.text.trim();
     final b = _confirm.text.trim();
     if (a.length < 10) {
-      setState(
-        () => _error = 'La contrasena debe tener al menos 10 caracteres.',
-      );
+      setState(() => _error = l10n.minCharactersError(10));
       return;
     }
     if (a != b) {
-      setState(() => _error = 'Las contrasenas no coinciden.');
+      setState(() => _error = l10n.passwordMismatchError);
       return;
     }
     setState(() => _error = null);
@@ -2440,6 +2746,86 @@ class _AiSetupWizardDialogState extends State<_AiSetupWizardDialog> {
           child: Text(widget.retryLabel),
         ),
       ],
+    );
+  }
+}
+
+class _ReleaseCheckRow extends StatelessWidget {
+  const _ReleaseCheckRow({
+    required this.label,
+    required this.ok,
+    required this.severity,
+    this.details,
+  });
+
+  final String label;
+  final bool ok;
+  final ReleaseCheckSeverity severity;
+  final String? details;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final color = ok
+        ? Colors.green
+        : (severity == ReleaseCheckSeverity.blocker
+              ? scheme.error
+              : Colors.orange);
+    final tagText = severity == ReleaseCheckSeverity.blocker
+        ? 'Bloqueador'
+        : 'Advertencia';
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: const EdgeInsets.only(top: 2),
+            child: Icon(
+              ok ? Icons.check_circle_rounded : Icons.error_outline_rounded,
+              size: 18,
+              color: color,
+            ),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Expanded(child: Text(label)),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 2,
+                      ),
+                      decoration: BoxDecoration(
+                        color: color.withValues(alpha: 0.12),
+                        borderRadius: BorderRadius.circular(999),
+                      ),
+                      child: Text(
+                        tagText,
+                        style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                          color: color,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                if (details != null && details!.trim().isNotEmpty)
+                  Text(
+                    details!,
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

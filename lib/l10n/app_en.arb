@@ -337,6 +337,8 @@
   "aiBetaEnableBody": "This feature is currently in BETA and may fail or behave unexpectedly.\n\nDo you want to enable it anyway?",
   "aiBetaEnableConfirm": "Enable BETA",
   "ai": "AI",
+  "aiEnableToggleTitle": "Enable AI",
+  "aiProviderLabel": "Provider",
   "aiProviderNone": "None",
   "aiEndpoint": "Endpoint",
   "aiModel": "Model",
@@ -360,6 +362,9 @@
   "aiSetupLmStudioTitle": "Step 2: Install LM Studio",
   "aiSetupLmStudioBody": "Install LM Studio, start its local server (OpenAI-compatible), and verify it responds at http://127.0.0.1:1234.",
   "aiSetupOpenSettingsHint": "When one provider is operational, press Retry to auto-configure it.",
+  "quillGlobalScopeNoticeTitle": "Quill works across all vaults",
+  "quillGlobalScopeNoticeBody": "Quill is an app-level setting. If you enable it now, it will be available for any vault on this installation, not just the current one.",
+  "quillGlobalScopeNoticeConfirm": "I understand",
   "searchByNameOrShortcut": "Search by name or shortcut…",
   "search": "Search",
   "open": "Open",
@@ -394,11 +399,14 @@
   ,"importNotionSelectTargetBody": "Choose whether to import the Notion export into your current vault or create a new vault from it."
   ,"importNotionTargetCurrent": "Current vault"
   ,"importNotionTargetNew": "New vault"
+  ,"importNotionDefaultVaultName": "Imported from Notion"
   ,"importNotionNewVaultPasswordTitle": "Password for new vault"
   ,"importNotionSuccessCurrent": "Notion imported into current vault."
   ,"importNotionSuccessNew": "New vault imported from Notion."
   ,"importNotionError": "Could not import Notion: {error}"
   ,"@importNotionError": {"placeholders": {"error": {}}}
+  ,"notionExportGuideTitle": "How to export from Notion"
+  ,"notionExportGuideBody": "In Notion, open Settings -> Export all workspace content, choose HTML or Markdown, and download the ZIP file. Then use this import option in Folio."
   ,"appBetaBannerMessage": "You are using a beta build. You may run into bugs; back up your vault regularly."
   ,"appBetaBannerDismiss": "Got it"
   ,"integrations": "Integrations"

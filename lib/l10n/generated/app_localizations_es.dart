@@ -1021,6 +1021,12 @@ class AppLocalizationsEs extends AppLocalizations {
   String get ai => 'IA';
 
   @override
+  String get aiEnableToggleTitle => 'Activar IA';
+
+  @override
+  String get aiProviderLabel => 'Proveedor';
+
+  @override
   String get aiProviderNone => 'Ninguno';
 
   @override
@@ -1094,6 +1100,17 @@ class AppLocalizationsEs extends AppLocalizations {
   @override
   String get aiSetupOpenSettingsHint =>
       'Cuando uno de los proveedores esté operativo, pulsa Reintentar para autoconfigurarlo.';
+
+  @override
+  String get quillGlobalScopeNoticeTitle =>
+      'Quill funciona en todos los cofres';
+
+  @override
+  String get quillGlobalScopeNoticeBody =>
+      'Quill es un ajuste global de la app. Si lo activas ahora, quedará disponible para cualquier cofre en esta instalación, no solo para el actual.';
+
+  @override
+  String get quillGlobalScopeNoticeConfirm => 'Entiendo';
 
   @override
   String get searchByNameOrShortcut => 'Buscar por nombre o atajo…';
@@ -1200,6 +1217,9 @@ class AppLocalizationsEs extends AppLocalizations {
   String get importNotionTargetNew => 'Cofre nuevo';
 
   @override
+  String get importNotionDefaultVaultName => 'Importado desde Notion';
+
+  @override
   String get importNotionNewVaultPasswordTitle => 'Contraseña para cofre nuevo';
 
   @override
@@ -1213,6 +1233,13 @@ class AppLocalizationsEs extends AppLocalizations {
   String importNotionError(Object error) {
     return 'No se pudo importar Notion: $error';
   }
+
+  @override
+  String get notionExportGuideTitle => 'Como exportar desde Notion';
+
+  @override
+  String get notionExportGuideBody =>
+      'En Notion, abre Settings -> Export all workspace content, elige HTML o Markdown y descarga el archivo ZIP. Luego usa esta opcion de importacion en Folio.';
 
   @override
   String get appBetaBannerMessage =>

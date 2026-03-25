@@ -26,15 +26,20 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
   final _password = TextEditingController();
   final _confirm = TextEditingController();
   final _backupPassword = TextEditingController();
+  final _notionPassword = TextEditingController();
+  final _notionConfirm = TextEditingController();
 
   var _page = 0;
-  var _importMode = false;
+  var _mode = _OnboardingMode.create;
   String? _backupZipPath;
+  String? _notionZipPath;
   String? _error;
   var _busy = false;
   var _obscurePassword = true;
   var _obscureConfirm = true;
   var _obscureBackupPassword = true;
+  var _obscureNotionPassword = true;
+  var _obscureNotionConfirm = true;
   var _createWithoutEncryption = false;
 
   static const _minLen = 10;
@@ -49,12 +54,15 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
     _password.dispose();
     _confirm.dispose();
     _backupPassword.dispose();
+    _notionPassword.dispose();
+    _notionConfirm.dispose();
     super.dispose();
   }
 
   String get _stepLabel {
     final l10n = AppLocalizations.of(context);
-    if (_importMode) {
+    if (_mode == _OnboardingMode.backupImport ||
+        _mode == _OnboardingMode.notionImport) {
       return l10n.stepOfTotal(_page + 1, 2);
     }
     return l10n.stepOfTotal(_page + 1, _shouldShowQuillIntro ? 4 : 3);
@@ -67,17 +75,28 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
   void _chooseCreateNew() {
     setState(() {
       _error = null;
-      _importMode = false;
+      _mode = _OnboardingMode.create;
       _createWithoutEncryption = false;
     });
     _goPage(1);
   }
 
-  void _chooseImport() {
+  void _chooseImportBackup() {
     setState(() {
       _error = null;
-      _importMode = true;
+      _mode = _OnboardingMode.backupImport;
       _backupZipPath = null;
+    });
+    _goPage(1);
+  }
+
+  void _chooseImportNotion() {
+    setState(() {
+      _error = null;
+      _mode = _OnboardingMode.notionImport;
+      _notionZipPath = null;
+      _notionPassword.clear();
+      _notionConfirm.clear();
     });
     _goPage(1);
   }
@@ -158,6 +177,61 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
     }
   }
 
+  Future<void> _pickNotionFile() async {
+    setState(() => _error = null);
+    final pick = await FilePicker.platform.pickFiles(
+      type: FileType.custom,
+      allowedExtensions: const ['zip'],
+      allowMultiple: false,
+    );
+    if (!mounted) return;
+    final path = pick?.files.single.path;
+    if (path != null) {
+      setState(() => _notionZipPath = path);
+    }
+  }
+
+  Future<void> _finishNotionImport() async {
+    final l10n = AppLocalizations.of(context);
+    if (_notionZipPath == null) {
+      setState(() => _error = l10n.chooseZipError);
+      return;
+    }
+    final pwd = _notionPassword.text;
+    final confirm = _notionConfirm.text;
+    if (pwd.length < _minLen) {
+      setState(() => _error = l10n.minCharactersError(_minLen));
+      return;
+    }
+    if (_passwordStrengthFor(pwd) != _PasswordStrength.strong) {
+      setState(() => _error = l10n.passwordMustBeStrongError);
+      return;
+    }
+    if (pwd != confirm) {
+      setState(() => _error = l10n.passwordMismatchError);
+      return;
+    }
+    setState(() {
+      _busy = true;
+      _error = null;
+    });
+    try {
+      await widget.session.importNotionAsNewVault(
+        _notionZipPath!,
+        masterPassword: pwd,
+        displayName: l10n.importNotionDefaultVaultName,
+      );
+      await widget.session.unlockWithPassword(pwd);
+      await widget.appSettings.setHasSeenQuillIntro(true);
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _busy = false;
+        _error = l10n.importNotionError('$e');
+      });
+    }
+  }
+
   Future<void> _finishCreate() async {
     setState(() {
       _busy = true;
@@ -225,7 +299,7 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
                   AnimatedSwitcher(
                     duration: const Duration(milliseconds: 300),
                     child: KeyedSubtree(
-                      key: ValueKey('step_$_importMode$_page'),
+                      key: ValueKey('step_$_mode$_page'),
                       child: _buildCurrentStep(context),
                     ),
                   ),
@@ -306,7 +380,8 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
                               borderRadius: BorderRadius.circular(24),
                             ),
                             child: Icon(
-                              _importMode
+                              _mode == _OnboardingMode.backupImport ||
+                                      _mode == _OnboardingMode.notionImport
                                   ? Icons.archive_outlined
                                   : Icons.shield_outlined,
                               size: 34,
@@ -315,9 +390,7 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
                           ),
                           const SizedBox(height: FolioSpace.xl),
                           Text(
-                            _importMode
-                                ? l10n.importBackupTitle
-                                : l10n.welcomeTitle,
+                            _leftPanelTitle(l10n),
                             style: Theme.of(context).textTheme.displaySmall
                                 ?.copyWith(
                                   fontWeight: FontWeight.w700,
@@ -328,9 +401,7 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
                           ConstrainedBox(
                             constraints: const BoxConstraints(maxWidth: 560),
                             child: Text(
-                              _importMode
-                                  ? l10n.importBackupBody
-                                  : l10n.welcomeBody,
+                              _leftPanelBody(l10n),
                               style: Theme.of(context).textTheme.headlineSmall
                                   ?.copyWith(
                                     color: scheme.onSurfaceVariant,
@@ -358,15 +429,36 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
   }
 
   Widget _buildCurrentStep(BuildContext context) {
-    if (_importMode) {
-      if (_page == 0) return _stepWelcome(context);
+    if (_page == 0) return _stepWelcome(context);
+    if (_mode == _OnboardingMode.backupImport)
       return _stepImportBackup(context);
-    } else {
-      if (_page == 0) return _stepWelcome(context);
-      if (_page == 1) return _stepPassword(context);
-      if (!_shouldShowQuillIntro) return _stepReady(context);
-      if (_page == 2) return _stepReady(context);
-      return _stepQuillIntro(context);
+    if (_mode == _OnboardingMode.notionImport)
+      return _stepImportNotion(context);
+    if (_page == 1) return _stepPassword(context);
+    if (!_shouldShowQuillIntro) return _stepReady(context);
+    if (_page == 2) return _stepReady(context);
+    return _stepQuillIntro(context);
+  }
+
+  String _leftPanelTitle(AppLocalizations l10n) {
+    switch (_mode) {
+      case _OnboardingMode.backupImport:
+        return l10n.importBackupTitle;
+      case _OnboardingMode.notionImport:
+        return l10n.importNotionTitle;
+      case _OnboardingMode.create:
+        return l10n.welcomeTitle;
+    }
+  }
+
+  String _leftPanelBody(AppLocalizations l10n) {
+    switch (_mode) {
+      case _OnboardingMode.backupImport:
+        return l10n.importBackupBody;
+      case _OnboardingMode.notionImport:
+        return l10n.importNotionDialogBody;
+      case _OnboardingMode.create:
+        return l10n.welcomeBody;
     }
   }
 
@@ -467,7 +559,7 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
           onPressed: () {
             setState(() {
               _error = null;
-              _importMode = false;
+              _mode = _OnboardingMode.create;
               _createWithoutEncryption = true;
             });
             _goPage(1);
@@ -484,8 +576,19 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
               borderRadius: BorderRadius.circular(FolioRadius.md),
             ),
           ),
-          onPressed: _chooseImport,
+          onPressed: _chooseImportBackup,
           child: Text(AppLocalizations.of(context).importBackupZip),
+        ),
+        const SizedBox(height: FolioSpace.md),
+        OutlinedButton(
+          style: OutlinedButton.styleFrom(
+            minimumSize: const Size.fromHeight(56),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(FolioRadius.md),
+            ),
+          ),
+          onPressed: _chooseImportNotion,
+          child: Text(AppLocalizations.of(context).importNotionTitle),
         ),
       ],
     );
@@ -685,6 +788,7 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
               onPressed: () {
                 setState(() {
                   _page = 0;
+                  _mode = _OnboardingMode.create;
                 });
               },
               child: Text(AppLocalizations.of(context).back),
@@ -737,6 +841,7 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
               onPressed: () {
                 setState(() {
                   _page = 1;
+                  _mode = _OnboardingMode.create;
                 });
               },
               child: Text(AppLocalizations.of(context).back),
@@ -913,7 +1018,158 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
       ],
     );
   }
+
+  Widget _stepImportNotion(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        const SizedBox(height: FolioSpace.xl),
+        Icon(
+          Icons.note_alt_outlined,
+          size: 64,
+          color: theme.colorScheme.primary,
+        ),
+        const SizedBox(height: FolioSpace.lg),
+        Text(
+          l10n.importNotionDialogTitle,
+          style: theme.textTheme.headlineMedium?.copyWith(
+            fontWeight: FontWeight.w700,
+          ),
+          textAlign: TextAlign.center,
+        ),
+        const SizedBox(height: FolioSpace.md),
+        Text(
+          l10n.importNotionDialogBody,
+          style: theme.textTheme.bodyLarge?.copyWith(
+            height: 1.45,
+            color: scheme.onSurfaceVariant,
+          ),
+          textAlign: TextAlign.center,
+        ),
+        const SizedBox(height: FolioSpace.md),
+        Container(
+          padding: const EdgeInsets.all(FolioSpace.md),
+          decoration: BoxDecoration(
+            color: scheme.surfaceContainerLow,
+            borderRadius: BorderRadius.circular(FolioRadius.lg),
+            border: Border.all(
+              color: scheme.outlineVariant.withValues(alpha: FolioAlpha.border),
+            ),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                l10n.notionExportGuideTitle,
+                style: theme.textTheme.titleSmall?.copyWith(
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              const SizedBox(height: FolioSpace.xs),
+              Text(
+                l10n.notionExportGuideBody,
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: scheme.onSurfaceVariant,
+                  height: 1.35,
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: FolioSpace.lg),
+        OutlinedButton.icon(
+          style: OutlinedButton.styleFrom(
+            minimumSize: const Size.fromHeight(56),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(FolioRadius.md),
+            ),
+          ),
+          onPressed: _busy ? null : _pickNotionFile,
+          icon: const Icon(Icons.folder_open_outlined),
+          label: Text(
+            _notionZipPath == null ? l10n.chooseZipFile : l10n.changeFile,
+          ),
+        ),
+        if (_notionZipPath != null) ...[
+          const SizedBox(height: FolioSpace.sm),
+          Text(
+            _notionZipPath!,
+            style: theme.textTheme.bodySmall,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            textAlign: TextAlign.center,
+          ),
+        ],
+        const SizedBox(height: FolioSpace.md),
+        FolioPasswordField(
+          controller: _notionPassword,
+          obscureText: _obscureNotionPassword,
+          enabled: !_busy,
+          labelText: l10n.passwordLabel,
+          showPasswordTooltip: l10n.showPassword,
+          hidePasswordTooltip: l10n.hidePassword,
+          onToggleObscure: () {
+            setState(() => _obscureNotionPassword = !_obscureNotionPassword);
+          },
+          textInputAction: TextInputAction.next,
+        ),
+        const SizedBox(height: FolioSpace.sm),
+        FolioPasswordField(
+          controller: _notionConfirm,
+          obscureText: _obscureNotionConfirm,
+          enabled: !_busy,
+          labelText: l10n.confirmPasswordLabel,
+          showPasswordTooltip: l10n.showPassword,
+          hidePasswordTooltip: l10n.hidePassword,
+          onToggleObscure: () {
+            setState(() => _obscureNotionConfirm = !_obscureNotionConfirm);
+          },
+          onSubmitted: (_) {
+            if (!_busy) _finishNotionImport();
+          },
+        ),
+        const SizedBox(height: FolioSpace.xl),
+        Row(
+          children: [
+            TextButton(
+              onPressed: _busy
+                  ? null
+                  : () {
+                      setState(() {
+                        _page = 0;
+                        _mode = _OnboardingMode.create;
+                      });
+                    },
+              child: Text(l10n.back),
+            ),
+            const SizedBox(width: FolioSpace.md),
+            FilledButton(
+              style: FilledButton.styleFrom(
+                minimumSize: const Size(120, 48),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(FolioRadius.md),
+                ),
+              ),
+              onPressed: _busy ? null : _finishNotionImport,
+              child: _busy
+                  ? const SizedBox(
+                      width: 22,
+                      height: 22,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : Text(l10n.importAction),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
 }
+
+enum _OnboardingMode { create, backupImport, notionImport }
 
 enum _PasswordStrength { veryWeak, weak, fair, strong }
 

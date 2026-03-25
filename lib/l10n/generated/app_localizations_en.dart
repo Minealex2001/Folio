@@ -1018,6 +1018,12 @@ class AppLocalizationsEn extends AppLocalizations {
   String get ai => 'AI';
 
   @override
+  String get aiEnableToggleTitle => 'Enable AI';
+
+  @override
+  String get aiProviderLabel => 'Provider';
+
+  @override
   String get aiProviderNone => 'None';
 
   @override
@@ -1091,6 +1097,16 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get aiSetupOpenSettingsHint =>
       'When one provider is operational, press Retry to auto-configure it.';
+
+  @override
+  String get quillGlobalScopeNoticeTitle => 'Quill works across all vaults';
+
+  @override
+  String get quillGlobalScopeNoticeBody =>
+      'Quill is an app-level setting. If you enable it now, it will be available for any vault on this installation, not just the current one.';
+
+  @override
+  String get quillGlobalScopeNoticeConfirm => 'I understand';
 
   @override
   String get searchByNameOrShortcut => 'Search by name or shortcut…';
@@ -1197,6 +1213,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get importNotionTargetNew => 'New vault';
 
   @override
+  String get importNotionDefaultVaultName => 'Imported from Notion';
+
+  @override
   String get importNotionNewVaultPasswordTitle => 'Password for new vault';
 
   @override
@@ -1210,6 +1229,13 @@ class AppLocalizationsEn extends AppLocalizations {
   String importNotionError(Object error) {
     return 'Could not import Notion: $error';
   }
+
+  @override
+  String get notionExportGuideTitle => 'How to export from Notion';
+
+  @override
+  String get notionExportGuideBody =>
+      'In Notion, open Settings -> Export all workspace content, choose HTML or Markdown, and download the ZIP file. Then use this import option in Folio.';
 
   @override
   String get appBetaBannerMessage =>

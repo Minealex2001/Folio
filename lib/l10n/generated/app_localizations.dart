@@ -1934,6 +1934,18 @@ abstract class AppLocalizations {
   /// **'IA'**
   String get ai;
 
+  /// No description provided for @aiEnableToggleTitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Activar IA'**
+  String get aiEnableToggleTitle;
+
+  /// No description provided for @aiProviderLabel.
+  ///
+  /// In es, this message translates to:
+  /// **'Proveedor'**
+  String get aiProviderLabel;
+
   /// No description provided for @aiProviderNone.
   ///
   /// In es, this message translates to:
@@ -2065,6 +2077,24 @@ abstract class AppLocalizations {
   /// In es, this message translates to:
   /// **'Cuando uno de los proveedores esté operativo, pulsa Reintentar para autoconfigurarlo.'**
   String get aiSetupOpenSettingsHint;
+
+  /// No description provided for @quillGlobalScopeNoticeTitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Quill funciona en todos los cofres'**
+  String get quillGlobalScopeNoticeTitle;
+
+  /// No description provided for @quillGlobalScopeNoticeBody.
+  ///
+  /// In es, this message translates to:
+  /// **'Quill es un ajuste global de la app. Si lo activas ahora, quedará disponible para cualquier cofre en esta instalación, no solo para el actual.'**
+  String get quillGlobalScopeNoticeBody;
+
+  /// No description provided for @quillGlobalScopeNoticeConfirm.
+  ///
+  /// In es, this message translates to:
+  /// **'Entiendo'**
+  String get quillGlobalScopeNoticeConfirm;
 
   /// No description provided for @searchByNameOrShortcut.
   ///
@@ -2264,6 +2294,12 @@ abstract class AppLocalizations {
   /// **'Cofre nuevo'**
   String get importNotionTargetNew;
 
+  /// No description provided for @importNotionDefaultVaultName.
+  ///
+  /// In es, this message translates to:
+  /// **'Importado desde Notion'**
+  String get importNotionDefaultVaultName;
+
   /// No description provided for @importNotionNewVaultPasswordTitle.
   ///
   /// In es, this message translates to:
@@ -2287,6 +2323,18 @@ abstract class AppLocalizations {
   /// In es, this message translates to:
   /// **'No se pudo importar Notion: {error}'**
   String importNotionError(Object error);
+
+  /// No description provided for @notionExportGuideTitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Como exportar desde Notion'**
+  String get notionExportGuideTitle;
+
+  /// No description provided for @notionExportGuideBody.
+  ///
+  /// In es, this message translates to:
+  /// **'En Notion, abre Settings -> Export all workspace content, elige HTML o Markdown y descarga el archivo ZIP. Luego usa esta opcion de importacion en Folio.'**
+  String get notionExportGuideBody;
 
   /// No description provided for @appBetaBannerMessage.
   ///

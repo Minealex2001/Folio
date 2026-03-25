@@ -337,6 +337,8 @@
   ,"aiBetaEnableBody": "Esta funcionalidad está en fase BETA y puede fallar o comportarse de forma inesperada.\n\n¿Quieres activarla igualmente?"
   ,"aiBetaEnableConfirm": "Activar BETA"
   ,"ai": "IA"
+  ,"aiEnableToggleTitle": "Activar IA"
+  ,"aiProviderLabel": "Proveedor"
   ,"aiProviderNone": "Ninguno"
   ,"aiEndpoint": "Endpoint"
   ,"aiModel": "Modelo"
@@ -360,6 +362,9 @@
   ,"aiSetupLmStudioTitle": "Paso 2: Instalar LM Studio"
   ,"aiSetupLmStudioBody": "Instala LM Studio, inicia su servidor local (OpenAI compatible) y verifica que responda en http://127.0.0.1:1234."
   ,"aiSetupOpenSettingsHint": "Cuando uno de los proveedores esté operativo, pulsa Reintentar para autoconfigurarlo."
+  ,"quillGlobalScopeNoticeTitle": "Quill funciona en todos los cofres"
+  ,"quillGlobalScopeNoticeBody": "Quill es un ajuste global de la app. Si lo activas ahora, quedará disponible para cualquier cofre en esta instalación, no solo para el actual."
+  ,"quillGlobalScopeNoticeConfirm": "Entiendo"
   ,"searchByNameOrShortcut": "Buscar por nombre o atajo…",
   "search": "Buscar",
   "open": "Abrir",
@@ -394,11 +399,14 @@
   ,"importNotionSelectTargetBody": "Elige si quieres importar la exportacion de Notion en el cofre actual o crear un cofre nuevo a partir de ella."
   ,"importNotionTargetCurrent": "Cofre actual"
   ,"importNotionTargetNew": "Cofre nuevo"
+  ,"importNotionDefaultVaultName": "Importado desde Notion"
   ,"importNotionNewVaultPasswordTitle": "Contraseña para cofre nuevo"
   ,"importNotionSuccessCurrent": "Notion importado en el cofre actual."
   ,"importNotionSuccessNew": "Cofre nuevo importado desde Notion."
   ,"importNotionError": "No se pudo importar Notion: {error}"
   ,"@importNotionError": {"placeholders": {"error": {}}}
+  ,"notionExportGuideTitle": "Como exportar desde Notion"
+  ,"notionExportGuideBody": "En Notion, abre Settings -> Export all workspace content, elige HTML o Markdown y descarga el archivo ZIP. Luego usa esta opcion de importacion en Folio."
   ,"appBetaBannerMessage": "Estás usando una versión beta. Puede haber fallos; haz copias de seguridad del cofre con frecuencia."
   ,"appBetaBannerDismiss": "Entendido"
   ,"integrations": "Integraciones"

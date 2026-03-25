@@ -100,11 +100,12 @@ class DesktopIntegration with TrayListener, WindowListener {
     }
     if (!settings.enableGlobalSearchHotkey) return;
     final preferred = settings.globalSearchHotkey;
+    final normalizedPreferred = _normalizeHotkey(preferred);
     final candidates = <String>[
-      preferred,
-      if (preferred.toLowerCase() != 'ctrl+shift+k') 'Ctrl+Shift+K',
-      if (preferred.toLowerCase() != 'ctrl+shift+space') 'Ctrl+Shift+Space',
-      if (preferred.toLowerCase() != 'alt+space') 'Alt+Space',
+      normalizedPreferred,
+      if (normalizedPreferred != 'ctrl+shift+k') 'ctrl+shift+k',
+      if (normalizedPreferred != 'ctrl+shift+space') 'ctrl+shift+space',
+      if (normalizedPreferred != 'alt+space') 'alt+space',
     ];
     for (final combo in candidates) {
       final key = _parseHotkey(combo);
@@ -124,8 +125,12 @@ class DesktopIntegration with TrayListener, WindowListener {
     }
   }
 
+  String _normalizeHotkey(String raw) {
+    return raw.trim().toLowerCase().replaceAll(' ', '');
+  }
+
   HotKey? _parseHotkey(String raw) {
-    final t = raw.trim().toLowerCase();
+    final t = _normalizeHotkey(raw);
     if (t == 'alt+space') {
       return HotKey(
         key: PhysicalKeyboardKey.space,
@@ -178,6 +183,12 @@ class DesktopIntegration with TrayListener, WindowListener {
   @override
   void onTrayIconMouseDown() {
     onOpenRequested();
+  }
+
+  @override
+  void onTrayIconRightMouseDown() {
+    // Windows requires explicit popup call for right-click tray menus.
+    unawaited(trayManager.popUpContextMenu());
   }
 
   @override

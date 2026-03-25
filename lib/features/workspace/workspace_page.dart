@@ -13,6 +13,7 @@ import '../../app/app_settings.dart';
 import '../../app/folio_in_app_shortcuts.dart';
 import '../../app/ui_tokens.dart';
 import '../../app/widgets/folio_dialog.dart';
+import '../../app/widgets/folio_feedback.dart';
 import '../../models/folio_page.dart';
 import '../../models/block.dart';
 import '../../models/folio_columns_data.dart';
@@ -67,11 +68,9 @@ class _WorkspacePageState extends State<WorkspacePage> {
   VaultSession get _s => widget.session;
   AiChatThreadData get _activeChat => _s.activeAiChat;
 
-  void _snack(String message) {
+  void _snack(String message, {bool error = false}) {
     if (!mounted || message.trim().isEmpty) return;
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(SnackBar(content: Text(message)));
+    showFolioSnack(context, message, error: error);
   }
 
   String _suggestMarkdownFileName(String title) {
@@ -302,6 +301,7 @@ class _WorkspacePageState extends State<WorkspacePage> {
     _aiAttachmentPaths = List<String>.from(_s.activeAiChat.attachmentPaths);
     _s.addListener(_onSession);
     widget.appSettings.addListener(_onAppSettings);
+    HardwareKeyboard.instance.addHandler(_onHardwareKeyEvent);
     _syncTitleFromSession();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _maybeShowQuillWorkspaceTour();
@@ -311,6 +311,7 @@ class _WorkspacePageState extends State<WorkspacePage> {
   @override
   void dispose() {
     _s.syncActiveAiChatAttachmentPaths(_aiAttachmentPaths);
+    HardwareKeyboard.instance.removeHandler(_onHardwareKeyEvent);
     widget.appSettings.removeListener(_onAppSettings);
     _s.removeListener(_onSession);
     _titleController.dispose();
@@ -358,6 +359,96 @@ class _WorkspacePageState extends State<WorkspacePage> {
   void _onAppSettings() {
     _maybeShowQuillWorkspaceTour();
     if (mounted) setState(() {});
+  }
+
+  bool _matchesActivator(SingleActivator activator, KeyEvent event) {
+    if (event.logicalKey != activator.trigger) return false;
+    final keyboard = HardwareKeyboard.instance;
+    return activator.accepts(event, keyboard);
+  }
+
+  bool _onHardwareKeyEvent(KeyEvent event) {
+    if (!mounted) return false;
+    if (event is! KeyDownEvent) return false;
+
+    final a = widget.appSettings;
+    final bindings = <({SingleActivator activator, VoidCallback action})>[
+      (
+        activator: a.inAppShortcut(FolioInAppShortcut.search),
+        action: () {
+          if (_shouldHandleShortcut(FolioInAppShortcut.search)) {
+            widget.onOpenSearch();
+          }
+        },
+      ),
+      (
+        activator: a.inAppShortcut(FolioInAppShortcut.newPage),
+        action: () {
+          if (_shouldHandleShortcut(FolioInAppShortcut.newPage)) {
+            _s.addPage(parentId: null);
+          }
+        },
+      ),
+      (
+        activator: a.inAppShortcut(FolioInAppShortcut.settings),
+        action: () {
+          if (_shouldHandleShortcut(FolioInAppShortcut.settings)) {
+            _openSettings();
+          }
+        },
+      ),
+      (
+        activator: a.inAppShortcut(FolioInAppShortcut.lock),
+        action: () {
+          if (_shouldHandleShortcut(FolioInAppShortcut.lock)) {
+            _s.lock();
+          }
+        },
+      ),
+      (
+        activator: a.inAppShortcut(FolioInAppShortcut.pageNext),
+        action: () {
+          if (_shouldHandleShortcut(FolioInAppShortcut.pageNext)) {
+            _selectAdjacentPage(1);
+          }
+        },
+      ),
+      (
+        activator: a.inAppShortcut(FolioInAppShortcut.pagePrev),
+        action: () {
+          if (_shouldHandleShortcut(FolioInAppShortcut.pagePrev)) {
+            _selectAdjacentPage(-1);
+          }
+        },
+      ),
+      (
+        activator: a.inAppShortcut(FolioInAppShortcut.closePage),
+        action: () {
+          if (_shouldHandleShortcut(FolioInAppShortcut.closePage)) {
+            _s.clearSelectedPage();
+          }
+        },
+      ),
+      (
+        activator: const SingleActivator(
+          LogicalKeyboardKey.keyF,
+          control: true,
+        ),
+        action: () {
+          if (_shouldHandleShortcut(FolioInAppShortcut.search)) {
+            widget.onOpenSearch();
+          }
+        },
+      ),
+    ];
+
+    for (final binding in bindings) {
+      if (_matchesActivator(binding.activator, event)) {
+        binding.action();
+        return true;
+      }
+    }
+    return false;
   }
 
   void _maybeShowQuillWorkspaceTour() {
@@ -443,7 +534,7 @@ class _WorkspacePageState extends State<WorkspacePage> {
         ),
         label: Text(prompt),
         backgroundColor: quillReady
-          ? scheme.primaryContainer.withValues(alpha: FolioAlpha.thumbHover)
+            ? scheme.primaryContainer.withValues(alpha: FolioAlpha.thumbHover)
             : scheme.surfaceContainerHigh,
         labelStyle: theme.textTheme.bodySmall?.copyWith(
           color: quillReady
@@ -595,10 +686,25 @@ class _WorkspacePageState extends State<WorkspacePage> {
     );
   }
 
-  bool _shouldHandleShortcut() {
+  bool _isTextInputFocused() {
     final focusedContext = FocusManager.instance.primaryFocus?.context;
     final focusedWidget = focusedContext?.widget;
-    return focusedWidget is! EditableText;
+    return focusedWidget is EditableText;
+  }
+
+  bool _shouldHandleShortcut(FolioInAppShortcut shortcut) {
+    if (!_isTextInputFocused()) return true;
+    switch (shortcut) {
+      case FolioInAppShortcut.search:
+      case FolioInAppShortcut.newPage:
+      case FolioInAppShortcut.settings:
+      case FolioInAppShortcut.lock:
+      case FolioInAppShortcut.pageNext:
+      case FolioInAppShortcut.pagePrev:
+        return true;
+      case FolioInAppShortcut.closePage:
+        return false;
+    }
   }
 
   void _selectAdjacentPage(int delta) {
@@ -620,6 +726,23 @@ class _WorkspacePageState extends State<WorkspacePage> {
     final page = _s.selectedPage;
     if (page == null) return;
     openPageHistoryScreen(context: context, session: _s, page: page);
+  }
+
+  List<String> _buildPagePathSegments(FolioPage? page) {
+    if (page == null) return const <String>[];
+    final byId = <String, FolioPage>{for (final p in _s.pages) p.id: p};
+    final chain = <String>[];
+    final visited = <String>{};
+    FolioPage? current = page;
+    while (current != null && !visited.contains(current.id)) {
+      visited.add(current.id);
+      chain.add(
+        current.title.trim().isEmpty ? 'Untitled' : current.title.trim(),
+      );
+      final parentId = current.parentId;
+      current = parentId == null ? null : byId[parentId];
+    }
+    return chain.reversed.toList(growable: false);
   }
 
   Future<String?> _showBlockTypePicker({required bool compact}) {
@@ -756,9 +879,7 @@ class _WorkspacePageState extends State<WorkspacePage> {
         final msg = e is AiServiceUnreachableException
             ? l10n.aiServiceUnreachable
             : l10n.aiErrorWithDetails(e);
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text(msg)));
+        _snack(msg, error: true);
       }
       return;
     }
@@ -777,9 +898,7 @@ class _WorkspacePageState extends State<WorkspacePage> {
     } catch (e) {
       if (!mounted) return;
       final l10n = AppLocalizations.of(context);
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text(l10n.aiErrorWithDetails(e))));
+      _snack(l10n.aiErrorWithDetails(e), error: true);
     } finally {
       if (mounted) {
         setState(() => _aiChatBusy = false);
@@ -1575,129 +1694,207 @@ class _WorkspacePageState extends State<WorkspacePage> {
     final a = widget.appSettings;
     final shortcutBindings = <ShortcutActivator, VoidCallback>{
       a.inAppShortcut(FolioInAppShortcut.search): () {
-        if (_shouldHandleShortcut()) widget.onOpenSearch();
+        if (_shouldHandleShortcut(FolioInAppShortcut.search)) {
+          widget.onOpenSearch();
+        }
       },
       a.inAppShortcut(FolioInAppShortcut.newPage): () {
-        if (_shouldHandleShortcut()) _s.addPage(parentId: null);
+        if (_shouldHandleShortcut(FolioInAppShortcut.newPage)) {
+          _s.addPage(parentId: null);
+        }
       },
       a.inAppShortcut(FolioInAppShortcut.settings): () {
-        if (_shouldHandleShortcut()) _openSettings();
+        if (_shouldHandleShortcut(FolioInAppShortcut.settings)) {
+          _openSettings();
+        }
       },
       a.inAppShortcut(FolioInAppShortcut.lock): () {
-        if (_shouldHandleShortcut()) _s.lock();
+        if (_shouldHandleShortcut(FolioInAppShortcut.lock)) _s.lock();
       },
       a.inAppShortcut(FolioInAppShortcut.pageNext): () {
-        if (_shouldHandleShortcut()) _selectAdjacentPage(1);
+        if (_shouldHandleShortcut(FolioInAppShortcut.pageNext)) {
+          _selectAdjacentPage(1);
+        }
       },
       a.inAppShortcut(FolioInAppShortcut.pagePrev): () {
-        if (_shouldHandleShortcut()) _selectAdjacentPage(-1);
+        if (_shouldHandleShortcut(FolioInAppShortcut.pagePrev)) {
+          _selectAdjacentPage(-1);
+        }
       },
       a.inAppShortcut(FolioInAppShortcut.closePage): () {
-        if (_shouldHandleShortcut()) _s.clearSelectedPage();
+        if (_shouldHandleShortcut(FolioInAppShortcut.closePage)) {
+          _s.clearSelectedPage();
+        }
       },
     };
     const altSearch = SingleActivator(LogicalKeyboardKey.keyF, control: true);
     if (a.inAppShortcut(FolioInAppShortcut.search) != altSearch) {
       shortcutBindings[altSearch] = () {
-        if (_shouldHandleShortcut()) widget.onOpenSearch();
+        if (_shouldHandleShortcut(FolioInAppShortcut.search)) {
+          widget.onOpenSearch();
+        }
       };
     }
     final appBarActions = <Widget>[
-      if (!compact && page != null)
-        IconButton(
-          tooltip: l10n.addBlock,
-          icon: const Icon(Icons.add_rounded),
-          onPressed: () => _addBlockToCurrentPage(compact: false),
-        ),
-      IconButton(
-        tooltip: 'Importar Markdown',
-        icon: const Icon(Icons.file_upload_outlined),
-        onPressed: _importMarkdownFile,
-      ),
-      if (page != null)
-        IconButton(
-          tooltip: 'Exportar Markdown',
-          icon: const Icon(Icons.file_download_outlined),
-          onPressed: _exportCurrentPageToMarkdown,
-        ),
-      if (page != null)
-        IconButton(
-          tooltip: l10n.pageHistory,
-          icon: const Icon(Icons.history_rounded),
-          onPressed: _openPageHistoryScreen,
-        ),
-      if (page != null)
-        IconButton(
-          tooltip: l10n.closeCurrentPage,
-          icon: const Icon(Icons.tab_unselected_rounded),
-          onPressed: _s.clearSelectedPage,
-        ),
-      if (widget.appSettings.isAiRuntimeEnabled && _s.aiEnabled)
-        IconButton(
-          tooltip: _aiPanelCollapsed ? l10n.aiShowPanel : l10n.aiHidePanel,
-          icon: Icon(
-            _aiPanelCollapsed
-                ? Icons.chat_bubble_outline_rounded
-                : Icons.close_fullscreen_rounded,
+      ...() {
+        final canToggleAi =
+            widget.appSettings.isAiRuntimeEnabled && _s.aiEnabled;
+        final entries = <_WorkspaceActionEntry>[
+          if (!compact && page != null)
+            _WorkspaceActionEntry(
+              id: 'add_block',
+              label: l10n.addBlock,
+              icon: Icons.add_rounded,
+              onPressed: () => _addBlockToCurrentPage(compact: false),
+              forcePrimary: true,
+            ),
+          _WorkspaceActionEntry(
+            id: 'import_md',
+            label: 'Importar Markdown',
+            icon: Icons.file_upload_outlined,
+            onPressed: _importMarkdownFile,
+            forcePrimary: true,
           ),
-          onPressed: () =>
-              setState(() => _aiPanelCollapsed = !_aiPanelCollapsed),
-        ),
-      if (_s.hasPendingDiskSave || _s.isPersistingToDisk)
-        Padding(
-          padding: const EdgeInsetsDirectional.only(end: FolioSpace.xs),
-          child: Center(
-            child: Tooltip(
-              message: _s.isPersistingToDisk
-                  ? l10n.savingVaultTooltip
-                  : l10n.autosaveSoonTooltip,
-              child: Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: FolioSpace.sm,
-                  vertical: FolioSpace.xs,
-                ),
-                decoration: BoxDecoration(
-                  color: scheme.surfaceContainerHigh,
-                  borderRadius: BorderRadius.circular(FolioRadius.xl),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    if (_s.isPersistingToDisk)
-                      SizedBox(
-                        width: 18,
-                        height: 18,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          color: scheme.primary,
-                        ),
-                      )
-                    else
-                      Icon(
-                        Icons.save_outlined,
-                        size: 20,
-                        color: scheme.primary.withValues(alpha: 0.85),
-                      ),
-                    const SizedBox(width: FolioSpace.xs),
-                    Text(
-                      _s.isPersistingToDisk
-                          ? l10n.saveInProgress
-                          : l10n.savePending,
-                      style: theme.textTheme.labelLarge?.copyWith(
-                        color: scheme.onSurfaceVariant,
-                        fontWeight: FontWeight.w700,
+          if (page != null)
+            _WorkspaceActionEntry(
+              id: 'export_md',
+              label: 'Exportar Markdown',
+              icon: Icons.file_download_outlined,
+              onPressed: _exportCurrentPageToMarkdown,
+            ),
+          if (page != null)
+            _WorkspaceActionEntry(
+              id: 'history',
+              label: l10n.pageHistory,
+              icon: Icons.history_rounded,
+              onPressed: _openPageHistoryScreen,
+            ),
+          if (page != null)
+            _WorkspaceActionEntry(
+              id: 'close_page',
+              label: l10n.closeCurrentPage,
+              icon: Icons.tab_unselected_rounded,
+              onPressed: _s.clearSelectedPage,
+            ),
+          if (canToggleAi)
+            _WorkspaceActionEntry(
+              id: 'toggle_ai',
+              label: _aiPanelCollapsed ? l10n.aiShowPanel : l10n.aiHidePanel,
+              icon: _aiPanelCollapsed
+                  ? Icons.chat_bubble_outline_rounded
+                  : Icons.close_fullscreen_rounded,
+              onPressed: () =>
+                  setState(() => _aiPanelCollapsed = !_aiPanelCollapsed),
+              forcePrimary: true,
+            ),
+        ];
+
+        final useOverflow = !compact && width < 1420;
+        final primaryBudget = width >= 1660 ? 7 : (width >= 1420 ? 5 : 3);
+        final primary = <_WorkspaceActionEntry>[];
+        final overflow = <_WorkspaceActionEntry>[];
+
+        for (final action in entries) {
+          if (!useOverflow ||
+              action.forcePrimary ||
+              primary.length < primaryBudget) {
+            primary.add(action);
+          } else {
+            overflow.add(action);
+          }
+        }
+
+        final widgets = <Widget>[
+          ...primary.map(
+            (action) => IconButton(
+              tooltip: action.label,
+              icon: Icon(action.icon),
+              onPressed: action.onPressed,
+            ),
+          ),
+          if (overflow.isNotEmpty)
+            PopupMenuButton<_WorkspaceActionEntry>(
+              tooltip: 'Más acciones',
+              icon: const Icon(Icons.more_horiz_rounded),
+              itemBuilder: (context) => overflow
+                  .map(
+                    (action) => PopupMenuItem<_WorkspaceActionEntry>(
+                      value: action,
+                      child: Row(
+                        children: [
+                          Icon(action.icon, size: 18),
+                          const SizedBox(width: FolioSpace.sm),
+                          Expanded(child: Text(action.label)),
+                        ],
                       ),
                     ),
-                  ],
+                  )
+                  .toList(growable: false),
+              onSelected: (action) => action.onPressed(),
+            ),
+        ];
+
+        if (_s.hasPendingDiskSave || _s.isPersistingToDisk) {
+          widgets.add(
+            Padding(
+              padding: const EdgeInsetsDirectional.only(end: FolioSpace.xs),
+              child: Center(
+                child: Tooltip(
+                  message: _s.isPersistingToDisk
+                      ? l10n.savingVaultTooltip
+                      : l10n.autosaveSoonTooltip,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: FolioSpace.sm,
+                      vertical: FolioSpace.xs,
+                    ),
+                    decoration: BoxDecoration(
+                      color: scheme.surfaceContainerHigh,
+                      borderRadius: BorderRadius.circular(FolioRadius.xl),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        if (_s.isPersistingToDisk)
+                          SizedBox(
+                            width: 18,
+                            height: 18,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: scheme.primary,
+                            ),
+                          )
+                        else
+                          Icon(
+                            Icons.save_outlined,
+                            size: 20,
+                            color: scheme.primary.withValues(alpha: 0.85),
+                          ),
+                        const SizedBox(width: FolioSpace.xs),
+                        Text(
+                          _s.isPersistingToDisk
+                              ? l10n.saveInProgress
+                              : l10n.savePending,
+                          style: theme.textTheme.labelLarge?.copyWith(
+                            color: scheme.onSurfaceVariant,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
                 ),
               ),
             ),
-          ),
-        ),
+          );
+        }
+        return widgets;
+      }(),
     ];
     final editorContent = WorkspaceEditorSurface(
       compact: compact,
       page: page,
+      pagePath: _buildPagePathSegments(page),
       titleController: _titleController,
       onTitleChanged: (value) {
         if (page != null && page.id == _s.selectedPageId) {
@@ -1769,4 +1966,20 @@ class _WorkspacePageState extends State<WorkspacePage> {
       ),
     );
   }
+}
+
+class _WorkspaceActionEntry {
+  const _WorkspaceActionEntry({
+    required this.id,
+    required this.label,
+    required this.icon,
+    required this.onPressed,
+    this.forcePrimary = false,
+  });
+
+  final String id;
+  final String label;
+  final IconData icon;
+  final VoidCallback onPressed;
+  final bool forcePrimary;
 }
