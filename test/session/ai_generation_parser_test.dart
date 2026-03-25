@@ -30,16 +30,18 @@ void main() {
       final session = VaultSession();
       final output = '''
 # Titulo
+1. paso uno
 - punto A
 - [ ] tarea
 > cita
 ''';
       final blocks = session.parseAiOutputForTesting(output);
-      expect(blocks.length, 4);
+      expect(blocks.length, 5);
       expect(blocks[0].type, 'h1');
-      expect(blocks[1].type, 'bullet');
-      expect(blocks[2].type, 'todo');
-      expect(blocks[3].type, 'quote');
+      expect(blocks[1].type, 'numbered');
+      expect(blocks[2].type, 'bullet');
+      expect(blocks[3].type, 'todo');
+      expect(blocks[4].type, 'quote');
     });
 
     test('recupera bloques desde JSON malformado y normaliza type con pipes', () {
@@ -75,6 +77,26 @@ void main() {
       expect(blocks.first.text, contains('"cols":2'));
       expect(blocks.first.text, contains('Nombre'));
       expect(blocks.first.text, contains('Ana'));
+    });
+
+    test('acepta bloque image con url aunque text venga vacío', () {
+      final session = VaultSession();
+      const output = '''
+{
+  "title": "Imagen",
+  "blocks": [
+    {
+      "type": "image",
+      "text": "",
+      "url": "https://example.com/a.png"
+    }
+  ]
+}
+''';
+      final blocks = session.parseAiOutputForTesting(output);
+      expect(blocks.length, 1);
+      expect(blocks.first.type, 'image');
+      expect(blocks.first.url, 'https://example.com/a.png');
     });
   });
 }

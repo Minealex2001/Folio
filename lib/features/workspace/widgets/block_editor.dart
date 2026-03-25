@@ -41,195 +41,196 @@ const blockTypeCatalog = <BlockTypeDef>[
   BlockTypeDef(
     key: 'paragraph',
     label: 'Texto',
-    hint: 'Párrafo (text)',
+    hint: 'Párrafo',
     icon: Icons.notes_rounded,
     section: BlockTypeSection.basicText,
   ),
   BlockTypeDef(
     key: 'child_page',
     label: 'Página',
-    hint: 'Subpágina (page)',
+    hint: 'Subpágina enlazada',
     icon: Icons.description_outlined,
     section: BlockTypeSection.basicText,
   ),
   BlockTypeDef(
     key: 'h1',
     label: 'Encabezado 1',
-    hint: 'heading_1  ·  #',
+    hint: 'Título grande  ·  #',
     icon: Icons.looks_one_rounded,
     section: BlockTypeSection.basicText,
   ),
   BlockTypeDef(
     key: 'h2',
     label: 'Encabezado 2',
-    hint: 'heading_2  ·  ##',
+    hint: 'Subtítulo  ·  ##',
     icon: Icons.looks_two_rounded,
     section: BlockTypeSection.basicText,
   ),
   BlockTypeDef(
     key: 'h3',
     label: 'Encabezado 3',
-    hint: 'heading_3  ·  ###',
+    hint: 'Encabezado menor  ·  ###',
     icon: Icons.looks_3_rounded,
     section: BlockTypeSection.basicText,
   ),
   BlockTypeDef(
     key: 'quote',
     label: 'Cita',
-    hint: 'quote',
+    hint: 'Texto citado',
     icon: Icons.format_quote_rounded,
     section: BlockTypeSection.basicText,
   ),
   BlockTypeDef(
     key: 'divider',
     label: 'Divisor',
-    hint: 'divider  ·  ---',
+    hint: 'Separador  ·  ---',
     icon: Icons.horizontal_rule_rounded,
     section: BlockTypeSection.basicText,
   ),
   BlockTypeDef(
     key: 'callout',
     label: 'Bloque destacado',
-    hint: 'callout',
+    hint: 'Aviso con icono',
     icon: Icons.lightbulb_outline_rounded,
     section: BlockTypeSection.basicText,
   ),
   BlockTypeDef(
     key: 'bullet',
     label: 'Lista con viñetas',
-    hint: 'bulleted_list_item',
+    hint: 'Lista con puntos',
     icon: Icons.format_list_bulleted_rounded,
     section: BlockTypeSection.lists,
   ),
   BlockTypeDef(
     key: 'numbered',
     label: 'Lista numerada',
-    hint: 'numbered_list_item',
+    hint: 'Lista 1, 2, 3',
     icon: Icons.format_list_numbered_rounded,
     section: BlockTypeSection.lists,
   ),
   BlockTypeDef(
     key: 'todo',
     label: 'Lista de tareas',
-    hint: 'to_do',
+    hint: 'Checklist',
     icon: Icons.check_box_outlined,
     section: BlockTypeSection.lists,
   ),
   BlockTypeDef(
     key: 'task',
     label: 'Tarea enriquecida',
-    hint: 'task  ·  estado / prioridad / fecha',
+    hint: 'Estado / prioridad / fecha',
     icon: Icons.task_alt_rounded,
     section: BlockTypeSection.lists,
   ),
   BlockTypeDef(
     key: 'toggle',
-    label: 'Toggle / desplegable',
-    hint: 'toggle',
+    label: 'Desplegable',
+    hint: 'Mostrar/ocultar contenido',
     icon: Icons.unfold_more_rounded,
     section: BlockTypeSection.lists,
   ),
   BlockTypeDef(
     key: 'image',
     label: 'Imagen',
-    hint: 'image',
+    hint: 'Imagen local o externa',
     icon: Icons.image_rounded,
     section: BlockTypeSection.media,
   ),
   BlockTypeDef(
     key: 'bookmark',
-    label: 'Miniatura / Bookmark',
-    hint: 'bookmark',
+    label: 'Marcador con vista previa',
+    hint: 'Tarjeta con enlace',
     icon: Icons.bookmark_outline_rounded,
     section: BlockTypeSection.media,
   ),
   BlockTypeDef(
     key: 'video',
     label: 'Vídeo',
-    hint: 'video',
+    hint: 'Archivo o enlace',
     icon: Icons.play_circle_outline_rounded,
     section: BlockTypeSection.media,
   ),
   BlockTypeDef(
     key: 'audio',
     label: 'Audio',
-    hint: 'audio',
+    hint: 'Reproductor de audio',
     icon: Icons.graphic_eq_rounded,
     section: BlockTypeSection.media,
   ),
   BlockTypeDef(
     key: 'code',
     label: 'Código (Java, Python…)',
-    hint: 'code  ·  sintaxis',
+    hint: 'Bloque con sintaxis',
     icon: Icons.code_rounded,
     section: BlockTypeSection.media,
   ),
   BlockTypeDef(
     key: 'file',
     label: 'Archivo / PDF',
-    hint: 'file',
+    hint: 'Adjunto o PDF',
     icon: Icons.attach_file_rounded,
     section: BlockTypeSection.media,
   ),
   BlockTypeDef(
     key: 'table',
     label: 'Tabla',
-    hint: 'table',
+    hint: 'Filas y columnas',
     icon: Icons.table_chart_rounded,
     section: BlockTypeSection.media,
   ),
   BlockTypeDef(
     key: 'database',
     label: 'Base de datos',
-    hint: 'database  ·  vista lista/tabla/tablero',
+    hint: 'Vista lista/tabla/tablero',
     icon: Icons.dataset_rounded,
     section: BlockTypeSection.media,
+    beta: true,
   ),
   BlockTypeDef(
     key: 'equation',
     label: 'Ecuación (LaTeX)',
-    hint: 'equation  ·  math',
+    hint: 'Fórmulas matemáticas',
     icon: Icons.functions_rounded,
     section: BlockTypeSection.advanced,
   ),
   BlockTypeDef(
     key: 'mermaid',
     label: 'Diagrama (Mermaid)',
-    hint: 'schema  ·  mermaid',
+    hint: 'Diagrama de flujo o esquema',
     icon: Icons.account_tree_rounded,
     section: BlockTypeSection.advanced,
   ),
   BlockTypeDef(
     key: 'toc',
     label: 'Tabla de contenidos',
-    hint: 'table_of_contents',
+    hint: 'Índice automático',
     icon: Icons.list_alt_rounded,
     section: BlockTypeSection.advanced,
   ),
   BlockTypeDef(
     key: 'breadcrumb',
     label: 'Migas de pan',
-    hint: 'breadcrumb',
+    hint: 'Ruta de navegación',
     icon: Icons.hiking_rounded,
     section: BlockTypeSection.advanced,
   ),
   BlockTypeDef(
     key: 'template_button',
-    label: 'Botón plantilla',
-    hint: 'template_button',
+    label: 'Botón de plantilla',
+    hint: 'Insertar bloque predefinido',
     icon: Icons.smart_button_outlined,
     section: BlockTypeSection.advanced,
   ),
   BlockTypeDef(
     key: 'column_list',
     label: 'Columnas',
-    hint: 'column_list',
+    hint: 'Diseño en columnas',
     icon: Icons.view_column_rounded,
     section: BlockTypeSection.advanced,
   ),
   BlockTypeDef(
     key: 'embed',
-    label: 'Embed / Web',
+    label: 'Incrustado web',
     hint: 'YouTube, Figma, Docs…',
     icon: Icons.web_rounded,
     section: BlockTypeSection.embeds,
@@ -249,7 +250,7 @@ String blockSectionTitle(BlockTypeSection s) {
     case BlockTypeSection.advanced:
       return 'Avanzado y diseño';
     case BlockTypeSection.embeds:
-      return 'Integración / embeds';
+      return 'Integraciones';
   }
 }
 
@@ -260,6 +261,7 @@ class BlockTypeDef {
     required this.hint,
     required this.icon,
     required this.section,
+    this.beta = false,
   });
 
   final String key;
@@ -267,6 +269,7 @@ class BlockTypeDef {
   final String hint;
   final IconData icon;
   final BlockTypeSection section;
+  final bool beta;
 }
 
 /// `null` si el texto del bloque no es comando `/…`; si no, filtro tras la `/` (puede ser vacío).
@@ -291,6 +294,75 @@ List<BlockTypeDef> _catalogFiltered(String q) {
   }).toList();
 }
 
+enum _CalloutTone { neutral, info, success, warning, danger }
+
+_CalloutTone _calloutToneForIcon(String? icon) {
+  switch (icon) {
+    case '💡':
+    case 'ℹ️':
+      return _CalloutTone.info;
+    case '✅':
+    case '🎉':
+    case '🟢':
+      return _CalloutTone.success;
+    case '⚠️':
+    case '🟡':
+      return _CalloutTone.warning;
+    case '🚨':
+    case '⛔':
+    case '❗':
+    case '🔴':
+      return _CalloutTone.danger;
+    default:
+      return _CalloutTone.neutral;
+  }
+}
+
+Color _calloutBackgroundForTone(ColorScheme scheme, _CalloutTone tone) {
+  switch (tone) {
+    case _CalloutTone.info:
+      return scheme.primaryContainer.withValues(alpha: 0.26);
+    case _CalloutTone.success:
+      return scheme.tertiaryContainer.withValues(alpha: 0.26);
+    case _CalloutTone.warning:
+      return scheme.secondaryContainer.withValues(alpha: 0.34);
+    case _CalloutTone.danger:
+      return scheme.errorContainer.withValues(alpha: 0.3);
+    case _CalloutTone.neutral:
+      return scheme.surfaceContainerHighest.withValues(alpha: 0.5);
+  }
+}
+
+Color _calloutBorderForTone(ColorScheme scheme, _CalloutTone tone) {
+  switch (tone) {
+    case _CalloutTone.info:
+      return scheme.primary.withValues(alpha: 0.45);
+    case _CalloutTone.success:
+      return scheme.tertiary.withValues(alpha: 0.45);
+    case _CalloutTone.warning:
+      return scheme.secondary.withValues(alpha: 0.5);
+    case _CalloutTone.danger:
+      return scheme.error.withValues(alpha: 0.5);
+    case _CalloutTone.neutral:
+      return scheme.outlineVariant.withValues(alpha: 0.5);
+  }
+}
+
+Color _calloutChipForTone(ColorScheme scheme, _CalloutTone tone) {
+  switch (tone) {
+    case _CalloutTone.info:
+      return scheme.primaryContainer.withValues(alpha: 0.75);
+    case _CalloutTone.success:
+      return scheme.tertiaryContainer.withValues(alpha: 0.75);
+    case _CalloutTone.warning:
+      return scheme.secondaryContainer.withValues(alpha: 0.85);
+    case _CalloutTone.danger:
+      return scheme.errorContainer.withValues(alpha: 0.85);
+    case _CalloutTone.neutral:
+      return scheme.surfaceContainerHighest.withValues(alpha: 0.85);
+  }
+}
+
 class BlockEditor extends StatefulWidget {
   const BlockEditor({super.key, required this.session});
 
@@ -312,6 +384,7 @@ class _BlockEditorState extends State<BlockEditor> {
   int? _pendingCursorOffset;
   String? _pendingFocusBlockId;
   int? _hoveredBlockIndex;
+  String? _selectedBlockId;
 
   /// Evita quitar el botón ⋮ del árbol mientras el popup está abierto (el ratón sale del `MouseRegion`).
   String? _menuOpenBlockId;
@@ -321,6 +394,8 @@ class _BlockEditorState extends State<BlockEditor> {
   final List<String> _controllerBlockIds = [];
   String? _slashBlockId;
   String? _slashPageId;
+  int _slashSelectedIndex = 0;
+  final Map<String, int> _slashRecentByType = {};
   final ScrollController _slashListScrollController = ScrollController();
   final Map<String, Future<File?>> _resolvedFileFutureByUrl = {};
 
@@ -466,6 +541,7 @@ class _BlockEditorState extends State<BlockEditor> {
     final pid = _slashPageId;
     _slashBlockId = null;
     _slashPageId = null;
+    _slashSelectedIndex = 0;
     if (clearTypedCommand && id != null && pid != null) {
       final idx = _controllerBlockIds.indexWhere((x) => x == id);
       if (idx >= 0) {
@@ -492,6 +568,8 @@ class _BlockEditorState extends State<BlockEditor> {
     final idx = _controllerBlockIds.indexWhere((x) => x == id);
     _slashBlockId = null;
     _slashPageId = null;
+    _slashSelectedIndex = 0;
+    _slashRecentByType.update(typeKey, (v) => v + 1, ifAbsent: () => 1);
     _ignoreShortcuts = true;
 
     // Remove the trailing slash command from the block's text
@@ -526,6 +604,22 @@ class _BlockEditorState extends State<BlockEditor> {
         }
       });
     }
+  }
+
+  List<BlockTypeDef> _catalogFilteredForSlash(String q) {
+    final filtered = List<BlockTypeDef>.from(_catalogFiltered(q));
+    if (filtered.length < 2) return filtered;
+    final catalogIndex = {
+      for (var i = 0; i < blockTypeCatalog.length; i++)
+        blockTypeCatalog[i].key: i,
+    };
+    filtered.sort((a, b) {
+      final aScore = _slashRecentByType[a.key] ?? 0;
+      final bScore = _slashRecentByType[b.key] ?? 0;
+      if (aScore != bScore) return bScore.compareTo(aScore);
+      return (catalogIndex[a.key] ?? 0).compareTo(catalogIndex[b.key] ?? 0);
+    });
+    return filtered;
   }
 
   void _disposeControllers() {
@@ -833,6 +927,57 @@ class _BlockEditorState extends State<BlockEditor> {
     TextEditingController ctrl,
     KeyDownEvent event,
   ) {
+    if ((event.logicalKey == LogicalKeyboardKey.keyZ) &&
+        (HardwareKeyboard.instance.isControlPressed ||
+            HardwareKeyboard.instance.isMetaPressed)) {
+      if (HardwareKeyboard.instance.isShiftPressed) {
+        _s.redoPageEdits(pageId: page.id);
+      } else {
+        _s.undoPageEdits(pageId: page.id);
+      }
+      return KeyEventResult.handled;
+    }
+
+    if (event.logicalKey == LogicalKeyboardKey.keyY &&
+        (HardwareKeyboard.instance.isControlPressed ||
+            HardwareKeyboard.instance.isMetaPressed)) {
+      _s.redoPageEdits(pageId: page.id);
+      return KeyEventResult.handled;
+    }
+
+    final slashFilter = _slashBlockId == blockId
+        ? _slashFilterFromBlockText(ctrl.text)
+        : null;
+    if (slashFilter != null) {
+      final slashItems = _catalogFilteredForSlash(slashFilter);
+      if (event.logicalKey == LogicalKeyboardKey.arrowDown) {
+        if (slashItems.isEmpty) return KeyEventResult.handled;
+        setState(() {
+          _slashSelectedIndex = (_slashSelectedIndex + 1).clamp(
+            0,
+            slashItems.length - 1,
+          );
+        });
+        return KeyEventResult.handled;
+      }
+      if (event.logicalKey == LogicalKeyboardKey.arrowUp) {
+        if (slashItems.isEmpty) return KeyEventResult.handled;
+        setState(() {
+          _slashSelectedIndex = (_slashSelectedIndex - 1).clamp(
+            0,
+            slashItems.length - 1,
+          );
+        });
+        return KeyEventResult.handled;
+      }
+      if (event.logicalKey == LogicalKeyboardKey.enter &&
+          slashItems.isNotEmpty) {
+        final safe = _slashSelectedIndex.clamp(0, slashItems.length - 1);
+        _applyInlineSlashChoice(slashItems[safe].key);
+        return KeyEventResult.handled;
+      }
+    }
+
     if (event.logicalKey == LogicalKeyboardKey.tab) {
       if (HardwareKeyboard.instance.isShiftPressed) {
         _s.unindentBlock(page.id, blockId);
@@ -862,6 +1007,14 @@ class _BlockEditorState extends State<BlockEditor> {
         unawaited(_handleClipboardPaste(page, blockId, index, ctrl));
         return KeyEventResult.handled;
       }
+    }
+
+    if (event.logicalKey == LogicalKeyboardKey.keyD &&
+        (HardwareKeyboard.instance.isControlPressed ||
+            HardwareKeyboard.instance.isMetaPressed)) {
+      final b = page.blocks[index];
+      _duplicateBlock(page, b, index);
+      return KeyEventResult.handled;
     }
 
     final blockType = page.blocks[index].type;
@@ -1273,6 +1426,17 @@ class _BlockEditorState extends State<BlockEditor> {
       final open = _slashBlockId != blockId;
       _slashPageId = pageId;
       _slashBlockId = blockId;
+      final slashItems = _catalogFilteredForSlash(slashFilter);
+      if (open) {
+        _slashSelectedIndex = 0;
+      } else if (slashItems.isNotEmpty) {
+        _slashSelectedIndex = _slashSelectedIndex.clamp(
+          0,
+          slashItems.length - 1,
+        );
+      } else {
+        _slashSelectedIndex = 0;
+      }
       setState(() {});
       if (open) {
         WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -2065,6 +2229,18 @@ class _BlockEditorState extends State<BlockEditor> {
     _s.moveBlock(pageId, blockId, delta);
   }
 
+  void _duplicateBlock(FolioPage page, FolioBlock block, int index) {
+    final clones = _s.cloneBlocksWithNewIds(page.id, [block]);
+    if (clones.isEmpty) return;
+    _pendingFocusIndex = index + 1;
+    _pendingCursorOffset = clones.first.text.length;
+    _s.insertBlockAfter(
+      pageId: page.id,
+      afterBlockId: block.id,
+      block: clones.first,
+    );
+  }
+
   void _onBlocksReordered(FolioPage page, int oldIndex, int newIndex) {
     String? focusId;
     for (var i = 0; i < _focusNodes.length; i++) {
@@ -2106,9 +2282,10 @@ class _BlockEditorState extends State<BlockEditor> {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Padding(
-            padding: const EdgeInsets.fromLTRB(4, 0, 4, 8),
+            padding: const EdgeInsets.fromLTRB(12, 0, 12, 10),
             child: Text(
               'Enter: bloque nuevo (en código: Enter = línea) · Shift+Enter: línea · / tipos · # título (misma línea) · - · * · [] · ``` espacio · tabla/imagen en / · formato: barra al enfocar o ** _ <u> ` ~~',
+              textAlign: TextAlign.center,
               style: mono,
             ),
           ),
@@ -2127,7 +2304,7 @@ class _BlockEditorState extends State<BlockEditor> {
               ),
               child: ReorderableListView.builder(
                 scrollController: _blockListScrollController,
-                padding: const EdgeInsets.only(bottom: 24),
+                padding: const EdgeInsets.fromLTRB(10, 0, 10, 24),
                 buildDefaultDragHandles: false,
                 itemCount: page.blocks.length,
                 onReorder: (oldIndex, newIndex) =>
@@ -2142,6 +2319,8 @@ class _BlockEditorState extends State<BlockEditor> {
                       focus.hasFocus ||
                       _menuOpenBlockId == b.id ||
                       MediaQuery.sizeOf(context).width < 900;
+                  final showInlineEditControls =
+                      _selectedBlockId == b.id || focus.hasFocus;
 
                   return KeyedSubtree(
                     key: ValueKey(b.id),
@@ -2173,6 +2352,7 @@ class _BlockEditorState extends State<BlockEditor> {
                             focus: focus,
                             style: style,
                             showActions: showActions,
+                            showInlineEditControls: showInlineEditControls,
                           ),
                         ),
                       ),
@@ -2193,6 +2373,26 @@ class _BlockEditorState extends State<BlockEditor> {
     required FolioBlock b,
     required int index,
   }) {
+    PopupMenuItem<String> item(
+      BuildContext ctx, {
+      required String value,
+      required IconData icon,
+      required String label,
+      Color? iconColor,
+    }) {
+      final scheme = Theme.of(ctx).colorScheme;
+      return PopupMenuItem<String>(
+        value: value,
+        child: Row(
+          children: [
+            Icon(icon, size: 18, color: iconColor ?? scheme.onSurfaceVariant),
+            const SizedBox(width: 10),
+            Expanded(child: Text(label)),
+          ],
+        ),
+      );
+    }
+
     return PopupMenuButton<String>(
       icon: Semantics(
         button: true,
@@ -2288,10 +2488,69 @@ class _BlockEditorState extends State<BlockEditor> {
           _moveBlock(page.id, b.id, -1);
         } else if (v == 'down' && index < page.blocks.length - 1) {
           _moveBlock(page.id, b.id, 1);
+        } else if (v == 'dup') {
+          _duplicateBlock(page, b, index);
+        } else if (v == 'open_external') {
+          final target = b.type == 'image'
+              ? b.text
+              : (const {
+                      'file',
+                      'video',
+                      'audio',
+                      'bookmark',
+                      'embed',
+                    }.contains(b.type)
+                    ? b.url
+                    : null);
+          unawaited(_openBlockUrlExternal(target));
+        } else if (v == 'copy_link') {
+          final target = b.type == 'image'
+              ? b.text.trim()
+              : (const {
+                      'file',
+                      'video',
+                      'audio',
+                      'bookmark',
+                      'embed',
+                    }.contains(b.type)
+                    ? (b.url ?? '').trim()
+                    : '');
+          if (target.isNotEmpty) {
+            unawaited(Clipboard.setData(ClipboardData(text: target)));
+          }
+        } else if (v == 'size_smaller') {
+          _nudgeImageWidth(page, b, -0.1);
+        } else if (v == 'size_larger') {
+          _nudgeImageWidth(page, b, 0.1);
+        } else if (v == 'size_50') {
+          _s.setBlockImageWidth(page.id, b.id, 0.5);
+        } else if (v == 'size_75') {
+          _s.setBlockImageWidth(page.id, b.id, 0.75);
+        } else if (v == 'size_100') {
+          _s.setBlockImageWidth(page.id, b.id, 1.0);
         } else if (v == 'img_pick') {
           unawaited(_pickImageForBlock(page.id, b.id, index));
         } else if (v == 'img_clear') {
           unawaited(_clearImageBlock(page.id, b.id, index));
+        } else if (v == 'child_create') {
+          _s.createChildPageLinkedToBlock(pageId: page.id, blockId: b.id);
+          setState(() {});
+        } else if (v == 'child_link') {
+          WidgetsBinding.instance.addPostFrameCallback((_) async {
+            if (!mounted) return;
+            final picked = await _pickPageForChildBlock(
+              menuContext,
+              excludeId: page.id,
+            );
+            if (picked == null || !mounted) return;
+            _s.updateBlockText(page.id, b.id, picked);
+            setState(() {});
+          });
+        } else if (v == 'child_open') {
+          final cid = b.text.trim();
+          if (cid.isNotEmpty) {
+            _s.selectPage(cid);
+          }
         } else if (v == 'file_pick') {
           unawaited(_pickFileForBlock(page.id, b.id));
         } else if (v == 'file_clear') {
@@ -2369,6 +2628,8 @@ class _BlockEditorState extends State<BlockEditor> {
             if (j < 0 || j >= _focusNodes.length) return;
             _focusNodes[j].requestFocus();
           });
+        } else if (v == 'mermaid_hide') {
+          setState(() => _mermaidEditingSourceIds.remove(b.id));
         }
       },
       itemBuilder: (ctx) {
@@ -2378,159 +2639,318 @@ class _BlockEditorState extends State<BlockEditor> {
             : null;
         final rows = data?.rowCount ?? 0;
         final cols = data?.cols ?? 0;
+        final linkTarget = b.type == 'image'
+            ? b.text.trim()
+            : (const {
+                    'file',
+                    'video',
+                    'audio',
+                    'bookmark',
+                    'embed',
+                  }.contains(b.type)
+                  ? (b.url ?? '').trim()
+                  : '');
+        final hasExternalTarget = linkTarget.isNotEmpty;
+        final mediaSizeTypes = {
+          'image',
+          'file',
+          'video',
+          'bookmark',
+          'embed',
+          'audio',
+        };
+        final isChildLinked =
+            b.type == 'child_page' &&
+            b.text.trim().isNotEmpty &&
+            _s.pages.any((p) => p.id == b.text.trim());
         return [
           if (_s.aiEnabled)
-            const PopupMenuItem(
+            item(
+              ctx,
               value: 'ai_rewrite',
-              child: Text('Reescribir con IA…'),
+              icon: Icons.auto_fix_high_rounded,
+              label: 'Reescribir con IA…',
             ),
           if (index > 0)
-            const PopupMenuItem(value: 'up', child: Text('Mover arriba')),
+            item(
+              ctx,
+              value: 'up',
+              icon: Icons.keyboard_arrow_up_rounded,
+              label: 'Mover arriba',
+            ),
           if (index < page.blocks.length - 1)
-            const PopupMenuItem(value: 'down', child: Text('Mover abajo')),
+            item(
+              ctx,
+              value: 'down',
+              icon: Icons.keyboard_arrow_down_rounded,
+              label: 'Mover abajo',
+            ),
+          item(
+            ctx,
+            value: 'dup',
+            icon: Icons.copy_all_rounded,
+            label: 'Duplicar bloque',
+          ),
+          if (hasExternalTarget)
+            item(
+              ctx,
+              value: 'open_external',
+              icon: Icons.open_in_new_rounded,
+              label: AppLocalizations.of(ctx).openExternal,
+            ),
+          if (hasExternalTarget)
+            item(
+              ctx,
+              value: 'copy_link',
+              icon: Icons.link_rounded,
+              label: 'Copiar enlace',
+            ),
+          if (mediaSizeTypes.contains(b.type)) ...[
+            const PopupMenuDivider(),
+            item(
+              ctx,
+              value: 'size_smaller',
+              icon: Icons.remove_rounded,
+              label: AppLocalizations.of(ctx).blockSizeSmaller,
+            ),
+            item(
+              ctx,
+              value: 'size_larger',
+              icon: Icons.add_rounded,
+              label: AppLocalizations.of(ctx).blockSizeLarger,
+            ),
+            item(
+              ctx,
+              value: 'size_50',
+              icon: Icons.photo_size_select_small_rounded,
+              label: AppLocalizations.of(ctx).blockSizeHalf,
+            ),
+            item(
+              ctx,
+              value: 'size_75',
+              icon: Icons.photo_size_select_large_rounded,
+              label: AppLocalizations.of(ctx).blockSizeThreeQuarter,
+            ),
+            item(
+              ctx,
+              value: 'size_100',
+              icon: Icons.fit_screen_rounded,
+              label: AppLocalizations.of(ctx).blockSizeFull,
+            ),
+          ],
+          if (b.type == 'child_page') ...[
+            const PopupMenuDivider(),
+            item(
+              ctx,
+              value: 'child_create',
+              icon: Icons.note_add_rounded,
+              label: 'Crear subpágina',
+            ),
+            item(
+              ctx,
+              value: 'child_link',
+              icon: Icons.link_rounded,
+              label: 'Enlazar página…',
+            ),
+            if (isChildLinked)
+              item(
+                ctx,
+                value: 'child_open',
+                icon: Icons.open_in_new_rounded,
+                label: 'Abrir subpágina',
+              ),
+          ],
           if (b.type == 'image') ...[
             const PopupMenuDivider(),
-            const PopupMenuItem(
+            item(
+              ctx,
               value: 'img_pick',
-              child: Text('Elegir imagen…'),
+              icon: Icons.image_rounded,
+              label: 'Elegir imagen…',
             ),
             if (b.text.isNotEmpty)
-              const PopupMenuItem(
+              item(
+                ctx,
                 value: 'img_clear',
-                child: Text('Quitar imagen'),
+                icon: Icons.delete_outline_rounded,
+                label: 'Quitar imagen',
               ),
           ],
           if (b.type == 'code') ...[
             const PopupMenuDivider(),
-            const PopupMenuItem(
+            item(
+              ctx,
               value: 'code_lang',
-              child: Text('Lenguaje del código…'),
+              icon: Icons.translate_rounded,
+              label: 'Lenguaje del código…',
             ),
           ],
           if (b.type == 'mermaid') ...[
             const PopupMenuDivider(),
-            const PopupMenuItem(
+            item(
+              ctx,
               value: 'mermaid_edit',
-              child: Text('Editar diagrama…'),
+              icon: Icons.edit_note_rounded,
+              label: 'Editar diagrama…',
             ),
+            if (_mermaidEditingSourceIds.contains(b.id))
+              item(
+                ctx,
+                value: 'mermaid_hide',
+                icon: Icons.visibility_rounded,
+                label: 'Volver a vista previa',
+              ),
           ],
           if (b.type == 'file') ...[
             const PopupMenuDivider(),
-            const PopupMenuItem(
+            item(
+              ctx,
               value: 'file_pick',
-              child: Text('Cambiar archivo…'),
+              icon: Icons.attach_file_rounded,
+              label: 'Cambiar archivo…',
             ),
             if ((b.url ?? '').trim().isNotEmpty)
-              const PopupMenuItem(
+              item(
+                ctx,
                 value: 'file_clear',
-                child: Text('Quitar archivo'),
+                icon: Icons.delete_outline_rounded,
+                label: 'Quitar archivo',
               ),
           ],
           if (b.type == 'video') ...[
             const PopupMenuDivider(),
-            const PopupMenuItem(
+            item(
+              ctx,
               value: 'video_pick',
-              child: Text('Cambiar video…'),
+              icon: Icons.video_settings_rounded,
+              label: 'Cambiar video…',
             ),
             if ((b.url ?? '').trim().isNotEmpty)
-              const PopupMenuItem(
+              item(
+                ctx,
                 value: 'video_clear',
-                child: Text('Quitar video'),
+                icon: Icons.delete_outline_rounded,
+                label: 'Quitar video',
               ),
           ],
           if (b.type == 'audio') ...[
             const PopupMenuDivider(),
-            const PopupMenuItem(
+            item(
+              ctx,
               value: 'audio_pick',
-              child: Text('Cambiar audio…'),
+              icon: Icons.audio_file_rounded,
+              label: 'Cambiar audio…',
             ),
             if ((b.url ?? '').trim().isNotEmpty)
-              const PopupMenuItem(
+              item(
+                ctx,
                 value: 'audio_clear',
-                child: Text('Quitar audio'),
+                icon: Icons.delete_outline_rounded,
+                label: 'Quitar audio',
               ),
           ],
           if (b.type == 'template_button') ...[
             const PopupMenuDivider(),
-            const PopupMenuItem(
+            item(
+              ctx,
               value: 'template_edit_label',
-              child: Text('Editar etiqueta…'),
+              icon: Icons.title_rounded,
+              label: 'Editar etiqueta…',
             ),
           ],
           if (b.type == 'bookmark') ...[
             const PopupMenuDivider(),
-            PopupMenuItem(
+            item(
+              ctx,
               value: 'bookmark_set_url',
-              child: Text(AppLocalizations.of(ctx).bookmarkSetUrl),
+              icon: Icons.link_rounded,
+              label: AppLocalizations.of(ctx).bookmarkSetUrl,
             ),
             if ((b.url ?? '').trim().isNotEmpty)
-              PopupMenuItem(
+              item(
+                ctx,
                 value: 'bookmark_clear',
-                child: Text(AppLocalizations.of(ctx).bookmarkRemove),
+                icon: Icons.delete_outline_rounded,
+                label: AppLocalizations.of(ctx).bookmarkRemove,
               ),
           ],
           if (b.type == 'embed') ...[
             const PopupMenuDivider(),
-            PopupMenuItem(
+            item(
+              ctx,
               value: 'embed_set_url',
-              child: Text(AppLocalizations.of(ctx).embedSetUrl),
+              icon: Icons.language_rounded,
+              label: AppLocalizations.of(ctx).embedSetUrl,
             ),
             if ((b.url ?? '').trim().isNotEmpty)
-              PopupMenuItem(
+              item(
+                ctx,
                 value: 'embed_clear',
-                child: Text(AppLocalizations.of(ctx).embedRemove),
+                icon: Icons.delete_outline_rounded,
+                label: AppLocalizations.of(ctx).embedRemove,
               ),
           ],
           if (b.type == 'table' && data != null) ...[
             const PopupMenuDivider(),
-            const PopupMenuItem(
+            item(
+              ctx,
               value: 'table_row_add',
-              child: Text('Añadir fila'),
+              icon: Icons.table_rows_rounded,
+              label: 'Añadir fila',
             ),
             if (rows > 1)
-              const PopupMenuItem(
+              item(
+                ctx,
                 value: 'table_row_rem',
-                child: Text('Quitar última fila'),
+                icon: Icons.table_rows_outlined,
+                label: 'Quitar última fila',
               ),
-            const PopupMenuItem(
+            item(
+              ctx,
               value: 'table_col_add',
-              child: Text('Añadir columna'),
+              icon: Icons.view_column_rounded,
+              label: 'Añadir columna',
             ),
             if (cols > 1)
-              const PopupMenuItem(
+              item(
+                ctx,
                 value: 'table_col_rem',
-                child: Text('Quitar última columna'),
+                icon: Icons.view_column_outlined,
+                label: 'Quitar última columna',
               ),
           ],
           if (b.type == 'database' && db != null) ...[
             const PopupMenuDivider(),
-            const PopupMenuItem(
+            item(
+              ctx,
               value: 'db_row_add',
-              child: Text('Añadir fila'),
+              icon: Icons.playlist_add_rounded,
+              label: 'Añadir fila',
             ),
-            const PopupMenuItem(
+            item(
+              ctx,
               value: 'db_col_add',
-              child: Text('Añadir propiedad'),
+              icon: Icons.add_chart_rounded,
+              label: 'Añadir propiedad',
             ),
           ],
           const PopupMenuDivider(),
-          PopupMenuItem(
+          item(
+            ctx,
             value: 'pick_type',
-            child: Row(
-              children: [
-                Icon(
-                  Icons.auto_awesome_motion_rounded,
-                  size: 20,
-                  color: Theme.of(ctx).colorScheme.primary,
-                ),
-                const SizedBox(width: 12),
-                const Expanded(child: Text('Cambiar tipo de bloque…')),
-              ],
-            ),
+            icon: Icons.auto_awesome_motion_rounded,
+            iconColor: Theme.of(ctx).colorScheme.primary,
+            label: 'Cambiar tipo de bloque…',
           ),
           if (page.blocks.length > 1) const PopupMenuDivider(),
           if (page.blocks.length > 1)
-            const PopupMenuItem(value: 'del', child: Text('Eliminar bloque')),
+            item(
+              ctx,
+              value: 'del',
+              icon: Icons.delete_forever_rounded,
+              iconColor: Theme.of(ctx).colorScheme.error,
+              label: 'Eliminar bloque',
+            ),
         ];
       },
     );
@@ -2621,6 +3041,7 @@ class _BlockEditorState extends State<BlockEditor> {
     required FocusNode focus,
     required TextStyle style,
     required bool showActions,
+    required bool showInlineEditControls,
   }) {
     final menu = _blockMenuButton(
       menuContext: context,
@@ -2743,13 +3164,23 @@ class _BlockEditorState extends State<BlockEditor> {
             dragHandle,
             marker,
             Expanded(
-              child: TableBlockEditor(
-                json: block.text,
-                scheme: scheme,
-                textTheme: theme.textTheme,
-                firstCellFocusNode: focus,
-                onChanged: (enc) =>
-                    _onTableEncoded(page.id, block.id, index, enc),
+              child: GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onTap: () {
+                  if (_selectedBlockId != block.id) {
+                    setState(() => _selectedBlockId = block.id);
+                  }
+                  focus.requestFocus();
+                },
+                child: TableBlockEditor(
+                  json: block.text,
+                  scheme: scheme,
+                  textTheme: theme.textTheme,
+                  firstCellFocusNode: focus,
+                  showToolbar: showInlineEditControls,
+                  onChanged: (enc) =>
+                      _onTableEncoded(page.id, block.id, index, enc),
+                ),
               ),
             ),
           ],
@@ -2767,12 +3198,21 @@ class _BlockEditorState extends State<BlockEditor> {
             dragHandle,
             marker,
             Expanded(
-              child: DatabaseBlockEditor(
-                json: block.text,
-                scheme: scheme,
-                textTheme: theme.textTheme,
-                onChanged: (enc) =>
-                    _onTableEncoded(page.id, block.id, index, enc),
+              child: GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onTap: () {
+                  if (_selectedBlockId != block.id) {
+                    setState(() => _selectedBlockId = block.id);
+                  }
+                },
+                child: DatabaseBlockEditor(
+                  json: block.text,
+                  scheme: scheme,
+                  textTheme: theme.textTheme,
+                  controlsVisible: showInlineEditControls,
+                  onChanged: (enc) =>
+                      _onTableEncoded(page.id, block.id, index, enc),
+                ),
               ),
             ),
           ],
@@ -3979,7 +4419,7 @@ class _BlockEditorState extends State<BlockEditor> {
         : null;
     final showSlashMenu = slashTail != null && _slashBlockId == block.id;
     final slashItems = showSlashMenu
-        ? _catalogFiltered(slashTail)
+        ? _catalogFilteredForSlash(slashTail)
         : const <BlockTypeDef>[];
     final slashPanelMaxH = math.min(
       192.0,
@@ -4068,32 +4508,68 @@ class _BlockEditorState extends State<BlockEditor> {
         child: stackedField,
       );
     } else if (block.type == 'callout') {
+      final calloutTone = _calloutToneForIcon(block.icon);
       textContainer = Container(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         decoration: BoxDecoration(
-          color: scheme.primaryContainer.withValues(alpha: 0.3),
+          color: _calloutBackgroundForTone(scheme, calloutTone),
           borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: scheme.primaryContainer),
+          border: Border.all(color: _calloutBorderForTone(scheme, calloutTone)),
         ),
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Padding(
-              padding: const EdgeInsets.only(right: 12),
-              child: MouseRegion(
-                cursor: SystemMouseCursors.click,
-                child: GestureDetector(
-                  onTap: () async {
-                    final emoji = await _pickEmoji(context);
-                    if (emoji != null) {
-                      _s.updateBlockIcon(page.id, block.id, emoji);
-                    }
-                  },
-                  child: Text(
-                    block.icon ?? '💡',
-                    style: const TextStyle(fontSize: 20),
+              padding: const EdgeInsets.only(right: 10),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    decoration: BoxDecoration(
+                      color: _calloutChipForTone(scheme, calloutTone),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 5,
+                      ),
+                      child: MouseRegion(
+                        cursor: SystemMouseCursors.click,
+                        child: GestureDetector(
+                          onTap: () async {
+                            final emoji = await _pickEmoji(context);
+                            if (emoji != null) {
+                              _s.updateBlockIcon(page.id, block.id, emoji);
+                            }
+                          },
+                          child: Text(
+                            block.icon ?? '💡',
+                            style: const TextStyle(fontSize: 20),
+                          ),
+                        ),
+                      ),
+                    ),
                   ),
-                ),
+                  PopupMenuButton<String>(
+                    tooltip: 'Tipo de callout',
+                    onSelected: (emoji) =>
+                        _s.updateBlockIcon(page.id, block.id, emoji),
+                    itemBuilder: (ctx) => const [
+                      PopupMenuItem(value: '💡', child: Text('💡 Info')),
+                      PopupMenuItem(value: '✅', child: Text('✅ Éxito')),
+                      PopupMenuItem(value: '⚠️', child: Text('⚠️ Warning')),
+                      PopupMenuItem(value: '🚨', child: Text('🚨 Error')),
+                      PopupMenuItem(value: 'ℹ️', child: Text('ℹ️ Nota')),
+                    ],
+                    icon: Icon(
+                      Icons.arrow_drop_down,
+                      color: scheme.onSurfaceVariant,
+                    ),
+                    constraints: const BoxConstraints(minWidth: 34),
+                    padding: EdgeInsets.zero,
+                  ),
+                ],
               ),
             ),
             Expanded(child: stackedField),
@@ -4178,6 +4654,12 @@ class _BlockEditorState extends State<BlockEditor> {
                           theme: theme,
                           scheme: scheme,
                           items: slashItems,
+                          selectedIndex: slashItems.isEmpty
+                              ? 0
+                              : _slashSelectedIndex.clamp(
+                                  0,
+                                  slashItems.length - 1,
+                                ),
                           showSections: tail.trim().isEmpty,
                           onPick: _applyInlineSlashChoice,
                         ),
@@ -4257,6 +4739,7 @@ class _InlineSlashList extends StatelessWidget {
     required this.theme,
     required this.scheme,
     required this.items,
+    required this.selectedIndex,
     required this.showSections,
     required this.onPick,
   });
@@ -4265,6 +4748,7 @@ class _InlineSlashList extends StatelessWidget {
   final ThemeData theme;
   final ColorScheme scheme;
   final List<BlockTypeDef> items;
+  final int selectedIndex;
   final bool showSections;
   final void Function(String typeKey) onPick;
 
@@ -4272,7 +4756,9 @@ class _InlineSlashList extends StatelessWidget {
   Widget build(BuildContext context) {
     final children = <Widget>[];
     BlockTypeSection? prev;
-    for (final def in items) {
+    for (var i = 0; i < items.length; i++) {
+      final def = items[i];
+      final selected = i == selectedIndex;
       if (showSections && prev != def.section) {
         prev = def.section;
         children.add(
@@ -4294,7 +4780,9 @@ class _InlineSlashList extends StatelessWidget {
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
           child: Material(
-            color: Colors.transparent,
+            color: selected
+                ? scheme.primaryContainer.withValues(alpha: 0.45)
+                : Colors.transparent,
             child: InkWell(
               borderRadius: BorderRadius.circular(8),
               onTap: () => onPick(def.key),
@@ -4359,6 +4847,35 @@ class _InlineSlashList extends StatelessWidget {
                                 height: 1.2,
                               ),
                             ),
+                    ),
+                    const SizedBox(width: 8),
+                    DecoratedBox(
+                      decoration: BoxDecoration(
+                        color: scheme.surfaceContainerHighest.withValues(
+                          alpha: selected ? 0.95 : 0.7,
+                        ),
+                        borderRadius: BorderRadius.circular(6),
+                        border: Border.all(
+                          color: scheme.outlineVariant.withValues(alpha: 0.45),
+                        ),
+                      ),
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 7,
+                          vertical: 3,
+                        ),
+                        child: Text(
+                          '/${def.key}',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: theme.textTheme.labelSmall?.copyWith(
+                            color: scheme.onSurfaceVariant,
+                            fontWeight: FontWeight.w600,
+                            letterSpacing: 0.2,
+                            fontSize: 10,
+                          ),
+                        ),
+                      ),
                     ),
                   ],
                 ),
@@ -4610,12 +5127,42 @@ class _BlockTypeTile extends StatelessWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
-                        def.label,
-                        style: theme.textTheme.titleSmall?.copyWith(
-                          fontWeight: FontWeight.w600,
-                          letterSpacing: -0.1,
-                        ),
+                      Row(
+                        children: [
+                          Flexible(
+                            child: Text(
+                              def.label,
+                              overflow: TextOverflow.ellipsis,
+                              style: theme.textTheme.titleSmall?.copyWith(
+                                fontWeight: FontWeight.w600,
+                                letterSpacing: -0.1,
+                              ),
+                            ),
+                          ),
+                          if (def.beta) ...[
+                            const SizedBox(width: 8),
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 6,
+                                vertical: 2,
+                              ),
+                              decoration: BoxDecoration(
+                                color: scheme.tertiaryContainer.withValues(
+                                  alpha: 0.9,
+                                ),
+                                borderRadius: BorderRadius.circular(999),
+                              ),
+                              child: Text(
+                                'BETA',
+                                style: theme.textTheme.labelSmall?.copyWith(
+                                  color: scheme.onTertiaryContainer,
+                                  fontWeight: FontWeight.w800,
+                                  letterSpacing: 0.4,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ],
                       ),
                       const SizedBox(height: 3),
                       Text(

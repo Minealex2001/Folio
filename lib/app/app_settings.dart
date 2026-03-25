@@ -115,6 +115,7 @@ class AppSettings extends ChangeNotifier {
   static const _betaBannerDismissedKey = 'folio_beta_banner_dismissed';
   static const _inAppShortcutsKey = 'folio_in_app_shortcuts_json';
   static const _approvedIntegrationAppsKey = 'folio_approved_integration_apps';
+  static const _editorContentWidthKey = 'folio_editor_content_width';
   static const int defaultVaultIdleLockMinutes = 15;
   static const String defaultGlobalSearchHotkey = 'Ctrl+Shift+K';
   static const int defaultAiTimeoutMs = 30000;
@@ -123,6 +124,9 @@ class AppSettings extends ChangeNotifier {
   static const String defaultOllamaModel = 'llama3.1:8b';
   static const String defaultLmStudioModel = 'local-model';
   static const int defaultAiContextWindowTokens = 131072;
+  static const double minEditorContentWidth = 840;
+  static const double maxEditorContentWidth = 1400;
+  static const double defaultEditorContentWidth = 1080;
   static const String defaultUpdaterGithubOwner = 'aleja';
   static const String defaultUpdaterGithubRepo = 'Folio';
   static const bool defaultCheckUpdatesOnStartup = true;
@@ -154,6 +158,7 @@ class AppSettings extends ChangeNotifier {
   bool _hasCompletedQuillSetup = false;
   UpdateReleaseChannel _updateReleaseChannel = defaultUpdateReleaseChannel;
   bool _betaBannerDismissed = false;
+  double _editorContentWidth = defaultEditorContentWidth;
   Map<FolioInAppShortcut, SingleActivator> _inAppShortcuts =
       defaultShortcutMap();
   final String _configuredIntegrationSecret;
@@ -188,6 +193,7 @@ class AppSettings extends ChangeNotifier {
   String get updaterGithubRepo => defaultUpdaterGithubRepo;
   bool get checkUpdatesOnStartup => defaultCheckUpdatesOnStartup;
   UpdateReleaseChannel get updateReleaseChannel => _updateReleaseChannel;
+  double get editorContentWidth => _editorContentWidth;
   String get integrationSecret => _integrationSecret;
   List<IntegrationAppApproval> get approvedIntegrationAppApprovals =>
       _approvedIntegrationApps.values.toList(growable: false);
@@ -251,6 +257,9 @@ class AppSettings extends ChangeNotifier {
       p.getString(_updateReleaseChannelKey),
     );
     _betaBannerDismissed = p.getBool(_betaBannerDismissedKey) ?? false;
+    _editorContentWidth = _sanitizeEditorContentWidth(
+      p.getDouble(_editorContentWidthKey),
+    );
     _inAppShortcuts = parseShortcutOverrides(
       p.getString(_inAppShortcutsKey),
       defaultShortcutMap(),
@@ -340,6 +349,13 @@ class AppSettings extends ChangeNotifier {
     final raw = value ?? defaultAiContextWindowTokens;
     if (raw < 1024) return 1024;
     if (raw > 2000000) return 2000000;
+    return raw;
+  }
+
+  double _sanitizeEditorContentWidth(double? value) {
+    final raw = value ?? defaultEditorContentWidth;
+    if (raw < minEditorContentWidth) return minEditorContentWidth;
+    if (raw > maxEditorContentWidth) return maxEditorContentWidth;
     return raw;
   }
 
@@ -611,6 +627,15 @@ class AppSettings extends ChangeNotifier {
     notifyListeners();
     final p = await SharedPreferences.getInstance();
     await p.setBool(_betaBannerDismissedKey, value);
+  }
+
+  Future<void> setEditorContentWidth(double value) async {
+    final safe = _sanitizeEditorContentWidth(value);
+    if ((_editorContentWidth - safe).abs() < 0.5) return;
+    _editorContentWidth = safe;
+    notifyListeners();
+    final p = await SharedPreferences.getInstance();
+    await p.setDouble(_editorContentWidthKey, safe);
   }
 
   Future<void> setInAppShortcut(

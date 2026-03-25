@@ -179,6 +179,13 @@ class _SettingsPageState extends State<SettingsPage> {
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
   }
 
+  String _t(String es, String en) {
+    final isEs = Localizations.localeOf(
+      context,
+    ).languageCode.toLowerCase().startsWith('es');
+    return isEs ? es : en;
+  }
+
   Future<void> _exportReleaseReadinessReport() async {
     final destination = await FilePicker.platform.saveFile(
       dialogTitle: 'Guardar reporte de release readiness',
@@ -1133,6 +1140,51 @@ class _SettingsPageState extends State<SettingsPage> {
                                       child: Text(l10n.englishLanguage),
                                     ),
                                   ],
+                                ),
+                              ),
+                              const Divider(height: 1),
+                              ListTile(
+                                leading: const Icon(Icons.width_full_rounded),
+                                title: Text(
+                                  _t('Ancho del contenido', 'Content width'),
+                                ),
+                                subtitle: Text(
+                                  _t(
+                                    'Define cuánto ancho ocupan los bloques en el editor.',
+                                    'Controls how wide blocks appear in the editor.',
+                                  ),
+                                ),
+                                trailing: Text(
+                                  '${_app.editorContentWidth.round()} px',
+                                  style: Theme.of(context).textTheme.labelLarge
+                                      ?.copyWith(
+                                        color: scheme.onSurfaceVariant,
+                                        fontWeight: FontWeight.w700,
+                                      ),
+                                ),
+                              ),
+                              Padding(
+                                padding: const EdgeInsets.fromLTRB(
+                                  16,
+                                  0,
+                                  16,
+                                  8,
+                                ),
+                                child: Slider(
+                                  value: _app.editorContentWidth,
+                                  min: AppSettings.minEditorContentWidth,
+                                  max: AppSettings.maxEditorContentWidth,
+                                  divisions:
+                                      ((AppSettings.maxEditorContentWidth -
+                                                  AppSettings
+                                                      .minEditorContentWidth) /
+                                              20)
+                                          .round(),
+                                  label:
+                                      '${_app.editorContentWidth.round()} px',
+                                  onChanged: (value) {
+                                    _app.setEditorContentWidth(value);
+                                  },
                                 ),
                               ),
                             ],

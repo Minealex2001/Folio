@@ -11,18 +11,21 @@ class DatabaseBlockEditor extends StatefulWidget {
     required this.onChanged,
     required this.scheme,
     required this.textTheme,
+    this.controlsVisible = true,
   });
 
   final String json;
   final ValueChanged<String> onChanged;
   final ColorScheme scheme;
   final TextTheme textTheme;
+  final bool controlsVisible;
 
   @override
   State<DatabaseBlockEditor> createState() => _DatabaseBlockEditorState();
 }
 
 class _DatabaseBlockEditorState extends State<DatabaseBlockEditor> {
+  _DatabaseViewMode _mode = _DatabaseViewMode.view;
   final TextEditingController _filterController = TextEditingController();
 
   static const _uuid = Uuid();
@@ -111,9 +114,323 @@ class _DatabaseBlockEditorState extends State<DatabaseBlockEditor> {
     setState(() {});
   }
 
+  void _setActiveView(String viewId) {
+    if (_data.activeViewId == viewId) return;
+    _data.activeViewId = viewId;
+    _emit();
+    setState(() {});
+  }
+
+  IconData _viewIcon(FolioDbViewType type) {
+    switch (type) {
+      case FolioDbViewType.table:
+        return Icons.table_chart_rounded;
+      case FolioDbViewType.list:
+        return Icons.view_list_rounded;
+      case FolioDbViewType.board:
+        return Icons.view_kanban_rounded;
+      case FolioDbViewType.calendar:
+        return Icons.calendar_month_rounded;
+    }
+  }
+
+  String _defaultViewName(FolioDbViewType type) {
+    switch (type) {
+      case FolioDbViewType.table:
+        return _t('Tabla', 'Table');
+      case FolioDbViewType.list:
+        return _t('Lista', 'List');
+      case FolioDbViewType.board:
+        return _t('Tablero', 'Board');
+      case FolioDbViewType.calendar:
+        return _t('Calendario', 'Calendar');
+    }
+  }
+
+  String _uniqueViewName(String base) {
+    final names = _data.views.map((v) => v.name.trim().toLowerCase()).toSet();
+    var candidate = base.trim();
+    if (candidate.isEmpty) candidate = _t('Vista', 'View');
+    if (!names.contains(candidate.toLowerCase())) return candidate;
+    var n = 2;
+    while (names.contains('$candidate $n'.toLowerCase())) {
+      n++;
+    }
+    return '$candidate $n';
+  }
+
+  Future<void> _showCreateViewDialog() async {
+    final active = _activeView;
+    final nameCtrl = TextEditingController(
+      text: _uniqueViewName('${active.name} ${_t('copia', 'copy')}'),
+    );
+    var selectedType = active.type;
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(_t('Nueva vista', 'New view')),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              controller: nameCtrl,
+              decoration: InputDecoration(labelText: _t('Nombre', 'Name')),
+            ),
+            const SizedBox(height: 8),
+            DropdownButtonFormField<FolioDbViewType>(
+              initialValue: selectedType,
+              items: FolioDbViewType.values
+                  .map(
+                    (t) => DropdownMenuItem(
+                      value: t,
+                      child: Text(_defaultViewName(t)),
+                    ),
+                  )
+                  .toList(),
+              onChanged: (v) {
+                if (v != null) selectedType = v;
+              },
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: Text(_t('Cancelar', 'Cancel')),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: Text(_t('Crear', 'Create')),
+          ),
+        ],
+      ),
+    );
+    if (ok != true) return;
+    final next = FolioDbView(
+      id: 'v_${_uuid.v4()}',
+      name: _uniqueViewName(nameCtrl.text.trim()),
+      type: selectedType,
+      groupByPropertyId: selectedType == FolioDbViewType.board
+          ? active.groupByPropertyId
+          : null,
+      calendarDatePropertyId: selectedType == FolioDbViewType.calendar
+          ? active.calendarDatePropertyId
+          : null,
+      filter: active.filter == null
+          ? null
+          : FolioDbFilterGroup.fromJson(active.filter!.toJson()),
+      visiblePropertyIds: List<String>.from(active.visiblePropertyIds),
+      sorts: active.sorts
+          .map((s) => FolioDbSortSpec(propertyId: s.propertyId, desc: s.desc))
+          .toList(),
+    );
+    _data.views.add(next);
+    _data.activeViewId = next.id;
+    _emit();
+    setState(() {});
+  }
+
+  Future<void> _showRenameActiveViewDialog() async {
+    final active = _activeView;
+    final ctrl = TextEditingController(text: active.name);
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(_t('Renombrar vista', 'Rename view')),
+        content: TextField(
+          controller: ctrl,
+          decoration: InputDecoration(labelText: _t('Nombre', 'Name')),
+          autofocus: true,
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: Text(_t('Cancelar', 'Cancel')),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: Text(_t('Guardar', 'Save')),
+          ),
+        ],
+      ),
+    );
+    if (ok != true) return;
+    active.name = _uniqueViewName(ctrl.text.trim());
+    _emit();
+    setState(() {});
+  }
+
+  void _deleteActiveView() {
+    if (_data.views.length <= 1) return;
+    final activeId = _activeView.id;
+    _data.views.removeWhere((v) => v.id == activeId);
+    _data.activeViewId = _data.views.first.id;
+    _emit();
+    setState(() {});
+  }
+
+  void _duplicateActiveView() {
+    final active = _activeView;
+    final clone = FolioDbView(
+      id: 'v_${_uuid.v4()}',
+      name: _uniqueViewName('${active.name} ${_t('copia', 'copy')}'),
+      type: active.type,
+      groupByPropertyId: active.groupByPropertyId,
+      calendarDatePropertyId: active.calendarDatePropertyId,
+      filter: active.filter == null
+          ? null
+          : FolioDbFilterGroup.fromJson(active.filter!.toJson()),
+      visiblePropertyIds: List<String>.from(active.visiblePropertyIds),
+      sorts: active.sorts
+          .map((s) => FolioDbSortSpec(propertyId: s.propertyId, desc: s.desc))
+          .toList(),
+    );
+    _data.views.add(clone);
+    _data.activeViewId = clone.id;
+    _emit();
+    setState(() {});
+  }
+
+  List<FolioDbProperty> _visiblePropertiesFor(FolioDbView view) {
+    if (view.visiblePropertyIds.isEmpty) return _data.properties;
+    final set = view.visiblePropertyIds.toSet();
+    final visible = _data.properties.where((p) => set.contains(p.id)).toList();
+    return visible.isEmpty ? _data.properties : visible;
+  }
+
+  void _togglePropertyVisibility(
+    FolioDbView view,
+    String propertyId,
+    bool visible,
+  ) {
+    if (view.visiblePropertyIds.isEmpty) {
+      view.visiblePropertyIds = _data.properties.map((p) => p.id).toList();
+    }
+    final ids = List<String>.from(view.visiblePropertyIds);
+    if (visible) {
+      if (!ids.contains(propertyId)) ids.add(propertyId);
+    } else {
+      ids.remove(propertyId);
+      if (ids.isEmpty) return;
+    }
+    view.visiblePropertyIds = ids;
+    _emit();
+    setState(() {});
+  }
+
+  Future<void> _showVisiblePropertiesSheet(FolioDbView view) async {
+    await showModalBottomSheet<void>(
+      context: context,
+      showDragHandle: true,
+      builder: (ctx) {
+        final current = view.visiblePropertyIds.isEmpty
+            ? _data.properties.map((p) => p.id).toSet()
+            : view.visiblePropertyIds.toSet();
+        return StatefulBuilder(
+          builder: (context, setModalState) {
+            return ListView(
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+              children: [
+                Text(
+                  _t('Propiedades visibles', 'Visible properties'),
+                  style: Theme.of(context).textTheme.titleMedium,
+                ),
+                const SizedBox(height: 8),
+                for (final p in _data.properties)
+                  CheckboxListTile(
+                    value: current.contains(p.id),
+                    title: Text(p.name),
+                    subtitle: Text(p.type.name),
+                    onChanged: (v) {
+                      final nextVisible = v == true;
+                      if (!nextVisible && current.length <= 1) return;
+                      if (nextVisible) {
+                        current.add(p.id);
+                      } else {
+                        current.remove(p.id);
+                      }
+                      _togglePropertyVisibility(view, p.id, nextVisible);
+                      setModalState(() {});
+                    },
+                  ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
+
+  void _moveRowToBoardGroup(
+    FolioDbRow row,
+    FolioDbProperty groupProperty,
+    String groupKey,
+    String emptyLabel,
+  ) {
+    final target = groupKey == emptyLabel ? '' : groupKey;
+    _updateRowValue(row, groupProperty, target);
+  }
+
+  void _updateRowValue(
+    FolioDbRow row,
+    FolioDbProperty property,
+    dynamic value,
+  ) {
+    row.values[property.id] = _data.sanitizedValue(property, value);
+    _emit();
+    setState(() {});
+  }
+
+  void _duplicateRow(FolioDbRow source) {
+    final clonedValues = Map<String, dynamic>.from(source.values);
+    _data.rows.add(FolioDbRow(id: 'r_${_uuid.v4()}', values: clonedValues));
+    _emit();
+    setState(() {});
+  }
+
+  void _deleteRow(FolioDbRow row) {
+    _data.rows.removeWhere((r) => r.id == row.id);
+    _emit();
+    setState(() {});
+  }
+
+  void _applyQuickFilter(FolioDbView active) {
+    final first = _data.properties.firstOrNull;
+    if (first == null) return;
+    final value = _filterController.text.trim();
+    if (value.isEmpty) {
+      active.filter = null;
+    } else {
+      active.filter = FolioDbFilterGroup(
+        logical: FolioDbLogicalOperator.and,
+        conditions: [
+          FolioDbFilterCondition(
+            propertyId: first.id,
+            op: FolioDbFilterOperator.contains,
+            value: value,
+          ),
+        ],
+      );
+    }
+    _emit();
+    setState(() {});
+  }
+
   bool get _isEs => Localizations.localeOf(
     context,
   ).languageCode.toLowerCase().startsWith('es');
+
+  bool get _isEditMode => _mode == _DatabaseViewMode.edit;
+
+  Color get _canvasColor => Color.alphaBlend(
+    widget.scheme.surface.withValues(alpha: 0.72),
+    widget.scheme.surfaceContainerLowest,
+  );
+
+  Color get _panelColor => widget.scheme.surface;
+
+  Color get _subtleBorder =>
+      widget.scheme.outlineVariant.withValues(alpha: 0.55);
 
   String _t(String es, String en) => _isEs ? es : en;
 
@@ -121,115 +438,308 @@ class _DatabaseBlockEditorState extends State<DatabaseBlockEditor> {
   Widget build(BuildContext context) {
     final active = _activeView;
     final rows = _visibleRowsFor(active);
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        Wrap(
-          spacing: 8,
-          runSpacing: 8,
-          children: [
-            SegmentedButton<String>(
-              segments: [
-                ButtonSegment(value: 'table', label: Text('Tabla')),
-                ButtonSegment(value: 'list', label: Text(_t('Lista', 'List'))),
-                ButtonSegment(
-                  value: 'board',
-                  label: Text(_t('Tablero', 'Board')),
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: _canvasColor,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: _subtleBorder),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          if (widget.controlsVisible) _buildTopBar(active),
+          if (widget.controlsVisible) const SizedBox(height: 8),
+          if (widget.controlsVisible)
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                DropdownButton<FolioDbViewType>(
+                  value: active.type,
+                  items: FolioDbViewType.values
+                      .map(
+                        (t) => DropdownMenuItem(
+                          value: t,
+                          child: Row(
+                            children: [
+                              Icon(_viewIcon(t), size: 16),
+                              const SizedBox(width: 6),
+                              Text(_defaultViewName(t)),
+                            ],
+                          ),
+                        ),
+                      )
+                      .toList(),
+                  onChanged: (v) {
+                    if (!_isEditMode) return;
+                    if (v == null) return;
+                    active.type = v;
+                    _emit();
+                    setState(() {});
+                  },
                 ),
-                ButtonSegment(
-                  value: 'calendar',
-                  label: Text(_t('Calendario', 'Calendar')),
+                if (_isEditMode)
+                  OutlinedButton.icon(
+                    onPressed: _addProperty,
+                    icon: const Icon(Icons.view_column_rounded, size: 18),
+                    label: Text(_t('Añadir propiedad', 'Add property')),
+                  ),
+                OutlinedButton.icon(
+                  onPressed: _isEditMode
+                      ? () => _showVisiblePropertiesSheet(active)
+                      : null,
+                  icon: const Icon(Icons.tune_rounded, size: 18),
+                  label: Text(_t('Propiedades visibles', 'Visible properties')),
                 ),
+                if (_isEditMode)
+                  FilledButton.tonalIcon(
+                    onPressed: _addRow,
+                    icon: const Icon(Icons.add_rounded, size: 18),
+                    label: Text(_t('Nueva fila', 'New row')),
+                  ),
+                OutlinedButton.icon(
+                  onPressed: () => _applyQuickFilter(active),
+                  icon: const Icon(Icons.filter_alt_outlined, size: 18),
+                  label: Text(_t('Aplicar filtro', 'Apply filter')),
+                ),
+                if (_isEditMode)
+                  OutlinedButton.icon(
+                    onPressed: () {
+                      final first = _data.properties.firstOrNull;
+                      if (first == null) return;
+                      active.sorts = [
+                        FolioDbSortSpec(propertyId: first.id, desc: false),
+                      ];
+                      _emit();
+                      setState(() {});
+                    },
+                    icon: const Icon(Icons.sort_by_alpha_rounded, size: 18),
+                    label: const Text('Sort A-Z'),
+                  ),
               ],
-              selected: {active.type.name},
-              onSelectionChanged: (s) {
-                final type = s.first;
-                final next = _data.views.firstWhere(
-                  (v) => v.type.name == type,
-                  orElse: () => _data.views.first,
-                );
-                _data.activeViewId = next.id;
-                _emit();
-                setState(() {});
+            ),
+          if (widget.controlsVisible) const SizedBox(height: 8),
+          if (_isEditMode && widget.controlsVisible) _propertiesCard(),
+          if (_isEditMode && widget.controlsVisible) const SizedBox(height: 8),
+          if (widget.controlsVisible)
+            TextField(
+              controller: _filterController,
+              decoration: InputDecoration(
+                filled: true,
+                fillColor: _panelColor,
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(10),
+                  borderSide: BorderSide(color: _subtleBorder),
+                ),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(10),
+                  borderSide: BorderSide(color: _subtleBorder),
+                ),
+                isDense: true,
+                prefixIcon: const Icon(Icons.search_rounded, size: 18),
+                labelText: _t(
+                  'Filtro rápido (columna principal)',
+                  'Quick filter (main column)',
+                ),
+              ),
+              onSubmitted: (_) {
+                _applyQuickFilter(active);
               },
             ),
-            OutlinedButton.icon(
-              onPressed: _addProperty,
-              icon: const Icon(Icons.view_column_rounded, size: 18),
-              label: Text(_t('Añadir propiedad', 'Add property')),
+          if (widget.controlsVisible) const SizedBox(height: 8),
+          if (_isEditMode && widget.controlsVisible) _queryBuilderCard(active),
+          if (_isEditMode && widget.controlsVisible) const SizedBox(height: 8),
+          _buildView(active, rows),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildTopBar(FolioDbView active) {
+    final statusLabel = _isEditMode
+        ? _t('Editable', 'Editable')
+        : _t('Bloqueada', 'Locked');
+    final statusIcon = _isEditMode
+        ? Icons.lock_open_rounded
+        : Icons.lock_rounded;
+
+    Widget leftTabs = SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      child: Row(
+        children: [
+          for (final view in _data.views)
+            Padding(
+              padding: const EdgeInsets.only(right: 6),
+              child: _buildViewTab(view, view.id == active.id),
             ),
-            FilledButton.tonalIcon(
-              onPressed: _addRow,
-              icon: const Icon(Icons.add_rounded, size: 18),
-              label: Text(_t('Nueva fila', 'New row')),
-            ),
-            OutlinedButton.icon(
-              onPressed: () {
-                final first = _data.properties.firstOrNull;
-                if (first == null) return;
-                final value = _filterController.text.trim();
-                if (value.isEmpty) {
-                  active.filter = null;
-                } else {
-                  active.filter = FolioDbFilterGroup(
-                    logical: FolioDbLogicalOperator.and,
-                    conditions: [
-                      FolioDbFilterCondition(
-                        propertyId: first.id,
-                        op: FolioDbFilterOperator.contains,
-                        value: value,
-                      ),
-                    ],
-                  );
-                }
-                _emit();
-                setState(() {});
-              },
-              icon: const Icon(Icons.filter_alt_outlined, size: 18),
-              label: Text(_t('Aplicar filtro', 'Apply filter')),
-            ),
-            OutlinedButton.icon(
-              onPressed: () {
-                final first = _data.properties.firstOrNull;
-                if (first == null) return;
-                active.sorts = [
-                  FolioDbSortSpec(propertyId: first.id, desc: false),
-                ];
-                _emit();
-                setState(() {});
-              },
-              icon: const Icon(Icons.sort_by_alpha_rounded, size: 18),
-              label: const Text('Sort A-Z'),
-            ),
-          ],
-        ),
-        const SizedBox(height: 8),
-        _propertiesCard(),
-        const SizedBox(height: 8),
-        TextField(
-          controller: _filterController,
-          decoration: InputDecoration(
-            border: OutlineInputBorder(),
-            isDense: true,
-            labelText: _t(
-              'Filtro rápido (columna principal)',
-              'Quick filter (main column)',
+          TextButton.icon(
+            onPressed: _isEditMode ? _showCreateViewDialog : null,
+            icon: const Icon(Icons.add_rounded, size: 16),
+            label: Text(_t('Vista', 'View')),
+            style: TextButton.styleFrom(
+              visualDensity: VisualDensity.compact,
+              foregroundColor: widget.scheme.onSurfaceVariant,
             ),
           ),
-          onSubmitted: (_) {
-            setState(() {});
+        ],
+      ),
+    );
+
+    Widget rightActions = Wrap(
+      spacing: 4,
+      runSpacing: 4,
+      crossAxisAlignment: WrapCrossAlignment.center,
+      children: [
+        TextButton.icon(
+          onPressed: () {
+            setState(() {
+              _mode = _isEditMode
+                  ? _DatabaseViewMode.view
+                  : _DatabaseViewMode.edit;
+            });
           },
+          icon: Icon(statusIcon, size: 16),
+          label: Text(statusLabel),
+          style: TextButton.styleFrom(
+            visualDensity: VisualDensity.compact,
+            foregroundColor: widget.scheme.onSurfaceVariant,
+          ),
         ),
-        const SizedBox(height: 8),
-        _queryBuilderCard(active),
-        const SizedBox(height: 8),
-        _buildView(active, rows),
+        IconButton(
+          tooltip: _t('Aplicar filtro', 'Apply filter'),
+          onPressed: () => _applyQuickFilter(active),
+          icon: const Icon(Icons.filter_alt_outlined, size: 18),
+        ),
+        IconButton(
+          tooltip: _t('Propiedades visibles', 'Visible properties'),
+          onPressed: _isEditMode
+              ? () => _showVisiblePropertiesSheet(active)
+              : null,
+          icon: const Icon(Icons.tune_rounded, size: 18),
+        ),
+        PopupMenuButton<String>(
+          tooltip: _t('Opciones de vista', 'View options'),
+          enabled: _isEditMode,
+          onSelected: (value) {
+            if (value == 'rename') {
+              _showRenameActiveViewDialog();
+            } else if (value == 'duplicate') {
+              _duplicateActiveView();
+            } else if (value == 'delete') {
+              _deleteActiveView();
+            }
+          },
+          itemBuilder: (_) => [
+            PopupMenuItem(
+              value: 'rename',
+              child: Row(
+                children: [
+                  const Icon(Icons.drive_file_rename_outline_rounded, size: 18),
+                  const SizedBox(width: 8),
+                  Text(_t('Renombrar vista', 'Rename view')),
+                ],
+              ),
+            ),
+            PopupMenuItem(
+              value: 'duplicate',
+              child: Row(
+                children: [
+                  const Icon(Icons.copy_all_rounded, size: 18),
+                  const SizedBox(width: 8),
+                  Text(_t('Duplicar vista', 'Duplicate view')),
+                ],
+              ),
+            ),
+            PopupMenuItem(
+              value: 'delete',
+              enabled: _data.views.length > 1,
+              child: Row(
+                children: [
+                  const Icon(Icons.delete_outline_rounded, size: 18),
+                  const SizedBox(width: 8),
+                  Text(_t('Eliminar vista', 'Delete view')),
+                ],
+              ),
+            ),
+          ],
+          child: const Padding(
+            padding: EdgeInsets.symmetric(horizontal: 4),
+            child: Icon(Icons.more_horiz_rounded, size: 18),
+          ),
+        ),
+        FilledButton.icon(
+          onPressed: _isEditMode ? _addRow : null,
+          style: FilledButton.styleFrom(
+            visualDensity: VisualDensity.compact,
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(8),
+            ),
+          ),
+          icon: const Icon(Icons.add_rounded, size: 16),
+          label: Text(_t('Nuevo', 'New')),
+        ),
       ],
+    );
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+      decoration: BoxDecoration(
+        color: _panelColor,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: _subtleBorder),
+      ),
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          if (constraints.maxWidth < 920) {
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                leftTabs,
+                const SizedBox(height: 6),
+                Align(alignment: Alignment.centerRight, child: rightActions),
+              ],
+            );
+          }
+          return Row(
+            children: [
+              Expanded(child: leftTabs),
+              const SizedBox(width: 10),
+              rightActions,
+            ],
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _buildViewTab(FolioDbView view, bool selected) {
+    final selectedColor = widget.scheme.onSurface;
+    final idleColor = widget.scheme.onSurfaceVariant;
+    return TextButton.icon(
+      onPressed: () => _setActiveView(view.id),
+      icon: Icon(_viewIcon(view.type), size: 16),
+      label: Text(view.name),
+      style: TextButton.styleFrom(
+        visualDensity: VisualDensity.compact,
+        foregroundColor: selected ? selectedColor : idleColor,
+        backgroundColor: selected
+            ? widget.scheme.surfaceContainerHigh
+            : Colors.transparent,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+      ),
     );
   }
 
   Widget _propertiesCard() {
     return Card(
+      color: _panelColor,
+      elevation: 0,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(10),
+        side: BorderSide(color: _subtleBorder),
+      ),
       child: Padding(
         padding: const EdgeInsets.all(10),
         child: Column(
@@ -300,6 +810,9 @@ class _DatabaseBlockEditorState extends State<DatabaseBlockEditor> {
                               if (v.calendarDatePropertyId == removedId) {
                                 v.calendarDatePropertyId = null;
                               }
+                              v.visiblePropertyIds = v.visiblePropertyIds
+                                  .where((id) => id != removedId)
+                                  .toList();
                               v.sorts = v.sorts
                                   .where((s) => s.propertyId != removedId)
                                   .toList();
@@ -327,6 +840,12 @@ class _DatabaseBlockEditorState extends State<DatabaseBlockEditor> {
   Widget _queryBuilderCard(FolioDbView active) {
     final group = active.filter;
     return Card(
+      color: _panelColor,
+      elevation: 0,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(10),
+        side: BorderSide(color: _subtleBorder),
+      ),
       child: Padding(
         padding: const EdgeInsets.all(10),
         child: Column(
@@ -553,7 +1072,8 @@ class _DatabaseBlockEditorState extends State<DatabaseBlockEditor> {
     if (_data.properties.isEmpty) {
       return const SizedBox.shrink();
     }
-    final titleProp = _data.properties.first;
+    final visibleProps = _visiblePropertiesFor(view);
+    final titleProp = visibleProps.first;
     return ListView.separated(
       shrinkWrap: true,
       physics: const NeverScrollableScrollPhysics(),
@@ -562,7 +1082,7 @@ class _DatabaseBlockEditorState extends State<DatabaseBlockEditor> {
       itemBuilder: (context, i) {
         final r = rows[i];
         final title = (r.values[titleProp.id] ?? '').toString();
-        final rest = _data.properties
+        final rest = visibleProps
             .skip(1)
             .take(4)
             .map((p) {
@@ -573,16 +1093,47 @@ class _DatabaseBlockEditorState extends State<DatabaseBlockEditor> {
             .whereType<String>()
             .join(' · ');
         return Material(
-          color: widget.scheme.surfaceContainerHighest.withValues(alpha: 0.45),
+          color: _panelColor,
           borderRadius: BorderRadius.circular(12),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+            side: BorderSide(color: _subtleBorder),
+          ),
           child: Padding(
             padding: const EdgeInsets.all(14),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                Text(
-                  title.isEmpty ? '—' : title,
-                  style: widget.textTheme.titleSmall,
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        title.isEmpty ? '—' : title,
+                        style: widget.textTheme.titleSmall,
+                      ),
+                    ),
+                    if (_isEditMode)
+                      PopupMenuButton<String>(
+                        tooltip: _t('Acciones de fila', 'Row actions'),
+                        onSelected: (value) {
+                          if (value == 'duplicate') {
+                            _duplicateRow(r);
+                          } else if (value == 'delete') {
+                            _deleteRow(r);
+                          }
+                        },
+                        itemBuilder: (_) => [
+                          PopupMenuItem(
+                            value: 'duplicate',
+                            child: Text(_t('Duplicar fila', 'Duplicate row')),
+                          ),
+                          PopupMenuItem(
+                            value: 'delete',
+                            child: Text(_t('Eliminar fila', 'Delete row')),
+                          ),
+                        ],
+                      ),
+                  ],
                 ),
                 if (rest.isNotEmpty) ...[
                   const SizedBox(height: 6),
@@ -602,68 +1153,262 @@ class _DatabaseBlockEditorState extends State<DatabaseBlockEditor> {
   }
 
   Widget _buildTable(FolioDbView view, List<FolioDbRow> rows) {
+    final visibleProps = _visiblePropertiesFor(view);
     return SingleChildScrollView(
       scrollDirection: Axis.horizontal,
       child: DataTable(
-        columns: _data.properties
-            .map(
-              (p) => DataColumn(
-                label: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(p.name),
+        headingRowColor: MaterialStatePropertyAll(
+          widget.scheme.surfaceContainerLow,
+        ),
+        dividerThickness: 0.6,
+        columnSpacing: 14,
+        horizontalMargin: 10,
+        dataRowMinHeight: 52,
+        dataRowMaxHeight: 96,
+        rows: rows.map((r) {
+          return DataRow(
+            cells: [
+              ...visibleProps.map(
+                (p) => DataCell(
+                  SizedBox(
+                    width: 170,
+                    child: _buildPropertyEditorCell(
+                      r,
+                      p,
+                      editable: _isEditMode,
+                    ),
+                  ),
+                ),
+              ),
+              if (_isEditMode)
+                DataCell(
+                  PopupMenuButton<String>(
+                    tooltip: _t('Acciones de fila', 'Row actions'),
+                    onSelected: (value) {
+                      if (value == 'duplicate') {
+                        _duplicateRow(r);
+                      } else if (value == 'delete') {
+                        _deleteRow(r);
+                      }
+                    },
+                    itemBuilder: (_) => [
+                      PopupMenuItem(
+                        value: 'duplicate',
+                        child: Text(_t('Duplicar fila', 'Duplicate row')),
+                      ),
+                      PopupMenuItem(
+                        value: 'delete',
+                        child: Text(_t('Eliminar fila', 'Delete row')),
+                      ),
+                    ],
+                    child: const Icon(Icons.more_horiz_rounded, size: 18),
+                  ),
+                ),
+            ],
+          );
+        }).toList(),
+        headingRowHeight: 44,
+        columns: [
+          ...visibleProps.map(
+            (p) => DataColumn(
+              label: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(p.name),
+                  if (_isEditMode)
                     IconButton(
                       tooltip: 'Configurar propiedad',
                       visualDensity: VisualDensity.compact,
                       icon: const Icon(Icons.tune_rounded, size: 16),
                       onPressed: () => _showPropertyConfigDialog(p),
                     ),
-                  ],
-                ),
+                ],
               ),
-            )
-            .toList(),
-        rows: rows.map((r) {
-          return DataRow(
-            cells: _data.properties.map((p) {
-              final value = (r.values[p.id] ?? '').toString();
-              final isComputed =
-                  p.type == FolioDbPropertyType.formula ||
-                  p.type == FolioDbPropertyType.rollup;
-              final computed = _data.resolvedValue(r, p);
-              final isRelation = p.type == FolioDbPropertyType.relation;
-              return DataCell(
-                SizedBox(
-                  width: 160,
-                  child: isComputed
-                      ? Text((computed ?? '').toString())
-                      : isRelation
-                      ? Align(
-                          alignment: Alignment.centerLeft,
-                          child: OutlinedButton.icon(
-                            icon: const Icon(Icons.link_rounded, size: 14),
-                            label: Text(_relationSummary(r, p)),
-                            onPressed: () => _showRelationPicker(r, p),
-                          ),
-                        )
-                      : TextFormField(
-                          initialValue: value,
-                          decoration: const InputDecoration(
-                            isDense: true,
-                            border: InputBorder.none,
-                          ),
-                          onChanged: (v) {
-                            r.values[p.id] = _data.sanitizedValue(p, v);
-                            _emit();
-                          },
-                        ),
-                ),
-              );
-            }).toList(),
-          );
-        }).toList(),
+            ),
+          ),
+          if (_isEditMode) DataColumn(label: Text(_t('Acciones', 'Actions'))),
+        ],
       ),
     );
+  }
+
+  Widget _buildPropertyEditorCell(
+    FolioDbRow row,
+    FolioDbProperty property, {
+    required bool editable,
+  }) {
+    final resolved = _data.resolvedValue(row, property);
+    final isComputed =
+        property.type == FolioDbPropertyType.formula ||
+        property.type == FolioDbPropertyType.rollup;
+    if (isComputed) {
+      return Text((resolved ?? '').toString());
+    }
+    if (!editable) {
+      final raw = _data.sanitizedValue(property, row.values[property.id]);
+      if (property.type == FolioDbPropertyType.checkbox) {
+        return Icon(
+          raw == true
+              ? Icons.check_box_rounded
+              : Icons.check_box_outline_blank_rounded,
+          size: 18,
+        );
+      }
+      if (property.type == FolioDbPropertyType.multiSelect && raw is List) {
+        return Wrap(
+          spacing: 4,
+          runSpacing: 4,
+          children: raw
+              .map(
+                (e) => Chip(
+                  label: Text(e.toString()),
+                  visualDensity: VisualDensity.compact,
+                  side: BorderSide(color: _subtleBorder),
+                  backgroundColor: widget.scheme.surfaceContainerLow,
+                ),
+              )
+              .take(3)
+              .toList(),
+        );
+      }
+      return Text((raw ?? '').toString());
+    }
+    if (property.type == FolioDbPropertyType.relation) {
+      return Align(
+        alignment: Alignment.centerLeft,
+        child: OutlinedButton.icon(
+          icon: const Icon(Icons.link_rounded, size: 14),
+          label: Text(_relationSummary(row, property)),
+          onPressed: () => _showRelationPicker(row, property),
+        ),
+      );
+    }
+
+    final raw = _data.sanitizedValue(property, row.values[property.id]);
+    switch (property.type) {
+      case FolioDbPropertyType.checkbox:
+        return Checkbox(
+          value: raw == true,
+          onChanged: (v) => _updateRowValue(row, property, v == true),
+        );
+      case FolioDbPropertyType.select:
+        final value = (raw ?? '').toString();
+        final opts = property.options;
+        if (opts.isEmpty) {
+          return TextFormField(
+            initialValue: value,
+            decoration: const InputDecoration(
+              isDense: true,
+              border: InputBorder.none,
+            ),
+            onChanged: (v) => _updateRowValue(row, property, v),
+          );
+        }
+        final selected = opts.contains(value) ? value : null;
+        return DropdownButtonFormField<String>(
+          initialValue: selected,
+          isDense: true,
+          decoration: const InputDecoration(
+            border: InputBorder.none,
+            isDense: true,
+          ),
+          items: opts
+              .map((o) => DropdownMenuItem(value: o, child: Text(o)))
+              .toList(),
+          onChanged: (v) {
+            if (v != null) _updateRowValue(row, property, v);
+          },
+        );
+      case FolioDbPropertyType.multiSelect:
+        final values = (raw is List ? raw : const <String>[])
+            .map((e) => e.toString())
+            .toList();
+        return Wrap(
+          spacing: 4,
+          runSpacing: 4,
+          children: [
+            for (final val in values)
+              InputChip(
+                label: Text(val),
+                onDeleted: () {
+                  final next = [...values]..remove(val);
+                  _updateRowValue(row, property, next);
+                },
+              ),
+            ActionChip(
+              avatar: const Icon(Icons.add_rounded, size: 14),
+              label: Text(_t('Añadir', 'Add')),
+              onPressed: () async {
+                final ctrl = TextEditingController();
+                final tag = await showDialog<String>(
+                  context: context,
+                  builder: (ctx) => AlertDialog(
+                    title: Text(_t('Añadir etiqueta', 'Add tag')),
+                    content: TextField(
+                      controller: ctrl,
+                      autofocus: true,
+                      decoration: InputDecoration(
+                        labelText: _t('Etiqueta', 'Tag'),
+                      ),
+                    ),
+                    actions: [
+                      TextButton(
+                        onPressed: () => Navigator.pop(ctx),
+                        child: Text(_t('Cancelar', 'Cancel')),
+                      ),
+                      FilledButton(
+                        onPressed: () => Navigator.pop(ctx, ctrl.text.trim()),
+                        child: Text(_t('Guardar', 'Save')),
+                      ),
+                    ],
+                  ),
+                );
+                if (tag == null || tag.isEmpty) return;
+                final next = {...values, tag}.toList();
+                _updateRowValue(row, property, next);
+              },
+            ),
+          ],
+        );
+      case FolioDbPropertyType.date:
+        final value = (raw ?? '').toString();
+        return OutlinedButton.icon(
+          icon: const Icon(Icons.calendar_today_rounded, size: 14),
+          label: Text(value.isEmpty ? _t('Sin fecha', 'No date') : value),
+          onPressed: () async {
+            final initial = DateTime.tryParse(value) ?? DateTime.now();
+            final picked = await showDatePicker(
+              context: context,
+              initialDate: initial,
+              firstDate: DateTime(2000),
+              lastDate: DateTime(2100),
+            );
+            if (picked == null) return;
+            final iso =
+                '${picked.year.toString().padLeft(4, '0')}-${picked.month.toString().padLeft(2, '0')}-${picked.day.toString().padLeft(2, '0')}';
+            _updateRowValue(row, property, iso);
+          },
+        );
+      case FolioDbPropertyType.number:
+        return TextFormField(
+          initialValue: raw?.toString() ?? '',
+          keyboardType: TextInputType.number,
+          decoration: const InputDecoration(
+            isDense: true,
+            border: InputBorder.none,
+          ),
+          onChanged: (v) => _updateRowValue(row, property, v),
+        );
+      default:
+        return TextFormField(
+          initialValue: raw?.toString() ?? '',
+          decoration: const InputDecoration(
+            isDense: true,
+            border: InputBorder.none,
+          ),
+          onChanged: (v) => _updateRowValue(row, property, v),
+        );
+    }
   }
 
   String _relationSummary(FolioDbRow row, FolioDbProperty relationProp) {
@@ -975,9 +1720,24 @@ class _DatabaseBlockEditorState extends State<DatabaseBlockEditor> {
     if (groupId == null) {
       return const Text('Configura una propiedad de grupo para tablero.');
     }
+    final groupProperty = _data.properties
+        .where((p) => p.id == groupId)
+        .firstOrNull;
+    if (groupProperty == null) {
+      return const Text('La propiedad de grupo ya no existe.');
+    }
+    final emptyLabel = _t('Sin estado', 'No status');
     final groups = <String, List<FolioDbRow>>{};
+    if (groupProperty.type == FolioDbPropertyType.select &&
+        groupProperty.options.isNotEmpty) {
+      for (final option in groupProperty.options) {
+        groups.putIfAbsent(option, () => <FolioDbRow>[]);
+      }
+      groups.putIfAbsent(emptyLabel, () => <FolioDbRow>[]);
+    }
     for (final r in rows) {
-      final key = (r.values[groupId] ?? 'Sin estado').toString();
+      final raw = (r.values[groupId] ?? '').toString().trim();
+      final key = raw.isEmpty ? emptyLabel : raw;
       groups.putIfAbsent(key, () => []).add(r);
     }
     return SingleChildScrollView(
@@ -985,36 +1745,90 @@ class _DatabaseBlockEditorState extends State<DatabaseBlockEditor> {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: groups.entries.map((e) {
-          return Container(
-            width: 240,
-            margin: const EdgeInsets.only(right: 12),
-            padding: const EdgeInsets.all(10),
-            decoration: BoxDecoration(
-              border: Border.all(color: widget.scheme.outlineVariant),
-              borderRadius: BorderRadius.circular(10),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Text(
-                  '${e.key} (${e.value.length})',
-                  style: widget.textTheme.titleSmall,
+          return DragTarget<FolioDbRow>(
+            onAcceptWithDetails: (details) {
+              _moveRowToBoardGroup(
+                details.data,
+                groupProperty,
+                e.key,
+                emptyLabel,
+              );
+            },
+            builder: (context, candidates, rejected) {
+              return Container(
+                width: 260,
+                margin: const EdgeInsets.only(right: 12),
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  border: Border.all(
+                    color: candidates.isNotEmpty
+                        ? widget.scheme.primary
+                        : _subtleBorder,
+                  ),
+                  color: candidates.isNotEmpty
+                      ? widget.scheme.primaryContainer.withValues(alpha: 0.2)
+                      : _panelColor,
+                  borderRadius: BorderRadius.circular(10),
                 ),
-                const SizedBox(height: 8),
-                ...e.value.map((r) {
-                  final titleProp = _data.properties.first.id;
-                  return Card(
-                    margin: const EdgeInsets.only(bottom: 8),
-                    child: Padding(
-                      padding: const EdgeInsets.all(10),
-                      child: Text(
-                        (r.values[titleProp] ?? 'Sin título').toString(),
-                      ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Text(
+                      '${e.key} (${e.value.length})',
+                      style: widget.textTheme.titleSmall,
                     ),
-                  );
-                }),
-              ],
-            ),
+                    const SizedBox(height: 8),
+                    ...e.value.map((r) {
+                      final titleProp = _data.properties.first.id;
+                      final title =
+                          (r.values[titleProp] ?? _t('Sin título', 'Untitled'))
+                              .toString();
+                      return LongPressDraggable<FolioDbRow>(
+                        data: r,
+                        feedback: Material(
+                          elevation: 6,
+                          borderRadius: BorderRadius.circular(8),
+                          child: ConstrainedBox(
+                            constraints: const BoxConstraints(maxWidth: 220),
+                            child: Padding(
+                              padding: const EdgeInsets.all(10),
+                              child: Text(title),
+                            ),
+                          ),
+                        ),
+                        childWhenDragging: Opacity(
+                          opacity: 0.35,
+                          child: Card(
+                            elevation: 0,
+                            margin: const EdgeInsets.only(bottom: 8),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(10),
+                              side: BorderSide(color: _subtleBorder),
+                            ),
+                            child: Padding(
+                              padding: const EdgeInsets.all(10),
+                              child: Text(title),
+                            ),
+                          ),
+                        ),
+                        child: Card(
+                          elevation: 0,
+                          margin: const EdgeInsets.only(bottom: 8),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(10),
+                            side: BorderSide(color: _subtleBorder),
+                          ),
+                          child: Padding(
+                            padding: const EdgeInsets.all(10),
+                            child: Text(title),
+                          ),
+                        ),
+                      );
+                    }),
+                  ],
+                ),
+              );
+            },
           );
         }).toList(),
       ),
@@ -1039,6 +1853,12 @@ class _DatabaseBlockEditorState extends State<DatabaseBlockEditor> {
       children: keys.map((k) {
         final group = byDate[k]!;
         return Card(
+          color: _panelColor,
+          elevation: 0,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(10),
+            side: BorderSide(color: _subtleBorder),
+          ),
           margin: const EdgeInsets.only(bottom: 8),
           child: Padding(
             padding: const EdgeInsets.all(12),
@@ -1065,3 +1885,5 @@ class _DatabaseBlockEditorState extends State<DatabaseBlockEditor> {
 extension<T> on Iterable<T> {
   T? get firstOrNull => isEmpty ? null : first;
 }
+
+enum _DatabaseViewMode { view, edit }

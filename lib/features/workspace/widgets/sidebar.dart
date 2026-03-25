@@ -231,7 +231,6 @@ class _SidebarState extends State<Sidebar> {
       '🔒',
     ];
     final initial = (page.emoji ?? '').trim();
-    final controller = TextEditingController(text: initial);
     var selected = initial;
     final emoji = await showDialog<String>(
       context: context,
@@ -260,15 +259,14 @@ class _SidebarState extends State<Sidebar> {
                       onSelected: (_) {
                         setDialogState(() {
                           selected = item;
-                          controller.text = item;
                         });
                       },
                     );
                   }).toList(),
                 ),
                 const SizedBox(height: FolioSpace.sm),
-                TextField(
-                  controller: controller,
+                TextFormField(
+                  initialValue: initial,
                   autofocus: true,
                   decoration: const InputDecoration(
                     labelText: 'Emoji personalizado',
@@ -279,8 +277,8 @@ class _SidebarState extends State<Sidebar> {
                       selected = value.trim();
                     });
                   },
-                  onSubmitted: (_) {
-                    Navigator.of(ctx).pop(controller.text.trim());
+                  onFieldSubmitted: (_) {
+                    Navigator.of(ctx).pop(selected.trim());
                   },
                 ),
               ],
@@ -295,7 +293,7 @@ class _SidebarState extends State<Sidebar> {
                 child: Text(l10n.cancel),
               ),
               FilledButton(
-                onPressed: () => Navigator.of(ctx).pop(controller.text.trim()),
+                onPressed: () => Navigator.of(ctx).pop(selected.trim()),
                 child: Text(l10n.save),
               ),
             ],
@@ -303,7 +301,6 @@ class _SidebarState extends State<Sidebar> {
         },
       ),
     );
-    controller.dispose();
     if (!mounted || emoji == null) return;
     session.setPageEmoji(page.id, emoji);
   }
@@ -652,91 +649,81 @@ class _SidebarState extends State<Sidebar> {
                       ],
                     ),
                   ),
-                  AnimatedSwitcher(
+                  AnimatedOpacity(
                     duration: FolioMotion.short2,
-                    child: showRowActions
-                        ? Container(
-                            key: ValueKey('actions_${page.id}'),
-                            decoration: BoxDecoration(
-                              color: selected
-                                  ? scheme.onSecondaryContainer.withValues(
-                                      alpha: FolioAlpha.faint,
-                                    )
-                                  : scheme.surfaceContainerHighest.withValues(
-                                      alpha: FolioAlpha.panel,
-                                    ),
-                              borderRadius: BorderRadius.circular(
-                                FolioRadius.md,
+                    opacity: showRowActions ? 1.0 : 0.0,
+                    child: Container(
+                      decoration: BoxDecoration(
+                        color: selected
+                            ? scheme.onSecondaryContainer.withValues(
+                                alpha: FolioAlpha.faint,
+                              )
+                            : scheme.surfaceContainerHighest.withValues(
+                                alpha: FolioAlpha.panel,
                               ),
+                        borderRadius: BorderRadius.circular(FolioRadius.md),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          IconButton(
+                            icon: const Icon(
+                              Icons.emoji_emotions_outlined,
+                              size: 18,
                             ),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                IconButton(
-                                  icon: const Icon(
-                                    Icons.emoji_emotions_outlined,
-                                    size: 18,
-                                  ),
-                                  tooltip: 'Emoji',
-                                  visualDensity: VisualDensity.compact,
-                                  color: selected
-                                      ? scheme.onSecondaryContainer
-                                      : scheme.onSurfaceVariant,
-                                  onPressed: () => _setPageEmoji(context, page),
-                                ),
-                                IconButton(
-                                  icon: const Icon(Icons.add, size: 18),
-                                  tooltip: l10n.subpage,
-                                  visualDensity: VisualDensity.compact,
-                                  color: selected
-                                      ? scheme.onSecondaryContainer
-                                      : scheme.onSurfaceVariant,
-                                  onPressed: () {
-                                    session.addPage(parentId: page.id);
-                                  },
-                                ),
-                                IconButton(
-                                  icon: const Icon(
-                                    Icons.drive_file_move_outline,
-                                    size: 18,
-                                  ),
-                                  tooltip: l10n.move,
-                                  visualDensity: VisualDensity.compact,
-                                  color: selected
-                                      ? scheme.onSecondaryContainer
-                                      : scheme.onSurfaceVariant,
-                                  onPressed: () => _move(context, page),
-                                ),
-                                IconButton(
-                                  icon: const Icon(
-                                    Icons.edit_outlined,
-                                    size: 18,
-                                  ),
-                                  tooltip: l10n.rename,
-                                  visualDensity: VisualDensity.compact,
-                                  color: selected
-                                      ? scheme.onSecondaryContainer
-                                      : scheme.onSurfaceVariant,
-                                  onPressed: () => _rename(context, page),
-                                ),
-                                IconButton(
-                                  icon: const Icon(
-                                    Icons.delete_outline,
-                                    size: 18,
-                                  ),
-                                  tooltip: l10n.delete,
-                                  visualDensity: VisualDensity.compact,
-                                  color: selected
-                                      ? scheme.onSecondaryContainer
-                                      : scheme.onSurfaceVariant,
-                                  onPressed: canDelete
-                                      ? () => session.deletePage(page.id)
-                                      : null,
-                                ),
-                              ],
+                            tooltip: 'Emoji',
+                            visualDensity: VisualDensity.compact,
+                            color: selected
+                                ? scheme.onSecondaryContainer
+                                : scheme.onSurfaceVariant,
+                            onPressed: () => _setPageEmoji(context, page),
+                          ),
+                          IconButton(
+                            icon: const Icon(Icons.add, size: 18),
+                            tooltip: l10n.subpage,
+                            visualDensity: VisualDensity.compact,
+                            color: selected
+                                ? scheme.onSecondaryContainer
+                                : scheme.onSurfaceVariant,
+                            onPressed: () {
+                              session.addPage(parentId: page.id);
+                            },
+                          ),
+                          IconButton(
+                            icon: const Icon(
+                              Icons.drive_file_move_outline,
+                              size: 18,
                             ),
-                          )
-                        : const SizedBox.shrink(),
+                            tooltip: l10n.move,
+                            visualDensity: VisualDensity.compact,
+                            color: selected
+                                ? scheme.onSecondaryContainer
+                                : scheme.onSurfaceVariant,
+                            onPressed: () => _move(context, page),
+                          ),
+                          IconButton(
+                            icon: const Icon(Icons.edit_outlined, size: 18),
+                            tooltip: l10n.rename,
+                            visualDensity: VisualDensity.compact,
+                            color: selected
+                                ? scheme.onSecondaryContainer
+                                : scheme.onSurfaceVariant,
+                            onPressed: () => _rename(context, page),
+                          ),
+                          IconButton(
+                            icon: const Icon(Icons.delete_outline, size: 18),
+                            tooltip: l10n.delete,
+                            visualDensity: VisualDensity.compact,
+                            color: selected
+                                ? scheme.onSecondaryContainer
+                                : scheme.onSurfaceVariant,
+                            onPressed: canDelete
+                                ? () => session.deletePage(page.id)
+                                : null,
+                          ),
+                        ],
+                      ),
+                    ),
                   ),
                 ],
               ),

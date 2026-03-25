@@ -1142,6 +1142,7 @@ class FolioTaskBlockBody extends StatefulWidget {
 }
 
 class _FolioTaskBlockBodyState extends State<FolioTaskBlockBody> {
+  static const _uuid = Uuid();
   late TextEditingController _title;
   late FolioTaskData _data;
 
@@ -1190,6 +1191,39 @@ class _FolioTaskBlockBodyState extends State<FolioTaskBlockBody> {
     );
   }
 
+  void _setSubtaskDone(String subtaskId, bool done) {
+    final next = _data.subtasks
+        .map((s) => s.id == subtaskId ? s.copyWith(done: done) : s)
+        .toList(growable: false);
+    setState(() => _data = _data.copyWith(subtasks: next));
+    _emit(_data);
+  }
+
+  void _setSubtaskTitle(String subtaskId, String title) {
+    final next = _data.subtasks
+        .map((s) => s.id == subtaskId ? s.copyWith(title: title) : s)
+        .toList(growable: false);
+    _data = _data.copyWith(subtasks: next);
+    _emit(_data);
+  }
+
+  void _removeSubtask(String subtaskId) {
+    final next = _data.subtasks
+        .where((s) => s.id != subtaskId)
+        .toList(growable: false);
+    setState(() => _data = _data.copyWith(subtasks: next));
+    _emit(_data);
+  }
+
+  void _addSubtask() {
+    final next = [
+      ..._data.subtasks,
+      FolioTaskSubtask(id: 'st_${_uuid.v4()}', title: '', done: false),
+    ];
+    setState(() => _data = _data.copyWith(subtasks: next));
+    _emit(_data);
+  }
+
   Color _priorityColor(String? priority) {
     switch (priority) {
       case 'high':
@@ -1207,6 +1241,8 @@ class _FolioTaskBlockBodyState extends State<FolioTaskBlockBody> {
   Widget build(BuildContext context) {
     final scheme = widget.scheme;
     final tt = widget.textTheme;
+    final totalSubtasks = _data.subtasks.length;
+    final doneSubtasks = _data.subtasks.where((s) => s.done).length;
     return Card(
       margin: const EdgeInsets.symmetric(vertical: 4),
       color: scheme.surfaceContainerLow,
@@ -1366,7 +1402,70 @@ class _FolioTaskBlockBodyState extends State<FolioTaskBlockBody> {
                     ],
                   ),
                 ),
+                const Spacer(),
+                if (totalSubtasks > 0)
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: FolioSpace.xs,
+                      vertical: 2,
+                    ),
+                    decoration: BoxDecoration(
+                      color: scheme.surfaceContainerHighest,
+                      borderRadius: BorderRadius.circular(FolioRadius.xs),
+                    ),
+                    child: Text(
+                      '$doneSubtasks/$totalSubtasks',
+                      style: tt.labelSmall?.copyWith(
+                        color: scheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ),
               ],
+            ),
+            const SizedBox(height: FolioSpace.sm),
+            if (_data.subtasks.isNotEmpty)
+              Column(
+                children: [
+                  for (final s in _data.subtasks)
+                    Row(
+                      key: ValueKey(s.id),
+                      children: [
+                        Checkbox(
+                          value: s.done,
+                          visualDensity: VisualDensity.compact,
+                          onChanged: (v) => _setSubtaskDone(s.id, v == true),
+                        ),
+                        Expanded(
+                          child: TextFormField(
+                            initialValue: s.title,
+                            decoration: InputDecoration(
+                              isDense: true,
+                              border: InputBorder.none,
+                              hintText: 'Subtarea…',
+                              hintStyle: tt.bodySmall?.copyWith(
+                                color: scheme.onSurfaceVariant,
+                              ),
+                            ),
+                            onChanged: (v) => _setSubtaskTitle(s.id, v),
+                          ),
+                        ),
+                        IconButton(
+                          tooltip: 'Quitar subtarea',
+                          visualDensity: VisualDensity.compact,
+                          onPressed: () => _removeSubtask(s.id),
+                          icon: const Icon(Icons.close_rounded, size: 18),
+                        ),
+                      ],
+                    ),
+                ],
+              ),
+            Align(
+              alignment: Alignment.centerLeft,
+              child: TextButton.icon(
+                onPressed: _addSubtask,
+                icon: const Icon(Icons.add_task_rounded, size: 16),
+                label: const Text('Añadir subtarea'),
+              ),
             ),
           ],
         ),

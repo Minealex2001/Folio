@@ -440,6 +440,34 @@ class _WorkspacePageState extends State<WorkspacePage> {
           }
         },
       ),
+      (
+        activator: const SingleActivator(
+          LogicalKeyboardKey.keyZ,
+          control: true,
+        ),
+        action: () {
+          _s.undoPageEdits();
+        },
+      ),
+      (
+        activator: const SingleActivator(
+          LogicalKeyboardKey.keyZ,
+          control: true,
+          shift: true,
+        ),
+        action: () {
+          _s.redoPageEdits();
+        },
+      ),
+      (
+        activator: const SingleActivator(
+          LogicalKeyboardKey.keyY,
+          control: true,
+        ),
+        action: () {
+          _s.redoPageEdits();
+        },
+      ),
     ];
 
     for (final binding in bindings) {
@@ -1726,6 +1754,19 @@ class _WorkspacePageState extends State<WorkspacePage> {
           _s.clearSelectedPage();
         }
       },
+      const SingleActivator(LogicalKeyboardKey.keyZ, control: true): () {
+        _s.undoPageEdits();
+      },
+      const SingleActivator(
+        LogicalKeyboardKey.keyZ,
+        control: true,
+        shift: true,
+      ): () {
+        _s.redoPageEdits();
+      },
+      const SingleActivator(LogicalKeyboardKey.keyY, control: true): () {
+        _s.redoPageEdits();
+      },
     };
     const altSearch = SingleActivator(LogicalKeyboardKey.keyF, control: true);
     if (a.inAppShortcut(FolioInAppShortcut.search) != altSearch) {
@@ -1776,6 +1817,24 @@ class _WorkspacePageState extends State<WorkspacePage> {
               icon: Icons.tab_unselected_rounded,
               onPressed: _s.clearSelectedPage,
             ),
+          if (page != null)
+            _WorkspaceActionEntry(
+              id: 'undo_page_edit',
+              label: 'Deshacer (Ctrl+Z)',
+              icon: Icons.undo_rounded,
+              onPressed: () => _s.undoPageEdits(),
+              enabled: _s.canUndoSelectedPage,
+              forceOverflow: true,
+            ),
+          if (page != null)
+            _WorkspaceActionEntry(
+              id: 'redo_page_edit',
+              label: 'Rehacer (Ctrl+Y)',
+              icon: Icons.redo_rounded,
+              onPressed: () => _s.redoPageEdits(),
+              enabled: _s.canRedoSelectedPage,
+              forceOverflow: true,
+            ),
           if (canToggleAi)
             _WorkspaceActionEntry(
               id: 'toggle_ai',
@@ -1795,9 +1854,12 @@ class _WorkspacePageState extends State<WorkspacePage> {
         final overflow = <_WorkspaceActionEntry>[];
 
         for (final action in entries) {
-          if (!useOverflow ||
-              action.forcePrimary ||
-              primary.length < primaryBudget) {
+          final shouldKeepPrimary =
+              !action.forceOverflow &&
+              (!useOverflow ||
+                  action.forcePrimary ||
+                  primary.length < primaryBudget);
+          if (shouldKeepPrimary) {
             primary.add(action);
           } else {
             overflow.add(action);
@@ -1809,7 +1871,7 @@ class _WorkspacePageState extends State<WorkspacePage> {
             (action) => IconButton(
               tooltip: action.label,
               icon: Icon(action.icon),
-              onPressed: action.onPressed,
+              onPressed: action.enabled ? action.onPressed : null,
             ),
           ),
           if (overflow.isNotEmpty)
@@ -1820,6 +1882,7 @@ class _WorkspacePageState extends State<WorkspacePage> {
                   .map(
                     (action) => PopupMenuItem<_WorkspaceActionEntry>(
                       value: action,
+                      enabled: action.enabled,
                       child: Row(
                         children: [
                           Icon(action.icon, size: 18),
@@ -1896,6 +1959,7 @@ class _WorkspacePageState extends State<WorkspacePage> {
       page: page,
       pagePath: _buildPagePathSegments(page),
       titleController: _titleController,
+      editorMaxWidth: widget.appSettings.editorContentWidth,
       onTitleChanged: (value) {
         if (page != null && page.id == _s.selectedPageId) {
           _s.renamePage(page.id, value);
@@ -1975,6 +2039,8 @@ class _WorkspaceActionEntry {
     required this.icon,
     required this.onPressed,
     this.forcePrimary = false,
+    this.enabled = true,
+    this.forceOverflow = false,
   });
 
   final String id;
@@ -1982,4 +2048,6 @@ class _WorkspaceActionEntry {
   final IconData icon;
   final VoidCallback onPressed;
   final bool forcePrimary;
+  final bool enabled;
+  final bool forceOverflow;
 }

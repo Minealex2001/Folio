@@ -202,8 +202,10 @@ class FolioDbView {
     this.groupByPropertyId,
     this.calendarDatePropertyId,
     this.filter,
+    List<String>? visiblePropertyIds,
     List<FolioDbSortSpec>? sorts,
-  }) : sorts = List<FolioDbSortSpec>.from(sorts ?? const []);
+  }) : visiblePropertyIds = List<String>.from(visiblePropertyIds ?? const []),
+       sorts = List<FolioDbSortSpec>.from(sorts ?? const []);
 
   final String id;
   String name;
@@ -211,6 +213,7 @@ class FolioDbView {
   String? groupByPropertyId;
   String? calendarDatePropertyId;
   FolioDbFilterGroup? filter;
+  List<String> visiblePropertyIds;
   List<FolioDbSortSpec> sorts;
 
   Map<String, dynamic> toJson() => {
@@ -221,6 +224,7 @@ class FolioDbView {
     if (calendarDatePropertyId != null)
       'calendarDatePropertyId': calendarDatePropertyId,
     if (filter != null) 'filter': filter!.toJson(),
+    if (visiblePropertyIds.isNotEmpty) 'visiblePropertyIds': visiblePropertyIds,
     if (sorts.isNotEmpty) 'sorts': sorts.map((s) => s.toJson()).toList(),
   };
 
@@ -235,6 +239,10 @@ class FolioDbView {
       ),
       groupByPropertyId: j['groupByPropertyId'] as String?,
       calendarDatePropertyId: j['calendarDatePropertyId'] as String?,
+      visiblePropertyIds:
+          (j['visiblePropertyIds'] as List<dynamic>? ?? const [])
+              .map((e) => e.toString())
+              .toList(),
       filter: () {
         final f = j['filter'];
         if (f is Map) {
@@ -278,7 +286,7 @@ class FolioDatabaseData {
        rows = List<FolioDbRow>.from(rows),
        views = List<FolioDbView>.from(views);
 
-  static const int currentVersion = 4;
+  static const int currentVersion = 5;
 
   List<FolioDbProperty> properties;
   List<FolioDbRow> rows;
@@ -428,14 +436,26 @@ class FolioDatabaseData {
       if (!views.any((v) => v.type == FolioDbViewType.list)) {
         views.insert(
           1,
-          FolioDbView(
-            id: 'v_list',
-            name: 'Lista',
-            type: FolioDbViewType.list,
-          ),
+          FolioDbView(id: 'v_list', name: 'Lista', type: FolioDbViewType.list),
         );
       }
       schemaVersion = 4;
+    }
+    if (schemaVersion < 5) {
+      final allPropertyIds = properties.map((p) => p.id).toSet();
+      for (final view in views) {
+        if (view.visiblePropertyIds.isEmpty) {
+          view.visiblePropertyIds = allPropertyIds.toList();
+          continue;
+        }
+        view.visiblePropertyIds = view.visiblePropertyIds
+            .where(allPropertyIds.contains)
+            .toList();
+        if (view.visiblePropertyIds.isEmpty && allPropertyIds.isNotEmpty) {
+          view.visiblePropertyIds = allPropertyIds.toList();
+        }
+      }
+      schemaVersion = 5;
     }
   }
 

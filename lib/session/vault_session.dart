@@ -52,6 +52,20 @@ class VaultSearchResult {
   final String? blockId;
 }
 
+class _PageUndoSnapshot {
+  const _PageUndoSnapshot({
+    required this.fingerprint,
+    required this.title,
+    required this.emoji,
+    required this.blocks,
+  });
+
+  final String fingerprint;
+  final String title;
+  final String? emoji;
+  final List<FolioBlock> blocks;
+}
+
 class VaultSession extends ChangeNotifier {
   /// Nombre de la asistente en la app; se repite en los prompts para que el modelo lo mantenga.
   static const String _quillIdentityLeadEs =
@@ -211,6 +225,151 @@ class VaultSession extends ChangeNotifier {
   int get contentEpoch => _contentEpoch;
   int _contentEpoch = 0;
 
+  static const int _maxUndoStepsPerPage = 100;
+  static const Duration _undoTypingCoalesceWindow = Duration(milliseconds: 900);
+  final Map<String, List<_PageUndoSnapshot>> _undoByPage = {};
+  final Map<String, List<_PageUndoSnapshot>> _redoByPage = {};
+  final Map<String, DateTime> _lastUndoTypingCaptureAt = {};
+
+  bool get canUndoSelectedPage => canUndoPage(_selectedPageId);
+  bool get canRedoSelectedPage => canRedoPage(_selectedPageId);
+
+  bool canUndoPage(String? pageId) {
+    if (pageId == null) return false;
+    final stack = _undoByPage[pageId];
+    return stack != null && stack.isNotEmpty;
+  }
+
+  bool canRedoPage(String? pageId) {
+    if (pageId == null) return false;
+    final stack = _redoByPage[pageId];
+    return stack != null && stack.isNotEmpty;
+  }
+
+  void undoPageEdits({String? pageId}) {
+    final id = pageId ?? _selectedPageId;
+    if (id == null) return;
+    final page = _pageById(id);
+    final undoStack = _undoByPage[id];
+    if (page == null || undoStack == null || undoStack.isEmpty) return;
+
+    final current = _snapshotOfPage(page);
+    final redoStack = _redoByPage.putIfAbsent(id, () => []);
+    redoStack.add(current);
+    if (redoStack.length > _maxUndoStepsPerPage) {
+      redoStack.removeAt(0);
+    }
+
+    final target = undoStack.removeLast();
+    _restorePageFromSnapshot(page, target);
+    _contentEpoch++;
+    notifyListeners();
+    scheduleSave(trackRevisionForPageId: id);
+  }
+
+  void redoPageEdits({String? pageId}) {
+    final id = pageId ?? _selectedPageId;
+    if (id == null) return;
+    final page = _pageById(id);
+    final redoStack = _redoByPage[id];
+    if (page == null || redoStack == null || redoStack.isEmpty) return;
+
+    final current = _snapshotOfPage(page);
+    final undoStack = _undoByPage.putIfAbsent(id, () => []);
+    undoStack.add(current);
+    if (undoStack.length > _maxUndoStepsPerPage) {
+      undoStack.removeAt(0);
+    }
+
+    final target = redoStack.removeLast();
+    _restorePageFromSnapshot(page, target);
+    _contentEpoch++;
+    notifyListeners();
+    scheduleSave(trackRevisionForPageId: id);
+  }
+
+  _PageUndoSnapshot _snapshotOfPage(FolioPage page) {
+    return _PageUndoSnapshot(
+      fingerprint: folioPageContentFingerprint(page),
+      title: page.title,
+      emoji: page.emoji,
+      blocks: page.blocks
+          .map(
+            (b) => FolioBlock(
+              id: b.id,
+              type: b.type,
+              text: b.text,
+              checked: b.checked,
+              expanded: b.expanded,
+              codeLanguage: b.codeLanguage,
+              depth: b.depth,
+              icon: b.icon,
+              url: b.url,
+              imageWidth: b.imageWidth,
+            ),
+          )
+          .toList(),
+    );
+  }
+
+  void _restorePageFromSnapshot(FolioPage page, _PageUndoSnapshot snap) {
+    page.title = snap.title;
+    page.emoji = snap.emoji;
+    page.blocks = snap.blocks
+        .map(
+          (b) => FolioBlock(
+            id: b.id,
+            type: b.type,
+            text: b.text,
+            checked: b.checked,
+            expanded: b.expanded,
+            codeLanguage: b.codeLanguage,
+            depth: b.depth,
+            icon: b.icon,
+            url: b.url,
+            imageWidth: b.imageWidth,
+          ),
+        )
+        .toList();
+  }
+
+  void _rememberUndoBeforePageMutation(String pageId, {bool isTyping = false}) {
+    final page = _pageById(pageId);
+    if (page == null) return;
+    final now = DateTime.now();
+    final stack = _undoByPage.putIfAbsent(pageId, () => []);
+    final fp = folioPageContentFingerprint(page);
+    if (stack.isNotEmpty && stack.last.fingerprint == fp) {
+      if (isTyping) {
+        _lastUndoTypingCaptureAt[pageId] = now;
+      }
+      return;
+    }
+
+    if (isTyping) {
+      final lastAt = _lastUndoTypingCaptureAt[pageId];
+      if (lastAt != null &&
+          now.difference(lastAt) <= _undoTypingCoalesceWindow) {
+        return;
+      }
+      _lastUndoTypingCaptureAt[pageId] = now;
+    } else {
+      _lastUndoTypingCaptureAt.remove(pageId);
+    }
+
+    stack.add(_snapshotOfPage(page));
+    if (stack.length > _maxUndoStepsPerPage) {
+      stack.removeAt(0);
+    }
+    _redoByPage.remove(pageId);
+  }
+
+  void _resetUndoRedoState() {
+    _undoByPage.clear();
+    _redoByPage.clear();
+    _lastUndoTypingCaptureAt.clear();
+  }
+
   /// El editor hace scroll a este bloque tras el siguiente frame (TOC / enlaces internos).
   String? pendingScrollToBlockId;
 
@@ -358,6 +517,7 @@ class VaultSession extends ChangeNotifier {
       0,
       _aiChatThreads.length - 1,
     );
+    _resetUndoRedoState();
   }
 
   Future<void> completeOnboarding({
@@ -1579,6 +1739,7 @@ class VaultSession extends ChangeNotifier {
           'importMode "newPage" no está soportado en updatePageBlocks.',
         );
       case FolioMarkdownImportMode.replaceCurrentPage:
+        _rememberUndoBeforePageMutation(page.id);
         if (title != null && title.trim().isNotEmpty) {
           page.title = title.trim();
         }
@@ -1602,6 +1763,7 @@ class VaultSession extends ChangeNotifier {
           blockCount: resolvedBlocks.length,
         );
       case FolioMarkdownImportMode.appendToCurrentPage:
+        _rememberUndoBeforePageMutation(page.id);
         final existingSingleEmpty =
             page.blocks.length == 1 &&
             page.blocks.first.type == 'paragraph' &&
@@ -1705,6 +1867,9 @@ class VaultSession extends ChangeNotifier {
     final wasSelected = _selectedPageId == id;
     _pages.removeAt(idx);
     _pageRevisions.remove(id);
+    _undoByPage.remove(id);
+    _redoByPage.remove(id);
+    _lastUndoTypingCaptureAt.remove(id);
     _pageAcl.remove(id);
     _comments.removeWhere((c) => c.pageId == id);
     _pageIdsPendingRevision.remove(id);
@@ -1720,6 +1885,7 @@ class VaultSession extends ChangeNotifier {
     if (p == null) return;
     final t = title.trim();
     if (t.isEmpty) return;
+    _rememberUndoBeforePageMutation(id);
     p.title = t;
     notifyListeners();
     scheduleSave(trackRevisionForPageId: id);
@@ -1729,6 +1895,7 @@ class VaultSession extends ChangeNotifier {
     final p = _pageById(id);
     if (p == null) return;
     final next = emoji?.trim();
+    _rememberUndoBeforePageMutation(id);
     p.emoji = (next == null || next.isEmpty) ? null : next;
     notifyListeners();
     scheduleSave(trackRevisionForPageId: id);
@@ -1777,6 +1944,7 @@ class VaultSession extends ChangeNotifier {
       if (_isDescendant(ancestorId: pageId, nodeId: newParentId)) return;
     }
     final p = _pages.firstWhere((e) => e.id == pageId);
+    _rememberUndoBeforePageMutation(pageId);
     p.parentId = newParentId;
     notifyListeners();
     scheduleSave(trackRevisionForPageId: pageId);
@@ -1802,6 +1970,7 @@ class VaultSession extends ChangeNotifier {
     if (page == null) return;
     final b = _blockById(page, blockId);
     if (b == null) return;
+    _rememberUndoBeforePageMutation(pageId, isTyping: true);
     if (b.type == 'image' && b.text.isNotEmpty && b.text != text) {
       _deleteManagedAttachmentIfUnused(
         b.text,
@@ -1819,6 +1988,7 @@ class VaultSession extends ChangeNotifier {
     if (page == null) return;
     final b = _blockById(page, blockId);
     if (b == null || b.type != 'todo') return;
+    _rememberUndoBeforePageMutation(pageId);
     b.checked = checked;
     notifyListeners();
     scheduleSave(trackRevisionForPageId: pageId);
@@ -1829,6 +1999,7 @@ class VaultSession extends ChangeNotifier {
     if (page == null) return;
     final b = _blockById(page, blockId);
     if (b == null || b.type != 'toggle') return;
+    _rememberUndoBeforePageMutation(pageId);
     b.expanded = expanded;
     notifyListeners();
     scheduleSave(trackRevisionForPageId: pageId);
@@ -1839,6 +2010,7 @@ class VaultSession extends ChangeNotifier {
     if (page == null) return;
     final b = _blockById(page, blockId);
     if (b == null) return;
+    _rememberUndoBeforePageMutation(pageId);
     b.icon = icon;
     notifyListeners();
     scheduleSave(trackRevisionForPageId: pageId);
@@ -1849,6 +2021,7 @@ class VaultSession extends ChangeNotifier {
     if (page == null) return;
     final b = _blockById(page, blockId);
     if (b == null) return;
+    _rememberUndoBeforePageMutation(pageId);
     final old = b.url;
     if (_isManagedAttachmentPath(old) && old != url) {
       _deleteManagedAttachmentIfUnused(
@@ -1872,6 +2045,7 @@ class VaultSession extends ChangeNotifier {
     final clamped = width.clamp(0.2, 1.0);
     final current = b.imageWidth ?? 1.0;
     if ((current - clamped).abs() < 0.001) return;
+    _rememberUndoBeforePageMutation(pageId);
     b.imageWidth = clamped;
     notifyListeners();
     scheduleSave(trackRevisionForPageId: pageId);
@@ -1882,6 +2056,7 @@ class VaultSession extends ChangeNotifier {
     if (page == null) return;
     final b = _blockById(page, blockId);
     if (b == null) return;
+    _rememberUndoBeforePageMutation(pageId);
     final oldType = b.type;
     if (oldType == 'image' && newType != 'image' && b.text.isNotEmpty) {
       _deleteManagedAttachmentIfUnused(
@@ -1995,6 +2170,7 @@ class VaultSession extends ChangeNotifier {
     if (page == null) return;
     final b = _blockById(page, blockId);
     if (b == null || b.type != 'code') return;
+    _rememberUndoBeforePageMutation(pageId);
     b.codeLanguage = languageId;
     notifyListeners();
     scheduleSave(trackRevisionForPageId: pageId);
@@ -2009,6 +2185,7 @@ class VaultSession extends ChangeNotifier {
     if (page == null) return;
     final i = page.blocks.indexWhere((b) => b.id == afterBlockId);
     if (i < 0) return;
+    _rememberUndoBeforePageMutation(pageId);
     page.blocks.insert(i + 1, block);
     notifyListeners();
     scheduleSave(trackRevisionForPageId: pageId);
@@ -2024,6 +2201,7 @@ class VaultSession extends ChangeNotifier {
     if (page == null) return;
     final i = page.blocks.indexWhere((b) => b.id == afterBlockId);
     if (i < 0) return;
+    _rememberUndoBeforePageMutation(pageId);
     page.blocks.insertAll(i + 1, blocks);
     notifyListeners();
     scheduleSave(trackRevisionForPageId: pageId);
@@ -2078,6 +2256,7 @@ class VaultSession extends ChangeNotifier {
     if (page == null) return;
     final b = _blockById(page, blockId);
     if (b == null || b.type != 'child_page') return;
+    _rememberUndoBeforePageMutation(pageId);
     final newId = _uuid.v4();
     _pages.add(
       FolioPage(
@@ -2096,6 +2275,7 @@ class VaultSession extends ChangeNotifier {
   void appendBlock({required String pageId, required FolioBlock block}) {
     final page = _pageById(pageId);
     if (page == null) return;
+    _rememberUndoBeforePageMutation(pageId);
     page.blocks.add(block);
     notifyListeners();
     scheduleSave(trackRevisionForPageId: pageId);
@@ -2112,6 +2292,7 @@ class VaultSession extends ChangeNotifier {
     if (page == null) return;
     final i = page.blocks.indexWhere((b) => b.id == blockId);
     if (i < 0) return;
+    _rememberUndoBeforePageMutation(pageId);
     final cur = page.blocks[i];
     cur.text = before;
     final sameListType =
@@ -2164,6 +2345,7 @@ class VaultSession extends ChangeNotifier {
     if (!folioBlocksCanMerge(prev, cur)) {
       return false;
     }
+    _rememberUndoBeforePageMutation(pageId);
     prev.text = prev.text + cur.text;
     page.blocks.removeAt(i);
     notifyListeners();
@@ -2178,6 +2360,7 @@ class VaultSession extends ChangeNotifier {
     final i = page.blocks.indexWhere((b) => b.id == blockId);
     final j = i + delta;
     if (i < 0 || j < 0 || j >= page.blocks.length) return;
+    _rememberUndoBeforePageMutation(pageId);
     final b = page.blocks.removeAt(i);
     page.blocks.insert(j, b);
     notifyListeners();
@@ -2191,6 +2374,7 @@ class VaultSession extends ChangeNotifier {
     final b = _blockById(page, blockId);
     if (b == null) return;
     if (b.depth < 3) {
+      _rememberUndoBeforePageMutation(pageId);
       b.depth += 1;
       notifyListeners();
       scheduleSave(trackRevisionForPageId: pageId);
@@ -2204,6 +2388,7 @@ class VaultSession extends ChangeNotifier {
     final b = _blockById(page, blockId);
     if (b == null) return;
     if (b.depth > 0) {
+      _rememberUndoBeforePageMutation(pageId);
       b.depth -= 1;
       notifyListeners();
       scheduleSave(trackRevisionForPageId: pageId);
@@ -2220,6 +2405,7 @@ class VaultSession extends ChangeNotifier {
     var insertAt = newIndex;
     if (insertAt > oldIndex) insertAt -= 1;
     if (insertAt == oldIndex) return;
+    _rememberUndoBeforePageMutation(pageId);
     final b = page.blocks.removeAt(oldIndex);
     page.blocks.insert(insertAt, b);
     notifyListeners();
@@ -2252,6 +2438,7 @@ class VaultSession extends ChangeNotifier {
         excludingBlockId: victim.id,
       );
     }
+    _rememberUndoBeforePageMutation(pageId);
     page.blocks.removeWhere((b) => b.id == blockId);
     notifyListeners();
     scheduleSave(trackRevisionForPageId: pageId);
@@ -2987,6 +3174,10 @@ Quick help (be concise):
       prompt,
       languageCode: languageCode,
     );
+    final wantsEditExistingBlocks =
+        scopePage != null &&
+        includePageContext &&
+        _looksLikeEditIntent(prompt, languageCode: languageCode);
     final promptTrimmed = prompt.trim();
     AppLogger.info(
       'Agent chat started',
@@ -2997,6 +3188,7 @@ Quick help (be concise):
         'includePageContext': includePageContext,
         'contextPageCount': effectiveContextIds.length,
         'wantsSubpage': wantsSubpage,
+        'wantsEditExistingBlocks': wantsEditExistingBlocks,
         'promptPreview': promptTrimmed.length > 140
             ? '${promptTrimmed.substring(0, 140)}...'
             : promptTrimmed,
@@ -3034,14 +3226,16 @@ Quick help (be concise):
               '"reply":"${isEs ? 'texto breve para usuario' : 'brief user-facing text'}",'
               '"title":"${isEs ? 'solo para create_page' : 'only for create_page'}",'
               '"threadTitle":"${isEs ? 'opcional: título corto para la pestaña de ESTE chat (2-8 palabras), resume el tema de la pregunta; solo si en el hilo hay exactamente un mensaje del usuario (el actual); cadena vacía si no aplica o en turnos posteriores' : 'optional: short tab title for THIS chat (2-8 words) summarizing the question; only if the thread has exactly one user message (this one); empty string if N/A or on later turns'}",'
-              '"blocks":[{"type":"paragraph|h1|h2|h3|bullet|numbered|todo|quote|code|callout|divider|table","text":"...","checked":false,"codeLanguage":"dart","depth":0,"icon":"emoji","cols":2,"rows":[["a","b"]]}],'
-              '"operations":[{"kind":"update_page_title|update_block_text|replace_block|insert_after|delete_block|table_add_column|table_set_cell","title":"${isEs ? 'nuevo título (solo update_page_title)' : 'new title (update_page_title only)'}","blockId":"id","text":"...","block":{},"blocks":[],"header":"...","values":[],"row":0,"col":0,"value":"..."}]'
+              '"blocks":[{"type":"paragraph|h1|h2|h3|bullet|numbered|todo|quote|code|callout|toggle|divider|table|image|file|video|audio|bookmark|embed|equation|mermaid","text":"...","checked":false,"expanded":true,"codeLanguage":"dart","depth":0,"icon":"emoji","url":"https://...","imageWidth":0.8,"cols":2,"rows":[["a","b"]]}],'
+              '"operations":[{"kind":"update_page_title|update_block_text|update_block|replace_block|insert_after|insert_before|move_block|delete_block|table_add_column|table_set_cell","title":"${isEs ? 'nuevo título (solo update_page_title)' : 'new title (update_page_title only)'}","blockId":"id","text":"...","checked":false,"expanded":true,"codeLanguage":"dart","depth":0,"icon":"emoji","url":"https://...","imageWidth":0.8,"targetIndex":0,"block":{},"blocks":[],"header":"...","values":[],"row":0,"col":0,"value":"..."}]'
               '}\n'
               '${isEs ? 'Reglas:' : 'Rules:'}\n'
               '- summarize_current: ${isEs ? 'resume la página activa' : 'summarize the active page'}.\n'
               '- append_current: ${isEs ? 'añade bloques a la página activa' : 'append blocks to the active page'}.\n'
               '- replace_current: ${isEs ? 'sustituye bloques de la página activa' : 'replace blocks in the active page'}.\n'
               '- edit_current: ${isEs ? 'edita con operations: bloques (blockId) y/o título de página (update_page_title + title)' : 'edit with operations: blocks (blockId) and/or page title (update_page_title + title)'}.\n'
+              '- ${isEs ? 'Si el usuario pide modificar, corregir, actualizar o reescribir bloques existentes de la página abierta, usa SIEMPRE edit_current (no append_current ni replace_current).' : 'If the user asks to modify, correct, update, or rewrite existing blocks in the open page, ALWAYS use edit_current (not append_current or replace_current).'}.\n'
+              '- ${isEs ? 'En edit_current puedes usar update_block para actualizar texto y metadatos (checked, expanded, codeLanguage, depth, icon, url, imageWidth), insert_before/insert_after para insertar y move_block con targetIndex para reordenar bloques.' : 'In edit_current you can use update_block to change text and metadata (checked, expanded, codeLanguage, depth, icon, url, imageWidth), insert_before/insert_after to add content, and move_block with targetIndex to reorder blocks.'}\n'
               '- create_page: ${isEs ? 'crea una nueva página con title + blocks; por defecto genera contenido detallado y completo (mínimo 10-20 bloques): empieza con un párrafo introductorio, usa h2/h3 para secciones, párrafos elaborados, bullet/numbered para listas y code si aplica; si el usuario dice «corto», «breve» o «rápido» limita a ~5 bloques; si dice «largo», «detallado», «completo» o «profundo» expande todo lo posible' : 'create a new page with title + blocks; by default generate detailed, comprehensive content (minimum 10-20 blocks): start with an intro paragraph, use h2/h3 for sections, elaborate paragraphs, bullet/numbered lists, and code if relevant; if the user says «short», «brief» or «quick» limit to ~5 blocks; if they say «long», «detailed», «comprehensive» or «in depth» expand as much as possible'}.\n'
               '- chat: ${isEs ? 'respuesta conversacional sin modificar datos; puedes referirte a ti como Quill cuando encaje; ayuda sobre Folio (interfaz, ajustes, atajos, páginas, bloques) cuando pregunte por la app' : 'conversational response without modifying data; you may refer to yourself as Quill when it fits; help with Folio (UI, settings, shortcuts, pages, blocks) when the user asks about the app'}.\n'
               '- ${isEs ? 'Preguntas del tipo «cómo hago…», «dónde está…», «qué es…» en Folio → modo chat; sé útil y directo; no inventes funciones: si no lo sabes, dilo y sugiere revisar Ajustes o probar en la interfaz' : 'Questions like how/where/what in Folio → chat mode; be helpful and direct; do not invent features—if unsure, say so and suggest Settings or exploring the UI'}.\n'
@@ -3065,15 +3259,51 @@ Quick help (be concise):
       );
       lastUsage = result.usage ?? lastUsage;
       final decoded = _decodeJsonObjectLenient(result.text);
-      final mode = _normalizeAgentMode(decoded['mode'] as String?);
-      final reason = (decoded['reason'] as String? ?? '').trim();
-      final reply = (decoded['reply'] as String? ?? '').trim();
+      var mode = _normalizeAgentMode(decoded['mode'] as String?);
+      var reason = (decoded['reason'] as String? ?? '').trim();
+      var reply = (decoded['reply'] as String? ?? '').trim();
       final title = (decoded['title'] as String? ?? 'Nueva página IA').trim();
       final rawBlocks = decoded['blocks'];
-      final rawOperations = decoded['operations'];
+      dynamic rawOperations = decoded['operations'];
       final parsedBlocks = rawBlocks is List
           ? _parseAiBlocksFromDynamicList(rawBlocks)
           : const <_AiBlockSpec>[];
+      if (wantsEditExistingBlocks && mode != 'edit_current') {
+        final correction = await ai.complete(
+          AiCompletionRequest(
+            prompt:
+                '${isEs ? 'Corrige la salida a edición de bloques existentes.' : 'Correct the output to existing-block editing.'}\n'
+                '${isEs ? 'Devuelve SOLO JSON válido con mode="edit_current" y operations no vacía usando blockId reales de la página en edición.' : 'Return ONLY valid JSON with mode="edit_current" and a non-empty operations list using real blockIds from the page under edit.'}\n'
+                '${isEs ? 'No crees páginas nuevas ni reemplaces todo el contenido.' : 'Do not create new pages or replace all content.'}\n\n'
+                '$editTargetLine\n'
+                '${isEs ? 'Bloques de la página en edición (ids válidos):' : 'Blocks of the page under edit (valid ids):'}\n$pageBlocksContext\n\n'
+                '${isEs ? 'Mensaje del usuario:' : 'User message:'}\n${prompt.trim()}',
+            model: 'auto',
+            messages: messages,
+            attachments: attachments,
+            temperature: 0.1,
+            responseSchema: _agentResponseSchema,
+          ),
+        );
+        lastUsage = correction.usage ?? lastUsage;
+        final correctionDecoded = _decodeJsonObjectLenient(correction.text);
+        final correctionMode = _normalizeAgentMode(
+          correctionDecoded['mode'] as String?,
+        );
+        final correctionOps = correctionDecoded['operations'];
+        final correctionReason = (correctionDecoded['reason'] as String? ?? '')
+            .trim();
+        final correctionReply = (correctionDecoded['reply'] as String? ?? '')
+            .trim();
+        if (correctionMode == 'edit_current' &&
+            correctionOps is List &&
+            correctionOps.isNotEmpty) {
+          mode = correctionMode;
+          rawOperations = correctionOps;
+          if (correctionReason.isNotEmpty) reason = correctionReason;
+          if (correctionReply.isNotEmpty) reply = correctionReply;
+        }
+      }
       AppLogger.info(
         'Agent mode selected',
         tag: 'ai.agent',
@@ -3274,7 +3504,7 @@ Quick help (be concise):
               prompt:
                   '${isEs ? _quillIdentityLeadEs : _quillIdentityLeadEn}'
                   '${isEs ? 'Respondiste en modo chat, pero el usuario quiere crear una nueva página. Devuelve SOLO JSON con mode=create_page, el título en "title" y los bloques en "blocks" usando el formato nativo de Folio. Por defecto genera contenido detallado y completo (mínimo 10-15 bloques), salvo que el mensaje original pida algo corto.' : 'You responded in chat mode, but the user wants to create a new page. Return ONLY JSON with mode=create_page, the title in "title" and the blocks in "blocks" using Folio native block format. By default generate detailed, comprehensive content (minimum 10-15 blocks), unless the original message asked for something short.'}\n'
-                  '${isEs ? 'Formato de bloque nativo:' : 'Native block format:'} {"type":"paragraph|h1|h2|h3|bullet|numbered|todo|quote|code|callout|divider|table","text":"...","checked":false,"codeLanguage":"dart","depth":0,"icon":"emoji","cols":2,"rows":[["a","b"]]}\n'
+                  '${isEs ? 'Formato de bloque nativo:' : 'Native block format:'} {"type":"paragraph|h1|h2|h3|bullet|numbered|todo|quote|code|callout|toggle|divider|table|image|file|video|audio|bookmark|embed|equation|mermaid","text":"...","checked":false,"expanded":true,"codeLanguage":"dart","depth":0,"icon":"emoji","url":"https://...","imageWidth":0.8,"cols":2,"rows":[["a","b"]]}\n'
                   '${isEs ? 'No uses markdown fences ni texto fuera del JSON.' : 'Do not use markdown fences or text outside JSON.'}\n\n'
                   '${isEs ? 'Mensaje original:' : 'Original message:'}\n${prompt.trim()}',
               model: 'auto',
@@ -3286,12 +3516,10 @@ Quick help (be concise):
           );
           lastUsage = createCorrection.usage ?? lastUsage;
           final createDecoded = _decodeJsonObjectLenient(createCorrection.text);
-          final createTitle =
-              (createDecoded['title'] as String? ?? '').trim();
+          final createTitle = (createDecoded['title'] as String? ?? '').trim();
           final rawCreateBlocks = createDecoded['blocks'];
           if (rawCreateBlocks is List && rawCreateBlocks.isNotEmpty) {
-            final createSpecs =
-                _parseAiBlocksFromDynamicList(rawCreateBlocks);
+            final createSpecs = _parseAiBlocksFromDynamicList(rawCreateBlocks);
             if (createSpecs.isNotEmpty) {
               final id = _uuid.v4();
               final blocks = _materializeAiBlocks(id, createSpecs);
@@ -3402,7 +3630,7 @@ Quick help (be concise):
                   '"mode":"edit_current",'
                   '"reason":"${isEs ? 'motivo breve' : 'short reason'}",'
                   '"reply":"${isEs ? 'texto breve' : 'short text'}",'
-                  '"operations":[{"kind":"update_page_title|update_block_text|replace_block|insert_after|delete_block|table_add_column|table_set_cell","title":"...","blockId":"id","text":"...","block":{},"blocks":[],"header":"...","values":[],"row":0,"col":0,"value":"..."}]'
+                  '"operations":[{"kind":"update_page_title|update_block_text|update_block|replace_block|insert_after|insert_before|move_block|delete_block|table_add_column|table_set_cell","title":"...","blockId":"id","text":"...","checked":false,"expanded":true,"codeLanguage":"dart","depth":0,"icon":"emoji","url":"https://...","imageWidth":0.8,"targetIndex":0,"block":{},"blocks":[],"header":"...","values":[],"row":0,"col":0,"value":"..."}]'
                   '}\n'
                   '${isEs ? 'No escribas explicación, solo JSON.' : 'Do not write explanations, only JSON.'}\n\n'
                   '${isEs ? 'Bloques de la página (ids):' : 'Page blocks (ids):'}\n${_buildAgentPageBlocksContext(scopePage)}\n\n'
@@ -3492,7 +3720,7 @@ Quick help (be concise):
             prompt:
                 '${isEs ? _quillIdentityLeadEs : _quillIdentityLeadEn}'
                 '${isEs ? 'La respuesta anterior no fue JSON válido. El usuario quiere crear una página. Devuelve SOLO JSON con mode=create_page, el título en "title" y los bloques en "blocks". Por defecto genera contenido detallado y completo (mínimo 10-15 bloques), salvo que el mensaje original pida algo corto.' : 'The previous response was not valid JSON. The user wants to create a page. Return ONLY JSON with mode=create_page, the title in "title" and the blocks in "blocks". By default generate detailed, comprehensive content (minimum 10-15 blocks), unless the original message asked for something short.'}\n'
-                '${isEs ? 'Formato de bloque:' : 'Block format:'} {"type":"paragraph|h1|h2|h3|bullet|numbered|todo|quote|code|callout|divider|table","text":"...","checked":false,"codeLanguage":"dart","depth":0,"icon":"emoji","cols":2,"rows":[["a","b"]]}\n'
+                '${isEs ? 'Formato de bloque:' : 'Block format:'} {"type":"paragraph|h1|h2|h3|bullet|numbered|todo|quote|code|callout|toggle|divider|table|image|file|video|audio|bookmark|embed|equation|mermaid","text":"...","checked":false,"expanded":true,"codeLanguage":"dart","depth":0,"icon":"emoji","url":"https://...","imageWidth":0.8,"cols":2,"rows":[["a","b"]]}\n'
                 '${isEs ? 'No uses markdown fences ni texto fuera del JSON.' : 'Do not use markdown fences or text outside JSON.'}\n\n'
                 '${isEs ? 'Mensaje original:' : 'Original message:'}\n${prompt.trim()}',
             model: 'auto',
@@ -3504,8 +3732,8 @@ Quick help (be concise):
         );
         lastUsage = createFallback.usage ?? lastUsage;
         final createFbDecoded = _decodeJsonObjectLenient(createFallback.text);
-        final createFbTitle =
-            (createFbDecoded['title'] as String? ?? '').trim();
+        final createFbTitle = (createFbDecoded['title'] as String? ?? '')
+            .trim();
         final rawFbBlocks = createFbDecoded['blocks'];
         if (rawFbBlocks is List && rawFbBlocks.isNotEmpty) {
           final fbSpecs = _parseAiBlocksFromDynamicList(rawFbBlocks);
@@ -3631,6 +3859,61 @@ Quick help (be concise):
         continue;
       }
 
+      if (kind == 'update_block') {
+        if (index < 0) continue;
+        final block = page.blocks[index];
+        final text = (op['text'] as String? ?? '').trim();
+        if (text.isNotEmpty && text != block.text) {
+          block.text = text;
+          changed = true;
+        }
+        final checked = op['checked'];
+        if (checked is bool &&
+            block.type == 'todo' &&
+            checked != block.checked) {
+          block.checked = checked;
+          changed = true;
+        }
+        final expanded = op['expanded'];
+        if (expanded is bool &&
+            block.type == 'toggle' &&
+            expanded != block.expanded) {
+          block.expanded = expanded;
+          changed = true;
+        }
+        final codeLanguage = (op['codeLanguage'] as String? ?? '').trim();
+        if (block.type == 'code' &&
+            codeLanguage.isNotEmpty &&
+            codeLanguage != block.codeLanguage) {
+          block.codeLanguage = codeLanguage;
+          changed = true;
+        }
+        final depth = (op['depth'] as num?)?.toInt();
+        if (depth != null && depth >= 0 && depth != block.depth) {
+          block.depth = depth;
+          changed = true;
+        }
+        final icon = (op['icon'] as String? ?? '').trim();
+        if (icon.isNotEmpty && icon != block.icon) {
+          block.icon = icon;
+          changed = true;
+        }
+        final url = (op['url'] as String? ?? '').trim();
+        if (url.isNotEmpty && url != block.url) {
+          block.url = url;
+          changed = true;
+        }
+        final imageWidth = (op['imageWidth'] as num?)?.toDouble();
+        if (imageWidth != null &&
+            imageWidth > 0 &&
+            imageWidth <= 1.0 &&
+            imageWidth != block.imageWidth) {
+          block.imageWidth = imageWidth;
+          changed = true;
+        }
+        continue;
+      }
+
       if (kind == 'replace_block') {
         final blockMap = op['block'];
         if (index >= 0 && blockMap is Map) {
@@ -3656,6 +3939,32 @@ Quick help (be concise):
             changed = true;
           }
         }
+        continue;
+      }
+
+      if (kind == 'insert_before') {
+        final blocks = op['blocks'];
+        if (index >= 0 && blocks is List) {
+          final parsed = _parseAiBlocksFromDynamicList(blocks);
+          final mats = _materializeAiBlocks(page.id, parsed);
+          if (mats.isNotEmpty) {
+            page.blocks.insertAll(index, mats);
+            changed = true;
+          }
+        }
+        continue;
+      }
+
+      if (kind == 'move_block') {
+        if (index < 0) continue;
+        final targetIndex = (op['targetIndex'] as num?)?.toInt();
+        if (targetIndex == null) continue;
+        final block = page.blocks.removeAt(index);
+        var insertAt = targetIndex;
+        if (insertAt < 0) insertAt = 0;
+        if (insertAt > page.blocks.length) insertAt = page.blocks.length;
+        page.blocks.insert(insertAt, block);
+        changed = true;
         continue;
       }
 
@@ -3741,7 +4050,7 @@ Quick help (be concise):
               },
             },
           },
-          'required': <String>['type', 'text'],
+          'required': <String>['type'],
         },
       },
       'operations': <String, dynamic>{
@@ -4322,7 +4631,7 @@ Quick help (be concise):
             '"operations":[{"kind":"update_page_title|append_blocks|replace_page","title":"nuevo título si renombrar","blocks":[...]}]'
             '}\n'
             'Para renombrar la página usa una operación {"kind":"update_page_title","title":"..."} (puede ir sola o junto a otras).\n'
-            'Bloques permitidos: paragraph,h1,h2,h3,bullet,todo,quote,code,divider,table.\n'
+            'Bloques permitidos: paragraph,h1,h2,h3,bullet,numbered,todo,quote,code,callout,toggle,divider,table,image,file,video,audio,bookmark,embed,equation,mermaid.\n'
             'Para table usa: {"type":"table","cols":N,"rows":[["c1","c2"],["v1","v2"]]}.\n'
             'Para code puedes añadir codeLanguage. Para todo puedes añadir checked.\n'
             'No uses markdown ni texto fuera del JSON.\n\n'
@@ -4480,7 +4789,10 @@ Quick help (be concise):
         continue;
       }
       final text = (map['text'] as String? ?? '').trim();
-      if (text.isEmpty) continue;
+      final url = (map['url'] as String? ?? '').trim();
+      if (text.isEmpty && !_aiBlockTypeAllowsEmptyText(type, url: url)) {
+        continue;
+      }
       blocks.add(
         _AiBlockSpec(
           type: type,
@@ -4489,7 +4801,7 @@ Quick help (be concise):
           codeLanguage: map['codeLanguage'] as String?,
           depth: (map['depth'] as num?)?.toInt(),
           icon: map['icon'] as String?,
-          url: map['url'] as String?,
+          url: url.isEmpty ? null : url,
           imageWidth: (map['imageWidth'] as num?)?.toDouble(),
           expanded: map['expanded'] as bool?,
         ),
@@ -4601,6 +4913,17 @@ Quick help (be concise):
         out.add(_AiBlockSpec(type: 'bullet', text: line.substring(2).trim()));
         continue;
       }
+      final numbered = RegExp(r'^\d+\.\s+').firstMatch(line);
+      if (numbered != null) {
+        flushParagraph();
+        out.add(
+          _AiBlockSpec(
+            type: 'numbered',
+            text: line.substring(numbered.end).trim(),
+          ),
+        );
+        continue;
+      }
       if (line.startsWith('> ')) {
         flushParagraph();
         out.add(_AiBlockSpec(type: 'quote', text: line.substring(2).trim()));
@@ -4627,11 +4950,27 @@ Quick help (be concise):
     String pageId,
     List<_AiBlockSpec> specs,
   ) {
+    const urlOnlyTypes = {
+      'image',
+      'file',
+      'video',
+      'audio',
+      'bookmark',
+      'embed',
+    };
     final out = <FolioBlock>[];
     for (final s in specs) {
       final type = _normalizeAiBlockType(s.type);
       final text = s.text.trim();
-      if (type != 'divider' && type != 'table' && text.isEmpty) continue;
+      final url = s.url?.trim();
+      final hasUrl = url != null && url.isNotEmpty;
+      final canUseUrlOnly = urlOnlyTypes.contains(type) && hasUrl;
+      if (type != 'divider' &&
+          type != 'table' &&
+          text.isEmpty &&
+          !canUseUrlOnly) {
+        continue;
+      }
       out.add(
         FolioBlock(
           id: '${pageId}_${_uuid.v4()}',
@@ -4647,7 +4986,7 @@ Quick help (be concise):
               : null,
           depth: s.depth ?? 0,
           icon: s.icon,
-          url: s.url,
+          url: hasUrl ? url : null,
           imageWidth: s.imageWidth,
           expanded: s.expanded,
         ),
@@ -4671,6 +5010,19 @@ Quick help (be concise):
     return _materializeAiBlocks(pageId, parsed.blocks);
   }
 
+  bool _aiBlockTypeAllowsEmptyText(String type, {required String url}) {
+    if (type == 'divider' || type == 'table') return true;
+    if (url.isEmpty) return false;
+    return const {
+      'image',
+      'file',
+      'video',
+      'audio',
+      'bookmark',
+      'embed',
+    }.contains(type);
+  }
+
   String _normalizeAiBlockType(String raw) {
     const supported = {
       'paragraph',
@@ -4678,12 +5030,22 @@ Quick help (be concise):
       'h2',
       'h3',
       'bullet',
+      'numbered',
       'todo',
+      'toggle',
       'code',
       'quote',
       'divider',
       'callout',
       'table',
+      'image',
+      'file',
+      'video',
+      'audio',
+      'bookmark',
+      'embed',
+      'equation',
+      'mermaid',
     };
     final normalized = raw.trim().toLowerCase();
     final type = normalized.contains('|')

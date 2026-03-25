@@ -14,6 +14,7 @@ class WorkspaceEditorSurface extends StatelessWidget {
     required this.onTitleChanged,
     required this.onCreatePage,
     required this.editor,
+    required this.editorMaxWidth,
   });
 
   final bool compact;
@@ -23,6 +24,7 @@ class WorkspaceEditorSurface extends StatelessWidget {
   final ValueChanged<String> onTitleChanged;
   final VoidCallback onCreatePage;
   final Widget editor;
+  final double editorMaxWidth;
 
   @override
   Widget build(BuildContext context) {
@@ -30,7 +32,7 @@ class WorkspaceEditorSurface extends StatelessWidget {
     final theme = Theme.of(context);
     return Padding(
       padding: EdgeInsets.fromLTRB(
-        compact ? 0 : FolioSpace.sm,
+        compact ? 0 : FolioSpace.md,
         0,
         compact ? 0 : FolioSpace.md,
         compact ? 0 : FolioSpace.md,
@@ -66,18 +68,16 @@ class WorkspaceEditorSurface extends StatelessWidget {
                 : Padding(
                     key: ValueKey('workspace_page_${page!.id}'),
                     padding: const EdgeInsets.fromLTRB(
-                      FolioSpace.lg,
+                      FolioSpace.xl,
                       FolioSpace.md,
-                      FolioSpace.lg,
+                      FolioSpace.xl,
                       FolioSpace.sm,
                     ),
                     child: Align(
                       alignment: Alignment.topCenter,
                       child: ConstrainedBox(
                         constraints: BoxConstraints(
-                          maxWidth: compact
-                              ? double.infinity
-                              : FolioDesktop.editorMaxWidth,
+                          maxWidth: compact ? double.infinity : editorMaxWidth,
                         ),
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -202,7 +202,9 @@ class _PagePathRow extends StatelessWidget {
           child: Icon(
             Icons.chevron_right_rounded,
             size: 16,
-            color: scheme.onSurfaceVariant.withValues(alpha: FolioAlpha.emphasis),
+            color: scheme.onSurfaceVariant.withValues(
+              alpha: FolioAlpha.emphasis,
+            ),
           ),
         ),
         itemBuilder: (context, index) {
