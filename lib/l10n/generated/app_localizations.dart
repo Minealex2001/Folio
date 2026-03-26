@@ -284,6 +284,18 @@ abstract class AppLocalizations {
   /// **'Al menos {min} caracteres. La usarás cada vez que abras Folio.'**
   String masterPasswordHint(int min);
 
+  /// No description provided for @createStarterPagesTitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Crear páginas iniciales de ayuda'**
+  String get createStarterPagesTitle;
+
+  /// No description provided for @createStarterPagesBody.
+  ///
+  /// In es, this message translates to:
+  /// **'Añade una pequeña guía con ejemplos, atajos y capacidades de Folio. Podrás borrar esas páginas después.'**
+  String get createStarterPagesBody;
+
   /// No description provided for @passwordLabel.
   ///
   /// In es, this message translates to:
@@ -1808,6 +1820,48 @@ abstract class AppLocalizations {
   /// **'Escribe tu mensaje. Quill actuará como agente.'**
   String get aiInputHint;
 
+  /// No description provided for @aiInputHintCopilot.
+  ///
+  /// In es, this message translates to:
+  /// **'Escribe tu mensaje...'**
+  String get aiInputHintCopilot;
+
+  /// No description provided for @aiContextComposerHint.
+  ///
+  /// In es, this message translates to:
+  /// **'Sin contexto añadido'**
+  String get aiContextComposerHint;
+
+  /// No description provided for @aiContextComposerHelper.
+  ///
+  /// In es, this message translates to:
+  /// **'Usa @ para añadir contexto'**
+  String get aiContextComposerHelper;
+
+  /// No description provided for @aiContextCurrentPageChip.
+  ///
+  /// In es, this message translates to:
+  /// **'Página actual: {title}'**
+  String aiContextCurrentPageChip(Object title);
+
+  /// No description provided for @aiContextCurrentPageFallback.
+  ///
+  /// In es, this message translates to:
+  /// **'Página actual'**
+  String get aiContextCurrentPageFallback;
+
+  /// No description provided for @aiContextAddFile.
+  ///
+  /// In es, this message translates to:
+  /// **'Adjuntar archivo'**
+  String get aiContextAddFile;
+
+  /// No description provided for @aiContextAddPage.
+  ///
+  /// In es, this message translates to:
+  /// **'Adjuntar página'**
+  String get aiContextAddPage;
+
   /// No description provided for @aiShowPanel.
   ///
   /// In es, this message translates to:
@@ -2605,6 +2659,66 @@ abstract class AppLocalizations {
   /// In es, this message translates to:
   /// **'El cofre ya está cifrado'**
   String get encryptPlainVaultSuccessSnack;
+
+  /// No description provided for @aiCopyMessage.
+  ///
+  /// In es, this message translates to:
+  /// **'Copiar'**
+  String get aiCopyMessage;
+
+  /// No description provided for @aiCopyCode.
+  ///
+  /// In es, this message translates to:
+  /// **'Copiar código'**
+  String get aiCopyCode;
+
+  /// No description provided for @aiCopiedToClipboard.
+  ///
+  /// In es, this message translates to:
+  /// **'Copiado al portapapeles'**
+  String get aiCopiedToClipboard;
+
+  /// No description provided for @aiHelpful.
+  ///
+  /// In es, this message translates to:
+  /// **'Útil'**
+  String get aiHelpful;
+
+  /// No description provided for @aiNotHelpful.
+  ///
+  /// In es, this message translates to:
+  /// **'No útil'**
+  String get aiNotHelpful;
+
+  /// No description provided for @aiThinkingMessage.
+  ///
+  /// In es, this message translates to:
+  /// **'Quill está pensando...'**
+  String get aiThinkingMessage;
+
+  /// No description provided for @aiMessageTimestampNow.
+  ///
+  /// In es, this message translates to:
+  /// **'ahora'**
+  String get aiMessageTimestampNow;
+
+  /// No description provided for @aiMessageTimestampMinutes.
+  ///
+  /// In es, this message translates to:
+  /// **'hace {n} min'**
+  String aiMessageTimestampMinutes(int n);
+
+  /// No description provided for @aiMessageTimestampHours.
+  ///
+  /// In es, this message translates to:
+  /// **'hace {n} h'**
+  String aiMessageTimestampHours(int n);
+
+  /// No description provided for @aiMessageTimestampDays.
+  ///
+  /// In es, this message translates to:
+  /// **'hace {n} días'**
+  String aiMessageTimestampDays(int n);
 }
 
 class _AppLocalizationsDelegate

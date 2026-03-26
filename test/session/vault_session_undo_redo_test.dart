@@ -69,5 +69,40 @@ void main() {
       session.redoPageEdits(pageId: pageId);
       expect(session.selectedPage!.blocks.first.id, secondId);
     });
+
+    test('undo/redo restaura la apariencia del bloque', () {
+      final session = VaultSession();
+      session.addPage();
+
+      final page = session.selectedPage!;
+      final pageId = page.id;
+      final blockId = page.blocks.first.id;
+
+      session.setBlockAppearance(
+        pageId,
+        blockId,
+        const FolioBlockAppearance(
+          textColorRole: 'primary',
+          backgroundRole: 'surface',
+          fontScale: 1.15,
+        ),
+      );
+
+      final styled = session.selectedPage!.blocks.first.appearance;
+      expect(styled, isNotNull);
+      expect(styled!.textColorRole, 'primary');
+      expect(styled.backgroundRole, 'surface');
+      expect(styled.fontScale, 1.15);
+
+      session.undoPageEdits(pageId: pageId);
+      expect(session.selectedPage!.blocks.first.appearance, isNull);
+
+      session.redoPageEdits(pageId: pageId);
+      final restored = session.selectedPage!.blocks.first.appearance;
+      expect(restored, isNotNull);
+      expect(restored!.textColorRole, 'primary');
+      expect(restored.backgroundRole, 'surface');
+      expect(restored.fontScale, 1.15);
+    });
   });
 }

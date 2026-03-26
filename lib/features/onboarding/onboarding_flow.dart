@@ -41,6 +41,7 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
   var _obscureNotionPassword = true;
   var _obscureNotionConfirm = true;
   var _createWithoutEncryption = false;
+  var _createStarterPages = true;
 
   static const _minLen = 10;
 
@@ -77,6 +78,7 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
       _error = null;
       _mode = _OnboardingMode.create;
       _createWithoutEncryption = false;
+      _createStarterPages = true;
     });
     _goPage(1);
   }
@@ -241,6 +243,7 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
       await widget.session.completeOnboarding(
         password: _createWithoutEncryption ? null : _password.text,
         encrypted: !_createWithoutEncryption,
+        createStarterPages: _createStarterPages,
       );
       await widget.appSettings.setHasSeenQuillIntro(true);
     } catch (e) {
@@ -429,14 +432,24 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
   }
 
   Widget _buildCurrentStep(BuildContext context) {
-    if (_page == 0) return _stepWelcome(context);
-    if (_mode == _OnboardingMode.backupImport)
+    if (_page == 0) {
+      return _stepWelcome(context);
+    }
+    if (_mode == _OnboardingMode.backupImport) {
       return _stepImportBackup(context);
-    if (_mode == _OnboardingMode.notionImport)
+    }
+    if (_mode == _OnboardingMode.notionImport) {
       return _stepImportNotion(context);
-    if (_page == 1) return _stepPassword(context);
-    if (!_shouldShowQuillIntro) return _stepReady(context);
-    if (_page == 2) return _stepReady(context);
+    }
+    if (_page == 1) {
+      return _stepPassword(context);
+    }
+    if (!_shouldShowQuillIntro) {
+      return _stepReady(context);
+    }
+    if (_page == 2) {
+      return _stepReady(context);
+    }
     return _stepQuillIntro(context);
   }
 
@@ -488,11 +501,27 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
           textAlign: TextAlign.center,
         ),
         const SizedBox(height: FolioSpace.xl),
+        SwitchListTile(
+          contentPadding: EdgeInsets.zero,
+          secondary: const Icon(Icons.auto_awesome_motion_rounded),
+          title: Text(AppLocalizations.of(context).createStarterPagesTitle),
+          subtitle: Text(AppLocalizations.of(context).createStarterPagesBody),
+          value: _createStarterPages,
+          onChanged: _busy
+              ? null
+              : (value) {
+                  setState(() => _createStarterPages = value);
+                },
+        ),
+        const SizedBox(height: FolioSpace.lg),
         Row(
           children: [
             TextButton(
               onPressed: () {
-                setState(() => _createWithoutEncryption = false);
+                setState(() {
+                  _createWithoutEncryption = false;
+                  _page = 0;
+                });
               },
               child: Text(l10n.back),
             ),
@@ -561,6 +590,7 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
               _error = null;
               _mode = _OnboardingMode.create;
               _createWithoutEncryption = true;
+              _createStarterPages = true;
             });
             _goPage(1);
           },
@@ -685,10 +715,13 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
               ),
               onPressed: _busy ? null : _finishImport,
               child: _busy
-                  ? const SizedBox(
+                  ? SizedBox(
                       width: 22,
                       height: 22,
-                      child: CircularProgressIndicator(strokeWidth: 2),
+                      child: ScaleTransition(
+                        scale: AlwaysStoppedAnimation(1.0),
+                        child: const CircularProgressIndicator(strokeWidth: 2),
+                      ),
                     )
                   : Text(AppLocalizations.of(context).importVault),
             ),
@@ -750,6 +783,19 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
           textAlign: TextAlign.center,
         ),
         const SizedBox(height: FolioSpace.xl),
+        SwitchListTile(
+          contentPadding: EdgeInsets.zero,
+          secondary: const Icon(Icons.auto_awesome_motion_rounded),
+          title: Text(AppLocalizations.of(context).createStarterPagesTitle),
+          subtitle: Text(AppLocalizations.of(context).createStarterPagesBody),
+          value: _createStarterPages,
+          onChanged: _busy
+              ? null
+              : (value) {
+                  setState(() => _createStarterPages = value);
+                },
+        ),
+        const SizedBox(height: FolioSpace.md),
         FolioPasswordField(
           controller: _password,
           obscureText: _obscurePassword,
@@ -994,6 +1040,11 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
           children: [
             TextButton(
               onPressed: _busy ? null : () => _goPage(2),
+              style: FilledButton.styleFrom(
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(FolioRadius.md),
+                ),
+              ),
               child: Text(l10n.back),
             ),
             const SizedBox(width: FolioSpace.md),
@@ -1001,7 +1052,7 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
               style: FilledButton.styleFrom(
                 minimumSize: const Size(120, 48),
                 shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius: BorderRadius.circular(FolioRadius.md),
                 ),
               ),
               onPressed: _busy ? null : _finishCreate,

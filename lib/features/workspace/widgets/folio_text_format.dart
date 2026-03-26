@@ -464,6 +464,7 @@ class FolioFormatToolbar extends StatelessWidget {
     required this.controller,
     required this.colorScheme,
     required this.textFocusNode,
+    this.onOpenBlockAppearance,
     this.onMentionPage,
     this.onInsertUserMention,
     this.onInsertDateMention,
@@ -473,6 +474,7 @@ class FolioFormatToolbar extends StatelessWidget {
   final TextEditingController controller;
   final ColorScheme colorScheme;
   final FocusNode textFocusNode;
+  final VoidCallback? onOpenBlockAppearance;
 
   /// Mención @página → enlace [folio://open/…].
   final Future<void> Function(BuildContext context)? onMentionPage;
@@ -611,6 +613,12 @@ class FolioFormatToolbar extends StatelessWidget {
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
+                  if (onOpenBlockAppearance != null)
+                    btn(
+                      icon: Icons.palette_outlined,
+                      tip: 'Apariencia del bloque',
+                      onPressed: () => applyFormat(onOpenBlockAppearance!),
+                    ),
                   btn(
                     icon: Icons.format_bold_rounded,
                     tip: AppLocalizations.of(context).boldTip,

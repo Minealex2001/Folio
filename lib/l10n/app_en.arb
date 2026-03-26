@@ -42,6 +42,8 @@
       "min": {"type": "int"}
     }
   },
+  "createStarterPagesTitle": "Create starter help pages",
+  "createStarterPagesBody": "Adds a small guide with examples, shortcuts, and Folio capabilities. You can delete those pages later.",
   "passwordLabel": "Password",
   "confirmPasswordLabel": "Confirm password",
   "next": "Next",
@@ -313,6 +315,14 @@
   "aiAttach": "Attach",
   "aiChatEmptyHint": "Start a conversation.\nQuill will automatically decide what to do with your message.\nYou can also ask how to use Folio (shortcuts, settings, pages, or this chat).",
   "aiInputHint": "Type your message. Quill will act as an agent.",
+  "aiInputHintCopilot": "Type your message...",
+  "aiContextComposerHint": "No context added",
+  "aiContextComposerHelper": "Use @ to add context",
+  "aiContextCurrentPageChip": "Current page: {title}",
+  "@aiContextCurrentPageChip": {"placeholders": {"title": {}}},
+  "aiContextCurrentPageFallback": "Current page",
+  "aiContextAddFile": "Attach file",
+  "aiContextAddPage": "Attach page",
   "aiShowPanel": "Show AI panel",
   "aiHidePanel": "Hide AI panel",
   "closeCurrentPage": "Close current page",
@@ -453,5 +463,17 @@
   ,"encryptPlainVaultBody": "Choose a master password. All data on this device will be encrypted. If you forget it, your data cannot be recovered."
   ,"encryptPlainVaultConfirm": "Encrypt vault"
   ,"encryptPlainVaultSuccessSnack": "Vault is now encrypted"
-  
+  ,"aiCopyMessage": "Copy"
+  ,"aiCopyCode": "Copy code"
+  ,"aiCopiedToClipboard": "Copied to clipboard"
+  ,"aiHelpful": "Helpful"
+  ,"aiNotHelpful": "Not helpful"
+  ,"aiThinkingMessage": "Quill is thinking..."
+  ,"aiMessageTimestampNow": "now"
+  ,"aiMessageTimestampMinutes": "{n} min ago"
+  ,"@aiMessageTimestampMinutes": {"placeholders": {"n": {"type": "int"}}}
+  ,"aiMessageTimestampHours": "{n} h ago"
+  ,"@aiMessageTimestampHours": {"placeholders": {"n": {"type": "int"}}}
+  ,"aiMessageTimestampDays": "{n} days ago"
+  ,"@aiMessageTimestampDays": {"placeholders": {"n": {"type": "int"}}}
 }

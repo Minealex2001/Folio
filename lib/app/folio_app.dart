@@ -15,6 +15,7 @@ import '../services/ai/ai_provider_launcher.dart';
 import '../services/ai/ai_safety_policy.dart';
 import '../services/ai/lmstudio_ai_service.dart';
 import '../services/ai/ollama_ai_service.dart';
+import '../services/platform/launch_arguments.dart';
 import '../services/run2doc/run2doc_bridge.dart';
 import '../services/run2doc/run2doc_markdown_codec.dart';
 import '../services/updater/github_release_updater.dart';
@@ -25,6 +26,7 @@ import '../features/workspace/widgets/global_search_popup.dart';
 import '../session/vault_session.dart';
 import 'app_settings.dart';
 import 'folio_theme.dart';
+import 'ui_tokens.dart';
 
 class FolioApp extends StatefulWidget {
   const FolioApp({
@@ -44,6 +46,7 @@ class FolioApp extends StatefulWidget {
 
 class _FolioAppState extends State<FolioApp> with WidgetsBindingObserver {
   StreamSubscription<SystemAccentColor>? _accentSub;
+  StreamSubscription<List<String>>? _launchArgsSub;
   final GlobalKey<NavigatorState> _navKey = GlobalKey<NavigatorState>();
   DesktopIntegration? _desktop;
   late final Run2DocBridgeController _run2DocBridge;
@@ -63,14 +66,17 @@ class _FolioAppState extends State<FolioApp> with WidgetsBindingObserver {
       onImport: _importRun2DocMarkdown,
       onUpdate: _updateRun2DocPage,
       onListPages: _listRun2DocPages,
+      onListCustomEmojis: _listRun2DocCustomEmojis,
       onImportJson: _importRun2DocJson,
+      onReplaceCustomEmojis: _replaceRun2DocCustomEmojis,
+      onUpsertCustomEmoji: _upsertRun2DocCustomEmoji,
+      onDeleteCustomEmoji: _deleteRun2DocCustomEmoji,
       onApproveClient: _approveRun2DocClient,
       onClientObserved: _syncObservedRun2DocClient,
       isClientApproved: (client) => widget.appSettings.isIntegrationAppApproved(
         client.appId,
         integrationVersion: client.integrationVersion,
       ),
-      secretProvider: () => widget.appSettings.integrationSecret,
       appInfoProvider: _run2DocAppInfo,
       onEvent: _showSnack,
     );
@@ -81,6 +87,9 @@ class _FolioAppState extends State<FolioApp> with WidgetsBindingObserver {
     unawaited(_loadInstalledVersionInfo());
     unawaited(_startRun2DocBridge());
     _initDesktopIntegration();
+    _launchArgsSub = PlatformLaunchArguments.launchArguments().listen((args) {
+      unawaited(_handleLaunchArguments(args, focusWindow: false));
+    });
     unawaited(_handleInitialLaunchArgs());
     _checkForUpdatesOnStartup();
     _accentSub = SystemTheme.onChange.listen((_) {
@@ -90,6 +99,7 @@ class _FolioAppState extends State<FolioApp> with WidgetsBindingObserver {
 
   @override
   void dispose() {
+    _launchArgsSub?.cancel();
     _accentSub?.cancel();
     unawaited(_run2DocBridge.dispose());
     WidgetsBinding.instance.removeObserver(this);
@@ -371,6 +381,58 @@ class _FolioAppState extends State<FolioApp> with WidgetsBindingObserver {
     );
   }
 
+  Future<List<Map<String, Object?>>> _listRun2DocCustomEmojis(
+    String clientAppId,
+  ) async {
+    return widget.appSettings
+        .integrationCustomIconsForApp(clientAppId)
+        .map((entry) => entry.toJson())
+        .toList(growable: false);
+  }
+
+  Future<void> _replaceRun2DocCustomEmojis(
+    String clientAppId,
+    List<Map<String, Object?>> items,
+  ) async {
+    final entries = items
+        .map((item) => CustomIconEntry.fromJson(item))
+        .toList(growable: false);
+    await widget.appSettings.replaceIntegrationCustomIconsForApp(
+      clientAppId,
+      entries,
+    );
+  }
+
+  Future<Map<String, Object?>> _upsertRun2DocCustomEmoji(
+    Run2DocCustomEmojiUpsertRequest request,
+  ) async {
+    final createdAtMs = request.createdAtMs > 0
+        ? request.createdAtMs
+        : DateTime.now().millisecondsSinceEpoch;
+    final entry = CustomIconEntry(
+      id: request.emojiId,
+      label: request.label,
+      source: request.source,
+      filePath: request.filePath,
+      mimeType: request.mimeType,
+      createdAtMs: createdAtMs,
+    );
+    await widget.appSettings.addOrUpdateIntegrationCustomIconForApp(
+      request.clientAppId,
+      entry,
+    );
+    return entry.toJson();
+  }
+
+  Future<void> _deleteRun2DocCustomEmoji(
+    Run2DocCustomEmojiDeleteRequest request,
+  ) {
+    return widget.appSettings.removeIntegrationCustomIconForApp(
+      request.clientAppId,
+      request.emojiId,
+    );
+  }
+
   Future<bool> _approveRun2DocClient(Run2DocClientIdentity client) async {
     if (widget.appSettings.isIntegrationAppApproved(
       client.appId,
@@ -465,18 +527,20 @@ class _FolioAppState extends State<FolioApp> with WidgetsBindingObserver {
         widget.initialLaunchArgs.isEmpty) {
       return;
     }
-    Uri? launchUri;
-    for (final arg in widget.initialLaunchArgs) {
-      final uri = Uri.tryParse(arg);
-      if (uri != null && uri.scheme == 'folio') {
-        launchUri = uri;
-        break;
-      }
-    }
+    await _handleLaunchArguments(widget.initialLaunchArgs, focusWindow: true);
+  }
+
+  Future<void> _handleLaunchArguments(
+    List<String> args, {
+    required bool focusWindow,
+  }) async {
+    final launchUri = PlatformLaunchArguments.firstUriWithScheme(args, 'folio');
     if (launchUri == null) return;
     try {
       await _run2DocBridge.activateFromUri(launchUri);
-      await _desktop?.showAndFocus();
+      if (focusWindow) {
+        await _desktop?.showAndFocus();
+      }
     } catch (e) {
       _showSnack('No se pudo activar la integración Run2Doc: $e');
     }
@@ -591,54 +655,203 @@ class _IntegrationApprovalDialog extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
+    final theme = Theme.of(context);
     final scheme = Theme.of(context).colorScheme;
     final isUpdate =
         previousApproval != null &&
         (previousApproval?.integrationVersion.trim() ?? '') !=
             client.integrationVersion;
+    final previousVersion =
+        (previousApproval?.integrationVersion.trim() ?? '').isEmpty
+        ? l10n.integrationApprovalUnknownVersion
+        : previousApproval!.integrationVersion.trim();
+    final appVersion = client.appVersion.trim().isEmpty
+        ? l10n.integrationApprovalUnknownVersion
+        : client.appVersion.trim();
 
-    Widget capabilityRow(IconData icon, String text, {Color? color}) {
-      return Padding(
-        padding: const EdgeInsets.only(bottom: 10),
+    String t(String es, String en) {
+      return Localizations.localeOf(
+            context,
+          ).languageCode.toLowerCase().startsWith('es')
+          ? es
+          : en;
+    }
+
+    Widget capabilityRow(
+      IconData icon,
+      String title,
+      String description, {
+      required Color accent,
+      bool danger = false,
+    }) {
+      return Container(
+        margin: const EdgeInsets.only(bottom: 10),
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: danger
+              ? scheme.errorContainer.withValues(alpha: 0.24)
+              : scheme.surfaceContainerLow,
+          borderRadius: BorderRadius.circular(FolioRadius.lg),
+          border: Border.all(
+            color: danger
+                ? scheme.error.withValues(alpha: 0.18)
+                : scheme.outlineVariant.withValues(alpha: 0.45),
+          ),
+        ),
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Icon(icon, size: 18, color: color ?? scheme.primary),
-            const SizedBox(width: 10),
-            Expanded(child: Text(text)),
+            Container(
+              width: 34,
+              height: 34,
+              decoration: BoxDecoration(
+                color: accent.withValues(alpha: 0.12),
+                borderRadius: BorderRadius.circular(FolioRadius.md),
+              ),
+              child: Icon(icon, size: 18, color: accent),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: theme.textTheme.labelLarge?.copyWith(
+                      fontWeight: FontWeight.w700,
+                      color: scheme.onSurface,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    description,
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: scheme.onSurfaceVariant,
+                      height: 1.35,
+                    ),
+                  ),
+                ],
+              ),
+            ),
           ],
         ),
       );
     }
 
     return AlertDialog(
-      title: Text(
-        isUpdate
-            ? l10n.integrationApprovalUpdateTitle
-            : l10n.integrationApprovalTitle,
-      ),
+      insetPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
       content: SizedBox(
-        width: 560,
+        width: 640,
         child: SingleChildScrollView(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             mainAxisSize: MainAxisSize.min,
             children: [
-              Text(
-                isUpdate
-                    ? l10n.integrationApprovalUpdateBody(
-                        client.appName,
-                        (previousApproval?.integrationVersion.trim() ?? '')
-                                .isEmpty
-                            ? l10n.integrationApprovalUnknownVersion
-                            : previousApproval!.integrationVersion.trim(),
-                        client.integrationVersion,
-                      )
-                    : l10n.integrationApprovalBody(
-                        client.appName,
-                        client.appVersion,
-                        client.integrationVersion,
-                      ),
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(18),
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [
+                      scheme.secondaryContainer.withValues(alpha: 0.7),
+                      scheme.surfaceContainerHigh,
+                    ],
+                  ),
+                  borderRadius: BorderRadius.circular(FolioRadius.xl),
+                  border: Border.all(
+                    color: scheme.outlineVariant.withValues(alpha: 0.45),
+                  ),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Container(
+                          width: 46,
+                          height: 46,
+                          decoration: BoxDecoration(
+                            color: scheme.surface,
+                            borderRadius: BorderRadius.circular(FolioRadius.lg),
+                          ),
+                          child: Icon(
+                            isUpdate
+                                ? Icons.system_update_alt_rounded
+                                : Icons.hub_rounded,
+                            color: scheme.primary,
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                isUpdate
+                                    ? t(
+                                        'Actualizar permiso de integracion',
+                                        'Update integration approval',
+                                      )
+                                    : t(
+                                        'Permitir que esta app se conecte',
+                                        'Allow this app to connect',
+                                      ),
+                                style: theme.textTheme.titleLarge?.copyWith(
+                                  fontWeight: FontWeight.w800,
+                                  letterSpacing: -0.2,
+                                ),
+                              ),
+                              const SizedBox(height: 6),
+                              Text(
+                                isUpdate
+                                    ? t(
+                                        'Esta app ya estaba aprobada con la integracion $previousVersion y ahora pide acceso con la version ${client.integrationVersion}.',
+                                        'This app was already approved with integration version $previousVersion and is now requesting access with version ${client.integrationVersion}.',
+                                      )
+                                    : t(
+                                        '"${client.appName}" quiere usar el puente local de Folio con la app version $appVersion y la integracion ${client.integrationVersion}.',
+                                        '"${client.appName}" wants to use Folio\'s local bridge with app version $appVersion and integration ${client.integrationVersion}.',
+                                      ),
+                                style: theme.textTheme.bodyMedium?.copyWith(
+                                  color: scheme.onSurfaceVariant,
+                                  height: 1.4,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 14),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: [
+                        _IntegrationApprovalChip(
+                          icon: Icons.laptop_windows_rounded,
+                          label: t('Solo localhost', 'Localhost only'),
+                        ),
+                        _IntegrationApprovalChip(
+                          icon: Icons.verified_user_outlined,
+                          label: t(
+                            'Aprobacion revocable',
+                            'Revocable approval',
+                          ),
+                        ),
+                        _IntegrationApprovalChip(
+                          icon: Icons.key_off_outlined,
+                          label: t(
+                            'Sin secreto compartido',
+                            'No shared secret',
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
               ),
               const SizedBox(height: 16),
               Container(
@@ -654,68 +867,174 @@ class _IntegrationApprovalDialog extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      client.appName,
-                      style: Theme.of(context).textTheme.titleMedium,
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            client.appName,
+                            style: theme.textTheme.titleMedium?.copyWith(
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 10,
+                            vertical: 5,
+                          ),
+                          decoration: BoxDecoration(
+                            color: scheme.primary.withValues(alpha: 0.10),
+                            borderRadius: BorderRadius.circular(999),
+                          ),
+                          child: Text(
+                            t('Permiso por appId', 'Scoped by appId'),
+                            style: theme.textTheme.labelMedium?.copyWith(
+                              color: scheme.primary,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
                     const SizedBox(height: 8),
-                    Text('${l10n.integrationApprovalAppId}: ${client.appId}'),
-                    Text(
-                      '${l10n.integrationApprovalAppVersion}: ${client.appVersion}',
+                    _IntegrationApprovalMetaRow(
+                      label: l10n.integrationApprovalAppId,
+                      value: client.appId,
                     ),
-                    Text(
-                      '${l10n.integrationApprovalProtocolVersion}: ${client.integrationVersion}',
+                    _IntegrationApprovalMetaRow(
+                      label: l10n.integrationApprovalAppVersion,
+                      value: appVersion,
                     ),
+                    _IntegrationApprovalMetaRow(
+                      label: l10n.integrationApprovalProtocolVersion,
+                      value: client.integrationVersion,
+                    ),
+                    if (isUpdate)
+                      _IntegrationApprovalMetaRow(
+                        label: t(
+                          'Version anterior aprobada',
+                          'Previously approved version',
+                        ),
+                        value: previousVersion,
+                      ),
                   ],
                 ),
               ),
               const SizedBox(height: 16),
               Text(
-                l10n.integrationApprovalCanDoTitle,
-                style: Theme.of(context).textTheme.titleSmall,
+                t(
+                  'Lo que esta app podra hacer',
+                  'What this app will be able to do',
+                ),
+                style: theme.textTheme.titleSmall?.copyWith(
+                  fontWeight: FontWeight.w800,
+                ),
               ),
               const SizedBox(height: 10),
               capabilityRow(
                 Icons.playlist_add_check_circle_outlined,
-                l10n.integrationApprovalCanDoSessions,
+                t(
+                  'Abrir sesiones locales efimeras',
+                  'Open short-lived local sessions',
+                ),
+                t(
+                  'Podra iniciar una sesion temporal para hablar con el puente local de Folio desde este dispositivo.',
+                  'It can start a temporary session to talk to Folio\'s local bridge on this device.',
+                ),
+                accent: scheme.primary,
               ),
               capabilityRow(
                 Icons.description_outlined,
-                l10n.integrationApprovalCanDoImport,
+                t(
+                  'Importar y actualizar sus propias paginas',
+                  'Import and update its own pages',
+                ),
+                t(
+                  'Podra crear paginas, listarlas y actualizar solo las paginas que esa misma app haya importado antes.',
+                  'It can create pages, list them, and update only the pages that the same app previously imported.',
+                ),
+                accent: scheme.primary,
               ),
               capabilityRow(
-                Icons.history_toggle_off_rounded,
-                l10n.integrationApprovalCanDoMetadata,
+                Icons.emoji_emotions_outlined,
+                t('Gestionar sus custom emojis', 'Manage its custom emojis'),
+                t(
+                  'Podra listar, crear, reemplazar y borrar solo su propio catalogo de custom emojis o iconos importados.',
+                  'It can list, create, replace, and delete only its own catalog of imported custom emojis or icons.',
+                ),
+                accent: scheme.primary,
               ),
               capabilityRow(
                 Icons.lock_open_outlined,
-                l10n.integrationApprovalCanDoUnlockedVault,
+                t(
+                  'Trabajar solo con el cofre abierto',
+                  'Work only while the vault is unlocked',
+                ),
+                t(
+                  'Las peticiones solo funcionan cuando Folio esta abierto, el cofre esta disponible y la sesion actual sigue activa.',
+                  'Requests only work while Folio is open, the vault is available, and the current session is still active.',
+                ),
+                accent: scheme.primary,
               ),
               const SizedBox(height: 12),
               Text(
-                l10n.integrationApprovalCannotDoTitle,
-                style: Theme.of(context).textTheme.titleSmall,
+                t('Lo que seguira bloqueado', 'What will remain blocked'),
+                style: theme.textTheme.titleSmall?.copyWith(
+                  fontWeight: FontWeight.w800,
+                ),
               ),
               const SizedBox(height: 10),
               capabilityRow(
                 Icons.visibility_off_outlined,
-                l10n.integrationApprovalCannotDoRead,
-                color: scheme.error,
+                t(
+                  'No puede ver todo tu contenido',
+                  'It cannot see all your content',
+                ),
+                t(
+                  'No obtiene acceso general al cofre. Solo puede listar lo que ella misma importo mediante su appId.',
+                  'It does not get general vault access. It can only list what it imported itself through its appId.',
+                ),
+                accent: scheme.error,
+                danger: true,
               ),
               capabilityRow(
                 Icons.shield_outlined,
-                l10n.integrationApprovalCannotDoBypassLock,
-                color: scheme.error,
+                t(
+                  'No puede saltarse bloqueo ni cifrado',
+                  'It cannot bypass lock or encryption',
+                ),
+                t(
+                  'Si el cofre esta bloqueado o no hay sesion activa, Folio rechazara la operacion.',
+                  'If the vault is locked or there is no active session, Folio will reject the operation.',
+                ),
+                accent: scheme.error,
+                danger: true,
               ),
               capabilityRow(
-                Icons.key_off_outlined,
-                l10n.integrationApprovalCannotDoWithoutSecret,
-                color: scheme.error,
+                Icons.apps_outage_outlined,
+                t(
+                  'No puede tocar datos de otras apps',
+                  'It cannot touch another app\'s data',
+                ),
+                t(
+                  'Tampoco puede gestionar paginas importadas o custom emojis registrados por otras apps aprobadas.',
+                  'It also cannot manage imported pages or custom emojis registered by other approved apps.',
+                ),
+                accent: scheme.error,
+                danger: true,
               ),
               capabilityRow(
                 Icons.public_off_outlined,
-                l10n.integrationApprovalCannotDoRemoteAccess,
-                color: scheme.error,
+                t(
+                  'No puede entrar desde fuera de tu equipo',
+                  'It cannot connect from outside your machine',
+                ),
+                t(
+                  'El puente sigue limitado a localhost y esta aprobacion se puede revocar mas tarde desde Ajustes.',
+                  'The bridge remains limited to localhost and this approval can be revoked later from Settings.',
+                ),
+                accent: scheme.error,
+                danger: true,
               ),
             ],
           ),
@@ -735,6 +1054,80 @@ class _IntegrationApprovalDialog extends StatelessWidget {
           ),
         ),
       ],
+    );
+  }
+}
+
+class _IntegrationApprovalChip extends StatelessWidget {
+  const _IntegrationApprovalChip({required this.icon, required this.label});
+
+  final IconData icon;
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+      decoration: BoxDecoration(
+        color: scheme.surface.withValues(alpha: 0.9),
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(
+          color: scheme.outlineVariant.withValues(alpha: 0.45),
+        ),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 16, color: scheme.primary),
+          const SizedBox(width: 6),
+          Text(
+            label,
+            style: Theme.of(
+              context,
+            ).textTheme.labelMedium?.copyWith(fontWeight: FontWeight.w700),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _IntegrationApprovalMetaRow extends StatelessWidget {
+  const _IntegrationApprovalMetaRow({required this.label, required this.value});
+
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 6),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: 170,
+            child: Text(
+              label,
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                color: scheme.onSurfaceVariant,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+          Expanded(
+            child: Text(
+              value,
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                color: scheme.onSurface,
+                fontFamily: 'monospace',
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

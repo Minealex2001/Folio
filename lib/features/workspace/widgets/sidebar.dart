@@ -3,9 +3,12 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../../../app/app_settings.dart';
 import '../../../app/ui_tokens.dart';
 import '../../../app/widgets/folio_feedback.dart';
 import '../../../app/widgets/folio_dialog.dart';
+import '../../../app/widgets/folio_icon_picker.dart';
+import '../../../app/widgets/folio_icon_token_view.dart';
 import '../../../data/vault_registry.dart';
 import '../../../l10n/generated/app_localizations.dart';
 import '../../../models/folio_page.dart';
@@ -15,12 +18,14 @@ class Sidebar extends StatefulWidget {
   const Sidebar({
     super.key,
     required this.session,
+    required this.appSettings,
     this.onSearch,
     this.onOpenSettings,
     this.onLock,
   });
 
   final VaultSession session;
+  final AppSettings appSettings;
   final VoidCallback? onSearch;
   final VoidCallback? onOpenSettings;
   final VoidCallback? onLock;
@@ -230,79 +235,38 @@ class _SidebarState extends State<Sidebar> {
       '🎨',
       '🔒',
     ];
-    final initial = (page.emoji ?? '').trim();
-    var selected = initial;
-    final emoji = await showDialog<String>(
+    final emoji = await showFolioIconPicker(
       context: context,
-      builder: (ctx) => StatefulBuilder(
-        builder: (ctx, setDialogState) {
-          return FolioDialog(
-            title: Text(l10n.renamePageTitle),
-            contentWidth: 420,
-            content: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Elige un emoji rápido o escribe uno personalizado.',
-                  style: Theme.of(context).textTheme.bodySmall,
-                ),
-                const SizedBox(height: FolioSpace.sm),
-                Wrap(
-                  spacing: FolioSpace.xs,
-                  runSpacing: FolioSpace.xs,
-                  children: quickEmojis.map((item) {
-                    final active = selected == item;
-                    return ChoiceChip(
-                      selected: active,
-                      label: Text(item, style: const TextStyle(fontSize: 18)),
-                      onSelected: (_) {
-                        setDialogState(() {
-                          selected = item;
-                        });
-                      },
-                    );
-                  }).toList(),
-                ),
-                const SizedBox(height: FolioSpace.sm),
-                TextFormField(
-                  initialValue: initial,
-                  autofocus: true,
-                  decoration: const InputDecoration(
-                    labelText: 'Emoji personalizado',
-                    hintText: '😀',
-                  ),
-                  onChanged: (value) {
-                    setDialogState(() {
-                      selected = value.trim();
-                    });
-                  },
-                  onFieldSubmitted: (_) {
-                    Navigator.of(ctx).pop(selected.trim());
-                  },
-                ),
-              ],
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.of(ctx).pop(''),
-                child: const Text('Quitar'),
-              ),
-              TextButton(
-                onPressed: () => Navigator.of(ctx).pop(),
-                child: Text(l10n.cancel),
-              ),
-              FilledButton(
-                onPressed: () => Navigator.of(ctx).pop(selected.trim()),
-                child: Text(l10n.save),
-              ),
-            ],
-          );
-        },
+      appSettings: widget.appSettings,
+      title: _t('Icono de la pagina', 'Page icon'),
+      helperText: _t(
+        'Elige un icono rapido, uno importado o abre el selector completo.',
+        'Pick a quick icon, an imported one, or open the full picker.',
       ),
+      fallbackText: '📄',
+      quickIcons: quickEmojis,
+      customInputLabel: _t('Emoji personalizado', 'Custom emoji'),
+      cancelLabel: l10n.cancel,
+      saveLabel: l10n.save,
+      removeLabel: _t('Quitar', 'Remove'),
+      quickTabLabel: _t('Rapidos', 'Quick'),
+      importedTabLabel: _t('Importados', 'Imported'),
+      allEmojiTabLabel: _t('Todos', 'All'),
+      emptyImportedLabel: _t(
+        'Todavia no has importado iconos en Ajustes.',
+        'You have not imported icons in Settings yet.',
+      ),
+      initialToken: page.emoji,
     );
     if (!mounted || emoji == null) return;
     session.setPageEmoji(page.id, emoji);
+  }
+
+  String _t(String es, String en) {
+    final isEs = Localizations.localeOf(
+      context,
+    ).languageCode.toLowerCase().startsWith('es');
+    return isEs ? es : en;
   }
 
   Future<void> _confirmSwitchVault(String vaultId) async {
@@ -589,10 +553,32 @@ class _SidebarState extends State<Sidebar> {
             setState(() => _hoveredPageId = null);
           }
         },
-        child: Material(
-          color: selected ? scheme.secondaryContainer : scheme.surface,
-          borderRadius: BorderRadius.circular(FolioRadius.lg),
-          clipBehavior: Clip.antiAlias,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
+          curve: Curves.easeInOut,
+          decoration: BoxDecoration(
+            color: selected
+                ? scheme.secondaryContainer
+                : (_hoveredPageId == page.id
+                      ? scheme.surfaceContainerHighest.withValues(alpha: 0.4)
+                      : scheme.surface),
+            borderRadius: BorderRadius.circular(FolioRadius.lg),
+            border: Border.all(
+              color: selected
+                  ? scheme.secondary.withValues(alpha: 0.2)
+                  : scheme.outlineVariant.withValues(alpha: 0.1),
+              width: 1,
+            ),
+            boxShadow: _hoveredPageId == page.id && !selected
+                ? [
+                    BoxShadow(
+                      color: scheme.shadow.withValues(alpha: 0.05),
+                      blurRadius: 8,
+                      offset: const Offset(0, 2),
+                    ),
+                  ]
+                : [],
+          ),
           child: InkWell(
             onTap: () => session.selectPage(page.id),
             onDoubleTap: () => _rename(context, page),
@@ -612,23 +598,27 @@ class _SidebarState extends State<Sidebar> {
                             onTap: () => _toggleCollapsed(page.id),
                             child: Padding(
                               padding: const EdgeInsets.all(FolioSpace.xxs),
-                              child: Icon(
-                                collapsed
-                                    ? Icons.chevron_right_rounded
-                                    : Icons.expand_more_rounded,
-                                size: 18,
-                                color: selected
-                                    ? scheme.onSecondaryContainer
-                                    : scheme.onSurfaceVariant,
+                              child: AnimatedRotation(
+                                turns: collapsed ? 0 : 0.25,
+                                duration: const Duration(milliseconds: 200),
+                                child: Icon(
+                                  Icons.chevron_right_rounded,
+                                  size: 18,
+                                  color: selected
+                                      ? scheme.onSecondaryContainer
+                                      : scheme.onSurfaceVariant,
+                                ),
                               ),
                             ),
                           )
                         else
                           const SizedBox(width: 18),
                         const SizedBox(width: FolioSpace.xxs),
-                        Text(
-                          page.emoji ?? '📄',
-                          style: const TextStyle(fontSize: 16),
+                        FolioIconTokenView(
+                          appSettings: widget.appSettings,
+                          token: page.emoji,
+                          fallbackText: '📄',
+                          size: 18,
                         ),
                         const SizedBox(width: FolioSpace.xs),
                         Expanded(
@@ -649,81 +639,100 @@ class _SidebarState extends State<Sidebar> {
                       ],
                     ),
                   ),
-                  AnimatedOpacity(
+                  AnimatedSwitcher(
                     duration: FolioMotion.short2,
-                    opacity: showRowActions ? 1.0 : 0.0,
-                    child: Container(
-                      decoration: BoxDecoration(
-                        color: selected
-                            ? scheme.onSecondaryContainer.withValues(
-                                alpha: FolioAlpha.faint,
-                              )
-                            : scheme.surfaceContainerHighest.withValues(
-                                alpha: FolioAlpha.panel,
-                              ),
-                        borderRadius: BorderRadius.circular(FolioRadius.md),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          IconButton(
-                            icon: const Icon(
-                              Icons.emoji_emotions_outlined,
-                              size: 18,
-                            ),
-                            tooltip: 'Emoji',
-                            visualDensity: VisualDensity.compact,
-                            color: selected
-                                ? scheme.onSecondaryContainer
-                                : scheme.onSurfaceVariant,
-                            onPressed: () => _setPageEmoji(context, page),
-                          ),
-                          IconButton(
-                            icon: const Icon(Icons.add, size: 18),
-                            tooltip: l10n.subpage,
-                            visualDensity: VisualDensity.compact,
-                            color: selected
-                                ? scheme.onSecondaryContainer
-                                : scheme.onSurfaceVariant,
-                            onPressed: () {
-                              session.addPage(parentId: page.id);
-                            },
-                          ),
-                          IconButton(
-                            icon: const Icon(
-                              Icons.drive_file_move_outline,
-                              size: 18,
-                            ),
-                            tooltip: l10n.move,
-                            visualDensity: VisualDensity.compact,
-                            color: selected
-                                ? scheme.onSecondaryContainer
-                                : scheme.onSurfaceVariant,
-                            onPressed: () => _move(context, page),
-                          ),
-                          IconButton(
-                            icon: const Icon(Icons.edit_outlined, size: 18),
-                            tooltip: l10n.rename,
-                            visualDensity: VisualDensity.compact,
-                            color: selected
-                                ? scheme.onSecondaryContainer
-                                : scheme.onSurfaceVariant,
-                            onPressed: () => _rename(context, page),
-                          ),
-                          IconButton(
-                            icon: const Icon(Icons.delete_outline, size: 18),
-                            tooltip: l10n.delete,
-                            visualDensity: VisualDensity.compact,
-                            color: selected
-                                ? scheme.onSecondaryContainer
-                                : scheme.onSurfaceVariant,
-                            onPressed: canDelete
-                                ? () => session.deletePage(page.id)
-                                : null,
-                          ),
-                        ],
-                      ),
+                    transitionBuilder: (child, animation) => FadeTransition(
+                      opacity: animation,
+                      child: ScaleTransition(scale: animation, child: child),
                     ),
+                    child: showRowActions
+                        ? Container(
+                            key: ValueKey('page_actions_${page.id}'),
+                            decoration: BoxDecoration(
+                              color: selected
+                                  ? scheme.onSecondaryContainer.withValues(
+                                      alpha: FolioAlpha.faint,
+                                    )
+                                  : scheme.surfaceContainerHighest.withValues(
+                                      alpha: FolioAlpha.panel,
+                                    ),
+                              borderRadius: BorderRadius.circular(
+                                FolioRadius.md,
+                              ),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                IconButton(
+                                  icon: const Icon(
+                                    Icons.emoji_emotions_outlined,
+                                    size: 18,
+                                  ),
+                                  tooltip: _t(
+                                    'Icono de la pagina',
+                                    'Page icon',
+                                  ),
+                                  visualDensity: VisualDensity.compact,
+                                  color: selected
+                                      ? scheme.onSecondaryContainer
+                                      : scheme.onSurfaceVariant,
+                                  onPressed: () => _setPageEmoji(context, page),
+                                ),
+                                IconButton(
+                                  icon: const Icon(Icons.add, size: 18),
+                                  tooltip: l10n.subpage,
+                                  visualDensity: VisualDensity.compact,
+                                  color: selected
+                                      ? scheme.onSecondaryContainer
+                                      : scheme.onSurfaceVariant,
+                                  onPressed: () {
+                                    session.addPage(parentId: page.id);
+                                  },
+                                ),
+                                IconButton(
+                                  icon: const Icon(
+                                    Icons.drive_file_move_outline,
+                                    size: 18,
+                                  ),
+                                  tooltip: l10n.move,
+                                  visualDensity: VisualDensity.compact,
+                                  color: selected
+                                      ? scheme.onSecondaryContainer
+                                      : scheme.onSurfaceVariant,
+                                  onPressed: () => _move(context, page),
+                                ),
+                                IconButton(
+                                  icon: const Icon(
+                                    Icons.edit_outlined,
+                                    size: 18,
+                                  ),
+                                  tooltip: l10n.rename,
+                                  visualDensity: VisualDensity.compact,
+                                  color: selected
+                                      ? scheme.onSecondaryContainer
+                                      : scheme.onSurfaceVariant,
+                                  onPressed: () => _rename(context, page),
+                                ),
+                                IconButton(
+                                  icon: const Icon(
+                                    Icons.delete_outline,
+                                    size: 18,
+                                  ),
+                                  tooltip: l10n.delete,
+                                  visualDensity: VisualDensity.compact,
+                                  color: selected
+                                      ? scheme.onSecondaryContainer
+                                      : scheme.onSurfaceVariant,
+                                  onPressed: canDelete
+                                      ? () => session.deletePage(page.id)
+                                      : null,
+                                ),
+                              ],
+                            ),
+                          )
+                        : const SizedBox.shrink(
+                            key: ValueKey('page_actions_hidden'),
+                          ),
                   ),
                 ],
               ),
@@ -792,9 +801,11 @@ class _SidebarState extends State<Sidebar> {
                   .map((page) {
                     return ActionChip(
                       onPressed: () => session.selectPage(page.id),
-                      avatar: Text(
-                        page.emoji ?? '📄',
-                        style: const TextStyle(fontSize: 14),
+                      avatar: FolioIconTokenView(
+                        appSettings: widget.appSettings,
+                        token: page.emoji,
+                        fallbackText: '📄',
+                        size: 16,
                       ),
                       label: ConstrainedBox(
                         constraints: const BoxConstraints(maxWidth: 150),

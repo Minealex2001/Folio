@@ -227,6 +227,7 @@ class VaultSession extends ChangeNotifier {
 
   static const int _maxUndoStepsPerPage = 100;
   static const Duration _undoTypingCoalesceWindow = Duration(milliseconds: 900);
+  static const int _maxIconLength = 64;
   final Map<String, List<_PageUndoSnapshot>> _undoByPage = {};
   final Map<String, List<_PageUndoSnapshot>> _redoByPage = {};
   final Map<String, DateTime> _lastUndoTypingCaptureAt = {};
@@ -306,6 +307,7 @@ class VaultSession extends ChangeNotifier {
               icon: b.icon,
               url: b.url,
               imageWidth: b.imageWidth,
+              appearance: b.appearance,
             ),
           )
           .toList(),
@@ -328,6 +330,7 @@ class VaultSession extends ChangeNotifier {
             icon: b.icon,
             url: b.url,
             imageWidth: b.imageWidth,
+            appearance: b.appearance,
           ),
         )
         .toList();
@@ -523,6 +526,7 @@ class VaultSession extends ChangeNotifier {
   Future<void> completeOnboarding({
     String? password,
     bool encrypted = true,
+    bool createStarterPages = true,
   }) async {
     await _registry.load();
     var id = VaultPaths.activeVaultId;
@@ -546,6 +550,9 @@ class VaultSession extends ChangeNotifier {
     final dek = await _repo.createVault(
       password: password,
       encrypted: encrypted,
+      starterContent: createStarterPages
+          ? VaultStarterContent.enabled
+          : VaultStarterContent.disabled,
     );
     _vaultUsesEncryption = encrypted;
     _dek = dek?.toList();
@@ -719,6 +726,7 @@ class VaultSession extends ChangeNotifier {
           depth: b.depth,
           icon: b.icon,
           url: b.url,
+          appearance: b.appearance,
         );
         await _importBlockAttachmentIfNeeded(
           copied,
@@ -1310,6 +1318,23 @@ class VaultSession extends ChangeNotifier {
     scheduleSave();
   }
 
+  void updateMessageInActiveAiChat(int index, AiChatMessage message) {
+    final current = _aiChatThreads[_aiActiveChatIndex];
+    if (index < 0 || index >= current.messages.length) return;
+    final nextMessages = List<AiChatMessage>.from(current.messages)
+      ..[index] = message;
+    _aiChatThreads[_aiActiveChatIndex] = AiChatThreadData(
+      id: current.id,
+      title: current.title,
+      messages: nextMessages,
+      attachmentPaths: current.attachmentPaths,
+      includePageContext: current.includePageContext,
+      contextPageIds: current.contextPageIds,
+    );
+    notifyListeners();
+    scheduleSave();
+  }
+
   void addPage({String? parentId}) {
     final id = _uuid.v4();
     _pages.add(
@@ -1600,8 +1625,14 @@ class VaultSession extends ChangeNotifier {
           (p) => <String, Object?>{
             'pageId': p.id,
             'title': p.title,
+            if (p.emoji != null && p.emoji!.trim().isNotEmpty) 'emoji': p.emoji,
             'parentId': p.parentId,
             'blockCount': p.blocks.length,
+            'icons': p.blocks
+                .map((b) => _normalizeIconValue(b.icon))
+                .whereType<String>()
+                .toSet()
+                .toList(),
             'importedAtMs': p.lastImportInfo!.importedAtMs,
             'importMode': p.lastImportInfo!.importMode,
             if (p.lastImportInfo!.sourceApp != null)
@@ -1646,6 +1677,7 @@ class VaultSession extends ChangeNotifier {
           icon: b.icon,
           url: b.url,
           imageWidth: b.imageWidth,
+          appearance: b.appearance,
         );
       }
       return b;
@@ -1729,6 +1761,7 @@ class VaultSession extends ChangeNotifier {
           icon: b.icon,
           url: b.url,
           imageWidth: b.imageWidth,
+          appearance: b.appearance,
         );
       }
       return b;
@@ -1894,7 +1927,7 @@ class VaultSession extends ChangeNotifier {
   void setPageEmoji(String id, String? emoji) {
     final p = _pageById(id);
     if (p == null) return;
-    final next = emoji?.trim();
+    final next = _normalizeIconValue(emoji);
     _rememberUndoBeforePageMutation(id);
     p.emoji = (next == null || next.isEmpty) ? null : next;
     notifyListeners();
@@ -2011,7 +2044,32 @@ class VaultSession extends ChangeNotifier {
     final b = _blockById(page, blockId);
     if (b == null) return;
     _rememberUndoBeforePageMutation(pageId);
-    b.icon = icon;
+    b.icon = _normalizeIconValue(icon);
+    notifyListeners();
+    scheduleSave(trackRevisionForPageId: pageId);
+  }
+
+  String? _normalizeIconValue(String? raw) {
+    if (raw == null) return null;
+    final normalized = raw.trim();
+    if (normalized.isEmpty) return null;
+    if (normalized.length > _maxIconLength) {
+      return normalized.substring(0, _maxIconLength);
+    }
+    return normalized;
+  }
+
+  void setBlockAppearance(
+    String pageId,
+    String blockId,
+    FolioBlockAppearance? appearance,
+  ) {
+    final page = _pageById(pageId);
+    if (page == null) return;
+    final b = _blockById(page, blockId);
+    if (b == null) return;
+    _rememberUndoBeforePageMutation(pageId);
+    b.appearance = FolioBlockAppearance.normalizeOrNull(appearance);
     notifyListeners();
     scheduleSave(trackRevisionForPageId: pageId);
   }
@@ -2224,6 +2282,7 @@ class VaultSession extends ChangeNotifier {
             icon: b.icon,
             url: b.url,
             imageWidth: b.imageWidth,
+            appearance: b.appearance,
           ),
         )
         .toList();
@@ -2311,6 +2370,7 @@ class VaultSession extends ChangeNotifier {
           ? cur.codeLanguage
           : null,
       depth: cur.depth,
+      appearance: nextType == cur.type ? cur.appearance : null,
     );
     page.blocks.insert(i + 1, newBlock);
     notifyListeners();
@@ -5094,6 +5154,7 @@ Quick help (be concise):
             icon: b.icon,
             url: b.url,
             imageWidth: b.imageWidth,
+            appearance: b.appearance,
           ),
         )
         .toList();

@@ -108,6 +108,13 @@ class AppLocalizationsEs extends AppLocalizations {
   }
 
   @override
+  String get createStarterPagesTitle => 'Crear páginas iniciales de ayuda';
+
+  @override
+  String get createStarterPagesBody =>
+      'Añade una pequeña guía con ejemplos, atajos y capacidades de Folio. Podrás borrar esas páginas después.';
+
+  @override
   String get passwordLabel => 'Contraseña';
 
   @override
@@ -946,6 +953,29 @@ class AppLocalizationsEs extends AppLocalizations {
   String get aiInputHint => 'Escribe tu mensaje. Quill actuará como agente.';
 
   @override
+  String get aiInputHintCopilot => 'Escribe tu mensaje...';
+
+  @override
+  String get aiContextComposerHint => 'Sin contexto añadido';
+
+  @override
+  String get aiContextComposerHelper => 'Usa @ para añadir contexto';
+
+  @override
+  String aiContextCurrentPageChip(Object title) {
+    return 'Página actual: $title';
+  }
+
+  @override
+  String get aiContextCurrentPageFallback => 'Página actual';
+
+  @override
+  String get aiContextAddFile => 'Adjuntar archivo';
+
+  @override
+  String get aiContextAddPage => 'Adjuntar página';
+
+  @override
   String get aiShowPanel => 'Mostrar panel IA';
 
   @override
@@ -1405,4 +1435,40 @@ class AppLocalizationsEs extends AppLocalizations {
 
   @override
   String get encryptPlainVaultSuccessSnack => 'El cofre ya está cifrado';
+
+  @override
+  String get aiCopyMessage => 'Copiar';
+
+  @override
+  String get aiCopyCode => 'Copiar código';
+
+  @override
+  String get aiCopiedToClipboard => 'Copiado al portapapeles';
+
+  @override
+  String get aiHelpful => 'Útil';
+
+  @override
+  String get aiNotHelpful => 'No útil';
+
+  @override
+  String get aiThinkingMessage => 'Quill está pensando...';
+
+  @override
+  String get aiMessageTimestampNow => 'ahora';
+
+  @override
+  String aiMessageTimestampMinutes(int n) {
+    return 'hace $n min';
+  }
+
+  @override
+  String aiMessageTimestampHours(int n) {
+    return 'hace $n h';
+  }
+
+  @override
+  String aiMessageTimestampDays(int n) {
+    return 'hace $n días';
+  }
 }

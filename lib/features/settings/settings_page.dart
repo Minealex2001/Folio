@@ -8,7 +8,9 @@ import 'package:passkeys/exceptions.dart';
 
 import '../../app/app_settings.dart';
 import '../../app/folio_in_app_shortcuts.dart';
+import '../../app/ui_tokens.dart';
 import '../../app/widgets/folio_dialog.dart';
+import '../../app/widgets/folio_icon_token_view.dart';
 import '../../app/widgets/folio_password_field.dart';
 import 'in_app_shortcut_capture_dialog.dart';
 import '../../crypto/vault_crypto.dart';
@@ -22,6 +24,7 @@ import '../../services/ai/ai_provider_detector.dart';
 import '../../services/ai/ai_safety_policy.dart';
 import '../../services/ai/lmstudio_ai_service.dart';
 import '../../services/ai/ollama_ai_service.dart';
+import '../../services/custom_icon_import_service.dart';
 import '../../services/updater/github_release_updater.dart';
 import '../../services/updater/update_release_channel.dart';
 import '../../session/vault_session.dart';
@@ -54,10 +57,13 @@ class _SettingsPageState extends State<SettingsPage> {
   late final TextEditingController _aiBaseUrlController;
   late final TextEditingController _aiTimeoutController;
   late final TextEditingController _aiContextWindowController;
+  late final TextEditingController _customIconSourceController;
+  late final TextEditingController _customIconLabelController;
   List<String> _availableModels = const [];
   bool _loadingModels = false;
   bool _checkingUpdates = false;
   bool _detectingAiProvider = false;
+  bool _importingCustomIcon = false;
   String _installedVersionLabel = '...';
   bool _releaseStatusBusy = false;
   ReleaseReadinessSnapshot _releaseSnapshot = const ReleaseReadinessSnapshot(
@@ -73,6 +79,8 @@ class _SettingsPageState extends State<SettingsPage> {
     aiSummary: 'IA desactivada',
     checks: const <ReleaseCheckItem>[],
   );
+  final CustomIconImportService _customIconImportService =
+      CustomIconImportService();
 
   @override
   void initState() {
@@ -84,6 +92,8 @@ class _SettingsPageState extends State<SettingsPage> {
     _aiContextWindowController = TextEditingController(
       text: _app.aiContextWindowTokens.toString(),
     );
+    _customIconSourceController = TextEditingController();
+    _customIconLabelController = TextEditingController();
     _availableModels = _app.cachedAiModelsFor(_app.aiProvider);
     _refreshSecurityFlags();
     _loadInstalledVersionInfo();
@@ -96,6 +106,8 @@ class _SettingsPageState extends State<SettingsPage> {
     _aiBaseUrlController.dispose();
     _aiTimeoutController.dispose();
     _aiContextWindowController.dispose();
+    _customIconSourceController.dispose();
+    _customIconLabelController.dispose();
     super.dispose();
   }
 
@@ -207,6 +219,55 @@ class _SettingsPageState extends State<SettingsPage> {
   Future<void> _revokeIntegrationApp(String appId) async {
     await _app.revokeIntegrationApp(appId);
     _snack('App revocada: $appId');
+  }
+
+  Future<void> _importCustomIconFromSource(String source) async {
+    final raw = source.trim();
+    if (raw.isEmpty || _importingCustomIcon) return;
+    setState(() => _importingCustomIcon = true);
+    try {
+      final entry = await _customIconImportService.importFromSource(
+        source: raw,
+        label: _customIconLabelController.text,
+      );
+      await _app.addOrUpdateCustomIcon(entry);
+      if (!mounted) return;
+      _customIconSourceController.clear();
+      _customIconLabelController.clear();
+      _snack(
+        _t('Icono importado correctamente.', 'Icon imported successfully.'),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      _snack('$e');
+    } finally {
+      if (mounted) setState(() => _importingCustomIcon = false);
+    }
+  }
+
+  Future<void> _importCustomIconFromClipboard() async {
+    final data = await Clipboard.getData(Clipboard.kTextPlain);
+    final text = data?.text?.trim() ?? '';
+    if (text.isEmpty) {
+      _snack(_t('El portapapeles está vacío.', 'Clipboard is empty.'));
+      return;
+    }
+    _customIconSourceController.text = text;
+    await _importCustomIconFromSource(text);
+  }
+
+  Future<void> _removeCustomIcon(CustomIconEntry entry) async {
+    await _app.removeCustomIcon(entry.id);
+    try {
+      final file = File(entry.filePath);
+      if (file.existsSync()) {
+        await file.delete();
+      }
+    } catch (_) {
+      // Ignorar: la referencia ya se eliminó de ajustes.
+    }
+    if (!mounted) return;
+    _snack(_t('Icono eliminado.', 'Icon removed.'));
   }
 
   Future<bool> _vaultRequiresPassword(String vaultId) async {
@@ -1031,7 +1092,14 @@ class _SettingsPageState extends State<SettingsPage> {
                 builder: (context, _) {
                   return DecoratedBox(
                     decoration: BoxDecoration(
-                      color: scheme.surfaceContainerLow,
+                      gradient: LinearGradient(
+                        begin: Alignment.topCenter,
+                        end: Alignment.bottomCenter,
+                        colors: [
+                          scheme.surfaceContainer.withValues(alpha: 0.72),
+                          scheme.surfaceContainerLow,
+                        ],
+                      ),
                       borderRadius: BorderRadius.circular(28),
                       border: Border.all(
                         color: scheme.outlineVariant.withValues(alpha: 0.35),
@@ -1044,12 +1112,18 @@ class _SettingsPageState extends State<SettingsPage> {
                         horizontal: 16,
                       ),
                       children: [
+                        _SettingsOverviewBanner(
+                          appSettings: _app,
+                          session: _s,
+                          installedVersionLabel: _installedVersionLabel,
+                        ),
+                        const SizedBox(height: 8),
                         _SectionHeader(
                           key: _sectionKeys[0],
                           title: l10n.appearance,
                           scheme: scheme,
                         ),
-                        Card(
+                        _SettingsPanel(
                           margin: const EdgeInsets.only(bottom: 24),
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -1190,6 +1264,515 @@ class _SettingsPageState extends State<SettingsPage> {
                             ],
                           ),
                         ),
+                        _SettingsPanel(
+                          margin: const EdgeInsets.only(bottom: 24),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              Container(
+                                margin: const EdgeInsets.all(16),
+                                padding: const EdgeInsets.all(16),
+                                decoration: BoxDecoration(
+                                  gradient: LinearGradient(
+                                    begin: Alignment.topLeft,
+                                    end: Alignment.bottomRight,
+                                    colors: [
+                                      scheme.primaryContainer.withValues(
+                                        alpha: 0.55,
+                                      ),
+                                      scheme.surfaceContainerHigh,
+                                    ],
+                                  ),
+                                  borderRadius: BorderRadius.circular(22),
+                                  border: Border.all(
+                                    color: scheme.outlineVariant.withValues(
+                                      alpha: 0.5,
+                                    ),
+                                  ),
+                                ),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Row(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        Container(
+                                          width: 44,
+                                          height: 44,
+                                          decoration: BoxDecoration(
+                                            color: scheme.surface,
+                                            borderRadius: BorderRadius.circular(
+                                              14,
+                                            ),
+                                          ),
+                                          child: Icon(
+                                            Icons.emoji_symbols_rounded,
+                                            color: scheme.primary,
+                                          ),
+                                        ),
+                                        const SizedBox(width: 12),
+                                        Expanded(
+                                          child: Column(
+                                            crossAxisAlignment:
+                                                CrossAxisAlignment.start,
+                                            children: [
+                                              Row(
+                                                children: [
+                                                  Expanded(
+                                                    child: Text(
+                                                      _t(
+                                                        'Iconos personalizados',
+                                                        'Custom icons',
+                                                      ),
+                                                      style: Theme.of(context)
+                                                          .textTheme
+                                                          .titleMedium
+                                                          ?.copyWith(
+                                                            fontWeight:
+                                                                FontWeight.w700,
+                                                          ),
+                                                    ),
+                                                  ),
+                                                  Container(
+                                                    padding:
+                                                        const EdgeInsets.symmetric(
+                                                          horizontal: 10,
+                                                          vertical: 5,
+                                                        ),
+                                                    decoration: BoxDecoration(
+                                                      color: scheme.surface,
+                                                      borderRadius:
+                                                          BorderRadius.circular(
+                                                            999,
+                                                          ),
+                                                    ),
+                                                    child: Text(
+                                                      _t(
+                                                        '${_app.customIcons.length} guardados',
+                                                        '${_app.customIcons.length} saved',
+                                                      ),
+                                                      style: Theme.of(context)
+                                                          .textTheme
+                                                          .labelMedium
+                                                          ?.copyWith(
+                                                            color:
+                                                                scheme.primary,
+                                                            fontWeight:
+                                                                FontWeight.w700,
+                                                          ),
+                                                    ),
+                                                  ),
+                                                ],
+                                              ),
+                                              const SizedBox(height: 6),
+                                              Text(
+                                                _t(
+                                                  'Importa una URL PNG, GIF o WebP, o un data:image compatible copiado desde páginas como notionicons.so. Después podrás usarlo como icono de página o de callout.',
+                                                  'Import a PNG, GIF, or WebP URL, or a compatible data:image copied from sites like notionicons.so. You can then use it as a page or callout icon.',
+                                                ),
+                                                style: Theme.of(context)
+                                                    .textTheme
+                                                    .bodySmall
+                                                    ?.copyWith(
+                                                      color: scheme
+                                                          .onSurfaceVariant,
+                                                      height: 1.4,
+                                                    ),
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                    const SizedBox(height: 14),
+                                    Wrap(
+                                      spacing: 8,
+                                      runSpacing: 8,
+                                      children: [
+                                        _SettingsInfoChip(
+                                          icon: Icons.link_rounded,
+                                          label: _t(
+                                            'URL PNG, GIF o WebP',
+                                            'PNG, GIF, or WebP URL',
+                                          ),
+                                        ),
+                                        _SettingsInfoChip(
+                                          icon: Icons.code_rounded,
+                                          label: 'data:image/*',
+                                        ),
+                                        _SettingsInfoChip(
+                                          icon: Icons.content_paste_rounded,
+                                          label: _t(
+                                            'Pegar desde portapapeles',
+                                            'Paste from clipboard',
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              Padding(
+                                padding: const EdgeInsets.fromLTRB(
+                                  16,
+                                  0,
+                                  16,
+                                  16,
+                                ),
+                                child: Container(
+                                  padding: const EdgeInsets.all(16),
+                                  decoration: BoxDecoration(
+                                    color: scheme.surfaceContainerLow,
+                                    borderRadius: BorderRadius.circular(20),
+                                    border: Border.all(
+                                      color: scheme.outlineVariant.withValues(
+                                        alpha: 0.45,
+                                      ),
+                                    ),
+                                  ),
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.stretch,
+                                    children: [
+                                      Text(
+                                        _t(
+                                          'Importar nuevo icono',
+                                          'Import new icon',
+                                        ),
+                                        style: Theme.of(context)
+                                            .textTheme
+                                            .titleSmall
+                                            ?.copyWith(
+                                              fontWeight: FontWeight.w700,
+                                            ),
+                                      ),
+                                      const SizedBox(height: 6),
+                                      Text(
+                                        _t(
+                                          'Puedes ponerle nombre y pegar la fuente manualmente o traerla directamente desde el portapapeles.',
+                                          'You can give it a name and paste the source manually or bring it directly from the clipboard.',
+                                        ),
+                                        style: Theme.of(context)
+                                            .textTheme
+                                            .bodySmall
+                                            ?.copyWith(
+                                              color: scheme.onSurfaceVariant,
+                                              height: 1.35,
+                                            ),
+                                      ),
+                                      const SizedBox(height: 14),
+                                      TextField(
+                                        controller: _customIconLabelController,
+                                        decoration: InputDecoration(
+                                          labelText: _t('Nombre', 'Name'),
+                                          hintText: _t('Opcional', 'Optional'),
+                                          prefixIcon: const Icon(
+                                            Icons.edit_outlined,
+                                          ),
+                                        ),
+                                      ),
+                                      const SizedBox(height: 12),
+                                      TextField(
+                                        controller: _customIconSourceController,
+                                        minLines: 3,
+                                        maxLines: 5,
+                                        decoration: InputDecoration(
+                                          labelText: _t(
+                                            'URL o data:image',
+                                            'URL or data:image',
+                                          ),
+                                          hintText:
+                                              'https://...gif | ...webp | ...png o data:image/...',
+                                          alignLabelWithHint: true,
+                                          prefixIcon: const Padding(
+                                            padding: EdgeInsets.only(
+                                              bottom: 42,
+                                            ),
+                                            child: Icon(Icons.link_rounded),
+                                          ),
+                                        ),
+                                        onSubmitted: (_) =>
+                                            _importCustomIconFromSource(
+                                              _customIconSourceController.text,
+                                            ),
+                                      ),
+                                      const SizedBox(height: 14),
+                                      Row(
+                                        children: [
+                                          Expanded(
+                                            child: FilledButton.icon(
+                                              onPressed: _importingCustomIcon
+                                                  ? null
+                                                  : () => _importCustomIconFromSource(
+                                                      _customIconSourceController
+                                                          .text,
+                                                    ),
+                                              icon: _importingCustomIcon
+                                                  ? const SizedBox(
+                                                      width: 16,
+                                                      height: 16,
+                                                      child:
+                                                          CircularProgressIndicator(
+                                                            strokeWidth: 2,
+                                                          ),
+                                                    )
+                                                  : const Icon(
+                                                      Icons.download_rounded,
+                                                    ),
+                                              label: Text(
+                                                _t(
+                                                  'Importar icono',
+                                                  'Import icon',
+                                                ),
+                                              ),
+                                            ),
+                                          ),
+                                          const SizedBox(width: 10),
+                                          Expanded(
+                                            child: OutlinedButton.icon(
+                                              onPressed: _importingCustomIcon
+                                                  ? null
+                                                  : _importCustomIconFromClipboard,
+                                              icon: const Icon(
+                                                Icons.content_paste_rounded,
+                                              ),
+                                              label: Text(
+                                                _t(
+                                                  'Desde portapapeles',
+                                                  'From clipboard',
+                                                ),
+                                              ),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                              Padding(
+                                padding: const EdgeInsets.fromLTRB(
+                                  16,
+                                  0,
+                                  16,
+                                  8,
+                                ),
+                                child: Row(
+                                  children: [
+                                    Text(
+                                      _t('Biblioteca', 'Library'),
+                                      style: Theme.of(context)
+                                          .textTheme
+                                          .titleSmall
+                                          ?.copyWith(
+                                            fontWeight: FontWeight.w700,
+                                          ),
+                                    ),
+                                    const SizedBox(width: 8),
+                                    Text(
+                                      _t(
+                                        'Listos para usar en toda la app',
+                                        'Ready to use across the app',
+                                      ),
+                                      style: Theme.of(context)
+                                          .textTheme
+                                          .bodySmall
+                                          ?.copyWith(
+                                            color: scheme.onSurfaceVariant,
+                                          ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              if (_app.customIcons.isEmpty)
+                                Padding(
+                                  padding: const EdgeInsets.fromLTRB(
+                                    16,
+                                    0,
+                                    16,
+                                    16,
+                                  ),
+                                  child: Container(
+                                    padding: const EdgeInsets.all(18),
+                                    decoration: BoxDecoration(
+                                      color: scheme.surfaceContainerLow,
+                                      borderRadius: BorderRadius.circular(18),
+                                      border: Border.all(
+                                        color: scheme.outlineVariant.withValues(
+                                          alpha: 0.45,
+                                        ),
+                                      ),
+                                    ),
+                                    child: Row(
+                                      children: [
+                                        Container(
+                                          width: 42,
+                                          height: 42,
+                                          decoration: BoxDecoration(
+                                            color: scheme.surface,
+                                            borderRadius: BorderRadius.circular(
+                                              12,
+                                            ),
+                                          ),
+                                          child: Icon(
+                                            Icons.inventory_2_outlined,
+                                            color: scheme.onSurfaceVariant,
+                                          ),
+                                        ),
+                                        const SizedBox(width: 12),
+                                        Expanded(
+                                          child: Text(
+                                            _t(
+                                              'Todavía no has importado iconos.',
+                                              'No icons imported yet.',
+                                            ),
+                                            style: Theme.of(context)
+                                                .textTheme
+                                                .bodySmall
+                                                ?.copyWith(
+                                                  color:
+                                                      scheme.onSurfaceVariant,
+                                                  height: 1.35,
+                                                ),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                )
+                              else
+                                Padding(
+                                  padding: const EdgeInsets.fromLTRB(
+                                    16,
+                                    0,
+                                    16,
+                                    16,
+                                  ),
+                                  child: Wrap(
+                                    spacing: 12,
+                                    runSpacing: 12,
+                                    children: _app.customIcons.map((entry) {
+                                      return Container(
+                                        width: 182,
+                                        padding: const EdgeInsets.all(14),
+                                        decoration: BoxDecoration(
+                                          color: scheme.surfaceContainerLow,
+                                          borderRadius: BorderRadius.circular(
+                                            20,
+                                          ),
+                                          border: Border.all(
+                                            color: scheme.outlineVariant,
+                                          ),
+                                        ),
+                                        child: Column(
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.start,
+                                          mainAxisSize: MainAxisSize.min,
+                                          children: [
+                                            Row(
+                                              children: [
+                                                Container(
+                                                  width: 44,
+                                                  height: 44,
+                                                  decoration: BoxDecoration(
+                                                    color: scheme.surface,
+                                                    borderRadius:
+                                                        BorderRadius.circular(
+                                                          14,
+                                                        ),
+                                                  ),
+                                                  child: Center(
+                                                    child: FolioIconTokenView(
+                                                      appSettings: _app,
+                                                      token: entry.token,
+                                                      fallbackText: '📄',
+                                                      size: 26,
+                                                    ),
+                                                  ),
+                                                ),
+                                                const Spacer(),
+                                                IconButton(
+                                                  tooltip: _t(
+                                                    'Eliminar icono',
+                                                    'Delete icon',
+                                                  ),
+                                                  onPressed: () =>
+                                                      _removeCustomIcon(entry),
+                                                  icon: const Icon(
+                                                    Icons
+                                                        .delete_outline_rounded,
+                                                    size: 20,
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                            const SizedBox(height: 10),
+                                            Text(
+                                              entry.label,
+                                              maxLines: 1,
+                                              overflow: TextOverflow.ellipsis,
+                                              style: Theme.of(context)
+                                                  .textTheme
+                                                  .titleSmall
+                                                  ?.copyWith(
+                                                    fontWeight: FontWeight.w700,
+                                                  ),
+                                            ),
+                                            const SizedBox(height: 4),
+                                            Text(
+                                              entry.mimeType,
+                                              maxLines: 1,
+                                              overflow: TextOverflow.ellipsis,
+                                              style: Theme.of(context)
+                                                  .textTheme
+                                                  .bodySmall
+                                                  ?.copyWith(
+                                                    color:
+                                                        scheme.onSurfaceVariant,
+                                                  ),
+                                            ),
+                                            const SizedBox(height: 10),
+                                            SizedBox(
+                                              width: double.infinity,
+                                              child: OutlinedButton.icon(
+                                                onPressed: () async {
+                                                  await Clipboard.setData(
+                                                    ClipboardData(
+                                                      text: entry.token,
+                                                    ),
+                                                  );
+                                                  if (!context.mounted) {
+                                                    return;
+                                                  }
+                                                  _snack(
+                                                    _t(
+                                                      'Referencia copiada.',
+                                                      'Reference copied.',
+                                                    ),
+                                                  );
+                                                },
+                                                icon: const Icon(
+                                                  Icons.content_copy_rounded,
+                                                  size: 18,
+                                                ),
+                                                label: Text(
+                                                  _t(
+                                                    'Copiar token',
+                                                    'Copy token',
+                                                  ),
+                                                ),
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      );
+                                    }).toList(),
+                                  ),
+                                ),
+                            ],
+                          ),
+                        ),
 
                         _SectionHeader(
                           key: _sectionKeys[1],
@@ -1197,7 +1780,7 @@ class _SettingsPageState extends State<SettingsPage> {
                           scheme: scheme,
                         ),
                         if (_s.vaultUsesEncryption)
-                          Card(
+                          _SettingsPanel(
                             margin: const EdgeInsets.only(bottom: 24),
                             child: Column(
                               children: [
@@ -1318,7 +1901,7 @@ class _SettingsPageState extends State<SettingsPage> {
                             ),
                           )
                         else
-                          Card(
+                          _SettingsPanel(
                             margin: const EdgeInsets.only(bottom: 24),
                             child: Padding(
                               padding: const EdgeInsets.all(20),
@@ -1355,7 +1938,7 @@ class _SettingsPageState extends State<SettingsPage> {
                           title: l10n.desktopSection,
                           scheme: scheme,
                         ),
-                        Card(
+                        _SettingsPanel(
                           margin: const EdgeInsets.only(bottom: 24),
                           child: Column(
                             children: [
@@ -1432,7 +2015,7 @@ class _SettingsPageState extends State<SettingsPage> {
                           title: l10n.keyboardShortcutsSection,
                           scheme: scheme,
                         ),
-                        Card(
+                        _SettingsPanel(
                           margin: const EdgeInsets.only(bottom: 24),
                           child: Column(
                             children: [
@@ -1515,7 +2098,7 @@ class _SettingsPageState extends State<SettingsPage> {
                             title: l10n.ai,
                             scheme: scheme,
                           ),
-                          Card(
+                          _SettingsPanel(
                             margin: const EdgeInsets.only(bottom: 24),
                             child: Column(
                               children: [
@@ -1814,7 +2397,7 @@ class _SettingsPageState extends State<SettingsPage> {
                           title: l10n.vaultBackup,
                           scheme: scheme,
                         ),
-                        Card(
+                        _SettingsPanel(
                           margin: const EdgeInsets.only(bottom: 24),
                           child: Column(
                             children: [
@@ -1896,94 +2479,135 @@ class _SettingsPageState extends State<SettingsPage> {
                           title: l10n.integrations,
                           scheme: scheme,
                         ),
-                        Card(
+                        _SettingsPanel(
                           margin: const EdgeInsets.only(bottom: 24),
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.stretch,
                             children: [
-                              Padding(
-                                padding: const EdgeInsets.fromLTRB(
-                                  16,
-                                  16,
-                                  16,
-                                  8,
-                                ),
-                                child: Text(
-                                  l10n.integrationsAppsApprovedHint,
-                                  style: Theme.of(context).textTheme.bodySmall
-                                      ?.copyWith(
-                                        color: scheme.onSurfaceVariant,
-                                        height: 1.4,
-                                      ),
-                                ),
+                              _IntegrationsHero(
+                                approvedCount:
+                                    _app.approvedIntegrationAppApprovals.length,
+                                hintText: l10n.integrationsAppsApprovedHint,
+                                title: l10n.integrationsAppsApprovedTitle,
                               ),
-                              const Divider(height: 1),
                               Padding(
                                 padding: const EdgeInsets.fromLTRB(
                                   16,
-                                  12,
+                                  0,
                                   16,
-                                  8,
+                                  16,
                                 ),
                                 child: Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
-                                    Text(
-                                      l10n.integrationsAppsApprovedTitle,
-                                      style: Theme.of(
-                                        context,
-                                      ).textTheme.titleSmall,
+                                    Row(
+                                      children: [
+                                        Text(
+                                          _t(
+                                            'Conexiones activas',
+                                            'Active connections',
+                                          ),
+                                          style: Theme.of(context)
+                                              .textTheme
+                                              .titleSmall
+                                              ?.copyWith(
+                                                fontWeight: FontWeight.w700,
+                                              ),
+                                        ),
+                                        const SizedBox(width: 8),
+                                        Text(
+                                          _t(
+                                            'Apps que ya pueden interactuar con Folio',
+                                            'Apps already allowed to interact with Folio',
+                                          ),
+                                          style: Theme.of(context)
+                                              .textTheme
+                                              .bodySmall
+                                              ?.copyWith(
+                                                color: scheme.onSurfaceVariant,
+                                              ),
+                                        ),
+                                      ],
                                     ),
-                                    const SizedBox(height: 8),
+                                    const SizedBox(height: 12),
                                     if (_app
                                         .approvedIntegrationAppApprovals
                                         .isEmpty)
-                                      Text(
-                                        l10n.integrationsAppsApprovedNone,
-                                        style: Theme.of(context)
-                                            .textTheme
-                                            .bodySmall
-                                            ?.copyWith(
-                                              color: scheme.onSurfaceVariant,
-                                            ),
-                                      )
-                                    else
-                                      ..._app.approvedIntegrationAppApprovals.map(
-                                        (entry) => ListTile(
-                                          contentPadding: EdgeInsets.zero,
-                                          leading: const Icon(
-                                            Icons.verified_user_outlined,
+                                      Container(
+                                        width: double.infinity,
+                                        padding: const EdgeInsets.all(18),
+                                        decoration: BoxDecoration(
+                                          color: scheme.surfaceContainerLow,
+                                          borderRadius: BorderRadius.circular(
+                                            18,
                                           ),
-                                          title: Text(entry.appName),
-                                          subtitle: Text(
-                                            l10n.integrationsApprovedAppDetails(
-                                              entry.appId,
-                                              entry.appVersion.isEmpty
-                                                  ? l10n.integrationApprovalUnknownVersion
-                                                  : entry.appVersion,
-                                              entry.integrationVersion.isEmpty
-                                                  ? l10n.integrationApprovalUnknownVersion
-                                                  : entry.integrationVersion,
-                                            ),
-                                            style: Theme.of(context)
-                                                .textTheme
-                                                .bodySmall
-                                                ?.copyWith(
-                                                  fontFamily: 'monospace',
-                                                ),
-                                          ),
-                                          trailing: IconButton(
-                                            tooltip: l10n
-                                                .integrationsAppsApprovedRevoke,
-                                            onPressed: () =>
-                                                _revokeIntegrationApp(
-                                                  entry.appId,
-                                                ),
-                                            icon: const Icon(
-                                              Icons.delete_outline_rounded,
-                                            ),
+                                          border: Border.all(
+                                            color: scheme.outlineVariant
+                                                .withValues(alpha: 0.45),
                                           ),
                                         ),
+                                        child: Row(
+                                          children: [
+                                            Container(
+                                              width: 44,
+                                              height: 44,
+                                              decoration: BoxDecoration(
+                                                color: scheme.surface,
+                                                borderRadius:
+                                                    BorderRadius.circular(14),
+                                              ),
+                                              child: Icon(
+                                                Icons.hub_outlined,
+                                                color: scheme.onSurfaceVariant,
+                                              ),
+                                            ),
+                                            const SizedBox(width: 12),
+                                            Expanded(
+                                              child: Text(
+                                                l10n.integrationsAppsApprovedNone,
+                                                style: Theme.of(context)
+                                                    .textTheme
+                                                    .bodySmall
+                                                    ?.copyWith(
+                                                      color: scheme
+                                                          .onSurfaceVariant,
+                                                      height: 1.35,
+                                                    ),
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      )
+                                    else
+                                      Wrap(
+                                        spacing: 12,
+                                        runSpacing: 12,
+                                        children: _app
+                                            .approvedIntegrationAppApprovals
+                                            .map(
+                                              (entry) => _IntegrationAppCard(
+                                                entry: entry,
+                                                detailsText: l10n.integrationsApprovedAppDetails(
+                                                  entry.appId,
+                                                  entry.appVersion.isEmpty
+                                                      ? l10n.integrationApprovalUnknownVersion
+                                                      : entry.appVersion,
+                                                  entry
+                                                          .integrationVersion
+                                                          .isEmpty
+                                                      ? l10n.integrationApprovalUnknownVersion
+                                                      : entry
+                                                            .integrationVersion,
+                                                ),
+                                                revokeLabel: l10n
+                                                    .integrationsAppsApprovedRevoke,
+                                                onRevoke: () =>
+                                                    _revokeIntegrationApp(
+                                                      entry.appId,
+                                                    ),
+                                              ),
+                                            )
+                                            .toList(),
                                       ),
                                   ],
                                 ),
@@ -1997,7 +2621,7 @@ class _SettingsPageState extends State<SettingsPage> {
                           title: l10n.about,
                           scheme: scheme,
                         ),
-                        Card(
+                        _SettingsPanel(
                           margin: const EdgeInsets.only(bottom: 24),
                           child: Column(
                             children: [
@@ -2135,7 +2759,7 @@ class _SettingsPageState extends State<SettingsPage> {
                             onTap: _openWipeFlow,
                           ),
                         ),
-                        Card(
+                        _SettingsPanel(
                           margin: const EdgeInsets.only(bottom: 24),
                           child: ListTile(
                             leading: const Icon(Icons.delete_outline),
@@ -2915,6 +3539,441 @@ class _ProviderStatusLine extends StatelessWidget {
   }
 }
 
+class _SettingsInfoChip extends StatelessWidget {
+  const _SettingsInfoChip({required this.icon, required this.label});
+
+  final IconData icon;
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+      decoration: BoxDecoration(
+        color: scheme.surface.withValues(alpha: 0.9),
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: scheme.outlineVariant.withValues(alpha: 0.5)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 16, color: scheme.onSurfaceVariant),
+          const SizedBox(width: 6),
+          Text(
+            label,
+            style: Theme.of(context).textTheme.labelMedium?.copyWith(
+              color: scheme.onSurface,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _IntegrationsHero extends StatelessWidget {
+  const _IntegrationsHero({
+    required this.approvedCount,
+    required this.hintText,
+    required this.title,
+  });
+
+  final int approvedCount;
+  final String hintText;
+  final String title;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Container(
+      margin: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            scheme.secondaryContainer.withValues(alpha: 0.58),
+            scheme.surfaceContainerHigh,
+          ],
+        ),
+        borderRadius: BorderRadius.circular(22),
+        border: Border.all(
+          color: scheme.outlineVariant.withValues(alpha: 0.45),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                width: 46,
+                height: 46,
+                decoration: BoxDecoration(
+                  color: scheme.surface,
+                  borderRadius: BorderRadius.circular(14),
+                ),
+                child: Icon(Icons.hub_rounded, color: scheme.primary),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      hintText,
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: scheme.onSurfaceVariant,
+                        height: 1.4,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 6,
+                ),
+                decoration: BoxDecoration(
+                  color: scheme.surface,
+                  borderRadius: BorderRadius.circular(999),
+                ),
+                child: Text(
+                  '$approvedCount',
+                  style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                    color: scheme.primary,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 14),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: const [
+              _SettingsInfoChip(
+                icon: Icons.verified_user_outlined,
+                label: 'Permisos aprobados',
+              ),
+              _SettingsInfoChip(
+                icon: Icons.lock_open_outlined,
+                label: 'Acceso revocable',
+              ),
+              _SettingsInfoChip(
+                icon: Icons.devices_outlined,
+                label: 'Apps externas',
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _IntegrationAppCard extends StatelessWidget {
+  const _IntegrationAppCard({
+    required this.entry,
+    required this.detailsText,
+    required this.revokeLabel,
+    required this.onRevoke,
+  });
+
+  final IntegrationAppApproval entry;
+  final String detailsText;
+  final String revokeLabel;
+  final VoidCallback onRevoke;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Container(
+      width: 260,
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: scheme.surfaceContainerLow,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: scheme.outlineVariant.withValues(alpha: 0.5)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 42,
+                height: 42,
+                decoration: BoxDecoration(
+                  color: scheme.surface,
+                  borderRadius: BorderRadius.circular(14),
+                ),
+                child: Icon(
+                  Icons.verified_user_outlined,
+                  color: scheme.primary,
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  entry.appName,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(
+                    context,
+                  ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w700),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+            decoration: BoxDecoration(
+              color: scheme.primaryContainer.withValues(alpha: 0.55),
+              borderRadius: BorderRadius.circular(999),
+            ),
+            child: Text(
+              entry.appId,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                color: scheme.primary,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ),
+          const SizedBox(height: 10),
+          Text(
+            detailsText,
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+              color: scheme.onSurfaceVariant,
+              fontFamily: 'monospace',
+              height: 1.35,
+            ),
+          ),
+          const SizedBox(height: 12),
+          SizedBox(
+            width: double.infinity,
+            child: OutlinedButton.icon(
+              onPressed: onRevoke,
+              icon: const Icon(Icons.delete_outline_rounded, size: 18),
+              label: Text(revokeLabel),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _SettingsPanel extends StatelessWidget {
+  const _SettingsPanel({required this.child, this.margin});
+
+  final Widget child;
+  final EdgeInsetsGeometry? margin;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Container(
+      margin: margin,
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [scheme.surface, scheme.surfaceContainerLow],
+        ),
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: scheme.outlineVariant.withValues(alpha: 0.4)),
+        boxShadow: FolioShadows.card(scheme),
+      ),
+      child: ClipRRect(borderRadius: BorderRadius.circular(24), child: child),
+    );
+  }
+}
+
+class _SettingsOverviewBanner extends StatelessWidget {
+  const _SettingsOverviewBanner({
+    required this.appSettings,
+    required this.session,
+    required this.installedVersionLabel,
+  });
+
+  final AppSettings appSettings;
+  final VaultSession session;
+  final String installedVersionLabel;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final theme = Theme.of(context);
+    final localeCode = appSettings.locale?.languageCode;
+    final localeLabel = localeCode == null
+        ? 'System'
+        : (localeCode == 'es' ? 'Español' : 'English');
+    final aiLabel = appSettings.aiEnabled ? 'IA activa' : 'IA desactivada';
+    final vaultLabel = session.vaultUsesEncryption ? 'Cifrado' : 'Plano';
+    return Container(
+      margin: const EdgeInsets.only(bottom: 20),
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            scheme.primaryContainer.withValues(alpha: 0.72),
+            scheme.tertiaryContainer.withValues(alpha: 0.36),
+          ],
+        ),
+        borderRadius: BorderRadius.circular(28),
+        border: Border.all(color: scheme.outlineVariant.withValues(alpha: 0.4)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                width: 52,
+                height: 52,
+                decoration: BoxDecoration(
+                  color: scheme.surface.withValues(alpha: 0.9),
+                  borderRadius: BorderRadius.circular(18),
+                ),
+                child: Icon(
+                  Icons.tune_rounded,
+                  color: scheme.primary,
+                  size: 28,
+                ),
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Ajustes de Folio',
+                      style: theme.textTheme.headlineSmall?.copyWith(
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: -0.4,
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      'Personaliza la app, gestiona seguridad, IA, copias e integraciones desde un único panel.',
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        color: scheme.onSurfaceVariant,
+                        height: 1.45,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 18),
+          Wrap(
+            spacing: 12,
+            runSpacing: 12,
+            children: [
+              _SettingsOverviewStat(
+                icon: Icons.palette_outlined,
+                label: 'Idioma',
+                value: localeLabel,
+              ),
+              _SettingsOverviewStat(
+                icon: Icons.shield_outlined,
+                label: 'Cofre',
+                value: vaultLabel,
+              ),
+              _SettingsOverviewStat(
+                icon: Icons.auto_awesome_outlined,
+                label: 'IA',
+                value: aiLabel,
+              ),
+              _SettingsOverviewStat(
+                icon: Icons.sell_outlined,
+                label: 'Version',
+                value: installedVersionLabel,
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _SettingsOverviewStat extends StatelessWidget {
+  const _SettingsOverviewStat({
+    required this.icon,
+    required this.label,
+    required this.value,
+  });
+
+  final IconData icon;
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Container(
+      constraints: const BoxConstraints(minWidth: 150),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+      decoration: BoxDecoration(
+        color: scheme.surface.withValues(alpha: 0.82),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(
+          color: scheme.outlineVariant.withValues(alpha: 0.35),
+        ),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 18, color: scheme.primary),
+          const SizedBox(width: 10),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                label,
+                style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                  color: scheme.onSurfaceVariant,
+                ),
+              ),
+              const SizedBox(height: 2),
+              Text(
+                value,
+                style: Theme.of(
+                  context,
+                ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w700),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class _SectionHeader extends StatelessWidget {
   const _SectionHeader({super.key, required this.title, required this.scheme});
 
@@ -2924,13 +3983,27 @@ class _SectionHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(8, 0, 8, 8),
-      child: Text(
-        title,
-        style: Theme.of(context).textTheme.labelLarge?.copyWith(
-          color: scheme.primary,
-          fontWeight: FontWeight.w600,
-        ),
+      padding: const EdgeInsets.fromLTRB(8, 4, 8, 10),
+      child: Row(
+        children: [
+          Container(
+            width: 8,
+            height: 8,
+            decoration: BoxDecoration(
+              color: scheme.primary,
+              shape: BoxShape.circle,
+            ),
+          ),
+          const SizedBox(width: 10),
+          Text(
+            title,
+            style: Theme.of(context).textTheme.titleSmall?.copyWith(
+              color: scheme.primary,
+              fontWeight: FontWeight.w700,
+              letterSpacing: 0.1,
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -2958,7 +4031,11 @@ class _SettingsDesktopRail extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
-        color: scheme.surfaceContainerHigh,
+        gradient: LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [scheme.surface, scheme.surfaceContainerHigh],
+        ),
         borderRadius: BorderRadius.circular(28),
         border: Border.all(
           color: scheme.outlineVariant.withValues(alpha: 0.35),
@@ -2971,7 +4048,11 @@ class _SettingsDesktopRail extends StatelessWidget {
             width: 52,
             height: 52,
             decoration: BoxDecoration(
-              color: scheme.primaryContainer,
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [scheme.primaryContainer, scheme.tertiaryContainer],
+              ),
               borderRadius: BorderRadius.circular(18),
             ),
             child: Icon(Icons.tune_rounded, color: scheme.onPrimaryContainer),

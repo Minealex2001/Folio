@@ -285,12 +285,104 @@ class Run2DocJsonImportRequest {
   }
 }
 
+class Run2DocCustomEmojiUpsertRequest {
+  const Run2DocCustomEmojiUpsertRequest({
+    required this.emojiId,
+    required this.sessionId,
+    required this.clientAppId,
+    required this.clientAppName,
+    required this.label,
+    required this.source,
+    required this.filePath,
+    required this.mimeType,
+    required this.createdAtMs,
+  });
+
+  final String emojiId;
+  final String sessionId;
+  final String clientAppId;
+  final String clientAppName;
+  final String label;
+  final String source;
+  final String filePath;
+  final String mimeType;
+  final int createdAtMs;
+
+  static Run2DocCustomEmojiUpsertRequest fromJson(
+    String emojiId,
+    Map<String, dynamic> json,
+  ) {
+    final sessionId = (json['sessionId'] as String? ?? '').trim();
+    if (sessionId.isEmpty) {
+      throw const FormatException('Field "sessionId" is required.');
+    }
+    final normalizedId = emojiId.trim();
+    if (normalizedId.isEmpty) {
+      throw const FormatException('Emoji id is required.');
+    }
+    final label = (json['label'] as String? ?? '').trim();
+    final source = (json['source'] as String? ?? '').trim();
+    final filePath = (json['filePath'] as String? ?? '').trim();
+    final mimeType = (json['mimeType'] as String? ?? '').trim();
+    if (filePath.isEmpty) {
+      throw const FormatException('Field "filePath" is required.');
+    }
+    if (mimeType.isEmpty) {
+      throw const FormatException('Field "mimeType" is required.');
+    }
+    return Run2DocCustomEmojiUpsertRequest(
+      emojiId: normalizedId,
+      sessionId: sessionId,
+      clientAppId: (json['clientAppId'] as String? ?? '').trim(),
+      clientAppName: (json['clientAppName'] as String? ?? '').trim(),
+      label: label,
+      source: source,
+      filePath: filePath,
+      mimeType: mimeType,
+      createdAtMs: (json['createdAtMs'] as num?)?.toInt() ?? 0,
+    );
+  }
+}
+
+class Run2DocCustomEmojiDeleteRequest {
+  const Run2DocCustomEmojiDeleteRequest({
+    required this.emojiId,
+    required this.sessionId,
+    required this.clientAppId,
+    required this.clientAppName,
+  });
+
+  final String emojiId;
+  final String sessionId;
+  final String clientAppId;
+  final String clientAppName;
+
+  static Run2DocCustomEmojiDeleteRequest fromRequest(
+    String emojiId,
+    HttpRequest request,
+  ) {
+    final normalizedId = emojiId.trim();
+    final sessionId = (request.uri.queryParameters['sessionId'] ?? '').trim();
+    if (normalizedId.isEmpty) {
+      throw const FormatException('Emoji id is required.');
+    }
+    if (sessionId.isEmpty) {
+      throw const FormatException('Query parameter "sessionId" is required.');
+    }
+    return Run2DocCustomEmojiDeleteRequest(
+      emojiId: normalizedId,
+      sessionId: sessionId,
+      clientAppId: '',
+      clientAppName: '',
+    );
+  }
+}
+
 class Run2DocBridgeController {
   static const headerAppId = 'x-folio-app-id';
   static const headerAppName = 'x-folio-app-name';
   static const headerAppVersion = 'x-folio-app-version';
   static const headerIntegrationVersion = 'x-folio-integration-version';
-  static const headerSecret = 'x-folio-integration-secret';
   static const supportedIntegrationVersion = '1';
 
   Run2DocBridgeController({
@@ -304,26 +396,41 @@ class Run2DocBridgeController {
     onUpdate,
     required Future<List<Map<String, Object?>>> Function(String clientAppId)
     onListPages,
+    required Future<List<Map<String, Object?>>> Function(String clientAppId)
+    onListCustomEmojis,
     required Future<FolioMarkdownImportResult> Function(
       Run2DocJsonImportRequest request,
     )
     onImportJson,
+    required Future<void> Function(
+      String clientAppId,
+      List<Map<String, Object?>> items,
+    )
+    onReplaceCustomEmojis,
+    required Future<Map<String, Object?>> Function(
+      Run2DocCustomEmojiUpsertRequest request,
+    )
+    onUpsertCustomEmoji,
+    required Future<void> Function(Run2DocCustomEmojiDeleteRequest request)
+    onDeleteCustomEmoji,
     required Future<bool> Function(Run2DocClientIdentity client)
     onApproveClient,
     required Future<void> Function(Run2DocClientIdentity client)
     onClientObserved,
     required bool Function(Run2DocClientIdentity client) isClientApproved,
-    required String Function() secretProvider,
     required Map<String, Object?> Function() appInfoProvider,
     this.onEvent,
   }) : _onImport = onImport,
        _onUpdate = onUpdate,
        _onListPages = onListPages,
+       _onListCustomEmojis = onListCustomEmojis,
        _onImportJson = onImportJson,
+       _onReplaceCustomEmojis = onReplaceCustomEmojis,
+       _onUpsertCustomEmoji = onUpsertCustomEmoji,
+       _onDeleteCustomEmoji = onDeleteCustomEmoji,
        _onApproveClient = onApproveClient,
        _onClientObserved = onClientObserved,
        _isClientApproved = isClientApproved,
-       _secretProvider = secretProvider,
        _appInfoProvider = appInfoProvider;
 
   final Future<FolioMarkdownImportResult> Function(
@@ -336,14 +443,24 @@ class Run2DocBridgeController {
   _onUpdate;
   final Future<List<Map<String, Object?>>> Function(String clientAppId)
   _onListPages;
+  final Future<List<Map<String, Object?>>> Function(String clientAppId)
+  _onListCustomEmojis;
   final Future<FolioMarkdownImportResult> Function(
     Run2DocJsonImportRequest request,
   )
   _onImportJson;
+  final Future<void> Function(
+    String clientAppId,
+    List<Map<String, Object?>> items,
+  )
+  _onReplaceCustomEmojis;
+  final Future<Map<String, Object?>> Function(Run2DocCustomEmojiUpsertRequest)
+  _onUpsertCustomEmoji;
+  final Future<void> Function(Run2DocCustomEmojiDeleteRequest)
+  _onDeleteCustomEmoji;
   final Future<bool> Function(Run2DocClientIdentity client) _onApproveClient;
   final Future<void> Function(Run2DocClientIdentity client) _onClientObserved;
   final bool Function(Run2DocClientIdentity client) _isClientApproved;
-  final String Function() _secretProvider;
   final Map<String, Object?> Function() _appInfoProvider;
   final void Function(String message)? onEvent;
 
@@ -451,7 +568,9 @@ class Run2DocBridgeController {
     final path = request.uri.path;
     final isPageUpdate =
         request.method == 'PATCH' && path.startsWith('/pages/');
-    final requiresSecret =
+    final isCustomEmojiCollection = path == '/app/custom-emojis';
+    final isCustomEmojiItem = path.startsWith('/app/custom-emojis/');
+    final requiresClientIdentity =
         path == '/health' ||
         path == '/app' ||
         path == '/status' ||
@@ -461,10 +580,12 @@ class Run2DocBridgeController {
         path == '/session/start' ||
         path == '/session/new' ||
         path == '/start' ||
+        isCustomEmojiCollection ||
+        isCustomEmojiItem ||
         isPageUpdate;
 
     Run2DocClientIdentity? client;
-    if (requiresSecret) {
+    if (requiresClientIdentity) {
       final mayPromptApproval =
           request.method == 'POST' &&
           (path == '/session/start' ||
@@ -549,6 +670,191 @@ class Run2DocBridgeController {
         'message': 'No active Run2Doc import session.',
       });
       return;
+    }
+
+    if (isCustomEmojiCollection || isCustomEmojiItem) {
+      final auth = request.headers.value(HttpHeaders.authorizationHeader) ?? '';
+      if (auth.trim() != 'Bearer ${session.nonce}') {
+        await _writeJson(request.response, HttpStatus.unauthorized, {
+          'ok': false,
+          'error': 'UNAUTHORIZED',
+          'message': 'Invalid session token.',
+        });
+        return;
+      }
+      final c = client!;
+      if (c.appId != session.client.appId) {
+        await _writeJson(request.response, HttpStatus.unauthorized, {
+          'ok': false,
+          'error': 'CLIENT_MISMATCH',
+          'message': 'Request app does not match the active session client.',
+        });
+        return;
+      }
+
+      if (request.method == 'GET' && isCustomEmojiCollection) {
+        final querySessionId = (request.uri.queryParameters['sessionId'] ?? '')
+            .trim();
+        if (querySessionId != session.sessionId) {
+          await _writeJson(request.response, HttpStatus.unauthorized, {
+            'ok': false,
+            'error': 'SESSION_MISMATCH',
+            'message': 'Request sessionId does not match the active session.',
+          });
+          return;
+        }
+        final items = await _onListCustomEmojis(c.appId);
+        await _writeJson(request.response, HttpStatus.ok, {
+          'ok': true,
+          'sessionId': session.sessionId,
+          'items': items,
+        });
+        return;
+      }
+
+      if (request.method == 'PUT' && isCustomEmojiCollection) {
+        try {
+          final rawBody = await utf8.decoder.bind(request).join();
+          if (utf8.encode(rawBody).length > maxPayloadBytes) {
+            throw const HttpException('Payload too large.');
+          }
+          final decoded = jsonDecode(rawBody);
+          if (decoded is! Map) {
+            throw const FormatException('JSON object expected.');
+          }
+          final body = Map<String, dynamic>.from(decoded);
+          final sessionId = (body['sessionId'] as String? ?? '').trim();
+          if (sessionId != session.sessionId) {
+            await _writeJson(request.response, HttpStatus.unauthorized, {
+              'ok': false,
+              'error': 'SESSION_MISMATCH',
+              'message': 'Request sessionId does not match the active session.',
+            });
+            return;
+          }
+          final itemsRaw = body['items'];
+          if (itemsRaw is! List) {
+            throw const FormatException('Field "items" must be an array.');
+          }
+          final items = itemsRaw
+              .whereType<Map>()
+              .map((item) => Map<String, Object?>.from(item))
+              .toList(growable: false);
+          await _onReplaceCustomEmojis(c.appId, items);
+          await _writeJson(request.response, HttpStatus.ok, {
+            'ok': true,
+            'sessionId': session.sessionId,
+            'count': items.length,
+          });
+        } on FormatException catch (e) {
+          await _writeJson(request.response, HttpStatus.badRequest, {
+            'ok': false,
+            'error': 'INVALID_PAYLOAD',
+            'message': e.message,
+          });
+        } on HttpException catch (e) {
+          await _writeJson(request.response, HttpStatus.requestEntityTooLarge, {
+            'ok': false,
+            'error': 'PAYLOAD_TOO_LARGE',
+            'message': e.message,
+          });
+        } catch (e) {
+          await _writeJson(request.response, HttpStatus.internalServerError, {
+            'ok': false,
+            'error': 'CUSTOM_EMOJI_UPDATE_FAILED',
+            'message': e.toString(),
+          });
+        }
+        return;
+      }
+
+      if (request.method == 'PATCH' && isCustomEmojiItem) {
+        final emojiId = path.substring('/app/custom-emojis/'.length);
+        try {
+          final rawBody = await utf8.decoder.bind(request).join();
+          if (utf8.encode(rawBody).length > maxPayloadBytes) {
+            throw const HttpException('Payload too large.');
+          }
+          final decoded = jsonDecode(rawBody);
+          if (decoded is! Map) {
+            throw const FormatException('JSON object expected.');
+          }
+          final payload = Run2DocCustomEmojiUpsertRequest.fromJson(
+            emojiId,
+            Map<String, dynamic>.from(decoded),
+          ).copyWithClient(c);
+          if (payload.sessionId != session.sessionId) {
+            await _writeJson(request.response, HttpStatus.unauthorized, {
+              'ok': false,
+              'error': 'SESSION_MISMATCH',
+              'message': 'Request sessionId does not match the active session.',
+            });
+            return;
+          }
+          final item = await _onUpsertCustomEmoji(payload);
+          await _writeJson(request.response, HttpStatus.ok, {
+            'ok': true,
+            'sessionId': session.sessionId,
+            'item': item,
+          });
+        } on FormatException catch (e) {
+          await _writeJson(request.response, HttpStatus.badRequest, {
+            'ok': false,
+            'error': 'INVALID_PAYLOAD',
+            'message': e.message,
+          });
+        } on HttpException catch (e) {
+          await _writeJson(request.response, HttpStatus.requestEntityTooLarge, {
+            'ok': false,
+            'error': 'PAYLOAD_TOO_LARGE',
+            'message': e.message,
+          });
+        } catch (e) {
+          await _writeJson(request.response, HttpStatus.internalServerError, {
+            'ok': false,
+            'error': 'CUSTOM_EMOJI_UPDATE_FAILED',
+            'message': e.toString(),
+          });
+        }
+        return;
+      }
+
+      if (request.method == 'DELETE' && isCustomEmojiItem) {
+        final emojiId = path.substring('/app/custom-emojis/'.length);
+        try {
+          final payload = Run2DocCustomEmojiDeleteRequest.fromRequest(
+            emojiId,
+            request,
+          ).copyWithClient(c);
+          if (payload.sessionId != session.sessionId) {
+            await _writeJson(request.response, HttpStatus.unauthorized, {
+              'ok': false,
+              'error': 'SESSION_MISMATCH',
+              'message': 'Request sessionId does not match the active session.',
+            });
+            return;
+          }
+          await _onDeleteCustomEmoji(payload);
+          await _writeJson(request.response, HttpStatus.ok, {
+            'ok': true,
+            'sessionId': session.sessionId,
+            'deletedId': payload.emojiId,
+          });
+        } on FormatException catch (e) {
+          await _writeJson(request.response, HttpStatus.badRequest, {
+            'ok': false,
+            'error': 'INVALID_PAYLOAD',
+            'message': e.message,
+          });
+        } catch (e) {
+          await _writeJson(request.response, HttpStatus.internalServerError, {
+            'ok': false,
+            'error': 'CUSTOM_EMOJI_DELETE_FAILED',
+            'message': e.toString(),
+          });
+        }
+        return;
+      }
     }
 
     // ---- GET /pages ---------------------------------------------------
@@ -972,7 +1278,6 @@ class Run2DocBridgeController {
     HttpRequest request, {
     required bool mayPromptApproval,
   }) async {
-    final secret = request.headers.value(headerSecret)?.trim() ?? '';
     final appId = request.headers.value(headerAppId)?.trim() ?? '';
     final appNameHeader = request.headers.value(headerAppName)?.trim() ?? '';
     final appVersionHeader =
@@ -1005,20 +1310,6 @@ class Run2DocBridgeController {
         statusCode: HttpStatus.badRequest,
         error: 'UNSUPPORTED_INTEGRATION_VERSION',
         message: 'Unsupported X-Folio-Integration-Version.',
-      );
-    }
-    if (secret.isEmpty) {
-      return const _Run2DocClientAuth.error(
-        statusCode: HttpStatus.unauthorized,
-        error: 'MISSING_SECRET',
-        message: 'Header X-Folio-Integration-Secret is required.',
-      );
-    }
-    if (secret != _secretProvider()) {
-      return const _Run2DocClientAuth.error(
-        statusCode: HttpStatus.unauthorized,
-        error: 'INVALID_SECRET',
-        message: 'Invalid integration secret.',
       );
     }
     final client = Run2DocClientIdentity(
@@ -1112,6 +1403,33 @@ extension on Run2DocJsonImportRequest {
       sourceApp: sourceApp,
       sourceUrl: sourceUrl,
       metadata: nextMetadata,
+    );
+  }
+}
+
+extension on Run2DocCustomEmojiUpsertRequest {
+  Run2DocCustomEmojiUpsertRequest copyWithClient(Run2DocClientIdentity client) {
+    return Run2DocCustomEmojiUpsertRequest(
+      emojiId: emojiId,
+      sessionId: sessionId,
+      clientAppId: client.appId,
+      clientAppName: client.appName,
+      label: label,
+      source: source,
+      filePath: filePath,
+      mimeType: mimeType,
+      createdAtMs: createdAtMs,
+    );
+  }
+}
+
+extension on Run2DocCustomEmojiDeleteRequest {
+  Run2DocCustomEmojiDeleteRequest copyWithClient(Run2DocClientIdentity client) {
+    return Run2DocCustomEmojiDeleteRequest(
+      emojiId: emojiId,
+      sessionId: sessionId,
+      clientAppId: client.appId,
+      clientAppName: client.appName,
     );
   }
 }

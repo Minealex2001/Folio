@@ -94,17 +94,27 @@ ThemeData _folioThemeFromBase(ThemeData base, ColorScheme colorScheme) {
       ),
     ),
     filledButtonTheme: FilledButtonThemeData(
-      style: FilledButton.styleFrom(
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(
-            FolioRadius.xl,
-          ), // Pill shape for M3
-        ),
-        padding: const EdgeInsets.symmetric(
-          horizontal: FolioSpace.lg,
-          vertical: FolioSpace.sm,
-        ),
-      ),
+      style:
+          FilledButton.styleFrom(
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(FolioRadius.xl),
+            ),
+            padding: const EdgeInsets.symmetric(
+              horizontal: FolioSpace.lg,
+              vertical: FolioSpace.sm,
+            ),
+            elevation: FolioElevation.none,
+          ).copyWith(
+            elevation: WidgetStateProperty.resolveWith((states) {
+              if (states.contains(WidgetState.hovered)) {
+                return 2.0;
+              }
+              if (states.contains(WidgetState.pressed)) {
+                return FolioElevation.none;
+              }
+              return FolioElevation.none;
+            }),
+          ),
     ),
     outlinedButtonTheme: OutlinedButtonThemeData(
       style: OutlinedButton.styleFrom(
@@ -172,6 +182,19 @@ ThemeData _folioThemeFromBase(ThemeData base, ColorScheme colorScheme) {
       surfaceTintColor: colorScheme.surfaceTint,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(FolioRadius.xl),
+        side: BorderSide(
+          color: colorScheme.outlineVariant.withValues(alpha: 0.3),
+        ),
+      ),
+      elevation: 8.0,
+      alignment: Alignment.center,
+      titleTextStyle: expressiveText.titleLarge?.copyWith(
+        color: colorScheme.onSurface,
+        fontWeight: FontWeight.w700,
+      ),
+      contentTextStyle: expressiveText.bodyMedium?.copyWith(
+        color: colorScheme.onSurface,
+        height: 1.5,
       ),
     ),
     popupMenuTheme: PopupMenuThemeData(
@@ -271,16 +294,55 @@ ThemeData _folioThemeFromBase(ThemeData base, ColorScheme colorScheme) {
       ),
       enabledBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(FolioRadius.md),
-        borderSide: BorderSide(color: colorScheme.outlineVariant),
+        borderSide: BorderSide(
+          color: colorScheme.outlineVariant.withValues(alpha: 0.7),
+          width: 1.5,
+        ),
       ),
       focusedBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(FolioRadius.md),
         borderSide: BorderSide(color: colorScheme.primary, width: 2),
       ),
+      errorBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(FolioRadius.md),
+        borderSide: BorderSide(color: colorScheme.error, width: 1.5),
+      ),
+      focusedErrorBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(FolioRadius.md),
+        borderSide: BorderSide(color: colorScheme.error, width: 2),
+      ),
       contentPadding: const EdgeInsets.symmetric(
         horizontal: FolioSpace.md,
         vertical: FolioSpace.sm,
       ),
+      helperStyle: expressiveText.bodySmall?.copyWith(
+        color: colorScheme.onSurfaceVariant.withValues(alpha: 0.8),
+        height: 1.3,
+      ),
+      errorStyle: expressiveText.bodySmall?.copyWith(
+        color: colorScheme.error,
+        fontWeight: FontWeight.w500,
+        height: 1.3,
+      ),
+      labelStyle: expressiveText.bodyMedium?.copyWith(
+        color: colorScheme.onSurfaceVariant,
+        fontWeight: FontWeight.w600,
+      ),
+      prefixIconColor: WidgetStateColor.resolveWith((states) {
+        if (states.contains(WidgetState.focused)) {
+          return colorScheme.primary;
+        }
+        return colorScheme.onSurfaceVariant;
+      }),
+      suffixIconColor: WidgetStateColor.resolveWith((states) {
+        if (states.contains(WidgetState.focused)) {
+          return colorScheme.primary;
+        }
+        if (states.contains(WidgetState.error)) {
+          return colorScheme.error;
+        }
+        return colorScheme.onSurfaceVariant;
+      }),
     ),
   );
 }

@@ -21,7 +21,6 @@ X-Folio-App-Id: sample-docs-desktop
 X-Folio-App-Name: Sample Docs
 X-Folio-App-Version: 1.4.0
 X-Folio-Integration-Version: 1
-X-Folio-Integration-Secret: <secret-from-env>
 ```
 
 Header meaning:
@@ -30,7 +29,6 @@ Header meaning:
 - `X-Folio-App-Name`: human-readable name shown in Folio approval UI.
 - `X-Folio-App-Version`: version of the external application build. Folio stores this for diagnostics and settings display.
 - `X-Folio-Integration-Version`: version of the Folio integration contract implemented by the client.
-- `X-Folio-Integration-Secret`: shared secret configured on the Folio side outside the UI, typically via `.env`, `.env.local`, or `--dart-define`.
 
 Approval behavior:
 
@@ -38,13 +36,8 @@ Approval behavior:
 2. If only `X-Folio-App-Version` changes, Folio updates the stored version silently without showing the approval popup again.
 3. If `X-Folio-Integration-Version` changes, Folio asks for approval again.
 
-Folio resolves the secret in this order:
-
-1. `--dart-define=FOLIO_INTEGRATION_SECRET=...`
-2. `.env.local`
-3. `.env`
-
-If no secret is configured, protected endpoints reject the request.
+Folio no longer requires a shared secret for local integration.
+Access control is enforced through app identity headers, explicit app approval, and short-lived session nonces.
 
 ## Integration Model
 
@@ -81,7 +74,6 @@ X-Folio-App-Id: sample-docs-desktop
 X-Folio-App-Name: Sample Docs
 X-Folio-App-Version: 1.4.0
 X-Folio-Integration-Version: 1
-X-Folio-Integration-Secret: <secret>
 ```
 
 Supported aliases:
@@ -119,7 +111,6 @@ X-Folio-App-Id: sample-docs-desktop
 X-Folio-App-Name: Sample Docs
 X-Folio-App-Version: 1.4.0
 X-Folio-Integration-Version: 1
-X-Folio-Integration-Secret: <secret>
 ```
 
 Example response:
@@ -146,7 +137,6 @@ X-Folio-App-Id: sample-docs-desktop
 X-Folio-App-Name: Sample Docs
 X-Folio-App-Version: 1.4.0
 X-Folio-Integration-Version: 1
-X-Folio-Integration-Secret: <secret>
 ```
 
 `/status` is accepted as an alias.
@@ -233,7 +223,6 @@ X-Folio-App-Id: sample-docs-desktop
 X-Folio-App-Name: Sample Docs
 X-Folio-App-Version: 1.4.0
 X-Folio-Integration-Version: 1
-X-Folio-Integration-Secret: <secret>
 Content-Type: application/json
 ```
 
@@ -356,7 +345,6 @@ X-Folio-App-Id: sample-docs-desktop
 X-Folio-App-Name: Sample Docs
 X-Folio-App-Version: 1.4.0
 X-Folio-Integration-Version: 1
-X-Folio-Integration-Secret: <secret>
 Content-Type: application/json
 ```
 
@@ -447,7 +435,6 @@ X-Folio-App-Id: sample-docs-desktop
 X-Folio-App-Name: Sample Docs
 X-Folio-App-Version: 1.4.0
 X-Folio-Integration-Version: 1
-X-Folio-Integration-Secret: <secret>
 ```
 
 Query parameter:
@@ -464,8 +451,10 @@ Query parameter:
     {
       "pageId": "page_123",
       "title": "My Imported Document",
+      "emoji": "📄",
       "parentId": null,
       "blockCount": 14,
+      "icons": ["💡", "✅"],
       "importedAtMs": 1711324800000,
       "importMode": "newPage",
       "sourceApp": "Sample Docs",
@@ -479,8 +468,10 @@ Response fields per page:
 
 - `pageId`: UUID used in PATCH `/pages/{pageId}`.
 - `title`: current page title.
+- `emoji`: current page emoji when present.
 - `parentId`: UUID of the parent page, or `null`.
 - `blockCount`: number of content blocks.
+- `icons`: unique normalized block icon values currently present in that page.
 - `importedAtMs`: Unix timestamp (ms) of the last import/update.
 - `importMode`: `newPage`, `replaceCurrentPage`, or `appendToCurrentPage`.
 - `sourceApp`, `sourceUrl`: optional provenance fields from the last import, only present when they were set.
@@ -490,6 +481,122 @@ Response fields per page:
 ### Error Responses
 
 Standard errors (`UNAUTHORIZED`, `SESSION_MISMATCH`, `NO_ACTIVE_SESSION`, `VAULT_LOCKED`) follow the same shape as the Import Markdown endpoint.
+
+---
+
+## Custom Emojis Endpoint
+
+Folio exposes an app-scoped custom emoji catalog for external integrations.
+
+**Isolation rule:** each app only sees and manages the custom emojis stored under its own `X-Folio-App-Id`. Apps never receive entries imported by other apps.
+
+### List Custom Emojis
+
+```http
+GET /app/custom-emojis?sessionId=<sessionId>
+Host: 127.0.0.1:45831
+Authorization: Bearer <nonce>
+X-Folio-App-Id: sample-docs-desktop
+X-Folio-App-Name: Sample Docs
+X-Folio-App-Version: 1.4.0
+X-Folio-Integration-Version: 1
+```
+
+Example response:
+
+```json
+{
+  "ok": true,
+  "sessionId": "8f2e9c1a",
+  "items": [
+    {
+      "id": "rocket",
+      "label": "Rocket",
+      "source": "data:image/svg+xml,%3Csvg%3E%3C/svg%3E",
+      "filePath": "C:\\icons\\rocket.svg",
+      "mimeType": "image/svg+xml",
+      "createdAtMs": 1711324800000
+    }
+  ]
+}
+```
+
+### Replace the Whole Catalog
+
+```http
+PUT /app/custom-emojis
+Host: 127.0.0.1:45831
+Authorization: Bearer <nonce>
+X-Folio-App-Id: sample-docs-desktop
+X-Folio-App-Name: Sample Docs
+X-Folio-App-Version: 1.4.0
+X-Folio-Integration-Version: 1
+Content-Type: application/json
+```
+
+Request body:
+
+```json
+{
+  "sessionId": "8f2e9c1a",
+  "items": [
+    {
+      "id": "rocket",
+      "label": "Rocket",
+      "source": "data:image/svg+xml,%3Csvg%3E%3C/svg%3E",
+      "filePath": "C:\\icons\\rocket.svg",
+      "mimeType": "image/svg+xml",
+      "createdAtMs": 1711324800000
+    }
+  ]
+}
+```
+
+### Create or Update a Single Custom Emoji
+
+```http
+PATCH /app/custom-emojis/{emojiId}
+Host: 127.0.0.1:45831
+Authorization: Bearer <nonce>
+X-Folio-App-Id: sample-docs-desktop
+X-Folio-App-Name: Sample Docs
+X-Folio-App-Version: 1.4.0
+X-Folio-Integration-Version: 1
+Content-Type: application/json
+```
+
+Request body:
+
+```json
+{
+  "sessionId": "8f2e9c1a",
+  "label": "Rocket",
+  "source": "data:image/svg+xml,%3Csvg%3E%3C/svg%3E",
+  "filePath": "C:\\icons\\rocket.svg",
+  "mimeType": "image/svg+xml",
+  "createdAtMs": 1711324800000
+}
+```
+
+Required fields:
+
+- `sessionId`: must match the active session.
+- `filePath`: required logical or local path for the imported asset.
+- `mimeType`: required MIME type.
+
+### Delete a Single Custom Emoji
+
+```http
+DELETE /app/custom-emojis/{emojiId}?sessionId=<sessionId>
+Host: 127.0.0.1:45831
+Authorization: Bearer <nonce>
+X-Folio-App-Id: sample-docs-desktop
+X-Folio-App-Name: Sample Docs
+X-Folio-App-Version: 1.4.0
+X-Folio-Integration-Version: 1
+```
+
+All four operations are protected by the same approval, session, nonce, and client identity checks used by the other integration endpoints.
 
 ---
 
@@ -505,7 +612,6 @@ X-Folio-App-Id: sample-docs-desktop
 X-Folio-App-Name: Sample Docs
 X-Folio-App-Version: 1.4.0
 X-Folio-Integration-Version: 1
-X-Folio-Integration-Secret: <secret>
 Content-Type: application/json
 ```
 
@@ -550,7 +656,7 @@ Fields:
 | `checked` | `bool` | No | Checked state for `todo` blocks. |
 | `expanded` | `bool` | No | Expanded state for `toggle` blocks. |
 | `codeLanguage` | `string` | No | Syntax highlight grammar for `code` blocks (e.g. `dart`, `python`). |
-| `icon` | `string` | No | Emoji icon for `callout` blocks. |
+| `icon` | `string` | No | Emoji/icon string for blocks (commonly `callout`), normalized by Folio. |
 | `url` | `string` | No | File path or URL for `file`, `video`, `audio`, `image`, `bookmark`, `embed` blocks. |
 | `imageWidth` | `float` | No | Relative width for `image` blocks (`0.2`–`1.0`, default `1.0`). |
 
@@ -616,7 +722,7 @@ Clients do not need dynamic port discovery.
 ## Security Rules
 
 - Folio binds the bridge only to `127.0.0.1`.
-- Protected endpoints require `X-Folio-App-Id`, `X-Folio-App-Name`, `X-Folio-App-Version`, `X-Folio-Integration-Version`, and `X-Folio-Integration-Secret`.
+- Protected endpoints require `X-Folio-App-Id`, `X-Folio-App-Name`, `X-Folio-App-Version`, and `X-Folio-Integration-Version`.
 - New apps must be explicitly approved by the Folio user.
 - Session authorization uses a bearer token derived from the deep-link `nonce`.
 - Sessions expire automatically after a short time.
@@ -657,7 +763,6 @@ HttpRequest bootstrapRequest = HttpRequest.newBuilder()
     .header("X-Folio-App-Name", "Sample Docs")
     .header("X-Folio-App-Version", "1.4.0")
     .header("X-Folio-Integration-Version", "1")
-    .header("X-Folio-Integration-Secret", integrationSecret)
     .POST(HttpRequest.BodyPublishers.noBody())
     .build();
 
@@ -692,7 +797,6 @@ HttpRequest request = HttpRequest.newBuilder()
     .header("X-Folio-App-Name", "Sample Docs")
     .header("X-Folio-App-Version", "1.4.0")
     .header("X-Folio-Integration-Version", "1")
-    .header("X-Folio-Integration-Secret", integrationSecret)
     .header("Content-Type", "application/json")
     .POST(HttpRequest.BodyPublishers.ofString(json))
     .build();
@@ -709,7 +813,7 @@ System.out.println(response.body());
 
 Recommended UI flow for a button like `Send to Folio`:
 
-1. Configure `appId`, `appName`, `appVersion`, `integrationVersion`, and the shared secret.
+1. Configure `appId`, `appName`, `appVersion`, and `integrationVersion`.
 2. Optionally call `GET /app` to see whether Folio is already running and unlocked.
 3. Call `POST /session/start`.
 4. Approve the app in Folio if requested.
@@ -730,7 +834,6 @@ await fetch('http://127.0.0.1:45831/imports/markdown', {
     'X-Folio-App-Name': 'Sample Docs',
     'X-Folio-App-Version': '1.4.0',
     'X-Folio-Integration-Version': '1',
-    'X-Folio-Integration-Secret': integrationSecret,
   },
   body: JSON.stringify({
     sessionId,

@@ -11,6 +11,67 @@ enum AiProvider { none, ollama, lmStudio }
 
 enum AiEndpointMode { localhostOnly, allowRemote }
 
+class CustomIconEntry {
+  const CustomIconEntry({
+    required this.id,
+    required this.label,
+    required this.source,
+    required this.filePath,
+    required this.mimeType,
+    required this.createdAtMs,
+  });
+
+  final String id;
+  final String label;
+  final String source;
+  final String filePath;
+  final String mimeType;
+  final int createdAtMs;
+
+  String get token => 'custom_icon:$id';
+  bool get isSvg => mimeType.toLowerCase().contains('svg');
+
+  factory CustomIconEntry.fromJson(Map raw) {
+    return CustomIconEntry(
+      id: (raw['id'] as String? ?? '').trim(),
+      label: (raw['label'] as String? ?? '').trim(),
+      source: (raw['source'] as String? ?? '').trim(),
+      filePath: (raw['filePath'] as String? ?? '').trim(),
+      mimeType: (raw['mimeType'] as String? ?? '').trim(),
+      createdAtMs: (raw['createdAtMs'] as num?)?.toInt() ?? 0,
+    );
+  }
+
+  Map<String, Object?> toJson() {
+    return <String, Object?>{
+      'id': id,
+      'label': label,
+      'source': source,
+      'filePath': filePath,
+      'mimeType': mimeType,
+      'createdAtMs': createdAtMs,
+    };
+  }
+
+  CustomIconEntry copyWith({
+    String? id,
+    String? label,
+    String? source,
+    String? filePath,
+    String? mimeType,
+    int? createdAtMs,
+  }) {
+    return CustomIconEntry(
+      id: id ?? this.id,
+      label: label ?? this.label,
+      source: source ?? this.source,
+      filePath: filePath ?? this.filePath,
+      mimeType: mimeType ?? this.mimeType,
+      createdAtMs: createdAtMs ?? this.createdAtMs,
+    );
+  }
+}
+
 class IntegrationAppApproval {
   const IntegrationAppApproval({
     required this.appId,
@@ -116,6 +177,9 @@ class AppSettings extends ChangeNotifier {
   static const _inAppShortcutsKey = 'folio_in_app_shortcuts_json';
   static const _approvedIntegrationAppsKey = 'folio_approved_integration_apps';
   static const _editorContentWidthKey = 'folio_editor_content_width';
+  static const _customIconsKey = 'folio_custom_icons_v1';
+  static const _integrationCustomIconsKey =
+      'folio_integration_custom_icons_by_app_v1';
   static const int defaultVaultIdleLockMinutes = 15;
   static const String defaultGlobalSearchHotkey = 'Ctrl+Shift+K';
   static const int defaultAiTimeoutMs = 30000;
@@ -164,6 +228,9 @@ class AppSettings extends ChangeNotifier {
   final String _configuredIntegrationSecret;
   String _integrationSecret = '';
   Map<String, IntegrationAppApproval> _approvedIntegrationApps = {};
+  List<CustomIconEntry> _customIcons = const <CustomIconEntry>[];
+  Map<String, List<CustomIconEntry>> _integrationCustomIconsByApp =
+      const <String, List<CustomIconEntry>>{};
 
   ThemeMode get themeMode => _themeMode;
   Locale? get locale => _locale;
@@ -195,6 +262,13 @@ class AppSettings extends ChangeNotifier {
   UpdateReleaseChannel get updateReleaseChannel => _updateReleaseChannel;
   double get editorContentWidth => _editorContentWidth;
   String get integrationSecret => _integrationSecret;
+  List<CustomIconEntry> get customIcons => List.unmodifiable(_customIcons);
+  List<CustomIconEntry> integrationCustomIconsForApp(String appId) {
+    final key = appId.trim();
+    if (key.isEmpty) return const <CustomIconEntry>[];
+    return List.unmodifiable(_integrationCustomIconsByApp[key] ?? const []);
+  }
+
   List<IntegrationAppApproval> get approvedIntegrationAppApprovals =>
       _approvedIntegrationApps.values.toList(growable: false);
   Map<String, String> get approvedIntegrationApps {
@@ -282,6 +356,62 @@ class AppSettings extends ChangeNotifier {
       }
     } else {
       _approvedIntegrationApps = {};
+    }
+    final customIconsRaw = p.getString(_customIconsKey);
+    if (customIconsRaw != null && customIconsRaw.trim().isNotEmpty) {
+      try {
+        final decoded = jsonDecode(customIconsRaw);
+        if (decoded is List) {
+          _customIcons =
+              decoded
+                  .whereType<Map>()
+                  .map(CustomIconEntry.fromJson)
+                  .where(
+                    (entry) =>
+                        entry.id.isNotEmpty &&
+                        entry.filePath.isNotEmpty &&
+                        entry.mimeType.isNotEmpty,
+                  )
+                  .toList(growable: false)
+                ..sort((a, b) => b.createdAtMs.compareTo(a.createdAtMs));
+        }
+      } catch (_) {
+        _customIcons = const <CustomIconEntry>[];
+      }
+    } else {
+      _customIcons = const <CustomIconEntry>[];
+    }
+    final integrationCustomIconsRaw = p.getString(_integrationCustomIconsKey);
+    if (integrationCustomIconsRaw != null &&
+        integrationCustomIconsRaw.trim().isNotEmpty) {
+      try {
+        final decoded = jsonDecode(integrationCustomIconsRaw);
+        if (decoded is Map) {
+          final parsed = <String, List<CustomIconEntry>>{};
+          for (final entry in decoded.entries) {
+            final appId = '${entry.key}'.trim();
+            if (appId.isEmpty || entry.value is! List) continue;
+            final icons =
+                (entry.value as List)
+                    .whereType<Map>()
+                    .map(CustomIconEntry.fromJson)
+                    .where(
+                      (icon) =>
+                          icon.id.isNotEmpty &&
+                          icon.filePath.isNotEmpty &&
+                          icon.mimeType.isNotEmpty,
+                    )
+                    .toList(growable: false)
+                  ..sort((a, b) => b.createdAtMs.compareTo(a.createdAtMs));
+            parsed[appId] = icons;
+          }
+          _integrationCustomIconsByApp = parsed;
+        }
+      } catch (_) {
+        _integrationCustomIconsByApp = const <String, List<CustomIconEntry>>{};
+      }
+    } else {
+      _integrationCustomIconsByApp = const <String, List<CustomIconEntry>>{};
     }
     _cachedAiModelsByProvider
       ..clear()
@@ -747,5 +877,175 @@ class AppSettings extends ChangeNotifier {
       _approvedIntegrationAppsKey,
       jsonEncode(_serializeApprovedIntegrationApps()),
     );
+  }
+
+  bool isCustomIconToken(String? value) {
+    final raw = value?.trim() ?? '';
+    return raw.startsWith('custom_icon:') && raw.length > 'custom_icon:'.length;
+  }
+
+  CustomIconEntry? customIconForToken(String? token) {
+    final raw = token?.trim() ?? '';
+    if (!isCustomIconToken(raw)) return null;
+    final id = raw.substring('custom_icon:'.length).trim();
+    if (id.isEmpty) return null;
+    for (final icon in _customIcons) {
+      if (icon.id == id) return icon;
+    }
+    return null;
+  }
+
+  Future<void> addOrUpdateCustomIcon(CustomIconEntry entry) async {
+    final cleaned = entry.copyWith(
+      id: entry.id.trim(),
+      label: entry.label.trim().isEmpty ? 'Custom icon' : entry.label.trim(),
+      source: entry.source.trim(),
+      filePath: entry.filePath.trim(),
+      mimeType: entry.mimeType.trim(),
+    );
+    if (cleaned.id.isEmpty ||
+        cleaned.filePath.isEmpty ||
+        cleaned.mimeType.isEmpty) {
+      return;
+    }
+    final next = List<CustomIconEntry>.from(_customIcons);
+    final index = next.indexWhere((icon) => icon.id == cleaned.id);
+    if (index >= 0) {
+      next[index] = cleaned;
+    } else {
+      next.add(cleaned);
+    }
+    next.sort((a, b) => b.createdAtMs.compareTo(a.createdAtMs));
+    _customIcons = next;
+    notifyListeners();
+    final p = await SharedPreferences.getInstance();
+    await p.setString(
+      _customIconsKey,
+      jsonEncode(_customIcons.map((icon) => icon.toJson()).toList()),
+    );
+  }
+
+  Future<void> removeCustomIcon(String id) async {
+    final key = id.trim();
+    if (key.isEmpty) return;
+    final next = _customIcons.where((icon) => icon.id != key).toList();
+    if (next.length == _customIcons.length) return;
+    _customIcons = next;
+    notifyListeners();
+    final p = await SharedPreferences.getInstance();
+    await p.setString(
+      _customIconsKey,
+      jsonEncode(_customIcons.map((icon) => icon.toJson()).toList()),
+    );
+  }
+
+  Map<String, Object?> _serializeIntegrationCustomIconsByApp() {
+    final serialized = <String, Object?>{};
+    for (final entry in _integrationCustomIconsByApp.entries) {
+      serialized[entry.key] = entry.value.map((icon) => icon.toJson()).toList();
+    }
+    return serialized;
+  }
+
+  Future<void> _persistIntegrationCustomIconsByApp() async {
+    final p = await SharedPreferences.getInstance();
+    await p.setString(
+      _integrationCustomIconsKey,
+      jsonEncode(_serializeIntegrationCustomIconsByApp()),
+    );
+  }
+
+  Future<void> replaceIntegrationCustomIconsForApp(
+    String appId,
+    List<CustomIconEntry> entries,
+  ) async {
+    final key = appId.trim();
+    if (key.isEmpty) return;
+    final cleaned = entries
+        .map(
+          (entry) => entry.copyWith(
+            id: entry.id.trim(),
+            label: entry.label.trim().isEmpty
+                ? 'Custom icon'
+                : entry.label.trim(),
+            source: entry.source.trim(),
+            filePath: entry.filePath.trim(),
+            mimeType: entry.mimeType.trim(),
+          ),
+        )
+        .where(
+          (entry) =>
+              entry.id.isNotEmpty &&
+              entry.filePath.isNotEmpty &&
+              entry.mimeType.isNotEmpty,
+        )
+        .toList();
+    cleaned.sort((a, b) => b.createdAtMs.compareTo(a.createdAtMs));
+    _integrationCustomIconsByApp = {
+      ..._integrationCustomIconsByApp,
+      key: List<CustomIconEntry>.unmodifiable(cleaned),
+    };
+    notifyListeners();
+    await _persistIntegrationCustomIconsByApp();
+  }
+
+  Future<void> addOrUpdateIntegrationCustomIconForApp(
+    String appId,
+    CustomIconEntry entry,
+  ) async {
+    final key = appId.trim();
+    if (key.isEmpty) return;
+    final cleaned = entry.copyWith(
+      id: entry.id.trim(),
+      label: entry.label.trim().isEmpty ? 'Custom icon' : entry.label.trim(),
+      source: entry.source.trim(),
+      filePath: entry.filePath.trim(),
+      mimeType: entry.mimeType.trim(),
+    );
+    if (cleaned.id.isEmpty ||
+        cleaned.filePath.isEmpty ||
+        cleaned.mimeType.isEmpty) {
+      return;
+    }
+    final next = List<CustomIconEntry>.from(
+      _integrationCustomIconsByApp[key] ?? const <CustomIconEntry>[],
+    );
+    final index = next.indexWhere((icon) => icon.id == cleaned.id);
+    if (index >= 0) {
+      next[index] = cleaned;
+    } else {
+      next.add(cleaned);
+    }
+    next.sort((a, b) => b.createdAtMs.compareTo(a.createdAtMs));
+    _integrationCustomIconsByApp = {
+      ..._integrationCustomIconsByApp,
+      key: List<CustomIconEntry>.unmodifiable(next),
+    };
+    notifyListeners();
+    await _persistIntegrationCustomIconsByApp();
+  }
+
+  Future<void> removeIntegrationCustomIconForApp(
+    String appId,
+    String id,
+  ) async {
+    final key = appId.trim();
+    final iconId = id.trim();
+    if (key.isEmpty || iconId.isEmpty) return;
+    final current =
+        _integrationCustomIconsByApp[key] ?? const <CustomIconEntry>[];
+    final next = current.where((icon) => icon.id != iconId).toList();
+    if (next.length == current.length) return;
+    final updated = <String, List<CustomIconEntry>>{
+      ..._integrationCustomIconsByApp,
+    };
+    if (next.isEmpty) {
+      updated.remove(key);
+    } else {
+      updated[key] = List<CustomIconEntry>.unmodifiable(next);
+    }
+    _integrationCustomIconsByApp = updated;
+    notifyListeners();
+    await _persistIntegrationCustomIconsByApp();
   }
 }

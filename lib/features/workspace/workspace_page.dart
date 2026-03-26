@@ -48,11 +48,34 @@ class WorkspacePage extends StatefulWidget {
   State<WorkspacePage> createState() => _WorkspacePageState();
 }
 
+enum _AiContextItemKind { currentPage, page, file, addFile }
+
+enum _AiContextMenuView { root, pages }
+
+class _AiContextItem {
+  const _AiContextItem({
+    required this.kind,
+    required this.id,
+    required this.label,
+    this.path,
+  });
+
+  final _AiContextItemKind kind;
+  final String id;
+  final String label;
+  final String? path;
+}
+
 class _WorkspacePageState extends State<WorkspacePage> {
   late final TextEditingController _titleController;
   final _scaffoldKey = GlobalKey<ScaffoldState>();
   final TextEditingController _chatInputController = TextEditingController();
   final FocusNode _chatInputFocusNode = FocusNode();
+  final LayerLink _aiComposerLayerLink = LayerLink();
+  OverlayEntry? _aiContextMenuOverlay;
+  String _aiContextQuery = '';
+  bool _aiContextMenuPinned = false;
+  _AiContextMenuView _aiContextMenuView = _AiContextMenuView.root;
   List<String> _aiAttachmentPaths = [];
   late String _attachmentsBoundChatId;
   bool _aiChatBusy = false;
@@ -64,6 +87,12 @@ class _WorkspacePageState extends State<WorkspacePage> {
   final ScrollController _aiChatScrollController = ScrollController();
   String? _lastAiChatIdForScroll;
   int _lastAiChatMessageCount = -1;
+  final Map<int, String?> _messageFeedback =
+      {}; // Track feedback for each message
+  Timer? _draftSaveTimer;
+  String _chatDraft = ''; // Auto-save draft
+  int _aiContextMenuSelectedIndex = 0; // Keyboard navigation
+  bool _aiContextMenuUsingKeyboard = false; // Track keyboard vs mouse
 
   VaultSession get _s => widget.session;
   AiChatThreadData get _activeChat => _s.activeAiChat;
@@ -293,6 +322,659 @@ class _WorkspacePageState extends State<WorkspacePage> {
         .trim();
   }
 
+  String _formatMessageTimestamp(BuildContext context, DateTime timestamp) {
+    final l10n = AppLocalizations.of(context);
+    final now = DateTime.now();
+    final diff = now.difference(timestamp);
+
+    if (diff.inSeconds < 60) {
+      return l10n.aiMessageTimestampNow;
+    }
+    if (diff.inMinutes < 60) {
+      return l10n.aiMessageTimestampMinutes(diff.inMinutes);
+    }
+    if (diff.inHours < 24) {
+      return l10n.aiMessageTimestampHours(diff.inHours);
+    }
+    return l10n.aiMessageTimestampDays(diff.inDays);
+  }
+
+  Future<void> _copyToClipboard(String text, String feedbackMsg) async {
+    await Clipboard.setData(ClipboardData(text: text));
+    if (mounted) {
+      _snack(feedbackMsg);
+    }
+  }
+
+  void _updateMessageFeedback(int messageIndex, String? feedback) {
+    final msgs = _activeChat.messages;
+    if (messageIndex < 0 || messageIndex >= msgs.length) return;
+    final old = msgs[messageIndex];
+    final updated = AiChatMessage(
+      role: old.role,
+      content: old.content,
+      timestamp: old.timestamp,
+      feedback: feedback,
+    );
+    _s.updateMessageInActiveAiChat(messageIndex, updated);
+  }
+
+  Widget _buildAiMessageRow(
+    BuildContext context,
+    AiChatMessage message,
+    int messageIndex,
+    ThemeData theme,
+    ColorScheme scheme,
+    AppLocalizations l10n,
+  ) {
+    final isUser = message.role == 'user';
+    final split = _splitAgentThought(message.content);
+    final thought = split.thought;
+    final bodyContent = split.body;
+    final msgKey = '${_activeChat.id}#$messageIndex';
+    final alwaysShowThought = widget.appSettings.aiAlwaysShowThought;
+    final thoughtExpanded =
+        alwaysShowThought || _expandedThoughtMessageKeys.contains(msgKey);
+    final bubbleColor = isUser
+        ? scheme.primaryContainer.withValues(alpha: 0.92)
+        : scheme.surface;
+    final textColor = isUser ? scheme.onPrimaryContainer : scheme.onSurface;
+    final feedback = _messageFeedback[messageIndex] ?? message.feedback;
+    final isHelpful = feedback == 'helpful';
+    final isNotHelpful = feedback == 'not_helpful';
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 18),
+      child: Column(
+        crossAxisAlignment: isUser
+            ? CrossAxisAlignment.end
+            : CrossAxisAlignment.start,
+        children: [
+          if (!isUser) ...[
+            Padding(
+              padding: const EdgeInsets.only(left: 42, bottom: 4),
+              child: Text(
+                _formatMessageTimestamp(context, message.timestamp),
+                style: theme.textTheme.labelSmall?.copyWith(
+                  color: scheme.onSurfaceVariant.withValues(alpha: 0.6),
+                ),
+              ),
+            ),
+          ],
+          Row(
+            mainAxisAlignment: isUser
+                ? MainAxisAlignment.end
+                : MainAxisAlignment.start,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              if (!isUser)
+                Container(
+                  width: 30,
+                  height: 30,
+                  margin: const EdgeInsets.only(right: 12, top: 4),
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      colors: [
+                        scheme.secondaryContainer,
+                        scheme.tertiaryContainer,
+                      ],
+                    ),
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(
+                    Icons.auto_awesome_rounded,
+                    size: 16,
+                    color: scheme.onSecondaryContainer,
+                  ),
+                ),
+              Flexible(
+                child: AnimatedOpacity(
+                  opacity: 1.0,
+                  duration: const Duration(milliseconds: 400),
+                  child: Container(
+                    padding: EdgeInsets.symmetric(
+                      horizontal: isUser ? 16 : 14,
+                      vertical: isUser ? 12 : 12,
+                    ),
+                    decoration: BoxDecoration(
+                      color: bubbleColor,
+                      border: Border.all(
+                        color: isUser
+                            ? scheme.primary.withValues(alpha: 0.12)
+                            : scheme.outlineVariant.withValues(alpha: 0.35),
+                      ),
+                      borderRadius: BorderRadius.circular(22).copyWith(
+                        bottomRight: isUser ? const Radius.circular(8) : null,
+                        topLeft: !isUser ? const Radius.circular(8) : null,
+                      ),
+                      boxShadow: [
+                        BoxShadow(
+                          color: scheme.shadow.withValues(alpha: 0.04),
+                          blurRadius: 12,
+                          offset: const Offset(0, 4),
+                        ),
+                      ],
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        if (!isUser && thought != null && thought.isNotEmpty)
+                          InkWell(
+                            borderRadius: BorderRadius.circular(12),
+                            onTap: alwaysShowThought
+                                ? null
+                                : () {
+                                    setState(() {
+                                      if (_expandedThoughtMessageKeys.contains(
+                                        msgKey,
+                                      )) {
+                                        _expandedThoughtMessageKeys.remove(
+                                          msgKey,
+                                        );
+                                      } else {
+                                        _expandedThoughtMessageKeys.add(msgKey);
+                                      }
+                                    });
+                                  },
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 10,
+                                vertical: 8,
+                              ),
+                              decoration: BoxDecoration(
+                                color: scheme.surfaceContainerHigh,
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: Row(
+                                children: [
+                                  Icon(
+                                    thoughtExpanded
+                                        ? Icons.keyboard_arrow_down_rounded
+                                        : Icons.keyboard_arrow_right_rounded,
+                                    size: 18,
+                                    color: textColor.withValues(alpha: 0.85),
+                                  ),
+                                  const SizedBox(width: 4),
+                                  Expanded(
+                                    child: Text(
+                                      l10n.aiAgentThought,
+                                      style: theme.textTheme.labelMedium
+                                          ?.copyWith(
+                                            color: textColor.withValues(
+                                              alpha: 0.85,
+                                            ),
+                                            fontWeight: FontWeight.w700,
+                                          ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        if (!isUser &&
+                            thought != null &&
+                            thought.isNotEmpty &&
+                            thoughtExpanded) ...[
+                          const SizedBox(height: 10),
+                          _buildMarkdownMessage(
+                            context: context,
+                            content: thought,
+                            isUser: isUser,
+                            textColor: textColor,
+                          ),
+                          const SizedBox(height: 10),
+                          Divider(
+                            height: 1,
+                            color: textColor.withValues(alpha: 0.14),
+                          ),
+                          const SizedBox(height: 10),
+                        ],
+                        _buildMarkdownMessage(
+                          context: context,
+                          content: bodyContent.isEmpty
+                              ? message.content
+                              : bodyContent,
+                          isUser: isUser,
+                          textColor: textColor,
+                        ),
+                        if (!isUser) ...[
+                          const SizedBox(height: 12),
+                          Row(
+                            children: [
+                              IconButton(
+                                iconSize: 18,
+                                padding: EdgeInsets.zero,
+                                constraints: const BoxConstraints(
+                                  minWidth: 32,
+                                  minHeight: 32,
+                                ),
+                                icon: Icon(
+                                  Icons.content_copy_rounded,
+                                  color: textColor.withValues(alpha: 0.7),
+                                ),
+                                tooltip: l10n.aiCopyMessage,
+                                onPressed: () => _copyToClipboard(
+                                  bodyContent.isEmpty
+                                      ? message.content
+                                      : bodyContent,
+                                  l10n.aiCopiedToClipboard,
+                                ),
+                              ),
+                              const SizedBox(width: 4),
+                              IconButton(
+                                iconSize: 18,
+                                padding: EdgeInsets.zero,
+                                constraints: const BoxConstraints(
+                                  minWidth: 32,
+                                  minHeight: 32,
+                                ),
+                                style: ButtonStyle(
+                                  iconColor: WidgetStateProperty.resolveWith(
+                                    (_) => isHelpful
+                                        ? scheme.primary
+                                        : textColor.withValues(alpha: 0.7),
+                                  ),
+                                ),
+                                icon: const Icon(Icons.thumb_up_rounded),
+                                tooltip: l10n.aiHelpful,
+                                onPressed: () {
+                                  final newFeedback = isHelpful
+                                      ? null
+                                      : 'helpful';
+                                  setState(
+                                    () => _messageFeedback[messageIndex] =
+                                        newFeedback,
+                                  );
+                                  _updateMessageFeedback(
+                                    messageIndex,
+                                    newFeedback,
+                                  );
+                                },
+                              ),
+                              const SizedBox(width: 4),
+                              IconButton(
+                                iconSize: 18,
+                                padding: EdgeInsets.zero,
+                                constraints: const BoxConstraints(
+                                  minWidth: 32,
+                                  minHeight: 32,
+                                ),
+                                style: ButtonStyle(
+                                  iconColor: WidgetStateProperty.resolveWith(
+                                    (_) => isNotHelpful
+                                        ? scheme.error
+                                        : textColor.withValues(alpha: 0.7),
+                                  ),
+                                ),
+                                icon: const Icon(Icons.thumb_down_rounded),
+                                tooltip: l10n.aiNotHelpful,
+                                onPressed: () {
+                                  final newFeedback = isNotHelpful
+                                      ? null
+                                      : 'not_helpful';
+                                  setState(
+                                    () => _messageFeedback[messageIndex] =
+                                        newFeedback,
+                                  );
+                                  _updateMessageFeedback(
+                                    messageIndex,
+                                    newFeedback,
+                                  );
+                                },
+                              ),
+                            ],
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+              if (isUser) const SizedBox(width: 12),
+            ],
+          ),
+          if (isUser)
+            Padding(
+              padding: const EdgeInsets.only(right: 12, top: 4),
+              child: Text(
+                _formatMessageTimestamp(context, message.timestamp),
+                style: theme.textTheme.labelSmall?.copyWith(
+                  color: scheme.onSurfaceVariant.withValues(alpha: 0.6),
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  List<_AiContextItem> _buildActiveAiContextItems(AppLocalizations l10n) {
+    final items = <_AiContextItem>[];
+    final page = _s.selectedPage;
+    if (_activeChat.includePageContext && _activeChat.contextPageIds.isEmpty) {
+      items.add(
+        _AiContextItem(
+          kind: _AiContextItemKind.currentPage,
+          id: page?.id ?? '__current_page__',
+          label: page?.title.isNotEmpty == true
+              ? l10n.aiContextCurrentPageChip(page!.title)
+              : l10n.aiContextCurrentPageFallback,
+        ),
+      );
+    }
+    for (final pageId in _activeChat.contextPageIds) {
+      final match = _s.pages.where((p) => p.id == pageId).firstOrNull;
+      items.add(
+        _AiContextItem(
+          kind: _AiContextItemKind.page,
+          id: pageId,
+          label: match == null || match.title.trim().isEmpty
+              ? l10n.untitledFallback
+              : match.title,
+        ),
+      );
+    }
+    for (final path in _aiAttachmentPaths) {
+      items.add(
+        _AiContextItem(
+          kind: _AiContextItemKind.file,
+          id: path,
+          label: path.split(RegExp(r'[/\\]')).last,
+          path: path,
+        ),
+      );
+    }
+    return items;
+  }
+
+  List<_AiContextItem> _buildAiContextSuggestions(
+    AppLocalizations l10n,
+    String query,
+  ) {
+    final needle = query.trim().toLowerCase();
+    if (_aiContextMenuView == _AiContextMenuView.root) {
+      return <_AiContextItem>[
+        _AiContextItem(
+          kind: _AiContextItemKind.addFile,
+          id: '__add_file__',
+          label: l10n.aiContextAddFile,
+        ),
+        _AiContextItem(
+          kind: _AiContextItemKind.page,
+          id: '__open_pages__',
+          label: l10n.aiContextAddPage,
+        ),
+      ];
+    }
+    final suggestions = <_AiContextItem>[
+      _AiContextItem(
+        kind: _AiContextItemKind.currentPage,
+        id: '__current_page__',
+        label: _s.selectedPage?.title.isNotEmpty == true
+            ? l10n.aiContextCurrentPageChip(_s.selectedPage!.title)
+            : l10n.aiContextCurrentPageFallback,
+      ),
+      ..._s.pages.map(
+        (page) => _AiContextItem(
+          kind: _AiContextItemKind.page,
+          id: page.id,
+          label: page.title.trim().isEmpty ? l10n.untitledFallback : page.title,
+        ),
+      ),
+    ];
+    if (needle.isEmpty) return suggestions.take(8).toList();
+    return suggestions
+        .where((item) => item.label.toLowerCase().contains(needle))
+        .take(8)
+        .toList();
+  }
+
+  bool _chatInputHasContextTrigger() {
+    final value = _chatInputController.value;
+    final text = value.text;
+    final selection = value.selection;
+    if (!selection.isValid) return false;
+    final caret = selection.baseOffset;
+    if (caret < 0 || caret > text.length) return false;
+    final prefix = text.substring(0, caret);
+    final match = RegExp(r'(^|\s)@([^\s@]*)$').firstMatch(prefix);
+    if (match == null) return false;
+    _aiContextQuery = match.group(2) ?? '';
+    _aiContextMenuView = _AiContextMenuView.pages;
+    return true;
+  }
+
+  void _hideAiContextMenu() {
+    _aiContextMenuOverlay?.remove();
+    _aiContextMenuOverlay = null;
+    _aiContextMenuPinned = false;
+    _aiContextMenuView = _AiContextMenuView.root;
+  }
+
+  void _showAiContextMenu({String initialQuery = '', bool pinned = false}) {
+    _aiContextQuery = initialQuery;
+    _aiContextMenuPinned = pinned;
+    _aiContextMenuSelectedIndex = 0;
+    _aiContextMenuUsingKeyboard = false;
+    final l10n = AppLocalizations.of(context);
+    final suggestions = _buildAiContextSuggestions(l10n, _aiContextQuery);
+    if (suggestions.isEmpty) {
+      _hideAiContextMenu();
+      return;
+    }
+    _aiContextMenuOverlay?.remove();
+    _aiContextMenuOverlay = OverlayEntry(
+      builder: (context) {
+        final theme = Theme.of(context);
+        final scheme = theme.colorScheme;
+        return Positioned.fill(
+          child: Stack(
+            children: [
+              Positioned.fill(
+                child: Listener(
+                  behavior: HitTestBehavior.translucent,
+                  onPointerDown: (_) => _hideAiContextMenu(),
+                ),
+              ),
+              CompositedTransformFollower(
+                link: _aiComposerLayerLink,
+                showWhenUnlinked: false,
+                targetAnchor: Alignment.topLeft,
+                followerAnchor: Alignment.bottomLeft,
+                offset: const Offset(0, -8),
+                child: Material(
+                  elevation: 8,
+                  color: scheme.surface,
+                  borderRadius: BorderRadius.circular(FolioRadius.lg),
+                  clipBehavior: Clip.antiAlias,
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(
+                      maxWidth: 320,
+                      maxHeight: 280,
+                    ),
+                    child: ListView.builder(
+                      padding: const EdgeInsets.symmetric(vertical: 6),
+                      shrinkWrap: true,
+                      itemCount: suggestions.length,
+                      itemBuilder: (context, index) {
+                        final item = suggestions[index];
+                        final alreadySelected =
+                            item.kind == _AiContextItemKind.page &&
+                            item.id != '__open_pages__' &&
+                            _activeChat.contextPageIds.contains(item.id);
+                        final isKeyboardSelected =
+                            _aiContextMenuUsingKeyboard &&
+                            index == _aiContextMenuSelectedIndex;
+                        final bgColor = isKeyboardSelected
+                            ? scheme.primaryContainer.withValues(alpha: 0.3)
+                            : Colors.transparent;
+                        return MouseRegion(
+                          onEnter: (_) {
+                            if (_aiContextMenuUsingKeyboard) {
+                              setState(() {
+                                _aiContextMenuSelectedIndex = index;
+                                _aiContextMenuUsingKeyboard = false;
+                              });
+                            }
+                          },
+                          child: Container(
+                            color: bgColor,
+                            child: ListTile(
+                              dense: true,
+                              leading: Icon(
+                                alreadySelected
+                                    ? Icons.check_rounded
+                                    : _iconForAiContextItem(item.kind),
+                                size: 18,
+                              ),
+                              title: Text(
+                                item.label,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                              trailing: item.id == '__open_pages__'
+                                  ? const Icon(
+                                      Icons.chevron_right_rounded,
+                                      size: 18,
+                                    )
+                                  : null,
+                              onTap: () {
+                                _aiContextMenuUsingKeyboard = false;
+                                _applyAiContextSuggestion(item);
+                              },
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+    Overlay.of(context, rootOverlay: true).insert(_aiContextMenuOverlay!);
+  }
+
+  void _updateAiContextMenu() {
+    if (_aiContextMenuPinned) {
+      _showAiContextMenu(initialQuery: _aiContextQuery, pinned: true);
+      return;
+    }
+    if (!_chatInputFocusNode.hasFocus || !_chatInputHasContextTrigger()) {
+      _hideAiContextMenu();
+      return;
+    }
+    _showAiContextMenu(initialQuery: _aiContextQuery);
+    _scheduleDraftSave();
+  }
+
+  void _scheduleDraftSave() {
+    _draftSaveTimer?.cancel();
+    _draftSaveTimer = Timer(const Duration(milliseconds: 500), () {
+      final text = _chatInputController.text;
+      if (text != _chatDraft) {
+        setState(() => _chatDraft = text);
+      }
+    });
+  }
+
+  IconData _iconForAiContextItem(_AiContextItemKind kind) {
+    switch (kind) {
+      case _AiContextItemKind.currentPage:
+        return Icons.menu_book_rounded;
+      case _AiContextItemKind.page:
+        return Icons.description_outlined;
+      case _AiContextItemKind.file:
+        return Icons.attach_file_rounded;
+      case _AiContextItemKind.addFile:
+        return Icons.add_circle_outline_rounded;
+    }
+  }
+
+  Future<void> _applyAiContextSuggestion(_AiContextItem item) async {
+    switch (item.kind) {
+      case _AiContextItemKind.currentPage:
+        _s.setActiveAiChatIncludePageContext(true);
+        _s.setActiveAiChatContextPageIds(const []);
+        _showAiContextMenu(
+          initialQuery: _aiContextQuery,
+          pinned: _aiContextMenuPinned,
+        );
+        break;
+      case _AiContextItemKind.page:
+        if (item.id == '__open_pages__') {
+          _aiContextMenuView = _AiContextMenuView.pages;
+          _showAiContextMenu(pinned: true);
+          return;
+        }
+        final next = <String>{..._activeChat.contextPageIds, item.id}.toList();
+        _s.setActiveAiChatIncludePageContext(true);
+        _s.setActiveAiChatContextPageIds(next);
+        _showAiContextMenu(initialQuery: _aiContextQuery, pinned: true);
+        break;
+      case _AiContextItemKind.file:
+        break;
+      case _AiContextItemKind.addFile:
+        await _pickAiAttachments();
+        _showAiContextMenu(pinned: true);
+        break;
+    }
+    if (_aiContextMenuView == _AiContextMenuView.pages) {
+      final value = _chatInputController.value;
+      final text = value.text;
+      final selection = value.selection;
+      if (selection.isValid) {
+        final caret = selection.baseOffset;
+        final prefix = text.substring(0, caret);
+        final match = RegExp(r'(^|\s)@([^\s@]*)$').firstMatch(prefix);
+        if (match != null) {
+          final replaceStart = match.start + (match.group(1)?.length ?? 0);
+          final newText = text.replaceRange(replaceStart, caret, '');
+          _chatInputController.value = TextEditingValue(
+            text: newText,
+            selection: TextSelection.collapsed(offset: replaceStart),
+          );
+        }
+      }
+    }
+    if (mounted) setState(() {});
+  }
+
+  void _openAiContextPickerFromButton() {
+    _chatInputFocusNode.requestFocus();
+    _aiContextMenuView = _AiContextMenuView.root;
+    _showAiContextMenu(pinned: true);
+  }
+
+  void _removeAiContextItem(_AiContextItem item) {
+    switch (item.kind) {
+      case _AiContextItemKind.currentPage:
+        _s.setActiveAiChatIncludePageContext(false);
+        _s.setActiveAiChatContextPageIds(const []);
+        break;
+      case _AiContextItemKind.page:
+        final next = List<String>.from(_activeChat.contextPageIds)
+          ..remove(item.id);
+        if (next.isEmpty) {
+          _s.setActiveAiChatContextPageIds(const []);
+          _s.setActiveAiChatIncludePageContext(false);
+        } else {
+          _s.setActiveAiChatIncludePageContext(true);
+          _s.setActiveAiChatContextPageIds(next);
+        }
+        break;
+      case _AiContextItemKind.file:
+        setState(() => _aiAttachmentPaths.remove(item.id));
+        _s.syncActiveAiChatAttachmentPaths(_aiAttachmentPaths);
+        break;
+      case _AiContextItemKind.addFile:
+        break;
+    }
+  }
+
   @override
   void initState() {
     super.initState();
@@ -302,6 +984,8 @@ class _WorkspacePageState extends State<WorkspacePage> {
     _s.addListener(_onSession);
     widget.appSettings.addListener(_onAppSettings);
     HardwareKeyboard.instance.addHandler(_onHardwareKeyEvent);
+    _chatInputController.addListener(_updateAiContextMenu);
+    _chatInputFocusNode.addListener(_updateAiContextMenu);
     _syncTitleFromSession();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _maybeShowQuillWorkspaceTour();
@@ -311,9 +995,13 @@ class _WorkspacePageState extends State<WorkspacePage> {
   @override
   void dispose() {
     _s.syncActiveAiChatAttachmentPaths(_aiAttachmentPaths);
+    _hideAiContextMenu();
+    _draftSaveTimer?.cancel();
     HardwareKeyboard.instance.removeHandler(_onHardwareKeyEvent);
     widget.appSettings.removeListener(_onAppSettings);
     _s.removeListener(_onSession);
+    _chatInputController.removeListener(_updateAiContextMenu);
+    _chatInputFocusNode.removeListener(_updateAiContextMenu);
     _titleController.dispose();
     _chatInputController.dispose();
     _chatInputFocusNode.dispose();
@@ -351,6 +1039,7 @@ class _WorkspacePageState extends State<WorkspacePage> {
     _lastAiChatMessageCount = chat.messages.length;
     _syncTitleFromSession();
     setState(() {});
+    _updateAiContextMenu();
     if (countChanged || threadChanged) {
       _scheduleAiChatScrollToBottom();
     }
@@ -881,6 +1570,47 @@ class _WorkspacePageState extends State<WorkspacePage> {
 
   KeyEventResult _onChatInputKey(FocusNode node, KeyEvent event) {
     if (event is! KeyDownEvent) return KeyEventResult.ignored;
+
+    // Handle keyboard navigation when context menu is open
+    if (_aiContextMenuOverlay != null) {
+      if (event.logicalKey == LogicalKeyboardKey.arrowUp) {
+        setState(() {
+          _aiContextMenuSelectedIndex = math.max(
+            0,
+            _aiContextMenuSelectedIndex - 1,
+          );
+          _aiContextMenuUsingKeyboard = true;
+        });
+        return KeyEventResult.handled;
+      }
+      if (event.logicalKey == LogicalKeyboardKey.arrowDown) {
+        final l10n = AppLocalizations.of(context);
+        final suggestions = _buildAiContextSuggestions(l10n, _aiContextQuery);
+        setState(() {
+          _aiContextMenuSelectedIndex = math.min(
+            suggestions.length - 1,
+            _aiContextMenuSelectedIndex + 1,
+          );
+          _aiContextMenuUsingKeyboard = true;
+        });
+        return KeyEventResult.handled;
+      }
+      if (event.logicalKey == LogicalKeyboardKey.enter) {
+        final l10n = AppLocalizations.of(context);
+        final suggestions = _buildAiContextSuggestions(l10n, _aiContextQuery);
+        if (_aiContextMenuSelectedIndex >= 0 &&
+            _aiContextMenuSelectedIndex < suggestions.length) {
+          _applyAiContextSuggestion(suggestions[_aiContextMenuSelectedIndex]);
+          return KeyEventResult.handled;
+        }
+      }
+      if (event.logicalKey == LogicalKeyboardKey.escape) {
+        _hideAiContextMenu();
+        return KeyEventResult.handled;
+      }
+    }
+
+    // Regular enter key handling
     if (event.logicalKey != LogicalKeyboardKey.enter) {
       return KeyEventResult.ignored;
     }
@@ -1016,68 +1746,6 @@ class _WorkspacePageState extends State<WorkspacePage> {
     }
   }
 
-  Future<void> _openAiContextPagesDialog() async {
-    final l10n = AppLocalizations.of(context);
-    final selected = Set<String>.from(_activeChat.contextPageIds);
-    await showDialog<void>(
-      context: context,
-      builder: (ctx) {
-        return StatefulBuilder(
-          builder: (ctx, setDialogState) {
-            return AlertDialog(
-              title: Text(l10n.aiChatContextPagesDialogTitle),
-              content: SizedBox(
-                width: 420,
-                height: 400,
-                child: ListView(
-                  children: _s.pages.map((p) {
-                    return CheckboxListTile(
-                      value: selected.contains(p.id),
-                      onChanged: (v) {
-                        setDialogState(() {
-                          if (v == true) {
-                            selected.add(p.id);
-                          } else {
-                            selected.remove(p.id);
-                          }
-                        });
-                      },
-                      title: Text(
-                        p.title.isEmpty ? l10n.untitledFallback : p.title,
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    );
-                  }).toList(),
-                ),
-              ),
-              actions: [
-                TextButton(
-                  onPressed: () {
-                    setDialogState(() => selected.clear());
-                  },
-                  child: Text(l10n.aiChatContextPagesClear),
-                ),
-                TextButton(
-                  onPressed: () => Navigator.pop(ctx),
-                  child: Text(l10n.cancel),
-                ),
-                FilledButton(
-                  onPressed: () {
-                    _s.setActiveAiChatContextPageIds(selected.toList());
-                    Navigator.pop(ctx);
-                  },
-                  child: Text(l10n.aiChatContextPagesApply),
-                ),
-              ],
-            );
-          },
-        );
-      },
-    );
-    if (mounted) setState(() {});
-  }
-
   void _createNewChat() {
     _s.syncActiveAiChatAttachmentPaths(_aiAttachmentPaths);
     setState(() => _lastChatTokenUsage = null);
@@ -1126,7 +1794,10 @@ class _WorkspacePageState extends State<WorkspacePage> {
                   vertical: 14,
                 ),
                 decoration: BoxDecoration(
-                  color: scheme.surfaceContainerHigh.withValues(alpha: 0.65),
+                  color: scheme.surfaceContainerHighest.withValues(alpha: 0.92),
+                  border: Border.all(
+                    color: scheme.outlineVariant.withValues(alpha: 0.35),
+                  ),
                   borderRadius: BorderRadius.circular(
                     FolioRadius.lg,
                   ).copyWith(topLeft: Radius.zero),
@@ -1192,35 +1863,57 @@ class _WorkspacePageState extends State<WorkspacePage> {
     final scheme = theme.colorScheme;
     final l10n = AppLocalizations.of(context);
     return Material(
-      color: scheme.surfaceContainerLow,
+      color: scheme.surface,
       child: SafeArea(
         child: Column(
           children: [
             Container(
-              margin: const EdgeInsets.fromLTRB(10, 10, 10, 8),
-              padding: const EdgeInsets.fromLTRB(16, 12, 12, 12),
+              margin: const EdgeInsets.fromLTRB(10, 10, 10, 10),
+              padding: const EdgeInsets.fromLTRB(16, 14, 12, 14),
               decoration: BoxDecoration(
-                color: scheme.surfaceContainerHigh,
-                borderRadius: BorderRadius.circular(
-                  FolioRadius.xl,
-                ), // fully rounded top section
+                gradient: LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [
+                    scheme.surfaceContainerHighest,
+                    scheme.surfaceContainerHigh,
+                  ],
+                ),
+                border: Border.all(
+                  color: scheme.outlineVariant.withValues(alpha: 0.45),
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: scheme.shadow.withValues(alpha: 0.08),
+                    blurRadius: 16,
+                    offset: const Offset(0, 8),
+                  ),
+                ],
+                borderRadius: BorderRadius.circular(FolioRadius.xl),
               ),
               child: Row(
                 children: [
                   Container(
-                    width: 34,
-                    height: 34,
+                    width: 40,
+                    height: 40,
                     decoration: BoxDecoration(
-                      color: scheme.primaryContainer.withValues(alpha: 0.7),
-                      borderRadius: BorderRadius.circular(10),
+                      gradient: LinearGradient(
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                        colors: [
+                          scheme.primaryContainer,
+                          scheme.tertiaryContainer,
+                        ],
+                      ),
+                      borderRadius: BorderRadius.circular(12),
                     ),
                     child: Icon(
                       Icons.auto_awesome_rounded,
-                      size: 20,
+                      size: 22,
                       color: scheme.onPrimaryContainer,
                     ),
                   ),
-                  const SizedBox(width: 10),
+                  const SizedBox(width: 12),
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -1233,7 +1926,8 @@ class _WorkspacePageState extends State<WorkspacePage> {
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
                                 style: theme.textTheme.titleSmall?.copyWith(
-                                  fontWeight: FontWeight.w700,
+                                  fontWeight: FontWeight.w800,
+                                  letterSpacing: -0.2,
                                 ),
                               ),
                             ),
@@ -1241,16 +1935,16 @@ class _WorkspacePageState extends State<WorkspacePage> {
                             Container(
                               padding: const EdgeInsets.symmetric(
                                 horizontal: 8,
-                                vertical: 2,
+                                vertical: 3,
                               ),
                               decoration: BoxDecoration(
-                                color: scheme.tertiaryContainer,
+                                color: scheme.primary.withValues(alpha: 0.10),
                                 borderRadius: BorderRadius.circular(999),
                               ),
                               child: Text(
                                 l10n.aiBetaBadge,
                                 style: theme.textTheme.labelSmall?.copyWith(
-                                  color: scheme.onTertiaryContainer,
+                                  color: scheme.primary,
                                   fontWeight: FontWeight.w800,
                                   letterSpacing: 0.6,
                                 ),
@@ -1258,63 +1952,17 @@ class _WorkspacePageState extends State<WorkspacePage> {
                             ),
                           ],
                         ),
+                        const SizedBox(height: 4),
                         Text(
                           _aiPanelContextSubtitle(l10n),
                           maxLines: 2,
                           overflow: TextOverflow.ellipsis,
                           style: theme.textTheme.bodySmall?.copyWith(
-                            color: scheme.onSurfaceVariant,
+                            color: scheme.onSurfaceVariant.withValues(
+                              alpha: 0.95,
+                            ),
+                            height: 1.35,
                           ),
-                        ),
-                        const SizedBox(height: 6),
-                        Row(
-                          children: [
-                            IconButton(
-                              tooltip: l10n.aiChatPageContextTooltip,
-                              visualDensity: VisualDensity.compact,
-                              padding: EdgeInsets.zero,
-                              constraints: const BoxConstraints(
-                                minWidth: 36,
-                                minHeight: 36,
-                              ),
-                              icon: Icon(
-                                _activeChat.includePageContext
-                                    ? Icons.menu_book_rounded
-                                    : Icons.menu_book_outlined,
-                                size: 22,
-                                color: _activeChat.includePageContext
-                                    ? scheme.primary
-                                    : scheme.onSurfaceVariant.withValues(
-                                        alpha: 0.55,
-                                      ),
-                              ),
-                              onPressed: () =>
-                                  _s.setActiveAiChatIncludePageContext(
-                                    !_activeChat.includePageContext,
-                                  ),
-                            ),
-                            IconButton(
-                              tooltip: l10n.aiChatChooseContextPagesTooltip,
-                              visualDensity: VisualDensity.compact,
-                              padding: EdgeInsets.zero,
-                              constraints: const BoxConstraints(
-                                minWidth: 36,
-                                minHeight: 36,
-                              ),
-                              icon: Icon(
-                                Icons.library_books_outlined,
-                                size: 22,
-                                color: _activeChat.includePageContext
-                                    ? scheme.onSurfaceVariant
-                                    : scheme.onSurfaceVariant.withValues(
-                                        alpha: 0.35,
-                                      ),
-                              ),
-                              onPressed: _activeChat.includePageContext
-                                  ? _openAiContextPagesDialog
-                                  : null,
-                            ),
-                          ],
                         ),
                       ],
                     ),
@@ -1352,6 +2000,7 @@ class _WorkspacePageState extends State<WorkspacePage> {
                             overflow: TextOverflow.ellipsis,
                           ),
                           selected: active,
+                          visualDensity: VisualDensity.compact,
                           onSelected: (_) {
                             _s.syncActiveAiChatAttachmentPaths(
                               _aiAttachmentPaths,
@@ -1385,189 +2034,74 @@ class _WorkspacePageState extends State<WorkspacePage> {
             ),
             const SizedBox(height: 10),
             Expanded(
-              child: Builder(
-                builder: (context) {
-                  final msgs = _activeChat.messages;
-                  final showChatList = msgs.isNotEmpty || _aiChatBusy;
-                  if (!showChatList) {
-                    return Center(
-                      child: Padding(
-                        padding: const EdgeInsets.all(24),
-                        child: Text(
-                          l10n.aiChatEmptyHint,
-                          textAlign: TextAlign.center,
-                          style: theme.textTheme.bodyMedium?.copyWith(
-                            color: scheme.onSurfaceVariant,
-                            height: 1.45,
-                          ),
-                        ),
-                      ),
-                    );
-                  }
-                  final typingExtra = _aiChatBusy ? 1 : 0;
-                  return ListView.builder(
-                    controller: _aiChatScrollController,
-                    padding: const EdgeInsets.fromLTRB(10, 8, 10, 8),
-                    itemCount: msgs.length + typingExtra,
-                    itemBuilder: (context, i) {
-                      if (_aiChatBusy && i == msgs.length) {
-                        return _buildAiTypingRow(theme, scheme, l10n);
-                      }
-                      final m = msgs[i];
-                      final isUser = m.role == 'user';
-                      final split = _splitAgentThought(m.content);
-                      final thought = split.thought;
-                      final bodyContent = split.body;
-                      final msgKey = '${_activeChat.id}#$i';
-                      final alwaysShowThought =
-                          widget.appSettings.aiAlwaysShowThought;
-                      final thoughtExpanded =
-                          alwaysShowThought ||
-                          _expandedThoughtMessageKeys.contains(msgKey);
-                      final bubbleColor = isUser
-                          ? scheme.primaryContainer
-                          : Colors.transparent;
-                      final textColor = isUser
-                          ? scheme.onPrimaryContainer
-                          : scheme.onSurface;
-                      return Padding(
-                        padding: const EdgeInsets.only(bottom: 16),
-                        child: Row(
-                          mainAxisAlignment: isUser
-                              ? MainAxisAlignment.end
-                              : MainAxisAlignment.start,
-                          crossAxisAlignment: CrossAxisAlignment
-                              .start, // ChatGPT style is top aligned
-                          children: [
-                            if (!isUser)
+              child: Container(
+                margin: const EdgeInsets.symmetric(horizontal: 10),
+                decoration: BoxDecoration(
+                  color: scheme.surfaceContainerLow,
+                  border: Border.all(
+                    color: scheme.outlineVariant.withValues(alpha: 0.35),
+                  ),
+                  borderRadius: BorderRadius.circular(FolioRadius.xl),
+                ),
+                child: Builder(
+                  builder: (context) {
+                    final msgs = _activeChat.messages;
+                    final showChatList = msgs.isNotEmpty || _aiChatBusy;
+                    if (!showChatList) {
+                      return Center(
+                        child: Padding(
+                          padding: const EdgeInsets.all(28),
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
                               Container(
-                                width: 28,
-                                height: 28,
-                                margin: const EdgeInsets.only(
-                                  right: 12,
-                                  top: 2,
-                                ),
+                                width: 56,
+                                height: 56,
                                 decoration: BoxDecoration(
-                                  color: scheme.secondaryContainer,
-                                  shape: BoxShape.circle, // Circular avatar
+                                  color: scheme.primary.withValues(alpha: 0.10),
+                                  shape: BoxShape.circle,
                                 ),
                                 child: Icon(
-                                  Icons.smart_toy_outlined,
-                                  size: 16,
-                                  color: scheme.onSecondaryContainer,
+                                  Icons.forum_outlined,
+                                  color: scheme.primary,
+                                  size: 28,
                                 ),
                               ),
-                            Flexible(
-                              child: Container(
-                                padding: EdgeInsets.symmetric(
-                                  horizontal: isUser ? 16 : 4,
-                                  vertical: isUser ? 12 : 4,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: bubbleColor,
-                                  borderRadius: BorderRadius.circular(20)
-                                      .copyWith(
-                                        bottomRight: isUser
-                                            ? Radius.zero
-                                            : null,
-                                        topLeft: !isUser ? Radius.zero : null,
-                                      ),
-                                ),
-                                child: Column(
-                                  crossAxisAlignment:
-                                      CrossAxisAlignment.stretch,
-                                  children: [
-                                    if (!isUser &&
-                                        thought != null &&
-                                        thought.isNotEmpty)
-                                      InkWell(
-                                        onTap: alwaysShowThought
-                                            ? null
-                                            : () {
-                                                setState(() {
-                                                  if (_expandedThoughtMessageKeys
-                                                      .contains(msgKey)) {
-                                                    _expandedThoughtMessageKeys
-                                                        .remove(msgKey);
-                                                  } else {
-                                                    _expandedThoughtMessageKeys
-                                                        .add(msgKey);
-                                                  }
-                                                });
-                                              },
-                                        child: Row(
-                                          children: [
-                                            Icon(
-                                              thoughtExpanded
-                                                  ? Icons
-                                                        .keyboard_arrow_down_rounded
-                                                  : Icons
-                                                        .keyboard_arrow_right_rounded,
-                                              size: 18,
-                                              color: textColor.withValues(
-                                                alpha: 0.9,
-                                              ),
-                                            ),
-                                            const SizedBox(width: 4),
-                                            Expanded(
-                                              child: Text(
-                                                AppLocalizations.of(
-                                                  context,
-                                                ).aiAgentThought,
-                                                style: theme
-                                                    .textTheme
-                                                    .labelMedium
-                                                    ?.copyWith(
-                                                      color: textColor
-                                                          .withValues(
-                                                            alpha: 0.9,
-                                                          ),
-                                                      fontWeight:
-                                                          FontWeight.w700,
-                                                    ),
-                                              ),
-                                            ),
-                                          ],
-                                        ),
-                                      ),
-                                    if (!isUser &&
-                                        thought != null &&
-                                        thought.isNotEmpty &&
-                                        thoughtExpanded) ...[
-                                      const SizedBox(height: 6),
-                                      _buildMarkdownMessage(
-                                        context: context,
-                                        content: thought,
-                                        isUser: isUser,
-                                        textColor: textColor,
-                                      ),
-                                      const SizedBox(height: 8),
-                                      Divider(
-                                        height: 1,
-                                        color: textColor.withValues(
-                                          alpha: 0.18,
-                                        ),
-                                      ),
-                                      const SizedBox(height: 8),
-                                    ],
-                                    _buildMarkdownMessage(
-                                      context: context,
-                                      content: bodyContent.isEmpty
-                                          ? m.content
-                                          : bodyContent,
-                                      isUser: isUser,
-                                      textColor: textColor,
-                                    ),
-                                  ],
+                              const SizedBox(height: 16),
+                              Text(
+                                l10n.aiChatEmptyHint,
+                                textAlign: TextAlign.center,
+                                style: theme.textTheme.bodyMedium?.copyWith(
+                                  color: scheme.onSurfaceVariant,
+                                  height: 1.55,
                                 ),
                               ),
-                            ),
-                          ],
+                            ],
+                          ),
                         ),
                       );
-                    },
-                  );
-                },
+                    }
+                    final typingExtra = _aiChatBusy ? 1 : 0;
+                    return ListView.builder(
+                      controller: _aiChatScrollController,
+                      padding: const EdgeInsets.fromLTRB(14, 16, 14, 14),
+                      itemCount: msgs.length + typingExtra,
+                      itemBuilder: (context, i) {
+                        if (_aiChatBusy && i == msgs.length) {
+                          return _buildAiTypingRow(theme, scheme, l10n);
+                        }
+                        return _buildAiMessageRow(
+                          context,
+                          msgs[i],
+                          i,
+                          theme,
+                          scheme,
+                          l10n,
+                        );
+                      },
+                    );
+                  },
+                ),
               ),
             ),
             Padding(
@@ -1589,98 +2123,151 @@ class _WorkspacePageState extends State<WorkspacePage> {
             Padding(
               padding: const EdgeInsets.fromLTRB(10, 8, 10, 10),
               child: Container(
-                padding: const EdgeInsets.fromLTRB(8, 8, 8, 8),
+                padding: const EdgeInsets.fromLTRB(10, 10, 10, 10),
                 decoration: BoxDecoration(
-                  color: scheme.surfaceContainerHighest,
-                  borderRadius: BorderRadius.circular(24),
+                  gradient: LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [scheme.surfaceContainerHighest, scheme.surface],
+                  ),
+                  border: Border.all(
+                    color: scheme.outlineVariant.withValues(alpha: 0.40),
+                  ),
+                  borderRadius: BorderRadius.circular(26),
+                  boxShadow: [
+                    BoxShadow(
+                      color: scheme.shadow.withValues(alpha: 0.06),
+                      blurRadius: 16,
+                      offset: const Offset(0, 8),
+                    ),
+                  ],
                 ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    if (_aiAttachmentPaths.isNotEmpty)
-                      Padding(
-                        padding: const EdgeInsets.only(
-                          bottom: 8,
-                          left: 8,
-                          right: 8,
-                          top: 4,
-                        ),
-                        child: Wrap(
-                          spacing: 6,
-                          runSpacing: 6,
-                          children: _aiAttachmentPaths
-                              .map(
-                                (p) => InputChip(
-                                  label: Text(p.split('\\').last),
-                                  onDeleted: () {
-                                    setState(
-                                      () => _aiAttachmentPaths.remove(p),
-                                    );
-                                    _s.syncActiveAiChatAttachmentPaths(
-                                      _aiAttachmentPaths,
-                                    );
-                                  },
-                                ),
-                              )
-                              .toList(),
-                        ),
-                      ),
-                    Row(
-                      crossAxisAlignment: CrossAxisAlignment.end,
-                      children: [
-                        IconButton(
-                          onPressed: _pickAiAttachments,
-                          icon: const Icon(Icons.add_circle_outline_rounded),
-                          tooltip: l10n.aiAttach,
-                          padding: const EdgeInsets.all(12),
-                          color: scheme.onSurfaceVariant,
-                        ),
-                        const SizedBox(width: 4),
-                        Expanded(
-                          child: Padding(
-                            padding: const EdgeInsets.only(bottom: 2),
-                            child: Focus(
-                              onKeyEvent: _onChatInputKey,
-                              child: TextField(
-                                focusNode: _chatInputFocusNode,
-                                controller: _chatInputController,
-                                minLines: 1,
-                                maxLines: 5,
-                                decoration: InputDecoration(
-                                  border: InputBorder.none,
-                                  hintText: l10n.aiInputHint,
-                                  isDense: true,
-                                  contentPadding: const EdgeInsets.symmetric(
-                                    vertical: 10,
+                    Builder(
+                      builder: (context) {
+                        final items = _buildActiveAiContextItems(l10n);
+                        if (items.isEmpty) {
+                          return Padding(
+                            padding: const EdgeInsets.only(
+                              bottom: 8,
+                              left: 8,
+                              right: 8,
+                              top: 4,
+                            ),
+                            child: Text(
+                              l10n.aiContextComposerHint,
+                              style: theme.textTheme.labelSmall?.copyWith(
+                                color: scheme.onSurfaceVariant,
+                              ),
+                            ),
+                          );
+                        }
+                        return Padding(
+                          padding: const EdgeInsets.only(
+                            bottom: 8,
+                            left: 8,
+                            right: 8,
+                            top: 4,
+                          ),
+                          child: Wrap(
+                            spacing: 6,
+                            runSpacing: 6,
+                            children: items
+                                .map(
+                                  (item) => InputChip(
+                                    visualDensity: VisualDensity.compact,
+                                    avatar: Icon(
+                                      _iconForAiContextItem(item.kind),
+                                      size: 16,
+                                    ),
+                                    label: Text(item.label),
+                                    onDeleted:
+                                        item.kind == _AiContextItemKind.addFile
+                                        ? null
+                                        : () => _removeAiContextItem(item),
+                                  ),
+                                )
+                                .toList(),
+                          ),
+                        );
+                      },
+                    ),
+                    CompositedTransformTarget(
+                      link: _aiComposerLayerLink,
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 2),
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.end,
+                          children: [
+                            IconButton(
+                              onPressed: _openAiContextPickerFromButton,
+                              icon: const Icon(
+                                Icons.add_circle_outline_rounded,
+                              ),
+                              tooltip: l10n.aiAttach,
+                              padding: const EdgeInsets.all(12),
+                              color: scheme.onSurfaceVariant,
+                            ),
+                            const SizedBox(width: 4),
+                            Expanded(
+                              child: Padding(
+                                padding: const EdgeInsets.only(bottom: 2),
+                                child: Focus(
+                                  onKeyEvent: _onChatInputKey,
+                                  child: TextField(
+                                    focusNode: _chatInputFocusNode,
+                                    controller: _chatInputController,
+                                    minLines: 1,
+                                    maxLines: 5,
+                                    onTap: _updateAiContextMenu,
+                                    onChanged: (_) => _updateAiContextMenu(),
+                                    decoration: InputDecoration(
+                                      border: InputBorder.none,
+                                      hintText: l10n.aiInputHintCopilot,
+                                      helperText: l10n.aiContextComposerHelper,
+                                      helperMaxLines: 2,
+                                      isDense: true,
+                                      hintStyle: theme.textTheme.bodyMedium
+                                          ?.copyWith(
+                                            color: scheme.onSurfaceVariant
+                                                .withValues(alpha: 0.85),
+                                          ),
+                                      contentPadding:
+                                          const EdgeInsets.symmetric(
+                                            vertical: 10,
+                                          ),
+                                    ),
                                   ),
                                 ),
                               ),
                             ),
-                          ),
+                            const SizedBox(width: 8),
+                            FilledButton(
+                              onPressed: _aiChatBusy ? null : _sendAiChat,
+                              style: FilledButton.styleFrom(
+                                minimumSize: const Size(44, 44),
+                                shape: const CircleBorder(),
+                                padding: EdgeInsets.zero,
+                              ),
+                              child: _aiChatBusy
+                                  ? const SizedBox(
+                                      width: 18,
+                                      height: 18,
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 2,
+                                        color: Colors.white,
+                                      ),
+                                    )
+                                  : const Icon(
+                                      Icons.arrow_upward_rounded,
+                                      size: 20,
+                                    ),
+                            ),
+                          ],
                         ),
-                        const SizedBox(width: 8),
-                        FilledButton(
-                          onPressed: _aiChatBusy ? null : _sendAiChat,
-                          style: FilledButton.styleFrom(
-                            minimumSize: const Size(44, 44),
-                            shape: const CircleBorder(),
-                            padding: EdgeInsets.zero,
-                          ),
-                          child: _aiChatBusy
-                              ? const SizedBox(
-                                  width: 18,
-                                  height: 18,
-                                  child: CircularProgressIndicator(
-                                    strokeWidth: 2,
-                                    color: Colors.white,
-                                  ),
-                                )
-                              : const Icon(
-                                  Icons.arrow_upward_rounded,
-                                  size: 20,
-                                ),
-                        ),
-                      ],
+                      ),
                     ),
                   ],
                 ),
@@ -1714,6 +2301,7 @@ class _WorkspacePageState extends State<WorkspacePage> {
       color: scheme.surfaceContainerLow,
       child: Sidebar(
         session: _s,
+        appSettings: widget.appSettings,
         onSearch: widget.onOpenSearch,
         onOpenSettings: _openSettings,
         onLock: () => _s.lock(),
@@ -1966,11 +2554,13 @@ class _WorkspacePageState extends State<WorkspacePage> {
         }
       },
       onCreatePage: () => _s.addPage(parentId: null),
+      onOpenSearch: widget.onOpenSearch,
       editor: page == null
           ? const SizedBox.shrink()
           : BlockEditor(
               key: ValueKey('${page.id}-${_s.contentEpoch}'),
               session: _s,
+              appSettings: widget.appSettings,
             ),
     );
     return CallbackShortcuts(

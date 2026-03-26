@@ -2,6 +2,7 @@
 #include <flutter/flutter_view_controller.h>
 #include <windows.h>
 
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -9,6 +10,12 @@
 #include "utils.h"
 
 namespace {
+
+constexpr const wchar_t kFolioWindowClassName[] =
+  L"FLUTTER_RUNNER_WIN32_WINDOW";
+constexpr const wchar_t kFolioSingleInstanceMutexName[] =
+  L"Local\\FolioSingleInstanceMutex";
+constexpr ULONG_PTR kFolioLaunchArgsCopyDataId = 0x464F4C49;
 
 void RegisterFolioProtocol() {
   HKEY classes_key;
@@ -60,6 +67,66 @@ void RegisterFolioProtocol() {
   ::RegCloseKey(classes_key);
 }
 
+std::optional<std::wstring> GetFirstProtocolLaunchArgument() {
+  int argc = 0;
+  wchar_t** argv = ::CommandLineToArgvW(::GetCommandLineW(), &argc);
+  if (argv == nullptr) {
+    return std::nullopt;
+  }
+
+  std::optional<std::wstring> protocol_argument;
+  for (int i = 1; i < argc; ++i) {
+    if (_wcsnicmp(argv[i], L"folio://", 8) == 0) {
+      protocol_argument = argv[i];
+      break;
+    }
+  }
+
+  ::LocalFree(argv);
+  return protocol_argument;
+}
+
+HWND FindExistingWindow() {
+  for (int attempt = 0; attempt < 50; ++attempt) {
+    HWND window = ::FindWindowW(kFolioWindowClassName, L"folio");
+    if (window != nullptr) {
+      return window;
+    }
+    ::Sleep(100);
+  }
+  return nullptr;
+}
+
+void BringWindowToFront(HWND window) {
+  if (window == nullptr) {
+    return;
+  }
+
+  if (::IsIconic(window)) {
+    ::ShowWindow(window, SW_RESTORE);
+  }
+  ::ShowWindow(window, SW_MAXIMIZE);
+  ::BringWindowToTop(window);
+  ::SetForegroundWindow(window);
+}
+
+void ForwardProtocolLaunchArgument(HWND window, const std::wstring& argument) {
+  if (window == nullptr || argument.empty()) {
+    return;
+  }
+
+  COPYDATASTRUCT payload;
+  payload.dwData = kFolioLaunchArgsCopyDataId;
+  payload.cbData =
+      static_cast<DWORD>((argument.size() + 1) * sizeof(wchar_t));
+  payload.lpData = const_cast<wchar_t*>(argument.c_str());
+
+  DWORD_PTR ignored = 0;
+  ::SendMessageTimeoutW(window, WM_COPYDATA, 0,
+                        reinterpret_cast<LPARAM>(&payload),
+                        SMTO_ABORTIFHUNG | SMTO_BLOCK, 3000, &ignored);
+}
+
 }  // namespace
 
 int APIENTRY wWinMain(_In_ HINSTANCE instance, _In_opt_ HINSTANCE prev,
@@ -75,6 +142,23 @@ int APIENTRY wWinMain(_In_ HINSTANCE instance, _In_opt_ HINSTANCE prev,
   ::CoInitializeEx(nullptr, COINIT_APARTMENTTHREADED);
 
   flutter::DartProject project(L"data");
+
+  HANDLE single_instance_mutex =
+      ::CreateMutexW(nullptr, TRUE, kFolioSingleInstanceMutexName);
+  if (single_instance_mutex != nullptr &&
+      ::GetLastError() == ERROR_ALREADY_EXISTS) {
+    HWND existing_window = FindExistingWindow();
+    const auto launch_argument = GetFirstProtocolLaunchArgument();
+    if (existing_window != nullptr) {
+      BringWindowToFront(existing_window);
+      if (launch_argument.has_value()) {
+        ForwardProtocolLaunchArgument(existing_window, launch_argument.value());
+      }
+    }
+    ::CloseHandle(single_instance_mutex);
+    ::CoUninitialize();
+    return EXIT_SUCCESS;
+  }
 
   std::vector<std::string> command_line_arguments =
       GetCommandLineArguments();
@@ -98,5 +182,9 @@ int APIENTRY wWinMain(_In_ HINSTANCE instance, _In_opt_ HINSTANCE prev,
   }
 
   ::CoUninitialize();
+  if (single_instance_mutex != nullptr) {
+    ::ReleaseMutex(single_instance_mutex);
+    ::CloseHandle(single_instance_mutex);
+  }
   return EXIT_SUCCESS;
 }

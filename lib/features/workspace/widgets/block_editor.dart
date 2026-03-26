@@ -14,6 +14,9 @@ import 'package:url_launcher/url_launcher.dart';
 import 'package:emoji_picker_flutter/emoji_picker_flutter.dart';
 import 'package:intl/intl.dart';
 
+import '../../../app/app_settings.dart';
+import '../../../app/widgets/folio_icon_picker.dart';
+import '../../../app/widgets/folio_icon_token_view.dart';
 import '../../../data/folio_internal_link.dart';
 import '../../../l10n/generated/app_localizations.dart';
 import '../../../data/vault_paths.dart';
@@ -363,10 +366,45 @@ Color _calloutChipForTone(ColorScheme scheme, _CalloutTone tone) {
   }
 }
 
+const _stylableBlockTypes = <String>{
+  'paragraph',
+  'h1',
+  'h2',
+  'h3',
+  'bullet',
+  'numbered',
+  'todo',
+  'quote',
+  'callout',
+};
+
+const _blockFontScaleOptions = <double>[0.9, 1.0, 1.15, 1.3];
+const _blockTextColorRoles = <String?>[
+  null,
+  'subtle',
+  'primary',
+  'secondary',
+  'tertiary',
+  'error',
+];
+const _blockBackgroundRoles = <String?>[
+  null,
+  'surface',
+  'primary',
+  'secondary',
+  'tertiary',
+  'error',
+];
+
 class BlockEditor extends StatefulWidget {
-  const BlockEditor({super.key, required this.session});
+  const BlockEditor({
+    super.key,
+    required this.session,
+    required this.appSettings,
+  });
 
   final VaultSession session;
+  final AppSettings appSettings;
 
   @override
   State<BlockEditor> createState() => _BlockEditorState();
@@ -1050,6 +1088,7 @@ class _BlockEditorState extends State<BlockEditor> {
               text: '',
               checked: curType == 'todo' ? false : null,
               depth: page.blocks[index].depth,
+              appearance: page.blocks[index].appearance,
             ),
           );
         } else {
@@ -1550,6 +1589,395 @@ class _BlockEditorState extends State<BlockEditor> {
     }
   }
 
+  bool _blockSupportsAppearance(FolioBlock block) {
+    return _stylableBlockTypes.contains(block.type);
+  }
+
+  FolioBlockAppearance _blockAppearanceFor(FolioBlock block) {
+    return FolioBlockAppearance.normalizeOrNull(block.appearance) ??
+        const FolioBlockAppearance();
+  }
+
+  Color? _blockTextColorFor(ColorScheme scheme, String? role) {
+    switch (role) {
+      case 'subtle':
+        return scheme.onSurfaceVariant;
+      case 'primary':
+        return scheme.primary;
+      case 'secondary':
+        return scheme.secondary;
+      case 'tertiary':
+        return scheme.tertiary;
+      case 'error':
+        return scheme.error;
+      default:
+        return null;
+    }
+  }
+
+  Color? _blockBackgroundColorFor(ColorScheme scheme, String? role) {
+    switch (role) {
+      case 'surface':
+        return scheme.surfaceContainerHigh.withValues(alpha: 0.72);
+      case 'primary':
+        return scheme.primaryContainer.withValues(alpha: 0.62);
+      case 'secondary':
+        return scheme.secondaryContainer.withValues(alpha: 0.62);
+      case 'tertiary':
+        return scheme.tertiaryContainer.withValues(alpha: 0.62);
+      case 'error':
+        return scheme.errorContainer.withValues(alpha: 0.7);
+      default:
+        return null;
+    }
+  }
+
+  Color _blockBackgroundBorderColorFor(ColorScheme scheme, String? role) {
+    switch (role) {
+      case 'primary':
+        return scheme.primary.withValues(alpha: 0.38);
+      case 'secondary':
+        return scheme.secondary.withValues(alpha: 0.38);
+      case 'tertiary':
+        return scheme.tertiary.withValues(alpha: 0.38);
+      case 'error':
+        return scheme.error.withValues(alpha: 0.42);
+      case 'surface':
+      default:
+        return scheme.outlineVariant.withValues(alpha: 0.45);
+    }
+  }
+
+  String _blockTextColorLabel(String? role) {
+    switch (role) {
+      case 'subtle':
+        return 'Suave';
+      case 'primary':
+        return 'Primario';
+      case 'secondary':
+        return 'Secundario';
+      case 'tertiary':
+        return 'Acento';
+      case 'error':
+        return 'Error';
+      default:
+        return 'Tema';
+    }
+  }
+
+  String _blockBackgroundLabel(String? role) {
+    switch (role) {
+      case 'surface':
+        return 'Sutil';
+      case 'primary':
+        return 'Primario';
+      case 'secondary':
+        return 'Secundario';
+      case 'tertiary':
+        return 'Acento';
+      case 'error':
+        return 'Error';
+      default:
+        return 'Sin fondo';
+    }
+  }
+
+  String _blockFontScaleLabel(double scale) {
+    if (scale <= 0.9) return 'S';
+    if (scale >= 1.3) return 'XL';
+    if (scale > 1.0) return 'L';
+    return 'M';
+  }
+
+  TextStyle _applyBlockAppearanceToTextStyle(
+    TextStyle style,
+    ColorScheme scheme,
+    FolioBlock block,
+  ) {
+    final appearance = _blockAppearanceFor(block);
+    var next = style;
+    final baseSize = style.fontSize;
+    if (baseSize != null) {
+      next = next.copyWith(fontSize: baseSize * appearance.fontScale);
+    }
+    final color = _blockTextColorFor(scheme, appearance.textColorRole);
+    if (color != null) {
+      next = next.copyWith(color: color);
+    }
+    return next;
+  }
+
+  Future<void> _editBlockAppearance(
+    FolioPage page,
+    FolioBlock block, {
+    FocusNode? focusNode,
+  }) async {
+    final result = await _openBlockAppearanceSheet(context, block);
+    if (!mounted || result == null || !result.applied) return;
+    _s.setBlockAppearance(page.id, block.id, result.appearance);
+    if (mounted) setState(() {});
+    focusNode?.requestFocus();
+  }
+
+  Future<({bool applied, FolioBlockAppearance? appearance})?>
+  _openBlockAppearanceSheet(BuildContext context, FolioBlock block) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    var draft = _blockAppearanceFor(block);
+
+    return showModalBottomSheet<
+      ({bool applied, FolioBlockAppearance? appearance})
+    >(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      backgroundColor: Colors.transparent,
+      barrierColor: scheme.scrim.withValues(alpha: 0.4),
+      builder: (ctx) {
+        return StatefulBuilder(
+          builder: (ctx, setModalState) {
+            Widget appearanceChip({
+              required String label,
+              required bool selected,
+              required VoidCallback onTap,
+              required Color swatch,
+            }) {
+              return ChoiceChip(
+                label: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Container(
+                      width: 10,
+                      height: 10,
+                      decoration: BoxDecoration(
+                        color: swatch,
+                        shape: BoxShape.circle,
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Text(label),
+                  ],
+                ),
+                selected: selected,
+                onSelected: (_) => onTap(),
+              );
+            }
+
+            final previewBlock = block.copyWith(appearance: draft);
+            final previewStyle = _applyBlockAppearanceToTextStyle(
+              _styleFor(previewBlock.type, theme.textTheme),
+              scheme,
+              previewBlock,
+            );
+            final previewBackground = _blockBackgroundColorFor(
+              scheme,
+              draft.backgroundRole,
+            );
+            final previewBorder = _blockBackgroundBorderColorFor(
+              scheme,
+              draft.backgroundRole,
+            );
+
+            return Material(
+              color: scheme.surface,
+              shape: const RoundedRectangleBorder(
+                borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+              ),
+              clipBehavior: Clip.antiAlias,
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(20, 14, 20, 20),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Center(
+                      child: Container(
+                        width: 40,
+                        height: 4,
+                        decoration: BoxDecoration(
+                          color: scheme.outlineVariant,
+                          borderRadius: BorderRadius.circular(999),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 18),
+                    Row(
+                      children: [
+                        Icon(
+                          Icons.palette_outlined,
+                          color: scheme.primary,
+                          size: 22,
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Text(
+                            'Apariencia del bloque',
+                            style: theme.textTheme.titleLarge?.copyWith(
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      'Personaliza tamano, color del texto y fondo para este bloque.',
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        color: scheme.onSurfaceVariant,
+                      ),
+                    ),
+                    const SizedBox(height: 18),
+                    Text(
+                      'Tamano',
+                      style: theme.textTheme.labelLarge?.copyWith(
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: [
+                        for (final scale in _blockFontScaleOptions)
+                          ChoiceChip(
+                            label: Text(_blockFontScaleLabel(scale)),
+                            selected: (draft.fontScale - scale).abs() < 0.001,
+                            onSelected: (_) {
+                              setModalState(() {
+                                draft = FolioBlockAppearance(
+                                  textColorRole: draft.textColorRole,
+                                  backgroundRole: draft.backgroundRole,
+                                  fontScale: scale,
+                                );
+                              });
+                            },
+                          ),
+                      ],
+                    ),
+                    const SizedBox(height: 18),
+                    Text(
+                      'Color del texto',
+                      style: theme.textTheme.labelLarge?.copyWith(
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: [
+                        for (final role in _blockTextColorRoles)
+                          appearanceChip(
+                            label: _blockTextColorLabel(role),
+                            selected: draft.textColorRole == role,
+                            onTap: () {
+                              setModalState(() {
+                                draft = FolioBlockAppearance(
+                                  textColorRole: role,
+                                  backgroundRole: draft.backgroundRole,
+                                  fontScale: draft.fontScale,
+                                );
+                              });
+                            },
+                            swatch:
+                                _blockTextColorFor(scheme, role) ??
+                                scheme.onSurface,
+                          ),
+                      ],
+                    ),
+                    const SizedBox(height: 18),
+                    Text(
+                      'Fondo',
+                      style: theme.textTheme.labelLarge?.copyWith(
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: [
+                        for (final role in _blockBackgroundRoles)
+                          appearanceChip(
+                            label: _blockBackgroundLabel(role),
+                            selected: draft.backgroundRole == role,
+                            onTap: () {
+                              setModalState(() {
+                                draft = FolioBlockAppearance(
+                                  textColorRole: draft.textColorRole,
+                                  backgroundRole: role,
+                                  fontScale: draft.fontScale,
+                                );
+                              });
+                            },
+                            swatch:
+                                _blockBackgroundColorFor(scheme, role) ??
+                                scheme.surfaceContainerHighest,
+                          ),
+                      ],
+                    ),
+                    const SizedBox(height: 18),
+                    Text(
+                      'Vista previa',
+                      style: theme.textTheme.labelLarge?.copyWith(
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 14,
+                        vertical: 12,
+                      ),
+                      decoration: BoxDecoration(
+                        color: previewBackground,
+                        borderRadius: BorderRadius.circular(14),
+                        border: Border.all(color: previewBorder),
+                      ),
+                      child: Text(
+                        block.text.trim().isEmpty
+                            ? 'Asi se vera este bloque.'
+                            : block.text.trim(),
+                        maxLines: 3,
+                        overflow: TextOverflow.ellipsis,
+                        style: previewStyle,
+                      ),
+                    ),
+                    const SizedBox(height: 18),
+                    Row(
+                      children: [
+                        TextButton(
+                          onPressed: () {
+                            setModalState(() {
+                              draft = const FolioBlockAppearance();
+                            });
+                          },
+                          child: const Text('Restablecer'),
+                        ),
+                        const Spacer(),
+                        FilledButton(
+                          onPressed: () {
+                            Navigator.pop(ctx, (
+                              applied: true,
+                              appearance: FolioBlockAppearance.normalizeOrNull(
+                                draft,
+                              ),
+                            ));
+                          },
+                          child: const Text('Aplicar'),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
   void _onTableEncoded(String pageId, String blockId, int index, String enc) {
     if (_ignoreShortcuts) return;
     _ignoreShortcuts = true;
@@ -1810,22 +2238,35 @@ class _BlockEditorState extends State<BlockEditor> {
   }
 
   Future<String?> _pickEmoji(BuildContext context) async {
-    String? selectedEmoji;
-    await showModalBottomSheet(
+    return showFolioIconPicker(
       context: context,
-      builder: (ctx) {
-        return SizedBox(
-          height: 300,
-          child: EmojiPicker(
-            onEmojiSelected: (category, emoji) {
-              selectedEmoji = emoji.emoji;
-              Navigator.pop(ctx);
-            },
-          ),
-        );
-      },
+      appSettings: widget.appSettings,
+      title: _t('Icono del callout', 'Callout icon'),
+      helperText: _t(
+        'Selecciona un icono para cambiar el tono visual del bloque destacado.',
+        'Select an icon to change the visual tone of the callout block.',
+      ),
+      fallbackText: '💡',
+      quickIcons: const ['💡', '✅', '⚠️', '🚨', 'ℹ️', '📌', '🧠', '🚀'],
+      customInputLabel: _t('Emoji personalizado', 'Custom emoji'),
+      cancelLabel: AppLocalizations.of(context).cancel,
+      saveLabel: AppLocalizations.of(context).save,
+      removeLabel: _t('Quitar', 'Remove'),
+      quickTabLabel: _t('Rapidos', 'Quick'),
+      importedTabLabel: _t('Importados', 'Imported'),
+      allEmojiTabLabel: _t('Todos', 'All'),
+      emptyImportedLabel: _t(
+        'Todavia no has importado iconos en Ajustes.',
+        'You have not imported icons in Settings yet.',
+      ),
     );
-    return selectedEmoji;
+  }
+
+  String _t(String es, String en) {
+    final isEs = Localizations.localeOf(
+      context,
+    ).languageCode.toLowerCase().startsWith('es');
+    return isEs ? es : en;
   }
 
   List<CodeLanguageOption> _codeLanguageOptionsForBlock(FolioBlock block) {
@@ -2484,6 +2925,10 @@ class _BlockEditorState extends State<BlockEditor> {
             }
             if (mounted) setState(() {});
           });
+        } else if (v == 'appearance') {
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            unawaited(_editBlockAppearance(page, b));
+          });
         } else if (v == 'up' && index > 0) {
           _moveBlock(page.id, b.id, -1);
         } else if (v == 'down' && index < page.blocks.length - 1) {
@@ -2691,6 +3136,13 @@ class _BlockEditorState extends State<BlockEditor> {
             icon: Icons.copy_all_rounded,
             label: 'Duplicar bloque',
           ),
+          if (_blockSupportsAppearance(b))
+            item(
+              ctx,
+              value: 'appearance',
+              icon: Icons.palette_outlined,
+              label: 'Apariencia…',
+            ),
           if (hasExternalTarget)
             item(
               ctx,
@@ -3094,26 +3546,36 @@ class _BlockEditorState extends State<BlockEditor> {
         );
         break;
       case 'bullet':
+        final markerStyle = _applyBlockAppearanceToTextStyle(
+          style,
+          scheme,
+          block,
+        );
         marker = SizedBox(
           width: _markerColumnWidth,
           child: Align(
             alignment: Alignment.centerLeft,
             child: Padding(
               padding: const EdgeInsets.only(left: 4, top: 2),
-              child: Text('•', style: style.copyWith(height: 1.0)),
+              child: Text('•', style: markerStyle.copyWith(height: 1.0)),
             ),
           ),
         );
         break;
       case 'numbered':
         final n = _orderedListNumber(page.blocks, index);
+        final markerStyle = _applyBlockAppearanceToTextStyle(
+          style,
+          scheme,
+          block,
+        );
         marker = SizedBox(
           width: _markerColumnWidth,
           child: Align(
             alignment: Alignment.centerLeft,
             child: Padding(
               padding: const EdgeInsets.only(left: 2, top: 2),
-              child: Text('$n.', style: style.copyWith(height: 1.0)),
+              child: Text('$n.', style: markerStyle.copyWith(height: 1.0)),
             ),
           ),
         );
@@ -4442,6 +4904,20 @@ class _BlockEditorState extends State<BlockEditor> {
         color: scheme.onSurface.withValues(alpha: 0.8),
       );
     }
+    currentStyle = _applyBlockAppearanceToTextStyle(
+      currentStyle,
+      scheme,
+      block,
+    );
+    final appearance = _blockAppearanceFor(block);
+    final customBackground = _blockBackgroundColorFor(
+      scheme,
+      appearance.backgroundRole,
+    );
+    final customBackgroundBorder = _blockBackgroundBorderColorFor(
+      scheme,
+      appearance.backgroundRole,
+    );
 
     final mdSheet = folioMarkdownStyleSheet(context, currentStyle, scheme);
 
@@ -4499,8 +4975,17 @@ class _BlockEditorState extends State<BlockEditor> {
     Widget textContainer = stackedField;
     if (block.type == 'quote') {
       textContainer = Container(
-        padding: const EdgeInsets.only(left: 12, top: 2, bottom: 2),
+        padding: EdgeInsets.fromLTRB(
+          12,
+          customBackground != null ? 8 : 2,
+          customBackground != null ? 12 : 0,
+          customBackground != null ? 8 : 2,
+        ),
         decoration: BoxDecoration(
+          color: customBackground,
+          borderRadius: customBackground != null
+              ? BorderRadius.circular(12)
+              : null,
           border: Border(
             left: BorderSide(color: scheme.outlineVariant, width: 4),
           ),
@@ -4512,9 +4997,15 @@ class _BlockEditorState extends State<BlockEditor> {
       textContainer = Container(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         decoration: BoxDecoration(
-          color: _calloutBackgroundForTone(scheme, calloutTone),
+          color:
+              customBackground ??
+              _calloutBackgroundForTone(scheme, calloutTone),
           borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: _calloutBorderForTone(scheme, calloutTone)),
+          border: Border.all(
+            color: customBackground != null
+                ? customBackgroundBorder
+                : _calloutBorderForTone(scheme, calloutTone),
+          ),
         ),
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -4543,9 +5034,11 @@ class _BlockEditorState extends State<BlockEditor> {
                               _s.updateBlockIcon(page.id, block.id, emoji);
                             }
                           },
-                          child: Text(
-                            block.icon ?? '💡',
-                            style: const TextStyle(fontSize: 20),
+                          child: FolioIconTokenView(
+                            appSettings: widget.appSettings,
+                            token: block.icon,
+                            fallbackText: '💡',
+                            size: 22,
                           ),
                         ),
                       ),
@@ -4576,6 +5069,16 @@ class _BlockEditorState extends State<BlockEditor> {
           ],
         ),
       );
+    } else if (customBackground != null) {
+      textContainer = Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        decoration: BoxDecoration(
+          color: customBackground,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: customBackgroundBorder),
+        ),
+        child: stackedField,
+      );
     }
 
     final editorSlot = Column(
@@ -4587,6 +5090,11 @@ class _BlockEditorState extends State<BlockEditor> {
             controller: ctrl,
             colorScheme: scheme,
             textFocusNode: focus,
+            onOpenBlockAppearance: _blockSupportsAppearance(block)
+                ? () => unawaited(
+                    _editBlockAppearance(page, block, focusNode: focus),
+                  )
+                : null,
             onMentionPage: (ctx) => _toolbarMentionPage(ctx, ctrl),
             onInsertUserMention: () => _insertAtSelection(ctrl, '@usuario '),
             onInsertDateMention: () => _insertAtSelection(

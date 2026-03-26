@@ -42,6 +42,8 @@
       "min": {"type": "int"}
     }
   },
+  "createStarterPagesTitle": "Crear páginas iniciales de ayuda",
+  "createStarterPagesBody": "Añade una pequeña guía con ejemplos, atajos y capacidades de Folio. Podrás borrar esas páginas después.",
   "passwordLabel": "Contraseña",
   "confirmPasswordLabel": "Confirmar contraseña",
   "next": "Siguiente",
@@ -313,6 +315,14 @@
   ,"aiAttach": "Adjuntar"
   ,"aiChatEmptyHint": "Empieza una conversación.\nQuill decidirá automáticamente qué hacer con tu mensaje.\nTambién puedes preguntar cómo usar Folio (atajos, ajustes, páginas o este chat)."
   ,"aiInputHint": "Escribe tu mensaje. Quill actuará como agente."
+  ,"aiInputHintCopilot": "Escribe tu mensaje..."
+  ,"aiContextComposerHint": "Sin contexto añadido"
+  ,"aiContextComposerHelper": "Usa @ para añadir contexto"
+  ,"aiContextCurrentPageChip": "Página actual: {title}"
+  ,"@aiContextCurrentPageChip": {"placeholders": {"title": {}}}
+  ,"aiContextCurrentPageFallback": "Página actual"
+  ,"aiContextAddFile": "Adjuntar archivo"
+  ,"aiContextAddPage": "Adjuntar página"
   ,"aiShowPanel": "Mostrar panel IA"
   ,"aiHidePanel": "Ocultar panel IA"
   ,"closeCurrentPage": "Cerrar página actual"
@@ -453,4 +463,17 @@
   ,"encryptPlainVaultBody": "Elige una contraseña maestra. Todo lo guardado en este dispositivo se cifrará. Si la olvidas, no podremos recuperar los datos."
   ,"encryptPlainVaultConfirm": "Cifrar cofre"
   ,"encryptPlainVaultSuccessSnack": "El cofre ya está cifrado"
+  ,"aiCopyMessage": "Copiar"
+  ,"aiCopyCode": "Copiar código"
+  ,"aiCopiedToClipboard": "Copiado al portapapeles"
+  ,"aiHelpful": "Útil"
+  ,"aiNotHelpful": "No útil"
+  ,"aiThinkingMessage": "Quill está pensando..."
+  ,"aiMessageTimestampNow": "ahora"
+  ,"aiMessageTimestampMinutes": "hace {n} min"
+  ,"@aiMessageTimestampMinutes": {"placeholders": {"n": {"type": "int"}}}
+  ,"aiMessageTimestampHours": "hace {n} h"
+  ,"@aiMessageTimestampHours": {"placeholders": {"n": {"type": "int"}}}
+  ,"aiMessageTimestampDays": "hace {n} días"
+  ,"@aiMessageTimestampDays": {"placeholders": {"n": {"type": "int"}}}
 }

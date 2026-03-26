@@ -108,6 +108,13 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
+  String get createStarterPagesTitle => 'Create starter help pages';
+
+  @override
+  String get createStarterPagesBody =>
+      'Adds a small guide with examples, shortcuts, and Folio capabilities. You can delete those pages later.';
+
+  @override
   String get passwordLabel => 'Password';
 
   @override
@@ -943,6 +950,29 @@ class AppLocalizationsEn extends AppLocalizations {
   String get aiInputHint => 'Type your message. Quill will act as an agent.';
 
   @override
+  String get aiInputHintCopilot => 'Type your message...';
+
+  @override
+  String get aiContextComposerHint => 'No context added';
+
+  @override
+  String get aiContextComposerHelper => 'Use @ to add context';
+
+  @override
+  String aiContextCurrentPageChip(Object title) {
+    return 'Current page: $title';
+  }
+
+  @override
+  String get aiContextCurrentPageFallback => 'Current page';
+
+  @override
+  String get aiContextAddFile => 'Attach file';
+
+  @override
+  String get aiContextAddPage => 'Attach page';
+
+  @override
   String get aiShowPanel => 'Show AI panel';
 
   @override
@@ -1399,4 +1429,40 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get encryptPlainVaultSuccessSnack => 'Vault is now encrypted';
+
+  @override
+  String get aiCopyMessage => 'Copy';
+
+  @override
+  String get aiCopyCode => 'Copy code';
+
+  @override
+  String get aiCopiedToClipboard => 'Copied to clipboard';
+
+  @override
+  String get aiHelpful => 'Helpful';
+
+  @override
+  String get aiNotHelpful => 'Not helpful';
+
+  @override
+  String get aiThinkingMessage => 'Quill is thinking...';
+
+  @override
+  String get aiMessageTimestampNow => 'now';
+
+  @override
+  String aiMessageTimestampMinutes(int n) {
+    return '$n min ago';
+  }
+
+  @override
+  String aiMessageTimestampHours(int n) {
+    return '$n h ago';
+  }
+
+  @override
+  String aiMessageTimestampDays(int n) {
+    return '$n days ago';
+  }
 }
