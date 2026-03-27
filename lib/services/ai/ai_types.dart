@@ -1,15 +1,44 @@
 class AiChatMessage {
-  const AiChatMessage({required this.role, required this.content});
+  const AiChatMessage({
+    required this.role,
+    required this.content,
+    required this.timestamp,
+    this.feedback,
+  });
+
+  factory AiChatMessage.now({
+    required String role,
+    required String content,
+    String? feedback,
+  }) {
+    return AiChatMessage(
+      role: role,
+      content: content,
+      timestamp: DateTime.now(),
+      feedback: feedback,
+    );
+  }
 
   final String role;
   final String content;
+  final DateTime timestamp;
+  final String? feedback; // null, 'helpful', or 'not_helpful'
 
-  Map<String, dynamic> toJson() => {'role': role, 'content': content};
+  Map<String, dynamic> toJson() => {
+    'role': role,
+    'content': content,
+    'timestamp': timestamp.toIso8601String(),
+    if (feedback != null) 'feedback': feedback,
+  };
 
   factory AiChatMessage.fromJson(Map<String, dynamic> json) {
     return AiChatMessage(
       role: json['role'] as String? ?? 'assistant',
       content: json['content'] as String? ?? '',
+      timestamp: json['timestamp'] != null
+          ? DateTime.parse(json['timestamp'] as String)
+          : DateTime.now(),
+      feedback: json['feedback'] as String?,
     );
   }
 }
@@ -66,6 +95,11 @@ class AiCompletionRequest {
     this.messages = const [],
     this.attachments = const [],
     this.maxTokens,
+    this.temperature,
+    this.topK,
+    this.topP,
+    this.stop,
+    this.responseSchema,
   });
 
   final String prompt;
@@ -74,6 +108,21 @@ class AiCompletionRequest {
   final List<AiChatMessage> messages;
   final List<AiFileAttachment> attachments;
   final int? maxTokens;
+
+  /// Temperatura de sampling [0,1]. 0 = determinista.
+  final double? temperature;
+
+  /// Top-K tokens candidatos.
+  final int? topK;
+
+  /// Probabilidad acumulada mínima para top-p sampling.
+  final double? topP;
+
+  /// Secuencias de parada.
+  final List<String>? stop;
+
+  /// JSON Schema para forzar salida estructurada (LM Studio: response_format; Ollama: format).
+  final Map<String, dynamic>? responseSchema;
 }
 
 class AiCompletionResult {

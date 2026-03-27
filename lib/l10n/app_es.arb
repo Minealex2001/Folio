@@ -42,6 +42,8 @@
       "min": {"type": "int"}
     }
   },
+  "createStarterPagesTitle": "Crear páginas iniciales de ayuda",
+  "createStarterPagesBody": "Añade una pequeña guía con ejemplos, atajos y capacidades de Folio. Podrás borrar esas páginas después.",
   "passwordLabel": "Contraseña",
   "confirmPasswordLabel": "Confirmar contraseña",
   "next": "Siguiente",
@@ -227,6 +229,11 @@
   "pasteAsEmbedSubtitle": "Bloque vídeo con vista previa (YouTube) o marcador",
   "pasteAsBookmarkSubtitle": "Tarjeta con título y enlace",
   "pasteAsMentionSubtitle": "Enlace a una página de este cofre",
+  "tableAddRow": "Fila",
+  "tableRemoveRow": "Quitar fila",
+  "tableAddColumn": "Columna",
+  "tableRemoveColumn": "Quitar col.",
+  "tablePasteFromClipboard": "Pegar tabla",
   "pickPageForMention": "Elegir página",
   "bookmarkTitleHint": "Título",
   "bookmarkOpenLink": "Abrir enlace",
@@ -313,6 +320,14 @@
   ,"aiAttach": "Adjuntar"
   ,"aiChatEmptyHint": "Empieza una conversación.\nQuill decidirá automáticamente qué hacer con tu mensaje.\nTambién puedes preguntar cómo usar Folio (atajos, ajustes, páginas o este chat)."
   ,"aiInputHint": "Escribe tu mensaje. Quill actuará como agente."
+  ,"aiInputHintCopilot": "Escribe tu mensaje..."
+  ,"aiContextComposerHint": "Sin contexto añadido"
+  ,"aiContextComposerHelper": "Usa @ para añadir contexto"
+  ,"aiContextCurrentPageChip": "Página actual: {title}"
+  ,"@aiContextCurrentPageChip": {"placeholders": {"title": {}}}
+  ,"aiContextCurrentPageFallback": "Página actual"
+  ,"aiContextAddFile": "Adjuntar archivo"
+  ,"aiContextAddPage": "Adjuntar página"
   ,"aiShowPanel": "Mostrar panel IA"
   ,"aiHidePanel": "Ocultar panel IA"
   ,"closeCurrentPage": "Cerrar página actual"
@@ -336,7 +351,18 @@
   ,"aiBetaEnableTitle": "IA en fase BETA"
   ,"aiBetaEnableBody": "Esta funcionalidad está en fase BETA y puede fallar o comportarse de forma inesperada.\n\n¿Quieres activarla igualmente?"
   ,"aiBetaEnableConfirm": "Activar BETA"
+  ,"ai": "IA"
+  ,"aiEnableToggleTitle": "Activar IA"
+  ,"aiProviderLabel": "Proveedor"
   ,"aiProviderNone": "Ninguno"
+  ,"aiEndpoint": "Endpoint"
+  ,"aiModel": "Modelo"
+  ,"aiTimeoutMs": "Timeout (ms)"
+  ,"aiAllowRemoteEndpoint": "Permitir endpoint remoto"
+  ,"aiAllowRemoteEndpointAllowed": "Hosts remotos permitidos"
+  ,"aiAllowRemoteEndpointLocalhostOnly": "Solo localhost"
+  ,"aiAllowRemoteEndpointNotConfirmed": "El acceso a endpoints remotos está habilitado, pero todavía no se ha confirmado."
+  ,"aiConnectToListModels": "Conectar para listar modelos"
   ,"aiProviderAutoConfigured": "Proveedor IA detectado y configurado: {provider}"
   ,"@aiProviderAutoConfigured": {"placeholders": {"provider": {}}}
   ,"aiSetupAssistantTitle": "Asistente de instalación IA"
@@ -351,6 +377,9 @@
   ,"aiSetupLmStudioTitle": "Paso 2: Instalar LM Studio"
   ,"aiSetupLmStudioBody": "Instala LM Studio, inicia su servidor local (OpenAI compatible) y verifica que responda en http://127.0.0.1:1234."
   ,"aiSetupOpenSettingsHint": "Cuando uno de los proveedores esté operativo, pulsa Reintentar para autoconfigurarlo."
+  ,"quillGlobalScopeNoticeTitle": "Quill funciona en todos los cofres"
+  ,"quillGlobalScopeNoticeBody": "Quill es un ajuste global de la app. Si lo activas ahora, quedará disponible para cualquier cofre en esta instalación, no solo para el actual."
+  ,"quillGlobalScopeNoticeConfirm": "Entiendo"
   ,"searchByNameOrShortcut": "Buscar por nombre o atajo…",
   "search": "Buscar",
   "open": "Abrir",
@@ -382,15 +411,55 @@
   ,"importNotionDialogTitle": "Importar desde Notion"
   ,"importNotionDialogBody": "Importa un ZIP exportado por Notion. Puedes añadirlo al cofre actual o crear uno nuevo."
   ,"importNotionSelectTargetTitle": "Destino de la importación"
+  ,"importNotionSelectTargetBody": "Elige si quieres importar la exportacion de Notion en el cofre actual o crear un cofre nuevo a partir de ella."
   ,"importNotionTargetCurrent": "Cofre actual"
   ,"importNotionTargetNew": "Cofre nuevo"
+  ,"importNotionDefaultVaultName": "Importado desde Notion"
   ,"importNotionNewVaultPasswordTitle": "Contraseña para cofre nuevo"
   ,"importNotionSuccessCurrent": "Notion importado en el cofre actual."
   ,"importNotionSuccessNew": "Cofre nuevo importado desde Notion."
   ,"importNotionError": "No se pudo importar Notion: {error}"
   ,"@importNotionError": {"placeholders": {"error": {}}}
+  ,"notionExportGuideTitle": "Como exportar desde Notion"
+  ,"notionExportGuideBody": "En Notion, abre Settings -> Export all workspace content, elige HTML o Markdown y descarga el archivo ZIP. Luego usa esta opcion de importacion en Folio."
   ,"appBetaBannerMessage": "Estás usando una versión beta. Puede haber fallos; haz copias de seguridad del cofre con frecuencia."
   ,"appBetaBannerDismiss": "Entendido"
+  ,"integrations": "Integraciones"
+  ,"integrationsAppsApprovedHint": "Las apps externas aprobadas pueden usar el puente de integracion local."
+  ,"integrationsAppsApprovedTitle": "Apps externas aprobadas"
+  ,"integrationsAppsApprovedNone": "Todavia no has aprobado ninguna app externa."
+  ,"integrationsAppsApprovedRevoke": "Revocar acceso"
+  ,"integrationsApprovedAppDetails": "{appId} · App {appVersion} · Integracion {integrationVersion}"
+  ,"@integrationsApprovedAppDetails": {"placeholders": {"appId": {}, "appVersion": {}, "integrationVersion": {}}}
+  ,"integrationApprovalTitle": "Aprobar integracion externa"
+  ,"integrationApprovalUpdateTitle": "Aprobar actualizacion de integracion"
+  ,"integrationApprovalBody": "\"{appName}\" quiere conectarse a Folio usando la version {appVersion} de la app y la version {integrationVersion} de la integracion."
+  ,"@integrationApprovalBody": {"placeholders": {"appName": {}, "appVersion": {}, "integrationVersion": {}}}
+  ,"integrationApprovalUpdateBody": "\"{appName}\" ya habia sido aprobada con la version {previousVersion} de la integracion. Ahora quiere conectarse con la version {integrationVersion} de la integracion, asi que Folio necesita tu aprobacion otra vez."
+  ,"@integrationApprovalUpdateBody": {"placeholders": {"appName": {}, "previousVersion": {}, "integrationVersion": {}}}
+  ,"integrationApprovalUnknownVersion": "desconocida"
+  ,"integrationApprovalAppId": "ID de la app"
+  ,"integrationApprovalAppVersion": "Version de la app"
+  ,"integrationApprovalProtocolVersion": "Version de la integracion"
+  ,"integrationApprovalCanDoTitle": "Lo que esta integracion puede hacer"
+  ,"integrationApprovalCanDoSessions": "Crear sesiones efimeras de importacion en Folio."
+  ,"integrationApprovalCanDoImport": "Enviar documentacion en Markdown para crear o actualizar paginas mediante el puente de importacion."
+  ,"integrationApprovalCanDoMetadata": "Guardar trazas de importacion como la app cliente, la sesion y metadatos de origen en las paginas importadas."
+  ,"integrationApprovalCanDoUnlockedVault": "Importar solo mientras el cofre este disponible y la peticion incluya el secreto configurado."
+  ,"integrationApprovalCannotDoTitle": "Lo que no puede hacer"
+  ,"integrationApprovalCannotDoRead": "No puede leer el contenido de tu cofre a traves de este puente."
+  ,"integrationApprovalCannotDoBypassLock": "No puede saltarse el bloqueo del cofre, el cifrado ni tu aprobacion explicita."
+  ,"integrationApprovalCannotDoWithoutSecret": "No puede acceder a endpoints protegidos sin el secreto compartido."
+  ,"integrationApprovalCannotDoRemoteAccess": "No puede usar el puente desde fuera de localhost."
+  ,"integrationApprovalDeny": "Denegar"
+  ,"integrationApprovalApprove": "Aprobar"
+  ,"integrationApprovalApproveUpdate": "Aprobar esta actualizacion"
+  ,"about": "Acerca de"
+  ,"installedVersion": "Version instalada"
+  ,"updaterGithubRepository": "Repositorio de actualizaciones"
+  ,"updaterBetaDescription": "Las betas son releases de GitHub marcadas como pre-release."
+  ,"updaterStableDescription": "Solo se tiene en cuenta la ultima release estable."
+  ,"checkUpdates": "Buscar actualizaciones"
   ,"noEncryptionConfirmTitle": "Crear cofre sin cifrado"
   ,"noEncryptionConfirmBody": "Tus datos se guardarán sin contraseña y sin cifrado. Cualquier persona con acceso a este dispositivo podrá leerlos."
   ,"createVaultWithoutEncryption": "Crear sin cifrado"
@@ -399,4 +468,17 @@
   ,"encryptPlainVaultBody": "Elige una contraseña maestra. Todo lo guardado en este dispositivo se cifrará. Si la olvidas, no podremos recuperar los datos."
   ,"encryptPlainVaultConfirm": "Cifrar cofre"
   ,"encryptPlainVaultSuccessSnack": "El cofre ya está cifrado"
+  ,"aiCopyMessage": "Copiar"
+  ,"aiCopyCode": "Copiar código"
+  ,"aiCopiedToClipboard": "Copiado al portapapeles"
+  ,"aiHelpful": "Útil"
+  ,"aiNotHelpful": "No útil"
+  ,"aiThinkingMessage": "Quill está pensando..."
+  ,"aiMessageTimestampNow": "ahora"
+  ,"aiMessageTimestampMinutes": "hace {n} min"
+  ,"@aiMessageTimestampMinutes": {"placeholders": {"n": {"type": "int"}}}
+  ,"aiMessageTimestampHours": "hace {n} h"
+  ,"@aiMessageTimestampHours": {"placeholders": {"n": {"type": "int"}}}
+  ,"aiMessageTimestampDays": "hace {n} días"
+  ,"@aiMessageTimestampDays": {"placeholders": {"n": {"type": "int"}}}
 }

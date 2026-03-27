@@ -14,9 +14,12 @@ concurrency:
   group: pr-quality-${{ github.event.pull_request.number }}
   cancel-in-progress: true
 
+<<<<<<< HEAD
 permissions:
   contents: read
 
+=======
+>>>>>>> ab02e06ad0c293b8f36d51932984ffbcf42c599b
 jobs:
   analyze-and-test:
     name: Analyze and Test
@@ -24,6 +27,7 @@ jobs:
     runs-on: windows-latest
     timeout-minutes: 35
 
+<<<<<<< HEAD
     env:
       REPO_DIR: source
 
@@ -63,4 +67,23 @@ jobs:
       - name: Run tests
         working-directory: ${{ env.REPO_DIR }}
         shell: pwsh
+=======
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Static analysis
+        run: flutter analyze
+
+      - name: Run tests
+>>>>>>> ab02e06ad0c293b8f36d51932984ffbcf42c599b
         run: flutter test

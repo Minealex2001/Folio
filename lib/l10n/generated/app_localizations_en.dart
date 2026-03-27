@@ -108,6 +108,13 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
+  String get createStarterPagesTitle => 'Create starter help pages';
+
+  @override
+  String get createStarterPagesBody =>
+      'Adds a small guide with examples, shortcuts, and Folio capabilities. You can delete those pages later.';
+
+  @override
   String get passwordLabel => 'Password';
 
   @override
@@ -663,6 +670,21 @@ class AppLocalizationsEn extends AppLocalizations {
   String get pasteAsMentionSubtitle => 'Link to a page in this vault';
 
   @override
+  String get tableAddRow => 'Row';
+
+  @override
+  String get tableRemoveRow => 'Remove row';
+
+  @override
+  String get tableAddColumn => 'Column';
+
+  @override
+  String get tableRemoveColumn => 'Remove col.';
+
+  @override
+  String get tablePasteFromClipboard => 'Paste table';
+
+  @override
   String get pickPageForMention => 'Choose page';
 
   @override
@@ -943,6 +965,29 @@ class AppLocalizationsEn extends AppLocalizations {
   String get aiInputHint => 'Type your message. Quill will act as an agent.';
 
   @override
+  String get aiInputHintCopilot => 'Type your message...';
+
+  @override
+  String get aiContextComposerHint => 'No context added';
+
+  @override
+  String get aiContextComposerHelper => 'Use @ to add context';
+
+  @override
+  String aiContextCurrentPageChip(Object title) {
+    return 'Current page: $title';
+  }
+
+  @override
+  String get aiContextCurrentPageFallback => 'Current page';
+
+  @override
+  String get aiContextAddFile => 'Attach file';
+
+  @override
+  String get aiContextAddPage => 'Attach page';
+
+  @override
   String get aiShowPanel => 'Show AI panel';
 
   @override
@@ -1015,7 +1060,41 @@ class AppLocalizationsEn extends AppLocalizations {
   String get aiBetaEnableConfirm => 'Enable BETA';
 
   @override
+  String get ai => 'AI';
+
+  @override
+  String get aiEnableToggleTitle => 'Enable AI';
+
+  @override
+  String get aiProviderLabel => 'Provider';
+
+  @override
   String get aiProviderNone => 'None';
+
+  @override
+  String get aiEndpoint => 'Endpoint';
+
+  @override
+  String get aiModel => 'Model';
+
+  @override
+  String get aiTimeoutMs => 'Timeout (ms)';
+
+  @override
+  String get aiAllowRemoteEndpoint => 'Allow remote endpoint';
+
+  @override
+  String get aiAllowRemoteEndpointAllowed => 'Remote hosts allowed';
+
+  @override
+  String get aiAllowRemoteEndpointLocalhostOnly => 'Localhost only';
+
+  @override
+  String get aiAllowRemoteEndpointNotConfirmed =>
+      'Remote endpoint access is enabled but has not been confirmed yet.';
+
+  @override
+  String get aiConnectToListModels => 'Connect to list models';
 
   @override
   String aiProviderAutoConfigured(Object provider) {
@@ -1063,6 +1142,16 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get aiSetupOpenSettingsHint =>
       'When one provider is operational, press Retry to auto-configure it.';
+
+  @override
+  String get quillGlobalScopeNoticeTitle => 'Quill works across all vaults';
+
+  @override
+  String get quillGlobalScopeNoticeBody =>
+      'Quill is an app-level setting. If you enable it now, it will be available for any vault on this installation, not just the current one.';
+
+  @override
+  String get quillGlobalScopeNoticeConfirm => 'I understand';
 
   @override
   String get searchByNameOrShortcut => 'Search by name or shortcut…';
@@ -1159,10 +1248,17 @@ class AppLocalizationsEn extends AppLocalizations {
   String get importNotionSelectTargetTitle => 'Import target';
 
   @override
+  String get importNotionSelectTargetBody =>
+      'Choose whether to import the Notion export into your current vault or create a new vault from it.';
+
+  @override
   String get importNotionTargetCurrent => 'Current vault';
 
   @override
   String get importNotionTargetNew => 'New vault';
+
+  @override
+  String get importNotionDefaultVaultName => 'Imported from Notion';
 
   @override
   String get importNotionNewVaultPasswordTitle => 'Password for new vault';
@@ -1180,11 +1276,147 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
+  String get notionExportGuideTitle => 'How to export from Notion';
+
+  @override
+  String get notionExportGuideBody =>
+      'In Notion, open Settings -> Export all workspace content, choose HTML or Markdown, and download the ZIP file. Then use this import option in Folio.';
+
+  @override
   String get appBetaBannerMessage =>
       'You are using a beta build. You may run into bugs; back up your vault regularly.';
 
   @override
   String get appBetaBannerDismiss => 'Got it';
+
+  @override
+  String get integrations => 'Integrations';
+
+  @override
+  String get integrationsAppsApprovedHint =>
+      'Approved external apps can use the local integration bridge.';
+
+  @override
+  String get integrationsAppsApprovedTitle => 'Approved external apps';
+
+  @override
+  String get integrationsAppsApprovedNone =>
+      'You have not approved any external apps yet.';
+
+  @override
+  String get integrationsAppsApprovedRevoke => 'Revoke access';
+
+  @override
+  String integrationsApprovedAppDetails(
+    Object appId,
+    Object appVersion,
+    Object integrationVersion,
+  ) {
+    return '$appId · App $appVersion · Integration $integrationVersion';
+  }
+
+  @override
+  String get integrationApprovalTitle => 'Approve external integration';
+
+  @override
+  String get integrationApprovalUpdateTitle => 'Approve updated integration';
+
+  @override
+  String integrationApprovalBody(
+    Object appName,
+    Object appVersion,
+    Object integrationVersion,
+  ) {
+    return '\"$appName\" wants to connect to Folio using app version $appVersion and integration version $integrationVersion.';
+  }
+
+  @override
+  String integrationApprovalUpdateBody(
+    Object appName,
+    Object previousVersion,
+    Object integrationVersion,
+  ) {
+    return '\"$appName\" was previously approved with integration version $previousVersion. It now wants to connect with integration version $integrationVersion, so Folio needs your approval again.';
+  }
+
+  @override
+  String get integrationApprovalUnknownVersion => 'unknown';
+
+  @override
+  String get integrationApprovalAppId => 'App ID';
+
+  @override
+  String get integrationApprovalAppVersion => 'App version';
+
+  @override
+  String get integrationApprovalProtocolVersion => 'Integration version';
+
+  @override
+  String get integrationApprovalCanDoTitle => 'What this integration can do';
+
+  @override
+  String get integrationApprovalCanDoSessions =>
+      'Create short-lived import sessions in Folio.';
+
+  @override
+  String get integrationApprovalCanDoImport =>
+      'Send Markdown documentation to create or update pages through the import bridge.';
+
+  @override
+  String get integrationApprovalCanDoMetadata =>
+      'Store import provenance such as the client app, session, and source metadata on imported pages.';
+
+  @override
+  String get integrationApprovalCanDoUnlockedVault =>
+      'Import only while the vault is available and the request includes the configured secret.';
+
+  @override
+  String get integrationApprovalCannotDoTitle => 'What it cannot do';
+
+  @override
+  String get integrationApprovalCannotDoRead =>
+      'It cannot read your vault contents through this bridge.';
+
+  @override
+  String get integrationApprovalCannotDoBypassLock =>
+      'It cannot bypass the vault lock, encryption, or your explicit approval.';
+
+  @override
+  String get integrationApprovalCannotDoWithoutSecret =>
+      'It cannot access protected endpoints without the shared secret.';
+
+  @override
+  String get integrationApprovalCannotDoRemoteAccess =>
+      'It cannot use the bridge from outside localhost.';
+
+  @override
+  String get integrationApprovalDeny => 'Deny';
+
+  @override
+  String get integrationApprovalApprove => 'Approve';
+
+  @override
+  String get integrationApprovalApproveUpdate => 'Approve this update';
+
+  @override
+  String get about => 'About';
+
+  @override
+  String get installedVersion => 'Installed version';
+
+  @override
+  String get updaterGithubRepository => 'Update repository';
+
+  @override
+  String get updaterBetaDescription =>
+      'Betas are GitHub releases marked as pre-release.';
+
+  @override
+  String get updaterStableDescription =>
+      'Only the latest stable release is considered.';
+
+  @override
+  String get checkUpdates => 'Check for updates';
 
   @override
   String get noEncryptionConfirmTitle => 'Create vault without encryption';
@@ -1212,4 +1444,40 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get encryptPlainVaultSuccessSnack => 'Vault is now encrypted';
+
+  @override
+  String get aiCopyMessage => 'Copy';
+
+  @override
+  String get aiCopyCode => 'Copy code';
+
+  @override
+  String get aiCopiedToClipboard => 'Copied to clipboard';
+
+  @override
+  String get aiHelpful => 'Helpful';
+
+  @override
+  String get aiNotHelpful => 'Not helpful';
+
+  @override
+  String get aiThinkingMessage => 'Quill is thinking...';
+
+  @override
+  String get aiMessageTimestampNow => 'now';
+
+  @override
+  String aiMessageTimestampMinutes(int n) {
+    return '$n min ago';
+  }
+
+  @override
+  String aiMessageTimestampHours(int n) {
+    return '$n h ago';
+  }
+
+  @override
+  String aiMessageTimestampDays(int n) {
+    return '$n days ago';
+  }
 }

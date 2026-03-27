@@ -1,3 +1,65 @@
+class FolioBlockAppearance {
+  const FolioBlockAppearance({
+    this.textColorRole,
+    this.backgroundRole,
+    this.fontScale = 1.0,
+  });
+
+  final String? textColorRole;
+  final String? backgroundRole;
+  final double fontScale;
+
+  bool get isDefault =>
+      (textColorRole == null || textColorRole!.isEmpty) &&
+      (backgroundRole == null || backgroundRole!.isEmpty) &&
+      (fontScale - 1.0).abs() < 0.001;
+
+  FolioBlockAppearance normalized() {
+    String? normalizeRole(String? value) {
+      final trimmed = value?.trim();
+      if (trimmed == null || trimmed.isEmpty) {
+        return null;
+      }
+      return trimmed;
+    }
+
+    final normalizedScale = fontScale.clamp(0.85, 1.45).toDouble();
+    return FolioBlockAppearance(
+      textColorRole: normalizeRole(textColorRole),
+      backgroundRole: normalizeRole(backgroundRole),
+      fontScale: (normalizedScale - 1.0).abs() < 0.001 ? 1.0 : normalizedScale,
+    );
+  }
+
+  static FolioBlockAppearance? normalizeOrNull(
+    FolioBlockAppearance? appearance,
+  ) {
+    if (appearance == null) return null;
+    final normalized = appearance.normalized();
+    return normalized.isDefault ? null : normalized;
+  }
+
+  factory FolioBlockAppearance.fromJson(Map raw) {
+    return FolioBlockAppearance(
+      textColorRole: (raw['textColorRole'] as String?)?.trim(),
+      backgroundRole: (raw['backgroundRole'] as String?)?.trim(),
+      fontScale: (raw['fontScale'] as num?)?.toDouble() ?? 1.0,
+    ).normalized();
+  }
+
+  Map<String, Object?> toJson() {
+    final normalizedAppearance = normalized();
+    return <String, Object?>{
+      if (normalizedAppearance.textColorRole != null)
+        'textColorRole': normalizedAppearance.textColorRole,
+      if (normalizedAppearance.backgroundRole != null)
+        'backgroundRole': normalizedAppearance.backgroundRole,
+      if ((normalizedAppearance.fontScale - 1.0).abs() >= 0.001)
+        'fontScale': normalizedAppearance.fontScale,
+    };
+  }
+}
+
 class FolioBlock {
   FolioBlock({
     required this.id,
@@ -10,6 +72,7 @@ class FolioBlock {
     this.icon,
     this.url,
     this.imageWidth,
+    this.appearance,
   });
 
   final String id;
@@ -40,6 +103,9 @@ class FolioBlock {
   /// Ancho relativo para bloques de imagen (0.2 .. 1.0).
   double? imageWidth;
 
+  /// Personalizacion visual persistida para bloques de texto.
+  FolioBlockAppearance? appearance;
+
   Map<String, dynamic> toJson() => {
     'id': id,
     'type': type,
@@ -51,6 +117,8 @@ class FolioBlock {
     if (icon != null) 'icon': icon,
     if (url != null) 'url': url,
     if (imageWidth != null && imageWidth != 1.0) 'imageWidth': imageWidth,
+    if (appearance != null && !appearance!.isDefault)
+      'appearance': appearance!.toJson(),
   };
 
   factory FolioBlock.fromJson(Map<String, dynamic> j) {
@@ -65,6 +133,9 @@ class FolioBlock {
       icon: j['icon'] as String?,
       url: j['url'] as String?,
       imageWidth: (j['imageWidth'] as num?)?.toDouble(),
+      appearance: j['appearance'] is Map
+          ? FolioBlockAppearance.fromJson(j['appearance'] as Map)
+          : null,
     );
   }
 
@@ -78,6 +149,7 @@ class FolioBlock {
     String? icon,
     String? url,
     double? imageWidth,
+    FolioBlockAppearance? appearance,
   }) {
     return FolioBlock(
       id: id,
@@ -90,6 +162,7 @@ class FolioBlock {
       icon: icon ?? this.icon,
       url: url ?? this.url,
       imageWidth: imageWidth ?? this.imageWidth,
+      appearance: appearance ?? this.appearance,
     );
   }
 }
