@@ -1,0 +1,794 @@
+{
+  "info": {
+    "_postman_id": "0b8a2c61-6aa4-4df2-9ce0-bf8cc9ec6f10",
+    "name": "Run2Doc -> Folio",
+    "description": "Coleccion para probar la integracion local entre Run2Doc y Folio.\n\nFlujo recomendado:\n1. Configurar `appId`, `appName`, `appVersion` e `integrationVersion`.\n2. Ejecutar `Health` o `App Status`.\n3. Ejecutar `Start Session`.\n4. Aprobar la app en Folio si es la primera vez o si cambió la version de integracion aprobada.\n5. Abrir manualmente `deepLink` fuera de Postman.\n6. Ejecutar `Import Markdown`, `Import JSON`, `List Pages` o los endpoints de `Custom Emojis`.\n\nVariables de coleccion usadas:\n- `baseUrl`\n- `appId`\n- `appName`\n- `appVersion`\n- `integrationVersion`\n- `sessionId`\n- `nonce`\n- `deepLink`\n- `pageId`\n- `emojiId`\n\nNotas:\n- Folio ya no requiere `X-Folio-Integration-Secret`.\n- Los endpoints protegidos usan aprobacion de app, `sessionId` y `Authorization: Bearer <nonce>`.\n- `List Pages` y `Custom Emojis` solo devuelven recursos asociados a este `appId`.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://127.0.0.1:45831",
+      "type": "string"
+    },
+    {
+      "key": "appId",
+      "value": "run2doc-desktop",
+      "type": "string"
+    },
+    {
+      "key": "appName",
+      "value": "Run2Doc",
+      "type": "string"
+    },
+    {
+      "key": "appVersion",
+      "value": "1.0.0",
+      "type": "string"
+    },
+    {
+      "key": "integrationVersion",
+      "value": "1",
+      "type": "string"
+    },
+    {
+      "key": "sessionId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "nonce",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "deepLink",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "pageId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "emojiId",
+      "value": "rocket",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "Health",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "X-Folio-App-Id",
+            "value": "{{appId}}",
+            "type": "text"
+          },
+          {
+            "key": "X-Folio-App-Name",
+            "value": "{{appName}}",
+            "type": "text"
+          },
+          {
+            "key": "X-Folio-App-Version",
+            "value": "{{appVersion}}",
+            "type": "text"
+          },
+          {
+            "key": "X-Folio-Integration-Version",
+            "value": "{{integrationVersion}}",
+            "type": "text"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/health",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "health"
+          ]
+        },
+        "description": "Comprueba que el bridge de Folio esta levantado en el puerto fijo y devuelve si hay una sesion activa para esta app."
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Health responde 200', function () {",
+              "  pm.response.to.have.status(200);",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "App Status",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "X-Folio-App-Id",
+            "value": "{{appId}}",
+            "type": "text"
+          },
+          {
+            "key": "X-Folio-App-Name",
+            "value": "{{appName}}",
+            "type": "text"
+          },
+          {
+            "key": "X-Folio-App-Version",
+            "value": "{{appVersion}}",
+            "type": "text"
+          },
+          {
+            "key": "X-Folio-Integration-Version",
+            "value": "{{integrationVersion}}",
+            "type": "text"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/app",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "app"
+          ]
+        },
+        "description": "Devuelve informacion ampliada sobre el estado de Folio, vault, sesion activa y cliente aprobado. `/status` funciona como alias."
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('App status responde 200', function () {",
+              "  pm.response.to.have.status(200);",
+              "});",
+              "const json = pm.response.json();",
+              "pm.test('Incluye datos de app', function () {",
+              "  pm.expect(json).to.have.property('app');",
+              "  pm.expect(json.app).to.have.property('name');",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Start Session",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "X-Folio-App-Id",
+            "value": "{{appId}}",
+            "type": "text"
+          },
+          {
+            "key": "X-Folio-App-Name",
+            "value": "{{appName}}",
+            "type": "text"
+          },
+          {
+            "key": "X-Folio-App-Version",
+            "value": "{{appVersion}}",
+            "type": "text"
+          },
+          {
+            "key": "X-Folio-Integration-Version",
+            "value": "{{integrationVersion}}",
+            "type": "text"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/session/start",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "session",
+            "start"
+          ]
+        },
+        "description": "Genera `sessionId`, `nonce` y `deepLink` dentro de Folio. Postman guarda automaticamente esos valores en variables de coleccion.\n\nAlias soportados por la API: `/session/start`, `/session/new` y `/start`.\n\nRequiere `X-Folio-App-Id`, `X-Folio-App-Name`, `X-Folio-App-Version` y `X-Folio-Integration-Version`."
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Start Session responde 200', function () {",
+              "  pm.response.to.have.status(200);",
+              "});",
+              "const json = pm.response.json();",
+              "pm.collectionVariables.set('sessionId', json.sessionId || '');",
+              "pm.collectionVariables.set('nonce', json.nonce || '');",
+              "pm.collectionVariables.set('deepLink', json.deepLink || '');",
+              "console.log('Deep link generado:', json.deepLink);",
+              "pm.test('Genera credenciales de sesion', function () {",
+              "  pm.expect(json.sessionId).to.be.a('string').and.not.empty;",
+              "  pm.expect(json.nonce).to.be.a('string').and.not.empty;",
+              "  pm.expect(json.deepLink).to.be.a('string').and.include('folio://import');",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Import Markdown",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{nonce}}",
+            "type": "text"
+          },
+          {
+            "key": "X-Folio-App-Id",
+            "value": "{{appId}}",
+            "type": "text"
+          },
+          {
+            "key": "X-Folio-App-Name",
+            "value": "{{appName}}",
+            "type": "text"
+          },
+          {
+            "key": "X-Folio-App-Version",
+            "value": "{{appVersion}}",
+            "type": "text"
+          },
+          {
+            "key": "X-Folio-Integration-Version",
+            "value": "{{integrationVersion}}",
+            "type": "text"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json",
+            "type": "text"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"sessionId\": \"{{sessionId}}\",\n  \"sourceApp\": \"Run2Doc\",\n  \"sourceUrl\": \"https://api.example.com/docs\",\n  \"title\": \"Petstore API\",\n  \"markdown\": \"# Petstore API\\n\\n> [!IMPORTANT]\\n> Generated by Postman collection\\n\\n## Auth\\n\\nUse bearer token.\\n\\n```diff\\n- old\\n+ new\\n```\\n\",\n  \"importMode\": \"newPage\",\n  \"parentPageId\": null,\n  \"metadata\": {\n    \"project\": \"Petstore\",\n    \"origin\": \"postman\"\n  }\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{baseUrl}}/imports/markdown",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "imports",
+            "markdown"
+          ]
+        },
+        "description": "Importa un Markdown en Folio usando el `sessionId` y `nonce` generados en `Start Session`.\n\nAntes de lanzar esta request, abre manualmente `{{deepLink}}` para activar la sesion dentro de Folio."
+      },
+      "event": [
+        {
+          "listen": "prerequest",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "if (!pm.collectionVariables.get('sessionId') || !pm.collectionVariables.get('nonce')) {",
+              "  throw new Error('Primero ejecuta Start Session para generar sessionId y nonce.');",
+              "}",
+              "console.log('Abre este deep link antes de importar:', pm.collectionVariables.get('deepLink'));"
+            ]
+          }
+        },
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Import responde 200', function () {",
+              "  pm.response.to.have.status(200);",
+              "});",
+              "const json = pm.response.json();",
+              "pm.test('Import completa correctamente', function () {",
+              "  pm.expect(json.ok).to.eql(true);",
+              "  pm.expect(json.pageId).to.be.a('string').and.not.empty;",
+              "});",
+              "if (json.pageId) {",
+              "  pm.collectionVariables.set('pageId', json.pageId);",
+              "  console.log('pageId guardado:', json.pageId);",
+              "}"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Update Page",
+      "request": {
+        "method": "PATCH",
+        "header": [
+          { "key": "X-Folio-App-Id", "value": "{{appId}}", "type": "text" },
+          { "key": "X-Folio-App-Name", "value": "{{appName}}", "type": "text" },
+          { "key": "X-Folio-App-Version", "value": "{{appVersion}}", "type": "text" },
+          { "key": "X-Folio-Integration-Version", "value": "{{integrationVersion}}", "type": "text" },
+          { "key": "Authorization", "value": "Bearer {{nonce}}", "type": "text" },
+          { "key": "Content-Type", "value": "application/json", "type": "text" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"sessionId\": \"{{sessionId}}\",\n  \"title\": \"Updated Document\",\n  \"markdown\": \"# Updated Document\\n\\nContent refreshed by the external app.\",\n  \"importMode\": \"replaceCurrentPage\"\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/pages/{{pageId}}",
+          "host": ["{{baseUrl}}"],
+          "path": ["pages", "{{pageId}}"]
+        },
+        "description": "Actualiza el contenido de una pagina que la app importó previamente.\n\nRequiere:\n- `sessionId` y `nonce` generados en `Start Session`.\n- `pageId` de una pagina importada por esta misma app (`{{appId}}`).\n\nRegla de privacidad: solo la app que importó originalmente la pagina puede actualizarla. Las paginas nativas o importadas por otra app devuelven `403 FORBIDDEN`."
+      },
+      "event": [
+        {
+          "listen": "prerequest",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "if (!pm.collectionVariables.get('sessionId') || !pm.collectionVariables.get('nonce')) {",
+              "  throw new Error('Primero ejecuta Start Session para generar sessionId y nonce.');",
+              "}",
+              "if (!pm.collectionVariables.get('pageId')) {",
+              "  throw new Error('Define la variable pageId con el UUID de la pagina a actualizar.');",
+              "}"
+            ]
+          }
+        },
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Update responde 200', function () {",
+              "  pm.response.to.have.status(200);",
+              "});",
+              "const json = pm.response.json();",
+              "pm.test('Update completa correctamente', function () {",
+              "  pm.expect(json.ok).to.eql(true);",
+              "  pm.expect(json.pageId).to.be.a('string').and.not.empty;",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "List Pages",
+      "request": {
+        "method": "GET",
+        "header": [
+          { "key": "X-Folio-App-Id", "value": "{{appId}}", "type": "text" },
+          { "key": "X-Folio-App-Name", "value": "{{appName}}", "type": "text" },
+          { "key": "X-Folio-App-Version", "value": "{{appVersion}}", "type": "text" },
+          { "key": "X-Folio-Integration-Version", "value": "{{integrationVersion}}", "type": "text" },
+          { "key": "Authorization", "value": "Bearer {{nonce}}", "type": "text" }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/pages?sessionId={{sessionId}}",
+          "host": ["{{baseUrl}}"],
+          "path": ["pages"],
+          "query": [
+            { "key": "sessionId", "value": "{{sessionId}}" }
+          ]
+        },
+        "description": "Lista todas las paginas importadas por esta app (`X-Folio-App-Id`).\n\nDevuelve `pageId`, `title`, `emoji`, `parentId`, `blockCount`, `icons`, `importedAtMs`, `importMode` y campos opcionales de origen.\n\nRequiere sesion activa (`nonce` + `sessionId`)."
+      },
+      "event": [
+        {
+          "listen": "prerequest",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "if (!pm.collectionVariables.get('sessionId') || !pm.collectionVariables.get('nonce')) {",
+              "  throw new Error('Primero ejecuta Start Session para generar sessionId y nonce.');",
+              "}"
+            ]
+          }
+        },
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('List Pages responde 200', function () {",
+              "  pm.response.to.have.status(200);",
+              "});",
+              "const json = pm.response.json();",
+              "pm.test('Devuelve array de paginas', function () {",
+              "  pm.expect(json.ok).to.eql(true);",
+              "  pm.expect(json.pages).to.be.an('array');",
+              "});",
+              "if (json.pages && json.pages.length > 0) {",
+              "  pm.collectionVariables.set('pageId', json.pages[0].pageId);",
+              "  console.log('pageId guardado:', json.pages[0].pageId);",
+              "}"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Import JSON",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Authorization", "value": "Bearer {{nonce}}", "type": "text" },
+          { "key": "X-Folio-App-Id", "value": "{{appId}}", "type": "text" },
+          { "key": "X-Folio-App-Name", "value": "{{appName}}", "type": "text" },
+          { "key": "X-Folio-App-Version", "value": "{{appVersion}}", "type": "text" },
+          { "key": "X-Folio-Integration-Version", "value": "{{integrationVersion}}", "type": "text" },
+          { "key": "Content-Type", "value": "application/json", "type": "text" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"sessionId\": \"{{sessionId}}\",\n  \"title\": \"Rich JSON Document\",\n  \"blocks\": [\n    { \"type\": \"h1\", \"text\": \"Rich JSON Document\" },\n    { \"type\": \"paragraph\", \"text\": \"This page was created from **JSON blocks**, no Markdown parsing.\" },\n    {\n      \"type\": \"task\",\n      \"text\": \"{\\\"v\\\":1,\\\"title\\\":\\\"Review this document\\\",\\\"status\\\":\\\"todo\\\",\\\"priority\\\":\\\"high\\\",\\\"dueDate\\\":\\\"2026-06-01\\\"}\"\n    },\n    { \"type\": \"code\", \"text\": \"print('hello from JSON import')\", \"codeLanguage\": \"python\" }\n  ],\n  \"sourceApp\": \"Run2Doc\",\n  \"sourceUrl\": \"https://example.com/docs/42\",\n  \"metadata\": { \"origin\": \"postman\" }\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{baseUrl}}/imports/json",
+          "host": ["{{baseUrl}}"],
+          "path": ["imports", "json"]
+        },
+        "description": "Crea una nueva pagina en Folio desde bloques JSON pre-construidos.\n\nCada bloque puede omitir el campo `id` y Folio generará uno automaticamente.\n\nLos bloques `task` usan `text` como JSON serializado."
+      },
+      "event": [
+        {
+          "listen": "prerequest",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "if (!pm.collectionVariables.get('sessionId') || !pm.collectionVariables.get('nonce')) {",
+              "  throw new Error('Primero ejecuta Start Session para generar sessionId y nonce.');",
+              "}"
+            ]
+          }
+        },
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Import JSON responde 200', function () {",
+              "  pm.response.to.have.status(200);",
+              "});",
+              "const json = pm.response.json();",
+              "pm.test('Import JSON completa correctamente', function () {",
+              "  pm.expect(json.ok).to.eql(true);",
+              "  pm.expect(json.pageId).to.be.a('string').and.not.empty;",
+              "});",
+              "if (json.pageId) {",
+              "  pm.collectionVariables.set('pageId', json.pageId);",
+              "  console.log('pageId guardado:', json.pageId);",
+              "}"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Update Page (JSON Blocks)",
+      "request": {
+        "method": "PATCH",
+        "header": [
+          { "key": "X-Folio-App-Id", "value": "{{appId}}", "type": "text" },
+          { "key": "X-Folio-App-Name", "value": "{{appName}}", "type": "text" },
+          { "key": "X-Folio-App-Version", "value": "{{appVersion}}", "type": "text" },
+          { "key": "X-Folio-Integration-Version", "value": "{{integrationVersion}}", "type": "text" },
+          { "key": "Authorization", "value": "Bearer {{nonce}}", "type": "text" },
+          { "key": "Content-Type", "value": "application/json", "type": "text" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"sessionId\": \"{{sessionId}}\",\n  \"importMode\": \"replaceCurrentPage\",\n  \"blocks\": [\n    { \"type\": \"h1\", \"text\": \"Updated via JSON Blocks\" },\n    { \"type\": \"paragraph\", \"text\": \"Content replaced using the JSON blocks mode.\" }\n  ]\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{baseUrl}}/pages/{{pageId}}",
+          "host": ["{{baseUrl}}"],
+          "path": ["pages", "{{pageId}}"]
+        },
+        "description": "Actualiza una pagina usando bloques JSON en lugar de Markdown.\n\nCuando `blocks` está presente en el body, activa el modo JSON y se omite `markdown`.\n\nSe aplican las mismas reglas de privacidad y autenticación que en `Update Page`."
+      },
+      "event": [
+        {
+          "listen": "prerequest",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "if (!pm.collectionVariables.get('sessionId') || !pm.collectionVariables.get('nonce')) {",
+              "  throw new Error('Primero ejecuta Start Session para generar sessionId y nonce.');",
+              "}",
+              "if (!pm.collectionVariables.get('pageId')) {",
+              "  throw new Error('Define la variable pageId o ejecuta List Pages primero.');",
+              "}"
+            ]
+          }
+        },
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Update JSON Blocks responde 200', function () {",
+              "  pm.response.to.have.status(200);",
+              "});",
+              "const json = pm.response.json();",
+              "pm.test('Update JSON Blocks completa correctamente', function () {",
+              "  pm.expect(json.ok).to.eql(true);",
+              "  pm.expect(json.pageId).to.be.a('string').and.not.empty;",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Custom Emojis",
+      "item": [
+        {
+          "name": "List Custom Emojis",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "X-Folio-App-Id", "value": "{{appId}}", "type": "text" },
+              { "key": "X-Folio-App-Name", "value": "{{appName}}", "type": "text" },
+              { "key": "X-Folio-App-Version", "value": "{{appVersion}}", "type": "text" },
+              { "key": "X-Folio-Integration-Version", "value": "{{integrationVersion}}", "type": "text" },
+              { "key": "Authorization", "value": "Bearer {{nonce}}", "type": "text" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/app/custom-emojis?sessionId={{sessionId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["app", "custom-emojis"],
+              "query": [
+                { "key": "sessionId", "value": "{{sessionId}}" }
+              ]
+            },
+            "description": "Lista el catalogo de custom emojis asociado a esta app. Folio nunca devuelve entradas importadas por otras apps."
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (!pm.collectionVariables.get('sessionId') || !pm.collectionVariables.get('nonce')) {",
+                  "  throw new Error('Primero ejecuta Start Session para generar sessionId y nonce.');",
+                  "}"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('List Custom Emojis responde 200', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "});",
+                  "const json = pm.response.json();",
+                  "pm.test('Devuelve array de items', function () {",
+                  "  pm.expect(json.ok).to.eql(true);",
+                  "  pm.expect(json.items).to.be.an('array');",
+                  "});",
+                  "if (json.items && json.items.length > 0) {",
+                  "  pm.collectionVariables.set('emojiId', json.items[0].id);",
+                  "  console.log('emojiId guardado:', json.items[0].id);",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Replace Custom Emojis",
+          "request": {
+            "method": "PUT",
+            "header": [
+              { "key": "X-Folio-App-Id", "value": "{{appId}}", "type": "text" },
+              { "key": "X-Folio-App-Name", "value": "{{appName}}", "type": "text" },
+              { "key": "X-Folio-App-Version", "value": "{{appVersion}}", "type": "text" },
+              { "key": "X-Folio-Integration-Version", "value": "{{integrationVersion}}", "type": "text" },
+              { "key": "Authorization", "value": "Bearer {{nonce}}", "type": "text" },
+              { "key": "Content-Type", "value": "application/json", "type": "text" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"sessionId\": \"{{sessionId}}\",\n  \"items\": [\n    {\n      \"id\": \"rocket\",\n      \"label\": \"Rocket\",\n      \"source\": \"data:image/svg+xml,%3Csvg%3E%3C/svg%3E\",\n      \"filePath\": \"C:\\\\icons\\\\rocket.svg\",\n      \"mimeType\": \"image/svg+xml\",\n      \"createdAtMs\": 1711324800000\n    },\n    {\n      \"id\": \"spark\",\n      \"label\": \"Spark\",\n      \"source\": \"data:image/svg+xml,%3Csvg%3E%3C/svg%3E\",\n      \"filePath\": \"C:\\\\icons\\\\spark.svg\",\n      \"mimeType\": \"image/svg+xml\",\n      \"createdAtMs\": 1711324900000\n    }\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/app/custom-emojis",
+              "host": ["{{baseUrl}}"],
+              "path": ["app", "custom-emojis"]
+            },
+            "description": "Reemplaza por completo el catalogo de custom emojis asociado a esta app."
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (!pm.collectionVariables.get('sessionId') || !pm.collectionVariables.get('nonce')) {",
+                  "  throw new Error('Primero ejecuta Start Session para generar sessionId y nonce.');",
+                  "}"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Replace Custom Emojis responde 200', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "});",
+                  "const json = pm.response.json();",
+                  "pm.test('Reemplazo correcto', function () {",
+                  "  pm.expect(json.ok).to.eql(true);",
+                  "  pm.expect(json.count).to.eql(2);",
+                  "});",
+                  "pm.collectionVariables.set('emojiId', 'rocket');"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Upsert Custom Emoji",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              { "key": "X-Folio-App-Id", "value": "{{appId}}", "type": "text" },
+              { "key": "X-Folio-App-Name", "value": "{{appName}}", "type": "text" },
+              { "key": "X-Folio-App-Version", "value": "{{appVersion}}", "type": "text" },
+              { "key": "X-Folio-Integration-Version", "value": "{{integrationVersion}}", "type": "text" },
+              { "key": "Authorization", "value": "Bearer {{nonce}}", "type": "text" },
+              { "key": "Content-Type", "value": "application/json", "type": "text" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"sessionId\": \"{{sessionId}}\",\n  \"label\": \"Rocket\",\n  \"source\": \"data:image/svg+xml,%3Csvg%3E%3C/svg%3E\",\n  \"filePath\": \"C:\\\\icons\\\\rocket.svg\",\n  \"mimeType\": \"image/svg+xml\",\n  \"createdAtMs\": 1711324800000\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/app/custom-emojis/{{emojiId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["app", "custom-emojis", "{{emojiId}}"]
+            },
+            "description": "Crea o actualiza un custom emoji individual dentro del catalogo asociado a esta app."
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (!pm.collectionVariables.get('sessionId') || !pm.collectionVariables.get('nonce')) {",
+                  "  throw new Error('Primero ejecuta Start Session para generar sessionId y nonce.');",
+                  "}",
+                  "if (!pm.collectionVariables.get('emojiId')) {",
+                  "  throw new Error('Define la variable emojiId antes de ejecutar este endpoint.');",
+                  "}"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Upsert Custom Emoji responde 200', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "});",
+                  "const json = pm.response.json();",
+                  "pm.test('Upsert correcto', function () {",
+                  "  pm.expect(json.ok).to.eql(true);",
+                  "  pm.expect(json.item).to.have.property('id');",
+                  "});",
+                  "if (json.item && json.item.id) {",
+                  "  pm.collectionVariables.set('emojiId', json.item.id);",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Delete Custom Emoji",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              { "key": "X-Folio-App-Id", "value": "{{appId}}", "type": "text" },
+              { "key": "X-Folio-App-Name", "value": "{{appName}}", "type": "text" },
+              { "key": "X-Folio-App-Version", "value": "{{appVersion}}", "type": "text" },
+              { "key": "X-Folio-Integration-Version", "value": "{{integrationVersion}}", "type": "text" },
+              { "key": "Authorization", "value": "Bearer {{nonce}}", "type": "text" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/app/custom-emojis/{{emojiId}}?sessionId={{sessionId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["app", "custom-emojis", "{{emojiId}}"],
+              "query": [
+                { "key": "sessionId", "value": "{{sessionId}}" }
+              ]
+            },
+            "description": "Elimina un custom emoji individual del catalogo asociado a esta app."
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (!pm.collectionVariables.get('sessionId') || !pm.collectionVariables.get('nonce')) {",
+                  "  throw new Error('Primero ejecuta Start Session para generar sessionId y nonce.');",
+                  "}",
+                  "if (!pm.collectionVariables.get('emojiId')) {",
+                  "  throw new Error('Define la variable emojiId antes de ejecutar este endpoint.');",
+                  "}"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Delete Custom Emoji responde 200', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "});",
+                  "const json = pm.response.json();",
+                  "pm.test('Delete correcto', function () {",
+                  "  pm.expect(json.ok).to.eql(true);",
+                  "  pm.expect(json.deletedId).to.be.a('string').and.not.empty;",
+                  "});"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
