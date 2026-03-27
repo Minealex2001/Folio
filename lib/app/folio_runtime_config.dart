@@ -13,6 +13,11 @@ class FolioRuntimeConfig {
       return FolioRuntimeConfig(integrationSecret: defineSecret);
     }
 
+    final envSecret =
+        Platform.environment['FOLIO_INTEGRATION_SECRET']?.trim() ?? '';
+    if (envSecret.isNotEmpty) {
+      return FolioRuntimeConfig(integrationSecret: envSecret);
+    }
     for (final fileName in const ['.env.local', '.env']) {
       final env = await _tryReadEnvFile(fileName);
       final secret = env['FOLIO_INTEGRATION_SECRET']?.trim() ?? '';
