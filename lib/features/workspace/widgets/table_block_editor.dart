@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import '../../../l10n/generated/app_localizations.dart';
 
 import '../../../models/folio_table_data.dart';
 
@@ -141,6 +142,7 @@ class _TableBlockEditorState extends State<TableBlockEditor> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     final rows = _data.rowCount;
     final cols = _data.cols;
 
@@ -155,31 +157,31 @@ class _TableBlockEditorState extends State<TableBlockEditor> {
               OutlinedButton.icon(
                 onPressed: () => _mutateStructure((d) => d.addRow()),
                 icon: const Icon(Icons.table_rows_rounded, size: 16),
-                label: const Text('Fila'),
+                label: Text(l10n.tableAddRow),
               ),
               OutlinedButton.icon(
                 onPressed: rows > 1
                     ? () => _mutateStructure((d) => d.removeLastRow())
                     : null,
                 icon: const Icon(Icons.remove_rounded, size: 16),
-                label: const Text('Quitar fila'),
+                label: Text(l10n.tableRemoveRow),
               ),
               OutlinedButton.icon(
                 onPressed: () => _mutateStructure((d) => d.addCol()),
                 icon: const Icon(Icons.view_column_rounded, size: 16),
-                label: const Text('Columna'),
+                label: Text(l10n.tableAddColumn),
               ),
               OutlinedButton.icon(
                 onPressed: cols > 1
                     ? () => _mutateStructure((d) => d.removeLastCol())
                     : null,
                 icon: const Icon(Icons.vertical_align_center_rounded, size: 16),
-                label: const Text('Quitar col.'),
+                label: Text(l10n.tableRemoveColumn),
               ),
               FilledButton.tonalIcon(
                 onPressed: _pasteFromClipboard,
                 icon: const Icon(Icons.content_paste_rounded, size: 16),
-                label: const Text('Pegar tabla'),
+                label: Text(l10n.tablePasteFromClipboard),
               ),
             ],
           ),

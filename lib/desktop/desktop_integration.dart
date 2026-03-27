@@ -26,6 +26,8 @@ class DesktopTrayLabels {
 }
 
 class DesktopIntegration with TrayListener, WindowListener {
+  static const Size _minimumWindowSize = Size(1280, 720);
+
   DesktopIntegration({
     required this.settings,
     required this.onOpenRequested,
@@ -53,6 +55,7 @@ class DesktopIntegration with TrayListener, WindowListener {
     if (_initialized || !_isDesktop) return;
     _initialized = true;
     await windowManager.ensureInitialized();
+    await windowManager.setMinimumSize(_minimumWindowSize);
     await windowManager.setPreventClose(true);
     windowManager.addListener(this);
     trayManager.addListener(this);

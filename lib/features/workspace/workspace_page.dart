@@ -1645,13 +1645,15 @@ class _WorkspacePageState extends State<WorkspacePage> {
     setState(() {
       _chatInputController.clear();
     });
-    _s.appendMessageToActiveAiChat(AiChatMessage(role: 'user', content: text));
+    _s.appendMessageToActiveAiChat(
+      AiChatMessage.now(role: 'user', content: text),
+    );
     try {
       final outcome = await _runAiFromChat(text, _activeChat.messages);
       if (!mounted) return;
       setState(() => _lastChatTokenUsage = outcome.usage);
       _s.appendMessageToActiveAiChat(
-        AiChatMessage(role: 'assistant', content: outcome.reply),
+        AiChatMessage.now(role: 'assistant', content: outcome.reply),
       );
     } catch (e) {
       if (!mounted) return;
@@ -2048,37 +2050,49 @@ class _WorkspacePageState extends State<WorkspacePage> {
                     final msgs = _activeChat.messages;
                     final showChatList = msgs.isNotEmpty || _aiChatBusy;
                     if (!showChatList) {
-                      return Center(
-                        child: Padding(
-                          padding: const EdgeInsets.all(28),
-                          child: Column(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Container(
-                                width: 56,
-                                height: 56,
-                                decoration: BoxDecoration(
-                                  color: scheme.primary.withValues(alpha: 0.10),
-                                  shape: BoxShape.circle,
-                                ),
-                                child: Icon(
-                                  Icons.forum_outlined,
-                                  color: scheme.primary,
-                                  size: 28,
+                      return LayoutBuilder(
+                        builder: (context, constraints) {
+                          return SingleChildScrollView(
+                            padding: const EdgeInsets.all(28),
+                            child: ConstrainedBox(
+                              constraints: BoxConstraints(
+                                minHeight: constraints.maxHeight,
+                              ),
+                              child: Center(
+                                child: Column(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Container(
+                                      width: 56,
+                                      height: 56,
+                                      decoration: BoxDecoration(
+                                        color: scheme.primary.withValues(
+                                          alpha: 0.10,
+                                        ),
+                                        shape: BoxShape.circle,
+                                      ),
+                                      child: Icon(
+                                        Icons.forum_outlined,
+                                        color: scheme.primary,
+                                        size: 28,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 16),
+                                    Text(
+                                      l10n.aiChatEmptyHint,
+                                      textAlign: TextAlign.center,
+                                      style: theme.textTheme.bodyMedium
+                                          ?.copyWith(
+                                            color: scheme.onSurfaceVariant,
+                                            height: 1.55,
+                                          ),
+                                    ),
+                                  ],
                                 ),
                               ),
-                              const SizedBox(height: 16),
-                              Text(
-                                l10n.aiChatEmptyHint,
-                                textAlign: TextAlign.center,
-                                style: theme.textTheme.bodyMedium?.copyWith(
-                                  color: scheme.onSurfaceVariant,
-                                  height: 1.55,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
+                            ),
+                          );
+                        },
                       );
                     }
                     final typingExtra = _aiChatBusy ? 1 : 0;

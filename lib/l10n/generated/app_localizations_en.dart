@@ -670,6 +670,21 @@ class AppLocalizationsEn extends AppLocalizations {
   String get pasteAsMentionSubtitle => 'Link to a page in this vault';
 
   @override
+  String get tableAddRow => 'Row';
+
+  @override
+  String get tableRemoveRow => 'Remove row';
+
+  @override
+  String get tableAddColumn => 'Column';
+
+  @override
+  String get tableRemoveColumn => 'Remove col.';
+
+  @override
+  String get tablePasteFromClipboard => 'Paste table';
+
+  @override
   String get pickPageForMention => 'Choose page';
 
   @override

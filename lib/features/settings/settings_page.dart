@@ -111,19 +111,42 @@ class _SettingsPageState extends State<SettingsPage> {
     super.dispose();
   }
 
-  Future<void> _scrollToSection(int index) async {
-    if (index < 0 || index >= _sectionKeys.length) return;
-    if (mounted) {
-      setState(() => _selectedDesktopSection = index);
-    }
+  Future<bool> _ensureSectionVisible(int index) async {
+    if (!_settingsScrollController.hasClients) return false;
     final targetContext = _sectionKeys[index].currentContext;
-    if (targetContext == null) return;
+    if (targetContext == null) return false;
     await Scrollable.ensureVisible(
       targetContext,
       duration: const Duration(milliseconds: 260),
       curve: Curves.easeOutCubic,
       alignment: 0.03,
     );
+    return true;
+  }
+
+  Future<void> _scrollToSection(int index) async {
+    if (index < 0 || index >= _sectionKeys.length) return;
+    if (mounted) {
+      setState(() => _selectedDesktopSection = index);
+    }
+    if (await _ensureSectionVisible(index)) return;
+
+    // En algunos frames el target puede no tener context aun; reintenta una vez.
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      if (!mounted) return;
+      if (await _ensureSectionVisible(index)) return;
+      if (!_settingsScrollController.hasClients) return;
+
+      final max = _settingsScrollController.position.maxScrollExtent;
+      if (max <= 0) return;
+      final denom = (_sectionKeys.length - 1).clamp(1, _sectionKeys.length);
+      final target = (index / denom) * max;
+      await _settingsScrollController.animateTo(
+        target.clamp(0.0, max),
+        duration: const Duration(milliseconds: 260),
+        curve: Curves.easeOutCubic,
+      );
+    });
   }
 
   Future<void> _refreshSecurityFlags() async {
@@ -4029,7 +4052,6 @@ class _SettingsDesktopRail extends StatelessWidget {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
     return Container(
-      padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
         gradient: LinearGradient(
           begin: Alignment.topCenter,
@@ -4041,81 +4063,99 @@ class _SettingsDesktopRail extends StatelessWidget {
           color: scheme.outlineVariant.withValues(alpha: 0.35),
         ),
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Container(
-            width: 52,
-            height: 52,
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: [scheme.primaryContainer, scheme.tertiaryContainer],
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          return SingleChildScrollView(
+            padding: const EdgeInsets.all(24),
+            child: ConstrainedBox(
+              constraints: BoxConstraints(
+                minHeight: constraints.maxHeight - 48,
               ),
-              borderRadius: BorderRadius.circular(18),
-            ),
-            child: Icon(Icons.tune_rounded, color: scheme.onPrimaryContainer),
-          ),
-          const SizedBox(height: 20),
-          Text(
-            title,
-            style: theme.textTheme.headlineSmall?.copyWith(
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-          const SizedBox(height: 12),
-          Text(
-            subtitle,
-            style: theme.textTheme.bodyMedium?.copyWith(
-              color: scheme.onSurfaceVariant,
-              height: 1.45,
-            ),
-          ),
-          const SizedBox(height: 24),
-          const SizedBox(height: 8),
-          ...sections.asMap().entries.map(
-            (entry) => Padding(
-              padding: const EdgeInsets.only(bottom: 8),
-              child: Material(
-                color: Colors.transparent,
-                child: InkWell(
-                  borderRadius: BorderRadius.circular(16),
-                  onTap: () => onSelectSection(entry.value.keyIndex),
-                  child: AnimatedContainer(
-                    duration: const Duration(milliseconds: 180),
-                    curve: Curves.easeOutCubic,
-                    width: double.infinity,
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 14,
-                      vertical: 12,
-                    ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Container(
+                    width: 52,
+                    height: 52,
                     decoration: BoxDecoration(
-                      color: currentSection == entry.value.keyIndex
-                          ? scheme.primaryContainer
-                          : scheme.surface,
-                      borderRadius: BorderRadius.circular(16),
-                      border: Border.all(
-                        color: currentSection == entry.value.keyIndex
-                            ? scheme.primary.withValues(alpha: 0.35)
-                            : Colors.transparent,
+                      gradient: LinearGradient(
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                        colors: [
+                          scheme.primaryContainer,
+                          scheme.tertiaryContainer,
+                        ],
                       ),
+                      borderRadius: BorderRadius.circular(18),
                     ),
-                    child: Text(
-                      entry.value.label,
-                      style: theme.textTheme.titleSmall?.copyWith(
-                        fontWeight: FontWeight.w600,
-                        color: currentSection == entry.value.keyIndex
-                            ? scheme.onPrimaryContainer
-                            : scheme.onSurface,
+                    child: Icon(
+                      Icons.tune_rounded,
+                      color: scheme.onPrimaryContainer,
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+                  Text(
+                    title,
+                    style: theme.textTheme.headlineSmall?.copyWith(
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  Text(
+                    subtitle,
+                    style: theme.textTheme.bodyMedium?.copyWith(
+                      color: scheme.onSurfaceVariant,
+                      height: 1.45,
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+                  const SizedBox(height: 8),
+                  ...sections.asMap().entries.map(
+                    (entry) => Padding(
+                      padding: const EdgeInsets.only(bottom: 8),
+                      child: Material(
+                        color: Colors.transparent,
+                        child: InkWell(
+                          borderRadius: BorderRadius.circular(16),
+                          onTap: () => onSelectSection(entry.value.keyIndex),
+                          child: AnimatedContainer(
+                            duration: const Duration(milliseconds: 180),
+                            curve: Curves.easeOutCubic,
+                            width: double.infinity,
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 14,
+                              vertical: 12,
+                            ),
+                            decoration: BoxDecoration(
+                              color: currentSection == entry.value.keyIndex
+                                  ? scheme.primaryContainer
+                                  : scheme.surface,
+                              borderRadius: BorderRadius.circular(16),
+                              border: Border.all(
+                                color: currentSection == entry.value.keyIndex
+                                    ? scheme.primary.withValues(alpha: 0.35)
+                                    : Colors.transparent,
+                              ),
+                            ),
+                            child: Text(
+                              entry.value.label,
+                              style: theme.textTheme.titleSmall?.copyWith(
+                                fontWeight: FontWeight.w600,
+                                color: currentSection == entry.value.keyIndex
+                                    ? scheme.onPrimaryContainer
+                                    : scheme.onSurface,
+                              ),
+                            ),
+                          ),
+                        ),
                       ),
                     ),
                   ),
-                ),
+                ],
               ),
             ),
-          ),
-        ],
+          );
+        },
       ),
     );
   }

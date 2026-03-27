@@ -193,4 +193,4 @@ jobs:
           tag_name: ${{ steps.version.outputs.tag }}
           name: ${{ steps.version.outputs.tag }}
           target_commitish: master
-          generate_release_notes: false
+          generate_release_notes: true

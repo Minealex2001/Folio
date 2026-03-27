@@ -1,10 +1,23 @@
 class AiChatMessage {
-  AiChatMessage({
+  const AiChatMessage({
     required this.role,
     required this.content,
-    DateTime? timestamp,
+    required this.timestamp,
     this.feedback,
-  }) : timestamp = timestamp ?? DateTime.now();
+  });
+
+  factory AiChatMessage.now({
+    required String role,
+    required String content,
+    String? feedback,
+  }) {
+    return AiChatMessage(
+      role: role,
+      content: content,
+      timestamp: DateTime.now(),
+      feedback: feedback,
+    );
+  }
 
   final String role;
   final String content;

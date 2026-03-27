@@ -1322,6 +1322,36 @@ abstract class AppLocalizations {
   /// **'Enlace a una página de este cofre'**
   String get pasteAsMentionSubtitle;
 
+  /// No description provided for @tableAddRow.
+  ///
+  /// In es, this message translates to:
+  /// **'Fila'**
+  String get tableAddRow;
+
+  /// No description provided for @tableRemoveRow.
+  ///
+  /// In es, this message translates to:
+  /// **'Quitar fila'**
+  String get tableRemoveRow;
+
+  /// No description provided for @tableAddColumn.
+  ///
+  /// In es, this message translates to:
+  /// **'Columna'**
+  String get tableAddColumn;
+
+  /// No description provided for @tableRemoveColumn.
+  ///
+  /// In es, this message translates to:
+  /// **'Quitar col.'**
+  String get tableRemoveColumn;
+
+  /// No description provided for @tablePasteFromClipboard.
+  ///
+  /// In es, this message translates to:
+  /// **'Pegar tabla'**
+  String get tablePasteFromClipboard;
+
   /// No description provided for @pickPageForMention.
   ///
   /// In es, this message translates to:
@@ -2045,7 +2075,7 @@ abstract class AppLocalizations {
   /// No description provided for @aiAllowRemoteEndpointNotConfirmed.
   ///
   /// In es, this message translates to:
-  /// **'El acceso a endpoints remotos esta habilitado, pero todavia no se ha confirmado.'**
+  /// **'El acceso a endpoints remotos está habilitado, pero todavía no se ha confirmado.'**
   String get aiAllowRemoteEndpointNotConfirmed;
 
   /// No description provided for @aiConnectToListModels.

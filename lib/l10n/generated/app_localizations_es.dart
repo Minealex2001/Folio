@@ -672,6 +672,21 @@ class AppLocalizationsEs extends AppLocalizations {
   String get pasteAsMentionSubtitle => 'Enlace a una página de este cofre';
 
   @override
+  String get tableAddRow => 'Fila';
+
+  @override
+  String get tableRemoveRow => 'Quitar fila';
+
+  @override
+  String get tableAddColumn => 'Columna';
+
+  @override
+  String get tableRemoveColumn => 'Quitar col.';
+
+  @override
+  String get tablePasteFromClipboard => 'Pegar tabla';
+
+  @override
   String get pickPageForMention => 'Elegir página';
 
   @override
@@ -1079,7 +1094,7 @@ class AppLocalizationsEs extends AppLocalizations {
 
   @override
   String get aiAllowRemoteEndpointNotConfirmed =>
-      'El acceso a endpoints remotos esta habilitado, pero todavia no se ha confirmado.';
+      'El acceso a endpoints remotos está habilitado, pero todavía no se ha confirmado.';
 
   @override
   String get aiConnectToListModels => 'Conectar para listar modelos';
