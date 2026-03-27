@@ -178,7 +178,17 @@ jobs:
           Filename: "{app}\\{#MyAppExeName}"; Description: "{cm:LaunchProgram,{#StringChange(MyAppName, '&', '&&')}}"; Flags: nowait postinstall skipifsilent
           "@ | Set-Content -Path $issPath -Encoding ascii
 
-          & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" $issPath
+          $isccCommand = Get-Command ISCC.exe -ErrorAction SilentlyContinue
+          if ($isccCommand) {
+            & $isccCommand.Source $issPath
+          }
+          else {
+            $fallbackIscc = 'C:\Program Files (x86)\Inno Setup 6\ISCC.exe'
+            if (-not (Test-Path $fallbackIscc)) {
+              throw 'No se encontro ISCC.exe de Inno Setup en PATH ni en la ruta por defecto.'
+            }
+            & $fallbackIscc $issPath
+          }
 
           $installerPath = Join-Path (Resolve-Path 'dist') "${{ steps.version.outputs.installer_name }}.exe"
           if (-not (Test-Path $installerPath)) {
@@ -204,4 +214,4 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           $tag = '${{ steps.version.outputs.tag }}'
-          gh release create $tag --repo '${{ github.repository }}' --target master --title $tag --notes ""
+          gh release create $tag --repo '${{ github.repository }}' --target master --title $tag --generate-notes
