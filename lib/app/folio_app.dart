@@ -111,10 +111,13 @@ class _FolioAppState extends State<FolioApp> with WidgetsBindingObserver {
 
   void _onSession() {
     if (widget.session.state == VaultFlowState.locked) {
-      final nav = _navKey.currentState;
-      if (nav != null) {
-        nav.popUntil((route) => route.isFirst);
-      }
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        final nav = _navKey.currentState;
+        if (nav == null || !nav.mounted) return;
+        while (nav.canPop()) {
+          nav.pop();
+        }
+      });
     }
     if (mounted) setState(() {});
   }
