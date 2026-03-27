@@ -1,12 +1,15 @@
 import 'block.dart';
 import 'folio_database_data.dart';
+import 'folio_page_import_info.dart';
 import 'folio_table_data.dart';
 
 class FolioPage {
   FolioPage({
     required this.id,
     required this.title,
+    this.emoji,
     this.parentId,
+    this.lastImportInfo,
     List<FolioBlock>? blocks,
   }) : blocks = (blocks != null && blocks.isNotEmpty)
            ? blocks
@@ -14,15 +17,19 @@ class FolioPage {
 
   final String id;
   String title;
+  String? emoji;
 
   /// null = raíz del árbol
   String? parentId;
+  FolioPageImportInfo? lastImportInfo;
   List<FolioBlock> blocks;
 
   Map<String, dynamic> toJson() => {
     'id': id,
     'title': title,
+    if (emoji != null && emoji!.trim().isNotEmpty) 'emoji': emoji,
     if (parentId != null) 'parentId': parentId,
+    if (lastImportInfo != null) 'lastImportInfo': lastImportInfo!.toJson(),
     'blocks': blocks.map((b) => b.toJson()).toList(),
   };
 
@@ -39,7 +46,19 @@ class FolioPage {
     return FolioPage(
       id: id,
       title: j['title'] as String? ?? 'Untitled',
+      emoji: (j['emoji'] as String?)?.trim().isEmpty ?? true
+          ? null
+          : (j['emoji'] as String).trim(),
       parentId: j['parentId'] as String?,
+      lastImportInfo: j['lastImportInfo'] is Map<String, dynamic>
+          ? FolioPageImportInfo.fromJson(
+              j['lastImportInfo'] as Map<String, dynamic>,
+            )
+          : (j['lastImportInfo'] is Map
+                ? FolioPageImportInfo.fromJson(
+                    Map<String, dynamic>.from(j['lastImportInfo'] as Map),
+                  )
+                : null),
       blocks: blocks,
     );
   }

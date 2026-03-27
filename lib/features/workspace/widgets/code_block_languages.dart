@@ -47,6 +47,11 @@ const kCodeLanguagePickerOptions = <CodeLanguageOption>[
     label: 'Markdown',
     icon: Icons.article_outlined,
   ),
+  CodeLanguageOption(
+    id: 'diff',
+    label: 'Diff',
+    icon: Icons.compare_arrows_rounded,
+  ),
   CodeLanguageOption(id: 'sql', label: 'SQL', icon: Icons.table_chart_outlined),
   CodeLanguageOption(id: 'bash', label: 'Bash', icon: Icons.terminal_rounded),
   CodeLanguageOption(id: 'cpp', label: 'C / C++', icon: Icons.memory_rounded),
