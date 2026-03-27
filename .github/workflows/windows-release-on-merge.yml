@@ -149,61 +149,61 @@ jobs:
           $sourceGlob = Join-Path $releaseDir '*'
 
           @"
-#define MyAppName "Folio"
-#define MyAppVersion "$appVersion"
-#define MyAppPublisher "Folio"
-#define MyAppExeName "$($mainExe.Name)"
+            #define MyAppName "Folio"
+            #define MyAppVersion "$appVersion"
+            #define MyAppPublisher "Folio"
+            #define MyAppExeName "$($mainExe.Name)"
 
-[Setup]
-AppId={{17A9F1CC-D1AB-4F8A-8B34-915364F4A8C6}
-AppName={#MyAppName}
-AppVersion={#MyAppVersion}
-AppPublisher={#MyAppPublisher}
-DefaultDirName={autopf}\{#MyAppName}
-DefaultGroupName={#MyAppName}
-DisableProgramGroupPage=yes
-OutputDir=$distDir
-OutputBaseFilename=$outputBase
-Compression=lzma
-SolidCompression=yes
-WizardStyle=modern
+            [Setup]
+            AppId={{17A9F1CC-D1AB-4F8A-8B34-915364F4A8C6}
+            AppName={#MyAppName}
+            AppVersion={#MyAppVersion}
+            AppPublisher={#MyAppPublisher}
+            DefaultDirName={autopf}\{#MyAppName}
+            DefaultGroupName={#MyAppName}
+            DisableProgramGroupPage=yes
+            OutputDir=$distDir
+            OutputBaseFilename=$outputBase
+            Compression=lzma
+            SolidCompression=yes
+            WizardStyle=modern
 
-[Languages]
-Name: "spanish"; MessagesFile: "compiler:Languages\Spanish.isl"
-Name: "english"; MessagesFile: "compiler:Default.isl"
+            [Languages]
+            Name: "spanish"; MessagesFile: "compiler:Languages\Spanish.isl"
+            Name: "english"; MessagesFile: "compiler:Default.isl"
 
-[Tasks]
-Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{cm:AdditionalIcons}"; Flags: unchecked
+            [Tasks]
+            Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{cm:AdditionalIcons}"; Flags: unchecked
 
-[Files]
-Source: "$sourceGlob"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
+            [Files]
+            Source: "$sourceGlob"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
 
-[Icons]
-Name: "{autoprograms}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"
-Name: "{autodesktop}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"; Tasks: desktopicon
+            [Icons]
+            Name: "{autoprograms}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"
+            Name: "{autodesktop}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"; Tasks: desktopicon
 
-[Run]
-Filename: "{app}\{#MyAppExeName}"; Description: "{cm:LaunchProgram,{#StringChange(MyAppName, '&', '&&')}}"; Flags: nowait postinstall skipifsilent
-"@ | Set-Content -Path $issPath -Encoding utf8
+            [Run]
+            Filename: "{app}\{#MyAppExeName}"; Description: "{cm:LaunchProgram,{#StringChange(MyAppName, '&', '&&')}}"; Flags: nowait postinstall skipifsilent
+            "@ | Set-Content -Path $issPath -Encoding utf8
 
-          $isccCommand = Get-Command ISCC.exe -ErrorAction SilentlyContinue
-          if ($isccCommand) {
-            & $isccCommand.Source $issPath
-          }
-          else {
-            $fallbackIscc = 'C:\Program Files (x86)\Inno Setup 6\ISCC.exe'
-            if (-not (Test-Path $fallbackIscc)) {
-              throw 'No se encontro ISCC.exe de Inno Setup en PATH ni en la ruta por defecto.'
-            }
-            & $fallbackIscc $issPath
-          }
+                      $isccCommand = Get-Command ISCC.exe -ErrorAction SilentlyContinue
+                      if ($isccCommand) {
+                        & $isccCommand.Source $issPath
+                      }
+                      else {
+                        $fallbackIscc = 'C:\Program Files (x86)\Inno Setup 6\ISCC.exe'
+                        if (-not (Test-Path $fallbackIscc)) {
+                          throw 'No se encontro ISCC.exe de Inno Setup en PATH ni en la ruta por defecto.'
+                        }
+                        & $fallbackIscc $issPath
+                      }
 
-          $installerPath = Join-Path $distDir "${{ steps.version.outputs.installer_name }}.exe"
-          if (-not (Test-Path $installerPath)) {
-            throw "No se pudo generar el instalador esperado: $installerPath"
-          }
+                      $installerPath = Join-Path $distDir "${{ steps.version.outputs.installer_name }}.exe"
+                      if (-not (Test-Path $installerPath)) {
+                        throw "No se pudo generar el instalador esperado: $installerPath"
+                      }
 
-          "path=$installerPath" >> $env:GITHUB_OUTPUT
+                      "path=$installerPath" >> $env:GITHUB_OUTPUT
 
       - name: Publish GitHub release (with installer)
         if: steps.mode.outputs.changelog_only != 'true'
