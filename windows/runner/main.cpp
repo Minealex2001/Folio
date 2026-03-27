@@ -154,10 +154,15 @@ int APIENTRY wWinMain(_In_ HINSTANCE instance, _In_opt_ HINSTANCE prev,
       if (launch_argument.has_value()) {
         ForwardProtocolLaunchArgument(existing_window, launch_argument.value());
       }
+      ::CloseHandle(single_instance_mutex);
+      ::CoUninitialize();
+      return EXIT_SUCCESS;
     }
+    // Mutex already exists but no existing window was found. Close this
+    // handle and continue with normal startup instead of exiting and
+    // doing nothing.
     ::CloseHandle(single_instance_mutex);
-    ::CoUninitialize();
-    return EXIT_SUCCESS;
+    single_instance_mutex = nullptr;
   }
 
   std::vector<std::string> command_line_arguments =
