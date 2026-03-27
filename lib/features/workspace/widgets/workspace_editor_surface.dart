@@ -143,10 +143,10 @@ class _WorkspaceEmptyState extends StatefulWidget {
 class _WorkspaceEmptyStateState extends State<_WorkspaceEmptyState>
     with SingleTickerProviderStateMixin {
   static const _tipsEs = <String>[
-    'Tip: crea una pagina y usa / para insertar bloques rapidamente.',
-    'Folio guarda cambios automaticamente. Solo empieza a escribir.',
-    'Usa buscar para saltar entre paginas y volver al flujo rapido.',
-    'Las subpaginas te ayudan a mantener cada tema bien organizado.',
+    'Tip: crea una página y usa / para insertar bloques rápidamente.',
+    'Folio guarda cambios automáticamente. Solo empieza a escribir.',
+    'Usa buscar para saltar entre páginas y volver al flujo rápido.',
+    'Las subpáginas te ayudan a mantener cada tema bien organizado.',
   ];
   static const _tipsEn = <String>[
     'Tip: create a page and use / to insert blocks quickly.',
