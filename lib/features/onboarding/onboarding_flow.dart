@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import '../../app/app_settings.dart';
 import '../../app/ui_tokens.dart';
 import '../../app/widgets/folio_password_field.dart';
+import '../../data/notion_import/notion_importer.dart';
 import '../../data/vault_backup.dart';
 import '../../l10n/generated/app_localizations.dart';
 import '../../session/vault_session.dart';
@@ -225,6 +226,10 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
       );
       await widget.session.unlockWithPassword(pwd);
       await widget.appSettings.setHasSeenQuillIntro(true);
+      final warnings = widget.session.lastImportWarnings;
+      if (mounted && warnings.isNotEmpty) {
+        await _showImportWarningsDialog(warnings);
+      }
     } catch (e) {
       if (!mounted) return;
       setState(() {
@@ -232,6 +237,58 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
         _error = l10n.importNotionError('$e');
       });
     }
+  }
+
+  Future<void> _showImportWarningsDialog(
+    List<NotionImportWarning> warnings,
+  ) async {
+    final l10n = AppLocalizations.of(context);
+    await showDialog<void>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Row(
+          children: [
+            Icon(
+              Icons.warning_amber_rounded,
+              color: Theme.of(ctx).colorScheme.tertiary,
+            ),
+            const SizedBox(width: 8),
+            Expanded(child: Text(l10n.importNotionWarningsTitle)),
+          ],
+        ),
+        content: SizedBox(
+          width: 480,
+          child: SingleChildScrollView(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(l10n.importNotionWarningsBody),
+                const SizedBox(height: 12),
+                ...warnings.map(
+                  (w) => Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 2),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text('\u2022 '),
+                        Expanded(child: Text(w.message)),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+        actions: [
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: Text(l10n.ok),
+          ),
+        ],
+      ),
+    );
   }
 
   Future<void> _finishCreate() async {

@@ -1226,6 +1226,21 @@ class AppLocalizationsEn extends AppLocalizations {
   String get noSearchResults => 'No results';
 
   @override
+  String get searchFilterAll => 'All';
+
+  @override
+  String get searchFilterTitles => 'Titles';
+
+  @override
+  String get searchFilterContent => 'Content';
+
+  @override
+  String get searchSortRelevance => 'Relevance';
+
+  @override
+  String get searchSortRecent => 'Recent';
+
+  @override
   String get unlockVaultTitle => 'Unlock vault';
 
   @override
@@ -1274,6 +1289,16 @@ class AppLocalizationsEn extends AppLocalizations {
   String importNotionError(Object error) {
     return 'Could not import Notion: $error';
   }
+
+  @override
+  String get importNotionWarningsTitle => 'Import warnings';
+
+  @override
+  String get importNotionWarningsBody =>
+      'The import completed with some warnings:';
+
+  @override
+  String get ok => 'OK';
 
   @override
   String get notionExportGuideTitle => 'How to export from Notion';
@@ -1480,4 +1505,80 @@ class AppLocalizationsEn extends AppLocalizations {
   String aiMessageTimestampDays(int n) {
     return '$n days ago';
   }
+
+  @override
+  String get templateGalleryTitle => 'Page Templates';
+
+  @override
+  String get templateImport => 'Import';
+
+  @override
+  String get templateImportPickTitle => 'Select a template file';
+
+  @override
+  String get templateImportSuccess => 'Template imported';
+
+  @override
+  String templateImportError(Object error) {
+    return 'Error importing: $error';
+  }
+
+  @override
+  String get templateExportPickTitle => 'Save template file';
+
+  @override
+  String get templateExportSuccess => 'Template exported';
+
+  @override
+  String templateExportError(Object error) {
+    return 'Error exporting: $error';
+  }
+
+  @override
+  String get templateSearchHint => 'Search templates...';
+
+  @override
+  String get templateEmptyHint =>
+      'No templates yet.\nSave a page as a template or import one.';
+
+  @override
+  String templateBlockCount(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'blocks',
+      one: 'block',
+    );
+    return '$count $_temp0';
+  }
+
+  @override
+  String get templateUse => 'Use template';
+
+  @override
+  String get templateExport => 'Export';
+
+  @override
+  String get templateBlankPage => 'Blank page';
+
+  @override
+  String get templateFromGallery => 'From template…';
+
+  @override
+  String get saveAsTemplate => 'Save as template';
+
+  @override
+  String get saveAsTemplateTitle => 'Save as template';
+
+  @override
+  String get templateNameHint => 'Template name';
+
+  @override
+  String get templateDescriptionHint => 'Description (optional)';
+
+  @override
+  String get templateCategoryHint => 'Category (optional)';
+
+  @override
+  String get templateSaved => 'Saved as template';
 }

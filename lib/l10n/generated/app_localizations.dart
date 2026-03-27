@@ -2318,6 +2318,36 @@ abstract class AppLocalizations {
   /// **'Sin resultados'**
   String get noSearchResults;
 
+  /// No description provided for @searchFilterAll.
+  ///
+  /// In es, this message translates to:
+  /// **'Todo'**
+  String get searchFilterAll;
+
+  /// No description provided for @searchFilterTitles.
+  ///
+  /// In es, this message translates to:
+  /// **'Títulos'**
+  String get searchFilterTitles;
+
+  /// No description provided for @searchFilterContent.
+  ///
+  /// In es, this message translates to:
+  /// **'Contenido'**
+  String get searchFilterContent;
+
+  /// No description provided for @searchSortRelevance.
+  ///
+  /// In es, this message translates to:
+  /// **'Relevancia'**
+  String get searchSortRelevance;
+
+  /// No description provided for @searchSortRecent.
+  ///
+  /// In es, this message translates to:
+  /// **'Recientes'**
+  String get searchSortRecent;
+
   /// No description provided for @unlockVaultTitle.
   ///
   /// In es, this message translates to:
@@ -2407,6 +2437,24 @@ abstract class AppLocalizations {
   /// In es, this message translates to:
   /// **'No se pudo importar Notion: {error}'**
   String importNotionError(Object error);
+
+  /// No description provided for @importNotionWarningsTitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Avisos de importación'**
+  String get importNotionWarningsTitle;
+
+  /// No description provided for @importNotionWarningsBody.
+  ///
+  /// In es, this message translates to:
+  /// **'La importación finalizó con los siguientes avisos:'**
+  String get importNotionWarningsBody;
+
+  /// No description provided for @ok.
+  ///
+  /// In es, this message translates to:
+  /// **'Aceptar'**
+  String get ok;
 
   /// No description provided for @notionExportGuideTitle.
   ///
@@ -2749,6 +2797,132 @@ abstract class AppLocalizations {
   /// In es, this message translates to:
   /// **'hace {n} días'**
   String aiMessageTimestampDays(int n);
+
+  /// No description provided for @templateGalleryTitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Plantillas de página'**
+  String get templateGalleryTitle;
+
+  /// No description provided for @templateImport.
+  ///
+  /// In es, this message translates to:
+  /// **'Importar'**
+  String get templateImport;
+
+  /// No description provided for @templateImportPickTitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Seleccionar archivo de plantilla'**
+  String get templateImportPickTitle;
+
+  /// No description provided for @templateImportSuccess.
+  ///
+  /// In es, this message translates to:
+  /// **'Plantilla importada'**
+  String get templateImportSuccess;
+
+  /// No description provided for @templateImportError.
+  ///
+  /// In es, this message translates to:
+  /// **'Error al importar: {error}'**
+  String templateImportError(Object error);
+
+  /// No description provided for @templateExportPickTitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Guardar archivo de plantilla'**
+  String get templateExportPickTitle;
+
+  /// No description provided for @templateExportSuccess.
+  ///
+  /// In es, this message translates to:
+  /// **'Plantilla exportada'**
+  String get templateExportSuccess;
+
+  /// No description provided for @templateExportError.
+  ///
+  /// In es, this message translates to:
+  /// **'Error al exportar: {error}'**
+  String templateExportError(Object error);
+
+  /// No description provided for @templateSearchHint.
+  ///
+  /// In es, this message translates to:
+  /// **'Buscar plantillas...'**
+  String get templateSearchHint;
+
+  /// No description provided for @templateEmptyHint.
+  ///
+  /// In es, this message translates to:
+  /// **'Sin plantillas.\nGuarda una página como plantilla o importa una.'**
+  String get templateEmptyHint;
+
+  /// No description provided for @templateBlockCount.
+  ///
+  /// In es, this message translates to:
+  /// **'{count} {count, plural, one {bloque} other {bloques}}'**
+  String templateBlockCount(int count);
+
+  /// No description provided for @templateUse.
+  ///
+  /// In es, this message translates to:
+  /// **'Usar plantilla'**
+  String get templateUse;
+
+  /// No description provided for @templateExport.
+  ///
+  /// In es, this message translates to:
+  /// **'Exportar'**
+  String get templateExport;
+
+  /// No description provided for @templateBlankPage.
+  ///
+  /// In es, this message translates to:
+  /// **'Página en blanco'**
+  String get templateBlankPage;
+
+  /// No description provided for @templateFromGallery.
+  ///
+  /// In es, this message translates to:
+  /// **'Desde plantilla…'**
+  String get templateFromGallery;
+
+  /// No description provided for @saveAsTemplate.
+  ///
+  /// In es, this message translates to:
+  /// **'Guardar como plantilla'**
+  String get saveAsTemplate;
+
+  /// No description provided for @saveAsTemplateTitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Guardar como plantilla'**
+  String get saveAsTemplateTitle;
+
+  /// No description provided for @templateNameHint.
+  ///
+  /// In es, this message translates to:
+  /// **'Nombre de plantilla'**
+  String get templateNameHint;
+
+  /// No description provided for @templateDescriptionHint.
+  ///
+  /// In es, this message translates to:
+  /// **'Descripción (opcional)'**
+  String get templateDescriptionHint;
+
+  /// No description provided for @templateCategoryHint.
+  ///
+  /// In es, this message translates to:
+  /// **'Categoría (opcional)'**
+  String get templateCategoryHint;
+
+  /// No description provided for @templateSaved.
+  ///
+  /// In es, this message translates to:
+  /// **'Guardado como plantilla'**
+  String get templateSaved;
 }
 
 class _AppLocalizationsDelegate

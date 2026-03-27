@@ -404,6 +404,11 @@
   "searchAllVaultHint": "Buscar en todo el cofre...",
   "typeToSearch": "Escribe para buscar",
   "noSearchResults": "Sin resultados",
+  "searchFilterAll": "Todo",
+  "searchFilterTitles": "Títulos",
+  "searchFilterContent": "Contenido",
+  "searchSortRelevance": "Relevancia",
+  "searchSortRecent": "Recientes",
   "unlockVaultTitle": "Desbloquear cofre",
   "miniUnlockFailed": "No se pudo desbloquear."
   ,"importNotionTitle": "Importar desde Notion (.zip)"
@@ -420,6 +425,9 @@
   ,"importNotionSuccessNew": "Cofre nuevo importado desde Notion."
   ,"importNotionError": "No se pudo importar Notion: {error}"
   ,"@importNotionError": {"placeholders": {"error": {}}}
+  ,"importNotionWarningsTitle": "Avisos de importación"
+  ,"importNotionWarningsBody": "La importación finalizó con los siguientes avisos:"
+  ,"ok": "Aceptar"
   ,"notionExportGuideTitle": "Como exportar desde Notion"
   ,"notionExportGuideBody": "En Notion, abre Settings -> Export all workspace content, elige HTML o Markdown y descarga el archivo ZIP. Luego usa esta opcion de importacion en Folio."
   ,"appBetaBannerMessage": "Estás usando una versión beta. Puede haber fallos; haz copias de seguridad del cofre con frecuencia."
@@ -481,4 +489,28 @@
   ,"@aiMessageTimestampHours": {"placeholders": {"n": {"type": "int"}}}
   ,"aiMessageTimestampDays": "hace {n} días"
   ,"@aiMessageTimestampDays": {"placeholders": {"n": {"type": "int"}}}
+  ,"templateGalleryTitle": "Plantillas de página"
+  ,"templateImport": "Importar"
+  ,"templateImportPickTitle": "Seleccionar archivo de plantilla"
+  ,"templateImportSuccess": "Plantilla importada"
+  ,"templateImportError": "Error al importar: {error}"
+  ,"@templateImportError": {"placeholders": {"error": {}}}
+  ,"templateExportPickTitle": "Guardar archivo de plantilla"
+  ,"templateExportSuccess": "Plantilla exportada"
+  ,"templateExportError": "Error al exportar: {error}"
+  ,"@templateExportError": {"placeholders": {"error": {}}}
+  ,"templateSearchHint": "Buscar plantillas..."
+  ,"templateEmptyHint": "Sin plantillas.\nGuarda una página como plantilla o importa una."
+  ,"templateBlockCount": "{count} {count, plural, one {bloque} other {bloques}}"
+  ,"@templateBlockCount": {"placeholders": {"count": {"type": "int"}}}
+  ,"templateUse": "Usar plantilla"
+  ,"templateExport": "Exportar"
+  ,"templateBlankPage": "Página en blanco"
+  ,"templateFromGallery": "Desde plantilla…"
+  ,"saveAsTemplate": "Guardar como plantilla"
+  ,"saveAsTemplateTitle": "Guardar como plantilla"
+  ,"templateNameHint": "Nombre de plantilla"
+  ,"templateDescriptionHint": "Descripción (opcional)"
+  ,"templateCategoryHint": "Categoría (opcional)"
+  ,"templateSaved": "Guardado como plantilla"
 }

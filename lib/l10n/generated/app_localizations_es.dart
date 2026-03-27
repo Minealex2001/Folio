@@ -1230,6 +1230,21 @@ class AppLocalizationsEs extends AppLocalizations {
   String get noSearchResults => 'Sin resultados';
 
   @override
+  String get searchFilterAll => 'Todo';
+
+  @override
+  String get searchFilterTitles => 'Títulos';
+
+  @override
+  String get searchFilterContent => 'Contenido';
+
+  @override
+  String get searchSortRelevance => 'Relevancia';
+
+  @override
+  String get searchSortRecent => 'Recientes';
+
+  @override
   String get unlockVaultTitle => 'Desbloquear cofre';
 
   @override
@@ -1278,6 +1293,16 @@ class AppLocalizationsEs extends AppLocalizations {
   String importNotionError(Object error) {
     return 'No se pudo importar Notion: $error';
   }
+
+  @override
+  String get importNotionWarningsTitle => 'Avisos de importación';
+
+  @override
+  String get importNotionWarningsBody =>
+      'La importación finalizó con los siguientes avisos:';
+
+  @override
+  String get ok => 'Aceptar';
 
   @override
   String get notionExportGuideTitle => 'Como exportar desde Notion';
@@ -1486,4 +1511,80 @@ class AppLocalizationsEs extends AppLocalizations {
   String aiMessageTimestampDays(int n) {
     return 'hace $n días';
   }
+
+  @override
+  String get templateGalleryTitle => 'Plantillas de página';
+
+  @override
+  String get templateImport => 'Importar';
+
+  @override
+  String get templateImportPickTitle => 'Seleccionar archivo de plantilla';
+
+  @override
+  String get templateImportSuccess => 'Plantilla importada';
+
+  @override
+  String templateImportError(Object error) {
+    return 'Error al importar: $error';
+  }
+
+  @override
+  String get templateExportPickTitle => 'Guardar archivo de plantilla';
+
+  @override
+  String get templateExportSuccess => 'Plantilla exportada';
+
+  @override
+  String templateExportError(Object error) {
+    return 'Error al exportar: $error';
+  }
+
+  @override
+  String get templateSearchHint => 'Buscar plantillas...';
+
+  @override
+  String get templateEmptyHint =>
+      'Sin plantillas.\nGuarda una página como plantilla o importa una.';
+
+  @override
+  String templateBlockCount(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'bloques',
+      one: 'bloque',
+    );
+    return '$count $_temp0';
+  }
+
+  @override
+  String get templateUse => 'Usar plantilla';
+
+  @override
+  String get templateExport => 'Exportar';
+
+  @override
+  String get templateBlankPage => 'Página en blanco';
+
+  @override
+  String get templateFromGallery => 'Desde plantilla…';
+
+  @override
+  String get saveAsTemplate => 'Guardar como plantilla';
+
+  @override
+  String get saveAsTemplateTitle => 'Guardar como plantilla';
+
+  @override
+  String get templateNameHint => 'Nombre de plantilla';
+
+  @override
+  String get templateDescriptionHint => 'Descripción (opcional)';
+
+  @override
+  String get templateCategoryHint => 'Categoría (opcional)';
+
+  @override
+  String get templateSaved => 'Guardado como plantilla';
 }

@@ -404,6 +404,11 @@
   "searchAllVaultHint": "Search across the entire vault...",
   "typeToSearch": "Type to search",
   "noSearchResults": "No results",
+  "searchFilterAll": "All",
+  "searchFilterTitles": "Titles",
+  "searchFilterContent": "Content",
+  "searchSortRelevance": "Relevance",
+  "searchSortRecent": "Recent",
   "unlockVaultTitle": "Unlock vault",
   "miniUnlockFailed": "Could not unlock."
   ,"importNotionTitle": "Import from Notion (.zip)"
@@ -420,6 +425,9 @@
   ,"importNotionSuccessNew": "New vault imported from Notion."
   ,"importNotionError": "Could not import Notion: {error}"
   ,"@importNotionError": {"placeholders": {"error": {}}}
+  ,"importNotionWarningsTitle": "Import warnings"
+  ,"importNotionWarningsBody": "The import completed with some warnings:"
+  ,"ok": "OK"
   ,"notionExportGuideTitle": "How to export from Notion"
   ,"notionExportGuideBody": "In Notion, open Settings -> Export all workspace content, choose HTML or Markdown, and download the ZIP file. Then use this import option in Folio."
   ,"appBetaBannerMessage": "You are using a beta build. You may run into bugs; back up your vault regularly."
@@ -481,4 +489,28 @@
   ,"@aiMessageTimestampHours": {"placeholders": {"n": {"type": "int"}}}
   ,"aiMessageTimestampDays": "{n} days ago"
   ,"@aiMessageTimestampDays": {"placeholders": {"n": {"type": "int"}}}
+  ,"templateGalleryTitle": "Page Templates"
+  ,"templateImport": "Import"
+  ,"templateImportPickTitle": "Select a template file"
+  ,"templateImportSuccess": "Template imported"
+  ,"templateImportError": "Error importing: {error}"
+  ,"@templateImportError": {"placeholders": {"error": {}}}
+  ,"templateExportPickTitle": "Save template file"
+  ,"templateExportSuccess": "Template exported"
+  ,"templateExportError": "Error exporting: {error}"
+  ,"@templateExportError": {"placeholders": {"error": {}}}
+  ,"templateSearchHint": "Search templates..."
+  ,"templateEmptyHint": "No templates yet.\nSave a page as a template or import one."
+  ,"templateBlockCount": "{count} {count, plural, one {block} other {blocks}}"
+  ,"@templateBlockCount": {"placeholders": {"count": {"type": "int"}}}
+  ,"templateUse": "Use template"
+  ,"templateExport": "Export"
+  ,"templateBlankPage": "Blank page"
+  ,"templateFromGallery": "From template…"
+  ,"saveAsTemplate": "Save as template"
+  ,"saveAsTemplateTitle": "Save as template"
+  ,"templateNameHint": "Template name"
+  ,"templateDescriptionHint": "Description (optional)"
+  ,"templateCategoryHint": "Category (optional)"
+  ,"templateSaved": "Saved as template"
 }

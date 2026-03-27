@@ -11,7 +11,6 @@ import 'package:image_picker/image_picker.dart';
 import 'package:path/path.dart' as p;
 import 'package:uuid/uuid.dart';
 import 'package:url_launcher/url_launcher.dart';
-import 'package:emoji_picker_flutter/emoji_picker_flutter.dart';
 import 'package:intl/intl.dart';
 
 import '../../../app/app_settings.dart';
@@ -26,6 +25,7 @@ import '../../../models/folio_template_button_data.dart';
 import '../../../models/folio_database_data.dart';
 import '../../../models/folio_page.dart';
 import '../../../models/folio_table_data.dart';
+import '../../../services/run2doc/run2doc_markdown_codec.dart';
 import '../../../session/vault_session.dart';
 import 'code_block_languages.dart';
 import 'database_block_editor.dart';
@@ -785,6 +785,10 @@ class _BlockEditorState extends State<BlockEditor> {
     if (scrollId != null) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (!mounted) return;
+        _pendingFocusBlockId = scrollId;
+        if (_selectedBlockId != scrollId) {
+          setState(() => _selectedBlockId = scrollId);
+        }
         final ctx = _blockScrollKeys[scrollId]?.currentContext;
         if (ctx != null) {
           Scrollable.ensureVisible(
@@ -793,6 +797,10 @@ class _BlockEditorState extends State<BlockEditor> {
             curve: Curves.easeOutCubic,
             alignment: 0.12,
           );
+        }
+        final idx = _controllerBlockIds.indexOf(scrollId);
+        if (idx >= 0 && idx < _focusNodes.length) {
+          _focusNodes[idx].requestFocus();
         }
         _s.clearPendingScrollToBlock();
       });
@@ -1196,6 +1204,60 @@ class _BlockEditorState extends State<BlockEditor> {
     _ignoreShortcuts = false;
   }
 
+  /// Returns true if [text] contains Markdown block-level syntax worth parsing.
+  bool _containsMarkdownBlockSyntax(String text) {
+    return text.split('\n').any((line) {
+      final t = line.trimLeft();
+      return t.startsWith('# ') ||
+          t.startsWith('## ') ||
+          t.startsWith('### ') ||
+          t.startsWith('#### ') ||
+          t.startsWith('- ') ||
+          t.startsWith('* ') ||
+          t.startsWith('> ') ||
+          t.startsWith('```') ||
+          t.startsWith('- [ ]') ||
+          t.startsWith('- [x]') ||
+          RegExp(r'^\d+\. ').hasMatch(t);
+    });
+  }
+
+  void _pasteMarkdownAsBlocks(
+    FolioPage page,
+    String blockId,
+    TextEditingController ctrl,
+    String markdown,
+  ) {
+    final sel = ctrl.selection;
+    final text = ctrl.text;
+    final cursor = sel.isValid ? sel.start.clamp(0, text.length) : text.length;
+    final textBefore = text.substring(0, cursor);
+    final textAfter = text.substring(cursor);
+
+    final parsed = FolioMarkdownCodec.parseBlocks(markdown, pageId: page.id);
+    final blocks = _s.cloneBlocksWithNewIds(page.id, parsed);
+
+    if (blocks.isEmpty) {
+      _insertAtSelection(ctrl, markdown);
+      return;
+    }
+
+    _ignoreShortcuts = true;
+    ctrl.value = TextEditingValue(
+      text: textBefore,
+      selection: TextSelection.collapsed(offset: textBefore.length),
+    );
+    _ignoreShortcuts = false;
+
+    _s.pasteMarkdownBlocksAtCaret(
+      pageId: page.id,
+      blockId: blockId,
+      textBefore: textBefore,
+      pastedBlocks: blocks,
+      textAfter: textAfter,
+    );
+  }
+
   Future<void> _handleClipboardPaste(
     FolioPage page,
     String blockId,
@@ -1214,6 +1276,10 @@ class _BlockEditorState extends State<BlockEditor> {
       return;
     }
     if (!mounted) return;
+    if (raw.contains('\n') && _containsMarkdownBlockSyntax(raw)) {
+      _pasteMarkdownAsBlocks(page, blockId, ctrl, raw);
+      return;
+    }
     _insertAtSelection(ctrl, raw);
   }
 

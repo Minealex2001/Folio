@@ -1,4 +1,4 @@
-import 'dart:async';
+﻿import 'dart:async';
 import 'dart:io';
 import 'dart:math' as math;
 
@@ -140,6 +140,70 @@ class _WorkspacePageState extends State<WorkspacePage> {
         ],
       ),
     );
+  }
+
+  Future<void> _saveCurrentPageAsTemplate() async {
+    final page = _s.selectedPage;
+    if (page == null) return;
+    final l10n = AppLocalizations.of(context);
+    String name = page.title.isNotEmpty ? page.title : l10n.untitledFallback;
+    String description = '';
+    String category = '';
+    final result = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setSt) => FolioDialog(
+          title: Text(l10n.saveAsTemplateTitle),
+          content: SizedBox(
+            width: 380,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextField(
+                  autofocus: true,
+                  decoration: InputDecoration(labelText: l10n.templateNameHint),
+                  controller: TextEditingController(text: name),
+                  onChanged: (v) => name = v,
+                ),
+                const SizedBox(height: 8),
+                TextField(
+                  decoration: InputDecoration(
+                    labelText: l10n.templateDescriptionHint,
+                  ),
+                  onChanged: (v) => description = v,
+                ),
+                const SizedBox(height: 8),
+                TextField(
+                  decoration: InputDecoration(
+                    labelText: l10n.templateCategoryHint,
+                  ),
+                  onChanged: (v) => category = v,
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(ctx).pop(false),
+              child: Text(l10n.cancel),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.of(ctx).pop(true),
+              child: Text(l10n.save),
+            ),
+          ],
+        ),
+      ),
+    );
+    if (result != true || !mounted) return;
+    _s.savePageAsTemplate(
+      page.id,
+      name: name.trim().isNotEmpty ? name.trim() : null,
+      description: description.trim(),
+      category: category.trim(),
+    );
+    if (!mounted) return;
+    _snack(l10n.templateSaved);
   }
 
   Future<void> _importMarkdownFile() async {
@@ -2404,6 +2468,14 @@ class _WorkspacePageState extends State<WorkspacePage> {
               label: 'Exportar Markdown',
               icon: Icons.file_download_outlined,
               onPressed: _exportCurrentPageToMarkdown,
+            ),
+          if (page != null)
+            _WorkspaceActionEntry(
+              id: 'save_as_template',
+              label: l10n.saveAsTemplate,
+              icon: Icons.bookmark_add_outlined,
+              onPressed: _saveCurrentPageAsTemplate,
+              forceOverflow: true,
             ),
           if (page != null)
             _WorkspaceActionEntry(

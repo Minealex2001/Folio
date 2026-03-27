@@ -947,6 +947,63 @@ class _SettingsPageState extends State<SettingsPage> {
     } catch (e) {
       if (mounted) _snack(l10n.importNotionError('$e'));
     }
+    if (!mounted) return;
+    final warnings = _s.lastImportWarnings;
+    if (warnings.isNotEmpty) {
+      await _showImportWarningsDialog(warnings);
+    }
+  }
+
+  Future<void> _showImportWarningsDialog(
+    List<NotionImportWarning> warnings,
+  ) async {
+    final l10n = AppLocalizations.of(context);
+    await showDialog<void>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Row(
+          children: [
+            Icon(
+              Icons.warning_amber_rounded,
+              color: Theme.of(ctx).colorScheme.tertiary,
+            ),
+            const SizedBox(width: 8),
+            Expanded(child: Text(l10n.importNotionWarningsTitle)),
+          ],
+        ),
+        content: SizedBox(
+          width: 480,
+          child: SingleChildScrollView(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(l10n.importNotionWarningsBody),
+                const SizedBox(height: 12),
+                ...warnings.map(
+                  (w) => Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 2),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text('• '),
+                        Expanded(child: Text(w.message)),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+        actions: [
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: Text(l10n.ok),
+          ),
+        ],
+      ),
+    );
   }
 
   Future<void> _openWipeFlow() async {

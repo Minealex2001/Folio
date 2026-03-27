@@ -25,6 +25,7 @@ import '../models/folio_table_data.dart';
 import '../models/folio_toggle_data.dart';
 import '../models/folio_task_data.dart';
 import '../models/folio_columns_data.dart';
+import '../models/folio_page_template.dart';
 import '../models/folio_template_button_data.dart';
 import '../models/folio_page_import_info.dart';
 import '../services/folio_rp_server.dart';
@@ -38,18 +39,26 @@ import '../services/quick_unlock_storage.dart';
 
 enum VaultFlowState { initializing, needsOnboarding, locked, unlocked }
 
+enum VaultSearchMatchKind { title, content }
+
 class VaultSearchResult {
   const VaultSearchResult({
     required this.pageId,
     required this.pageTitle,
     required this.snippet,
+    required this.matchKind,
     this.blockId,
+    this.pageLastEditedMs = 0,
+    this.score = 0,
   });
 
   final String pageId;
   final String pageTitle;
   final String snippet;
+  final VaultSearchMatchKind matchKind;
   final String? blockId;
+  final int pageLastEditedMs;
+  final int score;
 }
 
 class _PageUndoSnapshot {
@@ -170,6 +179,7 @@ class VaultSession extends ChangeNotifier {
     const AiChatThreadData(id: 'chat_0', title: 'Chat 1', messages: []),
   ];
   int _aiActiveChatIndex = 0;
+  final List<FolioPageTemplate> _pageTemplates = [];
   String? _selectedPageId;
   Timer? _saveDebounce;
   Timer? _revisionIdleTimer;
@@ -219,6 +229,8 @@ class VaultSession extends ChangeNotifier {
   List<AiChatThreadData> get aiChatThreads => List.unmodifiable(_aiChatThreads);
   int get aiActiveChatIndex => _aiActiveChatIndex;
   AiChatThreadData get activeAiChat => _aiChatThreads[_aiActiveChatIndex];
+  List<FolioPageTemplate> get pageTemplates =>
+      List.unmodifiable(_pageTemplates);
 
   /// Se incrementa al restaurar una revisión para forzar remount del editor
   /// cuando los ids de bloque coinciden pero el texto cambió.
@@ -376,6 +388,11 @@ class VaultSession extends ChangeNotifier {
   /// El editor hace scroll a este bloque tras el siguiente frame (TOC / enlaces internos).
   String? pendingScrollToBlockId;
 
+  /// Warnings generados en la última importación de Notion. Se vacía antes de
+  /// cada importación y puede consultarse desde la UI tras llamar a los métodos
+  /// de importación.
+  List<NotionImportWarning> lastImportWarnings = const [];
+
   FolioPage? get selectedPage {
     if (_selectedPageId == null) return null;
     try {
@@ -520,6 +537,9 @@ class VaultSession extends ChangeNotifier {
       0,
       _aiChatThreads.length - 1,
     );
+    _pageTemplates
+      ..clear()
+      ..addAll(payload.pageTemplates);
     _resetUndoRedoState();
   }
 
@@ -803,6 +823,7 @@ class VaultSession extends ChangeNotifier {
     try {
       await extractNotionZipToDirectory(File(zipPath), temp);
       final parsed = parseNotionExportDirectory(temp);
+      lastImportWarnings = parsed.warnings;
       final pages = await _materializeNotionPages(parsed);
       _pages.addAll(pages);
       if (_selectedPageId == null && _pages.isNotEmpty) {
@@ -876,6 +897,7 @@ class VaultSession extends ChangeNotifier {
       if (prevVaultId != null) {
         VaultPaths.setActiveVaultId(prevVaultId);
       }
+      lastImportWarnings = parsed.warnings;
       notifyListeners();
       return newId;
     } catch (_) {
@@ -1334,6 +1356,118 @@ class VaultSession extends ChangeNotifier {
     notifyListeners();
     scheduleSave();
   }
+
+  // ─── Page templates ──────────────────────────────────────────────────────────
+
+  /// Guarda una página existente como template. En los bloques de tipo
+  /// `image`, `file`, `video` o `audio` el campo `url` se conserva solo si
+  /// apunta a una URL remota; las rutas locales se eliminan para evitar
+  /// referencias rotas al compartir el template.
+  FolioPageTemplate savePageAsTemplate(
+    String pageId, {
+    String? name,
+    String? description,
+    String? category,
+  }) {
+    final page = _pageById(pageId);
+    if (page == null) throw StateError('Page $pageId not found');
+    const localTypes = {'image', 'file', 'video', 'audio'};
+    final blocks = cloneBlocksWithNewIds(
+      'tpl_${_uuid.v4()}',
+      page.blocks.map((b) {
+        if (localTypes.contains(b.type)) {
+          final url = b.url ?? '';
+          final isRemote =
+              url.startsWith('http://') || url.startsWith('https://');
+          if (!isRemote) return b.copyWith(url: '');
+        }
+        return b;
+      }).toList(),
+    );
+    final tpl = FolioPageTemplate(
+      id: _uuid.v4(),
+      name: name ?? page.title,
+      description: description ?? '',
+      emoji: page.emoji,
+      category: category ?? '',
+      blocks: blocks,
+    );
+    _pageTemplates.add(tpl);
+    notifyListeners();
+    scheduleSave();
+    return tpl;
+  }
+
+  /// Añade un template importado desde archivo.
+  void addTemplate(FolioPageTemplate template) {
+    // Evita duplicados por ID.
+    _pageTemplates.removeWhere((t) => t.id == template.id);
+    _pageTemplates.add(template);
+    notifyListeners();
+    scheduleSave();
+  }
+
+  void deleteTemplate(String templateId) {
+    _pageTemplates.removeWhere((t) => t.id == templateId);
+    notifyListeners();
+    scheduleSave();
+  }
+
+  void updateTemplate(FolioPageTemplate updated) {
+    final i = _pageTemplates.indexWhere((t) => t.id == updated.id);
+    if (i < 0) return;
+    _pageTemplates[i] = updated;
+    notifyListeners();
+    scheduleSave();
+  }
+
+  /// Crea una nueva página a partir de un template y la selecciona.
+  String addPageFromTemplate(FolioPageTemplate template, {String? parentId}) {
+    final id = _uuid.v4();
+    final blocks = cloneBlocksWithNewIds(id, template.blocks);
+    _pages.add(
+      FolioPage(
+        id: id,
+        title: template.name,
+        emoji: template.emoji,
+        parentId: parentId,
+        blocks: blocks,
+      ),
+    );
+    _selectedPageId = id;
+    notifyListeners();
+    scheduleSave(trackRevisionForPageId: id);
+    return id;
+  }
+
+  /// Exporta el template a un archivo `.folio-template` en la ruta indicada.
+  void exportTemplateToFile(FolioPageTemplate template, String filePath) {
+    File(filePath).writeAsStringSync(template.encodeAsFile());
+  }
+
+  /// Parsea un archivo `.folio-template`. Devuelve el template o lanza
+  /// [FormatException] si el contenido es inválido.
+  FolioPageTemplate importTemplateFromFile(String filePath) {
+    final raw = File(filePath).readAsStringSync();
+    final tpl = FolioPageTemplate.tryParseFile(raw);
+    if (tpl == null) {
+      throw const FormatException('El archivo no es un template Folio válido.');
+    }
+    // Reasignar ID para evitar colisiones.
+    final imported = FolioPageTemplate(
+      id: _uuid.v4(),
+      name: tpl.name,
+      description: tpl.description,
+      emoji: tpl.emoji,
+      category: tpl.category,
+      blocks: tpl.blocks,
+      createdAtMs: tpl.createdAtMs,
+    );
+    addTemplate(imported);
+    return imported;
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────────
 
   void addPage({String? parentId}) {
     final id = _uuid.v4();
@@ -2265,6 +2399,39 @@ class VaultSession extends ChangeNotifier {
     scheduleSave(trackRevisionForPageId: pageId);
   }
 
+  /// Pega bloques Markdown en la posición del caret de forma atómica (un único
+  /// punto de deshacer). El texto del bloque actual se trunca a [textBefore];
+  /// los [pastedBlocks] se insertan a continuación y, si [textAfter] no está
+  /// vacío, se añade un párrafo adicional con ese texto al final.
+  void pasteMarkdownBlocksAtCaret({
+    required String pageId,
+    required String blockId,
+    required String textBefore,
+    required List<FolioBlock> pastedBlocks,
+    required String textAfter,
+  }) {
+    if (pastedBlocks.isEmpty && textAfter.isEmpty) return;
+    final page = _pageById(pageId);
+    if (page == null) return;
+    final i = page.blocks.indexWhere((b) => b.id == blockId);
+    if (i < 0) return;
+    _rememberUndoBeforePageMutation(pageId);
+    page.blocks[i].text = textBefore;
+    final toInsert = <FolioBlock>[...pastedBlocks];
+    if (textAfter.isNotEmpty) {
+      toInsert.add(
+        FolioBlock(
+          id: '${pageId}_${_uuid.v4()}',
+          type: 'paragraph',
+          text: textAfter,
+        ),
+      );
+    }
+    page.blocks.insertAll(i + 1, toInsert);
+    notifyListeners();
+    scheduleSave(trackRevisionForPageId: pageId);
+  }
+
   List<FolioBlock> cloneBlocksWithNewIds(
     String pageIdPrefix,
     List<FolioBlock> source,
@@ -2633,6 +2800,7 @@ class VaultSession extends ChangeNotifier {
           comments: List<LocalPageComment>.from(_comments),
           aiChatThreads: List<AiChatThreadData>.from(_aiChatThreads),
           aiActiveChatIndex: _aiActiveChatIndex,
+          pageTemplates: List<FolioPageTemplate>.from(_pageTemplates),
         ),
         _dek,
       );
@@ -2846,42 +3014,75 @@ class VaultSession extends ChangeNotifier {
     notifyListeners();
   }
 
-  List<VaultSearchResult> searchGlobal(String query, {int limit = 80}) {
+  List<VaultSearchResult> searchGlobal(
+    String query, {
+    int limit = 80,
+    bool includeTitleMatches = true,
+    bool includeContentMatches = true,
+    bool sortByRecency = false,
+  }) {
     final q = query.trim().toLowerCase();
     if (_state != VaultFlowState.unlocked ||
         (vaultUsesEncryption && _dek == null) ||
-        q.isEmpty) {
+        q.isEmpty ||
+        (!includeTitleMatches && !includeContentMatches)) {
       return const [];
     }
     touchActivity();
     final out = <VaultSearchResult>[];
     for (final page in _pages) {
       final pageTitle = page.title.trim().isEmpty ? 'Sin título' : page.title;
-      if (pageTitle.toLowerCase().contains(q)) {
+      final pageLastEditedMs = _pageLastEditedMs(page.id);
+      final titleLower = pageTitle.toLowerCase();
+      if (includeTitleMatches && titleLower.contains(q)) {
+        final startsAt = titleLower.indexOf(q);
+        final titleScore =
+            220 - (startsAt.clamp(0, 200)) + (pageTitle.length <= 42 ? 15 : 0);
         out.add(
           VaultSearchResult(
             pageId: page.id,
             pageTitle: pageTitle,
             snippet: _snippetAround(pageTitle, q),
+            matchKind: VaultSearchMatchKind.title,
+            pageLastEditedMs: pageLastEditedMs,
+            score: titleScore,
           ),
         );
       }
-      for (final block in page.blocks) {
-        final haystack = _blockSearchText(block);
-        if (!haystack.toLowerCase().contains(q)) continue;
-        out.add(
-          VaultSearchResult(
-            pageId: page.id,
-            pageTitle: pageTitle,
-            blockId: block.id,
-            snippet: _snippetAround(haystack, q),
-          ),
-        );
-        if (out.length >= limit) return out;
+      if (includeContentMatches) {
+        for (final block in page.blocks) {
+          final haystack = _blockSearchText(block);
+          final haystackLower = haystack.toLowerCase();
+          final idx = haystackLower.indexOf(q);
+          if (idx < 0) continue;
+          final snippet = _snippetAround(haystack, q);
+          final contentScore =
+              120 - (idx.clamp(0, 100)) + (snippet.length <= 88 ? 8 : 0);
+          out.add(
+            VaultSearchResult(
+              pageId: page.id,
+              pageTitle: pageTitle,
+              blockId: block.id,
+              snippet: snippet,
+              matchKind: VaultSearchMatchKind.content,
+              pageLastEditedMs: pageLastEditedMs,
+              score: contentScore,
+            ),
+          );
+        }
       }
-      if (out.length >= limit) return out;
     }
-    return out;
+    out.sort((a, b) {
+      if (sortByRecency) {
+        final byRecency = b.pageLastEditedMs.compareTo(a.pageLastEditedMs);
+        if (byRecency != 0) return byRecency;
+      }
+      final byScore = b.score.compareTo(a.score);
+      if (byScore != 0) return byScore;
+      return a.pageTitle.toLowerCase().compareTo(b.pageTitle.toLowerCase());
+    });
+    if (out.length <= limit) return out;
+    return out.take(limit).toList(growable: false);
   }
 
   List<FolioPage> backlinksForPage(String pageId) {
@@ -5176,6 +5377,16 @@ Quick help (be concise):
     final url = b.url?.trim() ?? '';
     if (txt.isNotEmpty && url.isNotEmpty) return '$txt $url';
     return txt.isNotEmpty ? txt : url;
+  }
+
+  int _pageLastEditedMs(String pageId) {
+    final list = _pageRevisions[pageId];
+    if (list == null || list.isEmpty) return 0;
+    var latest = 0;
+    for (final rev in list) {
+      if (rev.savedAtMs > latest) latest = rev.savedAtMs;
+    }
+    return latest;
   }
 
   String _snippetAround(String text, String queryLower) {

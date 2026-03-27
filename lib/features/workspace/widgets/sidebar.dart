@@ -1,4 +1,4 @@
-import 'dart:async';
+﻿import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -10,6 +10,7 @@ import '../../../app/widgets/folio_dialog.dart';
 import '../../../app/widgets/folio_icon_picker.dart';
 import '../../../app/widgets/folio_icon_token_view.dart';
 import '../../../data/vault_registry.dart';
+import 'template_gallery_dialog.dart';
 import '../../../l10n/generated/app_localizations.dart';
 import '../../../models/folio_page.dart';
 import '../../../session/vault_session.dart';
@@ -457,6 +458,83 @@ class _SidebarState extends State<Sidebar> {
     );
   }
 
+  Future<void> _openTemplateGallery(BuildContext context) async {
+    final result = await showTemplateGalleryDialog(
+      context: context,
+      session: session,
+    );
+    if (result == null) return;
+    if (result.template != null) {
+      session.addPageFromTemplate(result.template!);
+    } else {
+      session.addPage(parentId: null);
+    }
+  }
+
+  Future<void> _savePageAsTemplate(BuildContext context, FolioPage page) async {
+    final l10n = AppLocalizations.of(context);
+    String name = page.title.isNotEmpty ? page.title : l10n.untitledFallback;
+    String description = '';
+    String category = '';
+    final result = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setSt) => FolioDialog(
+          title: Text(l10n.saveAsTemplateTitle),
+          content: SizedBox(
+            width: 380,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextField(
+                  autofocus: true,
+                  decoration: InputDecoration(labelText: l10n.templateNameHint),
+                  controller: TextEditingController(text: name),
+                  onChanged: (v) => name = v,
+                ),
+                const SizedBox(height: 8),
+                TextField(
+                  decoration: InputDecoration(
+                    labelText: l10n.templateDescriptionHint,
+                  ),
+                  onChanged: (v) => description = v,
+                ),
+                const SizedBox(height: 8),
+                TextField(
+                  decoration: InputDecoration(
+                    labelText: l10n.templateCategoryHint,
+                  ),
+                  onChanged: (v) => category = v,
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(ctx).pop(false),
+              child: Text(l10n.cancel),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.of(ctx).pop(true),
+              child: Text(l10n.save),
+            ),
+          ],
+        ),
+      ),
+    );
+    if (result != true || !context.mounted) return;
+    session.savePageAsTemplate(
+      page.id,
+      name: name.trim().isNotEmpty ? name.trim() : null,
+      description: description.trim(),
+      category: category.trim(),
+    );
+    if (!context.mounted) return;
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(l10n.templateSaved)));
+  }
+
   void _rename(BuildContext context, FolioPage page) {
     final l10n = AppLocalizations.of(context);
     final titleController = TextEditingController(text: page.title);
@@ -715,6 +793,19 @@ class _SidebarState extends State<Sidebar> {
                                 ),
                                 IconButton(
                                   icon: const Icon(
+                                    Icons.bookmark_add_outlined,
+                                    size: 18,
+                                  ),
+                                  tooltip: l10n.saveAsTemplate,
+                                  visualDensity: VisualDensity.compact,
+                                  color: selected
+                                      ? scheme.onSecondaryContainer
+                                      : scheme.onSurfaceVariant,
+                                  onPressed: () =>
+                                      _savePageAsTemplate(context, page),
+                                ),
+                                IconButton(
+                                  icon: const Icon(
                                     Icons.delete_outline,
                                     size: 18,
                                   ),
@@ -893,6 +984,12 @@ class _SidebarState extends State<Sidebar> {
                 ),
               ),
               const Spacer(),
+              IconButton(
+                icon: const Icon(Icons.layers_outlined, size: 20),
+                tooltip: l10n.templateFromGallery,
+                onPressed: () => _openTemplateGallery(context),
+              ),
+              const SizedBox(width: 4),
               FilledButton.tonalIcon(
                 onPressed: () => session.addPage(parentId: null),
                 icon: const Icon(Icons.add_rounded),
