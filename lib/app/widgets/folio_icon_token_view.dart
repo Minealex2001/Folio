@@ -23,7 +23,7 @@ class FolioIconTokenView extends StatelessWidget {
   Widget build(BuildContext context) {
     final raw = token?.trim();
     final customIcon = appSettings.customIconForToken(raw);
-    if (customIcon != null && File(customIcon.filePath).existsSync()) {
+    if (customIcon != null) {
       if (customIcon.isSvg) {
         return SvgPicture.file(
           File(customIcon.filePath),
