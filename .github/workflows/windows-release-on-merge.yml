@@ -93,9 +93,14 @@ jobs:
         run: |
           $tag = '${{ steps.version.outputs.tag }}'
           gh release view $tag --repo '${{ github.repository }}' *> $null
-          if ($LASTEXITCODE -eq 0) {
+          $releaseExists = $LASTEXITCODE -eq 0
+
+          if ($releaseExists) {
             throw "Ya existe una release para $tag. Sube la version en pubspec.yaml antes de mergear."
           }
+
+          # gh devuelve exit code 1 cuando la release no existe; ese caso es esperado aqui.
+          $global:LASTEXITCODE = 0
           Write-Host "No existe release para $tag. Continuando."
 
       - name: Install dependencies
