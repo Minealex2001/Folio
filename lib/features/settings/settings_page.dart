@@ -1,12 +1,22 @@
+import 'dart:io';
+
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:passkeys/exceptions.dart';
 
 import '../../app/app_settings.dart';
 import '../../app/folio_in_app_shortcuts.dart';
+import '../../app/ui_tokens.dart';
+import '../../app/widgets/folio_dialog.dart';
+import '../../app/widgets/folio_icon_token_view.dart';
+import '../../app/widgets/folio_password_field.dart';
 import 'in_app_shortcut_capture_dialog.dart';
+import '../../crypto/vault_crypto.dart';
 import '../../data/notion_import/notion_importer.dart';
+import '../../data/vault_registry.dart';
+import '../../data/vault_paths.dart';
 import '../../l10n/generated/app_localizations.dart';
 import '../../data/vault_backup.dart';
 import '../../services/ai/ai_service.dart';
@@ -14,9 +24,11 @@ import '../../services/ai/ai_provider_detector.dart';
 import '../../services/ai/ai_safety_policy.dart';
 import '../../services/ai/lmstudio_ai_service.dart';
 import '../../services/ai/ollama_ai_service.dart';
+import '../../services/custom_icon_import_service.dart';
 import '../../services/updater/github_release_updater.dart';
 import '../../services/updater/update_release_channel.dart';
 import '../../session/vault_session.dart';
+import 'release_readiness.dart';
 
 class SettingsPage extends StatefulWidget {
   const SettingsPage({
@@ -36,17 +48,39 @@ class _SettingsPageState extends State<SettingsPage> {
   static const _idleOptions = <int>[1, 5, 10, 15, 30, 60];
   VaultSession get _s => widget.session;
   AppSettings get _app => widget.appSettings;
+  final ScrollController _settingsScrollController = ScrollController();
+  final List<GlobalKey> _sectionKeys = List.generate(9, (_) => GlobalKey());
+  int _selectedDesktopSection = 0;
 
   var _quickEnabled = false;
   var _passkeyRegistered = false;
   late final TextEditingController _aiBaseUrlController;
   late final TextEditingController _aiTimeoutController;
   late final TextEditingController _aiContextWindowController;
+  late final TextEditingController _customIconSourceController;
+  late final TextEditingController _customIconLabelController;
   List<String> _availableModels = const [];
   bool _loadingModels = false;
   bool _checkingUpdates = false;
   bool _detectingAiProvider = false;
+  bool _importingCustomIcon = false;
   String _installedVersionLabel = '...';
+  bool _releaseStatusBusy = false;
+  ReleaseReadinessSnapshot _releaseSnapshot = const ReleaseReadinessSnapshot(
+    installedVersionLabel: '... ',
+    isSemverValid: false,
+    updateReleaseChannel: UpdateReleaseChannel.stable,
+    activeVaultId: '-',
+    activeVaultPath: '-',
+    isVaultUnlocked: false,
+    isVaultEncrypted: false,
+    isAiEnabled: false,
+    isAiEndpointPolicyValid: true,
+    aiSummary: 'IA desactivada',
+    checks: const <ReleaseCheckItem>[],
+  );
+  final CustomIconImportService _customIconImportService =
+      CustomIconImportService();
 
   @override
   void initState() {
@@ -58,17 +92,61 @@ class _SettingsPageState extends State<SettingsPage> {
     _aiContextWindowController = TextEditingController(
       text: _app.aiContextWindowTokens.toString(),
     );
+    _customIconSourceController = TextEditingController();
+    _customIconLabelController = TextEditingController();
     _availableModels = _app.cachedAiModelsFor(_app.aiProvider);
     _refreshSecurityFlags();
     _loadInstalledVersionInfo();
+    _refreshReleaseReadiness();
   }
 
   @override
   void dispose() {
+    _settingsScrollController.dispose();
     _aiBaseUrlController.dispose();
     _aiTimeoutController.dispose();
     _aiContextWindowController.dispose();
+    _customIconSourceController.dispose();
+    _customIconLabelController.dispose();
     super.dispose();
+  }
+
+  Future<bool> _ensureSectionVisible(int index) async {
+    if (!_settingsScrollController.hasClients) return false;
+    final targetContext = _sectionKeys[index].currentContext;
+    if (targetContext == null) return false;
+    await Scrollable.ensureVisible(
+      targetContext,
+      duration: const Duration(milliseconds: 260),
+      curve: Curves.easeOutCubic,
+      alignment: 0.03,
+    );
+    return true;
+  }
+
+  Future<void> _scrollToSection(int index) async {
+    if (index < 0 || index >= _sectionKeys.length) return;
+    if (mounted) {
+      setState(() => _selectedDesktopSection = index);
+    }
+    if (await _ensureSectionVisible(index)) return;
+
+    // En algunos frames el target puede no tener context aun; reintenta una vez.
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      if (!mounted) return;
+      if (await _ensureSectionVisible(index)) return;
+      if (!_settingsScrollController.hasClients) return;
+
+      final max = _settingsScrollController.position.maxScrollExtent;
+      if (max <= 0) return;
+      final denom = (_sectionKeys.length - 1).clamp(1, _sectionKeys.length);
+      final target = (index / denom) * max;
+      await _settingsScrollController.animateTo(
+        target.clamp(0.0, max),
+        duration: const Duration(milliseconds: 260),
+        curve: Curves.easeOutCubic,
+      );
+    });
   }
 
   Future<void> _refreshSecurityFlags() async {
@@ -89,17 +167,291 @@ class _SettingsPageState extends State<SettingsPage> {
       setState(() {
         _installedVersionLabel = '${info.version}+${info.buildNumber}';
       });
+      await _refreshReleaseReadiness();
     } catch (_) {
       if (!mounted) return;
       setState(() {
         _installedVersionLabel = 'desconocida';
       });
+      await _refreshReleaseReadiness();
     }
+  }
+
+  Future<void> _refreshReleaseReadiness() async {
+    if (mounted) setState(() => _releaseStatusBusy = true);
+
+    final vaultId = _s.activeVaultId;
+    var vaultPath = '-';
+    try {
+      final dir = await VaultPaths.vaultDirectory();
+      vaultPath = dir.path;
+    } catch (_) {
+      vaultPath = '-';
+    }
+
+    final snapshot = evaluateReleaseReadiness(
+      installedVersionLabel: _installedVersionLabel,
+      updateReleaseChannel: _app.updateReleaseChannel,
+      activeVaultId: vaultId,
+      activeVaultPath: vaultPath,
+      isVaultUnlocked: _s.state == VaultFlowState.unlocked,
+      isVaultEncrypted: _s.vaultUsesEncryption,
+      isAiEnabled: _app.aiEnabled,
+      aiBaseUrl: _app.aiBaseUrl,
+      aiEndpointMode: _app.aiEndpointMode,
+      aiRemoteEndpointConfirmed: _app.aiRemoteEndpointConfirmed,
+    );
+
+    if (!mounted) return;
+    setState(() {
+      _releaseSnapshot = snapshot;
+      _releaseStatusBusy = false;
+    });
   }
 
   void _snack(String msg) {
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
+  }
+
+  String _t(String es, String en) {
+    final isEs = Localizations.localeOf(
+      context,
+    ).languageCode.toLowerCase().startsWith('es');
+    return isEs ? es : en;
+  }
+
+  Future<void> _exportReleaseReadinessReport() async {
+    final destination = await FilePicker.platform.saveFile(
+      dialogTitle: 'Guardar reporte de release readiness',
+      fileName: buildReleaseReadinessFileName(DateTime.now()),
+      type: FileType.custom,
+      allowedExtensions: const ['txt'],
+    );
+    if (destination == null || destination.trim().isEmpty) return;
+    try {
+      await File(destination).writeAsString(_releaseSnapshot.toReportText());
+      if (!mounted) return;
+      _snack('Reporte guardado correctamente.');
+    } catch (e) {
+      if (!mounted) return;
+      _snack('No se pudo guardar el reporte: $e');
+    }
+  }
+
+  Future<void> _revokeIntegrationApp(String appId) async {
+    await _app.revokeIntegrationApp(appId);
+    _snack('App revocada: $appId');
+  }
+
+  Future<void> _importCustomIconFromSource(String source) async {
+    final raw = source.trim();
+    if (raw.isEmpty || _importingCustomIcon) return;
+    setState(() => _importingCustomIcon = true);
+    try {
+      final entry = await _customIconImportService.importFromSource(
+        source: raw,
+        label: _customIconLabelController.text,
+      );
+      await _app.addOrUpdateCustomIcon(entry);
+      if (!mounted) return;
+      _customIconSourceController.clear();
+      _customIconLabelController.clear();
+      _snack(
+        _t('Icono importado correctamente.', 'Icon imported successfully.'),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      _snack('$e');
+    } finally {
+      if (mounted) setState(() => _importingCustomIcon = false);
+    }
+  }
+
+  Future<void> _importCustomIconFromClipboard() async {
+    final data = await Clipboard.getData(Clipboard.kTextPlain);
+    final text = data?.text?.trim() ?? '';
+    if (text.isEmpty) {
+      _snack(_t('El portapapeles está vacío.', 'Clipboard is empty.'));
+      return;
+    }
+    _customIconSourceController.text = text;
+    await _importCustomIconFromSource(text);
+  }
+
+  Future<void> _removeCustomIcon(CustomIconEntry entry) async {
+    await _app.removeCustomIcon(entry.id);
+    try {
+      final file = File(entry.filePath);
+      if (file.existsSync()) {
+        await file.delete();
+      }
+    } catch (_) {
+      // Ignorar: la referencia ya se eliminó de ajustes.
+    }
+    if (!mounted) return;
+    _snack(_t('Icono eliminado.', 'Icon removed.'));
+  }
+
+  Future<bool> _vaultRequiresPassword(String vaultId) async {
+    final dir = await VaultPaths.vaultDirectoryForId(vaultId);
+    final modePath = File(
+      '${dir.path}${Platform.pathSeparator}${VaultPaths.vaultModeFile}',
+    );
+    if (!modePath.existsSync()) return true;
+    final raw = await modePath.readAsString();
+    return raw.trim().toLowerCase() != 'plain';
+  }
+
+  Future<bool> _verifyVaultPasswordForDelete(String vaultId) async {
+    final l10n = AppLocalizations.of(context);
+    final dir = await VaultPaths.vaultDirectoryForId(vaultId);
+    final keysPath = File(
+      '${dir.path}${Platform.pathSeparator}${VaultPaths.wrappedDekFile}',
+    );
+    if (!keysPath.existsSync()) return true;
+
+    final controller = TextEditingController();
+    var obscure = true;
+    String? password;
+    while (mounted) {
+      password = await showDialog<String>(
+        context: context,
+        barrierDismissible: false,
+        builder: (ctx) => StatefulBuilder(
+          builder: (ctx, setDialogState) => FolioDialog(
+            title: Text(l10n.confirmIdentity),
+            content: FolioPasswordField(
+              controller: controller,
+              obscureText: obscure,
+              autofocus: true,
+              labelText: l10n.currentPasswordLabel,
+              showPasswordTooltip: l10n.showPassword,
+              hidePasswordTooltip: l10n.hidePassword,
+              onToggleObscure: () {
+                setDialogState(() => obscure = !obscure);
+              },
+              onSubmitted: (_) => Navigator.pop(ctx, controller.text.trim()),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(ctx),
+                child: Text(l10n.cancel),
+              ),
+              FilledButton(
+                onPressed: () => Navigator.pop(ctx, controller.text.trim()),
+                child: Text(l10n.verifyAndDelete),
+              ),
+            ],
+          ),
+        ),
+      );
+      if (password == null) {
+        controller.dispose();
+        return false;
+      }
+      if (password.trim().isEmpty) {
+        _snack(l10n.incorrectPasswordError);
+        continue;
+      }
+      try {
+        final wrapped = await keysPath.readAsBytes();
+        await VaultCrypto.unwrapDek(
+          wrapped: wrapped,
+          password: password.trim(),
+        );
+        controller.dispose();
+        return true;
+      } catch (_) {
+        _snack(l10n.incorrectPasswordError);
+      }
+    }
+    controller.dispose();
+    return false;
+  }
+
+  Future<void> _deleteOtherVault() async {
+    final l10n = AppLocalizations.of(context);
+    final active = _s.activeVaultId;
+    final vaults = await _s.listVaultEntries();
+    final others = vaults.where((e) => e.id != active).toList(growable: false);
+    if (others.isEmpty) {
+      _snack(l10n.noOtherVaultsSnack);
+      return;
+    }
+
+    VaultEntry? picked;
+    await showDialog<void>(
+      context: context,
+      builder: (ctx) => FolioDialog(
+        title: Text(l10n.deleteOtherVaultTitle),
+        content: SizedBox(
+          width: double.maxFinite,
+          child: ListView(
+            shrinkWrap: true,
+            children: others
+                .map(
+                  (e) => ListTile(
+                    title: Text(e.displayName),
+                    subtitle: Text(
+                      e.id,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    onTap: () {
+                      picked = e;
+                      Navigator.pop(ctx);
+                    },
+                  ),
+                )
+                .toList(growable: false),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: Text(l10n.cancel),
+          ),
+        ],
+      ),
+    );
+    if (picked == null || !mounted) return;
+
+    final target = picked!;
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => FolioDialog(
+        title: Text(l10n.deleteVaultConfirmTitle),
+        content: Text(l10n.deleteVaultConfirmBody(target.displayName)),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: Text(l10n.cancel),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: Text(l10n.delete),
+          ),
+        ],
+      ),
+    );
+    if (confirm != true || !mounted) return;
+
+    final requiresPassword = await _vaultRequiresPassword(target.id);
+    if (!mounted) return;
+    if (requiresPassword) {
+      final verified = await _verifyVaultPasswordForDelete(target.id);
+      if (!verified || !mounted) return;
+    }
+
+    try {
+      await _s.deleteVaultById(target.id);
+      if (!mounted) return;
+      _snack(l10n.vaultDeletedSnack);
+    } catch (e) {
+      if (!mounted) return;
+      _snack('$e');
+    }
   }
 
   Future<void> _openEncryptPlainVaultDialog() async {
@@ -121,7 +473,7 @@ class _SettingsPageState extends State<SettingsPage> {
     if (_app.aiRemoteEndpointConfirmed) return;
     final go = await showDialog<bool>(
       context: context,
-      builder: (ctx) => AlertDialog(
+      builder: (ctx) => FolioDialog(
         title: const Text('Confirmar endpoint remoto'),
         content: Text(
           'Vas a habilitar IA con un host remoto (${uri.host}). '
@@ -157,13 +509,14 @@ class _SettingsPageState extends State<SettingsPage> {
       await _app.setAiContextWindowTokens(ctxWin);
     }
     await _confirmRemoteEndpointIfNeeded();
+    await _refreshReleaseReadiness();
   }
 
   Future<bool> _confirmAiBetaEnable() async {
     final l10n = AppLocalizations.of(context);
     final go = await showDialog<bool>(
       context: context,
-      builder: (ctx) => AlertDialog(
+      builder: (ctx) => FolioDialog(
         title: Text(l10n.aiBetaEnableTitle),
         content: Text(l10n.aiBetaEnableBody),
         actions: [
@@ -181,6 +534,33 @@ class _SettingsPageState extends State<SettingsPage> {
     return go == true;
   }
 
+  Future<bool> _confirmQuillGlobalScopeIfNeeded() async {
+    if (_app.hasAcceptedQuillGlobalScope) return true;
+    final l10n = AppLocalizations.of(context);
+    final accepted = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => FolioDialog(
+        title: Text(l10n.quillGlobalScopeNoticeTitle),
+        content: Text(l10n.quillGlobalScopeNoticeBody),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: Text(l10n.cancel),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: Text(l10n.quillGlobalScopeNoticeConfirm),
+          ),
+        ],
+      ),
+    );
+    if (accepted == true) {
+      await _app.setHasAcceptedQuillGlobalScope(true);
+      return true;
+    }
+    return false;
+  }
+
   String _providerLabel(AiProvider provider, AppLocalizations l10n) {
     switch (provider) {
       case AiProvider.ollama:
@@ -196,7 +576,7 @@ class _SettingsPageState extends State<SettingsPage> {
     final l10n = AppLocalizations.of(context);
     return showDialog<AiProvider>(
       context: context,
-      builder: (ctx) => AlertDialog(
+      builder: (ctx) => FolioDialog(
         title: Text(l10n.aiSetupChooseProviderTitle),
         content: Column(
           mainAxisSize: MainAxisSize.min,
@@ -438,7 +818,7 @@ class _SettingsPageState extends State<SettingsPage> {
     if (_s.state != VaultFlowState.unlocked) return;
     final go = await showDialog<bool>(
       context: context,
-      builder: (ctx) => AlertDialog(
+      builder: (ctx) => FolioDialog(
         title: Text(l10n.importVaultDialogTitle),
         content: SingleChildScrollView(
           child: Text(
@@ -517,10 +897,8 @@ class _SettingsPageState extends State<SettingsPage> {
         session: _s,
         quickEnabled: _quickEnabled,
         passkeyRegistered: _passkeyRegistered,
-        title: const Text('Importar desde Notion'),
-        body: const Text(
-          'Importa un ZIP exportado por Notion. Puedes añadirlo al cofre actual o crear un cofre nuevo.',
-        ),
+        title: Text(l10n.importNotionDialogTitle),
+        body: Text(l10n.importNotionDialogBody),
         passwordButtonLabel: l10n.verifyAndContinue,
       ),
     );
@@ -546,14 +924,9 @@ class _SettingsPageState extends State<SettingsPage> {
 
     try {
       if (mode == _NotionImportMode.currentVault) {
-        final report = await _s.importNotionIntoCurrentVault(fp);
+        await _s.importNotionIntoCurrentVault(fp);
         if (!mounted) return;
-        final kind = report.format == NotionExportFormat.markdown
-            ? 'Markdown'
-            : 'HTML';
-        _snack(
-          'Importado desde Notion ($kind): ${report.pages.length} paginas.',
-        );
+        _snack(l10n.importNotionSuccessCurrent);
       } else {
         final newPassword = await showDialog<String>(
           context: context,
@@ -564,15 +937,15 @@ class _SettingsPageState extends State<SettingsPage> {
         await _s.importNotionAsNewVault(
           fp,
           masterPassword: newPassword,
-          displayName: 'Notion importado',
+          displayName: l10n.importNotionDefaultVaultName,
         );
         if (!mounted) return;
-        _snack('Cofre importado desde Notion creado correctamente.');
+        _snack(l10n.importNotionSuccessNew);
       }
     } on NotionImportException catch (e) {
-      if (mounted) _snack('No se pudo importar Notion: $e');
+      if (mounted) _snack(l10n.importNotionError('$e'));
     } catch (e) {
-      if (mounted) _snack('No se pudo importar Notion: $e');
+      if (mounted) _snack(l10n.importNotionError('$e'));
     }
   }
 
@@ -580,7 +953,7 @@ class _SettingsPageState extends State<SettingsPage> {
     final l10n = AppLocalizations.of(context);
     final go = await showDialog<bool>(
       context: context,
-      builder: (ctx) => AlertDialog(
+      builder: (ctx) => FolioDialog(
         title: Text(l10n.wipeVaultDialogTitle),
         content: Text(l10n.wipeVaultDialogBody),
         actions: [
@@ -597,20 +970,22 @@ class _SettingsPageState extends State<SettingsPage> {
     );
     if (go != true || !mounted) return;
 
-    final verified = await showDialog<bool>(
-      context: context,
-      barrierDismissible: false,
-      builder: (ctx) => _VaultIdentityVerifyDialog(
-        session: _s,
-        quickEnabled: _quickEnabled,
-        passkeyRegistered: _passkeyRegistered,
-        title: Text(l10n.confirmIdentity),
-        body: Text(l10n.wipeIdentityBody),
-        passwordButtonLabel: l10n.verifyAndDelete,
-      ),
-    );
+    if (_s.vaultUsesEncryption) {
+      final verified = await showDialog<bool>(
+        context: context,
+        barrierDismissible: false,
+        builder: (ctx) => _VaultIdentityVerifyDialog(
+          session: _s,
+          quickEnabled: _quickEnabled,
+          passkeyRegistered: _passkeyRegistered,
+          title: Text(l10n.confirmIdentity),
+          body: Text(l10n.wipeIdentityBody),
+          passwordButtonLabel: l10n.verifyAndDelete,
+        ),
+      );
 
-    if (verified != true || !context.mounted) return;
+      if (verified != true || !context.mounted) return;
+    }
 
     try {
       await _s.wipeVaultAndReset();
@@ -662,7 +1037,7 @@ class _SettingsPageState extends State<SettingsPage> {
           : '';
       final go = await showDialog<bool>(
         context: context,
-        builder: (ctx) => AlertDialog(
+        builder: (ctx) => FolioDialog(
           title: Text(
             result.isPrerelease
                 ? 'Beta disponible'
@@ -712,812 +1087,1747 @@ class _SettingsPageState extends State<SettingsPage> {
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
     final scheme = Theme.of(context).colorScheme;
+    final desktopSections = <_SettingsSectionNavItem>[
+      _SettingsSectionNavItem(label: l10n.appearance, keyIndex: 0),
+      _SettingsSectionNavItem(label: l10n.security, keyIndex: 1),
+      _SettingsSectionNavItem(label: l10n.desktopSection, keyIndex: 2),
+      _SettingsSectionNavItem(
+        label: l10n.keyboardShortcutsSection,
+        keyIndex: 3,
+      ),
+      if (_app.isAiAvailable)
+        _SettingsSectionNavItem(label: l10n.ai, keyIndex: 4),
+      _SettingsSectionNavItem(label: l10n.vaultBackup, keyIndex: 5),
+      _SettingsSectionNavItem(label: l10n.integrations, keyIndex: 6),
+      _SettingsSectionNavItem(label: l10n.about, keyIndex: 7),
+      _SettingsSectionNavItem(label: l10n.data, keyIndex: 8),
+    ];
     return AnimatedBuilder(
       animation: _app,
       builder: (context, _) {
         return Scaffold(
           appBar: AppBar(title: Text(l10n.settings)),
-          body: ListenableBuilder(
-            listenable: _s,
-            builder: (context, _) {
-              return ListView(
-                padding: const EdgeInsets.symmetric(
-                  vertical: 24,
-                  horizontal: 16,
-                ),
-                children: [
-                  _SectionHeader(title: l10n.appearance, scheme: scheme),
-                  Card(
-                    margin: const EdgeInsets.only(bottom: 24),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        Padding(
-                          padding: const EdgeInsets.fromLTRB(16, 16, 16, 16),
-                          child: Text(
-                            l10n.settingsAppearanceHint,
-                            style: Theme.of(context).textTheme.bodySmall
-                                ?.copyWith(color: scheme.onSurfaceVariant),
-                          ),
-                        ),
-                        Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 16),
-                          child: SegmentedButton<ThemeMode>(
-                            segments: [
-                              ButtonSegment<ThemeMode>(
-                                value: ThemeMode.system,
-                                label: Text(l10n.systemTheme),
-                                icon: const Icon(
-                                  Icons.brightness_auto,
-                                  size: 18,
-                                ),
-                              ),
-                              ButtonSegment<ThemeMode>(
-                                value: ThemeMode.light,
-                                label: Text(l10n.lightTheme),
-                                icon: const Icon(
-                                  Icons.light_mode_outlined,
-                                  size: 18,
-                                ),
-                              ),
-                              ButtonSegment<ThemeMode>(
-                                value: ThemeMode.dark,
-                                label: Text(l10n.darkTheme),
-                                icon: const Icon(
-                                  Icons.dark_mode_outlined,
-                                  size: 18,
-                                ),
-                              ),
-                            ],
-                            selected: {_app.themeMode},
-                            onSelectionChanged: (s) {
-                              _app.setThemeMode(s.first);
-                            },
-                          ),
-                        ),
-                        const SizedBox(height: 16),
-                        const Divider(height: 1),
-                        ListTile(
-                          leading: const Icon(Icons.translate_rounded),
-                          title: Text(l10n.language),
-                          subtitle: Text(
-                            _app.locale == null
-                                ? l10n.useSystemLanguage
-                                : (_app.locale!.languageCode == 'es'
-                                      ? l10n.spanishLanguage
-                                      : l10n.englishLanguage),
-                          ),
-                          trailing: DropdownButton<String?>(
-                            value: _app.locale?.languageCode,
-                            underline: const SizedBox.shrink(),
-                            onChanged: (code) {
-                              _app.setLocale(
-                                code == null ? null : Locale(code),
-                              );
-                            },
-                            items: [
-                              DropdownMenuItem<String?>(
-                                value: null,
-                                child: Text(l10n.useSystemLanguage),
-                              ),
-                              DropdownMenuItem<String?>(
-                                value: 'es',
-                                child: Text(l10n.spanishLanguage),
-                              ),
-                              DropdownMenuItem<String?>(
-                                value: 'en',
-                                child: Text(l10n.englishLanguage),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-
-                  _SectionHeader(title: l10n.security, scheme: scheme),
-                  if (_s.vaultUsesEncryption)
-                    Card(
-                      margin: const EdgeInsets.only(bottom: 24),
-                      child: Column(
-                        children: [
-                        ListTile(
-                          leading: const Icon(Icons.fingerprint),
-                          title: Text(l10n.quickUnlockTitle),
-                          subtitle: Text(
-                            _quickEnabled ? l10n.active : l10n.inactive,
-                          ),
-                          trailing: _quickEnabled
-                              ? TextButton(
-                                  onPressed: () async {
-                                    await _s.disableQuickUnlock();
-                                    await _refreshSecurityFlags();
-                                    _snack(l10n.quickUnlockDisabledSnack);
-                                  },
-                                  child: Text(l10n.remove),
-                                )
-                              : FilledButton.tonal(
-                                  onPressed: () async {
-                                    try {
-                                      await _s.enableDeviceQuickUnlock();
-                                      await _refreshSecurityFlags();
-                                      _snack(l10n.quickUnlockEnabledSnack);
-                                    } catch (e) {
-                                      _snack('');
-                                    }
-                                  },
-                                  child: Text(l10n.enable),
-                                ),
-                        ),
-                        const Divider(height: 1),
-                        ListTile(
-                          leading: const Icon(Icons.key_rounded),
-                          title: Text(l10n.passkey),
-                          subtitle: Text(l10n.passkeyThisDevice),
-                          trailing: _passkeyRegistered
-                              ? TextButton(
-                                  onPressed: () async {
-                                    await _s.revokePasskey();
-                                    await _refreshSecurityFlags();
-                                    _snack(l10n.passkeyRevokedSnack);
-                                  },
-                                  child: Text(l10n.revoke),
-                                )
-                              : FilledButton.tonal(
-                                  onPressed: () async {
-                                    try {
-                                      await _s.registerPasskey();
-                                      await _refreshSecurityFlags();
-                                      _snack(l10n.passkeyRegisteredSnack);
-                                    } on PasskeyAuthCancelledException {
-                                      // ignorar
-                                    } catch (e) {
-                                      _snack('Passkey: ');
-                                    }
-                                  },
-                                  child: Text(l10n.register),
-                                ),
-                        ),
-                        const Divider(height: 1),
-                        ListTile(
-                          leading: const Icon(Icons.lock_outline),
-                          title: Text(l10n.lockNow),
-                          onTap: () {
-                            _s.lock();
-                            Navigator.pop(context);
-                          },
-                        ),
-                        const Divider(height: 1),
-                        ListTile(
-                          leading: const Icon(Icons.timer_outlined),
-                          title: Text(l10n.lockAutoByInactivity),
-                          subtitle: Text(
-                            l10n.minutesShort(_app.vaultIdleLockMinutes),
-                          ),
-                          trailing: DropdownButton<int>(
-                            value: _app.vaultIdleLockMinutes,
-                            underline: const SizedBox.shrink(),
-                            onChanged: (value) {
-                              if (value == null) return;
-                              _app.setVaultIdleLockMinutes(value);
-                            },
-                            items: _idleOptions
-                                .map(
-                                  (m) => DropdownMenuItem<int>(
-                                    value: m,
-                                    child: Text(l10n.minutesShort(m)),
-                                  ),
-                                )
-                                .toList(),
-                          ),
-                        ),
-                        const Divider(height: 1),
-                        SwitchListTile(
-                          secondary: const Icon(Icons.minimize_rounded),
-                          title: Text(l10n.lockOnMinimize),
-                          value: _app.vaultLockOnMinimize,
-                          onChanged: _app.setVaultLockOnMinimize,
-                        ),
-                        const Divider(height: 1),
-                        ListTile(
-                          leading: const Icon(Icons.password_rounded),
-                          title: Text(l10n.changeMasterPassword),
-                          subtitle: Text(l10n.requiresCurrentPassword),
-                          onTap: _openChangeMasterPasswordFlow,
-                        ),
+          body: LayoutBuilder(
+            builder: (context, constraints) {
+              final wide = constraints.maxWidth >= 1180;
+              final settingsContent = ListenableBuilder(
+                listenable: _s,
+                builder: (context, _) {
+                  return DecoratedBox(
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        begin: Alignment.topCenter,
+                        end: Alignment.bottomCenter,
+                        colors: [
+                          scheme.surfaceContainer.withValues(alpha: 0.72),
+                          scheme.surfaceContainerLow,
                         ],
                       ),
-                    )
-                  else
-                    Card(
-                      margin: const EdgeInsets.only(bottom: 24),
-                      child: Padding(
-                        padding: const EdgeInsets.all(20),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.stretch,
-                          children: [
-                            Text(
-                              l10n.plainVaultSecurityNotice,
-                              style: Theme.of(context).textTheme.bodyMedium
-                                  ?.copyWith(
-                                    color: scheme.onSurfaceVariant,
-                                    height: 1.45,
-                                  ),
-                            ),
-                            const SizedBox(height: 16),
-                            FilledButton.icon(
-                              onPressed: () => _openEncryptPlainVaultDialog(),
-                              icon: const Icon(Icons.lock_rounded, size: 20),
-                              label: Text(l10n.encryptPlainVaultConfirm),
-                            ),
-                          ],
-                        ),
+                      borderRadius: BorderRadius.circular(28),
+                      border: Border.all(
+                        color: scheme.outlineVariant.withValues(alpha: 0.35),
                       ),
                     ),
-
-                  _SectionHeader(title: l10n.desktopSection, scheme: scheme),
-                  Card(
-                    margin: const EdgeInsets.only(bottom: 24),
-                    child: Column(
+                    child: ListView(
+                      controller: _settingsScrollController,
+                      padding: const EdgeInsets.symmetric(
+                        vertical: 24,
+                        horizontal: 16,
+                      ),
                       children: [
-                        SwitchListTile(
-                          secondary: const Icon(Icons.keyboard_rounded),
-                          title: Text(l10n.globalSearchHotkey),
-                          subtitle: Text(
-                            _app.enableGlobalSearchHotkey
-                                ? _app.globalSearchHotkey
-                                : l10n.inactive,
-                          ),
-                          value: _app.enableGlobalSearchHotkey,
-                          onChanged: _app.setEnableGlobalSearchHotkey,
+                        _SettingsOverviewBanner(
+                          appSettings: _app,
+                          session: _s,
+                          installedVersionLabel: _installedVersionLabel,
                         ),
-                        const Divider(height: 1),
-                        ListTile(
-                          leading: const Icon(Icons.tune_rounded),
-                          title: Text(l10n.hotkeyCombination),
-                          subtitle: Text(_app.globalSearchHotkey),
-                          trailing: DropdownButton<String>(
-                            value: _app.globalSearchHotkey,
-                            underline: const SizedBox.shrink(),
-                            onChanged: _app.enableGlobalSearchHotkey
-                                ? (value) {
-                                    if (value != null) {
-                                      _app.setGlobalSearchHotkey(value);
-                                    }
-                                  }
-                                : null,
-                            items: [
-                              DropdownMenuItem(
-                                value: 'Alt+Space',
-                                child: Text(l10n.hotkeyAltSpace),
+                        const SizedBox(height: 8),
+                        _SectionHeader(
+                          key: _sectionKeys[0],
+                          title: l10n.appearance,
+                          scheme: scheme,
+                        ),
+                        _SettingsPanel(
+                          margin: const EdgeInsets.only(bottom: 24),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              Padding(
+                                padding: const EdgeInsets.fromLTRB(
+                                  16,
+                                  16,
+                                  16,
+                                  16,
+                                ),
+                                child: Text(
+                                  l10n.settingsAppearanceHint,
+                                  style: Theme.of(context).textTheme.bodySmall
+                                      ?.copyWith(
+                                        color: scheme.onSurfaceVariant,
+                                      ),
+                                ),
                               ),
-                              DropdownMenuItem(
-                                value: 'Ctrl+Shift+Space',
-                                child: Text(l10n.hotkeyCtrlShiftSpace),
+                              Padding(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 16,
+                                ),
+                                child: SegmentedButton<ThemeMode>(
+                                  segments: [
+                                    ButtonSegment<ThemeMode>(
+                                      value: ThemeMode.system,
+                                      label: Text(l10n.systemTheme),
+                                      icon: const Icon(
+                                        Icons.brightness_auto,
+                                        size: 18,
+                                      ),
+                                    ),
+                                    ButtonSegment<ThemeMode>(
+                                      value: ThemeMode.light,
+                                      label: Text(l10n.lightTheme),
+                                      icon: const Icon(
+                                        Icons.light_mode_outlined,
+                                        size: 18,
+                                      ),
+                                    ),
+                                    ButtonSegment<ThemeMode>(
+                                      value: ThemeMode.dark,
+                                      label: Text(l10n.darkTheme),
+                                      icon: const Icon(
+                                        Icons.dark_mode_outlined,
+                                        size: 18,
+                                      ),
+                                    ),
+                                  ],
+                                  selected: {_app.themeMode},
+                                  onSelectionChanged: (s) {
+                                    _app.setThemeMode(s.first);
+                                  },
+                                ),
                               ),
-                              DropdownMenuItem(
-                                value: 'Ctrl+Shift+K',
-                                child: Text(l10n.hotkeyCtrlShiftK),
+                              const SizedBox(height: 16),
+                              const Divider(height: 1),
+                              ListTile(
+                                leading: const Icon(Icons.translate_rounded),
+                                title: Text(l10n.language),
+                                subtitle: Text(
+                                  _app.locale == null
+                                      ? l10n.useSystemLanguage
+                                      : (_app.locale!.languageCode == 'es'
+                                            ? l10n.spanishLanguage
+                                            : l10n.englishLanguage),
+                                ),
+                                trailing: DropdownButton<String?>(
+                                  value: _app.locale?.languageCode,
+                                  underline: const SizedBox.shrink(),
+                                  onChanged: (code) {
+                                    _app.setLocale(
+                                      code == null ? null : Locale(code),
+                                    );
+                                  },
+                                  items: [
+                                    DropdownMenuItem<String?>(
+                                      value: null,
+                                      child: Text(l10n.useSystemLanguage),
+                                    ),
+                                    DropdownMenuItem<String?>(
+                                      value: 'es',
+                                      child: Text(l10n.spanishLanguage),
+                                    ),
+                                    DropdownMenuItem<String?>(
+                                      value: 'en',
+                                      child: Text(l10n.englishLanguage),
+                                    ),
+                                  ],
+                                ),
                               ),
-                              const DropdownMenuItem(
-                                value: 'Ctrl+Shift+F',
-                                child: Text('Ctrl + Shift + F'),
+                              const Divider(height: 1),
+                              ListTile(
+                                leading: const Icon(Icons.width_full_rounded),
+                                title: Text(
+                                  _t('Ancho del contenido', 'Content width'),
+                                ),
+                                subtitle: Text(
+                                  _t(
+                                    'Define cuánto ancho ocupan los bloques en el editor.',
+                                    'Controls how wide blocks appear in the editor.',
+                                  ),
+                                ),
+                                trailing: Text(
+                                  '${_app.editorContentWidth.round()} px',
+                                  style: Theme.of(context).textTheme.labelLarge
+                                      ?.copyWith(
+                                        color: scheme.onSurfaceVariant,
+                                        fontWeight: FontWeight.w700,
+                                      ),
+                                ),
                               ),
-                              const DropdownMenuItem(
-                                value: 'Ctrl+Alt+Space',
-                                child: Text('Ctrl + Alt + Space'),
+                              Padding(
+                                padding: const EdgeInsets.fromLTRB(
+                                  16,
+                                  0,
+                                  16,
+                                  8,
+                                ),
+                                child: Slider(
+                                  value: _app.editorContentWidth,
+                                  min: AppSettings.minEditorContentWidth,
+                                  max: AppSettings.maxEditorContentWidth,
+                                  divisions:
+                                      ((AppSettings.maxEditorContentWidth -
+                                                  AppSettings
+                                                      .minEditorContentWidth) /
+                                              20)
+                                          .round(),
+                                  label:
+                                      '${_app.editorContentWidth.round()} px',
+                                  onChanged: (value) {
+                                    _app.setEditorContentWidth(value);
+                                  },
+                                ),
                               ),
                             ],
                           ),
                         ),
-                        const Divider(height: 1),
-                        SwitchListTile(
-                          secondary: const Icon(Icons.minimize_outlined),
-                          title: Text(l10n.minimizeToTray),
-                          value: _app.minimizeToTray,
-                          onChanged: _app.setMinimizeToTray,
-                        ),
-                        const Divider(height: 1),
-                        SwitchListTile(
-                          secondary: const Icon(Icons.close_rounded),
-                          title: Text(l10n.closeToTray),
-                          value: _app.closeToTray,
-                          onChanged: _app.setCloseToTray,
-                        ),
-                      ],
-                    ),
-                  ),
-
-                  _SectionHeader(title: l10n.keyboardShortcutsSection, scheme: scheme),
-                  Card(
-                    margin: const EdgeInsets.only(bottom: 24),
-                    child: Column(
-                      children: [
-                        for (final id in FolioInAppShortcut.values) ...[
-                          if (id != FolioInAppShortcut.values.first)
-                            const Divider(height: 1),
-                          ListTile(
-                            leading: const Icon(Icons.keyboard_rounded),
-                            title: Text(id.settingsLabel),
-                            subtitle: Text(_app.describeInAppShortcut(id)),
-                            trailing: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                TextButton(
-                                  onPressed: () {
-                                    ScaffoldMessenger.of(context).showSnackBar(
-                                      SnackBar(
-                                        content: Text(
-                                          l10n.shortcutTestHint(
-                                            _app.describeInAppShortcut(id),
+                        _SettingsPanel(
+                          margin: const EdgeInsets.only(bottom: 24),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              Container(
+                                margin: const EdgeInsets.all(16),
+                                padding: const EdgeInsets.all(16),
+                                decoration: BoxDecoration(
+                                  gradient: LinearGradient(
+                                    begin: Alignment.topLeft,
+                                    end: Alignment.bottomRight,
+                                    colors: [
+                                      scheme.primaryContainer.withValues(
+                                        alpha: 0.55,
+                                      ),
+                                      scheme.surfaceContainerHigh,
+                                    ],
+                                  ),
+                                  borderRadius: BorderRadius.circular(22),
+                                  border: Border.all(
+                                    color: scheme.outlineVariant.withValues(
+                                      alpha: 0.5,
+                                    ),
+                                  ),
+                                ),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Row(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        Container(
+                                          width: 44,
+                                          height: 44,
+                                          decoration: BoxDecoration(
+                                            color: scheme.surface,
+                                            borderRadius: BorderRadius.circular(
+                                              14,
+                                            ),
+                                          ),
+                                          child: Icon(
+                                            Icons.emoji_symbols_rounded,
+                                            color: scheme.primary,
+                                          ),
+                                        ),
+                                        const SizedBox(width: 12),
+                                        Expanded(
+                                          child: Column(
+                                            crossAxisAlignment:
+                                                CrossAxisAlignment.start,
+                                            children: [
+                                              Row(
+                                                children: [
+                                                  Expanded(
+                                                    child: Text(
+                                                      _t(
+                                                        'Iconos personalizados',
+                                                        'Custom icons',
+                                                      ),
+                                                      style: Theme.of(context)
+                                                          .textTheme
+                                                          .titleMedium
+                                                          ?.copyWith(
+                                                            fontWeight:
+                                                                FontWeight.w700,
+                                                          ),
+                                                    ),
+                                                  ),
+                                                  Container(
+                                                    padding:
+                                                        const EdgeInsets.symmetric(
+                                                          horizontal: 10,
+                                                          vertical: 5,
+                                                        ),
+                                                    decoration: BoxDecoration(
+                                                      color: scheme.surface,
+                                                      borderRadius:
+                                                          BorderRadius.circular(
+                                                            999,
+                                                          ),
+                                                    ),
+                                                    child: Text(
+                                                      _t(
+                                                        '${_app.customIcons.length} guardados',
+                                                        '${_app.customIcons.length} saved',
+                                                      ),
+                                                      style: Theme.of(context)
+                                                          .textTheme
+                                                          .labelMedium
+                                                          ?.copyWith(
+                                                            color:
+                                                                scheme.primary,
+                                                            fontWeight:
+                                                                FontWeight.w700,
+                                                          ),
+                                                    ),
+                                                  ),
+                                                ],
+                                              ),
+                                              const SizedBox(height: 6),
+                                              Text(
+                                                _t(
+                                                  'Importa una URL PNG, GIF o WebP, o un data:image compatible copiado desde páginas como notionicons.so. Después podrás usarlo como icono de página o de callout.',
+                                                  'Import a PNG, GIF, or WebP URL, or a compatible data:image copied from sites like notionicons.so. You can then use it as a page or callout icon.',
+                                                ),
+                                                style: Theme.of(context)
+                                                    .textTheme
+                                                    .bodySmall
+                                                    ?.copyWith(
+                                                      color: scheme
+                                                          .onSurfaceVariant,
+                                                      height: 1.4,
+                                                    ),
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                    const SizedBox(height: 14),
+                                    Wrap(
+                                      spacing: 8,
+                                      runSpacing: 8,
+                                      children: [
+                                        _SettingsInfoChip(
+                                          icon: Icons.link_rounded,
+                                          label: _t(
+                                            'URL PNG, GIF o WebP',
+                                            'PNG, GIF, or WebP URL',
+                                          ),
+                                        ),
+                                        _SettingsInfoChip(
+                                          icon: Icons.code_rounded,
+                                          label: 'data:image/*',
+                                        ),
+                                        _SettingsInfoChip(
+                                          icon: Icons.content_paste_rounded,
+                                          label: _t(
+                                            'Pegar desde portapapeles',
+                                            'Paste from clipboard',
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              Padding(
+                                padding: const EdgeInsets.fromLTRB(
+                                  16,
+                                  0,
+                                  16,
+                                  16,
+                                ),
+                                child: Container(
+                                  padding: const EdgeInsets.all(16),
+                                  decoration: BoxDecoration(
+                                    color: scheme.surfaceContainerLow,
+                                    borderRadius: BorderRadius.circular(20),
+                                    border: Border.all(
+                                      color: scheme.outlineVariant.withValues(
+                                        alpha: 0.45,
+                                      ),
+                                    ),
+                                  ),
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.stretch,
+                                    children: [
+                                      Text(
+                                        _t(
+                                          'Importar nuevo icono',
+                                          'Import new icon',
+                                        ),
+                                        style: Theme.of(context)
+                                            .textTheme
+                                            .titleSmall
+                                            ?.copyWith(
+                                              fontWeight: FontWeight.w700,
+                                            ),
+                                      ),
+                                      const SizedBox(height: 6),
+                                      Text(
+                                        _t(
+                                          'Puedes ponerle nombre y pegar la fuente manualmente o traerla directamente desde el portapapeles.',
+                                          'You can give it a name and paste the source manually or bring it directly from the clipboard.',
+                                        ),
+                                        style: Theme.of(context)
+                                            .textTheme
+                                            .bodySmall
+                                            ?.copyWith(
+                                              color: scheme.onSurfaceVariant,
+                                              height: 1.35,
+                                            ),
+                                      ),
+                                      const SizedBox(height: 14),
+                                      TextField(
+                                        controller: _customIconLabelController,
+                                        decoration: InputDecoration(
+                                          labelText: _t('Nombre', 'Name'),
+                                          hintText: _t('Opcional', 'Optional'),
+                                          prefixIcon: const Icon(
+                                            Icons.edit_outlined,
                                           ),
                                         ),
                                       ),
-                                    );
-                                  },
-                                  child: Text(l10n.shortcutTestAction),
-                                ),
-                                TextButton(
-                                  onPressed: () async {
-                                    final next =
-                                        await showDialog<SingleActivator>(
-                                      context: context,
-                                      builder: (ctx) =>
-                                          const InAppShortcutCaptureDialog(),
-                                    );
-                                    if (next != null && context.mounted) {
-                                      await _app.setInAppShortcut(id, next);
-                                    }
-                                  },
-                                  child: Text(l10n.shortcutChangeAction),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ],
-                        const Divider(height: 1),
-                        ListTile(
-                          leading: const Icon(Icons.restore_rounded),
-                          title: Text(l10n.shortcutResetAllTitle),
-                          subtitle: Text(l10n.shortcutResetAllSubtitle),
-                          onTap: () async {
-                            await _app.resetInAppShortcutsToDefaults();
-                            if (context.mounted) {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(
-                                  content: Text(l10n.shortcutResetDoneSnack),
-                                ),
-                              );
-                            }
-                          },
-                        ),
-                      ],
-                    ),
-                  ),
-
-                  if (_app.isAiAvailable) ...[
-                    _SectionHeader(title: 'IA', scheme: scheme),
-                    Card(
-                      margin: const EdgeInsets.only(bottom: 24),
-                      child: Column(
-                        children: [
-                          SwitchListTile(
-                            secondary: const Icon(Icons.smart_toy_outlined),
-                            title: const Text('Habilitar IA'),
-                            subtitle: Text(
-                              _app.aiEnabled ? l10n.active : l10n.inactive,
-                            ),
-                            value: _app.aiEnabled,
-                            onChanged: _detectingAiProvider
-                                ? null
-                                : (v) async {
-                                    if (v && !_app.aiEnabled) {
-                                      final confirmed =
-                                          await _confirmAiBetaEnable();
-                                      if (!confirmed) return;
-                                      await _app.setAiEnabled(true);
-                                      await _saveAiFields();
-                                      await _autoDetectAndConfigureAiProvider();
-                                      return;
-                                    }
-                                    await _saveAiFields();
-                                    await _app.setAiEnabled(v);
-                                  },
-                          ),
-                          if (_detectingAiProvider)
-                            const Padding(
-                              padding: EdgeInsets.fromLTRB(16, 0, 16, 12),
-                              child: LinearProgressIndicator(),
-                            ),
-                          const Divider(height: 1),
-                          ListTile(
-                            leading: const Icon(Icons.assistant_navigation),
-                            title: Text(l10n.aiSetupAssistantTitle),
-                            subtitle: Text(l10n.aiSetupAssistantSubtitle),
-                            trailing: const Icon(Icons.chevron_right_rounded),
-                            onTap: _detectingAiProvider
-                                ? null
-                                : _autoDetectAndConfigureAiProvider,
-                          ),
-                          const Divider(height: 1),
-                          SwitchListTile(
-                            secondary: const Icon(Icons.psychology_outlined),
-                            title: Text(l10n.aiAlwaysShowThought),
-                            subtitle: Text(l10n.aiAlwaysShowThoughtHint),
-                            value: _app.aiAlwaysShowThought,
-                            onChanged: _app.aiEnabled
-                                ? _app.setAiAlwaysShowThought
-                                : null,
-                          ),
-                          const Divider(height: 1),
-                          SwitchListTile(
-                            secondary: const Icon(Icons.rocket_launch_outlined),
-                            title: Text(l10n.aiLaunchProviderWithApp),
-                            subtitle: Text(l10n.aiLaunchProviderWithAppHint),
-                            value: _app.aiLaunchProviderWithApp,
-                            onChanged: _app.aiEnabled
-                                ? (v) async {
-                                    await _app.setAiLaunchProviderWithApp(v);
-                                  }
-                                : null,
-                          ),
-                          const Divider(height: 1),
-                          ListTile(
-                            leading: const Icon(Icons.memory_outlined),
-                            title: Text(l10n.aiContextWindowTokens),
-                            subtitle: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  l10n.aiContextWindowTokensHint,
-                                  style: Theme.of(context).textTheme.bodySmall
-                                      ?.copyWith(color: scheme.onSurfaceVariant),
-                                ),
-                                TextField(
-                                  controller: _aiContextWindowController,
-                                  enabled: _app.aiEnabled,
-                                  keyboardType: TextInputType.number,
-                                  decoration: const InputDecoration(
-                                    hintText: '131072',
-                                    border: InputBorder.none,
-                                    enabledBorder: InputBorder.none,
-                                    focusedBorder: InputBorder.none,
-                                    contentPadding: EdgeInsets.zero,
+                                      const SizedBox(height: 12),
+                                      TextField(
+                                        controller: _customIconSourceController,
+                                        minLines: 3,
+                                        maxLines: 5,
+                                        decoration: InputDecoration(
+                                          labelText: _t(
+                                            'URL o data:image',
+                                            'URL or data:image',
+                                          ),
+                                          hintText:
+                                              'https://...gif | ...webp | ...png o data:image/...',
+                                          alignLabelWithHint: true,
+                                          prefixIcon: const Padding(
+                                            padding: EdgeInsets.only(
+                                              bottom: 42,
+                                            ),
+                                            child: Icon(Icons.link_rounded),
+                                          ),
+                                        ),
+                                        onSubmitted: (_) =>
+                                            _importCustomIconFromSource(
+                                              _customIconSourceController.text,
+                                            ),
+                                      ),
+                                      const SizedBox(height: 14),
+                                      Row(
+                                        children: [
+                                          Expanded(
+                                            child: FilledButton.icon(
+                                              onPressed: _importingCustomIcon
+                                                  ? null
+                                                  : () => _importCustomIconFromSource(
+                                                      _customIconSourceController
+                                                          .text,
+                                                    ),
+                                              icon: _importingCustomIcon
+                                                  ? const SizedBox(
+                                                      width: 16,
+                                                      height: 16,
+                                                      child:
+                                                          CircularProgressIndicator(
+                                                            strokeWidth: 2,
+                                                          ),
+                                                    )
+                                                  : const Icon(
+                                                      Icons.download_rounded,
+                                                    ),
+                                              label: Text(
+                                                _t(
+                                                  'Importar icono',
+                                                  'Import icon',
+                                                ),
+                                              ),
+                                            ),
+                                          ),
+                                          const SizedBox(width: 10),
+                                          Expanded(
+                                            child: OutlinedButton.icon(
+                                              onPressed: _importingCustomIcon
+                                                  ? null
+                                                  : _importCustomIconFromClipboard,
+                                              icon: const Icon(
+                                                Icons.content_paste_rounded,
+                                              ),
+                                              label: Text(
+                                                _t(
+                                                  'Desde portapapeles',
+                                                  'From clipboard',
+                                                ),
+                                              ),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ],
                                   ),
-                                  onSubmitted: (_) => _saveAiFields(),
                                 ),
-                              ],
-                            ),
-                          ),
-                          const Divider(height: 1),
-                          ListTile(
-                            leading: const Icon(Icons.hub_outlined),
-                            title: const Text('Proveedor'),
-                            trailing: DropdownButton<AiProvider>(
-                              value: _app.aiProvider,
-                              underline: const SizedBox.shrink(),
-                              onChanged: (value) async {
-                                if (value == null) return;
-                                try {
-                                  await _app.setAiProvider(value);
-                                  if (!mounted) return;
-                                  setState(() {
-                                    _availableModels = _app.cachedAiModelsFor(
-                                      value,
-                                    );
-                                  });
-                                  if (_availableModels.isNotEmpty &&
-                                      !_availableModels.contains(
-                                        _app.aiModel,
-                                      )) {
-                                    await _app.setAiModel(
-                                      _availableModels.first,
-                                    );
-                                  }
-                                  _aiBaseUrlController.text = _app
-                                      .defaultUrlForProvider(value);
-                                  await _saveAiFields();
-                                } catch (e) {
-                                  if (!mounted) return;
-                                  _snack('Error al cambiar proveedor: ');
-                                }
-                              },
-                              items: const [
-                                DropdownMenuItem(
-                                  value: AiProvider.none,
-                                  child: Text('Ninguno'),
-                                ),
-                                DropdownMenuItem(
-                                  value: AiProvider.ollama,
-                                  child: Text('Ollama'),
-                                ),
-                                DropdownMenuItem(
-                                  value: AiProvider.lmStudio,
-                                  child: Text('LM Studio'),
-                                ),
-                              ],
-                            ),
-                          ),
-                          const Divider(height: 1),
-                          ListTile(
-                            leading: const Icon(Icons.link_rounded),
-                            title: const Text('Endpoint'),
-                            subtitle: TextField(
-                              controller: _aiBaseUrlController,
-                              decoration: const InputDecoration(
-                                hintText: 'http://127.0.0.1:11434',
-                                border: InputBorder.none,
-                                enabledBorder: InputBorder.none,
-                                focusedBorder: InputBorder.none,
-                                contentPadding: EdgeInsets.zero,
                               ),
-                              onSubmitted: (_) => _saveAiFields(),
-                            ),
-                          ),
-                          const Divider(height: 1),
-                          ListTile(
-                            leading: const Icon(Icons.psychology_alt_outlined),
-                            title: const Text('Modelo'),
-                            subtitle: _loadingModels
-                                ? const Padding(
-                                    padding: EdgeInsets.symmetric(vertical: 8),
-                                    child: LinearProgressIndicator(),
-                                  )
-                                : DropdownButton<String>(
-                                    value:
-                                        _availableModels.contains(_app.aiModel)
-                                        ? _app.aiModel
-                                        : null,
-                                    hint: const Text(
-                                      'Conecta para listar modelos',
+                              Padding(
+                                padding: const EdgeInsets.fromLTRB(
+                                  16,
+                                  0,
+                                  16,
+                                  8,
+                                ),
+                                child: Row(
+                                  children: [
+                                    Text(
+                                      _t('Biblioteca', 'Library'),
+                                      style: Theme.of(context)
+                                          .textTheme
+                                          .titleSmall
+                                          ?.copyWith(
+                                            fontWeight: FontWeight.w700,
+                                          ),
                                     ),
-                                    isExpanded: true,
-                                    underline: const SizedBox.shrink(),
-                                    onChanged: _availableModels.isEmpty
-                                        ? null
-                                        : (value) {
-                                            if (value != null) {
-                                              _app.setAiModel(value);
+                                    const SizedBox(width: 8),
+                                    Text(
+                                      _t(
+                                        'Listos para usar en toda la app',
+                                        'Ready to use across the app',
+                                      ),
+                                      style: Theme.of(context)
+                                          .textTheme
+                                          .bodySmall
+                                          ?.copyWith(
+                                            color: scheme.onSurfaceVariant,
+                                          ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              if (_app.customIcons.isEmpty)
+                                Padding(
+                                  padding: const EdgeInsets.fromLTRB(
+                                    16,
+                                    0,
+                                    16,
+                                    16,
+                                  ),
+                                  child: Container(
+                                    padding: const EdgeInsets.all(18),
+                                    decoration: BoxDecoration(
+                                      color: scheme.surfaceContainerLow,
+                                      borderRadius: BorderRadius.circular(18),
+                                      border: Border.all(
+                                        color: scheme.outlineVariant.withValues(
+                                          alpha: 0.45,
+                                        ),
+                                      ),
+                                    ),
+                                    child: Row(
+                                      children: [
+                                        Container(
+                                          width: 42,
+                                          height: 42,
+                                          decoration: BoxDecoration(
+                                            color: scheme.surface,
+                                            borderRadius: BorderRadius.circular(
+                                              12,
+                                            ),
+                                          ),
+                                          child: Icon(
+                                            Icons.inventory_2_outlined,
+                                            color: scheme.onSurfaceVariant,
+                                          ),
+                                        ),
+                                        const SizedBox(width: 12),
+                                        Expanded(
+                                          child: Text(
+                                            _t(
+                                              'Todavía no has importado iconos.',
+                                              'No icons imported yet.',
+                                            ),
+                                            style: Theme.of(context)
+                                                .textTheme
+                                                .bodySmall
+                                                ?.copyWith(
+                                                  color:
+                                                      scheme.onSurfaceVariant,
+                                                  height: 1.35,
+                                                ),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                )
+                              else
+                                Padding(
+                                  padding: const EdgeInsets.fromLTRB(
+                                    16,
+                                    0,
+                                    16,
+                                    16,
+                                  ),
+                                  child: Wrap(
+                                    spacing: 12,
+                                    runSpacing: 12,
+                                    children: _app.customIcons.map((entry) {
+                                      return Container(
+                                        width: 182,
+                                        padding: const EdgeInsets.all(14),
+                                        decoration: BoxDecoration(
+                                          color: scheme.surfaceContainerLow,
+                                          borderRadius: BorderRadius.circular(
+                                            20,
+                                          ),
+                                          border: Border.all(
+                                            color: scheme.outlineVariant,
+                                          ),
+                                        ),
+                                        child: Column(
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.start,
+                                          mainAxisSize: MainAxisSize.min,
+                                          children: [
+                                            Row(
+                                              children: [
+                                                Container(
+                                                  width: 44,
+                                                  height: 44,
+                                                  decoration: BoxDecoration(
+                                                    color: scheme.surface,
+                                                    borderRadius:
+                                                        BorderRadius.circular(
+                                                          14,
+                                                        ),
+                                                  ),
+                                                  child: Center(
+                                                    child: FolioIconTokenView(
+                                                      appSettings: _app,
+                                                      token: entry.token,
+                                                      fallbackText: '📄',
+                                                      size: 26,
+                                                    ),
+                                                  ),
+                                                ),
+                                                const Spacer(),
+                                                IconButton(
+                                                  tooltip: _t(
+                                                    'Eliminar icono',
+                                                    'Delete icon',
+                                                  ),
+                                                  onPressed: () =>
+                                                      _removeCustomIcon(entry),
+                                                  icon: const Icon(
+                                                    Icons
+                                                        .delete_outline_rounded,
+                                                    size: 20,
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                            const SizedBox(height: 10),
+                                            Text(
+                                              entry.label,
+                                              maxLines: 1,
+                                              overflow: TextOverflow.ellipsis,
+                                              style: Theme.of(context)
+                                                  .textTheme
+                                                  .titleSmall
+                                                  ?.copyWith(
+                                                    fontWeight: FontWeight.w700,
+                                                  ),
+                                            ),
+                                            const SizedBox(height: 4),
+                                            Text(
+                                              entry.mimeType,
+                                              maxLines: 1,
+                                              overflow: TextOverflow.ellipsis,
+                                              style: Theme.of(context)
+                                                  .textTheme
+                                                  .bodySmall
+                                                  ?.copyWith(
+                                                    color:
+                                                        scheme.onSurfaceVariant,
+                                                  ),
+                                            ),
+                                            const SizedBox(height: 10),
+                                            SizedBox(
+                                              width: double.infinity,
+                                              child: OutlinedButton.icon(
+                                                onPressed: () async {
+                                                  await Clipboard.setData(
+                                                    ClipboardData(
+                                                      text: entry.token,
+                                                    ),
+                                                  );
+                                                  if (!context.mounted) {
+                                                    return;
+                                                  }
+                                                  _snack(
+                                                    _t(
+                                                      'Referencia copiada.',
+                                                      'Reference copied.',
+                                                    ),
+                                                  );
+                                                },
+                                                icon: const Icon(
+                                                  Icons.content_copy_rounded,
+                                                  size: 18,
+                                                ),
+                                                label: Text(
+                                                  _t(
+                                                    'Copiar token',
+                                                    'Copy token',
+                                                  ),
+                                                ),
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      );
+                                    }).toList(),
+                                  ),
+                                ),
+                            ],
+                          ),
+                        ),
+
+                        _SectionHeader(
+                          key: _sectionKeys[1],
+                          title: l10n.security,
+                          scheme: scheme,
+                        ),
+                        if (_s.vaultUsesEncryption)
+                          _SettingsPanel(
+                            margin: const EdgeInsets.only(bottom: 24),
+                            child: Column(
+                              children: [
+                                ListTile(
+                                  leading: const Icon(Icons.fingerprint),
+                                  title: Text(l10n.quickUnlockTitle),
+                                  subtitle: Text(
+                                    _quickEnabled ? l10n.active : l10n.inactive,
+                                  ),
+                                  trailing: _quickEnabled
+                                      ? TextButton(
+                                          onPressed: () async {
+                                            await _s.disableQuickUnlock();
+                                            await _refreshSecurityFlags();
+                                            _snack(
+                                              l10n.quickUnlockDisabledSnack,
+                                            );
+                                          },
+                                          child: Text(l10n.remove),
+                                        )
+                                      : FilledButton.tonal(
+                                          onPressed: () async {
+                                            try {
+                                              await _s
+                                                  .enableDeviceQuickUnlock();
+                                              await _refreshSecurityFlags();
+                                              _snack(
+                                                l10n.quickUnlockEnabledSnack,
+                                              );
+                                            } catch (e) {
+                                              _snack('');
                                             }
                                           },
-                                    items: _availableModels
+                                          child: Text(l10n.enable),
+                                        ),
+                                ),
+                                const Divider(height: 1),
+                                ListTile(
+                                  leading: const Icon(Icons.key_rounded),
+                                  title: Text(l10n.passkey),
+                                  subtitle: Text(l10n.passkeyThisDevice),
+                                  trailing: _passkeyRegistered
+                                      ? TextButton(
+                                          onPressed: () async {
+                                            await _s.revokePasskey();
+                                            await _refreshSecurityFlags();
+                                            _snack(l10n.passkeyRevokedSnack);
+                                          },
+                                          child: Text(l10n.revoke),
+                                        )
+                                      : FilledButton.tonal(
+                                          onPressed: () async {
+                                            try {
+                                              await _s.registerPasskey();
+                                              await _refreshSecurityFlags();
+                                              _snack(
+                                                l10n.passkeyRegisteredSnack,
+                                              );
+                                            } on PasskeyAuthCancelledException {
+                                              // ignorar
+                                            } catch (e) {
+                                              _snack('Passkey: ');
+                                            }
+                                          },
+                                          child: Text(l10n.register),
+                                        ),
+                                ),
+                                const Divider(height: 1),
+                                ListTile(
+                                  leading: const Icon(Icons.lock_outline),
+                                  title: Text(l10n.lockNow),
+                                  onTap: () {
+                                    _s.lock();
+                                    Navigator.pop(context);
+                                  },
+                                ),
+                                const Divider(height: 1),
+                                ListTile(
+                                  leading: const Icon(Icons.timer_outlined),
+                                  title: Text(l10n.lockAutoByInactivity),
+                                  subtitle: Text(
+                                    l10n.minutesShort(
+                                      _app.vaultIdleLockMinutes,
+                                    ),
+                                  ),
+                                  trailing: DropdownButton<int>(
+                                    value: _app.vaultIdleLockMinutes,
+                                    underline: const SizedBox.shrink(),
+                                    onChanged: (value) {
+                                      if (value == null) return;
+                                      _app.setVaultIdleLockMinutes(value);
+                                    },
+                                    items: _idleOptions
                                         .map(
-                                          (m) => DropdownMenuItem<String>(
+                                          (m) => DropdownMenuItem<int>(
                                             value: m,
-                                            child: Text(m),
+                                            child: Text(l10n.minutesShort(m)),
                                           ),
                                         )
                                         .toList(),
                                   ),
-                          ),
-                          const Divider(height: 1),
-                          ListTile(
-                            leading: const Icon(Icons.timer_outlined),
-                            title: const Text('Timeout (ms)'),
-                            subtitle: TextField(
-                              controller: _aiTimeoutController,
-                              keyboardType: TextInputType.number,
-                              decoration: const InputDecoration(
-                                hintText: '30000',
-                                border: InputBorder.none,
-                                enabledBorder: InputBorder.none,
-                                focusedBorder: InputBorder.none,
-                                contentPadding: EdgeInsets.zero,
-                              ),
-                              onSubmitted: (_) => _saveAiFields(),
-                            ),
-                          ),
-                          const Divider(height: 1),
-                          SwitchListTile(
-                            secondary: const Icon(Icons.public_outlined),
-                            title: const Text('Permitir endpoint remoto'),
-                            subtitle: Text(
-                              _app.aiEndpointMode == AiEndpointMode.allowRemote
-                                  ? 'Remoto permitido'
-                                  : 'Solo localhost',
-                            ),
-                            value:
-                                _app.aiEndpointMode ==
-                                AiEndpointMode.allowRemote,
-                            onChanged: (v) async {
-                              await _app.setAiEndpointMode(
-                                v
-                                    ? AiEndpointMode.allowRemote
-                                    : AiEndpointMode.localhostOnly,
-                              );
-                              if (v) {
-                                await _confirmRemoteEndpointIfNeeded();
-                              }
-                            },
-                          ),
-                          if (_app.aiEndpointMode ==
-                                  AiEndpointMode.allowRemote &&
-                              !_app.aiRemoteEndpointConfirmed)
-                            const Padding(
-                              padding: EdgeInsets.fromLTRB(16, 0, 16, 16),
-                              child: Text(
-                                'Endpoint remoto aún no confirmado.',
-                                style: TextStyle(color: Colors.orange),
-                              ),
-                            ),
-                          const Divider(height: 1),
-                          ListTile(
-                            leading: const Icon(Icons.network_check_rounded),
-                            title: const Text('Conectar y listar modelos'),
-                            onTap: _testAiConnection,
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-
-                  _SectionHeader(title: l10n.vaultBackup, scheme: scheme),
-                  Card(
-                    margin: const EdgeInsets.only(bottom: 24),
-                    child: Column(
-                      children: [
-                        Padding(
-                          padding: const EdgeInsets.all(16.0),
-                          child: Text(
-                            l10n.backupInfoBody,
-                            style: Theme.of(context).textTheme.bodySmall
-                                ?.copyWith(
-                                  color: scheme.onSurfaceVariant,
-                                  height: 1.4,
                                 ),
-                          ),
-                        ),
-                        const Divider(height: 1),
-                        ListTile(
-                          leading: const Icon(Icons.file_download_outlined),
-                          title: Text(l10n.exportZipTitle),
-                          subtitle: Text(l10n.exportZipSubtitle),
-                          onTap: _s.state == VaultFlowState.unlocked
-                              ? _openExportBackupFlow
-                              : null,
-                        ),
-                        const Divider(height: 1),
-                        ListTile(
-                          leading: const Icon(Icons.file_upload_outlined),
-                          title: Text(l10n.importZipTitle),
-                          subtitle: Text(l10n.importZipSubtitle),
-                          onTap: _s.state == VaultFlowState.unlocked
-                              ? _openImportBackupFlow
-                              : null,
-                        ),
-                        const Divider(height: 1),
-                        ListTile(
-                          leading: const Icon(Icons.note_add_outlined),
-                          title: const Text('Importar desde Notion (.zip)'),
-                          subtitle: const Text(
-                            'Soporta export en Markdown y HTML',
-                          ),
-                          onTap: _s.state == VaultFlowState.unlocked
-                              ? _openImportNotionFlow
-                              : null,
-                        ),
-                      ],
-                    ),
-                  ),
-
-                  _SectionHeader(title: 'Acerca de', scheme: scheme),
-                  Card(
-                    margin: const EdgeInsets.only(bottom: 24),
-                    child: Column(
-                      children: [
-                        ListTile(
-                          leading: const Icon(Icons.info_outline_rounded),
-                          title: const Text('Versión instalada'),
-                          subtitle: Text(_installedVersionLabel),
-                        ),
-                        const Divider(height: 1),
-                        ListTile(
-                          leading: const Icon(Icons.cloud_outlined),
-                          title: const Text('Repositorio de actualizaciones'),
-                          subtitle: Text(
-                            '${_app.updaterGithubOwner}/${_app.updaterGithubRepo}',
-                          ),
-                        ),
-                        const Divider(height: 1),
-                        Padding(
-                          padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.stretch,
-                            children: [
-                              Text(
-                                'Canal',
-                                style: Theme.of(context).textTheme.titleSmall,
-                              ),
-                              const SizedBox(height: 8),
-                              SegmentedButton<UpdateReleaseChannel>(
-                                segments: const [
-                                  ButtonSegment<UpdateReleaseChannel>(
-                                    value: UpdateReleaseChannel.stable,
-                                    label: Text('Release'),
-                                    icon: Icon(
-                                      Icons.verified_outlined,
-                                      size: 18,
-                                    ),
+                                const Divider(height: 1),
+                                SwitchListTile(
+                                  secondary: const Icon(Icons.minimize_rounded),
+                                  title: Text(l10n.lockOnMinimize),
+                                  value: _app.vaultLockOnMinimize,
+                                  onChanged: _app.setVaultLockOnMinimize,
+                                ),
+                                const Divider(height: 1),
+                                ListTile(
+                                  leading: const Icon(Icons.password_rounded),
+                                  title: Text(l10n.changeMasterPassword),
+                                  subtitle: Text(l10n.requiresCurrentPassword),
+                                  onTap: _openChangeMasterPasswordFlow,
+                                ),
+                              ],
+                            ),
+                          )
+                        else
+                          _SettingsPanel(
+                            margin: const EdgeInsets.only(bottom: 24),
+                            child: Padding(
+                              padding: const EdgeInsets.all(20),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.stretch,
+                                children: [
+                                  Text(
+                                    l10n.plainVaultSecurityNotice,
+                                    style: Theme.of(context)
+                                        .textTheme
+                                        .bodyMedium
+                                        ?.copyWith(
+                                          color: scheme.onSurfaceVariant,
+                                          height: 1.45,
+                                        ),
                                   ),
-                                  ButtonSegment<UpdateReleaseChannel>(
-                                    value: UpdateReleaseChannel.beta,
-                                    label: Text('Beta'),
-                                    icon: Icon(
-                                      Icons.science_outlined,
-                                      size: 18,
+                                  const SizedBox(height: 16),
+                                  FilledButton.icon(
+                                    onPressed: () =>
+                                        _openEncryptPlainVaultDialog(),
+                                    icon: const Icon(
+                                      Icons.lock_rounded,
+                                      size: 20,
                                     ),
+                                    label: Text(l10n.encryptPlainVaultConfirm),
                                   ),
                                 ],
-                                selected: {_app.updateReleaseChannel},
-                                onSelectionChanged: (s) {
-                                  _app.setUpdateReleaseChannel(s.first);
-                                },
                               ),
-                              const SizedBox(height: 8),
-                              Text(
-                                _app.updateReleaseChannel ==
-                                        UpdateReleaseChannel.beta
-                                    ? 'Las betas son releases en GitHub marcadas como pre-release.'
-                                    : 'Solo se considera la última release estable.',
-                                style: Theme.of(context).textTheme.bodySmall
-                                    ?.copyWith(color: scheme.onSurfaceVariant),
+                            ),
+                          ),
+
+                        _SectionHeader(
+                          key: _sectionKeys[2],
+                          title: l10n.desktopSection,
+                          scheme: scheme,
+                        ),
+                        _SettingsPanel(
+                          margin: const EdgeInsets.only(bottom: 24),
+                          child: Column(
+                            children: [
+                              SwitchListTile(
+                                secondary: const Icon(Icons.keyboard_rounded),
+                                title: Text(l10n.globalSearchHotkey),
+                                subtitle: Text(
+                                  _app.enableGlobalSearchHotkey
+                                      ? _app.globalSearchHotkey
+                                      : l10n.inactive,
+                                ),
+                                value: _app.enableGlobalSearchHotkey,
+                                onChanged: _app.setEnableGlobalSearchHotkey,
+                              ),
+                              const Divider(height: 1),
+                              ListTile(
+                                leading: const Icon(Icons.tune_rounded),
+                                title: Text(l10n.hotkeyCombination),
+                                subtitle: Text(_app.globalSearchHotkey),
+                                trailing: DropdownButton<String>(
+                                  value: _app.globalSearchHotkey,
+                                  underline: const SizedBox.shrink(),
+                                  onChanged: _app.enableGlobalSearchHotkey
+                                      ? (value) {
+                                          if (value != null) {
+                                            _app.setGlobalSearchHotkey(value);
+                                          }
+                                        }
+                                      : null,
+                                  items: [
+                                    DropdownMenuItem(
+                                      value: 'Alt+Space',
+                                      child: Text(l10n.hotkeyAltSpace),
+                                    ),
+                                    DropdownMenuItem(
+                                      value: 'Ctrl+Shift+Space',
+                                      child: Text(l10n.hotkeyCtrlShiftSpace),
+                                    ),
+                                    DropdownMenuItem(
+                                      value: 'Ctrl+Shift+K',
+                                      child: Text(l10n.hotkeyCtrlShiftK),
+                                    ),
+                                    const DropdownMenuItem(
+                                      value: 'Ctrl+Shift+F',
+                                      child: Text('Ctrl + Shift + F'),
+                                    ),
+                                    const DropdownMenuItem(
+                                      value: 'Ctrl+Alt+Space',
+                                      child: Text('Ctrl + Alt + Space'),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              const Divider(height: 1),
+                              SwitchListTile(
+                                secondary: const Icon(Icons.minimize_outlined),
+                                title: Text(l10n.minimizeToTray),
+                                value: _app.minimizeToTray,
+                                onChanged: _app.setMinimizeToTray,
+                              ),
+                              const Divider(height: 1),
+                              SwitchListTile(
+                                secondary: const Icon(Icons.close_rounded),
+                                title: Text(l10n.closeToTray),
+                                value: _app.closeToTray,
+                                onChanged: _app.setCloseToTray,
                               ),
                             ],
                           ),
                         ),
-                        const Divider(height: 1),
-                        ListTile(
-                          leading: const Icon(Icons.system_update_rounded),
-                          title: const Text('Buscar actualizaciones'),
-                          trailing: _checkingUpdates
-                              ? const SizedBox(
-                                  height: 20,
-                                  width: 20,
-                                  child: CircularProgressIndicator(
-                                    strokeWidth: 2,
-                                  ),
-                                )
-                              : null,
-                          onTap: _checkingUpdates ? null : _checkUpdatesNow,
+
+                        _SectionHeader(
+                          key: _sectionKeys[3],
+                          title: l10n.keyboardShortcutsSection,
+                          scheme: scheme,
                         ),
+                        _SettingsPanel(
+                          margin: const EdgeInsets.only(bottom: 24),
+                          child: Column(
+                            children: [
+                              for (final id in FolioInAppShortcut.values) ...[
+                                if (id != FolioInAppShortcut.values.first)
+                                  const Divider(height: 1),
+                                ListTile(
+                                  leading: const Icon(Icons.keyboard_rounded),
+                                  title: Text(id.settingsLabel),
+                                  subtitle: Text(
+                                    _app.describeInAppShortcut(id),
+                                  ),
+                                  trailing: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      TextButton(
+                                        onPressed: () {
+                                          ScaffoldMessenger.of(
+                                            context,
+                                          ).showSnackBar(
+                                            SnackBar(
+                                              content: Text(
+                                                l10n.shortcutTestHint(
+                                                  _app.describeInAppShortcut(
+                                                    id,
+                                                  ),
+                                                ),
+                                              ),
+                                            ),
+                                          );
+                                        },
+                                        child: Text(l10n.shortcutTestAction),
+                                      ),
+                                      TextButton(
+                                        onPressed: () async {
+                                          final next =
+                                              await showDialog<SingleActivator>(
+                                                context: context,
+                                                builder: (ctx) =>
+                                                    const InAppShortcutCaptureDialog(),
+                                              );
+                                          if (next != null && context.mounted) {
+                                            await _app.setInAppShortcut(
+                                              id,
+                                              next,
+                                            );
+                                          }
+                                        },
+                                        child: Text(l10n.shortcutChangeAction),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                              const Divider(height: 1),
+                              ListTile(
+                                leading: const Icon(Icons.restore_rounded),
+                                title: Text(l10n.shortcutResetAllTitle),
+                                subtitle: Text(l10n.shortcutResetAllSubtitle),
+                                onTap: () async {
+                                  await _app.resetInAppShortcutsToDefaults();
+                                  if (context.mounted) {
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      SnackBar(
+                                        content: Text(
+                                          l10n.shortcutResetDoneSnack,
+                                        ),
+                                      ),
+                                    );
+                                  }
+                                },
+                              ),
+                            ],
+                          ),
+                        ),
+
+                        if (_app.isAiAvailable) ...[
+                          _SectionHeader(
+                            key: _sectionKeys[4],
+                            title: l10n.ai,
+                            scheme: scheme,
+                          ),
+                          _SettingsPanel(
+                            margin: const EdgeInsets.only(bottom: 24),
+                            child: Column(
+                              children: [
+                                SwitchListTile(
+                                  secondary: const Icon(
+                                    Icons.smart_toy_outlined,
+                                  ),
+                                  title: Text(l10n.aiEnableToggleTitle),
+                                  subtitle: Text(
+                                    _app.aiEnabled
+                                        ? l10n.active
+                                        : l10n.inactive,
+                                  ),
+                                  value: _app.aiEnabled,
+                                  onChanged: _detectingAiProvider
+                                      ? null
+                                      : (v) async {
+                                          if (v && !_app.aiEnabled) {
+                                            final confirmed =
+                                                await _confirmAiBetaEnable();
+                                            if (!confirmed) return;
+                                            final acceptedScope =
+                                                await _confirmQuillGlobalScopeIfNeeded();
+                                            if (!acceptedScope) return;
+                                            if (!_app.hasCompletedQuillSetup) {
+                                              final configured =
+                                                  await _autoDetectAndConfigureAiProvider();
+                                              if (!configured) return;
+                                              await _app
+                                                  .setHasCompletedQuillSetup(
+                                                    true,
+                                                  );
+                                            }
+                                            await _saveAiFields();
+                                            await _app.setAiEnabled(true);
+                                            return;
+                                          }
+                                          await _saveAiFields();
+                                          await _app.setAiEnabled(v);
+                                        },
+                                ),
+                                if (_detectingAiProvider)
+                                  const Padding(
+                                    padding: EdgeInsets.fromLTRB(16, 0, 16, 12),
+                                    child: LinearProgressIndicator(),
+                                  ),
+                                const Divider(height: 1),
+                                ListTile(
+                                  leading: const Icon(
+                                    Icons.assistant_navigation,
+                                  ),
+                                  title: Text(l10n.aiSetupAssistantTitle),
+                                  subtitle: Text(l10n.aiSetupAssistantSubtitle),
+                                  trailing: const Icon(
+                                    Icons.chevron_right_rounded,
+                                  ),
+                                  onTap: _detectingAiProvider
+                                      ? null
+                                      : _autoDetectAndConfigureAiProvider,
+                                ),
+                                const Divider(height: 1),
+                                SwitchListTile(
+                                  secondary: const Icon(
+                                    Icons.psychology_outlined,
+                                  ),
+                                  title: Text(l10n.aiAlwaysShowThought),
+                                  subtitle: Text(l10n.aiAlwaysShowThoughtHint),
+                                  value: _app.aiAlwaysShowThought,
+                                  onChanged: _app.aiEnabled
+                                      ? _app.setAiAlwaysShowThought
+                                      : null,
+                                ),
+                                const Divider(height: 1),
+                                SwitchListTile(
+                                  secondary: const Icon(
+                                    Icons.rocket_launch_outlined,
+                                  ),
+                                  title: Text(l10n.aiLaunchProviderWithApp),
+                                  subtitle: Text(
+                                    l10n.aiLaunchProviderWithAppHint,
+                                  ),
+                                  value: _app.aiLaunchProviderWithApp,
+                                  onChanged: _app.aiEnabled
+                                      ? (v) async {
+                                          await _app.setAiLaunchProviderWithApp(
+                                            v,
+                                          );
+                                        }
+                                      : null,
+                                ),
+                                const Divider(height: 1),
+                                ListTile(
+                                  leading: const Icon(Icons.memory_outlined),
+                                  title: Text(l10n.aiContextWindowTokens),
+                                  subtitle: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        l10n.aiContextWindowTokensHint,
+                                        style: Theme.of(context)
+                                            .textTheme
+                                            .bodySmall
+                                            ?.copyWith(
+                                              color: scheme.onSurfaceVariant,
+                                            ),
+                                      ),
+                                      TextField(
+                                        controller: _aiContextWindowController,
+                                        enabled: _app.aiEnabled,
+                                        keyboardType: TextInputType.number,
+                                        decoration: const InputDecoration(
+                                          hintText: '131072',
+                                          border: InputBorder.none,
+                                          enabledBorder: InputBorder.none,
+                                          focusedBorder: InputBorder.none,
+                                          contentPadding: EdgeInsets.zero,
+                                        ),
+                                        onSubmitted: (_) => _saveAiFields(),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                const Divider(height: 1),
+                                ListTile(
+                                  leading: const Icon(Icons.hub_outlined),
+                                  title: Text(l10n.aiProviderLabel),
+                                  trailing: DropdownButton<AiProvider>(
+                                    value: _app.aiProvider,
+                                    underline: const SizedBox.shrink(),
+                                    onChanged: (value) async {
+                                      if (value == null) return;
+                                      try {
+                                        await _app.setAiProvider(value);
+                                        if (!mounted) return;
+                                        setState(() {
+                                          _availableModels = _app
+                                              .cachedAiModelsFor(value);
+                                        });
+                                        if (_availableModels.isNotEmpty &&
+                                            !_availableModels.contains(
+                                              _app.aiModel,
+                                            )) {
+                                          await _app.setAiModel(
+                                            _availableModels.first,
+                                          );
+                                        }
+                                        _aiBaseUrlController.text = _app
+                                            .defaultUrlForProvider(value);
+                                        await _saveAiFields();
+                                      } catch (e) {
+                                        if (!mounted) return;
+                                        _snack('Error al cambiar proveedor: ');
+                                      }
+                                    },
+                                    items: [
+                                      DropdownMenuItem(
+                                        value: AiProvider.none,
+                                        child: Text(l10n.aiProviderNone),
+                                      ),
+                                      DropdownMenuItem(
+                                        value: AiProvider.ollama,
+                                        child: Text('Ollama'),
+                                      ),
+                                      DropdownMenuItem(
+                                        value: AiProvider.lmStudio,
+                                        child: Text('LM Studio'),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                const Divider(height: 1),
+                                ListTile(
+                                  leading: const Icon(Icons.link_rounded),
+                                  title: Text(l10n.aiEndpoint),
+                                  subtitle: TextField(
+                                    controller: _aiBaseUrlController,
+                                    decoration: const InputDecoration(
+                                      hintText: 'http://127.0.0.1:11434',
+                                      border: InputBorder.none,
+                                      enabledBorder: InputBorder.none,
+                                      focusedBorder: InputBorder.none,
+                                      contentPadding: EdgeInsets.zero,
+                                    ),
+                                    onSubmitted: (_) => _saveAiFields(),
+                                  ),
+                                ),
+                                const Divider(height: 1),
+                                ListTile(
+                                  leading: const Icon(
+                                    Icons.psychology_alt_outlined,
+                                  ),
+                                  title: Text(l10n.aiModel),
+                                  subtitle: _loadingModels
+                                      ? const Padding(
+                                          padding: EdgeInsets.symmetric(
+                                            vertical: 8,
+                                          ),
+                                          child: LinearProgressIndicator(),
+                                        )
+                                      : DropdownButton<String>(
+                                          value:
+                                              _availableModels.contains(
+                                                _app.aiModel,
+                                              )
+                                              ? _app.aiModel
+                                              : null,
+                                          hint: Text(
+                                            l10n.aiConnectToListModels,
+                                          ),
+                                          isExpanded: true,
+                                          underline: const SizedBox.shrink(),
+                                          onChanged: _availableModels.isEmpty
+                                              ? null
+                                              : (value) {
+                                                  if (value != null) {
+                                                    _app.setAiModel(value);
+                                                  }
+                                                },
+                                          items: _availableModels
+                                              .map(
+                                                (m) => DropdownMenuItem<String>(
+                                                  value: m,
+                                                  child: Text(m),
+                                                ),
+                                              )
+                                              .toList(),
+                                        ),
+                                ),
+                                const Divider(height: 1),
+                                ListTile(
+                                  leading: const Icon(Icons.timer_outlined),
+                                  title: Text(l10n.aiTimeoutMs),
+                                  subtitle: TextField(
+                                    controller: _aiTimeoutController,
+                                    keyboardType: TextInputType.number,
+                                    decoration: const InputDecoration(
+                                      hintText: '30000',
+                                      border: InputBorder.none,
+                                      enabledBorder: InputBorder.none,
+                                      focusedBorder: InputBorder.none,
+                                      contentPadding: EdgeInsets.zero,
+                                    ),
+                                    onSubmitted: (_) => _saveAiFields(),
+                                  ),
+                                ),
+                                const Divider(height: 1),
+                                SwitchListTile(
+                                  secondary: const Icon(Icons.public_outlined),
+                                  title: Text(l10n.aiAllowRemoteEndpoint),
+                                  subtitle: Text(
+                                    _app.aiEndpointMode ==
+                                            AiEndpointMode.allowRemote
+                                        ? l10n.aiAllowRemoteEndpointAllowed
+                                        : l10n.aiAllowRemoteEndpointLocalhostOnly,
+                                  ),
+                                  value:
+                                      _app.aiEndpointMode ==
+                                      AiEndpointMode.allowRemote,
+                                  onChanged: (v) async {
+                                    await _app.setAiEndpointMode(
+                                      v
+                                          ? AiEndpointMode.allowRemote
+                                          : AiEndpointMode.localhostOnly,
+                                    );
+                                    if (v) {
+                                      await _confirmRemoteEndpointIfNeeded();
+                                    }
+                                  },
+                                ),
+                                if (_app.aiEndpointMode ==
+                                        AiEndpointMode.allowRemote &&
+                                    !_app.aiRemoteEndpointConfirmed)
+                                  Padding(
+                                    padding: EdgeInsets.fromLTRB(16, 0, 16, 16),
+                                    child: Text(
+                                      l10n.aiAllowRemoteEndpointNotConfirmed,
+                                      style: TextStyle(color: Colors.orange),
+                                    ),
+                                  ),
+                                const Divider(height: 1),
+                                ListTile(
+                                  leading: const Icon(
+                                    Icons.network_check_rounded,
+                                  ),
+                                  title: Text(l10n.aiConnectToListModels),
+                                  onTap: _testAiConnection,
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+
+                        _SectionHeader(
+                          key: _sectionKeys[5],
+                          title: l10n.vaultBackup,
+                          scheme: scheme,
+                        ),
+                        _SettingsPanel(
+                          margin: const EdgeInsets.only(bottom: 24),
+                          child: Column(
+                            children: [
+                              Padding(
+                                padding: const EdgeInsets.all(16.0),
+                                child: Text(
+                                  l10n.backupInfoBody,
+                                  style: Theme.of(context).textTheme.bodySmall
+                                      ?.copyWith(
+                                        color: scheme.onSurfaceVariant,
+                                        height: 1.4,
+                                      ),
+                                ),
+                              ),
+                              const Divider(height: 1),
+                              ListTile(
+                                leading: const Icon(
+                                  Icons.file_download_outlined,
+                                ),
+                                title: Text(l10n.exportZipTitle),
+                                subtitle: Text(l10n.exportZipSubtitle),
+                                onTap: _s.state == VaultFlowState.unlocked
+                                    ? _openExportBackupFlow
+                                    : null,
+                              ),
+                              const Divider(height: 1),
+                              ListTile(
+                                leading: const Icon(Icons.file_upload_outlined),
+                                title: Text(l10n.importZipTitle),
+                                subtitle: Text(l10n.importZipSubtitle),
+                                onTap: _s.state == VaultFlowState.unlocked
+                                    ? _openImportBackupFlow
+                                    : null,
+                              ),
+                              const Divider(height: 1),
+                              ListTile(
+                                leading: const Icon(Icons.note_add_outlined),
+                                title: Text(l10n.importNotionTitle),
+                                subtitle: Text(l10n.importNotionSubtitle),
+                                onTap: _s.state == VaultFlowState.unlocked
+                                    ? _openImportNotionFlow
+                                    : null,
+                              ),
+                              const Divider(height: 1),
+                              Padding(
+                                padding: const EdgeInsets.all(16.0),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      l10n.notionExportGuideTitle,
+                                      style: Theme.of(context)
+                                          .textTheme
+                                          .titleSmall
+                                          ?.copyWith(
+                                            fontWeight: FontWeight.w700,
+                                          ),
+                                    ),
+                                    const SizedBox(height: 8),
+                                    Text(
+                                      l10n.notionExportGuideBody,
+                                      style: Theme.of(context)
+                                          .textTheme
+                                          .bodySmall
+                                          ?.copyWith(
+                                            color: scheme.onSurfaceVariant,
+                                            height: 1.4,
+                                          ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+
+                        _SectionHeader(
+                          key: _sectionKeys[6],
+                          title: l10n.integrations,
+                          scheme: scheme,
+                        ),
+                        _SettingsPanel(
+                          margin: const EdgeInsets.only(bottom: 24),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              _IntegrationsHero(
+                                approvedCount:
+                                    _app.approvedIntegrationAppApprovals.length,
+                                hintText: l10n.integrationsAppsApprovedHint,
+                                title: l10n.integrationsAppsApprovedTitle,
+                              ),
+                              Padding(
+                                padding: const EdgeInsets.fromLTRB(
+                                  16,
+                                  0,
+                                  16,
+                                  16,
+                                ),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Row(
+                                      children: [
+                                        Text(
+                                          _t(
+                                            'Conexiones activas',
+                                            'Active connections',
+                                          ),
+                                          style: Theme.of(context)
+                                              .textTheme
+                                              .titleSmall
+                                              ?.copyWith(
+                                                fontWeight: FontWeight.w700,
+                                              ),
+                                        ),
+                                        const SizedBox(width: 8),
+                                        Text(
+                                          _t(
+                                            'Apps que ya pueden interactuar con Folio',
+                                            'Apps already allowed to interact with Folio',
+                                          ),
+                                          style: Theme.of(context)
+                                              .textTheme
+                                              .bodySmall
+                                              ?.copyWith(
+                                                color: scheme.onSurfaceVariant,
+                                              ),
+                                        ),
+                                      ],
+                                    ),
+                                    const SizedBox(height: 12),
+                                    if (_app
+                                        .approvedIntegrationAppApprovals
+                                        .isEmpty)
+                                      Container(
+                                        width: double.infinity,
+                                        padding: const EdgeInsets.all(18),
+                                        decoration: BoxDecoration(
+                                          color: scheme.surfaceContainerLow,
+                                          borderRadius: BorderRadius.circular(
+                                            18,
+                                          ),
+                                          border: Border.all(
+                                            color: scheme.outlineVariant
+                                                .withValues(alpha: 0.45),
+                                          ),
+                                        ),
+                                        child: Row(
+                                          children: [
+                                            Container(
+                                              width: 44,
+                                              height: 44,
+                                              decoration: BoxDecoration(
+                                                color: scheme.surface,
+                                                borderRadius:
+                                                    BorderRadius.circular(14),
+                                              ),
+                                              child: Icon(
+                                                Icons.hub_outlined,
+                                                color: scheme.onSurfaceVariant,
+                                              ),
+                                            ),
+                                            const SizedBox(width: 12),
+                                            Expanded(
+                                              child: Text(
+                                                l10n.integrationsAppsApprovedNone,
+                                                style: Theme.of(context)
+                                                    .textTheme
+                                                    .bodySmall
+                                                    ?.copyWith(
+                                                      color: scheme
+                                                          .onSurfaceVariant,
+                                                      height: 1.35,
+                                                    ),
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      )
+                                    else
+                                      Wrap(
+                                        spacing: 12,
+                                        runSpacing: 12,
+                                        children: _app
+                                            .approvedIntegrationAppApprovals
+                                            .map(
+                                              (entry) => _IntegrationAppCard(
+                                                entry: entry,
+                                                detailsText: l10n.integrationsApprovedAppDetails(
+                                                  entry.appId,
+                                                  entry.appVersion.isEmpty
+                                                      ? l10n.integrationApprovalUnknownVersion
+                                                      : entry.appVersion,
+                                                  entry
+                                                          .integrationVersion
+                                                          .isEmpty
+                                                      ? l10n.integrationApprovalUnknownVersion
+                                                      : entry
+                                                            .integrationVersion,
+                                                ),
+                                                revokeLabel: l10n
+                                                    .integrationsAppsApprovedRevoke,
+                                                onRevoke: () =>
+                                                    _revokeIntegrationApp(
+                                                      entry.appId,
+                                                    ),
+                                              ),
+                                            )
+                                            .toList(),
+                                      ),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+
+                        _SectionHeader(
+                          key: _sectionKeys[7],
+                          title: l10n.about,
+                          scheme: scheme,
+                        ),
+                        _SettingsPanel(
+                          margin: const EdgeInsets.only(bottom: 24),
+                          child: Column(
+                            children: [
+                              ListTile(
+                                leading: const Icon(Icons.info_outline_rounded),
+                                title: Text(l10n.installedVersion),
+                                subtitle: Text(_installedVersionLabel),
+                              ),
+                              const Divider(height: 1),
+                              ListTile(
+                                leading: const Icon(Icons.cloud_outlined),
+                                title: Text(l10n.updaterGithubRepository),
+                                subtitle: Text(
+                                  '${_app.updaterGithubOwner}/${_app.updaterGithubRepo}',
+                                ),
+                              ),
+                              const Divider(height: 1),
+                              Padding(
+                                padding: const EdgeInsets.fromLTRB(
+                                  16,
+                                  8,
+                                  16,
+                                  8,
+                                ),
+                                child: Column(
+                                  crossAxisAlignment:
+                                      CrossAxisAlignment.stretch,
+                                  children: [
+                                    Text(
+                                      'Canal',
+                                      style: Theme.of(
+                                        context,
+                                      ).textTheme.titleSmall,
+                                    ),
+                                    const SizedBox(height: 8),
+                                    SegmentedButton<UpdateReleaseChannel>(
+                                      segments: const [
+                                        ButtonSegment<UpdateReleaseChannel>(
+                                          value: UpdateReleaseChannel.stable,
+                                          label: Text('Release'),
+                                          icon: Icon(
+                                            Icons.verified_outlined,
+                                            size: 18,
+                                          ),
+                                        ),
+                                        ButtonSegment<UpdateReleaseChannel>(
+                                          value: UpdateReleaseChannel.beta,
+                                          label: Text('Beta'),
+                                          icon: Icon(
+                                            Icons.science_outlined,
+                                            size: 18,
+                                          ),
+                                        ),
+                                      ],
+                                      selected: {_app.updateReleaseChannel},
+                                      onSelectionChanged: (s) {
+                                        _app.setUpdateReleaseChannel(s.first);
+                                      },
+                                    ),
+                                    const SizedBox(height: 8),
+                                    Text(
+                                      _app.updateReleaseChannel ==
+                                              UpdateReleaseChannel.beta
+                                          ? l10n.updaterBetaDescription
+                                          : l10n.updaterStableDescription,
+                                      style: Theme.of(context)
+                                          .textTheme
+                                          .bodySmall
+                                          ?.copyWith(
+                                            color: scheme.onSurfaceVariant,
+                                          ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              const Divider(height: 1),
+                              ListTile(
+                                leading: const Icon(
+                                  Icons.system_update_rounded,
+                                ),
+                                title: Text(l10n.checkUpdates),
+                                trailing: _checkingUpdates
+                                    ? const SizedBox(
+                                        height: 20,
+                                        width: 20,
+                                        child: CircularProgressIndicator(
+                                          strokeWidth: 2,
+                                        ),
+                                      )
+                                    : null,
+                                onTap: _checkingUpdates
+                                    ? null
+                                    : _checkUpdatesNow,
+                              ),
+                            ],
+                          ),
+                        ),
+
+                        _SectionHeader(
+                          key: _sectionKeys[8],
+                          title: l10n.data,
+                          scheme: scheme,
+                        ),
+                        Card(
+                          margin: const EdgeInsets.only(bottom: 24),
+                          color: scheme.errorContainer.withValues(alpha: 0.2),
+                          elevation: 0,
+                          shape: RoundedRectangleBorder(
+                            side: BorderSide(
+                              color: scheme.error.withValues(alpha: 0.5),
+                            ),
+                            borderRadius: const BorderRadius.all(
+                              Radius.circular(24),
+                            ),
+                          ),
+                          child: ListTile(
+                            leading: Icon(
+                              Icons.delete_forever_outlined,
+                              color: scheme.error,
+                            ),
+                            title: Text(
+                              l10n.wipeCardTitle,
+                              style: TextStyle(
+                                color: scheme.error,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            subtitle: Text(
+                              l10n.wipeCardSubtitle,
+                              style: Theme.of(context).textTheme.bodySmall
+                                  ?.copyWith(
+                                    color: scheme.error.withValues(alpha: 0.8),
+                                  ),
+                            ),
+                            onTap: _openWipeFlow,
+                          ),
+                        ),
+                        _SettingsPanel(
+                          margin: const EdgeInsets.only(bottom: 24),
+                          child: ListTile(
+                            leading: const Icon(Icons.delete_outline),
+                            title: Text(l10n.deleteOtherVault),
+                            subtitle: Text(l10n.deleteOtherVaultTitle),
+                            onTap: _deleteOtherVault,
+                          ),
+                        ),
+                        const SizedBox(height: 24),
+                      ],
+                    ),
+                  );
+                },
+              );
+              if (!wide) {
+                return Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: settingsContent,
+                );
+              }
+              return Align(
+                alignment: Alignment.topCenter,
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 1480),
+                  child: Padding(
+                    padding: const EdgeInsets.all(24),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        SizedBox(
+                          width: 280,
+                          child: _SettingsDesktopRail(
+                            title: l10n.settings,
+                            subtitle: l10n.settingsAppearanceHint,
+                            currentSection: _selectedDesktopSection,
+                            onSelectSection: _scrollToSection,
+                            sections: desktopSections,
+                          ),
+                        ),
+                        const SizedBox(width: 24),
+                        Expanded(child: settingsContent),
                       ],
                     ),
                   ),
-
-                  _SectionHeader(title: l10n.data, scheme: scheme),
-                  Card(
-                    margin: const EdgeInsets.only(bottom: 24),
-                    color: scheme.errorContainer.withValues(alpha: 0.2),
-                    elevation: 0,
-                    shape: RoundedRectangleBorder(
-                      side: BorderSide(
-                        color: scheme.error.withValues(alpha: 0.5),
-                      ),
-                      borderRadius: const BorderRadius.all(Radius.circular(24)),
-                    ),
-                    child: ListTile(
-                      leading: Icon(
-                        Icons.delete_forever_outlined,
-                        color: scheme.error,
-                      ),
-                      title: Text(
-                        l10n.wipeCardTitle,
-                        style: TextStyle(
-                          color: scheme.error,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      subtitle: Text(
-                        l10n.wipeCardSubtitle,
-                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: scheme.error.withValues(alpha: 0.8),
-                        ),
-                      ),
-                      onTap: _openWipeFlow,
-                    ),
-                  ),
-                  const SizedBox(height: 24),
-                ],
+                ),
               );
             },
           ),
@@ -1553,21 +2863,17 @@ class _BackupPasswordDialogState extends State<_BackupPasswordDialog> {
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
-    return AlertDialog(
+    return FolioDialog(
       title: Text(l10n.backupPasswordDialogTitle),
-      content: TextField(
+      content: FolioPasswordField(
         controller: _controller,
         obscureText: _obscure,
         autofocus: true,
-        decoration: InputDecoration(
-          labelText: l10n.backupFilePasswordLabel,
-          helperText: l10n.backupFilePasswordHelper,
-          suffixIcon: IconButton(
-            onPressed: () => setState(() => _obscure = !_obscure),
-            icon: Icon(_obscure ? Icons.visibility : Icons.visibility_off),
-            tooltip: _obscure ? l10n.showPassword : l10n.hidePassword,
-          ),
-        ),
+        labelText: l10n.backupFilePasswordLabel,
+        showPasswordTooltip: l10n.showPassword,
+        hidePasswordTooltip: l10n.hidePassword,
+        helperText: l10n.backupFilePasswordHelper,
+        onToggleObscure: () => setState(() => _obscure = !_obscure),
         onSubmitted: (_) => _submit(),
       ),
       actions: [
@@ -1588,24 +2894,23 @@ class _NotionImportModeDialog extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return AlertDialog(
-      title: const Text('Destino de la importacion'),
-      content: const Text(
-        'Elige si quieres importar las paginas en el cofre actual o crear un cofre nuevo.',
-      ),
+    final l10n = AppLocalizations.of(context);
+    return FolioDialog(
+      title: Text(l10n.importNotionSelectTargetTitle),
+      content: Text(l10n.importNotionSelectTargetBody),
       actions: [
         TextButton(
           onPressed: () => Navigator.pop(context),
-          child: Text(AppLocalizations.of(context).cancel),
+          child: Text(l10n.cancel),
         ),
         OutlinedButton(
           onPressed: () =>
               Navigator.pop(context, _NotionImportMode.currentVault),
-          child: const Text('Cofre actual'),
+          child: Text(l10n.importNotionTargetCurrent),
         ),
         FilledButton(
           onPressed: () => Navigator.pop(context, _NotionImportMode.newVault),
-          child: const Text('Cofre nuevo'),
+          child: Text(l10n.importNotionTargetNew),
         ),
       ],
     );
@@ -1635,16 +2940,15 @@ class _NewVaultPasswordDialogState extends State<_NewVaultPasswordDialog> {
   }
 
   void _submit() {
+    final l10n = AppLocalizations.of(context);
     final a = _password.text.trim();
     final b = _confirm.text.trim();
     if (a.length < 10) {
-      setState(
-        () => _error = 'La contrasena debe tener al menos 10 caracteres.',
-      );
+      setState(() => _error = l10n.minCharactersError(10));
       return;
     }
     if (a != b) {
-      setState(() => _error = 'Las contrasenas no coinciden.');
+      setState(() => _error = l10n.passwordMismatchError);
       return;
     }
     setState(() => _error = null);
@@ -1653,34 +2957,29 @@ class _NewVaultPasswordDialogState extends State<_NewVaultPasswordDialog> {
 
   @override
   Widget build(BuildContext context) {
-    return AlertDialog(
-      title: const Text('Contrasena para cofre nuevo'),
+    final l10n = AppLocalizations.of(context);
+    return FolioDialog(
+      title: Text(l10n.importNotionNewVaultPasswordTitle),
       content: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          TextField(
+          FolioPasswordField(
             controller: _password,
             obscureText: _obscureA,
-            decoration: InputDecoration(
-              labelText: AppLocalizations.of(context).passwordLabel,
-              suffixIcon: IconButton(
-                onPressed: () => setState(() => _obscureA = !_obscureA),
-                icon: Icon(_obscureA ? Icons.visibility : Icons.visibility_off),
-              ),
-            ),
+            labelText: l10n.passwordLabel,
+            showPasswordTooltip: l10n.showPassword,
+            hidePasswordTooltip: l10n.hidePassword,
+            onToggleObscure: () => setState(() => _obscureA = !_obscureA),
           ),
           const SizedBox(height: 8),
-          TextField(
+          FolioPasswordField(
             controller: _confirm,
             obscureText: _obscureB,
+            labelText: l10n.confirmPasswordLabel,
+            showPasswordTooltip: l10n.showPassword,
+            hidePasswordTooltip: l10n.hidePassword,
+            onToggleObscure: () => setState(() => _obscureB = !_obscureB),
             onSubmitted: (_) => _submit(),
-            decoration: InputDecoration(
-              labelText: AppLocalizations.of(context).confirmPasswordLabel,
-              suffixIcon: IconButton(
-                onPressed: () => setState(() => _obscureB = !_obscureB),
-                icon: Icon(_obscureB ? Icons.visibility : Icons.visibility_off),
-              ),
-            ),
           ),
           if (_error != null) ...[
             const SizedBox(height: 8),
@@ -1694,9 +2993,9 @@ class _NewVaultPasswordDialogState extends State<_NewVaultPasswordDialog> {
       actions: [
         TextButton(
           onPressed: () => Navigator.pop(context),
-          child: Text(AppLocalizations.of(context).cancel),
+          child: Text(l10n.cancel),
         ),
-        FilledButton(onPressed: _submit, child: const Text('Crear e importar')),
+        FilledButton(onPressed: _submit, child: Text(l10n.importAction)),
       ],
     );
   }
@@ -1793,7 +3092,7 @@ class _EncryptPlainVaultDialogState extends State<_EncryptPlainVaultDialog> {
       _PasswordStrength.fair => l10n.passwordStrengthFair,
       _PasswordStrength.strong => l10n.passwordStrengthStrong,
     };
-    return AlertDialog(
+    return FolioDialog(
       title: Text(l10n.encryptPlainVaultTitle),
       content: SingleChildScrollView(
         child: Column(
@@ -1803,8 +3102,8 @@ class _EncryptPlainVaultDialogState extends State<_EncryptPlainVaultDialog> {
             Text(
               l10n.encryptPlainVaultBody,
               style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: Theme.of(context).colorScheme.onSurfaceVariant,
-                  ),
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+              ),
             ),
             const SizedBox(height: 16),
             TextField(
@@ -1839,9 +3138,8 @@ class _EncryptPlainVaultDialogState extends State<_EncryptPlainVaultDialog> {
                 suffixIcon: IconButton(
                   onPressed: _busy
                       ? null
-                      : () => setState(
-                            () => _obscureConfirm = !_obscureConfirm,
-                          ),
+                      : () =>
+                            setState(() => _obscureConfirm = !_obscureConfirm),
                   icon: Icon(
                     _obscureConfirm ? Icons.visibility : Icons.visibility_off,
                   ),
@@ -1966,7 +3264,7 @@ class _ChangeMasterPasswordDialogState
       _PasswordStrength.fair => l10n.passwordStrengthFair,
       _PasswordStrength.strong => l10n.passwordStrengthStrong,
     };
-    return AlertDialog(
+    return FolioDialog(
       title: Text(l10n.changeMasterPassword),
       content: SingleChildScrollView(
         child: Column(
@@ -2095,51 +3393,47 @@ class _AiSetupWizardDialogState extends State<_AiSetupWizardDialog> {
     final selectedStatus = isOllama
         ? widget.summary.ollama
         : widget.summary.lmStudio;
-    return AlertDialog(
+    return FolioDialog(
       title: Text(widget.title),
-      content: SizedBox(
-        width: 520,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Text(
-              widget.noProviderTitle,
-              style: Theme.of(context).textTheme.titleMedium,
-            ),
-            const SizedBox(height: 8),
-            Text(widget.noProviderBody),
-            const SizedBox(height: 12),
-            _ProviderStatusLine(
-              label: isOllama ? 'Ollama' : 'LM Studio',
-              installed: selectedStatus.installed,
-              reachable: selectedStatus.reachable,
-            ),
-            const SizedBox(height: 12),
-            Text(
-              isOllama
-                  ? widget.ollamaInstallTitle
-                  : widget.lmStudioInstallTitle,
-              style: Theme.of(context).textTheme.titleMedium,
-            ),
-            const SizedBox(height: 8),
-            Text(
-              isOllama ? widget.ollamaInstallBody : widget.lmStudioInstallBody,
-            ),
-            const SizedBox(height: 10),
-            SelectableText(
-              isOllama ? 'https://ollama.com/download' : 'https://lmstudio.ai/',
-              style: TextStyle(color: scheme.primary),
-            ),
-            const SizedBox(height: 14),
-            Text(
-              widget.openSettingsHint,
-              style: Theme.of(
-                context,
-              ).textTheme.bodySmall?.copyWith(color: scheme.onSurfaceVariant),
-            ),
-          ],
-        ),
+      contentWidth: 520,
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text(
+            widget.noProviderTitle,
+            style: Theme.of(context).textTheme.titleMedium,
+          ),
+          const SizedBox(height: 8),
+          Text(widget.noProviderBody),
+          const SizedBox(height: 12),
+          _ProviderStatusLine(
+            label: isOllama ? 'Ollama' : 'LM Studio',
+            installed: selectedStatus.installed,
+            reachable: selectedStatus.reachable,
+          ),
+          const SizedBox(height: 12),
+          Text(
+            isOllama ? widget.ollamaInstallTitle : widget.lmStudioInstallTitle,
+            style: Theme.of(context).textTheme.titleMedium,
+          ),
+          const SizedBox(height: 8),
+          Text(
+            isOllama ? widget.ollamaInstallBody : widget.lmStudioInstallBody,
+          ),
+          const SizedBox(height: 10),
+          SelectableText(
+            isOllama ? 'https://ollama.com/download' : 'https://lmstudio.ai/',
+            style: TextStyle(color: scheme.primary),
+          ),
+          const SizedBox(height: 14),
+          Text(
+            widget.openSettingsHint,
+            style: Theme.of(
+              context,
+            ).textTheme.bodySmall?.copyWith(color: scheme.onSurfaceVariant),
+          ),
+        ],
       ),
       actions: [
         TextButton(
@@ -2151,6 +3445,86 @@ class _AiSetupWizardDialogState extends State<_AiSetupWizardDialog> {
           child: Text(widget.retryLabel),
         ),
       ],
+    );
+  }
+}
+
+class _ReleaseCheckRow extends StatelessWidget {
+  const _ReleaseCheckRow({
+    required this.label,
+    required this.ok,
+    required this.severity,
+    this.details,
+  });
+
+  final String label;
+  final bool ok;
+  final ReleaseCheckSeverity severity;
+  final String? details;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final color = ok
+        ? Colors.green
+        : (severity == ReleaseCheckSeverity.blocker
+              ? scheme.error
+              : Colors.orange);
+    final tagText = severity == ReleaseCheckSeverity.blocker
+        ? 'Bloqueador'
+        : 'Advertencia';
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: const EdgeInsets.only(top: 2),
+            child: Icon(
+              ok ? Icons.check_circle_rounded : Icons.error_outline_rounded,
+              size: 18,
+              color: color,
+            ),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Expanded(child: Text(label)),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 2,
+                      ),
+                      decoration: BoxDecoration(
+                        color: color.withValues(alpha: 0.12),
+                        borderRadius: BorderRadius.circular(999),
+                      ),
+                      child: Text(
+                        tagText,
+                        style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                          color: color,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                if (details != null && details!.trim().isNotEmpty)
+                  Text(
+                    details!,
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -2188,8 +3562,443 @@ class _ProviderStatusLine extends StatelessWidget {
   }
 }
 
+class _SettingsInfoChip extends StatelessWidget {
+  const _SettingsInfoChip({required this.icon, required this.label});
+
+  final IconData icon;
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+      decoration: BoxDecoration(
+        color: scheme.surface.withValues(alpha: 0.9),
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: scheme.outlineVariant.withValues(alpha: 0.5)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 16, color: scheme.onSurfaceVariant),
+          const SizedBox(width: 6),
+          Text(
+            label,
+            style: Theme.of(context).textTheme.labelMedium?.copyWith(
+              color: scheme.onSurface,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _IntegrationsHero extends StatelessWidget {
+  const _IntegrationsHero({
+    required this.approvedCount,
+    required this.hintText,
+    required this.title,
+  });
+
+  final int approvedCount;
+  final String hintText;
+  final String title;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Container(
+      margin: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            scheme.secondaryContainer.withValues(alpha: 0.58),
+            scheme.surfaceContainerHigh,
+          ],
+        ),
+        borderRadius: BorderRadius.circular(22),
+        border: Border.all(
+          color: scheme.outlineVariant.withValues(alpha: 0.45),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                width: 46,
+                height: 46,
+                decoration: BoxDecoration(
+                  color: scheme.surface,
+                  borderRadius: BorderRadius.circular(14),
+                ),
+                child: Icon(Icons.hub_rounded, color: scheme.primary),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      hintText,
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: scheme.onSurfaceVariant,
+                        height: 1.4,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 6,
+                ),
+                decoration: BoxDecoration(
+                  color: scheme.surface,
+                  borderRadius: BorderRadius.circular(999),
+                ),
+                child: Text(
+                  '$approvedCount',
+                  style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                    color: scheme.primary,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 14),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: const [
+              _SettingsInfoChip(
+                icon: Icons.verified_user_outlined,
+                label: 'Permisos aprobados',
+              ),
+              _SettingsInfoChip(
+                icon: Icons.lock_open_outlined,
+                label: 'Acceso revocable',
+              ),
+              _SettingsInfoChip(
+                icon: Icons.devices_outlined,
+                label: 'Apps externas',
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _IntegrationAppCard extends StatelessWidget {
+  const _IntegrationAppCard({
+    required this.entry,
+    required this.detailsText,
+    required this.revokeLabel,
+    required this.onRevoke,
+  });
+
+  final IntegrationAppApproval entry;
+  final String detailsText;
+  final String revokeLabel;
+  final VoidCallback onRevoke;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Container(
+      width: 260,
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: scheme.surfaceContainerLow,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: scheme.outlineVariant.withValues(alpha: 0.5)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 42,
+                height: 42,
+                decoration: BoxDecoration(
+                  color: scheme.surface,
+                  borderRadius: BorderRadius.circular(14),
+                ),
+                child: Icon(
+                  Icons.verified_user_outlined,
+                  color: scheme.primary,
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  entry.appName,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(
+                    context,
+                  ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w700),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+            decoration: BoxDecoration(
+              color: scheme.primaryContainer.withValues(alpha: 0.55),
+              borderRadius: BorderRadius.circular(999),
+            ),
+            child: Text(
+              entry.appId,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                color: scheme.primary,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ),
+          const SizedBox(height: 10),
+          Text(
+            detailsText,
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+              color: scheme.onSurfaceVariant,
+              fontFamily: 'monospace',
+              height: 1.35,
+            ),
+          ),
+          const SizedBox(height: 12),
+          SizedBox(
+            width: double.infinity,
+            child: OutlinedButton.icon(
+              onPressed: onRevoke,
+              icon: const Icon(Icons.delete_outline_rounded, size: 18),
+              label: Text(revokeLabel),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _SettingsPanel extends StatelessWidget {
+  const _SettingsPanel({required this.child, this.margin});
+
+  final Widget child;
+  final EdgeInsetsGeometry? margin;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Container(
+      margin: margin,
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [scheme.surface, scheme.surfaceContainerLow],
+        ),
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: scheme.outlineVariant.withValues(alpha: 0.4)),
+        boxShadow: FolioShadows.card(scheme),
+      ),
+      child: ClipRRect(borderRadius: BorderRadius.circular(24), child: child),
+    );
+  }
+}
+
+class _SettingsOverviewBanner extends StatelessWidget {
+  const _SettingsOverviewBanner({
+    required this.appSettings,
+    required this.session,
+    required this.installedVersionLabel,
+  });
+
+  final AppSettings appSettings;
+  final VaultSession session;
+  final String installedVersionLabel;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final theme = Theme.of(context);
+    final localeCode = appSettings.locale?.languageCode;
+    final localeLabel = localeCode == null
+        ? 'System'
+        : (localeCode == 'es' ? 'Español' : 'English');
+    final aiLabel = appSettings.aiEnabled ? 'IA activa' : 'IA desactivada';
+    final vaultLabel = session.vaultUsesEncryption ? 'Cifrado' : 'Plano';
+    return Container(
+      margin: const EdgeInsets.only(bottom: 20),
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            scheme.primaryContainer.withValues(alpha: 0.72),
+            scheme.tertiaryContainer.withValues(alpha: 0.36),
+          ],
+        ),
+        borderRadius: BorderRadius.circular(28),
+        border: Border.all(color: scheme.outlineVariant.withValues(alpha: 0.4)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                width: 52,
+                height: 52,
+                decoration: BoxDecoration(
+                  color: scheme.surface.withValues(alpha: 0.9),
+                  borderRadius: BorderRadius.circular(18),
+                ),
+                child: Icon(
+                  Icons.tune_rounded,
+                  color: scheme.primary,
+                  size: 28,
+                ),
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Ajustes de Folio',
+                      style: theme.textTheme.headlineSmall?.copyWith(
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: -0.4,
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      'Personaliza la app, gestiona seguridad, IA, copias e integraciones desde un único panel.',
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        color: scheme.onSurfaceVariant,
+                        height: 1.45,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 18),
+          Wrap(
+            spacing: 12,
+            runSpacing: 12,
+            children: [
+              _SettingsOverviewStat(
+                icon: Icons.palette_outlined,
+                label: 'Idioma',
+                value: localeLabel,
+              ),
+              _SettingsOverviewStat(
+                icon: Icons.shield_outlined,
+                label: 'Cofre',
+                value: vaultLabel,
+              ),
+              _SettingsOverviewStat(
+                icon: Icons.auto_awesome_outlined,
+                label: 'IA',
+                value: aiLabel,
+              ),
+              _SettingsOverviewStat(
+                icon: Icons.sell_outlined,
+                label: 'Version',
+                value: installedVersionLabel,
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _SettingsOverviewStat extends StatelessWidget {
+  const _SettingsOverviewStat({
+    required this.icon,
+    required this.label,
+    required this.value,
+  });
+
+  final IconData icon;
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Container(
+      constraints: const BoxConstraints(minWidth: 150),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+      decoration: BoxDecoration(
+        color: scheme.surface.withValues(alpha: 0.82),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(
+          color: scheme.outlineVariant.withValues(alpha: 0.35),
+        ),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 18, color: scheme.primary),
+          const SizedBox(width: 10),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                label,
+                style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                  color: scheme.onSurfaceVariant,
+                ),
+              ),
+              const SizedBox(height: 2),
+              Text(
+                value,
+                style: Theme.of(
+                  context,
+                ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w700),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class _SectionHeader extends StatelessWidget {
-  const _SectionHeader({required this.title, required this.scheme});
+  const _SectionHeader({super.key, required this.title, required this.scheme});
 
   final String title;
   final ColorScheme scheme;
@@ -2197,16 +4006,166 @@ class _SectionHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(8, 0, 8, 8),
-      child: Text(
-        title,
-        style: Theme.of(context).textTheme.labelLarge?.copyWith(
-          color: scheme.primary,
-          fontWeight: FontWeight.w600,
-        ),
+      padding: const EdgeInsets.fromLTRB(8, 4, 8, 10),
+      child: Row(
+        children: [
+          Container(
+            width: 8,
+            height: 8,
+            decoration: BoxDecoration(
+              color: scheme.primary,
+              shape: BoxShape.circle,
+            ),
+          ),
+          const SizedBox(width: 10),
+          Text(
+            title,
+            style: Theme.of(context).textTheme.titleSmall?.copyWith(
+              color: scheme.primary,
+              fontWeight: FontWeight.w700,
+              letterSpacing: 0.1,
+            ),
+          ),
+        ],
       ),
     );
   }
+}
+
+class _SettingsDesktopRail extends StatelessWidget {
+  const _SettingsDesktopRail({
+    required this.title,
+    required this.subtitle,
+    required this.sections,
+    required this.currentSection,
+    required this.onSelectSection,
+  });
+
+  final String title;
+  final String subtitle;
+  final List<_SettingsSectionNavItem> sections;
+  final int currentSection;
+  final ValueChanged<int> onSelectSection;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    return Container(
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [scheme.surface, scheme.surfaceContainerHigh],
+        ),
+        borderRadius: BorderRadius.circular(28),
+        border: Border.all(
+          color: scheme.outlineVariant.withValues(alpha: 0.35),
+        ),
+      ),
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          return SingleChildScrollView(
+            padding: const EdgeInsets.all(24),
+            child: ConstrainedBox(
+              constraints: BoxConstraints(
+                minHeight: constraints.maxHeight - 48,
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Container(
+                    width: 52,
+                    height: 52,
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                        colors: [
+                          scheme.primaryContainer,
+                          scheme.tertiaryContainer,
+                        ],
+                      ),
+                      borderRadius: BorderRadius.circular(18),
+                    ),
+                    child: Icon(
+                      Icons.tune_rounded,
+                      color: scheme.onPrimaryContainer,
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+                  Text(
+                    title,
+                    style: theme.textTheme.headlineSmall?.copyWith(
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  Text(
+                    subtitle,
+                    style: theme.textTheme.bodyMedium?.copyWith(
+                      color: scheme.onSurfaceVariant,
+                      height: 1.45,
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+                  const SizedBox(height: 8),
+                  ...sections.asMap().entries.map(
+                    (entry) => Padding(
+                      padding: const EdgeInsets.only(bottom: 8),
+                      child: Material(
+                        color: Colors.transparent,
+                        child: InkWell(
+                          borderRadius: BorderRadius.circular(16),
+                          onTap: () => onSelectSection(entry.value.keyIndex),
+                          child: AnimatedContainer(
+                            duration: const Duration(milliseconds: 180),
+                            curve: Curves.easeOutCubic,
+                            width: double.infinity,
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 14,
+                              vertical: 12,
+                            ),
+                            decoration: BoxDecoration(
+                              color: currentSection == entry.value.keyIndex
+                                  ? scheme.primaryContainer
+                                  : scheme.surface,
+                              borderRadius: BorderRadius.circular(16),
+                              border: Border.all(
+                                color: currentSection == entry.value.keyIndex
+                                    ? scheme.primary.withValues(alpha: 0.35)
+                                    : Colors.transparent,
+                              ),
+                            ),
+                            child: Text(
+                              entry.value.label,
+                              style: theme.textTheme.titleSmall?.copyWith(
+                                fontWeight: FontWeight.w600,
+                                color: currentSection == entry.value.keyIndex
+                                    ? scheme.onPrimaryContainer
+                                    : scheme.onSurface,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
+}
+
+class _SettingsSectionNavItem {
+  const _SettingsSectionNavItem({required this.label, required this.keyIndex});
+
+  final String label;
+  final int keyIndex;
 }
 
 class _VaultIdentityVerifyDialog extends StatefulWidget {

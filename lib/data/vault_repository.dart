@@ -6,6 +6,198 @@ import '../models/folio_page.dart';
 import 'vault_payload.dart';
 import 'vault_paths.dart';
 
+enum VaultStarterContent {
+  enabled,
+  disabled,
+}
+
+List<FolioPage> buildVaultStarterPages(VaultStarterContent starterContent) {
+  if (starterContent == VaultStarterContent.disabled) {
+    return const [];
+  }
+  return [
+    FolioPage(
+      id: 'starter_home',
+      title: 'Empieza aquí',
+      blocks: [
+        FolioBlock(
+          id: 'starter_home_b0',
+          type: 'h1',
+          text: 'Tu cofre ya está listo',
+        ),
+        FolioBlock(
+          id: 'starter_home_b1',
+          type: 'paragraph',
+          text:
+              'Folio organiza tus páginas en un árbol, edita contenido por bloques y mantiene los datos en este dispositivo. Esta mini guía te deja un mapa rápido de lo que puedes hacer desde el primer minuto.',
+        ),
+        FolioBlock(
+          id: 'starter_home_b2',
+          type: 'callout',
+          text:
+              'Puedes borrar, renombrar o mover estas páginas cuando quieras. Son solo una base para arrancar más rápido.',
+          icon: '💡',
+        ),
+        FolioBlock(
+          id: 'starter_home_b3',
+          type: 'h2',
+          text: 'Lo más útil para empezar',
+        ),
+        FolioBlock(
+          id: 'starter_home_b4',
+          type: 'bullet',
+          text: 'Pulsa / dentro de un párrafo para insertar encabezados, listas, tablas, bloques de código, Mermaid y más.',
+        ),
+        FolioBlock(
+          id: 'starter_home_b5',
+          type: 'bullet',
+          text: 'Usa el panel lateral para crear páginas y subpáginas, y reorganiza el árbol según tu forma de trabajar.',
+        ),
+        FolioBlock(
+          id: 'starter_home_b6',
+          type: 'bullet',
+          text: 'Abre Ajustes para activar IA, configurar copia de seguridad, cambiar idioma o añadir desbloqueo rápido.',
+        ),
+        FolioBlock(
+          id: 'starter_home_b7',
+          type: 'divider',
+          text: '',
+        ),
+        FolioBlock(
+          id: 'starter_home_b8',
+          type: 'todo',
+          text: 'Crear mi primera página de trabajo',
+          checked: false,
+        ),
+        FolioBlock(
+          id: 'starter_home_b9',
+          type: 'todo',
+          text: 'Probar el menú / para insertar un bloque nuevo',
+          checked: false,
+        ),
+        FolioBlock(
+          id: 'starter_home_b10',
+          type: 'todo',
+          text: 'Revisar Ajustes y decidir si quiero activar Quill o un método de desbloqueo rápido',
+          checked: false,
+        ),
+      ],
+    ),
+    FolioPage(
+      id: 'starter_capabilities',
+      title: 'Qué puede hacer Folio',
+      blocks: [
+        FolioBlock(
+          id: 'starter_capabilities_b0',
+          type: 'h2',
+          text: 'Capacidades principales',
+        ),
+        FolioBlock(
+          id: 'starter_capabilities_b1',
+          type: 'bullet',
+          text: 'Tomar notas con estructura libre usando párrafos, títulos, listas, checklists, citas y divisores.',
+        ),
+        FolioBlock(
+          id: 'starter_capabilities_b2',
+          type: 'bullet',
+          text: 'Trabajar con bloques especiales como tablas, bases de datos, archivos, audio, vídeo, embeds y diagramas Mermaid.',
+        ),
+        FolioBlock(
+          id: 'starter_capabilities_b3',
+          type: 'bullet',
+          text: 'Buscar contenido, revisar historial de página y mantener revisiones dentro del mismo cofre.',
+        ),
+        FolioBlock(
+          id: 'starter_capabilities_b4',
+          type: 'bullet',
+          text: 'Exportar o importar datos, incluyendo copia del cofre e importación desde Notion.',
+        ),
+        FolioBlock(
+          id: 'starter_capabilities_b5',
+          type: 'h2',
+          text: 'Atajos rápidos',
+        ),
+        FolioBlock(
+          id: 'starter_capabilities_b6',
+          type: 'bullet',
+          text: 'Ctrl+N crea una página nueva.',
+        ),
+        FolioBlock(
+          id: 'starter_capabilities_b7',
+          type: 'bullet',
+          text: 'Ctrl+K o Ctrl+F abre la búsqueda.',
+        ),
+        FolioBlock(
+          id: 'starter_capabilities_b8',
+          type: 'bullet',
+          text: 'Ctrl+, abre Ajustes y Ctrl+L bloquea el cofre.',
+        ),
+        FolioBlock(
+          id: 'starter_capabilities_b9',
+          type: 'callout',
+          text:
+              'La IA no se activa por defecto. Si decides usar Quill, la configuras en Ajustes y eliges proveedor, modelo y permisos de contexto.',
+          icon: '🧠',
+        ),
+      ],
+    ),
+    FolioPage(
+      id: 'starter_quill',
+      title: 'Quill y privacidad',
+      blocks: [
+        FolioBlock(
+          id: 'starter_quill_b0',
+          type: 'h2',
+          text: 'Qué puede hacer Quill',
+        ),
+        FolioBlock(
+          id: 'starter_quill_b1',
+          type: 'bullet',
+          text: 'Resumir, reescribir o expandir el contenido de una página.',
+        ),
+        FolioBlock(
+          id: 'starter_quill_b2',
+          type: 'bullet',
+          text: 'Responder dudas sobre bloques, atajos y formas de organizar tus notas en Folio.',
+        ),
+        FolioBlock(
+          id: 'starter_quill_b3',
+          type: 'bullet',
+          text: 'Trabajar con la página abierta como contexto o con varias páginas que selecciones como referencia.',
+        ),
+        FolioBlock(
+          id: 'starter_quill_b4',
+          type: 'h2',
+          text: 'Privacidad y seguridad',
+        ),
+        FolioBlock(
+          id: 'starter_quill_b5',
+          type: 'paragraph',
+          text:
+              'Tus páginas viven en este dispositivo. Si habilitas IA, revisa qué contexto compartes y con qué proveedor. Si olvidas la contraseña maestra de un cofre cifrado, Folio no puede recuperarlo por ti.',
+        ),
+        FolioBlock(
+          id: 'starter_quill_b6',
+          type: 'callout',
+          text:
+              'Haz una copia del cofre cuando tengas contenido importante. La copia conserva los datos y adjuntos, pero no transfiere Hello ni passkeys entre dispositivos.',
+          icon: '🔐',
+        ),
+        FolioBlock(
+          id: 'starter_quill_b7',
+          type: 'paragraph',
+          text: 'Prueba rápida de Mermaid:',
+        ),
+        FolioBlock(
+          id: 'starter_quill_b8',
+          type: 'mermaid',
+          text: 'graph TD\nInicio[Crear cofre] --> Organizar[Organizar páginas]\nOrganizar --> Escribir[Escribir y enlazar ideas]\nEscribir --> Revisar[Buscar, revisar y mejorar]',
+        ),
+      ],
+    ),
+  ];
+}
+
 class VaultRepository {
   static const String _modeEncrypted = 'encrypted';
   static const String _modePlain = 'plain';
@@ -22,77 +214,10 @@ class VaultRepository {
     String? password,
     bool encrypted = true,
     List<FolioPage>? initialPages,
+    VaultStarterContent starterContent = VaultStarterContent.enabled,
   }) async {
     final payload = VaultPayload(
-      pages:
-          initialPages ??
-          [
-            FolioPage(
-              id: 'p1',
-              title: 'Bienvenida',
-              blocks: [
-                FolioBlock(
-                  id: 'p1_b0',
-                  type: 'h2',
-                  text: 'Qué puedes hacer en Folio',
-                ),
-                FolioBlock(
-                  id: 'p1_b1',
-                  type: 'paragraph',
-                  text:
-                      'Árbol de páginas a la izquierda, editor por bloques en el centro '
-                      'y asistente de IA a la derecha (si lo activas en Ajustes). '
-                      'Los datos viven en este dispositivo.',
-                ),
-                FolioBlock(
-                  id: 'p1_b2',
-                  type: 'bullet',
-                  text: 'Escribe / en un párrafo para elegir tipo de bloque (título, lista, código, Mermaid…)',
-                ),
-                FolioBlock(
-                  id: 'p1_b3',
-                  type: 'bullet',
-                  text: 'Ctrl+N página nueva · Ctrl+K o Ctrl+F búsqueda · Ctrl+, ajustes · Ctrl+L bloquear cofre',
-                ),
-                FolioBlock(
-                  id: 'p1_b4',
-                  type: 'callout',
-                  text:
-                      'Los bloques **callout**, tablas, archivos adjuntos y bases de datos están en el menú / o en el botón +.',
-                  icon: '💡',
-                ),
-                FolioBlock(
-                  id: 'p1_b5',
-                  type: 'divider',
-                  text: '',
-                ),
-                FolioBlock(
-                  id: 'p1_b6',
-                  type: 'paragraph',
-                  text: 'Ejemplo de diagrama Mermaid (vista previa con red):',
-                ),
-                FolioBlock(
-                  id: 'p1_b7',
-                  type: 'mermaid',
-                  text: 'graph LR\nA[Empezar] --> B[Organizar notas]',
-                ),
-              ],
-            ),
-            FolioPage(
-              id: 'p2',
-              title: 'Notas del día',
-              parentId: 'p1',
-              blocks: [
-                FolioBlock(id: 'p2_b0', type: 'todo', text: 'Primera tarea', checked: false),
-                FolioBlock(id: 'p2_b1', type: 'bullet', text: 'Idea rápida'),
-              ],
-            ),
-            FolioPage(
-              id: 'p3',
-              title: 'Borrador',
-              blocks: [FolioBlock(id: 'p3_b0', type: 'paragraph', text: '')],
-            ),
-          ],
+      pages: initialPages ?? buildVaultStarterPages(starterContent),
     );
     final modePath = await VaultPaths.vaultModePath();
     final payloadPath = await VaultPaths.cipherPayloadPath();

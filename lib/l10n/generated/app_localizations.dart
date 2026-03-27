@@ -284,6 +284,18 @@ abstract class AppLocalizations {
   /// **'Al menos {min} caracteres. La usarás cada vez que abras Folio.'**
   String masterPasswordHint(int min);
 
+  /// No description provided for @createStarterPagesTitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Crear páginas iniciales de ayuda'**
+  String get createStarterPagesTitle;
+
+  /// No description provided for @createStarterPagesBody.
+  ///
+  /// In es, this message translates to:
+  /// **'Añade una pequeña guía con ejemplos, atajos y capacidades de Folio. Podrás borrar esas páginas después.'**
+  String get createStarterPagesBody;
+
   /// No description provided for @passwordLabel.
   ///
   /// In es, this message translates to:
@@ -1310,6 +1322,36 @@ abstract class AppLocalizations {
   /// **'Enlace a una página de este cofre'**
   String get pasteAsMentionSubtitle;
 
+  /// No description provided for @tableAddRow.
+  ///
+  /// In es, this message translates to:
+  /// **'Fila'**
+  String get tableAddRow;
+
+  /// No description provided for @tableRemoveRow.
+  ///
+  /// In es, this message translates to:
+  /// **'Quitar fila'**
+  String get tableRemoveRow;
+
+  /// No description provided for @tableAddColumn.
+  ///
+  /// In es, this message translates to:
+  /// **'Columna'**
+  String get tableAddColumn;
+
+  /// No description provided for @tableRemoveColumn.
+  ///
+  /// In es, this message translates to:
+  /// **'Quitar col.'**
+  String get tableRemoveColumn;
+
+  /// No description provided for @tablePasteFromClipboard.
+  ///
+  /// In es, this message translates to:
+  /// **'Pegar tabla'**
+  String get tablePasteFromClipboard;
+
   /// No description provided for @pickPageForMention.
   ///
   /// In es, this message translates to:
@@ -1808,6 +1850,48 @@ abstract class AppLocalizations {
   /// **'Escribe tu mensaje. Quill actuará como agente.'**
   String get aiInputHint;
 
+  /// No description provided for @aiInputHintCopilot.
+  ///
+  /// In es, this message translates to:
+  /// **'Escribe tu mensaje...'**
+  String get aiInputHintCopilot;
+
+  /// No description provided for @aiContextComposerHint.
+  ///
+  /// In es, this message translates to:
+  /// **'Sin contexto añadido'**
+  String get aiContextComposerHint;
+
+  /// No description provided for @aiContextComposerHelper.
+  ///
+  /// In es, this message translates to:
+  /// **'Usa @ para añadir contexto'**
+  String get aiContextComposerHelper;
+
+  /// No description provided for @aiContextCurrentPageChip.
+  ///
+  /// In es, this message translates to:
+  /// **'Página actual: {title}'**
+  String aiContextCurrentPageChip(Object title);
+
+  /// No description provided for @aiContextCurrentPageFallback.
+  ///
+  /// In es, this message translates to:
+  /// **'Página actual'**
+  String get aiContextCurrentPageFallback;
+
+  /// No description provided for @aiContextAddFile.
+  ///
+  /// In es, this message translates to:
+  /// **'Adjuntar archivo'**
+  String get aiContextAddFile;
+
+  /// No description provided for @aiContextAddPage.
+  ///
+  /// In es, this message translates to:
+  /// **'Adjuntar página'**
+  String get aiContextAddPage;
+
   /// No description provided for @aiShowPanel.
   ///
   /// In es, this message translates to:
@@ -1928,11 +2012,77 @@ abstract class AppLocalizations {
   /// **'Activar BETA'**
   String get aiBetaEnableConfirm;
 
+  /// No description provided for @ai.
+  ///
+  /// In es, this message translates to:
+  /// **'IA'**
+  String get ai;
+
+  /// No description provided for @aiEnableToggleTitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Activar IA'**
+  String get aiEnableToggleTitle;
+
+  /// No description provided for @aiProviderLabel.
+  ///
+  /// In es, this message translates to:
+  /// **'Proveedor'**
+  String get aiProviderLabel;
+
   /// No description provided for @aiProviderNone.
   ///
   /// In es, this message translates to:
   /// **'Ninguno'**
   String get aiProviderNone;
+
+  /// No description provided for @aiEndpoint.
+  ///
+  /// In es, this message translates to:
+  /// **'Endpoint'**
+  String get aiEndpoint;
+
+  /// No description provided for @aiModel.
+  ///
+  /// In es, this message translates to:
+  /// **'Modelo'**
+  String get aiModel;
+
+  /// No description provided for @aiTimeoutMs.
+  ///
+  /// In es, this message translates to:
+  /// **'Timeout (ms)'**
+  String get aiTimeoutMs;
+
+  /// No description provided for @aiAllowRemoteEndpoint.
+  ///
+  /// In es, this message translates to:
+  /// **'Permitir endpoint remoto'**
+  String get aiAllowRemoteEndpoint;
+
+  /// No description provided for @aiAllowRemoteEndpointAllowed.
+  ///
+  /// In es, this message translates to:
+  /// **'Hosts remotos permitidos'**
+  String get aiAllowRemoteEndpointAllowed;
+
+  /// No description provided for @aiAllowRemoteEndpointLocalhostOnly.
+  ///
+  /// In es, this message translates to:
+  /// **'Solo localhost'**
+  String get aiAllowRemoteEndpointLocalhostOnly;
+
+  /// No description provided for @aiAllowRemoteEndpointNotConfirmed.
+  ///
+  /// In es, this message translates to:
+  /// **'El acceso a endpoints remotos está habilitado, pero todavía no se ha confirmado.'**
+  String get aiAllowRemoteEndpointNotConfirmed;
+
+  /// No description provided for @aiConnectToListModels.
+  ///
+  /// In es, this message translates to:
+  /// **'Conectar para listar modelos'**
+  String get aiConnectToListModels;
 
   /// No description provided for @aiProviderAutoConfigured.
   ///
@@ -2011,6 +2161,24 @@ abstract class AppLocalizations {
   /// In es, this message translates to:
   /// **'Cuando uno de los proveedores esté operativo, pulsa Reintentar para autoconfigurarlo.'**
   String get aiSetupOpenSettingsHint;
+
+  /// No description provided for @quillGlobalScopeNoticeTitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Quill funciona en todos los cofres'**
+  String get quillGlobalScopeNoticeTitle;
+
+  /// No description provided for @quillGlobalScopeNoticeBody.
+  ///
+  /// In es, this message translates to:
+  /// **'Quill es un ajuste global de la app. Si lo activas ahora, quedará disponible para cualquier cofre en esta instalación, no solo para el actual.'**
+  String get quillGlobalScopeNoticeBody;
+
+  /// No description provided for @quillGlobalScopeNoticeConfirm.
+  ///
+  /// In es, this message translates to:
+  /// **'Entiendo'**
+  String get quillGlobalScopeNoticeConfirm;
 
   /// No description provided for @searchByNameOrShortcut.
   ///
@@ -2192,6 +2360,12 @@ abstract class AppLocalizations {
   /// **'Destino de la importación'**
   String get importNotionSelectTargetTitle;
 
+  /// No description provided for @importNotionSelectTargetBody.
+  ///
+  /// In es, this message translates to:
+  /// **'Elige si quieres importar la exportacion de Notion en el cofre actual o crear un cofre nuevo a partir de ella.'**
+  String get importNotionSelectTargetBody;
+
   /// No description provided for @importNotionTargetCurrent.
   ///
   /// In es, this message translates to:
@@ -2203,6 +2377,12 @@ abstract class AppLocalizations {
   /// In es, this message translates to:
   /// **'Cofre nuevo'**
   String get importNotionTargetNew;
+
+  /// No description provided for @importNotionDefaultVaultName.
+  ///
+  /// In es, this message translates to:
+  /// **'Importado desde Notion'**
+  String get importNotionDefaultVaultName;
 
   /// No description provided for @importNotionNewVaultPasswordTitle.
   ///
@@ -2228,6 +2408,18 @@ abstract class AppLocalizations {
   /// **'No se pudo importar Notion: {error}'**
   String importNotionError(Object error);
 
+  /// No description provided for @notionExportGuideTitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Como exportar desde Notion'**
+  String get notionExportGuideTitle;
+
+  /// No description provided for @notionExportGuideBody.
+  ///
+  /// In es, this message translates to:
+  /// **'En Notion, abre Settings -> Export all workspace content, elige HTML o Markdown y descarga el archivo ZIP. Luego usa esta opcion de importacion en Folio.'**
+  String get notionExportGuideBody;
+
   /// No description provided for @appBetaBannerMessage.
   ///
   /// In es, this message translates to:
@@ -2239,6 +2431,216 @@ abstract class AppLocalizations {
   /// In es, this message translates to:
   /// **'Entendido'**
   String get appBetaBannerDismiss;
+
+  /// No description provided for @integrations.
+  ///
+  /// In es, this message translates to:
+  /// **'Integraciones'**
+  String get integrations;
+
+  /// No description provided for @integrationsAppsApprovedHint.
+  ///
+  /// In es, this message translates to:
+  /// **'Las apps externas aprobadas pueden usar el puente de integracion local.'**
+  String get integrationsAppsApprovedHint;
+
+  /// No description provided for @integrationsAppsApprovedTitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Apps externas aprobadas'**
+  String get integrationsAppsApprovedTitle;
+
+  /// No description provided for @integrationsAppsApprovedNone.
+  ///
+  /// In es, this message translates to:
+  /// **'Todavia no has aprobado ninguna app externa.'**
+  String get integrationsAppsApprovedNone;
+
+  /// No description provided for @integrationsAppsApprovedRevoke.
+  ///
+  /// In es, this message translates to:
+  /// **'Revocar acceso'**
+  String get integrationsAppsApprovedRevoke;
+
+  /// No description provided for @integrationsApprovedAppDetails.
+  ///
+  /// In es, this message translates to:
+  /// **'{appId} · App {appVersion} · Integracion {integrationVersion}'**
+  String integrationsApprovedAppDetails(
+    Object appId,
+    Object appVersion,
+    Object integrationVersion,
+  );
+
+  /// No description provided for @integrationApprovalTitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Aprobar integracion externa'**
+  String get integrationApprovalTitle;
+
+  /// No description provided for @integrationApprovalUpdateTitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Aprobar actualizacion de integracion'**
+  String get integrationApprovalUpdateTitle;
+
+  /// No description provided for @integrationApprovalBody.
+  ///
+  /// In es, this message translates to:
+  /// **'\"{appName}\" quiere conectarse a Folio usando la version {appVersion} de la app y la version {integrationVersion} de la integracion.'**
+  String integrationApprovalBody(
+    Object appName,
+    Object appVersion,
+    Object integrationVersion,
+  );
+
+  /// No description provided for @integrationApprovalUpdateBody.
+  ///
+  /// In es, this message translates to:
+  /// **'\"{appName}\" ya habia sido aprobada con la version {previousVersion} de la integracion. Ahora quiere conectarse con la version {integrationVersion} de la integracion, asi que Folio necesita tu aprobacion otra vez.'**
+  String integrationApprovalUpdateBody(
+    Object appName,
+    Object previousVersion,
+    Object integrationVersion,
+  );
+
+  /// No description provided for @integrationApprovalUnknownVersion.
+  ///
+  /// In es, this message translates to:
+  /// **'desconocida'**
+  String get integrationApprovalUnknownVersion;
+
+  /// No description provided for @integrationApprovalAppId.
+  ///
+  /// In es, this message translates to:
+  /// **'ID de la app'**
+  String get integrationApprovalAppId;
+
+  /// No description provided for @integrationApprovalAppVersion.
+  ///
+  /// In es, this message translates to:
+  /// **'Version de la app'**
+  String get integrationApprovalAppVersion;
+
+  /// No description provided for @integrationApprovalProtocolVersion.
+  ///
+  /// In es, this message translates to:
+  /// **'Version de la integracion'**
+  String get integrationApprovalProtocolVersion;
+
+  /// No description provided for @integrationApprovalCanDoTitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Lo que esta integracion puede hacer'**
+  String get integrationApprovalCanDoTitle;
+
+  /// No description provided for @integrationApprovalCanDoSessions.
+  ///
+  /// In es, this message translates to:
+  /// **'Crear sesiones efimeras de importacion en Folio.'**
+  String get integrationApprovalCanDoSessions;
+
+  /// No description provided for @integrationApprovalCanDoImport.
+  ///
+  /// In es, this message translates to:
+  /// **'Enviar documentacion en Markdown para crear o actualizar paginas mediante el puente de importacion.'**
+  String get integrationApprovalCanDoImport;
+
+  /// No description provided for @integrationApprovalCanDoMetadata.
+  ///
+  /// In es, this message translates to:
+  /// **'Guardar trazas de importacion como la app cliente, la sesion y metadatos de origen en las paginas importadas.'**
+  String get integrationApprovalCanDoMetadata;
+
+  /// No description provided for @integrationApprovalCanDoUnlockedVault.
+  ///
+  /// In es, this message translates to:
+  /// **'Importar solo mientras el cofre este disponible y la peticion incluya el secreto configurado.'**
+  String get integrationApprovalCanDoUnlockedVault;
+
+  /// No description provided for @integrationApprovalCannotDoTitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Lo que no puede hacer'**
+  String get integrationApprovalCannotDoTitle;
+
+  /// No description provided for @integrationApprovalCannotDoRead.
+  ///
+  /// In es, this message translates to:
+  /// **'No puede leer el contenido de tu cofre a traves de este puente.'**
+  String get integrationApprovalCannotDoRead;
+
+  /// No description provided for @integrationApprovalCannotDoBypassLock.
+  ///
+  /// In es, this message translates to:
+  /// **'No puede saltarse el bloqueo del cofre, el cifrado ni tu aprobacion explicita.'**
+  String get integrationApprovalCannotDoBypassLock;
+
+  /// No description provided for @integrationApprovalCannotDoWithoutSecret.
+  ///
+  /// In es, this message translates to:
+  /// **'No puede acceder a endpoints protegidos sin el secreto compartido.'**
+  String get integrationApprovalCannotDoWithoutSecret;
+
+  /// No description provided for @integrationApprovalCannotDoRemoteAccess.
+  ///
+  /// In es, this message translates to:
+  /// **'No puede usar el puente desde fuera de localhost.'**
+  String get integrationApprovalCannotDoRemoteAccess;
+
+  /// No description provided for @integrationApprovalDeny.
+  ///
+  /// In es, this message translates to:
+  /// **'Denegar'**
+  String get integrationApprovalDeny;
+
+  /// No description provided for @integrationApprovalApprove.
+  ///
+  /// In es, this message translates to:
+  /// **'Aprobar'**
+  String get integrationApprovalApprove;
+
+  /// No description provided for @integrationApprovalApproveUpdate.
+  ///
+  /// In es, this message translates to:
+  /// **'Aprobar esta actualizacion'**
+  String get integrationApprovalApproveUpdate;
+
+  /// No description provided for @about.
+  ///
+  /// In es, this message translates to:
+  /// **'Acerca de'**
+  String get about;
+
+  /// No description provided for @installedVersion.
+  ///
+  /// In es, this message translates to:
+  /// **'Version instalada'**
+  String get installedVersion;
+
+  /// No description provided for @updaterGithubRepository.
+  ///
+  /// In es, this message translates to:
+  /// **'Repositorio de actualizaciones'**
+  String get updaterGithubRepository;
+
+  /// No description provided for @updaterBetaDescription.
+  ///
+  /// In es, this message translates to:
+  /// **'Las betas son releases de GitHub marcadas como pre-release.'**
+  String get updaterBetaDescription;
+
+  /// No description provided for @updaterStableDescription.
+  ///
+  /// In es, this message translates to:
+  /// **'Solo se tiene en cuenta la ultima release estable.'**
+  String get updaterStableDescription;
+
+  /// No description provided for @checkUpdates.
+  ///
+  /// In es, this message translates to:
+  /// **'Buscar actualizaciones'**
+  String get checkUpdates;
 
   /// No description provided for @noEncryptionConfirmTitle.
   ///
@@ -2287,6 +2689,66 @@ abstract class AppLocalizations {
   /// In es, this message translates to:
   /// **'El cofre ya está cifrado'**
   String get encryptPlainVaultSuccessSnack;
+
+  /// No description provided for @aiCopyMessage.
+  ///
+  /// In es, this message translates to:
+  /// **'Copiar'**
+  String get aiCopyMessage;
+
+  /// No description provided for @aiCopyCode.
+  ///
+  /// In es, this message translates to:
+  /// **'Copiar código'**
+  String get aiCopyCode;
+
+  /// No description provided for @aiCopiedToClipboard.
+  ///
+  /// In es, this message translates to:
+  /// **'Copiado al portapapeles'**
+  String get aiCopiedToClipboard;
+
+  /// No description provided for @aiHelpful.
+  ///
+  /// In es, this message translates to:
+  /// **'Útil'**
+  String get aiHelpful;
+
+  /// No description provided for @aiNotHelpful.
+  ///
+  /// In es, this message translates to:
+  /// **'No útil'**
+  String get aiNotHelpful;
+
+  /// No description provided for @aiThinkingMessage.
+  ///
+  /// In es, this message translates to:
+  /// **'Quill está pensando...'**
+  String get aiThinkingMessage;
+
+  /// No description provided for @aiMessageTimestampNow.
+  ///
+  /// In es, this message translates to:
+  /// **'ahora'**
+  String get aiMessageTimestampNow;
+
+  /// No description provided for @aiMessageTimestampMinutes.
+  ///
+  /// In es, this message translates to:
+  /// **'hace {n} min'**
+  String aiMessageTimestampMinutes(int n);
+
+  /// No description provided for @aiMessageTimestampHours.
+  ///
+  /// In es, this message translates to:
+  /// **'hace {n} h'**
+  String aiMessageTimestampHours(int n);
+
+  /// No description provided for @aiMessageTimestampDays.
+  ///
+  /// In es, this message translates to:
+  /// **'hace {n} días'**
+  String aiMessageTimestampDays(int n);
 }
 
 class _AppLocalizationsDelegate
