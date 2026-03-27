@@ -225,5 +225,42 @@ void main() {
       final out = db.materializeRows(v);
       expect(out.map((e) => e.id).toList(), ['r1', 'r3']);
     });
+
+    test('view visiblePropertyIds are encoded and parsed', () {
+      final db = FolioDatabaseData.empty();
+      final titleId = db.properties.first.id;
+      final statusId = db.properties[1].id;
+      final view = db.views.first;
+      view.visiblePropertyIds = [titleId, statusId];
+
+      final parsed = FolioDatabaseData.tryParse(db.encode());
+      expect(parsed, isNotNull);
+      expect(parsed!.views.first.visiblePropertyIds, [titleId, statusId]);
+    });
+
+    test('migrates pre-v5 payload to include visiblePropertyIds', () {
+      const raw = '''
+{
+  "v": 4,
+  "schemaVersion": 4,
+  "properties": [
+    {"id":"p_title","name":"Nombre","type":"text"},
+    {"id":"p_status","name":"Estado","type":"select","options":["A","B"]}
+  ],
+  "rows": [],
+  "views": [
+    {"id":"v_table","name":"Tabla","type":"table"}
+  ],
+  "activeViewId": "v_table"
+}
+''';
+      final parsed = FolioDatabaseData.tryParse(raw);
+      expect(parsed, isNotNull);
+      expect(parsed!.schemaVersion, 5);
+      expect(
+        parsed.views.first.visiblePropertyIds,
+        containsAll(['p_title', 'p_status']),
+      );
+    });
   });
 }

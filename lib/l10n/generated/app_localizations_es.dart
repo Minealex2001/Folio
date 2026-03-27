@@ -108,6 +108,13 @@ class AppLocalizationsEs extends AppLocalizations {
   }
 
   @override
+  String get createStarterPagesTitle => 'Crear páginas iniciales de ayuda';
+
+  @override
+  String get createStarterPagesBody =>
+      'Añade una pequeña guía con ejemplos, atajos y capacidades de Folio. Podrás borrar esas páginas después.';
+
+  @override
   String get passwordLabel => 'Contraseña';
 
   @override
@@ -665,6 +672,21 @@ class AppLocalizationsEs extends AppLocalizations {
   String get pasteAsMentionSubtitle => 'Enlace a una página de este cofre';
 
   @override
+  String get tableAddRow => 'Fila';
+
+  @override
+  String get tableRemoveRow => 'Quitar fila';
+
+  @override
+  String get tableAddColumn => 'Columna';
+
+  @override
+  String get tableRemoveColumn => 'Quitar col.';
+
+  @override
+  String get tablePasteFromClipboard => 'Pegar tabla';
+
+  @override
   String get pickPageForMention => 'Elegir página';
 
   @override
@@ -946,6 +968,29 @@ class AppLocalizationsEs extends AppLocalizations {
   String get aiInputHint => 'Escribe tu mensaje. Quill actuará como agente.';
 
   @override
+  String get aiInputHintCopilot => 'Escribe tu mensaje...';
+
+  @override
+  String get aiContextComposerHint => 'Sin contexto añadido';
+
+  @override
+  String get aiContextComposerHelper => 'Usa @ para añadir contexto';
+
+  @override
+  String aiContextCurrentPageChip(Object title) {
+    return 'Página actual: $title';
+  }
+
+  @override
+  String get aiContextCurrentPageFallback => 'Página actual';
+
+  @override
+  String get aiContextAddFile => 'Adjuntar archivo';
+
+  @override
+  String get aiContextAddPage => 'Adjuntar página';
+
+  @override
   String get aiShowPanel => 'Mostrar panel IA';
 
   @override
@@ -1018,7 +1063,41 @@ class AppLocalizationsEs extends AppLocalizations {
   String get aiBetaEnableConfirm => 'Activar BETA';
 
   @override
+  String get ai => 'IA';
+
+  @override
+  String get aiEnableToggleTitle => 'Activar IA';
+
+  @override
+  String get aiProviderLabel => 'Proveedor';
+
+  @override
   String get aiProviderNone => 'Ninguno';
+
+  @override
+  String get aiEndpoint => 'Endpoint';
+
+  @override
+  String get aiModel => 'Modelo';
+
+  @override
+  String get aiTimeoutMs => 'Timeout (ms)';
+
+  @override
+  String get aiAllowRemoteEndpoint => 'Permitir endpoint remoto';
+
+  @override
+  String get aiAllowRemoteEndpointAllowed => 'Hosts remotos permitidos';
+
+  @override
+  String get aiAllowRemoteEndpointLocalhostOnly => 'Solo localhost';
+
+  @override
+  String get aiAllowRemoteEndpointNotConfirmed =>
+      'El acceso a endpoints remotos está habilitado, pero todavía no se ha confirmado.';
+
+  @override
+  String get aiConnectToListModels => 'Conectar para listar modelos';
 
   @override
   String aiProviderAutoConfigured(Object provider) {
@@ -1066,6 +1145,17 @@ class AppLocalizationsEs extends AppLocalizations {
   @override
   String get aiSetupOpenSettingsHint =>
       'Cuando uno de los proveedores esté operativo, pulsa Reintentar para autoconfigurarlo.';
+
+  @override
+  String get quillGlobalScopeNoticeTitle =>
+      'Quill funciona en todos los cofres';
+
+  @override
+  String get quillGlobalScopeNoticeBody =>
+      'Quill es un ajuste global de la app. Si lo activas ahora, quedará disponible para cualquier cofre en esta instalación, no solo para el actual.';
+
+  @override
+  String get quillGlobalScopeNoticeConfirm => 'Entiendo';
 
   @override
   String get searchByNameOrShortcut => 'Buscar por nombre o atajo…';
@@ -1162,10 +1252,17 @@ class AppLocalizationsEs extends AppLocalizations {
   String get importNotionSelectTargetTitle => 'Destino de la importación';
 
   @override
+  String get importNotionSelectTargetBody =>
+      'Elige si quieres importar la exportacion de Notion en el cofre actual o crear un cofre nuevo a partir de ella.';
+
+  @override
   String get importNotionTargetCurrent => 'Cofre actual';
 
   @override
   String get importNotionTargetNew => 'Cofre nuevo';
+
+  @override
+  String get importNotionDefaultVaultName => 'Importado desde Notion';
 
   @override
   String get importNotionNewVaultPasswordTitle => 'Contraseña para cofre nuevo';
@@ -1183,11 +1280,149 @@ class AppLocalizationsEs extends AppLocalizations {
   }
 
   @override
+  String get notionExportGuideTitle => 'Como exportar desde Notion';
+
+  @override
+  String get notionExportGuideBody =>
+      'En Notion, abre Settings -> Export all workspace content, elige HTML o Markdown y descarga el archivo ZIP. Luego usa esta opcion de importacion en Folio.';
+
+  @override
   String get appBetaBannerMessage =>
       'Estás usando una versión beta. Puede haber fallos; haz copias de seguridad del cofre con frecuencia.';
 
   @override
   String get appBetaBannerDismiss => 'Entendido';
+
+  @override
+  String get integrations => 'Integraciones';
+
+  @override
+  String get integrationsAppsApprovedHint =>
+      'Las apps externas aprobadas pueden usar el puente de integracion local.';
+
+  @override
+  String get integrationsAppsApprovedTitle => 'Apps externas aprobadas';
+
+  @override
+  String get integrationsAppsApprovedNone =>
+      'Todavia no has aprobado ninguna app externa.';
+
+  @override
+  String get integrationsAppsApprovedRevoke => 'Revocar acceso';
+
+  @override
+  String integrationsApprovedAppDetails(
+    Object appId,
+    Object appVersion,
+    Object integrationVersion,
+  ) {
+    return '$appId · App $appVersion · Integracion $integrationVersion';
+  }
+
+  @override
+  String get integrationApprovalTitle => 'Aprobar integracion externa';
+
+  @override
+  String get integrationApprovalUpdateTitle =>
+      'Aprobar actualizacion de integracion';
+
+  @override
+  String integrationApprovalBody(
+    Object appName,
+    Object appVersion,
+    Object integrationVersion,
+  ) {
+    return '\"$appName\" quiere conectarse a Folio usando la version $appVersion de la app y la version $integrationVersion de la integracion.';
+  }
+
+  @override
+  String integrationApprovalUpdateBody(
+    Object appName,
+    Object previousVersion,
+    Object integrationVersion,
+  ) {
+    return '\"$appName\" ya habia sido aprobada con la version $previousVersion de la integracion. Ahora quiere conectarse con la version $integrationVersion de la integracion, asi que Folio necesita tu aprobacion otra vez.';
+  }
+
+  @override
+  String get integrationApprovalUnknownVersion => 'desconocida';
+
+  @override
+  String get integrationApprovalAppId => 'ID de la app';
+
+  @override
+  String get integrationApprovalAppVersion => 'Version de la app';
+
+  @override
+  String get integrationApprovalProtocolVersion => 'Version de la integracion';
+
+  @override
+  String get integrationApprovalCanDoTitle =>
+      'Lo que esta integracion puede hacer';
+
+  @override
+  String get integrationApprovalCanDoSessions =>
+      'Crear sesiones efimeras de importacion en Folio.';
+
+  @override
+  String get integrationApprovalCanDoImport =>
+      'Enviar documentacion en Markdown para crear o actualizar paginas mediante el puente de importacion.';
+
+  @override
+  String get integrationApprovalCanDoMetadata =>
+      'Guardar trazas de importacion como la app cliente, la sesion y metadatos de origen en las paginas importadas.';
+
+  @override
+  String get integrationApprovalCanDoUnlockedVault =>
+      'Importar solo mientras el cofre este disponible y la peticion incluya el secreto configurado.';
+
+  @override
+  String get integrationApprovalCannotDoTitle => 'Lo que no puede hacer';
+
+  @override
+  String get integrationApprovalCannotDoRead =>
+      'No puede leer el contenido de tu cofre a traves de este puente.';
+
+  @override
+  String get integrationApprovalCannotDoBypassLock =>
+      'No puede saltarse el bloqueo del cofre, el cifrado ni tu aprobacion explicita.';
+
+  @override
+  String get integrationApprovalCannotDoWithoutSecret =>
+      'No puede acceder a endpoints protegidos sin el secreto compartido.';
+
+  @override
+  String get integrationApprovalCannotDoRemoteAccess =>
+      'No puede usar el puente desde fuera de localhost.';
+
+  @override
+  String get integrationApprovalDeny => 'Denegar';
+
+  @override
+  String get integrationApprovalApprove => 'Aprobar';
+
+  @override
+  String get integrationApprovalApproveUpdate => 'Aprobar esta actualizacion';
+
+  @override
+  String get about => 'Acerca de';
+
+  @override
+  String get installedVersion => 'Version instalada';
+
+  @override
+  String get updaterGithubRepository => 'Repositorio de actualizaciones';
+
+  @override
+  String get updaterBetaDescription =>
+      'Las betas son releases de GitHub marcadas como pre-release.';
+
+  @override
+  String get updaterStableDescription =>
+      'Solo se tiene en cuenta la ultima release estable.';
+
+  @override
+  String get checkUpdates => 'Buscar actualizaciones';
 
   @override
   String get noEncryptionConfirmTitle => 'Crear cofre sin cifrado';
@@ -1215,4 +1450,40 @@ class AppLocalizationsEs extends AppLocalizations {
 
   @override
   String get encryptPlainVaultSuccessSnack => 'El cofre ya está cifrado';
+
+  @override
+  String get aiCopyMessage => 'Copiar';
+
+  @override
+  String get aiCopyCode => 'Copiar código';
+
+  @override
+  String get aiCopiedToClipboard => 'Copiado al portapapeles';
+
+  @override
+  String get aiHelpful => 'Útil';
+
+  @override
+  String get aiNotHelpful => 'No útil';
+
+  @override
+  String get aiThinkingMessage => 'Quill está pensando...';
+
+  @override
+  String get aiMessageTimestampNow => 'ahora';
+
+  @override
+  String aiMessageTimestampMinutes(int n) {
+    return 'hace $n min';
+  }
+
+  @override
+  String aiMessageTimestampHours(int n) {
+    return 'hace $n h';
+  }
+
+  @override
+  String aiMessageTimestampDays(int n) {
+    return 'hace $n días';
+  }
 }

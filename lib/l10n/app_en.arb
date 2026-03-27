@@ -42,6 +42,8 @@
       "min": {"type": "int"}
     }
   },
+  "createStarterPagesTitle": "Create starter help pages",
+  "createStarterPagesBody": "Adds a small guide with examples, shortcuts, and Folio capabilities. You can delete those pages later.",
   "passwordLabel": "Password",
   "confirmPasswordLabel": "Confirm password",
   "next": "Next",
@@ -227,6 +229,11 @@
   "pasteAsEmbedSubtitle": "Video block with preview (YouTube) or bookmark",
   "pasteAsBookmarkSubtitle": "Card with title and link",
   "pasteAsMentionSubtitle": "Link to a page in this vault",
+  "tableAddRow": "Row",
+  "tableRemoveRow": "Remove row",
+  "tableAddColumn": "Column",
+  "tableRemoveColumn": "Remove col.",
+  "tablePasteFromClipboard": "Paste table",
   "pickPageForMention": "Choose page",
   "bookmarkTitleHint": "Title",
   "bookmarkOpenLink": "Open link",
@@ -313,6 +320,14 @@
   "aiAttach": "Attach",
   "aiChatEmptyHint": "Start a conversation.\nQuill will automatically decide what to do with your message.\nYou can also ask how to use Folio (shortcuts, settings, pages, or this chat).",
   "aiInputHint": "Type your message. Quill will act as an agent.",
+  "aiInputHintCopilot": "Type your message...",
+  "aiContextComposerHint": "No context added",
+  "aiContextComposerHelper": "Use @ to add context",
+  "aiContextCurrentPageChip": "Current page: {title}",
+  "@aiContextCurrentPageChip": {"placeholders": {"title": {}}},
+  "aiContextCurrentPageFallback": "Current page",
+  "aiContextAddFile": "Attach file",
+  "aiContextAddPage": "Attach page",
   "aiShowPanel": "Show AI panel",
   "aiHidePanel": "Hide AI panel",
   "closeCurrentPage": "Close current page",
@@ -336,7 +351,18 @@
   "aiBetaEnableTitle": "AI is in BETA",
   "aiBetaEnableBody": "This feature is currently in BETA and may fail or behave unexpectedly.\n\nDo you want to enable it anyway?",
   "aiBetaEnableConfirm": "Enable BETA",
+  "ai": "AI",
+  "aiEnableToggleTitle": "Enable AI",
+  "aiProviderLabel": "Provider",
   "aiProviderNone": "None",
+  "aiEndpoint": "Endpoint",
+  "aiModel": "Model",
+  "aiTimeoutMs": "Timeout (ms)",
+  "aiAllowRemoteEndpoint": "Allow remote endpoint",
+  "aiAllowRemoteEndpointAllowed": "Remote hosts allowed",
+  "aiAllowRemoteEndpointLocalhostOnly": "Localhost only",
+  "aiAllowRemoteEndpointNotConfirmed": "Remote endpoint access is enabled but has not been confirmed yet.",
+  "aiConnectToListModels": "Connect to list models",
   "aiProviderAutoConfigured": "AI provider detected and configured: {provider}",
   "@aiProviderAutoConfigured": {"placeholders": {"provider": {}}},
   "aiSetupAssistantTitle": "AI setup assistant",
@@ -351,6 +377,9 @@
   "aiSetupLmStudioTitle": "Step 2: Install LM Studio",
   "aiSetupLmStudioBody": "Install LM Studio, start its local server (OpenAI-compatible), and verify it responds at http://127.0.0.1:1234.",
   "aiSetupOpenSettingsHint": "When one provider is operational, press Retry to auto-configure it.",
+  "quillGlobalScopeNoticeTitle": "Quill works across all vaults",
+  "quillGlobalScopeNoticeBody": "Quill is an app-level setting. If you enable it now, it will be available for any vault on this installation, not just the current one.",
+  "quillGlobalScopeNoticeConfirm": "I understand",
   "searchByNameOrShortcut": "Search by name or shortcut…",
   "search": "Search",
   "open": "Open",
@@ -382,15 +411,55 @@
   ,"importNotionDialogTitle": "Import from Notion"
   ,"importNotionDialogBody": "Import a ZIP exported by Notion. You can append into the current vault or create a new one."
   ,"importNotionSelectTargetTitle": "Import target"
+  ,"importNotionSelectTargetBody": "Choose whether to import the Notion export into your current vault or create a new vault from it."
   ,"importNotionTargetCurrent": "Current vault"
   ,"importNotionTargetNew": "New vault"
+  ,"importNotionDefaultVaultName": "Imported from Notion"
   ,"importNotionNewVaultPasswordTitle": "Password for new vault"
   ,"importNotionSuccessCurrent": "Notion imported into current vault."
   ,"importNotionSuccessNew": "New vault imported from Notion."
   ,"importNotionError": "Could not import Notion: {error}"
   ,"@importNotionError": {"placeholders": {"error": {}}}
+  ,"notionExportGuideTitle": "How to export from Notion"
+  ,"notionExportGuideBody": "In Notion, open Settings -> Export all workspace content, choose HTML or Markdown, and download the ZIP file. Then use this import option in Folio."
   ,"appBetaBannerMessage": "You are using a beta build. You may run into bugs; back up your vault regularly."
   ,"appBetaBannerDismiss": "Got it"
+  ,"integrations": "Integrations"
+  ,"integrationsAppsApprovedHint": "Approved external apps can use the local integration bridge."
+  ,"integrationsAppsApprovedTitle": "Approved external apps"
+  ,"integrationsAppsApprovedNone": "You have not approved any external apps yet."
+  ,"integrationsAppsApprovedRevoke": "Revoke access"
+  ,"integrationsApprovedAppDetails": "{appId} · App {appVersion} · Integration {integrationVersion}"
+  ,"@integrationsApprovedAppDetails": {"placeholders": {"appId": {}, "appVersion": {}, "integrationVersion": {}}}
+  ,"integrationApprovalTitle": "Approve external integration"
+  ,"integrationApprovalUpdateTitle": "Approve updated integration"
+  ,"integrationApprovalBody": "\"{appName}\" wants to connect to Folio using app version {appVersion} and integration version {integrationVersion}."
+  ,"@integrationApprovalBody": {"placeholders": {"appName": {}, "appVersion": {}, "integrationVersion": {}}}
+  ,"integrationApprovalUpdateBody": "\"{appName}\" was previously approved with integration version {previousVersion}. It now wants to connect with integration version {integrationVersion}, so Folio needs your approval again."
+  ,"@integrationApprovalUpdateBody": {"placeholders": {"appName": {}, "previousVersion": {}, "integrationVersion": {}}}
+  ,"integrationApprovalUnknownVersion": "unknown"
+  ,"integrationApprovalAppId": "App ID"
+  ,"integrationApprovalAppVersion": "App version"
+  ,"integrationApprovalProtocolVersion": "Integration version"
+  ,"integrationApprovalCanDoTitle": "What this integration can do"
+  ,"integrationApprovalCanDoSessions": "Create short-lived import sessions in Folio."
+  ,"integrationApprovalCanDoImport": "Send Markdown documentation to create or update pages through the import bridge."
+  ,"integrationApprovalCanDoMetadata": "Store import provenance such as the client app, session, and source metadata on imported pages."
+  ,"integrationApprovalCanDoUnlockedVault": "Import only while the vault is available and the request includes the configured secret."
+  ,"integrationApprovalCannotDoTitle": "What it cannot do"
+  ,"integrationApprovalCannotDoRead": "It cannot read your vault contents through this bridge."
+  ,"integrationApprovalCannotDoBypassLock": "It cannot bypass the vault lock, encryption, or your explicit approval."
+  ,"integrationApprovalCannotDoWithoutSecret": "It cannot access protected endpoints without the shared secret."
+  ,"integrationApprovalCannotDoRemoteAccess": "It cannot use the bridge from outside localhost."
+  ,"integrationApprovalDeny": "Deny"
+  ,"integrationApprovalApprove": "Approve"
+  ,"integrationApprovalApproveUpdate": "Approve this update"
+  ,"about": "About"
+  ,"installedVersion": "Installed version"
+  ,"updaterGithubRepository": "Update repository"
+  ,"updaterBetaDescription": "Betas are GitHub releases marked as pre-release."
+  ,"updaterStableDescription": "Only the latest stable release is considered."
+  ,"checkUpdates": "Check for updates"
   ,"noEncryptionConfirmTitle": "Create vault without encryption"
   ,"noEncryptionConfirmBody": "Your data will be stored without a password and without encryption. Anyone with access to this device can read it."
   ,"createVaultWithoutEncryption": "Create without encryption"
@@ -399,4 +468,17 @@
   ,"encryptPlainVaultBody": "Choose a master password. All data on this device will be encrypted. If you forget it, your data cannot be recovered."
   ,"encryptPlainVaultConfirm": "Encrypt vault"
   ,"encryptPlainVaultSuccessSnack": "Vault is now encrypted"
+  ,"aiCopyMessage": "Copy"
+  ,"aiCopyCode": "Copy code"
+  ,"aiCopiedToClipboard": "Copied to clipboard"
+  ,"aiHelpful": "Helpful"
+  ,"aiNotHelpful": "Not helpful"
+  ,"aiThinkingMessage": "Quill is thinking..."
+  ,"aiMessageTimestampNow": "now"
+  ,"aiMessageTimestampMinutes": "{n} min ago"
+  ,"@aiMessageTimestampMinutes": {"placeholders": {"n": {"type": "int"}}}
+  ,"aiMessageTimestampHours": "{n} h ago"
+  ,"@aiMessageTimestampHours": {"placeholders": {"n": {"type": "int"}}}
+  ,"aiMessageTimestampDays": "{n} days ago"
+  ,"@aiMessageTimestampDays": {"placeholders": {"n": {"type": "int"}}}
 }
