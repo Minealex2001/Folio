@@ -356,7 +356,7 @@
   ,"aiAllowRemoteEndpoint": "Permitir endpoint remoto"
   ,"aiAllowRemoteEndpointAllowed": "Hosts remotos permitidos"
   ,"aiAllowRemoteEndpointLocalhostOnly": "Solo localhost"
-  ,"aiAllowRemoteEndpointNotConfirmed": "El acceso a endpoints remotos esta habilitado, pero todavia no se ha confirmado."
+  ,"aiAllowRemoteEndpointNotConfirmed": "El acceso a endpoints remotos está habilitado, pero todavía no se ha confirmado."
   ,"aiConnectToListModels": "Conectar para listar modelos"
   ,"aiProviderAutoConfigured": "Proveedor IA detectado y configurado: {provider}"
   ,"@aiProviderAutoConfigured": {"placeholders": {"provider": {}}}
