@@ -1587,4 +1587,56 @@ class AppLocalizationsEs extends AppLocalizations {
 
   @override
   String get templateSaved => 'Guardado como plantilla';
+
+  @override
+  String templateCount(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'plantillas',
+      one: 'plantilla',
+    );
+    return '$count $_temp0';
+  }
+
+  @override
+  String templateFilteredCount(int visible, int total) {
+    return 'Mostrando $visible de $total plantillas';
+  }
+
+  @override
+  String get templateSortRecent => 'Más recientes';
+
+  @override
+  String get templateSortName => 'Nombre';
+
+  @override
+  String get templateEdit => 'Editar plantilla';
+
+  @override
+  String get templateUpdated => 'Plantilla actualizada';
+
+  @override
+  String get templateDeleteConfirmTitle => 'Eliminar plantilla';
+
+  @override
+  String templateDeleteConfirmBody(Object name) {
+    return 'La plantilla \"$name\" se eliminará de este cofre.';
+  }
+
+  @override
+  String templateCreatedOn(Object date) {
+    return 'Creada $date';
+  }
+
+  @override
+  String get templatePreviewEmpty =>
+      'Esta plantilla todavía no tiene vista previa de texto.';
+
+  @override
+  String get templateSelectHint =>
+      'Selecciona una plantilla para inspeccionarla, editar sus metadatos o exportarla.';
+
+  @override
+  String get clear => 'Limpiar';
 }

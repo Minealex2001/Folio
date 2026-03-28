@@ -51,6 +51,7 @@ class _SettingsPageState extends State<SettingsPage> {
   final ScrollController _settingsScrollController = ScrollController();
   final List<GlobalKey> _sectionKeys = List.generate(9, (_) => GlobalKey());
   int _selectedDesktopSection = 0;
+  bool _programmaticSectionScroll = false;
 
   var _quickEnabled = false;
   var _passkeyRegistered = false;
@@ -95,6 +96,7 @@ class _SettingsPageState extends State<SettingsPage> {
     _customIconSourceController = TextEditingController();
     _customIconLabelController = TextEditingController();
     _availableModels = _app.cachedAiModelsFor(_app.aiProvider);
+    _settingsScrollController.addListener(_handleSettingsScroll);
     _refreshSecurityFlags();
     _loadInstalledVersionInfo();
     _refreshReleaseReadiness();
@@ -102,6 +104,7 @@ class _SettingsPageState extends State<SettingsPage> {
 
   @override
   void dispose() {
+    _settingsScrollController.removeListener(_handleSettingsScroll);
     _settingsScrollController.dispose();
     _aiBaseUrlController.dispose();
     _aiTimeoutController.dispose();
@@ -129,24 +132,59 @@ class _SettingsPageState extends State<SettingsPage> {
     if (mounted) {
       setState(() => _selectedDesktopSection = index);
     }
-    if (await _ensureSectionVisible(index)) return;
+    _programmaticSectionScroll = true;
+    if (await _ensureSectionVisible(index)) {
+      _programmaticSectionScroll = false;
+      return;
+    }
 
     // En algunos frames el target puede no tener context aun; reintenta una vez.
     WidgetsBinding.instance.addPostFrameCallback((_) async {
-      if (!mounted) return;
-      if (await _ensureSectionVisible(index)) return;
-      if (!_settingsScrollController.hasClients) return;
+      try {
+        if (!mounted) return;
+        if (await _ensureSectionVisible(index)) return;
+        if (!_settingsScrollController.hasClients) return;
 
-      final max = _settingsScrollController.position.maxScrollExtent;
-      if (max <= 0) return;
-      final denom = (_sectionKeys.length - 1).clamp(1, _sectionKeys.length);
-      final target = (index / denom) * max;
-      await _settingsScrollController.animateTo(
-        target.clamp(0.0, max),
-        duration: const Duration(milliseconds: 260),
-        curve: Curves.easeOutCubic,
-      );
+        final max = _settingsScrollController.position.maxScrollExtent;
+        if (max <= 0) return;
+        final denom = (_sectionKeys.length - 1).clamp(1, _sectionKeys.length);
+        final target = (index / denom) * max;
+        await _settingsScrollController.animateTo(
+          target.clamp(0.0, max),
+          duration: const Duration(milliseconds: 260),
+          curve: Curves.easeOutCubic,
+        );
+      } finally {
+        _programmaticSectionScroll = false;
+      }
     });
+  }
+
+  void _handleSettingsScroll() {
+    if (!mounted || _programmaticSectionScroll) return;
+    final active = _activeSectionFromViewport();
+    if (active == null || active == _selectedDesktopSection) return;
+    setState(() => _selectedDesktopSection = active);
+  }
+
+  int? _activeSectionFromViewport() {
+    const thresholdTop = 156.0;
+    final visible = <MapEntry<int, double>>[];
+    for (var i = 0; i < _sectionKeys.length; i++) {
+      final ctx = _sectionKeys[i].currentContext;
+      if (ctx == null) continue;
+      final render = ctx.findRenderObject();
+      if (render is! RenderBox || !render.hasSize) continue;
+      final dy = render.localToGlobal(Offset.zero).dy;
+      visible.add(MapEntry(i, dy));
+    }
+    if (visible.isEmpty) return null;
+    visible.sort((a, b) => a.value.compareTo(b.value));
+    final passed = visible.where((s) => s.value <= thresholdTop).toList();
+    if (passed.isNotEmpty) {
+      return passed.last.key;
+    }
+    return visible.first.key;
   }
 
   Future<void> _refreshSecurityFlags() async {
@@ -1340,6 +1378,29 @@ class _SettingsPageState extends State<SettingsPage> {
                                     _app.setEditorContentWidth(value);
                                   },
                                 ),
+                              ),
+                              const Divider(height: 1),
+                              SwitchListTile(
+                                secondary: const Icon(Icons.keyboard_return),
+                                title: Text(
+                                  _t(
+                                    'Enter crea un bloque nuevo',
+                                    'Enter creates a new block',
+                                  ),
+                                ),
+                                subtitle: Text(
+                                  _app.enterCreatesNewBlock
+                                      ? _t(
+                                          'Desactiva para que Enter inserte salto de línea.',
+                                          'Disable to make Enter insert a line break.',
+                                        )
+                                      : _t(
+                                          'Ahora Enter inserta salto de línea. Usa Shift+Enter igual.',
+                                          'Enter now inserts a line break. Shift+Enter still works.',
+                                        ),
+                                ),
+                                value: _app.enterCreatesNewBlock,
+                                onChanged: _app.setEnterCreatesNewBlock,
                               ),
                             ],
                           ),

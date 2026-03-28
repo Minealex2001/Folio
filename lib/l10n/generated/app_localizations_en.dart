@@ -1581,4 +1581,55 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get templateSaved => 'Saved as template';
+
+  @override
+  String templateCount(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'templates',
+      one: 'template',
+    );
+    return '$count $_temp0';
+  }
+
+  @override
+  String templateFilteredCount(int visible, int total) {
+    return 'Showing $visible of $total templates';
+  }
+
+  @override
+  String get templateSortRecent => 'Newest';
+
+  @override
+  String get templateSortName => 'Name';
+
+  @override
+  String get templateEdit => 'Edit template';
+
+  @override
+  String get templateUpdated => 'Template updated';
+
+  @override
+  String get templateDeleteConfirmTitle => 'Delete template';
+
+  @override
+  String templateDeleteConfirmBody(Object name) {
+    return 'Template \"$name\" will be removed from this vault.';
+  }
+
+  @override
+  String templateCreatedOn(Object date) {
+    return 'Created $date';
+  }
+
+  @override
+  String get templatePreviewEmpty => 'This template has no text preview yet.';
+
+  @override
+  String get templateSelectHint =>
+      'Select a template to inspect it, edit its metadata, or export it.';
+
+  @override
+  String get clear => 'Clear';
 }

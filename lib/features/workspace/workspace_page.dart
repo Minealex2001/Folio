@@ -26,6 +26,8 @@ import '../../session/vault_session.dart';
 import '../settings/settings_page.dart';
 import 'widgets/ai_typing_indicator.dart';
 import 'widgets/block_editor.dart';
+import 'widgets/block_editor_support_widgets.dart';
+import 'widgets/block_type_catalog.dart';
 import 'widgets/page_history_sheet.dart';
 import 'widgets/mermaid_markdown_builder.dart';
 import 'widgets/sidebar.dart';
@@ -1532,7 +1534,7 @@ class _WorkspacePageState extends State<WorkspacePage> {
         context: context,
         isScrollControlled: true,
         backgroundColor: Colors.transparent,
-        builder: (_) => const BlockTypePickerSheet(catalog: blockTypeCatalog),
+        builder: (_) => BlockTypePickerSheet(catalog: blockTypeCatalog),
       );
     }
     return showDialog<String>(
@@ -1543,7 +1545,7 @@ class _WorkspacePageState extends State<WorkspacePage> {
         child: SizedBox(
           width: 620,
           height: 720,
-          child: const BlockTypePickerSheet(catalog: blockTypeCatalog),
+          child: BlockTypePickerSheet(catalog: blockTypeCatalog),
         ),
       ),
     );
@@ -2636,7 +2638,7 @@ class _WorkspacePageState extends State<WorkspacePage> {
       editorMaxWidth: widget.appSettings.editorContentWidth,
       onTitleChanged: (value) {
         if (page != null && page.id == _s.selectedPageId) {
-          _s.renamePage(page.id, value);
+          _s.updatePageTitleLive(page.id, value);
         }
       },
       onCreatePage: () => _s.addPage(parentId: null),

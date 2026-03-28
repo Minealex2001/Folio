@@ -513,4 +513,20 @@
   ,"templateDescriptionHint": "Descripción (opcional)"
   ,"templateCategoryHint": "Categoría (opcional)"
   ,"templateSaved": "Guardado como plantilla"
+  ,"templateCount": "{count} {count, plural, one {plantilla} other {plantillas}}"
+  ,"@templateCount": {"placeholders": {"count": {"type": "int"}}}
+  ,"templateFilteredCount": "Mostrando {visible} de {total} plantillas"
+  ,"@templateFilteredCount": {"placeholders": {"visible": {"type": "int"}, "total": {"type": "int"}}}
+  ,"templateSortRecent": "Más recientes"
+  ,"templateSortName": "Nombre"
+  ,"templateEdit": "Editar plantilla"
+  ,"templateUpdated": "Plantilla actualizada"
+  ,"templateDeleteConfirmTitle": "Eliminar plantilla"
+  ,"templateDeleteConfirmBody": "La plantilla \"{name}\" se eliminará de este cofre."
+  ,"@templateDeleteConfirmBody": {"placeholders": {"name": {}}}
+  ,"templateCreatedOn": "Creada {date}"
+  ,"@templateCreatedOn": {"placeholders": {"date": {}}}
+  ,"templatePreviewEmpty": "Esta plantilla todavía no tiene vista previa de texto."
+  ,"templateSelectHint": "Selecciona una plantilla para inspeccionarla, editar sus metadatos o exportarla."
+  ,"clear": "Limpiar"
 }

@@ -513,4 +513,20 @@
   ,"templateDescriptionHint": "Description (optional)"
   ,"templateCategoryHint": "Category (optional)"
   ,"templateSaved": "Saved as template"
+  ,"templateCount": "{count} {count, plural, one {template} other {templates}}"
+  ,"@templateCount": {"placeholders": {"count": {"type": "int"}}}
+  ,"templateFilteredCount": "Showing {visible} of {total} templates"
+  ,"@templateFilteredCount": {"placeholders": {"visible": {"type": "int"}, "total": {"type": "int"}}}
+  ,"templateSortRecent": "Newest"
+  ,"templateSortName": "Name"
+  ,"templateEdit": "Edit template"
+  ,"templateUpdated": "Template updated"
+  ,"templateDeleteConfirmTitle": "Delete template"
+  ,"templateDeleteConfirmBody": "Template \"{name}\" will be removed from this vault."
+  ,"@templateDeleteConfirmBody": {"placeholders": {"name": {}}}
+  ,"templateCreatedOn": "Created {date}"
+  ,"@templateCreatedOn": {"placeholders": {"date": {}}}
+  ,"templatePreviewEmpty": "This template has no text preview yet."
+  ,"templateSelectHint": "Select a template to inspect it, edit its metadata, or export it."
+  ,"clear": "Clear"
 }

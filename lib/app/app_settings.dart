@@ -180,6 +180,7 @@ class AppSettings extends ChangeNotifier {
   static const _customIconsKey = 'folio_custom_icons_v1';
   static const _integrationCustomIconsKey =
       'folio_integration_custom_icons_by_app_v1';
+  static const _enterCreatesNewBlockKey = 'folio_enter_creates_new_block';
   static const int defaultVaultIdleLockMinutes = 15;
   static const String defaultGlobalSearchHotkey = 'Ctrl+Shift+K';
   static const int defaultAiTimeoutMs = 30000;
@@ -231,6 +232,7 @@ class AppSettings extends ChangeNotifier {
   List<CustomIconEntry> _customIcons = const <CustomIconEntry>[];
   Map<String, List<CustomIconEntry>> _integrationCustomIconsByApp =
       const <String, List<CustomIconEntry>>{};
+  bool _enterCreatesNewBlock = true;
 
   ThemeMode get themeMode => _themeMode;
   Locale? get locale => _locale;
@@ -262,6 +264,7 @@ class AppSettings extends ChangeNotifier {
   UpdateReleaseChannel get updateReleaseChannel => _updateReleaseChannel;
   double get editorContentWidth => _editorContentWidth;
   String get integrationSecret => _integrationSecret;
+  bool get enterCreatesNewBlock => _enterCreatesNewBlock;
   List<CustomIconEntry> get customIcons => List.unmodifiable(_customIcons);
   List<CustomIconEntry> integrationCustomIconsForApp(String appId) {
     final key = appId.trim();
@@ -338,6 +341,7 @@ class AppSettings extends ChangeNotifier {
       p.getString(_inAppShortcutsKey),
       defaultShortcutMap(),
     );
+    _enterCreatesNewBlock = p.getBool(_enterCreatesNewBlockKey) ?? true;
     _integrationSecret = _configuredIntegrationSecret;
     final approvedRaw = p.getString(_approvedIntegrationAppsKey);
     if (approvedRaw != null && approvedRaw.trim().isNotEmpty) {
@@ -766,6 +770,14 @@ class AppSettings extends ChangeNotifier {
     notifyListeners();
     final p = await SharedPreferences.getInstance();
     await p.setDouble(_editorContentWidthKey, safe);
+  }
+
+  Future<void> setEnterCreatesNewBlock(bool value) async {
+    if (_enterCreatesNewBlock == value) return;
+    _enterCreatesNewBlock = value;
+    notifyListeners();
+    final p = await SharedPreferences.getInstance();
+    await p.setBool(_enterCreatesNewBlockKey, value);
   }
 
   Future<void> setInAppShortcut(

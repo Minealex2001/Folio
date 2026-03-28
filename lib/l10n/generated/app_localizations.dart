@@ -2923,6 +2923,78 @@ abstract class AppLocalizations {
   /// In es, this message translates to:
   /// **'Guardado como plantilla'**
   String get templateSaved;
+
+  /// No description provided for @templateCount.
+  ///
+  /// In es, this message translates to:
+  /// **'{count} {count, plural, one {plantilla} other {plantillas}}'**
+  String templateCount(int count);
+
+  /// No description provided for @templateFilteredCount.
+  ///
+  /// In es, this message translates to:
+  /// **'Mostrando {visible} de {total} plantillas'**
+  String templateFilteredCount(int visible, int total);
+
+  /// No description provided for @templateSortRecent.
+  ///
+  /// In es, this message translates to:
+  /// **'Más recientes'**
+  String get templateSortRecent;
+
+  /// No description provided for @templateSortName.
+  ///
+  /// In es, this message translates to:
+  /// **'Nombre'**
+  String get templateSortName;
+
+  /// No description provided for @templateEdit.
+  ///
+  /// In es, this message translates to:
+  /// **'Editar plantilla'**
+  String get templateEdit;
+
+  /// No description provided for @templateUpdated.
+  ///
+  /// In es, this message translates to:
+  /// **'Plantilla actualizada'**
+  String get templateUpdated;
+
+  /// No description provided for @templateDeleteConfirmTitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Eliminar plantilla'**
+  String get templateDeleteConfirmTitle;
+
+  /// No description provided for @templateDeleteConfirmBody.
+  ///
+  /// In es, this message translates to:
+  /// **'La plantilla \"{name}\" se eliminará de este cofre.'**
+  String templateDeleteConfirmBody(Object name);
+
+  /// No description provided for @templateCreatedOn.
+  ///
+  /// In es, this message translates to:
+  /// **'Creada {date}'**
+  String templateCreatedOn(Object date);
+
+  /// No description provided for @templatePreviewEmpty.
+  ///
+  /// In es, this message translates to:
+  /// **'Esta plantilla todavía no tiene vista previa de texto.'**
+  String get templatePreviewEmpty;
+
+  /// No description provided for @templateSelectHint.
+  ///
+  /// In es, this message translates to:
+  /// **'Selecciona una plantilla para inspeccionarla, editar sus metadatos o exportarla.'**
+  String get templateSelectHint;
+
+  /// No description provided for @clear.
+  ///
+  /// In es, this message translates to:
+  /// **'Limpiar'**
+  String get clear;
 }
 
 class _AppLocalizationsDelegate
