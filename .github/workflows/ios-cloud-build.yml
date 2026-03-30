@@ -1,0 +1,67 @@
+name: iOS Cloud Build (No Mac)
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ios-cloud-build
+  cancel-in-progress: true
+
+jobs:
+  build-ios:
+    name: Build iOS unsigned artifacts
+    runs-on: macos-latest
+    timeout-minutes: 45
+
+    env:
+      REPO_DIR: source
+
+    steps:
+      - name: Checkout source (no external actions)
+        shell: bash
+        run: |
+          repo_url="https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.git"
+          git clone --no-tags --depth 1 "$repo_url" "$REPO_DIR"
+          cd "$REPO_DIR"
+          git fetch --no-tags --depth 1 origin "${{ github.sha }}"
+          git checkout --detach FETCH_HEAD
+
+      - name: Install Flutter SDK (stable)
+        shell: bash
+        run: |
+          flutter_dir="$HOME/flutter"
+          if [ ! -x "$flutter_dir/bin/flutter" ]; then
+            git clone https://github.com/flutter/flutter.git --branch stable --depth 1 "$flutter_dir"
+          fi
+          echo "$flutter_dir/bin" >> "$GITHUB_PATH"
+
+      - name: Flutter version
+        shell: bash
+        run: flutter --version
+
+      - name: Install dependencies
+        shell: bash
+        working-directory: ${{ env.REPO_DIR }}
+        run: flutter pub get
+
+      - name: Build iOS app (no codesign)
+        shell: bash
+        working-directory: ${{ env.REPO_DIR }}
+        run: flutter build ios --release --no-codesign
+
+      - name: Build iOS IPA (no codesign)
+        shell: bash
+        working-directory: ${{ env.REPO_DIR }}
+        run: flutter build ipa --release --no-codesign
+
+      - name: Upload IPA artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ios-ipa-unsigned
+          path: |
+            source/build/ios/ipa/*.ipa
+            source/build/ios/archive/*.xcarchive
+          if-no-files-found: error

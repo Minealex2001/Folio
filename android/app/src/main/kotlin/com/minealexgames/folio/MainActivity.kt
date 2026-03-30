@@ -1,4 +1,4 @@
-package dev.folio.app
+package com.minealexgames.folio
 
 import android.content.Context
 import android.net.wifi.WifiManager
@@ -14,7 +14,7 @@ class MainActivity : FlutterFragmentActivity() {
 
 		MethodChannel(
 			flutterEngine.dartExecutor.binaryMessenger,
-			"dev.folio.app/network"
+			"com.minealexgames.folio/network"
 		).setMethodCallHandler { call, result ->
 			when (call.method) {
 				"acquireMulticastLock" -> {

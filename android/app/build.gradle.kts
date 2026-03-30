@@ -6,7 +6,7 @@ plugins {
 }
 
 android {
-    namespace = "dev.folio.app"
+    namespace = "com.minealexgames.folio"
     compileSdk = flutter.compileSdkVersion
     ndkVersion = flutter.ndkVersion
 
@@ -20,7 +20,7 @@ android {
     }
 
     defaultConfig {
-        applicationId = "dev.folio.app"
+        applicationId = "com.minealexgames.folio"
         // local_auth y passkeys requieren API 23 como mínimo.
         minSdk = flutter.minSdkVersion
         targetSdk = 35

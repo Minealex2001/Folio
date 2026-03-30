@@ -3,7 +3,7 @@ import 'dart:io';
 import 'package:flutter/services.dart';
 
 class AndroidMulticastLock {
-  static const MethodChannel _channel = MethodChannel('dev.folio.app/network');
+  static const MethodChannel _channel = MethodChannel('com.minealexgames.folio/network');
 
   static Future<void> acquire() async {
     if (!Platform.isAndroid) return;
