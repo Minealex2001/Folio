@@ -16,6 +16,8 @@ import '../services/ai/ai_safety_policy.dart';
 import '../services/ai/lmstudio_ai_service.dart';
 import '../services/ai/ollama_ai_service.dart';
 import '../services/platform/launch_arguments.dart';
+import '../services/device_sync/device_sync_controller.dart';
+import '../services/device_sync/device_sync_models.dart';
 import '../services/run2doc/run2doc_bridge.dart';
 import '../services/run2doc/run2doc_markdown_codec.dart';
 import '../services/updater/github_release_updater.dart';
@@ -50,6 +52,7 @@ class _FolioAppState extends State<FolioApp> with WidgetsBindingObserver {
   final GlobalKey<NavigatorState> _navKey = GlobalKey<NavigatorState>();
   DesktopIntegration? _desktop;
   late final Run2DocBridgeController _run2DocBridge;
+  late final DeviceSyncController _deviceSyncController;
   String? _installedVersionLabel;
   var _openingByHotkey = false;
   String _desktopSettingsSignature = '';
@@ -80,8 +83,21 @@ class _FolioAppState extends State<FolioApp> with WidgetsBindingObserver {
       appInfoProvider: _run2DocAppInfo,
       onEvent: _showSnack,
     );
+    _deviceSyncController = DeviceSyncController(
+      appSettings: widget.appSettings,
+      onEvent: _showSnack,
+      onIncomingPairRequest: _showIncomingPairRequestDialog,
+      onExportSnapshot: _exportSyncSnapshot,
+      onImportSnapshot: _importSyncSnapshot,
+    );
+    widget.session.onSyncConflictCountChanged = (count) {
+      unawaited(widget.appSettings.setSyncPendingConflicts(count));
+    };
+    widget.session.onPersisted = _deviceSyncController.onLocalSnapshotPersisted;
+    unawaited(_deviceSyncController.load());
     _applySessionSecurityPolicy();
     _applyAiSettings();
+    _applyDeviceSyncSettings();
     _maybeLaunchAiProvider();
     widget.session.bootstrap();
     unawaited(_loadInstalledVersionInfo());
@@ -102,6 +118,9 @@ class _FolioAppState extends State<FolioApp> with WidgetsBindingObserver {
     _launchArgsSub?.cancel();
     _accentSub?.cancel();
     unawaited(_run2DocBridge.dispose());
+    widget.session.onSyncConflictCountChanged = null;
+    widget.session.onPersisted = null;
+    _deviceSyncController.dispose();
     WidgetsBinding.instance.removeObserver(this);
     unawaited(_desktop?.dispose());
     widget.appSettings.removeListener(_onSettings);
@@ -128,6 +147,84 @@ class _FolioAppState extends State<FolioApp> with WidgetsBindingObserver {
     ScaffoldMessenger.of(ctx).showSnackBar(SnackBar(content: Text(message)));
   }
 
+  Future<List<int>?> _exportSyncSnapshot() {
+    return widget.session.exportSyncSnapshotBytes();
+  }
+
+  Future<bool> _importSyncSnapshot(List<int> snapshot, String _) async {
+    return widget.session.applySyncSnapshotBytes(snapshot);
+  }
+
+  void _showIncomingPairRequestDialog(IncomingPairRequest request) {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      final ctx = _navKey.currentContext;
+      if (ctx == null) return;
+      final isEs = widget.appSettings.locale?.languageCode == 'es';
+      final who = request.trimmedRequesterName.isEmpty
+          ? (isEs ? 'Otro dispositivo' : 'Another device')
+          : request.trimmedRequesterName;
+      final emojis = request.sharedEmojis.join(' ');
+      showDialog<void>(
+        context: ctx,
+        barrierDismissible: false,
+        builder: (dialogCtx) {
+          return AlertDialog(
+            title: Text(isEs ? 'Solicitud de vinculacion' : 'Link request'),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  isEs
+                      ? '$who quiere enlazar este dispositivo.'
+                      : '$who wants to link this device.',
+                ),
+                if (emojis.isNotEmpty) ...[
+                  const SizedBox(height: 12),
+                  SelectableText(
+                    emojis,
+                    style: Theme.of(dialogCtx).textTheme.headlineMedium
+                        ?.copyWith(fontWeight: FontWeight.w800),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    isEs
+                        ? '¿Aparecen estos mismos 3 emojis en el otro dispositivo? Si coinciden, pulsa Vincular.'
+                        : 'Do these same 3 emojis appear on the other device? If they match, press Link.',
+                  ),
+                ] else ...[
+                  const SizedBox(height: 12),
+                  Text(
+                    isEs
+                        ? 'No se pudo calcular la coincidencia visual. Activa el modo vinculacion en ambos dispositivos y vuelve a intentarlo.'
+                        : 'Could not calculate the visual match. Enable pairing mode on both devices and try again.',
+                  ),
+                ],
+              ],
+            ),
+            actions: [
+              TextButton(
+                onPressed: () {
+                  Navigator.of(dialogCtx).pop();
+                  unawaited(_deviceSyncController.respondIncomingPair(false));
+                },
+                child: Text(isEs ? 'No coinciden' : 'No match'),
+              ),
+              FilledButton(
+                onPressed: () {
+                  Navigator.of(dialogCtx).pop();
+                  unawaited(_deviceSyncController.respondIncomingPair(true));
+                },
+                child: Text(isEs ? 'Vincular' : 'Link'),
+              ),
+            ],
+          );
+        },
+      );
+    });
+  }
+
   Future<void> _loadInstalledVersionInfo() async {
     try {
       final info = await PackageInfo.fromPlatform();
@@ -141,6 +238,7 @@ class _FolioAppState extends State<FolioApp> with WidgetsBindingObserver {
   }
 
   Future<void> _startRun2DocBridge() async {
+    if (defaultTargetPlatform == TargetPlatform.android) return;
     try {
       await _run2DocBridge.start();
     } catch (e) {
@@ -151,8 +249,13 @@ class _FolioAppState extends State<FolioApp> with WidgetsBindingObserver {
   void _onSettings() {
     _applySessionSecurityPolicy();
     _applyAiSettings();
+    _applyDeviceSyncSettings();
     _applyDesktopSettingsIfNeeded();
     if (mounted) setState(() {});
+  }
+
+  void _applyDeviceSyncSettings() {
+    _deviceSyncController.refreshSettingsSnapshot();
   }
 
   void _applySessionSecurityPolicy() {
@@ -184,6 +287,7 @@ class _FolioAppState extends State<FolioApp> with WidgetsBindingObserver {
   }
 
   void _maybeLaunchAiProvider() {
+    if (defaultTargetPlatform == TargetPlatform.android) return;
     final s = widget.appSettings;
     if (!s.aiLaunchProviderWithApp) return;
     if (!s.isAiRuntimeEnabled) return;
@@ -194,6 +298,10 @@ class _FolioAppState extends State<FolioApp> with WidgetsBindingObserver {
   }
 
   void _applyAiSettings() {
+    if (defaultTargetPlatform == TargetPlatform.android) {
+      widget.session.setAiService(null);
+      return;
+    }
     if (!widget.appSettings.isAiRuntimeEnabled) {
       widget.session.setAiService(null);
       return;
@@ -640,6 +748,7 @@ class _FolioAppState extends State<FolioApp> with WidgetsBindingObserver {
       home: _HomeByState(
         session: widget.session,
         appSettings: widget.appSettings,
+        deviceSyncController: _deviceSyncController,
         onOpenSearch: _handleSearchRequested,
       ),
     );
@@ -1139,11 +1248,13 @@ class _HomeByState extends StatelessWidget {
   const _HomeByState({
     required this.session,
     required this.appSettings,
+    required this.deviceSyncController,
     required this.onOpenSearch,
   });
 
   final VaultSession session;
   final AppSettings appSettings;
+  final DeviceSyncController deviceSyncController;
   final VoidCallback onOpenSearch;
 
   @override
@@ -1178,6 +1289,7 @@ class _HomeByState extends StatelessWidget {
         return WorkspacePage(
           session: session,
           appSettings: appSettings,
+          deviceSyncController: deviceSyncController,
           onOpenSearch: onOpenSearch,
         );
     }

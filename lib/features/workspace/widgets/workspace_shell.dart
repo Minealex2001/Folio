@@ -23,7 +23,9 @@ class WorkspaceTopAppBar extends StatelessWidget
   @override
   Widget build(BuildContext context) {
     return AppBar(
-      title: Text(title),
+      centerTitle: compact,
+      toolbarHeight: compact ? 60 : 64,
+      title: Text(title, maxLines: 1, overflow: TextOverflow.ellipsis),
       leading: compact
           ? IconButton(
               tooltip: MaterialLocalizations.of(context).openAppDrawerTooltip,

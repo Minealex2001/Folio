@@ -77,6 +77,24 @@ class _PageUndoSnapshot {
   final List<FolioBlock> blocks;
 }
 
+class SyncConflictEntry {
+  const SyncConflictEntry({
+    required this.id,
+    required this.fromPeerId,
+    required this.createdAtMs,
+    required this.remoteFingerprint,
+    required this.remoteSnapshotBytes,
+    required this.remotePageCount,
+  });
+
+  final String id;
+  final String fromPeerId;
+  final int createdAtMs;
+  final String remoteFingerprint;
+  final List<int> remoteSnapshotBytes;
+  final int remotePageCount;
+}
+
 class VaultSession extends ChangeNotifier {
   /// Nombre de la asistente en la app; se repite en los prompts para que el modelo lo mantenga.
   static const String _quillIdentityLeadEs =
@@ -164,6 +182,8 @@ class VaultSession extends ChangeNotifier {
   final FolioRpServer _rp;
   final PasskeyAuthenticator _passkeys;
   final LocalAuthentication _localAuth;
+  void Function()? onPersisted;
+  void Function(int pendingConflicts)? onSyncConflictCountChanged;
   AiService? _aiService;
 
   static const _uuid = Uuid();
@@ -188,6 +208,10 @@ class VaultSession extends ChangeNotifier {
   Timer? _idleLockTimer;
   final Set<String> _pageIdsPendingRevision = {};
   int _persistDepth = 0;
+  int _suppressPersistedCallbackDepth = 0;
+  String _syncBaselineFingerprint = '';
+  int _syncPendingConflicts = 0;
+  final List<SyncConflictEntry> _syncConflicts = [];
   Duration _idleLockDuration = const Duration(minutes: 15);
   bool _lockOnAppBackground = false;
   bool _vaultUsesEncryption = true;
@@ -233,6 +257,8 @@ class VaultSession extends ChangeNotifier {
   AiChatThreadData get activeAiChat => _aiChatThreads[_aiActiveChatIndex];
   List<FolioPageTemplate> get pageTemplates =>
       List.unmodifiable(_pageTemplates);
+  List<SyncConflictEntry> get syncConflicts =>
+      List.unmodifiable(_syncConflicts);
 
   /// Se incrementa al restaurar una revisión para forzar remount del editor
   /// cuando los ids de bloque coinciden pero el texto cambió.
@@ -2794,6 +2820,7 @@ class VaultSession extends ChangeNotifier {
 
   Future<void> persistNow() async {
     if (vaultUsesEncryption && _dek == null) return;
+    var persisted = false;
     _persistDepth++;
     if (_persistDepth == 1) {
       notifyListeners();
@@ -2821,12 +2848,207 @@ class VaultSession extends ChangeNotifier {
         ),
         _dek,
       );
+      persisted = true;
     } finally {
       _persistDepth--;
       if (_persistDepth == 0) {
         notifyListeners();
       }
     }
+    if (persisted && _suppressPersistedCallbackDepth == 0) {
+      try {
+        onPersisted?.call();
+      } catch (_) {
+        // No bloquea el guardado local si falla un listener externo.
+      }
+    }
+  }
+
+  Future<List<int>?> exportSyncSnapshotBytes() async {
+    if (_state != VaultFlowState.unlocked) return null;
+    if (vaultUsesEncryption && _dek == null) return null;
+    final payload = VaultPayload(
+      version: kVaultPayloadVersion,
+      pages: _pages,
+      pageRevisions: Map<String, List<FolioPageRevision>>.fromEntries(
+        _pageRevisions.entries.map(
+          (e) => MapEntry(e.key, List<FolioPageRevision>.from(e.value)),
+        ),
+      ),
+      pageAcl: Map<String, Map<String, String>>.fromEntries(
+        _pageAcl.entries.map(
+          (e) => MapEntry(e.key, Map<String, String>.from(e.value)),
+        ),
+      ),
+      localProfiles: List<LocalProfile>.from(_localProfiles),
+      comments: List<LocalPageComment>.from(_comments),
+      aiChatThreads: List<AiChatThreadData>.from(_aiChatThreads),
+      aiActiveChatIndex: _aiActiveChatIndex,
+      pageTemplates: List<FolioPageTemplate>.from(_pageTemplates),
+    );
+    return payload.encodeUtf8();
+  }
+
+  Future<bool> applySyncSnapshotBytes(
+    List<int> rawBytes, [
+    String fromPeerId = '',
+  ]) async {
+    if (_state != VaultFlowState.unlocked) return false;
+    if (vaultUsesEncryption && _dek == null) return false;
+    try {
+      final localSnapshot = await exportSyncSnapshotBytes();
+      if (localSnapshot == null) return false;
+      final localFingerprint = _syncFingerprintBytes(localSnapshot);
+      final remoteFingerprint = _syncFingerprintBytes(rawBytes);
+      if (localFingerprint == remoteFingerprint) {
+        if (_syncBaselineFingerprint.isEmpty) {
+          _syncBaselineFingerprint = localFingerprint;
+        }
+        // Snapshot idéntico: confirmamos sync sin tocar estado ni persistir.
+        return true;
+      }
+
+      if (_syncBaselineFingerprint.isEmpty) {
+        _syncBaselineFingerprint = localFingerprint;
+      }
+
+      final localChanged = localFingerprint != _syncBaselineFingerprint;
+      final remoteChanged = remoteFingerprint != _syncBaselineFingerprint;
+
+      if (localChanged && remoteChanged) {
+        _registerSyncConflict(
+          fromPeerId: fromPeerId,
+          remoteFingerprint: remoteFingerprint,
+          remoteSnapshotBytes: rawBytes,
+        );
+        // Conflicto concurrente: prioriza no sobrescribir el estado local.
+        return true;
+      }
+
+      if (localChanged && !remoteChanged) {
+        // El remoto está atrasado respecto a lo local; conservar local evita rollback.
+        return true;
+      }
+
+      final payload = VaultPayload.decodeUtf8(rawBytes);
+      await _applyResolvedSyncPayload(
+        payload,
+        remoteFingerprint: remoteFingerprint,
+      );
+      return true;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  Future<void> resolveSyncConflictKeepLocal(String conflictId) async {
+    final index = _syncConflicts.indexWhere((entry) => entry.id == conflictId);
+    if (index == -1) return;
+    _syncConflicts.removeAt(index);
+    final localSnapshot = await exportSyncSnapshotBytes();
+    if (localSnapshot != null) {
+      _syncBaselineFingerprint = _syncFingerprintBytes(localSnapshot);
+    }
+    _notifySyncConflictCountChanged();
+    notifyListeners();
+  }
+
+  Future<bool> resolveSyncConflictAcceptRemote(String conflictId) async {
+    final index = _syncConflicts.indexWhere((entry) => entry.id == conflictId);
+    if (index == -1) return false;
+    final entry = _syncConflicts[index];
+    try {
+      final payload = VaultPayload.decodeUtf8(entry.remoteSnapshotBytes);
+      await _applyResolvedSyncPayload(
+        payload,
+        remoteFingerprint: entry.remoteFingerprint,
+      );
+      _syncConflicts.removeAt(index);
+      _notifySyncConflictCountChanged();
+      notifyListeners();
+      return true;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  void _registerSyncConflict({
+    required String fromPeerId,
+    required String remoteFingerprint,
+    required List<int> remoteSnapshotBytes,
+  }) {
+    final existing = _syncConflicts.any(
+      (entry) =>
+          entry.fromPeerId == fromPeerId &&
+          entry.remoteFingerprint == remoteFingerprint,
+    );
+    if (existing) return;
+    var remotePageCount = 0;
+    try {
+      remotePageCount = VaultPayload.decodeUtf8(
+        remoteSnapshotBytes,
+      ).pages.length;
+    } catch (_) {
+      remotePageCount = 0;
+    }
+    _syncConflicts.add(
+      SyncConflictEntry(
+        id: _uuid.v4(),
+        fromPeerId: fromPeerId,
+        createdAtMs: DateTime.now().millisecondsSinceEpoch,
+        remoteFingerprint: remoteFingerprint,
+        remoteSnapshotBytes: List<int>.from(remoteSnapshotBytes),
+        remotePageCount: remotePageCount,
+      ),
+    );
+    _notifySyncConflictCountChanged();
+    notifyListeners();
+  }
+
+  Future<void> _applyResolvedSyncPayload(
+    VaultPayload payload, {
+    required String remoteFingerprint,
+  }) async {
+    final previousSelectedPageId = _selectedPageId;
+    _pages = List<FolioPage>.from(payload.pages);
+    _loadRevisionsFromPayload(payload);
+    final canKeepSelection =
+        previousSelectedPageId != null &&
+        _pages.any((p) => p.id == previousSelectedPageId);
+    if (canKeepSelection) {
+      _selectedPageId = previousSelectedPageId;
+    } else {
+      _pickInitialSelection();
+      _contentEpoch++;
+    }
+    notifyListeners();
+    _suppressPersistedCallbackDepth++;
+    try {
+      await persistNow();
+    } finally {
+      _suppressPersistedCallbackDepth--;
+    }
+    _syncBaselineFingerprint = remoteFingerprint;
+  }
+
+  void _notifySyncConflictCountChanged() {
+    _syncPendingConflicts = _syncConflicts.length;
+    try {
+      onSyncConflictCountChanged?.call(_syncPendingConflicts);
+    } catch (_) {
+      // No bloquea flujo si falla la notificación externa.
+    }
+  }
+
+  String _syncFingerprintBytes(List<int> data) {
+    // FNV-1a 64-bit para detectar cambios de snapshot de forma ligera.
+    var hash = 0xcbf29ce484222325;
+    const prime = 0x100000001b3;
+    for (final b in data) {
+      hash ^= b;
+      hash = (hash * prime) & 0xffffffffffffffff;
+    }
+    return hash.toRadixString(16).padLeft(16, '0');
   }
 
   bool _dekMatchesQuickStorage(Uint8List dek) {

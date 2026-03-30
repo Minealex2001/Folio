@@ -20,6 +20,7 @@ import '../../models/folio_columns_data.dart';
 import '../../models/folio_template_button_data.dart';
 import '../../models/folio_toggle_data.dart';
 import '../../services/ai/ai_types.dart';
+import '../../services/device_sync/device_sync_controller.dart';
 import '../../l10n/generated/app_localizations.dart';
 import '../../services/run2doc/run2doc_markdown_codec.dart';
 import '../../session/vault_session.dart';
@@ -39,11 +40,13 @@ class WorkspacePage extends StatefulWidget {
     super.key,
     required this.session,
     required this.appSettings,
+    required this.deviceSyncController,
     required this.onOpenSearch,
   });
 
   final VaultSession session;
   final AppSettings appSettings;
+  final DeviceSyncController deviceSyncController;
   final VoidCallback onOpenSearch;
 
   @override
@@ -95,6 +98,8 @@ class _WorkspacePageState extends State<WorkspacePage> {
   String _chatDraft = ''; // Auto-save draft
   int _aiContextMenuSelectedIndex = 0; // Keyboard navigation
   bool _aiContextMenuUsingKeyboard = false; // Track keyboard vs mouse
+  bool _mobileEditMode = false;
+  String? _lastPageIdForMobileMode;
 
   VaultSession get _s => widget.session;
   AiChatThreadData get _activeChat => _s.activeAiChat;
@@ -1094,6 +1099,19 @@ class _WorkspacePageState extends State<WorkspacePage> {
 
   void _onSession() {
     if (!mounted) return;
+    final currentPageId = _s.selectedPageId;
+    if (currentPageId != _lastPageIdForMobileMode) {
+      _lastPageIdForMobileMode = currentPageId;
+      final media = MediaQuery.maybeOf(context);
+      final size = media?.size;
+      final isVerticalMobile =
+          size != null &&
+          FolioAdaptive.isAndroidPhoneWidth(size.width) &&
+          size.height > size.width;
+      if (isVerticalMobile && _mobileEditMode) {
+        _mobileEditMode = false;
+      }
+    }
     if (_s.activeAiChat.id != _attachmentsBoundChatId) {
       _attachmentsBoundChatId = _s.activeAiChat.id;
       _aiAttachmentPaths = List<String>.from(_s.activeAiChat.attachmentPaths);
@@ -1463,8 +1481,11 @@ class _WorkspacePageState extends State<WorkspacePage> {
   void _openSettings() {
     Navigator.of(context).push<void>(
       MaterialPageRoute<void>(
-        builder: (ctx) =>
-            SettingsPage(session: _s, appSettings: widget.appSettings),
+        builder: (ctx) => SettingsPage(
+          session: _s,
+          appSettings: widget.appSettings,
+          deviceSyncController: widget.deviceSyncController,
+        ),
       ),
     );
   }
@@ -1586,6 +1607,20 @@ class _WorkspacePageState extends State<WorkspacePage> {
     final type = await _showBlockTypePicker(compact: compact);
     if (type == null || !mounted) return;
     _appendBlockToPage(page, type);
+  }
+
+  void _forceSyncNow() {
+    try {
+      widget.deviceSyncController.refreshSettingsSnapshot();
+      widget.deviceSyncController.onLocalSnapshotPersisted();
+      if (mounted) {
+        _snack('Sincronización forzada iniciada.');
+      }
+    } catch (e) {
+      if (mounted) {
+        _snack('No se pudo forzar la sincronización: $e', error: true);
+      }
+    }
   }
 
   Future<List<AiFileAttachment>> _collectAiAttachments() async {
@@ -2367,8 +2402,17 @@ class _WorkspacePageState extends State<WorkspacePage> {
     final scheme = Theme.of(context).colorScheme;
     final theme = Theme.of(context);
     final width = MediaQuery.sizeOf(context).width;
-    final compact = width < FolioDesktop.compactBreakpoint;
-    final medium = width < FolioDesktop.mediumBreakpoint;
+    final height = MediaQuery.sizeOf(context).height;
+    final androidMobileWorkspace = FolioAdaptive.shouldUseMobileWorkspace(
+      width,
+    );
+    final androidPhoneLayout = FolioAdaptive.isAndroidPhoneWidth(width);
+    final verticalMobileWorkspace = androidPhoneLayout && height > width;
+    final editorReadOnlyMode = verticalMobileWorkspace && !_mobileEditMode;
+    final compact =
+        width < FolioDesktop.compactBreakpoint || androidMobileWorkspace;
+    final medium =
+        width < FolioDesktop.mediumBreakpoint || androidMobileWorkspace;
     final isAiPanelVisible =
         !compact &&
         widget.appSettings.isAiRuntimeEnabled &&
@@ -2383,6 +2427,7 @@ class _WorkspacePageState extends State<WorkspacePage> {
         session: _s,
         appSettings: widget.appSettings,
         onSearch: widget.onOpenSearch,
+        onForceSync: _forceSyncNow,
         onOpenSettings: _openSettings,
         onLock: () => _s.lock(),
       ),
@@ -2524,8 +2569,12 @@ class _WorkspacePageState extends State<WorkspacePage> {
             ),
         ];
 
-        final useOverflow = !compact && width < 1420;
-        final primaryBudget = width >= 1660 ? 7 : (width >= 1420 ? 5 : 3);
+        final useOverflow = compact || androidMobileWorkspace || width < 1420;
+        final primaryBudget = androidPhoneLayout
+            ? 1
+            : (androidMobileWorkspace
+                  ? 2
+                  : (width >= 1660 ? 7 : (width >= 1420 ? 5 : 3)));
         final primary = <_WorkspaceActionEntry>[];
         final overflow = <_WorkspaceActionEntry>[];
 
@@ -2632,6 +2681,8 @@ class _WorkspacePageState extends State<WorkspacePage> {
     ];
     final editorContent = WorkspaceEditorSurface(
       compact: compact,
+      mobileOptimized: androidMobileWorkspace,
+      readOnlyMode: editorReadOnlyMode,
       page: page,
       pagePath: _buildPagePathSegments(page),
       titleController: _titleController,
@@ -2649,6 +2700,7 @@ class _WorkspacePageState extends State<WorkspacePage> {
               key: ValueKey('${page.id}-${_s.contentEpoch}'),
               session: _s,
               appSettings: widget.appSettings,
+              readOnlyMode: editorReadOnlyMode,
             ),
     );
     return CallbackShortcuts(
@@ -2658,12 +2710,18 @@ class _WorkspacePageState extends State<WorkspacePage> {
         backgroundColor: scheme.surfaceContainerLow,
         drawer: compact
             ? Drawer(
-                width: width.clamp(260, 340),
+                width: androidPhoneLayout
+                    ? width * 0.92
+                    : width.clamp(260, 340),
                 child: SafeArea(child: sidePanel),
               )
             : null,
         appBar: WorkspaceTopAppBar(
-          title: l10n.appTitle,
+          title: androidPhoneLayout
+              ? ((page?.title.trim().isNotEmpty ?? false)
+                    ? page!.title.trim()
+                    : l10n.appTitle)
+              : l10n.appTitle,
           compact: compact,
           actions: appBarActions,
           onOpenDrawer: () => _scaffoldKey.currentState?.openDrawer(),
@@ -2699,10 +2757,50 @@ class _WorkspacePageState extends State<WorkspacePage> {
                 padding: EdgeInsets.only(
                   right: isAiPanelVisible ? _aiPanelWidth + 18 : 0,
                 ),
-                child: FloatingActionButton(
-                  onPressed: () => _addBlockToCurrentPage(compact: true),
-                  child: const Icon(Icons.add_rounded),
-                ),
+                child: verticalMobileWorkspace
+                    ? (_mobileEditMode
+                          ? Column(
+                              mainAxisSize: MainAxisSize.min,
+                              crossAxisAlignment: CrossAxisAlignment.end,
+                              children: [
+                                FloatingActionButton.small(
+                                  heroTag: 'mobile_add_block_fab',
+                                  onPressed: () =>
+                                      _addBlockToCurrentPage(compact: true),
+                                  child: const Icon(Icons.add_rounded),
+                                ),
+                                const SizedBox(height: 12),
+                                FloatingActionButton.extended(
+                                  heroTag: 'mobile_done_edit_fab',
+                                  onPressed: () {
+                                    FocusScope.of(context).unfocus();
+                                    setState(() => _mobileEditMode = false);
+                                  },
+                                  icon: const Icon(Icons.check_rounded),
+                                  label: const Text('Listo'),
+                                ),
+                              ],
+                            )
+                          : FloatingActionButton.extended(
+                              heroTag: 'mobile_enter_edit_fab',
+                              onPressed: () {
+                                setState(() => _mobileEditMode = true);
+                              },
+                              icon: const Icon(Icons.edit_rounded),
+                              label: const Text('Editar'),
+                            ))
+                    : (androidPhoneLayout
+                          ? FloatingActionButton.extended(
+                              onPressed: () =>
+                                  _addBlockToCurrentPage(compact: true),
+                              icon: const Icon(Icons.add_rounded),
+                              label: const Text('Bloque'),
+                            )
+                          : FloatingActionButton(
+                              onPressed: () =>
+                                  _addBlockToCurrentPage(compact: true),
+                              child: const Icon(Icons.add_rounded),
+                            )),
               )
             : null,
       ),

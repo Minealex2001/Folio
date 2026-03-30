@@ -1,5 +1,7 @@
 import 'dart:convert';
 
+import 'package:flutter/foundation.dart'
+    show TargetPlatform, defaultTargetPlatform, kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -181,6 +183,12 @@ class AppSettings extends ChangeNotifier {
   static const _integrationCustomIconsKey =
       'folio_integration_custom_icons_by_app_v1';
   static const _enterCreatesNewBlockKey = 'folio_enter_creates_new_block';
+  static const _syncEnabledKey = 'folio_device_sync_enabled';
+  static const _syncRelayEnabledKey = 'folio_device_sync_relay_enabled';
+  static const _syncDeviceIdKey = 'folio_device_sync_device_id';
+  static const _syncDeviceNameKey = 'folio_device_sync_device_name';
+  static const _syncPendingConflictsKey = 'folio_device_sync_pending_conflicts';
+  static const _syncLastSuccessMsKey = 'folio_device_sync_last_success_ms';
   static const int defaultVaultIdleLockMinutes = 15;
   static const String defaultGlobalSearchHotkey = 'Ctrl+Shift+K';
   static const int defaultAiTimeoutMs = 30000;
@@ -233,6 +241,12 @@ class AppSettings extends ChangeNotifier {
   Map<String, List<CustomIconEntry>> _integrationCustomIconsByApp =
       const <String, List<CustomIconEntry>>{};
   bool _enterCreatesNewBlock = true;
+  bool _syncEnabled = true;
+  bool _syncRelayEnabled = true;
+  String _syncDeviceId = '';
+  String _syncDeviceName = '';
+  int _syncPendingConflicts = 0;
+  int _syncLastSuccessMs = 0;
 
   ThemeMode get themeMode => _themeMode;
   Locale? get locale => _locale;
@@ -252,7 +266,8 @@ class AppSettings extends ChangeNotifier {
   bool get aiAlwaysShowThought => _aiAlwaysShowThought;
   bool get aiLaunchProviderWithApp => _aiLaunchProviderWithApp;
   int get aiContextWindowTokens => _aiContextWindowTokens;
-  bool get isAiAvailable => true;
+  bool get isAiAvailable =>
+      !kIsWeb && defaultTargetPlatform != TargetPlatform.android;
   bool get isAiRuntimeEnabled => _aiEnabled;
   bool get hasSeenQuillIntro => _hasSeenQuillIntro;
   bool get hasSeenQuillWorkspaceTour => _hasSeenQuillWorkspaceTour;
@@ -265,6 +280,13 @@ class AppSettings extends ChangeNotifier {
   double get editorContentWidth => _editorContentWidth;
   String get integrationSecret => _integrationSecret;
   bool get enterCreatesNewBlock => _enterCreatesNewBlock;
+  bool get syncEnabled => _syncEnabled;
+  bool get syncRelayEnabled => _syncRelayEnabled;
+  String get syncDeviceId => _syncDeviceId;
+  String get syncDeviceName =>
+      _syncDeviceName.isEmpty ? _defaultSyncDeviceName() : _syncDeviceName;
+  int get syncPendingConflicts => _syncPendingConflicts;
+  int get syncLastSuccessMs => _syncLastSuccessMs;
   List<CustomIconEntry> get customIcons => List.unmodifiable(_customIcons);
   List<CustomIconEntry> integrationCustomIconsForApp(String appId) {
     final key = appId.trim();
@@ -342,6 +364,19 @@ class AppSettings extends ChangeNotifier {
       defaultShortcutMap(),
     );
     _enterCreatesNewBlock = p.getBool(_enterCreatesNewBlockKey) ?? true;
+    _syncEnabled = p.getBool(_syncEnabledKey) ?? true;
+    _syncRelayEnabled = p.getBool(_syncRelayEnabledKey) ?? true;
+    _syncDeviceId = (p.getString(_syncDeviceIdKey) ?? '').trim();
+    if (_syncDeviceId.isEmpty) {
+      _syncDeviceId = _createSyncDeviceId();
+      await p.setString(_syncDeviceIdKey, _syncDeviceId);
+    }
+    _syncDeviceName = (p.getString(_syncDeviceNameKey) ?? '').trim();
+    _syncPendingConflicts = (p.getInt(_syncPendingConflictsKey) ?? 0).clamp(
+      0,
+      999,
+    );
+    _syncLastSuccessMs = p.getInt(_syncLastSuccessMsKey) ?? 0;
     _integrationSecret = _configuredIntegrationSecret;
     final approvedRaw = p.getString(_approvedIntegrationAppsKey);
     if (approvedRaw != null && approvedRaw.trim().isNotEmpty) {
@@ -491,6 +526,30 @@ class AppSettings extends ChangeNotifier {
     if (raw < minEditorContentWidth) return minEditorContentWidth;
     if (raw > maxEditorContentWidth) return maxEditorContentWidth;
     return raw;
+  }
+
+  String _defaultSyncDeviceName() {
+    if (kIsWeb) return 'Folio Web';
+    switch (defaultTargetPlatform) {
+      case TargetPlatform.android:
+        return 'Folio Android';
+      case TargetPlatform.windows:
+        return 'Folio Windows';
+      case TargetPlatform.linux:
+        return 'Folio Linux';
+      case TargetPlatform.macOS:
+        return 'Folio macOS';
+      case TargetPlatform.iOS:
+        return 'Folio iOS';
+      case TargetPlatform.fuchsia:
+        return 'Folio Device';
+    }
+  }
+
+  String _createSyncDeviceId() {
+    final ms = DateTime.now().millisecondsSinceEpoch.toRadixString(36);
+    final platform = defaultTargetPlatform.name;
+    return 'dev_${platform}_$ms';
   }
 
   String defaultUrlForProvider(AiProvider provider) {
@@ -778,6 +837,49 @@ class AppSettings extends ChangeNotifier {
     notifyListeners();
     final p = await SharedPreferences.getInstance();
     await p.setBool(_enterCreatesNewBlockKey, value);
+  }
+
+  Future<void> setSyncEnabled(bool value) async {
+    if (_syncEnabled == value) return;
+    _syncEnabled = value;
+    notifyListeners();
+    final p = await SharedPreferences.getInstance();
+    await p.setBool(_syncEnabledKey, value);
+  }
+
+  Future<void> setSyncRelayEnabled(bool value) async {
+    if (_syncRelayEnabled == value) return;
+    _syncRelayEnabled = value;
+    notifyListeners();
+    final p = await SharedPreferences.getInstance();
+    await p.setBool(_syncRelayEnabledKey, value);
+  }
+
+  Future<void> setSyncDeviceName(String value) async {
+    final safe = value.trim().isEmpty ? _defaultSyncDeviceName() : value.trim();
+    if (_syncDeviceName == safe) return;
+    _syncDeviceName = safe;
+    notifyListeners();
+    final p = await SharedPreferences.getInstance();
+    await p.setString(_syncDeviceNameKey, safe);
+  }
+
+  Future<void> setSyncPendingConflicts(int value) async {
+    final safe = value.clamp(0, 999);
+    if (_syncPendingConflicts == safe) return;
+    _syncPendingConflicts = safe;
+    notifyListeners();
+    final p = await SharedPreferences.getInstance();
+    await p.setInt(_syncPendingConflictsKey, safe);
+  }
+
+  Future<void> setSyncLastSuccessMs(int value) async {
+    final safe = value < 0 ? 0 : value;
+    if (_syncLastSuccessMs == safe) return;
+    _syncLastSuccessMs = safe;
+    notifyListeners();
+    final p = await SharedPreferences.getInstance();
+    await p.setInt(_syncLastSuccessMsKey, safe);
   }
 
   Future<void> setInAppShortcut(

@@ -25,6 +25,8 @@ import '../../services/ai/ai_safety_policy.dart';
 import '../../services/ai/lmstudio_ai_service.dart';
 import '../../services/ai/ollama_ai_service.dart';
 import '../../services/custom_icon_import_service.dart';
+import '../../services/device_sync/device_sync_controller.dart';
+import '../../services/device_sync/device_sync_models.dart';
 import '../../services/updater/github_release_updater.dart';
 import '../../services/updater/update_release_channel.dart';
 import '../../session/vault_session.dart';
@@ -35,10 +37,12 @@ class SettingsPage extends StatefulWidget {
     super.key,
     required this.session,
     required this.appSettings,
+    required this.deviceSyncController,
   });
 
   final VaultSession session;
   final AppSettings appSettings;
+  final DeviceSyncController deviceSyncController;
 
   @override
   State<SettingsPage> createState() => _SettingsPageState();
@@ -48,8 +52,9 @@ class _SettingsPageState extends State<SettingsPage> {
   static const _idleOptions = <int>[1, 5, 10, 15, 30, 60];
   VaultSession get _s => widget.session;
   AppSettings get _app => widget.appSettings;
+  DeviceSyncController get _sync => widget.deviceSyncController;
   final ScrollController _settingsScrollController = ScrollController();
-  final List<GlobalKey> _sectionKeys = List.generate(9, (_) => GlobalKey());
+  final List<GlobalKey> _sectionKeys = List.generate(10, (_) => GlobalKey());
   int _selectedDesktopSection = 0;
   bool _programmaticSectionScroll = false;
 
@@ -280,6 +285,291 @@ class _SettingsPageState extends State<SettingsPage> {
   Future<void> _revokeIntegrationApp(String appId) async {
     await _app.revokeIntegrationApp(appId);
     _snack('App revocada: $appId');
+  }
+
+  String _formatLastSyncLabel() {
+    final ms = _app.syncLastSuccessMs;
+    if (ms <= 0) {
+      return _t('Aun sin sincronizar', 'Not synced yet');
+    }
+    final at = DateTime.fromMillisecondsSinceEpoch(ms).toLocal();
+    final two = (int value) => value.toString().padLeft(2, '0');
+    return '${two(at.day)}/${two(at.month)}/${at.year} ${two(at.hour)}:${two(at.minute)}';
+  }
+
+  Future<void> _editSyncDeviceName() async {
+    var draft = _app.syncDeviceName;
+    final result = await showDialog<String>(
+      context: context,
+      builder: (ctx) {
+        return AlertDialog(
+          title: Text(_t('Nombre del dispositivo', 'Device name')),
+          content: TextFormField(
+            initialValue: draft,
+            autofocus: true,
+            maxLength: 40,
+            decoration: InputDecoration(
+              hintText: _t(
+                'Ejemplo: Pixel de Alejandra',
+                'Example: Alejandra Pixel',
+              ),
+            ),
+            onChanged: (v) => draft = v,
+            onFieldSubmitted: (_) => Navigator.of(ctx).pop(draft.trim()),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(ctx).pop(),
+              child: Text(AppLocalizations.of(context).cancel),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.of(ctx).pop(draft.trim()),
+              child: Text(AppLocalizations.of(context).save),
+            ),
+          ],
+        );
+      },
+    );
+    if (result == null) return;
+    await _app.setSyncDeviceName(result);
+  }
+
+  void _activateEmojiPairingMode() {
+    _sync.generatePairingCode();
+    _snack(
+      _t(
+        'Modo vinculacion activado durante 2 minutos.',
+        'Pairing mode enabled for 2 minutes.',
+      ),
+    );
+  }
+
+  Future<void> _submitPairingCodeDialog({SyncPeer? peer}) async {
+    final targetPeer = peer;
+    if (targetPeer == null) {
+      _snack(
+        _t(
+          'Primero activa el modo vinculacion y luego elige un dispositivo detectado.',
+          'First enable pairing mode and then choose a discovered device.',
+        ),
+      );
+      return;
+    }
+    if (!_sync.isPairingModeActive) {
+      _sync.generatePairingCode();
+    }
+    final sharedEmojis = _sync.sharedPairingEmojisForPeer(targetPeer);
+    if (sharedEmojis.isEmpty) {
+      _snack(
+        _t(
+          'Activa el modo vinculacion en ambos dispositivos y espera a que aparezcan los mismos 3 emojis.',
+          'Enable pairing mode on both devices and wait until the same 3 emojis appear.',
+        ),
+      );
+      return;
+    }
+    final started = await _sync.submitEmojiPairingRequest(targetPeer);
+    if (!started) {
+      if (!mounted) return;
+      _snack(
+        _t(
+          'No se pudo iniciar la vinculacion. Activa el modo vinculacion en ambos dispositivos y espera a ver los mismos 3 emojis.',
+          'Could not start pairing. Enable pairing mode on both devices and wait until the same 3 emojis appear.',
+        ),
+      );
+      return;
+    }
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) {
+        return AlertDialog(
+          title: Text(_t('Confirmar vinculacion', 'Confirm pairing')),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                _t(
+                  'Comprueba que en el otro dispositivo aparecen estos mismos 3 emojis:',
+                  'Check that the other device shows these same 3 emojis:',
+                ),
+              ),
+              const SizedBox(height: 12),
+              SelectableText(
+                sharedEmojis.join(' '),
+                style: Theme.of(ctx).textTheme.headlineMedium?.copyWith(
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+              const SizedBox(height: 12),
+              Text(
+                _t(
+                  'Este popup tambien aparecera en el otro dispositivo. Para completar el enlace, pulsa Vincular aqui y luego Vincular en el otro.',
+                  'This popup will also appear on the other device. To complete linking, press Link here and then Link on the other one.',
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () {
+                _sync.cancelOutgoingPair(targetPeer.peerId);
+                Navigator.of(ctx).pop(false);
+              },
+              child: Text(AppLocalizations.of(context).cancel),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.of(ctx).pop(true),
+              child: Text(_t('Vincular', 'Link')),
+            ),
+          ],
+        );
+      },
+    );
+    if (confirmed != true) return;
+    await _sync.confirmOutgoingPair(targetPeer.peerId);
+    if (!mounted) return;
+    _snack(
+      _t(
+        'Confirmacion enviada. Falta que el otro dispositivo pulse Vincular en su popup.',
+        'Confirmation sent. The other device still needs to press Link in its popup.',
+      ),
+    );
+  }
+
+  Future<void> _revokeSyncPeer(SyncPeer peer) async {
+    await _sync.revokePeer(peer.peerId);
+    if (!mounted) return;
+    _snack(_t('Dispositivo revocado.', 'Device revoked.'));
+  }
+
+  String _formatSyncConflictTimestamp(int ms) {
+    final at = DateTime.fromMillisecondsSinceEpoch(ms).toLocal();
+    final two = (int value) => value.toString().padLeft(2, '0');
+    return '${two(at.day)}/${two(at.month)} ${two(at.hour)}:${two(at.minute)}';
+  }
+
+  Future<void> _showSyncConflictsDialog() async {
+    await showDialog<void>(
+      context: context,
+      builder: (ctx) {
+        return AlertDialog(
+          title: Text(_t('Resolver conflictos', 'Resolve conflicts')),
+          content: SizedBox(
+            width: 560,
+            child: ListenableBuilder(
+              listenable: _s,
+              builder: (context, _) {
+                final conflicts = _s.syncConflicts;
+                if (conflicts.isEmpty) {
+                  return Text(
+                    _t(
+                      'No hay conflictos pendientes.',
+                      'There are no pending conflicts.',
+                    ),
+                  );
+                }
+                return SingleChildScrollView(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: conflicts.map((conflict) {
+                      final subtitle = _t(
+                        'Origen: ${conflict.fromPeerId}\nPaginas remotas: ${conflict.remotePageCount}\nDetectado: ${_formatSyncConflictTimestamp(conflict.createdAtMs)}',
+                        'Source: ${conflict.fromPeerId}\nRemote pages: ${conflict.remotePageCount}\nDetected: ${_formatSyncConflictTimestamp(conflict.createdAtMs)}',
+                      );
+                      return Container(
+                        margin: const EdgeInsets.only(bottom: 12),
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: Theme.of(
+                            context,
+                          ).colorScheme.surfaceContainerLow,
+                          borderRadius: BorderRadius.circular(14),
+                          border: Border.all(
+                            color: Theme.of(
+                              context,
+                            ).colorScheme.outlineVariant.withValues(alpha: 0.5),
+                          ),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              _t(
+                                'Conflicto de sincronizacion',
+                                'Sync conflict',
+                              ),
+                              style: Theme.of(context).textTheme.titleSmall
+                                  ?.copyWith(fontWeight: FontWeight.w700),
+                            ),
+                            const SizedBox(height: 8),
+                            Text(subtitle),
+                            const SizedBox(height: 12),
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.end,
+                              children: [
+                                TextButton(
+                                  onPressed: () async {
+                                    await _s.resolveSyncConflictKeepLocal(
+                                      conflict.id,
+                                    );
+                                    if (!mounted) return;
+                                    _snack(
+                                      _t(
+                                        'Se conservo la version local.',
+                                        'Local version kept.',
+                                      ),
+                                    );
+                                  },
+                                  child: Text(
+                                    _t('Mantener local', 'Keep local'),
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+                                FilledButton.tonal(
+                                  onPressed: () async {
+                                    final ok = await _s
+                                        .resolveSyncConflictAcceptRemote(
+                                          conflict.id,
+                                        );
+                                    if (!mounted) return;
+                                    _snack(
+                                      ok
+                                          ? _t(
+                                              'Se aplico la version remota.',
+                                              'Remote version applied.',
+                                            )
+                                          : _t(
+                                              'No se pudo aplicar la version remota.',
+                                              'Could not apply the remote version.',
+                                            ),
+                                    );
+                                  },
+                                  child: Text(
+                                    _t('Aceptar remota', 'Accept remote'),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                      );
+                    }).toList(),
+                  ),
+                );
+              },
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(ctx).pop(),
+              child: Text(_t('Cerrar', 'Close')),
+            ),
+          ],
+        );
+      },
+    );
   }
 
   Future<void> _importCustomIconFromSource(String source) async {
@@ -1182,20 +1472,31 @@ class _SettingsPageState extends State<SettingsPage> {
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
     final scheme = Theme.of(context).colorScheme;
+    final windowWidth = MediaQuery.sizeOf(context).width;
+    final showDesktopOnlySections = FolioAdaptive.shouldUseDesktopSections(
+      windowWidth,
+    );
     final desktopSections = <_SettingsSectionNavItem>[
       _SettingsSectionNavItem(label: l10n.appearance, keyIndex: 0),
       _SettingsSectionNavItem(label: l10n.security, keyIndex: 1),
-      _SettingsSectionNavItem(label: l10n.desktopSection, keyIndex: 2),
-      _SettingsSectionNavItem(
-        label: l10n.keyboardShortcutsSection,
-        keyIndex: 3,
-      ),
+      if (showDesktopOnlySections) ...[
+        _SettingsSectionNavItem(label: l10n.desktopSection, keyIndex: 2),
+        _SettingsSectionNavItem(
+          label: l10n.keyboardShortcutsSection,
+          keyIndex: 3,
+        ),
+      ],
       if (_app.isAiAvailable)
         _SettingsSectionNavItem(label: l10n.ai, keyIndex: 4),
       _SettingsSectionNavItem(label: l10n.vaultBackup, keyIndex: 5),
-      _SettingsSectionNavItem(label: l10n.integrations, keyIndex: 6),
-      _SettingsSectionNavItem(label: l10n.about, keyIndex: 7),
-      _SettingsSectionNavItem(label: l10n.data, keyIndex: 8),
+      if (showDesktopOnlySections)
+        _SettingsSectionNavItem(label: l10n.integrations, keyIndex: 6),
+      _SettingsSectionNavItem(
+        label: _t('Sincronizacion', 'Device sync'),
+        keyIndex: 7,
+      ),
+      _SettingsSectionNavItem(label: l10n.about, keyIndex: 8),
+      _SettingsSectionNavItem(label: l10n.data, keyIndex: 9),
     ];
     return AnimatedBuilder(
       animation: _app,
@@ -1204,7 +1505,9 @@ class _SettingsPageState extends State<SettingsPage> {
           appBar: AppBar(title: Text(l10n.settings)),
           body: LayoutBuilder(
             builder: (context, constraints) {
-              final wide = constraints.maxWidth >= 1180;
+              final wide =
+                  constraints.maxWidth >= FolioDesktop.mediumBreakpoint ||
+                  FolioAdaptive.isAndroidDesktopLikeWidth(constraints.maxWidth);
               final settingsContent = ListenableBuilder(
                 listenable: _s,
                 builder: (context, _) {
@@ -2074,164 +2377,175 @@ class _SettingsPageState extends State<SettingsPage> {
                             ),
                           ),
 
-                        _SectionHeader(
-                          key: _sectionKeys[2],
-                          title: l10n.desktopSection,
-                          scheme: scheme,
-                        ),
-                        _SettingsPanel(
-                          margin: const EdgeInsets.only(bottom: 24),
-                          child: Column(
-                            children: [
-                              SwitchListTile(
-                                secondary: const Icon(Icons.keyboard_rounded),
-                                title: Text(l10n.globalSearchHotkey),
-                                subtitle: Text(
-                                  _app.enableGlobalSearchHotkey
-                                      ? _app.globalSearchHotkey
-                                      : l10n.inactive,
-                                ),
-                                value: _app.enableGlobalSearchHotkey,
-                                onChanged: _app.setEnableGlobalSearchHotkey,
-                              ),
-                              const Divider(height: 1),
-                              ListTile(
-                                leading: const Icon(Icons.tune_rounded),
-                                title: Text(l10n.hotkeyCombination),
-                                subtitle: Text(_app.globalSearchHotkey),
-                                trailing: DropdownButton<String>(
-                                  value: _app.globalSearchHotkey,
-                                  underline: const SizedBox.shrink(),
-                                  onChanged: _app.enableGlobalSearchHotkey
-                                      ? (value) {
-                                          if (value != null) {
-                                            _app.setGlobalSearchHotkey(value);
-                                          }
-                                        }
-                                      : null,
-                                  items: [
-                                    DropdownMenuItem(
-                                      value: 'Alt+Space',
-                                      child: Text(l10n.hotkeyAltSpace),
-                                    ),
-                                    DropdownMenuItem(
-                                      value: 'Ctrl+Shift+Space',
-                                      child: Text(l10n.hotkeyCtrlShiftSpace),
-                                    ),
-                                    DropdownMenuItem(
-                                      value: 'Ctrl+Shift+K',
-                                      child: Text(l10n.hotkeyCtrlShiftK),
-                                    ),
-                                    const DropdownMenuItem(
-                                      value: 'Ctrl+Shift+F',
-                                      child: Text('Ctrl + Shift + F'),
-                                    ),
-                                    const DropdownMenuItem(
-                                      value: 'Ctrl+Alt+Space',
-                                      child: Text('Ctrl + Alt + Space'),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                              const Divider(height: 1),
-                              SwitchListTile(
-                                secondary: const Icon(Icons.minimize_outlined),
-                                title: Text(l10n.minimizeToTray),
-                                value: _app.minimizeToTray,
-                                onChanged: _app.setMinimizeToTray,
-                              ),
-                              const Divider(height: 1),
-                              SwitchListTile(
-                                secondary: const Icon(Icons.close_rounded),
-                                title: Text(l10n.closeToTray),
-                                value: _app.closeToTray,
-                                onChanged: _app.setCloseToTray,
-                              ),
-                            ],
+                        if (showDesktopOnlySections) ...[
+                          _SectionHeader(
+                            key: _sectionKeys[2],
+                            title: l10n.desktopSection,
+                            scheme: scheme,
                           ),
-                        ),
-
-                        _SectionHeader(
-                          key: _sectionKeys[3],
-                          title: l10n.keyboardShortcutsSection,
-                          scheme: scheme,
-                        ),
-                        _SettingsPanel(
-                          margin: const EdgeInsets.only(bottom: 24),
-                          child: Column(
-                            children: [
-                              for (final id in FolioInAppShortcut.values) ...[
-                                if (id != FolioInAppShortcut.values.first)
-                                  const Divider(height: 1),
-                                ListTile(
-                                  leading: const Icon(Icons.keyboard_rounded),
-                                  title: Text(id.settingsLabel),
+                          _SettingsPanel(
+                            margin: const EdgeInsets.only(bottom: 24),
+                            child: Column(
+                              children: [
+                                SwitchListTile(
+                                  secondary: const Icon(Icons.keyboard_rounded),
+                                  title: Text(l10n.globalSearchHotkey),
                                   subtitle: Text(
-                                    _app.describeInAppShortcut(id),
+                                    _app.enableGlobalSearchHotkey
+                                        ? _app.globalSearchHotkey
+                                        : l10n.inactive,
                                   ),
-                                  trailing: Row(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      TextButton(
-                                        onPressed: () {
-                                          ScaffoldMessenger.of(
-                                            context,
-                                          ).showSnackBar(
-                                            SnackBar(
-                                              content: Text(
-                                                l10n.shortcutTestHint(
-                                                  _app.describeInAppShortcut(
-                                                    id,
-                                                  ),
-                                                ),
-                                              ),
-                                            ),
-                                          );
-                                        },
-                                        child: Text(l10n.shortcutTestAction),
-                                      ),
-                                      TextButton(
-                                        onPressed: () async {
-                                          final next =
-                                              await showDialog<SingleActivator>(
-                                                context: context,
-                                                builder: (ctx) =>
-                                                    const InAppShortcutCaptureDialog(),
-                                              );
-                                          if (next != null && context.mounted) {
-                                            await _app.setInAppShortcut(
-                                              id,
-                                              next,
-                                            );
+                                  value: _app.enableGlobalSearchHotkey,
+                                  onChanged: _app.setEnableGlobalSearchHotkey,
+                                ),
+                                const Divider(height: 1),
+                                ListTile(
+                                  leading: const Icon(Icons.tune_rounded),
+                                  title: Text(l10n.hotkeyCombination),
+                                  subtitle: Text(_app.globalSearchHotkey),
+                                  trailing: DropdownButton<String>(
+                                    value: _app.globalSearchHotkey,
+                                    underline: const SizedBox.shrink(),
+                                    onChanged: _app.enableGlobalSearchHotkey
+                                        ? (value) {
+                                            if (value != null) {
+                                              _app.setGlobalSearchHotkey(value);
+                                            }
                                           }
-                                        },
-                                        child: Text(l10n.shortcutChangeAction),
+                                        : null,
+                                    items: [
+                                      DropdownMenuItem(
+                                        value: 'Alt+Space',
+                                        child: Text(l10n.hotkeyAltSpace),
+                                      ),
+                                      DropdownMenuItem(
+                                        value: 'Ctrl+Shift+Space',
+                                        child: Text(l10n.hotkeyCtrlShiftSpace),
+                                      ),
+                                      DropdownMenuItem(
+                                        value: 'Ctrl+Shift+K',
+                                        child: Text(l10n.hotkeyCtrlShiftK),
+                                      ),
+                                      const DropdownMenuItem(
+                                        value: 'Ctrl+Shift+F',
+                                        child: Text('Ctrl + Shift + F'),
+                                      ),
+                                      const DropdownMenuItem(
+                                        value: 'Ctrl+Alt+Space',
+                                        child: Text('Ctrl + Alt + Space'),
                                       ),
                                     ],
                                   ),
                                 ),
+                                const Divider(height: 1),
+                                SwitchListTile(
+                                  secondary: const Icon(
+                                    Icons.minimize_outlined,
+                                  ),
+                                  title: Text(l10n.minimizeToTray),
+                                  value: _app.minimizeToTray,
+                                  onChanged: _app.setMinimizeToTray,
+                                ),
+                                const Divider(height: 1),
+                                SwitchListTile(
+                                  secondary: const Icon(Icons.close_rounded),
+                                  title: Text(l10n.closeToTray),
+                                  value: _app.closeToTray,
+                                  onChanged: _app.setCloseToTray,
+                                ),
                               ],
-                              const Divider(height: 1),
-                              ListTile(
-                                leading: const Icon(Icons.restore_rounded),
-                                title: Text(l10n.shortcutResetAllTitle),
-                                subtitle: Text(l10n.shortcutResetAllSubtitle),
-                                onTap: () async {
-                                  await _app.resetInAppShortcutsToDefaults();
-                                  if (context.mounted) {
-                                    ScaffoldMessenger.of(context).showSnackBar(
-                                      SnackBar(
-                                        content: Text(
-                                          l10n.shortcutResetDoneSnack,
-                                        ),
-                                      ),
-                                    );
-                                  }
-                                },
-                              ),
-                            ],
+                            ),
                           ),
-                        ),
+
+                          _SectionHeader(
+                            key: _sectionKeys[3],
+                            title: l10n.keyboardShortcutsSection,
+                            scheme: scheme,
+                          ),
+                          _SettingsPanel(
+                            margin: const EdgeInsets.only(bottom: 24),
+                            child: Column(
+                              children: [
+                                for (final id in FolioInAppShortcut.values) ...[
+                                  if (id != FolioInAppShortcut.values.first)
+                                    const Divider(height: 1),
+                                  ListTile(
+                                    leading: const Icon(Icons.keyboard_rounded),
+                                    title: Text(id.settingsLabel),
+                                    subtitle: Text(
+                                      _app.describeInAppShortcut(id),
+                                    ),
+                                    trailing: Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        TextButton(
+                                          onPressed: () {
+                                            ScaffoldMessenger.of(
+                                              context,
+                                            ).showSnackBar(
+                                              SnackBar(
+                                                content: Text(
+                                                  l10n.shortcutTestHint(
+                                                    _app.describeInAppShortcut(
+                                                      id,
+                                                    ),
+                                                  ),
+                                                ),
+                                              ),
+                                            );
+                                          },
+                                          child: Text(l10n.shortcutTestAction),
+                                        ),
+                                        TextButton(
+                                          onPressed: () async {
+                                            final next =
+                                                await showDialog<
+                                                  SingleActivator
+                                                >(
+                                                  context: context,
+                                                  builder: (ctx) =>
+                                                      const InAppShortcutCaptureDialog(),
+                                                );
+                                            if (next != null &&
+                                                context.mounted) {
+                                              await _app.setInAppShortcut(
+                                                id,
+                                                next,
+                                              );
+                                            }
+                                          },
+                                          child: Text(
+                                            l10n.shortcutChangeAction,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ],
+                                const Divider(height: 1),
+                                ListTile(
+                                  leading: const Icon(Icons.restore_rounded),
+                                  title: Text(l10n.shortcutResetAllTitle),
+                                  subtitle: Text(l10n.shortcutResetAllSubtitle),
+                                  onTap: () async {
+                                    await _app.resetInAppShortcutsToDefaults();
+                                    if (context.mounted) {
+                                      ScaffoldMessenger.of(
+                                        context,
+                                      ).showSnackBar(
+                                        SnackBar(
+                                          content: Text(
+                                            l10n.shortcutResetDoneSnack,
+                                          ),
+                                        ),
+                                      );
+                                    }
+                                  },
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
 
                         if (_app.isAiAvailable) ...[
                           _SectionHeader(
@@ -2615,150 +2929,534 @@ class _SettingsPageState extends State<SettingsPage> {
                           ),
                         ),
 
+                        if (showDesktopOnlySections) ...[
+                          _SectionHeader(
+                            key: _sectionKeys[6],
+                            title: l10n.integrations,
+                            scheme: scheme,
+                          ),
+                          _SettingsPanel(
+                            margin: const EdgeInsets.only(bottom: 24),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.stretch,
+                              children: [
+                                _IntegrationsHero(
+                                  approvedCount: _app
+                                      .approvedIntegrationAppApprovals
+                                      .length,
+                                  hintText: l10n.integrationsAppsApprovedHint,
+                                  title: l10n.integrationsAppsApprovedTitle,
+                                ),
+                                Padding(
+                                  padding: const EdgeInsets.fromLTRB(
+                                    16,
+                                    0,
+                                    16,
+                                    16,
+                                  ),
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Row(
+                                        children: [
+                                          Text(
+                                            _t(
+                                              'Conexiones activas',
+                                              'Active connections',
+                                            ),
+                                            style: Theme.of(context)
+                                                .textTheme
+                                                .titleSmall
+                                                ?.copyWith(
+                                                  fontWeight: FontWeight.w700,
+                                                ),
+                                          ),
+                                          const SizedBox(width: 8),
+                                          Text(
+                                            _t(
+                                              'Apps que ya pueden interactuar con Folio',
+                                              'Apps already allowed to interact with Folio',
+                                            ),
+                                            style: Theme.of(context)
+                                                .textTheme
+                                                .bodySmall
+                                                ?.copyWith(
+                                                  color:
+                                                      scheme.onSurfaceVariant,
+                                                ),
+                                          ),
+                                        ],
+                                      ),
+                                      const SizedBox(height: 12),
+                                      if (_app
+                                          .approvedIntegrationAppApprovals
+                                          .isEmpty)
+                                        Container(
+                                          width: double.infinity,
+                                          padding: const EdgeInsets.all(18),
+                                          decoration: BoxDecoration(
+                                            color: scheme.surfaceContainerLow,
+                                            borderRadius: BorderRadius.circular(
+                                              18,
+                                            ),
+                                            border: Border.all(
+                                              color: scheme.outlineVariant
+                                                  .withValues(alpha: 0.45),
+                                            ),
+                                          ),
+                                          child: Row(
+                                            children: [
+                                              Container(
+                                                width: 44,
+                                                height: 44,
+                                                decoration: BoxDecoration(
+                                                  color: scheme.surface,
+                                                  borderRadius:
+                                                      BorderRadius.circular(14),
+                                                ),
+                                                child: Icon(
+                                                  Icons.hub_outlined,
+                                                  color:
+                                                      scheme.onSurfaceVariant,
+                                                ),
+                                              ),
+                                              const SizedBox(width: 12),
+                                              Expanded(
+                                                child: Text(
+                                                  l10n.integrationsAppsApprovedNone,
+                                                  style: Theme.of(context)
+                                                      .textTheme
+                                                      .bodySmall
+                                                      ?.copyWith(
+                                                        color: scheme
+                                                            .onSurfaceVariant,
+                                                        height: 1.35,
+                                                      ),
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        )
+                                      else
+                                        Wrap(
+                                          spacing: 12,
+                                          runSpacing: 12,
+                                          children: _app
+                                              .approvedIntegrationAppApprovals
+                                              .map(
+                                                (entry) => _IntegrationAppCard(
+                                                  entry: entry,
+                                                  detailsText: l10n.integrationsApprovedAppDetails(
+                                                    entry.appId,
+                                                    entry.appVersion.isEmpty
+                                                        ? l10n.integrationApprovalUnknownVersion
+                                                        : entry.appVersion,
+                                                    entry
+                                                            .integrationVersion
+                                                            .isEmpty
+                                                        ? l10n.integrationApprovalUnknownVersion
+                                                        : entry
+                                                              .integrationVersion,
+                                                  ),
+                                                  revokeLabel: l10n
+                                                      .integrationsAppsApprovedRevoke,
+                                                  onRevoke: () =>
+                                                      _revokeIntegrationApp(
+                                                        entry.appId,
+                                                      ),
+                                                ),
+                                              )
+                                              .toList(),
+                                        ),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+
                         _SectionHeader(
-                          key: _sectionKeys[6],
-                          title: l10n.integrations,
+                          key: _sectionKeys[7],
+                          title: _t(
+                            'Sincronizacion entre dispositivos',
+                            'Device synchronization',
+                          ),
                           scheme: scheme,
                         ),
-                        _SettingsPanel(
-                          margin: const EdgeInsets.only(bottom: 24),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.stretch,
-                            children: [
-                              _IntegrationsHero(
-                                approvedCount:
-                                    _app.approvedIntegrationAppApprovals.length,
-                                hintText: l10n.integrationsAppsApprovedHint,
-                                title: l10n.integrationsAppsApprovedTitle,
-                              ),
-                              Padding(
-                                padding: const EdgeInsets.fromLTRB(
-                                  16,
-                                  0,
-                                  16,
-                                  16,
+                        AnimatedBuilder(
+                          animation: _sync,
+                          builder: (context, _) => _SettingsPanel(
+                            margin: const EdgeInsets.only(bottom: 24),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.stretch,
+                              children: [
+                                Padding(
+                                  padding: const EdgeInsets.fromLTRB(
+                                    16,
+                                    16,
+                                    16,
+                                    8,
+                                  ),
+                                  child: Wrap(
+                                    spacing: 8,
+                                    runSpacing: 8,
+                                    children: [
+                                      _SettingsInfoChip(
+                                        icon: Icons.shield_outlined,
+                                        label: _t(
+                                          'Codigo de enlace',
+                                          'Pairing code',
+                                        ),
+                                      ),
+                                      _SettingsInfoChip(
+                                        icon: Icons.search_rounded,
+                                        label: _t(
+                                          'Deteccion automatica',
+                                          'Auto discovery',
+                                        ),
+                                      ),
+                                      _SettingsInfoChip(
+                                        icon: Icons.cloud_outlined,
+                                        label: _t(
+                                          'Relay opcional',
+                                          'Optional relay',
+                                        ),
+                                      ),
+                                    ],
+                                  ),
                                 ),
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Row(
-                                      children: [
-                                        Text(
-                                          _t(
-                                            'Conexiones activas',
-                                            'Active connections',
-                                          ),
-                                          style: Theme.of(context)
-                                              .textTheme
-                                              .titleSmall
-                                              ?.copyWith(
-                                                fontWeight: FontWeight.w700,
-                                              ),
-                                        ),
-                                        const SizedBox(width: 8),
-                                        Text(
-                                          _t(
-                                            'Apps que ya pueden interactuar con Folio',
-                                            'Apps already allowed to interact with Folio',
-                                          ),
-                                          style: Theme.of(context)
-                                              .textTheme
-                                              .bodySmall
-                                              ?.copyWith(
-                                                color: scheme.onSurfaceVariant,
-                                              ),
-                                        ),
-                                      ],
+                                SwitchListTile(
+                                  secondary: const Icon(Icons.sync_rounded),
+                                  title: Text(
+                                    _t(
+                                      'Activar sincronizacion entre dispositivos',
+                                      'Enable device sync',
                                     ),
-                                    const SizedBox(height: 12),
-                                    if (_app
-                                        .approvedIntegrationAppApprovals
-                                        .isEmpty)
-                                      Container(
-                                        width: double.infinity,
-                                        padding: const EdgeInsets.all(18),
-                                        decoration: BoxDecoration(
-                                          color: scheme.surfaceContainerLow,
-                                          borderRadius: BorderRadius.circular(
-                                            18,
+                                  ),
+                                  subtitle: Text(
+                                    _app.syncEnabled
+                                        ? (_sync.discoveredPeers.isEmpty
+                                              ? _t(
+                                                  'Buscando dispositivos con Folio abierto en la red local...',
+                                                  'Searching for nearby devices with Folio open on local network...',
+                                                )
+                                              : _t(
+                                                  '${_sync.discoveredPeers.length} dispositivos detectados en LAN.',
+                                                  '${_sync.discoveredPeers.length} devices discovered on LAN.',
+                                                ))
+                                        : _t(
+                                            'La sincronizacion esta desactivada.',
+                                            'Synchronization is currently disabled.',
                                           ),
-                                          border: Border.all(
-                                            color: scheme.outlineVariant
-                                                .withValues(alpha: 0.45),
+                                  ),
+                                  value: _app.syncEnabled,
+                                  onChanged: _app.setSyncEnabled,
+                                ),
+                                const Divider(height: 1),
+                                SwitchListTile(
+                                  secondary: const Icon(Icons.hub_outlined),
+                                  title: Text(
+                                    _t(
+                                      'Usar relay de senalizacion',
+                                      'Use signaling relay',
+                                    ),
+                                  ),
+                                  subtitle: Text(
+                                    _t(
+                                      'No envia contenido del vault, solo ayuda a negociar la conexion si la LAN falla.',
+                                      'Does not send vault content, only helps negotiate connectivity when LAN fails.',
+                                    ),
+                                  ),
+                                  value: _app.syncRelayEnabled,
+                                  onChanged: _app.syncEnabled
+                                      ? _app.setSyncRelayEnabled
+                                      : null,
+                                ),
+                                const Divider(height: 1),
+                                ListTile(
+                                  leading: const Icon(Icons.devices_outlined),
+                                  title: Text(
+                                    _t('Nombre del dispositivo', 'Device name'),
+                                  ),
+                                  subtitle: Text(_app.syncDeviceName),
+                                  trailing: TextButton(
+                                    onPressed: _editSyncDeviceName,
+                                    child: Text(_t('Editar', 'Edit')),
+                                  ),
+                                ),
+                                const Divider(height: 1),
+                                ListTile(
+                                  leading: const Icon(Icons.pin_outlined),
+                                  title: Text(
+                                    _t(
+                                      'Activar modo vinculacion por emojis',
+                                      'Enable emoji pairing mode',
+                                    ),
+                                  ),
+                                  subtitle: Text(
+                                    _t(
+                                      'Activalo en ambos dispositivos para iniciar el proceso de vinculacion sin escribir codigos.',
+                                      'Enable it on both devices to start pairing without typing codes.',
+                                    ),
+                                  ),
+                                  onTap: _app.syncEnabled
+                                      ? _activateEmojiPairingMode
+                                      : null,
+                                ),
+                                const Divider(height: 1),
+                                ListTile(
+                                  leading: const Icon(
+                                    Icons.emoji_emotions_outlined,
+                                  ),
+                                  title: Text(
+                                    _t(
+                                      'Estado del modo vinculacion',
+                                      'Pairing mode status',
+                                    ),
+                                  ),
+                                  subtitle: Text(
+                                    _sync.isPairingModeActive
+                                        ? _t(
+                                            'Activo durante 2 minutos. Ya puedes iniciar la vinculacion desde un dispositivo detectado.',
+                                            'Active for 2 minutes. You can now start pairing from a detected device.',
+                                          )
+                                        : _t(
+                                            'Inactivo. Activalo aqui y en el otro dispositivo para empezar a vincular.',
+                                            'Inactive. Enable it here and on the other device to start pairing.',
                                           ),
+                                  ),
+                                ),
+                                const Divider(height: 1),
+                                ListTile(
+                                  leading: const Icon(Icons.history_toggle_off),
+                                  title: Text(
+                                    _t(
+                                      'Ultima sincronizacion',
+                                      'Last synchronization',
+                                    ),
+                                  ),
+                                  subtitle: Text(_formatLastSyncLabel()),
+                                ),
+                                const Divider(height: 1),
+                                ListTile(
+                                  leading: const Icon(
+                                    Icons.warning_amber_rounded,
+                                  ),
+                                  title: Text(
+                                    _t(
+                                      'Conflictos pendientes',
+                                      'Pending conflicts',
+                                    ),
+                                  ),
+                                  subtitle: Text(
+                                    _app.syncPendingConflicts <= 0
+                                        ? _t(
+                                            'Sin conflictos pendientes.',
+                                            'No pending conflicts.',
+                                          )
+                                        : _t(
+                                            '${_app.syncPendingConflicts} conflictos requieren revision manual.',
+                                            '${_app.syncPendingConflicts} conflicts require manual review.',
+                                          ),
+                                  ),
+                                  trailing: _app.syncPendingConflicts > 0
+                                      ? TextButton(
+                                          onPressed: _showSyncConflictsDialog,
+                                          child: Text(
+                                            _t('Resolver', 'Resolve'),
+                                          ),
+                                        )
+                                      : null,
+                                  onTap: _app.syncPendingConflicts > 0
+                                      ? _showSyncConflictsDialog
+                                      : null,
+                                ),
+                                const Divider(height: 1),
+                                Padding(
+                                  padding: const EdgeInsets.fromLTRB(
+                                    16,
+                                    12,
+                                    16,
+                                    6,
+                                  ),
+                                  child: Text(
+                                    _t(
+                                      'Dispositivos detectados',
+                                      'Discovered devices',
+                                    ),
+                                    style: Theme.of(context)
+                                        .textTheme
+                                        .titleSmall
+                                        ?.copyWith(fontWeight: FontWeight.w700),
+                                  ),
+                                ),
+                                Padding(
+                                  padding: const EdgeInsets.fromLTRB(
+                                    16,
+                                    0,
+                                    16,
+                                    10,
+                                  ),
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.stretch,
+                                    children: [
+                                      if (_sync.discoveredPeers.isEmpty)
+                                        Text(
+                                          _t(
+                                            'No se detectaron dispositivos todavia. Asegura que ambas apps esten abiertas en la misma red.',
+                                            'No devices detected yet. Make sure both apps are open on the same network.',
+                                          ),
+                                          style: Theme.of(
+                                            context,
+                                          ).textTheme.bodySmall,
+                                        )
+                                      else
+                                        ..._sync.discoveredPeers.map((peer) {
+                                          final hasActiveCode =
+                                              (peer.pairingCode ?? '')
+                                                  .trim()
+                                                  .isNotEmpty;
+                                          final pairingReady =
+                                              _sync.isPairingModeActive &&
+                                              hasActiveCode;
+                                          final subtitle = pairingReady
+                                              ? _t(
+                                                  'Listo para vincular.',
+                                                  'Ready to link.',
+                                                )
+                                              : hasActiveCode
+                                              ? _t(
+                                                  'El otro dispositivo esta en modo vinculacion. Activalo aqui para iniciar el enlace.',
+                                                  'The other device is in pairing mode. Enable it here to start linking.',
+                                                )
+                                              : _t(
+                                                  'Detectado en la red local.',
+                                                  'Detected on the local network.',
+                                                );
+                                          return Container(
+                                            margin: const EdgeInsets.only(
+                                              bottom: 8,
+                                            ),
+                                            decoration: BoxDecoration(
+                                              color: scheme.surfaceContainerLow,
+                                              borderRadius:
+                                                  BorderRadius.circular(14),
+                                              border: Border.all(
+                                                color: scheme.outlineVariant
+                                                    .withValues(alpha: 0.5),
+                                              ),
+                                            ),
+                                            child: ListTile(
+                                              dense: true,
+                                              leading: const Icon(
+                                                Icons.wifi_tethering,
+                                              ),
+                                              title: Text(peer.deviceName),
+                                              subtitle: Text(subtitle),
+                                              trailing: FilledButton.tonal(
+                                                onPressed:
+                                                    _app.syncEnabled &&
+                                                        pairingReady
+                                                    ? () =>
+                                                          _submitPairingCodeDialog(
+                                                            peer: peer,
+                                                          )
+                                                    : null,
+                                                child: Text(
+                                                  _t('Vincular', 'Link'),
+                                                ),
+                                              ),
+                                            ),
+                                          );
+                                        }),
+                                    ],
+                                  ),
+                                ),
+                                const Divider(height: 1),
+                                Padding(
+                                  padding: const EdgeInsets.fromLTRB(
+                                    16,
+                                    12,
+                                    16,
+                                    16,
+                                  ),
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        _t(
+                                          'Dispositivos vinculados',
+                                          'Linked devices',
                                         ),
-                                        child: Row(
-                                          children: [
-                                            Container(
-                                              width: 44,
-                                              height: 44,
+                                        style: Theme.of(context)
+                                            .textTheme
+                                            .titleSmall
+                                            ?.copyWith(
+                                              fontWeight: FontWeight.w700,
+                                            ),
+                                      ),
+                                      const SizedBox(height: 10),
+                                      if (_sync.peers.isEmpty)
+                                        Text(
+                                          _t(
+                                            'Aun no hay dispositivos enlazados.',
+                                            'No linked devices yet.',
+                                          ),
+                                          style: Theme.of(
+                                            context,
+                                          ).textTheme.bodySmall,
+                                        )
+                                      else
+                                        ..._sync.peers.map((peer) {
+                                          return Padding(
+                                            padding: const EdgeInsets.only(
+                                              bottom: 8,
+                                            ),
+                                            child: Container(
                                               decoration: BoxDecoration(
-                                                color: scheme.surface,
+                                                color:
+                                                    scheme.surfaceContainerLow,
                                                 borderRadius:
                                                     BorderRadius.circular(14),
-                                              ),
-                                              child: Icon(
-                                                Icons.hub_outlined,
-                                                color: scheme.onSurfaceVariant,
-                                              ),
-                                            ),
-                                            const SizedBox(width: 12),
-                                            Expanded(
-                                              child: Text(
-                                                l10n.integrationsAppsApprovedNone,
-                                                style: Theme.of(context)
-                                                    .textTheme
-                                                    .bodySmall
-                                                    ?.copyWith(
-                                                      color: scheme
-                                                          .onSurfaceVariant,
-                                                      height: 1.35,
-                                                    ),
-                                              ),
-                                            ),
-                                          ],
-                                        ),
-                                      )
-                                    else
-                                      Wrap(
-                                        spacing: 12,
-                                        runSpacing: 12,
-                                        children: _app
-                                            .approvedIntegrationAppApprovals
-                                            .map(
-                                              (entry) => _IntegrationAppCard(
-                                                entry: entry,
-                                                detailsText: l10n.integrationsApprovedAppDetails(
-                                                  entry.appId,
-                                                  entry.appVersion.isEmpty
-                                                      ? l10n.integrationApprovalUnknownVersion
-                                                      : entry.appVersion,
-                                                  entry
-                                                          .integrationVersion
-                                                          .isEmpty
-                                                      ? l10n.integrationApprovalUnknownVersion
-                                                      : entry
-                                                            .integrationVersion,
+                                                border: Border.all(
+                                                  color: scheme.outlineVariant
+                                                      .withValues(alpha: 0.5),
                                                 ),
-                                                revokeLabel: l10n
-                                                    .integrationsAppsApprovedRevoke,
-                                                onRevoke: () =>
-                                                    _revokeIntegrationApp(
-                                                      entry.appId,
-                                                    ),
                                               ),
-                                            )
-                                            .toList(),
-                                      ),
-                                  ],
+                                              child: ListTile(
+                                                dense: true,
+                                                leading: const Icon(
+                                                  Icons.devices,
+                                                ),
+                                                title: Text(peer.deviceName),
+                                                subtitle: Text(
+                                                  '${_t('ID', 'ID')}: ${peer.peerId}',
+                                                ),
+                                                trailing: TextButton(
+                                                  onPressed: () =>
+                                                      _revokeSyncPeer(peer),
+                                                  child: Text(
+                                                    _t('Revocar', 'Revoke'),
+                                                  ),
+                                                ),
+                                              ),
+                                            ),
+                                          );
+                                        }),
+                                    ],
+                                  ),
                                 ),
-                              ),
-                            ],
+                              ],
+                            ),
                           ),
                         ),
 
                         _SectionHeader(
-                          key: _sectionKeys[7],
+                          key: _sectionKeys[8],
                           title: l10n.about,
                           scheme: scheme,
                         ),
@@ -2771,98 +3469,100 @@ class _SettingsPageState extends State<SettingsPage> {
                                 title: Text(l10n.installedVersion),
                                 subtitle: Text(_installedVersionLabel),
                               ),
-                              const Divider(height: 1),
-                              ListTile(
-                                leading: const Icon(Icons.cloud_outlined),
-                                title: Text(l10n.updaterGithubRepository),
-                                subtitle: Text(
-                                  '${_app.updaterGithubOwner}/${_app.updaterGithubRepo}',
+                              if (showDesktopOnlySections) ...[
+                                const Divider(height: 1),
+                                ListTile(
+                                  leading: const Icon(Icons.cloud_outlined),
+                                  title: Text(l10n.updaterGithubRepository),
+                                  subtitle: Text(
+                                    '${_app.updaterGithubOwner}/${_app.updaterGithubRepo}',
+                                  ),
                                 ),
-                              ),
-                              const Divider(height: 1),
-                              Padding(
-                                padding: const EdgeInsets.fromLTRB(
-                                  16,
-                                  8,
-                                  16,
-                                  8,
-                                ),
-                                child: Column(
-                                  crossAxisAlignment:
-                                      CrossAxisAlignment.stretch,
-                                  children: [
-                                    Text(
-                                      'Canal',
-                                      style: Theme.of(
-                                        context,
-                                      ).textTheme.titleSmall,
-                                    ),
-                                    const SizedBox(height: 8),
-                                    SegmentedButton<UpdateReleaseChannel>(
-                                      segments: const [
-                                        ButtonSegment<UpdateReleaseChannel>(
-                                          value: UpdateReleaseChannel.stable,
-                                          label: Text('Release'),
-                                          icon: Icon(
-                                            Icons.verified_outlined,
-                                            size: 18,
+                                const Divider(height: 1),
+                                Padding(
+                                  padding: const EdgeInsets.fromLTRB(
+                                    16,
+                                    8,
+                                    16,
+                                    8,
+                                  ),
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.stretch,
+                                    children: [
+                                      Text(
+                                        'Canal',
+                                        style: Theme.of(
+                                          context,
+                                        ).textTheme.titleSmall,
+                                      ),
+                                      const SizedBox(height: 8),
+                                      SegmentedButton<UpdateReleaseChannel>(
+                                        segments: const [
+                                          ButtonSegment<UpdateReleaseChannel>(
+                                            value: UpdateReleaseChannel.stable,
+                                            label: Text('Release'),
+                                            icon: Icon(
+                                              Icons.verified_outlined,
+                                              size: 18,
+                                            ),
                                           ),
-                                        ),
-                                        ButtonSegment<UpdateReleaseChannel>(
-                                          value: UpdateReleaseChannel.beta,
-                                          label: Text('Beta'),
-                                          icon: Icon(
-                                            Icons.science_outlined,
-                                            size: 18,
+                                          ButtonSegment<UpdateReleaseChannel>(
+                                            value: UpdateReleaseChannel.beta,
+                                            label: Text('Beta'),
+                                            icon: Icon(
+                                              Icons.science_outlined,
+                                              size: 18,
+                                            ),
                                           ),
-                                        ),
-                                      ],
-                                      selected: {_app.updateReleaseChannel},
-                                      onSelectionChanged: (s) {
-                                        _app.setUpdateReleaseChannel(s.first);
-                                      },
-                                    ),
-                                    const SizedBox(height: 8),
-                                    Text(
-                                      _app.updateReleaseChannel ==
-                                              UpdateReleaseChannel.beta
-                                          ? l10n.updaterBetaDescription
-                                          : l10n.updaterStableDescription,
-                                      style: Theme.of(context)
-                                          .textTheme
-                                          .bodySmall
-                                          ?.copyWith(
-                                            color: scheme.onSurfaceVariant,
+                                        ],
+                                        selected: {_app.updateReleaseChannel},
+                                        onSelectionChanged: (s) {
+                                          _app.setUpdateReleaseChannel(s.first);
+                                        },
+                                      ),
+                                      const SizedBox(height: 8),
+                                      Text(
+                                        _app.updateReleaseChannel ==
+                                                UpdateReleaseChannel.beta
+                                            ? l10n.updaterBetaDescription
+                                            : l10n.updaterStableDescription,
+                                        style: Theme.of(context)
+                                            .textTheme
+                                            .bodySmall
+                                            ?.copyWith(
+                                              color: scheme.onSurfaceVariant,
+                                            ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                const Divider(height: 1),
+                                ListTile(
+                                  leading: const Icon(
+                                    Icons.system_update_rounded,
+                                  ),
+                                  title: Text(l10n.checkUpdates),
+                                  trailing: _checkingUpdates
+                                      ? const SizedBox(
+                                          height: 20,
+                                          width: 20,
+                                          child: CircularProgressIndicator(
+                                            strokeWidth: 2,
                                           ),
-                                    ),
-                                  ],
+                                        )
+                                      : null,
+                                  onTap: _checkingUpdates
+                                      ? null
+                                      : _checkUpdatesNow,
                                 ),
-                              ),
-                              const Divider(height: 1),
-                              ListTile(
-                                leading: const Icon(
-                                  Icons.system_update_rounded,
-                                ),
-                                title: Text(l10n.checkUpdates),
-                                trailing: _checkingUpdates
-                                    ? const SizedBox(
-                                        height: 20,
-                                        width: 20,
-                                        child: CircularProgressIndicator(
-                                          strokeWidth: 2,
-                                        ),
-                                      )
-                                    : null,
-                                onTap: _checkingUpdates
-                                    ? null
-                                    : _checkUpdatesNow,
-                              ),
+                              ],
                             ],
                           ),
                         ),
 
                         _SectionHeader(
-                          key: _sectionKeys[8],
+                          key: _sectionKeys[9],
                           title: l10n.data,
                           scheme: scheme,
                         ),

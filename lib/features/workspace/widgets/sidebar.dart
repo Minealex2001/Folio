@@ -21,6 +21,7 @@ class Sidebar extends StatefulWidget {
     required this.session,
     required this.appSettings,
     this.onSearch,
+    this.onForceSync,
     this.onOpenSettings,
     this.onLock,
   });
@@ -28,6 +29,7 @@ class Sidebar extends StatefulWidget {
   final VaultSession session;
   final AppSettings appSettings;
   final VoidCallback? onSearch;
+  final VoidCallback? onForceSync;
   final VoidCallback? onOpenSettings;
   final VoidCallback? onLock;
 
@@ -920,8 +922,8 @@ class _SidebarState extends State<Sidebar> {
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
     final showDeskTools =
-        widget.onSearch != null &&
-        widget.onOpenSettings != null &&
+        widget.onSearch != null ||
+        widget.onForceSync != null ||
         widget.onLock != null;
     final scheme = Theme.of(context).colorScheme;
     return Column(
@@ -944,24 +946,29 @@ class _SidebarState extends State<Sidebar> {
               ),
               child: Row(
                 children: [
-                  Expanded(
-                    child: FilledButton.tonalIcon(
-                      onPressed: widget.onSearch,
-                      icon: const Icon(Icons.search_rounded),
-                      label: Text(l10n.search),
+                  if (widget.onSearch != null)
+                    Expanded(
+                      child: FilledButton.tonalIcon(
+                        onPressed: widget.onSearch,
+                        icon: const Icon(Icons.search_rounded),
+                        label: Text(l10n.search),
+                      ),
                     ),
-                  ),
-                  const SizedBox(width: FolioSpace.xs),
-                  IconButton(
-                    tooltip: l10n.settings,
-                    icon: const Icon(Icons.settings_rounded),
-                    onPressed: widget.onOpenSettings,
-                  ),
-                  IconButton(
-                    tooltip: l10n.lockNow,
-                    icon: const Icon(Icons.lock_outline_rounded),
-                    onPressed: widget.onLock,
-                  ),
+                  if (widget.onSearch != null &&
+                      (widget.onForceSync != null || widget.onLock != null))
+                    const SizedBox(width: FolioSpace.xs),
+                  if (widget.onForceSync != null)
+                    IconButton(
+                      tooltip: _t('Forzar sincronizacion', 'Force sync'),
+                      icon: const Icon(Icons.sync_rounded),
+                      onPressed: widget.onForceSync,
+                    ),
+                  if (widget.onLock != null)
+                    IconButton(
+                      tooltip: l10n.lockNow,
+                      icon: const Icon(Icons.lock_outline_rounded),
+                      onPressed: widget.onLock,
+                    ),
                 ],
               ),
             ),
@@ -1031,6 +1038,20 @@ class _SidebarState extends State<Sidebar> {
             ),
           ),
         ),
+        if (widget.onOpenSettings != null)
+          Padding(
+            padding: const EdgeInsets.fromLTRB(
+              FolioSpace.sm,
+              0,
+              FolioSpace.sm,
+              FolioSpace.sm,
+            ),
+            child: FilledButton.tonalIcon(
+              onPressed: widget.onOpenSettings,
+              icon: const Icon(Icons.settings_rounded),
+              label: Text(l10n.settings),
+            ),
+          ),
       ],
     );
   }

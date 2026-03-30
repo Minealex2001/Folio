@@ -10,6 +10,8 @@ class WorkspaceEditorSurface extends StatelessWidget {
   const WorkspaceEditorSurface({
     super.key,
     required this.compact,
+    required this.mobileOptimized,
+    required this.readOnlyMode,
     required this.page,
     required this.pagePath,
     required this.titleController,
@@ -21,6 +23,8 @@ class WorkspaceEditorSurface extends StatelessWidget {
   });
 
   final bool compact;
+  final bool mobileOptimized;
+  final bool readOnlyMode;
   final FolioPage? page;
   final List<String> pagePath;
   final TextEditingController titleController;
@@ -34,21 +38,37 @@ class WorkspaceEditorSurface extends StatelessWidget {
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     final theme = Theme.of(context);
+    final outerPadding = mobileOptimized
+        ? EdgeInsets.zero
+        : EdgeInsets.fromLTRB(
+            compact ? 0 : FolioSpace.md,
+            0,
+            compact ? 0 : FolioSpace.md,
+            compact ? 0 : FolioSpace.md,
+          );
+    final contentPadding = mobileOptimized
+        ? const EdgeInsets.fromLTRB(
+            FolioSpace.md,
+            FolioSpace.sm,
+            FolioSpace.md,
+            FolioSpace.xs,
+          )
+        : const EdgeInsets.fromLTRB(
+            FolioSpace.xl,
+            FolioSpace.md,
+            FolioSpace.xl,
+            FolioSpace.sm,
+          );
     return Padding(
-      padding: EdgeInsets.fromLTRB(
-        compact ? 0 : FolioSpace.md,
-        0,
-        compact ? 0 : FolioSpace.md,
-        compact ? 0 : FolioSpace.md,
-      ),
+      padding: outerPadding,
       child: AnimatedContainer(
         duration: FolioMotion.medium1,
         curve: FolioMotion.emphasized,
         child: Material(
           color: scheme.surface,
-          elevation: compact ? FolioElevation.none : 2,
+          elevation: compact || mobileOptimized ? FolioElevation.none : 2,
           shadowColor: scheme.shadow.withValues(alpha: FolioAlpha.faint),
-          borderRadius: compact
+          borderRadius: compact || mobileOptimized
               ? BorderRadius.zero
               : BorderRadius.circular(FolioRadius.lg),
           clipBehavior: Clip.antiAlias,
@@ -72,46 +92,78 @@ class WorkspaceEditorSurface extends StatelessWidget {
                   )
                 : Padding(
                     key: ValueKey('workspace_page_${page!.id}'),
-                    padding: const EdgeInsets.fromLTRB(
-                      FolioSpace.xl,
-                      FolioSpace.md,
-                      FolioSpace.xl,
-                      FolioSpace.sm,
-                    ),
+                    padding: contentPadding,
                     child: Align(
                       alignment: Alignment.topCenter,
                       child: ConstrainedBox(
                         constraints: BoxConstraints(
-                          maxWidth: compact ? double.infinity : editorMaxWidth,
+                          maxWidth: compact || mobileOptimized
+                              ? double.infinity
+                              : editorMaxWidth,
                         ),
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.stretch,
                           children: [
                             if (pagePath.isNotEmpty)
-                              _PagePathRow(pathSegments: pagePath),
+                              _PagePathRow(
+                                pathSegments: pagePath,
+                                compact: mobileOptimized,
+                              ),
                             if (pagePath.isNotEmpty)
                               const SizedBox(height: FolioSpace.xs),
-                            TextField(
-                              controller: titleController,
-                              minLines: 1,
-                              maxLines: 3,
-                              keyboardType: TextInputType.multiline,
-                              style: theme.textTheme.headlineSmall?.copyWith(
-                                fontWeight: FontWeight.w600,
-                                color: scheme.onSurface,
-                              ),
-                              decoration: InputDecoration(
-                                border: InputBorder.none,
-                                filled: false,
-                                hintText: AppLocalizations.of(context).untitled,
-                                hintStyle: TextStyle(
-                                  color: scheme.onSurfaceVariant.withValues(
-                                    alpha: FolioAlpha.emphasis,
+                            if (readOnlyMode)
+                              Padding(
+                                padding: EdgeInsets.symmetric(
+                                  vertical: mobileOptimized ? 6 : 0,
+                                ),
+                                child: Text(
+                                  titleController.text.trim().isEmpty
+                                      ? AppLocalizations.of(context).untitled
+                                      : titleController.text,
+                                  maxLines: 3,
+                                  overflow: TextOverflow.ellipsis,
+                                  style:
+                                      (mobileOptimized
+                                              ? theme.textTheme.headlineMedium
+                                              : theme.textTheme.headlineSmall)
+                                          ?.copyWith(
+                                            fontWeight: FontWeight.w600,
+                                            color: scheme.onSurface,
+                                          ),
+                                ),
+                              )
+                            else
+                              TextField(
+                                controller: titleController,
+                                minLines: 1,
+                                maxLines: 3,
+                                keyboardType: TextInputType.multiline,
+                                style:
+                                    (mobileOptimized
+                                            ? theme.textTheme.headlineMedium
+                                            : theme.textTheme.headlineSmall)
+                                        ?.copyWith(
+                                          fontWeight: FontWeight.w600,
+                                          color: scheme.onSurface,
+                                        ),
+                                decoration: InputDecoration(
+                                  border: InputBorder.none,
+                                  filled: false,
+                                  isDense: mobileOptimized,
+                                  contentPadding: mobileOptimized
+                                      ? const EdgeInsets.symmetric(vertical: 6)
+                                      : null,
+                                  hintText: AppLocalizations.of(
+                                    context,
+                                  ).untitled,
+                                  hintStyle: TextStyle(
+                                    color: scheme.onSurfaceVariant.withValues(
+                                      alpha: FolioAlpha.emphasis,
+                                    ),
                                   ),
                                 ),
+                                onChanged: onTitleChanged,
                               ),
-                              onChanged: onTitleChanged,
-                            ),
                             const SizedBox(height: FolioSpace.xs),
                             Expanded(child: editor),
                           ],
@@ -338,16 +390,17 @@ class _WorkspaceEmptyStateState extends State<_WorkspaceEmptyState>
 }
 
 class _PagePathRow extends StatelessWidget {
-  const _PagePathRow({required this.pathSegments});
+  const _PagePathRow({required this.pathSegments, required this.compact});
 
   final List<String> pathSegments;
+  final bool compact;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
     return SizedBox(
-      height: 24,
+      height: compact ? 20 : 24,
       child: ListView.separated(
         scrollDirection: Axis.horizontal,
         itemCount: pathSegments.length,
@@ -368,6 +421,7 @@ class _PagePathRow extends StatelessWidget {
             overflow: TextOverflow.ellipsis,
             style: theme.textTheme.labelMedium?.copyWith(
               color: scheme.onSurfaceVariant,
+              fontSize: compact ? 11 : null,
               fontWeight: index == pathSegments.length - 1
                   ? FontWeight.w700
                   : FontWeight.w500,

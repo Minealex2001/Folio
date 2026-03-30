@@ -162,10 +162,12 @@ class BlockEditor extends StatefulWidget {
     super.key,
     required this.session,
     required this.appSettings,
+    this.readOnlyMode = false,
   });
 
   final VaultSession session;
   final AppSettings appSettings;
+  final bool readOnlyMode;
 
   @override
   State<BlockEditor> createState() => _BlockEditorState();
@@ -215,6 +217,7 @@ class _BlockEditorState extends State<BlockEditor> {
   final Map<String, bool> _tailTapTransientTouchedByBlockId = {};
 
   VaultSession get _s => widget.session;
+  bool get readOnlyMode => widget.readOnlyMode;
 
   static final RegExp _imageUrlExt = RegExp(
     r'\.(png|jpe?g|gif|webp|bmp|svg)(\?.*)?$',
@@ -1886,6 +1889,11 @@ class _BlockEditorState extends State<BlockEditor> {
 
   /// En escritorio `image_picker` suele lanzar [MissingPluginException]; ahí usamos diálogo nativo.
   bool get _pickImageViaFileDialog {
+    if (FolioAdaptive.isAndroidDesktopLikeWidth(
+      MediaQuery.sizeOf(context).width,
+    )) {
+      return true;
+    }
     return switch (defaultTargetPlatform) {
       TargetPlatform.windows ||
       TargetPlatform.linux ||
@@ -2828,6 +2836,10 @@ class _BlockEditorState extends State<BlockEditor> {
     }
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
+    final androidPhoneLayout = FolioAdaptive.isAndroidPhoneWidth(
+      MediaQuery.sizeOf(context).width,
+    );
+    final readOnlyMode = widget.readOnlyMode;
     final selectedCount = _selectedBlockIds.length;
     final enterHint = widget.appSettings.enterCreatesNewBlock
         ? 'Enter: bloque nuevo (en código: Enter = línea)'
@@ -2841,15 +2853,23 @@ class _BlockEditorState extends State<BlockEditor> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(12, 0, 12, 10),
-            child: Text(
-              '$enterHint · Shift+Enter: línea · / tipos · # título (misma línea) · - · * · [] · ``` espacio · tabla/imagen en / · formato: barra al enfocar o ** _ <u> ` ~~',
-              textAlign: TextAlign.center,
-              style: mono,
+          if (!readOnlyMode)
+            Padding(
+              padding: EdgeInsets.fromLTRB(
+                androidPhoneLayout ? 14 : 12,
+                0,
+                androidPhoneLayout ? 14 : 12,
+                androidPhoneLayout ? 8 : 10,
+              ),
+              child: Text(
+                androidPhoneLayout
+                    ? '$enterHint · / para bloques · toca el bloque para más acciones'
+                    : '$enterHint · Shift+Enter: línea · / tipos · # título (misma línea) · - · * · [] · ``` espacio · tabla/imagen en / · formato: barra al enfocar o ** _ <u> ` ~~',
+                textAlign: TextAlign.center,
+                style: mono,
+              ),
             ),
-          ),
-          if (selectedCount > 1)
+          if (!readOnlyMode && selectedCount > 1)
             Padding(
               padding: const EdgeInsets.fromLTRB(12, 0, 12, 10),
               child: Container(
@@ -2864,9 +2884,13 @@ class _BlockEditorState extends State<BlockEditor> {
                     color: scheme.primary.withValues(alpha: 0.24),
                   ),
                 ),
-                child: Row(
+                child: Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  crossAxisAlignment: WrapCrossAlignment.center,
                   children: [
-                    Expanded(
+                    SizedBox(
+                      width: androidPhoneLayout ? double.infinity : null,
                       child: Text(
                         '$selectedCount bloques seleccionados · Shift: rango · Ctrl/Cmd: alternar',
                         style: theme.textTheme.bodyMedium?.copyWith(
@@ -2908,7 +2932,9 @@ class _BlockEditorState extends State<BlockEditor> {
               onPointerCancel: (_) => _endDragSelection(),
               child: GestureDetector(
                 behavior: HitTestBehavior.translucent,
-                onTapDown: (details) => _handleTailBlankTap(details, page),
+                onTapDown: readOnlyMode
+                    ? null
+                    : (details) => _handleTailBlankTap(details, page),
                 child: Theme(
                   data: theme.copyWith(
                     inputDecorationTheme: const InputDecorationTheme(
@@ -2923,7 +2949,16 @@ class _BlockEditorState extends State<BlockEditor> {
                   ),
                   child: ReorderableListView.builder(
                     scrollController: _blockListScrollController,
-                    padding: const EdgeInsets.fromLTRB(10, 0, 10, 24),
+                    padding: EdgeInsets.fromLTRB(
+                      androidPhoneLayout
+                          ? (readOnlyMode ? 6 : 12)
+                          : 10,
+                      0,
+                      androidPhoneLayout
+                          ? (readOnlyMode ? 6 : 12)
+                          : 10,
+                      androidPhoneLayout ? 112 : 24,
+                    ),
                     buildDefaultDragHandles: false,
                     itemCount: page.blocks.length,
                     onReorder: (oldIndex, newIndex) =>
@@ -2935,14 +2970,17 @@ class _BlockEditorState extends State<BlockEditor> {
                       final style = _styleFor(b.type, theme.textTheme);
                       final selected = _isBlockSelected(b.id);
                       final showActions =
-                          _hoveredBlockIndex == index ||
-                          selected ||
-                          focus.hasFocus ||
-                          _menuOpenBlockId == b.id ||
-                          MediaQuery.sizeOf(context).width < 900;
+                          !readOnlyMode &&
+                          (_hoveredBlockIndex == index ||
+                              selected ||
+                              focus.hasFocus ||
+                              _menuOpenBlockId == b.id ||
+                              (!androidPhoneLayout &&
+                                  MediaQuery.sizeOf(context).width < 900));
                       final showInlineEditControls =
-                          (selected && _selectedBlockIds.length == 1) ||
-                          focus.hasFocus;
+                          !readOnlyMode &&
+                          ((selected && _selectedBlockIds.length == 1) ||
+                              focus.hasFocus);
 
                       return KeyedSubtree(
                         key: ValueKey(b.id),
@@ -2953,6 +2991,7 @@ class _BlockEditorState extends State<BlockEditor> {
                           ),
                           child: Listener(
                             onPointerDown: (event) {
+                              if (readOnlyMode) return;
                               if ((event.buttons & kPrimaryButton) == 0) return;
                               _beginDragSelection(page, b.id, focusNode: focus);
                             },
@@ -2971,7 +3010,9 @@ class _BlockEditorState extends State<BlockEditor> {
                               child: AnimatedContainer(
                                 duration: const Duration(milliseconds: 120),
                                 curve: Curves.easeOut,
-                                margin: const EdgeInsets.only(bottom: 1),
+                                margin: EdgeInsets.only(
+                                  bottom: androidPhoneLayout ? 6 : 1,
+                                ),
                                 decoration: BoxDecoration(
                                   color: _blockRowFill(
                                     scheme,
@@ -2979,7 +3020,9 @@ class _BlockEditorState extends State<BlockEditor> {
                                     focus,
                                     selected,
                                   ),
-                                  borderRadius: BorderRadius.circular(6),
+                                  borderRadius: BorderRadius.circular(
+                                    androidPhoneLayout ? 14 : 6,
+                                  ),
                                 ),
                                 child: _buildBlockRow(
                                   context: context,
@@ -3016,6 +3059,9 @@ class _BlockEditorState extends State<BlockEditor> {
     required FolioBlock b,
     required int index,
   }) {
+    final androidPhoneLayout = FolioAdaptive.isAndroidPhoneWidth(
+      MediaQuery.sizeOf(context).width,
+    );
     PopupMenuItem<String> item(
       BuildContext ctx, {
       required String value,
@@ -3040,10 +3086,20 @@ class _BlockEditorState extends State<BlockEditor> {
       icon: Semantics(
         button: true,
         label: AppLocalizations.of(context).blockOptions,
-        child: Icon(Icons.more_vert_rounded, size: 22),
+        child: Icon(
+          Icons.more_vert_rounded,
+          size: androidPhoneLayout ? 20 : 22,
+        ),
       ),
       tooltip: AppLocalizations.of(context).blockOptions,
-      style: IconButton.styleFrom(visualDensity: VisualDensity.compact),
+      style: IconButton.styleFrom(
+        visualDensity: VisualDensity.compact,
+        padding: androidPhoneLayout ? const EdgeInsets.all(4) : null,
+        minimumSize: androidPhoneLayout ? const Size(28, 28) : null,
+        tapTargetSize: androidPhoneLayout
+            ? MaterialTapTargetSize.shrinkWrap
+            : MaterialTapTargetSize.padded,
+      ),
       onOpened: () => setState(() => _menuOpenBlockId = b.id),
       onCanceled: () {
         if (_menuOpenBlockId == b.id) {
@@ -3646,10 +3702,13 @@ class _BlockEditorState extends State<BlockEditor> {
   }
 
   static const _menuSlotWidth = 40.0;
+  static const _menuSlotWidthPhone = 28.0;
   static const _dragGutterWidth = 22.0;
 
   /// Ancho fijo para viñeta / checkbox / hueco: alinea el texto con Notion.
   static const _markerColumnWidth = 30.0;
+  static const _markerColumnWidthPhone = 22.0;
+  static const _markerEmptyColumnWidthPhone = 6.0;
 
   int _orderedListNumber(List<FolioBlock> blocks, int index) {
     if (index < 0 || index >= blocks.length) return 1;
@@ -3674,8 +3733,14 @@ class _BlockEditorState extends State<BlockEditor> {
     required bool showActions,
     required PopupMenuButton<String> menu,
   }) {
+    final androidPhoneLayout = FolioAdaptive.isAndroidPhoneWidth(
+      MediaQuery.sizeOf(context).width,
+    );
+    final compactReadOnlyMobile = widget.readOnlyMode && androidPhoneLayout;
     return SizedBox(
-      width: _menuSlotWidth,
+      width: compactReadOnlyMobile
+          ? 0
+          : (androidPhoneLayout ? _menuSlotWidthPhone : _menuSlotWidth),
       child: showActions
           ? Align(alignment: Alignment.centerLeft, child: menu)
           : null,
@@ -3695,6 +3760,10 @@ class _BlockEditorState extends State<BlockEditor> {
     required bool showActions,
     required bool showInlineEditControls,
   }) {
+    final androidPhoneLayout = FolioAdaptive.isAndroidPhoneWidth(
+      MediaQuery.sizeOf(context).width,
+    );
+    final compactReadOnlyMobile = widget.readOnlyMode && androidPhoneLayout;
     final menu = _blockMenuButton(
       menuContext: context,
       page: page,
@@ -3703,7 +3772,7 @@ class _BlockEditorState extends State<BlockEditor> {
     );
     final iconColor = scheme.onSurfaceVariant.withValues(alpha: 0.85);
 
-    final dragHandle = showActions
+    final dragHandle = !androidPhoneLayout && showActions
         ? Tooltip(
             message: AppLocalizations.of(context).dragToReorder,
             waitDuration: const Duration(milliseconds: 400),
@@ -3716,13 +3785,20 @@ class _BlockEditorState extends State<BlockEditor> {
               ),
             ),
           )
-        : SizedBox(width: _dragGutterWidth, height: 32);
+        : SizedBox(
+            width: androidPhoneLayout ? 0 : _dragGutterWidth,
+            height: 32,
+          );
 
     Widget marker;
     switch (block.type) {
       case 'todo':
         marker = SizedBox(
-          width: _markerColumnWidth,
+          width: compactReadOnlyMobile
+              ? 20
+              : (androidPhoneLayout
+                    ? _markerColumnWidthPhone
+                    : _markerColumnWidth),
           child: Align(
             alignment: Alignment.centerLeft,
             child: Semantics(
@@ -3734,7 +3810,9 @@ class _BlockEditorState extends State<BlockEditor> {
                   materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
                   visualDensity: VisualDensity.compact,
                   value: block.checked ?? false,
-                  onChanged: (v) {
+                  onChanged: widget.readOnlyMode
+                      ? null
+                      : (v) {
                     if (v != null) {
                       _s.setBlockChecked(page.id, block.id, v);
                     }
@@ -3752,7 +3830,11 @@ class _BlockEditorState extends State<BlockEditor> {
           block,
         );
         marker = SizedBox(
-          width: _markerColumnWidth,
+          width: compactReadOnlyMobile
+              ? 16
+              : (androidPhoneLayout
+                    ? _markerColumnWidthPhone
+                    : _markerColumnWidth),
           child: Align(
             alignment: Alignment.centerLeft,
             child: Padding(
@@ -3770,7 +3852,11 @@ class _BlockEditorState extends State<BlockEditor> {
           block,
         );
         marker = SizedBox(
-          width: _markerColumnWidth,
+          width: compactReadOnlyMobile
+              ? 20
+              : (androidPhoneLayout
+                    ? _markerColumnWidthPhone
+                    : _markerColumnWidth),
           child: Align(
             alignment: Alignment.centerLeft,
             child: Padding(
@@ -3781,7 +3867,13 @@ class _BlockEditorState extends State<BlockEditor> {
         );
         break;
       default:
-        marker = SizedBox(width: _markerColumnWidth);
+        marker = SizedBox(
+          width: compactReadOnlyMobile
+              ? 0
+              : (androidPhoneLayout
+                    ? _markerEmptyColumnWidthPhone
+                    : _markerColumnWidth),
+        );
     }
 
     final theme = Theme.of(context);
@@ -3826,19 +3918,24 @@ class _BlockEditorState extends State<BlockEditor> {
             dragHandle,
             marker,
             Expanded(
-              child: GestureDetector(
-                behavior: HitTestBehavior.opaque,
-                onTap: () {
-                  focus.requestFocus();
-                },
-                child: TableBlockEditor(
-                  json: block.text,
-                  scheme: scheme,
-                  textTheme: theme.textTheme,
-                  firstCellFocusNode: focus,
-                  showToolbar: showInlineEditControls,
-                  onChanged: (enc) =>
-                      _onTableEncoded(page.id, block.id, index, enc),
+              child: IgnorePointer(
+                ignoring: readOnlyMode,
+                child: GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  onTap: readOnlyMode
+                      ? null
+                      : () {
+                          focus.requestFocus();
+                        },
+                  child: TableBlockEditor(
+                    json: block.text,
+                    scheme: scheme,
+                    textTheme: theme.textTheme,
+                    firstCellFocusNode: focus,
+                    showToolbar: showInlineEditControls,
+                    onChanged: (enc) =>
+                        _onTableEncoded(page.id, block.id, index, enc),
+                  ),
                 ),
               ),
             ),
@@ -3857,16 +3954,19 @@ class _BlockEditorState extends State<BlockEditor> {
             dragHandle,
             marker,
             Expanded(
-              child: GestureDetector(
-                behavior: HitTestBehavior.opaque,
-                onTap: () {},
-                child: DatabaseBlockEditor(
-                  json: block.text,
-                  scheme: scheme,
-                  textTheme: theme.textTheme,
-                  controlsVisible: showInlineEditControls,
-                  onChanged: (enc) =>
-                      _onTableEncoded(page.id, block.id, index, enc),
+              child: IgnorePointer(
+                ignoring: readOnlyMode,
+                child: GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  onTap: readOnlyMode ? null : () {},
+                  child: DatabaseBlockEditor(
+                    json: block.text,
+                    scheme: scheme,
+                    textTheme: theme.textTheme,
+                    controlsVisible: showInlineEditControls,
+                    onChanged: (enc) =>
+                        _onTableEncoded(page.id, block.id, index, enc),
+                  ),
                 ),
               ),
             ),
@@ -3912,6 +4012,7 @@ class _BlockEditorState extends State<BlockEditor> {
                           key: ObjectKey(focus),
                           controller: codeCtrl,
                           focusNode: focus,
+                          readOnly: readOnlyMode,
                           minLines: 2,
                           maxLines: null,
                           wrap: true,
@@ -3977,6 +4078,7 @@ class _BlockEditorState extends State<BlockEditor> {
                             key: ObjectKey(focus),
                             controller: codeCtrl,
                             focusNode: focus,
+                            readOnly: readOnlyMode,
                             minLines: 3,
                             maxLines: null,
                             wrap: true,
@@ -4144,6 +4246,7 @@ class _BlockEditorState extends State<BlockEditor> {
                           key: ObjectKey(focus),
                           controller: codeCtrl,
                           focusNode: focus,
+                          readOnly: readOnlyMode,
                           minLines: 3,
                           maxLines: null,
                           wrap: true,
@@ -4389,6 +4492,8 @@ class _BlockEditorState extends State<BlockEditor> {
                                 TextField(
                                   controller: ctrl,
                                   focusNode: focus,
+                                  readOnly: widget.readOnlyMode,
+                                  showCursor: !widget.readOnlyMode,
                                   maxLines: null,
                                   minLines: 1,
                                   style: theme.textTheme.titleSmall,
@@ -4941,36 +5046,38 @@ class _BlockEditorState extends State<BlockEditor> {
                           color: scheme.onSurfaceVariant,
                         ),
                       ),
-                    const SizedBox(height: 8),
-                    Wrap(
-                      spacing: 8,
-                      runSpacing: 4,
-                      children: [
-                        FilledButton.tonal(
-                          onPressed: () {
-                            _s.createChildPageLinkedToBlock(
-                              pageId: page.id,
-                              blockId: block.id,
-                            );
-                            setState(() {});
-                          },
-                          child: const Text('Crear subpágina'),
-                        ),
-                        OutlinedButton(
-                          onPressed: () async {
-                            final picked = await _pickPageForChildBlock(
-                              context,
-                              excludeId: page.id,
-                            );
-                            if (picked != null && mounted) {
-                              _s.updateBlockText(page.id, block.id, picked);
+                    if (!widget.readOnlyMode) ...[
+                      const SizedBox(height: 8),
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 4,
+                        children: [
+                          FilledButton.tonal(
+                            onPressed: () {
+                              _s.createChildPageLinkedToBlock(
+                                pageId: page.id,
+                                blockId: block.id,
+                              );
                               setState(() {});
-                            }
-                          },
-                          child: const Text('Enlazar página…'),
-                        ),
-                      ],
-                    ),
+                            },
+                            child: const Text('Crear subpágina'),
+                          ),
+                          OutlinedButton(
+                            onPressed: () async {
+                              final picked = await _pickPageForChildBlock(
+                                context,
+                                excludeId: page.id,
+                              );
+                              if (picked != null && mounted) {
+                                _s.updateBlockText(page.id, block.id, picked);
+                                setState(() {});
+                              }
+                            },
+                            child: const Text('Enlazar página…'),
+                          ),
+                        ],
+                      ),
+                    ],
                   ],
                 ),
               ),
@@ -5086,6 +5193,7 @@ class _BlockEditorState extends State<BlockEditor> {
     /// Sin previa si solo hay `#`…`######` y espacios (el render no muestra nada útil).
     final showInlinePreview =
         allowsSlash &&
+        !widget.readOnlyMode &&
         !focus.hasFocus &&
         ctrl.text.trim().isNotEmpty &&
         !_isIncompleteAtxHeadingLine(ctrl.text);
@@ -5118,6 +5226,8 @@ class _BlockEditorState extends State<BlockEditor> {
     final field = TextField(
       controller: ctrl,
       focusNode: focus,
+      readOnly: widget.readOnlyMode,
+      showCursor: !widget.readOnlyMode,
       maxLines: null,
       minLines: 1,
       cursorColor: showInlinePreview ? scheme.onSurface : null,
@@ -5166,7 +5276,16 @@ class _BlockEditorState extends State<BlockEditor> {
           )
         : field;
 
-    Widget textContainer = stackedField;
+    final readOnlyMarkdown = FolioMarkdownPreview(
+      data: ctrl.text,
+      styleSheet: mdSheet,
+      onFolioPageLink: _s.selectPage,
+    );
+
+    final blockContent =
+        widget.readOnlyMode && allowsSlash ? readOnlyMarkdown : stackedField;
+
+    Widget textContainer = blockContent;
     if (block.type == 'quote') {
       textContainer = Container(
         padding: EdgeInsets.fromLTRB(
@@ -5184,7 +5303,7 @@ class _BlockEditorState extends State<BlockEditor> {
             left: BorderSide(color: scheme.outlineVariant, width: 4),
           ),
         ),
-        child: stackedField,
+        child: blockContent,
       );
     } else if (block.type == 'callout') {
       final calloutTone = _calloutToneForIcon(block.icon);
@@ -5220,14 +5339,22 @@ class _BlockEditorState extends State<BlockEditor> {
                         vertical: 5,
                       ),
                       child: MouseRegion(
-                        cursor: SystemMouseCursors.click,
+                        cursor: widget.readOnlyMode
+                            ? MouseCursor.defer
+                            : SystemMouseCursors.click,
                         child: GestureDetector(
-                          onTap: () async {
-                            final emoji = await _pickEmoji(context);
-                            if (emoji != null) {
-                              _s.updateBlockIcon(page.id, block.id, emoji);
-                            }
-                          },
+                          onTap: widget.readOnlyMode
+                              ? null
+                              : () async {
+                                  final emoji = await _pickEmoji(context);
+                                  if (emoji != null) {
+                                    _s.updateBlockIcon(
+                                      page.id,
+                                      block.id,
+                                      emoji,
+                                    );
+                                  }
+                                },
                           child: FolioIconTokenView(
                             appSettings: widget.appSettings,
                             token: block.icon,
@@ -5240,8 +5367,11 @@ class _BlockEditorState extends State<BlockEditor> {
                   ),
                   PopupMenuButton<String>(
                     tooltip: 'Tipo de callout',
-                    onSelected: (emoji) =>
-                        _s.updateBlockIcon(page.id, block.id, emoji),
+                    enabled: !widget.readOnlyMode,
+                    onSelected: widget.readOnlyMode
+                        ? null
+                        : (emoji) =>
+                              _s.updateBlockIcon(page.id, block.id, emoji),
                     itemBuilder: (ctx) => const [
                       PopupMenuItem(value: '💡', child: Text('💡 Info')),
                       PopupMenuItem(value: '✅', child: Text('✅ Éxito')),
@@ -5259,7 +5389,7 @@ class _BlockEditorState extends State<BlockEditor> {
                 ],
               ),
             ),
-            Expanded(child: stackedField),
+            Expanded(child: blockContent),
           ],
         ),
       );
@@ -5271,11 +5401,12 @@ class _BlockEditorState extends State<BlockEditor> {
           borderRadius: BorderRadius.circular(12),
           border: Border.all(color: customBackgroundBorder),
         ),
-        child: stackedField,
+        child: blockContent,
       );
     }
 
-    final showFloatingToolbar = allowsSlash && _formatStickyBlockId == block.id;
+    final showFloatingToolbar =
+        !widget.readOnlyMode && allowsSlash && _formatStickyBlockId == block.id;
 
     final editorSlot = Stack(
       clipBehavior: Clip.none,
@@ -5392,7 +5523,12 @@ class _BlockEditorState extends State<BlockEditor> {
     );
 
     return Padding(
-      padding: EdgeInsetsDirectional.fromSTEB(block.depth * 28.0, 2, 4, 2),
+      padding: EdgeInsetsDirectional.fromSTEB(
+        block.depth * (compactReadOnlyMobile ? 16.0 : 28.0),
+        2,
+        compactReadOnlyMobile ? 0 : 4,
+        2,
+      ),
       child: row,
     );
   }
