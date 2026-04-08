@@ -13,7 +13,7 @@ mixin _BlockRowBuild on State<BlockEditor> {
     required bool showActions,
     required bool showInlineEditControls,
   }) {
-    final st = this as _BlockEditorState;
+    final st = this as BlockEditorState;
     final androidPhoneLayout = FolioAdaptive.isAndroidPhoneWidth(
       MediaQuery.sizeOf(context).width,
     );
@@ -40,7 +40,7 @@ mixin _BlockRowBuild on State<BlockEditor> {
             ),
           )
         : SizedBox(
-            width: androidPhoneLayout ? 0 : _BlockEditorState._dragGutterWidth,
+            width: androidPhoneLayout ? 0 : BlockEditorState._dragGutterWidth,
             height: 32,
           );
 

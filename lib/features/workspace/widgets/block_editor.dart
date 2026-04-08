@@ -42,124 +42,14 @@ import 'folio_special_block_widgets.dart';
 import 'table_block_editor.dart';
 import 'block_editor/block_row_chrome.dart';
 import 'block_editor/block_row_registry.dart';
+import 'block_editor/block_editor_callout.dart';
+import 'block_editor/block_editor_text_helpers.dart';
 
 part 'block_editor/block_row_scope.dart';
 part 'block_editor/block_row_marker.dart';
 part 'block_editor/block_row_dispatch.dart';
 part 'block_editor/editable_markdown_block_row.dart';
 part 'block_editor/block_row_extensions.dart';
-
-/// `null` si el texto del bloque no es comando `/…`; si no, filtro tras la `/` (puede ser vacío).
-String? _slashFilterFromBlockText(String text) {
-  if (!text.startsWith('/')) return null;
-  if (text.contains('\n')) return null;
-  final tail = text.substring(1);
-  if (tail.contains(' ')) return null;
-  return tail;
-}
-
-int? _mentionTriggerStartFromSelection(String text, TextSelection selection) {
-  if (!selection.isValid || !selection.isCollapsed) return null;
-  final caret = selection.baseOffset;
-  if (caret <= 0 || caret > text.length) return null;
-  var start = caret - 1;
-  while (start >= 0) {
-    final code = text.codeUnitAt(start);
-    if (code == 0x20 || code == 0x0A || code == 0x0D || code == 0x09) {
-      break;
-    }
-    start--;
-  }
-  start += 1;
-  if (start >= caret) return null;
-  if (text.codeUnitAt(start) != 0x40 /* @ */ ) return null;
-  final tail = text.substring(start + 1, caret);
-  if (tail.contains(RegExp(r'[\[\]\(\)]'))) return null;
-  return start;
-}
-
-String? _mentionFilterFromSelection(String text, TextSelection selection) {
-  final start = _mentionTriggerStartFromSelection(text, selection);
-  if (start == null) return null;
-  final caret = selection.baseOffset;
-  return text.substring(start + 1, caret);
-}
-
-bool _usesCodeControllerForBlockType(String type) =>
-    type == 'code' || type == 'mermaid' || type == 'equation';
-
-List<BlockTypeDef> _catalogFiltered(String q) {
-  return filterBlockTypeCatalog(q);
-}
-
-enum _CalloutTone { neutral, info, success, warning, danger }
-
-_CalloutTone _calloutToneForIcon(String? icon) {
-  switch (icon) {
-    case '💡':
-    case 'ℹ️':
-      return _CalloutTone.info;
-    case '✅':
-    case '🎉':
-    case '🟢':
-      return _CalloutTone.success;
-    case '⚠️':
-    case '🟡':
-      return _CalloutTone.warning;
-    case '🚨':
-    case '⛔':
-    case '❗':
-    case '🔴':
-      return _CalloutTone.danger;
-    default:
-      return _CalloutTone.neutral;
-  }
-}
-
-Color _calloutBackgroundForTone(ColorScheme scheme, _CalloutTone tone) {
-  switch (tone) {
-    case _CalloutTone.info:
-      return scheme.primaryContainer.withValues(alpha: 0.26);
-    case _CalloutTone.success:
-      return scheme.tertiaryContainer.withValues(alpha: 0.26);
-    case _CalloutTone.warning:
-      return scheme.secondaryContainer.withValues(alpha: 0.34);
-    case _CalloutTone.danger:
-      return scheme.errorContainer.withValues(alpha: 0.3);
-    case _CalloutTone.neutral:
-      return scheme.surfaceContainerHighest.withValues(alpha: 0.5);
-  }
-}
-
-Color _calloutBorderForTone(ColorScheme scheme, _CalloutTone tone) {
-  switch (tone) {
-    case _CalloutTone.info:
-      return scheme.primary.withValues(alpha: 0.45);
-    case _CalloutTone.success:
-      return scheme.tertiary.withValues(alpha: 0.45);
-    case _CalloutTone.warning:
-      return scheme.secondary.withValues(alpha: 0.5);
-    case _CalloutTone.danger:
-      return scheme.error.withValues(alpha: 0.5);
-    case _CalloutTone.neutral:
-      return scheme.outlineVariant.withValues(alpha: 0.5);
-  }
-}
-
-Color _calloutChipForTone(ColorScheme scheme, _CalloutTone tone) {
-  switch (tone) {
-    case _CalloutTone.info:
-      return scheme.primaryContainer.withValues(alpha: 0.75);
-    case _CalloutTone.success:
-      return scheme.tertiaryContainer.withValues(alpha: 0.75);
-    case _CalloutTone.warning:
-      return scheme.secondaryContainer.withValues(alpha: 0.85);
-    case _CalloutTone.danger:
-      return scheme.errorContainer.withValues(alpha: 0.85);
-    case _CalloutTone.neutral:
-      return scheme.surfaceContainerHighest.withValues(alpha: 0.85);
-  }
-}
 
 const _stylableBlockTypes = <String>{
   'paragraph',
@@ -235,10 +125,10 @@ class BlockEditor extends StatefulWidget {
   final bool readOnlyMode;
 
   @override
-  State<BlockEditor> createState() => _BlockEditorState();
+  State<BlockEditor> createState() => BlockEditorState();
 }
 
-class _BlockEditorState extends State<BlockEditor> with _BlockRowBuild {
+class BlockEditorState extends State<BlockEditor> with _BlockRowBuild {
   static const _uuid = Uuid();
   final List<TextEditingController> _controllers = [];
   final List<FocusNode> _focusNodes = [];
@@ -272,13 +162,6 @@ class _BlockEditorState extends State<BlockEditor> with _BlockRowBuild {
   int _mentionSelectedIndex = 0;
   final ScrollController _mentionListScrollController = ScrollController();
   final Map<String, Future<File?>> _resolvedFileFutureByUrl = {};
-  final LayerLink _formatToolbarLayerLink = LayerLink();
-  OverlayEntry? _formatToolbarOverlayEntry;
-  String? _formatToolbarOverlayBlockId;
-
-  /// Bloque de texto cuya barra de formato sigue visible aunque el foco se mueva al pulsarla (p. ej. ScrollView).
-  String? _formatStickyBlockId;
-  Timer? _formatStickyClearTimer;
 
   /// Anclas para [VaultSession.requestScrollToBlock] (TOC).
   final Map<String, GlobalKey> _blockScrollKeys = {};
@@ -384,55 +267,11 @@ class _BlockEditorState extends State<BlockEditor> with _BlockRowBuild {
     );
   }
 
-  static const _slashFormatTypes = {
-    'paragraph',
-    'h1',
-    'h2',
-    'h3',
-    'bullet',
-    'numbered',
-    'todo',
-    'toggle',
-    'quote',
-    'callout',
-  };
-
   bool _hasExpandedSelectionForBlockId(String blockId) {
     final idx = _controllerBlockIds.indexWhere((x) => x == blockId);
     if (idx < 0 || idx >= _controllers.length) return false;
     final sel = _controllers[idx].selection;
     return sel.isValid && !sel.isCollapsed;
-  }
-
-  void _syncFormatStickyBlockId() {
-    _formatStickyClearTimer?.cancel();
-    _formatStickyClearTimer = null;
-    final page = _s.selectedPage;
-    if (page == null) {
-      _formatStickyBlockId = null;
-      _removeFormatToolbarOverlay();
-      return;
-    }
-    for (var i = 0; i < _focusNodes.length; i++) {
-      if (i >= page.blocks.length) break;
-      if (_focusNodes[i].hasFocus) {
-        final b = page.blocks[i];
-        if (_slashFormatTypes.contains(b.type)) {
-          _formatStickyBlockId = b.id;
-        } else {
-          _formatStickyBlockId = null;
-          _removeFormatToolbarOverlay();
-        }
-        return;
-      }
-    }
-    _formatStickyClearTimer = Timer(const Duration(milliseconds: 280), () {
-      if (!mounted) return;
-      if (!_focusNodes.any((n) => n.hasFocus)) {
-        setState(() => _formatStickyBlockId = null);
-        _removeFormatToolbarOverlay();
-      }
-    });
   }
 
   @override
@@ -444,8 +283,6 @@ class _BlockEditorState extends State<BlockEditor> with _BlockRowBuild {
 
   @override
   void dispose() {
-    _formatStickyClearTimer?.cancel();
-    _removeFormatToolbarOverlay();
     _slashListScrollController.dispose();
     _mentionListScrollController.dispose();
     _blockListScrollController.dispose();
@@ -466,7 +303,7 @@ class _BlockEditorState extends State<BlockEditor> with _BlockRowBuild {
       if (idx >= 0) {
         final c = _controllers[idx];
         final t = c.text;
-        if (_slashFilterFromBlockText(t) != null) {
+        if (slashFilterFromBlockText(t) != null) {
           _ignoreShortcuts = true;
           c.value = const TextEditingValue(
             text: '',
@@ -611,69 +448,6 @@ class _BlockEditorState extends State<BlockEditor> with _BlockRowBuild {
     if (mounted) setState(() {});
   }
 
-  void _removeFormatToolbarOverlay() {
-    _formatToolbarOverlayEntry?.remove();
-    _formatToolbarOverlayEntry = null;
-    _formatToolbarOverlayBlockId = null;
-  }
-
-  void _showOrUpdateFormatToolbarOverlay({
-    required String blockId,
-    required TextEditingController controller,
-    required FocusNode focusNode,
-    required ColorScheme scheme,
-    required FolioPage page,
-    required FolioBlock block,
-  }) {
-    _formatToolbarOverlayEntry?.remove();
-    _formatToolbarOverlayEntry = null;
-
-    Widget buildToolbar() {
-      return IgnorePointer(
-        ignoring: false,
-        child: CompositedTransformFollower(
-          link: _formatToolbarLayerLink,
-          showWhenUnlinked: true,
-          targetAnchor: Alignment.topLeft,
-          followerAnchor: Alignment.bottomLeft,
-          offset: const Offset(0, -8),
-          child: Align(
-            alignment: Alignment.topLeft,
-            widthFactor: 1,
-            heightFactor: 1,
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 520),
-              child: FolioFormatToolbar(
-                controller: controller,
-                colorScheme: scheme,
-                textFocusNode: focusNode,
-                onOpenBlockAppearance: _blockSupportsAppearance(block)
-                    ? () => unawaited(
-                        _editBlockAppearance(page, block, focusNode: focusNode),
-                      )
-                    : null,
-                onMentionPage: (ctx) => _toolbarMentionPage(ctx, controller),
-                onInsertUserMention: () =>
-                    _insertAtSelection(controller, '@usuario '),
-                onInsertDateMention: () => _insertAtSelection(
-                  controller,
-                  '@${DateFormat.yMMMd(Localizations.localeOf(context).toLanguageTag()).format(DateTime.now())} ',
-                ),
-                onInsertInlineMath: () =>
-                    _insertAtSelection(controller, r'\( x \)'),
-              ),
-            ),
-          ),
-        ),
-      );
-    }
-
-    _formatToolbarOverlayBlockId = blockId;
-    _formatToolbarOverlayEntry = OverlayEntry(builder: (ctx) => buildToolbar());
-    final overlay = Overlay.of(context, rootOverlay: true);
-    overlay.insert(_formatToolbarOverlayEntry!);
-  }
-
   List<FolioPage> _catalogFilteredForMention(String query) {
     final q = query.trim().toLowerCase();
     final items = _s.pages.where((p) {
@@ -706,7 +480,7 @@ class _BlockEditorState extends State<BlockEditor> with _BlockRowBuild {
     final idx = _controllerBlockIds.indexWhere((x) => x == bid);
     if (idx < 0 || idx >= _controllers.length) return;
     final c = _controllers[idx];
-    final start = _mentionTriggerStartFromSelection(c.text, c.selection);
+    final start = mentionTriggerStartFromSelection(c.text, c.selection);
     if (start == null) {
       _dismissInlineMention();
       return;
@@ -734,7 +508,7 @@ class _BlockEditorState extends State<BlockEditor> with _BlockRowBuild {
   }
 
   List<BlockTypeDef> _catalogFilteredForSlash(String q) {
-    final filtered = List<BlockTypeDef>.from(_catalogFiltered(q));
+    final filtered = List<BlockTypeDef>.from(catalogFiltered(q));
     final normalized = q.trim().toLowerCase();
     filtered.addAll(
       _inlineSlashActionCatalog.where((a) {
@@ -816,9 +590,6 @@ class _BlockEditorState extends State<BlockEditor> with _BlockRowBuild {
     _mentionSelectedIndex = 0;
     _menuOpenBlockId = null;
     _mermaidEditingSourceIds.clear();
-    _formatStickyClearTimer?.cancel();
-    _formatStickyClearTimer = null;
-    _formatStickyBlockId = null;
     _selectedBlockIds.clear();
     _selectionAnchorBlockId = null;
     _dragSelectionActive = false;
@@ -832,7 +603,7 @@ class _BlockEditorState extends State<BlockEditor> with _BlockRowBuild {
     if (page.blocks.length != _controllerBlockIds.length) return true;
     for (var i = 0; i < page.blocks.length; i++) {
       if (page.blocks[i].id != _controllerBlockIds[i]) return true;
-      final wantCode = _usesCodeControllerForBlockType(page.blocks[i].type);
+      final wantCode = usesCodeControllerForBlockType(page.blocks[i].type);
       final hasCode = _controllers[i] is CodeController;
       if (wantCode != hasCode) return true;
     }
@@ -859,7 +630,7 @@ class _BlockEditorState extends State<BlockEditor> with _BlockRowBuild {
     for (final b in page.blocks) {
       final j = _controllerBlockIds.indexOf(b.id);
       if (j < 0) return false;
-      final wantCode = _usesCodeControllerForBlockType(b.type);
+      final wantCode = usesCodeControllerForBlockType(b.type);
       final hasCode = _controllers[j] is CodeController;
       if (wantCode != hasCode) return false;
     }
@@ -951,20 +722,11 @@ class _BlockEditorState extends State<BlockEditor> with _BlockRowBuild {
             ..add(scrollId);
           _selectionAnchorBlockId = scrollId;
         });
-        final ctx = _blockScrollKeys[scrollId]?.currentContext;
-        if (ctx != null) {
-          Scrollable.ensureVisible(
-            ctx,
-            duration: const Duration(milliseconds: 280),
-            curve: Curves.easeOutCubic,
-            alignment: 0.12,
-          );
-        }
         final idx = _controllerBlockIds.indexOf(scrollId);
         if (idx >= 0 && idx < _focusNodes.length) {
           _focusNodes[idx].requestFocus();
         }
-        _s.clearPendingScrollToBlock();
+        _ensureBlockVisibleFromScrollRequest(scrollId, attempt: 0);
       });
     }
 
@@ -994,6 +756,68 @@ class _BlockEditorState extends State<BlockEditor> with _BlockRowBuild {
     setState(() {});
   }
 
+  /// Desde el índice lateral / búsqueda: selecciona el bloque y desplaza la lista.
+  void scrollToBlock(String blockId) {
+    if (!mounted) return;
+    final page = _s.selectedPage;
+    if (page == null || !page.blocks.any((b) => b.id == blockId)) return;
+    _pendingFocusBlockId = blockId;
+    setState(() {
+      _selectedBlockIds
+        ..clear()
+        ..add(blockId);
+      _selectionAnchorBlockId = blockId;
+    });
+    final idx = _controllerBlockIds.indexOf(blockId);
+    if (idx >= 0 && idx < _focusNodes.length) {
+      _focusNodes[idx].requestFocus();
+    }
+    _ensureBlockVisibleFromScrollRequest(blockId, attempt: 0);
+  }
+
+  void _scrollBlockListProportionalToBlock(String blockId) {
+    final page = _s.selectedPage;
+    if (page == null) return;
+    final idx = page.blocks.indexWhere((b) => b.id == blockId);
+    if (idx < 0) return;
+    if (!_blockListScrollController.hasClients) return;
+    final pos = _blockListScrollController.position;
+    final n = page.blocks.length;
+    if (n <= 1) return;
+    final t = idx / (n - 1);
+    final target = t * pos.maxScrollExtent;
+    _blockListScrollController.animateTo(
+      target.clamp(0.0, pos.maxScrollExtent),
+      duration: const Duration(milliseconds: 280),
+      curve: Curves.easeOutCubic,
+    );
+  }
+
+  /// [VaultSession.requestScrollToBlock] — reintentos hasta que exista el
+  /// [GlobalKey] del bloque en el árbol (p. ej. tras un [setState]).
+  void _ensureBlockVisibleFromScrollRequest(String blockId, {int attempt = 0}) {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      final ctx = _blockScrollKeys[blockId]?.currentContext;
+      if (ctx != null) {
+        Scrollable.ensureVisible(
+          ctx,
+          duration: const Duration(milliseconds: 280),
+          curve: Curves.easeOutCubic,
+          alignment: 0.12,
+        );
+        _s.clearPendingScrollToBlock();
+        return;
+      }
+      if (attempt < 24) {
+        _ensureBlockVisibleFromScrollRequest(blockId, attempt: attempt + 1);
+      } else {
+        _scrollBlockListProportionalToBlock(blockId);
+        _s.clearPendingScrollToBlock();
+      }
+    });
+  }
+
   void _syncControllers() {
     final page = _s.selectedPage;
     final pendingIdx = _pendingFocusIndex;
@@ -1016,7 +840,7 @@ class _BlockEditorState extends State<BlockEditor> with _BlockRowBuild {
     for (final b in page.blocks) {
       final bid = b.id;
       final pid = page.id;
-      final TextEditingController c = _usesCodeControllerForBlockType(b.type)
+      final TextEditingController c = usesCodeControllerForBlockType(b.type)
           ? CodeController(
               text: b.text,
               language: modeForLanguageId(
@@ -1031,7 +855,6 @@ class _BlockEditorState extends State<BlockEditor> with _BlockRowBuild {
         if (!mounted) return;
         final p = _s.selectedPage;
         if (p == null || p.id != pid) return;
-        _syncFormatStickyBlockId();
         final idx = p.blocks.indexWhere((x) => x.id == bid);
         if (idx < 0) return;
         if (_tailTapTransientTouchedByBlockId.containsKey(bid) &&
@@ -1066,7 +889,6 @@ class _BlockEditorState extends State<BlockEditor> with _BlockRowBuild {
 
       void focusDecorListener() {
         if (!mounted) return;
-        _syncFormatStickyBlockId();
         if (!fn.hasFocus) {
           final touched = _tailTapTransientTouchedByBlockId[bid];
           if (touched != null) {
@@ -1201,7 +1023,7 @@ class _BlockEditorState extends State<BlockEditor> with _BlockRowBuild {
     }
 
     final slashFilter = _slashBlockId == blockId
-        ? _slashFilterFromBlockText(ctrl.text)
+        ? slashFilterFromBlockText(ctrl.text)
         : null;
     if (slashFilter != null) {
       final slashItems = _catalogFilteredForSlash(slashFilter);
@@ -1242,7 +1064,7 @@ class _BlockEditorState extends State<BlockEditor> with _BlockRowBuild {
     }
 
     final mentionFilter = _mentionBlockId == blockId
-        ? _mentionFilterFromSelection(ctrl.text, ctrl.selection)
+        ? mentionFilterFromSelection(ctrl.text, ctrl.selection)
         : null;
     if (mentionFilter != null) {
       final mentionItems = _catalogFilteredForMention(mentionFilter);
@@ -1794,7 +1616,7 @@ class _BlockEditorState extends State<BlockEditor> with _BlockRowBuild {
       return;
     }
 
-    final slashFilter = _slashFilterFromBlockText(text);
+    final slashFilter = slashFilterFromBlockText(text);
     if (slashFilter != null) {
       if (_mentionBlockId == blockId) {
         _dismissInlineMention();
@@ -1831,7 +1653,7 @@ class _BlockEditorState extends State<BlockEditor> with _BlockRowBuild {
     final sel = index < _controllers.length
         ? _controllers[index].selection
         : const TextSelection.collapsed(offset: -1);
-    final mentionFilter = _mentionFilterFromSelection(text, sel);
+    final mentionFilter = mentionFilterFromSelection(text, sel);
     if (mentionFilter != null) {
       final open = _mentionBlockId != blockId;
       _mentionPageId = pageId;
@@ -3574,72 +3396,81 @@ class _BlockEditorState extends State<BlockEditor> with _BlockRowBuild {
                           (showActions || selected || focus.hasFocus);
                       return KeyedSubtree(
                         key: ValueKey('block_row_${b.id}'),
-                        child: MouseRegion(
-                          onEnter: (_) {
-                            if (_hoveredBlockIndex != index) {
-                              setState(() => _hoveredBlockIndex = index);
-                            }
-                          },
-                          onExit: (_) {
-                            if (_hoveredBlockIndex == index) {
-                              setState(() => _hoveredBlockIndex = null);
-                            }
-                          },
-                          child: GestureDetector(
-                            behavior: HitTestBehavior.translucent,
-                            onTapDown: readOnlyMode
-                                ? null
-                                : (_) => _handleBlockSelection(
-                                    page,
-                                    b.id,
-                                    focusNode: focus,
+                        child: RepaintBoundary(
+                          key: _blockScrollKeys.putIfAbsent(
+                            b.id,
+                            GlobalKey.new,
+                          ),
+                          child: MouseRegion(
+                            onEnter: (_) {
+                              if (_hoveredBlockIndex != index) {
+                                setState(() => _hoveredBlockIndex = index);
+                              }
+                            },
+                            onExit: (_) {
+                              if (_hoveredBlockIndex == index) {
+                                setState(() => _hoveredBlockIndex = null);
+                              }
+                            },
+                            child: GestureDetector(
+                              behavior: HitTestBehavior.translucent,
+                              onTapDown: readOnlyMode
+                                  ? null
+                                  : (_) => _handleBlockSelection(
+                                      page,
+                                      b.id,
+                                      focusNode: focus,
+                                    ),
+                              onPanStart: readOnlyMode
+                                  ? null
+                                  : (_) => _beginDragSelection(
+                                      page,
+                                      b.id,
+                                      focusNode: focus,
+                                    ),
+                              onPanUpdate: readOnlyMode
+                                  ? null
+                                  : (_) => _updateDragSelection(page, b.id),
+                              child: AnimatedContainer(
+                                duration: FolioMotion.short1,
+                                curve: FolioMotion.emphasized,
+                                margin: EdgeInsets.only(
+                                  bottom: androidPhoneLayout
+                                      ? FolioSpace.xs
+                                      : 1,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: _blockRowFill(
+                                    scheme,
+                                    index,
+                                    focus,
+                                    selected,
                                   ),
-                            onPanStart: readOnlyMode
-                                ? null
-                                : (_) => _beginDragSelection(
-                                    page,
-                                    b.id,
-                                    focusNode: focus,
+                                  borderRadius: BorderRadius.circular(
+                                    androidPhoneLayout
+                                        ? FolioRadius.md
+                                        : FolioRadius.sm,
                                   ),
-                            onPanUpdate: readOnlyMode
-                                ? null
-                                : (_) => _updateDragSelection(page, b.id),
-                            child: AnimatedContainer(
-                              duration: FolioMotion.short1,
-                              curve: FolioMotion.emphasized,
-                              margin: EdgeInsets.only(
-                                bottom: androidPhoneLayout ? FolioSpace.xs : 1,
-                              ),
-                              decoration: BoxDecoration(
-                                color: _blockRowFill(
-                                  scheme,
-                                  index,
-                                  focus,
-                                  selected,
+                                  border: _blockRowBorder(
+                                    scheme,
+                                    index,
+                                    focus,
+                                    selected,
+                                  ),
                                 ),
-                                borderRadius: BorderRadius.circular(
-                                  androidPhoneLayout
-                                      ? FolioRadius.md
-                                      : FolioRadius.sm,
+                                child: _buildBlockRow(
+                                  context: context,
+                                  scheme: scheme,
+                                  page: page,
+                                  block: b,
+                                  index: index,
+                                  ctrl: ctrl,
+                                  focus: focus,
+                                  style: style,
+                                  showActions: showActions,
+                                  showInlineEditControls:
+                                      showInlineEditControls,
                                 ),
-                                border: _blockRowBorder(
-                                  scheme,
-                                  index,
-                                  focus,
-                                  selected,
-                                ),
-                              ),
-                              child: _buildBlockRow(
-                                context: context,
-                                scheme: scheme,
-                                page: page,
-                                block: b,
-                                index: index,
-                                ctrl: ctrl,
-                                focus: focus,
-                                style: style,
-                                showActions: showActions,
-                                showInlineEditControls: showInlineEditControls,
                               ),
                             ),
                           ),

@@ -25,14 +25,14 @@ Widget _buildEditableMarkdownBlockRow(_BlockRowScope s) {
 
   final allowsSlash = blockEditorTypeUsesSlashMenu(block.type);
   final String? slashTail = allowsSlash
-      ? _slashFilterFromBlockText(ctrl.text)
+      ? slashFilterFromBlockText(ctrl.text)
       : null;
   final showSlashMenu = slashTail != null && st._slashBlockId == block.id;
   final slashItems = showSlashMenu
       ? st._catalogFilteredForSlash(slashTail)
       : const <BlockTypeDef>[];
   final mentionTail = allowsSlash
-      ? _mentionFilterFromSelection(ctrl.text, ctrl.selection)
+      ? mentionFilterFromSelection(ctrl.text, ctrl.selection)
       : null;
   final showMentionMenu =
       !showSlashMenu && mentionTail != null && st._mentionBlockId == block.id;
@@ -52,7 +52,7 @@ Widget _buildEditableMarkdownBlockRow(_BlockRowScope s) {
       !readOnlyMode &&
       !focus.hasFocus &&
       ctrl.text.trim().isNotEmpty &&
-      !_BlockEditorState._isIncompleteAtxHeadingLine(ctrl.text);
+      !BlockEditorState._isIncompleteAtxHeadingLine(ctrl.text);
 
   var currentStyle = style;
   if (block.type == 'quote') {
@@ -161,17 +161,17 @@ Widget _buildEditableMarkdownBlockRow(_BlockRowScope s) {
       child: blockContent,
     );
   } else if (block.type == 'callout') {
-    final calloutTone = _calloutToneForIcon(block.icon);
+    final calloutTone = calloutToneForIcon(block.icon);
     textContainer = Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       decoration: BoxDecoration(
         color:
-            customBackground ?? _calloutBackgroundForTone(scheme, calloutTone),
+            customBackground ?? calloutBackgroundForTone(scheme, calloutTone),
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
           color: customBackground != null
               ? customBackgroundBorder
-              : _calloutBorderForTone(scheme, calloutTone),
+              : calloutBorderForTone(scheme, calloutTone),
         ),
       ),
       child: Row(
@@ -184,7 +184,7 @@ Widget _buildEditableMarkdownBlockRow(_BlockRowScope s) {
               children: [
                 Container(
                   decoration: BoxDecoration(
-                    color: _calloutChipForTone(scheme, calloutTone),
+                    color: calloutChipForTone(scheme, calloutTone),
                     borderRadius: BorderRadius.circular(10),
                   ),
                   child: Padding(
@@ -266,29 +266,44 @@ Widget _buildEditableMarkdownBlockRow(_BlockRowScope s) {
       !showMentionMenu &&
       focus.hasFocus;
 
-  if (showFloatingToolbar) {
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!s.st.mounted) return;
-      st._showOrUpdateFormatToolbarOverlay(
-        blockId: block.id,
-        controller: ctrl,
-        focusNode: focus,
-        scheme: scheme,
-        page: page,
-        block: block,
-      );
-    });
-  } else if (st._formatToolbarOverlayBlockId == block.id) {
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!s.st.mounted) return;
-      st._removeFormatToolbarOverlay();
-    });
-  }
-
-  final editorSlot = showFloatingToolbar
-      ? CompositedTransformTarget(
-          link: st._formatToolbarLayerLink,
-          child: textContainer,
+  /// Barra de formato **en el árbol del bloque** (no Overlay): evita capas a
+  /// pantalla completa, hit-test erróneos y bloques grises gigantes.
+  final Widget editorSlot = showFloatingToolbar
+      ? Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            textContainer,
+            Padding(
+              padding: const EdgeInsets.only(top: FolioSpace.xs),
+              child: Align(
+                alignment: Alignment.centerLeft,
+                child: FolioFormatToolbar(
+                  controller: ctrl,
+                  colorScheme: scheme,
+                  textFocusNode: focus,
+                  onOpenBlockAppearance: st._blockSupportsAppearance(block)
+                      ? () => unawaited(
+                          st._editBlockAppearance(
+                            page,
+                            block,
+                            focusNode: focus,
+                          ),
+                        )
+                      : null,
+                  onMentionPage: (ctx) => st._toolbarMentionPage(ctx, ctrl),
+                  onInsertUserMention: () =>
+                      st._insertAtSelection(ctrl, '@usuario '),
+                  onInsertDateMention: () => st._insertAtSelection(
+                    ctrl,
+                    '@${DateFormat.yMMMd(Localizations.localeOf(context).toLanguageTag()).format(DateTime.now())} ',
+                  ),
+                  onInsertInlineMath: () =>
+                      st._insertAtSelection(ctrl, r'\( x \)'),
+                ),
+              ),
+            ),
+          ],
         )
       : textContainer;
 

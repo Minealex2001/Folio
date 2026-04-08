@@ -22,7 +22,7 @@ class _BlockRowScope {
     required this.compactReadOnlyMobile,
   });
 
-  final _BlockEditorState st;
+  final BlockEditorState st;
   final BuildContext context;
   final ColorScheme scheme;
   final ThemeData theme;

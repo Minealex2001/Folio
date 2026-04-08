@@ -32,6 +32,7 @@ import 'widgets/block_type_catalog.dart';
 import 'widgets/page_history_sheet.dart';
 import 'widgets/mermaid_markdown_builder.dart';
 import 'widgets/sidebar.dart';
+import 'widgets/page_outline_panel.dart';
 import 'widgets/workspace_editor_surface.dart';
 import 'widgets/workspace_shell.dart';
 
@@ -100,6 +101,11 @@ class _WorkspacePageState extends State<WorkspacePage> {
   bool _aiContextMenuUsingKeyboard = false; // Track keyboard vs mouse
   bool _mobileEditMode = false;
   String? _lastPageIdForMobileMode;
+  bool _sidebarPeek = false;
+  double _aiPanelHeight = 520;
+
+  final GlobalKey<BlockEditorState> _blockEditorKey =
+      GlobalKey<BlockEditorState>();
 
   VaultSession get _s => widget.session;
   AiChatThreadData get _activeChat => _s.activeAiChat;
@@ -1961,13 +1967,40 @@ class _WorkspacePageState extends State<WorkspacePage> {
     );
   }
 
+  Widget _buildAiCollapsedFab(BuildContext context, ColorScheme scheme) {
+    final l10n = AppLocalizations.of(context);
+    return Tooltip(
+      message: l10n.aiShowPanel,
+      child: Material(
+        color: scheme.primaryContainer,
+        borderRadius: BorderRadius.circular(12),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(12),
+          onTap: () => setState(() => _aiPanelCollapsed = false),
+          child: SizedBox(
+            width: 56,
+            height: 56,
+            child: Icon(
+              Icons.chat_bubble_rounded,
+              color: scheme.onPrimaryContainer,
+              size: 28,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
   Widget _buildAiPanel(BuildContext context) {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
     final l10n = AppLocalizations.of(context);
-    return Material(
-      color: scheme.surface,
-      child: SafeArea(
+    return SafeArea(
+      top: false,
+      left: false,
+      right: false,
+      child: ColoredBox(
+        color: scheme.surface,
         child: Column(
           children: [
             Container(
@@ -2071,16 +2104,10 @@ class _WorkspacePageState extends State<WorkspacePage> {
                     ),
                   ),
                   IconButton(
-                    tooltip: _aiPanelCollapsed
-                        ? l10n.aiExpand
-                        : l10n.aiCollapse,
+                    tooltip: l10n.aiHidePanel,
                     onPressed: () =>
-                        setState(() => _aiPanelCollapsed = !_aiPanelCollapsed),
-                    icon: Icon(
-                      _aiPanelCollapsed
-                          ? Icons.keyboard_arrow_left_rounded
-                          : Icons.keyboard_arrow_right_rounded,
-                    ),
+                        setState(() => _aiPanelCollapsed = true),
+                    icon: const Icon(Icons.unfold_less_rounded),
                   ),
                 ],
               ),
@@ -2187,6 +2214,13 @@ class _WorkspacePageState extends State<WorkspacePage> {
                                             color: scheme.onSurfaceVariant,
                                             height: 1.55,
                                           ),
+                                    ),
+                                    const SizedBox(height: 20),
+                                    FilledButton.tonal(
+                                      onPressed: () {
+                                        _chatInputFocusNode.requestFocus();
+                                      },
+                                      child: Text(l10n.aiChatEmptyFocusComposer),
                                     ),
                                   ],
                                 ),
@@ -2411,25 +2445,33 @@ class _WorkspacePageState extends State<WorkspacePage> {
     final editorReadOnlyMode = verticalMobileWorkspace && !_mobileEditMode;
     final compact =
         width < FolioDesktop.compactBreakpoint || androidMobileWorkspace;
-    final medium =
-        width < FolioDesktop.mediumBreakpoint || androidMobileWorkspace;
-    final isAiPanelVisible =
+    final isAiChromeVisible =
         !compact &&
         widget.appSettings.isAiRuntimeEnabled &&
-        _s.aiEnabled &&
-        !_aiPanelCollapsed;
-    final sidePanelWidth = medium
-        ? FolioDesktop.sidebarWidth
-        : FolioDesktop.sidebarWideWidth;
+        _s.aiEnabled;
+    final effectiveSidebarW = compact
+        ? 0.0
+        : (widget.appSettings.workspaceSidebarCollapsed
+              ? (_sidebarPeek
+                    ? widget.appSettings.workspaceSidebarWidth
+                    : 0.0)
+              : widget.appSettings.workspaceSidebarWidth);
     final sidePanel = Material(
       color: scheme.surfaceContainerLow,
-      child: Sidebar(
-        session: _s,
-        appSettings: widget.appSettings,
-        onSearch: widget.onOpenSearch,
-        onForceSync: _forceSyncNow,
-        onOpenSettings: _openSettings,
-        onLock: () => _s.lock(),
+      child: MouseRegion(
+        onExit: (_) {
+          if (widget.appSettings.workspaceSidebarCollapsed && _sidebarPeek) {
+            setState(() => _sidebarPeek = false);
+          }
+        },
+        child: Sidebar(
+          session: _s,
+          appSettings: widget.appSettings,
+          onSearch: widget.onOpenSearch,
+          onForceSync: _forceSyncNow,
+          onOpenSettings: _openSettings,
+          onLock: () => _s.lock(),
+        ),
       ),
     );
     final a = widget.appSettings;
@@ -2494,6 +2536,40 @@ class _WorkspacePageState extends State<WorkspacePage> {
         final canToggleAi =
             widget.appSettings.isAiRuntimeEnabled && _s.aiEnabled;
         final entries = <_WorkspaceActionEntry>[
+          if (!compact)
+            _WorkspaceActionEntry(
+              id: 'toggle_sidebar',
+              label: widget.appSettings.workspaceSidebarCollapsed
+                  ? l10n.showSidebar
+                  : l10n.hideSidebar,
+              icon: widget.appSettings.workspaceSidebarCollapsed
+                  ? Icons.menu_open_rounded
+                  : Icons.view_sidebar_rounded,
+              onPressed: () async {
+                await widget.appSettings.setWorkspaceSidebarCollapsed(
+                  !widget.appSettings.workspaceSidebarCollapsed,
+                );
+                if (mounted) setState(() => _sidebarPeek = false);
+              },
+              forcePrimary: true,
+            ),
+          if (!compact && page != null)
+            _WorkspaceActionEntry(
+              id: 'toggle_page_outline',
+              label: widget.appSettings.workspacePageOutlineVisible
+                  ? l10n.hidePageOutline
+                  : l10n.showPageOutline,
+              icon: widget.appSettings.workspacePageOutlineVisible
+                  ? Icons.view_list_rounded
+                  : Icons.view_list_outlined,
+              onPressed: () async {
+                await widget.appSettings.setWorkspacePageOutlineVisible(
+                  !widget.appSettings.workspacePageOutlineVisible,
+                );
+                if (mounted) setState(() {});
+              },
+              forcePrimary: true,
+            ),
           if (!compact && page != null)
             _WorkspaceActionEntry(
               id: 'add_block',
@@ -2504,7 +2580,7 @@ class _WorkspacePageState extends State<WorkspacePage> {
             ),
           _WorkspaceActionEntry(
             id: 'import_md',
-            label: 'Importar Markdown',
+            label: l10n.importMarkdownPage,
             icon: Icons.file_upload_outlined,
             onPressed: _importMarkdownFile,
             forcePrimary: true,
@@ -2512,7 +2588,7 @@ class _WorkspacePageState extends State<WorkspacePage> {
           if (page != null)
             _WorkspaceActionEntry(
               id: 'export_md',
-              label: 'Exportar Markdown',
+              label: l10n.exportMarkdownPage,
               icon: Icons.file_download_outlined,
               onPressed: _exportCurrentPageToMarkdown,
             ),
@@ -2541,7 +2617,7 @@ class _WorkspacePageState extends State<WorkspacePage> {
           if (page != null)
             _WorkspaceActionEntry(
               id: 'undo_page_edit',
-              label: 'Deshacer (Ctrl+Z)',
+              label: l10n.workspaceUndoTooltip,
               icon: Icons.undo_rounded,
               onPressed: () => _s.undoPageEdits(),
               enabled: _s.canUndoSelectedPage,
@@ -2550,7 +2626,7 @@ class _WorkspacePageState extends State<WorkspacePage> {
           if (page != null)
             _WorkspaceActionEntry(
               id: 'redo_page_edit',
-              label: 'Rehacer (Ctrl+Y)',
+              label: l10n.workspaceRedoTooltip,
               icon: Icons.redo_rounded,
               onPressed: () => _s.redoPageEdits(),
               enabled: _s.canRedoSelectedPage,
@@ -2562,7 +2638,7 @@ class _WorkspacePageState extends State<WorkspacePage> {
               label: _aiPanelCollapsed ? l10n.aiShowPanel : l10n.aiHidePanel,
               icon: _aiPanelCollapsed
                   ? Icons.chat_bubble_outline_rounded
-                  : Icons.close_fullscreen_rounded,
+                  : Icons.unfold_less_rounded,
               onPressed: () =>
                   setState(() => _aiPanelCollapsed = !_aiPanelCollapsed),
               forcePrimary: true,
@@ -2601,7 +2677,7 @@ class _WorkspacePageState extends State<WorkspacePage> {
           ),
           if (overflow.isNotEmpty)
             PopupMenuButton<_WorkspaceActionEntry>(
-              tooltip: 'Más acciones',
+              tooltip: l10n.workspaceMoreActionsTooltip,
               icon: const Icon(Icons.more_horiz_rounded),
               itemBuilder: (context) => overflow
                   .map(
@@ -2627,11 +2703,16 @@ class _WorkspacePageState extends State<WorkspacePage> {
             Padding(
               padding: const EdgeInsetsDirectional.only(end: FolioSpace.xs),
               child: Center(
-                child: Tooltip(
-                  message: _s.isPersistingToDisk
+                child: Semantics(
+                  label: _s.isPersistingToDisk
                       ? l10n.savingVaultTooltip
                       : l10n.autosaveSoonTooltip,
-                  child: Container(
+                  liveRegion: true,
+                  child: Tooltip(
+                    message: _s.isPersistingToDisk
+                        ? l10n.savingVaultTooltip
+                        : l10n.autosaveSoonTooltip,
+                    child: Container(
                     padding: const EdgeInsets.symmetric(
                       horizontal: FolioSpace.sm,
                       vertical: FolioSpace.xs,
@@ -2672,6 +2753,7 @@ class _WorkspacePageState extends State<WorkspacePage> {
                     ),
                   ),
                 ),
+                ),
               ),
             ),
           );
@@ -2679,7 +2761,7 @@ class _WorkspacePageState extends State<WorkspacePage> {
         return widgets;
       }(),
     ];
-    final editorContent = WorkspaceEditorSurface(
+    final editorSurface = WorkspaceEditorSurface(
       compact: compact,
       mobileOptimized: androidMobileWorkspace,
       readOnlyMode: editorReadOnlyMode,
@@ -2696,13 +2778,30 @@ class _WorkspacePageState extends State<WorkspacePage> {
       onOpenSearch: widget.onOpenSearch,
       editor: page == null
           ? const SizedBox.shrink()
-          : BlockEditor(
+          : KeyedSubtree(
               key: ValueKey('${page.id}-${_s.contentEpoch}'),
-              session: _s,
-              appSettings: widget.appSettings,
-              readOnlyMode: editorReadOnlyMode,
+              child: BlockEditor(
+                key: _blockEditorKey,
+                session: _s,
+                appSettings: widget.appSettings,
+                readOnlyMode: editorReadOnlyMode,
+              ),
             ),
     );
+    final editorContent = !compact && page != null
+        ? Row(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Expanded(child: editorSurface),
+              if (widget.appSettings.workspacePageOutlineVisible)
+                PageOutlinePanel(
+                  blocks: page.blocks,
+                  scheme: scheme,
+                  blockEditorKey: _blockEditorKey,
+                ),
+            ],
+          )
+        : editorSurface;
     return CallbackShortcuts(
       bindings: shortcutBindings,
       child: Scaffold(
@@ -2728,26 +2827,64 @@ class _WorkspacePageState extends State<WorkspacePage> {
         ),
         body: WorkspaceBodyShell(
           compact: compact,
-          sidePanelWidth: sidePanelWidth,
+          sidePanelWidth: effectiveSidebarW,
           sidePanel: sidePanel,
           editorContent: editorContent,
-          showAiPanel: isAiPanelVisible,
-          aiPanelWidth: _aiPanelWidth,
-          onResizeAiPanel: (delta) {
-            final screenW = MediaQuery.sizeOf(context).width;
-            final maxW = (screenW * 0.55).clamp(340.0, 720.0);
-            setState(() {
-              _aiPanelWidth = (_aiPanelWidth - delta).clamp(
-                FolioDesktop.aiPanelWidth,
-                maxW,
-              );
-            });
+          showSidebarResizeHandle:
+              !compact &&
+              !widget.appSettings.workspaceSidebarCollapsed &&
+              effectiveSidebarW > 0,
+          onResizeSidebarDelta: !compact
+              ? (d) {
+                  unawaited(
+                    widget.appSettings.setWorkspaceSidebarWidth(
+                      widget.appSettings.workspaceSidebarWidth + d,
+                    ),
+                  );
+                }
+              : null,
+          sidebarLeftEdgeHover:
+              !compact &&
+              widget.appSettings.workspaceSidebarCollapsed &&
+              widget.appSettings.workspaceSidebarAutoReveal &&
+              !_sidebarPeek,
+          onSidebarEdgeEnter: () {
+            if (!widget.appSettings.workspaceSidebarAutoReveal ||
+                !widget.appSettings.workspaceSidebarCollapsed) {
+              return;
+            }
+            setState(() => _sidebarPeek = true);
           },
           scheme: scheme,
           betaBanner: widget.appSettings.shouldShowBetaBanner
               ? _buildBetaBanner(scheme, l10n)
               : null,
-          aiPanel: isAiPanelVisible ? _buildAiPanel(context) : null,
+          aiFloatingPanel: isAiChromeVisible
+              ? (_aiPanelCollapsed
+                    ? _buildAiCollapsedFab(context, scheme)
+                    : _buildAiPanel(context))
+              : null,
+          aiFloatingWidth: _aiPanelCollapsed ? 56 : _aiPanelWidth,
+          aiFloatingHeight: _aiPanelCollapsed ? 56 : _aiPanelHeight,
+          aiFloatingShowResizeHandles: isAiChromeVisible && !_aiPanelCollapsed,
+          onResizeAiPanelWidth: isAiChromeVisible && !_aiPanelCollapsed
+              ? (d) {
+                  final maxW = (width * 0.5).clamp(300.0, 720.0);
+                  setState(() {
+                    _aiPanelWidth = (_aiPanelWidth - d).clamp(280.0, maxW);
+                  });
+                }
+              : null,
+          onResizeAiPanelHeight: isAiChromeVisible && !_aiPanelCollapsed
+              ? (d) {
+                  setState(() {
+                    _aiPanelHeight = (_aiPanelHeight + d).clamp(
+                      320.0,
+                      height * 0.85,
+                    );
+                  });
+                }
+              : null,
           overlay: _showQuillWorkspaceTour
               ? _buildQuillWorkspaceTourCard(theme, scheme, l10n)
               : null,
@@ -2755,7 +2892,7 @@ class _WorkspacePageState extends State<WorkspacePage> {
         floatingActionButton: compact && page != null
             ? Padding(
                 padding: EdgeInsets.only(
-                  right: isAiPanelVisible ? _aiPanelWidth + 18 : 0,
+                  right: 0,
                 ),
                 child: verticalMobileWorkspace
                     ? (_mobileEditMode

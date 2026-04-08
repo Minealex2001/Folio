@@ -1533,37 +1533,37 @@ class _SettingsPageState extends State<SettingsPage> {
                         horizontal: 16,
                       ),
                       children: [
-                        _SettingsOverviewBanner(
-                          appSettings: _app,
-                          session: _s,
-                          installedVersionLabel: _installedVersionLabel,
-                        ),
+                        _SettingsOverviewBanner(appSettings: _app, session: _s),
                         const SizedBox(height: 8),
-                        _SectionHeader(
-                          key: _sectionKeys[0],
-                          title: l10n.appearance,
-                          scheme: scheme,
-                        ),
                         _SettingsPanel(
+                          key: _sectionKeys[0],
                           margin: const EdgeInsets.only(bottom: 24),
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.stretch,
                             children: [
-                              Padding(
-                                padding: const EdgeInsets.fromLTRB(
-                                  16,
-                                  16,
-                                  16,
-                                  16,
-                                ),
-                                child: Text(
-                                  l10n.settingsAppearanceHint,
-                                  style: Theme.of(context).textTheme.bodySmall
-                                      ?.copyWith(
-                                        color: scheme.onSurfaceVariant,
-                                      ),
-                                ),
+                              _SettingsPanelHeroCard(
+                                icon: Icons.palette_outlined,
+                                title: l10n.appearance,
+                                description: l10n.settingsAppearanceHint,
+                                chips: [
+                                  _SettingsInfoChip(
+                                    icon: Icons.brightness_auto,
+                                    label: _t('Tema', 'Theme'),
+                                  ),
+                                  _SettingsInfoChip(
+                                    icon: Icons.translate_rounded,
+                                    label: _t('Idioma', 'Language'),
+                                  ),
+                                  _SettingsInfoChip(
+                                    icon: Icons.edit_outlined,
+                                    label: _t(
+                                      'Editor y espacio',
+                                      'Editor & workspace',
+                                    ),
+                                  ),
+                                ],
                               ),
+                              const Divider(height: 1),
                               Padding(
                                 padding: const EdgeInsets.symmetric(
                                   horizontal: 16,
@@ -1601,7 +1601,7 @@ class _SettingsPageState extends State<SettingsPage> {
                                   },
                                 ),
                               ),
-                              const SizedBox(height: 16),
+                              const SizedBox(height: 12),
                               const Divider(height: 1),
                               ListTile(
                                 leading: const Icon(Icons.translate_rounded),
@@ -1636,6 +1636,10 @@ class _SettingsPageState extends State<SettingsPage> {
                                     ),
                                   ],
                                 ),
+                              ),
+                              _SettingsSubsectionTitle(
+                                title: _t('Editor', 'Editor'),
+                                scheme: scheme,
                               ),
                               const Divider(height: 1),
                               ListTile(
@@ -1705,6 +1709,21 @@ class _SettingsPageState extends State<SettingsPage> {
                                 value: _app.enterCreatesNewBlock,
                                 onChanged: _app.setEnterCreatesNewBlock,
                               ),
+                              _SettingsSubsectionTitle(
+                                title: _t('Espacio de trabajo', 'Workspace'),
+                                scheme: scheme,
+                              ),
+                              const Divider(height: 1),
+                              SwitchListTile(
+                                secondary: const Icon(
+                                  Icons.view_sidebar_rounded,
+                                ),
+                                title: Text(l10n.sidebarAutoRevealTitle),
+                                subtitle: Text(l10n.sidebarAutoRevealSubtitle),
+                                value: _app.workspaceSidebarAutoReveal,
+                                onChanged: (v) =>
+                                    _app.setWorkspaceSidebarAutoReveal(v),
+                              ),
                             ],
                           ),
                         ),
@@ -1713,150 +1732,61 @@ class _SettingsPageState extends State<SettingsPage> {
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.stretch,
                             children: [
-                              Container(
-                                margin: const EdgeInsets.all(16),
-                                padding: const EdgeInsets.all(16),
-                                decoration: BoxDecoration(
-                                  gradient: LinearGradient(
-                                    begin: Alignment.topLeft,
-                                    end: Alignment.bottomRight,
-                                    colors: [
-                                      scheme.primaryContainer.withValues(
-                                        alpha: 0.55,
-                                      ),
-                                      scheme.surfaceContainerHigh,
-                                    ],
+                              _SettingsPanelHeroCard(
+                                icon: Icons.emoji_symbols_rounded,
+                                title: _t(
+                                  'Iconos personalizados',
+                                  'Custom icons',
+                                ),
+                                description: _t(
+                                  'Importa una URL PNG, GIF o WebP, o un data:image compatible copiado desde páginas como notionicons.so. Después podrás usarlo como icono de página o de callout.',
+                                  'Import a PNG, GIF, or WebP URL, or a compatible data:image copied from sites like notionicons.so. You can then use it as a page or callout icon.',
+                                ),
+                                trailingBadge: Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 10,
+                                    vertical: 5,
                                   ),
-                                  borderRadius: BorderRadius.circular(22),
-                                  border: Border.all(
-                                    color: scheme.outlineVariant.withValues(
-                                      alpha: 0.5,
+                                  decoration: BoxDecoration(
+                                    color: scheme.surface,
+                                    borderRadius: BorderRadius.circular(999),
+                                  ),
+                                  child: Text(
+                                    _t(
+                                      '${_app.customIcons.length} guardados',
+                                      '${_app.customIcons.length} saved',
                                     ),
+                                    style: Theme.of(context)
+                                        .textTheme
+                                        .labelMedium
+                                        ?.copyWith(
+                                          color: scheme.primary,
+                                          fontWeight: FontWeight.w700,
+                                        ),
                                   ),
                                 ),
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Row(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
-                                      children: [
-                                        Container(
-                                          width: 44,
-                                          height: 44,
-                                          decoration: BoxDecoration(
-                                            color: scheme.surface,
-                                            borderRadius: BorderRadius.circular(
-                                              14,
-                                            ),
-                                          ),
-                                          child: Icon(
-                                            Icons.emoji_symbols_rounded,
-                                            color: scheme.primary,
-                                          ),
-                                        ),
-                                        const SizedBox(width: 12),
-                                        Expanded(
-                                          child: Column(
-                                            crossAxisAlignment:
-                                                CrossAxisAlignment.start,
-                                            children: [
-                                              Row(
-                                                children: [
-                                                  Expanded(
-                                                    child: Text(
-                                                      _t(
-                                                        'Iconos personalizados',
-                                                        'Custom icons',
-                                                      ),
-                                                      style: Theme.of(context)
-                                                          .textTheme
-                                                          .titleMedium
-                                                          ?.copyWith(
-                                                            fontWeight:
-                                                                FontWeight.w700,
-                                                          ),
-                                                    ),
-                                                  ),
-                                                  Container(
-                                                    padding:
-                                                        const EdgeInsets.symmetric(
-                                                          horizontal: 10,
-                                                          vertical: 5,
-                                                        ),
-                                                    decoration: BoxDecoration(
-                                                      color: scheme.surface,
-                                                      borderRadius:
-                                                          BorderRadius.circular(
-                                                            999,
-                                                          ),
-                                                    ),
-                                                    child: Text(
-                                                      _t(
-                                                        '${_app.customIcons.length} guardados',
-                                                        '${_app.customIcons.length} saved',
-                                                      ),
-                                                      style: Theme.of(context)
-                                                          .textTheme
-                                                          .labelMedium
-                                                          ?.copyWith(
-                                                            color:
-                                                                scheme.primary,
-                                                            fontWeight:
-                                                                FontWeight.w700,
-                                                          ),
-                                                    ),
-                                                  ),
-                                                ],
-                                              ),
-                                              const SizedBox(height: 6),
-                                              Text(
-                                                _t(
-                                                  'Importa una URL PNG, GIF o WebP, o un data:image compatible copiado desde páginas como notionicons.so. Después podrás usarlo como icono de página o de callout.',
-                                                  'Import a PNG, GIF, or WebP URL, or a compatible data:image copied from sites like notionicons.so. You can then use it as a page or callout icon.',
-                                                ),
-                                                style: Theme.of(context)
-                                                    .textTheme
-                                                    .bodySmall
-                                                    ?.copyWith(
-                                                      color: scheme
-                                                          .onSurfaceVariant,
-                                                      height: 1.4,
-                                                    ),
-                                              ),
-                                            ],
-                                          ),
-                                        ),
-                                      ],
+                                chips: [
+                                  _SettingsInfoChip(
+                                    icon: Icons.link_rounded,
+                                    label: _t(
+                                      'URL PNG, GIF o WebP',
+                                      'PNG, GIF, or WebP URL',
                                     ),
-                                    const SizedBox(height: 14),
-                                    Wrap(
-                                      spacing: 8,
-                                      runSpacing: 8,
-                                      children: [
-                                        _SettingsInfoChip(
-                                          icon: Icons.link_rounded,
-                                          label: _t(
-                                            'URL PNG, GIF o WebP',
-                                            'PNG, GIF, or WebP URL',
-                                          ),
-                                        ),
-                                        _SettingsInfoChip(
-                                          icon: Icons.code_rounded,
-                                          label: 'data:image/*',
-                                        ),
-                                        _SettingsInfoChip(
-                                          icon: Icons.content_paste_rounded,
-                                          label: _t(
-                                            'Pegar desde portapapeles',
-                                            'Paste from clipboard',
-                                          ),
-                                        ),
-                                      ],
+                                  ),
+                                  _SettingsInfoChip(
+                                    icon: Icons.code_rounded,
+                                    label: 'data:image/*',
+                                  ),
+                                  _SettingsInfoChip(
+                                    icon: Icons.content_paste_rounded,
+                                    label: _t(
+                                      'Pegar desde portapapeles',
+                                      'Paste from clipboard',
                                     ),
-                                  ],
-                                ),
+                                  ),
+                                ],
                               ),
+                              const Divider(height: 1),
                               Padding(
                                 padding: const EdgeInsets.fromLTRB(
                                   16,
@@ -2218,16 +2148,35 @@ class _SettingsPageState extends State<SettingsPage> {
                           ),
                         ),
 
-                        _SectionHeader(
-                          key: _sectionKeys[1],
-                          title: l10n.security,
-                          scheme: scheme,
-                        ),
                         if (_s.vaultUsesEncryption)
                           _SettingsPanel(
+                            key: _sectionKeys[1],
                             margin: const EdgeInsets.only(bottom: 24),
                             child: Column(
                               children: [
+                                _SettingsPanelHeroCard(
+                                  icon: Icons.shield_outlined,
+                                  title: l10n.security,
+                                  description: _t(
+                                    'Desbloqueo rápido, passkey, bloqueo automático y contraseña maestra del vault cifrado.',
+                                    'Quick unlock, passkey, auto-lock, and master password for your encrypted vault.',
+                                  ),
+                                  chips: [
+                                    _SettingsInfoChip(
+                                      icon: Icons.fingerprint,
+                                      label: l10n.quickUnlockTitle,
+                                    ),
+                                    _SettingsInfoChip(
+                                      icon: Icons.key_rounded,
+                                      label: l10n.passkey,
+                                    ),
+                                    _SettingsInfoChip(
+                                      icon: Icons.timer_outlined,
+                                      label: l10n.lockAutoByInactivity,
+                                    ),
+                                  ],
+                                ),
+                                const Divider(height: 1),
                                 ListTile(
                                   leading: const Icon(Icons.fingerprint),
                                   title: Text(l10n.quickUnlockTitle),
@@ -2346,24 +2295,44 @@ class _SettingsPageState extends State<SettingsPage> {
                           )
                         else
                           _SettingsPanel(
+                            key: _sectionKeys[1],
                             margin: const EdgeInsets.only(bottom: 24),
-                            child: Padding(
-                              padding: const EdgeInsets.all(20),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.stretch,
-                                children: [
-                                  Text(
-                                    l10n.plainVaultSecurityNotice,
-                                    style: Theme.of(context)
-                                        .textTheme
-                                        .bodyMedium
-                                        ?.copyWith(
-                                          color: scheme.onSurfaceVariant,
-                                          height: 1.45,
-                                        ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.stretch,
+                              children: [
+                                _SettingsPanelHeroCard(
+                                  icon: Icons.lock_open_rounded,
+                                  title: _t(
+                                    'Vault sin cifrar',
+                                    'Unencrypted vault',
                                   ),
-                                  const SizedBox(height: 16),
-                                  FilledButton.icon(
+                                  description: l10n.plainVaultSecurityNotice,
+                                  chips: [
+                                    _SettingsInfoChip(
+                                      icon: Icons.folder_open_outlined,
+                                      label: _t(
+                                        'Datos en disco',
+                                        'Data on disk',
+                                      ),
+                                    ),
+                                    _SettingsInfoChip(
+                                      icon: Icons.enhanced_encryption_outlined,
+                                      label: _t(
+                                        'Cifrado disponible',
+                                        'Encryption available',
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                const Divider(height: 1),
+                                Padding(
+                                  padding: const EdgeInsets.fromLTRB(
+                                    20,
+                                    0,
+                                    20,
+                                    20,
+                                  ),
+                                  child: FilledButton.icon(
                                     onPressed: () =>
                                         _openEncryptPlainVaultDialog(),
                                     icon: const Icon(
@@ -2372,68 +2341,171 @@ class _SettingsPageState extends State<SettingsPage> {
                                     ),
                                     label: Text(l10n.encryptPlainVaultConfirm),
                                   ),
-                                ],
-                              ),
+                                ),
+                              ],
                             ),
                           ),
 
                         if (showDesktopOnlySections) ...[
-                          _SectionHeader(
-                            key: _sectionKeys[2],
-                            title: l10n.desktopSection,
-                            scheme: scheme,
-                          ),
                           _SettingsPanel(
+                            key: _sectionKeys[2],
                             margin: const EdgeInsets.only(bottom: 24),
                             child: Column(
                               children: [
-                                SwitchListTile(
-                                  secondary: const Icon(Icons.keyboard_rounded),
-                                  title: Text(l10n.globalSearchHotkey),
-                                  subtitle: Text(
-                                    _app.enableGlobalSearchHotkey
-                                        ? _app.globalSearchHotkey
-                                        : l10n.inactive,
+                                _SettingsPanelHeroCard(
+                                  icon: Icons.desktop_windows_rounded,
+                                  title: l10n.desktopSection,
+                                  description: _t(
+                                    'Atajos globales, bandeja del sistema y comportamiento de la ventana en el escritorio.',
+                                    'Global shortcuts, system tray, and window behavior on desktop.',
                                   ),
-                                  value: _app.enableGlobalSearchHotkey,
-                                  onChanged: _app.setEnableGlobalSearchHotkey,
+                                  chips: [
+                                    _SettingsInfoChip(
+                                      icon: Icons.search_rounded,
+                                      label: l10n.globalSearchHotkey,
+                                    ),
+                                    _SettingsInfoChip(
+                                      icon: Icons.minimize_rounded,
+                                      label: l10n.minimizeToTray,
+                                    ),
+                                    _SettingsInfoChip(
+                                      icon: Icons.close_rounded,
+                                      label: l10n.closeToTray,
+                                    ),
+                                  ],
                                 ),
                                 const Divider(height: 1),
-                                ListTile(
-                                  leading: const Icon(Icons.tune_rounded),
-                                  title: Text(l10n.hotkeyCombination),
-                                  subtitle: Text(_app.globalSearchHotkey),
-                                  trailing: DropdownButton<String>(
-                                    value: _app.globalSearchHotkey,
-                                    underline: const SizedBox.shrink(),
-                                    onChanged: _app.enableGlobalSearchHotkey
-                                        ? (value) {
-                                            if (value != null) {
-                                              _app.setGlobalSearchHotkey(value);
-                                            }
-                                          }
-                                        : null,
-                                    items: [
-                                      DropdownMenuItem(
-                                        value: 'Alt+Space',
-                                        child: Text(l10n.hotkeyAltSpace),
+                                Padding(
+                                  padding: const EdgeInsets.fromLTRB(
+                                    16,
+                                    12,
+                                    16,
+                                    12,
+                                  ),
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.stretch,
+                                    children: [
+                                      Row(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        children: [
+                                          Icon(
+                                            Icons.keyboard_rounded,
+                                            color: scheme.onSurfaceVariant,
+                                          ),
+                                          const SizedBox(width: 12),
+                                          Expanded(
+                                            child: Column(
+                                              crossAxisAlignment:
+                                                  CrossAxisAlignment.start,
+                                              children: [
+                                                Text(
+                                                  l10n.globalSearchHotkey,
+                                                  style: Theme.of(context)
+                                                      .textTheme
+                                                      .titleMedium
+                                                      ?.copyWith(
+                                                        fontWeight:
+                                                            FontWeight.w600,
+                                                      ),
+                                                ),
+                                                const SizedBox(height: 4),
+                                                Text(
+                                                  _app.enableGlobalSearchHotkey
+                                                      ? l10n.hotkeyCombination
+                                                      : l10n.inactive,
+                                                  style: Theme.of(context)
+                                                      .textTheme
+                                                      .bodySmall
+                                                      ?.copyWith(
+                                                        color: scheme
+                                                            .onSurfaceVariant,
+                                                      ),
+                                                ),
+                                              ],
+                                            ),
+                                          ),
+                                          Switch(
+                                            value:
+                                                _app.enableGlobalSearchHotkey,
+                                            onChanged: _app
+                                                .setEnableGlobalSearchHotkey,
+                                          ),
+                                        ],
                                       ),
-                                      DropdownMenuItem(
-                                        value: 'Ctrl+Shift+Space',
-                                        child: Text(l10n.hotkeyCtrlShiftSpace),
-                                      ),
-                                      DropdownMenuItem(
-                                        value: 'Ctrl+Shift+K',
-                                        child: Text(l10n.hotkeyCtrlShiftK),
-                                      ),
-                                      const DropdownMenuItem(
-                                        value: 'Ctrl+Shift+F',
-                                        child: Text('Ctrl + Shift + F'),
-                                      ),
-                                      const DropdownMenuItem(
-                                        value: 'Ctrl+Alt+Space',
-                                        child: Text('Ctrl + Alt + Space'),
-                                      ),
+                                      if (_app.enableGlobalSearchHotkey) ...[
+                                        const SizedBox(height: 12),
+                                        Text(
+                                          l10n.hotkeyCombination,
+                                          style: Theme.of(context)
+                                              .textTheme
+                                              .labelLarge
+                                              ?.copyWith(
+                                                color: scheme.onSurfaceVariant,
+                                                fontWeight: FontWeight.w600,
+                                              ),
+                                        ),
+                                        const SizedBox(height: 6),
+                                        Container(
+                                          padding: const EdgeInsets.symmetric(
+                                            horizontal: 12,
+                                          ),
+                                          decoration: BoxDecoration(
+                                            border: Border.all(
+                                              color: scheme.outlineVariant,
+                                            ),
+                                            borderRadius: BorderRadius.circular(
+                                              12,
+                                            ),
+                                          ),
+                                          child: DropdownButton<String>(
+                                            isExpanded: true,
+                                            value: _app.globalSearchHotkey,
+                                            underline: const SizedBox.shrink(),
+                                            borderRadius: BorderRadius.circular(
+                                              12,
+                                            ),
+                                            items: [
+                                              DropdownMenuItem(
+                                                value: 'Alt+Space',
+                                                child: Text(
+                                                  l10n.hotkeyAltSpace,
+                                                ),
+                                              ),
+                                              DropdownMenuItem(
+                                                value: 'Ctrl+Shift+Space',
+                                                child: Text(
+                                                  l10n.hotkeyCtrlShiftSpace,
+                                                ),
+                                              ),
+                                              DropdownMenuItem(
+                                                value: 'Ctrl+Shift+K',
+                                                child: Text(
+                                                  l10n.hotkeyCtrlShiftK,
+                                                ),
+                                              ),
+                                              const DropdownMenuItem(
+                                                value: 'Ctrl+Shift+F',
+                                                child: Text('Ctrl + Shift + F'),
+                                              ),
+                                              const DropdownMenuItem(
+                                                value: 'Ctrl+Alt+Space',
+                                                child: Text(
+                                                  'Ctrl + Alt + Space',
+                                                ),
+                                              ),
+                                            ],
+                                            onChanged: (value) {
+                                              if (value != null) {
+                                                _app.setGlobalSearchHotkey(
+                                                  value,
+                                                );
+                                              }
+                                            },
+                                          ),
+                                        ),
+                                      ],
                                     ],
                                   ),
                                 ),
@@ -2457,15 +2529,30 @@ class _SettingsPageState extends State<SettingsPage> {
                             ),
                           ),
 
-                          _SectionHeader(
-                            key: _sectionKeys[3],
-                            title: l10n.keyboardShortcutsSection,
-                            scheme: scheme,
-                          ),
                           _SettingsPanel(
+                            key: _sectionKeys[3],
                             margin: const EdgeInsets.only(bottom: 24),
                             child: Column(
                               children: [
+                                _SettingsPanelHeroCard(
+                                  icon: Icons.keyboard_rounded,
+                                  title: l10n.keyboardShortcutsSection,
+                                  description: _t(
+                                    'Combinaciones solo dentro de Folio. Prueba una tecla antes de guardarla.',
+                                    'Shortcuts only inside Folio. Test a key before saving it.',
+                                  ),
+                                  chips: [
+                                    _SettingsInfoChip(
+                                      icon: Icons.ads_click_rounded,
+                                      label: _t('Probar', 'Test'),
+                                    ),
+                                    _SettingsInfoChip(
+                                      icon: Icons.restart_alt_rounded,
+                                      label: l10n.shortcutResetAllTitle,
+                                    ),
+                                  ],
+                                ),
+                                const Divider(height: 1),
                                 for (final id in FolioInAppShortcut.values) ...[
                                   if (id != FolioInAppShortcut.values.first)
                                     const Divider(height: 1),
@@ -2548,15 +2635,34 @@ class _SettingsPageState extends State<SettingsPage> {
                         ],
 
                         if (_app.isAiAvailable) ...[
-                          _SectionHeader(
-                            key: _sectionKeys[4],
-                            title: l10n.ai,
-                            scheme: scheme,
-                          ),
                           _SettingsPanel(
+                            key: _sectionKeys[4],
                             margin: const EdgeInsets.only(bottom: 24),
                             child: Column(
                               children: [
+                                _SettingsPanelHeroCard(
+                                  icon: Icons.smart_toy_outlined,
+                                  title: l10n.ai,
+                                  description: _t(
+                                    'Conecta Ollama o LM Studio en local; el asistente usa el modelo y el contexto que configures aquí.',
+                                    'Connect Ollama or LM Studio locally; the assistant uses the model and context you set here.',
+                                  ),
+                                  chips: [
+                                    _SettingsInfoChip(
+                                      icon: Icons.hub_outlined,
+                                      label: l10n.aiProviderLabel,
+                                    ),
+                                    _SettingsInfoChip(
+                                      icon: Icons.psychology_outlined,
+                                      label: l10n.aiModel,
+                                    ),
+                                    _SettingsInfoChip(
+                                      icon: Icons.assistant_navigation,
+                                      label: l10n.aiSetupAssistantTitle,
+                                    ),
+                                  ],
+                                ),
+                                const Divider(height: 1),
                                 SwitchListTile(
                                   secondary: const Icon(
                                     Icons.smart_toy_outlined,
@@ -2847,25 +2953,29 @@ class _SettingsPageState extends State<SettingsPage> {
                           ),
                         ],
 
-                        _SectionHeader(
-                          key: _sectionKeys[5],
-                          title: l10n.vaultBackup,
-                          scheme: scheme,
-                        ),
                         _SettingsPanel(
+                          key: _sectionKeys[5],
                           margin: const EdgeInsets.only(bottom: 24),
                           child: Column(
                             children: [
-                              Padding(
-                                padding: const EdgeInsets.all(16.0),
-                                child: Text(
-                                  l10n.backupInfoBody,
-                                  style: Theme.of(context).textTheme.bodySmall
-                                      ?.copyWith(
-                                        color: scheme.onSurfaceVariant,
-                                        height: 1.4,
-                                      ),
-                                ),
+                              _SettingsPanelHeroCard(
+                                icon: Icons.backup_outlined,
+                                title: l10n.vaultBackup,
+                                description: l10n.backupInfoBody,
+                                chips: [
+                                  _SettingsInfoChip(
+                                    icon: Icons.file_download_outlined,
+                                    label: l10n.exportZipTitle,
+                                  ),
+                                  _SettingsInfoChip(
+                                    icon: Icons.file_upload_outlined,
+                                    label: l10n.importZipTitle,
+                                  ),
+                                  _SettingsInfoChip(
+                                    icon: Icons.note_add_outlined,
+                                    label: l10n.importNotionTitle,
+                                  ),
+                                ],
                               ),
                               const Divider(height: 1),
                               ListTile(
@@ -2930,12 +3040,8 @@ class _SettingsPageState extends State<SettingsPage> {
                         ),
 
                         if (showDesktopOnlySections) ...[
-                          _SectionHeader(
-                            key: _sectionKeys[6],
-                            title: l10n.integrations,
-                            scheme: scheme,
-                          ),
                           _SettingsPanel(
+                            key: _sectionKeys[6],
                             margin: const EdgeInsets.only(bottom: 24),
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -2945,8 +3051,32 @@ class _SettingsPageState extends State<SettingsPage> {
                                       .approvedIntegrationAppApprovals
                                       .length,
                                   hintText: l10n.integrationsAppsApprovedHint,
-                                  title: l10n.integrationsAppsApprovedTitle,
+                                  title: l10n.integrations,
+                                  featureChips: [
+                                    _SettingsInfoChip(
+                                      icon: Icons.verified_user_outlined,
+                                      label: _t(
+                                        'Permisos aprobados',
+                                        'Approved permissions',
+                                      ),
+                                    ),
+                                    _SettingsInfoChip(
+                                      icon: Icons.lock_open_outlined,
+                                      label: _t(
+                                        'Acceso revocable',
+                                        'Revocable access',
+                                      ),
+                                    ),
+                                    _SettingsInfoChip(
+                                      icon: Icons.devices_outlined,
+                                      label: _t(
+                                        'Apps externas',
+                                        'External apps',
+                                      ),
+                                    ),
+                                  ],
                                 ),
+                                const Divider(height: 1),
                                 Padding(
                                   padding: const EdgeInsets.fromLTRB(
                                     16,
@@ -3077,56 +3207,49 @@ class _SettingsPageState extends State<SettingsPage> {
                           ),
                         ],
 
-                        _SectionHeader(
-                          key: _sectionKeys[7],
-                          title: _t(
-                            'Sincronizacion entre dispositivos',
-                            'Device synchronization',
-                          ),
-                          scheme: scheme,
-                        ),
                         AnimatedBuilder(
+                          key: _sectionKeys[7],
                           animation: _sync,
                           builder: (context, _) => _SettingsPanel(
                             margin: const EdgeInsets.only(bottom: 24),
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.stretch,
                               children: [
-                                Padding(
-                                  padding: const EdgeInsets.fromLTRB(
-                                    16,
-                                    16,
-                                    16,
-                                    8,
+                                _SettingsPanelHeroCard(
+                                  icon: Icons.sync_rounded,
+                                  title: _t(
+                                    'Sincronización entre dispositivos',
+                                    'Device synchronization',
                                   ),
-                                  child: Wrap(
-                                    spacing: 8,
-                                    runSpacing: 8,
-                                    children: [
-                                      _SettingsInfoChip(
-                                        icon: Icons.shield_outlined,
-                                        label: _t(
-                                          'Codigo de enlace',
-                                          'Pairing code',
-                                        ),
-                                      ),
-                                      _SettingsInfoChip(
-                                        icon: Icons.search_rounded,
-                                        label: _t(
-                                          'Deteccion automatica',
-                                          'Auto discovery',
-                                        ),
-                                      ),
-                                      _SettingsInfoChip(
-                                        icon: Icons.cloud_outlined,
-                                        label: _t(
-                                          'Relay opcional',
-                                          'Optional relay',
-                                        ),
-                                      ),
-                                    ],
+                                  description: _t(
+                                    'Empareja equipos en la red local; el relay solo ayuda a negociar la conexión, no envía el contenido del vault.',
+                                    'Pair machines on the local network; the relay only helps negotiate the connection and does not send vault content.',
                                   ),
+                                  chips: [
+                                    _SettingsInfoChip(
+                                      icon: Icons.shield_outlined,
+                                      label: _t(
+                                        'Código de enlace',
+                                        'Pairing code',
+                                      ),
+                                    ),
+                                    _SettingsInfoChip(
+                                      icon: Icons.search_rounded,
+                                      label: _t(
+                                        'Detección automática',
+                                        'Auto discovery',
+                                      ),
+                                    ),
+                                    _SettingsInfoChip(
+                                      icon: Icons.cloud_outlined,
+                                      label: _t(
+                                        'Relay opcional',
+                                        'Optional relay',
+                                      ),
+                                    ),
+                                  ],
                                 ),
+                                const Divider(height: 1),
                                 SwitchListTile(
                                   secondary: const Icon(Icons.sync_rounded),
                                   title: Text(
@@ -3455,15 +3578,30 @@ class _SettingsPageState extends State<SettingsPage> {
                           ),
                         ),
 
-                        _SectionHeader(
-                          key: _sectionKeys[8],
-                          title: l10n.about,
-                          scheme: scheme,
-                        ),
                         _SettingsPanel(
+                          key: _sectionKeys[8],
                           margin: const EdgeInsets.only(bottom: 24),
                           child: Column(
                             children: [
+                              _SettingsPanelHeroCard(
+                                icon: Icons.info_outline_rounded,
+                                title: l10n.about,
+                                description: _t(
+                                  'Versión instalada, origen de actualizaciones y comprobación manual de novedades.',
+                                  'Installed version, update source, and manual checks for new releases.',
+                                ),
+                                chips: [
+                                  _SettingsInfoChip(
+                                    icon: Icons.tag_rounded,
+                                    label: l10n.installedVersion,
+                                  ),
+                                  _SettingsInfoChip(
+                                    icon: Icons.system_update_rounded,
+                                    label: l10n.checkUpdates,
+                                  ),
+                                ],
+                              ),
+                              const Divider(height: 1),
                               ListTile(
                                 leading: const Icon(Icons.info_outline_rounded),
                                 title: Text(l10n.installedVersion),
@@ -3561,52 +3699,93 @@ class _SettingsPageState extends State<SettingsPage> {
                           ),
                         ),
 
-                        _SectionHeader(
-                          key: _sectionKeys[9],
-                          title: l10n.data,
-                          scheme: scheme,
-                        ),
-                        Card(
-                          margin: const EdgeInsets.only(bottom: 24),
-                          color: scheme.errorContainer.withValues(alpha: 0.2),
-                          elevation: 0,
-                          shape: RoundedRectangleBorder(
-                            side: BorderSide(
-                              color: scheme.error.withValues(alpha: 0.5),
-                            ),
-                            borderRadius: const BorderRadius.all(
-                              Radius.circular(24),
-                            ),
-                          ),
-                          child: ListTile(
-                            leading: Icon(
-                              Icons.delete_forever_outlined,
-                              color: scheme.error,
-                            ),
-                            title: Text(
-                              l10n.wipeCardTitle,
-                              style: TextStyle(
-                                color: scheme.error,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                            subtitle: Text(
-                              l10n.wipeCardSubtitle,
-                              style: Theme.of(context).textTheme.bodySmall
-                                  ?.copyWith(
-                                    color: scheme.error.withValues(alpha: 0.8),
-                                  ),
-                            ),
-                            onTap: _openWipeFlow,
-                          ),
-                        ),
                         _SettingsPanel(
+                          key: _sectionKeys[9],
                           margin: const EdgeInsets.only(bottom: 24),
-                          child: ListTile(
-                            leading: const Icon(Icons.delete_outline),
-                            title: Text(l10n.deleteOtherVault),
-                            subtitle: Text(l10n.deleteOtherVaultTitle),
-                            onTap: _deleteOtherVault,
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              _SettingsPanelHeroCard(
+                                icon: Icons.storage_rounded,
+                                title: l10n.data,
+                                description: _t(
+                                  'Acciones permanentes sobre archivos locales. Haz una copia de seguridad antes de borrar.',
+                                  'Permanent actions on local files. Make a backup before deleting.',
+                                ),
+                                chips: [
+                                  _SettingsInfoChip(
+                                    icon: Icons.delete_forever_outlined,
+                                    label: l10n.wipeCardTitle,
+                                  ),
+                                  _SettingsInfoChip(
+                                    icon: Icons.delete_outline,
+                                    label: l10n.deleteOtherVault,
+                                  ),
+                                ],
+                              ),
+                              const Divider(height: 1),
+                              _SettingsSubsectionTitle(
+                                title: _t('Zona de peligro', 'Danger zone'),
+                                scheme: scheme,
+                                topPadding: 8,
+                              ),
+                              Padding(
+                                padding: const EdgeInsets.fromLTRB(
+                                  16,
+                                  0,
+                                  16,
+                                  8,
+                                ),
+                                child: Card(
+                                  color: scheme.errorContainer.withValues(
+                                    alpha: 0.2,
+                                  ),
+                                  elevation: 0,
+                                  shape: RoundedRectangleBorder(
+                                    side: BorderSide(
+                                      color: scheme.error.withValues(
+                                        alpha: 0.5,
+                                      ),
+                                    ),
+                                    borderRadius: const BorderRadius.all(
+                                      Radius.circular(20),
+                                    ),
+                                  ),
+                                  child: ListTile(
+                                    leading: Icon(
+                                      Icons.delete_forever_outlined,
+                                      color: scheme.error,
+                                    ),
+                                    title: Text(
+                                      l10n.wipeCardTitle,
+                                      style: TextStyle(
+                                        color: scheme.error,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                    subtitle: Text(
+                                      l10n.wipeCardSubtitle,
+                                      style: Theme.of(context)
+                                          .textTheme
+                                          .bodySmall
+                                          ?.copyWith(
+                                            color: scheme.error.withValues(
+                                              alpha: 0.8,
+                                            ),
+                                          ),
+                                    ),
+                                    onTap: _openWipeFlow,
+                                  ),
+                                ),
+                              ),
+                              const Divider(height: 1),
+                              ListTile(
+                                leading: const Icon(Icons.delete_outline),
+                                title: Text(l10n.deleteOtherVault),
+                                subtitle: Text(l10n.deleteOtherVaultTitle),
+                                onTap: _deleteOtherVault,
+                              ),
+                            ],
                           ),
                         ),
                         const SizedBox(height: 24),
@@ -3634,7 +3813,10 @@ class _SettingsPageState extends State<SettingsPage> {
                           width: 280,
                           child: _SettingsDesktopRail(
                             title: l10n.settings,
-                            subtitle: l10n.settingsAppearanceHint,
+                            subtitle: _t(
+                              'Elige una categoría en la lista o desplázate por el contenido.',
+                              'Pick a category from the list or scroll the content.',
+                            ),
                             currentSection: _selectedDesktopSection,
                             onSelectSection: _scrollToSection,
                             sections: desktopSections,
@@ -4380,6 +4562,104 @@ class _ProviderStatusLine extends StatelessWidget {
   }
 }
 
+/// Tarjeta-resumen al inicio de un panel de ajustes (mismo lenguaje visual que
+/// iconos personalizados e integraciones).
+class _SettingsPanelHeroCard extends StatelessWidget {
+  const _SettingsPanelHeroCard({
+    required this.icon,
+    required this.title,
+    required this.description,
+    this.trailingBadge,
+    this.chips = const [],
+  });
+
+  final IconData icon;
+  final String title;
+  final String description;
+  final Widget? trailingBadge;
+  final List<Widget> chips;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Container(
+      margin: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            scheme.primaryContainer.withValues(alpha: 0.55),
+            scheme.surfaceContainerHigh,
+          ],
+        ),
+        borderRadius: BorderRadius.circular(22),
+        border: Border.all(
+          color: scheme.outlineVariant.withValues(alpha: 0.5),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                width: 44,
+                height: 44,
+                decoration: BoxDecoration(
+                  color: scheme.surface,
+                  borderRadius: BorderRadius.circular(14),
+                ),
+                child: Icon(icon, color: scheme.primary, size: 24),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Expanded(
+                          child: Text(
+                            title,
+                            style: Theme.of(context)
+                                .textTheme
+                                .titleMedium
+                                ?.copyWith(fontWeight: FontWeight.w700),
+                          ),
+                        ),
+                        if (trailingBadge != null) ...[
+                          const SizedBox(width: 8),
+                          trailingBadge!,
+                        ],
+                      ],
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      description,
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: scheme.onSurfaceVariant,
+                        height: 1.4,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          if (chips.isNotEmpty) ...[
+            const SizedBox(height: 14),
+            Wrap(spacing: 8, runSpacing: 8, children: chips),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
 class _SettingsInfoChip extends StatelessWidget {
   const _SettingsInfoChip({required this.icon, required this.label});
 
@@ -4419,109 +4699,36 @@ class _IntegrationsHero extends StatelessWidget {
     required this.approvedCount,
     required this.hintText,
     required this.title,
+    required this.featureChips,
   });
 
   final int approvedCount;
   final String hintText;
   final String title;
+  final List<Widget> featureChips;
 
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    return Container(
-      margin: const EdgeInsets.all(16),
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [
-            scheme.secondaryContainer.withValues(alpha: 0.58),
-            scheme.surfaceContainerHigh,
-          ],
+    return _SettingsPanelHeroCard(
+      icon: Icons.hub_rounded,
+      title: title,
+      description: hintText,
+      trailingBadge: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+        decoration: BoxDecoration(
+          color: scheme.surface,
+          borderRadius: BorderRadius.circular(999),
         ),
-        borderRadius: BorderRadius.circular(22),
-        border: Border.all(
-          color: scheme.outlineVariant.withValues(alpha: 0.45),
+        child: Text(
+          '$approvedCount',
+          style: Theme.of(context).textTheme.titleSmall?.copyWith(
+            color: scheme.primary,
+            fontWeight: FontWeight.w800,
+          ),
         ),
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Container(
-                width: 46,
-                height: 46,
-                decoration: BoxDecoration(
-                  color: scheme.surface,
-                  borderRadius: BorderRadius.circular(14),
-                ),
-                child: Icon(Icons.hub_rounded, color: scheme.primary),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      title,
-                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                    const SizedBox(height: 6),
-                    Text(
-                      hintText,
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: scheme.onSurfaceVariant,
-                        height: 1.4,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 10,
-                  vertical: 6,
-                ),
-                decoration: BoxDecoration(
-                  color: scheme.surface,
-                  borderRadius: BorderRadius.circular(999),
-                ),
-                child: Text(
-                  '$approvedCount',
-                  style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                    color: scheme.primary,
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 14),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: const [
-              _SettingsInfoChip(
-                icon: Icons.verified_user_outlined,
-                label: 'Permisos aprobados',
-              ),
-              _SettingsInfoChip(
-                icon: Icons.lock_open_outlined,
-                label: 'Acceso revocable',
-              ),
-              _SettingsInfoChip(
-                icon: Icons.devices_outlined,
-                label: 'Apps externas',
-              ),
-            ],
-          ),
-        ],
-      ),
+      chips: featureChips,
     );
   }
 }
@@ -4623,7 +4830,7 @@ class _IntegrationAppCard extends StatelessWidget {
 }
 
 class _SettingsPanel extends StatelessWidget {
-  const _SettingsPanel({required this.child, this.margin});
+  const _SettingsPanel({super.key, required this.child, this.margin});
 
   final Widget child;
   final EdgeInsetsGeometry? margin;
@@ -4652,23 +4859,26 @@ class _SettingsOverviewBanner extends StatelessWidget {
   const _SettingsOverviewBanner({
     required this.appSettings,
     required this.session,
-    required this.installedVersionLabel,
   });
 
   final AppSettings appSettings;
   final VaultSession session;
-  final String installedVersionLabel;
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     final scheme = Theme.of(context).colorScheme;
     final theme = Theme.of(context);
     final localeCode = appSettings.locale?.languageCode;
     final localeLabel = localeCode == null
-        ? 'System'
-        : (localeCode == 'es' ? 'Español' : 'English');
-    final aiLabel = appSettings.aiEnabled ? 'IA activa' : 'IA desactivada';
-    final vaultLabel = session.vaultUsesEncryption ? 'Cifrado' : 'Plano';
+        ? l10n.useSystemLanguage
+        : (localeCode == 'es' ? l10n.spanishLanguage : l10n.englishLanguage);
+    final aiLabel = appSettings.aiEnabled ? l10n.active : l10n.inactive;
+    final vaultLabel = session.vaultUsesEncryption
+        ? l10n.encryptedVault
+        : (Localizations.localeOf(context).languageCode == 'es'
+              ? 'Sin cifrar'
+              : 'Unencrypted');
     return Container(
       margin: const EdgeInsets.only(bottom: 20),
       padding: const EdgeInsets.all(20),
@@ -4709,7 +4919,7 @@ class _SettingsOverviewBanner extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'Ajustes de Folio',
+                      l10n.settings,
                       style: theme.textTheme.headlineSmall?.copyWith(
                         fontWeight: FontWeight.w800,
                         letterSpacing: -0.4,
@@ -4717,7 +4927,9 @@ class _SettingsOverviewBanner extends StatelessWidget {
                     ),
                     const SizedBox(height: 6),
                     Text(
-                      'Personaliza la app, gestiona seguridad, IA, copias e integraciones desde un único panel.',
+                      Localizations.localeOf(context).languageCode == 'es'
+                          ? 'Personaliza la app, gestiona seguridad, IA, copias e integraciones desde un único panel.'
+                          : 'Customize the app, security, AI, backups, and integrations from one place.',
                       style: theme.textTheme.bodyMedium?.copyWith(
                         color: scheme.onSurfaceVariant,
                         height: 1.45,
@@ -4735,23 +4947,22 @@ class _SettingsOverviewBanner extends StatelessWidget {
             children: [
               _SettingsOverviewStat(
                 icon: Icons.palette_outlined,
-                label: 'Idioma',
+                label: l10n.language,
                 value: localeLabel,
               ),
               _SettingsOverviewStat(
                 icon: Icons.shield_outlined,
-                label: 'Cofre',
+                label: Localizations.localeOf(context).languageCode == 'es'
+                    ? 'Cofre'
+                    : 'Vault',
                 value: vaultLabel,
               ),
               _SettingsOverviewStat(
                 icon: Icons.auto_awesome_outlined,
-                label: 'IA',
+                label: Localizations.localeOf(context).languageCode == 'es'
+                    ? 'IA'
+                    : 'AI',
                 value: aiLabel,
-              ),
-              _SettingsOverviewStat(
-                icon: Icons.sell_outlined,
-                label: 'Version',
-                value: installedVersionLabel,
               ),
             ],
           ),
@@ -4815,36 +5026,30 @@ class _SettingsOverviewStat extends StatelessWidget {
   }
 }
 
-class _SectionHeader extends StatelessWidget {
-  const _SectionHeader({super.key, required this.title, required this.scheme});
+/// Agrupa opciones dentro de un panel (sin cambiar el índice de sección del rail).
+class _SettingsSubsectionTitle extends StatelessWidget {
+  const _SettingsSubsectionTitle({
+    super.key,
+    required this.title,
+    required this.scheme,
+    this.topPadding = 16,
+  });
 
   final String title;
   final ColorScheme scheme;
+  final double topPadding;
 
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(8, 4, 8, 10),
-      child: Row(
-        children: [
-          Container(
-            width: 8,
-            height: 8,
-            decoration: BoxDecoration(
-              color: scheme.primary,
-              shape: BoxShape.circle,
-            ),
-          ),
-          const SizedBox(width: 10),
-          Text(
-            title,
-            style: Theme.of(context).textTheme.titleSmall?.copyWith(
-              color: scheme.primary,
-              fontWeight: FontWeight.w700,
-              letterSpacing: 0.1,
-            ),
-          ),
-        ],
+      padding: EdgeInsets.fromLTRB(16, topPadding, 16, 8),
+      child: Text(
+        title,
+        style: Theme.of(context).textTheme.labelLarge?.copyWith(
+          color: scheme.onSurfaceVariant,
+          fontWeight: FontWeight.w800,
+          letterSpacing: 0.4,
+        ),
       ),
     );
   }

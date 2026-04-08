@@ -532,6 +532,19 @@ class AppLocalizationsEn extends AppLocalizations {
   String get activeVaultLabel => 'Active vault';
 
   @override
+  String get sidebarVaultsLoading => 'Loading vaults…';
+
+  @override
+  String get sidebarVaultsEmpty => 'No vaults available';
+
+  @override
+  String get forceSyncTooltip => 'Force sync';
+
+  @override
+  String get searchDialogFooterHint =>
+      'Enter opens the top result · Esc closes';
+
+  @override
   String get renamePageTitle => 'Rename page';
 
   @override
@@ -555,6 +568,48 @@ class AppLocalizationsEn extends AppLocalizations {
   String get pages => 'Pages';
 
   @override
+  String get pageOutlineTitle => 'Outline';
+
+  @override
+  String get pageOutlineEmpty => 'Add headings (H1–H3) to build the outline.';
+
+  @override
+  String get showPageOutline => 'Show outline';
+
+  @override
+  String get hidePageOutline => 'Hide outline';
+
+  @override
+  String get tocBlockTitle => 'Table of contents';
+
+  @override
+  String get showSidebar => 'Show sidebar';
+
+  @override
+  String get hideSidebar => 'Hide sidebar';
+
+  @override
+  String get resizeSidebarHandle => 'Resize sidebar';
+
+  @override
+  String get resizeSidebarHandleHint =>
+      'Drag horizontally to change the sidebar width';
+
+  @override
+  String get resizeAiPanelHeightHandle => 'Resize assistant height';
+
+  @override
+  String get resizeAiPanelHeightHandleHint =>
+      'Drag vertically to change the assistant panel height';
+
+  @override
+  String get sidebarAutoRevealTitle => 'Peek sidebar from left edge';
+
+  @override
+  String get sidebarAutoRevealSubtitle =>
+      'When the sidebar is hidden, move the pointer to the left edge to show it temporarily.';
+
+  @override
   String get newRootPageTooltip => 'New page (root)';
 
   @override
@@ -565,6 +620,18 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get addBlock => 'Add block';
+
+  @override
+  String get blockMentionPageSubtitle => 'Mention page';
+
+  @override
+  String get blockTypesSheetTitle => 'Block types';
+
+  @override
+  String get blockTypesSheetSubtitle => 'Choose how this block will look';
+
+  @override
+  String get blockTypeFilterEmpty => 'Nothing matches your search';
 
   @override
   String get fileNotFound => 'File not found';
@@ -962,6 +1029,9 @@ class AppLocalizationsEn extends AppLocalizations {
       'Start a conversation.\nQuill will automatically decide what to do with your message.\nYou can also ask how to use Folio (shortcuts, settings, pages, or this chat).';
 
   @override
+  String get aiChatEmptyFocusComposer => 'Write a message';
+
+  @override
   String get aiInputHint => 'Type your message. Quill will act as an agent.';
 
   @override
@@ -992,6 +1062,28 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get aiHidePanel => 'Hide AI panel';
+
+  @override
+  String get aiPanelResizeHandle => 'Resize AI panel';
+
+  @override
+  String get aiPanelResizeHandleHint =>
+      'Drag horizontally to change the assistant panel width';
+
+  @override
+  String get importMarkdownPage => 'Import Markdown';
+
+  @override
+  String get exportMarkdownPage => 'Export Markdown';
+
+  @override
+  String get workspaceUndoTooltip => 'Undo (Ctrl+Z)';
+
+  @override
+  String get workspaceRedoTooltip => 'Redo (Ctrl+Y)';
+
+  @override
+  String get workspaceMoreActionsTooltip => 'More actions';
 
   @override
   String get closeCurrentPage => 'Close current page';

@@ -1052,6 +1052,30 @@ abstract class AppLocalizations {
   /// **'Cofre activo'**
   String get activeVaultLabel;
 
+  /// No description provided for @sidebarVaultsLoading.
+  ///
+  /// In es, this message translates to:
+  /// **'Cargando cofres…'**
+  String get sidebarVaultsLoading;
+
+  /// No description provided for @sidebarVaultsEmpty.
+  ///
+  /// In es, this message translates to:
+  /// **'No hay cofres disponibles'**
+  String get sidebarVaultsEmpty;
+
+  /// No description provided for @forceSyncTooltip.
+  ///
+  /// In es, this message translates to:
+  /// **'Forzar sincronización'**
+  String get forceSyncTooltip;
+
+  /// No description provided for @searchDialogFooterHint.
+  ///
+  /// In es, this message translates to:
+  /// **'Enter abre el primer resultado · Esc cierra'**
+  String get searchDialogFooterHint;
+
   /// No description provided for @renamePageTitle.
   ///
   /// In es, this message translates to:
@@ -1094,6 +1118,84 @@ abstract class AppLocalizations {
   /// **'Páginas'**
   String get pages;
 
+  /// No description provided for @pageOutlineTitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Índice'**
+  String get pageOutlineTitle;
+
+  /// No description provided for @pageOutlineEmpty.
+  ///
+  /// In es, this message translates to:
+  /// **'Añade encabezados (H1–H3) para generar el índice.'**
+  String get pageOutlineEmpty;
+
+  /// No description provided for @showPageOutline.
+  ///
+  /// In es, this message translates to:
+  /// **'Mostrar índice'**
+  String get showPageOutline;
+
+  /// No description provided for @hidePageOutline.
+  ///
+  /// In es, this message translates to:
+  /// **'Ocultar índice'**
+  String get hidePageOutline;
+
+  /// No description provided for @tocBlockTitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Tabla de contenidos'**
+  String get tocBlockTitle;
+
+  /// No description provided for @showSidebar.
+  ///
+  /// In es, this message translates to:
+  /// **'Mostrar panel lateral'**
+  String get showSidebar;
+
+  /// No description provided for @hideSidebar.
+  ///
+  /// In es, this message translates to:
+  /// **'Ocultar panel lateral'**
+  String get hideSidebar;
+
+  /// No description provided for @resizeSidebarHandle.
+  ///
+  /// In es, this message translates to:
+  /// **'Redimensionar panel lateral'**
+  String get resizeSidebarHandle;
+
+  /// No description provided for @resizeSidebarHandleHint.
+  ///
+  /// In es, this message translates to:
+  /// **'Arrastra horizontalmente para cambiar el ancho del panel'**
+  String get resizeSidebarHandleHint;
+
+  /// No description provided for @resizeAiPanelHeightHandle.
+  ///
+  /// In es, this message translates to:
+  /// **'Redimensionar altura del asistente'**
+  String get resizeAiPanelHeightHandle;
+
+  /// No description provided for @resizeAiPanelHeightHandleHint.
+  ///
+  /// In es, this message translates to:
+  /// **'Arrastra verticalmente para cambiar la altura del panel'**
+  String get resizeAiPanelHeightHandleHint;
+
+  /// No description provided for @sidebarAutoRevealTitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Mostrar panel al acercar al borde'**
+  String get sidebarAutoRevealTitle;
+
+  /// No description provided for @sidebarAutoRevealSubtitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Si el panel está oculto, acerca el puntero al borde izquierdo para verlo un momento.'**
+  String get sidebarAutoRevealSubtitle;
+
   /// No description provided for @newRootPageTooltip.
   ///
   /// In es, this message translates to:
@@ -1117,6 +1219,30 @@ abstract class AppLocalizations {
   /// In es, this message translates to:
   /// **'Añadir bloque'**
   String get addBlock;
+
+  /// No description provided for @blockMentionPageSubtitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Mencionar página'**
+  String get blockMentionPageSubtitle;
+
+  /// No description provided for @blockTypesSheetTitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Tipos de bloque'**
+  String get blockTypesSheetTitle;
+
+  /// No description provided for @blockTypesSheetSubtitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Elige cómo se verá este bloque'**
+  String get blockTypesSheetSubtitle;
+
+  /// No description provided for @blockTypeFilterEmpty.
+  ///
+  /// In es, this message translates to:
+  /// **'Nada coincide con tu búsqueda'**
+  String get blockTypeFilterEmpty;
 
   /// No description provided for @fileNotFound.
   ///
@@ -1844,6 +1970,12 @@ abstract class AppLocalizations {
   /// **'Empieza una conversación.\nQuill decidirá automáticamente qué hacer con tu mensaje.\nTambién puedes preguntar cómo usar Folio (atajos, ajustes, páginas o este chat).'**
   String get aiChatEmptyHint;
 
+  /// No description provided for @aiChatEmptyFocusComposer.
+  ///
+  /// In es, this message translates to:
+  /// **'Escribe un mensaje'**
+  String get aiChatEmptyFocusComposer;
+
   /// No description provided for @aiInputHint.
   ///
   /// In es, this message translates to:
@@ -1903,6 +2035,48 @@ abstract class AppLocalizations {
   /// In es, this message translates to:
   /// **'Ocultar panel IA'**
   String get aiHidePanel;
+
+  /// No description provided for @aiPanelResizeHandle.
+  ///
+  /// In es, this message translates to:
+  /// **'Redimensionar panel de IA'**
+  String get aiPanelResizeHandle;
+
+  /// No description provided for @aiPanelResizeHandleHint.
+  ///
+  /// In es, this message translates to:
+  /// **'Arrastra horizontalmente para cambiar el ancho del asistente'**
+  String get aiPanelResizeHandleHint;
+
+  /// No description provided for @importMarkdownPage.
+  ///
+  /// In es, this message translates to:
+  /// **'Importar Markdown'**
+  String get importMarkdownPage;
+
+  /// No description provided for @exportMarkdownPage.
+  ///
+  /// In es, this message translates to:
+  /// **'Exportar Markdown'**
+  String get exportMarkdownPage;
+
+  /// No description provided for @workspaceUndoTooltip.
+  ///
+  /// In es, this message translates to:
+  /// **'Deshacer (Ctrl+Z)'**
+  String get workspaceUndoTooltip;
+
+  /// No description provided for @workspaceRedoTooltip.
+  ///
+  /// In es, this message translates to:
+  /// **'Rehacer (Ctrl+Y)'**
+  String get workspaceRedoTooltip;
+
+  /// No description provided for @workspaceMoreActionsTooltip.
+  ///
+  /// In es, this message translates to:
+  /// **'Más acciones'**
+  String get workspaceMoreActionsTooltip;
 
   /// No description provided for @closeCurrentPage.
   ///

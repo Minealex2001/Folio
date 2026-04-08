@@ -596,85 +596,91 @@ class FolioFormatToolbar extends StatelessWidget {
       label: AppLocalizations.of(context).formatToolbar,
       child: BlockEditorFloatingPanel(
         scheme: colorScheme,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-          child: SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                if (onOpenBlockAppearance != null)
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 560, maxHeight: 56),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+            child: SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              physics: const ClampingScrollPhysics(),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  if (onOpenBlockAppearance != null)
+                    btn(
+                      icon: Icons.palette_outlined,
+                      tip: 'Apariencia del bloque',
+                      onPressed: () => applyFormat(onOpenBlockAppearance!),
+                    ),
                   btn(
-                    icon: Icons.palette_outlined,
-                    tip: 'Apariencia del bloque',
-                    onPressed: () => applyFormat(onOpenBlockAppearance!),
+                    icon: Icons.format_bold_rounded,
+                    tip: AppLocalizations.of(context).boldTip,
+                    onPressed: () => applyFormat(
+                      () => folioToggleWrap(controller, '**', '**'),
+                    ),
                   ),
-                btn(
-                  icon: Icons.format_bold_rounded,
-                  tip: AppLocalizations.of(context).boldTip,
-                  onPressed: () => applyFormat(
-                    () => folioToggleWrap(controller, '**', '**'),
-                  ),
-                ),
-                btn(
-                  icon: Icons.format_italic_rounded,
-                  tip: AppLocalizations.of(context).italicTip,
-                  onPressed: () =>
-                      applyFormat(() => folioToggleWrap(controller, '_', '_')),
-                ),
-                btn(
-                  icon: Icons.format_underlined_rounded,
-                  tip: AppLocalizations.of(context).underlineTip,
-                  onPressed: () => applyFormat(
-                    () => folioToggleWrap(controller, '<u>', '</u>'),
-                  ),
-                ),
-                btn(
-                  icon: Icons.code_rounded,
-                  tip: AppLocalizations.of(context).inlineCodeTip,
-                  onPressed: () =>
-                      applyFormat(() => folioToggleWrap(controller, '`', '`')),
-                ),
-                btn(
-                  icon: Icons.strikethrough_s_rounded,
-                  tip: AppLocalizations.of(context).strikeTip,
-                  onPressed: () => applyFormat(
-                    () => folioToggleWrap(controller, '~~', '~~'),
-                  ),
-                ),
-                btn(
-                  icon: Icons.link_rounded,
-                  tip: AppLocalizations.of(context).linkTip,
-                  onPressed: () => _link(context),
-                ),
-                if (onMentionPage != null)
                   btn(
-                    icon: Icons.insert_link_outlined,
-                    tip: 'Mencionar página (@página)',
-                    onPressed: () async {
-                      await onMentionPage!(context);
-                      textFocusNode.requestFocus();
-                    },
+                    icon: Icons.format_italic_rounded,
+                    tip: AppLocalizations.of(context).italicTip,
+                    onPressed: () => applyFormat(
+                      () => folioToggleWrap(controller, '_', '_'),
+                    ),
                   ),
-                if (onInsertUserMention != null)
                   btn(
-                    icon: Icons.alternate_email_rounded,
-                    tip: '@usuario',
-                    onPressed: () => applyFormat(onInsertUserMention!),
+                    icon: Icons.format_underlined_rounded,
+                    tip: AppLocalizations.of(context).underlineTip,
+                    onPressed: () => applyFormat(
+                      () => folioToggleWrap(controller, '<u>', '</u>'),
+                    ),
                   ),
-                if (onInsertDateMention != null)
                   btn(
-                    icon: Icons.event_rounded,
-                    tip: '@fecha',
-                    onPressed: () => applyFormat(onInsertDateMention!),
+                    icon: Icons.code_rounded,
+                    tip: AppLocalizations.of(context).inlineCodeTip,
+                    onPressed: () => applyFormat(
+                      () => folioToggleWrap(controller, '`', '`'),
+                    ),
                   ),
-                if (onInsertInlineMath != null)
                   btn(
-                    icon: Icons.functions_rounded,
-                    tip: 'Matemáticas en línea \\( \\)',
-                    onPressed: () => applyFormat(onInsertInlineMath!),
+                    icon: Icons.strikethrough_s_rounded,
+                    tip: AppLocalizations.of(context).strikeTip,
+                    onPressed: () => applyFormat(
+                      () => folioToggleWrap(controller, '~~', '~~'),
+                    ),
                   ),
-              ],
+                  btn(
+                    icon: Icons.link_rounded,
+                    tip: AppLocalizations.of(context).linkTip,
+                    onPressed: () => _link(context),
+                  ),
+                  if (onMentionPage != null)
+                    btn(
+                      icon: Icons.insert_link_outlined,
+                      tip: 'Mencionar página (@página)',
+                      onPressed: () async {
+                        await onMentionPage!(context);
+                        textFocusNode.requestFocus();
+                      },
+                    ),
+                  if (onInsertUserMention != null)
+                    btn(
+                      icon: Icons.alternate_email_rounded,
+                      tip: '@usuario',
+                      onPressed: () => applyFormat(onInsertUserMention!),
+                    ),
+                  if (onInsertDateMention != null)
+                    btn(
+                      icon: Icons.event_rounded,
+                      tip: '@fecha',
+                      onPressed: () => applyFormat(onInsertDateMention!),
+                    ),
+                  if (onInsertInlineMath != null)
+                    btn(
+                      icon: Icons.functions_rounded,
+                      tip: 'Matemáticas en línea \\( \\)',
+                      onPressed: () => applyFormat(onInsertInlineMath!),
+                    ),
+                ],
+              ),
             ),
           ),
         ),

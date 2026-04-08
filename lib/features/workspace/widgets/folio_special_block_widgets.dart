@@ -7,6 +7,8 @@ import 'package:flutter_math_fork/flutter_math.dart';
 import 'package:uuid/uuid.dart';
 
 import '../../../app/ui_tokens.dart';
+import '../../../l10n/generated/app_localizations.dart';
+import 'page_outline.dart';
 import '../../../models/block.dart';
 import '../../../models/folio_page.dart';
 import '../../../models/folio_columns_data.dart';
@@ -274,22 +276,11 @@ class FolioTocBlockBody extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final entries = <({String id, String text, int level})>[];
-    for (final b in blocks) {
-      final level = switch (b.type) {
-        'h1' => 1,
-        'h2' => 2,
-        'h3' => 3,
-        _ => 0,
-      };
-      if (level == 0) continue;
-      final t = b.text.trim();
-      if (t.isEmpty) continue;
-      entries.add((id: b.id, text: t, level: level));
-    }
+    final l10n = AppLocalizations.of(context);
+    final entries = pageOutlineEntriesFromBlocks(blocks);
     if (entries.isEmpty) {
       return Text(
-        'Añade encabezados (H1–H3) para generar el índice.',
+        l10n.pageOutlineEmpty,
         style: textTheme.bodySmall?.copyWith(color: scheme.onSurfaceVariant),
       );
     }
@@ -297,7 +288,7 @@ class FolioTocBlockBody extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         Text(
-          'Tabla de contenidos',
+          l10n.tocBlockTitle,
           style: textTheme.labelLarge?.copyWith(color: scheme.primary),
         ),
         const SizedBox(height: 8),

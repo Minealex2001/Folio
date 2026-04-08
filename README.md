@@ -12,14 +12,30 @@ Folio is designed for users who value privacy, control, and productivity. Whethe
 
 ## ✨ Features
 
-- **Content Management**: Create, edit, and organize pages with flexible block-based editing
-- **File & Media Support**: Integrated file picker, image handling, video playback, and PDF viewing
-- **Local AI Integration**: Support for Ollama and LM Studio for on-device AI capabilities
-- **Security**: Built-in authentication, cryptographic operations, and local vault encryption
-- **Cross-platform**: Windows, macOS, Linux, and mobile support (Flutter-based)
-- **Multilingual**: Spanish and English localization support
-- **Desktop Integration**: System tray, hotkey support, and Windows taskbar integration
-- **Offline-first**: Works completely offline with no required cloud services
+### Workspace & editing
+
+- **Block-based pages**: Edit notes as a stack of blocks (similar to Notion-style tools), with markdown-oriented rendering and a dedicated block picker.
+- **Rich block types**: Headings (H1–H3), paragraphs, quotes, dividers, **callouts**, linked **child pages**, bullet and numbered lists, **to-do lists**, **rich tasks** (status, priority, due dates), **toggles**, **columns**, **tables**, and a **database** block (beta) for list/table/board-style views.
+- **Media & files**: Images, **video** and **audio** players, **bookmarks** with link previews, **code** blocks with syntax highlighting, **file attachments** and **PDF** viewing, and **web embeds** (e.g. YouTube, Figma, Docs-style content).
+- **Diagrams & math**: **Mermaid** diagrams and **LaTeX** equations in the editor.
+- **Page structure helpers**: **Table of contents** and **breadcrumb** blocks; **template buttons** to insert predefined content; **page outline** panel (auto outline from headings with jump-to-block navigation).
+- **Navigation & history**: Sidebar with **vaults**, page tree, and **recent pages**; **global search** across the vault; **page history** to review past versions.
+
+### Security, vault & sync
+
+- **Encrypted vaults**: Local-first storage with cryptographic operations; **lock** the vault when you step away.
+- **Authentication**: **Local auth** (e.g. biometrics) and **passkeys** where supported, in addition to your vault password.
+- **Optional device sync**: Pair devices and sync **between your own machines** (with conflict handling in settings)—not a mandatory cloud service.
+
+### AI & productivity
+
+- **Local AI**: Connect **Ollama** or **LM Studio** for on-device assistance (configurable endpoint and security posture in settings).
+- **Desktop workflow**: **System tray**, **global hotkeys** (search, new page, settings, lock, page navigation, etc.—many are **customizable**), and **Windows taskbar** integration.
+
+### Internationalization & offline use
+
+- **English and Spanish** UI via ARB-based localization.
+- **Offline-first**: Core functionality works without internet; cloud accounts are not required for day-to-day use.
 
 ---
 
@@ -268,7 +284,7 @@ See LICENSE file in the repository root.
 ## 🎯 Roadmap & Future
 
 Stay tuned for updates on:
-- Cloud sync (optional, opt-in)
+- Broader optional **cloud** sync (beyond current **multi-device** pairing)
 - Advanced AI integrations
 - Mobile optimizations
 - Plugin ecosystem

@@ -534,6 +534,19 @@ class AppLocalizationsEs extends AppLocalizations {
   String get activeVaultLabel => 'Cofre activo';
 
   @override
+  String get sidebarVaultsLoading => 'Cargando cofres…';
+
+  @override
+  String get sidebarVaultsEmpty => 'No hay cofres disponibles';
+
+  @override
+  String get forceSyncTooltip => 'Forzar sincronización';
+
+  @override
+  String get searchDialogFooterHint =>
+      'Enter abre el primer resultado · Esc cierra';
+
+  @override
   String get renamePageTitle => 'Renombrar página';
 
   @override
@@ -557,6 +570,49 @@ class AppLocalizationsEs extends AppLocalizations {
   String get pages => 'Páginas';
 
   @override
+  String get pageOutlineTitle => 'Índice';
+
+  @override
+  String get pageOutlineEmpty =>
+      'Añade encabezados (H1–H3) para generar el índice.';
+
+  @override
+  String get showPageOutline => 'Mostrar índice';
+
+  @override
+  String get hidePageOutline => 'Ocultar índice';
+
+  @override
+  String get tocBlockTitle => 'Tabla de contenidos';
+
+  @override
+  String get showSidebar => 'Mostrar panel lateral';
+
+  @override
+  String get hideSidebar => 'Ocultar panel lateral';
+
+  @override
+  String get resizeSidebarHandle => 'Redimensionar panel lateral';
+
+  @override
+  String get resizeSidebarHandleHint =>
+      'Arrastra horizontalmente para cambiar el ancho del panel';
+
+  @override
+  String get resizeAiPanelHeightHandle => 'Redimensionar altura del asistente';
+
+  @override
+  String get resizeAiPanelHeightHandleHint =>
+      'Arrastra verticalmente para cambiar la altura del panel';
+
+  @override
+  String get sidebarAutoRevealTitle => 'Mostrar panel al acercar al borde';
+
+  @override
+  String get sidebarAutoRevealSubtitle =>
+      'Si el panel está oculto, acerca el puntero al borde izquierdo para verlo un momento.';
+
+  @override
   String get newRootPageTooltip => 'Nueva página (raíz)';
 
   @override
@@ -567,6 +623,18 @@ class AppLocalizationsEs extends AppLocalizations {
 
   @override
   String get addBlock => 'Añadir bloque';
+
+  @override
+  String get blockMentionPageSubtitle => 'Mencionar página';
+
+  @override
+  String get blockTypesSheetTitle => 'Tipos de bloque';
+
+  @override
+  String get blockTypesSheetSubtitle => 'Elige cómo se verá este bloque';
+
+  @override
+  String get blockTypeFilterEmpty => 'Nada coincide con tu búsqueda';
 
   @override
   String get fileNotFound => 'Archivo no encontrado';
@@ -965,6 +1033,9 @@ class AppLocalizationsEs extends AppLocalizations {
       'Empieza una conversación.\nQuill decidirá automáticamente qué hacer con tu mensaje.\nTambién puedes preguntar cómo usar Folio (atajos, ajustes, páginas o este chat).';
 
   @override
+  String get aiChatEmptyFocusComposer => 'Escribe un mensaje';
+
+  @override
   String get aiInputHint => 'Escribe tu mensaje. Quill actuará como agente.';
 
   @override
@@ -995,6 +1066,28 @@ class AppLocalizationsEs extends AppLocalizations {
 
   @override
   String get aiHidePanel => 'Ocultar panel IA';
+
+  @override
+  String get aiPanelResizeHandle => 'Redimensionar panel de IA';
+
+  @override
+  String get aiPanelResizeHandleHint =>
+      'Arrastra horizontalmente para cambiar el ancho del asistente';
+
+  @override
+  String get importMarkdownPage => 'Importar Markdown';
+
+  @override
+  String get exportMarkdownPage => 'Exportar Markdown';
+
+  @override
+  String get workspaceUndoTooltip => 'Deshacer (Ctrl+Z)';
+
+  @override
+  String get workspaceRedoTooltip => 'Rehacer (Ctrl+Y)';
+
+  @override
+  String get workspaceMoreActionsTooltip => 'Más acciones';
 
   @override
   String get closeCurrentPage => 'Cerrar página actual';

@@ -1,4 +1,4 @@
-﻿import 'dart:async';
+import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -350,8 +350,76 @@ class _SidebarState extends State<Sidebar> {
     final l10n = AppLocalizations.of(context);
     final scheme = Theme.of(context).colorScheme;
     final textTheme = Theme.of(context).textTheme;
-    if (_vaultsLoading || _vaults.isEmpty) {
-      return const SizedBox.shrink();
+    if (_vaultsLoading) {
+      return Padding(
+        padding: const EdgeInsets.fromLTRB(
+          FolioSpace.sm,
+          FolioSpace.sm,
+          FolioSpace.sm,
+          FolioSpace.xs,
+        ),
+        child: Semantics(
+          label: l10n.sidebarVaultsLoading,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              ClipRRect(
+                borderRadius: BorderRadius.circular(FolioRadius.sm),
+                child: LinearProgressIndicator(
+                  minHeight: 3,
+                  backgroundColor: scheme.surfaceContainerHighest.withValues(
+                    alpha: FolioAlpha.track,
+                  ),
+                  color: scheme.primary.withValues(alpha: 0.85),
+                ),
+              ),
+              const SizedBox(height: FolioSpace.sm),
+              Text(
+                l10n.sidebarVaultsLoading,
+                style: textTheme.bodySmall?.copyWith(
+                  color: scheme.onSurfaceVariant,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+    if (_vaults.isEmpty) {
+      return Padding(
+        padding: const EdgeInsets.fromLTRB(
+          FolioSpace.sm,
+          FolioSpace.sm,
+          FolioSpace.sm,
+          FolioSpace.xs,
+        ),
+        child: Semantics(
+          label: l10n.sidebarVaultsEmpty,
+          child: Container(
+            padding: const EdgeInsets.all(FolioSpace.sm),
+            decoration: BoxDecoration(
+              color: scheme.surfaceContainerHigh,
+              borderRadius: BorderRadius.circular(FolioRadius.md),
+            ),
+            child: Row(
+              children: [
+                Icon(Icons.folder_off_outlined, color: scheme.onSurfaceVariant),
+                const SizedBox(width: FolioSpace.sm),
+                Expanded(
+                  child: Text(
+                    l10n.sidebarVaultsEmpty,
+                    style: textTheme.bodySmall?.copyWith(
+                      color: scheme.onSurfaceVariant,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
     }
     final activeId = session.activeVaultId;
     VaultEntry? current;
@@ -667,167 +735,182 @@ class _SidebarState extends State<Sidebar> {
                 horizontal: FolioSpace.xs,
                 vertical: FolioSpace.xs,
               ),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: Row(
-                      children: [
-                        if (hasChildren)
-                          InkWell(
-                            borderRadius: BorderRadius.circular(FolioRadius.sm),
-                            onTap: () => _toggleCollapsed(page.id),
-                            child: Padding(
-                              padding: const EdgeInsets.all(FolioSpace.xxs),
-                              child: AnimatedRotation(
-                                turns: collapsed ? 0 : 0.25,
-                                duration: const Duration(milliseconds: 200),
-                                child: Icon(
-                                  Icons.chevron_right_rounded,
-                                  size: 18,
-                                  color: selected
-                                      ? scheme.onSecondaryContainer
-                                      : scheme.onSurfaceVariant,
+              child: LayoutBuilder(
+                builder: (context, constraints) {
+                  // Durante el resize del panel el ancho puede ser muy pequeño; la fila de
+                  // acciones tiene ancho intrínseco alto y provoca overflow si no se omite.
+                  final allowInlineActions =
+                      showRowActions && constraints.maxWidth >= 200.0;
+                  return Row(
+                    children: [
+                      Expanded(
+                        child: Row(
+                          children: [
+                            if (hasChildren)
+                              InkWell(
+                                borderRadius: BorderRadius.circular(
+                                  FolioRadius.sm,
                                 ),
-                              ),
-                            ),
-                          )
-                        else
-                          const SizedBox(width: 18),
-                        const SizedBox(width: FolioSpace.xxs),
-                        FolioIconTokenView(
-                          appSettings: widget.appSettings,
-                          token: page.emoji,
-                          fallbackText: '📄',
-                          size: 18,
-                        ),
-                        const SizedBox(width: FolioSpace.xs),
-                        Expanded(
-                          child: Text(
-                            page.title,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: TextStyle(
-                              fontWeight: selected
-                                  ? FontWeight.bold
-                                  : FontWeight.w500,
-                              color: selected
-                                  ? scheme.onSecondaryContainer
-                                  : scheme.onSurface,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  AnimatedSwitcher(
-                    duration: FolioMotion.short2,
-                    transitionBuilder: (child, animation) => FadeTransition(
-                      opacity: animation,
-                      child: ScaleTransition(scale: animation, child: child),
-                    ),
-                    child: showRowActions
-                        ? Container(
-                            key: ValueKey('page_actions_${page.id}'),
-                            decoration: BoxDecoration(
-                              color: selected
-                                  ? scheme.onSecondaryContainer.withValues(
-                                      alpha: FolioAlpha.faint,
-                                    )
-                                  : scheme.surfaceContainerHighest.withValues(
-                                      alpha: FolioAlpha.panel,
+                                onTap: () => _toggleCollapsed(page.id),
+                                child: Padding(
+                                  padding: const EdgeInsets.all(FolioSpace.xxs),
+                                  child: AnimatedRotation(
+                                    turns: collapsed ? 0 : 0.25,
+                                    duration: const Duration(milliseconds: 200),
+                                    child: Icon(
+                                      Icons.chevron_right_rounded,
+                                      size: 18,
+                                      color: selected
+                                          ? scheme.onSecondaryContainer
+                                          : scheme.onSurfaceVariant,
                                     ),
-                              borderRadius: BorderRadius.circular(
-                                FolioRadius.md,
+                                  ),
+                                ),
+                              )
+                            else
+                              const SizedBox(width: 18),
+                            const SizedBox(width: FolioSpace.xxs),
+                            FolioIconTokenView(
+                              appSettings: widget.appSettings,
+                              token: page.emoji,
+                              fallbackText: '📄',
+                              size: 18,
+                            ),
+                            const SizedBox(width: FolioSpace.xs),
+                            Expanded(
+                              child: Text(
+                                page.title,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: TextStyle(
+                                  fontWeight: selected
+                                      ? FontWeight.bold
+                                      : FontWeight.w500,
+                                  color: selected
+                                      ? scheme.onSecondaryContainer
+                                      : scheme.onSurface,
+                                ),
                               ),
                             ),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                IconButton(
-                                  icon: const Icon(
-                                    Icons.emoji_emotions_outlined,
-                                    size: 18,
-                                  ),
-                                  tooltip: _t(
-                                    'Icono de la pagina',
-                                    'Page icon',
-                                  ),
-                                  visualDensity: VisualDensity.compact,
-                                  color: selected
-                                      ? scheme.onSecondaryContainer
-                                      : scheme.onSurfaceVariant,
-                                  onPressed: () => _setPageEmoji(context, page),
-                                ),
-                                IconButton(
-                                  icon: const Icon(Icons.add, size: 18),
-                                  tooltip: l10n.subpage,
-                                  visualDensity: VisualDensity.compact,
-                                  color: selected
-                                      ? scheme.onSecondaryContainer
-                                      : scheme.onSurfaceVariant,
-                                  onPressed: () {
-                                    session.addPage(parentId: page.id);
-                                  },
-                                ),
-                                IconButton(
-                                  icon: const Icon(
-                                    Icons.drive_file_move_outline,
-                                    size: 18,
-                                  ),
-                                  tooltip: l10n.move,
-                                  visualDensity: VisualDensity.compact,
-                                  color: selected
-                                      ? scheme.onSecondaryContainer
-                                      : scheme.onSurfaceVariant,
-                                  onPressed: () => _move(context, page),
-                                ),
-                                IconButton(
-                                  icon: const Icon(
-                                    Icons.edit_outlined,
-                                    size: 18,
-                                  ),
-                                  tooltip: l10n.rename,
-                                  visualDensity: VisualDensity.compact,
-                                  color: selected
-                                      ? scheme.onSecondaryContainer
-                                      : scheme.onSurfaceVariant,
-                                  onPressed: () => _rename(context, page),
-                                ),
-                                IconButton(
-                                  icon: const Icon(
-                                    Icons.bookmark_add_outlined,
-                                    size: 18,
-                                  ),
-                                  tooltip: l10n.saveAsTemplate,
-                                  visualDensity: VisualDensity.compact,
-                                  color: selected
-                                      ? scheme.onSecondaryContainer
-                                      : scheme.onSurfaceVariant,
-                                  onPressed: () =>
-                                      _savePageAsTemplate(context, page),
-                                ),
-                                IconButton(
-                                  icon: const Icon(
-                                    Icons.delete_outline,
-                                    size: 18,
-                                  ),
-                                  tooltip: l10n.delete,
-                                  visualDensity: VisualDensity.compact,
-                                  color: selected
-                                      ? scheme.onSecondaryContainer
-                                      : scheme.onSurfaceVariant,
-                                  onPressed: canDelete
-                                      ? () => session.deletePage(page.id)
-                                      : null,
-                                ),
-                              ],
-                            ),
-                          )
-                        : const SizedBox.shrink(
-                            key: ValueKey('page_actions_hidden'),
+                          ],
+                        ),
+                      ),
+                      AnimatedSwitcher(
+                        duration: FolioMotion.short2,
+                        transitionBuilder: (child, animation) => FadeTransition(
+                          opacity: animation,
+                          child: ScaleTransition(
+                            scale: animation,
+                            child: child,
                           ),
-                  ),
-                ],
+                        ),
+                        child: allowInlineActions
+                            ? Container(
+                                key: ValueKey('page_actions_${page.id}'),
+                                decoration: BoxDecoration(
+                                  color: selected
+                                      ? scheme.onSecondaryContainer.withValues(
+                                          alpha: FolioAlpha.faint,
+                                        )
+                                      : scheme.surfaceContainerHighest
+                                            .withValues(
+                                              alpha: FolioAlpha.panel,
+                                            ),
+                                  borderRadius: BorderRadius.circular(
+                                    FolioRadius.md,
+                                  ),
+                                ),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    IconButton(
+                                      icon: const Icon(
+                                        Icons.emoji_emotions_outlined,
+                                        size: 18,
+                                      ),
+                                      tooltip: _t(
+                                        'Icono de la pagina',
+                                        'Page icon',
+                                      ),
+                                      visualDensity: VisualDensity.compact,
+                                      color: selected
+                                          ? scheme.onSecondaryContainer
+                                          : scheme.onSurfaceVariant,
+                                      onPressed: () =>
+                                          _setPageEmoji(context, page),
+                                    ),
+                                    IconButton(
+                                      icon: const Icon(Icons.add, size: 18),
+                                      tooltip: l10n.subpage,
+                                      visualDensity: VisualDensity.compact,
+                                      color: selected
+                                          ? scheme.onSecondaryContainer
+                                          : scheme.onSurfaceVariant,
+                                      onPressed: () {
+                                        session.addPage(parentId: page.id);
+                                      },
+                                    ),
+                                    IconButton(
+                                      icon: const Icon(
+                                        Icons.drive_file_move_outline,
+                                        size: 18,
+                                      ),
+                                      tooltip: l10n.move,
+                                      visualDensity: VisualDensity.compact,
+                                      color: selected
+                                          ? scheme.onSecondaryContainer
+                                          : scheme.onSurfaceVariant,
+                                      onPressed: () => _move(context, page),
+                                    ),
+                                    IconButton(
+                                      icon: const Icon(
+                                        Icons.edit_outlined,
+                                        size: 18,
+                                      ),
+                                      tooltip: l10n.rename,
+                                      visualDensity: VisualDensity.compact,
+                                      color: selected
+                                          ? scheme.onSecondaryContainer
+                                          : scheme.onSurfaceVariant,
+                                      onPressed: () => _rename(context, page),
+                                    ),
+                                    IconButton(
+                                      icon: const Icon(
+                                        Icons.bookmark_add_outlined,
+                                        size: 18,
+                                      ),
+                                      tooltip: l10n.saveAsTemplate,
+                                      visualDensity: VisualDensity.compact,
+                                      color: selected
+                                          ? scheme.onSecondaryContainer
+                                          : scheme.onSurfaceVariant,
+                                      onPressed: () =>
+                                          _savePageAsTemplate(context, page),
+                                    ),
+                                    IconButton(
+                                      icon: const Icon(
+                                        Icons.delete_outline,
+                                        size: 18,
+                                      ),
+                                      tooltip: l10n.delete,
+                                      visualDensity: VisualDensity.compact,
+                                      color: selected
+                                          ? scheme.onSecondaryContainer
+                                          : scheme.onSurfaceVariant,
+                                      onPressed: canDelete
+                                          ? () => session.deletePage(page.id)
+                                          : null,
+                                    ),
+                                  ],
+                                ),
+                              )
+                            : const SizedBox.shrink(
+                                key: ValueKey('page_actions_hidden'),
+                              ),
+                      ),
+                    ],
+                  );
+                },
               ),
             ),
           ),
@@ -959,7 +1042,7 @@ class _SidebarState extends State<Sidebar> {
                     const SizedBox(width: FolioSpace.xs),
                   if (widget.onForceSync != null)
                     IconButton(
-                      tooltip: _t('Forzar sincronizacion', 'Force sync'),
+                      tooltip: l10n.forceSyncTooltip,
                       icon: const Icon(Icons.sync_rounded),
                       onPressed: widget.onForceSync,
                     ),

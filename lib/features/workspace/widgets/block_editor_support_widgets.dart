@@ -274,6 +274,7 @@ class BlockEditorInlineMentionList extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     return Theme(
       data: theme.copyWith(visualDensity: VisualDensity.compact),
       child: ListView.builder(
@@ -285,7 +286,8 @@ class BlockEditorInlineMentionList extends StatelessWidget {
         itemBuilder: (context, i) {
           final page = items[i];
           final selected = i == selectedIndex;
-          final title = page.title.trim().isEmpty ? 'Sin titulo' : page.title;
+          final title =
+              page.title.trim().isEmpty ? l10n.untitled : page.title;
           return Padding(
             padding: const EdgeInsets.symmetric(
               horizontal: FolioSpace.xxs,
@@ -336,7 +338,7 @@ class BlockEditorInlineMentionList extends StatelessWidget {
                               ),
                             ),
                             Text(
-                              'Mencionar pagina',
+                              l10n.blockMentionPageSubtitle,
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                               style: theme.textTheme.bodySmall?.copyWith(
@@ -395,6 +397,7 @@ class BlockTypePickerSheetState extends State<BlockTypePickerSheet> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
+    final l10n = AppLocalizations.of(context);
     final filtered = _filtered();
     final bottomInset = MediaQuery.viewInsetsOf(context).bottom;
 
@@ -434,7 +437,7 @@ class BlockTypePickerSheetState extends State<BlockTypePickerSheet> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        'Tipos de bloque',
+                        l10n.blockTypesSheetTitle,
                         style: theme.textTheme.titleLarge?.copyWith(
                           fontWeight: FontWeight.w600,
                           letterSpacing: -0.3,
@@ -442,7 +445,7 @@ class BlockTypePickerSheetState extends State<BlockTypePickerSheet> {
                       ),
                       const SizedBox(height: 4),
                       Text(
-                        'Elige cómo se verá este bloque',
+                        l10n.blockTypesSheetSubtitle,
                         style: theme.textTheme.bodyMedium?.copyWith(
                           color: scheme.onSurfaceVariant,
                         ),
@@ -485,7 +488,7 @@ class BlockTypePickerSheetState extends State<BlockTypePickerSheet> {
                           child: Padding(
                             padding: const EdgeInsets.all(32),
                             child: Text(
-                              'Nada coincide con tu búsqueda',
+                              l10n.blockTypeFilterEmpty,
                               textAlign: TextAlign.center,
                               style: theme.textTheme.bodyLarge?.copyWith(
                                 color: scheme.onSurfaceVariant,
@@ -558,6 +561,7 @@ class _BlockTypeTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     return Padding(
       padding: const EdgeInsets.only(bottom: 6),
       child: Material(
@@ -615,7 +619,7 @@ class _BlockTypeTile extends StatelessWidget {
                                 borderRadius: BorderRadius.circular(999),
                               ),
                               child: Text(
-                                'BETA',
+                                l10n.aiBetaBadge,
                                 style: theme.textTheme.labelSmall?.copyWith(
                                   color: scheme.onTertiaryContainer,
                                   fontWeight: FontWeight.w800,

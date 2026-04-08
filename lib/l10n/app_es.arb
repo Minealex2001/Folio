@@ -183,6 +183,10 @@
   "renameActiveVault": "Renombrar cofre activo",
   "deleteOtherVault": "Eliminar otro cofre…",
   "activeVaultLabel": "Cofre activo",
+  "sidebarVaultsLoading": "Cargando cofres…",
+  "sidebarVaultsEmpty": "No hay cofres disponibles",
+  "forceSyncTooltip": "Forzar sincronización",
+  "searchDialogFooterHint": "Enter abre el primer resultado · Esc cierra",
   "renamePageTitle": "Renombrar página",
   "titleLabel": "Título",
   "rootPage": "Raíz",
@@ -191,10 +195,27 @@
   "subpage": "Subpágina",
   "move": "Mover",
   "pages": "Páginas",
+  "pageOutlineTitle": "Índice",
+  "pageOutlineEmpty": "Añade encabezados (H1–H3) para generar el índice.",
+  "showPageOutline": "Mostrar índice",
+  "hidePageOutline": "Ocultar índice",
+  "tocBlockTitle": "Tabla de contenidos",
+  "showSidebar": "Mostrar panel lateral",
+  "hideSidebar": "Ocultar panel lateral",
+  "resizeSidebarHandle": "Redimensionar panel lateral",
+  "resizeSidebarHandleHint": "Arrastra horizontalmente para cambiar el ancho del panel",
+  "resizeAiPanelHeightHandle": "Redimensionar altura del asistente",
+  "resizeAiPanelHeightHandleHint": "Arrastra verticalmente para cambiar la altura del panel",
+  "sidebarAutoRevealTitle": "Mostrar panel al acercar al borde",
+  "sidebarAutoRevealSubtitle": "Si el panel está oculto, acerca el puntero al borde izquierdo para verlo un momento.",
   "newRootPageTooltip": "Nueva página (raíz)",
   "blockOptions": "Opciones del bloque",
   "dragToReorder": "Arrastrar para reordenar",
   "addBlock": "Añadir bloque",
+  "blockMentionPageSubtitle": "Mencionar página",
+  "blockTypesSheetTitle": "Tipos de bloque",
+  "blockTypesSheetSubtitle": "Elige cómo se verá este bloque",
+  "blockTypeFilterEmpty": "Nada coincide con tu búsqueda",
   "fileNotFound": "Archivo no encontrado",
   "couldNotLoadImage": "No se pudo cargar la imagen",
   "noImageHint": "Sin imagen · menú ⋮ o botón de abajo",
@@ -319,6 +340,7 @@
   ,"aiNewChat": "Nuevo"
   ,"aiAttach": "Adjuntar"
   ,"aiChatEmptyHint": "Empieza una conversación.\nQuill decidirá automáticamente qué hacer con tu mensaje.\nTambién puedes preguntar cómo usar Folio (atajos, ajustes, páginas o este chat)."
+  ,"aiChatEmptyFocusComposer": "Escribe un mensaje"
   ,"aiInputHint": "Escribe tu mensaje. Quill actuará como agente."
   ,"aiInputHintCopilot": "Escribe tu mensaje..."
   ,"aiContextComposerHint": "Sin contexto añadido"
@@ -330,6 +352,13 @@
   ,"aiContextAddPage": "Adjuntar página"
   ,"aiShowPanel": "Mostrar panel IA"
   ,"aiHidePanel": "Ocultar panel IA"
+  ,"aiPanelResizeHandle": "Redimensionar panel de IA"
+  ,"aiPanelResizeHandleHint": "Arrastra horizontalmente para cambiar el ancho del asistente"
+  ,"importMarkdownPage": "Importar Markdown"
+  ,"exportMarkdownPage": "Exportar Markdown"
+  ,"workspaceUndoTooltip": "Deshacer (Ctrl+Z)"
+  ,"workspaceRedoTooltip": "Rehacer (Ctrl+Y)"
+  ,"workspaceMoreActionsTooltip": "Más acciones"
   ,"closeCurrentPage": "Cerrar página actual"
   ,"aiErrorWithDetails": "Error IA: {error}"
   ,"@aiErrorWithDetails": {"placeholders": {"error": {}}}

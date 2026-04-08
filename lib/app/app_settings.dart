@@ -179,6 +179,13 @@ class AppSettings extends ChangeNotifier {
   static const _inAppShortcutsKey = 'folio_in_app_shortcuts_json';
   static const _approvedIntegrationAppsKey = 'folio_approved_integration_apps';
   static const _editorContentWidthKey = 'folio_editor_content_width';
+  static const _workspaceSidebarWidthKey = 'folio_workspace_sidebar_width';
+  static const _workspaceSidebarCollapsedKey =
+      'folio_workspace_sidebar_collapsed';
+  static const _workspaceSidebarAutoRevealKey =
+      'folio_workspace_sidebar_auto_reveal';
+  static const _workspacePageOutlineVisibleKey =
+      'folio_workspace_page_outline_visible';
   static const _customIconsKey = 'folio_custom_icons_v1';
   static const _integrationCustomIconsKey =
       'folio_integration_custom_icons_by_app_v1';
@@ -200,6 +207,9 @@ class AppSettings extends ChangeNotifier {
   static const double minEditorContentWidth = 840;
   static const double maxEditorContentWidth = 1400;
   static const double defaultEditorContentWidth = 1080;
+  static const double minWorkspaceSidebarWidth = 220;
+  static const double maxWorkspaceSidebarWidth = 480;
+  static const double defaultWorkspaceSidebarWidth = 320;
   static const String defaultUpdaterGithubOwner = 'aleja';
   static const String defaultUpdaterGithubRepo = 'Folio';
   static const bool defaultCheckUpdatesOnStartup = true;
@@ -232,6 +242,10 @@ class AppSettings extends ChangeNotifier {
   UpdateReleaseChannel _updateReleaseChannel = defaultUpdateReleaseChannel;
   bool _betaBannerDismissed = false;
   double _editorContentWidth = defaultEditorContentWidth;
+  double _workspaceSidebarWidth = defaultWorkspaceSidebarWidth;
+  bool _workspaceSidebarCollapsed = false;
+  bool _workspaceSidebarAutoReveal = false;
+  bool _workspacePageOutlineVisible = true;
   Map<FolioInAppShortcut, SingleActivator> _inAppShortcuts =
       defaultShortcutMap();
   final String _configuredIntegrationSecret;
@@ -278,6 +292,10 @@ class AppSettings extends ChangeNotifier {
   bool get checkUpdatesOnStartup => defaultCheckUpdatesOnStartup;
   UpdateReleaseChannel get updateReleaseChannel => _updateReleaseChannel;
   double get editorContentWidth => _editorContentWidth;
+  double get workspaceSidebarWidth => _workspaceSidebarWidth;
+  bool get workspaceSidebarCollapsed => _workspaceSidebarCollapsed;
+  bool get workspaceSidebarAutoReveal => _workspaceSidebarAutoReveal;
+  bool get workspacePageOutlineVisible => _workspacePageOutlineVisible;
   String get integrationSecret => _integrationSecret;
   bool get enterCreatesNewBlock => _enterCreatesNewBlock;
   bool get syncEnabled => _syncEnabled;
@@ -359,6 +377,15 @@ class AppSettings extends ChangeNotifier {
     _editorContentWidth = _sanitizeEditorContentWidth(
       p.getDouble(_editorContentWidthKey),
     );
+    _workspaceSidebarWidth = _sanitizeWorkspaceSidebarWidth(
+      p.getDouble(_workspaceSidebarWidthKey),
+    );
+    _workspaceSidebarCollapsed =
+        p.getBool(_workspaceSidebarCollapsedKey) ?? false;
+    _workspaceSidebarAutoReveal =
+        p.getBool(_workspaceSidebarAutoRevealKey) ?? false;
+    _workspacePageOutlineVisible =
+        p.getBool(_workspacePageOutlineVisibleKey) ?? true;
     _inAppShortcuts = parseShortcutOverrides(
       p.getString(_inAppShortcutsKey),
       defaultShortcutMap(),
@@ -525,6 +552,13 @@ class AppSettings extends ChangeNotifier {
     final raw = value ?? defaultEditorContentWidth;
     if (raw < minEditorContentWidth) return minEditorContentWidth;
     if (raw > maxEditorContentWidth) return maxEditorContentWidth;
+    return raw;
+  }
+
+  double _sanitizeWorkspaceSidebarWidth(double? value) {
+    final raw = value ?? defaultWorkspaceSidebarWidth;
+    if (raw < minWorkspaceSidebarWidth) return minWorkspaceSidebarWidth;
+    if (raw > maxWorkspaceSidebarWidth) return maxWorkspaceSidebarWidth;
     return raw;
   }
 
@@ -829,6 +863,39 @@ class AppSettings extends ChangeNotifier {
     notifyListeners();
     final p = await SharedPreferences.getInstance();
     await p.setDouble(_editorContentWidthKey, safe);
+  }
+
+  Future<void> setWorkspaceSidebarWidth(double value) async {
+    final safe = _sanitizeWorkspaceSidebarWidth(value);
+    if ((_workspaceSidebarWidth - safe).abs() < 0.5) return;
+    _workspaceSidebarWidth = safe;
+    notifyListeners();
+    final p = await SharedPreferences.getInstance();
+    await p.setDouble(_workspaceSidebarWidthKey, safe);
+  }
+
+  Future<void> setWorkspaceSidebarCollapsed(bool value) async {
+    if (_workspaceSidebarCollapsed == value) return;
+    _workspaceSidebarCollapsed = value;
+    notifyListeners();
+    final p = await SharedPreferences.getInstance();
+    await p.setBool(_workspaceSidebarCollapsedKey, value);
+  }
+
+  Future<void> setWorkspaceSidebarAutoReveal(bool value) async {
+    if (_workspaceSidebarAutoReveal == value) return;
+    _workspaceSidebarAutoReveal = value;
+    notifyListeners();
+    final p = await SharedPreferences.getInstance();
+    await p.setBool(_workspaceSidebarAutoRevealKey, value);
+  }
+
+  Future<void> setWorkspacePageOutlineVisible(bool value) async {
+    if (_workspacePageOutlineVisible == value) return;
+    _workspacePageOutlineVisible = value;
+    notifyListeners();
+    final p = await SharedPreferences.getInstance();
+    await p.setBool(_workspacePageOutlineVisibleKey, value);
   }
 
   Future<void> setEnterCreatesNewBlock(bool value) async {

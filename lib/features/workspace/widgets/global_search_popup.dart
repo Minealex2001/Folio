@@ -106,9 +106,11 @@ class _GlobalSearchPopupState extends State<GlobalSearchPopup> {
         constraints: const BoxConstraints(maxWidth: 760, maxHeight: 560),
         child: Padding(
           padding: const EdgeInsets.all(12),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
+          child: Semantics(
+            label: l10n.search,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
               TextField(
                 controller: _query,
                 focusNode: _focus,
@@ -227,7 +229,18 @@ class _GlobalSearchPopupState extends State<GlobalSearchPopup> {
                         },
                       ),
               ),
+              Padding(
+                padding: const EdgeInsets.only(top: 8),
+                child: Text(
+                  l10n.searchDialogFooterHint,
+                  textAlign: TextAlign.center,
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: scheme.onSurfaceVariant,
+                  ),
+                ),
+              ),
             ],
+            ),
           ),
         ),
       ),

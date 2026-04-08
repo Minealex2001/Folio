@@ -1,7 +1,7 @@
 part of 'package:folio/features/workspace/widgets/block_editor.dart';
 
 Widget _buildBlockRowMarker({
-  required _BlockEditorState st,
+  required BlockEditorState st,
   required FolioPage page,
   required FolioBlock block,
   required int index,
@@ -17,8 +17,8 @@ Widget _buildBlockRowMarker({
         width: compactReadOnlyMobile
             ? 20
             : (androidPhoneLayout
-                  ? _BlockEditorState._markerColumnWidthPhone
-                  : _BlockEditorState._markerColumnWidth),
+                  ? BlockEditorState._markerColumnWidthPhone
+                  : BlockEditorState._markerColumnWidth),
         child: Align(
           alignment: Alignment.centerLeft,
           child: Semantics(
@@ -52,8 +52,8 @@ Widget _buildBlockRowMarker({
         width: compactReadOnlyMobile
             ? 16
             : (androidPhoneLayout
-                  ? _BlockEditorState._markerColumnWidthPhone
-                  : _BlockEditorState._markerColumnWidth),
+                  ? BlockEditorState._markerColumnWidthPhone
+                  : BlockEditorState._markerColumnWidth),
         child: Align(
           alignment: Alignment.centerLeft,
           child: Padding(
@@ -73,8 +73,8 @@ Widget _buildBlockRowMarker({
         width: compactReadOnlyMobile
             ? 20
             : (androidPhoneLayout
-                  ? _BlockEditorState._markerColumnWidthPhone
-                  : _BlockEditorState._markerColumnWidth),
+                  ? BlockEditorState._markerColumnWidthPhone
+                  : BlockEditorState._markerColumnWidth),
         child: Align(
           alignment: Alignment.centerLeft,
           child: Padding(
@@ -88,8 +88,8 @@ Widget _buildBlockRowMarker({
         width: compactReadOnlyMobile
             ? 0
             : (androidPhoneLayout
-                  ? _BlockEditorState._markerEmptyColumnWidthPhone
-                  : _BlockEditorState._markerColumnWidth),
+                  ? BlockEditorState._markerEmptyColumnWidthPhone
+                  : BlockEditorState._markerColumnWidth),
       );
   }
 }
