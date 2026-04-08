@@ -1,7 +1,42 @@
 import 'package:flutter/material.dart';
 
+import '../../../app/ui_tokens.dart';
 import '../../../l10n/generated/app_localizations.dart';
+import '../../../models/folio_page.dart';
 import 'block_type_catalog.dart';
+
+/// Panel flotante alineado con menús slash, menciones y la barra de formato.
+class BlockEditorFloatingPanel extends StatelessWidget {
+  const BlockEditorFloatingPanel({
+    super.key,
+    required this.scheme,
+    required this.child,
+    this.clipBehavior = Clip.antiAlias,
+  });
+
+  final ColorScheme scheme;
+  final Widget child;
+  final Clip clipBehavior;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      type: MaterialType.canvas,
+      elevation: FolioElevation.menu,
+      shadowColor: scheme.shadow.withValues(alpha: FolioAlpha.scrim),
+      color: scheme.surfaceContainerHigh,
+      surfaceTintColor: Colors.transparent,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(FolioRadius.md),
+        side: BorderSide(
+          color: scheme.outlineVariant.withValues(alpha: FolioAlpha.border),
+        ),
+      ),
+      clipBehavior: clipBehavior,
+      child: child,
+    );
+  }
+}
 
 class BlockEditorDragHandle extends StatefulWidget {
   const BlockEditorDragHandle({super.key, required this.iconColor});
@@ -32,7 +67,7 @@ class _BlockEditorDragHandleState extends State<BlockEditorDragHandle> {
                   context,
                 ).colorScheme.onSurfaceVariant.withValues(alpha: 0.12)
               : Colors.transparent,
-          borderRadius: BorderRadius.circular(6),
+          borderRadius: BorderRadius.circular(FolioRadius.sm),
         ),
         child: Icon(
           Icons.drag_indicator,
@@ -75,7 +110,12 @@ class BlockEditorInlineSlashList extends StatelessWidget {
         previousSection = definition.section;
         children.add(
           Padding(
-            padding: const EdgeInsets.fromLTRB(16, 12, 16, 6),
+            padding: const EdgeInsets.fromLTRB(
+              FolioSpace.sm,
+              FolioSpace.sm,
+              FolioSpace.sm,
+              FolioSpace.xxs,
+            ),
             child: Text(
               blockSectionTitle(definition.section),
               style: theme.textTheme.labelSmall?.copyWith(
@@ -90,18 +130,21 @@ class BlockEditorInlineSlashList extends StatelessWidget {
       }
       children.add(
         Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+          padding: const EdgeInsets.symmetric(
+            horizontal: FolioSpace.xxs,
+            vertical: 2,
+          ),
           child: Material(
             color: selected
                 ? scheme.primaryContainer.withValues(alpha: 0.45)
                 : Colors.transparent,
             child: InkWell(
-              borderRadius: BorderRadius.circular(8),
+              borderRadius: BorderRadius.circular(FolioRadius.sm),
               onTap: () => onPick(definition.key),
               child: Padding(
                 padding: const EdgeInsets.symmetric(
-                  horizontal: 10,
-                  vertical: 8,
+                  horizontal: FolioSpace.xs + 2,
+                  vertical: FolioSpace.xxs + 4,
                 ),
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.center,
@@ -112,7 +155,7 @@ class BlockEditorInlineSlashList extends StatelessWidget {
                       alignment: Alignment.center,
                       decoration: BoxDecoration(
                         color: scheme.primaryContainer.withValues(alpha: 0.5),
-                        borderRadius: BorderRadius.circular(8),
+                        borderRadius: BorderRadius.circular(FolioRadius.sm),
                       ),
                       child: Icon(
                         definition.icon,
@@ -120,7 +163,7 @@ class BlockEditorInlineSlashList extends StatelessWidget {
                         color: scheme.onPrimaryContainer,
                       ),
                     ),
-                    const SizedBox(width: 12),
+                    const SizedBox(width: FolioSpace.xs),
                     Expanded(
                       child: showSections
                           ? Column(
@@ -160,13 +203,13 @@ class BlockEditorInlineSlashList extends StatelessWidget {
                               ),
                             ),
                     ),
-                    const SizedBox(width: 8),
+                    const SizedBox(width: FolioSpace.xs),
                     DecoratedBox(
                       decoration: BoxDecoration(
                         color: scheme.surfaceContainerHighest.withValues(
                           alpha: selected ? 0.95 : 0.7,
                         ),
-                        borderRadius: BorderRadius.circular(6),
+                        borderRadius: BorderRadius.circular(FolioRadius.xs),
                         border: Border.all(
                           color: scheme.outlineVariant.withValues(alpha: 0.45),
                         ),
@@ -198,12 +241,121 @@ class BlockEditorInlineSlashList extends StatelessWidget {
       );
     }
 
-    return ListView(
-      controller: scrollController,
-      padding: const EdgeInsets.symmetric(vertical: 4),
-      primary: false,
-      physics: const ClampingScrollPhysics(),
-      children: children,
+    return Theme(
+      data: theme.copyWith(visualDensity: VisualDensity.compact),
+      child: ListView(
+        controller: scrollController,
+        padding: const EdgeInsets.symmetric(vertical: FolioSpace.xxs),
+        primary: false,
+        physics: const ClampingScrollPhysics(),
+        children: children,
+      ),
+    );
+  }
+}
+
+class BlockEditorInlineMentionList extends StatelessWidget {
+  const BlockEditorInlineMentionList({
+    super.key,
+    required this.scrollController,
+    required this.theme,
+    required this.scheme,
+    required this.items,
+    required this.selectedIndex,
+    required this.onPick,
+  });
+
+  final ScrollController scrollController;
+  final ThemeData theme;
+  final ColorScheme scheme;
+  final List<FolioPage> items;
+  final int selectedIndex;
+  final void Function(String pageId) onPick;
+
+  @override
+  Widget build(BuildContext context) {
+    return Theme(
+      data: theme.copyWith(visualDensity: VisualDensity.compact),
+      child: ListView.builder(
+        controller: scrollController,
+        padding: const EdgeInsets.symmetric(vertical: FolioSpace.xxs),
+        primary: false,
+        physics: const ClampingScrollPhysics(),
+        itemCount: items.length,
+        itemBuilder: (context, i) {
+          final page = items[i];
+          final selected = i == selectedIndex;
+          final title = page.title.trim().isEmpty ? 'Sin titulo' : page.title;
+          return Padding(
+            padding: const EdgeInsets.symmetric(
+              horizontal: FolioSpace.xxs,
+              vertical: 2,
+            ),
+            child: Material(
+              color: selected
+                  ? scheme.primaryContainer.withValues(alpha: 0.45)
+                  : Colors.transparent,
+              child: InkWell(
+                borderRadius: BorderRadius.circular(FolioRadius.sm),
+                onTap: () => onPick(page.id),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: FolioSpace.xs + 2,
+                    vertical: FolioSpace.xxs + 4,
+                  ),
+                  child: Row(
+                    children: [
+                      Container(
+                        width: 28,
+                        height: 28,
+                        alignment: Alignment.center,
+                        decoration: BoxDecoration(
+                          color: scheme.primaryContainer.withValues(alpha: 0.5),
+                          borderRadius: BorderRadius.circular(FolioRadius.sm),
+                        ),
+                        child: Icon(
+                          Icons.description_outlined,
+                          size: 16,
+                          color: scheme.onPrimaryContainer,
+                        ),
+                      ),
+                      const SizedBox(width: FolioSpace.xs),
+                      Expanded(
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              '@$title',
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: theme.textTheme.bodyMedium?.copyWith(
+                                fontWeight: FontWeight.w600,
+                                fontSize: 13,
+                                height: 1.15,
+                              ),
+                            ),
+                            Text(
+                              'Mencionar pagina',
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: theme.textTheme.bodySmall?.copyWith(
+                                color: scheme.onSurfaceVariant,
+                                fontSize: 11,
+                                height: 1.15,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          );
+        },
+      ),
     );
   }
 }

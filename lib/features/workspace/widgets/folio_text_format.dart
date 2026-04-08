@@ -7,6 +7,7 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../../../data/folio_internal_link.dart';
 import '../../../l10n/generated/app_localizations.dart';
+import 'block_editor_support_widgets.dart';
 import 'mermaid_markdown_builder.dart';
 import 'folio_youtube.dart';
 
@@ -593,101 +594,87 @@ class FolioFormatToolbar extends StatelessWidget {
     return Semantics(
       container: true,
       label: AppLocalizations.of(context).formatToolbar,
-      child: Focus(
-        canRequestFocus: false,
-        descendantsAreFocusable: false,
-        child: Material(
-          elevation: 0,
-          color: colorScheme.surfaceContainerLowest,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
-            side: BorderSide(
-              color: colorScheme.outlineVariant.withValues(alpha: 0.5),
-            ),
-          ),
-          clipBehavior: Clip.antiAlias,
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-            child: SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  if (onOpenBlockAppearance != null)
-                    btn(
-                      icon: Icons.palette_outlined,
-                      tip: 'Apariencia del bloque',
-                      onPressed: () => applyFormat(onOpenBlockAppearance!),
-                    ),
+      child: BlockEditorFloatingPanel(
+        scheme: colorScheme,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+          child: SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (onOpenBlockAppearance != null)
                   btn(
-                    icon: Icons.format_bold_rounded,
-                    tip: AppLocalizations.of(context).boldTip,
-                    onPressed: () => applyFormat(
-                      () => folioToggleWrap(controller, '**', '**'),
-                    ),
+                    icon: Icons.palette_outlined,
+                    tip: 'Apariencia del bloque',
+                    onPressed: () => applyFormat(onOpenBlockAppearance!),
                   ),
+                btn(
+                  icon: Icons.format_bold_rounded,
+                  tip: AppLocalizations.of(context).boldTip,
+                  onPressed: () => applyFormat(
+                    () => folioToggleWrap(controller, '**', '**'),
+                  ),
+                ),
+                btn(
+                  icon: Icons.format_italic_rounded,
+                  tip: AppLocalizations.of(context).italicTip,
+                  onPressed: () =>
+                      applyFormat(() => folioToggleWrap(controller, '_', '_')),
+                ),
+                btn(
+                  icon: Icons.format_underlined_rounded,
+                  tip: AppLocalizations.of(context).underlineTip,
+                  onPressed: () => applyFormat(
+                    () => folioToggleWrap(controller, '<u>', '</u>'),
+                  ),
+                ),
+                btn(
+                  icon: Icons.code_rounded,
+                  tip: AppLocalizations.of(context).inlineCodeTip,
+                  onPressed: () =>
+                      applyFormat(() => folioToggleWrap(controller, '`', '`')),
+                ),
+                btn(
+                  icon: Icons.strikethrough_s_rounded,
+                  tip: AppLocalizations.of(context).strikeTip,
+                  onPressed: () => applyFormat(
+                    () => folioToggleWrap(controller, '~~', '~~'),
+                  ),
+                ),
+                btn(
+                  icon: Icons.link_rounded,
+                  tip: AppLocalizations.of(context).linkTip,
+                  onPressed: () => _link(context),
+                ),
+                if (onMentionPage != null)
                   btn(
-                    icon: Icons.format_italic_rounded,
-                    tip: AppLocalizations.of(context).italicTip,
-                    onPressed: () => applyFormat(
-                      () => folioToggleWrap(controller, '_', '_'),
-                    ),
+                    icon: Icons.insert_link_outlined,
+                    tip: 'Mencionar página (@página)',
+                    onPressed: () async {
+                      await onMentionPage!(context);
+                      textFocusNode.requestFocus();
+                    },
                   ),
+                if (onInsertUserMention != null)
                   btn(
-                    icon: Icons.format_underlined_rounded,
-                    tip: AppLocalizations.of(context).underlineTip,
-                    onPressed: () => applyFormat(
-                      () => folioToggleWrap(controller, '<u>', '</u>'),
-                    ),
+                    icon: Icons.alternate_email_rounded,
+                    tip: '@usuario',
+                    onPressed: () => applyFormat(onInsertUserMention!),
                   ),
+                if (onInsertDateMention != null)
                   btn(
-                    icon: Icons.code_rounded,
-                    tip: AppLocalizations.of(context).inlineCodeTip,
-                    onPressed: () => applyFormat(
-                      () => folioToggleWrap(controller, '`', '`'),
-                    ),
+                    icon: Icons.event_rounded,
+                    tip: '@fecha',
+                    onPressed: () => applyFormat(onInsertDateMention!),
                   ),
+                if (onInsertInlineMath != null)
                   btn(
-                    icon: Icons.strikethrough_s_rounded,
-                    tip: AppLocalizations.of(context).strikeTip,
-                    onPressed: () => applyFormat(
-                      () => folioToggleWrap(controller, '~~', '~~'),
-                    ),
+                    icon: Icons.functions_rounded,
+                    tip: 'Matemáticas en línea \\( \\)',
+                    onPressed: () => applyFormat(onInsertInlineMath!),
                   ),
-                  btn(
-                    icon: Icons.link_rounded,
-                    tip: AppLocalizations.of(context).linkTip,
-                    onPressed: () => _link(context),
-                  ),
-                  if (onMentionPage != null)
-                    btn(
-                      icon: Icons.insert_link_outlined,
-                      tip: 'Mencionar página (@página)',
-                      onPressed: () async {
-                        await onMentionPage!(context);
-                        textFocusNode.requestFocus();
-                      },
-                    ),
-                  if (onInsertUserMention != null)
-                    btn(
-                      icon: Icons.alternate_email_rounded,
-                      tip: '@usuario',
-                      onPressed: () => applyFormat(onInsertUserMention!),
-                    ),
-                  if (onInsertDateMention != null)
-                    btn(
-                      icon: Icons.event_rounded,
-                      tip: '@fecha',
-                      onPressed: () => applyFormat(onInsertDateMention!),
-                    ),
-                  if (onInsertInlineMath != null)
-                    btn(
-                      icon: Icons.functions_rounded,
-                      tip: 'Matemáticas en línea \\( \\)',
-                      onPressed: () => applyFormat(onInsertInlineMath!),
-                    ),
-                ],
-              ),
+              ],
             ),
           ),
         ),
