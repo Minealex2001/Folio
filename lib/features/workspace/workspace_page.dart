@@ -20,6 +20,7 @@ import '../../models/folio_columns_data.dart';
 import '../../models/folio_template_button_data.dart';
 import '../../models/folio_toggle_data.dart';
 import '../../services/ai/ai_types.dart';
+import '../../services/cloud_account/cloud_account_controller.dart';
 import '../../services/device_sync/device_sync_controller.dart';
 import '../../l10n/generated/app_localizations.dart';
 import '../../services/run2doc/run2doc_markdown_codec.dart';
@@ -42,12 +43,14 @@ class WorkspacePage extends StatefulWidget {
     required this.session,
     required this.appSettings,
     required this.deviceSyncController,
+    required this.cloudAccountController,
     required this.onOpenSearch,
   });
 
   final VaultSession session;
   final AppSettings appSettings;
   final DeviceSyncController deviceSyncController;
+  final CloudAccountController cloudAccountController;
   final VoidCallback onOpenSearch;
 
   @override
@@ -1491,6 +1494,7 @@ class _WorkspacePageState extends State<WorkspacePage> {
           session: _s,
           appSettings: widget.appSettings,
           deviceSyncController: widget.deviceSyncController,
+          cloudAccountController: widget.cloudAccountController,
         ),
       ),
     );

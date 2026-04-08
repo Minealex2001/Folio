@@ -1806,4 +1806,136 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get clear => 'Clear';
+
+  @override
+  String get cloudAccountSectionTitle => 'Folio Cloud account';
+
+  @override
+  String get cloudAccountSectionDescription =>
+      'Optional. Sign in for future paid cloud sync. Your vault stays local; this does not upload your notes.';
+
+  @override
+  String get cloudAccountUnavailable =>
+      'Cloud sign-in is unavailable (Firebase did not start). Check your connection or run flutterfire configure with your project.';
+
+  @override
+  String get cloudAccountEmailLabel => 'Email';
+
+  @override
+  String get cloudAccountPasswordLabel => 'Password';
+
+  @override
+  String get cloudAccountSignIn => 'Sign in';
+
+  @override
+  String get cloudAccountCreateAccount => 'Create account';
+
+  @override
+  String get cloudAccountForgotPassword => 'Forgot password?';
+
+  @override
+  String get cloudAccountSignOut => 'Sign out';
+
+  @override
+  String cloudAccountSignedInAs(Object email) {
+    return 'Signed in as $email';
+  }
+
+  @override
+  String cloudAccountUid(Object uid) {
+    return 'User ID: $uid';
+  }
+
+  @override
+  String get cloudAuthDialogTitleSignIn => 'Sign in to Folio Cloud';
+
+  @override
+  String get cloudAuthDialogTitleRegister => 'Create Folio Cloud account';
+
+  @override
+  String get cloudAuthDialogTitleReset => 'Reset password';
+
+  @override
+  String get cloudPasswordResetSent =>
+      'If an account exists for that email, a reset link was sent.';
+
+  @override
+  String get cloudAuthErrorInvalidEmail => 'That email address is not valid.';
+
+  @override
+  String get cloudAuthErrorWrongPassword => 'Wrong password.';
+
+  @override
+  String get cloudAuthErrorUserNotFound => 'No account found for that email.';
+
+  @override
+  String get cloudAuthErrorUserDisabled => 'This account has been disabled.';
+
+  @override
+  String get cloudAuthErrorEmailAlreadyInUse =>
+      'That email is already registered.';
+
+  @override
+  String get cloudAuthErrorWeakPassword => 'Password is too weak.';
+
+  @override
+  String get cloudAuthErrorInvalidCredential => 'Invalid email or password.';
+
+  @override
+  String get cloudAuthErrorNetwork => 'Network error. Check your connection.';
+
+  @override
+  String get cloudAuthErrorTooManyRequests =>
+      'Too many attempts. Try again later.';
+
+  @override
+  String get cloudAuthErrorOperationNotAllowed =>
+      'This sign-in method is not enabled in Firebase.';
+
+  @override
+  String get cloudAuthErrorGeneric => 'Sign-in failed. Try again.';
+
+  @override
+  String get cloudAuthDialogTitle => 'Folio Cloud';
+
+  @override
+  String get cloudAuthSubtitleSignIn =>
+      'Use your Folio Cloud email and password. Nothing here changes your local vault.';
+
+  @override
+  String get cloudAuthSubtitleRegister =>
+      'Create Folio Cloud credentials for future paid sync. Your notes on this device are not uploaded.';
+
+  @override
+  String get cloudAuthModeSignIn => 'Sign in';
+
+  @override
+  String get cloudAuthModeRegister => 'Register';
+
+  @override
+  String get cloudAuthConfirmPasswordLabel => 'Confirm password';
+
+  @override
+  String get cloudAuthValidationRequired => 'This field is required.';
+
+  @override
+  String get cloudAuthValidationPasswordShort => 'Use at least 6 characters.';
+
+  @override
+  String get cloudAuthValidationConfirmMismatch => 'Passwords do not match.';
+
+  @override
+  String get cloudAccountSignedOutPrompt =>
+      'Sign in or register to be ready for Folio Cloud when it launches.';
+
+  @override
+  String get cloudAuthResetHint =>
+      'We will email you a link to set a new password.';
+
+  @override
+  String get cloudAccountEmailVerified => 'Verified';
+
+  @override
+  String get cloudAccountSignOutHelp =>
+      'Your local vault stays on this device.';
 }

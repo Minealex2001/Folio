@@ -3319,6 +3319,240 @@ abstract class AppLocalizations {
   /// In es, this message translates to:
   /// **'Limpiar'**
   String get clear;
+
+  /// No description provided for @cloudAccountSectionTitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Cuenta Folio Cloud'**
+  String get cloudAccountSectionTitle;
+
+  /// No description provided for @cloudAccountSectionDescription.
+  ///
+  /// In es, this message translates to:
+  /// **'Opcional. Inicia sesión para la futura sincronización en la nube de pago. Tu cofre sigue siendo local; esto no sube tus notas.'**
+  String get cloudAccountSectionDescription;
+
+  /// No description provided for @cloudAccountUnavailable.
+  ///
+  /// In es, this message translates to:
+  /// **'No hay inicio de sesión en la nube (Firebase no arrancó). Revisa la conexión o ejecuta flutterfire configure con tu proyecto.'**
+  String get cloudAccountUnavailable;
+
+  /// No description provided for @cloudAccountEmailLabel.
+  ///
+  /// In es, this message translates to:
+  /// **'Correo'**
+  String get cloudAccountEmailLabel;
+
+  /// No description provided for @cloudAccountPasswordLabel.
+  ///
+  /// In es, this message translates to:
+  /// **'Contraseña'**
+  String get cloudAccountPasswordLabel;
+
+  /// No description provided for @cloudAccountSignIn.
+  ///
+  /// In es, this message translates to:
+  /// **'Iniciar sesión'**
+  String get cloudAccountSignIn;
+
+  /// No description provided for @cloudAccountCreateAccount.
+  ///
+  /// In es, this message translates to:
+  /// **'Crear cuenta'**
+  String get cloudAccountCreateAccount;
+
+  /// No description provided for @cloudAccountForgotPassword.
+  ///
+  /// In es, this message translates to:
+  /// **'¿Olvidaste la contraseña?'**
+  String get cloudAccountForgotPassword;
+
+  /// No description provided for @cloudAccountSignOut.
+  ///
+  /// In es, this message translates to:
+  /// **'Cerrar sesión'**
+  String get cloudAccountSignOut;
+
+  /// No description provided for @cloudAccountSignedInAs.
+  ///
+  /// In es, this message translates to:
+  /// **'Sesión iniciada como {email}'**
+  String cloudAccountSignedInAs(Object email);
+
+  /// No description provided for @cloudAccountUid.
+  ///
+  /// In es, this message translates to:
+  /// **'ID de usuario: {uid}'**
+  String cloudAccountUid(Object uid);
+
+  /// No description provided for @cloudAuthDialogTitleSignIn.
+  ///
+  /// In es, this message translates to:
+  /// **'Iniciar sesión en Folio Cloud'**
+  String get cloudAuthDialogTitleSignIn;
+
+  /// No description provided for @cloudAuthDialogTitleRegister.
+  ///
+  /// In es, this message translates to:
+  /// **'Crear cuenta de Folio Cloud'**
+  String get cloudAuthDialogTitleRegister;
+
+  /// No description provided for @cloudAuthDialogTitleReset.
+  ///
+  /// In es, this message translates to:
+  /// **'Restablecer contraseña'**
+  String get cloudAuthDialogTitleReset;
+
+  /// No description provided for @cloudPasswordResetSent.
+  ///
+  /// In es, this message translates to:
+  /// **'Si existe una cuenta con ese correo, se envió un enlace de restablecimiento.'**
+  String get cloudPasswordResetSent;
+
+  /// No description provided for @cloudAuthErrorInvalidEmail.
+  ///
+  /// In es, this message translates to:
+  /// **'Ese correo no es válido.'**
+  String get cloudAuthErrorInvalidEmail;
+
+  /// No description provided for @cloudAuthErrorWrongPassword.
+  ///
+  /// In es, this message translates to:
+  /// **'Contraseña incorrecta.'**
+  String get cloudAuthErrorWrongPassword;
+
+  /// No description provided for @cloudAuthErrorUserNotFound.
+  ///
+  /// In es, this message translates to:
+  /// **'No hay cuenta con ese correo.'**
+  String get cloudAuthErrorUserNotFound;
+
+  /// No description provided for @cloudAuthErrorUserDisabled.
+  ///
+  /// In es, this message translates to:
+  /// **'Esta cuenta está deshabilitada.'**
+  String get cloudAuthErrorUserDisabled;
+
+  /// No description provided for @cloudAuthErrorEmailAlreadyInUse.
+  ///
+  /// In es, this message translates to:
+  /// **'Ese correo ya está registrado.'**
+  String get cloudAuthErrorEmailAlreadyInUse;
+
+  /// No description provided for @cloudAuthErrorWeakPassword.
+  ///
+  /// In es, this message translates to:
+  /// **'La contraseña es demasiado débil.'**
+  String get cloudAuthErrorWeakPassword;
+
+  /// No description provided for @cloudAuthErrorInvalidCredential.
+  ///
+  /// In es, this message translates to:
+  /// **'Correo o contraseña no válidos.'**
+  String get cloudAuthErrorInvalidCredential;
+
+  /// No description provided for @cloudAuthErrorNetwork.
+  ///
+  /// In es, this message translates to:
+  /// **'Error de red. Comprueba la conexión.'**
+  String get cloudAuthErrorNetwork;
+
+  /// No description provided for @cloudAuthErrorTooManyRequests.
+  ///
+  /// In es, this message translates to:
+  /// **'Demasiados intentos. Prueba más tarde.'**
+  String get cloudAuthErrorTooManyRequests;
+
+  /// No description provided for @cloudAuthErrorOperationNotAllowed.
+  ///
+  /// In es, this message translates to:
+  /// **'Este método de inicio de sesión no está habilitado en Firebase.'**
+  String get cloudAuthErrorOperationNotAllowed;
+
+  /// No description provided for @cloudAuthErrorGeneric.
+  ///
+  /// In es, this message translates to:
+  /// **'No se pudo iniciar sesión. Inténtalo de nuevo.'**
+  String get cloudAuthErrorGeneric;
+
+  /// No description provided for @cloudAuthDialogTitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Folio Cloud'**
+  String get cloudAuthDialogTitle;
+
+  /// No description provided for @cloudAuthSubtitleSignIn.
+  ///
+  /// In es, this message translates to:
+  /// **'Usa el correo y la contraseña de Folio Cloud. Nada de esto cambia tu cofre local.'**
+  String get cloudAuthSubtitleSignIn;
+
+  /// No description provided for @cloudAuthSubtitleRegister.
+  ///
+  /// In es, this message translates to:
+  /// **'Crea credenciales solo para Folio Cloud y el futuro sync de pago. Tus notas en este dispositivo no se suben.'**
+  String get cloudAuthSubtitleRegister;
+
+  /// No description provided for @cloudAuthModeSignIn.
+  ///
+  /// In es, this message translates to:
+  /// **'Iniciar sesión'**
+  String get cloudAuthModeSignIn;
+
+  /// No description provided for @cloudAuthModeRegister.
+  ///
+  /// In es, this message translates to:
+  /// **'Registrarse'**
+  String get cloudAuthModeRegister;
+
+  /// No description provided for @cloudAuthConfirmPasswordLabel.
+  ///
+  /// In es, this message translates to:
+  /// **'Confirmar contraseña'**
+  String get cloudAuthConfirmPasswordLabel;
+
+  /// No description provided for @cloudAuthValidationRequired.
+  ///
+  /// In es, this message translates to:
+  /// **'Este campo es obligatorio.'**
+  String get cloudAuthValidationRequired;
+
+  /// No description provided for @cloudAuthValidationPasswordShort.
+  ///
+  /// In es, this message translates to:
+  /// **'Usa al menos 6 caracteres.'**
+  String get cloudAuthValidationPasswordShort;
+
+  /// No description provided for @cloudAuthValidationConfirmMismatch.
+  ///
+  /// In es, this message translates to:
+  /// **'Las contraseñas no coinciden.'**
+  String get cloudAuthValidationConfirmMismatch;
+
+  /// No description provided for @cloudAccountSignedOutPrompt.
+  ///
+  /// In es, this message translates to:
+  /// **'Inicia sesión o regístrate para estar listo cuando Folio Cloud esté disponible.'**
+  String get cloudAccountSignedOutPrompt;
+
+  /// No description provided for @cloudAuthResetHint.
+  ///
+  /// In es, this message translates to:
+  /// **'Te enviaremos un enlace por correo para elegir una nueva contraseña.'**
+  String get cloudAuthResetHint;
+
+  /// No description provided for @cloudAccountEmailVerified.
+  ///
+  /// In es, this message translates to:
+  /// **'Verificado'**
+  String get cloudAccountEmailVerified;
+
+  /// No description provided for @cloudAccountSignOutHelp.
+  ///
+  /// In es, this message translates to:
+  /// **'Tu cofre local sigue en este dispositivo.'**
+  String get cloudAccountSignOutHelp;
 }
 
 class _AppLocalizationsDelegate

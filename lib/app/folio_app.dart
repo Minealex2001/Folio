@@ -19,6 +19,7 @@ import '../services/ai/ai_safety_policy.dart';
 import '../services/ai/lmstudio_ai_service.dart';
 import '../services/ai/ollama_ai_service.dart';
 import '../services/platform/launch_arguments.dart';
+import '../services/cloud_account/cloud_account_controller.dart';
 import '../services/device_sync/device_sync_controller.dart';
 import '../services/device_sync/device_sync_models.dart';
 import '../services/run2doc/run2doc_bridge.dart';
@@ -38,11 +39,13 @@ class FolioApp extends StatefulWidget {
     super.key,
     required this.session,
     required this.appSettings,
+    required this.cloudAccountController,
     this.initialLaunchArgs = const <String>[],
   });
 
   final VaultSession session;
   final AppSettings appSettings;
+  final CloudAccountController cloudAccountController;
   final List<String> initialLaunchArgs;
 
   @override
@@ -133,6 +136,7 @@ class _FolioAppState extends State<FolioApp> with WidgetsBindingObserver {
     _deviceSyncController.dispose();
     WidgetsBinding.instance.removeObserver(this);
     unawaited(_desktop?.dispose());
+    widget.cloudAccountController.dispose();
     widget.appSettings.removeListener(_onSettings);
     widget.session.removeListener(_onSession);
     super.dispose();
@@ -804,6 +808,7 @@ class _FolioAppState extends State<FolioApp> with WidgetsBindingObserver {
         session: widget.session,
         appSettings: widget.appSettings,
         deviceSyncController: _deviceSyncController,
+        cloudAccountController: widget.cloudAccountController,
         onOpenSearch: _handleSearchRequested,
       ),
     );
@@ -1304,12 +1309,14 @@ class _HomeByState extends StatelessWidget {
     required this.session,
     required this.appSettings,
     required this.deviceSyncController,
+    required this.cloudAccountController,
     required this.onOpenSearch,
   });
 
   final VaultSession session;
   final AppSettings appSettings;
   final DeviceSyncController deviceSyncController;
+  final CloudAccountController cloudAccountController;
   final VoidCallback onOpenSearch;
 
   @override
@@ -1345,6 +1352,7 @@ class _HomeByState extends StatelessWidget {
           session: session,
           appSettings: appSettings,
           deviceSyncController: deviceSyncController,
+          cloudAccountController: cloudAccountController,
           onOpenSearch: onOpenSearch,
         );
     }

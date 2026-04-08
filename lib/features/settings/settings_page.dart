@@ -1,6 +1,8 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:file_picker/file_picker.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:package_info_plus/package_info_plus.dart';
@@ -25,6 +27,7 @@ import '../../services/ai/ai_safety_policy.dart';
 import '../../services/ai/lmstudio_ai_service.dart';
 import '../../services/ai/ollama_ai_service.dart';
 import '../../services/custom_icon_import_service.dart';
+import '../../services/cloud_account/cloud_account_controller.dart';
 import '../../services/device_sync/device_sync_controller.dart';
 import '../../services/device_sync/device_sync_models.dart';
 import '../../services/updater/github_release_updater.dart';
@@ -38,11 +41,13 @@ class SettingsPage extends StatefulWidget {
     required this.session,
     required this.appSettings,
     required this.deviceSyncController,
+    required this.cloudAccountController,
   });
 
   final VaultSession session;
   final AppSettings appSettings;
   final DeviceSyncController deviceSyncController;
+  final CloudAccountController cloudAccountController;
 
   @override
   State<SettingsPage> createState() => _SettingsPageState();
@@ -53,10 +58,11 @@ class _SettingsPageState extends State<SettingsPage> {
   VaultSession get _s => widget.session;
   AppSettings get _app => widget.appSettings;
   DeviceSyncController get _sync => widget.deviceSyncController;
+  CloudAccountController get _cloud => widget.cloudAccountController;
   final ScrollController _settingsScrollController = ScrollController();
   final TextEditingController _settingsSectionFilterController =
       TextEditingController();
-  final List<GlobalKey> _sectionKeys = List.generate(10, (_) => GlobalKey());
+  final List<GlobalKey> _sectionKeys = List.generate(11, (_) => GlobalKey());
   int _selectedDesktopSection = 0;
   bool _programmaticSectionScroll = false;
 
@@ -329,6 +335,77 @@ class _SettingsPageState extends State<SettingsPage> {
     final at = DateTime.fromMillisecondsSinceEpoch(ms).toLocal();
     final two = (int value) => value.toString().padLeft(2, '0');
     return '${two(at.day)}/${two(at.month)}/${at.year} ${two(at.hour)}:${two(at.minute)}';
+  }
+
+  String _shortCloudUid(String uid) {
+    if (uid.length <= 12) return uid;
+    return '${uid.substring(0, 8)}…${uid.substring(uid.length - 4)}';
+  }
+
+  String _cloudAuthErrorMessage(AppLocalizations l10n, String code) {
+    switch (code) {
+      case 'invalid-email':
+        return l10n.cloudAuthErrorInvalidEmail;
+      case 'wrong-password':
+        return l10n.cloudAuthErrorWrongPassword;
+      case 'user-not-found':
+        return l10n.cloudAuthErrorUserNotFound;
+      case 'user-disabled':
+        return l10n.cloudAuthErrorUserDisabled;
+      case 'email-already-in-use':
+        return l10n.cloudAuthErrorEmailAlreadyInUse;
+      case 'weak-password':
+        return l10n.cloudAuthErrorWeakPassword;
+      case 'invalid-credential':
+        return l10n.cloudAuthErrorInvalidCredential;
+      case 'network-request-failed':
+        return l10n.cloudAuthErrorNetwork;
+      case 'too-many-requests':
+        return l10n.cloudAuthErrorTooManyRequests;
+      case 'operation-not-allowed':
+        return l10n.cloudAuthErrorOperationNotAllowed;
+      default:
+        return l10n.cloudAuthErrorGeneric;
+    }
+  }
+
+  Future<void> _showCloudAuthDialog({required bool register}) async {
+    final l10n = AppLocalizations.of(context);
+    await showDialog<void>(
+      context: context,
+      builder: (ctx) => _CloudAuthDialog(
+        initialRegister: register,
+        l10n: l10n,
+        cloudAuthController: _cloud,
+        onAuthError: (code) => _cloudAuthErrorMessage(l10n, code),
+        onForgotPassword: () {
+          Navigator.of(ctx).pop();
+          Future<void>.microtask(_showCloudPasswordResetDialog);
+        },
+      ),
+    );
+  }
+
+  Future<void> _showCloudPasswordResetDialog() async {
+    if (!_cloud.isAvailable) return;
+    final l10n = AppLocalizations.of(context);
+    final email = await showDialog<String?>(
+      context: context,
+      builder: (ctx) => _CloudPasswordResetDialog(l10n: l10n),
+    );
+    if (email == null || email.isEmpty) return;
+    try {
+      await _cloud.sendPasswordResetEmail(email);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(l10n.cloudPasswordResetSent)),
+      );
+    } on FirebaseAuthException catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(_cloudAuthErrorMessage(l10n, e.code))),
+      );
+    }
   }
 
   Future<void> _editSyncDeviceName() async {
@@ -1526,11 +1603,15 @@ class _SettingsPageState extends State<SettingsPage> {
       if (showDesktopOnlySections)
         _SettingsSectionNavItem(label: l10n.integrations, keyIndex: 6),
       _SettingsSectionNavItem(
-        label: _t('Sincronizacion', 'Device sync'),
+        label: l10n.cloudAccountSectionTitle,
         keyIndex: 7,
       ),
-      _SettingsSectionNavItem(label: l10n.about, keyIndex: 8),
-      _SettingsSectionNavItem(label: l10n.data, keyIndex: 9),
+      _SettingsSectionNavItem(
+        label: _t('Sincronizacion', 'Device sync'),
+        keyIndex: 8,
+      ),
+      _SettingsSectionNavItem(label: l10n.about, keyIndex: 9),
+      _SettingsSectionNavItem(label: l10n.data, keyIndex: 10),
     ];
     return AnimatedBuilder(
       animation: _app,
@@ -3345,8 +3426,399 @@ class _SettingsPageState extends State<SettingsPage> {
                           ),
                         ],
 
-                        AnimatedBuilder(
+                        _SettingsPanel(
                           key: _sectionKeys[7],
+                          margin: const EdgeInsets.only(bottom: 24),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              _SettingsPanelHeroCard(
+                                icon: Icons.cloud_circle_outlined,
+                                title: l10n.cloudAccountSectionTitle,
+                                description: l10n.cloudAccountSectionDescription,
+                                chips: [
+                                  _SettingsInfoChip(
+                                    icon: Icons.lock_outline_rounded,
+                                    label: _t('Opcional', 'Optional'),
+                                  ),
+                                  _SettingsInfoChip(
+                                    icon: Icons.payments_outlined,
+                                    label: _t('Sync de pago (futuro)', 'Paid sync (future)'),
+                                  ),
+                                ],
+                              ),
+                              const Divider(height: 1),
+                              ListenableBuilder(
+                                listenable: _cloud,
+                                builder: (context, _) {
+                                  if (!_cloud.isAvailable) {
+                                    return Padding(
+                                      padding: const EdgeInsets.fromLTRB(
+                                        16,
+                                        8,
+                                        16,
+                                        20,
+                                      ),
+                                      child: DecoratedBox(
+                                        decoration: BoxDecoration(
+                                          color: scheme.errorContainer
+                                              .withValues(alpha: 0.22),
+                                          borderRadius:
+                                              BorderRadius.circular(16),
+                                          border: Border.all(
+                                            color: scheme.outlineVariant
+                                                .withValues(alpha: 0.45),
+                                          ),
+                                        ),
+                                        child: Padding(
+                                          padding: const EdgeInsets.all(16),
+                                          child: Row(
+                                            crossAxisAlignment:
+                                                CrossAxisAlignment.start,
+                                            children: [
+                                              Icon(
+                                                Icons.cloud_off_rounded,
+                                                color: scheme.error,
+                                                size: 26,
+                                              ),
+                                              const SizedBox(width: 12),
+                                              Expanded(
+                                                child: Text(
+                                                  l10n.cloudAccountUnavailable,
+                                                  style: Theme.of(context)
+                                                      .textTheme
+                                                      .bodyMedium
+                                                      ?.copyWith(
+                                                        height: 1.4,
+                                                        color: scheme
+                                                            .onSurfaceVariant,
+                                                      ),
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                      ),
+                                    );
+                                  }
+                                  if (_cloud.isSignedIn) {
+                                    final u = _cloud.user!;
+                                    final email =
+                                        u.email?.trim().isNotEmpty == true
+                                        ? u.email!.trim()
+                                        : '—';
+                                    final initial = email.isNotEmpty &&
+                                            email != '—'
+                                        ? email[0].toUpperCase()
+                                        : '?';
+                                    return Padding(
+                                      padding: const EdgeInsets.fromLTRB(
+                                        16,
+                                        4,
+                                        16,
+                                        20,
+                                      ),
+                                      child: DecoratedBox(
+                                        decoration: BoxDecoration(
+                                          gradient: LinearGradient(
+                                            begin: Alignment.topLeft,
+                                            end: Alignment.bottomRight,
+                                            colors: [
+                                              scheme.primaryContainer
+                                                  .withValues(alpha: 0.35),
+                                              scheme.surfaceContainerHighest,
+                                            ],
+                                          ),
+                                          borderRadius:
+                                              BorderRadius.circular(18),
+                                          border: Border.all(
+                                            color: scheme.outlineVariant
+                                                .withValues(alpha: 0.4),
+                                          ),
+                                        ),
+                                        child: Padding(
+                                          padding: const EdgeInsets.all(18),
+                                          child: Column(
+                                            crossAxisAlignment:
+                                                CrossAxisAlignment.stretch,
+                                            children: [
+                                              Row(
+                                                crossAxisAlignment:
+                                                    CrossAxisAlignment.start,
+                                                children: [
+                                                  CircleAvatar(
+                                                    radius: 26,
+                                                    backgroundColor: scheme
+                                                        .primary
+                                                        .withValues(
+                                                          alpha: 0.18,
+                                                        ),
+                                                    child: Text(
+                                                      initial,
+                                                      style: Theme.of(context)
+                                                          .textTheme
+                                                          .titleLarge
+                                                          ?.copyWith(
+                                                            color: scheme
+                                                                .primary,
+                                                            fontWeight:
+                                                                FontWeight
+                                                                    .w700,
+                                                          ),
+                                                    ),
+                                                  ),
+                                                  const SizedBox(width: 14),
+                                                  Expanded(
+                                                    child: Column(
+                                                      crossAxisAlignment:
+                                                          CrossAxisAlignment
+                                                              .start,
+                                                      children: [
+                                                        Text(
+                                                          email,
+                                                          style:
+                                                              Theme.of(context)
+                                                                  .textTheme
+                                                                  .titleSmall
+                                                                  ?.copyWith(
+                                                                    fontWeight:
+                                                                        FontWeight
+                                                                            .w700,
+                                                                  ),
+                                                        ),
+                                                        if (u.emailVerified)
+                                                          Padding(
+                                                            padding:
+                                                                const EdgeInsets
+                                                                    .only(
+                                                              top: 6,
+                                                            ),
+                                                            child: Row(
+                                                              mainAxisSize:
+                                                                  MainAxisSize
+                                                                      .min,
+                                                              children: [
+                                                                Icon(
+                                                                  Icons
+                                                                      .verified_rounded,
+                                                                  size: 16,
+                                                                  color: scheme
+                                                                      .primary,
+                                                                ),
+                                                                const SizedBox(
+                                                                  width: 4,
+                                                                ),
+                                                                Text(
+                                                                  l10n
+                                                                      .cloudAccountEmailVerified,
+                                                                  style: Theme.of(
+                                                                        context,
+                                                                      )
+                                                                      .textTheme
+                                                                      .labelSmall
+                                                                      ?.copyWith(
+                                                                        color: scheme
+                                                                            .primary,
+                                                                        fontWeight:
+                                                                            FontWeight.w600,
+                                                                      ),
+                                                                ),
+                                                              ],
+                                                            ),
+                                                          ),
+                                                        const SizedBox(
+                                                          height: 6,
+                                                        ),
+                                                        SelectableText(
+                                                          l10n.cloudAccountUid(
+                                                            _shortCloudUid(
+                                                              u.uid,
+                                                            ),
+                                                          ),
+                                                          style:
+                                                              Theme.of(context)
+                                                                  .textTheme
+                                                                  .bodySmall
+                                                                  ?.copyWith(
+                                                                    fontFamily:
+                                                                        'monospace',
+                                                                    color: scheme
+                                                                        .onSurfaceVariant,
+                                                                  ),
+                                                        ),
+                                                      ],
+                                                    ),
+                                                  ),
+                                                ],
+                                              ),
+                                              const SizedBox(height: 14),
+                                              Text(
+                                                l10n.cloudAccountSignOutHelp,
+                                                style: Theme.of(context)
+                                                    .textTheme
+                                                    .bodySmall
+                                                    ?.copyWith(
+                                                      color: scheme
+                                                          .onSurfaceVariant,
+                                                      height: 1.35,
+                                                    ),
+                                              ),
+                                              const SizedBox(height: 14),
+                                              OutlinedButton.icon(
+                                                onPressed: () async {
+                                                  try {
+                                                    await _cloud.signOut();
+                                                    if (!context.mounted) {
+                                                      return;
+                                                    }
+                                                    ScaffoldMessenger.of(
+                                                      context,
+                                                    ).showSnackBar(
+                                                      SnackBar(
+                                                        content: Text(
+                                                          _t(
+                                                            'Sesión cerrada',
+                                                            'Signed out',
+                                                          ),
+                                                        ),
+                                                      ),
+                                                    );
+                                                  } catch (e) {
+                                                    if (!context.mounted) {
+                                                      return;
+                                                    }
+                                                    ScaffoldMessenger.of(
+                                                      context,
+                                                    ).showSnackBar(
+                                                      SnackBar(
+                                                        content: Text('$e'),
+                                                      ),
+                                                    );
+                                                  }
+                                                },
+                                                icon: const Icon(
+                                                  Icons.logout_rounded,
+                                                  size: 20,
+                                                ),
+                                                label: Text(
+                                                  l10n.cloudAccountSignOut,
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                      ),
+                                    );
+                                  }
+                                  return Padding(
+                                    padding: const EdgeInsets.fromLTRB(
+                                      16,
+                                      4,
+                                      16,
+                                      20,
+                                    ),
+                                    child: DecoratedBox(
+                                      decoration: BoxDecoration(
+                                        color: scheme.surfaceContainerLow,
+                                        borderRadius: BorderRadius.circular(18),
+                                        border: Border.all(
+                                          color: scheme.outlineVariant
+                                              .withValues(alpha: 0.4),
+                                        ),
+                                      ),
+                                      child: Padding(
+                                        padding: const EdgeInsets.all(18),
+                                        child: Column(
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.stretch,
+                                          children: [
+                                            Text(
+                                              l10n.cloudAccountSignedOutPrompt,
+                                              style: Theme.of(context)
+                                                  .textTheme
+                                                  .bodyMedium
+                                                  ?.copyWith(
+                                                    height: 1.4,
+                                                    color: scheme
+                                                        .onSurfaceVariant,
+                                                  ),
+                                            ),
+                                            const SizedBox(height: 18),
+                                            LayoutBuilder(
+                                              builder: (context, constraints) {
+                                                final narrow =
+                                                    constraints.maxWidth < 420;
+                                                final signInBtn = FilledButton(
+                                                  onPressed: () =>
+                                                      _showCloudAuthDialog(
+                                                    register: false,
+                                                  ),
+                                                  child: Text(
+                                                    l10n.cloudAccountSignIn,
+                                                  ),
+                                                );
+                                                final registerBtn =
+                                                    OutlinedButton(
+                                                  onPressed: () =>
+                                                      _showCloudAuthDialog(
+                                                    register: true,
+                                                  ),
+                                                  child: Text(
+                                                    l10n.cloudAccountCreateAccount,
+                                                  ),
+                                                );
+                                                if (narrow) {
+                                                  return Column(
+                                                    crossAxisAlignment:
+                                                        CrossAxisAlignment
+                                                            .stretch,
+                                                    children: [
+                                                      signInBtn,
+                                                      const SizedBox(
+                                                        height: 10,
+                                                      ),
+                                                      registerBtn,
+                                                    ],
+                                                  );
+                                                }
+                                                return Row(
+                                                  children: [
+                                                    Expanded(child: signInBtn),
+                                                    const SizedBox(width: 12),
+                                                    Expanded(
+                                                      child: registerBtn,
+                                                    ),
+                                                  ],
+                                                );
+                                              },
+                                            ),
+                                            const SizedBox(height: 8),
+                                            Center(
+                                              child: TextButton.icon(
+                                                onPressed:
+                                                    _showCloudPasswordResetDialog,
+                                                icon: const Icon(
+                                                  Icons.mail_outline_rounded,
+                                                  size: 20,
+                                                ),
+                                                label: Text(
+                                                  l10n.cloudAccountForgotPassword,
+                                                ),
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    ),
+                                  );
+                                },
+                              ),
+                            ],
+                          ),
+                        ),
+
+                        AnimatedBuilder(
+                          key: _sectionKeys[8],
                           animation: _sync,
                           builder: (context, _) => _SettingsPanel(
                             margin: const EdgeInsets.only(bottom: 24),
@@ -3717,7 +4189,7 @@ class _SettingsPageState extends State<SettingsPage> {
                         ),
 
                         _SettingsPanel(
-                          key: _sectionKeys[8],
+                          key: _sectionKeys[9],
                           margin: const EdgeInsets.only(bottom: 24),
                           child: Column(
                             children: [
@@ -3838,7 +4310,7 @@ class _SettingsPageState extends State<SettingsPage> {
                         ),
 
                         _SettingsPanel(
-                          key: _sectionKeys[9],
+                          key: _sectionKeys[10],
                           margin: const EdgeInsets.only(bottom: 24),
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -3974,6 +4446,440 @@ class _SettingsPageState extends State<SettingsPage> {
           ),
         );
       },
+    );
+  }
+}
+
+class _CloudAuthDialog extends StatefulWidget {
+  const _CloudAuthDialog({
+    required this.initialRegister,
+    required this.l10n,
+    required this.cloudAuthController,
+    required this.onAuthError,
+    required this.onForgotPassword,
+  });
+
+  final bool initialRegister;
+  final AppLocalizations l10n;
+  final CloudAccountController cloudAuthController;
+  final String Function(String code) onAuthError;
+  final VoidCallback onForgotPassword;
+
+  @override
+  State<_CloudAuthDialog> createState() => _CloudAuthDialogState();
+}
+
+class _CloudAuthDialogState extends State<_CloudAuthDialog> {
+  final _formKey = GlobalKey<FormState>();
+  final _email = TextEditingController();
+  final _password = TextEditingController();
+  final _confirm = TextEditingController();
+  final _emailFocus = FocusNode();
+  late bool _modeRegister;
+  var _obscurePassword = true;
+  var _obscureConfirm = true;
+  var _loading = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _modeRegister = widget.initialRegister;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _emailFocus.requestFocus();
+    });
+  }
+
+  @override
+  void dispose() {
+    _email.dispose();
+    _password.dispose();
+    _confirm.dispose();
+    _emailFocus.dispose();
+    super.dispose();
+  }
+
+  bool _isValidEmail(String s) {
+    final t = s.trim();
+    if (t.isEmpty) return false;
+    return RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$').hasMatch(t);
+  }
+
+  Future<void> _submit() async {
+    if (!(_formKey.currentState?.validate() ?? false)) return;
+    final email = _email.text.trim();
+    final pass = _password.text;
+    setState(() => _loading = true);
+    try {
+      if (_modeRegister) {
+        await widget.cloudAuthController.createUserWithEmailAndPassword(
+          email: email,
+          password: pass,
+        );
+      } else {
+        await widget.cloudAuthController.signInWithEmailAndPassword(
+          email: email,
+          password: pass,
+        );
+      }
+      if (!mounted) return;
+      Navigator.of(context).pop();
+    } on FirebaseAuthException catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          behavior: SnackBarBehavior.floating,
+          content: Text(widget.onAuthError(e.code)),
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          behavior: SnackBarBehavior.floating,
+          content: Text('$e'),
+        ),
+      );
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = widget.l10n;
+    final scheme = Theme.of(context).colorScheme;
+    final subtitle = _modeRegister
+        ? l10n.cloudAuthSubtitleRegister
+        : l10n.cloudAuthSubtitleSignIn;
+
+    return FolioDialog(
+      contentWidth: 420,
+      title: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color: scheme.primaryContainer.withValues(alpha: 0.55),
+              borderRadius: BorderRadius.circular(14),
+            ),
+            child: Icon(Icons.cloud_rounded, color: scheme.primary, size: 24),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Text(
+              l10n.cloudAuthDialogTitle,
+              style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+          ),
+        ],
+      ),
+      content: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text(
+              subtitle,
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                color: scheme.onSurfaceVariant,
+                height: 1.4,
+              ),
+            ),
+            const SizedBox(height: 14),
+            SegmentedButton<bool>(
+              segments: [
+                ButtonSegment<bool>(
+                  value: false,
+                  label: Text(l10n.cloudAuthModeSignIn),
+                  icon: const Icon(Icons.login_rounded, size: 18),
+                ),
+                ButtonSegment<bool>(
+                  value: true,
+                  label: Text(l10n.cloudAuthModeRegister),
+                  icon: const Icon(Icons.person_add_outlined, size: 18),
+                ),
+              ],
+              selected: {_modeRegister},
+              onSelectionChanged: (Set<bool> next) {
+                if (_loading || next.isEmpty) return;
+                setState(() {
+                  _modeRegister = next.first;
+                  _confirm.clear();
+                });
+              },
+            ),
+            const SizedBox(height: 18),
+            AutofillGroup(
+              child: Form(
+                key: _formKey,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    TextFormField(
+                      controller: _email,
+                      focusNode: _emailFocus,
+                      enabled: !_loading,
+                      keyboardType: TextInputType.emailAddress,
+                      autocorrect: false,
+                      autofillHints: const [AutofillHints.email],
+                      textInputAction: TextInputAction.next,
+                      decoration: InputDecoration(
+                        labelText: l10n.cloudAccountEmailLabel,
+                        border: const OutlineInputBorder(),
+                        prefixIcon: const Icon(Icons.alternate_email_rounded),
+                      ),
+                      validator: (v) {
+                        final s = v?.trim() ?? '';
+                        if (s.isEmpty) return l10n.cloudAuthValidationRequired;
+                        if (!_isValidEmail(s)) {
+                          return l10n.cloudAuthErrorInvalidEmail;
+                        }
+                        return null;
+                      },
+                    ),
+                    const SizedBox(height: 6),
+                    TextFormField(
+                      controller: _password,
+                      enabled: !_loading,
+                      obscureText: _obscurePassword,
+                      autofillHints: [
+                        _modeRegister
+                            ? AutofillHints.newPassword
+                            : AutofillHints.password,
+                      ],
+                      textInputAction: _modeRegister
+                          ? TextInputAction.next
+                          : TextInputAction.done,
+                      onFieldSubmitted: (_) {
+                        if (_modeRegister) {
+                          FocusScope.of(context).nextFocus();
+                        } else {
+                          unawaited(_submit());
+                        }
+                      },
+                      decoration: InputDecoration(
+                        labelText: l10n.cloudAccountPasswordLabel,
+                        border: const OutlineInputBorder(),
+                        prefixIcon: const Icon(Icons.lock_outline_rounded),
+                        suffixIcon: IconButton(
+                          tooltip: _obscurePassword
+                              ? l10n.showPassword
+                              : l10n.hidePassword,
+                          onPressed: _loading
+                              ? null
+                              : () => setState(
+                                    () => _obscurePassword = !_obscurePassword,
+                                  ),
+                          icon: Icon(
+                            _obscurePassword
+                                ? Icons.visibility_rounded
+                                : Icons.visibility_off_rounded,
+                          ),
+                        ),
+                      ),
+                      validator: (v) {
+                        final s = v ?? '';
+                        if (s.isEmpty) return l10n.cloudAuthValidationRequired;
+                        if (s.length < 6) {
+                          return l10n.cloudAuthValidationPasswordShort;
+                        }
+                        return null;
+                      },
+                    ),
+                    if (_modeRegister) ...[
+                      const SizedBox(height: 6),
+                      TextFormField(
+                        controller: _confirm,
+                        enabled: !_loading,
+                        obscureText: _obscureConfirm,
+                        autofillHints: const [AutofillHints.newPassword],
+                        textInputAction: TextInputAction.done,
+                        onFieldSubmitted: (_) => unawaited(_submit()),
+                        decoration: InputDecoration(
+                          labelText: l10n.cloudAuthConfirmPasswordLabel,
+                          border: const OutlineInputBorder(),
+                          prefixIcon: const Icon(Icons.lock_person_outlined),
+                          suffixIcon: IconButton(
+                            tooltip: _obscureConfirm
+                                ? l10n.showPassword
+                                : l10n.hidePassword,
+                            onPressed: _loading
+                                ? null
+                                : () => setState(
+                                      () => _obscureConfirm = !_obscureConfirm,
+                                    ),
+                            icon: Icon(
+                              _obscureConfirm
+                                  ? Icons.visibility_rounded
+                                  : Icons.visibility_off_rounded,
+                            ),
+                          ),
+                        ),
+                        validator: (v) {
+                          final s = v ?? '';
+                          if (s.isEmpty) {
+                            return l10n.cloudAuthValidationRequired;
+                          }
+                          if (s != _password.text) {
+                            return l10n.cloudAuthValidationConfirmMismatch;
+                          }
+                          return null;
+                        },
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+            ),
+            if (!_modeRegister) ...[
+              const SizedBox(height: 4),
+              Align(
+                alignment: Alignment.centerLeft,
+                child: TextButton.icon(
+                  onPressed: _loading ? null : widget.onForgotPassword,
+                  icon: const Icon(Icons.mail_outline_rounded, size: 18),
+                  label: Text(l10n.cloudAccountForgotPassword),
+                ),
+              ),
+            ],
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: _loading ? null : () => Navigator.of(context).pop(),
+          child: Text(l10n.cancel),
+        ),
+        FilledButton(
+          onPressed: _loading ? null : _submit,
+          child: _loading
+              ? const SizedBox(
+                  height: 22,
+                  width: 22,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
+              : Text(
+                  _modeRegister
+                      ? l10n.cloudAccountCreateAccount
+                      : l10n.cloudAccountSignIn,
+                ),
+        ),
+      ],
+    );
+  }
+}
+
+class _CloudPasswordResetDialog extends StatefulWidget {
+  const _CloudPasswordResetDialog({required this.l10n});
+
+  final AppLocalizations l10n;
+
+  @override
+  State<_CloudPasswordResetDialog> createState() =>
+      _CloudPasswordResetDialogState();
+}
+
+class _CloudPasswordResetDialogState extends State<_CloudPasswordResetDialog> {
+  final _formKey = GlobalKey<FormState>();
+  final _email = TextEditingController();
+  final _focus = FocusNode();
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _focus.requestFocus();
+    });
+  }
+
+  @override
+  void dispose() {
+    _email.dispose();
+    _focus.dispose();
+    super.dispose();
+  }
+
+  bool _isValidEmail(String s) {
+    final t = s.trim();
+    if (t.isEmpty) return false;
+    return RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$').hasMatch(t);
+  }
+
+  void _submit() {
+    if (!(_formKey.currentState?.validate() ?? false)) return;
+    Navigator.of(context).pop(_email.text.trim());
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = widget.l10n;
+    final scheme = Theme.of(context).colorScheme;
+    return FolioDialog(
+      contentWidth: 400,
+      title: Row(
+        children: [
+          Icon(Icons.lock_reset_rounded, color: scheme.primary, size: 26),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              l10n.cloudAuthDialogTitleReset,
+              style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ),
+        ],
+      ),
+      content: Form(
+        key: _formKey,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text(
+              l10n.cloudAuthResetHint,
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                color: scheme.onSurfaceVariant,
+                height: 1.4,
+              ),
+            ),
+            const SizedBox(height: 16),
+            TextFormField(
+              controller: _email,
+              focusNode: _focus,
+              keyboardType: TextInputType.emailAddress,
+              autocorrect: false,
+              autofillHints: const [AutofillHints.email],
+              textInputAction: TextInputAction.done,
+              onFieldSubmitted: (_) => _submit(),
+              decoration: InputDecoration(
+                labelText: l10n.cloudAccountEmailLabel,
+                border: const OutlineInputBorder(),
+                prefixIcon: const Icon(Icons.email_outlined),
+              ),
+              validator: (v) {
+                final s = v?.trim() ?? '';
+                if (s.isEmpty) return l10n.cloudAuthValidationRequired;
+                if (!_isValidEmail(s)) return l10n.cloudAuthErrorInvalidEmail;
+                return null;
+              },
+            ),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: Text(l10n.cancel),
+        ),
+        FilledButton(
+          onPressed: _submit,
+          child: Text(l10n.continueAction),
+        ),
+      ],
     );
   }
 }

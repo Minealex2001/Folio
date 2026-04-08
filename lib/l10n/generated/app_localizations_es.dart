@@ -1815,4 +1815,139 @@ class AppLocalizationsEs extends AppLocalizations {
 
   @override
   String get clear => 'Limpiar';
+
+  @override
+  String get cloudAccountSectionTitle => 'Cuenta Folio Cloud';
+
+  @override
+  String get cloudAccountSectionDescription =>
+      'Opcional. Inicia sesión para la futura sincronización en la nube de pago. Tu cofre sigue siendo local; esto no sube tus notas.';
+
+  @override
+  String get cloudAccountUnavailable =>
+      'No hay inicio de sesión en la nube (Firebase no arrancó). Revisa la conexión o ejecuta flutterfire configure con tu proyecto.';
+
+  @override
+  String get cloudAccountEmailLabel => 'Correo';
+
+  @override
+  String get cloudAccountPasswordLabel => 'Contraseña';
+
+  @override
+  String get cloudAccountSignIn => 'Iniciar sesión';
+
+  @override
+  String get cloudAccountCreateAccount => 'Crear cuenta';
+
+  @override
+  String get cloudAccountForgotPassword => '¿Olvidaste la contraseña?';
+
+  @override
+  String get cloudAccountSignOut => 'Cerrar sesión';
+
+  @override
+  String cloudAccountSignedInAs(Object email) {
+    return 'Sesión iniciada como $email';
+  }
+
+  @override
+  String cloudAccountUid(Object uid) {
+    return 'ID de usuario: $uid';
+  }
+
+  @override
+  String get cloudAuthDialogTitleSignIn => 'Iniciar sesión en Folio Cloud';
+
+  @override
+  String get cloudAuthDialogTitleRegister => 'Crear cuenta de Folio Cloud';
+
+  @override
+  String get cloudAuthDialogTitleReset => 'Restablecer contraseña';
+
+  @override
+  String get cloudPasswordResetSent =>
+      'Si existe una cuenta con ese correo, se envió un enlace de restablecimiento.';
+
+  @override
+  String get cloudAuthErrorInvalidEmail => 'Ese correo no es válido.';
+
+  @override
+  String get cloudAuthErrorWrongPassword => 'Contraseña incorrecta.';
+
+  @override
+  String get cloudAuthErrorUserNotFound => 'No hay cuenta con ese correo.';
+
+  @override
+  String get cloudAuthErrorUserDisabled => 'Esta cuenta está deshabilitada.';
+
+  @override
+  String get cloudAuthErrorEmailAlreadyInUse =>
+      'Ese correo ya está registrado.';
+
+  @override
+  String get cloudAuthErrorWeakPassword => 'La contraseña es demasiado débil.';
+
+  @override
+  String get cloudAuthErrorInvalidCredential =>
+      'Correo o contraseña no válidos.';
+
+  @override
+  String get cloudAuthErrorNetwork => 'Error de red. Comprueba la conexión.';
+
+  @override
+  String get cloudAuthErrorTooManyRequests =>
+      'Demasiados intentos. Prueba más tarde.';
+
+  @override
+  String get cloudAuthErrorOperationNotAllowed =>
+      'Este método de inicio de sesión no está habilitado en Firebase.';
+
+  @override
+  String get cloudAuthErrorGeneric =>
+      'No se pudo iniciar sesión. Inténtalo de nuevo.';
+
+  @override
+  String get cloudAuthDialogTitle => 'Folio Cloud';
+
+  @override
+  String get cloudAuthSubtitleSignIn =>
+      'Usa el correo y la contraseña de Folio Cloud. Nada de esto cambia tu cofre local.';
+
+  @override
+  String get cloudAuthSubtitleRegister =>
+      'Crea credenciales solo para Folio Cloud y el futuro sync de pago. Tus notas en este dispositivo no se suben.';
+
+  @override
+  String get cloudAuthModeSignIn => 'Iniciar sesión';
+
+  @override
+  String get cloudAuthModeRegister => 'Registrarse';
+
+  @override
+  String get cloudAuthConfirmPasswordLabel => 'Confirmar contraseña';
+
+  @override
+  String get cloudAuthValidationRequired => 'Este campo es obligatorio.';
+
+  @override
+  String get cloudAuthValidationPasswordShort => 'Usa al menos 6 caracteres.';
+
+  @override
+  String get cloudAuthValidationConfirmMismatch =>
+      'Las contraseñas no coinciden.';
+
+  @override
+  String get cloudAccountSignedOutPrompt =>
+      'Inicia sesión o regístrate para estar listo cuando Folio Cloud esté disponible.';
+
+  @override
+  String get cloudAuthResetHint =>
+      'Te enviaremos un enlace por correo para elegir una nueva contraseña.';
+
+  @override
+  String get cloudAccountEmailVerified => 'Verificado';
+
+  @override
+  String get cloudAccountSignOutHelp =>
+      'Tu cofre local sigue en este dispositivo.';
 }
