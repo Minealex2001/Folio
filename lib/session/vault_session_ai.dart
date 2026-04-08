@@ -26,7 +26,7 @@ extension VaultSessionAi on VaultSession {
     return out;
   }
 
-  Future<String> rewriteBlockWithAi({
+  Future<({String text, AiTokenUsage? usage})> previewRewriteBlockWithAi({
     required String pageId,
     required String blockId,
     required String instruction,
@@ -58,8 +58,85 @@ extension VaultSessionAi on VaultSession {
     );
     final text = result.text.trim();
     if (text.isEmpty) throw StateError('La IA devolvió texto vacío.');
-    updateBlockText(pageId, blockId, text);
-    return text;
+    return (text: text, usage: result.usage);
+  }
+
+  Future<String> rewriteBlockWithAi({
+    required String pageId,
+    required String blockId,
+    required String instruction,
+    List<AiFileAttachment> attachments = const [],
+  }) async {
+    final preview = await previewRewriteBlockWithAi(
+      pageId: pageId,
+      blockId: blockId,
+      instruction: instruction,
+      attachments: attachments,
+    );
+    updateBlockText(pageId, blockId, preview.text);
+    return preview.text;
+  }
+
+  /// Resume un fragmento (p. ej. selección) sin modificar el bloque hasta que la UI aplique el texto.
+  Future<({String text, AiTokenUsage? usage})> summarizeSelectionWithAi({
+    required String pageId,
+    required String blockId,
+    required String selectionText,
+    String languageCode = 'es',
+  }) async {
+    if (_state != VaultFlowState.unlocked ||
+        (vaultUsesEncryption && _dek == null)) {
+      throw StateError('Debes desbloquear el cofre para usar IA.');
+    }
+    final ai = _aiService;
+    if (ai == null) throw StateError('IA no configurada.');
+    final page = _pageById(pageId);
+    if (page == null) throw StateError('Página no encontrada.');
+    final block = _blockById(page, blockId);
+    if (block == null) throw StateError('Bloque no encontrado.');
+    final body = selectionText.trim().isEmpty ? block.text : selectionText;
+    final lang = languageCode.toLowerCase().startsWith('es') ? 'es' : 'en';
+    final prompt =
+        '${VaultSession._quillIdentityLeadEs}'
+        'Resume el siguiente fragmento en $lang de forma breve (viñetas si ayuda). '
+        'Sin título ni preámbulo.\n\n'
+        'Página: ${page.title}\n'
+        'Fragmento:\n$body';
+    final result = await ai.complete(
+      AiCompletionRequest(prompt: prompt, model: 'auto'),
+    );
+    return (text: result.text.trim(), usage: result.usage);
+  }
+
+  /// Extrae fechas y tareas accionables como lista numerada o con viñetas.
+  Future<({String text, AiTokenUsage? usage})> extractTasksAndDatesWithAi({
+    required String pageId,
+    required String blockId,
+    required String selectionText,
+    String languageCode = 'es',
+  }) async {
+    if (_state != VaultFlowState.unlocked ||
+        (vaultUsesEncryption && _dek == null)) {
+      throw StateError('Debes desbloquear el cofre para usar IA.');
+    }
+    final ai = _aiService;
+    if (ai == null) throw StateError('IA no configurada.');
+    final page = _pageById(pageId);
+    if (page == null) throw StateError('Página no encontrada.');
+    final block = _blockById(page, blockId);
+    if (block == null) throw StateError('Bloque no encontrado.');
+    final body = selectionText.trim().isEmpty ? block.text : selectionText;
+    final lang = languageCode.toLowerCase().startsWith('es') ? 'es' : 'en';
+    final prompt =
+        '${VaultSession._quillIdentityLeadEs}'
+        'Del texto siguiente, extrae: (1) fechas o plazos mencionados, (2) tareas accionables claras. '
+        'Salida en $lang, formato markdown simple (listas). Si no hay nada, di «Nada detectado».\n\n'
+        'Página: ${page.title}\n'
+        'Texto:\n$body';
+    final result = await ai.complete(
+      AiCompletionRequest(prompt: prompt, model: 'auto'),
+    );
+    return (text: result.text.trim(), usage: result.usage);
   }
 
   Future<({String text, AiTokenUsage? usage})> summarizePageWithAi(

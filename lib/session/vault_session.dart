@@ -3259,6 +3259,7 @@ class VaultSession extends ChangeNotifier {
     bool includeTitleMatches = true,
     bool includeContentMatches = true,
     bool sortByRecency = false,
+    bool tasksOnly = false,
   }) {
     final q = query.trim().toLowerCase();
     if (_state != VaultFlowState.unlocked ||
@@ -3290,6 +3291,11 @@ class VaultSession extends ChangeNotifier {
       }
       if (includeContentMatches) {
         for (final block in page.blocks) {
+          if (tasksOnly &&
+              block.type != 'todo' &&
+              block.type != 'task') {
+            continue;
+          }
           final haystack = _blockSearchText(block);
           final haystackLower = haystack.toLowerCase();
           final idx = haystackLower.indexOf(q);

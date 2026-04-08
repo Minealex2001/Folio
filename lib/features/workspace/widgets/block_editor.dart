@@ -3487,6 +3487,334 @@ class BlockEditorState extends State<BlockEditor> with _BlockRowBuild {
     );
   }
 
+  static const _aiTextBlockTypes = <String>{
+    'paragraph',
+    'h1',
+    'h2',
+    'h3',
+    'quote',
+    'bullet',
+    'numbered',
+    'todo',
+    'callout',
+    'toggle',
+    'task',
+  };
+
+  String _selectedTextForAiBlock(int index) {
+    if (index < 0 || index >= _controllers.length) return '';
+    final c = _controllers[index];
+    final sel = c.selection;
+    if (!sel.isValid || sel.isCollapsed) {
+      return c.text;
+    }
+    final a = sel.start;
+    final b = sel.end;
+    final lo = a < b ? a : b;
+    final hi = a < b ? b : a;
+    return c.text.substring(
+      lo.clamp(0, c.text.length),
+      hi.clamp(0, c.text.length),
+    );
+  }
+
+  void _syncControllerAfterAiBlockText(FolioPage page, String blockId) {
+    final p2 = _s.selectedPage;
+    if (p2 == null || !mounted) return;
+    final j = p2.blocks.indexWhere((x) => x.id == blockId);
+    if (j < 0 || j >= _controllers.length) return;
+    final nb = p2.blocks[j];
+    _ignoreShortcuts = true;
+    _controllers[j].value = TextEditingValue(
+      text: nb.text,
+      selection: TextSelection.collapsed(offset: nb.text.length),
+    );
+    _ignoreShortcuts = false;
+    setState(() {});
+  }
+
+  Future<void> _runAiRewriteFlow(FolioPage page, FolioBlock b, int index) async {
+    if (!mounted) return;
+    final l10n = AppLocalizations.of(context);
+    final c = TextEditingController();
+    final go = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(l10n.aiRewriteDialogTitle),
+        content: TextField(
+          controller: c,
+          maxLines: 4,
+          decoration: InputDecoration(hintText: l10n.aiInstructionHint),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: Text(l10n.cancel),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: Text(l10n.continueAction),
+          ),
+        ],
+      ),
+    );
+    final instruction = c.text.trim();
+    c.dispose();
+    if (go != true || instruction.isEmpty) return;
+    if (!mounted) return;
+    showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => PopScope(
+        canPop: false,
+        child: AlertDialog(
+          content: Row(
+            children: [
+              const SizedBox(
+                width: 28,
+                height: 28,
+                child: CircularProgressIndicator(strokeWidth: 2.6),
+              ),
+              const SizedBox(width: 16),
+              Expanded(child: Text(l10n.aiGenerating)),
+            ],
+          ),
+        ),
+      ),
+    );
+    try {
+      final preview = await _s.previewRewriteBlockWithAi(
+        pageId: page.id,
+        blockId: b.id,
+        instruction: instruction,
+      );
+      if (!mounted) return;
+      Navigator.of(context).pop();
+      final previewCtrl = TextEditingController(text: preview.text);
+      final applied = await showDialog<bool>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: Text(l10n.aiPreviewTitle),
+          content: SizedBox(
+            width: 520,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Text(
+                  l10n.aiPreviewReadOnlyHint,
+                  style: Theme.of(context).textTheme.bodySmall,
+                ),
+                const SizedBox(height: 8),
+                TextField(
+                  controller: previewCtrl,
+                  maxLines: 12,
+                  decoration: const InputDecoration(
+                    border: OutlineInputBorder(),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: Text(l10n.cancel),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(ctx, true),
+              child: Text(l10n.aiApply),
+            ),
+          ],
+        ),
+      );
+      final newText = previewCtrl.text.trim();
+      previewCtrl.dispose();
+      if (applied != true || newText.isEmpty) return;
+      final previous = b.text;
+      _s.updateBlockText(page.id, b.id, newText);
+      _syncControllerAfterAiBlockText(page, b.id);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(l10n.aiRewriteApplied),
+          action: SnackBarAction(
+            label: l10n.aiUndoRewrite,
+            onPressed: () {
+              _s.updateBlockText(page.id, b.id, previous);
+              _syncControllerAfterAiBlockText(page, b.id);
+            },
+          ),
+        ),
+      );
+    } catch (e) {
+      if (mounted) {
+        Navigator.of(context).pop();
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error IA: $e')),
+        );
+      }
+    }
+  }
+
+  Future<void> _showAiResultInsertDialog({
+    required String title,
+    required String body,
+    required FolioPage page,
+    required String afterBlockId,
+  }) async {
+    final l10n = AppLocalizations.of(context);
+    final ctrl = TextEditingController(text: body);
+    final action = await showDialog<String>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(title),
+        content: SizedBox(
+          width: 480,
+          child: SingleChildScrollView(
+            child: TextField(
+              controller: ctrl,
+              maxLines: 14,
+              decoration: const InputDecoration(
+                border: OutlineInputBorder(),
+              ),
+            ),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: Text(l10n.cancel),
+          ),
+          TextButton(
+            onPressed: () {
+              Clipboard.setData(ClipboardData(text: ctrl.text));
+              Navigator.pop(ctx);
+            },
+            child: Text(l10n.aiCopyMessage),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, 'insert'),
+            child: Text(l10n.aiInsertBelow),
+          ),
+        ],
+      ),
+    );
+    final text = ctrl.text.trim();
+    ctrl.dispose();
+    if (action != 'insert' || !mounted) return;
+    if (text.isEmpty) return;
+    _s.insertBlockAfter(
+      pageId: page.id,
+      afterBlockId: afterBlockId,
+      block: FolioBlock(
+        id: '${page.id}_${_uuid.v4()}',
+        type: 'paragraph',
+        text: text,
+      ),
+    );
+  }
+
+  Future<void> _runAiSummarizeFlow(FolioPage page, FolioBlock b, int index) async {
+    if (!mounted) return;
+    final l10n = AppLocalizations.of(context);
+    final lc = Localizations.localeOf(context).languageCode;
+    showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => PopScope(
+        canPop: false,
+        child: AlertDialog(
+          content: Row(
+            children: [
+              const SizedBox(
+                width: 28,
+                height: 28,
+                child: CircularProgressIndicator(strokeWidth: 2.6),
+              ),
+              const SizedBox(width: 16),
+              Expanded(child: Text(l10n.aiGenerating)),
+            ],
+          ),
+        ),
+      ),
+    );
+    try {
+      final sel = _selectedTextForAiBlock(index);
+      final out = await _s.summarizeSelectionWithAi(
+        pageId: page.id,
+        blockId: b.id,
+        selectionText: sel,
+        languageCode: lc,
+      );
+      if (!mounted) return;
+      Navigator.of(context).pop();
+      await _showAiResultInsertDialog(
+        title: l10n.aiSummarizeSelection,
+        body: out.text,
+        page: page,
+        afterBlockId: b.id,
+      );
+    } catch (e) {
+      if (mounted) {
+        Navigator.of(context).pop();
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error IA: $e')),
+        );
+      }
+    }
+  }
+
+  Future<void> _runAiExtractFlow(FolioPage page, FolioBlock b, int index) async {
+    if (!mounted) return;
+    final l10n = AppLocalizations.of(context);
+    final lc = Localizations.localeOf(context).languageCode;
+    showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => PopScope(
+        canPop: false,
+        child: AlertDialog(
+          content: Row(
+            children: [
+              const SizedBox(
+                width: 28,
+                height: 28,
+                child: CircularProgressIndicator(strokeWidth: 2.6),
+              ),
+              const SizedBox(width: 16),
+              Expanded(child: Text(l10n.aiGenerating)),
+            ],
+          ),
+        ),
+      ),
+    );
+    try {
+      final sel = _selectedTextForAiBlock(index);
+      final out = await _s.extractTasksAndDatesWithAi(
+        pageId: page.id,
+        blockId: b.id,
+        selectionText: sel,
+        languageCode: lc,
+      );
+      if (!mounted) return;
+      Navigator.of(context).pop();
+      await _showAiResultInsertDialog(
+        title: l10n.aiExtractTasksDates,
+        body: out.text,
+        page: page,
+        afterBlockId: b.id,
+      );
+    } catch (e) {
+      if (mounted) {
+        Navigator.of(context).pop();
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error IA: $e')),
+        );
+      }
+    }
+  }
+
   PopupMenuButton<String> _blockMenuButton({
     required BuildContext menuContext,
     required FolioPage page,
@@ -3545,49 +3873,16 @@ class BlockEditorState extends State<BlockEditor> with _BlockRowBuild {
         if (v == 'del' && page.blocks.length > 1) {
           _deleteSelectedBlocks(page, _selectedIdsForAction(page, b.id));
         } else if (v == 'ai_rewrite') {
-          WidgetsBinding.instance.addPostFrameCallback((_) async {
-            if (!mounted) return;
-            final c = TextEditingController();
-            final go = await showDialog<bool>(
-              context: menuContext,
-              builder: (ctx) => AlertDialog(
-                title: const Text('Reescribir con IA'),
-                content: TextField(
-                  controller: c,
-                  maxLines: 4,
-                  decoration: const InputDecoration(
-                    hintText: 'Ejemplo: hazlo más claro y breve',
-                  ),
-                ),
-                actions: [
-                  TextButton(
-                    onPressed: () => Navigator.pop(ctx, false),
-                    child: const Text('Cancelar'),
-                  ),
-                  FilledButton(
-                    onPressed: () => Navigator.pop(ctx, true),
-                    child: const Text('Aplicar'),
-                  ),
-                ],
-              ),
-            );
-            final instruction = c.text.trim();
-            WidgetsBinding.instance.addPostFrameCallback((_) {
-              c.dispose();
-            });
-            if (go != true || instruction.isEmpty) return;
-            try {
-              await _s.rewriteBlockWithAi(
-                pageId: page.id,
-                blockId: b.id,
-                instruction: instruction,
-              );
-            } catch (e) {
-              if (!mounted) return;
-              ScaffoldMessenger.of(
-                context,
-              ).showSnackBar(SnackBar(content: Text('Error IA: $e')));
-            }
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            unawaited(_runAiRewriteFlow(page, b, index));
+          });
+        } else if (v == 'ai_summarize') {
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            unawaited(_runAiSummarizeFlow(page, b, index));
+          });
+        } else if (v == 'ai_extract') {
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            unawaited(_runAiExtractFlow(page, b, index));
           });
         } else if (v == 'pick_type') {
           WidgetsBinding.instance.addPostFrameCallback((_) async {
@@ -3804,8 +4099,22 @@ class BlockEditorState extends State<BlockEditor> with _BlockRowBuild {
               ctx,
               value: 'ai_rewrite',
               icon: Icons.auto_fix_high_rounded,
-              label: 'Reescribir con IA…',
+              label: AppLocalizations.of(ctx).aiRewriteDialogTitle,
             ),
+          if (_s.aiEnabled && _aiTextBlockTypes.contains(b.type)) ...[
+            item(
+              ctx,
+              value: 'ai_summarize',
+              icon: Icons.summarize_rounded,
+              label: AppLocalizations.of(ctx).aiSummarizeSelection,
+            ),
+            item(
+              ctx,
+              value: 'ai_extract',
+              icon: Icons.task_alt_rounded,
+              label: AppLocalizations.of(ctx).aiExtractTasksDates,
+            ),
+          ],
           if (index > 0)
             item(
               ctx,

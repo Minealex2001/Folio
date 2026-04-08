@@ -196,6 +196,17 @@ class AppSettings extends ChangeNotifier {
   static const _syncDeviceNameKey = 'folio_device_sync_device_name';
   static const _syncPendingConflictsKey = 'folio_device_sync_pending_conflicts';
   static const _syncLastSuccessMsKey = 'folio_device_sync_last_success_ms';
+  static const _recentSearchQueriesKey = 'folio_recent_search_queries_v1';
+  static const _scheduledVaultBackupEnabledKey =
+      'folio_scheduled_vault_backup_enabled';
+  static const _scheduledVaultBackupIntervalHoursKey =
+      'folio_scheduled_vault_backup_interval_hours';
+  static const _scheduledVaultBackupDirectoryKey =
+      'folio_scheduled_vault_backup_directory';
+  static const _lastScheduledVaultBackupMsKey =
+      'folio_last_scheduled_vault_backup_ms';
+  static const int maxRecentSearchQueries = 10;
+  static const int defaultScheduledVaultBackupIntervalHours = 24;
   static const int defaultVaultIdleLockMinutes = 15;
   static const String defaultGlobalSearchHotkey = 'Ctrl+Shift+K';
   static const int defaultAiTimeoutMs = 30000;
@@ -261,6 +272,12 @@ class AppSettings extends ChangeNotifier {
   String _syncDeviceName = '';
   int _syncPendingConflicts = 0;
   int _syncLastSuccessMs = 0;
+  List<String> _recentSearchQueries = const [];
+  bool _scheduledVaultBackupEnabled = false;
+  int _scheduledVaultBackupIntervalHours =
+      defaultScheduledVaultBackupIntervalHours;
+  String _scheduledVaultBackupDirectory = '';
+  int _lastScheduledVaultBackupMs = 0;
 
   ThemeMode get themeMode => _themeMode;
   Locale? get locale => _locale;
@@ -305,6 +322,13 @@ class AppSettings extends ChangeNotifier {
       _syncDeviceName.isEmpty ? _defaultSyncDeviceName() : _syncDeviceName;
   int get syncPendingConflicts => _syncPendingConflicts;
   int get syncLastSuccessMs => _syncLastSuccessMs;
+  List<String> get recentSearchQueries =>
+      List.unmodifiable(_recentSearchQueries);
+  bool get scheduledVaultBackupEnabled => _scheduledVaultBackupEnabled;
+  int get scheduledVaultBackupIntervalHours =>
+      _scheduledVaultBackupIntervalHours;
+  String get scheduledVaultBackupDirectory => _scheduledVaultBackupDirectory;
+  int get lastScheduledVaultBackupMs => _lastScheduledVaultBackupMs;
   List<CustomIconEntry> get customIcons => List.unmodifiable(_customIcons);
   List<CustomIconEntry> integrationCustomIconsForApp(String appId) {
     final key = appId.trim();
@@ -404,6 +428,17 @@ class AppSettings extends ChangeNotifier {
       999,
     );
     _syncLastSuccessMs = p.getInt(_syncLastSuccessMsKey) ?? 0;
+    _recentSearchQueries = _sanitizeRecentSearchList(
+      p.getStringList(_recentSearchQueriesKey),
+    );
+    _scheduledVaultBackupEnabled =
+        p.getBool(_scheduledVaultBackupEnabledKey) ?? false;
+    _scheduledVaultBackupIntervalHours = _sanitizeScheduledVaultBackupInterval(
+      p.getInt(_scheduledVaultBackupIntervalHoursKey),
+    );
+    _scheduledVaultBackupDirectory =
+        (p.getString(_scheduledVaultBackupDirectoryKey) ?? '').trim();
+    _lastScheduledVaultBackupMs = p.getInt(_lastScheduledVaultBackupMsKey) ?? 0;
     _integrationSecret = _configuredIntegrationSecret;
     final approvedRaw = p.getString(_approvedIntegrationAppsKey);
     if (approvedRaw != null && approvedRaw.trim().isNotEmpty) {
@@ -545,6 +580,26 @@ class AppSettings extends ChangeNotifier {
     final raw = value ?? defaultAiContextWindowTokens;
     if (raw < 1024) return 1024;
     if (raw > 2000000) return 2000000;
+    return raw;
+  }
+
+  List<String> _sanitizeRecentSearchList(List<String>? raw) {
+    if (raw == null || raw.isEmpty) return const [];
+    final out = <String>[];
+    for (final s in raw) {
+      final t = s.trim();
+      if (t.isEmpty) continue;
+      if (out.contains(t)) continue;
+      out.add(t);
+      if (out.length >= maxRecentSearchQueries) break;
+    }
+    return out;
+  }
+
+  int _sanitizeScheduledVaultBackupInterval(int? value) {
+    final raw = value ?? defaultScheduledVaultBackupIntervalHours;
+    if (raw < 1) return 1;
+    if (raw > 168) return 168;
     return raw;
   }
 
@@ -947,6 +1002,66 @@ class AppSettings extends ChangeNotifier {
     notifyListeners();
     final p = await SharedPreferences.getInstance();
     await p.setInt(_syncLastSuccessMsKey, safe);
+  }
+
+  Future<void> addRecentSearchQuery(String raw) async {
+    final q = raw.trim();
+    if (q.isEmpty) return;
+    final next = <String>[q];
+    for (final x in _recentSearchQueries) {
+      if (x == q) continue;
+      next.add(x);
+      if (next.length >= maxRecentSearchQueries) break;
+    }
+    _recentSearchQueries = next;
+    notifyListeners();
+    final p = await SharedPreferences.getInstance();
+    await p.setStringList(_recentSearchQueriesKey, _recentSearchQueries);
+  }
+
+  Future<void> setScheduledVaultBackupEnabled(bool value) async {
+    if (_scheduledVaultBackupEnabled == value) return;
+    _scheduledVaultBackupEnabled = value;
+    if (value && _lastScheduledVaultBackupMs == 0) {
+      _lastScheduledVaultBackupMs = DateTime.now().millisecondsSinceEpoch;
+    }
+    notifyListeners();
+    final p = await SharedPreferences.getInstance();
+    await p.setBool(_scheduledVaultBackupEnabledKey, value);
+    if (value && _lastScheduledVaultBackupMs != 0) {
+      await p.setInt(_lastScheduledVaultBackupMsKey, _lastScheduledVaultBackupMs);
+    }
+  }
+
+  Future<void> setScheduledVaultBackupIntervalHours(int value) async {
+    final safe = _sanitizeScheduledVaultBackupInterval(value);
+    if (_scheduledVaultBackupIntervalHours == safe) return;
+    _scheduledVaultBackupIntervalHours = safe;
+    notifyListeners();
+    final p = await SharedPreferences.getInstance();
+    await p.setInt(_scheduledVaultBackupIntervalHoursKey, safe);
+  }
+
+  Future<void> setScheduledVaultBackupDirectory(String path) async {
+    final safe = path.trim();
+    if (_scheduledVaultBackupDirectory == safe) return;
+    _scheduledVaultBackupDirectory = safe;
+    notifyListeners();
+    final p = await SharedPreferences.getInstance();
+    if (safe.isEmpty) {
+      await p.remove(_scheduledVaultBackupDirectoryKey);
+    } else {
+      await p.setString(_scheduledVaultBackupDirectoryKey, safe);
+    }
+  }
+
+  Future<void> setLastScheduledVaultBackupMs(int value) async {
+    final safe = value < 0 ? 0 : value;
+    if (_lastScheduledVaultBackupMs == safe) return;
+    _lastScheduledVaultBackupMs = safe;
+    notifyListeners();
+    final p = await SharedPreferences.getInstance();
+    await p.setInt(_lastScheduledVaultBackupMsKey, safe);
   }
 
   Future<void> setInAppShortcut(

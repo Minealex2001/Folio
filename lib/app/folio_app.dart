@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 
 import 'package:flutter/foundation.dart'
     show TargetPlatform, defaultTargetPlatform, kIsWeb;
@@ -6,8 +7,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter/services.dart';
 import 'package:package_info_plus/package_info_plus.dart';
+import 'package:path/path.dart' as p;
 import 'package:system_theme/system_theme.dart';
 
+import '../data/vault_backup.dart';
 import '../desktop/desktop_integration.dart';
 import '../l10n/generated/app_localizations.dart';
 import '../models/block.dart';
@@ -58,6 +61,7 @@ class _FolioAppState extends State<FolioApp> with WidgetsBindingObserver {
   String _desktopSettingsSignature = '';
   bool _updateDialogShown = false;
   bool _handledInitialLaunchArgs = false;
+  Timer? _scheduledVaultBackupTimer;
 
   @override
   void initState() {
@@ -108,6 +112,11 @@ class _FolioAppState extends State<FolioApp> with WidgetsBindingObserver {
     });
     unawaited(_handleInitialLaunchArgs());
     _checkForUpdatesOnStartup();
+    _scheduledVaultBackupTimer = Timer.periodic(
+      const Duration(minutes: 15),
+      (_) => unawaited(_maybeRunScheduledVaultBackup()),
+    );
+    unawaited(_maybeRunScheduledVaultBackup());
     _accentSub = SystemTheme.onChange.listen((_) {
       if (mounted) setState(() {});
     });
@@ -115,6 +124,7 @@ class _FolioAppState extends State<FolioApp> with WidgetsBindingObserver {
 
   @override
   void dispose() {
+    _scheduledVaultBackupTimer?.cancel();
     _launchArgsSub?.cancel();
     _accentSub?.cancel();
     unawaited(_run2DocBridge.dispose());
@@ -145,6 +155,45 @@ class _FolioAppState extends State<FolioApp> with WidgetsBindingObserver {
     final ctx = _navKey.currentContext;
     if (ctx == null || message.trim().isEmpty) return;
     ScaffoldMessenger.of(ctx).showSnackBar(SnackBar(content: Text(message)));
+  }
+
+  Future<void> _maybeRunScheduledVaultBackup() async {
+    if (!mounted) return;
+    if (!widget.appSettings.scheduledVaultBackupEnabled) return;
+    final dir = widget.appSettings.scheduledVaultBackupDirectory.trim();
+    if (dir.isEmpty) return;
+    if (widget.session.state != VaultFlowState.unlocked) return;
+    final intervalMs =
+        widget.appSettings.scheduledVaultBackupIntervalHours * 3600000;
+    final now = DateTime.now().millisecondsSinceEpoch;
+    final last = widget.appSettings.lastScheduledVaultBackupMs;
+    if (last > 0 && now - last < intervalMs) return;
+    final destDir = Directory(dir);
+    if (!destDir.existsSync()) {
+      try {
+        await destDir.create(recursive: true);
+      } catch (_) {
+        return;
+      }
+    }
+    final stamp = DateTime.now().toUtc().toIso8601String().replaceAll(':', '-');
+    final base = stamp.contains('.') ? stamp.split('.').first : stamp;
+    final path = p.join(dir, 'folio-scheduled-$base.zip');
+    try {
+      await widget.session.exportVaultBackup(path);
+      await widget.appSettings.setLastScheduledVaultBackupMs(now);
+      final okCtx = _navKey.currentContext;
+      if (okCtx == null || !okCtx.mounted) return;
+      _showSnack(AppLocalizations.of(okCtx).scheduledVaultBackupSnackOk);
+    } on VaultBackupException catch (e) {
+      final errCtx = _navKey.currentContext;
+      if (errCtx == null || !errCtx.mounted) return;
+      _showSnack(AppLocalizations.of(errCtx).scheduledVaultBackupSnackFail('$e'));
+    } catch (e) {
+      final errCtx = _navKey.currentContext;
+      if (errCtx == null || !errCtx.mounted) return;
+      _showSnack(AppLocalizations.of(errCtx).scheduledVaultBackupSnackFail('$e'));
+    }
   }
 
   Future<List<int>?> _exportSyncSnapshot() {
@@ -403,7 +452,10 @@ class _FolioAppState extends State<FolioApp> with WidgetsBindingObserver {
       await showDialog<bool>(
         context: _navKey.currentContext ?? context,
         barrierDismissible: true,
-        builder: (ctx) => GlobalSearchPopup(session: widget.session),
+        builder: (ctx) => GlobalSearchPopup(
+          session: widget.session,
+          appSettings: widget.appSettings,
+        ),
       );
     } finally {
       _openingByHotkey = false;
@@ -709,6 +761,9 @@ class _FolioAppState extends State<FolioApp> with WidgetsBindingObserver {
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      unawaited(_maybeRunScheduledVaultBackup());
+    }
     if (state == AppLifecycleState.inactive ||
         state == AppLifecycleState.paused ||
         state == AppLifecycleState.hidden) {

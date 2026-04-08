@@ -542,7 +542,23 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get searchDialogFooterHint =>
-      'Enter opens the top result · Esc closes';
+      'Enter opens the highlighted result · Ctrl+↑ / Ctrl+↓ navigate · Esc closes';
+
+  @override
+  String get searchFilterTasks => 'Tasks';
+
+  @override
+  String get searchRecentQueries => 'Recent searches';
+
+  @override
+  String get searchShortcutsHelpTooltip => 'Keyboard shortcuts';
+
+  @override
+  String get searchShortcutsHelpTitle => 'Global search';
+
+  @override
+  String get searchShortcutsHelpBody =>
+      'Enter: open the highlighted result\nCtrl+↑ or Ctrl+↓: previous / next result\nEsc: close';
 
   @override
   String get renamePageTitle => 'Rename page';
@@ -1331,6 +1347,72 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get searchSortRecent => 'Recent';
+
+  @override
+  String get settingsSearchSections => 'Search settings';
+
+  @override
+  String get settingsSearchSectionsHint => 'Filter categories in the sidebar';
+
+  @override
+  String get scheduledVaultBackupTitle => 'Scheduled encrypted backup';
+
+  @override
+  String get scheduledVaultBackupSubtitle =>
+      'While the vault is unlocked, Folio saves a copy to the folder below at the chosen interval.';
+
+  @override
+  String get scheduledVaultBackupChooseFolder => 'Backup folder';
+
+  @override
+  String get scheduledVaultBackupIntervalLabel => 'Interval (hours)';
+
+  @override
+  String scheduledVaultBackupLastRun(Object time) {
+    return 'Last backup: $time';
+  }
+
+  @override
+  String get scheduledVaultBackupSnackOk => 'Scheduled backup saved.';
+
+  @override
+  String scheduledVaultBackupSnackFail(Object error) {
+    return 'Scheduled backup failed: $error';
+  }
+
+  @override
+  String get aiRewriteDialogTitle => 'Rewrite with AI';
+
+  @override
+  String get aiPreviewTitle => 'Preview';
+
+  @override
+  String get aiInstructionHint => 'Example: make it clearer and shorter';
+
+  @override
+  String get aiApply => 'Apply';
+
+  @override
+  String get aiGenerating => 'Generating…';
+
+  @override
+  String get aiSummarizeSelection => 'Summarize with AI…';
+
+  @override
+  String get aiExtractTasksDates => 'Extract tasks & dates…';
+
+  @override
+  String get aiPreviewReadOnlyHint =>
+      'You can edit the text below before applying.';
+
+  @override
+  String get aiRewriteApplied => 'Block updated.';
+
+  @override
+  String get aiUndoRewrite => 'Undo';
+
+  @override
+  String get aiInsertBelow => 'Insert below';
 
   @override
   String get unlockVaultTitle => 'Unlock vault';

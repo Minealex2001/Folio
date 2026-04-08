@@ -544,7 +544,23 @@ class AppLocalizationsEs extends AppLocalizations {
 
   @override
   String get searchDialogFooterHint =>
-      'Enter abre el primer resultado · Esc cierra';
+      'Enter abre el resultado resaltado · Ctrl+↑ / Ctrl+↓ navegar · Esc cierra';
+
+  @override
+  String get searchFilterTasks => 'Tareas';
+
+  @override
+  String get searchRecentQueries => 'Búsquedas recientes';
+
+  @override
+  String get searchShortcutsHelpTooltip => 'Atajos de teclado';
+
+  @override
+  String get searchShortcutsHelpTitle => 'Búsqueda global';
+
+  @override
+  String get searchShortcutsHelpBody =>
+      'Enter: abrir el resultado resaltado\nCtrl+↑ o Ctrl+↓: anterior / siguiente\nEsc: cerrar';
 
   @override
   String get renamePageTitle => 'Renombrar página';
@@ -1336,6 +1352,73 @@ class AppLocalizationsEs extends AppLocalizations {
 
   @override
   String get searchSortRecent => 'Recientes';
+
+  @override
+  String get settingsSearchSections => 'Buscar en ajustes';
+
+  @override
+  String get settingsSearchSectionsHint =>
+      'Filtra categorías en la barra lateral';
+
+  @override
+  String get scheduledVaultBackupTitle => 'Copia cifrada programada';
+
+  @override
+  String get scheduledVaultBackupSubtitle =>
+      'Con el cofre desbloqueado, Folio guarda una copia en la carpeta indicada según el intervalo.';
+
+  @override
+  String get scheduledVaultBackupChooseFolder => 'Carpeta de copias';
+
+  @override
+  String get scheduledVaultBackupIntervalLabel => 'Intervalo (horas)';
+
+  @override
+  String scheduledVaultBackupLastRun(Object time) {
+    return 'Última copia: $time';
+  }
+
+  @override
+  String get scheduledVaultBackupSnackOk => 'Copia programada guardada.';
+
+  @override
+  String scheduledVaultBackupSnackFail(Object error) {
+    return 'Error en la copia programada: $error';
+  }
+
+  @override
+  String get aiRewriteDialogTitle => 'Reescribir con IA';
+
+  @override
+  String get aiPreviewTitle => 'Vista previa';
+
+  @override
+  String get aiInstructionHint => 'Ejemplo: hazlo más claro y breve';
+
+  @override
+  String get aiApply => 'Aplicar';
+
+  @override
+  String get aiGenerating => 'Generando…';
+
+  @override
+  String get aiSummarizeSelection => 'Resumir con IA…';
+
+  @override
+  String get aiExtractTasksDates => 'Extraer tareas y fechas…';
+
+  @override
+  String get aiPreviewReadOnlyHint =>
+      'Puedes editar el texto antes de aplicar.';
+
+  @override
+  String get aiRewriteApplied => 'Bloque actualizado.';
+
+  @override
+  String get aiUndoRewrite => 'Deshacer';
+
+  @override
+  String get aiInsertBelow => 'Insertar debajo';
 
   @override
   String get unlockVaultTitle => 'Desbloquear cofre';

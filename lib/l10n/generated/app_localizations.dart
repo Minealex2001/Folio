@@ -1073,8 +1073,38 @@ abstract class AppLocalizations {
   /// No description provided for @searchDialogFooterHint.
   ///
   /// In es, this message translates to:
-  /// **'Enter abre el primer resultado · Esc cierra'**
+  /// **'Enter abre el resultado resaltado · Ctrl+↑ / Ctrl+↓ navegar · Esc cierra'**
   String get searchDialogFooterHint;
+
+  /// No description provided for @searchFilterTasks.
+  ///
+  /// In es, this message translates to:
+  /// **'Tareas'**
+  String get searchFilterTasks;
+
+  /// No description provided for @searchRecentQueries.
+  ///
+  /// In es, this message translates to:
+  /// **'Búsquedas recientes'**
+  String get searchRecentQueries;
+
+  /// No description provided for @searchShortcutsHelpTooltip.
+  ///
+  /// In es, this message translates to:
+  /// **'Atajos de teclado'**
+  String get searchShortcutsHelpTooltip;
+
+  /// No description provided for @searchShortcutsHelpTitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Búsqueda global'**
+  String get searchShortcutsHelpTitle;
+
+  /// No description provided for @searchShortcutsHelpBody.
+  ///
+  /// In es, this message translates to:
+  /// **'Enter: abrir el resultado resaltado\nCtrl+↑ o Ctrl+↓: anterior / siguiente\nEsc: cerrar'**
+  String get searchShortcutsHelpBody;
 
   /// No description provided for @renamePageTitle.
   ///
@@ -2521,6 +2551,126 @@ abstract class AppLocalizations {
   /// In es, this message translates to:
   /// **'Recientes'**
   String get searchSortRecent;
+
+  /// No description provided for @settingsSearchSections.
+  ///
+  /// In es, this message translates to:
+  /// **'Buscar en ajustes'**
+  String get settingsSearchSections;
+
+  /// No description provided for @settingsSearchSectionsHint.
+  ///
+  /// In es, this message translates to:
+  /// **'Filtra categorías en la barra lateral'**
+  String get settingsSearchSectionsHint;
+
+  /// No description provided for @scheduledVaultBackupTitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Copia cifrada programada'**
+  String get scheduledVaultBackupTitle;
+
+  /// No description provided for @scheduledVaultBackupSubtitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Con el cofre desbloqueado, Folio guarda una copia en la carpeta indicada según el intervalo.'**
+  String get scheduledVaultBackupSubtitle;
+
+  /// No description provided for @scheduledVaultBackupChooseFolder.
+  ///
+  /// In es, this message translates to:
+  /// **'Carpeta de copias'**
+  String get scheduledVaultBackupChooseFolder;
+
+  /// No description provided for @scheduledVaultBackupIntervalLabel.
+  ///
+  /// In es, this message translates to:
+  /// **'Intervalo (horas)'**
+  String get scheduledVaultBackupIntervalLabel;
+
+  /// No description provided for @scheduledVaultBackupLastRun.
+  ///
+  /// In es, this message translates to:
+  /// **'Última copia: {time}'**
+  String scheduledVaultBackupLastRun(Object time);
+
+  /// No description provided for @scheduledVaultBackupSnackOk.
+  ///
+  /// In es, this message translates to:
+  /// **'Copia programada guardada.'**
+  String get scheduledVaultBackupSnackOk;
+
+  /// No description provided for @scheduledVaultBackupSnackFail.
+  ///
+  /// In es, this message translates to:
+  /// **'Error en la copia programada: {error}'**
+  String scheduledVaultBackupSnackFail(Object error);
+
+  /// No description provided for @aiRewriteDialogTitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Reescribir con IA'**
+  String get aiRewriteDialogTitle;
+
+  /// No description provided for @aiPreviewTitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Vista previa'**
+  String get aiPreviewTitle;
+
+  /// No description provided for @aiInstructionHint.
+  ///
+  /// In es, this message translates to:
+  /// **'Ejemplo: hazlo más claro y breve'**
+  String get aiInstructionHint;
+
+  /// No description provided for @aiApply.
+  ///
+  /// In es, this message translates to:
+  /// **'Aplicar'**
+  String get aiApply;
+
+  /// No description provided for @aiGenerating.
+  ///
+  /// In es, this message translates to:
+  /// **'Generando…'**
+  String get aiGenerating;
+
+  /// No description provided for @aiSummarizeSelection.
+  ///
+  /// In es, this message translates to:
+  /// **'Resumir con IA…'**
+  String get aiSummarizeSelection;
+
+  /// No description provided for @aiExtractTasksDates.
+  ///
+  /// In es, this message translates to:
+  /// **'Extraer tareas y fechas…'**
+  String get aiExtractTasksDates;
+
+  /// No description provided for @aiPreviewReadOnlyHint.
+  ///
+  /// In es, this message translates to:
+  /// **'Puedes editar el texto antes de aplicar.'**
+  String get aiPreviewReadOnlyHint;
+
+  /// No description provided for @aiRewriteApplied.
+  ///
+  /// In es, this message translates to:
+  /// **'Bloque actualizado.'**
+  String get aiRewriteApplied;
+
+  /// No description provided for @aiUndoRewrite.
+  ///
+  /// In es, this message translates to:
+  /// **'Deshacer'**
+  String get aiUndoRewrite;
+
+  /// No description provided for @aiInsertBelow.
+  ///
+  /// In es, this message translates to:
+  /// **'Insertar debajo'**
+  String get aiInsertBelow;
 
   /// No description provided for @unlockVaultTitle.
   ///

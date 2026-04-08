@@ -1,16 +1,25 @@
-import 'package:flutter/material.dart';
+import 'dart:async';
 
+import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+
+import '../../../app/app_settings.dart';
 import '../../../l10n/generated/app_localizations.dart';
 import '../../../session/vault_session.dart';
 
-enum _GlobalSearchScope { all, title, content }
+enum _GlobalSearchScope { all, title, content, tasks }
 
 enum _GlobalSearchOrder { relevance, recency }
 
 class GlobalSearchPopup extends StatefulWidget {
-  const GlobalSearchPopup({super.key, required this.session});
+  const GlobalSearchPopup({
+    super.key,
+    required this.session,
+    required this.appSettings,
+  });
 
   final VaultSession session;
+  final AppSettings appSettings;
 
   @override
   State<GlobalSearchPopup> createState() => _GlobalSearchPopupState();
@@ -22,6 +31,7 @@ class _GlobalSearchPopupState extends State<GlobalSearchPopup> {
   List<VaultSearchResult> _results = const [];
   _GlobalSearchScope _scope = _GlobalSearchScope.all;
   _GlobalSearchOrder _order = _GlobalSearchOrder.relevance;
+  var _selectedIndex = 0;
 
   @override
   void initState() {
@@ -39,9 +49,11 @@ class _GlobalSearchPopupState extends State<GlobalSearchPopup> {
   }
 
   void _refresh() {
-    final includeTitle =
-        _scope == _GlobalSearchScope.all || _scope == _GlobalSearchScope.title;
-    final includeContent =
+    final tasksOnly = _scope == _GlobalSearchScope.tasks;
+    final includeTitle = tasksOnly ||
+        _scope == _GlobalSearchScope.all ||
+        _scope == _GlobalSearchScope.title;
+    final includeContent = tasksOnly ||
         _scope == _GlobalSearchScope.all ||
         _scope == _GlobalSearchScope.content;
     setState(() {
@@ -50,17 +62,47 @@ class _GlobalSearchPopupState extends State<GlobalSearchPopup> {
         includeTitleMatches: includeTitle,
         includeContentMatches: includeContent,
         sortByRecency: _order == _GlobalSearchOrder.recency,
+        tasksOnly: tasksOnly,
       );
+      _selectedIndex = 0;
     });
   }
 
-  void _pick(VaultSearchResult result) {
+  void _nudgeSelection(int delta) {
+    if (_results.isEmpty) return;
+    setState(() {
+      _selectedIndex =
+          (_selectedIndex + delta + _results.length) % _results.length;
+    });
+  }
+
+  Future<void> _pick(VaultSearchResult result) async {
+    final q = _query.text.trim();
+    if (q.isNotEmpty) {
+      await widget.appSettings.addRecentSearchQuery(q);
+    }
     widget.session.selectPage(result.pageId);
     final blockId = result.blockId;
     if (blockId != null && blockId.trim().isNotEmpty) {
       widget.session.requestScrollToBlock(blockId);
     }
-    Navigator.of(context).pop(true);
+    if (mounted) Navigator.of(context).pop(true);
+  }
+
+  void _showShortcutsHelp(AppLocalizations l10n) {
+    showDialog<void>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(l10n.searchShortcutsHelpTitle),
+        content: Text(l10n.searchShortcutsHelpBody),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: Text(l10n.ok),
+          ),
+        ],
+      ),
+    );
   }
 
   InlineSpan _buildSnippetSpan(
@@ -100,146 +142,215 @@ class _GlobalSearchPopupState extends State<GlobalSearchPopup> {
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
     final scheme = Theme.of(context).colorScheme;
-    return Dialog(
-      insetPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 56),
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 760, maxHeight: 560),
-        child: Padding(
-          padding: const EdgeInsets.all(12),
-          child: Semantics(
-            label: l10n.search,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-              TextField(
-                controller: _query,
-                focusNode: _focus,
-                autofocus: true,
-                decoration: InputDecoration(
-                  prefixIcon: const Icon(Icons.search_rounded),
-                  hintText: l10n.searchAllVaultHint,
-                ),
-                onChanged: (_) => _refresh(),
-                onSubmitted: (_) {
-                  if (_results.isNotEmpty) _pick(_results.first);
-                },
-              ),
-              const SizedBox(height: 10),
-              Wrap(
-                spacing: 8,
-                runSpacing: 8,
+    final recent = widget.appSettings.recentSearchQueries;
+    return CallbackShortcuts(
+      bindings: {
+        const SingleActivator(LogicalKeyboardKey.arrowDown, control: true):
+            () => _nudgeSelection(1),
+        const SingleActivator(LogicalKeyboardKey.arrowUp, control: true):
+            () => _nudgeSelection(-1),
+      },
+      child: Dialog(
+        insetPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 56),
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 760, maxHeight: 560),
+          child: Padding(
+            padding: const EdgeInsets.all(12),
+            child: Semantics(
+              label: l10n.search,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  ChoiceChip(
-                    label: Text(l10n.searchFilterAll),
-                    selected: _scope == _GlobalSearchScope.all,
-                    onSelected: (selected) {
-                      if (!selected) return;
-                      setState(() => _scope = _GlobalSearchScope.all);
-                      _refresh();
-                    },
-                  ),
-                  ChoiceChip(
-                    label: Text(l10n.searchFilterTitles),
-                    selected: _scope == _GlobalSearchScope.title,
-                    onSelected: (selected) {
-                      if (!selected) return;
-                      setState(() => _scope = _GlobalSearchScope.title);
-                      _refresh();
-                    },
-                  ),
-                  ChoiceChip(
-                    label: Text(l10n.searchFilterContent),
-                    selected: _scope == _GlobalSearchScope.content,
-                    onSelected: (selected) {
-                      if (!selected) return;
-                      setState(() => _scope = _GlobalSearchScope.content);
-                      _refresh();
-                    },
-                  ),
-                  const SizedBox(width: 8),
-                  ChoiceChip(
-                    label: Text(l10n.searchSortRelevance),
-                    selected: _order == _GlobalSearchOrder.relevance,
-                    onSelected: (selected) {
-                      if (!selected) return;
-                      setState(() => _order = _GlobalSearchOrder.relevance);
-                      _refresh();
-                    },
-                  ),
-                  ChoiceChip(
-                    label: Text(l10n.searchSortRecent),
-                    selected: _order == _GlobalSearchOrder.recency,
-                    onSelected: (selected) {
-                      if (!selected) return;
-                      setState(() => _order = _GlobalSearchOrder.recency);
-                      _refresh();
-                    },
-                  ),
-                ],
-              ),
-              const SizedBox(height: 10),
-              Expanded(
-                child: _query.text.trim().isEmpty
-                    ? Center(
-                        child: Text(
-                          l10n.typeToSearch,
-                          style: TextStyle(color: scheme.onSurfaceVariant),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: TextField(
+                          controller: _query,
+                          focusNode: _focus,
+                          autofocus: true,
+                          decoration: InputDecoration(
+                            prefixIcon: const Icon(Icons.search_rounded),
+                            hintText: l10n.searchAllVaultHint,
+                          ),
+                          onChanged: (_) => _refresh(),
+                          onSubmitted: (_) {
+                            if (_results.isNotEmpty) {
+                              unawaited(_pick(_results[_selectedIndex]));
+                            }
+                          },
                         ),
-                      )
-                    : _results.isEmpty
-                    ? Center(
-                        child: Text(
-                          l10n.noSearchResults,
-                          style: TextStyle(color: scheme.onSurfaceVariant),
+                      ),
+                      IconButton(
+                        tooltip: l10n.searchShortcutsHelpTooltip,
+                        onPressed: () => _showShortcutsHelp(l10n),
+                        icon: const Icon(Icons.help_outline_rounded),
+                      ),
+                    ],
+                  ),
+                  if (recent.isNotEmpty) ...[
+                    const SizedBox(height: 8),
+                    Align(
+                      alignment: Alignment.centerLeft,
+                      child: Text(
+                        l10n.searchRecentQueries,
+                        style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                          color: scheme.onSurfaceVariant,
                         ),
-                      )
-                    : ListView.separated(
-                        itemCount: _results.length,
-                        separatorBuilder: (_, _) => const Divider(height: 1),
-                        itemBuilder: (context, i) {
-                          final r = _results[i];
-                          return ListTile(
-                            dense: true,
-                            leading: Icon(
-                              r.matchKind == VaultSearchMatchKind.title
-                                  ? Icons.title_rounded
-                                  : Icons.notes_rounded,
-                            ),
-                            title: Text(
-                              r.pageTitle,
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    Wrap(
+                      spacing: 6,
+                      runSpacing: 6,
+                      children: [
+                        for (final q in recent)
+                          ActionChip(
+                            label: Text(
+                              q,
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                             ),
-                            subtitle: Text.rich(
-                              TextSpan(
-                                style: DefaultTextStyle.of(context).style,
-                                children: [
-                                  _buildSnippetSpan(
-                                    context,
-                                    r.snippet,
-                                    _query.text,
-                                  ),
-                                ],
-                              ),
-                              maxLines: 2,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                            onTap: () => _pick(r),
-                          );
+                            onPressed: () {
+                              _query.text = q;
+                              _refresh();
+                            },
+                          ),
+                      ],
+                    ),
+                  ],
+                  const SizedBox(height: 10),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: [
+                      ChoiceChip(
+                        label: Text(l10n.searchFilterAll),
+                        selected: _scope == _GlobalSearchScope.all,
+                        onSelected: (selected) {
+                          if (!selected) return;
+                          setState(() => _scope = _GlobalSearchScope.all);
+                          _refresh();
                         },
                       ),
-              ),
-              Padding(
-                padding: const EdgeInsets.only(top: 8),
-                child: Text(
-                  l10n.searchDialogFooterHint,
-                  textAlign: TextAlign.center,
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: scheme.onSurfaceVariant,
+                      ChoiceChip(
+                        label: Text(l10n.searchFilterTitles),
+                        selected: _scope == _GlobalSearchScope.title,
+                        onSelected: (selected) {
+                          if (!selected) return;
+                          setState(() => _scope = _GlobalSearchScope.title);
+                          _refresh();
+                        },
+                      ),
+                      ChoiceChip(
+                        label: Text(l10n.searchFilterContent),
+                        selected: _scope == _GlobalSearchScope.content,
+                        onSelected: (selected) {
+                          if (!selected) return;
+                          setState(() => _scope = _GlobalSearchScope.content);
+                          _refresh();
+                        },
+                      ),
+                      ChoiceChip(
+                        label: Text(l10n.searchFilterTasks),
+                        selected: _scope == _GlobalSearchScope.tasks,
+                        onSelected: (selected) {
+                          if (!selected) return;
+                          setState(() => _scope = _GlobalSearchScope.tasks);
+                          _refresh();
+                        },
+                      ),
+                      const SizedBox(width: 8),
+                      ChoiceChip(
+                        label: Text(l10n.searchSortRelevance),
+                        selected: _order == _GlobalSearchOrder.relevance,
+                        onSelected: (selected) {
+                          if (!selected) return;
+                          setState(() => _order = _GlobalSearchOrder.relevance);
+                          _refresh();
+                        },
+                      ),
+                      ChoiceChip(
+                        label: Text(l10n.searchSortRecent),
+                        selected: _order == _GlobalSearchOrder.recency,
+                        onSelected: (selected) {
+                          if (!selected) return;
+                          setState(() => _order = _GlobalSearchOrder.recency);
+                          _refresh();
+                        },
+                      ),
+                    ],
                   ),
-                ),
+                  const SizedBox(height: 10),
+                  Expanded(
+                    child: _query.text.trim().isEmpty
+                        ? Center(
+                            child: Text(
+                              l10n.typeToSearch,
+                              style: TextStyle(color: scheme.onSurfaceVariant),
+                            ),
+                          )
+                        : _results.isEmpty
+                        ? Center(
+                            child: Text(
+                              l10n.noSearchResults,
+                              style: TextStyle(color: scheme.onSurfaceVariant),
+                            ),
+                          )
+                        : ListView.separated(
+                            itemCount: _results.length,
+                            separatorBuilder: (_, _) => const Divider(height: 1),
+                            itemBuilder: (context, i) {
+                              final r = _results[i];
+                              final selected = i == _selectedIndex;
+                              return ListTile(
+                                dense: true,
+                                selected: selected,
+                                tileColor: selected
+                                    ? scheme.secondaryContainer.withValues(
+                                        alpha: 0.5,
+                                      )
+                                    : null,
+                                leading: Icon(
+                                  r.matchKind == VaultSearchMatchKind.title
+                                      ? Icons.title_rounded
+                                      : Icons.notes_rounded,
+                                ),
+                                title: Text(
+                                  r.pageTitle,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                                subtitle: Text.rich(
+                                  TextSpan(
+                                    style: DefaultTextStyle.of(context).style,
+                                    children: [
+                                      _buildSnippetSpan(
+                                        context,
+                                        r.snippet,
+                                        _query.text,
+                                      ),
+                                    ],
+                                  ),
+                                  maxLines: 2,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                                onTap: () => unawaited(_pick(r)),
+                              );
+                            },
+                          ),
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.only(top: 8),
+                    child: Text(
+                      l10n.searchDialogFooterHint,
+                      textAlign: TextAlign.center,
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: scheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ),
+                ],
               ),
-            ],
             ),
           ),
         ),

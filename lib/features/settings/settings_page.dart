@@ -54,6 +54,8 @@ class _SettingsPageState extends State<SettingsPage> {
   AppSettings get _app => widget.appSettings;
   DeviceSyncController get _sync => widget.deviceSyncController;
   final ScrollController _settingsScrollController = ScrollController();
+  final TextEditingController _settingsSectionFilterController =
+      TextEditingController();
   final List<GlobalKey> _sectionKeys = List.generate(10, (_) => GlobalKey());
   int _selectedDesktopSection = 0;
   bool _programmaticSectionScroll = false;
@@ -102,6 +104,9 @@ class _SettingsPageState extends State<SettingsPage> {
     _customIconLabelController = TextEditingController();
     _availableModels = _app.cachedAiModelsFor(_app.aiProvider);
     _settingsScrollController.addListener(_handleSettingsScroll);
+    _settingsSectionFilterController.addListener(() {
+      if (mounted) setState(() {});
+    });
     _refreshSecurityFlags();
     _loadInstalledVersionInfo();
     _refreshReleaseReadiness();
@@ -111,6 +116,7 @@ class _SettingsPageState extends State<SettingsPage> {
   void dispose() {
     _settingsScrollController.removeListener(_handleSettingsScroll);
     _settingsScrollController.dispose();
+    _settingsSectionFilterController.dispose();
     _aiBaseUrlController.dispose();
     _aiTimeoutController.dispose();
     _aiContextWindowController.dispose();
@@ -130,6 +136,34 @@ class _SettingsPageState extends State<SettingsPage> {
       alignment: 0.03,
     );
     return true;
+  }
+
+  List<_SettingsSectionNavItem> _filterDesktopSections(
+    List<_SettingsSectionNavItem> all,
+  ) {
+    final q = _settingsSectionFilterController.text.trim().toLowerCase();
+    if (q.isEmpty) return all;
+    return all
+        .where((s) => s.label.toLowerCase().contains(q))
+        .toList(growable: false);
+  }
+
+  String _formatScheduledBackupTime(int ms) {
+    if (ms <= 0) return '—';
+    final d = DateTime.fromMillisecondsSinceEpoch(ms);
+    final y = d.year.toString().padLeft(4, '0');
+    final mo = d.month.toString().padLeft(2, '0');
+    final day = d.day.toString().padLeft(2, '0');
+    final h = d.hour.toString().padLeft(2, '0');
+    final mi = d.minute.toString().padLeft(2, '0');
+    return '$y-$mo-$day $h:$mi';
+  }
+
+  Future<void> _pickScheduledVaultBackupFolder() async {
+    final path = await FilePicker.platform.getDirectoryPath();
+    if (path == null || !mounted) return;
+    await _app.setScheduledVaultBackupDirectory(path);
+    if (mounted) setState(() {});
   }
 
   Future<void> _scrollToSection(int index) async {
@@ -1535,6 +1569,22 @@ class _SettingsPageState extends State<SettingsPage> {
                       children: [
                         _SettingsOverviewBanner(appSettings: _app, session: _s),
                         const SizedBox(height: 8),
+                        if (!wide) ...[
+                          Semantics(
+                            label: l10n.settingsSearchSections,
+                            textField: true,
+                            child: TextField(
+                              controller: _settingsSectionFilterController,
+                              decoration: InputDecoration(
+                                prefixIcon: const Icon(Icons.search_rounded),
+                                labelText: l10n.settingsSearchSections,
+                                hintText: l10n.settingsSearchSectionsHint,
+                                border: const OutlineInputBorder(),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 12),
+                        ],
                         _SettingsPanel(
                           key: _sectionKeys[0],
                           margin: const EdgeInsets.only(bottom: 24),
@@ -3007,6 +3057,94 @@ class _SettingsPageState extends State<SettingsPage> {
                                     : null,
                               ),
                               const Divider(height: 1),
+                              SwitchListTile(
+                                secondary: const Icon(Icons.schedule_rounded),
+                                title: Text(l10n.scheduledVaultBackupTitle),
+                                subtitle: Text(l10n.scheduledVaultBackupSubtitle),
+                                value: _app.scheduledVaultBackupEnabled,
+                                onChanged: _s.state == VaultFlowState.unlocked
+                                    ? (v) async {
+                                        await _app.setScheduledVaultBackupEnabled(
+                                          v,
+                                        );
+                                        if (mounted) setState(() {});
+                                      }
+                                    : null,
+                              ),
+                              if (_app.scheduledVaultBackupEnabled) ...[
+                                ListTile(
+                                  leading: const Icon(Icons.timer_outlined),
+                                  title: Text(
+                                    l10n.scheduledVaultBackupIntervalLabel,
+                                  ),
+                                  trailing: DropdownButton<int>(
+                                    value: _app.scheduledVaultBackupIntervalHours
+                                        .clamp(1, 168),
+                                    items: const [
+                                      DropdownMenuItem(
+                                        value: 6,
+                                        child: Text('6 h'),
+                                      ),
+                                      DropdownMenuItem(
+                                        value: 12,
+                                        child: Text('12 h'),
+                                      ),
+                                      DropdownMenuItem(
+                                        value: 24,
+                                        child: Text('24 h'),
+                                      ),
+                                      DropdownMenuItem(
+                                        value: 48,
+                                        child: Text('48 h'),
+                                      ),
+                                      DropdownMenuItem(
+                                        value: 168,
+                                        child: Text('7 d'),
+                                      ),
+                                    ],
+                                    onChanged:
+                                        _s.state == VaultFlowState.unlocked
+                                        ? (v) async {
+                                            if (v == null) return;
+                                            await _app
+                                                .setScheduledVaultBackupIntervalHours(
+                                                  v,
+                                                );
+                                            if (mounted) setState(() {});
+                                          }
+                                        : null,
+                                  ),
+                                ),
+                                ListTile(
+                                  leading: const Icon(
+                                    Icons.folder_open_outlined,
+                                  ),
+                                  title: Text(
+                                    l10n.scheduledVaultBackupChooseFolder,
+                                  ),
+                                  subtitle: Text(
+                                    _app.scheduledVaultBackupDirectory.isEmpty
+                                        ? '—'
+                                        : _app.scheduledVaultBackupDirectory,
+                                    maxLines: 2,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                  onTap: _s.state == VaultFlowState.unlocked
+                                      ? _pickScheduledVaultBackupFolder
+                                      : null,
+                                ),
+                                ListTile(
+                                  leading: const Icon(Icons.history_rounded),
+                                  title: Text(
+                                    l10n.scheduledVaultBackupLastRun(
+                                      _formatScheduledBackupTime(
+                                        _app.lastScheduledVaultBackupMs,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ],
+                              const Divider(height: 1),
                               Padding(
                                 padding: const EdgeInsets.all(16.0),
                                 child: Column(
@@ -3819,7 +3957,10 @@ class _SettingsPageState extends State<SettingsPage> {
                             ),
                             currentSection: _selectedDesktopSection,
                             onSelectSection: _scrollToSection,
-                            sections: desktopSections,
+                            sections: _filterDesktopSections(desktopSections),
+                            sectionFilterController: _settingsSectionFilterController,
+                            sectionFilterHint: l10n.settingsSearchSectionsHint,
+                            sectionFilterLabel: l10n.settingsSearchSections,
                           ),
                         ),
                         const SizedBox(width: 24),
@@ -5062,6 +5203,9 @@ class _SettingsDesktopRail extends StatelessWidget {
     required this.sections,
     required this.currentSection,
     required this.onSelectSection,
+    required this.sectionFilterController,
+    required this.sectionFilterHint,
+    required this.sectionFilterLabel,
   });
 
   final String title;
@@ -5069,6 +5213,9 @@ class _SettingsDesktopRail extends StatelessWidget {
   final List<_SettingsSectionNavItem> sections;
   final int currentSection;
   final ValueChanged<int> onSelectSection;
+  final TextEditingController sectionFilterController;
+  final String sectionFilterHint;
+  final String sectionFilterLabel;
 
   @override
   Widget build(BuildContext context) {
@@ -5129,6 +5276,21 @@ class _SettingsDesktopRail extends StatelessWidget {
                     style: theme.textTheme.bodyMedium?.copyWith(
                       color: scheme.onSurfaceVariant,
                       height: 1.45,
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  Semantics(
+                    label: sectionFilterLabel,
+                    textField: true,
+                    child: TextField(
+                      controller: sectionFilterController,
+                      decoration: InputDecoration(
+                        prefixIcon: const Icon(Icons.search_rounded),
+                        labelText: sectionFilterLabel,
+                        hintText: sectionFilterHint,
+                        isDense: true,
+                        border: const OutlineInputBorder(),
+                      ),
                     ),
                   ),
                   const SizedBox(height: 24),
