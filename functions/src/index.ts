@@ -197,11 +197,20 @@ function readInkBalances(data: Record<string, unknown>): {
   monthly: number;
   purchased: number;
 } {
+  // Forma esperada: `ink` es un mapa {monthlyBalance, purchasedBalance, ...}.
+  // En algunos despliegues antiguos/datos corruptos, los campos pueden existir como
+  // claves literales con punto: "ink.monthlyBalance". Soportamos ambos para no
+  // bloquear IA/backup por un detalle de forma.
   const ink = (data.ink as Record<string, unknown>) ?? {};
-  return {
-    monthly: inkBalanceField(ink.monthlyBalance),
-    purchased: inkBalanceField(ink.purchasedBalance),
-  };
+
+  const monthly =
+    inkBalanceField(ink.monthlyBalance) ||
+    inkBalanceField(data["ink.monthlyBalance"]);
+  const purchased =
+    inkBalanceField(ink.purchasedBalance) ||
+    inkBalanceField(data["ink.purchasedBalance"]);
+
+  return { monthly, purchased };
 }
 
 function tokenSurchargeInk(totalTokenCount: number | undefined): number {
@@ -339,6 +348,122 @@ async function chargeInkExtraIfPossible(
     });
   });
   return charged;
+}
+
+function normalizeOperationKind(raw: unknown): string {
+  const kindRaw = typeof raw === "string" ? raw.trim() : "";
+  if (
+    kindRaw.length > 0 &&
+    Object.prototype.hasOwnProperty.call(INK_COST_BY_OPERATION, kindRaw)
+  ) {
+    return kindRaw;
+  }
+  return "default";
+}
+
+function normalizePrompt(raw: unknown): string {
+  if (typeof raw !== "string") return "";
+  return raw.trim();
+}
+
+async function runFolioCloudAiForUid(
+  uid: string,
+  prompt: string,
+  operationKind: string
+): Promise<{
+  text: string;
+  ink: { monthlyBalance: number; purchasedBalance: number };
+  inkCharged: number;
+  inkBaseCharged: number;
+  inkTokenSurcharge: number;
+}> {
+  const baseCost = resolveInkCost(operationKind, prompt.length);
+  const ref = db.collection("users").doc(uid);
+
+  await db.runTransaction(async (tx) => {
+    const snap = await tx.get(ref);
+    const dataDoc = snap.data() ?? {};
+    const fc = dataDoc.folioCloud as Record<string, unknown> | undefined;
+    const features = fc?.features as Record<string, unknown> | undefined;
+    if (fc?.active !== true || features?.cloudAi !== true) {
+      throw new AiHttpsError(
+        "permission-denied",
+        "Folio Cloud AI requires an active Folio Cloud subscription (cloud AI feature)."
+      );
+    }
+    const { monthly, purchased } = readInkBalances(dataDoc);
+    if (monthly + purchased < baseCost) {
+      throw new AiHttpsError(
+        "resource-exhausted",
+        "Insufficient ink. Buy an ink pack in Folio Cloud settings, wait for your monthly refill, or switch to a local AI provider (Ollama / LM Studio)."
+      );
+    }
+    const next = debitInkBalances(monthly, purchased, baseCost);
+    tx.update(ref, {
+      "ink.monthlyBalance": next.monthly,
+      "ink.purchasedBalance": next.purchased,
+      "ink.updatedAt": FieldValue.serverTimestamp(),
+    });
+  });
+
+  try {
+    const { text, totalTokenCount } = await callOpenAiGenerate(prompt);
+    const extraWant = tokenSurchargeInk(totalTokenCount);
+    const extraCharged = await chargeInkExtraIfPossible(uid, extraWant);
+    const finalSnap = await ref.get();
+    const inkOut = readInkBalances(
+      (finalSnap.data() ?? {}) as Record<string, unknown>
+    );
+    return {
+      text,
+      ink: {
+        monthlyBalance: inkOut.monthly,
+        purchasedBalance: inkOut.purchased,
+      },
+      inkCharged: baseCost + extraCharged,
+      inkBaseCharged: baseCost,
+      inkTokenSurcharge: extraCharged,
+    };
+  } catch (e: unknown) {
+    try {
+      await refundInkDropCharge(uid, baseCost);
+    } catch (refundErr) {
+      console.error("folioCloudAiComplete: refund after AI failure", refundErr);
+    }
+    throw e;
+  }
+}
+
+function callableLikeErrorBody(code: string, message: string): {
+  error: { status: string; message: string };
+} {
+  const status = code.replace(/-/g, "_").toUpperCase();
+  return {
+    error: {
+      status,
+      message,
+    },
+  };
+}
+
+async function verifiedUidFromBearerToken(
+  authHeader: string | undefined
+): Promise<string> {
+  const raw = (authHeader ?? "").trim();
+  const match = raw.match(/^Bearer\s+(.+)$/i);
+  if (!match) {
+    throw new AiHttpsError("unauthenticated", "Login required");
+  }
+  const idToken = match[1].trim();
+  if (!idToken) {
+    throw new AiHttpsError("unauthenticated", "Login required");
+  }
+  try {
+    const decoded = await admin.auth().verifyIdToken(idToken);
+    return decoded.uid;
+  } catch {
+    throw new AiHttpsError("unauthenticated", "Login required");
+  }
 }
 
 function stripeClient(): Stripe | null {
@@ -523,14 +648,64 @@ async function syncSubscriptionToUser(
     { merge: true }
   );
   if (active && monthly) {
-    await ref.set(
-      {
-        "ink.monthlyBalance": MONTHLY_INK_ALLOWANCE,
-        "ink.monthlyPeriodKey": monthPeriodKeyEuropeMadrid(),
-        "ink.updatedAt": FieldValue.serverTimestamp(),
-      },
-      { merge: true }
-    );
+    // Importante: sincronizar desde Stripe NO debe “recargar” la tinta cada vez.
+    // Solo recargamos si cambia el periodo mensual o si faltan campos.
+    const currentPeriodKey = monthPeriodKeyEuropeMadrid();
+
+    const FieldPath = admin.firestore.FieldPath;
+    const deleteDotted: Record<string, unknown> = {
+      // Si existen campos literales con punto (bug/datos manuales), los borramos.
+      [new FieldPath("ink.monthlyBalance") as unknown as string]:
+        FieldValue.delete(),
+      [new FieldPath("ink.purchasedBalance") as unknown as string]:
+        FieldValue.delete(),
+      [new FieldPath("ink.monthlyPeriodKey") as unknown as string]:
+        FieldValue.delete(),
+      [new FieldPath("ink.updatedAt") as unknown as string]: FieldValue.delete(),
+    };
+
+    await db.runTransaction(async (tx) => {
+      const snap = await tx.get(ref);
+      const data = (snap.data() ?? {}) as Record<string, unknown>;
+      const inkRaw = (data.ink as Record<string, unknown>) ?? {};
+      const existingMonthly = inkBalanceField(inkRaw.monthlyBalance);
+      const existingPurchased = inkBalanceField(inkRaw.purchasedBalance);
+
+      const dottedMonthly = inkBalanceField(data["ink.monthlyBalance"]);
+      const dottedPurchased = inkBalanceField(data["ink.purchasedBalance"]);
+
+      const monthlyBalance = Math.max(existingMonthly, dottedMonthly);
+      const purchasedBalance = Math.max(existingPurchased, dottedPurchased);
+
+      const rawKey =
+        typeof inkRaw.monthlyPeriodKey === "string"
+          ? inkRaw.monthlyPeriodKey.trim()
+          : "";
+      const dottedKey =
+        typeof data["ink.monthlyPeriodKey"] === "string"
+          ? String(data["ink.monthlyPeriodKey"]).trim()
+          : "";
+      const existingPeriodKey = rawKey || dottedKey;
+
+      const shouldRefill =
+        !existingPeriodKey || existingPeriodKey !== currentPeriodKey;
+
+      tx.set(
+        ref,
+        {
+          ink: {
+            monthlyBalance: shouldRefill ? MONTHLY_INK_ALLOWANCE : monthlyBalance,
+            purchasedBalance,
+            monthlyPeriodKey: currentPeriodKey,
+            updatedAt: FieldValue.serverTimestamp(),
+          },
+          // Limpieza de duplicados (si los hubiera).
+          ...deleteDotted,
+        },
+        { merge: true }
+      );
+    });
+
     let subIndexPrice: string | null = priceId ?? null;
     if (!subIndexPrice) {
       const rawMonthly = priceFolioCloudMonthly();
@@ -711,7 +886,10 @@ async function handleCheckoutSessionCompleted(
 }
 
 export const stripeWebhook = onRequest(
-  { cors: false, memory: "256MiB" },
+  // Stripe necesita invocar este endpoint sin auth (valida con firma Stripe).
+  // En Functions v2 (Cloud Run), si no se marca como público, Cloud Run rechaza con 401
+  // antes de que podamos verificar `stripe-signature`.
+  { cors: false, memory: "256MiB", invoker: "public" },
   async (req, res) => {
     if (req.method !== "POST") {
       res.status(405).send("Method Not Allowed");
@@ -949,8 +1127,23 @@ async function assertFolioCloudBackupAllowed(uid: string): Promise<void> {
   }
 }
 
+function assertValidVaultId(raw: unknown): string {
+  const vaultId = typeof raw === "string" ? raw.trim() : "";
+  if (!vaultId) {
+    throw new HttpsError("invalid-argument", "vaultId is required");
+  }
+  // Reject path traversal and unexpected separators.
+  if (vaultId.includes("/") || vaultId.includes("\\") || vaultId.includes("..")) {
+    throw new HttpsError("invalid-argument", "Invalid vaultId");
+  }
+  if (vaultId.length > 96) {
+    throw new HttpsError("invalid-argument", "Invalid vaultId");
+  }
+  return vaultId;
+}
+
 /**
- * Lista `users/{uid}/backups/*` vía Admin SDK.
+ * Lista `users/{uid}/vaults/{vaultId}/backups/*` vía Admin SDK.
  * El cliente Windows/Linux no puede usar Storage listAll() (SDK C++ devuelve vacío).
  */
 export const folioListVaultBackups = onCall({ cors: true }, async (request) => {
@@ -959,7 +1152,8 @@ export const folioListVaultBackups = onCall({ cors: true }, async (request) => {
   }
   const uid = request.auth.uid;
   await assertFolioCloudBackupAllowed(uid);
-  const prefix = `users/${uid}/backups/`;
+  const vaultId = assertValidVaultId((request.data as any)?.vaultId);
+  const prefix = `users/${uid}/vaults/${vaultId}/backups/`;
   const bucket = admin.storage().bucket();
   const [files] = await bucket.getFiles({ prefix, autoPaginate: true });
   const items = files
@@ -972,6 +1166,113 @@ export const folioListVaultBackups = onCall({ cors: true }, async (request) => {
     .filter((x) => x.fileName.length > 0);
   items.sort((a, b) => b.fileName.localeCompare(a.fileName));
   return { items };
+});
+
+/**
+ * Lista vaultIds que tienen backups en `users/{uid}/vaults/{vaultId}/backups/*`.
+ * Útil para onboarding (antes de tener una libreta local).
+ */
+export const folioListBackupVaults = onCall({ cors: true }, async (request) => {
+  if (!request.auth?.uid) {
+    throw new HttpsError("unauthenticated", "Login required");
+  }
+  const uid = request.auth.uid;
+  await assertFolioCloudBackupAllowed(uid);
+  const bucket = admin.storage().bucket();
+  const prefix = `users/${uid}/vaults/`;
+  const [, , apiResponse] = (await bucket.getFiles({
+    prefix,
+    delimiter: "/",
+    autoPaginate: false,
+  })) as unknown as [unknown, unknown, { prefixes?: string[] }];
+  const prefixes = apiResponse?.prefixes ?? [];
+  const vaultIds = prefixes
+    .map((p) => p.replace(prefix, "").replace(/\/$/, ""))
+    .map((x) => x.trim())
+    .filter((x) => x.length > 0);
+  vaultIds.sort((a, b) => a.localeCompare(b));
+
+  // Optional: if we have a friendly name index, include it.
+  const indexSnap = await db
+    .collection("users")
+    .doc(uid)
+    .collection("vaultBackupIndex")
+    .get();
+  const nameById = new Map<string, string>();
+  for (const d of indexSnap.docs) {
+    const data = d.data() as Record<string, unknown>;
+    const name = typeof data.displayName === "string" ? data.displayName.trim() : "";
+    if (name) nameById.set(d.id, name);
+  }
+  const vaults = vaultIds.map((id) => ({
+    vaultId: id,
+    displayName: nameById.get(id) ?? "",
+  }));
+  return { vaults };
+});
+
+export const folioUpsertVaultBackupIndex = onCall(
+  { cors: true },
+  async (request) => {
+    if (!request.auth?.uid) {
+      throw new HttpsError("unauthenticated", "Login required");
+    }
+    const uid = request.auth.uid;
+    await assertFolioCloudBackupAllowed(uid);
+    const vaultId = assertValidVaultId((request.data as any)?.vaultId);
+    const displayNameRaw = (request.data as any)?.displayName;
+    const displayName =
+      typeof displayNameRaw === "string" ? displayNameRaw.trim() : "";
+    await db
+      .collection("users")
+      .doc(uid)
+      .collection("vaultBackupIndex")
+      .doc(vaultId)
+      .set(
+        {
+          displayName: displayName.slice(0, 120),
+          updatedAt: FieldValue.serverTimestamp(),
+        },
+        { merge: true }
+      );
+    return { ok: true };
+  }
+);
+
+/**
+ * Recorta a [maxCount] copias para `vaultId`, borrando las más antiguas (nombre ascendente).
+ * Best-effort: si fallan deletes, no debe bloquear el flujo de subida del cliente.
+ */
+export const folioTrimVaultBackups = onCall({ cors: true }, async (request) => {
+  if (!request.auth?.uid) {
+    throw new HttpsError("unauthenticated", "Login required");
+  }
+  const uid = request.auth.uid;
+  await assertFolioCloudBackupAllowed(uid);
+  const vaultId = assertValidVaultId((request.data as any)?.vaultId);
+  const maxCountRaw = (request.data as any)?.maxCount;
+  const maxCount =
+    typeof maxCountRaw === "number" && Number.isFinite(maxCountRaw)
+      ? Math.max(1, Math.min(50, Math.trunc(maxCountRaw)))
+      : 10;
+  const prefix = `users/${uid}/vaults/${vaultId}/backups/`;
+  const bucket = admin.storage().bucket();
+  const [files] = await bucket.getFiles({ prefix, autoPaginate: true });
+  const items = files.filter((f) => !f.name.endsWith("/"));
+  items.sort((a, b) => a.name.localeCompare(b.name)); // oldest first if names are ISO-like
+  const toDelete = items.length > maxCount ? items.slice(0, items.length - maxCount) : [];
+  let deleted = 0;
+  const errors: string[] = [];
+  for (const f of toDelete) {
+    try {
+      await f.delete();
+      deleted++;
+    } catch (e: unknown) {
+      console.warn("folioTrimVaultBackups: delete failed", f.name, e);
+      errors.push(f.name);
+    }
+  }
+  return { ok: errors.length === 0, deleted, failed: errors.slice(0, 10) };
 });
 
 export const createBillingPortalSession = onCall(async (request) => {
@@ -1082,70 +1383,57 @@ export const folioCloudAiComplete = functionsV1
       throw new AiHttpsError("unauthenticated", "Login required");
     }
     const uid = context.auth.uid;
-    const prompt = (data?.prompt as string)?.trim() ?? "";
+    const prompt = normalizePrompt(data?.prompt);
     if (!prompt) {
       throw new AiHttpsError("invalid-argument", "Missing prompt");
     }
-    const kindRaw = (data?.operationKind as string)?.trim() ?? "";
-    const operationKind =
-      kindRaw.length > 0 && Object.prototype.hasOwnProperty.call(INK_COST_BY_OPERATION, kindRaw)
-        ? kindRaw
-        : "default";
-    const baseCost = resolveInkCost(operationKind, prompt.length);
-    const ref = db.collection("users").doc(uid);
+    const operationKind = normalizeOperationKind(data?.operationKind);
+    return runFolioCloudAiForUid(uid, prompt, operationKind);
+  });
 
-    await db.runTransaction(async (tx) => {
-      const snap = await tx.get(ref);
-      const dataDoc = snap.data() ?? {};
-      const fc = dataDoc.folioCloud as Record<string, unknown> | undefined;
-      const features = fc?.features as Record<string, unknown> | undefined;
-      if (fc?.active !== true || features?.cloudAi !== true) {
-        throw new AiHttpsError(
-          "permission-denied",
-          "Folio Cloud AI requires an active Folio Cloud subscription (cloud AI feature)."
-        );
-      }
-      const { monthly, purchased } = readInkBalances(dataDoc);
-      if (monthly + purchased < baseCost) {
-        throw new AiHttpsError(
-          "resource-exhausted",
-          "Insufficient ink. Buy an ink pack in Folio Cloud settings, wait for your monthly refill, or switch to a local AI provider (Ollama / LM Studio)."
-        );
-      }
-      const next = debitInkBalances(monthly, purchased, baseCost);
-      tx.update(ref, {
-        "ink.monthlyBalance": next.monthly,
-        "ink.purchasedBalance": next.purchased,
-        "ink.updatedAt": FieldValue.serverTimestamp(),
-      });
-    });
+/**
+ * Fallback HTTP para escritorio: evita bloqueos de infraestructura callable
+ * cuando un despliegue previo o IAM externo interfiere con `onCall`.
+ */
+export const folioCloudAiCompleteHttp = functionsV1
+  .region("us-central1")
+  .runWith({ memory: "512MB", timeoutSeconds: 120 })
+  .https.onRequest(async (req, res) => {
+    res.set("Cache-Control", "no-store");
+    if (req.method !== "POST") {
+      res.status(405).json(
+        callableLikeErrorBody("invalid-argument", "Method not allowed")
+      );
+      return;
+    }
 
     try {
-      const { text, totalTokenCount } = await callOpenAiGenerate(prompt);
-      const extraWant = tokenSurchargeInk(totalTokenCount);
-      const extraCharged = await chargeInkExtraIfPossible(uid, extraWant);
-      const finalSnap = await ref.get();
-      const inkOut = readInkBalances(
-        (finalSnap.data() ?? {}) as Record<string, unknown>
-      );
-      const monthlyBalance = inkOut.monthly;
-      const purchasedBalance = inkOut.purchased;
-      return {
-        text,
-        ink: {
-          monthlyBalance,
-          purchasedBalance,
-        },
-        inkCharged: baseCost + extraCharged,
-        inkBaseCharged: baseCost,
-        inkTokenSurcharge: extraCharged,
-      };
-    } catch (e: unknown) {
-      try {
-        await refundInkDropCharge(uid, baseCost);
-      } catch (refundErr) {
-        console.error("folioCloudAiComplete: refund after AI failure", refundErr);
+      const uid = await verifiedUidFromBearerToken(req.header("authorization"));
+      const body =
+        req.body && typeof req.body === "object"
+          ? (req.body as Record<string, unknown>)
+          : {};
+      const payload =
+        body.data && typeof body.data === "object"
+          ? (body.data as Record<string, unknown>)
+          : body;
+      const prompt = normalizePrompt(payload.prompt);
+      if (!prompt) {
+        throw new AiHttpsError("invalid-argument", "Missing prompt");
       }
-      throw e;
+      const operationKind = normalizeOperationKind(payload.operationKind);
+      const result = await runFolioCloudAiForUid(uid, prompt, operationKind);
+      res.status(200).json({ result });
+    } catch (e: unknown) {
+      if (e instanceof AiHttpsError || e instanceof HttpsError) {
+        res
+          .status(200)
+          .json(callableLikeErrorBody(e.code, e.message || "Cloud Function error"));
+        return;
+      }
+      console.error("folioCloudAiCompleteHttp: internal error", e);
+      res
+        .status(200)
+        .json(callableLikeErrorBody("internal", "Internal error"));
     }
   });

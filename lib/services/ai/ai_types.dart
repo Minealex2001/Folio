@@ -158,7 +158,7 @@ class AiChatThreadData {
   final String title;
   final List<AiChatMessage> messages;
 
-  /// Rutas locales de archivos adjuntos al contexto de este hilo (persisten con el cofre).
+  /// Rutas locales de archivos adjuntos al contexto de este hilo (persisten con la libreta).
   final List<String> attachmentPaths;
 
   /// Si es false, no se envía texto ni bloques de páginas al modelo (solo chat general).

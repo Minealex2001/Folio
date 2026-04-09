@@ -1,5 +1,7 @@
 import 'package:file_picker/file_picker.dart';
+import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:path/path.dart' as p;
 
 import '../../app/app_settings.dart';
 import '../../app/ui_tokens.dart';
@@ -8,6 +10,11 @@ import '../../data/notion_import/notion_importer.dart';
 import '../../data/vault_backup.dart';
 import '../../l10n/generated/app_localizations.dart';
 import '../../session/vault_session.dart';
+import '../../services/cloud_account/cloud_account_controller.dart';
+import '../../services/folio_cloud/folio_cloud_backup.dart';
+import '../../services/folio_cloud/folio_cloud_entitlements.dart';
+import '../settings/folio_cloud_reauth_dialog.dart';
+import 'cloud_sign_in_dialog.dart';
 
 class OnboardingFlow extends StatefulWidget {
   const OnboardingFlow({
@@ -30,10 +37,15 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
   final _notionPassword = TextEditingController();
   final _notionConfirm = TextEditingController();
 
+  late final CloudAccountController _cloud = CloudAccountController();
+  late final FolioCloudEntitlementsController _folio =
+      FolioCloudEntitlementsController();
+
   var _page = 0;
   var _mode = _OnboardingMode.create;
   String? _backupZipPath;
   String? _notionZipPath;
+  bool? _backupZipIsPlain;
   String? _error;
   var _busy = false;
   var _obscurePassword = true;
@@ -58,6 +70,8 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
     _backupPassword.dispose();
     _notionPassword.dispose();
     _notionConfirm.dispose();
+    _cloud.dispose();
+    _folio.dispose();
     super.dispose();
   }
 
@@ -67,7 +81,9 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
         _mode == _OnboardingMode.notionImport) {
       return l10n.stepOfTotal(_page + 1, 2);
     }
-    return l10n.stepOfTotal(_page + 1, _shouldShowQuillIntro ? 4 : 3);
+    // Create flow:
+    // 0 welcome, 1 password, 2 ready, 3 folio cloud (optional), 4 quill intro (optional)
+    return l10n.stepOfTotal(_page + 1, _shouldShowQuillIntro ? 5 : 4);
   }
 
   void _goPage(int i) {
@@ -91,6 +107,159 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
       _backupZipPath = null;
     });
     _goPage(1);
+  }
+
+  String _cloudAuthErrorMessage(AppLocalizations l10n, String code) {
+    switch (code.trim().toLowerCase()) {
+      case 'invalid-email':
+        return l10n.cloudAuthErrorInvalidEmail;
+      case 'wrong-password':
+        return l10n.cloudAuthErrorWrongPassword;
+      case 'user-not-found':
+        return l10n.cloudAuthErrorUserNotFound;
+      case 'user-disabled':
+        return l10n.cloudAuthErrorUserDisabled;
+      case 'invalid-credential':
+        return l10n.cloudAuthErrorInvalidCredential;
+      case 'network-request-failed':
+        return l10n.cloudAuthErrorNetwork;
+      case 'too-many-requests':
+        return l10n.cloudAuthErrorTooManyRequests;
+      case 'operation-not-allowed':
+        return l10n.cloudAuthErrorOperationNotAllowed;
+      default:
+        return l10n.cloudAuthErrorGeneric;
+    }
+  }
+
+  Future<void> _signInAndPickCloudBackup() async {
+    if (_busy) return;
+    final l10n = AppLocalizations.of(context);
+
+    if (!_cloud.isAvailable || !_folio.isAvailable) {
+      setState(() => _error = l10n.cloudAccountUnavailable);
+      return;
+    }
+
+    setState(() => _error = null);
+
+    // 1) Sign in if needed.
+    if (!_cloud.isSignedIn) {
+      final ok = await showDialog<bool>(
+        context: context,
+        barrierDismissible: true,
+        builder: (ctx) => CloudSignInDialog(
+          l10n: l10n,
+          cloud: _cloud,
+          onAuthError: (c) => _cloudAuthErrorMessage(l10n, c),
+        ),
+      );
+      if (!mounted || ok != true) return;
+    }
+
+    // 2) Verify password for sensitive cloud action (required for listing/downloading backups).
+    final userEmail = _cloud.user?.email?.trim();
+    if (userEmail == null || userEmail.isEmpty) {
+      setState(() => _error = l10n.cloudAuthErrorGeneric);
+      return;
+    }
+    final verified = await showDialog<bool>(
+      context: context,
+      barrierDismissible: true,
+      builder: (ctx) => FolioCloudReauthDialog(
+        l10n: l10n,
+        cloud: _cloud,
+        initialEmail: userEmail,
+        onAuthError: (c) => _cloudAuthErrorMessage(l10n, c),
+      ),
+    );
+    if (!mounted || verified != true) return;
+
+    // 3) Load latest entitlements (ink/plan/features).
+    setState(() => _busy = true);
+    try {
+      await _folio.refreshUserDocFromServer();
+      final snap = _folio.snapshot;
+      final vaults = await listFolioCloudBackupVaults(
+        entitlementSnapshot: snap,
+      );
+      if (!mounted) return;
+      if (vaults.isEmpty) {
+        setState(() {
+          _busy = false;
+          _error = l10n.folioCloudCloudBackupsList + ': ' + l10n.noPages;
+        });
+        return;
+      }
+      final chosenVaultId = await showDialog<String>(
+        context: context,
+        builder: (ctx) => _CloudVaultPickerDialog(
+          l10n: l10n,
+          vaults: vaults,
+        ),
+      );
+      if (!mounted || chosenVaultId == null) {
+        setState(() => _busy = false);
+        return;
+      }
+
+      final backups = await listFolioCloudBackups(
+        vaultId: chosenVaultId,
+        entitlementSnapshot: snap,
+      );
+      if (!mounted) return;
+      if (backups.isEmpty) {
+        setState(() {
+          _busy = false;
+          _error =
+              l10n.folioCloudCloudBackupsList + ': ' + l10n.noPages;
+        });
+        return;
+      }
+
+      final chosen = await showDialog<FolioCloudBackupEntry>(
+        context: context,
+        builder: (ctx) => _CloudBackupPickerDialog(
+          l10n: l10n,
+          items: backups,
+        ),
+      );
+      if (!mounted || chosen == null) {
+        setState(() => _busy = false);
+        return;
+      }
+
+      final tmpDir = await Directory.systemTemp.createTemp('folio_cloud_dl_');
+      final destPath = p.join(tmpDir.path, chosen.fileName);
+      final dest = File(destPath);
+      await downloadFolioCloudBackup(
+        entry: chosen,
+        destinationFile: dest,
+        entitlementSnapshot: snap,
+      );
+      if (!mounted) return;
+      bool? isPlain;
+      try {
+        isPlain = await isPlainBackupZip(dest);
+      } catch (_) {
+        isPlain = null;
+      }
+      if (!mounted) return;
+      setState(() {
+        _busy = false;
+        _error = null;
+        _mode = _OnboardingMode.backupImport;
+        _backupZipPath = dest.path;
+        _backupZipIsPlain = isPlain;
+        _page = 1;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _busy = false;
+        _error = '$e';
+      });
+    }
   }
 
   void _chooseImportNotion() {
@@ -141,7 +310,18 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
     if (!mounted) return;
     final path = pick?.files.single.path;
     if (path != null) {
-      setState(() => _backupZipPath = path);
+      setState(() {
+        _backupZipPath = path;
+        _backupZipIsPlain = null;
+      });
+      try {
+        final plain = await isPlainBackupZip(File(path));
+        if (!mounted) return;
+        setState(() => _backupZipIsPlain = plain);
+      } catch (_) {
+        // Si no se puede inspeccionar, mantenemos el comportamiento anterior (pedir contraseña).
+        if (mounted) setState(() => _backupZipIsPlain = null);
+      }
     }
   }
 
@@ -151,7 +331,8 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
       return;
     }
     final pwd = _backupPassword.text;
-    if (pwd.isEmpty) {
+    final isPlain = _backupZipIsPlain == true;
+    if (!isPlain && pwd.isEmpty) {
       setState(
         () => _error = AppLocalizations.of(context).enterBackupPasswordError,
       );
@@ -162,7 +343,10 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
       _error = null;
     });
     try {
-      await widget.session.completeOnboardingFromBackup(_backupZipPath!, pwd);
+      await widget.session.completeOnboardingFromBackup(
+        _backupZipPath!,
+        isPlain ? '' : pwd,
+      );
     } on VaultBackupException catch (e) {
       if (mounted) {
         setState(() {
@@ -501,11 +685,15 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
     if (_page == 1) {
       return _stepPassword(context);
     }
-    if (!_shouldShowQuillIntro) {
-      return _stepReady(context);
-    }
     if (_page == 2) {
       return _stepReady(context);
+    }
+    if (_page == 3) {
+      return _stepFolioCloudIntro(context);
+    }
+    // If Quill intro is disabled, cloud intro is the final step.
+    if (!_shouldShowQuillIntro) {
+      return _stepFolioCloudIntro(context);
     }
     return _stepQuillIntro(context);
   }
@@ -667,6 +855,18 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
           child: Text(AppLocalizations.of(context).importBackupZip),
         ),
         const SizedBox(height: FolioSpace.md),
+        OutlinedButton.icon(
+          style: OutlinedButton.styleFrom(
+            minimumSize: const Size.fromHeight(56),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(FolioRadius.md),
+            ),
+          ),
+          onPressed: _busy ? null : _signInAndPickCloudBackup,
+          icon: const Icon(Icons.cloud_download_outlined),
+          label: Text(AppLocalizations.of(context).onboardingCloudBackupCta),
+        ),
+        const SizedBox(height: FolioSpace.md),
         OutlinedButton(
           style: OutlinedButton.styleFrom(
             minimumSize: const Size.fromHeight(56),
@@ -735,20 +935,30 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
           ),
         ],
         const SizedBox(height: FolioSpace.lg),
-        FolioPasswordField(
-          controller: _backupPassword,
-          obscureText: _obscureBackupPassword,
-          enabled: !_busy,
-          labelText: AppLocalizations.of(context).backupPasswordLabel,
-          showPasswordTooltip: AppLocalizations.of(context).showPassword,
-          hidePasswordTooltip: AppLocalizations.of(context).hidePassword,
-          onToggleObscure: () {
-            setState(() => _obscureBackupPassword = !_obscureBackupPassword);
-          },
-          onSubmitted: (_) {
-            if (!_busy) _finishImport();
-          },
-        ),
+        if (_backupZipPath != null && _backupZipIsPlain == true)
+          Text(
+            AppLocalizations.of(context).backupPlainNoPasswordHint,
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+              color: Theme.of(context).colorScheme.onSurfaceVariant,
+              height: 1.35,
+            ),
+            textAlign: TextAlign.center,
+          )
+        else
+          FolioPasswordField(
+            controller: _backupPassword,
+            obscureText: _obscureBackupPassword,
+            enabled: !_busy,
+            labelText: AppLocalizations.of(context).backupPasswordLabel,
+            showPasswordTooltip: AppLocalizations.of(context).showPassword,
+            hidePasswordTooltip: AppLocalizations.of(context).hidePassword,
+            onToggleObscure: () {
+              setState(() => _obscureBackupPassword = !_obscureBackupPassword);
+            },
+            onSubmitted: (_) {
+              if (!_busy) _finishImport();
+            },
+          ),
         const SizedBox(height: FolioSpace.xl),
         Row(
           children: [
@@ -963,7 +1173,7 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
                       if (_shouldShowQuillIntro) {
                         _goPage(3);
                       } else {
-                        _finishCreate();
+                        _goPage(3);
                       }
                     },
               child: _busy
@@ -977,6 +1187,135 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
                           ? AppLocalizations.of(context).continueAction
                           : AppLocalizations.of(context).createVault,
                     ),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  Widget _stepFolioCloudIntro(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+
+    Widget feature({
+      required IconData icon,
+      required String title,
+      required String body,
+    }) {
+      return Container(
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: scheme.surface,
+          borderRadius: BorderRadius.circular(FolioRadius.lg),
+          border: Border.all(
+            color: scheme.outlineVariant.withValues(alpha: FolioAlpha.border),
+          ),
+        ),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Container(
+              width: 34,
+              height: 34,
+              decoration: BoxDecoration(
+                color: scheme.primary.withValues(alpha: 0.10),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Icon(icon, color: scheme.primary, size: 18),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: theme.textTheme.titleSmall?.copyWith(
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    body,
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: scheme.onSurfaceVariant,
+                      height: 1.35,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        const SizedBox(height: FolioSpace.lg),
+        Icon(Icons.cloud_outlined, size: 64, color: scheme.primary),
+        const SizedBox(height: FolioSpace.lg),
+        Text(
+          l10n.onboardingFolioCloudTitle,
+          style: theme.textTheme.headlineMedium?.copyWith(
+            fontWeight: FontWeight.w700,
+          ),
+          textAlign: TextAlign.center,
+        ),
+        const SizedBox(height: FolioSpace.md),
+        Text(
+          l10n.onboardingFolioCloudBody,
+          style: theme.textTheme.bodyLarge?.copyWith(
+            color: scheme.onSurfaceVariant,
+            height: 1.45,
+          ),
+          textAlign: TextAlign.center,
+        ),
+        const SizedBox(height: FolioSpace.lg),
+        feature(
+          icon: Icons.backup_outlined,
+          title: l10n.onboardingFolioCloudFeatureBackupTitle,
+          body: l10n.onboardingFolioCloudFeatureBackupBody,
+        ),
+        const SizedBox(height: FolioSpace.sm),
+        feature(
+          icon: Icons.auto_awesome_outlined,
+          title: l10n.onboardingFolioCloudFeatureAiTitle,
+          body: l10n.onboardingFolioCloudFeatureAiBody,
+        ),
+        const SizedBox(height: FolioSpace.sm),
+        feature(
+          icon: Icons.public_outlined,
+          title: l10n.onboardingFolioCloudFeatureWebTitle,
+          body: l10n.onboardingFolioCloudFeatureWebBody,
+        ),
+        const SizedBox(height: FolioSpace.xl),
+        Row(
+          children: [
+            TextButton(
+              onPressed: _busy ? null : () => _goPage(2),
+              child: Text(l10n.back),
+            ),
+            const SizedBox(width: FolioSpace.md),
+            TextButton(
+              onPressed: _busy ? null : () => _goPage(_shouldShowQuillIntro ? 4 : 3),
+              child: Text(l10n.onboardingFolioCloudLaterInSettings),
+            ),
+            const SizedBox(width: FolioSpace.md),
+            FilledButton(
+              onPressed: _busy
+                  ? null
+                  : () {
+                      if (_shouldShowQuillIntro) {
+                        _goPage(4);
+                      } else {
+                        _finishCreate();
+                      }
+                    },
+              child: Text(l10n.continueAction),
             ),
           ],
         ),
@@ -1278,6 +1617,125 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
 }
 
 enum _OnboardingMode { create, backupImport, notionImport }
+
+class _CloudBackupPickerDialog extends StatelessWidget {
+  const _CloudBackupPickerDialog({
+    required this.l10n,
+    required this.items,
+  });
+
+  final AppLocalizations l10n;
+  final List<FolioCloudBackupEntry> items;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    return AlertDialog(
+      title: Text(
+        l10n.folioCloudCloudBackupsList,
+        style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w800),
+      ),
+      content: SizedBox(
+        width: 520,
+        child: ListView.separated(
+          shrinkWrap: true,
+          itemCount: items.length,
+          separatorBuilder: (_, __) => Divider(
+            height: 1,
+            color: scheme.outlineVariant.withValues(alpha: 0.45),
+          ),
+          itemBuilder: (context, i) {
+            final e = items[i];
+            return ListTile(
+              leading: const Icon(Icons.archive_outlined),
+              title: Text(
+                e.fileName,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+              subtitle: Text(
+                l10n.importBackupBody,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: scheme.onSurfaceVariant,
+                ),
+              ),
+              onTap: () => Navigator.of(context).pop(e),
+            );
+          },
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: Text(l10n.cancel),
+        ),
+      ],
+    );
+  }
+}
+
+class _CloudVaultPickerDialog extends StatelessWidget {
+  const _CloudVaultPickerDialog({
+    required this.l10n,
+    required this.vaults,
+  });
+
+  final AppLocalizations l10n;
+  final List<FolioCloudBackupVaultEntry> vaults;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    return AlertDialog(
+      title: Text(
+        l10n.folioCloudCloudBackupsList,
+        style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w800),
+      ),
+      content: SizedBox(
+        width: 520,
+        child: ListView.separated(
+          shrinkWrap: true,
+          itemCount: vaults.length,
+          separatorBuilder: (_, __) => Divider(
+            height: 1,
+            color: scheme.outlineVariant.withValues(alpha: 0.45),
+          ),
+          itemBuilder: (context, i) {
+            final v = vaults[i];
+            return ListTile(
+              leading: const Icon(Icons.folder_outlined),
+              title: Text(
+                v.displayName.isNotEmpty ? v.displayName : v.vaultId,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: theme.textTheme.titleSmall?.copyWith(
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+              subtitle: Text(
+                l10n.onboardingCloudBackupPickVaultSubtitle,
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: scheme.onSurfaceVariant,
+                ),
+              ),
+              onTap: () => Navigator.of(context).pop(v.vaultId),
+            );
+          },
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: Text(l10n.cancel),
+        ),
+      ],
+    );
+  }
+}
 
 enum _PasswordStrength { veryWeak, weak, fair, strong }
 

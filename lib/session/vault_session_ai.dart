@@ -34,7 +34,7 @@ extension VaultSessionAi on VaultSession {
   }) async {
     if (_state != VaultFlowState.unlocked ||
         (vaultUsesEncryption && _dek == null)) {
-      throw StateError('Debes desbloquear el cofre para usar IA.');
+      throw StateError('Debes desbloquear la libreta para usar IA.');
     }
     final ai = _aiService;
     if (ai == null) throw StateError('IA no configurada.');
@@ -87,7 +87,7 @@ extension VaultSessionAi on VaultSession {
   }) async {
     if (_state != VaultFlowState.unlocked ||
         (vaultUsesEncryption && _dek == null)) {
-      throw StateError('Debes desbloquear el cofre para usar IA.');
+      throw StateError('Debes desbloquear la libreta para usar IA.');
     }
     final ai = _aiService;
     if (ai == null) throw StateError('IA no configurada.');
@@ -122,7 +122,7 @@ extension VaultSessionAi on VaultSession {
   }) async {
     if (_state != VaultFlowState.unlocked ||
         (vaultUsesEncryption && _dek == null)) {
-      throw StateError('Debes desbloquear el cofre para usar IA.');
+      throw StateError('Debes desbloquear la libreta para usar IA.');
     }
     final ai = _aiService;
     if (ai == null) throw StateError('IA no configurada.');
@@ -154,7 +154,7 @@ extension VaultSessionAi on VaultSession {
   }) async {
     if (_state != VaultFlowState.unlocked ||
         (vaultUsesEncryption && _dek == null)) {
-      throw StateError('Debes desbloquear el cofre para usar IA.');
+      throw StateError('Debes desbloquear la libreta para usar IA.');
     }
     final ai = _aiService;
     if (ai == null) throw StateError('IA no configurada.');
@@ -183,7 +183,7 @@ extension VaultSessionAi on VaultSession {
   }) async {
     if (_state != VaultFlowState.unlocked ||
         (vaultUsesEncryption && _dek == null)) {
-      throw StateError('Debes desbloquear el cofre para usar IA.');
+      throw StateError('Debes desbloquear la libreta para usar IA.');
     }
     final ai = _aiService;
     if (ai == null) throw StateError('IA no configurada.');
@@ -225,7 +225,7 @@ extension VaultSessionAi on VaultSession {
   }) async {
     if (_state != VaultFlowState.unlocked ||
         (vaultUsesEncryption && _dek == null)) {
-      throw StateError('Debes desbloquear el cofre para usar IA.');
+      throw StateError('Debes desbloquear la libreta para usar IA.');
     }
     final ai = _aiService;
     if (ai == null) throw StateError('IA no configurada.');
@@ -340,7 +340,7 @@ Ayuda frecuente (respuestas breves y concretas):
 • Imagen: con una página abierta, botón flotante + (abajo a la derecha) → bloque «Imagen». Alternativa: en un párrafo escribe / y elige «Imagen». En bloque vacío, «Elegir imagen»: en escritorio suele abrir el selector de archivos; en móvil, galería. Pegar una URL directa a un archivo de imagen en un bloque de texto puede convertirlo en bloque imagen. Menú ⋮ del bloque: cambiar o quitar imagen; puedes ajustar el ancho mostrado.
 • Otros bloques: mismo botón + o comando / en párrafo (tabla, archivo, código, etc.).
 • Panel de chat con Quill (si está activo): a la derecha; icono de libro incluye u omite texto de páginas en el contexto; otro icono elige varias páginas de referencia.
-• Ajustes: engranaje. Búsqueda: lupa. Bloquear cofre: candado.
+• Ajustes: engranaje. Búsqueda: lupa. Bloquear libreta: candado.
 '''
           .trim();
     }
@@ -371,7 +371,7 @@ Quick help (be concise):
   }) async {
     if (_state != VaultFlowState.unlocked ||
         (vaultUsesEncryption && _dek == null)) {
-      throw StateError('Debes desbloquear el cofre para usar IA.');
+      throw StateError('Debes desbloquear la libreta para usar IA.');
     }
     final ai = _aiService;
     if (ai == null) throw StateError('IA no configurada.');
@@ -405,10 +405,11 @@ Quick help (be concise):
     List<String> contextPageIds = const [],
     List<AiFileAttachment> attachments = const [],
     String languageCode = 'es',
+    String? cloudInkOperation,
   }) async {
     if (_state != VaultFlowState.unlocked ||
         (vaultUsesEncryption && _dek == null)) {
-      throw StateError('Debes desbloquear el cofre para usar IA.');
+      throw StateError('Debes desbloquear la libreta para usar IA.');
     }
     final ai = _aiService;
     if (ai == null) throw StateError('IA no configurada.');
@@ -466,12 +467,18 @@ Quick help (be concise):
         : (isEs
               ? 'Página en edición (resumen/añadir/reemplazar/editar bloques aplican SOLO aquí): ${scopePage.title}'
               : 'Page under edit (summarize/append/replace/edit blocks apply ONLY here): ${scopePage.title}');
+    String resolveCloudInkOperation() {
+      final raw = (cloudInkOperation ?? '').trim();
+      if (raw.isNotEmpty) return raw;
+      return 'agent_main';
+    }
+
     try {
       final result = await ai.complete(
         AiCompletionRequest(
-          cloudInkOperation: 'agent_main',
+          cloudInkOperation: resolveCloudInkOperation(),
           prompt:
-              '${isEs ? 'Eres Quill, la asistente de IA integrada en Folio (notas locales, árbol de páginas, editor por bloques, búsqueda, cofre con cifrado opcional, panel de chat a la derecha). Ayudas con el contenido de las notas y con cómo usar la app; en modo chat sé clara, útil y natural.' : 'You are Quill, Folio\'s built-in AI assistant (local notes, page tree, block editor, search, optional encrypted vault, chat panel on the side). You help with note content and how to use the app; in chat mode be clear, helpful, and natural.'}\n'
+              '${isEs ? 'Eres Quill, la asistente de IA integrada en Folio (notas locales, árbol de páginas, editor por bloques, búsqueda, libreta con cifrado opcional, panel de chat a la derecha). Ayudas con el contenido de las notas y con cómo usar la app; en modo chat sé clara, útil y natural.' : 'You are Quill, Folio\'s built-in AI assistant (local notes, page tree, block editor, search, optional encrypted vault, chat panel on the side). You help with note content and how to use the app; in chat mode be clear, helpful, and natural.'}\n'
               '${_folioAgentInAppGuide(isEs: isEs)}\n\n'
               '${isEs ? 'Devuelve SOLO JSON válido con este esquema:' : 'Return ONLY valid JSON with this schema:'}\n'
               '{'
@@ -1871,7 +1878,7 @@ Quick help (be concise):
   }) async {
     if (_state != VaultFlowState.unlocked ||
         (vaultUsesEncryption && _dek == null)) {
-      throw StateError('Debes desbloquear el cofre para usar IA.');
+      throw StateError('Debes desbloquear la libreta para usar IA.');
     }
     final ai = _aiService;
     if (ai == null) throw StateError('IA no configurada.');

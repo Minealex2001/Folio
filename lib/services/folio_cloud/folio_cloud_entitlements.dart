@@ -115,16 +115,34 @@ class FolioInkSnapshot {
     final raw = data['ink'];
     if (raw is Map) {
       final m = _asStringKeyedMap(raw);
+      final monthlyFromMap = _inkFieldFromDoc(
+        m['monthlyBalance'] as num?,
+        'monthlyBalance',
+      );
+      final purchasedFromMap = _inkFieldFromDoc(
+        m['purchasedBalance'] as num?,
+        'purchasedBalance',
+      );
+      final dottedMonthly = _inkFieldFromDoc(
+        data['ink.monthlyBalance'] as num?,
+        'ink.monthlyBalance',
+      );
+      final dottedPurchased = _inkFieldFromDoc(
+        data['ink.purchasedBalance'] as num?,
+        'ink.purchasedBalance',
+      );
+
+      // Si conviven ambas formas (mapa `ink` + claves literales con punto),
+      // usa la más alta para evitar que el UI se quede "viejo" tras una compra.
+      final monthly = monthlyFromMap >= dottedMonthly ? monthlyFromMap : dottedMonthly;
+      final purchased =
+          purchasedFromMap >= dottedPurchased ? purchasedFromMap : dottedPurchased;
+
       return FolioInkSnapshot(
-        monthlyBalance: _inkFieldFromDoc(
-          m['monthlyBalance'] as num?,
-          'monthlyBalance',
-        ),
-        purchasedBalance: _inkFieldFromDoc(
-          m['purchasedBalance'] as num?,
-          'purchasedBalance',
-        ),
-        monthlyPeriodKey: m['monthlyPeriodKey']?.toString(),
+        monthlyBalance: monthly,
+        purchasedBalance: purchased,
+        monthlyPeriodKey: m['monthlyPeriodKey']?.toString() ??
+            data['ink.monthlyPeriodKey']?.toString(),
       );
     }
     // Copia plana por si el doc tuviera claves literales con punto (poco habitual).

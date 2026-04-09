@@ -3,7 +3,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
-/// Atajos editables del workspace (persistidos en [AppSettings], no en el cofre).
+/// Atajos editables del workspace (persistidos en [AppSettings], no en la libreta).
 enum FolioInAppShortcut {
   search,
   newPage,
@@ -16,10 +16,10 @@ enum FolioInAppShortcut {
 
 extension FolioInAppShortcutLabels on FolioInAppShortcut {
   String get settingsLabel => switch (this) {
-    FolioInAppShortcut.search => 'Buscar en el cofre',
+    FolioInAppShortcut.search => 'Buscar en la libreta',
     FolioInAppShortcut.newPage => 'Nueva página',
     FolioInAppShortcut.settings => 'Abrir ajustes',
-    FolioInAppShortcut.lock => 'Bloquear cofre',
+    FolioInAppShortcut.lock => 'Bloquear libreta',
     FolioInAppShortcut.pageNext => 'Página siguiente',
     FolioInAppShortcut.pagePrev => 'Página anterior',
     FolioInAppShortcut.closePage => 'Cerrar página actual',

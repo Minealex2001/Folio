@@ -97,6 +97,10 @@ class AppLocalizationsEn extends AppLocalizations {
   String get backupPasswordLabel => 'Backup password';
 
   @override
+  String get backupPlainNoPasswordHint =>
+      'This backup is not encrypted. No password is required to import it.';
+
+  @override
   String get importVault => 'Import vault';
 
   @override
@@ -1268,6 +1272,37 @@ class AppLocalizationsEn extends AppLocalizations {
       'When one provider is operational, press Retry to auto-configure it.';
 
   @override
+  String get aiCompareCloudVsLocalTitle => 'Cloud vs local';
+
+  @override
+  String get aiCompareCloudTitle => 'Folio Cloud';
+
+  @override
+  String get aiCompareLocalTitle => 'Local (Ollama / LM Studio)';
+
+  @override
+  String get aiCompareCloudBulletNoSetup =>
+      'No local setup: works after signing in.';
+
+  @override
+  String get aiCompareCloudBulletNeedsSub =>
+      'Requires a subscription for cloud AI.';
+
+  @override
+  String get aiCompareCloudBulletInk =>
+      'Uses ink for cloud AI (packs + monthly refill).';
+
+  @override
+  String get aiCompareLocalBulletPrivacy => 'Local privacy (your machine).';
+
+  @override
+  String get aiCompareLocalBulletNoInk => 'No ink: not tied to a balance.';
+
+  @override
+  String get aiCompareLocalBulletSetup =>
+      'Requires installing and running a provider on localhost.';
+
+  @override
   String get quillGlobalScopeNoticeTitle => 'Quill works across all vaults';
 
   @override
@@ -2038,6 +2073,10 @@ class AppLocalizationsEn extends AppLocalizations {
       'If you just paid and features show as off, tap «Refresh from Stripe».';
 
   @override
+  String get folioCloudBackupCleanupWarning =>
+      'Backup uploaded, but old backups could not be cleaned up (will be retried later).';
+
+  @override
   String get folioCloudInkMonthly => 'Monthly';
 
   @override
@@ -2073,7 +2112,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get folioCloudManageSubscription => 'Manage subscription';
 
   @override
-  String get folioCloudRefreshFromStripe => 'Refresh from Stripe';
+  String get folioCloudRefreshFromStripe => 'Refresh';
 
   @override
   String get folioCloudUploadEncryptedBackup => 'Back up to cloud now';
@@ -2094,6 +2133,15 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get folioCloudCloudBackupsList => 'Cloud backups';
+
+  @override
+  String get folioCloudBackupsUsed => 'Used';
+
+  @override
+  String get folioCloudBackupsLimit => 'Limit';
+
+  @override
+  String get folioCloudBackupsRemaining => 'Remaining';
 
   @override
   String get folioCloudPublishTestPage => 'Publish test page';
@@ -2128,4 +2176,48 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get folioCloudAiZeroInkBanner =>
       'Cloud AI ink is 0 — open Settings to buy ink or use local AI.';
+
+  @override
+  String folioCloudInkPurchaseAppliedHint(Object purchased) {
+    return 'Purchase applied: $purchased purchased ink available for cloud AI.';
+  }
+
+  @override
+  String get onboardingCloudBackupCta => 'Sign in and download a backup';
+
+  @override
+  String get onboardingCloudBackupPickVaultSubtitle =>
+      'Choose which vault you want to restore.';
+
+  @override
+  String get onboardingFolioCloudTitle => 'Folio Cloud';
+
+  @override
+  String get onboardingFolioCloudBody =>
+      'Enable cloud features when you need them: encrypted backups, hosted Quill, and web publishing. Your vault stays local unless you use these features.';
+
+  @override
+  String get onboardingFolioCloudFeatureBackupTitle =>
+      'Encrypted cloud backups';
+
+  @override
+  String get onboardingFolioCloudFeatureBackupBody =>
+      'Store and download vault backups from your account. On desktop, listing/downloading is handled via Folio Cloud.';
+
+  @override
+  String get onboardingFolioCloudFeatureAiTitle => 'Cloud AI + ink';
+
+  @override
+  String get onboardingFolioCloudFeatureAiBody =>
+      'Quill runs on Folio Cloud with a subscription. Ink is consumed by usage; you can also use local AI (Ollama/LM Studio).';
+
+  @override
+  String get onboardingFolioCloudFeatureWebTitle => 'Web publishing';
+
+  @override
+  String get onboardingFolioCloudFeatureWebBody =>
+      'Publish selected pages and control what becomes public. The rest of your vault is not shared.';
+
+  @override
+  String get onboardingFolioCloudLaterInSettings => 'I’ll check in Settings';
 }

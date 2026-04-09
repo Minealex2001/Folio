@@ -13,6 +13,8 @@ El paquete `cloud_functions` **no** expone en Windows (ni en Linux en muchos bui
 
 **IA en nube (`folioCloudAiComplete`):** está desplegada como Cloud Function **1st gen** (`firebase-functions/v1`), es decir en la infraestructura clásica de `cloudfunctions.net`, **no** como función v2 sobre Cloud Run. Así se evita el perímetro IAM y muchos **HTTP 429** que en escritorio se confunden con límites de tinta. El resto de callables del repo siguen en **v2** (Cloud Run); para ellas aplica el aviso IAM de abajo. Si en el proyecto ya existía `folioCloudAiComplete` como v2, conviene **borrarla** (consola GCP o `firebase functions:delete folioCloudAiComplete --region us-central1` según tu flujo) y luego `firebase deploy --only functions` para que solo quede la 1st gen con el mismo nombre.
 
+Como refuerzo para escritorio, también existe `folioCloudAiCompleteHttp` (HTTP **v1**). El cliente Windows/Linux lo usa solo si la callable devuelve **401 HTML** (bloqueo de infraestructura antes de entrar al protocolo callable). Este endpoint mantiene la misma validación de negocio (auth, suscripción, feature `cloudAi`, tinta y cargo/reembolso) y responde en formato compatible con callable (`{result}` o `{error:{status,message}}`).
+
 ### Aviso: 401 con página HTML «Error 401 (Unauthorized)»
 
 Eso **no** es (por lo general) un token de Firebase mal renovado: es el **perímetro de Google Cloud** rechazando la petición antes de entrar en el protocolo callable. Las funciones **v2** viven en **Cloud Run**; hace falta que el servicio permita **invocación pública** (`allUsers` con rol **Invocador de Cloud Run** / `roles/run.invoker`). La identidad del usuario sigue validándose **dentro** de la función con el `Authorization: Bearer` (ID token).

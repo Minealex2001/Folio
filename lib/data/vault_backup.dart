@@ -8,7 +8,7 @@ import '../crypto/vault_crypto.dart';
 import 'vault_payload.dart';
 import 'vault_paths.dart';
 
-/// Errores de exportación/importación de copia del cofre (mensajes para la UI).
+/// Errores de exportación/importación de copia de la libreta (mensajes para la UI).
 class VaultBackupException implements Exception {
   VaultBackupException(this.message);
 
@@ -35,18 +35,33 @@ bool _extractedDirIsPlainBackup(Directory extractedDir) {
   return _modeFileIsPlain(f);
 }
 
+/// Devuelve true si el ZIP representa una copia **en texto plano** (sin cifrado).
+Future<bool> isPlainBackupZip(File zipFile) async {
+  final tmp = Directory.systemTemp.createTempSync('folio_backup_probe_');
+  try {
+    await extractBackupZipToDirectory(zipFile, tmp);
+    return _extractedDirIsPlainBackup(tmp);
+  } finally {
+    try {
+      if (tmp.existsSync()) {
+        await tmp.delete(recursive: true);
+      }
+    } catch (_) {}
+  }
+}
+
 /// Crea un ZIP con `manifest.json`, `vault.bin`, opcionalmente `vault.keys` y `vault.mode`,
-/// y `attachments/` (solo lectura en disco). Cofres en texto plano no tienen `vault.keys`.
+/// y `attachments/` (solo lectura en disco). Libretas en texto plano no tienen `vault.keys`.
 Future<void> exportVaultZip(File destination) async {
   final wrapped = await VaultPaths.wrappedDekPath();
   final cipher = await VaultPaths.cipherPayloadPath();
   final modeFile = await VaultPaths.vaultModePath();
   final plain = _modeFileIsPlain(modeFile);
   if (!cipher.existsSync()) {
-    throw VaultBackupException('No hay cofre para exportar.');
+    throw VaultBackupException('No hay libreta para exportar.');
   }
   if (!plain && !wrapped.existsSync()) {
-    throw VaultBackupException('No hay cofre para exportar.');
+    throw VaultBackupException('No hay libreta para exportar.');
   }
 
   final manifest = jsonEncode(<String, Object?>{
@@ -160,7 +175,7 @@ Future<void> validateImportZip(Directory extractedDir, String password) async {
     try {
       VaultPayload.decodeUtf8(await binFile.readAsBytes());
     } catch (_) {
-      throw VaultBackupException('El contenido del cofre en la copia no es válido.');
+      throw VaultBackupException('El contenido de la libreta en la copia no es válido.');
     }
     return;
   }
@@ -185,13 +200,13 @@ Future<void> validateImportZip(Directory extractedDir, String password) async {
   }
 }
 
-/// Sustituye el material del cofre **activo** por el del directorio ya validado.
+/// Sustituye el material de la libreta **activa** por el del directorio ya validado.
 Future<void> applyImportFromDirectory(Directory extractedDir) async {
   final root = await VaultPaths.vaultDirectory();
   await applyImportToVaultRoot(extractedDir, root);
 }
 
-/// Escribe la copia validada en la raíz de un cofre concreto (p. ej. cofre nuevo).
+/// Escribe la copia validada en la raíz de una libreta concreta (p. ej. libreta nueva).
 Future<void> applyImportToVaultRoot(
   Directory extractedDir,
   Directory vaultRoot,

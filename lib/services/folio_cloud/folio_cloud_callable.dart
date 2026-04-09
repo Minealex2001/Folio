@@ -43,9 +43,9 @@ String _previewForCallableFailure(String body) {
 }
 
 FirebaseFunctions get _folioFunctions => FirebaseFunctions.instanceFor(
-      app: Firebase.app(),
-      region: kFolioCloudFunctionsRegion,
-    );
+  app: Firebase.app(),
+  region: kFolioCloudFunctionsRegion,
+);
 
 /// Equivalente a [HttpsCallable.call] (devuelve el payload `result` del protocolo).
 Future<dynamic> callFolioHttpsCallable(
@@ -93,7 +93,8 @@ Future<dynamic> _callFolioHttpsViaHttp(String name, Object? parameters) async {
     final idToken = await user.getIdToken(forceRefresh);
     if (idToken == null || idToken.isEmpty) {
       throw FirebaseFunctionsException(
-        message: 'No ID token for Cloud Functions. Sign in to Folio Cloud again.',
+        message:
+            'No ID token for Cloud Functions. Sign in to Folio Cloud again.',
         code: 'unauthenticated',
       );
     }
@@ -107,14 +108,27 @@ Future<dynamic> _callFolioHttpsViaHttp(String name, Object? parameters) async {
     final jsonText = _trimLeadingBom(resp.body);
     final contentType = (resp.headers['content-type'] ?? '').toLowerCase();
 
-    final looksLikeHtml = contentType.contains('html') ||
-        jsonText.trimLeft().startsWith('<');
+    final looksLikeHtml =
+        contentType.contains('html') || jsonText.trimLeft().startsWith('<');
+
     /// 401 + HTML típico de Google (p. ej. IAM de Cloud Run). Mensaje al usuario
     /// centrado en suscripción Folio Cloud; causa técnica en docs del repo.
-    final googleCloudRunIam401 = resp.statusCode == 401 &&
+    final googleCloudRunIam401 =
+        resp.statusCode == 401 &&
         looksLikeHtml &&
         (jsonText.contains('Unauthorized') || jsonText.contains('Error 401'));
     if (googleCloudRunIam401) {
+      if (name == 'folioCloudAiComplete') {
+        try {
+          return await _callFolioCloudAiHttpFallback(
+            baseCallableUri: uri,
+            dataPayload: dataPayload,
+            user: user,
+          );
+        } on FirebaseFunctionsException catch (_) {
+          // Si el fallback falla, cae al mensaje guiado existente para soporte.
+        }
+      }
       throw FirebaseFunctionsException(
         message:
             'No se pudo usar Folio Cloud: el servicio en la nube rechazó la '
@@ -181,7 +195,8 @@ Future<dynamic> _callFolioHttpsViaHttp(String name, Object? parameters) async {
           code = 'resource-exhausted';
         }
       }
-      final looksLikeBadAuth = resp.statusCode == 401 ||
+      final looksLikeBadAuth =
+          resp.statusCode == 401 ||
           code == 'unauthenticated' ||
           message.toUpperCase().contains('UNAUTHENTICATED');
       if (looksLikeBadAuth && attempt == 0) {
@@ -217,4 +232,70 @@ Future<dynamic> _callFolioHttpsViaHttp(String name, Object? parameters) async {
         'Cloud Functions rejected the session (401). Sign out and sign in to Folio Cloud again.',
     code: 'unauthenticated',
   );
+}
+
+Future<dynamic> _callFolioCloudAiHttpFallback({
+  required Uri baseCallableUri,
+  required Object? dataPayload,
+  required User user,
+}) async {
+  final idToken = await user.getIdToken(true);
+  if (idToken == null || idToken.isEmpty) {
+    throw FirebaseFunctionsException(
+      message: 'No ID token for Cloud Functions. Sign in to Folio Cloud again.',
+      code: 'unauthenticated',
+    );
+  }
+
+  final fallbackUri = baseCallableUri.replace(
+    path: '/folioCloudAiCompleteHttp',
+  );
+  final resp = await callable_post.folioCallableHttpPost(
+    uri: fallbackUri,
+    body: jsonEncode(<String, dynamic>{'data': dataPayload}),
+    bearerToken: idToken,
+  );
+
+  final jsonText = _trimLeadingBom(resp.body);
+  dynamic decoded;
+  try {
+    decoded = jsonText.isEmpty ? null : jsonDecode(jsonText);
+  } catch (_) {
+    throw FirebaseFunctionsException(
+      message:
+          'Cloud Functions fallback no devolvió JSON (HTTP ${resp.statusCode}). ${_previewForCallableFailure(jsonText)}',
+      code: 'unknown',
+    );
+  }
+
+  if (decoded is! Map) {
+    throw FirebaseFunctionsException(
+      message: 'Unexpected response from Cloud Functions fallback',
+      code: 'unknown',
+    );
+  }
+  final map = decoded.cast<String, dynamic>();
+
+  if (map.containsKey('error')) {
+    final err = map['error'];
+    var message = 'Cloud Function error';
+    var code = 'unknown';
+    if (err is Map) {
+      message = err['message']?.toString() ?? message;
+      final status = err['status'];
+      if (status != null) {
+        code = status.toString().toLowerCase().replaceAll('_', '-');
+      }
+    }
+    throw FirebaseFunctionsException(message: message, code: code);
+  }
+
+  if (resp.statusCode < 200 || resp.statusCode >= 300) {
+    throw FirebaseFunctionsException(
+      message: 'HTTP ${resp.statusCode} calling folioCloudAiCompleteHttp',
+      code: 'unknown',
+    );
+  }
+
+  return map['result'];
 }

@@ -302,7 +302,7 @@ class _FolioAppState extends State<FolioApp> with WidgetsBindingObserver {
                       ),
                       body: Text(
                         isEs
-                            ? 'Introduce la contraseña del cofre para aceptar la vinculación con otro dispositivo.'
+                            ? 'Introduce la contraseña de la libreta para aceptar la vinculación con otro dispositivo.'
                             : 'Enter your vault password to accept linking with another device.',
                       ),
                       passwordButtonLabel: isEs ? 'Verificar' : 'Verify',
@@ -1221,11 +1221,11 @@ class _IntegrationApprovalDialog extends StatelessWidget {
               capabilityRow(
                 Icons.lock_open_outlined,
                 t(
-                  'Trabajar solo con el cofre abierto',
+                  'Trabajar solo con la libreta abierta',
                   'Work only while the vault is unlocked',
                 ),
                 t(
-                  'Las peticiones solo funcionan cuando Folio esta abierto, el cofre esta disponible y la sesion actual sigue activa.',
+                  'Las peticiones solo funcionan cuando Folio esta abierto, la libreta esta disponible y la sesion actual sigue activa.',
                   'Requests only work while Folio is open, the vault is available, and the current session is still active.',
                 ),
                 accent: scheme.primary,
@@ -1245,7 +1245,7 @@ class _IntegrationApprovalDialog extends StatelessWidget {
                   'It cannot see all your content',
                 ),
                 t(
-                  'No obtiene acceso general al cofre. Solo puede listar lo que ella misma importo mediante su appId.',
+                  'No obtiene acceso general a la libreta. Solo puede listar lo que ella misma importo mediante su appId.',
                   'It does not get general vault access. It can only list what it imported itself through its appId.',
                 ),
                 accent: scheme.error,
@@ -1258,7 +1258,7 @@ class _IntegrationApprovalDialog extends StatelessWidget {
                   'It cannot bypass lock or encryption',
                 ),
                 t(
-                  'Si el cofre esta bloqueado o no hay sesion activa, Folio rechazara la operacion.',
+                  'Si la libreta esta bloqueada o no hay sesion activa, Folio rechazara la operacion.',
                   'If the vault is locked or there is no active session, Folio will reject the operation.',
                 ),
                 accent: scheme.error,

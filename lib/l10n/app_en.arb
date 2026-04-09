@@ -34,6 +34,7 @@
   "chooseZipFile": "Choose .zip file",
   "changeFile": "Change file",
   "backupPasswordLabel": "Backup password",
+  "backupPlainNoPasswordHint": "This backup is not encrypted. No password is required to import it.",
   "importVault": "Import vault",
   "masterPasswordTitle": "Your master password",
   "masterPasswordHint": "At least {min} characters. You will use it every time you open Folio.",
@@ -415,6 +416,15 @@
   "aiSetupLmStudioTitle": "Step 2: Install LM Studio",
   "aiSetupLmStudioBody": "Install LM Studio, start its local server (OpenAI-compatible), and verify it responds at http://127.0.0.1:1234.",
   "aiSetupOpenSettingsHint": "When one provider is operational, press Retry to auto-configure it.",
+  "aiCompareCloudVsLocalTitle": "Cloud vs local",
+  "aiCompareCloudTitle": "Folio Cloud",
+  "aiCompareLocalTitle": "Local (Ollama / LM Studio)",
+  "aiCompareCloudBulletNoSetup": "No local setup: works after signing in.",
+  "aiCompareCloudBulletNeedsSub": "Requires a subscription for cloud AI.",
+  "aiCompareCloudBulletInk": "Uses ink for cloud AI (packs + monthly refill).",
+  "aiCompareLocalBulletPrivacy": "Local privacy (your machine).",
+  "aiCompareLocalBulletNoInk": "No ink: not tied to a balance.",
+  "aiCompareLocalBulletSetup": "Requires installing and running a provider on localhost.",
   "quillGlobalScopeNoticeTitle": "Quill works across all vaults",
   "quillGlobalScopeNoticeBody": "Quill is an app-level setting. If you enable it now, it will be available for any vault on this installation, not just the current one.",
   "quillGlobalScopeNoticeConfirm": "I understand",
@@ -656,6 +666,7 @@
   ,"folioCloudFeatureOn": "Included"
   ,"folioCloudFeatureOff": "Not included"
   ,"folioCloudPostPaymentHint": "If you just paid and features show as off, tap «Refresh from Stripe»."
+  ,"folioCloudBackupCleanupWarning": "Backup uploaded, but old backups could not be cleaned up (will be retried later)."
   ,"folioCloudInkMonthly": "Monthly"
   ,"folioCloudInkPurchased": "Purchased"
   ,"folioCloudInkTotal": "Total"
@@ -668,13 +679,16 @@
   ,"folioCloudInkMedium": "Medium ink (€4.99)"
   ,"folioCloudInkLarge": "Large ink (€9.99)"
   ,"folioCloudManageSubscription": "Manage subscription"
-  ,"folioCloudRefreshFromStripe": "Refresh from Stripe"
+  ,"folioCloudRefreshFromStripe": "Refresh"
   ,"folioCloudUploadEncryptedBackup": "Back up to cloud now"
   ,"folioCloudUploadEncryptedBackupSubtitle": "Folio builds an encrypted backup of your open vault and uploads it—no manual ZIP export."
   ,"folioCloudUploadSnackOk": "Vault backup saved to the cloud."
   ,"scheduledVaultBackupCloudSyncTitle": "Also upload to Folio Cloud"
   ,"scheduledVaultBackupCloudSyncSubtitle": "After each scheduled backup, automatically uploads the same ZIP to your account. For cloud-only backups, leave the folder unset and enable this option."
   ,"folioCloudCloudBackupsList": "Cloud backups"
+  ,"folioCloudBackupsUsed": "Used"
+  ,"folioCloudBackupsLimit": "Limit"
+  ,"folioCloudBackupsRemaining": "Remaining"
   ,"folioCloudPublishTestPage": "Publish test page"
   ,"folioCloudPublishedPagesList": "Published pages"
   ,"folioCloudReauthDialogTitle": "Confirm Folio Cloud account"
@@ -685,4 +699,17 @@
   ,"folioCloudAiNoInkActionCloud": "Folio Cloud & ink"
   ,"folioCloudAiNoInkActionLocal": "AI provider"
   ,"folioCloudAiZeroInkBanner": "Cloud AI ink is 0 — open Settings to buy ink or use local AI."
+  ,"folioCloudInkPurchaseAppliedHint": "Purchase applied: {purchased} purchased ink available for cloud AI."
+  ,"@folioCloudInkPurchaseAppliedHint": {"placeholders": {"purchased": {}}}
+  ,"onboardingCloudBackupCta": "Sign in and download a backup"
+  ,"onboardingCloudBackupPickVaultSubtitle": "Choose which vault you want to restore."
+  ,"onboardingFolioCloudTitle": "Folio Cloud"
+  ,"onboardingFolioCloudBody": "Enable cloud features when you need them: encrypted backups, hosted Quill, and web publishing. Your vault stays local unless you use these features."
+  ,"onboardingFolioCloudFeatureBackupTitle": "Encrypted cloud backups"
+  ,"onboardingFolioCloudFeatureBackupBody": "Store and download vault backups from your account. On desktop, listing/downloading is handled via Folio Cloud."
+  ,"onboardingFolioCloudFeatureAiTitle": "Cloud AI + ink"
+  ,"onboardingFolioCloudFeatureAiBody": "Quill runs on Folio Cloud with a subscription. Ink is consumed by usage; you can also use local AI (Ollama/LM Studio)."
+  ,"onboardingFolioCloudFeatureWebTitle": "Web publishing"
+  ,"onboardingFolioCloudFeatureWebBody": "Publish selected pages and control what becomes public. The rest of your vault is not shared."
+  ,"onboardingFolioCloudLaterInSettings": "I’ll check in Settings"
 }

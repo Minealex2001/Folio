@@ -146,7 +146,7 @@ class FolioMarkdownPreview extends StatelessWidget {
   /// Si es null, enlaces http(s) se abren en el navegador externo.
   final void Function(String text, String? href, String title)? onTapLink;
 
-  /// Enlaces `folio://open/…` navegan a la página del cofre.
+  /// Enlaces `folio://open/…` navegan a la página de la libreta.
   final void Function(String pageId)? onFolioPageLink;
 
   static Future<void> _defaultOpenExternal(String? href) async {

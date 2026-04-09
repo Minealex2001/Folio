@@ -98,6 +98,7 @@ class _WorkspacePageState extends State<WorkspacePage> {
   late String _attachmentsBoundChatId;
   bool _aiChatBusy = false;
   AiTokenUsage? _lastChatTokenUsage;
+  String _aiInkEstimateOperationKind = 'chat_turn';
   double _aiPanelWidth = 360;
   bool _aiPanelCollapsed = false;
   bool _showQuillWorkspaceTour = false;
@@ -125,6 +126,113 @@ class _WorkspacePageState extends State<WorkspacePage> {
   void _snack(String message, {bool error = false}) {
     if (!mounted || message.trim().isEmpty) return;
     showFolioSnack(context, message, error: error);
+  }
+
+  String _t(String es, String en) {
+    final lang = Localizations.localeOf(context).languageCode.toLowerCase();
+    return lang.startsWith('es') ? es : en;
+  }
+
+  int _inkCostForOperationKind(String kind) {
+    switch (kind) {
+      case 'rewrite_block':
+        return 1;
+      case 'summarize_selection':
+        return 1;
+      case 'extract_tasks':
+        return 2;
+      case 'summarize_page':
+        return 2;
+      case 'generate_insert':
+        return 4;
+      case 'generate_page':
+        return 6;
+      case 'edit_page_panel':
+        return 3;
+      case 'agent_main':
+        return 8;
+      case 'agent_followup':
+        return 3;
+      case 'chat_turn':
+      default:
+        return 2;
+    }
+  }
+
+  String _estimateInkOperationKindForChat({
+    required String text,
+    required bool hasScopePage,
+  }) {
+    final t = text.toLowerCase().trim();
+    if (t.isEmpty) return 'chat_turn';
+
+    bool hasAny(List<String> needles) =>
+        needles.any((n) => t.contains(n.toLowerCase()));
+
+    // Crear contenido nuevo suele ser más caro.
+    if (hasAny([
+      'crear',
+      'crea ',
+      'crea una',
+      'crea un',
+      'nueva página',
+      'nuevo documento',
+      'genera una página',
+      'generate a page',
+      'create a page',
+    ])) {
+      return 'generate_page';
+    }
+
+    if (hasAny([
+      'insertar',
+      'inserta',
+      'añade un párrafo',
+      'añadir un párrafo',
+      'añade',
+      'añadir',
+      'generate insert',
+    ])) {
+      return 'generate_insert';
+    }
+
+    if (hasAny(['resume', 'resumen', 'resumir', 'summarize'])) {
+      return 'summarize_page';
+    }
+
+    // Si hay una página abierta y el texto sugiere edición, estimar modo de edición.
+    if (hasScopePage &&
+        hasAny([
+          'reescribe',
+          'reescribir',
+          'corrige',
+          'corregir',
+          'mejora',
+          'mejorar',
+          'cambia',
+          'cambiar',
+          'actualiza',
+          'actualizar',
+          'editar',
+          'edit ',
+          'rewrite',
+        ])) {
+      return 'edit_page_panel';
+    }
+
+    return 'chat_turn';
+  }
+
+  void _updateInkEstimateFromComposer() {
+    if (!mounted) return;
+    final isCloudProvider = widget.appSettings.aiProvider == AiProvider.folioCloud;
+    if (!isCloudProvider) return;
+    final next = _estimateInkOperationKindForChat(
+      text: _chatInputController.text,
+      hasScopePage: _s.selectedPageId != null,
+    );
+    if (next == _aiInkEstimateOperationKind) return;
+    setState(() => _aiInkEstimateOperationKind = next);
   }
 
   String _suggestMarkdownFileName(String title) {
@@ -307,9 +415,7 @@ class _WorkspacePageState extends State<WorkspacePage> {
       return;
     }
     if (!widget.cloudAccountController.isSignedIn) {
-      _snack(
-        'Inicia sesión en la cuenta en la nube (Ajustes) para publicar.',
-      );
+      _snack('Inicia sesión en la cuenta en la nube (Ajustes) para publicar.');
       return;
     }
     if (!widget.folioCloudEntitlements.snapshot.canPublishToWeb) {
@@ -1190,7 +1296,9 @@ class _WorkspacePageState extends State<WorkspacePage> {
   void didUpdateWidget(covariant WorkspacePage oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.folioCloudEntitlements != widget.folioCloudEntitlements) {
-      oldWidget.folioCloudEntitlements.removeListener(_onFolioCloudEntitlements);
+      oldWidget.folioCloudEntitlements.removeListener(
+        _onFolioCloudEntitlements,
+      );
       widget.folioCloudEntitlements.addListener(_onFolioCloudEntitlements);
     }
   }
@@ -1867,6 +1975,8 @@ class _WorkspacePageState extends State<WorkspacePage> {
     setState(() {
       _chatInputController.clear();
     });
+    // Recalcular estimación tras limpiar, para que no quede “pegada”.
+    _updateInkEstimateFromComposer();
     _s.appendMessageToActiveAiChat(
       AiChatMessage.now(role: 'user', content: text),
     );
@@ -1902,6 +2012,8 @@ class _WorkspacePageState extends State<WorkspacePage> {
     final t = text.trim();
     final languageCode = Localizations.localeOf(context).languageCode;
     final attachments = await _collectAiAttachments();
+    final isCloudProvider = widget.appSettings.aiProvider == AiProvider.folioCloud;
+    final op = isCloudProvider ? _aiInkEstimateOperationKind : null;
     return _s.agentChatWithAi(
       messages: threadMessages,
       prompt: t,
@@ -1910,6 +2022,7 @@ class _WorkspacePageState extends State<WorkspacePage> {
       contextPageIds: _activeChat.contextPageIds,
       attachments: attachments,
       languageCode: languageCode,
+      cloudInkOperation: op,
     );
   }
 
@@ -2117,10 +2230,29 @@ class _WorkspacePageState extends State<WorkspacePage> {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
     final l10n = AppLocalizations.of(context);
-    final showInkInChat = widget.appSettings.aiProvider == AiProvider.folioCloud &&
+    final isCloudProvider = widget.appSettings.aiProvider == AiProvider.folioCloud;
+    final showInkInChat = isCloudProvider &&
         widget.appSettings.isAiRuntimeEnabled &&
         widget.folioCloudEntitlements.snapshot.canUseCloudAi;
     final inkSnap = widget.folioCloudEntitlements.snapshot.ink;
+    const lowInkThreshold = 20;
+    final estInkCost = _inkCostForOperationKind(_aiInkEstimateOperationKind);
+    final inkLooksLow = showInkInChat && inkSnap.totalInk > 0 && inkSnap.totalInk <= lowInkThreshold;
+    final inkLooksEmpty = showInkInChat && inkSnap.totalInk <= 0;
+
+    String providerLabel() {
+      switch (widget.appSettings.aiProvider) {
+        case AiProvider.none:
+          return _t('Sin configurar', 'Not set');
+        case AiProvider.folioCloud:
+          return 'Folio Cloud';
+        case AiProvider.ollama:
+          return 'Ollama';
+        case AiProvider.lmStudio:
+          return 'LM Studio';
+      }
+    }
+
     return SafeArea(
       top: false,
       left: false,
@@ -2194,23 +2326,61 @@ class _WorkspacePageState extends State<WorkspacePage> {
                               ),
                             ),
                             const SizedBox(width: 8),
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 8,
-                                vertical: 3,
-                              ),
-                              decoration: BoxDecoration(
-                                color: scheme.primary.withValues(alpha: 0.10),
-                                borderRadius: BorderRadius.circular(999),
-                              ),
-                              child: Text(
-                                l10n.aiBetaBadge,
-                                style: theme.textTheme.labelSmall?.copyWith(
-                                  color: scheme.primary,
-                                  fontWeight: FontWeight.w800,
-                                  letterSpacing: 0.6,
+                            Wrap(
+                              spacing: 6,
+                              runSpacing: 6,
+                              crossAxisAlignment: WrapCrossAlignment.center,
+                              children: [
+                                Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 8,
+                                    vertical: 3,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: scheme.primary.withValues(alpha: 0.10),
+                                    borderRadius: BorderRadius.circular(999),
+                                  ),
+                                  child: Text(
+                                    l10n.aiBetaBadge,
+                                    style: theme.textTheme.labelSmall?.copyWith(
+                                      color: scheme.primary,
+                                      fontWeight: FontWeight.w800,
+                                      letterSpacing: 0.6,
+                                    ),
+                                  ),
                                 ),
-                              ),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 8,
+                                    vertical: 3,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: scheme.surfaceContainerHighest,
+                                    border: Border.all(
+                                      color: scheme.outlineVariant.withValues(alpha: 0.40),
+                                    ),
+                                    borderRadius: BorderRadius.circular(999),
+                                  ),
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Icon(
+                                        isCloudProvider ? Icons.cloud_outlined : Icons.computer_outlined,
+                                        size: 14,
+                                        color: scheme.onSurfaceVariant,
+                                      ),
+                                      const SizedBox(width: 5),
+                                      Text(
+                                        providerLabel(),
+                                        style: theme.textTheme.labelSmall?.copyWith(
+                                          color: scheme.onSurfaceVariant,
+                                          fontWeight: FontWeight.w700,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ],
                             ),
                           ],
                         ),
@@ -2228,42 +2398,67 @@ class _WorkspacePageState extends State<WorkspacePage> {
                         ),
                         if (showInkInChat) ...[
                           const SizedBox(height: 6),
-                          Tooltip(
-                            message: l10n.aiChatInkBreakdownTooltip(
-                              inkSnap.monthlyBalance,
-                              inkSnap.purchasedBalance,
-                            ),
-                            child: Row(
-                              children: [
-                                Icon(
-                                  Icons.water_drop_outlined,
-                                  size: 15,
-                                  color: scheme.primary.withValues(alpha: 0.92),
+                          Wrap(
+                            spacing: 8,
+                            runSpacing: 8,
+                            children: [
+                              Tooltip(
+                                message: l10n.aiChatInkBreakdownTooltip(
+                                  inkSnap.monthlyBalance,
+                                  inkSnap.purchasedBalance,
                                 ),
-                                const SizedBox(width: 5),
-                                Expanded(
-                                  child: Text(
-                                    l10n.aiChatInkRemaining(inkSnap.totalInk),
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: theme.textTheme.labelSmall?.copyWith(
-                                      color: scheme.onSurfaceVariant,
-                                      fontWeight: FontWeight.w600,
-                                      height: 1.25,
-                                    ),
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 10,
+                                    vertical: 6,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: inkLooksLow
+                                        ? scheme.tertiaryContainer.withValues(alpha: 0.65)
+                                        : scheme.primary.withValues(alpha: 0.10),
+                                    borderRadius: BorderRadius.circular(999),
+                                  ),
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Icon(
+                                        Icons.water_drop_outlined,
+                                        size: 16,
+                                        color: inkLooksLow
+                                            ? scheme.onTertiaryContainer
+                                            : scheme.primary.withValues(alpha: 0.92),
+                                      ),
+                                      const SizedBox(width: 6),
+                                      Text(
+                                        l10n.aiChatInkRemaining(inkSnap.totalInk),
+                                        style: theme.textTheme.labelSmall?.copyWith(
+                                          color: inkLooksLow
+                                              ? scheme.onTertiaryContainer
+                                              : scheme.onSurfaceVariant,
+                                          fontWeight: FontWeight.w800,
+                                        ),
+                                      ),
+                                    ],
                                   ),
                                 ),
-                              ],
-                            ),
+                              ),
+                            ],
                           ),
+                          if (inkLooksEmpty) ...[
+                            const SizedBox(height: 8),
+                            FilledButton.tonalIcon(
+                              onPressed: _openSettings,
+                              icon: const Icon(Icons.shopping_bag_outlined),
+                              label: Text(_t('Comprar tinta', 'Buy ink')),
+                            ),
+                          ],
                         ],
                       ],
                     ),
                   ),
                   IconButton(
                     tooltip: l10n.aiHidePanel,
-                    onPressed: () =>
-                        setState(() => _aiPanelCollapsed = true),
+                    onPressed: () => setState(() => _aiPanelCollapsed = true),
                     icon: const Icon(Icons.unfold_less_rounded),
                   ),
                 ],
@@ -2377,7 +2572,9 @@ class _WorkspacePageState extends State<WorkspacePage> {
                                       onPressed: () {
                                         _chatInputFocusNode.requestFocus();
                                       },
-                                      child: Text(l10n.aiChatEmptyFocusComposer),
+                                      child: Text(
+                                        l10n.aiChatEmptyFocusComposer,
+                                      ),
                                     ),
                                   ],
                                 ),
@@ -2451,6 +2648,50 @@ class _WorkspacePageState extends State<WorkspacePage> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
+                    if (showInkInChat) ...[
+                      Padding(
+                        padding: const EdgeInsets.only(
+                          left: 8,
+                          right: 8,
+                          top: 2,
+                          bottom: 6,
+                        ),
+                        child: Row(
+                          children: [
+                            Icon(
+                              Icons.water_drop_outlined,
+                              size: 16,
+                              color: inkLooksLow
+                                  ? scheme.tertiary
+                                  : scheme.onSurfaceVariant,
+                            ),
+                            const SizedBox(width: 6),
+                            Expanded(
+                              child: Text(
+                                _t(
+                                  'Coste estimado: $estInkCost gotas.',
+                                  'Estimated cost: $estInkCost ink.',
+                                ),
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                                style: theme.textTheme.labelSmall?.copyWith(
+                                  color: scheme.onSurfaceVariant.withValues(alpha: 0.92),
+                                  fontWeight: FontWeight.w600,
+                                  height: 1.25,
+                                ),
+                              ),
+                            ),
+                            if (inkLooksLow || inkLooksEmpty) ...[
+                              const SizedBox(width: 8),
+                              TextButton(
+                                onPressed: _openSettings,
+                                child: Text(_t('Tinta', 'Ink')),
+                              ),
+                            ],
+                          ],
+                        ),
+                      ),
+                    ],
                     Builder(
                       builder: (context) {
                         final items = _buildActiveAiContextItems(l10n);
@@ -2528,7 +2769,10 @@ class _WorkspacePageState extends State<WorkspacePage> {
                                     minLines: 1,
                                     maxLines: 5,
                                     onTap: _updateAiContextMenu,
-                                    onChanged: (_) => _updateAiContextMenu(),
+                                    onChanged: (_) {
+                                      _updateAiContextMenu();
+                                      _updateInkEstimateFromComposer();
+                                    },
                                     decoration: InputDecoration(
                                       border: InputBorder.none,
                                       hintText: l10n.aiInputHintCopilot,
@@ -2603,15 +2847,11 @@ class _WorkspacePageState extends State<WorkspacePage> {
     final compact =
         width < FolioDesktop.compactBreakpoint || androidMobileWorkspace;
     final isAiChromeVisible =
-        !compact &&
-        widget.appSettings.isAiRuntimeEnabled &&
-        _s.aiEnabled;
+        !compact && widget.appSettings.isAiRuntimeEnabled && _s.aiEnabled;
     final effectiveSidebarW = compact
         ? 0.0
         : (widget.appSettings.workspaceSidebarCollapsed
-              ? (_sidebarPeek
-                    ? widget.appSettings.workspaceSidebarWidth
-                    : 0.0)
+              ? (_sidebarPeek ? widget.appSettings.workspaceSidebarWidth : 0.0)
               : widget.appSettings.workspaceSidebarWidth);
     final sidePanel = Material(
       color: scheme.surfaceContainerLow,
@@ -2877,46 +3117,46 @@ class _WorkspacePageState extends State<WorkspacePage> {
                         ? l10n.savingVaultTooltip
                         : l10n.autosaveSoonTooltip,
                     child: Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: FolioSpace.sm,
-                      vertical: FolioSpace.xs,
-                    ),
-                    decoration: BoxDecoration(
-                      color: scheme.surfaceContainerHigh,
-                      borderRadius: BorderRadius.circular(FolioRadius.xl),
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        if (_s.isPersistingToDisk)
-                          SizedBox(
-                            width: 18,
-                            height: 18,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2,
-                              color: scheme.primary,
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: FolioSpace.sm,
+                        vertical: FolioSpace.xs,
+                      ),
+                      decoration: BoxDecoration(
+                        color: scheme.surfaceContainerHigh,
+                        borderRadius: BorderRadius.circular(FolioRadius.xl),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          if (_s.isPersistingToDisk)
+                            SizedBox(
+                              width: 18,
+                              height: 18,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: scheme.primary,
+                              ),
+                            )
+                          else
+                            Icon(
+                              Icons.save_outlined,
+                              size: 20,
+                              color: scheme.primary.withValues(alpha: 0.85),
                             ),
-                          )
-                        else
-                          Icon(
-                            Icons.save_outlined,
-                            size: 20,
-                            color: scheme.primary.withValues(alpha: 0.85),
+                          const SizedBox(width: FolioSpace.xs),
+                          Text(
+                            _s.isPersistingToDisk
+                                ? l10n.saveInProgress
+                                : l10n.savePending,
+                            style: theme.textTheme.labelLarge?.copyWith(
+                              color: scheme.onSurfaceVariant,
+                              fontWeight: FontWeight.w700,
+                            ),
                           ),
-                        const SizedBox(width: FolioSpace.xs),
-                        Text(
-                          _s.isPersistingToDisk
-                              ? l10n.saveInProgress
-                              : l10n.savePending,
-                          style: theme.textTheme.labelLarge?.copyWith(
-                            color: scheme.onSurfaceVariant,
-                            fontWeight: FontWeight.w700,
-                          ),
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
                   ),
-                ),
                 ),
               ),
             ),
@@ -2949,8 +3189,6 @@ class _WorkspacePageState extends State<WorkspacePage> {
                 session: _s,
                 appSettings: widget.appSettings,
                 readOnlyMode: editorReadOnlyMode,
-                folioCloudEntitlements: widget.folioCloudEntitlements,
-                onOpenSettings: _openSettings,
               ),
             ),
     );
@@ -3057,9 +3295,7 @@ class _WorkspacePageState extends State<WorkspacePage> {
         ),
         floatingActionButton: compact && page != null
             ? Padding(
-                padding: EdgeInsets.only(
-                  right: 0,
-                ),
+                padding: EdgeInsets.only(right: 0),
                 child: verticalMobileWorkspace
                     ? (_mobileEditMode
                           ? Column(

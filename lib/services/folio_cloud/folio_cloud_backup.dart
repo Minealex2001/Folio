@@ -33,6 +33,7 @@ void _requireCloudBackupEntitlement(FolioCloudSnapshot? snapshot) {
 /// Si [entitlementSnapshot] no es null, comprueba [FolioCloudSnapshot.canUseCloudBackup] antes de subir.
 Future<String> uploadEncryptedBackupFile(
   File file, {
+  required String vaultId,
   FolioCloudSnapshot? entitlementSnapshot,
 }) async {
   _requireCloudBackupEntitlement(entitlementSnapshot);
@@ -44,22 +45,23 @@ Future<String> uploadEncryptedBackupFile(
   final stamp = DateTime.now().toUtc().toIso8601String().replaceAll(':', '-');
   final name = 'vault-$stamp.zip';
   final ref = FirebaseStorage.instance.ref().child(
-    'users/${user.uid}/backups/$name',
+    'users/${user.uid}/vaults/$vaultId/backups/$name',
   );
   await ref.putFile(file);
   return await ref.getDownloadURL();
 }
 
-/// Crea un ZIP temporal del cofre **abierto**, lo sube a Storage y elimina el temporal.
+/// Crea un ZIP temporal de la libreta **abierta**, lo sube a Storage y elimina el temporal.
 /// No pide al usuario elegir archivos.
 Future<String> uploadOpenVaultEncryptedToCloud({
   required VaultSession session,
+  required String vaultId,
   FolioCloudSnapshot? entitlementSnapshot,
 }) async {
   _requireCloudBackupEntitlement(entitlementSnapshot);
   if (!session.isUnlocked) {
     throw StateError(
-      'El cofre debe estar desbloqueado para subir la copia a la nube.',
+      'La libreta debe estar desbloqueada para subir la copia a la nube.',
     );
   }
   if (Firebase.apps.isEmpty) {
@@ -75,6 +77,7 @@ Future<String> uploadOpenVaultEncryptedToCloud({
     await exportVaultZip(zipFile);
     return await uploadEncryptedBackupFile(
       zipFile,
+      vaultId: vaultId,
       entitlementSnapshot: entitlementSnapshot,
     );
   } finally {
@@ -97,8 +100,53 @@ class FolioCloudBackupEntry {
   final String storagePath;
 }
 
-Future<List<FolioCloudBackupEntry>> _listFolioCloudBackupsViaCallable() async {
-  final raw = await callFolioHttpsCallable('folioListVaultBackups', <String, dynamic>{});
+class FolioCloudBackupVaultEntry {
+  const FolioCloudBackupVaultEntry({
+    required this.vaultId,
+    required this.displayName,
+  });
+
+  final String vaultId;
+  final String displayName;
+}
+
+Future<List<FolioCloudBackupVaultEntry>> listFolioCloudBackupVaults({
+  FolioCloudSnapshot? entitlementSnapshot,
+}) async {
+  _requireCloudBackupEntitlement(entitlementSnapshot);
+  if (Firebase.apps.isEmpty) {
+    throw StateError('Firebase not initialized');
+  }
+  if (FirebaseAuth.instance.currentUser == null) {
+    throw StateError('Not signed in');
+  }
+  final raw =
+      await callFolioHttpsCallable('folioListBackupVaults', <String, dynamic>{});
+  if (raw is! Map) return const [];
+  final vaults = raw['vaults'];
+  if (vaults is! List) return const [];
+  final out = <FolioCloudBackupVaultEntry>[];
+  for (final e in vaults) {
+    if (e is! Map) continue;
+    final m = Map<String, dynamic>.from(e);
+    final id = m['vaultId']?.toString().trim() ?? '';
+    if (id.isEmpty) continue;
+    final name = m['displayName']?.toString().trim() ?? '';
+    out.add(FolioCloudBackupVaultEntry(vaultId: id, displayName: name));
+  }
+  out.sort(
+    (a, b) => (a.displayName.isNotEmpty ? a.displayName : a.vaultId)
+        .compareTo(b.displayName.isNotEmpty ? b.displayName : b.vaultId),
+  );
+  return out;
+}
+
+Future<List<FolioCloudBackupEntry>> _listFolioCloudBackupsViaCallable({
+  required String vaultId,
+}) async {
+  final raw = await callFolioHttpsCallable('folioListVaultBackups', <String, dynamic>{
+    'vaultId': vaultId,
+  });
   if (raw is! Map) {
     throw StateError('Respuesta inválida al listar copias en la nube.');
   }
@@ -119,6 +167,7 @@ Future<List<FolioCloudBackupEntry>> _listFolioCloudBackupsViaCallable() async {
 
 /// Lista archivos en la carpeta de copias de Folio Cloud.
 Future<List<FolioCloudBackupEntry>> listFolioCloudBackups({
+  required String vaultId,
   FolioCloudSnapshot? entitlementSnapshot,
 }) async {
   _requireCloudBackupEntitlement(entitlementSnapshot);
@@ -128,9 +177,11 @@ Future<List<FolioCloudBackupEntry>> listFolioCloudBackups({
   final user = FirebaseAuth.instance.currentUser;
   if (user == null) throw StateError('Not signed in');
   if (_folioStorageClientListBrokenDesktop) {
-    return _listFolioCloudBackupsViaCallable();
+    return _listFolioCloudBackupsViaCallable(vaultId: vaultId);
   }
-  final ref = FirebaseStorage.instance.ref().child('users/${user.uid}/backups');
+  final ref = FirebaseStorage.instance.ref().child(
+        'users/${user.uid}/vaults/$vaultId/backups',
+      );
   final list = await ref.listAll();
   final out = list.items
       .map(
@@ -158,4 +209,40 @@ Future<void> downloadFolioCloudBackup({
   if (user == null) throw StateError('Not signed in');
   final ref = FirebaseStorage.instance.ref(entry.storagePath);
   await ref.writeToFile(destinationFile);
+}
+
+Future<void> trimFolioCloudBackups({
+  required String vaultId,
+  int maxCount = 10,
+  FolioCloudSnapshot? entitlementSnapshot,
+}) async {
+  _requireCloudBackupEntitlement(entitlementSnapshot);
+  if (Firebase.apps.isEmpty) {
+    throw StateError('Firebase not initialized');
+  }
+  if (FirebaseAuth.instance.currentUser == null) {
+    throw StateError('Not signed in');
+  }
+  await callFolioHttpsCallable('folioTrimVaultBackups', <String, dynamic>{
+    'vaultId': vaultId,
+    'maxCount': maxCount,
+  });
+}
+
+Future<void> upsertFolioCloudBackupVaultIndex({
+  required String vaultId,
+  required String displayName,
+  FolioCloudSnapshot? entitlementSnapshot,
+}) async {
+  _requireCloudBackupEntitlement(entitlementSnapshot);
+  if (Firebase.apps.isEmpty) {
+    throw StateError('Firebase not initialized');
+  }
+  if (FirebaseAuth.instance.currentUser == null) {
+    throw StateError('Not signed in');
+  }
+  await callFolioHttpsCallable('folioUpsertVaultBackupIndex', <String, dynamic>{
+    'vaultId': vaultId,
+    'displayName': displayName,
+  });
 }

@@ -11,7 +11,7 @@ import '../session/vault_session.dart';
 import 'folio_cloud/folio_cloud_backup.dart';
 import 'folio_cloud/folio_cloud_entitlements.dart';
 
-/// Exporta el cofre **abierto** al directorio configurado en [AppSettings.scheduledVaultBackupDirectory].
+/// Exporta la libreta **abierta** al directorio configurado en [AppSettings.scheduledVaultBackupDirectory].
 /// Opcionalmente sube a Folio Cloud si el usuario lo tiene activado.
 Future<void> runScheduledFolderVaultExport({
   required VaultSession session,
@@ -19,7 +19,7 @@ Future<void> runScheduledFolderVaultExport({
   FolioCloudEntitlementsController? folioEntitlements,
 }) async {
   if (!session.isUnlocked) {
-    throw VaultBackupException('El cofre debe estar desbloqueado.');
+    throw VaultBackupException('La libreta debe estar desbloqueada.');
   }
 
   final dir = appSettings.scheduledVaultBackupDirectory.trim();
@@ -35,10 +35,34 @@ Future<void> runScheduledFolderVaultExport({
     if (!wantCloud) {
       throw VaultBackupException('Carpeta de copias no configurada.');
     }
+    final vaultId = session.activeVaultId;
+    if (vaultId == null || vaultId.trim().isEmpty) {
+      throw VaultBackupException('No hay libreta activa.');
+    }
     await uploadOpenVaultEncryptedToCloud(
       session: session,
+      vaultId: vaultId,
       entitlementSnapshot: folioEntitlements.snapshot,
     );
+    try {
+      final label = await session.getActiveVaultDisplayLabel();
+      await upsertFolioCloudBackupVaultIndex(
+        vaultId: vaultId,
+        displayName: label,
+        entitlementSnapshot: folioEntitlements.snapshot,
+      );
+    } catch (e) {
+      debugPrint('Folio scheduled backup cloud index: $e');
+    }
+    try {
+      await trimFolioCloudBackups(
+        vaultId: vaultId,
+        maxCount: 10,
+        entitlementSnapshot: folioEntitlements.snapshot,
+      );
+    } catch (e) {
+      debugPrint('Folio scheduled backup cloud trim: $e');
+    }
     await appSettings.setLastScheduledVaultBackupMs(now);
     return;
   }
@@ -58,10 +82,34 @@ Future<void> runScheduledFolderVaultExport({
   await appSettings.setLastScheduledVaultBackupMs(now);
   if (wantCloud) {
     try {
+      final vaultId = session.activeVaultId;
+      if (vaultId == null || vaultId.trim().isEmpty) {
+        throw VaultBackupException('No hay libreta activa.');
+      }
       await uploadEncryptedBackupFile(
         File(path),
+        vaultId: vaultId,
         entitlementSnapshot: folioEntitlements.snapshot,
       );
+      try {
+        final label = await session.getActiveVaultDisplayLabel();
+        await upsertFolioCloudBackupVaultIndex(
+          vaultId: vaultId,
+          displayName: label,
+          entitlementSnapshot: folioEntitlements.snapshot,
+        );
+      } catch (e) {
+        debugPrint('Folio scheduled backup cloud index: $e');
+      }
+      try {
+        await trimFolioCloudBackups(
+          vaultId: vaultId,
+          maxCount: 10,
+          entitlementSnapshot: folioEntitlements.snapshot,
+        );
+      } catch (e) {
+        debugPrint('Folio scheduled backup cloud trim: $e');
+      }
     } catch (e) {
       debugPrint('Folio scheduled backup cloud upload: $e');
     }

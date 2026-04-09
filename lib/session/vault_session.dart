@@ -216,7 +216,7 @@ class VaultSession extends ChangeNotifier {
   bool _lockOnAppBackground = false;
   bool _vaultUsesEncryption = true;
 
-  /// Tras "Añadir cofre", se restaura al cancelar onboarding.
+  /// Tras "Añadir libreta", se restaura al cancelar onboarding.
   String? _resumeVaultIdAfterNewVault;
 
   final VaultRegistry _registry = VaultRegistry.instance;
@@ -230,7 +230,7 @@ class VaultSession extends ChangeNotifier {
     return _registry.vaults;
   }
 
-  /// Nombre del cofre activo para mostrar en Ajustes (p. ej. copias).
+  /// Nombre de la libreta activa para mostrar en Ajustes (p. ej. copias).
   Future<String> getActiveVaultDisplayLabel() async {
     await _registry.load();
     final id = _vaultId;
@@ -249,7 +249,7 @@ class VaultSession extends ChangeNotifier {
   /// Hay un guardado al disco programado (debounce) y aún no se ha ejecutado.
   bool get hasPendingDiskSave => _saveDebounce != null;
 
-  /// Escritura cifrada del cofre en curso (puede anidarse si varias rutas llaman a [persistNow]).
+  /// Escritura cifrada de la libreta en curso (puede anidarse si varias rutas llaman a [persistNow]).
   bool get isPersistingToDisk => _persistDepth > 0;
 
   VaultFlowState get state => _state;
@@ -603,7 +603,7 @@ class VaultSession extends ChangeNotifier {
       await _registry.add(
         VaultEntry(
           id: id,
-          displayName: 'Cofre $ordinal',
+          displayName: 'Libreta $ordinal',
           createdAtMs: DateTime.now().millisecondsSinceEpoch,
         ),
       );
@@ -630,12 +630,12 @@ class VaultSession extends ChangeNotifier {
     await persistNow();
   }
 
-  /// Añade un cofre vacío y pasa a onboarding (el usuario debe completar contraseña o import).
+  /// Añade una libreta vacía y pasa a onboarding (el usuario debe completar contraseña o import).
   Future<void> prepareNewVault() async {
     await _registry.load();
     final current = VaultPaths.activeVaultId;
     if (current == null) {
-      throw StateError('No hay cofre activo');
+      throw StateError('No hay libreta activa');
     }
     _resumeVaultIdAfterNewVault = current;
     final newId = _uuid.v4();
@@ -644,7 +644,7 @@ class VaultSession extends ChangeNotifier {
     await _registry.add(
       VaultEntry(
         id: newId,
-        displayName: 'Cofre $ordinal',
+        displayName: 'Libreta $ordinal',
         createdAtMs: DateTime.now().millisecondsSinceEpoch,
       ),
     );
@@ -656,7 +656,7 @@ class VaultSession extends ChangeNotifier {
     await bootstrap();
   }
 
-  /// Cancela el onboarding de un cofre nuevo y vuelve al cofre anterior.
+  /// Cancela el onboarding de una libreta nueva y vuelve a la libreta anterior.
   Future<void> cancelPrepareNewVault() async {
     final resume = _resumeVaultIdAfterNewVault;
     if (resume == null) return;
@@ -694,12 +694,12 @@ class VaultSession extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// Elimina otro cofre (no el activo). Requiere que no sea el abierto.
+  /// Elimina otra libreta (no la activa). Requiere que no sea la abierta.
   Future<void> deleteVaultById(String vaultId) async {
     await _registry.load();
     if (vaultId == VaultPaths.activeVaultId) {
       throw StateError(
-        'No se puede borrar el cofre activo desde aquí; usa Borrar cofre.',
+        'No se puede borrar la libreta activa desde aquí; usa Borrar libreta.',
       );
     }
     if (!_registry.containsVault(vaultId)) return;
@@ -709,15 +709,15 @@ class VaultSession extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// La UI debe haber verificado la identidad del cofre **actual** (contraseña / Hello / passkey).
+  /// La UI debe haber verificado la identidad de la libreta **actual** (contraseña / Hello / passkey).
   /// [zipPath] ruta del `.zip` a crear.
   Future<void> exportVaultBackup(String zipPath) async {
     await persistNow();
     await exportVaultZip(File(zipPath));
   }
 
-  /// Importa el ZIP como **cofre nuevo**; el cofre activo no se modifica.
-  /// Devuelve el id del cofre creado.
+  /// Importa el ZIP como **libreta nueva**; la libreta activa no se modifica.
+  /// Devuelve el id de la libreta creada.
   Future<String> importVaultBackupAsNew(
     String zipPath,
     String backupPassword, {
@@ -734,7 +734,7 @@ class VaultSession extends ChangeNotifier {
       await _registry.add(
         VaultEntry(
           id: newId,
-          displayName: displayName ?? 'Cofre importado',
+          displayName: displayName ?? 'Libreta importada',
           createdAtMs: DateTime.now().millisecondsSinceEpoch,
         ),
       );
@@ -854,13 +854,13 @@ class VaultSession extends ChangeNotifier {
     }
   }
 
-  /// Importa un ZIP exportado por Notion al cofre actual (debe estar desbloqueado).
+  /// Importa un ZIP exportado por Notion a la libreta actual (debe estar desbloqueada).
   Future<NotionParsedExport> importNotionIntoCurrentVault(
     String zipPath,
   ) async {
     if (_state != VaultFlowState.unlocked ||
         (vaultUsesEncryption && _dek == null)) {
-      throw StateError('Debes desbloquear el cofre para importar.');
+      throw StateError('Debes desbloquear la libreta para importar.');
     }
     final temp = await Directory.systemTemp.createTemp('folio_notion_import_');
     try {
@@ -884,7 +884,7 @@ class VaultSession extends ChangeNotifier {
     }
   }
 
-  /// Importa un ZIP exportado por Notion creando un cofre nuevo.
+  /// Importa un ZIP exportado por Notion creando una libreta nueva.
   Future<String> importNotionAsNewVault(
     String zipPath, {
     required String masterPassword,
@@ -958,14 +958,14 @@ class VaultSession extends ChangeNotifier {
     }
   }
 
-  /// Onboarding por copia: escribe el cofre en el id activo (o nuevo) y registra.
+  /// Onboarding por copia: escribe la libreta en el id activo (o nuevo) y registra.
   Future<void> completeOnboardingFromBackup(
     String zipPath,
     String backupPassword,
   ) async {
     await _registry.load();
     if (VaultPaths.activeVaultId != null && await VaultPaths.vaultExists()) {
-      throw StateError('Ya hay datos en el cofre actual.');
+      throw StateError('Ya hay datos en la libreta actual.');
     }
     final temp = Directory.systemTemp.createTempSync('folio_onboard_import_');
     try {
@@ -985,7 +985,7 @@ class VaultSession extends ChangeNotifier {
         await _registry.add(
           VaultEntry(
             id: id,
-            displayName: 'Cofre $ordinal',
+            displayName: 'Libreta $ordinal',
             createdAtMs: DateTime.now().millisecondsSinceEpoch,
           ),
         );
@@ -1039,7 +1039,7 @@ class VaultSession extends ChangeNotifier {
     }
     final vid = _vaultId;
     if (vid == null) {
-      throw StateError('No hay cofre activo');
+      throw StateError('No hay libreta activa');
     }
     final dek = await _quick.readDek(vid);
     if (dek == null) {
@@ -1065,7 +1065,7 @@ class VaultSession extends ChangeNotifier {
     await _rp.finishPasskeyLogin(response: response.toJsonString());
     final vid = _vaultId;
     if (vid == null) {
-      throw StateError('No hay cofre activo');
+      throw StateError('No hay libreta activa');
     }
     final dek = await _quick.readDek(vid);
     if (dek == null) {
@@ -1083,7 +1083,7 @@ class VaultSession extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// Vacía el estado en memoria del cofre (sin fijar [VaultFlowState]).
+  /// Vacía el estado en memoria de la libreta (sin fijar [VaultFlowState]).
   void _clearVaultSessionMemory() {
     _saveDebounce?.cancel();
     _saveDebounce = null;
@@ -1153,7 +1153,7 @@ class VaultSession extends ChangeNotifier {
 
   Future<void> enableDeviceQuickUnlock() async {
     if (!vaultUsesEncryption) {
-      throw StateError('El desbloqueo rápido requiere cofre cifrado');
+      throw StateError('El desbloqueo rápido requiere libreta cifrada');
     }
     if (_dek == null) return;
     final supported = await _localAuth.isDeviceSupported();
@@ -1173,7 +1173,7 @@ class VaultSession extends ChangeNotifier {
 
   Future<void> registerPasskey() async {
     if (!vaultUsesEncryption) {
-      throw StateError('La passkey requiere cofre cifrado');
+      throw StateError('La passkey requiere libreta cifrada');
     }
     if (_dek == null) return;
     await _rp.loadFromDisk();
@@ -1298,7 +1298,7 @@ class VaultSession extends ChangeNotifier {
     return t;
   }
 
-  /// Renombra un hilo de chat (persiste con el cofre).
+  /// Renombra un hilo de chat (persiste con la libreta).
   void renameAiChatAt(int index, String title) {
     if (_state != VaultFlowState.unlocked) return;
     if (index < 0 || index >= _aiChatThreads.length) return;
@@ -3067,7 +3067,7 @@ class VaultSession extends ChangeNotifier {
     return const ListEquality<int>().equals(dek, _dek!);
   }
 
-  /// Comprueba la contraseña contra el cofre y que coincida con la sesión abierta.
+  /// Comprueba la contraseña contra la libreta y que coincida con la sesión abierta.
   Future<bool> verifyPasswordMatchesUnlockedSession(String password) async {
     if (_dek == null) return false;
     touchActivity();
@@ -3082,12 +3082,12 @@ class VaultSession extends ChangeNotifier {
   /// Hello / biometría + DEK almacenada debe coincidir con la sesión.
   Future<void> verifyQuickUnlockMatchesSession() async {
     if (_dek == null) {
-      throw StateError('Cofre no desbloqueado');
+      throw StateError('Libreta no desbloqueada');
     }
     touchActivity();
     final vid = _vaultId;
     if (vid == null) {
-      throw StateError('No hay cofre activo');
+      throw StateError('No hay libreta activa');
     }
     final enabled = await _quick.isEnabled(vid);
     if (!enabled) {
@@ -3098,7 +3098,7 @@ class VaultSession extends ChangeNotifier {
       throw StateError('No disponible en este dispositivo');
     }
     final ok = await _localAuth.authenticate(
-      localizedReason: 'Confirma tu identidad para borrar el cofre',
+      localizedReason: 'Confirma tu identidad para borrar la libreta',
     );
     if (!ok) {
       throw StateError('Autenticación cancelada');
@@ -3112,7 +3112,7 @@ class VaultSession extends ChangeNotifier {
   /// Passkey + DEK almacenada debe coincidir con la sesión.
   Future<void> verifyPasskeyMatchesSession() async {
     if (_dek == null) {
-      throw StateError('Cofre no desbloqueado');
+      throw StateError('Libreta no desbloqueada');
     }
     touchActivity();
     await _rp.loadFromDisk();
@@ -3125,7 +3125,7 @@ class VaultSession extends ChangeNotifier {
     await _rp.finishPasskeyLogin(response: response.toJsonString());
     final vid = _vaultId;
     if (vid == null) {
-      throw StateError('No hay cofre activo');
+      throw StateError('No hay libreta activa');
     }
     final dek = await _quick.readDek(vid);
     if (dek == null || !_dekMatchesQuickStorage(dek)) {
@@ -3133,7 +3133,7 @@ class VaultSession extends ChangeNotifier {
     }
   }
 
-  /// Borra el cofre **activo** por completo y actualiza el registro.
+  /// Borra la libreta **activa** por completo y actualiza el registro.
   Future<void> wipeVaultAndReset() async {
     _saveDebounce?.cancel();
     _saveDebounce = null;
@@ -3194,10 +3194,10 @@ class VaultSession extends ChangeNotifier {
     required String newPassword,
   }) async {
     if (!vaultUsesEncryption) {
-      throw StateError('Este cofre no usa contraseña');
+      throw StateError('Esta libreta no usa contraseña');
     }
     if (_dek == null) {
-      throw StateError('Cofre no desbloqueado');
+      throw StateError('Libreta no desbloqueada');
     }
     final currentOk = await verifyPasswordMatchesUnlockedSession(
       currentPassword,
@@ -3219,16 +3219,16 @@ class VaultSession extends ChangeNotifier {
     touchActivity();
   }
 
-  /// Cifra un cofre que estaba solo en disco en texto plano. La sesión sigue abierta.
+  /// Cifra una libreta que estaba solo en disco en texto plano. La sesión sigue abierta.
   Future<void> enableVaultEncryption(String password) async {
     if (_state != VaultFlowState.unlocked) {
-      throw StateError('Cofre no desbloqueado');
+      throw StateError('Libreta no desbloqueada');
     }
     if (vaultUsesEncryption) {
-      throw StateError('El cofre ya está cifrado');
+      throw StateError('La libreta ya está cifrada');
     }
     if (!(await _repo.isPlaintextVault())) {
-      throw StateError('Cofre no reconocido como texto plano');
+      throw StateError('Libreta no reconocida como texto plano');
     }
     if (password.isEmpty) {
       throw ArgumentError('Contraseña vacía');

@@ -31,6 +31,13 @@ service firebase.storage {
         && folioCloudBackupOk(userId);
     }
 
+    // Copias cifradas por libreta: `users/{uid}/vaults/{vaultId}/backups/*`.
+    match /users/{userId}/vaults/{vaultId}/backups/{allPaths=**} {
+      allow read, write: if request.auth != null
+        && request.auth.uid == userId
+        && folioCloudBackupOk(userId);
+    }
+
     // Páginas HTML públicas: lectura pública; escritura solo con publicación web en el plan.
     match /published/{userId}/{allPaths=**} {
       allow read: if true;

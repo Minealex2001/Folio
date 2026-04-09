@@ -4,6 +4,7 @@ import 'dart:math' as math;
 
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/foundation.dart' show defaultTargetPlatform, setEquals;
+import 'package:flutter/gestures.dart' show kPrimaryButton;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_code_editor/flutter_code_editor.dart';
@@ -14,7 +15,6 @@ import 'package:url_launcher/url_launcher.dart';
 import 'package:intl/intl.dart';
 
 import '../../../app/app_settings.dart';
-import '../../../app/widgets/folio_cloud_ai_ink_dialog.dart';
 import '../../../app/widgets/folio_icon_picker.dart';
 import '../../../app/widgets/folio_icon_token_view.dart';
 import '../../../data/folio_internal_link.dart';
@@ -26,8 +26,6 @@ import '../../../models/folio_template_button_data.dart';
 import '../../../models/folio_database_data.dart';
 import '../../../models/folio_page.dart';
 import '../../../models/folio_table_data.dart';
-import '../../../services/ai/folio_cloud_ai_service.dart';
-import '../../../services/folio_cloud/folio_cloud_entitlements.dart';
 import '../../../services/run2doc/run2doc_markdown_codec.dart';
 import '../../../session/vault_session.dart';
 import 'code_block_languages.dart';
@@ -43,16 +41,118 @@ import 'link_title_fetch.dart';
 import 'paste_url_sheet.dart';
 import 'folio_special_block_widgets.dart';
 import 'table_block_editor.dart';
-import 'block_editor/block_row_chrome.dart';
-import 'block_editor/block_row_registry.dart';
-import 'block_editor/block_editor_callout.dart';
-import 'block_editor/block_editor_text_helpers.dart';
 
-part 'block_editor/block_row_scope.dart';
-part 'block_editor/block_row_marker.dart';
-part 'block_editor/block_row_dispatch.dart';
-part 'block_editor/editable_markdown_block_row.dart';
-part 'block_editor/block_row_extensions.dart';
+/// `null` si el texto del bloque no es comando `/…`; si no, filtro tras la `/` (puede ser vacío).
+String? _slashFilterFromBlockText(String text) {
+  if (!text.startsWith('/')) return null;
+  if (text.contains('\n')) return null;
+  final tail = text.substring(1);
+  if (tail.contains(' ')) return null;
+  return tail;
+}
+
+int? _mentionTriggerStartFromSelection(String text, TextSelection selection) {
+  if (!selection.isValid || !selection.isCollapsed) return null;
+  final caret = selection.baseOffset;
+  if (caret <= 0 || caret > text.length) return null;
+  var start = caret - 1;
+  while (start >= 0) {
+    final code = text.codeUnitAt(start);
+    if (code == 0x20 || code == 0x0A || code == 0x0D || code == 0x09) {
+      break;
+    }
+    start--;
+  }
+  start += 1;
+  if (start >= caret) return null;
+  if (text.codeUnitAt(start) != 0x40 /* @ */ ) return null;
+  final tail = text.substring(start + 1, caret);
+  if (tail.contains(RegExp(r'[\[\]\(\)]'))) return null;
+  return start;
+}
+
+String? _mentionFilterFromSelection(String text, TextSelection selection) {
+  final start = _mentionTriggerStartFromSelection(text, selection);
+  if (start == null) return null;
+  final caret = selection.baseOffset;
+  return text.substring(start + 1, caret);
+}
+
+bool _usesCodeControllerForBlockType(String type) =>
+    type == 'code' || type == 'mermaid' || type == 'equation';
+
+List<BlockTypeDef> _catalogFiltered(String q) {
+  return filterBlockTypeCatalog(q);
+}
+
+enum _CalloutTone { neutral, info, success, warning, danger }
+
+_CalloutTone _calloutToneForIcon(String? icon) {
+  switch (icon) {
+    case '💡':
+    case 'ℹ️':
+      return _CalloutTone.info;
+    case '✅':
+    case '🎉':
+    case '🟢':
+      return _CalloutTone.success;
+    case '⚠️':
+    case '🟡':
+      return _CalloutTone.warning;
+    case '🚨':
+    case '⛔':
+    case '❗':
+    case '🔴':
+      return _CalloutTone.danger;
+    default:
+      return _CalloutTone.neutral;
+  }
+}
+
+Color _calloutBackgroundForTone(ColorScheme scheme, _CalloutTone tone) {
+  switch (tone) {
+    case _CalloutTone.info:
+      return scheme.primaryContainer.withValues(alpha: 0.26);
+    case _CalloutTone.success:
+      return scheme.tertiaryContainer.withValues(alpha: 0.26);
+    case _CalloutTone.warning:
+      return scheme.secondaryContainer.withValues(alpha: 0.34);
+    case _CalloutTone.danger:
+      return scheme.errorContainer.withValues(alpha: 0.3);
+    case _CalloutTone.neutral:
+      return scheme.surfaceContainerHighest.withValues(alpha: 0.5);
+  }
+}
+
+Color _calloutBorderForTone(ColorScheme scheme, _CalloutTone tone) {
+  switch (tone) {
+    case _CalloutTone.info:
+      return scheme.primary.withValues(alpha: 0.45);
+    case _CalloutTone.success:
+      return scheme.tertiary.withValues(alpha: 0.45);
+    case _CalloutTone.warning:
+      return scheme.secondary.withValues(alpha: 0.5);
+    case _CalloutTone.danger:
+      return scheme.error.withValues(alpha: 0.5);
+    case _CalloutTone.neutral:
+      return scheme.outlineVariant.withValues(alpha: 0.5);
+  }
+}
+
+Color _calloutChipForTone(ColorScheme scheme, _CalloutTone tone) {
+  switch (tone) {
+    case _CalloutTone.info:
+      return scheme.primaryContainer.withValues(alpha: 0.75);
+    case _CalloutTone.success:
+      return scheme.tertiaryContainer.withValues(alpha: 0.75);
+    case _CalloutTone.warning:
+      return scheme.secondaryContainer.withValues(alpha: 0.85);
+    case _CalloutTone.danger:
+      return scheme.errorContainer.withValues(alpha: 0.85);
+    case _CalloutTone.neutral:
+      return scheme.surfaceContainerHighest.withValues(alpha: 0.85);
+  }
+}
 
 const _stylableBlockTypes = <String>{
   'paragraph',
@@ -121,21 +221,17 @@ class BlockEditor extends StatefulWidget {
     required this.session,
     required this.appSettings,
     this.readOnlyMode = false,
-    this.folioCloudEntitlements,
-    this.onOpenSettings,
   });
 
   final VaultSession session;
   final AppSettings appSettings;
   final bool readOnlyMode;
-  final FolioCloudEntitlementsController? folioCloudEntitlements;
-  final VoidCallback? onOpenSettings;
 
   @override
   State<BlockEditor> createState() => BlockEditorState();
 }
 
-class BlockEditorState extends State<BlockEditor> with _BlockRowBuild {
+class BlockEditorState extends State<BlockEditor> {
   static const _uuid = Uuid();
   final List<TextEditingController> _controllers = [];
   final List<FocusNode> _focusNodes = [];
@@ -169,6 +265,13 @@ class BlockEditorState extends State<BlockEditor> with _BlockRowBuild {
   int _mentionSelectedIndex = 0;
   final ScrollController _mentionListScrollController = ScrollController();
   final Map<String, Future<File?>> _resolvedFileFutureByUrl = {};
+  final LayerLink _formatToolbarLayerLink = LayerLink();
+  OverlayEntry? _formatToolbarOverlayEntry;
+  String? _formatToolbarOverlayBlockId;
+
+  /// Bloque de texto cuya barra de formato sigue visible aunque el foco se mueva al pulsarla (p. ej. ScrollView).
+  String? _formatStickyBlockId;
+  Timer? _formatStickyClearTimer;
 
   /// Anclas para [VaultSession.requestScrollToBlock] (TOC).
   final Map<String, GlobalKey> _blockScrollKeys = {};
@@ -206,73 +309,58 @@ class BlockEditorState extends State<BlockEditor> with _BlockRowBuild {
     _s.setBlockImageWidth(page.id, block.id, next);
   }
 
-  Set<double> _imageWidthPresetSelection(double w) {
-    const e = 0.06;
-    if ((w - 0.5).abs() < e) return {0.5};
-    if ((w - 0.75).abs() < e) return {0.75};
-    if ((w - 1.0).abs() < e) return {1.0};
-    return <double>{};
-  }
-
   Widget _blockMediaWidthToolbar(
     FolioPage page,
     FolioBlock block,
     ThemeData theme,
   ) {
     final l10n = AppLocalizations.of(context);
-    final w = _imageWidthFor(block);
     return Padding(
-      padding: const EdgeInsets.only(bottom: FolioSpace.xs),
+      padding: const EdgeInsets.only(bottom: 6),
       child: Wrap(
-        spacing: FolioSpace.xs,
-        runSpacing: FolioSpace.xs,
+        spacing: 6,
+        runSpacing: 6,
         crossAxisAlignment: WrapCrossAlignment.center,
         children: [
-          IconButton.filledTonal(
-            style: IconButton.styleFrom(
-              visualDensity: VisualDensity.compact,
-              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-            ),
+          FilledButton.tonalIcon(
             onPressed: () => _nudgeImageWidth(page, block, -0.1),
-            icon: const Icon(Icons.remove, size: 18),
-            tooltip: l10n.blockSizeSmaller,
+            icon: const Icon(Icons.remove, size: 16),
+            label: Text(l10n.blockSizeSmaller),
           ),
-          IconButton.filledTonal(
-            style: IconButton.styleFrom(
-              visualDensity: VisualDensity.compact,
-              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-            ),
+          FilledButton.tonalIcon(
             onPressed: () => _nudgeImageWidth(page, block, 0.1),
-            icon: const Icon(Icons.add, size: 18),
-            tooltip: l10n.blockSizeLarger,
+            icon: const Icon(Icons.add, size: 16),
+            label: Text(l10n.blockSizeLarger),
           ),
-          SegmentedButton<double>(
-            emptySelectionAllowed: true,
-            showSelectedIcon: false,
-            segments: <ButtonSegment<double>>[
-              ButtonSegment<double>(
-                value: 0.5,
-                label: Text(l10n.blockSizeHalf),
-              ),
-              ButtonSegment<double>(
-                value: 0.75,
-                label: Text(l10n.blockSizeThreeQuarter),
-              ),
-              ButtonSegment<double>(
-                value: 1.0,
-                label: Text(l10n.blockSizeFull),
-              ),
-            ],
-            selected: _imageWidthPresetSelection(w),
-            onSelectionChanged: (Set<double> next) {
-              if (next.isEmpty) return;
-              _s.setBlockImageWidth(page.id, block.id, next.first);
-            },
+          OutlinedButton(
+            onPressed: () => _s.setBlockImageWidth(page.id, block.id, 0.5),
+            child: Text(l10n.blockSizeHalf),
+          ),
+          OutlinedButton(
+            onPressed: () => _s.setBlockImageWidth(page.id, block.id, 0.75),
+            child: Text(l10n.blockSizeThreeQuarter),
+          ),
+          OutlinedButton(
+            onPressed: () => _s.setBlockImageWidth(page.id, block.id, 1.0),
+            child: Text(l10n.blockSizeFull),
           ),
         ],
       ),
     );
   }
+
+  static const _slashFormatTypes = {
+    'paragraph',
+    'h1',
+    'h2',
+    'h3',
+    'bullet',
+    'numbered',
+    'todo',
+    'toggle',
+    'quote',
+    'callout',
+  };
 
   bool _hasExpandedSelectionForBlockId(String blockId) {
     final idx = _controllerBlockIds.indexWhere((x) => x == blockId);
@@ -281,17 +369,48 @@ class BlockEditorState extends State<BlockEditor> with _BlockRowBuild {
     return sel.isValid && !sel.isCollapsed;
   }
 
+  void _syncFormatStickyBlockId() {
+    _formatStickyClearTimer?.cancel();
+    _formatStickyClearTimer = null;
+    final page = _s.selectedPage;
+    if (page == null) {
+      _formatStickyBlockId = null;
+      _removeFormatToolbarOverlay();
+      return;
+    }
+    for (var i = 0; i < _focusNodes.length; i++) {
+      if (i >= page.blocks.length) break;
+      if (_focusNodes[i].hasFocus) {
+        final b = page.blocks[i];
+        if (_slashFormatTypes.contains(b.type)) {
+          _formatStickyBlockId = b.id;
+        } else {
+          _formatStickyBlockId = null;
+          _removeFormatToolbarOverlay();
+        }
+        return;
+      }
+    }
+    _formatStickyClearTimer = Timer(const Duration(milliseconds: 280), () {
+      if (!mounted) return;
+      if (!_focusNodes.any((n) => n.hasFocus)) {
+        setState(() => _formatStickyBlockId = null);
+        _removeFormatToolbarOverlay();
+      }
+    });
+  }
+
   @override
   void initState() {
     super.initState();
     _s.addListener(_onSession);
-    widget.folioCloudEntitlements?.addListener(_onFolioCloudInkTick);
     _syncControllers();
   }
 
   @override
   void dispose() {
-    widget.folioCloudEntitlements?.removeListener(_onFolioCloudInkTick);
+    _formatStickyClearTimer?.cancel();
+    _removeFormatToolbarOverlay();
     _slashListScrollController.dispose();
     _mentionListScrollController.dispose();
     _blockListScrollController.dispose();
@@ -299,36 +418,6 @@ class BlockEditorState extends State<BlockEditor> with _BlockRowBuild {
     _s.removeListener(_onSession);
     _disposeControllers();
     super.dispose();
-  }
-
-  @override
-  void didUpdateWidget(BlockEditor oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (oldWidget.folioCloudEntitlements != widget.folioCloudEntitlements) {
-      oldWidget.folioCloudEntitlements?.removeListener(_onFolioCloudInkTick);
-      widget.folioCloudEntitlements?.addListener(_onFolioCloudInkTick);
-    }
-  }
-
-  void _onFolioCloudInkTick() {
-    if (mounted) setState(() {});
-  }
-
-  void _handleBlockEditorAiError(Object e, AppLocalizations l10n) {
-    if (!mounted) return;
-    final open = widget.onOpenSettings;
-    if (e is FolioCloudAiException && e.isInkExhausted && open != null) {
-      unawaited(
-        showFolioCloudAiInkExhaustedDialog(
-          context,
-          onOpenSettings: open,
-        ),
-      );
-      return;
-    }
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(l10n.aiErrorWithDetails(e))),
-    );
   }
 
   void _dismissInlineSlash({required bool clearTypedCommand}) {
@@ -342,7 +431,7 @@ class BlockEditorState extends State<BlockEditor> with _BlockRowBuild {
       if (idx >= 0) {
         final c = _controllers[idx];
         final t = c.text;
-        if (slashFilterFromBlockText(t) != null) {
+        if (_slashFilterFromBlockText(t) != null) {
           _ignoreShortcuts = true;
           c.value = const TextEditingValue(
             text: '',
@@ -487,6 +576,69 @@ class BlockEditorState extends State<BlockEditor> with _BlockRowBuild {
     if (mounted) setState(() {});
   }
 
+  void _removeFormatToolbarOverlay() {
+    _formatToolbarOverlayEntry?.remove();
+    _formatToolbarOverlayEntry = null;
+    _formatToolbarOverlayBlockId = null;
+  }
+
+  void _showOrUpdateFormatToolbarOverlay({
+    required String blockId,
+    required TextEditingController controller,
+    required FocusNode focusNode,
+    required ColorScheme scheme,
+    required FolioPage page,
+    required FolioBlock block,
+  }) {
+    _formatToolbarOverlayEntry?.remove();
+    _formatToolbarOverlayEntry = null;
+
+    Widget buildToolbar() {
+      return IgnorePointer(
+        ignoring: false,
+        child: CompositedTransformFollower(
+          link: _formatToolbarLayerLink,
+          showWhenUnlinked: true,
+          targetAnchor: Alignment.topLeft,
+          followerAnchor: Alignment.bottomLeft,
+          offset: const Offset(0, -8),
+          child: Align(
+            alignment: Alignment.topLeft,
+            widthFactor: 1,
+            heightFactor: 1,
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 520),
+              child: FolioFormatToolbar(
+                controller: controller,
+                colorScheme: scheme,
+                textFocusNode: focusNode,
+                onOpenBlockAppearance: _blockSupportsAppearance(block)
+                    ? () => unawaited(
+                        _editBlockAppearance(page, block, focusNode: focusNode),
+                      )
+                    : null,
+                onMentionPage: (ctx) => _toolbarMentionPage(ctx, controller),
+                onInsertUserMention: () =>
+                    _insertAtSelection(controller, '@usuario '),
+                onInsertDateMention: () => _insertAtSelection(
+                  controller,
+                  '@${DateFormat.yMMMd(Localizations.localeOf(context).toLanguageTag()).format(DateTime.now())} ',
+                ),
+                onInsertInlineMath: () =>
+                    _insertAtSelection(controller, r'\( x \)'),
+              ),
+            ),
+          ),
+        ),
+      );
+    }
+
+    _formatToolbarOverlayBlockId = blockId;
+    _formatToolbarOverlayEntry = OverlayEntry(builder: (ctx) => buildToolbar());
+    final overlay = Overlay.of(context, rootOverlay: true);
+    overlay.insert(_formatToolbarOverlayEntry!);
+  }
+
   List<FolioPage> _catalogFilteredForMention(String query) {
     final q = query.trim().toLowerCase();
     final items = _s.pages.where((p) {
@@ -519,7 +671,7 @@ class BlockEditorState extends State<BlockEditor> with _BlockRowBuild {
     final idx = _controllerBlockIds.indexWhere((x) => x == bid);
     if (idx < 0 || idx >= _controllers.length) return;
     final c = _controllers[idx];
-    final start = mentionTriggerStartFromSelection(c.text, c.selection);
+    final start = _mentionTriggerStartFromSelection(c.text, c.selection);
     if (start == null) {
       _dismissInlineMention();
       return;
@@ -547,7 +699,7 @@ class BlockEditorState extends State<BlockEditor> with _BlockRowBuild {
   }
 
   List<BlockTypeDef> _catalogFilteredForSlash(String q) {
-    final filtered = List<BlockTypeDef>.from(catalogFiltered(q));
+    final filtered = List<BlockTypeDef>.from(_catalogFiltered(q));
     final normalized = q.trim().toLowerCase();
     filtered.addAll(
       _inlineSlashActionCatalog.where((a) {
@@ -629,6 +781,9 @@ class BlockEditorState extends State<BlockEditor> with _BlockRowBuild {
     _mentionSelectedIndex = 0;
     _menuOpenBlockId = null;
     _mermaidEditingSourceIds.clear();
+    _formatStickyClearTimer?.cancel();
+    _formatStickyClearTimer = null;
+    _formatStickyBlockId = null;
     _selectedBlockIds.clear();
     _selectionAnchorBlockId = null;
     _dragSelectionActive = false;
@@ -642,7 +797,7 @@ class BlockEditorState extends State<BlockEditor> with _BlockRowBuild {
     if (page.blocks.length != _controllerBlockIds.length) return true;
     for (var i = 0; i < page.blocks.length; i++) {
       if (page.blocks[i].id != _controllerBlockIds[i]) return true;
-      final wantCode = usesCodeControllerForBlockType(page.blocks[i].type);
+      final wantCode = _usesCodeControllerForBlockType(page.blocks[i].type);
       final hasCode = _controllers[i] is CodeController;
       if (wantCode != hasCode) return true;
     }
@@ -669,7 +824,7 @@ class BlockEditorState extends State<BlockEditor> with _BlockRowBuild {
     for (final b in page.blocks) {
       final j = _controllerBlockIds.indexOf(b.id);
       if (j < 0) return false;
-      final wantCode = usesCodeControllerForBlockType(b.type);
+      final wantCode = _usesCodeControllerForBlockType(b.type);
       final hasCode = _controllers[j] is CodeController;
       if (wantCode != hasCode) return false;
     }
@@ -761,11 +916,20 @@ class BlockEditorState extends State<BlockEditor> with _BlockRowBuild {
             ..add(scrollId);
           _selectionAnchorBlockId = scrollId;
         });
+        final ctx = _blockScrollKeys[scrollId]?.currentContext;
+        if (ctx != null) {
+          Scrollable.ensureVisible(
+            ctx,
+            duration: const Duration(milliseconds: 280),
+            curve: Curves.easeOutCubic,
+            alignment: 0.12,
+          );
+        }
         final idx = _controllerBlockIds.indexOf(scrollId);
         if (idx >= 0 && idx < _focusNodes.length) {
           _focusNodes[idx].requestFocus();
         }
-        _ensureBlockVisibleFromScrollRequest(scrollId, attempt: 0);
+        _s.clearPendingScrollToBlock();
       });
     }
 
@@ -795,66 +959,12 @@ class BlockEditorState extends State<BlockEditor> with _BlockRowBuild {
     setState(() {});
   }
 
-  /// Desde el índice lateral / búsqueda: selecciona el bloque y desplaza la lista.
+  /// API pública para paneles externos (p. ej. índice lateral) que quieran
+  /// desplazar el editor hasta un bloque concreto.
   void scrollToBlock(String blockId) {
-    if (!mounted) return;
     final page = _s.selectedPage;
     if (page == null || !page.blocks.any((b) => b.id == blockId)) return;
-    _pendingFocusBlockId = blockId;
-    setState(() {
-      _selectedBlockIds
-        ..clear()
-        ..add(blockId);
-      _selectionAnchorBlockId = blockId;
-    });
-    final idx = _controllerBlockIds.indexOf(blockId);
-    if (idx >= 0 && idx < _focusNodes.length) {
-      _focusNodes[idx].requestFocus();
-    }
-    _ensureBlockVisibleFromScrollRequest(blockId, attempt: 0);
-  }
-
-  void _scrollBlockListProportionalToBlock(String blockId) {
-    final page = _s.selectedPage;
-    if (page == null) return;
-    final idx = page.blocks.indexWhere((b) => b.id == blockId);
-    if (idx < 0) return;
-    if (!_blockListScrollController.hasClients) return;
-    final pos = _blockListScrollController.position;
-    final n = page.blocks.length;
-    if (n <= 1) return;
-    final t = idx / (n - 1);
-    final target = t * pos.maxScrollExtent;
-    _blockListScrollController.animateTo(
-      target.clamp(0.0, pos.maxScrollExtent),
-      duration: const Duration(milliseconds: 280),
-      curve: Curves.easeOutCubic,
-    );
-  }
-
-  /// [VaultSession.requestScrollToBlock] — reintentos hasta que exista el
-  /// [GlobalKey] del bloque en el árbol (p. ej. tras un [setState]).
-  void _ensureBlockVisibleFromScrollRequest(String blockId, {int attempt = 0}) {
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted) return;
-      final ctx = _blockScrollKeys[blockId]?.currentContext;
-      if (ctx != null) {
-        Scrollable.ensureVisible(
-          ctx,
-          duration: const Duration(milliseconds: 280),
-          curve: Curves.easeOutCubic,
-          alignment: 0.12,
-        );
-        _s.clearPendingScrollToBlock();
-        return;
-      }
-      if (attempt < 24) {
-        _ensureBlockVisibleFromScrollRequest(blockId, attempt: attempt + 1);
-      } else {
-        _scrollBlockListProportionalToBlock(blockId);
-        _s.clearPendingScrollToBlock();
-      }
-    });
+    _s.requestScrollToBlock(blockId);
   }
 
   void _syncControllers() {
@@ -879,7 +989,7 @@ class BlockEditorState extends State<BlockEditor> with _BlockRowBuild {
     for (final b in page.blocks) {
       final bid = b.id;
       final pid = page.id;
-      final TextEditingController c = usesCodeControllerForBlockType(b.type)
+      final TextEditingController c = _usesCodeControllerForBlockType(b.type)
           ? CodeController(
               text: b.text,
               language: modeForLanguageId(
@@ -894,6 +1004,7 @@ class BlockEditorState extends State<BlockEditor> with _BlockRowBuild {
         if (!mounted) return;
         final p = _s.selectedPage;
         if (p == null || p.id != pid) return;
+        _syncFormatStickyBlockId();
         final idx = p.blocks.indexWhere((x) => x.id == bid);
         if (idx < 0) return;
         if (_tailTapTransientTouchedByBlockId.containsKey(bid) &&
@@ -928,6 +1039,7 @@ class BlockEditorState extends State<BlockEditor> with _BlockRowBuild {
 
       void focusDecorListener() {
         if (!mounted) return;
+        _syncFormatStickyBlockId();
         if (!fn.hasFocus) {
           final touched = _tailTapTransientTouchedByBlockId[bid];
           if (touched != null) {
@@ -1062,7 +1174,7 @@ class BlockEditorState extends State<BlockEditor> with _BlockRowBuild {
     }
 
     final slashFilter = _slashBlockId == blockId
-        ? slashFilterFromBlockText(ctrl.text)
+        ? _slashFilterFromBlockText(ctrl.text)
         : null;
     if (slashFilter != null) {
       final slashItems = _catalogFilteredForSlash(slashFilter);
@@ -1103,7 +1215,7 @@ class BlockEditorState extends State<BlockEditor> with _BlockRowBuild {
     }
 
     final mentionFilter = _mentionBlockId == blockId
-        ? mentionFilterFromSelection(ctrl.text, ctrl.selection)
+        ? _mentionFilterFromSelection(ctrl.text, ctrl.selection)
         : null;
     if (mentionFilter != null) {
       final mentionItems = _catalogFilteredForMention(mentionFilter);
@@ -1655,7 +1767,7 @@ class BlockEditorState extends State<BlockEditor> with _BlockRowBuild {
       return;
     }
 
-    final slashFilter = slashFilterFromBlockText(text);
+    final slashFilter = _slashFilterFromBlockText(text);
     if (slashFilter != null) {
       if (_mentionBlockId == blockId) {
         _dismissInlineMention();
@@ -1692,7 +1804,7 @@ class BlockEditorState extends State<BlockEditor> with _BlockRowBuild {
     final sel = index < _controllers.length
         ? _controllers[index].selection
         : const TextSelection.collapsed(offset: -1);
-    final mentionFilter = mentionFilterFromSelection(text, sel);
+    final mentionFilter = _mentionFilterFromSelection(text, sel);
     if (mentionFilter != null) {
       final open = _mentionBlockId != blockId;
       _mentionPageId = pageId;
@@ -3117,32 +3229,6 @@ class BlockEditorState extends State<BlockEditor> with _BlockRowBuild {
     return Colors.transparent;
   }
 
-  Border? _blockRowBorder(
-    ColorScheme scheme,
-    int index,
-    FocusNode focus,
-    bool selected,
-  ) {
-    final hovered = _hoveredBlockIndex == index;
-    final focused = focus.hasFocus;
-    if (selected) {
-      return Border.all(
-        color: scheme.primary.withValues(alpha: focused ? 0.4 : 0.28),
-        width: 1,
-      );
-    }
-    if (focused) {
-      return Border.all(color: scheme.outline.withValues(alpha: 0.5), width: 1);
-    }
-    if (hovered) {
-      return Border.all(
-        color: scheme.outlineVariant.withValues(alpha: 0.38),
-        width: 1,
-      );
-    }
-    return null;
-  }
-
   void _moveBlock(String pageId, String blockId, int delta) {
     final idx =
         _s.selectedPage?.blocks.indexWhere((b) => b.id == blockId) ?? -1;
@@ -3206,19 +3292,10 @@ class BlockEditorState extends State<BlockEditor> with _BlockRowBuild {
     final enterHint = widget.appSettings.enterCreatesNewBlock
         ? 'Enter: bloque nuevo (en código: Enter = línea)'
         : 'Enter: nueva línea';
-    final hintFull = androidPhoneLayout
-        ? '$enterHint · / para bloques · toca el bloque para más acciones'
-        : '$enterHint · Shift+Enter: línea · / tipos · # título (misma línea) · - · * · [] · ``` espacio · tabla/imagen en / · formato: barra al enfocar o ** _ <u> ` ~~';
-
-    final fc = widget.folioCloudEntitlements;
-    final l10n = AppLocalizations.of(context);
-    final showZeroInkBanner = fc != null &&
-        widget.onOpenSettings != null &&
-        !readOnlyMode &&
-        widget.appSettings.isAiRuntimeEnabled &&
-        widget.appSettings.aiProvider == AiProvider.folioCloud &&
-        fc.snapshot.canUseCloudAi &&
-        fc.snapshot.ink.totalInk <= 0;
+    final mono = theme.textTheme.bodySmall?.copyWith(
+      color: scheme.onSurfaceVariant,
+      fontFamily: 'monospace',
+    );
 
     return FocusTraversalGroup(
       child: Column(
@@ -3227,217 +3304,73 @@ class BlockEditorState extends State<BlockEditor> with _BlockRowBuild {
           if (!readOnlyMode)
             Padding(
               padding: EdgeInsets.fromLTRB(
-                androidPhoneLayout ? FolioSpace.sm : FolioSpace.xs,
+                androidPhoneLayout ? 14 : 12,
                 0,
-                androidPhoneLayout ? FolioSpace.sm : FolioSpace.xs,
-                androidPhoneLayout ? FolioSpace.xs : FolioSpace.sm,
+                androidPhoneLayout ? 14 : 12,
+                androidPhoneLayout ? 8 : 10,
               ),
-              child: Tooltip(
-                message: hintFull,
-                waitDuration: const Duration(milliseconds: 450),
-                child: DecoratedBox(
-                  decoration: BoxDecoration(
-                    color: scheme.surfaceContainerHighest.withValues(
-                      alpha: 0.55,
-                    ),
-                    borderRadius: BorderRadius.circular(FolioRadius.sm),
-                    border: Border.all(
-                      color: scheme.outlineVariant.withValues(alpha: 0.35),
-                    ),
-                  ),
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: FolioSpace.sm,
-                      vertical: FolioSpace.xs,
-                    ),
-                    child: Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Icon(
-                          Icons.keyboard_outlined,
-                          size: 18,
-                          color: scheme.onSurfaceVariant,
-                        ),
-                        const SizedBox(width: FolioSpace.xs),
-                        Expanded(
-                          child: Text(
-                            hintFull,
-                            maxLines: androidPhoneLayout ? 4 : 1,
-                            overflow: TextOverflow.ellipsis,
-                            textAlign: androidPhoneLayout
-                                ? TextAlign.start
-                                : TextAlign.center,
-                            style: theme.textTheme.bodySmall?.copyWith(
-                              color: scheme.onSurfaceVariant,
-                              height: 1.35,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-            ),
-          if (showZeroInkBanner)
-            Padding(
-              padding: EdgeInsets.fromLTRB(
-                androidPhoneLayout ? FolioSpace.sm : FolioSpace.xs,
-                0,
-                androidPhoneLayout ? FolioSpace.sm : FolioSpace.xs,
-                FolioSpace.sm,
-              ),
-              child: DecoratedBox(
-                decoration: BoxDecoration(
-                  color: scheme.errorContainer.withValues(alpha: 0.42),
-                  borderRadius: BorderRadius.circular(FolioRadius.sm),
-                  border: Border.all(
-                    color: scheme.outlineVariant.withValues(alpha: 0.4),
-                  ),
-                ),
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: FolioSpace.sm,
-                    vertical: FolioSpace.xs,
-                  ),
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Icon(
-                        Icons.water_drop_outlined,
-                        size: 18,
-                        color: scheme.onErrorContainer,
-                      ),
-                      const SizedBox(width: FolioSpace.xs),
-                      Expanded(
-                        child: Text(
-                          l10n.folioCloudAiZeroInkBanner,
-                          style: theme.textTheme.bodySmall?.copyWith(
-                            color: scheme.onErrorContainer,
-                            height: 1.35,
-                          ),
-                        ),
-                      ),
-                      TextButton(
-                        onPressed: widget.onOpenSettings,
-                        child: Text(l10n.settings),
-                      ),
-                    ],
-                  ),
-                ),
+              child: Text(
+                androidPhoneLayout
+                    ? '$enterHint · / para bloques · toca el bloque para más acciones'
+                    : '$enterHint · Shift+Enter: línea · / tipos · # título (misma línea) · - · * · [] · ``` espacio · tabla/imagen en / · formato: barra al enfocar o ** _ <u> ` ~~',
+                textAlign: TextAlign.center,
+                style: mono,
               ),
             ),
           if (!readOnlyMode && selectedCount > 1)
             Padding(
-              padding: EdgeInsets.fromLTRB(
-                FolioSpace.xs,
-                0,
-                FolioSpace.xs,
-                FolioSpace.sm,
-              ),
-              child: DecoratedBox(
+              padding: const EdgeInsets.fromLTRB(12, 0, 12, 10),
+              child: Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 10,
+                ),
                 decoration: BoxDecoration(
                   color: scheme.primaryContainer.withValues(alpha: 0.4),
-                  borderRadius: BorderRadius.circular(FolioRadius.md),
+                  borderRadius: BorderRadius.circular(14),
                   border: Border.all(
                     color: scheme.primary.withValues(alpha: 0.24),
                   ),
                 ),
-                child: Padding(
-                  padding: EdgeInsets.symmetric(
-                    horizontal: FolioSpace.xs,
-                    vertical: androidPhoneLayout
-                        ? FolioSpace.xxs
-                        : FolioSpace.xs,
-                  ),
-                  child: androidPhoneLayout
-                      ? Column(
-                          crossAxisAlignment: CrossAxisAlignment.stretch,
-                          children: [
-                            Text(
-                              '$selectedCount bloques seleccionados · Shift: rango · Ctrl/Cmd: alternar',
-                              textAlign: TextAlign.center,
-                              style: theme.textTheme.bodySmall?.copyWith(
-                                color: scheme.onSurface,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                            const SizedBox(height: FolioSpace.xxs),
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                IconButton.filledTonal(
-                                  onPressed: () => _duplicateSelectedBlocks(
-                                    page,
-                                    _selectedBlockIds.toList(),
-                                  ),
-                                  icon: const Icon(Icons.copy_all_rounded),
-                                  tooltip: 'Duplicar',
-                                ),
-                                IconButton.filledTonal(
-                                  onPressed: page.blocks.length > 1
-                                      ? () => _deleteSelectedBlocks(
-                                          page,
-                                          _selectedBlockIds.toList(),
-                                        )
-                                      : null,
-                                  icon: const Icon(
-                                    Icons.delete_forever_rounded,
-                                  ),
-                                  tooltip: 'Eliminar',
-                                ),
-                                IconButton(
-                                  onPressed: _clearBlockSelection,
-                                  tooltip: 'Limpiar selección',
-                                  icon: const Icon(Icons.close_rounded),
-                                ),
-                              ],
-                            ),
-                          ],
-                        )
-                      : Wrap(
-                          spacing: FolioSpace.xs,
-                          runSpacing: FolioSpace.xs,
-                          crossAxisAlignment: WrapCrossAlignment.center,
-                          children: [
-                            Text(
-                              '$selectedCount bloques seleccionados · Shift: rango · Ctrl/Cmd: alternar',
-                              style: theme.textTheme.bodyMedium?.copyWith(
-                                color: scheme.onSurface,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                            TextButton.icon(
-                              onPressed: () => _duplicateSelectedBlocks(
-                                page,
-                                _selectedBlockIds.toList(),
-                              ),
-                              icon: const Icon(
-                                Icons.copy_all_rounded,
-                                size: 18,
-                              ),
-                              label: const Text('Duplicar'),
-                            ),
-                            TextButton.icon(
-                              onPressed: page.blocks.length > 1
-                                  ? () => _deleteSelectedBlocks(
-                                      page,
-                                      _selectedBlockIds.toList(),
-                                    )
-                                  : null,
-                              icon: const Icon(
-                                Icons.delete_forever_rounded,
-                                size: 18,
-                              ),
-                              label: const Text('Eliminar'),
-                            ),
-                            IconButton(
-                              onPressed: _clearBlockSelection,
-                              tooltip: 'Limpiar selección',
-                              icon: const Icon(Icons.close_rounded),
-                            ),
-                          ],
+                child: Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  children: [
+                    SizedBox(
+                      width: androidPhoneLayout ? double.infinity : null,
+                      child: Text(
+                        '$selectedCount bloques seleccionados · Shift: rango · Ctrl/Cmd: alternar',
+                        style: theme.textTheme.bodyMedium?.copyWith(
+                          color: scheme.onSurface,
+                          fontWeight: FontWeight.w600,
                         ),
+                      ),
+                    ),
+                    TextButton.icon(
+                      onPressed: () => _duplicateSelectedBlocks(
+                        page,
+                        _selectedBlockIds.toList(),
+                      ),
+                      icon: const Icon(Icons.copy_all_rounded, size: 18),
+                      label: const Text('Duplicar'),
+                    ),
+                    TextButton.icon(
+                      onPressed: page.blocks.length > 1
+                          ? () => _deleteSelectedBlocks(
+                              page,
+                              _selectedBlockIds.toList(),
+                            )
+                          : null,
+                      icon: const Icon(Icons.delete_forever_rounded, size: 18),
+                      label: const Text('Eliminar'),
+                    ),
+                    IconButton(
+                      onPressed: _clearBlockSelection,
+                      tooltip: 'Limpiar selección',
+                      icon: const Icon(Icons.close_rounded),
+                    ),
+                  ],
                 ),
               ),
             ),
@@ -3493,81 +3426,64 @@ class BlockEditorState extends State<BlockEditor> with _BlockRowBuild {
                           (showActions || selected || focus.hasFocus);
                       return KeyedSubtree(
                         key: ValueKey('block_row_${b.id}'),
-                        child: RepaintBoundary(
-                          key: _blockScrollKeys.putIfAbsent(
-                            b.id,
-                            GlobalKey.new,
-                          ),
-                          child: MouseRegion(
-                            onEnter: (_) {
-                              if (_hoveredBlockIndex != index) {
-                                setState(() => _hoveredBlockIndex = index);
-                              }
-                            },
-                            onExit: (_) {
-                              if (_hoveredBlockIndex == index) {
-                                setState(() => _hoveredBlockIndex = null);
-                              }
-                            },
-                            child: GestureDetector(
-                              behavior: HitTestBehavior.translucent,
-                              onTapDown: readOnlyMode
-                                  ? null
-                                  : (_) => _handleBlockSelection(
-                                      page,
-                                      b.id,
-                                      focusNode: focus,
-                                    ),
-                              onPanStart: readOnlyMode
-                                  ? null
-                                  : (_) => _beginDragSelection(
-                                      page,
-                                      b.id,
-                                      focusNode: focus,
-                                    ),
-                              onPanUpdate: readOnlyMode
-                                  ? null
-                                  : (_) => _updateDragSelection(page, b.id),
-                              child: AnimatedContainer(
-                                duration: FolioMotion.short1,
-                                curve: FolioMotion.emphasized,
-                                margin: EdgeInsets.only(
-                                  bottom: androidPhoneLayout
-                                      ? FolioSpace.xs
-                                      : 1,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: _blockRowFill(
-                                    scheme,
-                                    index,
-                                    focus,
-                                    selected,
+                        child: MouseRegion(
+                          onEnter: (_) {
+                            if (_hoveredBlockIndex != index) {
+                              setState(() => _hoveredBlockIndex = index);
+                            }
+                          },
+                          onExit: (_) {
+                            if (_hoveredBlockIndex == index) {
+                              setState(() => _hoveredBlockIndex = null);
+                            }
+                          },
+                          child: GestureDetector(
+                            behavior: HitTestBehavior.translucent,
+                            onTapDown: readOnlyMode
+                                ? null
+                                : (_) => _handleBlockSelection(
+                                    page,
+                                    b.id,
+                                    focusNode: focus,
                                   ),
-                                  borderRadius: BorderRadius.circular(
-                                    androidPhoneLayout
-                                        ? FolioRadius.md
-                                        : FolioRadius.sm,
+                            onPanStart: readOnlyMode
+                                ? null
+                                : (_) => _beginDragSelection(
+                                    page,
+                                    b.id,
+                                    focusNode: focus,
                                   ),
-                                  border: _blockRowBorder(
-                                    scheme,
-                                    index,
-                                    focus,
-                                    selected,
-                                  ),
+                            onPanUpdate: readOnlyMode
+                                ? null
+                                : (_) => _updateDragSelection(page, b.id),
+                            child: AnimatedContainer(
+                              duration: const Duration(milliseconds: 120),
+                              curve: Curves.easeOut,
+                              margin: EdgeInsets.only(
+                                bottom: androidPhoneLayout ? 6 : 1,
+                              ),
+                              decoration: BoxDecoration(
+                                color: _blockRowFill(
+                                  scheme,
+                                  index,
+                                  focus,
+                                  selected,
                                 ),
-                                child: _buildBlockRow(
-                                  context: context,
-                                  scheme: scheme,
-                                  page: page,
-                                  block: b,
-                                  index: index,
-                                  ctrl: ctrl,
-                                  focus: focus,
-                                  style: style,
-                                  showActions: showActions,
-                                  showInlineEditControls:
-                                      showInlineEditControls,
+                                borderRadius: BorderRadius.circular(
+                                  androidPhoneLayout ? 14 : 6,
                                 ),
+                              ),
+                              child: _buildBlockRow(
+                                context: context,
+                                scheme: scheme,
+                                page: page,
+                                block: b,
+                                index: index,
+                                ctrl: ctrl,
+                                focus: focus,
+                                style: style,
+                                showActions: showActions,
+                                showInlineEditControls: showInlineEditControls,
                               ),
                             ),
                           ),
@@ -3582,328 +3498,6 @@ class BlockEditorState extends State<BlockEditor> with _BlockRowBuild {
         ],
       ),
     );
-  }
-
-  static const _aiTextBlockTypes = <String>{
-    'paragraph',
-    'h1',
-    'h2',
-    'h3',
-    'quote',
-    'bullet',
-    'numbered',
-    'todo',
-    'callout',
-    'toggle',
-    'task',
-  };
-
-  String _selectedTextForAiBlock(int index) {
-    if (index < 0 || index >= _controllers.length) return '';
-    final c = _controllers[index];
-    final sel = c.selection;
-    if (!sel.isValid || sel.isCollapsed) {
-      return c.text;
-    }
-    final a = sel.start;
-    final b = sel.end;
-    final lo = a < b ? a : b;
-    final hi = a < b ? b : a;
-    return c.text.substring(
-      lo.clamp(0, c.text.length),
-      hi.clamp(0, c.text.length),
-    );
-  }
-
-  void _syncControllerAfterAiBlockText(FolioPage page, String blockId) {
-    final p2 = _s.selectedPage;
-    if (p2 == null || !mounted) return;
-    final j = p2.blocks.indexWhere((x) => x.id == blockId);
-    if (j < 0 || j >= _controllers.length) return;
-    final nb = p2.blocks[j];
-    _ignoreShortcuts = true;
-    _controllers[j].value = TextEditingValue(
-      text: nb.text,
-      selection: TextSelection.collapsed(offset: nb.text.length),
-    );
-    _ignoreShortcuts = false;
-    setState(() {});
-  }
-
-  Future<void> _runAiRewriteFlow(FolioPage page, FolioBlock b, int index) async {
-    if (!mounted) return;
-    final l10n = AppLocalizations.of(context);
-    final c = TextEditingController();
-    final go = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: Text(l10n.aiRewriteDialogTitle),
-        content: TextField(
-          controller: c,
-          maxLines: 4,
-          decoration: InputDecoration(hintText: l10n.aiInstructionHint),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: Text(l10n.cancel),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(ctx, true),
-            child: Text(l10n.continueAction),
-          ),
-        ],
-      ),
-    );
-    final instruction = c.text.trim();
-    c.dispose();
-    if (go != true || instruction.isEmpty) return;
-    if (!mounted) return;
-    showDialog<void>(
-      context: context,
-      barrierDismissible: false,
-      builder: (ctx) => PopScope(
-        canPop: false,
-        child: AlertDialog(
-          content: Row(
-            children: [
-              const SizedBox(
-                width: 28,
-                height: 28,
-                child: CircularProgressIndicator(strokeWidth: 2.6),
-              ),
-              const SizedBox(width: 16),
-              Expanded(child: Text(l10n.aiGenerating)),
-            ],
-          ),
-        ),
-      ),
-    );
-    try {
-      final preview = await _s.previewRewriteBlockWithAi(
-        pageId: page.id,
-        blockId: b.id,
-        instruction: instruction,
-      );
-      if (!mounted) return;
-      Navigator.of(context).pop();
-      final previewCtrl = TextEditingController(text: preview.text);
-      final applied = await showDialog<bool>(
-        context: context,
-        builder: (ctx) => AlertDialog(
-          title: Text(l10n.aiPreviewTitle),
-          content: SizedBox(
-            width: 520,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Text(
-                  l10n.aiPreviewReadOnlyHint,
-                  style: Theme.of(context).textTheme.bodySmall,
-                ),
-                const SizedBox(height: 8),
-                TextField(
-                  controller: previewCtrl,
-                  maxLines: 12,
-                  decoration: const InputDecoration(
-                    border: OutlineInputBorder(),
-                  ),
-                ),
-              ],
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(ctx, false),
-              child: Text(l10n.cancel),
-            ),
-            FilledButton(
-              onPressed: () => Navigator.pop(ctx, true),
-              child: Text(l10n.aiApply),
-            ),
-          ],
-        ),
-      );
-      final newText = previewCtrl.text.trim();
-      previewCtrl.dispose();
-      if (applied != true || newText.isEmpty) return;
-      final previous = b.text;
-      _s.updateBlockText(page.id, b.id, newText);
-      _syncControllerAfterAiBlockText(page, b.id);
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(l10n.aiRewriteApplied),
-          action: SnackBarAction(
-            label: l10n.aiUndoRewrite,
-            onPressed: () {
-              _s.updateBlockText(page.id, b.id, previous);
-              _syncControllerAfterAiBlockText(page, b.id);
-            },
-          ),
-        ),
-      );
-    } catch (e) {
-      if (mounted) {
-        Navigator.of(context).pop();
-        _handleBlockEditorAiError(e, l10n);
-      }
-    }
-  }
-
-  Future<void> _showAiResultInsertDialog({
-    required String title,
-    required String body,
-    required FolioPage page,
-    required String afterBlockId,
-  }) async {
-    final l10n = AppLocalizations.of(context);
-    final ctrl = TextEditingController(text: body);
-    final action = await showDialog<String>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: Text(title),
-        content: SizedBox(
-          width: 480,
-          child: SingleChildScrollView(
-            child: TextField(
-              controller: ctrl,
-              maxLines: 14,
-              decoration: const InputDecoration(
-                border: OutlineInputBorder(),
-              ),
-            ),
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: Text(l10n.cancel),
-          ),
-          TextButton(
-            onPressed: () {
-              Clipboard.setData(ClipboardData(text: ctrl.text));
-              Navigator.pop(ctx);
-            },
-            child: Text(l10n.aiCopyMessage),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(ctx, 'insert'),
-            child: Text(l10n.aiInsertBelow),
-          ),
-        ],
-      ),
-    );
-    final text = ctrl.text.trim();
-    ctrl.dispose();
-    if (action != 'insert' || !mounted) return;
-    if (text.isEmpty) return;
-    _s.insertBlockAfter(
-      pageId: page.id,
-      afterBlockId: afterBlockId,
-      block: FolioBlock(
-        id: '${page.id}_${_uuid.v4()}',
-        type: 'paragraph',
-        text: text,
-      ),
-    );
-  }
-
-  Future<void> _runAiSummarizeFlow(FolioPage page, FolioBlock b, int index) async {
-    if (!mounted) return;
-    final l10n = AppLocalizations.of(context);
-    final lc = Localizations.localeOf(context).languageCode;
-    showDialog<void>(
-      context: context,
-      barrierDismissible: false,
-      builder: (ctx) => PopScope(
-        canPop: false,
-        child: AlertDialog(
-          content: Row(
-            children: [
-              const SizedBox(
-                width: 28,
-                height: 28,
-                child: CircularProgressIndicator(strokeWidth: 2.6),
-              ),
-              const SizedBox(width: 16),
-              Expanded(child: Text(l10n.aiGenerating)),
-            ],
-          ),
-        ),
-      ),
-    );
-    try {
-      final sel = _selectedTextForAiBlock(index);
-      final out = await _s.summarizeSelectionWithAi(
-        pageId: page.id,
-        blockId: b.id,
-        selectionText: sel,
-        languageCode: lc,
-      );
-      if (!mounted) return;
-      Navigator.of(context).pop();
-      await _showAiResultInsertDialog(
-        title: l10n.aiSummarizeSelection,
-        body: out.text,
-        page: page,
-        afterBlockId: b.id,
-      );
-    } catch (e) {
-      if (mounted) {
-        Navigator.of(context).pop();
-        _handleBlockEditorAiError(e, l10n);
-      }
-    }
-  }
-
-  Future<void> _runAiExtractFlow(FolioPage page, FolioBlock b, int index) async {
-    if (!mounted) return;
-    final l10n = AppLocalizations.of(context);
-    final lc = Localizations.localeOf(context).languageCode;
-    showDialog<void>(
-      context: context,
-      barrierDismissible: false,
-      builder: (ctx) => PopScope(
-        canPop: false,
-        child: AlertDialog(
-          content: Row(
-            children: [
-              const SizedBox(
-                width: 28,
-                height: 28,
-                child: CircularProgressIndicator(strokeWidth: 2.6),
-              ),
-              const SizedBox(width: 16),
-              Expanded(child: Text(l10n.aiGenerating)),
-            ],
-          ),
-        ),
-      ),
-    );
-    try {
-      final sel = _selectedTextForAiBlock(index);
-      final out = await _s.extractTasksAndDatesWithAi(
-        pageId: page.id,
-        blockId: b.id,
-        selectionText: sel,
-        languageCode: lc,
-      );
-      if (!mounted) return;
-      Navigator.of(context).pop();
-      await _showAiResultInsertDialog(
-        title: l10n.aiExtractTasksDates,
-        body: out.text,
-        page: page,
-        afterBlockId: b.id,
-      );
-    } catch (e) {
-      if (mounted) {
-        Navigator.of(context).pop();
-        _handleBlockEditorAiError(e, l10n);
-      }
-    }
   }
 
   PopupMenuButton<String> _blockMenuButton({
@@ -3964,16 +3558,49 @@ class BlockEditorState extends State<BlockEditor> with _BlockRowBuild {
         if (v == 'del' && page.blocks.length > 1) {
           _deleteSelectedBlocks(page, _selectedIdsForAction(page, b.id));
         } else if (v == 'ai_rewrite') {
-          WidgetsBinding.instance.addPostFrameCallback((_) {
-            unawaited(_runAiRewriteFlow(page, b, index));
-          });
-        } else if (v == 'ai_summarize') {
-          WidgetsBinding.instance.addPostFrameCallback((_) {
-            unawaited(_runAiSummarizeFlow(page, b, index));
-          });
-        } else if (v == 'ai_extract') {
-          WidgetsBinding.instance.addPostFrameCallback((_) {
-            unawaited(_runAiExtractFlow(page, b, index));
+          WidgetsBinding.instance.addPostFrameCallback((_) async {
+            if (!mounted) return;
+            final c = TextEditingController();
+            final go = await showDialog<bool>(
+              context: menuContext,
+              builder: (ctx) => AlertDialog(
+                title: const Text('Reescribir con IA'),
+                content: TextField(
+                  controller: c,
+                  maxLines: 4,
+                  decoration: const InputDecoration(
+                    hintText: 'Ejemplo: hazlo más claro y breve',
+                  ),
+                ),
+                actions: [
+                  TextButton(
+                    onPressed: () => Navigator.pop(ctx, false),
+                    child: const Text('Cancelar'),
+                  ),
+                  FilledButton(
+                    onPressed: () => Navigator.pop(ctx, true),
+                    child: const Text('Aplicar'),
+                  ),
+                ],
+              ),
+            );
+            final instruction = c.text.trim();
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              c.dispose();
+            });
+            if (go != true || instruction.isEmpty) return;
+            try {
+              await _s.rewriteBlockWithAi(
+                pageId: page.id,
+                blockId: b.id,
+                instruction: instruction,
+              );
+            } catch (e) {
+              if (!mounted) return;
+              ScaffoldMessenger.of(
+                context,
+              ).showSnackBar(SnackBar(content: Text('Error IA: $e')));
+            }
           });
         } else if (v == 'pick_type') {
           WidgetsBinding.instance.addPostFrameCallback((_) async {
@@ -4190,22 +3817,8 @@ class BlockEditorState extends State<BlockEditor> with _BlockRowBuild {
               ctx,
               value: 'ai_rewrite',
               icon: Icons.auto_fix_high_rounded,
-              label: AppLocalizations.of(ctx).aiRewriteDialogTitle,
+              label: 'Reescribir con IA…',
             ),
-          if (_s.aiEnabled && _aiTextBlockTypes.contains(b.type)) ...[
-            item(
-              ctx,
-              value: 'ai_summarize',
-              icon: Icons.summarize_rounded,
-              label: AppLocalizations.of(ctx).aiSummarizeSelection,
-            ),
-            item(
-              ctx,
-              value: 'ai_extract',
-              icon: Icons.task_alt_rounded,
-              label: AppLocalizations.of(ctx).aiExtractTasksDates,
-            ),
-          ],
           if (index > 0)
             item(
               ctx,
@@ -4563,8 +4176,6 @@ class BlockEditorState extends State<BlockEditor> with _BlockRowBuild {
     return n;
   }
 
-  void _blockRowSetState(VoidCallback fn) => setState(fn);
-
   Widget _blockMenuSlot({
     required bool showActions,
     required PopupMenuButton<String> menu,
@@ -4596,17 +4207,1850 @@ class BlockEditorState extends State<BlockEditor> with _BlockRowBuild {
     required bool showActions,
     required bool showInlineEditControls,
   }) {
-    return _buildBlockRowDelegated(
-      context: context,
-      scheme: scheme,
+    final androidPhoneLayout = FolioAdaptive.isAndroidPhoneWidth(
+      MediaQuery.sizeOf(context).width,
+    );
+    final compactReadOnlyMobile = widget.readOnlyMode && androidPhoneLayout;
+    final menu = _blockMenuButton(
+      menuContext: context,
       page: page,
-      block: block,
+      b: block,
       index: index,
-      ctrl: ctrl,
-      focus: focus,
-      style: style,
-      showActions: showActions,
-      showInlineEditControls: showInlineEditControls,
+    );
+    final iconColor = scheme.onSurfaceVariant.withValues(alpha: 0.85);
+
+    final dragHandle = !androidPhoneLayout && showActions
+        ? Tooltip(
+            message: AppLocalizations.of(context).dragToReorder,
+            waitDuration: const Duration(milliseconds: 400),
+            child: ReorderableDragStartListener(
+              index: index,
+              child: Semantics(
+                label: AppLocalizations.of(context).dragToReorder,
+                button: true,
+                child: BlockEditorDragHandle(iconColor: iconColor),
+              ),
+            ),
+          )
+        : SizedBox(
+            width: androidPhoneLayout ? 0 : _dragGutterWidth,
+            height: 32,
+          );
+
+    Widget marker;
+    switch (block.type) {
+      case 'todo':
+        marker = SizedBox(
+          width: compactReadOnlyMobile
+              ? 20
+              : (androidPhoneLayout
+                    ? _markerColumnWidthPhone
+                    : _markerColumnWidth),
+          child: Align(
+            alignment: Alignment.centerLeft,
+            child: Semantics(
+              label: 'Marcar tarea completada',
+              toggled: block.checked ?? false,
+              child: Transform.translate(
+                offset: const Offset(-2, 0),
+                child: Checkbox(
+                  materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  visualDensity: VisualDensity.compact,
+                  value: block.checked ?? false,
+                  onChanged: widget.readOnlyMode
+                      ? null
+                      : (v) {
+                          if (v != null) {
+                            _s.setBlockChecked(page.id, block.id, v);
+                          }
+                        },
+                ),
+              ),
+            ),
+          ),
+        );
+        break;
+      case 'bullet':
+        final markerStyle = _applyBlockAppearanceToTextStyle(
+          style,
+          scheme,
+          block,
+        );
+        marker = SizedBox(
+          width: compactReadOnlyMobile
+              ? 16
+              : (androidPhoneLayout
+                    ? _markerColumnWidthPhone
+                    : _markerColumnWidth),
+          child: Align(
+            alignment: Alignment.centerLeft,
+            child: Padding(
+              padding: const EdgeInsets.only(left: 4, top: 2),
+              child: Text('•', style: markerStyle.copyWith(height: 1.0)),
+            ),
+          ),
+        );
+        break;
+      case 'numbered':
+        final n = _orderedListNumber(page.blocks, index);
+        final markerStyle = _applyBlockAppearanceToTextStyle(
+          style,
+          scheme,
+          block,
+        );
+        marker = SizedBox(
+          width: compactReadOnlyMobile
+              ? 20
+              : (androidPhoneLayout
+                    ? _markerColumnWidthPhone
+                    : _markerColumnWidth),
+          child: Align(
+            alignment: Alignment.centerLeft,
+            child: Padding(
+              padding: const EdgeInsets.only(left: 2, top: 2),
+              child: Text('$n.', style: markerStyle.copyWith(height: 1.0)),
+            ),
+          ),
+        );
+        break;
+      default:
+        marker = SizedBox(
+          width: compactReadOnlyMobile
+              ? 0
+              : (androidPhoneLayout
+                    ? _markerEmptyColumnWidthPhone
+                    : _markerColumnWidth),
+        );
+    }
+
+    final theme = Theme.of(context);
+
+    if (block.type == 'image') {
+      return Padding(
+        padding: EdgeInsetsDirectional.fromSTEB(block.depth * 28.0, 2, 4, 2),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _blockMenuSlot(showActions: showActions, menu: menu),
+            dragHandle,
+            marker,
+            Expanded(
+              child: Focus(
+                focusNode: focus,
+                child: GestureDetector(
+                  onTap: () => focus.requestFocus(),
+                  behavior: HitTestBehavior.opaque,
+                  child: _imageBlockBody(
+                    scheme,
+                    block,
+                    page,
+                    index,
+                    showActions || focus.hasFocus,
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    if (block.type == 'table') {
+      return Padding(
+        padding: EdgeInsetsDirectional.fromSTEB(block.depth * 28.0, 2, 4, 2),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _blockMenuSlot(showActions: showActions, menu: menu),
+            dragHandle,
+            marker,
+            Expanded(
+              child: IgnorePointer(
+                ignoring: readOnlyMode,
+                child: GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  onTap: readOnlyMode
+                      ? null
+                      : () {
+                          focus.requestFocus();
+                        },
+                  child: TableBlockEditor(
+                    json: block.text,
+                    scheme: scheme,
+                    textTheme: theme.textTheme,
+                    firstCellFocusNode: focus,
+                    showToolbar: showInlineEditControls,
+                    onChanged: (enc) =>
+                        _onTableEncoded(page.id, block.id, index, enc),
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    if (block.type == 'database') {
+      return Padding(
+        padding: EdgeInsetsDirectional.fromSTEB(block.depth * 28.0, 2, 4, 2),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _blockMenuSlot(showActions: showActions, menu: menu),
+            dragHandle,
+            marker,
+            Expanded(
+              child: IgnorePointer(
+                ignoring: readOnlyMode,
+                child: GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  onTap: readOnlyMode ? null : () {},
+                  child: DatabaseBlockEditor(
+                    json: block.text,
+                    scheme: scheme,
+                    textTheme: theme.textTheme,
+                    controlsVisible: showInlineEditControls,
+                    onChanged: (enc) =>
+                        _onTableEncoded(page.id, block.id, index, enc),
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    if (block.type == 'equation') {
+      final codeCtrl = ctrl as CodeController;
+      return Padding(
+        padding: EdgeInsetsDirectional.fromSTEB(block.depth * 28.0, 2, 4, 2),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _blockMenuSlot(showActions: showActions, menu: menu),
+            dragHandle,
+            marker,
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 6),
+                    child: Text(
+                      'LaTeX',
+                      style: theme.textTheme.labelLarge?.copyWith(
+                        fontWeight: FontWeight.w600,
+                        color: scheme.primary,
+                      ),
+                    ),
+                  ),
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(8),
+                    child: CodeTheme(
+                      data: folioCodeThemeData(theme),
+                      child: ColoredBox(
+                        color: scheme.surfaceContainerHighest.withValues(
+                          alpha: 0.55,
+                        ),
+                        child: CodeField(
+                          key: ObjectKey(focus),
+                          controller: codeCtrl,
+                          focusNode: focus,
+                          readOnly: readOnlyMode,
+                          minLines: 2,
+                          maxLines: null,
+                          wrap: true,
+                          textStyle: _styleFor('code', theme.textTheme),
+                          decoration: const BoxDecoration(),
+                          padding: const EdgeInsets.all(10),
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  FolioEquationPreview(
+                    latex: block.text,
+                    textStyle: theme.textTheme.bodyLarge,
+                    scheme: scheme,
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    if (block.type == 'mermaid') {
+      final codeCtrl = ctrl as CodeController;
+      final showSourceEditor =
+          block.text.trim().isEmpty ||
+          _mermaidEditingSourceIds.contains(block.id);
+      return Padding(
+        padding: EdgeInsetsDirectional.fromSTEB(block.depth * 28.0, 2, 4, 2),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _blockMenuSlot(showActions: showActions, menu: menu),
+            dragHandle,
+            marker,
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 6),
+                    child: Text(
+                      'Mermaid',
+                      style: theme.textTheme.labelLarge?.copyWith(
+                        fontWeight: FontWeight.w600,
+                        color: scheme.primary,
+                      ),
+                    ),
+                  ),
+                  if (showSourceEditor) ...[
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(8),
+                      child: CodeTheme(
+                        data: folioCodeThemeData(theme),
+                        child: ColoredBox(
+                          color: scheme.surfaceContainerHighest.withValues(
+                            alpha: 0.55,
+                          ),
+                          child: CodeField(
+                            key: ObjectKey(focus),
+                            controller: codeCtrl,
+                            focusNode: focus,
+                            readOnly: readOnlyMode,
+                            minLines: 3,
+                            maxLines: null,
+                            wrap: true,
+                            textStyle: _styleFor('code', theme.textTheme),
+                            decoration: const BoxDecoration(),
+                            padding: const EdgeInsets.all(10),
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                    FolioMermaidPreview(source: block.text),
+                  ] else
+                    Focus(
+                      focusNode: focus,
+                      child: GestureDetector(
+                        onTap: () => focus.requestFocus(),
+                        behavior: HitTestBehavior.opaque,
+                        child: FolioMermaidPreview(source: block.text),
+                      ),
+                    ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    if (block.type == 'code') {
+      final codeCtrl = ctrl as CodeController;
+      return Padding(
+        padding: EdgeInsetsDirectional.fromSTEB(block.depth * 28.0, 2, 4, 2),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _blockMenuSlot(showActions: showActions, menu: menu),
+            dragHandle,
+            marker,
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 8),
+                    child: Align(
+                      alignment: AlignmentDirectional.centerStart,
+                      child: MenuAnchor(
+                        style: MenuStyle(
+                          backgroundColor: WidgetStatePropertyAll(
+                            scheme.surfaceContainerHigh,
+                          ),
+                          surfaceTintColor: const WidgetStatePropertyAll(
+                            Colors.transparent,
+                          ),
+                          shadowColor: WidgetStatePropertyAll(
+                            scheme.shadow.withValues(alpha: 0.14),
+                          ),
+                          elevation: const WidgetStatePropertyAll(8),
+                          padding: const WidgetStatePropertyAll(
+                            EdgeInsets.symmetric(vertical: 8),
+                          ),
+                          shape: WidgetStatePropertyAll(
+                            RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(16),
+                            ),
+                          ),
+                        ),
+                        menuChildren: [
+                          for (final o in _codeLanguageOptionsForBlock(block))
+                            MenuItemButton(
+                              leadingIcon: Icon(
+                                iconForCodeLanguageOption(o),
+                                size: 20,
+                              ),
+                              trailingIcon:
+                                  o.id == _codeLangDropdownValue(block)
+                                  ? Icon(
+                                      Icons.check_rounded,
+                                      size: 20,
+                                      color: scheme.primary,
+                                    )
+                                  : null,
+                              onPressed: () {
+                                _onCodeLanguagePicked(
+                                  page.id,
+                                  block.id,
+                                  index,
+                                  o.id,
+                                );
+                              },
+                              child: Text(o.label),
+                            ),
+                        ],
+                        builder: (context, menuController, child) {
+                          final id = _codeLangDropdownValue(block);
+                          final label = _codeLangLabelForId(id);
+                          final langIcon = codeLanguageIcon(id);
+                          return Material(
+                            color: scheme.surfaceContainerHighest.withValues(
+                              alpha: 0.8,
+                            ),
+                            borderRadius: BorderRadius.circular(14),
+                            clipBehavior: Clip.antiAlias,
+                            child: InkWell(
+                              borderRadius: BorderRadius.circular(14),
+                              onTap: () {
+                                if (menuController.isOpen) {
+                                  menuController.close();
+                                } else {
+                                  menuController.open();
+                                }
+                              },
+                              child: Padding(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 14,
+                                  vertical: 10,
+                                ),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Icon(
+                                      langIcon,
+                                      size: 20,
+                                      color: scheme.primary,
+                                    ),
+                                    const SizedBox(width: 10),
+                                    Flexible(
+                                      child: Text(
+                                        label,
+                                        style: theme.textTheme.labelLarge
+                                            ?.copyWith(
+                                              fontWeight: FontWeight.w600,
+                                            ),
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                    ),
+                                    const SizedBox(width: 6),
+                                    Icon(
+                                      Icons.keyboard_arrow_down_rounded,
+                                      size: 22,
+                                      color: scheme.onSurfaceVariant,
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          );
+                        },
+                      ),
+                    ),
+                  ),
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(8),
+                    child: CodeTheme(
+                      data: folioCodeThemeData(theme),
+                      child: ColoredBox(
+                        color: scheme.surfaceContainerHighest.withValues(
+                          alpha: 0.55,
+                        ),
+                        child: CodeField(
+                          // flutter_code_editor no actualiza el FocusNode interno en didUpdateWidget;
+                          // sin esta clave, al resincronizar controladores se reutiliza el State con un nodo ya disposed.
+                          key: ObjectKey(focus),
+                          controller: codeCtrl,
+                          focusNode: focus,
+                          readOnly: readOnlyMode,
+                          minLines: 3,
+                          maxLines: null,
+                          wrap: true,
+                          textStyle: _styleFor('code', theme.textTheme),
+                          decoration: const BoxDecoration(),
+                          padding: const EdgeInsets.all(10),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    if (block.type == 'divider') {
+      return Padding(
+        padding: EdgeInsetsDirectional.fromSTEB(block.depth * 28.0, 12, 4, 12),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            _blockMenuSlot(showActions: showActions, menu: menu),
+            dragHandle,
+            marker,
+            const Expanded(child: Divider()),
+          ],
+        ),
+      );
+    }
+
+    if (block.type == 'file') {
+      final wf = _imageWidthFor(block);
+      final boxH = (260 * (0.4 + 0.6 * wf)).clamp(140.0, 420.0);
+      return Padding(
+        padding: EdgeInsetsDirectional.fromSTEB(block.depth * 28.0, 4, 4, 4),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _blockMenuSlot(showActions: showActions, menu: menu),
+            dragHandle,
+            marker,
+            Expanded(
+              child: LayoutBuilder(
+                builder: (context, constraints) {
+                  final maxW = constraints.maxWidth;
+                  final targetW = (maxW * wf).clamp(120.0, maxW);
+                  return Align(
+                    alignment: Alignment.centerLeft,
+                    child: SizedBox(
+                      width: targetW,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          if (showActions)
+                            _blockMediaWidthToolbar(page, block, theme),
+                          SizedBox(
+                            height: boxH,
+                            child: Container(
+                              padding: const EdgeInsets.all(12),
+                              decoration: BoxDecoration(
+                                color: scheme.surfaceContainerHighest
+                                    .withValues(alpha: 0.3),
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border.all(
+                                  color: scheme.outlineVariant.withValues(
+                                    alpha: 0.5,
+                                  ),
+                                ),
+                              ),
+                              child: FutureBuilder<File?>(
+                                future: _resolveBlockUrlFileCached(block.url),
+                                builder: (context, snap) {
+                                  if (snap.connectionState ==
+                                      ConnectionState.waiting) {
+                                    return const Center(
+                                      child: CircularProgressIndicator(),
+                                    );
+                                  }
+                                  if (snap.hasError) {
+                                    return Column(
+                                      mainAxisAlignment:
+                                          MainAxisAlignment.center,
+                                      children: [
+                                        Text(
+                                          AppLocalizations.of(
+                                            context,
+                                          ).fileResolveError,
+                                          style: theme.textTheme.bodyMedium
+                                              ?.copyWith(color: scheme.error),
+                                        ),
+                                        const SizedBox(height: 8),
+                                        FilledButton.tonalIcon(
+                                          onPressed: () => _pickFileForBlock(
+                                            page.id,
+                                            block.id,
+                                          ),
+                                          icon: const Icon(
+                                            Icons.attach_file_rounded,
+                                          ),
+                                          label: Text(
+                                            AppLocalizations.of(
+                                              context,
+                                            ).replaceFile,
+                                          ),
+                                        ),
+                                      ],
+                                    );
+                                  }
+                                  final file = snap.data;
+                                  if (file == null) {
+                                    return Column(
+                                      mainAxisAlignment:
+                                          MainAxisAlignment.center,
+                                      children: [
+                                        if ((block.url ?? '').trim().isNotEmpty)
+                                          Text(
+                                            AppLocalizations.of(
+                                              context,
+                                            ).fileMissing,
+                                            style: theme.textTheme.bodyMedium
+                                                ?.copyWith(color: scheme.error),
+                                          ),
+                                        const SizedBox(height: 8),
+                                        FilledButton.tonalIcon(
+                                          onPressed: () => _pickFileForBlock(
+                                            page.id,
+                                            block.id,
+                                          ),
+                                          icon: const Icon(
+                                            Icons.attach_file_rounded,
+                                          ),
+                                          label: Text(
+                                            (block.url ?? '').trim().isEmpty
+                                                ? AppLocalizations.of(
+                                                    context,
+                                                  ).chooseFile
+                                                : AppLocalizations.of(
+                                                    context,
+                                                  ).replaceFile,
+                                          ),
+                                        ),
+                                        if ((block.url ?? '')
+                                            .trim()
+                                            .isNotEmpty) ...[
+                                          const SizedBox(height: 4),
+                                          TextButton(
+                                            onPressed: () => _clearBlockUrl(
+                                              page.id,
+                                              block.id,
+                                            ),
+                                            child: Text(
+                                              AppLocalizations.of(
+                                                context,
+                                              ).removeFile,
+                                            ),
+                                          ),
+                                        ],
+                                      ],
+                                    );
+                                  }
+                                  return FolioFilePreviewCard(
+                                    file: file,
+                                    theme: theme,
+                                    scheme: scheme,
+                                    onOpenExternal: () =>
+                                        _openBlockUrlExternal(block.url),
+                                    onReplace: () =>
+                                        _pickFileForBlock(page.id, block.id),
+                                    onClear: () =>
+                                        _clearBlockUrl(page.id, block.id),
+                                  );
+                                },
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  );
+                },
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    if (block.type == 'bookmark') {
+      final url = (block.url ?? '').trim();
+      final host = Uri.tryParse(url)?.host ?? '';
+      final wf = _imageWidthFor(block);
+      return Padding(
+        padding: EdgeInsetsDirectional.fromSTEB(block.depth * 28.0, 4, 4, 4),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _blockMenuSlot(showActions: showActions, menu: menu),
+            dragHandle,
+            marker,
+            Expanded(
+              child: LayoutBuilder(
+                builder: (context, constraints) {
+                  final maxW = constraints.maxWidth;
+                  final targetW = (maxW * wf).clamp(120.0, maxW);
+                  return Align(
+                    alignment: Alignment.centerLeft,
+                    child: SizedBox(
+                      width: targetW,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          if (showActions)
+                            _blockMediaWidthToolbar(page, block, theme),
+                          Container(
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: scheme.surfaceContainerHighest.withValues(
+                                alpha: 0.35,
+                              ),
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(
+                                color: scheme.outlineVariant.withValues(
+                                  alpha: 0.5,
+                                ),
+                              ),
+                            ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.stretch,
+                              children: [
+                                if (host.isNotEmpty)
+                                  Text(
+                                    host,
+                                    style: theme.textTheme.labelSmall?.copyWith(
+                                      color: scheme.onSurfaceVariant,
+                                    ),
+                                  ),
+                                if (host.isNotEmpty) const SizedBox(height: 6),
+                                TextField(
+                                  controller: ctrl,
+                                  focusNode: focus,
+                                  readOnly: widget.readOnlyMode,
+                                  showCursor: !widget.readOnlyMode,
+                                  maxLines: null,
+                                  minLines: 1,
+                                  style: theme.textTheme.titleSmall,
+                                  decoration: InputDecoration(
+                                    isDense: true,
+                                    border: InputBorder.none,
+                                    hintText: AppLocalizations.of(
+                                      context,
+                                    ).bookmarkTitleHint,
+                                  ),
+                                ),
+                                if (url.isEmpty) ...[
+                                  const SizedBox(height: 8),
+                                  Text(
+                                    AppLocalizations.of(
+                                      context,
+                                    ).bookmarkBlockHint,
+                                    style: theme.textTheme.bodySmall?.copyWith(
+                                      color: scheme.onSurfaceVariant,
+                                    ),
+                                  ),
+                                ] else ...[
+                                  const SizedBox(height: 8),
+                                  SelectableText(
+                                    url,
+                                    style: theme.textTheme.bodySmall?.copyWith(
+                                      color: scheme.primary,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 8),
+                                  Wrap(
+                                    spacing: 8,
+                                    runSpacing: 4,
+                                    children: [
+                                      FilledButton.tonalIcon(
+                                        onPressed: () => unawaited(
+                                          _openBlockUrlExternal(block.url),
+                                        ),
+                                        icon: const Icon(
+                                          Icons.open_in_new_rounded,
+                                          size: 18,
+                                        ),
+                                        label: Text(
+                                          AppLocalizations.of(
+                                            context,
+                                          ).bookmarkOpenLink,
+                                        ),
+                                      ),
+                                      OutlinedButton(
+                                        onPressed: () => unawaited(
+                                          _editBookmarkUrlDialog(
+                                            page.id,
+                                            block.id,
+                                            index,
+                                          ),
+                                        ),
+                                        child: Text(
+                                          AppLocalizations.of(
+                                            context,
+                                          ).bookmarkSetUrl,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ],
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  );
+                },
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    if (block.type == 'embed') {
+      final url = (block.url ?? '').trim();
+      final wf = _imageWidthFor(block);
+      final embedH = (360 * (0.45 + 0.55 * wf)).clamp(200.0, 560.0);
+      return Padding(
+        padding: EdgeInsetsDirectional.fromSTEB(block.depth * 28.0, 4, 4, 4),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _blockMenuSlot(showActions: showActions, menu: menu),
+            dragHandle,
+            marker,
+            Expanded(
+              child: LayoutBuilder(
+                builder: (context, constraints) {
+                  final maxW = constraints.maxWidth;
+                  final targetW = (maxW * wf).clamp(120.0, maxW);
+                  return Align(
+                    alignment: Alignment.centerLeft,
+                    child: SizedBox(
+                      width: targetW,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          if (showActions)
+                            _blockMediaWidthToolbar(page, block, theme),
+                          ClipRRect(
+                            borderRadius: BorderRadius.circular(12),
+                            child: Container(
+                              height: embedH,
+                              decoration: BoxDecoration(
+                                color: scheme.surfaceContainerHighest
+                                    .withValues(alpha: 0.35),
+                                border: Border.all(
+                                  color: scheme.outlineVariant.withValues(
+                                    alpha: 0.5,
+                                  ),
+                                ),
+                              ),
+                              child: url.isEmpty
+                                  ? Center(
+                                      child: Padding(
+                                        padding: const EdgeInsets.all(16),
+                                        child: Text(
+                                          AppLocalizations.of(
+                                            context,
+                                          ).embedEmptyHint,
+                                          textAlign: TextAlign.center,
+                                          style: theme.textTheme.bodySmall
+                                              ?.copyWith(
+                                                color: scheme.onSurfaceVariant,
+                                              ),
+                                        ),
+                                      ),
+                                    )
+                                  : FolioEmbedWebView(url: url, scheme: scheme),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  );
+                },
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    if (block.type == 'audio') {
+      return Padding(
+        padding: EdgeInsetsDirectional.fromSTEB(block.depth * 28.0, 4, 4, 4),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _blockMenuSlot(showActions: showActions, menu: menu),
+            dragHandle,
+            marker,
+            Expanded(
+              child: Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: scheme.surfaceContainerHighest.withValues(alpha: 0.35),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                    color: scheme.outlineVariant.withValues(alpha: 0.5),
+                  ),
+                ),
+                child: FutureBuilder<File?>(
+                  future: _resolveBlockUrlFileCached(block.url),
+                  builder: (context, snap) {
+                    if (snap.connectionState == ConnectionState.waiting) {
+                      return const Center(child: CircularProgressIndicator());
+                    }
+                    final file = snap.data;
+                    if (file == null) {
+                      return Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          Text(
+                            'Elige un archivo de audio',
+                            style: theme.textTheme.bodySmall?.copyWith(
+                              color: scheme.onSurfaceVariant,
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          FilledButton.tonalIcon(
+                            onPressed: () => unawaited(
+                              _pickAudioForBlock(page.id, block.id),
+                            ),
+                            icon: const Icon(Icons.audio_file_rounded),
+                            label: const Text('Elegir audio…'),
+                          ),
+                        ],
+                      );
+                    }
+                    return FolioAudioBlockPlayer(file: file, scheme: scheme);
+                  },
+                ),
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    if (block.type == 'video') {
+      final rawU = (block.url ?? '').trim();
+      final wf = _imageWidthFor(block);
+      final ytId = rawU.startsWith('http://') || rawU.startsWith('https://')
+          ? folioYoutubeVideoIdFromUrl(rawU)
+          : null;
+      if (ytId != null) {
+        final vidH = (220 * (0.45 + 0.55 * wf)).clamp(120.0, 320.0);
+        return Padding(
+          padding: EdgeInsetsDirectional.fromSTEB(block.depth * 28.0, 4, 4, 4),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _blockMenuSlot(showActions: showActions, menu: menu),
+              dragHandle,
+              marker,
+              Expanded(
+                child: LayoutBuilder(
+                  builder: (context, constraints) {
+                    final maxW = constraints.maxWidth;
+                    final targetW = (maxW * wf).clamp(120.0, maxW);
+                    return Align(
+                      alignment: Alignment.centerLeft,
+                      child: SizedBox(
+                        width: targetW,
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            if (showActions)
+                              _blockMediaWidthToolbar(page, block, theme),
+                            Container(
+                              height: vidH,
+                              padding: const EdgeInsets.all(8),
+                              decoration: BoxDecoration(
+                                color: scheme.surfaceContainerHighest
+                                    .withValues(alpha: 0.5),
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border.all(
+                                  color: scheme.outlineVariant.withValues(
+                                    alpha: 0.5,
+                                  ),
+                                ),
+                              ),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.stretch,
+                                children: [
+                                  Expanded(
+                                    child: ClipRRect(
+                                      borderRadius: BorderRadius.circular(10),
+                                      child: FolioYoutubePreviewCard(
+                                        pageUrl: rawU,
+                                        videoId: ytId,
+                                        scheme: scheme,
+                                        compact: true,
+                                      ),
+                                    ),
+                                  ),
+                                  TextButton(
+                                    onPressed: () =>
+                                        _clearBlockUrl(page.id, block.id),
+                                    child: Text(
+                                      AppLocalizations.of(context).removeVideo,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    );
+                  },
+                ),
+              ),
+            ],
+          ),
+        );
+      }
+      final localH = (200 * (0.45 + 0.55 * wf)).clamp(120.0, 300.0);
+      return Padding(
+        padding: EdgeInsetsDirectional.fromSTEB(block.depth * 28.0, 4, 4, 4),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _blockMenuSlot(showActions: showActions, menu: menu),
+            dragHandle,
+            marker,
+            Expanded(
+              child: LayoutBuilder(
+                builder: (context, constraints) {
+                  final maxW = constraints.maxWidth;
+                  final targetW = (maxW * wf).clamp(120.0, maxW);
+                  return Align(
+                    alignment: Alignment.centerLeft,
+                    child: SizedBox(
+                      width: targetW,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          if (showActions)
+                            _blockMediaWidthToolbar(page, block, theme),
+                          SizedBox(
+                            height: localH,
+                            child: Container(
+                              decoration: BoxDecoration(
+                                color: scheme.surfaceContainerHighest
+                                    .withValues(alpha: 0.5),
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border.all(
+                                  color: scheme.outlineVariant.withValues(
+                                    alpha: 0.5,
+                                  ),
+                                ),
+                              ),
+                              clipBehavior: Clip.antiAlias,
+                              child: FutureBuilder<File?>(
+                                future: _resolveBlockUrlFileCached(block.url),
+                                builder: (context, snap) {
+                                  if (snap.connectionState ==
+                                      ConnectionState.waiting) {
+                                    return const Center(
+                                      child: CircularProgressIndicator(),
+                                    );
+                                  }
+                                  if (snap.hasError) {
+                                    return Column(
+                                      mainAxisAlignment:
+                                          MainAxisAlignment.center,
+                                      children: [
+                                        Text(
+                                          AppLocalizations.of(
+                                            context,
+                                          ).videoResolveError,
+                                          style: theme.textTheme.bodyMedium
+                                              ?.copyWith(color: scheme.error),
+                                        ),
+                                        const SizedBox(height: 8),
+                                        FilledButton.tonal(
+                                          onPressed: () => _pickVideoForBlock(
+                                            page.id,
+                                            block.id,
+                                          ),
+                                          child: Text(
+                                            AppLocalizations.of(
+                                              context,
+                                            ).replaceVideo,
+                                          ),
+                                        ),
+                                      ],
+                                    );
+                                  }
+                                  final file = snap.data;
+                                  if (file == null) {
+                                    return Column(
+                                      mainAxisAlignment:
+                                          MainAxisAlignment.center,
+                                      children: [
+                                        if ((block.url ?? '').trim().isNotEmpty)
+                                          Text(
+                                            AppLocalizations.of(
+                                              context,
+                                            ).videoMissing,
+                                            style: theme.textTheme.bodyMedium
+                                                ?.copyWith(color: scheme.error),
+                                          ),
+                                        const SizedBox(height: 8),
+                                        FilledButton.tonal(
+                                          onPressed: () => _pickVideoForBlock(
+                                            page.id,
+                                            block.id,
+                                          ),
+                                          child: Text(
+                                            (block.url ?? '').trim().isEmpty
+                                                ? AppLocalizations.of(
+                                                    context,
+                                                  ).chooseVideo
+                                                : AppLocalizations.of(
+                                                    context,
+                                                  ).replaceVideo,
+                                          ),
+                                        ),
+                                        if ((block.url ?? '')
+                                            .trim()
+                                            .isNotEmpty) ...[
+                                          const SizedBox(height: 4),
+                                          TextButton(
+                                            onPressed: () => _clearBlockUrl(
+                                              page.id,
+                                              block.id,
+                                            ),
+                                            child: Text(
+                                              AppLocalizations.of(
+                                                context,
+                                              ).removeVideo,
+                                            ),
+                                          ),
+                                        ],
+                                      ],
+                                    );
+                                  }
+                                  return FolioEmbeddedVideoPlayer(
+                                    key: ValueKey(file.path),
+                                    file: file,
+                                    scheme: scheme,
+                                    onOpenExternal: () =>
+                                        _openBlockUrlExternal(block.url),
+                                  );
+                                },
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  );
+                },
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    if (block.type == 'toggle') {
+      return Padding(
+        padding: EdgeInsetsDirectional.fromSTEB(block.depth * 28.0, 2, 4, 2),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _blockMenuSlot(showActions: showActions, menu: menu),
+            dragHandle,
+            marker,
+            Expanded(
+              child: FolioToggleBlockBody(
+                pageId: page.id,
+                block: block,
+                session: _s,
+                colorScheme: scheme,
+                textTheme: theme.textTheme,
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    if (block.type == 'toc') {
+      return Padding(
+        padding: EdgeInsetsDirectional.fromSTEB(block.depth * 28.0, 2, 4, 2),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _blockMenuSlot(showActions: showActions, menu: menu),
+            dragHandle,
+            marker,
+            Expanded(
+              child: FolioTocBlockBody(
+                pageId: page.id,
+                blocks: page.blocks,
+                session: _s,
+                scheme: scheme,
+                textTheme: theme.textTheme,
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    if (block.type == 'breadcrumb') {
+      return Padding(
+        padding: EdgeInsetsDirectional.fromSTEB(block.depth * 28.0, 2, 4, 2),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _blockMenuSlot(showActions: showActions, menu: menu),
+            dragHandle,
+            marker,
+            Expanded(
+              child: FolioBreadcrumbBlockBody(
+                pageId: page.id,
+                session: _s,
+                scheme: scheme,
+                textTheme: theme.textTheme,
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    if (block.type == 'child_page') {
+      final cid = block.text.trim();
+      FolioPage? child;
+      try {
+        child = _s.pages.firstWhere((p) => p.id == cid);
+      } catch (_) {
+        child = null;
+      }
+      return Padding(
+        padding: EdgeInsetsDirectional.fromSTEB(block.depth * 28.0, 2, 4, 2),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _blockMenuSlot(showActions: showActions, menu: menu),
+            dragHandle,
+            marker,
+            Expanded(
+              child: Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: scheme.surfaceContainerHighest.withValues(alpha: 0.35),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                    color: scheme.outlineVariant.withValues(alpha: 0.5),
+                  ),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Text(
+                      'Bloque página',
+                      style: theme.textTheme.labelLarge?.copyWith(
+                        color: scheme.primary,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    if (child != null)
+                      ListTile(
+                        contentPadding: EdgeInsets.zero,
+                        title: Text(child.title),
+                        trailing: const Icon(Icons.open_in_new_rounded),
+                        onTap: () => _s.selectPage(child!.id),
+                      )
+                    else
+                      Text(
+                        'Sin subpágina enlazada.',
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: scheme.onSurfaceVariant,
+                        ),
+                      ),
+                    if (!widget.readOnlyMode) ...[
+                      const SizedBox(height: 8),
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 4,
+                        children: [
+                          FilledButton.tonal(
+                            onPressed: () {
+                              _s.createChildPageLinkedToBlock(
+                                pageId: page.id,
+                                blockId: block.id,
+                              );
+                              setState(() {});
+                            },
+                            child: const Text('Crear subpágina'),
+                          ),
+                          OutlinedButton(
+                            onPressed: () async {
+                              final picked = await _pickPageForChildBlock(
+                                context,
+                                excludeId: page.id,
+                              );
+                              if (picked != null && mounted) {
+                                _s.updateBlockText(page.id, block.id, picked);
+                                setState(() {});
+                              }
+                            },
+                            child: const Text('Enlazar página…'),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    if (block.type == 'template_button') {
+      return Padding(
+        padding: EdgeInsetsDirectional.fromSTEB(block.depth * 28.0, 2, 4, 2),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _blockMenuSlot(showActions: showActions, menu: menu),
+            dragHandle,
+            marker,
+            Expanded(
+              child: FolioTemplateButtonBlockBody(
+                pageId: page.id,
+                block: block,
+                session: _s,
+                scheme: scheme,
+                textTheme: theme.textTheme,
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    if (block.type == 'task') {
+      return Padding(
+        padding: EdgeInsetsDirectional.fromSTEB(block.depth * 28.0, 2, 4, 2),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _blockMenuSlot(showActions: showActions, menu: menu),
+            dragHandle,
+            marker,
+            Expanded(
+              child: FolioTaskBlockBody(
+                pageId: page.id,
+                block: block,
+                session: _s,
+                scheme: scheme,
+                textTheme: theme.textTheme,
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    if (block.type == 'column_list') {
+      return Padding(
+        padding: EdgeInsetsDirectional.fromSTEB(block.depth * 28.0, 2, 4, 2),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _blockMenuSlot(showActions: showActions, menu: menu),
+            dragHandle,
+            marker,
+            Expanded(
+              child: FolioColumnListBlockBody(
+                pageId: page.id,
+                block: block,
+                session: _s,
+                scheme: scheme,
+                textTheme: theme.textTheme,
+                showActions: showActions,
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    final isParagraph = block.type == 'paragraph';
+    final isListLine =
+        block.type == 'todo' ||
+        block.type == 'bullet' ||
+        block.type == 'numbered';
+
+    const slashTypes = {
+      'paragraph',
+      'h1',
+      'h2',
+      'h3',
+      'bullet',
+      'numbered',
+      'todo',
+      'toggle',
+      'quote',
+      'callout',
+    };
+    final allowsSlash = slashTypes.contains(block.type);
+    final String? slashTail = allowsSlash
+        ? _slashFilterFromBlockText(ctrl.text)
+        : null;
+    final showSlashMenu = slashTail != null && _slashBlockId == block.id;
+    final slashItems = showSlashMenu
+        ? _catalogFilteredForSlash(slashTail)
+        : const <BlockTypeDef>[];
+    final mentionTail = allowsSlash
+        ? _mentionFilterFromSelection(ctrl.text, ctrl.selection)
+        : null;
+    final showMentionMenu =
+        !showSlashMenu && mentionTail != null && _mentionBlockId == block.id;
+    final mentionItems = showMentionMenu
+        ? _catalogFilteredForMention(mentionTail)
+        : const <FolioPage>[];
+    final slashPanelMaxH = math.min(
+      192.0,
+      math.max(100.0, MediaQuery.sizeOf(context).height * 0.25),
+    );
+
+    /// Vista previa mientras escribes: el [TextField] va **encima** (texto transparente)
+    /// para no bloquear toques ni el cursor; el markdown queda detrás.
+    /// Sin previa si solo hay `#`…`######` y espacios (el render no muestra nada útil).
+    final showInlinePreview =
+        allowsSlash &&
+        !widget.readOnlyMode &&
+        !focus.hasFocus &&
+        ctrl.text.trim().isNotEmpty &&
+        !_isIncompleteAtxHeadingLine(ctrl.text);
+
+    var currentStyle = style;
+    if (block.type == 'quote') {
+      currentStyle = currentStyle.copyWith(
+        fontStyle: FontStyle.italic,
+        fontSize: currentStyle.fontSize! * 1.05,
+        color: scheme.onSurface.withValues(alpha: 0.8),
+      );
+    }
+    currentStyle = _applyBlockAppearanceToTextStyle(
+      currentStyle,
+      scheme,
+      block,
+    );
+    final appearance = _blockAppearanceFor(block);
+    final customBackground = _blockBackgroundColorFor(
+      scheme,
+      appearance.backgroundRole,
+    );
+    final customBackgroundBorder = _blockBackgroundBorderColorFor(
+      scheme,
+      appearance.backgroundRole,
+    );
+
+    final mdSheet = folioMarkdownStyleSheet(context, currentStyle, scheme);
+
+    final field = TextField(
+      controller: ctrl,
+      focusNode: focus,
+      readOnly: widget.readOnlyMode,
+      showCursor: !widget.readOnlyMode,
+      maxLines: null,
+      minLines: 1,
+      cursorColor: showInlinePreview ? scheme.onSurface : null,
+      style: showInlinePreview
+          ? currentStyle.copyWith(
+              color: Colors.transparent,
+              decoration: TextDecoration.none,
+            )
+          : currentStyle,
+      textAlignVertical: isParagraph
+          ? TextAlignVertical.top
+          : TextAlignVertical.center,
+      decoration: isListLine
+          ? InputDecoration.collapsed(
+              hintText: block.type == 'todo' ? 'Tarea…' : '',
+            )
+          : InputDecoration(
+              border: InputBorder.none,
+              isDense: true,
+              filled: false,
+              hintText: isParagraph
+                  ? 'Escribe…  /  para tipos de bloque'
+                  : null,
+              contentPadding: EdgeInsets.zero,
+            ),
+    );
+
+    final stackedField = showInlinePreview
+        ? Stack(
+            clipBehavior: Clip.hardEdge,
+            children: [
+              Positioned.fill(
+                child: Align(
+                  alignment: isParagraph
+                      ? AlignmentDirectional.topStart
+                      : AlignmentDirectional.centerStart,
+                  child: FolioMarkdownPreview(
+                    data: ctrl.text,
+                    styleSheet: mdSheet,
+                    onFolioPageLink: _s.selectPage,
+                  ),
+                ),
+              ),
+              field,
+            ],
+          )
+        : field;
+
+    final readOnlyMarkdown = FolioMarkdownPreview(
+      data: ctrl.text,
+      styleSheet: mdSheet,
+      onFolioPageLink: _s.selectPage,
+    );
+
+    final blockContent = widget.readOnlyMode && allowsSlash
+        ? readOnlyMarkdown
+        : stackedField;
+
+    Widget textContainer = blockContent;
+    if (block.type == 'quote') {
+      textContainer = Container(
+        padding: EdgeInsets.fromLTRB(
+          12,
+          customBackground != null ? 8 : 2,
+          customBackground != null ? 12 : 0,
+          customBackground != null ? 8 : 2,
+        ),
+        decoration: BoxDecoration(
+          color: customBackground,
+          borderRadius: customBackground != null
+              ? BorderRadius.circular(12)
+              : null,
+          border: Border(
+            left: BorderSide(color: scheme.outlineVariant, width: 4),
+          ),
+        ),
+        child: blockContent,
+      );
+    } else if (block.type == 'callout') {
+      final calloutTone = _calloutToneForIcon(block.icon);
+      textContainer = Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        decoration: BoxDecoration(
+          color:
+              customBackground ??
+              _calloutBackgroundForTone(scheme, calloutTone),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: customBackground != null
+                ? customBackgroundBorder
+                : _calloutBorderForTone(scheme, calloutTone),
+          ),
+        ),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Padding(
+              padding: const EdgeInsets.only(right: 10),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    decoration: BoxDecoration(
+                      color: _calloutChipForTone(scheme, calloutTone),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 5,
+                      ),
+                      child: MouseRegion(
+                        cursor: widget.readOnlyMode
+                            ? MouseCursor.defer
+                            : SystemMouseCursors.click,
+                        child: GestureDetector(
+                          onTap: widget.readOnlyMode
+                              ? null
+                              : () async {
+                                  final emoji = await _pickEmoji(context);
+                                  if (emoji != null) {
+                                    _s.updateBlockIcon(
+                                      page.id,
+                                      block.id,
+                                      emoji,
+                                    );
+                                  }
+                                },
+                          child: FolioIconTokenView(
+                            appSettings: widget.appSettings,
+                            token: block.icon,
+                            fallbackText: '💡',
+                            size: 22,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                  PopupMenuButton<String>(
+                    tooltip: 'Tipo de callout',
+                    enabled: !widget.readOnlyMode,
+                    onSelected: widget.readOnlyMode
+                        ? null
+                        : (emoji) =>
+                              _s.updateBlockIcon(page.id, block.id, emoji),
+                    itemBuilder: (ctx) => const [
+                      PopupMenuItem(value: '💡', child: Text('💡 Info')),
+                      PopupMenuItem(value: '✅', child: Text('✅ Éxito')),
+                      PopupMenuItem(value: '⚠️', child: Text('⚠️ Warning')),
+                      PopupMenuItem(value: '🚨', child: Text('🚨 Error')),
+                      PopupMenuItem(value: 'ℹ️', child: Text('ℹ️ Nota')),
+                    ],
+                    icon: Icon(
+                      Icons.arrow_drop_down,
+                      color: scheme.onSurfaceVariant,
+                    ),
+                    constraints: const BoxConstraints(minWidth: 34),
+                    padding: EdgeInsets.zero,
+                  ),
+                ],
+              ),
+            ),
+            Expanded(child: blockContent),
+          ],
+        ),
+      );
+    } else if (customBackground != null) {
+      textContainer = Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        decoration: BoxDecoration(
+          color: customBackground,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: customBackgroundBorder),
+        ),
+        child: blockContent,
+      );
+    }
+
+    final showFloatingToolbar =
+        !widget.readOnlyMode &&
+        allowsSlash &&
+        !showSlashMenu &&
+        !showMentionMenu &&
+        focus.hasFocus;
+
+    if (showFloatingToolbar) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        _showOrUpdateFormatToolbarOverlay(
+          blockId: block.id,
+          controller: ctrl,
+          focusNode: focus,
+          scheme: scheme,
+          page: page,
+          block: block,
+        );
+      });
+    } else if (_formatToolbarOverlayBlockId == block.id) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        _removeFormatToolbarOverlay();
+      });
+    }
+
+    final editorSlot = showFloatingToolbar
+        ? CompositedTransformTarget(
+            link: _formatToolbarLayerLink,
+            child: textContainer,
+          )
+        : textContainer;
+
+    final Widget textSlot;
+    if (showSlashMenu) {
+      final tail = slashTail;
+      textSlot = Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          editorSlot,
+          Padding(
+            padding: const EdgeInsets.only(top: 8),
+            child: Material(
+              type: MaterialType.canvas,
+              elevation: 12,
+              shadowColor: scheme.shadow.withValues(alpha: 0.25),
+              color: scheme.surfaceContainerHigh,
+              surfaceTintColor: Colors.transparent,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(14),
+                side: BorderSide(
+                  color: scheme.outlineVariant.withValues(alpha: 0.4),
+                ),
+              ),
+              clipBehavior: Clip.antiAlias,
+              child: ConstrainedBox(
+                constraints: BoxConstraints(
+                  maxHeight: slashPanelMaxH,
+                  minHeight: slashItems.isEmpty ? 48 : 72,
+                ),
+                child: slashItems.isEmpty
+                    ? Center(
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 12),
+                          child: Text(
+                            'Sin coincidencias',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: theme.textTheme.bodySmall?.copyWith(
+                              color: scheme.onSurfaceVariant,
+                            ),
+                          ),
+                        ),
+                      )
+                    : Scrollbar(
+                        controller: _slashListScrollController,
+                        interactive: false,
+                        thumbVisibility: true,
+                        thickness: 3,
+                        radius: const Radius.circular(3),
+                        child: BlockEditorInlineSlashList(
+                          scrollController: _slashListScrollController,
+                          theme: theme,
+                          scheme: scheme,
+                          items: slashItems,
+                          selectedIndex: slashItems.isEmpty
+                              ? 0
+                              : _slashSelectedIndex.clamp(
+                                  0,
+                                  slashItems.length - 1,
+                                ),
+                          showSections: tail.trim().isEmpty,
+                          onPick: _applyInlineSlashChoice,
+                        ),
+                      ),
+              ),
+            ),
+          ),
+        ],
+      );
+    } else if (showMentionMenu) {
+      textSlot = Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          editorSlot,
+          Padding(
+            padding: const EdgeInsets.only(top: 8),
+            child: Material(
+              type: MaterialType.canvas,
+              elevation: 12,
+              shadowColor: scheme.shadow.withValues(alpha: 0.25),
+              color: scheme.surfaceContainerHigh,
+              surfaceTintColor: Colors.transparent,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(14),
+                side: BorderSide(
+                  color: scheme.outlineVariant.withValues(alpha: 0.4),
+                ),
+              ),
+              clipBehavior: Clip.antiAlias,
+              child: ConstrainedBox(
+                constraints: BoxConstraints(
+                  maxHeight: slashPanelMaxH,
+                  minHeight: mentionItems.isEmpty ? 48 : 72,
+                ),
+                child: mentionItems.isEmpty
+                    ? Center(
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 12),
+                          child: Text(
+                            'Sin paginas',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: theme.textTheme.bodySmall?.copyWith(
+                              color: scheme.onSurfaceVariant,
+                            ),
+                          ),
+                        ),
+                      )
+                    : Scrollbar(
+                        controller: _mentionListScrollController,
+                        interactive: false,
+                        thumbVisibility: true,
+                        thickness: 3,
+                        radius: const Radius.circular(3),
+                        child: BlockEditorInlineMentionList(
+                          scrollController: _mentionListScrollController,
+                          theme: theme,
+                          scheme: scheme,
+                          items: mentionItems,
+                          selectedIndex: mentionItems.isEmpty
+                              ? 0
+                              : _mentionSelectedIndex.clamp(
+                                  0,
+                                  mentionItems.length - 1,
+                                ),
+                          onPick: _applyInlineMentionChoice,
+                        ),
+                      ),
+              ),
+            ),
+          ),
+        ],
+      );
+    } else {
+      textSlot = editorSlot;
+    }
+
+    final row = Row(
+      crossAxisAlignment: isParagraph
+          ? CrossAxisAlignment.start
+          : CrossAxisAlignment.center,
+      children: [
+        _blockMenuSlot(showActions: showActions, menu: menu),
+        dragHandle,
+        marker,
+        Expanded(child: textSlot),
+      ],
+    );
+
+    return Padding(
+      padding: EdgeInsetsDirectional.fromSTEB(
+        block.depth * (compactReadOnlyMobile ? 16.0 : 28.0),
+        2,
+        compactReadOnlyMobile ? 0 : 4,
+        2,
+      ),
+      child: row,
     );
   }
 }

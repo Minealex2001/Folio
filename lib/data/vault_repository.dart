@@ -23,7 +23,7 @@ List<FolioPage> buildVaultStarterPages(VaultStarterContent starterContent) {
         FolioBlock(
           id: 'starter_home_b0',
           type: 'h1',
-          text: 'Tu cofre ya está listo',
+          text: 'Tu libreta ya está lista',
         ),
         FolioBlock(
           id: 'starter_home_b1',
@@ -105,12 +105,12 @@ List<FolioPage> buildVaultStarterPages(VaultStarterContent starterContent) {
         FolioBlock(
           id: 'starter_capabilities_b3',
           type: 'bullet',
-          text: 'Buscar contenido, revisar historial de página y mantener revisiones dentro del mismo cofre.',
+          text: 'Buscar contenido, revisar historial de página y mantener revisiones dentro de la misma libreta.',
         ),
         FolioBlock(
           id: 'starter_capabilities_b4',
           type: 'bullet',
-          text: 'Exportar o importar datos, incluyendo copia del cofre e importación desde Notion.',
+          text: 'Exportar o importar datos, incluyendo copia de la libreta e importación desde Notion.',
         ),
         FolioBlock(
           id: 'starter_capabilities_b5',
@@ -130,7 +130,7 @@ List<FolioPage> buildVaultStarterPages(VaultStarterContent starterContent) {
         FolioBlock(
           id: 'starter_capabilities_b8',
           type: 'bullet',
-          text: 'Ctrl+, abre Ajustes y Ctrl+L bloquea el cofre.',
+          text: 'Ctrl+, abre Ajustes y Ctrl+L bloquea la libreta.',
         ),
         FolioBlock(
           id: 'starter_capabilities_b9',
@@ -174,13 +174,13 @@ List<FolioPage> buildVaultStarterPages(VaultStarterContent starterContent) {
           id: 'starter_quill_b5',
           type: 'paragraph',
           text:
-              'Tus páginas viven en este dispositivo. Si habilitas IA, revisa qué contexto compartes y con qué proveedor. Si olvidas la contraseña maestra de un cofre cifrado, Folio no puede recuperarlo por ti.',
+              'Tus páginas viven en este dispositivo. Si habilitas IA, revisa qué contexto compartes y con qué proveedor. Si olvidas la contraseña maestra de una libreta cifrada, Folio no puede recuperarlo por ti.',
         ),
         FolioBlock(
           id: 'starter_quill_b6',
           type: 'callout',
           text:
-              'Haz una copia del cofre cuando tengas contenido importante. La copia conserva los datos y adjuntos, pero no transfiere Hello ni passkeys entre dispositivos.',
+              'Haz una copia de la libreta cuando tengas contenido importante. La copia conserva los datos y adjuntos, pero no transfiere Hello ni passkeys entre dispositivos.',
           icon: '🔐',
         ),
         FolioBlock(
@@ -191,7 +191,7 @@ List<FolioPage> buildVaultStarterPages(VaultStarterContent starterContent) {
         FolioBlock(
           id: 'starter_quill_b8',
           type: 'mermaid',
-          text: 'graph TD\nInicio[Crear cofre] --> Organizar[Organizar páginas]\nOrganizar --> Escribir[Escribir y enlazar ideas]\nEscribir --> Revisar[Buscar, revisar y mejorar]',
+          text: 'graph TD\nInicio[Crear libreta] --> Organizar[Organizar páginas]\nOrganizar --> Escribir[Escribir y enlazar ideas]\nEscribir --> Revisar[Buscar, revisar y mejorar]',
         ),
       ],
     ),
@@ -209,7 +209,7 @@ class VaultRepository {
     return raw.trim().toLowerCase() == _modePlain;
   }
 
-  /// Crea cofre nuevo: escribe `vault.keys` y `vault.bin`.
+  /// Crea libreta nueva: escribe `vault.keys` y `vault.bin`.
   Future<Uint8List?> createVault({
     String? password,
     bool encrypted = true,
@@ -224,7 +224,7 @@ class VaultRepository {
     final wrappedPath = await VaultPaths.wrappedDekPath();
     if (encrypted) {
       if (password == null || password.isEmpty) {
-        throw StateError('Se requiere contraseña para cofre cifrado');
+        throw StateError('Se requiere contraseña para libreta cifrada');
       }
       final dekBytes = VaultCrypto.randomBytes(VaultCrypto.dekLength);
       final wrapped = await VaultCrypto.wrapDek(
@@ -260,7 +260,7 @@ class VaultRepository {
       return VaultPayload.decodeUtf8(raw);
     }
     if (dekBytes == null) {
-      throw StateError('Se requiere DEK para abrir cofre cifrado');
+      throw StateError('Se requiere DEK para abrir libreta cifrada');
     }
     final dek = await VaultCrypto.dekFromBytes(dekBytes);
     final clear = await VaultCrypto.decryptPayload(blob: raw, dek: dek);
@@ -275,7 +275,7 @@ class VaultRepository {
       return;
     }
     if (dekBytes == null) {
-      throw StateError('Se requiere DEK para guardar cofre cifrado');
+      throw StateError('Se requiere DEK para guardar libreta cifrada');
     }
     final dek = await VaultCrypto.dekFromBytes(dekBytes);
     final enc = await VaultCrypto.encryptPayload(
@@ -302,14 +302,14 @@ class VaultRepository {
     await wrappedPath.writeAsBytes(rewrapped, flush: true);
   }
 
-  /// Pasa un cofre en texto plano a cifrado con [password]. Sobreescribe
+  /// Pasa una libreta en texto plano a cifrado con [password]. Sobreescribe
   /// `vault.mode`, `vault.keys` y `vault.bin`.
   Future<Uint8List> encryptPlainVaultWithPassword({
     required VaultPayload payload,
     required String password,
   }) async {
     if (!(await isPlaintextVault())) {
-      throw StateError('El cofre no está en modo texto plano');
+      throw StateError('La libreta no está en modo texto plano');
     }
     if (password.isEmpty) {
       throw StateError('Se requiere contraseña');

@@ -113,7 +113,7 @@ abstract class AppLocalizations {
   /// No description provided for @newVault.
   ///
   /// In es, this message translates to:
-  /// **'Nuevo cofre'**
+  /// **'Nueva libreta'**
   String get newVault;
 
   /// No description provided for @stepOfTotal.
@@ -203,7 +203,7 @@ abstract class AppLocalizations {
   /// No description provided for @savingVaultTooltip.
   ///
   /// In es, this message translates to:
-  /// **'Guardando el cofre cifrado en disco…'**
+  /// **'Guardando la libreta cifrada en disco…'**
   String get savingVaultTooltip;
 
   /// No description provided for @autosaveSoonTooltip.
@@ -227,7 +227,7 @@ abstract class AppLocalizations {
   /// No description provided for @createNewVault.
   ///
   /// In es, this message translates to:
-  /// **'Crear cofre nuevo'**
+  /// **'Crear libreta nueva'**
   String get createNewVault;
 
   /// No description provided for @importBackupZip.
@@ -266,10 +266,16 @@ abstract class AppLocalizations {
   /// **'Contraseña de la copia'**
   String get backupPasswordLabel;
 
+  /// No description provided for @backupPlainNoPasswordHint.
+  ///
+  /// In es, this message translates to:
+  /// **'Esta copia no está cifrada. No necesitas contraseña para importarla.'**
+  String get backupPlainNoPasswordHint;
+
   /// No description provided for @importVault.
   ///
   /// In es, this message translates to:
-  /// **'Importar cofre'**
+  /// **'Importar libreta'**
   String get importVault;
 
   /// No description provided for @masterPasswordTitle.
@@ -323,7 +329,7 @@ abstract class AppLocalizations {
   /// No description provided for @readyBody.
   ///
   /// In es, this message translates to:
-  /// **'Se creará un cofre cifrado en este equipo. Podrás añadir después Windows Hello, biometría o una passkey para desbloquear más rápido (Ajustes).'**
+  /// **'Se creará una libreta cifrada en este equipo. Podrás añadir después Windows Hello, biometría o una passkey para desbloquear más rápido (Ajustes).'**
   String get readyBody;
 
   /// No description provided for @quillIntroTitle.
@@ -395,7 +401,7 @@ abstract class AppLocalizations {
   /// No description provided for @createVault.
   ///
   /// In es, this message translates to:
-  /// **'Crear cofre'**
+  /// **'Crear libreta'**
   String get createVault;
 
   /// No description provided for @minCharactersError.
@@ -479,13 +485,13 @@ abstract class AppLocalizations {
   /// No description provided for @createVaultFailedError.
   ///
   /// In es, this message translates to:
-  /// **'No se pudo crear el cofre: {error}'**
+  /// **'No se pudo crear la libreta: {error}'**
   String createVaultFailedError(Object error);
 
   /// No description provided for @encryptedVault.
   ///
   /// In es, this message translates to:
-  /// **'Cofre cifrado'**
+  /// **'Libreta cifrada'**
   String get encryptedVault;
 
   /// No description provided for @unlock.
@@ -509,7 +515,7 @@ abstract class AppLocalizations {
   /// No description provided for @unlockFailed.
   ///
   /// In es, this message translates to:
-  /// **'Contraseña incorrecta o cofre dañado.'**
+  /// **'Contraseña incorrecta o libreta dañada.'**
   String get unlockFailed;
 
   /// No description provided for @appearance.
@@ -527,7 +533,7 @@ abstract class AppLocalizations {
   /// No description provided for @vaultBackup.
   ///
   /// In es, this message translates to:
-  /// **'Copia del cofre'**
+  /// **'Copia de la libreta'**
   String get vaultBackup;
 
   /// No description provided for @data.
@@ -839,7 +845,7 @@ abstract class AppLocalizations {
   /// No description provided for @wipeFailedError.
   ///
   /// In es, this message translates to:
-  /// **'No se pudo borrar el cofre: {error}'**
+  /// **'No se pudo borrar la libreta: {error}'**
   String wipeFailedError(Object error);
 
   /// No description provided for @filePathReadError.
@@ -851,19 +857,19 @@ abstract class AppLocalizations {
   /// No description provided for @importedVaultSuccessSnack.
   ///
   /// In es, this message translates to:
-  /// **'Cofre importado. Aparece en el selector del panel lateral; el actual sigue igual.'**
+  /// **'Libreta importada. Aparece en el selector del panel lateral; la actual sigue igual.'**
   String get importedVaultSuccessSnack;
 
   /// No description provided for @exportVaultDialogTitle.
   ///
   /// In es, this message translates to:
-  /// **'Exportar copia del cofre'**
+  /// **'Exportar copia de la libreta'**
   String get exportVaultDialogTitle;
 
   /// No description provided for @exportVaultDialogBody.
   ///
   /// In es, this message translates to:
-  /// **'Para crear un archivo de copia, confirma tu identidad con el cofre actual desbloqueado.'**
+  /// **'Para crear un archivo de copia, confirma tu identidad con la libreta actual desbloqueada.'**
   String get exportVaultDialogBody;
 
   /// No description provided for @verifyAndExport.
@@ -875,19 +881,19 @@ abstract class AppLocalizations {
   /// No description provided for @saveVaultBackupDialogTitle.
   ///
   /// In es, this message translates to:
-  /// **'Guardar copia del cofre'**
+  /// **'Guardar copia de la libreta'**
   String get saveVaultBackupDialogTitle;
 
   /// No description provided for @importVaultDialogTitle.
   ///
   /// In es, this message translates to:
-  /// **'Importar copia del cofre'**
+  /// **'Importar copia de la libreta'**
   String get importVaultDialogTitle;
 
   /// No description provided for @importVaultDialogBody.
   ///
   /// In es, this message translates to:
-  /// **'Se añadirá un cofre nuevo desde el archivo. El cofre que tienes abierto ahora no se borra ni se modifica.\n\nLa contraseña del archivo será la del cofre importado (para abrirlo al cambiar de cofre).\n\nLa passkey y el desbloqueo rápido (Hello / biometría) no van en la copia y no son transferibles; podrás configurarlos en ese cofre después.\n\n¿Continuar?'**
+  /// **'Se añadirá una libreta nueva desde el archivo. La libreta que tienes abierta ahora no se borra ni se modifica.\n\nLa contraseña del archivo será la de la libreta importada (para abrirla al cambiar de libreta).\n\nLa passkey y el desbloqueo rápido (Hello / biometría) no van en la copia y no son transferibles; podrás configurarlos en esa libreta después.\n\n¿Continuar?'**
   String get importVaultDialogBody;
 
   /// No description provided for @verifyAndContinue.
@@ -905,13 +911,13 @@ abstract class AppLocalizations {
   /// No description provided for @importIdentityBody.
   ///
   /// In es, this message translates to:
-  /// **'Demuestra que eres tú con el cofre actual desbloqueado antes de importar.'**
+  /// **'Demuestra que eres tú con la libreta actual desbloqueada antes de importar.'**
   String get importIdentityBody;
 
   /// No description provided for @wipeVaultDialogTitle.
   ///
   /// In es, this message translates to:
-  /// **'Borrar cofre'**
+  /// **'Borrar libreta'**
   String get wipeVaultDialogTitle;
 
   /// No description provided for @wipeVaultDialogBody.
@@ -923,7 +929,7 @@ abstract class AppLocalizations {
   /// No description provided for @wipeIdentityBody.
   ///
   /// In es, this message translates to:
-  /// **'Para borrar el cofre, demuestra que eres tú.'**
+  /// **'Para borrar la libreta, demuestra que eres tú.'**
   String get wipeIdentityBody;
 
   /// No description provided for @exportZipTitle.
@@ -935,7 +941,7 @@ abstract class AppLocalizations {
   /// No description provided for @exportZipSubtitle.
   ///
   /// In es, this message translates to:
-  /// **'Contraseña, Hello o passkey del cofre actual'**
+  /// **'Contraseña, Hello o passkey de la libreta actual'**
   String get exportZipSubtitle;
 
   /// No description provided for @importZipTitle.
@@ -947,19 +953,19 @@ abstract class AppLocalizations {
   /// No description provided for @importZipSubtitle.
   ///
   /// In es, this message translates to:
-  /// **'Añade cofre nuevo · identidad actual + contraseña del archivo'**
+  /// **'Añade libreta nueva · identidad actual + contraseña del archivo'**
   String get importZipSubtitle;
 
   /// No description provided for @backupInfoBody.
   ///
   /// In es, this message translates to:
-  /// **'El archivo contiene los mismos datos cifrados que en disco (vault.keys y vault.bin), sin exponer el contenido en claro. Las imágenes en adjuntos van tal cual.\n\nLa passkey y el desbloqueo rápido no se incluyen en la copia y no son transferibles entre dispositivos; en cada cofre importado podrás configurarlos de nuevo.\n\nImportar añade un cofre nuevo; no sustituye el que tienes abierto.'**
+  /// **'El archivo contiene los mismos datos cifrados que en disco (vault.keys y vault.bin), sin exponer el contenido en claro. Las imágenes en adjuntos van tal cual.\n\nLa passkey y el desbloqueo rápido no se incluyen en la copia y no son transferibles entre dispositivos; en cada libreta importada podrás configurarlos de nuevo.\n\nImportar añade una libreta nueva; no sustituye la que tienes abierta.'**
   String get backupInfoBody;
 
   /// No description provided for @wipeCardTitle.
   ///
   /// In es, this message translates to:
-  /// **'Borrar cofre y empezar de cero'**
+  /// **'Borrar libreta y empezar de cero'**
   String get wipeCardTitle;
 
   /// No description provided for @wipeCardSubtitle.
@@ -971,25 +977,25 @@ abstract class AppLocalizations {
   /// No description provided for @switchVaultTooltip.
   ///
   /// In es, this message translates to:
-  /// **'Cambiar cofre'**
+  /// **'Cambiar libreta'**
   String get switchVaultTooltip;
 
   /// No description provided for @switchVaultTitle.
   ///
   /// In es, this message translates to:
-  /// **'Cambiar de cofre'**
+  /// **'Cambiar de libreta'**
   String get switchVaultTitle;
 
   /// No description provided for @switchVaultBody.
   ///
   /// In es, this message translates to:
-  /// **'Se cerrará la sesión de este cofre y tendrás que desbloquear el otro con su contraseña, Hello o passkey (si los tienes configurados allí).'**
+  /// **'Se cerrará la sesión de esta libreta y tendrás que desbloquear la otra con su contraseña, Hello o passkey (si los tienes configurados allí).'**
   String get switchVaultBody;
 
   /// No description provided for @renameVaultTitle.
   ///
   /// In es, this message translates to:
-  /// **'Renombrar cofre'**
+  /// **'Renombrar libreta'**
   String get renameVaultTitle;
 
   /// No description provided for @nameLabel.
@@ -1001,13 +1007,13 @@ abstract class AppLocalizations {
   /// No description provided for @deleteOtherVaultTitle.
   ///
   /// In es, this message translates to:
-  /// **'Eliminar otro cofre'**
+  /// **'Eliminar otra libreta'**
   String get deleteOtherVaultTitle;
 
   /// No description provided for @deleteVaultConfirmTitle.
   ///
   /// In es, this message translates to:
-  /// **'¿Eliminar cofre?'**
+  /// **'¿Eliminar libreta?'**
   String get deleteVaultConfirmTitle;
 
   /// No description provided for @deleteVaultConfirmBody.
@@ -1019,49 +1025,49 @@ abstract class AppLocalizations {
   /// No description provided for @vaultDeletedSnack.
   ///
   /// In es, this message translates to:
-  /// **'Cofre eliminado.'**
+  /// **'Libreta eliminada.'**
   String get vaultDeletedSnack;
 
   /// No description provided for @noOtherVaultsSnack.
   ///
   /// In es, this message translates to:
-  /// **'No hay otros cofres que borrar.'**
+  /// **'No hay otras libretas que borrar.'**
   String get noOtherVaultsSnack;
 
   /// No description provided for @addVault.
   ///
   /// In es, this message translates to:
-  /// **'Añadir cofre'**
+  /// **'Añadir libreta'**
   String get addVault;
 
   /// No description provided for @renameActiveVault.
   ///
   /// In es, this message translates to:
-  /// **'Renombrar cofre activo'**
+  /// **'Renombrar libreta activa'**
   String get renameActiveVault;
 
   /// No description provided for @deleteOtherVault.
   ///
   /// In es, this message translates to:
-  /// **'Eliminar otro cofre…'**
+  /// **'Eliminar otra libreta…'**
   String get deleteOtherVault;
 
   /// No description provided for @activeVaultLabel.
   ///
   /// In es, this message translates to:
-  /// **'Cofre activo'**
+  /// **'Libreta activa'**
   String get activeVaultLabel;
 
   /// No description provided for @sidebarVaultsLoading.
   ///
   /// In es, this message translates to:
-  /// **'Cargando cofres…'**
+  /// **'Cargando libretas…'**
   String get sidebarVaultsLoading;
 
   /// No description provided for @sidebarVaultsEmpty.
   ///
   /// In es, this message translates to:
-  /// **'No hay cofres disponibles'**
+  /// **'No hay libretas disponibles'**
   String get sidebarVaultsEmpty;
 
   /// No description provided for @forceSyncTooltip.
@@ -1475,7 +1481,7 @@ abstract class AppLocalizations {
   /// No description provided for @pasteAsMentionSubtitle.
   ///
   /// In es, this message translates to:
-  /// **'Enlace a una página de este cofre'**
+  /// **'Enlace a una página de esta libreta'**
   String get pasteAsMentionSubtitle;
 
   /// No description provided for @tableAddRow.
@@ -1751,7 +1757,7 @@ abstract class AppLocalizations {
   /// No description provided for @historyHeaderBody.
   ///
   /// In es, this message translates to:
-  /// **'El cofre se guarda en seguida; el historial añade una entrada cuando dejas de editar y el contenido cambió.'**
+  /// **'La libreta se guarda en seguida; el historial añade una entrada cuando dejas de editar y el contenido cambió.'**
   String get historyHeaderBody;
 
   /// No description provided for @versionsCount.
@@ -2378,16 +2384,70 @@ abstract class AppLocalizations {
   /// **'Cuando uno de los proveedores esté operativo, pulsa Reintentar para autoconfigurarlo.'**
   String get aiSetupOpenSettingsHint;
 
+  /// No description provided for @aiCompareCloudVsLocalTitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Cloud vs local'**
+  String get aiCompareCloudVsLocalTitle;
+
+  /// No description provided for @aiCompareCloudTitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Folio Cloud'**
+  String get aiCompareCloudTitle;
+
+  /// No description provided for @aiCompareLocalTitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Local (Ollama / LM Studio)'**
+  String get aiCompareLocalTitle;
+
+  /// No description provided for @aiCompareCloudBulletNoSetup.
+  ///
+  /// In es, this message translates to:
+  /// **'Sin configuración local: funciona al iniciar sesión.'**
+  String get aiCompareCloudBulletNoSetup;
+
+  /// No description provided for @aiCompareCloudBulletNeedsSub.
+  ///
+  /// In es, this message translates to:
+  /// **'Requiere suscripción para IA en la nube.'**
+  String get aiCompareCloudBulletNeedsSub;
+
+  /// No description provided for @aiCompareCloudBulletInk.
+  ///
+  /// In es, this message translates to:
+  /// **'Usa tinta para la IA en la nube (packs + recarga mensual).'**
+  String get aiCompareCloudBulletInk;
+
+  /// No description provided for @aiCompareLocalBulletPrivacy.
+  ///
+  /// In es, this message translates to:
+  /// **'Privacidad local (tu equipo).'**
+  String get aiCompareLocalBulletPrivacy;
+
+  /// No description provided for @aiCompareLocalBulletNoInk.
+  ///
+  /// In es, this message translates to:
+  /// **'Sin tinta: no depende del saldo.'**
+  String get aiCompareLocalBulletNoInk;
+
+  /// No description provided for @aiCompareLocalBulletSetup.
+  ///
+  /// In es, this message translates to:
+  /// **'Requiere instalar y arrancar un proveedor en localhost.'**
+  String get aiCompareLocalBulletSetup;
+
   /// No description provided for @quillGlobalScopeNoticeTitle.
   ///
   /// In es, this message translates to:
-  /// **'Quill funciona en todos los cofres'**
+  /// **'Quill funciona en todas las libretas'**
   String get quillGlobalScopeNoticeTitle;
 
   /// No description provided for @quillGlobalScopeNoticeBody.
   ///
   /// In es, this message translates to:
-  /// **'Quill es un ajuste global de la app. Si lo activas ahora, quedará disponible para cualquier cofre en esta instalación, no solo para el actual.'**
+  /// **'Quill es un ajuste global de la app. Si lo activas ahora, quedará disponible para cualquier libreta en esta instalación, no solo para la actual.'**
   String get quillGlobalScopeNoticeBody;
 
   /// No description provided for @quillGlobalScopeNoticeConfirm.
@@ -2519,7 +2579,7 @@ abstract class AppLocalizations {
   /// No description provided for @searchAllVaultHint.
   ///
   /// In es, this message translates to:
-  /// **'Buscar en todo el cofre...'**
+  /// **'Buscar en toda la libreta...'**
   String get searchAllVaultHint;
 
   /// No description provided for @typeToSearch.
@@ -2585,7 +2645,7 @@ abstract class AppLocalizations {
   /// No description provided for @scheduledVaultBackupSubtitle.
   ///
   /// In es, this message translates to:
-  /// **'Con el cofre desbloqueado, cada copia es del cofre abierto ahora. Folio guarda un ZIP en la carpeta indicada según el intervalo.'**
+  /// **'Con la libreta desbloqueada, cada copia es de la libreta abierta ahora. Folio guarda un ZIP en la carpeta indicada según el intervalo.'**
   String get scheduledVaultBackupSubtitle;
 
   /// No description provided for @scheduledVaultBackupChooseFolder.
@@ -2621,7 +2681,7 @@ abstract class AppLocalizations {
   /// No description provided for @vaultBackupOpenVaultHint.
   ///
   /// In es, this message translates to:
-  /// **'Las copias son del cofre abierto ahora: «{name}».'**
+  /// **'Las copias son de la libreta abierta ahora: «{name}».'**
   String vaultBackupOpenVaultHint(String name);
 
   /// No description provided for @vaultBackupRunNowTile.
@@ -2651,7 +2711,7 @@ abstract class AppLocalizations {
   /// No description provided for @vaultIdentitySyncBody.
   ///
   /// In es, this message translates to:
-  /// **'Introduce la contraseña del cofre (o Hello / passkey) para continuar.'**
+  /// **'Introduce la contraseña de la libreta (o Hello / passkey) para continuar.'**
   String get vaultIdentitySyncBody;
 
   /// No description provided for @vaultIdentityCloudBackupTitle.
@@ -2663,7 +2723,7 @@ abstract class AppLocalizations {
   /// No description provided for @vaultIdentityCloudBackupBody.
   ///
   /// In es, this message translates to:
-  /// **'Confirma la identidad del cofre para listar o descargar copias cifradas.'**
+  /// **'Confirma la identidad de la libreta para listar o descargar copias cifradas.'**
   String get vaultIdentityCloudBackupBody;
 
   /// No description provided for @aiRewriteDialogTitle.
@@ -2735,7 +2795,7 @@ abstract class AppLocalizations {
   /// No description provided for @unlockVaultTitle.
   ///
   /// In es, this message translates to:
-  /// **'Desbloquear cofre'**
+  /// **'Desbloquear libreta'**
   String get unlockVaultTitle;
 
   /// No description provided for @miniUnlockFailed.
@@ -2765,7 +2825,7 @@ abstract class AppLocalizations {
   /// No description provided for @importNotionDialogBody.
   ///
   /// In es, this message translates to:
-  /// **'Importa un ZIP exportado por Notion. Puedes añadirlo al cofre actual o crear uno nuevo.'**
+  /// **'Importa un ZIP exportado por Notion. Puedes añadirlo a la libreta actual o crear una nueva.'**
   String get importNotionDialogBody;
 
   /// No description provided for @importNotionSelectTargetTitle.
@@ -2777,19 +2837,19 @@ abstract class AppLocalizations {
   /// No description provided for @importNotionSelectTargetBody.
   ///
   /// In es, this message translates to:
-  /// **'Elige si quieres importar la exportacion de Notion en el cofre actual o crear un cofre nuevo a partir de ella.'**
+  /// **'Elige si quieres importar la exportacion de Notion en la libreta actual o crear una libreta nueva a partir de ella.'**
   String get importNotionSelectTargetBody;
 
   /// No description provided for @importNotionTargetCurrent.
   ///
   /// In es, this message translates to:
-  /// **'Cofre actual'**
+  /// **'Libreta actual'**
   String get importNotionTargetCurrent;
 
   /// No description provided for @importNotionTargetNew.
   ///
   /// In es, this message translates to:
-  /// **'Cofre nuevo'**
+  /// **'Libreta nueva'**
   String get importNotionTargetNew;
 
   /// No description provided for @importNotionDefaultVaultName.
@@ -2801,19 +2861,19 @@ abstract class AppLocalizations {
   /// No description provided for @importNotionNewVaultPasswordTitle.
   ///
   /// In es, this message translates to:
-  /// **'Contraseña para cofre nuevo'**
+  /// **'Contraseña para libreta nueva'**
   String get importNotionNewVaultPasswordTitle;
 
   /// No description provided for @importNotionSuccessCurrent.
   ///
   /// In es, this message translates to:
-  /// **'Notion importado en el cofre actual.'**
+  /// **'Notion importado en la libreta actual.'**
   String get importNotionSuccessCurrent;
 
   /// No description provided for @importNotionSuccessNew.
   ///
   /// In es, this message translates to:
-  /// **'Cofre nuevo importado desde Notion.'**
+  /// **'Libreta nueva importada desde Notion.'**
   String get importNotionSuccessNew;
 
   /// No description provided for @importNotionError.
@@ -2855,7 +2915,7 @@ abstract class AppLocalizations {
   /// No description provided for @appBetaBannerMessage.
   ///
   /// In es, this message translates to:
-  /// **'Estás usando una versión beta. Puede haber fallos; haz copias de seguridad del cofre con frecuencia.'**
+  /// **'Estás usando una versión beta. Puede haber fallos; haz copias de seguridad de la libreta con frecuencia.'**
   String get appBetaBannerMessage;
 
   /// No description provided for @appBetaBannerDismiss.
@@ -2987,7 +3047,7 @@ abstract class AppLocalizations {
   /// No description provided for @integrationApprovalCanDoUnlockedVault.
   ///
   /// In es, this message translates to:
-  /// **'Importar solo mientras el cofre este disponible y la peticion incluya el secreto configurado.'**
+  /// **'Importar solo mientras la libreta este disponible y la peticion incluya el secreto configurado.'**
   String get integrationApprovalCanDoUnlockedVault;
 
   /// No description provided for @integrationApprovalCannotDoTitle.
@@ -2999,13 +3059,13 @@ abstract class AppLocalizations {
   /// No description provided for @integrationApprovalCannotDoRead.
   ///
   /// In es, this message translates to:
-  /// **'No puede leer el contenido de tu cofre a traves de este puente.'**
+  /// **'No puede leer el contenido de tu libreta a traves de este puente.'**
   String get integrationApprovalCannotDoRead;
 
   /// No description provided for @integrationApprovalCannotDoBypassLock.
   ///
   /// In es, this message translates to:
-  /// **'No puede saltarse el bloqueo del cofre, el cifrado ni tu aprobacion explicita.'**
+  /// **'No puede saltarse el bloqueo de la libreta, el cifrado ni tu aprobacion explicita.'**
   String get integrationApprovalCannotDoBypassLock;
 
   /// No description provided for @integrationApprovalCannotDoWithoutSecret.
@@ -3077,7 +3137,7 @@ abstract class AppLocalizations {
   /// No description provided for @noEncryptionConfirmTitle.
   ///
   /// In es, this message translates to:
-  /// **'Crear cofre sin cifrado'**
+  /// **'Crear libreta sin cifrado'**
   String get noEncryptionConfirmTitle;
 
   /// No description provided for @noEncryptionConfirmBody.
@@ -3095,13 +3155,13 @@ abstract class AppLocalizations {
   /// No description provided for @plainVaultSecurityNotice.
   ///
   /// In es, this message translates to:
-  /// **'Este cofre no está cifrado: no aplican la passkey, el desbloqueo rápido (Hello), el bloqueo por inactividad, el bloqueo al minimizar ni la contraseña maestra.'**
+  /// **'Esta libreta no está cifrada: no aplican la passkey, el desbloqueo rápido (Hello), el bloqueo por inactividad, el bloqueo al minimizar ni la contraseña maestra.'**
   String get plainVaultSecurityNotice;
 
   /// No description provided for @encryptPlainVaultTitle.
   ///
   /// In es, this message translates to:
-  /// **'Cifrar este cofre'**
+  /// **'Cifrar esta libreta'**
   String get encryptPlainVaultTitle;
 
   /// No description provided for @encryptPlainVaultBody.
@@ -3113,13 +3173,13 @@ abstract class AppLocalizations {
   /// No description provided for @encryptPlainVaultConfirm.
   ///
   /// In es, this message translates to:
-  /// **'Cifrar cofre'**
+  /// **'Cifrar libreta'**
   String get encryptPlainVaultConfirm;
 
   /// No description provided for @encryptPlainVaultSuccessSnack.
   ///
   /// In es, this message translates to:
-  /// **'El cofre ya está cifrado'**
+  /// **'La libreta ya está cifrada'**
   String get encryptPlainVaultSuccessSnack;
 
   /// No description provided for @aiCopyMessage.
@@ -3353,7 +3413,7 @@ abstract class AppLocalizations {
   /// No description provided for @templateDeleteConfirmBody.
   ///
   /// In es, this message translates to:
-  /// **'La plantilla \"{name}\" se eliminará de este cofre.'**
+  /// **'La plantilla \"{name}\" se eliminará de esta libreta.'**
   String templateDeleteConfirmBody(Object name);
 
   /// No description provided for @templateCreatedOn.
@@ -3389,7 +3449,7 @@ abstract class AppLocalizations {
   /// No description provided for @cloudAccountSectionDescription.
   ///
   /// In es, this message translates to:
-  /// **'Opcional. Inicia sesión para suscribirte a copias en la nube, IA hospedada y publicación web. Tu cofre sigue siendo local salvo que uses esas funciones.'**
+  /// **'Opcional. Inicia sesión para suscribirte a copias en la nube, IA hospedada y publicación web. Tu libreta sigue siendo local salvo que uses esas funciones.'**
   String get cloudAccountSectionDescription;
 
   /// No description provided for @cloudAccountChipOptional.
@@ -3557,7 +3617,7 @@ abstract class AppLocalizations {
   /// No description provided for @cloudAuthSubtitleSignIn.
   ///
   /// In es, this message translates to:
-  /// **'Usa el correo y la contraseña de Folio Cloud. Nada de esto cambia tu cofre local.'**
+  /// **'Usa el correo y la contraseña de Folio Cloud. Nada de esto cambia tu libreta local.'**
   String get cloudAuthSubtitleSignIn;
 
   /// No description provided for @cloudAuthSubtitleRegister.
@@ -3623,7 +3683,7 @@ abstract class AppLocalizations {
   /// No description provided for @cloudAccountSignOutHelp.
   ///
   /// In es, this message translates to:
-  /// **'Tu cofre local sigue en este dispositivo.'**
+  /// **'Tu libreta local sigue en este dispositivo.'**
   String get cloudAccountSignOutHelp;
 
   /// No description provided for @folioCloudSubsectionPlan.
@@ -3710,6 +3770,12 @@ abstract class AppLocalizations {
   /// **'Si acabas de pagar y ves las funciones en «no», pulsa «Actualizar desde Stripe».'**
   String get folioCloudPostPaymentHint;
 
+  /// No description provided for @folioCloudBackupCleanupWarning.
+  ///
+  /// In es, this message translates to:
+  /// **'Copia subida, pero no se pudo limpiar copias antiguas (se reintentará más tarde).'**
+  String get folioCloudBackupCleanupWarning;
+
   /// No description provided for @folioCloudInkMonthly.
   ///
   /// In es, this message translates to:
@@ -3779,7 +3845,7 @@ abstract class AppLocalizations {
   /// No description provided for @folioCloudRefreshFromStripe.
   ///
   /// In es, this message translates to:
-  /// **'Actualizar desde Stripe'**
+  /// **'Actualizar'**
   String get folioCloudRefreshFromStripe;
 
   /// No description provided for @folioCloudUploadEncryptedBackup.
@@ -3791,13 +3857,13 @@ abstract class AppLocalizations {
   /// No description provided for @folioCloudUploadEncryptedBackupSubtitle.
   ///
   /// In es, this message translates to:
-  /// **'Folio genera la copia cifrada del cofre abierto y la sube solo; no tienes que exportar un .zip.'**
+  /// **'Folio genera la copia cifrada de la libreta abierta y la sube solo; no tienes que exportar un .zip.'**
   String get folioCloudUploadEncryptedBackupSubtitle;
 
   /// No description provided for @folioCloudUploadSnackOk.
   ///
   /// In es, this message translates to:
-  /// **'Copia del cofre guardada en la nube.'**
+  /// **'Copia de la libreta guardada en la nube.'**
   String get folioCloudUploadSnackOk;
 
   /// No description provided for @scheduledVaultBackupCloudSyncTitle.
@@ -3817,6 +3883,24 @@ abstract class AppLocalizations {
   /// In es, this message translates to:
   /// **'Copias en la nube'**
   String get folioCloudCloudBackupsList;
+
+  /// No description provided for @folioCloudBackupsUsed.
+  ///
+  /// In es, this message translates to:
+  /// **'Usadas'**
+  String get folioCloudBackupsUsed;
+
+  /// No description provided for @folioCloudBackupsLimit.
+  ///
+  /// In es, this message translates to:
+  /// **'Límite'**
+  String get folioCloudBackupsLimit;
+
+  /// No description provided for @folioCloudBackupsRemaining.
+  ///
+  /// In es, this message translates to:
+  /// **'Restantes'**
+  String get folioCloudBackupsRemaining;
 
   /// No description provided for @folioCloudPublishTestPage.
   ///
@@ -3839,7 +3923,7 @@ abstract class AppLocalizations {
   /// No description provided for @folioCloudReauthDialogBody.
   ///
   /// In es, this message translates to:
-  /// **'Introduce la contraseña de tu cuenta Folio Cloud (la del inicio de sesión en la nube) para listar y descargar copias. No es la contraseña del cofre local.'**
+  /// **'Introduce la contraseña de tu cuenta Folio Cloud (la del inicio de sesión en la nube) para listar y descargar copias. No es la contraseña de la libreta local.'**
   String get folioCloudReauthDialogBody;
 
   /// No description provided for @folioCloudReauthRequiresPasswordProvider.
@@ -3877,6 +3961,78 @@ abstract class AppLocalizations {
   /// In es, this message translates to:
   /// **'Tinta de IA en la nube: 0 gotas. Abre Ajustes para comprar tinta o usar IA local.'**
   String get folioCloudAiZeroInkBanner;
+
+  /// No description provided for @folioCloudInkPurchaseAppliedHint.
+  ///
+  /// In es, this message translates to:
+  /// **'Compra aplicada: {purchased} gotas compradas disponibles para IA en la nube.'**
+  String folioCloudInkPurchaseAppliedHint(Object purchased);
+
+  /// No description provided for @onboardingCloudBackupCta.
+  ///
+  /// In es, this message translates to:
+  /// **'Iniciar sesión y descargar copia'**
+  String get onboardingCloudBackupCta;
+
+  /// No description provided for @onboardingCloudBackupPickVaultSubtitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Elige qué libreta quieres restaurar.'**
+  String get onboardingCloudBackupPickVaultSubtitle;
+
+  /// No description provided for @onboardingFolioCloudTitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Folio Cloud'**
+  String get onboardingFolioCloudTitle;
+
+  /// No description provided for @onboardingFolioCloudBody.
+  ///
+  /// In es, this message translates to:
+  /// **'Activa funciones en la nube cuando las necesites: copias cifradas, Quill hospedada y publicación web. Tu libreta sigue siendo local salvo que uses estas funciones.'**
+  String get onboardingFolioCloudBody;
+
+  /// No description provided for @onboardingFolioCloudFeatureBackupTitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Copias cifradas en la nube'**
+  String get onboardingFolioCloudFeatureBackupTitle;
+
+  /// No description provided for @onboardingFolioCloudFeatureBackupBody.
+  ///
+  /// In es, this message translates to:
+  /// **'Guarda y descarga copias de la libreta desde tu cuenta. En escritorio, listar/descargar se hace desde Folio Cloud.'**
+  String get onboardingFolioCloudFeatureBackupBody;
+
+  /// No description provided for @onboardingFolioCloudFeatureAiTitle.
+  ///
+  /// In es, this message translates to:
+  /// **'IA en la nube + tinta'**
+  String get onboardingFolioCloudFeatureAiTitle;
+
+  /// No description provided for @onboardingFolioCloudFeatureAiBody.
+  ///
+  /// In es, this message translates to:
+  /// **'Quill funciona en Folio Cloud con suscripción. La tinta se consume por uso; también puedes usar IA local (Ollama/LM Studio).'**
+  String get onboardingFolioCloudFeatureAiBody;
+
+  /// No description provided for @onboardingFolioCloudFeatureWebTitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Publicación web'**
+  String get onboardingFolioCloudFeatureWebTitle;
+
+  /// No description provided for @onboardingFolioCloudFeatureWebBody.
+  ///
+  /// In es, this message translates to:
+  /// **'Publica páginas seleccionadas y controla qué se hace público. El resto de la libreta no se comparte.'**
+  String get onboardingFolioCloudFeatureWebBody;
+
+  /// No description provided for @onboardingFolioCloudLaterInSettings.
+  ///
+  /// In es, this message translates to:
+  /// **'Lo veré en Ajustes'**
+  String get onboardingFolioCloudLaterInSettings;
 }
 
 class _AppLocalizationsDelegate

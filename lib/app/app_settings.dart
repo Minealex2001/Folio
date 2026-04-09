@@ -141,7 +141,7 @@ class IntegrationAppApproval {
   static String _normalize(String value) => value.trim();
 }
 
-/// Preferencias de la app persistidas (p. ej. tema). No se borran al eliminar el cofre.
+/// Preferencias de la app persistidas (p. ej. tema). No se borran al eliminar la libreta.
 class AppSettings extends ChangeNotifier {
   AppSettings({String integrationSecret = ''})
     : _configuredIntegrationSecret = integrationSecret.trim();
@@ -351,7 +351,7 @@ class AppSettings extends ChangeNotifier {
     return Map<String, String>.unmodifiable(mapped);
   }
 
-  /// Aviso BETA en la UI (no forma parte del cofre). Controlado por [kFolioShowBetaBanner].
+  /// Aviso BETA en la UI (no forma parte de la libreta). Controlado por [kFolioShowBetaBanner].
   bool get shouldShowBetaBanner =>
       kFolioShowBetaBanner && !_betaBannerDismissed;
 

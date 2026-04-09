@@ -15,7 +15,7 @@ class AppLocalizationsEs extends AppLocalizations {
   String get loading => 'Cargando…';
 
   @override
-  String get newVault => 'Nuevo cofre';
+  String get newVault => 'Nueva libreta';
 
   @override
   String stepOfTotal(int current, int total) {
@@ -62,7 +62,7 @@ class AppLocalizationsEs extends AppLocalizations {
   String get savePending => 'Por guardar';
 
   @override
-  String get savingVaultTooltip => 'Guardando el cofre cifrado en disco…';
+  String get savingVaultTooltip => 'Guardando la libreta cifrada en disco…';
 
   @override
   String get autosaveSoonTooltip => 'Guardado automático en unos instantes…';
@@ -75,7 +75,7 @@ class AppLocalizationsEs extends AppLocalizations {
       'Folio guarda tus páginas solo en este dispositivo, cifradas con una contraseña maestra. Si la olvidas, no podremos recuperar los datos.\n\nNo hay sincronización en la nube.';
 
   @override
-  String get createNewVault => 'Crear cofre nuevo';
+  String get createNewVault => 'Crear libreta nueva';
 
   @override
   String get importBackupZip => 'Importar una copia (.zip)';
@@ -97,7 +97,11 @@ class AppLocalizationsEs extends AppLocalizations {
   String get backupPasswordLabel => 'Contraseña de la copia';
 
   @override
-  String get importVault => 'Importar cofre';
+  String get backupPlainNoPasswordHint =>
+      'Esta copia no está cifrada. No necesitas contraseña para importarla.';
+
+  @override
+  String get importVault => 'Importar libreta';
 
   @override
   String get masterPasswordTitle => 'Tu contraseña maestra';
@@ -128,7 +132,7 @@ class AppLocalizationsEs extends AppLocalizations {
 
   @override
   String get readyBody =>
-      'Se creará un cofre cifrado en este equipo. Podrás añadir después Windows Hello, biometría o una passkey para desbloquear más rápido (Ajustes).';
+      'Se creará una libreta cifrada en este equipo. Podrás añadir después Windows Hello, biometría o una passkey para desbloquear más rápido (Ajustes).';
 
   @override
   String get quillIntroTitle => 'Conoce a Quill';
@@ -171,7 +175,7 @@ class AppLocalizationsEs extends AppLocalizations {
       'Si todavía no activas la IA, podrás hacerlo más tarde. Esta introducción es para que sepas qué puede hacer Quill cuando la uses.';
 
   @override
-  String get createVault => 'Crear cofre';
+  String get createVault => 'Crear libreta';
 
   @override
   String minCharactersError(int min) {
@@ -219,11 +223,11 @@ class AppLocalizationsEs extends AppLocalizations {
 
   @override
   String createVaultFailedError(Object error) {
-    return 'No se pudo crear el cofre: $error';
+    return 'No se pudo crear la libreta: $error';
   }
 
   @override
-  String get encryptedVault => 'Cofre cifrado';
+  String get encryptedVault => 'Libreta cifrada';
 
   @override
   String get unlock => 'Desbloquear';
@@ -235,7 +239,7 @@ class AppLocalizationsEs extends AppLocalizations {
   String get passkey => 'Passkey';
 
   @override
-  String get unlockFailed => 'Contraseña incorrecta o cofre dañado.';
+  String get unlockFailed => 'Contraseña incorrecta o libreta dañada.';
 
   @override
   String get appearance => 'Apariencia';
@@ -244,7 +248,7 @@ class AppLocalizationsEs extends AppLocalizations {
   String get security => 'Seguridad';
 
   @override
-  String get vaultBackup => 'Copia del cofre';
+  String get vaultBackup => 'Copia de la libreta';
 
   @override
   String get data => 'Datos';
@@ -414,7 +418,7 @@ class AppLocalizationsEs extends AppLocalizations {
 
   @override
   String wipeFailedError(Object error) {
-    return 'No se pudo borrar el cofre: $error';
+    return 'No se pudo borrar la libreta: $error';
   }
 
   @override
@@ -422,27 +426,27 @@ class AppLocalizationsEs extends AppLocalizations {
 
   @override
   String get importedVaultSuccessSnack =>
-      'Cofre importado. Aparece en el selector del panel lateral; el actual sigue igual.';
+      'Libreta importada. Aparece en el selector del panel lateral; la actual sigue igual.';
 
   @override
-  String get exportVaultDialogTitle => 'Exportar copia del cofre';
+  String get exportVaultDialogTitle => 'Exportar copia de la libreta';
 
   @override
   String get exportVaultDialogBody =>
-      'Para crear un archivo de copia, confirma tu identidad con el cofre actual desbloqueado.';
+      'Para crear un archivo de copia, confirma tu identidad con la libreta actual desbloqueada.';
 
   @override
   String get verifyAndExport => 'Verificar y exportar';
 
   @override
-  String get saveVaultBackupDialogTitle => 'Guardar copia del cofre';
+  String get saveVaultBackupDialogTitle => 'Guardar copia de la libreta';
 
   @override
-  String get importVaultDialogTitle => 'Importar copia del cofre';
+  String get importVaultDialogTitle => 'Importar copia de la libreta';
 
   @override
   String get importVaultDialogBody =>
-      'Se añadirá un cofre nuevo desde el archivo. El cofre que tienes abierto ahora no se borra ni se modifica.\n\nLa contraseña del archivo será la del cofre importado (para abrirlo al cambiar de cofre).\n\nLa passkey y el desbloqueo rápido (Hello / biometría) no van en la copia y no son transferibles; podrás configurarlos en ese cofre después.\n\n¿Continuar?';
+      'Se añadirá una libreta nueva desde el archivo. La libreta que tienes abierta ahora no se borra ni se modifica.\n\nLa contraseña del archivo será la de la libreta importada (para abrirla al cambiar de libreta).\n\nLa passkey y el desbloqueo rápido (Hello / biometría) no van en la copia y no son transferibles; podrás configurarlos en esa libreta después.\n\n¿Continuar?';
 
   @override
   String get verifyAndContinue => 'Verificar y continuar';
@@ -452,63 +456,64 @@ class AppLocalizationsEs extends AppLocalizations {
 
   @override
   String get importIdentityBody =>
-      'Demuestra que eres tú con el cofre actual desbloqueado antes de importar.';
+      'Demuestra que eres tú con la libreta actual desbloqueada antes de importar.';
 
   @override
-  String get wipeVaultDialogTitle => 'Borrar cofre';
+  String get wipeVaultDialogTitle => 'Borrar libreta';
 
   @override
   String get wipeVaultDialogBody =>
       'Se eliminarán todas las páginas y la contraseña maestra dejará de ser válida. Esta acción no se puede deshacer.\n\n¿Seguro que quieres continuar?';
 
   @override
-  String get wipeIdentityBody => 'Para borrar el cofre, demuestra que eres tú.';
+  String get wipeIdentityBody =>
+      'Para borrar la libreta, demuestra que eres tú.';
 
   @override
   String get exportZipTitle => 'Exportar copia (.zip)';
 
   @override
   String get exportZipSubtitle =>
-      'Contraseña, Hello o passkey del cofre actual';
+      'Contraseña, Hello o passkey de la libreta actual';
 
   @override
   String get importZipTitle => 'Importar copia (.zip)';
 
   @override
   String get importZipSubtitle =>
-      'Añade cofre nuevo · identidad actual + contraseña del archivo';
+      'Añade libreta nueva · identidad actual + contraseña del archivo';
 
   @override
   String get backupInfoBody =>
-      'El archivo contiene los mismos datos cifrados que en disco (vault.keys y vault.bin), sin exponer el contenido en claro. Las imágenes en adjuntos van tal cual.\n\nLa passkey y el desbloqueo rápido no se incluyen en la copia y no son transferibles entre dispositivos; en cada cofre importado podrás configurarlos de nuevo.\n\nImportar añade un cofre nuevo; no sustituye el que tienes abierto.';
+      'El archivo contiene los mismos datos cifrados que en disco (vault.keys y vault.bin), sin exponer el contenido en claro. Las imágenes en adjuntos van tal cual.\n\nLa passkey y el desbloqueo rápido no se incluyen en la copia y no son transferibles entre dispositivos; en cada libreta importada podrás configurarlos de nuevo.\n\nImportar añade una libreta nueva; no sustituye la que tienes abierta.';
 
   @override
-  String get wipeCardTitle => 'Borrar cofre y empezar de cero';
+  String get wipeCardTitle => 'Borrar libreta y empezar de cero';
 
   @override
   String get wipeCardSubtitle => 'Requiere contraseña, Hello o passkey.';
 
   @override
-  String get switchVaultTooltip => 'Cambiar cofre';
+  String get switchVaultTooltip => 'Cambiar libreta';
 
   @override
-  String get switchVaultTitle => 'Cambiar de cofre';
+  String get switchVaultTitle => 'Cambiar de libreta';
 
   @override
   String get switchVaultBody =>
-      'Se cerrará la sesión de este cofre y tendrás que desbloquear el otro con su contraseña, Hello o passkey (si los tienes configurados allí).';
+      'Se cerrará la sesión de esta libreta y tendrás que desbloquear la otra con su contraseña, Hello o passkey (si los tienes configurados allí).';
 
   @override
-  String get renameVaultTitle => 'Renombrar cofre';
+  String get renameVaultTitle => 'Renombrar libreta';
 
   @override
   String get nameLabel => 'Nombre';
 
   @override
-  String get deleteOtherVaultTitle => 'Eliminar otro cofre';
+  String get deleteOtherVaultTitle => 'Eliminar otra libreta';
 
   @override
-  String get deleteVaultConfirmTitle => '¿Eliminar cofre?';
+  String get deleteVaultConfirmTitle => '¿Eliminar libreta?';
 
   @override
   String deleteVaultConfirmBody(Object name) {
@@ -516,28 +521,28 @@ class AppLocalizationsEs extends AppLocalizations {
   }
 
   @override
-  String get vaultDeletedSnack => 'Cofre eliminado.';
+  String get vaultDeletedSnack => 'Libreta eliminada.';
 
   @override
-  String get noOtherVaultsSnack => 'No hay otros cofres que borrar.';
+  String get noOtherVaultsSnack => 'No hay otras libretas que borrar.';
 
   @override
-  String get addVault => 'Añadir cofre';
+  String get addVault => 'Añadir libreta';
 
   @override
-  String get renameActiveVault => 'Renombrar cofre activo';
+  String get renameActiveVault => 'Renombrar libreta activa';
 
   @override
-  String get deleteOtherVault => 'Eliminar otro cofre…';
+  String get deleteOtherVault => 'Eliminar otra libreta…';
 
   @override
-  String get activeVaultLabel => 'Cofre activo';
+  String get activeVaultLabel => 'Libreta activa';
 
   @override
-  String get sidebarVaultsLoading => 'Cargando cofres…';
+  String get sidebarVaultsLoading => 'Cargando libretas…';
 
   @override
-  String get sidebarVaultsEmpty => 'No hay cofres disponibles';
+  String get sidebarVaultsEmpty => 'No hay libretas disponibles';
 
   @override
   String get forceSyncTooltip => 'Forzar sincronización';
@@ -753,7 +758,7 @@ class AppLocalizationsEs extends AppLocalizations {
   String get pasteAsBookmarkSubtitle => 'Tarjeta con título y enlace';
 
   @override
-  String get pasteAsMentionSubtitle => 'Enlace a una página de este cofre';
+  String get pasteAsMentionSubtitle => 'Enlace a una página de esta libreta';
 
   @override
   String get tableAddRow => 'Fila';
@@ -899,7 +904,7 @@ class AppLocalizationsEs extends AppLocalizations {
 
   @override
   String get historyHeaderBody =>
-      'El cofre se guarda en seguida; el historial añade una entrada cuando dejas de editar y el contenido cambió.';
+      'La libreta se guarda en seguida; el historial añade una entrada cuando dejas de editar y el contenido cambió.';
 
   @override
   String versionsCount(int count) {
@@ -1272,12 +1277,43 @@ class AppLocalizationsEs extends AppLocalizations {
       'Cuando uno de los proveedores esté operativo, pulsa Reintentar para autoconfigurarlo.';
 
   @override
+  String get aiCompareCloudVsLocalTitle => 'Cloud vs local';
+
+  @override
+  String get aiCompareCloudTitle => 'Folio Cloud';
+
+  @override
+  String get aiCompareLocalTitle => 'Local (Ollama / LM Studio)';
+
+  @override
+  String get aiCompareCloudBulletNoSetup =>
+      'Sin configuración local: funciona al iniciar sesión.';
+
+  @override
+  String get aiCompareCloudBulletNeedsSub =>
+      'Requiere suscripción para IA en la nube.';
+
+  @override
+  String get aiCompareCloudBulletInk =>
+      'Usa tinta para la IA en la nube (packs + recarga mensual).';
+
+  @override
+  String get aiCompareLocalBulletPrivacy => 'Privacidad local (tu equipo).';
+
+  @override
+  String get aiCompareLocalBulletNoInk => 'Sin tinta: no depende del saldo.';
+
+  @override
+  String get aiCompareLocalBulletSetup =>
+      'Requiere instalar y arrancar un proveedor en localhost.';
+
+  @override
   String get quillGlobalScopeNoticeTitle =>
-      'Quill funciona en todos los cofres';
+      'Quill funciona en todas las libretas';
 
   @override
   String get quillGlobalScopeNoticeBody =>
-      'Quill es un ajuste global de la app. Si lo activas ahora, quedará disponible para cualquier cofre en esta instalación, no solo para el actual.';
+      'Quill es un ajuste global de la app. Si lo activas ahora, quedará disponible para cualquier libreta en esta instalación, no solo para la actual.';
 
   @override
   String get quillGlobalScopeNoticeConfirm => 'Entiendo';
@@ -1346,7 +1382,7 @@ class AppLocalizationsEs extends AppLocalizations {
   String get closeToTray => 'Cerrar a bandeja';
 
   @override
-  String get searchAllVaultHint => 'Buscar en todo el cofre...';
+  String get searchAllVaultHint => 'Buscar en toda la libreta...';
 
   @override
   String get typeToSearch => 'Escribe para buscar';
@@ -1381,7 +1417,7 @@ class AppLocalizationsEs extends AppLocalizations {
 
   @override
   String get scheduledVaultBackupSubtitle =>
-      'Con el cofre desbloqueado, cada copia es del cofre abierto ahora. Folio guarda un ZIP en la carpeta indicada según el intervalo.';
+      'Con la libreta desbloqueada, cada copia es de la libreta abierta ahora. Folio guarda un ZIP en la carpeta indicada según el intervalo.';
 
   @override
   String get scheduledVaultBackupChooseFolder => 'Carpeta de copias';
@@ -1404,7 +1440,7 @@ class AppLocalizationsEs extends AppLocalizations {
 
   @override
   String vaultBackupOpenVaultHint(String name) {
-    return 'Las copias son del cofre abierto ahora: «$name».';
+    return 'Las copias son de la libreta abierta ahora: «$name».';
   }
 
   @override
@@ -1423,14 +1459,14 @@ class AppLocalizationsEs extends AppLocalizations {
 
   @override
   String get vaultIdentitySyncBody =>
-      'Introduce la contraseña del cofre (o Hello / passkey) para continuar.';
+      'Introduce la contraseña de la libreta (o Hello / passkey) para continuar.';
 
   @override
   String get vaultIdentityCloudBackupTitle => 'Copias en la nube';
 
   @override
   String get vaultIdentityCloudBackupBody =>
-      'Confirma la identidad del cofre para listar o descargar copias cifradas.';
+      'Confirma la identidad de la libreta para listar o descargar copias cifradas.';
 
   @override
   String get aiRewriteDialogTitle => 'Reescribir con IA';
@@ -1467,7 +1503,7 @@ class AppLocalizationsEs extends AppLocalizations {
   String get aiInsertBelow => 'Insertar debajo';
 
   @override
-  String get unlockVaultTitle => 'Desbloquear cofre';
+  String get unlockVaultTitle => 'Desbloquear libreta';
 
   @override
   String get miniUnlockFailed => 'No se pudo desbloquear.';
@@ -1483,33 +1519,34 @@ class AppLocalizationsEs extends AppLocalizations {
 
   @override
   String get importNotionDialogBody =>
-      'Importa un ZIP exportado por Notion. Puedes añadirlo al cofre actual o crear uno nuevo.';
+      'Importa un ZIP exportado por Notion. Puedes añadirlo a la libreta actual o crear una nueva.';
 
   @override
   String get importNotionSelectTargetTitle => 'Destino de la importación';
 
   @override
   String get importNotionSelectTargetBody =>
-      'Elige si quieres importar la exportacion de Notion en el cofre actual o crear un cofre nuevo a partir de ella.';
+      'Elige si quieres importar la exportacion de Notion en la libreta actual o crear una libreta nueva a partir de ella.';
 
   @override
-  String get importNotionTargetCurrent => 'Cofre actual';
+  String get importNotionTargetCurrent => 'Libreta actual';
 
   @override
-  String get importNotionTargetNew => 'Cofre nuevo';
+  String get importNotionTargetNew => 'Libreta nueva';
 
   @override
   String get importNotionDefaultVaultName => 'Importado desde Notion';
 
   @override
-  String get importNotionNewVaultPasswordTitle => 'Contraseña para cofre nuevo';
+  String get importNotionNewVaultPasswordTitle =>
+      'Contraseña para libreta nueva';
 
   @override
   String get importNotionSuccessCurrent =>
-      'Notion importado en el cofre actual.';
+      'Notion importado en la libreta actual.';
 
   @override
-  String get importNotionSuccessNew => 'Cofre nuevo importado desde Notion.';
+  String get importNotionSuccessNew => 'Libreta nueva importada desde Notion.';
 
   @override
   String importNotionError(Object error) {
@@ -1535,7 +1572,7 @@ class AppLocalizationsEs extends AppLocalizations {
 
   @override
   String get appBetaBannerMessage =>
-      'Estás usando una versión beta. Puede haber fallos; haz copias de seguridad del cofre con frecuencia.';
+      'Estás usando una versión beta. Puede haber fallos; haz copias de seguridad de la libreta con frecuencia.';
 
   @override
   String get appBetaBannerDismiss => 'Entendido';
@@ -1621,18 +1658,18 @@ class AppLocalizationsEs extends AppLocalizations {
 
   @override
   String get integrationApprovalCanDoUnlockedVault =>
-      'Importar solo mientras el cofre este disponible y la peticion incluya el secreto configurado.';
+      'Importar solo mientras la libreta este disponible y la peticion incluya el secreto configurado.';
 
   @override
   String get integrationApprovalCannotDoTitle => 'Lo que no puede hacer';
 
   @override
   String get integrationApprovalCannotDoRead =>
-      'No puede leer el contenido de tu cofre a traves de este puente.';
+      'No puede leer el contenido de tu libreta a traves de este puente.';
 
   @override
   String get integrationApprovalCannotDoBypassLock =>
-      'No puede saltarse el bloqueo del cofre, el cifrado ni tu aprobacion explicita.';
+      'No puede saltarse el bloqueo de la libreta, el cifrado ni tu aprobacion explicita.';
 
   @override
   String get integrationApprovalCannotDoWithoutSecret =>
@@ -1672,7 +1709,7 @@ class AppLocalizationsEs extends AppLocalizations {
   String get checkUpdates => 'Buscar actualizaciones';
 
   @override
-  String get noEncryptionConfirmTitle => 'Crear cofre sin cifrado';
+  String get noEncryptionConfirmTitle => 'Crear libreta sin cifrado';
 
   @override
   String get noEncryptionConfirmBody =>
@@ -1683,20 +1720,20 @@ class AppLocalizationsEs extends AppLocalizations {
 
   @override
   String get plainVaultSecurityNotice =>
-      'Este cofre no está cifrado: no aplican la passkey, el desbloqueo rápido (Hello), el bloqueo por inactividad, el bloqueo al minimizar ni la contraseña maestra.';
+      'Esta libreta no está cifrada: no aplican la passkey, el desbloqueo rápido (Hello), el bloqueo por inactividad, el bloqueo al minimizar ni la contraseña maestra.';
 
   @override
-  String get encryptPlainVaultTitle => 'Cifrar este cofre';
+  String get encryptPlainVaultTitle => 'Cifrar esta libreta';
 
   @override
   String get encryptPlainVaultBody =>
       'Elige una contraseña maestra. Todo lo guardado en este dispositivo se cifrará. Si la olvidas, no podremos recuperar los datos.';
 
   @override
-  String get encryptPlainVaultConfirm => 'Cifrar cofre';
+  String get encryptPlainVaultConfirm => 'Cifrar libreta';
 
   @override
-  String get encryptPlainVaultSuccessSnack => 'El cofre ya está cifrado';
+  String get encryptPlainVaultSuccessSnack => 'La libreta ya está cifrada';
 
   @override
   String get aiCopyMessage => 'Copiar';
@@ -1843,7 +1880,7 @@ class AppLocalizationsEs extends AppLocalizations {
 
   @override
   String templateDeleteConfirmBody(Object name) {
-    return 'La plantilla \"$name\" se eliminará de este cofre.';
+    return 'La plantilla \"$name\" se eliminará de esta libreta.';
   }
 
   @override
@@ -1867,7 +1904,7 @@ class AppLocalizationsEs extends AppLocalizations {
 
   @override
   String get cloudAccountSectionDescription =>
-      'Opcional. Inicia sesión para suscribirte a copias en la nube, IA hospedada y publicación web. Tu cofre sigue siendo local salvo que uses esas funciones.';
+      'Opcional. Inicia sesión para suscribirte a copias en la nube, IA hospedada y publicación web. Tu libreta sigue siendo local salvo que uses esas funciones.';
 
   @override
   String get cloudAccountChipOptional => 'Opcional';
@@ -1963,7 +2000,7 @@ class AppLocalizationsEs extends AppLocalizations {
 
   @override
   String get cloudAuthSubtitleSignIn =>
-      'Usa el correo y la contraseña de Folio Cloud. Nada de esto cambia tu cofre local.';
+      'Usa el correo y la contraseña de Folio Cloud. Nada de esto cambia tu libreta local.';
 
   @override
   String get cloudAuthSubtitleRegister =>
@@ -2001,7 +2038,7 @@ class AppLocalizationsEs extends AppLocalizations {
 
   @override
   String get cloudAccountSignOutHelp =>
-      'Tu cofre local sigue en este dispositivo.';
+      'Tu libreta local sigue en este dispositivo.';
 
   @override
   String get folioCloudSubsectionPlan => 'Plan y estado';
@@ -2050,6 +2087,10 @@ class AppLocalizationsEs extends AppLocalizations {
       'Si acabas de pagar y ves las funciones en «no», pulsa «Actualizar desde Stripe».';
 
   @override
+  String get folioCloudBackupCleanupWarning =>
+      'Copia subida, pero no se pudo limpiar copias antiguas (se reintentará más tarde).';
+
+  @override
   String get folioCloudInkMonthly => 'Mes';
 
   @override
@@ -2085,17 +2126,18 @@ class AppLocalizationsEs extends AppLocalizations {
   String get folioCloudManageSubscription => 'Gestionar suscripción';
 
   @override
-  String get folioCloudRefreshFromStripe => 'Actualizar desde Stripe';
+  String get folioCloudRefreshFromStripe => 'Actualizar';
 
   @override
   String get folioCloudUploadEncryptedBackup => 'Copia a la nube ahora';
 
   @override
   String get folioCloudUploadEncryptedBackupSubtitle =>
-      'Folio genera la copia cifrada del cofre abierto y la sube solo; no tienes que exportar un .zip.';
+      'Folio genera la copia cifrada de la libreta abierta y la sube solo; no tienes que exportar un .zip.';
 
   @override
-  String get folioCloudUploadSnackOk => 'Copia del cofre guardada en la nube.';
+  String get folioCloudUploadSnackOk =>
+      'Copia de la libreta guardada en la nube.';
 
   @override
   String get scheduledVaultBackupCloudSyncTitle =>
@@ -2109,6 +2151,15 @@ class AppLocalizationsEs extends AppLocalizations {
   String get folioCloudCloudBackupsList => 'Copias en la nube';
 
   @override
+  String get folioCloudBackupsUsed => 'Usadas';
+
+  @override
+  String get folioCloudBackupsLimit => 'Límite';
+
+  @override
+  String get folioCloudBackupsRemaining => 'Restantes';
+
+  @override
   String get folioCloudPublishTestPage => 'Publicar página de prueba';
 
   @override
@@ -2119,7 +2170,7 @@ class AppLocalizationsEs extends AppLocalizations {
 
   @override
   String get folioCloudReauthDialogBody =>
-      'Introduce la contraseña de tu cuenta Folio Cloud (la del inicio de sesión en la nube) para listar y descargar copias. No es la contraseña del cofre local.';
+      'Introduce la contraseña de tu cuenta Folio Cloud (la del inicio de sesión en la nube) para listar y descargar copias. No es la contraseña de la libreta local.';
 
   @override
   String get folioCloudReauthRequiresPasswordProvider =>
@@ -2141,4 +2192,48 @@ class AppLocalizationsEs extends AppLocalizations {
   @override
   String get folioCloudAiZeroInkBanner =>
       'Tinta de IA en la nube: 0 gotas. Abre Ajustes para comprar tinta o usar IA local.';
+
+  @override
+  String folioCloudInkPurchaseAppliedHint(Object purchased) {
+    return 'Compra aplicada: $purchased gotas compradas disponibles para IA en la nube.';
+  }
+
+  @override
+  String get onboardingCloudBackupCta => 'Iniciar sesión y descargar copia';
+
+  @override
+  String get onboardingCloudBackupPickVaultSubtitle =>
+      'Elige qué libreta quieres restaurar.';
+
+  @override
+  String get onboardingFolioCloudTitle => 'Folio Cloud';
+
+  @override
+  String get onboardingFolioCloudBody =>
+      'Activa funciones en la nube cuando las necesites: copias cifradas, Quill hospedada y publicación web. Tu libreta sigue siendo local salvo que uses estas funciones.';
+
+  @override
+  String get onboardingFolioCloudFeatureBackupTitle =>
+      'Copias cifradas en la nube';
+
+  @override
+  String get onboardingFolioCloudFeatureBackupBody =>
+      'Guarda y descarga copias de la libreta desde tu cuenta. En escritorio, listar/descargar se hace desde Folio Cloud.';
+
+  @override
+  String get onboardingFolioCloudFeatureAiTitle => 'IA en la nube + tinta';
+
+  @override
+  String get onboardingFolioCloudFeatureAiBody =>
+      'Quill funciona en Folio Cloud con suscripción. La tinta se consume por uso; también puedes usar IA local (Ollama/LM Studio).';
+
+  @override
+  String get onboardingFolioCloudFeatureWebTitle => 'Publicación web';
+
+  @override
+  String get onboardingFolioCloudFeatureWebBody =>
+      'Publica páginas seleccionadas y controla qué se hace público. El resto de la libreta no se comparte.';
+
+  @override
+  String get onboardingFolioCloudLaterInSettings => 'Lo veré en Ajustes';
 }

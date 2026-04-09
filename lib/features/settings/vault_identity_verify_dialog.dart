@@ -4,7 +4,7 @@ import 'package:passkeys/exceptions.dart';
 import '../../l10n/generated/app_localizations.dart';
 import '../../session/vault_session.dart';
 
-/// Diálogo reutilizable: contraseña del cofre (y opcionalmente Hello / passkey)
+/// Diálogo reutilizable: contraseña de la libreta (y opcionalmente Hello / passkey)
 /// sin desbloquear de nuevo; usa [VaultSession.verifyPasswordMatchesUnlockedSession].
 class VaultIdentityVerifyDialog extends StatefulWidget {
   const VaultIdentityVerifyDialog({
