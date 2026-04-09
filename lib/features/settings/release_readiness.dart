@@ -98,6 +98,7 @@ ReleaseReadinessSnapshot evaluateReleaseReadiness({
   required bool isVaultUnlocked,
   required bool isVaultEncrypted,
   required bool isAiEnabled,
+  required AiProvider aiProvider,
   required String aiBaseUrl,
   required AiEndpointMode aiEndpointMode,
   required bool aiRemoteEndpointConfirmed,
@@ -116,13 +117,18 @@ ReleaseReadinessSnapshot evaluateReleaseReadiness({
   var aiPolicyOk = true;
   var aiSummary = 'IA desactivada';
   if (isAiEnabled) {
-    final issue = AiSafetyPolicy.validateEndpoint(
-      rawUrl: aiBaseUrl,
-      mode: aiEndpointMode,
-      remoteConfirmed: aiRemoteEndpointConfirmed,
-    );
-    aiPolicyOk = issue == null;
-    aiSummary = issue ?? 'Endpoint valido: $aiBaseUrl';
+    if (aiProvider == AiProvider.folioCloud) {
+      aiPolicyOk = true;
+      aiSummary = 'Folio Cloud IA (sin endpoint local)';
+    } else {
+      final issue = AiSafetyPolicy.validateEndpoint(
+        rawUrl: aiBaseUrl,
+        mode: aiEndpointMode,
+        remoteConfirmed: aiRemoteEndpointConfirmed,
+      );
+      aiPolicyOk = issue == null;
+      aiSummary = issue ?? 'Endpoint valido: $aiBaseUrl';
+    }
   }
 
   final checks = <ReleaseCheckItem>[

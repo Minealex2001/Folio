@@ -1,13 +1,12 @@
 import 'dart:async';
-import 'dart:io';
-
 import 'package:flutter/foundation.dart'
     show TargetPlatform, defaultTargetPlatform, kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/services.dart';
 import 'package:package_info_plus/package_info_plus.dart';
-import 'package:path/path.dart' as p;
 import 'package:system_theme/system_theme.dart';
 
 import '../data/vault_backup.dart';
@@ -20,6 +19,10 @@ import '../services/ai/lmstudio_ai_service.dart';
 import '../services/ai/ollama_ai_service.dart';
 import '../services/platform/launch_arguments.dart';
 import '../services/cloud_account/cloud_account_controller.dart';
+import '../services/ai/folio_cloud_ai_service.dart';
+import '../services/folio_cloud/folio_cloud_entitlements.dart';
+import '../services/vault_scheduled_local_export.dart';
+import '../features/settings/vault_identity_verify_dialog.dart';
 import '../services/device_sync/device_sync_controller.dart';
 import '../services/device_sync/device_sync_models.dart';
 import '../services/run2doc/run2doc_bridge.dart';
@@ -40,12 +43,15 @@ class FolioApp extends StatefulWidget {
     required this.session,
     required this.appSettings,
     required this.cloudAccountController,
+    this.folioCloudEntitlements,
     this.initialLaunchArgs = const <String>[],
   });
 
   final VaultSession session;
   final AppSettings appSettings;
   final CloudAccountController cloudAccountController;
+  /// Si es null, el estado crea uno la primera vez que hace falta (también tras hot reload).
+  final FolioCloudEntitlementsController? folioCloudEntitlements;
   final List<String> initialLaunchArgs;
 
   @override
@@ -56,6 +62,15 @@ class _FolioAppState extends State<FolioApp> with WidgetsBindingObserver {
   StreamSubscription<SystemAccentColor>? _accentSub;
   StreamSubscription<List<String>>? _launchArgsSub;
   final GlobalKey<NavigatorState> _navKey = GlobalKey<NavigatorState>();
+  FolioCloudEntitlementsController? _folioCloudEntitlementsInstance;
+
+  /// Inicialización perezosa: tras hot reload [initState] no se vuelve a llamar y un `late final` fallaría.
+  FolioCloudEntitlementsController get _folioCloudEntitlements {
+    _folioCloudEntitlementsInstance ??=
+        widget.folioCloudEntitlements ?? FolioCloudEntitlementsController();
+    return _folioCloudEntitlementsInstance!;
+  }
+
   DesktopIntegration? _desktop;
   late final Run2DocBridgeController _run2DocBridge;
   late final DeviceSyncController _deviceSyncController;
@@ -103,6 +118,7 @@ class _FolioAppState extends State<FolioApp> with WidgetsBindingObserver {
     widget.session.onPersisted = _deviceSyncController.onLocalSnapshotPersisted;
     unawaited(_deviceSyncController.load());
     _applySessionSecurityPolicy();
+    _folioCloudEntitlements.addListener(_onFolioCloudEntitlements);
     _applyAiSettings();
     _applyDeviceSyncSettings();
     _maybeLaunchAiProvider();
@@ -137,6 +153,8 @@ class _FolioAppState extends State<FolioApp> with WidgetsBindingObserver {
     WidgetsBinding.instance.removeObserver(this);
     unawaited(_desktop?.dispose());
     widget.cloudAccountController.dispose();
+    _folioCloudEntitlements.removeListener(_onFolioCloudEntitlements);
+    _folioCloudEntitlementsInstance?.dispose();
     widget.appSettings.removeListener(_onSettings);
     widget.session.removeListener(_onSession);
     super.dispose();
@@ -165,27 +183,25 @@ class _FolioAppState extends State<FolioApp> with WidgetsBindingObserver {
     if (!mounted) return;
     if (!widget.appSettings.scheduledVaultBackupEnabled) return;
     final dir = widget.appSettings.scheduledVaultBackupDirectory.trim();
-    if (dir.isEmpty) return;
+    final canCloud = Firebase.apps.isNotEmpty &&
+        FirebaseAuth.instance.currentUser != null &&
+        _folioCloudEntitlements.snapshot.canUseCloudBackup;
+    final cloudOnly = dir.isEmpty &&
+        widget.appSettings.scheduledVaultBackupAlsoUploadCloud &&
+        canCloud;
+    if (dir.isEmpty && !cloudOnly) return;
     if (widget.session.state != VaultFlowState.unlocked) return;
     final intervalMs =
         widget.appSettings.scheduledVaultBackupIntervalHours * 3600000;
     final now = DateTime.now().millisecondsSinceEpoch;
     final last = widget.appSettings.lastScheduledVaultBackupMs;
     if (last > 0 && now - last < intervalMs) return;
-    final destDir = Directory(dir);
-    if (!destDir.existsSync()) {
-      try {
-        await destDir.create(recursive: true);
-      } catch (_) {
-        return;
-      }
-    }
-    final stamp = DateTime.now().toUtc().toIso8601String().replaceAll(':', '-');
-    final base = stamp.contains('.') ? stamp.split('.').first : stamp;
-    final path = p.join(dir, 'folio-scheduled-$base.zip');
     try {
-      await widget.session.exportVaultBackup(path);
-      await widget.appSettings.setLastScheduledVaultBackupMs(now);
+      await runScheduledFolderVaultExport(
+        session: widget.session,
+        appSettings: widget.appSettings,
+        folioEntitlements: _folioCloudEntitlements,
+      );
       final okCtx = _navKey.currentContext;
       if (okCtx == null || !okCtx.mounted) return;
       _showSnack(AppLocalizations.of(okCtx).scheduledVaultBackupSnackOk);
@@ -265,9 +281,37 @@ class _FolioAppState extends State<FolioApp> with WidgetsBindingObserver {
                 child: Text(isEs ? 'No coinciden' : 'No match'),
               ),
               FilledButton(
-                onPressed: () {
+                onPressed: () async {
                   Navigator.of(dialogCtx).pop();
-                  unawaited(_deviceSyncController.respondIncomingPair(true));
+                  final verifyCtx = _navKey.currentContext;
+                  if (verifyCtx == null || !mounted) {
+                    unawaited(
+                      _deviceSyncController.respondIncomingPair(false),
+                    );
+                    return;
+                  }
+                  final ok = await showDialog<bool>(
+                    context: verifyCtx,
+                    barrierDismissible: false,
+                    builder: (vctx) => VaultIdentityVerifyDialog(
+                      session: widget.session,
+                      quickEnabled: false,
+                      passkeyRegistered: false,
+                      title: Text(
+                        isEs ? 'Confirmar identidad' : 'Confirm identity',
+                      ),
+                      body: Text(
+                        isEs
+                            ? 'Introduce la contraseña del cofre para aceptar la vinculación con otro dispositivo.'
+                            : 'Enter your vault password to accept linking with another device.',
+                      ),
+                      passwordButtonLabel: isEs ? 'Verificar' : 'Verify',
+                    ),
+                  );
+                  if (!mounted) return;
+                  unawaited(
+                    _deviceSyncController.respondIncomingPair(ok == true),
+                  );
                 },
                 child: Text(isEs ? 'Vincular' : 'Link'),
               ),
@@ -297,6 +341,11 @@ class _FolioAppState extends State<FolioApp> with WidgetsBindingObserver {
     } catch (e) {
       _showSnack('No se pudo iniciar el bridge Run2Doc: $e');
     }
+  }
+
+  void _onFolioCloudEntitlements() {
+    _applyAiSettings();
+    if (mounted) setState(() {});
   }
 
   void _onSettings() {
@@ -352,12 +401,43 @@ class _FolioAppState extends State<FolioApp> with WidgetsBindingObserver {
 
   void _applyAiSettings() {
     if (defaultTargetPlatform == TargetPlatform.android) {
+      if (!widget.appSettings.isAiRuntimeEnabled) {
+        widget.session.setAiService(null);
+        return;
+      }
+      if (widget.appSettings.aiProvider == AiProvider.folioCloud) {
+        if (_folioCloudEntitlements.snapshot.canUseCloudAi) {
+          widget.session.setAiService(
+            FolioCloudAiService(entitlements: _folioCloudEntitlements),
+          );
+        } else {
+          widget.session.setAiService(null);
+        }
+        return;
+      }
       widget.session.setAiService(null);
       return;
     }
     if (!widget.appSettings.isAiRuntimeEnabled) {
       widget.session.setAiService(null);
       return;
+    }
+    switch (widget.appSettings.aiProvider) {
+      case AiProvider.none:
+        widget.session.setAiService(null);
+        return;
+      case AiProvider.folioCloud:
+        if (!_folioCloudEntitlements.snapshot.canUseCloudAi) {
+          widget.session.setAiService(null);
+          return;
+        }
+        widget.session.setAiService(
+          FolioCloudAiService(entitlements: _folioCloudEntitlements),
+        );
+        return;
+      case AiProvider.ollama:
+      case AiProvider.lmStudio:
+        break;
     }
     final endpointError = AiSafetyPolicy.validateEndpoint(
       rawUrl: widget.appSettings.aiBaseUrl,
@@ -396,7 +476,7 @@ class _FolioAppState extends State<FolioApp> with WidgetsBindingObserver {
         );
         break;
       case AiProvider.none:
-        widget.session.setAiService(null);
+      case AiProvider.folioCloud:
         break;
     }
   }
@@ -767,6 +847,7 @@ class _FolioAppState extends State<FolioApp> with WidgetsBindingObserver {
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
       unawaited(_maybeRunScheduledVaultBackup());
+      unawaited(_folioCloudEntitlements.handleAppResumed());
     }
     if (state == AppLifecycleState.inactive ||
         state == AppLifecycleState.paused ||
@@ -809,6 +890,7 @@ class _FolioAppState extends State<FolioApp> with WidgetsBindingObserver {
         appSettings: widget.appSettings,
         deviceSyncController: _deviceSyncController,
         cloudAccountController: widget.cloudAccountController,
+        folioCloudEntitlements: _folioCloudEntitlements,
         onOpenSearch: _handleSearchRequested,
       ),
     );
@@ -1310,6 +1392,7 @@ class _HomeByState extends StatelessWidget {
     required this.appSettings,
     required this.deviceSyncController,
     required this.cloudAccountController,
+    required this.folioCloudEntitlements,
     required this.onOpenSearch,
   });
 
@@ -1317,6 +1400,7 @@ class _HomeByState extends StatelessWidget {
   final AppSettings appSettings;
   final DeviceSyncController deviceSyncController;
   final CloudAccountController cloudAccountController;
+  final FolioCloudEntitlementsController folioCloudEntitlements;
   final VoidCallback onOpenSearch;
 
   @override
@@ -1353,6 +1437,7 @@ class _HomeByState extends StatelessWidget {
           appSettings: appSettings,
           deviceSyncController: deviceSyncController,
           cloudAccountController: cloudAccountController,
+          folioCloudEntitlements: folioCloudEntitlements,
           onOpenSearch: onOpenSearch,
         );
     }

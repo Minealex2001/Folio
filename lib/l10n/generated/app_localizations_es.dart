@@ -1149,6 +1149,22 @@ class AppLocalizationsEs extends AppLocalizations {
   String get aiChatKeyboardHint => 'Enter para enviar · Ctrl+Enter nueva línea';
 
   @override
+  String aiChatInkRemaining(int total) {
+    String _temp0 = intl.Intl.pluralLogic(
+      total,
+      locale: localeName,
+      other: 'Quedan $total gotas de tinta',
+      one: 'Queda 1 gota de tinta',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String aiChatInkBreakdownTooltip(int monthly, int purchased) {
+    return 'Mes $monthly · Compradas $purchased';
+  }
+
+  @override
   String get aiAgentThought => 'Pensamiento de Quill';
 
   @override
@@ -1365,7 +1381,7 @@ class AppLocalizationsEs extends AppLocalizations {
 
   @override
   String get scheduledVaultBackupSubtitle =>
-      'Con el cofre desbloqueado, Folio guarda una copia en la carpeta indicada según el intervalo.';
+      'Con el cofre desbloqueado, cada copia es del cofre abierto ahora. Folio guarda un ZIP en la carpeta indicada según el intervalo.';
 
   @override
   String get scheduledVaultBackupChooseFolder => 'Carpeta de copias';
@@ -1385,6 +1401,36 @@ class AppLocalizationsEs extends AppLocalizations {
   String scheduledVaultBackupSnackFail(Object error) {
     return 'Error en la copia programada: $error';
   }
+
+  @override
+  String vaultBackupOpenVaultHint(String name) {
+    return 'Las copias son del cofre abierto ahora: «$name».';
+  }
+
+  @override
+  String get vaultBackupRunNowTile => 'Copia programada ahora';
+
+  @override
+  String get vaultBackupRunNowSubtitle =>
+      'Ejecuta ya la copia programada (disco y/o nube según lo tengas configurado), sin esperar al intervalo.';
+
+  @override
+  String get vaultBackupRunNowNeedFolder =>
+      'Elige una carpeta local o activa «Subir también a Folio Cloud» para copia solo en la nube.';
+
+  @override
+  String get vaultIdentitySyncTitle => 'Sincronización';
+
+  @override
+  String get vaultIdentitySyncBody =>
+      'Introduce la contraseña del cofre (o Hello / passkey) para continuar.';
+
+  @override
+  String get vaultIdentityCloudBackupTitle => 'Copias en la nube';
+
+  @override
+  String get vaultIdentityCloudBackupBody =>
+      'Confirma la identidad del cofre para listar o descargar copias cifradas.';
 
   @override
   String get aiRewriteDialogTitle => 'Reescribir con IA';
@@ -1821,7 +1867,13 @@ class AppLocalizationsEs extends AppLocalizations {
 
   @override
   String get cloudAccountSectionDescription =>
-      'Opcional. Inicia sesión para la futura sincronización en la nube de pago. Tu cofre sigue siendo local; esto no sube tus notas.';
+      'Opcional. Inicia sesión para suscribirte a copias en la nube, IA hospedada y publicación web. Tu cofre sigue siendo local salvo que uses esas funciones.';
+
+  @override
+  String get cloudAccountChipOptional => 'Opcional';
+
+  @override
+  String get cloudAccountChipPaidCloud => 'Copias, IA y web';
 
   @override
   String get cloudAccountUnavailable =>
@@ -1915,7 +1967,7 @@ class AppLocalizationsEs extends AppLocalizations {
 
   @override
   String get cloudAuthSubtitleRegister =>
-      'Crea credenciales solo para Folio Cloud y el futuro sync de pago. Tus notas en este dispositivo no se suben.';
+      'Crea credenciales para Folio Cloud. Tus notas en este dispositivo no se suben hasta que actives copias u otras funciones de pago.';
 
   @override
   String get cloudAuthModeSignIn => 'Iniciar sesión';
@@ -1938,7 +1990,7 @@ class AppLocalizationsEs extends AppLocalizations {
 
   @override
   String get cloudAccountSignedOutPrompt =>
-      'Inicia sesión o regístrate para estar listo cuando Folio Cloud esté disponible.';
+      'Inicia sesión o regístrate para suscribirte a Folio Cloud y usar copias, IA en la nube y publicación.';
 
   @override
   String get cloudAuthResetHint =>
@@ -1950,4 +2002,143 @@ class AppLocalizationsEs extends AppLocalizations {
   @override
   String get cloudAccountSignOutHelp =>
       'Tu cofre local sigue en este dispositivo.';
+
+  @override
+  String get folioCloudSubsectionPlan => 'Plan y estado';
+
+  @override
+  String get folioCloudSubsectionInk => 'Saldo de tinta';
+
+  @override
+  String get folioCloudSubsectionSubscription => 'Suscripción y facturación';
+
+  @override
+  String get folioCloudSubsectionBackupPublish => 'Copias y publicación';
+
+  @override
+  String get folioCloudSubscriptionActive => 'Suscripción activa';
+
+  @override
+  String folioCloudSubscriptionActiveWithStatus(String status) {
+    return 'Suscripción activa ($status)';
+  }
+
+  @override
+  String get folioCloudSubscriptionNoneTitle => 'Sin suscripción Folio Cloud';
+
+  @override
+  String get folioCloudSubscriptionNoneSubtitle =>
+      'Activa un plan para copias cifradas, IA en la nube y publicación web.';
+
+  @override
+  String get folioCloudFeatureBackup => 'Copia en la nube';
+
+  @override
+  String get folioCloudFeatureCloudAi => 'IA en la nube';
+
+  @override
+  String get folioCloudFeaturePublishWeb => 'Publicación web';
+
+  @override
+  String get folioCloudFeatureOn => 'Incluida';
+
+  @override
+  String get folioCloudFeatureOff => 'No incluida';
+
+  @override
+  String get folioCloudPostPaymentHint =>
+      'Si acabas de pagar y ves las funciones en «no», pulsa «Actualizar desde Stripe».';
+
+  @override
+  String get folioCloudInkMonthly => 'Mes';
+
+  @override
+  String get folioCloudInkPurchased => 'Compradas';
+
+  @override
+  String get folioCloudInkTotal => 'Total';
+
+  @override
+  String folioCloudInkCount(int count) {
+    return '$count';
+  }
+
+  @override
+  String get folioCloudPlanActiveHeadline => 'Plan mensual Folio Cloud activo';
+
+  @override
+  String get folioCloudSubscribeMonthly => 'Folio Cloud 4,99 €/mes';
+
+  @override
+  String get folioCloudBuyInk => 'Comprar tinta';
+
+  @override
+  String get folioCloudInkSmall => 'Tintero pequeño (1,99 €)';
+
+  @override
+  String get folioCloudInkMedium => 'Tintero mediano (4,99 €)';
+
+  @override
+  String get folioCloudInkLarge => 'Tintero grande (9,99 €)';
+
+  @override
+  String get folioCloudManageSubscription => 'Gestionar suscripción';
+
+  @override
+  String get folioCloudRefreshFromStripe => 'Actualizar desde Stripe';
+
+  @override
+  String get folioCloudUploadEncryptedBackup => 'Copia a la nube ahora';
+
+  @override
+  String get folioCloudUploadEncryptedBackupSubtitle =>
+      'Folio genera la copia cifrada del cofre abierto y la sube solo; no tienes que exportar un .zip.';
+
+  @override
+  String get folioCloudUploadSnackOk => 'Copia del cofre guardada en la nube.';
+
+  @override
+  String get scheduledVaultBackupCloudSyncTitle =>
+      'Subir también a Folio Cloud';
+
+  @override
+  String get scheduledVaultBackupCloudSyncSubtitle =>
+      'Tras cada copia programada, sube automáticamente el mismo ZIP a tu cuenta. Si no quieres copia en disco, deja la carpeta sin elegir y activa solo esta opción.';
+
+  @override
+  String get folioCloudCloudBackupsList => 'Copias en la nube';
+
+  @override
+  String get folioCloudPublishTestPage => 'Publicar página de prueba';
+
+  @override
+  String get folioCloudPublishedPagesList => 'Páginas publicadas';
+
+  @override
+  String get folioCloudReauthDialogTitle => 'Confirmar cuenta Folio Cloud';
+
+  @override
+  String get folioCloudReauthDialogBody =>
+      'Introduce la contraseña de tu cuenta Folio Cloud (la del inicio de sesión en la nube) para listar y descargar copias. No es la contraseña del cofre local.';
+
+  @override
+  String get folioCloudReauthRequiresPasswordProvider =>
+      'Esta sesión no usa contraseña de Folio Cloud. Cierra sesión en la cuenta e inicia de nuevo con correo y contraseña si necesitas descargar copias.';
+
+  @override
+  String get folioCloudAiNoInkTitle => 'Sin tinta para la IA en la nube';
+
+  @override
+  String get folioCloudAiNoInkBody =>
+      'Puedes comprar un tintero en Folio Cloud, esperar la recarga mensual o cambiar a IA local (Ollama o LM Studio) en la sección de IA de Ajustes.';
+
+  @override
+  String get folioCloudAiNoInkActionCloud => 'Folio Cloud y tinta';
+
+  @override
+  String get folioCloudAiNoInkActionLocal => 'Proveedor de IA';
+
+  @override
+  String get folioCloudAiZeroInkBanner =>
+      'Tinta de IA en la nube: 0 gotas. Abre Ajustes para comprar tinta o usar IA local.';
 }

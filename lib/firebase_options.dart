@@ -1,8 +1,6 @@
 // ignore_for_file: lines_longer_than_80_chars, avoid_classes_with_only_static_members
 //
 // Replace with your project: run `flutterfire configure` from the repo root.
-// The values below use Firebase's public flutterfire-e2e-tests project so the
-// app compiles and can initialize Firebase locally; create your own project for production.
 
 import 'package:firebase_core/firebase_core.dart' show FirebaseOptions;
 import 'package:flutter/foundation.dart'
@@ -32,16 +30,16 @@ class DefaultFirebaseOptions {
   }
 
   static const FirebaseOptions web = FirebaseOptions(
-    apiKey: 'AIzaSyB7wZb2tO1-Fs6GbDADUSTs2Qs3w08Hovw',
-    appId: '1:406099696497:web:87e25e51afe982cd3574d0',
-    messagingSenderId: '406099696497',
-    projectId: 'flutterfire-e2e-tests',
-    authDomain: 'flutterfire-e2e-tests.firebaseapp.com',
-    databaseURL:
-        'https://flutterfire-e2e-tests-default-rtdb.europe-west1.firebasedatabase.app',
-    storageBucket: 'flutterfire-e2e-tests.appspot.com',
-    measurementId: 'G-JN95N1JV2E',
+    apiKey: 'AIzaSyCJ4VGvDqiLYJRIhkcta4OTa-wrN6KiOL8',
+    appId: '1:681177615508:web:cec096dfd599c4a9f9b881',
+    messagingSenderId: '681177615508',
+    projectId: 'folio-minealexgames',
+    authDomain: 'folio-minealexgames.firebaseapp.com',
+    storageBucket: 'folio-minealexgames.firebasestorage.app',
+    measurementId: 'G-CDTQZZJG97',
   );
+
+  /// Misma app Firebase que Windows/desktop (`folio-minealexgames`).
 
   static const FirebaseOptions android = FirebaseOptions(
     apiKey: 'AIzaSyA8FCHMGWXZVONQnnRPMLlwL2TqNng3wAc',
@@ -81,5 +79,4 @@ class DefaultFirebaseOptions {
     measurementId: 'G-CDTQZZJG97',
   );
 
-  /// Desktop (Windows/Linux) uses the same app id style as FlutterFire e2e Android.
 }

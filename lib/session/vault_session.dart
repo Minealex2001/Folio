@@ -230,6 +230,17 @@ class VaultSession extends ChangeNotifier {
     return _registry.vaults;
   }
 
+  /// Nombre del cofre activo para mostrar en Ajustes (p. ej. copias).
+  Future<String> getActiveVaultDisplayLabel() async {
+    await _registry.load();
+    final id = _vaultId;
+    if (id == null || id.isEmpty) {
+      return '—';
+    }
+    final e = _registry.entryFor(id);
+    return e?.displayName ?? id;
+  }
+
   String? get _vaultId => VaultPaths.activeVaultId;
 
   /// Tras dejar de editar, se crea una entrada de historial (además del guardado rápido).

@@ -75,6 +75,10 @@ flutter run -d windows
 - Linux: `flutter run -d linux`
 - Mobile: Connect device and run `flutter run`
 
+### Building without Folio Cloud
+
+The core app (vault, editor, local device sync, local AI) works **without** Firebase, Stripe, or any paid backend. Optional **Folio Cloud** features (encrypted cloud backup/sync, hosted AI, publish to web) require a configured Firebase project and active subscription; they are disabled if Firebase fails to start. Contributors do not need production keys—see [docs/FOLIO_CLOUD_SECRETS.md](docs/FOLIO_CLOUD_SECRETS.md).
+
 ---
 
 ## 📚 Documentation
@@ -88,6 +92,10 @@ flutter run -d windows
 | [docs/REPO_SECURITY_SETUP.md](docs/REPO_SECURITY_SETUP.md) | GitHub repository security configuration |
 | [docs/FOLIO_INTEGRATION.md](docs/FOLIO_INTEGRATION.md) | Integration guide for extensions and plugins |
 | [docs/WINDOWS_TASKBAR.md](docs/WINDOWS_TASKBAR.md) | Windows-specific features and taskbar integration |
+| [docs/FOLIO_CLOUD_SECRETS.md](docs/FOLIO_CLOUD_SECRETS.md) | Folio Cloud: secrets, OSS policy, builds without paid services |
+| [docs/FOLIO_CLOUD_STRIPE_SETUP.md](docs/FOLIO_CLOUD_STRIPE_SETUP.md) | Stripe: `.env`, webhook, Stripe CLI, emulador |
+| [docs/FOLIO_CLOUD_STRIPE_PRODUCTS.md](docs/FOLIO_CLOUD_STRIPE_PRODUCTS.md) | Stripe catalog (Folio Cloud + tinteros) and webhook notes |
+| [docs/FOLIO_CLOUD_BACKEND.md](docs/FOLIO_CLOUD_BACKEND.md) | Server-authoritative Folio Cloud (Firestore, ink, idempotency) |
 
 ---
 

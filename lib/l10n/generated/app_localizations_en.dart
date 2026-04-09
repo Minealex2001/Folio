@@ -1145,6 +1145,22 @@ class AppLocalizationsEn extends AppLocalizations {
   String get aiChatKeyboardHint => 'Enter to send · Ctrl+Enter for new line';
 
   @override
+  String aiChatInkRemaining(int total) {
+    String _temp0 = intl.Intl.pluralLogic(
+      total,
+      locale: localeName,
+      other: '$total ink drops left',
+      one: '1 ink drop left',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String aiChatInkBreakdownTooltip(int monthly, int purchased) {
+    return 'Monthly $monthly · Purchased $purchased';
+  }
+
+  @override
   String get aiAgentThought => 'Quill\'s thought';
 
   @override
@@ -1359,7 +1375,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get scheduledVaultBackupSubtitle =>
-      'While the vault is unlocked, Folio saves a copy to the folder below at the chosen interval.';
+      'While the vault is unlocked, each backup is the currently open vault. Folio saves a ZIP to the folder below on the chosen interval.';
 
   @override
   String get scheduledVaultBackupChooseFolder => 'Backup folder';
@@ -1379,6 +1395,36 @@ class AppLocalizationsEn extends AppLocalizations {
   String scheduledVaultBackupSnackFail(Object error) {
     return 'Scheduled backup failed: $error';
   }
+
+  @override
+  String vaultBackupOpenVaultHint(String name) {
+    return 'Backups are for the vault open right now: “$name”.';
+  }
+
+  @override
+  String get vaultBackupRunNowTile => 'Run scheduled backup now';
+
+  @override
+  String get vaultBackupRunNowSubtitle =>
+      'Run the scheduled backup now (disk and/or cloud, depending on your settings) without waiting for the interval.';
+
+  @override
+  String get vaultBackupRunNowNeedFolder =>
+      'Pick a local backup folder, or turn on “Also upload to Folio Cloud” for cloud-only backups.';
+
+  @override
+  String get vaultIdentitySyncTitle => 'Synchronization';
+
+  @override
+  String get vaultIdentitySyncBody =>
+      'Enter your vault password (or Hello / passkey) to continue.';
+
+  @override
+  String get vaultIdentityCloudBackupTitle => 'Cloud backups';
+
+  @override
+  String get vaultIdentityCloudBackupBody =>
+      'Confirm vault identity to list or download encrypted backups.';
 
   @override
   String get aiRewriteDialogTitle => 'Rewrite with AI';
@@ -1812,7 +1858,13 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get cloudAccountSectionDescription =>
-      'Optional. Sign in for future paid cloud sync. Your vault stays local; this does not upload your notes.';
+      'Optional. Sign in to subscribe to cloud backup, hosted AI, and web publishing. Your vault stays local unless you use those features.';
+
+  @override
+  String get cloudAccountChipOptional => 'Optional';
+
+  @override
+  String get cloudAccountChipPaidCloud => 'Backups, AI & web';
 
   @override
   String get cloudAccountUnavailable =>
@@ -1904,7 +1956,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get cloudAuthSubtitleRegister =>
-      'Create Folio Cloud credentials for future paid sync. Your notes on this device are not uploaded.';
+      'Create Folio Cloud credentials. Your notes on this device are not uploaded until you enable backups or other paid features.';
 
   @override
   String get cloudAuthModeSignIn => 'Sign in';
@@ -1926,7 +1978,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get cloudAccountSignedOutPrompt =>
-      'Sign in or register to be ready for Folio Cloud when it launches.';
+      'Sign in or register to subscribe to Folio Cloud and use backups, cloud AI, and publishing.';
 
   @override
   String get cloudAuthResetHint =>
@@ -1938,4 +1990,142 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get cloudAccountSignOutHelp =>
       'Your local vault stays on this device.';
+
+  @override
+  String get folioCloudSubsectionPlan => 'Plan & status';
+
+  @override
+  String get folioCloudSubsectionInk => 'Ink balance';
+
+  @override
+  String get folioCloudSubsectionSubscription => 'Subscription & billing';
+
+  @override
+  String get folioCloudSubsectionBackupPublish => 'Backups & publishing';
+
+  @override
+  String get folioCloudSubscriptionActive => 'Subscription active';
+
+  @override
+  String folioCloudSubscriptionActiveWithStatus(String status) {
+    return 'Subscription active ($status)';
+  }
+
+  @override
+  String get folioCloudSubscriptionNoneTitle => 'No Folio Cloud subscription';
+
+  @override
+  String get folioCloudSubscriptionNoneSubtitle =>
+      'Activate a plan for encrypted backup, cloud AI, and web publishing.';
+
+  @override
+  String get folioCloudFeatureBackup => 'Cloud backup';
+
+  @override
+  String get folioCloudFeatureCloudAi => 'Cloud AI';
+
+  @override
+  String get folioCloudFeaturePublishWeb => 'Web publishing';
+
+  @override
+  String get folioCloudFeatureOn => 'Included';
+
+  @override
+  String get folioCloudFeatureOff => 'Not included';
+
+  @override
+  String get folioCloudPostPaymentHint =>
+      'If you just paid and features show as off, tap «Refresh from Stripe».';
+
+  @override
+  String get folioCloudInkMonthly => 'Monthly';
+
+  @override
+  String get folioCloudInkPurchased => 'Purchased';
+
+  @override
+  String get folioCloudInkTotal => 'Total';
+
+  @override
+  String folioCloudInkCount(int count) {
+    return '$count';
+  }
+
+  @override
+  String get folioCloudPlanActiveHeadline => 'Folio Cloud monthly plan active';
+
+  @override
+  String get folioCloudSubscribeMonthly => 'Folio Cloud €4.99/mo';
+
+  @override
+  String get folioCloudBuyInk => 'Buy ink';
+
+  @override
+  String get folioCloudInkSmall => 'Small ink (€1.99)';
+
+  @override
+  String get folioCloudInkMedium => 'Medium ink (€4.99)';
+
+  @override
+  String get folioCloudInkLarge => 'Large ink (€9.99)';
+
+  @override
+  String get folioCloudManageSubscription => 'Manage subscription';
+
+  @override
+  String get folioCloudRefreshFromStripe => 'Refresh from Stripe';
+
+  @override
+  String get folioCloudUploadEncryptedBackup => 'Back up to cloud now';
+
+  @override
+  String get folioCloudUploadEncryptedBackupSubtitle =>
+      'Folio builds an encrypted backup of your open vault and uploads it—no manual ZIP export.';
+
+  @override
+  String get folioCloudUploadSnackOk => 'Vault backup saved to the cloud.';
+
+  @override
+  String get scheduledVaultBackupCloudSyncTitle => 'Also upload to Folio Cloud';
+
+  @override
+  String get scheduledVaultBackupCloudSyncSubtitle =>
+      'After each scheduled backup, automatically uploads the same ZIP to your account. For cloud-only backups, leave the folder unset and enable this option.';
+
+  @override
+  String get folioCloudCloudBackupsList => 'Cloud backups';
+
+  @override
+  String get folioCloudPublishTestPage => 'Publish test page';
+
+  @override
+  String get folioCloudPublishedPagesList => 'Published pages';
+
+  @override
+  String get folioCloudReauthDialogTitle => 'Confirm Folio Cloud account';
+
+  @override
+  String get folioCloudReauthDialogBody =>
+      'Enter your Folio Cloud account password (the one you use to sign in to the cloud) to list and download backups. This is not your local vault password.';
+
+  @override
+  String get folioCloudReauthRequiresPasswordProvider =>
+      'This session does not use a Folio Cloud password. Sign out and sign back in with email and password if you need to download backups.';
+
+  @override
+  String get folioCloudAiNoInkTitle => 'No cloud AI ink left';
+
+  @override
+  String get folioCloudAiNoInkBody =>
+      'Buy an ink bottle under Folio Cloud, wait for your monthly refill, or switch to local AI (Ollama or LM Studio) in the AI section of Settings.';
+
+  @override
+  String get folioCloudAiNoInkActionCloud => 'Folio Cloud & ink';
+
+  @override
+  String get folioCloudAiNoInkActionLocal => 'AI provider';
+
+  @override
+  String get folioCloudAiZeroInkBanner =>
+      'Cloud AI ink is 0 — open Settings to buy ink or use local AI.';
 }

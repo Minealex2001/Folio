@@ -7,6 +7,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:passkeys/exceptions.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../app/app_settings.dart';
 import '../../app/folio_in_app_shortcuts.dart';
@@ -24,16 +25,25 @@ import '../../data/vault_backup.dart';
 import '../../services/ai/ai_service.dart';
 import '../../services/ai/ai_provider_detector.dart';
 import '../../services/ai/ai_safety_policy.dart';
+import '../../services/ai/folio_cloud_ai_service.dart';
 import '../../services/ai/lmstudio_ai_service.dart';
 import '../../services/ai/ollama_ai_service.dart';
 import '../../services/custom_icon_import_service.dart';
 import '../../services/cloud_account/cloud_account_controller.dart';
+import '../../services/folio_cloud/folio_cloud_backup.dart';
+import '../../services/folio_cloud/folio_cloud_billing.dart';
+import '../../services/folio_cloud/folio_cloud_checkout.dart';
+import '../../services/folio_cloud/folio_cloud_entitlements.dart';
+import '../../services/folio_cloud/folio_cloud_publish.dart';
 import '../../services/device_sync/device_sync_controller.dart';
 import '../../services/device_sync/device_sync_models.dart';
 import '../../services/updater/github_release_updater.dart';
 import '../../services/updater/update_release_channel.dart';
 import '../../session/vault_session.dart';
 import 'release_readiness.dart';
+import 'folio_cloud_reauth_dialog.dart';
+import 'vault_identity_verify_dialog.dart';
+import '../../services/vault_scheduled_local_export.dart';
 
 class SettingsPage extends StatefulWidget {
   const SettingsPage({
@@ -42,12 +52,14 @@ class SettingsPage extends StatefulWidget {
     required this.appSettings,
     required this.deviceSyncController,
     required this.cloudAccountController,
+    required this.folioCloudEntitlements,
   });
 
   final VaultSession session;
   final AppSettings appSettings;
   final DeviceSyncController deviceSyncController;
   final CloudAccountController cloudAccountController;
+  final FolioCloudEntitlementsController folioCloudEntitlements;
 
   @override
   State<SettingsPage> createState() => _SettingsPageState();
@@ -59,6 +71,7 @@ class _SettingsPageState extends State<SettingsPage> {
   AppSettings get _app => widget.appSettings;
   DeviceSyncController get _sync => widget.deviceSyncController;
   CloudAccountController get _cloud => widget.cloudAccountController;
+  FolioCloudEntitlementsController get _folio => widget.folioCloudEntitlements;
   final ScrollController _settingsScrollController = ScrollController();
   final TextEditingController _settingsSectionFilterController =
       TextEditingController();
@@ -80,6 +93,7 @@ class _SettingsPageState extends State<SettingsPage> {
   bool _importingCustomIcon = false;
   String _installedVersionLabel = '...';
   bool _releaseStatusBusy = false;
+  bool _folioCloudActionBusy = false;
   ReleaseReadinessSnapshot _releaseSnapshot = const ReleaseReadinessSnapshot(
     installedVersionLabel: '... ',
     isSemverValid: false,
@@ -280,6 +294,7 @@ class _SettingsPageState extends State<SettingsPage> {
       isVaultUnlocked: _s.state == VaultFlowState.unlocked,
       isVaultEncrypted: _s.vaultUsesEncryption,
       isAiEnabled: _app.aiEnabled,
+      aiProvider: _app.aiProvider,
       aiBaseUrl: _app.aiBaseUrl,
       aiEndpointMode: _app.aiEndpointMode,
       aiRemoteEndpointConfirmed: _app.aiRemoteEndpointConfirmed,
@@ -295,6 +310,92 @@ class _SettingsPageState extends State<SettingsPage> {
   void _snack(String msg) {
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
+  }
+
+  Future<bool> _verifyVaultIdentity({
+    required Widget title,
+    required Widget body,
+    String? passwordButtonLabel,
+  }) async {
+    if (_s.state != VaultFlowState.unlocked) return false;
+    final l10n = AppLocalizations.of(context);
+    final result = await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => VaultIdentityVerifyDialog(
+        session: _s,
+        quickEnabled: _quickEnabled,
+        passkeyRegistered: _passkeyRegistered,
+        title: title,
+        body: body,
+        passwordButtonLabel: passwordButtonLabel ?? l10n.verifyAndContinue,
+      ),
+    );
+    return result == true;
+  }
+
+  /// Lista/descarga de copias en Storage: reautenticación con **cuenta Folio Cloud**, no cofre local.
+  Future<bool> _verifyFolioCloudAccountForBackups() async {
+    if (!_cloud.isAvailable || !_cloud.isSignedIn) {
+      _snack(
+        _t(
+          'Inicia sesión en Folio Cloud.',
+          'Sign in to Folio Cloud.',
+        ),
+      );
+      return false;
+    }
+    if (!_cloud.canReauthenticateWithPassword) {
+      _snack(
+        AppLocalizations.of(context).folioCloudReauthRequiresPasswordProvider,
+      );
+      return false;
+    }
+    final l10n = AppLocalizations.of(context);
+    final ok = await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => FolioCloudReauthDialog(
+        l10n: l10n,
+        cloud: _cloud,
+        onAuthError: (code) => _cloudAuthErrorMessage(l10n, code),
+        initialEmail: _cloud.user?.email,
+      ),
+    );
+    return ok == true;
+  }
+
+  Future<void> _runBackupNowToScheduledFolder() async {
+    if (_s.state != VaultFlowState.unlocked) return;
+    final l10n = AppLocalizations.of(context);
+    final dirEmpty = _app.scheduledVaultBackupDirectory.trim().isEmpty;
+    final canCloud = _folio.isAvailable &&
+        _cloud.isSignedIn &&
+        _folio.snapshot.canUseCloudBackup;
+    final cloudOnly =
+        dirEmpty && _app.scheduledVaultBackupAlsoUploadCloud && canCloud;
+    if (dirEmpty && !cloudOnly) {
+      _snack(l10n.vaultBackupRunNowNeedFolder);
+      return;
+    }
+    try {
+      await runScheduledFolderVaultExport(
+        session: _s,
+        appSettings: _app,
+        folioEntitlements: _folio,
+      );
+      if (mounted) {
+        _snack(
+          cloudOnly && dirEmpty
+              ? l10n.folioCloudUploadSnackOk
+              : l10n.scheduledVaultBackupSnackOk,
+        );
+      }
+    } on VaultBackupException catch (e) {
+      if (mounted) _snack('$e');
+    } catch (e) {
+      if (mounted) _snack(l10n.scheduledVaultBackupSnackFail('$e'));
+    }
   }
 
   String _t(String es, String en) {
@@ -380,7 +481,9 @@ class _SettingsPageState extends State<SettingsPage> {
         onAuthError: (code) => _cloudAuthErrorMessage(l10n, code),
         onForgotPassword: () {
           Navigator.of(ctx).pop();
-          Future<void>.microtask(_showCloudPasswordResetDialog);
+          Future.microtask(() {
+            unawaited(_showCloudPasswordResetDialog());
+          });
         },
       ),
     );
@@ -397,9 +500,9 @@ class _SettingsPageState extends State<SettingsPage> {
     try {
       await _cloud.sendPasswordResetEmail(email);
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(l10n.cloudPasswordResetSent)),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(l10n.cloudPasswordResetSent)));
     } on FirebaseAuthException catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -446,6 +549,7 @@ class _SettingsPageState extends State<SettingsPage> {
   }
 
   void _activateEmojiPairingMode() {
+    if (!_app.syncEnabled) return;
     _sync.generatePairingCode();
     _snack(
       _t(
@@ -466,6 +570,12 @@ class _SettingsPageState extends State<SettingsPage> {
       );
       return;
     }
+    final l10nLink = AppLocalizations.of(context);
+    final idOk = await _verifyVaultIdentity(
+      title: Text(l10nLink.vaultIdentitySyncTitle),
+      body: Text(l10nLink.vaultIdentitySyncBody),
+    );
+    if (!idOk || !mounted) return;
     if (!_sync.isPairingModeActive) {
       _sync.generatePairingCode();
     }
@@ -549,6 +659,12 @@ class _SettingsPageState extends State<SettingsPage> {
   }
 
   Future<void> _revokeSyncPeer(SyncPeer peer) async {
+    final l10nRev = AppLocalizations.of(context);
+    final ok = await _verifyVaultIdentity(
+      title: Text(l10nRev.vaultIdentitySyncTitle),
+      body: Text(l10nRev.vaultIdentitySyncBody),
+    );
+    if (!ok || !mounted) return;
     await _sync.revokePeer(peer.peerId);
     if (!mounted) return;
     _snack(_t('Dispositivo revocado.', 'Device revoked.'));
@@ -561,6 +677,12 @@ class _SettingsPageState extends State<SettingsPage> {
   }
 
   Future<void> _showSyncConflictsDialog() async {
+    final l10nConf = AppLocalizations.of(context);
+    final ok = await _verifyVaultIdentity(
+      title: Text(l10nConf.vaultIdentitySyncTitle),
+      body: Text(l10nConf.vaultIdentitySyncBody),
+    );
+    if (!ok || !mounted) return;
     await showDialog<void>(
       context: context,
       builder: (ctx) {
@@ -1006,6 +1128,8 @@ class _SettingsPageState extends State<SettingsPage> {
         return 'Ollama';
       case AiProvider.lmStudio:
         return 'LM Studio';
+      case AiProvider.folioCloud:
+        return 'Folio Cloud';
       case AiProvider.none:
         return l10n.aiProviderNone;
     }
@@ -1131,6 +1255,15 @@ class _SettingsPageState extends State<SettingsPage> {
   }
 
   AiService _buildAiServiceFromInputs() {
+    switch (_app.aiProvider) {
+      case AiProvider.folioCloud:
+        return FolioCloudAiService(entitlements: _folio);
+      case AiProvider.none:
+        throw StateError('Selecciona un proveedor IA primero.');
+      case AiProvider.ollama:
+      case AiProvider.lmStudio:
+        break;
+    }
     final uri = AiSafetyPolicy.parseAndNormalizeUrl(
       _aiBaseUrlController.text.trim(),
     );
@@ -1154,20 +1287,23 @@ class _SettingsPageState extends State<SettingsPage> {
           defaultModel: _app.aiModel,
         );
       case AiProvider.none:
+      case AiProvider.folioCloud:
         throw StateError('Selecciona un proveedor IA primero.');
     }
   }
 
   Future<void> _testAiConnection() async {
     await _saveAiFields();
-    final err = AiSafetyPolicy.validateEndpoint(
-      rawUrl: _app.aiBaseUrl,
-      mode: _app.aiEndpointMode,
-      remoteConfirmed: _app.aiRemoteEndpointConfirmed,
-    );
-    if (err != null) {
-      _snack(err);
-      return;
+    if (_app.aiProvider != AiProvider.folioCloud) {
+      final err = AiSafetyPolicy.validateEndpoint(
+        rawUrl: _app.aiBaseUrl,
+        mode: _app.aiEndpointMode,
+        remoteConfirmed: _app.aiRemoteEndpointConfirmed,
+      );
+      if (err != null) {
+        _snack(err);
+        return;
+      }
     }
     try {
       final service = _buildAiServiceFromInputs();
@@ -1175,7 +1311,11 @@ class _SettingsPageState extends State<SettingsPage> {
       await _loadAiModels();
       _snack('Conexión IA OK');
     } catch (e) {
-      _snack('Error de conexión: $e');
+      if (e is FolioCloudAiException) {
+        _snack(e.message);
+      } else {
+        _snack('Error de conexión: $e');
+      }
     }
   }
 
@@ -1205,6 +1345,396 @@ class _SettingsPageState extends State<SettingsPage> {
     }
   }
 
+  Future<void> _syncFolioStripeSubscription() async {
+    if (_folioCloudActionBusy) return;
+    setState(() => _folioCloudActionBusy = true);
+    try {
+      await _folio.refreshSubscriptionFromStripe();
+      if (!mounted) return;
+      _snack(
+        _t(
+          'Estado de suscripción actualizado.',
+          'Subscription status refreshed.',
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      _snack('$e');
+    } finally {
+      if (mounted) setState(() => _folioCloudActionBusy = false);
+    }
+  }
+
+  Future<void> _openFolioBillingPortal() async {
+    if (_folioCloudActionBusy) return;
+    setState(() => _folioCloudActionBusy = true);
+    try {
+      final uri = await createBillingPortalUri();
+      if (uri == null) {
+        _snack(
+          _t(
+            'Portal de facturación no disponible.',
+            'Billing portal unavailable.',
+          ),
+        );
+        return;
+      }
+      final ok = await launchUrl(uri, mode: LaunchMode.externalApplication);
+      if (!ok) {
+        _snack(_t('No se pudo abrir el enlace.', 'Could not open the link.'));
+      }
+    } catch (e) {
+      _snack('$e');
+    } finally {
+      if (mounted) setState(() => _folioCloudActionBusy = false);
+    }
+  }
+
+  Future<void> _openFolioCheckout(FolioCheckoutKind kind) async {
+    if (_folioCloudActionBusy) return;
+    setState(() => _folioCloudActionBusy = true);
+    try {
+      final uri = await createFolioCheckoutUri(kind);
+      if (uri == null) {
+        _snack(
+          _t(
+            'Pago no disponible (configura Stripe en el servidor).',
+            'Checkout unavailable (configure Stripe on server).',
+          ),
+        );
+        return;
+      }
+      final ok = await launchUrl(uri, mode: LaunchMode.externalApplication);
+      if (!ok) {
+        _snack(_t('No se pudo abrir el enlace.', 'Could not open the link.'));
+      } else {
+        _folio.scheduleStripeSyncOnNextResume();
+      }
+    } catch (e) {
+      _snack('$e');
+    } finally {
+      if (mounted) setState(() => _folioCloudActionBusy = false);
+    }
+  }
+
+  Future<void> _uploadFolioCloudBackup() async {
+    if (_folioCloudActionBusy) return;
+    if (_s.state != VaultFlowState.unlocked) return;
+    final snap = _folio.snapshot;
+    if (!snap.canUseCloudBackup) {
+      _snack(
+        _t(
+          'Activa Folio Cloud con la función de copia en la nube incluida en tu plan.',
+          'Enable Folio Cloud with the cloud backup feature included in your plan.',
+        ),
+      );
+      return;
+    }
+    setState(() => _folioCloudActionBusy = true);
+    try {
+      await uploadOpenVaultEncryptedToCloud(
+        session: _s,
+        entitlementSnapshot: snap,
+      );
+      if (mounted) {
+        _snack(AppLocalizations.of(context).folioCloudUploadSnackOk);
+      }
+    } catch (e) {
+      if (mounted) _snack('$e');
+    } finally {
+      if (mounted) setState(() => _folioCloudActionBusy = false);
+    }
+  }
+
+  Future<void> _folioPublishDemoPage() async {
+    if (_folioCloudActionBusy) return;
+    final snap = _folio.snapshot;
+    if (!snap.canPublishToWeb) {
+      _snack(
+        _t(
+          'Activa Folio Cloud con publicación web incluida en tu plan.',
+          'Enable Folio Cloud with web publishing included in your plan.',
+        ),
+      );
+      return;
+    }
+    setState(() => _folioCloudActionBusy = true);
+    try {
+      final slug = 'demo-${DateTime.now().millisecondsSinceEpoch}';
+      final res = await publishHtmlPage(
+        slug: slug,
+        html:
+            '<!DOCTYPE html><html lang="es"><head><meta charset="utf-8"><title>Folio</title></head>'
+            '<body><main><h1>Folio</h1><p>Página publicada desde Folio.</p></main></body></html>',
+        entitlementSnapshot: snap,
+      );
+      _snack(_t('Publicado: ${res.publicUrl}', 'Published: ${res.publicUrl}'));
+      await launchUrl(res.publicUrl, mode: LaunchMode.externalApplication);
+    } catch (e) {
+      _snack('$e');
+    } finally {
+      if (mounted) setState(() => _folioCloudActionBusy = false);
+    }
+  }
+
+  Future<void> _openFolioCloudBackupsDialog() async {
+    if (_folioCloudActionBusy) return;
+    final snap = _folio.snapshot;
+    if (!snap.canUseCloudBackup) {
+      _snack(
+        _t(
+          'Necesitas Folio Cloud activo con copia en la nube.',
+          'You need an active Folio Cloud plan with cloud backup.',
+        ),
+      );
+      return;
+    }
+    final verified = await _verifyFolioCloudAccountForBackups();
+    if (!verified || !mounted) return;
+    setState(() => _folioCloudActionBusy = true);
+    late final List<FolioCloudBackupEntry> entries;
+    try {
+      entries = await listFolioCloudBackups(entitlementSnapshot: snap);
+    } catch (e) {
+      if (mounted) {
+        setState(() => _folioCloudActionBusy = false);
+        _snack('$e');
+      }
+      return;
+    }
+    if (!mounted) return;
+    setState(() => _folioCloudActionBusy = false);
+    final l10n = AppLocalizations.of(context);
+    await showDialog<void>(
+      context: context,
+      builder: (ctx) => FolioDialog(
+        title: Text(_t('Copias en la nube', 'Cloud backups')),
+        content: SizedBox(
+          width: 420,
+          child: entries.isEmpty
+              ? Text(
+                  _t(
+                    'Aún no hay copias en esta cuenta.',
+                    'No backups in this account yet.',
+                  ),
+                )
+              : ConstrainedBox(
+                  constraints: const BoxConstraints(maxHeight: 360),
+                  child: ListView.builder(
+                    shrinkWrap: true,
+                    itemCount: entries.length,
+                    itemBuilder: (c, i) {
+                      final e = entries[i];
+                      return ListTile(
+                        title: Text(
+                          e.fileName,
+                          style: const TextStyle(fontFamily: 'monospace'),
+                        ),
+                        trailing: IconButton(
+                          tooltip: _t('Descargar', 'Download'),
+                          icon: const Icon(Icons.download_outlined),
+                          onPressed: () async {
+                            final path = await FilePicker.platform.saveFile(
+                              dialogTitle: _t(
+                                'Guardar copia',
+                                'Save backup',
+                              ),
+                              fileName: e.fileName,
+                            );
+                            if (path == null || !ctx.mounted) return;
+                            try {
+                              await downloadFolioCloudBackup(
+                                entry: e,
+                                destinationFile: File(path),
+                                entitlementSnapshot: snap,
+                              );
+                              if (!ctx.mounted) return;
+                              Navigator.pop(ctx);
+                              if (mounted) {
+                                _snack(
+                                  _t('Copia descargada.', 'Backup downloaded.'),
+                                );
+                              }
+                            } catch (err) {
+                              if (ctx.mounted) {
+                                ScaffoldMessenger.of(
+                                  ctx,
+                                ).showSnackBar(SnackBar(content: Text('$err')));
+                              }
+                            }
+                          },
+                        ),
+                      );
+                    },
+                  ),
+                ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: Text(l10n.cancel),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _openPublishedPagesDialog() async {
+    if (_folioCloudActionBusy) return;
+    final snap = _folio.snapshot;
+    if (!snap.canPublishToWeb) {
+      _snack(
+        _t(
+          'Necesitas Folio Cloud con publicación web activa.',
+          'You need Folio Cloud with web publishing enabled.',
+        ),
+      );
+      return;
+    }
+    setState(() => _folioCloudActionBusy = true);
+    late final List<PublishedPageEntry> entries;
+    try {
+      entries = await listMyPublishedPages();
+    } catch (e) {
+      if (mounted) {
+        setState(() => _folioCloudActionBusy = false);
+        _snack('$e');
+      }
+      return;
+    }
+    if (!mounted) return;
+    setState(() => _folioCloudActionBusy = false);
+    await showDialog<void>(
+      context: context,
+      builder: (ctx) => FolioDialog(
+        title: Text(_t('Páginas publicadas', 'Published pages')),
+        content: SizedBox(
+          width: 440,
+          child: entries.isEmpty
+              ? Text(
+                  _t(
+                    'Aún no hay páginas publicadas.',
+                    'No published pages yet.',
+                  ),
+                )
+              : ConstrainedBox(
+                  constraints: const BoxConstraints(maxHeight: 400),
+                  child: ListView.builder(
+                    shrinkWrap: true,
+                    itemCount: entries.length,
+                    itemBuilder: (c, i) {
+                      final e = entries[i];
+                      final when = e.updatedAt != null
+                          ? '${e.updatedAt!.toLocal()}'
+                          : '—';
+                      return ListTile(
+                        title: Text(
+                          e.slug,
+                          style: const TextStyle(
+                            fontFamily: 'monospace',
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        subtitle: Text(
+                          when,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        trailing: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            IconButton(
+                              tooltip: _t('Abrir', 'Open'),
+                              icon: const Icon(Icons.open_in_new_outlined),
+                              onPressed: () async {
+                                final u = Uri.tryParse(e.publicUrl);
+                                if (u != null) {
+                                  await launchUrl(
+                                    u,
+                                    mode: LaunchMode.externalApplication,
+                                  );
+                                }
+                              },
+                            ),
+                            IconButton(
+                              tooltip: _t('Eliminar', 'Delete'),
+                              icon: Icon(
+                                Icons.delete_outline_rounded,
+                                color: Theme.of(ctx).colorScheme.error,
+                              ),
+                              onPressed: () async {
+                                final sure = await showDialog<bool>(
+                                  context: ctx,
+                                  builder: (dCtx) => AlertDialog(
+                                    title: Text(
+                                      _t(
+                                        '¿Eliminar publicación?',
+                                        'Remove publication?',
+                                      ),
+                                    ),
+                                    content: Text(
+                                      _t(
+                                        'Se borrará el HTML público y el enlace dejará de funcionar.',
+                                        'The public HTML will be removed and the link will stop working.',
+                                      ),
+                                    ),
+                                    actions: [
+                                      TextButton(
+                                        onPressed: () =>
+                                            Navigator.pop(dCtx, false),
+                                        child: Text(
+                                          MaterialLocalizations.of(
+                                            dCtx,
+                                          ).cancelButtonLabel,
+                                        ),
+                                      ),
+                                      FilledButton(
+                                        onPressed: () =>
+                                            Navigator.pop(dCtx, true),
+                                        child: Text(_t('Eliminar', 'Delete')),
+                                      ),
+                                    ],
+                                  ),
+                                );
+                                if (sure != true || !ctx.mounted) return;
+                                try {
+                                  await deletePublishedPage(
+                                    e,
+                                    entitlementSnapshot: snap,
+                                  );
+                                  if (!ctx.mounted) return;
+                                  Navigator.pop(ctx);
+                                  if (mounted) {
+                                    _snack(
+                                      _t('Publicación eliminada.', 'Removed.'),
+                                    );
+                                  }
+                                } catch (err) {
+                                  if (ctx.mounted) {
+                                    ScaffoldMessenger.of(ctx).showSnackBar(
+                                      SnackBar(content: Text('$err')),
+                                    );
+                                  }
+                                }
+                              },
+                            ),
+                          ],
+                        ),
+                      );
+                    },
+                  ),
+                ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: Text(_t('Cerrar', 'Close')),
+          ),
+        ],
+      ),
+    );
+  }
+
   String _suggestedBackupFileName() {
     final d = DateTime.now();
     final y = d.year.toString().padLeft(4, '0');
@@ -1219,7 +1749,7 @@ class _SettingsPageState extends State<SettingsPage> {
     final verified = await showDialog<bool>(
       context: context,
       barrierDismissible: false,
-      builder: (ctx) => _VaultIdentityVerifyDialog(
+      builder: (ctx) => VaultIdentityVerifyDialog(
         session: _s,
         quickEnabled: _quickEnabled,
         passkeyRegistered: _passkeyRegistered,
@@ -1282,7 +1812,7 @@ class _SettingsPageState extends State<SettingsPage> {
     final verified = await showDialog<bool>(
       context: context,
       barrierDismissible: false,
-      builder: (ctx) => _VaultIdentityVerifyDialog(
+      builder: (ctx) => VaultIdentityVerifyDialog(
         session: _s,
         quickEnabled: _quickEnabled,
         passkeyRegistered: _passkeyRegistered,
@@ -1332,7 +1862,7 @@ class _SettingsPageState extends State<SettingsPage> {
     final verified = await showDialog<bool>(
       context: context,
       barrierDismissible: false,
-      builder: (ctx) => _VaultIdentityVerifyDialog(
+      builder: (ctx) => VaultIdentityVerifyDialog(
         session: _s,
         quickEnabled: _quickEnabled,
         passkeyRegistered: _passkeyRegistered,
@@ -1470,7 +2000,7 @@ class _SettingsPageState extends State<SettingsPage> {
       final verified = await showDialog<bool>(
         context: context,
         barrierDismissible: false,
-        builder: (ctx) => _VaultIdentityVerifyDialog(
+        builder: (ctx) => VaultIdentityVerifyDialog(
           session: _s,
           quickEnabled: _quickEnabled,
           passkeyRegistered: _passkeyRegistered,
@@ -2774,24 +3304,42 @@ class _SettingsPageState extends State<SettingsPage> {
                                 _SettingsPanelHeroCard(
                                   icon: Icons.smart_toy_outlined,
                                   title: l10n.ai,
-                                  description: _t(
-                                    'Conecta Ollama o LM Studio en local; el asistente usa el modelo y el contexto que configures aquí.',
-                                    'Connect Ollama or LM Studio locally; the assistant uses the model and context you set here.',
-                                  ),
-                                  chips: [
-                                    _SettingsInfoChip(
-                                      icon: Icons.hub_outlined,
-                                      label: l10n.aiProviderLabel,
-                                    ),
-                                    _SettingsInfoChip(
-                                      icon: Icons.psychology_outlined,
-                                      label: l10n.aiModel,
-                                    ),
-                                    _SettingsInfoChip(
-                                      icon: Icons.assistant_navigation,
-                                      label: l10n.aiSetupAssistantTitle,
-                                    ),
-                                  ],
+                                  description: _app.aiProvider ==
+                                          AiProvider.folioCloud
+                                      ? _t(
+                                          'La IA se ejecuta en Folio Cloud con tu suscripción. Elige otro proveedor abajo para configurar Ollama o LM Studio en local.',
+                                          'AI runs on Folio Cloud with your subscription. Choose another provider below to set up Ollama or LM Studio locally.',
+                                        )
+                                      : _t(
+                                          'Conecta Ollama o LM Studio en local; el asistente usa el modelo y el contexto que configures aquí.',
+                                          'Connect Ollama or LM Studio locally; the assistant uses the model and context you set here.',
+                                        ),
+                                  chips: _app.aiProvider ==
+                                          AiProvider.folioCloud
+                                      ? [
+                                          _SettingsInfoChip(
+                                            icon: Icons.cloud_outlined,
+                                            label: _t('En la nube', 'Hosted'),
+                                          ),
+                                          _SettingsInfoChip(
+                                            icon: Icons.hub_outlined,
+                                            label: l10n.aiProviderLabel,
+                                          ),
+                                        ]
+                                      : [
+                                          _SettingsInfoChip(
+                                            icon: Icons.hub_outlined,
+                                            label: l10n.aiProviderLabel,
+                                          ),
+                                          _SettingsInfoChip(
+                                            icon: Icons.psychology_outlined,
+                                            label: l10n.aiModel,
+                                          ),
+                                          _SettingsInfoChip(
+                                            icon: Icons.assistant_navigation,
+                                            label: l10n.aiSetupAssistantTitle,
+                                          ),
+                                        ],
                                 ),
                                 const Divider(height: 1),
                                 SwitchListTile(
@@ -2837,20 +3385,24 @@ class _SettingsPageState extends State<SettingsPage> {
                                     padding: EdgeInsets.fromLTRB(16, 0, 16, 12),
                                     child: LinearProgressIndicator(),
                                   ),
-                                const Divider(height: 1),
-                                ListTile(
-                                  leading: const Icon(
-                                    Icons.assistant_navigation,
+                                if (_app.aiProvider !=
+                                    AiProvider.folioCloud) ...[
+                                  const Divider(height: 1),
+                                  ListTile(
+                                    leading: const Icon(
+                                      Icons.assistant_navigation,
+                                    ),
+                                    title: Text(l10n.aiSetupAssistantTitle),
+                                    subtitle:
+                                        Text(l10n.aiSetupAssistantSubtitle),
+                                    trailing: const Icon(
+                                      Icons.chevron_right_rounded,
+                                    ),
+                                    onTap: _detectingAiProvider
+                                        ? null
+                                        : _autoDetectAndConfigureAiProvider,
                                   ),
-                                  title: Text(l10n.aiSetupAssistantTitle),
-                                  subtitle: Text(l10n.aiSetupAssistantSubtitle),
-                                  trailing: const Icon(
-                                    Icons.chevron_right_rounded,
-                                  ),
-                                  onTap: _detectingAiProvider
-                                      ? null
-                                      : _autoDetectAndConfigureAiProvider,
-                                ),
+                                ],
                                 const Divider(height: 1),
                                 SwitchListTile(
                                   secondary: const Icon(
@@ -2863,57 +3415,63 @@ class _SettingsPageState extends State<SettingsPage> {
                                       ? _app.setAiAlwaysShowThought
                                       : null,
                                 ),
-                                const Divider(height: 1),
-                                SwitchListTile(
-                                  secondary: const Icon(
-                                    Icons.rocket_launch_outlined,
+                                if (_app.aiProvider !=
+                                    AiProvider.folioCloud) ...[
+                                  const Divider(height: 1),
+                                  SwitchListTile(
+                                    secondary: const Icon(
+                                      Icons.rocket_launch_outlined,
+                                    ),
+                                    title: Text(l10n.aiLaunchProviderWithApp),
+                                    subtitle: Text(
+                                      l10n.aiLaunchProviderWithAppHint,
+                                    ),
+                                    value: _app.aiLaunchProviderWithApp,
+                                    onChanged: _app.aiEnabled
+                                        ? (v) async {
+                                            await _app
+                                                .setAiLaunchProviderWithApp(
+                                                  v,
+                                                );
+                                          }
+                                        : null,
                                   ),
-                                  title: Text(l10n.aiLaunchProviderWithApp),
-                                  subtitle: Text(
-                                    l10n.aiLaunchProviderWithAppHint,
-                                  ),
-                                  value: _app.aiLaunchProviderWithApp,
-                                  onChanged: _app.aiEnabled
-                                      ? (v) async {
-                                          await _app.setAiLaunchProviderWithApp(
-                                            v,
-                                          );
-                                        }
-                                      : null,
-                                ),
-                                const Divider(height: 1),
-                                ListTile(
-                                  leading: const Icon(Icons.memory_outlined),
-                                  title: Text(l10n.aiContextWindowTokens),
-                                  subtitle: Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: [
-                                      Text(
-                                        l10n.aiContextWindowTokensHint,
-                                        style: Theme.of(context)
-                                            .textTheme
-                                            .bodySmall
-                                            ?.copyWith(
-                                              color: scheme.onSurfaceVariant,
-                                            ),
-                                      ),
-                                      TextField(
-                                        controller: _aiContextWindowController,
-                                        enabled: _app.aiEnabled,
-                                        keyboardType: TextInputType.number,
-                                        decoration: const InputDecoration(
-                                          hintText: '131072',
-                                          border: InputBorder.none,
-                                          enabledBorder: InputBorder.none,
-                                          focusedBorder: InputBorder.none,
-                                          contentPadding: EdgeInsets.zero,
+                                  const Divider(height: 1),
+                                  ListTile(
+                                    leading: const Icon(Icons.memory_outlined),
+                                    title: Text(l10n.aiContextWindowTokens),
+                                    subtitle: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          l10n.aiContextWindowTokensHint,
+                                          style: Theme.of(context)
+                                              .textTheme
+                                              .bodySmall
+                                              ?.copyWith(
+                                                color:
+                                                    scheme.onSurfaceVariant,
+                                              ),
                                         ),
-                                        onSubmitted: (_) => _saveAiFields(),
-                                      ),
-                                    ],
+                                        TextField(
+                                          controller:
+                                              _aiContextWindowController,
+                                          enabled: _app.aiEnabled,
+                                          keyboardType: TextInputType.number,
+                                          decoration: const InputDecoration(
+                                            hintText: '131072',
+                                            border: InputBorder.none,
+                                            enabledBorder: InputBorder.none,
+                                            focusedBorder: InputBorder.none,
+                                            contentPadding: EdgeInsets.zero,
+                                          ),
+                                          onSubmitted: (_) => _saveAiFields(),
+                                        ),
+                                      ],
+                                    ),
                                   ),
-                                ),
+                                ],
                                 const Divider(height: 1),
                                 ListTile(
                                   leading: const Icon(Icons.hub_outlined),
@@ -2923,6 +3481,35 @@ class _SettingsPageState extends State<SettingsPage> {
                                     underline: const SizedBox.shrink(),
                                     onChanged: (value) async {
                                       if (value == null) return;
+                                      if (value == AiProvider.folioCloud) {
+                                        if (!_folio.isAvailable) {
+                                          _snack(
+                                            _t(
+                                              'Firebase no está disponible en esta compilación.',
+                                              'Firebase is not available in this build.',
+                                            ),
+                                          );
+                                          return;
+                                        }
+                                        if (!_cloud.isSignedIn) {
+                                          _snack(
+                                            _t(
+                                              'Inicia sesión en la cuenta en la nube (Ajustes).',
+                                              'Sign in to your cloud account (Settings).',
+                                            ),
+                                          );
+                                          return;
+                                        }
+                                        if (!_folio.snapshot.canUseCloudAi) {
+                                          _snack(
+                                            _t(
+                                              'Tu plan no incluye IA en la nube o la suscripción no está activa.',
+                                              'Your plan does not include cloud AI or the subscription is not active.',
+                                            ),
+                                          );
+                                          return;
+                                        }
+                                      }
                                       try {
                                         await _app.setAiProvider(value);
                                         if (!mounted) return;
@@ -2941,9 +3528,14 @@ class _SettingsPageState extends State<SettingsPage> {
                                         _aiBaseUrlController.text = _app
                                             .defaultUrlForProvider(value);
                                         await _saveAiFields();
+                                        if (value == AiProvider.folioCloud) {
+                                          await _loadAiModels();
+                                        }
                                       } catch (e) {
                                         if (!mounted) return;
-                                        _snack('Error al cambiar proveedor: ');
+                                        _snack(
+                                          'Error al cambiar proveedor: $e',
+                                        );
                                       }
                                     },
                                     items: [
@@ -2959,126 +3551,143 @@ class _SettingsPageState extends State<SettingsPage> {
                                         value: AiProvider.lmStudio,
                                         child: Text('LM Studio'),
                                       ),
+                                      DropdownMenuItem(
+                                        value: AiProvider.folioCloud,
+                                        child: const Text('Folio Cloud'),
+                                      ),
                                     ],
                                   ),
                                 ),
-                                const Divider(height: 1),
-                                ListTile(
-                                  leading: const Icon(Icons.link_rounded),
-                                  title: Text(l10n.aiEndpoint),
-                                  subtitle: TextField(
-                                    controller: _aiBaseUrlController,
-                                    decoration: const InputDecoration(
-                                      hintText: 'http://127.0.0.1:11434',
-                                      border: InputBorder.none,
-                                      enabledBorder: InputBorder.none,
-                                      focusedBorder: InputBorder.none,
-                                      contentPadding: EdgeInsets.zero,
+                                if (_app.aiProvider !=
+                                    AiProvider.folioCloud) ...[
+                                  const Divider(height: 1),
+                                  ListTile(
+                                    leading: const Icon(Icons.link_rounded),
+                                    title: Text(l10n.aiEndpoint),
+                                    subtitle: TextField(
+                                      controller: _aiBaseUrlController,
+                                      decoration: const InputDecoration(
+                                        hintText: 'http://127.0.0.1:11434',
+                                        border: InputBorder.none,
+                                        enabledBorder: InputBorder.none,
+                                        focusedBorder: InputBorder.none,
+                                        contentPadding: EdgeInsets.zero,
+                                      ),
+                                      onSubmitted: (_) => _saveAiFields(),
                                     ),
-                                    onSubmitted: (_) => _saveAiFields(),
                                   ),
-                                ),
-                                const Divider(height: 1),
-                                ListTile(
-                                  leading: const Icon(
-                                    Icons.psychology_alt_outlined,
-                                  ),
-                                  title: Text(l10n.aiModel),
-                                  subtitle: _loadingModels
-                                      ? const Padding(
-                                          padding: EdgeInsets.symmetric(
-                                            vertical: 8,
-                                          ),
-                                          child: LinearProgressIndicator(),
-                                        )
-                                      : DropdownButton<String>(
-                                          value:
-                                              _availableModels.contains(
-                                                _app.aiModel,
-                                              )
-                                              ? _app.aiModel
-                                              : null,
-                                          hint: Text(
-                                            l10n.aiConnectToListModels,
-                                          ),
-                                          isExpanded: true,
-                                          underline: const SizedBox.shrink(),
-                                          onChanged: _availableModels.isEmpty
-                                              ? null
-                                              : (value) {
-                                                  if (value != null) {
-                                                    _app.setAiModel(value);
-                                                  }
-                                                },
-                                          items: _availableModels
-                                              .map(
-                                                (m) => DropdownMenuItem<String>(
-                                                  value: m,
-                                                  child: Text(m),
-                                                ),
-                                              )
-                                              .toList(),
-                                        ),
-                                ),
-                                const Divider(height: 1),
-                                ListTile(
-                                  leading: const Icon(Icons.timer_outlined),
-                                  title: Text(l10n.aiTimeoutMs),
-                                  subtitle: TextField(
-                                    controller: _aiTimeoutController,
-                                    keyboardType: TextInputType.number,
-                                    decoration: const InputDecoration(
-                                      hintText: '30000',
-                                      border: InputBorder.none,
-                                      enabledBorder: InputBorder.none,
-                                      focusedBorder: InputBorder.none,
-                                      contentPadding: EdgeInsets.zero,
+                                  const Divider(height: 1),
+                                  ListTile(
+                                    leading: const Icon(
+                                      Icons.psychology_alt_outlined,
                                     ),
-                                    onSubmitted: (_) => _saveAiFields(),
+                                    title: Text(l10n.aiModel),
+                                    subtitle: _loadingModels
+                                        ? const Padding(
+                                            padding: EdgeInsets.symmetric(
+                                              vertical: 8,
+                                            ),
+                                            child: LinearProgressIndicator(),
+                                          )
+                                        : DropdownButton<String>(
+                                            value:
+                                                _availableModels.contains(
+                                                  _app.aiModel,
+                                                )
+                                                ? _app.aiModel
+                                                : null,
+                                            hint: Text(
+                                              l10n.aiConnectToListModels,
+                                            ),
+                                            isExpanded: true,
+                                            underline:
+                                                const SizedBox.shrink(),
+                                            onChanged:
+                                                _availableModels.isEmpty
+                                                ? null
+                                                : (value) {
+                                                    if (value != null) {
+                                                      _app.setAiModel(value);
+                                                    }
+                                                  },
+                                            items: _availableModels
+                                                .map(
+                                                  (m) =>
+                                                      DropdownMenuItem<String>(
+                                                    value: m,
+                                                    child: Text(m),
+                                                  ),
+                                                )
+                                                .toList(),
+                                          ),
                                   ),
-                                ),
-                                const Divider(height: 1),
-                                SwitchListTile(
-                                  secondary: const Icon(Icons.public_outlined),
-                                  title: Text(l10n.aiAllowRemoteEndpoint),
-                                  subtitle: Text(
-                                    _app.aiEndpointMode ==
-                                            AiEndpointMode.allowRemote
-                                        ? l10n.aiAllowRemoteEndpointAllowed
-                                        : l10n.aiAllowRemoteEndpointLocalhostOnly,
+                                  const Divider(height: 1),
+                                  ListTile(
+                                    leading: const Icon(Icons.timer_outlined),
+                                    title: Text(l10n.aiTimeoutMs),
+                                    subtitle: TextField(
+                                      controller: _aiTimeoutController,
+                                      keyboardType: TextInputType.number,
+                                      decoration: const InputDecoration(
+                                        hintText: '30000',
+                                        border: InputBorder.none,
+                                        enabledBorder: InputBorder.none,
+                                        focusedBorder: InputBorder.none,
+                                        contentPadding: EdgeInsets.zero,
+                                      ),
+                                      onSubmitted: (_) => _saveAiFields(),
+                                    ),
                                   ),
-                                  value:
+                                  const Divider(height: 1),
+                                  SwitchListTile(
+                                    secondary:
+                                        const Icon(Icons.public_outlined),
+                                    title: Text(l10n.aiAllowRemoteEndpoint),
+                                    subtitle: Text(
                                       _app.aiEndpointMode ==
-                                      AiEndpointMode.allowRemote,
-                                  onChanged: (v) async {
-                                    await _app.setAiEndpointMode(
-                                      v
-                                          ? AiEndpointMode.allowRemote
-                                          : AiEndpointMode.localhostOnly,
-                                    );
-                                    if (v) {
-                                      await _confirmRemoteEndpointIfNeeded();
-                                    }
-                                  },
-                                ),
-                                if (_app.aiEndpointMode ==
-                                        AiEndpointMode.allowRemote &&
-                                    !_app.aiRemoteEndpointConfirmed)
-                                  Padding(
-                                    padding: EdgeInsets.fromLTRB(16, 0, 16, 16),
-                                    child: Text(
-                                      l10n.aiAllowRemoteEndpointNotConfirmed,
-                                      style: TextStyle(color: Colors.orange),
+                                              AiEndpointMode.allowRemote
+                                          ? l10n.aiAllowRemoteEndpointAllowed
+                                          : l10n
+                                                .aiAllowRemoteEndpointLocalhostOnly,
                                     ),
+                                    value:
+                                        _app.aiEndpointMode ==
+                                        AiEndpointMode.allowRemote,
+                                    onChanged: (v) async {
+                                      await _app.setAiEndpointMode(
+                                        v
+                                            ? AiEndpointMode.allowRemote
+                                            : AiEndpointMode.localhostOnly,
+                                      );
+                                      if (v) {
+                                        await _confirmRemoteEndpointIfNeeded();
+                                      }
+                                    },
                                   ),
-                                const Divider(height: 1),
-                                ListTile(
-                                  leading: const Icon(
-                                    Icons.network_check_rounded,
+                                  if (_app.aiEndpointMode ==
+                                          AiEndpointMode.allowRemote &&
+                                      !_app.aiRemoteEndpointConfirmed)
+                                    Padding(
+                                      padding: const EdgeInsets.fromLTRB(
+                                        16,
+                                        0,
+                                        16,
+                                        16,
+                                      ),
+                                      child: Text(
+                                        l10n.aiAllowRemoteEndpointNotConfirmed,
+                                        style: TextStyle(color: Colors.orange),
+                                      ),
+                                    ),
+                                  const Divider(height: 1),
+                                  ListTile(
+                                    leading: const Icon(
+                                      Icons.network_check_rounded,
+                                    ),
+                                    title: Text(l10n.aiConnectToListModels),
+                                    onTap: _testAiConnection,
                                   ),
-                                  title: Text(l10n.aiConnectToListModels),
-                                  onTap: _testAiConnection,
-                                ),
+                                ],
                               ],
                             ),
                           ),
@@ -3109,6 +3718,36 @@ class _SettingsPageState extends State<SettingsPage> {
                                 ],
                               ),
                               const Divider(height: 1),
+                              if (_s.state == VaultFlowState.unlocked)
+                                Padding(
+                                  padding: const EdgeInsets.fromLTRB(
+                                    16,
+                                    12,
+                                    16,
+                                    4,
+                                  ),
+                                  child: FutureBuilder<String>(
+                                    key: ValueKey(_s.activeVaultId),
+                                    future: _s.getActiveVaultDisplayLabel(),
+                                    builder: (ctx, snap) {
+                                      if (!snap.hasData) {
+                                        return const SizedBox.shrink();
+                                      }
+                                      return Text(
+                                        l10n.vaultBackupOpenVaultHint(
+                                          snap.data!,
+                                        ),
+                                        style: Theme.of(context)
+                                            .textTheme
+                                            .bodySmall
+                                            ?.copyWith(
+                                              color: scheme.onSurfaceVariant,
+                                              height: 1.35,
+                                            ),
+                                      );
+                                    },
+                                  ),
+                                ),
                               ListTile(
                                 leading: const Icon(
                                   Icons.file_download_outlined,
@@ -3141,13 +3780,14 @@ class _SettingsPageState extends State<SettingsPage> {
                               SwitchListTile(
                                 secondary: const Icon(Icons.schedule_rounded),
                                 title: Text(l10n.scheduledVaultBackupTitle),
-                                subtitle: Text(l10n.scheduledVaultBackupSubtitle),
+                                subtitle: Text(
+                                  l10n.scheduledVaultBackupSubtitle,
+                                ),
                                 value: _app.scheduledVaultBackupEnabled,
                                 onChanged: _s.state == VaultFlowState.unlocked
                                     ? (v) async {
-                                        await _app.setScheduledVaultBackupEnabled(
-                                          v,
-                                        );
+                                        await _app
+                                            .setScheduledVaultBackupEnabled(v);
                                         if (mounted) setState(() {});
                                       }
                                     : null,
@@ -3159,7 +3799,8 @@ class _SettingsPageState extends State<SettingsPage> {
                                     l10n.scheduledVaultBackupIntervalLabel,
                                   ),
                                   trailing: DropdownButton<int>(
-                                    value: _app.scheduledVaultBackupIntervalHours
+                                    value: _app
+                                        .scheduledVaultBackupIntervalHours
                                         .clamp(1, 168),
                                     items: const [
                                       DropdownMenuItem(
@@ -3224,7 +3865,39 @@ class _SettingsPageState extends State<SettingsPage> {
                                     ),
                                   ),
                                 ),
+                                if (_folio.isAvailable && _cloud.isSignedIn)
+                                  SwitchListTile(
+                                    secondary: const Icon(
+                                      Icons.cloud_upload_outlined,
+                                    ),
+                                    title: Text(
+                                      l10n.scheduledVaultBackupCloudSyncTitle,
+                                    ),
+                                    subtitle: Text(
+                                      l10n.scheduledVaultBackupCloudSyncSubtitle,
+                                    ),
+                                    value: _app
+                                        .scheduledVaultBackupAlsoUploadCloud,
+                                    onChanged:
+                                        _s.state == VaultFlowState.unlocked
+                                        ? (v) async {
+                                            await _app
+                                                .setScheduledVaultBackupAlsoUploadCloud(
+                                                  v,
+                                                );
+                                            if (mounted) setState(() {});
+                                          }
+                                        : null,
+                                  ),
                               ],
+                              ListTile(
+                                leading: const Icon(Icons.save_alt_rounded),
+                                title: Text(l10n.vaultBackupRunNowTile),
+                                subtitle: Text(l10n.vaultBackupRunNowSubtitle),
+                                onTap: _s.state == VaultFlowState.unlocked
+                                    ? _runBackupNowToScheduledFolder
+                                    : null,
+                              ),
                               const Divider(height: 1),
                               Padding(
                                 padding: const EdgeInsets.all(16.0),
@@ -3435,15 +4108,16 @@ class _SettingsPageState extends State<SettingsPage> {
                               _SettingsPanelHeroCard(
                                 icon: Icons.cloud_circle_outlined,
                                 title: l10n.cloudAccountSectionTitle,
-                                description: l10n.cloudAccountSectionDescription,
+                                description:
+                                    l10n.cloudAccountSectionDescription,
                                 chips: [
                                   _SettingsInfoChip(
                                     icon: Icons.lock_outline_rounded,
-                                    label: _t('Opcional', 'Optional'),
+                                    label: l10n.cloudAccountChipOptional,
                                   ),
                                   _SettingsInfoChip(
                                     icon: Icons.payments_outlined,
-                                    label: _t('Sync de pago (futuro)', 'Paid sync (future)'),
+                                    label: l10n.cloudAccountChipPaidCloud,
                                   ),
                                 ],
                               ),
@@ -3463,8 +4137,9 @@ class _SettingsPageState extends State<SettingsPage> {
                                         decoration: BoxDecoration(
                                           color: scheme.errorContainer
                                               .withValues(alpha: 0.22),
-                                          borderRadius:
-                                              BorderRadius.circular(16),
+                                          borderRadius: BorderRadius.circular(
+                                            16,
+                                          ),
                                           border: Border.all(
                                             color: scheme.outlineVariant
                                                 .withValues(alpha: 0.45),
@@ -3507,8 +4182,8 @@ class _SettingsPageState extends State<SettingsPage> {
                                         u.email?.trim().isNotEmpty == true
                                         ? u.email!.trim()
                                         : '—';
-                                    final initial = email.isNotEmpty &&
-                                            email != '—'
+                                    final initial =
+                                        email.isNotEmpty && email != '—'
                                         ? email[0].toUpperCase()
                                         : '?';
                                     return Padding(
@@ -3529,8 +4204,9 @@ class _SettingsPageState extends State<SettingsPage> {
                                               scheme.surfaceContainerHighest,
                                             ],
                                           ),
-                                          borderRadius:
-                                              BorderRadius.circular(18),
+                                          borderRadius: BorderRadius.circular(
+                                            18,
+                                          ),
                                           border: Border.all(
                                             color: scheme.outlineVariant
                                                 .withValues(alpha: 0.4),
@@ -3538,173 +4214,173 @@ class _SettingsPageState extends State<SettingsPage> {
                                         ),
                                         child: Padding(
                                           padding: const EdgeInsets.all(18),
-                                          child: Column(
-                                            crossAxisAlignment:
-                                                CrossAxisAlignment.stretch,
-                                            children: [
-                                              Row(
-                                                crossAxisAlignment:
-                                                    CrossAxisAlignment.start,
-                                                children: [
-                                                  CircleAvatar(
-                                                    radius: 26,
-                                                    backgroundColor: scheme
-                                                        .primary
-                                                        .withValues(
-                                                          alpha: 0.18,
-                                                        ),
-                                                    child: Text(
-                                                      initial,
-                                                      style: Theme.of(context)
-                                                          .textTheme
-                                                          .titleLarge
-                                                          ?.copyWith(
-                                                            color: scheme
-                                                                .primary,
-                                                            fontWeight:
-                                                                FontWeight
-                                                                    .w700,
+                                          child: Semantics(
+                                            container: true,
+                                            label: l10n.cloudAccountSignedInAs(
+                                              email,
+                                            ),
+                                            child: Column(
+                                              crossAxisAlignment:
+                                                  CrossAxisAlignment.stretch,
+                                              children: [
+                                                Row(
+                                                  crossAxisAlignment:
+                                                      CrossAxisAlignment.start,
+                                                  children: [
+                                                    CircleAvatar(
+                                                      radius: 26,
+                                                      backgroundColor: scheme
+                                                          .primary
+                                                          .withValues(
+                                                            alpha: 0.18,
                                                           ),
+                                                      child: Text(
+                                                        initial,
+                                                        style: Theme.of(context)
+                                                            .textTheme
+                                                            .titleLarge
+                                                            ?.copyWith(
+                                                              color: scheme
+                                                                  .primary,
+                                                              fontWeight:
+                                                                  FontWeight
+                                                                      .w700,
+                                                            ),
+                                                      ),
                                                     ),
-                                                  ),
-                                                  const SizedBox(width: 14),
-                                                  Expanded(
-                                                    child: Column(
-                                                      crossAxisAlignment:
-                                                          CrossAxisAlignment
-                                                              .start,
-                                                      children: [
-                                                        Text(
-                                                          email,
-                                                          style:
-                                                              Theme.of(context)
-                                                                  .textTheme
-                                                                  .titleSmall
-                                                                  ?.copyWith(
-                                                                    fontWeight:
-                                                                        FontWeight
-                                                                            .w700,
+                                                    const SizedBox(width: 14),
+                                                    Expanded(
+                                                      child: Column(
+                                                        crossAxisAlignment:
+                                                            CrossAxisAlignment
+                                                                .start,
+                                                        children: [
+                                                          Text(
+                                                            email,
+                                                            style: Theme.of(context)
+                                                                .textTheme
+                                                                .titleSmall
+                                                                ?.copyWith(
+                                                                  fontWeight:
+                                                                      FontWeight
+                                                                          .w700,
+                                                                ),
+                                                          ),
+                                                          if (u.emailVerified)
+                                                            Padding(
+                                                              padding:
+                                                                  const EdgeInsets.only(
+                                                                    top: 6,
                                                                   ),
-                                                        ),
-                                                        if (u.emailVerified)
-                                                          Padding(
-                                                            padding:
-                                                                const EdgeInsets
-                                                                    .only(
-                                                              top: 6,
-                                                            ),
-                                                            child: Row(
-                                                              mainAxisSize:
-                                                                  MainAxisSize
-                                                                      .min,
-                                                              children: [
-                                                                Icon(
-                                                                  Icons
-                                                                      .verified_rounded,
-                                                                  size: 16,
-                                                                  color: scheme
-                                                                      .primary,
-                                                                ),
-                                                                const SizedBox(
-                                                                  width: 4,
-                                                                ),
-                                                                Text(
-                                                                  l10n
-                                                                      .cloudAccountEmailVerified,
-                                                                  style: Theme.of(
-                                                                        context,
-                                                                      )
-                                                                      .textTheme
-                                                                      .labelSmall
-                                                                      ?.copyWith(
-                                                                        color: scheme
-                                                                            .primary,
-                                                                        fontWeight:
-                                                                            FontWeight.w600,
-                                                                      ),
-                                                                ),
-                                                              ],
-                                                            ),
-                                                          ),
-                                                        const SizedBox(
-                                                          height: 6,
-                                                        ),
-                                                        SelectableText(
-                                                          l10n.cloudAccountUid(
-                                                            _shortCloudUid(
-                                                              u.uid,
-                                                            ),
-                                                          ),
-                                                          style:
-                                                              Theme.of(context)
-                                                                  .textTheme
-                                                                  .bodySmall
-                                                                  ?.copyWith(
-                                                                    fontFamily:
-                                                                        'monospace',
+                                                              child: Row(
+                                                                mainAxisSize:
+                                                                    MainAxisSize
+                                                                        .min,
+                                                                children: [
+                                                                  Icon(
+                                                                    Icons
+                                                                        .verified_rounded,
+                                                                    size: 16,
                                                                     color: scheme
-                                                                        .onSurfaceVariant,
+                                                                        .primary,
                                                                   ),
-                                                        ),
-                                                      ],
+                                                                  const SizedBox(
+                                                                    width: 4,
+                                                                  ),
+                                                                  Text(
+                                                                    l10n.cloudAccountEmailVerified,
+                                                                    style: Theme.of(context)
+                                                                        .textTheme
+                                                                        .labelSmall
+                                                                        ?.copyWith(
+                                                                          color:
+                                                                              scheme.primary,
+                                                                          fontWeight:
+                                                                              FontWeight.w600,
+                                                                        ),
+                                                                  ),
+                                                                ],
+                                                              ),
+                                                            ),
+                                                          const SizedBox(
+                                                            height: 6,
+                                                          ),
+                                                          SelectableText(
+                                                            l10n.cloudAccountUid(
+                                                              _shortCloudUid(
+                                                                u.uid,
+                                                              ),
+                                                            ),
+                                                            style: Theme.of(context)
+                                                                .textTheme
+                                                                .bodySmall
+                                                                ?.copyWith(
+                                                                  fontFamily:
+                                                                      'monospace',
+                                                                  color: scheme
+                                                                      .onSurfaceVariant,
+                                                                ),
+                                                          ),
+                                                        ],
+                                                      ),
                                                     ),
-                                                  ),
-                                                ],
-                                              ),
-                                              const SizedBox(height: 14),
-                                              Text(
-                                                l10n.cloudAccountSignOutHelp,
-                                                style: Theme.of(context)
-                                                    .textTheme
-                                                    .bodySmall
-                                                    ?.copyWith(
-                                                      color: scheme
-                                                          .onSurfaceVariant,
-                                                      height: 1.35,
-                                                    ),
-                                              ),
-                                              const SizedBox(height: 14),
-                                              OutlinedButton.icon(
-                                                onPressed: () async {
-                                                  try {
-                                                    await _cloud.signOut();
-                                                    if (!context.mounted) {
-                                                      return;
-                                                    }
-                                                    ScaffoldMessenger.of(
-                                                      context,
-                                                    ).showSnackBar(
-                                                      SnackBar(
-                                                        content: Text(
-                                                          _t(
-                                                            'Sesión cerrada',
-                                                            'Signed out',
+                                                  ],
+                                                ),
+                                                const SizedBox(height: 14),
+                                                Text(
+                                                  l10n.cloudAccountSignOutHelp,
+                                                  style: Theme.of(context)
+                                                      .textTheme
+                                                      .bodySmall
+                                                      ?.copyWith(
+                                                        color: scheme
+                                                            .onSurfaceVariant,
+                                                        height: 1.35,
+                                                      ),
+                                                ),
+                                                const SizedBox(height: 14),
+                                                OutlinedButton.icon(
+                                                  onPressed: () async {
+                                                    try {
+                                                      await _cloud.signOut();
+                                                      if (!context.mounted) {
+                                                        return;
+                                                      }
+                                                      ScaffoldMessenger.of(
+                                                        context,
+                                                      ).showSnackBar(
+                                                        SnackBar(
+                                                          content: Text(
+                                                            _t(
+                                                              'Sesión cerrada',
+                                                              'Signed out',
+                                                            ),
                                                           ),
                                                         ),
-                                                      ),
-                                                    );
-                                                  } catch (e) {
-                                                    if (!context.mounted) {
-                                                      return;
+                                                      );
+                                                    } catch (e) {
+                                                      if (!context.mounted) {
+                                                        return;
+                                                      }
+                                                      ScaffoldMessenger.of(
+                                                        context,
+                                                      ).showSnackBar(
+                                                        SnackBar(
+                                                          content: Text('$e'),
+                                                        ),
+                                                      );
                                                     }
-                                                    ScaffoldMessenger.of(
-                                                      context,
-                                                    ).showSnackBar(
-                                                      SnackBar(
-                                                        content: Text('$e'),
-                                                      ),
-                                                    );
-                                                  }
-                                                },
-                                                icon: const Icon(
-                                                  Icons.logout_rounded,
-                                                  size: 20,
+                                                  },
+                                                  icon: const Icon(
+                                                    Icons.logout_rounded,
+                                                    size: 20,
+                                                  ),
+                                                  label: Text(
+                                                    l10n.cloudAccountSignOut,
+                                                  ),
                                                 ),
-                                                label: Text(
-                                                  l10n.cloudAccountSignOut,
-                                                ),
-                                              ),
-                                            ],
+                                              ],
+                                            ),
                                           ),
                                         ),
                                       ),
@@ -3739,8 +4415,8 @@ class _SettingsPageState extends State<SettingsPage> {
                                                   .bodyMedium
                                                   ?.copyWith(
                                                     height: 1.4,
-                                                    color: scheme
-                                                        .onSurfaceVariant,
+                                                    color:
+                                                        scheme.onSurfaceVariant,
                                                   ),
                                             ),
                                             const SizedBox(height: 18),
@@ -3751,18 +4427,17 @@ class _SettingsPageState extends State<SettingsPage> {
                                                 final signInBtn = FilledButton(
                                                   onPressed: () =>
                                                       _showCloudAuthDialog(
-                                                    register: false,
-                                                  ),
+                                                        register: false,
+                                                      ),
                                                   child: Text(
                                                     l10n.cloudAccountSignIn,
                                                   ),
                                                 );
-                                                final registerBtn =
-                                                    OutlinedButton(
+                                                final registerBtn = OutlinedButton(
                                                   onPressed: () =>
                                                       _showCloudAuthDialog(
-                                                    register: true,
-                                                  ),
+                                                        register: true,
+                                                      ),
                                                   child: Text(
                                                     l10n.cloudAccountCreateAccount,
                                                   ),
@@ -3810,6 +4485,41 @@ class _SettingsPageState extends State<SettingsPage> {
                                         ),
                                       ),
                                     ),
+                                  );
+                                },
+                              ),
+                              ListenableBuilder(
+                                listenable: Listenable.merge([_cloud, _folio]),
+                                builder: (context, _) {
+                                  if (!_folio.isAvailable ||
+                                      !_cloud.isSignedIn) {
+                                    return const SizedBox.shrink();
+                                  }
+                                  return _FolioCloudSubscriptionPanel(
+                                    scheme: scheme,
+                                    l10n: l10n,
+                                    snap: _folio.snapshot,
+                                    busy: _folioCloudActionBusy,
+                                    onSubscribeMonthly: () =>
+                                        _openFolioCheckout(
+                                          FolioCheckoutKind.folioCloudMonthly,
+                                        ),
+                                    onInkSmall: () => _openFolioCheckout(
+                                      FolioCheckoutKind.inkSmall,
+                                    ),
+                                    onInkMedium: () => _openFolioCheckout(
+                                      FolioCheckoutKind.inkMedium,
+                                    ),
+                                    onInkLarge: () => _openFolioCheckout(
+                                      FolioCheckoutKind.inkLarge,
+                                    ),
+                                    onBillingPortal: _openFolioBillingPortal,
+                                    onRefreshStripe:
+                                        _syncFolioStripeSubscription,
+                                    onUploadBackup: _uploadFolioCloudBackup,
+                                    onOpenBackups: _openFolioCloudBackupsDialog,
+                                    onPublishTest: _folioPublishDemoPage,
+                                    onPublishedPages: _openPublishedPagesDialog,
                                   );
                                 },
                               ),
@@ -3885,7 +4595,29 @@ class _SettingsPageState extends State<SettingsPage> {
                                           ),
                                   ),
                                   value: _app.syncEnabled,
-                                  onChanged: _app.setSyncEnabled,
+                                  onChanged: (v) async {
+                                    if (!v) {
+                                      await _app.setSyncEnabled(false);
+                                      if (mounted) setState(() {});
+                                      return;
+                                    }
+                                    if (_s.state != VaultFlowState.unlocked) {
+                                      return;
+                                    }
+                                    final l10nSync =
+                                        AppLocalizations.of(context);
+                                    final ok = await _verifyVaultIdentity(
+                                      title: Text(
+                                        l10nSync.vaultIdentitySyncTitle,
+                                      ),
+                                      body: Text(
+                                        l10nSync.vaultIdentitySyncBody,
+                                      ),
+                                    );
+                                    if (!ok || !mounted) return;
+                                    await _app.setSyncEnabled(true);
+                                    if (mounted) setState(() {});
+                                  },
                                 ),
                                 const Divider(height: 1),
                                 SwitchListTile(
@@ -3904,7 +4636,26 @@ class _SettingsPageState extends State<SettingsPage> {
                                   ),
                                   value: _app.syncRelayEnabled,
                                   onChanged: _app.syncEnabled
-                                      ? _app.setSyncRelayEnabled
+                                      ? (v) async {
+                                          if (v) {
+                                            final l10nRelay =
+                                                AppLocalizations.of(context);
+                                            final ok =
+                                                await _verifyVaultIdentity(
+                                                  title: Text(
+                                                    l10nRelay
+                                                        .vaultIdentitySyncTitle,
+                                                  ),
+                                                  body: Text(
+                                                    l10nRelay
+                                                        .vaultIdentitySyncBody,
+                                                  ),
+                                                );
+                                            if (!ok || !mounted) return;
+                                          }
+                                          await _app.setSyncRelayEnabled(v);
+                                          if (mounted) setState(() {});
+                                        }
                                       : null,
                                 ),
                                 const Divider(height: 1),
@@ -4430,7 +5181,8 @@ class _SettingsPageState extends State<SettingsPage> {
                             currentSection: _selectedDesktopSection,
                             onSelectSection: _scrollToSection,
                             sections: _filterDesktopSections(desktopSections),
-                            sectionFilterController: _settingsSectionFilterController,
+                            sectionFilterController:
+                                _settingsSectionFilterController,
                             sectionFilterHint: l10n.settingsSearchSectionsHint,
                             sectionFilterLabel: l10n.settingsSearchSections,
                           ),
@@ -4534,10 +5286,7 @@ class _CloudAuthDialogState extends State<_CloudAuthDialog> {
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          behavior: SnackBarBehavior.floating,
-          content: Text('$e'),
-        ),
+        SnackBar(behavior: SnackBarBehavior.floating, content: Text('$e')),
       );
     } finally {
       if (mounted) setState(() => _loading = false);
@@ -4569,9 +5318,9 @@ class _CloudAuthDialogState extends State<_CloudAuthDialog> {
           Expanded(
             child: Text(
               l10n.cloudAuthDialogTitle,
-              style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                fontWeight: FontWeight.w800,
-              ),
+              style: Theme.of(
+                context,
+              ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w800),
             ),
           ),
         ],
@@ -4671,8 +5420,8 @@ class _CloudAuthDialogState extends State<_CloudAuthDialog> {
                           onPressed: _loading
                               ? null
                               : () => setState(
-                                    () => _obscurePassword = !_obscurePassword,
-                                  ),
+                                  () => _obscurePassword = !_obscurePassword,
+                                ),
                           icon: Icon(
                             _obscurePassword
                                 ? Icons.visibility_rounded
@@ -4709,8 +5458,8 @@ class _CloudAuthDialogState extends State<_CloudAuthDialog> {
                             onPressed: _loading
                                 ? null
                                 : () => setState(
-                                      () => _obscureConfirm = !_obscureConfirm,
-                                    ),
+                                    () => _obscureConfirm = !_obscureConfirm,
+                                  ),
                             icon: Icon(
                               _obscureConfirm
                                   ? Icons.visibility_rounded
@@ -4826,9 +5575,9 @@ class _CloudPasswordResetDialogState extends State<_CloudPasswordResetDialog> {
           Expanded(
             child: Text(
               l10n.cloudAuthDialogTitleReset,
-              style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                fontWeight: FontWeight.w700,
-              ),
+              style: Theme.of(
+                context,
+              ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w700),
             ),
           ),
         ],
@@ -4875,10 +5624,7 @@ class _CloudPasswordResetDialogState extends State<_CloudPasswordResetDialog> {
           onPressed: () => Navigator.of(context).pop(),
           child: Text(l10n.cancel),
         ),
-        FilledButton(
-          onPressed: _submit,
-          child: Text(l10n.continueAction),
-        ),
+        FilledButton(onPressed: _submit, child: Text(l10n.continueAction)),
       ],
     );
   }
@@ -5642,9 +6388,7 @@ class _SettingsPanelHeroCard extends StatelessWidget {
           ],
         ),
         borderRadius: BorderRadius.circular(22),
-        border: Border.all(
-          color: scheme.outlineVariant.withValues(alpha: 0.5),
-        ),
+        border: Border.all(color: scheme.outlineVariant.withValues(alpha: 0.5)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -5672,9 +6416,7 @@ class _SettingsPanelHeroCard extends StatelessWidget {
                         Expanded(
                           child: Text(
                             title,
-                            style: Theme.of(context)
-                                .textTheme
-                                .titleMedium
+                            style: Theme.of(context).textTheme.titleMedium
                                 ?.copyWith(fontWeight: FontWeight.w700),
                           ),
                         ),
@@ -6102,6 +6844,497 @@ class _SettingsSubsectionTitle extends StatelessWidget {
   }
 }
 
+/// Folio Cloud plan, ink, and billing UI inside Settings (signed-in only).
+class _FolioCloudSubscriptionPanel extends StatelessWidget {
+  const _FolioCloudSubscriptionPanel({
+    required this.scheme,
+    required this.l10n,
+    required this.snap,
+    required this.busy,
+    required this.onSubscribeMonthly,
+    required this.onInkSmall,
+    required this.onInkMedium,
+    required this.onInkLarge,
+    required this.onBillingPortal,
+    required this.onRefreshStripe,
+    required this.onUploadBackup,
+    required this.onOpenBackups,
+    required this.onPublishTest,
+    required this.onPublishedPages,
+  });
+
+  final ColorScheme scheme;
+  final AppLocalizations l10n;
+  final FolioCloudSnapshot snap;
+  final bool busy;
+  final VoidCallback onSubscribeMonthly;
+  final VoidCallback onInkSmall;
+  final VoidCallback onInkMedium;
+  final VoidCallback onInkLarge;
+  final VoidCallback onBillingPortal;
+  final VoidCallback onRefreshStripe;
+  final VoidCallback onUploadBackup;
+  final VoidCallback onOpenBackups;
+  final VoidCallback onPublishTest;
+  final VoidCallback onPublishedPages;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final statusDetail = snap.subscriptionStatus?.trim();
+    final hasStatusDetail = statusDetail != null && statusDetail.isNotEmpty;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        const Divider(height: 1),
+        if (busy)
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 10, 16, 0),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(4),
+              child: const LinearProgressIndicator(minHeight: 3),
+            ),
+          ),
+        _SettingsSubsectionTitle(
+          title: l10n.folioCloudSubsectionPlan,
+          scheme: scheme,
+          topPadding: busy ? 8 : 14,
+        ),
+        const Divider(height: 1),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                crossAxisAlignment: WrapCrossAlignment.center,
+                children: [
+                  if (snap.active)
+                    Chip(
+                      avatar: Icon(
+                        Icons.verified_rounded,
+                        size: 18,
+                        color: scheme.onPrimaryContainer,
+                      ),
+                      label: Text(
+                        hasStatusDetail
+                            ? l10n.folioCloudSubscriptionActiveWithStatus(
+                                statusDetail,
+                              )
+                            : l10n.folioCloudSubscriptionActive,
+                      ),
+                      visualDensity: VisualDensity.compact,
+                      backgroundColor: scheme.primaryContainer.withValues(
+                        alpha: 0.92,
+                      ),
+                      side: BorderSide(
+                        color: scheme.outlineVariant.withValues(alpha: 0.35),
+                      ),
+                      labelStyle: theme.textTheme.labelLarge?.copyWith(
+                        color: scheme.onPrimaryContainer,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    )
+                  else
+                    Chip(
+                      avatar: Icon(
+                        Icons.info_outline_rounded,
+                        size: 18,
+                        color: scheme.onSurfaceVariant,
+                      ),
+                      label: Text(l10n.folioCloudSubscriptionNoneTitle),
+                      visualDensity: VisualDensity.compact,
+                      backgroundColor: scheme.surfaceContainerHighest,
+                      side: BorderSide(
+                        color: scheme.outlineVariant.withValues(alpha: 0.4),
+                      ),
+                      labelStyle: theme.textTheme.labelLarge?.copyWith(
+                        color: scheme.onSurfaceVariant,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                ],
+              ),
+              if (!snap.active) ...[
+                const SizedBox(height: 8),
+                Text(
+                  l10n.folioCloudSubscriptionNoneSubtitle,
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: scheme.onSurfaceVariant,
+                    height: 1.4,
+                  ),
+                ),
+              ],
+              if (snap.active &&
+                  !snap.backup &&
+                  !snap.cloudAi &&
+                  !snap.publishWeb) ...[
+                const SizedBox(height: 8),
+                Text(
+                  l10n.folioCloudPostPaymentHint,
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: scheme.tertiary,
+                    height: 1.35,
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ),
+        LayoutBuilder(
+          builder: (context, constraints) {
+            final narrow = constraints.maxWidth < 400;
+            final tiles = [
+              _FolioCloudFeatureTile(
+                scheme: scheme,
+                icon: Icons.backup_outlined,
+                title: l10n.folioCloudFeatureBackup,
+                included: snap.backup,
+                includedLabel: l10n.folioCloudFeatureOn,
+                notIncludedLabel: l10n.folioCloudFeatureOff,
+              ),
+              _FolioCloudFeatureTile(
+                scheme: scheme,
+                icon: Icons.auto_awesome_outlined,
+                title: l10n.folioCloudFeatureCloudAi,
+                included: snap.cloudAi,
+                includedLabel: l10n.folioCloudFeatureOn,
+                notIncludedLabel: l10n.folioCloudFeatureOff,
+              ),
+              _FolioCloudFeatureTile(
+                scheme: scheme,
+                icon: Icons.public_outlined,
+                title: l10n.folioCloudFeaturePublishWeb,
+                included: snap.publishWeb,
+                includedLabel: l10n.folioCloudFeatureOn,
+                notIncludedLabel: l10n.folioCloudFeatureOff,
+              ),
+            ];
+            if (narrow) {
+              return Padding(
+                padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
+                child: Column(
+                  children: [
+                    for (var i = 0; i < tiles.length; i++) ...[
+                      if (i > 0) const SizedBox(height: 8),
+                      tiles[i],
+                    ],
+                  ],
+                ),
+              );
+            }
+            return Padding(
+              padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  for (var i = 0; i < tiles.length; i++) ...[
+                    if (i > 0) const SizedBox(width: 10),
+                    Expanded(child: tiles[i]),
+                  ],
+                ],
+              ),
+            );
+          },
+        ),
+        _SettingsSubsectionTitle(
+          title: l10n.folioCloudSubsectionInk,
+          scheme: scheme,
+        ),
+        const Divider(height: 1),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 10, 16, 4),
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              final cardMin = ((constraints.maxWidth - 20) / 3).clamp(
+                104.0,
+                220.0,
+              );
+              return Wrap(
+                spacing: 10,
+                runSpacing: 10,
+                children: [
+                  _FolioCloudInkStatCard(
+                    scheme: scheme,
+                    icon: Icons.calendar_month_outlined,
+                    label: l10n.folioCloudInkMonthly,
+                    valueText: l10n.folioCloudInkCount(snap.ink.monthlyBalance),
+                    minWidth: cardMin,
+                  ),
+                  _FolioCloudInkStatCard(
+                    scheme: scheme,
+                    icon: Icons.shopping_bag_outlined,
+                    label: l10n.folioCloudInkPurchased,
+                    valueText: l10n.folioCloudInkCount(
+                      snap.ink.purchasedBalance,
+                    ),
+                    minWidth: cardMin,
+                  ),
+                  _FolioCloudInkStatCard(
+                    scheme: scheme,
+                    icon: Icons.water_drop_outlined,
+                    label: l10n.folioCloudInkTotal,
+                    valueText: l10n.folioCloudInkCount(snap.ink.totalInk),
+                    minWidth: cardMin,
+                  ),
+                ],
+              );
+            },
+          ),
+        ),
+        _SettingsSubsectionTitle(
+          title: l10n.folioCloudSubsectionSubscription,
+          scheme: scheme,
+        ),
+        const Divider(height: 1),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 10, 16, 4),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              if (snap.active)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 10),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Icon(
+                        Icons.verified_outlined,
+                        size: 22,
+                        color: scheme.primary,
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Text(
+                          l10n.folioCloudPlanActiveHeadline,
+                          style: theme.textTheme.bodyLarge?.copyWith(
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                )
+              else
+                FilledButton.tonalIcon(
+                  onPressed: busy ? null : onSubscribeMonthly,
+                  icon: const Icon(Icons.subscriptions_outlined, size: 20),
+                  label: Text(l10n.folioCloudSubscribeMonthly),
+                ),
+              const SizedBox(height: 10),
+              FilledButton.tonalIcon(
+                onPressed: busy ? null : onBillingPortal,
+                icon: const Icon(Icons.payments_outlined, size: 20),
+                label: Text(l10n.folioCloudManageSubscription),
+              ),
+              const SizedBox(height: 10),
+              MenuAnchor(
+                menuChildren: [
+                  MenuItemButton(
+                    leadingIcon: const Icon(Icons.opacity_outlined, size: 20),
+                    onPressed: busy ? null : onInkSmall,
+                    child: Text(l10n.folioCloudInkSmall),
+                  ),
+                  MenuItemButton(
+                    leadingIcon: const Icon(Icons.opacity_outlined, size: 20),
+                    onPressed: busy ? null : onInkMedium,
+                    child: Text(l10n.folioCloudInkMedium),
+                  ),
+                  MenuItemButton(
+                    leadingIcon: const Icon(Icons.opacity_outlined, size: 20),
+                    onPressed: busy ? null : onInkLarge,
+                    child: Text(l10n.folioCloudInkLarge),
+                  ),
+                ],
+                builder: (context, controller, _) {
+                  return SizedBox(
+                    width: double.infinity,
+                    child: OutlinedButton.icon(
+                      onPressed: busy
+                          ? null
+                          : () {
+                              if (controller.isOpen) {
+                                controller.close();
+                              } else {
+                                controller.open();
+                              }
+                            },
+                      icon: const Icon(Icons.opacity_outlined, size: 20),
+                      label: Text(l10n.folioCloudBuyInk),
+                    ),
+                  );
+                },
+              ),
+              const SizedBox(height: 8),
+              OutlinedButton.icon(
+                onPressed: busy ? null : onRefreshStripe,
+                icon: const Icon(Icons.sync, size: 20),
+                label: Text(l10n.folioCloudRefreshFromStripe),
+              ),
+            ],
+          ),
+        ),
+        _SettingsSubsectionTitle(
+          title: l10n.folioCloudSubsectionBackupPublish,
+          scheme: scheme,
+        ),
+        const Divider(height: 1),
+        ListTile(
+          leading: const Icon(Icons.cloud_upload_outlined),
+          title: Text(l10n.folioCloudUploadEncryptedBackup),
+          subtitle: Text(l10n.folioCloudUploadEncryptedBackupSubtitle),
+          enabled: !busy && snap.canUseCloudBackup,
+          onTap: busy || !snap.canUseCloudBackup ? null : onUploadBackup,
+        ),
+        ListTile(
+          leading: const Icon(Icons.cloud_download_outlined),
+          title: Text(l10n.folioCloudCloudBackupsList),
+          enabled: !busy && snap.canUseCloudBackup,
+          onTap: busy || !snap.canUseCloudBackup ? null : onOpenBackups,
+        ),
+        ListTile(
+          leading: const Icon(Icons.public_outlined),
+          title: Text(l10n.folioCloudPublishTestPage),
+          enabled: !busy && snap.canPublishToWeb,
+          onTap: busy || !snap.canPublishToWeb ? null : onPublishTest,
+        ),
+        ListTile(
+          leading: const Icon(Icons.list_alt_outlined),
+          title: Text(l10n.folioCloudPublishedPagesList),
+          enabled: !busy && snap.canPublishToWeb,
+          onTap: busy || !snap.canPublishToWeb ? null : onPublishedPages,
+        ),
+        const SizedBox(height: 8),
+      ],
+    );
+  }
+}
+
+class _FolioCloudFeatureTile extends StatelessWidget {
+  const _FolioCloudFeatureTile({
+    required this.scheme,
+    required this.icon,
+    required this.title,
+    required this.included,
+    required this.includedLabel,
+    required this.notIncludedLabel,
+  });
+
+  final ColorScheme scheme;
+  final IconData icon;
+  final String title;
+  final bool included;
+  final String includedLabel;
+  final String notIncludedLabel;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+      decoration: BoxDecoration(
+        color: scheme.surface.withValues(alpha: 0.82),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: scheme.outlineVariant.withValues(alpha: 0.35),
+        ),
+      ),
+      child: Row(
+        children: [
+          Icon(icon, size: 22, color: scheme.primary),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              title,
+              style: theme.textTheme.titleSmall?.copyWith(
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+          Icon(
+            included ? Icons.check_circle_rounded : Icons.cancel_outlined,
+            size: 22,
+            color: included ? scheme.primary : scheme.outline,
+          ),
+          const SizedBox(width: 6),
+          Text(
+            included ? includedLabel : notIncludedLabel,
+            style: theme.textTheme.labelMedium?.copyWith(
+              color: included ? scheme.primary : scheme.onSurfaceVariant,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _FolioCloudInkStatCard extends StatelessWidget {
+  const _FolioCloudInkStatCard({
+    required this.scheme,
+    required this.icon,
+    required this.label,
+    required this.valueText,
+    required this.minWidth,
+  });
+
+  final ColorScheme scheme;
+  final IconData icon;
+  final String label;
+  final String valueText;
+  final double minWidth;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return ConstrainedBox(
+      constraints: BoxConstraints(minWidth: minWidth),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+        decoration: BoxDecoration(
+          color: scheme.surface.withValues(alpha: 0.82),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+            color: scheme.outlineVariant.withValues(alpha: 0.35),
+          ),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: 20, color: scheme.primary),
+            const SizedBox(width: 10),
+            Flexible(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    label,
+                    style: theme.textTheme.labelMedium?.copyWith(
+                      color: scheme.onSurfaceVariant,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    valueText,
+                    style: theme.textTheme.titleSmall?.copyWith(
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 class _SettingsDesktopRail extends StatelessWidget {
   const _SettingsDesktopRail({
     required this.title,
@@ -6257,171 +7490,4 @@ class _SettingsSectionNavItem {
 
   final String label;
   final int keyIndex;
-}
-
-class _VaultIdentityVerifyDialog extends StatefulWidget {
-  const _VaultIdentityVerifyDialog({
-    required this.session,
-    required this.quickEnabled,
-    required this.passkeyRegistered,
-    required this.title,
-    required this.body,
-    required this.passwordButtonLabel,
-  });
-
-  final VaultSession session;
-  final bool quickEnabled;
-  final bool passkeyRegistered;
-  final Widget title;
-  final Widget body;
-  final String passwordButtonLabel;
-
-  @override
-  State<_VaultIdentityVerifyDialog> createState() =>
-      _VaultIdentityVerifyDialogState();
-}
-
-class _VaultIdentityVerifyDialogState
-    extends State<_VaultIdentityVerifyDialog> {
-  final _password = TextEditingController();
-  var _busy = false;
-  var _obscure = true;
-  String? _error;
-
-  @override
-  void dispose() {
-    _password.dispose();
-    super.dispose();
-  }
-
-  Future<void> _verifyPassword() async {
-    final l10n = AppLocalizations.of(context);
-    setState(() {
-      _busy = true;
-      _error = null;
-    });
-    final ok = await widget.session.verifyPasswordMatchesUnlockedSession(
-      _password.text,
-    );
-    if (!mounted) return;
-    if (ok) {
-      Navigator.pop(context, true);
-      return;
-    }
-    setState(() {
-      _busy = false;
-      _error = l10n.incorrectPasswordError;
-    });
-  }
-
-  Future<void> _verifyHello() async {
-    setState(() {
-      _busy = true;
-      _error = null;
-    });
-    try {
-      await widget.session.verifyQuickUnlockMatchesSession();
-      if (mounted) Navigator.pop(context, true);
-    } catch (e) {
-      if (mounted) {
-        setState(() {
-          _busy = false;
-          _error = '$e';
-        });
-      }
-    }
-  }
-
-  Future<void> _verifyPasskey() async {
-    setState(() {
-      _busy = true;
-      _error = null;
-    });
-    try {
-      await widget.session.verifyPasskeyMatchesSession();
-      if (mounted) Navigator.pop(context, true);
-    } on PasskeyAuthCancelledException {
-      if (mounted) setState(() => _busy = false);
-    } catch (e) {
-      if (mounted) {
-        setState(() {
-          _busy = false;
-          _error = '$e';
-        });
-      }
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final l10n = AppLocalizations.of(context);
-    final scheme = Theme.of(context).colorScheme;
-    return AlertDialog(
-      title: widget.title,
-      content: SingleChildScrollView(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            DefaultTextStyle.merge(
-              style: Theme.of(
-                context,
-              ).textTheme.bodyMedium!.copyWith(color: scheme.onSurfaceVariant),
-              child: widget.body,
-            ),
-            const SizedBox(height: 16),
-            TextField(
-              controller: _password,
-              obscureText: _obscure,
-              enabled: !_busy,
-              decoration: InputDecoration(
-                labelText: l10n.masterPassword,
-                suffixIcon: IconButton(
-                  onPressed: _busy
-                      ? null
-                      : () => setState(() => _obscure = !_obscure),
-                  icon: Icon(
-                    _obscure ? Icons.visibility : Icons.visibility_off,
-                  ),
-                  tooltip: _obscure ? l10n.showPassword : l10n.hidePassword,
-                ),
-              ),
-              onSubmitted: (_) => _verifyPassword(),
-            ),
-            const SizedBox(height: 12),
-            FilledButton(
-              onPressed: _busy ? null : _verifyPassword,
-              child: Text(widget.passwordButtonLabel),
-            ),
-            if (widget.quickEnabled) ...[
-              const SizedBox(height: 12),
-              OutlinedButton.icon(
-                onPressed: _busy ? null : _verifyHello,
-                icon: const Icon(Icons.fingerprint),
-                label: Text(l10n.useHelloBiometrics),
-              ),
-            ],
-            if (widget.passkeyRegistered) ...[
-              const SizedBox(height: 8),
-              OutlinedButton.icon(
-                onPressed: _busy ? null : _verifyPasskey,
-                icon: const Icon(Icons.key_rounded),
-                label: Text(l10n.usePasskey),
-              ),
-            ],
-            if (_error != null) ...[
-              const SizedBox(height: 12),
-              Text(_error!, style: TextStyle(color: scheme.error)),
-            ],
-          ],
-        ),
-      ),
-      actions: [
-        TextButton(
-          onPressed: _busy ? null : () => Navigator.pop(context, false),
-          child: Text(l10n.cancel),
-        ),
-      ],
-    );
-  }
 }

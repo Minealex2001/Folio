@@ -2,6 +2,9 @@
   "plugins": {
     "firebase": {
       "enabled": true
+    },
+    "stripe": {
+      "enabled": true
     }
   }
 }

@@ -378,6 +378,10 @@
   "aiContextUsageTooltip": "Last request vs your configured context window ({window} tokens).",
   "@aiContextUsageTooltip": {"placeholders": {"window": {"type": "int"}}},
   "aiChatKeyboardHint": "Enter to send · Ctrl+Enter for new line",
+  "aiChatInkRemaining": "{total, plural, one{1 ink drop left} other{{total} ink drops left}}",
+  "@aiChatInkRemaining": {"placeholders": {"total": {"type": "int"}}},
+  "aiChatInkBreakdownTooltip": "Monthly {monthly} · Purchased {purchased}",
+  "@aiChatInkBreakdownTooltip": {"placeholders": {"monthly": {"type": "int"}, "purchased": {"type": "int"}}},
   "aiAgentThought": "Quill's thought",
   "aiAlwaysShowThought": "Always show AI thought",
   "aiAlwaysShowThoughtHint": "If disabled, it appears collapsed with an arrow in each message.",
@@ -446,7 +450,7 @@
   "settingsSearchSections": "Search settings",
   "settingsSearchSectionsHint": "Filter categories in the sidebar",
   "scheduledVaultBackupTitle": "Scheduled encrypted backup",
-  "scheduledVaultBackupSubtitle": "While the vault is unlocked, Folio saves a copy to the folder below at the chosen interval.",
+  "scheduledVaultBackupSubtitle": "While the vault is unlocked, each backup is the currently open vault. Folio saves a ZIP to the folder below on the chosen interval.",
   "scheduledVaultBackupChooseFolder": "Backup folder",
   "scheduledVaultBackupIntervalLabel": "Interval (hours)",
   "scheduledVaultBackupLastRun": "Last backup: {time}",
@@ -454,6 +458,15 @@
   "scheduledVaultBackupSnackOk": "Scheduled backup saved.",
   "scheduledVaultBackupSnackFail": "Scheduled backup failed: {error}",
   "@scheduledVaultBackupSnackFail": {"placeholders": {"error": {}}},
+  "vaultBackupOpenVaultHint": "Backups are for the vault open right now: “{name}”.",
+  "@vaultBackupOpenVaultHint": {"placeholders": {"name": {"type": "String"}}},
+  "vaultBackupRunNowTile": "Run scheduled backup now",
+  "vaultBackupRunNowSubtitle": "Run the scheduled backup now (disk and/or cloud, depending on your settings) without waiting for the interval.",
+  "vaultBackupRunNowNeedFolder": "Pick a local backup folder, or turn on “Also upload to Folio Cloud” for cloud-only backups.",
+  "vaultIdentitySyncTitle": "Synchronization",
+  "vaultIdentitySyncBody": "Enter your vault password (or Hello / passkey) to continue.",
+  "vaultIdentityCloudBackupTitle": "Cloud backups",
+  "vaultIdentityCloudBackupBody": "Confirm vault identity to list or download encrypted backups.",
   "aiRewriteDialogTitle": "Rewrite with AI",
   "aiPreviewTitle": "Preview",
   "aiInstructionHint": "Example: make it clearer and shorter",
@@ -586,7 +599,9 @@
   ,"templateSelectHint": "Select a template to inspect it, edit its metadata, or export it."
   ,"clear": "Clear"
   ,"cloudAccountSectionTitle": "Folio Cloud account"
-  ,"cloudAccountSectionDescription": "Optional. Sign in for future paid cloud sync. Your vault stays local; this does not upload your notes."
+  ,"cloudAccountSectionDescription": "Optional. Sign in to subscribe to cloud backup, hosted AI, and web publishing. Your vault stays local unless you use those features."
+  ,"cloudAccountChipOptional": "Optional"
+  ,"cloudAccountChipPaidCloud": "Backups, AI & web"
   ,"cloudAccountUnavailable": "Cloud sign-in is unavailable (Firebase did not start). Check your connection or run flutterfire configure with your project."
   ,"cloudAccountEmailLabel": "Email"
   ,"cloudAccountPasswordLabel": "Password"
@@ -615,15 +630,59 @@
   ,"cloudAuthErrorGeneric": "Sign-in failed. Try again."
   ,"cloudAuthDialogTitle": "Folio Cloud"
   ,"cloudAuthSubtitleSignIn": "Use your Folio Cloud email and password. Nothing here changes your local vault."
-  ,"cloudAuthSubtitleRegister": "Create Folio Cloud credentials for future paid sync. Your notes on this device are not uploaded."
+  ,"cloudAuthSubtitleRegister": "Create Folio Cloud credentials. Your notes on this device are not uploaded until you enable backups or other paid features."
   ,"cloudAuthModeSignIn": "Sign in"
   ,"cloudAuthModeRegister": "Register"
   ,"cloudAuthConfirmPasswordLabel": "Confirm password"
   ,"cloudAuthValidationRequired": "This field is required."
   ,"cloudAuthValidationPasswordShort": "Use at least 6 characters."
   ,"cloudAuthValidationConfirmMismatch": "Passwords do not match."
-  ,"cloudAccountSignedOutPrompt": "Sign in or register to be ready for Folio Cloud when it launches."
+  ,"cloudAccountSignedOutPrompt": "Sign in or register to subscribe to Folio Cloud and use backups, cloud AI, and publishing."
   ,"cloudAuthResetHint": "We will email you a link to set a new password."
   ,"cloudAccountEmailVerified": "Verified"
   ,"cloudAccountSignOutHelp": "Your local vault stays on this device."
+  ,"folioCloudSubsectionPlan": "Plan & status"
+  ,"folioCloudSubsectionInk": "Ink balance"
+  ,"folioCloudSubsectionSubscription": "Subscription & billing"
+  ,"folioCloudSubsectionBackupPublish": "Backups & publishing"
+  ,"folioCloudSubscriptionActive": "Subscription active"
+  ,"folioCloudSubscriptionActiveWithStatus": "Subscription active ({status})"
+  ,"@folioCloudSubscriptionActiveWithStatus": {"placeholders": {"status": {"type": "String"}}}
+  ,"folioCloudSubscriptionNoneTitle": "No Folio Cloud subscription"
+  ,"folioCloudSubscriptionNoneSubtitle": "Activate a plan for encrypted backup, cloud AI, and web publishing."
+  ,"folioCloudFeatureBackup": "Cloud backup"
+  ,"folioCloudFeatureCloudAi": "Cloud AI"
+  ,"folioCloudFeaturePublishWeb": "Web publishing"
+  ,"folioCloudFeatureOn": "Included"
+  ,"folioCloudFeatureOff": "Not included"
+  ,"folioCloudPostPaymentHint": "If you just paid and features show as off, tap «Refresh from Stripe»."
+  ,"folioCloudInkMonthly": "Monthly"
+  ,"folioCloudInkPurchased": "Purchased"
+  ,"folioCloudInkTotal": "Total"
+  ,"folioCloudInkCount": "{count}"
+  ,"@folioCloudInkCount": {"placeholders": {"count": {"type": "int"}}}
+  ,"folioCloudPlanActiveHeadline": "Folio Cloud monthly plan active"
+  ,"folioCloudSubscribeMonthly": "Folio Cloud €4.99/mo"
+  ,"folioCloudBuyInk": "Buy ink"
+  ,"folioCloudInkSmall": "Small ink (€1.99)"
+  ,"folioCloudInkMedium": "Medium ink (€4.99)"
+  ,"folioCloudInkLarge": "Large ink (€9.99)"
+  ,"folioCloudManageSubscription": "Manage subscription"
+  ,"folioCloudRefreshFromStripe": "Refresh from Stripe"
+  ,"folioCloudUploadEncryptedBackup": "Back up to cloud now"
+  ,"folioCloudUploadEncryptedBackupSubtitle": "Folio builds an encrypted backup of your open vault and uploads it—no manual ZIP export."
+  ,"folioCloudUploadSnackOk": "Vault backup saved to the cloud."
+  ,"scheduledVaultBackupCloudSyncTitle": "Also upload to Folio Cloud"
+  ,"scheduledVaultBackupCloudSyncSubtitle": "After each scheduled backup, automatically uploads the same ZIP to your account. For cloud-only backups, leave the folder unset and enable this option."
+  ,"folioCloudCloudBackupsList": "Cloud backups"
+  ,"folioCloudPublishTestPage": "Publish test page"
+  ,"folioCloudPublishedPagesList": "Published pages"
+  ,"folioCloudReauthDialogTitle": "Confirm Folio Cloud account"
+  ,"folioCloudReauthDialogBody": "Enter your Folio Cloud account password (the one you use to sign in to the cloud) to list and download backups. This is not your local vault password."
+  ,"folioCloudReauthRequiresPasswordProvider": "This session does not use a Folio Cloud password. Sign out and sign back in with email and password if you need to download backups."
+  ,"folioCloudAiNoInkTitle": "No cloud AI ink left"
+  ,"folioCloudAiNoInkBody": "Buy an ink bottle under Folio Cloud, wait for your monthly refill, or switch to local AI (Ollama or LM Studio) in the AI section of Settings."
+  ,"folioCloudAiNoInkActionCloud": "Folio Cloud & ink"
+  ,"folioCloudAiNoInkActionLocal": "AI provider"
+  ,"folioCloudAiZeroInkBanner": "Cloud AI ink is 0 — open Settings to buy ink or use local AI."
 }

@@ -2174,6 +2174,18 @@ abstract class AppLocalizations {
   /// **'Enter para enviar · Ctrl+Enter nueva línea'**
   String get aiChatKeyboardHint;
 
+  /// No description provided for @aiChatInkRemaining.
+  ///
+  /// In es, this message translates to:
+  /// **'{total, plural, one{Queda 1 gota de tinta} other{Quedan {total} gotas de tinta}}'**
+  String aiChatInkRemaining(int total);
+
+  /// No description provided for @aiChatInkBreakdownTooltip.
+  ///
+  /// In es, this message translates to:
+  /// **'Mes {monthly} · Compradas {purchased}'**
+  String aiChatInkBreakdownTooltip(int monthly, int purchased);
+
   /// No description provided for @aiAgentThought.
   ///
   /// In es, this message translates to:
@@ -2573,7 +2585,7 @@ abstract class AppLocalizations {
   /// No description provided for @scheduledVaultBackupSubtitle.
   ///
   /// In es, this message translates to:
-  /// **'Con el cofre desbloqueado, Folio guarda una copia en la carpeta indicada según el intervalo.'**
+  /// **'Con el cofre desbloqueado, cada copia es del cofre abierto ahora. Folio guarda un ZIP en la carpeta indicada según el intervalo.'**
   String get scheduledVaultBackupSubtitle;
 
   /// No description provided for @scheduledVaultBackupChooseFolder.
@@ -2605,6 +2617,54 @@ abstract class AppLocalizations {
   /// In es, this message translates to:
   /// **'Error en la copia programada: {error}'**
   String scheduledVaultBackupSnackFail(Object error);
+
+  /// No description provided for @vaultBackupOpenVaultHint.
+  ///
+  /// In es, this message translates to:
+  /// **'Las copias son del cofre abierto ahora: «{name}».'**
+  String vaultBackupOpenVaultHint(String name);
+
+  /// No description provided for @vaultBackupRunNowTile.
+  ///
+  /// In es, this message translates to:
+  /// **'Copia programada ahora'**
+  String get vaultBackupRunNowTile;
+
+  /// No description provided for @vaultBackupRunNowSubtitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Ejecuta ya la copia programada (disco y/o nube según lo tengas configurado), sin esperar al intervalo.'**
+  String get vaultBackupRunNowSubtitle;
+
+  /// No description provided for @vaultBackupRunNowNeedFolder.
+  ///
+  /// In es, this message translates to:
+  /// **'Elige una carpeta local o activa «Subir también a Folio Cloud» para copia solo en la nube.'**
+  String get vaultBackupRunNowNeedFolder;
+
+  /// No description provided for @vaultIdentitySyncTitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Sincronización'**
+  String get vaultIdentitySyncTitle;
+
+  /// No description provided for @vaultIdentitySyncBody.
+  ///
+  /// In es, this message translates to:
+  /// **'Introduce la contraseña del cofre (o Hello / passkey) para continuar.'**
+  String get vaultIdentitySyncBody;
+
+  /// No description provided for @vaultIdentityCloudBackupTitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Copias en la nube'**
+  String get vaultIdentityCloudBackupTitle;
+
+  /// No description provided for @vaultIdentityCloudBackupBody.
+  ///
+  /// In es, this message translates to:
+  /// **'Confirma la identidad del cofre para listar o descargar copias cifradas.'**
+  String get vaultIdentityCloudBackupBody;
 
   /// No description provided for @aiRewriteDialogTitle.
   ///
@@ -3329,8 +3389,20 @@ abstract class AppLocalizations {
   /// No description provided for @cloudAccountSectionDescription.
   ///
   /// In es, this message translates to:
-  /// **'Opcional. Inicia sesión para la futura sincronización en la nube de pago. Tu cofre sigue siendo local; esto no sube tus notas.'**
+  /// **'Opcional. Inicia sesión para suscribirte a copias en la nube, IA hospedada y publicación web. Tu cofre sigue siendo local salvo que uses esas funciones.'**
   String get cloudAccountSectionDescription;
+
+  /// No description provided for @cloudAccountChipOptional.
+  ///
+  /// In es, this message translates to:
+  /// **'Opcional'**
+  String get cloudAccountChipOptional;
+
+  /// No description provided for @cloudAccountChipPaidCloud.
+  ///
+  /// In es, this message translates to:
+  /// **'Copias, IA y web'**
+  String get cloudAccountChipPaidCloud;
 
   /// No description provided for @cloudAccountUnavailable.
   ///
@@ -3491,7 +3563,7 @@ abstract class AppLocalizations {
   /// No description provided for @cloudAuthSubtitleRegister.
   ///
   /// In es, this message translates to:
-  /// **'Crea credenciales solo para Folio Cloud y el futuro sync de pago. Tus notas en este dispositivo no se suben.'**
+  /// **'Crea credenciales para Folio Cloud. Tus notas en este dispositivo no se suben hasta que actives copias u otras funciones de pago.'**
   String get cloudAuthSubtitleRegister;
 
   /// No description provided for @cloudAuthModeSignIn.
@@ -3533,7 +3605,7 @@ abstract class AppLocalizations {
   /// No description provided for @cloudAccountSignedOutPrompt.
   ///
   /// In es, this message translates to:
-  /// **'Inicia sesión o regístrate para estar listo cuando Folio Cloud esté disponible.'**
+  /// **'Inicia sesión o regístrate para suscribirte a Folio Cloud y usar copias, IA en la nube y publicación.'**
   String get cloudAccountSignedOutPrompt;
 
   /// No description provided for @cloudAuthResetHint.
@@ -3553,6 +3625,258 @@ abstract class AppLocalizations {
   /// In es, this message translates to:
   /// **'Tu cofre local sigue en este dispositivo.'**
   String get cloudAccountSignOutHelp;
+
+  /// No description provided for @folioCloudSubsectionPlan.
+  ///
+  /// In es, this message translates to:
+  /// **'Plan y estado'**
+  String get folioCloudSubsectionPlan;
+
+  /// No description provided for @folioCloudSubsectionInk.
+  ///
+  /// In es, this message translates to:
+  /// **'Saldo de tinta'**
+  String get folioCloudSubsectionInk;
+
+  /// No description provided for @folioCloudSubsectionSubscription.
+  ///
+  /// In es, this message translates to:
+  /// **'Suscripción y facturación'**
+  String get folioCloudSubsectionSubscription;
+
+  /// No description provided for @folioCloudSubsectionBackupPublish.
+  ///
+  /// In es, this message translates to:
+  /// **'Copias y publicación'**
+  String get folioCloudSubsectionBackupPublish;
+
+  /// No description provided for @folioCloudSubscriptionActive.
+  ///
+  /// In es, this message translates to:
+  /// **'Suscripción activa'**
+  String get folioCloudSubscriptionActive;
+
+  /// No description provided for @folioCloudSubscriptionActiveWithStatus.
+  ///
+  /// In es, this message translates to:
+  /// **'Suscripción activa ({status})'**
+  String folioCloudSubscriptionActiveWithStatus(String status);
+
+  /// No description provided for @folioCloudSubscriptionNoneTitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Sin suscripción Folio Cloud'**
+  String get folioCloudSubscriptionNoneTitle;
+
+  /// No description provided for @folioCloudSubscriptionNoneSubtitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Activa un plan para copias cifradas, IA en la nube y publicación web.'**
+  String get folioCloudSubscriptionNoneSubtitle;
+
+  /// No description provided for @folioCloudFeatureBackup.
+  ///
+  /// In es, this message translates to:
+  /// **'Copia en la nube'**
+  String get folioCloudFeatureBackup;
+
+  /// No description provided for @folioCloudFeatureCloudAi.
+  ///
+  /// In es, this message translates to:
+  /// **'IA en la nube'**
+  String get folioCloudFeatureCloudAi;
+
+  /// No description provided for @folioCloudFeaturePublishWeb.
+  ///
+  /// In es, this message translates to:
+  /// **'Publicación web'**
+  String get folioCloudFeaturePublishWeb;
+
+  /// No description provided for @folioCloudFeatureOn.
+  ///
+  /// In es, this message translates to:
+  /// **'Incluida'**
+  String get folioCloudFeatureOn;
+
+  /// No description provided for @folioCloudFeatureOff.
+  ///
+  /// In es, this message translates to:
+  /// **'No incluida'**
+  String get folioCloudFeatureOff;
+
+  /// No description provided for @folioCloudPostPaymentHint.
+  ///
+  /// In es, this message translates to:
+  /// **'Si acabas de pagar y ves las funciones en «no», pulsa «Actualizar desde Stripe».'**
+  String get folioCloudPostPaymentHint;
+
+  /// No description provided for @folioCloudInkMonthly.
+  ///
+  /// In es, this message translates to:
+  /// **'Mes'**
+  String get folioCloudInkMonthly;
+
+  /// No description provided for @folioCloudInkPurchased.
+  ///
+  /// In es, this message translates to:
+  /// **'Compradas'**
+  String get folioCloudInkPurchased;
+
+  /// No description provided for @folioCloudInkTotal.
+  ///
+  /// In es, this message translates to:
+  /// **'Total'**
+  String get folioCloudInkTotal;
+
+  /// No description provided for @folioCloudInkCount.
+  ///
+  /// In es, this message translates to:
+  /// **'{count}'**
+  String folioCloudInkCount(int count);
+
+  /// No description provided for @folioCloudPlanActiveHeadline.
+  ///
+  /// In es, this message translates to:
+  /// **'Plan mensual Folio Cloud activo'**
+  String get folioCloudPlanActiveHeadline;
+
+  /// No description provided for @folioCloudSubscribeMonthly.
+  ///
+  /// In es, this message translates to:
+  /// **'Folio Cloud 4,99 €/mes'**
+  String get folioCloudSubscribeMonthly;
+
+  /// No description provided for @folioCloudBuyInk.
+  ///
+  /// In es, this message translates to:
+  /// **'Comprar tinta'**
+  String get folioCloudBuyInk;
+
+  /// No description provided for @folioCloudInkSmall.
+  ///
+  /// In es, this message translates to:
+  /// **'Tintero pequeño (1,99 €)'**
+  String get folioCloudInkSmall;
+
+  /// No description provided for @folioCloudInkMedium.
+  ///
+  /// In es, this message translates to:
+  /// **'Tintero mediano (4,99 €)'**
+  String get folioCloudInkMedium;
+
+  /// No description provided for @folioCloudInkLarge.
+  ///
+  /// In es, this message translates to:
+  /// **'Tintero grande (9,99 €)'**
+  String get folioCloudInkLarge;
+
+  /// No description provided for @folioCloudManageSubscription.
+  ///
+  /// In es, this message translates to:
+  /// **'Gestionar suscripción'**
+  String get folioCloudManageSubscription;
+
+  /// No description provided for @folioCloudRefreshFromStripe.
+  ///
+  /// In es, this message translates to:
+  /// **'Actualizar desde Stripe'**
+  String get folioCloudRefreshFromStripe;
+
+  /// No description provided for @folioCloudUploadEncryptedBackup.
+  ///
+  /// In es, this message translates to:
+  /// **'Copia a la nube ahora'**
+  String get folioCloudUploadEncryptedBackup;
+
+  /// No description provided for @folioCloudUploadEncryptedBackupSubtitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Folio genera la copia cifrada del cofre abierto y la sube solo; no tienes que exportar un .zip.'**
+  String get folioCloudUploadEncryptedBackupSubtitle;
+
+  /// No description provided for @folioCloudUploadSnackOk.
+  ///
+  /// In es, this message translates to:
+  /// **'Copia del cofre guardada en la nube.'**
+  String get folioCloudUploadSnackOk;
+
+  /// No description provided for @scheduledVaultBackupCloudSyncTitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Subir también a Folio Cloud'**
+  String get scheduledVaultBackupCloudSyncTitle;
+
+  /// No description provided for @scheduledVaultBackupCloudSyncSubtitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Tras cada copia programada, sube automáticamente el mismo ZIP a tu cuenta. Si no quieres copia en disco, deja la carpeta sin elegir y activa solo esta opción.'**
+  String get scheduledVaultBackupCloudSyncSubtitle;
+
+  /// No description provided for @folioCloudCloudBackupsList.
+  ///
+  /// In es, this message translates to:
+  /// **'Copias en la nube'**
+  String get folioCloudCloudBackupsList;
+
+  /// No description provided for @folioCloudPublishTestPage.
+  ///
+  /// In es, this message translates to:
+  /// **'Publicar página de prueba'**
+  String get folioCloudPublishTestPage;
+
+  /// No description provided for @folioCloudPublishedPagesList.
+  ///
+  /// In es, this message translates to:
+  /// **'Páginas publicadas'**
+  String get folioCloudPublishedPagesList;
+
+  /// No description provided for @folioCloudReauthDialogTitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Confirmar cuenta Folio Cloud'**
+  String get folioCloudReauthDialogTitle;
+
+  /// No description provided for @folioCloudReauthDialogBody.
+  ///
+  /// In es, this message translates to:
+  /// **'Introduce la contraseña de tu cuenta Folio Cloud (la del inicio de sesión en la nube) para listar y descargar copias. No es la contraseña del cofre local.'**
+  String get folioCloudReauthDialogBody;
+
+  /// No description provided for @folioCloudReauthRequiresPasswordProvider.
+  ///
+  /// In es, this message translates to:
+  /// **'Esta sesión no usa contraseña de Folio Cloud. Cierra sesión en la cuenta e inicia de nuevo con correo y contraseña si necesitas descargar copias.'**
+  String get folioCloudReauthRequiresPasswordProvider;
+
+  /// No description provided for @folioCloudAiNoInkTitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Sin tinta para la IA en la nube'**
+  String get folioCloudAiNoInkTitle;
+
+  /// No description provided for @folioCloudAiNoInkBody.
+  ///
+  /// In es, this message translates to:
+  /// **'Puedes comprar un tintero en Folio Cloud, esperar la recarga mensual o cambiar a IA local (Ollama o LM Studio) en la sección de IA de Ajustes.'**
+  String get folioCloudAiNoInkBody;
+
+  /// No description provided for @folioCloudAiNoInkActionCloud.
+  ///
+  /// In es, this message translates to:
+  /// **'Folio Cloud y tinta'**
+  String get folioCloudAiNoInkActionCloud;
+
+  /// No description provided for @folioCloudAiNoInkActionLocal.
+  ///
+  /// In es, this message translates to:
+  /// **'Proveedor de IA'**
+  String get folioCloudAiNoInkActionLocal;
+
+  /// No description provided for @folioCloudAiZeroInkBanner.
+  ///
+  /// In es, this message translates to:
+  /// **'Tinta de IA en la nube: 0 gotas. Abre Ajustes para comprar tinta o usar IA local.'**
+  String get folioCloudAiZeroInkBanner;
 }
 
 class _AppLocalizationsDelegate

@@ -9,7 +9,7 @@ import 'folio_build_flags.dart';
 import 'folio_in_app_shortcuts.dart';
 import '../services/updater/update_release_channel.dart';
 
-enum AiProvider { none, ollama, lmStudio }
+enum AiProvider { none, ollama, lmStudio, folioCloud }
 
 enum AiEndpointMode { localhostOnly, allowRemote }
 
@@ -205,6 +205,8 @@ class AppSettings extends ChangeNotifier {
       'folio_scheduled_vault_backup_directory';
   static const _lastScheduledVaultBackupMsKey =
       'folio_last_scheduled_vault_backup_ms';
+  static const _scheduledVaultBackupAlsoUploadCloudKey =
+      'folio_scheduled_vault_backup_also_cloud_v1';
   static const int maxRecentSearchQueries = 10;
   static const int defaultScheduledVaultBackupIntervalHours = 24;
   static const int defaultVaultIdleLockMinutes = 15;
@@ -278,6 +280,7 @@ class AppSettings extends ChangeNotifier {
       defaultScheduledVaultBackupIntervalHours;
   String _scheduledVaultBackupDirectory = '';
   int _lastScheduledVaultBackupMs = 0;
+  bool _scheduledVaultBackupAlsoUploadCloud = false;
 
   ThemeMode get themeMode => _themeMode;
   Locale? get locale => _locale;
@@ -329,6 +332,8 @@ class AppSettings extends ChangeNotifier {
       _scheduledVaultBackupIntervalHours;
   String get scheduledVaultBackupDirectory => _scheduledVaultBackupDirectory;
   int get lastScheduledVaultBackupMs => _lastScheduledVaultBackupMs;
+  bool get scheduledVaultBackupAlsoUploadCloud =>
+      _scheduledVaultBackupAlsoUploadCloud;
   List<CustomIconEntry> get customIcons => List.unmodifiable(_customIcons);
   List<CustomIconEntry> integrationCustomIconsForApp(String appId) {
     final key = appId.trim();
@@ -439,6 +444,8 @@ class AppSettings extends ChangeNotifier {
     _scheduledVaultBackupDirectory =
         (p.getString(_scheduledVaultBackupDirectoryKey) ?? '').trim();
     _lastScheduledVaultBackupMs = p.getInt(_lastScheduledVaultBackupMsKey) ?? 0;
+    _scheduledVaultBackupAlsoUploadCloud =
+        p.getBool(_scheduledVaultBackupAlsoUploadCloudKey) ?? false;
     _integrationSecret = _configuredIntegrationSecret;
     final approvedRaw = p.getString(_approvedIntegrationAppsKey);
     if (approvedRaw != null && approvedRaw.trim().isNotEmpty) {
@@ -525,6 +532,10 @@ class AppSettings extends ChangeNotifier {
           p.getStringList(_aiModelsKeyForProvider(AiProvider.lmStudio)) ??
               const <String>[],
         ),
+        AiProvider.folioCloud: List<String>.from(
+          p.getStringList(_aiModelsKeyForProvider(AiProvider.folioCloud)) ??
+              const <String>['folio-cloud'],
+        ),
       });
     notifyListeners();
   }
@@ -548,6 +559,8 @@ class AppSettings extends ChangeNotifier {
         return AiProvider.ollama;
       case 'lmStudio':
         return AiProvider.lmStudio;
+      case 'folioCloud':
+        return AiProvider.folioCloud;
       default:
         return AiProvider.none;
     }
@@ -647,6 +660,8 @@ class AppSettings extends ChangeNotifier {
         return defaultOllamaUrl;
       case AiProvider.lmStudio:
         return defaultLmStudioUrl;
+      case AiProvider.folioCloud:
+        return '';
       case AiProvider.none:
         return defaultOllamaUrl;
     }
@@ -658,6 +673,8 @@ class AppSettings extends ChangeNotifier {
         return defaultOllamaModel;
       case AiProvider.lmStudio:
         return defaultLmStudioModel;
+      case AiProvider.folioCloud:
+        return 'folio-cloud';
       case AiProvider.none:
         return defaultOllamaModel;
     }
@@ -778,6 +795,13 @@ class AppSettings extends ChangeNotifier {
   Future<void> setAiProvider(AiProvider value) async {
     if (_aiProvider == value) return;
     _aiProvider = value;
+    if (value == AiProvider.folioCloud) {
+      _aiModel = defaultModelForProvider(value);
+      notifyListeners();
+      final p = await SharedPreferences.getInstance();
+      await p.setString(_aiProviderKey, value.name);
+      return;
+    }
     if (_aiBaseUrl.trim().isEmpty) {
       _aiBaseUrl = defaultUrlForProvider(value);
     }
@@ -1062,6 +1086,14 @@ class AppSettings extends ChangeNotifier {
     notifyListeners();
     final p = await SharedPreferences.getInstance();
     await p.setInt(_lastScheduledVaultBackupMsKey, safe);
+  }
+
+  Future<void> setScheduledVaultBackupAlsoUploadCloud(bool value) async {
+    if (_scheduledVaultBackupAlsoUploadCloud == value) return;
+    _scheduledVaultBackupAlsoUploadCloud = value;
+    notifyListeners();
+    final p = await SharedPreferences.getInstance();
+    await p.setBool(_scheduledVaultBackupAlsoUploadCloudKey, value);
   }
 
   Future<void> setInAppShortcut(

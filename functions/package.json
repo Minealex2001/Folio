@@ -1,0 +1,25 @@
+{
+  "name": "folio-functions",
+  "description": "Stripe webhooks, Folio Cloud AI proxy, billing — secrets via Secret Manager or functions/.env (gitignored)",
+  "scripts": {
+    "build": "tsc",
+    "build:watch": "tsc --watch",
+    "serve": "npm run build && firebase emulators:start --only functions",
+    "deploy": "firebase deploy --only functions",
+    "logs": "firebase functions:log"
+  },
+  "engines": {
+    "node": "22"
+  },
+  "main": "lib/index.js",
+  "dependencies": {
+    "dotenv": "^17.4.1",
+    "firebase-admin": "^12.7.0",
+    "firebase-functions": "^7.2.5",
+    "stripe": "^17.4.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.7.0"
+  },
+  "private": true
+}

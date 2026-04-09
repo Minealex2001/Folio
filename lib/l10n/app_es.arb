@@ -378,6 +378,10 @@
   ,"aiContextUsageTooltip": "Última petición respecto a la ventana configurada ({window} tokens)."
   ,"@aiContextUsageTooltip": {"placeholders": {"window": {"type": "int"}}}
   ,"aiChatKeyboardHint": "Enter para enviar · Ctrl+Enter nueva línea"
+  ,"aiChatInkRemaining": "{total, plural, one{Queda 1 gota de tinta} other{Quedan {total} gotas de tinta}}"
+  ,"@aiChatInkRemaining": {"placeholders": {"total": {"type": "int"}}}
+  ,"aiChatInkBreakdownTooltip": "Mes {monthly} · Compradas {purchased}"
+  ,"@aiChatInkBreakdownTooltip": {"placeholders": {"monthly": {"type": "int"}, "purchased": {"type": "int"}}}
   ,"aiAgentThought": "Pensamiento de Quill"
   ,"aiAlwaysShowThought": "Mostrar siempre pensamiento de IA"
   ,"aiAlwaysShowThoughtHint": "Si está desactivado, se mostrará plegado con flecha en cada mensaje."
@@ -446,7 +450,7 @@
   "settingsSearchSections": "Buscar en ajustes",
   "settingsSearchSectionsHint": "Filtra categorías en la barra lateral",
   "scheduledVaultBackupTitle": "Copia cifrada programada",
-  "scheduledVaultBackupSubtitle": "Con el cofre desbloqueado, Folio guarda una copia en la carpeta indicada según el intervalo.",
+  "scheduledVaultBackupSubtitle": "Con el cofre desbloqueado, cada copia es del cofre abierto ahora. Folio guarda un ZIP en la carpeta indicada según el intervalo.",
   "scheduledVaultBackupChooseFolder": "Carpeta de copias",
   "scheduledVaultBackupIntervalLabel": "Intervalo (horas)",
   "scheduledVaultBackupLastRun": "Última copia: {time}",
@@ -454,6 +458,15 @@
   "scheduledVaultBackupSnackOk": "Copia programada guardada.",
   "scheduledVaultBackupSnackFail": "Error en la copia programada: {error}",
   "@scheduledVaultBackupSnackFail": {"placeholders": {"error": {}}},
+  "vaultBackupOpenVaultHint": "Las copias son del cofre abierto ahora: «{name}».",
+  "@vaultBackupOpenVaultHint": {"placeholders": {"name": {"type": "String"}}},
+  "vaultBackupRunNowTile": "Copia programada ahora",
+  "vaultBackupRunNowSubtitle": "Ejecuta ya la copia programada (disco y/o nube según lo tengas configurado), sin esperar al intervalo.",
+  "vaultBackupRunNowNeedFolder": "Elige una carpeta local o activa «Subir también a Folio Cloud» para copia solo en la nube.",
+  "vaultIdentitySyncTitle": "Sincronización",
+  "vaultIdentitySyncBody": "Introduce la contraseña del cofre (o Hello / passkey) para continuar.",
+  "vaultIdentityCloudBackupTitle": "Copias en la nube",
+  "vaultIdentityCloudBackupBody": "Confirma la identidad del cofre para listar o descargar copias cifradas.",
   "aiRewriteDialogTitle": "Reescribir con IA",
   "aiPreviewTitle": "Vista previa",
   "aiInstructionHint": "Ejemplo: hazlo más claro y breve",
@@ -586,7 +599,9 @@
   ,"templateSelectHint": "Selecciona una plantilla para inspeccionarla, editar sus metadatos o exportarla."
   ,"clear": "Limpiar"
   ,"cloudAccountSectionTitle": "Cuenta Folio Cloud"
-  ,"cloudAccountSectionDescription": "Opcional. Inicia sesión para la futura sincronización en la nube de pago. Tu cofre sigue siendo local; esto no sube tus notas."
+  ,"cloudAccountSectionDescription": "Opcional. Inicia sesión para suscribirte a copias en la nube, IA hospedada y publicación web. Tu cofre sigue siendo local salvo que uses esas funciones."
+  ,"cloudAccountChipOptional": "Opcional"
+  ,"cloudAccountChipPaidCloud": "Copias, IA y web"
   ,"cloudAccountUnavailable": "No hay inicio de sesión en la nube (Firebase no arrancó). Revisa la conexión o ejecuta flutterfire configure con tu proyecto."
   ,"cloudAccountEmailLabel": "Correo"
   ,"cloudAccountPasswordLabel": "Contraseña"
@@ -615,15 +630,59 @@
   ,"cloudAuthErrorGeneric": "No se pudo iniciar sesión. Inténtalo de nuevo."
   ,"cloudAuthDialogTitle": "Folio Cloud"
   ,"cloudAuthSubtitleSignIn": "Usa el correo y la contraseña de Folio Cloud. Nada de esto cambia tu cofre local."
-  ,"cloudAuthSubtitleRegister": "Crea credenciales solo para Folio Cloud y el futuro sync de pago. Tus notas en este dispositivo no se suben."
+  ,"cloudAuthSubtitleRegister": "Crea credenciales para Folio Cloud. Tus notas en este dispositivo no se suben hasta que actives copias u otras funciones de pago."
   ,"cloudAuthModeSignIn": "Iniciar sesión"
   ,"cloudAuthModeRegister": "Registrarse"
   ,"cloudAuthConfirmPasswordLabel": "Confirmar contraseña"
   ,"cloudAuthValidationRequired": "Este campo es obligatorio."
   ,"cloudAuthValidationPasswordShort": "Usa al menos 6 caracteres."
   ,"cloudAuthValidationConfirmMismatch": "Las contraseñas no coinciden."
-  ,"cloudAccountSignedOutPrompt": "Inicia sesión o regístrate para estar listo cuando Folio Cloud esté disponible."
+  ,"cloudAccountSignedOutPrompt": "Inicia sesión o regístrate para suscribirte a Folio Cloud y usar copias, IA en la nube y publicación."
   ,"cloudAuthResetHint": "Te enviaremos un enlace por correo para elegir una nueva contraseña."
   ,"cloudAccountEmailVerified": "Verificado"
   ,"cloudAccountSignOutHelp": "Tu cofre local sigue en este dispositivo."
+  ,"folioCloudSubsectionPlan": "Plan y estado"
+  ,"folioCloudSubsectionInk": "Saldo de tinta"
+  ,"folioCloudSubsectionSubscription": "Suscripción y facturación"
+  ,"folioCloudSubsectionBackupPublish": "Copias y publicación"
+  ,"folioCloudSubscriptionActive": "Suscripción activa"
+  ,"folioCloudSubscriptionActiveWithStatus": "Suscripción activa ({status})"
+  ,"@folioCloudSubscriptionActiveWithStatus": {"placeholders": {"status": {"type": "String"}}}
+  ,"folioCloudSubscriptionNoneTitle": "Sin suscripción Folio Cloud"
+  ,"folioCloudSubscriptionNoneSubtitle": "Activa un plan para copias cifradas, IA en la nube y publicación web."
+  ,"folioCloudFeatureBackup": "Copia en la nube"
+  ,"folioCloudFeatureCloudAi": "IA en la nube"
+  ,"folioCloudFeaturePublishWeb": "Publicación web"
+  ,"folioCloudFeatureOn": "Incluida"
+  ,"folioCloudFeatureOff": "No incluida"
+  ,"folioCloudPostPaymentHint": "Si acabas de pagar y ves las funciones en «no», pulsa «Actualizar desde Stripe»."
+  ,"folioCloudInkMonthly": "Mes"
+  ,"folioCloudInkPurchased": "Compradas"
+  ,"folioCloudInkTotal": "Total"
+  ,"folioCloudInkCount": "{count}"
+  ,"@folioCloudInkCount": {"placeholders": {"count": {"type": "int"}}}
+  ,"folioCloudPlanActiveHeadline": "Plan mensual Folio Cloud activo"
+  ,"folioCloudSubscribeMonthly": "Folio Cloud 4,99 €/mes"
+  ,"folioCloudBuyInk": "Comprar tinta"
+  ,"folioCloudInkSmall": "Tintero pequeño (1,99 €)"
+  ,"folioCloudInkMedium": "Tintero mediano (4,99 €)"
+  ,"folioCloudInkLarge": "Tintero grande (9,99 €)"
+  ,"folioCloudManageSubscription": "Gestionar suscripción"
+  ,"folioCloudRefreshFromStripe": "Actualizar desde Stripe"
+  ,"folioCloudUploadEncryptedBackup": "Copia a la nube ahora"
+  ,"folioCloudUploadEncryptedBackupSubtitle": "Folio genera la copia cifrada del cofre abierto y la sube solo; no tienes que exportar un .zip."
+  ,"folioCloudUploadSnackOk": "Copia del cofre guardada en la nube."
+  ,"scheduledVaultBackupCloudSyncTitle": "Subir también a Folio Cloud"
+  ,"scheduledVaultBackupCloudSyncSubtitle": "Tras cada copia programada, sube automáticamente el mismo ZIP a tu cuenta. Si no quieres copia en disco, deja la carpeta sin elegir y activa solo esta opción."
+  ,"folioCloudCloudBackupsList": "Copias en la nube"
+  ,"folioCloudPublishTestPage": "Publicar página de prueba"
+  ,"folioCloudPublishedPagesList": "Páginas publicadas"
+  ,"folioCloudReauthDialogTitle": "Confirmar cuenta Folio Cloud"
+  ,"folioCloudReauthDialogBody": "Introduce la contraseña de tu cuenta Folio Cloud (la del inicio de sesión en la nube) para listar y descargar copias. No es la contraseña del cofre local."
+  ,"folioCloudReauthRequiresPasswordProvider": "Esta sesión no usa contraseña de Folio Cloud. Cierra sesión en la cuenta e inicia de nuevo con correo y contraseña si necesitas descargar copias."
+  ,"folioCloudAiNoInkTitle": "Sin tinta para la IA en la nube"
+  ,"folioCloudAiNoInkBody": "Puedes comprar un tintero en Folio Cloud, esperar la recarga mensual o cambiar a IA local (Ollama o LM Studio) en la sección de IA de Ajustes."
+  ,"folioCloudAiNoInkActionCloud": "Folio Cloud y tinta"
+  ,"folioCloudAiNoInkActionLocal": "Proveedor de IA"
+  ,"folioCloudAiZeroInkBanner": "Tinta de IA en la nube: 0 gotas. Abre Ajustes para comprar tinta o usar IA local."
 }

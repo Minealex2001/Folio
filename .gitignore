@@ -45,5 +45,14 @@ app.*.map.json
 /android/app/release
 .env
 .env.local
+
+# Folio Cloud / Firebase Functions (secrets locales)
+functions/.env
+functions/.secret.local
+functions/node_modules/
+secrets/
+
+# Opcional: no versionar firebase_options de producción si generáis en CI
+# lib/firebase_options.dart
 docs/postman/Run2Doc-Folio.postman_collection.json
 ./Output/

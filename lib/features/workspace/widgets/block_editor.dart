@@ -14,6 +14,7 @@ import 'package:url_launcher/url_launcher.dart';
 import 'package:intl/intl.dart';
 
 import '../../../app/app_settings.dart';
+import '../../../app/widgets/folio_cloud_ai_ink_dialog.dart';
 import '../../../app/widgets/folio_icon_picker.dart';
 import '../../../app/widgets/folio_icon_token_view.dart';
 import '../../../data/folio_internal_link.dart';
@@ -25,6 +26,8 @@ import '../../../models/folio_template_button_data.dart';
 import '../../../models/folio_database_data.dart';
 import '../../../models/folio_page.dart';
 import '../../../models/folio_table_data.dart';
+import '../../../services/ai/folio_cloud_ai_service.dart';
+import '../../../services/folio_cloud/folio_cloud_entitlements.dart';
 import '../../../services/run2doc/run2doc_markdown_codec.dart';
 import '../../../session/vault_session.dart';
 import 'code_block_languages.dart';
@@ -118,11 +121,15 @@ class BlockEditor extends StatefulWidget {
     required this.session,
     required this.appSettings,
     this.readOnlyMode = false,
+    this.folioCloudEntitlements,
+    this.onOpenSettings,
   });
 
   final VaultSession session;
   final AppSettings appSettings;
   final bool readOnlyMode;
+  final FolioCloudEntitlementsController? folioCloudEntitlements;
+  final VoidCallback? onOpenSettings;
 
   @override
   State<BlockEditor> createState() => BlockEditorState();
@@ -278,11 +285,13 @@ class BlockEditorState extends State<BlockEditor> with _BlockRowBuild {
   void initState() {
     super.initState();
     _s.addListener(_onSession);
+    widget.folioCloudEntitlements?.addListener(_onFolioCloudInkTick);
     _syncControllers();
   }
 
   @override
   void dispose() {
+    widget.folioCloudEntitlements?.removeListener(_onFolioCloudInkTick);
     _slashListScrollController.dispose();
     _mentionListScrollController.dispose();
     _blockListScrollController.dispose();
@@ -290,6 +299,36 @@ class BlockEditorState extends State<BlockEditor> with _BlockRowBuild {
     _s.removeListener(_onSession);
     _disposeControllers();
     super.dispose();
+  }
+
+  @override
+  void didUpdateWidget(BlockEditor oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.folioCloudEntitlements != widget.folioCloudEntitlements) {
+      oldWidget.folioCloudEntitlements?.removeListener(_onFolioCloudInkTick);
+      widget.folioCloudEntitlements?.addListener(_onFolioCloudInkTick);
+    }
+  }
+
+  void _onFolioCloudInkTick() {
+    if (mounted) setState(() {});
+  }
+
+  void _handleBlockEditorAiError(Object e, AppLocalizations l10n) {
+    if (!mounted) return;
+    final open = widget.onOpenSettings;
+    if (e is FolioCloudAiException && e.isInkExhausted && open != null) {
+      unawaited(
+        showFolioCloudAiInkExhaustedDialog(
+          context,
+          onOpenSettings: open,
+        ),
+      );
+      return;
+    }
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(l10n.aiErrorWithDetails(e))),
+    );
   }
 
   void _dismissInlineSlash({required bool clearTypedCommand}) {
@@ -3171,6 +3210,16 @@ class BlockEditorState extends State<BlockEditor> with _BlockRowBuild {
         ? '$enterHint · / para bloques · toca el bloque para más acciones'
         : '$enterHint · Shift+Enter: línea · / tipos · # título (misma línea) · - · * · [] · ``` espacio · tabla/imagen en / · formato: barra al enfocar o ** _ <u> ` ~~';
 
+    final fc = widget.folioCloudEntitlements;
+    final l10n = AppLocalizations.of(context);
+    final showZeroInkBanner = fc != null &&
+        widget.onOpenSettings != null &&
+        !readOnlyMode &&
+        widget.appSettings.isAiRuntimeEnabled &&
+        widget.appSettings.aiProvider == AiProvider.folioCloud &&
+        fc.snapshot.canUseCloudAi &&
+        fc.snapshot.ink.totalInk <= 0;
+
     return FocusTraversalGroup(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -3226,6 +3275,54 @@ class BlockEditorState extends State<BlockEditor> with _BlockRowBuild {
                         ),
                       ],
                     ),
+                  ),
+                ),
+              ),
+            ),
+          if (showZeroInkBanner)
+            Padding(
+              padding: EdgeInsets.fromLTRB(
+                androidPhoneLayout ? FolioSpace.sm : FolioSpace.xs,
+                0,
+                androidPhoneLayout ? FolioSpace.sm : FolioSpace.xs,
+                FolioSpace.sm,
+              ),
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  color: scheme.errorContainer.withValues(alpha: 0.42),
+                  borderRadius: BorderRadius.circular(FolioRadius.sm),
+                  border: Border.all(
+                    color: scheme.outlineVariant.withValues(alpha: 0.4),
+                  ),
+                ),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: FolioSpace.sm,
+                    vertical: FolioSpace.xs,
+                  ),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Icon(
+                        Icons.water_drop_outlined,
+                        size: 18,
+                        color: scheme.onErrorContainer,
+                      ),
+                      const SizedBox(width: FolioSpace.xs),
+                      Expanded(
+                        child: Text(
+                          l10n.folioCloudAiZeroInkBanner,
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: scheme.onErrorContainer,
+                            height: 1.35,
+                          ),
+                        ),
+                      ),
+                      TextButton(
+                        onPressed: widget.onOpenSettings,
+                        child: Text(l10n.settings),
+                      ),
+                    ],
                   ),
                 ),
               ),
@@ -3650,9 +3747,7 @@ class BlockEditorState extends State<BlockEditor> with _BlockRowBuild {
     } catch (e) {
       if (mounted) {
         Navigator.of(context).pop();
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error IA: $e')),
-        );
+        _handleBlockEditorAiError(e, l10n);
       }
     }
   }
@@ -3758,9 +3853,7 @@ class BlockEditorState extends State<BlockEditor> with _BlockRowBuild {
     } catch (e) {
       if (mounted) {
         Navigator.of(context).pop();
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error IA: $e')),
-        );
+        _handleBlockEditorAiError(e, l10n);
       }
     }
   }
@@ -3808,9 +3901,7 @@ class BlockEditorState extends State<BlockEditor> with _BlockRowBuild {
     } catch (e) {
       if (mounted) {
         Navigator.of(context).pop();
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error IA: $e')),
-        );
+        _handleBlockEditorAiError(e, l10n);
       }
     }
   }

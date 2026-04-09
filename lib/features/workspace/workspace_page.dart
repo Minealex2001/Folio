@@ -2,16 +2,19 @@
 import 'dart:io';
 import 'dart:math' as math;
 
+import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter_markdown_plus/flutter_markdown_plus.dart';
 import 'package:markdown/markdown.dart' as md;
 import 'package:flutter/services.dart';
+import 'package:url_launcher/url_launcher.dart';
 import 'package:uuid/uuid.dart';
 
 import '../../app/app_settings.dart';
 import '../../app/folio_in_app_shortcuts.dart';
 import '../../app/ui_tokens.dart';
+import '../../app/widgets/folio_cloud_ai_ink_dialog.dart';
 import '../../app/widgets/folio_dialog.dart';
 import '../../app/widgets/folio_feedback.dart';
 import '../../models/folio_page.dart';
@@ -20,7 +23,11 @@ import '../../models/folio_columns_data.dart';
 import '../../models/folio_template_button_data.dart';
 import '../../models/folio_toggle_data.dart';
 import '../../services/ai/ai_types.dart';
+import '../../services/ai/folio_cloud_ai_service.dart';
 import '../../services/cloud_account/cloud_account_controller.dart';
+import '../../services/folio_cloud/folio_cloud_entitlements.dart';
+import '../../services/folio_cloud/folio_cloud_publish.dart';
+import '../../services/folio_cloud/folio_page_html_export.dart';
 import '../../services/device_sync/device_sync_controller.dart';
 import '../../l10n/generated/app_localizations.dart';
 import '../../services/run2doc/run2doc_markdown_codec.dart';
@@ -44,6 +51,7 @@ class WorkspacePage extends StatefulWidget {
     required this.appSettings,
     required this.deviceSyncController,
     required this.cloudAccountController,
+    required this.folioCloudEntitlements,
     required this.onOpenSearch,
   });
 
@@ -51,6 +59,7 @@ class WorkspacePage extends StatefulWidget {
   final AppSettings appSettings;
   final DeviceSyncController deviceSyncController;
   final CloudAccountController cloudAccountController;
+  final FolioCloudEntitlementsController folioCloudEntitlements;
   final VoidCallback onOpenSearch;
 
   @override
@@ -276,6 +285,92 @@ class _WorkspacePageState extends State<WorkspacePage> {
     } catch (e) {
       if (!mounted) return;
       _snack('No se pudo exportar la página: $e');
+    }
+  }
+
+  String _suggestWebSlugFromTitle(String title) {
+    var s = title.toLowerCase().trim();
+    s = s.replaceAll(RegExp(r'[^a-z0-9]+'), '-');
+    s = s.replaceAll(RegExp(r'^-+|-+$'), '');
+    if (s.isEmpty) return 'page';
+    if (s.length > 48) {
+      s = s.substring(0, 48).replaceAll(RegExp(r'-+$'), '');
+    }
+    return s.isEmpty ? 'page' : s;
+  }
+
+  Future<void> _publishCurrentPageToWeb() async {
+    final page = _s.selectedPage;
+    if (page == null || _s.state != VaultFlowState.unlocked) return;
+    if (Firebase.apps.isEmpty) {
+      _snack('Firebase no está disponible.');
+      return;
+    }
+    if (!widget.cloudAccountController.isSignedIn) {
+      _snack(
+        'Inicia sesión en la cuenta en la nube (Ajustes) para publicar.',
+      );
+      return;
+    }
+    if (!widget.folioCloudEntitlements.snapshot.canPublishToWeb) {
+      _snack(
+        'Tu plan no incluye publicación web o la suscripción no está activa.',
+      );
+      return;
+    }
+    final slugController = TextEditingController(
+      text: _suggestWebSlugFromTitle(page.title),
+    );
+    final snap = widget.folioCloudEntitlements.snapshot;
+    try {
+      final go = await showDialog<bool>(
+        context: context,
+        builder: (ctx) {
+          final l10n = AppLocalizations.of(ctx);
+          return AlertDialog(
+            title: const Text('Publicar en la web'),
+            content: TextField(
+              controller: slugController,
+              decoration: const InputDecoration(
+                labelText: 'URL (slug)',
+                hintText: 'mi-nota',
+                helperText:
+                    'Letras, números y guiones. Quedará en la URL pública.',
+              ),
+              autofocus: true,
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(ctx, false),
+                child: Text(l10n.cancel),
+              ),
+              FilledButton(
+                onPressed: () => Navigator.pop(ctx, true),
+                child: const Text('Publicar'),
+              ),
+            ],
+          );
+        },
+      );
+      if (go != true || !mounted) return;
+      final slug = slugController.text.trim();
+      if (slug.isEmpty) {
+        _snack('Slug vacío.');
+        return;
+      }
+      final html = folioPageExportHtmlDocument(page);
+      final res = await publishHtmlPage(
+        slug: slug,
+        html: html,
+        entitlementSnapshot: snap,
+      );
+      if (!mounted) return;
+      _snack('Publicado: ${res.publicUrl}');
+      await launchUrl(res.publicUrl, mode: LaunchMode.externalApplication);
+    } catch (e) {
+      if (mounted) _snack('No se pudo publicar: $e');
+    } finally {
+      slugController.dispose();
     }
   }
 
@@ -1066,6 +1161,7 @@ class _WorkspacePageState extends State<WorkspacePage> {
     HardwareKeyboard.instance.addHandler(_onHardwareKeyEvent);
     _chatInputController.addListener(_updateAiContextMenu);
     _chatInputFocusNode.addListener(_updateAiContextMenu);
+    widget.folioCloudEntitlements.addListener(_onFolioCloudEntitlements);
     _syncTitleFromSession();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _maybeShowQuillWorkspaceTour();
@@ -1079,6 +1175,7 @@ class _WorkspacePageState extends State<WorkspacePage> {
     _draftSaveTimer?.cancel();
     HardwareKeyboard.instance.removeHandler(_onHardwareKeyEvent);
     widget.appSettings.removeListener(_onAppSettings);
+    widget.folioCloudEntitlements.removeListener(_onFolioCloudEntitlements);
     _s.removeListener(_onSession);
     _chatInputController.removeListener(_updateAiContextMenu);
     _chatInputFocusNode.removeListener(_updateAiContextMenu);
@@ -1087,6 +1184,19 @@ class _WorkspacePageState extends State<WorkspacePage> {
     _chatInputFocusNode.dispose();
     _aiChatScrollController.dispose();
     super.dispose();
+  }
+
+  @override
+  void didUpdateWidget(covariant WorkspacePage oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.folioCloudEntitlements != widget.folioCloudEntitlements) {
+      oldWidget.folioCloudEntitlements.removeListener(_onFolioCloudEntitlements);
+      widget.folioCloudEntitlements.addListener(_onFolioCloudEntitlements);
+    }
+  }
+
+  void _onFolioCloudEntitlements() {
+    if (mounted) setState(() {});
   }
 
   void _scheduleAiChatScrollToBottom() {
@@ -1495,6 +1605,7 @@ class _WorkspacePageState extends State<WorkspacePage> {
           appSettings: widget.appSettings,
           deviceSyncController: widget.deviceSyncController,
           cloudAccountController: widget.cloudAccountController,
+          folioCloudEntitlements: widget.folioCloudEntitlements,
         ),
       ),
     );
@@ -1769,7 +1880,14 @@ class _WorkspacePageState extends State<WorkspacePage> {
     } catch (e) {
       if (!mounted) return;
       final l10n = AppLocalizations.of(context);
-      _snack(l10n.aiErrorWithDetails(e), error: true);
+      if (e is FolioCloudAiException && e.isInkExhausted) {
+        await showFolioCloudAiInkExhaustedDialog(
+          context,
+          onOpenSettings: _openSettings,
+        );
+      } else {
+        _snack(l10n.aiErrorWithDetails(e), error: true);
+      }
     } finally {
       if (mounted) {
         setState(() => _aiChatBusy = false);
@@ -1999,6 +2117,10 @@ class _WorkspacePageState extends State<WorkspacePage> {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
     final l10n = AppLocalizations.of(context);
+    final showInkInChat = widget.appSettings.aiProvider == AiProvider.folioCloud &&
+        widget.appSettings.isAiRuntimeEnabled &&
+        widget.folioCloudEntitlements.snapshot.canUseCloudAi;
+    final inkSnap = widget.folioCloudEntitlements.snapshot.ink;
     return SafeArea(
       top: false,
       left: false,
@@ -2104,6 +2226,37 @@ class _WorkspacePageState extends State<WorkspacePage> {
                             height: 1.35,
                           ),
                         ),
+                        if (showInkInChat) ...[
+                          const SizedBox(height: 6),
+                          Tooltip(
+                            message: l10n.aiChatInkBreakdownTooltip(
+                              inkSnap.monthlyBalance,
+                              inkSnap.purchasedBalance,
+                            ),
+                            child: Row(
+                              children: [
+                                Icon(
+                                  Icons.water_drop_outlined,
+                                  size: 15,
+                                  color: scheme.primary.withValues(alpha: 0.92),
+                                ),
+                                const SizedBox(width: 5),
+                                Expanded(
+                                  child: Text(
+                                    l10n.aiChatInkRemaining(inkSnap.totalInk),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: theme.textTheme.labelSmall?.copyWith(
+                                      color: scheme.onSurfaceVariant,
+                                      fontWeight: FontWeight.w600,
+                                      height: 1.25,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
                       ],
                     ),
                   ),
@@ -2598,6 +2751,13 @@ class _WorkspacePageState extends State<WorkspacePage> {
             ),
           if (page != null)
             _WorkspaceActionEntry(
+              id: 'publish_web',
+              label: 'Publicar en la web',
+              icon: Icons.public_rounded,
+              onPressed: _publishCurrentPageToWeb,
+            ),
+          if (page != null)
+            _WorkspaceActionEntry(
               id: 'save_as_template',
               label: l10n.saveAsTemplate,
               icon: Icons.bookmark_add_outlined,
@@ -2789,6 +2949,8 @@ class _WorkspacePageState extends State<WorkspacePage> {
                 session: _s,
                 appSettings: widget.appSettings,
                 readOnlyMode: editorReadOnlyMode,
+                folioCloudEntitlements: widget.folioCloudEntitlements,
+                onOpenSettings: _openSettings,
               ),
             ),
     );

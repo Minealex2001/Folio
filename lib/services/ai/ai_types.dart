@@ -100,6 +100,8 @@ class AiCompletionRequest {
     this.topP,
     this.stop,
     this.responseSchema,
+    /// Solo [FolioCloudAiService]: tipo de operación para cobrar tinta en servidor (`operationKind`).
+    this.cloudInkOperation,
   });
 
   final String prompt;
@@ -123,6 +125,9 @@ class AiCompletionRequest {
 
   /// JSON Schema para forzar salida estructurada (LM Studio: response_format; Ollama: format).
   final Map<String, dynamic>? responseSchema;
+
+  /// Valores alineados con `INK_COST_BY_OPERATION` en Cloud Functions.
+  final String? cloudInkOperation;
 }
 
 class AiCompletionResult {

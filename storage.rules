@@ -1,0 +1,42 @@
+rules_version = '2';
+
+service firebase.storage {
+
+  match /b/{bucket}/o {
+
+    function userDoc(uid) {
+      return firestore.get(/databases/(default)/documents/users/$(uid)).data;
+    }
+
+    function folioCloudBackupOk(uid) {
+      let u = userDoc(uid);
+      return u.folioCloud != null
+        && u.folioCloud.active == true
+        && u.folioCloud.features != null
+        && u.folioCloud.features.backup == true;
+    }
+
+    function folioCloudPublishOk(uid) {
+      let u = userDoc(uid);
+      return u.folioCloud != null
+        && u.folioCloud.active == true
+        && u.folioCloud.features != null
+        && u.folioCloud.features.publishWeb == true;
+    }
+
+    // Copias cifradas: solo suscripción Folio Cloud con feature backup (servidor escribe folioCloud).
+    match /users/{userId}/backups/{allPaths=**} {
+      allow read, write: if request.auth != null
+        && request.auth.uid == userId
+        && folioCloudBackupOk(userId);
+    }
+
+    // Páginas HTML públicas: lectura pública; escritura solo con publicación web en el plan.
+    match /published/{userId}/{allPaths=**} {
+      allow read: if true;
+      allow write: if request.auth != null
+        && request.auth.uid == userId
+        && folioCloudPublishOk(userId);
+    }
+  }
+}

@@ -7,6 +7,7 @@ import 'app/folio_app.dart';
 import 'app/folio_runtime_config.dart';
 import 'firebase_options.dart';
 import 'services/cloud_account/cloud_account_controller.dart';
+import 'services/folio_cloud/folio_cloud_entitlements.dart';
 import 'services/platform/launch_arguments.dart';
 import 'session/vault_session.dart';
 
@@ -21,6 +22,7 @@ Future<void> main() async {
     debugPrint('$st');
   }
   final cloudAccountController = CloudAccountController();
+  final folioCloudEntitlements = FolioCloudEntitlementsController();
   final runtimeConfig = await FolioRuntimeConfig.load();
   final appSettings = AppSettings(
     integrationSecret: runtimeConfig.integrationSecret,
@@ -33,6 +35,7 @@ Future<void> main() async {
       session: session,
       appSettings: appSettings,
       cloudAccountController: cloudAccountController,
+      folioCloudEntitlements: folioCloudEntitlements,
       initialLaunchArgs: initialLaunchArgs,
     ),
   );

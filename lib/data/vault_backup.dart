@@ -22,11 +22,30 @@ const int kVaultBackupFormatVersion = 1;
 
 const String kVaultBackupManifestFile = 'manifest.json';
 
-/// Crea un ZIP con `manifest.json`, `vault.keys`, `vault.bin` y `attachments/` (solo lectura en disco).
+const String _vaultModePlain = 'plain';
+const String _vaultModeEncrypted = 'encrypted';
+
+bool _modeFileIsPlain(File modeFile) {
+  if (!modeFile.existsSync()) return false;
+  return modeFile.readAsStringSync().trim().toLowerCase() == _vaultModePlain;
+}
+
+bool _extractedDirIsPlainBackup(Directory extractedDir) {
+  final f = File(p.join(extractedDir.path, VaultPaths.vaultModeFile));
+  return _modeFileIsPlain(f);
+}
+
+/// Crea un ZIP con `manifest.json`, `vault.bin`, opcionalmente `vault.keys` y `vault.mode`,
+/// y `attachments/` (solo lectura en disco). Cofres en texto plano no tienen `vault.keys`.
 Future<void> exportVaultZip(File destination) async {
   final wrapped = await VaultPaths.wrappedDekPath();
   final cipher = await VaultPaths.cipherPayloadPath();
-  if (!wrapped.existsSync() || !cipher.existsSync()) {
+  final modeFile = await VaultPaths.vaultModePath();
+  final plain = _modeFileIsPlain(modeFile);
+  if (!cipher.existsSync()) {
+    throw VaultBackupException('No hay cofre para exportar.');
+  }
+  if (!plain && !wrapped.existsSync()) {
     throw VaultBackupException('No hay cofre para exportar.');
   }
 
@@ -42,16 +61,25 @@ Future<void> exportVaultZip(File destination) async {
     encoder.addArchiveFile(
       ArchiveFile.bytes(kVaultBackupManifestFile, utf8.encode(manifest)),
     );
-    await encoder.addFile(
-      wrapped,
-      VaultPaths.wrappedDekFile,
-      ZipFileEncoder.store,
-    );
+    if (!plain) {
+      await encoder.addFile(
+        wrapped,
+        VaultPaths.wrappedDekFile,
+        ZipFileEncoder.store,
+      );
+    }
     await encoder.addFile(
       cipher,
       VaultPaths.cipherPayloadFile,
       ZipFileEncoder.store,
     );
+    if (modeFile.existsSync()) {
+      await encoder.addFile(
+        modeFile,
+        VaultPaths.vaultModeFile,
+        ZipFileEncoder.store,
+      );
+    }
 
     final vaultDir = await VaultPaths.vaultDirectory();
     final attDir = Directory(
@@ -124,8 +152,21 @@ Future<void> validateImportZip(Directory extractedDir, String password) async {
 
   final keysFile = File(p.join(extractedDir.path, VaultPaths.wrappedDekFile));
   final binFile = File(p.join(extractedDir.path, VaultPaths.cipherPayloadFile));
-  if (!keysFile.existsSync() || !binFile.existsSync()) {
-    throw VaultBackupException('Faltan vault.keys o vault.bin en la copia.');
+  if (!binFile.existsSync()) {
+    throw VaultBackupException('Falta vault.bin en la copia.');
+  }
+
+  if (_extractedDirIsPlainBackup(extractedDir)) {
+    try {
+      VaultPayload.decodeUtf8(await binFile.readAsBytes());
+    } catch (_) {
+      throw VaultBackupException('El contenido del cofre en la copia no es válido.');
+    }
+    return;
+  }
+
+  if (!keysFile.existsSync()) {
+    throw VaultBackupException('Falta vault.keys en la copia cifrada.');
   }
 
   final wrapped = await keysFile.readAsBytes();
@@ -157,14 +198,37 @@ Future<void> applyImportToVaultRoot(
 ) async {
   final keysSrc = File(p.join(extractedDir.path, VaultPaths.wrappedDekFile));
   final binSrc = File(p.join(extractedDir.path, VaultPaths.cipherPayloadFile));
-  if (!keysSrc.existsSync() || !binSrc.existsSync()) {
-    throw VaultBackupException('Faltan vault.keys o vault.bin en la copia.');
+  final modeSrc = File(p.join(extractedDir.path, VaultPaths.vaultModeFile));
+  if (!binSrc.existsSync()) {
+    throw VaultBackupException('Falta vault.bin en la copia.');
   }
 
   final destWrapped = File(p.join(vaultRoot.path, VaultPaths.wrappedDekFile));
   final destBin = File(p.join(vaultRoot.path, VaultPaths.cipherPayloadFile));
-  await keysSrc.copy(destWrapped.path);
-  await binSrc.copy(destBin.path);
+  final destMode = File(p.join(vaultRoot.path, VaultPaths.vaultModeFile));
+
+  if (_extractedDirIsPlainBackup(extractedDir)) {
+    if (destWrapped.existsSync()) {
+      await destWrapped.delete();
+    }
+    await binSrc.copy(destBin.path);
+    if (modeSrc.existsSync()) {
+      await modeSrc.copy(destMode.path);
+    } else {
+      await destMode.writeAsString(_vaultModePlain, flush: true);
+    }
+  } else {
+    if (!keysSrc.existsSync()) {
+      throw VaultBackupException('Falta vault.keys en la copia cifrada.');
+    }
+    await keysSrc.copy(destWrapped.path);
+    await binSrc.copy(destBin.path);
+    if (modeSrc.existsSync()) {
+      await modeSrc.copy(destMode.path);
+    } else {
+      await destMode.writeAsString(_vaultModeEncrypted, flush: true);
+    }
+  }
 
   final attDir = Directory(
     p.join(vaultRoot.path, VaultPaths.attachmentsDirName),

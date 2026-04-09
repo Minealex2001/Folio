@@ -54,6 +54,7 @@ extension VaultSessionAi on VaultSession {
         prompt: prompt,
         model: 'auto',
         attachments: attachments,
+        cloudInkOperation: 'rewrite_block',
       ),
     );
     final text = result.text.trim();
@@ -103,7 +104,11 @@ extension VaultSessionAi on VaultSession {
         'Página: ${page.title}\n'
         'Fragmento:\n$body';
     final result = await ai.complete(
-      AiCompletionRequest(prompt: prompt, model: 'auto'),
+      AiCompletionRequest(
+        prompt: prompt,
+        model: 'auto',
+        cloudInkOperation: 'summarize_selection',
+      ),
     );
     return (text: result.text.trim(), usage: result.usage);
   }
@@ -134,7 +139,11 @@ extension VaultSessionAi on VaultSession {
         'Página: ${page.title}\n'
         'Texto:\n$body';
     final result = await ai.complete(
-      AiCompletionRequest(prompt: prompt, model: 'auto'),
+      AiCompletionRequest(
+        prompt: prompt,
+        model: 'auto',
+        cloudInkOperation: 'extract_tasks',
+      ),
     );
     return (text: result.text.trim(), usage: result.usage);
   }
@@ -161,6 +170,7 @@ extension VaultSessionAi on VaultSession {
         prompt: prompt,
         model: 'auto',
         attachments: attachments,
+        cloudInkOperation: 'summarize_page',
       ),
     );
     return (text: result.text.trim(), usage: result.usage);
@@ -194,6 +204,7 @@ extension VaultSessionAi on VaultSession {
         prompt: fullPrompt,
         model: 'auto',
         attachments: attachments,
+        cloudInkOperation: 'generate_insert',
       ),
     );
     final parsed = _parseAiHybridOutput(result.text, defaultTitle: page.title);
@@ -228,6 +239,7 @@ extension VaultSessionAi on VaultSession {
             'Solicitud:\n${prompt.trim()}',
         model: 'auto',
         attachments: attachments,
+        cloudInkOperation: 'generate_page',
       ),
     );
     final draft = _parseAiHybridOutput(
@@ -379,6 +391,7 @@ Quick help (be concise):
         model: 'auto',
         messages: messages,
         attachments: attachments,
+        cloudInkOperation: 'chat_turn',
       ),
     );
     return (text: result.text.trim(), usage: result.usage);
@@ -456,6 +469,7 @@ Quick help (be concise):
     try {
       final result = await ai.complete(
         AiCompletionRequest(
+          cloudInkOperation: 'agent_main',
           prompt:
               '${isEs ? 'Eres Quill, la asistente de IA integrada en Folio (notas locales, árbol de páginas, editor por bloques, búsqueda, cofre con cifrado opcional, panel de chat a la derecha). Ayudas con el contenido de las notas y con cómo usar la app; en modo chat sé clara, útil y natural.' : 'You are Quill, Folio\'s built-in AI assistant (local notes, page tree, block editor, search, optional encrypted vault, chat panel on the side). You help with note content and how to use the app; in chat mode be clear, helpful, and natural.'}\n'
               '${_folioAgentInAppGuide(isEs: isEs)}\n\n'
@@ -511,6 +525,7 @@ Quick help (be concise):
       if (wantsEditExistingBlocks && mode != 'edit_current') {
         final correction = await ai.complete(
           AiCompletionRequest(
+            cloudInkOperation: 'agent_followup',
             prompt:
                 '${isEs ? 'Corrige la salida a edición de bloques existentes.' : 'Correct the output to existing-block editing.'}\n'
                 '${isEs ? 'Devuelve SOLO JSON válido con mode="edit_current" y operations no vacía usando blockId reales de la página en edición.' : 'Return ONLY valid JSON with mode="edit_current" and a non-empty operations list using real blockIds from the page under edit.'}\n'
@@ -741,6 +756,7 @@ Quick help (be concise):
           // cuando debería haber usado create_page. Pedimos JSON directamente.
           final createCorrection = await ai.complete(
             AiCompletionRequest(
+              cloudInkOperation: 'agent_followup',
               prompt:
                   '${isEs ? VaultSession._quillIdentityLeadEs : VaultSession._quillIdentityLeadEn}'
                   '${isEs ? 'Respondiste en modo chat, pero el usuario quiere crear una nueva página. Devuelve SOLO JSON con mode=create_page, el título en "title" y los bloques en "blocks" usando el formato nativo de Folio. Por defecto genera contenido detallado y completo (mínimo 10-15 bloques), salvo que el mensaje original pida algo corto.' : 'You responded in chat mode, but the user wants to create a new page. Return ONLY JSON with mode=create_page, the title in "title" and the blocks in "blocks" using Folio native block format. By default generate detailed, comprehensive content (minimum 10-15 blocks), unless the original message asked for something short.'}\n'
@@ -863,6 +879,7 @@ Quick help (be concise):
         try {
           final recovery = await ai.complete(
             AiCompletionRequest(
+              cloudInkOperation: 'agent_followup',
               prompt:
                   '${isEs ? VaultSession._quillIdentityLeadEs : VaultSession._quillIdentityLeadEn}'
                   '${isEs ? 'La respuesta anterior no fue JSON válido. Corrige y devuelve SOLO JSON para editar la página actual.' : 'The previous response was not valid JSON. Fix it and return ONLY JSON to edit the current page.'}\n'
@@ -957,6 +974,7 @@ Quick help (be concise):
         // falló con JSON inválido — intentamos una llamada directa de creación).
         final createFallback = await ai.complete(
           AiCompletionRequest(
+            cloudInkOperation: 'agent_followup',
             prompt:
                 '${isEs ? VaultSession._quillIdentityLeadEs : VaultSession._quillIdentityLeadEn}'
                 '${isEs ? 'La respuesta anterior no fue JSON válido. El usuario quiere crear una página. Devuelve SOLO JSON con mode=create_page, el título en "title" y los bloques en "blocks". Por defecto genera contenido detallado y completo (mínimo 10-15 bloques), salvo que el mensaje original pida algo corto.' : 'The previous response was not valid JSON. The user wants to create a page. Return ONLY JSON with mode=create_page, the title in "title" and the blocks in "blocks". By default generate detailed, comprehensive content (minimum 10-15 blocks), unless the original message asked for something short.'}\n'
@@ -1861,6 +1879,7 @@ Quick help (be concise):
     if (page == null) throw StateError('Página no encontrada.');
     final result = await ai.complete(
       AiCompletionRequest(
+        cloudInkOperation: 'edit_page_panel',
         prompt:
             '${VaultSession._quillIdentityLeadEs}'
             'Decide si la solicitud del usuario es para editar la página activa o para responder en chat.\n'
