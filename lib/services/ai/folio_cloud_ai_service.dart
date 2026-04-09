@@ -118,12 +118,34 @@ class FolioCloudAiService implements AiService {
       throw StateError('Firebase not initialized');
     }
     try {
+      final hasStructured =
+          request.messages.isNotEmpty ||
+          (request.systemPrompt != null &&
+              request.systemPrompt!.trim().isNotEmpty) ||
+          request.responseSchema != null ||
+          request.temperature != null ||
+          request.maxTokens != null;
+      final payload = <String, dynamic>{
+        'prompt': (hasStructured ? request.prompt.trim() : _mergePrompt(request)),
+        'operationKind': request.cloudInkOperation ?? 'default',
+        if (request.systemPrompt != null && request.systemPrompt!.trim().isNotEmpty)
+          'systemPrompt': request.systemPrompt!.trim(),
+        if (request.messages.isNotEmpty)
+          'messages': request.messages
+              .map(
+                (m) => <String, dynamic>{
+                  'role': m.role,
+                  'content': m.content,
+                },
+              )
+              .toList(),
+        if (request.responseSchema != null) 'responseSchema': request.responseSchema,
+        if (request.temperature != null) 'temperature': request.temperature,
+        if (request.maxTokens != null) 'maxTokens': request.maxTokens,
+      };
       final res = await callFolioHttpsCallable(
         'folioCloudAiComplete',
-        <String, dynamic>{
-          'prompt': _mergePrompt(request),
-          'operationKind': request.cloudInkOperation ?? 'default',
-        },
+        payload,
       );
       final raw = res;
       final text = raw is Map ? '${raw['text'] ?? ''}' : '';

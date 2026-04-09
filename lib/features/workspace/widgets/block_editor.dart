@@ -41,6 +41,7 @@ import 'link_title_fetch.dart';
 import 'paste_url_sheet.dart';
 import 'folio_special_block_widgets.dart';
 import 'table_block_editor.dart';
+import 'ai_typewriter_message.dart';
 
 /// `null` si el texto del bloque no es comando `/…`; si no, filtro tras la `/` (puede ser vacío).
 String? _slashFilterFromBlockText(String text) {
@@ -283,6 +284,31 @@ class BlockEditorState extends State<BlockEditor> {
 
   VaultSession get _s => widget.session;
   bool get readOnlyMode => widget.readOnlyMode;
+
+  Future<void> _applyTypewriterToBlock({
+    required String pageId,
+    required String blockId,
+    required String fullText,
+  }) async {
+    final normalized = fullText.replaceAll('\r\n', '\n');
+    final total = normalized.characters.length;
+    if (total == 0) {
+      _s.updateBlockText(pageId, blockId, '');
+      return;
+    }
+    // Evitar animaciones excesivamente largas.
+    const tick = Duration(milliseconds: 30);
+    final charsPerTick = total <= 400 ? 4 : (total <= 1200 ? 8 : 14);
+    var visible = 0;
+    while (mounted && visible < total) {
+      visible = (visible + charsPerTick).clamp(0, total);
+      final partial = normalized.characters.take(visible).toString();
+      _s.updateBlockText(pageId, blockId, partial);
+      await Future<void>.delayed(tick);
+    }
+    if (!mounted) return;
+    _s.updateBlockText(pageId, blockId, normalized);
+  }
 
   static final RegExp _imageUrlExt = RegExp(
     r'\.(png|jpe?g|gif|webp|bmp|svg)(\?.*)?$',
@@ -3590,10 +3616,54 @@ class BlockEditorState extends State<BlockEditor> {
             });
             if (go != true || instruction.isEmpty) return;
             try {
-              await _s.rewriteBlockWithAi(
+              final preview = await _s.previewRewriteBlockWithAi(
                 pageId: page.id,
                 blockId: b.id,
                 instruction: instruction,
+              );
+              if (!mounted) return;
+
+              final theme = Theme.of(context);
+              final scheme = theme.colorScheme;
+              final baseStyle = theme.textTheme.bodyMedium?.copyWith(
+                color: scheme.onSurface,
+                height: 1.35,
+              );
+              final accept = await showDialog<bool>(
+                context: menuContext,
+                builder: (ctx) {
+                  return AlertDialog(
+                    title: const Text('Vista previa'),
+                    content: ConstrainedBox(
+                      constraints: const BoxConstraints(maxWidth: 720),
+                      child: SingleChildScrollView(
+                        child: FolioAiTypewriterMessage(
+                          fullText: preview.text,
+                          style: baseStyle ??
+                              TextStyle(color: scheme.onSurface, height: 1.35),
+                          selectable: true,
+                        ),
+                      ),
+                    ),
+                    actions: [
+                      TextButton(
+                        onPressed: () => Navigator.pop(ctx, false),
+                        child: const Text('Cancelar'),
+                      ),
+                      FilledButton(
+                        onPressed: () => Navigator.pop(ctx, true),
+                        child: const Text('Aplicar'),
+                      ),
+                    ],
+                  );
+                },
+              );
+              if (accept != true || !mounted) return;
+
+              await _applyTypewriterToBlock(
+                pageId: page.id,
+                blockId: b.id,
+                fullText: preview.text,
               );
             } catch (e) {
               if (!mounted) return;

@@ -280,6 +280,120 @@ async function callOpenAiGenerate(prompt) {
     }
     throw new AiHttpsError("internal", "OpenAI request stopped after too many retries. Try again later.");
 }
+function normalizeOpenAiRole(raw) {
+    const r = typeof raw === "string" ? raw.trim().toLowerCase() : "";
+    if (r === "system" || r === "user" || r === "assistant")
+        return r;
+    return null;
+}
+function normalizeOpenAiMessages(raw) {
+    if (!Array.isArray(raw))
+        return [];
+    const out = [];
+    for (const item of raw) {
+        if (!item || typeof item !== "object")
+            continue;
+        const m = item;
+        const role = normalizeOpenAiRole(m.role);
+        const content = typeof m.content === "string" ? m.content.trim() : "";
+        if (!role || !content)
+            continue;
+        out.push({ role, content });
+    }
+    return out;
+}
+function normalizeOptionalString(raw, maxLen) {
+    const s = typeof raw === "string" ? raw.trim() : "";
+    if (!s)
+        return "";
+    return s.length <= maxLen ? s : s.slice(0, maxLen);
+}
+function normalizeOptionalNumber(raw) {
+    if (typeof raw !== "number" || !Number.isFinite(raw))
+        return undefined;
+    return raw;
+}
+function normalizeClientMaxTokens(raw) {
+    const n = normalizeOptionalNumber(raw);
+    if (n == null)
+        return undefined;
+    const t = Math.trunc(n);
+    if (t < 1)
+        return undefined;
+    return Math.min(openAiMaxOutputTokens(), t);
+}
+function normalizeClientTemperature(raw) {
+    const n = normalizeOptionalNumber(raw);
+    if (n == null)
+        return undefined;
+    return Math.min(2, Math.max(0, n));
+}
+function normalizeResponseSchema(raw) {
+    if (!raw || typeof raw !== "object")
+        return null;
+    if (Array.isArray(raw))
+        return null;
+    // Recortamos profundidad/tamaño más adelante con límites de prompt/ink; aquí solo validamos forma.
+    return raw;
+}
+async function callOpenAiChatStructured(input) {
+    var _a, _b, _c, _d, _e, _f;
+    const key = openAiApiKey();
+    if (!key) {
+        throw new AiHttpsError("failed-precondition", "Server AI not configured (set OPENAI_API_KEY on Cloud Functions)");
+    }
+    const systemPrompt = ((_a = input.systemPrompt) !== null && _a !== void 0 ? _a : "").trim();
+    const prompt = ((_b = input.prompt) !== null && _b !== void 0 ? _b : "").trim();
+    const normalizedMsgs = ((_c = input.messages) !== null && _c !== void 0 ? _c : []).filter((m) => m.content.trim());
+    const messages = [];
+    if (systemPrompt)
+        messages.push({ role: "system", content: systemPrompt });
+    if (normalizedMsgs.length > 0) {
+        messages.push(...normalizedMsgs);
+    }
+    // Asegura que el turno actual del usuario nunca se pierda aunque haya historial.
+    if (prompt) {
+        messages.push({ role: "user", content: prompt });
+    }
+    if (messages.length === 0) {
+        throw new AiHttpsError("invalid-argument", "Missing prompt/messages");
+    }
+    const body = {
+        model: openAiModel(),
+        messages,
+        max_tokens: (_d = input.maxTokens) !== null && _d !== void 0 ? _d : openAiMaxOutputTokens(),
+        temperature: (_e = input.temperature) !== null && _e !== void 0 ? _e : openAiTemperature(),
+    };
+    const schema = (_f = input.responseSchema) !== null && _f !== void 0 ? _f : null;
+    if (schema) {
+        body.response_format = {
+            type: "json_schema",
+            json_schema: {
+                name: "folio_response",
+                schema,
+                strict: true,
+            },
+        };
+    }
+    let r429 = 0;
+    for (let spin = 0; spin < OPENAI_MAX_SPIN_GUARD; spin++) {
+        const { status, raw } = await openAiFetchChatCompletion(key, body);
+        if (status === 429 && r429 < OPENAI_MAX_429_RETRIES) {
+            r429++;
+            await sleepMs(400 * 2 ** (r429 - 1));
+            continue;
+        }
+        if (status === 429) {
+            throwOpenAiHttpError(status, raw);
+        }
+        r429 = 0;
+        if (status < 200 || status >= 300) {
+            throwOpenAiHttpError(status, raw);
+        }
+        return parseOpenAiSuccessResponse(raw);
+    }
+    throw new AiHttpsError("internal", "OpenAI request stopped after too many retries. Try again later.");
+}
 async function refundInkDropCharge(uid, amount) {
     if (amount <= 0)
         return;
@@ -325,9 +439,25 @@ function normalizePrompt(raw) {
         return "";
     return raw.trim();
 }
-async function runFolioCloudAiForUid(uid, prompt, operationKind) {
+function promptLengthForInk(input) {
+    var _a, _b, _c;
+    let n = 0;
+    const p = ((_a = input.prompt) !== null && _a !== void 0 ? _a : "").trim();
+    if (p)
+        n += p.length;
+    const sp = ((_b = input.systemPrompt) !== null && _b !== void 0 ? _b : "").trim();
+    if (sp)
+        n += sp.length;
+    const msgs = (_c = input.messages) !== null && _c !== void 0 ? _c : [];
+    for (const m of msgs) {
+        if (m === null || m === void 0 ? void 0 : m.content)
+            n += String(m.content).length;
+    }
+    return n;
+}
+async function runFolioCloudAiForUid(uid, input, operationKind) {
     var _a;
-    const baseCost = resolveInkCost(operationKind, prompt.length);
+    const baseCost = resolveInkCost(operationKind, promptLengthForInk(input));
     const ref = db.collection("users").doc(uid);
     await db.runTransaction(async (tx) => {
         var _a;
@@ -350,7 +480,7 @@ async function runFolioCloudAiForUid(uid, prompt, operationKind) {
         });
     });
     try {
-        const { text, totalTokenCount } = await callOpenAiGenerate(prompt);
+        const { text, totalTokenCount } = await callOpenAiChatStructured(input);
         const extraWant = tokenSurchargeInk(totalTokenCount);
         const extraCharged = await chargeInkExtraIfPossible(uid, extraWant);
         const finalSnap = await ref.get();
@@ -822,7 +952,37 @@ exports.stripeWebhook = (0, https_2.onRequest)(
         res.status(500).send("Handler error");
     }
 });
-exports.createCheckoutSession = (0, https_1.onCall)(async (request) => {
+/** Misma condición que Storage rules `folioCloudBackupOk` (copias en la nube). */
+async function assertFolioCloudBackupAllowed(uid) {
+    var _a;
+    const snap = await db.collection("users").doc(uid).get();
+    const data = (_a = snap.data()) !== null && _a !== void 0 ? _a : {};
+    const fc = data.folioCloud;
+    const features = fc === null || fc === void 0 ? void 0 : fc.features;
+    if ((fc === null || fc === void 0 ? void 0 : fc.active) !== true || (features === null || features === void 0 ? void 0 : features.backup) !== true) {
+        throw new https_1.HttpsError("permission-denied", "Folio Cloud backup is not active for this account.");
+    }
+}
+function assertValidVaultId(raw) {
+    const vaultId = typeof raw === "string" ? raw.trim() : "";
+    if (!vaultId) {
+        throw new https_1.HttpsError("invalid-argument", "vaultId is required");
+    }
+    // Reject path traversal and unexpected separators.
+    if (vaultId.includes("/") || vaultId.includes("\\") || vaultId.includes("..")) {
+        throw new https_1.HttpsError("invalid-argument", "Invalid vaultId");
+    }
+    if (vaultId.length > 96) {
+        throw new https_1.HttpsError("invalid-argument", "Invalid vaultId");
+    }
+    return vaultId;
+}
+/**
+ * Callable v2 corre en Cloud Run (2nd gen). Para soportar escritorio vía HTTP callable
+ * (`Authorization: Bearer <ID token>`), el servicio debe permitir invocación pública
+ * o Cloud Run devolverá 401 HTML antes de ejecutar la función.
+ */
+exports.createCheckoutSession = (0, https_1.onCall)({ invoker: "public" }, async (request) => {
     var _a, _b, _c, _d, _e, _f, _g;
     if (!((_a = request.auth) === null || _a === void 0 ? void 0 : _a.uid)) {
         throw new https_1.HttpsError("unauthenticated", "Login required");
@@ -890,11 +1050,7 @@ exports.createCheckoutSession = (0, https_1.onCall)(async (request) => {
     }
     return { url: session.url };
 });
-/**
- * Si el webhook llegó tarde o falló, el cliente puede forzar la lectura del estado
- * en Stripe y actualizar Firestore (mismo `syncSubscriptionToUser` que el webhook).
- */
-exports.syncFolioCloudSubscriptionFromStripe = (0, https_1.onCall)(async (request) => {
+exports.syncFolioCloudSubscriptionFromStripe = (0, https_1.onCall)({ invoker: "public" }, async (request) => {
     var _a, _b, _c;
     if (!((_a = request.auth) === null || _a === void 0 ? void 0 : _a.uid)) {
         throw new https_1.HttpsError("unauthenticated", "Login required");
@@ -952,36 +1108,7 @@ exports.syncFolioCloudSubscriptionFromStripe = (0, https_1.onCall)(async (reques
     await syncSubscriptionToUser(stripe, uid, "canceled", undefined);
     return { ok: true, status: "canceled" };
 });
-/** Misma condición que Storage rules `folioCloudBackupOk` (copias en la nube). */
-async function assertFolioCloudBackupAllowed(uid) {
-    var _a;
-    const snap = await db.collection("users").doc(uid).get();
-    const data = (_a = snap.data()) !== null && _a !== void 0 ? _a : {};
-    const fc = data.folioCloud;
-    const features = fc === null || fc === void 0 ? void 0 : fc.features;
-    if ((fc === null || fc === void 0 ? void 0 : fc.active) !== true || (features === null || features === void 0 ? void 0 : features.backup) !== true) {
-        throw new https_1.HttpsError("permission-denied", "Folio Cloud backup is not active for this account.");
-    }
-}
-function assertValidVaultId(raw) {
-    const vaultId = typeof raw === "string" ? raw.trim() : "";
-    if (!vaultId) {
-        throw new https_1.HttpsError("invalid-argument", "vaultId is required");
-    }
-    // Reject path traversal and unexpected separators.
-    if (vaultId.includes("/") || vaultId.includes("\\") || vaultId.includes("..")) {
-        throw new https_1.HttpsError("invalid-argument", "Invalid vaultId");
-    }
-    if (vaultId.length > 96) {
-        throw new https_1.HttpsError("invalid-argument", "Invalid vaultId");
-    }
-    return vaultId;
-}
-/**
- * Lista `users/{uid}/vaults/{vaultId}/backups/*` vía Admin SDK.
- * El cliente Windows/Linux no puede usar Storage listAll() (SDK C++ devuelve vacío).
- */
-exports.folioListVaultBackups = (0, https_1.onCall)({ cors: true }, async (request) => {
+exports.folioListVaultBackups = (0, https_1.onCall)({ cors: true, invoker: "public" }, async (request) => {
     var _a, _b;
     if (!((_a = request.auth) === null || _a === void 0 ? void 0 : _a.uid)) {
         throw new https_1.HttpsError("unauthenticated", "Login required");
@@ -1004,11 +1131,7 @@ exports.folioListVaultBackups = (0, https_1.onCall)({ cors: true }, async (reque
     items.sort((a, b) => b.fileName.localeCompare(a.fileName));
     return { items };
 });
-/**
- * Lista vaultIds que tienen backups en `users/{uid}/vaults/{vaultId}/backups/*`.
- * Útil para onboarding (antes de tener una libreta local).
- */
-exports.folioListBackupVaults = (0, https_1.onCall)({ cors: true }, async (request) => {
+exports.folioListBackupVaults = (0, https_1.onCall)({ cors: true, invoker: "public" }, async (request) => {
     var _a, _b;
     if (!((_a = request.auth) === null || _a === void 0 ? void 0 : _a.uid)) {
         throw new https_1.HttpsError("unauthenticated", "Login required");
@@ -1028,7 +1151,6 @@ exports.folioListBackupVaults = (0, https_1.onCall)({ cors: true }, async (reque
         .map((x) => x.trim())
         .filter((x) => x.length > 0);
     vaultIds.sort((a, b) => a.localeCompare(b));
-    // Optional: if we have a friendly name index, include it.
     const indexSnap = await db
         .collection("users")
         .doc(uid)
@@ -1050,7 +1172,7 @@ exports.folioListBackupVaults = (0, https_1.onCall)({ cors: true }, async (reque
     });
     return { vaults };
 });
-exports.folioUpsertVaultBackupIndex = (0, https_1.onCall)({ cors: true }, async (request) => {
+exports.folioUpsertVaultBackupIndex = (0, https_1.onCall)({ cors: true, invoker: "public" }, async (request) => {
     var _a, _b, _c;
     if (!((_a = request.auth) === null || _a === void 0 ? void 0 : _a.uid)) {
         throw new https_1.HttpsError("unauthenticated", "Login required");
@@ -1071,11 +1193,7 @@ exports.folioUpsertVaultBackupIndex = (0, https_1.onCall)({ cors: true }, async 
     }, { merge: true });
     return { ok: true };
 });
-/**
- * Recorta a [maxCount] copias para `vaultId`, borrando las más antiguas (nombre ascendente).
- * Best-effort: si fallan deletes, no debe bloquear el flujo de subida del cliente.
- */
-exports.folioTrimVaultBackups = (0, https_1.onCall)({ cors: true }, async (request) => {
+exports.folioTrimVaultBackups = (0, https_1.onCall)({ cors: true, invoker: "public" }, async (request) => {
     var _a, _b, _c;
     if (!((_a = request.auth) === null || _a === void 0 ? void 0 : _a.uid)) {
         throw new https_1.HttpsError("unauthenticated", "Login required");
@@ -1091,7 +1209,7 @@ exports.folioTrimVaultBackups = (0, https_1.onCall)({ cors: true }, async (reque
     const bucket = admin.storage().bucket();
     const [files] = await bucket.getFiles({ prefix, autoPaginate: true });
     const items = files.filter((f) => !f.name.endsWith("/"));
-    items.sort((a, b) => a.name.localeCompare(b.name)); // oldest first if names are ISO-like
+    items.sort((a, b) => a.name.localeCompare(b.name));
     const toDelete = items.length > maxCount ? items.slice(0, items.length - maxCount) : [];
     let deleted = 0;
     const errors = [];
@@ -1107,7 +1225,7 @@ exports.folioTrimVaultBackups = (0, https_1.onCall)({ cors: true }, async (reque
     }
     return { ok: errors.length === 0, deleted, failed: errors.slice(0, 10) };
 });
-exports.createBillingPortalSession = (0, https_1.onCall)(async (request) => {
+exports.createBillingPortalSession = (0, https_1.onCall)({ invoker: "public" }, async (request) => {
     var _a, _b;
     if (!((_a = request.auth) === null || _a === void 0 ? void 0 : _a.uid)) {
         throw new https_1.HttpsError("unauthenticated", "Login required");
@@ -1199,11 +1317,23 @@ exports.folioCloudAiComplete = functionsV1
     }
     const uid = context.auth.uid;
     const prompt = normalizePrompt(data === null || data === void 0 ? void 0 : data.prompt);
-    if (!prompt) {
-        throw new AiHttpsError("invalid-argument", "Missing prompt");
+    const systemPrompt = normalizeOptionalString(data === null || data === void 0 ? void 0 : data.systemPrompt, 20000);
+    const messages = normalizeOpenAiMessages(data === null || data === void 0 ? void 0 : data.messages);
+    const responseSchema = normalizeResponseSchema(data === null || data === void 0 ? void 0 : data.responseSchema);
+    const maxTokens = normalizeClientMaxTokens(data === null || data === void 0 ? void 0 : data.maxTokens);
+    const temperature = normalizeClientTemperature(data === null || data === void 0 ? void 0 : data.temperature);
+    if (!prompt && messages.length === 0) {
+        throw new AiHttpsError("invalid-argument", "Missing prompt/messages");
     }
     const operationKind = normalizeOperationKind(data === null || data === void 0 ? void 0 : data.operationKind);
-    return runFolioCloudAiForUid(uid, prompt, operationKind);
+    return runFolioCloudAiForUid(uid, {
+        prompt,
+        systemPrompt: systemPrompt || undefined,
+        messages: messages.length > 0 ? messages : undefined,
+        responseSchema,
+        maxTokens,
+        temperature,
+    }, operationKind);
 });
 /**
  * Fallback HTTP para escritorio: evita bloqueos de infraestructura callable
@@ -1227,11 +1357,23 @@ exports.folioCloudAiCompleteHttp = functionsV1
             ? body.data
             : body;
         const prompt = normalizePrompt(payload.prompt);
-        if (!prompt) {
-            throw new AiHttpsError("invalid-argument", "Missing prompt");
+        const systemPrompt = normalizeOptionalString(payload.systemPrompt, 20000);
+        const messages = normalizeOpenAiMessages(payload.messages);
+        const responseSchema = normalizeResponseSchema(payload.responseSchema);
+        const maxTokens = normalizeClientMaxTokens(payload.maxTokens);
+        const temperature = normalizeClientTemperature(payload.temperature);
+        if (!prompt && messages.length === 0) {
+            throw new AiHttpsError("invalid-argument", "Missing prompt/messages");
         }
         const operationKind = normalizeOperationKind(payload.operationKind);
-        const result = await runFolioCloudAiForUid(uid, prompt, operationKind);
+        const result = await runFolioCloudAiForUid(uid, {
+            prompt,
+            systemPrompt: systemPrompt || undefined,
+            messages: messages.length > 0 ? messages : undefined,
+            responseSchema,
+            maxTokens,
+            temperature,
+        }, operationKind);
         res.status(200).json({ result });
     }
     catch (e) {

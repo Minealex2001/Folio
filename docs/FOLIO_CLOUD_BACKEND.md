@@ -49,6 +49,11 @@ Si una política de organización impide `allUsers`, hay que alinear excepciones
 ## Gotas y Quill en nube
 
 - **Entrada** (callable `folioCloudAiComplete`): cuerpo con `prompt` (obligatorio) y `operationKind` (opcional). Si `operationKind` no está en la tabla del servidor, se usa `default`.
+- **Entrada** (callable `folioCloudAiComplete`): soporta **dos formatos** (compatibilidad hacia atrás):
+  - **Legacy**: `prompt` (string) + `operationKind` (opcional).
+  - **Estructurado**: `prompt` (string, opcional si hay `messages`), `systemPrompt` (string opcional), `messages` (array de `{role:"system|user|assistant", content:string}`), `responseSchema` (JSON Schema opcional), `temperature` (number opcional), `maxTokens` (int opcional), y `operationKind` (opcional).
+  
+  El backend usa `messages` + `systemPrompt` cuando se envían; si no, cae al modo legacy con un único mensaje de usuario construido desde `prompt`.
 - **Coste base** por `operationKind` (archivo [`functions/src/index.ts`](../functions/src/index.ts), constante `INK_COST_BY_OPERATION`):
 
 | `operationKind`   | Gotas base |
@@ -65,7 +70,7 @@ Si una política de organización impide `allUsers`, hay que alinear excepciones
 | `edit_page_panel` | 3          |
 | `default`         | 2          |
 
-- **Límites y suplementos** (mismo archivo): `INK_MAX_PER_REQUEST` (tope por llamada); si el prompt supera `INK_PROMPT_LENGTH_SURCHARGE_THRESHOLD` caracteres, se suman gotas extra (`INK_EXTRA_FOR_LONG_PROMPT`). Tras una respuesta exitosa de OpenAI, puede aplicarse un **suplemento por tokens** según `usage.total_tokens` (`INK_TOKENS_PER_SURCHARGE_UNIT`, tope `INK_MAX_TOKEN_SURCHARGE`).
+- **Límites y suplementos** (mismo archivo): `INK_MAX_PER_REQUEST` (tope por llamada). Si el **input total** (suma aproximada de `prompt` + `systemPrompt` + `messages[].content`) supera `INK_PROMPT_LENGTH_SURCHARGE_THRESHOLD` caracteres, se suman gotas extra (`INK_EXTRA_FOR_LONG_PROMPT`). Tras una respuesta exitosa de OpenAI, puede aplicarse un **suplemento por tokens** según `usage.total_tokens` (`INK_TOKENS_PER_SURCHARGE_UNIT`, tope `INK_MAX_TOKEN_SURCHARGE`).
 - `folioCloudAiComplete` (callable **1st gen**) exige `folioCloud.active` y `features.cloudAi`, descuenta el coste base en una transacción y llama a **OpenAI** Chat Completions (`OPENAI_API_KEY`). Si la IA falla después del débito, se reembolsa el **mismo** importe base (`refundInkDropCharge`). Sin tinta suficiente: `HttpsError` con código `resource-exhausted`.
 - **Respuesta** al cliente (JSON): `text` (string), `ink: { monthlyBalance, purchasedBalance }` (enteros), `inkCharged` (base + suplemento por tokens cobrado), `inkBaseCharged`, `inkTokenSurcharge`. El cliente Flutter aplica `ink` al `FolioCloudEntitlementsController` para no esperar solo al stream de Firestore.
 

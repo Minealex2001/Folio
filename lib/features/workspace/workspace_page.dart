@@ -34,6 +34,7 @@ import '../../services/run2doc/run2doc_markdown_codec.dart';
 import '../../session/vault_session.dart';
 import '../settings/settings_page.dart';
 import 'widgets/ai_typing_indicator.dart';
+import 'widgets/ai_typewriter_message.dart';
 import 'widgets/block_editor.dart';
 import 'widgets/block_editor_support_widgets.dart';
 import 'widgets/block_type_catalog.dart';
@@ -106,6 +107,7 @@ class _WorkspacePageState extends State<WorkspacePage> {
   final ScrollController _aiChatScrollController = ScrollController();
   String? _lastAiChatIdForScroll;
   int _lastAiChatMessageCount = -1;
+  final Set<String> _aiTypewriterActiveMessageKeys = <String>{};
   final Map<int, String?> _messageFeedback =
       {}; // Track feedback for each message
   Timer? _draftSaveTimer;
@@ -810,13 +812,43 @@ class _WorkspacePageState extends State<WorkspacePage> {
                           ),
                           const SizedBox(height: 10),
                         ],
-                        _buildMarkdownMessage(
-                          context: context,
-                          content: bodyContent.isEmpty
-                              ? message.content
-                              : bodyContent,
-                          isUser: isUser,
-                          textColor: textColor,
+                        Builder(
+                          builder: (ctx) {
+                            final target = bodyContent.isEmpty
+                                ? message.content
+                                : bodyContent;
+                            final shouldAnimate = !isUser &&
+                                _aiTypewriterActiveMessageKeys.contains(msgKey);
+                            if (!shouldAnimate) {
+                              return _buildMarkdownMessage(
+                                context: ctx,
+                                content: target,
+                                isUser: isUser,
+                                textColor: textColor,
+                              );
+                            }
+                            final baseStyle = Theme.of(ctx)
+                                .textTheme
+                                .bodyMedium
+                                ?.copyWith(
+                                  color: textColor,
+                                  height: 1.35,
+                                );
+                            return FolioAiTypewriterMessage(
+                              fullText: _normalizeHtmlForChat(target),
+                              style: baseStyle ??
+                                  TextStyle(
+                                    color: textColor,
+                                    height: 1.35,
+                                  ),
+                              onCompleted: () {
+                                if (!mounted) return;
+                                setState(() {
+                                  _aiTypewriterActiveMessageKeys.remove(msgKey);
+                                });
+                              },
+                            );
+                          },
                         ),
                         if (!isUser) ...[
                           const SizedBox(height: 12),
@@ -1344,15 +1376,32 @@ class _WorkspacePageState extends State<WorkspacePage> {
       _aiAttachmentPaths = List<String>.from(_s.activeAiChat.attachmentPaths);
     }
     final chat = _s.activeAiChat;
-    final threadChanged = chat.id != _lastAiChatIdForScroll;
-    final countChanged = chat.messages.length != _lastAiChatMessageCount;
+    final previousThreadId = _lastAiChatIdForScroll;
+    final previousCount = _lastAiChatMessageCount;
+    final threadChanged = chat.id != previousThreadId;
+    final countChanged = chat.messages.length != previousCount;
     _lastAiChatIdForScroll = chat.id;
     _lastAiChatMessageCount = chat.messages.length;
+    if (threadChanged) {
+      _aiTypewriterActiveMessageKeys.clear();
+    }
     _syncTitleFromSession();
     setState(() {});
     _updateAiContextMenu();
     if (countChanged || threadChanged) {
       _scheduleAiChatScrollToBottom();
+    }
+    // Disparar animación SOLO para mensajes nuevos del hilo actual (evita animar historial al cargar/cambiar hilo).
+    if (!threadChanged &&
+        previousCount >= 0 &&
+        chat.messages.length == previousCount + 1 &&
+        chat.messages.isNotEmpty) {
+      final lastIndex = chat.messages.length - 1;
+      final last = chat.messages[lastIndex];
+      if (last.role == 'assistant') {
+        final key = '${chat.id}#$lastIndex';
+        _aiTypewriterActiveMessageKeys.add(key);
+      }
     }
   }
 

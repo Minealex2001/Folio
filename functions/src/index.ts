@@ -314,6 +314,142 @@ async function callOpenAiGenerate(prompt: string): Promise<{
   );
 }
 
+type OpenAiChatMessage = {
+  role: "system" | "user" | "assistant";
+  content: string;
+};
+
+function normalizeOpenAiRole(raw: unknown): OpenAiChatMessage["role"] | null {
+  const r = typeof raw === "string" ? raw.trim().toLowerCase() : "";
+  if (r === "system" || r === "user" || r === "assistant") return r;
+  return null;
+}
+
+function normalizeOpenAiMessages(raw: unknown): OpenAiChatMessage[] {
+  if (!Array.isArray(raw)) return [];
+  const out: OpenAiChatMessage[] = [];
+  for (const item of raw) {
+    if (!item || typeof item !== "object") continue;
+    const m = item as { role?: unknown; content?: unknown };
+    const role = normalizeOpenAiRole(m.role);
+    const content = typeof m.content === "string" ? m.content.trim() : "";
+    if (!role || !content) continue;
+    out.push({ role, content });
+  }
+  return out;
+}
+
+function normalizeOptionalString(raw: unknown, maxLen: number): string {
+  const s = typeof raw === "string" ? raw.trim() : "";
+  if (!s) return "";
+  return s.length <= maxLen ? s : s.slice(0, maxLen);
+}
+
+function normalizeOptionalNumber(raw: unknown): number | undefined {
+  if (typeof raw !== "number" || !Number.isFinite(raw)) return undefined;
+  return raw;
+}
+
+function normalizeClientMaxTokens(raw: unknown): number | undefined {
+  const n = normalizeOptionalNumber(raw);
+  if (n == null) return undefined;
+  const t = Math.trunc(n);
+  if (t < 1) return undefined;
+  return Math.min(openAiMaxOutputTokens(), t);
+}
+
+function normalizeClientTemperature(raw: unknown): number | undefined {
+  const n = normalizeOptionalNumber(raw);
+  if (n == null) return undefined;
+  return Math.min(2, Math.max(0, n));
+}
+
+function normalizeResponseSchema(raw: unknown): Record<string, unknown> | null {
+  if (!raw || typeof raw !== "object") return null;
+  if (Array.isArray(raw)) return null;
+  // Recortamos profundidad/tamaño más adelante con límites de prompt/ink; aquí solo validamos forma.
+  return raw as Record<string, unknown>;
+}
+
+async function callOpenAiChatStructured(input: {
+  prompt?: string;
+  systemPrompt?: string;
+  messages?: OpenAiChatMessage[];
+  responseSchema?: Record<string, unknown> | null;
+  maxTokens?: number;
+  temperature?: number;
+}): Promise<{ text: string; totalTokenCount?: number }> {
+  const key = openAiApiKey();
+  if (!key) {
+    throw new AiHttpsError(
+      "failed-precondition",
+      "Server AI not configured (set OPENAI_API_KEY on Cloud Functions)"
+    );
+  }
+
+  const systemPrompt = (input.systemPrompt ?? "").trim();
+  const prompt = (input.prompt ?? "").trim();
+  const normalizedMsgs = (input.messages ?? []).filter((m) => m.content.trim());
+
+  const messages: OpenAiChatMessage[] = [];
+  if (systemPrompt) messages.push({ role: "system", content: systemPrompt });
+  if (normalizedMsgs.length > 0) {
+    messages.push(...normalizedMsgs);
+  }
+  // Asegura que el turno actual del usuario nunca se pierda aunque haya historial.
+  if (prompt) {
+    messages.push({ role: "user", content: prompt });
+  }
+  if (messages.length === 0) {
+    throw new AiHttpsError("invalid-argument", "Missing prompt/messages");
+  }
+
+  const body: Record<string, unknown> = {
+    model: openAiModel(),
+    messages,
+    max_tokens: input.maxTokens ?? openAiMaxOutputTokens(),
+    temperature: input.temperature ?? openAiTemperature(),
+  };
+
+  const schema = input.responseSchema ?? null;
+  if (schema) {
+    body.response_format = {
+      type: "json_schema",
+      json_schema: {
+        name: "folio_response",
+        schema,
+        strict: true,
+      },
+    };
+  }
+
+  let r429 = 0;
+  for (let spin = 0; spin < OPENAI_MAX_SPIN_GUARD; spin++) {
+    const { status, raw } = await openAiFetchChatCompletion(key, body);
+
+    if (status === 429 && r429 < OPENAI_MAX_429_RETRIES) {
+      r429++;
+      await sleepMs(400 * 2 ** (r429 - 1));
+      continue;
+    }
+    if (status === 429) {
+      throwOpenAiHttpError(status, raw);
+    }
+    r429 = 0;
+
+    if (status < 200 || status >= 300) {
+      throwOpenAiHttpError(status, raw);
+    }
+
+    return parseOpenAiSuccessResponse(raw);
+  }
+
+  throw new AiHttpsError(
+    "internal",
+    "OpenAI request stopped after too many retries. Try again later."
+  );
+}
+
 async function refundInkDropCharge(uid: string, amount: number): Promise<void> {
   if (amount <= 0) return;
   const ref = db.collection("users").doc(uid);
@@ -366,9 +502,33 @@ function normalizePrompt(raw: unknown): string {
   return raw.trim();
 }
 
+function promptLengthForInk(input: {
+  prompt?: string;
+  systemPrompt?: string;
+  messages?: OpenAiChatMessage[];
+}): number {
+  let n = 0;
+  const p = (input.prompt ?? "").trim();
+  if (p) n += p.length;
+  const sp = (input.systemPrompt ?? "").trim();
+  if (sp) n += sp.length;
+  const msgs = input.messages ?? [];
+  for (const m of msgs) {
+    if (m?.content) n += String(m.content).length;
+  }
+  return n;
+}
+
 async function runFolioCloudAiForUid(
   uid: string,
-  prompt: string,
+  input: {
+    prompt?: string;
+    systemPrompt?: string;
+    messages?: OpenAiChatMessage[];
+    responseSchema?: Record<string, unknown> | null;
+    maxTokens?: number;
+    temperature?: number;
+  },
   operationKind: string
 ): Promise<{
   text: string;
@@ -377,7 +537,7 @@ async function runFolioCloudAiForUid(
   inkBaseCharged: number;
   inkTokenSurcharge: number;
 }> {
-  const baseCost = resolveInkCost(operationKind, prompt.length);
+  const baseCost = resolveInkCost(operationKind, promptLengthForInk(input));
   const ref = db.collection("users").doc(uid);
 
   await db.runTransaction(async (tx) => {
@@ -407,7 +567,7 @@ async function runFolioCloudAiForUid(
   });
 
   try {
-    const { text, totalTokenCount } = await callOpenAiGenerate(prompt);
+    const { text, totalTokenCount } = await callOpenAiChatStructured(input);
     const extraWant = tokenSurchargeInk(totalTokenCount);
     const extraCharged = await chargeInkExtraIfPossible(uid, extraWant);
     const finalSnap = await ref.get();
@@ -972,147 +1132,6 @@ export type CheckoutKind =
   | "ink_medium"
   | "ink_large";
 
-export const createCheckoutSession = onCall(async (request) => {
-  if (!request.auth?.uid) {
-    throw new HttpsError("unauthenticated", "Login required");
-  }
-  const stripe = stripeClient();
-  if (!stripe) {
-    throw new HttpsError("failed-precondition", "Stripe not configured on server");
-  }
-  const uid = request.auth.uid;
-  const kind = (request.data?.kind as CheckoutKind) ?? "folio_cloud_monthly";
-  const priceIdMap: Record<CheckoutKind, string> = {
-    folio_cloud_monthly: priceFolioCloudMonthly(),
-    ink_small: priceInkSmall(),
-    ink_medium: priceInkMedium(),
-    ink_large: priceInkLarge(),
-  };
-  const rawCatalogId = priceIdMap[kind]?.trim();
-  if (!rawCatalogId) {
-    throw new HttpsError(
-      "failed-precondition",
-      `Stripe catalog id not configured for kind: ${kind}`
-    );
-  }
-  let priceId: string;
-  try {
-    priceId = await resolveCatalogIdToPriceId(stripe, rawCatalogId);
-  } catch (e: unknown) {
-    if (e instanceof HttpsError) throw e;
-    console.error("resolveCatalogIdToPriceId", e);
-    throw new HttpsError(
-      "failed-precondition",
-      `Stripe: ${stripeCallErrorMessage(e)}`
-    );
-  }
-  const successUrl =
-    process.env.STRIPE_CHECKOUT_SUCCESS_URL?.trim() ||
-    process.env.BILLING_PORTAL_RETURN_URL?.trim() ||
-    "https://folio.app";
-  const cancelUrl = process.env.STRIPE_CHECKOUT_CANCEL_URL?.trim() || successUrl;
-  const isSubscription = kind === "folio_cloud_monthly";
-  let session: Stripe.Response<Stripe.Checkout.Session>;
-  try {
-    session = await stripe.checkout.sessions.create({
-      mode: isSubscription ? "subscription" : "payment",
-      line_items: [{ price: priceId, quantity: 1 }],
-      success_url: successUrl.includes("?")
-        ? `${successUrl}&session_id={CHECKOUT_SESSION_ID}`
-        : `${successUrl}?session_id={CHECKOUT_SESSION_ID}`,
-      cancel_url: cancelUrl,
-      client_reference_id: uid,
-      metadata: { firebase_uid: uid },
-      subscription_data: isSubscription
-        ? {
-            metadata: { firebase_uid: uid },
-          }
-        : undefined,
-      payment_intent_data: !isSubscription
-        ? {
-            metadata: { firebase_uid: uid },
-          }
-        : undefined,
-    });
-  } catch (e: unknown) {
-    console.error("createCheckoutSession: Stripe checkout.sessions.create", e);
-    throw new HttpsError(
-      "failed-precondition",
-      `Stripe: ${stripeCallErrorMessage(e)}`
-    );
-  }
-  if (!session.url) {
-    throw new HttpsError(
-      "failed-precondition",
-      "Stripe did not return a checkout URL"
-    );
-  }
-  return { url: session.url };
-});
-
-/**
- * Si el webhook llegó tarde o falló, el cliente puede forzar la lectura del estado
- * en Stripe y actualizar Firestore (mismo `syncSubscriptionToUser` que el webhook).
- */
-export const syncFolioCloudSubscriptionFromStripe = onCall(async (request) => {
-  if (!request.auth?.uid) {
-    throw new HttpsError("unauthenticated", "Login required");
-  }
-  const stripe = stripeClient();
-  if (!stripe) {
-    throw new HttpsError("failed-precondition", "Stripe not configured on server");
-  }
-  const uid = request.auth.uid;
-  const customerId = await ensureStripeCustomerId(stripe, uid);
-  if (!customerId) {
-    throw new HttpsError(
-      "failed-precondition",
-      "No Stripe customer yet. Complete checkout first."
-    );
-  }
-  const subs = await stripe.subscriptions.list({
-    customer: customerId,
-    status: "all",
-    limit: 20,
-  });
-  const priority = ["active", "trialing", "past_due", "unpaid"] as const;
-  function pickSubscription(list: Stripe.Subscription[]): Stripe.Subscription | undefined {
-    for (const st of priority) {
-      const hit = list.find((s) => s.status === st);
-      if (hit) return hit;
-    }
-    return undefined;
-  }
-  let chosen = pickSubscription(subs.data);
-  if (!chosen) {
-    const escapedUid = uid.replace(/\\/g, "\\\\").replace(/'/g, "\\'");
-    try {
-      const byMeta = await stripe.subscriptions.search({
-        query: `metadata['firebase_uid']:'${escapedUid}'`,
-        limit: 10,
-      });
-      chosen = pickSubscription(byMeta.data);
-    } catch (e) {
-      console.warn("syncFolioCloudSubscriptionFromStripe: search fallback failed", e);
-    }
-  }
-  if (chosen) {
-    const c = chosen.customer;
-    const cid = typeof c === "string" ? c : c?.id;
-    if (cid && cid !== customerId) {
-      await db
-        .collection("users")
-        .doc(uid)
-        .set({ stripeCustomerId: cid }, { merge: true });
-    }
-    const priceId = chosen.items.data[0]?.price?.id;
-    await syncSubscriptionToUser(stripe, uid, chosen.status, priceId);
-    return { ok: true as const, status: chosen.status };
-  }
-  await syncSubscriptionToUser(stripe, uid, "canceled", undefined);
-  return { ok: true as const, status: "canceled" as const };
-});
-
 /** Misma condición que Storage rules `folioCloudBackupOk` (copias en la nube). */
 async function assertFolioCloudBackupAllowed(uid: string): Promise<void> {
   const snap = await db.collection("users").doc(uid).get();
@@ -1143,76 +1162,237 @@ function assertValidVaultId(raw: unknown): string {
 }
 
 /**
- * Lista `users/{uid}/vaults/{vaultId}/backups/*` vía Admin SDK.
- * El cliente Windows/Linux no puede usar Storage listAll() (SDK C++ devuelve vacío).
+ * Callable v2 corre en Cloud Run (2nd gen). Para soportar escritorio vía HTTP callable
+ * (`Authorization: Bearer <ID token>`), el servicio debe permitir invocación pública
+ * o Cloud Run devolverá 401 HTML antes de ejecutar la función.
  */
-export const folioListVaultBackups = onCall({ cors: true }, async (request) => {
-  if (!request.auth?.uid) {
-    throw new HttpsError("unauthenticated", "Login required");
+export const createCheckoutSession = onCall(
+  { invoker: "public" },
+  async (request) => {
+    if (!request.auth?.uid) {
+      throw new HttpsError("unauthenticated", "Login required");
+    }
+    const stripe = stripeClient();
+    if (!stripe) {
+      throw new HttpsError(
+        "failed-precondition",
+        "Stripe not configured on server"
+      );
+    }
+    const uid = request.auth.uid;
+    const kind = (request.data?.kind as CheckoutKind) ?? "folio_cloud_monthly";
+    const priceIdMap: Record<CheckoutKind, string> = {
+      folio_cloud_monthly: priceFolioCloudMonthly(),
+      ink_small: priceInkSmall(),
+      ink_medium: priceInkMedium(),
+      ink_large: priceInkLarge(),
+    };
+    const rawCatalogId = priceIdMap[kind]?.trim();
+    if (!rawCatalogId) {
+      throw new HttpsError(
+        "failed-precondition",
+        `Stripe catalog id not configured for kind: ${kind}`
+      );
+    }
+    let priceId: string;
+    try {
+      priceId = await resolveCatalogIdToPriceId(stripe, rawCatalogId);
+    } catch (e: unknown) {
+      if (e instanceof HttpsError) throw e;
+      console.error("resolveCatalogIdToPriceId", e);
+      throw new HttpsError(
+        "failed-precondition",
+        `Stripe: ${stripeCallErrorMessage(e)}`
+      );
+    }
+    const successUrl =
+      process.env.STRIPE_CHECKOUT_SUCCESS_URL?.trim() ||
+      process.env.BILLING_PORTAL_RETURN_URL?.trim() ||
+      "https://folio.app";
+    const cancelUrl =
+      process.env.STRIPE_CHECKOUT_CANCEL_URL?.trim() || successUrl;
+    const isSubscription = kind === "folio_cloud_monthly";
+    let session: Stripe.Response<Stripe.Checkout.Session>;
+    try {
+      session = await stripe.checkout.sessions.create({
+        mode: isSubscription ? "subscription" : "payment",
+        line_items: [{ price: priceId, quantity: 1 }],
+        success_url: successUrl.includes("?")
+          ? `${successUrl}&session_id={CHECKOUT_SESSION_ID}`
+          : `${successUrl}?session_id={CHECKOUT_SESSION_ID}`,
+        cancel_url: cancelUrl,
+        client_reference_id: uid,
+        metadata: { firebase_uid: uid },
+        subscription_data: isSubscription
+          ? {
+              metadata: { firebase_uid: uid },
+            }
+          : undefined,
+        payment_intent_data: !isSubscription
+          ? {
+              metadata: { firebase_uid: uid },
+            }
+          : undefined,
+      });
+    } catch (e: unknown) {
+      console.error(
+        "createCheckoutSession: Stripe checkout.sessions.create",
+        e
+      );
+      throw new HttpsError(
+        "failed-precondition",
+        `Stripe: ${stripeCallErrorMessage(e)}`
+      );
+    }
+    if (!session.url) {
+      throw new HttpsError(
+        "failed-precondition",
+        "Stripe did not return a checkout URL"
+      );
+    }
+    return { url: session.url };
   }
-  const uid = request.auth.uid;
-  await assertFolioCloudBackupAllowed(uid);
-  const vaultId = assertValidVaultId((request.data as any)?.vaultId);
-  const prefix = `users/${uid}/vaults/${vaultId}/backups/`;
-  const bucket = admin.storage().bucket();
-  const [files] = await bucket.getFiles({ prefix, autoPaginate: true });
-  const items = files
-    .filter((f) => !f.name.endsWith("/"))
-    .map((f) => {
-      const parts = f.name.split("/");
-      const fileName = parts[parts.length - 1] ?? f.name;
-      return { fileName, storagePath: f.name };
-    })
-    .filter((x) => x.fileName.length > 0);
-  items.sort((a, b) => b.fileName.localeCompare(a.fileName));
-  return { items };
-});
+);
 
-/**
- * Lista vaultIds que tienen backups en `users/{uid}/vaults/{vaultId}/backups/*`.
- * Útil para onboarding (antes de tener una libreta local).
- */
-export const folioListBackupVaults = onCall({ cors: true }, async (request) => {
-  if (!request.auth?.uid) {
-    throw new HttpsError("unauthenticated", "Login required");
+export const syncFolioCloudSubscriptionFromStripe = onCall(
+  { invoker: "public" },
+  async (request) => {
+    if (!request.auth?.uid) {
+      throw new HttpsError("unauthenticated", "Login required");
+    }
+    const stripe = stripeClient();
+    if (!stripe) {
+      throw new HttpsError(
+        "failed-precondition",
+        "Stripe not configured on server"
+      );
+    }
+    const uid = request.auth.uid;
+    const customerId = await ensureStripeCustomerId(stripe, uid);
+    if (!customerId) {
+      throw new HttpsError(
+        "failed-precondition",
+        "No Stripe customer yet. Complete checkout first."
+      );
+    }
+    const subs = await stripe.subscriptions.list({
+      customer: customerId,
+      status: "all",
+      limit: 20,
+    });
+    const priority = ["active", "trialing", "past_due", "unpaid"] as const;
+    function pickSubscription(
+      list: Stripe.Subscription[]
+    ): Stripe.Subscription | undefined {
+      for (const st of priority) {
+        const hit = list.find((s) => s.status === st);
+        if (hit) return hit;
+      }
+      return undefined;
+    }
+    let chosen = pickSubscription(subs.data);
+    if (!chosen) {
+      const escapedUid = uid.replace(/\\/g, "\\\\").replace(/'/g, "\\'");
+      try {
+        const byMeta = await stripe.subscriptions.search({
+          query: `metadata['firebase_uid']:'${escapedUid}'`,
+          limit: 10,
+        });
+        chosen = pickSubscription(byMeta.data);
+      } catch (e) {
+        console.warn(
+          "syncFolioCloudSubscriptionFromStripe: search fallback failed",
+          e
+        );
+      }
+    }
+    if (chosen) {
+      const c = chosen.customer;
+      const cid = typeof c === "string" ? c : c?.id;
+      if (cid && cid !== customerId) {
+        await db
+          .collection("users")
+          .doc(uid)
+          .set({ stripeCustomerId: cid }, { merge: true });
+      }
+      const priceId = chosen.items.data[0]?.price?.id;
+      await syncSubscriptionToUser(stripe, uid, chosen.status, priceId);
+      return { ok: true as const, status: chosen.status };
+    }
+    await syncSubscriptionToUser(stripe, uid, "canceled", undefined);
+    return { ok: true as const, status: "canceled" as const };
   }
-  const uid = request.auth.uid;
-  await assertFolioCloudBackupAllowed(uid);
-  const bucket = admin.storage().bucket();
-  const prefix = `users/${uid}/vaults/`;
-  const [, , apiResponse] = (await bucket.getFiles({
-    prefix,
-    delimiter: "/",
-    autoPaginate: false,
-  })) as unknown as [unknown, unknown, { prefixes?: string[] }];
-  const prefixes = apiResponse?.prefixes ?? [];
-  const vaultIds = prefixes
-    .map((p) => p.replace(prefix, "").replace(/\/$/, ""))
-    .map((x) => x.trim())
-    .filter((x) => x.length > 0);
-  vaultIds.sort((a, b) => a.localeCompare(b));
+);
 
-  // Optional: if we have a friendly name index, include it.
-  const indexSnap = await db
-    .collection("users")
-    .doc(uid)
-    .collection("vaultBackupIndex")
-    .get();
-  const nameById = new Map<string, string>();
-  for (const d of indexSnap.docs) {
-    const data = d.data() as Record<string, unknown>;
-    const name = typeof data.displayName === "string" ? data.displayName.trim() : "";
-    if (name) nameById.set(d.id, name);
+export const folioListVaultBackups = onCall(
+  { cors: true, invoker: "public" },
+  async (request) => {
+    if (!request.auth?.uid) {
+      throw new HttpsError("unauthenticated", "Login required");
+    }
+    const uid = request.auth.uid;
+    await assertFolioCloudBackupAllowed(uid);
+    const vaultId = assertValidVaultId((request.data as any)?.vaultId);
+    const prefix = `users/${uid}/vaults/${vaultId}/backups/`;
+    const bucket = admin.storage().bucket();
+    const [files] = await bucket.getFiles({ prefix, autoPaginate: true });
+    const items = files
+      .filter((f) => !f.name.endsWith("/"))
+      .map((f) => {
+        const parts = f.name.split("/");
+        const fileName = parts[parts.length - 1] ?? f.name;
+        return { fileName, storagePath: f.name };
+      })
+      .filter((x) => x.fileName.length > 0);
+    items.sort((a, b) => b.fileName.localeCompare(a.fileName));
+    return { items };
   }
-  const vaults = vaultIds.map((id) => ({
-    vaultId: id,
-    displayName: nameById.get(id) ?? "",
-  }));
-  return { vaults };
-});
+);
+
+export const folioListBackupVaults = onCall(
+  { cors: true, invoker: "public" },
+  async (request) => {
+    if (!request.auth?.uid) {
+      throw new HttpsError("unauthenticated", "Login required");
+    }
+    const uid = request.auth.uid;
+    await assertFolioCloudBackupAllowed(uid);
+    const bucket = admin.storage().bucket();
+    const prefix = `users/${uid}/vaults/`;
+    const [, , apiResponse] = (await bucket.getFiles({
+      prefix,
+      delimiter: "/",
+      autoPaginate: false,
+    })) as unknown as [unknown, unknown, { prefixes?: string[] }];
+    const prefixes = apiResponse?.prefixes ?? [];
+    const vaultIds = prefixes
+      .map((p) => p.replace(prefix, "").replace(/\/$/, ""))
+      .map((x) => x.trim())
+      .filter((x) => x.length > 0);
+    vaultIds.sort((a, b) => a.localeCompare(b));
+
+    const indexSnap = await db
+      .collection("users")
+      .doc(uid)
+      .collection("vaultBackupIndex")
+      .get();
+    const nameById = new Map<string, string>();
+    for (const d of indexSnap.docs) {
+      const data = d.data() as Record<string, unknown>;
+      const name =
+        typeof data.displayName === "string" ? data.displayName.trim() : "";
+      if (name) nameById.set(d.id, name);
+    }
+    const vaults = vaultIds.map((id) => ({
+      vaultId: id,
+      displayName: nameById.get(id) ?? "",
+    }));
+    return { vaults };
+  }
+);
 
 export const folioUpsertVaultBackupIndex = onCall(
-  { cors: true },
+  { cors: true, invoker: "public" },
   async (request) => {
     if (!request.auth?.uid) {
       throw new HttpsError("unauthenticated", "Login required");
@@ -1239,43 +1419,45 @@ export const folioUpsertVaultBackupIndex = onCall(
   }
 );
 
-/**
- * Recorta a [maxCount] copias para `vaultId`, borrando las más antiguas (nombre ascendente).
- * Best-effort: si fallan deletes, no debe bloquear el flujo de subida del cliente.
- */
-export const folioTrimVaultBackups = onCall({ cors: true }, async (request) => {
-  if (!request.auth?.uid) {
-    throw new HttpsError("unauthenticated", "Login required");
-  }
-  const uid = request.auth.uid;
-  await assertFolioCloudBackupAllowed(uid);
-  const vaultId = assertValidVaultId((request.data as any)?.vaultId);
-  const maxCountRaw = (request.data as any)?.maxCount;
-  const maxCount =
-    typeof maxCountRaw === "number" && Number.isFinite(maxCountRaw)
-      ? Math.max(1, Math.min(50, Math.trunc(maxCountRaw)))
-      : 10;
-  const prefix = `users/${uid}/vaults/${vaultId}/backups/`;
-  const bucket = admin.storage().bucket();
-  const [files] = await bucket.getFiles({ prefix, autoPaginate: true });
-  const items = files.filter((f) => !f.name.endsWith("/"));
-  items.sort((a, b) => a.name.localeCompare(b.name)); // oldest first if names are ISO-like
-  const toDelete = items.length > maxCount ? items.slice(0, items.length - maxCount) : [];
-  let deleted = 0;
-  const errors: string[] = [];
-  for (const f of toDelete) {
-    try {
-      await f.delete();
-      deleted++;
-    } catch (e: unknown) {
-      console.warn("folioTrimVaultBackups: delete failed", f.name, e);
-      errors.push(f.name);
+export const folioTrimVaultBackups = onCall(
+  { cors: true, invoker: "public" },
+  async (request) => {
+    if (!request.auth?.uid) {
+      throw new HttpsError("unauthenticated", "Login required");
     }
+    const uid = request.auth.uid;
+    await assertFolioCloudBackupAllowed(uid);
+    const vaultId = assertValidVaultId((request.data as any)?.vaultId);
+    const maxCountRaw = (request.data as any)?.maxCount;
+    const maxCount =
+      typeof maxCountRaw === "number" && Number.isFinite(maxCountRaw)
+        ? Math.max(1, Math.min(50, Math.trunc(maxCountRaw)))
+        : 10;
+    const prefix = `users/${uid}/vaults/${vaultId}/backups/`;
+    const bucket = admin.storage().bucket();
+    const [files] = await bucket.getFiles({ prefix, autoPaginate: true });
+    const items = files.filter((f) => !f.name.endsWith("/"));
+    items.sort((a, b) => a.name.localeCompare(b.name));
+    const toDelete =
+      items.length > maxCount ? items.slice(0, items.length - maxCount) : [];
+    let deleted = 0;
+    const errors: string[] = [];
+    for (const f of toDelete) {
+      try {
+        await f.delete();
+        deleted++;
+      } catch (e: unknown) {
+        console.warn("folioTrimVaultBackups: delete failed", f.name, e);
+        errors.push(f.name);
+      }
+    }
+    return { ok: errors.length === 0, deleted, failed: errors.slice(0, 10) };
   }
-  return { ok: errors.length === 0, deleted, failed: errors.slice(0, 10) };
-});
+);
 
-export const createBillingPortalSession = onCall(async (request) => {
+export const createBillingPortalSession = onCall(
+  { invoker: "public" },
+  async (request) => {
   if (!request.auth?.uid) {
     throw new HttpsError("unauthenticated", "Login required");
   }
@@ -1312,7 +1494,8 @@ export const createBillingPortalSession = onCall(async (request) => {
     );
   }
   return { url: session.url };
-});
+  }
+);
 
 export const monthlyInkRefill = onSchedule(
   {
@@ -1384,11 +1567,27 @@ export const folioCloudAiComplete = functionsV1
     }
     const uid = context.auth.uid;
     const prompt = normalizePrompt(data?.prompt);
-    if (!prompt) {
-      throw new AiHttpsError("invalid-argument", "Missing prompt");
+    const systemPrompt = normalizeOptionalString(data?.systemPrompt, 20000);
+    const messages = normalizeOpenAiMessages(data?.messages);
+    const responseSchema = normalizeResponseSchema(data?.responseSchema);
+    const maxTokens = normalizeClientMaxTokens(data?.maxTokens);
+    const temperature = normalizeClientTemperature(data?.temperature);
+    if (!prompt && messages.length === 0) {
+      throw new AiHttpsError("invalid-argument", "Missing prompt/messages");
     }
     const operationKind = normalizeOperationKind(data?.operationKind);
-    return runFolioCloudAiForUid(uid, prompt, operationKind);
+    return runFolioCloudAiForUid(
+      uid,
+      {
+        prompt,
+        systemPrompt: systemPrompt || undefined,
+        messages: messages.length > 0 ? messages : undefined,
+        responseSchema,
+        maxTokens,
+        temperature,
+      },
+      operationKind
+    );
   });
 
 /**
@@ -1418,11 +1617,27 @@ export const folioCloudAiCompleteHttp = functionsV1
           ? (body.data as Record<string, unknown>)
           : body;
       const prompt = normalizePrompt(payload.prompt);
-      if (!prompt) {
-        throw new AiHttpsError("invalid-argument", "Missing prompt");
+      const systemPrompt = normalizeOptionalString(payload.systemPrompt, 20000);
+      const messages = normalizeOpenAiMessages(payload.messages);
+      const responseSchema = normalizeResponseSchema(payload.responseSchema);
+      const maxTokens = normalizeClientMaxTokens(payload.maxTokens);
+      const temperature = normalizeClientTemperature(payload.temperature);
+      if (!prompt && messages.length === 0) {
+        throw new AiHttpsError("invalid-argument", "Missing prompt/messages");
       }
       const operationKind = normalizeOperationKind(payload.operationKind);
-      const result = await runFolioCloudAiForUid(uid, prompt, operationKind);
+      const result = await runFolioCloudAiForUid(
+        uid,
+        {
+          prompt,
+          systemPrompt: systemPrompt || undefined,
+          messages: messages.length > 0 ? messages : undefined,
+          responseSchema,
+          maxTokens,
+          temperature,
+        },
+        operationKind
+      );
       res.status(200).json({ result });
     } catch (e: unknown) {
       if (e instanceof AiHttpsError || e instanceof HttpsError) {

@@ -1,6 +1,81 @@
 part of 'vault_session.dart';
 
 extension VaultSessionAi on VaultSession {
+  AiCompletionRequest _buildAgentCompletionRequest({
+    required String userPrompt,
+    required List<AiChatMessage> conversationMessages,
+    required bool isEs,
+    required String referencePagesText,
+    required String editTargetLine,
+    required String pageBlocksContext,
+    required List<AiFileAttachment> attachments,
+    required String cloudInkOperation,
+  }) {
+    final isFirstTurn = conversationMessages.isEmpty;
+    final agentIdentity = isEs
+        ? 'Eres Quill, la asistente de IA integrada en Folio (notas locales, árbol de páginas, editor por bloques, búsqueda, libreta con cifrado opcional, panel de chat a la derecha). Ayudas con el contenido de las notas y con cómo usar la app; en modo chat sé clara, útil y natural.'
+        : 'You are Quill, Folio\'s built-in AI assistant (local notes, page tree, block editor, search, optional encrypted vault, chat panel on the side). You help with note content and how to use the app; in chat mode be clear, helpful, and natural.';
+
+    final schema = _agentResponseSchema;
+
+    final systemPrompt = StringBuffer()
+      ..writeln(agentIdentity)
+      ..writeln()
+      ..writeln(
+        isFirstTurn
+            ? _folioAgentInAppGuide(isEs: isEs)
+            : _folioAgentInAppGuideCompact(isEs: isEs),
+      )
+      ..writeln()
+      ..writeln(isEs ? 'Devuelve SOLO JSON válido con este esquema:' : 'Return ONLY valid JSON with this schema:')
+      ..writeln('{')
+      ..writeln('"mode":"chat|summarize_current|append_current|replace_current|edit_current|create_page",')
+      ..writeln('"reason":"${isEs ? 'explicación breve (1 frase) de por qué eliges ese modo' : 'brief explanation (1 sentence) of why you chose this mode'}",')
+      ..writeln('"reply":"${isEs ? 'texto breve para usuario (1–4 frases máximo)' : 'brief user-facing text (max 1–4 sentences)'}",')
+      ..writeln('"title":"${isEs ? 'solo para create_page' : 'only for create_page'}",')
+      ..writeln('"threadTitle":"${isEs ? 'opcional (2-8 palabras) para renombrar la pestaña del chat SOLO en el primer turno; cadena vacía si no aplica' : 'optional (2-8 words) to rename the chat tab ONLY on the first turn; empty string if N/A'}",')
+      ..writeln('"blocks":[{"type":"paragraph|h1|h2|h3|bullet|numbered|todo|quote|code|callout|toggle|divider|table|image|file|video|audio|bookmark|embed|equation|mermaid","text":"...","checked":false,"expanded":true,"codeLanguage":"dart","depth":0,"icon":"emoji","url":"https://...","imageWidth":0.8,"cols":2,"rows":[["a","b"]]}],')
+      ..writeln('"operations":[{"kind":"update_page_title|update_block_text|update_block|replace_block|insert_after|insert_before|move_block|delete_block|table_add_column|table_set_cell","title":"${isEs ? 'nuevo título (solo update_page_title)' : 'new title (update_page_title only)'}","blockId":"id","text":"...","checked":false,"expanded":true,"codeLanguage":"dart","depth":0,"icon":"emoji","url":"https://...","imageWidth":0.8,"targetIndex":0,"block":{},"blocks":[],"header":"...","values":[],"row":0,"col":0,"value":"..."}]')
+      ..writeln('}')
+      ..writeln()
+      ..writeln(isEs ? 'Reglas:' : 'Rules:')
+      ..writeln('- summarize_current: ${isEs ? 'resume la página activa' : 'summarize the active page'}.')
+      ..writeln('- append_current: ${isEs ? 'añade bloques a la página activa' : 'append blocks to the active page'}.')
+      ..writeln('- replace_current: ${isEs ? 'sustituye bloques de la página activa' : 'replace blocks in the active page'}.')
+      ..writeln('- edit_current: ${isEs ? 'edita con operations (usa blockId reales de la página en edición) y/o renombra con update_page_title' : 'edit with operations (use real blockIds from the page under edit) and/or rename with update_page_title'}.')
+      ..writeln('- ${isEs ? 'Si el usuario pide modificar/corregir/actualizar/reescribir bloques existentes de la página abierta, usa SIEMPRE edit_current.' : 'If the user asks to modify/correct/update/rewrite existing blocks in the open page, ALWAYS use edit_current.'}')
+      ..writeln('- ${isEs ? 'Si no hay página activa, NO uses summarize_current/append_current/replace_current/edit_current.' : 'If there is no active page, DO NOT use summarize_current/append_current/replace_current/edit_current.'}')
+      ..writeln('- ${isEs ? 'Si el contexto de páginas está desactivado, usa solo modo chat.' : 'If page context is disabled, use chat mode only.'}')
+      ..writeln('- ${isEs ? 'No uses markdown fences ni texto fuera del JSON.' : 'Do not use markdown fences or extra text outside JSON.'}');
+
+    final contextMessage = StringBuffer()
+      ..writeln(isEs ? 'Contenido de páginas (referencia; puede haber varias):' : 'Page contents (reference; there may be several):')
+      ..writeln(referencePagesText)
+      ..writeln()
+      ..writeln(editTargetLine)
+      ..writeln(isEs ? 'Bloques de la página en edición (ids para operations):' : 'Blocks of the page under edit (ids for operations):')
+      ..writeln(pageBlocksContext.trim().isEmpty ? '[]' : pageBlocksContext);
+
+    return AiCompletionRequest(
+      cloudInkOperation: cloudInkOperation,
+      systemPrompt: systemPrompt.toString().trim(),
+      messages: <AiChatMessage>[
+        ...conversationMessages,
+        AiChatMessage.now(
+          role: 'user',
+          content: contextMessage.toString().trim(),
+        ),
+      ],
+      // Importante: en Folio Cloud el backend puede priorizar `messages`; garantizamos
+      // que el turno actual llegue como último user (Functions lo añade aunque haya historial).
+      prompt: userPrompt.trim(),
+      model: 'auto',
+      attachments: attachments,
+      temperature: 0.1,
+      responseSchema: schema,
+    );
+  }
+
   Future<List<AiFileAttachment>> buildAiAttachmentsFromPaths(
     List<String> filePaths,
   ) async {
@@ -295,10 +370,16 @@ extension VaultSessionAi on VaultSession {
           ? '(No hay páginas de texto en el contexto.)'
           : '(No pages in the text context.)';
     }
+    const maxPages = 3;
+    const maxCharsPerPage = 6000;
+    const maxTotalChars = 14000;
     final buf = StringBuffer();
     var refIndex = 0;
-    for (var i = 0; i < pageIds.length; i++) {
-      final p = _pageById(pageIds[i]);
+    final limitedPageIds =
+        pageIds.length <= maxPages ? pageIds : pageIds.sublist(0, maxPages);
+    for (var i = 0; i < limitedPageIds.length; i++) {
+      if (buf.length >= maxTotalChars) break;
+      final p = _pageById(limitedPageIds[i]);
       if (p == null) continue;
       if (buf.isNotEmpty) buf.writeln();
       final isActive = activePageId != null && p.id == activePageId;
@@ -308,7 +389,12 @@ extension VaultSessionAi on VaultSession {
         refIndex++;
         buf.writeln('[REFERENCE_PAGE $refIndex] ${p.title}');
       }
-      buf.writeln(p.plainTextContent);
+      final content = p.plainTextContent;
+      if (content.length <= maxCharsPerPage) {
+        buf.writeln(content);
+      } else {
+        buf.writeln('${content.substring(0, maxCharsPerPage)}\n…');
+      }
     }
     return buf.toString();
   }
@@ -356,6 +442,23 @@ Quick help (be concise):
 • Other blocks: same + button or / in a paragraph.
 • Quill chat panel (when enabled): on the right; book icon toggles page text in context; another icon picks multiple reference pages.
 • Settings: gear. Search: magnifying glass. Lock vault: padlock.
+'''
+        .trim();
+  }
+
+  String _folioAgentInAppGuideCompact({required bool isEs}) {
+    if (isEs) {
+      return '''
+IDENTIDAD: Tu nombre es Quill.
+En Folio, «página» = nota con bloques (no web). No des tutoriales HTML/WordPress salvo petición explícita.
+Para imágenes y bloques: botón + o comando / en un párrafo.
+'''
+          .trim();
+    }
+    return '''
+IDENTITY: Your name is Quill.
+In Folio, a "page" is a note made of blocks (not a website). Do not give HTML/WordPress tutorials unless explicitly requested.
+For images/blocks: use the + button or / command in a paragraph.
 '''
         .trim();
   }
@@ -457,9 +560,10 @@ Quick help (be concise):
         : (isEs
               ? 'El usuario desactivó el contexto de páginas: no debes asumir ni citar contenido de notas.'
               : 'The user disabled page context: do not assume or quote note contents.');
-    final pageBlocksContext = includePageContext && scopePage != null
-        ? _buildAgentPageBlocksContext(scopePage)
-        : '';
+    final pageBlocksContext =
+        includePageContext && scopePage != null && wantsEditExistingBlocks
+            ? _buildAgentPageBlocksContext(scopePage)
+            : '';
     final editTargetLine = scopePage == null
         ? (isEs
               ? 'Página en edición: ninguna abierta.'
@@ -475,47 +579,15 @@ Quick help (be concise):
 
     try {
       final result = await ai.complete(
-        AiCompletionRequest(
+        _buildAgentCompletionRequest(
           cloudInkOperation: resolveCloudInkOperation(),
-          prompt:
-              '${isEs ? 'Eres Quill, la asistente de IA integrada en Folio (notas locales, árbol de páginas, editor por bloques, búsqueda, libreta con cifrado opcional, panel de chat a la derecha). Ayudas con el contenido de las notas y con cómo usar la app; en modo chat sé clara, útil y natural.' : 'You are Quill, Folio\'s built-in AI assistant (local notes, page tree, block editor, search, optional encrypted vault, chat panel on the side). You help with note content and how to use the app; in chat mode be clear, helpful, and natural.'}\n'
-              '${_folioAgentInAppGuide(isEs: isEs)}\n\n'
-              '${isEs ? 'Devuelve SOLO JSON válido con este esquema:' : 'Return ONLY valid JSON with this schema:'}\n'
-              '{'
-              '"mode":"chat|summarize_current|append_current|replace_current|edit_current|create_page",'
-              '"reason":"${isEs ? 'explicación breve (1 frase) de por qué eliges ese modo' : 'brief explanation (1 sentence) of why you chose this mode'}",'
-              '"reply":"${isEs ? 'texto breve para usuario' : 'brief user-facing text'}",'
-              '"title":"${isEs ? 'solo para create_page' : 'only for create_page'}",'
-              '"threadTitle":"${isEs ? 'opcional: título corto para la pestaña de ESTE chat (2-8 palabras), resume el tema de la pregunta; solo si en el hilo hay exactamente un mensaje del usuario (el actual); cadena vacía si no aplica o en turnos posteriores' : 'optional: short tab title for THIS chat (2-8 words) summarizing the question; only if the thread has exactly one user message (this one); empty string if N/A or on later turns'}",'
-              '"blocks":[{"type":"paragraph|h1|h2|h3|bullet|numbered|todo|quote|code|callout|toggle|divider|table|image|file|video|audio|bookmark|embed|equation|mermaid","text":"...","checked":false,"expanded":true,"codeLanguage":"dart","depth":0,"icon":"emoji","url":"https://...","imageWidth":0.8,"cols":2,"rows":[["a","b"]]}],'
-              '"operations":[{"kind":"update_page_title|update_block_text|update_block|replace_block|insert_after|insert_before|move_block|delete_block|table_add_column|table_set_cell","title":"${isEs ? 'nuevo título (solo update_page_title)' : 'new title (update_page_title only)'}","blockId":"id","text":"...","checked":false,"expanded":true,"codeLanguage":"dart","depth":0,"icon":"emoji","url":"https://...","imageWidth":0.8,"targetIndex":0,"block":{},"blocks":[],"header":"...","values":[],"row":0,"col":0,"value":"..."}]'
-              '}\n'
-              '${isEs ? 'Reglas:' : 'Rules:'}\n'
-              '- summarize_current: ${isEs ? 'resume la página activa' : 'summarize the active page'}.\n'
-              '- append_current: ${isEs ? 'añade bloques a la página activa' : 'append blocks to the active page'}.\n'
-              '- replace_current: ${isEs ? 'sustituye bloques de la página activa' : 'replace blocks in the active page'}.\n'
-              '- edit_current: ${isEs ? 'edita con operations: bloques (blockId) y/o título de página (update_page_title + title)' : 'edit with operations: blocks (blockId) and/or page title (update_page_title + title)'}.\n'
-              '- ${isEs ? 'Si el usuario pide modificar, corregir, actualizar o reescribir bloques existentes de la página abierta, usa SIEMPRE edit_current (no append_current ni replace_current).' : 'If the user asks to modify, correct, update, or rewrite existing blocks in the open page, ALWAYS use edit_current (not append_current or replace_current).'}.\n'
-              '- ${isEs ? 'En edit_current puedes usar update_block para actualizar texto y metadatos (checked, expanded, codeLanguage, depth, icon, url, imageWidth), insert_before/insert_after para insertar y move_block con targetIndex para reordenar bloques.' : 'In edit_current you can use update_block to change text and metadata (checked, expanded, codeLanguage, depth, icon, url, imageWidth), insert_before/insert_after to add content, and move_block with targetIndex to reorder blocks.'}\n'
-              '- create_page: ${isEs ? 'crea una nueva página con title + blocks; por defecto genera contenido detallado y completo (mínimo 10-20 bloques): empieza con un párrafo introductorio, usa h2/h3 para secciones, párrafos elaborados, bullet/numbered para listas y code si aplica; si el usuario dice «corto», «breve» o «rápido» limita a ~5 bloques; si dice «largo», «detallado», «completo» o «profundo» expande todo lo posible' : 'create a new page with title + blocks; by default generate detailed, comprehensive content (minimum 10-20 blocks): start with an intro paragraph, use h2/h3 for sections, elaborate paragraphs, bullet/numbered lists, and code if relevant; if the user says «short», «brief» or «quick» limit to ~5 blocks; if they say «long», «detailed», «comprehensive» or «in depth» expand as much as possible'}.\n'
-              '- chat: ${isEs ? 'respuesta conversacional sin modificar datos; puedes referirte a ti como Quill cuando encaje; ayuda sobre Folio (interfaz, ajustes, atajos, páginas, bloques) cuando pregunte por la app' : 'conversational response without modifying data; you may refer to yourself as Quill when it fits; help with Folio (UI, settings, shortcuts, pages, blocks) when the user asks about the app'}.\n'
-              '- ${isEs ? 'Preguntas del tipo «cómo hago…», «dónde está…», «qué es…» en Folio → modo chat; sé útil y directo; no inventes funciones: si no lo sabes, dilo y sugiere revisar Ajustes o probar en la interfaz' : 'Questions like how/where/what in Folio → chat mode; be helpful and direct; do not invent features—if unsure, say so and suggest Settings or exploring the UI'}.\n'
-              '- ${isEs ? 'Para ayuda de uso de Folio, basa la respuesta en el bloque «=== Folio» de arriba. NUNCA des tutoriales de páginas web (HTML <img>, WordPress, Wix, React, FTP…) salvo que el usuario pida explícitamente eso.' : 'For Folio how-to, base answers on the «=== Folio» block above. NEVER give generic web tutorials (HTML <img>, WordPress, Wix, React, FTP…) unless the user explicitly asks for that.'}\n'
-              '- ${isEs ? 'Si no hay página activa, NO uses summarize_current/append_current/replace_current/edit_current' : 'If there is no active page, DO NOT use summarize_current/append_current/replace_current/edit_current'}.\n'
-              '- ${isEs ? 'Si el contexto de páginas está desactivado, usa solo modo chat (no resumas ni edites páginas).' : 'If page context is disabled, use chat mode only (do not summarize or edit pages).'}\n'
-              '- ${isEs ? 'Si hay varias páginas en el texto de referencia, solo la «página en edición» y sus ids de bloque sirven para operaciones que modifican bloques.' : 'If multiple pages appear in reference text, only the page under edit and its block ids are valid for block-changing operations.'}\n'
-              '- ${isEs ? 'threadTitle es distinto de title: threadTitle renombra la pestaña del chat; title solo sirve para create_page (nueva página de notas).' : 'threadTitle is not title: threadTitle renames the chat tab; title is only for create_page (new note page).'}\n'
-              '- ${isEs ? 'Identidad: siempre eres Quill; no uses otro nombre para ti misma.' : 'Identity: you are always Quill; do not use another name for yourself.'}\n'
-              '- ${isEs ? 'No uses markdown fences ni texto fuera del JSON' : 'Do not use markdown fences or extra text outside JSON'}.\n\n'
-              '${isEs ? 'Contenido de páginas (referencia; puede haber varias):' : 'Page contents (reference; there may be several):'}\n$referencePagesText\n\n'
-              '$editTargetLine\n'
-              '${isEs ? 'Bloques de la página en edición (ids para edit_current y similares):' : 'Blocks of the page under edit (ids for edit_current, etc.):'}\n$pageBlocksContext\n\n'
-              '${isEs ? 'Mensaje del usuario:' : 'User message:'}\n${prompt.trim()}',
-          model: 'auto',
-          messages: messages,
+          userPrompt: prompt,
+          conversationMessages: messages,
+          isEs: isEs,
+          referencePagesText: referencePagesText,
+          editTargetLine: editTargetLine,
+          pageBlocksContext: pageBlocksContext,
           attachments: attachments,
-          temperature: 0.1,
-          responseSchema: _agentResponseSchema,
         ),
       );
       lastUsage = result.usage ?? lastUsage;
@@ -529,13 +601,70 @@ Quick help (be concise):
       final parsedBlocks = rawBlocks is List
           ? _parseAiBlocksFromDynamicList(rawBlocks)
           : const <_AiBlockSpec>[];
+
+      final hasOperations = rawOperations is List && rawOperations.isNotEmpty;
+      if (mode == 'edit_current' && !hasOperations) {
+        // Si el modelo eligió editar pero no trajo operaciones aplicables, corregimos
+        // (cuando realmente hay intención de edición) o degradamos a chat.
+        if (!wantsEditExistingBlocks) {
+          mode = 'chat';
+        } else {
+          final correction = await ai.complete(
+            AiCompletionRequest(
+              cloudInkOperation: 'agent_followup',
+              systemPrompt: isEs
+                  ? 'Eres Quill. Devuelve SOLO JSON válido según el schema. No inventes blockId.'
+                  : 'You are Quill. Return ONLY valid JSON per schema. Do not invent blockId.',
+              prompt:
+                  '${isEs ? 'Completa la edición con operaciones aplicables.' : 'Complete the edit with applicable operations.'}\n'
+                  '${isEs ? 'Devuelve SOLO JSON con mode="edit_current" y operations no vacía usando blockId reales.' : 'Return ONLY JSON with mode="edit_current" and a non-empty operations list using real blockIds.'}\n\n'
+                  '$editTargetLine\n'
+                  '${isEs ? 'Bloques de la página en edición (ids válidos):' : 'Blocks of the page under edit (valid ids):'}\n$pageBlocksContext\n\n'
+                  '${isEs ? 'Mensaje del usuario:' : 'User message:'}\n${prompt.trim()}',
+              model: 'auto',
+              messages: messages,
+              attachments: attachments,
+              temperature: 0.1,
+              responseSchema: _agentResponseSchema,
+            ),
+          );
+          lastUsage = correction.usage ?? lastUsage;
+          final correctionDecoded = _decodeJsonObjectLenient(correction.text);
+          final correctionMode =
+              _normalizeAgentMode(correctionDecoded['mode'] as String?);
+          final correctionOps = correctionDecoded['operations'];
+          final correctionReason =
+              (correctionDecoded['reason'] as String? ?? '').trim();
+          final correctionReply =
+              (correctionDecoded['reply'] as String? ?? '').trim();
+          if (correctionMode == 'edit_current' &&
+              correctionOps is List &&
+              correctionOps.isNotEmpty) {
+            mode = correctionMode;
+            rawOperations = correctionOps;
+            if (correctionReason.isNotEmpty) reason = correctionReason;
+            if (correctionReply.isNotEmpty) reply = correctionReply;
+          } else {
+            mode = 'chat';
+          }
+        }
+      }
+      if ((mode == 'append_current' || mode == 'replace_current' || mode == 'create_page') &&
+          parsedBlocks.isEmpty) {
+        // Salida no accionable: forzamos chat; para create_page, el flujo de corrección existente
+        // puede volver a intentarlo más abajo si el modelo respondió con reply en chat.
+        mode = 'chat';
+      }
       if (wantsEditExistingBlocks && mode != 'edit_current') {
         final correction = await ai.complete(
           AiCompletionRequest(
             cloudInkOperation: 'agent_followup',
+            systemPrompt: isEs
+                ? 'Eres Quill. Devuelve SOLO JSON válido según el schema. No inventes blockId.'
+                : 'You are Quill. Return ONLY valid JSON per schema. Do not invent blockId.',
             prompt:
                 '${isEs ? 'Corrige la salida a edición de bloques existentes.' : 'Correct the output to existing-block editing.'}\n'
-                '${isEs ? 'Devuelve SOLO JSON válido con mode="edit_current" y operations no vacía usando blockId reales de la página en edición.' : 'Return ONLY valid JSON with mode="edit_current" and a non-empty operations list using real blockIds from the page under edit.'}\n'
+                '${isEs ? 'Devuelve mode="edit_current" y operations no vacía usando blockId reales de la página en edición.' : 'Return mode="edit_current" and a non-empty operations list using real blockIds from the page under edit.'}\n'
                 '${isEs ? 'No crees páginas nuevas ni reemplaces todo el contenido.' : 'Do not create new pages or replace all content.'}\n\n'
                 '$editTargetLine\n'
                 '${isEs ? 'Bloques de la página en edición (ids válidos):' : 'Blocks of the page under edit (valid ids):'}\n$pageBlocksContext\n\n'
@@ -764,6 +893,9 @@ Quick help (be concise):
           final createCorrection = await ai.complete(
             AiCompletionRequest(
               cloudInkOperation: 'agent_followup',
+              systemPrompt: isEs
+                  ? 'Eres Quill. Devuelve SOLO JSON válido según el schema.'
+                  : 'You are Quill. Return ONLY valid JSON per schema.',
               prompt:
                   '${isEs ? VaultSession._quillIdentityLeadEs : VaultSession._quillIdentityLeadEn}'
                   '${isEs ? 'Respondiste en modo chat, pero el usuario quiere crear una nueva página. Devuelve SOLO JSON con mode=create_page, el título en "title" y los bloques en "blocks" usando el formato nativo de Folio. Por defecto genera contenido detallado y completo (mínimo 10-15 bloques), salvo que el mensaje original pida algo corto.' : 'You responded in chat mode, but the user wants to create a new page. Return ONLY JSON with mode=create_page, the title in "title" and the blocks in "blocks" using Folio native block format. By default generate detailed, comprehensive content (minimum 10-15 blocks), unless the original message asked for something short.'}\n'
@@ -1055,8 +1187,11 @@ Quick help (be concise):
     }
   }
 
-  String _buildAgentPageBlocksContext(FolioPage page) {
-    final items = page.blocks.map((b) {
+  String _buildAgentPageBlocksContext(FolioPage page, {int maxBlocks = 80}) {
+    final slice = page.blocks.length <= maxBlocks
+        ? page.blocks
+        : page.blocks.sublist(0, maxBlocks);
+    final items = slice.map((b) {
       final preview = _agentBlockPreview(b);
       final m = <String, dynamic>{
         'id': b.id,
