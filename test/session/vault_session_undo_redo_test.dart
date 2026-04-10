@@ -104,5 +104,59 @@ void main() {
       expect(restored.backgroundRole, 'surface');
       expect(restored.fontScale, 1.15);
     });
+
+    test('borrado multiple se deshace en un solo paso', () {
+      final session = VaultSession();
+      session.addPage();
+
+      final page = session.selectedPage!;
+      final pageId = page.id;
+      final firstId = page.blocks.first.id;
+
+      session.insertBlocksAfterMany(
+        pageId: pageId,
+        afterBlockId: firstId,
+        blocks: [
+          FolioBlock(id: '${pageId}_b1', type: 'paragraph', text: 'Uno'),
+          FolioBlock(id: '${pageId}_b2', type: 'paragraph', text: 'Dos'),
+          FolioBlock(id: '${pageId}_b3', type: 'paragraph', text: 'Tres'),
+        ],
+      );
+      expect(session.selectedPage!.blocks.length, 4);
+
+      session.removeBlocksIfMultiple(pageId, [
+        '${pageId}_b1',
+        '${pageId}_b2',
+      ]);
+      expect(
+        session.selectedPage!.blocks.map((b) => b.id).toList(),
+        [firstId, '${pageId}_b3'],
+      );
+
+      session.undoPageEdits(pageId: pageId);
+      expect(
+        session.selectedPage!.blocks.map((b) => b.id).toList(),
+        [firstId, '${pageId}_b1', '${pageId}_b2', '${pageId}_b3'],
+      );
+
+      session.redoPageEdits(pageId: pageId);
+      expect(
+        session.selectedPage!.blocks.map((b) => b.id).toList(),
+        [firstId, '${pageId}_b3'],
+      );
+    });
+
+    test('borrado multiple nunca elimina el ultimo bloque', () {
+      final session = VaultSession();
+      session.addPage();
+
+      final page = session.selectedPage!;
+      final pageId = page.id;
+      final firstId = page.blocks.first.id;
+
+      session.removeBlocksIfMultiple(pageId, [firstId]);
+      expect(session.selectedPage!.blocks.length, 1);
+      expect(session.selectedPage!.blocks.first.id, firstId);
+    });
   });
 }

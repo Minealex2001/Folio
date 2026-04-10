@@ -3123,9 +3123,7 @@ class BlockEditorState extends State<BlockEditor> with _BlockRowBuild {
     final targetBlock = survivors[targetIndex];
     _pendingFocusBlockId = targetBlock.id;
     _pendingCursorOffset = targetBlock.text.length;
-    for (final blockId in idsToDelete) {
-      _s.removeBlockIfMultiple(page.id, blockId);
-    }
+    _s.removeBlocksIfMultiple(page.id, idsToDelete);
     setState(() {
       _selectedBlockIds
         ..clear()
@@ -3140,15 +3138,11 @@ class BlockEditorState extends State<BlockEditor> with _BlockRowBuild {
     if (blocks.isEmpty) return;
     final clones = _s.cloneBlocksWithNewIds(page.id, blocks);
     if (clones.isEmpty) return;
-    var afterBlockId = blocks.last.id;
-    for (final clone in clones) {
-      _s.insertBlockAfter(
-        pageId: page.id,
-        afterBlockId: afterBlockId,
-        block: clone,
-      );
-      afterBlockId = clone.id;
-    }
+    _s.insertBlocksAfterMany(
+      pageId: page.id,
+      afterBlockId: blocks.last.id,
+      blocks: clones,
+    );
     _pendingFocusBlockId = clones.first.id;
     _pendingCursorOffset = clones.first.text.length;
     setState(() {

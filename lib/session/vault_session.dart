@@ -2725,6 +2725,46 @@ class VaultSession extends ChangeNotifier {
     scheduleSave(trackRevisionForPageId: pageId);
   }
 
+  /// Elimina varios bloques en una sola mutacion (un unico punto de deshacer).
+  /// Nunca deja la pagina vacia: como maximo borra [N - 1] bloques.
+  void removeBlocksIfMultiple(String pageId, List<String> blockIds) {
+    if (blockIds.isEmpty) return;
+    final page = _pageById(pageId);
+    if (page == null || page.blocks.length <= 1) return;
+
+    final requested = blockIds.toSet();
+    final existing = page.blocks.where((b) => requested.contains(b.id)).toList();
+    if (existing.isEmpty) return;
+
+    final maxDeletable = page.blocks.length - 1;
+    final victims = existing.take(maxDeletable).toList();
+    if (victims.isEmpty) return;
+    final victimIds = victims.map((b) => b.id).toSet();
+
+    for (final victim in victims) {
+      if (victim.type == 'image' && victim.text.isNotEmpty) {
+        _deleteManagedAttachmentIfUnused(
+          victim.text,
+          excludingPageId: pageId,
+          excludingBlockId: victim.id,
+        );
+      }
+      if ((victim.type == 'file' || victim.type == 'video') &&
+          _isManagedAttachmentPath(victim.url)) {
+        _deleteManagedAttachmentIfUnused(
+          victim.url!,
+          excludingPageId: pageId,
+          excludingBlockId: victim.id,
+        );
+      }
+    }
+
+    _rememberUndoBeforePageMutation(pageId);
+    page.blocks.removeWhere((b) => victimIds.contains(b.id));
+    notifyListeners();
+    scheduleSave(trackRevisionForPageId: pageId);
+  }
+
   /// [trackRevisionForPageId]: tras [_revisionIdleDelay] sin más cambios en esa página,
   /// se añade una entrada al historial (si el contenido difiere de la última revisión).
   void scheduleSave({String? trackRevisionForPageId}) {

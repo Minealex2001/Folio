@@ -3,7 +3,7 @@
 ; Non-commercial use only
 
 #define MyAppName "Folio"
-#define MyAppVersion "0.0.1+1"
+#define MyAppVersion "0.0.2+3"
 #define MyAppPublisher "Minealex Games"
 #define MyAppURL "https://minealexgames.com/"
 #define MyAppExeName "folio.exe"
@@ -33,7 +33,9 @@ DisableProgramGroupPage=yes
 ; Remove the following line to run in administrative install mode (install for all users).
 PrivilegesRequired=lowest
 PrivilegesRequiredOverridesAllowed=dialog
-OutputBaseFilename=folio
+; Cierra procesos que bloqueen archivos del {app} (útil si Folio sigue en memoria).
+CloseApplications=yes
+OutputBaseFilename=Folio-Setup-{#MyAppVersion}
 SetupIconFile=C:\Users\aleja\Repositories\Folio\assets\icons\folio.ico
 SolidCompression=yes
 WizardStyle=modern dynamic windows11

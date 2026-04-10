@@ -44,8 +44,11 @@ extension VaultSessionAi on VaultSession {
       ..writeln('- replace_current: ${isEs ? 'sustituye bloques de la página activa' : 'replace blocks in the active page'}.')
       ..writeln('- edit_current: ${isEs ? 'edita con operations (usa blockId reales de la página en edición) y/o renombra con update_page_title' : 'edit with operations (use real blockIds from the page under edit) and/or rename with update_page_title'}.')
       ..writeln('- ${isEs ? 'Si el usuario pide modificar/corregir/actualizar/reescribir bloques existentes de la página abierta, usa SIEMPRE edit_current.' : 'If the user asks to modify/correct/update/rewrite existing blocks in the open page, ALWAYS use edit_current.'}')
-      ..writeln('- ${isEs ? 'Si no hay página activa, NO uses summarize_current/append_current/replace_current/edit_current.' : 'If there is no active page, DO NOT use summarize_current/append_current/replace_current/edit_current.'}')
-      ..writeln('- ${isEs ? 'Si el contexto de páginas está desactivado, usa solo modo chat.' : 'If page context is disabled, use chat mode only.'}')
+      ..writeln('- ${isEs ? 'Si no hay pagina activa, NO uses summarize_current/append_current/replace_current/edit_current.' : 'If there is no active page, DO NOT use summarize_current/append_current/replace_current/edit_current.'}')
+      ..writeln('- ${isEs ? 'Si el contexto de paginas esta desactivado, usa solo modo chat.' : 'If page context is disabled, use chat mode only.'}')
+      ..writeln('- ${isEs ? 'Prioridad de decision: create_page > edit_current > append/replace/summarize > chat.' : 'Decision priority: create_page > edit_current > append/replace/summarize > chat.'}')
+      ..writeln('- ${isEs ? 'Si el usuario pide crear una nota/pagina nueva, usa create_page.' : 'If the user asks to create a new note/page, use create_page.'}')
+      ..writeln('- ${isEs ? 'Si pide corregir/actualizar/reescribir contenido existente de la pagina abierta, usa edit_current con operations.' : 'If the user asks to correct/update/rewrite existing content in the open page, use edit_current with operations.'}')
       ..writeln('- ${isEs ? 'No uses markdown fences ni texto fuera del JSON.' : 'Do not use markdown fences or extra text outside JSON.'}');
 
     final contextMessage = StringBuffer()
@@ -1461,11 +1464,9 @@ For images/blocks: use the + button or / command in a paragraph.
     'required': <String>['mode', 'reply'],
   };
 
-  bool _looksLikeEditIntent(String prompt, {required String languageCode}) {
+    bool _looksLikeEditIntent(String prompt, {required String languageCode}) {
     final p = _normalizeIntentText(prompt);
-    // Preguntas conversacionales no son ediciones implícitas
-    if (p.contains('?')) return false;
-    // Negaciones explícitas al inicio descartan la intención de edición
+    if (p.contains('?') && p.length < 42) return false;
     const negationPrefixes = [
       'no ',
       'no,',
@@ -1478,45 +1479,109 @@ For images/blocks: use the + button or / command in a paragraph.
       'avoid ',
     ];
     if (negationPrefixes.any(p.startsWith)) return false;
+    if (_looksLikeCreatePageIntent(prompt, languageCode: languageCode)) {
+      return false;
+    }
+
+    final explicitExistingTargets = [
+      'pagina actual',
+      'esta pagina',
+      'current page',
+      'this page',
+      'bloque',
+      'blocks',
+      'block ',
+    ];
+    final editVerbs = [
+      'edita',
+      'editar',
+      'modifica',
+      'modificar',
+      'actualiza',
+      'actualizar',
+      'corrige',
+      'corregir',
+      'reescribe',
+      'rewrite',
+      'edit',
+      'update',
+      'modify',
+      'fix',
+    ];
+    final hasEditVerb = editVerbs.any((v) => _containsIntentPhrase(p, v));
+    final hasExistingTarget = explicitExistingTargets.any(
+      (t) => _containsIntentPhrase(p, t),
+    );
+    if (hasEditVerb && hasExistingTarget) return true;
+
     final hints = AiIntentHints.hintsFor(
       intent: AiIntentHints.edit,
       languageCode: languageCode,
     );
-    return hints.any(p.contains);
-  }
+    return hints.any((h) => _containsIntentPhrase(p, h));
+    }
 
-  bool _looksLikeCreatePageIntent(
+    bool _looksLikeCreatePageIntent(
     String prompt, {
     required String languageCode,
-  }) {
+    }) {
     final p = _normalizeIntentText(prompt);
+    const weakConversationalStarts = [
+      'que es',
+      'como funciona',
+      'explica',
+      'what is',
+      'how does',
+      'explain',
+    ];
+    if (weakConversationalStarts.any((s) => p.startsWith(s))) return false;
+
     final hints = AiIntentHints.hintsFor(
       intent: AiIntentHints.createPage,
       languageCode: languageCode,
     );
-    if (hints.any(p.contains)) return true;
-    final hasPagina = p.contains('pagina') || p.contains('page');
-    final hasCreateVerb =
-        p.contains('crea') ||
-        p.contains('crear') ||
-        p.contains('creame') ||
-        p.contains('genera') ||
-        p.contains('generate') ||
-        p.contains('create') ||
-        p.contains('hazme');
-    return hasPagina && hasCreateVerb;
-  }
+    if (hints.any((h) => _containsIntentPhrase(p, h))) return true;
 
-  bool _looksLikeSubpageIntent(String prompt, {required String languageCode}) {
+    final hasPagina =
+        _containsIntentPhrase(p, 'pagina') ||
+        _containsIntentPhrase(p, 'page') ||
+        _containsIntentPhrase(p, 'nota') ||
+        _containsIntentPhrase(p, 'note') ||
+        _containsIntentPhrase(p, 'documento') ||
+        _containsIntentPhrase(p, 'document');
+    final hasCreateVerb =
+        _containsIntentPhrase(p, 'crea') ||
+        _containsIntentPhrase(p, 'crear') ||
+        _containsIntentPhrase(p, 'creame') ||
+        _containsIntentPhrase(p, 'genera') ||
+        _containsIntentPhrase(p, 'generate') ||
+        _containsIntentPhrase(p, 'create') ||
+        _containsIntentPhrase(p, 'hazme') ||
+        _containsIntentPhrase(p, 'from scratch') ||
+        _containsIntentPhrase(p, 'desde cero');
+    return hasPagina && hasCreateVerb;
+    }
+
+    bool _looksLikeSubpageIntent(String prompt, {required String languageCode}) {
     final p = _normalizeIntentText(prompt);
     final hints = AiIntentHints.hintsFor(
       intent: AiIntentHints.subpage,
       languageCode: languageCode,
     );
-    return hints.any(p.contains);
-  }
+    return hints.any((h) => _containsIntentPhrase(p, h));
+    }
 
-  String _normalizeIntentText(String input) {
+    bool _containsIntentPhrase(String normalizedText, String phrase) {
+    final p = phrase.trim().toLowerCase();
+    if (p.isEmpty) return false;
+    if (p.contains(' ')) return normalizedText.contains(p);
+        final tokens = normalizedText
+            .split(RegExp(r'[^a-z0-9_]+'))
+            .where((t) => t.isNotEmpty);
+        return tokens.contains(p);
+    }
+
+    String _normalizeIntentText(String input) {
     return input
         .toLowerCase()
         .replaceAll('á', 'a')
@@ -1525,7 +1590,7 @@ For images/blocks: use the + button or / command in a paragraph.
         .replaceAll('ó', 'o')
         .replaceAll('ú', 'u')
         .replaceAll('ñ', 'n');
-  }
+    }
 
   bool _applyRecoveredEditFromChatReply(FolioPage page, String reply) {
     final htmlSpecs = _parseHtmlToSpecs(reply);
@@ -1709,7 +1774,7 @@ For images/blocks: use the + button or / command in a paragraph.
     return out.join('\n').trim();
   }
 
-  String _normalizeAgentMode(String? raw) {
+    String _normalizeAgentMode(String? raw) {
     const allowed = {
       'chat',
       'summarize_current',
@@ -1720,6 +1785,22 @@ For images/blocks: use the + button or / command in a paragraph.
     };
     final value = (raw ?? '').trim().toLowerCase();
     if (allowed.contains(value)) return value;
+
+    const aliases = <String, String>{
+      'create': 'create_page',
+      'createpage': 'create_page',
+      'new_page': 'create_page',
+      'newpage': 'create_page',
+      'edit': 'edit_current',
+      'update': 'edit_current',
+      'append': 'append_current',
+      'replace': 'replace_current',
+      'summarize': 'summarize_current',
+      'summary': 'summarize_current',
+    };
+    final aliased = aliases[value];
+    if (aliased != null) return aliased;
+
     final split = value
         .split(RegExp(r'[|,\s]+'))
         .map((e) => e.trim())
@@ -1727,6 +1808,8 @@ For images/blocks: use the + button or / command in a paragraph.
         .toList();
     for (final token in split) {
       if (allowed.contains(token)) return token;
+      final mapped = aliases[token];
+      if (mapped != null) return mapped;
     }
     if (value.contains('create_page')) return 'create_page';
     if (value.contains('edit_current')) return 'edit_current';
@@ -1734,7 +1817,7 @@ For images/blocks: use the + button or / command in a paragraph.
     if (value.contains('append_current')) return 'append_current';
     if (value.contains('summarize_current')) return 'summarize_current';
     return 'chat';
-  }
+    }
 
   String? _extractTitleFromHtml(String html) {
     final titleMatch = RegExp(
@@ -2405,15 +2488,36 @@ For images/blocks: use the + button or / command in a paragraph.
     return out;
   }
 
-  @visibleForTesting
-  List<FolioBlock> parseAiOutputForTesting(
+    @visibleForTesting
+    List<FolioBlock> parseAiOutputForTesting(
     String output, {
     String pageId = 'test_page',
     String defaultTitle = 'Test',
-  }) {
+    }) {
     final parsed = _parseAiHybridOutput(output, defaultTitle: defaultTitle);
     return _materializeAiBlocks(pageId, parsed.blocks);
-  }
+    }
+
+    @visibleForTesting
+    String normalizeAgentModeForTesting(String? raw) => _normalizeAgentMode(raw);
+
+    @visibleForTesting
+    bool detectEditIntentForTesting(
+    String prompt, {
+    String languageCode = 'es',
+    }) => _looksLikeEditIntent(prompt, languageCode: languageCode);
+
+    @visibleForTesting
+    bool detectCreatePageIntentForTesting(
+    String prompt, {
+    String languageCode = 'es',
+    }) => _looksLikeCreatePageIntent(prompt, languageCode: languageCode);
+
+    @visibleForTesting
+    bool detectSubpageIntentForTesting(
+    String prompt, {
+    String languageCode = 'es',
+    }) => _looksLikeSubpageIntent(prompt, languageCode: languageCode);
 
   bool _aiBlockTypeAllowsEmptyText(String type, {required String url}) {
     if (type == 'divider' || type == 'table') return true;

@@ -106,14 +106,34 @@ class GitHubReleaseUpdater {
       );
     }
 
-    // Ejecuta el instalador separado del proceso principal y cierra la app.
-    await Process.start('cmd', ['/c', 'start', '', installerFile.path]);
+    // Inno Setup: sin asistente ni mensajes que requieran clic (ver installer.iss).
+    await Process.start(
+      installerFile.path,
+      const [
+        '/VERYSILENT',
+        '/SUPPRESSMSGBOXES',
+        '/NOCANCEL',
+        '/SP-',
+        '/CLOSEAPPLICATIONS',
+      ],
+      mode: ProcessStartMode.detached,
+    );
     exit(0);
   }
 
   Future<Version> _currentVersion() async {
     final pkg = await PackageInfo.fromPlatform();
-    return _parseSemver(pkg.version) ?? Version.none;
+    final name = pkg.version.trim();
+    final build = pkg.buildNumber.trim();
+    // En Flutter, pubspec `0.0.2+3` suele exponerse como version=0.0.2 y buildNumber=3.
+    if (name.contains('+')) {
+      return _parseSemver(name) ?? Version.none;
+    }
+    if (build.isNotEmpty) {
+      final combined = '$name+$build';
+      return _parseSemver(combined) ?? _parseSemver(name) ?? Version.none;
+    }
+    return _parseSemver(name) ?? Version.none;
   }
 
   Future<_GitHubRelease?> _fetchLatestStableRelease() async {
