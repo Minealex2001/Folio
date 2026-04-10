@@ -3458,6 +3458,132 @@ abstract class AppLocalizations {
   /// **'Selecciona una plantilla para inspeccionarla, editar sus metadatos o exportarla.'**
   String get templateSelectHint;
 
+  /// No description provided for @templateGalleryTabLocal.
+  ///
+  /// In es, this message translates to:
+  /// **'Locales'**
+  String get templateGalleryTabLocal;
+
+  /// No description provided for @templateGalleryTabCommunity.
+  ///
+  /// In es, this message translates to:
+  /// **'Comunidad'**
+  String get templateGalleryTabCommunity;
+
+  /// No description provided for @templateCommunitySignInCta.
+  ///
+  /// In es, this message translates to:
+  /// **'Inicia sesión para compartir y explorar plantillas de la comunidad.'**
+  String get templateCommunitySignInCta;
+
+  /// No description provided for @templateCommunitySignInButton.
+  ///
+  /// In es, this message translates to:
+  /// **'Iniciar sesión'**
+  String get templateCommunitySignInButton;
+
+  /// No description provided for @templateCommunityUnavailable.
+  ///
+  /// In es, this message translates to:
+  /// **'Las plantillas de la comunidad requieren Firebase. Revisa la conexión o la configuración.'**
+  String get templateCommunityUnavailable;
+
+  /// No description provided for @templateCommunityEmpty.
+  ///
+  /// In es, this message translates to:
+  /// **'Aún no hay plantillas en la comunidad. Comparte la primera desde la pestaña Locales.'**
+  String get templateCommunityEmpty;
+
+  /// No description provided for @templateCommunityLoadError.
+  ///
+  /// In es, this message translates to:
+  /// **'No se pudieron cargar las plantillas: {error}'**
+  String templateCommunityLoadError(Object error);
+
+  /// No description provided for @templateCommunityRetry.
+  ///
+  /// In es, this message translates to:
+  /// **'Reintentar'**
+  String get templateCommunityRetry;
+
+  /// No description provided for @templateCommunityRefresh.
+  ///
+  /// In es, this message translates to:
+  /// **'Actualizar'**
+  String get templateCommunityRefresh;
+
+  /// No description provided for @templateCommunityShareTitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Compartir con la comunidad'**
+  String get templateCommunityShareTitle;
+
+  /// No description provided for @templateCommunityShareBody.
+  ///
+  /// In es, this message translates to:
+  /// **'Tu plantilla será pública: cualquiera podrá verla y descargarla. Revisa que no incluya datos personales o confidenciales.'**
+  String get templateCommunityShareBody;
+
+  /// No description provided for @templateCommunityShareConfirm.
+  ///
+  /// In es, this message translates to:
+  /// **'Compartir'**
+  String get templateCommunityShareConfirm;
+
+  /// No description provided for @templateCommunityShareSuccess.
+  ///
+  /// In es, this message translates to:
+  /// **'Plantilla compartida con la comunidad'**
+  String get templateCommunityShareSuccess;
+
+  /// No description provided for @templateCommunityShareError.
+  ///
+  /// In es, this message translates to:
+  /// **'No se pudo compartir: {error}'**
+  String templateCommunityShareError(Object error);
+
+  /// No description provided for @templateCommunityAddToVault.
+  ///
+  /// In es, this message translates to:
+  /// **'Guardar en mis plantillas'**
+  String get templateCommunityAddToVault;
+
+  /// No description provided for @templateCommunityAddedToVault.
+  ///
+  /// In es, this message translates to:
+  /// **'Guardada en tus plantillas'**
+  String get templateCommunityAddedToVault;
+
+  /// No description provided for @templateCommunityDeleteTitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Quitar de la comunidad'**
+  String get templateCommunityDeleteTitle;
+
+  /// No description provided for @templateCommunityDeleteBody.
+  ///
+  /// In es, this message translates to:
+  /// **'¿Eliminar \"{name}\" de la tienda comunitaria? No se puede deshacer.'**
+  String templateCommunityDeleteBody(Object name);
+
+  /// No description provided for @templateCommunityDeleteSuccess.
+  ///
+  /// In es, this message translates to:
+  /// **'Eliminada de la comunidad'**
+  String get templateCommunityDeleteSuccess;
+
+  /// No description provided for @templateCommunityDeleteError.
+  ///
+  /// In es, this message translates to:
+  /// **'No se pudo eliminar: {error}'**
+  String templateCommunityDeleteError(Object error);
+
+  /// No description provided for @templateCommunityDownloadError.
+  ///
+  /// In es, this message translates to:
+  /// **'No se pudo descargar la plantilla: {error}'**
+  String templateCommunityDownloadError(Object error);
+
   /// No description provided for @clear.
   ///
   /// In es, this message translates to:

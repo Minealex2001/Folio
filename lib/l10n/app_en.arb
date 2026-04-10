@@ -611,6 +611,32 @@
   ,"@templateCreatedOn": {"placeholders": {"date": {}}}
   ,"templatePreviewEmpty": "This template has no text preview yet."
   ,"templateSelectHint": "Select a template to inspect it, edit its metadata, or export it."
+  ,"templateGalleryTabLocal": "Local"
+  ,"templateGalleryTabCommunity": "Community"
+  ,"templateCommunitySignInCta": "Sign in to share and browse community templates."
+  ,"templateCommunitySignInButton": "Sign in"
+  ,"templateCommunityUnavailable": "Community templates require Firebase. Check your connection or configuration."
+  ,"templateCommunityEmpty": "No community templates yet. Be the first to share one from the Local tab."
+  ,"templateCommunityLoadError": "Could not load community templates: {error}"
+  ,"@templateCommunityLoadError": {"placeholders": {"error": {}}}
+  ,"templateCommunityRetry": "Retry"
+  ,"templateCommunityRefresh": "Refresh"
+  ,"templateCommunityShareTitle": "Share to community"
+  ,"templateCommunityShareBody": "Your template will be public for anyone to view and download. Remove personal or confidential content before sharing."
+  ,"templateCommunityShareConfirm": "Share"
+  ,"templateCommunityShareSuccess": "Template shared with the community"
+  ,"templateCommunityShareError": "Could not share: {error}"
+  ,"@templateCommunityShareError": {"placeholders": {"error": {}}}
+  ,"templateCommunityAddToVault": "Save to my templates"
+  ,"templateCommunityAddedToVault": "Saved to your templates"
+  ,"templateCommunityDeleteTitle": "Remove from community"
+  ,"templateCommunityDeleteBody": "Delete \"{name}\" from the community store? This cannot be undone."
+  ,"@templateCommunityDeleteBody": {"placeholders": {"name": {}}}
+  ,"templateCommunityDeleteSuccess": "Removed from community"
+  ,"templateCommunityDeleteError": "Could not remove: {error}"
+  ,"@templateCommunityDeleteError": {"placeholders": {"error": {}}}
+  ,"templateCommunityDownloadError": "Could not download template: {error}"
+  ,"@templateCommunityDownloadError": {"placeholders": {"error": {}}}
   ,"clear": "Clear"
   ,"cloudAccountSectionTitle": "Folio Cloud account"
   ,"cloudAccountSectionDescription": "Optional. Sign in to subscribe to cloud backup, hosted AI, and web publishing. Your vault stays local unless you use those features."

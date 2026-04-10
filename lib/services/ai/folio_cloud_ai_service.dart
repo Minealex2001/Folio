@@ -18,10 +18,6 @@ class FolioCloudAiException implements Exception {
   bool get isInkExhausted => functionsCode == 'resource-exhausted';
 }
 
-/// Por encima de esto, el JSON de `ink` en la respuesta se considera corrupto y no
-/// se aplica al controlador (evita mostrar millones de gotas por datos erróneos).
-const int _kMaxPlausibleInkTotalFromCallable = 500000;
-
 bool _looksLikeUpstreamLlmRejection(String d) {
   final l = d.toLowerCase();
   return l.contains('upstreampowerup') ||
@@ -157,11 +153,7 @@ class FolioCloudAiService implements AiService {
       if (inkRaw is Map && ent != null) {
         final monthly = (inkRaw['monthlyBalance'] as num?)?.toInt();
         final purchased = (inkRaw['purchasedBalance'] as num?)?.toInt();
-        if (monthly != null &&
-            purchased != null &&
-            monthly >= 0 &&
-            purchased >= 0 &&
-            monthly + purchased <= _kMaxPlausibleInkTotalFromCallable) {
+        if (monthly != null && purchased != null && monthly >= 0 && purchased >= 0) {
           ent.applyInkBalancesFromCloudAi(
             monthlyBalance: monthly,
             purchasedBalance: purchased,

@@ -45,5 +45,17 @@ service firebase.storage {
         && request.auth.uid == userId
         && folioCloudPublishOk(userId);
     }
+
+    // Plantillas `.folio-template` comunitarias: lectura pública; escritura del dueño (cualquier auth).
+    match /community-templates/{userId}/{fileName} {
+      allow read: if true;
+      allow delete: if request.auth != null
+        && request.auth.uid == userId
+        && fileName.matches('.*\\.folio-template$');
+      allow create, update: if request.auth != null
+        && request.auth.uid == userId
+        && fileName.matches('.*\\.folio-template$')
+        && request.resource.size < 1 * 1024 * 1024;
+    }
   }
 }

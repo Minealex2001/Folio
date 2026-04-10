@@ -3128,6 +3128,7 @@ class _WorkspacePageState extends State<WorkspacePage> {
         child: Sidebar(
           session: _s,
           appSettings: widget.appSettings,
+          cloudAccountController: widget.cloudAccountController,
           onSearch: widget.onOpenSearch,
           onForceSync: _forceSyncNow,
           onOpenSettings: _openSettings,

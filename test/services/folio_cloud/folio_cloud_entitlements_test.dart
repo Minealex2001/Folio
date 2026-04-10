@@ -107,7 +107,7 @@ void main() {
       expect(snap.ink.totalInk, 40);
     });
 
-    test('caps absurd ink fields for display', () {
+    test('purchased ink is not capped; huge monthlyBalance is capped for display', () {
       final snap = FolioCloudSnapshot.fromUserDoc(<String, dynamic>{
         'folioCloud': <String, dynamic>{
           'active': true,
@@ -118,12 +118,12 @@ void main() {
           },
         },
         'ink': <String, dynamic>{
-          'monthlyBalance': 500,
+          'monthlyBalance': 5000000,
           'purchasedBalance': 5000000,
         },
       });
-      expect(snap.ink.monthlyBalance, 500);
-      expect(snap.ink.purchasedBalance, 100000);
+      expect(snap.ink.monthlyBalance, 100000);
+      expect(snap.ink.purchasedBalance, 5000000);
     });
   });
 

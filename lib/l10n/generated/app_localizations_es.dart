@@ -1912,6 +1912,84 @@ class AppLocalizationsEs extends AppLocalizations {
       'Selecciona una plantilla para inspeccionarla, editar sus metadatos o exportarla.';
 
   @override
+  String get templateGalleryTabLocal => 'Locales';
+
+  @override
+  String get templateGalleryTabCommunity => 'Comunidad';
+
+  @override
+  String get templateCommunitySignInCta =>
+      'Inicia sesión para compartir y explorar plantillas de la comunidad.';
+
+  @override
+  String get templateCommunitySignInButton => 'Iniciar sesión';
+
+  @override
+  String get templateCommunityUnavailable =>
+      'Las plantillas de la comunidad requieren Firebase. Revisa la conexión o la configuración.';
+
+  @override
+  String get templateCommunityEmpty =>
+      'Aún no hay plantillas en la comunidad. Comparte la primera desde la pestaña Locales.';
+
+  @override
+  String templateCommunityLoadError(Object error) {
+    return 'No se pudieron cargar las plantillas: $error';
+  }
+
+  @override
+  String get templateCommunityRetry => 'Reintentar';
+
+  @override
+  String get templateCommunityRefresh => 'Actualizar';
+
+  @override
+  String get templateCommunityShareTitle => 'Compartir con la comunidad';
+
+  @override
+  String get templateCommunityShareBody =>
+      'Tu plantilla será pública: cualquiera podrá verla y descargarla. Revisa que no incluya datos personales o confidenciales.';
+
+  @override
+  String get templateCommunityShareConfirm => 'Compartir';
+
+  @override
+  String get templateCommunityShareSuccess =>
+      'Plantilla compartida con la comunidad';
+
+  @override
+  String templateCommunityShareError(Object error) {
+    return 'No se pudo compartir: $error';
+  }
+
+  @override
+  String get templateCommunityAddToVault => 'Guardar en mis plantillas';
+
+  @override
+  String get templateCommunityAddedToVault => 'Guardada en tus plantillas';
+
+  @override
+  String get templateCommunityDeleteTitle => 'Quitar de la comunidad';
+
+  @override
+  String templateCommunityDeleteBody(Object name) {
+    return '¿Eliminar \"$name\" de la tienda comunitaria? No se puede deshacer.';
+  }
+
+  @override
+  String get templateCommunityDeleteSuccess => 'Eliminada de la comunidad';
+
+  @override
+  String templateCommunityDeleteError(Object error) {
+    return 'No se pudo eliminar: $error';
+  }
+
+  @override
+  String templateCommunityDownloadError(Object error) {
+    return 'No se pudo descargar la plantilla: $error';
+  }
+
+  @override
   String get clear => 'Limpiar';
 
   @override
