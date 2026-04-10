@@ -138,6 +138,9 @@
   "usePasskey": "Usar passkey",
   "quickUnlockEnabledSnack": "Desbloqueo rápido activado",
   "quickUnlockDisabledSnack": "Desbloqueo rápido desactivado",
+  "quickUnlockEnableFailed": "No se pudo activar el desbloqueo rápido.",
+  "passkeyRevokeConfirmTitle": "¿Quitar la passkey?",
+  "passkeyRevokeConfirmBody": "Necesitarás la contraseña maestra para desbloquear hasta que registres una passkey nueva en este dispositivo.",
   "passkeyRegisteredSnack": "Passkey registrada",
   "passkeyRevokedSnack": "Passkey revocada",
   "masterPasswordUpdatedSnack": "Contraseña maestra actualizada",
@@ -652,6 +655,15 @@
   ,"cloudAuthResetHint": "Te enviaremos un enlace por correo para elegir una nueva contraseña."
   ,"cloudAccountEmailVerified": "Verificado"
   ,"cloudAccountSignOutHelp": "Tu libreta local sigue en este dispositivo."
+  ,"cloudAccountEmailUnverifiedBanner": "Verifica tu correo para asegurar tu cuenta Folio Cloud."
+  ,"cloudAccountResendVerification": "Reenviar correo de verificación"
+  ,"cloudAccountReloadVerification": "Ya verifiqué"
+  ,"cloudAccountVerificationSent": "Correo de verificación enviado."
+  ,"cloudAccountVerificationStillPending": "El correo sigue sin verificarse. Abre el enlace de tu bandeja de entrada."
+  ,"cloudAccountVerificationNowVerified": "Correo verificado."
+  ,"cloudAccountResetPasswordEmail": "Restablecer contraseña por correo"
+  ,"cloudAccountCopyEmail": "Copiar correo"
+  ,"cloudAccountEmailCopied": "Correo copiado."
   ,"folioWebPortalSubsectionTitle": "Cuenta web"
   ,"folioWebPortalLinkCodeLabel": "Código de emparejamiento"
   ,"folioWebPortalLinkHelp": "Genera el código en la web, en Ajustes → cuenta Folio, e introdúcelo aquí en los próximos 10 minutos."
@@ -700,6 +712,14 @@
   ,"@folioCloudInkCount": {"placeholders": {"count": {"type": "int"}}}
   ,"folioCloudPlanActiveHeadline": "Plan mensual Folio Cloud activo"
   ,"folioCloudSubscribeMonthly": "Folio Cloud 4,99 €/mes"
+  ,"folioCloudPitchScreenTitle": "Folio Cloud"
+  ,"folioCloudPitchHeadline": "Tu libreta sigue en el dispositivo. La nube entra cuando tú quieres."
+  ,"folioCloudPitchSubhead": "Un plan mensual desbloquea copias cifradas, IA alojada en la nube con recarga mensual de tinta y publicación web: solo lo que decidas compartir."
+  ,"folioCloudPitchLearnMore": "Ver qué incluye"
+  ,"folioCloudPitchCtaNeedAccount": "Iniciar sesión o crear cuenta"
+  ,"folioCloudPitchGuestTeaserTitle": "Cuenta Folio Cloud"
+  ,"folioCloudPitchGuestTeaserBody": "Cuenta opcional: mira qué incluye el plan y entra cuando quieras suscribirte."
+  ,"folioCloudPitchOpenSettingsToSignIn": "Abre Ajustes e inicia sesión en Folio Cloud (sección Folio Cloud) para suscribirte."
   ,"folioCloudBuyInk": "Comprar tinta"
   ,"folioCloudInkSmall": "Tintero pequeño (1,99 €)"
   ,"folioCloudInkMedium": "Tintero mediano (4,99 €)"

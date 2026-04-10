@@ -395,6 +395,17 @@ class AppLocalizationsEs extends AppLocalizations {
   String get quickUnlockDisabledSnack => 'Desbloqueo rápido desactivado';
 
   @override
+  String get quickUnlockEnableFailed =>
+      'No se pudo activar el desbloqueo rápido.';
+
+  @override
+  String get passkeyRevokeConfirmTitle => '¿Quitar la passkey?';
+
+  @override
+  String get passkeyRevokeConfirmBody =>
+      'Necesitarás la contraseña maestra para desbloquear hasta que registres una passkey nueva en este dispositivo.';
+
+  @override
   String get passkeyRegisteredSnack => 'Passkey registrada';
 
   @override
@@ -2045,6 +2056,37 @@ class AppLocalizationsEs extends AppLocalizations {
       'Tu libreta local sigue en este dispositivo.';
 
   @override
+  String get cloudAccountEmailUnverifiedBanner =>
+      'Verifica tu correo para asegurar tu cuenta Folio Cloud.';
+
+  @override
+  String get cloudAccountResendVerification =>
+      'Reenviar correo de verificación';
+
+  @override
+  String get cloudAccountReloadVerification => 'Ya verifiqué';
+
+  @override
+  String get cloudAccountVerificationSent => 'Correo de verificación enviado.';
+
+  @override
+  String get cloudAccountVerificationStillPending =>
+      'El correo sigue sin verificarse. Abre el enlace de tu bandeja de entrada.';
+
+  @override
+  String get cloudAccountVerificationNowVerified => 'Correo verificado.';
+
+  @override
+  String get cloudAccountResetPasswordEmail =>
+      'Restablecer contraseña por correo';
+
+  @override
+  String get cloudAccountCopyEmail => 'Copiar correo';
+
+  @override
+  String get cloudAccountEmailCopied => 'Correo copiado.';
+
+  @override
   String get folioWebPortalSubsectionTitle => 'Cuenta web';
 
   @override
@@ -2191,6 +2233,34 @@ class AppLocalizationsEs extends AppLocalizations {
 
   @override
   String get folioCloudSubscribeMonthly => 'Folio Cloud 4,99 €/mes';
+
+  @override
+  String get folioCloudPitchScreenTitle => 'Folio Cloud';
+
+  @override
+  String get folioCloudPitchHeadline =>
+      'Tu libreta sigue en el dispositivo. La nube entra cuando tú quieres.';
+
+  @override
+  String get folioCloudPitchSubhead =>
+      'Un plan mensual desbloquea copias cifradas, IA alojada en la nube con recarga mensual de tinta y publicación web: solo lo que decidas compartir.';
+
+  @override
+  String get folioCloudPitchLearnMore => 'Ver qué incluye';
+
+  @override
+  String get folioCloudPitchCtaNeedAccount => 'Iniciar sesión o crear cuenta';
+
+  @override
+  String get folioCloudPitchGuestTeaserTitle => 'Cuenta Folio Cloud';
+
+  @override
+  String get folioCloudPitchGuestTeaserBody =>
+      'Cuenta opcional: mira qué incluye el plan y entra cuando quieras suscribirte.';
+
+  @override
+  String get folioCloudPitchOpenSettingsToSignIn =>
+      'Abre Ajustes e inicia sesión en Folio Cloud (sección Folio Cloud) para suscribirte.';
 
   @override
   String get folioCloudBuyInk => 'Comprar tinta';

@@ -26,6 +26,7 @@ import '../../models/folio_toggle_data.dart';
 import '../../services/ai/ai_types.dart';
 import '../../services/ai/folio_cloud_ai_service.dart';
 import '../../services/cloud_account/cloud_account_controller.dart';
+import '../../services/folio_cloud/folio_cloud_checkout.dart';
 import '../../services/folio_cloud/folio_cloud_entitlements.dart';
 import '../../services/folio_cloud/folio_cloud_publish.dart';
 import '../../services/folio_cloud/folio_page_html_export.dart';
@@ -33,6 +34,7 @@ import '../../services/device_sync/device_sync_controller.dart';
 import '../../l10n/generated/app_localizations.dart';
 import '../../services/run2doc/run2doc_markdown_codec.dart';
 import '../../session/vault_session.dart';
+import '../settings/folio_cloud_subscription_pitch_page.dart';
 import '../settings/settings_page.dart';
 import 'widgets/ai_typing_indicator.dart';
 import 'widgets/ai_typewriter_message.dart';
@@ -121,6 +123,7 @@ class _WorkspacePageState extends State<WorkspacePage> {
   String? _lastPageIdForMobileMode;
   bool _sidebarPeek = false;
   double _aiPanelHeight = 520;
+  bool _folioCloudCheckoutBusy = false;
 
   final GlobalKey<BlockEditorState> _blockEditorKey =
       GlobalKey<BlockEditorState>();
@@ -1800,6 +1803,63 @@ class _WorkspacePageState extends State<WorkspacePage> {
     );
   }
 
+  void _openFolioCloudSubscriptionPitch() {
+    if (_folioCloudCheckoutBusy) return;
+    final l10n = AppLocalizations.of(context);
+    final signedIn = widget.cloudAccountController.isSignedIn;
+    Navigator.of(context).push<void>(
+      MaterialPageRoute<void>(
+        builder: (ctx) => FolioCloudSubscriptionPitchPage(
+          busy: _folioCloudCheckoutBusy,
+          primaryCtaLabel: signedIn
+              ? l10n.folioCloudSubscribeMonthly
+              : l10n.folioCloudPitchCtaNeedAccount,
+          primaryIcon: signedIn
+              ? Icons.subscriptions_outlined
+              : Icons.person_add_outlined,
+          onPrimaryCta: () {
+            Navigator.of(ctx).pop();
+            if (!mounted) return;
+            if (signedIn) {
+              unawaited(_openFolioCloudMonthlyCheckout());
+            } else {
+              _openSettings();
+              _snack(l10n.folioCloudPitchOpenSettingsToSignIn);
+            }
+          },
+        ),
+      ),
+    );
+  }
+
+  Future<void> _openFolioCloudMonthlyCheckout() async {
+    if (_folioCloudCheckoutBusy) return;
+    setState(() => _folioCloudCheckoutBusy = true);
+    try {
+      final uri = await createFolioCheckoutUri(FolioCheckoutKind.folioCloudMonthly);
+      if (uri == null) {
+        _snack(
+          _t(
+            'Pago no disponible (configura Stripe en el servidor).',
+            'Checkout unavailable (configure Stripe on server).',
+          ),
+          error: true,
+        );
+        return;
+      }
+      final ok = await launchUrl(uri, mode: LaunchMode.externalApplication);
+      if (!ok) {
+        _snack(_t('No se pudo abrir el enlace.', 'Could not open the link.'), error: true);
+      } else {
+        widget.folioCloudEntitlements.scheduleStripeSyncOnNextResume();
+      }
+    } catch (e) {
+      _snack('$e', error: true);
+    } finally {
+      if (mounted) setState(() => _folioCloudCheckoutBusy = false);
+    }
+  }
+
   bool _isTextInputFocused() {
     final focusedContext = FocusManager.instance.primaryFocus?.context;
     final focusedWidget = focusedContext?.widget;
@@ -2075,6 +2135,7 @@ class _WorkspacePageState extends State<WorkspacePage> {
         await showFolioCloudAiInkExhaustedDialog(
           context,
           onOpenSettings: _openSettings,
+          onOpenFolioCloudPitch: _openFolioCloudSubscriptionPitch,
         );
       } else {
         _snack(l10n.aiErrorWithDetails(e), error: true);

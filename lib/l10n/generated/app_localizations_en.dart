@@ -393,6 +393,16 @@ class AppLocalizationsEn extends AppLocalizations {
   String get quickUnlockDisabledSnack => 'Quick unlock disabled';
 
   @override
+  String get quickUnlockEnableFailed => 'Could not enable quick unlock.';
+
+  @override
+  String get passkeyRevokeConfirmTitle => 'Remove passkey?';
+
+  @override
+  String get passkeyRevokeConfirmBody =>
+      'You will need your master password to unlock until you register a new passkey on this device.';
+
+  @override
   String get passkeyRegisteredSnack => 'Passkey registered';
 
   @override
@@ -2031,6 +2041,35 @@ class AppLocalizationsEn extends AppLocalizations {
       'Your local vault stays on this device.';
 
   @override
+  String get cloudAccountEmailUnverifiedBanner =>
+      'Verify your email to secure your Folio Cloud account.';
+
+  @override
+  String get cloudAccountResendVerification => 'Resend verification email';
+
+  @override
+  String get cloudAccountReloadVerification => 'I\'ve verified';
+
+  @override
+  String get cloudAccountVerificationSent => 'Verification email sent.';
+
+  @override
+  String get cloudAccountVerificationStillPending =>
+      'Email is still not verified. Open the link in your inbox.';
+
+  @override
+  String get cloudAccountVerificationNowVerified => 'Email verified.';
+
+  @override
+  String get cloudAccountResetPasswordEmail => 'Reset password by email';
+
+  @override
+  String get cloudAccountCopyEmail => 'Copy email';
+
+  @override
+  String get cloudAccountEmailCopied => 'Email copied.';
+
+  @override
   String get folioWebPortalSubsectionTitle => 'Web account';
 
   @override
@@ -2177,6 +2216,34 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get folioCloudSubscribeMonthly => 'Folio Cloud €4.99/mo';
+
+  @override
+  String get folioCloudPitchScreenTitle => 'Folio Cloud';
+
+  @override
+  String get folioCloudPitchHeadline =>
+      'Your vault stays local. The cloud works when you want it.';
+
+  @override
+  String get folioCloudPitchSubhead =>
+      'One monthly plan unlocks encrypted backups, hosted cloud AI with a monthly ink allowance, and publishing to the web—only for what you choose to share.';
+
+  @override
+  String get folioCloudPitchLearnMore => 'See what\'s included';
+
+  @override
+  String get folioCloudPitchCtaNeedAccount => 'Sign in or create account';
+
+  @override
+  String get folioCloudPitchGuestTeaserTitle => 'Folio Cloud account';
+
+  @override
+  String get folioCloudPitchGuestTeaserBody =>
+      'Optional account: see what the plan includes, then sign in when you want to subscribe.';
+
+  @override
+  String get folioCloudPitchOpenSettingsToSignIn =>
+      'Open Settings and sign in to Folio Cloud (Folio Cloud section) to subscribe.';
 
   @override
   String get folioCloudBuyInk => 'Buy ink';

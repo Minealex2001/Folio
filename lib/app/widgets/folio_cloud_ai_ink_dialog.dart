@@ -5,6 +5,7 @@ import '../../l10n/generated/app_localizations.dart';
 Future<void> showFolioCloudAiInkExhaustedDialog(
   BuildContext context, {
   required VoidCallback onOpenSettings,
+  required VoidCallback onOpenFolioCloudPitch,
 }) {
   final l10n = AppLocalizations.of(context);
   return showDialog<void>(
@@ -27,7 +28,7 @@ Future<void> showFolioCloudAiInkExhaustedDialog(
         FilledButton(
           onPressed: () {
             Navigator.pop(ctx);
-            onOpenSettings();
+            onOpenFolioCloudPitch();
           },
           child: Text(l10n.folioCloudAiNoInkActionCloud),
         ),

@@ -146,6 +146,34 @@ class CloudAccountController extends ChangeNotifier {
     await auth.signOut();
   }
 
+  /// Refresca el perfil del usuario (p. ej. tras abrir el enlace de verificación de correo).
+  /// Notifica a los oyentes porque [authStateChanges] no siempre emite tras [User.reload].
+  Future<void> reloadCurrentUser() async {
+    final auth = _auth;
+    if (auth == null) {
+      throw StateError('Firebase not initialized');
+    }
+    final current = auth.currentUser;
+    if (current == null) {
+      throw StateError('No hay sesión en Folio Cloud');
+    }
+    await current.reload();
+    notifyListeners();
+  }
+
+  /// Envía el correo de verificación de la dirección actual (cuenta email/contraseña).
+  Future<void> sendEmailVerification() async {
+    final auth = _auth;
+    if (auth == null) {
+      throw StateError('Firebase not initialized');
+    }
+    final current = auth.currentUser;
+    if (current == null) {
+      throw StateError('No hay sesión en Folio Cloud');
+    }
+    await current.sendEmailVerification();
+  }
+
   @override
   void dispose() {
     final sub = _authStateSub;

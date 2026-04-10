@@ -53,6 +53,7 @@ class _SidebarState extends State<Sidebar> {
   final List<String> _recentPageIds = <String>[];
   String? _loadedRecentVaultId;
   String? _lastSelectedPageId;
+  Map<String, bool> _hasChildrenById = const <String, bool>{};
 
   @override
   void initState() {
@@ -192,19 +193,6 @@ class _SidebarState extends State<Sidebar> {
     }
   }
 
-  List<FolioPage> _childrenOf(List<FolioPage> all, String? parentId) {
-    final out = <FolioPage>[];
-    for (final p in all) {
-      if (p.parentId == parentId) {
-        out.add(p);
-      }
-    }
-    return out;
-  }
-
-  bool _hasChildren(FolioPage p) =>
-      session.pages.any((x) => x.parentId == p.id);
-
   bool _isCollapsed(String pageId) => _collapsedPageIds.contains(pageId);
 
   void _toggleCollapsed(String pageId) {
@@ -216,6 +204,40 @@ class _SidebarState extends State<Sidebar> {
       }
     });
     unawaited(_persistCollapsedState());
+  }
+
+  ({List<_VisiblePageRow> rows, Map<String, bool> hasChildrenById})
+      _buildVisiblePageRows(List<FolioPage> pages) {
+    final childrenByParent = <String?, List<FolioPage>>{};
+    final childCounts = <String, int>{};
+
+    // Preserve ordering by iterating `pages` once and appending.
+    for (final p in pages) {
+      (childrenByParent[p.parentId] ??= <FolioPage>[]).add(p);
+      final pid = p.parentId;
+      if (pid != null) {
+        childCounts[pid] = (childCounts[pid] ?? 0) + 1;
+      }
+    }
+
+    final hasChildrenById = <String, bool>{
+      for (final p in pages) p.id: (childCounts[p.id] ?? 0) > 0,
+    };
+
+    final rows = <_VisiblePageRow>[];
+    void walk(String? parentId, double indent) {
+      final kids = childrenByParent[parentId];
+      if (kids == null) return;
+      for (final p in kids) {
+        rows.add(_VisiblePageRow(page: p, indent: indent));
+        if (hasChildrenById[p.id] == true && !_isCollapsed(p.id)) {
+          walk(p.id, indent + 14);
+        }
+      }
+    }
+
+    walk(null, 4);
+    return (rows: rows, hasChildrenById: hasChildrenById);
   }
 
   Future<void> _setPageEmoji(BuildContext context, FolioPage page) async {
@@ -688,9 +710,9 @@ class _SidebarState extends State<Sidebar> {
     final scheme = Theme.of(context).colorScheme;
     final selected = page.id == session.selectedPageId;
     final showRowActions = selected || _hoveredPageId == page.id;
-    final hasChildren = _hasChildren(page);
+    final hasChildren = _hasChildrenById[page.id] ?? false;
     final collapsed = _isCollapsed(page.id);
-    final canDelete = session.pages.length > 1 && !_hasChildren(page);
+    final canDelete = session.pages.length > 1 && !hasChildren;
 
     return Padding(
       padding: EdgeInsets.fromLTRB(indent, 0, 0, FolioSpace.xs),
@@ -730,13 +752,20 @@ class _SidebarState extends State<Sidebar> {
           child: InkWell(
             onTap: () => session.selectPage(page.id),
             onDoubleTap: () => _rename(context, page),
-            child: Padding(
-              padding: const EdgeInsets.symmetric(
-                horizontal: FolioSpace.xs,
-                vertical: FolioSpace.xs,
-              ),
-              child: LayoutBuilder(
-                builder: (context, constraints) {
+            child: Semantics(
+              selected: selected,
+              button: true,
+              label: page.title,
+              value: hasChildren
+                  ? (collapsed ? 'Colapsado' : 'Expandido')
+                  : null,
+              child: Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: FolioSpace.xs,
+                  vertical: FolioSpace.xs,
+                ),
+                child: LayoutBuilder(
+                  builder: (context, constraints) {
                   // Durante el resize del panel el ancho puede ser muy pequeño; la fila de
                   // acciones tiene ancho intrínseco alto y provoca overflow si no se omite.
                   final allowInlineActions =
@@ -910,29 +939,14 @@ class _SidebarState extends State<Sidebar> {
                       ),
                     ],
                   );
-                },
+                  },
+                ),
               ),
             ),
           ),
         ),
       ),
     );
-  }
-
-  List<Widget> _buildLevel(
-    BuildContext context,
-    String? parentId,
-    double indent,
-  ) {
-    final kids = _childrenOf(session.pages, parentId);
-    final tiles = <Widget>[];
-    for (final p in kids) {
-      tiles.add(_tile(context, p, indent));
-      if (_hasChildren(p) && !_isCollapsed(p.id)) {
-        tiles.addAll(_buildLevel(context, p.id, indent + 14));
-      }
-    }
-    return tiles;
   }
 
   Widget _recentPagesSection(BuildContext context) {
@@ -1009,6 +1023,10 @@ class _SidebarState extends State<Sidebar> {
         widget.onForceSync != null ||
         widget.onLock != null;
     final scheme = Theme.of(context).colorScheme;
+
+    final visible = _buildVisiblePageRows(session.pages);
+    _hasChildrenById = visible.hasChildrenById;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -1113,10 +1131,14 @@ class _SidebarState extends State<Sidebar> {
             ),
             child: Scrollbar(
               controller: _pagesScrollController,
-              child: ListView(
+              child: ListView.builder(
                 controller: _pagesScrollController,
                 padding: EdgeInsets.zero,
-                children: _buildLevel(context, null, 4),
+                itemCount: visible.rows.length,
+                itemBuilder: (context, index) {
+                  final row = visible.rows[index];
+                  return _tile(context, row.page, row.indent);
+                },
               ),
             ),
           ),
@@ -1138,4 +1160,10 @@ class _SidebarState extends State<Sidebar> {
       ],
     );
   }
+}
+
+class _VisiblePageRow {
+  const _VisiblePageRow({required this.page, required this.indent});
+  final FolioPage page;
+  final double indent;
 }

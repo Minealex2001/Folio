@@ -806,6 +806,24 @@ abstract class AppLocalizations {
   /// **'Desbloqueo rápido desactivado'**
   String get quickUnlockDisabledSnack;
 
+  /// No description provided for @quickUnlockEnableFailed.
+  ///
+  /// In es, this message translates to:
+  /// **'No se pudo activar el desbloqueo rápido.'**
+  String get quickUnlockEnableFailed;
+
+  /// No description provided for @passkeyRevokeConfirmTitle.
+  ///
+  /// In es, this message translates to:
+  /// **'¿Quitar la passkey?'**
+  String get passkeyRevokeConfirmTitle;
+
+  /// No description provided for @passkeyRevokeConfirmBody.
+  ///
+  /// In es, this message translates to:
+  /// **'Necesitarás la contraseña maestra para desbloquear hasta que registres una passkey nueva en este dispositivo.'**
+  String get passkeyRevokeConfirmBody;
+
   /// No description provided for @passkeyRegisteredSnack.
   ///
   /// In es, this message translates to:
@@ -3692,6 +3710,60 @@ abstract class AppLocalizations {
   /// **'Tu libreta local sigue en este dispositivo.'**
   String get cloudAccountSignOutHelp;
 
+  /// No description provided for @cloudAccountEmailUnverifiedBanner.
+  ///
+  /// In es, this message translates to:
+  /// **'Verifica tu correo para asegurar tu cuenta Folio Cloud.'**
+  String get cloudAccountEmailUnverifiedBanner;
+
+  /// No description provided for @cloudAccountResendVerification.
+  ///
+  /// In es, this message translates to:
+  /// **'Reenviar correo de verificación'**
+  String get cloudAccountResendVerification;
+
+  /// No description provided for @cloudAccountReloadVerification.
+  ///
+  /// In es, this message translates to:
+  /// **'Ya verifiqué'**
+  String get cloudAccountReloadVerification;
+
+  /// No description provided for @cloudAccountVerificationSent.
+  ///
+  /// In es, this message translates to:
+  /// **'Correo de verificación enviado.'**
+  String get cloudAccountVerificationSent;
+
+  /// No description provided for @cloudAccountVerificationStillPending.
+  ///
+  /// In es, this message translates to:
+  /// **'El correo sigue sin verificarse. Abre el enlace de tu bandeja de entrada.'**
+  String get cloudAccountVerificationStillPending;
+
+  /// No description provided for @cloudAccountVerificationNowVerified.
+  ///
+  /// In es, this message translates to:
+  /// **'Correo verificado.'**
+  String get cloudAccountVerificationNowVerified;
+
+  /// No description provided for @cloudAccountResetPasswordEmail.
+  ///
+  /// In es, this message translates to:
+  /// **'Restablecer contraseña por correo'**
+  String get cloudAccountResetPasswordEmail;
+
+  /// No description provided for @cloudAccountCopyEmail.
+  ///
+  /// In es, this message translates to:
+  /// **'Copiar correo'**
+  String get cloudAccountCopyEmail;
+
+  /// No description provided for @cloudAccountEmailCopied.
+  ///
+  /// In es, this message translates to:
+  /// **'Correo copiado.'**
+  String get cloudAccountEmailCopied;
+
   /// No description provided for @folioWebPortalSubsectionTitle.
   ///
   /// In es, this message translates to:
@@ -3937,6 +4009,54 @@ abstract class AppLocalizations {
   /// In es, this message translates to:
   /// **'Folio Cloud 4,99 €/mes'**
   String get folioCloudSubscribeMonthly;
+
+  /// No description provided for @folioCloudPitchScreenTitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Folio Cloud'**
+  String get folioCloudPitchScreenTitle;
+
+  /// No description provided for @folioCloudPitchHeadline.
+  ///
+  /// In es, this message translates to:
+  /// **'Tu libreta sigue en el dispositivo. La nube entra cuando tú quieres.'**
+  String get folioCloudPitchHeadline;
+
+  /// No description provided for @folioCloudPitchSubhead.
+  ///
+  /// In es, this message translates to:
+  /// **'Un plan mensual desbloquea copias cifradas, IA alojada en la nube con recarga mensual de tinta y publicación web: solo lo que decidas compartir.'**
+  String get folioCloudPitchSubhead;
+
+  /// No description provided for @folioCloudPitchLearnMore.
+  ///
+  /// In es, this message translates to:
+  /// **'Ver qué incluye'**
+  String get folioCloudPitchLearnMore;
+
+  /// No description provided for @folioCloudPitchCtaNeedAccount.
+  ///
+  /// In es, this message translates to:
+  /// **'Iniciar sesión o crear cuenta'**
+  String get folioCloudPitchCtaNeedAccount;
+
+  /// No description provided for @folioCloudPitchGuestTeaserTitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Cuenta Folio Cloud'**
+  String get folioCloudPitchGuestTeaserTitle;
+
+  /// No description provided for @folioCloudPitchGuestTeaserBody.
+  ///
+  /// In es, this message translates to:
+  /// **'Cuenta opcional: mira qué incluye el plan y entra cuando quieras suscribirte.'**
+  String get folioCloudPitchGuestTeaserBody;
+
+  /// No description provided for @folioCloudPitchOpenSettingsToSignIn.
+  ///
+  /// In es, this message translates to:
+  /// **'Abre Ajustes e inicia sesión en Folio Cloud (sección Folio Cloud) para suscribirte.'**
+  String get folioCloudPitchOpenSettingsToSignIn;
 
   /// No description provided for @folioCloudBuyInk.
   ///

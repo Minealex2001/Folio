@@ -138,6 +138,9 @@
   "usePasskey": "Use passkey",
   "quickUnlockEnabledSnack": "Quick unlock enabled",
   "quickUnlockDisabledSnack": "Quick unlock disabled",
+  "quickUnlockEnableFailed": "Could not enable quick unlock.",
+  "passkeyRevokeConfirmTitle": "Remove passkey?",
+  "passkeyRevokeConfirmBody": "You will need your master password to unlock until you register a new passkey on this device.",
   "passkeyRegisteredSnack": "Passkey registered",
   "passkeyRevokedSnack": "Passkey revoked",
   "masterPasswordUpdatedSnack": "Master password updated",
@@ -652,6 +655,15 @@
   ,"cloudAuthResetHint": "We will email you a link to set a new password."
   ,"cloudAccountEmailVerified": "Verified"
   ,"cloudAccountSignOutHelp": "Your local vault stays on this device."
+  ,"cloudAccountEmailUnverifiedBanner": "Verify your email to secure your Folio Cloud account."
+  ,"cloudAccountResendVerification": "Resend verification email"
+  ,"cloudAccountReloadVerification": "I've verified"
+  ,"cloudAccountVerificationSent": "Verification email sent."
+  ,"cloudAccountVerificationStillPending": "Email is still not verified. Open the link in your inbox."
+  ,"cloudAccountVerificationNowVerified": "Email verified."
+  ,"cloudAccountResetPasswordEmail": "Reset password by email"
+  ,"cloudAccountCopyEmail": "Copy email"
+  ,"cloudAccountEmailCopied": "Email copied."
   ,"folioWebPortalSubsectionTitle": "Web account"
   ,"folioWebPortalLinkCodeLabel": "Pairing code"
   ,"folioWebPortalLinkHelp": "Generate the code on the web app under Settings → Folio account, then enter it here within about 10 minutes."
@@ -700,6 +712,14 @@
   ,"@folioCloudInkCount": {"placeholders": {"count": {"type": "int"}}}
   ,"folioCloudPlanActiveHeadline": "Folio Cloud monthly plan active"
   ,"folioCloudSubscribeMonthly": "Folio Cloud €4.99/mo"
+  ,"folioCloudPitchScreenTitle": "Folio Cloud"
+  ,"folioCloudPitchHeadline": "Your vault stays local. The cloud works when you want it."
+  ,"folioCloudPitchSubhead": "One monthly plan unlocks encrypted backups, hosted cloud AI with a monthly ink allowance, and publishing to the web—only for what you choose to share."
+  ,"folioCloudPitchLearnMore": "See what's included"
+  ,"folioCloudPitchCtaNeedAccount": "Sign in or create account"
+  ,"folioCloudPitchGuestTeaserTitle": "Folio Cloud account"
+  ,"folioCloudPitchGuestTeaserBody": "Optional account: see what the plan includes, then sign in when you want to subscribe."
+  ,"folioCloudPitchOpenSettingsToSignIn": "Open Settings and sign in to Folio Cloud (Folio Cloud section) to subscribe."
   ,"folioCloudBuyInk": "Buy ink"
   ,"folioCloudInkSmall": "Small ink (€1.99)"
   ,"folioCloudInkMedium": "Medium ink (€4.99)"

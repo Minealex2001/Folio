@@ -45,6 +45,7 @@ import '../../services/updater/update_release_channel.dart';
 import '../../session/vault_session.dart';
 import 'release_readiness.dart';
 import 'folio_cloud_reauth_dialog.dart';
+import 'folio_cloud_subscription_pitch_page.dart';
 import 'vault_identity_verify_dialog.dart';
 import '../../services/vault_scheduled_local_export.dart';
 
@@ -498,12 +499,15 @@ class _SettingsPageState extends State<SettingsPage> {
     );
   }
 
-  Future<void> _showCloudPasswordResetDialog() async {
+  Future<void> _showCloudPasswordResetDialog({String? fixedEmail}) async {
     if (!_cloud.isAvailable) return;
     final l10n = AppLocalizations.of(context);
     final email = await showDialog<String?>(
       context: context,
-      builder: (ctx) => _CloudPasswordResetDialog(l10n: l10n),
+      builder: (ctx) => _CloudPasswordResetDialog(
+        l10n: l10n,
+        fixedEmail: fixedEmail,
+      ),
     );
     if (email == null || email.isEmpty) return;
     try {
@@ -517,6 +521,48 @@ class _SettingsPageState extends State<SettingsPage> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(_cloudAuthErrorMessage(l10n, e.code))),
       );
+    }
+  }
+
+  Future<void> _sendCloudEmailVerification() async {
+    if (!_cloud.isAvailable || !_cloud.isSignedIn) return;
+    final l10n = AppLocalizations.of(context);
+    try {
+      await _cloud.sendEmailVerification();
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(l10n.cloudAccountVerificationSent)),
+      );
+    } on FirebaseAuthException catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(_cloudAuthErrorMessage(l10n, e.code))),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$e')));
+    }
+  }
+
+  Future<void> _reloadCloudUserVerificationStatus() async {
+    if (!_cloud.isAvailable || !_cloud.isSignedIn) return;
+    final l10n = AppLocalizations.of(context);
+    try {
+      await _cloud.reloadCurrentUser();
+      if (!mounted) return;
+      final verified = _cloud.user?.emailVerified ?? false;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            verified
+                ? l10n.cloudAccountVerificationNowVerified
+                : l10n.cloudAccountVerificationStillPending,
+          ),
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$e')));
     }
   }
 
@@ -1474,6 +1520,34 @@ class _SettingsPageState extends State<SettingsPage> {
     if (err != null) {
       _snack(_l10nFolioWebPortalError(AppLocalizations.of(context), err));
     }
+  }
+
+  void _openFolioCloudSubscriptionPitch() {
+    if (_folioCloudActionBusy) return;
+    final l10n = AppLocalizations.of(context);
+    final signedIn = _cloud.isSignedIn;
+    Navigator.of(context).push<void>(
+      MaterialPageRoute<void>(
+        builder: (ctx) => FolioCloudSubscriptionPitchPage(
+          busy: _folioCloudActionBusy,
+          primaryCtaLabel: signedIn
+              ? l10n.folioCloudSubscribeMonthly
+              : l10n.folioCloudPitchCtaNeedAccount,
+          primaryIcon: signedIn
+              ? Icons.subscriptions_outlined
+              : Icons.person_add_outlined,
+          onPrimaryCta: () {
+            Navigator.of(ctx).pop();
+            if (!mounted) return;
+            if (signedIn) {
+              unawaited(_openFolioCheckout(FolioCheckoutKind.folioCloudMonthly));
+            } else {
+              unawaited(_showCloudAuthDialog(register: false));
+            }
+          },
+        ),
+      ),
+    );
   }
 
   Future<void> _openFolioCheckout(FolioCheckoutKind kind) async {
@@ -3027,7 +3101,9 @@ class _SettingsPageState extends State<SettingsPage> {
                                                 l10n.quickUnlockEnabledSnack,
                                               );
                                             } catch (e) {
-                                              _snack('');
+                                              _snack(
+                                                '${l10n.quickUnlockEnableFailed} $e',
+                                              );
                                             }
                                           },
                                           child: Text(l10n.enable),
@@ -3041,8 +3117,43 @@ class _SettingsPageState extends State<SettingsPage> {
                                   trailing: _passkeyRegistered
                                       ? TextButton(
                                           onPressed: () async {
+                                            final ok = await showDialog<bool>(
+                                              context: context,
+                                              builder: (ctx) => AlertDialog(
+                                                title: Text(
+                                                  l10n.passkeyRevokeConfirmTitle,
+                                                ),
+                                                content: Text(
+                                                  l10n.passkeyRevokeConfirmBody,
+                                                ),
+                                                actions: [
+                                                  TextButton(
+                                                    onPressed: () =>
+                                                        Navigator.of(
+                                                          ctx,
+                                                        ).pop(false),
+                                                    child: Text(
+                                                      AppLocalizations.of(
+                                                        ctx,
+                                                      ).cancel,
+                                                    ),
+                                                  ),
+                                                  FilledButton(
+                                                    onPressed: () =>
+                                                        Navigator.of(
+                                                          ctx,
+                                                        ).pop(true),
+                                                    child: Text(
+                                                      l10n.revoke,
+                                                    ),
+                                                  ),
+                                                ],
+                                              ),
+                                            );
+                                            if (ok != true || !mounted) return;
                                             await _s.revokePasskey();
                                             await _refreshSecurityFlags();
+                                            if (!mounted) return;
                                             _snack(l10n.passkeyRevokedSnack);
                                           },
                                           child: Text(l10n.revoke),
@@ -3058,7 +3169,7 @@ class _SettingsPageState extends State<SettingsPage> {
                                             } on PasskeyAuthCancelledException {
                                               // ignorar
                                             } catch (e) {
-                                              _snack('Passkey: ');
+                                              _snack('$e');
                                             }
                                           },
                                           child: Text(l10n.register),
@@ -4610,16 +4721,60 @@ class _SettingsPageState extends State<SettingsPage> {
                                                             CrossAxisAlignment
                                                                 .start,
                                                         children: [
-                                                          Text(
-                                                            email,
-                                                            style: Theme.of(context)
-                                                                .textTheme
-                                                                .titleSmall
-                                                                ?.copyWith(
-                                                                  fontWeight:
-                                                                      FontWeight
-                                                                          .w700,
+                                                          Row(
+                                                            crossAxisAlignment:
+                                                                CrossAxisAlignment
+                                                                    .start,
+                                                            children: [
+                                                              Expanded(
+                                                                child: Text(
+                                                                  email,
+                                                                  style: Theme.of(
+                                                                    context,
+                                                                  )
+                                                                      .textTheme
+                                                                      .titleSmall
+                                                                      ?.copyWith(
+                                                                        fontWeight:
+                                                                            FontWeight
+                                                                                .w700,
+                                                                      ),
                                                                 ),
+                                                              ),
+                                                              if (email != '—')
+                                                                IconButton(
+                                                                  tooltip: l10n
+                                                                      .cloudAccountCopyEmail,
+                                                                  onPressed:
+                                                                      () async {
+                                                                    await Clipboard.setData(
+                                                                      ClipboardData(
+                                                                        text:
+                                                                            email,
+                                                                      ),
+                                                                    );
+                                                                    if (!context
+                                                                        .mounted) {
+                                                                      return;
+                                                                    }
+                                                                    ScaffoldMessenger.of(
+                                                                      context,
+                                                                    ).showSnackBar(
+                                                                      SnackBar(
+                                                                        content:
+                                                                            Text(
+                                                                          l10n.cloudAccountEmailCopied,
+                                                                        ),
+                                                                      ),
+                                                                    );
+                                                                  },
+                                                                  icon: const Icon(
+                                                                    Icons
+                                                                        .content_copy_rounded,
+                                                                    size: 20,
+                                                                  ),
+                                                                ),
+                                                            ],
                                                           ),
                                                           if (u.emailVerified)
                                                             Padding(
@@ -4681,6 +4836,88 @@ class _SettingsPageState extends State<SettingsPage> {
                                                     ),
                                                   ],
                                                 ),
+                                                if (u.email != null &&
+                                                    u.email!
+                                                        .trim()
+                                                        .isNotEmpty &&
+                                                    !u.emailVerified) ...[
+                                                  const SizedBox(height: 12),
+                                                  DecoratedBox(
+                                                    decoration: BoxDecoration(
+                                                      color: scheme
+                                                          .errorContainer
+                                                          .withValues(
+                                                            alpha: 0.35,
+                                                          ),
+                                                      borderRadius:
+                                                          BorderRadius.circular(
+                                                            14,
+                                                          ),
+                                                      border: Border.all(
+                                                        color: scheme
+                                                            .outlineVariant
+                                                            .withValues(
+                                                              alpha: 0.45,
+                                                            ),
+                                                      ),
+                                                    ),
+                                                    child: Padding(
+                                                      padding:
+                                                          const EdgeInsets.all(
+                                                            14,
+                                                          ),
+                                                      child: Column(
+                                                        crossAxisAlignment:
+                                                            CrossAxisAlignment
+                                                                .stretch,
+                                                        children: [
+                                                          Text(
+                                                            l10n.cloudAccountEmailUnverifiedBanner,
+                                                            style: Theme.of(
+                                                              context,
+                                                            )
+                                                                .textTheme
+                                                                .bodySmall
+                                                                ?.copyWith(
+                                                                  color: scheme
+                                                                      .onSurfaceVariant,
+                                                                  height: 1.35,
+                                                                ),
+                                                          ),
+                                                          const SizedBox(
+                                                            height: 10,
+                                                          ),
+                                                          Wrap(
+                                                            spacing: 8,
+                                                            runSpacing: 8,
+                                                            children: [
+                                                              OutlinedButton(
+                                                                onPressed: () {
+                                                                  unawaited(
+                                                                    _sendCloudEmailVerification(),
+                                                                  );
+                                                                },
+                                                                child: Text(
+                                                                  l10n.cloudAccountResendVerification,
+                                                                ),
+                                                              ),
+                                                              TextButton(
+                                                                onPressed: () {
+                                                                  unawaited(
+                                                                    _reloadCloudUserVerificationStatus(),
+                                                                  );
+                                                                },
+                                                                child: Text(
+                                                                  l10n.cloudAccountReloadVerification,
+                                                                ),
+                                                              ),
+                                                            ],
+                                                          ),
+                                                        ],
+                                                      ),
+                                                    ),
+                                                  ),
+                                                ],
                                                 const SizedBox(height: 14),
                                                 Text(
                                                   l10n.cloudAccountSignOutHelp,
@@ -4693,6 +4930,30 @@ class _SettingsPageState extends State<SettingsPage> {
                                                         height: 1.35,
                                                       ),
                                                 ),
+                                                if (email != '—') ...[
+                                                  const SizedBox(height: 10),
+                                                  Align(
+                                                    alignment:
+                                                        Alignment.centerLeft,
+                                                    child: TextButton.icon(
+                                                      onPressed: () {
+                                                        unawaited(
+                                                          _showCloudPasswordResetDialog(
+                                                            fixedEmail: email,
+                                                          ),
+                                                        );
+                                                      },
+                                                      icon: const Icon(
+                                                        Icons
+                                                            .lock_reset_rounded,
+                                                        size: 20,
+                                                      ),
+                                                      label: Text(
+                                                        l10n.cloudAccountResetPasswordEmail,
+                                                      ),
+                                                    ),
+                                                  ),
+                                                ],
                                                 const SizedBox(height: 14),
                                                 OutlinedButton.icon(
                                                   onPressed: () async {
@@ -5087,9 +5348,15 @@ class _SettingsPageState extends State<SettingsPage> {
                               ListenableBuilder(
                                 listenable: Listenable.merge([_cloud, _folio]),
                                 builder: (context, _) {
-                                  if (!_folio.isAvailable ||
-                                      !_cloud.isSignedIn) {
+                                  if (!_folio.isAvailable) {
                                     return const SizedBox.shrink();
+                                  }
+                                  if (!_cloud.isSignedIn) {
+                                    return _FolioCloudGuestPitchTeaser(
+                                      scheme: scheme,
+                                      l10n: l10n,
+                                      onOpenPitch: _openFolioCloudSubscriptionPitch,
+                                    );
                                   }
                                   return _FolioCloudSubscriptionPanel(
                                     scheme: scheme,
@@ -5104,6 +5371,7 @@ class _SettingsPageState extends State<SettingsPage> {
                                         _openFolioCheckout(
                                           FolioCheckoutKind.folioCloudMonthly,
                                         ),
+                                    onOpenPitch: _openFolioCloudSubscriptionPitch,
                                     onInkSmall: () => _openFolioCheckout(
                                       FolioCheckoutKind.inkSmall,
                                     ),
@@ -6121,9 +6389,13 @@ class _CloudAuthDialogState extends State<_CloudAuthDialog> {
 }
 
 class _CloudPasswordResetDialog extends StatefulWidget {
-  const _CloudPasswordResetDialog({required this.l10n});
+  const _CloudPasswordResetDialog({
+    required this.l10n,
+    this.fixedEmail,
+  });
 
   final AppLocalizations l10n;
+  final String? fixedEmail;
 
   @override
   State<_CloudPasswordResetDialog> createState() =>
@@ -6135,11 +6407,18 @@ class _CloudPasswordResetDialogState extends State<_CloudPasswordResetDialog> {
   final _email = TextEditingController();
   final _focus = FocusNode();
 
+  bool get _emailLocked =>
+      widget.fixedEmail != null && widget.fixedEmail!.trim().isNotEmpty;
+
   @override
   void initState() {
     super.initState();
+    final locked = widget.fixedEmail?.trim();
+    if (locked != null && locked.isNotEmpty) {
+      _email.text = locked;
+    }
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) _focus.requestFocus();
+      if (mounted && !_emailLocked) _focus.requestFocus();
     });
   }
 
@@ -6198,6 +6477,7 @@ class _CloudPasswordResetDialogState extends State<_CloudPasswordResetDialog> {
             TextFormField(
               controller: _email,
               focusNode: _focus,
+              readOnly: _emailLocked,
               keyboardType: TextInputType.emailAddress,
               autocorrect: false,
               autofillHints: const [AutofillHints.email],
@@ -7443,6 +7723,94 @@ class _SettingsSubsectionTitle extends StatelessWidget {
   }
 }
 
+/// Invitación a ver el pitch de Folio Cloud cuando aún no hay sesión (cuenta opcional).
+class _FolioCloudGuestPitchTeaser extends StatelessWidget {
+  const _FolioCloudGuestPitchTeaser({
+    required this.scheme,
+    required this.l10n,
+    required this.onOpenPitch,
+  });
+
+  final ColorScheme scheme;
+  final AppLocalizations l10n;
+  final VoidCallback onOpenPitch;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        _SettingsSubsectionTitle(
+          title: l10n.folioCloudSubsectionSubscription,
+          scheme: scheme,
+          topPadding: 14,
+        ),
+        const Divider(height: 1),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
+          child: Container(
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              color: scheme.primaryContainer.withValues(alpha: 0.35),
+              borderRadius: BorderRadius.circular(FolioRadius.xl),
+              border: Border.all(
+                color: scheme.outlineVariant.withValues(alpha: 0.4),
+              ),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Icon(
+                      Icons.cloud_outlined,
+                      color: scheme.primary,
+                      size: 28,
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            l10n.folioCloudPitchGuestTeaserTitle,
+                            style: theme.textTheme.titleSmall?.copyWith(
+                              fontWeight: FontWeight.w800,
+                            ),
+                          ),
+                          const SizedBox(height: 6),
+                          Text(
+                            l10n.folioCloudPitchGuestTeaserBody,
+                            style: theme.textTheme.bodySmall?.copyWith(
+                              color: scheme.onSurfaceVariant,
+                              height: 1.35,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: TextButton.icon(
+                    onPressed: onOpenPitch,
+                    icon: const Icon(Icons.info_outline, size: 20),
+                    label: Text(l10n.folioCloudPitchLearnMore),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
 /// Folio Cloud plan, ink, and billing UI inside Settings (signed-in only).
 class _FolioCloudSubscriptionPanel extends StatelessWidget {
   const _FolioCloudSubscriptionPanel({
@@ -7454,6 +7822,7 @@ class _FolioCloudSubscriptionPanel extends StatelessWidget {
     required this.backupCountBusy,
     required this.onRefreshBackupCount,
     required this.onSubscribeMonthly,
+    required this.onOpenPitch,
     required this.onInkSmall,
     required this.onInkMedium,
     required this.onInkLarge,
@@ -7472,6 +7841,7 @@ class _FolioCloudSubscriptionPanel extends StatelessWidget {
   final bool backupCountBusy;
   final VoidCallback onRefreshBackupCount;
   final VoidCallback onSubscribeMonthly;
+  final VoidCallback onOpenPitch;
   final VoidCallback onInkSmall;
   final VoidCallback onInkMedium;
   final VoidCallback onInkLarge;
@@ -7673,6 +8043,17 @@ class _FolioCloudSubscriptionPanel extends StatelessWidget {
                         ),
                       ],
                     ),
+                    if (!snap.active) ...[
+                      const SizedBox(height: 8),
+                      Align(
+                        alignment: Alignment.centerLeft,
+                        child: TextButton.icon(
+                          onPressed: busy ? null : onOpenPitch,
+                          icon: const Icon(Icons.info_outline, size: 20),
+                          label: Text(l10n.folioCloudPitchLearnMore),
+                        ),
+                      ),
+                    ],
                     const SizedBox(height: 12),
                     Row(
                       children: [

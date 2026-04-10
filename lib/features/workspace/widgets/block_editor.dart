@@ -3399,64 +3399,67 @@ class BlockEditorState extends State<BlockEditor> with _BlockRowBuild {
                           (showActions || selected || focus.hasFocus);
                       return KeyedSubtree(
                         key: ValueKey('block_row_${b.id}'),
-                        child: MouseRegion(
-                          onEnter: (_) {
-                            if (_hoveredBlockIndex != index) {
-                              setState(() => _hoveredBlockIndex = index);
-                            }
-                          },
-                          onExit: (_) {
-                            if (_hoveredBlockIndex == index) {
-                              setState(() => _hoveredBlockIndex = null);
-                            }
-                          },
-                          child: GestureDetector(
-                            behavior: HitTestBehavior.translucent,
-                            onTapDown: readOnlyMode
-                                ? null
-                                : (_) => _handleBlockSelection(
-                                    page,
-                                    b.id,
-                                    focusNode: focus,
-                                  ),
-                            onPanStart: readOnlyMode
-                                ? null
-                                : (_) => _beginDragSelection(
-                                    page,
-                                    b.id,
-                                    focusNode: focus,
-                                  ),
-                            onPanUpdate: readOnlyMode
-                                ? null
-                                : (_) => _updateDragSelection(page, b.id),
-                            child: AnimatedContainer(
-                              duration: const Duration(milliseconds: 120),
-                              curve: Curves.easeOut,
-                              margin: EdgeInsets.only(
-                                bottom: androidPhoneLayout ? 6 : 1,
-                              ),
-                              decoration: BoxDecoration(
-                                color: _blockRowFill(
-                                  scheme,
-                                  index,
-                                  focus,
-                                  selected,
+                        child: RepaintBoundary(
+                          child: MouseRegion(
+                            onEnter: (_) {
+                              if (_hoveredBlockIndex != index) {
+                                setState(() => _hoveredBlockIndex = index);
+                              }
+                            },
+                            onExit: (_) {
+                              if (_hoveredBlockIndex == index) {
+                                setState(() => _hoveredBlockIndex = null);
+                              }
+                            },
+                            child: GestureDetector(
+                              behavior: HitTestBehavior.translucent,
+                              onTapDown: readOnlyMode
+                                  ? null
+                                  : (_) => _handleBlockSelection(
+                                        page,
+                                        b.id,
+                                        focusNode: focus,
+                                      ),
+                              onPanStart: readOnlyMode
+                                  ? null
+                                  : (_) => _beginDragSelection(
+                                        page,
+                                        b.id,
+                                        focusNode: focus,
+                                      ),
+                              onPanUpdate: readOnlyMode
+                                  ? null
+                                  : (_) => _updateDragSelection(page, b.id),
+                              child: AnimatedContainer(
+                                duration: const Duration(milliseconds: 120),
+                                curve: Curves.easeOut,
+                                margin: EdgeInsets.only(
+                                  bottom: androidPhoneLayout ? 6 : 1,
                                 ),
-                                borderRadius: BorderRadius.circular(
-                                  androidPhoneLayout ? 14 : 6,
+                                decoration: BoxDecoration(
+                                  color: _blockRowFill(
+                                    scheme,
+                                    index,
+                                    focus,
+                                    selected,
+                                  ),
+                                  borderRadius: BorderRadius.circular(
+                                    androidPhoneLayout ? 14 : 6,
+                                  ),
                                 ),
-                              ),
-                              child: _buildBlockRow(
-                                context: context,
-                                scheme: scheme,
-                                page: page,
-                                block: b,
-                                index: index,
-                                ctrl: ctrl,
-                                focus: focus,
-                                style: style,
-                                showActions: showActions,
-                                showInlineEditControls: showInlineEditControls,
+                                child: _buildBlockRow(
+                                  context: context,
+                                  scheme: scheme,
+                                  page: page,
+                                  block: b,
+                                  index: index,
+                                  ctrl: ctrl,
+                                  focus: focus,
+                                  style: style,
+                                  showActions: showActions,
+                                  showInlineEditControls:
+                                      showInlineEditControls,
+                                ),
                               ),
                             ),
                           ),
