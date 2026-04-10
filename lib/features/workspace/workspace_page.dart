@@ -1,4 +1,5 @@
 ﻿import 'dart:async';
+import 'dart:convert';
 import 'dart:io';
 import 'dart:math' as math;
 
@@ -105,6 +106,8 @@ class _WorkspacePageState extends State<WorkspacePage> {
   bool _showQuillWorkspaceTour = false;
   final Set<String> _expandedThoughtMessageKeys = <String>{};
   final ScrollController _aiChatScrollController = ScrollController();
+  /// Scroll del listado de mensajes cuando el chat va en hoja móvil (DraggableScrollableSheet).
+  ScrollController? _mobileSheetChatScroll;
   String? _lastAiChatIdForScroll;
   int _lastAiChatMessageCount = -1;
   final Set<String> _aiTypewriterActiveMessageKeys = <String>{};
@@ -466,7 +469,16 @@ class _WorkspacePageState extends State<WorkspacePage> {
         _snack('Slug vacío.');
         return;
       }
-      final html = folioPageExportHtmlDocument(page);
+      String? appIconDataUri;
+      try {
+        final data = await rootBundle.load('assets/icons/folio.ico');
+        appIconDataUri =
+            'data:image/x-icon;base64,${base64Encode(data.buffer.asUint8List())}';
+      } catch (_) {}
+      final html = folioPageExportHtmlDocument(
+        page,
+        appIconDataUri: appIconDataUri,
+      );
       final res = await publishHtmlPage(
         slug: slug,
         html: html,
@@ -1340,10 +1352,12 @@ class _WorkspacePageState extends State<WorkspacePage> {
   }
 
   void _scheduleAiChatScrollToBottom() {
+    final controller =
+        _mobileSheetChatScroll ?? _aiChatScrollController;
     void scrollNow() {
-      if (!mounted || !_aiChatScrollController.hasClients) return;
-      final pos = _aiChatScrollController.position;
-      _aiChatScrollController.animateTo(
+      if (!mounted || !controller.hasClients) return;
+      final pos = controller.position;
+      controller.animateTo(
         pos.maxScrollExtent,
         duration: const Duration(milliseconds: 320),
         curve: Curves.easeOutCubic,
@@ -1532,12 +1546,22 @@ class _WorkspacePageState extends State<WorkspacePage> {
     if (!mounted) return;
     if (_showQuillWorkspaceTour) return;
     if (widget.appSettings.hasSeenQuillWorkspaceTour) return;
+    final w = MediaQuery.sizeOf(context).width;
+    final androidMobile = FolioAdaptive.shouldUseMobileWorkspace(w);
+    final compact =
+        w < FolioDesktop.compactBreakpoint || androidMobile;
+    final aiOn = widget.appSettings.isAiRuntimeEnabled && _s.aiEnabled;
     setState(() {
-      if (widget.appSettings.isAiRuntimeEnabled && _s.aiEnabled) {
+      if (aiOn && !compact) {
         _aiPanelCollapsed = false;
       }
       _showQuillWorkspaceTour = true;
     });
+    if (aiOn && compact) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) unawaited(_openMobileAiChatSheet());
+      });
+    }
   }
 
   Future<void> _dismissQuillWorkspaceTour() async {
@@ -1547,8 +1571,13 @@ class _WorkspacePageState extends State<WorkspacePage> {
   }
 
   void _useQuillTourPrompt(String prompt) {
+    final w = MediaQuery.sizeOf(context).width;
+    final androidMobile = FolioAdaptive.shouldUseMobileWorkspace(w);
+    final compact =
+        w < FolioDesktop.compactBreakpoint || androidMobile;
+    final aiOn = widget.appSettings.isAiRuntimeEnabled && _s.aiEnabled;
     setState(() {
-      if (widget.appSettings.isAiRuntimeEnabled && _s.aiEnabled) {
+      if (aiOn && !compact) {
         _aiPanelCollapsed = false;
       }
       _chatInputController.value = TextEditingValue(
@@ -1556,6 +1585,9 @@ class _WorkspacePageState extends State<WorkspacePage> {
         selection: TextSelection.collapsed(offset: prompt.length),
       );
     });
+    if (aiOn && compact) {
+      unawaited(_openMobileAiChatSheet());
+    }
     _chatInputFocusNode.requestFocus();
   }
 
@@ -2275,7 +2307,96 @@ class _WorkspacePageState extends State<WorkspacePage> {
     );
   }
 
-  Widget _buildAiPanel(BuildContext context) {
+  Future<void> _openMobileAiChatSheet() async {
+    if (!mounted) return;
+    try {
+      await showModalBottomSheet<void>(
+        context: context,
+        isScrollControlled: true,
+        backgroundColor: Colors.transparent,
+        builder: (sheetContext) {
+          return DraggableScrollableSheet(
+            initialChildSize: 0.92,
+            minChildSize: 0.38,
+            maxChildSize: 0.98,
+            expand: false,
+            builder: (ctx, scrollController) {
+              _mobileSheetChatScroll = scrollController;
+              final theme = Theme.of(ctx);
+              return Padding(
+                padding: EdgeInsets.only(
+                  bottom: MediaQuery.viewInsetsOf(ctx).bottom,
+                ),
+                child: Material(
+                  color: theme.colorScheme.surface,
+                  borderRadius: const BorderRadius.vertical(
+                    top: Radius.circular(20),
+                  ),
+                  clipBehavior: Clip.antiAlias,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      const SizedBox(height: 10),
+                      Center(
+                        child: Container(
+                          width: 40,
+                          height: 4,
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(999),
+                            color: theme.colorScheme.onSurfaceVariant
+                                .withValues(alpha: 0.35),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      Expanded(
+                        child: _buildAiPanel(
+                          ctx,
+                          onRequestClosePanel: () =>
+                              Navigator.of(sheetContext).pop(),
+                          chatListScrollController: scrollController,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            },
+          );
+        },
+      );
+    } finally {
+      _mobileSheetChatScroll = null;
+    }
+  }
+
+  Widget _wrapWithMobileQuillFabIfNeeded({
+    required bool enabled,
+    required AppLocalizations l10n,
+    required Widget child,
+  }) {
+    if (!enabled) return child;
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.end,
+      children: [
+        FloatingActionButton.small(
+          heroTag: 'mobile_quill_chat_fab',
+          tooltip: l10n.aiShowPanel,
+          onPressed: () => unawaited(_openMobileAiChatSheet()),
+          child: const Icon(Icons.chat_bubble_rounded),
+        ),
+        const SizedBox(height: 12),
+        child,
+      ],
+    );
+  }
+
+  Widget _buildAiPanel(
+    BuildContext context, {
+    VoidCallback? onRequestClosePanel,
+    ScrollController? chatListScrollController,
+  }) {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
     final l10n = AppLocalizations.of(context);
@@ -2507,7 +2628,13 @@ class _WorkspacePageState extends State<WorkspacePage> {
                   ),
                   IconButton(
                     tooltip: l10n.aiHidePanel,
-                    onPressed: () => setState(() => _aiPanelCollapsed = true),
+                    onPressed: () {
+                      if (onRequestClosePanel != null) {
+                        onRequestClosePanel();
+                      } else {
+                        setState(() => _aiPanelCollapsed = true);
+                      }
+                    },
                     icon: const Icon(Icons.unfold_less_rounded),
                   ),
                 ],
@@ -2635,7 +2762,8 @@ class _WorkspacePageState extends State<WorkspacePage> {
                     }
                     final typingExtra = _aiChatBusy ? 1 : 0;
                     return ListView.builder(
-                      controller: _aiChatScrollController,
+                      controller:
+                          chatListScrollController ?? _aiChatScrollController,
                       padding: const EdgeInsets.fromLTRB(14, 16, 14, 14),
                       itemCount: msgs.length + typingExtra,
                       itemBuilder: (context, i) {
@@ -2895,8 +3023,10 @@ class _WorkspacePageState extends State<WorkspacePage> {
     final editorReadOnlyMode = verticalMobileWorkspace && !_mobileEditMode;
     final compact =
         width < FolioDesktop.compactBreakpoint || androidMobileWorkspace;
-    final isAiChromeVisible =
-        !compact && widget.appSettings.isAiRuntimeEnabled && _s.aiEnabled;
+    final aiSessionActive =
+        widget.appSettings.isAiRuntimeEnabled && _s.aiEnabled;
+    final useDesktopAiDock = !compact && aiSessionActive;
+    final useMobileAiDock = compact && aiSessionActive;
     final effectiveSidebarW = compact
         ? 0.0
         : (widget.appSettings.workspaceSidebarCollapsed
@@ -3088,12 +3218,21 @@ class _WorkspacePageState extends State<WorkspacePage> {
           if (canToggleAi)
             _WorkspaceActionEntry(
               id: 'toggle_ai',
-              label: _aiPanelCollapsed ? l10n.aiShowPanel : l10n.aiHidePanel,
-              icon: _aiPanelCollapsed
+              label: useMobileAiDock
+                  ? l10n.aiShowPanel
+                  : (_aiPanelCollapsed
+ ? l10n.aiShowPanel
+                        : l10n.aiHidePanel),
+              icon: useMobileAiDock || _aiPanelCollapsed
                   ? Icons.chat_bubble_outline_rounded
                   : Icons.unfold_less_rounded,
-              onPressed: () =>
-                  setState(() => _aiPanelCollapsed = !_aiPanelCollapsed),
+              onPressed: () {
+                if (useMobileAiDock) {
+                  unawaited(_openMobileAiChatSheet());
+                } else {
+                  setState(() => _aiPanelCollapsed = !_aiPanelCollapsed);
+                }
+              },
               forcePrimary: true,
             ),
         ];
@@ -3312,15 +3451,15 @@ class _WorkspacePageState extends State<WorkspacePage> {
           betaBanner: widget.appSettings.shouldShowBetaBanner
               ? _buildBetaBanner(scheme, l10n)
               : null,
-          aiFloatingPanel: isAiChromeVisible
+          aiFloatingPanel: useDesktopAiDock
               ? (_aiPanelCollapsed
                     ? _buildAiCollapsedFab(context, scheme)
                     : _buildAiPanel(context))
               : null,
           aiFloatingWidth: _aiPanelCollapsed ? 56 : _aiPanelWidth,
           aiFloatingHeight: _aiPanelCollapsed ? 56 : _aiPanelHeight,
-          aiFloatingShowResizeHandles: isAiChromeVisible && !_aiPanelCollapsed,
-          onResizeAiPanelWidth: isAiChromeVisible && !_aiPanelCollapsed
+          aiFloatingShowResizeHandles: useDesktopAiDock && !_aiPanelCollapsed,
+          onResizeAiPanelWidth: useDesktopAiDock && !_aiPanelCollapsed
               ? (d) {
                   final maxW = (width * 0.5).clamp(300.0, 720.0);
                   setState(() {
@@ -3328,7 +3467,7 @@ class _WorkspacePageState extends State<WorkspacePage> {
                   });
                 }
               : null,
-          onResizeAiPanelHeight: isAiChromeVisible && !_aiPanelCollapsed
+          onResizeAiPanelHeight: useDesktopAiDock && !_aiPanelCollapsed
               ? (d) {
                   setState(() {
                     _aiPanelHeight = (_aiPanelHeight + d).clamp(
@@ -3345,50 +3484,56 @@ class _WorkspacePageState extends State<WorkspacePage> {
         floatingActionButton: compact && page != null
             ? Padding(
                 padding: EdgeInsets.only(right: 0),
-                child: verticalMobileWorkspace
-                    ? (_mobileEditMode
-                          ? Column(
-                              mainAxisSize: MainAxisSize.min,
-                              crossAxisAlignment: CrossAxisAlignment.end,
-                              children: [
-                                FloatingActionButton.small(
-                                  heroTag: 'mobile_add_block_fab',
-                                  onPressed: () =>
-                                      _addBlockToCurrentPage(compact: true),
-                                  child: const Icon(Icons.add_rounded),
-                                ),
-                                const SizedBox(height: 12),
-                                FloatingActionButton.extended(
-                                  heroTag: 'mobile_done_edit_fab',
-                                  onPressed: () {
-                                    FocusScope.of(context).unfocus();
-                                    setState(() => _mobileEditMode = false);
-                                  },
-                                  icon: const Icon(Icons.check_rounded),
-                                  label: const Text('Listo'),
-                                ),
-                              ],
-                            )
-                          : FloatingActionButton.extended(
-                              heroTag: 'mobile_enter_edit_fab',
-                              onPressed: () {
-                                setState(() => _mobileEditMode = true);
-                              },
-                              icon: const Icon(Icons.edit_rounded),
-                              label: const Text('Editar'),
-                            ))
-                    : (androidPhoneLayout
-                          ? FloatingActionButton.extended(
-                              onPressed: () =>
-                                  _addBlockToCurrentPage(compact: true),
-                              icon: const Icon(Icons.add_rounded),
-                              label: const Text('Bloque'),
-                            )
-                          : FloatingActionButton(
-                              onPressed: () =>
-                                  _addBlockToCurrentPage(compact: true),
-                              child: const Icon(Icons.add_rounded),
-                            )),
+                child: _wrapWithMobileQuillFabIfNeeded(
+                  enabled: useMobileAiDock,
+                  l10n: l10n,
+                  child: verticalMobileWorkspace
+                      ? (_mobileEditMode
+                            ? Column(
+                                mainAxisSize: MainAxisSize.min,
+                                crossAxisAlignment: CrossAxisAlignment.end,
+                                children: [
+                                  FloatingActionButton.small(
+                                    heroTag: 'mobile_add_block_fab',
+                                    onPressed: () =>
+                                        _addBlockToCurrentPage(compact: true),
+                                    child: const Icon(Icons.add_rounded),
+                                  ),
+                                  const SizedBox(height: 12),
+                                  FloatingActionButton.extended(
+                                    heroTag: 'mobile_done_edit_fab',
+                                    onPressed: () {
+                                      FocusScope.of(context).unfocus();
+                                      setState(() => _mobileEditMode = false);
+                                    },
+                                    icon: const Icon(Icons.check_rounded),
+                                    label: const Text('Listo'),
+                                  ),
+                                ],
+                              )
+                            : FloatingActionButton.extended(
+                                heroTag: 'mobile_enter_edit_fab',
+                                onPressed: () {
+                                  setState(() => _mobileEditMode = true);
+                                },
+                                icon: const Icon(Icons.edit_rounded),
+                                label: const Text('Editar'),
+                              ))
+                      : (androidPhoneLayout
+                            ? FloatingActionButton.extended(
+                                heroTag: 'mobile_add_block_extended_fab',
+                                onPressed: () =>
+                                    _addBlockToCurrentPage(compact: true),
+                                icon: const Icon(Icons.add_rounded),
+                                label: const Text('Bloque'),
+                              )
+                            : FloatingActionButton(
+                                heroTag: 'mobile_add_block_fab_square',
+                                onPressed: () =>
+                                    _addBlockToCurrentPage(compact: true),
+                                child: const Icon(Icons.add_rounded),
+                              )),
+                ),
               )
             : null,
       ),

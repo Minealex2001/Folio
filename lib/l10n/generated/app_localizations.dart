@@ -2411,7 +2411,7 @@ abstract class AppLocalizations {
   /// No description provided for @aiCompareCloudBulletNeedsSub.
   ///
   /// In es, this message translates to:
-  /// **'Requiere suscripción para IA en la nube.'**
+  /// **'Suscripción con IA en la nube o tinta comprada.'**
   String get aiCompareCloudBulletNeedsSub;
 
   /// No description provided for @aiCompareCloudBulletInk.
@@ -2419,6 +2419,12 @@ abstract class AppLocalizations {
   /// In es, this message translates to:
   /// **'Usa tinta para la IA en la nube (packs + recarga mensual).'**
   String get aiCompareCloudBulletInk;
+
+  /// No description provided for @aiProviderFolioCloudBlockedSnack.
+  ///
+  /// In es, this message translates to:
+  /// **'Necesitas suscripción Folio Cloud con IA en la nube o comprar tinta en Ajustes → Folio Cloud.'**
+  String get aiProviderFolioCloudBlockedSnack;
 
   /// No description provided for @aiCompareLocalBulletPrivacy.
   ///
@@ -3686,6 +3692,126 @@ abstract class AppLocalizations {
   /// **'Tu libreta local sigue en este dispositivo.'**
   String get cloudAccountSignOutHelp;
 
+  /// No description provided for @folioWebPortalSubsectionTitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Cuenta web'**
+  String get folioWebPortalSubsectionTitle;
+
+  /// No description provided for @folioWebPortalLinkCodeLabel.
+  ///
+  /// In es, this message translates to:
+  /// **'Código de emparejamiento'**
+  String get folioWebPortalLinkCodeLabel;
+
+  /// No description provided for @folioWebPortalLinkHelp.
+  ///
+  /// In es, this message translates to:
+  /// **'Genera el código en la web, en Ajustes → cuenta Folio, e introdúcelo aquí en los próximos 10 minutos.'**
+  String get folioWebPortalLinkHelp;
+
+  /// No description provided for @folioWebPortalLinkButton.
+  ///
+  /// In es, this message translates to:
+  /// **'Vincular'**
+  String get folioWebPortalLinkButton;
+
+  /// No description provided for @folioWebPortalLinkSuccess.
+  ///
+  /// In es, this message translates to:
+  /// **'Cuenta web vinculada correctamente.'**
+  String get folioWebPortalLinkSuccess;
+
+  /// No description provided for @folioWebPortalNeedSignIn.
+  ///
+  /// In es, this message translates to:
+  /// **'Inicia sesión en Folio Cloud para vincular la cuenta web.'**
+  String get folioWebPortalNeedSignIn;
+
+  /// No description provided for @folioWebMirrorNote.
+  ///
+  /// In es, this message translates to:
+  /// **'Copias, IA y publicación siguen gobernadas por Folio Cloud (Firestore). Lo siguiente refleja tu cuenta en la web.'**
+  String get folioWebMirrorNote;
+
+  /// No description provided for @folioWebEntitlementLinked.
+  ///
+  /// In es, this message translates to:
+  /// **'Cuenta web vinculada'**
+  String get folioWebEntitlementLinked;
+
+  /// No description provided for @folioWebEntitlementNotLinked.
+  ///
+  /// In es, this message translates to:
+  /// **'Cuenta web no vinculada'**
+  String get folioWebEntitlementNotLinked;
+
+  /// No description provided for @folioWebEntitlementWebPlan.
+  ///
+  /// In es, this message translates to:
+  /// **'Folio Cloud (web): {value}'**
+  String folioWebEntitlementWebPlan(String value);
+
+  /// No description provided for @folioWebEntitlementWebStatus.
+  ///
+  /// In es, this message translates to:
+  /// **'Estado (web): {value}'**
+  String folioWebEntitlementWebStatus(String value);
+
+  /// No description provided for @folioWebEntitlementWebPeriodEnd.
+  ///
+  /// In es, this message translates to:
+  /// **'Fin de periodo (web): {value}'**
+  String folioWebEntitlementWebPeriodEnd(String value);
+
+  /// No description provided for @folioWebEntitlementWebInk.
+  ///
+  /// In es, this message translates to:
+  /// **'Tinta (web): {count}'**
+  String folioWebEntitlementWebInk(int count);
+
+  /// No description provided for @folioWebPortalRefreshWeb.
+  ///
+  /// In es, this message translates to:
+  /// **'Actualizar estado web'**
+  String get folioWebPortalRefreshWeb;
+
+  /// No description provided for @folioWebPortalErrorNetwork.
+  ///
+  /// In es, this message translates to:
+  /// **'No se pudo conectar con el portal. Comprueba la conexión.'**
+  String get folioWebPortalErrorNetwork;
+
+  /// No description provided for @folioWebPortalErrorTimeout.
+  ///
+  /// In es, this message translates to:
+  /// **'El portal tardó demasiado en responder.'**
+  String get folioWebPortalErrorTimeout;
+
+  /// No description provided for @folioWebPortalErrorAdminNotConfigured.
+  ///
+  /// In es, this message translates to:
+  /// **'Folio Firebase Admin no está configurado en el servidor (revisa el backend).'**
+  String get folioWebPortalErrorAdminNotConfigured;
+
+  /// No description provided for @folioWebPortalErrorUnauthorized.
+  ///
+  /// In es, this message translates to:
+  /// **'Sesión no válida. Vuelve a iniciar sesión en Folio Cloud.'**
+  String get folioWebPortalErrorUnauthorized;
+
+  /// No description provided for @folioWebPortalErrorGeneric.
+  ///
+  /// In es, this message translates to:
+  /// **'No se pudo completar la operación con el portal.'**
+  String get folioWebPortalErrorGeneric;
+
+  /// No description provided for @folioWebPortalServerMessage.
+  ///
+  /// In es, this message translates to:
+  /// **'{message}'**
+  String folioWebPortalServerMessage(String message);
+
   /// No description provided for @folioCloudSubsectionPlan.
   ///
   /// In es, this message translates to:
@@ -4013,7 +4139,7 @@ abstract class AppLocalizations {
   /// No description provided for @onboardingFolioCloudFeatureAiBody.
   ///
   /// In es, this message translates to:
-  /// **'Quill funciona en Folio Cloud con suscripción. La tinta se consume por uso; también puedes usar IA local (Ollama/LM Studio).'**
+  /// **'Quill en la nube con suscripción Folio Cloud (IA en la nube) o solo comprando tinta. La tinta se consume por uso; también puedes usar IA local (Ollama/LM Studio).'**
   String get onboardingFolioCloudFeatureAiBody;
 
   /// No description provided for @onboardingFolioCloudFeatureWebTitle.

@@ -35,12 +35,35 @@ bool _extractedDirIsPlainBackup(Directory extractedDir) {
   return _modeFileIsPlain(f);
 }
 
+bool _extractedDirIsEncryptedByMode(Directory extractedDir) {
+  final f = File(p.join(extractedDir.path, VaultPaths.vaultModeFile));
+  if (!f.existsSync()) return false;
+  return f.readAsStringSync().trim().toLowerCase() == _vaultModeEncrypted;
+}
+
+/// Libreta sin cifrado: `vault.mode` = plain, o sin `vault.keys` y `vault.bin` decodificable
+/// como [VaultPayload] (p. ej. copia antigua sin `vault.mode`).
+Future<bool> _extractedBackupIsPlain(Directory extractedDir) async {
+  if (_extractedDirIsPlainBackup(extractedDir)) return true;
+  final keysFile = File(p.join(extractedDir.path, VaultPaths.wrappedDekFile));
+  if (keysFile.existsSync()) return false;
+  if (_extractedDirIsEncryptedByMode(extractedDir)) return false;
+  final binFile = File(p.join(extractedDir.path, VaultPaths.cipherPayloadFile));
+  if (!binFile.existsSync()) return false;
+  try {
+    VaultPayload.decodeUtf8(await binFile.readAsBytes());
+    return true;
+  } catch (_) {
+    return false;
+  }
+}
+
 /// Devuelve true si el ZIP representa una copia **en texto plano** (sin cifrado).
 Future<bool> isPlainBackupZip(File zipFile) async {
   final tmp = Directory.systemTemp.createTempSync('folio_backup_probe_');
   try {
     await extractBackupZipToDirectory(zipFile, tmp);
-    return _extractedDirIsPlainBackup(tmp);
+    return _extractedBackupIsPlain(tmp);
   } finally {
     try {
       if (tmp.existsSync()) {
@@ -171,7 +194,7 @@ Future<void> validateImportZip(Directory extractedDir, String password) async {
     throw VaultBackupException('Falta vault.bin en la copia.');
   }
 
-  if (_extractedDirIsPlainBackup(extractedDir)) {
+  if (await _extractedBackupIsPlain(extractedDir)) {
     try {
       VaultPayload.decodeUtf8(await binFile.readAsBytes());
     } catch (_) {
@@ -222,7 +245,7 @@ Future<void> applyImportToVaultRoot(
   final destBin = File(p.join(vaultRoot.path, VaultPaths.cipherPayloadFile));
   final destMode = File(p.join(vaultRoot.path, VaultPaths.vaultModeFile));
 
-  if (_extractedDirIsPlainBackup(extractedDir)) {
+  if (await _extractedBackupIsPlain(extractedDir)) {
     if (destWrapped.existsSync()) {
       await destWrapped.delete();
     }

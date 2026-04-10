@@ -464,7 +464,8 @@ async function refundInkDropCharge(uid: string, amount: number): Promise<void> {
 
 async function chargeInkExtraIfPossible(
   uid: string,
-  extra: number
+  extra: number,
+  allowSubscriptionInk: boolean
 ): Promise<number> {
   if (extra <= 0) return 0;
   const ref = db.collection("users").doc(uid);
@@ -473,12 +474,13 @@ async function chargeInkExtraIfPossible(
     const snap = await tx.get(ref);
     const data = snap.data() ?? {};
     const { monthly, purchased } = readInkBalances(data);
-    const take = Math.min(extra, monthly + purchased);
+    const effectiveMonthly = allowSubscriptionInk ? monthly : 0;
+    const take = Math.min(extra, effectiveMonthly + purchased);
     if (take <= 0) return;
-    const next = debitInkBalances(monthly, purchased, take);
+    const next = debitInkBalances(effectiveMonthly, purchased, take);
     charged = take;
     tx.update(ref, {
-      "ink.monthlyBalance": next.monthly,
+      "ink.monthlyBalance": allowSubscriptionInk ? next.monthly : 0,
       "ink.purchasedBalance": next.purchased,
       "ink.updatedAt": FieldValue.serverTimestamp(),
     });
@@ -540,36 +542,52 @@ async function runFolioCloudAiForUid(
   const baseCost = resolveInkCost(operationKind, promptLengthForInk(input));
   const ref = db.collection("users").doc(uid);
 
+  const inkExhaustedMsg =
+    "Insufficient ink. Buy an ink pack in Folio Cloud settings, wait for your monthly refill with an active subscription, or switch to a local AI provider (Ollama / LM Studio).";
+
+  let allowSubscriptionInk = false;
   await db.runTransaction(async (tx) => {
     const snap = await tx.get(ref);
     const dataDoc = snap.data() ?? {};
     const fc = dataDoc.folioCloud as Record<string, unknown> | undefined;
     const features = fc?.features as Record<string, unknown> | undefined;
-    if (fc?.active !== true || features?.cloudAi !== true) {
-      throw new AiHttpsError(
-        "permission-denied",
-        "Folio Cloud AI requires an active Folio Cloud subscription (cloud AI feature)."
-      );
-    }
+    const hasSubCloudAi =
+      fc?.active === true && features?.cloudAi === true;
+    allowSubscriptionInk = hasSubCloudAi;
+
     const { monthly, purchased } = readInkBalances(dataDoc);
-    if (monthly + purchased < baseCost) {
-      throw new AiHttpsError(
-        "resource-exhausted",
-        "Insufficient ink. Buy an ink pack in Folio Cloud settings, wait for your monthly refill, or switch to a local AI provider (Ollama / LM Studio)."
-      );
+
+    if (hasSubCloudAi) {
+      if (monthly + purchased < baseCost) {
+        throw new AiHttpsError("resource-exhausted", inkExhaustedMsg);
+      }
+      const next = debitInkBalances(monthly, purchased, baseCost);
+      tx.update(ref, {
+        "ink.monthlyBalance": next.monthly,
+        "ink.purchasedBalance": next.purchased,
+        "ink.updatedAt": FieldValue.serverTimestamp(),
+      });
+    } else {
+      if (purchased < baseCost) {
+        throw new AiHttpsError("resource-exhausted", inkExhaustedMsg);
+      }
+      const next = debitInkBalances(0, purchased, baseCost);
+      tx.update(ref, {
+        "ink.monthlyBalance": 0,
+        "ink.purchasedBalance": next.purchased,
+        "ink.updatedAt": FieldValue.serverTimestamp(),
+      });
     }
-    const next = debitInkBalances(monthly, purchased, baseCost);
-    tx.update(ref, {
-      "ink.monthlyBalance": next.monthly,
-      "ink.purchasedBalance": next.purchased,
-      "ink.updatedAt": FieldValue.serverTimestamp(),
-    });
   });
 
   try {
     const { text, totalTokenCount } = await callOpenAiChatStructured(input);
     const extraWant = tokenSurchargeInk(totalTokenCount);
-    const extraCharged = await chargeInkExtraIfPossible(uid, extraWant);
+    const extraCharged = await chargeInkExtraIfPossible(
+      uid,
+      extraWant,
+      allowSubscriptionInk
+    );
     const finalSnap = await ref.get();
     const inkOut = readInkBalances(
       (finalSnap.data() ?? {}) as Record<string, unknown>
@@ -886,6 +904,41 @@ async function syncSubscriptionToUser(
     );
   } else {
     await db.collection("folioCloudSubscribers").doc(uid).delete().catch(() => undefined);
+
+    const FieldPathInactive = admin.firestore.FieldPath;
+    const deleteDottedInactive: Record<string, unknown> = {
+      [new FieldPathInactive("ink.monthlyBalance") as unknown as string]:
+        FieldValue.delete(),
+      [new FieldPathInactive("ink.purchasedBalance") as unknown as string]:
+        FieldValue.delete(),
+      [new FieldPathInactive("ink.monthlyPeriodKey") as unknown as string]:
+        FieldValue.delete(),
+      [new FieldPathInactive("ink.updatedAt") as unknown as string]:
+        FieldValue.delete(),
+    };
+
+    await db.runTransaction(async (tx) => {
+      const snap = await tx.get(ref);
+      const data = (snap.data() ?? {}) as Record<string, unknown>;
+      const inkRaw = (data.ink as Record<string, unknown>) ?? {};
+      const existingPurchased = inkBalanceField(inkRaw.purchasedBalance);
+      const dottedPurchased = inkBalanceField(data["ink.purchasedBalance"]);
+      const purchasedBalance = Math.max(existingPurchased, dottedPurchased);
+
+      tx.set(
+        ref,
+        {
+          ink: {
+            monthlyBalance: 0,
+            purchasedBalance,
+            monthlyPeriodKey: FieldValue.delete(),
+            updatedAt: FieldValue.serverTimestamp(),
+          },
+          ...deleteDottedInactive,
+        },
+        { merge: true }
+      );
+    });
   }
 }
 
@@ -1027,6 +1080,18 @@ async function handleCheckoutSessionCompleted(
         .set({ stripeCustomerId: customerId }, { merge: true });
     }
     await syncSubscriptionToUser(stripe, uid, sub.status, priceId);
+    // Misma sesión puede incluir ítems one-time (p. ej. pack de tinta) además de la sub.
+    // `grantPaymentCheckoutInkIfNeeded` solo suma gotas para precios de tinta; el precio
+    // de la suscripción devuelve 0 en `inkDropsForPriceId`.
+    if (expanded.payment_status !== "paid") {
+      console.warn(
+        "checkout session: subscription mode, not paid yet — ink add-on will apply on async success",
+        expanded.id,
+        expanded.payment_status
+      );
+      return;
+    }
+    await grantPaymentCheckoutInkIfNeeded(stripe, uid, expanded);
     return;
   }
   if (customerId) {
@@ -1217,6 +1282,8 @@ export const createCheckoutSession = onCall(
       session = await stripe.checkout.sessions.create({
         mode: isSubscription ? "subscription" : "payment",
         line_items: [{ price: priceId, quantity: 1 }],
+        // Cupones/códigos creados en Stripe Dashboard (Product catalog → Coupons).
+        allow_promotion_codes: true,
         success_url: successUrl.includes("?")
           ? `${successUrl}&session_id={CHECKOUT_SESSION_ID}`
           : `${successUrl}?session_id={CHECKOUT_SESSION_ID}`,

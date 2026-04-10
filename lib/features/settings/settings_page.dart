@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:file_picker/file_picker.dart';
@@ -35,6 +36,8 @@ import '../../services/folio_cloud/folio_cloud_billing.dart';
 import '../../services/folio_cloud/folio_cloud_checkout.dart';
 import '../../services/folio_cloud/folio_cloud_entitlements.dart';
 import '../../services/folio_cloud/folio_cloud_publish.dart';
+import '../../services/folio_cloud/folio_web_portal_api.dart';
+import '../../services/folio_cloud/folio_page_html_export.dart';
 import '../../services/device_sync/device_sync_controller.dart';
 import '../../services/device_sync/device_sync_models.dart';
 import '../../services/updater/github_release_updater.dart';
@@ -86,6 +89,7 @@ class _SettingsPageState extends State<SettingsPage> {
   late final TextEditingController _aiContextWindowController;
   late final TextEditingController _customIconSourceController;
   late final TextEditingController _customIconLabelController;
+  late final TextEditingController _webLinkCodeController;
   List<String> _availableModels = const [];
   bool _loadingModels = false;
   bool _checkingUpdates = false;
@@ -94,6 +98,7 @@ class _SettingsPageState extends State<SettingsPage> {
   String _installedVersionLabel = '...';
   bool _releaseStatusBusy = false;
   bool _folioCloudActionBusy = false;
+  bool _webLinkBusy = false;
   int? _cloudBackupCount;
   bool _cloudBackupCountBusy = false;
   ReleaseReadinessSnapshot _releaseSnapshot = const ReleaseReadinessSnapshot(
@@ -124,6 +129,7 @@ class _SettingsPageState extends State<SettingsPage> {
     );
     _customIconSourceController = TextEditingController();
     _customIconLabelController = TextEditingController();
+    _webLinkCodeController = TextEditingController();
     _availableModels = _app.cachedAiModelsFor(_app.aiProvider);
     _settingsScrollController.addListener(_handleSettingsScroll);
     _settingsSectionFilterController.addListener(() {
@@ -144,6 +150,7 @@ class _SettingsPageState extends State<SettingsPage> {
     _aiContextWindowController.dispose();
     _customIconSourceController.dispose();
     _customIconLabelController.dispose();
+    _webLinkCodeController.dispose();
     super.dispose();
   }
 
@@ -1392,6 +1399,83 @@ class _SettingsPageState extends State<SettingsPage> {
     }
   }
 
+  String _l10nFolioWebPortalError(
+    AppLocalizations l10n,
+    FolioWebPortalException e,
+  ) {
+    final d = e.detail?.trim();
+    switch (e.kind) {
+      case FolioWebPortalErrorKind.network:
+      case FolioWebPortalErrorKind.invalidBaseUrl:
+        return l10n.folioWebPortalErrorNetwork;
+      case FolioWebPortalErrorKind.timeout:
+        return l10n.folioWebPortalErrorTimeout;
+      case FolioWebPortalErrorKind.adminNotConfigured:
+        return l10n.folioWebPortalErrorAdminNotConfigured;
+      case FolioWebPortalErrorKind.unauthorized:
+        return l10n.folioWebPortalErrorUnauthorized;
+      case FolioWebPortalErrorKind.forbidden:
+      case FolioWebPortalErrorKind.notFound:
+      case FolioWebPortalErrorKind.conflict:
+      case FolioWebPortalErrorKind.badRequest:
+      case FolioWebPortalErrorKind.linkRejected:
+      case FolioWebPortalErrorKind.serverError:
+      case FolioWebPortalErrorKind.invalidJson:
+      case FolioWebPortalErrorKind.entitlementParse:
+        if (d != null && d.isNotEmpty) {
+          return l10n.folioWebPortalServerMessage(d);
+        }
+        return l10n.folioWebPortalErrorGeneric;
+    }
+  }
+
+  Future<void> _linkFolioWebPortalAccount() async {
+    if (!AppSettings.folioWebPortalLinkEnabled) return;
+    if (_webLinkBusy) return;
+    final l10n = AppLocalizations.of(context);
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) {
+      _snack(l10n.folioWebPortalNeedSignIn);
+      return;
+    }
+    final base = _app.folioWebPortalBaseUrlEffective;
+    setState(() => _webLinkBusy = true);
+    try {
+      final token = await user.getIdToken(true);
+      if (token == null || token.isEmpty) {
+        if (mounted) _snack(l10n.folioWebPortalErrorUnauthorized);
+        return;
+      }
+      await linkFolioWebAccount(
+        portalBaseUrl: base,
+        linkCode: _webLinkCodeController.text,
+        idToken: token,
+      );
+      if (!mounted) return;
+      _webLinkCodeController.clear();
+      _snack(l10n.folioWebPortalLinkSuccess);
+      await _folio.refreshWebPortalEntitlement();
+    } on FolioWebPortalException catch (e) {
+      if (mounted) {
+        _snack(_l10nFolioWebPortalError(l10n, e));
+      }
+    } catch (e) {
+      if (mounted) _snack('$e');
+    } finally {
+      if (mounted) setState(() => _webLinkBusy = false);
+    }
+  }
+
+  Future<void> _refreshFolioWebPortalEntitlement() async {
+    if (!AppSettings.folioWebPortalLinkEnabled) return;
+    await _folio.refreshWebPortalEntitlement();
+    if (!mounted) return;
+    final err = _folio.webPortalRefreshError;
+    if (err != null) {
+      _snack(_l10nFolioWebPortalError(AppLocalizations.of(context), err));
+    }
+  }
+
   Future<void> _openFolioCheckout(FolioCheckoutKind kind) async {
     if (_folioCloudActionBusy) return;
     setState(() => _folioCloudActionBusy = true);
@@ -1513,11 +1597,22 @@ class _SettingsPageState extends State<SettingsPage> {
     setState(() => _folioCloudActionBusy = true);
     try {
       final slug = 'demo-${DateTime.now().millisecondsSinceEpoch}';
+      String? appIconDataUri;
+      try {
+        final data = await rootBundle.load('assets/icons/folio.ico');
+        appIconDataUri =
+            'data:image/x-icon;base64,${base64Encode(data.buffer.asUint8List())}';
+      } catch (_) {}
+      final html = folioWebExportShellHtml(
+        documentTitle: 'Folio',
+        pageHeading: 'Folio',
+        pageSubtitle: 'Página de prueba',
+        bodyHtml: '<p>Página publicada desde Folio.</p>',
+        appIconDataUri: appIconDataUri,
+      );
       final res = await publishHtmlPage(
         slug: slug,
-        html:
-            '<!DOCTYPE html><html lang="es"><head><meta charset="utf-8"><title>Folio</title></head>'
-            '<body><main><h1>Folio</h1><p>Página publicada desde Folio.</p></main></body></html>',
+        html: html,
         entitlementSnapshot: snap,
       );
       _snack(_t('Publicado: ${res.publicUrl}', 'Published: ${res.publicUrl}'));
@@ -3373,14 +3468,24 @@ class _SettingsPageState extends State<SettingsPage> {
                                   title: l10n.ai,
                                   description: _app.aiProvider ==
                                           AiProvider.folioCloud
-                                      ? _t(
-                                          'La IA se ejecuta en Folio Cloud con tu suscripción. Elige otro proveedor abajo para configurar Ollama o LM Studio en local.',
-                                          'AI runs on Folio Cloud with your subscription. Choose another provider below to set up Ollama or LM Studio locally.',
-                                        )
-                                      : _t(
-                                          'Conecta Ollama o LM Studio en local; el asistente usa el modelo y el contexto que configures aquí.',
-                                          'Connect Ollama or LM Studio locally; the assistant uses the model and context you set here.',
-                                        ),
+                                      ? (aiLocalProvidersSupported
+                                          ? _t(
+                                              'La IA se ejecuta en Folio Cloud (suscripción con IA en la nube o tinta comprada). Elige otro proveedor abajo para Ollama o LM Studio en local.',
+                                              'AI runs on Folio Cloud (subscription with cloud AI or purchased ink). Pick another provider below for local Ollama or LM Studio.',
+                                            )
+                                          : _t(
+                                              'La IA se ejecuta en Folio Cloud (suscripción con IA en la nube o tinta comprada).',
+                                              'AI runs on Folio Cloud (subscription with cloud AI or purchased ink).',
+                                            ))
+                                      : (aiLocalProvidersSupported
+                                          ? _t(
+                                              'Conecta Ollama o LM Studio en local; el asistente usa el modelo y el contexto que configures aquí.',
+                                              'Connect Ollama or LM Studio locally; the assistant uses the model and context you set here.',
+                                            )
+                                          : _t(
+                                              'En este dispositivo Quill solo puede usar Folio Cloud. Elige Folio Cloud como proveedor cuando quieras activar la IA.',
+                                              'On this device Quill can only use Folio Cloud. Choose Folio Cloud as the provider when you want to enable AI.',
+                                            )),
                                   chips: _app.aiProvider ==
                                           AiProvider.folioCloud
                                       ? [
@@ -3398,14 +3503,16 @@ class _SettingsPageState extends State<SettingsPage> {
                                             icon: Icons.hub_outlined,
                                             label: l10n.aiProviderLabel,
                                           ),
-                                          _SettingsInfoChip(
-                                            icon: Icons.psychology_outlined,
-                                            label: l10n.aiModel,
-                                          ),
-                                          _SettingsInfoChip(
-                                            icon: Icons.assistant_navigation,
-                                            label: l10n.aiSetupAssistantTitle,
-                                          ),
+                                          if (aiLocalProvidersSupported) ...[
+                                            _SettingsInfoChip(
+                                              icon: Icons.psychology_outlined,
+                                              label: l10n.aiModel,
+                                            ),
+                                            _SettingsInfoChip(
+                                              icon: Icons.assistant_navigation,
+                                              label: l10n.aiSetupAssistantTitle,
+                                            ),
+                                          ],
                                         ],
                                 ),
                                 Padding(
@@ -3560,6 +3667,9 @@ class _SettingsPageState extends State<SettingsPage> {
                                                   ],
                                                 );
 
+                                                if (!aiLocalProvidersSupported) {
+                                                  return cloudCard;
+                                                }
                                                 if (narrow) {
                                                   return Column(
                                                     children: [
@@ -3607,9 +3717,11 @@ class _SettingsPageState extends State<SettingsPage> {
                                                 await _confirmQuillGlobalScopeIfNeeded();
                                             if (!acceptedScope) return;
                                             if (!_app.hasCompletedQuillSetup) {
-                                              final configured =
-                                                  await _autoDetectAndConfigureAiProvider();
-                                              if (!configured) return;
+                                              if (aiLocalProvidersSupported) {
+                                                final configured =
+                                                    await _autoDetectAndConfigureAiProvider();
+                                                if (!configured) return;
+                                              }
                                               await _app
                                                   .setHasCompletedQuillSetup(
                                                     true,
@@ -3628,8 +3740,9 @@ class _SettingsPageState extends State<SettingsPage> {
                                     padding: EdgeInsets.fromLTRB(16, 0, 16, 12),
                                     child: LinearProgressIndicator(),
                                   ),
-                                if (_app.aiProvider !=
-                                    AiProvider.folioCloud) ...[
+                                if (aiLocalProvidersSupported &&
+                                    _app.aiProvider !=
+                                        AiProvider.folioCloud) ...[
                                   const Divider(height: 1),
                                   ListTile(
                                     leading: const Icon(
@@ -3658,8 +3771,9 @@ class _SettingsPageState extends State<SettingsPage> {
                                       ? _app.setAiAlwaysShowThought
                                       : null,
                                 ),
-                                if (_app.aiProvider !=
-                                    AiProvider.folioCloud) ...[
+                                if (aiLocalProvidersSupported &&
+                                    _app.aiProvider !=
+                                        AiProvider.folioCloud) ...[
                                   const Divider(height: 1),
                                   SwitchListTile(
                                     secondary: const Icon(
@@ -3744,12 +3858,7 @@ class _SettingsPageState extends State<SettingsPage> {
                                           return;
                                         }
                                         if (!_folio.snapshot.canUseCloudAi) {
-                                          _snack(
-                                            _t(
-                                              'Tu plan no incluye IA en la nube o la suscripción no está activa.',
-                                              'Your plan does not include cloud AI or the subscription is not active.',
-                                            ),
-                                          );
+                                          _snack(l10n.aiProviderFolioCloudBlockedSnack);
                                           return;
                                         }
                                       }
@@ -3786,14 +3895,16 @@ class _SettingsPageState extends State<SettingsPage> {
                                         value: AiProvider.none,
                                         child: Text(l10n.aiProviderNone),
                                       ),
-                                      DropdownMenuItem(
-                                        value: AiProvider.ollama,
-                                        child: Text('Ollama'),
-                                      ),
-                                      DropdownMenuItem(
-                                        value: AiProvider.lmStudio,
-                                        child: Text('LM Studio'),
-                                      ),
+                                      if (aiLocalProvidersSupported) ...[
+                                        DropdownMenuItem(
+                                          value: AiProvider.ollama,
+                                          child: Text('Ollama'),
+                                        ),
+                                        DropdownMenuItem(
+                                          value: AiProvider.lmStudio,
+                                          child: Text('LM Studio'),
+                                        ),
+                                      ],
                                       DropdownMenuItem(
                                         value: AiProvider.folioCloud,
                                         child: const Text('Folio Cloud'),
@@ -3801,8 +3912,9 @@ class _SettingsPageState extends State<SettingsPage> {
                                     ],
                                   ),
                                 ),
-                                if (_app.aiProvider !=
-                                    AiProvider.folioCloud) ...[
+                                if (aiLocalProvidersSupported &&
+                                    _app.aiProvider !=
+                                        AiProvider.folioCloud) ...[
                                   const Divider(height: 1),
                                   ListTile(
                                     leading: const Icon(Icons.link_rounded),
@@ -4724,6 +4836,247 @@ class _SettingsPageState extends State<SettingsPage> {
                                                 ),
                                               ),
                                             ),
+                                          ],
+                                        ),
+                                      ),
+                                    ),
+                                  );
+                                },
+                              ),
+                              ListenableBuilder(
+                                listenable: Listenable.merge([
+                                  _cloud,
+                                  _folio,
+                                ]),
+                                builder: (context, _) {
+                                  if (!AppSettings.folioWebPortalLinkEnabled) {
+                                    return const SizedBox.shrink();
+                                  }
+                                  if (!_folio.isAvailable ||
+                                      !_cloud.isSignedIn) {
+                                    return const SizedBox.shrink();
+                                  }
+                                  final panelScheme =
+                                      Theme.of(context).colorScheme;
+                                  final panelL10n =
+                                      AppLocalizations.of(context);
+                                  final webSnap = _folio.webPortalEntitlement;
+                                  return Padding(
+                                    padding: const EdgeInsets.fromLTRB(
+                                      16,
+                                      8,
+                                      16,
+                                      8,
+                                    ),
+                                    child: DecoratedBox(
+                                      decoration: BoxDecoration(
+                                        color:
+                                            panelScheme.surfaceContainerLow,
+                                        borderRadius: BorderRadius.circular(18),
+                                        border: Border.all(
+                                          color: panelScheme.outlineVariant
+                                              .withValues(alpha: 0.4),
+                                        ),
+                                      ),
+                                      child: Padding(
+                                        padding: const EdgeInsets.all(18),
+                                        child: Column(
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.stretch,
+                                          children: [
+                                            Text(
+                                              panelL10n
+                                                  .folioWebPortalSubsectionTitle,
+                                              style: Theme.of(context)
+                                                  .textTheme
+                                                  .titleSmall
+                                                  ?.copyWith(
+                                                    fontWeight: FontWeight.w700,
+                                                  ),
+                                            ),
+                                            const SizedBox(height: 6),
+                                            Text(
+                                              panelL10n.folioWebMirrorNote,
+                                              style: Theme.of(context)
+                                                  .textTheme
+                                                  .bodySmall
+                                                  ?.copyWith(
+                                                    color: panelScheme
+                                                        .onSurfaceVariant,
+                                                    height: 1.35,
+                                                  ),
+                                            ),
+                                            const SizedBox(height: 14),
+                                            Text(
+                                              panelL10n.folioWebPortalLinkHelp,
+                                              style: Theme.of(context)
+                                                  .textTheme
+                                                  .bodySmall
+                                                  ?.copyWith(
+                                                    color: panelScheme
+                                                        .onSurfaceVariant,
+                                                    height: 1.35,
+                                                  ),
+                                            ),
+                                            const SizedBox(height: 10),
+                                            TextField(
+                                              controller: _webLinkCodeController,
+                                              decoration: InputDecoration(
+                                                labelText: panelL10n
+                                                    .folioWebPortalLinkCodeLabel,
+                                                border:
+                                                    const OutlineInputBorder(),
+                                              ),
+                                              textCapitalization:
+                                                  TextCapitalization.characters,
+                                              autocorrect: false,
+                                              enabled: !_webLinkBusy,
+                                            ),
+                                            const SizedBox(height: 12),
+                                            Row(
+                                              children: [
+                                                Expanded(
+                                                  child: FilledButton(
+                                                    onPressed: _webLinkBusy
+                                                        ? null
+                                                        : _linkFolioWebPortalAccount,
+                                                    child: _webLinkBusy
+                                                        ? const SizedBox(
+                                                            height: 22,
+                                                            width: 22,
+                                                            child:
+                                                                CircularProgressIndicator(
+                                                              strokeWidth: 2,
+                                                            ),
+                                                          )
+                                                        : Text(
+                                                            panelL10n
+                                                                .folioWebPortalLinkButton,
+                                                          ),
+                                                  ),
+                                                ),
+                                                IconButton(
+                                                  tooltip: panelL10n
+                                                      .folioWebPortalRefreshWeb,
+                                                  onPressed:
+                                                      _refreshFolioWebPortalEntitlement,
+                                                  icon: const Icon(
+                                                    Icons.refresh_rounded,
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                            if (_folio.webPortalRefreshError !=
+                                                null) ...[
+                                              const SizedBox(height: 10),
+                                              Text(
+                                                _l10nFolioWebPortalError(
+                                                  panelL10n,
+                                                  _folio.webPortalRefreshError!,
+                                                ),
+                                                style: Theme.of(context)
+                                                    .textTheme
+                                                    .bodySmall
+                                                    ?.copyWith(
+                                                      color:
+                                                          panelScheme.error,
+                                                    ),
+                                              ),
+                                            ],
+                                            if (webSnap != null) ...[
+                                              const SizedBox(height: 14),
+                                              Text(
+                                                webSnap.linked
+                                                    ? panelL10n
+                                                        .folioWebEntitlementLinked
+                                                    : panelL10n
+                                                        .folioWebEntitlementNotLinked,
+                                                style: Theme.of(context)
+                                                    .textTheme
+                                                    .bodyMedium
+                                                    ?.copyWith(
+                                                      fontWeight:
+                                                          FontWeight.w600,
+                                                    ),
+                                              ),
+                                              if (webSnap.folioCloud !=
+                                                  null) ...[
+                                                const SizedBox(height: 6),
+                                                Text(
+                                                  panelL10n
+                                                      .folioWebEntitlementWebPlan(
+                                                    webSnap.folioCloud!
+                                                        ? _t('Sí', 'Yes')
+                                                        : _t('No', 'No'),
+                                                  ),
+                                                  style: Theme.of(context)
+                                                      .textTheme
+                                                      .bodySmall
+                                                      ?.copyWith(
+                                                        color: panelScheme
+                                                            .onSurfaceVariant,
+                                                      ),
+                                                ),
+                                              ],
+                                              if (webSnap.folioCloudStatus !=
+                                                      null &&
+                                                  webSnap
+                                                      .folioCloudStatus!
+                                                      .isNotEmpty) ...[
+                                                const SizedBox(height: 4),
+                                                Text(
+                                                  panelL10n
+                                                      .folioWebEntitlementWebStatus(
+                                                    webSnap.folioCloudStatus!,
+                                                  ),
+                                                  style: Theme.of(context)
+                                                      .textTheme
+                                                      .bodySmall
+                                                      ?.copyWith(
+                                                        color: panelScheme
+                                                            .onSurfaceVariant,
+                                                      ),
+                                                ),
+                                              ],
+                                              if (webSnap.folioCloudPeriodEnd !=
+                                                      null &&
+                                                  webSnap
+                                                      .folioCloudPeriodEnd!
+                                                      .isNotEmpty) ...[
+                                                const SizedBox(height: 4),
+                                                Text(
+                                                  panelL10n
+                                                      .folioWebEntitlementWebPeriodEnd(
+                                                    webSnap
+                                                        .folioCloudPeriodEnd!,
+                                                  ),
+                                                  style: Theme.of(context)
+                                                      .textTheme
+                                                      .bodySmall
+                                                      ?.copyWith(
+                                                        color: panelScheme
+                                                            .onSurfaceVariant,
+                                                      ),
+                                                ),
+                                              ],
+                                              if (webSnap.folioInkCredits !=
+                                                  null) ...[
+                                                const SizedBox(height: 4),
+                                                Text(
+                                                  panelL10n
+                                                      .folioWebEntitlementWebInk(
+                                                    webSnap.folioInkCredits!,
+                                                  ),
+                                                  style: Theme.of(context)
+                                                      .textTheme
+                                                      .bodySmall
+                                                      ?.copyWith(
+                                                        color: panelScheme
+                                                            .onSurfaceVariant,
+                                                      ),
+                                                ),
+                                              ],
+                                            ],
                                           ],
                                         ),
                                       ),

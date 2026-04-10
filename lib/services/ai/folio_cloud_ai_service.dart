@@ -54,10 +54,12 @@ String _mapFolioCloudAiError(FirebaseFunctionsException e) {
     case 'permission-denied':
       return details.isNotEmpty
           ? details
-          : 'Folio Cloud requiere suscripción activa e IA en la nube en tu plan. '
+          : 'La IA en la nube requiere suscripción Folio Cloud con IA en la nube o tinta comprada. '
               'Revisa Ajustes → Folio Cloud.';
     case 'resource-exhausted':
-      return 'No quedan gotas de tinta suficientes. Compra un tintero o espera la recarga mensual.';
+      return details.isNotEmpty
+          ? details
+          : 'No quedan gotas de tinta suficientes. Compra un tintero, espera la recarga mensual si tienes suscripción activa o usa IA local.';
     case 'unavailable':
       return details.isNotEmpty
           ? details
@@ -81,7 +83,8 @@ String _mapFolioCloudAiError(FirebaseFunctionsException e) {
   }
 }
 
-/// Hosted AI via Cloud Functions (keys stay on server). Requires Folio Cloud subscription.
+/// Hosted AI via Cloud Functions (keys stay on server). Requires Folio Cloud
+/// subscription with cloud AI, or purchased ink without subscription.
 ///
 /// La callable solo recibe texto (`prompt` + `operationKind`): no se envían adjuntos ni
 /// historial estructurado; el historial se aplana en [_mergePrompt].

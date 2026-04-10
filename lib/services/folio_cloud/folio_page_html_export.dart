@@ -2,6 +2,7 @@ import 'package:markdown/markdown.dart' as md;
 
 import '../../models/folio_page.dart';
 import '../run2doc/run2doc_markdown_codec.dart';
+import 'folio_web_export_config.dart';
 
 String _folioEscapeHtml(String s) {
   return s
@@ -57,26 +58,104 @@ String _folioTransformCalloutBlockquotes(String html) {
   });
 }
 
-/// HTML mínimo para [publishHtmlPage] (contenido vía Markdown de la página).
-String folioPageExportHtmlDocument(FolioPage page) {
-  final mdBody = FolioMarkdownCodec.exportPage(
-    page,
-    includeFrontMatter: false,
-  );
-  var bodyHtml = md.markdownToHtml(
-    mdBody,
-    extensionSet: md.ExtensionSet.gitHubFlavored,
-  );
-  bodyHtml = _folioTransformCalloutBlockquotes(bodyHtml);
-  final title = page.title.trim().isEmpty ? 'Folio' : page.title.trim();
-  final t = _folioEscapeHtml(title);
+/// SVG mínimo cuando no hay icono embebido (data URI).
+const String _folioPromoSvgFallback =
+    '<svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 40 40" aria-hidden="true" class="folio-promo__icon folio-promo__icon-svg">'
+    '<rect width="40" height="40" rx="10" fill="currentColor" opacity="0.18"/>'
+    '<text x="20" y="27" text-anchor="middle" fill="currentColor" font-family="ui-sans-serif,system-ui,sans-serif" font-size="18" font-weight="700">F</text>'
+    '</svg>';
+
+String _folioPromoBarHtml(String? appIconDataUri) {
+  final esc = _folioEscapeHtml;
+  final href = folioWebExportResolvedDownloadHref();
+  final logo =
+      appIconDataUri != null && appIconDataUri.trim().isNotEmpty
+          ? '<img class="folio-promo__icon" src="${esc(appIconDataUri.trim())}" width="40" height="40" alt="" decoding="async">'
+          : _folioPromoSvgFallback;
+
+  final cta =
+      href != null
+          ? '<a class="folio-promo__cta" href="${esc(href)}" rel="noopener noreferrer" target="_blank" aria-label="Descargar la aplicación Folio">Descargar Folio</a>'
+          : '<span class="folio-promo__cta folio-promo__cta--static" aria-disabled="true">Descargar Folio</span>';
+
+  final storeLinks = <String>[];
+  void addStore(String label, String url) {
+    final u = url.trim();
+    if (u.isEmpty) return;
+    storeLinks.add(
+      '<a class="folio-promo__store" href="${esc(u)}" rel="noopener noreferrer" target="_blank">$label</a>',
+    );
+  }
+
+  addStore('Android', folioWebExportPlayUrl);
+  addStore('iOS', folioWebExportAppStoreUrl);
+  addStore('Windows', folioWebExportMicrosoftStoreUrl);
+
+  final storesHtml =
+      storeLinks.isEmpty
+          ? ''
+          : '<div class="folio-promo__stores" role="navigation" aria-label="Enlaces a tiendas">${storeLinks.join('<span class="folio-promo__sep" aria-hidden="true">·</span>')}</div>';
+
+  return '<aside class="folio-promo" role="complementary">\n'
+      '<div class="folio-promo__inner">\n'
+      '<div class="folio-promo__brand">\n'
+      '$logo\n'
+      '<div class="folio-promo__text">\n'
+      '<span class="folio-promo__name">Folio</span>\n'
+      '<span class="folio-promo__tagline">Vista web · Para editar y sincronizar, usa Folio en tu dispositivo.</span>\n'
+      '</div>\n'
+      '</div>\n'
+      '<div class="folio-promo__actions">\n'
+      '$cta\n'
+      '$storesHtml\n'
+      '</div>\n'
+      '</div>\n'
+      '</aside>\n';
+}
+
+String _folioFooterHtml() {
+  final esc = _folioEscapeHtml;
+  final href = folioWebExportResolvedDownloadHref();
+  final cta =
+      href != null
+          ? '<div><a class="folio-footer__cta" href="${esc(href)}" rel="noopener noreferrer" target="_blank">Descargar Folio</a></div>\n'
+          : '';
+  return '<footer class="folio-footer">\n'
+      '<div>Folio · Publicación web</div>\n'
+      '$cta'
+      '</footer>\n';
+}
+
+/// Documento HTML completo para una página publicada (export real o demo en ajustes).
+///
+/// [documentTitle] y [pageHeading] se escapan para `<title>` y `<h1>`.
+/// [pageSubtitle] se escapa para el subtítulo bajo el título.
+/// [bodyHtml] debe ser HTML ya generado (p. ej. Markdown → HTML).
+String folioWebExportShellHtml({
+  required String documentTitle,
+  required String pageHeading,
+  required String pageSubtitle,
+  required String bodyHtml,
+  String? appIconDataUri,
+}) {
+  final dt = _folioEscapeHtml(documentTitle);
+  final ph = _folioEscapeHtml(pageHeading);
+  final ps = _folioEscapeHtml(pageSubtitle);
+  final promo = _folioPromoBarHtml(appIconDataUri);
+  final footer = _folioFooterHtml();
+  final favicon =
+      appIconDataUri != null && appIconDataUri.trim().isNotEmpty
+          ? '<link rel="icon" href="${_folioEscapeHtml(appIconDataUri.trim())}">\n'
+          : '';
+
   return '<!DOCTYPE html>\n'
       '<html lang="es">\n'
       '<head>\n'
       '<meta charset="utf-8">\n'
       '<meta name="viewport" content="width=device-width, initial-scale=1">\n'
       '<meta name="color-scheme" content="light dark">\n'
-      '<title>$t</title>\n'
+      '$favicon'
+      '<title>$dt</title>\n'
       '<style>\n'
       ':root{--bg:#0b0c0f;--panel:#11131a;--text:#e9eaf0;--muted:#a7adbb;'
       '--border:rgba(255,255,255,.12);--link:#7cb7ff;--linkHover:#a6d2ff;'
@@ -90,7 +169,26 @@ String folioPageExportHtmlDocument(FolioPage page) {
       '--shadow:0 12px 30px rgba(2,6,23,.12);}}\n'
       'html,body{height:100%;}\n'
       'body{margin:0;background:var(--bg);color:var(--text);font-family:var(--sans);line-height:1.6;}\n'
-      '.folio-shell{min-height:100%;padding:48px 16px;}\n'
+      '.folio-shell{min-height:100%;padding:32px 16px 48px;}\n'
+      '.folio-promo{position:sticky;top:0;z-index:10;max-width:var(--max);margin:0 auto 16px;padding:14px 16px;background:var(--panel);border:1px solid var(--border);border-radius:var(--radius);box-shadow:var(--shadow);}\n'
+      '.folio-promo__inner{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:14px;}\n'
+      '.folio-promo__brand{display:flex;align-items:center;gap:12px;min-width:0;flex:1 1 220px;}\n'
+      '.folio-promo__icon{flex-shrink:0;width:40px;height:40px;border-radius:10px;display:block;}\n'
+      '.folio-promo__icon-svg{color:var(--link);}\n'
+      '.folio-promo__text{display:flex;flex-direction:column;gap:2px;min-width:0;}\n'
+      '.folio-promo__name{font-weight:700;font-size:15px;letter-spacing:-.02em;line-height:1.2;color:var(--text);}\n'
+      '.folio-promo__tagline{font-size:12px;line-height:1.35;color:var(--muted);}\n'
+      '.folio-promo__actions{display:flex;flex-wrap:wrap;align-items:center;gap:10px 14px;justify-content:flex-end;}\n'
+      '.folio-promo__cta{display:inline-flex;align-items:center;justify-content:center;padding:10px 18px;font-size:14px;font-weight:600;border-radius:999px;background:var(--link);color:#fff;text-decoration:none;line-height:1.2;border:none;cursor:pointer;}\n'
+      '.folio-promo__cta:hover{background:var(--linkHover);color:#fff;text-decoration:none;}\n'
+      '.folio-promo__cta:focus-visible{outline:2px solid var(--linkHover);outline-offset:2px;}\n'
+      '.folio-promo__cta--static{background:rgba(255,255,255,.12);color:var(--muted);cursor:default;}\n'
+      '@media (prefers-color-scheme: light){.folio-promo__cta--static{background:rgba(15,23,42,.08);color:var(--muted);}}\n'
+      '.folio-promo__stores{display:flex;flex-wrap:wrap;align-items:center;gap:6px;font-size:12px;color:var(--muted);}\n'
+      '.folio-promo__store{color:var(--link);text-decoration:none;}\n'
+      '.folio-promo__store:hover{text-decoration:underline;color:var(--linkHover);}\n'
+      '.folio-promo__store:focus-visible{outline:2px solid var(--link);outline-offset:2px;border-radius:4px;}\n'
+      '.folio-promo__sep{opacity:.5;user-select:none;}\n'
       '.folio-card{max-width:var(--max);margin:0 auto;background:var(--panel);border:1px solid var(--border);border-radius:var(--radius);box-shadow:var(--shadow);}\n'
       '.folio-header{padding:28px clamp(18px,3vw,var(--pad)) 8px;}\n'
       '.folio-title{margin:0;font-size:clamp(26px,3.6vw,40px);letter-spacing:-.02em;line-height:1.15;}\n'
@@ -134,21 +232,46 @@ String folioPageExportHtmlDocument(FolioPage page) {
       '.folio-callout__body > :first-child{margin-top:0;}\n'
       '.folio-callout__body > :last-child{margin-bottom:0;}\n'
       '.folio-footer{padding:14px clamp(18px,3vw,var(--pad)) 20px;border-top:1px solid var(--border);color:var(--muted);font-size:12px;}\n'
+      '.folio-footer__cta{display:inline-block;margin-top:8px;color:var(--link);text-decoration:none;font-weight:600;font-size:13px;}\n'
+      '.folio-footer__cta:hover{text-decoration:underline;color:var(--linkHover);}\n'
+      '.folio-footer__cta:focus-visible{outline:2px solid var(--link);outline-offset:2px;border-radius:6px;}\n'
       '</style>\n'
       '</head>\n'
       '<body>\n'
       '<div class="folio-shell">\n'
+      '$promo'
       '<article class="folio-card">\n'
       '<header class="folio-header">\n'
-      '<h1 class="folio-title">$t</h1>\n'
-      '<div class="folio-subtitle">Publicado con Folio</div>\n'
+      '<h1 class="folio-title">$ph</h1>\n'
+      '<div class="folio-subtitle">$ps</div>\n'
       '</header>\n'
       '<main class="folio-content">\n'
       '$bodyHtml\n'
       '</main>\n'
-      '<footer class="folio-footer">Folio · Publicación web</footer>\n'
+      '$footer'
       '</article>\n'
       '</div>\n'
       '</body>\n'
       '</html>\n';
+}
+
+/// HTML para [publishHtmlPage] (contenido vía Markdown de la página).
+String folioPageExportHtmlDocument(FolioPage page, {String? appIconDataUri}) {
+  final mdBody = FolioMarkdownCodec.exportPage(
+    page,
+    includeFrontMatter: false,
+  );
+  var bodyHtml = md.markdownToHtml(
+    mdBody,
+    extensionSet: md.ExtensionSet.gitHubFlavored,
+  );
+  bodyHtml = _folioTransformCalloutBlockquotes(bodyHtml);
+  final title = page.title.trim().isEmpty ? 'Folio' : page.title.trim();
+  return folioWebExportShellHtml(
+    documentTitle: title,
+    pageHeading: title,
+    pageSubtitle: 'Publicado con Folio',
+    bodyHtml: bodyHtml,
+    appIconDataUri: appIconDataUri,
+  );
 }

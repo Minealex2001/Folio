@@ -59,6 +59,32 @@ void main() {
       expect(snap.canUseCloudAi, isFalse);
     });
 
+    test('canUseCloudAi with purchased ink only (no subscription)', () {
+      final snap = FolioCloudSnapshot.fromUserDoc(<String, dynamic>{
+        'ink': <String, dynamic>{
+          'monthlyBalance': 0,
+          'purchasedBalance': 100,
+        },
+      });
+      expect(snap.active, isFalse);
+      expect(snap.cloudAi, isFalse);
+      expect(snap.canUseCloudAi, isTrue);
+    });
+
+    test('canUseCloudAi false when inactive subscription and no purchased ink', () {
+      final snap = FolioCloudSnapshot.fromUserDoc(<String, dynamic>{
+        'folioCloud': <String, dynamic>{
+          'active': false,
+          'features': <String, dynamic>{'cloudAi': true},
+        },
+        'ink': <String, dynamic>{
+          'monthlyBalance': 0,
+          'purchasedBalance': 0,
+        },
+      });
+      expect(snap.canUseCloudAi, isFalse);
+    });
+
     test('null data yields empty', () {
       expect(FolioCloudSnapshot.fromUserDoc(null), FolioCloudSnapshot.empty);
     });

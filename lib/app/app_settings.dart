@@ -11,6 +11,13 @@ import '../services/updater/update_release_channel.dart';
 
 enum AiProvider { none, ollama, lmStudio, folioCloud }
 
+/// Ollama y LM Studio solo en escritorio y web; en Android/iOS Quill usa Folio Cloud.
+bool get aiLocalProvidersSupported {
+  if (kIsWeb) return true;
+  return defaultTargetPlatform != TargetPlatform.android &&
+      defaultTargetPlatform != TargetPlatform.iOS;
+}
+
 enum AiEndpointMode { localhostOnly, allowRemote }
 
 class CustomIconEntry {
@@ -229,6 +236,21 @@ class AppSettings extends ChangeNotifier {
   static const UpdateReleaseChannel defaultUpdateReleaseChannel =
       UpdateReleaseChannel.stable;
 
+  /// Portal Folio (vinculación cuenta web). Puede sustituirse con [folioWebPortalBaseUrlFromEnvironment].
+  static const String defaultFolioWebPortalBaseUrl =
+      'http://localhost:3001/';
+
+  /// Si no está vacío, sustituye a [defaultFolioWebPortalBaseUrl] (p. ej. staging vía `--dart-define`).
+  static final String folioWebPortalBaseUrlFromEnvironment =
+      const String.fromEnvironment('FOLIO_WEB_PORTAL_BASE_URL').trim();
+
+  /// UI y llamadas al portal para vincular la cuenta web. **Desactivado por defecto.**
+  /// Activa con `--dart-define=FOLIO_WEB_PORTAL_LINK_ENABLED=true`.
+  static const bool folioWebPortalLinkEnabled = bool.fromEnvironment(
+    'FOLIO_WEB_PORTAL_LINK_ENABLED',
+    defaultValue: false,
+  );
+
   ThemeMode _themeMode = ThemeMode.system;
   Locale? _locale;
   int _vaultIdleLockMinutes = defaultVaultIdleLockMinutes;
@@ -300,8 +322,7 @@ class AppSettings extends ChangeNotifier {
   bool get aiAlwaysShowThought => _aiAlwaysShowThought;
   bool get aiLaunchProviderWithApp => _aiLaunchProviderWithApp;
   int get aiContextWindowTokens => _aiContextWindowTokens;
-  bool get isAiAvailable =>
-      !kIsWeb && defaultTargetPlatform != TargetPlatform.android;
+  bool get isAiAvailable => !kIsWeb;
   bool get isAiRuntimeEnabled => _aiEnabled;
   bool get hasSeenQuillIntro => _hasSeenQuillIntro;
   bool get hasSeenQuillWorkspaceTour => _hasSeenQuillWorkspaceTour;
@@ -334,6 +355,16 @@ class AppSettings extends ChangeNotifier {
   int get lastScheduledVaultBackupMs => _lastScheduledVaultBackupMs;
   bool get scheduledVaultBackupAlsoUploadCloud =>
       _scheduledVaultBackupAlsoUploadCloud;
+
+  /// URL del portal para vincular cuenta web: [folioWebPortalBaseUrlFromEnvironment] o [defaultFolioWebPortalBaseUrl].
+  String get folioWebPortalBaseUrlEffective {
+    final env = folioWebPortalBaseUrlFromEnvironment.trim();
+    if (env.isNotEmpty) {
+      return _normalizeFolioWebPortalBaseUrl(env);
+    }
+    return _normalizeFolioWebPortalBaseUrl(defaultFolioWebPortalBaseUrl);
+  }
+
   List<CustomIconEntry> get customIcons => List.unmodifiable(_customIcons);
   List<CustomIconEntry> integrationCustomIconsForApp(String appId) {
     final key = appId.trim();
@@ -381,9 +412,20 @@ class AppSettings extends ChangeNotifier {
     _closeToTray = p.getBool(_closeToTrayKey) ?? true;
     _aiEnabled = p.getBool(_aiEnabledKey) ?? false;
     _aiProvider = _parseAiProvider(p.getString(_aiProviderKey));
-    _aiBaseUrl =
-        p.getString(_aiBaseUrlKey) ?? defaultUrlForProvider(_aiProvider);
-    _aiModel = p.getString(_aiModelKey) ?? defaultModelForProvider(_aiProvider);
+    if (!aiLocalProvidersSupported &&
+        (_aiProvider == AiProvider.ollama ||
+            _aiProvider == AiProvider.lmStudio)) {
+      _aiProvider = AiProvider.none;
+      await p.setString(_aiProviderKey, _aiProvider.name);
+      _aiBaseUrl = defaultUrlForProvider(_aiProvider);
+      _aiModel = defaultModelForProvider(_aiProvider);
+      await p.setString(_aiBaseUrlKey, _aiBaseUrl);
+      await p.setString(_aiModelKey, _aiModel);
+    } else {
+      _aiBaseUrl =
+          p.getString(_aiBaseUrlKey) ?? defaultUrlForProvider(_aiProvider);
+      _aiModel = p.getString(_aiModelKey) ?? defaultModelForProvider(_aiProvider);
+    }
     _aiTimeoutMs = _sanitizeTimeoutMs(p.getInt(_aiTimeoutMsKey));
     _aiEndpointMode = _parseAiEndpointMode(p.getString(_aiEndpointModeKey));
     _aiRemoteEndpointConfirmed =
@@ -793,6 +835,10 @@ class AppSettings extends ChangeNotifier {
   }
 
   Future<void> setAiProvider(AiProvider value) async {
+    if (!aiLocalProvidersSupported &&
+        (value == AiProvider.ollama || value == AiProvider.lmStudio)) {
+      return;
+    }
     if (_aiProvider == value) return;
     _aiProvider = value;
     if (value == AiProvider.folioCloud) {
@@ -820,6 +866,14 @@ class AppSettings extends ChangeNotifier {
     notifyListeners();
     final p = await SharedPreferences.getInstance();
     await p.setString(_aiBaseUrlKey, safe);
+  }
+
+  static String _normalizeFolioWebPortalBaseUrl(String s) {
+    var t = s.trim();
+    while (t.endsWith('/')) {
+      t = t.substring(0, t.length - 1);
+    }
+    return t;
   }
 
   Future<void> setAiModel(String value) async {

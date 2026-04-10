@@ -119,6 +119,12 @@ class _FolioAppState extends State<FolioApp> with WidgetsBindingObserver {
     unawaited(_deviceSyncController.load());
     _applySessionSecurityPolicy();
     _folioCloudEntitlements.addListener(_onFolioCloudEntitlements);
+    _folioCloudEntitlements.setWebPortalBaseUrlResolver(
+      () => AppSettings.folioWebPortalLinkEnabled
+          ? widget.appSettings.folioWebPortalBaseUrlEffective
+          : '',
+    );
+    unawaited(_folioCloudEntitlements.refreshWebPortalEntitlement());
     _applyAiSettings();
     _applyDeviceSyncSettings();
     _maybeLaunchAiProvider();
@@ -389,7 +395,7 @@ class _FolioAppState extends State<FolioApp> with WidgetsBindingObserver {
   }
 
   void _maybeLaunchAiProvider() {
-    if (defaultTargetPlatform == TargetPlatform.android) return;
+    if (!aiLocalProvidersSupported) return;
     final s = widget.appSettings;
     if (!s.aiLaunchProviderWithApp) return;
     if (!s.isAiRuntimeEnabled) return;
@@ -400,7 +406,7 @@ class _FolioAppState extends State<FolioApp> with WidgetsBindingObserver {
   }
 
   void _applyAiSettings() {
-    if (defaultTargetPlatform == TargetPlatform.android) {
+    if (!aiLocalProvidersSupported) {
       if (!widget.appSettings.isAiRuntimeEnabled) {
         widget.session.setAiService(null);
         return;

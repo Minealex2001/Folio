@@ -1291,11 +1291,15 @@ class AppLocalizationsEs extends AppLocalizations {
 
   @override
   String get aiCompareCloudBulletNeedsSub =>
-      'Requiere suscripción para IA en la nube.';
+      'Suscripción con IA en la nube o tinta comprada.';
 
   @override
   String get aiCompareCloudBulletInk =>
       'Usa tinta para la IA en la nube (packs + recarga mensual).';
+
+  @override
+  String get aiProviderFolioCloudBlockedSnack =>
+      'Necesitas suscripción Folio Cloud con IA en la nube o comprar tinta en Ajustes → Folio Cloud.';
 
   @override
   String get aiCompareLocalBulletPrivacy => 'Privacidad local (tu equipo).';
@@ -2041,6 +2045,84 @@ class AppLocalizationsEs extends AppLocalizations {
       'Tu libreta local sigue en este dispositivo.';
 
   @override
+  String get folioWebPortalSubsectionTitle => 'Cuenta web';
+
+  @override
+  String get folioWebPortalLinkCodeLabel => 'Código de emparejamiento';
+
+  @override
+  String get folioWebPortalLinkHelp =>
+      'Genera el código en la web, en Ajustes → cuenta Folio, e introdúcelo aquí en los próximos 10 minutos.';
+
+  @override
+  String get folioWebPortalLinkButton => 'Vincular';
+
+  @override
+  String get folioWebPortalLinkSuccess => 'Cuenta web vinculada correctamente.';
+
+  @override
+  String get folioWebPortalNeedSignIn =>
+      'Inicia sesión en Folio Cloud para vincular la cuenta web.';
+
+  @override
+  String get folioWebMirrorNote =>
+      'Copias, IA y publicación siguen gobernadas por Folio Cloud (Firestore). Lo siguiente refleja tu cuenta en la web.';
+
+  @override
+  String get folioWebEntitlementLinked => 'Cuenta web vinculada';
+
+  @override
+  String get folioWebEntitlementNotLinked => 'Cuenta web no vinculada';
+
+  @override
+  String folioWebEntitlementWebPlan(String value) {
+    return 'Folio Cloud (web): $value';
+  }
+
+  @override
+  String folioWebEntitlementWebStatus(String value) {
+    return 'Estado (web): $value';
+  }
+
+  @override
+  String folioWebEntitlementWebPeriodEnd(String value) {
+    return 'Fin de periodo (web): $value';
+  }
+
+  @override
+  String folioWebEntitlementWebInk(int count) {
+    return 'Tinta (web): $count';
+  }
+
+  @override
+  String get folioWebPortalRefreshWeb => 'Actualizar estado web';
+
+  @override
+  String get folioWebPortalErrorNetwork =>
+      'No se pudo conectar con el portal. Comprueba la conexión.';
+
+  @override
+  String get folioWebPortalErrorTimeout =>
+      'El portal tardó demasiado en responder.';
+
+  @override
+  String get folioWebPortalErrorAdminNotConfigured =>
+      'Folio Firebase Admin no está configurado en el servidor (revisa el backend).';
+
+  @override
+  String get folioWebPortalErrorUnauthorized =>
+      'Sesión no válida. Vuelve a iniciar sesión en Folio Cloud.';
+
+  @override
+  String get folioWebPortalErrorGeneric =>
+      'No se pudo completar la operación con el portal.';
+
+  @override
+  String folioWebPortalServerMessage(String message) {
+    return '$message';
+  }
+
+  @override
   String get folioCloudSubsectionPlan => 'Plan y estado';
 
   @override
@@ -2225,7 +2307,7 @@ class AppLocalizationsEs extends AppLocalizations {
 
   @override
   String get onboardingFolioCloudFeatureAiBody =>
-      'Quill funciona en Folio Cloud con suscripción. La tinta se consume por uso; también puedes usar IA local (Ollama/LM Studio).';
+      'Quill en la nube con suscripción Folio Cloud (IA en la nube) o solo comprando tinta. La tinta se consume por uso; también puedes usar IA local (Ollama/LM Studio).';
 
   @override
   String get onboardingFolioCloudFeatureWebTitle => 'Publicación web';

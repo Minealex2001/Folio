@@ -22,17 +22,23 @@ Widget _buildEditableMarkdownBlockRow(_BlockRowScope s) {
       block.type == 'todo' ||
       block.type == 'bullet' ||
       block.type == 'numbered';
+  final isTopAlignedSlashBlock =
+      isParagraph ||
+      isListLine ||
+      block.type == 'toggle' ||
+      block.type == 'quote' ||
+      block.type == 'callout';
 
   final allowsSlash = blockEditorTypeUsesSlashMenu(block.type);
   final String? slashTail = allowsSlash
-      ? slashFilterFromBlockText(ctrl.text)
+      ? _slashFilterFromBlockText(ctrl.text)
       : null;
   final showSlashMenu = slashTail != null && st._slashBlockId == block.id;
   final slashItems = showSlashMenu
       ? st._catalogFilteredForSlash(slashTail)
       : const <BlockTypeDef>[];
   final mentionTail = allowsSlash
-      ? mentionFilterFromSelection(ctrl.text, ctrl.selection)
+      ? _mentionFilterFromSelection(ctrl.text, ctrl.selection)
       : null;
   final showMentionMenu =
       !showSlashMenu && mentionTail != null && st._mentionBlockId == block.id;
@@ -93,7 +99,7 @@ Widget _buildEditableMarkdownBlockRow(_BlockRowScope s) {
             decoration: TextDecoration.none,
           )
         : currentStyle,
-    textAlignVertical: isParagraph
+    textAlignVertical: isTopAlignedSlashBlock
         ? TextAlignVertical.top
         : TextAlignVertical.center,
     decoration: isListLine
@@ -115,7 +121,7 @@ Widget _buildEditableMarkdownBlockRow(_BlockRowScope s) {
           children: [
             Positioned.fill(
               child: Align(
-                alignment: isParagraph
+                alignment: isTopAlignedSlashBlock
                     ? AlignmentDirectional.topStart
                     : AlignmentDirectional.centerStart,
                 child: FolioMarkdownPreview(
@@ -226,12 +232,12 @@ Widget _buildEditableMarkdownBlockRow(_BlockRowScope s) {
                       ? null
                       : (emoji) =>
                             st._s.updateBlockIcon(page.id, block.id, emoji),
-                  itemBuilder: (ctx) => const [
-                    PopupMenuItem(value: '💡', child: Text('💡 Info')),
-                    PopupMenuItem(value: '✅', child: Text('✅ Éxito')),
-                    PopupMenuItem(value: '⚠️', child: Text('⚠️ Warning')),
-                    PopupMenuItem(value: '🚨', child: Text('🚨 Error')),
-                    PopupMenuItem(value: 'ℹ️', child: Text('ℹ️ Nota')),
+                  itemBuilder: (ctx) => [
+                    const PopupMenuItem(value: '💡', child: Text('💡 Info')),
+                    const PopupMenuItem(value: '✅', child: Text('✅ Éxito')),
+                    const PopupMenuItem(value: '⚠️', child: Text('⚠️ Warning')),
+                    const PopupMenuItem(value: '🚨', child: Text('🚨 Error')),
+                    const PopupMenuItem(value: 'ℹ️', child: Text('ℹ️ Nota')),
                   ],
                   icon: Icon(
                     Icons.arrow_drop_down,
@@ -425,7 +431,7 @@ Widget _buildEditableMarkdownBlockRow(_BlockRowScope s) {
   return BlockRowChrome(
     depth: block.depth,
     compactReadOnlyMobile: compactReadOnlyMobile,
-    crossAxisAlignment: isParagraph
+    crossAxisAlignment: isTopAlignedSlashBlock
         ? CrossAxisAlignment.start
         : CrossAxisAlignment.center,
     menuSlot: st._blockMenuSlot(showActions: showActions, menu: menu),

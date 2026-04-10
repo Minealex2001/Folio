@@ -6,6 +6,7 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/foundation.dart';
 
 import 'folio_cloud_billing.dart';
+import 'folio_web_portal_api.dart';
 
 /// En Windows/Linux el plugin usa un canal Pigeon que a menudo rompe con
 /// `documentReferenceSnapshot` (stream). Misma SDK [cloud_firestore], pero solo
@@ -195,8 +196,9 @@ class FolioCloudSnapshot {
   /// Publicación web (Storage `published/` + Firestore `publishedPages`).
   bool get canPublishToWeb => active && publishWeb;
 
-  /// Callable `folioCloudAiComplete` (suscripción + feature + gotas en servidor).
-  bool get canUseCloudAi => active && cloudAi;
+  /// Callable `folioCloudAiComplete`: suscripción con IA en la nube, o tinta comprada (sin suscripción).
+  bool get canUseCloudAi =>
+      (active && cloudAi) || ink.purchasedBalance > 0;
 
   static const FolioCloudSnapshot empty = FolioCloudSnapshot(
     active: false,
@@ -268,7 +270,89 @@ class FolioCloudEntitlementsController extends ChangeNotifier {
   /// Tras abrir Checkout: en el próximo [handleAppResumed] se llama a Stripe una vez por si el webhook fue lento.
   bool _pendingStripeSyncOnResume = false;
 
+  String Function()? _resolveWebPortalBaseUrl;
+
+  /// Espejo de `/api/folio/entitlement` (cuenta web). Vacío si no hay URL o sesión.
+  FolioWebEntitlementSnapshot? webPortalEntitlement;
+
+  /// Último fallo al refrescar el espejo web (p. ej. red o 503).
+  FolioWebPortalException? webPortalRefreshError;
+
   bool get isAvailable => Firebase.apps.isNotEmpty;
+
+  /// Desde [FolioApp]: URL efectiva (prefs + `FOLIO_WEB_PORTAL_BASE_URL`).
+  void setWebPortalBaseUrlResolver(String Function() resolve) {
+    _resolveWebPortalBaseUrl = resolve;
+  }
+
+  String _effectiveWebPortalBaseUrl() {
+    final f = _resolveWebPortalBaseUrl;
+    if (f == null) return '';
+    return f().trim();
+  }
+
+  void _clearWebPortalMirror() {
+    webPortalEntitlement = null;
+    webPortalRefreshError = null;
+  }
+
+  /// Fuerza ID token y consulta el portal Next.js. No altera Firestore.
+  Future<void> refreshWebPortalEntitlement() async {
+    if (!isAvailable) {
+      _clearWebPortalMirror();
+      notifyListeners();
+      return;
+    }
+    final base = _effectiveWebPortalBaseUrl();
+    if (base.isEmpty) {
+      _clearWebPortalMirror();
+      notifyListeners();
+      return;
+    }
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) {
+      _clearWebPortalMirror();
+      notifyListeners();
+      return;
+    }
+    final uid = user.uid;
+    try {
+      final token = await user.getIdToken(true);
+      if (token == null || token.isEmpty) {
+        if (FirebaseAuth.instance.currentUser?.uid != uid) return;
+        webPortalEntitlement = null;
+        webPortalRefreshError = FolioWebPortalException(
+          FolioWebPortalErrorKind.unauthorized,
+          detail: 'missing_id_token',
+        );
+        notifyListeners();
+        return;
+      }
+      final snap = await fetchFolioWebEntitlement(
+        portalBaseUrl: base,
+        idToken: token,
+      );
+      if (FirebaseAuth.instance.currentUser?.uid != uid) return;
+      webPortalEntitlement = snap;
+      webPortalRefreshError = null;
+      notifyListeners();
+    } on FolioWebPortalException catch (e) {
+      if (FirebaseAuth.instance.currentUser?.uid != uid) return;
+      webPortalEntitlement = null;
+      webPortalRefreshError = e;
+      notifyListeners();
+      debugPrint('FolioCloudEntitlements: web portal: $e');
+    } catch (e, st) {
+      if (FirebaseAuth.instance.currentUser?.uid != uid) return;
+      webPortalEntitlement = null;
+      webPortalRefreshError = FolioWebPortalException(
+        FolioWebPortalErrorKind.network,
+        detail: '$e',
+      );
+      notifyListeners();
+      debugPrint('FolioCloudEntitlements: web portal: $e\n$st');
+    }
+  }
 
   /// Marcar que el usuario abrió el pago en el navegador; al volver a la app se sincroniza con Stripe una vez.
   void scheduleStripeSyncOnNextResume() {
@@ -394,6 +478,7 @@ class FolioCloudEntitlementsController extends ChangeNotifier {
     await refreshUserDocFromServer(
       leadingDelay: const Duration(milliseconds: 400),
     );
+    unawaited(refreshWebPortalEntitlement());
   }
 
   void _cancelUserDocPoll() {
@@ -410,6 +495,7 @@ class FolioCloudEntitlementsController extends ChangeNotifier {
       _serverFetchTruth = null;
       _pendingStripeSyncOnResume = false;
       snapshot = FolioCloudSnapshot.empty;
+      _clearWebPortalMirror();
       notifyListeners();
       return;
     }
@@ -419,9 +505,11 @@ class FolioCloudEntitlementsController extends ChangeNotifier {
       _serverFetchTruth = null;
       _pendingStripeSyncOnResume = false;
       snapshot = FolioCloudSnapshot.empty;
+      _clearWebPortalMirror();
       notifyListeners();
     }
     unawaited(_subscribeUserDoc(user.uid));
+    unawaited(refreshWebPortalEntitlement());
   }
 
   /// Refresca `users/{uid}` desde el servidor y luego escucha cambios (evita caché local obsoleta).

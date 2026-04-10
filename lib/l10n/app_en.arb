@@ -420,8 +420,9 @@
   "aiCompareCloudTitle": "Folio Cloud",
   "aiCompareLocalTitle": "Local (Ollama / LM Studio)",
   "aiCompareCloudBulletNoSetup": "No local setup: works after signing in.",
-  "aiCompareCloudBulletNeedsSub": "Requires a subscription for cloud AI.",
+  "aiCompareCloudBulletNeedsSub": "Folio Cloud subscription with cloud AI or purchased ink.",
   "aiCompareCloudBulletInk": "Uses ink for cloud AI (packs + monthly refill).",
+  "aiProviderFolioCloudBlockedSnack": "You need an active Folio Cloud plan with cloud AI or purchased ink — see Settings → Folio Cloud.",
   "aiCompareLocalBulletPrivacy": "Local privacy (your machine).",
   "aiCompareLocalBulletNoInk": "No ink: not tied to a balance.",
   "aiCompareLocalBulletSetup": "Requires installing and running a provider on localhost.",
@@ -651,6 +652,31 @@
   ,"cloudAuthResetHint": "We will email you a link to set a new password."
   ,"cloudAccountEmailVerified": "Verified"
   ,"cloudAccountSignOutHelp": "Your local vault stays on this device."
+  ,"folioWebPortalSubsectionTitle": "Web account"
+  ,"folioWebPortalLinkCodeLabel": "Pairing code"
+  ,"folioWebPortalLinkHelp": "Generate the code on the web app under Settings → Folio account, then enter it here within about 10 minutes."
+  ,"folioWebPortalLinkButton": "Link"
+  ,"folioWebPortalLinkSuccess": "Web account linked successfully."
+  ,"folioWebPortalNeedSignIn": "Sign in to Folio Cloud to link your web account."
+  ,"folioWebMirrorNote": "Backups, AI, and publishing are still governed by Folio Cloud (Firestore). Below reflects your web account."
+  ,"folioWebEntitlementLinked": "Web account linked"
+  ,"folioWebEntitlementNotLinked": "Web account not linked"
+  ,"folioWebEntitlementWebPlan": "Folio Cloud (web): {value}"
+  ,"@folioWebEntitlementWebPlan": {"placeholders": {"value": {"type": "String"}}}
+  ,"folioWebEntitlementWebStatus": "Status (web): {value}"
+  ,"@folioWebEntitlementWebStatus": {"placeholders": {"value": {"type": "String"}}}
+  ,"folioWebEntitlementWebPeriodEnd": "Period end (web): {value}"
+  ,"@folioWebEntitlementWebPeriodEnd": {"placeholders": {"value": {"type": "String"}}}
+  ,"folioWebEntitlementWebInk": "Ink (web): {count}"
+  ,"@folioWebEntitlementWebInk": {"placeholders": {"count": {"type": "int"}}}
+  ,"folioWebPortalRefreshWeb": "Refresh web status"
+  ,"folioWebPortalErrorNetwork": "Could not reach the portal. Check your connection."
+  ,"folioWebPortalErrorTimeout": "The portal took too long to respond."
+  ,"folioWebPortalErrorAdminNotConfigured": "Folio Firebase Admin is not configured on the server (check the backend)."
+  ,"folioWebPortalErrorUnauthorized": "Session invalid. Sign in to Folio Cloud again."
+  ,"folioWebPortalErrorGeneric": "Could not complete the request to the portal."
+  ,"folioWebPortalServerMessage": "{message}"
+  ,"@folioWebPortalServerMessage": {"placeholders": {"message": {"type": "String"}}}
   ,"folioCloudSubsectionPlan": "Plan & status"
   ,"folioCloudSubsectionInk": "Ink balance"
   ,"folioCloudSubsectionSubscription": "Subscription & billing"
@@ -708,7 +734,7 @@
   ,"onboardingFolioCloudFeatureBackupTitle": "Encrypted cloud backups"
   ,"onboardingFolioCloudFeatureBackupBody": "Store and download vault backups from your account. On desktop, listing/downloading is handled via Folio Cloud."
   ,"onboardingFolioCloudFeatureAiTitle": "Cloud AI + ink"
-  ,"onboardingFolioCloudFeatureAiBody": "Quill runs on Folio Cloud with a subscription. Ink is consumed by usage; you can also use local AI (Ollama/LM Studio)."
+  ,"onboardingFolioCloudFeatureAiBody": "Hosted Quill with a Folio Cloud subscription (cloud AI) or by purchasing ink only. Ink is consumed by usage; you can also use local AI (Ollama/LM Studio)."
   ,"onboardingFolioCloudFeatureWebTitle": "Web publishing"
   ,"onboardingFolioCloudFeatureWebBody": "Publish selected pages and control what becomes public. The rest of your vault is not shared."
   ,"onboardingFolioCloudLaterInSettings": "I’ll check in Settings"
