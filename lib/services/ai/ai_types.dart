@@ -100,6 +100,8 @@ class AiCompletionRequest {
     this.topP,
     this.stop,
     this.responseSchema,
+    /// Solo [FolioCloudAiService]: tipo de operación para cobrar tinta en servidor (`operationKind`).
+    this.cloudInkOperation,
   });
 
   final String prompt;
@@ -123,6 +125,9 @@ class AiCompletionRequest {
 
   /// JSON Schema para forzar salida estructurada (LM Studio: response_format; Ollama: format).
   final Map<String, dynamic>? responseSchema;
+
+  /// Valores alineados con `INK_COST_BY_OPERATION` en Cloud Functions.
+  final String? cloudInkOperation;
 }
 
 class AiCompletionResult {
@@ -153,7 +158,7 @@ class AiChatThreadData {
   final String title;
   final List<AiChatMessage> messages;
 
-  /// Rutas locales de archivos adjuntos al contexto de este hilo (persisten con el cofre).
+  /// Rutas locales de archivos adjuntos al contexto de este hilo (persisten con la libreta).
   final List<String> attachmentPaths;
 
   /// Si es false, no se envía texto ni bloques de páginas al modelo (solo chat general).

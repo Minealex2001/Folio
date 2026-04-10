@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import '../models/folio_page.dart';
 import '../models/folio_page_revision.dart';
+import '../models/folio_page_template.dart';
 import '../models/local_collab.dart';
 import '../services/ai/ai_types.dart';
 
@@ -18,12 +19,14 @@ class VaultPayload {
     List<LocalPageComment>? comments,
     List<AiChatThreadData>? aiChatThreads,
     int? aiActiveChatIndex,
+    List<FolioPageTemplate>? pageTemplates,
   }) : pageRevisions = pageRevisions ?? {},
        pageAcl = pageAcl ?? {},
        localProfiles = localProfiles ?? const [],
        comments = comments ?? const [],
        aiChatThreads = aiChatThreads ?? const [],
-       aiActiveChatIndex = aiActiveChatIndex ?? 0;
+       aiActiveChatIndex = aiActiveChatIndex ?? 0,
+       pageTemplates = pageTemplates ?? const [];
 
   final int version;
   final List<FolioPage> pages;
@@ -33,6 +36,7 @@ class VaultPayload {
   final List<LocalPageComment> comments;
   final List<AiChatThreadData> aiChatThreads;
   final int aiActiveChatIndex;
+  final List<FolioPageTemplate> pageTemplates;
 
   Map<String, dynamic> toJson() => {
     'version': version,
@@ -45,6 +49,8 @@ class VaultPayload {
     'comments': comments.map((c) => c.toJson()).toList(),
     'aiChatThreads': aiChatThreads.map((t) => t.toJson()).toList(),
     'aiActiveChatIndex': aiActiveChatIndex,
+    if (pageTemplates.isNotEmpty)
+      'pageTemplates': pageTemplates.map((t) => t.toJson()).toList(),
   };
 
   factory VaultPayload.fromJson(Map<String, dynamic> j) {
@@ -88,6 +94,11 @@ class VaultPayload {
         .map((e) => AiChatThreadData.fromJson(Map<String, dynamic>.from(e)))
         .toList();
     final aiIndex = (j['aiActiveChatIndex'] as num?)?.toInt() ?? 0;
+    final templates = (j['pageTemplates'] as List<dynamic>? ?? [])
+        .whereType<Map>()
+        .map((e) => FolioPageTemplate.fromJson(Map<String, dynamic>.from(e)))
+        .where((t) => t.id.isNotEmpty)
+        .toList();
     return VaultPayload(
       version: j['version'] as int? ?? 1,
       pages: list,
@@ -97,6 +108,7 @@ class VaultPayload {
       comments: comments,
       aiChatThreads: aiThreads,
       aiActiveChatIndex: aiIndex,
+      pageTemplates: templates,
     );
   }
 

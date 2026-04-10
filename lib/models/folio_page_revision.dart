@@ -3,7 +3,7 @@ import 'dart:convert';
 import 'block.dart';
 import 'folio_page.dart';
 
-/// Instantánea de título + bloques de una página (historial cifrado en el cofre).
+/// Instantánea de título + bloques de una página (historial cifrado en la libreta).
 class FolioPageRevision {
   FolioPageRevision({
     required this.revisionId,

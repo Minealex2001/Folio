@@ -7,7 +7,7 @@ import 'package:flutter/foundation.dart';
 import '../data/vault_paths.dart';
 
 /// Relying party **local** para passkeys (mismo enfoque que el ejemplo oficial de `passkeys`).
-/// Solo metadatos de credencial; no contiene el contenido del cofre.
+/// Solo metadatos de credencial; no contiene el contenido de la libreta.
 class FolioRpUser {
   FolioRpUser({
     required this.name,

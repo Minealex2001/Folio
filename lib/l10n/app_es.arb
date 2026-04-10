@@ -2,7 +2,7 @@
   "@@locale": "es",
   "appTitle": "Folio",
   "loading": "Cargando…",
-  "newVault": "Nuevo cofre",
+  "newVault": "Nueva libreta",
   "stepOfTotal": "Paso {current} de {total}",
   "@stepOfTotal": {
     "placeholders": {
@@ -23,18 +23,19 @@
   "selectPage": "Selecciona una página",
   "saveInProgress": "Guardando…",
   "savePending": "Por guardar",
-  "savingVaultTooltip": "Guardando el cofre cifrado en disco…",
+  "savingVaultTooltip": "Guardando la libreta cifrada en disco…",
   "autosaveSoonTooltip": "Guardado automático en unos instantes…",
   "welcomeTitle": "Bienvenida",
   "welcomeBody": "Folio guarda tus páginas solo en este dispositivo, cifradas con una contraseña maestra. Si la olvidas, no podremos recuperar los datos.\n\nNo hay sincronización en la nube.",
-  "createNewVault": "Crear cofre nuevo",
+  "createNewVault": "Crear libreta nueva",
   "importBackupZip": "Importar una copia (.zip)",
   "importBackupTitle": "Importar copia",
   "importBackupBody": "El archivo contiene los mismos datos cifrados que en el otro equipo. Necesitas la contraseña maestra con la que se creó esa copia.\n\nLa passkey y el desbloqueo rápido (Hello) no van en el archivo y no son transferibles; podrás configurarlos después en Ajustes.",
   "chooseZipFile": "Elegir archivo .zip",
   "changeFile": "Cambiar archivo",
   "backupPasswordLabel": "Contraseña de la copia",
-  "importVault": "Importar cofre",
+  "backupPlainNoPasswordHint": "Esta copia no está cifrada. No necesitas contraseña para importarla.",
+  "importVault": "Importar libreta",
   "masterPasswordTitle": "Tu contraseña maestra",
   "masterPasswordHint": "Al menos {min} caracteres. La usarás cada vez que abras Folio.",
   "@masterPasswordHint": {
@@ -48,7 +49,7 @@
   "confirmPasswordLabel": "Confirmar contraseña",
   "next": "Siguiente",
   "readyTitle": "Todo listo",
-  "readyBody": "Se creará un cofre cifrado en este equipo. Podrás añadir después Windows Hello, biometría o una passkey para desbloquear más rápido (Ajustes).",
+  "readyBody": "Se creará una libreta cifrada en este equipo. Podrás añadir después Windows Hello, biometría o una passkey para desbloquear más rápido (Ajustes).",
   "quillIntroTitle": "Conoce a Quill",
   "quillIntroBody": "Quill es la asistente integrada de Folio. Puede ayudarte a escribir, editar y entender tus páginas, además de resolver dudas sobre cómo usar la app.",
   "quillIntroCapabilityWrite": "Puede redactar, resumir o reescribir contenido dentro de tus páginas.",
@@ -60,7 +61,7 @@
   "quillIntroExampleTwo": "Cambia el título y mejora la introducción.",
   "quillIntroExampleThree": "¿Cómo añado una imagen o una tabla?",
   "quillIntroFootnote": "Si todavía no activas la IA, podrás hacerlo más tarde. Esta introducción es para que sepas qué puede hacer Quill cuando la uses.",
-  "createVault": "Crear cofre",
+  "createVault": "Crear libreta",
   "minCharactersError": "Mínimo {min} caracteres.",
   "@minCharactersError": {
     "placeholders": {
@@ -80,16 +81,16 @@
   "enterBackupPasswordError": "Introduce la contraseña de la copia.",
   "importFailedError": "No se pudo importar: {error}",
   "@importFailedError": {"placeholders": {"error": {}}},
-  "createVaultFailedError": "No se pudo crear el cofre: {error}",
+  "createVaultFailedError": "No se pudo crear la libreta: {error}",
   "@createVaultFailedError": {"placeholders": {"error": {}}},
-  "encryptedVault": "Cofre cifrado",
+  "encryptedVault": "Libreta cifrada",
   "unlock": "Desbloquear",
   "quickUnlock": "Hello / biometría",
   "passkey": "Passkey",
-  "unlockFailed": "Contraseña incorrecta o cofre dañado.",
+  "unlockFailed": "Contraseña incorrecta o libreta dañada.",
   "appearance": "Apariencia",
   "security": "Seguridad",
-  "vaultBackup": "Copia del cofre",
+  "vaultBackup": "Copia de la libreta",
   "data": "Datos",
   "systemTheme": "Sistema",
   "lightTheme": "Claro",
@@ -137,6 +138,9 @@
   "usePasskey": "Usar passkey",
   "quickUnlockEnabledSnack": "Desbloqueo rápido activado",
   "quickUnlockDisabledSnack": "Desbloqueo rápido desactivado",
+  "quickUnlockEnableFailed": "No se pudo activar el desbloqueo rápido.",
+  "passkeyRevokeConfirmTitle": "¿Quitar la passkey?",
+  "passkeyRevokeConfirmBody": "Necesitarás la contraseña maestra para desbloquear hasta que registres una passkey nueva en este dispositivo.",
   "passkeyRegisteredSnack": "Passkey registrada",
   "passkeyRevokedSnack": "Passkey revocada",
   "masterPasswordUpdatedSnack": "Contraseña maestra actualizada",
@@ -145,44 +149,53 @@
   "@exportFailedError": {"placeholders": {"error": {}}},
   "importFailedGenericError": "No se pudo importar: {error}",
   "@importFailedGenericError": {"placeholders": {"error": {}}},
-  "wipeFailedError": "No se pudo borrar el cofre: {error}",
+  "wipeFailedError": "No se pudo borrar la libreta: {error}",
   "@wipeFailedError": {"placeholders": {"error": {}}},
   "filePathReadError": "No se pudo leer la ruta del archivo.",
-  "importedVaultSuccessSnack": "Cofre importado. Aparece en el selector del panel lateral; el actual sigue igual.",
-  "exportVaultDialogTitle": "Exportar copia del cofre",
-  "exportVaultDialogBody": "Para crear un archivo de copia, confirma tu identidad con el cofre actual desbloqueado.",
+  "importedVaultSuccessSnack": "Libreta importada. Aparece en el selector del panel lateral; la actual sigue igual.",
+  "exportVaultDialogTitle": "Exportar copia de la libreta",
+  "exportVaultDialogBody": "Para crear un archivo de copia, confirma tu identidad con la libreta actual desbloqueada.",
   "verifyAndExport": "Verificar y exportar",
-  "saveVaultBackupDialogTitle": "Guardar copia del cofre",
-  "importVaultDialogTitle": "Importar copia del cofre",
-  "importVaultDialogBody": "Se añadirá un cofre nuevo desde el archivo. El cofre que tienes abierto ahora no se borra ni se modifica.\n\nLa contraseña del archivo será la del cofre importado (para abrirlo al cambiar de cofre).\n\nLa passkey y el desbloqueo rápido (Hello / biometría) no van en la copia y no son transferibles; podrás configurarlos en ese cofre después.\n\n¿Continuar?",
+  "saveVaultBackupDialogTitle": "Guardar copia de la libreta",
+  "importVaultDialogTitle": "Importar copia de la libreta",
+  "importVaultDialogBody": "Se añadirá una libreta nueva desde el archivo. La libreta que tienes abierta ahora no se borra ni se modifica.\n\nLa contraseña del archivo será la de la libreta importada (para abrirla al cambiar de libreta).\n\nLa passkey y el desbloqueo rápido (Hello / biometría) no van en la copia y no son transferibles; podrás configurarlos en esa libreta después.\n\n¿Continuar?",
   "verifyAndContinue": "Verificar y continuar",
   "verifyAndDelete": "Verificar con contraseña y borrar",
-  "importIdentityBody": "Demuestra que eres tú con el cofre actual desbloqueado antes de importar.",
-  "wipeVaultDialogTitle": "Borrar cofre",
+  "importIdentityBody": "Demuestra que eres tú con la libreta actual desbloqueada antes de importar.",
+  "wipeVaultDialogTitle": "Borrar libreta",
   "wipeVaultDialogBody": "Se eliminarán todas las páginas y la contraseña maestra dejará de ser válida. Esta acción no se puede deshacer.\n\n¿Seguro que quieres continuar?",
-  "wipeIdentityBody": "Para borrar el cofre, demuestra que eres tú.",
+  "wipeIdentityBody": "Para borrar la libreta, demuestra que eres tú.",
   "exportZipTitle": "Exportar copia (.zip)",
-  "exportZipSubtitle": "Contraseña, Hello o passkey del cofre actual",
+  "exportZipSubtitle": "Contraseña, Hello o passkey de la libreta actual",
   "importZipTitle": "Importar copia (.zip)",
-  "importZipSubtitle": "Añade cofre nuevo · identidad actual + contraseña del archivo",
-  "backupInfoBody": "El archivo contiene los mismos datos cifrados que en disco (vault.keys y vault.bin), sin exponer el contenido en claro. Las imágenes en adjuntos van tal cual.\n\nLa passkey y el desbloqueo rápido no se incluyen en la copia y no son transferibles entre dispositivos; en cada cofre importado podrás configurarlos de nuevo.\n\nImportar añade un cofre nuevo; no sustituye el que tienes abierto.",
-  "wipeCardTitle": "Borrar cofre y empezar de cero",
+  "importZipSubtitle": "Añade libreta nueva · identidad actual + contraseña del archivo",
+  "backupInfoBody": "El archivo contiene los mismos datos cifrados que en disco (vault.keys y vault.bin), sin exponer el contenido en claro. Las imágenes en adjuntos van tal cual.\n\nLa passkey y el desbloqueo rápido no se incluyen en la copia y no son transferibles entre dispositivos; en cada libreta importada podrás configurarlos de nuevo.\n\nImportar añade una libreta nueva; no sustituye la que tienes abierta.",
+  "wipeCardTitle": "Borrar libreta y empezar de cero",
   "wipeCardSubtitle": "Requiere contraseña, Hello o passkey.",
-  "switchVaultTooltip": "Cambiar cofre",
-  "switchVaultTitle": "Cambiar de cofre",
-  "switchVaultBody": "Se cerrará la sesión de este cofre y tendrás que desbloquear el otro con su contraseña, Hello o passkey (si los tienes configurados allí).",
-  "renameVaultTitle": "Renombrar cofre",
+  "switchVaultTooltip": "Cambiar libreta",
+  "switchVaultTitle": "Cambiar de libreta",
+  "switchVaultBody": "Se cerrará la sesión de esta libreta y tendrás que desbloquear la otra con su contraseña, Hello o passkey (si los tienes configurados allí).",
+  "renameVaultTitle": "Renombrar libreta",
   "nameLabel": "Nombre",
-  "deleteOtherVaultTitle": "Eliminar otro cofre",
-  "deleteVaultConfirmTitle": "¿Eliminar cofre?",
+  "deleteOtherVaultTitle": "Eliminar otra libreta",
+  "deleteVaultConfirmTitle": "¿Eliminar libreta?",
   "deleteVaultConfirmBody": "Se borrará por completo «{name}». No se puede deshacer.",
   "@deleteVaultConfirmBody": {"placeholders": {"name": {}}},
-  "vaultDeletedSnack": "Cofre eliminado.",
-  "noOtherVaultsSnack": "No hay otros cofres que borrar.",
-  "addVault": "Añadir cofre",
-  "renameActiveVault": "Renombrar cofre activo",
-  "deleteOtherVault": "Eliminar otro cofre…",
-  "activeVaultLabel": "Cofre activo",
+  "vaultDeletedSnack": "Libreta eliminada.",
+  "noOtherVaultsSnack": "No hay otras libretas que borrar.",
+  "addVault": "Añadir libreta",
+  "renameActiveVault": "Renombrar libreta activa",
+  "deleteOtherVault": "Eliminar otra libreta…",
+  "activeVaultLabel": "Libreta activa",
+  "sidebarVaultsLoading": "Cargando libretas…",
+  "sidebarVaultsEmpty": "No hay libretas disponibles",
+  "forceSyncTooltip": "Forzar sincronización",
+  "searchDialogFooterHint": "Enter abre el resultado resaltado · Ctrl+↑ / Ctrl+↓ navegar · Esc cierra",
+  "searchFilterTasks": "Tareas",
+  "searchRecentQueries": "Búsquedas recientes",
+  "searchShortcutsHelpTooltip": "Atajos de teclado",
+  "searchShortcutsHelpTitle": "Búsqueda global",
+  "searchShortcutsHelpBody": "Enter: abrir el resultado resaltado\nCtrl+↑ o Ctrl+↓: anterior / siguiente\nEsc: cerrar",
   "renamePageTitle": "Renombrar página",
   "titleLabel": "Título",
   "rootPage": "Raíz",
@@ -191,10 +204,27 @@
   "subpage": "Subpágina",
   "move": "Mover",
   "pages": "Páginas",
+  "pageOutlineTitle": "Índice",
+  "pageOutlineEmpty": "Añade encabezados (H1–H3) para generar el índice.",
+  "showPageOutline": "Mostrar índice",
+  "hidePageOutline": "Ocultar índice",
+  "tocBlockTitle": "Tabla de contenidos",
+  "showSidebar": "Mostrar panel lateral",
+  "hideSidebar": "Ocultar panel lateral",
+  "resizeSidebarHandle": "Redimensionar panel lateral",
+  "resizeSidebarHandleHint": "Arrastra horizontalmente para cambiar el ancho del panel",
+  "resizeAiPanelHeightHandle": "Redimensionar altura del asistente",
+  "resizeAiPanelHeightHandleHint": "Arrastra verticalmente para cambiar la altura del panel",
+  "sidebarAutoRevealTitle": "Mostrar panel al acercar al borde",
+  "sidebarAutoRevealSubtitle": "Si el panel está oculto, acerca el puntero al borde izquierdo para verlo un momento.",
   "newRootPageTooltip": "Nueva página (raíz)",
   "blockOptions": "Opciones del bloque",
   "dragToReorder": "Arrastrar para reordenar",
   "addBlock": "Añadir bloque",
+  "blockMentionPageSubtitle": "Mencionar página",
+  "blockTypesSheetTitle": "Tipos de bloque",
+  "blockTypesSheetSubtitle": "Elige cómo se verá este bloque",
+  "blockTypeFilterEmpty": "Nada coincide con tu búsqueda",
   "fileNotFound": "Archivo no encontrado",
   "couldNotLoadImage": "No se pudo cargar la imagen",
   "noImageHint": "Sin imagen · menú ⋮ o botón de abajo",
@@ -228,7 +258,7 @@
   "pasteAsUrlSubtitle": "Insertar enlace markdown en el texto",
   "pasteAsEmbedSubtitle": "Bloque vídeo con vista previa (YouTube) o marcador",
   "pasteAsBookmarkSubtitle": "Tarjeta con título y enlace",
-  "pasteAsMentionSubtitle": "Enlace a una página de este cofre",
+  "pasteAsMentionSubtitle": "Enlace a una página de esta libreta",
   "tableAddRow": "Fila",
   "tableRemoveRow": "Quitar fila",
   "tableAddColumn": "Columna",
@@ -274,7 +304,7 @@
   "noVersionsYet": "Sin versiones todavía",
   "historyAppearsHint": "Cuando dejes de escribir unos segundos, aquí aparecerá el historial de cambios.",
   "versionControl": "Control de versiones",
-  "historyHeaderBody": "El cofre se guarda en seguida; el historial añade una entrada cuando dejas de editar y el contenido cambió.",
+  "historyHeaderBody": "La libreta se guarda en seguida; el historial añade una entrada cuando dejas de editar y el contenido cambió.",
   "versionsCount": "{count} {count, plural, one {versión} other {versiones}}",
   "@versionsCount": {"placeholders": {"count": {"type": "int"}}},
   "untitledFallback": "Sin título",
@@ -319,6 +349,7 @@
   ,"aiNewChat": "Nuevo"
   ,"aiAttach": "Adjuntar"
   ,"aiChatEmptyHint": "Empieza una conversación.\nQuill decidirá automáticamente qué hacer con tu mensaje.\nTambién puedes preguntar cómo usar Folio (atajos, ajustes, páginas o este chat)."
+  ,"aiChatEmptyFocusComposer": "Escribe un mensaje"
   ,"aiInputHint": "Escribe tu mensaje. Quill actuará como agente."
   ,"aiInputHintCopilot": "Escribe tu mensaje..."
   ,"aiContextComposerHint": "Sin contexto añadido"
@@ -330,6 +361,13 @@
   ,"aiContextAddPage": "Adjuntar página"
   ,"aiShowPanel": "Mostrar panel IA"
   ,"aiHidePanel": "Ocultar panel IA"
+  ,"aiPanelResizeHandle": "Redimensionar panel de IA"
+  ,"aiPanelResizeHandleHint": "Arrastra horizontalmente para cambiar el ancho del asistente"
+  ,"importMarkdownPage": "Importar Markdown"
+  ,"exportMarkdownPage": "Exportar Markdown"
+  ,"workspaceUndoTooltip": "Deshacer (Ctrl+Z)"
+  ,"workspaceRedoTooltip": "Rehacer (Ctrl+Y)"
+  ,"workspaceMoreActionsTooltip": "Más acciones"
   ,"closeCurrentPage": "Cerrar página actual"
   ,"aiErrorWithDetails": "Error IA: {error}"
   ,"@aiErrorWithDetails": {"placeholders": {"error": {}}}
@@ -344,6 +382,10 @@
   ,"aiContextUsageTooltip": "Última petición respecto a la ventana configurada ({window} tokens)."
   ,"@aiContextUsageTooltip": {"placeholders": {"window": {"type": "int"}}}
   ,"aiChatKeyboardHint": "Enter para enviar · Ctrl+Enter nueva línea"
+  ,"aiChatInkRemaining": "{total, plural, one{Queda 1 gota de tinta} other{Quedan {total} gotas de tinta}}"
+  ,"@aiChatInkRemaining": {"placeholders": {"total": {"type": "int"}}}
+  ,"aiChatInkBreakdownTooltip": "Mes {monthly} · Compradas {purchased}"
+  ,"@aiChatInkBreakdownTooltip": {"placeholders": {"monthly": {"type": "int"}, "purchased": {"type": "int"}}}
   ,"aiAgentThought": "Pensamiento de Quill"
   ,"aiAlwaysShowThought": "Mostrar siempre pensamiento de IA"
   ,"aiAlwaysShowThoughtHint": "Si está desactivado, se mostrará plegado con flecha en cada mensaje."
@@ -377,8 +419,18 @@
   ,"aiSetupLmStudioTitle": "Paso 2: Instalar LM Studio"
   ,"aiSetupLmStudioBody": "Instala LM Studio, inicia su servidor local (OpenAI compatible) y verifica que responda en http://127.0.0.1:1234."
   ,"aiSetupOpenSettingsHint": "Cuando uno de los proveedores esté operativo, pulsa Reintentar para autoconfigurarlo."
-  ,"quillGlobalScopeNoticeTitle": "Quill funciona en todos los cofres"
-  ,"quillGlobalScopeNoticeBody": "Quill es un ajuste global de la app. Si lo activas ahora, quedará disponible para cualquier cofre en esta instalación, no solo para el actual."
+  ,"aiCompareCloudVsLocalTitle": "Cloud vs local"
+  ,"aiCompareCloudTitle": "Folio Cloud"
+  ,"aiCompareLocalTitle": "Local (Ollama / LM Studio)"
+  ,"aiCompareCloudBulletNoSetup": "Sin configuración local: funciona al iniciar sesión."
+  ,"aiCompareCloudBulletNeedsSub": "Suscripción con IA en la nube o tinta comprada."
+  ,"aiCompareCloudBulletInk": "Usa tinta para la IA en la nube (packs + recarga mensual)."
+  ,"aiProviderFolioCloudBlockedSnack": "Necesitas suscripción Folio Cloud con IA en la nube o comprar tinta en Ajustes → Folio Cloud."
+  ,"aiCompareLocalBulletPrivacy": "Privacidad local (tu equipo)."
+  ,"aiCompareLocalBulletNoInk": "Sin tinta: no depende del saldo."
+  ,"aiCompareLocalBulletSetup": "Requiere instalar y arrancar un proveedor en localhost."
+  ,"quillGlobalScopeNoticeTitle": "Quill funciona en todas las libretas"
+  ,"quillGlobalScopeNoticeBody": "Quill es un ajuste global de la app. Si lo activas ahora, quedará disponible para cualquier libreta en esta instalación, no solo para la actual."
   ,"quillGlobalScopeNoticeConfirm": "Entiendo"
   ,"searchByNameOrShortcut": "Buscar por nombre o atajo…",
   "search": "Buscar",
@@ -401,28 +453,67 @@
   "hotkeyCtrlShiftK": "Ctrl + Shift + K",
   "minimizeToTray": "Minimizar a bandeja",
   "closeToTray": "Cerrar a bandeja",
-  "searchAllVaultHint": "Buscar en todo el cofre...",
+  "searchAllVaultHint": "Buscar en toda la libreta...",
   "typeToSearch": "Escribe para buscar",
   "noSearchResults": "Sin resultados",
-  "unlockVaultTitle": "Desbloquear cofre",
+  "searchFilterAll": "Todo",
+  "searchFilterTitles": "Títulos",
+  "searchFilterContent": "Contenido",
+  "searchSortRelevance": "Relevancia",
+  "searchSortRecent": "Recientes",
+  "settingsSearchSections": "Buscar en ajustes",
+  "settingsSearchSectionsHint": "Filtra categorías en la barra lateral",
+  "scheduledVaultBackupTitle": "Copia cifrada programada",
+  "scheduledVaultBackupSubtitle": "Con la libreta desbloqueada, cada copia es de la libreta abierta ahora. Folio guarda un ZIP en la carpeta indicada según el intervalo.",
+  "scheduledVaultBackupChooseFolder": "Carpeta de copias",
+  "scheduledVaultBackupIntervalLabel": "Intervalo (horas)",
+  "scheduledVaultBackupLastRun": "Última copia: {time}",
+  "@scheduledVaultBackupLastRun": {"placeholders": {"time": {}}},
+  "scheduledVaultBackupSnackOk": "Copia programada guardada.",
+  "scheduledVaultBackupSnackFail": "Error en la copia programada: {error}",
+  "@scheduledVaultBackupSnackFail": {"placeholders": {"error": {}}},
+  "vaultBackupOpenVaultHint": "Las copias son de la libreta abierta ahora: «{name}».",
+  "@vaultBackupOpenVaultHint": {"placeholders": {"name": {"type": "String"}}},
+  "vaultBackupRunNowTile": "Copia programada ahora",
+  "vaultBackupRunNowSubtitle": "Ejecuta ya la copia programada (disco y/o nube según lo tengas configurado), sin esperar al intervalo.",
+  "vaultBackupRunNowNeedFolder": "Elige una carpeta local o activa «Subir también a Folio Cloud» para copia solo en la nube.",
+  "vaultIdentitySyncTitle": "Sincronización",
+  "vaultIdentitySyncBody": "Introduce la contraseña de la libreta (o Hello / passkey) para continuar.",
+  "vaultIdentityCloudBackupTitle": "Copias en la nube",
+  "vaultIdentityCloudBackupBody": "Confirma la identidad de la libreta para listar o descargar copias cifradas.",
+  "aiRewriteDialogTitle": "Reescribir con IA",
+  "aiPreviewTitle": "Vista previa",
+  "aiInstructionHint": "Ejemplo: hazlo más claro y breve",
+  "aiApply": "Aplicar",
+  "aiGenerating": "Generando…",
+  "aiSummarizeSelection": "Resumir con IA…",
+  "aiExtractTasksDates": "Extraer tareas y fechas…",
+  "aiPreviewReadOnlyHint": "Puedes editar el texto antes de aplicar.",
+  "aiRewriteApplied": "Bloque actualizado.",
+  "aiUndoRewrite": "Deshacer",
+  "aiInsertBelow": "Insertar debajo",
+  "unlockVaultTitle": "Desbloquear libreta",
   "miniUnlockFailed": "No se pudo desbloquear."
   ,"importNotionTitle": "Importar desde Notion (.zip)"
   ,"importNotionSubtitle": "Export ZIP de Notion (Markdown/HTML)"
   ,"importNotionDialogTitle": "Importar desde Notion"
-  ,"importNotionDialogBody": "Importa un ZIP exportado por Notion. Puedes añadirlo al cofre actual o crear uno nuevo."
+  ,"importNotionDialogBody": "Importa un ZIP exportado por Notion. Puedes añadirlo a la libreta actual o crear una nueva."
   ,"importNotionSelectTargetTitle": "Destino de la importación"
-  ,"importNotionSelectTargetBody": "Elige si quieres importar la exportacion de Notion en el cofre actual o crear un cofre nuevo a partir de ella."
-  ,"importNotionTargetCurrent": "Cofre actual"
-  ,"importNotionTargetNew": "Cofre nuevo"
+  ,"importNotionSelectTargetBody": "Elige si quieres importar la exportacion de Notion en la libreta actual o crear una libreta nueva a partir de ella."
+  ,"importNotionTargetCurrent": "Libreta actual"
+  ,"importNotionTargetNew": "Libreta nueva"
   ,"importNotionDefaultVaultName": "Importado desde Notion"
-  ,"importNotionNewVaultPasswordTitle": "Contraseña para cofre nuevo"
-  ,"importNotionSuccessCurrent": "Notion importado en el cofre actual."
-  ,"importNotionSuccessNew": "Cofre nuevo importado desde Notion."
+  ,"importNotionNewVaultPasswordTitle": "Contraseña para libreta nueva"
+  ,"importNotionSuccessCurrent": "Notion importado en la libreta actual."
+  ,"importNotionSuccessNew": "Libreta nueva importada desde Notion."
   ,"importNotionError": "No se pudo importar Notion: {error}"
   ,"@importNotionError": {"placeholders": {"error": {}}}
+  ,"importNotionWarningsTitle": "Avisos de importación"
+  ,"importNotionWarningsBody": "La importación finalizó con los siguientes avisos:"
+  ,"ok": "Aceptar"
   ,"notionExportGuideTitle": "Como exportar desde Notion"
   ,"notionExportGuideBody": "En Notion, abre Settings -> Export all workspace content, elige HTML o Markdown y descarga el archivo ZIP. Luego usa esta opcion de importacion en Folio."
-  ,"appBetaBannerMessage": "Estás usando una versión beta. Puede haber fallos; haz copias de seguridad del cofre con frecuencia."
+  ,"appBetaBannerMessage": "Estás usando una versión beta. Puede haber fallos; haz copias de seguridad de la libreta con frecuencia."
   ,"appBetaBannerDismiss": "Entendido"
   ,"integrations": "Integraciones"
   ,"integrationsAppsApprovedHint": "Las apps externas aprobadas pueden usar el puente de integracion local."
@@ -445,10 +536,10 @@
   ,"integrationApprovalCanDoSessions": "Crear sesiones efimeras de importacion en Folio."
   ,"integrationApprovalCanDoImport": "Enviar documentacion en Markdown para crear o actualizar paginas mediante el puente de importacion."
   ,"integrationApprovalCanDoMetadata": "Guardar trazas de importacion como la app cliente, la sesion y metadatos de origen en las paginas importadas."
-  ,"integrationApprovalCanDoUnlockedVault": "Importar solo mientras el cofre este disponible y la peticion incluya el secreto configurado."
+  ,"integrationApprovalCanDoUnlockedVault": "Importar solo mientras la libreta este disponible y la peticion incluya el secreto configurado."
   ,"integrationApprovalCannotDoTitle": "Lo que no puede hacer"
-  ,"integrationApprovalCannotDoRead": "No puede leer el contenido de tu cofre a traves de este puente."
-  ,"integrationApprovalCannotDoBypassLock": "No puede saltarse el bloqueo del cofre, el cifrado ni tu aprobacion explicita."
+  ,"integrationApprovalCannotDoRead": "No puede leer el contenido de tu libreta a traves de este puente."
+  ,"integrationApprovalCannotDoBypassLock": "No puede saltarse el bloqueo de la libreta, el cifrado ni tu aprobacion explicita."
   ,"integrationApprovalCannotDoWithoutSecret": "No puede acceder a endpoints protegidos sin el secreto compartido."
   ,"integrationApprovalCannotDoRemoteAccess": "No puede usar el puente desde fuera de localhost."
   ,"integrationApprovalDeny": "Denegar"
@@ -460,14 +551,14 @@
   ,"updaterBetaDescription": "Las betas son releases de GitHub marcadas como pre-release."
   ,"updaterStableDescription": "Solo se tiene en cuenta la ultima release estable."
   ,"checkUpdates": "Buscar actualizaciones"
-  ,"noEncryptionConfirmTitle": "Crear cofre sin cifrado"
+  ,"noEncryptionConfirmTitle": "Crear libreta sin cifrado"
   ,"noEncryptionConfirmBody": "Tus datos se guardarán sin contraseña y sin cifrado. Cualquier persona con acceso a este dispositivo podrá leerlos."
   ,"createVaultWithoutEncryption": "Crear sin cifrado"
-  ,"plainVaultSecurityNotice": "Este cofre no está cifrado: no aplican la passkey, el desbloqueo rápido (Hello), el bloqueo por inactividad, el bloqueo al minimizar ni la contraseña maestra."
-  ,"encryptPlainVaultTitle": "Cifrar este cofre"
+  ,"plainVaultSecurityNotice": "Esta libreta no está cifrada: no aplican la passkey, el desbloqueo rápido (Hello), el bloqueo por inactividad, el bloqueo al minimizar ni la contraseña maestra."
+  ,"encryptPlainVaultTitle": "Cifrar esta libreta"
   ,"encryptPlainVaultBody": "Elige una contraseña maestra. Todo lo guardado en este dispositivo se cifrará. Si la olvidas, no podremos recuperar los datos."
-  ,"encryptPlainVaultConfirm": "Cifrar cofre"
-  ,"encryptPlainVaultSuccessSnack": "El cofre ya está cifrado"
+  ,"encryptPlainVaultConfirm": "Cifrar libreta"
+  ,"encryptPlainVaultSuccessSnack": "La libreta ya está cifrada"
   ,"aiCopyMessage": "Copiar"
   ,"aiCopyCode": "Copiar código"
   ,"aiCopiedToClipboard": "Copiado al portapapeles"
@@ -481,4 +572,190 @@
   ,"@aiMessageTimestampHours": {"placeholders": {"n": {"type": "int"}}}
   ,"aiMessageTimestampDays": "hace {n} días"
   ,"@aiMessageTimestampDays": {"placeholders": {"n": {"type": "int"}}}
+  ,"templateGalleryTitle": "Plantillas de página"
+  ,"templateImport": "Importar"
+  ,"templateImportPickTitle": "Seleccionar archivo de plantilla"
+  ,"templateImportSuccess": "Plantilla importada"
+  ,"templateImportError": "Error al importar: {error}"
+  ,"@templateImportError": {"placeholders": {"error": {}}}
+  ,"templateExportPickTitle": "Guardar archivo de plantilla"
+  ,"templateExportSuccess": "Plantilla exportada"
+  ,"templateExportError": "Error al exportar: {error}"
+  ,"@templateExportError": {"placeholders": {"error": {}}}
+  ,"templateSearchHint": "Buscar plantillas..."
+  ,"templateEmptyHint": "Sin plantillas.\nGuarda una página como plantilla o importa una."
+  ,"templateBlockCount": "{count} {count, plural, one {bloque} other {bloques}}"
+  ,"@templateBlockCount": {"placeholders": {"count": {"type": "int"}}}
+  ,"templateUse": "Usar plantilla"
+  ,"templateExport": "Exportar"
+  ,"templateBlankPage": "Página en blanco"
+  ,"templateFromGallery": "Desde plantilla…"
+  ,"saveAsTemplate": "Guardar como plantilla"
+  ,"saveAsTemplateTitle": "Guardar como plantilla"
+  ,"templateNameHint": "Nombre de plantilla"
+  ,"templateDescriptionHint": "Descripción (opcional)"
+  ,"templateCategoryHint": "Categoría (opcional)"
+  ,"templateSaved": "Guardado como plantilla"
+  ,"templateCount": "{count} {count, plural, one {plantilla} other {plantillas}}"
+  ,"@templateCount": {"placeholders": {"count": {"type": "int"}}}
+  ,"templateFilteredCount": "Mostrando {visible} de {total} plantillas"
+  ,"@templateFilteredCount": {"placeholders": {"visible": {"type": "int"}, "total": {"type": "int"}}}
+  ,"templateSortRecent": "Más recientes"
+  ,"templateSortName": "Nombre"
+  ,"templateEdit": "Editar plantilla"
+  ,"templateUpdated": "Plantilla actualizada"
+  ,"templateDeleteConfirmTitle": "Eliminar plantilla"
+  ,"templateDeleteConfirmBody": "La plantilla \"{name}\" se eliminará de esta libreta."
+  ,"@templateDeleteConfirmBody": {"placeholders": {"name": {}}}
+  ,"templateCreatedOn": "Creada {date}"
+  ,"@templateCreatedOn": {"placeholders": {"date": {}}}
+  ,"templatePreviewEmpty": "Esta plantilla todavía no tiene vista previa de texto."
+  ,"templateSelectHint": "Selecciona una plantilla para inspeccionarla, editar sus metadatos o exportarla."
+  ,"clear": "Limpiar"
+  ,"cloudAccountSectionTitle": "Cuenta Folio Cloud"
+  ,"cloudAccountSectionDescription": "Opcional. Inicia sesión para suscribirte a copias en la nube, IA hospedada y publicación web. Tu libreta sigue siendo local salvo que uses esas funciones."
+  ,"cloudAccountChipOptional": "Opcional"
+  ,"cloudAccountChipPaidCloud": "Copias, IA y web"
+  ,"cloudAccountUnavailable": "No hay inicio de sesión en la nube (Firebase no arrancó). Revisa la conexión o ejecuta flutterfire configure con tu proyecto."
+  ,"cloudAccountEmailLabel": "Correo"
+  ,"cloudAccountPasswordLabel": "Contraseña"
+  ,"cloudAccountSignIn": "Iniciar sesión"
+  ,"cloudAccountCreateAccount": "Crear cuenta"
+  ,"cloudAccountForgotPassword": "¿Olvidaste la contraseña?"
+  ,"cloudAccountSignOut": "Cerrar sesión"
+  ,"cloudAccountSignedInAs": "Sesión iniciada como {email}"
+  ,"@cloudAccountSignedInAs": {"placeholders": {"email": {}}}
+  ,"cloudAccountUid": "ID de usuario: {uid}"
+  ,"@cloudAccountUid": {"placeholders": {"uid": {}}}
+  ,"cloudAuthDialogTitleSignIn": "Iniciar sesión en Folio Cloud"
+  ,"cloudAuthDialogTitleRegister": "Crear cuenta de Folio Cloud"
+  ,"cloudAuthDialogTitleReset": "Restablecer contraseña"
+  ,"cloudPasswordResetSent": "Si existe una cuenta con ese correo, se envió un enlace de restablecimiento."
+  ,"cloudAuthErrorInvalidEmail": "Ese correo no es válido."
+  ,"cloudAuthErrorWrongPassword": "Contraseña incorrecta."
+  ,"cloudAuthErrorUserNotFound": "No hay cuenta con ese correo."
+  ,"cloudAuthErrorUserDisabled": "Esta cuenta está deshabilitada."
+  ,"cloudAuthErrorEmailAlreadyInUse": "Ese correo ya está registrado."
+  ,"cloudAuthErrorWeakPassword": "La contraseña es demasiado débil."
+  ,"cloudAuthErrorInvalidCredential": "Correo o contraseña no válidos."
+  ,"cloudAuthErrorNetwork": "Error de red. Comprueba la conexión."
+  ,"cloudAuthErrorTooManyRequests": "Demasiados intentos. Prueba más tarde."
+  ,"cloudAuthErrorOperationNotAllowed": "Este método de inicio de sesión no está habilitado en Firebase."
+  ,"cloudAuthErrorGeneric": "No se pudo iniciar sesión. Inténtalo de nuevo."
+  ,"cloudAuthDialogTitle": "Folio Cloud"
+  ,"cloudAuthSubtitleSignIn": "Usa el correo y la contraseña de Folio Cloud. Nada de esto cambia tu libreta local."
+  ,"cloudAuthSubtitleRegister": "Crea credenciales para Folio Cloud. Tus notas en este dispositivo no se suben hasta que actives copias u otras funciones de pago."
+  ,"cloudAuthModeSignIn": "Iniciar sesión"
+  ,"cloudAuthModeRegister": "Registrarse"
+  ,"cloudAuthConfirmPasswordLabel": "Confirmar contraseña"
+  ,"cloudAuthValidationRequired": "Este campo es obligatorio."
+  ,"cloudAuthValidationPasswordShort": "Usa al menos 6 caracteres."
+  ,"cloudAuthValidationConfirmMismatch": "Las contraseñas no coinciden."
+  ,"cloudAccountSignedOutPrompt": "Inicia sesión o regístrate para suscribirte a Folio Cloud y usar copias, IA en la nube y publicación."
+  ,"cloudAuthResetHint": "Te enviaremos un enlace por correo para elegir una nueva contraseña."
+  ,"cloudAccountEmailVerified": "Verificado"
+  ,"cloudAccountSignOutHelp": "Tu libreta local sigue en este dispositivo."
+  ,"cloudAccountEmailUnverifiedBanner": "Verifica tu correo para asegurar tu cuenta Folio Cloud."
+  ,"cloudAccountResendVerification": "Reenviar correo de verificación"
+  ,"cloudAccountReloadVerification": "Ya verifiqué"
+  ,"cloudAccountVerificationSent": "Correo de verificación enviado."
+  ,"cloudAccountVerificationStillPending": "El correo sigue sin verificarse. Abre el enlace de tu bandeja de entrada."
+  ,"cloudAccountVerificationNowVerified": "Correo verificado."
+  ,"cloudAccountResetPasswordEmail": "Restablecer contraseña por correo"
+  ,"cloudAccountCopyEmail": "Copiar correo"
+  ,"cloudAccountEmailCopied": "Correo copiado."
+  ,"folioWebPortalSubsectionTitle": "Cuenta web"
+  ,"folioWebPortalLinkCodeLabel": "Código de emparejamiento"
+  ,"folioWebPortalLinkHelp": "Genera el código en la web, en Ajustes → cuenta Folio, e introdúcelo aquí en los próximos 10 minutos."
+  ,"folioWebPortalLinkButton": "Vincular"
+  ,"folioWebPortalLinkSuccess": "Cuenta web vinculada correctamente."
+  ,"folioWebPortalNeedSignIn": "Inicia sesión en Folio Cloud para vincular la cuenta web."
+  ,"folioWebMirrorNote": "Copias, IA y publicación siguen gobernadas por Folio Cloud (Firestore). Lo siguiente refleja tu cuenta en la web."
+  ,"folioWebEntitlementLinked": "Cuenta web vinculada"
+  ,"folioWebEntitlementNotLinked": "Cuenta web no vinculada"
+  ,"folioWebEntitlementWebPlan": "Folio Cloud (web): {value}"
+  ,"@folioWebEntitlementWebPlan": {"placeholders": {"value": {"type": "String"}}}
+  ,"folioWebEntitlementWebStatus": "Estado (web): {value}"
+  ,"@folioWebEntitlementWebStatus": {"placeholders": {"value": {"type": "String"}}}
+  ,"folioWebEntitlementWebPeriodEnd": "Fin de periodo (web): {value}"
+  ,"@folioWebEntitlementWebPeriodEnd": {"placeholders": {"value": {"type": "String"}}}
+  ,"folioWebEntitlementWebInk": "Tinta (web): {count}"
+  ,"@folioWebEntitlementWebInk": {"placeholders": {"count": {"type": "int"}}}
+  ,"folioWebPortalRefreshWeb": "Actualizar estado web"
+  ,"folioWebPortalErrorNetwork": "No se pudo conectar con el portal. Comprueba la conexión."
+  ,"folioWebPortalErrorTimeout": "El portal tardó demasiado en responder."
+  ,"folioWebPortalErrorAdminNotConfigured": "Folio Firebase Admin no está configurado en el servidor (revisa el backend)."
+  ,"folioWebPortalErrorUnauthorized": "Sesión no válida. Vuelve a iniciar sesión en Folio Cloud."
+  ,"folioWebPortalErrorGeneric": "No se pudo completar la operación con el portal."
+  ,"folioWebPortalServerMessage": "{message}"
+  ,"@folioWebPortalServerMessage": {"placeholders": {"message": {"type": "String"}}}
+  ,"folioCloudSubsectionPlan": "Plan y estado"
+  ,"folioCloudSubsectionInk": "Saldo de tinta"
+  ,"folioCloudSubsectionSubscription": "Suscripción y facturación"
+  ,"folioCloudSubsectionBackupPublish": "Copias y publicación"
+  ,"folioCloudSubscriptionActive": "Suscripción activa"
+  ,"folioCloudSubscriptionActiveWithStatus": "Suscripción activa ({status})"
+  ,"@folioCloudSubscriptionActiveWithStatus": {"placeholders": {"status": {"type": "String"}}}
+  ,"folioCloudSubscriptionNoneTitle": "Sin suscripción Folio Cloud"
+  ,"folioCloudSubscriptionNoneSubtitle": "Activa un plan para copias cifradas, IA en la nube y publicación web."
+  ,"folioCloudFeatureBackup": "Copia en la nube"
+  ,"folioCloudFeatureCloudAi": "IA en la nube"
+  ,"folioCloudFeaturePublishWeb": "Publicación web"
+  ,"folioCloudFeatureOn": "Incluida"
+  ,"folioCloudFeatureOff": "No incluida"
+  ,"folioCloudPostPaymentHint": "Si acabas de pagar y ves las funciones en «no», pulsa «Actualizar desde Stripe»."
+  ,"folioCloudBackupCleanupWarning": "Copia subida, pero no se pudo limpiar copias antiguas (se reintentará más tarde)."
+  ,"folioCloudInkMonthly": "Mes"
+  ,"folioCloudInkPurchased": "Compradas"
+  ,"folioCloudInkTotal": "Total"
+  ,"folioCloudInkCount": "{count}"
+  ,"@folioCloudInkCount": {"placeholders": {"count": {"type": "int"}}}
+  ,"folioCloudPlanActiveHeadline": "Plan mensual Folio Cloud activo"
+  ,"folioCloudSubscribeMonthly": "Folio Cloud 4,99 €/mes"
+  ,"folioCloudPitchScreenTitle": "Folio Cloud"
+  ,"folioCloudPitchHeadline": "Tu libreta sigue en el dispositivo. La nube entra cuando tú quieres."
+  ,"folioCloudPitchSubhead": "Un plan mensual desbloquea copias cifradas, IA alojada en la nube con recarga mensual de tinta y publicación web: solo lo que decidas compartir."
+  ,"folioCloudPitchLearnMore": "Ver qué incluye"
+  ,"folioCloudPitchCtaNeedAccount": "Iniciar sesión o crear cuenta"
+  ,"folioCloudPitchGuestTeaserTitle": "Cuenta Folio Cloud"
+  ,"folioCloudPitchGuestTeaserBody": "Cuenta opcional: mira qué incluye el plan y entra cuando quieras suscribirte."
+  ,"folioCloudPitchOpenSettingsToSignIn": "Abre Ajustes e inicia sesión en Folio Cloud (sección Folio Cloud) para suscribirte."
+  ,"folioCloudBuyInk": "Comprar tinta"
+  ,"folioCloudInkSmall": "Tintero pequeño (1,99 €)"
+  ,"folioCloudInkMedium": "Tintero mediano (4,99 €)"
+  ,"folioCloudInkLarge": "Tintero grande (9,99 €)"
+  ,"folioCloudManageSubscription": "Gestionar suscripción"
+  ,"folioCloudRefreshFromStripe": "Actualizar"
+  ,"folioCloudUploadEncryptedBackup": "Copia a la nube ahora"
+  ,"folioCloudUploadEncryptedBackupSubtitle": "Folio genera la copia cifrada de la libreta abierta y la sube solo; no tienes que exportar un .zip."
+  ,"folioCloudUploadSnackOk": "Copia de la libreta guardada en la nube."
+  ,"scheduledVaultBackupCloudSyncTitle": "Subir también a Folio Cloud"
+  ,"scheduledVaultBackupCloudSyncSubtitle": "Tras cada copia programada, sube automáticamente el mismo ZIP a tu cuenta. Si no quieres copia en disco, deja la carpeta sin elegir y activa solo esta opción."
+  ,"folioCloudCloudBackupsList": "Copias en la nube"
+  ,"folioCloudBackupsUsed": "Usadas"
+  ,"folioCloudBackupsLimit": "Límite"
+  ,"folioCloudBackupsRemaining": "Restantes"
+  ,"folioCloudPublishTestPage": "Publicar página de prueba"
+  ,"folioCloudPublishedPagesList": "Páginas publicadas"
+  ,"folioCloudReauthDialogTitle": "Confirmar cuenta Folio Cloud"
+  ,"folioCloudReauthDialogBody": "Introduce la contraseña de tu cuenta Folio Cloud (la del inicio de sesión en la nube) para listar y descargar copias. No es la contraseña de la libreta local."
+  ,"folioCloudReauthRequiresPasswordProvider": "Esta sesión no usa contraseña de Folio Cloud. Cierra sesión en la cuenta e inicia de nuevo con correo y contraseña si necesitas descargar copias."
+  ,"folioCloudAiNoInkTitle": "Sin tinta para la IA en la nube"
+  ,"folioCloudAiNoInkBody": "Puedes comprar un tintero en Folio Cloud, esperar la recarga mensual o cambiar a IA local (Ollama o LM Studio) en la sección de IA de Ajustes."
+  ,"folioCloudAiNoInkActionCloud": "Folio Cloud y tinta"
+  ,"folioCloudAiNoInkActionLocal": "Proveedor de IA"
+  ,"folioCloudAiZeroInkBanner": "Tinta de IA en la nube: 0 gotas. Abre Ajustes para comprar tinta o usar IA local."
+  ,"folioCloudInkPurchaseAppliedHint": "Compra aplicada: {purchased} gotas compradas disponibles para IA en la nube."
+  ,"@folioCloudInkPurchaseAppliedHint": {"placeholders": {"purchased": {}}}
+  ,"onboardingCloudBackupCta": "Iniciar sesión y descargar copia"
+  ,"onboardingCloudBackupPickVaultSubtitle": "Elige qué libreta quieres restaurar."
+  ,"onboardingFolioCloudTitle": "Folio Cloud"
+  ,"onboardingFolioCloudBody": "Activa funciones en la nube cuando las necesites: copias cifradas, Quill hospedada y publicación web. Tu libreta sigue siendo local salvo que uses estas funciones."
+  ,"onboardingFolioCloudFeatureBackupTitle": "Copias cifradas en la nube"
+  ,"onboardingFolioCloudFeatureBackupBody": "Guarda y descarga copias de la libreta desde tu cuenta. En escritorio, listar/descargar se hace desde Folio Cloud."
+  ,"onboardingFolioCloudFeatureAiTitle": "IA en la nube + tinta"
+  ,"onboardingFolioCloudFeatureAiBody": "Quill en la nube con suscripción Folio Cloud (IA en la nube) o solo comprando tinta. La tinta se consume por uso; también puedes usar IA local (Ollama/LM Studio)."
+  ,"onboardingFolioCloudFeatureWebTitle": "Publicación web"
+  ,"onboardingFolioCloudFeatureWebBody": "Publica páginas seleccionadas y controla qué se hace público. El resto de la libreta no se comparte."
+  ,"onboardingFolioCloudLaterInSettings": "Lo veré en Ajustes"
 }

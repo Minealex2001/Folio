@@ -8,7 +8,7 @@ import 'package:uuid/uuid.dart';
 
 import 'vault_paths.dart';
 
-/// Entrada del registro de cofres (metadatos en prefs, datos en disco por [id]).
+/// Entrada del registro de libretas (metadatos en prefs, datos en disco por [id]).
 class VaultEntry {
   const VaultEntry({
     required this.id,
@@ -35,7 +35,7 @@ class VaultEntry {
   }
 }
 
-/// Registro persistente de cofres y cofre activo.
+/// Registro persistente de libretas y libreta activa.
 class VaultRegistry {
   VaultRegistry._();
 
@@ -126,7 +126,7 @@ class VaultRegistry {
     await _saveVaultsJson();
   }
 
-  /// Migra `folio_vault/` legacy a `folio_vaults/<uuid>/` y registra un cofre.
+  /// Migra `folio_vault/` legacy a `folio_vaults/<uuid>/` y registra una libreta.
   Future<void> migrateFromLegacyIfNeeded() async {
     await load();
     if (_vaults.isNotEmpty) return;

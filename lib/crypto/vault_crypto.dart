@@ -100,7 +100,7 @@ class VaultCrypto {
     required SecretKey dek,
   }) async {
     if (blob.length < nonceLength + 16) {
-      throw VaultCryptoException('Cofre corrupto');
+      throw VaultCryptoException('Libreta corrupta');
     }
     final nonce = blob.sublist(0, nonceLength);
     final macStart = blob.length - 16;

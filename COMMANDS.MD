@@ -1,0 +1,1 @@
+flutter run --dart-define=FOLIO_WEB_PORTAL_LINK_ENABLED=true

@@ -10,7 +10,7 @@ class VaultPaths {
   /// Carpeta legacy (una sola); se migra a [vaultsContainerDirName].
   static const String legacyVaultDirName = 'folio_vault';
 
-  /// Contenedor de todos los cofres: `<support>/folio_vaults/<vaultId>/`.
+  /// Contenedor de todas las libretas: `<support>/folio_vaults/<vaultId>/`.
   static const String vaultsContainerDirName = 'folio_vaults';
 
   static const String attachmentsDirName = 'attachments';
@@ -42,7 +42,7 @@ class VaultPaths {
     return dir;
   }
 
-  /// Directorio de un cofre por id (crea la carpeta si no existe).
+  /// Directorio de una libreta por id (crea la carpeta si no existe).
   static Future<Directory> vaultDirectoryForId(String vaultId) async {
     final vRoot = await vaultsRootDirectory();
     final dir = Directory(p.join(vRoot.path, vaultId));
@@ -52,11 +52,11 @@ class VaultPaths {
     return dir;
   }
 
-  /// Cofre activo; requiere [setActiveVaultId] previo.
+  /// Libreta activa; requiere [setActiveVaultId] previo.
   static Future<Directory> vaultDirectory() async {
     final id = _activeVaultId;
     if (id == null || id.isEmpty) {
-      throw StateError('No hay cofre activo');
+      throw StateError('No hay libreta activa');
     }
     return vaultDirectoryForId(id);
   }
@@ -70,7 +70,7 @@ class VaultPaths {
     return dir;
   }
 
-  /// Ruta relativa al directorio del cofre, p. ej. `attachments/uuid.png`.
+  /// Ruta relativa al directorio de la libreta, p. ej. `attachments/uuid.png`.
   static Future<String> importAttachmentFile(
     File source, {
     bool preserveExtension = false,
@@ -178,7 +178,7 @@ class VaultPaths {
     return wrapped.existsSync() || payload.existsSync();
   }
 
-  /// Borra el material cifrado del cofre activo (no toca otras prefs globales antiguas).
+  /// Borra el material cifrado de la libreta activa (no toca otras prefs globales antiguas).
   static Future<void> deleteWrappedKeyAndPayload() async {
     final w = await wrappedDekPath();
     if (w.existsSync()) {

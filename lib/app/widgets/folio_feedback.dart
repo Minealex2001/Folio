@@ -12,7 +12,12 @@ void showFolioSnack(
   messenger.hideCurrentSnackBar();
   messenger.showSnackBar(
     SnackBar(
-      content: Text(trimmed),
+      content: Text(
+        trimmed,
+        style: error
+            ? TextStyle(color: scheme.onErrorContainer)
+            : null,
+      ),
       backgroundColor: error ? scheme.errorContainer : null,
       behavior: SnackBarBehavior.floating,
     ),

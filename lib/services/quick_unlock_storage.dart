@@ -3,7 +3,7 @@ import 'dart:typed_data';
 
 import 'package:shared_preferences/shared_preferences.dart';
 
-/// Copia de la DEK para desbloqueo rápido (Hello / biometría / passkey), **por cofre** ([vaultId]).
+/// Copia de la DEK para desbloqueo rápido (Hello / biometría / passkey), **por libreta** ([vaultId]).
 ///
 /// Usa [SharedPreferences]: en escritorio el almacén suele ser legible para el
 /// usuario del SO; para mayor seguridad en producción conviene volver a un

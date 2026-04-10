@@ -1,0 +1,46 @@
+{
+  "project_info": {
+    "project_number": "681177615508",
+    "project_id": "folio-minealexgames",
+    "storage_bucket": "folio-minealexgames.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:681177615508:android:54bb3b642bd3ab54f9b881",
+        "android_client_info": {
+          "package_name": "com.minealexgames.folio"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "681177615508-d4ur9vm4ujl8fr5ooinm0urfv5hitku7.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyA8FCHMGWXZVONQnnRPMLlwL2TqNng3wAc"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "681177615508-d4ur9vm4ujl8fr5ooinm0urfv5hitku7.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "681177615508-8qe5e941bn39pbqg95k1i2d36maabc60.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.example.folio"
+              }
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

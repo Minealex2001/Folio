@@ -1,17 +1,21 @@
-import 'dart:async';
+﻿import 'dart:async';
+import 'dart:convert';
 import 'dart:io';
 import 'dart:math' as math;
 
+import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter_markdown_plus/flutter_markdown_plus.dart';
 import 'package:markdown/markdown.dart' as md;
 import 'package:flutter/services.dart';
+import 'package:url_launcher/url_launcher.dart';
 import 'package:uuid/uuid.dart';
 
 import '../../app/app_settings.dart';
 import '../../app/folio_in_app_shortcuts.dart';
 import '../../app/ui_tokens.dart';
+import '../../app/widgets/folio_cloud_ai_ink_dialog.dart';
 import '../../app/widgets/folio_dialog.dart';
 import '../../app/widgets/folio_feedback.dart';
 import '../../models/folio_page.dart';
@@ -20,15 +24,28 @@ import '../../models/folio_columns_data.dart';
 import '../../models/folio_template_button_data.dart';
 import '../../models/folio_toggle_data.dart';
 import '../../services/ai/ai_types.dart';
+import '../../services/ai/folio_cloud_ai_service.dart';
+import '../../services/cloud_account/cloud_account_controller.dart';
+import '../../services/folio_cloud/folio_cloud_checkout.dart';
+import '../../services/folio_cloud/folio_cloud_ai_pricing.dart';
+import '../../services/folio_cloud/folio_cloud_entitlements.dart';
+import '../../services/folio_cloud/folio_cloud_publish.dart';
+import '../../services/folio_cloud/folio_page_html_export.dart';
+import '../../services/device_sync/device_sync_controller.dart';
 import '../../l10n/generated/app_localizations.dart';
 import '../../services/run2doc/run2doc_markdown_codec.dart';
 import '../../session/vault_session.dart';
+import '../settings/folio_cloud_subscription_pitch_page.dart';
 import '../settings/settings_page.dart';
 import 'widgets/ai_typing_indicator.dart';
+import 'widgets/ai_typewriter_message.dart';
 import 'widgets/block_editor.dart';
+import 'widgets/block_editor_support_widgets.dart';
+import 'widgets/block_type_catalog.dart';
 import 'widgets/page_history_sheet.dart';
 import 'widgets/mermaid_markdown_builder.dart';
 import 'widgets/sidebar.dart';
+import 'widgets/page_outline_panel.dart';
 import 'widgets/workspace_editor_surface.dart';
 import 'widgets/workspace_shell.dart';
 
@@ -37,11 +54,17 @@ class WorkspacePage extends StatefulWidget {
     super.key,
     required this.session,
     required this.appSettings,
+    required this.deviceSyncController,
+    required this.cloudAccountController,
+    required this.folioCloudEntitlements,
     required this.onOpenSearch,
   });
 
   final VaultSession session;
   final AppSettings appSettings;
+  final DeviceSyncController deviceSyncController;
+  final CloudAccountController cloudAccountController;
+  final FolioCloudEntitlementsController folioCloudEntitlements;
   final VoidCallback onOpenSearch;
 
   @override
@@ -80,19 +103,36 @@ class _WorkspacePageState extends State<WorkspacePage> {
   late String _attachmentsBoundChatId;
   bool _aiChatBusy = false;
   AiTokenUsage? _lastChatTokenUsage;
+  String _aiInkEstimateOperationKind = 'chat_turn';
   double _aiPanelWidth = 360;
   bool _aiPanelCollapsed = false;
   bool _showQuillWorkspaceTour = false;
   final Set<String> _expandedThoughtMessageKeys = <String>{};
   final ScrollController _aiChatScrollController = ScrollController();
+
+  /// Scroll del listado de mensajes cuando el chat va en hoja móvil (DraggableScrollableSheet).
+  ScrollController? _mobileSheetChatScroll;
   String? _lastAiChatIdForScroll;
   int _lastAiChatMessageCount = -1;
+  final Set<String> _aiTypewriterActiveMessageKeys = <String>{};
   final Map<int, String?> _messageFeedback =
       {}; // Track feedback for each message
   Timer? _draftSaveTimer;
   String _chatDraft = ''; // Auto-save draft
   int _aiContextMenuSelectedIndex = 0; // Keyboard navigation
   bool _aiContextMenuUsingKeyboard = false; // Track keyboard vs mouse
+  bool _mobileEditMode = false;
+  String? _lastPageIdForMobileMode;
+  bool _sidebarPeek = false;
+  double _aiPanelHeight = 520;
+  bool _folioCloudCheckoutBusy = false;
+  Map<String, int> _cloudInkCostByOperation = Map<String, int>.from(
+    kFolioCloudInkCostFallback,
+  );
+  bool _cloudInkPricingFromServer = false;
+
+  final GlobalKey<BlockEditorState> _blockEditorKey =
+      GlobalKey<BlockEditorState>();
 
   VaultSession get _s => widget.session;
   AiChatThreadData get _activeChat => _s.activeAiChat;
@@ -100,6 +140,106 @@ class _WorkspacePageState extends State<WorkspacePage> {
   void _snack(String message, {bool error = false}) {
     if (!mounted || message.trim().isEmpty) return;
     showFolioSnack(context, message, error: error);
+  }
+
+  String _t(String es, String en) {
+    final lang = Localizations.localeOf(context).languageCode.toLowerCase();
+    return lang.startsWith('es') ? es : en;
+  }
+
+  int _inkCostForOperationKind(String kind) {
+    final fallbackDefault = kFolioCloudInkCostFallback['default'] ?? 3;
+    return _cloudInkCostByOperation[kind] ??
+        _cloudInkCostByOperation['default'] ??
+        fallbackDefault;
+  }
+
+  Future<void> _refreshCloudInkPricing({bool force = false}) async {
+    final snap = await FolioCloudAiPricingService.getPricing(
+      forceRefresh: force,
+    );
+    if (!mounted) return;
+    setState(() {
+      _cloudInkCostByOperation = Map<String, int>.from(snap.costByOperation);
+      _cloudInkPricingFromServer = snap.fromServer;
+    });
+  }
+
+  String _estimateInkOperationKindForChat({
+    required String text,
+    required bool hasScopePage,
+  }) {
+    final t = text.toLowerCase().trim();
+    if (t.isEmpty) return 'chat_turn';
+
+    bool hasAny(List<String> needles) =>
+        needles.any((n) => t.contains(n.toLowerCase()));
+
+    // Crear contenido nuevo suele ser más caro.
+    if (hasAny([
+      'crear',
+      'crea ',
+      'crea una',
+      'crea un',
+      'nueva página',
+      'nuevo documento',
+      'genera una página',
+      'generate a page',
+      'create a page',
+    ])) {
+      return 'generate_page';
+    }
+
+    if (hasAny([
+      'insertar',
+      'inserta',
+      'añade un párrafo',
+      'añadir un párrafo',
+      'añade',
+      'añadir',
+      'generate insert',
+    ])) {
+      return 'generate_insert';
+    }
+
+    if (hasAny(['resume', 'resumen', 'resumir', 'summarize'])) {
+      return 'summarize_page';
+    }
+
+    // Si hay una página abierta y el texto sugiere edición, estimar modo de edición.
+    if (hasScopePage &&
+        hasAny([
+          'reescribe',
+          'reescribir',
+          'corrige',
+          'corregir',
+          'mejora',
+          'mejorar',
+          'cambia',
+          'cambiar',
+          'actualiza',
+          'actualizar',
+          'editar',
+          'edit ',
+          'rewrite',
+        ])) {
+      return 'edit_page_panel';
+    }
+
+    return 'chat_turn';
+  }
+
+  void _updateInkEstimateFromComposer() {
+    if (!mounted) return;
+    final isCloudProvider =
+        widget.appSettings.aiProvider == AiProvider.folioCloud;
+    if (!isCloudProvider) return;
+    final next = _estimateInkOperationKindForChat(
+      text: _chatInputController.text,
+      hasScopePage: _s.selectedPageId != null,
+    );
+    if (next == _aiInkEstimateOperationKind) return;
+    setState(() => _aiInkEstimateOperationKind = next);
   }
 
   String _suggestMarkdownFileName(String title) {
@@ -140,6 +280,70 @@ class _WorkspacePageState extends State<WorkspacePage> {
         ],
       ),
     );
+  }
+
+  Future<void> _saveCurrentPageAsTemplate() async {
+    final page = _s.selectedPage;
+    if (page == null) return;
+    final l10n = AppLocalizations.of(context);
+    String name = page.title.isNotEmpty ? page.title : l10n.untitledFallback;
+    String description = '';
+    String category = '';
+    final result = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setSt) => FolioDialog(
+          title: Text(l10n.saveAsTemplateTitle),
+          content: SizedBox(
+            width: 380,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextField(
+                  autofocus: true,
+                  decoration: InputDecoration(labelText: l10n.templateNameHint),
+                  controller: TextEditingController(text: name),
+                  onChanged: (v) => name = v,
+                ),
+                const SizedBox(height: 8),
+                TextField(
+                  decoration: InputDecoration(
+                    labelText: l10n.templateDescriptionHint,
+                  ),
+                  onChanged: (v) => description = v,
+                ),
+                const SizedBox(height: 8),
+                TextField(
+                  decoration: InputDecoration(
+                    labelText: l10n.templateCategoryHint,
+                  ),
+                  onChanged: (v) => category = v,
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(ctx).pop(false),
+              child: Text(l10n.cancel),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.of(ctx).pop(true),
+              child: Text(l10n.save),
+            ),
+          ],
+        ),
+      ),
+    );
+    if (result != true || !mounted) return;
+    _s.savePageAsTemplate(
+      page.id,
+      name: name.trim().isNotEmpty ? name.trim() : null,
+      description: description.trim(),
+      category: category.trim(),
+    );
+    if (!mounted) return;
+    _snack(l10n.templateSaved);
   }
 
   Future<void> _importMarkdownFile() async {
@@ -196,6 +400,99 @@ class _WorkspacePageState extends State<WorkspacePage> {
     } catch (e) {
       if (!mounted) return;
       _snack('No se pudo exportar la página: $e');
+    }
+  }
+
+  String _suggestWebSlugFromTitle(String title) {
+    var s = title.toLowerCase().trim();
+    s = s.replaceAll(RegExp(r'[^a-z0-9]+'), '-');
+    s = s.replaceAll(RegExp(r'^-+|-+$'), '');
+    if (s.isEmpty) return 'page';
+    if (s.length > 48) {
+      s = s.substring(0, 48).replaceAll(RegExp(r'-+$'), '');
+    }
+    return s.isEmpty ? 'page' : s;
+  }
+
+  Future<void> _publishCurrentPageToWeb() async {
+    final page = _s.selectedPage;
+    if (page == null || _s.state != VaultFlowState.unlocked) return;
+    if (Firebase.apps.isEmpty) {
+      _snack('Firebase no está disponible.');
+      return;
+    }
+    if (!widget.cloudAccountController.isSignedIn) {
+      _snack('Inicia sesión en la cuenta en la nube (Ajustes) para publicar.');
+      return;
+    }
+    if (!widget.folioCloudEntitlements.snapshot.canPublishToWeb) {
+      _snack(
+        'Tu plan no incluye publicación web o la suscripción no está activa.',
+      );
+      return;
+    }
+    final slugController = TextEditingController(
+      text: _suggestWebSlugFromTitle(page.title),
+    );
+    final snap = widget.folioCloudEntitlements.snapshot;
+    try {
+      final go = await showDialog<bool>(
+        context: context,
+        builder: (ctx) {
+          final l10n = AppLocalizations.of(ctx);
+          return AlertDialog(
+            title: const Text('Publicar en la web'),
+            content: TextField(
+              controller: slugController,
+              decoration: const InputDecoration(
+                labelText: 'URL (slug)',
+                hintText: 'mi-nota',
+                helperText:
+                    'Letras, números y guiones. Quedará en la URL pública.',
+              ),
+              autofocus: true,
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(ctx, false),
+                child: Text(l10n.cancel),
+              ),
+              FilledButton(
+                onPressed: () => Navigator.pop(ctx, true),
+                child: const Text('Publicar'),
+              ),
+            ],
+          );
+        },
+      );
+      if (go != true || !mounted) return;
+      final slug = slugController.text.trim();
+      if (slug.isEmpty) {
+        _snack('Slug vacío.');
+        return;
+      }
+      String? appIconDataUri;
+      try {
+        final data = await rootBundle.load('assets/icons/folio.ico');
+        appIconDataUri =
+            'data:image/x-icon;base64,${base64Encode(data.buffer.asUint8List())}';
+      } catch (_) {}
+      final html = folioPageExportHtmlDocument(
+        page,
+        appIconDataUri: appIconDataUri,
+      );
+      final res = await publishHtmlPage(
+        slug: slug,
+        html: html,
+        entitlementSnapshot: snap,
+      );
+      if (!mounted) return;
+      _snack('Publicado: ${res.publicUrl}');
+      await launchUrl(res.publicUrl, mode: LaunchMode.externalApplication);
+    } catch (e) {
+      if (mounted) _snack('No se pudo publicar: $e');
+    } finally {
+      slugController.dispose();
     }
   }
 
@@ -529,13 +826,37 @@ class _WorkspacePageState extends State<WorkspacePage> {
                           ),
                           const SizedBox(height: 10),
                         ],
-                        _buildMarkdownMessage(
-                          context: context,
-                          content: bodyContent.isEmpty
-                              ? message.content
-                              : bodyContent,
-                          isUser: isUser,
-                          textColor: textColor,
+                        Builder(
+                          builder: (ctx) {
+                            final target = bodyContent.isEmpty
+                                ? message.content
+                                : bodyContent;
+                            final shouldAnimate =
+                                !isUser &&
+                                _aiTypewriterActiveMessageKeys.contains(msgKey);
+                            if (!shouldAnimate) {
+                              return _buildMarkdownMessage(
+                                context: ctx,
+                                content: target,
+                                isUser: isUser,
+                                textColor: textColor,
+                              );
+                            }
+                            final baseStyle = Theme.of(ctx).textTheme.bodyMedium
+                                ?.copyWith(color: textColor, height: 1.35);
+                            return FolioAiTypewriterMessage(
+                              fullText: _normalizeHtmlForChat(target),
+                              style:
+                                  baseStyle ??
+                                  TextStyle(color: textColor, height: 1.35),
+                              onCompleted: () {
+                                if (!mounted) return;
+                                setState(() {
+                                  _aiTypewriterActiveMessageKeys.remove(msgKey);
+                                });
+                              },
+                            );
+                          },
                         ),
                         if (!isUser) ...[
                           const SizedBox(height: 12),
@@ -986,6 +1307,8 @@ class _WorkspacePageState extends State<WorkspacePage> {
     HardwareKeyboard.instance.addHandler(_onHardwareKeyEvent);
     _chatInputController.addListener(_updateAiContextMenu);
     _chatInputFocusNode.addListener(_updateAiContextMenu);
+    widget.folioCloudEntitlements.addListener(_onFolioCloudEntitlements);
+    unawaited(_refreshCloudInkPricing());
     _syncTitleFromSession();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _maybeShowQuillWorkspaceTour();
@@ -999,6 +1322,7 @@ class _WorkspacePageState extends State<WorkspacePage> {
     _draftSaveTimer?.cancel();
     HardwareKeyboard.instance.removeHandler(_onHardwareKeyEvent);
     widget.appSettings.removeListener(_onAppSettings);
+    widget.folioCloudEntitlements.removeListener(_onFolioCloudEntitlements);
     _s.removeListener(_onSession);
     _chatInputController.removeListener(_updateAiContextMenu);
     _chatInputFocusNode.removeListener(_updateAiContextMenu);
@@ -1009,11 +1333,31 @@ class _WorkspacePageState extends State<WorkspacePage> {
     super.dispose();
   }
 
+  @override
+  void didUpdateWidget(covariant WorkspacePage oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.folioCloudEntitlements != widget.folioCloudEntitlements) {
+      oldWidget.folioCloudEntitlements.removeListener(
+        _onFolioCloudEntitlements,
+      );
+      widget.folioCloudEntitlements.addListener(_onFolioCloudEntitlements);
+    }
+  }
+
+  void _onFolioCloudEntitlements() {
+    if (!_cloudInkPricingFromServer &&
+        widget.folioCloudEntitlements.snapshot.canUseCloudAi) {
+      unawaited(_refreshCloudInkPricing(force: true));
+    }
+    if (mounted) setState(() {});
+  }
+
   void _scheduleAiChatScrollToBottom() {
+    final controller = _mobileSheetChatScroll ?? _aiChatScrollController;
     void scrollNow() {
-      if (!mounted || !_aiChatScrollController.hasClients) return;
-      final pos = _aiChatScrollController.position;
-      _aiChatScrollController.animateTo(
+      if (!mounted || !controller.hasClients) return;
+      final pos = controller.position;
+      controller.animateTo(
         pos.maxScrollExtent,
         duration: const Duration(milliseconds: 320),
         curve: Curves.easeOutCubic,
@@ -1028,20 +1372,50 @@ class _WorkspacePageState extends State<WorkspacePage> {
 
   void _onSession() {
     if (!mounted) return;
+    final currentPageId = _s.selectedPageId;
+    if (currentPageId != _lastPageIdForMobileMode) {
+      _lastPageIdForMobileMode = currentPageId;
+      final media = MediaQuery.maybeOf(context);
+      final size = media?.size;
+      final isVerticalMobile =
+          size != null &&
+          FolioAdaptive.isAndroidPhoneWidth(size.width) &&
+          size.height > size.width;
+      if (isVerticalMobile && _mobileEditMode) {
+        _mobileEditMode = false;
+      }
+    }
     if (_s.activeAiChat.id != _attachmentsBoundChatId) {
       _attachmentsBoundChatId = _s.activeAiChat.id;
       _aiAttachmentPaths = List<String>.from(_s.activeAiChat.attachmentPaths);
     }
     final chat = _s.activeAiChat;
-    final threadChanged = chat.id != _lastAiChatIdForScroll;
-    final countChanged = chat.messages.length != _lastAiChatMessageCount;
+    final previousThreadId = _lastAiChatIdForScroll;
+    final previousCount = _lastAiChatMessageCount;
+    final threadChanged = chat.id != previousThreadId;
+    final countChanged = chat.messages.length != previousCount;
     _lastAiChatIdForScroll = chat.id;
     _lastAiChatMessageCount = chat.messages.length;
+    if (threadChanged) {
+      _aiTypewriterActiveMessageKeys.clear();
+    }
     _syncTitleFromSession();
     setState(() {});
     _updateAiContextMenu();
     if (countChanged || threadChanged) {
       _scheduleAiChatScrollToBottom();
+    }
+    // Disparar animación SOLO para mensajes nuevos del hilo actual (evita animar historial al cargar/cambiar hilo).
+    if (!threadChanged &&
+        previousCount >= 0 &&
+        chat.messages.length == previousCount + 1 &&
+        chat.messages.isNotEmpty) {
+      final lastIndex = chat.messages.length - 1;
+      final last = chat.messages[lastIndex];
+      if (last.role == 'assistant') {
+        final key = '${chat.id}#$lastIndex';
+        _aiTypewriterActiveMessageKeys.add(key);
+      }
     }
   }
 
@@ -1172,12 +1546,21 @@ class _WorkspacePageState extends State<WorkspacePage> {
     if (!mounted) return;
     if (_showQuillWorkspaceTour) return;
     if (widget.appSettings.hasSeenQuillWorkspaceTour) return;
+    final w = MediaQuery.sizeOf(context).width;
+    final androidMobile = FolioAdaptive.shouldUseMobileWorkspace(w);
+    final compact = w < FolioDesktop.compactBreakpoint || androidMobile;
+    final aiOn = widget.appSettings.isAiRuntimeEnabled && _s.aiEnabled;
     setState(() {
-      if (widget.appSettings.isAiRuntimeEnabled && _s.aiEnabled) {
+      if (aiOn && !compact) {
         _aiPanelCollapsed = false;
       }
       _showQuillWorkspaceTour = true;
     });
+    if (aiOn && compact) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) unawaited(_openMobileAiChatSheet());
+      });
+    }
   }
 
   Future<void> _dismissQuillWorkspaceTour() async {
@@ -1187,8 +1570,12 @@ class _WorkspacePageState extends State<WorkspacePage> {
   }
 
   void _useQuillTourPrompt(String prompt) {
+    final w = MediaQuery.sizeOf(context).width;
+    final androidMobile = FolioAdaptive.shouldUseMobileWorkspace(w);
+    final compact = w < FolioDesktop.compactBreakpoint || androidMobile;
+    final aiOn = widget.appSettings.isAiRuntimeEnabled && _s.aiEnabled;
     setState(() {
-      if (widget.appSettings.isAiRuntimeEnabled && _s.aiEnabled) {
+      if (aiOn && !compact) {
         _aiPanelCollapsed = false;
       }
       _chatInputController.value = TextEditingValue(
@@ -1196,6 +1583,9 @@ class _WorkspacePageState extends State<WorkspacePage> {
         selection: TextSelection.collapsed(offset: prompt.length),
       );
     });
+    if (aiOn && compact) {
+      unawaited(_openMobileAiChatSheet());
+    }
     _chatInputFocusNode.requestFocus();
   }
 
@@ -1397,10 +1787,77 @@ class _WorkspacePageState extends State<WorkspacePage> {
   void _openSettings() {
     Navigator.of(context).push<void>(
       MaterialPageRoute<void>(
-        builder: (ctx) =>
-            SettingsPage(session: _s, appSettings: widget.appSettings),
+        builder: (ctx) => SettingsPage(
+          session: _s,
+          appSettings: widget.appSettings,
+          deviceSyncController: widget.deviceSyncController,
+          cloudAccountController: widget.cloudAccountController,
+          folioCloudEntitlements: widget.folioCloudEntitlements,
+        ),
       ),
     );
+  }
+
+  void _openFolioCloudSubscriptionPitch() {
+    if (_folioCloudCheckoutBusy) return;
+    final l10n = AppLocalizations.of(context);
+    final signedIn = widget.cloudAccountController.isSignedIn;
+    Navigator.of(context).push<void>(
+      MaterialPageRoute<void>(
+        builder: (ctx) => FolioCloudSubscriptionPitchPage(
+          busy: _folioCloudCheckoutBusy,
+          primaryCtaLabel: signedIn
+              ? l10n.folioCloudSubscribeMonthly
+              : l10n.folioCloudPitchCtaNeedAccount,
+          primaryIcon: signedIn
+              ? Icons.subscriptions_outlined
+              : Icons.person_add_outlined,
+          onPrimaryCta: () {
+            Navigator.of(ctx).pop();
+            if (!mounted) return;
+            if (signedIn) {
+              unawaited(_openFolioCloudMonthlyCheckout());
+            } else {
+              _openSettings();
+              _snack(l10n.folioCloudPitchOpenSettingsToSignIn);
+            }
+          },
+        ),
+      ),
+    );
+  }
+
+  Future<void> _openFolioCloudMonthlyCheckout() async {
+    if (_folioCloudCheckoutBusy) return;
+    setState(() => _folioCloudCheckoutBusy = true);
+    try {
+      final uri = await createFolioCheckoutUri(
+        FolioCheckoutKind.folioCloudMonthly,
+      );
+      if (uri == null) {
+        _snack(
+          _t(
+            'Pago no disponible (configura Stripe en el servidor).',
+            'Checkout unavailable (configure Stripe on server).',
+          ),
+          error: true,
+        );
+        return;
+      }
+      final ok = await launchUrl(uri, mode: LaunchMode.externalApplication);
+      if (!ok) {
+        _snack(
+          _t('No se pudo abrir el enlace.', 'Could not open the link.'),
+          error: true,
+        );
+      } else {
+        widget.folioCloudEntitlements.scheduleStripeSyncOnNextResume();
+      }
+    } catch (e) {
+      _snack('$e', error: true);
+    } finally {
+      if (mounted) setState(() => _folioCloudCheckoutBusy = false);
+    }
   }
 
   bool _isTextInputFocused() {
@@ -1468,7 +1925,7 @@ class _WorkspacePageState extends State<WorkspacePage> {
         context: context,
         isScrollControlled: true,
         backgroundColor: Colors.transparent,
-        builder: (_) => const BlockTypePickerSheet(catalog: blockTypeCatalog),
+        builder: (_) => BlockTypePickerSheet(catalog: blockTypeCatalog),
       );
     }
     return showDialog<String>(
@@ -1479,7 +1936,7 @@ class _WorkspacePageState extends State<WorkspacePage> {
         child: SizedBox(
           width: 620,
           height: 720,
-          child: const BlockTypePickerSheet(catalog: blockTypeCatalog),
+          child: BlockTypePickerSheet(catalog: blockTypeCatalog),
         ),
       ),
     );
@@ -1520,6 +1977,20 @@ class _WorkspacePageState extends State<WorkspacePage> {
     final type = await _showBlockTypePicker(compact: compact);
     if (type == null || !mounted) return;
     _appendBlockToPage(page, type);
+  }
+
+  void _forceSyncNow() {
+    try {
+      widget.deviceSyncController.refreshSettingsSnapshot();
+      widget.deviceSyncController.onLocalSnapshotPersisted();
+      if (mounted) {
+        _snack('Sincronización forzada iniciada.');
+      }
+    } catch (e) {
+      if (mounted) {
+        _snack('No se pudo forzar la sincronización: $e', error: true);
+      }
+    }
   }
 
   Future<List<AiFileAttachment>> _collectAiAttachments() async {
@@ -1645,6 +2116,8 @@ class _WorkspacePageState extends State<WorkspacePage> {
     setState(() {
       _chatInputController.clear();
     });
+    // Recalcular estimación tras limpiar, para que no quede “pegada”.
+    _updateInkEstimateFromComposer();
     _s.appendMessageToActiveAiChat(
       AiChatMessage.now(role: 'user', content: text),
     );
@@ -1658,7 +2131,15 @@ class _WorkspacePageState extends State<WorkspacePage> {
     } catch (e) {
       if (!mounted) return;
       final l10n = AppLocalizations.of(context);
-      _snack(l10n.aiErrorWithDetails(e), error: true);
+      if (e is FolioCloudAiException && e.isInkExhausted) {
+        await showFolioCloudAiInkExhaustedDialog(
+          context,
+          onOpenSettings: _openSettings,
+          onOpenFolioCloudPitch: _openFolioCloudSubscriptionPitch,
+        );
+      } else {
+        _snack(l10n.aiErrorWithDetails(e), error: true);
+      }
     } finally {
       if (mounted) {
         setState(() => _aiChatBusy = false);
@@ -1673,6 +2154,9 @@ class _WorkspacePageState extends State<WorkspacePage> {
     final t = text.trim();
     final languageCode = Localizations.localeOf(context).languageCode;
     final attachments = await _collectAiAttachments();
+    final isCloudProvider =
+        widget.appSettings.aiProvider == AiProvider.folioCloud;
+    final op = isCloudProvider ? _aiInkEstimateOperationKind : null;
     return _s.agentChatWithAi(
       messages: threadMessages,
       prompt: t,
@@ -1681,6 +2165,7 @@ class _WorkspacePageState extends State<WorkspacePage> {
       contextPageIds: _activeChat.contextPageIds,
       attachments: attachments,
       languageCode: languageCode,
+      cloudInkOperation: op,
     );
   }
 
@@ -1860,13 +2345,157 @@ class _WorkspacePageState extends State<WorkspacePage> {
     );
   }
 
-  Widget _buildAiPanel(BuildContext context) {
+  Widget _buildAiCollapsedFab(BuildContext context, ColorScheme scheme) {
+    final l10n = AppLocalizations.of(context);
+    return Tooltip(
+      message: l10n.aiShowPanel,
+      child: Material(
+        color: scheme.primaryContainer,
+        borderRadius: BorderRadius.circular(12),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(12),
+          onTap: () => setState(() => _aiPanelCollapsed = false),
+          child: SizedBox(
+            width: 56,
+            height: 56,
+            child: Icon(
+              Icons.chat_bubble_rounded,
+              color: scheme.onPrimaryContainer,
+              size: 28,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _openMobileAiChatSheet() async {
+    if (!mounted) return;
+    try {
+      await showModalBottomSheet<void>(
+        context: context,
+        isScrollControlled: true,
+        backgroundColor: Colors.transparent,
+        builder: (sheetContext) {
+          return DraggableScrollableSheet(
+            initialChildSize: 0.92,
+            minChildSize: 0.38,
+            maxChildSize: 0.98,
+            expand: false,
+            builder: (ctx, scrollController) {
+              _mobileSheetChatScroll = scrollController;
+              final theme = Theme.of(ctx);
+              return Padding(
+                padding: EdgeInsets.only(
+                  bottom: MediaQuery.viewInsetsOf(ctx).bottom,
+                ),
+                child: Material(
+                  color: theme.colorScheme.surface,
+                  borderRadius: const BorderRadius.vertical(
+                    top: Radius.circular(20),
+                  ),
+                  clipBehavior: Clip.antiAlias,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      const SizedBox(height: 10),
+                      Center(
+                        child: Container(
+                          width: 40,
+                          height: 4,
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(999),
+                            color: theme.colorScheme.onSurfaceVariant
+                                .withValues(alpha: 0.35),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      Expanded(
+                        child: _buildAiPanel(
+                          ctx,
+                          onRequestClosePanel: () =>
+                              Navigator.of(sheetContext).pop(),
+                          chatListScrollController: scrollController,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            },
+          );
+        },
+      );
+    } finally {
+      _mobileSheetChatScroll = null;
+    }
+  }
+
+  Widget _wrapWithMobileQuillFabIfNeeded({
+    required bool enabled,
+    required AppLocalizations l10n,
+    required Widget child,
+  }) {
+    if (!enabled) return child;
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.end,
+      children: [
+        FloatingActionButton.small(
+          heroTag: 'mobile_quill_chat_fab',
+          tooltip: l10n.aiShowPanel,
+          onPressed: () => unawaited(_openMobileAiChatSheet()),
+          child: const Icon(Icons.chat_bubble_rounded),
+        ),
+        const SizedBox(height: 12),
+        child,
+      ],
+    );
+  }
+
+  Widget _buildAiPanel(
+    BuildContext context, {
+    VoidCallback? onRequestClosePanel,
+    ScrollController? chatListScrollController,
+  }) {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
     final l10n = AppLocalizations.of(context);
-    return Material(
-      color: scheme.surface,
-      child: SafeArea(
+    final isCloudProvider =
+        widget.appSettings.aiProvider == AiProvider.folioCloud;
+    final showInkInChat =
+        isCloudProvider &&
+        widget.appSettings.isAiRuntimeEnabled &&
+        widget.folioCloudEntitlements.snapshot.canUseCloudAi;
+    final inkSnap = widget.folioCloudEntitlements.snapshot.ink;
+    const lowInkThreshold = 20;
+    final estInkCost = _inkCostForOperationKind(_aiInkEstimateOperationKind);
+    final inkLooksLow =
+        showInkInChat &&
+        inkSnap.totalInk > 0 &&
+        inkSnap.totalInk <= lowInkThreshold;
+    final inkLooksEmpty = showInkInChat && inkSnap.totalInk <= 0;
+
+    String providerLabel() {
+      switch (widget.appSettings.aiProvider) {
+        case AiProvider.none:
+          return _t('Sin configurar', 'Not set');
+        case AiProvider.folioCloud:
+          return 'Folio Cloud';
+        case AiProvider.ollama:
+          return 'Ollama';
+        case AiProvider.lmStudio:
+          return 'LM Studio';
+      }
+    }
+
+    return SafeArea(
+      top: false,
+      left: false,
+      right: false,
+      child: ColoredBox(
+        color: scheme.surface,
         child: Column(
           children: [
             Container(
@@ -1934,23 +2563,68 @@ class _WorkspacePageState extends State<WorkspacePage> {
                               ),
                             ),
                             const SizedBox(width: 8),
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 8,
-                                vertical: 3,
-                              ),
-                              decoration: BoxDecoration(
-                                color: scheme.primary.withValues(alpha: 0.10),
-                                borderRadius: BorderRadius.circular(999),
-                              ),
-                              child: Text(
-                                l10n.aiBetaBadge,
-                                style: theme.textTheme.labelSmall?.copyWith(
-                                  color: scheme.primary,
-                                  fontWeight: FontWeight.w800,
-                                  letterSpacing: 0.6,
+                            Wrap(
+                              spacing: 6,
+                              runSpacing: 6,
+                              crossAxisAlignment: WrapCrossAlignment.center,
+                              children: [
+                                Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 8,
+                                    vertical: 3,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: scheme.primary.withValues(
+                                      alpha: 0.10,
+                                    ),
+                                    borderRadius: BorderRadius.circular(999),
+                                  ),
+                                  child: Text(
+                                    l10n.aiBetaBadge,
+                                    style: theme.textTheme.labelSmall?.copyWith(
+                                      color: scheme.primary,
+                                      fontWeight: FontWeight.w800,
+                                      letterSpacing: 0.6,
+                                    ),
+                                  ),
                                 ),
-                              ),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 8,
+                                    vertical: 3,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: scheme.surfaceContainerHighest,
+                                    border: Border.all(
+                                      color: scheme.outlineVariant.withValues(
+                                        alpha: 0.40,
+                                      ),
+                                    ),
+                                    borderRadius: BorderRadius.circular(999),
+                                  ),
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Icon(
+                                        isCloudProvider
+                                            ? Icons.cloud_outlined
+                                            : Icons.computer_outlined,
+                                        size: 14,
+                                        color: scheme.onSurfaceVariant,
+                                      ),
+                                      const SizedBox(width: 5),
+                                      Text(
+                                        providerLabel(),
+                                        style: theme.textTheme.labelSmall
+                                            ?.copyWith(
+                                              color: scheme.onSurfaceVariant,
+                                              fontWeight: FontWeight.w700,
+                                            ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ],
                             ),
                           ],
                         ),
@@ -1966,20 +2640,85 @@ class _WorkspacePageState extends State<WorkspacePage> {
                             height: 1.35,
                           ),
                         ),
+                        if (showInkInChat) ...[
+                          const SizedBox(height: 6),
+                          Wrap(
+                            spacing: 8,
+                            runSpacing: 8,
+                            children: [
+                              Tooltip(
+                                message: l10n.aiChatInkBreakdownTooltip(
+                                  inkSnap.monthlyBalance,
+                                  inkSnap.purchasedBalance,
+                                ),
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 10,
+                                    vertical: 6,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: inkLooksLow
+                                        ? scheme.tertiaryContainer.withValues(
+                                            alpha: 0.65,
+                                          )
+                                        : scheme.primary.withValues(
+                                            alpha: 0.10,
+                                          ),
+                                    borderRadius: BorderRadius.circular(999),
+                                  ),
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Icon(
+                                        Icons.water_drop_outlined,
+                                        size: 16,
+                                        color: inkLooksLow
+                                            ? scheme.onTertiaryContainer
+                                            : scheme.primary.withValues(
+                                                alpha: 0.92,
+                                              ),
+                                      ),
+                                      const SizedBox(width: 6),
+                                      Text(
+                                        l10n.aiChatInkRemaining(
+                                          inkSnap.totalInk,
+                                        ),
+                                        style: theme.textTheme.labelSmall
+                                            ?.copyWith(
+                                              color: inkLooksLow
+                                                  ? scheme.onTertiaryContainer
+                                                  : scheme.onSurfaceVariant,
+                                              fontWeight: FontWeight.w800,
+                                            ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                          if (inkLooksEmpty) ...[
+                            const SizedBox(height: 8),
+                            FilledButton.tonalIcon(
+                              onPressed: _openSettings,
+                              icon: const Icon(Icons.shopping_bag_outlined),
+                              label: Text(_t('Comprar tinta', 'Buy ink')),
+                            ),
+                          ],
+                        ],
                       ],
                     ),
                   ),
                   IconButton(
-                    tooltip: _aiPanelCollapsed
-                        ? l10n.aiExpand
-                        : l10n.aiCollapse,
-                    onPressed: () =>
-                        setState(() => _aiPanelCollapsed = !_aiPanelCollapsed),
-                    icon: Icon(
-                      _aiPanelCollapsed
-                          ? Icons.keyboard_arrow_left_rounded
-                          : Icons.keyboard_arrow_right_rounded,
-                    ),
+                    tooltip: l10n.aiHidePanel,
+                    onPressed: () {
+                      if (onRequestClosePanel != null) {
+                        onRequestClosePanel();
+                      } else {
+                        setState(() => _aiPanelCollapsed = true);
+                      }
+                    },
+                    icon: const Icon(Icons.unfold_less_rounded),
                   ),
                 ],
               ),
@@ -2087,6 +2826,15 @@ class _WorkspacePageState extends State<WorkspacePage> {
                                             height: 1.55,
                                           ),
                                     ),
+                                    const SizedBox(height: 20),
+                                    FilledButton.tonal(
+                                      onPressed: () {
+                                        _chatInputFocusNode.requestFocus();
+                                      },
+                                      child: Text(
+                                        l10n.aiChatEmptyFocusComposer,
+                                      ),
+                                    ),
                                   ],
                                 ),
                               ),
@@ -2097,7 +2845,8 @@ class _WorkspacePageState extends State<WorkspacePage> {
                     }
                     final typingExtra = _aiChatBusy ? 1 : 0;
                     return ListView.builder(
-                      controller: _aiChatScrollController,
+                      controller:
+                          chatListScrollController ?? _aiChatScrollController,
                       padding: const EdgeInsets.fromLTRB(14, 16, 14, 14),
                       itemCount: msgs.length + typingExtra,
                       itemBuilder: (context, i) {
@@ -2159,6 +2908,52 @@ class _WorkspacePageState extends State<WorkspacePage> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
+                    if (showInkInChat) ...[
+                      Padding(
+                        padding: const EdgeInsets.only(
+                          left: 8,
+                          right: 8,
+                          top: 2,
+                          bottom: 6,
+                        ),
+                        child: Row(
+                          children: [
+                            Icon(
+                              Icons.water_drop_outlined,
+                              size: 16,
+                              color: inkLooksLow
+                                  ? scheme.tertiary
+                                  : scheme.onSurfaceVariant,
+                            ),
+                            const SizedBox(width: 6),
+                            Expanded(
+                              child: Text(
+                                _t(
+                                  'Coste estimado: $estInkCost gotas.',
+                                  'Estimated cost: $estInkCost ink.',
+                                ),
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                                style: theme.textTheme.labelSmall?.copyWith(
+                                  color: scheme.onSurfaceVariant.withValues(
+                                    alpha: 0.92,
+                                  ),
+                                  fontWeight: FontWeight.w600,
+                                  height: 1.25,
+                                ),
+                              ),
+                            ),
+                            if (inkLooksLow || inkLooksEmpty) ...[
+                              const SizedBox(width: 8),
+                              TextButton(
+                                onPressed: _openSettings,
+                                child: Text(_t('Tinta', 'Ink')),
+                              ),
+                            ],
+                          ],
+                        ),
+                      ),
+                    ],
                     Builder(
                       builder: (context) {
                         final items = _buildActiveAiContextItems(l10n);
@@ -2236,7 +3031,10 @@ class _WorkspacePageState extends State<WorkspacePage> {
                                     minLines: 1,
                                     maxLines: 5,
                                     onTap: _updateAiContextMenu,
-                                    onChanged: (_) => _updateAiContextMenu(),
+                                    onChanged: (_) {
+                                      _updateAiContextMenu();
+                                      _updateInkEstimateFromComposer();
+                                    },
                                     decoration: InputDecoration(
                                       border: InputBorder.none,
                                       hintText: l10n.aiInputHintCopilot,
@@ -2301,24 +3099,40 @@ class _WorkspacePageState extends State<WorkspacePage> {
     final scheme = Theme.of(context).colorScheme;
     final theme = Theme.of(context);
     final width = MediaQuery.sizeOf(context).width;
-    final compact = width < FolioDesktop.compactBreakpoint;
-    final medium = width < FolioDesktop.mediumBreakpoint;
-    final isAiPanelVisible =
-        !compact &&
-        widget.appSettings.isAiRuntimeEnabled &&
-        _s.aiEnabled &&
-        !_aiPanelCollapsed;
-    final sidePanelWidth = medium
-        ? FolioDesktop.sidebarWidth
-        : FolioDesktop.sidebarWideWidth;
+    final height = MediaQuery.sizeOf(context).height;
+    final androidMobileWorkspace = FolioAdaptive.shouldUseMobileWorkspace(
+      width,
+    );
+    final androidPhoneLayout = FolioAdaptive.isAndroidPhoneWidth(width);
+    final verticalMobileWorkspace = androidPhoneLayout && height > width;
+    final editorReadOnlyMode = verticalMobileWorkspace && !_mobileEditMode;
+    final compact =
+        width < FolioDesktop.compactBreakpoint || androidMobileWorkspace;
+    final aiSessionActive =
+        widget.appSettings.isAiRuntimeEnabled && _s.aiEnabled;
+    final useDesktopAiDock = !compact && aiSessionActive;
+    final useMobileAiDock = compact && aiSessionActive;
+    final effectiveSidebarW = compact
+        ? 0.0
+        : (widget.appSettings.workspaceSidebarCollapsed
+              ? (_sidebarPeek ? widget.appSettings.workspaceSidebarWidth : 0.0)
+              : widget.appSettings.workspaceSidebarWidth);
     final sidePanel = Material(
       color: scheme.surfaceContainerLow,
-      child: Sidebar(
-        session: _s,
-        appSettings: widget.appSettings,
-        onSearch: widget.onOpenSearch,
-        onOpenSettings: _openSettings,
-        onLock: () => _s.lock(),
+      child: MouseRegion(
+        onExit: (_) {
+          if (widget.appSettings.workspaceSidebarCollapsed && _sidebarPeek) {
+            setState(() => _sidebarPeek = false);
+          }
+        },
+        child: Sidebar(
+          session: _s,
+          appSettings: widget.appSettings,
+          onSearch: widget.onOpenSearch,
+          onForceSync: _forceSyncNow,
+          onOpenSettings: _openSettings,
+          onLock: () => _s.lock(),
+        ),
       ),
     );
     final a = widget.appSettings;
@@ -2383,6 +3197,40 @@ class _WorkspacePageState extends State<WorkspacePage> {
         final canToggleAi =
             widget.appSettings.isAiRuntimeEnabled && _s.aiEnabled;
         final entries = <_WorkspaceActionEntry>[
+          if (!compact)
+            _WorkspaceActionEntry(
+              id: 'toggle_sidebar',
+              label: widget.appSettings.workspaceSidebarCollapsed
+                  ? l10n.showSidebar
+                  : l10n.hideSidebar,
+              icon: widget.appSettings.workspaceSidebarCollapsed
+                  ? Icons.menu_open_rounded
+                  : Icons.view_sidebar_rounded,
+              onPressed: () async {
+                await widget.appSettings.setWorkspaceSidebarCollapsed(
+                  !widget.appSettings.workspaceSidebarCollapsed,
+                );
+                if (mounted) setState(() => _sidebarPeek = false);
+              },
+              forcePrimary: true,
+            ),
+          if (!compact && page != null)
+            _WorkspaceActionEntry(
+              id: 'toggle_page_outline',
+              label: widget.appSettings.workspacePageOutlineVisible
+                  ? l10n.hidePageOutline
+                  : l10n.showPageOutline,
+              icon: widget.appSettings.workspacePageOutlineVisible
+                  ? Icons.view_list_rounded
+                  : Icons.view_list_outlined,
+              onPressed: () async {
+                await widget.appSettings.setWorkspacePageOutlineVisible(
+                  !widget.appSettings.workspacePageOutlineVisible,
+                );
+                if (mounted) setState(() {});
+              },
+              forcePrimary: true,
+            ),
           if (!compact && page != null)
             _WorkspaceActionEntry(
               id: 'add_block',
@@ -2393,7 +3241,7 @@ class _WorkspacePageState extends State<WorkspacePage> {
             ),
           _WorkspaceActionEntry(
             id: 'import_md',
-            label: 'Importar Markdown',
+            label: l10n.importMarkdownPage,
             icon: Icons.file_upload_outlined,
             onPressed: _importMarkdownFile,
             forcePrimary: true,
@@ -2401,9 +3249,24 @@ class _WorkspacePageState extends State<WorkspacePage> {
           if (page != null)
             _WorkspaceActionEntry(
               id: 'export_md',
-              label: 'Exportar Markdown',
+              label: l10n.exportMarkdownPage,
               icon: Icons.file_download_outlined,
               onPressed: _exportCurrentPageToMarkdown,
+            ),
+          if (page != null)
+            _WorkspaceActionEntry(
+              id: 'publish_web',
+              label: 'Publicar en la web',
+              icon: Icons.public_rounded,
+              onPressed: _publishCurrentPageToWeb,
+            ),
+          if (page != null)
+            _WorkspaceActionEntry(
+              id: 'save_as_template',
+              label: l10n.saveAsTemplate,
+              icon: Icons.bookmark_add_outlined,
+              onPressed: _saveCurrentPageAsTemplate,
+              forceOverflow: true,
             ),
           if (page != null)
             _WorkspaceActionEntry(
@@ -2422,7 +3285,7 @@ class _WorkspacePageState extends State<WorkspacePage> {
           if (page != null)
             _WorkspaceActionEntry(
               id: 'undo_page_edit',
-              label: 'Deshacer (Ctrl+Z)',
+              label: l10n.workspaceUndoTooltip,
               icon: Icons.undo_rounded,
               onPressed: () => _s.undoPageEdits(),
               enabled: _s.canUndoSelectedPage,
@@ -2431,7 +3294,7 @@ class _WorkspacePageState extends State<WorkspacePage> {
           if (page != null)
             _WorkspaceActionEntry(
               id: 'redo_page_edit',
-              label: 'Rehacer (Ctrl+Y)',
+              label: l10n.workspaceRedoTooltip,
               icon: Icons.redo_rounded,
               onPressed: () => _s.redoPageEdits(),
               enabled: _s.canRedoSelectedPage,
@@ -2440,18 +3303,29 @@ class _WorkspacePageState extends State<WorkspacePage> {
           if (canToggleAi)
             _WorkspaceActionEntry(
               id: 'toggle_ai',
-              label: _aiPanelCollapsed ? l10n.aiShowPanel : l10n.aiHidePanel,
-              icon: _aiPanelCollapsed
+              label: useMobileAiDock
+                  ? l10n.aiShowPanel
+                  : (_aiPanelCollapsed ? l10n.aiShowPanel : l10n.aiHidePanel),
+              icon: useMobileAiDock || _aiPanelCollapsed
                   ? Icons.chat_bubble_outline_rounded
-                  : Icons.close_fullscreen_rounded,
-              onPressed: () =>
-                  setState(() => _aiPanelCollapsed = !_aiPanelCollapsed),
+                  : Icons.unfold_less_rounded,
+              onPressed: () {
+                if (useMobileAiDock) {
+                  unawaited(_openMobileAiChatSheet());
+                } else {
+                  setState(() => _aiPanelCollapsed = !_aiPanelCollapsed);
+                }
+              },
               forcePrimary: true,
             ),
         ];
 
-        final useOverflow = !compact && width < 1420;
-        final primaryBudget = width >= 1660 ? 7 : (width >= 1420 ? 5 : 3);
+        final useOverflow = compact || androidMobileWorkspace || width < 1420;
+        final primaryBudget = androidPhoneLayout
+            ? 1
+            : (androidMobileWorkspace
+                  ? 2
+                  : (width >= 1660 ? 7 : (width >= 1420 ? 5 : 3)));
         final primary = <_WorkspaceActionEntry>[];
         final overflow = <_WorkspaceActionEntry>[];
 
@@ -2478,7 +3352,7 @@ class _WorkspacePageState extends State<WorkspacePage> {
           ),
           if (overflow.isNotEmpty)
             PopupMenuButton<_WorkspaceActionEntry>(
-              tooltip: 'Más acciones',
+              tooltip: l10n.workspaceMoreActionsTooltip,
               icon: const Icon(Icons.more_horiz_rounded),
               itemBuilder: (context) => overflow
                   .map(
@@ -2504,48 +3378,54 @@ class _WorkspacePageState extends State<WorkspacePage> {
             Padding(
               padding: const EdgeInsetsDirectional.only(end: FolioSpace.xs),
               child: Center(
-                child: Tooltip(
-                  message: _s.isPersistingToDisk
+                child: Semantics(
+                  label: _s.isPersistingToDisk
                       ? l10n.savingVaultTooltip
                       : l10n.autosaveSoonTooltip,
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: FolioSpace.sm,
-                      vertical: FolioSpace.xs,
-                    ),
-                    decoration: BoxDecoration(
-                      color: scheme.surfaceContainerHigh,
-                      borderRadius: BorderRadius.circular(FolioRadius.xl),
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        if (_s.isPersistingToDisk)
-                          SizedBox(
-                            width: 18,
-                            height: 18,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2,
-                              color: scheme.primary,
+                  liveRegion: true,
+                  child: Tooltip(
+                    message: _s.isPersistingToDisk
+                        ? l10n.savingVaultTooltip
+                        : l10n.autosaveSoonTooltip,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: FolioSpace.sm,
+                        vertical: FolioSpace.xs,
+                      ),
+                      decoration: BoxDecoration(
+                        color: scheme.surfaceContainerHigh,
+                        borderRadius: BorderRadius.circular(FolioRadius.xl),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          if (_s.isPersistingToDisk)
+                            SizedBox(
+                              width: 18,
+                              height: 18,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: scheme.primary,
+                              ),
+                            )
+                          else
+                            Icon(
+                              Icons.save_outlined,
+                              size: 20,
+                              color: scheme.primary.withValues(alpha: 0.85),
                             ),
-                          )
-                        else
-                          Icon(
-                            Icons.save_outlined,
-                            size: 20,
-                            color: scheme.primary.withValues(alpha: 0.85),
+                          const SizedBox(width: FolioSpace.xs),
+                          Text(
+                            _s.isPersistingToDisk
+                                ? l10n.saveInProgress
+                                : l10n.savePending,
+                            style: theme.textTheme.labelLarge?.copyWith(
+                              color: scheme.onSurfaceVariant,
+                              fontWeight: FontWeight.w700,
+                            ),
                           ),
-                        const SizedBox(width: FolioSpace.xs),
-                        Text(
-                          _s.isPersistingToDisk
-                              ? l10n.saveInProgress
-                              : l10n.savePending,
-                          style: theme.textTheme.labelLarge?.copyWith(
-                            color: scheme.onSurfaceVariant,
-                            fontWeight: FontWeight.w700,
-                          ),
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
                   ),
                 ),
@@ -2556,27 +3436,47 @@ class _WorkspacePageState extends State<WorkspacePage> {
         return widgets;
       }(),
     ];
-    final editorContent = WorkspaceEditorSurface(
+    final editorSurface = WorkspaceEditorSurface(
       compact: compact,
+      mobileOptimized: androidMobileWorkspace,
+      readOnlyMode: editorReadOnlyMode,
       page: page,
       pagePath: _buildPagePathSegments(page),
       titleController: _titleController,
       editorMaxWidth: widget.appSettings.editorContentWidth,
       onTitleChanged: (value) {
         if (page != null && page.id == _s.selectedPageId) {
-          _s.renamePage(page.id, value);
+          _s.updatePageTitleLive(page.id, value);
         }
       },
       onCreatePage: () => _s.addPage(parentId: null),
       onOpenSearch: widget.onOpenSearch,
       editor: page == null
           ? const SizedBox.shrink()
-          : BlockEditor(
+          : KeyedSubtree(
               key: ValueKey('${page.id}-${_s.contentEpoch}'),
-              session: _s,
-              appSettings: widget.appSettings,
+              child: BlockEditor(
+                key: _blockEditorKey,
+                session: _s,
+                appSettings: widget.appSettings,
+                readOnlyMode: editorReadOnlyMode,
+              ),
             ),
     );
+    final editorContent = !compact && page != null
+        ? Row(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Expanded(child: editorSurface),
+              if (widget.appSettings.workspacePageOutlineVisible)
+                PageOutlinePanel(
+                  blocks: page.blocks,
+                  scheme: scheme,
+                  blockEditorKey: _blockEditorKey,
+                ),
+            ],
+          )
+        : editorSurface;
     return CallbackShortcuts(
       bindings: shortcutBindings,
       child: Scaffold(
@@ -2584,50 +3484,138 @@ class _WorkspacePageState extends State<WorkspacePage> {
         backgroundColor: scheme.surfaceContainerLow,
         drawer: compact
             ? Drawer(
-                width: width.clamp(260, 340),
+                width: androidPhoneLayout
+                    ? width * 0.92
+                    : width.clamp(260, 340),
                 child: SafeArea(child: sidePanel),
               )
             : null,
         appBar: WorkspaceTopAppBar(
-          title: l10n.appTitle,
+          title: androidPhoneLayout
+              ? ((page?.title.trim().isNotEmpty ?? false)
+                    ? page!.title.trim()
+                    : l10n.appTitle)
+              : l10n.appTitle,
           compact: compact,
           actions: appBarActions,
           onOpenDrawer: () => _scaffoldKey.currentState?.openDrawer(),
         ),
         body: WorkspaceBodyShell(
           compact: compact,
-          sidePanelWidth: sidePanelWidth,
+          sidePanelWidth: effectiveSidebarW,
           sidePanel: sidePanel,
           editorContent: editorContent,
-          showAiPanel: isAiPanelVisible,
-          aiPanelWidth: _aiPanelWidth,
-          onResizeAiPanel: (delta) {
-            final screenW = MediaQuery.sizeOf(context).width;
-            final maxW = (screenW * 0.55).clamp(340.0, 720.0);
-            setState(() {
-              _aiPanelWidth = (_aiPanelWidth - delta).clamp(
-                FolioDesktop.aiPanelWidth,
-                maxW,
-              );
-            });
+          showSidebarResizeHandle:
+              !compact &&
+              !widget.appSettings.workspaceSidebarCollapsed &&
+              effectiveSidebarW > 0,
+          onResizeSidebarDelta: !compact
+              ? (d) {
+                  unawaited(
+                    widget.appSettings.setWorkspaceSidebarWidth(
+                      widget.appSettings.workspaceSidebarWidth + d,
+                    ),
+                  );
+                }
+              : null,
+          sidebarLeftEdgeHover:
+              !compact &&
+              widget.appSettings.workspaceSidebarCollapsed &&
+              widget.appSettings.workspaceSidebarAutoReveal &&
+              !_sidebarPeek,
+          onSidebarEdgeEnter: () {
+            if (!widget.appSettings.workspaceSidebarAutoReveal ||
+                !widget.appSettings.workspaceSidebarCollapsed) {
+              return;
+            }
+            setState(() => _sidebarPeek = true);
           },
           scheme: scheme,
           betaBanner: widget.appSettings.shouldShowBetaBanner
               ? _buildBetaBanner(scheme, l10n)
               : null,
-          aiPanel: isAiPanelVisible ? _buildAiPanel(context) : null,
+          aiFloatingPanel: useDesktopAiDock
+              ? (_aiPanelCollapsed
+                    ? _buildAiCollapsedFab(context, scheme)
+                    : _buildAiPanel(context))
+              : null,
+          aiFloatingWidth: _aiPanelCollapsed ? 56 : _aiPanelWidth,
+          aiFloatingHeight: _aiPanelCollapsed ? 56 : _aiPanelHeight,
+          aiFloatingShowResizeHandles: useDesktopAiDock && !_aiPanelCollapsed,
+          onResizeAiPanelWidth: useDesktopAiDock && !_aiPanelCollapsed
+              ? (d) {
+                  final maxW = (width * 0.5).clamp(300.0, 720.0);
+                  setState(() {
+                    _aiPanelWidth = (_aiPanelWidth - d).clamp(280.0, maxW);
+                  });
+                }
+              : null,
+          onResizeAiPanelHeight: useDesktopAiDock && !_aiPanelCollapsed
+              ? (d) {
+                  setState(() {
+                    _aiPanelHeight = (_aiPanelHeight + d).clamp(
+                      320.0,
+                      height * 0.85,
+                    );
+                  });
+                }
+              : null,
           overlay: _showQuillWorkspaceTour
               ? _buildQuillWorkspaceTourCard(theme, scheme, l10n)
               : null,
         ),
         floatingActionButton: compact && page != null
             ? Padding(
-                padding: EdgeInsets.only(
-                  right: isAiPanelVisible ? _aiPanelWidth + 18 : 0,
-                ),
-                child: FloatingActionButton(
-                  onPressed: () => _addBlockToCurrentPage(compact: true),
-                  child: const Icon(Icons.add_rounded),
+                padding: EdgeInsets.only(right: 0),
+                child: _wrapWithMobileQuillFabIfNeeded(
+                  enabled: useMobileAiDock,
+                  l10n: l10n,
+                  child: verticalMobileWorkspace
+                      ? (_mobileEditMode
+                            ? Column(
+                                mainAxisSize: MainAxisSize.min,
+                                crossAxisAlignment: CrossAxisAlignment.end,
+                                children: [
+                                  FloatingActionButton.small(
+                                    heroTag: 'mobile_add_block_fab',
+                                    onPressed: () =>
+                                        _addBlockToCurrentPage(compact: true),
+                                    child: const Icon(Icons.add_rounded),
+                                  ),
+                                  const SizedBox(height: 12),
+                                  FloatingActionButton.extended(
+                                    heroTag: 'mobile_done_edit_fab',
+                                    onPressed: () {
+                                      FocusScope.of(context).unfocus();
+                                      setState(() => _mobileEditMode = false);
+                                    },
+                                    icon: const Icon(Icons.check_rounded),
+                                    label: const Text('Listo'),
+                                  ),
+                                ],
+                              )
+                            : FloatingActionButton.extended(
+                                heroTag: 'mobile_enter_edit_fab',
+                                onPressed: () {
+                                  setState(() => _mobileEditMode = true);
+                                },
+                                icon: const Icon(Icons.edit_rounded),
+                                label: const Text('Editar'),
+                              ))
+                      : (androidPhoneLayout
+                            ? FloatingActionButton.extended(
+                                heroTag: 'mobile_add_block_extended_fab',
+                                onPressed: () =>
+                                    _addBlockToCurrentPage(compact: true),
+                                icon: const Icon(Icons.add_rounded),
+                                label: const Text('Bloque'),
+                              )
+                            : FloatingActionButton(
+                                heroTag: 'mobile_add_block_fab_square',
+                                onPressed: () =>
+                                    _addBlockToCurrentPage(compact: true),
+                                child: const Icon(Icons.add_rounded),
+                              )),
                 ),
               )
             : null,

@@ -1,0 +1,48 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function userData(uid) {
+      return get(/databases/$(database)/documents/users/$(uid)).data;
+    }
+
+    function folioPublishWebOk() {
+      let d = userData(request.auth.uid);
+      return d.folioCloud != null
+        && d.folioCloud.active == true
+        && d.folioCloud.features != null
+        && d.folioCloud.features.publishWeb == true;
+    }
+    // Per-user profile: folioCloud, ink, stripeCustomerId — solo escritura por Cloud Functions (webhooks/callables).
+    match /users/{userId} {
+      allow read: if request.auth != null && request.auth.uid == userId;
+      allow write: if false;
+    }
+
+    // Idempotencia de webhooks Stripe (solo backend).
+    match /stripeWebhookEvents/{eventId} {
+      allow read, write: if false;
+    }
+
+    // Evita doble crédito de gotas en pagos Checkout (completed + async_payment_succeeded).
+    match /stripeProcessedCheckouts/{sessionId} {
+      allow read, write: if false;
+    }
+
+    // Índice de suscriptores Folio Cloud mensual (solo Functions; recarga de gotas día 1).
+    match /folioCloudSubscribers/{uid} {
+      allow read, write: if false;
+    }
+
+    // Published page index (slug, storage path). Public read; owner con publicación web en el plan.
+    match /publishedPages/{docId} {
+      allow read: if true;
+      allow create: if request.auth != null
+        && request.resource.data.ownerUid == request.auth.uid
+        && folioPublishWebOk();
+      allow update, delete: if request.auth != null
+        && resource.data.ownerUid == request.auth.uid
+        && folioPublishWebOk();
+    }
+  }
+}
