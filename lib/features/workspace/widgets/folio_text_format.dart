@@ -7,6 +7,7 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../../../data/folio_internal_link.dart';
 import '../../../l10n/generated/app_localizations.dart';
+import 'block_editor_support_widgets.dart';
 import 'mermaid_markdown_builder.dart';
 import 'folio_youtube.dart';
 
@@ -145,7 +146,7 @@ class FolioMarkdownPreview extends StatelessWidget {
   /// Si es null, enlaces http(s) se abren en el navegador externo.
   final void Function(String text, String? href, String title)? onTapLink;
 
-  /// Enlaces `folio://open/…` navegan a la página del cofre.
+  /// Enlaces `folio://open/…` navegan a la página de la libreta.
   final void Function(String pageId)? onFolioPageLink;
 
   static Future<void> _defaultOpenExternal(String? href) async {
@@ -593,23 +594,15 @@ class FolioFormatToolbar extends StatelessWidget {
     return Semantics(
       container: true,
       label: AppLocalizations.of(context).formatToolbar,
-      child: Focus(
-        canRequestFocus: false,
-        descendantsAreFocusable: false,
-        child: Material(
-          elevation: 0,
-          color: colorScheme.surfaceContainerLowest,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
-            side: BorderSide(
-              color: colorScheme.outlineVariant.withValues(alpha: 0.5),
-            ),
-          ),
-          clipBehavior: Clip.antiAlias,
+      child: BlockEditorFloatingPanel(
+        scheme: colorScheme,
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 560, maxHeight: 56),
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
             child: SingleChildScrollView(
               scrollDirection: Axis.horizontal,
+              physics: const ClampingScrollPhysics(),
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [

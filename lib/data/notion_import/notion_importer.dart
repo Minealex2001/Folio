@@ -169,15 +169,26 @@ FolioDatabaseData _parseCsvAsDatabase(
   final header = _parseCsvLine(lines.first);
   final db = FolioDatabaseData.empty();
   db.properties = [];
+
+  // Parse all data rows into raw cells first so we can infer column types.
+  final rawRows = <List<String>>[];
+  for (var r = 1; r < lines.length; r++) {
+    rawRows.add(_parseCsvLine(lines[r]));
+  }
+
   for (var i = 0; i < header.length; i++) {
     final name = header[i].trim().isEmpty
         ? 'Column ${i + 1}'
         : header[i].trim();
+    // First column is always the title/name column.
+    final type = i == 0
+        ? FolioDbPropertyType.text
+        : _inferCsvPropertyType(rawRows, i);
     db.properties.add(
       FolioDbProperty(
         id: i == 0 ? 'p_title' : 'p_${i + 1}',
         name: name,
-        type: FolioDbPropertyType.text,
+        type: type,
       ),
     );
   }
@@ -191,9 +202,9 @@ FolioDatabaseData _parseCsvAsDatabase(
     );
   }
   db.rows = [];
-  for (var r = 1; r < lines.length; r++) {
-    final cells = _parseCsvLine(lines[r]);
-    final row = FolioDbRow(id: 'r_${r - 1}');
+  for (var r = 0; r < rawRows.length; r++) {
+    final cells = rawRows[r];
+    final row = FolioDbRow(id: 'r_$r');
     for (var c = 0; c < db.properties.length; c++) {
       final prop = db.properties[c];
       final v = c < cells.length ? cells[c].trim() : '';
@@ -203,6 +214,71 @@ FolioDatabaseData _parseCsvAsDatabase(
     if (!allEmpty) db.rows.add(row);
   }
   return db;
+}
+
+/// Infers the best [FolioDbPropertyType] for column [colIndex] by examining
+/// the non-empty data values across all [rows].
+FolioDbPropertyType _inferCsvPropertyType(
+  List<List<String>> rows,
+  int colIndex,
+) {
+  final nonEmpty = rows
+      .map((r) => colIndex < r.length ? r[colIndex].trim() : '')
+      .where((v) => v.isNotEmpty)
+      .toList();
+  if (nonEmpty.isEmpty) return FolioDbPropertyType.text;
+
+  // Checkbox: values look boolean.
+  const boolSet = {
+    'true',
+    'false',
+    'yes',
+    'no',
+    'checked',
+    'unchecked',
+    '✓',
+    '✗',
+  };
+  if (nonEmpty.every((v) => boolSet.contains(v.toLowerCase()))) {
+    return FolioDbPropertyType.checkbox;
+  }
+
+  // Number: all values parseable as doubles (allow % suffix).
+  if (nonEmpty.every((v) {
+    final cleaned = v.replaceAll(',', '').replaceAll('%', '').trim();
+    return double.tryParse(cleaned) != null;
+  })) {
+    return FolioDbPropertyType.number;
+  }
+
+  // Date: all values parse as DateTime or match common date patterns.
+  final datePattern = RegExp(r'^\d{4}-\d{2}-\d{2}');
+  if (nonEmpty.every(
+    (v) => datePattern.hasMatch(v) || DateTime.tryParse(v) != null,
+  )) {
+    return FolioDbPropertyType.date;
+  }
+
+  // URL: all values start with http(s).
+  if (nonEmpty.every(
+    (v) => v.startsWith('http://') || v.startsWith('https://'),
+  )) {
+    return FolioDbPropertyType.url;
+  }
+
+  // Email: all values look like email addresses.
+  final emailPattern = RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$');
+  if (nonEmpty.every((v) => emailPattern.hasMatch(v))) {
+    return FolioDbPropertyType.email;
+  }
+
+  // Select: low cardinality — few unique values relative to total count.
+  final unique = nonEmpty.toSet().length;
+  if (nonEmpty.length >= 4 && unique <= 10 && unique <= nonEmpty.length ~/ 2) {
+    return FolioDbPropertyType.select;
+  }
+
+  return FolioDbPropertyType.text;
 }
 
 List<String> _parseCsvLine(String line) {

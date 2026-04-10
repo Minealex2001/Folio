@@ -67,10 +67,10 @@ class ReleaseReadinessSnapshot {
       'Version instalada: $installedVersionLabel',
       'SemVer valido: ${isSemverValid ? 'si' : 'no'}',
       'Canal updates: ${updateReleaseChannel == UpdateReleaseChannel.beta ? 'beta' : 'stable'}',
-      'Cofre activo: $activeVaultId',
-      'Ruta cofre: $activeVaultPath',
-      'Cofre desbloqueado: ${isVaultUnlocked ? 'si' : 'no'}',
-      'Cofre cifrado: ${isVaultEncrypted ? 'si' : 'no'}',
+      'Libreta activa: $activeVaultId',
+      'Ruta libreta: $activeVaultPath',
+      'Libreta desbloqueada: ${isVaultUnlocked ? 'si' : 'no'}',
+      'Libreta cifrada: ${isVaultEncrypted ? 'si' : 'no'}',
       'IA habilitada: ${isAiEnabled ? 'si' : 'no'}',
       'Politica endpoint IA: ${isAiEndpointPolicyValid ? 'ok' : 'error'}',
       'Detalle IA: $aiSummary',
@@ -98,6 +98,7 @@ ReleaseReadinessSnapshot evaluateReleaseReadiness({
   required bool isVaultUnlocked,
   required bool isVaultEncrypted,
   required bool isAiEnabled,
+  required AiProvider aiProvider,
   required String aiBaseUrl,
   required AiEndpointMode aiEndpointMode,
   required bool aiRemoteEndpointConfirmed,
@@ -116,13 +117,18 @@ ReleaseReadinessSnapshot evaluateReleaseReadiness({
   var aiPolicyOk = true;
   var aiSummary = 'IA desactivada';
   if (isAiEnabled) {
-    final issue = AiSafetyPolicy.validateEndpoint(
-      rawUrl: aiBaseUrl,
-      mode: aiEndpointMode,
-      remoteConfirmed: aiRemoteEndpointConfirmed,
-    );
-    aiPolicyOk = issue == null;
-    aiSummary = issue ?? 'Endpoint valido: $aiBaseUrl';
+    if (aiProvider == AiProvider.folioCloud) {
+      aiPolicyOk = true;
+      aiSummary = 'Folio Cloud IA (sin endpoint local)';
+    } else {
+      final issue = AiSafetyPolicy.validateEndpoint(
+        rawUrl: aiBaseUrl,
+        mode: aiEndpointMode,
+        remoteConfirmed: aiRemoteEndpointConfirmed,
+      );
+      aiPolicyOk = issue == null;
+      aiSummary = issue ?? 'Endpoint valido: $aiBaseUrl';
+    }
   }
 
   final checks = <ReleaseCheckItem>[
@@ -135,10 +141,10 @@ ReleaseReadinessSnapshot evaluateReleaseReadiness({
     ),
     ReleaseCheckItem(
       id: 'vault_encrypted',
-      label: 'Cofre cifrado',
+      label: 'Libreta cifrada',
       ok: isVaultEncrypted,
       severity: ReleaseCheckSeverity.blocker,
-      details: isVaultEncrypted ? null : 'El cofre actual no esta cifrado.',
+      details: isVaultEncrypted ? null : 'La libreta actual no esta cifrada.',
     ),
     ReleaseCheckItem(
       id: 'ai_policy',
@@ -149,12 +155,12 @@ ReleaseReadinessSnapshot evaluateReleaseReadiness({
     ),
     ReleaseCheckItem(
       id: 'vault_unlocked',
-      label: 'Cofre desbloqueado',
+      label: 'Libreta desbloqueada',
       ok: isVaultUnlocked,
       severity: ReleaseCheckSeverity.warning,
       details: isVaultUnlocked
           ? null
-          : 'Desbloquea el cofre para validar export/import y flujo real.',
+          : 'Desbloquea la libreta para validar export/import y flujo real.',
     ),
     ReleaseCheckItem(
       id: 'channel',

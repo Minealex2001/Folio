@@ -3,8 +3,18 @@ import 'dart:developer' as developer;
 
 enum AppLogLevel { debug, info, warn, error }
 
+abstract class AppLogSink {
+  Future<void> write(String line);
+}
+
 class AppLogger {
   const AppLogger._();
+
+  static AppLogSink? _sink;
+
+  static void setSink(AppLogSink? sink) {
+    _sink = sink;
+  }
 
   static void debug(
     String message, {
@@ -56,13 +66,24 @@ class AppLogger {
     Map<String, Object?> context = const {},
   }) {
     final ctx = context.isEmpty ? '' : ' | ctx=${jsonEncode(context)}';
+    final line = '[${level.name.toUpperCase()}] $message$ctx';
     developer.log(
-      '[${level.name.toUpperCase()}] $message$ctx',
+      line,
       name: 'folio.$tag',
       level: _toDeveloperLevel(level),
       error: error,
       stackTrace: stackTrace,
     );
+
+    final sink = _sink;
+    if (sink != null) {
+      final ts = DateTime.now().toIso8601String();
+      final err = error == null ? '' : ' | error=$error';
+      final st = stackTrace == null ? '' : '\n$stackTrace';
+      // Fire-and-forget; los sinks deben serializar internamente.
+      // ignore: discarded_futures
+      sink.write('$ts $tag $line$err$st');
+    }
   }
 
   static int _toDeveloperLevel(AppLogLevel level) {

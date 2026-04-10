@@ -1,5 +1,7 @@
 import 'dart:convert';
 
+import 'package:flutter/foundation.dart'
+    show TargetPlatform, defaultTargetPlatform, kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -7,7 +9,14 @@ import 'folio_build_flags.dart';
 import 'folio_in_app_shortcuts.dart';
 import '../services/updater/update_release_channel.dart';
 
-enum AiProvider { none, ollama, lmStudio }
+enum AiProvider { none, ollama, lmStudio, folioCloud }
+
+/// Ollama y LM Studio solo en escritorio y web; en Android/iOS Quill usa Folio Cloud.
+bool get aiLocalProvidersSupported {
+  if (kIsWeb) return true;
+  return defaultTargetPlatform != TargetPlatform.android &&
+      defaultTargetPlatform != TargetPlatform.iOS;
+}
 
 enum AiEndpointMode { localhostOnly, allowRemote }
 
@@ -139,7 +148,7 @@ class IntegrationAppApproval {
   static String _normalize(String value) => value.trim();
 }
 
-/// Preferencias de la app persistidas (p. ej. tema). No se borran al eliminar el cofre.
+/// Preferencias de la app persistidas (p. ej. tema). No se borran al eliminar la libreta.
 class AppSettings extends ChangeNotifier {
   AppSettings({String integrationSecret = ''})
     : _configuredIntegrationSecret = integrationSecret.trim();
@@ -177,9 +186,36 @@ class AppSettings extends ChangeNotifier {
   static const _inAppShortcutsKey = 'folio_in_app_shortcuts_json';
   static const _approvedIntegrationAppsKey = 'folio_approved_integration_apps';
   static const _editorContentWidthKey = 'folio_editor_content_width';
+  static const _workspaceSidebarWidthKey = 'folio_workspace_sidebar_width';
+  static const _workspaceSidebarCollapsedKey =
+      'folio_workspace_sidebar_collapsed';
+  static const _workspaceSidebarAutoRevealKey =
+      'folio_workspace_sidebar_auto_reveal';
+  static const _workspacePageOutlineVisibleKey =
+      'folio_workspace_page_outline_visible';
   static const _customIconsKey = 'folio_custom_icons_v1';
   static const _integrationCustomIconsKey =
       'folio_integration_custom_icons_by_app_v1';
+  static const _enterCreatesNewBlockKey = 'folio_enter_creates_new_block';
+  static const _syncEnabledKey = 'folio_device_sync_enabled';
+  static const _syncRelayEnabledKey = 'folio_device_sync_relay_enabled';
+  static const _syncDeviceIdKey = 'folio_device_sync_device_id';
+  static const _syncDeviceNameKey = 'folio_device_sync_device_name';
+  static const _syncPendingConflictsKey = 'folio_device_sync_pending_conflicts';
+  static const _syncLastSuccessMsKey = 'folio_device_sync_last_success_ms';
+  static const _recentSearchQueriesKey = 'folio_recent_search_queries_v1';
+  static const _scheduledVaultBackupEnabledKey =
+      'folio_scheduled_vault_backup_enabled';
+  static const _scheduledVaultBackupIntervalHoursKey =
+      'folio_scheduled_vault_backup_interval_hours';
+  static const _scheduledVaultBackupDirectoryKey =
+      'folio_scheduled_vault_backup_directory';
+  static const _lastScheduledVaultBackupMsKey =
+      'folio_last_scheduled_vault_backup_ms';
+  static const _scheduledVaultBackupAlsoUploadCloudKey =
+      'folio_scheduled_vault_backup_also_cloud_v1';
+  static const int maxRecentSearchQueries = 10;
+  static const int defaultScheduledVaultBackupIntervalHours = 24;
   static const int defaultVaultIdleLockMinutes = 15;
   static const String defaultGlobalSearchHotkey = 'Ctrl+Shift+K';
   static const int defaultAiTimeoutMs = 30000;
@@ -191,11 +227,29 @@ class AppSettings extends ChangeNotifier {
   static const double minEditorContentWidth = 840;
   static const double maxEditorContentWidth = 1400;
   static const double defaultEditorContentWidth = 1080;
-  static const String defaultUpdaterGithubOwner = 'aleja';
+  static const double minWorkspaceSidebarWidth = 220;
+  static const double maxWorkspaceSidebarWidth = 480;
+  static const double defaultWorkspaceSidebarWidth = 320;
+  static const String defaultUpdaterGithubOwner = 'Minealex2001';
   static const String defaultUpdaterGithubRepo = 'Folio';
   static const bool defaultCheckUpdatesOnStartup = true;
   static const UpdateReleaseChannel defaultUpdateReleaseChannel =
       UpdateReleaseChannel.stable;
+
+  /// Portal Folio (vinculación cuenta web). Puede sustituirse con [folioWebPortalBaseUrlFromEnvironment].
+  static const String defaultFolioWebPortalBaseUrl =
+      'http://localhost:3001/';
+
+  /// Si no está vacío, sustituye a [defaultFolioWebPortalBaseUrl] (p. ej. staging vía `--dart-define`).
+  static final String folioWebPortalBaseUrlFromEnvironment =
+      const String.fromEnvironment('FOLIO_WEB_PORTAL_BASE_URL').trim();
+
+  /// UI y llamadas al portal para vincular la cuenta web. **Desactivado por defecto.**
+  /// Activa con `--dart-define=FOLIO_WEB_PORTAL_LINK_ENABLED=true`.
+  static const bool folioWebPortalLinkEnabled = bool.fromEnvironment(
+    'FOLIO_WEB_PORTAL_LINK_ENABLED',
+    defaultValue: false,
+  );
 
   ThemeMode _themeMode = ThemeMode.system;
   Locale? _locale;
@@ -223,6 +277,10 @@ class AppSettings extends ChangeNotifier {
   UpdateReleaseChannel _updateReleaseChannel = defaultUpdateReleaseChannel;
   bool _betaBannerDismissed = false;
   double _editorContentWidth = defaultEditorContentWidth;
+  double _workspaceSidebarWidth = defaultWorkspaceSidebarWidth;
+  bool _workspaceSidebarCollapsed = false;
+  bool _workspaceSidebarAutoReveal = false;
+  bool _workspacePageOutlineVisible = true;
   Map<FolioInAppShortcut, SingleActivator> _inAppShortcuts =
       defaultShortcutMap();
   final String _configuredIntegrationSecret;
@@ -231,6 +289,20 @@ class AppSettings extends ChangeNotifier {
   List<CustomIconEntry> _customIcons = const <CustomIconEntry>[];
   Map<String, List<CustomIconEntry>> _integrationCustomIconsByApp =
       const <String, List<CustomIconEntry>>{};
+  bool _enterCreatesNewBlock = true;
+  bool _syncEnabled = true;
+  bool _syncRelayEnabled = true;
+  String _syncDeviceId = '';
+  String _syncDeviceName = '';
+  int _syncPendingConflicts = 0;
+  int _syncLastSuccessMs = 0;
+  List<String> _recentSearchQueries = const [];
+  bool _scheduledVaultBackupEnabled = false;
+  int _scheduledVaultBackupIntervalHours =
+      defaultScheduledVaultBackupIntervalHours;
+  String _scheduledVaultBackupDirectory = '';
+  int _lastScheduledVaultBackupMs = 0;
+  bool _scheduledVaultBackupAlsoUploadCloud = false;
 
   ThemeMode get themeMode => _themeMode;
   Locale? get locale => _locale;
@@ -250,7 +322,7 @@ class AppSettings extends ChangeNotifier {
   bool get aiAlwaysShowThought => _aiAlwaysShowThought;
   bool get aiLaunchProviderWithApp => _aiLaunchProviderWithApp;
   int get aiContextWindowTokens => _aiContextWindowTokens;
-  bool get isAiAvailable => true;
+  bool get isAiAvailable => !kIsWeb;
   bool get isAiRuntimeEnabled => _aiEnabled;
   bool get hasSeenQuillIntro => _hasSeenQuillIntro;
   bool get hasSeenQuillWorkspaceTour => _hasSeenQuillWorkspaceTour;
@@ -261,7 +333,38 @@ class AppSettings extends ChangeNotifier {
   bool get checkUpdatesOnStartup => defaultCheckUpdatesOnStartup;
   UpdateReleaseChannel get updateReleaseChannel => _updateReleaseChannel;
   double get editorContentWidth => _editorContentWidth;
+  double get workspaceSidebarWidth => _workspaceSidebarWidth;
+  bool get workspaceSidebarCollapsed => _workspaceSidebarCollapsed;
+  bool get workspaceSidebarAutoReveal => _workspaceSidebarAutoReveal;
+  bool get workspacePageOutlineVisible => _workspacePageOutlineVisible;
   String get integrationSecret => _integrationSecret;
+  bool get enterCreatesNewBlock => _enterCreatesNewBlock;
+  bool get syncEnabled => _syncEnabled;
+  bool get syncRelayEnabled => _syncRelayEnabled;
+  String get syncDeviceId => _syncDeviceId;
+  String get syncDeviceName =>
+      _syncDeviceName.isEmpty ? _defaultSyncDeviceName() : _syncDeviceName;
+  int get syncPendingConflicts => _syncPendingConflicts;
+  int get syncLastSuccessMs => _syncLastSuccessMs;
+  List<String> get recentSearchQueries =>
+      List.unmodifiable(_recentSearchQueries);
+  bool get scheduledVaultBackupEnabled => _scheduledVaultBackupEnabled;
+  int get scheduledVaultBackupIntervalHours =>
+      _scheduledVaultBackupIntervalHours;
+  String get scheduledVaultBackupDirectory => _scheduledVaultBackupDirectory;
+  int get lastScheduledVaultBackupMs => _lastScheduledVaultBackupMs;
+  bool get scheduledVaultBackupAlsoUploadCloud =>
+      _scheduledVaultBackupAlsoUploadCloud;
+
+  /// URL del portal para vincular cuenta web: [folioWebPortalBaseUrlFromEnvironment] o [defaultFolioWebPortalBaseUrl].
+  String get folioWebPortalBaseUrlEffective {
+    final env = folioWebPortalBaseUrlFromEnvironment.trim();
+    if (env.isNotEmpty) {
+      return _normalizeFolioWebPortalBaseUrl(env);
+    }
+    return _normalizeFolioWebPortalBaseUrl(defaultFolioWebPortalBaseUrl);
+  }
+
   List<CustomIconEntry> get customIcons => List.unmodifiable(_customIcons);
   List<CustomIconEntry> integrationCustomIconsForApp(String appId) {
     final key = appId.trim();
@@ -279,7 +382,7 @@ class AppSettings extends ChangeNotifier {
     return Map<String, String>.unmodifiable(mapped);
   }
 
-  /// Aviso BETA en la UI (no forma parte del cofre). Controlado por [kFolioShowBetaBanner].
+  /// Aviso BETA en la UI (no forma parte de la libreta). Controlado por [kFolioShowBetaBanner].
   bool get shouldShowBetaBanner =>
       kFolioShowBetaBanner && !_betaBannerDismissed;
 
@@ -309,9 +412,20 @@ class AppSettings extends ChangeNotifier {
     _closeToTray = p.getBool(_closeToTrayKey) ?? true;
     _aiEnabled = p.getBool(_aiEnabledKey) ?? false;
     _aiProvider = _parseAiProvider(p.getString(_aiProviderKey));
-    _aiBaseUrl =
-        p.getString(_aiBaseUrlKey) ?? defaultUrlForProvider(_aiProvider);
-    _aiModel = p.getString(_aiModelKey) ?? defaultModelForProvider(_aiProvider);
+    if (!aiLocalProvidersSupported &&
+        (_aiProvider == AiProvider.ollama ||
+            _aiProvider == AiProvider.lmStudio)) {
+      _aiProvider = AiProvider.none;
+      await p.setString(_aiProviderKey, _aiProvider.name);
+      _aiBaseUrl = defaultUrlForProvider(_aiProvider);
+      _aiModel = defaultModelForProvider(_aiProvider);
+      await p.setString(_aiBaseUrlKey, _aiBaseUrl);
+      await p.setString(_aiModelKey, _aiModel);
+    } else {
+      _aiBaseUrl =
+          p.getString(_aiBaseUrlKey) ?? defaultUrlForProvider(_aiProvider);
+      _aiModel = p.getString(_aiModelKey) ?? defaultModelForProvider(_aiProvider);
+    }
     _aiTimeoutMs = _sanitizeTimeoutMs(p.getInt(_aiTimeoutMsKey));
     _aiEndpointMode = _parseAiEndpointMode(p.getString(_aiEndpointModeKey));
     _aiRemoteEndpointConfirmed =
@@ -334,10 +448,46 @@ class AppSettings extends ChangeNotifier {
     _editorContentWidth = _sanitizeEditorContentWidth(
       p.getDouble(_editorContentWidthKey),
     );
+    _workspaceSidebarWidth = _sanitizeWorkspaceSidebarWidth(
+      p.getDouble(_workspaceSidebarWidthKey),
+    );
+    _workspaceSidebarCollapsed =
+        p.getBool(_workspaceSidebarCollapsedKey) ?? false;
+    _workspaceSidebarAutoReveal =
+        p.getBool(_workspaceSidebarAutoRevealKey) ?? false;
+    _workspacePageOutlineVisible =
+        p.getBool(_workspacePageOutlineVisibleKey) ?? true;
     _inAppShortcuts = parseShortcutOverrides(
       p.getString(_inAppShortcutsKey),
       defaultShortcutMap(),
     );
+    _enterCreatesNewBlock = p.getBool(_enterCreatesNewBlockKey) ?? true;
+    _syncEnabled = p.getBool(_syncEnabledKey) ?? true;
+    _syncRelayEnabled = p.getBool(_syncRelayEnabledKey) ?? true;
+    _syncDeviceId = (p.getString(_syncDeviceIdKey) ?? '').trim();
+    if (_syncDeviceId.isEmpty) {
+      _syncDeviceId = _createSyncDeviceId();
+      await p.setString(_syncDeviceIdKey, _syncDeviceId);
+    }
+    _syncDeviceName = (p.getString(_syncDeviceNameKey) ?? '').trim();
+    _syncPendingConflicts = (p.getInt(_syncPendingConflictsKey) ?? 0).clamp(
+      0,
+      999,
+    );
+    _syncLastSuccessMs = p.getInt(_syncLastSuccessMsKey) ?? 0;
+    _recentSearchQueries = _sanitizeRecentSearchList(
+      p.getStringList(_recentSearchQueriesKey),
+    );
+    _scheduledVaultBackupEnabled =
+        p.getBool(_scheduledVaultBackupEnabledKey) ?? false;
+    _scheduledVaultBackupIntervalHours = _sanitizeScheduledVaultBackupInterval(
+      p.getInt(_scheduledVaultBackupIntervalHoursKey),
+    );
+    _scheduledVaultBackupDirectory =
+        (p.getString(_scheduledVaultBackupDirectoryKey) ?? '').trim();
+    _lastScheduledVaultBackupMs = p.getInt(_lastScheduledVaultBackupMsKey) ?? 0;
+    _scheduledVaultBackupAlsoUploadCloud =
+        p.getBool(_scheduledVaultBackupAlsoUploadCloudKey) ?? false;
     _integrationSecret = _configuredIntegrationSecret;
     final approvedRaw = p.getString(_approvedIntegrationAppsKey);
     if (approvedRaw != null && approvedRaw.trim().isNotEmpty) {
@@ -424,6 +574,10 @@ class AppSettings extends ChangeNotifier {
           p.getStringList(_aiModelsKeyForProvider(AiProvider.lmStudio)) ??
               const <String>[],
         ),
+        AiProvider.folioCloud: List<String>.from(
+          p.getStringList(_aiModelsKeyForProvider(AiProvider.folioCloud)) ??
+              const <String>['folio-cloud'],
+        ),
       });
     notifyListeners();
   }
@@ -447,6 +601,8 @@ class AppSettings extends ChangeNotifier {
         return AiProvider.ollama;
       case 'lmStudio':
         return AiProvider.lmStudio;
+      case 'folioCloud':
+        return AiProvider.folioCloud;
       default:
         return AiProvider.none;
     }
@@ -482,11 +638,62 @@ class AppSettings extends ChangeNotifier {
     return raw;
   }
 
+  List<String> _sanitizeRecentSearchList(List<String>? raw) {
+    if (raw == null || raw.isEmpty) return const [];
+    final out = <String>[];
+    for (final s in raw) {
+      final t = s.trim();
+      if (t.isEmpty) continue;
+      if (out.contains(t)) continue;
+      out.add(t);
+      if (out.length >= maxRecentSearchQueries) break;
+    }
+    return out;
+  }
+
+  int _sanitizeScheduledVaultBackupInterval(int? value) {
+    final raw = value ?? defaultScheduledVaultBackupIntervalHours;
+    if (raw < 1) return 1;
+    if (raw > 168) return 168;
+    return raw;
+  }
+
   double _sanitizeEditorContentWidth(double? value) {
     final raw = value ?? defaultEditorContentWidth;
     if (raw < minEditorContentWidth) return minEditorContentWidth;
     if (raw > maxEditorContentWidth) return maxEditorContentWidth;
     return raw;
+  }
+
+  double _sanitizeWorkspaceSidebarWidth(double? value) {
+    final raw = value ?? defaultWorkspaceSidebarWidth;
+    if (raw < minWorkspaceSidebarWidth) return minWorkspaceSidebarWidth;
+    if (raw > maxWorkspaceSidebarWidth) return maxWorkspaceSidebarWidth;
+    return raw;
+  }
+
+  String _defaultSyncDeviceName() {
+    if (kIsWeb) return 'Folio Web';
+    switch (defaultTargetPlatform) {
+      case TargetPlatform.android:
+        return 'Folio Android';
+      case TargetPlatform.windows:
+        return 'Folio Windows';
+      case TargetPlatform.linux:
+        return 'Folio Linux';
+      case TargetPlatform.macOS:
+        return 'Folio macOS';
+      case TargetPlatform.iOS:
+        return 'Folio iOS';
+      case TargetPlatform.fuchsia:
+        return 'Folio Device';
+    }
+  }
+
+  String _createSyncDeviceId() {
+    final ms = DateTime.now().millisecondsSinceEpoch.toRadixString(36);
+    final platform = defaultTargetPlatform.name;
+    return 'dev_${platform}_$ms';
   }
 
   String defaultUrlForProvider(AiProvider provider) {
@@ -495,6 +702,8 @@ class AppSettings extends ChangeNotifier {
         return defaultOllamaUrl;
       case AiProvider.lmStudio:
         return defaultLmStudioUrl;
+      case AiProvider.folioCloud:
+        return '';
       case AiProvider.none:
         return defaultOllamaUrl;
     }
@@ -506,6 +715,8 @@ class AppSettings extends ChangeNotifier {
         return defaultOllamaModel;
       case AiProvider.lmStudio:
         return defaultLmStudioModel;
+      case AiProvider.folioCloud:
+        return 'folio-cloud';
       case AiProvider.none:
         return defaultOllamaModel;
     }
@@ -624,8 +835,19 @@ class AppSettings extends ChangeNotifier {
   }
 
   Future<void> setAiProvider(AiProvider value) async {
+    if (!aiLocalProvidersSupported &&
+        (value == AiProvider.ollama || value == AiProvider.lmStudio)) {
+      return;
+    }
     if (_aiProvider == value) return;
     _aiProvider = value;
+    if (value == AiProvider.folioCloud) {
+      _aiModel = defaultModelForProvider(value);
+      notifyListeners();
+      final p = await SharedPreferences.getInstance();
+      await p.setString(_aiProviderKey, value.name);
+      return;
+    }
     if (_aiBaseUrl.trim().isEmpty) {
       _aiBaseUrl = defaultUrlForProvider(value);
     }
@@ -644,6 +866,14 @@ class AppSettings extends ChangeNotifier {
     notifyListeners();
     final p = await SharedPreferences.getInstance();
     await p.setString(_aiBaseUrlKey, safe);
+  }
+
+  static String _normalizeFolioWebPortalBaseUrl(String s) {
+    var t = s.trim();
+    while (t.endsWith('/')) {
+      t = t.substring(0, t.length - 1);
+    }
+    return t;
   }
 
   Future<void> setAiModel(String value) async {
@@ -766,6 +996,158 @@ class AppSettings extends ChangeNotifier {
     notifyListeners();
     final p = await SharedPreferences.getInstance();
     await p.setDouble(_editorContentWidthKey, safe);
+  }
+
+  Future<void> setWorkspaceSidebarWidth(double value) async {
+    final safe = _sanitizeWorkspaceSidebarWidth(value);
+    if ((_workspaceSidebarWidth - safe).abs() < 0.5) return;
+    _workspaceSidebarWidth = safe;
+    notifyListeners();
+    final p = await SharedPreferences.getInstance();
+    await p.setDouble(_workspaceSidebarWidthKey, safe);
+  }
+
+  Future<void> setWorkspaceSidebarCollapsed(bool value) async {
+    if (_workspaceSidebarCollapsed == value) return;
+    _workspaceSidebarCollapsed = value;
+    notifyListeners();
+    final p = await SharedPreferences.getInstance();
+    await p.setBool(_workspaceSidebarCollapsedKey, value);
+  }
+
+  Future<void> setWorkspaceSidebarAutoReveal(bool value) async {
+    if (_workspaceSidebarAutoReveal == value) return;
+    _workspaceSidebarAutoReveal = value;
+    notifyListeners();
+    final p = await SharedPreferences.getInstance();
+    await p.setBool(_workspaceSidebarAutoRevealKey, value);
+  }
+
+  Future<void> setWorkspacePageOutlineVisible(bool value) async {
+    if (_workspacePageOutlineVisible == value) return;
+    _workspacePageOutlineVisible = value;
+    notifyListeners();
+    final p = await SharedPreferences.getInstance();
+    await p.setBool(_workspacePageOutlineVisibleKey, value);
+  }
+
+  Future<void> setEnterCreatesNewBlock(bool value) async {
+    if (_enterCreatesNewBlock == value) return;
+    _enterCreatesNewBlock = value;
+    notifyListeners();
+    final p = await SharedPreferences.getInstance();
+    await p.setBool(_enterCreatesNewBlockKey, value);
+  }
+
+  Future<void> setSyncEnabled(bool value) async {
+    if (_syncEnabled == value) return;
+    _syncEnabled = value;
+    notifyListeners();
+    final p = await SharedPreferences.getInstance();
+    await p.setBool(_syncEnabledKey, value);
+  }
+
+  Future<void> setSyncRelayEnabled(bool value) async {
+    if (_syncRelayEnabled == value) return;
+    _syncRelayEnabled = value;
+    notifyListeners();
+    final p = await SharedPreferences.getInstance();
+    await p.setBool(_syncRelayEnabledKey, value);
+  }
+
+  Future<void> setSyncDeviceName(String value) async {
+    final safe = value.trim().isEmpty ? _defaultSyncDeviceName() : value.trim();
+    if (_syncDeviceName == safe) return;
+    _syncDeviceName = safe;
+    notifyListeners();
+    final p = await SharedPreferences.getInstance();
+    await p.setString(_syncDeviceNameKey, safe);
+  }
+
+  Future<void> setSyncPendingConflicts(int value) async {
+    final safe = value.clamp(0, 999);
+    if (_syncPendingConflicts == safe) return;
+    _syncPendingConflicts = safe;
+    notifyListeners();
+    final p = await SharedPreferences.getInstance();
+    await p.setInt(_syncPendingConflictsKey, safe);
+  }
+
+  Future<void> setSyncLastSuccessMs(int value) async {
+    final safe = value < 0 ? 0 : value;
+    if (_syncLastSuccessMs == safe) return;
+    _syncLastSuccessMs = safe;
+    notifyListeners();
+    final p = await SharedPreferences.getInstance();
+    await p.setInt(_syncLastSuccessMsKey, safe);
+  }
+
+  Future<void> addRecentSearchQuery(String raw) async {
+    final q = raw.trim();
+    if (q.isEmpty) return;
+    final next = <String>[q];
+    for (final x in _recentSearchQueries) {
+      if (x == q) continue;
+      next.add(x);
+      if (next.length >= maxRecentSearchQueries) break;
+    }
+    _recentSearchQueries = next;
+    notifyListeners();
+    final p = await SharedPreferences.getInstance();
+    await p.setStringList(_recentSearchQueriesKey, _recentSearchQueries);
+  }
+
+  Future<void> setScheduledVaultBackupEnabled(bool value) async {
+    if (_scheduledVaultBackupEnabled == value) return;
+    _scheduledVaultBackupEnabled = value;
+    if (value && _lastScheduledVaultBackupMs == 0) {
+      _lastScheduledVaultBackupMs = DateTime.now().millisecondsSinceEpoch;
+    }
+    notifyListeners();
+    final p = await SharedPreferences.getInstance();
+    await p.setBool(_scheduledVaultBackupEnabledKey, value);
+    if (value && _lastScheduledVaultBackupMs != 0) {
+      await p.setInt(_lastScheduledVaultBackupMsKey, _lastScheduledVaultBackupMs);
+    }
+  }
+
+  Future<void> setScheduledVaultBackupIntervalHours(int value) async {
+    final safe = _sanitizeScheduledVaultBackupInterval(value);
+    if (_scheduledVaultBackupIntervalHours == safe) return;
+    _scheduledVaultBackupIntervalHours = safe;
+    notifyListeners();
+    final p = await SharedPreferences.getInstance();
+    await p.setInt(_scheduledVaultBackupIntervalHoursKey, safe);
+  }
+
+  Future<void> setScheduledVaultBackupDirectory(String path) async {
+    final safe = path.trim();
+    if (_scheduledVaultBackupDirectory == safe) return;
+    _scheduledVaultBackupDirectory = safe;
+    notifyListeners();
+    final p = await SharedPreferences.getInstance();
+    if (safe.isEmpty) {
+      await p.remove(_scheduledVaultBackupDirectoryKey);
+    } else {
+      await p.setString(_scheduledVaultBackupDirectoryKey, safe);
+    }
+  }
+
+  Future<void> setLastScheduledVaultBackupMs(int value) async {
+    final safe = value < 0 ? 0 : value;
+    if (_lastScheduledVaultBackupMs == safe) return;
+    _lastScheduledVaultBackupMs = safe;
+    notifyListeners();
+    final p = await SharedPreferences.getInstance();
+    await p.setInt(_lastScheduledVaultBackupMsKey, safe);
+  }
+
+  Future<void> setScheduledVaultBackupAlsoUploadCloud(bool value) async {
+    if (_scheduledVaultBackupAlsoUploadCloud == value) return;
+    _scheduledVaultBackupAlsoUploadCloud = value;
+    notifyListeners();
+    final p = await SharedPreferences.getInstance();
+    await p.setBool(_scheduledVaultBackupAlsoUploadCloudKey, value);
   }
 
   Future<void> setInAppShortcut(

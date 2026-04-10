@@ -34,6 +34,7 @@
   "chooseZipFile": "Choose .zip file",
   "changeFile": "Change file",
   "backupPasswordLabel": "Backup password",
+  "backupPlainNoPasswordHint": "This backup is not encrypted. No password is required to import it.",
   "importVault": "Import vault",
   "masterPasswordTitle": "Your master password",
   "masterPasswordHint": "At least {min} characters. You will use it every time you open Folio.",
@@ -137,6 +138,9 @@
   "usePasskey": "Use passkey",
   "quickUnlockEnabledSnack": "Quick unlock enabled",
   "quickUnlockDisabledSnack": "Quick unlock disabled",
+  "quickUnlockEnableFailed": "Could not enable quick unlock.",
+  "passkeyRevokeConfirmTitle": "Remove passkey?",
+  "passkeyRevokeConfirmBody": "You will need your master password to unlock until you register a new passkey on this device.",
   "passkeyRegisteredSnack": "Passkey registered",
   "passkeyRevokedSnack": "Passkey revoked",
   "masterPasswordUpdatedSnack": "Master password updated",
@@ -183,6 +187,15 @@
   "renameActiveVault": "Rename active vault",
   "deleteOtherVault": "Delete another vault…",
   "activeVaultLabel": "Active vault",
+  "sidebarVaultsLoading": "Loading vaults…",
+  "sidebarVaultsEmpty": "No vaults available",
+  "forceSyncTooltip": "Force sync",
+  "searchDialogFooterHint": "Enter opens the highlighted result · Ctrl+↑ / Ctrl+↓ navigate · Esc closes",
+  "searchFilterTasks": "Tasks",
+  "searchRecentQueries": "Recent searches",
+  "searchShortcutsHelpTooltip": "Keyboard shortcuts",
+  "searchShortcutsHelpTitle": "Global search",
+  "searchShortcutsHelpBody": "Enter: open the highlighted result\nCtrl+↑ or Ctrl+↓: previous / next result\nEsc: close",
   "renamePageTitle": "Rename page",
   "titleLabel": "Title",
   "rootPage": "Root",
@@ -191,10 +204,27 @@
   "subpage": "Subpage",
   "move": "Move",
   "pages": "Pages",
+  "pageOutlineTitle": "Outline",
+  "pageOutlineEmpty": "Add headings (H1–H3) to build the outline.",
+  "showPageOutline": "Show outline",
+  "hidePageOutline": "Hide outline",
+  "tocBlockTitle": "Table of contents",
+  "showSidebar": "Show sidebar",
+  "hideSidebar": "Hide sidebar",
+  "resizeSidebarHandle": "Resize sidebar",
+  "resizeSidebarHandleHint": "Drag horizontally to change the sidebar width",
+  "resizeAiPanelHeightHandle": "Resize assistant height",
+  "resizeAiPanelHeightHandleHint": "Drag vertically to change the assistant panel height",
+  "sidebarAutoRevealTitle": "Peek sidebar from left edge",
+  "sidebarAutoRevealSubtitle": "When the sidebar is hidden, move the pointer to the left edge to show it temporarily.",
   "newRootPageTooltip": "New page (root)",
   "blockOptions": "Block options",
   "dragToReorder": "Drag to reorder",
   "addBlock": "Add block",
+  "blockMentionPageSubtitle": "Mention page",
+  "blockTypesSheetTitle": "Block types",
+  "blockTypesSheetSubtitle": "Choose how this block will look",
+  "blockTypeFilterEmpty": "Nothing matches your search",
   "fileNotFound": "File not found",
   "couldNotLoadImage": "Could not load image",
   "noImageHint": "No image · use menu ⋮ or button below",
@@ -319,6 +349,7 @@
   "aiNewChat": "New",
   "aiAttach": "Attach",
   "aiChatEmptyHint": "Start a conversation.\nQuill will automatically decide what to do with your message.\nYou can also ask how to use Folio (shortcuts, settings, pages, or this chat).",
+  "aiChatEmptyFocusComposer": "Write a message",
   "aiInputHint": "Type your message. Quill will act as an agent.",
   "aiInputHintCopilot": "Type your message...",
   "aiContextComposerHint": "No context added",
@@ -330,6 +361,13 @@
   "aiContextAddPage": "Attach page",
   "aiShowPanel": "Show AI panel",
   "aiHidePanel": "Hide AI panel",
+  "aiPanelResizeHandle": "Resize AI panel",
+  "aiPanelResizeHandleHint": "Drag horizontally to change the assistant panel width",
+  "importMarkdownPage": "Import Markdown",
+  "exportMarkdownPage": "Export Markdown",
+  "workspaceUndoTooltip": "Undo (Ctrl+Z)",
+  "workspaceRedoTooltip": "Redo (Ctrl+Y)",
+  "workspaceMoreActionsTooltip": "More actions",
   "closeCurrentPage": "Close current page",
   "aiErrorWithDetails": "AI error: {error}",
   "@aiErrorWithDetails": {"placeholders": {"error": {}}},
@@ -344,6 +382,10 @@
   "aiContextUsageTooltip": "Last request vs your configured context window ({window} tokens).",
   "@aiContextUsageTooltip": {"placeholders": {"window": {"type": "int"}}},
   "aiChatKeyboardHint": "Enter to send · Ctrl+Enter for new line",
+  "aiChatInkRemaining": "{total, plural, one{1 ink drop left} other{{total} ink drops left}}",
+  "@aiChatInkRemaining": {"placeholders": {"total": {"type": "int"}}},
+  "aiChatInkBreakdownTooltip": "Monthly {monthly} · Purchased {purchased}",
+  "@aiChatInkBreakdownTooltip": {"placeholders": {"monthly": {"type": "int"}, "purchased": {"type": "int"}}},
   "aiAgentThought": "Quill's thought",
   "aiAlwaysShowThought": "Always show AI thought",
   "aiAlwaysShowThoughtHint": "If disabled, it appears collapsed with an arrow in each message.",
@@ -377,6 +419,16 @@
   "aiSetupLmStudioTitle": "Step 2: Install LM Studio",
   "aiSetupLmStudioBody": "Install LM Studio, start its local server (OpenAI-compatible), and verify it responds at http://127.0.0.1:1234.",
   "aiSetupOpenSettingsHint": "When one provider is operational, press Retry to auto-configure it.",
+  "aiCompareCloudVsLocalTitle": "Cloud vs local",
+  "aiCompareCloudTitle": "Folio Cloud",
+  "aiCompareLocalTitle": "Local (Ollama / LM Studio)",
+  "aiCompareCloudBulletNoSetup": "No local setup: works after signing in.",
+  "aiCompareCloudBulletNeedsSub": "Folio Cloud subscription with cloud AI or purchased ink.",
+  "aiCompareCloudBulletInk": "Uses ink for cloud AI (packs + monthly refill).",
+  "aiProviderFolioCloudBlockedSnack": "You need an active Folio Cloud plan with cloud AI or purchased ink — see Settings → Folio Cloud.",
+  "aiCompareLocalBulletPrivacy": "Local privacy (your machine).",
+  "aiCompareLocalBulletNoInk": "No ink: not tied to a balance.",
+  "aiCompareLocalBulletSetup": "Requires installing and running a provider on localhost.",
   "quillGlobalScopeNoticeTitle": "Quill works across all vaults",
   "quillGlobalScopeNoticeBody": "Quill is an app-level setting. If you enable it now, it will be available for any vault on this installation, not just the current one.",
   "quillGlobalScopeNoticeConfirm": "I understand",
@@ -404,6 +456,42 @@
   "searchAllVaultHint": "Search across the entire vault...",
   "typeToSearch": "Type to search",
   "noSearchResults": "No results",
+  "searchFilterAll": "All",
+  "searchFilterTitles": "Titles",
+  "searchFilterContent": "Content",
+  "searchSortRelevance": "Relevance",
+  "searchSortRecent": "Recent",
+  "settingsSearchSections": "Search settings",
+  "settingsSearchSectionsHint": "Filter categories in the sidebar",
+  "scheduledVaultBackupTitle": "Scheduled encrypted backup",
+  "scheduledVaultBackupSubtitle": "While the vault is unlocked, each backup is the currently open vault. Folio saves a ZIP to the folder below on the chosen interval.",
+  "scheduledVaultBackupChooseFolder": "Backup folder",
+  "scheduledVaultBackupIntervalLabel": "Interval (hours)",
+  "scheduledVaultBackupLastRun": "Last backup: {time}",
+  "@scheduledVaultBackupLastRun": {"placeholders": {"time": {}}},
+  "scheduledVaultBackupSnackOk": "Scheduled backup saved.",
+  "scheduledVaultBackupSnackFail": "Scheduled backup failed: {error}",
+  "@scheduledVaultBackupSnackFail": {"placeholders": {"error": {}}},
+  "vaultBackupOpenVaultHint": "Backups are for the vault open right now: “{name}”.",
+  "@vaultBackupOpenVaultHint": {"placeholders": {"name": {"type": "String"}}},
+  "vaultBackupRunNowTile": "Run scheduled backup now",
+  "vaultBackupRunNowSubtitle": "Run the scheduled backup now (disk and/or cloud, depending on your settings) without waiting for the interval.",
+  "vaultBackupRunNowNeedFolder": "Pick a local backup folder, or turn on “Also upload to Folio Cloud” for cloud-only backups.",
+  "vaultIdentitySyncTitle": "Synchronization",
+  "vaultIdentitySyncBody": "Enter your vault password (or Hello / passkey) to continue.",
+  "vaultIdentityCloudBackupTitle": "Cloud backups",
+  "vaultIdentityCloudBackupBody": "Confirm vault identity to list or download encrypted backups.",
+  "aiRewriteDialogTitle": "Rewrite with AI",
+  "aiPreviewTitle": "Preview",
+  "aiInstructionHint": "Example: make it clearer and shorter",
+  "aiApply": "Apply",
+  "aiGenerating": "Generating…",
+  "aiSummarizeSelection": "Summarize with AI…",
+  "aiExtractTasksDates": "Extract tasks & dates…",
+  "aiPreviewReadOnlyHint": "You can edit the text below before applying.",
+  "aiRewriteApplied": "Block updated.",
+  "aiUndoRewrite": "Undo",
+  "aiInsertBelow": "Insert below",
   "unlockVaultTitle": "Unlock vault",
   "miniUnlockFailed": "Could not unlock."
   ,"importNotionTitle": "Import from Notion (.zip)"
@@ -420,6 +508,9 @@
   ,"importNotionSuccessNew": "New vault imported from Notion."
   ,"importNotionError": "Could not import Notion: {error}"
   ,"@importNotionError": {"placeholders": {"error": {}}}
+  ,"importNotionWarningsTitle": "Import warnings"
+  ,"importNotionWarningsBody": "The import completed with some warnings:"
+  ,"ok": "OK"
   ,"notionExportGuideTitle": "How to export from Notion"
   ,"notionExportGuideBody": "In Notion, open Settings -> Export all workspace content, choose HTML or Markdown, and download the ZIP file. Then use this import option in Folio."
   ,"appBetaBannerMessage": "You are using a beta build. You may run into bugs; back up your vault regularly."
@@ -481,4 +572,190 @@
   ,"@aiMessageTimestampHours": {"placeholders": {"n": {"type": "int"}}}
   ,"aiMessageTimestampDays": "{n} days ago"
   ,"@aiMessageTimestampDays": {"placeholders": {"n": {"type": "int"}}}
+  ,"templateGalleryTitle": "Page Templates"
+  ,"templateImport": "Import"
+  ,"templateImportPickTitle": "Select a template file"
+  ,"templateImportSuccess": "Template imported"
+  ,"templateImportError": "Error importing: {error}"
+  ,"@templateImportError": {"placeholders": {"error": {}}}
+  ,"templateExportPickTitle": "Save template file"
+  ,"templateExportSuccess": "Template exported"
+  ,"templateExportError": "Error exporting: {error}"
+  ,"@templateExportError": {"placeholders": {"error": {}}}
+  ,"templateSearchHint": "Search templates..."
+  ,"templateEmptyHint": "No templates yet.\nSave a page as a template or import one."
+  ,"templateBlockCount": "{count} {count, plural, one {block} other {blocks}}"
+  ,"@templateBlockCount": {"placeholders": {"count": {"type": "int"}}}
+  ,"templateUse": "Use template"
+  ,"templateExport": "Export"
+  ,"templateBlankPage": "Blank page"
+  ,"templateFromGallery": "From template…"
+  ,"saveAsTemplate": "Save as template"
+  ,"saveAsTemplateTitle": "Save as template"
+  ,"templateNameHint": "Template name"
+  ,"templateDescriptionHint": "Description (optional)"
+  ,"templateCategoryHint": "Category (optional)"
+  ,"templateSaved": "Saved as template"
+  ,"templateCount": "{count} {count, plural, one {template} other {templates}}"
+  ,"@templateCount": {"placeholders": {"count": {"type": "int"}}}
+  ,"templateFilteredCount": "Showing {visible} of {total} templates"
+  ,"@templateFilteredCount": {"placeholders": {"visible": {"type": "int"}, "total": {"type": "int"}}}
+  ,"templateSortRecent": "Newest"
+  ,"templateSortName": "Name"
+  ,"templateEdit": "Edit template"
+  ,"templateUpdated": "Template updated"
+  ,"templateDeleteConfirmTitle": "Delete template"
+  ,"templateDeleteConfirmBody": "Template \"{name}\" will be removed from this vault."
+  ,"@templateDeleteConfirmBody": {"placeholders": {"name": {}}}
+  ,"templateCreatedOn": "Created {date}"
+  ,"@templateCreatedOn": {"placeholders": {"date": {}}}
+  ,"templatePreviewEmpty": "This template has no text preview yet."
+  ,"templateSelectHint": "Select a template to inspect it, edit its metadata, or export it."
+  ,"clear": "Clear"
+  ,"cloudAccountSectionTitle": "Folio Cloud account"
+  ,"cloudAccountSectionDescription": "Optional. Sign in to subscribe to cloud backup, hosted AI, and web publishing. Your vault stays local unless you use those features."
+  ,"cloudAccountChipOptional": "Optional"
+  ,"cloudAccountChipPaidCloud": "Backups, AI & web"
+  ,"cloudAccountUnavailable": "Cloud sign-in is unavailable (Firebase did not start). Check your connection or run flutterfire configure with your project."
+  ,"cloudAccountEmailLabel": "Email"
+  ,"cloudAccountPasswordLabel": "Password"
+  ,"cloudAccountSignIn": "Sign in"
+  ,"cloudAccountCreateAccount": "Create account"
+  ,"cloudAccountForgotPassword": "Forgot password?"
+  ,"cloudAccountSignOut": "Sign out"
+  ,"cloudAccountSignedInAs": "Signed in as {email}"
+  ,"@cloudAccountSignedInAs": {"placeholders": {"email": {}}}
+  ,"cloudAccountUid": "User ID: {uid}"
+  ,"@cloudAccountUid": {"placeholders": {"uid": {}}}
+  ,"cloudAuthDialogTitleSignIn": "Sign in to Folio Cloud"
+  ,"cloudAuthDialogTitleRegister": "Create Folio Cloud account"
+  ,"cloudAuthDialogTitleReset": "Reset password"
+  ,"cloudPasswordResetSent": "If an account exists for that email, a reset link was sent."
+  ,"cloudAuthErrorInvalidEmail": "That email address is not valid."
+  ,"cloudAuthErrorWrongPassword": "Wrong password."
+  ,"cloudAuthErrorUserNotFound": "No account found for that email."
+  ,"cloudAuthErrorUserDisabled": "This account has been disabled."
+  ,"cloudAuthErrorEmailAlreadyInUse": "That email is already registered."
+  ,"cloudAuthErrorWeakPassword": "Password is too weak."
+  ,"cloudAuthErrorInvalidCredential": "Invalid email or password."
+  ,"cloudAuthErrorNetwork": "Network error. Check your connection."
+  ,"cloudAuthErrorTooManyRequests": "Too many attempts. Try again later."
+  ,"cloudAuthErrorOperationNotAllowed": "This sign-in method is not enabled in Firebase."
+  ,"cloudAuthErrorGeneric": "Sign-in failed. Try again."
+  ,"cloudAuthDialogTitle": "Folio Cloud"
+  ,"cloudAuthSubtitleSignIn": "Use your Folio Cloud email and password. Nothing here changes your local vault."
+  ,"cloudAuthSubtitleRegister": "Create Folio Cloud credentials. Your notes on this device are not uploaded until you enable backups or other paid features."
+  ,"cloudAuthModeSignIn": "Sign in"
+  ,"cloudAuthModeRegister": "Register"
+  ,"cloudAuthConfirmPasswordLabel": "Confirm password"
+  ,"cloudAuthValidationRequired": "This field is required."
+  ,"cloudAuthValidationPasswordShort": "Use at least 6 characters."
+  ,"cloudAuthValidationConfirmMismatch": "Passwords do not match."
+  ,"cloudAccountSignedOutPrompt": "Sign in or register to subscribe to Folio Cloud and use backups, cloud AI, and publishing."
+  ,"cloudAuthResetHint": "We will email you a link to set a new password."
+  ,"cloudAccountEmailVerified": "Verified"
+  ,"cloudAccountSignOutHelp": "Your local vault stays on this device."
+  ,"cloudAccountEmailUnverifiedBanner": "Verify your email to secure your Folio Cloud account."
+  ,"cloudAccountResendVerification": "Resend verification email"
+  ,"cloudAccountReloadVerification": "I've verified"
+  ,"cloudAccountVerificationSent": "Verification email sent."
+  ,"cloudAccountVerificationStillPending": "Email is still not verified. Open the link in your inbox."
+  ,"cloudAccountVerificationNowVerified": "Email verified."
+  ,"cloudAccountResetPasswordEmail": "Reset password by email"
+  ,"cloudAccountCopyEmail": "Copy email"
+  ,"cloudAccountEmailCopied": "Email copied."
+  ,"folioWebPortalSubsectionTitle": "Web account"
+  ,"folioWebPortalLinkCodeLabel": "Pairing code"
+  ,"folioWebPortalLinkHelp": "Generate the code on the web app under Settings → Folio account, then enter it here within about 10 minutes."
+  ,"folioWebPortalLinkButton": "Link"
+  ,"folioWebPortalLinkSuccess": "Web account linked successfully."
+  ,"folioWebPortalNeedSignIn": "Sign in to Folio Cloud to link your web account."
+  ,"folioWebMirrorNote": "Backups, AI, and publishing are still governed by Folio Cloud (Firestore). Below reflects your web account."
+  ,"folioWebEntitlementLinked": "Web account linked"
+  ,"folioWebEntitlementNotLinked": "Web account not linked"
+  ,"folioWebEntitlementWebPlan": "Folio Cloud (web): {value}"
+  ,"@folioWebEntitlementWebPlan": {"placeholders": {"value": {"type": "String"}}}
+  ,"folioWebEntitlementWebStatus": "Status (web): {value}"
+  ,"@folioWebEntitlementWebStatus": {"placeholders": {"value": {"type": "String"}}}
+  ,"folioWebEntitlementWebPeriodEnd": "Period end (web): {value}"
+  ,"@folioWebEntitlementWebPeriodEnd": {"placeholders": {"value": {"type": "String"}}}
+  ,"folioWebEntitlementWebInk": "Ink (web): {count}"
+  ,"@folioWebEntitlementWebInk": {"placeholders": {"count": {"type": "int"}}}
+  ,"folioWebPortalRefreshWeb": "Refresh web status"
+  ,"folioWebPortalErrorNetwork": "Could not reach the portal. Check your connection."
+  ,"folioWebPortalErrorTimeout": "The portal took too long to respond."
+  ,"folioWebPortalErrorAdminNotConfigured": "Folio Firebase Admin is not configured on the server (check the backend)."
+  ,"folioWebPortalErrorUnauthorized": "Session invalid. Sign in to Folio Cloud again."
+  ,"folioWebPortalErrorGeneric": "Could not complete the request to the portal."
+  ,"folioWebPortalServerMessage": "{message}"
+  ,"@folioWebPortalServerMessage": {"placeholders": {"message": {"type": "String"}}}
+  ,"folioCloudSubsectionPlan": "Plan & status"
+  ,"folioCloudSubsectionInk": "Ink balance"
+  ,"folioCloudSubsectionSubscription": "Subscription & billing"
+  ,"folioCloudSubsectionBackupPublish": "Backups & publishing"
+  ,"folioCloudSubscriptionActive": "Subscription active"
+  ,"folioCloudSubscriptionActiveWithStatus": "Subscription active ({status})"
+  ,"@folioCloudSubscriptionActiveWithStatus": {"placeholders": {"status": {"type": "String"}}}
+  ,"folioCloudSubscriptionNoneTitle": "No Folio Cloud subscription"
+  ,"folioCloudSubscriptionNoneSubtitle": "Activate a plan for encrypted backup, cloud AI, and web publishing."
+  ,"folioCloudFeatureBackup": "Cloud backup"
+  ,"folioCloudFeatureCloudAi": "Cloud AI"
+  ,"folioCloudFeaturePublishWeb": "Web publishing"
+  ,"folioCloudFeatureOn": "Included"
+  ,"folioCloudFeatureOff": "Not included"
+  ,"folioCloudPostPaymentHint": "If you just paid and features show as off, tap «Refresh from Stripe»."
+  ,"folioCloudBackupCleanupWarning": "Backup uploaded, but old backups could not be cleaned up (will be retried later)."
+  ,"folioCloudInkMonthly": "Monthly"
+  ,"folioCloudInkPurchased": "Purchased"
+  ,"folioCloudInkTotal": "Total"
+  ,"folioCloudInkCount": "{count}"
+  ,"@folioCloudInkCount": {"placeholders": {"count": {"type": "int"}}}
+  ,"folioCloudPlanActiveHeadline": "Folio Cloud monthly plan active"
+  ,"folioCloudSubscribeMonthly": "Folio Cloud €4.99/mo"
+  ,"folioCloudPitchScreenTitle": "Folio Cloud"
+  ,"folioCloudPitchHeadline": "Your vault stays local. The cloud works when you want it."
+  ,"folioCloudPitchSubhead": "One monthly plan unlocks encrypted backups, hosted cloud AI with a monthly ink allowance, and publishing to the web—only for what you choose to share."
+  ,"folioCloudPitchLearnMore": "See what's included"
+  ,"folioCloudPitchCtaNeedAccount": "Sign in or create account"
+  ,"folioCloudPitchGuestTeaserTitle": "Folio Cloud account"
+  ,"folioCloudPitchGuestTeaserBody": "Optional account: see what the plan includes, then sign in when you want to subscribe."
+  ,"folioCloudPitchOpenSettingsToSignIn": "Open Settings and sign in to Folio Cloud (Folio Cloud section) to subscribe."
+  ,"folioCloudBuyInk": "Buy ink"
+  ,"folioCloudInkSmall": "Small ink (€1.99)"
+  ,"folioCloudInkMedium": "Medium ink (€4.99)"
+  ,"folioCloudInkLarge": "Large ink (€9.99)"
+  ,"folioCloudManageSubscription": "Manage subscription"
+  ,"folioCloudRefreshFromStripe": "Refresh"
+  ,"folioCloudUploadEncryptedBackup": "Back up to cloud now"
+  ,"folioCloudUploadEncryptedBackupSubtitle": "Folio builds an encrypted backup of your open vault and uploads it—no manual ZIP export."
+  ,"folioCloudUploadSnackOk": "Vault backup saved to the cloud."
+  ,"scheduledVaultBackupCloudSyncTitle": "Also upload to Folio Cloud"
+  ,"scheduledVaultBackupCloudSyncSubtitle": "After each scheduled backup, automatically uploads the same ZIP to your account. For cloud-only backups, leave the folder unset and enable this option."
+  ,"folioCloudCloudBackupsList": "Cloud backups"
+  ,"folioCloudBackupsUsed": "Used"
+  ,"folioCloudBackupsLimit": "Limit"
+  ,"folioCloudBackupsRemaining": "Remaining"
+  ,"folioCloudPublishTestPage": "Publish test page"
+  ,"folioCloudPublishedPagesList": "Published pages"
+  ,"folioCloudReauthDialogTitle": "Confirm Folio Cloud account"
+  ,"folioCloudReauthDialogBody": "Enter your Folio Cloud account password (the one you use to sign in to the cloud) to list and download backups. This is not your local vault password."
+  ,"folioCloudReauthRequiresPasswordProvider": "This session does not use a Folio Cloud password. Sign out and sign back in with email and password if you need to download backups."
+  ,"folioCloudAiNoInkTitle": "No cloud AI ink left"
+  ,"folioCloudAiNoInkBody": "Buy an ink bottle under Folio Cloud, wait for your monthly refill, or switch to local AI (Ollama or LM Studio) in the AI section of Settings."
+  ,"folioCloudAiNoInkActionCloud": "Folio Cloud & ink"
+  ,"folioCloudAiNoInkActionLocal": "AI provider"
+  ,"folioCloudAiZeroInkBanner": "Cloud AI ink is 0 — open Settings to buy ink or use local AI."
+  ,"folioCloudInkPurchaseAppliedHint": "Purchase applied: {purchased} purchased ink available for cloud AI."
+  ,"@folioCloudInkPurchaseAppliedHint": {"placeholders": {"purchased": {}}}
+  ,"onboardingCloudBackupCta": "Sign in and download a backup"
+  ,"onboardingCloudBackupPickVaultSubtitle": "Choose which vault you want to restore."
+  ,"onboardingFolioCloudTitle": "Folio Cloud"
+  ,"onboardingFolioCloudBody": "Enable cloud features when you need them: encrypted backups, hosted Quill, and web publishing. Your vault stays local unless you use these features."
+  ,"onboardingFolioCloudFeatureBackupTitle": "Encrypted cloud backups"
+  ,"onboardingFolioCloudFeatureBackupBody": "Store and download vault backups from your account. On desktop, listing/downloading is handled via Folio Cloud."
+  ,"onboardingFolioCloudFeatureAiTitle": "Cloud AI + ink"
+  ,"onboardingFolioCloudFeatureAiBody": "Hosted Quill with a Folio Cloud subscription (cloud AI) or by purchasing ink only. Ink is consumed by usage; you can also use local AI (Ollama/LM Studio)."
+  ,"onboardingFolioCloudFeatureWebTitle": "Web publishing"
+  ,"onboardingFolioCloudFeatureWebBody": "Publish selected pages and control what becomes public. The rest of your vault is not shared."
+  ,"onboardingFolioCloudLaterInSettings": "I’ll check in Settings"
 }

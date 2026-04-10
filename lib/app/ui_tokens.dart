@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart' show defaultTargetPlatform;
 
 class FolioRadius {
   static const double xs = 4;
@@ -64,4 +65,30 @@ class FolioDesktop {
   static const double editorMaxWidth = 920;
   static const double settingsRailWidth = 264;
   static const double pageMaxWidth = 1440;
+}
+
+class FolioAdaptive {
+  // En Android, este ancho activa una UX similar a escritorio (tablet/Dex).
+  static const double androidDesktopLikeBreakpoint = 1000;
+  static const double androidPhoneLikeBreakpoint = 700;
+
+  static bool isAndroidDesktopLikeWidth(double width) {
+    return defaultTargetPlatform == TargetPlatform.android &&
+        width >= androidDesktopLikeBreakpoint;
+  }
+
+  static bool isAndroidPhoneWidth(double width) {
+    return defaultTargetPlatform == TargetPlatform.android &&
+        width < androidPhoneLikeBreakpoint;
+  }
+
+  static bool shouldUseDesktopSections(double width) {
+    return defaultTargetPlatform != TargetPlatform.android ||
+        isAndroidDesktopLikeWidth(width);
+  }
+
+  static bool shouldUseMobileWorkspace(double width) {
+    return defaultTargetPlatform == TargetPlatform.android &&
+        !isAndroidDesktopLikeWidth(width);
+  }
 }

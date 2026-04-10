@@ -26,6 +26,22 @@ void main() {
       expect(blocks[3].codeLanguage, 'dart');
     });
 
+    test('acepta JSON con markdown fences y lo limpia', () {
+      final session = VaultSession();
+      const output = '''
+```json
+{
+  "title": "Fences",
+  "blocks": [{"type":"paragraph","text":"ok"}]
+}
+```
+''';
+      final blocks = session.parseAiOutputForTesting(output);
+      expect(blocks.length, 1);
+      expect(blocks.first.type, 'paragraph');
+      expect(blocks.first.text, 'ok');
+    });
+
     test('hace fallback a markdown cuando no hay JSON válido', () {
       final session = VaultSession();
       final output = '''

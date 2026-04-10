@@ -108,6 +108,13 @@ class FolioMarkdownCodec {
     return out.join('\n').trimRight() + '\n';
   }
 
+  /// Parses a Markdown string into a list of [FolioBlock]s.
+  /// The [pageId] is used as a prefix for generated block IDs.
+  static List<FolioBlock> parseBlocks(
+    String markdown, {
+    required String pageId,
+  }) => _parseBlocks(markdown, pageId: pageId);
+
   static List<FolioBlock> _parseBlocks(
     String markdown, {
     required String pageId,

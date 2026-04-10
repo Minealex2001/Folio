@@ -113,7 +113,7 @@ abstract class AppLocalizations {
   /// No description provided for @newVault.
   ///
   /// In es, this message translates to:
-  /// **'Nuevo cofre'**
+  /// **'Nueva libreta'**
   String get newVault;
 
   /// No description provided for @stepOfTotal.
@@ -203,7 +203,7 @@ abstract class AppLocalizations {
   /// No description provided for @savingVaultTooltip.
   ///
   /// In es, this message translates to:
-  /// **'Guardando el cofre cifrado en disco…'**
+  /// **'Guardando la libreta cifrada en disco…'**
   String get savingVaultTooltip;
 
   /// No description provided for @autosaveSoonTooltip.
@@ -227,7 +227,7 @@ abstract class AppLocalizations {
   /// No description provided for @createNewVault.
   ///
   /// In es, this message translates to:
-  /// **'Crear cofre nuevo'**
+  /// **'Crear libreta nueva'**
   String get createNewVault;
 
   /// No description provided for @importBackupZip.
@@ -266,10 +266,16 @@ abstract class AppLocalizations {
   /// **'Contraseña de la copia'**
   String get backupPasswordLabel;
 
+  /// No description provided for @backupPlainNoPasswordHint.
+  ///
+  /// In es, this message translates to:
+  /// **'Esta copia no está cifrada. No necesitas contraseña para importarla.'**
+  String get backupPlainNoPasswordHint;
+
   /// No description provided for @importVault.
   ///
   /// In es, this message translates to:
-  /// **'Importar cofre'**
+  /// **'Importar libreta'**
   String get importVault;
 
   /// No description provided for @masterPasswordTitle.
@@ -323,7 +329,7 @@ abstract class AppLocalizations {
   /// No description provided for @readyBody.
   ///
   /// In es, this message translates to:
-  /// **'Se creará un cofre cifrado en este equipo. Podrás añadir después Windows Hello, biometría o una passkey para desbloquear más rápido (Ajustes).'**
+  /// **'Se creará una libreta cifrada en este equipo. Podrás añadir después Windows Hello, biometría o una passkey para desbloquear más rápido (Ajustes).'**
   String get readyBody;
 
   /// No description provided for @quillIntroTitle.
@@ -395,7 +401,7 @@ abstract class AppLocalizations {
   /// No description provided for @createVault.
   ///
   /// In es, this message translates to:
-  /// **'Crear cofre'**
+  /// **'Crear libreta'**
   String get createVault;
 
   /// No description provided for @minCharactersError.
@@ -479,13 +485,13 @@ abstract class AppLocalizations {
   /// No description provided for @createVaultFailedError.
   ///
   /// In es, this message translates to:
-  /// **'No se pudo crear el cofre: {error}'**
+  /// **'No se pudo crear la libreta: {error}'**
   String createVaultFailedError(Object error);
 
   /// No description provided for @encryptedVault.
   ///
   /// In es, this message translates to:
-  /// **'Cofre cifrado'**
+  /// **'Libreta cifrada'**
   String get encryptedVault;
 
   /// No description provided for @unlock.
@@ -509,7 +515,7 @@ abstract class AppLocalizations {
   /// No description provided for @unlockFailed.
   ///
   /// In es, this message translates to:
-  /// **'Contraseña incorrecta o cofre dañado.'**
+  /// **'Contraseña incorrecta o libreta dañada.'**
   String get unlockFailed;
 
   /// No description provided for @appearance.
@@ -527,7 +533,7 @@ abstract class AppLocalizations {
   /// No description provided for @vaultBackup.
   ///
   /// In es, this message translates to:
-  /// **'Copia del cofre'**
+  /// **'Copia de la libreta'**
   String get vaultBackup;
 
   /// No description provided for @data.
@@ -800,6 +806,24 @@ abstract class AppLocalizations {
   /// **'Desbloqueo rápido desactivado'**
   String get quickUnlockDisabledSnack;
 
+  /// No description provided for @quickUnlockEnableFailed.
+  ///
+  /// In es, this message translates to:
+  /// **'No se pudo activar el desbloqueo rápido.'**
+  String get quickUnlockEnableFailed;
+
+  /// No description provided for @passkeyRevokeConfirmTitle.
+  ///
+  /// In es, this message translates to:
+  /// **'¿Quitar la passkey?'**
+  String get passkeyRevokeConfirmTitle;
+
+  /// No description provided for @passkeyRevokeConfirmBody.
+  ///
+  /// In es, this message translates to:
+  /// **'Necesitarás la contraseña maestra para desbloquear hasta que registres una passkey nueva en este dispositivo.'**
+  String get passkeyRevokeConfirmBody;
+
   /// No description provided for @passkeyRegisteredSnack.
   ///
   /// In es, this message translates to:
@@ -839,7 +863,7 @@ abstract class AppLocalizations {
   /// No description provided for @wipeFailedError.
   ///
   /// In es, this message translates to:
-  /// **'No se pudo borrar el cofre: {error}'**
+  /// **'No se pudo borrar la libreta: {error}'**
   String wipeFailedError(Object error);
 
   /// No description provided for @filePathReadError.
@@ -851,19 +875,19 @@ abstract class AppLocalizations {
   /// No description provided for @importedVaultSuccessSnack.
   ///
   /// In es, this message translates to:
-  /// **'Cofre importado. Aparece en el selector del panel lateral; el actual sigue igual.'**
+  /// **'Libreta importada. Aparece en el selector del panel lateral; la actual sigue igual.'**
   String get importedVaultSuccessSnack;
 
   /// No description provided for @exportVaultDialogTitle.
   ///
   /// In es, this message translates to:
-  /// **'Exportar copia del cofre'**
+  /// **'Exportar copia de la libreta'**
   String get exportVaultDialogTitle;
 
   /// No description provided for @exportVaultDialogBody.
   ///
   /// In es, this message translates to:
-  /// **'Para crear un archivo de copia, confirma tu identidad con el cofre actual desbloqueado.'**
+  /// **'Para crear un archivo de copia, confirma tu identidad con la libreta actual desbloqueada.'**
   String get exportVaultDialogBody;
 
   /// No description provided for @verifyAndExport.
@@ -875,19 +899,19 @@ abstract class AppLocalizations {
   /// No description provided for @saveVaultBackupDialogTitle.
   ///
   /// In es, this message translates to:
-  /// **'Guardar copia del cofre'**
+  /// **'Guardar copia de la libreta'**
   String get saveVaultBackupDialogTitle;
 
   /// No description provided for @importVaultDialogTitle.
   ///
   /// In es, this message translates to:
-  /// **'Importar copia del cofre'**
+  /// **'Importar copia de la libreta'**
   String get importVaultDialogTitle;
 
   /// No description provided for @importVaultDialogBody.
   ///
   /// In es, this message translates to:
-  /// **'Se añadirá un cofre nuevo desde el archivo. El cofre que tienes abierto ahora no se borra ni se modifica.\n\nLa contraseña del archivo será la del cofre importado (para abrirlo al cambiar de cofre).\n\nLa passkey y el desbloqueo rápido (Hello / biometría) no van en la copia y no son transferibles; podrás configurarlos en ese cofre después.\n\n¿Continuar?'**
+  /// **'Se añadirá una libreta nueva desde el archivo. La libreta que tienes abierta ahora no se borra ni se modifica.\n\nLa contraseña del archivo será la de la libreta importada (para abrirla al cambiar de libreta).\n\nLa passkey y el desbloqueo rápido (Hello / biometría) no van en la copia y no son transferibles; podrás configurarlos en esa libreta después.\n\n¿Continuar?'**
   String get importVaultDialogBody;
 
   /// No description provided for @verifyAndContinue.
@@ -905,13 +929,13 @@ abstract class AppLocalizations {
   /// No description provided for @importIdentityBody.
   ///
   /// In es, this message translates to:
-  /// **'Demuestra que eres tú con el cofre actual desbloqueado antes de importar.'**
+  /// **'Demuestra que eres tú con la libreta actual desbloqueada antes de importar.'**
   String get importIdentityBody;
 
   /// No description provided for @wipeVaultDialogTitle.
   ///
   /// In es, this message translates to:
-  /// **'Borrar cofre'**
+  /// **'Borrar libreta'**
   String get wipeVaultDialogTitle;
 
   /// No description provided for @wipeVaultDialogBody.
@@ -923,7 +947,7 @@ abstract class AppLocalizations {
   /// No description provided for @wipeIdentityBody.
   ///
   /// In es, this message translates to:
-  /// **'Para borrar el cofre, demuestra que eres tú.'**
+  /// **'Para borrar la libreta, demuestra que eres tú.'**
   String get wipeIdentityBody;
 
   /// No description provided for @exportZipTitle.
@@ -935,7 +959,7 @@ abstract class AppLocalizations {
   /// No description provided for @exportZipSubtitle.
   ///
   /// In es, this message translates to:
-  /// **'Contraseña, Hello o passkey del cofre actual'**
+  /// **'Contraseña, Hello o passkey de la libreta actual'**
   String get exportZipSubtitle;
 
   /// No description provided for @importZipTitle.
@@ -947,19 +971,19 @@ abstract class AppLocalizations {
   /// No description provided for @importZipSubtitle.
   ///
   /// In es, this message translates to:
-  /// **'Añade cofre nuevo · identidad actual + contraseña del archivo'**
+  /// **'Añade libreta nueva · identidad actual + contraseña del archivo'**
   String get importZipSubtitle;
 
   /// No description provided for @backupInfoBody.
   ///
   /// In es, this message translates to:
-  /// **'El archivo contiene los mismos datos cifrados que en disco (vault.keys y vault.bin), sin exponer el contenido en claro. Las imágenes en adjuntos van tal cual.\n\nLa passkey y el desbloqueo rápido no se incluyen en la copia y no son transferibles entre dispositivos; en cada cofre importado podrás configurarlos de nuevo.\n\nImportar añade un cofre nuevo; no sustituye el que tienes abierto.'**
+  /// **'El archivo contiene los mismos datos cifrados que en disco (vault.keys y vault.bin), sin exponer el contenido en claro. Las imágenes en adjuntos van tal cual.\n\nLa passkey y el desbloqueo rápido no se incluyen en la copia y no son transferibles entre dispositivos; en cada libreta importada podrás configurarlos de nuevo.\n\nImportar añade una libreta nueva; no sustituye la que tienes abierta.'**
   String get backupInfoBody;
 
   /// No description provided for @wipeCardTitle.
   ///
   /// In es, this message translates to:
-  /// **'Borrar cofre y empezar de cero'**
+  /// **'Borrar libreta y empezar de cero'**
   String get wipeCardTitle;
 
   /// No description provided for @wipeCardSubtitle.
@@ -971,25 +995,25 @@ abstract class AppLocalizations {
   /// No description provided for @switchVaultTooltip.
   ///
   /// In es, this message translates to:
-  /// **'Cambiar cofre'**
+  /// **'Cambiar libreta'**
   String get switchVaultTooltip;
 
   /// No description provided for @switchVaultTitle.
   ///
   /// In es, this message translates to:
-  /// **'Cambiar de cofre'**
+  /// **'Cambiar de libreta'**
   String get switchVaultTitle;
 
   /// No description provided for @switchVaultBody.
   ///
   /// In es, this message translates to:
-  /// **'Se cerrará la sesión de este cofre y tendrás que desbloquear el otro con su contraseña, Hello o passkey (si los tienes configurados allí).'**
+  /// **'Se cerrará la sesión de esta libreta y tendrás que desbloquear la otra con su contraseña, Hello o passkey (si los tienes configurados allí).'**
   String get switchVaultBody;
 
   /// No description provided for @renameVaultTitle.
   ///
   /// In es, this message translates to:
-  /// **'Renombrar cofre'**
+  /// **'Renombrar libreta'**
   String get renameVaultTitle;
 
   /// No description provided for @nameLabel.
@@ -1001,13 +1025,13 @@ abstract class AppLocalizations {
   /// No description provided for @deleteOtherVaultTitle.
   ///
   /// In es, this message translates to:
-  /// **'Eliminar otro cofre'**
+  /// **'Eliminar otra libreta'**
   String get deleteOtherVaultTitle;
 
   /// No description provided for @deleteVaultConfirmTitle.
   ///
   /// In es, this message translates to:
-  /// **'¿Eliminar cofre?'**
+  /// **'¿Eliminar libreta?'**
   String get deleteVaultConfirmTitle;
 
   /// No description provided for @deleteVaultConfirmBody.
@@ -1019,38 +1043,92 @@ abstract class AppLocalizations {
   /// No description provided for @vaultDeletedSnack.
   ///
   /// In es, this message translates to:
-  /// **'Cofre eliminado.'**
+  /// **'Libreta eliminada.'**
   String get vaultDeletedSnack;
 
   /// No description provided for @noOtherVaultsSnack.
   ///
   /// In es, this message translates to:
-  /// **'No hay otros cofres que borrar.'**
+  /// **'No hay otras libretas que borrar.'**
   String get noOtherVaultsSnack;
 
   /// No description provided for @addVault.
   ///
   /// In es, this message translates to:
-  /// **'Añadir cofre'**
+  /// **'Añadir libreta'**
   String get addVault;
 
   /// No description provided for @renameActiveVault.
   ///
   /// In es, this message translates to:
-  /// **'Renombrar cofre activo'**
+  /// **'Renombrar libreta activa'**
   String get renameActiveVault;
 
   /// No description provided for @deleteOtherVault.
   ///
   /// In es, this message translates to:
-  /// **'Eliminar otro cofre…'**
+  /// **'Eliminar otra libreta…'**
   String get deleteOtherVault;
 
   /// No description provided for @activeVaultLabel.
   ///
   /// In es, this message translates to:
-  /// **'Cofre activo'**
+  /// **'Libreta activa'**
   String get activeVaultLabel;
+
+  /// No description provided for @sidebarVaultsLoading.
+  ///
+  /// In es, this message translates to:
+  /// **'Cargando libretas…'**
+  String get sidebarVaultsLoading;
+
+  /// No description provided for @sidebarVaultsEmpty.
+  ///
+  /// In es, this message translates to:
+  /// **'No hay libretas disponibles'**
+  String get sidebarVaultsEmpty;
+
+  /// No description provided for @forceSyncTooltip.
+  ///
+  /// In es, this message translates to:
+  /// **'Forzar sincronización'**
+  String get forceSyncTooltip;
+
+  /// No description provided for @searchDialogFooterHint.
+  ///
+  /// In es, this message translates to:
+  /// **'Enter abre el resultado resaltado · Ctrl+↑ / Ctrl+↓ navegar · Esc cierra'**
+  String get searchDialogFooterHint;
+
+  /// No description provided for @searchFilterTasks.
+  ///
+  /// In es, this message translates to:
+  /// **'Tareas'**
+  String get searchFilterTasks;
+
+  /// No description provided for @searchRecentQueries.
+  ///
+  /// In es, this message translates to:
+  /// **'Búsquedas recientes'**
+  String get searchRecentQueries;
+
+  /// No description provided for @searchShortcutsHelpTooltip.
+  ///
+  /// In es, this message translates to:
+  /// **'Atajos de teclado'**
+  String get searchShortcutsHelpTooltip;
+
+  /// No description provided for @searchShortcutsHelpTitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Búsqueda global'**
+  String get searchShortcutsHelpTitle;
+
+  /// No description provided for @searchShortcutsHelpBody.
+  ///
+  /// In es, this message translates to:
+  /// **'Enter: abrir el resultado resaltado\nCtrl+↑ o Ctrl+↓: anterior / siguiente\nEsc: cerrar'**
+  String get searchShortcutsHelpBody;
 
   /// No description provided for @renamePageTitle.
   ///
@@ -1094,6 +1172,84 @@ abstract class AppLocalizations {
   /// **'Páginas'**
   String get pages;
 
+  /// No description provided for @pageOutlineTitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Índice'**
+  String get pageOutlineTitle;
+
+  /// No description provided for @pageOutlineEmpty.
+  ///
+  /// In es, this message translates to:
+  /// **'Añade encabezados (H1–H3) para generar el índice.'**
+  String get pageOutlineEmpty;
+
+  /// No description provided for @showPageOutline.
+  ///
+  /// In es, this message translates to:
+  /// **'Mostrar índice'**
+  String get showPageOutline;
+
+  /// No description provided for @hidePageOutline.
+  ///
+  /// In es, this message translates to:
+  /// **'Ocultar índice'**
+  String get hidePageOutline;
+
+  /// No description provided for @tocBlockTitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Tabla de contenidos'**
+  String get tocBlockTitle;
+
+  /// No description provided for @showSidebar.
+  ///
+  /// In es, this message translates to:
+  /// **'Mostrar panel lateral'**
+  String get showSidebar;
+
+  /// No description provided for @hideSidebar.
+  ///
+  /// In es, this message translates to:
+  /// **'Ocultar panel lateral'**
+  String get hideSidebar;
+
+  /// No description provided for @resizeSidebarHandle.
+  ///
+  /// In es, this message translates to:
+  /// **'Redimensionar panel lateral'**
+  String get resizeSidebarHandle;
+
+  /// No description provided for @resizeSidebarHandleHint.
+  ///
+  /// In es, this message translates to:
+  /// **'Arrastra horizontalmente para cambiar el ancho del panel'**
+  String get resizeSidebarHandleHint;
+
+  /// No description provided for @resizeAiPanelHeightHandle.
+  ///
+  /// In es, this message translates to:
+  /// **'Redimensionar altura del asistente'**
+  String get resizeAiPanelHeightHandle;
+
+  /// No description provided for @resizeAiPanelHeightHandleHint.
+  ///
+  /// In es, this message translates to:
+  /// **'Arrastra verticalmente para cambiar la altura del panel'**
+  String get resizeAiPanelHeightHandleHint;
+
+  /// No description provided for @sidebarAutoRevealTitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Mostrar panel al acercar al borde'**
+  String get sidebarAutoRevealTitle;
+
+  /// No description provided for @sidebarAutoRevealSubtitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Si el panel está oculto, acerca el puntero al borde izquierdo para verlo un momento.'**
+  String get sidebarAutoRevealSubtitle;
+
   /// No description provided for @newRootPageTooltip.
   ///
   /// In es, this message translates to:
@@ -1117,6 +1273,30 @@ abstract class AppLocalizations {
   /// In es, this message translates to:
   /// **'Añadir bloque'**
   String get addBlock;
+
+  /// No description provided for @blockMentionPageSubtitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Mencionar página'**
+  String get blockMentionPageSubtitle;
+
+  /// No description provided for @blockTypesSheetTitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Tipos de bloque'**
+  String get blockTypesSheetTitle;
+
+  /// No description provided for @blockTypesSheetSubtitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Elige cómo se verá este bloque'**
+  String get blockTypesSheetSubtitle;
+
+  /// No description provided for @blockTypeFilterEmpty.
+  ///
+  /// In es, this message translates to:
+  /// **'Nada coincide con tu búsqueda'**
+  String get blockTypeFilterEmpty;
 
   /// No description provided for @fileNotFound.
   ///
@@ -1319,7 +1499,7 @@ abstract class AppLocalizations {
   /// No description provided for @pasteAsMentionSubtitle.
   ///
   /// In es, this message translates to:
-  /// **'Enlace a una página de este cofre'**
+  /// **'Enlace a una página de esta libreta'**
   String get pasteAsMentionSubtitle;
 
   /// No description provided for @tableAddRow.
@@ -1595,7 +1775,7 @@ abstract class AppLocalizations {
   /// No description provided for @historyHeaderBody.
   ///
   /// In es, this message translates to:
-  /// **'El cofre se guarda en seguida; el historial añade una entrada cuando dejas de editar y el contenido cambió.'**
+  /// **'La libreta se guarda en seguida; el historial añade una entrada cuando dejas de editar y el contenido cambió.'**
   String get historyHeaderBody;
 
   /// No description provided for @versionsCount.
@@ -1844,6 +2024,12 @@ abstract class AppLocalizations {
   /// **'Empieza una conversación.\nQuill decidirá automáticamente qué hacer con tu mensaje.\nTambién puedes preguntar cómo usar Folio (atajos, ajustes, páginas o este chat).'**
   String get aiChatEmptyHint;
 
+  /// No description provided for @aiChatEmptyFocusComposer.
+  ///
+  /// In es, this message translates to:
+  /// **'Escribe un mensaje'**
+  String get aiChatEmptyFocusComposer;
+
   /// No description provided for @aiInputHint.
   ///
   /// In es, this message translates to:
@@ -1903,6 +2089,48 @@ abstract class AppLocalizations {
   /// In es, this message translates to:
   /// **'Ocultar panel IA'**
   String get aiHidePanel;
+
+  /// No description provided for @aiPanelResizeHandle.
+  ///
+  /// In es, this message translates to:
+  /// **'Redimensionar panel de IA'**
+  String get aiPanelResizeHandle;
+
+  /// No description provided for @aiPanelResizeHandleHint.
+  ///
+  /// In es, this message translates to:
+  /// **'Arrastra horizontalmente para cambiar el ancho del asistente'**
+  String get aiPanelResizeHandleHint;
+
+  /// No description provided for @importMarkdownPage.
+  ///
+  /// In es, this message translates to:
+  /// **'Importar Markdown'**
+  String get importMarkdownPage;
+
+  /// No description provided for @exportMarkdownPage.
+  ///
+  /// In es, this message translates to:
+  /// **'Exportar Markdown'**
+  String get exportMarkdownPage;
+
+  /// No description provided for @workspaceUndoTooltip.
+  ///
+  /// In es, this message translates to:
+  /// **'Deshacer (Ctrl+Z)'**
+  String get workspaceUndoTooltip;
+
+  /// No description provided for @workspaceRedoTooltip.
+  ///
+  /// In es, this message translates to:
+  /// **'Rehacer (Ctrl+Y)'**
+  String get workspaceRedoTooltip;
+
+  /// No description provided for @workspaceMoreActionsTooltip.
+  ///
+  /// In es, this message translates to:
+  /// **'Más acciones'**
+  String get workspaceMoreActionsTooltip;
 
   /// No description provided for @closeCurrentPage.
   ///
@@ -1969,6 +2197,18 @@ abstract class AppLocalizations {
   /// In es, this message translates to:
   /// **'Enter para enviar · Ctrl+Enter nueva línea'**
   String get aiChatKeyboardHint;
+
+  /// No description provided for @aiChatInkRemaining.
+  ///
+  /// In es, this message translates to:
+  /// **'{total, plural, one{Queda 1 gota de tinta} other{Quedan {total} gotas de tinta}}'**
+  String aiChatInkRemaining(int total);
+
+  /// No description provided for @aiChatInkBreakdownTooltip.
+  ///
+  /// In es, this message translates to:
+  /// **'Mes {monthly} · Compradas {purchased}'**
+  String aiChatInkBreakdownTooltip(int monthly, int purchased);
 
   /// No description provided for @aiAgentThought.
   ///
@@ -2162,16 +2402,76 @@ abstract class AppLocalizations {
   /// **'Cuando uno de los proveedores esté operativo, pulsa Reintentar para autoconfigurarlo.'**
   String get aiSetupOpenSettingsHint;
 
+  /// No description provided for @aiCompareCloudVsLocalTitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Cloud vs local'**
+  String get aiCompareCloudVsLocalTitle;
+
+  /// No description provided for @aiCompareCloudTitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Folio Cloud'**
+  String get aiCompareCloudTitle;
+
+  /// No description provided for @aiCompareLocalTitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Local (Ollama / LM Studio)'**
+  String get aiCompareLocalTitle;
+
+  /// No description provided for @aiCompareCloudBulletNoSetup.
+  ///
+  /// In es, this message translates to:
+  /// **'Sin configuración local: funciona al iniciar sesión.'**
+  String get aiCompareCloudBulletNoSetup;
+
+  /// No description provided for @aiCompareCloudBulletNeedsSub.
+  ///
+  /// In es, this message translates to:
+  /// **'Suscripción con IA en la nube o tinta comprada.'**
+  String get aiCompareCloudBulletNeedsSub;
+
+  /// No description provided for @aiCompareCloudBulletInk.
+  ///
+  /// In es, this message translates to:
+  /// **'Usa tinta para la IA en la nube (packs + recarga mensual).'**
+  String get aiCompareCloudBulletInk;
+
+  /// No description provided for @aiProviderFolioCloudBlockedSnack.
+  ///
+  /// In es, this message translates to:
+  /// **'Necesitas suscripción Folio Cloud con IA en la nube o comprar tinta en Ajustes → Folio Cloud.'**
+  String get aiProviderFolioCloudBlockedSnack;
+
+  /// No description provided for @aiCompareLocalBulletPrivacy.
+  ///
+  /// In es, this message translates to:
+  /// **'Privacidad local (tu equipo).'**
+  String get aiCompareLocalBulletPrivacy;
+
+  /// No description provided for @aiCompareLocalBulletNoInk.
+  ///
+  /// In es, this message translates to:
+  /// **'Sin tinta: no depende del saldo.'**
+  String get aiCompareLocalBulletNoInk;
+
+  /// No description provided for @aiCompareLocalBulletSetup.
+  ///
+  /// In es, this message translates to:
+  /// **'Requiere instalar y arrancar un proveedor en localhost.'**
+  String get aiCompareLocalBulletSetup;
+
   /// No description provided for @quillGlobalScopeNoticeTitle.
   ///
   /// In es, this message translates to:
-  /// **'Quill funciona en todos los cofres'**
+  /// **'Quill funciona en todas las libretas'**
   String get quillGlobalScopeNoticeTitle;
 
   /// No description provided for @quillGlobalScopeNoticeBody.
   ///
   /// In es, this message translates to:
-  /// **'Quill es un ajuste global de la app. Si lo activas ahora, quedará disponible para cualquier cofre en esta instalación, no solo para el actual.'**
+  /// **'Quill es un ajuste global de la app. Si lo activas ahora, quedará disponible para cualquier libreta en esta instalación, no solo para la actual.'**
   String get quillGlobalScopeNoticeBody;
 
   /// No description provided for @quillGlobalScopeNoticeConfirm.
@@ -2303,7 +2603,7 @@ abstract class AppLocalizations {
   /// No description provided for @searchAllVaultHint.
   ///
   /// In es, this message translates to:
-  /// **'Buscar en todo el cofre...'**
+  /// **'Buscar en toda la libreta...'**
   String get searchAllVaultHint;
 
   /// No description provided for @typeToSearch.
@@ -2318,10 +2618,208 @@ abstract class AppLocalizations {
   /// **'Sin resultados'**
   String get noSearchResults;
 
+  /// No description provided for @searchFilterAll.
+  ///
+  /// In es, this message translates to:
+  /// **'Todo'**
+  String get searchFilterAll;
+
+  /// No description provided for @searchFilterTitles.
+  ///
+  /// In es, this message translates to:
+  /// **'Títulos'**
+  String get searchFilterTitles;
+
+  /// No description provided for @searchFilterContent.
+  ///
+  /// In es, this message translates to:
+  /// **'Contenido'**
+  String get searchFilterContent;
+
+  /// No description provided for @searchSortRelevance.
+  ///
+  /// In es, this message translates to:
+  /// **'Relevancia'**
+  String get searchSortRelevance;
+
+  /// No description provided for @searchSortRecent.
+  ///
+  /// In es, this message translates to:
+  /// **'Recientes'**
+  String get searchSortRecent;
+
+  /// No description provided for @settingsSearchSections.
+  ///
+  /// In es, this message translates to:
+  /// **'Buscar en ajustes'**
+  String get settingsSearchSections;
+
+  /// No description provided for @settingsSearchSectionsHint.
+  ///
+  /// In es, this message translates to:
+  /// **'Filtra categorías en la barra lateral'**
+  String get settingsSearchSectionsHint;
+
+  /// No description provided for @scheduledVaultBackupTitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Copia cifrada programada'**
+  String get scheduledVaultBackupTitle;
+
+  /// No description provided for @scheduledVaultBackupSubtitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Con la libreta desbloqueada, cada copia es de la libreta abierta ahora. Folio guarda un ZIP en la carpeta indicada según el intervalo.'**
+  String get scheduledVaultBackupSubtitle;
+
+  /// No description provided for @scheduledVaultBackupChooseFolder.
+  ///
+  /// In es, this message translates to:
+  /// **'Carpeta de copias'**
+  String get scheduledVaultBackupChooseFolder;
+
+  /// No description provided for @scheduledVaultBackupIntervalLabel.
+  ///
+  /// In es, this message translates to:
+  /// **'Intervalo (horas)'**
+  String get scheduledVaultBackupIntervalLabel;
+
+  /// No description provided for @scheduledVaultBackupLastRun.
+  ///
+  /// In es, this message translates to:
+  /// **'Última copia: {time}'**
+  String scheduledVaultBackupLastRun(Object time);
+
+  /// No description provided for @scheduledVaultBackupSnackOk.
+  ///
+  /// In es, this message translates to:
+  /// **'Copia programada guardada.'**
+  String get scheduledVaultBackupSnackOk;
+
+  /// No description provided for @scheduledVaultBackupSnackFail.
+  ///
+  /// In es, this message translates to:
+  /// **'Error en la copia programada: {error}'**
+  String scheduledVaultBackupSnackFail(Object error);
+
+  /// No description provided for @vaultBackupOpenVaultHint.
+  ///
+  /// In es, this message translates to:
+  /// **'Las copias son de la libreta abierta ahora: «{name}».'**
+  String vaultBackupOpenVaultHint(String name);
+
+  /// No description provided for @vaultBackupRunNowTile.
+  ///
+  /// In es, this message translates to:
+  /// **'Copia programada ahora'**
+  String get vaultBackupRunNowTile;
+
+  /// No description provided for @vaultBackupRunNowSubtitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Ejecuta ya la copia programada (disco y/o nube según lo tengas configurado), sin esperar al intervalo.'**
+  String get vaultBackupRunNowSubtitle;
+
+  /// No description provided for @vaultBackupRunNowNeedFolder.
+  ///
+  /// In es, this message translates to:
+  /// **'Elige una carpeta local o activa «Subir también a Folio Cloud» para copia solo en la nube.'**
+  String get vaultBackupRunNowNeedFolder;
+
+  /// No description provided for @vaultIdentitySyncTitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Sincronización'**
+  String get vaultIdentitySyncTitle;
+
+  /// No description provided for @vaultIdentitySyncBody.
+  ///
+  /// In es, this message translates to:
+  /// **'Introduce la contraseña de la libreta (o Hello / passkey) para continuar.'**
+  String get vaultIdentitySyncBody;
+
+  /// No description provided for @vaultIdentityCloudBackupTitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Copias en la nube'**
+  String get vaultIdentityCloudBackupTitle;
+
+  /// No description provided for @vaultIdentityCloudBackupBody.
+  ///
+  /// In es, this message translates to:
+  /// **'Confirma la identidad de la libreta para listar o descargar copias cifradas.'**
+  String get vaultIdentityCloudBackupBody;
+
+  /// No description provided for @aiRewriteDialogTitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Reescribir con IA'**
+  String get aiRewriteDialogTitle;
+
+  /// No description provided for @aiPreviewTitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Vista previa'**
+  String get aiPreviewTitle;
+
+  /// No description provided for @aiInstructionHint.
+  ///
+  /// In es, this message translates to:
+  /// **'Ejemplo: hazlo más claro y breve'**
+  String get aiInstructionHint;
+
+  /// No description provided for @aiApply.
+  ///
+  /// In es, this message translates to:
+  /// **'Aplicar'**
+  String get aiApply;
+
+  /// No description provided for @aiGenerating.
+  ///
+  /// In es, this message translates to:
+  /// **'Generando…'**
+  String get aiGenerating;
+
+  /// No description provided for @aiSummarizeSelection.
+  ///
+  /// In es, this message translates to:
+  /// **'Resumir con IA…'**
+  String get aiSummarizeSelection;
+
+  /// No description provided for @aiExtractTasksDates.
+  ///
+  /// In es, this message translates to:
+  /// **'Extraer tareas y fechas…'**
+  String get aiExtractTasksDates;
+
+  /// No description provided for @aiPreviewReadOnlyHint.
+  ///
+  /// In es, this message translates to:
+  /// **'Puedes editar el texto antes de aplicar.'**
+  String get aiPreviewReadOnlyHint;
+
+  /// No description provided for @aiRewriteApplied.
+  ///
+  /// In es, this message translates to:
+  /// **'Bloque actualizado.'**
+  String get aiRewriteApplied;
+
+  /// No description provided for @aiUndoRewrite.
+  ///
+  /// In es, this message translates to:
+  /// **'Deshacer'**
+  String get aiUndoRewrite;
+
+  /// No description provided for @aiInsertBelow.
+  ///
+  /// In es, this message translates to:
+  /// **'Insertar debajo'**
+  String get aiInsertBelow;
+
   /// No description provided for @unlockVaultTitle.
   ///
   /// In es, this message translates to:
-  /// **'Desbloquear cofre'**
+  /// **'Desbloquear libreta'**
   String get unlockVaultTitle;
 
   /// No description provided for @miniUnlockFailed.
@@ -2351,7 +2849,7 @@ abstract class AppLocalizations {
   /// No description provided for @importNotionDialogBody.
   ///
   /// In es, this message translates to:
-  /// **'Importa un ZIP exportado por Notion. Puedes añadirlo al cofre actual o crear uno nuevo.'**
+  /// **'Importa un ZIP exportado por Notion. Puedes añadirlo a la libreta actual o crear una nueva.'**
   String get importNotionDialogBody;
 
   /// No description provided for @importNotionSelectTargetTitle.
@@ -2363,19 +2861,19 @@ abstract class AppLocalizations {
   /// No description provided for @importNotionSelectTargetBody.
   ///
   /// In es, this message translates to:
-  /// **'Elige si quieres importar la exportacion de Notion en el cofre actual o crear un cofre nuevo a partir de ella.'**
+  /// **'Elige si quieres importar la exportacion de Notion en la libreta actual o crear una libreta nueva a partir de ella.'**
   String get importNotionSelectTargetBody;
 
   /// No description provided for @importNotionTargetCurrent.
   ///
   /// In es, this message translates to:
-  /// **'Cofre actual'**
+  /// **'Libreta actual'**
   String get importNotionTargetCurrent;
 
   /// No description provided for @importNotionTargetNew.
   ///
   /// In es, this message translates to:
-  /// **'Cofre nuevo'**
+  /// **'Libreta nueva'**
   String get importNotionTargetNew;
 
   /// No description provided for @importNotionDefaultVaultName.
@@ -2387,19 +2885,19 @@ abstract class AppLocalizations {
   /// No description provided for @importNotionNewVaultPasswordTitle.
   ///
   /// In es, this message translates to:
-  /// **'Contraseña para cofre nuevo'**
+  /// **'Contraseña para libreta nueva'**
   String get importNotionNewVaultPasswordTitle;
 
   /// No description provided for @importNotionSuccessCurrent.
   ///
   /// In es, this message translates to:
-  /// **'Notion importado en el cofre actual.'**
+  /// **'Notion importado en la libreta actual.'**
   String get importNotionSuccessCurrent;
 
   /// No description provided for @importNotionSuccessNew.
   ///
   /// In es, this message translates to:
-  /// **'Cofre nuevo importado desde Notion.'**
+  /// **'Libreta nueva importada desde Notion.'**
   String get importNotionSuccessNew;
 
   /// No description provided for @importNotionError.
@@ -2407,6 +2905,24 @@ abstract class AppLocalizations {
   /// In es, this message translates to:
   /// **'No se pudo importar Notion: {error}'**
   String importNotionError(Object error);
+
+  /// No description provided for @importNotionWarningsTitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Avisos de importación'**
+  String get importNotionWarningsTitle;
+
+  /// No description provided for @importNotionWarningsBody.
+  ///
+  /// In es, this message translates to:
+  /// **'La importación finalizó con los siguientes avisos:'**
+  String get importNotionWarningsBody;
+
+  /// No description provided for @ok.
+  ///
+  /// In es, this message translates to:
+  /// **'Aceptar'**
+  String get ok;
 
   /// No description provided for @notionExportGuideTitle.
   ///
@@ -2423,7 +2939,7 @@ abstract class AppLocalizations {
   /// No description provided for @appBetaBannerMessage.
   ///
   /// In es, this message translates to:
-  /// **'Estás usando una versión beta. Puede haber fallos; haz copias de seguridad del cofre con frecuencia.'**
+  /// **'Estás usando una versión beta. Puede haber fallos; haz copias de seguridad de la libreta con frecuencia.'**
   String get appBetaBannerMessage;
 
   /// No description provided for @appBetaBannerDismiss.
@@ -2555,7 +3071,7 @@ abstract class AppLocalizations {
   /// No description provided for @integrationApprovalCanDoUnlockedVault.
   ///
   /// In es, this message translates to:
-  /// **'Importar solo mientras el cofre este disponible y la peticion incluya el secreto configurado.'**
+  /// **'Importar solo mientras la libreta este disponible y la peticion incluya el secreto configurado.'**
   String get integrationApprovalCanDoUnlockedVault;
 
   /// No description provided for @integrationApprovalCannotDoTitle.
@@ -2567,13 +3083,13 @@ abstract class AppLocalizations {
   /// No description provided for @integrationApprovalCannotDoRead.
   ///
   /// In es, this message translates to:
-  /// **'No puede leer el contenido de tu cofre a traves de este puente.'**
+  /// **'No puede leer el contenido de tu libreta a traves de este puente.'**
   String get integrationApprovalCannotDoRead;
 
   /// No description provided for @integrationApprovalCannotDoBypassLock.
   ///
   /// In es, this message translates to:
-  /// **'No puede saltarse el bloqueo del cofre, el cifrado ni tu aprobacion explicita.'**
+  /// **'No puede saltarse el bloqueo de la libreta, el cifrado ni tu aprobacion explicita.'**
   String get integrationApprovalCannotDoBypassLock;
 
   /// No description provided for @integrationApprovalCannotDoWithoutSecret.
@@ -2645,7 +3161,7 @@ abstract class AppLocalizations {
   /// No description provided for @noEncryptionConfirmTitle.
   ///
   /// In es, this message translates to:
-  /// **'Crear cofre sin cifrado'**
+  /// **'Crear libreta sin cifrado'**
   String get noEncryptionConfirmTitle;
 
   /// No description provided for @noEncryptionConfirmBody.
@@ -2663,13 +3179,13 @@ abstract class AppLocalizations {
   /// No description provided for @plainVaultSecurityNotice.
   ///
   /// In es, this message translates to:
-  /// **'Este cofre no está cifrado: no aplican la passkey, el desbloqueo rápido (Hello), el bloqueo por inactividad, el bloqueo al minimizar ni la contraseña maestra.'**
+  /// **'Esta libreta no está cifrada: no aplican la passkey, el desbloqueo rápido (Hello), el bloqueo por inactividad, el bloqueo al minimizar ni la contraseña maestra.'**
   String get plainVaultSecurityNotice;
 
   /// No description provided for @encryptPlainVaultTitle.
   ///
   /// In es, this message translates to:
-  /// **'Cifrar este cofre'**
+  /// **'Cifrar esta libreta'**
   String get encryptPlainVaultTitle;
 
   /// No description provided for @encryptPlainVaultBody.
@@ -2681,13 +3197,13 @@ abstract class AppLocalizations {
   /// No description provided for @encryptPlainVaultConfirm.
   ///
   /// In es, this message translates to:
-  /// **'Cifrar cofre'**
+  /// **'Cifrar libreta'**
   String get encryptPlainVaultConfirm;
 
   /// No description provided for @encryptPlainVaultSuccessSnack.
   ///
   /// In es, this message translates to:
-  /// **'El cofre ya está cifrado'**
+  /// **'La libreta ya está cifrada'**
   String get encryptPlainVaultSuccessSnack;
 
   /// No description provided for @aiCopyMessage.
@@ -2749,6 +3265,1020 @@ abstract class AppLocalizations {
   /// In es, this message translates to:
   /// **'hace {n} días'**
   String aiMessageTimestampDays(int n);
+
+  /// No description provided for @templateGalleryTitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Plantillas de página'**
+  String get templateGalleryTitle;
+
+  /// No description provided for @templateImport.
+  ///
+  /// In es, this message translates to:
+  /// **'Importar'**
+  String get templateImport;
+
+  /// No description provided for @templateImportPickTitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Seleccionar archivo de plantilla'**
+  String get templateImportPickTitle;
+
+  /// No description provided for @templateImportSuccess.
+  ///
+  /// In es, this message translates to:
+  /// **'Plantilla importada'**
+  String get templateImportSuccess;
+
+  /// No description provided for @templateImportError.
+  ///
+  /// In es, this message translates to:
+  /// **'Error al importar: {error}'**
+  String templateImportError(Object error);
+
+  /// No description provided for @templateExportPickTitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Guardar archivo de plantilla'**
+  String get templateExportPickTitle;
+
+  /// No description provided for @templateExportSuccess.
+  ///
+  /// In es, this message translates to:
+  /// **'Plantilla exportada'**
+  String get templateExportSuccess;
+
+  /// No description provided for @templateExportError.
+  ///
+  /// In es, this message translates to:
+  /// **'Error al exportar: {error}'**
+  String templateExportError(Object error);
+
+  /// No description provided for @templateSearchHint.
+  ///
+  /// In es, this message translates to:
+  /// **'Buscar plantillas...'**
+  String get templateSearchHint;
+
+  /// No description provided for @templateEmptyHint.
+  ///
+  /// In es, this message translates to:
+  /// **'Sin plantillas.\nGuarda una página como plantilla o importa una.'**
+  String get templateEmptyHint;
+
+  /// No description provided for @templateBlockCount.
+  ///
+  /// In es, this message translates to:
+  /// **'{count} {count, plural, one {bloque} other {bloques}}'**
+  String templateBlockCount(int count);
+
+  /// No description provided for @templateUse.
+  ///
+  /// In es, this message translates to:
+  /// **'Usar plantilla'**
+  String get templateUse;
+
+  /// No description provided for @templateExport.
+  ///
+  /// In es, this message translates to:
+  /// **'Exportar'**
+  String get templateExport;
+
+  /// No description provided for @templateBlankPage.
+  ///
+  /// In es, this message translates to:
+  /// **'Página en blanco'**
+  String get templateBlankPage;
+
+  /// No description provided for @templateFromGallery.
+  ///
+  /// In es, this message translates to:
+  /// **'Desde plantilla…'**
+  String get templateFromGallery;
+
+  /// No description provided for @saveAsTemplate.
+  ///
+  /// In es, this message translates to:
+  /// **'Guardar como plantilla'**
+  String get saveAsTemplate;
+
+  /// No description provided for @saveAsTemplateTitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Guardar como plantilla'**
+  String get saveAsTemplateTitle;
+
+  /// No description provided for @templateNameHint.
+  ///
+  /// In es, this message translates to:
+  /// **'Nombre de plantilla'**
+  String get templateNameHint;
+
+  /// No description provided for @templateDescriptionHint.
+  ///
+  /// In es, this message translates to:
+  /// **'Descripción (opcional)'**
+  String get templateDescriptionHint;
+
+  /// No description provided for @templateCategoryHint.
+  ///
+  /// In es, this message translates to:
+  /// **'Categoría (opcional)'**
+  String get templateCategoryHint;
+
+  /// No description provided for @templateSaved.
+  ///
+  /// In es, this message translates to:
+  /// **'Guardado como plantilla'**
+  String get templateSaved;
+
+  /// No description provided for @templateCount.
+  ///
+  /// In es, this message translates to:
+  /// **'{count} {count, plural, one {plantilla} other {plantillas}}'**
+  String templateCount(int count);
+
+  /// No description provided for @templateFilteredCount.
+  ///
+  /// In es, this message translates to:
+  /// **'Mostrando {visible} de {total} plantillas'**
+  String templateFilteredCount(int visible, int total);
+
+  /// No description provided for @templateSortRecent.
+  ///
+  /// In es, this message translates to:
+  /// **'Más recientes'**
+  String get templateSortRecent;
+
+  /// No description provided for @templateSortName.
+  ///
+  /// In es, this message translates to:
+  /// **'Nombre'**
+  String get templateSortName;
+
+  /// No description provided for @templateEdit.
+  ///
+  /// In es, this message translates to:
+  /// **'Editar plantilla'**
+  String get templateEdit;
+
+  /// No description provided for @templateUpdated.
+  ///
+  /// In es, this message translates to:
+  /// **'Plantilla actualizada'**
+  String get templateUpdated;
+
+  /// No description provided for @templateDeleteConfirmTitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Eliminar plantilla'**
+  String get templateDeleteConfirmTitle;
+
+  /// No description provided for @templateDeleteConfirmBody.
+  ///
+  /// In es, this message translates to:
+  /// **'La plantilla \"{name}\" se eliminará de esta libreta.'**
+  String templateDeleteConfirmBody(Object name);
+
+  /// No description provided for @templateCreatedOn.
+  ///
+  /// In es, this message translates to:
+  /// **'Creada {date}'**
+  String templateCreatedOn(Object date);
+
+  /// No description provided for @templatePreviewEmpty.
+  ///
+  /// In es, this message translates to:
+  /// **'Esta plantilla todavía no tiene vista previa de texto.'**
+  String get templatePreviewEmpty;
+
+  /// No description provided for @templateSelectHint.
+  ///
+  /// In es, this message translates to:
+  /// **'Selecciona una plantilla para inspeccionarla, editar sus metadatos o exportarla.'**
+  String get templateSelectHint;
+
+  /// No description provided for @clear.
+  ///
+  /// In es, this message translates to:
+  /// **'Limpiar'**
+  String get clear;
+
+  /// No description provided for @cloudAccountSectionTitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Cuenta Folio Cloud'**
+  String get cloudAccountSectionTitle;
+
+  /// No description provided for @cloudAccountSectionDescription.
+  ///
+  /// In es, this message translates to:
+  /// **'Opcional. Inicia sesión para suscribirte a copias en la nube, IA hospedada y publicación web. Tu libreta sigue siendo local salvo que uses esas funciones.'**
+  String get cloudAccountSectionDescription;
+
+  /// No description provided for @cloudAccountChipOptional.
+  ///
+  /// In es, this message translates to:
+  /// **'Opcional'**
+  String get cloudAccountChipOptional;
+
+  /// No description provided for @cloudAccountChipPaidCloud.
+  ///
+  /// In es, this message translates to:
+  /// **'Copias, IA y web'**
+  String get cloudAccountChipPaidCloud;
+
+  /// No description provided for @cloudAccountUnavailable.
+  ///
+  /// In es, this message translates to:
+  /// **'No hay inicio de sesión en la nube (Firebase no arrancó). Revisa la conexión o ejecuta flutterfire configure con tu proyecto.'**
+  String get cloudAccountUnavailable;
+
+  /// No description provided for @cloudAccountEmailLabel.
+  ///
+  /// In es, this message translates to:
+  /// **'Correo'**
+  String get cloudAccountEmailLabel;
+
+  /// No description provided for @cloudAccountPasswordLabel.
+  ///
+  /// In es, this message translates to:
+  /// **'Contraseña'**
+  String get cloudAccountPasswordLabel;
+
+  /// No description provided for @cloudAccountSignIn.
+  ///
+  /// In es, this message translates to:
+  /// **'Iniciar sesión'**
+  String get cloudAccountSignIn;
+
+  /// No description provided for @cloudAccountCreateAccount.
+  ///
+  /// In es, this message translates to:
+  /// **'Crear cuenta'**
+  String get cloudAccountCreateAccount;
+
+  /// No description provided for @cloudAccountForgotPassword.
+  ///
+  /// In es, this message translates to:
+  /// **'¿Olvidaste la contraseña?'**
+  String get cloudAccountForgotPassword;
+
+  /// No description provided for @cloudAccountSignOut.
+  ///
+  /// In es, this message translates to:
+  /// **'Cerrar sesión'**
+  String get cloudAccountSignOut;
+
+  /// No description provided for @cloudAccountSignedInAs.
+  ///
+  /// In es, this message translates to:
+  /// **'Sesión iniciada como {email}'**
+  String cloudAccountSignedInAs(Object email);
+
+  /// No description provided for @cloudAccountUid.
+  ///
+  /// In es, this message translates to:
+  /// **'ID de usuario: {uid}'**
+  String cloudAccountUid(Object uid);
+
+  /// No description provided for @cloudAuthDialogTitleSignIn.
+  ///
+  /// In es, this message translates to:
+  /// **'Iniciar sesión en Folio Cloud'**
+  String get cloudAuthDialogTitleSignIn;
+
+  /// No description provided for @cloudAuthDialogTitleRegister.
+  ///
+  /// In es, this message translates to:
+  /// **'Crear cuenta de Folio Cloud'**
+  String get cloudAuthDialogTitleRegister;
+
+  /// No description provided for @cloudAuthDialogTitleReset.
+  ///
+  /// In es, this message translates to:
+  /// **'Restablecer contraseña'**
+  String get cloudAuthDialogTitleReset;
+
+  /// No description provided for @cloudPasswordResetSent.
+  ///
+  /// In es, this message translates to:
+  /// **'Si existe una cuenta con ese correo, se envió un enlace de restablecimiento.'**
+  String get cloudPasswordResetSent;
+
+  /// No description provided for @cloudAuthErrorInvalidEmail.
+  ///
+  /// In es, this message translates to:
+  /// **'Ese correo no es válido.'**
+  String get cloudAuthErrorInvalidEmail;
+
+  /// No description provided for @cloudAuthErrorWrongPassword.
+  ///
+  /// In es, this message translates to:
+  /// **'Contraseña incorrecta.'**
+  String get cloudAuthErrorWrongPassword;
+
+  /// No description provided for @cloudAuthErrorUserNotFound.
+  ///
+  /// In es, this message translates to:
+  /// **'No hay cuenta con ese correo.'**
+  String get cloudAuthErrorUserNotFound;
+
+  /// No description provided for @cloudAuthErrorUserDisabled.
+  ///
+  /// In es, this message translates to:
+  /// **'Esta cuenta está deshabilitada.'**
+  String get cloudAuthErrorUserDisabled;
+
+  /// No description provided for @cloudAuthErrorEmailAlreadyInUse.
+  ///
+  /// In es, this message translates to:
+  /// **'Ese correo ya está registrado.'**
+  String get cloudAuthErrorEmailAlreadyInUse;
+
+  /// No description provided for @cloudAuthErrorWeakPassword.
+  ///
+  /// In es, this message translates to:
+  /// **'La contraseña es demasiado débil.'**
+  String get cloudAuthErrorWeakPassword;
+
+  /// No description provided for @cloudAuthErrorInvalidCredential.
+  ///
+  /// In es, this message translates to:
+  /// **'Correo o contraseña no válidos.'**
+  String get cloudAuthErrorInvalidCredential;
+
+  /// No description provided for @cloudAuthErrorNetwork.
+  ///
+  /// In es, this message translates to:
+  /// **'Error de red. Comprueba la conexión.'**
+  String get cloudAuthErrorNetwork;
+
+  /// No description provided for @cloudAuthErrorTooManyRequests.
+  ///
+  /// In es, this message translates to:
+  /// **'Demasiados intentos. Prueba más tarde.'**
+  String get cloudAuthErrorTooManyRequests;
+
+  /// No description provided for @cloudAuthErrorOperationNotAllowed.
+  ///
+  /// In es, this message translates to:
+  /// **'Este método de inicio de sesión no está habilitado en Firebase.'**
+  String get cloudAuthErrorOperationNotAllowed;
+
+  /// No description provided for @cloudAuthErrorGeneric.
+  ///
+  /// In es, this message translates to:
+  /// **'No se pudo iniciar sesión. Inténtalo de nuevo.'**
+  String get cloudAuthErrorGeneric;
+
+  /// No description provided for @cloudAuthDialogTitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Folio Cloud'**
+  String get cloudAuthDialogTitle;
+
+  /// No description provided for @cloudAuthSubtitleSignIn.
+  ///
+  /// In es, this message translates to:
+  /// **'Usa el correo y la contraseña de Folio Cloud. Nada de esto cambia tu libreta local.'**
+  String get cloudAuthSubtitleSignIn;
+
+  /// No description provided for @cloudAuthSubtitleRegister.
+  ///
+  /// In es, this message translates to:
+  /// **'Crea credenciales para Folio Cloud. Tus notas en este dispositivo no se suben hasta que actives copias u otras funciones de pago.'**
+  String get cloudAuthSubtitleRegister;
+
+  /// No description provided for @cloudAuthModeSignIn.
+  ///
+  /// In es, this message translates to:
+  /// **'Iniciar sesión'**
+  String get cloudAuthModeSignIn;
+
+  /// No description provided for @cloudAuthModeRegister.
+  ///
+  /// In es, this message translates to:
+  /// **'Registrarse'**
+  String get cloudAuthModeRegister;
+
+  /// No description provided for @cloudAuthConfirmPasswordLabel.
+  ///
+  /// In es, this message translates to:
+  /// **'Confirmar contraseña'**
+  String get cloudAuthConfirmPasswordLabel;
+
+  /// No description provided for @cloudAuthValidationRequired.
+  ///
+  /// In es, this message translates to:
+  /// **'Este campo es obligatorio.'**
+  String get cloudAuthValidationRequired;
+
+  /// No description provided for @cloudAuthValidationPasswordShort.
+  ///
+  /// In es, this message translates to:
+  /// **'Usa al menos 6 caracteres.'**
+  String get cloudAuthValidationPasswordShort;
+
+  /// No description provided for @cloudAuthValidationConfirmMismatch.
+  ///
+  /// In es, this message translates to:
+  /// **'Las contraseñas no coinciden.'**
+  String get cloudAuthValidationConfirmMismatch;
+
+  /// No description provided for @cloudAccountSignedOutPrompt.
+  ///
+  /// In es, this message translates to:
+  /// **'Inicia sesión o regístrate para suscribirte a Folio Cloud y usar copias, IA en la nube y publicación.'**
+  String get cloudAccountSignedOutPrompt;
+
+  /// No description provided for @cloudAuthResetHint.
+  ///
+  /// In es, this message translates to:
+  /// **'Te enviaremos un enlace por correo para elegir una nueva contraseña.'**
+  String get cloudAuthResetHint;
+
+  /// No description provided for @cloudAccountEmailVerified.
+  ///
+  /// In es, this message translates to:
+  /// **'Verificado'**
+  String get cloudAccountEmailVerified;
+
+  /// No description provided for @cloudAccountSignOutHelp.
+  ///
+  /// In es, this message translates to:
+  /// **'Tu libreta local sigue en este dispositivo.'**
+  String get cloudAccountSignOutHelp;
+
+  /// No description provided for @cloudAccountEmailUnverifiedBanner.
+  ///
+  /// In es, this message translates to:
+  /// **'Verifica tu correo para asegurar tu cuenta Folio Cloud.'**
+  String get cloudAccountEmailUnverifiedBanner;
+
+  /// No description provided for @cloudAccountResendVerification.
+  ///
+  /// In es, this message translates to:
+  /// **'Reenviar correo de verificación'**
+  String get cloudAccountResendVerification;
+
+  /// No description provided for @cloudAccountReloadVerification.
+  ///
+  /// In es, this message translates to:
+  /// **'Ya verifiqué'**
+  String get cloudAccountReloadVerification;
+
+  /// No description provided for @cloudAccountVerificationSent.
+  ///
+  /// In es, this message translates to:
+  /// **'Correo de verificación enviado.'**
+  String get cloudAccountVerificationSent;
+
+  /// No description provided for @cloudAccountVerificationStillPending.
+  ///
+  /// In es, this message translates to:
+  /// **'El correo sigue sin verificarse. Abre el enlace de tu bandeja de entrada.'**
+  String get cloudAccountVerificationStillPending;
+
+  /// No description provided for @cloudAccountVerificationNowVerified.
+  ///
+  /// In es, this message translates to:
+  /// **'Correo verificado.'**
+  String get cloudAccountVerificationNowVerified;
+
+  /// No description provided for @cloudAccountResetPasswordEmail.
+  ///
+  /// In es, this message translates to:
+  /// **'Restablecer contraseña por correo'**
+  String get cloudAccountResetPasswordEmail;
+
+  /// No description provided for @cloudAccountCopyEmail.
+  ///
+  /// In es, this message translates to:
+  /// **'Copiar correo'**
+  String get cloudAccountCopyEmail;
+
+  /// No description provided for @cloudAccountEmailCopied.
+  ///
+  /// In es, this message translates to:
+  /// **'Correo copiado.'**
+  String get cloudAccountEmailCopied;
+
+  /// No description provided for @folioWebPortalSubsectionTitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Cuenta web'**
+  String get folioWebPortalSubsectionTitle;
+
+  /// No description provided for @folioWebPortalLinkCodeLabel.
+  ///
+  /// In es, this message translates to:
+  /// **'Código de emparejamiento'**
+  String get folioWebPortalLinkCodeLabel;
+
+  /// No description provided for @folioWebPortalLinkHelp.
+  ///
+  /// In es, this message translates to:
+  /// **'Genera el código en la web, en Ajustes → cuenta Folio, e introdúcelo aquí en los próximos 10 minutos.'**
+  String get folioWebPortalLinkHelp;
+
+  /// No description provided for @folioWebPortalLinkButton.
+  ///
+  /// In es, this message translates to:
+  /// **'Vincular'**
+  String get folioWebPortalLinkButton;
+
+  /// No description provided for @folioWebPortalLinkSuccess.
+  ///
+  /// In es, this message translates to:
+  /// **'Cuenta web vinculada correctamente.'**
+  String get folioWebPortalLinkSuccess;
+
+  /// No description provided for @folioWebPortalNeedSignIn.
+  ///
+  /// In es, this message translates to:
+  /// **'Inicia sesión en Folio Cloud para vincular la cuenta web.'**
+  String get folioWebPortalNeedSignIn;
+
+  /// No description provided for @folioWebMirrorNote.
+  ///
+  /// In es, this message translates to:
+  /// **'Copias, IA y publicación siguen gobernadas por Folio Cloud (Firestore). Lo siguiente refleja tu cuenta en la web.'**
+  String get folioWebMirrorNote;
+
+  /// No description provided for @folioWebEntitlementLinked.
+  ///
+  /// In es, this message translates to:
+  /// **'Cuenta web vinculada'**
+  String get folioWebEntitlementLinked;
+
+  /// No description provided for @folioWebEntitlementNotLinked.
+  ///
+  /// In es, this message translates to:
+  /// **'Cuenta web no vinculada'**
+  String get folioWebEntitlementNotLinked;
+
+  /// No description provided for @folioWebEntitlementWebPlan.
+  ///
+  /// In es, this message translates to:
+  /// **'Folio Cloud (web): {value}'**
+  String folioWebEntitlementWebPlan(String value);
+
+  /// No description provided for @folioWebEntitlementWebStatus.
+  ///
+  /// In es, this message translates to:
+  /// **'Estado (web): {value}'**
+  String folioWebEntitlementWebStatus(String value);
+
+  /// No description provided for @folioWebEntitlementWebPeriodEnd.
+  ///
+  /// In es, this message translates to:
+  /// **'Fin de periodo (web): {value}'**
+  String folioWebEntitlementWebPeriodEnd(String value);
+
+  /// No description provided for @folioWebEntitlementWebInk.
+  ///
+  /// In es, this message translates to:
+  /// **'Tinta (web): {count}'**
+  String folioWebEntitlementWebInk(int count);
+
+  /// No description provided for @folioWebPortalRefreshWeb.
+  ///
+  /// In es, this message translates to:
+  /// **'Actualizar estado web'**
+  String get folioWebPortalRefreshWeb;
+
+  /// No description provided for @folioWebPortalErrorNetwork.
+  ///
+  /// In es, this message translates to:
+  /// **'No se pudo conectar con el portal. Comprueba la conexión.'**
+  String get folioWebPortalErrorNetwork;
+
+  /// No description provided for @folioWebPortalErrorTimeout.
+  ///
+  /// In es, this message translates to:
+  /// **'El portal tardó demasiado en responder.'**
+  String get folioWebPortalErrorTimeout;
+
+  /// No description provided for @folioWebPortalErrorAdminNotConfigured.
+  ///
+  /// In es, this message translates to:
+  /// **'Folio Firebase Admin no está configurado en el servidor (revisa el backend).'**
+  String get folioWebPortalErrorAdminNotConfigured;
+
+  /// No description provided for @folioWebPortalErrorUnauthorized.
+  ///
+  /// In es, this message translates to:
+  /// **'Sesión no válida. Vuelve a iniciar sesión en Folio Cloud.'**
+  String get folioWebPortalErrorUnauthorized;
+
+  /// No description provided for @folioWebPortalErrorGeneric.
+  ///
+  /// In es, this message translates to:
+  /// **'No se pudo completar la operación con el portal.'**
+  String get folioWebPortalErrorGeneric;
+
+  /// No description provided for @folioWebPortalServerMessage.
+  ///
+  /// In es, this message translates to:
+  /// **'{message}'**
+  String folioWebPortalServerMessage(String message);
+
+  /// No description provided for @folioCloudSubsectionPlan.
+  ///
+  /// In es, this message translates to:
+  /// **'Plan y estado'**
+  String get folioCloudSubsectionPlan;
+
+  /// No description provided for @folioCloudSubsectionInk.
+  ///
+  /// In es, this message translates to:
+  /// **'Saldo de tinta'**
+  String get folioCloudSubsectionInk;
+
+  /// No description provided for @folioCloudSubsectionSubscription.
+  ///
+  /// In es, this message translates to:
+  /// **'Suscripción y facturación'**
+  String get folioCloudSubsectionSubscription;
+
+  /// No description provided for @folioCloudSubsectionBackupPublish.
+  ///
+  /// In es, this message translates to:
+  /// **'Copias y publicación'**
+  String get folioCloudSubsectionBackupPublish;
+
+  /// No description provided for @folioCloudSubscriptionActive.
+  ///
+  /// In es, this message translates to:
+  /// **'Suscripción activa'**
+  String get folioCloudSubscriptionActive;
+
+  /// No description provided for @folioCloudSubscriptionActiveWithStatus.
+  ///
+  /// In es, this message translates to:
+  /// **'Suscripción activa ({status})'**
+  String folioCloudSubscriptionActiveWithStatus(String status);
+
+  /// No description provided for @folioCloudSubscriptionNoneTitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Sin suscripción Folio Cloud'**
+  String get folioCloudSubscriptionNoneTitle;
+
+  /// No description provided for @folioCloudSubscriptionNoneSubtitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Activa un plan para copias cifradas, IA en la nube y publicación web.'**
+  String get folioCloudSubscriptionNoneSubtitle;
+
+  /// No description provided for @folioCloudFeatureBackup.
+  ///
+  /// In es, this message translates to:
+  /// **'Copia en la nube'**
+  String get folioCloudFeatureBackup;
+
+  /// No description provided for @folioCloudFeatureCloudAi.
+  ///
+  /// In es, this message translates to:
+  /// **'IA en la nube'**
+  String get folioCloudFeatureCloudAi;
+
+  /// No description provided for @folioCloudFeaturePublishWeb.
+  ///
+  /// In es, this message translates to:
+  /// **'Publicación web'**
+  String get folioCloudFeaturePublishWeb;
+
+  /// No description provided for @folioCloudFeatureOn.
+  ///
+  /// In es, this message translates to:
+  /// **'Incluida'**
+  String get folioCloudFeatureOn;
+
+  /// No description provided for @folioCloudFeatureOff.
+  ///
+  /// In es, this message translates to:
+  /// **'No incluida'**
+  String get folioCloudFeatureOff;
+
+  /// No description provided for @folioCloudPostPaymentHint.
+  ///
+  /// In es, this message translates to:
+  /// **'Si acabas de pagar y ves las funciones en «no», pulsa «Actualizar desde Stripe».'**
+  String get folioCloudPostPaymentHint;
+
+  /// No description provided for @folioCloudBackupCleanupWarning.
+  ///
+  /// In es, this message translates to:
+  /// **'Copia subida, pero no se pudo limpiar copias antiguas (se reintentará más tarde).'**
+  String get folioCloudBackupCleanupWarning;
+
+  /// No description provided for @folioCloudInkMonthly.
+  ///
+  /// In es, this message translates to:
+  /// **'Mes'**
+  String get folioCloudInkMonthly;
+
+  /// No description provided for @folioCloudInkPurchased.
+  ///
+  /// In es, this message translates to:
+  /// **'Compradas'**
+  String get folioCloudInkPurchased;
+
+  /// No description provided for @folioCloudInkTotal.
+  ///
+  /// In es, this message translates to:
+  /// **'Total'**
+  String get folioCloudInkTotal;
+
+  /// No description provided for @folioCloudInkCount.
+  ///
+  /// In es, this message translates to:
+  /// **'{count}'**
+  String folioCloudInkCount(int count);
+
+  /// No description provided for @folioCloudPlanActiveHeadline.
+  ///
+  /// In es, this message translates to:
+  /// **'Plan mensual Folio Cloud activo'**
+  String get folioCloudPlanActiveHeadline;
+
+  /// No description provided for @folioCloudSubscribeMonthly.
+  ///
+  /// In es, this message translates to:
+  /// **'Folio Cloud 4,99 €/mes'**
+  String get folioCloudSubscribeMonthly;
+
+  /// No description provided for @folioCloudPitchScreenTitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Folio Cloud'**
+  String get folioCloudPitchScreenTitle;
+
+  /// No description provided for @folioCloudPitchHeadline.
+  ///
+  /// In es, this message translates to:
+  /// **'Tu libreta sigue en el dispositivo. La nube entra cuando tú quieres.'**
+  String get folioCloudPitchHeadline;
+
+  /// No description provided for @folioCloudPitchSubhead.
+  ///
+  /// In es, this message translates to:
+  /// **'Un plan mensual desbloquea copias cifradas, IA alojada en la nube con recarga mensual de tinta y publicación web: solo lo que decidas compartir.'**
+  String get folioCloudPitchSubhead;
+
+  /// No description provided for @folioCloudPitchLearnMore.
+  ///
+  /// In es, this message translates to:
+  /// **'Ver qué incluye'**
+  String get folioCloudPitchLearnMore;
+
+  /// No description provided for @folioCloudPitchCtaNeedAccount.
+  ///
+  /// In es, this message translates to:
+  /// **'Iniciar sesión o crear cuenta'**
+  String get folioCloudPitchCtaNeedAccount;
+
+  /// No description provided for @folioCloudPitchGuestTeaserTitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Cuenta Folio Cloud'**
+  String get folioCloudPitchGuestTeaserTitle;
+
+  /// No description provided for @folioCloudPitchGuestTeaserBody.
+  ///
+  /// In es, this message translates to:
+  /// **'Cuenta opcional: mira qué incluye el plan y entra cuando quieras suscribirte.'**
+  String get folioCloudPitchGuestTeaserBody;
+
+  /// No description provided for @folioCloudPitchOpenSettingsToSignIn.
+  ///
+  /// In es, this message translates to:
+  /// **'Abre Ajustes e inicia sesión en Folio Cloud (sección Folio Cloud) para suscribirte.'**
+  String get folioCloudPitchOpenSettingsToSignIn;
+
+  /// No description provided for @folioCloudBuyInk.
+  ///
+  /// In es, this message translates to:
+  /// **'Comprar tinta'**
+  String get folioCloudBuyInk;
+
+  /// No description provided for @folioCloudInkSmall.
+  ///
+  /// In es, this message translates to:
+  /// **'Tintero pequeño (1,99 €)'**
+  String get folioCloudInkSmall;
+
+  /// No description provided for @folioCloudInkMedium.
+  ///
+  /// In es, this message translates to:
+  /// **'Tintero mediano (4,99 €)'**
+  String get folioCloudInkMedium;
+
+  /// No description provided for @folioCloudInkLarge.
+  ///
+  /// In es, this message translates to:
+  /// **'Tintero grande (9,99 €)'**
+  String get folioCloudInkLarge;
+
+  /// No description provided for @folioCloudManageSubscription.
+  ///
+  /// In es, this message translates to:
+  /// **'Gestionar suscripción'**
+  String get folioCloudManageSubscription;
+
+  /// No description provided for @folioCloudRefreshFromStripe.
+  ///
+  /// In es, this message translates to:
+  /// **'Actualizar'**
+  String get folioCloudRefreshFromStripe;
+
+  /// No description provided for @folioCloudUploadEncryptedBackup.
+  ///
+  /// In es, this message translates to:
+  /// **'Copia a la nube ahora'**
+  String get folioCloudUploadEncryptedBackup;
+
+  /// No description provided for @folioCloudUploadEncryptedBackupSubtitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Folio genera la copia cifrada de la libreta abierta y la sube solo; no tienes que exportar un .zip.'**
+  String get folioCloudUploadEncryptedBackupSubtitle;
+
+  /// No description provided for @folioCloudUploadSnackOk.
+  ///
+  /// In es, this message translates to:
+  /// **'Copia de la libreta guardada en la nube.'**
+  String get folioCloudUploadSnackOk;
+
+  /// No description provided for @scheduledVaultBackupCloudSyncTitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Subir también a Folio Cloud'**
+  String get scheduledVaultBackupCloudSyncTitle;
+
+  /// No description provided for @scheduledVaultBackupCloudSyncSubtitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Tras cada copia programada, sube automáticamente el mismo ZIP a tu cuenta. Si no quieres copia en disco, deja la carpeta sin elegir y activa solo esta opción.'**
+  String get scheduledVaultBackupCloudSyncSubtitle;
+
+  /// No description provided for @folioCloudCloudBackupsList.
+  ///
+  /// In es, this message translates to:
+  /// **'Copias en la nube'**
+  String get folioCloudCloudBackupsList;
+
+  /// No description provided for @folioCloudBackupsUsed.
+  ///
+  /// In es, this message translates to:
+  /// **'Usadas'**
+  String get folioCloudBackupsUsed;
+
+  /// No description provided for @folioCloudBackupsLimit.
+  ///
+  /// In es, this message translates to:
+  /// **'Límite'**
+  String get folioCloudBackupsLimit;
+
+  /// No description provided for @folioCloudBackupsRemaining.
+  ///
+  /// In es, this message translates to:
+  /// **'Restantes'**
+  String get folioCloudBackupsRemaining;
+
+  /// No description provided for @folioCloudPublishTestPage.
+  ///
+  /// In es, this message translates to:
+  /// **'Publicar página de prueba'**
+  String get folioCloudPublishTestPage;
+
+  /// No description provided for @folioCloudPublishedPagesList.
+  ///
+  /// In es, this message translates to:
+  /// **'Páginas publicadas'**
+  String get folioCloudPublishedPagesList;
+
+  /// No description provided for @folioCloudReauthDialogTitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Confirmar cuenta Folio Cloud'**
+  String get folioCloudReauthDialogTitle;
+
+  /// No description provided for @folioCloudReauthDialogBody.
+  ///
+  /// In es, this message translates to:
+  /// **'Introduce la contraseña de tu cuenta Folio Cloud (la del inicio de sesión en la nube) para listar y descargar copias. No es la contraseña de la libreta local.'**
+  String get folioCloudReauthDialogBody;
+
+  /// No description provided for @folioCloudReauthRequiresPasswordProvider.
+  ///
+  /// In es, this message translates to:
+  /// **'Esta sesión no usa contraseña de Folio Cloud. Cierra sesión en la cuenta e inicia de nuevo con correo y contraseña si necesitas descargar copias.'**
+  String get folioCloudReauthRequiresPasswordProvider;
+
+  /// No description provided for @folioCloudAiNoInkTitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Sin tinta para la IA en la nube'**
+  String get folioCloudAiNoInkTitle;
+
+  /// No description provided for @folioCloudAiNoInkBody.
+  ///
+  /// In es, this message translates to:
+  /// **'Puedes comprar un tintero en Folio Cloud, esperar la recarga mensual o cambiar a IA local (Ollama o LM Studio) en la sección de IA de Ajustes.'**
+  String get folioCloudAiNoInkBody;
+
+  /// No description provided for @folioCloudAiNoInkActionCloud.
+  ///
+  /// In es, this message translates to:
+  /// **'Folio Cloud y tinta'**
+  String get folioCloudAiNoInkActionCloud;
+
+  /// No description provided for @folioCloudAiNoInkActionLocal.
+  ///
+  /// In es, this message translates to:
+  /// **'Proveedor de IA'**
+  String get folioCloudAiNoInkActionLocal;
+
+  /// No description provided for @folioCloudAiZeroInkBanner.
+  ///
+  /// In es, this message translates to:
+  /// **'Tinta de IA en la nube: 0 gotas. Abre Ajustes para comprar tinta o usar IA local.'**
+  String get folioCloudAiZeroInkBanner;
+
+  /// No description provided for @folioCloudInkPurchaseAppliedHint.
+  ///
+  /// In es, this message translates to:
+  /// **'Compra aplicada: {purchased} gotas compradas disponibles para IA en la nube.'**
+  String folioCloudInkPurchaseAppliedHint(Object purchased);
+
+  /// No description provided for @onboardingCloudBackupCta.
+  ///
+  /// In es, this message translates to:
+  /// **'Iniciar sesión y descargar copia'**
+  String get onboardingCloudBackupCta;
+
+  /// No description provided for @onboardingCloudBackupPickVaultSubtitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Elige qué libreta quieres restaurar.'**
+  String get onboardingCloudBackupPickVaultSubtitle;
+
+  /// No description provided for @onboardingFolioCloudTitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Folio Cloud'**
+  String get onboardingFolioCloudTitle;
+
+  /// No description provided for @onboardingFolioCloudBody.
+  ///
+  /// In es, this message translates to:
+  /// **'Activa funciones en la nube cuando las necesites: copias cifradas, Quill hospedada y publicación web. Tu libreta sigue siendo local salvo que uses estas funciones.'**
+  String get onboardingFolioCloudBody;
+
+  /// No description provided for @onboardingFolioCloudFeatureBackupTitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Copias cifradas en la nube'**
+  String get onboardingFolioCloudFeatureBackupTitle;
+
+  /// No description provided for @onboardingFolioCloudFeatureBackupBody.
+  ///
+  /// In es, this message translates to:
+  /// **'Guarda y descarga copias de la libreta desde tu cuenta. En escritorio, listar/descargar se hace desde Folio Cloud.'**
+  String get onboardingFolioCloudFeatureBackupBody;
+
+  /// No description provided for @onboardingFolioCloudFeatureAiTitle.
+  ///
+  /// In es, this message translates to:
+  /// **'IA en la nube + tinta'**
+  String get onboardingFolioCloudFeatureAiTitle;
+
+  /// No description provided for @onboardingFolioCloudFeatureAiBody.
+  ///
+  /// In es, this message translates to:
+  /// **'Quill en la nube con suscripción Folio Cloud (IA en la nube) o solo comprando tinta. La tinta se consume por uso; también puedes usar IA local (Ollama/LM Studio).'**
+  String get onboardingFolioCloudFeatureAiBody;
+
+  /// No description provided for @onboardingFolioCloudFeatureWebTitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Publicación web'**
+  String get onboardingFolioCloudFeatureWebTitle;
+
+  /// No description provided for @onboardingFolioCloudFeatureWebBody.
+  ///
+  /// In es, this message translates to:
+  /// **'Publica páginas seleccionadas y controla qué se hace público. El resto de la libreta no se comparte.'**
+  String get onboardingFolioCloudFeatureWebBody;
+
+  /// No description provided for @onboardingFolioCloudLaterInSettings.
+  ///
+  /// In es, this message translates to:
+  /// **'Lo veré en Ajustes'**
+  String get onboardingFolioCloudLaterInSettings;
 }
 
 class _AppLocalizationsDelegate
