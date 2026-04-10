@@ -27,6 +27,7 @@ import '../../services/ai/ai_types.dart';
 import '../../services/ai/folio_cloud_ai_service.dart';
 import '../../services/cloud_account/cloud_account_controller.dart';
 import '../../services/folio_cloud/folio_cloud_checkout.dart';
+import '../../services/folio_cloud/folio_cloud_ai_pricing.dart';
 import '../../services/folio_cloud/folio_cloud_entitlements.dart';
 import '../../services/folio_cloud/folio_cloud_publish.dart';
 import '../../services/folio_cloud/folio_page_html_export.dart';
@@ -108,6 +109,7 @@ class _WorkspacePageState extends State<WorkspacePage> {
   bool _showQuillWorkspaceTour = false;
   final Set<String> _expandedThoughtMessageKeys = <String>{};
   final ScrollController _aiChatScrollController = ScrollController();
+
   /// Scroll del listado de mensajes cuando el chat va en hoja móvil (DraggableScrollableSheet).
   ScrollController? _mobileSheetChatScroll;
   String? _lastAiChatIdForScroll;
@@ -124,6 +126,10 @@ class _WorkspacePageState extends State<WorkspacePage> {
   bool _sidebarPeek = false;
   double _aiPanelHeight = 520;
   bool _folioCloudCheckoutBusy = false;
+  Map<String, int> _cloudInkCostByOperation = Map<String, int>.from(
+    kFolioCloudInkCostFallback,
+  );
+  bool _cloudInkPricingFromServer = false;
 
   final GlobalKey<BlockEditorState> _blockEditorKey =
       GlobalKey<BlockEditorState>();
@@ -142,29 +148,21 @@ class _WorkspacePageState extends State<WorkspacePage> {
   }
 
   int _inkCostForOperationKind(String kind) {
-    switch (kind) {
-      case 'rewrite_block':
-        return 1;
-      case 'summarize_selection':
-        return 1;
-      case 'extract_tasks':
-        return 2;
-      case 'summarize_page':
-        return 2;
-      case 'generate_insert':
-        return 4;
-      case 'generate_page':
-        return 6;
-      case 'edit_page_panel':
-        return 3;
-      case 'agent_main':
-        return 8;
-      case 'agent_followup':
-        return 3;
-      case 'chat_turn':
-      default:
-        return 2;
-    }
+    final fallbackDefault = kFolioCloudInkCostFallback['default'] ?? 3;
+    return _cloudInkCostByOperation[kind] ??
+        _cloudInkCostByOperation['default'] ??
+        fallbackDefault;
+  }
+
+  Future<void> _refreshCloudInkPricing({bool force = false}) async {
+    final snap = await FolioCloudAiPricingService.getPricing(
+      forceRefresh: force,
+    );
+    if (!mounted) return;
+    setState(() {
+      _cloudInkCostByOperation = Map<String, int>.from(snap.costByOperation);
+      _cloudInkPricingFromServer = snap.fromServer;
+    });
   }
 
   String _estimateInkOperationKindForChat({
@@ -233,7 +231,8 @@ class _WorkspacePageState extends State<WorkspacePage> {
 
   void _updateInkEstimateFromComposer() {
     if (!mounted) return;
-    final isCloudProvider = widget.appSettings.aiProvider == AiProvider.folioCloud;
+    final isCloudProvider =
+        widget.appSettings.aiProvider == AiProvider.folioCloud;
     if (!isCloudProvider) return;
     final next = _estimateInkOperationKindForChat(
       text: _chatInputController.text,
@@ -832,7 +831,8 @@ class _WorkspacePageState extends State<WorkspacePage> {
                             final target = bodyContent.isEmpty
                                 ? message.content
                                 : bodyContent;
-                            final shouldAnimate = !isUser &&
+                            final shouldAnimate =
+                                !isUser &&
                                 _aiTypewriterActiveMessageKeys.contains(msgKey);
                             if (!shouldAnimate) {
                               return _buildMarkdownMessage(
@@ -842,20 +842,13 @@ class _WorkspacePageState extends State<WorkspacePage> {
                                 textColor: textColor,
                               );
                             }
-                            final baseStyle = Theme.of(ctx)
-                                .textTheme
-                                .bodyMedium
-                                ?.copyWith(
-                                  color: textColor,
-                                  height: 1.35,
-                                );
+                            final baseStyle = Theme.of(ctx).textTheme.bodyMedium
+                                ?.copyWith(color: textColor, height: 1.35);
                             return FolioAiTypewriterMessage(
                               fullText: _normalizeHtmlForChat(target),
-                              style: baseStyle ??
-                                  TextStyle(
-                                    color: textColor,
-                                    height: 1.35,
-                                  ),
+                              style:
+                                  baseStyle ??
+                                  TextStyle(color: textColor, height: 1.35),
                               onCompleted: () {
                                 if (!mounted) return;
                                 setState(() {
@@ -1315,6 +1308,7 @@ class _WorkspacePageState extends State<WorkspacePage> {
     _chatInputController.addListener(_updateAiContextMenu);
     _chatInputFocusNode.addListener(_updateAiContextMenu);
     widget.folioCloudEntitlements.addListener(_onFolioCloudEntitlements);
+    unawaited(_refreshCloudInkPricing());
     _syncTitleFromSession();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _maybeShowQuillWorkspaceTour();
@@ -1351,12 +1345,15 @@ class _WorkspacePageState extends State<WorkspacePage> {
   }
 
   void _onFolioCloudEntitlements() {
+    if (!_cloudInkPricingFromServer &&
+        widget.folioCloudEntitlements.snapshot.canUseCloudAi) {
+      unawaited(_refreshCloudInkPricing(force: true));
+    }
     if (mounted) setState(() {});
   }
 
   void _scheduleAiChatScrollToBottom() {
-    final controller =
-        _mobileSheetChatScroll ?? _aiChatScrollController;
+    final controller = _mobileSheetChatScroll ?? _aiChatScrollController;
     void scrollNow() {
       if (!mounted || !controller.hasClients) return;
       final pos = controller.position;
@@ -1551,8 +1548,7 @@ class _WorkspacePageState extends State<WorkspacePage> {
     if (widget.appSettings.hasSeenQuillWorkspaceTour) return;
     final w = MediaQuery.sizeOf(context).width;
     final androidMobile = FolioAdaptive.shouldUseMobileWorkspace(w);
-    final compact =
-        w < FolioDesktop.compactBreakpoint || androidMobile;
+    final compact = w < FolioDesktop.compactBreakpoint || androidMobile;
     final aiOn = widget.appSettings.isAiRuntimeEnabled && _s.aiEnabled;
     setState(() {
       if (aiOn && !compact) {
@@ -1576,8 +1572,7 @@ class _WorkspacePageState extends State<WorkspacePage> {
   void _useQuillTourPrompt(String prompt) {
     final w = MediaQuery.sizeOf(context).width;
     final androidMobile = FolioAdaptive.shouldUseMobileWorkspace(w);
-    final compact =
-        w < FolioDesktop.compactBreakpoint || androidMobile;
+    final compact = w < FolioDesktop.compactBreakpoint || androidMobile;
     final aiOn = widget.appSettings.isAiRuntimeEnabled && _s.aiEnabled;
     setState(() {
       if (aiOn && !compact) {
@@ -1836,7 +1831,9 @@ class _WorkspacePageState extends State<WorkspacePage> {
     if (_folioCloudCheckoutBusy) return;
     setState(() => _folioCloudCheckoutBusy = true);
     try {
-      final uri = await createFolioCheckoutUri(FolioCheckoutKind.folioCloudMonthly);
+      final uri = await createFolioCheckoutUri(
+        FolioCheckoutKind.folioCloudMonthly,
+      );
       if (uri == null) {
         _snack(
           _t(
@@ -1849,7 +1846,10 @@ class _WorkspacePageState extends State<WorkspacePage> {
       }
       final ok = await launchUrl(uri, mode: LaunchMode.externalApplication);
       if (!ok) {
-        _snack(_t('No se pudo abrir el enlace.', 'Could not open the link.'), error: true);
+        _snack(
+          _t('No se pudo abrir el enlace.', 'Could not open the link.'),
+          error: true,
+        );
       } else {
         widget.folioCloudEntitlements.scheduleStripeSyncOnNextResume();
       }
@@ -2154,7 +2154,8 @@ class _WorkspacePageState extends State<WorkspacePage> {
     final t = text.trim();
     final languageCode = Localizations.localeOf(context).languageCode;
     final attachments = await _collectAiAttachments();
-    final isCloudProvider = widget.appSettings.aiProvider == AiProvider.folioCloud;
+    final isCloudProvider =
+        widget.appSettings.aiProvider == AiProvider.folioCloud;
     final op = isCloudProvider ? _aiInkEstimateOperationKind : null;
     return _s.agentChatWithAi(
       messages: threadMessages,
@@ -2461,14 +2462,19 @@ class _WorkspacePageState extends State<WorkspacePage> {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
     final l10n = AppLocalizations.of(context);
-    final isCloudProvider = widget.appSettings.aiProvider == AiProvider.folioCloud;
-    final showInkInChat = isCloudProvider &&
+    final isCloudProvider =
+        widget.appSettings.aiProvider == AiProvider.folioCloud;
+    final showInkInChat =
+        isCloudProvider &&
         widget.appSettings.isAiRuntimeEnabled &&
         widget.folioCloudEntitlements.snapshot.canUseCloudAi;
     final inkSnap = widget.folioCloudEntitlements.snapshot.ink;
     const lowInkThreshold = 20;
     final estInkCost = _inkCostForOperationKind(_aiInkEstimateOperationKind);
-    final inkLooksLow = showInkInChat && inkSnap.totalInk > 0 && inkSnap.totalInk <= lowInkThreshold;
+    final inkLooksLow =
+        showInkInChat &&
+        inkSnap.totalInk > 0 &&
+        inkSnap.totalInk <= lowInkThreshold;
     final inkLooksEmpty = showInkInChat && inkSnap.totalInk <= 0;
 
     String providerLabel() {
@@ -2568,7 +2574,9 @@ class _WorkspacePageState extends State<WorkspacePage> {
                                     vertical: 3,
                                   ),
                                   decoration: BoxDecoration(
-                                    color: scheme.primary.withValues(alpha: 0.10),
+                                    color: scheme.primary.withValues(
+                                      alpha: 0.10,
+                                    ),
                                     borderRadius: BorderRadius.circular(999),
                                   ),
                                   child: Text(
@@ -2588,7 +2596,9 @@ class _WorkspacePageState extends State<WorkspacePage> {
                                   decoration: BoxDecoration(
                                     color: scheme.surfaceContainerHighest,
                                     border: Border.all(
-                                      color: scheme.outlineVariant.withValues(alpha: 0.40),
+                                      color: scheme.outlineVariant.withValues(
+                                        alpha: 0.40,
+                                      ),
                                     ),
                                     borderRadius: BorderRadius.circular(999),
                                   ),
@@ -2596,17 +2606,20 @@ class _WorkspacePageState extends State<WorkspacePage> {
                                     mainAxisSize: MainAxisSize.min,
                                     children: [
                                       Icon(
-                                        isCloudProvider ? Icons.cloud_outlined : Icons.computer_outlined,
+                                        isCloudProvider
+                                            ? Icons.cloud_outlined
+                                            : Icons.computer_outlined,
                                         size: 14,
                                         color: scheme.onSurfaceVariant,
                                       ),
                                       const SizedBox(width: 5),
                                       Text(
                                         providerLabel(),
-                                        style: theme.textTheme.labelSmall?.copyWith(
-                                          color: scheme.onSurfaceVariant,
-                                          fontWeight: FontWeight.w700,
-                                        ),
+                                        style: theme.textTheme.labelSmall
+                                            ?.copyWith(
+                                              color: scheme.onSurfaceVariant,
+                                              fontWeight: FontWeight.w700,
+                                            ),
                                       ),
                                     ],
                                   ),
@@ -2645,8 +2658,12 @@ class _WorkspacePageState extends State<WorkspacePage> {
                                   ),
                                   decoration: BoxDecoration(
                                     color: inkLooksLow
-                                        ? scheme.tertiaryContainer.withValues(alpha: 0.65)
-                                        : scheme.primary.withValues(alpha: 0.10),
+                                        ? scheme.tertiaryContainer.withValues(
+                                            alpha: 0.65,
+                                          )
+                                        : scheme.primary.withValues(
+                                            alpha: 0.10,
+                                          ),
                                     borderRadius: BorderRadius.circular(999),
                                   ),
                                   child: Row(
@@ -2657,17 +2674,22 @@ class _WorkspacePageState extends State<WorkspacePage> {
                                         size: 16,
                                         color: inkLooksLow
                                             ? scheme.onTertiaryContainer
-                                            : scheme.primary.withValues(alpha: 0.92),
+                                            : scheme.primary.withValues(
+                                                alpha: 0.92,
+                                              ),
                                       ),
                                       const SizedBox(width: 6),
                                       Text(
-                                        l10n.aiChatInkRemaining(inkSnap.totalInk),
-                                        style: theme.textTheme.labelSmall?.copyWith(
-                                          color: inkLooksLow
-                                              ? scheme.onTertiaryContainer
-                                              : scheme.onSurfaceVariant,
-                                          fontWeight: FontWeight.w800,
+                                        l10n.aiChatInkRemaining(
+                                          inkSnap.totalInk,
                                         ),
+                                        style: theme.textTheme.labelSmall
+                                            ?.copyWith(
+                                              color: inkLooksLow
+                                                  ? scheme.onTertiaryContainer
+                                                  : scheme.onSurfaceVariant,
+                                              fontWeight: FontWeight.w800,
+                                            ),
                                       ),
                                     ],
                                   ),
@@ -2913,7 +2935,9 @@ class _WorkspacePageState extends State<WorkspacePage> {
                                 maxLines: 2,
                                 overflow: TextOverflow.ellipsis,
                                 style: theme.textTheme.labelSmall?.copyWith(
-                                  color: scheme.onSurfaceVariant.withValues(alpha: 0.92),
+                                  color: scheme.onSurfaceVariant.withValues(
+                                    alpha: 0.92,
+                                  ),
                                   fontWeight: FontWeight.w600,
                                   height: 1.25,
                                 ),
@@ -3281,9 +3305,7 @@ class _WorkspacePageState extends State<WorkspacePage> {
               id: 'toggle_ai',
               label: useMobileAiDock
                   ? l10n.aiShowPanel
-                  : (_aiPanelCollapsed
- ? l10n.aiShowPanel
-                        : l10n.aiHidePanel),
+                  : (_aiPanelCollapsed ? l10n.aiShowPanel : l10n.aiHidePanel),
               icon: useMobileAiDock || _aiPanelCollapsed
                   ? Icons.chat_bubble_outline_rounded
                   : Icons.unfold_less_rounded,

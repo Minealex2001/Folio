@@ -36,7 +36,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.folioCloudAiCompleteHttp = exports.folioCloudAiComplete = exports.monthlyInkRefill = exports.createBillingPortalSession = exports.folioTrimVaultBackups = exports.folioUpsertVaultBackupIndex = exports.folioListBackupVaults = exports.folioListVaultBackups = exports.syncFolioCloudSubscriptionFromStripe = exports.createCheckoutSession = exports.stripeWebhook = void 0;
+exports.folioCloudAiCompleteHttp = exports.folioCloudAiComplete = exports.monthlyInkRefill = exports.createBillingPortalSession = exports.folioTrimVaultBackups = exports.folioUpsertVaultBackupIndex = exports.folioListBackupVaults = exports.folioListVaultBackups = exports.syncFolioCloudSubscriptionFromStripe = exports.createCheckoutSession = exports.stripeWebhook = exports.folioCloudAiPricing = void 0;
 const path = __importStar(require("path"));
 const dotenv_1 = require("dotenv");
 // Carga `functions/.env` (gitignored). En deploy, Firebase también inyecta estas variables.
@@ -61,10 +61,10 @@ const INK_COST_BY_OPERATION = {
     summarize_selection: 1,
     extract_tasks: 2,
     summarize_page: 2,
-    generate_insert: 4,
-    generate_page: 6,
+    generate_insert: 3,
+    generate_page: 5,
     chat_turn: 2,
-    agent_main: 8,
+    agent_main: 6,
     agent_followup: 3,
     edit_page_panel: 3,
     default: 2,
@@ -174,6 +174,24 @@ function resolveInkCost(operationKind, promptLength) {
     }
     return Math.min(cost, INK_MAX_PER_REQUEST);
 }
+/**
+ * Devuelve a la app la tabla vigente de costes de tinta.
+ * Asi los cambios se mantienen en un solo sitio: backend.
+ */
+exports.folioCloudAiPricing = (0, https_1.onCall)({ cors: true, invoker: "public" }, async (request) => {
+    var _a;
+    if (!((_a = request.auth) === null || _a === void 0 ? void 0 : _a.uid)) {
+        throw new https_1.HttpsError("unauthenticated", "Login required");
+    }
+    return {
+        costByOperation: INK_COST_BY_OPERATION,
+        inkMaxPerRequest: INK_MAX_PER_REQUEST,
+        promptLengthSurchargeThreshold: INK_PROMPT_LENGTH_SURCHARGE_THRESHOLD,
+        extraForLongPrompt: INK_EXTRA_FOR_LONG_PROMPT,
+        tokensPerSurchargeUnit: INK_TOKENS_PER_SURCHARGE_UNIT,
+        maxTokenSurcharge: INK_MAX_TOKEN_SURCHARGE,
+    };
+});
 function debitInkBalances(monthly, purchased, cost) {
     if (cost <= 0)
         return { monthly, purchased };

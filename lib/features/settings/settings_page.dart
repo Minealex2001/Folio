@@ -35,6 +35,7 @@ import '../../services/folio_cloud/folio_cloud_backup.dart';
 import '../../services/folio_cloud/folio_cloud_billing.dart';
 import '../../services/folio_cloud/folio_cloud_checkout.dart';
 import '../../services/folio_cloud/folio_cloud_entitlements.dart';
+import '../../services/folio_cloud/folio_cloud_ai_pricing.dart';
 import '../../services/folio_cloud/folio_cloud_publish.dart';
 import '../../services/folio_cloud/folio_web_portal_api.dart';
 import '../../services/folio_cloud/folio_page_html_export.dart';
@@ -347,12 +348,7 @@ class _SettingsPageState extends State<SettingsPage> {
   /// Lista/descarga de copias en Storage: reautenticación con **cuenta Folio Cloud**, no libreta local.
   Future<bool> _verifyFolioCloudAccountForBackups() async {
     if (!_cloud.isAvailable || !_cloud.isSignedIn) {
-      _snack(
-        _t(
-          'Inicia sesión en Folio Cloud.',
-          'Sign in to Folio Cloud.',
-        ),
-      );
+      _snack(_t('Inicia sesión en Folio Cloud.', 'Sign in to Folio Cloud.'));
       return false;
     }
     if (!_cloud.canReauthenticateWithPassword) {
@@ -379,7 +375,8 @@ class _SettingsPageState extends State<SettingsPage> {
     if (_s.state != VaultFlowState.unlocked) return;
     final l10n = AppLocalizations.of(context);
     final dirEmpty = _app.scheduledVaultBackupDirectory.trim().isEmpty;
-    final canCloud = _folio.isAvailable &&
+    final canCloud =
+        _folio.isAvailable &&
         _cloud.isSignedIn &&
         _folio.snapshot.canUseCloudBackup;
     final cloudOnly =
@@ -504,10 +501,8 @@ class _SettingsPageState extends State<SettingsPage> {
     final l10n = AppLocalizations.of(context);
     final email = await showDialog<String?>(
       context: context,
-      builder: (ctx) => _CloudPasswordResetDialog(
-        l10n: l10n,
-        fixedEmail: fixedEmail,
-      ),
+      builder: (ctx) =>
+          _CloudPasswordResetDialog(l10n: l10n, fixedEmail: fixedEmail),
     );
     if (email == null || email.isEmpty) return;
     try {
@@ -1540,13 +1535,194 @@ class _SettingsPageState extends State<SettingsPage> {
             Navigator.of(ctx).pop();
             if (!mounted) return;
             if (signedIn) {
-              unawaited(_openFolioCheckout(FolioCheckoutKind.folioCloudMonthly));
+              unawaited(
+                _openFolioCheckout(FolioCheckoutKind.folioCloudMonthly),
+              );
             } else {
               unawaited(_showCloudAuthDialog(register: false));
             }
           },
         ),
       ),
+    );
+  }
+
+  String _cloudInkOperationLabel(String operationKind) {
+    switch (operationKind) {
+      case 'rewrite_block':
+        return _t('Reescribir bloque', 'Rewrite block');
+      case 'summarize_selection':
+        return _t('Resumir seleccion', 'Summarize selection');
+      case 'extract_tasks':
+        return _t('Extraer tareas', 'Extract tasks');
+      case 'summarize_page':
+        return _t('Resumir pagina', 'Summarize page');
+      case 'generate_insert':
+        return _t('Generar insercion', 'Generate insert');
+      case 'generate_page':
+        return _t('Generar pagina', 'Generate page');
+      case 'chat_turn':
+        return _t('Turno de chat', 'Chat turn');
+      case 'agent_main':
+        return _t('Ejecucion de agente', 'Agent main run');
+      case 'agent_followup':
+        return _t('Seguimiento de agente', 'Agent follow-up');
+      case 'edit_page_panel':
+        return _t('Edicion de pagina (panel)', 'Page edit panel');
+      case 'default':
+        return _t('Operacion por defecto', 'Fallback operation');
+      default:
+        return operationKind;
+    }
+  }
+
+  Future<void> _showCloudInkPricingTableDialog() {
+    const preferredOrder = <String>[
+      'rewrite_block',
+      'summarize_selection',
+      'extract_tasks',
+      'summarize_page',
+      'generate_insert',
+      'generate_page',
+      'chat_turn',
+      'agent_main',
+      'agent_followup',
+      'edit_page_panel',
+      'default',
+    ];
+
+    return showDialog<void>(
+      context: context,
+      builder: (ctx) {
+        final theme = Theme.of(ctx);
+        final dialogScheme = theme.colorScheme;
+        return FolioDialog(
+          title: Text(
+            _t(
+              'Tabla de consumo de gotas (OpenAI)',
+              'Ink usage table (OpenAI)',
+            ),
+          ),
+          content: SizedBox(
+            width: 540,
+            child: FutureBuilder<FolioCloudAiPricingSnapshot>(
+              future: FolioCloudAiPricingService.getPricing(),
+              builder: (context, snapshot) {
+                final pricing =
+                    snapshot.data ?? FolioCloudAiPricingSnapshot.fallback();
+
+                final allKeys = <String>{
+                  ...preferredOrder,
+                  ...pricing.costByOperation.keys,
+                };
+                final orderedKeys = <String>[
+                  ...preferredOrder.where(allKeys.contains),
+                  ...allKeys.where((k) => !preferredOrder.contains(k)).toList()
+                    ..sort(),
+                ];
+
+                if (snapshot.connectionState == ConnectionState.waiting &&
+                    !snapshot.hasData) {
+                  return const Padding(
+                    padding: EdgeInsets.symmetric(vertical: 24),
+                    child: Center(child: CircularProgressIndicator()),
+                  );
+                }
+
+                return SingleChildScrollView(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Text(
+                        _t(
+                          'Coste base por accion. Se pueden aplicar suplementos por prompts largos y por tokens de salida.',
+                          'Base cost per action. Extra surcharges may apply for long prompts and output token usage.',
+                        ),
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: dialogScheme.onSurfaceVariant,
+                          height: 1.35,
+                        ),
+                      ),
+                      const SizedBox(height: 10),
+                      ...orderedKeys.map((operation) {
+                        final drops = pricing.costForOperation(operation);
+                        final label = _cloudInkOperationLabel(operation);
+                        return Padding(
+                          padding: const EdgeInsets.only(bottom: 8),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 10,
+                              vertical: 8,
+                            ),
+                            decoration: BoxDecoration(
+                              color: dialogScheme.surfaceContainerHighest
+                                  .withValues(alpha: 0.45),
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(
+                                color: dialogScheme.outlineVariant.withValues(
+                                  alpha: 0.4,
+                                ),
+                              ),
+                            ),
+                            child: Row(
+                              children: [
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        label,
+                                        style: theme.textTheme.bodyMedium
+                                            ?.copyWith(
+                                              fontWeight: FontWeight.w700,
+                                            ),
+                                      ),
+                                      Text(
+                                        operation,
+                                        style: theme.textTheme.bodySmall
+                                            ?.copyWith(
+                                              color:
+                                                  dialogScheme.onSurfaceVariant,
+                                            ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                const SizedBox(width: 10),
+                                Text(
+                                  '$drops',
+                                  style: theme.textTheme.titleMedium?.copyWith(
+                                    fontWeight: FontWeight.w800,
+                                    color: dialogScheme.primary,
+                                  ),
+                                ),
+                                const SizedBox(width: 4),
+                                Text(
+                                  _t('gotas', 'drops'),
+                                  style: theme.textTheme.bodySmall?.copyWith(
+                                    color: dialogScheme.onSurfaceVariant,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        );
+                      }),
+                    ],
+                  ),
+                );
+              },
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: Text(_t('Cerrar', 'Close')),
+            ),
+          ],
+        );
+      },
     );
   }
 
@@ -1770,10 +1946,7 @@ class _SettingsPageState extends State<SettingsPage> {
                           icon: const Icon(Icons.download_outlined),
                           onPressed: () async {
                             final path = await FilePicker.platform.saveFile(
-                              dialogTitle: _t(
-                                'Guardar copia',
-                                'Save backup',
-                              ),
+                              dialogTitle: _t('Guardar copia', 'Save backup'),
                               fileName: e.fileName,
                             );
                             if (path == null || !ctx.mounted) return;
@@ -1789,7 +1962,9 @@ class _SettingsPageState extends State<SettingsPage> {
                                 _snack(
                                   _t('Copia descargada.', 'Backup downloaded.'),
                                 );
-                                setState(() => _cloudBackupCount = entries.length);
+                                setState(
+                                  () => _cloudBackupCount = entries.length,
+                                );
                               }
                             } catch (err) {
                               if (ctx.mounted) {
@@ -3143,9 +3318,7 @@ class _SettingsPageState extends State<SettingsPage> {
                                                         Navigator.of(
                                                           ctx,
                                                         ).pop(true),
-                                                    child: Text(
-                                                      l10n.revoke,
-                                                    ),
+                                                    child: Text(l10n.revoke),
                                                   ),
                                                 ],
                                               ),
@@ -3577,28 +3750,28 @@ class _SettingsPageState extends State<SettingsPage> {
                                 _SettingsPanelHeroCard(
                                   icon: Icons.smart_toy_outlined,
                                   title: l10n.ai,
-                                  description: _app.aiProvider ==
-                                          AiProvider.folioCloud
+                                  description:
+                                      _app.aiProvider == AiProvider.folioCloud
                                       ? (aiLocalProvidersSupported
-                                          ? _t(
-                                              'La IA se ejecuta en Folio Cloud (suscripción con IA en la nube o tinta comprada). Elige otro proveedor abajo para Ollama o LM Studio en local.',
-                                              'AI runs on Folio Cloud (subscription with cloud AI or purchased ink). Pick another provider below for local Ollama or LM Studio.',
-                                            )
-                                          : _t(
-                                              'La IA se ejecuta en Folio Cloud (suscripción con IA en la nube o tinta comprada).',
-                                              'AI runs on Folio Cloud (subscription with cloud AI or purchased ink).',
-                                            ))
+                                            ? _t(
+                                                'La IA se ejecuta en Folio Cloud (suscripción con IA en la nube o tinta comprada). Elige otro proveedor abajo para Ollama o LM Studio en local.',
+                                                'AI runs on Folio Cloud (subscription with cloud AI or purchased ink). Pick another provider below for local Ollama or LM Studio.',
+                                              )
+                                            : _t(
+                                                'La IA se ejecuta en Folio Cloud (suscripción con IA en la nube o tinta comprada).',
+                                                'AI runs on Folio Cloud (subscription with cloud AI or purchased ink).',
+                                              ))
                                       : (aiLocalProvidersSupported
-                                          ? _t(
-                                              'Conecta Ollama o LM Studio en local; el asistente usa el modelo y el contexto que configures aquí.',
-                                              'Connect Ollama or LM Studio locally; the assistant uses the model and context you set here.',
-                                            )
-                                          : _t(
-                                              'En este dispositivo Quill solo puede usar Folio Cloud. Elige Folio Cloud como proveedor cuando quieras activar la IA.',
-                                              'On this device Quill can only use Folio Cloud. Choose Folio Cloud as the provider when you want to enable AI.',
-                                            )),
-                                  chips: _app.aiProvider ==
-                                          AiProvider.folioCloud
+                                            ? _t(
+                                                'Conecta Ollama o LM Studio en local; el asistente usa el modelo y el contexto que configures aquí.',
+                                                'Connect Ollama or LM Studio locally; the assistant uses the model and context you set here.',
+                                              )
+                                            : _t(
+                                                'En este dispositivo Quill solo puede usar Folio Cloud. Elige Folio Cloud como proveedor cuando quieras activar la IA.',
+                                                'On this device Quill can only use Folio Cloud. Choose Folio Cloud as the provider when you want to enable AI.',
+                                              )),
+                                  chips:
+                                      _app.aiProvider == AiProvider.folioCloud
                                       ? [
                                           _SettingsInfoChip(
                                             icon: Icons.cloud_outlined,
@@ -3627,7 +3800,12 @@ class _SettingsPageState extends State<SettingsPage> {
                                         ],
                                 ),
                                 Padding(
-                                  padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
+                                  padding: const EdgeInsets.fromLTRB(
+                                    16,
+                                    12,
+                                    16,
+                                    12,
+                                  ),
                                   child: Builder(
                                     builder: (context) {
                                       final theme = Theme.of(context);
@@ -3636,8 +3814,9 @@ class _SettingsPageState extends State<SettingsPage> {
                                         decoration: BoxDecoration(
                                           color: scheme.surfaceContainerHighest
                                               .withValues(alpha: 0.55),
-                                          borderRadius:
-                                              BorderRadius.circular(18),
+                                          borderRadius: BorderRadius.circular(
+                                            18,
+                                          ),
                                           border: Border.all(
                                             color: scheme.outlineVariant
                                                 .withValues(alpha: 0.45),
@@ -3656,14 +3835,14 @@ class _SettingsPageState extends State<SettingsPage> {
                                                 const SizedBox(width: 10),
                                                 Expanded(
                                                   child: Text(
-                                                    l10n
-                                                        .aiCompareCloudVsLocalTitle,
+                                                    l10n.aiCompareCloudVsLocalTitle,
                                                     style: theme
-                                                        .textTheme.titleSmall
+                                                        .textTheme
+                                                        .titleSmall
                                                         ?.copyWith(
-                                                      fontWeight:
-                                                          FontWeight.w800,
-                                                    ),
+                                                          fontWeight:
+                                                              FontWeight.w800,
+                                                        ),
                                                   ),
                                                 ),
                                               ],
@@ -3680,22 +3859,24 @@ class _SettingsPageState extends State<SettingsPage> {
                                                 }) {
                                                   return Container(
                                                     padding:
-                                                        const EdgeInsets.all(12),
+                                                        const EdgeInsets.all(
+                                                          12,
+                                                        ),
                                                     decoration: BoxDecoration(
                                                       color: scheme.surface
                                                           .withValues(
-                                                        alpha: 0.9,
-                                                      ),
+                                                            alpha: 0.9,
+                                                          ),
                                                       borderRadius:
                                                           BorderRadius.circular(
-                                                        16,
-                                                      ),
+                                                            16,
+                                                          ),
                                                       border: Border.all(
                                                         color: scheme
                                                             .outlineVariant
                                                             .withValues(
-                                                          alpha: 0.35,
-                                                        ),
+                                                              alpha: 0.35,
+                                                            ),
                                                       ),
                                                     ),
                                                     child: Column(
@@ -3707,8 +3888,8 @@ class _SettingsPageState extends State<SettingsPage> {
                                                           children: [
                                                             Icon(
                                                               icon,
-                                                              color:
-                                                                  scheme.primary,
+                                                              color: scheme
+                                                                  .primary,
                                                             ),
                                                             const SizedBox(
                                                               width: 8,
@@ -3720,10 +3901,10 @@ class _SettingsPageState extends State<SettingsPage> {
                                                                     .textTheme
                                                                     .labelLarge
                                                                     ?.copyWith(
-                                                                  fontWeight:
-                                                                      FontWeight
-                                                                          .w800,
-                                                                ),
+                                                                      fontWeight:
+                                                                          FontWeight
+                                                                              .w800,
+                                                                    ),
                                                               ),
                                                             ),
                                                           ],
@@ -3734,20 +3915,20 @@ class _SettingsPageState extends State<SettingsPage> {
                                                         ...bullets.map(
                                                           (b) => Padding(
                                                             padding:
-                                                                const EdgeInsets
-                                                                    .only(
-                                                              bottom: 4,
-                                                            ),
+                                                                const EdgeInsets.only(
+                                                                  bottom: 4,
+                                                                ),
                                                             child: Text(
                                                               '• $b',
                                                               style: theme
                                                                   .textTheme
                                                                   .bodySmall
                                                                   ?.copyWith(
-                                                                color: scheme
-                                                                    .onSurfaceVariant,
-                                                                height: 1.35,
-                                                              ),
+                                                                    color: scheme
+                                                                        .onSurfaceVariant,
+                                                                    height:
+                                                                        1.35,
+                                                                  ),
                                                             ),
                                                           ),
                                                         ),
@@ -3758,21 +3939,20 @@ class _SettingsPageState extends State<SettingsPage> {
 
                                                 final cloudCard = card(
                                                   icon: Icons.cloud_outlined,
-                                                  title: l10n.aiCompareCloudTitle,
+                                                  title:
+                                                      l10n.aiCompareCloudTitle,
                                                   bullets: [
-                                                    l10n
-                                                        .aiCompareCloudBulletNoSetup,
-                                                    l10n
-                                                        .aiCompareCloudBulletNeedsSub,
+                                                    l10n.aiCompareCloudBulletNoSetup,
+                                                    l10n.aiCompareCloudBulletNeedsSub,
                                                     l10n.aiCompareCloudBulletInk,
                                                   ],
                                                 );
                                                 final localCard = card(
                                                   icon: Icons.computer_outlined,
-                                                  title: l10n.aiCompareLocalTitle,
+                                                  title:
+                                                      l10n.aiCompareLocalTitle,
                                                   bullets: [
-                                                    l10n
-                                                        .aiCompareLocalBulletPrivacy,
+                                                    l10n.aiCompareLocalBulletPrivacy,
                                                     l10n.aiCompareLocalBulletNoInk,
                                                     l10n.aiCompareLocalBulletSetup,
                                                   ],
@@ -3785,7 +3965,9 @@ class _SettingsPageState extends State<SettingsPage> {
                                                   return Column(
                                                     children: [
                                                       cloudCard,
-                                                      const SizedBox(height: 10),
+                                                      const SizedBox(
+                                                        height: 10,
+                                                      ),
                                                       localCard,
                                                     ],
                                                   );
@@ -3860,8 +4042,9 @@ class _SettingsPageState extends State<SettingsPage> {
                                       Icons.assistant_navigation,
                                     ),
                                     title: Text(l10n.aiSetupAssistantTitle),
-                                    subtitle:
-                                        Text(l10n.aiSetupAssistantSubtitle),
+                                    subtitle: Text(
+                                      l10n.aiSetupAssistantSubtitle,
+                                    ),
                                     trailing: const Icon(
                                       Icons.chevron_right_rounded,
                                     ),
@@ -3898,9 +4081,7 @@ class _SettingsPageState extends State<SettingsPage> {
                                     onChanged: _app.aiEnabled
                                         ? (v) async {
                                             await _app
-                                                .setAiLaunchProviderWithApp(
-                                                  v,
-                                                );
+                                                .setAiLaunchProviderWithApp(v);
                                           }
                                         : null,
                                   ),
@@ -3918,8 +4099,7 @@ class _SettingsPageState extends State<SettingsPage> {
                                               .textTheme
                                               .bodySmall
                                               ?.copyWith(
-                                                color:
-                                                    scheme.onSurfaceVariant,
+                                                color: scheme.onSurfaceVariant,
                                               ),
                                         ),
                                         TextField(
@@ -3969,7 +4149,9 @@ class _SettingsPageState extends State<SettingsPage> {
                                           return;
                                         }
                                         if (!_folio.snapshot.canUseCloudAi) {
-                                          _snack(l10n.aiProviderFolioCloudBlockedSnack);
+                                          _snack(
+                                            l10n.aiProviderFolioCloudBlockedSnack,
+                                          );
                                           return;
                                         }
                                       }
@@ -4066,10 +4248,8 @@ class _SettingsPageState extends State<SettingsPage> {
                                               l10n.aiConnectToListModels,
                                             ),
                                             isExpanded: true,
-                                            underline:
-                                                const SizedBox.shrink(),
-                                            onChanged:
-                                                _availableModels.isEmpty
+                                            underline: const SizedBox.shrink(),
+                                            onChanged: _availableModels.isEmpty
                                                 ? null
                                                 : (value) {
                                                     if (value != null) {
@@ -4080,9 +4260,9 @@ class _SettingsPageState extends State<SettingsPage> {
                                                 .map(
                                                   (m) =>
                                                       DropdownMenuItem<String>(
-                                                    value: m,
-                                                    child: Text(m),
-                                                  ),
+                                                        value: m,
+                                                        child: Text(m),
+                                                      ),
                                                 )
                                                 .toList(),
                                           ),
@@ -4106,15 +4286,15 @@ class _SettingsPageState extends State<SettingsPage> {
                                   ),
                                   const Divider(height: 1),
                                   SwitchListTile(
-                                    secondary:
-                                        const Icon(Icons.public_outlined),
+                                    secondary: const Icon(
+                                      Icons.public_outlined,
+                                    ),
                                     title: Text(l10n.aiAllowRemoteEndpoint),
                                     subtitle: Text(
                                       _app.aiEndpointMode ==
                                               AiEndpointMode.allowRemote
                                           ? l10n.aiAllowRemoteEndpointAllowed
-                                          : l10n
-                                                .aiAllowRemoteEndpointLocalhostOnly,
+                                          : l10n.aiAllowRemoteEndpointLocalhostOnly,
                                     ),
                                     value:
                                         _app.aiEndpointMode ==
@@ -4729,15 +4909,12 @@ class _SettingsPageState extends State<SettingsPage> {
                                                               Expanded(
                                                                 child: Text(
                                                                   email,
-                                                                  style: Theme.of(
-                                                                    context,
-                                                                  )
+                                                                  style: Theme.of(context)
                                                                       .textTheme
                                                                       .titleSmall
                                                                       ?.copyWith(
                                                                         fontWeight:
-                                                                            FontWeight
-                                                                                .w700,
+                                                                            FontWeight.w700,
                                                                       ),
                                                                 ),
                                                               ),
@@ -4745,8 +4922,7 @@ class _SettingsPageState extends State<SettingsPage> {
                                                                 IconButton(
                                                                   tooltip: l10n
                                                                       .cloudAccountCopyEmail,
-                                                                  onPressed:
-                                                                      () async {
+                                                                  onPressed: () async {
                                                                     await Clipboard.setData(
                                                                       ClipboardData(
                                                                         text:
@@ -4763,8 +4939,8 @@ class _SettingsPageState extends State<SettingsPage> {
                                                                       SnackBar(
                                                                         content:
                                                                             Text(
-                                                                          l10n.cloudAccountEmailCopied,
-                                                                        ),
+                                                                              l10n.cloudAccountEmailCopied,
+                                                                            ),
                                                                       ),
                                                                     );
                                                                   },
@@ -4873,9 +5049,7 @@ class _SettingsPageState extends State<SettingsPage> {
                                                         children: [
                                                           Text(
                                                             l10n.cloudAccountEmailUnverifiedBanner,
-                                                            style: Theme.of(
-                                                              context,
-                                                            )
+                                                            style: Theme.of(context)
                                                                 .textTheme
                                                                 .bodySmall
                                                                 ?.copyWith(
@@ -5105,10 +5279,7 @@ class _SettingsPageState extends State<SettingsPage> {
                                 },
                               ),
                               ListenableBuilder(
-                                listenable: Listenable.merge([
-                                  _cloud,
-                                  _folio,
-                                ]),
+                                listenable: Listenable.merge([_cloud, _folio]),
                                 builder: (context, _) {
                                   if (!AppSettings.folioWebPortalLinkEnabled) {
                                     return const SizedBox.shrink();
@@ -5117,10 +5288,12 @@ class _SettingsPageState extends State<SettingsPage> {
                                       !_cloud.isSignedIn) {
                                     return const SizedBox.shrink();
                                   }
-                                  final panelScheme =
-                                      Theme.of(context).colorScheme;
-                                  final panelL10n =
-                                      AppLocalizations.of(context);
+                                  final panelScheme = Theme.of(
+                                    context,
+                                  ).colorScheme;
+                                  final panelL10n = AppLocalizations.of(
+                                    context,
+                                  );
                                   final webSnap = _folio.webPortalEntitlement;
                                   return Padding(
                                     padding: const EdgeInsets.fromLTRB(
@@ -5131,8 +5304,7 @@ class _SettingsPageState extends State<SettingsPage> {
                                     ),
                                     child: DecoratedBox(
                                       decoration: BoxDecoration(
-                                        color:
-                                            panelScheme.surfaceContainerLow,
+                                        color: panelScheme.surfaceContainerLow,
                                         borderRadius: BorderRadius.circular(18),
                                         border: Border.all(
                                           color: panelScheme.outlineVariant
@@ -5181,7 +5353,8 @@ class _SettingsPageState extends State<SettingsPage> {
                                             ),
                                             const SizedBox(height: 10),
                                             TextField(
-                                              controller: _webLinkCodeController,
+                                              controller:
+                                                  _webLinkCodeController,
                                               decoration: InputDecoration(
                                                 labelText: panelL10n
                                                     .folioWebPortalLinkCodeLabel,
@@ -5207,8 +5380,9 @@ class _SettingsPageState extends State<SettingsPage> {
                                                             width: 22,
                                                             child:
                                                                 CircularProgressIndicator(
-                                                              strokeWidth: 2,
-                                                            ),
+                                                                  strokeWidth:
+                                                                      2,
+                                                                ),
                                                           )
                                                         : Text(
                                                             panelL10n
@@ -5239,8 +5413,7 @@ class _SettingsPageState extends State<SettingsPage> {
                                                     .textTheme
                                                     .bodySmall
                                                     ?.copyWith(
-                                                      color:
-                                                          panelScheme.error,
+                                                      color: panelScheme.error,
                                                     ),
                                               ),
                                             ],
@@ -5249,9 +5422,9 @@ class _SettingsPageState extends State<SettingsPage> {
                                               Text(
                                                 webSnap.linked
                                                     ? panelL10n
-                                                        .folioWebEntitlementLinked
+                                                          .folioWebEntitlementLinked
                                                     : panelL10n
-                                                        .folioWebEntitlementNotLinked,
+                                                          .folioWebEntitlementNotLinked,
                                                 style: Theme.of(context)
                                                     .textTheme
                                                     .bodyMedium
@@ -5266,10 +5439,10 @@ class _SettingsPageState extends State<SettingsPage> {
                                                 Text(
                                                   panelL10n
                                                       .folioWebEntitlementWebPlan(
-                                                    webSnap.folioCloud!
-                                                        ? _t('Sí', 'Yes')
-                                                        : _t('No', 'No'),
-                                                  ),
+                                                        webSnap.folioCloud!
+                                                            ? _t('Sí', 'Yes')
+                                                            : _t('No', 'No'),
+                                                      ),
                                                   style: Theme.of(context)
                                                       .textTheme
                                                       .bodySmall
@@ -5288,8 +5461,9 @@ class _SettingsPageState extends State<SettingsPage> {
                                                 Text(
                                                   panelL10n
                                                       .folioWebEntitlementWebStatus(
-                                                    webSnap.folioCloudStatus!,
-                                                  ),
+                                                        webSnap
+                                                            .folioCloudStatus!,
+                                                      ),
                                                   style: Theme.of(context)
                                                       .textTheme
                                                       .bodySmall
@@ -5308,9 +5482,9 @@ class _SettingsPageState extends State<SettingsPage> {
                                                 Text(
                                                   panelL10n
                                                       .folioWebEntitlementWebPeriodEnd(
-                                                    webSnap
-                                                        .folioCloudPeriodEnd!,
-                                                  ),
+                                                        webSnap
+                                                            .folioCloudPeriodEnd!,
+                                                      ),
                                                   style: Theme.of(context)
                                                       .textTheme
                                                       .bodySmall
@@ -5326,8 +5500,9 @@ class _SettingsPageState extends State<SettingsPage> {
                                                 Text(
                                                   panelL10n
                                                       .folioWebEntitlementWebInk(
-                                                    webSnap.folioInkCredits!,
-                                                  ),
+                                                        webSnap
+                                                            .folioInkCredits!,
+                                                      ),
                                                   style: Theme.of(context)
                                                       .textTheme
                                                       .bodySmall
@@ -5355,7 +5530,10 @@ class _SettingsPageState extends State<SettingsPage> {
                                     return _FolioCloudGuestPitchTeaser(
                                       scheme: scheme,
                                       l10n: l10n,
-                                      onOpenPitch: _openFolioCloudSubscriptionPitch,
+                                      onOpenPitch:
+                                          _openFolioCloudSubscriptionPitch,
+                                      onShowInkTable:
+                                          _showCloudInkPricingTableDialog,
                                     );
                                   }
                                   return _FolioCloudSubscriptionPanel(
@@ -5366,12 +5544,15 @@ class _SettingsPageState extends State<SettingsPage> {
                                     backupCount: _cloudBackupCount,
                                     backupCountBusy: _cloudBackupCountBusy,
                                     onRefreshBackupCount: () =>
-                                        _refreshCloudBackupCount(requireVerify: true),
+                                        _refreshCloudBackupCount(
+                                          requireVerify: true,
+                                        ),
                                     onSubscribeMonthly: () =>
                                         _openFolioCheckout(
                                           FolioCheckoutKind.folioCloudMonthly,
                                         ),
-                                    onOpenPitch: _openFolioCloudSubscriptionPitch,
+                                    onOpenPitch:
+                                        _openFolioCloudSubscriptionPitch,
                                     onInkSmall: () => _openFolioCheckout(
                                       FolioCheckoutKind.inkSmall,
                                     ),
@@ -5471,8 +5652,9 @@ class _SettingsPageState extends State<SettingsPage> {
                                     if (_s.state != VaultFlowState.unlocked) {
                                       return;
                                     }
-                                    final l10nSync =
-                                        AppLocalizations.of(context);
+                                    final l10nSync = AppLocalizations.of(
+                                      context,
+                                    );
                                     final ok = await _verifyVaultIdentity(
                                       title: Text(
                                         l10nSync.vaultIdentitySyncTitle,
@@ -6389,10 +6571,7 @@ class _CloudAuthDialogState extends State<_CloudAuthDialog> {
 }
 
 class _CloudPasswordResetDialog extends StatefulWidget {
-  const _CloudPasswordResetDialog({
-    required this.l10n,
-    this.fixedEmail,
-  });
+  const _CloudPasswordResetDialog({required this.l10n, this.fixedEmail});
 
   final AppLocalizations l10n;
   final String? fixedEmail;
@@ -7729,11 +7908,18 @@ class _FolioCloudGuestPitchTeaser extends StatelessWidget {
     required this.scheme,
     required this.l10n,
     required this.onOpenPitch,
+    required this.onShowInkTable,
   });
 
   final ColorScheme scheme;
   final AppLocalizations l10n;
   final VoidCallback onOpenPitch;
+  final VoidCallback onShowInkTable;
+
+  String _t(BuildContext context, String es, String en) {
+    final lang = Localizations.localeOf(context).languageCode.toLowerCase();
+    return lang.startsWith('es') ? es : en;
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -7764,11 +7950,7 @@ class _FolioCloudGuestPitchTeaser extends StatelessWidget {
                 Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Icon(
-                      Icons.cloud_outlined,
-                      color: scheme.primary,
-                      size: 28,
-                    ),
+                    Icon(Icons.cloud_outlined, color: scheme.primary, size: 28),
                     const SizedBox(width: 12),
                     Expanded(
                       child: Column(
@@ -7800,6 +7982,17 @@ class _FolioCloudGuestPitchTeaser extends StatelessWidget {
                     onPressed: onOpenPitch,
                     icon: const Icon(Icons.info_outline, size: 20),
                     label: Text(l10n.folioCloudPitchLearnMore),
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: TextButton.icon(
+                    onPressed: onShowInkTable,
+                    icon: const Icon(Icons.table_chart_outlined, size: 20),
+                    label: Text(
+                      _t(context, 'Ver tabla de consumo', 'View usage table'),
+                    ),
                   ),
                 ),
               ],
@@ -7850,6 +8043,207 @@ class _FolioCloudSubscriptionPanel extends StatelessWidget {
   final VoidCallback onUploadBackup;
   final VoidCallback onOpenBackups;
   final VoidCallback onPublishedPages;
+
+  String _t(BuildContext context, String es, String en) {
+    final lang = Localizations.localeOf(context).languageCode.toLowerCase();
+    return lang.startsWith('es') ? es : en;
+  }
+
+  String _inkOperationLabel(BuildContext context, String operationKind) {
+    switch (operationKind) {
+      case 'rewrite_block':
+        return _t(context, 'Reescribir bloque', 'Rewrite block');
+      case 'summarize_selection':
+        return _t(context, 'Resumir seleccion', 'Summarize selection');
+      case 'extract_tasks':
+        return _t(context, 'Extraer tareas', 'Extract tasks');
+      case 'summarize_page':
+        return _t(context, 'Resumir pagina', 'Summarize page');
+      case 'generate_insert':
+        return _t(context, 'Generar insercion', 'Generate insert');
+      case 'generate_page':
+        return _t(context, 'Generar pagina', 'Generate page');
+      case 'chat_turn':
+        return _t(context, 'Turno de chat', 'Chat turn');
+      case 'agent_main':
+        return _t(context, 'Ejecucion de agente', 'Agent main run');
+      case 'agent_followup':
+        return _t(context, 'Seguimiento de agente', 'Agent follow-up');
+      case 'edit_page_panel':
+        return _t(context, 'Edicion de pagina (panel)', 'Page edit panel');
+      case 'default':
+        return _t(context, 'Operacion por defecto', 'Fallback operation');
+      default:
+        return operationKind;
+    }
+  }
+
+  Future<void> _showInkPricingTable(BuildContext context) {
+    const preferredOrder = <String>[
+      'rewrite_block',
+      'summarize_selection',
+      'extract_tasks',
+      'summarize_page',
+      'generate_insert',
+      'generate_page',
+      'chat_turn',
+      'agent_main',
+      'agent_followup',
+      'edit_page_panel',
+      'default',
+    ];
+
+    return showDialog<void>(
+      context: context,
+      builder: (ctx) {
+        final theme = Theme.of(ctx);
+        final dialogScheme = theme.colorScheme;
+        return FolioDialog(
+          title: Text(
+            _t(
+              context,
+              'Tabla de consumo de gotas (OpenAI)',
+              'Ink usage table (OpenAI)',
+            ),
+          ),
+          content: SizedBox(
+            width: 540,
+            child: FutureBuilder<FolioCloudAiPricingSnapshot>(
+              future: FolioCloudAiPricingService.getPricing(),
+              builder: (context, snapshot) {
+                final pricing =
+                    snapshot.data ?? FolioCloudAiPricingSnapshot.fallback();
+
+                final allKeys = <String>{
+                  ...preferredOrder,
+                  ...pricing.costByOperation.keys,
+                };
+                final orderedKeys = <String>[
+                  ...preferredOrder.where(allKeys.contains),
+                  ...allKeys.where((k) => !preferredOrder.contains(k)).toList()
+                    ..sort(),
+                ];
+
+                if (snapshot.connectionState == ConnectionState.waiting &&
+                    !snapshot.hasData) {
+                  return const Padding(
+                    padding: EdgeInsets.symmetric(vertical: 24),
+                    child: Center(child: CircularProgressIndicator()),
+                  );
+                }
+
+                return SingleChildScrollView(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Text(
+                        _t(
+                          context,
+                          'Coste base por accion. Se pueden aplicar suplementos por prompts largos y por tokens de salida.',
+                          'Base cost per action. Extra surcharges may apply for long prompts and output token usage.',
+                        ),
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: dialogScheme.onSurfaceVariant,
+                          height: 1.35,
+                        ),
+                      ),
+                      if (!pricing.fromServer) ...[
+                        const SizedBox(height: 6),
+                        Text(
+                          _t(
+                            context,
+                            'Mostrando tabla en cache local (sin conexion al backend).',
+                            'Showing local cached table (no backend connection).',
+                          ),
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: dialogScheme.tertiary,
+                            height: 1.3,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ],
+                      const SizedBox(height: 10),
+                      ...orderedKeys.map((operation) {
+                        final drops = pricing.costForOperation(operation);
+                        final label = _inkOperationLabel(context, operation);
+                        return Padding(
+                          padding: const EdgeInsets.only(bottom: 8),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 10,
+                              vertical: 8,
+                            ),
+                            decoration: BoxDecoration(
+                              color: dialogScheme.surfaceContainerHighest
+                                  .withValues(alpha: 0.45),
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(
+                                color: dialogScheme.outlineVariant.withValues(
+                                  alpha: 0.4,
+                                ),
+                              ),
+                            ),
+                            child: Row(
+                              children: [
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        label,
+                                        style: theme.textTheme.bodyMedium
+                                            ?.copyWith(
+                                              fontWeight: FontWeight.w700,
+                                            ),
+                                      ),
+                                      Text(
+                                        operation,
+                                        style: theme.textTheme.bodySmall
+                                            ?.copyWith(
+                                              color:
+                                                  dialogScheme.onSurfaceVariant,
+                                            ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                const SizedBox(width: 10),
+                                Text(
+                                  '$drops',
+                                  style: theme.textTheme.titleMedium?.copyWith(
+                                    fontWeight: FontWeight.w800,
+                                    color: dialogScheme.primary,
+                                  ),
+                                ),
+                                const SizedBox(width: 4),
+                                Text(
+                                  _t(context, 'gotas', 'drops'),
+                                  style: theme.textTheme.bodySmall?.copyWith(
+                                    color: dialogScheme.onSurfaceVariant,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        );
+                      }),
+                    ],
+                  ),
+                );
+              },
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: Text(_t(context, 'Cerrar', 'Close')),
+            ),
+          ],
+        );
+      },
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -8061,7 +8455,9 @@ class _FolioCloudSubscriptionPanel extends StatelessWidget {
                           child: FilledButton.icon(
                             onPressed: busy
                                 ? null
-                                : (snap.active ? onBillingPortal : onSubscribeMonthly),
+                                : (snap.active
+                                      ? onBillingPortal
+                                      : onSubscribeMonthly),
                             icon: Icon(
                               snap.active
                                   ? Icons.payments_outlined
@@ -8088,13 +8484,37 @@ class _FolioCloudSubscriptionPanel extends StatelessWidget {
               ),
               const SizedBox(height: 12),
               // Ink shop
-              Text(
-                l10n.folioCloudBuyInk,
-                style: theme.textTheme.titleSmall?.copyWith(
-                  fontWeight: FontWeight.w800,
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      l10n.folioCloudBuyInk,
+                      style: theme.textTheme.titleSmall?.copyWith(
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                  ),
+                  TextButton.icon(
+                    onPressed: () => _showInkPricingTable(context),
+                    icon: const Icon(Icons.table_chart_outlined, size: 18),
+                    label: Text(_t(context, 'Ver tabla', 'View table')),
+                  ),
+                ],
+              ),
+              Padding(
+                padding: const EdgeInsets.only(bottom: 8),
+                child: Text(
+                  _t(
+                    context,
+                    'Precios de referencia para IA en nube con OpenAI.',
+                    'Reference pricing for hosted AI with OpenAI.',
+                  ),
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: scheme.onSurfaceVariant,
+                    height: 1.3,
+                  ),
                 ),
               ),
-              const SizedBox(height: 8),
               LayoutBuilder(
                 builder: (context, constraints) {
                   final narrow = constraints.maxWidth < 520;
@@ -8188,12 +8608,16 @@ class _FolioCloudSubscriptionPanel extends StatelessWidget {
                         right: 6,
                         child: IconButton(
                           tooltip: l10n.retry,
-                          onPressed: backupCountBusy ? null : onRefreshBackupCount,
+                          onPressed: backupCountBusy
+                              ? null
+                              : onRefreshBackupCount,
                           icon: backupCountBusy
                               ? const SizedBox(
                                   width: 18,
                                   height: 18,
-                                  child: CircularProgressIndicator(strokeWidth: 2),
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                  ),
                                 )
                               : const Icon(Icons.refresh_rounded, size: 18),
                         ),

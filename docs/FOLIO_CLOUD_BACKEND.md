@@ -61,14 +61,14 @@ Si una política de organización impide `allUsers`, hay que alinear excepciones
 | `rewrite_block`   | 1          |
 | `summarize_selection` | 1    |
 | `extract_tasks`   | 2          |
-| `summarize_page`  | 2          |
-| `generate_insert` | 4          |
-| `generate_page`   | 6          |
-| `chat_turn`       | 2          |
-| `agent_main`      | 8          |
-| `agent_followup`  | 3          |
-| `edit_page_panel` | 3          |
-| `default`         | 2          |
+| `summarize_page`  | 3          |
+| `generate_insert` | 5          |
+| `generate_page`   | 8          |
+| `chat_turn`       | 3          |
+| `agent_main`      | 10         |
+| `agent_followup`  | 4          |
+| `edit_page_panel` | 4          |
+| `default`         | 3          |
 
 - **Límites y suplementos** (mismo archivo): `INK_MAX_PER_REQUEST` (tope por llamada). Si el **input total** (suma aproximada de `prompt` + `systemPrompt` + `messages[].content`) supera `INK_PROMPT_LENGTH_SURCHARGE_THRESHOLD` caracteres, se suman gotas extra (`INK_EXTRA_FOR_LONG_PROMPT`). Tras una respuesta exitosa de OpenAI, puede aplicarse un **suplemento por tokens** según `usage.total_tokens` (`INK_TOKENS_PER_SURCHARGE_UNIT`, tope `INK_MAX_TOKEN_SURCHARGE`).
 - `folioCloudAiComplete` (callable **1st gen**) exige `folioCloud.active` y `features.cloudAi`, descuenta el coste base en una transacción y llama a **OpenAI** Chat Completions (`OPENAI_API_KEY`). Si la IA falla después del débito, se reembolsa el **mismo** importe base (`refundInkDropCharge`). Sin tinta suficiente: `HttpsError` con código `resource-exhausted`.

@@ -230,7 +230,7 @@ class AppSettings extends ChangeNotifier {
   static const double minWorkspaceSidebarWidth = 220;
   static const double maxWorkspaceSidebarWidth = 480;
   static const double defaultWorkspaceSidebarWidth = 320;
-  static const String defaultUpdaterGithubOwner = 'aleja';
+  static const String defaultUpdaterGithubOwner = 'Minealex2001';
   static const String defaultUpdaterGithubRepo = 'Folio';
   static const bool defaultCheckUpdatesOnStartup = true;
   static const UpdateReleaseChannel defaultUpdateReleaseChannel =
