@@ -10,7 +10,8 @@ import '../../../app/widgets/folio_dialog.dart';
 import '../../../app/widgets/folio_icon_picker.dart';
 import '../../../app/widgets/folio_icon_token_view.dart';
 import '../../../data/vault_registry.dart';
-import 'template_gallery_dialog.dart';
+import '../../../services/cloud_account/cloud_account_controller.dart';
+import 'template_gallery_page.dart';
 import '../../../l10n/generated/app_localizations.dart';
 import '../../../models/folio_page.dart';
 import '../../../session/vault_session.dart';
@@ -20,6 +21,7 @@ class Sidebar extends StatefulWidget {
     super.key,
     required this.session,
     required this.appSettings,
+    required this.cloudAccountController,
     this.onSearch,
     this.onForceSync,
     this.onOpenSettings,
@@ -28,6 +30,7 @@ class Sidebar extends StatefulWidget {
 
   final VaultSession session;
   final AppSettings appSettings;
+  final CloudAccountController cloudAccountController;
   final VoidCallback? onSearch;
   final VoidCallback? onForceSync;
   final VoidCallback? onOpenSettings;
@@ -551,9 +554,10 @@ class _SidebarState extends State<Sidebar> {
   }
 
   Future<void> _openTemplateGallery(BuildContext context) async {
-    final result = await showTemplateGalleryDialog(
+    final result = await openTemplateGalleryPage(
       context: context,
       session: session,
+      cloud: widget.cloudAccountController,
     );
     if (result == null) return;
     if (result.template != null) {

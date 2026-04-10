@@ -1900,6 +1900,84 @@ class AppLocalizationsEn extends AppLocalizations {
       'Select a template to inspect it, edit its metadata, or export it.';
 
   @override
+  String get templateGalleryTabLocal => 'Local';
+
+  @override
+  String get templateGalleryTabCommunity => 'Community';
+
+  @override
+  String get templateCommunitySignInCta =>
+      'Sign in to share and browse community templates.';
+
+  @override
+  String get templateCommunitySignInButton => 'Sign in';
+
+  @override
+  String get templateCommunityUnavailable =>
+      'Community templates require Firebase. Check your connection or configuration.';
+
+  @override
+  String get templateCommunityEmpty =>
+      'No community templates yet. Be the first to share one from the Local tab.';
+
+  @override
+  String templateCommunityLoadError(Object error) {
+    return 'Could not load community templates: $error';
+  }
+
+  @override
+  String get templateCommunityRetry => 'Retry';
+
+  @override
+  String get templateCommunityRefresh => 'Refresh';
+
+  @override
+  String get templateCommunityShareTitle => 'Share to community';
+
+  @override
+  String get templateCommunityShareBody =>
+      'Your template will be public for anyone to view and download. Remove personal or confidential content before sharing.';
+
+  @override
+  String get templateCommunityShareConfirm => 'Share';
+
+  @override
+  String get templateCommunityShareSuccess =>
+      'Template shared with the community';
+
+  @override
+  String templateCommunityShareError(Object error) {
+    return 'Could not share: $error';
+  }
+
+  @override
+  String get templateCommunityAddToVault => 'Save to my templates';
+
+  @override
+  String get templateCommunityAddedToVault => 'Saved to your templates';
+
+  @override
+  String get templateCommunityDeleteTitle => 'Remove from community';
+
+  @override
+  String templateCommunityDeleteBody(Object name) {
+    return 'Delete \"$name\" from the community store? This cannot be undone.';
+  }
+
+  @override
+  String get templateCommunityDeleteSuccess => 'Removed from community';
+
+  @override
+  String templateCommunityDeleteError(Object error) {
+    return 'Could not remove: $error';
+  }
+
+  @override
+  String templateCommunityDownloadError(Object error) {
+    return 'Could not download template: $error';
+  }
+
+  @override
   String get clear => 'Clear';
 
   @override

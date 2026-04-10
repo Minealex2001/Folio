@@ -17,7 +17,6 @@ import 'services/platform/launch_arguments.dart';
 import 'session/vault_session.dart';
 
 Future<void> main() async {
-  WidgetsFlutterBinding.ensureInitialized();
   AppLogger.setSink(await AppLogFileSink.init());
 
   FlutterError.onError = (details) {
@@ -44,10 +43,12 @@ Future<void> main() async {
     return true;
   };
 
-  SystemTheme.fallbackColor = const Color(0xFF455A64);
-  await SystemTheme.accentColor.load();
-
   await runZonedGuarded(() async {
+    WidgetsFlutterBinding.ensureInitialized();
+
+    SystemTheme.fallbackColor = const Color(0xFF455A64);
+    await SystemTheme.accentColor.load();
+
     try {
       await Firebase.initializeApp(
         options: DefaultFirebaseOptions.currentPlatform,

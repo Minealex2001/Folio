@@ -611,6 +611,32 @@
   ,"@templateCreatedOn": {"placeholders": {"date": {}}}
   ,"templatePreviewEmpty": "Esta plantilla todavía no tiene vista previa de texto."
   ,"templateSelectHint": "Selecciona una plantilla para inspeccionarla, editar sus metadatos o exportarla."
+  ,"templateGalleryTabLocal": "Locales"
+  ,"templateGalleryTabCommunity": "Comunidad"
+  ,"templateCommunitySignInCta": "Inicia sesión para compartir y explorar plantillas de la comunidad."
+  ,"templateCommunitySignInButton": "Iniciar sesión"
+  ,"templateCommunityUnavailable": "Las plantillas de la comunidad requieren Firebase. Revisa la conexión o la configuración."
+  ,"templateCommunityEmpty": "Aún no hay plantillas en la comunidad. Comparte la primera desde la pestaña Locales."
+  ,"templateCommunityLoadError": "No se pudieron cargar las plantillas: {error}"
+  ,"@templateCommunityLoadError": {"placeholders": {"error": {}}}
+  ,"templateCommunityRetry": "Reintentar"
+  ,"templateCommunityRefresh": "Actualizar"
+  ,"templateCommunityShareTitle": "Compartir con la comunidad"
+  ,"templateCommunityShareBody": "Tu plantilla será pública: cualquiera podrá verla y descargarla. Revisa que no incluya datos personales o confidenciales."
+  ,"templateCommunityShareConfirm": "Compartir"
+  ,"templateCommunityShareSuccess": "Plantilla compartida con la comunidad"
+  ,"templateCommunityShareError": "No se pudo compartir: {error}"
+  ,"@templateCommunityShareError": {"placeholders": {"error": {}}}
+  ,"templateCommunityAddToVault": "Guardar en mis plantillas"
+  ,"templateCommunityAddedToVault": "Guardada en tus plantillas"
+  ,"templateCommunityDeleteTitle": "Quitar de la comunidad"
+  ,"templateCommunityDeleteBody": "¿Eliminar \"{name}\" de la tienda comunitaria? No se puede deshacer."
+  ,"@templateCommunityDeleteBody": {"placeholders": {"name": {}}}
+  ,"templateCommunityDeleteSuccess": "Eliminada de la comunidad"
+  ,"templateCommunityDeleteError": "No se pudo eliminar: {error}"
+  ,"@templateCommunityDeleteError": {"placeholders": {"error": {}}}
+  ,"templateCommunityDownloadError": "No se pudo descargar la plantilla: {error}"
+  ,"@templateCommunityDownloadError": {"placeholders": {"error": {}}}
   ,"clear": "Limpiar"
   ,"cloudAccountSectionTitle": "Cuenta Folio Cloud"
   ,"cloudAccountSectionDescription": "Opcional. Inicia sesión para suscribirte a copias en la nube, IA hospedada y publicación web. Tu libreta sigue siendo local salvo que uses esas funciones."

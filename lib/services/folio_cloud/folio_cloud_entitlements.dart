@@ -92,22 +92,29 @@ class FolioInkSnapshot {
     monthlyPeriodKey: null,
   );
 
-  /// Valores enormes en Firestore (bug de webhook o dato manual) distorsionan la UI.
-  /// Los negativos se muestran como 0 por campo; el servidor (Cloud Functions) también
-  /// acota cada campo a ≥ 0 al cobrar, para que el total coincida con la UI.
-  static const int _sanityMaxInkField = 100000;
+  /// Tope razonable solo para la recarga mensual (suscripción); evita que un bug de
+  /// webhook distorsione la UI. La tinta comprada no tiene límite superior en cliente.
+  /// Los negativos se muestran como 0 por campo; el servidor acota a ≥ 0 al cobrar.
+  static const int _sanityMaxMonthlyInkField = 100000;
 
-  static int _inkFieldFromDoc(num? v, String label) {
+  static int _inkMonthlyFromDoc(num? v) {
     if (v == null) return 0;
     final n = v.toInt();
     if (n <= 0) return 0;
-    if (n > _sanityMaxInkField) {
+    if (n > _sanityMaxMonthlyInkField) {
       debugPrint(
-        'FolioInkSnapshot: $label=$n parece corrupto; mostrando como '
-        '$_sanityMaxInkField. Corrige users/{uid}.ink en Firestore.',
+        'FolioInkSnapshot: monthlyBalance=$n parece corrupto; mostrando como '
+        '$_sanityMaxMonthlyInkField.',
       );
-      return _sanityMaxInkField;
+      return _sanityMaxMonthlyInkField;
     }
+    return n;
+  }
+
+  static int _inkPurchasedFromDoc(num? v) {
+    if (v == null) return 0;
+    final n = v.toInt();
+    if (n < 0) return 0;
     return n;
   }
 
@@ -116,21 +123,15 @@ class FolioInkSnapshot {
     final raw = data['ink'];
     if (raw is Map) {
       final m = _asStringKeyedMap(raw);
-      final monthlyFromMap = _inkFieldFromDoc(
-        m['monthlyBalance'] as num?,
-        'monthlyBalance',
-      );
-      final purchasedFromMap = _inkFieldFromDoc(
+      final monthlyFromMap = _inkMonthlyFromDoc(m['monthlyBalance'] as num?);
+      final purchasedFromMap = _inkPurchasedFromDoc(
         m['purchasedBalance'] as num?,
-        'purchasedBalance',
       );
-      final dottedMonthly = _inkFieldFromDoc(
+      final dottedMonthly = _inkMonthlyFromDoc(
         data['ink.monthlyBalance'] as num?,
-        'ink.monthlyBalance',
       );
-      final dottedPurchased = _inkFieldFromDoc(
+      final dottedPurchased = _inkPurchasedFromDoc(
         data['ink.purchasedBalance'] as num?,
-        'ink.purchasedBalance',
       );
 
       // Si conviven ambas formas (mapa `ink` + claves literales con punto),
@@ -154,14 +155,8 @@ class FolioInkSnapshot {
         dottedPurchased != null ||
         dottedKey != null) {
       return FolioInkSnapshot(
-        monthlyBalance: _inkFieldFromDoc(
-          dottedMonthly as num?,
-          'ink.monthlyBalance',
-        ),
-        purchasedBalance: _inkFieldFromDoc(
-          dottedPurchased as num?,
-          'ink.purchasedBalance',
-        ),
+        monthlyBalance: _inkMonthlyFromDoc(dottedMonthly as num?),
+        purchasedBalance: _inkPurchasedFromDoc(dottedPurchased as num?),
         monthlyPeriodKey: dottedKey?.toString(),
       );
     }
