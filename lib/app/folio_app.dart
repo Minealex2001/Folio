@@ -411,7 +411,7 @@ class _FolioAppState extends State<FolioApp> with WidgetsBindingObserver {
         widget.session.setAiService(null);
         return;
       }
-      if (widget.appSettings.aiProvider == AiProvider.folioCloud) {
+      if (widget.appSettings.aiProvider == AiProvider.quillCloud) {
         if (_folioCloudEntitlements.snapshot.canUseCloudAi) {
           widget.session.setAiService(
             FolioCloudAiService(entitlements: _folioCloudEntitlements),
@@ -432,7 +432,7 @@ class _FolioAppState extends State<FolioApp> with WidgetsBindingObserver {
       case AiProvider.none:
         widget.session.setAiService(null);
         return;
-      case AiProvider.folioCloud:
+      case AiProvider.quillCloud:
         if (!_folioCloudEntitlements.snapshot.canUseCloudAi) {
           widget.session.setAiService(null);
           return;
@@ -482,7 +482,7 @@ class _FolioAppState extends State<FolioApp> with WidgetsBindingObserver {
         );
         break;
       case AiProvider.none:
-      case AiProvider.folioCloud:
+      case AiProvider.quillCloud:
         break;
     }
   }

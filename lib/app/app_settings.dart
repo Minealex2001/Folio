@@ -9,7 +9,7 @@ import 'folio_build_flags.dart';
 import 'folio_in_app_shortcuts.dart';
 import '../services/updater/update_release_channel.dart';
 
-enum AiProvider { none, ollama, lmStudio, folioCloud }
+enum AiProvider { none, ollama, lmStudio, quillCloud }
 
 /// Ollama y LM Studio solo en escritorio y web; en Android/iOS Quill usa Folio Cloud.
 bool get aiLocalProvidersSupported {
@@ -214,6 +214,10 @@ class AppSettings extends ChangeNotifier {
       'folio_last_scheduled_vault_backup_ms';
   static const _scheduledVaultBackupAlsoUploadCloudKey =
       'folio_scheduled_vault_backup_also_cloud_v1';
+  static const _meetingNoteMicDeviceIdKey = 'folio_meeting_note_mic_device_id';
+  static const _meetingNoteSystemDeviceIdKey =
+      'folio_meeting_note_system_device_id';
+  static const _meetingNoteModelIdKey = 'folio_meeting_note_model_id';
   static const int maxRecentSearchQueries = 10;
   static const int defaultScheduledVaultBackupIntervalHours = 24;
   static const int defaultVaultIdleLockMinutes = 15;
@@ -237,8 +241,7 @@ class AppSettings extends ChangeNotifier {
       UpdateReleaseChannel.stable;
 
   /// Portal Folio (vinculación cuenta web). Puede sustituirse con [folioWebPortalBaseUrlFromEnvironment].
-  static const String defaultFolioWebPortalBaseUrl =
-      'http://localhost:3001/';
+  static const String defaultFolioWebPortalBaseUrl = 'http://localhost:3001/';
 
   /// Si no está vacío, sustituye a [defaultFolioWebPortalBaseUrl] (p. ej. staging vía `--dart-define`).
   static final String folioWebPortalBaseUrlFromEnvironment =
@@ -303,6 +306,9 @@ class AppSettings extends ChangeNotifier {
   String _scheduledVaultBackupDirectory = '';
   int _lastScheduledVaultBackupMs = 0;
   bool _scheduledVaultBackupAlsoUploadCloud = false;
+  String _meetingNoteMicDeviceId = '';
+  String _meetingNoteSystemDeviceId = '';
+  String _meetingNoteModelId = 'base';
 
   ThemeMode get themeMode => _themeMode;
   Locale? get locale => _locale;
@@ -355,6 +361,9 @@ class AppSettings extends ChangeNotifier {
   int get lastScheduledVaultBackupMs => _lastScheduledVaultBackupMs;
   bool get scheduledVaultBackupAlsoUploadCloud =>
       _scheduledVaultBackupAlsoUploadCloud;
+  String get meetingNoteMicDeviceId => _meetingNoteMicDeviceId;
+  String get meetingNoteSystemDeviceId => _meetingNoteSystemDeviceId;
+  String get meetingNoteModelId => _meetingNoteModelId;
 
   /// URL del portal para vincular cuenta web: [folioWebPortalBaseUrlFromEnvironment] o [defaultFolioWebPortalBaseUrl].
   String get folioWebPortalBaseUrlEffective {
@@ -424,7 +433,8 @@ class AppSettings extends ChangeNotifier {
     } else {
       _aiBaseUrl =
           p.getString(_aiBaseUrlKey) ?? defaultUrlForProvider(_aiProvider);
-      _aiModel = p.getString(_aiModelKey) ?? defaultModelForProvider(_aiProvider);
+      _aiModel =
+          p.getString(_aiModelKey) ?? defaultModelForProvider(_aiProvider);
     }
     _aiTimeoutMs = _sanitizeTimeoutMs(p.getInt(_aiTimeoutMsKey));
     _aiEndpointMode = _parseAiEndpointMode(p.getString(_aiEndpointModeKey));
@@ -488,6 +498,15 @@ class AppSettings extends ChangeNotifier {
     _lastScheduledVaultBackupMs = p.getInt(_lastScheduledVaultBackupMsKey) ?? 0;
     _scheduledVaultBackupAlsoUploadCloud =
         p.getBool(_scheduledVaultBackupAlsoUploadCloudKey) ?? false;
+    _meetingNoteMicDeviceId = (p.getString(_meetingNoteMicDeviceIdKey) ?? '')
+        .trim();
+    _meetingNoteSystemDeviceId =
+        (p.getString(_meetingNoteSystemDeviceIdKey) ?? '').trim();
+    _meetingNoteModelId = (p.getString(_meetingNoteModelIdKey) ?? 'base')
+        .trim();
+    if (_meetingNoteModelId.isEmpty) {
+      _meetingNoteModelId = 'base';
+    }
     _integrationSecret = _configuredIntegrationSecret;
     final approvedRaw = p.getString(_approvedIntegrationAppsKey);
     if (approvedRaw != null && approvedRaw.trim().isNotEmpty) {
@@ -574,9 +593,9 @@ class AppSettings extends ChangeNotifier {
           p.getStringList(_aiModelsKeyForProvider(AiProvider.lmStudio)) ??
               const <String>[],
         ),
-        AiProvider.folioCloud: List<String>.from(
-          p.getStringList(_aiModelsKeyForProvider(AiProvider.folioCloud)) ??
-              const <String>['folio-cloud'],
+        AiProvider.quillCloud: List<String>.from(
+          p.getStringList(_aiModelsKeyForProvider(AiProvider.quillCloud)) ??
+              const <String>['quill-cloud'],
         ),
       });
     notifyListeners();
@@ -601,8 +620,8 @@ class AppSettings extends ChangeNotifier {
         return AiProvider.ollama;
       case 'lmStudio':
         return AiProvider.lmStudio;
-      case 'folioCloud':
-        return AiProvider.folioCloud;
+      case 'quillCloud':
+        return AiProvider.quillCloud;
       default:
         return AiProvider.none;
     }
@@ -702,7 +721,7 @@ class AppSettings extends ChangeNotifier {
         return defaultOllamaUrl;
       case AiProvider.lmStudio:
         return defaultLmStudioUrl;
-      case AiProvider.folioCloud:
+      case AiProvider.quillCloud:
         return '';
       case AiProvider.none:
         return defaultOllamaUrl;
@@ -715,8 +734,8 @@ class AppSettings extends ChangeNotifier {
         return defaultOllamaModel;
       case AiProvider.lmStudio:
         return defaultLmStudioModel;
-      case AiProvider.folioCloud:
-        return 'folio-cloud';
+      case AiProvider.quillCloud:
+        return 'quill-cloud';
       case AiProvider.none:
         return defaultOllamaModel;
     }
@@ -841,7 +860,7 @@ class AppSettings extends ChangeNotifier {
     }
     if (_aiProvider == value) return;
     _aiProvider = value;
-    if (value == AiProvider.folioCloud) {
+    if (value == AiProvider.quillCloud) {
       _aiModel = defaultModelForProvider(value);
       notifyListeners();
       final p = await SharedPreferences.getInstance();
@@ -1107,7 +1126,10 @@ class AppSettings extends ChangeNotifier {
     final p = await SharedPreferences.getInstance();
     await p.setBool(_scheduledVaultBackupEnabledKey, value);
     if (value && _lastScheduledVaultBackupMs != 0) {
-      await p.setInt(_lastScheduledVaultBackupMsKey, _lastScheduledVaultBackupMs);
+      await p.setInt(
+        _lastScheduledVaultBackupMsKey,
+        _lastScheduledVaultBackupMs,
+      );
     }
   }
 
@@ -1148,6 +1170,41 @@ class AppSettings extends ChangeNotifier {
     notifyListeners();
     final p = await SharedPreferences.getInstance();
     await p.setBool(_scheduledVaultBackupAlsoUploadCloudKey, value);
+  }
+
+  Future<void> setMeetingNoteMicDeviceId(String value) async {
+    final safe = value.trim();
+    if (_meetingNoteMicDeviceId == safe) return;
+    _meetingNoteMicDeviceId = safe;
+    notifyListeners();
+    final p = await SharedPreferences.getInstance();
+    if (safe.isEmpty) {
+      await p.remove(_meetingNoteMicDeviceIdKey);
+    } else {
+      await p.setString(_meetingNoteMicDeviceIdKey, safe);
+    }
+  }
+
+  Future<void> setMeetingNoteSystemDeviceId(String value) async {
+    final safe = value.trim();
+    if (_meetingNoteSystemDeviceId == safe) return;
+    _meetingNoteSystemDeviceId = safe;
+    notifyListeners();
+    final p = await SharedPreferences.getInstance();
+    if (safe.isEmpty) {
+      await p.remove(_meetingNoteSystemDeviceIdKey);
+    } else {
+      await p.setString(_meetingNoteSystemDeviceIdKey, safe);
+    }
+  }
+
+  Future<void> setMeetingNoteModelId(String value) async {
+    final safe = value.trim().isEmpty ? 'base' : value.trim();
+    if (_meetingNoteModelId == safe) return;
+    _meetingNoteModelId = safe;
+    notifyListeners();
+    final p = await SharedPreferences.getInstance();
+    await p.setString(_meetingNoteModelIdKey, safe);
   }
 
   Future<void> setInAppShortcut(

@@ -13,6 +13,27 @@ service cloud.firestore {
         && d.folioCloud.features != null
         && d.folioCloud.features.publishWeb == true;
     }
+
+    function folioRealtimeCollabOk() {
+      let d = userData(request.auth.uid);
+      return d.folioCloud != null
+        && d.folioCloud.active == true
+        && d.folioCloud.features != null
+        && d.folioCloud.features.realtimeCollab == true;
+    }
+
+    function collabRoomDoc(roomId) {
+      return get(/databases/$(database)/documents/collabRooms/$(roomId));
+    }
+
+    function collabMember(roomId) {
+      return request.auth != null
+        && collabRoomDoc(roomId).data != null
+        && (
+          request.auth.uid == collabRoomDoc(roomId).data.ownerUid
+          || request.auth.uid in collabRoomDoc(roomId).data.memberUids
+        );
+    }
     // Per-user profile: folioCloud, ink, stripeCustomerId — solo escritura por Cloud Functions (webhooks/callables).
     match /users/{userId} {
       allow read: if request.auth != null && request.auth.uid == userId;
@@ -85,6 +106,152 @@ service cloud.firestore {
 
       allow delete: if request.auth != null
         && resource.data.ownerUid == request.auth.uid;
+    }
+
+    // Índice código → sala (solo Functions).
+    match /collabJoinIndex/{key} {
+      allow read, write: if false;
+    }
+
+    // Salas de colaboración: alta solo Cloud Functions (admin); sync E2E o legado desde miembros.
+    match /collabRooms/{roomId} {
+      allow read: if collabMember(roomId);
+
+      allow create: if false;
+
+      function collabLegacyRoom() {
+        return !('e2eV' in resource.data) || resource.data.e2eV == 0;
+      }
+
+      function collabE2eSealPending() {
+        return resource.data.e2eV == 1
+          && resource.data.contentVersion == 0;
+      }
+
+      allow update: if collabMember(roomId)
+        && request.resource.data.ownerUid == resource.data.ownerUid
+        && request.resource.data.vaultPageId == resource.data.vaultPageId
+        && request.resource.data.memberUids == resource.data.memberUids
+        && request.resource.data.createdAt == resource.data.createdAt
+        && request.resource.data.joinCodeKey == resource.data.joinCodeKey
+        && (!('joinCode' in resource.data)
+          || request.resource.data.joinCode == resource.data.joinCode)
+        && (
+          (
+            collabLegacyRoom()
+            && request.resource.data.title is string
+            && request.resource.data.title.size() <= 500
+            && request.resource.data.blocks is list
+            && request.resource.data.contentVersion is int
+            && request.resource.data.contentVersion >= resource.data.contentVersion
+            && request.resource.data.updatedAt is timestamp
+            && (!('updatedBy' in request.resource.data)
+              || request.resource.data.updatedBy is string)
+            && request.resource.data.diff(resource.data).changedKeys()
+              .hasOnly(['title', 'blocks', 'contentVersion', 'updatedAt', 'updatedBy'])
+          )
+          || (
+            collabE2eSealPending()
+            && request.auth.uid == resource.data.ownerUid
+            && request.resource.data.e2eV == 1
+            && request.resource.data.wrappedRoomKey is string
+            && request.resource.data.wrappedRoomKey.size() >= 24
+            && request.resource.data.wrappedRoomKey.size() <= 512
+            && request.resource.data.contentCipher is string
+            && request.resource.data.contentCipher.size() > 0
+            && request.resource.data.contentCipher.size() <= 900000
+            && request.resource.data.contentVersion == 1
+            && request.resource.data.updatedAt is timestamp
+            && request.resource.data.updatedBy == request.auth.uid
+            && request.resource.data.diff(resource.data).changedKeys()
+              .hasOnly([
+                'wrappedRoomKey', 'contentCipher', 'contentVersion',
+                'updatedAt', 'updatedBy'
+              ])
+          )
+          || (
+            resource.data.e2eV == 1
+            && resource.data.contentVersion > 0
+            && request.resource.data.e2eV == 1
+            && request.resource.data.wrappedRoomKey == resource.data.wrappedRoomKey
+            && request.resource.data.contentCipher is string
+            && request.resource.data.contentCipher.size() > 0
+            && request.resource.data.contentCipher.size() <= 900000
+            && request.resource.data.contentVersion is int
+            && request.resource.data.contentVersion > resource.data.contentVersion
+            && request.resource.data.updatedAt is timestamp
+            && (!('updatedBy' in request.resource.data)
+              || request.resource.data.updatedBy is string)
+            && request.resource.data.diff(resource.data).changedKeys()
+              .hasOnly(['contentCipher', 'contentVersion', 'updatedAt', 'updatedBy'])
+          )
+        );
+
+      allow delete: if request.auth != null
+        && resource.data.ownerUid == request.auth.uid
+        && folioRealtimeCollabOk();
+
+      match /messages/{messageId} {
+        allow read: if collabMember(roomId);
+
+        allow create: if collabMember(roomId)
+          && request.resource.data.authorUid == request.auth.uid
+          && (
+            (
+              request.resource.data.e2eV == 1
+              && request.resource.data.authorUid is string
+              && request.resource.data.authorName is string
+              && request.resource.data.authorName.size() <= 200
+              && request.resource.data.cipherText is string
+              && request.resource.data.cipherText.size() > 0
+              && request.resource.data.cipherText.size() <= 12000
+              && request.resource.data.createdAt is timestamp
+              && request.resource.data.keys().hasAll([
+                'e2eV', 'authorUid', 'authorName', 'cipherText', 'createdAt'
+              ])
+              && (
+                request.resource.data.keys().hasOnly([
+                  'e2eV', 'authorUid', 'authorName', 'cipherText', 'createdAt'
+                ])
+                || request.resource.data.keys().hasOnly([
+                  'e2eV', 'authorUid', 'authorName', 'cipherText', 'createdAt', 'clientId'
+                ])
+              )
+              && (!('clientId' in request.resource.data)
+                || (
+                  request.resource.data.clientId is string
+                  && request.resource.data.clientId.size() <= 128
+                ))
+            )
+            || (
+              request.resource.data.authorUid is string
+              && request.resource.data.authorName is string
+              && request.resource.data.authorName.size() <= 200
+              && request.resource.data.text is string
+              && request.resource.data.text.size() > 0
+              && request.resource.data.text.size() <= 4000
+              && request.resource.data.createdAt is timestamp
+              && request.resource.data.keys().hasAll([
+                'authorUid', 'authorName', 'text', 'createdAt'
+              ])
+              && (
+                request.resource.data.keys().hasOnly([
+                  'authorUid', 'authorName', 'text', 'createdAt'
+                ])
+                || request.resource.data.keys().hasOnly([
+                  'authorUid', 'authorName', 'text', 'createdAt', 'clientId'
+                ])
+              )
+              && (!('clientId' in request.resource.data)
+                || (
+                  request.resource.data.clientId is string
+                  && request.resource.data.clientId.size() <= 128
+                ))
+            )
+          );
+
+        allow update, delete: if false;
+      }
     }
   }
 }

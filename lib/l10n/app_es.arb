@@ -219,6 +219,91 @@
   "sidebarAutoRevealSubtitle": "Si el panel está oculto, acerca el puntero al borde izquierdo para verlo un momento.",
   "newRootPageTooltip": "Nueva página (raíz)",
   "blockOptions": "Opciones del bloque",
+  "meetingNoteTitle": "Nota de reunión",
+  "meetingNoteDesktopOnly": "Solo disponible en escritorio.",
+  "meetingNoteStartRecording": "Iniciar grabación",
+  "meetingNotePreparing": "Preparando…",
+  "meetingNoteTranscriptionLanguage": "Idioma de transcripción",
+  "meetingNoteLangAuto": "Automático",
+  "meetingNoteLangEs": "Español",
+  "meetingNoteLangEn": "Inglés",
+  "meetingNoteLangPt": "Portugués",
+  "meetingNoteLangFr": "Francés",
+  "meetingNoteLangIt": "Italiano",
+  "meetingNoteLangDe": "Alemán",
+  "meetingNoteDevicesInSettings": "Los dispositivos de entrada/salida se configuran en Ajustes > Escritorio.",
+  "meetingNoteModelInSettings": "Modelo de transcripción: {model} (en Ajustes > Escritorio).",
+  "@meetingNoteModelInSettings": {
+    "placeholders": {
+      "model": {}
+    }
+  },
+  "meetingNoteDescription": "Graba micrófono y audio del sistema. La transcripción se genera localmente.",
+  "meetingNoteWhisperInitError": "No se pudo inicializar Whisper: {error}",
+  "@meetingNoteWhisperInitError": {
+    "placeholders": {
+      "error": {}
+    }
+  },
+  "meetingNoteAudioAccessError": "No se pudo acceder al micrófono/dispositivos.",
+  "meetingNoteMicrophoneAccessError": "No se pudo acceder al micrófono.",
+  "meetingNoteChunkTranscriptionError": "No se pudo transcribir este fragmento de audio.",
+  "meetingNoteProviderLocal": "Local (Whisper)",
+  "meetingNoteProviderCloud": "Quill Cloud",
+  "meetingNoteProviderCloudCost": "1 Tinta por cada 5 min. grabados",
+  "meetingNoteCloudFallbackNotice": "Cloud no disponible. Usando Whisper local.",
+  "meetingNoteCloudInkExhaustedNotice": "Tinta insuficiente. Cambiando a Whisper local.",
+  "meetingNoteCloudRecordingBadge": "Quill Cloud | Idioma: {language}",
+  "@meetingNoteCloudRecordingBadge": {
+    "placeholders": {
+      "language": {}
+    }
+  },
+    "meetingNoteCloudProcessing": "Procesando con Quill Cloud…",
+    "meetingNoteCloudProcessingSubtitle": "Detectando hablantes y mejorando calidad. Un momento.",
+  "meetingNoteCloudRequiresAccount": "Requiere cuenta Folio Cloud con Tinta.",
+  "meetingNoteTranscriptionProvider": "Motor de transcripción",
+  "meetingNoteRecordingTime": "Grabando  {mm}:{ss}",
+  "@meetingNoteRecordingTime": {
+    "placeholders": {
+      "mm": {},
+      "ss": {}
+    }
+  },
+  "meetingNoteRecordingBadge": "Idioma: {language} | Modelo: {model}",
+  "@meetingNoteRecordingBadge": {
+    "placeholders": {
+      "language": {},
+      "model": {}
+    }
+  },
+  "meetingNoteSystemAudioCaptured": "Audio del sistema capturado",
+  "meetingNoteStop": "Detener",
+  "meetingNoteWaitingTranscription": "Esperando transcripción…",
+  "meetingNoteTranscribing": "Transcribiendo…",
+  "meetingNoteTranscriptionTitle": "Transcripción",
+  "meetingNoteNoTranscription": "Sin transcripción disponible.",
+  "meetingNoteNewRecording": "Nueva grabación",
+  "meetingNoteSettingsSection": "Nota de reunión (audio)",
+  "meetingNoteSettingsDescription": "Estos dispositivos se usan por defecto al grabar una nota de reunión.",
+  "meetingNoteSettingsMicrophone": "Micrófono",
+  "meetingNoteSettingsRefreshDevices": "Actualizar lista",
+  "meetingNoteSettingsSystemDefault": "Predeterminado del sistema",
+  "meetingNoteSettingsSystemOutput": "Salida del sistema (loopback)",
+  "meetingNoteSettingsModel": "Modelo de transcripción",
+  "meetingNoteDiarizationHint": "Procesamiento 100% local en tu dispositivo.",
+  "meetingNoteModelTiny": "Rápido",
+  "meetingNoteModelBase": "Equilibrado",
+  "meetingNoteModelSmall": "Preciso",
+  "meetingNoteCopyTranscript": "Copiar transcripción",
+  "meetingNoteSendToAi": "Enviar a IA…",
+  "meetingNoteAiPayloadLabel": "¿Qué enviar a la IA?",
+  "meetingNoteAiPayloadTranscript": "Solo transcripción",
+  "meetingNoteAiPayloadAudio": "Solo audio",
+  "meetingNoteAiPayloadBoth": "Transcripción + audio",
+  "meetingNoteAiInstructionHint": "p. ej. resume los puntos clave",
+  "meetingNoteAiNoAudio": "No hay audio disponible para este modo",
+  "meetingNoteAiInstruction": "Instrucción para la IA",
   "dragToReorder": "Arrastrar para reordenar",
   "addBlock": "Añadir bloque",
   "blockMentionPageSubtitle": "Mencionar página",
@@ -784,4 +869,26 @@
   ,"onboardingFolioCloudFeatureWebTitle": "Publicación web"
   ,"onboardingFolioCloudFeatureWebBody": "Publica páginas seleccionadas y controla qué se hace público. El resto de la libreta no se comparte."
   ,"onboardingFolioCloudLaterInSettings": "Lo veré en Ajustes"
+  ,"collabMenuAction": "Colaboración en vivo"
+  ,"collabSheetTitle": "Colaboración en vivo"
+  ,"collabHeaderSubtitle": "Cuenta Folio obligatoria. Crear sala requiere plan con anfitrión; unirse solo necesita el código. Contenido y chat van cifrados de extremo a extremo; el servidor no ve tu texto."
+  ,"collabNoRoomHint": "Crea una sala (si tu plan incluye anfitrión) o pega el código que te comparta el anfitrión (emojis y números)."
+  ,"collabCreateRoom": "Crear sala"
+  ,"collabJoinCodeLabel": "Código de sala"
+  ,"collabJoinCodeHint": "Ej.: dos emojis y 4 dígitos"
+  ,"collabJoinRoom": "Unirse"
+  ,"collabJoinFailed": "Código no válido o sala llena."
+  ,"collabShareCodeLabel": "Comparte este código"
+  ,"collabCopyJoinCode": "Copiar código"
+  ,"collabCopied": "Copiado"
+  ,"collabHostRequiresPlan": "Para crear salas necesitas Folio Cloud con la función de colaboración (anfitrión). Puedes unirte a salas ajenas con un código sin ese plan."
+  ,"collabChatEmptyHint": "Aún no hay mensajes. Saluda a tu equipo."
+  ,"collabMessageHint": "Escribe un mensaje…"
+  ,"collabArchivedOk": "Chat archivado en comentarios de la página."
+  ,"collabArchiveToPage": "Archivar chat en la página"
+  ,"collabLeaveRoom": "Salir de la sala"
+  ,"collabNeedsJoinCode": "Introduce el código de sala para descifrar esta sesión."
+  ,"collabMissingJoinCodeHint": "La página está enlazada a una sala pero aquí no hay código guardado. Pega el código del anfitrión para descifrar contenido y chat."
+  ,"collabUnlockWithCode": "Descifrar con código"
+  ,"collabHidePanel": "Ocultar panel de colaboración"
 }

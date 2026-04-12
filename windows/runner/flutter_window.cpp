@@ -1,5 +1,7 @@
 #include "flutter_window.h"
 
+#include "system_audio_plugin.h"
+
 #include <flutter/method_channel.h>
 #include <flutter/standard_method_codec.h>
 
@@ -40,6 +42,9 @@ bool FlutterWindow::OnCreate() {
   RegisterPlugins(flutter_controller_->engine());
   SetChildContent(flutter_controller_->view()->GetNativeWindow());
 
+  system_audio_plugin_ = std::make_unique<SystemAudioPlugin>(
+      flutter_controller_->engine()->messenger());
+
     launch_arguments_channel_ =
       std::make_unique<flutter::MethodChannel<flutter::EncodableValue>>(
       flutter_controller_->engine()->messenger(), "folio/windows_launch_args",
@@ -73,6 +78,7 @@ bool FlutterWindow::OnCreate() {
 
 void FlutterWindow::OnDestroy() {
   launch_arguments_channel_ = nullptr;
+  system_audio_plugin_ = nullptr;
   if (flutter_controller_) {
     flutter_controller_ = nullptr;
   }

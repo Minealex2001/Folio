@@ -1,8 +1,11 @@
-﻿import 'dart:async';
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'dart:math' as math;
 
+import 'package:path/path.dart' as p;
+
+import 'package:collection/collection.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:file_picker/file_picker.dart';
@@ -26,6 +29,7 @@ import '../../models/folio_toggle_data.dart';
 import '../../services/ai/ai_types.dart';
 import '../../services/ai/folio_cloud_ai_service.dart';
 import '../../services/cloud_account/cloud_account_controller.dart';
+import '../../services/collab/collab_session_controller.dart';
 import '../../services/folio_cloud/folio_cloud_checkout.dart';
 import '../../services/folio_cloud/folio_cloud_ai_pricing.dart';
 import '../../services/folio_cloud/folio_cloud_entitlements.dart';
@@ -33,6 +37,7 @@ import '../../services/folio_cloud/folio_cloud_publish.dart';
 import '../../services/folio_cloud/folio_page_html_export.dart';
 import '../../services/device_sync/device_sync_controller.dart';
 import '../../l10n/generated/app_localizations.dart';
+import '../../data/vault_paths.dart';
 import '../../services/run2doc/run2doc_markdown_codec.dart';
 import '../../session/vault_session.dart';
 import '../settings/folio_cloud_subscription_pitch_page.dart';
@@ -46,6 +51,7 @@ import 'widgets/page_history_sheet.dart';
 import 'widgets/mermaid_markdown_builder.dart';
 import 'widgets/sidebar.dart';
 import 'widgets/page_outline_panel.dart';
+import 'widgets/collaboration_sheet.dart';
 import 'widgets/workspace_editor_surface.dart';
 import 'widgets/workspace_shell.dart';
 
@@ -71,9 +77,11 @@ class WorkspacePage extends StatefulWidget {
   State<WorkspacePage> createState() => _WorkspacePageState();
 }
 
-enum _AiContextItemKind { currentPage, page, file, addFile }
+enum _AiContextItemKind { currentPage, page, file, addFile, meetingNote }
 
 enum _AiContextMenuView { root, pages }
+
+enum _MeetingNoteAiPayload { transcript, audio, both }
 
 class _AiContextItem {
   const _AiContextItem({
@@ -100,12 +108,17 @@ class _WorkspacePageState extends State<WorkspacePage> {
   bool _aiContextMenuPinned = false;
   _AiContextMenuView _aiContextMenuView = _AiContextMenuView.root;
   List<String> _aiAttachmentPaths = [];
+  final Map<String, _MeetingNoteAiPayload> _aiMeetingPayloads = {};
+  final Map<String, String> _aiMeetingTranscripts = {};
   late String _attachmentsBoundChatId;
   bool _aiChatBusy = false;
   AiTokenUsage? _lastChatTokenUsage;
   String _aiInkEstimateOperationKind = 'chat_turn';
   double _aiPanelWidth = 360;
   bool _aiPanelCollapsed = false;
+  double _collabPanelWidth = 360;
+  double _collabPanelHeight = 480;
+  bool _collabPanelCollapsed = true;
   bool _showQuillWorkspaceTour = false;
   final Set<String> _expandedThoughtMessageKeys = <String>{};
   final ScrollController _aiChatScrollController = ScrollController();
@@ -131,8 +144,17 @@ class _WorkspacePageState extends State<WorkspacePage> {
   );
   bool _cloudInkPricingFromServer = false;
 
-  final GlobalKey<BlockEditorState> _blockEditorKey =
-      GlobalKey<BlockEditorState>();
+  final Map<String, GlobalKey<BlockEditorState>> _blockEditorKeysByPage =
+      <String, GlobalKey<BlockEditorState>>{};
+
+  GlobalKey<BlockEditorState> _blockEditorKeyForPage(String pageId) {
+    return _blockEditorKeysByPage.putIfAbsent(
+      pageId,
+      () => GlobalKey<BlockEditorState>(debugLabel: 'block_editor_$pageId'),
+    );
+  }
+
+  late final CollabSessionController _collab;
 
   VaultSession get _s => widget.session;
   AiChatThreadData get _activeChat => _s.activeAiChat;
@@ -232,7 +254,7 @@ class _WorkspacePageState extends State<WorkspacePage> {
   void _updateInkEstimateFromComposer() {
     if (!mounted) return;
     final isCloudProvider =
-        widget.appSettings.aiProvider == AiProvider.folioCloud;
+        widget.appSettings.aiProvider == AiProvider.quillCloud;
     if (!isCloudProvider) return;
     final next = _estimateInkOperationKindForChat(
       text: _chatInputController.text,
@@ -996,11 +1018,17 @@ class _WorkspacePageState extends State<WorkspacePage> {
       );
     }
     for (final path in _aiAttachmentPaths) {
+      final isMeeting = _aiMeetingPayloads.containsKey(path);
+      final label = isMeeting
+          ? _meetingNoteChipLabel(l10n, path)
+          : path.split(RegExp(r'[/\\]')).last;
       items.add(
         _AiContextItem(
-          kind: _AiContextItemKind.file,
+          kind: isMeeting
+              ? _AiContextItemKind.meetingNote
+              : _AiContextItemKind.file,
           id: path,
-          label: path.split(RegExp(r'[/\\]')).last,
+          label: label,
           path: path,
         ),
       );
@@ -1014,6 +1042,11 @@ class _WorkspacePageState extends State<WorkspacePage> {
   ) {
     final needle = query.trim().toLowerCase();
     if (_aiContextMenuView == _AiContextMenuView.root) {
+      final hasMeetingBlocks =
+          _s.selectedPage?.blocks.any(
+            (b) => b.type == 'meeting_note' && (b.url ?? '').trim().isNotEmpty,
+          ) ??
+          false;
       return <_AiContextItem>[
         _AiContextItem(
           kind: _AiContextItemKind.addFile,
@@ -1025,6 +1058,12 @@ class _WorkspacePageState extends State<WorkspacePage> {
           id: '__open_pages__',
           label: l10n.aiContextAddPage,
         ),
+        if (hasMeetingBlocks)
+          _AiContextItem(
+            kind: _AiContextItemKind.meetingNote,
+            id: '__add_meeting_note__',
+            label: l10n.meetingNoteSendToAi,
+          ),
       ];
     }
     final suggestions = <_AiContextItem>[
@@ -1212,6 +1251,8 @@ class _WorkspacePageState extends State<WorkspacePage> {
         return Icons.attach_file_rounded;
       case _AiContextItemKind.addFile:
         return Icons.add_circle_outline_rounded;
+      case _AiContextItemKind.meetingNote:
+        return Icons.mic_rounded;
     }
   }
 
@@ -1240,6 +1281,10 @@ class _WorkspacePageState extends State<WorkspacePage> {
         break;
       case _AiContextItemKind.addFile:
         await _pickAiAttachments();
+        _showAiContextMenu(pinned: true);
+        break;
+      case _AiContextItemKind.meetingNote:
+        await _pickMeetingNoteAttachment();
         _showAiContextMenu(pinned: true);
         break;
     }
@@ -1291,6 +1336,14 @@ class _WorkspacePageState extends State<WorkspacePage> {
         setState(() => _aiAttachmentPaths.remove(item.id));
         _s.syncActiveAiChatAttachmentPaths(_aiAttachmentPaths);
         break;
+      case _AiContextItemKind.meetingNote:
+        setState(() {
+          _aiAttachmentPaths.remove(item.id);
+          _aiMeetingPayloads.remove(item.id);
+          _aiMeetingTranscripts.remove(item.id);
+        });
+        _s.syncActiveAiChatAttachmentPaths(_aiAttachmentPaths);
+        break;
       case _AiContextItemKind.addFile:
         break;
     }
@@ -1299,6 +1352,11 @@ class _WorkspacePageState extends State<WorkspacePage> {
   @override
   void initState() {
     super.initState();
+    _collab = CollabSessionController(
+      vaultSession: widget.session,
+      folioCloudEntitlements: widget.folioCloudEntitlements,
+    );
+    _collab.addListener(_onCollabController);
     _titleController = TextEditingController();
     _attachmentsBoundChatId = _s.activeAiChat.id;
     _aiAttachmentPaths = List<String>.from(_s.activeAiChat.attachmentPaths);
@@ -1312,7 +1370,98 @@ class _WorkspacePageState extends State<WorkspacePage> {
     _syncTitleFromSession();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _maybeShowQuillWorkspaceTour();
+      _syncCollabForSelectedPage();
     });
+  }
+
+  void _onCollabController() {
+    if (mounted) setState(() {});
+  }
+
+  void _syncCollabForSelectedPage() {
+    final id = _s.selectedPageId;
+    final page = id == null
+        ? null
+        : _s.pages.firstWhereOrNull((p) => p.id == id);
+    final rid = page?.collabRoomId?.trim();
+    if (rid != null &&
+        rid.isNotEmpty &&
+        Firebase.apps.isNotEmpty &&
+        widget.cloudAccountController.isSignedIn) {
+      _collab.attach(
+        pageId: page!.id,
+        roomId: rid,
+        initialJoinCode: page.collabJoinCode,
+      );
+    } else {
+      _collab.detach();
+    }
+  }
+
+  void _openCollaborationSheet() {
+    final pageId = _s.selectedPageId;
+    if (pageId == null) return;
+    final page = _s.pages.firstWhereOrNull((p) => p.id == pageId);
+    if (page == null) return;
+    unawaited(
+      showCollaborationSheet(
+        context,
+        collab: _collab,
+        pageId: pageId,
+        canHostCollab: widget.folioCloudEntitlements.snapshot.canRealtimeCollab,
+      ),
+    );
+  }
+
+  void _toggleCollaborationPanel({required bool compact}) {
+    final pageId = _s.selectedPageId;
+    if (pageId == null) return;
+    if (compact) {
+      _openCollaborationSheet();
+    } else {
+      setState(() => _collabPanelCollapsed = !_collabPanelCollapsed);
+    }
+  }
+
+  Widget _buildCollabCollapsedFab(BuildContext context, ColorScheme scheme) {
+    final l10n = AppLocalizations.of(context);
+    return Tooltip(
+      message: l10n.collabMenuAction,
+      child: Material(
+        color: scheme.secondaryContainer,
+        borderRadius: BorderRadius.circular(12),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(12),
+          onTap: () => setState(() => _collabPanelCollapsed = false),
+          child: SizedBox(
+            width: 56,
+            height: 56,
+            child: Icon(
+              Icons.groups_2_rounded,
+              color: scheme.onSecondaryContainer,
+              size: 28,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildCollabDockPanel(BuildContext context) {
+    final pageId = _s.selectedPageId;
+    if (pageId == null) return const SizedBox.shrink();
+    return SafeArea(
+      top: false,
+      left: false,
+      right: false,
+      child: CollaborationSheetBody(
+        collab: _collab,
+        pageId: pageId,
+        canHostCollab: widget.folioCloudEntitlements.snapshot.canRealtimeCollab,
+        embedded: true,
+        onRequestMinimize: () => setState(() => _collabPanelCollapsed = true),
+      ),
+    );
   }
 
   @override
@@ -1323,6 +1472,8 @@ class _WorkspacePageState extends State<WorkspacePage> {
     HardwareKeyboard.instance.removeHandler(_onHardwareKeyEvent);
     widget.appSettings.removeListener(_onAppSettings);
     widget.folioCloudEntitlements.removeListener(_onFolioCloudEntitlements);
+    _collab.removeListener(_onCollabController);
+    _collab.dispose();
     _s.removeListener(_onSession);
     _chatInputController.removeListener(_updateAiContextMenu);
     _chatInputFocusNode.removeListener(_updateAiContextMenu);
@@ -1349,6 +1500,7 @@ class _WorkspacePageState extends State<WorkspacePage> {
         widget.folioCloudEntitlements.snapshot.canUseCloudAi) {
       unawaited(_refreshCloudInkPricing(force: true));
     }
+    _syncCollabForSelectedPage();
     if (mounted) setState(() {});
   }
 
@@ -1388,6 +1540,11 @@ class _WorkspacePageState extends State<WorkspacePage> {
     if (_s.activeAiChat.id != _attachmentsBoundChatId) {
       _attachmentsBoundChatId = _s.activeAiChat.id;
       _aiAttachmentPaths = List<String>.from(_s.activeAiChat.attachmentPaths);
+      // Los metadatos de meeting son in-memory; al cambiar de chat, limpiar huérfanos.
+      _aiMeetingPayloads.removeWhere((k, _) => !_aiAttachmentPaths.contains(k));
+      _aiMeetingTranscripts.removeWhere(
+        (k, _) => !_aiAttachmentPaths.contains(k),
+      );
     }
     final chat = _s.activeAiChat;
     final previousThreadId = _lastAiChatIdForScroll;
@@ -1400,6 +1557,7 @@ class _WorkspacePageState extends State<WorkspacePage> {
       _aiTypewriterActiveMessageKeys.clear();
     }
     _syncTitleFromSession();
+    _syncCollabForSelectedPage();
     setState(() {});
     _updateAiContextMenu();
     if (countChanged || threadChanged) {
@@ -1994,7 +2152,182 @@ class _WorkspacePageState extends State<WorkspacePage> {
   }
 
   Future<List<AiFileAttachment>> _collectAiAttachments() async {
-    return _s.buildAiAttachmentsFromPaths(_aiAttachmentPaths);
+    final regularPaths = <String>[];
+    final audioOnlyPaths = <String>[];
+    final pendingTranscripts = <String>[];
+
+    for (final path in _aiAttachmentPaths) {
+      final payload = _aiMeetingPayloads[path];
+      if (payload == null) {
+        regularPaths.add(path);
+        continue;
+      }
+      final transcript = _aiMeetingTranscripts[path] ?? '';
+      if (payload == _MeetingNoteAiPayload.transcript ||
+          payload == _MeetingNoteAiPayload.both) {
+        if (transcript.isNotEmpty) {
+          pendingTranscripts.add(transcript);
+        }
+      }
+      if (payload == _MeetingNoteAiPayload.audio ||
+          payload == _MeetingNoteAiPayload.both) {
+        audioOnlyPaths.add(path);
+      }
+    }
+
+    final out = await _s.buildAiAttachmentsFromPaths([
+      ...regularPaths,
+      ...audioOnlyPaths,
+    ]);
+    for (final text in pendingTranscripts) {
+      out.add(
+        AiFileAttachment(
+          name: 'meeting_transcript.txt',
+          mimeType: 'text/plain',
+          content: text,
+        ),
+      );
+    }
+    return out;
+  }
+
+  String _meetingNoteBlockTitle(FolioBlock b) {
+    // Intenta extraer fecha del nombre del archivo si la transcripción está vacía.
+    final text = b.text.trim();
+    if (text.isNotEmpty) {
+      final preview = text.length > 60 ? '${text.substring(0, 60)}…' : text;
+      return preview;
+    }
+    final url = (b.url ?? '').split(RegExp(r'[/\\]')).last;
+    return url.isNotEmpty ? url : 'Nota de reunión';
+  }
+
+  String _meetingNoteChipLabel(AppLocalizations l10n, String path) {
+    final payload = _aiMeetingPayloads[path] ?? _MeetingNoteAiPayload.both;
+    final suffix = switch (payload) {
+      _MeetingNoteAiPayload.transcript => l10n.meetingNoteAiPayloadTranscript,
+      _MeetingNoteAiPayload.audio => l10n.meetingNoteAiPayloadAudio,
+      _MeetingNoteAiPayload.both => l10n.meetingNoteAiPayloadBoth,
+    };
+    return '🎙 $suffix';
+  }
+
+  Future<void> _pickMeetingNoteAttachment() async {
+    final page = _s.selectedPage;
+    if (page == null || !mounted) return;
+
+    final meetingBlocks = page.blocks
+        .where(
+          (b) => b.type == 'meeting_note' && (b.url ?? '').trim().isNotEmpty,
+        )
+        .toList();
+    if (meetingBlocks.isEmpty) return;
+
+    final l10n = AppLocalizations.of(context);
+
+    FolioBlock? picked = meetingBlocks.length == 1 ? meetingBlocks.first : null;
+    var payload = _MeetingNoteAiPayload.both;
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setS) => AlertDialog(
+          title: Text(l10n.meetingNoteSendToAi),
+          content: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 480),
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  if (meetingBlocks.length > 1) ...[
+                    Text(
+                      'Selecciona la nota:',
+                      style: Theme.of(ctx).textTheme.labelMedium,
+                    ),
+                    ...meetingBlocks.map(
+                      (b) => ListTile(
+                        dense: true,
+                        leading: Icon(
+                          picked?.id == b.id
+                              ? Icons.radio_button_checked_rounded
+                              : Icons.radio_button_off_rounded,
+                          color: picked?.id == b.id
+                              ? Theme.of(ctx).colorScheme.primary
+                              : Theme.of(ctx).colorScheme.onSurfaceVariant,
+                        ),
+                        title: Text(
+                          _meetingNoteBlockTitle(b),
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        onTap: () => setS(() => picked = b),
+                      ),
+                    ),
+                    const Divider(),
+                  ],
+                  Text(
+                    l10n.meetingNoteAiPayloadLabel,
+                    style: Theme.of(ctx).textTheme.labelMedium,
+                  ),
+                  const SizedBox(height: 8),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: [
+                      ChoiceChip(
+                        label: Text(l10n.meetingNoteAiPayloadTranscript),
+                        selected: payload == _MeetingNoteAiPayload.transcript,
+                        onSelected: (_) => setS(
+                          () => payload = _MeetingNoteAiPayload.transcript,
+                        ),
+                      ),
+                      ChoiceChip(
+                        label: Text(l10n.meetingNoteAiPayloadAudio),
+                        selected: payload == _MeetingNoteAiPayload.audio,
+                        onSelected: (_) =>
+                            setS(() => payload = _MeetingNoteAiPayload.audio),
+                      ),
+                      ChoiceChip(
+                        label: Text(l10n.meetingNoteAiPayloadBoth),
+                        selected: payload == _MeetingNoteAiPayload.both,
+                        onSelected: (_) =>
+                            setS(() => payload = _MeetingNoteAiPayload.both),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: Text(MaterialLocalizations.of(ctx).cancelButtonLabel),
+            ),
+            FilledButton(
+              onPressed: picked == null ? null : () => Navigator.pop(ctx, true),
+              child: Text(MaterialLocalizations.of(ctx).okButtonLabel),
+            ),
+          ],
+        ),
+      ),
+    );
+
+    if (confirmed != true || picked == null || !mounted) return;
+
+    final vault = await VaultPaths.vaultDirectory();
+    final relUrl = picked!.url!.trim();
+    final absPath = p.join(vault.path, relUrl.replaceAll('/', p.separator));
+
+    if (_aiAttachmentPaths.contains(absPath)) return;
+
+    setState(() {
+      _aiAttachmentPaths.add(absPath);
+      _aiMeetingPayloads[absPath] = payload;
+      _aiMeetingTranscripts[absPath] = picked!.text;
+    });
+    _s.syncActiveAiChatAttachmentPaths(_aiAttachmentPaths);
   }
 
   Future<void> _pickAiAttachments() async {
@@ -2155,7 +2488,7 @@ class _WorkspacePageState extends State<WorkspacePage> {
     final languageCode = Localizations.localeOf(context).languageCode;
     final attachments = await _collectAiAttachments();
     final isCloudProvider =
-        widget.appSettings.aiProvider == AiProvider.folioCloud;
+        widget.appSettings.aiProvider == AiProvider.quillCloud;
     final op = isCloudProvider ? _aiInkEstimateOperationKind : null;
     return _s.agentChatWithAi(
       messages: threadMessages,
@@ -2463,7 +2796,7 @@ class _WorkspacePageState extends State<WorkspacePage> {
     final scheme = theme.colorScheme;
     final l10n = AppLocalizations.of(context);
     final isCloudProvider =
-        widget.appSettings.aiProvider == AiProvider.folioCloud;
+        widget.appSettings.aiProvider == AiProvider.quillCloud;
     final showInkInChat =
         isCloudProvider &&
         widget.appSettings.isAiRuntimeEnabled &&
@@ -2481,7 +2814,7 @@ class _WorkspacePageState extends State<WorkspacePage> {
       switch (widget.appSettings.aiProvider) {
         case AiProvider.none:
           return _t('Sin configurar', 'Not set');
-        case AiProvider.folioCloud:
+        case AiProvider.quillCloud:
           return 'Folio Cloud';
         case AiProvider.ollama:
           return 'Ollama';
@@ -2679,17 +3012,22 @@ class _WorkspacePageState extends State<WorkspacePage> {
                                               ),
                                       ),
                                       const SizedBox(width: 6),
-                                      Text(
-                                        l10n.aiChatInkRemaining(
-                                          inkSnap.totalInk,
+                                      Flexible(
+                                        child: Text(
+                                          l10n.aiChatInkRemaining(
+                                            inkSnap.totalInk,
+                                          ),
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                          softWrap: false,
+                                          style: theme.textTheme.labelSmall
+                                              ?.copyWith(
+                                                color: inkLooksLow
+                                                    ? scheme.onTertiaryContainer
+                                                    : scheme.onSurfaceVariant,
+                                                fontWeight: FontWeight.w800,
+                                              ),
                                         ),
-                                        style: theme.textTheme.labelSmall
-                                            ?.copyWith(
-                                              color: inkLooksLow
-                                                  ? scheme.onTertiaryContainer
-                                                  : scheme.onSurfaceVariant,
-                                              fontWeight: FontWeight.w800,
-                                            ),
                                       ),
                                     ],
                                   ),
@@ -3112,6 +3450,9 @@ class _WorkspacePageState extends State<WorkspacePage> {
         widget.appSettings.isAiRuntimeEnabled && _s.aiEnabled;
     final useDesktopAiDock = !compact && aiSessionActive;
     final useMobileAiDock = compact && aiSessionActive;
+    final cloudSignedIn =
+        Firebase.apps.isNotEmpty && widget.cloudAccountController.isSignedIn;
+    final useDesktopCollabDock = !compact && page != null && cloudSignedIn;
     final effectiveSidebarW = compact
         ? 0.0
         : (widget.appSettings.workspaceSidebarCollapsed
@@ -3260,6 +3601,17 @@ class _WorkspacePageState extends State<WorkspacePage> {
               label: 'Publicar en la web',
               icon: Icons.public_rounded,
               onPressed: _publishCurrentPageToWeb,
+            ),
+          if (page != null && cloudSignedIn)
+            _WorkspaceActionEntry(
+              id: 'collab_live',
+              label: compact || _collabPanelCollapsed
+                  ? l10n.collabMenuAction
+                  : l10n.collabHidePanel,
+              icon: !compact && !_collabPanelCollapsed
+                  ? Icons.unfold_less_rounded
+                  : Icons.groups_2_outlined,
+              onPressed: () => _toggleCollaborationPanel(compact: compact),
             ),
           if (page != null)
             _WorkspaceActionEntry(
@@ -3437,6 +3789,10 @@ class _WorkspacePageState extends State<WorkspacePage> {
         return widgets;
       }(),
     ];
+    final activeBlockEditorKey = page == null
+        ? null
+        : _blockEditorKeyForPage(page.id);
+
     final editorSurface = WorkspaceEditorSurface(
       compact: compact,
       mobileOptimized: androidMobileWorkspace,
@@ -3457,10 +3813,11 @@ class _WorkspacePageState extends State<WorkspacePage> {
           : KeyedSubtree(
               key: ValueKey('${page.id}-${_s.contentEpoch}'),
               child: BlockEditor(
-                key: _blockEditorKey,
+                key: activeBlockEditorKey,
                 session: _s,
                 appSettings: widget.appSettings,
                 readOnlyMode: editorReadOnlyMode,
+                folioCloudEntitlements: widget.folioCloudEntitlements,
               ),
             ),
     );
@@ -3473,7 +3830,7 @@ class _WorkspacePageState extends State<WorkspacePage> {
                 PageOutlinePanel(
                   blocks: page.blocks,
                   scheme: scheme,
-                  blockEditorKey: _blockEditorKey,
+                  blockEditorKey: activeBlockEditorKey!,
                 ),
             ],
           )
@@ -3555,6 +3912,38 @@ class _WorkspacePageState extends State<WorkspacePage> {
               ? (d) {
                   setState(() {
                     _aiPanelHeight = (_aiPanelHeight + d).clamp(
+                      320.0,
+                      height * 0.85,
+                    );
+                  });
+                }
+              : null,
+          collabFloatingPanel: useDesktopCollabDock
+              ? (_collabPanelCollapsed
+                    ? _buildCollabCollapsedFab(context, scheme)
+                    : _buildCollabDockPanel(context))
+              : null,
+          collabFloatingWidth: _collabPanelCollapsed ? 56 : _collabPanelWidth,
+          collabFloatingHeight: _collabPanelCollapsed ? 56 : _collabPanelHeight,
+          collabFloatingShowResizeHandles:
+              useDesktopCollabDock && !_collabPanelCollapsed,
+          onResizeCollabPanelWidth:
+              useDesktopCollabDock && !_collabPanelCollapsed
+              ? (d) {
+                  final maxW = (width * 0.5).clamp(300.0, 720.0);
+                  setState(() {
+                    _collabPanelWidth = (_collabPanelWidth + d).clamp(
+                      280.0,
+                      maxW,
+                    );
+                  });
+                }
+              : null,
+          onResizeCollabPanelHeight:
+              useDesktopCollabDock && !_collabPanelCollapsed
+              ? (d) {
+                  setState(() {
+                    _collabPanelHeight = (_collabPanelHeight + d).clamp(
                       320.0,
                       height * 0.85,
                     );

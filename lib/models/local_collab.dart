@@ -22,6 +22,8 @@ class LocalPageComment {
     required this.text,
     required this.createdAtMs,
     this.blockId,
+    this.collabMessageId,
+    this.authorDisplayName,
   });
 
   final String id;
@@ -31,6 +33,10 @@ class LocalPageComment {
   final int createdAtMs;
   String? blockId;
 
+  /// Si no es null, comentario archivado desde chat de colaboración (`messages` en Firestore).
+  final String? collabMessageId;
+  final String? authorDisplayName;
+
   Map<String, dynamic> toJson() => {
     'id': id,
     'pageId': pageId,
@@ -38,6 +44,9 @@ class LocalPageComment {
     'text': text,
     'createdAtMs': createdAtMs,
     if (blockId != null) 'blockId': blockId,
+    if (collabMessageId != null) 'collabMessageId': collabMessageId,
+    if (authorDisplayName != null && authorDisplayName!.trim().isNotEmpty)
+      'authorDisplayName': authorDisplayName!.trim(),
   };
 
   factory LocalPageComment.fromJson(Map<String, dynamic> j) {
@@ -48,6 +57,8 @@ class LocalPageComment {
       text: j['text'] as String? ?? '',
       createdAtMs: (j['createdAtMs'] as num?)?.toInt() ?? 0,
       blockId: j['blockId'] as String?,
+      collabMessageId: j['collabMessageId'] as String?,
+      authorDisplayName: j['authorDisplayName'] as String?,
     );
   }
 }

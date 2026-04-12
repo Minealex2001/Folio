@@ -68,6 +68,12 @@ class WorkspaceBodyShell extends StatelessWidget {
     this.onResizeAiPanelWidth,
     this.onResizeAiPanelHeight,
     this.aiFloatingShowResizeHandles = true,
+    this.collabFloatingPanel,
+    this.collabFloatingWidth = 360,
+    this.collabFloatingHeight = 480,
+    this.onResizeCollabPanelWidth,
+    this.onResizeCollabPanelHeight,
+    this.collabFloatingShowResizeHandles = true,
   });
 
   final bool compact;
@@ -88,6 +94,14 @@ class WorkspaceBodyShell extends StatelessWidget {
   final ValueChanged<double>? onResizeAiPanelWidth;
   final ValueChanged<double>? onResizeAiPanelHeight;
   final bool aiFloatingShowResizeHandles;
+
+  /// Panel de colaboración (esquina inferior izquierda).
+  final Widget? collabFloatingPanel;
+  final double collabFloatingWidth;
+  final double collabFloatingHeight;
+  final ValueChanged<double>? onResizeCollabPanelWidth;
+  final ValueChanged<double>? onResizeCollabPanelHeight;
+  final bool collabFloatingShowResizeHandles;
 
   @override
   Widget build(BuildContext context) {
@@ -229,6 +243,84 @@ class WorkspaceBodyShell extends StatelessWidget {
                   onEnter: (_) => onSidebarEdgeEnter?.call(),
                   child: const ColoredBox(color: Color(0x00000000)),
                 ),
+              ),
+            if (collabFloatingPanel != null)
+              Positioned(
+                left: FolioSpace.md,
+                bottom: FolioSpace.md,
+                width: collabFloatingWidth,
+                height: collabFloatingHeight,
+                child: collabFloatingShowResizeHandles
+                    ? Material(
+                        elevation: FolioElevation.menu,
+                        shadowColor:
+                            scheme.shadow.withValues(alpha: FolioAlpha.soft),
+                        borderRadius: BorderRadius.circular(FolioRadius.xl),
+                        clipBehavior: Clip.antiAlias,
+                        color: scheme.surface,
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            Semantics(
+                              label: l10n.resizeAiPanelHeightHandle,
+                              hint: l10n.resizeAiPanelHeightHandleHint,
+                              child: MouseRegion(
+                                cursor: SystemMouseCursors.resizeUpDown,
+                                child: GestureDetector(
+                                  behavior: HitTestBehavior.opaque,
+                                  onVerticalDragUpdate: (details) {
+                                    onResizeCollabPanelHeight
+                                        ?.call(-details.delta.dy);
+                                  },
+                                  child: Container(
+                                    height: 7,
+                                    color: scheme.outlineVariant.withValues(
+                                      alpha: FolioAlpha.track,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ),
+                            Expanded(
+                              child: Row(
+                                crossAxisAlignment: CrossAxisAlignment.stretch,
+                                children: [
+                                  Expanded(child: collabFloatingPanel!),
+                                  Semantics(
+                                    label: l10n.aiPanelResizeHandle,
+                                    hint: l10n.aiPanelResizeHandleHint,
+                                    child: MouseRegion(
+                                      cursor: SystemMouseCursors.resizeColumn,
+                                      child: GestureDetector(
+                                        behavior: HitTestBehavior.opaque,
+                                        onHorizontalDragUpdate: (details) {
+                                          onResizeCollabPanelWidth?.call(
+                                            details.delta.dx,
+                                          );
+                                        },
+                                        child: Container(
+                                          width: 7,
+                                          color: scheme.outlineVariant
+                                              .withValues(alpha: FolioAlpha.track),
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                      )
+                    : Material(
+                        elevation: FolioElevation.menu,
+                        shadowColor:
+                            scheme.shadow.withValues(alpha: FolioAlpha.soft),
+                        borderRadius: BorderRadius.circular(FolioRadius.lg),
+                        clipBehavior: Clip.antiAlias,
+                        color: scheme.surface,
+                        child: collabFloatingPanel!,
+                      ),
               ),
             if (aiFloatingPanel != null)
               Positioned(

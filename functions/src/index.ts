@@ -5,6 +5,7 @@ import { config as loadEnv } from "dotenv";
 loadEnv({ path: path.resolve(__dirname, "../.env") });
 
 import * as admin from "firebase-admin";
+import { createHash } from "crypto";
 import * as functionsV1 from "firebase-functions/v1";
 import { onCall, HttpsError } from "firebase-functions/v2/https";
 import { onRequest } from "firebase-functions/v2/https";
@@ -34,6 +35,7 @@ const INK_COST_BY_OPERATION: Record<string, number> = {
   agent_main: 6,
   agent_followup: 3,
   edit_page_panel: 3,
+  transcribe_cloud: 1,
   default: 2,
 };
 
@@ -777,23 +779,40 @@ async function folioCloudFeaturesFromPriceId(
   backup: boolean;
   cloudAi: boolean;
   publishWeb: boolean;
+  realtimeCollab: boolean;
 }> {
   if (await isMonthlySubscriptionPrice(stripe, priceId)) {
-    return { backup: true, cloudAi: true, publishWeb: true };
+    return {
+      backup: true,
+      cloudAi: true,
+      publishWeb: true,
+      realtimeCollab: true,
+    };
   }
   const legacy = stripePriceIdsLegacy();
   const explicitMonthly = priceFolioCloudMonthly().trim();
   if (explicitMonthly.length > 0) {
-    return { backup: false, cloudAi: false, publishWeb: false };
+    return {
+      backup: false,
+      cloudAi: false,
+      publishWeb: false,
+      realtimeCollab: false,
+    };
   }
   if (!priceId || legacy.length === 0) {
-    return { backup: true, cloudAi: true, publishWeb: true };
+    return {
+      backup: true,
+      cloudAi: true,
+      publishWeb: true,
+      realtimeCollab: true,
+    };
   }
   const active = legacy.includes(priceId);
   return {
     backup: active,
     cloudAi: active,
     publishWeb: active,
+    realtimeCollab: active,
   };
 }
 
@@ -1232,6 +1251,255 @@ async function assertFolioCloudBackupAllowed(uid: string): Promise<void> {
   }
 }
 
+/** Igual que Firestore rules `folioRealtimeCollabOk`. */
+async function assertFolioRealtimeCollabAllowed(uid: string): Promise<void> {
+  const snap = await db.collection("users").doc(uid).get();
+  const data = snap.data() ?? {};
+  const fc = data.folioCloud as Record<string, unknown> | undefined;
+  const features = fc?.features as Record<string, unknown> | undefined;
+  if (fc?.active !== true || features?.realtimeCollab !== true) {
+    throw new HttpsError(
+      "permission-denied",
+      "Real-time collaboration is not enabled for this account."
+    );
+  }
+}
+
+const COLLAB_MAX_MEMBERS = 24;
+
+const COLLAB_JOIN_EMOJIS = [
+  "\u{1F331}",
+  "\u{2B50}",
+  "\u{1F319}",
+  "\u{1F525}",
+  "\u{1F308}",
+  "\u{2728}",
+  "\u{1F3AF}",
+  "\u{1F380}",
+  "\u{1F4BB}",
+  "\u{1F3D6}",
+  "\u{26A1}",
+  "\u{1F342}",
+  "\u{1F341}",
+  "\u{1F30A}",
+  "\u{1F3AE}",
+];
+
+function normalizeCollabJoinCode(raw: string): string {
+  // Debe coincidir con `CollabE2eCrypto.normalizeJoinCode` en el cliente (HKDF + índice).
+  return raw.replace(/\s+/g, "").trim();
+}
+
+function collabJoinCodeKey(norm: string): string {
+  return createHash("sha256").update(norm, "utf8").digest("hex");
+}
+
+function generateCollabJoinCode(): string {
+  const pick = () =>
+    COLLAB_JOIN_EMOJIS[Math.floor(Math.random() * COLLAB_JOIN_EMOJIS.length)] ??
+    "\u{2B50}";
+  const a = pick();
+  const b = pick();
+  const n = String(Math.floor(Math.random() * 10000)).padStart(4, "0");
+  return `${a}${b}${n}`;
+}
+
+export const createCollabRoom = onCall({ invoker: "public" }, async (request) => {
+  if (!request.auth?.uid) {
+    throw new HttpsError("unauthenticated", "Login required");
+  }
+  const uid = request.auth.uid;
+  await assertFolioRealtimeCollabAllowed(uid);
+
+  const vaultPageId =
+    typeof request.data?.vaultPageId === "string"
+      ? request.data.vaultPageId.trim()
+      : "";
+  if (!vaultPageId || vaultPageId.length > 128) {
+    throw new HttpsError("invalid-argument", "vaultPageId invalid");
+  }
+
+  const roomRef = db.collection("collabRooms").doc();
+
+  for (let attempt = 0; attempt < 28; attempt++) {
+    const joinCode = generateCollabJoinCode();
+    const norm = normalizeCollabJoinCode(joinCode);
+    if (norm.length < 4) {
+      continue;
+    }
+    const key = collabJoinCodeKey(norm);
+    const indexRef = db.collection("collabJoinIndex").doc(key);
+    const now = FieldValue.serverTimestamp();
+    try {
+      await db.runTransaction(async (tx) => {
+        const idxSnap = await tx.get(indexRef);
+        if (idxSnap.exists) {
+          throw new Error("join_code_collision");
+        }
+        const roomSnap = await tx.get(roomRef);
+        if (roomSnap.exists) {
+          throw new HttpsError("failed-precondition", "Room already created");
+        }
+        tx.set(indexRef, {
+          roomId: roomRef.id,
+          ownerUid: uid,
+          createdAt: now,
+        });
+        tx.set(roomRef, {
+          ownerUid: uid,
+          vaultPageId,
+          memberUids: [uid],
+          e2eV: 1,
+          contentVersion: 0,
+          joinCodeKey: key,
+          createdAt: now,
+          updatedAt: now,
+        });
+      });
+      return { roomId: roomRef.id, joinCode };
+    } catch (e: unknown) {
+      if (e instanceof Error && e.message === "join_code_collision") {
+        continue;
+      }
+      throw e;
+    }
+  }
+  throw new HttpsError("internal", "Could not allocate join code");
+});
+
+export const joinCollabRoomByCode = onCall({ invoker: "public" }, async (request) => {
+  if (!request.auth?.uid) {
+    throw new HttpsError("unauthenticated", "Login required");
+  }
+  const uid = request.auth.uid;
+  const raw =
+    typeof request.data?.joinCode === "string"
+      ? request.data.joinCode.trim()
+      : "";
+  if (raw.length < 4 || raw.length > 64) {
+    throw new HttpsError("invalid-argument", "Invalid join code");
+  }
+  const key = collabJoinCodeKey(normalizeCollabJoinCode(raw));
+  const indexRef = db.collection("collabJoinIndex").doc(key);
+  const idxSnap = await indexRef.get();
+  if (!idxSnap.exists) {
+    throw new HttpsError("not-found", "Room not found");
+  }
+  const roomId = idxSnap.data()?.roomId as string | undefined;
+  if (!roomId) {
+    throw new HttpsError("not-found", "Room not found");
+  }
+  const roomRef = db.collection("collabRooms").doc(roomId);
+  await db.runTransaction(async (tx) => {
+    const snap = await tx.get(roomRef);
+    if (!snap.exists) {
+      throw new HttpsError("not-found", "Room not found");
+    }
+    const d = snap.data() ?? {};
+    const members = (d.memberUids as string[] | undefined) ?? [];
+    if (members.includes(uid)) {
+      return;
+    }
+    if (members.length >= COLLAB_MAX_MEMBERS) {
+      throw new HttpsError("failed-precondition", "Room is full");
+    }
+    tx.update(roomRef, {
+      memberUids: FieldValue.arrayUnion(uid),
+      updatedAt: FieldValue.serverTimestamp(),
+    });
+  });
+  return { roomId };
+});
+
+export const inviteCollabMember = onCall({ invoker: "public" }, async (request) => {
+  if (!request.auth?.uid) {
+    throw new HttpsError("unauthenticated", "Login required");
+  }
+  const uid = request.auth.uid;
+  await assertFolioRealtimeCollabAllowed(uid);
+
+  const roomId =
+    typeof request.data?.roomId === "string" ? request.data.roomId.trim() : "";
+  if (!roomId) {
+    throw new HttpsError("invalid-argument", "roomId required");
+  }
+  const targetUid =
+    typeof request.data?.targetUid === "string"
+      ? request.data.targetUid.trim()
+      : "";
+  if (!targetUid || targetUid === uid) {
+    throw new HttpsError("invalid-argument", "targetUid invalid");
+  }
+
+  const roomRef = db.collection("collabRooms").doc(roomId);
+  await db.runTransaction(async (tx) => {
+    const snap = await tx.get(roomRef);
+    if (!snap.exists) {
+      throw new HttpsError("not-found", "Room not found");
+    }
+    const d = snap.data() ?? {};
+    if (d.ownerUid !== uid) {
+      throw new HttpsError("permission-denied", "Only the owner can invite");
+    }
+    const members = (d.memberUids as string[] | undefined) ?? [];
+    if (members.includes(targetUid)) {
+      return;
+    }
+    if (members.length >= COLLAB_MAX_MEMBERS) {
+      throw new HttpsError(
+        "failed-precondition",
+        `Room has at most ${COLLAB_MAX_MEMBERS} members`
+      );
+    }
+    tx.update(roomRef, {
+      memberUids: FieldValue.arrayUnion(targetUid),
+      updatedAt: FieldValue.serverTimestamp(),
+    });
+  });
+  return { ok: true };
+});
+
+export const removeCollabMember = onCall({ invoker: "public" }, async (request) => {
+  if (!request.auth?.uid) {
+    throw new HttpsError("unauthenticated", "Login required");
+  }
+  const uid = request.auth.uid;
+
+  const roomId =
+    typeof request.data?.roomId === "string" ? request.data.roomId.trim() : "";
+  if (!roomId) {
+    throw new HttpsError("invalid-argument", "roomId required");
+  }
+  const targetUid =
+    typeof request.data?.targetUid === "string"
+      ? request.data.targetUid.trim()
+      : "";
+  if (!targetUid) {
+    throw new HttpsError("invalid-argument", "targetUid required");
+  }
+
+  const roomRef = db.collection("collabRooms").doc(roomId);
+  await db.runTransaction(async (tx) => {
+    const snap = await tx.get(roomRef);
+    if (!snap.exists) {
+      throw new HttpsError("not-found", "Room not found");
+    }
+    const d = snap.data() ?? {};
+    const ownerUid = d.ownerUid as string;
+    if (uid !== ownerUid && uid !== targetUid) {
+      throw new HttpsError("permission-denied", "Not allowed");
+    }
+    if (targetUid === ownerUid) {
+      throw new HttpsError("invalid-argument", "Cannot remove the owner");
+    }
+    tx.update(roomRef, {
+      memberUids: FieldValue.arrayRemove(targetUid),
+      updatedAt: FieldValue.serverTimestamp(),
+    });
+  });
+  return { ok: true };
+});
+
 function assertValidVaultId(raw: unknown): string {
   const vaultId = typeof raw === "string" ? raw.trim() : "";
   if (!vaultId) {
@@ -1582,6 +1850,249 @@ export const createBillingPortalSession = onCall(
     );
   }
   return { url: session.url };
+  }
+);
+
+// ─── Diarización de segmentos vía GPT-4o-mini ────────────────────────────────
+
+interface _WhisperSegment {
+  id: number;
+  start: number;
+  end: number;
+  text: string;
+}
+
+/**
+ * Recibe segmentos de Whisper verbose_json y devuelve texto formateado
+ * "Speaker N: ..." usando GPT-4o-mini para detectar cambios de hablante.
+ */
+async function _diarizeSegmentsWithGpt(
+  segments: _WhisperSegment[],
+  openaiKey: string
+): Promise<string> {
+  const segmentList = segments
+    .map((s) => `[${s.start.toFixed(1)}s-${s.end.toFixed(1)}s]: "${s.text.trim()}"`)
+    .join("\n");
+
+  const resp = await fetch("https://api.openai.com/v1/chat/completions", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${openaiKey}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      model: "gpt-4o-mini",
+      messages: [
+        {
+          role: "system",
+          content:
+            "You are a speaker diarization assistant. Analyze transcript segments from a meeting " +
+            "audio recording and identify speaker turns. " +
+            "Return ONLY a JSON object with a 'turns' array: {\"turns\":[{\"speaker\":1,\"text\":\"...\"},...]}. " +
+            "Rules: merge consecutive segments from the same speaker into one turn; " +
+            "detect speaker changes using question-answer patterns, conversational cues, " +
+            "and pauses (gap > 0.8 s between segment end and next start); " +
+            "use integers starting from 1 for speaker IDs; " +
+            "if the audio clearly has only one speaker, use speaker 1 for all text.",
+        },
+        { role: "user", content: segmentList },
+      ],
+      temperature: 0,
+      max_tokens: 1500,
+      response_format: { type: "json_object" },
+    }),
+  });
+
+  if (!resp.ok) {
+    const body = await resp.text().catch(() => `HTTP ${resp.status}`);
+    throw new Error(`GPT diarization HTTP ${resp.status}: ${body}`);
+  }
+
+  const gptResult = (await resp.json()) as {
+    choices: Array<{ message: { content: string } }>;
+  };
+  const raw = gptResult.choices?.[0]?.message?.content ?? "";
+
+  interface DiarTurn { speaker: number; text: string }
+  const parsed = JSON.parse(raw) as unknown;
+  let turns: DiarTurn[] = [];
+  if (Array.isArray(parsed)) {
+    turns = parsed as DiarTurn[];
+  } else if (parsed && typeof parsed === "object") {
+    const obj = parsed as Record<string, unknown>;
+    const arr =
+      obj["turns"] ?? obj["speakers"] ?? obj["segments"] ?? Object.values(obj)[0];
+    if (Array.isArray(arr)) turns = arr as DiarTurn[];
+  }
+
+  if (!turns.length) throw new Error("Empty diarization response from GPT");
+
+  return turns
+    .filter((t) => typeof t.text === "string" && t.text.trim().length > 0)
+    .map((t) => `Speaker ${t.speaker}: ${t.text.trim()}`)
+    .join("\n");
+}
+
+/**
+ * Transcribe un fragmento de audio WAV (base64) vía gpt-4o-mini-transcribe,
+ * con diarización automática de hablantes usando GPT-4o-mini.
+ * Si `chargeInk` es true, debita 1 gota de tinta (tranche de 5 minutos).
+ * En caso de fallo de transcripción, reembolsa la tinta cobrada.
+ */
+export const folioCloudTranscribeChunk = onCall(
+  { cors: true, invoker: "public", memory: "512MiB", timeoutSeconds: 60 },
+  async (request) => {
+    if (!request.auth?.uid) {
+      throw new HttpsError("unauthenticated", "Login required");
+    }
+    const uid = request.auth.uid;
+    const data = request.data as Record<string, unknown>;
+
+    const audioBase64 = typeof data.audioBase64 === "string" ? data.audioBase64.trim() : "";
+    if (!audioBase64) {
+      throw new HttpsError("invalid-argument", "audioBase64 required");
+    }
+
+    const language = typeof data.language === "string" ? data.language.trim() : "";
+    const chargeInk = data.chargeInk === true;
+
+    const baseInkCost = INK_COST_BY_OPERATION["transcribe_cloud"] ?? 1;
+    const inkAmountRaw = data.inkAmount;
+    const inkCost =
+      chargeInk &&
+      typeof inkAmountRaw === "number" &&
+      Number.isFinite(inkAmountRaw) &&
+      inkAmountRaw >= 1
+        ? Math.ceil(inkAmountRaw)
+        : baseInkCost;
+    let inkDebited = false;
+
+    // ── Debitar Tinta si se solicita ─────────────────────────────────────────
+    if (chargeInk) {
+      const inkExhaustedMsg =
+        "Tinta insuficiente para la transcripción en la nube. Compra un tintero, " +
+        "espera la recarga mensual con suscripción activa, o usa transcripción local.";
+
+      const userRef = db.collection("users").doc(uid);
+      await db.runTransaction(async (tx) => {
+        const snap = await tx.get(userRef);
+        const dataDoc = snap.data() ?? {};
+        const fc = dataDoc.folioCloud as Record<string, unknown> | undefined;
+        const hasSubCloudAi =
+          fc?.active === true &&
+          (fc?.features as Record<string, unknown>)?.cloudAi === true;
+
+        const { monthly, purchased } = readInkBalances(dataDoc);
+        if (hasSubCloudAi) {
+          if (monthly + purchased < inkCost) {
+            throw new HttpsError("resource-exhausted", inkExhaustedMsg);
+          }
+          const next = debitInkBalances(monthly, purchased, inkCost);
+          tx.update(userRef, {
+            "ink.monthlyBalance": next.monthly,
+            "ink.purchasedBalance": next.purchased,
+            "ink.updatedAt": FieldValue.serverTimestamp(),
+          });
+        } else {
+          if (purchased < inkCost) {
+            throw new HttpsError("resource-exhausted", inkExhaustedMsg);
+          }
+          const next = debitInkBalances(0, purchased, inkCost);
+          tx.update(userRef, {
+            "ink.monthlyBalance": 0,
+            "ink.purchasedBalance": next.purchased,
+            "ink.updatedAt": FieldValue.serverTimestamp(),
+          });
+        }
+      });
+      inkDebited = true;
+    }
+
+    // ── Llamar a OpenAI Whisper ───────────────────────────────────────────────
+    const openaiKey = openAiApiKey();
+    if (!openaiKey) {
+      if (inkDebited) {
+        await refundInkDropCharge(uid, inkCost).catch((e) =>
+          console.error("folioCloudTranscribeChunk: refund after missing key", e)
+        );
+      }
+      throw new HttpsError(
+        "failed-precondition",
+        "Server AI not configured (set OPENAI_API_KEY on Cloud Functions)"
+      );
+    }
+
+    let transcript = "";
+    try {
+      const audioBuffer = Buffer.from(audioBase64, "base64");
+      const blob = new Blob([audioBuffer], { type: "audio/wav" });
+      const form = new FormData();
+      form.append("file", blob, "chunk.wav");
+      // gpt-4o-mini-transcribe: mejor calidad que whisper-1, soporta verbose_json
+      form.append("model", "gpt-4o-mini-transcribe");
+      if (language && language !== "auto") {
+        form.append("language", language.slice(0, 2).toLowerCase());
+      }
+      form.append("response_format", "verbose_json");
+
+      const resp = await fetch("https://api.openai.com/v1/audio/transcriptions", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${openaiKey}` },
+        body: form,
+      });
+
+      if (!resp.ok) {
+        const errBody = await resp.text().catch(() => `HTTP ${resp.status}`);
+        console.error("folioCloudTranscribeChunk: transcription API error", resp.status, errBody);
+        throw new HttpsError("internal", `Transcription failed (${resp.status})`);
+      }
+
+      const verboseResult = (await resp.json()) as {
+        text: string;
+        segments?: _WhisperSegment[];
+      };
+      const rawText = (verboseResult.text ?? "").trim();
+      const segments = verboseResult.segments ?? [];
+
+      if (rawText.length === 0) {
+        transcript = "";
+      } else if (segments.length > 1) {
+        // Diarización con GPT-4o-mini
+        try {
+          transcript = await _diarizeSegmentsWithGpt(segments, openaiKey);
+        } catch (diarErr) {
+          console.warn(
+            "folioCloudTranscribeChunk: diarization fallback to plain text",
+            diarErr
+          );
+          transcript = `Speaker 1: ${rawText}`;
+        }
+      } else {
+        // Un solo segmento: etiquetar como hablante 1
+        transcript = `Speaker 1: ${rawText}`;
+      }
+    } catch (e) {
+      if (inkDebited) {
+        await refundInkDropCharge(uid, inkCost).catch((re) =>
+          console.error("folioCloudTranscribeChunk: refund after transcription error", re)
+        );
+      }
+      if (e instanceof HttpsError) throw e;
+      throw new HttpsError("internal", "Transcription request failed");
+    }
+
+    // ── Leer saldos finales ───────────────────────────────────────────────────
+    const finalSnap = await db.collection("users").doc(uid).get();
+    const inkOut = readInkBalances(
+      (finalSnap.data() ?? {}) as Record<string, unknown>
+    );
+    return {
+      transcript,
+      ink: {
+        monthlyBalance: inkOut.monthly,
+        purchasedBalance: inkOut.purchased,
+      },
+    };
   }
 );
 

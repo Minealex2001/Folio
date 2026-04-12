@@ -27,36 +27,84 @@ extension VaultSessionAi on VaultSession {
             : _folioAgentInAppGuideCompact(isEs: isEs),
       )
       ..writeln()
-      ..writeln(isEs ? 'Devuelve SOLO JSON válido con este esquema:' : 'Return ONLY valid JSON with this schema:')
+      ..writeln(
+        isEs
+            ? 'Devuelve SOLO JSON válido con este esquema:'
+            : 'Return ONLY valid JSON with this schema:',
+      )
       ..writeln('{')
-      ..writeln('"mode":"chat|summarize_current|append_current|replace_current|edit_current|create_page",')
-      ..writeln('"reason":"${isEs ? 'explicación breve (1 frase) de por qué eliges ese modo' : 'brief explanation (1 sentence) of why you chose this mode'}",')
-      ..writeln('"reply":"${isEs ? 'texto breve para usuario (1–4 frases máximo)' : 'brief user-facing text (max 1–4 sentences)'}",')
-      ..writeln('"title":"${isEs ? 'solo para create_page' : 'only for create_page'}",')
-      ..writeln('"threadTitle":"${isEs ? 'opcional (2-8 palabras) para renombrar la pestaña del chat SOLO en el primer turno; cadena vacía si no aplica' : 'optional (2-8 words) to rename the chat tab ONLY on the first turn; empty string if N/A'}",')
-      ..writeln('"blocks":[{"type":"paragraph|h1|h2|h3|bullet|numbered|todo|quote|code|callout|toggle|divider|table|image|file|video|audio|bookmark|embed|equation|mermaid","text":"...","checked":false,"expanded":true,"codeLanguage":"dart","depth":0,"icon":"emoji","url":"https://...","imageWidth":0.8,"cols":2,"rows":[["a","b"]]}],')
-      ..writeln('"operations":[{"kind":"update_page_title|update_block_text|update_block|replace_block|insert_after|insert_before|move_block|delete_block|table_add_column|table_set_cell","title":"${isEs ? 'nuevo título (solo update_page_title)' : 'new title (update_page_title only)'}","blockId":"id","text":"...","checked":false,"expanded":true,"codeLanguage":"dart","depth":0,"icon":"emoji","url":"https://...","imageWidth":0.8,"targetIndex":0,"block":{},"blocks":[],"header":"...","values":[],"row":0,"col":0,"value":"..."}]')
+      ..writeln(
+        '"mode":"chat|summarize_current|append_current|replace_current|edit_current|create_page",',
+      )
+      ..writeln(
+        '"reason":"${isEs ? 'explicación breve (1 frase) de por qué eliges ese modo' : 'brief explanation (1 sentence) of why you chose this mode'}",',
+      )
+      ..writeln(
+        '"reply":"${isEs ? 'texto breve para usuario (1–4 frases máximo)' : 'brief user-facing text (max 1–4 sentences)'}",',
+      )
+      ..writeln(
+        '"title":"${isEs ? 'solo para create_page' : 'only for create_page'}",',
+      )
+      ..writeln(
+        '"threadTitle":"${isEs ? 'opcional (2-8 palabras) para renombrar la pestaña del chat SOLO en el primer turno; cadena vacía si no aplica' : 'optional (2-8 words) to rename the chat tab ONLY on the first turn; empty string if N/A'}",',
+      )
+      ..writeln(
+        '"blocks":[{"type":"paragraph|h1|h2|h3|bullet|numbered|todo|quote|code|callout|toggle|divider|table|image|file|video|audio|meeting_note|bookmark|embed|equation|mermaid","text":"...","checked":false,"expanded":true,"codeLanguage":"dart","depth":0,"icon":"emoji","url":"https://...","imageWidth":0.8,"cols":2,"rows":[["a","b"]]}],',
+      )
+      ..writeln(
+        '"operations":[{"kind":"update_page_title|update_block_text|update_block|replace_block|insert_after|insert_before|move_block|delete_block|table_add_column|table_set_cell","title":"${isEs ? 'nuevo título (solo update_page_title)' : 'new title (update_page_title only)'}","blockId":"id","text":"...","checked":false,"expanded":true,"codeLanguage":"dart","depth":0,"icon":"emoji","url":"https://...","imageWidth":0.8,"targetIndex":0,"block":{},"blocks":[],"header":"...","values":[],"row":0,"col":0,"value":"..."}]',
+      )
       ..writeln('}')
       ..writeln()
       ..writeln(isEs ? 'Reglas:' : 'Rules:')
-      ..writeln('- summarize_current: ${isEs ? 'resume la página activa' : 'summarize the active page'}.')
-      ..writeln('- append_current: ${isEs ? 'añade bloques a la página activa' : 'append blocks to the active page'}.')
-      ..writeln('- replace_current: ${isEs ? 'sustituye bloques de la página activa' : 'replace blocks in the active page'}.')
-      ..writeln('- edit_current: ${isEs ? 'edita con operations (usa blockId reales de la página en edición) y/o renombra con update_page_title' : 'edit with operations (use real blockIds from the page under edit) and/or rename with update_page_title'}.')
-      ..writeln('- ${isEs ? 'Si el usuario pide modificar/corregir/actualizar/reescribir bloques existentes de la página abierta, usa SIEMPRE edit_current.' : 'If the user asks to modify/correct/update/rewrite existing blocks in the open page, ALWAYS use edit_current.'}')
-      ..writeln('- ${isEs ? 'Si no hay pagina activa, NO uses summarize_current/append_current/replace_current/edit_current.' : 'If there is no active page, DO NOT use summarize_current/append_current/replace_current/edit_current.'}')
-      ..writeln('- ${isEs ? 'Si el contexto de paginas esta desactivado, usa solo modo chat.' : 'If page context is disabled, use chat mode only.'}')
-      ..writeln('- ${isEs ? 'Prioridad de decision: create_page > edit_current > append/replace/summarize > chat.' : 'Decision priority: create_page > edit_current > append/replace/summarize > chat.'}')
-      ..writeln('- ${isEs ? 'Si el usuario pide crear una nota/pagina nueva, usa create_page.' : 'If the user asks to create a new note/page, use create_page.'}')
-      ..writeln('- ${isEs ? 'Si pide corregir/actualizar/reescribir contenido existente de la pagina abierta, usa edit_current con operations.' : 'If the user asks to correct/update/rewrite existing content in the open page, use edit_current with operations.'}')
-      ..writeln('- ${isEs ? 'No uses markdown fences ni texto fuera del JSON.' : 'Do not use markdown fences or extra text outside JSON.'}');
+      ..writeln(
+        '- summarize_current: ${isEs ? 'resume la página activa' : 'summarize the active page'}.',
+      )
+      ..writeln(
+        '- append_current: ${isEs ? 'añade bloques a la página activa' : 'append blocks to the active page'}.',
+      )
+      ..writeln(
+        '- replace_current: ${isEs ? 'sustituye bloques de la página activa' : 'replace blocks in the active page'}.',
+      )
+      ..writeln(
+        '- edit_current: ${isEs ? 'edita con operations (usa blockId reales de la página en edición) y/o renombra con update_page_title' : 'edit with operations (use real blockIds from the page under edit) and/or rename with update_page_title'}.',
+      )
+      ..writeln(
+        '- ${isEs ? 'Si el usuario pide modificar/corregir/actualizar/reescribir bloques existentes de la página abierta, usa SIEMPRE edit_current.' : 'If the user asks to modify/correct/update/rewrite existing blocks in the open page, ALWAYS use edit_current.'}',
+      )
+      ..writeln(
+        '- ${isEs ? 'Si no hay pagina activa, NO uses summarize_current/append_current/replace_current/edit_current.' : 'If there is no active page, DO NOT use summarize_current/append_current/replace_current/edit_current.'}',
+      )
+      ..writeln(
+        '- ${isEs ? 'Si el contexto de paginas esta desactivado, usa solo modo chat.' : 'If page context is disabled, use chat mode only.'}',
+      )
+      ..writeln(
+        '- ${isEs ? 'Prioridad de decision: create_page > edit_current > append/replace/summarize > chat.' : 'Decision priority: create_page > edit_current > append/replace/summarize > chat.'}',
+      )
+      ..writeln(
+        '- ${isEs ? 'Si el usuario pide crear una nota/pagina nueva, usa create_page.' : 'If the user asks to create a new note/page, use create_page.'}',
+      )
+      ..writeln(
+        '- ${isEs ? 'Si pide corregir/actualizar/reescribir contenido existente de la pagina abierta, usa edit_current con operations.' : 'If the user asks to correct/update/rewrite existing content in the open page, use edit_current with operations.'}',
+      )
+      ..writeln(
+        '- ${isEs ? 'No uses markdown fences ni texto fuera del JSON.' : 'Do not use markdown fences or extra text outside JSON.'}',
+      );
 
     final contextMessage = StringBuffer()
-      ..writeln(isEs ? 'Contenido de páginas (referencia; puede haber varias):' : 'Page contents (reference; there may be several):')
+      ..writeln(
+        isEs
+            ? 'Contenido de páginas (referencia; puede haber varias):'
+            : 'Page contents (reference; there may be several):',
+      )
       ..writeln(referencePagesText)
       ..writeln()
       ..writeln(editTargetLine)
-      ..writeln(isEs ? 'Bloques de la página en edición (ids para operations):' : 'Blocks of the page under edit (ids for operations):')
+      ..writeln(
+        isEs
+            ? 'Bloques de la página en edición (ids para operations):'
+            : 'Blocks of the page under edit (ids for operations):',
+      )
       ..writeln(pageBlocksContext.trim().isEmpty ? '[]' : pageBlocksContext);
 
     return AiCompletionRequest(
@@ -109,6 +157,7 @@ extension VaultSessionAi on VaultSession {
     required String blockId,
     required String instruction,
     List<AiFileAttachment> attachments = const [],
+    String? overrideBlockText,
   }) async {
     if (_state != VaultFlowState.unlocked ||
         (vaultUsesEncryption && _dek == null)) {
@@ -120,12 +169,13 @@ extension VaultSessionAi on VaultSession {
     if (page == null) throw StateError('Página no encontrada.');
     final block = _blockById(page, blockId);
     if (block == null) throw StateError('Bloque no encontrado.');
+    final blockContent = overrideBlockText ?? block.text;
     final prompt =
         '${VaultSession._quillIdentityLeadEs}'
         'Tarea: reescribir un bloque sin resumir la página completa. '
         'Devuelve exclusivamente el texto final del bloque, sin markdown fences ni explicación.\n\n'
         'Página: ${page.title}\n'
-        'Bloque actual:\n${block.text}\n\n'
+        'Bloque actual:\n${blockContent}\n\n'
         'Instrucción:\n${instruction.trim()}';
     final result = await ai.complete(
       AiCompletionRequest(
@@ -378,8 +428,9 @@ extension VaultSessionAi on VaultSession {
     const maxTotalChars = 14000;
     final buf = StringBuffer();
     var refIndex = 0;
-    final limitedPageIds =
-        pageIds.length <= maxPages ? pageIds : pageIds.sublist(0, maxPages);
+    final limitedPageIds = pageIds.length <= maxPages
+        ? pageIds
+        : pageIds.sublist(0, maxPages);
     for (var i = 0; i < limitedPageIds.length; i++) {
       if (buf.length >= maxTotalChars) break;
       final p = _pageById(limitedPageIds[i]);
@@ -565,8 +616,8 @@ For images/blocks: use the + button or / command in a paragraph.
               : 'The user disabled page context: do not assume or quote note contents.');
     final pageBlocksContext =
         includePageContext && scopePage != null && wantsEditExistingBlocks
-            ? _buildAgentPageBlocksContext(scopePage)
-            : '';
+        ? _buildAgentPageBlocksContext(scopePage)
+        : '';
     final editTargetLine = scopePage == null
         ? (isEs
               ? 'Página en edición: ninguna abierta.'
@@ -633,13 +684,14 @@ For images/blocks: use the + button or / command in a paragraph.
           );
           lastUsage = correction.usage ?? lastUsage;
           final correctionDecoded = _decodeJsonObjectLenient(correction.text);
-          final correctionMode =
-              _normalizeAgentMode(correctionDecoded['mode'] as String?);
+          final correctionMode = _normalizeAgentMode(
+            correctionDecoded['mode'] as String?,
+          );
           final correctionOps = correctionDecoded['operations'];
           final correctionReason =
               (correctionDecoded['reason'] as String? ?? '').trim();
-          final correctionReply =
-              (correctionDecoded['reply'] as String? ?? '').trim();
+          final correctionReply = (correctionDecoded['reply'] as String? ?? '')
+              .trim();
           if (correctionMode == 'edit_current' &&
               correctionOps is List &&
               correctionOps.isNotEmpty) {
@@ -652,7 +704,9 @@ For images/blocks: use the + button or / command in a paragraph.
           }
         }
       }
-      if ((mode == 'append_current' || mode == 'replace_current' || mode == 'create_page') &&
+      if ((mode == 'append_current' ||
+              mode == 'replace_current' ||
+              mode == 'create_page') &&
           parsedBlocks.isEmpty) {
         // Salida no accionable: forzamos chat; para create_page, el flujo de corrección existente
         // puede volver a intentarlo más abajo si el modelo respondió con reply en chat.
@@ -902,7 +956,7 @@ For images/blocks: use the + button or / command in a paragraph.
               prompt:
                   '${isEs ? VaultSession._quillIdentityLeadEs : VaultSession._quillIdentityLeadEn}'
                   '${isEs ? 'Respondiste en modo chat, pero el usuario quiere crear una nueva página. Devuelve SOLO JSON con mode=create_page, el título en "title" y los bloques en "blocks" usando el formato nativo de Folio. Por defecto genera contenido detallado y completo (mínimo 10-15 bloques), salvo que el mensaje original pida algo corto.' : 'You responded in chat mode, but the user wants to create a new page. Return ONLY JSON with mode=create_page, the title in "title" and the blocks in "blocks" using Folio native block format. By default generate detailed, comprehensive content (minimum 10-15 blocks), unless the original message asked for something short.'}\n'
-                  '${isEs ? 'Formato de bloque nativo:' : 'Native block format:'} {"type":"paragraph|h1|h2|h3|bullet|numbered|todo|quote|code|callout|toggle|divider|table|image|file|video|audio|bookmark|embed|equation|mermaid","text":"...","checked":false,"expanded":true,"codeLanguage":"dart","depth":0,"icon":"emoji","url":"https://...","imageWidth":0.8,"cols":2,"rows":[["a","b"]]}\n'
+                  '${isEs ? 'Formato de bloque nativo:' : 'Native block format:'} {"type":"paragraph|h1|h2|h3|bullet|numbered|todo|quote|code|callout|toggle|divider|table|image|file|video|audio|meeting_note|bookmark|embed|equation|mermaid","text":"...","checked":false,"expanded":true,"codeLanguage":"dart","depth":0,"icon":"emoji","url":"https://...","imageWidth":0.8,"cols":2,"rows":[["a","b"]]}\n'
                   '${isEs ? 'No uses markdown fences ni texto fuera del JSON.' : 'Do not use markdown fences or text outside JSON.'}\n\n'
                   '${isEs ? 'Mensaje original:' : 'Original message:'}\n${prompt.trim()}',
               model: 'auto',
@@ -1120,7 +1174,7 @@ For images/blocks: use the + button or / command in a paragraph.
             prompt:
                 '${isEs ? VaultSession._quillIdentityLeadEs : VaultSession._quillIdentityLeadEn}'
                 '${isEs ? 'La respuesta anterior no fue JSON válido. El usuario quiere crear una página. Devuelve SOLO JSON con mode=create_page, el título en "title" y los bloques en "blocks". Por defecto genera contenido detallado y completo (mínimo 10-15 bloques), salvo que el mensaje original pida algo corto.' : 'The previous response was not valid JSON. The user wants to create a page. Return ONLY JSON with mode=create_page, the title in "title" and the blocks in "blocks". By default generate detailed, comprehensive content (minimum 10-15 blocks), unless the original message asked for something short.'}\n'
-                '${isEs ? 'Formato de bloque:' : 'Block format:'} {"type":"paragraph|h1|h2|h3|bullet|numbered|todo|quote|code|callout|toggle|divider|table|image|file|video|audio|bookmark|embed|equation|mermaid","text":"...","checked":false,"expanded":true,"codeLanguage":"dart","depth":0,"icon":"emoji","url":"https://...","imageWidth":0.8,"cols":2,"rows":[["a","b"]]}\n'
+                '${isEs ? 'Formato de bloque:' : 'Block format:'} {"type":"paragraph|h1|h2|h3|bullet|numbered|todo|quote|code|callout|toggle|divider|table|image|file|video|audio|meeting_note|bookmark|embed|equation|mermaid","text":"...","checked":false,"expanded":true,"codeLanguage":"dart","depth":0,"icon":"emoji","url":"https://...","imageWidth":0.8,"cols":2,"rows":[["a","b"]]}\n'
                 '${isEs ? 'No uses markdown fences ni texto fuera del JSON.' : 'Do not use markdown fences or text outside JSON.'}\n\n'
                 '${isEs ? 'Mensaje original:' : 'Original message:'}\n${prompt.trim()}',
             model: 'auto',
@@ -1464,7 +1518,7 @@ For images/blocks: use the + button or / command in a paragraph.
     'required': <String>['mode', 'reply'],
   };
 
-    bool _looksLikeEditIntent(String prompt, {required String languageCode}) {
+  bool _looksLikeEditIntent(String prompt, {required String languageCode}) {
     final p = _normalizeIntentText(prompt);
     if (p.contains('?') && p.length < 42) return false;
     const negationPrefixes = [
@@ -1519,12 +1573,12 @@ For images/blocks: use the + button or / command in a paragraph.
       languageCode: languageCode,
     );
     return hints.any((h) => _containsIntentPhrase(p, h));
-    }
+  }
 
-    bool _looksLikeCreatePageIntent(
+  bool _looksLikeCreatePageIntent(
     String prompt, {
     required String languageCode,
-    }) {
+  }) {
     final p = _normalizeIntentText(prompt);
     const weakConversationalStarts = [
       'que es',
@@ -1560,28 +1614,28 @@ For images/blocks: use the + button or / command in a paragraph.
         _containsIntentPhrase(p, 'from scratch') ||
         _containsIntentPhrase(p, 'desde cero');
     return hasPagina && hasCreateVerb;
-    }
+  }
 
-    bool _looksLikeSubpageIntent(String prompt, {required String languageCode}) {
+  bool _looksLikeSubpageIntent(String prompt, {required String languageCode}) {
     final p = _normalizeIntentText(prompt);
     final hints = AiIntentHints.hintsFor(
       intent: AiIntentHints.subpage,
       languageCode: languageCode,
     );
     return hints.any((h) => _containsIntentPhrase(p, h));
-    }
+  }
 
-    bool _containsIntentPhrase(String normalizedText, String phrase) {
+  bool _containsIntentPhrase(String normalizedText, String phrase) {
     final p = phrase.trim().toLowerCase();
     if (p.isEmpty) return false;
     if (p.contains(' ')) return normalizedText.contains(p);
-        final tokens = normalizedText
-            .split(RegExp(r'[^a-z0-9_]+'))
-            .where((t) => t.isNotEmpty);
-        return tokens.contains(p);
-    }
+    final tokens = normalizedText
+        .split(RegExp(r'[^a-z0-9_]+'))
+        .where((t) => t.isNotEmpty);
+    return tokens.contains(p);
+  }
 
-    String _normalizeIntentText(String input) {
+  String _normalizeIntentText(String input) {
     return input
         .toLowerCase()
         .replaceAll('á', 'a')
@@ -1590,7 +1644,7 @@ For images/blocks: use the + button or / command in a paragraph.
         .replaceAll('ó', 'o')
         .replaceAll('ú', 'u')
         .replaceAll('ñ', 'n');
-    }
+  }
 
   bool _applyRecoveredEditFromChatReply(FolioPage page, String reply) {
     final htmlSpecs = _parseHtmlToSpecs(reply);
@@ -1774,7 +1828,7 @@ For images/blocks: use the + button or / command in a paragraph.
     return out.join('\n').trim();
   }
 
-    String _normalizeAgentMode(String? raw) {
+  String _normalizeAgentMode(String? raw) {
     const allowed = {
       'chat',
       'summarize_current',
@@ -1817,7 +1871,7 @@ For images/blocks: use the + button or / command in a paragraph.
     if (value.contains('append_current')) return 'append_current';
     if (value.contains('summarize_current')) return 'summarize_current';
     return 'chat';
-    }
+  }
 
   String? _extractTitleFromHtml(String html) {
     final titleMatch = RegExp(
@@ -2115,7 +2169,7 @@ For images/blocks: use the + button or / command in a paragraph.
             '"operations":[{"kind":"update_page_title|append_blocks|replace_page","title":"nuevo título si renombrar","blocks":[...]}]'
             '}\n'
             'Para renombrar la página usa una operación {"kind":"update_page_title","title":"..."} (puede ir sola o junto a otras).\n'
-            'Bloques permitidos: paragraph,h1,h2,h3,bullet,numbered,todo,quote,code,callout,toggle,divider,table,image,file,video,audio,bookmark,embed,equation,mermaid.\n'
+            'Bloques permitidos: paragraph,h1,h2,h3,bullet,numbered,todo,quote,code,callout,toggle,divider,table,image,file,video,audio,meeting_note,bookmark,embed,equation,mermaid.\n'
             'Para table usa: {"type":"table","cols":N,"rows":[["c1","c2"],["v1","v2"]]}.\n'
             'Para code puedes añadir codeLanguage. Para todo puedes añadir checked.\n'
             'No uses markdown ni texto fuera del JSON.\n\n'
@@ -2439,6 +2493,7 @@ For images/blocks: use the + button or / command in a paragraph.
       'file',
       'video',
       'audio',
+      'meeting_note',
       'bookmark',
       'embed',
     };
@@ -2488,36 +2543,36 @@ For images/blocks: use the + button or / command in a paragraph.
     return out;
   }
 
-    @visibleForTesting
-    List<FolioBlock> parseAiOutputForTesting(
+  @visibleForTesting
+  List<FolioBlock> parseAiOutputForTesting(
     String output, {
     String pageId = 'test_page',
     String defaultTitle = 'Test',
-    }) {
+  }) {
     final parsed = _parseAiHybridOutput(output, defaultTitle: defaultTitle);
     return _materializeAiBlocks(pageId, parsed.blocks);
-    }
+  }
 
-    @visibleForTesting
-    String normalizeAgentModeForTesting(String? raw) => _normalizeAgentMode(raw);
+  @visibleForTesting
+  String normalizeAgentModeForTesting(String? raw) => _normalizeAgentMode(raw);
 
-    @visibleForTesting
-    bool detectEditIntentForTesting(
+  @visibleForTesting
+  bool detectEditIntentForTesting(
     String prompt, {
     String languageCode = 'es',
-    }) => _looksLikeEditIntent(prompt, languageCode: languageCode);
+  }) => _looksLikeEditIntent(prompt, languageCode: languageCode);
 
-    @visibleForTesting
-    bool detectCreatePageIntentForTesting(
+  @visibleForTesting
+  bool detectCreatePageIntentForTesting(
     String prompt, {
     String languageCode = 'es',
-    }) => _looksLikeCreatePageIntent(prompt, languageCode: languageCode);
+  }) => _looksLikeCreatePageIntent(prompt, languageCode: languageCode);
 
-    @visibleForTesting
-    bool detectSubpageIntentForTesting(
+  @visibleForTesting
+  bool detectSubpageIntentForTesting(
     String prompt, {
     String languageCode = 'es',
-    }) => _looksLikeSubpageIntent(prompt, languageCode: languageCode);
+  }) => _looksLikeSubpageIntent(prompt, languageCode: languageCode);
 
   bool _aiBlockTypeAllowsEmptyText(String type, {required String url}) {
     if (type == 'divider' || type == 'table') return true;
@@ -2527,6 +2582,7 @@ For images/blocks: use the + button or / command in a paragraph.
       'file',
       'video',
       'audio',
+      'meeting_note',
       'bookmark',
       'embed',
     }.contains(type);
@@ -2555,6 +2611,7 @@ For images/blocks: use the + button or / command in a paragraph.
       'embed',
       'equation',
       'mermaid',
+      'meeting_note',
     };
     final normalized = raw.trim().toLowerCase();
     final type = normalized.contains('|')

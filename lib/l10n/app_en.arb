@@ -219,6 +219,91 @@
   "sidebarAutoRevealSubtitle": "When the sidebar is hidden, move the pointer to the left edge to show it temporarily.",
   "newRootPageTooltip": "New page (root)",
   "blockOptions": "Block options",
+  "meetingNoteTitle": "Meeting note",
+  "meetingNoteDesktopOnly": "Available on desktop only.",
+  "meetingNoteStartRecording": "Start recording",
+  "meetingNotePreparing": "Preparing…",
+  "meetingNoteTranscriptionLanguage": "Transcription language",
+  "meetingNoteLangAuto": "Automatic",
+  "meetingNoteLangEs": "Spanish",
+  "meetingNoteLangEn": "English",
+  "meetingNoteLangPt": "Portuguese",
+  "meetingNoteLangFr": "French",
+  "meetingNoteLangIt": "Italian",
+  "meetingNoteLangDe": "German",
+  "meetingNoteDevicesInSettings": "Input/output devices are configured in Settings > Desktop.",
+  "meetingNoteModelInSettings": "Transcription model: {model} (in Settings > Desktop).",
+  "@meetingNoteModelInSettings": {
+    "placeholders": {
+      "model": {}
+    }
+  },
+  "meetingNoteDescription": "Records microphone and system audio. Transcription is generated locally.",
+  "meetingNoteWhisperInitError": "Could not initialize Whisper: {error}",
+  "@meetingNoteWhisperInitError": {
+    "placeholders": {
+      "error": {}
+    }
+  },
+  "meetingNoteAudioAccessError": "Could not access microphone/devices.",
+  "meetingNoteMicrophoneAccessError": "Could not access microphone.",
+  "meetingNoteChunkTranscriptionError": "Could not transcribe this audio chunk.",
+  "meetingNoteProviderLocal": "Local (Whisper)",
+  "meetingNoteProviderCloud": "Quill Cloud",
+  "meetingNoteProviderCloudCost": "1 Ink per 5 min. recorded",
+  "meetingNoteCloudFallbackNotice": "Cloud unavailable. Using local Whisper.",
+  "meetingNoteCloudInkExhaustedNotice": "Insufficient Ink. Switching to local Whisper.",
+  "meetingNoteCloudRecordingBadge": "Quill Cloud | Language: {language}",
+  "@meetingNoteCloudRecordingBadge": {
+    "placeholders": {
+      "language": {}
+    }
+  },
+    "meetingNoteCloudProcessing": "Processing with Quill Cloud…",
+    "meetingNoteCloudProcessingSubtitle": "Detecting speakers and improving quality. Please wait.",
+  "meetingNoteCloudRequiresAccount": "Requires a Folio Cloud account with Ink.",
+  "meetingNoteTranscriptionProvider": "Transcription engine",
+  "meetingNoteRecordingTime": "Recording  {mm}:{ss}",
+  "@meetingNoteRecordingTime": {
+    "placeholders": {
+      "mm": {},
+      "ss": {}
+    }
+  },
+  "meetingNoteRecordingBadge": "Language: {language} | Model: {model}",
+  "@meetingNoteRecordingBadge": {
+    "placeholders": {
+      "language": {},
+      "model": {}
+    }
+  },
+  "meetingNoteSystemAudioCaptured": "System audio captured",
+  "meetingNoteStop": "Stop",
+  "meetingNoteWaitingTranscription": "Waiting for transcription…",
+  "meetingNoteTranscribing": "Transcribing…",
+  "meetingNoteTranscriptionTitle": "Transcription",
+  "meetingNoteNoTranscription": "No transcription available.",
+  "meetingNoteNewRecording": "New recording",
+  "meetingNoteSettingsSection": "Meeting note (audio)",
+  "meetingNoteSettingsDescription": "These devices are used by default when recording a meeting note.",
+  "meetingNoteSettingsMicrophone": "Microphone",
+  "meetingNoteSettingsRefreshDevices": "Refresh list",
+  "meetingNoteSettingsSystemDefault": "System default",
+  "meetingNoteSettingsSystemOutput": "System output (loopback)",
+  "meetingNoteSettingsModel": "Transcription model",
+  "meetingNoteDiarizationHint": "100% local processing on your device.",
+  "meetingNoteModelTiny": "Fast",
+  "meetingNoteModelBase": "Balanced",
+  "meetingNoteModelSmall": "Accurate",
+  "meetingNoteCopyTranscript": "Copy transcript",
+  "meetingNoteSendToAi": "Send to AI…",
+  "meetingNoteAiPayloadLabel": "What to send to AI?",
+  "meetingNoteAiPayloadTranscript": "Transcript only",
+  "meetingNoteAiPayloadAudio": "Audio only",
+  "meetingNoteAiPayloadBoth": "Transcript + audio",
+  "meetingNoteAiInstructionHint": "e.g. summarise the key points",
+  "meetingNoteAiNoAudio": "No audio available for this mode",
+  "meetingNoteAiInstruction": "Instruction for AI",
   "dragToReorder": "Drag to reorder",
   "addBlock": "Add block",
   "blockMentionPageSubtitle": "Mention page",
@@ -784,4 +869,26 @@
   ,"onboardingFolioCloudFeatureWebTitle": "Web publishing"
   ,"onboardingFolioCloudFeatureWebBody": "Publish selected pages and control what becomes public. The rest of your vault is not shared."
   ,"onboardingFolioCloudLaterInSettings": "I’ll check in Settings"
+  ,"collabMenuAction": "Live collaboration"
+  ,"collabSheetTitle": "Live collaboration"
+  ,"collabHeaderSubtitle": "Folio account required. Hosting needs a plan with collaboration; joining only needs a code. Room content and chat are end-to-end encrypted; the server never sees your text."
+  ,"collabNoRoomHint": "Create a room (if your plan includes hosting) or paste the host’s code (emojis + digits)."
+  ,"collabCreateRoom": "Create room"
+  ,"collabJoinCodeLabel": "Room code"
+  ,"collabJoinCodeHint": "e.g. two emojis + 4 digits"
+  ,"collabJoinRoom": "Join"
+  ,"collabJoinFailed": "Invalid code or room is full."
+  ,"collabShareCodeLabel": "Share this code"
+  ,"collabCopyJoinCode": "Copy code"
+  ,"collabCopied": "Copied"
+  ,"collabHostRequiresPlan": "Creating rooms requires Folio Cloud with collaboration (hosting). You can join others’ rooms with a code without that plan."
+  ,"collabChatEmptyHint": "No messages yet. Say hi to your team."
+  ,"collabMessageHint": "Type a message…"
+  ,"collabArchivedOk": "Chat archived as page comments."
+  ,"collabArchiveToPage": "Archive chat to page"
+  ,"collabLeaveRoom": "Leave room"
+  ,"collabNeedsJoinCode": "Enter the room code to decrypt this collaboration session."
+  ,"collabMissingJoinCodeHint": "This page is linked to a room but no code is saved here. Paste the host’s code to decrypt content and chat."
+  ,"collabUnlockWithCode": "Unlock with code"
+  ,"collabHidePanel": "Hide collaboration panel"
 }

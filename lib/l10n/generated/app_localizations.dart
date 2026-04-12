@@ -1262,6 +1262,354 @@ abstract class AppLocalizations {
   /// **'Opciones del bloque'**
   String get blockOptions;
 
+  /// No description provided for @meetingNoteTitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Nota de reunión'**
+  String get meetingNoteTitle;
+
+  /// No description provided for @meetingNoteDesktopOnly.
+  ///
+  /// In es, this message translates to:
+  /// **'Solo disponible en escritorio.'**
+  String get meetingNoteDesktopOnly;
+
+  /// No description provided for @meetingNoteStartRecording.
+  ///
+  /// In es, this message translates to:
+  /// **'Iniciar grabación'**
+  String get meetingNoteStartRecording;
+
+  /// No description provided for @meetingNotePreparing.
+  ///
+  /// In es, this message translates to:
+  /// **'Preparando…'**
+  String get meetingNotePreparing;
+
+  /// No description provided for @meetingNoteTranscriptionLanguage.
+  ///
+  /// In es, this message translates to:
+  /// **'Idioma de transcripción'**
+  String get meetingNoteTranscriptionLanguage;
+
+  /// No description provided for @meetingNoteLangAuto.
+  ///
+  /// In es, this message translates to:
+  /// **'Automático'**
+  String get meetingNoteLangAuto;
+
+  /// No description provided for @meetingNoteLangEs.
+  ///
+  /// In es, this message translates to:
+  /// **'Español'**
+  String get meetingNoteLangEs;
+
+  /// No description provided for @meetingNoteLangEn.
+  ///
+  /// In es, this message translates to:
+  /// **'Inglés'**
+  String get meetingNoteLangEn;
+
+  /// No description provided for @meetingNoteLangPt.
+  ///
+  /// In es, this message translates to:
+  /// **'Portugués'**
+  String get meetingNoteLangPt;
+
+  /// No description provided for @meetingNoteLangFr.
+  ///
+  /// In es, this message translates to:
+  /// **'Francés'**
+  String get meetingNoteLangFr;
+
+  /// No description provided for @meetingNoteLangIt.
+  ///
+  /// In es, this message translates to:
+  /// **'Italiano'**
+  String get meetingNoteLangIt;
+
+  /// No description provided for @meetingNoteLangDe.
+  ///
+  /// In es, this message translates to:
+  /// **'Alemán'**
+  String get meetingNoteLangDe;
+
+  /// No description provided for @meetingNoteDevicesInSettings.
+  ///
+  /// In es, this message translates to:
+  /// **'Los dispositivos de entrada/salida se configuran en Ajustes > Escritorio.'**
+  String get meetingNoteDevicesInSettings;
+
+  /// No description provided for @meetingNoteModelInSettings.
+  ///
+  /// In es, this message translates to:
+  /// **'Modelo de transcripción: {model} (en Ajustes > Escritorio).'**
+  String meetingNoteModelInSettings(Object model);
+
+  /// No description provided for @meetingNoteDescription.
+  ///
+  /// In es, this message translates to:
+  /// **'Graba micrófono y audio del sistema. La transcripción se genera localmente.'**
+  String get meetingNoteDescription;
+
+  /// No description provided for @meetingNoteWhisperInitError.
+  ///
+  /// In es, this message translates to:
+  /// **'No se pudo inicializar Whisper: {error}'**
+  String meetingNoteWhisperInitError(Object error);
+
+  /// No description provided for @meetingNoteAudioAccessError.
+  ///
+  /// In es, this message translates to:
+  /// **'No se pudo acceder al micrófono/dispositivos.'**
+  String get meetingNoteAudioAccessError;
+
+  /// No description provided for @meetingNoteMicrophoneAccessError.
+  ///
+  /// In es, this message translates to:
+  /// **'No se pudo acceder al micrófono.'**
+  String get meetingNoteMicrophoneAccessError;
+
+  /// No description provided for @meetingNoteChunkTranscriptionError.
+  ///
+  /// In es, this message translates to:
+  /// **'No se pudo transcribir este fragmento de audio.'**
+  String get meetingNoteChunkTranscriptionError;
+
+  /// No description provided for @meetingNoteProviderLocal.
+  ///
+  /// In es, this message translates to:
+  /// **'Local (Whisper)'**
+  String get meetingNoteProviderLocal;
+
+  /// No description provided for @meetingNoteProviderCloud.
+  ///
+  /// In es, this message translates to:
+  /// **'Quill Cloud'**
+  String get meetingNoteProviderCloud;
+
+  /// No description provided for @meetingNoteProviderCloudCost.
+  ///
+  /// In es, this message translates to:
+  /// **'1 Tinta por cada 5 min. grabados'**
+  String get meetingNoteProviderCloudCost;
+
+  /// No description provided for @meetingNoteCloudFallbackNotice.
+  ///
+  /// In es, this message translates to:
+  /// **'Cloud no disponible. Usando Whisper local.'**
+  String get meetingNoteCloudFallbackNotice;
+
+  /// No description provided for @meetingNoteCloudInkExhaustedNotice.
+  ///
+  /// In es, this message translates to:
+  /// **'Tinta insuficiente. Cambiando a Whisper local.'**
+  String get meetingNoteCloudInkExhaustedNotice;
+
+  /// No description provided for @meetingNoteCloudRecordingBadge.
+  ///
+  /// In es, this message translates to:
+  /// **'Quill Cloud | Idioma: {language}'**
+  String meetingNoteCloudRecordingBadge(Object language);
+
+  /// No description provided for @meetingNoteCloudProcessing.
+  ///
+  /// In es, this message translates to:
+  /// **'Procesando con Quill Cloud…'**
+  String get meetingNoteCloudProcessing;
+
+  /// No description provided for @meetingNoteCloudProcessingSubtitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Detectando hablantes y mejorando calidad. Un momento.'**
+  String get meetingNoteCloudProcessingSubtitle;
+
+  /// No description provided for @meetingNoteCloudRequiresAccount.
+  ///
+  /// In es, this message translates to:
+  /// **'Requiere cuenta Folio Cloud con Tinta.'**
+  String get meetingNoteCloudRequiresAccount;
+
+  /// No description provided for @meetingNoteTranscriptionProvider.
+  ///
+  /// In es, this message translates to:
+  /// **'Motor de transcripción'**
+  String get meetingNoteTranscriptionProvider;
+
+  /// No description provided for @meetingNoteRecordingTime.
+  ///
+  /// In es, this message translates to:
+  /// **'Grabando  {mm}:{ss}'**
+  String meetingNoteRecordingTime(Object mm, Object ss);
+
+  /// No description provided for @meetingNoteRecordingBadge.
+  ///
+  /// In es, this message translates to:
+  /// **'Idioma: {language} | Modelo: {model}'**
+  String meetingNoteRecordingBadge(Object language, Object model);
+
+  /// No description provided for @meetingNoteSystemAudioCaptured.
+  ///
+  /// In es, this message translates to:
+  /// **'Audio del sistema capturado'**
+  String get meetingNoteSystemAudioCaptured;
+
+  /// No description provided for @meetingNoteStop.
+  ///
+  /// In es, this message translates to:
+  /// **'Detener'**
+  String get meetingNoteStop;
+
+  /// No description provided for @meetingNoteWaitingTranscription.
+  ///
+  /// In es, this message translates to:
+  /// **'Esperando transcripción…'**
+  String get meetingNoteWaitingTranscription;
+
+  /// No description provided for @meetingNoteTranscribing.
+  ///
+  /// In es, this message translates to:
+  /// **'Transcribiendo…'**
+  String get meetingNoteTranscribing;
+
+  /// No description provided for @meetingNoteTranscriptionTitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Transcripción'**
+  String get meetingNoteTranscriptionTitle;
+
+  /// No description provided for @meetingNoteNoTranscription.
+  ///
+  /// In es, this message translates to:
+  /// **'Sin transcripción disponible.'**
+  String get meetingNoteNoTranscription;
+
+  /// No description provided for @meetingNoteNewRecording.
+  ///
+  /// In es, this message translates to:
+  /// **'Nueva grabación'**
+  String get meetingNoteNewRecording;
+
+  /// No description provided for @meetingNoteSettingsSection.
+  ///
+  /// In es, this message translates to:
+  /// **'Nota de reunión (audio)'**
+  String get meetingNoteSettingsSection;
+
+  /// No description provided for @meetingNoteSettingsDescription.
+  ///
+  /// In es, this message translates to:
+  /// **'Estos dispositivos se usan por defecto al grabar una nota de reunión.'**
+  String get meetingNoteSettingsDescription;
+
+  /// No description provided for @meetingNoteSettingsMicrophone.
+  ///
+  /// In es, this message translates to:
+  /// **'Micrófono'**
+  String get meetingNoteSettingsMicrophone;
+
+  /// No description provided for @meetingNoteSettingsRefreshDevices.
+  ///
+  /// In es, this message translates to:
+  /// **'Actualizar lista'**
+  String get meetingNoteSettingsRefreshDevices;
+
+  /// No description provided for @meetingNoteSettingsSystemDefault.
+  ///
+  /// In es, this message translates to:
+  /// **'Predeterminado del sistema'**
+  String get meetingNoteSettingsSystemDefault;
+
+  /// No description provided for @meetingNoteSettingsSystemOutput.
+  ///
+  /// In es, this message translates to:
+  /// **'Salida del sistema (loopback)'**
+  String get meetingNoteSettingsSystemOutput;
+
+  /// No description provided for @meetingNoteSettingsModel.
+  ///
+  /// In es, this message translates to:
+  /// **'Modelo de transcripción'**
+  String get meetingNoteSettingsModel;
+
+  /// No description provided for @meetingNoteDiarizationHint.
+  ///
+  /// In es, this message translates to:
+  /// **'Procesamiento 100% local en tu dispositivo.'**
+  String get meetingNoteDiarizationHint;
+
+  /// No description provided for @meetingNoteModelTiny.
+  ///
+  /// In es, this message translates to:
+  /// **'Rápido'**
+  String get meetingNoteModelTiny;
+
+  /// No description provided for @meetingNoteModelBase.
+  ///
+  /// In es, this message translates to:
+  /// **'Equilibrado'**
+  String get meetingNoteModelBase;
+
+  /// No description provided for @meetingNoteModelSmall.
+  ///
+  /// In es, this message translates to:
+  /// **'Preciso'**
+  String get meetingNoteModelSmall;
+
+  /// No description provided for @meetingNoteCopyTranscript.
+  ///
+  /// In es, this message translates to:
+  /// **'Copiar transcripción'**
+  String get meetingNoteCopyTranscript;
+
+  /// No description provided for @meetingNoteSendToAi.
+  ///
+  /// In es, this message translates to:
+  /// **'Enviar a IA…'**
+  String get meetingNoteSendToAi;
+
+  /// No description provided for @meetingNoteAiPayloadLabel.
+  ///
+  /// In es, this message translates to:
+  /// **'¿Qué enviar a la IA?'**
+  String get meetingNoteAiPayloadLabel;
+
+  /// No description provided for @meetingNoteAiPayloadTranscript.
+  ///
+  /// In es, this message translates to:
+  /// **'Solo transcripción'**
+  String get meetingNoteAiPayloadTranscript;
+
+  /// No description provided for @meetingNoteAiPayloadAudio.
+  ///
+  /// In es, this message translates to:
+  /// **'Solo audio'**
+  String get meetingNoteAiPayloadAudio;
+
+  /// No description provided for @meetingNoteAiPayloadBoth.
+  ///
+  /// In es, this message translates to:
+  /// **'Transcripción + audio'**
+  String get meetingNoteAiPayloadBoth;
+
+  /// No description provided for @meetingNoteAiInstructionHint.
+  ///
+  /// In es, this message translates to:
+  /// **'p. ej. resume los puntos clave'**
+  String get meetingNoteAiInstructionHint;
+
+  /// No description provided for @meetingNoteAiNoAudio.
+  ///
+  /// In es, this message translates to:
+  /// **'No hay audio disponible para este modo'**
+  String get meetingNoteAiNoAudio;
+
+  /// No description provided for @meetingNoteAiInstruction.
+  ///
+  /// In es, this message translates to:
+  /// **'Instrucción para la IA'**
+  String get meetingNoteAiInstruction;
+
   /// No description provided for @dragToReorder.
   ///
   /// In es, this message translates to:
@@ -4405,6 +4753,138 @@ abstract class AppLocalizations {
   /// In es, this message translates to:
   /// **'Lo veré en Ajustes'**
   String get onboardingFolioCloudLaterInSettings;
+
+  /// No description provided for @collabMenuAction.
+  ///
+  /// In es, this message translates to:
+  /// **'Colaboración en vivo'**
+  String get collabMenuAction;
+
+  /// No description provided for @collabSheetTitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Colaboración en vivo'**
+  String get collabSheetTitle;
+
+  /// No description provided for @collabHeaderSubtitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Cuenta Folio obligatoria. Crear sala requiere plan con anfitrión; unirse solo necesita el código. Contenido y chat van cifrados de extremo a extremo; el servidor no ve tu texto.'**
+  String get collabHeaderSubtitle;
+
+  /// No description provided for @collabNoRoomHint.
+  ///
+  /// In es, this message translates to:
+  /// **'Crea una sala (si tu plan incluye anfitrión) o pega el código que te comparta el anfitrión (emojis y números).'**
+  String get collabNoRoomHint;
+
+  /// No description provided for @collabCreateRoom.
+  ///
+  /// In es, this message translates to:
+  /// **'Crear sala'**
+  String get collabCreateRoom;
+
+  /// No description provided for @collabJoinCodeLabel.
+  ///
+  /// In es, this message translates to:
+  /// **'Código de sala'**
+  String get collabJoinCodeLabel;
+
+  /// No description provided for @collabJoinCodeHint.
+  ///
+  /// In es, this message translates to:
+  /// **'Ej.: dos emojis y 4 dígitos'**
+  String get collabJoinCodeHint;
+
+  /// No description provided for @collabJoinRoom.
+  ///
+  /// In es, this message translates to:
+  /// **'Unirse'**
+  String get collabJoinRoom;
+
+  /// No description provided for @collabJoinFailed.
+  ///
+  /// In es, this message translates to:
+  /// **'Código no válido o sala llena.'**
+  String get collabJoinFailed;
+
+  /// No description provided for @collabShareCodeLabel.
+  ///
+  /// In es, this message translates to:
+  /// **'Comparte este código'**
+  String get collabShareCodeLabel;
+
+  /// No description provided for @collabCopyJoinCode.
+  ///
+  /// In es, this message translates to:
+  /// **'Copiar código'**
+  String get collabCopyJoinCode;
+
+  /// No description provided for @collabCopied.
+  ///
+  /// In es, this message translates to:
+  /// **'Copiado'**
+  String get collabCopied;
+
+  /// No description provided for @collabHostRequiresPlan.
+  ///
+  /// In es, this message translates to:
+  /// **'Para crear salas necesitas Folio Cloud con la función de colaboración (anfitrión). Puedes unirte a salas ajenas con un código sin ese plan.'**
+  String get collabHostRequiresPlan;
+
+  /// No description provided for @collabChatEmptyHint.
+  ///
+  /// In es, this message translates to:
+  /// **'Aún no hay mensajes. Saluda a tu equipo.'**
+  String get collabChatEmptyHint;
+
+  /// No description provided for @collabMessageHint.
+  ///
+  /// In es, this message translates to:
+  /// **'Escribe un mensaje…'**
+  String get collabMessageHint;
+
+  /// No description provided for @collabArchivedOk.
+  ///
+  /// In es, this message translates to:
+  /// **'Chat archivado en comentarios de la página.'**
+  String get collabArchivedOk;
+
+  /// No description provided for @collabArchiveToPage.
+  ///
+  /// In es, this message translates to:
+  /// **'Archivar chat en la página'**
+  String get collabArchiveToPage;
+
+  /// No description provided for @collabLeaveRoom.
+  ///
+  /// In es, this message translates to:
+  /// **'Salir de la sala'**
+  String get collabLeaveRoom;
+
+  /// No description provided for @collabNeedsJoinCode.
+  ///
+  /// In es, this message translates to:
+  /// **'Introduce el código de sala para descifrar esta sesión.'**
+  String get collabNeedsJoinCode;
+
+  /// No description provided for @collabMissingJoinCodeHint.
+  ///
+  /// In es, this message translates to:
+  /// **'La página está enlazada a una sala pero aquí no hay código guardado. Pega el código del anfitrión para descifrar contenido y chat.'**
+  String get collabMissingJoinCodeHint;
+
+  /// No description provided for @collabUnlockWithCode.
+  ///
+  /// In es, this message translates to:
+  /// **'Descifrar con código'**
+  String get collabUnlockWithCode;
+
+  /// No description provided for @collabHidePanel.
+  ///
+  /// In es, this message translates to:
+  /// **'Ocultar panel de colaboración'**
+  String get collabHidePanel;
 }
 
 class _AppLocalizationsDelegate

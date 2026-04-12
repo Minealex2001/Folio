@@ -172,6 +172,7 @@ class FolioCloudSnapshot {
     required this.backup,
     required this.cloudAi,
     required this.publishWeb,
+    required this.realtimeCollab,
     FolioInkSnapshot? ink,
   }) : _ink = ink;
 
@@ -180,6 +181,7 @@ class FolioCloudSnapshot {
   final bool backup;
   final bool cloudAi;
   final bool publishWeb;
+  final bool realtimeCollab;
   final FolioInkSnapshot? _ink;
 
   /// Tras hot reload puede existir un snapshot antiguo sin tinta; nunca devolver null.
@@ -191,6 +193,9 @@ class FolioCloudSnapshot {
   /// Publicación web (Storage `published/` + Firestore `publishedPages`).
   bool get canPublishToWeb => active && publishWeb;
 
+  /// Colaboración en vivo (Firestore `collabRooms`).
+  bool get canRealtimeCollab => active && realtimeCollab;
+
   /// Callable `folioCloudAiComplete`: suscripción con IA en la nube, o tinta comprada (sin suscripción).
   bool get canUseCloudAi =>
       (active && cloudAi) || ink.purchasedBalance > 0;
@@ -201,6 +206,7 @@ class FolioCloudSnapshot {
     backup: false,
     cloudAi: false,
     publishWeb: false,
+    realtimeCollab: false,
   );
 
   static FolioCloudSnapshot fromUserDoc(Map<String, dynamic>? data) {
@@ -213,6 +219,7 @@ class FolioCloudSnapshot {
         backup: false,
         cloudAi: false,
         publishWeb: false,
+        realtimeCollab: false,
         ink: FolioInkSnapshot.fromUserDoc(data),
       );
     }
@@ -235,6 +242,7 @@ class FolioCloudSnapshot {
       backup: f('backup'),
       cloudAi: f('cloudAi'),
       publishWeb: f('publishWeb'),
+      realtimeCollab: f('realtimeCollab'),
       ink: FolioInkSnapshot.fromUserDoc(data),
     );
   }
@@ -448,6 +456,7 @@ class FolioCloudEntitlementsController extends ChangeNotifier {
       backup: prev.backup,
       cloudAi: prev.cloudAi,
       publishWeb: prev.publishWeb,
+      realtimeCollab: prev.realtimeCollab,
       ink: ink,
     );
     notifyListeners();

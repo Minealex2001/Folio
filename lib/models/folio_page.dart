@@ -10,6 +10,8 @@ class FolioPage {
     this.emoji,
     this.parentId,
     this.lastImportInfo,
+    this.collabRoomId,
+    this.collabJoinCode,
     List<FolioBlock>? blocks,
   }) : blocks = (blocks != null && blocks.isNotEmpty)
            ? blocks
@@ -22,6 +24,12 @@ class FolioPage {
   /// null = raíz del árbol
   String? parentId;
   FolioPageImportInfo? lastImportInfo;
+
+  /// Firestore `collabRooms` id when esta página tiene sala de colaboración.
+  String? collabRoomId;
+
+  /// Código de unión (solo en la libreta local; no se sube a Firestore).
+  String? collabJoinCode;
   List<FolioBlock> blocks;
 
   Map<String, dynamic> toJson() => {
@@ -30,6 +38,10 @@ class FolioPage {
     if (emoji != null && emoji!.trim().isNotEmpty) 'emoji': emoji,
     if (parentId != null) 'parentId': parentId,
     if (lastImportInfo != null) 'lastImportInfo': lastImportInfo!.toJson(),
+    if (collabRoomId != null && collabRoomId!.trim().isNotEmpty)
+      'collabRoomId': collabRoomId!.trim(),
+    if (collabJoinCode != null && collabJoinCode!.trim().isNotEmpty)
+      'collabJoinCode': collabJoinCode!.trim(),
     'blocks': blocks.map((b) => b.toJson()).toList(),
   };
 
@@ -43,6 +55,10 @@ class FolioPage {
               )
               .toList();
     final id = j['id'] as String;
+    final rawRoom = j['collabRoomId'] as String?;
+    final roomId = rawRoom?.trim();
+    final rawJoin = j['collabJoinCode'] as String?;
+    final joinCode = rawJoin?.trim();
     return FolioPage(
       id: id,
       title: j['title'] as String? ?? 'Untitled',
@@ -59,6 +75,10 @@ class FolioPage {
                     Map<String, dynamic>.from(j['lastImportInfo'] as Map),
                   )
                 : null),
+      collabRoomId:
+          (roomId == null || roomId.isEmpty) ? null : roomId,
+      collabJoinCode:
+          (joinCode == null || joinCode.isEmpty) ? null : joinCode,
       blocks: blocks,
     );
   }

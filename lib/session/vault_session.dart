@@ -2133,6 +2133,85 @@ class VaultSession extends ChangeNotifier {
     scheduleSave();
   }
 
+  void setPageCollabRoomId(String pageId, String? roomId, {String? joinCode}) {
+    final p = _pageById(pageId);
+    if (p == null) return;
+    final next = roomId?.trim();
+    p.collabRoomId = (next == null || next.isEmpty) ? null : next;
+    if (p.collabRoomId == null) {
+      p.collabJoinCode = null;
+    } else if (joinCode != null) {
+      final c = joinCode.trim();
+      p.collabJoinCode = c.isEmpty ? null : c;
+    }
+    notifyListeners();
+    scheduleSave();
+  }
+
+  void setPageCollabJoinCode(String pageId, String? joinCode) {
+    final p = _pageById(pageId);
+    if (p == null) return;
+    final c = joinCode?.trim();
+    p.collabJoinCode = (c == null || c.isEmpty) ? null : c;
+    notifyListeners();
+    scheduleSave();
+  }
+
+  /// Aplica estado remoto de colaboración (sin deshacer local explícito).
+  void applyRemoteCollabPageState({
+    required String pageId,
+    required String title,
+    required List<FolioBlock> blocks,
+  }) {
+    if (vaultUsesEncryption && _dek == null) return;
+    final page = _pageById(pageId);
+    if (page == null) return;
+    page.title = title;
+    page.blocks = blocks;
+    _contentEpoch++;
+    notifyListeners();
+    scheduleSave(trackRevisionForPageId: pageId);
+  }
+
+  /// Archiva mensajes del chat de colaboración como comentarios locales de la página.
+  void archiveCollabChatToComments({
+    required String pageId,
+    required List<
+      ({
+        String messageId,
+        String authorUid,
+        String authorName,
+        String text,
+        int createdAtMs,
+      })
+    >
+    messages,
+  }) {
+    if (vaultUsesEncryption && _dek == null) return;
+    if (_pageById(pageId) == null) return;
+    final existing = _comments
+        .where((c) => c.pageId == pageId)
+        .map((c) => c.collabMessageId)
+        .whereType<String>()
+        .toSet();
+    for (final m in messages) {
+      if (existing.contains(m.messageId)) continue;
+      _comments.add(
+        LocalPageComment(
+          id: _uuid.v4(),
+          pageId: pageId,
+          authorProfileId: m.authorUid,
+          text: m.text,
+          createdAtMs: m.createdAtMs,
+          collabMessageId: m.messageId,
+          authorDisplayName: m.authorName,
+        ),
+      );
+    }
+    notifyListeners();
+    scheduleSave();
+  }
+
   void addComment({
     required String pageId,
     required String text,
@@ -2262,6 +2341,20 @@ class VaultSession extends ChangeNotifier {
     scheduleSave(trackRevisionForPageId: pageId);
   }
 
+  void updateBlockMeetingNoteProvider(
+    String pageId,
+    String blockId,
+    String? value,
+  ) {
+    final page = _pageById(pageId);
+    if (page == null) return;
+    final b = _blockById(page, blockId);
+    if (b == null) return;
+    b.meetingNoteProvider = value;
+    notifyListeners();
+    scheduleSave(trackRevisionForPageId: pageId);
+  }
+
   void updateBlockUrl(String pageId, String blockId, String? url) {
     final page = _pageById(pageId);
     if (page == null) return;
@@ -2311,7 +2404,10 @@ class VaultSession extends ChangeNotifier {
         excludingBlockId: blockId,
       );
     }
-    if ((oldType == 'file' || oldType == 'video' || oldType == 'audio') &&
+    if ((oldType == 'file' ||
+            oldType == 'video' ||
+            oldType == 'audio' ||
+            oldType == 'meeting_note') &&
         newType != oldType &&
         _isManagedAttachmentPath(b.url)) {
       _deleteManagedAttachmentIfUnused(
@@ -2733,7 +2829,9 @@ class VaultSession extends ChangeNotifier {
     if (page == null || page.blocks.length <= 1) return;
 
     final requested = blockIds.toSet();
-    final existing = page.blocks.where((b) => requested.contains(b.id)).toList();
+    final existing = page.blocks
+        .where((b) => requested.contains(b.id))
+        .toList();
     if (existing.isEmpty) return;
 
     final maxDeletable = page.blocks.length - 1;
@@ -3342,9 +3440,7 @@ class VaultSession extends ChangeNotifier {
       }
       if (includeContentMatches) {
         for (final block in page.blocks) {
-          if (tasksOnly &&
-              block.type != 'todo' &&
-              block.type != 'task') {
+          if (tasksOnly && block.type != 'todo' && block.type != 'task') {
             continue;
           }
           final haystack = _blockSearchText(block);

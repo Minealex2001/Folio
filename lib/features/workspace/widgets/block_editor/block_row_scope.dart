@@ -42,4 +42,6 @@ class _BlockRowScope {
 
   bool get readOnlyMode => st.widget.readOnlyMode;
   AppSettings get appSettings => st.widget.appSettings;
+  FolioCloudEntitlementsController? get folioCloudEntitlements =>
+      st.widget.folioCloudEntitlements;
 }

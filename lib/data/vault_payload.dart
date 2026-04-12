@@ -6,8 +6,8 @@ import '../models/folio_page_template.dart';
 import '../models/local_collab.dart';
 import '../services/ai/ai_types.dart';
 
-/// Esquema 4: añade persistencia de chats de IA.
-const int kVaultPayloadVersion = 4;
+/// Esquema 4: chats de IA. Esquema 5: `FolioPage.collabRoomId` y comentarios de archivo collab.
+const int kVaultPayloadVersion = 5;
 
 class VaultPayload {
   VaultPayload({
