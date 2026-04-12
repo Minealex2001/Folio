@@ -646,6 +646,200 @@ class AppLocalizationsEn extends AppLocalizations {
   String get blockOptions => 'Block options';
 
   @override
+  String get meetingNoteTitle => 'Meeting note';
+
+  @override
+  String get meetingNoteDesktopOnly => 'Available on desktop only.';
+
+  @override
+  String get meetingNoteStartRecording => 'Start recording';
+
+  @override
+  String get meetingNotePreparing => 'Preparing…';
+
+  @override
+  String get meetingNoteTranscriptionLanguage => 'Transcription language';
+
+  @override
+  String get meetingNoteLangAuto => 'Automatic';
+
+  @override
+  String get meetingNoteLangEs => 'Spanish';
+
+  @override
+  String get meetingNoteLangEn => 'English';
+
+  @override
+  String get meetingNoteLangPt => 'Portuguese';
+
+  @override
+  String get meetingNoteLangFr => 'French';
+
+  @override
+  String get meetingNoteLangIt => 'Italian';
+
+  @override
+  String get meetingNoteLangDe => 'German';
+
+  @override
+  String get meetingNoteDevicesInSettings =>
+      'Input/output devices are configured in Settings > Desktop.';
+
+  @override
+  String meetingNoteModelInSettings(Object model) {
+    return 'Transcription model: $model (in Settings > Desktop).';
+  }
+
+  @override
+  String get meetingNoteDescription =>
+      'Records microphone and system audio. Transcription is generated locally.';
+
+  @override
+  String meetingNoteWhisperInitError(Object error) {
+    return 'Could not initialize Whisper: $error';
+  }
+
+  @override
+  String get meetingNoteAudioAccessError =>
+      'Could not access microphone/devices.';
+
+  @override
+  String get meetingNoteMicrophoneAccessError => 'Could not access microphone.';
+
+  @override
+  String get meetingNoteChunkTranscriptionError =>
+      'Could not transcribe this audio chunk.';
+
+  @override
+  String get meetingNoteProviderLocal => 'Local (Whisper)';
+
+  @override
+  String get meetingNoteProviderCloud => 'Quill Cloud';
+
+  @override
+  String get meetingNoteProviderCloudCost => '1 Ink per 5 min. recorded';
+
+  @override
+  String get meetingNoteCloudFallbackNotice =>
+      'Cloud unavailable. Using local Whisper.';
+
+  @override
+  String get meetingNoteCloudInkExhaustedNotice =>
+      'Insufficient Ink. Switching to local Whisper.';
+
+  @override
+  String meetingNoteCloudRecordingBadge(Object language) {
+    return 'Quill Cloud | Language: $language';
+  }
+
+  @override
+  String get meetingNoteCloudProcessing => 'Processing with Quill Cloud…';
+
+  @override
+  String get meetingNoteCloudProcessingSubtitle =>
+      'Detecting speakers and improving quality. Please wait.';
+
+  @override
+  String get meetingNoteCloudRequiresAccount =>
+      'Requires a Folio Cloud account with Ink.';
+
+  @override
+  String get meetingNoteTranscriptionProvider => 'Transcription engine';
+
+  @override
+  String meetingNoteRecordingTime(Object mm, Object ss) {
+    return 'Recording  $mm:$ss';
+  }
+
+  @override
+  String meetingNoteRecordingBadge(Object language, Object model) {
+    return 'Language: $language | Model: $model';
+  }
+
+  @override
+  String get meetingNoteSystemAudioCaptured => 'System audio captured';
+
+  @override
+  String get meetingNoteStop => 'Stop';
+
+  @override
+  String get meetingNoteWaitingTranscription => 'Waiting for transcription…';
+
+  @override
+  String get meetingNoteTranscribing => 'Transcribing…';
+
+  @override
+  String get meetingNoteTranscriptionTitle => 'Transcription';
+
+  @override
+  String get meetingNoteNoTranscription => 'No transcription available.';
+
+  @override
+  String get meetingNoteNewRecording => 'New recording';
+
+  @override
+  String get meetingNoteSettingsSection => 'Meeting note (audio)';
+
+  @override
+  String get meetingNoteSettingsDescription =>
+      'These devices are used by default when recording a meeting note.';
+
+  @override
+  String get meetingNoteSettingsMicrophone => 'Microphone';
+
+  @override
+  String get meetingNoteSettingsRefreshDevices => 'Refresh list';
+
+  @override
+  String get meetingNoteSettingsSystemDefault => 'System default';
+
+  @override
+  String get meetingNoteSettingsSystemOutput => 'System output (loopback)';
+
+  @override
+  String get meetingNoteSettingsModel => 'Transcription model';
+
+  @override
+  String get meetingNoteDiarizationHint =>
+      '100% local processing on your device.';
+
+  @override
+  String get meetingNoteModelTiny => 'Fast';
+
+  @override
+  String get meetingNoteModelBase => 'Balanced';
+
+  @override
+  String get meetingNoteModelSmall => 'Accurate';
+
+  @override
+  String get meetingNoteCopyTranscript => 'Copy transcript';
+
+  @override
+  String get meetingNoteSendToAi => 'Send to AI…';
+
+  @override
+  String get meetingNoteAiPayloadLabel => 'What to send to AI?';
+
+  @override
+  String get meetingNoteAiPayloadTranscript => 'Transcript only';
+
+  @override
+  String get meetingNoteAiPayloadAudio => 'Audio only';
+
+  @override
+  String get meetingNoteAiPayloadBoth => 'Transcript + audio';
+
+  @override
+  String get meetingNoteAiInstructionHint => 'e.g. summarise the key points';
+
+  @override
+  String get meetingNoteAiNoAudio => 'No audio available for this mode';
+
+  @override
+  String get meetingNoteAiInstruction => 'Instruction for AI';
+
+  @override
   String get dragToReorder => 'Drag to reorder';
 
   @override
@@ -2447,4 +2641,75 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get onboardingFolioCloudLaterInSettings => 'I’ll check in Settings';
+
+  @override
+  String get collabMenuAction => 'Live collaboration';
+
+  @override
+  String get collabSheetTitle => 'Live collaboration';
+
+  @override
+  String get collabHeaderSubtitle =>
+      'Folio account required. Hosting needs a plan with collaboration; joining only needs a code. Room content and chat are end-to-end encrypted; the server never sees your text.';
+
+  @override
+  String get collabNoRoomHint =>
+      'Create a room (if your plan includes hosting) or paste the host’s code (emojis + digits).';
+
+  @override
+  String get collabCreateRoom => 'Create room';
+
+  @override
+  String get collabJoinCodeLabel => 'Room code';
+
+  @override
+  String get collabJoinCodeHint => 'e.g. two emojis + 4 digits';
+
+  @override
+  String get collabJoinRoom => 'Join';
+
+  @override
+  String get collabJoinFailed => 'Invalid code or room is full.';
+
+  @override
+  String get collabShareCodeLabel => 'Share this code';
+
+  @override
+  String get collabCopyJoinCode => 'Copy code';
+
+  @override
+  String get collabCopied => 'Copied';
+
+  @override
+  String get collabHostRequiresPlan =>
+      'Creating rooms requires Folio Cloud with collaboration (hosting). You can join others’ rooms with a code without that plan.';
+
+  @override
+  String get collabChatEmptyHint => 'No messages yet. Say hi to your team.';
+
+  @override
+  String get collabMessageHint => 'Type a message…';
+
+  @override
+  String get collabArchivedOk => 'Chat archived as page comments.';
+
+  @override
+  String get collabArchiveToPage => 'Archive chat to page';
+
+  @override
+  String get collabLeaveRoom => 'Leave room';
+
+  @override
+  String get collabNeedsJoinCode =>
+      'Enter the room code to decrypt this collaboration session.';
+
+  @override
+  String get collabMissingJoinCodeHint =>
+      'This page is linked to a room but no code is saved here. Paste the host’s code to decrypt content and chat.';
+
+  @override
+  String get collabUnlockWithCode => 'Unlock with code';
+
+  @override
+  String get collabHidePanel => 'Hide collaboration panel';
 }

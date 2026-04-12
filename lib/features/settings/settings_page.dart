@@ -8,6 +8,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:passkeys/exceptions.dart';
+import 'package:record/record.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../app/app_settings.dart';
@@ -41,6 +42,8 @@ import '../../services/folio_cloud/folio_web_portal_api.dart';
 import '../../services/folio_cloud/folio_page_html_export.dart';
 import '../../services/device_sync/device_sync_controller.dart';
 import '../../services/device_sync/device_sync_models.dart';
+import '../../services/system_audio_service.dart';
+import '../../services/whisper_service.dart';
 import '../../services/updater/github_release_updater.dart';
 import '../../services/updater/update_release_channel.dart';
 import '../../session/vault_session.dart';
@@ -103,6 +106,9 @@ class _SettingsPageState extends State<SettingsPage> {
   bool _webLinkBusy = false;
   int? _cloudBackupCount;
   bool _cloudBackupCountBusy = false;
+  final AudioRecorder _meetingNoteDeviceProbe = AudioRecorder();
+  List<InputDevice> _meetingNoteMicDevices = const [];
+  List<SystemAudioDevice> _meetingNoteSystemDevices = const [];
   ReleaseReadinessSnapshot _releaseSnapshot = const ReleaseReadinessSnapshot(
     installedVersionLabel: '... ',
     isSemverValid: false,
@@ -137,6 +143,7 @@ class _SettingsPageState extends State<SettingsPage> {
     _settingsSectionFilterController.addListener(() {
       if (mounted) setState(() {});
     });
+    unawaited(_loadMeetingNoteDevices());
     _refreshSecurityFlags();
     _loadInstalledVersionInfo();
     _refreshReleaseReadiness();
@@ -153,7 +160,57 @@ class _SettingsPageState extends State<SettingsPage> {
     _customIconSourceController.dispose();
     _customIconLabelController.dispose();
     _webLinkCodeController.dispose();
+    unawaited(_meetingNoteDeviceProbe.dispose());
     super.dispose();
+  }
+
+  Future<void> _loadMeetingNoteDevices() async {
+    try {
+      final micDevices = await _meetingNoteDeviceProbe.listInputDevices();
+      final systemDevices = await SystemAudioService.instance
+          .listOutputDevices();
+      if (!mounted) return;
+      setState(() {
+        _meetingNoteMicDevices = micDevices;
+        _meetingNoteSystemDevices = systemDevices;
+      });
+    } catch (_) {
+      // Si falla la enumeracion, mantenemos la UI estable con listas vacias.
+      if (!mounted) return;
+      setState(() {
+        _meetingNoteMicDevices = const [];
+        _meetingNoteSystemDevices = const [];
+      });
+    }
+  }
+
+  bool _meetingMicExists(String id) {
+    for (final d in _meetingNoteMicDevices) {
+      if (d.id == id) return true;
+    }
+    return false;
+  }
+
+  bool _meetingSystemExists(String id) {
+    for (final d in _meetingNoteSystemDevices) {
+      if (d.id == id) return true;
+    }
+    return false;
+  }
+
+  bool _meetingModelExists(String id) {
+    for (final m in WhisperService.supportedModels) {
+      if (m.id == id) return true;
+    }
+    return false;
+  }
+
+  String _meetingModelLabel(AppLocalizations l10n, String id) {
+    return switch (id) {
+      'tiny' => l10n.meetingNoteModelTiny,
+      'small' => l10n.meetingNoteModelSmall,
+      _ => l10n.meetingNoteModelBase,
+    };
   }
 
   Future<bool> _ensureSectionVisible(int index) async {
@@ -1178,8 +1235,8 @@ class _SettingsPageState extends State<SettingsPage> {
         return 'Ollama';
       case AiProvider.lmStudio:
         return 'LM Studio';
-      case AiProvider.folioCloud:
-        return 'Folio Cloud';
+      case AiProvider.quillCloud:
+        return 'Quill Cloud';
       case AiProvider.none:
         return l10n.aiProviderNone;
     }
@@ -1306,7 +1363,7 @@ class _SettingsPageState extends State<SettingsPage> {
 
   AiService _buildAiServiceFromInputs() {
     switch (_app.aiProvider) {
-      case AiProvider.folioCloud:
+      case AiProvider.quillCloud:
         return FolioCloudAiService(entitlements: _folio);
       case AiProvider.none:
         throw StateError('Selecciona un proveedor IA primero.');
@@ -1337,14 +1394,14 @@ class _SettingsPageState extends State<SettingsPage> {
           defaultModel: _app.aiModel,
         );
       case AiProvider.none:
-      case AiProvider.folioCloud:
+      case AiProvider.quillCloud:
         throw StateError('Selecciona un proveedor IA primero.');
     }
   }
 
   Future<void> _testAiConnection() async {
     await _saveAiFields();
-    if (_app.aiProvider != AiProvider.folioCloud) {
+    if (_app.aiProvider != AiProvider.quillCloud) {
       final err = AiSafetyPolicy.validateEndpoint(
         rawUrl: _app.aiBaseUrl,
         mode: _app.aiEndpointMode,
@@ -4530,15 +4587,15 @@ class _SettingsPageState extends State<SettingsPage> {
                                   icon: Icons.smart_toy_outlined,
                                   title: l10n.ai,
                                   description:
-                                      _app.aiProvider == AiProvider.folioCloud
+                                      _app.aiProvider == AiProvider.quillCloud
                                       ? (aiLocalProvidersSupported
                                             ? _t(
-                                                'La IA se ejecuta en Folio Cloud (suscripción con IA en la nube o tinta comprada). Elige otro proveedor abajo para Ollama o LM Studio en local.',
-                                                'AI runs on Folio Cloud (subscription with cloud AI or purchased ink). Pick another provider below for local Ollama or LM Studio.',
+                                                'La IA se ejecuta en Quill Cloud (suscripción con IA en la nube o tinta comprada). Elige otro proveedor abajo para Ollama o LM Studio en local.',
+                                                'AI runs on Quill Cloud (subscription with cloud AI or purchased ink). Pick another provider below for local Ollama or LM Studio.',
                                               )
                                             : _t(
-                                                'La IA se ejecuta en Folio Cloud (suscripción con IA en la nube o tinta comprada).',
-                                                'AI runs on Folio Cloud (subscription with cloud AI or purchased ink).',
+                                                'La IA se ejecuta en Quill Cloud (suscripción con IA en la nube o tinta comprada).',
+                                                'AI runs on Quill Cloud (subscription with cloud AI or purchased ink).',
                                               ))
                                       : (aiLocalProvidersSupported
                                             ? _t(
@@ -4546,11 +4603,11 @@ class _SettingsPageState extends State<SettingsPage> {
                                                 'Connect Ollama or LM Studio locally; the assistant uses the model and context you set here.',
                                               )
                                             : _t(
-                                                'En este dispositivo Quill solo puede usar Folio Cloud. Elige Folio Cloud como proveedor cuando quieras activar la IA.',
-                                                'On this device Quill can only use Folio Cloud. Choose Folio Cloud as the provider when you want to enable AI.',
+                                                'En este dispositivo Quill solo puede usar Quill Cloud. Elige Quill Cloud como proveedor cuando quieras activar la IA.',
+                                                'On this device Quill can only use Quill Cloud. Choose Quill Cloud as the provider when you want to enable AI.',
                                               )),
                                   chips:
-                                      _app.aiProvider == AiProvider.folioCloud
+                                      _app.aiProvider == AiProvider.quillCloud
                                       ? [
                                           _SettingsInfoChip(
                                             icon: Icons.cloud_outlined,
@@ -4814,7 +4871,7 @@ class _SettingsPageState extends State<SettingsPage> {
                                   ),
                                 if (aiLocalProvidersSupported &&
                                     _app.aiProvider !=
-                                        AiProvider.folioCloud) ...[
+                                        AiProvider.quillCloud) ...[
                                   const Divider(height: 1),
                                   ListTile(
                                     leading: const Icon(
@@ -4846,7 +4903,7 @@ class _SettingsPageState extends State<SettingsPage> {
                                 ),
                                 if (aiLocalProvidersSupported &&
                                     _app.aiProvider !=
-                                        AiProvider.folioCloud) ...[
+                                        AiProvider.quillCloud) ...[
                                   const Divider(height: 1),
                                   SwitchListTile(
                                     secondary: const Icon(
@@ -4908,7 +4965,7 @@ class _SettingsPageState extends State<SettingsPage> {
                                     underline: const SizedBox.shrink(),
                                     onChanged: (value) async {
                                       if (value == null) return;
-                                      if (value == AiProvider.folioCloud) {
+                                      if (value == AiProvider.quillCloud) {
                                         if (!_folio.isAvailable) {
                                           _snack(
                                             _t(
@@ -4952,7 +5009,7 @@ class _SettingsPageState extends State<SettingsPage> {
                                         _aiBaseUrlController.text = _app
                                             .defaultUrlForProvider(value);
                                         await _saveAiFields();
-                                        if (value == AiProvider.folioCloud) {
+                                        if (value == AiProvider.quillCloud) {
                                           await _loadAiModels();
                                         }
                                       } catch (e) {
@@ -4978,15 +5035,15 @@ class _SettingsPageState extends State<SettingsPage> {
                                         ),
                                       ],
                                       DropdownMenuItem(
-                                        value: AiProvider.folioCloud,
-                                        child: const Text('Folio Cloud'),
+                                        value: AiProvider.quillCloud,
+                                        child: const Text('Quill Cloud'),
                                       ),
                                     ],
                                   ),
                                 ),
                                 if (aiLocalProvidersSupported &&
                                     _app.aiProvider !=
-                                        AiProvider.folioCloud) ...[
+                                        AiProvider.quillCloud) ...[
                                   const Divider(height: 1),
                                   ListTile(
                                     leading: const Icon(Icons.link_rounded),
@@ -5920,6 +5977,204 @@ class _SettingsPageState extends State<SettingsPage> {
                                   title: Text(l10n.closeToTray),
                                   value: _app.closeToTray,
                                   onChanged: _app.setCloseToTray,
+                                ),
+                                const Divider(height: 1),
+                                Padding(
+                                  padding: const EdgeInsets.fromLTRB(
+                                    16,
+                                    12,
+                                    16,
+                                    16,
+                                  ),
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.stretch,
+                                    children: [
+                                      _SettingsSubsectionTitle(
+                                        title: l10n.meetingNoteSettingsSection,
+                                        scheme: scheme,
+                                        topPadding: 0,
+                                      ),
+                                      const SizedBox(height: 8),
+                                      Text(
+                                        l10n.meetingNoteSettingsDescription,
+                                        style: Theme.of(context)
+                                            .textTheme
+                                            .bodySmall
+                                            ?.copyWith(
+                                              color: scheme.onSurfaceVariant,
+                                            ),
+                                      ),
+                                      const SizedBox(height: 12),
+                                      DropdownButtonFormField<String>(
+                                        key: ValueKey<String>(
+                                          'meeting-mic-${_app.meetingNoteMicDeviceId}-${_meetingNoteMicDevices.length}',
+                                        ),
+                                        initialValue: (() {
+                                          final id =
+                                              _app.meetingNoteMicDeviceId;
+                                          if (id.isEmpty) return '';
+                                          return _meetingMicExists(id)
+                                              ? id
+                                              : '';
+                                        })(),
+                                        decoration: InputDecoration(
+                                          labelText: l10n
+                                              .meetingNoteSettingsMicrophone,
+                                          border: const OutlineInputBorder(),
+                                          isDense: true,
+                                          suffixIcon: IconButton(
+                                            tooltip: l10n
+                                                .meetingNoteSettingsRefreshDevices,
+                                            onPressed: _loadMeetingNoteDevices,
+                                            icon: const Icon(Icons.refresh),
+                                          ),
+                                        ),
+                                        items: [
+                                          DropdownMenuItem<String>(
+                                            value: '',
+                                            child: Text(
+                                              l10n.meetingNoteSettingsSystemDefault,
+                                            ),
+                                          ),
+                                          ..._meetingNoteMicDevices.map(
+                                            (d) => DropdownMenuItem<String>(
+                                              value: d.id,
+                                              child: Text(
+                                                d.label.trim().isEmpty
+                                                    ? d.id
+                                                    : d.label,
+                                                maxLines: 1,
+                                                overflow: TextOverflow.ellipsis,
+                                              ),
+                                            ),
+                                          ),
+                                        ],
+                                        onChanged: (value) {
+                                          unawaited(
+                                            _app.setMeetingNoteMicDeviceId(
+                                              value ?? '',
+                                            ),
+                                          );
+                                        },
+                                      ),
+                                      const SizedBox(height: 10),
+                                      DropdownButtonFormField<String>(
+                                        key: ValueKey<String>(
+                                          'meeting-system-${_app.meetingNoteSystemDeviceId}-${_meetingNoteSystemDevices.length}',
+                                        ),
+                                        initialValue: (() {
+                                          final id =
+                                              _app.meetingNoteSystemDeviceId;
+                                          if (id.isEmpty) return '';
+                                          return _meetingSystemExists(id)
+                                              ? id
+                                              : '';
+                                        })(),
+                                        decoration: InputDecoration(
+                                          labelText: l10n
+                                              .meetingNoteSettingsSystemOutput,
+                                          border: const OutlineInputBorder(),
+                                          isDense: true,
+                                        ),
+                                        items: [
+                                          DropdownMenuItem<String>(
+                                            value: '',
+                                            child: Text(
+                                              l10n.meetingNoteSettingsSystemDefault,
+                                            ),
+                                          ),
+                                          ..._meetingNoteSystemDevices.map(
+                                            (d) => DropdownMenuItem<String>(
+                                              value: d.id,
+                                              child: Text(
+                                                d.label.trim().isEmpty
+                                                    ? d.id
+                                                    : d.label,
+                                                maxLines: 1,
+                                                overflow: TextOverflow.ellipsis,
+                                              ),
+                                            ),
+                                          ),
+                                        ],
+                                        onChanged: (value) {
+                                          unawaited(
+                                            _app.setMeetingNoteSystemDeviceId(
+                                              value ?? '',
+                                            ),
+                                          );
+                                        },
+                                      ),
+                                      const SizedBox(height: 10),
+                                      DropdownButtonFormField<String>(
+                                        key: ValueKey<String>(
+                                          'meeting-model-${_app.meetingNoteModelId}',
+                                        ),
+                                        initialValue: (() {
+                                          final id = _app.meetingNoteModelId;
+                                          if (id.isEmpty) return 'base';
+                                          return _meetingModelExists(id)
+                                              ? id
+                                              : 'base';
+                                        })(),
+                                        decoration: InputDecoration(
+                                          labelText:
+                                              l10n.meetingNoteSettingsModel,
+                                          border: OutlineInputBorder(),
+                                          isDense: true,
+                                        ),
+                                        items: WhisperService.supportedModels
+                                            .map(
+                                              (m) => DropdownMenuItem<String>(
+                                                value: m.id,
+                                                child: Text(
+                                                  '${_meetingModelLabel(l10n, m.id)} (~${m.approxSizeMb} MB)',
+                                                  maxLines: 1,
+                                                  overflow:
+                                                      TextOverflow.ellipsis,
+                                                ),
+                                              ),
+                                            )
+                                            .toList(),
+                                        onChanged: (value) {
+                                          unawaited(
+                                            _app.setMeetingNoteModelId(
+                                              value ?? 'base',
+                                            ),
+                                          );
+                                        },
+                                      ),
+                                      const SizedBox(height: 12),
+                                      Padding(
+                                        padding: const EdgeInsets.only(
+                                          bottom: 8,
+                                        ),
+                                        child: Row(
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.start,
+                                          children: [
+                                            const Icon(
+                                              Icons.record_voice_over_rounded,
+                                              size: 16,
+                                            ),
+                                            const SizedBox(width: 8),
+                                            Expanded(
+                                              child: Text(
+                                                l10n.meetingNoteDiarizationHint,
+                                                style: Theme.of(context)
+                                                    .textTheme
+                                                    .bodySmall
+                                                    ?.copyWith(
+                                                      color: scheme
+                                                          .onSurfaceVariant,
+                                                    ),
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    ],
+                                  ),
                                 ),
                               ],
                             ),

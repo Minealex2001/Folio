@@ -28,6 +28,8 @@ import '../../../models/folio_page.dart';
 import '../../../models/folio_table_data.dart';
 import '../../../services/run2doc/run2doc_markdown_codec.dart';
 import '../../../session/vault_session.dart';
+import '../../../services/ai/ai_types.dart';
+import '../../../services/folio_cloud/folio_cloud_entitlements.dart';
 import 'code_block_languages.dart';
 import 'block_editor_support_widgets.dart';
 import 'block_type_catalog.dart';
@@ -40,6 +42,7 @@ import 'folio_youtube.dart';
 import 'link_title_fetch.dart';
 import 'paste_url_sheet.dart';
 import 'folio_special_block_widgets.dart';
+import 'meeting_note_block_widget.dart';
 import 'table_block_editor.dart';
 import 'ai_typewriter_message.dart';
 import 'block_editor/block_row_registry.dart';
@@ -94,7 +97,6 @@ bool _usesCodeControllerForBlockType(String type) =>
 List<BlockTypeDef> _catalogFiltered(String q) {
   return filterBlockTypeCatalog(q);
 }
-
 
 const _stylableBlockTypes = <String>{
   'paragraph',
@@ -157,17 +159,21 @@ const _inlineSlashActionCatalog = <BlockTypeDef>[
   ),
 ];
 
+enum _MeetingAiPayload { transcript, audio, both }
+
 class BlockEditor extends StatefulWidget {
   const BlockEditor({
     super.key,
     required this.session,
     required this.appSettings,
     this.readOnlyMode = false,
+    this.folioCloudEntitlements,
   });
 
   final VaultSession session;
   final AppSettings appSettings;
   final bool readOnlyMode;
+  final FolioCloudEntitlementsController? folioCloudEntitlements;
 
   @override
   State<BlockEditor> createState() => BlockEditorState();
@@ -3410,17 +3416,17 @@ class BlockEditorState extends State<BlockEditor> with _BlockRowBuild {
                               onTapDown: readOnlyMode
                                   ? null
                                   : (_) => _handleBlockSelection(
-                                        page,
-                                        b.id,
-                                        focusNode: focus,
-                                      ),
+                                      page,
+                                      b.id,
+                                      focusNode: focus,
+                                    ),
                               onPanStart: readOnlyMode
                                   ? null
                                   : (_) => _beginDragSelection(
-                                        page,
-                                        b.id,
-                                        focusNode: focus,
-                                      ),
+                                      page,
+                                      b.id,
+                                      focusNode: focus,
+                                    ),
                               onPanUpdate: readOnlyMode
                                   ? null
                                   : (_) => _updateDragSelection(page, b.id),
@@ -3525,8 +3531,37 @@ class BlockEditorState extends State<BlockEditor> with _BlockRowBuild {
       },
       onSelected: (v) {
         setState(() => _menuOpenBlockId = null);
-        if (v == 'del' && page.blocks.length > 1) {
-          _deleteSelectedBlocks(page, _selectedIdsForAction(page, b.id));
+        if (v == 'del') {
+          if (page.blocks.length > 1) {
+            if (b.type == 'meeting_note') {
+              final idx = page.blocks.indexWhere((it) => it.id == b.id);
+              if (idx > 0) {
+                _pendingFocusIndex = idx - 1;
+                _pendingCursorOffset = page.blocks[idx - 1].text.length;
+              } else if (page.blocks.length > 1) {
+                _pendingFocusIndex = 0;
+                _pendingCursorOffset = 0;
+              }
+              _s.removeBlockIfMultiple(page.id, b.id);
+            } else {
+              _deleteSelectedBlocks(page, _selectedIdsForAction(page, b.id));
+            }
+          } else {
+            // Si es el ultimo bloque, lo dejamos como parrafo vacio
+            // para no romper la regla de pagina no vacia.
+            _s.changeBlockType(page.id, b.id, 'paragraph');
+            _s.updateBlockText(page.id, b.id, '');
+            _s.updateBlockUrl(page.id, b.id, null);
+            final j = _controllerBlockIds.indexOf(b.id);
+            if (j >= 0 && j < _controllers.length) {
+              _ignoreShortcuts = true;
+              _controllers[j].clear();
+              _ignoreShortcuts = false;
+            }
+            _pendingFocusBlockId = b.id;
+            _pendingCursorOffset = 0;
+            if (mounted) setState(() {});
+          }
         } else if (v == 'ai_rewrite') {
           WidgetsBinding.instance.addPostFrameCallback((_) async {
             if (!mounted) return;
@@ -3583,7 +3618,8 @@ class BlockEditorState extends State<BlockEditor> with _BlockRowBuild {
                       child: SingleChildScrollView(
                         child: FolioAiTypewriterMessage(
                           fullText: preview.text,
-                          style: baseStyle ??
+                          style:
+                              baseStyle ??
                               TextStyle(color: scheme.onSurface, height: 1.35),
                           selectable: true,
                         ),
@@ -3792,6 +3828,16 @@ class BlockEditorState extends State<BlockEditor> with _BlockRowBuild {
           });
         } else if (v == 'mermaid_hide') {
           setState(() => _mermaidEditingSourceIds.remove(b.id));
+        } else if (v == 'meeting_copy_transcript') {
+          final text = b.text.trim();
+          if (text.isNotEmpty) {
+            unawaited(Clipboard.setData(ClipboardData(text: text)));
+          }
+        } else if (v == 'meeting_send_to_ai') {
+          WidgetsBinding.instance.addPostFrameCallback((_) async {
+            if (!mounted) return;
+            await _openMeetingNoteAiDialog(menuContext, page, b);
+          });
         }
       },
       itemBuilder: (ctx) {
@@ -4059,6 +4105,23 @@ class BlockEditorState extends State<BlockEditor> with _BlockRowBuild {
                 label: AppLocalizations.of(ctx).embedRemove,
               ),
           ],
+          if (b.type == 'meeting_note') ...[
+            const PopupMenuDivider(),
+            if (b.text.trim().isNotEmpty)
+              item(
+                ctx,
+                value: 'meeting_copy_transcript',
+                icon: Icons.copy_rounded,
+                label: AppLocalizations.of(ctx).meetingNoteCopyTranscript,
+              ),
+            if (_s.aiEnabled)
+              item(
+                ctx,
+                value: 'meeting_send_to_ai',
+                icon: Icons.auto_fix_high_rounded,
+                label: AppLocalizations.of(ctx).meetingNoteSendToAi,
+              ),
+          ],
           if (b.type == 'table' && data != null) ...[
             const PopupMenuDivider(),
             item(
@@ -4111,18 +4174,217 @@ class BlockEditorState extends State<BlockEditor> with _BlockRowBuild {
             iconColor: Theme.of(ctx).colorScheme.primary,
             label: 'Cambiar tipo de bloque…',
           ),
-          if (page.blocks.length > 1) const PopupMenuDivider(),
-          if (page.blocks.length > 1)
-            item(
-              ctx,
-              value: 'del',
-              icon: Icons.delete_forever_rounded,
-              iconColor: Theme.of(ctx).colorScheme.error,
-              label: 'Eliminar bloque',
-            ),
+          const PopupMenuDivider(),
+          item(
+            ctx,
+            value: 'del',
+            icon: Icons.delete_forever_rounded,
+            iconColor: Theme.of(ctx).colorScheme.error,
+            label: 'Eliminar bloque',
+          ),
         ];
       },
     );
+  }
+
+  // ─── Meeting note IA ────────────────────────────────────────────────────────
+
+  Future<void> _openMeetingNoteAiDialog(
+    BuildContext dialogContext,
+    FolioPage page,
+    FolioBlock b,
+  ) async {
+    if (!mounted) return;
+    final l10n = AppLocalizations.of(context);
+    final hasAudio = (b.url ?? '').trim().isNotEmpty;
+
+    // Estado mutable del diálogo
+    var payload = hasAudio
+        ? _MeetingAiPayload.both
+        : _MeetingAiPayload.transcript;
+    final instructionCtrl = TextEditingController();
+
+    final confirmed = await showDialog<bool>(
+      context: dialogContext,
+      builder: (ctx) {
+        return StatefulBuilder(
+          builder: (ctx, setS) {
+            return AlertDialog(
+              title: Text(l10n.meetingNoteSendToAi),
+              content: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 480),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      l10n.meetingNoteAiPayloadLabel,
+                      style: Theme.of(ctx).textTheme.labelMedium,
+                    ),
+                    const SizedBox(height: 8),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: [
+                        ChoiceChip(
+                          label: Text(l10n.meetingNoteAiPayloadTranscript),
+                          selected: payload == _MeetingAiPayload.transcript,
+                          onSelected: (_) => setS(
+                            () => payload = _MeetingAiPayload.transcript,
+                          ),
+                        ),
+                        ChoiceChip(
+                          label: Text(l10n.meetingNoteAiPayloadAudio),
+                          selected: payload == _MeetingAiPayload.audio,
+                          onSelected: !hasAudio
+                              ? null
+                              : (_) => setS(
+                                  () => payload = _MeetingAiPayload.audio,
+                                ),
+                        ),
+                        ChoiceChip(
+                          label: Text(l10n.meetingNoteAiPayloadBoth),
+                          selected: payload == _MeetingAiPayload.both,
+                          onSelected: !hasAudio
+                              ? null
+                              : (_) => setS(
+                                  () => payload = _MeetingAiPayload.both,
+                                ),
+                        ),
+                      ],
+                    ),
+                    if (!hasAudio &&
+                        payload != _MeetingAiPayload.transcript) ...[
+                      const SizedBox(height: 6),
+                      Text(
+                        l10n.meetingNoteAiNoAudio,
+                        style: Theme.of(ctx).textTheme.labelSmall?.copyWith(
+                          color: Theme.of(ctx).colorScheme.error,
+                        ),
+                      ),
+                    ],
+                    const SizedBox(height: 16),
+                    TextField(
+                      controller: instructionCtrl,
+                      maxLines: 3,
+                      decoration: InputDecoration(
+                        labelText: l10n.meetingNoteAiInstruction,
+                        hintText: l10n.meetingNoteAiInstructionHint,
+                        border: const OutlineInputBorder(),
+                        isDense: true,
+                      ),
+                      autofocus: true,
+                    ),
+                  ],
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(ctx, false),
+                  child: Text(MaterialLocalizations.of(ctx).cancelButtonLabel),
+                ),
+                FilledButton(
+                  onPressed: () => Navigator.pop(ctx, true),
+                  child: Text(MaterialLocalizations.of(ctx).okButtonLabel),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+
+    final instruction = instructionCtrl.text.trim();
+    WidgetsBinding.instance.addPostFrameCallback(
+      (_) => instructionCtrl.dispose(),
+    );
+
+    if (confirmed != true || instruction.isEmpty || !mounted) return;
+
+    try {
+      // Resolver attachments según payload
+      List<AiFileAttachment> attachments = [];
+      String? overrideBlockText;
+
+      if (payload == _MeetingAiPayload.audio ||
+          payload == _MeetingAiPayload.both) {
+        final relUrl = (b.url ?? '').trim();
+        if (relUrl.isNotEmpty) {
+          final vault = await VaultPaths.vaultDirectory();
+          final audioPath = p.join(
+            vault.path,
+            relUrl.replaceAll('/', p.separator),
+          );
+          attachments = await _s.buildAiAttachmentsFromPaths([audioPath]);
+        }
+      }
+
+      if (payload == _MeetingAiPayload.audio) {
+        // Solo audio: indicamos a la IA que use el archivo adjunto
+        overrideBlockText =
+            '[Audio adjunto — analiza el archivo de audio proporcionado]';
+      }
+
+      if (!mounted) return;
+
+      final preview = await _s.previewRewriteBlockWithAi(
+        pageId: page.id,
+        blockId: b.id,
+        instruction: instruction,
+        attachments: attachments,
+        overrideBlockText: overrideBlockText,
+      );
+
+      if (!mounted) return;
+
+      final theme = Theme.of(context);
+      final scheme = theme.colorScheme;
+      final baseStyle = theme.textTheme.bodyMedium?.copyWith(
+        color: scheme.onSurface,
+        height: 1.35,
+      );
+
+      final accept = await showDialog<bool>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: const Text('Vista previa'),
+          content: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 720),
+            child: SingleChildScrollView(
+              child: FolioAiTypewriterMessage(
+                fullText: preview.text,
+                style:
+                    baseStyle ??
+                    TextStyle(color: scheme.onSurface, height: 1.35),
+                selectable: true,
+              ),
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('Cancelar'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(ctx, true),
+              child: const Text('Aplicar'),
+            ),
+          ],
+        ),
+      );
+
+      if (accept != true || !mounted) return;
+      await _applyTypewriterToBlock(
+        pageId: page.id,
+        blockId: b.id,
+        fullText: preview.text,
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Error IA: $e')));
+    }
   }
 
   void _mutateTable(

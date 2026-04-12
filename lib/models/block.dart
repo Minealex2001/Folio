@@ -73,6 +73,7 @@ class FolioBlock {
     this.url,
     this.imageWidth,
     this.appearance,
+    this.meetingNoteProvider,
   });
 
   final String id;
@@ -106,6 +107,10 @@ class FolioBlock {
   /// Personalizacion visual persistida para bloques de texto.
   FolioBlockAppearance? appearance;
 
+  /// Proveedor de transcripción para bloques de tipo `meeting_note`.
+  /// `null` o `'local'` = Whisper local; `'quill_cloud'` = Quill Cloud.
+  String? meetingNoteProvider;
+
   Map<String, dynamic> toJson() => {
     'id': id,
     'type': type,
@@ -119,6 +124,7 @@ class FolioBlock {
     if (imageWidth != null && imageWidth != 1.0) 'imageWidth': imageWidth,
     if (appearance != null && !appearance!.isDefault)
       'appearance': appearance!.toJson(),
+    if (meetingNoteProvider != null) 'meetingNoteProvider': meetingNoteProvider,
   };
 
   factory FolioBlock.fromJson(Map<String, dynamic> j) {
@@ -136,6 +142,7 @@ class FolioBlock {
       appearance: j['appearance'] is Map
           ? FolioBlockAppearance.fromJson(j['appearance'] as Map)
           : null,
+      meetingNoteProvider: j['meetingNoteProvider'] as String?,
     );
   }
 
@@ -150,6 +157,7 @@ class FolioBlock {
     String? url,
     double? imageWidth,
     FolioBlockAppearance? appearance,
+    String? meetingNoteProvider,
   }) {
     return FolioBlock(
       id: id,
@@ -163,6 +171,7 @@ class FolioBlock {
       url: url ?? this.url,
       imageWidth: imageWidth ?? this.imageWidth,
       appearance: appearance ?? this.appearance,
+      meetingNoteProvider: meetingNoteProvider ?? this.meetingNoteProvider,
     );
   }
 }
@@ -186,6 +195,7 @@ bool folioBlocksCanMerge(FolioBlock prev, FolioBlock cur) {
     'template_button',
     'column_list',
     'toggle',
+    'meeting_note',
   };
   if (structural.contains(prev.type) || structural.contains(cur.type)) {
     return false;

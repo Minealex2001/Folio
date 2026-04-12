@@ -16,6 +16,7 @@
 #include <hotkey_manager_windows/hotkey_manager_windows_plugin_c_api.h>
 #include <local_auth_windows/local_auth_plugin.h>
 #include <passkeys_windows/passkeys_windows_plugin.h>
+#include <record_windows/record_windows_plugin_c_api.h>
 #include <screen_retriever_windows/screen_retriever_windows_plugin_c_api.h>
 #include <syncfusion_pdfviewer_windows/syncfusion_pdfviewer_windows_plugin.h>
 #include <system_theme/system_theme_plugin.h>
@@ -46,6 +47,8 @@ void RegisterPlugins(flutter::PluginRegistry* registry) {
       registry->GetRegistrarForPlugin("LocalAuthPlugin"));
   PasskeysWindowsPluginRegisterWithRegistrar(
       registry->GetRegistrarForPlugin("PasskeysWindowsPlugin"));
+  RecordWindowsPluginCApiRegisterWithRegistrar(
+      registry->GetRegistrarForPlugin("RecordWindowsPluginCApi"));
   ScreenRetrieverWindowsPluginCApiRegisterWithRegistrar(
       registry->GetRegistrarForPlugin("ScreenRetrieverWindowsPluginCApi"));
   SyncfusionPdfviewerWindowsPluginRegisterWithRegistrar(

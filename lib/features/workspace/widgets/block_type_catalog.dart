@@ -121,6 +121,14 @@ const blockTypeCatalog = <BlockTypeDef>[
     section: BlockTypeSection.media,
   ),
   BlockTypeDef(
+    key: 'meeting_note',
+    label: 'Nota de reunión',
+    hint: 'Graba y transcribe una reunión',
+    icon: Icons.mic_rounded,
+    section: BlockTypeSection.media,
+    beta: true,
+  ),
+  BlockTypeDef(
     key: 'code',
     label: 'Código (Java, Python…)',
     hint: 'Bloque con sintaxis',

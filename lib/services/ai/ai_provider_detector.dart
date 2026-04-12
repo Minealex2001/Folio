@@ -100,7 +100,7 @@ class AiProviderDetector {
       AiProvider.ollama => const ['ollama.exe', 'ollama'],
       AiProvider.lmStudio => const ['LM Studio.exe', 'LMStudio.exe', 'lms.exe'],
       AiProvider.none => const <String>[],
-      AiProvider.folioCloud => const <String>[],
+      AiProvider.quillCloud => const <String>[],
     };
 
     for (final exe in executableNames) {
@@ -129,7 +129,7 @@ class AiProviderDetector {
       AiProvider.ollama => const ['ollama.exe'],
       AiProvider.lmStudio => const ['LM Studio.exe', 'LMStudio.exe', 'lms.exe'],
       AiProvider.none => const <String>[],
-      AiProvider.folioCloud => const <String>[],
+      AiProvider.quillCloud => const <String>[],
     };
     for (final processName in processNames) {
       try {
@@ -172,7 +172,7 @@ class AiProviderDetector {
             '$localAppData\\LM-Studio\\LM Studio.exe',
         ],
       AiProvider.none => const [],
-      AiProvider.folioCloud => const [],
+      AiProvider.quillCloud => const [],
     };
   }
 
@@ -196,7 +196,7 @@ class AiProviderDetector {
           await s.ping();
           return true;
         case AiProvider.none:
-        case AiProvider.folioCloud:
+        case AiProvider.quillCloud:
           return false;
       }
     } catch (_) {

@@ -651,6 +651,201 @@ class AppLocalizationsEs extends AppLocalizations {
   String get blockOptions => 'Opciones del bloque';
 
   @override
+  String get meetingNoteTitle => 'Nota de reunión';
+
+  @override
+  String get meetingNoteDesktopOnly => 'Solo disponible en escritorio.';
+
+  @override
+  String get meetingNoteStartRecording => 'Iniciar grabación';
+
+  @override
+  String get meetingNotePreparing => 'Preparando…';
+
+  @override
+  String get meetingNoteTranscriptionLanguage => 'Idioma de transcripción';
+
+  @override
+  String get meetingNoteLangAuto => 'Automático';
+
+  @override
+  String get meetingNoteLangEs => 'Español';
+
+  @override
+  String get meetingNoteLangEn => 'Inglés';
+
+  @override
+  String get meetingNoteLangPt => 'Portugués';
+
+  @override
+  String get meetingNoteLangFr => 'Francés';
+
+  @override
+  String get meetingNoteLangIt => 'Italiano';
+
+  @override
+  String get meetingNoteLangDe => 'Alemán';
+
+  @override
+  String get meetingNoteDevicesInSettings =>
+      'Los dispositivos de entrada/salida se configuran en Ajustes > Escritorio.';
+
+  @override
+  String meetingNoteModelInSettings(Object model) {
+    return 'Modelo de transcripción: $model (en Ajustes > Escritorio).';
+  }
+
+  @override
+  String get meetingNoteDescription =>
+      'Graba micrófono y audio del sistema. La transcripción se genera localmente.';
+
+  @override
+  String meetingNoteWhisperInitError(Object error) {
+    return 'No se pudo inicializar Whisper: $error';
+  }
+
+  @override
+  String get meetingNoteAudioAccessError =>
+      'No se pudo acceder al micrófono/dispositivos.';
+
+  @override
+  String get meetingNoteMicrophoneAccessError =>
+      'No se pudo acceder al micrófono.';
+
+  @override
+  String get meetingNoteChunkTranscriptionError =>
+      'No se pudo transcribir este fragmento de audio.';
+
+  @override
+  String get meetingNoteProviderLocal => 'Local (Whisper)';
+
+  @override
+  String get meetingNoteProviderCloud => 'Quill Cloud';
+
+  @override
+  String get meetingNoteProviderCloudCost => '1 Tinta por cada 5 min. grabados';
+
+  @override
+  String get meetingNoteCloudFallbackNotice =>
+      'Cloud no disponible. Usando Whisper local.';
+
+  @override
+  String get meetingNoteCloudInkExhaustedNotice =>
+      'Tinta insuficiente. Cambiando a Whisper local.';
+
+  @override
+  String meetingNoteCloudRecordingBadge(Object language) {
+    return 'Quill Cloud | Idioma: $language';
+  }
+
+  @override
+  String get meetingNoteCloudProcessing => 'Procesando con Quill Cloud…';
+
+  @override
+  String get meetingNoteCloudProcessingSubtitle =>
+      'Detectando hablantes y mejorando calidad. Un momento.';
+
+  @override
+  String get meetingNoteCloudRequiresAccount =>
+      'Requiere cuenta Folio Cloud con Tinta.';
+
+  @override
+  String get meetingNoteTranscriptionProvider => 'Motor de transcripción';
+
+  @override
+  String meetingNoteRecordingTime(Object mm, Object ss) {
+    return 'Grabando  $mm:$ss';
+  }
+
+  @override
+  String meetingNoteRecordingBadge(Object language, Object model) {
+    return 'Idioma: $language | Modelo: $model';
+  }
+
+  @override
+  String get meetingNoteSystemAudioCaptured => 'Audio del sistema capturado';
+
+  @override
+  String get meetingNoteStop => 'Detener';
+
+  @override
+  String get meetingNoteWaitingTranscription => 'Esperando transcripción…';
+
+  @override
+  String get meetingNoteTranscribing => 'Transcribiendo…';
+
+  @override
+  String get meetingNoteTranscriptionTitle => 'Transcripción';
+
+  @override
+  String get meetingNoteNoTranscription => 'Sin transcripción disponible.';
+
+  @override
+  String get meetingNoteNewRecording => 'Nueva grabación';
+
+  @override
+  String get meetingNoteSettingsSection => 'Nota de reunión (audio)';
+
+  @override
+  String get meetingNoteSettingsDescription =>
+      'Estos dispositivos se usan por defecto al grabar una nota de reunión.';
+
+  @override
+  String get meetingNoteSettingsMicrophone => 'Micrófono';
+
+  @override
+  String get meetingNoteSettingsRefreshDevices => 'Actualizar lista';
+
+  @override
+  String get meetingNoteSettingsSystemDefault => 'Predeterminado del sistema';
+
+  @override
+  String get meetingNoteSettingsSystemOutput => 'Salida del sistema (loopback)';
+
+  @override
+  String get meetingNoteSettingsModel => 'Modelo de transcripción';
+
+  @override
+  String get meetingNoteDiarizationHint =>
+      'Procesamiento 100% local en tu dispositivo.';
+
+  @override
+  String get meetingNoteModelTiny => 'Rápido';
+
+  @override
+  String get meetingNoteModelBase => 'Equilibrado';
+
+  @override
+  String get meetingNoteModelSmall => 'Preciso';
+
+  @override
+  String get meetingNoteCopyTranscript => 'Copiar transcripción';
+
+  @override
+  String get meetingNoteSendToAi => 'Enviar a IA…';
+
+  @override
+  String get meetingNoteAiPayloadLabel => '¿Qué enviar a la IA?';
+
+  @override
+  String get meetingNoteAiPayloadTranscript => 'Solo transcripción';
+
+  @override
+  String get meetingNoteAiPayloadAudio => 'Solo audio';
+
+  @override
+  String get meetingNoteAiPayloadBoth => 'Transcripción + audio';
+
+  @override
+  String get meetingNoteAiInstructionHint => 'p. ej. resume los puntos clave';
+
+  @override
+  String get meetingNoteAiNoAudio => 'No hay audio disponible para este modo';
+
+  @override
+  String get meetingNoteAiInstruction => 'Instrucción para la IA';
+
+  @override
   String get dragToReorder => 'Arrastrar para reordenar';
 
   @override
@@ -2466,4 +2661,75 @@ class AppLocalizationsEs extends AppLocalizations {
 
   @override
   String get onboardingFolioCloudLaterInSettings => 'Lo veré en Ajustes';
+
+  @override
+  String get collabMenuAction => 'Colaboración en vivo';
+
+  @override
+  String get collabSheetTitle => 'Colaboración en vivo';
+
+  @override
+  String get collabHeaderSubtitle =>
+      'Cuenta Folio obligatoria. Crear sala requiere plan con anfitrión; unirse solo necesita el código. Contenido y chat van cifrados de extremo a extremo; el servidor no ve tu texto.';
+
+  @override
+  String get collabNoRoomHint =>
+      'Crea una sala (si tu plan incluye anfitrión) o pega el código que te comparta el anfitrión (emojis y números).';
+
+  @override
+  String get collabCreateRoom => 'Crear sala';
+
+  @override
+  String get collabJoinCodeLabel => 'Código de sala';
+
+  @override
+  String get collabJoinCodeHint => 'Ej.: dos emojis y 4 dígitos';
+
+  @override
+  String get collabJoinRoom => 'Unirse';
+
+  @override
+  String get collabJoinFailed => 'Código no válido o sala llena.';
+
+  @override
+  String get collabShareCodeLabel => 'Comparte este código';
+
+  @override
+  String get collabCopyJoinCode => 'Copiar código';
+
+  @override
+  String get collabCopied => 'Copiado';
+
+  @override
+  String get collabHostRequiresPlan =>
+      'Para crear salas necesitas Folio Cloud con la función de colaboración (anfitrión). Puedes unirte a salas ajenas con un código sin ese plan.';
+
+  @override
+  String get collabChatEmptyHint => 'Aún no hay mensajes. Saluda a tu equipo.';
+
+  @override
+  String get collabMessageHint => 'Escribe un mensaje…';
+
+  @override
+  String get collabArchivedOk => 'Chat archivado en comentarios de la página.';
+
+  @override
+  String get collabArchiveToPage => 'Archivar chat en la página';
+
+  @override
+  String get collabLeaveRoom => 'Salir de la sala';
+
+  @override
+  String get collabNeedsJoinCode =>
+      'Introduce el código de sala para descifrar esta sesión.';
+
+  @override
+  String get collabMissingJoinCodeHint =>
+      'La página está enlazada a una sala pero aquí no hay código guardado. Pega el código del anfitrión para descifrar contenido y chat.';
+
+  @override
+  String get collabUnlockWithCode => 'Descifrar con código';
+
+  @override
+  String get collabHidePanel => 'Ocultar panel de colaboración';
 }

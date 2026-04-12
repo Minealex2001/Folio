@@ -7,6 +7,7 @@ list(APPEND FLUTTER_PLUGIN_LIST
   emoji_picker_flutter
   file_selector_linux
   hotkey_manager_linux
+  record_linux
   screen_retriever_linux
   syncfusion_pdfviewer_linux
   system_theme

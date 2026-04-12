@@ -117,7 +117,7 @@ ReleaseReadinessSnapshot evaluateReleaseReadiness({
   var aiPolicyOk = true;
   var aiSummary = 'IA desactivada';
   if (isAiEnabled) {
-    if (aiProvider == AiProvider.folioCloud) {
+    if (aiProvider == AiProvider.quillCloud) {
       aiPolicyOk = true;
       aiSummary = 'Folio Cloud IA (sin endpoint local)';
     } else {

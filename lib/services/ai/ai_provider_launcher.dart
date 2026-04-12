@@ -11,7 +11,7 @@ class AiProviderLauncher {
     final path = switch (provider) {
       AiProvider.ollama => _firstExistingPath(_ollamaExePaths),
       AiProvider.lmStudio => _firstExistingPath(_lmStudioExePaths),
-      AiProvider.folioCloud => null,
+      AiProvider.quillCloud => null,
       AiProvider.none => null,
     };
     if (path == null) return;

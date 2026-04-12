@@ -14,6 +14,7 @@ void main() {
             'backup': true,
             'cloudAi': true,
             'publishWeb': true,
+            'realtimeCollab': true,
           },
         },
         'ink.monthlyBalance': 500,
@@ -27,9 +28,11 @@ void main() {
       expect(snap.backup, isTrue);
       expect(snap.cloudAi, isTrue);
       expect(snap.publishWeb, isTrue);
+      expect(snap.realtimeCollab, isTrue);
       expect(snap.canUseCloudBackup, isTrue);
       expect(snap.canUseCloudAi, isTrue);
       expect(snap.canPublishToWeb, isTrue);
+      expect(snap.canRealtimeCollab, isTrue);
       expect(snap.ink.monthlyBalance, 500);
       expect(snap.ink.monthlyPeriodKey, '2026-04');
     });
@@ -42,6 +45,7 @@ void main() {
             'backup': true,
             'cloudAi': true,
             'publishWeb': true,
+            'realtimeCollab': true,
           },
         },
       };
@@ -115,6 +119,7 @@ void main() {
             'backup': true,
             'cloudAi': true,
             'publishWeb': true,
+            'realtimeCollab': true,
           },
         },
         'ink': <String, dynamic>{
@@ -136,6 +141,7 @@ void main() {
         backup: true,
         cloudAi: true,
         publishWeb: false,
+        realtimeCollab: false,
         ink: FolioInkSnapshot(
           monthlyBalance: 100,
           purchasedBalance: 5,
