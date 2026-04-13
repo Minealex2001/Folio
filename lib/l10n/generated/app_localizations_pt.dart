@@ -1730,6 +1730,14 @@ class AppLocalizationsPt extends AppLocalizations {
   }
 
   @override
+  String vaultBackupDiskSizeApprox(String size) {
+    return 'Tamanho aproximado em disco: $size';
+  }
+
+  @override
+  String get vaultBackupDiskSizeLoading => 'A calcular o tamanho em disco…';
+
+  @override
   String get vaultBackupRunNowTile => 'Executar backup agendado agora';
 
   @override
@@ -4176,6 +4184,47 @@ class AppLocalizationsPt extends AppLocalizations {
 
   @override
   String get settingsSectionDeviceSyncNav => 'Sincronização';
+
+  @override
+  String get settingsSectionVault => 'Caderno';
+
+  @override
+  String get settingsSectionVaultHeroDescription =>
+      'Segurança ao desbloquear, cópias, agendamento em disco e gestão de dados neste dispositivo.';
+
+  @override
+  String get settingsSectionUiWorkspace => 'Interface e área de trabalho';
+
+  @override
+  String get settingsSectionUiWorkspaceHeroDescription =>
+      'Tema, idioma, escala, editor, opções de desktop e atalhos de teclado.';
+
+  @override
+  String get settingsSubsectionVaultBackupImport => 'Cópias e importação';
+
+  @override
+  String get settingsSubsectionVaultScheduledLocal => 'Backup agendado (local)';
+
+  @override
+  String get settingsSubsectionVaultData => 'Dados (zona de perigo)';
+
+  @override
+  String get folioCloudSubsectionAccount => 'Conta';
+
+  @override
+  String get folioCloudSubsectionEncryptedBackups =>
+      'Backups criptografados (nuvem)';
+
+  @override
+  String get folioCloudSubsectionPublishing => 'Publicação web';
+
+  @override
+  String get settingsFolioCloudSubsectionScheduledCloud =>
+      'Backup agendado para o Folio Cloud';
+
+  @override
+  String get settingsScheduledCloudUploadRequiresSchedule =>
+      'Ative primeiro o backup agendado em Caderno › Backup agendado (local).';
 
   @override
   String get settingsSyncHeroTitle => 'Sincronização entre dispositivos';

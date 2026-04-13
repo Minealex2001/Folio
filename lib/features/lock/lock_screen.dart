@@ -1,15 +1,19 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:passkeys/exceptions.dart';
 
+import '../../app/app_settings.dart';
 import '../../app/widgets/folio_password_field.dart';
 import '../../app/ui_tokens.dart';
 import '../../l10n/generated/app_localizations.dart';
 import '../../session/vault_session.dart';
 
 class LockScreen extends StatefulWidget {
-  const LockScreen({super.key, required this.session});
+  const LockScreen({super.key, required this.session, required this.appSettings});
 
   final VaultSession session;
+  final AppSettings appSettings;
 
   @override
   State<LockScreen> createState() => _LockScreenState();
@@ -37,7 +41,25 @@ class _LockScreenState extends State<LockScreen> {
         _quickEnabled = q;
         _passkeyRegistered = p;
       });
+      await _maybeOfferInitialQuickUnlock(q, p);
     }
+  }
+
+  /// Primera vez que se muestra el bloqueo con Hello o passkey: lanza el flujo nativo sin pulsar el botón.
+  Future<void> _maybeOfferInitialQuickUnlock(bool quick, bool passkey) async {
+    if (!mounted) return;
+    if (widget.appSettings.lockScreenAutoQuickUnlockDone) return;
+    if (!quick && !passkey) return;
+    await widget.appSettings.setLockScreenAutoQuickUnlockDone();
+    if (!mounted) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || _busy) return;
+      if (quick) {
+        unawaited(_unlockDevice());
+      } else if (passkey) {
+        unawaited(_unlockPasskey());
+      }
+    });
   }
 
   @override

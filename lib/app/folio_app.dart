@@ -143,7 +143,9 @@ class _FolioAppState extends State<FolioApp> with WidgetsBindingObserver {
       unawaited(_handleLaunchArguments(args, focusWindow: false));
     });
     unawaited(_handleInitialLaunchArgs());
-    _checkForUpdatesOnStartup();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      unawaited(_checkForUpdatesOnStartup());
+    });
     unawaited(_maybeOpenReleaseNotesPage());
     _scheduledVaultBackupTimer = Timer.periodic(
       const Duration(minutes: 15),
@@ -911,7 +913,9 @@ class _FolioAppState extends State<FolioApp> with WidgetsBindingObserver {
 
   Future<void> _checkForUpdatesOnStartup() async {
     if (!widget.appSettings.checkUpdatesOnStartup) return;
-    final l10n = AppLocalizations.of(_navKey.currentContext ?? context);
+    final navCtx = _navKey.currentContext;
+    if (navCtx == null || !navCtx.mounted) return;
+    final l10n = AppLocalizations.of(navCtx);
     final updater = GitHubReleaseUpdater(
       owner: widget.appSettings.updaterGithubOwner,
       repo: widget.appSettings.updaterGithubRepo,
@@ -921,12 +925,14 @@ class _FolioAppState extends State<FolioApp> with WidgetsBindingObserver {
         channel: widget.appSettings.updateReleaseChannel,
       );
       if (!mounted || !result.hasUpdate || _updateDialogShown) return;
+      final dialogCtx = _navKey.currentContext;
+      if (dialogCtx == null || !dialogCtx.mounted) return;
       _updateDialogShown = true;
       final betaNote = result.isPrerelease
           ? '\n\n${l10n.updaterStartupDialogBetaNote}'
           : '';
       final shouldInstall = await showDialog<bool>(
-        context: _navKey.currentContext ?? context,
+        context: dialogCtx,
         builder: (ctx) {
           return AlertDialog(
             title: Text(
@@ -1596,7 +1602,7 @@ class _HomeByState extends StatelessWidget {
       case VaultFlowState.needsOnboarding:
         return OnboardingFlow(session: session, appSettings: appSettings);
       case VaultFlowState.locked:
-        return LockScreen(session: session);
+        return LockScreen(session: session, appSettings: appSettings);
       case VaultFlowState.unlocked:
         return WorkspacePage(
           session: session,

@@ -215,4 +215,18 @@ class VaultPaths {
       }
     } catch (_) {}
   }
+
+  /// Suma los tamaños de todos los archivos bajo [root] (recursivo, sin seguir enlaces).
+  static Future<int> directoryTotalFileBytes(Directory root) async {
+    if (!await root.exists()) return 0;
+    var total = 0;
+    await for (final entity in root.list(recursive: true, followLinks: false)) {
+      if (entity is File) {
+        try {
+          total += await entity.length();
+        } catch (_) {}
+      }
+    }
+    return total;
+  }
 }

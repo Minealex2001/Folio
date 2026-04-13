@@ -170,6 +170,9 @@ class _SettingsPageState extends State<SettingsPage> {
     _refreshSecurityFlags();
     _loadInstalledVersionInfo();
     _refreshReleaseReadiness();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) unawaited(_refreshCloudBackupCount());
+    });
   }
 
   @override
@@ -260,9 +263,13 @@ class _SettingsPageState extends State<SettingsPage> {
   ) {
     final q = _settingsSectionFilterController.text.trim().toLowerCase();
     if (q.isEmpty) return all;
-    return all
-        .where((s) => s.label.toLowerCase().contains(q))
-        .toList(growable: false);
+    return all.where((s) {
+      if (s.label.toLowerCase().contains(q)) return true;
+      for (final extra in s.searchExtra) {
+        if (extra.toLowerCase().contains(q)) return true;
+      }
+      return false;
+    }).toList(growable: false);
   }
 
   String _formatScheduledBackupTime(int ms) {
@@ -274,6 +281,25 @@ class _SettingsPageState extends State<SettingsPage> {
     final h = d.hour.toString().padLeft(2, '0');
     final mi = d.minute.toString().padLeft(2, '0');
     return '$y-$mo-$day $h:$mi';
+  }
+
+  String _formatByteSize(int bytes) {
+    if (bytes < 1024) return '$bytes B';
+    final kb = bytes / 1024;
+    if (kb < 1024) {
+      return '${kb.toStringAsFixed(kb >= 100 ? 0 : 1)} KB';
+    }
+    final mb = kb / 1024;
+    if (mb < 1024) {
+      return '${mb.toStringAsFixed(mb >= 100 ? 0 : 1)} MB';
+    }
+    final gb = mb / 1024;
+    return '${gb.toStringAsFixed(gb >= 100 ? 1 : 2)} GB';
+  }
+
+  Future<int> _loadActiveVaultDiskUsageBytes() async {
+    final dir = await VaultPaths.vaultDirectory();
+    return VaultPaths.directoryTotalFileBytes(dir);
   }
 
   Future<void> _pickScheduledVaultBackupFolder() async {
@@ -290,18 +316,12 @@ class _SettingsPageState extends State<SettingsPage> {
     );
     return <_SettingsSectionId>[
       _SettingsSectionId.cloud,
-      _SettingsSectionId.security,
-      _SettingsSectionId.backup,
-      _SettingsSectionId.appearance,
+      _SettingsSectionId.vault,
+      _SettingsSectionId.uiWorkspace,
       if (_app.isAiAvailable) _SettingsSectionId.ai,
       _SettingsSectionId.sync,
       _SettingsSectionId.about,
-      _SettingsSectionId.data,
-      if (showDesktopOnlySections) ...[
-        _SettingsSectionId.desktop,
-        _SettingsSectionId.shortcuts,
-        _SettingsSectionId.integrations,
-      ],
+      if (showDesktopOnlySections) _SettingsSectionId.integrations,
     ];
   }
 
@@ -450,7 +470,8 @@ class _SettingsPageState extends State<SettingsPage> {
     return result == true;
   }
 
-  /// Lista/descarga de copias en Storage: reautenticación con **cuenta Folio Cloud**, no libreta local.
+  /// Descarga de copias desde Storage: reautenticación con **cuenta Folio Cloud**, no libreta local.
+  /// El listado y el contador en ajustes no pasan por aquí.
   Future<bool> _verifyFolioCloudAccountForBackups() async {
     if (!_cloud.isAvailable || !_cloud.isSignedIn) {
       _snack(AppLocalizations.of(context).settingsSignInFolioCloudSnack);
@@ -1800,7 +1821,7 @@ class _SettingsPageState extends State<SettingsPage> {
       if (mounted) {
         _snack(AppLocalizations.of(context).folioCloudUploadSnackOk);
       }
-      await _refreshCloudBackupCount(requireVerify: false);
+      await _refreshCloudBackupCount();
     } catch (e) {
       if (mounted) _snack('$e');
     } finally {
@@ -1808,16 +1829,15 @@ class _SettingsPageState extends State<SettingsPage> {
     }
   }
 
-  Future<void> _refreshCloudBackupCount({required bool requireVerify}) async {
+  /// Actualiza el contador de copias en la nube. No pide reautenticación Folio Cloud
+  /// (eso queda solo para [downloadFolioCloudBackup] vía el diálogo de descarga).
+  Future<void> _refreshCloudBackupCount() async {
     if (_cloudBackupCountBusy) return;
+    if (!_cloud.isAvailable || !_cloud.isSignedIn) return;
     final vaultId = _s.activeVaultId;
     if (vaultId == null || vaultId.trim().isEmpty) return;
     final snap = _folio.snapshot;
     if (!snap.canUseCloudBackup) return;
-    if (requireVerify) {
-      final verified = await _verifyFolioCloudAccountForBackups();
-      if (!verified || !mounted) return;
-    }
     setState(() => _cloudBackupCountBusy = true);
     try {
       final entries = await listFolioCloudBackups(
@@ -1846,8 +1866,6 @@ class _SettingsPageState extends State<SettingsPage> {
       _snack(dlgL10n.settingsCloudBackupsNeedPlan);
       return;
     }
-    final verified = await _verifyFolioCloudAccountForBackups();
-    if (!verified || !mounted) return;
     setState(() => _folioCloudActionBusy = true);
     late final List<FolioCloudBackupEntry> entries;
     try {
@@ -1890,6 +1908,9 @@ class _SettingsPageState extends State<SettingsPage> {
                           tooltip: l10n.settingsCloudBackupDownloadTooltip,
                           icon: const Icon(Icons.download_outlined),
                           onPressed: () async {
+                            final verified =
+                                await _verifyFolioCloudAccountForBackups();
+                            if (!verified || !mounted) return;
                             final path = await FilePicker.platform.saveFile(
                               dialogTitle: l10n.settingsCloudBackupSaveDialogTitle,
                               fileName: e.fileName,
@@ -2533,16 +2554,23 @@ class _SettingsPageState extends State<SettingsPage> {
         label: l10n.cloudAccountSectionTitle,
       ),
       _SettingsSectionNavItem(
-        id: _SettingsSectionId.security,
-        label: l10n.security,
+        id: _SettingsSectionId.vault,
+        label: l10n.settingsSectionVault,
+        searchExtra: [
+          l10n.security,
+          l10n.vaultBackup,
+          l10n.data,
+          l10n.settingsDangerZoneTitle,
+        ],
       ),
       _SettingsSectionNavItem(
-        id: _SettingsSectionId.backup,
-        label: l10n.vaultBackup,
-      ),
-      _SettingsSectionNavItem(
-        id: _SettingsSectionId.appearance,
-        label: l10n.appearance,
+        id: _SettingsSectionId.uiWorkspace,
+        label: l10n.settingsSectionUiWorkspace,
+        searchExtra: [
+          l10n.appearance,
+          l10n.desktopSection,
+          l10n.keyboardShortcutsSection,
+        ],
       ),
       if (_app.isAiAvailable)
         _SettingsSectionNavItem(id: _SettingsSectionId.ai, label: l10n.ai),
@@ -2551,21 +2579,11 @@ class _SettingsPageState extends State<SettingsPage> {
         label: l10n.settingsSectionDeviceSyncNav,
       ),
       _SettingsSectionNavItem(id: _SettingsSectionId.about, label: l10n.about),
-      _SettingsSectionNavItem(id: _SettingsSectionId.data, label: l10n.data),
-      if (showDesktopOnlySections) ...[
-        _SettingsSectionNavItem(
-          id: _SettingsSectionId.desktop,
-          label: l10n.desktopSection,
-        ),
-        _SettingsSectionNavItem(
-          id: _SettingsSectionId.shortcuts,
-          label: l10n.keyboardShortcutsSection,
-        ),
+      if (showDesktopOnlySections)
         _SettingsSectionNavItem(
           id: _SettingsSectionId.integrations,
           label: l10n.integrations,
         ),
-      ],
     ];
     return AnimatedBuilder(
       animation: _app,
@@ -2700,6 +2718,7 @@ class _SettingsPageState extends State<SettingsPage> {
                                       ),
                                     );
                                   }
+                                  late final Widget accountCard;
                                   if (_cloud.isSignedIn) {
                                     final u = _cloud.user!;
                                     final email =
@@ -2710,7 +2729,7 @@ class _SettingsPageState extends State<SettingsPage> {
                                         email.isNotEmpty && email != '—'
                                         ? email[0].toUpperCase()
                                         : '?';
-                                    return Padding(
+                                    accountCard = Padding(
                                       padding: const EdgeInsets.fromLTRB(
                                         16,
                                         4,
@@ -3052,40 +3071,40 @@ class _SettingsPageState extends State<SettingsPage> {
                                         ),
                                       ),
                                     );
-                                  }
-                                  return Padding(
-                                    padding: const EdgeInsets.fromLTRB(
-                                      16,
-                                      4,
-                                      16,
-                                      20,
-                                    ),
-                                    child: DecoratedBox(
-                                      decoration: BoxDecoration(
-                                        color: scheme.surfaceContainerLow,
-                                        borderRadius: BorderRadius.circular(18),
-                                        border: Border.all(
-                                          color: scheme.outlineVariant
-                                              .withValues(alpha: 0.4),
-                                        ),
+                                  } else {
+                                    accountCard = Padding(
+                                      padding: const EdgeInsets.fromLTRB(
+                                        16,
+                                        4,
+                                        16,
+                                        20,
                                       ),
-                                      child: Padding(
-                                        padding: const EdgeInsets.all(18),
-                                        child: Column(
-                                          crossAxisAlignment:
-                                              CrossAxisAlignment.stretch,
-                                          children: [
-                                            Text(
-                                              l10n.cloudAccountSignedOutPrompt,
-                                              style: Theme.of(context)
-                                                  .textTheme
-                                                  .bodyMedium
-                                                  ?.copyWith(
-                                                    height: 1.4,
-                                                    color:
-                                                        scheme.onSurfaceVariant,
-                                                  ),
-                                            ),
+                                      child: DecoratedBox(
+                                        decoration: BoxDecoration(
+                                          color: scheme.surfaceContainerLow,
+                                          borderRadius: BorderRadius.circular(18),
+                                          border: Border.all(
+                                            color: scheme.outlineVariant
+                                                .withValues(alpha: 0.4),
+                                          ),
+                                        ),
+                                        child: Padding(
+                                          padding: const EdgeInsets.all(18),
+                                          child: Column(
+                                            crossAxisAlignment:
+                                                CrossAxisAlignment.stretch,
+                                            children: [
+                                              Text(
+                                                l10n.cloudAccountSignedOutPrompt,
+                                                style: Theme.of(context)
+                                                    .textTheme
+                                                    .bodyMedium
+                                                    ?.copyWith(
+                                                      height: 1.4,
+                                                      color: scheme
+                                                          .onSurfaceVariant,
+                                                    ),
+                                              ),
                                             const SizedBox(height: 18),
                                             LayoutBuilder(
                                               builder: (context, constraints) {
@@ -3152,6 +3171,82 @@ class _SettingsPageState extends State<SettingsPage> {
                                         ),
                                       ),
                                     ),
+                                  );
+                                  }
+                                  return Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.stretch,
+                                    children: [
+                                      _SettingsSubsectionTitle(
+                                        title: l10n.folioCloudSubsectionAccount,
+                                        scheme: scheme,
+                                        topPadding: 8,
+                                      ),
+                                      const Divider(height: 1),
+                                      accountCard,
+                                    ],
+                                  );
+                                },
+                              ),
+                              ListenableBuilder(
+                                listenable: Listenable.merge([
+                                  _cloud,
+                                  _folio,
+                                  _app,
+                                  _s,
+                                ]),
+                                builder: (context, _) {
+                                  if (!_folio.isAvailable ||
+                                      !_cloud.isSignedIn) {
+                                    return const SizedBox.shrink();
+                                  }
+                                  return Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.stretch,
+                                    children: [
+                                      _SettingsSubsectionTitle(
+                                        title: l10n
+                                            .settingsFolioCloudSubsectionScheduledCloud,
+                                        scheme: scheme,
+                                        topPadding: 8,
+                                      ),
+                                      const Divider(height: 1),
+                                      SwitchListTile(
+                                        secondary: const Icon(
+                                          Icons.cloud_upload_outlined,
+                                        ),
+                                        title: Text(
+                                          l10n.scheduledVaultBackupCloudSyncTitle,
+                                        ),
+                                        subtitle: Text(
+                                          _app.scheduledVaultBackupEnabled
+                                              ? l10n
+                                                  .scheduledVaultBackupCloudSyncSubtitle
+                                              : l10n
+                                                  .settingsScheduledCloudUploadRequiresSchedule,
+                                        ),
+                                        value: _app
+                                            .scheduledVaultBackupAlsoUploadCloud,
+                                        onChanged:
+                                            _s.state == VaultFlowState.unlocked &&
+                                                _app.scheduledVaultBackupEnabled &&
+                                                !_folioCloudActionBusy
+                                            ? (v) {
+                                                unawaited(
+                                                  _app
+                                                      .setScheduledVaultBackupAlsoUploadCloud(
+                                                        v,
+                                                      )
+                                                      .then((_) {
+                                                        if (mounted) {
+                                                          setState(() {});
+                                                        }
+                                                      }),
+                                                );
+                                              }
+                                            : null,
+                                      ),
+                                    ],
                                   );
                                 },
                               ),
@@ -3422,10 +3517,6 @@ class _SettingsPageState extends State<SettingsPage> {
                                     busy: _folioCloudActionBusy,
                                     backupCount: _cloudBackupCount,
                                     backupCountBusy: _cloudBackupCountBusy,
-                                    onRefreshBackupCount: () =>
-                                        _refreshCloudBackupCount(
-                                          requireVerify: true,
-                                        ),
                                     onSubscribeMonthly: () =>
                                         _openFolioCheckout(
                                           FolioCheckoutKind.folioCloudMonthly,
@@ -3454,33 +3545,40 @@ class _SettingsPageState extends State<SettingsPage> {
                           ),
                         ),
 
-                        if (_s.vaultUsesEncryption)
-                          _SettingsPanel(
-                            key: _sectionKey(_SettingsSectionId.security),
-                            margin: const EdgeInsets.only(bottom: 24),
-                            child: Column(
-                              children: [
-                                _SettingsPanelHeroCard(
-                                  icon: Icons.shield_outlined,
-                                  title: l10n.security,
-                                  description:
-                                      l10n.settingsSecurityEncryptedHeroDescription,
-                                  chips: [
-                                    _SettingsInfoChip(
-                                      icon: Icons.fingerprint,
-                                      label: l10n.quickUnlockTitle,
-                                    ),
-                                    _SettingsInfoChip(
-                                      icon: Icons.key_rounded,
-                                      label: l10n.passkey,
-                                    ),
-                                    _SettingsInfoChip(
-                                      icon: Icons.timer_outlined,
-                                      label: l10n.lockAutoByInactivity,
-                                    ),
-                                  ],
-                                ),
-                                const Divider(height: 1),
+                        _SettingsPanel(
+                          key: _sectionKey(_SettingsSectionId.vault),
+                          margin: const EdgeInsets.only(bottom: 24),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              _SettingsPanelHeroCard(
+                                icon: Icons.menu_book_outlined,
+                                title: l10n.settingsSectionVault,
+                                description:
+                                    l10n.settingsSectionVaultHeroDescription,
+                                chips: [
+                                  _SettingsInfoChip(
+                                    icon: Icons.shield_outlined,
+                                    label: l10n.security,
+                                  ),
+                                  _SettingsInfoChip(
+                                    icon: Icons.backup_outlined,
+                                    label: l10n.vaultBackup,
+                                  ),
+                                  _SettingsInfoChip(
+                                    icon: Icons.storage_rounded,
+                                    label: l10n.data,
+                                  ),
+                                ],
+                              ),
+                              const Divider(height: 1),
+                              _SettingsSubsectionTitle(
+                                title: l10n.security,
+                                scheme: scheme,
+                                topPadding: 8,
+                              ),
+                              const Divider(height: 1),
+                              if (_s.vaultUsesEncryption) ...[
                                 ListTile(
                                   leading: const Icon(Icons.fingerprint),
                                   title: Text(l10n.quickUnlockTitle),
@@ -3629,34 +3727,7 @@ class _SettingsPageState extends State<SettingsPage> {
                                   subtitle: Text(l10n.requiresCurrentPassword),
                                   onTap: _openChangeMasterPasswordFlow,
                                 ),
-                              ],
-                            ),
-                          )
-                        else
-                          _SettingsPanel(
-                            key: _sectionKey(_SettingsSectionId.security),
-                            margin: const EdgeInsets.only(bottom: 24),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.stretch,
-                              children: [
-                                _SettingsPanelHeroCard(
-                                  icon: Icons.lock_open_rounded,
-                                  title: l10n.settingsUnencryptedVaultTitle,
-                                  description: l10n.plainVaultSecurityNotice,
-                                  chips: [
-                                    _SettingsInfoChip(
-                                      icon: Icons.folder_open_outlined,
-                                      label: l10n
-                                          .settingsUnencryptedVaultChipDataOnDisk,
-                                    ),
-                                    _SettingsInfoChip(
-                                      icon: Icons.enhanced_encryption_outlined,
-                                      label: l10n
-                                          .settingsUnencryptedVaultChipEncryptionAvailable,
-                                    ),
-                                  ],
-                                ),
-                                const Divider(height: 1),
+                              ] else ...[
                                 Padding(
                                   padding: const EdgeInsets.fromLTRB(
                                     20,
@@ -3675,32 +3746,11 @@ class _SettingsPageState extends State<SettingsPage> {
                                   ),
                                 ),
                               ],
-                            ),
-                          ),
-
-                        _SettingsPanel(
-                          key: _sectionKey(_SettingsSectionId.backup),
-                          margin: const EdgeInsets.only(bottom: 24),
-                          child: Column(
-                            children: [
-                              _SettingsPanelHeroCard(
-                                icon: Icons.backup_outlined,
-                                title: l10n.vaultBackup,
-                                description: l10n.backupInfoBody,
-                                chips: [
-                                  _SettingsInfoChip(
-                                    icon: Icons.file_download_outlined,
-                                    label: l10n.exportZipTitle,
-                                  ),
-                                  _SettingsInfoChip(
-                                    icon: Icons.file_upload_outlined,
-                                    label: l10n.importZipTitle,
-                                  ),
-                                  _SettingsInfoChip(
-                                    icon: Icons.note_add_outlined,
-                                    label: l10n.importNotionTitle,
-                                  ),
-                                ],
+                              const Divider(height: 1),
+                              _SettingsSubsectionTitle(
+                                title: l10n.settingsSubsectionVaultBackupImport,
+                                scheme: scheme,
+                                topPadding: 8,
                               ),
                               const Divider(height: 1),
                               if (_s.state == VaultFlowState.unlocked)
@@ -3733,6 +3783,45 @@ class _SettingsPageState extends State<SettingsPage> {
                                     },
                                   ),
                                 ),
+                              if (_s.state == VaultFlowState.unlocked)
+                                Padding(
+                                  padding: const EdgeInsets.fromLTRB(
+                                    16,
+                                    0,
+                                    16,
+                                    8,
+                                  ),
+                                  child: FutureBuilder<int>(
+                                    key: ValueKey(_s.activeVaultId),
+                                    future: _loadActiveVaultDiskUsageBytes(),
+                                    builder: (ctx, diskSnap) {
+                                      final small = Theme.of(context)
+                                          .textTheme
+                                          .bodySmall
+                                          ?.copyWith(
+                                            color: scheme.onSurfaceVariant,
+                                            height: 1.35,
+                                          );
+                                      if (diskSnap.connectionState ==
+                                          ConnectionState.waiting) {
+                                        return Text(
+                                          l10n.vaultBackupDiskSizeLoading,
+                                          style: small,
+                                        );
+                                      }
+                                      if (diskSnap.hasError ||
+                                          !diskSnap.hasData) {
+                                        return const SizedBox.shrink();
+                                      }
+                                      return Text(
+                                        l10n.vaultBackupDiskSizeApprox(
+                                          _formatByteSize(diskSnap.data!),
+                                        ),
+                                        style: small,
+                                      );
+                                    },
+                                  ),
+                                ),
                               ListTile(
                                 leading: const Icon(
                                   Icons.file_download_outlined,
@@ -3760,6 +3849,41 @@ class _SettingsPageState extends State<SettingsPage> {
                                 onTap: _s.state == VaultFlowState.unlocked
                                     ? _openImportNotionFlow
                                     : null,
+                              ),
+                              const Divider(height: 1),
+                              Padding(
+                                padding: const EdgeInsets.all(16.0),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      l10n.notionExportGuideTitle,
+                                      style: Theme.of(context)
+                                          .textTheme
+                                          .titleSmall
+                                          ?.copyWith(
+                                            fontWeight: FontWeight.w700,
+                                          ),
+                                    ),
+                                    const SizedBox(height: 8),
+                                    Text(
+                                      l10n.notionExportGuideBody,
+                                      style: Theme.of(context)
+                                          .textTheme
+                                          .bodySmall
+                                          ?.copyWith(
+                                            color: scheme.onSurfaceVariant,
+                                            height: 1.4,
+                                          ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              const Divider(height: 1),
+                              _SettingsSubsectionTitle(
+                                title: l10n.settingsSubsectionVaultScheduledLocal,
+                                scheme: scheme,
+                                topPadding: 8,
                               ),
                               const Divider(height: 1),
                               SwitchListTile(
@@ -3850,30 +3974,6 @@ class _SettingsPageState extends State<SettingsPage> {
                                     ),
                                   ),
                                 ),
-                                if (_folio.isAvailable && _cloud.isSignedIn)
-                                  SwitchListTile(
-                                    secondary: const Icon(
-                                      Icons.cloud_upload_outlined,
-                                    ),
-                                    title: Text(
-                                      l10n.scheduledVaultBackupCloudSyncTitle,
-                                    ),
-                                    subtitle: Text(
-                                      l10n.scheduledVaultBackupCloudSyncSubtitle,
-                                    ),
-                                    value: _app
-                                        .scheduledVaultBackupAlsoUploadCloud,
-                                    onChanged:
-                                        _s.state == VaultFlowState.unlocked
-                                        ? (v) async {
-                                            await _app
-                                                .setScheduledVaultBackupAlsoUploadCloud(
-                                                  v,
-                                                );
-                                            if (mounted) setState(() {});
-                                          }
-                                        : null,
-                                  ),
                               ],
                               ListTile(
                                 leading: const Icon(Icons.save_alt_rounded),
@@ -3884,43 +3984,106 @@ class _SettingsPageState extends State<SettingsPage> {
                                     : null,
                               ),
                               const Divider(height: 1),
+                              _SettingsSubsectionTitle(
+                                title: l10n.settingsSubsectionVaultData,
+                                scheme: scheme,
+                                topPadding: 8,
+                              ),
+                              const Divider(height: 1),
                               Padding(
-                                padding: const EdgeInsets.all(16.0),
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      l10n.notionExportGuideTitle,
-                                      style: Theme.of(context)
-                                          .textTheme
-                                          .titleSmall
-                                          ?.copyWith(
-                                            fontWeight: FontWeight.w700,
-                                          ),
+                                padding: const EdgeInsets.fromLTRB(
+                                  16,
+                                  0,
+                                  16,
+                                  8,
+                                ),
+                                child: Card(
+                                  color: scheme.errorContainer.withValues(
+                                    alpha: 0.2,
+                                  ),
+                                  elevation: 0,
+                                  shape: RoundedRectangleBorder(
+                                    side: BorderSide(
+                                      color: scheme.error.withValues(
+                                        alpha: 0.5,
+                                      ),
                                     ),
-                                    const SizedBox(height: 8),
-                                    Text(
-                                      l10n.notionExportGuideBody,
+                                    borderRadius: const BorderRadius.all(
+                                      Radius.circular(20),
+                                    ),
+                                  ),
+                                  child: ListTile(
+                                    leading: Icon(
+                                      Icons.delete_forever_outlined,
+                                      color: scheme.error,
+                                    ),
+                                    title: Text(
+                                      l10n.wipeCardTitle,
+                                      style: TextStyle(
+                                        color: scheme.error,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                    subtitle: Text(
+                                      l10n.wipeCardSubtitle,
                                       style: Theme.of(context)
                                           .textTheme
                                           .bodySmall
                                           ?.copyWith(
-                                            color: scheme.onSurfaceVariant,
-                                            height: 1.4,
+                                            color: scheme.error.withValues(
+                                              alpha: 0.8,
+                                            ),
                                           ),
                                     ),
-                                  ],
+                                    onTap: _openWipeFlow,
+                                  ),
                                 ),
+                              ),
+                              const Divider(height: 1),
+                              ListTile(
+                                leading: const Icon(Icons.delete_outline),
+                                title: Text(l10n.deleteOtherVault),
+                                subtitle: Text(l10n.deleteOtherVaultTitle),
+                                onTap: _deleteOtherVault,
                               ),
                             ],
                           ),
                         ),
                         _SettingsPanel(
-                          key: _sectionKey(_SettingsSectionId.appearance),
+                          key: _sectionKey(_SettingsSectionId.uiWorkspace),
                           margin: const EdgeInsets.only(bottom: 24),
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.stretch,
                             children: [
+                              _SettingsPanelHeroCard(
+                                icon: Icons.tune_rounded,
+                                title: l10n.settingsSectionUiWorkspace,
+                                description:
+                                    l10n.settingsSectionUiWorkspaceHeroDescription,
+                                chips: [
+                                  _SettingsInfoChip(
+                                    icon: Icons.palette_outlined,
+                                    label: l10n.appearance,
+                                  ),
+                                  if (showDesktopOnlySections) ...[
+                                    _SettingsInfoChip(
+                                      icon: Icons.desktop_windows_rounded,
+                                      label: l10n.desktopSection,
+                                    ),
+                                    _SettingsInfoChip(
+                                      icon: Icons.keyboard_rounded,
+                                      label: l10n.keyboardShortcutsSection,
+                                    ),
+                                  ],
+                                ],
+                              ),
+                              const Divider(height: 1),
+                              _SettingsSubsectionTitle(
+                                title: l10n.appearance,
+                                scheme: scheme,
+                                topPadding: 8,
+                              ),
+                              const Divider(height: 1),
                               _SettingsPanelHeroCard(
                                 icon: Icons.palette_outlined,
                                 title: l10n.appearance,
@@ -4599,6 +4762,586 @@ class _SettingsPageState extends State<SettingsPage> {
                                     }).toList(),
                                   ),
                                 ),
+                              if (showDesktopOnlySections) ...[
+                                const Divider(height: 1),
+                                _SettingsSubsectionTitle(
+                                  title: l10n.desktopSection,
+                                  scheme: scheme,
+                                  topPadding: 8,
+                                ),
+                                const Divider(height: 1),
+                                _SettingsPanelHeroCard(
+                                  icon: Icons.desktop_windows_rounded,
+                                  title: l10n.desktopSection,
+                                  description:
+                                      l10n.settingsDesktopHeroDescription,
+                                  chips: [
+                                    _SettingsInfoChip(
+                                      icon: Icons.search_rounded,
+                                      label: l10n.globalSearchHotkey,
+                                    ),
+                                    _SettingsInfoChip(
+                                      icon: Icons.minimize_rounded,
+                                      label: l10n.minimizeToTray,
+                                    ),
+                                    _SettingsInfoChip(
+                                      icon: Icons.close_rounded,
+                                      label: l10n.closeToTray,
+                                    ),
+                                  ],
+                                ),
+                                const Divider(height: 1),
+                                Padding(
+                                  padding: const EdgeInsets.fromLTRB(
+                                    16,
+                                    12,
+                                    16,
+                                    12,
+                                  ),
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.stretch,
+                                    children: [
+                                      Row(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        children: [
+                                          Icon(
+                                            Icons.keyboard_rounded,
+                                            color: scheme.onSurfaceVariant,
+                                          ),
+                                          const SizedBox(width: 12),
+                                          Expanded(
+                                            child: Column(
+                                              crossAxisAlignment:
+                                                  CrossAxisAlignment.start,
+                                              children: [
+                                                Text(
+                                                  l10n.globalSearchHotkey,
+                                                  style: Theme.of(context)
+                                                      .textTheme
+                                                      .titleMedium
+                                                      ?.copyWith(
+                                                        fontWeight:
+                                                            FontWeight.w600,
+                                                      ),
+                                                ),
+                                                const SizedBox(height: 4),
+                                                Text(
+                                                  _app.enableGlobalSearchHotkey
+                                                      ? l10n.hotkeyCombination
+                                                      : l10n.inactive,
+                                                  style: Theme.of(context)
+                                                      .textTheme
+                                                      .bodySmall
+                                                      ?.copyWith(
+                                                        color: scheme
+                                                            .onSurfaceVariant,
+                                                      ),
+                                                ),
+                                              ],
+                                            ),
+                                          ),
+                                          Switch(
+                                            value:
+                                                _app.enableGlobalSearchHotkey,
+                                            onChanged: _app
+                                                .setEnableGlobalSearchHotkey,
+                                          ),
+                                        ],
+                                      ),
+                                      if (_app.enableGlobalSearchHotkey) ...[
+                                        const SizedBox(height: 12),
+                                        Text(
+                                          l10n.hotkeyCombination,
+                                          style: Theme.of(context)
+                                              .textTheme
+                                              .labelLarge
+                                              ?.copyWith(
+                                                color: scheme.onSurfaceVariant,
+                                                fontWeight: FontWeight.w600,
+                                              ),
+                                        ),
+                                        const SizedBox(height: 6),
+                                        Container(
+                                          padding: const EdgeInsets.symmetric(
+                                            horizontal: 12,
+                                          ),
+                                          decoration: BoxDecoration(
+                                            border: Border.all(
+                                              color: scheme.outlineVariant,
+                                            ),
+                                            borderRadius: BorderRadius.circular(
+                                              12,
+                                            ),
+                                          ),
+                                          child: DropdownButton<String>(
+                                            isExpanded: true,
+                                            value: _app.globalSearchHotkey,
+                                            underline: const SizedBox.shrink(),
+                                            borderRadius: BorderRadius.circular(
+                                              12,
+                                            ),
+                                            items: [
+                                              DropdownMenuItem(
+                                                value: 'Alt+Space',
+                                                child: Text(
+                                                  l10n.hotkeyAltSpace,
+                                                ),
+                                              ),
+                                              DropdownMenuItem(
+                                                value: 'Ctrl+Shift+Space',
+                                                child: Text(
+                                                  l10n.hotkeyCtrlShiftSpace,
+                                                ),
+                                              ),
+                                              DropdownMenuItem(
+                                                value: 'Ctrl+Shift+K',
+                                                child: Text(
+                                                  l10n.hotkeyCtrlShiftK,
+                                                ),
+                                              ),
+                                              const DropdownMenuItem(
+                                                value: 'Ctrl+Shift+F',
+                                                child: Text('Ctrl + Shift + F'),
+                                              ),
+                                              const DropdownMenuItem(
+                                                value: 'Ctrl+Alt+Space',
+                                                child: Text(
+                                                  'Ctrl + Alt + Space',
+                                                ),
+                                              ),
+                                            ],
+                                            onChanged: (value) {
+                                              if (value != null) {
+                                                _app.setGlobalSearchHotkey(
+                                                  value,
+                                                );
+                                              }
+                                            },
+                                          ),
+                                        ),
+                                      ],
+                                    ],
+                                  ),
+                                ),
+                                const Divider(height: 1),
+                                SwitchListTile(
+                                  secondary: const Icon(
+                                    Icons.minimize_outlined,
+                                  ),
+                                  title: Text(l10n.minimizeToTray),
+                                  value: _app.minimizeToTray,
+                                  onChanged: _app.setMinimizeToTray,
+                                ),
+                                const Divider(height: 1),
+                                SwitchListTile(
+                                  secondary: const Icon(Icons.close_rounded),
+                                  title: Text(l10n.closeToTray),
+                                  value: _app.closeToTray,
+                                  onChanged: _app.setCloseToTray,
+                                ),
+                                const Divider(height: 1),
+                                Padding(
+                                  padding: const EdgeInsets.fromLTRB(
+                                    16,
+                                    12,
+                                    16,
+                                    16,
+                                  ),
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.stretch,
+                                    children: [
+                                      _SettingsSubsectionTitle(
+                                        title: l10n.meetingNoteSettingsSection,
+                                        scheme: scheme,
+                                        topPadding: 0,
+                                      ),
+                                      const SizedBox(height: 8),
+                                      Text(
+                                        l10n.meetingNoteSettingsDescription,
+                                        style: Theme.of(context)
+                                            .textTheme
+                                            .bodySmall
+                                            ?.copyWith(
+                                              color: scheme.onSurfaceVariant,
+                                            ),
+                                      ),
+                                      const SizedBox(height: 12),
+                                      Builder(
+                                        builder: (ctx) {
+                                          final hw =
+                                              TranscriptionHardwareProfile
+                                                  .loadCached();
+                                          return Column(
+                                            crossAxisAlignment:
+                                                CrossAxisAlignment.stretch,
+                                            children: [
+                                              Text(
+                                                l10n.meetingNoteSettingsHardwareIntro,
+                                                style: Theme.of(ctx)
+                                                    .textTheme
+                                                    .labelMedium
+                                                    ?.copyWith(
+                                                      color: scheme
+                                                          .onSurfaceVariant,
+                                                      fontWeight:
+                                                          FontWeight.w600,
+                                                    ),
+                                              ),
+                                              const SizedBox(height: 6),
+                                              Text(
+                                                l10n.meetingNoteHardwareSummary(
+                                                  hw.logicalCpuCount,
+                                                  hw.ramLabelForUi(
+                                                    l10n
+                                                        .meetingNoteHardwareRamUnknown,
+                                                  ),
+                                                ),
+                                                style: Theme.of(ctx)
+                                                    .textTheme
+                                                    .bodySmall
+                                                    ?.copyWith(
+                                                      color: scheme
+                                                          .onSurfaceVariant,
+                                                    ),
+                                              ),
+                                              const SizedBox(height: 4),
+                                              Text(
+                                                l10n.meetingNoteHardwareRecommended(
+                                                  _meetingModelLabel(
+                                                    l10n,
+                                                    hw.recommendedWhisperModelId,
+                                                  ),
+                                                ),
+                                                style: Theme.of(ctx)
+                                                    .textTheme
+                                                    .bodySmall
+                                                    ?.copyWith(
+                                                      color: scheme
+                                                          .onSurfaceVariant,
+                                                    ),
+                                              ),
+                                              const SizedBox(height: 10),
+                                              SwitchListTile(
+                                                contentPadding:
+                                                    EdgeInsets.zero,
+                                                title: Text(
+                                                  l10n
+                                                      .meetingNoteSettingsAutoWhisperModel,
+                                                ),
+                                                value: _app
+                                                    .meetingNoteAutoWhisperModel,
+                                                onChanged: (v) {
+                                                  unawaited(
+                                                    _app
+                                                        .setMeetingNoteAutoWhisperModel(
+                                                      v,
+                                                    ),
+                                                  );
+                                                },
+                                              ),
+                                              if (!hw
+                                                  .isLocalTranscriptionViable) ...[
+                                                const SizedBox(height: 8),
+                                                SwitchListTile(
+                                                  contentPadding:
+                                                      EdgeInsets.zero,
+                                                  title: Text(
+                                                    l10n
+                                                        .meetingNoteSettingsForceLocalTranscription,
+                                                  ),
+                                                  value: _app
+                                                      .meetingNoteForceLocalTranscription,
+                                                  onChanged: (v) {
+                                                    unawaited(
+                                                      _app
+                                                          .setMeetingNoteForceLocalTranscription(
+                                                        v,
+                                                      ),
+                                                    );
+                                                  },
+                                                ),
+                                              ],
+                                              const SizedBox(height: 12),
+                                            ],
+                                          );
+                                        },
+                                      ),
+                                      DropdownButtonFormField<String>(
+                                        key: ValueKey<String>(
+                                          'meeting-mic-${_app.meetingNoteMicDeviceId}-${_meetingNoteMicDevices.length}',
+                                        ),
+                                        initialValue: (() {
+                                          final id =
+                                              _app.meetingNoteMicDeviceId;
+                                          if (id.isEmpty) return '';
+                                          return _meetingMicExists(id)
+                                              ? id
+                                              : '';
+                                        })(),
+                                        decoration: InputDecoration(
+                                          labelText: l10n
+                                              .meetingNoteSettingsMicrophone,
+                                          border: const OutlineInputBorder(),
+                                          isDense: true,
+                                          suffixIcon: IconButton(
+                                            tooltip: l10n
+                                                .meetingNoteSettingsRefreshDevices,
+                                            onPressed: _loadMeetingNoteDevices,
+                                            icon: const Icon(Icons.refresh),
+                                          ),
+                                        ),
+                                        items: [
+                                          DropdownMenuItem<String>(
+                                            value: '',
+                                            child: Text(
+                                              l10n.meetingNoteSettingsSystemDefault,
+                                            ),
+                                          ),
+                                          ..._meetingNoteMicDevices.map(
+                                            (d) => DropdownMenuItem<String>(
+                                              value: d.id,
+                                              child: Text(
+                                                d.label.trim().isEmpty
+                                                    ? d.id
+                                                    : d.label,
+                                                maxLines: 1,
+                                                overflow: TextOverflow.ellipsis,
+                                              ),
+                                            ),
+                                          ),
+                                        ],
+                                        onChanged: (value) {
+                                          unawaited(
+                                            _app.setMeetingNoteMicDeviceId(
+                                              value ?? '',
+                                            ),
+                                          );
+                                        },
+                                      ),
+                                      const SizedBox(height: 10),
+                                      DropdownButtonFormField<String>(
+                                        key: ValueKey<String>(
+                                          'meeting-system-${_app.meetingNoteSystemDeviceId}-${_meetingNoteSystemDevices.length}',
+                                        ),
+                                        initialValue: (() {
+                                          final id =
+                                              _app.meetingNoteSystemDeviceId;
+                                          if (id.isEmpty) return '';
+                                          return _meetingSystemExists(id)
+                                              ? id
+                                              : '';
+                                        })(),
+                                        decoration: InputDecoration(
+                                          labelText: l10n
+                                              .meetingNoteSettingsSystemOutput,
+                                          border: const OutlineInputBorder(),
+                                          isDense: true,
+                                        ),
+                                        items: [
+                                          DropdownMenuItem<String>(
+                                            value: '',
+                                            child: Text(
+                                              l10n.meetingNoteSettingsSystemDefault,
+                                            ),
+                                          ),
+                                          ..._meetingNoteSystemDevices.map(
+                                            (d) => DropdownMenuItem<String>(
+                                              value: d.id,
+                                              child: Text(
+                                                d.label.trim().isEmpty
+                                                    ? d.id
+                                                    : d.label,
+                                                maxLines: 1,
+                                                overflow: TextOverflow.ellipsis,
+                                              ),
+                                            ),
+                                          ),
+                                        ],
+                                        onChanged: (value) {
+                                          unawaited(
+                                            _app.setMeetingNoteSystemDeviceId(
+                                              value ?? '',
+                                            ),
+                                          );
+                                        },
+                                      ),
+                                      const SizedBox(height: 10),
+                                      DropdownButtonFormField<String>(
+                                        key: ValueKey<String>(
+                                          'meeting-model-${_app.meetingNoteAutoWhisperModel}-${_app.resolvedMeetingNoteWhisperModelId()}',
+                                        ),
+                                        initialValue: (() {
+                                          final id =
+                                              _app.resolvedMeetingNoteWhisperModelId();
+                                          return _meetingModelExists(id)
+                                              ? id
+                                              : 'base';
+                                        })(),
+                                        decoration: InputDecoration(
+                                          labelText:
+                                              l10n.meetingNoteSettingsModel,
+                                          border: OutlineInputBorder(),
+                                          isDense: true,
+                                        ),
+                                        items: WhisperService.supportedModels
+                                            .map(
+                                              (m) => DropdownMenuItem<String>(
+                                                value: m.id,
+                                                child: Text(
+                                                  '${_meetingModelLabel(l10n, m.id)} (~${m.approxSizeMb} MB)',
+                                                  maxLines: 1,
+                                                  overflow:
+                                                      TextOverflow.ellipsis,
+                                                ),
+                                              ),
+                                            )
+                                            .toList(),
+                                        onChanged: _app.meetingNoteAutoWhisperModel
+                                            ? null
+                                            : (value) {
+                                                unawaited(
+                                                  _app.setMeetingNoteModelId(
+                                                    value ?? 'base',
+                                                  ),
+                                                );
+                                              },
+                                      ),
+                                      const SizedBox(height: 12),
+                                      Padding(
+                                        padding: const EdgeInsets.only(
+                                          bottom: 8,
+                                        ),
+                                        child: Row(
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.start,
+                                          children: [
+                                            const Icon(
+                                              Icons.record_voice_over_rounded,
+                                              size: 16,
+                                            ),
+                                            const SizedBox(width: 8),
+                                            Expanded(
+                                              child: Text(
+                                                l10n.meetingNoteDiarizationHint,
+                                                style: Theme.of(context)
+                                                    .textTheme
+                                                    .bodySmall
+                                                    ?.copyWith(
+                                                      color: scheme
+                                                          .onSurfaceVariant,
+                                                    ),
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                const Divider(height: 1),
+                                _SettingsSubsectionTitle(
+                                  title: l10n.keyboardShortcutsSection,
+                                  scheme: scheme,
+                                  topPadding: 8,
+                                ),
+                                const Divider(height: 1),
+                                _SettingsPanelHeroCard(
+                                  icon: Icons.keyboard_rounded,
+                                  title: l10n.keyboardShortcutsSection,
+                                  description:
+                                      l10n.settingsShortcutsHeroDescription,
+                                  chips: [
+                                    _SettingsInfoChip(
+                                      icon: Icons.ads_click_rounded,
+                                      label: l10n.settingsShortcutsTestChip,
+                                    ),
+                                    _SettingsInfoChip(
+                                      icon: Icons.restart_alt_rounded,
+                                      label: l10n.shortcutResetAllTitle,
+                                    ),
+                                  ],
+                                ),
+                                const Divider(height: 1),
+                                for (final id in FolioInAppShortcut.values) ...[
+                                  if (id != FolioInAppShortcut.values.first)
+                                    const Divider(height: 1),
+                                  ListTile(
+                                    leading: const Icon(Icons.keyboard_rounded),
+                                    title: Text(id.settingsLabel),
+                                    subtitle: Text(
+                                      _app.describeInAppShortcut(id),
+                                    ),
+                                    trailing: Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        TextButton(
+                                          onPressed: () {
+                                            ScaffoldMessenger.of(
+                                              context,
+                                            ).showSnackBar(
+                                              SnackBar(
+                                                content: Text(
+                                                  l10n.shortcutTestHint(
+                                                    _app.describeInAppShortcut(
+                                                      id,
+                                                    ),
+                                                  ),
+                                                ),
+                                              ),
+                                            );
+                                          },
+                                          child: Text(l10n.shortcutTestAction),
+                                        ),
+                                        TextButton(
+                                          onPressed: () async {
+                                            final next =
+                                                await showDialog<
+                                                  SingleActivator
+                                                >(
+                                                  context: context,
+                                                  builder: (ctx) =>
+                                                      const InAppShortcutCaptureDialog(),
+                                                );
+                                            if (next != null &&
+                                                context.mounted) {
+                                              await _app.setInAppShortcut(
+                                                id,
+                                                next,
+                                              );
+                                            }
+                                          },
+                                          child: Text(
+                                            l10n.shortcutChangeAction,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ],
+                                const Divider(height: 1),
+                                ListTile(
+                                  leading: const Icon(Icons.restore_rounded),
+                                  title: Text(l10n.shortcutResetAllTitle),
+                                  subtitle: Text(l10n.shortcutResetAllSubtitle),
+                                  onTap: () async {
+                                    await _app.resetInAppShortcutsToDefaults();
+                                    if (context.mounted) {
+                                      ScaffoldMessenger.of(
+                                        context,
+                                      ).showSnackBar(
+                                        SnackBar(
+                                          content: Text(
+                                            l10n.shortcutResetDoneSnack,
+                                          ),
+                                        ),
+                                      );
+                                    }
+                                  },
+                                ),
+                              ],
                             ],
                           ),
                         ),
@@ -5661,677 +6404,6 @@ class _SettingsPageState extends State<SettingsPage> {
                             ],
                           ),
                         ),
-
-                        _SettingsPanel(
-                          key: _sectionKey(_SettingsSectionId.data),
-                          margin: const EdgeInsets.only(bottom: 24),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.stretch,
-                            children: [
-                              _SettingsPanelHeroCard(
-                                icon: Icons.storage_rounded,
-                                title: l10n.data,
-                                description: l10n.settingsDataHeroDescription,
-                                chips: [
-                                  _SettingsInfoChip(
-                                    icon: Icons.delete_forever_outlined,
-                                    label: l10n.wipeCardTitle,
-                                  ),
-                                  _SettingsInfoChip(
-                                    icon: Icons.delete_outline,
-                                    label: l10n.deleteOtherVault,
-                                  ),
-                                ],
-                              ),
-                              const Divider(height: 1),
-                              _SettingsSubsectionTitle(
-                                title: l10n.settingsDangerZoneTitle,
-                                scheme: scheme,
-                                topPadding: 8,
-                              ),
-                              Padding(
-                                padding: const EdgeInsets.fromLTRB(
-                                  16,
-                                  0,
-                                  16,
-                                  8,
-                                ),
-                                child: Card(
-                                  color: scheme.errorContainer.withValues(
-                                    alpha: 0.2,
-                                  ),
-                                  elevation: 0,
-                                  shape: RoundedRectangleBorder(
-                                    side: BorderSide(
-                                      color: scheme.error.withValues(
-                                        alpha: 0.5,
-                                      ),
-                                    ),
-                                    borderRadius: const BorderRadius.all(
-                                      Radius.circular(20),
-                                    ),
-                                  ),
-                                  child: ListTile(
-                                    leading: Icon(
-                                      Icons.delete_forever_outlined,
-                                      color: scheme.error,
-                                    ),
-                                    title: Text(
-                                      l10n.wipeCardTitle,
-                                      style: TextStyle(
-                                        color: scheme.error,
-                                        fontWeight: FontWeight.bold,
-                                      ),
-                                    ),
-                                    subtitle: Text(
-                                      l10n.wipeCardSubtitle,
-                                      style: Theme.of(context)
-                                          .textTheme
-                                          .bodySmall
-                                          ?.copyWith(
-                                            color: scheme.error.withValues(
-                                              alpha: 0.8,
-                                            ),
-                                          ),
-                                    ),
-                                    onTap: _openWipeFlow,
-                                  ),
-                                ),
-                              ),
-                              const Divider(height: 1),
-                              ListTile(
-                                leading: const Icon(Icons.delete_outline),
-                                title: Text(l10n.deleteOtherVault),
-                                subtitle: Text(l10n.deleteOtherVaultTitle),
-                                onTap: _deleteOtherVault,
-                              ),
-                            ],
-                          ),
-                        ),
-
-                        if (showDesktopOnlySections) ...[
-                          _SettingsPanel(
-                            key: _sectionKey(_SettingsSectionId.desktop),
-                            margin: const EdgeInsets.only(bottom: 24),
-                            child: Column(
-                              children: [
-                                _SettingsPanelHeroCard(
-                                  icon: Icons.desktop_windows_rounded,
-                                  title: l10n.desktopSection,
-                                  description:
-                                      l10n.settingsDesktopHeroDescription,
-                                  chips: [
-                                    _SettingsInfoChip(
-                                      icon: Icons.search_rounded,
-                                      label: l10n.globalSearchHotkey,
-                                    ),
-                                    _SettingsInfoChip(
-                                      icon: Icons.minimize_rounded,
-                                      label: l10n.minimizeToTray,
-                                    ),
-                                    _SettingsInfoChip(
-                                      icon: Icons.close_rounded,
-                                      label: l10n.closeToTray,
-                                    ),
-                                  ],
-                                ),
-                                const Divider(height: 1),
-                                Padding(
-                                  padding: const EdgeInsets.fromLTRB(
-                                    16,
-                                    12,
-                                    16,
-                                    12,
-                                  ),
-                                  child: Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.stretch,
-                                    children: [
-                                      Row(
-                                        crossAxisAlignment:
-                                            CrossAxisAlignment.start,
-                                        children: [
-                                          Icon(
-                                            Icons.keyboard_rounded,
-                                            color: scheme.onSurfaceVariant,
-                                          ),
-                                          const SizedBox(width: 12),
-                                          Expanded(
-                                            child: Column(
-                                              crossAxisAlignment:
-                                                  CrossAxisAlignment.start,
-                                              children: [
-                                                Text(
-                                                  l10n.globalSearchHotkey,
-                                                  style: Theme.of(context)
-                                                      .textTheme
-                                                      .titleMedium
-                                                      ?.copyWith(
-                                                        fontWeight:
-                                                            FontWeight.w600,
-                                                      ),
-                                                ),
-                                                const SizedBox(height: 4),
-                                                Text(
-                                                  _app.enableGlobalSearchHotkey
-                                                      ? l10n.hotkeyCombination
-                                                      : l10n.inactive,
-                                                  style: Theme.of(context)
-                                                      .textTheme
-                                                      .bodySmall
-                                                      ?.copyWith(
-                                                        color: scheme
-                                                            .onSurfaceVariant,
-                                                      ),
-                                                ),
-                                              ],
-                                            ),
-                                          ),
-                                          Switch(
-                                            value:
-                                                _app.enableGlobalSearchHotkey,
-                                            onChanged: _app
-                                                .setEnableGlobalSearchHotkey,
-                                          ),
-                                        ],
-                                      ),
-                                      if (_app.enableGlobalSearchHotkey) ...[
-                                        const SizedBox(height: 12),
-                                        Text(
-                                          l10n.hotkeyCombination,
-                                          style: Theme.of(context)
-                                              .textTheme
-                                              .labelLarge
-                                              ?.copyWith(
-                                                color: scheme.onSurfaceVariant,
-                                                fontWeight: FontWeight.w600,
-                                              ),
-                                        ),
-                                        const SizedBox(height: 6),
-                                        Container(
-                                          padding: const EdgeInsets.symmetric(
-                                            horizontal: 12,
-                                          ),
-                                          decoration: BoxDecoration(
-                                            border: Border.all(
-                                              color: scheme.outlineVariant,
-                                            ),
-                                            borderRadius: BorderRadius.circular(
-                                              12,
-                                            ),
-                                          ),
-                                          child: DropdownButton<String>(
-                                            isExpanded: true,
-                                            value: _app.globalSearchHotkey,
-                                            underline: const SizedBox.shrink(),
-                                            borderRadius: BorderRadius.circular(
-                                              12,
-                                            ),
-                                            items: [
-                                              DropdownMenuItem(
-                                                value: 'Alt+Space',
-                                                child: Text(
-                                                  l10n.hotkeyAltSpace,
-                                                ),
-                                              ),
-                                              DropdownMenuItem(
-                                                value: 'Ctrl+Shift+Space',
-                                                child: Text(
-                                                  l10n.hotkeyCtrlShiftSpace,
-                                                ),
-                                              ),
-                                              DropdownMenuItem(
-                                                value: 'Ctrl+Shift+K',
-                                                child: Text(
-                                                  l10n.hotkeyCtrlShiftK,
-                                                ),
-                                              ),
-                                              const DropdownMenuItem(
-                                                value: 'Ctrl+Shift+F',
-                                                child: Text('Ctrl + Shift + F'),
-                                              ),
-                                              const DropdownMenuItem(
-                                                value: 'Ctrl+Alt+Space',
-                                                child: Text(
-                                                  'Ctrl + Alt + Space',
-                                                ),
-                                              ),
-                                            ],
-                                            onChanged: (value) {
-                                              if (value != null) {
-                                                _app.setGlobalSearchHotkey(
-                                                  value,
-                                                );
-                                              }
-                                            },
-                                          ),
-                                        ),
-                                      ],
-                                    ],
-                                  ),
-                                ),
-                                const Divider(height: 1),
-                                SwitchListTile(
-                                  secondary: const Icon(
-                                    Icons.minimize_outlined,
-                                  ),
-                                  title: Text(l10n.minimizeToTray),
-                                  value: _app.minimizeToTray,
-                                  onChanged: _app.setMinimizeToTray,
-                                ),
-                                const Divider(height: 1),
-                                SwitchListTile(
-                                  secondary: const Icon(Icons.close_rounded),
-                                  title: Text(l10n.closeToTray),
-                                  value: _app.closeToTray,
-                                  onChanged: _app.setCloseToTray,
-                                ),
-                                const Divider(height: 1),
-                                Padding(
-                                  padding: const EdgeInsets.fromLTRB(
-                                    16,
-                                    12,
-                                    16,
-                                    16,
-                                  ),
-                                  child: Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.stretch,
-                                    children: [
-                                      _SettingsSubsectionTitle(
-                                        title: l10n.meetingNoteSettingsSection,
-                                        scheme: scheme,
-                                        topPadding: 0,
-                                      ),
-                                      const SizedBox(height: 8),
-                                      Text(
-                                        l10n.meetingNoteSettingsDescription,
-                                        style: Theme.of(context)
-                                            .textTheme
-                                            .bodySmall
-                                            ?.copyWith(
-                                              color: scheme.onSurfaceVariant,
-                                            ),
-                                      ),
-                                      const SizedBox(height: 12),
-                                      Builder(
-                                        builder: (ctx) {
-                                          final hw =
-                                              TranscriptionHardwareProfile
-                                                  .loadCached();
-                                          return Column(
-                                            crossAxisAlignment:
-                                                CrossAxisAlignment.stretch,
-                                            children: [
-                                              Text(
-                                                l10n.meetingNoteSettingsHardwareIntro,
-                                                style: Theme.of(ctx)
-                                                    .textTheme
-                                                    .labelMedium
-                                                    ?.copyWith(
-                                                      color: scheme
-                                                          .onSurfaceVariant,
-                                                      fontWeight:
-                                                          FontWeight.w600,
-                                                    ),
-                                              ),
-                                              const SizedBox(height: 6),
-                                              Text(
-                                                l10n.meetingNoteHardwareSummary(
-                                                  hw.logicalCpuCount,
-                                                  hw.ramLabelForUi(
-                                                    l10n
-                                                        .meetingNoteHardwareRamUnknown,
-                                                  ),
-                                                ),
-                                                style: Theme.of(ctx)
-                                                    .textTheme
-                                                    .bodySmall
-                                                    ?.copyWith(
-                                                      color: scheme
-                                                          .onSurfaceVariant,
-                                                    ),
-                                              ),
-                                              const SizedBox(height: 4),
-                                              Text(
-                                                l10n.meetingNoteHardwareRecommended(
-                                                  _meetingModelLabel(
-                                                    l10n,
-                                                    hw.recommendedWhisperModelId,
-                                                  ),
-                                                ),
-                                                style: Theme.of(ctx)
-                                                    .textTheme
-                                                    .bodySmall
-                                                    ?.copyWith(
-                                                      color: scheme
-                                                          .onSurfaceVariant,
-                                                    ),
-                                              ),
-                                              const SizedBox(height: 10),
-                                              SwitchListTile(
-                                                contentPadding:
-                                                    EdgeInsets.zero,
-                                                title: Text(
-                                                  l10n
-                                                      .meetingNoteSettingsAutoWhisperModel,
-                                                ),
-                                                value: _app
-                                                    .meetingNoteAutoWhisperModel,
-                                                onChanged: (v) {
-                                                  unawaited(
-                                                    _app
-                                                        .setMeetingNoteAutoWhisperModel(
-                                                      v,
-                                                    ),
-                                                  );
-                                                },
-                                              ),
-                                              if (!hw
-                                                  .isLocalTranscriptionViable) ...[
-                                                const SizedBox(height: 8),
-                                                SwitchListTile(
-                                                  contentPadding:
-                                                      EdgeInsets.zero,
-                                                  title: Text(
-                                                    l10n
-                                                        .meetingNoteSettingsForceLocalTranscription,
-                                                  ),
-                                                  value: _app
-                                                      .meetingNoteForceLocalTranscription,
-                                                  onChanged: (v) {
-                                                    unawaited(
-                                                      _app
-                                                          .setMeetingNoteForceLocalTranscription(
-                                                        v,
-                                                      ),
-                                                    );
-                                                  },
-                                                ),
-                                              ],
-                                              const SizedBox(height: 12),
-                                            ],
-                                          );
-                                        },
-                                      ),
-                                      DropdownButtonFormField<String>(
-                                        key: ValueKey<String>(
-                                          'meeting-mic-${_app.meetingNoteMicDeviceId}-${_meetingNoteMicDevices.length}',
-                                        ),
-                                        initialValue: (() {
-                                          final id =
-                                              _app.meetingNoteMicDeviceId;
-                                          if (id.isEmpty) return '';
-                                          return _meetingMicExists(id)
-                                              ? id
-                                              : '';
-                                        })(),
-                                        decoration: InputDecoration(
-                                          labelText: l10n
-                                              .meetingNoteSettingsMicrophone,
-                                          border: const OutlineInputBorder(),
-                                          isDense: true,
-                                          suffixIcon: IconButton(
-                                            tooltip: l10n
-                                                .meetingNoteSettingsRefreshDevices,
-                                            onPressed: _loadMeetingNoteDevices,
-                                            icon: const Icon(Icons.refresh),
-                                          ),
-                                        ),
-                                        items: [
-                                          DropdownMenuItem<String>(
-                                            value: '',
-                                            child: Text(
-                                              l10n.meetingNoteSettingsSystemDefault,
-                                            ),
-                                          ),
-                                          ..._meetingNoteMicDevices.map(
-                                            (d) => DropdownMenuItem<String>(
-                                              value: d.id,
-                                              child: Text(
-                                                d.label.trim().isEmpty
-                                                    ? d.id
-                                                    : d.label,
-                                                maxLines: 1,
-                                                overflow: TextOverflow.ellipsis,
-                                              ),
-                                            ),
-                                          ),
-                                        ],
-                                        onChanged: (value) {
-                                          unawaited(
-                                            _app.setMeetingNoteMicDeviceId(
-                                              value ?? '',
-                                            ),
-                                          );
-                                        },
-                                      ),
-                                      const SizedBox(height: 10),
-                                      DropdownButtonFormField<String>(
-                                        key: ValueKey<String>(
-                                          'meeting-system-${_app.meetingNoteSystemDeviceId}-${_meetingNoteSystemDevices.length}',
-                                        ),
-                                        initialValue: (() {
-                                          final id =
-                                              _app.meetingNoteSystemDeviceId;
-                                          if (id.isEmpty) return '';
-                                          return _meetingSystemExists(id)
-                                              ? id
-                                              : '';
-                                        })(),
-                                        decoration: InputDecoration(
-                                          labelText: l10n
-                                              .meetingNoteSettingsSystemOutput,
-                                          border: const OutlineInputBorder(),
-                                          isDense: true,
-                                        ),
-                                        items: [
-                                          DropdownMenuItem<String>(
-                                            value: '',
-                                            child: Text(
-                                              l10n.meetingNoteSettingsSystemDefault,
-                                            ),
-                                          ),
-                                          ..._meetingNoteSystemDevices.map(
-                                            (d) => DropdownMenuItem<String>(
-                                              value: d.id,
-                                              child: Text(
-                                                d.label.trim().isEmpty
-                                                    ? d.id
-                                                    : d.label,
-                                                maxLines: 1,
-                                                overflow: TextOverflow.ellipsis,
-                                              ),
-                                            ),
-                                          ),
-                                        ],
-                                        onChanged: (value) {
-                                          unawaited(
-                                            _app.setMeetingNoteSystemDeviceId(
-                                              value ?? '',
-                                            ),
-                                          );
-                                        },
-                                      ),
-                                      const SizedBox(height: 10),
-                                      DropdownButtonFormField<String>(
-                                        key: ValueKey<String>(
-                                          'meeting-model-${_app.meetingNoteAutoWhisperModel}-${_app.resolvedMeetingNoteWhisperModelId()}',
-                                        ),
-                                        initialValue: (() {
-                                          final id =
-                                              _app.resolvedMeetingNoteWhisperModelId();
-                                          return _meetingModelExists(id)
-                                              ? id
-                                              : 'base';
-                                        })(),
-                                        decoration: InputDecoration(
-                                          labelText:
-                                              l10n.meetingNoteSettingsModel,
-                                          border: OutlineInputBorder(),
-                                          isDense: true,
-                                        ),
-                                        items: WhisperService.supportedModels
-                                            .map(
-                                              (m) => DropdownMenuItem<String>(
-                                                value: m.id,
-                                                child: Text(
-                                                  '${_meetingModelLabel(l10n, m.id)} (~${m.approxSizeMb} MB)',
-                                                  maxLines: 1,
-                                                  overflow:
-                                                      TextOverflow.ellipsis,
-                                                ),
-                                              ),
-                                            )
-                                            .toList(),
-                                        onChanged: _app.meetingNoteAutoWhisperModel
-                                            ? null
-                                            : (value) {
-                                                unawaited(
-                                                  _app.setMeetingNoteModelId(
-                                                    value ?? 'base',
-                                                  ),
-                                                );
-                                              },
-                                      ),
-                                      const SizedBox(height: 12),
-                                      Padding(
-                                        padding: const EdgeInsets.only(
-                                          bottom: 8,
-                                        ),
-                                        child: Row(
-                                          crossAxisAlignment:
-                                              CrossAxisAlignment.start,
-                                          children: [
-                                            const Icon(
-                                              Icons.record_voice_over_rounded,
-                                              size: 16,
-                                            ),
-                                            const SizedBox(width: 8),
-                                            Expanded(
-                                              child: Text(
-                                                l10n.meetingNoteDiarizationHint,
-                                                style: Theme.of(context)
-                                                    .textTheme
-                                                    .bodySmall
-                                                    ?.copyWith(
-                                                      color: scheme
-                                                          .onSurfaceVariant,
-                                                    ),
-                                              ),
-                                            ),
-                                          ],
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-
-                          _SettingsPanel(
-                            key: _sectionKey(_SettingsSectionId.shortcuts),
-                            margin: const EdgeInsets.only(bottom: 24),
-                            child: Column(
-                              children: [
-                                _SettingsPanelHeroCard(
-                                  icon: Icons.keyboard_rounded,
-                                  title: l10n.keyboardShortcutsSection,
-                                  description:
-                                      l10n.settingsShortcutsHeroDescription,
-                                  chips: [
-                                    _SettingsInfoChip(
-                                      icon: Icons.ads_click_rounded,
-                                      label: l10n.settingsShortcutsTestChip,
-                                    ),
-                                    _SettingsInfoChip(
-                                      icon: Icons.restart_alt_rounded,
-                                      label: l10n.shortcutResetAllTitle,
-                                    ),
-                                  ],
-                                ),
-                                const Divider(height: 1),
-                                for (final id in FolioInAppShortcut.values) ...[
-                                  if (id != FolioInAppShortcut.values.first)
-                                    const Divider(height: 1),
-                                  ListTile(
-                                    leading: const Icon(Icons.keyboard_rounded),
-                                    title: Text(id.settingsLabel),
-                                    subtitle: Text(
-                                      _app.describeInAppShortcut(id),
-                                    ),
-                                    trailing: Row(
-                                      mainAxisSize: MainAxisSize.min,
-                                      children: [
-                                        TextButton(
-                                          onPressed: () {
-                                            ScaffoldMessenger.of(
-                                              context,
-                                            ).showSnackBar(
-                                              SnackBar(
-                                                content: Text(
-                                                  l10n.shortcutTestHint(
-                                                    _app.describeInAppShortcut(
-                                                      id,
-                                                    ),
-                                                  ),
-                                                ),
-                                              ),
-                                            );
-                                          },
-                                          child: Text(l10n.shortcutTestAction),
-                                        ),
-                                        TextButton(
-                                          onPressed: () async {
-                                            final next =
-                                                await showDialog<
-                                                  SingleActivator
-                                                >(
-                                                  context: context,
-                                                  builder: (ctx) =>
-                                                      const InAppShortcutCaptureDialog(),
-                                                );
-                                            if (next != null &&
-                                                context.mounted) {
-                                              await _app.setInAppShortcut(
-                                                id,
-                                                next,
-                                              );
-                                            }
-                                          },
-                                          child: Text(
-                                            l10n.shortcutChangeAction,
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                ],
-                                const Divider(height: 1),
-                                ListTile(
-                                  leading: const Icon(Icons.restore_rounded),
-                                  title: Text(l10n.shortcutResetAllTitle),
-                                  subtitle: Text(l10n.shortcutResetAllSubtitle),
-                                  onTap: () async {
-                                    await _app.resetInAppShortcutsToDefaults();
-                                    if (context.mounted) {
-                                      ScaffoldMessenger.of(
-                                        context,
-                                      ).showSnackBar(
-                                        SnackBar(
-                                          content: Text(
-                                            l10n.shortcutResetDoneSnack,
-                                          ),
-                                        ),
-                                      );
-                                    }
-                                  },
-                                ),
-                              ],
-                            ),
-                          ),
-                        ],
 
                         if (showDesktopOnlySections) ...[
                           _SettingsPanel(
@@ -8215,7 +8287,6 @@ class _FolioCloudSubscriptionPanel extends StatelessWidget {
     required this.busy,
     required this.backupCount,
     required this.backupCountBusy,
-    required this.onRefreshBackupCount,
     required this.onSubscribeMonthly,
     required this.onOpenPitch,
     required this.onInkSmall,
@@ -8234,7 +8305,6 @@ class _FolioCloudSubscriptionPanel extends StatelessWidget {
   final bool busy;
   final int? backupCount;
   final bool backupCountBusy;
-  final VoidCallback onRefreshBackupCount;
   final VoidCallback onSubscribeMonthly;
   final VoidCallback onOpenPitch;
   final VoidCallback onInkSmall;
@@ -8419,91 +8489,9 @@ class _FolioCloudSubscriptionPanel extends StatelessWidget {
             ),
           ),
         _SettingsSubsectionTitle(
-          title: l10n.folioCloudSubsectionInk,
-          scheme: scheme,
-          topPadding: busy ? 10 : 14,
-        ),
-        const Divider(height: 1),
-        Padding(
-          padding: const EdgeInsets.fromLTRB(16, 10, 16, 4),
-          child: LayoutBuilder(
-            builder: (context, constraints) {
-              final cardMin = ((constraints.maxWidth - 20) / 3).clamp(
-                104.0,
-                220.0,
-              );
-              return Wrap(
-                spacing: 10,
-                runSpacing: 10,
-                children: [
-                  _FolioCloudInkStatCard(
-                    scheme: scheme,
-                    icon: Icons.calendar_month_outlined,
-                    label: l10n.folioCloudInkMonthly,
-                    valueText: l10n.folioCloudInkCount(snap.ink.monthlyBalance),
-                    minWidth: cardMin,
-                  ),
-                  _FolioCloudInkStatCard(
-                    scheme: scheme,
-                    icon: Icons.shopping_bag_outlined,
-                    label: l10n.folioCloudInkPurchased,
-                    valueText: l10n.folioCloudInkCount(
-                      snap.ink.purchasedBalance,
-                    ),
-                    minWidth: cardMin,
-                  ),
-                  _FolioCloudInkStatCard(
-                    scheme: scheme,
-                    icon: Icons.water_drop_outlined,
-                    label: l10n.folioCloudInkTotal,
-                    valueText: l10n.folioCloudInkCount(snap.ink.totalInk),
-                    minWidth: cardMin,
-                  ),
-                ],
-              );
-            },
-          ),
-        ),
-        if (snap.ink.purchasedBalance > 0) ...[
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 4, 16, 6),
-            child: Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: scheme.secondaryContainer.withValues(alpha: 0.55),
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(
-                  color: scheme.outlineVariant.withValues(alpha: 0.35),
-                ),
-              ),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Icon(
-                    Icons.check_circle_outline_rounded,
-                    color: scheme.onSecondaryContainer,
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Text(
-                      l10n.folioCloudInkPurchaseAppliedHint(
-                        l10n.folioCloudInkCount(snap.ink.purchasedBalance),
-                      ),
-                      style: theme.textTheme.bodySmall?.copyWith(
-                        color: scheme.onSecondaryContainer,
-                        height: 1.35,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ],
-        _SettingsSubsectionTitle(
           title: l10n.folioCloudSubsectionSubscription,
           scheme: scheme,
+          topPadding: busy ? 10 : 14,
         ),
         const Divider(height: 1),
         Padding(
@@ -8715,7 +8703,89 @@ class _FolioCloudSubscriptionPanel extends StatelessWidget {
           ),
         ),
         _SettingsSubsectionTitle(
-          title: l10n.folioCloudSubsectionBackupPublish,
+          title: l10n.folioCloudSubsectionInk,
+          scheme: scheme,
+        ),
+        const Divider(height: 1),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 10, 16, 4),
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              final cardMin = ((constraints.maxWidth - 20) / 3).clamp(
+                104.0,
+                220.0,
+              );
+              return Wrap(
+                spacing: 10,
+                runSpacing: 10,
+                children: [
+                  _FolioCloudInkStatCard(
+                    scheme: scheme,
+                    icon: Icons.calendar_month_outlined,
+                    label: l10n.folioCloudInkMonthly,
+                    valueText: l10n.folioCloudInkCount(snap.ink.monthlyBalance),
+                    minWidth: cardMin,
+                  ),
+                  _FolioCloudInkStatCard(
+                    scheme: scheme,
+                    icon: Icons.shopping_bag_outlined,
+                    label: l10n.folioCloudInkPurchased,
+                    valueText: l10n.folioCloudInkCount(
+                      snap.ink.purchasedBalance,
+                    ),
+                    minWidth: cardMin,
+                  ),
+                  _FolioCloudInkStatCard(
+                    scheme: scheme,
+                    icon: Icons.water_drop_outlined,
+                    label: l10n.folioCloudInkTotal,
+                    valueText: l10n.folioCloudInkCount(snap.ink.totalInk),
+                    minWidth: cardMin,
+                  ),
+                ],
+              );
+            },
+          ),
+        ),
+        if (snap.ink.purchasedBalance > 0) ...[
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 4, 16, 6),
+            child: Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: scheme.secondaryContainer.withValues(alpha: 0.55),
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(
+                  color: scheme.outlineVariant.withValues(alpha: 0.35),
+                ),
+              ),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Icon(
+                    Icons.check_circle_outline_rounded,
+                    color: scheme.onSecondaryContainer,
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      l10n.folioCloudInkPurchaseAppliedHint(
+                        l10n.folioCloudInkCount(snap.ink.purchasedBalance),
+                      ),
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: scheme.onSecondaryContainer,
+                        height: 1.35,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+        _SettingsSubsectionTitle(
+          title: l10n.folioCloudSubsectionEncryptedBackups,
           scheme: scheme,
         ),
         const Divider(height: 1),
@@ -8729,6 +8799,10 @@ class _FolioCloudSubscriptionPanel extends StatelessWidget {
               );
               final used = backupCount;
               final remaining = used == null ? null : (10 - used).clamp(0, 10);
+              final loading = backupCountBusy && used == null;
+              final usedLabel = loading ? '…' : (used == null ? '—' : '$used');
+              final remainingLabel =
+                  loading ? '…' : (remaining == null ? '—' : '$remaining');
               return Wrap(
                 spacing: 10,
                 runSpacing: 10,
@@ -8737,7 +8811,7 @@ class _FolioCloudSubscriptionPanel extends StatelessWidget {
                     scheme: scheme,
                     icon: Icons.cloud_outlined,
                     label: l10n.folioCloudBackupsUsed,
-                    valueText: used == null ? '—' : '$used',
+                    valueText: usedLabel,
                     minWidth: cardMin,
                   ),
                   _FolioCloudInkStatCard(
@@ -8747,35 +8821,12 @@ class _FolioCloudSubscriptionPanel extends StatelessWidget {
                     valueText: '10',
                     minWidth: cardMin,
                   ),
-                  Stack(
-                    children: [
-                      _FolioCloudInkStatCard(
-                        scheme: scheme,
-                        icon: Icons.timer_outlined,
-                        label: l10n.folioCloudBackupsRemaining,
-                        valueText: remaining == null ? '—' : '$remaining',
-                        minWidth: cardMin,
-                      ),
-                      Positioned(
-                        top: 6,
-                        right: 6,
-                        child: IconButton(
-                          tooltip: l10n.retry,
-                          onPressed: backupCountBusy
-                              ? null
-                              : onRefreshBackupCount,
-                          icon: backupCountBusy
-                              ? const SizedBox(
-                                  width: 18,
-                                  height: 18,
-                                  child: CircularProgressIndicator(
-                                    strokeWidth: 2,
-                                  ),
-                                )
-                              : const Icon(Icons.refresh_rounded, size: 18),
-                        ),
-                      ),
-                    ],
+                  _FolioCloudInkStatCard(
+                    scheme: scheme,
+                    icon: Icons.timer_outlined,
+                    label: l10n.folioCloudBackupsRemaining,
+                    valueText: remainingLabel,
+                    minWidth: cardMin,
                   ),
                 ],
               );
@@ -8795,6 +8846,11 @@ class _FolioCloudSubscriptionPanel extends StatelessWidget {
           enabled: !busy && snap.canUseCloudBackup,
           onTap: busy || !snap.canUseCloudBackup ? null : onOpenBackups,
         ),
+        _SettingsSubsectionTitle(
+          title: l10n.folioCloudSubsectionPublishing,
+          scheme: scheme,
+        ),
+        const Divider(height: 1),
         ListTile(
           leading: const Icon(Icons.list_alt_outlined),
           title: Text(l10n.folioCloudPublishedPagesList),
@@ -9092,22 +9148,23 @@ class _SettingsDesktopRail extends StatelessWidget {
 }
 
 class _SettingsSectionNavItem {
-  const _SettingsSectionNavItem({required this.id, required this.label});
+  const _SettingsSectionNavItem({
+    required this.id,
+    required this.label,
+    this.searchExtra = const [],
+  });
 
   final _SettingsSectionId id;
   final String label;
+  final List<String> searchExtra;
 }
 
 enum _SettingsSectionId {
-  appearance,
-  security,
-  desktop,
-  shortcuts,
-  ai,
-  backup,
-  integrations,
   cloud,
+  vault,
+  uiWorkspace,
+  ai,
   sync,
   about,
-  data,
+  integrations,
 }

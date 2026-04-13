@@ -3220,40 +3220,60 @@ class BlockEditorState extends State<BlockEditor> with _BlockRowBuild {
         cipher,
         SettableMetadata(contentType: 'application/octet-stream'),
       );
-      task.snapshotEvents.listen((snap) {
-        if (!_isActiveCollabUploadToken(blockId, token) || !mounted) return;
-        final total = snap.totalBytes <= 0 ? null : snap.totalBytes;
-        final transferred = snap.bytesTransferred;
-        final progress = total == null
-            ? null
-            : (transferred / total).clamp(0.0, 1.0);
-        Duration? eta;
-        if (total != null && transferred > 0 && transferred < total) {
-          final elapsedMs = DateTime.now().difference(startedAt).inMilliseconds;
-          if (elapsedMs > 0) {
-            final rate = transferred / elapsedMs;
-            if (rate > 0) {
-              final remainingMs = ((total - transferred) / rate).round();
-              eta = Duration(milliseconds: remainingMs.clamp(0, 36000000));
+      // Windows/Linux: los eventos de tarea llegan fuera del hilo de plataforma y
+      // disparan [shell.cc] "non-platform thread" (flutterfire / Storage C++).
+      final snapshotEventsSafe = defaultTargetPlatform != TargetPlatform.windows &&
+          defaultTargetPlatform != TargetPlatform.linux;
+      StreamSubscription<TaskSnapshot>? snapshotSub;
+      if (snapshotEventsSafe) {
+        snapshotSub = task.snapshotEvents.listen((snap) {
+          if (!_isActiveCollabUploadToken(blockId, token) || !mounted) return;
+          final total = snap.totalBytes <= 0 ? null : snap.totalBytes;
+          final transferred = snap.bytesTransferred;
+          final progress = total == null
+              ? null
+              : (transferred / total).clamp(0.0, 1.0);
+          Duration? eta;
+          if (total != null && transferred > 0 && transferred < total) {
+            final elapsedMs =
+                DateTime.now().difference(startedAt).inMilliseconds;
+            if (elapsedMs > 0) {
+              final rate = transferred / elapsedMs;
+              if (rate > 0) {
+                final remainingMs = ((total - transferred) / rate).round();
+                eta = Duration(milliseconds: remainingMs.clamp(0, 36000000));
+              }
             }
           }
-        }
-        if (!_shouldEmitCollabUploadUi(
-          blockId: blockId,
-          progress: progress,
-          eta: eta,
-        )) {
-          return;
-        }
-        setState(() {
-          _collabUploadByBlockId[blockId] = _CollabUploadProgress(
-            encrypting: false,
+          if (!_shouldEmitCollabUploadUi(
+            blockId: blockId,
             progress: progress,
             eta: eta,
+          )) {
+            return;
+          }
+          setState(() {
+            _collabUploadByBlockId[blockId] = _CollabUploadProgress(
+              encrypting: false,
+              progress: progress,
+              eta: eta,
+            );
+          });
+        });
+      } else if (mounted) {
+        setState(() {
+          _collabUploadByBlockId[blockId] = const _CollabUploadProgress(
+            encrypting: false,
+            progress: null,
+            eta: null,
           );
         });
-      });
-      await task;
+      }
+      try {
+        await task;
+      } finally {
+        await snapshotSub?.cancel();
+      }
 
       await callFolioHttpsCallable('commitCollabMediaUpload', {
         'roomId': roomId,

@@ -30,15 +30,28 @@ class GitHubReleaseUpdater {
     }
 
     final currentVersion = await _currentVersion();
-    final release = switch (channel) {
-      UpdateReleaseChannel.stable => await _fetchLatestStableRelease(),
-      UpdateReleaseChannel.beta => await _fetchLatestPrereleaseRelease(),
-    };
+    _GitHubRelease? release;
+    var releaseIsPrerelease = false;
+    switch (channel) {
+      case UpdateReleaseChannel.stable:
+        release = await _fetchLatestStableRelease();
+        releaseIsPrerelease = false;
+        break;
+      case UpdateReleaseChannel.beta:
+        // Canal beta: la actualización puede ser la última estable **o** la última
+        // pre-release, la que tenga semver mayor (y asset de instalador).
+        final ranked = await _pickBestBetaChannelRelease(currentVersion);
+        if (ranked != null) {
+          release = ranked.release;
+          releaseIsPrerelease = ranked.isPrerelease;
+        }
+        break;
+    }
     if (release == null) {
       return UpdateCheckResult.noUpdate(
         currentVersion: currentVersion,
         reason: channel == UpdateReleaseChannel.beta
-            ? 'No hay betas publicadas en GitHub (releases marcadas como pre-release).'
+            ? 'No hay en GitHub una versión estable o pre-release más nueva con instalador para esta plataforma.'
             : null,
       );
     }
@@ -75,8 +88,56 @@ class GitHubReleaseUpdater {
       installerAssetName: releaseAsset.name,
       installerUrl: releaseAsset.browserDownloadUrl,
       publishedAt: release.publishedAt,
-      isPrerelease: channel == UpdateReleaseChannel.beta,
+      isPrerelease: releaseIsPrerelease,
     );
+  }
+
+  /// Para [UpdateReleaseChannel.beta]: elige entre última estable y última pre-release
+  /// la versión semver mayor (empate → preferir estable).
+  Future<_RankedRelease?> _pickBestBetaChannelRelease(
+    Version currentVersion,
+  ) async {
+    _GitHubRelease? stable;
+    try {
+      stable = await _fetchLatestStableRelease();
+    } catch (e, st) {
+      AppLogger.warn(
+        'Updater: no se pudo obtener release estable (canal beta)',
+        tag: 'updater',
+        context: {'error': e.toString(), 'stack': st.toString()},
+      );
+    }
+    _GitHubRelease? pre;
+    try {
+      pre = await _fetchLatestPrereleaseRelease();
+    } catch (e, st) {
+      AppLogger.warn(
+        'Updater: no se pudo listar pre-releases (canal beta)',
+        tag: 'updater',
+        context: {'error': e.toString(), 'stack': st.toString()},
+      );
+    }
+
+    _RankedRelease? best;
+    void consider(_GitHubRelease? rel, bool isPre) {
+      if (rel == null) return;
+      final v = rel.parsedVersion;
+      if (v == null || v <= currentVersion) return;
+      if (_pickReleaseAssetForCurrentPlatform(rel.assets) == null) return;
+      if (best == null) {
+        best = _RankedRelease(release: rel, version: v, isPrerelease: isPre);
+        return;
+      }
+      if (v > best!.version) {
+        best = _RankedRelease(release: rel, version: v, isPrerelease: isPre);
+      } else if (v == best!.version && !isPre && best!.isPrerelease) {
+        best = _RankedRelease(release: rel, version: v, isPrerelease: isPre);
+      }
+    }
+
+    consider(stable, false);
+    consider(pre, true);
+    return best;
   }
 
   Future<ReleaseNotesResult?> fetchReleaseNotesForVersion({
@@ -393,6 +454,18 @@ class ReleaseNotesResult {
   final String? releaseName;
   final String? releaseNotes;
   final DateTime? publishedAt;
+}
+
+class _RankedRelease {
+  _RankedRelease({
+    required this.release,
+    required this.version,
+    required this.isPrerelease,
+  });
+
+  final _GitHubRelease release;
+  final Version version;
+  final bool isPrerelease;
 }
 
 class _GitHubRelease {
