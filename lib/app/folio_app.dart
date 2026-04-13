@@ -458,6 +458,29 @@ class _FolioAppState extends State<FolioApp> with WidgetsBindingObserver {
     widget.session.touchActivity();
   }
 
+  bool _hasEditableTextFocus() {
+    final ctx = FocusManager.instance.primaryFocus?.context;
+    if (ctx == null) return false;
+    return ctx.widget is EditableText ||
+        ctx.findAncestorWidgetOfExactType<EditableText>() != null;
+  }
+
+  Future<void> _adjustUiScaleBy(double delta) async {
+    if (_hasEditableTextFocus()) return;
+    if (widget.appSettings.uiScaleMode != UiScaleMode.manual) {
+      await widget.appSettings.setUiScaleMode(UiScaleMode.manual);
+    }
+    await widget.appSettings.setUiScale(widget.appSettings.uiScale + delta);
+  }
+
+  Future<void> _resetUiScale() async {
+    if (_hasEditableTextFocus()) return;
+    if (widget.appSettings.uiScaleMode != UiScaleMode.manual) {
+      await widget.appSettings.setUiScaleMode(UiScaleMode.manual);
+    }
+    await widget.appSettings.setUiScale(AppSettings.defaultUiScale);
+  }
+
   String _buildDesktopSettingsSignature() {
     final s = widget.appSettings;
     return [
@@ -976,12 +999,88 @@ class _FolioAppState extends State<FolioApp> with WidgetsBindingObserver {
         GlobalCupertinoLocalizations.delegate,
       ],
       builder: (context, child) {
-        return Listener(
-          behavior: HitTestBehavior.translucent,
-          onPointerDown: (_) => _onGlobalUserActivity(),
-          onPointerSignal: (_) => _onGlobalUserActivity(),
-          onPointerPanZoomStart: (_) => _onGlobalUserActivity(),
-          child: child ?? const SizedBox.shrink(),
+        final media = MediaQuery.of(context);
+        final uiScale = widget.appSettings.resolveEffectiveUiScale(
+          isWindows: !kIsWeb && defaultTargetPlatform == TargetPlatform.windows,
+          devicePixelRatio: media.devicePixelRatio,
+        );
+        Widget content = child ?? const SizedBox.shrink();
+        if ((uiScale - 1.0).abs() > 0.001) {
+          content = ClipRect(
+            child: OverflowBox(
+              alignment: Alignment.topLeft,
+              minWidth: 0,
+              minHeight: 0,
+              maxWidth: double.infinity,
+              maxHeight: double.infinity,
+              child: Transform.scale(
+                alignment: Alignment.topLeft,
+                scale: uiScale,
+                child: SizedBox(
+                  width: media.size.width / uiScale,
+                  height: media.size.height / uiScale,
+                  child: content,
+                ),
+              ),
+            ),
+          );
+        }
+        return Shortcuts(
+          shortcuts: const <ShortcutActivator, Intent>{
+            SingleActivator(
+              LogicalKeyboardKey.equal,
+              control: true,
+            ): _ZoomInIntent(),
+            SingleActivator(
+              LogicalKeyboardKey.numpadAdd,
+              control: true,
+            ): _ZoomInIntent(),
+            SingleActivator(
+              LogicalKeyboardKey.minus,
+              control: true,
+            ): _ZoomOutIntent(),
+            SingleActivator(
+              LogicalKeyboardKey.numpadSubtract,
+              control: true,
+            ): _ZoomOutIntent(),
+            SingleActivator(
+              LogicalKeyboardKey.digit0,
+              control: true,
+            ): _ZoomResetIntent(),
+            SingleActivator(
+              LogicalKeyboardKey.numpad0,
+              control: true,
+            ): _ZoomResetIntent(),
+          },
+          child: Actions(
+            actions: <Type, Action<Intent>>{
+              _ZoomInIntent: CallbackAction<_ZoomInIntent>(
+                onInvoke: (_) {
+                  unawaited(_adjustUiScaleBy(0.05));
+                  return null;
+                },
+              ),
+              _ZoomOutIntent: CallbackAction<_ZoomOutIntent>(
+                onInvoke: (_) {
+                  unawaited(_adjustUiScaleBy(-0.05));
+                  return null;
+                },
+              ),
+              _ZoomResetIntent: CallbackAction<_ZoomResetIntent>(
+                onInvoke: (_) {
+                  unawaited(_resetUiScale());
+                  return null;
+                },
+              ),
+            },
+            child: Listener(
+              behavior: HitTestBehavior.translucent,
+              onPointerDown: (_) => _onGlobalUserActivity(),
+              onPointerSignal: (_) => _onGlobalUserActivity(),
+              onPointerPanZoomStart: (_) => _onGlobalUserActivity(),
+              child: content,
+            ),
+          ),
         );
       },
       home: _HomeByState(
@@ -994,6 +1093,18 @@ class _FolioAppState extends State<FolioApp> with WidgetsBindingObserver {
       ),
     );
   }
+}
+
+class _ZoomInIntent extends Intent {
+  const _ZoomInIntent();
+}
+
+class _ZoomOutIntent extends Intent {
+  const _ZoomOutIntent();
+}
+
+class _ZoomResetIntent extends Intent {
+  const _ZoomResetIntent();
 }
 
 class _IntegrationApprovalDialog extends StatelessWidget {
