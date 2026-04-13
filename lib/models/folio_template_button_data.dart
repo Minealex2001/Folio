@@ -1,5 +1,8 @@
 import 'dart:convert';
 
+import 'package:flutter/widgets.dart';
+
+import '../l10n/generated/app_localizations.dart';
 import 'block.dart';
 
 /// Botón de plantilla: etiqueta + bloques a insertar al pulsar.
@@ -12,15 +15,21 @@ class FolioTemplateButtonData {
   final String label;
   final List<FolioBlock> blocks;
 
-  static FolioTemplateButtonData defaultNew() => FolioTemplateButtonData(
-        label: 'Plantilla',
+  static FolioTemplateButtonData localizedDefault(AppLocalizations l10n) =>
+      FolioTemplateButtonData(
+        label: l10n.templateButtonDefaultLabel,
         blocks: [
           FolioBlock(
             id: '_tpl',
             type: 'paragraph',
-            text: 'Texto de la plantilla…',
+            text: l10n.templateButtonPlaceholderText,
           ),
         ],
+      );
+
+  /// Respaldo estable (p. ej. JSON sin etiqueta) sin contexto de UI.
+  static FolioTemplateButtonData defaultNew() => localizedDefault(
+        lookupAppLocalizations(const Locale('en')),
       );
 
   String encode() => jsonEncode({
@@ -34,14 +43,14 @@ class FolioTemplateButtonData {
     try {
       final m = jsonDecode(raw);
       if (m is! Map) return null;
-      final label = (m['label'] as String?) ?? 'Plantilla';
+      final label = (m['label'] as String?) ?? 'Template';
       final list = (m['blocks'] as List<dynamic>?) ?? [];
       final blocks = list
           .whereType<Map>()
           .map((e) => FolioBlock.fromJson(Map<String, dynamic>.from(e)))
           .toList();
       if (blocks.isEmpty) {
-        return FolioTemplateButtonData.defaultNew();
+        return defaultNew();
       }
       return FolioTemplateButtonData(label: label, blocks: blocks);
     } catch (_) {

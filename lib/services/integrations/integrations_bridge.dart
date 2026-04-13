@@ -4,7 +4,9 @@ import 'dart:math';
 import 'dart:io';
 
 import 'package:cryptography/cryptography.dart';
+import 'package:flutter/widgets.dart';
 
+import '../../l10n/generated/app_localizations.dart';
 import 'integrations_markdown_codec.dart';
 
 class IntegrationsClientIdentity {
@@ -428,6 +430,7 @@ class IntegrationsBridgeController {
     required bool Function(IntegrationsClientIdentity client) isClientApproved,
     required Map<String, Object?> Function() appInfoProvider,
     this.onEvent,
+    this.resolveLocale,
     this.allowedOrigins = const [],
   }) : _onImport = onImport,
        _onUpdate = onUpdate,
@@ -476,7 +479,13 @@ class IntegrationsBridgeController {
   final bool Function(IntegrationsClientIdentity client) _isClientApproved;
   final Map<String, Object?> Function() _appInfoProvider;
   final void Function(String message)? onEvent;
+  final Locale Function()? resolveLocale;
   final List<String> allowedOrigins;
+
+  void _notifyLocalizedEvent(String Function(AppLocalizations l10n) message) {
+    final loc = resolveLocale?.call() ?? const Locale('es');
+    onEvent?.call(message(lookupAppLocalizations(loc)));
+  }
 
   static const int maxPayloadBytes = 2 * 1024 * 1024;
   static const Duration sessionTtl = Duration(minutes: 5);
@@ -1011,8 +1020,8 @@ class IntegrationsBridgeController {
           return;
         }
         final result = await _onUpdate(payload);
-        onEvent?.call(
-          'Actualización de integración completada: ${result.pageTitle}.',
+        _notifyLocalizedEvent(
+          (l10n) => l10n.integrationSnackPageUpdateDone(result.pageTitle),
         );
         await _writeJson(request.response, HttpStatus.ok, {
           'ok': true,
@@ -1127,7 +1136,9 @@ class IntegrationsBridgeController {
           return;
         }
         final result = await _onImportJson(payload);
-        onEvent?.call('Importación JSON completada: ${result.pageTitle}.');
+        _notifyLocalizedEvent(
+          (l10n) => l10n.integrationSnackJsonImportDone(result.pageTitle),
+        );
         await _writeJson(request.response, HttpStatus.ok, {
           'ok': true,
           'sessionId': session.sessionId,
@@ -1239,7 +1250,9 @@ class IntegrationsBridgeController {
         return;
       }
       final result = await _onImport(payload);
-      onEvent?.call('Importación completada: ${result.pageTitle}.');
+      _notifyLocalizedEvent(
+        (l10n) => l10n.integrationSnackMarkdownImportDone(result.pageTitle),
+      );
       await _writeJson(request.response, HttpStatus.ok, {
         'ok': true,
         'sessionId': session.sessionId,

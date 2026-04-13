@@ -3,7 +3,25 @@ import 'dart:convert';
 import 'dart:typed_data';
 
 import '../../app/app_settings.dart';
+import '../../l10n/generated/app_localizations.dart';
 import 'package:syncfusion_flutter_pdf/pdf.dart';
+
+/// Motivo por el que un endpoint de IA no cumple la política (mensaje vía [localizedMessage]).
+enum AiEndpointValidationIssue {
+  invalidUrl,
+  remoteNotAllowed,
+}
+
+extension AiEndpointValidationIssueL10n on AiEndpointValidationIssue {
+  String localizedMessage(AppLocalizations l10n) {
+    switch (this) {
+      case AiEndpointValidationIssue.invalidUrl:
+        return l10n.aiEndpointInvalidUrl;
+      case AiEndpointValidationIssue.remoteNotAllowed:
+        return l10n.aiEndpointRemoteNotAllowed;
+    }
+  }
+}
 
 class AiSafetyPolicy {
   const AiSafetyPolicy();
@@ -80,21 +98,21 @@ class AiSafetyPolicy {
     return isLocalhostHost(uri.host);
   }
 
-  static String? validateEndpoint({
+  static AiEndpointValidationIssue? validateEndpointIssue({
     required String rawUrl,
     required AiEndpointMode mode,
     required bool remoteConfirmed,
   }) {
     final uri = parseAndNormalizeUrl(rawUrl);
     if (uri == null) {
-      return 'URL inválida. Usa http://host:puerto.';
+      return AiEndpointValidationIssue.invalidUrl;
     }
     if (!isEndpointAllowed(
       uri: uri,
       mode: mode,
       remoteConfirmed: remoteConfirmed,
     )) {
-      return 'Endpoint remoto no permitido sin confirmación.';
+      return AiEndpointValidationIssue.remoteNotAllowed;
     }
     return null;
   }

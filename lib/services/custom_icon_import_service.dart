@@ -5,7 +5,8 @@ import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 import 'package:uuid/uuid.dart';
 
-import '../app/app_settings.dart';
+import '../app/app_settings.dart' show CustomIconEntry;
+import '../l10n/generated/app_localizations.dart';
 
 class CustomIconImportException implements Exception {
   const CustomIconImportException(this.message);
@@ -27,29 +28,29 @@ class CustomIconImportService {
   };
 
   Future<CustomIconEntry> importFromSource({
+    required AppLocalizations l10n,
     required String source,
     String? label,
   }) async {
     final raw = source.trim();
     if (raw.isEmpty) {
-      throw const CustomIconImportException('La fuente del icono está vacía.');
+      throw CustomIconImportException(l10n.customIconImportEmptySource);
     }
     if (raw.startsWith('data:image/')) {
-      return _importFromDataUri(raw, label: label);
+      return _importFromDataUri(l10n, raw, label: label);
     }
     final uri = Uri.tryParse(raw);
     if (uri == null || !uri.hasScheme) {
-      throw const CustomIconImportException('La URL del icono no es válida.');
+      throw CustomIconImportException(l10n.customIconImportInvalidUrl);
     }
     if (uri.scheme != 'http' && uri.scheme != 'https') {
-      throw const CustomIconImportException(
-        'Solo se admiten URLs http o https.',
-      );
+      throw CustomIconImportException(l10n.customIconImportHttpHttpsOnly);
     }
-    return _importFromRemoteUri(uri, label: label);
+    return _importFromRemoteUri(l10n, uri, label: label);
   }
 
   Future<CustomIconEntry> _importFromDataUri(
+    AppLocalizations l10n,
     String source, {
     String? label,
   }) async {
@@ -57,41 +58,38 @@ class CustomIconImportService {
     final mimeType = uriData.mimeType.toLowerCase();
     final id = _uuid.v4();
     if (!_supportedMimeTypes.contains(mimeType)) {
-      throw const CustomIconImportException(
-        'Solo se admiten data:image/svg+xml, data:image/gif, data:image/webp o data:image/png.',
-      );
+      throw CustomIconImportException(l10n.customIconImportDataUriMimeList);
     }
     final extension = _extensionForMimeType(mimeType);
     if (extension == null) {
-      throw const CustomIconImportException(
-        'Formato no compatible. Usa SVG, PNG, GIF o WebP.',
-      );
+      throw CustomIconImportException(l10n.customIconImportUnsupportedFormat);
     }
     final file = await _createTargetFile(id, extension);
     if (mimeType == 'image/svg+xml') {
       final svg = uriData.contentAsString(encoding: utf8).trim();
       if (!svg.contains('<svg')) {
-        throw const CustomIconImportException('El SVG copiado no es válido.');
+        throw CustomIconImportException(l10n.customIconImportInvalidSvg);
       }
       final bytes = utf8.encode(svg);
       if (bytes.length > maxBytes) {
-        throw const CustomIconImportException(
-          'El SVG es demasiado grande para importarlo.',
-        );
+        throw CustomIconImportException(l10n.customIconImportSvgTooLarge);
       }
       await file.writeAsString(svg, flush: true);
     } else {
       final bytes = uriData.contentAsBytes();
       if (bytes.length > maxBytes) {
-        throw const CustomIconImportException(
-          'La imagen embebida es demasiado grande para importarla.',
+        throw CustomIconImportException(
+          l10n.customIconImportEmbeddedImageTooLarge,
         );
       }
       await file.writeAsBytes(bytes, flush: true);
     }
     return CustomIconEntry(
       id: id,
-      label: _sanitizeLabel(label, fallback: 'Custom icon'),
+      label: _sanitizeLabel(
+        label,
+        fallback: l10n.customIconLabelDefault,
+      ),
       source: source,
       filePath: file.path,
       mimeType: mimeType,
@@ -99,7 +97,11 @@ class CustomIconImportService {
     );
   }
 
-  Future<CustomIconEntry> _importFromRemoteUri(Uri uri, {String? label}) async {
+  Future<CustomIconEntry> _importFromRemoteUri(
+    AppLocalizations l10n,
+    Uri uri, {
+    String? label,
+  }) async {
     final client = HttpClient()
       ..connectionTimeout = const Duration(seconds: 12);
     try {
@@ -107,7 +109,9 @@ class CustomIconImportService {
       final response = await request.close();
       if (response.statusCode < 200 || response.statusCode >= 300) {
         throw CustomIconImportException(
-          'No se pudo descargar el icono (${response.statusCode}).',
+          l10n.customIconImportDownloadFailed(
+            response.statusCode.toString(),
+          ),
         );
       }
       final contentType = response.headers.contentType;
@@ -119,24 +123,23 @@ class CustomIconImportService {
       await for (final chunk in response) {
         bytes.addAll(chunk);
         if (bytes.length > maxBytes) {
-          throw const CustomIconImportException(
-            'El icono remoto es demasiado grande.',
-          );
+          throw CustomIconImportException(l10n.customIconImportRemoteTooLarge);
         }
       }
       final resolvedMimeType = _resolveMimeType(uri, mimeType, bytes);
       final extension = _extensionForMimeType(resolvedMimeType);
       if (extension == null) {
-        throw const CustomIconImportException(
-          'Formato no compatible. Usa SVG, PNG, GIF o WebP.',
-        );
+        throw CustomIconImportException(l10n.customIconImportUnsupportedFormat);
       }
       final id = _uuid.v4();
       final file = await _createTargetFile(id, extension);
       await file.writeAsBytes(bytes, flush: true);
       return CustomIconEntry(
         id: id,
-        label: _sanitizeLabel(label, fallback: _fallbackLabelFromUri(uri)),
+        label: _sanitizeLabel(
+          label,
+          fallback: _fallbackLabelFromUri(l10n, uri),
+        ),
         source: uri.toString(),
         filePath: file.path,
         mimeType: resolvedMimeType,
@@ -145,13 +148,9 @@ class CustomIconImportService {
     } on CustomIconImportException {
       rethrow;
     } on SocketException {
-      throw const CustomIconImportException(
-        'No se pudo conectar para descargar el icono.',
-      );
+      throw CustomIconImportException(l10n.customIconImportConnectFailed);
     } on HandshakeException {
-      throw const CustomIconImportException(
-        'Fallo de certificado al descargar el icono.',
-      );
+      throw CustomIconImportException(l10n.customIconImportCertFailed);
     } finally {
       client.close(force: true);
     }
@@ -172,11 +171,11 @@ class CustomIconImportService {
     return fallback;
   }
 
-  String _fallbackLabelFromUri(Uri uri) {
+  String _fallbackLabelFromUri(AppLocalizations l10n, Uri uri) {
     final name = uri.pathSegments.isEmpty ? '' : uri.pathSegments.last.trim();
-    if (name.isEmpty) return 'Imported icon';
+    if (name.isEmpty) return l10n.customIconLabelImported;
     final withoutExt = name.replaceAll(RegExp(r'\.[A-Za-z0-9]+$'), '');
-    return withoutExt.isEmpty ? 'Imported icon' : withoutExt;
+    return withoutExt.isEmpty ? l10n.customIconLabelImported : withoutExt;
   }
 
   String _resolveMimeType(Uri uri, String mimeType, List<int> bytes) {

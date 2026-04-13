@@ -5110,6 +5110,48 @@ abstract class AppLocalizations {
   /// **'Versión beta (pre-release).'**
   String get updaterStartupDialogBetaNote;
 
+  /// No description provided for @updaterOpenApkDownloadQuestion.
+  ///
+  /// In es, this message translates to:
+  /// **'¿Abrir descarga del APK ahora?'**
+  String get updaterOpenApkDownloadQuestion;
+
+  /// No description provided for @updaterManualCheckUnsupportedPlatform.
+  ///
+  /// In es, this message translates to:
+  /// **'El actualizador integrado solo está disponible en Windows y Android.'**
+  String get updaterManualCheckUnsupportedPlatform;
+
+  /// No description provided for @updaterManualCheckAlreadyLatest.
+  ///
+  /// In es, this message translates to:
+  /// **'Ya tienes la versión más reciente.'**
+  String get updaterManualCheckAlreadyLatest;
+
+  /// No description provided for @updaterDialogLineCurrentVersion.
+  ///
+  /// In es, this message translates to:
+  /// **'Versión actual: {currentVersion}'**
+  String updaterDialogLineCurrentVersion(Object currentVersion);
+
+  /// No description provided for @updaterDialogLineNewVersion.
+  ///
+  /// In es, this message translates to:
+  /// **'Nueva versión: {releaseVersion}'**
+  String updaterDialogLineNewVersion(Object releaseVersion);
+
+  /// No description provided for @updaterApkUrlInvalidSnack.
+  ///
+  /// In es, this message translates to:
+  /// **'No se encontró URL válida del APK en el release.'**
+  String get updaterApkUrlInvalidSnack;
+
+  /// No description provided for @updaterApkOpenFailedSnack.
+  ///
+  /// In es, this message translates to:
+  /// **'No se pudo abrir la descarga del APK.'**
+  String get updaterApkOpenFailedSnack;
+
   /// No description provided for @toggleTitleHint.
   ///
   /// In es, this message translates to:
@@ -5247,6 +5289,3005 @@ abstract class AppLocalizations {
   /// In es, this message translates to:
   /// **'Nota'**
   String get calloutTypeNote;
+
+  /// No description provided for @blockEditorEnterHintNewBlock.
+  ///
+  /// In es, this message translates to:
+  /// **'Enter: bloque nuevo (en código: Enter = línea)'**
+  String get blockEditorEnterHintNewBlock;
+
+  /// No description provided for @blockEditorEnterHintNewLine.
+  ///
+  /// In es, this message translates to:
+  /// **'Enter: nueva línea'**
+  String get blockEditorEnterHintNewLine;
+
+  /// No description provided for @blockEditorShortcutsHintMobile.
+  ///
+  /// In es, this message translates to:
+  /// **'{enterHint} · / para bloques · toca el bloque para más acciones'**
+  String blockEditorShortcutsHintMobile(String enterHint);
+
+  /// No description provided for @blockEditorShortcutsHintDesktop.
+  ///
+  /// In es, this message translates to:
+  /// **'{enterHint} · Shift+Enter: línea · / tipos · # título (misma línea) · - · * · [] · ``` espacio · tabla/imagen en / · formato: barra al enfocar o ** _ <u> ` ~~'**
+  String blockEditorShortcutsHintDesktop(String enterHint);
+
+  /// No description provided for @blockEditorSelectedBlocksBanner.
+  ///
+  /// In es, this message translates to:
+  /// **'{count} bloques seleccionados · Shift: rango · Ctrl/Cmd: alternar'**
+  String blockEditorSelectedBlocksBanner(int count);
+
+  /// No description provided for @blockEditorDuplicate.
+  ///
+  /// In es, this message translates to:
+  /// **'Duplicar'**
+  String get blockEditorDuplicate;
+
+  /// No description provided for @blockEditorClearSelectionTooltip.
+  ///
+  /// In es, this message translates to:
+  /// **'Limpiar selección'**
+  String get blockEditorClearSelectionTooltip;
+
+  /// No description provided for @blockEditorMenuRewriteWithAi.
+  ///
+  /// In es, this message translates to:
+  /// **'Reescribir con IA…'**
+  String get blockEditorMenuRewriteWithAi;
+
+  /// No description provided for @blockEditorMenuMoveUp.
+  ///
+  /// In es, this message translates to:
+  /// **'Mover arriba'**
+  String get blockEditorMenuMoveUp;
+
+  /// No description provided for @blockEditorMenuMoveDown.
+  ///
+  /// In es, this message translates to:
+  /// **'Mover abajo'**
+  String get blockEditorMenuMoveDown;
+
+  /// No description provided for @blockEditorMenuDuplicateBlock.
+  ///
+  /// In es, this message translates to:
+  /// **'Duplicar bloque'**
+  String get blockEditorMenuDuplicateBlock;
+
+  /// No description provided for @blockEditorMenuAppearance.
+  ///
+  /// In es, this message translates to:
+  /// **'Apariencia…'**
+  String get blockEditorMenuAppearance;
+
+  /// No description provided for @blockEditorMenuCalloutIcon.
+  ///
+  /// In es, this message translates to:
+  /// **'Icono del callout…'**
+  String get blockEditorMenuCalloutIcon;
+
+  /// No description provided for @blockEditorCalloutMenuType.
+  ///
+  /// In es, this message translates to:
+  /// **'Tipo: {typeName}'**
+  String blockEditorCalloutMenuType(String typeName);
+
+  /// No description provided for @blockEditorCopyLink.
+  ///
+  /// In es, this message translates to:
+  /// **'Copiar enlace'**
+  String get blockEditorCopyLink;
+
+  /// No description provided for @blockEditorMenuCreateSubpage.
+  ///
+  /// In es, this message translates to:
+  /// **'Crear subpágina'**
+  String get blockEditorMenuCreateSubpage;
+
+  /// No description provided for @blockEditorMenuLinkPage.
+  ///
+  /// In es, this message translates to:
+  /// **'Enlazar página…'**
+  String get blockEditorMenuLinkPage;
+
+  /// No description provided for @blockEditorMenuOpenSubpage.
+  ///
+  /// In es, this message translates to:
+  /// **'Abrir subpágina'**
+  String get blockEditorMenuOpenSubpage;
+
+  /// No description provided for @blockEditorMenuPickImage.
+  ///
+  /// In es, this message translates to:
+  /// **'Elegir imagen…'**
+  String get blockEditorMenuPickImage;
+
+  /// No description provided for @blockEditorMenuRemoveImage.
+  ///
+  /// In es, this message translates to:
+  /// **'Quitar imagen'**
+  String get blockEditorMenuRemoveImage;
+
+  /// No description provided for @blockEditorMenuCodeLanguage.
+  ///
+  /// In es, this message translates to:
+  /// **'Lenguaje del código…'**
+  String get blockEditorMenuCodeLanguage;
+
+  /// No description provided for @blockEditorMenuEditDiagram.
+  ///
+  /// In es, this message translates to:
+  /// **'Editar diagrama…'**
+  String get blockEditorMenuEditDiagram;
+
+  /// No description provided for @blockEditorMenuBackToPreview.
+  ///
+  /// In es, this message translates to:
+  /// **'Volver a vista previa'**
+  String get blockEditorMenuBackToPreview;
+
+  /// No description provided for @blockEditorMenuChangeFile.
+  ///
+  /// In es, this message translates to:
+  /// **'Cambiar archivo…'**
+  String get blockEditorMenuChangeFile;
+
+  /// No description provided for @blockEditorMenuRemoveFile.
+  ///
+  /// In es, this message translates to:
+  /// **'Quitar archivo'**
+  String get blockEditorMenuRemoveFile;
+
+  /// No description provided for @blockEditorMenuChangeVideo.
+  ///
+  /// In es, this message translates to:
+  /// **'Cambiar video…'**
+  String get blockEditorMenuChangeVideo;
+
+  /// No description provided for @blockEditorMenuRemoveVideo.
+  ///
+  /// In es, this message translates to:
+  /// **'Quitar video'**
+  String get blockEditorMenuRemoveVideo;
+
+  /// No description provided for @blockEditorMenuChangeAudio.
+  ///
+  /// In es, this message translates to:
+  /// **'Cambiar audio…'**
+  String get blockEditorMenuChangeAudio;
+
+  /// No description provided for @blockEditorMenuRemoveAudio.
+  ///
+  /// In es, this message translates to:
+  /// **'Quitar audio'**
+  String get blockEditorMenuRemoveAudio;
+
+  /// No description provided for @blockEditorMenuEditLabel.
+  ///
+  /// In es, this message translates to:
+  /// **'Editar etiqueta…'**
+  String get blockEditorMenuEditLabel;
+
+  /// No description provided for @blockEditorMenuAddRow.
+  ///
+  /// In es, this message translates to:
+  /// **'Añadir fila'**
+  String get blockEditorMenuAddRow;
+
+  /// No description provided for @blockEditorMenuRemoveLastRow.
+  ///
+  /// In es, this message translates to:
+  /// **'Quitar última fila'**
+  String get blockEditorMenuRemoveLastRow;
+
+  /// No description provided for @blockEditorMenuAddColumn.
+  ///
+  /// In es, this message translates to:
+  /// **'Añadir columna'**
+  String get blockEditorMenuAddColumn;
+
+  /// No description provided for @blockEditorMenuRemoveLastColumn.
+  ///
+  /// In es, this message translates to:
+  /// **'Quitar última columna'**
+  String get blockEditorMenuRemoveLastColumn;
+
+  /// No description provided for @blockEditorMenuAddProperty.
+  ///
+  /// In es, this message translates to:
+  /// **'Añadir propiedad'**
+  String get blockEditorMenuAddProperty;
+
+  /// No description provided for @blockEditorMenuChangeBlockType.
+  ///
+  /// In es, this message translates to:
+  /// **'Cambiar tipo de bloque…'**
+  String get blockEditorMenuChangeBlockType;
+
+  /// No description provided for @blockEditorMenuDeleteBlock.
+  ///
+  /// In es, this message translates to:
+  /// **'Eliminar bloque'**
+  String get blockEditorMenuDeleteBlock;
+
+  /// No description provided for @blockEditorAppearanceTitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Apariencia del bloque'**
+  String get blockEditorAppearanceTitle;
+
+  /// No description provided for @blockEditorAppearanceSubtitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Personaliza tamaño, color del texto y fondo para este bloque.'**
+  String get blockEditorAppearanceSubtitle;
+
+  /// No description provided for @blockEditorAppearanceSize.
+  ///
+  /// In es, this message translates to:
+  /// **'Tamaño'**
+  String get blockEditorAppearanceSize;
+
+  /// No description provided for @blockEditorAppearanceTextColor.
+  ///
+  /// In es, this message translates to:
+  /// **'Color del texto'**
+  String get blockEditorAppearanceTextColor;
+
+  /// No description provided for @blockEditorAppearanceBackground.
+  ///
+  /// In es, this message translates to:
+  /// **'Fondo'**
+  String get blockEditorAppearanceBackground;
+
+  /// No description provided for @blockEditorAppearancePreviewEmpty.
+  ///
+  /// In es, this message translates to:
+  /// **'Así se verá este bloque.'**
+  String get blockEditorAppearancePreviewEmpty;
+
+  /// No description provided for @blockEditorReset.
+  ///
+  /// In es, this message translates to:
+  /// **'Restablecer'**
+  String get blockEditorReset;
+
+  /// No description provided for @blockEditorCodeLanguageTitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Lenguaje del código'**
+  String get blockEditorCodeLanguageTitle;
+
+  /// No description provided for @blockEditorCodeLanguageSubtitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Resaltado de sintaxis según el lenguaje elegido.'**
+  String get blockEditorCodeLanguageSubtitle;
+
+  /// No description provided for @blockEditorTemplateButtonTitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Etiqueta del botón plantilla'**
+  String get blockEditorTemplateButtonTitle;
+
+  /// No description provided for @blockEditorTemplateButtonFieldLabel.
+  ///
+  /// In es, this message translates to:
+  /// **'Texto del botón'**
+  String get blockEditorTemplateButtonFieldLabel;
+
+  /// No description provided for @blockEditorTemplateButtonDefaultLabel.
+  ///
+  /// In es, this message translates to:
+  /// **'Plantilla'**
+  String get blockEditorTemplateButtonDefaultLabel;
+
+  /// No description provided for @blockEditorTextColorDefault.
+  ///
+  /// In es, this message translates to:
+  /// **'Tema'**
+  String get blockEditorTextColorDefault;
+
+  /// No description provided for @blockEditorTextColorSubtle.
+  ///
+  /// In es, this message translates to:
+  /// **'Suave'**
+  String get blockEditorTextColorSubtle;
+
+  /// No description provided for @blockEditorTextColorPrimary.
+  ///
+  /// In es, this message translates to:
+  /// **'Primario'**
+  String get blockEditorTextColorPrimary;
+
+  /// No description provided for @blockEditorTextColorSecondary.
+  ///
+  /// In es, this message translates to:
+  /// **'Secundario'**
+  String get blockEditorTextColorSecondary;
+
+  /// No description provided for @blockEditorTextColorTertiary.
+  ///
+  /// In es, this message translates to:
+  /// **'Acento'**
+  String get blockEditorTextColorTertiary;
+
+  /// No description provided for @blockEditorTextColorError.
+  ///
+  /// In es, this message translates to:
+  /// **'Error'**
+  String get blockEditorTextColorError;
+
+  /// No description provided for @blockEditorBackgroundNone.
+  ///
+  /// In es, this message translates to:
+  /// **'Sin fondo'**
+  String get blockEditorBackgroundNone;
+
+  /// No description provided for @blockEditorBackgroundSurface.
+  ///
+  /// In es, this message translates to:
+  /// **'Sutil'**
+  String get blockEditorBackgroundSurface;
+
+  /// No description provided for @blockEditorBackgroundPrimary.
+  ///
+  /// In es, this message translates to:
+  /// **'Primario'**
+  String get blockEditorBackgroundPrimary;
+
+  /// No description provided for @blockEditorBackgroundSecondary.
+  ///
+  /// In es, this message translates to:
+  /// **'Secundario'**
+  String get blockEditorBackgroundSecondary;
+
+  /// No description provided for @blockEditorBackgroundTertiary.
+  ///
+  /// In es, this message translates to:
+  /// **'Acento'**
+  String get blockEditorBackgroundTertiary;
+
+  /// No description provided for @blockEditorBackgroundError.
+  ///
+  /// In es, this message translates to:
+  /// **'Error'**
+  String get blockEditorBackgroundError;
+
+  /// No description provided for @blockEditorCmdDuplicatePrev.
+  ///
+  /// In es, this message translates to:
+  /// **'Duplicar bloque anterior'**
+  String get blockEditorCmdDuplicatePrev;
+
+  /// No description provided for @blockEditorCmdDuplicatePrevHint.
+  ///
+  /// In es, this message translates to:
+  /// **'Clona el bloque inmediatamente anterior'**
+  String get blockEditorCmdDuplicatePrevHint;
+
+  /// No description provided for @blockEditorCmdInsertDate.
+  ///
+  /// In es, this message translates to:
+  /// **'Insertar fecha'**
+  String get blockEditorCmdInsertDate;
+
+  /// No description provided for @blockEditorCmdInsertDateHint.
+  ///
+  /// In es, this message translates to:
+  /// **'Escribe la fecha actual'**
+  String get blockEditorCmdInsertDateHint;
+
+  /// No description provided for @blockEditorCmdMentionPage.
+  ///
+  /// In es, this message translates to:
+  /// **'Mencionar página'**
+  String get blockEditorCmdMentionPage;
+
+  /// No description provided for @blockEditorCmdMentionPageHint.
+  ///
+  /// In es, this message translates to:
+  /// **'Inserta enlace interno a una página'**
+  String get blockEditorCmdMentionPageHint;
+
+  /// No description provided for @blockEditorCmdTurnInto.
+  ///
+  /// In es, this message translates to:
+  /// **'Convertir bloque'**
+  String get blockEditorCmdTurnInto;
+
+  /// No description provided for @blockEditorCmdTurnIntoHint.
+  ///
+  /// In es, this message translates to:
+  /// **'Elegir tipo de bloque con el selector'**
+  String get blockEditorCmdTurnIntoHint;
+
+  /// No description provided for @blockEditorMarkTaskComplete.
+  ///
+  /// In es, this message translates to:
+  /// **'Marcar tarea completada'**
+  String get blockEditorMarkTaskComplete;
+
+  /// No description provided for @blockEditorCalloutIconPickerTitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Icono del callout'**
+  String get blockEditorCalloutIconPickerTitle;
+
+  /// No description provided for @blockEditorCalloutIconPickerHelper.
+  ///
+  /// In es, this message translates to:
+  /// **'Selecciona un icono para cambiar el tono visual del bloque destacado.'**
+  String get blockEditorCalloutIconPickerHelper;
+
+  /// No description provided for @blockEditorIconPickerCustomEmoji.
+  ///
+  /// In es, this message translates to:
+  /// **'Emoji personalizado'**
+  String get blockEditorIconPickerCustomEmoji;
+
+  /// No description provided for @blockEditorIconPickerQuickTab.
+  ///
+  /// In es, this message translates to:
+  /// **'Rápidos'**
+  String get blockEditorIconPickerQuickTab;
+
+  /// No description provided for @blockEditorIconPickerImportedTab.
+  ///
+  /// In es, this message translates to:
+  /// **'Importados'**
+  String get blockEditorIconPickerImportedTab;
+
+  /// No description provided for @blockEditorIconPickerAllTab.
+  ///
+  /// In es, this message translates to:
+  /// **'Todos'**
+  String get blockEditorIconPickerAllTab;
+
+  /// No description provided for @blockEditorIconPickerEmptyImported.
+  ///
+  /// In es, this message translates to:
+  /// **'Todavía no has importado iconos en Ajustes.'**
+  String get blockEditorIconPickerEmptyImported;
+
+  /// No description provided for @blockTypeSectionBasicText.
+  ///
+  /// In es, this message translates to:
+  /// **'Texto básico'**
+  String get blockTypeSectionBasicText;
+
+  /// No description provided for @blockTypeSectionLists.
+  ///
+  /// In es, this message translates to:
+  /// **'Listas'**
+  String get blockTypeSectionLists;
+
+  /// No description provided for @blockTypeSectionMedia.
+  ///
+  /// In es, this message translates to:
+  /// **'Multimedia y datos'**
+  String get blockTypeSectionMedia;
+
+  /// No description provided for @blockTypeSectionAdvanced.
+  ///
+  /// In es, this message translates to:
+  /// **'Avanzado y diseño'**
+  String get blockTypeSectionAdvanced;
+
+  /// No description provided for @blockTypeSectionEmbeds.
+  ///
+  /// In es, this message translates to:
+  /// **'Integraciones'**
+  String get blockTypeSectionEmbeds;
+
+  /// No description provided for @blockTypeParagraphLabel.
+  ///
+  /// In es, this message translates to:
+  /// **'Texto'**
+  String get blockTypeParagraphLabel;
+
+  /// No description provided for @blockTypeParagraphHint.
+  ///
+  /// In es, this message translates to:
+  /// **'Párrafo'**
+  String get blockTypeParagraphHint;
+
+  /// No description provided for @blockTypeChildPageLabel.
+  ///
+  /// In es, this message translates to:
+  /// **'Página'**
+  String get blockTypeChildPageLabel;
+
+  /// No description provided for @blockTypeChildPageHint.
+  ///
+  /// In es, this message translates to:
+  /// **'Subpágina enlazada'**
+  String get blockTypeChildPageHint;
+
+  /// No description provided for @blockTypeH1Label.
+  ///
+  /// In es, this message translates to:
+  /// **'Encabezado 1'**
+  String get blockTypeH1Label;
+
+  /// No description provided for @blockTypeH1Hint.
+  ///
+  /// In es, this message translates to:
+  /// **'Título grande  ·  #'**
+  String get blockTypeH1Hint;
+
+  /// No description provided for @blockTypeH2Label.
+  ///
+  /// In es, this message translates to:
+  /// **'Encabezado 2'**
+  String get blockTypeH2Label;
+
+  /// No description provided for @blockTypeH2Hint.
+  ///
+  /// In es, this message translates to:
+  /// **'Subtítulo  ·  ##'**
+  String get blockTypeH2Hint;
+
+  /// No description provided for @blockTypeH3Label.
+  ///
+  /// In es, this message translates to:
+  /// **'Encabezado 3'**
+  String get blockTypeH3Label;
+
+  /// No description provided for @blockTypeH3Hint.
+  ///
+  /// In es, this message translates to:
+  /// **'Encabezado menor  ·  ###'**
+  String get blockTypeH3Hint;
+
+  /// No description provided for @blockTypeQuoteLabel.
+  ///
+  /// In es, this message translates to:
+  /// **'Cita'**
+  String get blockTypeQuoteLabel;
+
+  /// No description provided for @blockTypeQuoteHint.
+  ///
+  /// In es, this message translates to:
+  /// **'Texto citado'**
+  String get blockTypeQuoteHint;
+
+  /// No description provided for @blockTypeDividerLabel.
+  ///
+  /// In es, this message translates to:
+  /// **'Divisor'**
+  String get blockTypeDividerLabel;
+
+  /// No description provided for @blockTypeDividerHint.
+  ///
+  /// In es, this message translates to:
+  /// **'Separador  ·  ---'**
+  String get blockTypeDividerHint;
+
+  /// No description provided for @blockTypeCalloutLabel.
+  ///
+  /// In es, this message translates to:
+  /// **'Bloque destacado'**
+  String get blockTypeCalloutLabel;
+
+  /// No description provided for @blockTypeCalloutHint.
+  ///
+  /// In es, this message translates to:
+  /// **'Aviso con icono'**
+  String get blockTypeCalloutHint;
+
+  /// No description provided for @blockTypeBulletLabel.
+  ///
+  /// In es, this message translates to:
+  /// **'Lista con viñetas'**
+  String get blockTypeBulletLabel;
+
+  /// No description provided for @blockTypeBulletHint.
+  ///
+  /// In es, this message translates to:
+  /// **'Lista con puntos'**
+  String get blockTypeBulletHint;
+
+  /// No description provided for @blockTypeNumberedLabel.
+  ///
+  /// In es, this message translates to:
+  /// **'Lista numerada'**
+  String get blockTypeNumberedLabel;
+
+  /// No description provided for @blockTypeNumberedHint.
+  ///
+  /// In es, this message translates to:
+  /// **'Lista 1, 2, 3'**
+  String get blockTypeNumberedHint;
+
+  /// No description provided for @blockTypeTodoLabel.
+  ///
+  /// In es, this message translates to:
+  /// **'Lista de tareas'**
+  String get blockTypeTodoLabel;
+
+  /// No description provided for @blockTypeTodoHint.
+  ///
+  /// In es, this message translates to:
+  /// **'Checklist'**
+  String get blockTypeTodoHint;
+
+  /// No description provided for @blockTypeTaskLabel.
+  ///
+  /// In es, this message translates to:
+  /// **'Tarea enriquecida'**
+  String get blockTypeTaskLabel;
+
+  /// No description provided for @blockTypeTaskHint.
+  ///
+  /// In es, this message translates to:
+  /// **'Estado / prioridad / fecha'**
+  String get blockTypeTaskHint;
+
+  /// No description provided for @blockTypeToggleLabel.
+  ///
+  /// In es, this message translates to:
+  /// **'Desplegable'**
+  String get blockTypeToggleLabel;
+
+  /// No description provided for @blockTypeToggleHint.
+  ///
+  /// In es, this message translates to:
+  /// **'Mostrar/ocultar contenido'**
+  String get blockTypeToggleHint;
+
+  /// No description provided for @blockTypeImageLabel.
+  ///
+  /// In es, this message translates to:
+  /// **'Imagen'**
+  String get blockTypeImageLabel;
+
+  /// No description provided for @blockTypeImageHint.
+  ///
+  /// In es, this message translates to:
+  /// **'Imagen local o externa'**
+  String get blockTypeImageHint;
+
+  /// No description provided for @blockTypeBookmarkLabel.
+  ///
+  /// In es, this message translates to:
+  /// **'Marcador con vista previa'**
+  String get blockTypeBookmarkLabel;
+
+  /// No description provided for @blockTypeBookmarkHint.
+  ///
+  /// In es, this message translates to:
+  /// **'Tarjeta con enlace'**
+  String get blockTypeBookmarkHint;
+
+  /// No description provided for @blockTypeVideoLabel.
+  ///
+  /// In es, this message translates to:
+  /// **'Vídeo'**
+  String get blockTypeVideoLabel;
+
+  /// No description provided for @blockTypeVideoHint.
+  ///
+  /// In es, this message translates to:
+  /// **'Archivo o enlace'**
+  String get blockTypeVideoHint;
+
+  /// No description provided for @blockTypeAudioLabel.
+  ///
+  /// In es, this message translates to:
+  /// **'Audio'**
+  String get blockTypeAudioLabel;
+
+  /// No description provided for @blockTypeAudioHint.
+  ///
+  /// In es, this message translates to:
+  /// **'Reproductor de audio'**
+  String get blockTypeAudioHint;
+
+  /// No description provided for @blockTypeMeetingNoteLabel.
+  ///
+  /// In es, this message translates to:
+  /// **'Nota de reunión'**
+  String get blockTypeMeetingNoteLabel;
+
+  /// No description provided for @blockTypeMeetingNoteHint.
+  ///
+  /// In es, this message translates to:
+  /// **'Graba y transcribe una reunión'**
+  String get blockTypeMeetingNoteHint;
+
+  /// No description provided for @blockTypeCodeLabel.
+  ///
+  /// In es, this message translates to:
+  /// **'Código (Java, Python…)'**
+  String get blockTypeCodeLabel;
+
+  /// No description provided for @blockTypeCodeHint.
+  ///
+  /// In es, this message translates to:
+  /// **'Bloque con sintaxis'**
+  String get blockTypeCodeHint;
+
+  /// No description provided for @blockTypeFileLabel.
+  ///
+  /// In es, this message translates to:
+  /// **'Archivo / PDF'**
+  String get blockTypeFileLabel;
+
+  /// No description provided for @blockTypeFileHint.
+  ///
+  /// In es, this message translates to:
+  /// **'Adjunto o PDF'**
+  String get blockTypeFileHint;
+
+  /// No description provided for @blockTypeTableLabel.
+  ///
+  /// In es, this message translates to:
+  /// **'Tabla'**
+  String get blockTypeTableLabel;
+
+  /// No description provided for @blockTypeTableHint.
+  ///
+  /// In es, this message translates to:
+  /// **'Filas y columnas'**
+  String get blockTypeTableHint;
+
+  /// No description provided for @blockTypeDatabaseLabel.
+  ///
+  /// In es, this message translates to:
+  /// **'Base de datos'**
+  String get blockTypeDatabaseLabel;
+
+  /// No description provided for @blockTypeDatabaseHint.
+  ///
+  /// In es, this message translates to:
+  /// **'Vista lista/tabla/tablero'**
+  String get blockTypeDatabaseHint;
+
+  /// No description provided for @blockTypeEquationLabel.
+  ///
+  /// In es, this message translates to:
+  /// **'Ecuación (LaTeX)'**
+  String get blockTypeEquationLabel;
+
+  /// No description provided for @blockTypeEquationHint.
+  ///
+  /// In es, this message translates to:
+  /// **'Fórmulas matemáticas'**
+  String get blockTypeEquationHint;
+
+  /// No description provided for @blockTypeMermaidLabel.
+  ///
+  /// In es, this message translates to:
+  /// **'Diagrama (Mermaid)'**
+  String get blockTypeMermaidLabel;
+
+  /// No description provided for @blockTypeMermaidHint.
+  ///
+  /// In es, this message translates to:
+  /// **'Diagrama de flujo o esquema'**
+  String get blockTypeMermaidHint;
+
+  /// No description provided for @blockTypeTocLabel.
+  ///
+  /// In es, this message translates to:
+  /// **'Tabla de contenidos'**
+  String get blockTypeTocLabel;
+
+  /// No description provided for @blockTypeTocHint.
+  ///
+  /// In es, this message translates to:
+  /// **'Índice automático'**
+  String get blockTypeTocHint;
+
+  /// No description provided for @blockTypeBreadcrumbLabel.
+  ///
+  /// In es, this message translates to:
+  /// **'Migas de pan'**
+  String get blockTypeBreadcrumbLabel;
+
+  /// No description provided for @blockTypeBreadcrumbHint.
+  ///
+  /// In es, this message translates to:
+  /// **'Ruta de navegación'**
+  String get blockTypeBreadcrumbHint;
+
+  /// No description provided for @blockTypeTemplateButtonLabel.
+  ///
+  /// In es, this message translates to:
+  /// **'Botón de plantilla'**
+  String get blockTypeTemplateButtonLabel;
+
+  /// No description provided for @blockTypeTemplateButtonHint.
+  ///
+  /// In es, this message translates to:
+  /// **'Insertar bloque predefinido'**
+  String get blockTypeTemplateButtonHint;
+
+  /// No description provided for @blockTypeColumnListLabel.
+  ///
+  /// In es, this message translates to:
+  /// **'Columnas'**
+  String get blockTypeColumnListLabel;
+
+  /// No description provided for @blockTypeColumnListHint.
+  ///
+  /// In es, this message translates to:
+  /// **'Diseño en columnas'**
+  String get blockTypeColumnListHint;
+
+  /// No description provided for @blockTypeEmbedLabel.
+  ///
+  /// In es, this message translates to:
+  /// **'Incrustado web'**
+  String get blockTypeEmbedLabel;
+
+  /// No description provided for @blockTypeEmbedHint.
+  ///
+  /// In es, this message translates to:
+  /// **'YouTube, Figma, Docs…'**
+  String get blockTypeEmbedHint;
+
+  /// No description provided for @integrationDialogTitleUpdatePermission.
+  ///
+  /// In es, this message translates to:
+  /// **'Actualizar permiso de integración'**
+  String get integrationDialogTitleUpdatePermission;
+
+  /// No description provided for @integrationDialogTitleAllowConnect.
+  ///
+  /// In es, this message translates to:
+  /// **'Permitir que esta app se conecte'**
+  String get integrationDialogTitleAllowConnect;
+
+  /// No description provided for @integrationDialogBodyUpdate.
+  ///
+  /// In es, this message translates to:
+  /// **'Esta app ya estaba aprobada con la integración {previousVersion} y ahora pide acceso con la versión {integrationVersion}.'**
+  String integrationDialogBodyUpdate(
+    Object previousVersion,
+    Object integrationVersion,
+  );
+
+  /// No description provided for @integrationDialogBodyNew.
+  ///
+  /// In es, this message translates to:
+  /// **'«{appName}» quiere usar el puente local de Folio con la app versión {appVersion} y la integración {integrationVersion}.'**
+  String integrationDialogBodyNew(
+    Object appName,
+    Object appVersion,
+    Object integrationVersion,
+  );
+
+  /// No description provided for @integrationChipLocalhostOnly.
+  ///
+  /// In es, this message translates to:
+  /// **'Solo localhost'**
+  String get integrationChipLocalhostOnly;
+
+  /// No description provided for @integrationChipRevocableApproval.
+  ///
+  /// In es, this message translates to:
+  /// **'Aprobación revocable'**
+  String get integrationChipRevocableApproval;
+
+  /// No description provided for @integrationChipNoSharedSecret.
+  ///
+  /// In es, this message translates to:
+  /// **'Sin secreto compartido'**
+  String get integrationChipNoSharedSecret;
+
+  /// No description provided for @integrationChipScopedByAppId.
+  ///
+  /// In es, this message translates to:
+  /// **'Permiso por appId'**
+  String get integrationChipScopedByAppId;
+
+  /// No description provided for @integrationMetaPreviouslyApprovedVersion.
+  ///
+  /// In es, this message translates to:
+  /// **'Versión anterior aprobada'**
+  String get integrationMetaPreviouslyApprovedVersion;
+
+  /// No description provided for @integrationSectionWhatAppCanDo.
+  ///
+  /// In es, this message translates to:
+  /// **'Lo que esta app podrá hacer'**
+  String get integrationSectionWhatAppCanDo;
+
+  /// No description provided for @integrationCapEphemeralSessionsTitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Abrir sesiones locales efímeras'**
+  String get integrationCapEphemeralSessionsTitle;
+
+  /// No description provided for @integrationCapEphemeralSessionsBody.
+  ///
+  /// In es, this message translates to:
+  /// **'Podrá iniciar una sesión temporal para hablar con el puente local de Folio desde este dispositivo.'**
+  String get integrationCapEphemeralSessionsBody;
+
+  /// No description provided for @integrationCapImportPagesTitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Importar y actualizar sus propias páginas'**
+  String get integrationCapImportPagesTitle;
+
+  /// No description provided for @integrationCapImportPagesBody.
+  ///
+  /// In es, this message translates to:
+  /// **'Podrá crear páginas, listarlas y actualizar solo las páginas que esa misma app haya importado antes.'**
+  String get integrationCapImportPagesBody;
+
+  /// No description provided for @integrationCapCustomEmojisTitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Gestionar sus emojis personalizados'**
+  String get integrationCapCustomEmojisTitle;
+
+  /// No description provided for @integrationCapCustomEmojisBody.
+  ///
+  /// In es, this message translates to:
+  /// **'Podrá listar, crear, reemplazar y borrar solo su propio catálogo de emojis o iconos importados.'**
+  String get integrationCapCustomEmojisBody;
+
+  /// No description provided for @integrationCapUnlockedVaultTitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Trabajar solo con la libreta abierta'**
+  String get integrationCapUnlockedVaultTitle;
+
+  /// No description provided for @integrationCapUnlockedVaultBody.
+  ///
+  /// In es, this message translates to:
+  /// **'Las peticiones solo funcionan cuando Folio está abierto, la libreta está disponible y la sesión actual sigue activa.'**
+  String get integrationCapUnlockedVaultBody;
+
+  /// No description provided for @integrationSectionWhatStaysBlocked.
+  ///
+  /// In es, this message translates to:
+  /// **'Lo que seguirá bloqueado'**
+  String get integrationSectionWhatStaysBlocked;
+
+  /// No description provided for @integrationBlockNoSeeAllTitle.
+  ///
+  /// In es, this message translates to:
+  /// **'No puede ver todo tu contenido'**
+  String get integrationBlockNoSeeAllTitle;
+
+  /// No description provided for @integrationBlockNoSeeAllBody.
+  ///
+  /// In es, this message translates to:
+  /// **'No obtiene acceso general a la libreta. Solo puede listar lo que ella misma importó mediante su appId.'**
+  String get integrationBlockNoSeeAllBody;
+
+  /// No description provided for @integrationBlockNoBypassTitle.
+  ///
+  /// In es, this message translates to:
+  /// **'No puede saltarse bloqueo ni cifrado'**
+  String get integrationBlockNoBypassTitle;
+
+  /// No description provided for @integrationBlockNoBypassBody.
+  ///
+  /// In es, this message translates to:
+  /// **'Si la libreta está bloqueada o no hay sesión activa, Folio rechazará la operación.'**
+  String get integrationBlockNoBypassBody;
+
+  /// No description provided for @integrationBlockNoOtherAppsTitle.
+  ///
+  /// In es, this message translates to:
+  /// **'No puede tocar datos de otras apps'**
+  String get integrationBlockNoOtherAppsTitle;
+
+  /// No description provided for @integrationBlockNoOtherAppsBody.
+  ///
+  /// In es, this message translates to:
+  /// **'Tampoco puede gestionar páginas importadas o emojis registrados por otras apps aprobadas.'**
+  String get integrationBlockNoOtherAppsBody;
+
+  /// No description provided for @integrationBlockNoRemoteTitle.
+  ///
+  /// In es, this message translates to:
+  /// **'No puede entrar desde fuera de tu equipo'**
+  String get integrationBlockNoRemoteTitle;
+
+  /// No description provided for @integrationBlockNoRemoteBody.
+  ///
+  /// In es, this message translates to:
+  /// **'El puente sigue limitado a localhost y esta aprobación se puede revocar más tarde desde Ajustes.'**
+  String get integrationBlockNoRemoteBody;
+
+  /// No description provided for @integrationSnackMarkdownImportDone.
+  ///
+  /// In es, this message translates to:
+  /// **'Importación completada: {pageTitle}.'**
+  String integrationSnackMarkdownImportDone(Object pageTitle);
+
+  /// No description provided for @integrationSnackJsonImportDone.
+  ///
+  /// In es, this message translates to:
+  /// **'Importación JSON completada: {pageTitle}.'**
+  String integrationSnackJsonImportDone(Object pageTitle);
+
+  /// No description provided for @integrationSnackPageUpdateDone.
+  ///
+  /// In es, this message translates to:
+  /// **'Actualización de integración completada: {pageTitle}.'**
+  String integrationSnackPageUpdateDone(Object pageTitle);
+
+  /// No description provided for @markdownImportModeDialogTitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Importar Markdown'**
+  String get markdownImportModeDialogTitle;
+
+  /// No description provided for @markdownImportModeDialogBody.
+  ///
+  /// In es, this message translates to:
+  /// **'Elige cómo quieres aplicar el archivo Markdown.'**
+  String get markdownImportModeDialogBody;
+
+  /// No description provided for @markdownImportModeNewPage.
+  ///
+  /// In es, this message translates to:
+  /// **'Página nueva'**
+  String get markdownImportModeNewPage;
+
+  /// No description provided for @markdownImportModeAppend.
+  ///
+  /// In es, this message translates to:
+  /// **'Anexar a la actual'**
+  String get markdownImportModeAppend;
+
+  /// No description provided for @markdownImportModeReplace.
+  ///
+  /// In es, this message translates to:
+  /// **'Reemplazar actual'**
+  String get markdownImportModeReplace;
+
+  /// No description provided for @markdownImportCouldNotReadPath.
+  ///
+  /// In es, this message translates to:
+  /// **'No se pudo leer la ruta del archivo.'**
+  String get markdownImportCouldNotReadPath;
+
+  /// No description provided for @markdownImportedBlocks.
+  ///
+  /// In es, this message translates to:
+  /// **'Markdown importado: {pageTitle} ({blockCount} bloques).'**
+  String markdownImportedBlocks(Object pageTitle, int blockCount);
+
+  /// No description provided for @markdownImportFailedWithError.
+  ///
+  /// In es, this message translates to:
+  /// **'No se pudo importar el Markdown: {error}'**
+  String markdownImportFailedWithError(Object error);
+
+  /// No description provided for @exportMarkdownFileDialogTitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Exportar página a Markdown'**
+  String get exportMarkdownFileDialogTitle;
+
+  /// No description provided for @markdownExportSuccess.
+  ///
+  /// In es, this message translates to:
+  /// **'Página exportada a Markdown.'**
+  String get markdownExportSuccess;
+
+  /// No description provided for @markdownExportFailedWithError.
+  ///
+  /// In es, this message translates to:
+  /// **'No se pudo exportar la página: {error}'**
+  String markdownExportFailedWithError(Object error);
+
+  /// No description provided for @firebaseUnavailablePublish.
+  ///
+  /// In es, this message translates to:
+  /// **'Firebase no está disponible.'**
+  String get firebaseUnavailablePublish;
+
+  /// No description provided for @signInCloudToPublishWeb.
+  ///
+  /// In es, this message translates to:
+  /// **'Inicia sesión en la cuenta en la nube (Ajustes) para publicar.'**
+  String get signInCloudToPublishWeb;
+
+  /// No description provided for @planMissingWebPublish.
+  ///
+  /// In es, this message translates to:
+  /// **'Tu plan no incluye publicación web o la suscripción no está activa.'**
+  String get planMissingWebPublish;
+
+  /// No description provided for @publishWebDialogTitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Publicar en la web'**
+  String get publishWebDialogTitle;
+
+  /// No description provided for @publishWebSlugLabel.
+  ///
+  /// In es, this message translates to:
+  /// **'URL (slug)'**
+  String get publishWebSlugLabel;
+
+  /// No description provided for @publishWebSlugHint.
+  ///
+  /// In es, this message translates to:
+  /// **'mi-nota'**
+  String get publishWebSlugHint;
+
+  /// No description provided for @publishWebSlugHelper.
+  ///
+  /// In es, this message translates to:
+  /// **'Letras, números y guiones. Quedará en la URL pública.'**
+  String get publishWebSlugHelper;
+
+  /// No description provided for @publishWebAction.
+  ///
+  /// In es, this message translates to:
+  /// **'Publicar'**
+  String get publishWebAction;
+
+  /// No description provided for @publishWebEmptySlug.
+  ///
+  /// In es, this message translates to:
+  /// **'Slug vacío.'**
+  String get publishWebEmptySlug;
+
+  /// No description provided for @publishWebSuccessWithUrl.
+  ///
+  /// In es, this message translates to:
+  /// **'Publicado: {url}'**
+  String publishWebSuccessWithUrl(Object url);
+
+  /// No description provided for @publishWebFailedWithError.
+  ///
+  /// In es, this message translates to:
+  /// **'No se pudo publicar: {error}'**
+  String publishWebFailedWithError(Object error);
+
+  /// No description provided for @publishWebMenuLabel.
+  ///
+  /// In es, this message translates to:
+  /// **'Publicar en la web'**
+  String get publishWebMenuLabel;
+
+  /// No description provided for @mobileFabDone.
+  ///
+  /// In es, this message translates to:
+  /// **'Listo'**
+  String get mobileFabDone;
+
+  /// No description provided for @mobileFabEdit.
+  ///
+  /// In es, this message translates to:
+  /// **'Editar'**
+  String get mobileFabEdit;
+
+  /// No description provided for @mobileFabAddBlock.
+  ///
+  /// In es, this message translates to:
+  /// **'Bloque'**
+  String get mobileFabAddBlock;
+
+  /// No description provided for @mermaidPreviewDialogTitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Diagrama'**
+  String get mermaidPreviewDialogTitle;
+
+  /// No description provided for @mermaidDiagramSemanticsLabel.
+  ///
+  /// In es, this message translates to:
+  /// **'Diagrama Mermaid, toca para ampliar'**
+  String get mermaidDiagramSemanticsLabel;
+
+  /// No description provided for @databaseSortAz.
+  ///
+  /// In es, this message translates to:
+  /// **'Orden A-Z'**
+  String get databaseSortAz;
+
+  /// No description provided for @databaseSortLabel.
+  ///
+  /// In es, this message translates to:
+  /// **'Ordenar'**
+  String get databaseSortLabel;
+
+  /// No description provided for @databaseFilterAnd.
+  ///
+  /// In es, this message translates to:
+  /// **'Y'**
+  String get databaseFilterAnd;
+
+  /// No description provided for @databaseFilterOr.
+  ///
+  /// In es, this message translates to:
+  /// **'O'**
+  String get databaseFilterOr;
+
+  /// No description provided for @databaseSortDescending.
+  ///
+  /// In es, this message translates to:
+  /// **'Desc'**
+  String get databaseSortDescending;
+
+  /// No description provided for @databaseNewPropertyDialogTitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Nueva propiedad'**
+  String get databaseNewPropertyDialogTitle;
+
+  /// No description provided for @databaseConfigurePropertyTitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Configurar: {name}'**
+  String databaseConfigurePropertyTitle(Object name);
+
+  /// No description provided for @databaseLocalCurrentBadge.
+  ///
+  /// In es, this message translates to:
+  /// **'DB local actual'**
+  String get databaseLocalCurrentBadge;
+
+  /// No description provided for @databaseRelateRowsTitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Relacionar filas ({name})'**
+  String databaseRelateRowsTitle(Object name);
+
+  /// No description provided for @databaseBoardNeedsGroupProperty.
+  ///
+  /// In es, this message translates to:
+  /// **'Configura una propiedad de grupo para tablero.'**
+  String get databaseBoardNeedsGroupProperty;
+
+  /// No description provided for @databaseGroupPropertyMissing.
+  ///
+  /// In es, this message translates to:
+  /// **'La propiedad de grupo ya no existe.'**
+  String get databaseGroupPropertyMissing;
+
+  /// No description provided for @databaseCalendarNeedsDateProperty.
+  ///
+  /// In es, this message translates to:
+  /// **'Configura una propiedad de fecha para calendario.'**
+  String get databaseCalendarNeedsDateProperty;
+
+  /// No description provided for @databaseNoDatedEvents.
+  ///
+  /// In es, this message translates to:
+  /// **'Sin eventos con fecha.'**
+  String get databaseNoDatedEvents;
+
+  /// No description provided for @databaseConfigurePropertyTooltip.
+  ///
+  /// In es, this message translates to:
+  /// **'Configurar propiedad'**
+  String get databaseConfigurePropertyTooltip;
+
+  /// No description provided for @databaseFormulaHintExample.
+  ///
+  /// In es, this message translates to:
+  /// **'if(contains(Nombre,\"x\"), add(1,2), 0)'**
+  String get databaseFormulaHintExample;
+
+  /// No description provided for @createAction.
+  ///
+  /// In es, this message translates to:
+  /// **'Crear'**
+  String get createAction;
+
+  /// No description provided for @confirmAction.
+  ///
+  /// In es, this message translates to:
+  /// **'Confirmar'**
+  String get confirmAction;
+
+  /// No description provided for @confirmRemoteEndpointTitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Confirmar endpoint remoto'**
+  String get confirmRemoteEndpointTitle;
+
+  /// No description provided for @shortcutGlobalSearchKeyChord.
+  ///
+  /// In es, this message translates to:
+  /// **'Ctrl + Shift + F'**
+  String get shortcutGlobalSearchKeyChord;
+
+  /// No description provided for @updateChannelRelease.
+  ///
+  /// In es, this message translates to:
+  /// **'Release'**
+  String get updateChannelRelease;
+
+  /// No description provided for @updateChannelBeta.
+  ///
+  /// In es, this message translates to:
+  /// **'Beta'**
+  String get updateChannelBeta;
+
+  /// No description provided for @blockActionChooseAudio.
+  ///
+  /// In es, this message translates to:
+  /// **'Elegir audio…'**
+  String get blockActionChooseAudio;
+
+  /// No description provided for @blockActionCreateSubpage.
+  ///
+  /// In es, this message translates to:
+  /// **'Crear subpágina'**
+  String get blockActionCreateSubpage;
+
+  /// No description provided for @blockActionLinkPage.
+  ///
+  /// In es, this message translates to:
+  /// **'Enlazar página…'**
+  String get blockActionLinkPage;
+
+  /// No description provided for @defaultNewPageTitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Nueva página'**
+  String get defaultNewPageTitle;
+
+  /// No description provided for @defaultPageDuplicateTitle.
+  ///
+  /// In es, this message translates to:
+  /// **'{title} (copia)'**
+  String defaultPageDuplicateTitle(Object title);
+
+  /// No description provided for @aiChatTitleNumbered.
+  ///
+  /// In es, this message translates to:
+  /// **'Chat {n}'**
+  String aiChatTitleNumbered(int n);
+
+  /// No description provided for @invalidFolioTemplateFile.
+  ///
+  /// In es, this message translates to:
+  /// **'El archivo no es un template Folio válido.'**
+  String get invalidFolioTemplateFile;
+
+  /// No description provided for @templateButtonDefaultLabel.
+  ///
+  /// In es, this message translates to:
+  /// **'Plantilla'**
+  String get templateButtonDefaultLabel;
+
+  /// No description provided for @pageHtmlExportPublishedWithFolio.
+  ///
+  /// In es, this message translates to:
+  /// **'Publicado con Folio'**
+  String get pageHtmlExportPublishedWithFolio;
+
+  /// No description provided for @releaseReadinessSemverOk.
+  ///
+  /// In es, this message translates to:
+  /// **'Versión SemVer válida'**
+  String get releaseReadinessSemverOk;
+
+  /// No description provided for @releaseReadinessEncryptedVault.
+  ///
+  /// In es, this message translates to:
+  /// **'Libreta cifrada'**
+  String get releaseReadinessEncryptedVault;
+
+  /// No description provided for @releaseReadinessAiRemotePolicy.
+  ///
+  /// In es, this message translates to:
+  /// **'Política endpoint IA'**
+  String get releaseReadinessAiRemotePolicy;
+
+  /// No description provided for @releaseReadinessVaultUnlocked.
+  ///
+  /// In es, this message translates to:
+  /// **'Libreta desbloqueada'**
+  String get releaseReadinessVaultUnlocked;
+
+  /// No description provided for @releaseReadinessStableChannel.
+  ///
+  /// In es, this message translates to:
+  /// **'Canal estable seleccionado'**
+  String get releaseReadinessStableChannel;
+
+  /// No description provided for @aiPromptUserMessage.
+  ///
+  /// In es, this message translates to:
+  /// **'Mensaje del usuario:'**
+  String get aiPromptUserMessage;
+
+  /// No description provided for @aiPromptOriginalMessage.
+  ///
+  /// In es, this message translates to:
+  /// **'Mensaje original:'**
+  String get aiPromptOriginalMessage;
+
+  /// No description provided for @aiPromptOriginalUserMessage.
+  ///
+  /// In es, this message translates to:
+  /// **'Mensaje original del usuario:'**
+  String get aiPromptOriginalUserMessage;
+
+  /// No description provided for @customIconImportEmptySource.
+  ///
+  /// In es, this message translates to:
+  /// **'La fuente del icono está vacía.'**
+  String get customIconImportEmptySource;
+
+  /// No description provided for @customIconImportInvalidUrl.
+  ///
+  /// In es, this message translates to:
+  /// **'La URL del icono no es válida.'**
+  String get customIconImportInvalidUrl;
+
+  /// No description provided for @customIconImportInvalidSvg.
+  ///
+  /// In es, this message translates to:
+  /// **'El SVG copiado no es válido.'**
+  String get customIconImportInvalidSvg;
+
+  /// No description provided for @customIconImportHttpHttpsOnly.
+  ///
+  /// In es, this message translates to:
+  /// **'Solo se admiten URLs http o https.'**
+  String get customIconImportHttpHttpsOnly;
+
+  /// No description provided for @customIconImportDataUriMimeList.
+  ///
+  /// In es, this message translates to:
+  /// **'Solo se admiten data:image/svg+xml, data:image/gif, data:image/webp o data:image/png.'**
+  String get customIconImportDataUriMimeList;
+
+  /// No description provided for @customIconImportUnsupportedFormat.
+  ///
+  /// In es, this message translates to:
+  /// **'Formato no compatible. Usa SVG, PNG, GIF o WebP.'**
+  String get customIconImportUnsupportedFormat;
+
+  /// No description provided for @customIconImportSvgTooLarge.
+  ///
+  /// In es, this message translates to:
+  /// **'El SVG es demasiado grande para importarlo.'**
+  String get customIconImportSvgTooLarge;
+
+  /// No description provided for @customIconImportEmbeddedImageTooLarge.
+  ///
+  /// In es, this message translates to:
+  /// **'La imagen embebida es demasiado grande para importarla.'**
+  String get customIconImportEmbeddedImageTooLarge;
+
+  /// No description provided for @customIconImportDownloadFailed.
+  ///
+  /// In es, this message translates to:
+  /// **'No se pudo descargar el icono ({code}).'**
+  String customIconImportDownloadFailed(Object code);
+
+  /// No description provided for @customIconImportRemoteTooLarge.
+  ///
+  /// In es, this message translates to:
+  /// **'El icono remoto es demasiado grande.'**
+  String get customIconImportRemoteTooLarge;
+
+  /// No description provided for @customIconImportConnectFailed.
+  ///
+  /// In es, this message translates to:
+  /// **'No se pudo conectar para descargar el icono.'**
+  String get customIconImportConnectFailed;
+
+  /// No description provided for @customIconImportCertFailed.
+  ///
+  /// In es, this message translates to:
+  /// **'Fallo de certificado al descargar el icono.'**
+  String get customIconImportCertFailed;
+
+  /// No description provided for @customIconLabelDefault.
+  ///
+  /// In es, this message translates to:
+  /// **'Icono personalizado'**
+  String get customIconLabelDefault;
+
+  /// No description provided for @customIconLabelImported.
+  ///
+  /// In es, this message translates to:
+  /// **'Icono importado'**
+  String get customIconLabelImported;
+
+  /// No description provided for @customIconImportSucceeded.
+  ///
+  /// In es, this message translates to:
+  /// **'Icono importado correctamente.'**
+  String get customIconImportSucceeded;
+
+  /// No description provided for @customIconClipboardEmpty.
+  ///
+  /// In es, this message translates to:
+  /// **'El portapapeles está vacío.'**
+  String get customIconClipboardEmpty;
+
+  /// No description provided for @customIconRemoved.
+  ///
+  /// In es, this message translates to:
+  /// **'Icono eliminado.'**
+  String get customIconRemoved;
+
+  /// No description provided for @whisperModelTiny.
+  ///
+  /// In es, this message translates to:
+  /// **'Tiny (rápido)'**
+  String get whisperModelTiny;
+
+  /// No description provided for @whisperModelBaseQ8.
+  ///
+  /// In es, this message translates to:
+  /// **'Base q8 (equilibrado)'**
+  String get whisperModelBaseQ8;
+
+  /// No description provided for @whisperModelSmallQ8.
+  ///
+  /// In es, this message translates to:
+  /// **'Small q8 (alta precisión, menos disco)'**
+  String get whisperModelSmallQ8;
+
+  /// No description provided for @whisperModelMediumQ8.
+  ///
+  /// In es, this message translates to:
+  /// **'Medium q8'**
+  String get whisperModelMediumQ8;
+
+  /// No description provided for @whisperModelLargeV3TurboQ8.
+  ///
+  /// In es, this message translates to:
+  /// **'Large v3 Turbo q8'**
+  String get whisperModelLargeV3TurboQ8;
+
+  /// No description provided for @codeLangDart.
+  ///
+  /// In es, this message translates to:
+  /// **'Dart'**
+  String get codeLangDart;
+
+  /// No description provided for @codeLangTypeScript.
+  ///
+  /// In es, this message translates to:
+  /// **'TypeScript'**
+  String get codeLangTypeScript;
+
+  /// No description provided for @codeLangJavaScript.
+  ///
+  /// In es, this message translates to:
+  /// **'JavaScript'**
+  String get codeLangJavaScript;
+
+  /// No description provided for @codeLangPython.
+  ///
+  /// In es, this message translates to:
+  /// **'Python'**
+  String get codeLangPython;
+
+  /// No description provided for @codeLangJson.
+  ///
+  /// In es, this message translates to:
+  /// **'JSON'**
+  String get codeLangJson;
+
+  /// No description provided for @codeLangYaml.
+  ///
+  /// In es, this message translates to:
+  /// **'YAML'**
+  String get codeLangYaml;
+
+  /// No description provided for @codeLangMarkdown.
+  ///
+  /// In es, this message translates to:
+  /// **'Markdown'**
+  String get codeLangMarkdown;
+
+  /// No description provided for @codeLangDiff.
+  ///
+  /// In es, this message translates to:
+  /// **'Diff'**
+  String get codeLangDiff;
+
+  /// No description provided for @codeLangSql.
+  ///
+  /// In es, this message translates to:
+  /// **'SQL'**
+  String get codeLangSql;
+
+  /// No description provided for @codeLangBash.
+  ///
+  /// In es, this message translates to:
+  /// **'Bash'**
+  String get codeLangBash;
+
+  /// No description provided for @codeLangCpp.
+  ///
+  /// In es, this message translates to:
+  /// **'C / C++'**
+  String get codeLangCpp;
+
+  /// No description provided for @codeLangJava.
+  ///
+  /// In es, this message translates to:
+  /// **'Java'**
+  String get codeLangJava;
+
+  /// No description provided for @codeLangKotlin.
+  ///
+  /// In es, this message translates to:
+  /// **'Kotlin'**
+  String get codeLangKotlin;
+
+  /// No description provided for @codeLangRust.
+  ///
+  /// In es, this message translates to:
+  /// **'Rust'**
+  String get codeLangRust;
+
+  /// No description provided for @codeLangGo.
+  ///
+  /// In es, this message translates to:
+  /// **'Go'**
+  String get codeLangGo;
+
+  /// No description provided for @codeLangHtmlXml.
+  ///
+  /// In es, this message translates to:
+  /// **'HTML / XML'**
+  String get codeLangHtmlXml;
+
+  /// No description provided for @codeLangCss.
+  ///
+  /// In es, this message translates to:
+  /// **'CSS'**
+  String get codeLangCss;
+
+  /// No description provided for @codeLangPlainText.
+  ///
+  /// In es, this message translates to:
+  /// **'Texto plano'**
+  String get codeLangPlainText;
+
+  /// No description provided for @settingsAppRevoked.
+  ///
+  /// In es, this message translates to:
+  /// **'App revocada: {appId}'**
+  String settingsAppRevoked(Object appId);
+
+  /// No description provided for @settingsDeviceRevokedSnack.
+  ///
+  /// In es, this message translates to:
+  /// **'Dispositivo revocado.'**
+  String get settingsDeviceRevokedSnack;
+
+  /// No description provided for @settingsAiConnectionOk.
+  ///
+  /// In es, this message translates to:
+  /// **'Conexión IA OK'**
+  String get settingsAiConnectionOk;
+
+  /// No description provided for @settingsAiConnectionError.
+  ///
+  /// In es, this message translates to:
+  /// **'Error de conexión: {error}'**
+  String settingsAiConnectionError(Object error);
+
+  /// No description provided for @settingsAiListModelsFailed.
+  ///
+  /// In es, this message translates to:
+  /// **'No se pudieron listar modelos: {error}'**
+  String settingsAiListModelsFailed(Object error);
+
+  /// No description provided for @folioCloudCallableNotSignedIn.
+  ///
+  /// In es, this message translates to:
+  /// **'Debes iniciar sesión para llamar a Cloud Functions'**
+  String get folioCloudCallableNotSignedIn;
+
+  /// No description provided for @folioCloudCallableUnexpectedResponse.
+  ///
+  /// In es, this message translates to:
+  /// **'Respuesta inesperada de Cloud Functions'**
+  String get folioCloudCallableUnexpectedResponse;
+
+  /// No description provided for @folioCloudCallableHttpError.
+  ///
+  /// In es, this message translates to:
+  /// **'HTTP {code} al llamar a {name}'**
+  String folioCloudCallableHttpError(int code, Object name);
+
+  /// No description provided for @folioCloudCallableNoIdToken.
+  ///
+  /// In es, this message translates to:
+  /// **'Sin token de ID para Cloud Functions. Vuelve a iniciar sesión en Folio Cloud.'**
+  String get folioCloudCallableNoIdToken;
+
+  /// No description provided for @folioCloudCallableUnexpectedFallback.
+  ///
+  /// In es, this message translates to:
+  /// **'Respuesta inesperada del respaldo de Cloud Functions'**
+  String get folioCloudCallableUnexpectedFallback;
+
+  /// No description provided for @folioCloudCallableHttpAiComplete.
+  ///
+  /// In es, this message translates to:
+  /// **'HTTP {code} al llamar a folioCloudAiCompleteHttp'**
+  String folioCloudCallableHttpAiComplete(int code);
+
+  /// No description provided for @cloudAccountEmailMismatch.
+  ///
+  /// In es, this message translates to:
+  /// **'El correo no coincide con la sesión actual.'**
+  String get cloudAccountEmailMismatch;
+
+  /// No description provided for @cloudIdentityInvalidAuthResponse.
+  ///
+  /// In es, this message translates to:
+  /// **'Respuesta de autenticación no válida.'**
+  String get cloudIdentityInvalidAuthResponse;
+
+  /// No description provided for @templateButtonPlaceholderText.
+  ///
+  /// In es, this message translates to:
+  /// **'Texto de la plantilla…'**
+  String get templateButtonPlaceholderText;
+
+  /// No description provided for @aiProviderOllamaName.
+  ///
+  /// In es, this message translates to:
+  /// **'Ollama'**
+  String get aiProviderOllamaName;
+
+  /// No description provided for @aiProviderLmStudioName.
+  ///
+  /// In es, this message translates to:
+  /// **'LM Studio'**
+  String get aiProviderLmStudioName;
+
+  /// No description provided for @blockAudioEmptyHint.
+  ///
+  /// In es, this message translates to:
+  /// **'Elige un archivo de audio'**
+  String get blockAudioEmptyHint;
+
+  /// No description provided for @blockChildPageTitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Bloque página'**
+  String get blockChildPageTitle;
+
+  /// No description provided for @blockChildPageNoLink.
+  ///
+  /// In es, this message translates to:
+  /// **'Sin subpágina enlazada.'**
+  String get blockChildPageNoLink;
+
+  /// No description provided for @mermaidExpandedLoadError.
+  ///
+  /// In es, this message translates to:
+  /// **'No se pudo mostrar el diagrama ampliado.'**
+  String get mermaidExpandedLoadError;
+
+  /// No description provided for @mermaidPreviewTooltip.
+  ///
+  /// In es, this message translates to:
+  /// **'Toca para ampliar y hacer zoom. PNG vía mermaid.ink (servicio externo).'**
+  String get mermaidPreviewTooltip;
+
+  /// No description provided for @aiEndpointInvalidUrl.
+  ///
+  /// In es, this message translates to:
+  /// **'URL inválida. Usa http://host:puerto.'**
+  String get aiEndpointInvalidUrl;
+
+  /// No description provided for @aiEndpointRemoteNotAllowed.
+  ///
+  /// In es, this message translates to:
+  /// **'Endpoint remoto no permitido sin confirmación.'**
+  String get aiEndpointRemoteNotAllowed;
+
+  /// No description provided for @settingsAiSelectProviderFirst.
+  ///
+  /// In es, this message translates to:
+  /// **'Selecciona un proveedor IA primero.'**
+  String get settingsAiSelectProviderFirst;
+
+  /// No description provided for @releaseReadinessAiSummaryDisabled.
+  ///
+  /// In es, this message translates to:
+  /// **'IA desactivada'**
+  String get releaseReadinessAiSummaryDisabled;
+
+  /// No description provided for @releaseReadinessAiSummaryQuillCloud.
+  ///
+  /// In es, this message translates to:
+  /// **'Folio Cloud IA (sin endpoint local)'**
+  String get releaseReadinessAiSummaryQuillCloud;
+
+  /// No description provided for @releaseReadinessAiSummaryEndpointOk.
+  ///
+  /// In es, this message translates to:
+  /// **'Endpoint válido: {url}'**
+  String releaseReadinessAiSummaryEndpointOk(Object url);
+
+  /// No description provided for @releaseReadinessDetailSemverInvalid.
+  ///
+  /// In es, this message translates to:
+  /// **'La versión instalada no cumple SemVer.'**
+  String get releaseReadinessDetailSemverInvalid;
+
+  /// No description provided for @releaseReadinessDetailVaultNotEncrypted.
+  ///
+  /// In es, this message translates to:
+  /// **'La libreta actual no está cifrada.'**
+  String get releaseReadinessDetailVaultNotEncrypted;
+
+  /// No description provided for @releaseReadinessDetailVaultLocked.
+  ///
+  /// In es, this message translates to:
+  /// **'Desbloquea la libreta para validar export/import y flujo real.'**
+  String get releaseReadinessDetailVaultLocked;
+
+  /// No description provided for @releaseReadinessDetailBetaChannel.
+  ///
+  /// In es, this message translates to:
+  /// **'El canal beta está activo para actualizaciones.'**
+  String get releaseReadinessDetailBetaChannel;
+
+  /// No description provided for @releaseReadinessReportTitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Folio: preparación para release'**
+  String get releaseReadinessReportTitle;
+
+  /// No description provided for @releaseReadinessReportInstalledVersion.
+  ///
+  /// In es, this message translates to:
+  /// **'Versión instalada: {label}'**
+  String releaseReadinessReportInstalledVersion(Object label);
+
+  /// No description provided for @releaseReadinessReportSemver.
+  ///
+  /// In es, this message translates to:
+  /// **'SemVer válido: {value}'**
+  String releaseReadinessReportSemver(Object value);
+
+  /// No description provided for @releaseReadinessReportChannel.
+  ///
+  /// In es, this message translates to:
+  /// **'Canal de actualizaciones: {value}'**
+  String releaseReadinessReportChannel(Object value);
+
+  /// No description provided for @releaseReadinessReportActiveVault.
+  ///
+  /// In es, this message translates to:
+  /// **'Libreta activa: {id}'**
+  String releaseReadinessReportActiveVault(Object id);
+
+  /// No description provided for @releaseReadinessReportVaultPath.
+  ///
+  /// In es, this message translates to:
+  /// **'Ruta libreta: {path}'**
+  String releaseReadinessReportVaultPath(Object path);
+
+  /// No description provided for @releaseReadinessReportUnlocked.
+  ///
+  /// In es, this message translates to:
+  /// **'Libreta desbloqueada: {value}'**
+  String releaseReadinessReportUnlocked(Object value);
+
+  /// No description provided for @releaseReadinessReportEncrypted.
+  ///
+  /// In es, this message translates to:
+  /// **'Libreta cifrada: {value}'**
+  String releaseReadinessReportEncrypted(Object value);
+
+  /// No description provided for @releaseReadinessReportAiEnabled.
+  ///
+  /// In es, this message translates to:
+  /// **'IA habilitada: {value}'**
+  String releaseReadinessReportAiEnabled(Object value);
+
+  /// No description provided for @releaseReadinessReportAiPolicy.
+  ///
+  /// In es, this message translates to:
+  /// **'Política endpoint IA: {value}'**
+  String releaseReadinessReportAiPolicy(Object value);
+
+  /// No description provided for @releaseReadinessReportAiDetail.
+  ///
+  /// In es, this message translates to:
+  /// **'Detalle IA: {detail}'**
+  String releaseReadinessReportAiDetail(Object detail);
+
+  /// No description provided for @releaseReadinessReportStatus.
+  ///
+  /// In es, this message translates to:
+  /// **'Estado release: {value}'**
+  String releaseReadinessReportStatus(Object value);
+
+  /// No description provided for @releaseReadinessReportBlockers.
+  ///
+  /// In es, this message translates to:
+  /// **'Bloqueadores pendientes: {count}'**
+  String releaseReadinessReportBlockers(int count);
+
+  /// No description provided for @releaseReadinessReportWarnings.
+  ///
+  /// In es, this message translates to:
+  /// **'Advertencias pendientes: {count}'**
+  String releaseReadinessReportWarnings(int count);
+
+  /// No description provided for @releaseReadinessExportWordYes.
+  ///
+  /// In es, this message translates to:
+  /// **'sí'**
+  String get releaseReadinessExportWordYes;
+
+  /// No description provided for @releaseReadinessExportWordNo.
+  ///
+  /// In es, this message translates to:
+  /// **'no'**
+  String get releaseReadinessExportWordNo;
+
+  /// No description provided for @releaseReadinessChannelStable.
+  ///
+  /// In es, this message translates to:
+  /// **'estable'**
+  String get releaseReadinessChannelStable;
+
+  /// No description provided for @releaseReadinessChannelBeta.
+  ///
+  /// In es, this message translates to:
+  /// **'beta'**
+  String get releaseReadinessChannelBeta;
+
+  /// No description provided for @releaseReadinessStatusReady.
+  ///
+  /// In es, this message translates to:
+  /// **'listo'**
+  String get releaseReadinessStatusReady;
+
+  /// No description provided for @releaseReadinessStatusBlocked.
+  ///
+  /// In es, this message translates to:
+  /// **'bloqueado'**
+  String get releaseReadinessStatusBlocked;
+
+  /// No description provided for @releaseReadinessPolicyOk.
+  ///
+  /// In es, this message translates to:
+  /// **'correcto'**
+  String get releaseReadinessPolicyOk;
+
+  /// No description provided for @releaseReadinessPolicyError.
+  ///
+  /// In es, this message translates to:
+  /// **'error'**
+  String get releaseReadinessPolicyError;
+
+  /// No description provided for @settingsSignInFolioCloudSnack.
+  ///
+  /// In es, this message translates to:
+  /// **'Inicia sesión en Folio Cloud.'**
+  String get settingsSignInFolioCloudSnack;
+
+  /// No description provided for @settingsNotSyncedYet.
+  ///
+  /// In es, this message translates to:
+  /// **'Aún sin sincronizar'**
+  String get settingsNotSyncedYet;
+
+  /// No description provided for @settingsDeviceNameTitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Nombre del dispositivo'**
+  String get settingsDeviceNameTitle;
+
+  /// No description provided for @settingsDeviceNameHintExample.
+  ///
+  /// In es, this message translates to:
+  /// **'Ejemplo: Pixel de Alejandra'**
+  String get settingsDeviceNameHintExample;
+
+  /// No description provided for @settingsPairingModeEnabledTwoMin.
+  ///
+  /// In es, this message translates to:
+  /// **'Modo vinculación activado durante 2 minutos.'**
+  String get settingsPairingModeEnabledTwoMin;
+
+  /// No description provided for @settingsPairingEnableModeFirst.
+  ///
+  /// In es, this message translates to:
+  /// **'Primero activa el modo vinculación y luego elige un dispositivo detectado.'**
+  String get settingsPairingEnableModeFirst;
+
+  /// No description provided for @settingsPairingSameEmojisBothDevices.
+  ///
+  /// In es, this message translates to:
+  /// **'Activa el modo vinculación en ambos dispositivos y espera a que aparezcan los mismos 3 emojis.'**
+  String get settingsPairingSameEmojisBothDevices;
+
+  /// No description provided for @settingsPairingCouldNotStart.
+  ///
+  /// In es, this message translates to:
+  /// **'No se pudo iniciar la vinculación. Activa el modo vinculación en ambos dispositivos y espera a ver los mismos 3 emojis.'**
+  String get settingsPairingCouldNotStart;
+
+  /// No description provided for @settingsConfirmPairingTitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Confirmar vinculación'**
+  String get settingsConfirmPairingTitle;
+
+  /// No description provided for @settingsPairingCheckOtherDeviceEmojis.
+  ///
+  /// In es, this message translates to:
+  /// **'Comprueba que en el otro dispositivo aparecen estos mismos 3 emojis:'**
+  String get settingsPairingCheckOtherDeviceEmojis;
+
+  /// No description provided for @settingsPairingPopupInstructions.
+  ///
+  /// In es, this message translates to:
+  /// **'Este popup también aparecerá en el otro dispositivo. Para completar el enlace, pulsa Vincular aquí y luego Vincular en el otro.'**
+  String get settingsPairingPopupInstructions;
+
+  /// No description provided for @settingsLinkDevice.
+  ///
+  /// In es, this message translates to:
+  /// **'Vincular'**
+  String get settingsLinkDevice;
+
+  /// No description provided for @settingsPairingConfirmationSent.
+  ///
+  /// In es, this message translates to:
+  /// **'Confirmación enviada. Falta que el otro dispositivo pulse Vincular en su popup.'**
+  String get settingsPairingConfirmationSent;
+
+  /// No description provided for @settingsResolveConflictsTitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Resolver conflictos'**
+  String get settingsResolveConflictsTitle;
+
+  /// No description provided for @settingsNoPendingConflicts.
+  ///
+  /// In es, this message translates to:
+  /// **'No hay conflictos pendientes.'**
+  String get settingsNoPendingConflicts;
+
+  /// No description provided for @settingsSyncConflictCardSubtitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Origen: {fromPeerId}\nPáginas remotas: {remotePageCount}\nDetectado: {detectedAt}'**
+  String settingsSyncConflictCardSubtitle(
+    Object fromPeerId,
+    int remotePageCount,
+    Object detectedAt,
+  );
+
+  /// No description provided for @settingsSyncConflictHeading.
+  ///
+  /// In es, this message translates to:
+  /// **'Conflicto de sincronización'**
+  String get settingsSyncConflictHeading;
+
+  /// No description provided for @settingsLocalVersionKeptSnack.
+  ///
+  /// In es, this message translates to:
+  /// **'Se conservó la versión local.'**
+  String get settingsLocalVersionKeptSnack;
+
+  /// No description provided for @settingsKeepLocal.
+  ///
+  /// In es, this message translates to:
+  /// **'Mantener local'**
+  String get settingsKeepLocal;
+
+  /// No description provided for @settingsRemoteVersionAppliedSnack.
+  ///
+  /// In es, this message translates to:
+  /// **'Se aplicó la versión remota.'**
+  String get settingsRemoteVersionAppliedSnack;
+
+  /// No description provided for @settingsCouldNotApplyRemoteSnack.
+  ///
+  /// In es, this message translates to:
+  /// **'No se pudo aplicar la versión remota.'**
+  String get settingsCouldNotApplyRemoteSnack;
+
+  /// No description provided for @settingsAcceptRemote.
+  ///
+  /// In es, this message translates to:
+  /// **'Aceptar remota'**
+  String get settingsAcceptRemote;
+
+  /// No description provided for @settingsClose.
+  ///
+  /// In es, this message translates to:
+  /// **'Cerrar'**
+  String get settingsClose;
+
+  /// No description provided for @settingsSectionDeviceSyncNav.
+  ///
+  /// In es, this message translates to:
+  /// **'Sincronización'**
+  String get settingsSectionDeviceSyncNav;
+
+  /// No description provided for @settingsSyncHeroTitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Sincronización entre dispositivos'**
+  String get settingsSyncHeroTitle;
+
+  /// No description provided for @settingsSyncHeroDescription.
+  ///
+  /// In es, this message translates to:
+  /// **'Empareja equipos en la red local; el relay solo ayuda a negociar la conexión, no envía el contenido del vault.'**
+  String get settingsSyncHeroDescription;
+
+  /// No description provided for @settingsSyncChipPairingCode.
+  ///
+  /// In es, this message translates to:
+  /// **'Código de enlace'**
+  String get settingsSyncChipPairingCode;
+
+  /// No description provided for @settingsSyncChipAutoDiscovery.
+  ///
+  /// In es, this message translates to:
+  /// **'Detección automática'**
+  String get settingsSyncChipAutoDiscovery;
+
+  /// No description provided for @settingsSyncChipOptionalRelay.
+  ///
+  /// In es, this message translates to:
+  /// **'Relay opcional'**
+  String get settingsSyncChipOptionalRelay;
+
+  /// No description provided for @settingsSyncEnableTitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Activar sincronización entre dispositivos'**
+  String get settingsSyncEnableTitle;
+
+  /// No description provided for @settingsSyncSearchingSubtitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Buscando dispositivos con Folio abierto en la red local...'**
+  String get settingsSyncSearchingSubtitle;
+
+  /// No description provided for @settingsSyncDevicesFoundOnLan.
+  ///
+  /// In es, this message translates to:
+  /// **'{count} dispositivos detectados en LAN.'**
+  String settingsSyncDevicesFoundOnLan(int count);
+
+  /// No description provided for @settingsSyncDisabledSubtitle.
+  ///
+  /// In es, this message translates to:
+  /// **'La sincronización está desactivada.'**
+  String get settingsSyncDisabledSubtitle;
+
+  /// No description provided for @settingsSyncRelayTitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Usar relay de señalización'**
+  String get settingsSyncRelayTitle;
+
+  /// No description provided for @settingsSyncRelaySubtitle.
+  ///
+  /// In es, this message translates to:
+  /// **'No envía contenido del vault, solo ayuda a negociar la conexión si la LAN falla.'**
+  String get settingsSyncRelaySubtitle;
+
+  /// No description provided for @settingsEdit.
+  ///
+  /// In es, this message translates to:
+  /// **'Editar'**
+  String get settingsEdit;
+
+  /// No description provided for @settingsSyncEmojiModeTitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Activar modo vinculación por emojis'**
+  String get settingsSyncEmojiModeTitle;
+
+  /// No description provided for @settingsSyncEmojiModeSubtitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Actívalo en ambos dispositivos para iniciar el proceso de vinculación sin escribir códigos.'**
+  String get settingsSyncEmojiModeSubtitle;
+
+  /// No description provided for @settingsSyncPairingStatusTitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Estado del modo vinculación'**
+  String get settingsSyncPairingStatusTitle;
+
+  /// No description provided for @settingsSyncPairingActiveSubtitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Activo durante 2 minutos. Ya puedes iniciar la vinculación desde un dispositivo detectado.'**
+  String get settingsSyncPairingActiveSubtitle;
+
+  /// No description provided for @settingsSyncPairingInactiveSubtitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Inactivo. Actívalo aquí y en el otro dispositivo para empezar a vincular.'**
+  String get settingsSyncPairingInactiveSubtitle;
+
+  /// No description provided for @settingsSyncLastSyncTitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Última sincronización'**
+  String get settingsSyncLastSyncTitle;
+
+  /// No description provided for @settingsSyncPendingConflictsTitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Conflictos pendientes'**
+  String get settingsSyncPendingConflictsTitle;
+
+  /// No description provided for @settingsSyncNoConflictsSubtitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Sin conflictos pendientes.'**
+  String get settingsSyncNoConflictsSubtitle;
+
+  /// No description provided for @settingsSyncConflictsNeedReview.
+  ///
+  /// In es, this message translates to:
+  /// **'{count} conflictos requieren revisión manual.'**
+  String settingsSyncConflictsNeedReview(int count);
+
+  /// No description provided for @settingsResolve.
+  ///
+  /// In es, this message translates to:
+  /// **'Resolver'**
+  String get settingsResolve;
+
+  /// No description provided for @settingsSyncDiscoveredDevicesTitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Dispositivos detectados'**
+  String get settingsSyncDiscoveredDevicesTitle;
+
+  /// No description provided for @settingsSyncNoDevicesYetHint.
+  ///
+  /// In es, this message translates to:
+  /// **'No se detectaron dispositivos todavía. Asegura que ambas apps estén abiertas en la misma red.'**
+  String get settingsSyncNoDevicesYetHint;
+
+  /// No description provided for @settingsSyncPeerReadyToLink.
+  ///
+  /// In es, this message translates to:
+  /// **'Listo para vincular.'**
+  String get settingsSyncPeerReadyToLink;
+
+  /// No description provided for @settingsSyncPeerOtherInPairingMode.
+  ///
+  /// In es, this message translates to:
+  /// **'El otro dispositivo está en modo vinculación. Actívalo aquí para iniciar el enlace.'**
+  String get settingsSyncPeerOtherInPairingMode;
+
+  /// No description provided for @settingsSyncPeerDetectedLan.
+  ///
+  /// In es, this message translates to:
+  /// **'Detectado en la red local.'**
+  String get settingsSyncPeerDetectedLan;
+
+  /// No description provided for @settingsSyncLinkedDevicesTitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Dispositivos vinculados'**
+  String get settingsSyncLinkedDevicesTitle;
+
+  /// No description provided for @settingsSyncNoLinkedDevicesYet.
+  ///
+  /// In es, this message translates to:
+  /// **'Aún no hay dispositivos enlazados.'**
+  String get settingsSyncNoLinkedDevicesYet;
+
+  /// No description provided for @settingsSyncPeerIdLabel.
+  ///
+  /// In es, this message translates to:
+  /// **'ID: {peerId}'**
+  String settingsSyncPeerIdLabel(Object peerId);
+
+  /// No description provided for @settingsRevoke.
+  ///
+  /// In es, this message translates to:
+  /// **'Revocar'**
+  String get settingsRevoke;
+
+  /// No description provided for @sidebarPageIconTitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Icono de la página'**
+  String get sidebarPageIconTitle;
+
+  /// No description provided for @sidebarPageIconPickerHelper.
+  ///
+  /// In es, this message translates to:
+  /// **'Elige un icono rápido, uno importado o abre el selector completo.'**
+  String get sidebarPageIconPickerHelper;
+
+  /// No description provided for @sidebarPageIconCustomEmoji.
+  ///
+  /// In es, this message translates to:
+  /// **'Emoji personalizado'**
+  String get sidebarPageIconCustomEmoji;
+
+  /// No description provided for @sidebarPageIconRemove.
+  ///
+  /// In es, this message translates to:
+  /// **'Quitar'**
+  String get sidebarPageIconRemove;
+
+  /// No description provided for @sidebarPageIconTabQuick.
+  ///
+  /// In es, this message translates to:
+  /// **'Rápidos'**
+  String get sidebarPageIconTabQuick;
+
+  /// No description provided for @sidebarPageIconTabImported.
+  ///
+  /// In es, this message translates to:
+  /// **'Importados'**
+  String get sidebarPageIconTabImported;
+
+  /// No description provided for @sidebarPageIconTabAll.
+  ///
+  /// In es, this message translates to:
+  /// **'Todos'**
+  String get sidebarPageIconTabAll;
+
+  /// No description provided for @sidebarPageIconEmptyImported.
+  ///
+  /// In es, this message translates to:
+  /// **'Todavía no has importado iconos en Ajustes.'**
+  String get sidebarPageIconEmptyImported;
+
+  /// No description provided for @settingsStripeSubscriptionRefreshed.
+  ///
+  /// In es, this message translates to:
+  /// **'Estado de suscripción actualizado.'**
+  String get settingsStripeSubscriptionRefreshed;
+
+  /// No description provided for @settingsStripeBillingPortalUnavailable.
+  ///
+  /// In es, this message translates to:
+  /// **'Portal de facturación no disponible.'**
+  String get settingsStripeBillingPortalUnavailable;
+
+  /// No description provided for @settingsCouldNotOpenLink.
+  ///
+  /// In es, this message translates to:
+  /// **'No se pudo abrir el enlace.'**
+  String get settingsCouldNotOpenLink;
+
+  /// No description provided for @settingsStripeCheckoutUnavailable.
+  ///
+  /// In es, this message translates to:
+  /// **'Pago no disponible (configura Stripe en el servidor).'**
+  String get settingsStripeCheckoutUnavailable;
+
+  /// No description provided for @settingsCloudBackupEnablePlanSnack.
+  ///
+  /// In es, this message translates to:
+  /// **'Activa Folio Cloud con la función de copia en la nube incluida en tu plan.'**
+  String get settingsCloudBackupEnablePlanSnack;
+
+  /// No description provided for @settingsNoActiveVault.
+  ///
+  /// In es, this message translates to:
+  /// **'No hay libreta activa.'**
+  String get settingsNoActiveVault;
+
+  /// No description provided for @settingsCloudBackupsNeedPlan.
+  ///
+  /// In es, this message translates to:
+  /// **'Necesitas Folio Cloud activo con copia en la nube.'**
+  String get settingsCloudBackupsNeedPlan;
+
+  /// No description provided for @settingsCloudBackupsDialogTitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Copias en la nube ({count}/10)'**
+  String settingsCloudBackupsDialogTitle(int count);
+
+  /// No description provided for @settingsCloudBackupsEmpty.
+  ///
+  /// In es, this message translates to:
+  /// **'Aún no hay copias en esta cuenta.'**
+  String get settingsCloudBackupsEmpty;
+
+  /// No description provided for @settingsCloudBackupDownloadTooltip.
+  ///
+  /// In es, this message translates to:
+  /// **'Descargar'**
+  String get settingsCloudBackupDownloadTooltip;
+
+  /// No description provided for @settingsCloudBackupSaveDialogTitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Guardar copia'**
+  String get settingsCloudBackupSaveDialogTitle;
+
+  /// No description provided for @settingsCloudBackupDownloadedSnack.
+  ///
+  /// In es, this message translates to:
+  /// **'Copia descargada.'**
+  String get settingsCloudBackupDownloadedSnack;
+
+  /// No description provided for @settingsPublishedRequiresPlan.
+  ///
+  /// In es, this message translates to:
+  /// **'Necesitas Folio Cloud con publicación web activa.'**
+  String get settingsPublishedRequiresPlan;
+
+  /// No description provided for @settingsPublishedPagesTitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Páginas publicadas'**
+  String get settingsPublishedPagesTitle;
+
+  /// No description provided for @settingsPublishedPagesEmpty.
+  ///
+  /// In es, this message translates to:
+  /// **'Aún no hay páginas publicadas.'**
+  String get settingsPublishedPagesEmpty;
+
+  /// No description provided for @settingsPublishedDeleteDialogTitle.
+  ///
+  /// In es, this message translates to:
+  /// **'¿Eliminar publicación?'**
+  String get settingsPublishedDeleteDialogTitle;
+
+  /// No description provided for @settingsPublishedDeleteDialogBody.
+  ///
+  /// In es, this message translates to:
+  /// **'Se borrará el HTML público y el enlace dejará de funcionar.'**
+  String get settingsPublishedDeleteDialogBody;
+
+  /// No description provided for @settingsPublishedRemovedSnack.
+  ///
+  /// In es, this message translates to:
+  /// **'Publicación eliminada.'**
+  String get settingsPublishedRemovedSnack;
+
+  /// No description provided for @settingsCouldNotReadInstalledVersion.
+  ///
+  /// In es, this message translates to:
+  /// **'No se pudo leer la versión instalada.'**
+  String get settingsCouldNotReadInstalledVersion;
+
+  /// No description provided for @settingsCouldNotOpenReleaseNotes.
+  ///
+  /// In es, this message translates to:
+  /// **'No se pudieron abrir las notas de versión: {error}'**
+  String settingsCouldNotOpenReleaseNotes(Object error);
+
+  /// No description provided for @settingsUpdateFailed.
+  ///
+  /// In es, this message translates to:
+  /// **'No se pudo actualizar: {error}'**
+  String settingsUpdateFailed(Object error);
+
+  /// No description provided for @settingsSessionEndedSnack.
+  ///
+  /// In es, this message translates to:
+  /// **'Sesión cerrada'**
+  String get settingsSessionEndedSnack;
+
+  /// No description provided for @settingsLabelYes.
+  ///
+  /// In es, this message translates to:
+  /// **'Sí'**
+  String get settingsLabelYes;
+
+  /// No description provided for @settingsLabelNo.
+  ///
+  /// In es, this message translates to:
+  /// **'No'**
+  String get settingsLabelNo;
+
+  /// No description provided for @settingsSecurityEncryptedHeroDescription.
+  ///
+  /// In es, this message translates to:
+  /// **'Desbloqueo rápido, passkey, bloqueo automático y contraseña maestra del vault cifrado.'**
+  String get settingsSecurityEncryptedHeroDescription;
+
+  /// No description provided for @settingsUnencryptedVaultTitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Vault sin cifrar'**
+  String get settingsUnencryptedVaultTitle;
+
+  /// No description provided for @settingsUnencryptedVaultChipDataOnDisk.
+  ///
+  /// In es, this message translates to:
+  /// **'Datos en disco'**
+  String get settingsUnencryptedVaultChipDataOnDisk;
+
+  /// No description provided for @settingsUnencryptedVaultChipEncryptionAvailable.
+  ///
+  /// In es, this message translates to:
+  /// **'Cifrado disponible'**
+  String get settingsUnencryptedVaultChipEncryptionAvailable;
+
+  /// No description provided for @settingsAppearanceChipTheme.
+  ///
+  /// In es, this message translates to:
+  /// **'Tema'**
+  String get settingsAppearanceChipTheme;
+
+  /// No description provided for @settingsAppearanceChipZoom.
+  ///
+  /// In es, this message translates to:
+  /// **'Zoom'**
+  String get settingsAppearanceChipZoom;
+
+  /// No description provided for @settingsAppearanceChipLanguage.
+  ///
+  /// In es, this message translates to:
+  /// **'Idioma'**
+  String get settingsAppearanceChipLanguage;
+
+  /// No description provided for @settingsAppearanceChipEditorWorkspace.
+  ///
+  /// In es, this message translates to:
+  /// **'Editor y espacio'**
+  String get settingsAppearanceChipEditorWorkspace;
+
+  /// No description provided for @settingsWindowsScaleFollowTitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Seguir escala de Windows'**
+  String get settingsWindowsScaleFollowTitle;
+
+  /// No description provided for @settingsWindowsScaleFollowSubtitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Usa automáticamente la escala del sistema en Windows.'**
+  String get settingsWindowsScaleFollowSubtitle;
+
+  /// No description provided for @settingsInterfaceZoomTitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Zoom de la interfaz'**
+  String get settingsInterfaceZoomTitle;
+
+  /// No description provided for @settingsInterfaceZoomSubtitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Aumenta o reduce el tamaño general de la app.'**
+  String get settingsInterfaceZoomSubtitle;
+
+  /// No description provided for @settingsUiZoomReset.
+  ///
+  /// In es, this message translates to:
+  /// **'Restablecer'**
+  String get settingsUiZoomReset;
+
+  /// No description provided for @settingsEditorSubsection.
+  ///
+  /// In es, this message translates to:
+  /// **'Editor'**
+  String get settingsEditorSubsection;
+
+  /// No description provided for @settingsEditorContentWidthTitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Ancho del contenido'**
+  String get settingsEditorContentWidthTitle;
+
+  /// No description provided for @settingsEditorContentWidthSubtitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Define cuánto ancho ocupan los bloques en el editor.'**
+  String get settingsEditorContentWidthSubtitle;
+
+  /// No description provided for @settingsEnterCreatesNewBlockTitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Enter crea un bloque nuevo'**
+  String get settingsEnterCreatesNewBlockTitle;
+
+  /// No description provided for @settingsEnterCreatesNewBlockSubtitleWhenEnabled.
+  ///
+  /// In es, this message translates to:
+  /// **'Desactiva para que Enter inserte salto de línea.'**
+  String get settingsEnterCreatesNewBlockSubtitleWhenEnabled;
+
+  /// No description provided for @settingsEnterCreatesNewBlockSubtitleWhenDisabled.
+  ///
+  /// In es, this message translates to:
+  /// **'Ahora Enter inserta salto de línea. Usa Shift+Enter igual.'**
+  String get settingsEnterCreatesNewBlockSubtitleWhenDisabled;
+
+  /// No description provided for @settingsWorkspaceSubsection.
+  ///
+  /// In es, this message translates to:
+  /// **'Espacio de trabajo'**
+  String get settingsWorkspaceSubsection;
+
+  /// No description provided for @settingsCustomIconsTitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Iconos personalizados'**
+  String get settingsCustomIconsTitle;
+
+  /// No description provided for @settingsCustomIconsDescription.
+  ///
+  /// In es, this message translates to:
+  /// **'Importa una URL PNG, GIF o WebP, o un data:image compatible copiado desde páginas como notionicons.so. Después podrás usarlo como icono de página o de callout.'**
+  String get settingsCustomIconsDescription;
+
+  /// No description provided for @settingsCustomIconsSavedCount.
+  ///
+  /// In es, this message translates to:
+  /// **'{count} guardados'**
+  String settingsCustomIconsSavedCount(int count);
+
+  /// No description provided for @settingsCustomIconsChipUrl.
+  ///
+  /// In es, this message translates to:
+  /// **'URL PNG, GIF o WebP'**
+  String get settingsCustomIconsChipUrl;
+
+  /// No description provided for @settingsCustomIconsChipDataImage.
+  ///
+  /// In es, this message translates to:
+  /// **'data:image/*'**
+  String get settingsCustomIconsChipDataImage;
+
+  /// No description provided for @settingsCustomIconsChipPaste.
+  ///
+  /// In es, this message translates to:
+  /// **'Pegar desde portapapeles'**
+  String get settingsCustomIconsChipPaste;
+
+  /// No description provided for @settingsCustomIconsImportTitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Importar nuevo icono'**
+  String get settingsCustomIconsImportTitle;
+
+  /// No description provided for @settingsCustomIconsImportSubtitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Puedes ponerle nombre y pegar la fuente manualmente o traerla directamente desde el portapapeles.'**
+  String get settingsCustomIconsImportSubtitle;
+
+  /// No description provided for @settingsCustomIconsFieldNameLabel.
+  ///
+  /// In es, this message translates to:
+  /// **'Nombre'**
+  String get settingsCustomIconsFieldNameLabel;
+
+  /// No description provided for @settingsCustomIconsFieldNameHint.
+  ///
+  /// In es, this message translates to:
+  /// **'Opcional'**
+  String get settingsCustomIconsFieldNameHint;
+
+  /// No description provided for @settingsCustomIconsFieldSourceLabel.
+  ///
+  /// In es, this message translates to:
+  /// **'URL o data:image'**
+  String get settingsCustomIconsFieldSourceLabel;
+
+  /// No description provided for @settingsCustomIconsFieldSourceHint.
+  ///
+  /// In es, this message translates to:
+  /// **'https://…gif | …webp | …png o data:image/…'**
+  String get settingsCustomIconsFieldSourceHint;
+
+  /// No description provided for @settingsCustomIconsImportButton.
+  ///
+  /// In es, this message translates to:
+  /// **'Importar icono'**
+  String get settingsCustomIconsImportButton;
+
+  /// No description provided for @settingsCustomIconsFromClipboard.
+  ///
+  /// In es, this message translates to:
+  /// **'Desde portapapeles'**
+  String get settingsCustomIconsFromClipboard;
+
+  /// No description provided for @settingsCustomIconsLibraryTitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Biblioteca'**
+  String get settingsCustomIconsLibraryTitle;
+
+  /// No description provided for @settingsCustomIconsLibrarySubtitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Listos para usar en toda la app'**
+  String get settingsCustomIconsLibrarySubtitle;
+
+  /// No description provided for @settingsCustomIconsEmpty.
+  ///
+  /// In es, this message translates to:
+  /// **'Todavía no has importado iconos.'**
+  String get settingsCustomIconsEmpty;
+
+  /// No description provided for @settingsCustomIconsDeleteTooltip.
+  ///
+  /// In es, this message translates to:
+  /// **'Eliminar icono'**
+  String get settingsCustomIconsDeleteTooltip;
+
+  /// No description provided for @settingsCustomIconsReferenceCopiedSnack.
+  ///
+  /// In es, this message translates to:
+  /// **'Referencia copiada.'**
+  String get settingsCustomIconsReferenceCopiedSnack;
+
+  /// No description provided for @settingsCustomIconsCopyToken.
+  ///
+  /// In es, this message translates to:
+  /// **'Copiar token'**
+  String get settingsCustomIconsCopyToken;
+
+  /// No description provided for @settingsAiHeroQuillWithLocalAlt.
+  ///
+  /// In es, this message translates to:
+  /// **'La IA se ejecuta en Quill Cloud (suscripción con IA en la nube o tinta comprada). Elige otro proveedor abajo para Ollama o LM Studio en local.'**
+  String get settingsAiHeroQuillWithLocalAlt;
+
+  /// No description provided for @settingsAiHeroQuillCloudOnly.
+  ///
+  /// In es, this message translates to:
+  /// **'La IA se ejecuta en Quill Cloud (suscripción con IA en la nube o tinta comprada).'**
+  String get settingsAiHeroQuillCloudOnly;
+
+  /// No description provided for @settingsAiHeroLocalDefault.
+  ///
+  /// In es, this message translates to:
+  /// **'Conecta Ollama o LM Studio en local; el asistente usa el modelo y el contexto que configures aquí.'**
+  String get settingsAiHeroLocalDefault;
+
+  /// No description provided for @settingsAiHeroQuillMobileOnly.
+  ///
+  /// In es, this message translates to:
+  /// **'En este dispositivo Quill solo puede usar Quill Cloud. Elige Quill Cloud como proveedor cuando quieras activar la IA.'**
+  String get settingsAiHeroQuillMobileOnly;
+
+  /// No description provided for @settingsAiChipCloud.
+  ///
+  /// In es, this message translates to:
+  /// **'En la nube'**
+  String get settingsAiChipCloud;
+
+  /// No description provided for @settingsAiSnackFirebaseUnavailableBuild.
+  ///
+  /// In es, this message translates to:
+  /// **'Firebase no está disponible en esta compilación.'**
+  String get settingsAiSnackFirebaseUnavailableBuild;
+
+  /// No description provided for @settingsAiSnackSignInCloudAccount.
+  ///
+  /// In es, this message translates to:
+  /// **'Inicia sesión en la cuenta en la nube (Ajustes).'**
+  String get settingsAiSnackSignInCloudAccount;
+
+  /// No description provided for @settingsAiProviderSwitchFailed.
+  ///
+  /// In es, this message translates to:
+  /// **'Error al cambiar proveedor: {error}'**
+  String settingsAiProviderSwitchFailed(Object error);
+
+  /// No description provided for @settingsAboutHeroDescription.
+  ///
+  /// In es, this message translates to:
+  /// **'Versión instalada, origen de actualizaciones y comprobación manual de novedades.'**
+  String get settingsAboutHeroDescription;
+
+  /// No description provided for @settingsOpenReleaseNotes.
+  ///
+  /// In es, this message translates to:
+  /// **'Ver notas de versión'**
+  String get settingsOpenReleaseNotes;
+
+  /// No description provided for @settingsUpdateChannelLabel.
+  ///
+  /// In es, this message translates to:
+  /// **'Canal'**
+  String get settingsUpdateChannelLabel;
+
+  /// No description provided for @settingsUpdateChannelRelease.
+  ///
+  /// In es, this message translates to:
+  /// **'Release'**
+  String get settingsUpdateChannelRelease;
+
+  /// No description provided for @settingsUpdateChannelBeta.
+  ///
+  /// In es, this message translates to:
+  /// **'Beta'**
+  String get settingsUpdateChannelBeta;
+
+  /// No description provided for @settingsDataHeroDescription.
+  ///
+  /// In es, this message translates to:
+  /// **'Acciones permanentes sobre archivos locales. Haz una copia de seguridad antes de borrar.'**
+  String get settingsDataHeroDescription;
+
+  /// No description provided for @settingsDangerZoneTitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Zona de peligro'**
+  String get settingsDangerZoneTitle;
+
+  /// No description provided for @settingsDesktopHeroDescription.
+  ///
+  /// In es, this message translates to:
+  /// **'Atajos globales, bandeja del sistema y comportamiento de la ventana en el escritorio.'**
+  String get settingsDesktopHeroDescription;
+
+  /// No description provided for @settingsShortcutsHeroDescription.
+  ///
+  /// In es, this message translates to:
+  /// **'Combinaciones solo dentro de Folio. Prueba una tecla antes de guardarla.'**
+  String get settingsShortcutsHeroDescription;
+
+  /// No description provided for @settingsShortcutsTestChip.
+  ///
+  /// In es, this message translates to:
+  /// **'Probar'**
+  String get settingsShortcutsTestChip;
+
+  /// No description provided for @settingsIntegrationsChipApprovedPermissions.
+  ///
+  /// In es, this message translates to:
+  /// **'Permisos aprobados'**
+  String get settingsIntegrationsChipApprovedPermissions;
+
+  /// No description provided for @settingsIntegrationsChipRevocableAccess.
+  ///
+  /// In es, this message translates to:
+  /// **'Acceso revocable'**
+  String get settingsIntegrationsChipRevocableAccess;
+
+  /// No description provided for @settingsIntegrationsChipExternalApps.
+  ///
+  /// In es, this message translates to:
+  /// **'Apps externas'**
+  String get settingsIntegrationsChipExternalApps;
+
+  /// No description provided for @settingsIntegrationsActiveConnectionsTitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Conexiones activas'**
+  String get settingsIntegrationsActiveConnectionsTitle;
+
+  /// No description provided for @settingsIntegrationsActiveConnectionsSubtitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Apps que ya pueden interactuar con Folio'**
+  String get settingsIntegrationsActiveConnectionsSubtitle;
+
+  /// No description provided for @settingsViewInkUsageTable.
+  ///
+  /// In es, this message translates to:
+  /// **'Ver tabla de consumo'**
+  String get settingsViewInkUsageTable;
+
+  /// No description provided for @settingsCloudInkUsageTableTitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Tabla de consumo de gotas (OpenAI)'**
+  String get settingsCloudInkUsageTableTitle;
+
+  /// No description provided for @settingsCloudInkUsageTableIntro.
+  ///
+  /// In es, this message translates to:
+  /// **'Coste base por acción. Se pueden aplicar suplementos por prompts largos y por tokens de salida.'**
+  String get settingsCloudInkUsageTableIntro;
+
+  /// No description provided for @settingsCloudInkDrops.
+  ///
+  /// In es, this message translates to:
+  /// **'gotas'**
+  String get settingsCloudInkDrops;
+
+  /// No description provided for @settingsCloudInkTableCachedNotice.
+  ///
+  /// In es, this message translates to:
+  /// **'Mostrando tabla en caché local (sin conexión al backend).'**
+  String get settingsCloudInkTableCachedNotice;
+
+  /// No description provided for @settingsCloudInkOpRewriteBlock.
+  ///
+  /// In es, this message translates to:
+  /// **'Reescribir bloque'**
+  String get settingsCloudInkOpRewriteBlock;
+
+  /// No description provided for @settingsCloudInkOpSummarizeSelection.
+  ///
+  /// In es, this message translates to:
+  /// **'Resumir selección'**
+  String get settingsCloudInkOpSummarizeSelection;
+
+  /// No description provided for @settingsCloudInkOpExtractTasks.
+  ///
+  /// In es, this message translates to:
+  /// **'Extraer tareas'**
+  String get settingsCloudInkOpExtractTasks;
+
+  /// No description provided for @settingsCloudInkOpSummarizePage.
+  ///
+  /// In es, this message translates to:
+  /// **'Resumir página'**
+  String get settingsCloudInkOpSummarizePage;
+
+  /// No description provided for @settingsCloudInkOpGenerateInsert.
+  ///
+  /// In es, this message translates to:
+  /// **'Generar inserción'**
+  String get settingsCloudInkOpGenerateInsert;
+
+  /// No description provided for @settingsCloudInkOpGeneratePage.
+  ///
+  /// In es, this message translates to:
+  /// **'Generar página'**
+  String get settingsCloudInkOpGeneratePage;
+
+  /// No description provided for @settingsCloudInkOpChatTurn.
+  ///
+  /// In es, this message translates to:
+  /// **'Turno de chat'**
+  String get settingsCloudInkOpChatTurn;
+
+  /// No description provided for @settingsCloudInkOpAgentMain.
+  ///
+  /// In es, this message translates to:
+  /// **'Ejecución de agente'**
+  String get settingsCloudInkOpAgentMain;
+
+  /// No description provided for @settingsCloudInkOpAgentFollowup.
+  ///
+  /// In es, this message translates to:
+  /// **'Seguimiento de agente'**
+  String get settingsCloudInkOpAgentFollowup;
+
+  /// No description provided for @settingsCloudInkOpEditPagePanel.
+  ///
+  /// In es, this message translates to:
+  /// **'Edición de página (panel)'**
+  String get settingsCloudInkOpEditPagePanel;
+
+  /// No description provided for @settingsCloudInkOpDefault.
+  ///
+  /// In es, this message translates to:
+  /// **'Operación por defecto'**
+  String get settingsCloudInkOpDefault;
+
+  /// No description provided for @settingsDesktopRailSubtitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Elige una categoría en la lista o desplázate por el contenido.'**
+  String get settingsDesktopRailSubtitle;
+
+  /// No description provided for @settingsCloudInkViewTableButton.
+  ///
+  /// In es, this message translates to:
+  /// **'Ver tabla'**
+  String get settingsCloudInkViewTableButton;
+
+  /// No description provided for @settingsCloudInkHostedAiOpenAiHint.
+  ///
+  /// In es, this message translates to:
+  /// **'Precios de referencia para IA en nube con OpenAI.'**
+  String get settingsCloudInkHostedAiOpenAiHint;
 }
 
 class _AppLocalizationsDelegate

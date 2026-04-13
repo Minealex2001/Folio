@@ -778,7 +778,7 @@ For images/blocks: use the + button or / command in a paragraph.
                   '${isEs ? 'Devuelve SOLO JSON con mode="edit_current" y operations no vacía usando blockId reales.' : 'Return ONLY JSON with mode="edit_current" and a non-empty operations list using real blockIds.'}\n\n'
                   '$editTargetLine\n'
                   '${isEs ? 'Bloques de la página en edición (ids válidos):' : 'Blocks of the page under edit (valid ids):'}\n$pageBlocksContext\n\n'
-                  '${isEs ? 'Mensaje del usuario:' : 'User message:'}\n${prompt.trim()}',
+                                   '${_titleL10n.aiPromptUserMessage}\n${prompt.trim()}',
               model: 'auto',
               messages: messages,
               attachments: attachments,
@@ -829,7 +829,7 @@ For images/blocks: use the + button or / command in a paragraph.
                 '${isEs ? 'No crees páginas nuevas ni reemplaces todo el contenido.' : 'Do not create new pages or replace all content.'}\n\n'
                 '$editTargetLine\n'
                 '${isEs ? 'Bloques de la página en edición (ids válidos):' : 'Blocks of the page under edit (valid ids):'}\n$pageBlocksContext\n\n'
-                '${isEs ? 'Mensaje del usuario:' : 'User message:'}\n${prompt.trim()}',
+                                 '${_titleL10n.aiPromptUserMessage}\n${prompt.trim()}',
             model: 'auto',
             messages: messages,
             attachments: attachments,
@@ -1063,7 +1063,7 @@ For images/blocks: use the + button or / command in a paragraph.
                   '${isEs ? 'Respondiste en modo chat, pero el usuario quiere crear una nueva página. Devuelve SOLO JSON con mode=create_page, el título en "title" y los bloques en "blocks" usando el formato nativo de Folio. Por defecto genera contenido detallado y completo (mínimo 10-15 bloques), salvo que el mensaje original pida algo corto.' : 'You responded in chat mode, but the user wants to create a new page. Return ONLY JSON with mode=create_page, the title in "title" and the blocks in "blocks" using Folio native block format. By default generate detailed, comprehensive content (minimum 10-15 blocks), unless the original message asked for something short.'}\n'
                   '${isEs ? 'Formato de bloque nativo:' : 'Native block format:'} {"type":"paragraph|h1|h2|h3|bullet|numbered|todo|quote|code|callout|toggle|divider|table|image|file|video|audio|meeting_note|bookmark|embed|equation|mermaid","text":"...","checked":false,"expanded":true,"codeLanguage":"dart","depth":0,"icon":"emoji","url":"https://...","imageWidth":0.8,"cols":2,"rows":[["a","b"]]}\n'
                   '${isEs ? 'No uses markdown fences ni texto fuera del JSON.' : 'Do not use markdown fences or text outside JSON.'}\n\n'
-                  '${isEs ? 'Mensaje original:' : 'Original message:'}\n${prompt.trim()}',
+                  '${_titleL10n.aiPromptOriginalMessage}\n${prompt.trim()}',
               model: 'auto',
               messages: messages,
               attachments: attachments,
@@ -1192,7 +1192,7 @@ For images/blocks: use the + button or / command in a paragraph.
                   '}\n'
                   '${isEs ? 'No escribas explicación, solo JSON.' : 'Do not write explanations, only JSON.'}\n\n'
                   '${isEs ? 'Bloques de la página (ids):' : 'Page blocks (ids):'}\n${_buildAgentPageBlocksContext(scopePage)}\n\n'
-                  '${isEs ? 'Mensaje original del usuario:' : 'Original user message:'}\n${prompt.trim()}',
+                  '${_titleL10n.aiPromptOriginalUserMessage}\n${prompt.trim()}',
               model: 'auto',
               messages: messages,
               attachments: attachments,
@@ -1281,7 +1281,7 @@ For images/blocks: use the + button or / command in a paragraph.
                 '${isEs ? 'La respuesta anterior no fue JSON válido. El usuario quiere crear una página. Devuelve SOLO JSON con mode=create_page, el título en "title" y los bloques en "blocks". Por defecto genera contenido detallado y completo (mínimo 10-15 bloques), salvo que el mensaje original pida algo corto.' : 'The previous response was not valid JSON. The user wants to create a page. Return ONLY JSON with mode=create_page, the title in "title" and the blocks in "blocks". By default generate detailed, comprehensive content (minimum 10-15 blocks), unless the original message asked for something short.'}\n'
                 '${isEs ? 'Formato de bloque:' : 'Block format:'} {"type":"paragraph|h1|h2|h3|bullet|numbered|todo|quote|code|callout|toggle|divider|table|image|file|video|audio|meeting_note|bookmark|embed|equation|mermaid","text":"...","checked":false,"expanded":true,"codeLanguage":"dart","depth":0,"icon":"emoji","url":"https://...","imageWidth":0.8,"cols":2,"rows":[["a","b"]]}\n'
                 '${isEs ? 'No uses markdown fences ni texto fuera del JSON.' : 'Do not use markdown fences or text outside JSON.'}\n\n'
-                '${isEs ? 'Mensaje original:' : 'Original message:'}\n${prompt.trim()}',
+                '${_titleL10n.aiPromptOriginalMessage}\n${prompt.trim()}',
             model: 'auto',
             messages: messages,
             attachments: attachments,

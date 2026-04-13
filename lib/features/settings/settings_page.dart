@@ -55,6 +55,38 @@ import 'folio_cloud_subscription_pitch_page.dart';
 import 'vault_identity_verify_dialog.dart';
 import '../../services/vault_scheduled_local_export.dart';
 
+String settingsCloudInkOperationLabel(
+  AppLocalizations l10n,
+  String operationKind,
+) {
+  switch (operationKind) {
+    case 'rewrite_block':
+      return l10n.settingsCloudInkOpRewriteBlock;
+    case 'summarize_selection':
+      return l10n.settingsCloudInkOpSummarizeSelection;
+    case 'extract_tasks':
+      return l10n.settingsCloudInkOpExtractTasks;
+    case 'summarize_page':
+      return l10n.settingsCloudInkOpSummarizePage;
+    case 'generate_insert':
+      return l10n.settingsCloudInkOpGenerateInsert;
+    case 'generate_page':
+      return l10n.settingsCloudInkOpGeneratePage;
+    case 'chat_turn':
+      return l10n.settingsCloudInkOpChatTurn;
+    case 'agent_main':
+      return l10n.settingsCloudInkOpAgentMain;
+    case 'agent_followup':
+      return l10n.settingsCloudInkOpAgentFollowup;
+    case 'edit_page_panel':
+      return l10n.settingsCloudInkOpEditPagePanel;
+    case 'default':
+      return l10n.settingsCloudInkOpDefault;
+    default:
+      return operationKind;
+  }
+}
+
 class SettingsPage extends StatefulWidget {
   const SettingsPage({
     super.key,
@@ -376,6 +408,7 @@ class _SettingsPageState extends State<SettingsPage> {
     }
 
     evaluateReleaseReadiness(
+      l10n: lookupAppLocalizations(_app.locale ?? const Locale('es')),
       installedVersionLabel: _installedVersionLabel,
       updateReleaseChannel: _app.updateReleaseChannel,
       activeVaultId: vaultId,
@@ -420,7 +453,7 @@ class _SettingsPageState extends State<SettingsPage> {
   /// Lista/descarga de copias en Storage: reautenticación con **cuenta Folio Cloud**, no libreta local.
   Future<bool> _verifyFolioCloudAccountForBackups() async {
     if (!_cloud.isAvailable || !_cloud.isSignedIn) {
-      _snack(_t('Inicia sesión en Folio Cloud.', 'Sign in to Folio Cloud.'));
+      _snack(AppLocalizations.of(context).settingsSignInFolioCloudSnack);
       return false;
     }
     if (!_cloud.canReauthenticateWithPassword) {
@@ -477,22 +510,15 @@ class _SettingsPageState extends State<SettingsPage> {
     }
   }
 
-  String _t(String es, String en) {
-    final isEs = Localizations.localeOf(
-      context,
-    ).languageCode.toLowerCase().startsWith('es');
-    return isEs ? es : en;
-  }
-
   Future<void> _revokeIntegrationApp(String appId) async {
     await _app.revokeIntegrationApp(appId);
-    _snack('App revocada: $appId');
+    _snack(AppLocalizations.of(context).settingsAppRevoked(appId));
   }
 
   String _formatLastSyncLabel() {
     final ms = _app.syncLastSuccessMs;
     if (ms <= 0) {
-      return _t('Aun sin sincronizar', 'Not synced yet');
+      return AppLocalizations.of(context).settingsNotSyncedYet;
     }
     final at = DateTime.fromMillisecondsSinceEpoch(ms).toLocal();
     String two(int value) => value.toString().padLeft(2, '0');
@@ -620,17 +646,15 @@ class _SettingsPageState extends State<SettingsPage> {
     final result = await showDialog<String>(
       context: context,
       builder: (ctx) {
+        final l10nD = AppLocalizations.of(ctx);
         return AlertDialog(
-          title: Text(_t('Nombre del dispositivo', 'Device name')),
+          title: Text(l10nD.settingsDeviceNameTitle),
           content: TextFormField(
             initialValue: draft,
             autofocus: true,
             maxLength: 40,
             decoration: InputDecoration(
-              hintText: _t(
-                'Ejemplo: Pixel de Alejandra',
-                'Example: Alejandra Pixel',
-              ),
+              hintText: l10nD.settingsDeviceNameHintExample,
             ),
             onChanged: (v) => draft = v,
             onFieldSubmitted: (_) => Navigator.of(ctx).pop(draft.trim()),
@@ -655,23 +679,13 @@ class _SettingsPageState extends State<SettingsPage> {
   void _activateEmojiPairingMode() {
     if (!_app.syncEnabled) return;
     _sync.generatePairingCode();
-    _snack(
-      _t(
-        'Modo vinculacion activado durante 2 minutos.',
-        'Pairing mode enabled for 2 minutes.',
-      ),
-    );
+    _snack(AppLocalizations.of(context).settingsPairingModeEnabledTwoMin);
   }
 
   Future<void> _submitPairingCodeDialog({SyncPeer? peer}) async {
     final targetPeer = peer;
     if (targetPeer == null) {
-      _snack(
-        _t(
-          'Primero activa el modo vinculacion y luego elige un dispositivo detectado.',
-          'First enable pairing mode and then choose a discovered device.',
-        ),
-      );
+      _snack(AppLocalizations.of(context).settingsPairingEnableModeFirst);
       return;
     }
     final l10nLink = AppLocalizations.of(context);
@@ -685,40 +699,28 @@ class _SettingsPageState extends State<SettingsPage> {
     }
     final sharedEmojis = _sync.sharedPairingEmojisForPeer(targetPeer);
     if (sharedEmojis.isEmpty) {
-      _snack(
-        _t(
-          'Activa el modo vinculacion en ambos dispositivos y espera a que aparezcan los mismos 3 emojis.',
-          'Enable pairing mode on both devices and wait until the same 3 emojis appear.',
-        ),
-      );
+      _snack(AppLocalizations.of(context).settingsPairingSameEmojisBothDevices);
       return;
     }
     final started = await _sync.submitEmojiPairingRequest(targetPeer);
     if (!started) {
       if (!mounted) return;
-      _snack(
-        _t(
-          'No se pudo iniciar la vinculacion. Activa el modo vinculacion en ambos dispositivos y espera a ver los mismos 3 emojis.',
-          'Could not start pairing. Enable pairing mode on both devices and wait until the same 3 emojis appear.',
-        ),
-      );
+      _snack(AppLocalizations.of(context).settingsPairingCouldNotStart);
       return;
     }
     if (!mounted) return;
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) {
+        final l10nP = AppLocalizations.of(ctx);
         return AlertDialog(
-          title: Text(_t('Confirmar vinculacion', 'Confirm pairing')),
+          title: Text(l10nP.settingsConfirmPairingTitle),
           content: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                _t(
-                  'Comprueba que en el otro dispositivo aparecen estos mismos 3 emojis:',
-                  'Check that the other device shows these same 3 emojis:',
-                ),
+                l10nP.settingsPairingCheckOtherDeviceEmojis,
               ),
               const SizedBox(height: 12),
               SelectableText(
@@ -729,10 +731,7 @@ class _SettingsPageState extends State<SettingsPage> {
               ),
               const SizedBox(height: 12),
               Text(
-                _t(
-                  'Este popup tambien aparecera en el otro dispositivo. Para completar el enlace, pulsa Vincular aqui y luego Vincular en el otro.',
-                  'This popup will also appear on the other device. To complete linking, press Link here and then Link on the other one.',
-                ),
+                l10nP.settingsPairingPopupInstructions,
               ),
             ],
           ),
@@ -746,7 +745,7 @@ class _SettingsPageState extends State<SettingsPage> {
             ),
             FilledButton(
               onPressed: () => Navigator.of(ctx).pop(true),
-              child: Text(_t('Vincular', 'Link')),
+              child: Text(l10nP.settingsLinkDevice),
             ),
           ],
         );
@@ -755,12 +754,7 @@ class _SettingsPageState extends State<SettingsPage> {
     if (confirmed != true) return;
     await _sync.confirmOutgoingPair(targetPeer.peerId);
     if (!mounted) return;
-    _snack(
-      _t(
-        'Confirmacion enviada. Falta que el otro dispositivo pulse Vincular en su popup.',
-        'Confirmation sent. The other device still needs to press Link in its popup.',
-      ),
-    );
+    _snack(AppLocalizations.of(context).settingsPairingConfirmationSent);
   }
 
   Future<void> _revokeSyncPeer(SyncPeer peer) async {
@@ -772,7 +766,7 @@ class _SettingsPageState extends State<SettingsPage> {
     if (!ok || !mounted) return;
     await _sync.revokePeer(peer.peerId);
     if (!mounted) return;
-    _snack(_t('Dispositivo revocado.', 'Device revoked.'));
+    _snack(AppLocalizations.of(context).settingsDeviceRevokedSnack);
   }
 
   String _formatSyncConflictTimestamp(int ms) {
@@ -791,8 +785,9 @@ class _SettingsPageState extends State<SettingsPage> {
     await showDialog<void>(
       context: context,
       builder: (ctx) {
+        final l10nC = AppLocalizations.of(ctx);
         return AlertDialog(
-          title: Text(_t('Resolver conflictos', 'Resolve conflicts')),
+          title: Text(l10nC.settingsResolveConflictsTitle),
           content: SizedBox(
             width: 560,
             child: ListenableBuilder(
@@ -801,10 +796,7 @@ class _SettingsPageState extends State<SettingsPage> {
                 final conflicts = _s.syncConflicts;
                 if (conflicts.isEmpty) {
                   return Text(
-                    _t(
-                      'No hay conflictos pendientes.',
-                      'There are no pending conflicts.',
-                    ),
+                    l10nC.settingsNoPendingConflicts,
                   );
                 }
                 return SingleChildScrollView(
@@ -812,9 +804,10 @@ class _SettingsPageState extends State<SettingsPage> {
                     mainAxisSize: MainAxisSize.min,
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: conflicts.map((conflict) {
-                      final subtitle = _t(
-                        'Origen: ${conflict.fromPeerId}\nPaginas remotas: ${conflict.remotePageCount}\nDetectado: ${_formatSyncConflictTimestamp(conflict.createdAtMs)}',
-                        'Source: ${conflict.fromPeerId}\nRemote pages: ${conflict.remotePageCount}\nDetected: ${_formatSyncConflictTimestamp(conflict.createdAtMs)}',
+                      final subtitle = l10nC.settingsSyncConflictCardSubtitle(
+                        conflict.fromPeerId,
+                        conflict.remotePageCount,
+                        _formatSyncConflictTimestamp(conflict.createdAtMs),
                       );
                       return Container(
                         margin: const EdgeInsets.only(bottom: 12),
@@ -834,10 +827,7 @@ class _SettingsPageState extends State<SettingsPage> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              _t(
-                                'Conflicto de sincronizacion',
-                                'Sync conflict',
-                              ),
+                              l10nC.settingsSyncConflictHeading,
                               style: Theme.of(context).textTheme.titleSmall
                                   ?.copyWith(fontWeight: FontWeight.w700),
                             ),
@@ -854,14 +844,13 @@ class _SettingsPageState extends State<SettingsPage> {
                                     );
                                     if (!mounted) return;
                                     _snack(
-                                      _t(
-                                        'Se conservo la version local.',
-                                        'Local version kept.',
-                                      ),
+                                      AppLocalizations.of(
+                                        context,
+                                      ).settingsLocalVersionKeptSnack,
                                     );
                                   },
                                   child: Text(
-                                    _t('Mantener local', 'Keep local'),
+                                    l10nC.settingsKeepLocal,
                                   ),
                                 ),
                                 const SizedBox(width: 8),
@@ -872,20 +861,15 @@ class _SettingsPageState extends State<SettingsPage> {
                                           conflict.id,
                                         );
                                     if (!mounted) return;
+                                    final loc = AppLocalizations.of(context);
                                     _snack(
                                       ok
-                                          ? _t(
-                                              'Se aplico la version remota.',
-                                              'Remote version applied.',
-                                            )
-                                          : _t(
-                                              'No se pudo aplicar la version remota.',
-                                              'Could not apply the remote version.',
-                                            ),
+                                          ? loc.settingsRemoteVersionAppliedSnack
+                                          : loc.settingsCouldNotApplyRemoteSnack,
                                     );
                                   },
                                   child: Text(
-                                    _t('Aceptar remota', 'Accept remote'),
+                                    l10nC.settingsAcceptRemote,
                                   ),
                                 ),
                               ],
@@ -902,7 +886,7 @@ class _SettingsPageState extends State<SettingsPage> {
           actions: [
             TextButton(
               onPressed: () => Navigator.of(ctx).pop(),
-              child: Text(_t('Cerrar', 'Close')),
+              child: Text(l10nC.settingsClose),
             ),
           ],
         );
@@ -913,9 +897,11 @@ class _SettingsPageState extends State<SettingsPage> {
   Future<void> _importCustomIconFromSource(String source) async {
     final raw = source.trim();
     if (raw.isEmpty || _importingCustomIcon) return;
+    final l10n = AppLocalizations.of(context);
     setState(() => _importingCustomIcon = true);
     try {
       final entry = await _customIconImportService.importFromSource(
+        l10n: l10n,
         source: raw,
         label: _customIconLabelController.text,
       );
@@ -923,9 +909,7 @@ class _SettingsPageState extends State<SettingsPage> {
       if (!mounted) return;
       _customIconSourceController.clear();
       _customIconLabelController.clear();
-      _snack(
-        _t('Icono importado correctamente.', 'Icon imported successfully.'),
-      );
+      _snack(l10n.customIconImportSucceeded);
     } catch (e) {
       if (!mounted) return;
       _snack('$e');
@@ -935,10 +919,11 @@ class _SettingsPageState extends State<SettingsPage> {
   }
 
   Future<void> _importCustomIconFromClipboard() async {
+    final l10n = AppLocalizations.of(context);
     final data = await Clipboard.getData(Clipboard.kTextPlain);
     final text = data?.text?.trim() ?? '';
     if (text.isEmpty) {
-      _snack(_t('El portapapeles está vacío.', 'Clipboard is empty.'));
+      _snack(l10n.customIconClipboardEmpty);
       return;
     }
     _customIconSourceController.text = text;
@@ -956,7 +941,7 @@ class _SettingsPageState extends State<SettingsPage> {
       // Ignorar: la referencia ya se eliminó de ajustes.
     }
     if (!mounted) return;
-    _snack(_t('Icono eliminado.', 'Icon removed.'));
+    _snack(AppLocalizations.of(context).customIconRemoved);
   }
 
   Future<bool> _vaultRequiresPassword(String vaultId) async {
@@ -1396,20 +1381,25 @@ class _SettingsPageState extends State<SettingsPage> {
         );
       case AiProvider.none:
       case AiProvider.quillCloud:
-        throw StateError('Selecciona un proveedor IA primero.');
+        throw StateError(
+          lookupAppLocalizations(_app.locale ?? const Locale('es'))
+              .settingsAiSelectProviderFirst,
+        );
     }
   }
 
   Future<void> _testAiConnection() async {
     await _saveAiFields();
+    if (!mounted) return;
+    final l10n = AppLocalizations.of(context);
     if (_app.aiProvider != AiProvider.quillCloud) {
-      final err = AiSafetyPolicy.validateEndpoint(
+      final err = AiSafetyPolicy.validateEndpointIssue(
         rawUrl: _app.aiBaseUrl,
         mode: _app.aiEndpointMode,
         remoteConfirmed: _app.aiRemoteEndpointConfirmed,
       );
       if (err != null) {
-        _snack(err);
+        _snack(err.localizedMessage(l10n));
         return;
       }
     }
@@ -1417,12 +1407,12 @@ class _SettingsPageState extends State<SettingsPage> {
       final service = _buildAiServiceFromInputs();
       await service.ping();
       await _loadAiModels();
-      _snack('Conexión IA OK');
+      _snack(l10n.settingsAiConnectionOk);
     } catch (e) {
       if (e is FolioCloudAiException) {
         _snack(e.message);
       } else {
-        _snack('Error de conexión: $e');
+        _snack(l10n.settingsAiConnectionError('$e'));
       }
     }
   }
@@ -1445,7 +1435,7 @@ class _SettingsPageState extends State<SettingsPage> {
       }
     } catch (e) {
       if (!mounted) return;
-      _snack('No se pudieron listar modelos: $e');
+      _snack(AppLocalizations.of(context).settingsAiListModelsFailed('$e'));
     } finally {
       if (mounted) {
         setState(() => _loadingModels = false);
@@ -1455,16 +1445,12 @@ class _SettingsPageState extends State<SettingsPage> {
 
   Future<void> _syncFolioStripeSubscription() async {
     if (_folioCloudActionBusy) return;
+    final l10n = AppLocalizations.of(context);
     setState(() => _folioCloudActionBusy = true);
     try {
       await _folio.refreshSubscriptionFromStripe();
       if (!mounted) return;
-      _snack(
-        _t(
-          'Estado de suscripción actualizado.',
-          'Subscription status refreshed.',
-        ),
-      );
+      _snack(l10n.settingsStripeSubscriptionRefreshed);
     } catch (e) {
       if (!mounted) return;
       _snack('$e');
@@ -1475,21 +1461,17 @@ class _SettingsPageState extends State<SettingsPage> {
 
   Future<void> _openFolioBillingPortal() async {
     if (_folioCloudActionBusy) return;
+    final l10n = AppLocalizations.of(context);
     setState(() => _folioCloudActionBusy = true);
     try {
       final uri = await createBillingPortalUri();
       if (uri == null) {
-        _snack(
-          _t(
-            'Portal de facturación no disponible.',
-            'Billing portal unavailable.',
-          ),
-        );
+        _snack(l10n.settingsStripeBillingPortalUnavailable);
         return;
       }
       final ok = await launchUrl(uri, mode: LaunchMode.externalApplication);
       if (!ok) {
-        _snack(_t('No se pudo abrir el enlace.', 'Could not open the link.'));
+        _snack(l10n.settingsCouldNotOpenLink);
       }
     } catch (e) {
       _snack('$e');
@@ -1605,35 +1587,6 @@ class _SettingsPageState extends State<SettingsPage> {
     );
   }
 
-  String _cloudInkOperationLabel(String operationKind) {
-    switch (operationKind) {
-      case 'rewrite_block':
-        return _t('Reescribir bloque', 'Rewrite block');
-      case 'summarize_selection':
-        return _t('Resumir seleccion', 'Summarize selection');
-      case 'extract_tasks':
-        return _t('Extraer tareas', 'Extract tasks');
-      case 'summarize_page':
-        return _t('Resumir pagina', 'Summarize page');
-      case 'generate_insert':
-        return _t('Generar insercion', 'Generate insert');
-      case 'generate_page':
-        return _t('Generar pagina', 'Generate page');
-      case 'chat_turn':
-        return _t('Turno de chat', 'Chat turn');
-      case 'agent_main':
-        return _t('Ejecucion de agente', 'Agent main run');
-      case 'agent_followup':
-        return _t('Seguimiento de agente', 'Agent follow-up');
-      case 'edit_page_panel':
-        return _t('Edicion de pagina (panel)', 'Page edit panel');
-      case 'default':
-        return _t('Operacion por defecto', 'Fallback operation');
-      default:
-        return operationKind;
-    }
-  }
-
   Future<void> _showCloudInkPricingTableDialog() {
     const preferredOrder = <String>[
       'rewrite_block',
@@ -1652,15 +1605,11 @@ class _SettingsPageState extends State<SettingsPage> {
     return showDialog<void>(
       context: context,
       builder: (ctx) {
+        final l10n = AppLocalizations.of(ctx);
         final theme = Theme.of(ctx);
         final dialogScheme = theme.colorScheme;
         return FolioDialog(
-          title: Text(
-            _t(
-              'Tabla de consumo de gotas (OpenAI)',
-              'Ink usage table (OpenAI)',
-            ),
-          ),
+          title: Text(l10n.settingsCloudInkUsageTableTitle),
           content: SizedBox(
             width: 540,
             child: FutureBuilder<FolioCloudAiPricingSnapshot>(
@@ -1692,10 +1641,7 @@ class _SettingsPageState extends State<SettingsPage> {
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
                       Text(
-                        _t(
-                          'Coste base por accion. Se pueden aplicar suplementos por prompts largos y por tokens de salida.',
-                          'Base cost per action. Extra surcharges may apply for long prompts and output token usage.',
-                        ),
+                        l10n.settingsCloudInkUsageTableIntro,
                         style: theme.textTheme.bodySmall?.copyWith(
                           color: dialogScheme.onSurfaceVariant,
                           height: 1.35,
@@ -1704,7 +1650,10 @@ class _SettingsPageState extends State<SettingsPage> {
                       const SizedBox(height: 10),
                       ...orderedKeys.map((operation) {
                         final drops = pricing.costForOperation(operation);
-                        final label = _cloudInkOperationLabel(operation);
+                        final label = settingsCloudInkOperationLabel(
+                          l10n,
+                          operation,
+                        );
                         return Padding(
                           padding: const EdgeInsets.only(bottom: 8),
                           child: Container(
@@ -1757,7 +1706,7 @@ class _SettingsPageState extends State<SettingsPage> {
                                 ),
                                 const SizedBox(width: 4),
                                 Text(
-                                  _t('gotas', 'drops'),
+                                  l10n.settingsCloudInkDrops,
                                   style: theme.textTheme.bodySmall?.copyWith(
                                     color: dialogScheme.onSurfaceVariant,
                                   ),
@@ -1776,7 +1725,7 @@ class _SettingsPageState extends State<SettingsPage> {
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(ctx),
-              child: Text(_t('Cerrar', 'Close')),
+              child: Text(l10n.settingsClose),
             ),
           ],
         );
@@ -1786,21 +1735,17 @@ class _SettingsPageState extends State<SettingsPage> {
 
   Future<void> _openFolioCheckout(FolioCheckoutKind kind) async {
     if (_folioCloudActionBusy) return;
+    final l10n = AppLocalizations.of(context);
     setState(() => _folioCloudActionBusy = true);
     try {
       final uri = await createFolioCheckoutUri(kind);
       if (uri == null) {
-        _snack(
-          _t(
-            'Pago no disponible (configura Stripe en el servidor).',
-            'Checkout unavailable (configure Stripe on server).',
-          ),
-        );
+        _snack(l10n.settingsStripeCheckoutUnavailable);
         return;
       }
       final ok = await launchUrl(uri, mode: LaunchMode.externalApplication);
       if (!ok) {
-        _snack(_t('No se pudo abrir el enlace.', 'Could not open the link.'));
+        _snack(l10n.settingsCouldNotOpenLink);
       } else {
         _folio.scheduleStripeSyncOnNextResume();
       }
@@ -1814,19 +1759,15 @@ class _SettingsPageState extends State<SettingsPage> {
   Future<void> _uploadFolioCloudBackup() async {
     if (_folioCloudActionBusy) return;
     if (_s.state != VaultFlowState.unlocked) return;
+    final l10n = AppLocalizations.of(context);
     final vaultId = _s.activeVaultId;
     if (vaultId == null || vaultId.trim().isEmpty) {
-      _snack(_t('No hay libreta activa.', 'No active vault.'));
+      _snack(l10n.settingsNoActiveVault);
       return;
     }
     final snap = _folio.snapshot;
     if (!snap.canUseCloudBackup) {
-      _snack(
-        _t(
-          'Activa Folio Cloud con la función de copia en la nube incluida en tu plan.',
-          'Enable Folio Cloud with the cloud backup feature included in your plan.',
-        ),
-      );
+      _snack(l10n.settingsCloudBackupEnablePlanSnack);
       return;
     }
     setState(() => _folioCloudActionBusy = true);
@@ -1894,19 +1835,15 @@ class _SettingsPageState extends State<SettingsPage> {
 
   Future<void> _openFolioCloudBackupsDialog() async {
     if (_folioCloudActionBusy) return;
+    final dlgL10n = AppLocalizations.of(context);
     final vaultId = _s.activeVaultId;
     if (vaultId == null || vaultId.trim().isEmpty) {
-      _snack(_t('No hay libreta activa.', 'No active vault.'));
+      _snack(dlgL10n.settingsNoActiveVault);
       return;
     }
     final snap = _folio.snapshot;
     if (!snap.canUseCloudBackup) {
-      _snack(
-        _t(
-          'Necesitas Folio Cloud activo con copia en la nube.',
-          'You need an active Folio Cloud plan with cloud backup.',
-        ),
-      );
+      _snack(dlgL10n.settingsCloudBackupsNeedPlan);
       return;
     }
     final verified = await _verifyFolioCloudAccountForBackups();
@@ -1932,21 +1869,11 @@ class _SettingsPageState extends State<SettingsPage> {
     await showDialog<void>(
       context: context,
       builder: (ctx) => FolioDialog(
-        title: Text(
-          _t(
-            'Copias en la nube (${entries.length}/10)',
-            'Cloud backups (${entries.length}/10)',
-          ),
-        ),
+        title: Text(l10n.settingsCloudBackupsDialogTitle(entries.length)),
         content: SizedBox(
           width: 420,
           child: entries.isEmpty
-              ? Text(
-                  _t(
-                    'Aún no hay copias en esta cuenta.',
-                    'No backups in this account yet.',
-                  ),
-                )
+              ? Text(l10n.settingsCloudBackupsEmpty)
               : ConstrainedBox(
                   constraints: const BoxConstraints(maxHeight: 360),
                   child: ListView.builder(
@@ -1960,11 +1887,11 @@ class _SettingsPageState extends State<SettingsPage> {
                           style: const TextStyle(fontFamily: 'monospace'),
                         ),
                         trailing: IconButton(
-                          tooltip: _t('Descargar', 'Download'),
+                          tooltip: l10n.settingsCloudBackupDownloadTooltip,
                           icon: const Icon(Icons.download_outlined),
                           onPressed: () async {
                             final path = await FilePicker.platform.saveFile(
-                              dialogTitle: _t('Guardar copia', 'Save backup'),
+                              dialogTitle: l10n.settingsCloudBackupSaveDialogTitle,
                               fileName: e.fileName,
                             );
                             if (path == null || !ctx.mounted) return;
@@ -1977,9 +1904,7 @@ class _SettingsPageState extends State<SettingsPage> {
                               if (!ctx.mounted) return;
                               Navigator.pop(ctx);
                               if (mounted) {
-                                _snack(
-                                  _t('Copia descargada.', 'Backup downloaded.'),
-                                );
+                                _snack(l10n.settingsCloudBackupDownloadedSnack);
                                 setState(
                                   () => _cloudBackupCount = entries.length,
                                 );
@@ -2010,14 +1935,10 @@ class _SettingsPageState extends State<SettingsPage> {
 
   Future<void> _openPublishedPagesDialog() async {
     if (_folioCloudActionBusy) return;
+    final l10nEarly = AppLocalizations.of(context);
     final snap = _folio.snapshot;
     if (!snap.canPublishToWeb) {
-      _snack(
-        _t(
-          'Necesitas Folio Cloud con publicación web activa.',
-          'You need Folio Cloud with web publishing enabled.',
-        ),
-      );
+      _snack(l10nEarly.settingsPublishedRequiresPlan);
       return;
     }
     setState(() => _folioCloudActionBusy = true);
@@ -2033,19 +1954,15 @@ class _SettingsPageState extends State<SettingsPage> {
     }
     if (!mounted) return;
     setState(() => _folioCloudActionBusy = false);
+    final l10n = AppLocalizations.of(context);
     await showDialog<void>(
       context: context,
       builder: (ctx) => FolioDialog(
-        title: Text(_t('Páginas publicadas', 'Published pages')),
+        title: Text(l10n.settingsPublishedPagesTitle),
         content: SizedBox(
           width: 440,
           child: entries.isEmpty
-              ? Text(
-                  _t(
-                    'Aún no hay páginas publicadas.',
-                    'No published pages yet.',
-                  ),
-                )
+              ? Text(l10n.settingsPublishedPagesEmpty)
               : ConstrainedBox(
                   constraints: const BoxConstraints(maxHeight: 400),
                   child: ListView.builder(
@@ -2073,7 +1990,7 @@ class _SettingsPageState extends State<SettingsPage> {
                           mainAxisSize: MainAxisSize.min,
                           children: [
                             IconButton(
-                              tooltip: _t('Abrir', 'Open'),
+                              tooltip: l10n.open,
                               icon: const Icon(Icons.open_in_new_outlined),
                               onPressed: () async {
                                 final u = Uri.tryParse(e.publicUrl);
@@ -2086,7 +2003,7 @@ class _SettingsPageState extends State<SettingsPage> {
                               },
                             ),
                             IconButton(
-                              tooltip: _t('Eliminar', 'Delete'),
+                              tooltip: l10n.delete,
                               icon: Icon(
                                 Icons.delete_outline_rounded,
                                 color: Theme.of(ctx).colorScheme.error,
@@ -2096,16 +2013,10 @@ class _SettingsPageState extends State<SettingsPage> {
                                   context: ctx,
                                   builder: (dCtx) => AlertDialog(
                                     title: Text(
-                                      _t(
-                                        '¿Eliminar publicación?',
-                                        'Remove publication?',
-                                      ),
+                                      l10n.settingsPublishedDeleteDialogTitle,
                                     ),
                                     content: Text(
-                                      _t(
-                                        'Se borrará el HTML público y el enlace dejará de funcionar.',
-                                        'The public HTML will be removed and the link will stop working.',
-                                      ),
+                                      l10n.settingsPublishedDeleteDialogBody,
                                     ),
                                     actions: [
                                       TextButton(
@@ -2120,7 +2031,7 @@ class _SettingsPageState extends State<SettingsPage> {
                                       FilledButton(
                                         onPressed: () =>
                                             Navigator.pop(dCtx, true),
-                                        child: Text(_t('Eliminar', 'Delete')),
+                                        child: Text(l10n.delete),
                                       ),
                                     ],
                                   ),
@@ -2134,9 +2045,7 @@ class _SettingsPageState extends State<SettingsPage> {
                                   if (!ctx.mounted) return;
                                   Navigator.pop(ctx);
                                   if (mounted) {
-                                    _snack(
-                                      _t('Publicación eliminada.', 'Removed.'),
-                                    );
+                                    _snack(l10n.settingsPublishedRemovedSnack);
                                   }
                                 } catch (err) {
                                   if (ctx.mounted) {
@@ -2157,7 +2066,7 @@ class _SettingsPageState extends State<SettingsPage> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
-            child: Text(_t('Cerrar', 'Close')),
+            child: Text(l10n.settingsClose),
           ),
         ],
       ),
@@ -2469,6 +2378,7 @@ class _SettingsPageState extends State<SettingsPage> {
 
   Future<void> _checkUpdatesNow() async {
     if (_checkingUpdates) return;
+    final l10n = AppLocalizations.of(context);
     setState(() => _checkingUpdates = true);
     try {
       final updater = _buildUpdater();
@@ -2477,42 +2387,44 @@ class _SettingsPageState extends State<SettingsPage> {
       );
       if (!mounted) return;
       if (!result.supportedPlatform) {
-        _snack(
-          'El actualizador integrado solo está disponible en Windows y Android.',
-        );
+        _snack(l10n.updaterManualCheckUnsupportedPlatform);
         return;
       }
       if (!result.hasUpdate) {
         final r = result.reason;
         _snack(
-          r != null && r.isNotEmpty ? r : 'Ya tienes la versión más reciente.',
+          r != null && r.isNotEmpty ? r : l10n.updaterManualCheckAlreadyLatest,
         );
         return;
       }
       final betaNote = result.isPrerelease
-          ? '\n\nEsta es una versión beta (pre-release).'
+          ? '\n\n${l10n.updaterStartupDialogBetaNote}'
           : '';
+      final question = Platform.isAndroid
+          ? l10n.updaterOpenApkDownloadQuestion
+          : l10n.updaterStartupDialogQuestion;
+      final newVer = result.releaseVersion ?? result.currentVersion;
+      final updateDialogBody =
+          '${l10n.updaterDialogLineCurrentVersion(result.currentVersion.toString())}\n'
+          '${l10n.updaterDialogLineNewVersion(newVer.toString())}$betaNote\n\n'
+          '$question';
       final go = await showDialog<bool>(
         context: context,
         builder: (ctx) => FolioDialog(
           title: Text(
             result.isPrerelease
-                ? 'Beta disponible'
-                : 'Actualización disponible',
+                ? l10n.updaterStartupDialogTitleBeta
+                : l10n.updaterStartupDialogTitleStable,
           ),
-          content: Text(
-            'Versión actual: ${result.currentVersion}\n'
-            'Nueva versión: ${result.releaseVersion}$betaNote\n\n'
-            '${Platform.isAndroid ? '¿Abrir descarga del APK ahora?' : '¿Descargar e instalar ahora?'}',
-          ),
+          content: Text(updateDialogBody),
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(ctx, false),
-              child: const Text('Más tarde'),
+              child: Text(l10n.updaterStartupDialogLater),
             ),
             FilledButton(
               onPressed: () => Navigator.pop(ctx, true),
-              child: const Text('Actualizar ahora'),
+              child: Text(l10n.updaterStartupDialogUpdateNow),
             ),
           ],
         ),
@@ -2522,7 +2434,7 @@ class _SettingsPageState extends State<SettingsPage> {
         final raw = result.installerUrl ?? '';
         final uri = Uri.tryParse(raw);
         if (uri == null) {
-          _snack('No se encontró URL válida del APK en el release.');
+          _snack(l10n.updaterApkUrlInvalidSnack);
           return;
         }
         final opened = await launchUrl(
@@ -2530,7 +2442,7 @@ class _SettingsPageState extends State<SettingsPage> {
           mode: LaunchMode.externalApplication,
         );
         if (!opened) {
-          _snack('No se pudo abrir la descarga del APK.');
+          _snack(l10n.updaterApkOpenFailedSnack);
         }
         return;
       }
@@ -2538,7 +2450,7 @@ class _SettingsPageState extends State<SettingsPage> {
       await updater.launchInstallerAndExit(installer);
     } catch (e) {
       if (!mounted) return;
-      _snack('No se pudo actualizar: $e');
+      _snack(l10n.settingsUpdateFailed('$e'));
     } finally {
       if (mounted) setState(() => _checkingUpdates = false);
     }
@@ -2546,18 +2458,14 @@ class _SettingsPageState extends State<SettingsPage> {
 
   Future<void> _openReleaseNotesNow() async {
     if (_openingReleaseNotes) return;
+    final l10nRn = AppLocalizations.of(context);
     setState(() => _openingReleaseNotes = true);
     try {
       final info = await PackageInfo.fromPlatform();
       final appVersion = info.version.trim();
       final buildNumber = info.buildNumber.trim();
       if (appVersion.isEmpty) {
-        _snack(
-          _t(
-            'No se pudo leer la versión instalada.',
-            'Could not read installed version.',
-          ),
-        );
+        _snack(l10nRn.settingsCouldNotReadInstalledVersion);
         return;
       }
       final versionLabel = buildNumber.isEmpty
@@ -2593,12 +2501,7 @@ class _SettingsPageState extends State<SettingsPage> {
       await _app.setLastSeenReleaseNotesVersion(versionLabel);
     } catch (e) {
       if (!mounted) return;
-      _snack(
-        _t(
-          'No se pudieron abrir las notas de versión: $e',
-          'Could not open release notes: $e',
-        ),
-      );
+      _snack(l10nRn.settingsCouldNotOpenReleaseNotes('$e'));
     } finally {
       if (mounted) setState(() => _openingReleaseNotes = false);
     }
@@ -2645,7 +2548,7 @@ class _SettingsPageState extends State<SettingsPage> {
         _SettingsSectionNavItem(id: _SettingsSectionId.ai, label: l10n.ai),
       _SettingsSectionNavItem(
         id: _SettingsSectionId.sync,
-        label: _t('Sincronizacion', 'Device sync'),
+        label: l10n.settingsSectionDeviceSyncNav,
       ),
       _SettingsSectionNavItem(id: _SettingsSectionId.about, label: l10n.about),
       _SettingsSectionNavItem(id: _SettingsSectionId.data, label: l10n.data),
@@ -3116,10 +3019,9 @@ class _SettingsPageState extends State<SettingsPage> {
                                                       ).showSnackBar(
                                                         SnackBar(
                                                           content: Text(
-                                                            _t(
-                                                              'Sesión cerrada',
-                                                              'Signed out',
-                                                            ),
+                                                            AppLocalizations.of(
+                                                              context,
+                                                            ).settingsSessionEndedSnack,
                                                           ),
                                                         ),
                                                       );
@@ -3415,8 +3317,10 @@ class _SettingsPageState extends State<SettingsPage> {
                                                   panelL10n
                                                       .folioWebEntitlementWebPlan(
                                                         webSnap.folioCloud!
-                                                            ? _t('Sí', 'Yes')
-                                                            : _t('No', 'No'),
+                                                            ? panelL10n
+                                                                .settingsLabelYes
+                                                            : panelL10n
+                                                                .settingsLabelNo,
                                                       ),
                                                   style: Theme.of(context)
                                                       .textTheme
@@ -3559,10 +3463,8 @@ class _SettingsPageState extends State<SettingsPage> {
                                 _SettingsPanelHeroCard(
                                   icon: Icons.shield_outlined,
                                   title: l10n.security,
-                                  description: _t(
-                                    'Desbloqueo rápido, passkey, bloqueo automático y contraseña maestra del vault cifrado.',
-                                    'Quick unlock, passkey, auto-lock, and master password for your encrypted vault.',
-                                  ),
+                                  description:
+                                      l10n.settingsSecurityEncryptedHeroDescription,
                                   chips: [
                                     _SettingsInfoChip(
                                       icon: Icons.fingerprint,
@@ -3739,25 +3641,18 @@ class _SettingsPageState extends State<SettingsPage> {
                               children: [
                                 _SettingsPanelHeroCard(
                                   icon: Icons.lock_open_rounded,
-                                  title: _t(
-                                    'Vault sin cifrar',
-                                    'Unencrypted vault',
-                                  ),
+                                  title: l10n.settingsUnencryptedVaultTitle,
                                   description: l10n.plainVaultSecurityNotice,
                                   chips: [
                                     _SettingsInfoChip(
                                       icon: Icons.folder_open_outlined,
-                                      label: _t(
-                                        'Datos en disco',
-                                        'Data on disk',
-                                      ),
+                                      label: l10n
+                                          .settingsUnencryptedVaultChipDataOnDisk,
                                     ),
                                     _SettingsInfoChip(
                                       icon: Icons.enhanced_encryption_outlined,
-                                      label: _t(
-                                        'Cifrado disponible',
-                                        'Encryption available',
-                                      ),
+                                      label: l10n
+                                          .settingsUnencryptedVaultChipEncryptionAvailable,
                                     ),
                                   ],
                                 ),
@@ -4033,22 +3928,20 @@ class _SettingsPageState extends State<SettingsPage> {
                                 chips: [
                                   _SettingsInfoChip(
                                     icon: Icons.brightness_auto,
-                                    label: _t('Tema', 'Theme'),
+                                    label: l10n.settingsAppearanceChipTheme,
                                   ),
                                   _SettingsInfoChip(
                                     icon: Icons.zoom_in_rounded,
-                                    label: _t('Zoom', 'Zoom'),
+                                    label: l10n.settingsAppearanceChipZoom,
                                   ),
                                   _SettingsInfoChip(
                                     icon: Icons.translate_rounded,
-                                    label: _t('Idioma', 'Language'),
+                                    label: l10n.settingsAppearanceChipLanguage,
                                   ),
                                   _SettingsInfoChip(
                                     icon: Icons.edit_outlined,
-                                    label: _t(
-                                      'Editor y espacio',
-                                      'Editor & workspace',
-                                    ),
+                                    label:
+                                        l10n.settingsAppearanceChipEditorWorkspace,
                                   ),
                                 ],
                               ),
@@ -4095,16 +3988,10 @@ class _SettingsPageState extends State<SettingsPage> {
                               SwitchListTile(
                                 secondary: const Icon(Icons.desktop_windows),
                                 title: Text(
-                                  _t(
-                                    'Seguir escala de Windows',
-                                    'Follow Windows scale',
-                                  ),
+                                  l10n.settingsWindowsScaleFollowTitle,
                                 ),
                                 subtitle: Text(
-                                  _t(
-                                    'Usa automáticamente la escala del sistema en Windows.',
-                                    'Automatically use system scale on Windows.',
-                                  ),
+                                  l10n.settingsWindowsScaleFollowSubtitle,
                                 ),
                                 value:
                                     _app.uiScaleMode ==
@@ -4126,13 +4013,10 @@ class _SettingsPageState extends State<SettingsPage> {
                               ListTile(
                                 leading: const Icon(Icons.zoom_in_rounded),
                                 title: Text(
-                                  _t('Zoom de la interfaz', 'Interface zoom'),
+                                  l10n.settingsInterfaceZoomTitle,
                                 ),
                                 subtitle: Text(
-                                  _t(
-                                    'Aumenta o reduce el tamaño general de la app.',
-                                    'Increase or reduce the overall app size.',
-                                  ),
+                                  l10n.settingsInterfaceZoomSubtitle,
                                 ),
                                 enabled: _app.uiScaleMode == UiScaleMode.manual,
                                 trailing: Text(
@@ -4192,7 +4076,7 @@ class _SettingsPageState extends State<SettingsPage> {
                                       );
                                     },
                                     icon: const Icon(Icons.refresh_rounded),
-                                    label: Text(_t('Restablecer', 'Reset')),
+                                    label: Text(l10n.settingsUiZoomReset),
                                   ),
                                 ),
                               ),
@@ -4257,20 +4141,17 @@ class _SettingsPageState extends State<SettingsPage> {
                                 ),
                               ),
                               _SettingsSubsectionTitle(
-                                title: _t('Editor', 'Editor'),
+                                title: l10n.settingsEditorSubsection,
                                 scheme: scheme,
                               ),
                               const Divider(height: 1),
                               ListTile(
                                 leading: const Icon(Icons.width_full_rounded),
                                 title: Text(
-                                  _t('Ancho del contenido', 'Content width'),
+                                  l10n.settingsEditorContentWidthTitle,
                                 ),
                                 subtitle: Text(
-                                  _t(
-                                    'Define cuánto ancho ocupan los bloques en el editor.',
-                                    'Controls how wide blocks appear in the editor.',
-                                  ),
+                                  l10n.settingsEditorContentWidthSubtitle,
                                 ),
                                 trailing: Text(
                                   '${_app.editorContentWidth.round()} px',
@@ -4309,27 +4190,20 @@ class _SettingsPageState extends State<SettingsPage> {
                               SwitchListTile(
                                 secondary: const Icon(Icons.keyboard_return),
                                 title: Text(
-                                  _t(
-                                    'Enter crea un bloque nuevo',
-                                    'Enter creates a new block',
-                                  ),
+                                  l10n.settingsEnterCreatesNewBlockTitle,
                                 ),
                                 subtitle: Text(
                                   _app.enterCreatesNewBlock
-                                      ? _t(
-                                          'Desactiva para que Enter inserte salto de línea.',
-                                          'Disable to make Enter insert a line break.',
-                                        )
-                                      : _t(
-                                          'Ahora Enter inserta salto de línea. Usa Shift+Enter igual.',
-                                          'Enter now inserts a line break. Shift+Enter still works.',
-                                        ),
+                                      ? l10n
+                                          .settingsEnterCreatesNewBlockSubtitleWhenEnabled
+                                      : l10n
+                                          .settingsEnterCreatesNewBlockSubtitleWhenDisabled,
                                 ),
                                 value: _app.enterCreatesNewBlock,
                                 onChanged: _app.setEnterCreatesNewBlock,
                               ),
                               _SettingsSubsectionTitle(
-                                title: _t('Espacio de trabajo', 'Workspace'),
+                                title: l10n.settingsWorkspaceSubsection,
                                 scheme: scheme,
                               ),
                               const Divider(height: 1),
@@ -4353,14 +4227,8 @@ class _SettingsPageState extends State<SettingsPage> {
                             children: [
                               _SettingsPanelHeroCard(
                                 icon: Icons.emoji_symbols_rounded,
-                                title: _t(
-                                  'Iconos personalizados',
-                                  'Custom icons',
-                                ),
-                                description: _t(
-                                  'Importa una URL PNG, GIF o WebP, o un data:image compatible copiado desde páginas como notionicons.so. Después podrás usarlo como icono de página o de callout.',
-                                  'Import a PNG, GIF, or WebP URL, or a compatible data:image copied from sites like notionicons.so. You can then use it as a page or callout icon.',
-                                ),
+                                title: l10n.settingsCustomIconsTitle,
+                                description: l10n.settingsCustomIconsDescription,
                                 trailingBadge: Container(
                                   padding: const EdgeInsets.symmetric(
                                     horizontal: 10,
@@ -4371,9 +4239,8 @@ class _SettingsPageState extends State<SettingsPage> {
                                     borderRadius: BorderRadius.circular(999),
                                   ),
                                   child: Text(
-                                    _t(
-                                      '${_app.customIcons.length} guardados',
-                                      '${_app.customIcons.length} saved',
+                                    l10n.settingsCustomIconsSavedCount(
+                                      _app.customIcons.length,
                                     ),
                                     style: Theme.of(context)
                                         .textTheme
@@ -4387,21 +4254,15 @@ class _SettingsPageState extends State<SettingsPage> {
                                 chips: [
                                   _SettingsInfoChip(
                                     icon: Icons.link_rounded,
-                                    label: _t(
-                                      'URL PNG, GIF o WebP',
-                                      'PNG, GIF, or WebP URL',
-                                    ),
+                                    label: l10n.settingsCustomIconsChipUrl,
                                   ),
                                   _SettingsInfoChip(
                                     icon: Icons.code_rounded,
-                                    label: 'data:image/*',
+                                    label: l10n.settingsCustomIconsChipDataImage,
                                   ),
                                   _SettingsInfoChip(
                                     icon: Icons.content_paste_rounded,
-                                    label: _t(
-                                      'Pegar desde portapapeles',
-                                      'Paste from clipboard',
-                                    ),
+                                    label: l10n.settingsCustomIconsChipPaste,
                                   ),
                                 ],
                               ),
@@ -4429,10 +4290,7 @@ class _SettingsPageState extends State<SettingsPage> {
                                         CrossAxisAlignment.stretch,
                                     children: [
                                       Text(
-                                        _t(
-                                          'Importar nuevo icono',
-                                          'Import new icon',
-                                        ),
+                                        l10n.settingsCustomIconsImportTitle,
                                         style: Theme.of(context)
                                             .textTheme
                                             .titleSmall
@@ -4442,10 +4300,7 @@ class _SettingsPageState extends State<SettingsPage> {
                                       ),
                                       const SizedBox(height: 6),
                                       Text(
-                                        _t(
-                                          'Puedes ponerle nombre y pegar la fuente manualmente o traerla directamente desde el portapapeles.',
-                                          'You can give it a name and paste the source manually or bring it directly from the clipboard.',
-                                        ),
+                                        l10n.settingsCustomIconsImportSubtitle,
                                         style: Theme.of(context)
                                             .textTheme
                                             .bodySmall
@@ -4458,8 +4313,10 @@ class _SettingsPageState extends State<SettingsPage> {
                                       TextField(
                                         controller: _customIconLabelController,
                                         decoration: InputDecoration(
-                                          labelText: _t('Nombre', 'Name'),
-                                          hintText: _t('Opcional', 'Optional'),
+                                          labelText:
+                                              l10n.settingsCustomIconsFieldNameLabel,
+                                          hintText:
+                                              l10n.settingsCustomIconsFieldNameHint,
                                           prefixIcon: const Icon(
                                             Icons.edit_outlined,
                                           ),
@@ -4471,12 +4328,10 @@ class _SettingsPageState extends State<SettingsPage> {
                                         minLines: 3,
                                         maxLines: 5,
                                         decoration: InputDecoration(
-                                          labelText: _t(
-                                            'URL o data:image',
-                                            'URL or data:image',
-                                          ),
-                                          hintText:
-                                              'https://...gif | ...webp | ...png o data:image/...',
+                                          labelText: l10n
+                                              .settingsCustomIconsFieldSourceLabel,
+                                          hintText: l10n
+                                              .settingsCustomIconsFieldSourceHint,
                                           alignLabelWithHint: true,
                                           prefixIcon: const Padding(
                                             padding: EdgeInsets.only(
@@ -4514,10 +4369,7 @@ class _SettingsPageState extends State<SettingsPage> {
                                                       Icons.download_rounded,
                                                     ),
                                               label: Text(
-                                                _t(
-                                                  'Importar icono',
-                                                  'Import icon',
-                                                ),
+                                                l10n.settingsCustomIconsImportButton,
                                               ),
                                             ),
                                           ),
@@ -4531,10 +4383,7 @@ class _SettingsPageState extends State<SettingsPage> {
                                                 Icons.content_paste_rounded,
                                               ),
                                               label: Text(
-                                                _t(
-                                                  'Desde portapapeles',
-                                                  'From clipboard',
-                                                ),
+                                                l10n.settingsCustomIconsFromClipboard,
                                               ),
                                             ),
                                           ),
@@ -4554,7 +4403,7 @@ class _SettingsPageState extends State<SettingsPage> {
                                 child: Row(
                                   children: [
                                     Text(
-                                      _t('Biblioteca', 'Library'),
+                                      l10n.settingsCustomIconsLibraryTitle,
                                       style: Theme.of(context)
                                           .textTheme
                                           .titleSmall
@@ -4564,10 +4413,7 @@ class _SettingsPageState extends State<SettingsPage> {
                                     ),
                                     const SizedBox(width: 8),
                                     Text(
-                                      _t(
-                                        'Listos para usar en toda la app',
-                                        'Ready to use across the app',
-                                      ),
+                                      l10n.settingsCustomIconsLibrarySubtitle,
                                       style: Theme.of(context)
                                           .textTheme
                                           .bodySmall
@@ -4616,10 +4462,7 @@ class _SettingsPageState extends State<SettingsPage> {
                                         const SizedBox(width: 12),
                                         Expanded(
                                           child: Text(
-                                            _t(
-                                              'Todavía no has importado iconos.',
-                                              'No icons imported yet.',
-                                            ),
+                                            l10n.settingsCustomIconsEmpty,
                                             style: Theme.of(context)
                                                 .textTheme
                                                 .bodySmall
@@ -4686,10 +4529,8 @@ class _SettingsPageState extends State<SettingsPage> {
                                                 ),
                                                 const Spacer(),
                                                 IconButton(
-                                                  tooltip: _t(
-                                                    'Eliminar icono',
-                                                    'Delete icon',
-                                                  ),
+                                                  tooltip: l10n
+                                                      .settingsCustomIconsDeleteTooltip,
                                                   onPressed: () =>
                                                       _removeCustomIcon(entry),
                                                   icon: const Icon(
@@ -4739,10 +4580,8 @@ class _SettingsPageState extends State<SettingsPage> {
                                                     return;
                                                   }
                                                   _snack(
-                                                    _t(
-                                                      'Referencia copiada.',
-                                                      'Reference copied.',
-                                                    ),
+                                                    l10n
+                                                        .settingsCustomIconsReferenceCopiedSnack,
                                                   );
                                                 },
                                                 icon: const Icon(
@@ -4750,10 +4589,7 @@ class _SettingsPageState extends State<SettingsPage> {
                                                   size: 18,
                                                 ),
                                                 label: Text(
-                                                  _t(
-                                                    'Copiar token',
-                                                    'Copy token',
-                                                  ),
+                                                  l10n.settingsCustomIconsCopyToken,
                                                 ),
                                               ),
                                             ),
@@ -4779,29 +4615,17 @@ class _SettingsPageState extends State<SettingsPage> {
                                   description:
                                       _app.aiProvider == AiProvider.quillCloud
                                       ? (aiLocalProvidersSupported
-                                            ? _t(
-                                                'La IA se ejecuta en Quill Cloud (suscripción con IA en la nube o tinta comprada). Elige otro proveedor abajo para Ollama o LM Studio en local.',
-                                                'AI runs on Quill Cloud (subscription with cloud AI or purchased ink). Pick another provider below for local Ollama or LM Studio.',
-                                              )
-                                            : _t(
-                                                'La IA se ejecuta en Quill Cloud (suscripción con IA en la nube o tinta comprada).',
-                                                'AI runs on Quill Cloud (subscription with cloud AI or purchased ink).',
-                                              ))
+                                            ? l10n.settingsAiHeroQuillWithLocalAlt
+                                            : l10n.settingsAiHeroQuillCloudOnly)
                                       : (aiLocalProvidersSupported
-                                            ? _t(
-                                                'Conecta Ollama o LM Studio en local; el asistente usa el modelo y el contexto que configures aquí.',
-                                                'Connect Ollama or LM Studio locally; the assistant uses the model and context you set here.',
-                                              )
-                                            : _t(
-                                                'En este dispositivo Quill solo puede usar Quill Cloud. Elige Quill Cloud como proveedor cuando quieras activar la IA.',
-                                                'On this device Quill can only use Quill Cloud. Choose Quill Cloud as the provider when you want to enable AI.',
-                                              )),
+                                            ? l10n.settingsAiHeroLocalDefault
+                                            : l10n.settingsAiHeroQuillMobileOnly),
                                   chips:
                                       _app.aiProvider == AiProvider.quillCloud
                                       ? [
                                           _SettingsInfoChip(
                                             icon: Icons.cloud_outlined,
-                                            label: _t('En la nube', 'Hosted'),
+                                            label: l10n.settingsAiChipCloud,
                                           ),
                                           _SettingsInfoChip(
                                             icon: Icons.hub_outlined,
@@ -5158,19 +4982,13 @@ class _SettingsPageState extends State<SettingsPage> {
                                       if (value == AiProvider.quillCloud) {
                                         if (!_folio.isAvailable) {
                                           _snack(
-                                            _t(
-                                              'Firebase no está disponible en esta compilación.',
-                                              'Firebase is not available in this build.',
-                                            ),
+                                            l10n.settingsAiSnackFirebaseUnavailableBuild,
                                           );
                                           return;
                                         }
                                         if (!_cloud.isSignedIn) {
                                           _snack(
-                                            _t(
-                                              'Inicia sesión en la cuenta en la nube (Ajustes).',
-                                              'Sign in to your cloud account (Settings).',
-                                            ),
+                                            l10n.settingsAiSnackSignInCloudAccount,
                                           );
                                           return;
                                         }
@@ -5205,7 +5023,9 @@ class _SettingsPageState extends State<SettingsPage> {
                                       } catch (e) {
                                         if (!mounted) return;
                                         _snack(
-                                          'Error al cambiar proveedor: $e',
+                                          l10n.settingsAiProviderSwitchFailed(
+                                            '$e',
+                                          ),
                                         );
                                       }
                                     },
@@ -5375,35 +5195,20 @@ class _SettingsPageState extends State<SettingsPage> {
                               children: [
                                 _SettingsPanelHeroCard(
                                   icon: Icons.sync_rounded,
-                                  title: _t(
-                                    'Sincronización entre dispositivos',
-                                    'Device synchronization',
-                                  ),
-                                  description: _t(
-                                    'Empareja equipos en la red local; el relay solo ayuda a negociar la conexión, no envía el contenido del vault.',
-                                    'Pair machines on the local network; the relay only helps negotiate the connection and does not send vault content.',
-                                  ),
+                                  title: l10n.settingsSyncHeroTitle,
+                                  description: l10n.settingsSyncHeroDescription,
                                   chips: [
                                     _SettingsInfoChip(
                                       icon: Icons.shield_outlined,
-                                      label: _t(
-                                        'Código de enlace',
-                                        'Pairing code',
-                                      ),
+                                      label: l10n.settingsSyncChipPairingCode,
                                     ),
                                     _SettingsInfoChip(
                                       icon: Icons.search_rounded,
-                                      label: _t(
-                                        'Detección automática',
-                                        'Auto discovery',
-                                      ),
+                                      label: l10n.settingsSyncChipAutoDiscovery,
                                     ),
                                     _SettingsInfoChip(
                                       icon: Icons.cloud_outlined,
-                                      label: _t(
-                                        'Relay opcional',
-                                        'Optional relay',
-                                      ),
+                                      label: l10n.settingsSyncChipOptionalRelay,
                                     ),
                                   ],
                                 ),
@@ -5411,26 +5216,16 @@ class _SettingsPageState extends State<SettingsPage> {
                                 SwitchListTile(
                                   secondary: const Icon(Icons.sync_rounded),
                                   title: Text(
-                                    _t(
-                                      'Activar sincronizacion entre dispositivos',
-                                      'Enable device sync',
-                                    ),
+                                    l10n.settingsSyncEnableTitle,
                                   ),
                                   subtitle: Text(
                                     _app.syncEnabled
                                         ? (_sync.discoveredPeers.isEmpty
-                                              ? _t(
-                                                  'Buscando dispositivos con Folio abierto en la red local...',
-                                                  'Searching for nearby devices with Folio open on local network...',
-                                                )
-                                              : _t(
-                                                  '${_sync.discoveredPeers.length} dispositivos detectados en LAN.',
-                                                  '${_sync.discoveredPeers.length} devices discovered on LAN.',
+                                              ? l10n.settingsSyncSearchingSubtitle
+                                              : l10n.settingsSyncDevicesFoundOnLan(
+                                                  _sync.discoveredPeers.length,
                                                 ))
-                                        : _t(
-                                            'La sincronizacion esta desactivada.',
-                                            'Synchronization is currently disabled.',
-                                          ),
+                                        : l10n.settingsSyncDisabledSubtitle,
                                   ),
                                   value: _app.syncEnabled,
                                   onChanged: (v) async {
@@ -5462,16 +5257,10 @@ class _SettingsPageState extends State<SettingsPage> {
                                 SwitchListTile(
                                   secondary: const Icon(Icons.hub_outlined),
                                   title: Text(
-                                    _t(
-                                      'Usar relay de senalizacion',
-                                      'Use signaling relay',
-                                    ),
+                                    l10n.settingsSyncRelayTitle,
                                   ),
                                   subtitle: Text(
-                                    _t(
-                                      'No envia contenido del vault, solo ayuda a negociar la conexion si la LAN falla.',
-                                      'Does not send vault content, only helps negotiate connectivity when LAN fails.',
-                                    ),
+                                    l10n.settingsSyncRelaySubtitle,
                                   ),
                                   value: _app.syncRelayEnabled,
                                   onChanged: _app.syncEnabled
@@ -5501,28 +5290,22 @@ class _SettingsPageState extends State<SettingsPage> {
                                 ListTile(
                                   leading: const Icon(Icons.devices_outlined),
                                   title: Text(
-                                    _t('Nombre del dispositivo', 'Device name'),
+                                    l10n.settingsDeviceNameTitle,
                                   ),
                                   subtitle: Text(_app.syncDeviceName),
                                   trailing: TextButton(
                                     onPressed: _editSyncDeviceName,
-                                    child: Text(_t('Editar', 'Edit')),
+                                    child: Text(l10n.settingsEdit),
                                   ),
                                 ),
                                 const Divider(height: 1),
                                 ListTile(
                                   leading: const Icon(Icons.pin_outlined),
                                   title: Text(
-                                    _t(
-                                      'Activar modo vinculacion por emojis',
-                                      'Enable emoji pairing mode',
-                                    ),
+                                    l10n.settingsSyncEmojiModeTitle,
                                   ),
                                   subtitle: Text(
-                                    _t(
-                                      'Activalo en ambos dispositivos para iniciar el proceso de vinculacion sin escribir codigos.',
-                                      'Enable it on both devices to start pairing without typing codes.',
-                                    ),
+                                    l10n.settingsSyncEmojiModeSubtitle,
                                   ),
                                   onTap: _app.syncEnabled
                                       ? _activateEmojiPairingMode
@@ -5534,31 +5317,19 @@ class _SettingsPageState extends State<SettingsPage> {
                                     Icons.emoji_emotions_outlined,
                                   ),
                                   title: Text(
-                                    _t(
-                                      'Estado del modo vinculacion',
-                                      'Pairing mode status',
-                                    ),
+                                    l10n.settingsSyncPairingStatusTitle,
                                   ),
                                   subtitle: Text(
                                     _sync.isPairingModeActive
-                                        ? _t(
-                                            'Activo durante 2 minutos. Ya puedes iniciar la vinculacion desde un dispositivo detectado.',
-                                            'Active for 2 minutes. You can now start pairing from a detected device.',
-                                          )
-                                        : _t(
-                                            'Inactivo. Activalo aqui y en el otro dispositivo para empezar a vincular.',
-                                            'Inactive. Enable it here and on the other device to start pairing.',
-                                          ),
+                                        ? l10n.settingsSyncPairingActiveSubtitle
+                                        : l10n.settingsSyncPairingInactiveSubtitle,
                                   ),
                                 ),
                                 const Divider(height: 1),
                                 ListTile(
                                   leading: const Icon(Icons.history_toggle_off),
                                   title: Text(
-                                    _t(
-                                      'Ultima sincronizacion',
-                                      'Last synchronization',
-                                    ),
+                                    l10n.settingsSyncLastSyncTitle,
                                   ),
                                   subtitle: Text(_formatLastSyncLabel()),
                                 ),
@@ -5568,27 +5339,20 @@ class _SettingsPageState extends State<SettingsPage> {
                                     Icons.warning_amber_rounded,
                                   ),
                                   title: Text(
-                                    _t(
-                                      'Conflictos pendientes',
-                                      'Pending conflicts',
-                                    ),
+                                    l10n.settingsSyncPendingConflictsTitle,
                                   ),
                                   subtitle: Text(
                                     _app.syncPendingConflicts <= 0
-                                        ? _t(
-                                            'Sin conflictos pendientes.',
-                                            'No pending conflicts.',
-                                          )
-                                        : _t(
-                                            '${_app.syncPendingConflicts} conflictos requieren revision manual.',
-                                            '${_app.syncPendingConflicts} conflicts require manual review.',
+                                        ? l10n.settingsSyncNoConflictsSubtitle
+                                        : l10n.settingsSyncConflictsNeedReview(
+                                            _app.syncPendingConflicts,
                                           ),
                                   ),
                                   trailing: _app.syncPendingConflicts > 0
                                       ? TextButton(
                                           onPressed: _showSyncConflictsDialog,
                                           child: Text(
-                                            _t('Resolver', 'Resolve'),
+                                            l10n.settingsResolve,
                                           ),
                                         )
                                       : null,
@@ -5605,10 +5369,7 @@ class _SettingsPageState extends State<SettingsPage> {
                                     6,
                                   ),
                                   child: Text(
-                                    _t(
-                                      'Dispositivos detectados',
-                                      'Discovered devices',
-                                    ),
+                                    l10n.settingsSyncDiscoveredDevicesTitle,
                                     style: Theme.of(context)
                                         .textTheme
                                         .titleSmall
@@ -5628,10 +5389,7 @@ class _SettingsPageState extends State<SettingsPage> {
                                     children: [
                                       if (_sync.discoveredPeers.isEmpty)
                                         Text(
-                                          _t(
-                                            'No se detectaron dispositivos todavia. Asegura que ambas apps esten abiertas en la misma red.',
-                                            'No devices detected yet. Make sure both apps are open on the same network.',
-                                          ),
+                                          l10n.settingsSyncNoDevicesYetHint,
                                           style: Theme.of(
                                             context,
                                           ).textTheme.bodySmall,
@@ -5646,19 +5404,10 @@ class _SettingsPageState extends State<SettingsPage> {
                                               _sync.isPairingModeActive &&
                                               hasActiveCode;
                                           final subtitle = pairingReady
-                                              ? _t(
-                                                  'Listo para vincular.',
-                                                  'Ready to link.',
-                                                )
+                                              ? l10n.settingsSyncPeerReadyToLink
                                               : hasActiveCode
-                                              ? _t(
-                                                  'El otro dispositivo esta en modo vinculacion. Activalo aqui para iniciar el enlace.',
-                                                  'The other device is in pairing mode. Enable it here to start linking.',
-                                                )
-                                              : _t(
-                                                  'Detectado en la red local.',
-                                                  'Detected on the local network.',
-                                                );
+                                              ? l10n.settingsSyncPeerOtherInPairingMode
+                                              : l10n.settingsSyncPeerDetectedLan;
                                           return Container(
                                             margin: const EdgeInsets.only(
                                               bottom: 8,
@@ -5689,7 +5438,7 @@ class _SettingsPageState extends State<SettingsPage> {
                                                           )
                                                     : null,
                                                 child: Text(
-                                                  _t('Vincular', 'Link'),
+                                                  l10n.settingsLinkDevice,
                                                 ),
                                               ),
                                             ),
@@ -5711,10 +5460,7 @@ class _SettingsPageState extends State<SettingsPage> {
                                         CrossAxisAlignment.start,
                                     children: [
                                       Text(
-                                        _t(
-                                          'Dispositivos vinculados',
-                                          'Linked devices',
-                                        ),
+                                        l10n.settingsSyncLinkedDevicesTitle,
                                         style: Theme.of(context)
                                             .textTheme
                                             .titleSmall
@@ -5725,10 +5471,7 @@ class _SettingsPageState extends State<SettingsPage> {
                                       const SizedBox(height: 10),
                                       if (_sync.peers.isEmpty)
                                         Text(
-                                          _t(
-                                            'Aun no hay dispositivos enlazados.',
-                                            'No linked devices yet.',
-                                          ),
+                                          l10n.settingsSyncNoLinkedDevicesYet,
                                           style: Theme.of(
                                             context,
                                           ).textTheme.bodySmall,
@@ -5757,13 +5500,15 @@ class _SettingsPageState extends State<SettingsPage> {
                                                 ),
                                                 title: Text(peer.deviceName),
                                                 subtitle: Text(
-                                                  '${_t('ID', 'ID')}: ${peer.peerId}',
+                                                  l10n.settingsSyncPeerIdLabel(
+                                                    peer.peerId,
+                                                  ),
                                                 ),
                                                 trailing: TextButton(
                                                   onPressed: () =>
                                                       _revokeSyncPeer(peer),
                                                   child: Text(
-                                                    _t('Revocar', 'Revoke'),
+                                                    l10n.settingsRevoke,
                                                   ),
                                                 ),
                                               ),
@@ -5786,10 +5531,7 @@ class _SettingsPageState extends State<SettingsPage> {
                               _SettingsPanelHeroCard(
                                 icon: Icons.info_outline_rounded,
                                 title: l10n.about,
-                                description: _t(
-                                  'Versión instalada, origen de actualizaciones y comprobación manual de novedades.',
-                                  'Installed version, update source, and manual checks for new releases.',
-                                ),
+                                description: l10n.settingsAboutHeroDescription,
                                 chips: [
                                   _SettingsInfoChip(
                                     icon: Icons.tag_rounded,
@@ -5810,12 +5552,7 @@ class _SettingsPageState extends State<SettingsPage> {
                               const Divider(height: 1),
                               ListTile(
                                 leading: const Icon(Icons.article_outlined),
-                                title: Text(
-                                  _t(
-                                    'Ver notas de versión',
-                                    'Open release notes',
-                                  ),
-                                ),
+                                title: Text(l10n.settingsOpenReleaseNotes),
                                 trailing: _openingReleaseNotes
                                     ? const SizedBox(
                                         height: 20,
@@ -5851,26 +5588,30 @@ class _SettingsPageState extends State<SettingsPage> {
                                         CrossAxisAlignment.stretch,
                                     children: [
                                       Text(
-                                        'Canal',
+                                        l10n.settingsUpdateChannelLabel,
                                         style: Theme.of(
                                           context,
                                         ).textTheme.titleSmall,
                                       ),
                                       const SizedBox(height: 8),
                                       SegmentedButton<UpdateReleaseChannel>(
-                                        segments: const [
+                                        segments: [
                                           ButtonSegment<UpdateReleaseChannel>(
                                             value: UpdateReleaseChannel.stable,
-                                            label: Text('Release'),
-                                            icon: Icon(
+                                            label: Text(
+                                              l10n.settingsUpdateChannelRelease,
+                                            ),
+                                            icon: const Icon(
                                               Icons.verified_outlined,
                                               size: 18,
                                             ),
                                           ),
                                           ButtonSegment<UpdateReleaseChannel>(
                                             value: UpdateReleaseChannel.beta,
-                                            label: Text('Beta'),
-                                            icon: Icon(
+                                            label: Text(
+                                              l10n.settingsUpdateChannelBeta,
+                                            ),
+                                            icon: const Icon(
                                               Icons.science_outlined,
                                               size: 18,
                                             ),
@@ -5930,10 +5671,7 @@ class _SettingsPageState extends State<SettingsPage> {
                               _SettingsPanelHeroCard(
                                 icon: Icons.storage_rounded,
                                 title: l10n.data,
-                                description: _t(
-                                  'Acciones permanentes sobre archivos locales. Haz una copia de seguridad antes de borrar.',
-                                  'Permanent actions on local files. Make a backup before deleting.',
-                                ),
+                                description: l10n.settingsDataHeroDescription,
                                 chips: [
                                   _SettingsInfoChip(
                                     icon: Icons.delete_forever_outlined,
@@ -5947,7 +5685,7 @@ class _SettingsPageState extends State<SettingsPage> {
                               ),
                               const Divider(height: 1),
                               _SettingsSubsectionTitle(
-                                title: _t('Zona de peligro', 'Danger zone'),
+                                title: l10n.settingsDangerZoneTitle,
                                 scheme: scheme,
                                 topPadding: 8,
                               ),
@@ -6020,10 +5758,8 @@ class _SettingsPageState extends State<SettingsPage> {
                                 _SettingsPanelHeroCard(
                                   icon: Icons.desktop_windows_rounded,
                                   title: l10n.desktopSection,
-                                  description: _t(
-                                    'Atajos globales, bandeja del sistema y comportamiento de la ventana en el escritorio.',
-                                    'Global shortcuts, system tray, and window behavior on desktop.',
-                                  ),
+                                  description:
+                                      l10n.settingsDesktopHeroDescription,
                                   chips: [
                                     _SettingsInfoChip(
                                       icon: Icons.search_rounded,
@@ -6502,14 +6238,12 @@ class _SettingsPageState extends State<SettingsPage> {
                                 _SettingsPanelHeroCard(
                                   icon: Icons.keyboard_rounded,
                                   title: l10n.keyboardShortcutsSection,
-                                  description: _t(
-                                    'Combinaciones solo dentro de Folio. Prueba una tecla antes de guardarla.',
-                                    'Shortcuts only inside Folio. Test a key before saving it.',
-                                  ),
+                                  description:
+                                      l10n.settingsShortcutsHeroDescription,
                                   chips: [
                                     _SettingsInfoChip(
                                       icon: Icons.ads_click_rounded,
-                                      label: _t('Probar', 'Test'),
+                                      label: l10n.settingsShortcutsTestChip,
                                     ),
                                     _SettingsInfoChip(
                                       icon: Icons.restart_alt_rounded,
@@ -6615,24 +6349,18 @@ class _SettingsPageState extends State<SettingsPage> {
                                   featureChips: [
                                     _SettingsInfoChip(
                                       icon: Icons.verified_user_outlined,
-                                      label: _t(
-                                        'Permisos aprobados',
-                                        'Approved permissions',
-                                      ),
+                                      label: l10n
+                                          .settingsIntegrationsChipApprovedPermissions,
                                     ),
                                     _SettingsInfoChip(
                                       icon: Icons.lock_open_outlined,
-                                      label: _t(
-                                        'Acceso revocable',
-                                        'Revocable access',
-                                      ),
+                                      label: l10n
+                                          .settingsIntegrationsChipRevocableAccess,
                                     ),
                                     _SettingsInfoChip(
                                       icon: Icons.devices_outlined,
-                                      label: _t(
-                                        'Apps externas',
-                                        'External apps',
-                                      ),
+                                      label: l10n
+                                          .settingsIntegrationsChipExternalApps,
                                     ),
                                   ],
                                 ),
@@ -6651,10 +6379,8 @@ class _SettingsPageState extends State<SettingsPage> {
                                       Row(
                                         children: [
                                           Text(
-                                            _t(
-                                              'Conexiones activas',
-                                              'Active connections',
-                                            ),
+                                            l10n
+                                                .settingsIntegrationsActiveConnectionsTitle,
                                             style: Theme.of(context)
                                                 .textTheme
                                                 .titleSmall
@@ -6664,10 +6390,8 @@ class _SettingsPageState extends State<SettingsPage> {
                                           ),
                                           const SizedBox(width: 8),
                                           Text(
-                                            _t(
-                                              'Apps que ya pueden interactuar con Folio',
-                                              'Apps already allowed to interact with Folio',
-                                            ),
+                                            l10n
+                                                .settingsIntegrationsActiveConnectionsSubtitle,
                                             style: Theme.of(context)
                                                 .textTheme
                                                 .bodySmall
@@ -6792,10 +6516,7 @@ class _SettingsPageState extends State<SettingsPage> {
                           width: 280,
                           child: _SettingsDesktopRail(
                             title: l10n.settings,
-                            subtitle: _t(
-                              'Elige una categoría en la lista o desplázate por el contenido.',
-                              'Pick a category from the list or scroll the content.',
-                            ),
+                            subtitle: l10n.settingsDesktopRailSubtitle,
                             currentSection: _selectedDesktopSection,
                             onSelectSection: _scrollToSection,
                             sections: _filterDesktopSections(desktopSections),
@@ -8404,11 +8125,6 @@ class _FolioCloudGuestPitchTeaser extends StatelessWidget {
   final VoidCallback onOpenPitch;
   final VoidCallback onShowInkTable;
 
-  String _t(BuildContext context, String es, String en) {
-    final lang = Localizations.localeOf(context).languageCode.toLowerCase();
-    return lang.startsWith('es') ? es : en;
-  }
-
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -8478,9 +8194,7 @@ class _FolioCloudGuestPitchTeaser extends StatelessWidget {
                   child: TextButton.icon(
                     onPressed: onShowInkTable,
                     icon: const Icon(Icons.table_chart_outlined, size: 20),
-                    label: Text(
-                      _t(context, 'Ver tabla de consumo', 'View usage table'),
-                    ),
+                    label: Text(l10n.settingsViewInkUsageTable),
                   ),
                 ),
               ],
@@ -8532,40 +8246,6 @@ class _FolioCloudSubscriptionPanel extends StatelessWidget {
   final VoidCallback onOpenBackups;
   final VoidCallback onPublishedPages;
 
-  String _t(BuildContext context, String es, String en) {
-    final lang = Localizations.localeOf(context).languageCode.toLowerCase();
-    return lang.startsWith('es') ? es : en;
-  }
-
-  String _inkOperationLabel(BuildContext context, String operationKind) {
-    switch (operationKind) {
-      case 'rewrite_block':
-        return _t(context, 'Reescribir bloque', 'Rewrite block');
-      case 'summarize_selection':
-        return _t(context, 'Resumir seleccion', 'Summarize selection');
-      case 'extract_tasks':
-        return _t(context, 'Extraer tareas', 'Extract tasks');
-      case 'summarize_page':
-        return _t(context, 'Resumir pagina', 'Summarize page');
-      case 'generate_insert':
-        return _t(context, 'Generar insercion', 'Generate insert');
-      case 'generate_page':
-        return _t(context, 'Generar pagina', 'Generate page');
-      case 'chat_turn':
-        return _t(context, 'Turno de chat', 'Chat turn');
-      case 'agent_main':
-        return _t(context, 'Ejecucion de agente', 'Agent main run');
-      case 'agent_followup':
-        return _t(context, 'Seguimiento de agente', 'Agent follow-up');
-      case 'edit_page_panel':
-        return _t(context, 'Edicion de pagina (panel)', 'Page edit panel');
-      case 'default':
-        return _t(context, 'Operacion por defecto', 'Fallback operation');
-      default:
-        return operationKind;
-    }
-  }
-
   Future<void> _showInkPricingTable(BuildContext context) {
     const preferredOrder = <String>[
       'rewrite_block',
@@ -8587,13 +8267,7 @@ class _FolioCloudSubscriptionPanel extends StatelessWidget {
         final theme = Theme.of(ctx);
         final dialogScheme = theme.colorScheme;
         return FolioDialog(
-          title: Text(
-            _t(
-              context,
-              'Tabla de consumo de gotas (OpenAI)',
-              'Ink usage table (OpenAI)',
-            ),
-          ),
+          title: Text(l10n.settingsCloudInkUsageTableTitle),
           content: SizedBox(
             width: 540,
             child: FutureBuilder<FolioCloudAiPricingSnapshot>(
@@ -8625,11 +8299,7 @@ class _FolioCloudSubscriptionPanel extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
                       Text(
-                        _t(
-                          context,
-                          'Coste base por accion. Se pueden aplicar suplementos por prompts largos y por tokens de salida.',
-                          'Base cost per action. Extra surcharges may apply for long prompts and output token usage.',
-                        ),
+                        l10n.settingsCloudInkUsageTableIntro,
                         style: theme.textTheme.bodySmall?.copyWith(
                           color: dialogScheme.onSurfaceVariant,
                           height: 1.35,
@@ -8638,11 +8308,7 @@ class _FolioCloudSubscriptionPanel extends StatelessWidget {
                       if (!pricing.fromServer) ...[
                         const SizedBox(height: 6),
                         Text(
-                          _t(
-                            context,
-                            'Mostrando tabla en cache local (sin conexion al backend).',
-                            'Showing local cached table (no backend connection).',
-                          ),
+                          l10n.settingsCloudInkTableCachedNotice,
                           style: theme.textTheme.bodySmall?.copyWith(
                             color: dialogScheme.tertiary,
                             height: 1.3,
@@ -8653,7 +8319,10 @@ class _FolioCloudSubscriptionPanel extends StatelessWidget {
                       const SizedBox(height: 10),
                       ...orderedKeys.map((operation) {
                         final drops = pricing.costForOperation(operation);
-                        final label = _inkOperationLabel(context, operation);
+                        final label = settingsCloudInkOperationLabel(
+                          l10n,
+                          operation,
+                        );
                         return Padding(
                           padding: const EdgeInsets.only(bottom: 8),
                           child: Container(
@@ -8706,7 +8375,7 @@ class _FolioCloudSubscriptionPanel extends StatelessWidget {
                                 ),
                                 const SizedBox(width: 4),
                                 Text(
-                                  _t(context, 'gotas', 'drops'),
+                                  l10n.settingsCloudInkDrops,
                                   style: theme.textTheme.bodySmall?.copyWith(
                                     color: dialogScheme.onSurfaceVariant,
                                   ),
@@ -8725,7 +8394,7 @@ class _FolioCloudSubscriptionPanel extends StatelessWidget {
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(ctx),
-              child: Text(_t(context, 'Cerrar', 'Close')),
+              child: Text(l10n.settingsClose),
             ),
           ],
         );
@@ -8985,18 +8654,14 @@ class _FolioCloudSubscriptionPanel extends StatelessWidget {
                   TextButton.icon(
                     onPressed: () => _showInkPricingTable(context),
                     icon: const Icon(Icons.table_chart_outlined, size: 18),
-                    label: Text(_t(context, 'Ver tabla', 'View table')),
+                    label: Text(l10n.settingsCloudInkViewTableButton),
                   ),
                 ],
               ),
               Padding(
                 padding: const EdgeInsets.only(bottom: 8),
                 child: Text(
-                  _t(
-                    context,
-                    'Precios de referencia para IA en nube con OpenAI.',
-                    'Reference pricing for hosted AI with OpenAI.',
-                  ),
+                  l10n.settingsCloudInkHostedAiOpenAiHint,
                   style: theme.textTheme.bodySmall?.copyWith(
                     color: scheme.onSurfaceVariant,
                     height: 1.3,
