@@ -74,6 +74,7 @@ class FolioBlock {
     this.imageWidth,
     this.appearance,
     this.meetingNoteProvider,
+    this.meetingNoteTranscriptionEnabled,
   });
 
   final String id;
@@ -111,6 +112,9 @@ class FolioBlock {
   /// `null` o `'local'` = Whisper local; `'quill_cloud'` = Quill Cloud.
   String? meetingNoteProvider;
 
+  /// `null` o `true` = generar transcripción; `false` = solo audio (sin Whisper).
+  bool? meetingNoteTranscriptionEnabled;
+
   Map<String, dynamic> toJson() => {
     'id': id,
     'type': type,
@@ -125,6 +129,8 @@ class FolioBlock {
     if (appearance != null && !appearance!.isDefault)
       'appearance': appearance!.toJson(),
     if (meetingNoteProvider != null) 'meetingNoteProvider': meetingNoteProvider,
+    if (meetingNoteTranscriptionEnabled == false)
+      'meetingNoteTranscriptionEnabled': false,
   };
 
   factory FolioBlock.fromJson(Map<String, dynamic> j) {
@@ -143,6 +149,8 @@ class FolioBlock {
           ? FolioBlockAppearance.fromJson(j['appearance'] as Map)
           : null,
       meetingNoteProvider: j['meetingNoteProvider'] as String?,
+      meetingNoteTranscriptionEnabled:
+          j['meetingNoteTranscriptionEnabled'] as bool?,
     );
   }
 
@@ -158,6 +166,7 @@ class FolioBlock {
     double? imageWidth,
     FolioBlockAppearance? appearance,
     String? meetingNoteProvider,
+    bool? meetingNoteTranscriptionEnabled,
   }) {
     return FolioBlock(
       id: id,
@@ -172,6 +181,8 @@ class FolioBlock {
       imageWidth: imageWidth ?? this.imageWidth,
       appearance: appearance ?? this.appearance,
       meetingNoteProvider: meetingNoteProvider ?? this.meetingNoteProvider,
+      meetingNoteTranscriptionEnabled:
+          meetingNoteTranscriptionEnabled ?? this.meetingNoteTranscriptionEnabled,
     );
   }
 }

@@ -16,6 +16,8 @@ constexpr const wchar_t kFolioWindowClassName[] =
 constexpr const wchar_t kFolioSingleInstanceMutexName[] =
   L"Local\\FolioSingleInstanceMutex";
 constexpr ULONG_PTR kFolioLaunchArgsCopyDataId = 0x464F4C49;
+/// Título visible de la ventana (barra de título, búsqueda de instancia única).
+constexpr const wchar_t kFolioWindowTitle[] = L"Folio";
 
 void RegisterFolioProtocol() {
   HKEY classes_key;
@@ -88,7 +90,7 @@ std::optional<std::wstring> GetFirstProtocolLaunchArgument() {
 
 HWND FindExistingWindow() {
   for (int attempt = 0; attempt < 50; ++attempt) {
-    HWND window = ::FindWindowW(kFolioWindowClassName, L"folio");
+    HWND window = ::FindWindowW(kFolioWindowClassName, kFolioWindowTitle);
     if (window != nullptr) {
       return window;
     }
@@ -175,7 +177,7 @@ int APIENTRY wWinMain(_In_ HINSTANCE instance, _In_opt_ HINSTANCE prev,
   FlutterWindow window(project, std::move(launch_arguments));
   Win32Window::Point origin(10, 10);
   Win32Window::Size size(1280, 720);
-  if (!window.Create(L"folio", origin, size)) {
+  if (!window.Create(kFolioWindowTitle, origin, size)) {
     return EXIT_FAILURE;
   }
   window.SetQuitOnClose(true);

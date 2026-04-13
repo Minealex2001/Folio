@@ -781,6 +781,53 @@ class AppLocalizationsGl extends AppLocalizations {
       'Require unha conta de Folio Cloud con Ink.';
 
   @override
+  String get meetingNoteCloudRequiresAiEnabled =>
+      'Activa a IA en Axustes para usar a transcrición na nube (Quill Cloud).';
+
+  @override
+  String meetingNoteHardwareSummary(int cpus, Object ramLabel) {
+    return '$cpus núcleos · $ramLabel';
+  }
+
+  @override
+  String get meetingNoteHardwareRamUnknown => 'RAM descoñecida';
+
+  @override
+  String meetingNoteHardwareRecommended(Object modelLabel) {
+    return 'Modelo recomendado para este equipo: $modelLabel';
+  }
+
+  @override
+  String get meetingNoteLocalTranscriptionNotViable =>
+      'Este equipo non cumpre os requisitos mínimos para transcrición local. Só se gardará o audio, agás que actives «Forzar transcrición local» en Axustes ou uses Quill Cloud con IA activada.';
+
+  @override
+  String get meetingNoteGenerateTranscription => 'Xerar transcrición';
+
+  @override
+  String get meetingNoteGenerateTranscriptionSubtitle =>
+      'Desactívao para gardar só o audio nesta nota.';
+
+  @override
+  String get meetingNoteSettingsAutoWhisperModel =>
+      'Escoller modelo automaticamente segundo o hardware';
+
+  @override
+  String get meetingNoteSettingsForceLocalTranscription =>
+      'Forzar transcrición local (pode ir lento ou inestable)';
+
+  @override
+  String get meetingNoteSettingsHardwareIntro =>
+      'Rendemento detectado para transcrición local.';
+
+  @override
+  String get meetingNoteRecordingAudioOnlyBadge => 'Só audio';
+
+  @override
+  String get meetingNotePerNoteTranscriptionOffHint =>
+      'A transcrición está desactivada para esta nota.';
+
+  @override
   String get meetingNoteTranscriptionProvider => 'Motor de transcrición';
 
   @override
@@ -848,6 +895,12 @@ class AppLocalizationsGl extends AppLocalizations {
 
   @override
   String get meetingNoteModelSmall => 'Preciso';
+
+  @override
+  String get meetingNoteModelMedium => 'Avanzado';
+
+  @override
+  String get meetingNoteModelTurbo => 'Máxima calidade';
 
   @override
   String get meetingNoteCopyTranscript => 'Copiar transcrición';

@@ -60,20 +60,42 @@ class WhisperService {
     ),
     WhisperModelOption(
       id: 'base',
-      label: 'Base (equilibrado)',
-      filename: 'ggml-base.bin',
+      label: 'Base q8 (equilibrado)',
+      filename: 'ggml-base-q8_0.bin',
       url:
-          'https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-base.bin',
-      approxSizeMb: 142,
+          'https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-base-q8_0.bin',
+      approxSizeMb: 78,
     ),
     WhisperModelOption(
       id: 'small',
-      label: 'Small (mejor precision)',
-      filename: 'ggml-small.bin',
+      label: 'Small q8 (alta precision, menos disco)',
+      filename: 'ggml-small-q8_0.bin',
       url:
-          'https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-small.bin',
-      approxSizeMb: 466,
+          'https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-small-q8_0.bin',
+      approxSizeMb: 252,
     ),
+    WhisperModelOption(
+      id: 'medium',
+      label: 'Medium q8',
+      filename: 'ggml-medium-q8_0.bin',
+      url:
+          'https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-medium-q8_0.bin',
+      approxSizeMb: 785,
+    ),
+    WhisperModelOption(
+      id: 'turbo',
+      label: 'Large v3 Turbo q8',
+      filename: 'ggml-large-v3-turbo-q8_0.bin',
+      url:
+          'https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-large-v3-turbo-q8_0.bin',
+      approxSizeMb: 834,
+    ),
+  ];
+
+  /// Nombres de .bin antiguos o sustituidos; se pueden borrar al cambiar de modelo.
+  static const List<String> legacyWhisperModelFilenames = [
+    'ggml-base.bin',
+    'ggml-small.bin',
   ];
 
   String? _binaryPath;
@@ -126,6 +148,28 @@ class WhisperService {
     // Modelo
     _modelPath = await _ensureModel(whisperDir, model, onProgress: onProgress);
     _activeModelId = model.id;
+    await _deleteOtherWhisperModelBins(whisperDir, keepFilename: model.filename);
+  }
+
+  /// Borra otros GGML conocidos en [whisperDir], dejando solo el modelo activo.
+  Future<void> _deleteOtherWhisperModelBins(
+    Directory whisperDir, {
+    required String keepFilename,
+  }) async {
+    final known = <String>{
+      ...supportedModels.map((m) => m.filename),
+      ...legacyWhisperModelFilenames,
+    };
+    try {
+      await for (final entity in whisperDir.list(followLinks: false)) {
+        if (entity is! File) continue;
+        final name = p.basename(entity.path);
+        if (!name.endsWith('.bin')) continue;
+        if (name == keepFilename) continue;
+        if (!known.contains(name)) continue;
+        await entity.delete().catchError((_) => File(''));
+      }
+    } catch (_) {}
   }
 
   /// Transcribe el [wavFile] y devuelve el texto.

@@ -769,6 +769,53 @@ class AppLocalizationsEn extends AppLocalizations {
       'Requires a Folio Cloud account with Ink.';
 
   @override
+  String get meetingNoteCloudRequiresAiEnabled =>
+      'Turn on AI in Settings to use cloud transcription (Quill Cloud).';
+
+  @override
+  String meetingNoteHardwareSummary(int cpus, Object ramLabel) {
+    return '$cpus cores · $ramLabel';
+  }
+
+  @override
+  String get meetingNoteHardwareRamUnknown => 'Unknown RAM';
+
+  @override
+  String meetingNoteHardwareRecommended(Object modelLabel) {
+    return 'Recommended model for this device: $modelLabel';
+  }
+
+  @override
+  String get meetingNoteLocalTranscriptionNotViable =>
+      'This device is below the minimum for local transcription. Only audio will be saved unless you enable “Force local transcription” in Settings or use Quill Cloud with AI enabled.';
+
+  @override
+  String get meetingNoteGenerateTranscription => 'Generate transcription';
+
+  @override
+  String get meetingNoteGenerateTranscriptionSubtitle =>
+      'Turn off to keep audio only for this note.';
+
+  @override
+  String get meetingNoteSettingsAutoWhisperModel =>
+      'Pick model automatically from hardware';
+
+  @override
+  String get meetingNoteSettingsForceLocalTranscription =>
+      'Force local transcription (may be slow or unstable)';
+
+  @override
+  String get meetingNoteSettingsHardwareIntro =>
+      'Detected capability for local transcription.';
+
+  @override
+  String get meetingNoteRecordingAudioOnlyBadge => 'Audio only';
+
+  @override
+  String get meetingNotePerNoteTranscriptionOffHint =>
+      'Transcription is turned off for this note.';
+
+  @override
   String get meetingNoteTranscriptionProvider => 'Transcription engine';
 
   @override
@@ -836,6 +883,12 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get meetingNoteModelSmall => 'Accurate';
+
+  @override
+  String get meetingNoteModelMedium => 'Advanced';
+
+  @override
+  String get meetingNoteModelTurbo => 'Best quality';
 
   @override
   String get meetingNoteCopyTranscript => 'Copy transcript';

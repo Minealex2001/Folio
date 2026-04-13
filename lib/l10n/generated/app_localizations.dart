@@ -1480,6 +1480,78 @@ abstract class AppLocalizations {
   /// **'Requiere cuenta Folio Cloud con Tinta.'**
   String get meetingNoteCloudRequiresAccount;
 
+  /// No description provided for @meetingNoteCloudRequiresAiEnabled.
+  ///
+  /// In es, this message translates to:
+  /// **'Activa la IA en Ajustes para usar la transcripción en la nube (Quill Cloud).'**
+  String get meetingNoteCloudRequiresAiEnabled;
+
+  /// No description provided for @meetingNoteHardwareSummary.
+  ///
+  /// In es, this message translates to:
+  /// **'{cpus} núcleos · {ramLabel}'**
+  String meetingNoteHardwareSummary(int cpus, Object ramLabel);
+
+  /// No description provided for @meetingNoteHardwareRamUnknown.
+  ///
+  /// In es, this message translates to:
+  /// **'RAM desconocida'**
+  String get meetingNoteHardwareRamUnknown;
+
+  /// No description provided for @meetingNoteHardwareRecommended.
+  ///
+  /// In es, this message translates to:
+  /// **'Modelo recomendado para este equipo: {modelLabel}'**
+  String meetingNoteHardwareRecommended(Object modelLabel);
+
+  /// No description provided for @meetingNoteLocalTranscriptionNotViable.
+  ///
+  /// In es, this message translates to:
+  /// **'Este equipo no cumple los requisitos mínimos para transcripción local. Solo se guardará el audio, salvo que actives «Forzar transcripción local» en Ajustes o uses Quill Cloud con IA activada.'**
+  String get meetingNoteLocalTranscriptionNotViable;
+
+  /// No description provided for @meetingNoteGenerateTranscription.
+  ///
+  /// In es, this message translates to:
+  /// **'Generar transcripción'**
+  String get meetingNoteGenerateTranscription;
+
+  /// No description provided for @meetingNoteGenerateTranscriptionSubtitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Desactívalo para guardar solo el audio en esta nota.'**
+  String get meetingNoteGenerateTranscriptionSubtitle;
+
+  /// No description provided for @meetingNoteSettingsAutoWhisperModel.
+  ///
+  /// In es, this message translates to:
+  /// **'Elegir modelo automáticamente según el hardware'**
+  String get meetingNoteSettingsAutoWhisperModel;
+
+  /// No description provided for @meetingNoteSettingsForceLocalTranscription.
+  ///
+  /// In es, this message translates to:
+  /// **'Forzar transcripción local (puede ir lento o inestable)'**
+  String get meetingNoteSettingsForceLocalTranscription;
+
+  /// No description provided for @meetingNoteSettingsHardwareIntro.
+  ///
+  /// In es, this message translates to:
+  /// **'Rendimiento detectado para transcripción local.'**
+  String get meetingNoteSettingsHardwareIntro;
+
+  /// No description provided for @meetingNoteRecordingAudioOnlyBadge.
+  ///
+  /// In es, this message translates to:
+  /// **'Solo audio'**
+  String get meetingNoteRecordingAudioOnlyBadge;
+
+  /// No description provided for @meetingNotePerNoteTranscriptionOffHint.
+  ///
+  /// In es, this message translates to:
+  /// **'La transcripción está desactivada para esta nota.'**
+  String get meetingNotePerNoteTranscriptionOffHint;
+
   /// No description provided for @meetingNoteTranscriptionProvider.
   ///
   /// In es, this message translates to:
@@ -1605,6 +1677,18 @@ abstract class AppLocalizations {
   /// In es, this message translates to:
   /// **'Preciso'**
   String get meetingNoteModelSmall;
+
+  /// No description provided for @meetingNoteModelMedium.
+  ///
+  /// In es, this message translates to:
+  /// **'Avanzado'**
+  String get meetingNoteModelMedium;
+
+  /// No description provided for @meetingNoteModelTurbo.
+  ///
+  /// In es, this message translates to:
+  /// **'Máxima calidad'**
+  String get meetingNoteModelTurbo;
 
   /// No description provided for @meetingNoteCopyTranscript.
   ///
