@@ -20,6 +20,8 @@ bool get aiLocalProvidersSupported {
 
 enum AiEndpointMode { localhostOnly, allowRemote }
 
+enum UiScaleMode { manual, followWindows }
+
 class CustomIconEntry {
   const CustomIconEntry({
     required this.id,
@@ -154,6 +156,8 @@ class AppSettings extends ChangeNotifier {
     : _configuredIntegrationSecret = integrationSecret.trim();
 
   static const _themeModeKey = 'folio_theme_mode';
+  static const _uiScaleKey = 'folio_ui_scale';
+  static const _uiScaleModeKey = 'folio_ui_scale_mode';
   static const _localeCodeKey = 'folio_locale_code';
   static const _vaultIdleLockMinutesKey = 'folio_vault_idle_lock_minutes';
   static const _vaultLockOnMinimizeKey = 'folio_vault_lock_on_minimize';
@@ -230,6 +234,9 @@ class AppSettings extends ChangeNotifier {
   static const String defaultOllamaModel = 'llama3.1:8b';
   static const String defaultLmStudioModel = 'local-model';
   static const int defaultAiContextWindowTokens = 131072;
+  static const double minUiScale = 0.85;
+  static const double maxUiScale = 1.60;
+  static const double defaultUiScale = 1.0;
   static const double minEditorContentWidth = 840;
   static const double maxEditorContentWidth = 1400;
   static const double defaultEditorContentWidth = 1080;
@@ -257,6 +264,8 @@ class AppSettings extends ChangeNotifier {
   );
 
   ThemeMode _themeMode = ThemeMode.system;
+  double _uiScale = defaultUiScale;
+  UiScaleMode _uiScaleMode = UiScaleMode.manual;
   Locale? _locale;
   int _vaultIdleLockMinutes = defaultVaultIdleLockMinutes;
   bool _vaultLockOnMinimize = false;
@@ -314,6 +323,8 @@ class AppSettings extends ChangeNotifier {
   String _meetingNoteModelId = 'base';
 
   ThemeMode get themeMode => _themeMode;
+  double get uiScale => _uiScale;
+  UiScaleMode get uiScaleMode => _uiScaleMode;
   Locale? get locale => _locale;
   int get vaultIdleLockMinutes => _vaultIdleLockMinutes;
   bool get vaultLockOnMinimize => _vaultLockOnMinimize;
@@ -409,6 +420,8 @@ class AppSettings extends ChangeNotifier {
     final p = await SharedPreferences.getInstance();
     final raw = p.getString(_themeModeKey);
     _themeMode = _parseThemeMode(raw) ?? ThemeMode.system;
+    _uiScale = _sanitizeUiScale(p.getDouble(_uiScaleKey));
+    _uiScaleMode = _parseUiScaleMode(p.getString(_uiScaleModeKey));
     final localeCode = p.getString(_localeCodeKey);
     _locale = localeCode == null || localeCode.isEmpty
         ? null
@@ -649,6 +662,15 @@ class AppSettings extends ChangeNotifier {
     }
   }
 
+  UiScaleMode _parseUiScaleMode(String? raw) {
+    switch (raw) {
+      case 'followWindows':
+        return UiScaleMode.followWindows;
+      default:
+        return UiScaleMode.manual;
+    }
+  }
+
   int _sanitizeTimeoutMs(int? value) {
     final raw = value ?? defaultAiTimeoutMs;
     if (raw < 3000) return 3000;
@@ -681,6 +703,23 @@ class AppSettings extends ChangeNotifier {
     if (raw < 1) return 1;
     if (raw > 168) return 168;
     return raw;
+  }
+
+  double _sanitizeUiScale(double? value) {
+    final raw = value ?? defaultUiScale;
+    if (raw < minUiScale) return minUiScale;
+    if (raw > maxUiScale) return maxUiScale;
+    return raw;
+  }
+
+  double resolveEffectiveUiScale({
+    required bool isWindows,
+    required double devicePixelRatio,
+  }) {
+    if (_uiScaleMode == UiScaleMode.followWindows && isWindows) {
+      return _sanitizeUiScale(devicePixelRatio);
+    }
+    return _uiScale;
   }
 
   double _sanitizeEditorContentWidth(double? value) {
@@ -784,6 +823,23 @@ class AppSettings extends ChangeNotifier {
       ThemeMode.system => 'system',
     };
     await p.setString(_themeModeKey, v);
+  }
+
+  Future<void> setUiScale(double value) async {
+    final safe = _sanitizeUiScale(value);
+    if ((_uiScale - safe).abs() < 0.01) return;
+    _uiScale = safe;
+    notifyListeners();
+    final p = await SharedPreferences.getInstance();
+    await p.setDouble(_uiScaleKey, safe);
+  }
+
+  Future<void> setUiScaleMode(UiScaleMode value) async {
+    if (_uiScaleMode == value) return;
+    _uiScaleMode = value;
+    notifyListeners();
+    final p = await SharedPreferences.getInstance();
+    await p.setString(_uiScaleModeKey, value.name);
   }
 
   Future<void> setLocale(Locale? locale) async {

@@ -4,6 +4,8 @@ import 'dart:io';
 
 import 'package:file_picker/file_picker.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/foundation.dart'
+    show TargetPlatform, defaultTargetPlatform, kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:package_info_plus/package_info_plus.dart';
@@ -84,8 +86,10 @@ class _SettingsPageState extends State<SettingsPage> {
   final ScrollController _settingsScrollController = ScrollController();
   final TextEditingController _settingsSectionFilterController =
       TextEditingController();
-  final List<GlobalKey> _sectionKeys = List.generate(11, (_) => GlobalKey());
-  int _selectedDesktopSection = 7;
+  final Map<_SettingsSectionId, GlobalKey> _sectionKeysById = {
+    for (final id in _SettingsSectionId.values) id: GlobalKey(),
+  };
+  _SettingsSectionId _selectedDesktopSection = _SettingsSectionId.cloud;
   bool _programmaticSectionScroll = false;
 
   var _quickEnabled = false;
@@ -215,9 +219,13 @@ class _SettingsPageState extends State<SettingsPage> {
     };
   }
 
-  Future<bool> _ensureSectionVisible(int index) async {
+  GlobalKey _sectionKey(_SettingsSectionId id) {
+    return _sectionKeysById[id]!;
+  }
+
+  Future<bool> _ensureSectionVisible(_SettingsSectionId id) async {
     if (!_settingsScrollController.hasClients) return false;
-    final targetContext = _sectionKeys[index].currentContext;
+    final targetContext = _sectionKeysById[id]?.currentContext;
     if (targetContext == null) return false;
     await Scrollable.ensureVisible(
       targetContext,
@@ -256,13 +264,34 @@ class _SettingsPageState extends State<SettingsPage> {
     if (mounted) setState(() {});
   }
 
-  Future<void> _scrollToSection(int index) async {
-    if (index < 0 || index >= _sectionKeys.length) return;
+  List<_SettingsSectionId> _sectionOrderForCurrentLayout() {
+    final windowWidth = MediaQuery.sizeOf(context).width;
+    final showDesktopOnlySections = FolioAdaptive.shouldUseDesktopSections(
+      windowWidth,
+    );
+    return <_SettingsSectionId>[
+      _SettingsSectionId.cloud,
+      _SettingsSectionId.security,
+      _SettingsSectionId.backup,
+      _SettingsSectionId.appearance,
+      if (_app.isAiAvailable) _SettingsSectionId.ai,
+      _SettingsSectionId.sync,
+      _SettingsSectionId.about,
+      _SettingsSectionId.data,
+      if (showDesktopOnlySections) ...[
+        _SettingsSectionId.desktop,
+        _SettingsSectionId.shortcuts,
+        _SettingsSectionId.integrations,
+      ],
+    ];
+  }
+
+  Future<void> _scrollToSection(_SettingsSectionId id) async {
     if (mounted) {
-      setState(() => _selectedDesktopSection = index);
+      setState(() => _selectedDesktopSection = id);
     }
     _programmaticSectionScroll = true;
-    if (await _ensureSectionVisible(index)) {
+    if (await _ensureSectionVisible(id)) {
       _programmaticSectionScroll = false;
       return;
     }
@@ -271,18 +300,23 @@ class _SettingsPageState extends State<SettingsPage> {
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       try {
         if (!mounted) return;
-        if (await _ensureSectionVisible(index)) return;
+        if (await _ensureSectionVisible(id)) return;
         if (!_settingsScrollController.hasClients) return;
 
-        final max = _settingsScrollController.position.maxScrollExtent;
-        if (max <= 0) return;
-        final denom = (_sectionKeys.length - 1).clamp(1, _sectionKeys.length);
-        final target = (index / denom) * max;
-        await _settingsScrollController.animateTo(
-          target.clamp(0.0, max),
-          duration: const Duration(milliseconds: 260),
-          curve: Curves.easeOutCubic,
-        );
+        // Si el target aun no tiene context (secciones lejanas), aproximamos y reintentamos.
+        final order = _sectionOrderForCurrentLayout();
+        final index = order.indexOf(id);
+        if (index >= 0 && order.length > 1) {
+          final max = _settingsScrollController.position.maxScrollExtent;
+          final target = (index / (order.length - 1)) * max;
+          await _settingsScrollController.animateTo(
+            target.clamp(0.0, max),
+            duration: const Duration(milliseconds: 260),
+            curve: Curves.easeOutCubic,
+          );
+          if (!mounted) return;
+          await _ensureSectionVisible(id);
+        }
       } finally {
         _programmaticSectionScroll = false;
       }
@@ -296,16 +330,16 @@ class _SettingsPageState extends State<SettingsPage> {
     setState(() => _selectedDesktopSection = active);
   }
 
-  int? _activeSectionFromViewport() {
+  _SettingsSectionId? _activeSectionFromViewport() {
     const thresholdTop = 156.0;
-    final visible = <MapEntry<int, double>>[];
-    for (var i = 0; i < _sectionKeys.length; i++) {
-      final ctx = _sectionKeys[i].currentContext;
+    final visible = <MapEntry<_SettingsSectionId, double>>[];
+    for (final entry in _sectionKeysById.entries) {
+      final ctx = entry.value.currentContext;
       if (ctx == null) continue;
       final render = ctx.findRenderObject();
       if (render is! RenderBox || !render.hasSize) continue;
       final dy = render.localToGlobal(Offset.zero).dy;
-      visible.add(MapEntry(i, dy));
+      visible.add(MapEntry(entry.key, dy));
     }
     if (visible.isEmpty) return null;
     visible.sort((a, b) => a.value.compareTo(b.value));
@@ -2667,27 +2701,42 @@ class _SettingsPageState extends State<SettingsPage> {
     );
     final desktopSections = <_SettingsSectionNavItem>[
       _SettingsSectionNavItem(
+        id: _SettingsSectionId.cloud,
         label: l10n.cloudAccountSectionTitle,
-        keyIndex: 7,
       ),
-      _SettingsSectionNavItem(label: l10n.security, keyIndex: 1),
-      _SettingsSectionNavItem(label: l10n.vaultBackup, keyIndex: 5),
-      _SettingsSectionNavItem(label: l10n.appearance, keyIndex: 0),
-      if (_app.isAiAvailable)
-        _SettingsSectionNavItem(label: l10n.ai, keyIndex: 4),
       _SettingsSectionNavItem(
-        label: _t('Sincronizacion', 'Device sync'),
-        keyIndex: 8,
+        id: _SettingsSectionId.security,
+        label: l10n.security,
       ),
-      _SettingsSectionNavItem(label: l10n.about, keyIndex: 9),
-      _SettingsSectionNavItem(label: l10n.data, keyIndex: 10),
+      _SettingsSectionNavItem(
+        id: _SettingsSectionId.backup,
+        label: l10n.vaultBackup,
+      ),
+      _SettingsSectionNavItem(
+        id: _SettingsSectionId.appearance,
+        label: l10n.appearance,
+      ),
+      if (_app.isAiAvailable)
+        _SettingsSectionNavItem(id: _SettingsSectionId.ai, label: l10n.ai),
+      _SettingsSectionNavItem(
+        id: _SettingsSectionId.sync,
+        label: _t('Sincronizacion', 'Device sync'),
+      ),
+      _SettingsSectionNavItem(id: _SettingsSectionId.about, label: l10n.about),
+      _SettingsSectionNavItem(id: _SettingsSectionId.data, label: l10n.data),
       if (showDesktopOnlySections) ...[
-        _SettingsSectionNavItem(label: l10n.desktopSection, keyIndex: 2),
         _SettingsSectionNavItem(
-          label: l10n.keyboardShortcutsSection,
-          keyIndex: 3,
+          id: _SettingsSectionId.desktop,
+          label: l10n.desktopSection,
         ),
-        _SettingsSectionNavItem(label: l10n.integrations, keyIndex: 6),
+        _SettingsSectionNavItem(
+          id: _SettingsSectionId.shortcuts,
+          label: l10n.keyboardShortcutsSection,
+        ),
+        _SettingsSectionNavItem(
+          id: _SettingsSectionId.integrations,
+          label: l10n.integrations,
+        ),
       ],
     ];
     return AnimatedBuilder(
@@ -2745,7 +2794,7 @@ class _SettingsPageState extends State<SettingsPage> {
                         ],
 
                         _SettingsPanel(
-                          key: _sectionKeys[7],
+                          key: _sectionKey(_SettingsSectionId.cloud),
                           margin: const EdgeInsets.only(bottom: 24),
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -3576,7 +3625,7 @@ class _SettingsPageState extends State<SettingsPage> {
 
                         if (_s.vaultUsesEncryption)
                           _SettingsPanel(
-                            key: _sectionKeys[1],
+                            key: _sectionKey(_SettingsSectionId.security),
                             margin: const EdgeInsets.only(bottom: 24),
                             child: Column(
                               children: [
@@ -3756,7 +3805,7 @@ class _SettingsPageState extends State<SettingsPage> {
                           )
                         else
                           _SettingsPanel(
-                            key: _sectionKeys[1],
+                            key: _sectionKey(_SettingsSectionId.security),
                             margin: const EdgeInsets.only(bottom: 24),
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -3808,7 +3857,7 @@ class _SettingsPageState extends State<SettingsPage> {
                           ),
 
                         _SettingsPanel(
-                          key: _sectionKeys[5],
+                          key: _sectionKey(_SettingsSectionId.backup),
                           margin: const EdgeInsets.only(bottom: 24),
                           child: Column(
                             children: [
@@ -4045,7 +4094,7 @@ class _SettingsPageState extends State<SettingsPage> {
                           ),
                         ),
                         _SettingsPanel(
-                          key: _sectionKeys[0],
+                          key: _sectionKey(_SettingsSectionId.appearance),
                           margin: const EdgeInsets.only(bottom: 24),
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -4058,6 +4107,10 @@ class _SettingsPageState extends State<SettingsPage> {
                                   _SettingsInfoChip(
                                     icon: Icons.brightness_auto,
                                     label: _t('Tema', 'Theme'),
+                                  ),
+                                  _SettingsInfoChip(
+                                    icon: Icons.zoom_in_rounded,
+                                    label: _t('Zoom', 'Zoom'),
                                   ),
                                   _SettingsInfoChip(
                                     icon: Icons.translate_rounded,
@@ -4111,6 +4164,111 @@ class _SettingsPageState extends State<SettingsPage> {
                                 ),
                               ),
                               const SizedBox(height: 12),
+                              const Divider(height: 1),
+                              SwitchListTile(
+                                secondary: const Icon(Icons.desktop_windows),
+                                title: Text(
+                                  _t(
+                                    'Seguir escala de Windows',
+                                    'Follow Windows scale',
+                                  ),
+                                ),
+                                subtitle: Text(
+                                  _t(
+                                    'Usa automáticamente la escala del sistema en Windows.',
+                                    'Automatically use system scale on Windows.',
+                                  ),
+                                ),
+                                value:
+                                    _app.uiScaleMode ==
+                                    UiScaleMode.followWindows,
+                                onChanged:
+                                    !kIsWeb &&
+                                        defaultTargetPlatform ==
+                                            TargetPlatform.windows
+                                    ? (value) {
+                                        _app.setUiScaleMode(
+                                          value
+                                              ? UiScaleMode.followWindows
+                                              : UiScaleMode.manual,
+                                        );
+                                      }
+                                    : null,
+                              ),
+                              const Divider(height: 1),
+                              ListTile(
+                                leading: const Icon(Icons.zoom_in_rounded),
+                                title: Text(
+                                  _t('Zoom de la interfaz', 'Interface zoom'),
+                                ),
+                                subtitle: Text(
+                                  _t(
+                                    'Aumenta o reduce el tamaño general de la app.',
+                                    'Increase or reduce the overall app size.',
+                                  ),
+                                ),
+                                enabled: _app.uiScaleMode == UiScaleMode.manual,
+                                trailing: Text(
+                                  '${((_app.uiScaleMode == UiScaleMode.followWindows ? MediaQuery.of(context).devicePixelRatio : _app.uiScale) * 100).round()}%',
+                                  style: Theme.of(context).textTheme.labelLarge
+                                      ?.copyWith(
+                                        color: scheme.onSurfaceVariant,
+                                        fontWeight: FontWeight.w700,
+                                      ),
+                                ),
+                              ),
+                              Padding(
+                                padding: const EdgeInsets.fromLTRB(
+                                  16,
+                                  0,
+                                  16,
+                                  8,
+                                ),
+                                child: Slider(
+                                  value: _app.uiScale,
+                                  min: AppSettings.minUiScale,
+                                  max: AppSettings.maxUiScale,
+                                  divisions:
+                                      ((AppSettings.maxUiScale -
+                                                  AppSettings.minUiScale) /
+                                              0.05)
+                                          .round(),
+                                  label: '${(_app.uiScale * 100).round()}%',
+                                  onChangeStart: (_) {
+                                    if (_app.uiScaleMode ==
+                                        UiScaleMode.followWindows) {
+                                      _app.setUiScaleMode(UiScaleMode.manual);
+                                    }
+                                  },
+                                  onChanged:
+                                      _app.uiScaleMode == UiScaleMode.manual
+                                      ? (value) {
+                                          _app.setUiScale(value);
+                                        }
+                                      : null,
+                                ),
+                              ),
+                              Align(
+                                alignment: Alignment.centerRight,
+                                child: Padding(
+                                  padding: const EdgeInsets.only(
+                                    right: 16,
+                                    bottom: 8,
+                                  ),
+                                  child: TextButton.icon(
+                                    onPressed: () async {
+                                      await _app.setUiScaleMode(
+                                        UiScaleMode.manual,
+                                      );
+                                      await _app.setUiScale(
+                                        AppSettings.defaultUiScale,
+                                      );
+                                    },
+                                    icon: const Icon(Icons.refresh_rounded),
+                                    label: Text(_t('Restablecer', 'Reset')),
+                                  ),
+                                ),
+                              ),
                               const Divider(height: 1),
                               ListTile(
                                 leading: const Icon(Icons.translate_rounded),
@@ -4684,7 +4842,7 @@ class _SettingsPageState extends State<SettingsPage> {
 
                         if (_app.isAiAvailable) ...[
                           _SettingsPanel(
-                            key: _sectionKeys[4],
+                            key: _sectionKey(_SettingsSectionId.ai),
                             margin: const EdgeInsets.only(bottom: 24),
                             child: Column(
                               children: [
@@ -5281,7 +5439,7 @@ class _SettingsPageState extends State<SettingsPage> {
                         ],
 
                         AnimatedBuilder(
-                          key: _sectionKeys[8],
+                          key: _sectionKey(_SettingsSectionId.sync),
                           animation: _sync,
                           builder: (context, _) => _SettingsPanel(
                             margin: const EdgeInsets.only(bottom: 24),
@@ -5694,7 +5852,7 @@ class _SettingsPageState extends State<SettingsPage> {
                         ),
 
                         _SettingsPanel(
-                          key: _sectionKeys[9],
+                          key: _sectionKey(_SettingsSectionId.about),
                           margin: const EdgeInsets.only(bottom: 24),
                           child: Column(
                             children: [
@@ -5837,7 +5995,7 @@ class _SettingsPageState extends State<SettingsPage> {
                         ),
 
                         _SettingsPanel(
-                          key: _sectionKeys[10],
+                          key: _sectionKey(_SettingsSectionId.data),
                           margin: const EdgeInsets.only(bottom: 24),
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -5928,7 +6086,7 @@ class _SettingsPageState extends State<SettingsPage> {
 
                         if (showDesktopOnlySections) ...[
                           _SettingsPanel(
-                            key: _sectionKeys[2],
+                            key: _sectionKey(_SettingsSectionId.desktop),
                             margin: const EdgeInsets.only(bottom: 24),
                             child: Column(
                               children: [
@@ -6308,7 +6466,7 @@ class _SettingsPageState extends State<SettingsPage> {
                           ),
 
                           _SettingsPanel(
-                            key: _sectionKeys[3],
+                            key: _sectionKey(_SettingsSectionId.shortcuts),
                             margin: const EdgeInsets.only(bottom: 24),
                             child: Column(
                               children: [
@@ -6414,7 +6572,7 @@ class _SettingsPageState extends State<SettingsPage> {
 
                         if (showDesktopOnlySections) ...[
                           _SettingsPanel(
-                            key: _sectionKeys[6],
+                            key: _sectionKey(_SettingsSectionId.integrations),
                             margin: const EdgeInsets.only(bottom: 24),
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -9244,8 +9402,8 @@ class _SettingsDesktopRail extends StatelessWidget {
   final String title;
   final String subtitle;
   final List<_SettingsSectionNavItem> sections;
-  final int currentSection;
-  final ValueChanged<int> onSelectSection;
+  final _SettingsSectionId currentSection;
+  final ValueChanged<_SettingsSectionId> onSelectSection;
   final TextEditingController sectionFilterController;
   final String sectionFilterHint;
   final String sectionFilterLabel;
@@ -9335,7 +9493,7 @@ class _SettingsDesktopRail extends StatelessWidget {
                         color: Colors.transparent,
                         child: InkWell(
                           borderRadius: BorderRadius.circular(16),
-                          onTap: () => onSelectSection(entry.value.keyIndex),
+                          onTap: () => onSelectSection(entry.value.id),
                           child: AnimatedContainer(
                             duration: const Duration(milliseconds: 180),
                             curve: Curves.easeOutCubic,
@@ -9345,12 +9503,12 @@ class _SettingsDesktopRail extends StatelessWidget {
                               vertical: 12,
                             ),
                             decoration: BoxDecoration(
-                              color: currentSection == entry.value.keyIndex
+                              color: currentSection == entry.value.id
                                   ? scheme.primaryContainer
                                   : scheme.surface,
                               borderRadius: BorderRadius.circular(16),
                               border: Border.all(
-                                color: currentSection == entry.value.keyIndex
+                                color: currentSection == entry.value.id
                                     ? scheme.primary.withValues(alpha: 0.35)
                                     : Colors.transparent,
                               ),
@@ -9359,7 +9517,7 @@ class _SettingsDesktopRail extends StatelessWidget {
                               entry.value.label,
                               style: theme.textTheme.titleSmall?.copyWith(
                                 fontWeight: FontWeight.w600,
-                                color: currentSection == entry.value.keyIndex
+                                color: currentSection == entry.value.id
                                     ? scheme.onPrimaryContainer
                                     : scheme.onSurface,
                               ),
@@ -9380,8 +9538,22 @@ class _SettingsDesktopRail extends StatelessWidget {
 }
 
 class _SettingsSectionNavItem {
-  const _SettingsSectionNavItem({required this.label, required this.keyIndex});
+  const _SettingsSectionNavItem({required this.id, required this.label});
 
+  final _SettingsSectionId id;
   final String label;
-  final int keyIndex;
+}
+
+enum _SettingsSectionId {
+  appearance,
+  security,
+  desktop,
+  shortcuts,
+  ai,
+  backup,
+  integrations,
+  cloud,
+  sync,
+  about,
+  data,
 }
