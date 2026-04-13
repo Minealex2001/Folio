@@ -1759,7 +1759,7 @@ class _WorkspacePageState extends State<WorkspacePage> {
         activator: a.inAppShortcut(FolioInAppShortcut.lock),
         action: () {
           if (_shouldHandleShortcut(FolioInAppShortcut.lock)) {
-            _s.lock();
+            unawaited(_s.lock());
           }
         },
       ),
@@ -3657,7 +3657,7 @@ class _WorkspacePageState extends State<WorkspacePage> {
           onSearch: widget.onOpenSearch,
           onForceSync: _forceSyncNow,
           onOpenSettings: _openSettings,
-          onLock: () => _s.lock(),
+          onLock: () => unawaited(_s.lock()),
         ),
       ),
     );
@@ -3679,7 +3679,9 @@ class _WorkspacePageState extends State<WorkspacePage> {
         }
       },
       a.inAppShortcut(FolioInAppShortcut.lock): () {
-        if (_shouldHandleShortcut(FolioInAppShortcut.lock)) _s.lock();
+        if (_shouldHandleShortcut(FolioInAppShortcut.lock)) {
+          unawaited(_s.lock());
+        }
       },
       a.inAppShortcut(FolioInAppShortcut.pageNext): () {
         if (_shouldHandleShortcut(FolioInAppShortcut.pageNext)) {

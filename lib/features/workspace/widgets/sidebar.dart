@@ -713,7 +713,7 @@ class _SidebarState extends State<Sidebar> {
     final l10n = AppLocalizations.of(context);
     final scheme = Theme.of(context).colorScheme;
     final selected = page.id == session.selectedPageId;
-    final showRowActions = selected || _hoveredPageId == page.id;
+    final showRowActions = _hoveredPageId == page.id;
     final hasChildren = _hasChildrenById[page.id] ?? false;
     final collapsed = _isCollapsed(page.id);
     final canDelete = session.pages.length > 1 && !hasChildren;

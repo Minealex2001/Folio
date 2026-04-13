@@ -1,8 +1,10 @@
 import 'dart:async';
 import 'dart:io';
 import 'dart:math' as math;
+import 'dart:ui' show PointerDeviceKind;
 
-import 'package:flutter/gestures.dart' show kPrimaryButton;
+import 'package:flutter/gestures.dart'
+    show kPrimaryButton, kSecondaryMouseButton;
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:collection/collection.dart';
@@ -3895,6 +3897,20 @@ class BlockEditorState extends State<BlockEditor> with _BlockRowBuild {
                               onPointerDown: readOnlyMode
                                   ? null
                                   : (event) {
+                                      if (event.kind == PointerDeviceKind.mouse &&
+                                          event.buttons ==
+                                              kSecondaryMouseButton) {
+                                        unawaited(
+                                          _showBlockContextMenuAtGlobal(
+                                            event.position,
+                                            context,
+                                            page,
+                                            b,
+                                            index,
+                                          ),
+                                        );
+                                        return;
+                                      }
                                       if ((event.buttons & kPrimaryButton) ==
                                           0) {
                                         return;
@@ -3992,25 +4008,6 @@ class BlockEditorState extends State<BlockEditor> with _BlockRowBuild {
     final androidPhoneLayout = FolioAdaptive.isAndroidPhoneWidth(
       MediaQuery.sizeOf(context).width,
     );
-    PopupMenuItem<String> item(
-      BuildContext ctx, {
-      required String value,
-      required IconData icon,
-      required String label,
-      Color? iconColor,
-    }) {
-      final scheme = Theme.of(ctx).colorScheme;
-      return PopupMenuItem<String>(
-        value: value,
-        child: Row(
-          children: [
-            Icon(icon, size: 18, color: iconColor ?? scheme.onSurfaceVariant),
-            const SizedBox(width: 10),
-            Expanded(child: Text(label)),
-          ],
-        ),
-      );
-    }
 
     return PopupMenuButton<String>(
       icon: Semantics(
@@ -4038,6 +4035,19 @@ class BlockEditorState extends State<BlockEditor> with _BlockRowBuild {
       },
       onSelected: (v) {
         setState(() => _menuOpenBlockId = null);
+        _onBlockMenuChosen(v, menuContext, page, b, index);
+      },
+      itemBuilder: (ctx) => _buildBlockMenuItems(ctx, page: page, b: b, index: index),
+    );
+  }
+
+  void _onBlockMenuChosen(
+    String v,
+    BuildContext menuContext,
+    FolioPage page,
+    FolioBlock b,
+    int index,
+  ) {
         if (v == 'del') {
           if (page.blocks.length > 1) {
             if (b.type == 'meeting_note') {
@@ -4348,352 +4358,413 @@ class BlockEditorState extends State<BlockEditor> with _BlockRowBuild {
             await _openMeetingNoteAiDialog(menuContext, page, b);
           });
         }
-      },
-      itemBuilder: (ctx) {
-        final data = b.type == 'table' ? FolioTableData.tryParse(b.text) : null;
-        final db = b.type == 'database'
-            ? FolioDatabaseData.tryParse(b.text)
-            : null;
-        final rows = data?.rowCount ?? 0;
-        final cols = data?.cols ?? 0;
-        final linkTarget = b.type == 'image'
-            ? b.text.trim()
-            : (const {
-                    'file',
-                    'video',
-                    'audio',
-                    'bookmark',
-                    'embed',
-                  }.contains(b.type)
-                  ? (b.url ?? '').trim()
-                  : '');
-        final hasExternalTarget = linkTarget.isNotEmpty;
-        final mediaSizeTypes = {
-          'image',
-          'file',
-          'video',
-          'bookmark',
-          'embed',
-          'audio',
-        };
-        final isChildLinked =
-            b.type == 'child_page' &&
-            b.text.trim().isNotEmpty &&
-            _s.pages.any((p) => p.id == b.text.trim());
-        return [
-          if (_s.aiEnabled)
-            item(
-              ctx,
-              value: 'ai_rewrite',
-              icon: Icons.auto_fix_high_rounded,
-              label: 'Reescribir con IA…',
-            ),
-          if (index > 0)
-            item(
-              ctx,
-              value: 'up',
-              icon: Icons.keyboard_arrow_up_rounded,
-              label: 'Mover arriba',
-            ),
-          if (index < page.blocks.length - 1)
-            item(
-              ctx,
-              value: 'down',
-              icon: Icons.keyboard_arrow_down_rounded,
-              label: 'Mover abajo',
-            ),
+  }
+
+  List<PopupMenuEntry<String>> _buildBlockMenuItems(
+    BuildContext ctx, {
+    required FolioPage page,
+    required FolioBlock b,
+    required int index,
+  }) {
+    PopupMenuItem<String> item(
+      BuildContext c, {
+      required String value,
+      required IconData icon,
+      required String label,
+      Color? iconColor,
+    }) {
+      final scheme = Theme.of(c).colorScheme;
+      return PopupMenuItem<String>(
+        value: value,
+        child: Row(
+          children: [
+            Icon(icon, size: 18, color: iconColor ?? scheme.onSurfaceVariant),
+            const SizedBox(width: 10),
+            Expanded(child: Text(label)),
+          ],
+        ),
+      );
+    }
+
+    final data = b.type == 'table' ? FolioTableData.tryParse(b.text) : null;
+    final db = b.type == 'database'
+        ? FolioDatabaseData.tryParse(b.text)
+        : null;
+    final rows = data?.rowCount ?? 0;
+    final cols = data?.cols ?? 0;
+    final linkTarget = b.type == 'image'
+        ? b.text.trim()
+        : (const {
+                'file',
+                'video',
+                'audio',
+                'bookmark',
+                'embed',
+              }.contains(b.type)
+              ? (b.url ?? '').trim()
+              : '');
+    final hasExternalTarget = linkTarget.isNotEmpty;
+    final mediaSizeTypes = {
+      'image',
+      'file',
+      'video',
+      'bookmark',
+      'embed',
+      'audio',
+    };
+    final isChildLinked =
+        b.type == 'child_page' &&
+        b.text.trim().isNotEmpty &&
+        _s.pages.any((p) => p.id == b.text.trim());
+    return [
+      if (_s.aiEnabled)
+        item(
+          ctx,
+          value: 'ai_rewrite',
+          icon: Icons.auto_fix_high_rounded,
+          label: 'Reescribir con IA…',
+        ),
+      if (index > 0)
+        item(
+          ctx,
+          value: 'up',
+          icon: Icons.keyboard_arrow_up_rounded,
+          label: 'Mover arriba',
+        ),
+      if (index < page.blocks.length - 1)
+        item(
+          ctx,
+          value: 'down',
+          icon: Icons.keyboard_arrow_down_rounded,
+          label: 'Mover abajo',
+        ),
+      item(
+        ctx,
+        value: 'dup',
+        icon: Icons.copy_all_rounded,
+        label: 'Duplicar bloque',
+      ),
+      if (_blockSupportsAppearance(b))
+        item(
+          ctx,
+          value: 'appearance',
+          icon: Icons.palette_outlined,
+          label: 'Apariencia…',
+        ),
+      if (hasExternalTarget)
+        item(
+          ctx,
+          value: 'open_external',
+          icon: Icons.open_in_new_rounded,
+          label: AppLocalizations.of(ctx).openExternal,
+        ),
+      if (hasExternalTarget)
+        item(
+          ctx,
+          value: 'copy_link',
+          icon: Icons.link_rounded,
+          label: 'Copiar enlace',
+        ),
+      if (mediaSizeTypes.contains(b.type)) ...[
+        const PopupMenuDivider(),
+        item(
+          ctx,
+          value: 'size_smaller',
+          icon: Icons.remove_rounded,
+          label: AppLocalizations.of(ctx).blockSizeSmaller,
+        ),
+        item(
+          ctx,
+          value: 'size_larger',
+          icon: Icons.add_rounded,
+          label: AppLocalizations.of(ctx).blockSizeLarger,
+        ),
+        item(
+          ctx,
+          value: 'size_50',
+          icon: Icons.photo_size_select_small_rounded,
+          label: AppLocalizations.of(ctx).blockSizeHalf,
+        ),
+        item(
+          ctx,
+          value: 'size_75',
+          icon: Icons.photo_size_select_large_rounded,
+          label: AppLocalizations.of(ctx).blockSizeThreeQuarter,
+        ),
+        item(
+          ctx,
+          value: 'size_100',
+          icon: Icons.fit_screen_rounded,
+          label: AppLocalizations.of(ctx).blockSizeFull,
+        ),
+      ],
+      if (b.type == 'child_page') ...[
+        const PopupMenuDivider(),
+        item(
+          ctx,
+          value: 'child_create',
+          icon: Icons.note_add_rounded,
+          label: 'Crear subpágina',
+        ),
+        item(
+          ctx,
+          value: 'child_link',
+          icon: Icons.link_rounded,
+          label: 'Enlazar página…',
+        ),
+        if (isChildLinked)
           item(
             ctx,
-            value: 'dup',
-            icon: Icons.copy_all_rounded,
-            label: 'Duplicar bloque',
+            value: 'child_open',
+            icon: Icons.open_in_new_rounded,
+            label: 'Abrir subpágina',
           ),
-          if (_blockSupportsAppearance(b))
-            item(
-              ctx,
-              value: 'appearance',
-              icon: Icons.palette_outlined,
-              label: 'Apariencia…',
-            ),
-          if (hasExternalTarget)
-            item(
-              ctx,
-              value: 'open_external',
-              icon: Icons.open_in_new_rounded,
-              label: AppLocalizations.of(ctx).openExternal,
-            ),
-          if (hasExternalTarget)
-            item(
-              ctx,
-              value: 'copy_link',
-              icon: Icons.link_rounded,
-              label: 'Copiar enlace',
-            ),
-          if (mediaSizeTypes.contains(b.type)) ...[
-            const PopupMenuDivider(),
-            item(
-              ctx,
-              value: 'size_smaller',
-              icon: Icons.remove_rounded,
-              label: AppLocalizations.of(ctx).blockSizeSmaller,
-            ),
-            item(
-              ctx,
-              value: 'size_larger',
-              icon: Icons.add_rounded,
-              label: AppLocalizations.of(ctx).blockSizeLarger,
-            ),
-            item(
-              ctx,
-              value: 'size_50',
-              icon: Icons.photo_size_select_small_rounded,
-              label: AppLocalizations.of(ctx).blockSizeHalf,
-            ),
-            item(
-              ctx,
-              value: 'size_75',
-              icon: Icons.photo_size_select_large_rounded,
-              label: AppLocalizations.of(ctx).blockSizeThreeQuarter,
-            ),
-            item(
-              ctx,
-              value: 'size_100',
-              icon: Icons.fit_screen_rounded,
-              label: AppLocalizations.of(ctx).blockSizeFull,
-            ),
-          ],
-          if (b.type == 'child_page') ...[
-            const PopupMenuDivider(),
-            item(
-              ctx,
-              value: 'child_create',
-              icon: Icons.note_add_rounded,
-              label: 'Crear subpágina',
-            ),
-            item(
-              ctx,
-              value: 'child_link',
-              icon: Icons.link_rounded,
-              label: 'Enlazar página…',
-            ),
-            if (isChildLinked)
-              item(
-                ctx,
-                value: 'child_open',
-                icon: Icons.open_in_new_rounded,
-                label: 'Abrir subpágina',
-              ),
-          ],
-          if (b.type == 'image') ...[
-            const PopupMenuDivider(),
-            item(
-              ctx,
-              value: 'img_pick',
-              icon: Icons.image_rounded,
-              label: 'Elegir imagen…',
-            ),
-            if (b.text.isNotEmpty)
-              item(
-                ctx,
-                value: 'img_clear',
-                icon: Icons.delete_outline_rounded,
-                label: 'Quitar imagen',
-              ),
-          ],
-          if (b.type == 'code') ...[
-            const PopupMenuDivider(),
-            item(
-              ctx,
-              value: 'code_lang',
-              icon: Icons.translate_rounded,
-              label: 'Lenguaje del código…',
-            ),
-          ],
-          if (b.type == 'mermaid') ...[
-            const PopupMenuDivider(),
-            item(
-              ctx,
-              value: 'mermaid_edit',
-              icon: Icons.edit_note_rounded,
-              label: 'Editar diagrama…',
-            ),
-            if (_mermaidEditingSourceIds.contains(b.id))
-              item(
-                ctx,
-                value: 'mermaid_hide',
-                icon: Icons.visibility_rounded,
-                label: 'Volver a vista previa',
-              ),
-          ],
-          if (b.type == 'file') ...[
-            const PopupMenuDivider(),
-            item(
-              ctx,
-              value: 'file_pick',
-              icon: Icons.attach_file_rounded,
-              label: 'Cambiar archivo…',
-            ),
-            if ((b.url ?? '').trim().isNotEmpty)
-              item(
-                ctx,
-                value: 'file_clear',
-                icon: Icons.delete_outline_rounded,
-                label: 'Quitar archivo',
-              ),
-          ],
-          if (b.type == 'video') ...[
-            const PopupMenuDivider(),
-            item(
-              ctx,
-              value: 'video_pick',
-              icon: Icons.video_settings_rounded,
-              label: 'Cambiar video…',
-            ),
-            if ((b.url ?? '').trim().isNotEmpty)
-              item(
-                ctx,
-                value: 'video_clear',
-                icon: Icons.delete_outline_rounded,
-                label: 'Quitar video',
-              ),
-          ],
-          if (b.type == 'audio') ...[
-            const PopupMenuDivider(),
-            item(
-              ctx,
-              value: 'audio_pick',
-              icon: Icons.audio_file_rounded,
-              label: 'Cambiar audio…',
-            ),
-            if ((b.url ?? '').trim().isNotEmpty)
-              item(
-                ctx,
-                value: 'audio_clear',
-                icon: Icons.delete_outline_rounded,
-                label: 'Quitar audio',
-              ),
-          ],
-          if (b.type == 'template_button') ...[
-            const PopupMenuDivider(),
-            item(
-              ctx,
-              value: 'template_edit_label',
-              icon: Icons.title_rounded,
-              label: 'Editar etiqueta…',
-            ),
-          ],
-          if (b.type == 'bookmark') ...[
-            const PopupMenuDivider(),
-            item(
-              ctx,
-              value: 'bookmark_set_url',
-              icon: Icons.link_rounded,
-              label: AppLocalizations.of(ctx).bookmarkSetUrl,
-            ),
-            if ((b.url ?? '').trim().isNotEmpty)
-              item(
-                ctx,
-                value: 'bookmark_clear',
-                icon: Icons.delete_outline_rounded,
-                label: AppLocalizations.of(ctx).bookmarkRemove,
-              ),
-          ],
-          if (b.type == 'embed') ...[
-            const PopupMenuDivider(),
-            item(
-              ctx,
-              value: 'embed_set_url',
-              icon: Icons.language_rounded,
-              label: AppLocalizations.of(ctx).embedSetUrl,
-            ),
-            if ((b.url ?? '').trim().isNotEmpty)
-              item(
-                ctx,
-                value: 'embed_clear',
-                icon: Icons.delete_outline_rounded,
-                label: AppLocalizations.of(ctx).embedRemove,
-              ),
-          ],
-          if (b.type == 'meeting_note') ...[
-            const PopupMenuDivider(),
-            if (b.text.trim().isNotEmpty)
-              item(
-                ctx,
-                value: 'meeting_copy_transcript',
-                icon: Icons.copy_rounded,
-                label: AppLocalizations.of(ctx).meetingNoteCopyTranscript,
-              ),
-            if (_s.aiEnabled)
-              item(
-                ctx,
-                value: 'meeting_send_to_ai',
-                icon: Icons.auto_fix_high_rounded,
-                label: AppLocalizations.of(ctx).meetingNoteSendToAi,
-              ),
-          ],
-          if (b.type == 'table' && data != null) ...[
-            const PopupMenuDivider(),
-            item(
-              ctx,
-              value: 'table_row_add',
-              icon: Icons.table_rows_rounded,
-              label: 'Añadir fila',
-            ),
-            if (rows > 1)
-              item(
-                ctx,
-                value: 'table_row_rem',
-                icon: Icons.table_rows_outlined,
-                label: 'Quitar última fila',
-              ),
-            item(
-              ctx,
-              value: 'table_col_add',
-              icon: Icons.view_column_rounded,
-              label: 'Añadir columna',
-            ),
-            if (cols > 1)
-              item(
-                ctx,
-                value: 'table_col_rem',
-                icon: Icons.view_column_outlined,
-                label: 'Quitar última columna',
-              ),
-          ],
-          if (b.type == 'database' && db != null) ...[
-            const PopupMenuDivider(),
-            item(
-              ctx,
-              value: 'db_row_add',
-              icon: Icons.playlist_add_rounded,
-              label: 'Añadir fila',
-            ),
-            item(
-              ctx,
-              value: 'db_col_add',
-              icon: Icons.add_chart_rounded,
-              label: 'Añadir propiedad',
-            ),
-          ],
-          const PopupMenuDivider(),
+      ],
+      if (b.type == 'image') ...[
+        const PopupMenuDivider(),
+        item(
+          ctx,
+          value: 'img_pick',
+          icon: Icons.image_rounded,
+          label: 'Elegir imagen…',
+        ),
+        if (b.text.isNotEmpty)
           item(
             ctx,
-            value: 'pick_type',
-            icon: Icons.auto_awesome_motion_rounded,
-            iconColor: Theme.of(ctx).colorScheme.primary,
-            label: 'Cambiar tipo de bloque…',
+            value: 'img_clear',
+            icon: Icons.delete_outline_rounded,
+            label: 'Quitar imagen',
           ),
-          const PopupMenuDivider(),
+      ],
+      if (b.type == 'code') ...[
+        const PopupMenuDivider(),
+        item(
+          ctx,
+          value: 'code_lang',
+          icon: Icons.translate_rounded,
+          label: 'Lenguaje del código…',
+        ),
+      ],
+      if (b.type == 'mermaid') ...[
+        const PopupMenuDivider(),
+        item(
+          ctx,
+          value: 'mermaid_edit',
+          icon: Icons.edit_note_rounded,
+          label: 'Editar diagrama…',
+        ),
+        if (_mermaidEditingSourceIds.contains(b.id))
           item(
             ctx,
-            value: 'del',
-            icon: Icons.delete_forever_rounded,
-            iconColor: Theme.of(ctx).colorScheme.error,
-            label: 'Eliminar bloque',
+            value: 'mermaid_hide',
+            icon: Icons.visibility_rounded,
+            label: 'Volver a vista previa',
           ),
-        ];
-      },
+      ],
+      if (b.type == 'file') ...[
+        const PopupMenuDivider(),
+        item(
+          ctx,
+          value: 'file_pick',
+          icon: Icons.attach_file_rounded,
+          label: 'Cambiar archivo…',
+        ),
+        if ((b.url ?? '').trim().isNotEmpty)
+          item(
+            ctx,
+            value: 'file_clear',
+            icon: Icons.delete_outline_rounded,
+            label: 'Quitar archivo',
+          ),
+      ],
+      if (b.type == 'video') ...[
+        const PopupMenuDivider(),
+        item(
+          ctx,
+          value: 'video_pick',
+          icon: Icons.video_settings_rounded,
+          label: 'Cambiar video…',
+        ),
+        if ((b.url ?? '').trim().isNotEmpty)
+          item(
+            ctx,
+            value: 'video_clear',
+            icon: Icons.delete_outline_rounded,
+            label: 'Quitar video',
+          ),
+      ],
+      if (b.type == 'audio') ...[
+        const PopupMenuDivider(),
+        item(
+          ctx,
+          value: 'audio_pick',
+          icon: Icons.audio_file_rounded,
+          label: 'Cambiar audio…',
+        ),
+        if ((b.url ?? '').trim().isNotEmpty)
+          item(
+            ctx,
+            value: 'audio_clear',
+            icon: Icons.delete_outline_rounded,
+            label: 'Quitar audio',
+          ),
+      ],
+      if (b.type == 'template_button') ...[
+        const PopupMenuDivider(),
+        item(
+          ctx,
+          value: 'template_edit_label',
+          icon: Icons.title_rounded,
+          label: 'Editar etiqueta…',
+        ),
+      ],
+      if (b.type == 'bookmark') ...[
+        const PopupMenuDivider(),
+        item(
+          ctx,
+          value: 'bookmark_set_url',
+          icon: Icons.link_rounded,
+          label: AppLocalizations.of(ctx).bookmarkSetUrl,
+        ),
+        if ((b.url ?? '').trim().isNotEmpty)
+          item(
+            ctx,
+            value: 'bookmark_clear',
+            icon: Icons.delete_outline_rounded,
+            label: AppLocalizations.of(ctx).bookmarkRemove,
+          ),
+      ],
+      if (b.type == 'embed') ...[
+        const PopupMenuDivider(),
+        item(
+          ctx,
+          value: 'embed_set_url',
+          icon: Icons.language_rounded,
+          label: AppLocalizations.of(ctx).embedSetUrl,
+        ),
+        if ((b.url ?? '').trim().isNotEmpty)
+          item(
+            ctx,
+            value: 'embed_clear',
+            icon: Icons.delete_outline_rounded,
+            label: AppLocalizations.of(ctx).embedRemove,
+          ),
+      ],
+      if (b.type == 'meeting_note') ...[
+        const PopupMenuDivider(),
+        if (b.text.trim().isNotEmpty)
+          item(
+            ctx,
+            value: 'meeting_copy_transcript',
+            icon: Icons.copy_rounded,
+            label: AppLocalizations.of(ctx).meetingNoteCopyTranscript,
+          ),
+        if (_s.aiEnabled)
+          item(
+            ctx,
+            value: 'meeting_send_to_ai',
+            icon: Icons.auto_fix_high_rounded,
+            label: AppLocalizations.of(ctx).meetingNoteSendToAi,
+          ),
+      ],
+      if (b.type == 'table' && data != null) ...[
+        const PopupMenuDivider(),
+        item(
+          ctx,
+          value: 'table_row_add',
+          icon: Icons.table_rows_rounded,
+          label: 'Añadir fila',
+        ),
+        if (rows > 1)
+          item(
+            ctx,
+            value: 'table_row_rem',
+            icon: Icons.table_rows_outlined,
+            label: 'Quitar última fila',
+          ),
+        item(
+          ctx,
+          value: 'table_col_add',
+          icon: Icons.view_column_rounded,
+          label: 'Añadir columna',
+        ),
+        if (cols > 1)
+          item(
+            ctx,
+            value: 'table_col_rem',
+            icon: Icons.view_column_outlined,
+            label: 'Quitar última columna',
+          ),
+      ],
+      if (b.type == 'database' && db != null) ...[
+        const PopupMenuDivider(),
+        item(
+          ctx,
+          value: 'db_row_add',
+          icon: Icons.playlist_add_rounded,
+          label: 'Añadir fila',
+        ),
+        item(
+          ctx,
+          value: 'db_col_add',
+          icon: Icons.add_chart_rounded,
+          label: 'Añadir propiedad',
+        ),
+      ],
+      const PopupMenuDivider(),
+      item(
+        ctx,
+        value: 'pick_type',
+        icon: Icons.auto_awesome_motion_rounded,
+        iconColor: Theme.of(ctx).colorScheme.primary,
+        label: 'Cambiar tipo de bloque…',
+      ),
+      const PopupMenuDivider(),
+      item(
+        ctx,
+        value: 'del',
+        icon: Icons.delete_forever_rounded,
+        iconColor: Theme.of(ctx).colorScheme.error,
+        label: 'Eliminar bloque',
+      ),
+    ];
+  }
+
+  Future<void> _showBlockContextMenuAtGlobal(
+    Offset globalPosition,
+    BuildContext menuContext,
+    FolioPage page,
+    FolioBlock b,
+    int index,
+  ) async {
+    if (!mounted || readOnlyMode) return;
+    final navigatorContext = context;
+    final items = _buildBlockMenuItems(
+      navigatorContext,
+      page: page,
+      b: b,
+      index: index,
     );
+    setState(() => _menuOpenBlockId = b.id);
+    final overlayBox =
+        Overlay.of(navigatorContext).context.findRenderObject()! as RenderBox;
+    final overlayRect = overlayBox.localToGlobal(Offset.zero) & overlayBox.size;
+    final menuRect = RelativeRect.fromRect(
+      Rect.fromLTWH(globalPosition.dx, globalPosition.dy, 0, 0),
+      overlayRect,
+    );
+    final choice = await showMenu<String>(
+      context: navigatorContext,
+      position: menuRect,
+      items: items,
+    );
+    if (!mounted) return;
+    if (_menuOpenBlockId == b.id) {
+      setState(() => _menuOpenBlockId = null);
+    }
+    if (choice == null) return;
+    if (!menuContext.mounted) return;
+    _onBlockMenuChosen(choice, menuContext, page, b, index);
   }
 
   // ─── Meeting note IA ────────────────────────────────────────────────────────
