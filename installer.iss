@@ -3,7 +3,7 @@
 ; Non-commercial use only
 
 #define MyAppName "Folio"
-#define MyAppVersion "0.0.3+1"
+#define MyAppVersion "0.0.3+2"
 #define MyAppPublisher "Minealex Games"
 #define MyAppURL "https://minealexgames.com/"
 #define MyAppExeName "folio.exe"

@@ -17,6 +17,7 @@ import 'services/platform/launch_arguments.dart';
 import 'session/vault_session.dart';
 
 Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
   AppLogger.setSink(await AppLogFileSink.init());
 
   FlutterError.onError = (details) {
@@ -43,49 +44,51 @@ Future<void> main() async {
     return true;
   };
 
-  await runZonedGuarded(() async {
-    WidgetsFlutterBinding.ensureInitialized();
+  await runZonedGuarded(
+    () async {
+      SystemTheme.fallbackColor = const Color(0xFF455A64);
+      await SystemTheme.accentColor.load();
 
-    SystemTheme.fallbackColor = const Color(0xFF455A64);
-    await SystemTheme.accentColor.load();
+      try {
+        await Firebase.initializeApp(
+          options: DefaultFirebaseOptions.currentPlatform,
+        );
+      } catch (e, st) {
+        AppLogger.error(
+          'Firebase init failed',
+          tag: 'firebase',
+          error: e,
+          stackTrace: st,
+        );
+      }
 
-    try {
-      await Firebase.initializeApp(
-        options: DefaultFirebaseOptions.currentPlatform,
+      final cloudAccountController = CloudAccountController();
+      final folioCloudEntitlements = FolioCloudEntitlementsController();
+      final runtimeConfig = await FolioRuntimeConfig.load();
+      final appSettings = AppSettings(
+        integrationSecret: runtimeConfig.integrationSecret,
       );
-    } catch (e, st) {
+      await appSettings.load();
+      final session = VaultSession();
+      final initialLaunchArgs =
+          await PlatformLaunchArguments.initialArguments();
+      runApp(
+        FolioApp(
+          session: session,
+          appSettings: appSettings,
+          cloudAccountController: cloudAccountController,
+          folioCloudEntitlements: folioCloudEntitlements,
+          initialLaunchArgs: initialLaunchArgs,
+        ),
+      );
+    },
+    (error, stackTrace) {
       AppLogger.error(
-        'Firebase init failed',
-        tag: 'firebase',
-        error: e,
-        stackTrace: st,
+        'Uncaught zoned error',
+        tag: 'crash',
+        error: error,
+        stackTrace: stackTrace,
       );
-    }
-
-    final cloudAccountController = CloudAccountController();
-    final folioCloudEntitlements = FolioCloudEntitlementsController();
-    final runtimeConfig = await FolioRuntimeConfig.load();
-    final appSettings = AppSettings(
-      integrationSecret: runtimeConfig.integrationSecret,
-    );
-    await appSettings.load();
-    final session = VaultSession();
-    final initialLaunchArgs = await PlatformLaunchArguments.initialArguments();
-    runApp(
-      FolioApp(
-        session: session,
-        appSettings: appSettings,
-        cloudAccountController: cloudAccountController,
-        folioCloudEntitlements: folioCloudEntitlements,
-        initialLaunchArgs: initialLaunchArgs,
-      ),
-    );
-  }, (error, stackTrace) {
-    AppLogger.error(
-      'Uncaught zoned error',
-      tag: 'crash',
-      error: error,
-      stackTrace: stackTrace,
-    );
-  });
+    },
+  );
 }
