@@ -181,6 +181,8 @@ class AppSettings extends ChangeNotifier {
   static const _hasAcceptedQuillGlobalScopeKey =
       'folio_has_accepted_quill_global_scope';
   static const _hasCompletedQuillSetupKey = 'folio_has_completed_quill_setup';
+  static const _lastSeenReleaseNotesVersionKey =
+      'folio_last_seen_release_notes_version';
   static const _updateReleaseChannelKey = 'folio_update_release_channel';
   static const _betaBannerDismissedKey = 'folio_beta_banner_dismissed';
   static const _inAppShortcutsKey = 'folio_in_app_shortcuts_json';
@@ -277,6 +279,7 @@ class AppSettings extends ChangeNotifier {
   bool _hasSeenQuillWorkspaceTour = false;
   bool _hasAcceptedQuillGlobalScope = false;
   bool _hasCompletedQuillSetup = false;
+  String _lastSeenReleaseNotesVersion = '';
   UpdateReleaseChannel _updateReleaseChannel = defaultUpdateReleaseChannel;
   bool _betaBannerDismissed = false;
   double _editorContentWidth = defaultEditorContentWidth;
@@ -334,6 +337,7 @@ class AppSettings extends ChangeNotifier {
   bool get hasSeenQuillWorkspaceTour => _hasSeenQuillWorkspaceTour;
   bool get hasAcceptedQuillGlobalScope => _hasAcceptedQuillGlobalScope;
   bool get hasCompletedQuillSetup => _hasCompletedQuillSetup;
+  String get lastSeenReleaseNotesVersion => _lastSeenReleaseNotesVersion;
   String get updaterGithubOwner => defaultUpdaterGithubOwner;
   String get updaterGithubRepo => defaultUpdaterGithubRepo;
   bool get checkUpdatesOnStartup => defaultCheckUpdatesOnStartup;
@@ -451,6 +455,8 @@ class AppSettings extends ChangeNotifier {
     _hasAcceptedQuillGlobalScope =
         p.getBool(_hasAcceptedQuillGlobalScopeKey) ?? false;
     _hasCompletedQuillSetup = p.getBool(_hasCompletedQuillSetupKey) ?? false;
+    _lastSeenReleaseNotesVersion =
+        (p.getString(_lastSeenReleaseNotesVersionKey) ?? '').trim();
     _updateReleaseChannel = _parseUpdateReleaseChannel(
       p.getString(_updateReleaseChannelKey),
     );
@@ -990,6 +996,19 @@ class AppSettings extends ChangeNotifier {
     notifyListeners();
     final p = await SharedPreferences.getInstance();
     await p.setBool(_hasCompletedQuillSetupKey, value);
+  }
+
+  Future<void> setLastSeenReleaseNotesVersion(String value) async {
+    final safe = value.trim();
+    if (_lastSeenReleaseNotesVersion == safe) return;
+    _lastSeenReleaseNotesVersion = safe;
+    notifyListeners();
+    final p = await SharedPreferences.getInstance();
+    if (safe.isEmpty) {
+      await p.remove(_lastSeenReleaseNotesVersionKey);
+    } else {
+      await p.setString(_lastSeenReleaseNotesVersionKey, safe);
+    }
   }
 
   Future<void> setUpdateReleaseChannel(UpdateReleaseChannel value) async {

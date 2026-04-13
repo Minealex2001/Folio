@@ -47,6 +47,7 @@ import '../../services/whisper_service.dart';
 import '../../services/updater/github_release_updater.dart';
 import '../../services/updater/update_release_channel.dart';
 import '../../session/vault_session.dart';
+import '../release_notes/release_notes_page.dart';
 import 'release_readiness.dart';
 import 'folio_cloud_reauth_dialog.dart';
 import 'folio_cloud_subscription_pitch_page.dart';
@@ -98,6 +99,7 @@ class _SettingsPageState extends State<SettingsPage> {
   List<String> _availableModels = const [];
   bool _loadingModels = false;
   bool _checkingUpdates = false;
+  bool _openingReleaseNotes = false;
   bool _detectingAiProvider = false;
   bool _importingCustomIcon = false;
   String _installedVersionLabel = '...';
@@ -2516,7 +2518,9 @@ class _SettingsPageState extends State<SettingsPage> {
       );
       if (!mounted) return;
       if (!result.supportedPlatform) {
-        _snack('El actualizador integrado solo está disponible en Windows.');
+        _snack(
+          'El actualizador integrado solo está disponible en Windows y Android.',
+        );
         return;
       }
       if (!result.hasUpdate) {
@@ -2540,7 +2544,7 @@ class _SettingsPageState extends State<SettingsPage> {
           content: Text(
             'Versión actual: ${result.currentVersion}\n'
             'Nueva versión: ${result.releaseVersion}$betaNote\n\n'
-            '¿Descargar e instalar ahora?',
+            '${Platform.isAndroid ? '¿Abrir descarga del APK ahora?' : '¿Descargar e instalar ahora?'}',
           ),
           actions: [
             TextButton(
@@ -2555,6 +2559,22 @@ class _SettingsPageState extends State<SettingsPage> {
         ),
       );
       if (go != true) return;
+      if (Platform.isAndroid) {
+        final raw = result.installerUrl ?? '';
+        final uri = Uri.tryParse(raw);
+        if (uri == null) {
+          _snack('No se encontró URL válida del APK en el release.');
+          return;
+        }
+        final opened = await launchUrl(
+          uri,
+          mode: LaunchMode.externalApplication,
+        );
+        if (!opened) {
+          _snack('No se pudo abrir la descarga del APK.');
+        }
+        return;
+      }
       final installer = await updater.downloadInstaller(result);
       await updater.launchInstallerAndExit(installer);
     } catch (e) {
@@ -2562,6 +2582,66 @@ class _SettingsPageState extends State<SettingsPage> {
       _snack('No se pudo actualizar: $e');
     } finally {
       if (mounted) setState(() => _checkingUpdates = false);
+    }
+  }
+
+  Future<void> _openReleaseNotesNow() async {
+    if (_openingReleaseNotes) return;
+    setState(() => _openingReleaseNotes = true);
+    try {
+      final info = await PackageInfo.fromPlatform();
+      final appVersion = info.version.trim();
+      final buildNumber = info.buildNumber.trim();
+      if (appVersion.isEmpty) {
+        _snack(
+          _t(
+            'No se pudo leer la versión instalada.',
+            'Could not read installed version.',
+          ),
+        );
+        return;
+      }
+      final versionLabel = buildNumber.isEmpty
+          ? appVersion
+          : '$appVersion+$buildNumber';
+
+      final updater = _buildUpdater();
+      ReleaseNotesResult? release;
+      try {
+        release = await updater.fetchReleaseNotesForVersion(
+          appVersion: appVersion,
+          buildNumber: buildNumber,
+        );
+      } catch (_) {
+        release = null;
+      }
+
+      if (!mounted) return;
+      await Navigator.of(context).push(
+        MaterialPageRoute<void>(
+          builder: (context) {
+            return ReleaseNotesPage(
+              versionLabel: versionLabel,
+              releaseTitle: release?.releaseName,
+              releaseNotes: release?.releaseNotes ?? '',
+              publishedAt: release?.publishedAt,
+              tagName: release?.tagName,
+            );
+          },
+          settings: const RouteSettings(name: 'release_notes_manual'),
+        ),
+      );
+      await _app.setLastSeenReleaseNotesVersion(versionLabel);
+    } catch (e) {
+      if (!mounted) return;
+      _snack(
+        _t(
+          'No se pudieron abrir las notas de versión: $e',
+          'Could not open release notes: $e',
+        ),
+      );
+    } finally {
+      if (mounted) setState(() => _openingReleaseNotes = false);
     }
   }
 
@@ -4039,14 +4119,15 @@ class _SettingsPageState extends State<SettingsPage> {
                                   _app.locale == null
                                       ? l10n.useSystemLanguage
                                       : {
-                                          'es': l10n.spanishLanguage,
-                                          'en': l10n.englishLanguage,
-                                          'pt': l10n.brazilianPortugueseLanguage,
-                                          'ca': l10n.catalanLanguage,
-                                          'gl': l10n.galicianLanguage,
-                                          'eu': l10n.basqueLanguage,
-                                        }[_app.locale!.languageCode] ??
-                                          _app.locale!.languageCode,
+                                              'es': l10n.spanishLanguage,
+                                              'en': l10n.englishLanguage,
+                                              'pt': l10n
+                                                  .brazilianPortugueseLanguage,
+                                              'ca': l10n.catalanLanguage,
+                                              'gl': l10n.galicianLanguage,
+                                              'eu': l10n.basqueLanguage,
+                                            }[_app.locale!.languageCode] ??
+                                            _app.locale!.languageCode,
                                 ),
                                 trailing: DropdownButton<String?>(
                                   value: _app.locale?.languageCode,
@@ -4071,7 +4152,9 @@ class _SettingsPageState extends State<SettingsPage> {
                                     ),
                                     DropdownMenuItem<String?>(
                                       value: 'pt',
-                                      child: Text(l10n.brazilianPortugueseLanguage),
+                                      child: Text(
+                                        l10n.brazilianPortugueseLanguage,
+                                      ),
                                     ),
                                     DropdownMenuItem<String?>(
                                       value: 'ca',
@@ -5638,6 +5721,28 @@ class _SettingsPageState extends State<SettingsPage> {
                                 leading: const Icon(Icons.info_outline_rounded),
                                 title: Text(l10n.installedVersion),
                                 subtitle: Text(_installedVersionLabel),
+                              ),
+                              const Divider(height: 1),
+                              ListTile(
+                                leading: const Icon(Icons.article_outlined),
+                                title: Text(
+                                  _t(
+                                    'Ver notas de versión',
+                                    'Open release notes',
+                                  ),
+                                ),
+                                trailing: _openingReleaseNotes
+                                    ? const SizedBox(
+                                        height: 20,
+                                        width: 20,
+                                        child: CircularProgressIndicator(
+                                          strokeWidth: 2,
+                                        ),
+                                      )
+                                    : null,
+                                onTap: _openingReleaseNotes
+                                    ? null
+                                    : _openReleaseNotesNow,
                               ),
                               if (showDesktopOnlySections) ...[
                                 const Divider(height: 1),

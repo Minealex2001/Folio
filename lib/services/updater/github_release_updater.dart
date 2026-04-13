@@ -24,7 +24,8 @@ class GitHubReleaseUpdater {
   Future<UpdateCheckResult> checkForUpdate({
     required UpdateReleaseChannel channel,
   }) async {
-    if (!Platform.isWindows) {
+    final supportsPlatform = Platform.isWindows || Platform.isAndroid;
+    if (!supportsPlatform) {
       return UpdateCheckResult.unsupportedPlatform();
     }
 
@@ -55,11 +56,14 @@ class GitHubReleaseUpdater {
       return UpdateCheckResult.noUpdate(currentVersion: currentVersion);
     }
 
-    final exeAsset = _pickWindowsInstallerAsset(release.assets);
-    if (exeAsset == null) {
+    final releaseAsset = _pickReleaseAssetForCurrentPlatform(release.assets);
+    if (releaseAsset == null) {
+      final missingAssetReason = Platform.isAndroid
+          ? 'No se encontró asset APK instalable para Android en el release.'
+          : 'No se encontró asset .exe instalador en el release.';
       return UpdateCheckResult.noUpdate(
         currentVersion: currentVersion,
-        reason: 'No se encontró asset .exe instalador en el release.',
+        reason: missingAssetReason,
       );
     }
 
@@ -68,11 +72,83 @@ class GitHubReleaseUpdater {
       releaseVersion: remoteVersion,
       releaseName: release.name,
       releaseNotes: release.body,
-      installerAssetName: exeAsset.name,
-      installerUrl: exeAsset.browserDownloadUrl,
+      installerAssetName: releaseAsset.name,
+      installerUrl: releaseAsset.browserDownloadUrl,
       publishedAt: release.publishedAt,
       isPrerelease: channel == UpdateReleaseChannel.beta,
     );
+  }
+
+  Future<ReleaseNotesResult?> fetchReleaseNotesForVersion({
+    required String appVersion,
+    String? buildNumber,
+  }) async {
+    final candidates = <String>[];
+    final seen = <String>{};
+
+    void addCandidate(String raw) {
+      final trimmed = raw.trim();
+      if (trimmed.isEmpty) return;
+      if (seen.add(trimmed)) {
+        candidates.add(trimmed);
+      }
+    }
+
+    final version = appVersion.trim();
+    final build = (buildNumber ?? '').trim();
+    addCandidate(version);
+    if (build.isNotEmpty) {
+      addCandidate('$version+$build');
+    }
+    final plusIndex = version.indexOf('+');
+    if (plusIndex > 0) {
+      addCandidate(version.substring(0, plusIndex));
+    }
+
+    final expandedCandidates = <String>[];
+    final expandedSeen = <String>{};
+    for (final candidate in candidates) {
+      if (expandedSeen.add(candidate)) {
+        expandedCandidates.add(candidate);
+      }
+      final noV = candidate.replaceFirst(RegExp(r'^v'), '');
+      final withV = 'v$noV';
+      if (expandedSeen.add(withV)) {
+        expandedCandidates.add(withV);
+      }
+    }
+
+    for (final tag in expandedCandidates) {
+      final uri = Uri.https(
+        'api.github.com',
+        '/repos/$owner/$repo/releases/tags/$tag',
+      );
+      final response = await _httpClient.get(uri, headers: _headers());
+      if (response.statusCode == 404) {
+        continue;
+      }
+      if (response.statusCode < 200 || response.statusCode >= 300) {
+        throw HttpException(
+          'No se pudo consultar release por tag en GitHub: HTTP ${response.statusCode}',
+          uri: uri,
+        );
+      }
+      final decoded = jsonDecode(response.body);
+      if (decoded is! Map<String, dynamic>) {
+        throw const FormatException(
+          'Respuesta inválida de GitHub releases por tag.',
+        );
+      }
+      final release = _GitHubRelease.fromJson(decoded);
+      return ReleaseNotesResult(
+        tagName: release.tagName,
+        releaseVersion: release.parsedVersion,
+        releaseName: release.name,
+        releaseNotes: release.body,
+        publishedAt: release.publishedAt,
+      );
+    }
+    return null;
   }
 
   Future<File> downloadInstaller(UpdateCheckResult update) async {
@@ -107,17 +183,13 @@ class GitHubReleaseUpdater {
     }
 
     // Inno Setup: sin asistente ni mensajes que requieran clic (ver installer.iss).
-    await Process.start(
-      installerFile.path,
-      const [
-        '/VERYSILENT',
-        '/SUPPRESSMSGBOXES',
-        '/NOCANCEL',
-        '/SP-',
-        '/CLOSEAPPLICATIONS',
-      ],
-      mode: ProcessStartMode.detached,
-    );
+    await Process.start(installerFile.path, const [
+      '/VERYSILENT',
+      '/SUPPRESSMSGBOXES',
+      '/NOCANCEL',
+      '/SP-',
+      '/CLOSEAPPLICATIONS',
+    ], mode: ProcessStartMode.detached);
     exit(0);
   }
 
@@ -210,6 +282,30 @@ class GitHubReleaseUpdater {
     }
     return null;
   }
+
+  _GitHubReleaseAsset? _pickAndroidInstallerAsset(List<_GitHubReleaseAsset> a) {
+    for (final asset in a) {
+      final lower = asset.name.toLowerCase();
+      if (!lower.endsWith('.apk')) continue;
+      if (lower.contains('release') || lower.contains('arm64')) return asset;
+    }
+    for (final asset in a) {
+      if (asset.name.toLowerCase().endsWith('.apk')) return asset;
+    }
+    return null;
+  }
+
+  _GitHubReleaseAsset? _pickReleaseAssetForCurrentPlatform(
+    List<_GitHubReleaseAsset> assets,
+  ) {
+    if (Platform.isWindows) {
+      return _pickWindowsInstallerAsset(assets);
+    }
+    if (Platform.isAndroid) {
+      return _pickAndroidInstallerAsset(assets);
+    }
+    return null;
+  }
 }
 
 class UpdateCheckResult {
@@ -281,6 +377,22 @@ class UpdateCheckResult {
   final String? reason;
   final DateTime? publishedAt;
   final bool isPrerelease;
+}
+
+class ReleaseNotesResult {
+  const ReleaseNotesResult({
+    required this.tagName,
+    required this.releaseVersion,
+    required this.releaseName,
+    required this.releaseNotes,
+    required this.publishedAt,
+  });
+
+  final String tagName;
+  final Version? releaseVersion;
+  final String? releaseName;
+  final String? releaseNotes;
+  final DateTime? publishedAt;
 }
 
 class _GitHubRelease {
