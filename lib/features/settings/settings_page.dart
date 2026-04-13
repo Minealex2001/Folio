@@ -4038,9 +4038,15 @@ class _SettingsPageState extends State<SettingsPage> {
                                 subtitle: Text(
                                   _app.locale == null
                                       ? l10n.useSystemLanguage
-                                      : (_app.locale!.languageCode == 'es'
-                                            ? l10n.spanishLanguage
-                                            : l10n.englishLanguage),
+                                      : {
+                                          'es': l10n.spanishLanguage,
+                                          'en': l10n.englishLanguage,
+                                          'pt': l10n.brazilianPortugueseLanguage,
+                                          'ca': l10n.catalanLanguage,
+                                          'gl': l10n.galicianLanguage,
+                                          'eu': l10n.basqueLanguage,
+                                        }[_app.locale!.languageCode] ??
+                                          _app.locale!.languageCode,
                                 ),
                                 trailing: DropdownButton<String?>(
                                   value: _app.locale?.languageCode,
@@ -4062,6 +4068,22 @@ class _SettingsPageState extends State<SettingsPage> {
                                     DropdownMenuItem<String?>(
                                       value: 'en',
                                       child: Text(l10n.englishLanguage),
+                                    ),
+                                    DropdownMenuItem<String?>(
+                                      value: 'pt',
+                                      child: Text(l10n.brazilianPortugueseLanguage),
+                                    ),
+                                    DropdownMenuItem<String?>(
+                                      value: 'ca',
+                                      child: Text(l10n.catalanLanguage),
+                                    ),
+                                    DropdownMenuItem<String?>(
+                                      value: 'gl',
+                                      child: Text(l10n.galicianLanguage),
+                                    ),
+                                    DropdownMenuItem<String?>(
+                                      value: 'eu',
+                                      child: Text(l10n.basqueLanguage),
                                     ),
                                   ],
                                 ),

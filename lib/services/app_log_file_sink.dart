@@ -7,6 +7,8 @@ import 'app_logger.dart';
 class AppLogFileSink implements AppLogSink {
   AppLogFileSink._(this._file);
 
+  factory AppLogFileSink.forFile(File file) => AppLogFileSink._(file);
+
   static const _maxBytes = 1024 * 1024; // 1 MiB
   static const _maxRotations = 3;
 
@@ -28,7 +30,11 @@ class AppLogFileSink implements AppLogSink {
     _queue = _queue.then((_) async {
       try {
         await _rotateIfNeeded();
-        await _file.writeAsString('$line\n', mode: FileMode.append, flush: false);
+        await _file.writeAsString(
+          '$line\n',
+          mode: FileMode.append,
+          flush: false,
+        );
       } catch (_) {
         // Si el sink falla, no debería crashear la app.
       }
@@ -69,4 +75,3 @@ class AppLogFileSink implements AppLogSink {
     return '$dir${sep}folio$suffix.log';
   }
 }
-

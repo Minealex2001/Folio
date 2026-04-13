@@ -445,6 +445,11 @@ Widget? _buildSpecialBlockRowOrNull(_BlockRowScope s) {
                       children: [
                         if (showActions)
                           st._blockMediaWidthToolbar(page, block, theme),
+                        st._buildCollabUploadProgressBadge(
+                          block.id,
+                          theme,
+                          scheme,
+                        ),
                         SizedBox(
                           height: boxH,
                           child: Container(
@@ -806,32 +811,41 @@ Widget? _buildSpecialBlockRowOrNull(_BlockRowScope s) {
               child: FutureBuilder<File?>(
                 future: st._resolveBlockUrlFileCached(block.url),
                 builder: (context, snap) {
-                  if (snap.connectionState == ConnectionState.waiting) {
-                    return const Center(child: CircularProgressIndicator());
-                  }
-                  final file = snap.data;
-                  if (file == null) {
-                    return Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        Text(
-                          'Elige un archivo de audio',
-                          style: theme.textTheme.bodySmall?.copyWith(
-                            color: scheme.onSurfaceVariant,
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                        FilledButton.tonalIcon(
-                          onPressed: () => unawaited(
-                            st._pickAudioForBlock(page.id, block.id),
-                          ),
-                          icon: const Icon(Icons.audio_file_rounded),
-                          label: const Text('Elegir audio…'),
-                        ),
-                      ],
-                    );
-                  }
-                  return FolioAudioBlockPlayer(file: file, scheme: scheme);
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      st._buildCollabUploadProgressBadge(
+                        block.id,
+                        theme,
+                        scheme,
+                      ),
+                      if (snap.connectionState == ConnectionState.waiting)
+                        const Center(child: CircularProgressIndicator())
+                      else if (snap.data == null)
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            Text(
+                              'Elige un archivo de audio',
+                              style: theme.textTheme.bodySmall?.copyWith(
+                                color: scheme.onSurfaceVariant,
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+                            FilledButton.tonalIcon(
+                              onPressed: () => unawaited(
+                                st._pickAudioForBlock(page.id, block.id),
+                              ),
+                              icon: const Icon(Icons.audio_file_rounded),
+                              label: const Text('Elegir audio…'),
+                            ),
+                          ],
+                        )
+                      else
+                        FolioAudioBlockPlayer(file: snap.data!, scheme: scheme),
+                    ],
+                  );
                 },
               ),
             ),
@@ -989,6 +1003,11 @@ Widget? _buildSpecialBlockRowOrNull(_BlockRowScope s) {
                         children: [
                           if (showActions)
                             st._blockMediaWidthToolbar(page, block, theme),
+                          st._buildCollabUploadProgressBadge(
+                            block.id,
+                            theme,
+                            scheme,
+                          ),
                           Container(
                             height: vidH,
                             padding: const EdgeInsets.all(8),
@@ -1062,6 +1081,11 @@ Widget? _buildSpecialBlockRowOrNull(_BlockRowScope s) {
                       children: [
                         if (showActions)
                           st._blockMediaWidthToolbar(page, block, theme),
+                        st._buildCollabUploadProgressBadge(
+                          block.id,
+                          theme,
+                          scheme,
+                        ),
                         SizedBox(
                           height: localH,
                           child: Container(

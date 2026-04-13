@@ -15,6 +15,7 @@ friction.
 flutter pub get
 flutter analyze
 flutter test
+flutter test --coverage
 flutter run -d windows
 ```
 
@@ -30,6 +31,7 @@ git checkout -b feat/my-change
 # Validate before commit
 flutter analyze
 flutter test
+flutter test --coverage
 ```
 
 ## Localization (i18n)
@@ -68,11 +70,19 @@ Run everything:
 flutter test
 ```
 
+Run with coverage report:
+
+```bash
+flutter test --coverage
+```
+
 Run a subset (example):
 
 ```bash
 flutter test test/services
 ```
+
+For testing scope, layering, and PR expectations, see `docs/TESTING.md`.
 
 ## Common issues
 

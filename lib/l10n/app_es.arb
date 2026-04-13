@@ -99,6 +99,10 @@
   "useSystemLanguage": "Usar idioma del sistema",
   "spanishLanguage": "Español",
   "englishLanguage": "Inglés",
+  "brazilianPortugueseLanguage": "Portugués (Brasil)",
+  "catalanLanguage": "Catalán / Valenciano",
+  "galicianLanguage": "Gallego",
+  "basqueLanguage": "Euskera",
   "active": "Activado",
   "inactive": "Desactivado",
   "remove": "Quitar",
@@ -261,6 +265,24 @@
   },
     "meetingNoteCloudProcessing": "Procesando con Quill Cloud…",
     "meetingNoteCloudProcessingSubtitle": "Detectando hablantes y mejorando calidad. Un momento.",
+    "meetingNoteCloudProgress": "Segmentos procesados: {done}/{total}",
+    "@meetingNoteCloudProgress": {
+      "placeholders": {
+        "done": {
+          "type": "int"
+        },
+        "total": {
+          "type": "int"
+        }
+      }
+    },
+    "meetingNoteCloudEta": "Tiempo restante estimado: {remaining}",
+    "@meetingNoteCloudEta": {
+      "placeholders": {
+        "remaining": {}
+      }
+    },
+    "meetingNoteCloudEtaCalculating": "Calculando tiempo restante...",
   "meetingNoteCloudRequiresAccount": "Requiere cuenta Folio Cloud con Tinta.",
   "meetingNoteTranscriptionProvider": "Motor de transcripción",
   "meetingNoteRecordingTime": "Grabando  {mm}:{ss}",
@@ -627,6 +649,12 @@
   ,"integrationApprovalCannotDoBypassLock": "No puede saltarse el bloqueo de la libreta, el cifrado ni tu aprobacion explicita."
   ,"integrationApprovalCannotDoWithoutSecret": "No puede acceder a endpoints protegidos sin el secreto compartido."
   ,"integrationApprovalCannotDoRemoteAccess": "No puede usar el puente desde fuera de localhost."
+  ,"integrationApprovalEncryptedChip": "Contenido cifrado (v2)"
+  ,"integrationApprovalUnencryptedChip": "Contenido en claro (v1)"
+  ,"integrationApprovalEncryptedTitle": "Version 2: cifrado obligatorio de contenido"
+  ,"integrationApprovalEncryptedDescription": "Esta version exige payload cifrado para importar y actualizar contenido mediante el bridge local."
+  ,"integrationApprovalUnencryptedTitle": "Version 1: contenido sin cifrar"
+  ,"integrationApprovalUnencryptedDescription": "Esta version permite payload en claro para contenido. Si quieres cifrado en tránsito, actualiza la integracion a la version 2."
   ,"integrationApprovalDeny": "Denegar"
   ,"integrationApprovalApprove": "Aprobar"
   ,"integrationApprovalApproveUpdate": "Aprobar esta actualizacion"
@@ -891,4 +919,38 @@
   ,"collabMissingJoinCodeHint": "La página está enlazada a una sala pero aquí no hay código guardado. Pega el código del anfitrión para descifrar contenido y chat."
   ,"collabUnlockWithCode": "Descifrar con código"
   ,"collabHidePanel": "Ocultar panel de colaboración"
+  ,"shortcutsCaptureTitle": "Nuevo atajo"
+  ,"shortcutsCaptureHint": "Pulsa las teclas (Esc cancela)."
+  ,"updaterStartupDialogTitleStable": "Actualización disponible"
+  ,"updaterStartupDialogTitleBeta": "Beta disponible"
+  ,"updaterStartupDialogBody": "Hay una nueva versión ({releaseVersion}) disponible."
+  ,"@updaterStartupDialogBody": {"placeholders": {"releaseVersion": {}}}
+  ,"updaterStartupDialogQuestion": "¿Quieres descargar e instalar ahora?"
+  ,"updaterStartupDialogLater": "Más tarde"
+  ,"updaterStartupDialogUpdateNow": "Actualizar ahora"
+  ,"updaterStartupDialogBetaNote": "Versión beta (pre-release)."
+  ,"toggleTitleHint": "Título del desplegable"
+  ,"toggleBodyHint": "Contenido…"
+  ,"taskStatusTodo": "Por hacer"
+  ,"taskStatusInProgress": "En progreso"
+  ,"taskStatusDone": "Hecho"
+  ,"taskPriorityNone": "Sin prioridad"
+  ,"taskPriorityLow": "Baja"
+  ,"taskPriorityMedium": "Media"
+  ,"taskPriorityHigh": "Alta"
+  ,"taskTitleHint": "Descripción de la tarea…"
+  ,"taskPriorityTooltip": "Prioridad"
+  ,"taskNoDueDate": "Sin fecha límite"
+  ,"taskSubtaskHint": "Subtarea…"
+  ,"taskRemoveSubtask": "Quitar subtarea"
+  ,"taskAddSubtask": "Añadir subtarea"
+  ,"templateEmojiLabel": "Emoji"
+  ,"aiGenericErrorWithReason": "Error IA: {reason}"
+  ,"@aiGenericErrorWithReason": {"placeholders": {"reason": {}}}
+  ,"calloutTypeTooltip": "Tipo de callout"
+  ,"calloutTypeInfo": "Info"
+  ,"calloutTypeSuccess": "Éxito"
+  ,"calloutTypeWarning": "Advertencia"
+  ,"calloutTypeError": "Error"
+  ,"calloutTypeNote": "Nota"
 }

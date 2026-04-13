@@ -25,8 +25,8 @@ import '../services/vault_scheduled_local_export.dart';
 import '../features/settings/vault_identity_verify_dialog.dart';
 import '../services/device_sync/device_sync_controller.dart';
 import '../services/device_sync/device_sync_models.dart';
-import '../services/run2doc/run2doc_bridge.dart';
-import '../services/run2doc/run2doc_markdown_codec.dart';
+import '../services/integrations/integrations_bridge.dart';
+import '../services/integrations/integrations_markdown_codec.dart';
 import '../services/updater/github_release_updater.dart';
 import '../features/lock/lock_screen.dart';
 import '../features/onboarding/onboarding_flow.dart';
@@ -50,6 +50,7 @@ class FolioApp extends StatefulWidget {
   final VaultSession session;
   final AppSettings appSettings;
   final CloudAccountController cloudAccountController;
+
   /// Si es null, el estado crea uno la primera vez que hace falta (también tras hot reload).
   final FolioCloudEntitlementsController? folioCloudEntitlements;
   final List<String> initialLaunchArgs;
@@ -72,7 +73,7 @@ class _FolioAppState extends State<FolioApp> with WidgetsBindingObserver {
   }
 
   DesktopIntegration? _desktop;
-  late final Run2DocBridgeController _run2DocBridge;
+  late final IntegrationsBridgeController _integrationsBridge;
   late final DeviceSyncController _deviceSyncController;
   String? _installedVersionLabel;
   var _openingByHotkey = false;
@@ -87,23 +88,24 @@ class _FolioAppState extends State<FolioApp> with WidgetsBindingObserver {
     WidgetsBinding.instance.addObserver(this);
     widget.session.addListener(_onSession);
     widget.appSettings.addListener(_onSettings);
-    _run2DocBridge = Run2DocBridgeController(
-      onImport: _importRun2DocMarkdown,
-      onUpdate: _updateRun2DocPage,
-      onListPages: _listRun2DocPages,
-      onListCustomEmojis: _listRun2DocCustomEmojis,
-      onImportJson: _importRun2DocJson,
-      onReplaceCustomEmojis: _replaceRun2DocCustomEmojis,
-      onUpsertCustomEmoji: _upsertRun2DocCustomEmoji,
-      onDeleteCustomEmoji: _deleteRun2DocCustomEmoji,
-      onApproveClient: _approveRun2DocClient,
-      onClientObserved: _syncObservedRun2DocClient,
+    _integrationsBridge = IntegrationsBridgeController(
+      onImport: _importIntegrationsMarkdown,
+      onUpdate: _updateIntegrationsPage,
+      onListPages: _listIntegrationsPages,
+      onListCustomEmojis: _listIntegrationsCustomEmojis,
+      onImportJson: _importIntegrationsJson,
+      onReplaceCustomEmojis: _replaceIntegrationsCustomEmojis,
+      onUpsertCustomEmoji: _upsertIntegrationsCustomEmoji,
+      onDeleteCustomEmoji: _deleteIntegrationsCustomEmoji,
+      onApproveClient: _approveIntegrationsClient,
+      onClientObserved: _syncObservedIntegrationsClient,
       isClientApproved: (client) => widget.appSettings.isIntegrationAppApproved(
         client.appId,
         integrationVersion: client.integrationVersion,
       ),
-      appInfoProvider: _run2DocAppInfo,
+      appInfoProvider: _integrationsAppInfo,
       onEvent: _showSnack,
+      allowedOrigins: const ['*'],
     );
     _deviceSyncController = DeviceSyncController(
       appSettings: widget.appSettings,
@@ -130,7 +132,7 @@ class _FolioAppState extends State<FolioApp> with WidgetsBindingObserver {
     _maybeLaunchAiProvider();
     widget.session.bootstrap();
     unawaited(_loadInstalledVersionInfo());
-    unawaited(_startRun2DocBridge());
+    unawaited(_startIntegrationsBridge());
     _initDesktopIntegration();
     _launchArgsSub = PlatformLaunchArguments.launchArguments().listen((args) {
       unawaited(_handleLaunchArguments(args, focusWindow: false));
@@ -152,7 +154,7 @@ class _FolioAppState extends State<FolioApp> with WidgetsBindingObserver {
     _scheduledVaultBackupTimer?.cancel();
     _launchArgsSub?.cancel();
     _accentSub?.cancel();
-    unawaited(_run2DocBridge.dispose());
+    unawaited(_integrationsBridge.dispose());
     widget.session.onSyncConflictCountChanged = null;
     widget.session.onPersisted = null;
     _deviceSyncController.dispose();
@@ -189,10 +191,12 @@ class _FolioAppState extends State<FolioApp> with WidgetsBindingObserver {
     if (!mounted) return;
     if (!widget.appSettings.scheduledVaultBackupEnabled) return;
     final dir = widget.appSettings.scheduledVaultBackupDirectory.trim();
-    final canCloud = Firebase.apps.isNotEmpty &&
+    final canCloud =
+        Firebase.apps.isNotEmpty &&
         FirebaseAuth.instance.currentUser != null &&
         _folioCloudEntitlements.snapshot.canUseCloudBackup;
-    final cloudOnly = dir.isEmpty &&
+    final cloudOnly =
+        dir.isEmpty &&
         widget.appSettings.scheduledVaultBackupAlsoUploadCloud &&
         canCloud;
     if (dir.isEmpty && !cloudOnly) return;
@@ -214,11 +218,15 @@ class _FolioAppState extends State<FolioApp> with WidgetsBindingObserver {
     } on VaultBackupException catch (e) {
       final errCtx = _navKey.currentContext;
       if (errCtx == null || !errCtx.mounted) return;
-      _showSnack(AppLocalizations.of(errCtx).scheduledVaultBackupSnackFail('$e'));
+      _showSnack(
+        AppLocalizations.of(errCtx).scheduledVaultBackupSnackFail('$e'),
+      );
     } catch (e) {
       final errCtx = _navKey.currentContext;
       if (errCtx == null || !errCtx.mounted) return;
-      _showSnack(AppLocalizations.of(errCtx).scheduledVaultBackupSnackFail('$e'));
+      _showSnack(
+        AppLocalizations.of(errCtx).scheduledVaultBackupSnackFail('$e'),
+      );
     }
   }
 
@@ -291,9 +299,7 @@ class _FolioAppState extends State<FolioApp> with WidgetsBindingObserver {
                   Navigator.of(dialogCtx).pop();
                   final verifyCtx = _navKey.currentContext;
                   if (verifyCtx == null || !mounted) {
-                    unawaited(
-                      _deviceSyncController.respondIncomingPair(false),
-                    );
+                    unawaited(_deviceSyncController.respondIncomingPair(false));
                     return;
                   }
                   final ok = await showDialog<bool>(
@@ -340,12 +346,12 @@ class _FolioAppState extends State<FolioApp> with WidgetsBindingObserver {
     }
   }
 
-  Future<void> _startRun2DocBridge() async {
+  Future<void> _startIntegrationsBridge() async {
     if (defaultTargetPlatform == TargetPlatform.android) return;
     try {
-      await _run2DocBridge.start();
+      await _integrationsBridge.start();
     } catch (e) {
-      _showSnack('No se pudo iniciar el bridge Run2Doc: $e');
+      _showSnack('No se pudo iniciar el bridge de integraciones: $e');
     }
   }
 
@@ -560,8 +566,8 @@ class _FolioAppState extends State<FolioApp> with WidgetsBindingObserver {
     await SystemNavigator.pop();
   }
 
-  Future<FolioMarkdownImportResult> _importRun2DocMarkdown(
-    Run2DocMarkdownImportRequest request,
+  Future<FolioMarkdownImportResult> _importIntegrationsMarkdown(
+    IntegrationsMarkdownImportRequest request,
   ) async {
     return widget.session.importMarkdownDocument(
       request.markdown,
@@ -577,8 +583,8 @@ class _FolioAppState extends State<FolioApp> with WidgetsBindingObserver {
     );
   }
 
-  Future<FolioMarkdownImportResult> _updateRun2DocPage(
-    Run2DocPageUpdateRequest request,
+  Future<FolioMarkdownImportResult> _updateIntegrationsPage(
+    IntegrationsPageUpdateRequest request,
   ) async {
     if (request.isJsonMode) {
       final blocks = request.blocks!
@@ -611,14 +617,14 @@ class _FolioAppState extends State<FolioApp> with WidgetsBindingObserver {
     );
   }
 
-  Future<List<Map<String, Object?>>> _listRun2DocPages(
+  Future<List<Map<String, Object?>>> _listIntegrationsPages(
     String clientAppId,
   ) async {
     return widget.session.listPagesByApp(clientAppId);
   }
 
-  Future<FolioMarkdownImportResult> _importRun2DocJson(
-    Run2DocJsonImportRequest request,
+  Future<FolioMarkdownImportResult> _importIntegrationsJson(
+    IntegrationsJsonImportRequest request,
   ) async {
     final blocks = request.blocks.map((b) => FolioBlock.fromJson(b)).toList();
     return widget.session.importBlocksDocument(
@@ -634,7 +640,7 @@ class _FolioAppState extends State<FolioApp> with WidgetsBindingObserver {
     );
   }
 
-  Future<List<Map<String, Object?>>> _listRun2DocCustomEmojis(
+  Future<List<Map<String, Object?>>> _listIntegrationsCustomEmojis(
     String clientAppId,
   ) async {
     return widget.appSettings
@@ -643,7 +649,7 @@ class _FolioAppState extends State<FolioApp> with WidgetsBindingObserver {
         .toList(growable: false);
   }
 
-  Future<void> _replaceRun2DocCustomEmojis(
+  Future<void> _replaceIntegrationsCustomEmojis(
     String clientAppId,
     List<Map<String, Object?>> items,
   ) async {
@@ -656,8 +662,8 @@ class _FolioAppState extends State<FolioApp> with WidgetsBindingObserver {
     );
   }
 
-  Future<Map<String, Object?>> _upsertRun2DocCustomEmoji(
-    Run2DocCustomEmojiUpsertRequest request,
+  Future<Map<String, Object?>> _upsertIntegrationsCustomEmoji(
+    IntegrationsCustomEmojiUpsertRequest request,
   ) async {
     final createdAtMs = request.createdAtMs > 0
         ? request.createdAtMs
@@ -677,8 +683,8 @@ class _FolioAppState extends State<FolioApp> with WidgetsBindingObserver {
     return entry.toJson();
   }
 
-  Future<void> _deleteRun2DocCustomEmoji(
-    Run2DocCustomEmojiDeleteRequest request,
+  Future<void> _deleteIntegrationsCustomEmoji(
+    IntegrationsCustomEmojiDeleteRequest request,
   ) {
     return widget.appSettings.removeIntegrationCustomIconForApp(
       request.clientAppId,
@@ -686,7 +692,9 @@ class _FolioAppState extends State<FolioApp> with WidgetsBindingObserver {
     );
   }
 
-  Future<bool> _approveRun2DocClient(Run2DocClientIdentity client) async {
+  Future<bool> _approveIntegrationsClient(
+    IntegrationsClientIdentity client,
+  ) async {
     if (widget.appSettings.isIntegrationAppApproved(
       client.appId,
       integrationVersion: client.integrationVersion,
@@ -717,7 +725,9 @@ class _FolioAppState extends State<FolioApp> with WidgetsBindingObserver {
     return false;
   }
 
-  Future<void> _syncObservedRun2DocClient(Run2DocClientIdentity client) {
+  Future<void> _syncObservedIntegrationsClient(
+    IntegrationsClientIdentity client,
+  ) {
     return widget.appSettings.syncApprovedIntegrationAppObservation(
       appId: client.appId,
       appName: client.appName,
@@ -726,9 +736,9 @@ class _FolioAppState extends State<FolioApp> with WidgetsBindingObserver {
     );
   }
 
-  Map<String, Object?> _run2DocAppInfo() {
+  Map<String, Object?> _integrationsAppInfo() {
     final page = widget.session.selectedPage;
-    final activeSession = _run2DocBridge.activeSession;
+    final activeSession = _integrationsBridge.activeSession;
     return <String, Object?>{
       'name': 'Folio',
       'version': _installedVersionLabel ?? 'unknown',
@@ -746,7 +756,7 @@ class _FolioAppState extends State<FolioApp> with WidgetsBindingObserver {
               'lastImportInfo': page.lastImportInfo?.toJson(),
             },
       'aiEnabled': widget.session.aiEnabled,
-      'bridgePort': Run2DocLaunchSession.fixedPort,
+      'bridgePort': IntegrationsLaunchSession.fixedPort,
       'approvedClients': widget.appSettings.approvedIntegrationAppApprovals
           .map(
             (entry) => <String, Object?>{
@@ -790,17 +800,18 @@ class _FolioAppState extends State<FolioApp> with WidgetsBindingObserver {
     final launchUri = PlatformLaunchArguments.firstUriWithScheme(args, 'folio');
     if (launchUri == null) return;
     try {
-      await _run2DocBridge.activateFromUri(launchUri);
+      await _integrationsBridge.activateFromUri(launchUri);
       if (focusWindow) {
         await _desktop?.showAndFocus();
       }
     } catch (e) {
-      _showSnack('No se pudo activar la integración Run2Doc: $e');
+      _showSnack('No se pudo activar la integración: $e');
     }
   }
 
   Future<void> _checkForUpdatesOnStartup() async {
     if (!widget.appSettings.checkUpdatesOnStartup) return;
+    final l10n = AppLocalizations.of(_navKey.currentContext ?? context);
     final updater = GitHubReleaseUpdater(
       owner: widget.appSettings.updaterGithubOwner,
       repo: widget.appSettings.updaterGithubRepo,
@@ -812,7 +823,7 @@ class _FolioAppState extends State<FolioApp> with WidgetsBindingObserver {
       if (!mounted || !result.hasUpdate || _updateDialogShown) return;
       _updateDialogShown = true;
       final betaNote = result.isPrerelease
-          ? '\n\nVersión beta (pre-release).'
+          ? '\n\n${l10n.updaterStartupDialogBetaNote}'
           : '';
       final shouldInstall = await showDialog<bool>(
         context: _navKey.currentContext ?? context,
@@ -820,21 +831,21 @@ class _FolioAppState extends State<FolioApp> with WidgetsBindingObserver {
           return AlertDialog(
             title: Text(
               result.isPrerelease
-                  ? 'Beta disponible'
-                  : 'Actualización disponible',
+                  ? l10n.updaterStartupDialogTitleBeta
+                  : l10n.updaterStartupDialogTitleStable,
             ),
             content: Text(
-              'Hay una nueva versión (${result.releaseVersion}) disponible.$betaNote\n\n'
-              '¿Quieres descargar e instalar ahora?',
+              '${l10n.updaterStartupDialogBody(result.releaseVersion.toString())}$betaNote\n\n'
+              '${l10n.updaterStartupDialogQuestion}',
             ),
             actions: [
               TextButton(
                 onPressed: () => Navigator.pop(ctx, false),
-                child: const Text('Más tarde'),
+                child: Text(l10n.updaterStartupDialogLater),
               ),
               FilledButton(
                 onPressed: () => Navigator.pop(ctx, true),
-                child: const Text('Actualizar ahora'),
+                child: Text(l10n.updaterStartupDialogUpdateNow),
               ),
             ],
           );
@@ -909,7 +920,7 @@ class _IntegrationApprovalDialog extends StatelessWidget {
     required this.previousApproval,
   });
 
-  final Run2DocClientIdentity client;
+  final IntegrationsClientIdentity client;
   final IntegrationAppApproval? previousApproval;
 
   @override
@@ -925,6 +936,9 @@ class _IntegrationApprovalDialog extends StatelessWidget {
         (previousApproval?.integrationVersion.trim() ?? '').isEmpty
         ? l10n.integrationApprovalUnknownVersion
         : previousApproval!.integrationVersion.trim();
+    final isEncryptedContent =
+      client.integrationVersion.trim() ==
+      IntegrationsBridgeController.supportedIntegrationVersion;
     final appVersion = client.appVersion.trim().isEmpty
         ? l10n.integrationApprovalUnknownVersion
         : client.appVersion.trim();
@@ -1108,6 +1122,14 @@ class _IntegrationApprovalDialog extends StatelessWidget {
                             'No shared secret',
                           ),
                         ),
+                        _IntegrationApprovalChip(
+                          icon: isEncryptedContent
+                              ? Icons.lock_rounded
+                              : Icons.lock_open_rounded,
+                          label: isEncryptedContent
+                              ? l10n.integrationApprovalEncryptedChip
+                              : l10n.integrationApprovalUnencryptedChip,
+                        ),
                       ],
                     ),
                   ],
@@ -1235,6 +1257,19 @@ class _IntegrationApprovalDialog extends StatelessWidget {
                   'Requests only work while Folio is open, the vault is available, and the current session is still active.',
                 ),
                 accent: scheme.primary,
+              ),
+              capabilityRow(
+                isEncryptedContent
+                    ? Icons.enhanced_encryption_outlined
+                    : Icons.gpp_maybe_outlined,
+                isEncryptedContent
+                    ? l10n.integrationApprovalEncryptedTitle
+                    : l10n.integrationApprovalUnencryptedTitle,
+                isEncryptedContent
+                    ? l10n.integrationApprovalEncryptedDescription
+                    : l10n.integrationApprovalUnencryptedDescription,
+                accent: isEncryptedContent ? scheme.primary : scheme.error,
+                danger: !isEncryptedContent,
               ),
               const SizedBox(height: 12),
               Text(

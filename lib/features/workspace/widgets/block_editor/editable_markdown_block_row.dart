@@ -12,6 +12,7 @@ Widget _buildEditableMarkdownBlockRow(_BlockRowScope s) {
   final marker = s.marker;
   final dragHandle = s.dragHandle;
   final menu = s.menu;
+  final l10n = AppLocalizations.of(context);
   final showActions = s.showActions;
   final style = s.style;
   final compactReadOnlyMobile = s.compactReadOnlyMobile;
@@ -226,18 +227,33 @@ Widget _buildEditableMarkdownBlockRow(_BlockRowScope s) {
                   ),
                 ),
                 PopupMenuButton<String>(
-                  tooltip: 'Tipo de callout',
+                  tooltip: l10n.calloutTypeTooltip,
                   enabled: !readOnlyMode,
                   onSelected: readOnlyMode
                       ? null
                       : (emoji) =>
                             st._s.updateBlockIcon(page.id, block.id, emoji),
                   itemBuilder: (ctx) => [
-                    const PopupMenuItem(value: '💡', child: Text('💡 Info')),
-                    const PopupMenuItem(value: '✅', child: Text('✅ Éxito')),
-                    const PopupMenuItem(value: '⚠️', child: Text('⚠️ Warning')),
-                    const PopupMenuItem(value: '🚨', child: Text('🚨 Error')),
-                    const PopupMenuItem(value: 'ℹ️', child: Text('ℹ️ Nota')),
+                    PopupMenuItem(
+                      value: '💡',
+                      child: Text('💡 ${l10n.calloutTypeInfo}'),
+                    ),
+                    PopupMenuItem(
+                      value: '✅',
+                      child: Text('✅ ${l10n.calloutTypeSuccess}'),
+                    ),
+                    PopupMenuItem(
+                      value: '⚠️',
+                      child: Text('⚠️ ${l10n.calloutTypeWarning}'),
+                    ),
+                    PopupMenuItem(
+                      value: '🚨',
+                      child: Text('🚨 ${l10n.calloutTypeError}'),
+                    ),
+                    PopupMenuItem(
+                      value: 'ℹ️',
+                      child: Text('ℹ️ ${l10n.calloutTypeNote}'),
+                    ),
                   ],
                   icon: Icon(
                     Icons.arrow_drop_down,

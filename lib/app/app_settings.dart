@@ -1297,12 +1297,17 @@ class AppSettings extends ChangeNotifier {
   }) async {
     final key = appId.trim();
     final current = _approvedIntegrationApps[key];
-    if (key.isEmpty || current == null) return;
-    if (!current.matches(integrationVersion: integrationVersion)) return;
+    if (key.isEmpty || current == null) {
+      return;
+    }
+    if (!current.matches(integrationVersion: integrationVersion)) {
+      return;
+    }
     final safeName = appName.trim().isEmpty ? key : appName.trim();
     final safeVersion = appVersion.trim();
-    if (current.appName == safeName && current.appVersion == safeVersion)
+    if (current.appName == safeName && current.appVersion == safeVersion) {
       return;
+    }
     _approvedIntegrationApps[key] = IntegrationAppApproval(
       appId: current.appId,
       appName: safeName,

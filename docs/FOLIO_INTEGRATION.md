@@ -1,5 +1,5 @@
 # Folio Local Integration
-# Version 1
+# Version 2 (v1 legacy compatible)
 
 ## Overview
 
@@ -9,6 +9,35 @@ The integration uses two layers:
 
 1. `folio://import?...` to launch or focus Folio and arm a short-lived import session.
 2. `http://127.0.0.1:45831` to send the actual Markdown payload as JSON.
+
+## Versioning and Encryption Policy
+
+- Integration version `2` is the current contract and requires encrypted content payloads for:
+  - `POST /imports/markdown`
+  - `POST /imports/json`
+  - `PATCH /pages/{pageId}`
+- Integration version `1` is legacy-compatible and still accepted, but content payloads are not encrypted.
+- Folio shows this distinction in the approval UI so users can identify whether an integration sends content encrypted or plaintext.
+
+For version `2`, clients must send an envelope:
+
+```json
+{
+  "sessionId": "8f2e9c1a",
+  "encryptedPayload": {
+    "alg": "AES-256-GCM",
+    "iv": "base64url-iv",
+    "tag": "base64url-tag",
+    "ciphertext": "base64url-ciphertext"
+  }
+}
+```
+
+Encryption details for `v2`:
+
+- Algorithm: `AES-256-GCM`
+- Key derivation input: `folio-integrations-v2|<sessionId>|<nonce>`
+- The decrypted payload must be a JSON object with the same fields expected by each endpoint.
 
 This document describes the generic contract so any desktop or backend-assisted client can implement a Folio integration.
 
@@ -20,7 +49,7 @@ Protected endpoints require these headers:
 X-Folio-App-Id: sample-docs-desktop
 X-Folio-App-Name: Sample Docs
 X-Folio-App-Version: 1.4.0
-X-Folio-Integration-Version: 1
+X-Folio-Integration-Version: 2
 ```
 
 Header meaning:
@@ -29,6 +58,11 @@ Header meaning:
 - `X-Folio-App-Name`: human-readable name shown in Folio approval UI.
 - `X-Folio-App-Version`: version of the external application build. Folio stores this for diagnostics and settings display.
 - `X-Folio-Integration-Version`: version of the Folio integration contract implemented by the client.
+
+Supported versions:
+
+- `2`: current, encrypted content required.
+- `1`: legacy, plaintext content allowed.
 
 Approval behavior:
 
@@ -73,7 +107,7 @@ POST http://127.0.0.1:45831/session/start
 X-Folio-App-Id: sample-docs-desktop
 X-Folio-App-Name: Sample Docs
 X-Folio-App-Version: 1.4.0
-X-Folio-Integration-Version: 1
+X-Folio-Integration-Version: 2
 ```
 
 Supported aliases:
@@ -94,10 +128,10 @@ Example response:
   "appId": "sample-docs-desktop",
   "appName": "Sample Docs",
   "appVersion": "1.4.0",
-  "integrationVersion": "1",
+  "integrationVersion": "2",
   "expiresAtUtc": "2026-03-24T20:25:00.000Z",
   "expiresInSeconds": 300,
-  "deepLink": "folio://import?session=18e6f1f3b2c_a1b2c3d4&nonce=fR5N0mD4f5nJY7q6x6lq4eQ7f8m8k9zA&appId=sample-docs-desktop&appName=Sample%20Docs&appVersion=1.4.0&integrationVersion=1"
+  "deepLink": "folio://import?session=18e6f1f3b2c_a1b2c3d4&nonce=fR5N0mD4f5nJY7q6x6lq4eQ7f8m8k9zA&appId=sample-docs-desktop&appName=Sample%20Docs&appVersion=1.4.0&integrationVersion=2"
 }
 ```
 

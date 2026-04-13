@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../ui_tokens.dart';
+import '../../l10n/generated/app_localizations.dart';
 
 /// Widget helper para micro-interactions: scale + opacity en clics
 class InteractiveContainer extends StatefulWidget {
@@ -544,6 +545,7 @@ class _AnimatedErrorStateState extends State<AnimatedErrorState>
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
 
@@ -593,7 +595,7 @@ class _AnimatedErrorStateState extends State<AnimatedErrorState>
                   FilledButton.icon(
                     onPressed: widget.onRetry,
                     icon: const Icon(Icons.refresh),
-                    label: const Text('Retry'),
+                    label: Text(l10n.retry),
                   ),
                 ],
               ],

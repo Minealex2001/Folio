@@ -30,6 +30,7 @@ make reviews smoother.
 flutter pub get
 flutter analyze
 flutter test
+flutter test --coverage
 ```
 
 If you changed localization:
@@ -37,6 +38,8 @@ If you changed localization:
 ```bash
 flutter gen-l10n
 ```
+
+For testing conventions and scope by layer, see `docs/TESTING.md`.
 
 ## Code conventions
 
@@ -76,6 +79,7 @@ Suggested checklist:
 
 - [ ] `flutter analyze` with no new issues
 - [ ] `flutter test` passing
+- [ ] `flutter test --coverage` generated report
 - [ ] Documentation updated when behavior changes
 - [ ] No build or temporary files in the diff
 

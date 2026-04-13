@@ -237,9 +237,6 @@ class DeviceSyncController extends ChangeNotifier {
     notifyListeners();
 
     final requesterId = req.requesterId;
-    final displayName = req.trimmedRequesterName.isEmpty
-        ? _localized('Dispositivo Folio', 'Folio device')
-        : req.trimmedRequesterName;
 
     if (!accept) {
       _incomingRequesterConfirmed = false;
@@ -1401,14 +1398,6 @@ class DeviceSyncController extends ChangeNotifier {
     final p = await SharedPreferences.getInstance();
     final json = jsonEncode(_peers.map((peer) => peer.toJson()).toList());
     await p.setString(_pairedPeersKey, json);
-  }
-
-  String _generateDigits(int length) {
-    final b = StringBuffer();
-    for (var i = 0; i < length; i++) {
-      b.write(_random.nextInt(10));
-    }
-    return b.toString();
   }
 
   String _generateToken(int length) {

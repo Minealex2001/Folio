@@ -187,16 +187,13 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
       if (vaults.isEmpty) {
         setState(() {
           _busy = false;
-          _error = l10n.folioCloudCloudBackupsList + ': ' + l10n.noPages;
+          _error = '${l10n.folioCloudCloudBackupsList}: ${l10n.noPages}';
         });
         return;
       }
       final chosenVaultId = await showDialog<String>(
         context: context,
-        builder: (ctx) => _CloudVaultPickerDialog(
-          l10n: l10n,
-          vaults: vaults,
-        ),
+        builder: (ctx) => _CloudVaultPickerDialog(l10n: l10n, vaults: vaults),
       );
       if (!mounted || chosenVaultId == null) {
         setState(() => _busy = false);
@@ -211,18 +208,14 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
       if (backups.isEmpty) {
         setState(() {
           _busy = false;
-          _error =
-              l10n.folioCloudCloudBackupsList + ': ' + l10n.noPages;
+          _error = '${l10n.folioCloudCloudBackupsList}: ${l10n.noPages}';
         });
         return;
       }
 
       final chosen = await showDialog<FolioCloudBackupEntry>(
         context: context,
-        builder: (ctx) => _CloudBackupPickerDialog(
-          l10n: l10n,
-          items: backups,
-        ),
+        builder: (ctx) => _CloudBackupPickerDialog(l10n: l10n, items: backups),
       );
       if (!mounted || chosen == null) {
         setState(() => _busy = false);
@@ -1301,7 +1294,9 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
             ),
             const SizedBox(width: FolioSpace.md),
             TextButton(
-              onPressed: _busy ? null : () => _goPage(_shouldShowQuillIntro ? 4 : 3),
+              onPressed: _busy
+                  ? null
+                  : () => _goPage(_shouldShowQuillIntro ? 4 : 3),
               child: Text(l10n.onboardingFolioCloudLaterInSettings),
             ),
             const SizedBox(width: FolioSpace.md),
@@ -1619,10 +1614,7 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
 enum _OnboardingMode { create, backupImport, notionImport }
 
 class _CloudBackupPickerDialog extends StatelessWidget {
-  const _CloudBackupPickerDialog({
-    required this.l10n,
-    required this.items,
-  });
+  const _CloudBackupPickerDialog({required this.l10n, required this.items});
 
   final AppLocalizations l10n;
   final List<FolioCloudBackupEntry> items;
@@ -1634,14 +1626,16 @@ class _CloudBackupPickerDialog extends StatelessWidget {
     return AlertDialog(
       title: Text(
         l10n.folioCloudCloudBackupsList,
-        style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w800),
+        style: theme.textTheme.titleLarge?.copyWith(
+          fontWeight: FontWeight.w800,
+        ),
       ),
       content: SizedBox(
         width: 520,
         child: ListView.separated(
           shrinkWrap: true,
           itemCount: items.length,
-          separatorBuilder: (_, __) => Divider(
+          separatorBuilder: (context, index) => Divider(
             height: 1,
             color: scheme.outlineVariant.withValues(alpha: 0.45),
           ),
@@ -1678,10 +1672,7 @@ class _CloudBackupPickerDialog extends StatelessWidget {
 }
 
 class _CloudVaultPickerDialog extends StatelessWidget {
-  const _CloudVaultPickerDialog({
-    required this.l10n,
-    required this.vaults,
-  });
+  const _CloudVaultPickerDialog({required this.l10n, required this.vaults});
 
   final AppLocalizations l10n;
   final List<FolioCloudBackupVaultEntry> vaults;
@@ -1693,14 +1684,16 @@ class _CloudVaultPickerDialog extends StatelessWidget {
     return AlertDialog(
       title: Text(
         l10n.folioCloudCloudBackupsList,
-        style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w800),
+        style: theme.textTheme.titleLarge?.copyWith(
+          fontWeight: FontWeight.w800,
+        ),
       ),
       content: SizedBox(
         width: 520,
         child: ListView.separated(
           shrinkWrap: true,
           itemCount: vaults.length,
-          separatorBuilder: (_, __) => Divider(
+          separatorBuilder: (context, index) => Divider(
             height: 1,
             color: scheme.outlineVariant.withValues(alpha: 0.45),
           ),

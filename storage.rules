@@ -24,6 +24,30 @@ service firebase.storage {
         && u.folioCloud.features.publishWeb == true;
     }
 
+    function collabRoomDoc(roomId) {
+      return firestore.get(/databases/(default)/documents/collabRooms/$(roomId)).data;
+    }
+
+    function collabMember(roomId) {
+      let room = collabRoomDoc(roomId);
+      return request.auth != null
+        && room != null
+        && (
+          request.auth.uid == room.ownerUid
+          || request.auth.uid in room.memberUids
+        );
+    }
+
+    function collabMediaDoc(roomId, mediaId) {
+      return firestore.get(/databases/(default)/documents/collabRooms/$(roomId)/media/$(mediaId)).data;
+    }
+
+    function collabMediaVisible(roomId, mediaId) {
+      let media = collabMediaDoc(roomId, mediaId);
+      return media != null
+        && media.e2eV == 1;
+    }
+
     // Copias cifradas: solo suscripción Folio Cloud con feature backup (servidor escribe folioCloud).
     match /users/{userId}/backups/{allPaths=**} {
       allow read, write: if request.auth != null
@@ -56,6 +80,18 @@ service firebase.storage {
         && request.auth.uid == userId
         && fileName.matches('.*\\.folio-template$')
         && request.resource.size < 1 * 1024 * 1024;
+    }
+
+    // Adjuntos multimedia cifrados E2E por sala.
+    match /collab-media-e2e/{roomId}/{mediaId} {
+      allow write: if collabMember(roomId)
+        && request.resource.size > 0
+        && request.resource.size <= 80 * 1024 * 1024;
+
+      allow read: if collabMember(roomId)
+        && collabMediaVisible(roomId, mediaId);
+
+      allow delete: if false;
     }
   }
 }

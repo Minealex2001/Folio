@@ -1157,7 +1157,7 @@ class _DatabaseBlockEditorState extends State<DatabaseBlockEditor> {
     return SingleChildScrollView(
       scrollDirection: Axis.horizontal,
       child: DataTable(
-        headingRowColor: MaterialStatePropertyAll(
+        headingRowColor: WidgetStatePropertyAll(
           widget.scheme.surfaceContainerLow,
         ),
         dividerThickness: 0.6,

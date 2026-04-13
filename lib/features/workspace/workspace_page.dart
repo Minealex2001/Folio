@@ -6,6 +6,7 @@ import 'dart:math' as math;
 import 'package:path/path.dart' as p;
 
 import 'package:collection/collection.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:file_picker/file_picker.dart';
@@ -38,10 +39,10 @@ import '../../services/folio_cloud/folio_page_html_export.dart';
 import '../../services/device_sync/device_sync_controller.dart';
 import '../../l10n/generated/app_localizations.dart';
 import '../../data/vault_paths.dart';
-import '../../services/run2doc/run2doc_markdown_codec.dart';
+import '../../services/integrations/integrations_markdown_codec.dart';
 import '../../session/vault_session.dart';
 import '../settings/folio_cloud_subscription_pitch_page.dart';
-import '../settings/settings_page.dart';
+import '../settings/settings_page.dart' show SettingsPage;
 import 'widgets/ai_typing_indicator.dart';
 import 'widgets/ai_typewriter_message.dart';
 import 'widgets/block_editor.dart';
@@ -119,6 +120,10 @@ class _WorkspacePageState extends State<WorkspacePage> {
   double _collabPanelWidth = 360;
   double _collabPanelHeight = 480;
   bool _collabPanelCollapsed = true;
+  bool _collabSheetOpen = false;
+  int _collabUnreadCount = 0;
+  String? _lastCollabObservedMessageId;
+  String? _lastCollabObservedRoomId;
   bool _showQuillWorkspaceTour = false;
   final Set<String> _expandedThoughtMessageKeys = <String>{};
   final ScrollController _aiChatScrollController = ScrollController();
@@ -158,6 +163,13 @@ class _WorkspacePageState extends State<WorkspacePage> {
 
   VaultSession get _s => widget.session;
   AiChatThreadData get _activeChat => _s.activeAiChat;
+
+  bool _isValidCollabRoomId(String? raw) {
+    final rid = raw?.trim();
+    if (rid == null || rid.isEmpty) return false;
+    if (RegExp(r'^[-—]+$').hasMatch(rid)) return false;
+    return true;
+  }
 
   void _snack(String message, {bool error = false}) {
     if (!mounted || message.trim().isEmpty) return;
@@ -1375,7 +1387,71 @@ class _WorkspacePageState extends State<WorkspacePage> {
   }
 
   void _onCollabController() {
-    if (mounted) setState(() {});
+    if (!mounted) return;
+    _updateCollabUnreadState();
+    setState(() {});
+  }
+
+  bool _isCompactWorkspaceNow() {
+    final width = MediaQuery.sizeOf(context).width;
+    final androidMobileWorkspace = FolioAdaptive.shouldUseMobileWorkspace(
+      width,
+    );
+    return width < FolioDesktop.compactBreakpoint || androidMobileWorkspace;
+  }
+
+  bool _isCollabUiVisibleNow() {
+    final compact = _isCompactWorkspaceNow();
+    if (compact) {
+      return _collabSheetOpen;
+    }
+    return !_collabPanelCollapsed;
+  }
+
+  void _markCollabAsRead() {
+    final roomId = _collab.activeRoomId;
+    if (!_isValidCollabRoomId(roomId)) return;
+    final msgs = _collab.messages;
+    _collabUnreadCount = 0;
+    _lastCollabObservedRoomId = roomId;
+    _lastCollabObservedMessageId = msgs.isEmpty ? null : msgs.last.id;
+  }
+
+  void _updateCollabUnreadState() {
+    final roomId = _collab.activeRoomId;
+    if (!_isValidCollabRoomId(roomId)) {
+      _collabUnreadCount = 0;
+      _lastCollabObservedRoomId = null;
+      _lastCollabObservedMessageId = null;
+      return;
+    }
+    final msgs = _collab.messages;
+    final latest = msgs.isEmpty ? null : msgs.last;
+    final latestId = latest?.id;
+    final myUid = FirebaseAuth.instance.currentUser?.uid;
+    final incomingFromOther =
+        latest != null && (myUid == null || latest.authorUid != myUid);
+    final roomChanged = _lastCollabObservedRoomId != roomId;
+    final hasNewMessage =
+        latestId != null && latestId != _lastCollabObservedMessageId;
+
+    if (_isCollabUiVisibleNow()) {
+      _markCollabAsRead();
+      return;
+    }
+
+    if (roomChanged) {
+      _collabUnreadCount = 0;
+      _lastCollabObservedRoomId = roomId;
+      _lastCollabObservedMessageId = latestId;
+      return;
+    }
+
+    if (hasNewMessage && incomingFromOther) {
+      _collabUnreadCount += 1;
+    }
+    _lastCollabObservedRoomId = roomId;
+    _lastCollabObservedMessageId = latestId;
   }
 
   void _syncCollabForSelectedPage() {
@@ -1384,13 +1460,12 @@ class _WorkspacePageState extends State<WorkspacePage> {
         ? null
         : _s.pages.firstWhereOrNull((p) => p.id == id);
     final rid = page?.collabRoomId?.trim();
-    if (rid != null &&
-        rid.isNotEmpty &&
+    if (_isValidCollabRoomId(rid) &&
         Firebase.apps.isNotEmpty &&
         widget.cloudAccountController.isSignedIn) {
       _collab.attach(
         pageId: page!.id,
-        roomId: rid,
+        roomId: rid!,
         initialJoinCode: page.collabJoinCode,
       );
     } else {
@@ -1398,29 +1473,86 @@ class _WorkspacePageState extends State<WorkspacePage> {
     }
   }
 
-  void _openCollaborationSheet() {
+  Future<void> _openCollaborationSheet() async {
     final pageId = _s.selectedPageId;
     if (pageId == null) return;
     final page = _s.pages.firstWhereOrNull((p) => p.id == pageId);
     if (page == null) return;
-    unawaited(
-      showCollaborationSheet(
+    if (_collabSheetOpen) return;
+    setState(() {
+      _collabSheetOpen = true;
+      _markCollabAsRead();
+    });
+    try {
+      await showCollaborationSheet(
         context,
         collab: _collab,
         pageId: pageId,
         canHostCollab: widget.folioCloudEntitlements.snapshot.canRealtimeCollab,
-      ),
-    );
+      );
+    } finally {
+      if (mounted) {
+        setState(() {
+          _collabSheetOpen = false;
+          _markCollabAsRead();
+        });
+      }
+    }
   }
 
   void _toggleCollaborationPanel({required bool compact}) {
     final pageId = _s.selectedPageId;
     if (pageId == null) return;
-    if (compact) {
-      _openCollaborationSheet();
+    final hasCollabRoom = _isValidCollabRoomId(_s.selectedPage?.collabRoomId);
+    if (compact || !hasCollabRoom) {
+      unawaited(_openCollaborationSheet());
     } else {
-      setState(() => _collabPanelCollapsed = !_collabPanelCollapsed);
+      setState(() {
+        _collabPanelCollapsed = !_collabPanelCollapsed;
+        if (!_collabPanelCollapsed) {
+          _markCollabAsRead();
+        }
+      });
     }
+  }
+
+  Widget _buildCollabFabIcon(
+    ColorScheme scheme, {
+    Color? iconColor,
+    double iconSize = 24,
+  }) {
+    final hasUnread = _collabUnreadCount > 0;
+    return Stack(
+      clipBehavior: Clip.none,
+      children: [
+        Icon(Icons.groups_2_rounded, color: iconColor, size: iconSize),
+        if (hasUnread)
+          Positioned(
+            right: -2,
+            top: -2,
+            child: Container(
+              constraints: const BoxConstraints(minWidth: 18, minHeight: 18),
+              padding: const EdgeInsets.symmetric(horizontal: 4),
+              decoration: BoxDecoration(
+                color: scheme.error,
+                borderRadius: BorderRadius.circular(999),
+                border: Border.all(color: scheme.surface, width: 1.5),
+              ),
+              child: Center(
+                child: Text(
+                  _collabUnreadCount > 99 ? '99+' : '$_collabUnreadCount',
+                  style: TextStyle(
+                    color: scheme.onError,
+                    fontSize: 10,
+                    fontWeight: FontWeight.w700,
+                    height: 1.0,
+                  ),
+                ),
+              ),
+            ),
+          ),
+      ],
+    );
   }
 
   Widget _buildCollabCollapsedFab(BuildContext context, ColorScheme scheme) {
@@ -1432,14 +1564,19 @@ class _WorkspacePageState extends State<WorkspacePage> {
         borderRadius: BorderRadius.circular(12),
         child: InkWell(
           borderRadius: BorderRadius.circular(12),
-          onTap: () => setState(() => _collabPanelCollapsed = false),
+          onTap: () => setState(() {
+            _collabPanelCollapsed = false;
+            _markCollabAsRead();
+          }),
           child: SizedBox(
             width: 56,
             height: 56,
-            child: Icon(
-              Icons.groups_2_rounded,
-              color: scheme.onSecondaryContainer,
-              size: 28,
+            child: Center(
+              child: _buildCollabFabIcon(
+                scheme,
+                iconColor: scheme.onSecondaryContainer,
+                iconSize: 28,
+              ),
             ),
           ),
         ),
@@ -2765,22 +2902,35 @@ class _WorkspacePageState extends State<WorkspacePage> {
     }
   }
 
-  Widget _wrapWithMobileQuillFabIfNeeded({
-    required bool enabled,
+  Widget _wrapWithMobileDockFabsIfNeeded({
+    required bool aiEnabled,
+    required bool collabEnabled,
     required AppLocalizations l10n,
     required Widget child,
   }) {
-    if (!enabled) return child;
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      crossAxisAlignment: CrossAxisAlignment.end,
-      children: [
+    if (!aiEnabled && !collabEnabled) return child;
+    final dockFabs = <Widget>[
+      if (collabEnabled)
+        FloatingActionButton.small(
+          heroTag: 'mobile_collab_room_fab',
+          tooltip: l10n.collabMenuAction,
+          onPressed: () => unawaited(_openCollaborationSheet()),
+          child: _buildCollabFabIcon(Theme.of(context).colorScheme),
+        ),
+      if (collabEnabled && aiEnabled) const SizedBox(width: 12),
+      if (aiEnabled)
         FloatingActionButton.small(
           heroTag: 'mobile_quill_chat_fab',
           tooltip: l10n.aiShowPanel,
           onPressed: () => unawaited(_openMobileAiChatSheet()),
           child: const Icon(Icons.chat_bubble_rounded),
         ),
+    ];
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.end,
+      children: [
+        Row(mainAxisSize: MainAxisSize.min, children: dockFabs),
         const SizedBox(height: 12),
         child,
       ],
@@ -3056,7 +3206,7 @@ class _WorkspacePageState extends State<WorkspacePage> {
                         setState(() => _aiPanelCollapsed = true);
                       }
                     },
-                    icon: const Icon(Icons.unfold_less_rounded),
+                    icon: const Icon(Icons.close_rounded),
                   ),
                 ],
               ),
@@ -3452,7 +3602,11 @@ class _WorkspacePageState extends State<WorkspacePage> {
     final useMobileAiDock = compact && aiSessionActive;
     final cloudSignedIn =
         Firebase.apps.isNotEmpty && widget.cloudAccountController.isSignedIn;
-    final useDesktopCollabDock = !compact && page != null && cloudSignedIn;
+    final hasCollabRoom = _isValidCollabRoomId(page?.collabRoomId);
+    final useDesktopCollabDock =
+        !compact && page != null && cloudSignedIn && hasCollabRoom;
+    final useMobileCollabFab =
+        compact && page != null && cloudSignedIn && hasCollabRoom;
     final effectiveSidebarW = compact
         ? 0.0
         : (widget.appSettings.workspaceSidebarCollapsed
@@ -3536,8 +3690,6 @@ class _WorkspacePageState extends State<WorkspacePage> {
     }
     final appBarActions = <Widget>[
       ...() {
-        final canToggleAi =
-            widget.appSettings.isAiRuntimeEnabled && _s.aiEnabled;
         final entries = <_WorkspaceActionEntry>[
           if (!compact)
             _WorkspaceActionEntry(
@@ -3602,7 +3754,7 @@ class _WorkspacePageState extends State<WorkspacePage> {
               icon: Icons.public_rounded,
               onPressed: _publishCurrentPageToWeb,
             ),
-          if (page != null && cloudSignedIn)
+          if (page != null && cloudSignedIn && !hasCollabRoom)
             _WorkspaceActionEntry(
               id: 'collab_live',
               label: compact || _collabPanelCollapsed
@@ -3652,24 +3804,6 @@ class _WorkspacePageState extends State<WorkspacePage> {
               onPressed: () => _s.redoPageEdits(),
               enabled: _s.canRedoSelectedPage,
               forceOverflow: true,
-            ),
-          if (canToggleAi)
-            _WorkspaceActionEntry(
-              id: 'toggle_ai',
-              label: useMobileAiDock
-                  ? l10n.aiShowPanel
-                  : (_aiPanelCollapsed ? l10n.aiShowPanel : l10n.aiHidePanel),
-              icon: useMobileAiDock || _aiPanelCollapsed
-                  ? Icons.chat_bubble_outline_rounded
-                  : Icons.unfold_less_rounded,
-              onPressed: () {
-                if (useMobileAiDock) {
-                  unawaited(_openMobileAiChatSheet());
-                } else {
-                  setState(() => _aiPanelCollapsed = !_aiPanelCollapsed);
-                }
-              },
-              forcePrimary: true,
             ),
         ];
 
@@ -3957,8 +4091,9 @@ class _WorkspacePageState extends State<WorkspacePage> {
         floatingActionButton: compact && page != null
             ? Padding(
                 padding: EdgeInsets.only(right: 0),
-                child: _wrapWithMobileQuillFabIfNeeded(
-                  enabled: useMobileAiDock,
+                child: _wrapWithMobileDockFabsIfNeeded(
+                  aiEnabled: useMobileAiDock,
+                  collabEnabled: useMobileCollabFab,
                   l10n: l10n,
                   child: verticalMobileWorkspace
                       ? (_mobileEditMode

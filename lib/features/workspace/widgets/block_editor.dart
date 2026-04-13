@@ -2,9 +2,12 @@ import 'dart:async';
 import 'dart:io';
 import 'dart:math' as math;
 
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:collection/collection.dart';
+import 'package:cryptography/cryptography.dart';
 import 'package:file_picker/file_picker.dart';
+import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/foundation.dart' show defaultTargetPlatform, setEquals;
-import 'package:flutter/gestures.dart' show kPrimaryButton;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_code_editor/flutter_code_editor.dart';
@@ -17,6 +20,7 @@ import 'package:intl/intl.dart';
 import '../../../app/app_settings.dart';
 import '../../../app/widgets/folio_icon_picker.dart';
 import '../../../app/widgets/folio_icon_token_view.dart';
+import '../../../crypto/collab_e2e_crypto.dart';
 import '../../../data/folio_internal_link.dart';
 import '../../../l10n/generated/app_localizations.dart';
 import '../../../data/vault_paths.dart';
@@ -26,9 +30,10 @@ import '../../../models/folio_template_button_data.dart';
 import '../../../models/folio_database_data.dart';
 import '../../../models/folio_page.dart';
 import '../../../models/folio_table_data.dart';
-import '../../../services/run2doc/run2doc_markdown_codec.dart';
+import '../../../services/integrations/integrations_markdown_codec.dart';
 import '../../../session/vault_session.dart';
 import '../../../services/ai/ai_types.dart';
+import '../../../services/folio_cloud/folio_cloud_callable.dart';
 import '../../../services/folio_cloud/folio_cloud_entitlements.dart';
 import 'code_block_languages.dart';
 import 'block_editor_support_widgets.dart';
@@ -161,6 +166,20 @@ const _inlineSlashActionCatalog = <BlockTypeDef>[
 
 enum _MeetingAiPayload { transcript, audio, both }
 
+class _CollabUploadProgress {
+  const _CollabUploadProgress({
+    required this.encrypting,
+    this.progress,
+    this.eta,
+    this.error,
+  });
+
+  final bool encrypting;
+  final double? progress;
+  final Duration? eta;
+  final String? error;
+}
+
 class BlockEditor extends StatefulWidget {
   const BlockEditor({
     super.key,
@@ -213,11 +232,21 @@ class BlockEditorState extends State<BlockEditor> with _BlockRowBuild {
   int _mentionSelectedIndex = 0;
   final ScrollController _mentionListScrollController = ScrollController();
   final Map<String, Future<File?>> _resolvedFileFutureByUrl = {};
+  final Map<String, _CollabUploadProgress> _collabUploadByBlockId = {};
+  final Map<String, int> _collabUploadTokenByBlockId = {};
+  final Map<String, SecretKey> _collabRoomKeyCache = {};
+  final Map<String, Future<SecretKey?>> _collabRoomKeyInFlight = {};
+  final Map<String, String> _collabMediaCachePathByMediaId = {};
+  final Map<String, int> _collabUploadLastUiMsByBlockId = {};
+  final Map<String, double> _collabUploadLastProgressByBlockId = {};
+  final Map<String, int> _collabUploadLastEtaSecByBlockId = {};
   final LayerLink _formatToolbarLayerLink = LayerLink();
   OverlayEntry? _formatToolbarOverlayEntry;
+  // ignore: unused_field
   String? _formatToolbarOverlayBlockId;
 
   /// Bloque de texto cuya barra de formato sigue visible aunque el foco se mueva al pulsarla (p. ej. ScrollView).
+  // ignore: unused_field
   String? _formatStickyBlockId;
   Timer? _formatStickyClearTimer;
 
@@ -341,6 +370,7 @@ class BlockEditorState extends State<BlockEditor> with _BlockRowBuild {
     'callout',
   };
 
+  // ignore: unused_element
   bool _hasExpandedSelectionForBlockId(String blockId) {
     final idx = _controllerBlockIds.indexWhere((x) => x == blockId);
     if (idx < 0 || idx >= _controllers.length) return false;
@@ -561,6 +591,7 @@ class BlockEditorState extends State<BlockEditor> with _BlockRowBuild {
     _formatToolbarOverlayBlockId = null;
   }
 
+  // ignore: unused_element
   void _showOrUpdateFormatToolbarOverlay({
     required String blockId,
     required TextEditingController controller,
@@ -2365,6 +2396,23 @@ class BlockEditorState extends State<BlockEditor> with _BlockRowBuild {
     }
     _ignoreShortcuts = false;
     setState(() {});
+    _enqueueCollabMediaUpload(
+      pageId: pageId,
+      blockId: blockId,
+      localFile: file,
+      mediaKind: 'image',
+      onCommittedUri: (uri) {
+        _ignoreShortcuts = true;
+        _s.updateBlockText(pageId, blockId, uri);
+        if (index < _controllers.length) {
+          _controllers[index].value = TextEditingValue(
+            text: uri,
+            selection: TextSelection.collapsed(offset: uri.length),
+          );
+        }
+        _ignoreShortcuts = false;
+      },
+    );
   }
 
   Future<void> _clearImageBlock(
@@ -2384,37 +2432,385 @@ class BlockEditorState extends State<BlockEditor> with _BlockRowBuild {
   Future<void> _pickFileForBlock(String pageId, String blockId) async {
     final result = await FilePicker.platform.pickFiles();
     if (result != null && result.files.single.path != null) {
+      final file = File(result.files.single.path!);
       final rel = await VaultPaths.importAttachmentFile(
-        File(result.files.single.path!),
+        file,
         preserveExtension: true,
         preserveFileName: true,
       );
       _s.updateBlockUrl(pageId, blockId, rel);
+      setState(() {});
+      _enqueueCollabMediaUpload(
+        pageId: pageId,
+        blockId: blockId,
+        localFile: file,
+        mediaKind: 'file',
+        onCommittedUri: (uri) => _s.updateBlockUrl(pageId, blockId, uri),
+      );
     }
   }
 
   Future<void> _pickVideoForBlock(String pageId, String blockId) async {
     final result = await FilePicker.platform.pickFiles(type: FileType.video);
     if (result != null && result.files.single.path != null) {
+      final file = File(result.files.single.path!);
       final rel = await VaultPaths.importAttachmentFile(
-        File(result.files.single.path!),
+        file,
         preserveExtension: true,
         preserveFileName: true,
       );
       _s.updateBlockUrl(pageId, blockId, rel);
+      setState(() {});
+      _enqueueCollabMediaUpload(
+        pageId: pageId,
+        blockId: blockId,
+        localFile: file,
+        mediaKind: 'video',
+        onCommittedUri: (uri) => _s.updateBlockUrl(pageId, blockId, uri),
+      );
     }
   }
 
   Future<void> _pickAudioForBlock(String pageId, String blockId) async {
     final result = await FilePicker.platform.pickFiles(type: FileType.audio);
     if (result != null && result.files.single.path != null) {
+      final file = File(result.files.single.path!);
       final rel = await VaultPaths.importAttachmentFile(
-        File(result.files.single.path!),
+        file,
         preserveExtension: true,
         preserveFileName: true,
       );
       _s.updateBlockUrl(pageId, blockId, rel);
+      setState(() {});
+      _enqueueCollabMediaUpload(
+        pageId: pageId,
+        blockId: blockId,
+        localFile: file,
+        mediaKind: 'audio',
+        onCommittedUri: (uri) => _s.updateBlockUrl(pageId, blockId, uri),
+      );
     }
+  }
+
+  bool _isValidCollabRoomId(String? raw) {
+    final rid = raw?.trim();
+    if (rid == null || rid.isEmpty) return false;
+    if (RegExp(r'^[-—]+$').hasMatch(rid)) return false;
+    return true;
+  }
+
+  bool _isCollabMediaUri(String raw) => raw.startsWith('collab-media://');
+
+  ({String roomId, String mediaId})? _parseCollabMediaUri(String raw) {
+    final u = Uri.tryParse(raw);
+    if (u == null || u.scheme != 'collab-media') return null;
+    final roomId = u.host.trim();
+    final mediaId = u.pathSegments.isNotEmpty
+        ? u.pathSegments.first.trim()
+        : '';
+    if (!_isValidCollabRoomId(roomId) || mediaId.isEmpty) return null;
+    return (roomId: roomId, mediaId: mediaId);
+  }
+
+  Future<SecretKey?> _roomKeyForCollabRoom({
+    required String roomId,
+    required String joinCode,
+  }) async {
+    final cached = _collabRoomKeyCache[roomId];
+    if (cached != null) return cached;
+
+    final inFlight = _collabRoomKeyInFlight[roomId];
+    if (inFlight != null) return inFlight;
+
+    final future = (() async {
+      final roomSnap = await FirebaseFirestore.instance
+          .collection('collabRooms')
+          .doc(roomId)
+          .get();
+      final room = roomSnap.data();
+      if (room == null) return null;
+      final e2eV = (room['e2eV'] as num?)?.toInt() ?? 0;
+      if (e2eV != 1) return null;
+      final wrapped = (room['wrappedRoomKey'] as String?)?.trim();
+      if (wrapped == null || wrapped.isEmpty) return null;
+      final key = await CollabE2eCrypto.unwrapRoomKeyB64(
+        wrappedB64: wrapped,
+        joinCodeNormalized: CollabE2eCrypto.normalizeJoinCode(joinCode),
+        roomId: roomId,
+      );
+      _collabRoomKeyCache[roomId] = key;
+      return key;
+    })();
+
+    _collabRoomKeyInFlight[roomId] = future;
+    try {
+      return await future;
+    } finally {
+      _collabRoomKeyInFlight.remove(roomId);
+    }
+  }
+
+  bool _shouldEmitCollabUploadUi({
+    required String blockId,
+    required double? progress,
+    required Duration? eta,
+  }) {
+    final nowMs = DateTime.now().millisecondsSinceEpoch;
+    final lastMs = _collabUploadLastUiMsByBlockId[blockId];
+    final nextProgress = progress ?? -1;
+    final lastProgress = _collabUploadLastProgressByBlockId[blockId] ?? -2;
+    final nextEtaSec = eta?.inSeconds ?? -1;
+    final lastEtaSec = _collabUploadLastEtaSecByBlockId[blockId] ?? -2;
+
+    final progressChangedEnough =
+        progress == null ||
+        lastProgress < 0 ||
+        (nextProgress - lastProgress).abs() >= 0.02 ||
+        nextProgress >= 1.0;
+    final etaChanged = nextEtaSec != lastEtaSec;
+    final enoughTimeElapsed = lastMs == null || (nowMs - lastMs) >= 180;
+
+    if (!(progressChangedEnough || etaChanged || enoughTimeElapsed)) {
+      return false;
+    }
+
+    _collabUploadLastUiMsByBlockId[blockId] = nowMs;
+    _collabUploadLastProgressByBlockId[blockId] = nextProgress;
+    _collabUploadLastEtaSecByBlockId[blockId] = nextEtaSec;
+    return true;
+  }
+
+  void _enqueueCollabMediaUpload({
+    required String pageId,
+    required String blockId,
+    required File localFile,
+    required String mediaKind,
+    required void Function(String uri) onCommittedUri,
+  }) {
+    unawaited(
+      _uploadCollabMediaForBlock(
+        pageId: pageId,
+        blockId: blockId,
+        file: localFile,
+        mediaKind: mediaKind,
+        onCommittedUri: onCommittedUri,
+      ),
+    );
+  }
+
+  Future<void> _uploadCollabMediaForBlock({
+    required String pageId,
+    required String blockId,
+    required File file,
+    required String mediaKind,
+    required void Function(String uri) onCommittedUri,
+  }) async {
+    final page = _s.pages.firstWhereOrNull((p) => p.id == pageId);
+    final roomId = page?.collabRoomId?.trim();
+    final joinCode = page?.collabJoinCode?.trim();
+    if (!_isValidCollabRoomId(roomId) || joinCode == null || joinCode.isEmpty) {
+      return;
+    }
+    final fileSize = file.lengthSync();
+
+    final token = _bumpCollabUploadToken(blockId);
+    if (mounted) {
+      setState(() {
+        _collabUploadByBlockId[blockId] = const _CollabUploadProgress(
+          encrypting: true,
+        );
+      });
+    }
+
+    try {
+      final prep = await callFolioHttpsCallable('prepareCollabMediaUpload', {
+        'roomId': roomId,
+        'blockId': blockId,
+        'mediaKind': mediaKind,
+        'sizeBytes': fileSize,
+      });
+      if (prep is! Map) return;
+      final mediaId = '${prep['mediaId'] ?? ''}'.trim();
+      final storagePath = '${prep['storagePath'] ?? ''}'.trim();
+      if (mediaId.isEmpty || storagePath.isEmpty) return;
+
+      final roomKey = await _roomKeyForCollabRoom(
+        roomId: roomId!,
+        joinCode: joinCode,
+      );
+      if (roomKey == null) return;
+
+      final plain = await file.readAsBytes();
+      final cipher = await CollabE2eCrypto.encryptBinaryBytes(
+        bytes: Uint8List.fromList(plain),
+        roomKey: roomKey,
+      );
+      final ref = FirebaseStorage.instance.ref(storagePath);
+      final startedAt = DateTime.now();
+      final task = ref.putData(
+        cipher,
+        SettableMetadata(contentType: 'application/octet-stream'),
+      );
+      task.snapshotEvents.listen((snap) {
+        if (!_isActiveCollabUploadToken(blockId, token) || !mounted) return;
+        final total = snap.totalBytes <= 0 ? null : snap.totalBytes;
+        final transferred = snap.bytesTransferred;
+        final progress = total == null
+            ? null
+            : (transferred / total).clamp(0.0, 1.0);
+        Duration? eta;
+        if (total != null && transferred > 0 && transferred < total) {
+          final elapsedMs = DateTime.now().difference(startedAt).inMilliseconds;
+          if (elapsedMs > 0) {
+            final rate = transferred / elapsedMs;
+            if (rate > 0) {
+              final remainingMs = ((total - transferred) / rate).round();
+              eta = Duration(milliseconds: remainingMs.clamp(0, 36000000));
+            }
+          }
+        }
+        if (!_shouldEmitCollabUploadUi(
+          blockId: blockId,
+          progress: progress,
+          eta: eta,
+        )) {
+          return;
+        }
+        setState(() {
+          _collabUploadByBlockId[blockId] = _CollabUploadProgress(
+            encrypting: false,
+            progress: progress,
+            eta: eta,
+          );
+        });
+      });
+      await task;
+
+      await callFolioHttpsCallable('commitCollabMediaUpload', {
+        'roomId': roomId,
+        'mediaId': mediaId,
+        'blockId': blockId,
+        'storagePath': storagePath,
+        'mediaKind': mediaKind,
+        'mimeType': '',
+        'fileName': p.basename(file.path),
+        'sizeBytes': fileSize,
+      });
+      if (!_isActiveCollabUploadToken(blockId, token)) return;
+      final uri = 'collab-media://$roomId/$mediaId';
+      onCommittedUri(uri);
+      if (mounted) {
+        setState(() {
+          _collabUploadByBlockId.remove(blockId);
+        });
+      }
+      _collabUploadLastUiMsByBlockId.remove(blockId);
+      _collabUploadLastProgressByBlockId.remove(blockId);
+      _collabUploadLastEtaSecByBlockId.remove(blockId);
+    } catch (e) {
+      if (!_isActiveCollabUploadToken(blockId, token) || !mounted) return;
+      setState(() {
+        _collabUploadByBlockId[blockId] = _CollabUploadProgress(
+          encrypting: false,
+          progress: null,
+          eta: null,
+          error: '$e',
+        );
+      });
+      _collabUploadLastUiMsByBlockId.remove(blockId);
+      _collabUploadLastProgressByBlockId.remove(blockId);
+      _collabUploadLastEtaSecByBlockId.remove(blockId);
+    }
+  }
+
+  Future<File?> _resolveCollabMediaFile(String rawUrl) async {
+    final parsed = _parseCollabMediaUri(rawUrl);
+    if (parsed == null) return null;
+
+    final page = _s.selectedPage;
+    final joinCode = page?.collabJoinCode?.trim();
+    if (joinCode == null || joinCode.isEmpty) return null;
+
+    final cached = await _findCachedCollabMediaFile(parsed.mediaId);
+    if (cached != null) return cached;
+
+    try {
+      final mediaSnap = await FirebaseFirestore.instance
+          .collection('collabRooms')
+          .doc(parsed.roomId)
+          .collection('media')
+          .doc(parsed.mediaId)
+          .get();
+      final media = mediaSnap.data();
+      if (media == null) return null;
+      final storagePath = (media['storagePath'] as String?)?.trim();
+      if (storagePath == null || storagePath.isEmpty) return null;
+
+      final roomKey = await _roomKeyForCollabRoom(
+        roomId: parsed.roomId,
+        joinCode: joinCode,
+      );
+      if (roomKey == null) return null;
+
+      final data = await FirebaseStorage.instance
+          .ref(storagePath)
+          .getData(80 * 1024 * 1024);
+      if (data == null || data.isEmpty) return null;
+      final clear = await CollabE2eCrypto.decryptBinaryBytes(
+        cipherBytes: Uint8List.fromList(data),
+        roomKey: roomKey,
+      );
+
+      final cacheDir = await _collabMediaCacheDir();
+      final fileName = (media['fileName'] as String?)?.trim();
+      final ext = (fileName != null && fileName.isNotEmpty)
+          ? p.extension(fileName)
+          : '.bin';
+      final out = File(p.join(cacheDir.path, '${parsed.mediaId}$ext'));
+      await out.writeAsBytes(clear, flush: true);
+      _collabMediaCachePathByMediaId[parsed.mediaId] = out.path;
+      return out;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  Future<Directory> _collabMediaCacheDir() async {
+    final vault = await VaultPaths.vaultDirectory();
+    final cacheDir = Directory(
+      p.join(vault.path, VaultPaths.attachmentsDirName, '.collab_cache'),
+    );
+    if (!await cacheDir.exists()) {
+      await cacheDir.create(recursive: true);
+    }
+    return cacheDir;
+  }
+
+  Future<File?> _findCachedCollabMediaFile(String mediaId) async {
+    final knownPath = _collabMediaCachePathByMediaId[mediaId];
+    if (knownPath != null) {
+      final known = File(knownPath);
+      if (await known.exists() && await known.length() > 0) {
+        return known;
+      }
+      _collabMediaCachePathByMediaId.remove(mediaId);
+    }
+
+    final cacheDir = await _collabMediaCacheDir();
+    final defaultBin = File(p.join(cacheDir.path, '$mediaId.bin'));
+    if (await defaultBin.exists() && await defaultBin.length() > 0) {
+      _collabMediaCachePathByMediaId[mediaId] = defaultBin.path;
+      return defaultBin;
+    }
+
+    await for (final e in cacheDir.list(followLinks: false)) {
+      if (e is! File) continue;
+      if (p.basenameWithoutExtension(e.path) != mediaId) continue;
+      if (await e.length() <= 0) continue;
+      _collabMediaCachePathByMediaId[mediaId] = e.path;
+      return e;
+    }
+    return null;
   }
 
   void _clearBlockUrl(String pageId, String blockId) {
@@ -2425,6 +2821,9 @@ class BlockEditorState extends State<BlockEditor> with _BlockRowBuild {
   Future<File?> _resolveBlockUrlFile(String? rawUrl) async {
     final raw0 = rawUrl?.trim();
     if (raw0 == null || raw0.isEmpty) return null;
+    if (_isCollabMediaUri(raw0)) {
+      return _resolveCollabMediaFile(raw0);
+    }
     final normalized = raw0.replaceAll(r'\', '/');
 
     Future<File?> tryFilePath(String path) async {
@@ -2472,6 +2871,10 @@ class BlockEditorState extends State<BlockEditor> with _BlockRowBuild {
   Future<File?> _resolveBlockUrlFileCached(String? rawUrl) {
     final key = rawUrl?.trim();
     if (key == null || key.isEmpty) return Future<File?>.value(null);
+    // Límite simple para evitar crecimiento indefinido del cache en sesiones largas.
+    if (_resolvedFileFutureByUrl.length > 500) {
+      _resolvedFileFutureByUrl.remove(_resolvedFileFutureByUrl.keys.first);
+    }
     return _resolvedFileFutureByUrl.putIfAbsent(
       key,
       () => _resolveBlockUrlFile(key),
@@ -2621,6 +3024,71 @@ class BlockEditorState extends State<BlockEditor> with _BlockRowBuild {
       if (o.id == id) return o.label;
     }
     return id;
+  }
+
+  int _bumpCollabUploadToken(String blockId) {
+    final next = (_collabUploadTokenByBlockId[blockId] ?? 0) + 1;
+    _collabUploadTokenByBlockId[blockId] = next;
+    return next;
+  }
+
+  bool _isActiveCollabUploadToken(String blockId, int token) {
+    return _collabUploadTokenByBlockId[blockId] == token;
+  }
+
+  String _formatEta(Duration? eta) {
+    if (eta == null) return '--:--';
+    final secs = eta.inSeconds.clamp(0, 359999);
+    final mm = (secs ~/ 60).toString().padLeft(2, '0');
+    final ss = (secs % 60).toString().padLeft(2, '0');
+    return '$mm:$ss';
+  }
+
+  Widget _buildCollabUploadProgressBadge(
+    String blockId,
+    ThemeData theme,
+    ColorScheme scheme,
+  ) {
+    final u = _collabUploadByBlockId[blockId];
+    if (u == null) return const SizedBox.shrink();
+    if (u.error != null) {
+      return Padding(
+        padding: const EdgeInsets.only(bottom: 8),
+        child: Text(
+          _t(
+            'Error al subir a sala: ${u.error}',
+            'Room upload failed: ${u.error}',
+          ),
+          style: theme.textTheme.bodySmall?.copyWith(color: scheme.error),
+        ),
+      );
+    }
+    final progress = u.progress;
+    final pct = progress == null
+        ? _t('Preparando cifrado…', 'Preparing encryption...')
+        : _t(
+            'Subiendo ${(progress * 100).toStringAsFixed(0)}% · ETA ${_formatEta(u.eta)}',
+            'Uploading ${(progress * 100).toStringAsFixed(0)}% · ETA ${_formatEta(u.eta)}',
+          );
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          ClipRRect(
+            borderRadius: BorderRadius.circular(FolioRadius.xs),
+            child: LinearProgressIndicator(value: progress),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            pct,
+            style: theme.textTheme.labelSmall?.copyWith(
+              color: scheme.onSurfaceVariant,
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
   void _onCodeLanguagePicked(
@@ -2882,6 +3350,11 @@ class BlockEditorState extends State<BlockEditor> with _BlockRowBuild {
           children: [
             if (showControls)
               _blockMediaWidthToolbar(page, block, Theme.of(context)),
+            _buildCollabUploadProgressBadge(
+              block.id,
+              Theme.of(context),
+              scheme,
+            ),
             LayoutBuilder(
               builder: (context, constraints) {
                 final maxW = constraints.maxWidth.isFinite
@@ -3608,6 +4081,7 @@ class BlockEditorState extends State<BlockEditor> with _BlockRowBuild {
                 color: scheme.onSurface,
                 height: 1.35,
               );
+              if (!menuContext.mounted) return;
               final accept = await showDialog<bool>(
                 context: menuContext,
                 builder: (ctx) {
@@ -3647,9 +4121,10 @@ class BlockEditorState extends State<BlockEditor> with _BlockRowBuild {
               );
             } catch (e) {
               if (!mounted) return;
-              ScaffoldMessenger.of(
-                context,
-              ).showSnackBar(SnackBar(content: Text('Error IA: $e')));
+              final l10n = AppLocalizations.of(context);
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(content: Text(l10n.aiGenericErrorWithReason('$e'))),
+              );
             }
           });
         } else if (v == 'pick_type') {
@@ -4381,9 +4856,10 @@ class BlockEditorState extends State<BlockEditor> with _BlockRowBuild {
       );
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('Error IA: $e')));
+      final l10n = AppLocalizations.of(context);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(l10n.aiGenericErrorWithReason('$e'))),
+      );
     }
   }
 

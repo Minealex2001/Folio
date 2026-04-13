@@ -5,8 +5,12 @@ import 'package:flutter/widgets.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:intl/intl.dart' as intl;
 
+import 'app_localizations_ca.dart';
 import 'app_localizations_en.dart';
 import 'app_localizations_es.dart';
+import 'app_localizations_eu.dart';
+import 'app_localizations_gl.dart';
+import 'app_localizations_pt.dart';
 
 // ignore_for_file: type=lint
 
@@ -94,8 +98,12 @@ abstract class AppLocalizations {
 
   /// A list of this localizations delegate's supported locales.
   static const List<Locale> supportedLocales = <Locale>[
+    Locale('ca'),
     Locale('en'),
     Locale('es'),
+    Locale('eu'),
+    Locale('gl'),
+    Locale('pt'),
   ];
 
   /// No description provided for @appTitle.
@@ -583,6 +591,30 @@ abstract class AppLocalizations {
   /// In es, this message translates to:
   /// **'Inglés'**
   String get englishLanguage;
+
+  /// No description provided for @brazilianPortugueseLanguage.
+  ///
+  /// In es, this message translates to:
+  /// **'Portugués (Brasil)'**
+  String get brazilianPortugueseLanguage;
+
+  /// No description provided for @catalanLanguage.
+  ///
+  /// In es, this message translates to:
+  /// **'Catalán / Valenciano'**
+  String get catalanLanguage;
+
+  /// No description provided for @galicianLanguage.
+  ///
+  /// In es, this message translates to:
+  /// **'Gallego'**
+  String get galicianLanguage;
+
+  /// No description provided for @basqueLanguage.
+  ///
+  /// In es, this message translates to:
+  /// **'Euskera'**
+  String get basqueLanguage;
 
   /// No description provided for @active.
   ///
@@ -1423,6 +1455,24 @@ abstract class AppLocalizations {
   /// In es, this message translates to:
   /// **'Detectando hablantes y mejorando calidad. Un momento.'**
   String get meetingNoteCloudProcessingSubtitle;
+
+  /// No description provided for @meetingNoteCloudProgress.
+  ///
+  /// In es, this message translates to:
+  /// **'Segmentos procesados: {done}/{total}'**
+  String meetingNoteCloudProgress(int done, int total);
+
+  /// No description provided for @meetingNoteCloudEta.
+  ///
+  /// In es, this message translates to:
+  /// **'Tiempo restante estimado: {remaining}'**
+  String meetingNoteCloudEta(Object remaining);
+
+  /// No description provided for @meetingNoteCloudEtaCalculating.
+  ///
+  /// In es, this message translates to:
+  /// **'Calculando tiempo restante...'**
+  String get meetingNoteCloudEtaCalculating;
 
   /// No description provided for @meetingNoteCloudRequiresAccount.
   ///
@@ -3452,6 +3502,42 @@ abstract class AppLocalizations {
   /// **'No puede usar el puente desde fuera de localhost.'**
   String get integrationApprovalCannotDoRemoteAccess;
 
+  /// No description provided for @integrationApprovalEncryptedChip.
+  ///
+  /// In es, this message translates to:
+  /// **'Contenido cifrado (v2)'**
+  String get integrationApprovalEncryptedChip;
+
+  /// No description provided for @integrationApprovalUnencryptedChip.
+  ///
+  /// In es, this message translates to:
+  /// **'Contenido en claro (v1)'**
+  String get integrationApprovalUnencryptedChip;
+
+  /// No description provided for @integrationApprovalEncryptedTitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Version 2: cifrado obligatorio de contenido'**
+  String get integrationApprovalEncryptedTitle;
+
+  /// No description provided for @integrationApprovalEncryptedDescription.
+  ///
+  /// In es, this message translates to:
+  /// **'Esta version exige payload cifrado para importar y actualizar contenido mediante el bridge local.'**
+  String get integrationApprovalEncryptedDescription;
+
+  /// No description provided for @integrationApprovalUnencryptedTitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Version 1: contenido sin cifrar'**
+  String get integrationApprovalUnencryptedTitle;
+
+  /// No description provided for @integrationApprovalUnencryptedDescription.
+  ///
+  /// In es, this message translates to:
+  /// **'Esta version permite payload en claro para contenido. Si quieres cifrado en tránsito, actualiza la integracion a la version 2.'**
+  String get integrationApprovalUnencryptedDescription;
+
   /// No description provided for @integrationApprovalDeny.
   ///
   /// In es, this message translates to:
@@ -4885,6 +4971,198 @@ abstract class AppLocalizations {
   /// In es, this message translates to:
   /// **'Ocultar panel de colaboración'**
   String get collabHidePanel;
+
+  /// No description provided for @shortcutsCaptureTitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Nuevo atajo'**
+  String get shortcutsCaptureTitle;
+
+  /// No description provided for @shortcutsCaptureHint.
+  ///
+  /// In es, this message translates to:
+  /// **'Pulsa las teclas (Esc cancela).'**
+  String get shortcutsCaptureHint;
+
+  /// No description provided for @updaterStartupDialogTitleStable.
+  ///
+  /// In es, this message translates to:
+  /// **'Actualización disponible'**
+  String get updaterStartupDialogTitleStable;
+
+  /// No description provided for @updaterStartupDialogTitleBeta.
+  ///
+  /// In es, this message translates to:
+  /// **'Beta disponible'**
+  String get updaterStartupDialogTitleBeta;
+
+  /// No description provided for @updaterStartupDialogBody.
+  ///
+  /// In es, this message translates to:
+  /// **'Hay una nueva versión ({releaseVersion}) disponible.'**
+  String updaterStartupDialogBody(Object releaseVersion);
+
+  /// No description provided for @updaterStartupDialogQuestion.
+  ///
+  /// In es, this message translates to:
+  /// **'¿Quieres descargar e instalar ahora?'**
+  String get updaterStartupDialogQuestion;
+
+  /// No description provided for @updaterStartupDialogLater.
+  ///
+  /// In es, this message translates to:
+  /// **'Más tarde'**
+  String get updaterStartupDialogLater;
+
+  /// No description provided for @updaterStartupDialogUpdateNow.
+  ///
+  /// In es, this message translates to:
+  /// **'Actualizar ahora'**
+  String get updaterStartupDialogUpdateNow;
+
+  /// No description provided for @updaterStartupDialogBetaNote.
+  ///
+  /// In es, this message translates to:
+  /// **'Versión beta (pre-release).'**
+  String get updaterStartupDialogBetaNote;
+
+  /// No description provided for @toggleTitleHint.
+  ///
+  /// In es, this message translates to:
+  /// **'Título del desplegable'**
+  String get toggleTitleHint;
+
+  /// No description provided for @toggleBodyHint.
+  ///
+  /// In es, this message translates to:
+  /// **'Contenido…'**
+  String get toggleBodyHint;
+
+  /// No description provided for @taskStatusTodo.
+  ///
+  /// In es, this message translates to:
+  /// **'Por hacer'**
+  String get taskStatusTodo;
+
+  /// No description provided for @taskStatusInProgress.
+  ///
+  /// In es, this message translates to:
+  /// **'En progreso'**
+  String get taskStatusInProgress;
+
+  /// No description provided for @taskStatusDone.
+  ///
+  /// In es, this message translates to:
+  /// **'Hecho'**
+  String get taskStatusDone;
+
+  /// No description provided for @taskPriorityNone.
+  ///
+  /// In es, this message translates to:
+  /// **'Sin prioridad'**
+  String get taskPriorityNone;
+
+  /// No description provided for @taskPriorityLow.
+  ///
+  /// In es, this message translates to:
+  /// **'Baja'**
+  String get taskPriorityLow;
+
+  /// No description provided for @taskPriorityMedium.
+  ///
+  /// In es, this message translates to:
+  /// **'Media'**
+  String get taskPriorityMedium;
+
+  /// No description provided for @taskPriorityHigh.
+  ///
+  /// In es, this message translates to:
+  /// **'Alta'**
+  String get taskPriorityHigh;
+
+  /// No description provided for @taskTitleHint.
+  ///
+  /// In es, this message translates to:
+  /// **'Descripción de la tarea…'**
+  String get taskTitleHint;
+
+  /// No description provided for @taskPriorityTooltip.
+  ///
+  /// In es, this message translates to:
+  /// **'Prioridad'**
+  String get taskPriorityTooltip;
+
+  /// No description provided for @taskNoDueDate.
+  ///
+  /// In es, this message translates to:
+  /// **'Sin fecha límite'**
+  String get taskNoDueDate;
+
+  /// No description provided for @taskSubtaskHint.
+  ///
+  /// In es, this message translates to:
+  /// **'Subtarea…'**
+  String get taskSubtaskHint;
+
+  /// No description provided for @taskRemoveSubtask.
+  ///
+  /// In es, this message translates to:
+  /// **'Quitar subtarea'**
+  String get taskRemoveSubtask;
+
+  /// No description provided for @taskAddSubtask.
+  ///
+  /// In es, this message translates to:
+  /// **'Añadir subtarea'**
+  String get taskAddSubtask;
+
+  /// No description provided for @templateEmojiLabel.
+  ///
+  /// In es, this message translates to:
+  /// **'Emoji'**
+  String get templateEmojiLabel;
+
+  /// No description provided for @aiGenericErrorWithReason.
+  ///
+  /// In es, this message translates to:
+  /// **'Error IA: {reason}'**
+  String aiGenericErrorWithReason(Object reason);
+
+  /// No description provided for @calloutTypeTooltip.
+  ///
+  /// In es, this message translates to:
+  /// **'Tipo de callout'**
+  String get calloutTypeTooltip;
+
+  /// No description provided for @calloutTypeInfo.
+  ///
+  /// In es, this message translates to:
+  /// **'Info'**
+  String get calloutTypeInfo;
+
+  /// No description provided for @calloutTypeSuccess.
+  ///
+  /// In es, this message translates to:
+  /// **'Éxito'**
+  String get calloutTypeSuccess;
+
+  /// No description provided for @calloutTypeWarning.
+  ///
+  /// In es, this message translates to:
+  /// **'Advertencia'**
+  String get calloutTypeWarning;
+
+  /// No description provided for @calloutTypeError.
+  ///
+  /// In es, this message translates to:
+  /// **'Error'**
+  String get calloutTypeError;
+
+  /// No description provided for @calloutTypeNote.
+  ///
+  /// In es, this message translates to:
+  /// **'Nota'**
+  String get calloutTypeNote;
 }
 
 class _AppLocalizationsDelegate
@@ -4897,8 +5175,14 @@ class _AppLocalizationsDelegate
   }
 
   @override
-  bool isSupported(Locale locale) =>
-      <String>['en', 'es'].contains(locale.languageCode);
+  bool isSupported(Locale locale) => <String>[
+    'ca',
+    'en',
+    'es',
+    'eu',
+    'gl',
+    'pt',
+  ].contains(locale.languageCode);
 
   @override
   bool shouldReload(_AppLocalizationsDelegate old) => false;
@@ -4907,10 +5191,18 @@ class _AppLocalizationsDelegate
 AppLocalizations lookupAppLocalizations(Locale locale) {
   // Lookup logic when only language code is specified.
   switch (locale.languageCode) {
+    case 'ca':
+      return AppLocalizationsCa();
     case 'en':
       return AppLocalizationsEn();
     case 'es':
       return AppLocalizationsEs();
+    case 'eu':
+      return AppLocalizationsEu();
+    case 'gl':
+      return AppLocalizationsGl();
+    case 'pt':
+      return AppLocalizationsPt();
   }
 
   throw FlutterError(

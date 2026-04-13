@@ -176,6 +176,20 @@ class CollabE2eCrypto {
     return base64Encode(sealed);
   }
 
+  static Future<Uint8List> encryptBinaryBytes({
+    required Uint8List bytes,
+    required SecretKey roomKey,
+  }) async {
+    return _seal(plain: bytes, key: roomKey);
+  }
+
+  static Future<Uint8List> decryptBinaryBytes({
+    required Uint8List cipherBytes,
+    required SecretKey roomKey,
+  }) async {
+    return _open(blob: cipherBytes, key: roomKey);
+  }
+
   static Future<({String authorName, String text})> decryptChatMessageB64({
     required String cipherB64,
     required SecretKey roomKey,

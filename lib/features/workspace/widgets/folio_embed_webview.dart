@@ -11,11 +11,7 @@ import '../../../l10n/generated/app_localizations.dart';
 
 /// Vista web embebida cuando la plataforma lo permite (Windows WebView2, Android, iOS, macOS).
 class FolioEmbedWebView extends StatefulWidget {
-  const FolioEmbedWebView({
-    super.key,
-    required this.url,
-    required this.scheme,
-  });
+  const FolioEmbedWebView({super.key, required this.url, required this.scheme});
 
   final String url;
   final ColorScheme scheme;
@@ -30,14 +26,10 @@ class _FolioEmbedWebViewState extends State<FolioEmbedWebView> {
   String? _error;
   var _winReady = false;
 
-  bool get _useWindows =>
-      !kIsWeb && Platform.isWindows;
+  bool get _useWindows => !kIsWeb && Platform.isWindows;
 
   bool get _useMobileWebView =>
-      !kIsWeb &&
-      (Platform.isAndroid ||
-          Platform.isIOS ||
-          Platform.isMacOS);
+      !kIsWeb && (Platform.isAndroid || Platform.isIOS || Platform.isMacOS);
 
   @override
   void initState() {
@@ -119,7 +111,7 @@ class _FolioEmbedWebViewState extends State<FolioEmbedWebView> {
       }
       return Webview(
         c,
-        permissionRequested: (_, __, ___) async =>
+        permissionRequested: (controller, url, kind) async =>
             WebviewPermissionDecision.allow,
       );
     }

@@ -5,13 +5,6 @@ import 'package:flutter_test/flutter_test.dart';
 
 import 'package:folio/services/custom_icon_import_service.dart';
 
-class _RealHttpOverrides extends HttpOverrides {
-  @override
-  HttpClient createHttpClient(SecurityContext? context) {
-    return super.createHttpClient(context);
-  }
-}
-
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
@@ -94,9 +87,7 @@ void main() {
         source: 'http://127.0.0.1:${server.port}/party.gif',
         label: 'Party',
       ),
-      createHttpClient: (context) => _RealHttpOverrides().createHttpClient(
-        context,
-      ),
+      createHttpClient: (context) => HttpClient(context: context),
     );
 
     expect(entry.label, 'Party');
