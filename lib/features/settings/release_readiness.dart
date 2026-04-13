@@ -1,6 +1,7 @@
 import 'package:pub_semver/pub_semver.dart';
 
 import '../../app/app_settings.dart';
+import '../../l10n/generated/app_localizations.dart';
 import '../../services/ai/ai_safety_policy.dart';
 import '../../services/updater/update_release_channel.dart';
 
@@ -61,22 +62,33 @@ class ReleaseReadinessSnapshot {
       .where((c) => c.severity == ReleaseCheckSeverity.warning && !c.ok)
       .length;
 
-  String toReportText() {
+  String toReportText(AppLocalizations l10n) {
+    final y = l10n.releaseReadinessExportWordYes;
+    final n = l10n.releaseReadinessExportWordNo;
+    final channelLabel = updateReleaseChannel == UpdateReleaseChannel.beta
+        ? l10n.releaseReadinessChannelBeta
+        : l10n.releaseReadinessChannelStable;
+    final statusLabel = isReadyForRelease
+        ? l10n.releaseReadinessStatusReady
+        : l10n.releaseReadinessStatusBlocked;
+    final policyLine = isAiEndpointPolicyValid
+        ? l10n.releaseReadinessPolicyOk
+        : l10n.releaseReadinessPolicyError;
     return [
-      'Folio release readiness',
-      'Version instalada: $installedVersionLabel',
-      'SemVer valido: ${isSemverValid ? 'si' : 'no'}',
-      'Canal updates: ${updateReleaseChannel == UpdateReleaseChannel.beta ? 'beta' : 'stable'}',
-      'Libreta activa: $activeVaultId',
-      'Ruta libreta: $activeVaultPath',
-      'Libreta desbloqueada: ${isVaultUnlocked ? 'si' : 'no'}',
-      'Libreta cifrada: ${isVaultEncrypted ? 'si' : 'no'}',
-      'IA habilitada: ${isAiEnabled ? 'si' : 'no'}',
-      'Politica endpoint IA: ${isAiEndpointPolicyValid ? 'ok' : 'error'}',
-      'Detalle IA: $aiSummary',
-      'Estado release: ${isReadyForRelease ? 'ready' : 'blocked'}',
-      'Bloqueadores pendientes: $failedBlockers',
-      'Advertencias pendientes: $failedWarnings',
+      l10n.releaseReadinessReportTitle,
+      l10n.releaseReadinessReportInstalledVersion(installedVersionLabel),
+      l10n.releaseReadinessReportSemver(isSemverValid ? y : n),
+      l10n.releaseReadinessReportChannel(channelLabel),
+      l10n.releaseReadinessReportActiveVault(activeVaultId),
+      l10n.releaseReadinessReportVaultPath(activeVaultPath),
+      l10n.releaseReadinessReportUnlocked(isVaultUnlocked ? y : n),
+      l10n.releaseReadinessReportEncrypted(isVaultEncrypted ? y : n),
+      l10n.releaseReadinessReportAiEnabled(isAiEnabled ? y : n),
+      l10n.releaseReadinessReportAiPolicy(policyLine),
+      l10n.releaseReadinessReportAiDetail(aiSummary),
+      l10n.releaseReadinessReportStatus(statusLabel),
+      l10n.releaseReadinessReportBlockers(failedBlockers),
+      l10n.releaseReadinessReportWarnings(failedWarnings),
     ].join('\n');
   }
 }
@@ -91,6 +103,7 @@ String buildReleaseReadinessFileName(DateTime now) {
 }
 
 ReleaseReadinessSnapshot evaluateReleaseReadiness({
+  required AppLocalizations l10n,
   required String installedVersionLabel,
   required UpdateReleaseChannel updateReleaseChannel,
   required String? activeVaultId,
@@ -115,61 +128,63 @@ ReleaseReadinessSnapshot evaluateReleaseReadiness({
   }
 
   var aiPolicyOk = true;
-  var aiSummary = 'IA desactivada';
+  var aiSummary = l10n.releaseReadinessAiSummaryDisabled;
   if (isAiEnabled) {
     if (aiProvider == AiProvider.quillCloud) {
       aiPolicyOk = true;
-      aiSummary = 'Folio Cloud IA (sin endpoint local)';
+      aiSummary = l10n.releaseReadinessAiSummaryQuillCloud;
     } else {
-      final issue = AiSafetyPolicy.validateEndpoint(
+      final issue = AiSafetyPolicy.validateEndpointIssue(
         rawUrl: aiBaseUrl,
         mode: aiEndpointMode,
         remoteConfirmed: aiRemoteEndpointConfirmed,
       );
       aiPolicyOk = issue == null;
-      aiSummary = issue ?? 'Endpoint valido: $aiBaseUrl';
+      aiSummary = issue != null
+          ? issue.localizedMessage(l10n)
+          : l10n.releaseReadinessAiSummaryEndpointOk(aiBaseUrl);
     }
   }
 
   final checks = <ReleaseCheckItem>[
     ReleaseCheckItem(
       id: 'semver',
-      label: 'Version SemVer valida',
+      label: l10n.releaseReadinessSemverOk,
       ok: semverOk,
       severity: ReleaseCheckSeverity.blocker,
-      details: semverOk ? null : 'La version instalada no cumple SemVer.',
+      details: semverOk ? null : l10n.releaseReadinessDetailSemverInvalid,
     ),
     ReleaseCheckItem(
       id: 'vault_encrypted',
-      label: 'Libreta cifrada',
+      label: l10n.releaseReadinessEncryptedVault,
       ok: isVaultEncrypted,
       severity: ReleaseCheckSeverity.blocker,
-      details: isVaultEncrypted ? null : 'La libreta actual no esta cifrada.',
+      details: isVaultEncrypted
+          ? null
+          : l10n.releaseReadinessDetailVaultNotEncrypted,
     ),
     ReleaseCheckItem(
       id: 'ai_policy',
-      label: 'Politica endpoint IA',
+      label: l10n.releaseReadinessAiRemotePolicy,
       ok: aiPolicyOk,
       severity: ReleaseCheckSeverity.blocker,
       details: aiSummary,
     ),
     ReleaseCheckItem(
       id: 'vault_unlocked',
-      label: 'Libreta desbloqueada',
+      label: l10n.releaseReadinessVaultUnlocked,
       ok: isVaultUnlocked,
       severity: ReleaseCheckSeverity.warning,
-      details: isVaultUnlocked
-          ? null
-          : 'Desbloquea la libreta para validar export/import y flujo real.',
+      details: isVaultUnlocked ? null : l10n.releaseReadinessDetailVaultLocked,
     ),
     ReleaseCheckItem(
       id: 'channel',
-      label: 'Canal estable seleccionado',
+      label: l10n.releaseReadinessStableChannel,
       ok: updateReleaseChannel == UpdateReleaseChannel.stable,
       severity: ReleaseCheckSeverity.warning,
       details: updateReleaseChannel == UpdateReleaseChannel.stable
           ? null
-          : 'El canal beta esta activo para updates.',
+          : l10n.releaseReadinessDetailBetaChannel,
     ),
   ];
 

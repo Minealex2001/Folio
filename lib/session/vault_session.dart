@@ -4,6 +4,7 @@ import 'dart:io';
 
 import 'package:collection/collection.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/widgets.dart' show Locale;
 import 'package:local_auth/local_auth.dart';
 import 'package:path/path.dart' as p;
 import 'package:passkeys/authenticator.dart';
@@ -37,6 +38,7 @@ import '../services/ai/ai_types.dart';
 import '../services/integrations/integrations_markdown_codec.dart';
 import '../services/app_logger.dart';
 import '../services/quick_unlock_storage.dart';
+import '../l10n/generated/app_localizations.dart';
 
 part 'vault_session_ai.dart';
 
@@ -110,10 +112,23 @@ class VaultSession extends ChangeNotifier {
     return '$_prefsLastSelectedPagePrefix$vaultId';
   }
 
-  Future<void> _persistLastSelectedPageForActiveVault(String? pageId) async {
-    final key = _lastSelectedPagePrefsKey(VaultPaths.activeVaultId);
+  int _selectedPagePersistRequestId = 0;
+
+  Future<void> _persistLastSelectedPageForActiveVault(
+    String? pageId, {
+    String? vaultId,
+    int? requestId,
+  }) async {
+    final targetVaultId = vaultId ?? VaultPaths.activeVaultId;
+    final key = _lastSelectedPagePrefsKey(targetVaultId);
     if (key == null) return;
+    if (requestId != null && requestId != _selectedPagePersistRequestId) {
+      return;
+    }
     final p = await SharedPreferences.getInstance();
+    if (requestId != null && requestId != _selectedPagePersistRequestId) {
+      return;
+    }
     if (pageId != null &&
         pageId.isNotEmpty &&
         _pages.any((pg) => pg.id == pageId)) {
@@ -226,11 +241,27 @@ class VaultSession extends ChangeNotifier {
     FolioRpServer? rpServer,
     PasskeyAuthenticator? passkeys,
     LocalAuthentication? localAuth,
+    this.titleLocale,
   }) : _repo = repository ?? VaultRepository(),
        _quick = quickUnlock ?? QuickUnlockStorage(),
        _rp = rpServer ?? FolioRpServer(),
        _passkeys = passkeys ?? PasskeyAuthenticator(),
-       _localAuth = localAuth ?? LocalAuthentication();
+       _localAuth = localAuth ?? LocalAuthentication() {
+    final l10n = lookupAppLocalizations(titleLocale ?? const Locale('es'));
+    _aiChatThreads = [
+      AiChatThreadData(
+        id: 'chat_0',
+        title: l10n.aiChatTitleNumbered(1),
+        messages: const [],
+      ),
+    ];
+  }
+
+  /// Idioma para títulos por defecto (páginas nuevas, chats). Actualizar al cambiar el idioma de la app.
+  Locale? titleLocale;
+
+  AppLocalizations get _titleL10n =>
+      lookupAppLocalizations(titleLocale ?? const Locale('es'));
 
   final VaultRepository _repo;
   final QuickUnlockStorage _quick;
@@ -252,9 +283,7 @@ class VaultSession extends ChangeNotifier {
   final Map<String, Map<String, String>> _pageAcl = {};
   final List<LocalProfile> _localProfiles = [];
   final List<LocalPageComment> _comments = [];
-  final List<AiChatThreadData> _aiChatThreads = [
-    const AiChatThreadData(id: 'chat_0', title: 'Chat 1', messages: []),
-  ];
+  late final List<AiChatThreadData> _aiChatThreads;
   int _aiActiveChatIndex = 0;
   final List<FolioPageTemplate> _pageTemplates = [];
   String? _selectedPageId;
@@ -415,7 +444,8 @@ class VaultSession extends ChangeNotifier {
               imageWidth: b.imageWidth,
               appearance: b.appearance,
               meetingNoteProvider: b.meetingNoteProvider,
-              meetingNoteTranscriptionEnabled: b.meetingNoteTranscriptionEnabled,
+              meetingNoteTranscriptionEnabled:
+                  b.meetingNoteTranscriptionEnabled,
             ),
           )
           .toList(),
@@ -632,7 +662,11 @@ class VaultSession extends ChangeNotifier {
       ..addAll(payload.aiChatThreads);
     if (_aiChatThreads.isEmpty) {
       _aiChatThreads.add(
-        const AiChatThreadData(id: 'chat_0', title: 'Chat 1', messages: []),
+        AiChatThreadData(
+          id: 'chat_0',
+          title: _titleL10n.aiChatTitleNumbered(1),
+          messages: const [],
+        ),
       );
     }
     _aiActiveChatIndex = payload.aiActiveChatIndex.clamp(
@@ -1164,7 +1198,11 @@ class VaultSession extends ChangeNotifier {
     _aiChatThreads
       ..clear()
       ..add(
-        const AiChatThreadData(id: 'chat_0', title: 'Chat 1', messages: []),
+        AiChatThreadData(
+          id: 'chat_0',
+          title: _titleL10n.aiChatTitleNumbered(1),
+          messages: const [],
+        ),
       );
     _aiActiveChatIndex = 0;
     _contentEpoch = 0;
@@ -1266,7 +1304,15 @@ class VaultSession extends ChangeNotifier {
     touchActivity();
     _selectedPageId = id;
     notifyListeners();
-    unawaited(_persistLastSelectedPageForActiveVault(id));
+    final requestId = ++_selectedPagePersistRequestId;
+    final activeVaultId = VaultPaths.activeVaultId;
+    unawaited(
+      _persistLastSelectedPageForActiveVault(
+        id,
+        vaultId: activeVaultId,
+        requestId: requestId,
+      ),
+    );
   }
 
   void requestScrollToBlock(String blockId) {
@@ -1399,7 +1445,7 @@ class VaultSession extends ChangeNotifier {
     _aiChatThreads.add(
       AiChatThreadData(
         id: 'chat_${DateTime.now().microsecondsSinceEpoch}',
-        title: 'Chat $next',
+        title: _titleL10n.aiChatTitleNumbered(next),
         messages: const [],
         includePageContext: true,
         contextPageIds: const [],
@@ -1412,10 +1458,10 @@ class VaultSession extends ChangeNotifier {
 
   void deleteActiveAiChat() {
     if (_aiChatThreads.length <= 1) {
-      _aiChatThreads[0] = const AiChatThreadData(
+      _aiChatThreads[0] = AiChatThreadData(
         id: 'chat_0',
-        title: 'Chat 1',
-        messages: [],
+        title: _titleL10n.aiChatTitleNumbered(1),
+        messages: const [],
       );
       _aiActiveChatIndex = 0;
       notifyListeners();
@@ -1435,6 +1481,28 @@ class VaultSession extends ChangeNotifier {
     final nextMessages = List<AiChatMessage>.from(current.messages)
       ..add(message);
     _aiChatThreads[_aiActiveChatIndex] = AiChatThreadData(
+      id: current.id,
+      title: current.title,
+      messages: nextMessages,
+      attachmentPaths: current.attachmentPaths,
+      includePageContext: current.includePageContext,
+      contextPageIds: current.contextPageIds,
+    );
+    notifyListeners();
+    scheduleSave();
+  }
+
+  int _aiChatIndexById(String chatId) {
+    return _aiChatThreads.indexWhere((t) => t.id == chatId);
+  }
+
+  void appendMessageToAiChatById(String chatId, AiChatMessage message) {
+    final i = _aiChatIndexById(chatId);
+    if (i < 0) return;
+    final current = _aiChatThreads[i];
+    final nextMessages = List<AiChatMessage>.from(current.messages)
+      ..add(message);
+    _aiChatThreads[i] = AiChatThreadData(
       id: current.id,
       title: current.title,
       messages: nextMessages,
@@ -1557,7 +1625,7 @@ class VaultSession extends ChangeNotifier {
     final raw = File(filePath).readAsStringSync();
     final tpl = FolioPageTemplate.tryParseFile(raw);
     if (tpl == null) {
-      throw const FormatException('El archivo no es un template Folio válido.');
+      throw FormatException(_titleL10n.invalidFolioTemplateFile);
     }
     // Reasignar ID para evitar colisiones.
     final imported = FolioPageTemplate(
@@ -1580,7 +1648,7 @@ class VaultSession extends ChangeNotifier {
     _pages.add(
       FolioPage(
         id: id,
-        title: 'New page',
+        title: _titleL10n.defaultNewPageTitle,
         parentId: parentId,
         blocks: [FolioBlock(id: '${id}_b0', type: 'paragraph', text: '')],
       ),
@@ -2152,9 +2220,7 @@ class VaultSession extends ChangeNotifier {
     _pageIdsPendingRevision.remove(id);
     if (wasSelected) {
       _pickInitialSelection();
-      unawaited(
-        _persistLastSelectedPageForActiveVault(_selectedPageId),
-      );
+      unawaited(_persistLastSelectedPageForActiveVault(_selectedPageId));
     }
     notifyListeners();
     scheduleSave();
@@ -2578,7 +2644,7 @@ class VaultSession extends ChangeNotifier {
       b.text = '';
     }
     if (newType == 'template_button' && oldType != 'template_button') {
-      b.text = FolioTemplateButtonData.defaultNew().encode();
+      b.text = FolioTemplateButtonData.localizedDefault(_titleL10n).encode();
     }
     if (newType == 'column_list' && oldType != 'column_list') {
       b.text = FolioColumnsData.empty().encode();
@@ -2728,7 +2794,7 @@ class VaultSession extends ChangeNotifier {
     _pages.add(
       FolioPage(
         id: newId,
-        title: 'Subpágina',
+        title: _titleL10n.subpage,
         parentId: pageId,
         blocks: [FolioBlock(id: '${newId}_b0', type: 'paragraph', text: '')],
       ),
@@ -3378,7 +3444,11 @@ class VaultSession extends ChangeNotifier {
       _aiChatThreads
         ..clear()
         ..add(
-          const AiChatThreadData(id: 'chat_0', title: 'Chat 1', messages: []),
+          AiChatThreadData(
+            id: 'chat_0',
+            title: _titleL10n.aiChatTitleNumbered(1),
+            messages: const [],
+          ),
         );
       _aiActiveChatIndex = 0;
       _contentEpoch = 0;
@@ -3398,7 +3468,11 @@ class VaultSession extends ChangeNotifier {
     _aiChatThreads
       ..clear()
       ..add(
-        const AiChatThreadData(id: 'chat_0', title: 'Chat 1', messages: []),
+        AiChatThreadData(
+          id: 'chat_0',
+          title: _titleL10n.aiChatTitleNumbered(1),
+          messages: const [],
+        ),
       );
     _aiActiveChatIndex = 0;
     _contentEpoch = 0;
@@ -3608,7 +3682,7 @@ class VaultSession extends ChangeNotifier {
     _pages.add(
       FolioPage(
         id: id,
-        title: '${src.title} (copy)',
+        title: _titleL10n.defaultPageDuplicateTitle(src.title),
         parentId: parentId,
         blocks: copiedBlocks,
       ),

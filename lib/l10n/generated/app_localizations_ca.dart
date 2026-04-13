@@ -2887,6 +2887,35 @@ class AppLocalizationsCa extends AppLocalizations {
   String get updaterStartupDialogBetaNote => 'Versió Beta (pre-llançament).';
 
   @override
+  String get updaterOpenApkDownloadQuestion =>
+      'Vols obrir la descàrrega de l\'APK ara?';
+
+  @override
+  String get updaterManualCheckUnsupportedPlatform =>
+      'L\'actualitzador integrat només està disponible a Windows i Android.';
+
+  @override
+  String get updaterManualCheckAlreadyLatest => 'Ja tens la versió més recent.';
+
+  @override
+  String updaterDialogLineCurrentVersion(Object currentVersion) {
+    return 'Versió actual: $currentVersion';
+  }
+
+  @override
+  String updaterDialogLineNewVersion(Object releaseVersion) {
+    return 'Versió nova: $releaseVersion';
+  }
+
+  @override
+  String get updaterApkUrlInvalidSnack =>
+      'No s\'ha trobat cap URL vàlida de l\'APK al release.';
+
+  @override
+  String get updaterApkOpenFailedSnack =>
+      'No s\'ha pogut obrir la descàrrega de l\'APK.';
+
+  @override
   String get toggleTitleHint => 'Títol de l\'alternador';
 
   @override
@@ -2956,4 +2985,1723 @@ class AppLocalizationsCa extends AppLocalizations {
 
   @override
   String get calloutTypeNote => 'Nota';
+
+  @override
+  String get blockEditorEnterHintNewBlock =>
+      'Retorn: bloc nou (en codi: Retorn = línia)';
+
+  @override
+  String get blockEditorEnterHintNewLine => 'Retorn: línia nova';
+
+  @override
+  String blockEditorShortcutsHintMobile(String enterHint) {
+    return '$enterHint · / per a blocs · toca el bloc per a més accions';
+  }
+
+  @override
+  String blockEditorShortcutsHintDesktop(String enterHint) {
+    return '$enterHint · Maj+Retorn: línia · / tipus · # títol (mateixa línia) · - · * · [] · ``` espai · taula/imatge a / · format: barra en enfocar o ** _ <u> ` ~~';
+  }
+
+  @override
+  String blockEditorSelectedBlocksBanner(int count) {
+    return '$count blocs seleccionats · Maj: interval · Ctrl/Cmd: alternar';
+  }
+
+  @override
+  String get blockEditorDuplicate => 'Duplicar';
+
+  @override
+  String get blockEditorClearSelectionTooltip => 'Neteja la selecció';
+
+  @override
+  String get blockEditorMenuRewriteWithAi => 'Reescriure amb IA…';
+
+  @override
+  String get blockEditorMenuMoveUp => 'Mou amunt';
+
+  @override
+  String get blockEditorMenuMoveDown => 'Mou avall';
+
+  @override
+  String get blockEditorMenuDuplicateBlock => 'Duplica el bloc';
+
+  @override
+  String get blockEditorMenuAppearance => 'Aparença…';
+
+  @override
+  String get blockEditorMenuCalloutIcon => 'Icona de l’avís…';
+
+  @override
+  String blockEditorCalloutMenuType(String typeName) {
+    return 'Tipus: $typeName';
+  }
+
+  @override
+  String get blockEditorCopyLink => 'Copia l’enllaç';
+
+  @override
+  String get blockEditorMenuCreateSubpage => 'Crea una subpàgina';
+
+  @override
+  String get blockEditorMenuLinkPage => 'Enllaça pàgina…';
+
+  @override
+  String get blockEditorMenuOpenSubpage => 'Obre la subpàgina';
+
+  @override
+  String get blockEditorMenuPickImage => 'Trieu imatge…';
+
+  @override
+  String get blockEditorMenuRemoveImage => 'Treu la imatge';
+
+  @override
+  String get blockEditorMenuCodeLanguage => 'Llenguatge del codi…';
+
+  @override
+  String get blockEditorMenuEditDiagram => 'Edita el diagrama…';
+
+  @override
+  String get blockEditorMenuBackToPreview => 'Torna a la previsualització';
+
+  @override
+  String get blockEditorMenuChangeFile => 'Canvia el fitxer…';
+
+  @override
+  String get blockEditorMenuRemoveFile => 'Treu el fitxer';
+
+  @override
+  String get blockEditorMenuChangeVideo => 'Canvia el vídeo…';
+
+  @override
+  String get blockEditorMenuRemoveVideo => 'Treu el vídeo';
+
+  @override
+  String get blockEditorMenuChangeAudio => 'Canvia l’àudio…';
+
+  @override
+  String get blockEditorMenuRemoveAudio => 'Treu l’àudio';
+
+  @override
+  String get blockEditorMenuEditLabel => 'Edita l’etiqueta…';
+
+  @override
+  String get blockEditorMenuAddRow => 'Afegeix una fila';
+
+  @override
+  String get blockEditorMenuRemoveLastRow => 'Treu l’última fila';
+
+  @override
+  String get blockEditorMenuAddColumn => 'Afegeix una columna';
+
+  @override
+  String get blockEditorMenuRemoveLastColumn => 'Treu l’última columna';
+
+  @override
+  String get blockEditorMenuAddProperty => 'Afegeix una propietat';
+
+  @override
+  String get blockEditorMenuChangeBlockType => 'Canvia el tipus de bloc…';
+
+  @override
+  String get blockEditorMenuDeleteBlock => 'Suprimeix el bloc';
+
+  @override
+  String get blockEditorAppearanceTitle => 'Aparença del bloc';
+
+  @override
+  String get blockEditorAppearanceSubtitle =>
+      'Personalitza la mida, el color del text i el fons d’aquest bloc.';
+
+  @override
+  String get blockEditorAppearanceSize => 'Mida';
+
+  @override
+  String get blockEditorAppearanceTextColor => 'Color del text';
+
+  @override
+  String get blockEditorAppearanceBackground => 'Fons';
+
+  @override
+  String get blockEditorAppearancePreviewEmpty => 'Així es veurà aquest bloc.';
+
+  @override
+  String get blockEditorReset => 'Restableix';
+
+  @override
+  String get blockEditorCodeLanguageTitle => 'Llenguatge del codi';
+
+  @override
+  String get blockEditorCodeLanguageSubtitle =>
+      'Ressaltat de sintaxi segons el llenguatge triat.';
+
+  @override
+  String get blockEditorTemplateButtonTitle => 'Etiqueta del botó de plantilla';
+
+  @override
+  String get blockEditorTemplateButtonFieldLabel => 'Text del botó';
+
+  @override
+  String get blockEditorTemplateButtonDefaultLabel => 'Plantilla';
+
+  @override
+  String get blockEditorTextColorDefault => 'Tema';
+
+  @override
+  String get blockEditorTextColorSubtle => 'Suau';
+
+  @override
+  String get blockEditorTextColorPrimary => 'Primari';
+
+  @override
+  String get blockEditorTextColorSecondary => 'Secundari';
+
+  @override
+  String get blockEditorTextColorTertiary => 'Accent';
+
+  @override
+  String get blockEditorTextColorError => 'Error';
+
+  @override
+  String get blockEditorBackgroundNone => 'Sense fons';
+
+  @override
+  String get blockEditorBackgroundSurface => 'Superfície';
+
+  @override
+  String get blockEditorBackgroundPrimary => 'Primari';
+
+  @override
+  String get blockEditorBackgroundSecondary => 'Secundari';
+
+  @override
+  String get blockEditorBackgroundTertiary => 'Accent';
+
+  @override
+  String get blockEditorBackgroundError => 'Error';
+
+  @override
+  String get blockEditorCmdDuplicatePrev => 'Duplica el bloc anterior';
+
+  @override
+  String get blockEditorCmdDuplicatePrevHint =>
+      'Clona el bloc immediatament superior';
+
+  @override
+  String get blockEditorCmdInsertDate => 'Insereix la data';
+
+  @override
+  String get blockEditorCmdInsertDateHint => 'Escriu la data d’avui';
+
+  @override
+  String get blockEditorCmdMentionPage => 'Menciona una pàgina';
+
+  @override
+  String get blockEditorCmdMentionPageHint =>
+      'Insereix un enllaç intern a una pàgina';
+
+  @override
+  String get blockEditorCmdTurnInto => 'Converteix el bloc';
+
+  @override
+  String get blockEditorCmdTurnIntoHint => 'Tria el tipus de bloc al selector';
+
+  @override
+  String get blockEditorMarkTaskComplete => 'Marca la tasca com a feta';
+
+  @override
+  String get blockEditorCalloutIconPickerTitle => 'Icona de l’avís';
+
+  @override
+  String get blockEditorCalloutIconPickerHelper =>
+      'Trieu una icona per canviar el to visual del bloc d’avís.';
+
+  @override
+  String get blockEditorIconPickerCustomEmoji => 'Emoji personalitzat';
+
+  @override
+  String get blockEditorIconPickerQuickTab => 'Ràpids';
+
+  @override
+  String get blockEditorIconPickerImportedTab => 'Importats';
+
+  @override
+  String get blockEditorIconPickerAllTab => 'Tots';
+
+  @override
+  String get blockEditorIconPickerEmptyImported =>
+      'Encara no heu importat icones a Configuració.';
+
+  @override
+  String get blockTypeSectionBasicText => 'Text bàsic';
+
+  @override
+  String get blockTypeSectionLists => 'Llistes';
+
+  @override
+  String get blockTypeSectionMedia => 'Multimèdia i dades';
+
+  @override
+  String get blockTypeSectionAdvanced => 'Avançat i disseny';
+
+  @override
+  String get blockTypeSectionEmbeds => 'Integracions';
+
+  @override
+  String get blockTypeParagraphLabel => 'Text';
+
+  @override
+  String get blockTypeParagraphHint => 'Paràgraf';
+
+  @override
+  String get blockTypeChildPageLabel => 'Pàgina';
+
+  @override
+  String get blockTypeChildPageHint => 'Subpàgina enllaçada';
+
+  @override
+  String get blockTypeH1Label => 'Encapçalament 1';
+
+  @override
+  String get blockTypeH1Hint => 'Títol gran · #';
+
+  @override
+  String get blockTypeH2Label => 'Encapçalament 2';
+
+  @override
+  String get blockTypeH2Hint => 'Subtítol · ##';
+
+  @override
+  String get blockTypeH3Label => 'Encapçalament 3';
+
+  @override
+  String get blockTypeH3Hint => 'Encapçalament menor · ###';
+
+  @override
+  String get blockTypeQuoteLabel => 'Cita';
+
+  @override
+  String get blockTypeQuoteHint => 'Text citat';
+
+  @override
+  String get blockTypeDividerLabel => 'Divisor';
+
+  @override
+  String get blockTypeDividerHint => 'Separador · ---';
+
+  @override
+  String get blockTypeCalloutLabel => 'Bloc destacat';
+
+  @override
+  String get blockTypeCalloutHint => 'Avís amb icona';
+
+  @override
+  String get blockTypeBulletLabel => 'Llista amb vinyetes';
+
+  @override
+  String get blockTypeBulletHint => 'Llista amb punts';
+
+  @override
+  String get blockTypeNumberedLabel => 'Llista numerada';
+
+  @override
+  String get blockTypeNumberedHint => 'Llista 1, 2, 3';
+
+  @override
+  String get blockTypeTodoLabel => 'Llista de tasques';
+
+  @override
+  String get blockTypeTodoHint => 'Checklist';
+
+  @override
+  String get blockTypeTaskLabel => 'Tasca enriquida';
+
+  @override
+  String get blockTypeTaskHint => 'Estat / prioritat / data';
+
+  @override
+  String get blockTypeToggleLabel => 'Desplegable';
+
+  @override
+  String get blockTypeToggleHint => 'Mostrar o amagar contingut';
+
+  @override
+  String get blockTypeImageLabel => 'Imatge';
+
+  @override
+  String get blockTypeImageHint => 'Imatge local o externa';
+
+  @override
+  String get blockTypeBookmarkLabel => 'Marcador amb vista prèvia';
+
+  @override
+  String get blockTypeBookmarkHint => 'Targeta amb enllaç';
+
+  @override
+  String get blockTypeVideoLabel => 'Vídeo';
+
+  @override
+  String get blockTypeVideoHint => 'Fitxer o URL';
+
+  @override
+  String get blockTypeAudioLabel => 'Àudio';
+
+  @override
+  String get blockTypeAudioHint => 'Reproductor d\'àudio';
+
+  @override
+  String get blockTypeMeetingNoteLabel => 'Nota de reunió';
+
+  @override
+  String get blockTypeMeetingNoteHint => 'Enregistra i transcriu una reunió';
+
+  @override
+  String get blockTypeCodeLabel => 'Codi (Java, Python…)';
+
+  @override
+  String get blockTypeCodeHint => 'Bloc amb sintaxi';
+
+  @override
+  String get blockTypeFileLabel => 'Fitxer / PDF';
+
+  @override
+  String get blockTypeFileHint => 'Adjunt o PDF';
+
+  @override
+  String get blockTypeTableLabel => 'Taula';
+
+  @override
+  String get blockTypeTableHint => 'Files i columnes';
+
+  @override
+  String get blockTypeDatabaseLabel => 'Base de dades';
+
+  @override
+  String get blockTypeDatabaseHint => 'Vista de llista/taula/tauler';
+
+  @override
+  String get blockTypeEquationLabel => 'Equació (LaTeX)';
+
+  @override
+  String get blockTypeEquationHint => 'Fórmules matemàtiques';
+
+  @override
+  String get blockTypeMermaidLabel => 'Diagrama (Mermaid)';
+
+  @override
+  String get blockTypeMermaidHint => 'Diagrama de flux o esquema';
+
+  @override
+  String get blockTypeTocLabel => 'Taula de continguts';
+
+  @override
+  String get blockTypeTocHint => 'Índex automàtic';
+
+  @override
+  String get blockTypeBreadcrumbLabel => 'Rutes de navegació';
+
+  @override
+  String get blockTypeBreadcrumbHint => 'Camí de navegació';
+
+  @override
+  String get blockTypeTemplateButtonLabel => 'Botó de plantilla';
+
+  @override
+  String get blockTypeTemplateButtonHint => 'Inserir bloc predefinit';
+
+  @override
+  String get blockTypeColumnListLabel => 'Columnes';
+
+  @override
+  String get blockTypeColumnListHint => 'Disseny en columnes';
+
+  @override
+  String get blockTypeEmbedLabel => 'Incrustació web';
+
+  @override
+  String get blockTypeEmbedHint => 'YouTube, Figma, Docs…';
+
+  @override
+  String get integrationDialogTitleUpdatePermission =>
+      'Actualitzar permís d\'integració';
+
+  @override
+  String get integrationDialogTitleAllowConnect =>
+      'Permetre que aquesta app es connecti';
+
+  @override
+  String integrationDialogBodyUpdate(
+    Object previousVersion,
+    Object integrationVersion,
+  ) {
+    return 'Aquesta app ja estava aprovada amb la integració $previousVersion i ara sol·licita accés amb la versió $integrationVersion.';
+  }
+
+  @override
+  String integrationDialogBodyNew(
+    Object appName,
+    Object appVersion,
+    Object integrationVersion,
+  ) {
+    return '«$appName» vol usar el pont local de Folio amb l\'app versió $appVersion i la integració $integrationVersion.';
+  }
+
+  @override
+  String get integrationChipLocalhostOnly => 'Només localhost';
+
+  @override
+  String get integrationChipRevocableApproval => 'Aprovació revocable';
+
+  @override
+  String get integrationChipNoSharedSecret => 'Sense secret compartit';
+
+  @override
+  String get integrationChipScopedByAppId => 'Permís per appId';
+
+  @override
+  String get integrationMetaPreviouslyApprovedVersion =>
+      'Versió anterior aprovada';
+
+  @override
+  String get integrationSectionWhatAppCanDo => 'Què podrà fer aquesta app';
+
+  @override
+  String get integrationCapEphemeralSessionsTitle =>
+      'Obrir sessions locals efímeres';
+
+  @override
+  String get integrationCapEphemeralSessionsBody =>
+      'Podrà iniciar una sessió temporal per parlar amb el pont local de Folio des d\'aquest dispositiu.';
+
+  @override
+  String get integrationCapImportPagesTitle =>
+      'Importar i actualitzar les seves pròpies pàgines';
+
+  @override
+  String get integrationCapImportPagesBody =>
+      'Podrà crear pàgines, llistar-les i actualitzar només les que la mateixa app hagi importat abans.';
+
+  @override
+  String get integrationCapCustomEmojisTitle =>
+      'Gestionar els seus emojis personalitzats';
+
+  @override
+  String get integrationCapCustomEmojisBody =>
+      'Podrà llistar, crear, reemplaçar i esborrar només el seu catàleg d\'emojis o icones importades.';
+
+  @override
+  String get integrationCapUnlockedVaultTitle =>
+      'Treballar només amb la llibreta desbloquejada';
+
+  @override
+  String get integrationCapUnlockedVaultBody =>
+      'Les peticions només funcionen quan Folio està obert, la llibreta està disponible i la sessió actual segueix activa.';
+
+  @override
+  String get integrationSectionWhatStaysBlocked => 'Què seguirà bloquejat';
+
+  @override
+  String get integrationBlockNoSeeAllTitle => 'No pot veure tot el contingut';
+
+  @override
+  String get integrationBlockNoSeeAllBody =>
+      'No obté accés general a la llibreta. Només pot llistar el que ella mateixa ha importat amb el seu appId.';
+
+  @override
+  String get integrationBlockNoBypassTitle =>
+      'No pot saltar-se el bloqueig ni el xifratge';
+
+  @override
+  String get integrationBlockNoBypassBody =>
+      'Si la llibreta està bloquejada o no hi ha sessió activa, Folio rebutjarà l\'operació.';
+
+  @override
+  String get integrationBlockNoOtherAppsTitle =>
+      'No pot tocar dades d\'altres apps';
+
+  @override
+  String get integrationBlockNoOtherAppsBody =>
+      'Tampoc pot gestionar pàgines importades o emojis registrats per altres apps aprovades.';
+
+  @override
+  String get integrationBlockNoRemoteTitle =>
+      'No pot entrar des de fora del teu equip';
+
+  @override
+  String get integrationBlockNoRemoteBody =>
+      'El pont segueix limitat a localhost i aquesta aprovació es pot revocar més tard des d\'Ajustos.';
+
+  @override
+  String integrationSnackMarkdownImportDone(Object pageTitle) {
+    return 'Importació completada: $pageTitle.';
+  }
+
+  @override
+  String integrationSnackJsonImportDone(Object pageTitle) {
+    return 'Importació JSON completada: $pageTitle.';
+  }
+
+  @override
+  String integrationSnackPageUpdateDone(Object pageTitle) {
+    return 'Actualització d\'integració completada: $pageTitle.';
+  }
+
+  @override
+  String get markdownImportModeDialogTitle => 'Importar Markdown';
+
+  @override
+  String get markdownImportModeDialogBody =>
+      'Tria com vols aplicar el fitxer Markdown.';
+
+  @override
+  String get markdownImportModeNewPage => 'Pàgina nova';
+
+  @override
+  String get markdownImportModeAppend => 'Annexar a l\'actual';
+
+  @override
+  String get markdownImportModeReplace => 'Substituir l\'actual';
+
+  @override
+  String get markdownImportCouldNotReadPath =>
+      'No s\'ha pogut llegir el camí del fitxer.';
+
+  @override
+  String markdownImportedBlocks(Object pageTitle, int blockCount) {
+    return 'Markdown importat: $pageTitle ($blockCount blocs).';
+  }
+
+  @override
+  String markdownImportFailedWithError(Object error) {
+    return 'No s\'ha pogut importar el Markdown: $error';
+  }
+
+  @override
+  String get exportMarkdownFileDialogTitle => 'Exportar pàgina a Markdown';
+
+  @override
+  String get markdownExportSuccess => 'Pàgina exportada a Markdown.';
+
+  @override
+  String markdownExportFailedWithError(Object error) {
+    return 'No s\'ha pogut exportar la pàgina: $error';
+  }
+
+  @override
+  String get firebaseUnavailablePublish => 'Firebase no està disponible.';
+
+  @override
+  String get signInCloudToPublishWeb =>
+      'Inicia sessió al compte al núvol (Ajustos) per publicar.';
+
+  @override
+  String get planMissingWebPublish =>
+      'El teu pla no inclou publicació web o la subscripció no està activa.';
+
+  @override
+  String get publishWebDialogTitle => 'Publicar a la web';
+
+  @override
+  String get publishWebSlugLabel => 'URL (slug)';
+
+  @override
+  String get publishWebSlugHint => 'la-meva-nota';
+
+  @override
+  String get publishWebSlugHelper =>
+      'Lletres, números i guions. Quedarà a l\'URL pública.';
+
+  @override
+  String get publishWebAction => 'Publicar';
+
+  @override
+  String get publishWebEmptySlug => 'Slug buit.';
+
+  @override
+  String publishWebSuccessWithUrl(Object url) {
+    return 'Publicat: $url';
+  }
+
+  @override
+  String publishWebFailedWithError(Object error) {
+    return 'No s\'ha pogut publicar: $error';
+  }
+
+  @override
+  String get publishWebMenuLabel => 'Publicar a la web';
+
+  @override
+  String get mobileFabDone => 'Fet';
+
+  @override
+  String get mobileFabEdit => 'Editar';
+
+  @override
+  String get mobileFabAddBlock => 'Bloc';
+
+  @override
+  String get mermaidPreviewDialogTitle => 'Diagrama';
+
+  @override
+  String get mermaidDiagramSemanticsLabel =>
+      'Diagrama Mermaid, toca per ampliar';
+
+  @override
+  String get databaseSortAz => 'Ordenar A-Z';
+
+  @override
+  String get databaseSortLabel => 'Ordenar';
+
+  @override
+  String get databaseFilterAnd => 'I';
+
+  @override
+  String get databaseFilterOr => 'O';
+
+  @override
+  String get databaseSortDescending => 'Desc';
+
+  @override
+  String get databaseNewPropertyDialogTitle => 'Propietat nova';
+
+  @override
+  String databaseConfigurePropertyTitle(Object name) {
+    return 'Configurar: $name';
+  }
+
+  @override
+  String get databaseLocalCurrentBadge => 'BD local actual';
+
+  @override
+  String databaseRelateRowsTitle(Object name) {
+    return 'Relacionar files ($name)';
+  }
+
+  @override
+  String get databaseBoardNeedsGroupProperty =>
+      'Configura una propietat de grup per al tauler.';
+
+  @override
+  String get databaseGroupPropertyMissing =>
+      'La propietat de grup ja no existeix.';
+
+  @override
+  String get databaseCalendarNeedsDateProperty =>
+      'Configura una propietat de data per al calendari.';
+
+  @override
+  String get databaseNoDatedEvents => 'Sense esdeveniments amb data.';
+
+  @override
+  String get databaseConfigurePropertyTooltip => 'Configurar propietat';
+
+  @override
+  String get databaseFormulaHintExample =>
+      'if(contains(Nom,\"x\"), add(1,2), 0)';
+
+  @override
+  String get createAction => 'Crear';
+
+  @override
+  String get confirmAction => 'Confirmar';
+
+  @override
+  String get confirmRemoteEndpointTitle => 'Confirmar endpoint remot';
+
+  @override
+  String get shortcutGlobalSearchKeyChord => 'Ctrl + Maj + F';
+
+  @override
+  String get updateChannelRelease => 'Release';
+
+  @override
+  String get updateChannelBeta => 'Beta';
+
+  @override
+  String get blockActionChooseAudio => 'Triar àudio…';
+
+  @override
+  String get blockActionCreateSubpage => 'Crear subpàgina';
+
+  @override
+  String get blockActionLinkPage => 'Enllaçar pàgina…';
+
+  @override
+  String get defaultNewPageTitle => 'Pàgina nova';
+
+  @override
+  String defaultPageDuplicateTitle(Object title) {
+    return '$title (còpia)';
+  }
+
+  @override
+  String aiChatTitleNumbered(int n) {
+    return 'Xat $n';
+  }
+
+  @override
+  String get invalidFolioTemplateFile =>
+      'El fitxer no és una plantilla Folio vàlida.';
+
+  @override
+  String get templateButtonDefaultLabel => 'Plantilla';
+
+  @override
+  String get pageHtmlExportPublishedWithFolio => 'Publicat amb Folio';
+
+  @override
+  String get releaseReadinessSemverOk => 'Versió SemVer vàlida';
+
+  @override
+  String get releaseReadinessEncryptedVault => 'Llibreta xifrada';
+
+  @override
+  String get releaseReadinessAiRemotePolicy => 'Política d\'endpoint d\'IA';
+
+  @override
+  String get releaseReadinessVaultUnlocked => 'Llibreta desbloquejada';
+
+  @override
+  String get releaseReadinessStableChannel => 'Canal estable seleccionat';
+
+  @override
+  String get aiPromptUserMessage => 'Missatge de l\'usuari:';
+
+  @override
+  String get aiPromptOriginalMessage => 'Missatge original:';
+
+  @override
+  String get aiPromptOriginalUserMessage => 'Missatge original de l\'usuari:';
+
+  @override
+  String get customIconImportEmptySource => 'La font de la icona està buida.';
+
+  @override
+  String get customIconImportInvalidUrl => 'L\'URL de la icona no és vàlida.';
+
+  @override
+  String get customIconImportInvalidSvg => 'El SVG copiat no és vàlid.';
+
+  @override
+  String get customIconImportHttpHttpsOnly =>
+      'Només s\'admeten URL http o https.';
+
+  @override
+  String get customIconImportDataUriMimeList =>
+      'Només s\'admeten data:image/svg+xml, data:image/gif, data:image/webp o data:image/png.';
+
+  @override
+  String get customIconImportUnsupportedFormat =>
+      'Format no compatible. Usa SVG, PNG, GIF o WebP.';
+
+  @override
+  String get customIconImportSvgTooLarge =>
+      'El SVG és massa gran per importar-lo.';
+
+  @override
+  String get customIconImportEmbeddedImageTooLarge =>
+      'La imatge incrustada és massa gran per importar-la.';
+
+  @override
+  String customIconImportDownloadFailed(Object code) {
+    return 'No s\'ha pogut baixar la icona ($code).';
+  }
+
+  @override
+  String get customIconImportRemoteTooLarge => 'La icona remota és massa gran.';
+
+  @override
+  String get customIconImportConnectFailed =>
+      'No s\'ha pogut connectar per baixar la icona.';
+
+  @override
+  String get customIconImportCertFailed =>
+      'Error de certificat en baixar la icona.';
+
+  @override
+  String get customIconLabelDefault => 'Icona personalitzada';
+
+  @override
+  String get customIconLabelImported => 'Icona importada';
+
+  @override
+  String get customIconImportSucceeded => 'Icona importada correctament.';
+
+  @override
+  String get customIconClipboardEmpty => 'El porta-retalls està buit.';
+
+  @override
+  String get customIconRemoved => 'Icona eliminada.';
+
+  @override
+  String get whisperModelTiny => 'Tiny (ràpid)';
+
+  @override
+  String get whisperModelBaseQ8 => 'Base q8 (equilibrat)';
+
+  @override
+  String get whisperModelSmallQ8 => 'Small q8 (alta precisió, menys disc)';
+
+  @override
+  String get whisperModelMediumQ8 => 'Medium q8';
+
+  @override
+  String get whisperModelLargeV3TurboQ8 => 'Large v3 Turbo q8';
+
+  @override
+  String get codeLangDart => 'Dart';
+
+  @override
+  String get codeLangTypeScript => 'TypeScript';
+
+  @override
+  String get codeLangJavaScript => 'JavaScript';
+
+  @override
+  String get codeLangPython => 'Python';
+
+  @override
+  String get codeLangJson => 'JSON';
+
+  @override
+  String get codeLangYaml => 'YAML';
+
+  @override
+  String get codeLangMarkdown => 'Markdown';
+
+  @override
+  String get codeLangDiff => 'Diff';
+
+  @override
+  String get codeLangSql => 'SQL';
+
+  @override
+  String get codeLangBash => 'Bash';
+
+  @override
+  String get codeLangCpp => 'C / C++';
+
+  @override
+  String get codeLangJava => 'Java';
+
+  @override
+  String get codeLangKotlin => 'Kotlin';
+
+  @override
+  String get codeLangRust => 'Rust';
+
+  @override
+  String get codeLangGo => 'Go';
+
+  @override
+  String get codeLangHtmlXml => 'HTML / XML';
+
+  @override
+  String get codeLangCss => 'CSS';
+
+  @override
+  String get codeLangPlainText => 'Text pla';
+
+  @override
+  String settingsAppRevoked(Object appId) {
+    return 'App revocada: $appId';
+  }
+
+  @override
+  String get settingsDeviceRevokedSnack => 'Dispositiu revocat.';
+
+  @override
+  String get settingsAiConnectionOk => 'Connexió d\'IA OK';
+
+  @override
+  String settingsAiConnectionError(Object error) {
+    return 'Error de connexió: $error';
+  }
+
+  @override
+  String settingsAiListModelsFailed(Object error) {
+    return 'No s\'han pogut llistar models: $error';
+  }
+
+  @override
+  String get folioCloudCallableNotSignedIn =>
+      'Has d\'iniciar sessió per trucar Cloud Functions';
+
+  @override
+  String get folioCloudCallableUnexpectedResponse =>
+      'Resposta inesperada de Cloud Functions';
+
+  @override
+  String folioCloudCallableHttpError(int code, Object name) {
+    return 'HTTP $code en trucar $name';
+  }
+
+  @override
+  String get folioCloudCallableNoIdToken =>
+      'Sense token d\'ID per a Cloud Functions. Torna a iniciar sessió a Folio Cloud.';
+
+  @override
+  String get folioCloudCallableUnexpectedFallback =>
+      'Resposta inesperada de la còpia de seguretat de Cloud Functions';
+
+  @override
+  String folioCloudCallableHttpAiComplete(int code) {
+    return 'HTTP $code en trucar folioCloudAiCompleteHttp';
+  }
+
+  @override
+  String get cloudAccountEmailMismatch =>
+      'El correu no coincideix amb la sessió actual.';
+
+  @override
+  String get cloudIdentityInvalidAuthResponse =>
+      'Resposta d\'autenticació no vàlida.';
+
+  @override
+  String get templateButtonPlaceholderText => 'Text de la plantilla…';
+
+  @override
+  String get aiProviderOllamaName => 'Ollama';
+
+  @override
+  String get aiProviderLmStudioName => 'LM Studio';
+
+  @override
+  String get blockAudioEmptyHint => 'Tria un fitxer d\'àudio';
+
+  @override
+  String get blockChildPageTitle => 'Bloc de pàgina';
+
+  @override
+  String get blockChildPageNoLink => 'Sense subpàgina enllaçada.';
+
+  @override
+  String get mermaidExpandedLoadError =>
+      'No s\'ha pogut mostrar el diagrama ampliat.';
+
+  @override
+  String get mermaidPreviewTooltip =>
+      'Toca per ampliar i fer zoom. PNG via mermaid.ink (servei extern).';
+
+  @override
+  String get aiEndpointInvalidUrl => 'URL no vàlida. Usa http://host:port.';
+
+  @override
+  String get aiEndpointRemoteNotAllowed =>
+      'L\'endpoint remot no està permès sense confirmació.';
+
+  @override
+  String get settingsAiSelectProviderFirst =>
+      'Selecciona primer un proveïdor d\'IA.';
+
+  @override
+  String get releaseReadinessAiSummaryDisabled => 'IA desactivada';
+
+  @override
+  String get releaseReadinessAiSummaryQuillCloud =>
+      'Folio Cloud IA (sense endpoint local)';
+
+  @override
+  String releaseReadinessAiSummaryEndpointOk(Object url) {
+    return 'Endpoint vàlid: $url';
+  }
+
+  @override
+  String get releaseReadinessDetailSemverInvalid =>
+      'La versió instal·lada no compleix SemVer.';
+
+  @override
+  String get releaseReadinessDetailVaultNotEncrypted =>
+      'La llibreta actual no està xifrada.';
+
+  @override
+  String get releaseReadinessDetailVaultLocked =>
+      'Desbloqueja la llibreta per validar exportació/importació i el flux real.';
+
+  @override
+  String get releaseReadinessDetailBetaChannel =>
+      'El canal beta d\'actualitzacions està actiu.';
+
+  @override
+  String get releaseReadinessReportTitle =>
+      'Folio: preparació per al llançament';
+
+  @override
+  String releaseReadinessReportInstalledVersion(Object label) {
+    return 'Versió instal·lada: $label';
+  }
+
+  @override
+  String releaseReadinessReportSemver(Object value) {
+    return 'SemVer vàlid: $value';
+  }
+
+  @override
+  String releaseReadinessReportChannel(Object value) {
+    return 'Canal d\'actualitzacions: $value';
+  }
+
+  @override
+  String releaseReadinessReportActiveVault(Object id) {
+    return 'Llibreta activa: $id';
+  }
+
+  @override
+  String releaseReadinessReportVaultPath(Object path) {
+    return 'Ruta de la llibreta: $path';
+  }
+
+  @override
+  String releaseReadinessReportUnlocked(Object value) {
+    return 'Llibreta desbloquejada: $value';
+  }
+
+  @override
+  String releaseReadinessReportEncrypted(Object value) {
+    return 'Llibreta xifrada: $value';
+  }
+
+  @override
+  String releaseReadinessReportAiEnabled(Object value) {
+    return 'IA habilitada: $value';
+  }
+
+  @override
+  String releaseReadinessReportAiPolicy(Object value) {
+    return 'Política d\'endpoint IA: $value';
+  }
+
+  @override
+  String releaseReadinessReportAiDetail(Object detail) {
+    return 'Detall IA: $detail';
+  }
+
+  @override
+  String releaseReadinessReportStatus(Object value) {
+    return 'Estat del llançament: $value';
+  }
+
+  @override
+  String releaseReadinessReportBlockers(int count) {
+    return 'Bloquejadors pendents: $count';
+  }
+
+  @override
+  String releaseReadinessReportWarnings(int count) {
+    return 'Advertències pendents: $count';
+  }
+
+  @override
+  String get releaseReadinessExportWordYes => 'sí';
+
+  @override
+  String get releaseReadinessExportWordNo => 'no';
+
+  @override
+  String get releaseReadinessChannelStable => 'estable';
+
+  @override
+  String get releaseReadinessChannelBeta => 'beta';
+
+  @override
+  String get releaseReadinessStatusReady => 'llest';
+
+  @override
+  String get releaseReadinessStatusBlocked => 'bloquejat';
+
+  @override
+  String get releaseReadinessPolicyOk => 'correcte';
+
+  @override
+  String get releaseReadinessPolicyError => 'error';
+
+  @override
+  String get settingsSignInFolioCloudSnack => 'Inicia sessió a Folio Cloud.';
+
+  @override
+  String get settingsNotSyncedYet => 'Encara sense sincronitzar';
+
+  @override
+  String get settingsDeviceNameTitle => 'Nom del dispositiu';
+
+  @override
+  String get settingsDeviceNameHintExample => 'Exemple: Pixel de l\'Alejandra';
+
+  @override
+  String get settingsPairingModeEnabledTwoMin =>
+      'Mode de vinculació actiu durant 2 minuts.';
+
+  @override
+  String get settingsPairingEnableModeFirst =>
+      'Primer activa el mode de vinculació i després tria un dispositiu detectat.';
+
+  @override
+  String get settingsPairingSameEmojisBothDevices =>
+      'Activa el mode de vinculació en ambdós dispositius i espera els mateixos 3 emojis.';
+
+  @override
+  String get settingsPairingCouldNotStart =>
+      'No s\'ha pogut iniciar la vinculació. Activa el mode en ambdós dispositius i espera els mateixos 3 emojis.';
+
+  @override
+  String get settingsConfirmPairingTitle => 'Confirmar vinculació';
+
+  @override
+  String get settingsPairingCheckOtherDeviceEmojis =>
+      'Comprova que a l\'altre dispositiu apareixen aquests mateixos 3 emojis:';
+
+  @override
+  String get settingsPairingPopupInstructions =>
+      'Aquest popup també apareixerà a l\'altre dispositiu. Per completar l\'enllaç, prem Vincular aquí i després Vincular a l\'altre.';
+
+  @override
+  String get settingsLinkDevice => 'Vincular';
+
+  @override
+  String get settingsPairingConfirmationSent =>
+      'Confirmació enviada. Falta que l\'altre dispositiu premi Vincular al seu popup.';
+
+  @override
+  String get settingsResolveConflictsTitle => 'Resoldre conflictes';
+
+  @override
+  String get settingsNoPendingConflicts => 'No hi ha conflictes pendents.';
+
+  @override
+  String settingsSyncConflictCardSubtitle(
+    Object fromPeerId,
+    int remotePageCount,
+    Object detectedAt,
+  ) {
+    return 'Origen: $fromPeerId\nPàgines remotes: $remotePageCount\nDetectat: $detectedAt';
+  }
+
+  @override
+  String get settingsSyncConflictHeading => 'Conflicte de sincronització';
+
+  @override
+  String get settingsLocalVersionKeptSnack =>
+      'S\'ha conservat la versió local.';
+
+  @override
+  String get settingsKeepLocal => 'Mantenir local';
+
+  @override
+  String get settingsRemoteVersionAppliedSnack =>
+      'S\'ha aplicat la versió remota.';
+
+  @override
+  String get settingsCouldNotApplyRemoteSnack =>
+      'No s\'ha pogut aplicar la versió remota.';
+
+  @override
+  String get settingsAcceptRemote => 'Acceptar remota';
+
+  @override
+  String get settingsClose => 'Tancar';
+
+  @override
+  String get settingsSectionDeviceSyncNav => 'Sincronització';
+
+  @override
+  String get settingsSyncHeroTitle => 'Sincronització entre dispositius';
+
+  @override
+  String get settingsSyncHeroDescription =>
+      'Emparella equips a la xarxa local; el relay només ajuda a negociar la connexió i no envia el contingut del vault.';
+
+  @override
+  String get settingsSyncChipPairingCode => 'Codi d\'enllaç';
+
+  @override
+  String get settingsSyncChipAutoDiscovery => 'Detecció automàtica';
+
+  @override
+  String get settingsSyncChipOptionalRelay => 'Relay opcional';
+
+  @override
+  String get settingsSyncEnableTitle =>
+      'Activar sincronització entre dispositius';
+
+  @override
+  String get settingsSyncSearchingSubtitle =>
+      'Cercant dispositius amb Folio obert a la xarxa local...';
+
+  @override
+  String settingsSyncDevicesFoundOnLan(int count) {
+    return '$count dispositius detectats a la LAN.';
+  }
+
+  @override
+  String get settingsSyncDisabledSubtitle =>
+      'La sincronització està desactivada.';
+
+  @override
+  String get settingsSyncRelayTitle => 'Usar relay de senyalització';
+
+  @override
+  String get settingsSyncRelaySubtitle =>
+      'No envia el contingut del vault, només ajuda a negociar la connexió si falla la LAN.';
+
+  @override
+  String get settingsEdit => 'Editar';
+
+  @override
+  String get settingsSyncEmojiModeTitle =>
+      'Activar mode de vinculació per emojis';
+
+  @override
+  String get settingsSyncEmojiModeSubtitle =>
+      'Activa\'l en ambdós dispositius per iniciar la vinculació sense escriure codis.';
+
+  @override
+  String get settingsSyncPairingStatusTitle => 'Estat del mode de vinculació';
+
+  @override
+  String get settingsSyncPairingActiveSubtitle =>
+      'Actiu durant 2 minuts. Ja pots iniciar la vinculació des d\'un dispositiu detectat.';
+
+  @override
+  String get settingsSyncPairingInactiveSubtitle =>
+      'Inactiu. Activa\'l aquí i a l\'altre dispositiu per començar a vincular.';
+
+  @override
+  String get settingsSyncLastSyncTitle => 'Última sincronització';
+
+  @override
+  String get settingsSyncPendingConflictsTitle => 'Conflictes pendents';
+
+  @override
+  String get settingsSyncNoConflictsSubtitle => 'Sense conflictes pendents.';
+
+  @override
+  String settingsSyncConflictsNeedReview(int count) {
+    return '$count conflictes requereixen revisió manual.';
+  }
+
+  @override
+  String get settingsResolve => 'Resoldre';
+
+  @override
+  String get settingsSyncDiscoveredDevicesTitle => 'Dispositius detectats';
+
+  @override
+  String get settingsSyncNoDevicesYetHint =>
+      'Encara no s\'han detectat dispositius. Assegura\'t que les dues apps estan obertes a la mateixa xarxa.';
+
+  @override
+  String get settingsSyncPeerReadyToLink => 'Llest per vincular.';
+
+  @override
+  String get settingsSyncPeerOtherInPairingMode =>
+      'L\'altre dispositiu està en mode vinculació. Activa\'l aquí per iniciar l\'enllaç.';
+
+  @override
+  String get settingsSyncPeerDetectedLan => 'Detectat a la xarxa local.';
+
+  @override
+  String get settingsSyncLinkedDevicesTitle => 'Dispositius vinculats';
+
+  @override
+  String get settingsSyncNoLinkedDevicesYet =>
+      'Encara no hi ha dispositius enllaçats.';
+
+  @override
+  String settingsSyncPeerIdLabel(Object peerId) {
+    return 'ID: $peerId';
+  }
+
+  @override
+  String get settingsRevoke => 'Revocar';
+
+  @override
+  String get sidebarPageIconTitle => 'Icona de la pàgina';
+
+  @override
+  String get sidebarPageIconPickerHelper =>
+      'Tria una icona ràpida, una importada o obre el selector complet.';
+
+  @override
+  String get sidebarPageIconCustomEmoji => 'Emoji personalitzat';
+
+  @override
+  String get sidebarPageIconRemove => 'Treure';
+
+  @override
+  String get sidebarPageIconTabQuick => 'Ràpids';
+
+  @override
+  String get sidebarPageIconTabImported => 'Importats';
+
+  @override
+  String get sidebarPageIconTabAll => 'Tots';
+
+  @override
+  String get sidebarPageIconEmptyImported =>
+      'Encara no has importat icones a Ajustos.';
+
+  @override
+  String get settingsStripeSubscriptionRefreshed =>
+      'Estat de la subscripció actualitzat.';
+
+  @override
+  String get settingsStripeBillingPortalUnavailable =>
+      'Portal de facturació no disponible.';
+
+  @override
+  String get settingsCouldNotOpenLink => 'No s\'ha pogut obrir l\'enllaç.';
+
+  @override
+  String get settingsStripeCheckoutUnavailable =>
+      'Pagament no disponible (configura Stripe al servidor).';
+
+  @override
+  String get settingsCloudBackupEnablePlanSnack =>
+      'Activa Folio Cloud amb la funció de còpia al núvol inclosa al teu pla.';
+
+  @override
+  String get settingsNoActiveVault => 'No hi ha llibreta activa.';
+
+  @override
+  String get settingsCloudBackupsNeedPlan =>
+      'Necessites Folio Cloud actiu amb còpia al núvol.';
+
+  @override
+  String settingsCloudBackupsDialogTitle(int count) {
+    return 'Còpies al núvol ($count/10)';
+  }
+
+  @override
+  String get settingsCloudBackupsEmpty =>
+      'Encara no hi ha còpies en aquest compte.';
+
+  @override
+  String get settingsCloudBackupDownloadTooltip => 'Descarregar';
+
+  @override
+  String get settingsCloudBackupSaveDialogTitle => 'Desar còpia';
+
+  @override
+  String get settingsCloudBackupDownloadedSnack => 'Còpia descarregada.';
+
+  @override
+  String get settingsPublishedRequiresPlan =>
+      'Necessites Folio Cloud amb publicació web activa.';
+
+  @override
+  String get settingsPublishedPagesTitle => 'Pàgines publicades';
+
+  @override
+  String get settingsPublishedPagesEmpty =>
+      'Encara no hi ha pàgines publicades.';
+
+  @override
+  String get settingsPublishedDeleteDialogTitle => 'Eliminar publicació?';
+
+  @override
+  String get settingsPublishedDeleteDialogBody =>
+      'S\'esborrarà l\'HTML públic i l\'enllaç deixarà de funcionar.';
+
+  @override
+  String get settingsPublishedRemovedSnack => 'Publicació eliminada.';
+
+  @override
+  String get settingsCouldNotReadInstalledVersion =>
+      'No s\'ha pogut llegir la versió instal·lada.';
+
+  @override
+  String settingsCouldNotOpenReleaseNotes(Object error) {
+    return 'No s\'han pogut obrir les notes de la versió: $error';
+  }
+
+  @override
+  String settingsUpdateFailed(Object error) {
+    return 'No s\'ha pogut actualitzar: $error';
+  }
+
+  @override
+  String get settingsSessionEndedSnack => 'Sessió tancada';
+
+  @override
+  String get settingsLabelYes => 'Sí';
+
+  @override
+  String get settingsLabelNo => 'No';
+
+  @override
+  String get settingsSecurityEncryptedHeroDescription =>
+      'Desbloqueig ràpid, passkey, bloqueig automàtic i contrasenya mestra del vault xifrat.';
+
+  @override
+  String get settingsUnencryptedVaultTitle => 'Vault sense xifrar';
+
+  @override
+  String get settingsUnencryptedVaultChipDataOnDisk => 'Dades al disc';
+
+  @override
+  String get settingsUnencryptedVaultChipEncryptionAvailable =>
+      'Xifrat disponible';
+
+  @override
+  String get settingsAppearanceChipTheme => 'Tema';
+
+  @override
+  String get settingsAppearanceChipZoom => 'Zoom';
+
+  @override
+  String get settingsAppearanceChipLanguage => 'Idioma';
+
+  @override
+  String get settingsAppearanceChipEditorWorkspace => 'Editor i espai';
+
+  @override
+  String get settingsWindowsScaleFollowTitle => 'Seguir l\'escala de Windows';
+
+  @override
+  String get settingsWindowsScaleFollowSubtitle =>
+      'Utilitza automàticament l\'escala del sistema a Windows.';
+
+  @override
+  String get settingsInterfaceZoomTitle => 'Zoom de la interfície';
+
+  @override
+  String get settingsInterfaceZoomSubtitle =>
+      'Augmenta o redueix la mida general de l\'app.';
+
+  @override
+  String get settingsUiZoomReset => 'Restablir';
+
+  @override
+  String get settingsEditorSubsection => 'Editor';
+
+  @override
+  String get settingsEditorContentWidthTitle => 'Amplada del contingut';
+
+  @override
+  String get settingsEditorContentWidthSubtitle =>
+      'Defineix quanta amplada ocupen els blocs a l\'editor.';
+
+  @override
+  String get settingsEnterCreatesNewBlockTitle => 'Retorn crea un bloc nou';
+
+  @override
+  String get settingsEnterCreatesNewBlockSubtitleWhenEnabled =>
+      'Desactiva perquè Retorn insereixi un salt de línia.';
+
+  @override
+  String get settingsEnterCreatesNewBlockSubtitleWhenDisabled =>
+      'Ara Retorn insereix un salt de línia. Maj+Retorn també funciona.';
+
+  @override
+  String get settingsWorkspaceSubsection => 'Espai de treball';
+
+  @override
+  String get settingsCustomIconsTitle => 'Icones personalitzades';
+
+  @override
+  String get settingsCustomIconsDescription =>
+      'Importa una URL PNG, GIF o WebP, o un data:image compatible copiat des de llocs com notionicons.so. Després la podràs usar com a icona de pàgina o callout.';
+
+  @override
+  String settingsCustomIconsSavedCount(int count) {
+    return '$count desats';
+  }
+
+  @override
+  String get settingsCustomIconsChipUrl => 'URL PNG, GIF o WebP';
+
+  @override
+  String get settingsCustomIconsChipDataImage => 'data:image/*';
+
+  @override
+  String get settingsCustomIconsChipPaste => 'Enganxar des del porta-retalls';
+
+  @override
+  String get settingsCustomIconsImportTitle => 'Importar icona nova';
+
+  @override
+  String get settingsCustomIconsImportSubtitle =>
+      'Pots posar-li nom i enganxar la font manualment o portar-la directament del porta-retalls.';
+
+  @override
+  String get settingsCustomIconsFieldNameLabel => 'Nom';
+
+  @override
+  String get settingsCustomIconsFieldNameHint => 'Opcional';
+
+  @override
+  String get settingsCustomIconsFieldSourceLabel => 'URL o data:image';
+
+  @override
+  String get settingsCustomIconsFieldSourceHint =>
+      'https://…gif | …webp | …png o data:image/…';
+
+  @override
+  String get settingsCustomIconsImportButton => 'Importar icona';
+
+  @override
+  String get settingsCustomIconsFromClipboard => 'Des del porta-retalls';
+
+  @override
+  String get settingsCustomIconsLibraryTitle => 'Biblioteca';
+
+  @override
+  String get settingsCustomIconsLibrarySubtitle =>
+      'Llestos per usar a tota l\'app';
+
+  @override
+  String get settingsCustomIconsEmpty => 'Encara no has importat icones.';
+
+  @override
+  String get settingsCustomIconsDeleteTooltip => 'Eliminar icona';
+
+  @override
+  String get settingsCustomIconsReferenceCopiedSnack => 'Referència copiada.';
+
+  @override
+  String get settingsCustomIconsCopyToken => 'Copiar token';
+
+  @override
+  String get settingsAiHeroQuillWithLocalAlt =>
+      'La IA s\'executa a Quill Cloud (subscripció amb IA al núvol o tinta comprada). Tria un altre proveïdor a sota per Ollama o LM Studio en local.';
+
+  @override
+  String get settingsAiHeroQuillCloudOnly =>
+      'La IA s\'executa a Quill Cloud (subscripció amb IA al núvol o tinta comprada).';
+
+  @override
+  String get settingsAiHeroLocalDefault =>
+      'Connecta Ollama o LM Studio en local; l\'assistent usa el model i el context que configuris aquí.';
+
+  @override
+  String get settingsAiHeroQuillMobileOnly =>
+      'En aquest dispositiu Quill només pot usar Quill Cloud. Tria Quill Cloud com a proveïdor quan vulguis activar la IA.';
+
+  @override
+  String get settingsAiChipCloud => 'Al núvol';
+
+  @override
+  String get settingsAiSnackFirebaseUnavailableBuild =>
+      'Firebase no està disponible en aquesta compilació.';
+
+  @override
+  String get settingsAiSnackSignInCloudAccount =>
+      'Inicia sessió al compte al núvol (Ajustos).';
+
+  @override
+  String settingsAiProviderSwitchFailed(Object error) {
+    return 'No s\'ha pogut canviar el proveïdor d\'IA: $error';
+  }
+
+  @override
+  String get settingsAboutHeroDescription =>
+      'Versió instal·lada, origen d\'actualitzacions i comprovació manual de novetats.';
+
+  @override
+  String get settingsOpenReleaseNotes => 'Veure notes de la versió';
+
+  @override
+  String get settingsUpdateChannelLabel => 'Canal';
+
+  @override
+  String get settingsUpdateChannelRelease => 'Release';
+
+  @override
+  String get settingsUpdateChannelBeta => 'Beta';
+
+  @override
+  String get settingsDataHeroDescription =>
+      'Accions permanents sobre fitxers locals. Fes una còpia de seguretat abans d\'esborrar.';
+
+  @override
+  String get settingsDangerZoneTitle => 'Zona de perill';
+
+  @override
+  String get settingsDesktopHeroDescription =>
+      'Dreceres globals, safata del sistema i comportament de la finestra a l\'escriptori.';
+
+  @override
+  String get settingsShortcutsHeroDescription =>
+      'Combinacions només dins de Folio. Prova una tecla abans de desar-la.';
+
+  @override
+  String get settingsShortcutsTestChip => 'Provar';
+
+  @override
+  String get settingsIntegrationsChipApprovedPermissions => 'Permisos aprovats';
+
+  @override
+  String get settingsIntegrationsChipRevocableAccess => 'Accés revocable';
+
+  @override
+  String get settingsIntegrationsChipExternalApps => 'Apps externes';
+
+  @override
+  String get settingsIntegrationsActiveConnectionsTitle => 'Connexions actives';
+
+  @override
+  String get settingsIntegrationsActiveConnectionsSubtitle =>
+      'Apps que ja poden interactuar amb Folio';
+
+  @override
+  String get settingsViewInkUsageTable => 'Veure taula de consum';
+
+  @override
+  String get settingsCloudInkUsageTableTitle =>
+      'Taula de consum de gotes (OpenAI)';
+
+  @override
+  String get settingsCloudInkUsageTableIntro =>
+      'Cost base per acció. Es poden aplicar suplements per prompts llargs i per tokens de sortida.';
+
+  @override
+  String get settingsCloudInkDrops => 'gotes';
+
+  @override
+  String get settingsCloudInkTableCachedNotice =>
+      'Mostrant taula en memòria cau local (sense connexió al backend).';
+
+  @override
+  String get settingsCloudInkOpRewriteBlock => 'Reescriure bloc';
+
+  @override
+  String get settingsCloudInkOpSummarizeSelection => 'Resumir selecció';
+
+  @override
+  String get settingsCloudInkOpExtractTasks => 'Extreure tasques';
+
+  @override
+  String get settingsCloudInkOpSummarizePage => 'Resumir pàgina';
+
+  @override
+  String get settingsCloudInkOpGenerateInsert => 'Generar inserció';
+
+  @override
+  String get settingsCloudInkOpGeneratePage => 'Generar pàgina';
+
+  @override
+  String get settingsCloudInkOpChatTurn => 'Torn de xat';
+
+  @override
+  String get settingsCloudInkOpAgentMain => 'Execució d\'agent';
+
+  @override
+  String get settingsCloudInkOpAgentFollowup => 'Seguiment d\'agent';
+
+  @override
+  String get settingsCloudInkOpEditPagePanel => 'Edició de pàgina (panell)';
+
+  @override
+  String get settingsCloudInkOpDefault => 'Operació per defecte';
+
+  @override
+  String get settingsDesktopRailSubtitle =>
+      'Tria una categoria de la llista o desplaça\'t pel contingut.';
+
+  @override
+  String get settingsCloudInkViewTableButton => 'Veure taula';
+
+  @override
+  String get settingsCloudInkHostedAiOpenAiHint =>
+      'Preus de referència per a IA al núvol amb OpenAI.';
 }

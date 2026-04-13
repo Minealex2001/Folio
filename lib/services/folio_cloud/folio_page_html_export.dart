@@ -251,7 +251,11 @@ String folioWebExportShellHtml({
 }
 
 /// HTML para [publishHtmlPage] (contenido vía Markdown de la página).
-String folioPageExportHtmlDocument(FolioPage page, {String? appIconDataUri}) {
+String folioPageExportHtmlDocument(
+  FolioPage page, {
+  String? appIconDataUri,
+  required String pagePublishedSubtitle,
+}) {
   final mdBody = FolioMarkdownCodec.exportPage(page, includeFrontMatter: false);
   var bodyHtml = md.markdownToHtml(
     mdBody,
@@ -262,7 +266,7 @@ String folioPageExportHtmlDocument(FolioPage page, {String? appIconDataUri}) {
   return folioWebExportShellHtml(
     documentTitle: title,
     pageHeading: title,
-    pageSubtitle: 'Publicado con Folio',
+    pageSubtitle: pagePublishedSubtitle,
     bodyHtml: bodyHtml,
     appIconDataUri: appIconDataUri,
   );

@@ -32,8 +32,7 @@ import '../services/updater/github_release_updater.dart';
 import '../features/release_notes/release_notes_page.dart';
 import '../features/lock/lock_screen.dart';
 import '../features/onboarding/onboarding_flow.dart';
-import '../features/workspace/workspace_page.dart';
-import '../features/workspace/widgets/global_search_popup.dart';
+import '../features/workspace/workspace.dart';
 import '../session/vault_session.dart';
 import 'app_settings.dart';
 import 'folio_theme.dart';
@@ -90,6 +89,7 @@ class _FolioAppState extends State<FolioApp> with WidgetsBindingObserver {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    widget.session.titleLocale = widget.appSettings.locale;
     widget.session.addListener(_onSession);
     widget.appSettings.addListener(_onSettings);
     _integrationsBridge = IntegrationsBridgeController(
@@ -108,6 +108,7 @@ class _FolioAppState extends State<FolioApp> with WidgetsBindingObserver {
         integrationVersion: client.integrationVersion,
       ),
       appInfoProvider: _integrationsAppInfo,
+      resolveLocale: () => widget.appSettings.locale ?? const Locale('es'),
       onEvent: _showSnack,
       allowedOrigins: const ['*'],
     );
@@ -436,6 +437,7 @@ class _FolioAppState extends State<FolioApp> with WidgetsBindingObserver {
   }
 
   void _onSettings() {
+    widget.session.titleLocale = widget.appSettings.locale;
     _applySessionSecurityPolicy();
     _applyAiSettings();
     _applyDeviceSyncSettings();
@@ -549,7 +551,7 @@ class _FolioAppState extends State<FolioApp> with WidgetsBindingObserver {
       case AiProvider.lmStudio:
         break;
     }
-    final endpointError = AiSafetyPolicy.validateEndpoint(
+    final endpointError = AiSafetyPolicy.validateEndpointIssue(
       rawUrl: widget.appSettings.aiBaseUrl,
       mode: widget.appSettings.aiEndpointMode,
       remoteConfirmed: widget.appSettings.aiRemoteEndpointConfirmed,
@@ -934,7 +936,7 @@ class _FolioAppState extends State<FolioApp> with WidgetsBindingObserver {
             ),
             content: Text(
               '${l10n.updaterStartupDialogBody(result.releaseVersion.toString())}$betaNote\n\n'
-              '${defaultTargetPlatform == TargetPlatform.android ? '¿Abrir descarga del APK ahora?' : l10n.updaterStartupDialogQuestion}',
+              '${defaultTargetPlatform == TargetPlatform.android ? l10n.updaterOpenApkDownloadQuestion : l10n.updaterStartupDialogQuestion}',
             ),
             actions: [
               TextButton(
@@ -1136,14 +1138,6 @@ class _IntegrationApprovalDialog extends StatelessWidget {
         ? l10n.integrationApprovalUnknownVersion
         : client.appVersion.trim();
 
-    String t(String es, String en) {
-      return Localizations.localeOf(
-            context,
-          ).languageCode.toLowerCase().startsWith('es')
-          ? es
-          : en;
-    }
-
     Widget capabilityRow(
       IconData icon,
       String title,
@@ -1258,14 +1252,8 @@ class _IntegrationApprovalDialog extends StatelessWidget {
                             children: [
                               Text(
                                 isUpdate
-                                    ? t(
-                                        'Actualizar permiso de integracion',
-                                        'Update integration approval',
-                                      )
-                                    : t(
-                                        'Permitir que esta app se conecte',
-                                        'Allow this app to connect',
-                                      ),
+                                    ? l10n.integrationDialogTitleUpdatePermission
+                                    : l10n.integrationDialogTitleAllowConnect,
                                 style: theme.textTheme.titleLarge?.copyWith(
                                   fontWeight: FontWeight.w800,
                                   letterSpacing: -0.2,
@@ -1274,13 +1262,14 @@ class _IntegrationApprovalDialog extends StatelessWidget {
                               const SizedBox(height: 6),
                               Text(
                                 isUpdate
-                                    ? t(
-                                        'Esta app ya estaba aprobada con la integracion $previousVersion y ahora pide acceso con la version ${client.integrationVersion}.',
-                                        'This app was already approved with integration version $previousVersion and is now requesting access with version ${client.integrationVersion}.',
+                                    ? l10n.integrationDialogBodyUpdate(
+                                        previousVersion,
+                                        client.integrationVersion,
                                       )
-                                    : t(
-                                        '"${client.appName}" quiere usar el puente local de Folio con la app version $appVersion y la integracion ${client.integrationVersion}.',
-                                        '"${client.appName}" wants to use Folio\'s local bridge with app version $appVersion and integration ${client.integrationVersion}.',
+                                    : l10n.integrationDialogBodyNew(
+                                        client.appName,
+                                        appVersion,
+                                        client.integrationVersion,
                                       ),
                                 style: theme.textTheme.bodyMedium?.copyWith(
                                   color: scheme.onSurfaceVariant,
@@ -1299,21 +1288,15 @@ class _IntegrationApprovalDialog extends StatelessWidget {
                       children: [
                         _IntegrationApprovalChip(
                           icon: Icons.laptop_windows_rounded,
-                          label: t('Solo localhost', 'Localhost only'),
+                          label: l10n.integrationChipLocalhostOnly,
                         ),
                         _IntegrationApprovalChip(
                           icon: Icons.verified_user_outlined,
-                          label: t(
-                            'Aprobacion revocable',
-                            'Revocable approval',
-                          ),
+                          label: l10n.integrationChipRevocableApproval,
                         ),
                         _IntegrationApprovalChip(
                           icon: Icons.key_off_outlined,
-                          label: t(
-                            'Sin secreto compartido',
-                            'No shared secret',
-                          ),
+                          label: l10n.integrationChipNoSharedSecret,
                         ),
                         _IntegrationApprovalChip(
                           icon: isEncryptedContent
@@ -1362,7 +1345,7 @@ class _IntegrationApprovalDialog extends StatelessWidget {
                             borderRadius: BorderRadius.circular(999),
                           ),
                           child: Text(
-                            t('Permiso por appId', 'Scoped by appId'),
+                            l10n.integrationChipScopedByAppId,
                             style: theme.textTheme.labelMedium?.copyWith(
                               color: scheme.primary,
                               fontWeight: FontWeight.w700,
@@ -1386,10 +1369,7 @@ class _IntegrationApprovalDialog extends StatelessWidget {
                     ),
                     if (isUpdate)
                       _IntegrationApprovalMetaRow(
-                        label: t(
-                          'Version anterior aprobada',
-                          'Previously approved version',
-                        ),
+                        label: l10n.integrationMetaPreviouslyApprovedVersion,
                         value: previousVersion,
                       ),
                   ],
@@ -1397,10 +1377,7 @@ class _IntegrationApprovalDialog extends StatelessWidget {
               ),
               const SizedBox(height: 16),
               Text(
-                t(
-                  'Lo que esta app podra hacer',
-                  'What this app will be able to do',
-                ),
+                l10n.integrationSectionWhatAppCanDo,
                 style: theme.textTheme.titleSmall?.copyWith(
                   fontWeight: FontWeight.w800,
                 ),
@@ -1408,47 +1385,26 @@ class _IntegrationApprovalDialog extends StatelessWidget {
               const SizedBox(height: 10),
               capabilityRow(
                 Icons.playlist_add_check_circle_outlined,
-                t(
-                  'Abrir sesiones locales efimeras',
-                  'Open short-lived local sessions',
-                ),
-                t(
-                  'Podra iniciar una sesion temporal para hablar con el puente local de Folio desde este dispositivo.',
-                  'It can start a temporary session to talk to Folio\'s local bridge on this device.',
-                ),
+                l10n.integrationCapEphemeralSessionsTitle,
+                l10n.integrationCapEphemeralSessionsBody,
                 accent: scheme.primary,
               ),
               capabilityRow(
                 Icons.description_outlined,
-                t(
-                  'Importar y actualizar sus propias paginas',
-                  'Import and update its own pages',
-                ),
-                t(
-                  'Podra crear paginas, listarlas y actualizar solo las paginas que esa misma app haya importado antes.',
-                  'It can create pages, list them, and update only the pages that the same app previously imported.',
-                ),
+                l10n.integrationCapImportPagesTitle,
+                l10n.integrationCapImportPagesBody,
                 accent: scheme.primary,
               ),
               capabilityRow(
                 Icons.emoji_emotions_outlined,
-                t('Gestionar sus custom emojis', 'Manage its custom emojis'),
-                t(
-                  'Podra listar, crear, reemplazar y borrar solo su propio catalogo de custom emojis o iconos importados.',
-                  'It can list, create, replace, and delete only its own catalog of imported custom emojis or icons.',
-                ),
+                l10n.integrationCapCustomEmojisTitle,
+                l10n.integrationCapCustomEmojisBody,
                 accent: scheme.primary,
               ),
               capabilityRow(
                 Icons.lock_open_outlined,
-                t(
-                  'Trabajar solo con la libreta abierta',
-                  'Work only while the vault is unlocked',
-                ),
-                t(
-                  'Las peticiones solo funcionan cuando Folio esta abierto, la libreta esta disponible y la sesion actual sigue activa.',
-                  'Requests only work while Folio is open, the vault is available, and the current session is still active.',
-                ),
+                l10n.integrationCapUnlockedVaultTitle,
+                l10n.integrationCapUnlockedVaultBody,
                 accent: scheme.primary,
               ),
               capabilityRow(
@@ -1466,7 +1422,7 @@ class _IntegrationApprovalDialog extends StatelessWidget {
               ),
               const SizedBox(height: 12),
               Text(
-                t('Lo que seguira bloqueado', 'What will remain blocked'),
+                l10n.integrationSectionWhatStaysBlocked,
                 style: theme.textTheme.titleSmall?.copyWith(
                   fontWeight: FontWeight.w800,
                 ),
@@ -1474,53 +1430,29 @@ class _IntegrationApprovalDialog extends StatelessWidget {
               const SizedBox(height: 10),
               capabilityRow(
                 Icons.visibility_off_outlined,
-                t(
-                  'No puede ver todo tu contenido',
-                  'It cannot see all your content',
-                ),
-                t(
-                  'No obtiene acceso general a la libreta. Solo puede listar lo que ella misma importo mediante su appId.',
-                  'It does not get general vault access. It can only list what it imported itself through its appId.',
-                ),
+                l10n.integrationBlockNoSeeAllTitle,
+                l10n.integrationBlockNoSeeAllBody,
                 accent: scheme.error,
                 danger: true,
               ),
               capabilityRow(
                 Icons.shield_outlined,
-                t(
-                  'No puede saltarse bloqueo ni cifrado',
-                  'It cannot bypass lock or encryption',
-                ),
-                t(
-                  'Si la libreta esta bloqueada o no hay sesion activa, Folio rechazara la operacion.',
-                  'If the vault is locked or there is no active session, Folio will reject the operation.',
-                ),
+                l10n.integrationBlockNoBypassTitle,
+                l10n.integrationBlockNoBypassBody,
                 accent: scheme.error,
                 danger: true,
               ),
               capabilityRow(
                 Icons.apps_outage_outlined,
-                t(
-                  'No puede tocar datos de otras apps',
-                  'It cannot touch another app\'s data',
-                ),
-                t(
-                  'Tampoco puede gestionar paginas importadas o custom emojis registrados por otras apps aprobadas.',
-                  'It also cannot manage imported pages or custom emojis registered by other approved apps.',
-                ),
+                l10n.integrationBlockNoOtherAppsTitle,
+                l10n.integrationBlockNoOtherAppsBody,
                 accent: scheme.error,
                 danger: true,
               ),
               capabilityRow(
                 Icons.public_off_outlined,
-                t(
-                  'No puede entrar desde fuera de tu equipo',
-                  'It cannot connect from outside your machine',
-                ),
-                t(
-                  'El puente sigue limitado a localhost y esta aprobacion se puede revocar mas tarde desde Ajustes.',
-                  'The bridge remains limited to localhost and this approval can be revoked later from Settings.',
-                ),
+                l10n.integrationBlockNoRemoteTitle,
+                l10n.integrationBlockNoRemoteBody,
                 accent: scheme.error,
                 danger: true,
               ),

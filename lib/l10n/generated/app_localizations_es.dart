@@ -2864,6 +2864,35 @@ class AppLocalizationsEs extends AppLocalizations {
   String get updaterStartupDialogBetaNote => 'Versión beta (pre-release).';
 
   @override
+  String get updaterOpenApkDownloadQuestion => '¿Abrir descarga del APK ahora?';
+
+  @override
+  String get updaterManualCheckUnsupportedPlatform =>
+      'El actualizador integrado solo está disponible en Windows y Android.';
+
+  @override
+  String get updaterManualCheckAlreadyLatest =>
+      'Ya tienes la versión más reciente.';
+
+  @override
+  String updaterDialogLineCurrentVersion(Object currentVersion) {
+    return 'Versión actual: $currentVersion';
+  }
+
+  @override
+  String updaterDialogLineNewVersion(Object releaseVersion) {
+    return 'Nueva versión: $releaseVersion';
+  }
+
+  @override
+  String get updaterApkUrlInvalidSnack =>
+      'No se encontró URL válida del APK en el release.';
+
+  @override
+  String get updaterApkOpenFailedSnack =>
+      'No se pudo abrir la descarga del APK.';
+
+  @override
   String get toggleTitleHint => 'Título del desplegable';
 
   @override
@@ -2933,4 +2962,1722 @@ class AppLocalizationsEs extends AppLocalizations {
 
   @override
   String get calloutTypeNote => 'Nota';
+
+  @override
+  String get blockEditorEnterHintNewBlock =>
+      'Enter: bloque nuevo (en código: Enter = línea)';
+
+  @override
+  String get blockEditorEnterHintNewLine => 'Enter: nueva línea';
+
+  @override
+  String blockEditorShortcutsHintMobile(String enterHint) {
+    return '$enterHint · / para bloques · toca el bloque para más acciones';
+  }
+
+  @override
+  String blockEditorShortcutsHintDesktop(String enterHint) {
+    return '$enterHint · Shift+Enter: línea · / tipos · # título (misma línea) · - · * · [] · ``` espacio · tabla/imagen en / · formato: barra al enfocar o ** _ <u> ` ~~';
+  }
+
+  @override
+  String blockEditorSelectedBlocksBanner(int count) {
+    return '$count bloques seleccionados · Shift: rango · Ctrl/Cmd: alternar';
+  }
+
+  @override
+  String get blockEditorDuplicate => 'Duplicar';
+
+  @override
+  String get blockEditorClearSelectionTooltip => 'Limpiar selección';
+
+  @override
+  String get blockEditorMenuRewriteWithAi => 'Reescribir con IA…';
+
+  @override
+  String get blockEditorMenuMoveUp => 'Mover arriba';
+
+  @override
+  String get blockEditorMenuMoveDown => 'Mover abajo';
+
+  @override
+  String get blockEditorMenuDuplicateBlock => 'Duplicar bloque';
+
+  @override
+  String get blockEditorMenuAppearance => 'Apariencia…';
+
+  @override
+  String get blockEditorMenuCalloutIcon => 'Icono del callout…';
+
+  @override
+  String blockEditorCalloutMenuType(String typeName) {
+    return 'Tipo: $typeName';
+  }
+
+  @override
+  String get blockEditorCopyLink => 'Copiar enlace';
+
+  @override
+  String get blockEditorMenuCreateSubpage => 'Crear subpágina';
+
+  @override
+  String get blockEditorMenuLinkPage => 'Enlazar página…';
+
+  @override
+  String get blockEditorMenuOpenSubpage => 'Abrir subpágina';
+
+  @override
+  String get blockEditorMenuPickImage => 'Elegir imagen…';
+
+  @override
+  String get blockEditorMenuRemoveImage => 'Quitar imagen';
+
+  @override
+  String get blockEditorMenuCodeLanguage => 'Lenguaje del código…';
+
+  @override
+  String get blockEditorMenuEditDiagram => 'Editar diagrama…';
+
+  @override
+  String get blockEditorMenuBackToPreview => 'Volver a vista previa';
+
+  @override
+  String get blockEditorMenuChangeFile => 'Cambiar archivo…';
+
+  @override
+  String get blockEditorMenuRemoveFile => 'Quitar archivo';
+
+  @override
+  String get blockEditorMenuChangeVideo => 'Cambiar video…';
+
+  @override
+  String get blockEditorMenuRemoveVideo => 'Quitar video';
+
+  @override
+  String get blockEditorMenuChangeAudio => 'Cambiar audio…';
+
+  @override
+  String get blockEditorMenuRemoveAudio => 'Quitar audio';
+
+  @override
+  String get blockEditorMenuEditLabel => 'Editar etiqueta…';
+
+  @override
+  String get blockEditorMenuAddRow => 'Añadir fila';
+
+  @override
+  String get blockEditorMenuRemoveLastRow => 'Quitar última fila';
+
+  @override
+  String get blockEditorMenuAddColumn => 'Añadir columna';
+
+  @override
+  String get blockEditorMenuRemoveLastColumn => 'Quitar última columna';
+
+  @override
+  String get blockEditorMenuAddProperty => 'Añadir propiedad';
+
+  @override
+  String get blockEditorMenuChangeBlockType => 'Cambiar tipo de bloque…';
+
+  @override
+  String get blockEditorMenuDeleteBlock => 'Eliminar bloque';
+
+  @override
+  String get blockEditorAppearanceTitle => 'Apariencia del bloque';
+
+  @override
+  String get blockEditorAppearanceSubtitle =>
+      'Personaliza tamaño, color del texto y fondo para este bloque.';
+
+  @override
+  String get blockEditorAppearanceSize => 'Tamaño';
+
+  @override
+  String get blockEditorAppearanceTextColor => 'Color del texto';
+
+  @override
+  String get blockEditorAppearanceBackground => 'Fondo';
+
+  @override
+  String get blockEditorAppearancePreviewEmpty => 'Así se verá este bloque.';
+
+  @override
+  String get blockEditorReset => 'Restablecer';
+
+  @override
+  String get blockEditorCodeLanguageTitle => 'Lenguaje del código';
+
+  @override
+  String get blockEditorCodeLanguageSubtitle =>
+      'Resaltado de sintaxis según el lenguaje elegido.';
+
+  @override
+  String get blockEditorTemplateButtonTitle => 'Etiqueta del botón plantilla';
+
+  @override
+  String get blockEditorTemplateButtonFieldLabel => 'Texto del botón';
+
+  @override
+  String get blockEditorTemplateButtonDefaultLabel => 'Plantilla';
+
+  @override
+  String get blockEditorTextColorDefault => 'Tema';
+
+  @override
+  String get blockEditorTextColorSubtle => 'Suave';
+
+  @override
+  String get blockEditorTextColorPrimary => 'Primario';
+
+  @override
+  String get blockEditorTextColorSecondary => 'Secundario';
+
+  @override
+  String get blockEditorTextColorTertiary => 'Acento';
+
+  @override
+  String get blockEditorTextColorError => 'Error';
+
+  @override
+  String get blockEditorBackgroundNone => 'Sin fondo';
+
+  @override
+  String get blockEditorBackgroundSurface => 'Sutil';
+
+  @override
+  String get blockEditorBackgroundPrimary => 'Primario';
+
+  @override
+  String get blockEditorBackgroundSecondary => 'Secundario';
+
+  @override
+  String get blockEditorBackgroundTertiary => 'Acento';
+
+  @override
+  String get blockEditorBackgroundError => 'Error';
+
+  @override
+  String get blockEditorCmdDuplicatePrev => 'Duplicar bloque anterior';
+
+  @override
+  String get blockEditorCmdDuplicatePrevHint =>
+      'Clona el bloque inmediatamente anterior';
+
+  @override
+  String get blockEditorCmdInsertDate => 'Insertar fecha';
+
+  @override
+  String get blockEditorCmdInsertDateHint => 'Escribe la fecha actual';
+
+  @override
+  String get blockEditorCmdMentionPage => 'Mencionar página';
+
+  @override
+  String get blockEditorCmdMentionPageHint =>
+      'Inserta enlace interno a una página';
+
+  @override
+  String get blockEditorCmdTurnInto => 'Convertir bloque';
+
+  @override
+  String get blockEditorCmdTurnIntoHint =>
+      'Elegir tipo de bloque con el selector';
+
+  @override
+  String get blockEditorMarkTaskComplete => 'Marcar tarea completada';
+
+  @override
+  String get blockEditorCalloutIconPickerTitle => 'Icono del callout';
+
+  @override
+  String get blockEditorCalloutIconPickerHelper =>
+      'Selecciona un icono para cambiar el tono visual del bloque destacado.';
+
+  @override
+  String get blockEditorIconPickerCustomEmoji => 'Emoji personalizado';
+
+  @override
+  String get blockEditorIconPickerQuickTab => 'Rápidos';
+
+  @override
+  String get blockEditorIconPickerImportedTab => 'Importados';
+
+  @override
+  String get blockEditorIconPickerAllTab => 'Todos';
+
+  @override
+  String get blockEditorIconPickerEmptyImported =>
+      'Todavía no has importado iconos en Ajustes.';
+
+  @override
+  String get blockTypeSectionBasicText => 'Texto básico';
+
+  @override
+  String get blockTypeSectionLists => 'Listas';
+
+  @override
+  String get blockTypeSectionMedia => 'Multimedia y datos';
+
+  @override
+  String get blockTypeSectionAdvanced => 'Avanzado y diseño';
+
+  @override
+  String get blockTypeSectionEmbeds => 'Integraciones';
+
+  @override
+  String get blockTypeParagraphLabel => 'Texto';
+
+  @override
+  String get blockTypeParagraphHint => 'Párrafo';
+
+  @override
+  String get blockTypeChildPageLabel => 'Página';
+
+  @override
+  String get blockTypeChildPageHint => 'Subpágina enlazada';
+
+  @override
+  String get blockTypeH1Label => 'Encabezado 1';
+
+  @override
+  String get blockTypeH1Hint => 'Título grande  ·  #';
+
+  @override
+  String get blockTypeH2Label => 'Encabezado 2';
+
+  @override
+  String get blockTypeH2Hint => 'Subtítulo  ·  ##';
+
+  @override
+  String get blockTypeH3Label => 'Encabezado 3';
+
+  @override
+  String get blockTypeH3Hint => 'Encabezado menor  ·  ###';
+
+  @override
+  String get blockTypeQuoteLabel => 'Cita';
+
+  @override
+  String get blockTypeQuoteHint => 'Texto citado';
+
+  @override
+  String get blockTypeDividerLabel => 'Divisor';
+
+  @override
+  String get blockTypeDividerHint => 'Separador  ·  ---';
+
+  @override
+  String get blockTypeCalloutLabel => 'Bloque destacado';
+
+  @override
+  String get blockTypeCalloutHint => 'Aviso con icono';
+
+  @override
+  String get blockTypeBulletLabel => 'Lista con viñetas';
+
+  @override
+  String get blockTypeBulletHint => 'Lista con puntos';
+
+  @override
+  String get blockTypeNumberedLabel => 'Lista numerada';
+
+  @override
+  String get blockTypeNumberedHint => 'Lista 1, 2, 3';
+
+  @override
+  String get blockTypeTodoLabel => 'Lista de tareas';
+
+  @override
+  String get blockTypeTodoHint => 'Checklist';
+
+  @override
+  String get blockTypeTaskLabel => 'Tarea enriquecida';
+
+  @override
+  String get blockTypeTaskHint => 'Estado / prioridad / fecha';
+
+  @override
+  String get blockTypeToggleLabel => 'Desplegable';
+
+  @override
+  String get blockTypeToggleHint => 'Mostrar/ocultar contenido';
+
+  @override
+  String get blockTypeImageLabel => 'Imagen';
+
+  @override
+  String get blockTypeImageHint => 'Imagen local o externa';
+
+  @override
+  String get blockTypeBookmarkLabel => 'Marcador con vista previa';
+
+  @override
+  String get blockTypeBookmarkHint => 'Tarjeta con enlace';
+
+  @override
+  String get blockTypeVideoLabel => 'Vídeo';
+
+  @override
+  String get blockTypeVideoHint => 'Archivo o enlace';
+
+  @override
+  String get blockTypeAudioLabel => 'Audio';
+
+  @override
+  String get blockTypeAudioHint => 'Reproductor de audio';
+
+  @override
+  String get blockTypeMeetingNoteLabel => 'Nota de reunión';
+
+  @override
+  String get blockTypeMeetingNoteHint => 'Graba y transcribe una reunión';
+
+  @override
+  String get blockTypeCodeLabel => 'Código (Java, Python…)';
+
+  @override
+  String get blockTypeCodeHint => 'Bloque con sintaxis';
+
+  @override
+  String get blockTypeFileLabel => 'Archivo / PDF';
+
+  @override
+  String get blockTypeFileHint => 'Adjunto o PDF';
+
+  @override
+  String get blockTypeTableLabel => 'Tabla';
+
+  @override
+  String get blockTypeTableHint => 'Filas y columnas';
+
+  @override
+  String get blockTypeDatabaseLabel => 'Base de datos';
+
+  @override
+  String get blockTypeDatabaseHint => 'Vista lista/tabla/tablero';
+
+  @override
+  String get blockTypeEquationLabel => 'Ecuación (LaTeX)';
+
+  @override
+  String get blockTypeEquationHint => 'Fórmulas matemáticas';
+
+  @override
+  String get blockTypeMermaidLabel => 'Diagrama (Mermaid)';
+
+  @override
+  String get blockTypeMermaidHint => 'Diagrama de flujo o esquema';
+
+  @override
+  String get blockTypeTocLabel => 'Tabla de contenidos';
+
+  @override
+  String get blockTypeTocHint => 'Índice automático';
+
+  @override
+  String get blockTypeBreadcrumbLabel => 'Migas de pan';
+
+  @override
+  String get blockTypeBreadcrumbHint => 'Ruta de navegación';
+
+  @override
+  String get blockTypeTemplateButtonLabel => 'Botón de plantilla';
+
+  @override
+  String get blockTypeTemplateButtonHint => 'Insertar bloque predefinido';
+
+  @override
+  String get blockTypeColumnListLabel => 'Columnas';
+
+  @override
+  String get blockTypeColumnListHint => 'Diseño en columnas';
+
+  @override
+  String get blockTypeEmbedLabel => 'Incrustado web';
+
+  @override
+  String get blockTypeEmbedHint => 'YouTube, Figma, Docs…';
+
+  @override
+  String get integrationDialogTitleUpdatePermission =>
+      'Actualizar permiso de integración';
+
+  @override
+  String get integrationDialogTitleAllowConnect =>
+      'Permitir que esta app se conecte';
+
+  @override
+  String integrationDialogBodyUpdate(
+    Object previousVersion,
+    Object integrationVersion,
+  ) {
+    return 'Esta app ya estaba aprobada con la integración $previousVersion y ahora pide acceso con la versión $integrationVersion.';
+  }
+
+  @override
+  String integrationDialogBodyNew(
+    Object appName,
+    Object appVersion,
+    Object integrationVersion,
+  ) {
+    return '«$appName» quiere usar el puente local de Folio con la app versión $appVersion y la integración $integrationVersion.';
+  }
+
+  @override
+  String get integrationChipLocalhostOnly => 'Solo localhost';
+
+  @override
+  String get integrationChipRevocableApproval => 'Aprobación revocable';
+
+  @override
+  String get integrationChipNoSharedSecret => 'Sin secreto compartido';
+
+  @override
+  String get integrationChipScopedByAppId => 'Permiso por appId';
+
+  @override
+  String get integrationMetaPreviouslyApprovedVersion =>
+      'Versión anterior aprobada';
+
+  @override
+  String get integrationSectionWhatAppCanDo => 'Lo que esta app podrá hacer';
+
+  @override
+  String get integrationCapEphemeralSessionsTitle =>
+      'Abrir sesiones locales efímeras';
+
+  @override
+  String get integrationCapEphemeralSessionsBody =>
+      'Podrá iniciar una sesión temporal para hablar con el puente local de Folio desde este dispositivo.';
+
+  @override
+  String get integrationCapImportPagesTitle =>
+      'Importar y actualizar sus propias páginas';
+
+  @override
+  String get integrationCapImportPagesBody =>
+      'Podrá crear páginas, listarlas y actualizar solo las páginas que esa misma app haya importado antes.';
+
+  @override
+  String get integrationCapCustomEmojisTitle =>
+      'Gestionar sus emojis personalizados';
+
+  @override
+  String get integrationCapCustomEmojisBody =>
+      'Podrá listar, crear, reemplazar y borrar solo su propio catálogo de emojis o iconos importados.';
+
+  @override
+  String get integrationCapUnlockedVaultTitle =>
+      'Trabajar solo con la libreta abierta';
+
+  @override
+  String get integrationCapUnlockedVaultBody =>
+      'Las peticiones solo funcionan cuando Folio está abierto, la libreta está disponible y la sesión actual sigue activa.';
+
+  @override
+  String get integrationSectionWhatStaysBlocked => 'Lo que seguirá bloqueado';
+
+  @override
+  String get integrationBlockNoSeeAllTitle => 'No puede ver todo tu contenido';
+
+  @override
+  String get integrationBlockNoSeeAllBody =>
+      'No obtiene acceso general a la libreta. Solo puede listar lo que ella misma importó mediante su appId.';
+
+  @override
+  String get integrationBlockNoBypassTitle =>
+      'No puede saltarse bloqueo ni cifrado';
+
+  @override
+  String get integrationBlockNoBypassBody =>
+      'Si la libreta está bloqueada o no hay sesión activa, Folio rechazará la operación.';
+
+  @override
+  String get integrationBlockNoOtherAppsTitle =>
+      'No puede tocar datos de otras apps';
+
+  @override
+  String get integrationBlockNoOtherAppsBody =>
+      'Tampoco puede gestionar páginas importadas o emojis registrados por otras apps aprobadas.';
+
+  @override
+  String get integrationBlockNoRemoteTitle =>
+      'No puede entrar desde fuera de tu equipo';
+
+  @override
+  String get integrationBlockNoRemoteBody =>
+      'El puente sigue limitado a localhost y esta aprobación se puede revocar más tarde desde Ajustes.';
+
+  @override
+  String integrationSnackMarkdownImportDone(Object pageTitle) {
+    return 'Importación completada: $pageTitle.';
+  }
+
+  @override
+  String integrationSnackJsonImportDone(Object pageTitle) {
+    return 'Importación JSON completada: $pageTitle.';
+  }
+
+  @override
+  String integrationSnackPageUpdateDone(Object pageTitle) {
+    return 'Actualización de integración completada: $pageTitle.';
+  }
+
+  @override
+  String get markdownImportModeDialogTitle => 'Importar Markdown';
+
+  @override
+  String get markdownImportModeDialogBody =>
+      'Elige cómo quieres aplicar el archivo Markdown.';
+
+  @override
+  String get markdownImportModeNewPage => 'Página nueva';
+
+  @override
+  String get markdownImportModeAppend => 'Anexar a la actual';
+
+  @override
+  String get markdownImportModeReplace => 'Reemplazar actual';
+
+  @override
+  String get markdownImportCouldNotReadPath =>
+      'No se pudo leer la ruta del archivo.';
+
+  @override
+  String markdownImportedBlocks(Object pageTitle, int blockCount) {
+    return 'Markdown importado: $pageTitle ($blockCount bloques).';
+  }
+
+  @override
+  String markdownImportFailedWithError(Object error) {
+    return 'No se pudo importar el Markdown: $error';
+  }
+
+  @override
+  String get exportMarkdownFileDialogTitle => 'Exportar página a Markdown';
+
+  @override
+  String get markdownExportSuccess => 'Página exportada a Markdown.';
+
+  @override
+  String markdownExportFailedWithError(Object error) {
+    return 'No se pudo exportar la página: $error';
+  }
+
+  @override
+  String get firebaseUnavailablePublish => 'Firebase no está disponible.';
+
+  @override
+  String get signInCloudToPublishWeb =>
+      'Inicia sesión en la cuenta en la nube (Ajustes) para publicar.';
+
+  @override
+  String get planMissingWebPublish =>
+      'Tu plan no incluye publicación web o la suscripción no está activa.';
+
+  @override
+  String get publishWebDialogTitle => 'Publicar en la web';
+
+  @override
+  String get publishWebSlugLabel => 'URL (slug)';
+
+  @override
+  String get publishWebSlugHint => 'mi-nota';
+
+  @override
+  String get publishWebSlugHelper =>
+      'Letras, números y guiones. Quedará en la URL pública.';
+
+  @override
+  String get publishWebAction => 'Publicar';
+
+  @override
+  String get publishWebEmptySlug => 'Slug vacío.';
+
+  @override
+  String publishWebSuccessWithUrl(Object url) {
+    return 'Publicado: $url';
+  }
+
+  @override
+  String publishWebFailedWithError(Object error) {
+    return 'No se pudo publicar: $error';
+  }
+
+  @override
+  String get publishWebMenuLabel => 'Publicar en la web';
+
+  @override
+  String get mobileFabDone => 'Listo';
+
+  @override
+  String get mobileFabEdit => 'Editar';
+
+  @override
+  String get mobileFabAddBlock => 'Bloque';
+
+  @override
+  String get mermaidPreviewDialogTitle => 'Diagrama';
+
+  @override
+  String get mermaidDiagramSemanticsLabel =>
+      'Diagrama Mermaid, toca para ampliar';
+
+  @override
+  String get databaseSortAz => 'Orden A-Z';
+
+  @override
+  String get databaseSortLabel => 'Ordenar';
+
+  @override
+  String get databaseFilterAnd => 'Y';
+
+  @override
+  String get databaseFilterOr => 'O';
+
+  @override
+  String get databaseSortDescending => 'Desc';
+
+  @override
+  String get databaseNewPropertyDialogTitle => 'Nueva propiedad';
+
+  @override
+  String databaseConfigurePropertyTitle(Object name) {
+    return 'Configurar: $name';
+  }
+
+  @override
+  String get databaseLocalCurrentBadge => 'DB local actual';
+
+  @override
+  String databaseRelateRowsTitle(Object name) {
+    return 'Relacionar filas ($name)';
+  }
+
+  @override
+  String get databaseBoardNeedsGroupProperty =>
+      'Configura una propiedad de grupo para tablero.';
+
+  @override
+  String get databaseGroupPropertyMissing =>
+      'La propiedad de grupo ya no existe.';
+
+  @override
+  String get databaseCalendarNeedsDateProperty =>
+      'Configura una propiedad de fecha para calendario.';
+
+  @override
+  String get databaseNoDatedEvents => 'Sin eventos con fecha.';
+
+  @override
+  String get databaseConfigurePropertyTooltip => 'Configurar propiedad';
+
+  @override
+  String get databaseFormulaHintExample =>
+      'if(contains(Nombre,\"x\"), add(1,2), 0)';
+
+  @override
+  String get createAction => 'Crear';
+
+  @override
+  String get confirmAction => 'Confirmar';
+
+  @override
+  String get confirmRemoteEndpointTitle => 'Confirmar endpoint remoto';
+
+  @override
+  String get shortcutGlobalSearchKeyChord => 'Ctrl + Shift + F';
+
+  @override
+  String get updateChannelRelease => 'Release';
+
+  @override
+  String get updateChannelBeta => 'Beta';
+
+  @override
+  String get blockActionChooseAudio => 'Elegir audio…';
+
+  @override
+  String get blockActionCreateSubpage => 'Crear subpágina';
+
+  @override
+  String get blockActionLinkPage => 'Enlazar página…';
+
+  @override
+  String get defaultNewPageTitle => 'Nueva página';
+
+  @override
+  String defaultPageDuplicateTitle(Object title) {
+    return '$title (copia)';
+  }
+
+  @override
+  String aiChatTitleNumbered(int n) {
+    return 'Chat $n';
+  }
+
+  @override
+  String get invalidFolioTemplateFile =>
+      'El archivo no es un template Folio válido.';
+
+  @override
+  String get templateButtonDefaultLabel => 'Plantilla';
+
+  @override
+  String get pageHtmlExportPublishedWithFolio => 'Publicado con Folio';
+
+  @override
+  String get releaseReadinessSemverOk => 'Versión SemVer válida';
+
+  @override
+  String get releaseReadinessEncryptedVault => 'Libreta cifrada';
+
+  @override
+  String get releaseReadinessAiRemotePolicy => 'Política endpoint IA';
+
+  @override
+  String get releaseReadinessVaultUnlocked => 'Libreta desbloqueada';
+
+  @override
+  String get releaseReadinessStableChannel => 'Canal estable seleccionado';
+
+  @override
+  String get aiPromptUserMessage => 'Mensaje del usuario:';
+
+  @override
+  String get aiPromptOriginalMessage => 'Mensaje original:';
+
+  @override
+  String get aiPromptOriginalUserMessage => 'Mensaje original del usuario:';
+
+  @override
+  String get customIconImportEmptySource => 'La fuente del icono está vacía.';
+
+  @override
+  String get customIconImportInvalidUrl => 'La URL del icono no es válida.';
+
+  @override
+  String get customIconImportInvalidSvg => 'El SVG copiado no es válido.';
+
+  @override
+  String get customIconImportHttpHttpsOnly =>
+      'Solo se admiten URLs http o https.';
+
+  @override
+  String get customIconImportDataUriMimeList =>
+      'Solo se admiten data:image/svg+xml, data:image/gif, data:image/webp o data:image/png.';
+
+  @override
+  String get customIconImportUnsupportedFormat =>
+      'Formato no compatible. Usa SVG, PNG, GIF o WebP.';
+
+  @override
+  String get customIconImportSvgTooLarge =>
+      'El SVG es demasiado grande para importarlo.';
+
+  @override
+  String get customIconImportEmbeddedImageTooLarge =>
+      'La imagen embebida es demasiado grande para importarla.';
+
+  @override
+  String customIconImportDownloadFailed(Object code) {
+    return 'No se pudo descargar el icono ($code).';
+  }
+
+  @override
+  String get customIconImportRemoteTooLarge =>
+      'El icono remoto es demasiado grande.';
+
+  @override
+  String get customIconImportConnectFailed =>
+      'No se pudo conectar para descargar el icono.';
+
+  @override
+  String get customIconImportCertFailed =>
+      'Fallo de certificado al descargar el icono.';
+
+  @override
+  String get customIconLabelDefault => 'Icono personalizado';
+
+  @override
+  String get customIconLabelImported => 'Icono importado';
+
+  @override
+  String get customIconImportSucceeded => 'Icono importado correctamente.';
+
+  @override
+  String get customIconClipboardEmpty => 'El portapapeles está vacío.';
+
+  @override
+  String get customIconRemoved => 'Icono eliminado.';
+
+  @override
+  String get whisperModelTiny => 'Tiny (rápido)';
+
+  @override
+  String get whisperModelBaseQ8 => 'Base q8 (equilibrado)';
+
+  @override
+  String get whisperModelSmallQ8 => 'Small q8 (alta precisión, menos disco)';
+
+  @override
+  String get whisperModelMediumQ8 => 'Medium q8';
+
+  @override
+  String get whisperModelLargeV3TurboQ8 => 'Large v3 Turbo q8';
+
+  @override
+  String get codeLangDart => 'Dart';
+
+  @override
+  String get codeLangTypeScript => 'TypeScript';
+
+  @override
+  String get codeLangJavaScript => 'JavaScript';
+
+  @override
+  String get codeLangPython => 'Python';
+
+  @override
+  String get codeLangJson => 'JSON';
+
+  @override
+  String get codeLangYaml => 'YAML';
+
+  @override
+  String get codeLangMarkdown => 'Markdown';
+
+  @override
+  String get codeLangDiff => 'Diff';
+
+  @override
+  String get codeLangSql => 'SQL';
+
+  @override
+  String get codeLangBash => 'Bash';
+
+  @override
+  String get codeLangCpp => 'C / C++';
+
+  @override
+  String get codeLangJava => 'Java';
+
+  @override
+  String get codeLangKotlin => 'Kotlin';
+
+  @override
+  String get codeLangRust => 'Rust';
+
+  @override
+  String get codeLangGo => 'Go';
+
+  @override
+  String get codeLangHtmlXml => 'HTML / XML';
+
+  @override
+  String get codeLangCss => 'CSS';
+
+  @override
+  String get codeLangPlainText => 'Texto plano';
+
+  @override
+  String settingsAppRevoked(Object appId) {
+    return 'App revocada: $appId';
+  }
+
+  @override
+  String get settingsDeviceRevokedSnack => 'Dispositivo revocado.';
+
+  @override
+  String get settingsAiConnectionOk => 'Conexión IA OK';
+
+  @override
+  String settingsAiConnectionError(Object error) {
+    return 'Error de conexión: $error';
+  }
+
+  @override
+  String settingsAiListModelsFailed(Object error) {
+    return 'No se pudieron listar modelos: $error';
+  }
+
+  @override
+  String get folioCloudCallableNotSignedIn =>
+      'Debes iniciar sesión para llamar a Cloud Functions';
+
+  @override
+  String get folioCloudCallableUnexpectedResponse =>
+      'Respuesta inesperada de Cloud Functions';
+
+  @override
+  String folioCloudCallableHttpError(int code, Object name) {
+    return 'HTTP $code al llamar a $name';
+  }
+
+  @override
+  String get folioCloudCallableNoIdToken =>
+      'Sin token de ID para Cloud Functions. Vuelve a iniciar sesión en Folio Cloud.';
+
+  @override
+  String get folioCloudCallableUnexpectedFallback =>
+      'Respuesta inesperada del respaldo de Cloud Functions';
+
+  @override
+  String folioCloudCallableHttpAiComplete(int code) {
+    return 'HTTP $code al llamar a folioCloudAiCompleteHttp';
+  }
+
+  @override
+  String get cloudAccountEmailMismatch =>
+      'El correo no coincide con la sesión actual.';
+
+  @override
+  String get cloudIdentityInvalidAuthResponse =>
+      'Respuesta de autenticación no válida.';
+
+  @override
+  String get templateButtonPlaceholderText => 'Texto de la plantilla…';
+
+  @override
+  String get aiProviderOllamaName => 'Ollama';
+
+  @override
+  String get aiProviderLmStudioName => 'LM Studio';
+
+  @override
+  String get blockAudioEmptyHint => 'Elige un archivo de audio';
+
+  @override
+  String get blockChildPageTitle => 'Bloque página';
+
+  @override
+  String get blockChildPageNoLink => 'Sin subpágina enlazada.';
+
+  @override
+  String get mermaidExpandedLoadError =>
+      'No se pudo mostrar el diagrama ampliado.';
+
+  @override
+  String get mermaidPreviewTooltip =>
+      'Toca para ampliar y hacer zoom. PNG vía mermaid.ink (servicio externo).';
+
+  @override
+  String get aiEndpointInvalidUrl => 'URL inválida. Usa http://host:puerto.';
+
+  @override
+  String get aiEndpointRemoteNotAllowed =>
+      'Endpoint remoto no permitido sin confirmación.';
+
+  @override
+  String get settingsAiSelectProviderFirst =>
+      'Selecciona un proveedor IA primero.';
+
+  @override
+  String get releaseReadinessAiSummaryDisabled => 'IA desactivada';
+
+  @override
+  String get releaseReadinessAiSummaryQuillCloud =>
+      'Folio Cloud IA (sin endpoint local)';
+
+  @override
+  String releaseReadinessAiSummaryEndpointOk(Object url) {
+    return 'Endpoint válido: $url';
+  }
+
+  @override
+  String get releaseReadinessDetailSemverInvalid =>
+      'La versión instalada no cumple SemVer.';
+
+  @override
+  String get releaseReadinessDetailVaultNotEncrypted =>
+      'La libreta actual no está cifrada.';
+
+  @override
+  String get releaseReadinessDetailVaultLocked =>
+      'Desbloquea la libreta para validar export/import y flujo real.';
+
+  @override
+  String get releaseReadinessDetailBetaChannel =>
+      'El canal beta está activo para actualizaciones.';
+
+  @override
+  String get releaseReadinessReportTitle => 'Folio: preparación para release';
+
+  @override
+  String releaseReadinessReportInstalledVersion(Object label) {
+    return 'Versión instalada: $label';
+  }
+
+  @override
+  String releaseReadinessReportSemver(Object value) {
+    return 'SemVer válido: $value';
+  }
+
+  @override
+  String releaseReadinessReportChannel(Object value) {
+    return 'Canal de actualizaciones: $value';
+  }
+
+  @override
+  String releaseReadinessReportActiveVault(Object id) {
+    return 'Libreta activa: $id';
+  }
+
+  @override
+  String releaseReadinessReportVaultPath(Object path) {
+    return 'Ruta libreta: $path';
+  }
+
+  @override
+  String releaseReadinessReportUnlocked(Object value) {
+    return 'Libreta desbloqueada: $value';
+  }
+
+  @override
+  String releaseReadinessReportEncrypted(Object value) {
+    return 'Libreta cifrada: $value';
+  }
+
+  @override
+  String releaseReadinessReportAiEnabled(Object value) {
+    return 'IA habilitada: $value';
+  }
+
+  @override
+  String releaseReadinessReportAiPolicy(Object value) {
+    return 'Política endpoint IA: $value';
+  }
+
+  @override
+  String releaseReadinessReportAiDetail(Object detail) {
+    return 'Detalle IA: $detail';
+  }
+
+  @override
+  String releaseReadinessReportStatus(Object value) {
+    return 'Estado release: $value';
+  }
+
+  @override
+  String releaseReadinessReportBlockers(int count) {
+    return 'Bloqueadores pendientes: $count';
+  }
+
+  @override
+  String releaseReadinessReportWarnings(int count) {
+    return 'Advertencias pendientes: $count';
+  }
+
+  @override
+  String get releaseReadinessExportWordYes => 'sí';
+
+  @override
+  String get releaseReadinessExportWordNo => 'no';
+
+  @override
+  String get releaseReadinessChannelStable => 'estable';
+
+  @override
+  String get releaseReadinessChannelBeta => 'beta';
+
+  @override
+  String get releaseReadinessStatusReady => 'listo';
+
+  @override
+  String get releaseReadinessStatusBlocked => 'bloqueado';
+
+  @override
+  String get releaseReadinessPolicyOk => 'correcto';
+
+  @override
+  String get releaseReadinessPolicyError => 'error';
+
+  @override
+  String get settingsSignInFolioCloudSnack => 'Inicia sesión en Folio Cloud.';
+
+  @override
+  String get settingsNotSyncedYet => 'Aún sin sincronizar';
+
+  @override
+  String get settingsDeviceNameTitle => 'Nombre del dispositivo';
+
+  @override
+  String get settingsDeviceNameHintExample => 'Ejemplo: Pixel de Alejandra';
+
+  @override
+  String get settingsPairingModeEnabledTwoMin =>
+      'Modo vinculación activado durante 2 minutos.';
+
+  @override
+  String get settingsPairingEnableModeFirst =>
+      'Primero activa el modo vinculación y luego elige un dispositivo detectado.';
+
+  @override
+  String get settingsPairingSameEmojisBothDevices =>
+      'Activa el modo vinculación en ambos dispositivos y espera a que aparezcan los mismos 3 emojis.';
+
+  @override
+  String get settingsPairingCouldNotStart =>
+      'No se pudo iniciar la vinculación. Activa el modo vinculación en ambos dispositivos y espera a ver los mismos 3 emojis.';
+
+  @override
+  String get settingsConfirmPairingTitle => 'Confirmar vinculación';
+
+  @override
+  String get settingsPairingCheckOtherDeviceEmojis =>
+      'Comprueba que en el otro dispositivo aparecen estos mismos 3 emojis:';
+
+  @override
+  String get settingsPairingPopupInstructions =>
+      'Este popup también aparecerá en el otro dispositivo. Para completar el enlace, pulsa Vincular aquí y luego Vincular en el otro.';
+
+  @override
+  String get settingsLinkDevice => 'Vincular';
+
+  @override
+  String get settingsPairingConfirmationSent =>
+      'Confirmación enviada. Falta que el otro dispositivo pulse Vincular en su popup.';
+
+  @override
+  String get settingsResolveConflictsTitle => 'Resolver conflictos';
+
+  @override
+  String get settingsNoPendingConflicts => 'No hay conflictos pendientes.';
+
+  @override
+  String settingsSyncConflictCardSubtitle(
+    Object fromPeerId,
+    int remotePageCount,
+    Object detectedAt,
+  ) {
+    return 'Origen: $fromPeerId\nPáginas remotas: $remotePageCount\nDetectado: $detectedAt';
+  }
+
+  @override
+  String get settingsSyncConflictHeading => 'Conflicto de sincronización';
+
+  @override
+  String get settingsLocalVersionKeptSnack => 'Se conservó la versión local.';
+
+  @override
+  String get settingsKeepLocal => 'Mantener local';
+
+  @override
+  String get settingsRemoteVersionAppliedSnack =>
+      'Se aplicó la versión remota.';
+
+  @override
+  String get settingsCouldNotApplyRemoteSnack =>
+      'No se pudo aplicar la versión remota.';
+
+  @override
+  String get settingsAcceptRemote => 'Aceptar remota';
+
+  @override
+  String get settingsClose => 'Cerrar';
+
+  @override
+  String get settingsSectionDeviceSyncNav => 'Sincronización';
+
+  @override
+  String get settingsSyncHeroTitle => 'Sincronización entre dispositivos';
+
+  @override
+  String get settingsSyncHeroDescription =>
+      'Empareja equipos en la red local; el relay solo ayuda a negociar la conexión, no envía el contenido del vault.';
+
+  @override
+  String get settingsSyncChipPairingCode => 'Código de enlace';
+
+  @override
+  String get settingsSyncChipAutoDiscovery => 'Detección automática';
+
+  @override
+  String get settingsSyncChipOptionalRelay => 'Relay opcional';
+
+  @override
+  String get settingsSyncEnableTitle =>
+      'Activar sincronización entre dispositivos';
+
+  @override
+  String get settingsSyncSearchingSubtitle =>
+      'Buscando dispositivos con Folio abierto en la red local...';
+
+  @override
+  String settingsSyncDevicesFoundOnLan(int count) {
+    return '$count dispositivos detectados en LAN.';
+  }
+
+  @override
+  String get settingsSyncDisabledSubtitle =>
+      'La sincronización está desactivada.';
+
+  @override
+  String get settingsSyncRelayTitle => 'Usar relay de señalización';
+
+  @override
+  String get settingsSyncRelaySubtitle =>
+      'No envía contenido del vault, solo ayuda a negociar la conexión si la LAN falla.';
+
+  @override
+  String get settingsEdit => 'Editar';
+
+  @override
+  String get settingsSyncEmojiModeTitle =>
+      'Activar modo vinculación por emojis';
+
+  @override
+  String get settingsSyncEmojiModeSubtitle =>
+      'Actívalo en ambos dispositivos para iniciar el proceso de vinculación sin escribir códigos.';
+
+  @override
+  String get settingsSyncPairingStatusTitle => 'Estado del modo vinculación';
+
+  @override
+  String get settingsSyncPairingActiveSubtitle =>
+      'Activo durante 2 minutos. Ya puedes iniciar la vinculación desde un dispositivo detectado.';
+
+  @override
+  String get settingsSyncPairingInactiveSubtitle =>
+      'Inactivo. Actívalo aquí y en el otro dispositivo para empezar a vincular.';
+
+  @override
+  String get settingsSyncLastSyncTitle => 'Última sincronización';
+
+  @override
+  String get settingsSyncPendingConflictsTitle => 'Conflictos pendientes';
+
+  @override
+  String get settingsSyncNoConflictsSubtitle => 'Sin conflictos pendientes.';
+
+  @override
+  String settingsSyncConflictsNeedReview(int count) {
+    return '$count conflictos requieren revisión manual.';
+  }
+
+  @override
+  String get settingsResolve => 'Resolver';
+
+  @override
+  String get settingsSyncDiscoveredDevicesTitle => 'Dispositivos detectados';
+
+  @override
+  String get settingsSyncNoDevicesYetHint =>
+      'No se detectaron dispositivos todavía. Asegura que ambas apps estén abiertas en la misma red.';
+
+  @override
+  String get settingsSyncPeerReadyToLink => 'Listo para vincular.';
+
+  @override
+  String get settingsSyncPeerOtherInPairingMode =>
+      'El otro dispositivo está en modo vinculación. Actívalo aquí para iniciar el enlace.';
+
+  @override
+  String get settingsSyncPeerDetectedLan => 'Detectado en la red local.';
+
+  @override
+  String get settingsSyncLinkedDevicesTitle => 'Dispositivos vinculados';
+
+  @override
+  String get settingsSyncNoLinkedDevicesYet =>
+      'Aún no hay dispositivos enlazados.';
+
+  @override
+  String settingsSyncPeerIdLabel(Object peerId) {
+    return 'ID: $peerId';
+  }
+
+  @override
+  String get settingsRevoke => 'Revocar';
+
+  @override
+  String get sidebarPageIconTitle => 'Icono de la página';
+
+  @override
+  String get sidebarPageIconPickerHelper =>
+      'Elige un icono rápido, uno importado o abre el selector completo.';
+
+  @override
+  String get sidebarPageIconCustomEmoji => 'Emoji personalizado';
+
+  @override
+  String get sidebarPageIconRemove => 'Quitar';
+
+  @override
+  String get sidebarPageIconTabQuick => 'Rápidos';
+
+  @override
+  String get sidebarPageIconTabImported => 'Importados';
+
+  @override
+  String get sidebarPageIconTabAll => 'Todos';
+
+  @override
+  String get sidebarPageIconEmptyImported =>
+      'Todavía no has importado iconos en Ajustes.';
+
+  @override
+  String get settingsStripeSubscriptionRefreshed =>
+      'Estado de suscripción actualizado.';
+
+  @override
+  String get settingsStripeBillingPortalUnavailable =>
+      'Portal de facturación no disponible.';
+
+  @override
+  String get settingsCouldNotOpenLink => 'No se pudo abrir el enlace.';
+
+  @override
+  String get settingsStripeCheckoutUnavailable =>
+      'Pago no disponible (configura Stripe en el servidor).';
+
+  @override
+  String get settingsCloudBackupEnablePlanSnack =>
+      'Activa Folio Cloud con la función de copia en la nube incluida en tu plan.';
+
+  @override
+  String get settingsNoActiveVault => 'No hay libreta activa.';
+
+  @override
+  String get settingsCloudBackupsNeedPlan =>
+      'Necesitas Folio Cloud activo con copia en la nube.';
+
+  @override
+  String settingsCloudBackupsDialogTitle(int count) {
+    return 'Copias en la nube ($count/10)';
+  }
+
+  @override
+  String get settingsCloudBackupsEmpty => 'Aún no hay copias en esta cuenta.';
+
+  @override
+  String get settingsCloudBackupDownloadTooltip => 'Descargar';
+
+  @override
+  String get settingsCloudBackupSaveDialogTitle => 'Guardar copia';
+
+  @override
+  String get settingsCloudBackupDownloadedSnack => 'Copia descargada.';
+
+  @override
+  String get settingsPublishedRequiresPlan =>
+      'Necesitas Folio Cloud con publicación web activa.';
+
+  @override
+  String get settingsPublishedPagesTitle => 'Páginas publicadas';
+
+  @override
+  String get settingsPublishedPagesEmpty => 'Aún no hay páginas publicadas.';
+
+  @override
+  String get settingsPublishedDeleteDialogTitle => '¿Eliminar publicación?';
+
+  @override
+  String get settingsPublishedDeleteDialogBody =>
+      'Se borrará el HTML público y el enlace dejará de funcionar.';
+
+  @override
+  String get settingsPublishedRemovedSnack => 'Publicación eliminada.';
+
+  @override
+  String get settingsCouldNotReadInstalledVersion =>
+      'No se pudo leer la versión instalada.';
+
+  @override
+  String settingsCouldNotOpenReleaseNotes(Object error) {
+    return 'No se pudieron abrir las notas de versión: $error';
+  }
+
+  @override
+  String settingsUpdateFailed(Object error) {
+    return 'No se pudo actualizar: $error';
+  }
+
+  @override
+  String get settingsSessionEndedSnack => 'Sesión cerrada';
+
+  @override
+  String get settingsLabelYes => 'Sí';
+
+  @override
+  String get settingsLabelNo => 'No';
+
+  @override
+  String get settingsSecurityEncryptedHeroDescription =>
+      'Desbloqueo rápido, passkey, bloqueo automático y contraseña maestra del vault cifrado.';
+
+  @override
+  String get settingsUnencryptedVaultTitle => 'Vault sin cifrar';
+
+  @override
+  String get settingsUnencryptedVaultChipDataOnDisk => 'Datos en disco';
+
+  @override
+  String get settingsUnencryptedVaultChipEncryptionAvailable =>
+      'Cifrado disponible';
+
+  @override
+  String get settingsAppearanceChipTheme => 'Tema';
+
+  @override
+  String get settingsAppearanceChipZoom => 'Zoom';
+
+  @override
+  String get settingsAppearanceChipLanguage => 'Idioma';
+
+  @override
+  String get settingsAppearanceChipEditorWorkspace => 'Editor y espacio';
+
+  @override
+  String get settingsWindowsScaleFollowTitle => 'Seguir escala de Windows';
+
+  @override
+  String get settingsWindowsScaleFollowSubtitle =>
+      'Usa automáticamente la escala del sistema en Windows.';
+
+  @override
+  String get settingsInterfaceZoomTitle => 'Zoom de la interfaz';
+
+  @override
+  String get settingsInterfaceZoomSubtitle =>
+      'Aumenta o reduce el tamaño general de la app.';
+
+  @override
+  String get settingsUiZoomReset => 'Restablecer';
+
+  @override
+  String get settingsEditorSubsection => 'Editor';
+
+  @override
+  String get settingsEditorContentWidthTitle => 'Ancho del contenido';
+
+  @override
+  String get settingsEditorContentWidthSubtitle =>
+      'Define cuánto ancho ocupan los bloques en el editor.';
+
+  @override
+  String get settingsEnterCreatesNewBlockTitle => 'Enter crea un bloque nuevo';
+
+  @override
+  String get settingsEnterCreatesNewBlockSubtitleWhenEnabled =>
+      'Desactiva para que Enter inserte salto de línea.';
+
+  @override
+  String get settingsEnterCreatesNewBlockSubtitleWhenDisabled =>
+      'Ahora Enter inserta salto de línea. Usa Shift+Enter igual.';
+
+  @override
+  String get settingsWorkspaceSubsection => 'Espacio de trabajo';
+
+  @override
+  String get settingsCustomIconsTitle => 'Iconos personalizados';
+
+  @override
+  String get settingsCustomIconsDescription =>
+      'Importa una URL PNG, GIF o WebP, o un data:image compatible copiado desde páginas como notionicons.so. Después podrás usarlo como icono de página o de callout.';
+
+  @override
+  String settingsCustomIconsSavedCount(int count) {
+    return '$count guardados';
+  }
+
+  @override
+  String get settingsCustomIconsChipUrl => 'URL PNG, GIF o WebP';
+
+  @override
+  String get settingsCustomIconsChipDataImage => 'data:image/*';
+
+  @override
+  String get settingsCustomIconsChipPaste => 'Pegar desde portapapeles';
+
+  @override
+  String get settingsCustomIconsImportTitle => 'Importar nuevo icono';
+
+  @override
+  String get settingsCustomIconsImportSubtitle =>
+      'Puedes ponerle nombre y pegar la fuente manualmente o traerla directamente desde el portapapeles.';
+
+  @override
+  String get settingsCustomIconsFieldNameLabel => 'Nombre';
+
+  @override
+  String get settingsCustomIconsFieldNameHint => 'Opcional';
+
+  @override
+  String get settingsCustomIconsFieldSourceLabel => 'URL o data:image';
+
+  @override
+  String get settingsCustomIconsFieldSourceHint =>
+      'https://…gif | …webp | …png o data:image/…';
+
+  @override
+  String get settingsCustomIconsImportButton => 'Importar icono';
+
+  @override
+  String get settingsCustomIconsFromClipboard => 'Desde portapapeles';
+
+  @override
+  String get settingsCustomIconsLibraryTitle => 'Biblioteca';
+
+  @override
+  String get settingsCustomIconsLibrarySubtitle =>
+      'Listos para usar en toda la app';
+
+  @override
+  String get settingsCustomIconsEmpty => 'Todavía no has importado iconos.';
+
+  @override
+  String get settingsCustomIconsDeleteTooltip => 'Eliminar icono';
+
+  @override
+  String get settingsCustomIconsReferenceCopiedSnack => 'Referencia copiada.';
+
+  @override
+  String get settingsCustomIconsCopyToken => 'Copiar token';
+
+  @override
+  String get settingsAiHeroQuillWithLocalAlt =>
+      'La IA se ejecuta en Quill Cloud (suscripción con IA en la nube o tinta comprada). Elige otro proveedor abajo para Ollama o LM Studio en local.';
+
+  @override
+  String get settingsAiHeroQuillCloudOnly =>
+      'La IA se ejecuta en Quill Cloud (suscripción con IA en la nube o tinta comprada).';
+
+  @override
+  String get settingsAiHeroLocalDefault =>
+      'Conecta Ollama o LM Studio en local; el asistente usa el modelo y el contexto que configures aquí.';
+
+  @override
+  String get settingsAiHeroQuillMobileOnly =>
+      'En este dispositivo Quill solo puede usar Quill Cloud. Elige Quill Cloud como proveedor cuando quieras activar la IA.';
+
+  @override
+  String get settingsAiChipCloud => 'En la nube';
+
+  @override
+  String get settingsAiSnackFirebaseUnavailableBuild =>
+      'Firebase no está disponible en esta compilación.';
+
+  @override
+  String get settingsAiSnackSignInCloudAccount =>
+      'Inicia sesión en la cuenta en la nube (Ajustes).';
+
+  @override
+  String settingsAiProviderSwitchFailed(Object error) {
+    return 'Error al cambiar proveedor: $error';
+  }
+
+  @override
+  String get settingsAboutHeroDescription =>
+      'Versión instalada, origen de actualizaciones y comprobación manual de novedades.';
+
+  @override
+  String get settingsOpenReleaseNotes => 'Ver notas de versión';
+
+  @override
+  String get settingsUpdateChannelLabel => 'Canal';
+
+  @override
+  String get settingsUpdateChannelRelease => 'Release';
+
+  @override
+  String get settingsUpdateChannelBeta => 'Beta';
+
+  @override
+  String get settingsDataHeroDescription =>
+      'Acciones permanentes sobre archivos locales. Haz una copia de seguridad antes de borrar.';
+
+  @override
+  String get settingsDangerZoneTitle => 'Zona de peligro';
+
+  @override
+  String get settingsDesktopHeroDescription =>
+      'Atajos globales, bandeja del sistema y comportamiento de la ventana en el escritorio.';
+
+  @override
+  String get settingsShortcutsHeroDescription =>
+      'Combinaciones solo dentro de Folio. Prueba una tecla antes de guardarla.';
+
+  @override
+  String get settingsShortcutsTestChip => 'Probar';
+
+  @override
+  String get settingsIntegrationsChipApprovedPermissions =>
+      'Permisos aprobados';
+
+  @override
+  String get settingsIntegrationsChipRevocableAccess => 'Acceso revocable';
+
+  @override
+  String get settingsIntegrationsChipExternalApps => 'Apps externas';
+
+  @override
+  String get settingsIntegrationsActiveConnectionsTitle => 'Conexiones activas';
+
+  @override
+  String get settingsIntegrationsActiveConnectionsSubtitle =>
+      'Apps que ya pueden interactuar con Folio';
+
+  @override
+  String get settingsViewInkUsageTable => 'Ver tabla de consumo';
+
+  @override
+  String get settingsCloudInkUsageTableTitle =>
+      'Tabla de consumo de gotas (OpenAI)';
+
+  @override
+  String get settingsCloudInkUsageTableIntro =>
+      'Coste base por acción. Se pueden aplicar suplementos por prompts largos y por tokens de salida.';
+
+  @override
+  String get settingsCloudInkDrops => 'gotas';
+
+  @override
+  String get settingsCloudInkTableCachedNotice =>
+      'Mostrando tabla en caché local (sin conexión al backend).';
+
+  @override
+  String get settingsCloudInkOpRewriteBlock => 'Reescribir bloque';
+
+  @override
+  String get settingsCloudInkOpSummarizeSelection => 'Resumir selección';
+
+  @override
+  String get settingsCloudInkOpExtractTasks => 'Extraer tareas';
+
+  @override
+  String get settingsCloudInkOpSummarizePage => 'Resumir página';
+
+  @override
+  String get settingsCloudInkOpGenerateInsert => 'Generar inserción';
+
+  @override
+  String get settingsCloudInkOpGeneratePage => 'Generar página';
+
+  @override
+  String get settingsCloudInkOpChatTurn => 'Turno de chat';
+
+  @override
+  String get settingsCloudInkOpAgentMain => 'Ejecución de agente';
+
+  @override
+  String get settingsCloudInkOpAgentFollowup => 'Seguimiento de agente';
+
+  @override
+  String get settingsCloudInkOpEditPagePanel => 'Edición de página (panel)';
+
+  @override
+  String get settingsCloudInkOpDefault => 'Operación por defecto';
+
+  @override
+  String get settingsDesktopRailSubtitle =>
+      'Elige una categoría en la lista o desplázate por el contenido.';
+
+  @override
+  String get settingsCloudInkViewTableButton => 'Ver tabla';
+
+  @override
+  String get settingsCloudInkHostedAiOpenAiHint =>
+      'Precios de referencia para IA en nube con OpenAI.';
 }

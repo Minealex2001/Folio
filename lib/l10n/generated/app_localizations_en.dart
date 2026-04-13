@@ -2844,6 +2844,34 @@ class AppLocalizationsEn extends AppLocalizations {
   String get updaterStartupDialogBetaNote => 'Beta version (pre-release).';
 
   @override
+  String get updaterOpenApkDownloadQuestion => 'Open the APK download now?';
+
+  @override
+  String get updaterManualCheckUnsupportedPlatform =>
+      'The built-in updater is only available on Windows and Android.';
+
+  @override
+  String get updaterManualCheckAlreadyLatest =>
+      'You already have the latest version.';
+
+  @override
+  String updaterDialogLineCurrentVersion(Object currentVersion) {
+    return 'Current version: $currentVersion';
+  }
+
+  @override
+  String updaterDialogLineNewVersion(Object releaseVersion) {
+    return 'New version: $releaseVersion';
+  }
+
+  @override
+  String get updaterApkUrlInvalidSnack =>
+      'No valid APK URL was found in the release.';
+
+  @override
+  String get updaterApkOpenFailedSnack => 'Could not open the APK download.';
+
+  @override
   String get toggleTitleHint => 'Toggle title';
 
   @override
@@ -2913,4 +2941,1708 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get calloutTypeNote => 'Note';
+
+  @override
+  String get blockEditorEnterHintNewBlock =>
+      'Enter: new block (in code: Enter = line)';
+
+  @override
+  String get blockEditorEnterHintNewLine => 'Enter: new line';
+
+  @override
+  String blockEditorShortcutsHintMobile(String enterHint) {
+    return '$enterHint · / for blocks · tap a block for more actions';
+  }
+
+  @override
+  String blockEditorShortcutsHintDesktop(String enterHint) {
+    return '$enterHint · Shift+Enter: line · / types · # heading (same line) · - · * · [] · ``` space · table/image under / · format: toolbar on focus or ** _ <u> ` ~~';
+  }
+
+  @override
+  String blockEditorSelectedBlocksBanner(int count) {
+    return '$count blocks selected · Shift: range · Ctrl/Cmd: toggle';
+  }
+
+  @override
+  String get blockEditorDuplicate => 'Duplicate';
+
+  @override
+  String get blockEditorClearSelectionTooltip => 'Clear selection';
+
+  @override
+  String get blockEditorMenuRewriteWithAi => 'Rewrite with AI…';
+
+  @override
+  String get blockEditorMenuMoveUp => 'Move up';
+
+  @override
+  String get blockEditorMenuMoveDown => 'Move down';
+
+  @override
+  String get blockEditorMenuDuplicateBlock => 'Duplicate block';
+
+  @override
+  String get blockEditorMenuAppearance => 'Appearance…';
+
+  @override
+  String get blockEditorMenuCalloutIcon => 'Callout icon…';
+
+  @override
+  String blockEditorCalloutMenuType(String typeName) {
+    return 'Type: $typeName';
+  }
+
+  @override
+  String get blockEditorCopyLink => 'Copy link';
+
+  @override
+  String get blockEditorMenuCreateSubpage => 'Create subpage';
+
+  @override
+  String get blockEditorMenuLinkPage => 'Link page…';
+
+  @override
+  String get blockEditorMenuOpenSubpage => 'Open subpage';
+
+  @override
+  String get blockEditorMenuPickImage => 'Choose image…';
+
+  @override
+  String get blockEditorMenuRemoveImage => 'Remove image';
+
+  @override
+  String get blockEditorMenuCodeLanguage => 'Code language…';
+
+  @override
+  String get blockEditorMenuEditDiagram => 'Edit diagram…';
+
+  @override
+  String get blockEditorMenuBackToPreview => 'Back to preview';
+
+  @override
+  String get blockEditorMenuChangeFile => 'Change file…';
+
+  @override
+  String get blockEditorMenuRemoveFile => 'Remove file';
+
+  @override
+  String get blockEditorMenuChangeVideo => 'Change video…';
+
+  @override
+  String get blockEditorMenuRemoveVideo => 'Remove video';
+
+  @override
+  String get blockEditorMenuChangeAudio => 'Change audio…';
+
+  @override
+  String get blockEditorMenuRemoveAudio => 'Remove audio';
+
+  @override
+  String get blockEditorMenuEditLabel => 'Edit label…';
+
+  @override
+  String get blockEditorMenuAddRow => 'Add row';
+
+  @override
+  String get blockEditorMenuRemoveLastRow => 'Remove last row';
+
+  @override
+  String get blockEditorMenuAddColumn => 'Add column';
+
+  @override
+  String get blockEditorMenuRemoveLastColumn => 'Remove last column';
+
+  @override
+  String get blockEditorMenuAddProperty => 'Add property';
+
+  @override
+  String get blockEditorMenuChangeBlockType => 'Change block type…';
+
+  @override
+  String get blockEditorMenuDeleteBlock => 'Delete block';
+
+  @override
+  String get blockEditorAppearanceTitle => 'Block appearance';
+
+  @override
+  String get blockEditorAppearanceSubtitle =>
+      'Customize size, text color, and background for this block.';
+
+  @override
+  String get blockEditorAppearanceSize => 'Size';
+
+  @override
+  String get blockEditorAppearanceTextColor => 'Text color';
+
+  @override
+  String get blockEditorAppearanceBackground => 'Background';
+
+  @override
+  String get blockEditorAppearancePreviewEmpty =>
+      'This is how the block will look.';
+
+  @override
+  String get blockEditorReset => 'Reset';
+
+  @override
+  String get blockEditorCodeLanguageTitle => 'Code language';
+
+  @override
+  String get blockEditorCodeLanguageSubtitle =>
+      'Syntax highlighting follows the language you pick.';
+
+  @override
+  String get blockEditorTemplateButtonTitle => 'Template button label';
+
+  @override
+  String get blockEditorTemplateButtonFieldLabel => 'Button text';
+
+  @override
+  String get blockEditorTemplateButtonDefaultLabel => 'Template';
+
+  @override
+  String get blockEditorTextColorDefault => 'Theme';
+
+  @override
+  String get blockEditorTextColorSubtle => 'Subtle';
+
+  @override
+  String get blockEditorTextColorPrimary => 'Primary';
+
+  @override
+  String get blockEditorTextColorSecondary => 'Secondary';
+
+  @override
+  String get blockEditorTextColorTertiary => 'Accent';
+
+  @override
+  String get blockEditorTextColorError => 'Error';
+
+  @override
+  String get blockEditorBackgroundNone => 'No background';
+
+  @override
+  String get blockEditorBackgroundSurface => 'Surface';
+
+  @override
+  String get blockEditorBackgroundPrimary => 'Primary';
+
+  @override
+  String get blockEditorBackgroundSecondary => 'Secondary';
+
+  @override
+  String get blockEditorBackgroundTertiary => 'Accent';
+
+  @override
+  String get blockEditorBackgroundError => 'Error';
+
+  @override
+  String get blockEditorCmdDuplicatePrev => 'Duplicate previous block';
+
+  @override
+  String get blockEditorCmdDuplicatePrevHint => 'Clones the block right above';
+
+  @override
+  String get blockEditorCmdInsertDate => 'Insert date';
+
+  @override
+  String get blockEditorCmdInsertDateHint => 'Writes today’s date';
+
+  @override
+  String get blockEditorCmdMentionPage => 'Mention page';
+
+  @override
+  String get blockEditorCmdMentionPageHint => 'Insert internal link to a page';
+
+  @override
+  String get blockEditorCmdTurnInto => 'Turn into…';
+
+  @override
+  String get blockEditorCmdTurnIntoHint => 'Pick a block type from the picker';
+
+  @override
+  String get blockEditorMarkTaskComplete => 'Mark task complete';
+
+  @override
+  String get blockEditorCalloutIconPickerTitle => 'Callout icon';
+
+  @override
+  String get blockEditorCalloutIconPickerHelper =>
+      'Select an icon to change the visual tone of the callout block.';
+
+  @override
+  String get blockEditorIconPickerCustomEmoji => 'Custom emoji';
+
+  @override
+  String get blockEditorIconPickerQuickTab => 'Quick';
+
+  @override
+  String get blockEditorIconPickerImportedTab => 'Imported';
+
+  @override
+  String get blockEditorIconPickerAllTab => 'All';
+
+  @override
+  String get blockEditorIconPickerEmptyImported =>
+      'You have not imported icons in Settings yet.';
+
+  @override
+  String get blockTypeSectionBasicText => 'Basic text';
+
+  @override
+  String get blockTypeSectionLists => 'Lists';
+
+  @override
+  String get blockTypeSectionMedia => 'Media and data';
+
+  @override
+  String get blockTypeSectionAdvanced => 'Advanced and layout';
+
+  @override
+  String get blockTypeSectionEmbeds => 'Integrations';
+
+  @override
+  String get blockTypeParagraphLabel => 'Text';
+
+  @override
+  String get blockTypeParagraphHint => 'Paragraph';
+
+  @override
+  String get blockTypeChildPageLabel => 'Page';
+
+  @override
+  String get blockTypeChildPageHint => 'Linked subpage';
+
+  @override
+  String get blockTypeH1Label => 'Heading 1';
+
+  @override
+  String get blockTypeH1Hint => 'Large title · #';
+
+  @override
+  String get blockTypeH2Label => 'Heading 2';
+
+  @override
+  String get blockTypeH2Hint => 'Subtitle · ##';
+
+  @override
+  String get blockTypeH3Label => 'Heading 3';
+
+  @override
+  String get blockTypeH3Hint => 'Smaller heading · ###';
+
+  @override
+  String get blockTypeQuoteLabel => 'Quote';
+
+  @override
+  String get blockTypeQuoteHint => 'Quoted text';
+
+  @override
+  String get blockTypeDividerLabel => 'Divider';
+
+  @override
+  String get blockTypeDividerHint => 'Separator · ---';
+
+  @override
+  String get blockTypeCalloutLabel => 'Callout';
+
+  @override
+  String get blockTypeCalloutHint => 'Notice with icon';
+
+  @override
+  String get blockTypeBulletLabel => 'Bulleted list';
+
+  @override
+  String get blockTypeBulletHint => 'Bullet points';
+
+  @override
+  String get blockTypeNumberedLabel => 'Numbered list';
+
+  @override
+  String get blockTypeNumberedHint => 'List 1, 2, 3';
+
+  @override
+  String get blockTypeTodoLabel => 'Task list';
+
+  @override
+  String get blockTypeTodoHint => 'Checklist';
+
+  @override
+  String get blockTypeTaskLabel => 'Rich task';
+
+  @override
+  String get blockTypeTaskHint => 'Status, priority, due date';
+
+  @override
+  String get blockTypeToggleLabel => 'Toggle';
+
+  @override
+  String get blockTypeToggleHint => 'Show or hide content';
+
+  @override
+  String get blockTypeImageLabel => 'Image';
+
+  @override
+  String get blockTypeImageHint => 'Local or external image';
+
+  @override
+  String get blockTypeBookmarkLabel => 'Link preview';
+
+  @override
+  String get blockTypeBookmarkHint => 'Card with link';
+
+  @override
+  String get blockTypeVideoLabel => 'Video';
+
+  @override
+  String get blockTypeVideoHint => 'File or URL';
+
+  @override
+  String get blockTypeAudioLabel => 'Audio';
+
+  @override
+  String get blockTypeAudioHint => 'Audio player';
+
+  @override
+  String get blockTypeMeetingNoteLabel => 'Meeting note';
+
+  @override
+  String get blockTypeMeetingNoteHint => 'Record and transcribe a meeting';
+
+  @override
+  String get blockTypeCodeLabel => 'Code (Java, Python…)';
+
+  @override
+  String get blockTypeCodeHint => 'Syntax block';
+
+  @override
+  String get blockTypeFileLabel => 'File / PDF';
+
+  @override
+  String get blockTypeFileHint => 'Attachment or PDF';
+
+  @override
+  String get blockTypeTableLabel => 'Table';
+
+  @override
+  String get blockTypeTableHint => 'Rows and columns';
+
+  @override
+  String get blockTypeDatabaseLabel => 'Database';
+
+  @override
+  String get blockTypeDatabaseHint => 'List, table, or board view';
+
+  @override
+  String get blockTypeEquationLabel => 'Equation (LaTeX)';
+
+  @override
+  String get blockTypeEquationHint => 'Math formulas';
+
+  @override
+  String get blockTypeMermaidLabel => 'Diagram (Mermaid)';
+
+  @override
+  String get blockTypeMermaidHint => 'Flowchart or diagram';
+
+  @override
+  String get blockTypeTocLabel => 'Table of contents';
+
+  @override
+  String get blockTypeTocHint => 'Auto-generated index';
+
+  @override
+  String get blockTypeBreadcrumbLabel => 'Breadcrumbs';
+
+  @override
+  String get blockTypeBreadcrumbHint => 'Navigation path';
+
+  @override
+  String get blockTypeTemplateButtonLabel => 'Template button';
+
+  @override
+  String get blockTypeTemplateButtonHint => 'Insert a preset block';
+
+  @override
+  String get blockTypeColumnListLabel => 'Columns';
+
+  @override
+  String get blockTypeColumnListHint => 'Multi-column layout';
+
+  @override
+  String get blockTypeEmbedLabel => 'Web embed';
+
+  @override
+  String get blockTypeEmbedHint => 'YouTube, Figma, Docs…';
+
+  @override
+  String get integrationDialogTitleUpdatePermission =>
+      'Update integration permission';
+
+  @override
+  String get integrationDialogTitleAllowConnect => 'Allow this app to connect';
+
+  @override
+  String integrationDialogBodyUpdate(
+    Object previousVersion,
+    Object integrationVersion,
+  ) {
+    return 'This app was already approved with integration $previousVersion and is now requesting access with version $integrationVersion.';
+  }
+
+  @override
+  String integrationDialogBodyNew(
+    Object appName,
+    Object appVersion,
+    Object integrationVersion,
+  ) {
+    return '\"$appName\" wants to use Folio\'s local bridge with app version $appVersion and integration $integrationVersion.';
+  }
+
+  @override
+  String get integrationChipLocalhostOnly => 'Localhost only';
+
+  @override
+  String get integrationChipRevocableApproval => 'Revocable approval';
+
+  @override
+  String get integrationChipNoSharedSecret => 'No shared secret';
+
+  @override
+  String get integrationChipScopedByAppId => 'Scoped by appId';
+
+  @override
+  String get integrationMetaPreviouslyApprovedVersion =>
+      'Previously approved version';
+
+  @override
+  String get integrationSectionWhatAppCanDo =>
+      'What this app will be able to do';
+
+  @override
+  String get integrationCapEphemeralSessionsTitle =>
+      'Open short-lived local sessions';
+
+  @override
+  String get integrationCapEphemeralSessionsBody =>
+      'It can start a temporary session to talk to Folio\'s local bridge on this device.';
+
+  @override
+  String get integrationCapImportPagesTitle =>
+      'Import and update its own pages';
+
+  @override
+  String get integrationCapImportPagesBody =>
+      'It can create pages, list them, and update only the pages that the same app previously imported.';
+
+  @override
+  String get integrationCapCustomEmojisTitle => 'Manage its custom emojis';
+
+  @override
+  String get integrationCapCustomEmojisBody =>
+      'It can list, create, replace, and delete only its own catalog of imported custom emojis or icons.';
+
+  @override
+  String get integrationCapUnlockedVaultTitle =>
+      'Work only while the vault is unlocked';
+
+  @override
+  String get integrationCapUnlockedVaultBody =>
+      'Requests only work while Folio is open, the vault is available, and the current session is still active.';
+
+  @override
+  String get integrationSectionWhatStaysBlocked => 'What will remain blocked';
+
+  @override
+  String get integrationBlockNoSeeAllTitle => 'It cannot see all your content';
+
+  @override
+  String get integrationBlockNoSeeAllBody =>
+      'It does not get general vault access. It can only list what it imported itself through its appId.';
+
+  @override
+  String get integrationBlockNoBypassTitle =>
+      'It cannot bypass lock or encryption';
+
+  @override
+  String get integrationBlockNoBypassBody =>
+      'If the vault is locked or there is no active session, Folio will reject the operation.';
+
+  @override
+  String get integrationBlockNoOtherAppsTitle =>
+      'It cannot touch another app\'s data';
+
+  @override
+  String get integrationBlockNoOtherAppsBody =>
+      'It also cannot manage imported pages or custom emojis registered by other approved apps.';
+
+  @override
+  String get integrationBlockNoRemoteTitle =>
+      'It cannot connect from outside your machine';
+
+  @override
+  String get integrationBlockNoRemoteBody =>
+      'The bridge remains limited to localhost and this approval can be revoked later from Settings.';
+
+  @override
+  String integrationSnackMarkdownImportDone(Object pageTitle) {
+    return 'Import completed: $pageTitle.';
+  }
+
+  @override
+  String integrationSnackJsonImportDone(Object pageTitle) {
+    return 'JSON import completed: $pageTitle.';
+  }
+
+  @override
+  String integrationSnackPageUpdateDone(Object pageTitle) {
+    return 'Integration update completed: $pageTitle.';
+  }
+
+  @override
+  String get markdownImportModeDialogTitle => 'Import Markdown';
+
+  @override
+  String get markdownImportModeDialogBody =>
+      'Choose how to apply the Markdown file.';
+
+  @override
+  String get markdownImportModeNewPage => 'New page';
+
+  @override
+  String get markdownImportModeAppend => 'Append to current';
+
+  @override
+  String get markdownImportModeReplace => 'Replace current';
+
+  @override
+  String get markdownImportCouldNotReadPath => 'Could not read the file path.';
+
+  @override
+  String markdownImportedBlocks(Object pageTitle, int blockCount) {
+    return 'Markdown imported: $pageTitle ($blockCount blocks).';
+  }
+
+  @override
+  String markdownImportFailedWithError(Object error) {
+    return 'Could not import Markdown: $error';
+  }
+
+  @override
+  String get exportMarkdownFileDialogTitle => 'Export page to Markdown';
+
+  @override
+  String get markdownExportSuccess => 'Page exported to Markdown.';
+
+  @override
+  String markdownExportFailedWithError(Object error) {
+    return 'Could not export page: $error';
+  }
+
+  @override
+  String get firebaseUnavailablePublish => 'Firebase is not available.';
+
+  @override
+  String get signInCloudToPublishWeb =>
+      'Sign in to your cloud account (Settings) to publish.';
+
+  @override
+  String get planMissingWebPublish =>
+      'Your plan does not include web publishing or the subscription is not active.';
+
+  @override
+  String get publishWebDialogTitle => 'Publish to the web';
+
+  @override
+  String get publishWebSlugLabel => 'URL (slug)';
+
+  @override
+  String get publishWebSlugHint => 'my-note';
+
+  @override
+  String get publishWebSlugHelper =>
+      'Letters, numbers, and hyphens. It will appear in the public URL.';
+
+  @override
+  String get publishWebAction => 'Publish';
+
+  @override
+  String get publishWebEmptySlug => 'Empty slug.';
+
+  @override
+  String publishWebSuccessWithUrl(Object url) {
+    return 'Published: $url';
+  }
+
+  @override
+  String publishWebFailedWithError(Object error) {
+    return 'Could not publish: $error';
+  }
+
+  @override
+  String get publishWebMenuLabel => 'Publish to the web';
+
+  @override
+  String get mobileFabDone => 'Done';
+
+  @override
+  String get mobileFabEdit => 'Edit';
+
+  @override
+  String get mobileFabAddBlock => 'Block';
+
+  @override
+  String get mermaidPreviewDialogTitle => 'Diagram';
+
+  @override
+  String get mermaidDiagramSemanticsLabel => 'Mermaid diagram, tap to enlarge';
+
+  @override
+  String get databaseSortAz => 'Sort A-Z';
+
+  @override
+  String get databaseSortLabel => 'Sort';
+
+  @override
+  String get databaseFilterAnd => 'AND';
+
+  @override
+  String get databaseFilterOr => 'OR';
+
+  @override
+  String get databaseSortDescending => 'Desc';
+
+  @override
+  String get databaseNewPropertyDialogTitle => 'New property';
+
+  @override
+  String databaseConfigurePropertyTitle(Object name) {
+    return 'Configure: $name';
+  }
+
+  @override
+  String get databaseLocalCurrentBadge => 'Current local DB';
+
+  @override
+  String databaseRelateRowsTitle(Object name) {
+    return 'Relate rows ($name)';
+  }
+
+  @override
+  String get databaseBoardNeedsGroupProperty =>
+      'Configure a group property for the board.';
+
+  @override
+  String get databaseGroupPropertyMissing =>
+      'The group property no longer exists.';
+
+  @override
+  String get databaseCalendarNeedsDateProperty =>
+      'Configure a date property for the calendar.';
+
+  @override
+  String get databaseNoDatedEvents => 'No events with a date.';
+
+  @override
+  String get databaseConfigurePropertyTooltip => 'Configure property';
+
+  @override
+  String get databaseFormulaHintExample =>
+      'if(contains(Name,\"x\"), add(1,2), 0)';
+
+  @override
+  String get createAction => 'Create';
+
+  @override
+  String get confirmAction => 'Confirm';
+
+  @override
+  String get confirmRemoteEndpointTitle => 'Confirm remote endpoint';
+
+  @override
+  String get shortcutGlobalSearchKeyChord => 'Ctrl + Shift + F';
+
+  @override
+  String get updateChannelRelease => 'Release';
+
+  @override
+  String get updateChannelBeta => 'Beta';
+
+  @override
+  String get blockActionChooseAudio => 'Choose audio…';
+
+  @override
+  String get blockActionCreateSubpage => 'Create subpage';
+
+  @override
+  String get blockActionLinkPage => 'Link page…';
+
+  @override
+  String get defaultNewPageTitle => 'New page';
+
+  @override
+  String defaultPageDuplicateTitle(Object title) {
+    return '$title (copy)';
+  }
+
+  @override
+  String aiChatTitleNumbered(int n) {
+    return 'Chat $n';
+  }
+
+  @override
+  String get invalidFolioTemplateFile =>
+      'The file is not a valid Folio template.';
+
+  @override
+  String get templateButtonDefaultLabel => 'Template';
+
+  @override
+  String get pageHtmlExportPublishedWithFolio => 'Published with Folio';
+
+  @override
+  String get releaseReadinessSemverOk => 'Valid SemVer version';
+
+  @override
+  String get releaseReadinessEncryptedVault => 'Encrypted vault';
+
+  @override
+  String get releaseReadinessAiRemotePolicy => 'AI remote endpoint policy';
+
+  @override
+  String get releaseReadinessVaultUnlocked => 'Vault unlocked';
+
+  @override
+  String get releaseReadinessStableChannel => 'Stable channel selected';
+
+  @override
+  String get aiPromptUserMessage => 'User message:';
+
+  @override
+  String get aiPromptOriginalMessage => 'Original message:';
+
+  @override
+  String get aiPromptOriginalUserMessage => 'Original user message:';
+
+  @override
+  String get customIconImportEmptySource => 'The icon source is empty.';
+
+  @override
+  String get customIconImportInvalidUrl => 'The icon URL is not valid.';
+
+  @override
+  String get customIconImportInvalidSvg => 'The copied SVG is not valid.';
+
+  @override
+  String get customIconImportHttpHttpsOnly =>
+      'Only http or https URLs are supported.';
+
+  @override
+  String get customIconImportDataUriMimeList =>
+      'Only data:image/svg+xml, data:image/gif, data:image/webp, or data:image/png are supported.';
+
+  @override
+  String get customIconImportUnsupportedFormat =>
+      'Unsupported format. Use SVG, PNG, GIF, or WebP.';
+
+  @override
+  String get customIconImportSvgTooLarge => 'The SVG is too large to import.';
+
+  @override
+  String get customIconImportEmbeddedImageTooLarge =>
+      'The embedded image is too large to import.';
+
+  @override
+  String customIconImportDownloadFailed(Object code) {
+    return 'Could not download the icon ($code).';
+  }
+
+  @override
+  String get customIconImportRemoteTooLarge => 'The remote icon is too large.';
+
+  @override
+  String get customIconImportConnectFailed =>
+      'Could not connect to download the icon.';
+
+  @override
+  String get customIconImportCertFailed =>
+      'Certificate error while downloading the icon.';
+
+  @override
+  String get customIconLabelDefault => 'Custom icon';
+
+  @override
+  String get customIconLabelImported => 'Imported icon';
+
+  @override
+  String get customIconImportSucceeded => 'Icon imported successfully.';
+
+  @override
+  String get customIconClipboardEmpty => 'The clipboard is empty.';
+
+  @override
+  String get customIconRemoved => 'Icon removed.';
+
+  @override
+  String get whisperModelTiny => 'Tiny (fast)';
+
+  @override
+  String get whisperModelBaseQ8 => 'Base q8 (balanced)';
+
+  @override
+  String get whisperModelSmallQ8 => 'Small q8 (high accuracy, less disk)';
+
+  @override
+  String get whisperModelMediumQ8 => 'Medium q8';
+
+  @override
+  String get whisperModelLargeV3TurboQ8 => 'Large v3 Turbo q8';
+
+  @override
+  String get codeLangDart => 'Dart';
+
+  @override
+  String get codeLangTypeScript => 'TypeScript';
+
+  @override
+  String get codeLangJavaScript => 'JavaScript';
+
+  @override
+  String get codeLangPython => 'Python';
+
+  @override
+  String get codeLangJson => 'JSON';
+
+  @override
+  String get codeLangYaml => 'YAML';
+
+  @override
+  String get codeLangMarkdown => 'Markdown';
+
+  @override
+  String get codeLangDiff => 'Diff';
+
+  @override
+  String get codeLangSql => 'SQL';
+
+  @override
+  String get codeLangBash => 'Bash';
+
+  @override
+  String get codeLangCpp => 'C / C++';
+
+  @override
+  String get codeLangJava => 'Java';
+
+  @override
+  String get codeLangKotlin => 'Kotlin';
+
+  @override
+  String get codeLangRust => 'Rust';
+
+  @override
+  String get codeLangGo => 'Go';
+
+  @override
+  String get codeLangHtmlXml => 'HTML / XML';
+
+  @override
+  String get codeLangCss => 'CSS';
+
+  @override
+  String get codeLangPlainText => 'Plain text';
+
+  @override
+  String settingsAppRevoked(Object appId) {
+    return 'App revoked: $appId';
+  }
+
+  @override
+  String get settingsDeviceRevokedSnack => 'Device revoked.';
+
+  @override
+  String get settingsAiConnectionOk => 'AI connection OK';
+
+  @override
+  String settingsAiConnectionError(Object error) {
+    return 'Connection error: $error';
+  }
+
+  @override
+  String settingsAiListModelsFailed(Object error) {
+    return 'Could not list models: $error';
+  }
+
+  @override
+  String get folioCloudCallableNotSignedIn =>
+      'You must be signed in to call Cloud Functions';
+
+  @override
+  String get folioCloudCallableUnexpectedResponse =>
+      'Unexpected response from Cloud Functions';
+
+  @override
+  String folioCloudCallableHttpError(int code, Object name) {
+    return 'HTTP $code calling $name';
+  }
+
+  @override
+  String get folioCloudCallableNoIdToken =>
+      'No ID token for Cloud Functions. Sign in to Folio Cloud again.';
+
+  @override
+  String get folioCloudCallableUnexpectedFallback =>
+      'Unexpected response from Cloud Functions fallback';
+
+  @override
+  String folioCloudCallableHttpAiComplete(int code) {
+    return 'HTTP $code calling folioCloudAiCompleteHttp';
+  }
+
+  @override
+  String get cloudAccountEmailMismatch =>
+      'The email does not match the current session.';
+
+  @override
+  String get cloudIdentityInvalidAuthResponse =>
+      'Invalid authentication response.';
+
+  @override
+  String get templateButtonPlaceholderText => 'Template text…';
+
+  @override
+  String get aiProviderOllamaName => 'Ollama';
+
+  @override
+  String get aiProviderLmStudioName => 'LM Studio';
+
+  @override
+  String get blockAudioEmptyHint => 'Choose an audio file';
+
+  @override
+  String get blockChildPageTitle => 'Page block';
+
+  @override
+  String get blockChildPageNoLink => 'No linked subpage.';
+
+  @override
+  String get mermaidExpandedLoadError => 'Could not show the enlarged diagram.';
+
+  @override
+  String get mermaidPreviewTooltip =>
+      'Tap to enlarge and zoom. PNG via mermaid.ink (external service).';
+
+  @override
+  String get aiEndpointInvalidUrl => 'Invalid URL. Use http://host:port.';
+
+  @override
+  String get aiEndpointRemoteNotAllowed =>
+      'Remote endpoint is not allowed without confirmation.';
+
+  @override
+  String get settingsAiSelectProviderFirst => 'Select an AI provider first.';
+
+  @override
+  String get releaseReadinessAiSummaryDisabled => 'AI disabled';
+
+  @override
+  String get releaseReadinessAiSummaryQuillCloud =>
+      'Folio Cloud AI (no local endpoint)';
+
+  @override
+  String releaseReadinessAiSummaryEndpointOk(Object url) {
+    return 'Valid endpoint: $url';
+  }
+
+  @override
+  String get releaseReadinessDetailSemverInvalid =>
+      'The installed version does not satisfy SemVer.';
+
+  @override
+  String get releaseReadinessDetailVaultNotEncrypted =>
+      'The current vault is not encrypted.';
+
+  @override
+  String get releaseReadinessDetailVaultLocked =>
+      'Unlock the vault to validate export/import and real flow.';
+
+  @override
+  String get releaseReadinessDetailBetaChannel =>
+      'The beta update channel is active.';
+
+  @override
+  String get releaseReadinessReportTitle => 'Folio: release readiness';
+
+  @override
+  String releaseReadinessReportInstalledVersion(Object label) {
+    return 'Installed version: $label';
+  }
+
+  @override
+  String releaseReadinessReportSemver(Object value) {
+    return 'SemVer valid: $value';
+  }
+
+  @override
+  String releaseReadinessReportChannel(Object value) {
+    return 'Update channel: $value';
+  }
+
+  @override
+  String releaseReadinessReportActiveVault(Object id) {
+    return 'Active vault: $id';
+  }
+
+  @override
+  String releaseReadinessReportVaultPath(Object path) {
+    return 'Vault path: $path';
+  }
+
+  @override
+  String releaseReadinessReportUnlocked(Object value) {
+    return 'Vault unlocked: $value';
+  }
+
+  @override
+  String releaseReadinessReportEncrypted(Object value) {
+    return 'Vault encrypted: $value';
+  }
+
+  @override
+  String releaseReadinessReportAiEnabled(Object value) {
+    return 'AI enabled: $value';
+  }
+
+  @override
+  String releaseReadinessReportAiPolicy(Object value) {
+    return 'AI endpoint policy: $value';
+  }
+
+  @override
+  String releaseReadinessReportAiDetail(Object detail) {
+    return 'AI detail: $detail';
+  }
+
+  @override
+  String releaseReadinessReportStatus(Object value) {
+    return 'Release status: $value';
+  }
+
+  @override
+  String releaseReadinessReportBlockers(int count) {
+    return 'Pending blockers: $count';
+  }
+
+  @override
+  String releaseReadinessReportWarnings(int count) {
+    return 'Pending warnings: $count';
+  }
+
+  @override
+  String get releaseReadinessExportWordYes => 'yes';
+
+  @override
+  String get releaseReadinessExportWordNo => 'no';
+
+  @override
+  String get releaseReadinessChannelStable => 'stable';
+
+  @override
+  String get releaseReadinessChannelBeta => 'beta';
+
+  @override
+  String get releaseReadinessStatusReady => 'ready';
+
+  @override
+  String get releaseReadinessStatusBlocked => 'blocked';
+
+  @override
+  String get releaseReadinessPolicyOk => 'ok';
+
+  @override
+  String get releaseReadinessPolicyError => 'error';
+
+  @override
+  String get settingsSignInFolioCloudSnack => 'Sign in to Folio Cloud.';
+
+  @override
+  String get settingsNotSyncedYet => 'Not synced yet';
+
+  @override
+  String get settingsDeviceNameTitle => 'Device name';
+
+  @override
+  String get settingsDeviceNameHintExample => 'Example: Alex Pixel';
+
+  @override
+  String get settingsPairingModeEnabledTwoMin =>
+      'Pairing mode enabled for 2 minutes.';
+
+  @override
+  String get settingsPairingEnableModeFirst =>
+      'First enable pairing mode, then choose a discovered device.';
+
+  @override
+  String get settingsPairingSameEmojisBothDevices =>
+      'Enable pairing mode on both devices and wait until the same 3 emojis appear.';
+
+  @override
+  String get settingsPairingCouldNotStart =>
+      'Could not start pairing. Enable pairing mode on both devices and wait until the same 3 emojis appear.';
+
+  @override
+  String get settingsConfirmPairingTitle => 'Confirm pairing';
+
+  @override
+  String get settingsPairingCheckOtherDeviceEmojis =>
+      'Check that the other device shows these same 3 emojis:';
+
+  @override
+  String get settingsPairingPopupInstructions =>
+      'This popup will also appear on the other device. To complete linking, press Link here and then Link on the other one.';
+
+  @override
+  String get settingsLinkDevice => 'Link';
+
+  @override
+  String get settingsPairingConfirmationSent =>
+      'Confirmation sent. The other device still needs to press Link in its popup.';
+
+  @override
+  String get settingsResolveConflictsTitle => 'Resolve conflicts';
+
+  @override
+  String get settingsNoPendingConflicts => 'There are no pending conflicts.';
+
+  @override
+  String settingsSyncConflictCardSubtitle(
+    Object fromPeerId,
+    int remotePageCount,
+    Object detectedAt,
+  ) {
+    return 'Source: $fromPeerId\nRemote pages: $remotePageCount\nDetected: $detectedAt';
+  }
+
+  @override
+  String get settingsSyncConflictHeading => 'Sync conflict';
+
+  @override
+  String get settingsLocalVersionKeptSnack => 'Local version kept.';
+
+  @override
+  String get settingsKeepLocal => 'Keep local';
+
+  @override
+  String get settingsRemoteVersionAppliedSnack => 'Remote version applied.';
+
+  @override
+  String get settingsCouldNotApplyRemoteSnack =>
+      'Could not apply the remote version.';
+
+  @override
+  String get settingsAcceptRemote => 'Accept remote';
+
+  @override
+  String get settingsClose => 'Close';
+
+  @override
+  String get settingsSectionDeviceSyncNav => 'Device sync';
+
+  @override
+  String get settingsSyncHeroTitle => 'Device synchronization';
+
+  @override
+  String get settingsSyncHeroDescription =>
+      'Pair machines on the local network; the relay only helps negotiate the connection and does not send vault content.';
+
+  @override
+  String get settingsSyncChipPairingCode => 'Pairing code';
+
+  @override
+  String get settingsSyncChipAutoDiscovery => 'Auto discovery';
+
+  @override
+  String get settingsSyncChipOptionalRelay => 'Optional relay';
+
+  @override
+  String get settingsSyncEnableTitle => 'Enable device sync';
+
+  @override
+  String get settingsSyncSearchingSubtitle =>
+      'Searching for nearby devices with Folio open on local network...';
+
+  @override
+  String settingsSyncDevicesFoundOnLan(int count) {
+    return '$count devices discovered on LAN.';
+  }
+
+  @override
+  String get settingsSyncDisabledSubtitle =>
+      'Synchronization is currently disabled.';
+
+  @override
+  String get settingsSyncRelayTitle => 'Use signaling relay';
+
+  @override
+  String get settingsSyncRelaySubtitle =>
+      'Does not send vault content, only helps negotiate connectivity when LAN fails.';
+
+  @override
+  String get settingsEdit => 'Edit';
+
+  @override
+  String get settingsSyncEmojiModeTitle => 'Enable emoji pairing mode';
+
+  @override
+  String get settingsSyncEmojiModeSubtitle =>
+      'Enable it on both devices to start pairing without typing codes.';
+
+  @override
+  String get settingsSyncPairingStatusTitle => 'Pairing mode status';
+
+  @override
+  String get settingsSyncPairingActiveSubtitle =>
+      'Active for 2 minutes. You can now start pairing from a detected device.';
+
+  @override
+  String get settingsSyncPairingInactiveSubtitle =>
+      'Inactive. Enable it here and on the other device to start pairing.';
+
+  @override
+  String get settingsSyncLastSyncTitle => 'Last synchronization';
+
+  @override
+  String get settingsSyncPendingConflictsTitle => 'Pending conflicts';
+
+  @override
+  String get settingsSyncNoConflictsSubtitle => 'No pending conflicts.';
+
+  @override
+  String settingsSyncConflictsNeedReview(int count) {
+    return '$count conflicts require manual review.';
+  }
+
+  @override
+  String get settingsResolve => 'Resolve';
+
+  @override
+  String get settingsSyncDiscoveredDevicesTitle => 'Discovered devices';
+
+  @override
+  String get settingsSyncNoDevicesYetHint =>
+      'No devices detected yet. Make sure both apps are open on the same network.';
+
+  @override
+  String get settingsSyncPeerReadyToLink => 'Ready to link.';
+
+  @override
+  String get settingsSyncPeerOtherInPairingMode =>
+      'The other device is in pairing mode. Enable it here to start linking.';
+
+  @override
+  String get settingsSyncPeerDetectedLan => 'Detected on the local network.';
+
+  @override
+  String get settingsSyncLinkedDevicesTitle => 'Linked devices';
+
+  @override
+  String get settingsSyncNoLinkedDevicesYet => 'No linked devices yet.';
+
+  @override
+  String settingsSyncPeerIdLabel(Object peerId) {
+    return 'ID: $peerId';
+  }
+
+  @override
+  String get settingsRevoke => 'Revoke';
+
+  @override
+  String get sidebarPageIconTitle => 'Page icon';
+
+  @override
+  String get sidebarPageIconPickerHelper =>
+      'Pick a quick icon, an imported one, or open the full picker.';
+
+  @override
+  String get sidebarPageIconCustomEmoji => 'Custom emoji';
+
+  @override
+  String get sidebarPageIconRemove => 'Remove';
+
+  @override
+  String get sidebarPageIconTabQuick => 'Quick';
+
+  @override
+  String get sidebarPageIconTabImported => 'Imported';
+
+  @override
+  String get sidebarPageIconTabAll => 'All';
+
+  @override
+  String get sidebarPageIconEmptyImported =>
+      'You have not imported icons in Settings yet.';
+
+  @override
+  String get settingsStripeSubscriptionRefreshed =>
+      'Subscription status refreshed.';
+
+  @override
+  String get settingsStripeBillingPortalUnavailable =>
+      'Billing portal unavailable.';
+
+  @override
+  String get settingsCouldNotOpenLink => 'Could not open the link.';
+
+  @override
+  String get settingsStripeCheckoutUnavailable =>
+      'Checkout unavailable (configure Stripe on server).';
+
+  @override
+  String get settingsCloudBackupEnablePlanSnack =>
+      'Enable Folio Cloud with the cloud backup feature included in your plan.';
+
+  @override
+  String get settingsNoActiveVault => 'No active vault.';
+
+  @override
+  String get settingsCloudBackupsNeedPlan =>
+      'You need an active Folio Cloud plan with cloud backup.';
+
+  @override
+  String settingsCloudBackupsDialogTitle(int count) {
+    return 'Cloud backups ($count/10)';
+  }
+
+  @override
+  String get settingsCloudBackupsEmpty => 'No backups in this account yet.';
+
+  @override
+  String get settingsCloudBackupDownloadTooltip => 'Download';
+
+  @override
+  String get settingsCloudBackupSaveDialogTitle => 'Save backup';
+
+  @override
+  String get settingsCloudBackupDownloadedSnack => 'Backup downloaded.';
+
+  @override
+  String get settingsPublishedRequiresPlan =>
+      'You need Folio Cloud with web publishing enabled.';
+
+  @override
+  String get settingsPublishedPagesTitle => 'Published pages';
+
+  @override
+  String get settingsPublishedPagesEmpty => 'No published pages yet.';
+
+  @override
+  String get settingsPublishedDeleteDialogTitle => 'Remove publication?';
+
+  @override
+  String get settingsPublishedDeleteDialogBody =>
+      'The public HTML will be removed and the link will stop working.';
+
+  @override
+  String get settingsPublishedRemovedSnack => 'Removed.';
+
+  @override
+  String get settingsCouldNotReadInstalledVersion =>
+      'Could not read installed version.';
+
+  @override
+  String settingsCouldNotOpenReleaseNotes(Object error) {
+    return 'Could not open release notes: $error';
+  }
+
+  @override
+  String settingsUpdateFailed(Object error) {
+    return 'Could not update: $error';
+  }
+
+  @override
+  String get settingsSessionEndedSnack => 'Signed out';
+
+  @override
+  String get settingsLabelYes => 'Yes';
+
+  @override
+  String get settingsLabelNo => 'No';
+
+  @override
+  String get settingsSecurityEncryptedHeroDescription =>
+      'Quick unlock, passkey, auto-lock, and master password for your encrypted vault.';
+
+  @override
+  String get settingsUnencryptedVaultTitle => 'Unencrypted vault';
+
+  @override
+  String get settingsUnencryptedVaultChipDataOnDisk => 'Data on disk';
+
+  @override
+  String get settingsUnencryptedVaultChipEncryptionAvailable =>
+      'Encryption available';
+
+  @override
+  String get settingsAppearanceChipTheme => 'Theme';
+
+  @override
+  String get settingsAppearanceChipZoom => 'Zoom';
+
+  @override
+  String get settingsAppearanceChipLanguage => 'Language';
+
+  @override
+  String get settingsAppearanceChipEditorWorkspace => 'Editor & workspace';
+
+  @override
+  String get settingsWindowsScaleFollowTitle => 'Follow Windows scale';
+
+  @override
+  String get settingsWindowsScaleFollowSubtitle =>
+      'Automatically use system scale on Windows.';
+
+  @override
+  String get settingsInterfaceZoomTitle => 'Interface zoom';
+
+  @override
+  String get settingsInterfaceZoomSubtitle =>
+      'Increase or reduce the overall app size.';
+
+  @override
+  String get settingsUiZoomReset => 'Reset';
+
+  @override
+  String get settingsEditorSubsection => 'Editor';
+
+  @override
+  String get settingsEditorContentWidthTitle => 'Content width';
+
+  @override
+  String get settingsEditorContentWidthSubtitle =>
+      'Controls how wide blocks appear in the editor.';
+
+  @override
+  String get settingsEnterCreatesNewBlockTitle => 'Enter creates a new block';
+
+  @override
+  String get settingsEnterCreatesNewBlockSubtitleWhenEnabled =>
+      'Disable to make Enter insert a line break.';
+
+  @override
+  String get settingsEnterCreatesNewBlockSubtitleWhenDisabled =>
+      'Enter now inserts a line break. Shift+Enter still works.';
+
+  @override
+  String get settingsWorkspaceSubsection => 'Workspace';
+
+  @override
+  String get settingsCustomIconsTitle => 'Custom icons';
+
+  @override
+  String get settingsCustomIconsDescription =>
+      'Import a PNG, GIF, or WebP URL, or a compatible data:image copied from sites like notionicons.so. You can then use it as a page or callout icon.';
+
+  @override
+  String settingsCustomIconsSavedCount(int count) {
+    return '$count saved';
+  }
+
+  @override
+  String get settingsCustomIconsChipUrl => 'PNG, GIF, or WebP URL';
+
+  @override
+  String get settingsCustomIconsChipDataImage => 'data:image/*';
+
+  @override
+  String get settingsCustomIconsChipPaste => 'Paste from clipboard';
+
+  @override
+  String get settingsCustomIconsImportTitle => 'Import new icon';
+
+  @override
+  String get settingsCustomIconsImportSubtitle =>
+      'You can give it a name and paste the source manually or bring it directly from the clipboard.';
+
+  @override
+  String get settingsCustomIconsFieldNameLabel => 'Name';
+
+  @override
+  String get settingsCustomIconsFieldNameHint => 'Optional';
+
+  @override
+  String get settingsCustomIconsFieldSourceLabel => 'URL or data:image';
+
+  @override
+  String get settingsCustomIconsFieldSourceHint =>
+      'https://…gif | …webp | …png or data:image/…';
+
+  @override
+  String get settingsCustomIconsImportButton => 'Import icon';
+
+  @override
+  String get settingsCustomIconsFromClipboard => 'From clipboard';
+
+  @override
+  String get settingsCustomIconsLibraryTitle => 'Library';
+
+  @override
+  String get settingsCustomIconsLibrarySubtitle =>
+      'Ready to use across the app';
+
+  @override
+  String get settingsCustomIconsEmpty => 'No icons imported yet.';
+
+  @override
+  String get settingsCustomIconsDeleteTooltip => 'Delete icon';
+
+  @override
+  String get settingsCustomIconsReferenceCopiedSnack => 'Reference copied.';
+
+  @override
+  String get settingsCustomIconsCopyToken => 'Copy token';
+
+  @override
+  String get settingsAiHeroQuillWithLocalAlt =>
+      'AI runs on Quill Cloud (subscription with cloud AI or purchased ink). Pick another provider below for local Ollama or LM Studio.';
+
+  @override
+  String get settingsAiHeroQuillCloudOnly =>
+      'AI runs on Quill Cloud (subscription with cloud AI or purchased ink).';
+
+  @override
+  String get settingsAiHeroLocalDefault =>
+      'Connect Ollama or LM Studio locally; the assistant uses the model and context you set here.';
+
+  @override
+  String get settingsAiHeroQuillMobileOnly =>
+      'On this device Quill can only use Quill Cloud. Choose Quill Cloud as the provider when you want to enable AI.';
+
+  @override
+  String get settingsAiChipCloud => 'Hosted';
+
+  @override
+  String get settingsAiSnackFirebaseUnavailableBuild =>
+      'Firebase is not available in this build.';
+
+  @override
+  String get settingsAiSnackSignInCloudAccount =>
+      'Sign in to your cloud account (Settings).';
+
+  @override
+  String settingsAiProviderSwitchFailed(Object error) {
+    return 'Could not switch AI provider: $error';
+  }
+
+  @override
+  String get settingsAboutHeroDescription =>
+      'Installed version, update source, and manual checks for new releases.';
+
+  @override
+  String get settingsOpenReleaseNotes => 'Open release notes';
+
+  @override
+  String get settingsUpdateChannelLabel => 'Channel';
+
+  @override
+  String get settingsUpdateChannelRelease => 'Release';
+
+  @override
+  String get settingsUpdateChannelBeta => 'Beta';
+
+  @override
+  String get settingsDataHeroDescription =>
+      'Permanent actions on local files. Make a backup before deleting.';
+
+  @override
+  String get settingsDangerZoneTitle => 'Danger zone';
+
+  @override
+  String get settingsDesktopHeroDescription =>
+      'Global shortcuts, system tray, and window behavior on desktop.';
+
+  @override
+  String get settingsShortcutsHeroDescription =>
+      'Shortcuts only inside Folio. Test a key before saving it.';
+
+  @override
+  String get settingsShortcutsTestChip => 'Test';
+
+  @override
+  String get settingsIntegrationsChipApprovedPermissions =>
+      'Approved permissions';
+
+  @override
+  String get settingsIntegrationsChipRevocableAccess => 'Revocable access';
+
+  @override
+  String get settingsIntegrationsChipExternalApps => 'External apps';
+
+  @override
+  String get settingsIntegrationsActiveConnectionsTitle => 'Active connections';
+
+  @override
+  String get settingsIntegrationsActiveConnectionsSubtitle =>
+      'Apps already allowed to interact with Folio';
+
+  @override
+  String get settingsViewInkUsageTable => 'View usage table';
+
+  @override
+  String get settingsCloudInkUsageTableTitle => 'Ink usage table (OpenAI)';
+
+  @override
+  String get settingsCloudInkUsageTableIntro =>
+      'Base cost per action. Extra surcharges may apply for long prompts and output token usage.';
+
+  @override
+  String get settingsCloudInkDrops => 'drops';
+
+  @override
+  String get settingsCloudInkTableCachedNotice =>
+      'Showing local cached table (no backend connection).';
+
+  @override
+  String get settingsCloudInkOpRewriteBlock => 'Rewrite block';
+
+  @override
+  String get settingsCloudInkOpSummarizeSelection => 'Summarize selection';
+
+  @override
+  String get settingsCloudInkOpExtractTasks => 'Extract tasks';
+
+  @override
+  String get settingsCloudInkOpSummarizePage => 'Summarize page';
+
+  @override
+  String get settingsCloudInkOpGenerateInsert => 'Generate insert';
+
+  @override
+  String get settingsCloudInkOpGeneratePage => 'Generate page';
+
+  @override
+  String get settingsCloudInkOpChatTurn => 'Chat turn';
+
+  @override
+  String get settingsCloudInkOpAgentMain => 'Agent main run';
+
+  @override
+  String get settingsCloudInkOpAgentFollowup => 'Agent follow-up';
+
+  @override
+  String get settingsCloudInkOpEditPagePanel => 'Page edit panel';
+
+  @override
+  String get settingsCloudInkOpDefault => 'Fallback operation';
+
+  @override
+  String get settingsDesktopRailSubtitle =>
+      'Pick a category from the list or scroll the content.';
+
+  @override
+  String get settingsCloudInkViewTableButton => 'View table';
+
+  @override
+  String get settingsCloudInkHostedAiOpenAiHint =>
+      'Reference pricing for hosted AI with OpenAI.';
 }

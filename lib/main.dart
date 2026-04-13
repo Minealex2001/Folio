@@ -69,7 +69,7 @@ Future<void> main() async {
         integrationSecret: runtimeConfig.integrationSecret,
       );
       await appSettings.load();
-      final session = VaultSession();
+      final session = VaultSession(titleLocale: appSettings.locale);
       final initialLaunchArgs =
           await PlatformLaunchArguments.initialArguments();
       runApp(

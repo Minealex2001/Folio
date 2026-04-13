@@ -2887,6 +2887,34 @@ class AppLocalizationsEu extends AppLocalizations {
       'Beta bertsioa (aurre-lanzamendua).';
 
   @override
+  String get updaterOpenApkDownloadQuestion => 'Ireki APKaren deskarga orain?';
+
+  @override
+  String get updaterManualCheckUnsupportedPlatform =>
+      'Barne eguneratzailea Windows eta Android-en soilik dago erabilgarri.';
+
+  @override
+  String get updaterManualCheckAlreadyLatest => 'Azken bertsioa duzu jada.';
+
+  @override
+  String updaterDialogLineCurrentVersion(Object currentVersion) {
+    return 'Uneko bertsioa: $currentVersion';
+  }
+
+  @override
+  String updaterDialogLineNewVersion(Object releaseVersion) {
+    return 'Bertsio berria: $releaseVersion';
+  }
+
+  @override
+  String get updaterApkUrlInvalidSnack =>
+      'Ez da baliozko APK URLrik aurkitu release-an.';
+
+  @override
+  String get updaterApkOpenFailedSnack =>
+      'Ezin izan da APKaren deskarga ireki.';
+
+  @override
   String get toggleTitleHint => 'Interruptorearen izenburua';
 
   @override
@@ -2956,4 +2984,1728 @@ class AppLocalizationsEu extends AppLocalizations {
 
   @override
   String get calloutTypeNote => 'Oharra';
+
+  @override
+  String get blockEditorEnterHintNewBlock =>
+      'Sartu: bloke berria (kodean: Sartu = lerroa)';
+
+  @override
+  String get blockEditorEnterHintNewLine => 'Sartu: lerro berria';
+
+  @override
+  String blockEditorShortcutsHintMobile(String enterHint) {
+    return '$enterHint · / blokeetarako · sakatu blokeari ekintza gehiagorako';
+  }
+
+  @override
+  String blockEditorShortcutsHintDesktop(String enterHint) {
+    return '$enterHint · Maius+Sartu: lerroa · / motak · # izenburua (lerro berean) · - · * · [] · ``` taula/irudia / · formatua: fokuratzean barra edo ** _ <u> ` ~~';
+  }
+
+  @override
+  String blockEditorSelectedBlocksBanner(int count) {
+    return '$count bloke hautatuak · Maius: tartea · Ktrl/Cmd: txandakatu';
+  }
+
+  @override
+  String get blockEditorDuplicate => 'Bikoiztu';
+
+  @override
+  String get blockEditorClearSelectionTooltip => 'Garbitu hautapena';
+
+  @override
+  String get blockEditorMenuRewriteWithAi => 'Berriz idatzi AArekin…';
+
+  @override
+  String get blockEditorMenuMoveUp => 'Eraman gora';
+
+  @override
+  String get blockEditorMenuMoveDown => 'Eraman behera';
+
+  @override
+  String get blockEditorMenuDuplicateBlock => 'Bikoiztu blokea';
+
+  @override
+  String get blockEditorMenuAppearance => 'Itxura…';
+
+  @override
+  String get blockEditorMenuCalloutIcon => 'Callout ikonoa…';
+
+  @override
+  String blockEditorCalloutMenuType(String typeName) {
+    return 'Mota: $typeName';
+  }
+
+  @override
+  String get blockEditorCopyLink => 'Kopiatu esteka';
+
+  @override
+  String get blockEditorMenuCreateSubpage => 'Sortu azpiorrialdea';
+
+  @override
+  String get blockEditorMenuLinkPage => 'Lotu orrialdea…';
+
+  @override
+  String get blockEditorMenuOpenSubpage => 'Ireki azpiorrialdea';
+
+  @override
+  String get blockEditorMenuPickImage => 'Aukeratu irudia…';
+
+  @override
+  String get blockEditorMenuRemoveImage => 'Kendu irudia';
+
+  @override
+  String get blockEditorMenuCodeLanguage => 'Kodearen hizkuntza…';
+
+  @override
+  String get blockEditorMenuEditDiagram => 'Editatu diagrama…';
+
+  @override
+  String get blockEditorMenuBackToPreview => 'Itzuli aurreikuspena';
+
+  @override
+  String get blockEditorMenuChangeFile => 'Aldatu fitxategia…';
+
+  @override
+  String get blockEditorMenuRemoveFile => 'Kendu fitxategia';
+
+  @override
+  String get blockEditorMenuChangeVideo => 'Aldatu bideoa…';
+
+  @override
+  String get blockEditorMenuRemoveVideo => 'Kendu bideoa';
+
+  @override
+  String get blockEditorMenuChangeAudio => 'Aldatu audioa…';
+
+  @override
+  String get blockEditorMenuRemoveAudio => 'Kendu audioa';
+
+  @override
+  String get blockEditorMenuEditLabel => 'Editatu etiketa…';
+
+  @override
+  String get blockEditorMenuAddRow => 'Gehitu errenkada';
+
+  @override
+  String get blockEditorMenuRemoveLastRow => 'Kendu azken errenkada';
+
+  @override
+  String get blockEditorMenuAddColumn => 'Gehitu zutabea';
+
+  @override
+  String get blockEditorMenuRemoveLastColumn => 'Kendu azken zutabea';
+
+  @override
+  String get blockEditorMenuAddProperty => 'Gehitu propietatea';
+
+  @override
+  String get blockEditorMenuChangeBlockType => 'Aldatu bloke mota…';
+
+  @override
+  String get blockEditorMenuDeleteBlock => 'Ezabatu blokea';
+
+  @override
+  String get blockEditorAppearanceTitle => 'Blokearen itxura';
+
+  @override
+  String get blockEditorAppearanceSubtitle =>
+      'Pertsonalizatu tamaina, testuaren kolorea eta atzeko planoa bloke honetan.';
+
+  @override
+  String get blockEditorAppearanceSize => 'Tamaina';
+
+  @override
+  String get blockEditorAppearanceTextColor => 'Testuaren kolorea';
+
+  @override
+  String get blockEditorAppearanceBackground => 'Atzeko planoa';
+
+  @override
+  String get blockEditorAppearancePreviewEmpty => 'Honela ikusiko da blokea.';
+
+  @override
+  String get blockEditorReset => 'Berrezarri';
+
+  @override
+  String get blockEditorCodeLanguageTitle => 'Kodearen hizkuntza';
+
+  @override
+  String get blockEditorCodeLanguageSubtitle =>
+      'Nabarmentzea hautatutako hizkuntzaren arabera.';
+
+  @override
+  String get blockEditorTemplateButtonTitle => 'Txantiloi-botoiaren etiketa';
+
+  @override
+  String get blockEditorTemplateButtonFieldLabel => 'Botoiaren testua';
+
+  @override
+  String get blockEditorTemplateButtonDefaultLabel => 'Txantiloia';
+
+  @override
+  String get blockEditorTextColorDefault => 'Gaia';
+
+  @override
+  String get blockEditorTextColorSubtle => 'Arina';
+
+  @override
+  String get blockEditorTextColorPrimary => 'Lehenetsia';
+
+  @override
+  String get blockEditorTextColorSecondary => 'Bigarren mailakoa';
+
+  @override
+  String get blockEditorTextColorTertiary => 'Azentua';
+
+  @override
+  String get blockEditorTextColorError => 'Errorea';
+
+  @override
+  String get blockEditorBackgroundNone => 'Atzeko planorik gabe';
+
+  @override
+  String get blockEditorBackgroundSurface => 'Azalera';
+
+  @override
+  String get blockEditorBackgroundPrimary => 'Lehenetsia';
+
+  @override
+  String get blockEditorBackgroundSecondary => 'Bigarren mailakoa';
+
+  @override
+  String get blockEditorBackgroundTertiary => 'Azentua';
+
+  @override
+  String get blockEditorBackgroundError => 'Errorea';
+
+  @override
+  String get blockEditorCmdDuplicatePrev => 'Bikoiztu aurreko blokea';
+
+  @override
+  String get blockEditorCmdDuplicatePrevHint =>
+      'Klonatu berehala gaineko blokea';
+
+  @override
+  String get blockEditorCmdInsertDate => 'Txertatu data';
+
+  @override
+  String get blockEditorCmdInsertDateHint => 'Idatzi gaurko data';
+
+  @override
+  String get blockEditorCmdMentionPage => 'Aipatu orrialdea';
+
+  @override
+  String get blockEditorCmdMentionPageHint =>
+      'Txertatu barne-esteka orrialde batera';
+
+  @override
+  String get blockEditorCmdTurnInto => 'Bihurtu blokea';
+
+  @override
+  String get blockEditorCmdTurnIntoHint => 'Aukeratu bloke mota hautatzailean';
+
+  @override
+  String get blockEditorMarkTaskComplete => 'Markatu ataza osatuta';
+
+  @override
+  String get blockEditorCalloutIconPickerTitle => 'Callout ikonoa';
+
+  @override
+  String get blockEditorCalloutIconPickerHelper =>
+      'Aukeratu ikono bat callout blokearen tonu bisuala aldatzeko.';
+
+  @override
+  String get blockEditorIconPickerCustomEmoji => 'Emoji pertsonalizatua';
+
+  @override
+  String get blockEditorIconPickerQuickTab => 'Azkarrak';
+
+  @override
+  String get blockEditorIconPickerImportedTab => 'Inportatuak';
+
+  @override
+  String get blockEditorIconPickerAllTab => 'Denak';
+
+  @override
+  String get blockEditorIconPickerEmptyImported =>
+      'Oraindik ez duzu ikonorik inportatu Ezarpenetan.';
+
+  @override
+  String get blockTypeSectionBasicText => 'Oinarrizko testua';
+
+  @override
+  String get blockTypeSectionLists => 'Zerrendak';
+
+  @override
+  String get blockTypeSectionMedia => 'Multimedia eta datuak';
+
+  @override
+  String get blockTypeSectionAdvanced => 'Aurreratua eta diseinua';
+
+  @override
+  String get blockTypeSectionEmbeds => 'Integrazioak';
+
+  @override
+  String get blockTypeParagraphLabel => 'Testua';
+
+  @override
+  String get blockTypeParagraphHint => 'Paragrafoa';
+
+  @override
+  String get blockTypeChildPageLabel => 'Orrialdea';
+
+  @override
+  String get blockTypeChildPageHint => 'Lotutako azpiorrialdea';
+
+  @override
+  String get blockTypeH1Label => '1. izenburua';
+
+  @override
+  String get blockTypeH1Hint => 'Izenburu handia · #';
+
+  @override
+  String get blockTypeH2Label => '2. izenburua';
+
+  @override
+  String get blockTypeH2Hint => 'Azpiizenburua · ##';
+
+  @override
+  String get blockTypeH3Label => '3. izenburua';
+
+  @override
+  String get blockTypeH3Hint => 'Izenburu txikiagoa · ###';
+
+  @override
+  String get blockTypeQuoteLabel => 'Aipua';
+
+  @override
+  String get blockTypeQuoteHint => 'Aipatutako testua';
+
+  @override
+  String get blockTypeDividerLabel => 'Zatitzailea';
+
+  @override
+  String get blockTypeDividerHint => 'Bereizlea · ---';
+
+  @override
+  String get blockTypeCalloutLabel => 'Nabarmendutako blokea';
+
+  @override
+  String get blockTypeCalloutHint => 'Jakinarazpena ikonoarekin';
+
+  @override
+  String get blockTypeBulletLabel => 'Buletadun zerrenda';
+
+  @override
+  String get blockTypeBulletHint => 'Puntudun zerrenda';
+
+  @override
+  String get blockTypeNumberedLabel => 'Zenbakidun zerrenda';
+
+  @override
+  String get blockTypeNumberedHint => '1, 2, 3 zerrenda';
+
+  @override
+  String get blockTypeTodoLabel => 'Ataza-zerrenda';
+
+  @override
+  String get blockTypeTodoHint => 'Egiaztapen-zerrenda';
+
+  @override
+  String get blockTypeTaskLabel => 'Ataza aberastua';
+
+  @override
+  String get blockTypeTaskHint => 'Egoera / lehentasuna / data';
+
+  @override
+  String get blockTypeToggleLabel => 'Desplegablea';
+
+  @override
+  String get blockTypeToggleHint => 'Edukia erakutsi edo ezkutatu';
+
+  @override
+  String get blockTypeImageLabel => 'Irudia';
+
+  @override
+  String get blockTypeImageHint => 'Tokiko edo kanpoko irudia';
+
+  @override
+  String get blockTypeBookmarkLabel => 'Aurreikuspenarekin laster-marka';
+
+  @override
+  String get blockTypeBookmarkHint => 'Estekadun txartela';
+
+  @override
+  String get blockTypeVideoLabel => 'Bideoa';
+
+  @override
+  String get blockTypeVideoHint => 'Fitxategia edo URLa';
+
+  @override
+  String get blockTypeAudioLabel => 'Audioa';
+
+  @override
+  String get blockTypeAudioHint => 'Audio erreproduzigailua';
+
+  @override
+  String get blockTypeMeetingNoteLabel => 'Bilera-oharra';
+
+  @override
+  String get blockTypeMeetingNoteHint => 'Grabatu eta transkribatu bilera bat';
+
+  @override
+  String get blockTypeCodeLabel => 'Kodea (Java, Python…)';
+
+  @override
+  String get blockTypeCodeHint => 'Sintaxidun blokea';
+
+  @override
+  String get blockTypeFileLabel => 'Fitxategia / PDF';
+
+  @override
+  String get blockTypeFileHint => 'Eranskina edo PDF';
+
+  @override
+  String get blockTypeTableLabel => 'Taula';
+
+  @override
+  String get blockTypeTableHint => 'Errenkadak eta zutabeak';
+
+  @override
+  String get blockTypeDatabaseLabel => 'Datu-basea';
+
+  @override
+  String get blockTypeDatabaseHint => 'Zerrenda/taula/tableroko ikuspegia';
+
+  @override
+  String get blockTypeEquationLabel => 'Ekuazioa (LaTeX)';
+
+  @override
+  String get blockTypeEquationHint => 'Matematika-formulak';
+
+  @override
+  String get blockTypeMermaidLabel => 'Diagrama (Mermaid)';
+
+  @override
+  String get blockTypeMermaidHint => 'Fluxu-diagrama edo eskema';
+
+  @override
+  String get blockTypeTocLabel => 'Eduki-taula';
+
+  @override
+  String get blockTypeTocHint => 'Indize automatikoa';
+
+  @override
+  String get blockTypeBreadcrumbLabel => 'Nabigazio-bidea';
+
+  @override
+  String get blockTypeBreadcrumbHint => 'Nabigazio-bidearen ibilbidea';
+
+  @override
+  String get blockTypeTemplateButtonLabel => 'Txantiloi-botoia';
+
+  @override
+  String get blockTypeTemplateButtonHint =>
+      'Aurrez definitutako blokea txertatu';
+
+  @override
+  String get blockTypeColumnListLabel => 'Zutabeak';
+
+  @override
+  String get blockTypeColumnListHint => 'Zutabeen diseinua';
+
+  @override
+  String get blockTypeEmbedLabel => 'Web txertatua';
+
+  @override
+  String get blockTypeEmbedHint => 'YouTube, Figma, Docs…';
+
+  @override
+  String get integrationDialogTitleUpdatePermission =>
+      'Eguneratu integrazio-baimena';
+
+  @override
+  String get integrationDialogTitleAllowConnect =>
+      'Baimendu aplikazio honi konektatzea';
+
+  @override
+  String integrationDialogBodyUpdate(
+    Object previousVersion,
+    Object integrationVersion,
+  ) {
+    return 'Aplikazio hau dagoeneko onartuta zegoen $previousVersion integrazioarekin eta orain $integrationVersion bertsioarekin sarbidea eskatzen du.';
+  }
+
+  @override
+  String integrationDialogBodyNew(
+    Object appName,
+    Object appVersion,
+    Object integrationVersion,
+  ) {
+    return '«$appName» Folio-ren zubi lokalarekin erabili nahi du $appVersion aplikazio-bertsioarekin eta $integrationVersion integrazioarekin.';
+  }
+
+  @override
+  String get integrationChipLocalhostOnly => 'Localhost soilik';
+
+  @override
+  String get integrationChipRevocableApproval =>
+      'Bertan behera utz daitekeen onarpena';
+
+  @override
+  String get integrationChipNoSharedSecret => 'Partekatutako sekreturik gabe';
+
+  @override
+  String get integrationChipScopedByAppId => 'Baimena appId bidez';
+
+  @override
+  String get integrationMetaPreviouslyApprovedVersion =>
+      'Aurretik onartutako bertsioa';
+
+  @override
+  String get integrationSectionWhatAppCanDo =>
+      'Aplikazio honek egin ahal izango duena';
+
+  @override
+  String get integrationCapEphemeralSessionsTitle =>
+      'Ireki saio lokal laburrak';
+
+  @override
+  String get integrationCapEphemeralSessionsBody =>
+      'Saio aldi baterako bat has dezake Folio-ren zubi lokalarekin hitz egiteko gailu honetan.';
+
+  @override
+  String get integrationCapImportPagesTitle =>
+      'Inportatu eta eguneratu bere orrialdeak';
+
+  @override
+  String get integrationCapImportPagesBody =>
+      'Orrialdeak sor ditzake, zerrendatu eta eguneratu soilik aplikazio berak aurretik inportatu zituenak.';
+
+  @override
+  String get integrationCapCustomEmojisTitle =>
+      'Kudeatu bere emoji pertsonalizatuak';
+
+  @override
+  String get integrationCapCustomEmojisBody =>
+      'Bere emoji edo ikono inportatuen katalogoa soilik zerrendatu, sortu, ordezkatu eta ezabatu dezake.';
+
+  @override
+  String get integrationCapUnlockedVaultTitle =>
+      'Lan egin koadernoa desblokeatuta dagoenean soilik';
+
+  @override
+  String get integrationCapUnlockedVaultBody =>
+      'Eskaerak Folio irekita dagoenean, koadernoa erabilgarri dagoenean eta uneko saioa aktibo dagoenean soilik dabiltza.';
+
+  @override
+  String get integrationSectionWhatStaysBlocked =>
+      'Blokeatuta jarraituko duena';
+
+  @override
+  String get integrationBlockNoSeeAllTitle => 'Ezin du zure eduki guztia ikusi';
+
+  @override
+  String get integrationBlockNoSeeAllBody =>
+      'Ez du koadernorako sarbide orokorra. Bere appId bidez berak inportatu zuena soilik zerrendatu dezake.';
+
+  @override
+  String get integrationBlockNoBypassTitle =>
+      'Ezin du blokeoa edo zifratzea saihestu';
+
+  @override
+  String get integrationBlockNoBypassBody =>
+      'Koadernoa blokeatuta badago edo saiorik ez badago, Foliok eragiketa baztertuko du.';
+
+  @override
+  String get integrationBlockNoOtherAppsTitle =>
+      'Ezin du beste aplikazio batzuen datuak ukitu';
+
+  @override
+  String get integrationBlockNoOtherAppsBody =>
+      'Ezin ditu beste aplikazio onartuek inportatutako orrialdeak edo emojiak kudeatu.';
+
+  @override
+  String get integrationBlockNoRemoteTitle =>
+      'Ezin du zure makinatik kanpotik sartu';
+
+  @override
+  String get integrationBlockNoRemoteBody =>
+      'Zubia localhost-era mugatzen da eta onarpen hau geroago Ezarpenetatik bertan behera utzi daiteke.';
+
+  @override
+  String integrationSnackMarkdownImportDone(Object pageTitle) {
+    return 'Inportazioa osatu da: $pageTitle.';
+  }
+
+  @override
+  String integrationSnackJsonImportDone(Object pageTitle) {
+    return 'JSON inportazioa osatu da: $pageTitle.';
+  }
+
+  @override
+  String integrationSnackPageUpdateDone(Object pageTitle) {
+    return 'Integrazio-eguneratzea osatu da: $pageTitle.';
+  }
+
+  @override
+  String get markdownImportModeDialogTitle => 'Inportatu Markdown';
+
+  @override
+  String get markdownImportModeDialogBody =>
+      'Aukeratu nola aplikatu Markdown fitxategia.';
+
+  @override
+  String get markdownImportModeNewPage => 'Orrialde berria';
+
+  @override
+  String get markdownImportModeAppend => 'Gehitu unekoari';
+
+  @override
+  String get markdownImportModeReplace => 'Ordeztu unekoa';
+
+  @override
+  String get markdownImportCouldNotReadPath =>
+      'Ezin izan da fitxategiaren bidea irakurri.';
+
+  @override
+  String markdownImportedBlocks(Object pageTitle, int blockCount) {
+    return 'Markdown inportatua: $pageTitle ($blockCount bloke).';
+  }
+
+  @override
+  String markdownImportFailedWithError(Object error) {
+    return 'Ezin izan da Markdown inportatu: $error';
+  }
+
+  @override
+  String get exportMarkdownFileDialogTitle =>
+      'Esportatu orrialdea Markdown-era';
+
+  @override
+  String get markdownExportSuccess => 'Orrialdea Markdown-era esportatu da.';
+
+  @override
+  String markdownExportFailedWithError(Object error) {
+    return 'Ezin izan da orrialdea esportatu: $error';
+  }
+
+  @override
+  String get firebaseUnavailablePublish => 'Firebase ez dago erabilgarri.';
+
+  @override
+  String get signInCloudToPublishWeb =>
+      'Hasi saioa hodeiko kontuan (Ezarpenak) argitaratzeko.';
+
+  @override
+  String get planMissingWebPublish =>
+      'Zure planak ez du web-argitalpenik edo harpidetza ez dago aktibo.';
+
+  @override
+  String get publishWebDialogTitle => 'Argitaratu webean';
+
+  @override
+  String get publishWebSlugLabel => 'URLa (slug)';
+
+  @override
+  String get publishWebSlugHint => 'nire-oharra';
+
+  @override
+  String get publishWebSlugHelper =>
+      'Letrak, zenbakiak eta marratxoak. URL publikoan agertuko da.';
+
+  @override
+  String get publishWebAction => 'Argitaratu';
+
+  @override
+  String get publishWebEmptySlug => 'Slug hutsa.';
+
+  @override
+  String publishWebSuccessWithUrl(Object url) {
+    return 'Argitaratuta: $url';
+  }
+
+  @override
+  String publishWebFailedWithError(Object error) {
+    return 'Ezin izan da argitaratu: $error';
+  }
+
+  @override
+  String get publishWebMenuLabel => 'Argitaratu webean';
+
+  @override
+  String get mobileFabDone => 'Eginda';
+
+  @override
+  String get mobileFabEdit => 'Editatu';
+
+  @override
+  String get mobileFabAddBlock => 'Blokea';
+
+  @override
+  String get mermaidPreviewDialogTitle => 'Diagrama';
+
+  @override
+  String get mermaidDiagramSemanticsLabel =>
+      'Mermaid diagrama, sakatu handitzeko';
+
+  @override
+  String get databaseSortAz => 'Ordenatu A-Z';
+
+  @override
+  String get databaseSortLabel => 'Ordenatu';
+
+  @override
+  String get databaseFilterAnd => 'ETA';
+
+  @override
+  String get databaseFilterOr => 'EDO';
+
+  @override
+  String get databaseSortDescending => 'Behera';
+
+  @override
+  String get databaseNewPropertyDialogTitle => 'Propietate berria';
+
+  @override
+  String databaseConfigurePropertyTitle(Object name) {
+    return 'Konfiguratu: $name';
+  }
+
+  @override
+  String get databaseLocalCurrentBadge => 'DB lokal aktiboa';
+
+  @override
+  String databaseRelateRowsTitle(Object name) {
+    return 'Erlazionatu errenkadak ($name)';
+  }
+
+  @override
+  String get databaseBoardNeedsGroupProperty =>
+      'Konfiguratu talde-propietate bat taulerorako.';
+
+  @override
+  String get databaseGroupPropertyMissing => 'Talde-propietatea jada ez dago.';
+
+  @override
+  String get databaseCalendarNeedsDateProperty =>
+      'Konfiguratu data-propietate bat egutegirako.';
+
+  @override
+  String get databaseNoDatedEvents => 'Ez dago data duten gertaerarik.';
+
+  @override
+  String get databaseConfigurePropertyTooltip => 'Konfiguratu propietatea';
+
+  @override
+  String get databaseFormulaHintExample =>
+      'if(contains(Izena,\"x\"), add(1,2), 0)';
+
+  @override
+  String get createAction => 'Sortu';
+
+  @override
+  String get confirmAction => 'Berretsi';
+
+  @override
+  String get confirmRemoteEndpointTitle => 'Berretsi urruneko amaiera-puntua';
+
+  @override
+  String get shortcutGlobalSearchKeyChord => 'Ktrl + Maius + F';
+
+  @override
+  String get updateChannelRelease => 'Release';
+
+  @override
+  String get updateChannelBeta => 'Beta';
+
+  @override
+  String get blockActionChooseAudio => 'Aukeratu audioa…';
+
+  @override
+  String get blockActionCreateSubpage => 'Sortu azpi-orrialdea';
+
+  @override
+  String get blockActionLinkPage => 'Estekatu orrialdea…';
+
+  @override
+  String get defaultNewPageTitle => 'Orrialde berria';
+
+  @override
+  String defaultPageDuplicateTitle(Object title) {
+    return '$title (kopia)';
+  }
+
+  @override
+  String aiChatTitleNumbered(int n) {
+    return 'Txat $n';
+  }
+
+  @override
+  String get invalidFolioTemplateFile =>
+      'Fitxategia ez da Folio txantiloi balioduna.';
+
+  @override
+  String get templateButtonDefaultLabel => 'Txantiloia';
+
+  @override
+  String get pageHtmlExportPublishedWithFolio => 'Foliorekin argitaratua';
+
+  @override
+  String get releaseReadinessSemverOk => 'SemVer bertsio balioduna';
+
+  @override
+  String get releaseReadinessEncryptedVault => 'Zifratutako koadernoa';
+
+  @override
+  String get releaseReadinessAiRemotePolicy =>
+      'AA amaiera-puntuaren gidalerroa';
+
+  @override
+  String get releaseReadinessVaultUnlocked => 'Koadernoa desblokeatuta';
+
+  @override
+  String get releaseReadinessStableChannel => 'Kanal egonkorra hautatuta';
+
+  @override
+  String get aiPromptUserMessage => 'Erabiltzailearen mezua:';
+
+  @override
+  String get aiPromptOriginalMessage => 'Jatorrizko mezua:';
+
+  @override
+  String get aiPromptOriginalUserMessage =>
+      'Erabiltzailearen jatorrizko mezua:';
+
+  @override
+  String get customIconImportEmptySource => 'Ikonaren iturburua hutsik dago.';
+
+  @override
+  String get customIconImportInvalidUrl => 'Ikonaren URLa ez da balioduna.';
+
+  @override
+  String get customIconImportInvalidSvg => 'Kopiatutako SVGa ez da balioduna.';
+
+  @override
+  String get customIconImportHttpHttpsOnly =>
+      'Http edo https URLak soilik onartzen dira.';
+
+  @override
+  String get customIconImportDataUriMimeList =>
+      'data:image/svg+xml, data:image/gif, data:image/webp edo data:image/png soilik onartzen dira.';
+
+  @override
+  String get customIconImportUnsupportedFormat =>
+      'Formatu bateraezina. Erabili SVG, PNG, GIF edo WebP.';
+
+  @override
+  String get customIconImportSvgTooLarge => 'SVGa handiegia da inportatzeko.';
+
+  @override
+  String get customIconImportEmbeddedImageTooLarge =>
+      'Txertatutako irudia handiegia da inportatzeko.';
+
+  @override
+  String customIconImportDownloadFailed(Object code) {
+    return 'Ezin izan da ikonoa deskargatu ($code).';
+  }
+
+  @override
+  String get customIconImportRemoteTooLarge => 'Urruneko ikonoa handiegia da.';
+
+  @override
+  String get customIconImportConnectFailed =>
+      'Ezin izan da konektatu ikonoa deskargatzeko.';
+
+  @override
+  String get customIconImportCertFailed =>
+      'Ziurtagiria huts egin du ikonoa deskargatzean.';
+
+  @override
+  String get customIconLabelDefault => 'Ikonoa pertsonalizatua';
+
+  @override
+  String get customIconLabelImported => 'Inportatutako ikonoa';
+
+  @override
+  String get customIconImportSucceeded => 'Ikono ongi inportatu da.';
+
+  @override
+  String get customIconClipboardEmpty => 'Arbela hutsik dago.';
+
+  @override
+  String get customIconRemoved => 'Ikono kendu da.';
+
+  @override
+  String get whisperModelTiny => 'Tiny (azkarra)';
+
+  @override
+  String get whisperModelBaseQ8 => 'Base q8 (orekatua)';
+
+  @override
+  String get whisperModelSmallQ8 =>
+      'Small q8 (zehaztasun handia, disko gutxiago)';
+
+  @override
+  String get whisperModelMediumQ8 => 'Medium q8';
+
+  @override
+  String get whisperModelLargeV3TurboQ8 => 'Large v3 Turbo q8';
+
+  @override
+  String get codeLangDart => 'Dart';
+
+  @override
+  String get codeLangTypeScript => 'TypeScript';
+
+  @override
+  String get codeLangJavaScript => 'JavaScript';
+
+  @override
+  String get codeLangPython => 'Python';
+
+  @override
+  String get codeLangJson => 'JSON';
+
+  @override
+  String get codeLangYaml => 'YAML';
+
+  @override
+  String get codeLangMarkdown => 'Markdown';
+
+  @override
+  String get codeLangDiff => 'Diff';
+
+  @override
+  String get codeLangSql => 'SQL';
+
+  @override
+  String get codeLangBash => 'Bash';
+
+  @override
+  String get codeLangCpp => 'C / C++';
+
+  @override
+  String get codeLangJava => 'Java';
+
+  @override
+  String get codeLangKotlin => 'Kotlin';
+
+  @override
+  String get codeLangRust => 'Rust';
+
+  @override
+  String get codeLangGo => 'Go';
+
+  @override
+  String get codeLangHtmlXml => 'HTML / XML';
+
+  @override
+  String get codeLangCss => 'CSS';
+
+  @override
+  String get codeLangPlainText => 'Testu laua';
+
+  @override
+  String settingsAppRevoked(Object appId) {
+    return 'Aplikazioa ezeztatuta: $appId';
+  }
+
+  @override
+  String get settingsDeviceRevokedSnack => 'Gailua ezeztatuta.';
+
+  @override
+  String get settingsAiConnectionOk => 'AA konexioa OK';
+
+  @override
+  String settingsAiConnectionError(Object error) {
+    return 'Konexio-errorea: $error';
+  }
+
+  @override
+  String settingsAiListModelsFailed(Object error) {
+    return 'Ezin izan dira modeloak zerrendatu: $error';
+  }
+
+  @override
+  String get folioCloudCallableNotSignedIn =>
+      'Cloud Functions deitzeko saioa hasi behar duzu';
+
+  @override
+  String get folioCloudCallableUnexpectedResponse =>
+      'Cloud Functions-en erantzun ustekabekoa';
+
+  @override
+  String folioCloudCallableHttpError(int code, Object name) {
+    return 'HTTP $code $name deitzerakoan';
+  }
+
+  @override
+  String get folioCloudCallableNoIdToken =>
+      'Ez dago ID tokenik Cloud Functions-erako. Hasi saioa berriro Folio Cloud-en.';
+
+  @override
+  String get folioCloudCallableUnexpectedFallback =>
+      'Cloud Functions babesleko erantzun ustekabekoa';
+
+  @override
+  String folioCloudCallableHttpAiComplete(int code) {
+    return 'HTTP $code folioCloudAiCompleteHttp deitzerakoan';
+  }
+
+  @override
+  String get cloudAccountEmailMismatch =>
+      'Posta elektronikoa ez dator bat uneko saioarekin.';
+
+  @override
+  String get cloudIdentityInvalidAuthResponse =>
+      'Autentifikazio-erantzun baliogabea.';
+
+  @override
+  String get templateButtonPlaceholderText => 'Txantiloiaren testua…';
+
+  @override
+  String get aiProviderOllamaName => 'Ollama';
+
+  @override
+  String get aiProviderLmStudioName => 'LM Studio';
+
+  @override
+  String get blockAudioEmptyHint => 'Aukeratu audio-fitxategi bat';
+
+  @override
+  String get blockChildPageTitle => 'Orrialde-blokea';
+
+  @override
+  String get blockChildPageNoLink => 'Ez dago azpi-orrialderik estekatuta.';
+
+  @override
+  String get mermaidExpandedLoadError =>
+      'Ezin izan da diagrama handitua erakutsi.';
+
+  @override
+  String get mermaidPreviewTooltip =>
+      'Sakatu handitzeko eta zoom egiteko. PNG mermaid.ink bidez (kanpoko zerbitzua).';
+
+  @override
+  String get aiEndpointInvalidUrl =>
+      'URL baliogabea. Erabili http://host:portua.';
+
+  @override
+  String get aiEndpointRemoteNotAllowed =>
+      'Urruneko amaiera-puntua ez dago onartuta berrespenik gabe.';
+
+  @override
+  String get settingsAiSelectProviderFirst =>
+      'Hautatu AA hornitzaile bat lehenik.';
+
+  @override
+  String get releaseReadinessAiSummaryDisabled => 'AA desgaituta';
+
+  @override
+  String get releaseReadinessAiSummaryQuillCloud =>
+      'Folio Cloud AA (amaiera-puntu lokalik gabe)';
+
+  @override
+  String releaseReadinessAiSummaryEndpointOk(Object url) {
+    return 'Amaiera-puntu balioduna: $url';
+  }
+
+  @override
+  String get releaseReadinessDetailSemverInvalid =>
+      'Instalatutako bertsioak ez ditu SemVer betetzen.';
+
+  @override
+  String get releaseReadinessDetailVaultNotEncrypted =>
+      'Uneko koadernoa ez dago zifratuta.';
+
+  @override
+  String get releaseReadinessDetailVaultLocked =>
+      'Desblokeatu koadernoa esportazio/inportazioa eta fluxu erreala balioztatzeko.';
+
+  @override
+  String get releaseReadinessDetailBetaChannel =>
+      'Eguneratzeen beta kanala aktibo dago.';
+
+  @override
+  String get releaseReadinessReportTitle => 'Folio: argitaratzeko prestasuna';
+
+  @override
+  String releaseReadinessReportInstalledVersion(Object label) {
+    return 'Instalatutako bertsioa: $label';
+  }
+
+  @override
+  String releaseReadinessReportSemver(Object value) {
+    return 'SemVer balioduna: $value';
+  }
+
+  @override
+  String releaseReadinessReportChannel(Object value) {
+    return 'Eguneratze kanala: $value';
+  }
+
+  @override
+  String releaseReadinessReportActiveVault(Object id) {
+    return 'Koaderno aktiboa: $id';
+  }
+
+  @override
+  String releaseReadinessReportVaultPath(Object path) {
+    return 'Koadernoaren bidea: $path';
+  }
+
+  @override
+  String releaseReadinessReportUnlocked(Object value) {
+    return 'Koadernoa desblokeatuta: $value';
+  }
+
+  @override
+  String releaseReadinessReportEncrypted(Object value) {
+    return 'Koadernoa zifratuta: $value';
+  }
+
+  @override
+  String releaseReadinessReportAiEnabled(Object value) {
+    return 'AA gaituta: $value';
+  }
+
+  @override
+  String releaseReadinessReportAiPolicy(Object value) {
+    return 'AA amaiera-puntuaren gidalerroa: $value';
+  }
+
+  @override
+  String releaseReadinessReportAiDetail(Object detail) {
+    return 'AA xehetasuna: $detail';
+  }
+
+  @override
+  String releaseReadinessReportStatus(Object value) {
+    return 'Argitaratze egoera: $value';
+  }
+
+  @override
+  String releaseReadinessReportBlockers(int count) {
+    return 'Zain blokeatzaileak: $count';
+  }
+
+  @override
+  String releaseReadinessReportWarnings(int count) {
+    return 'Zain abisuak: $count';
+  }
+
+  @override
+  String get releaseReadinessExportWordYes => 'bai';
+
+  @override
+  String get releaseReadinessExportWordNo => 'ez';
+
+  @override
+  String get releaseReadinessChannelStable => 'egonkorra';
+
+  @override
+  String get releaseReadinessChannelBeta => 'beta';
+
+  @override
+  String get releaseReadinessStatusReady => 'prest';
+
+  @override
+  String get releaseReadinessStatusBlocked => 'blokeatuta';
+
+  @override
+  String get releaseReadinessPolicyOk => 'ondo';
+
+  @override
+  String get releaseReadinessPolicyError => 'errorea';
+
+  @override
+  String get settingsSignInFolioCloudSnack => 'Hasi saioa Folio Cloud-en.';
+
+  @override
+  String get settingsNotSyncedYet => 'Oraindik sinkronizatu gabe';
+
+  @override
+  String get settingsDeviceNameTitle => 'Gailuaren izena';
+
+  @override
+  String get settingsDeviceNameHintExample => 'Adibidea: Alejandraren Pixel';
+
+  @override
+  String get settingsPairingModeEnabledTwoMin =>
+      'Lotura modua 2 minutuz aktibatuta.';
+
+  @override
+  String get settingsPairingEnableModeFirst =>
+      'Lehenik aktibatu lotura modua eta hautatu detektatutako gailu bat.';
+
+  @override
+  String get settingsPairingSameEmojisBothDevices =>
+      'Aktibatu lotura modua bi gailuetan eta itxaron emoji berdinak 3 agertu arte.';
+
+  @override
+  String get settingsPairingCouldNotStart =>
+      'Ezin izan da lotura hasi. Aktibatu modua bi gailuetan eta itxaron emoji berdinak 3 agertu arte.';
+
+  @override
+  String get settingsConfirmPairingTitle => 'Berretsi lotura';
+
+  @override
+  String get settingsPairingCheckOtherDeviceEmojis =>
+      'Egiaztatu bestean emoji berdin hauek 3 agertzen direla:';
+
+  @override
+  String get settingsPairingPopupInstructions =>
+      'Popup hau bestean ere agertuko da. Lotura osatzeko, sakatu Lotu hemen eta gero Lotu bestean.';
+
+  @override
+  String get settingsLinkDevice => 'Lotu';
+
+  @override
+  String get settingsPairingConfirmationSent =>
+      'Berrespena bidalita. Besteak bere popup-ean Lotu sakatu behar du.';
+
+  @override
+  String get settingsResolveConflictsTitle => 'Ebatzi gatazkak';
+
+  @override
+  String get settingsNoPendingConflicts => 'Ez dago gatazkarik zain.';
+
+  @override
+  String settingsSyncConflictCardSubtitle(
+    Object fromPeerId,
+    int remotePageCount,
+    Object detectedAt,
+  ) {
+    return 'Jatorria: $fromPeerId\nUrruneko orriak: $remotePageCount\nDetektatuta: $detectedAt';
+  }
+
+  @override
+  String get settingsSyncConflictHeading => 'Sinkronizazio gatazka';
+
+  @override
+  String get settingsLocalVersionKeptSnack => 'Bertsio lokala mantendu da.';
+
+  @override
+  String get settingsKeepLocal => 'Mantendu lokala';
+
+  @override
+  String get settingsRemoteVersionAppliedSnack =>
+      'Urruneko bertsioa aplikatu da.';
+
+  @override
+  String get settingsCouldNotApplyRemoteSnack =>
+      'Ezin izan da urruneko bertsioa aplikatu.';
+
+  @override
+  String get settingsAcceptRemote => 'Onartu urrunekoa';
+
+  @override
+  String get settingsClose => 'Itxi';
+
+  @override
+  String get settingsSectionDeviceSyncNav => 'Sinkronizazioa';
+
+  @override
+  String get settingsSyncHeroTitle => 'Gailuen arteko sinkronizazioa';
+
+  @override
+  String get settingsSyncHeroDescription =>
+      'Parekatu ekipoak sare lokalean; relay-ak konexioa negoziatzen laguntzen du soilik eta ez du vault edukia bidaltzen.';
+
+  @override
+  String get settingsSyncChipPairingCode => 'Lotura kodea';
+
+  @override
+  String get settingsSyncChipAutoDiscovery => 'Detekzio automatikoa';
+
+  @override
+  String get settingsSyncChipOptionalRelay => 'Relay aukerakoa';
+
+  @override
+  String get settingsSyncEnableTitle => 'Gaitu gailuen arteko sinkronizazioa';
+
+  @override
+  String get settingsSyncSearchingSubtitle =>
+      'Folio irekita duten gailuak bilatzen sare lokalean...';
+
+  @override
+  String settingsSyncDevicesFoundOnLan(int count) {
+    return '$count gailu detektatu LANean.';
+  }
+
+  @override
+  String get settingsSyncDisabledSubtitle => 'Sinkronizazioa desgaituta dago.';
+
+  @override
+  String get settingsSyncRelayTitle => 'Erabili seinaleztapen relay-a';
+
+  @override
+  String get settingsSyncRelaySubtitle =>
+      'Ez du vault edukia bidaltzen; LAN-ak huts egiten duenean konexioa negoziatzen laguntzen du.';
+
+  @override
+  String get settingsEdit => 'Editatu';
+
+  @override
+  String get settingsSyncEmojiModeTitle => 'Gaitu emoji lotura modua';
+
+  @override
+  String get settingsSyncEmojiModeSubtitle =>
+      'Gaitu bi gailuetan koderik idatzi gabe lotura hasteko.';
+
+  @override
+  String get settingsSyncPairingStatusTitle => 'Lotura moduaren egoera';
+
+  @override
+  String get settingsSyncPairingActiveSubtitle =>
+      '2 minutuz aktibo. Detektatutako gailu batetik lotura hasi dezakezu.';
+
+  @override
+  String get settingsSyncPairingInactiveSubtitle =>
+      'Inaktibo. Gaitu hemen eta bestean lotura hasteko.';
+
+  @override
+  String get settingsSyncLastSyncTitle => 'Azken sinkronizazioa';
+
+  @override
+  String get settingsSyncPendingConflictsTitle => 'Zain dauden gatazkak';
+
+  @override
+  String get settingsSyncNoConflictsSubtitle => 'Ez dago gatazkarik zain.';
+
+  @override
+  String settingsSyncConflictsNeedReview(int count) {
+    return '$count gatazkak eskuzko berrikuspena behar dute.';
+  }
+
+  @override
+  String get settingsResolve => 'Ebatzi';
+
+  @override
+  String get settingsSyncDiscoveredDevicesTitle => 'Detektatutako gailuak';
+
+  @override
+  String get settingsSyncNoDevicesYetHint =>
+      'Oraindik ez da gailurik detektatu. Bi aplikazioak sare berean irekita daudela ziurtatu.';
+
+  @override
+  String get settingsSyncPeerReadyToLink => 'Lotzeko prest.';
+
+  @override
+  String get settingsSyncPeerOtherInPairingMode =>
+      'Bestea lotura moduan dago. Gaitu hemen lotura hasteko.';
+
+  @override
+  String get settingsSyncPeerDetectedLan => 'Sare lokalean detektatuta.';
+
+  @override
+  String get settingsSyncLinkedDevicesTitle => 'Lotutako gailuak';
+
+  @override
+  String get settingsSyncNoLinkedDevicesYet =>
+      'Oraindik ez dago gailurik lotuta.';
+
+  @override
+  String settingsSyncPeerIdLabel(Object peerId) {
+    return 'ID: $peerId';
+  }
+
+  @override
+  String get settingsRevoke => 'Indargabetu';
+
+  @override
+  String get sidebarPageIconTitle => 'Orriaren ikonoa';
+
+  @override
+  String get sidebarPageIconPickerHelper =>
+      'Aukeratu ikono azkar bat, inportatutako bat edo ireki hautatzaile osoa.';
+
+  @override
+  String get sidebarPageIconCustomEmoji => 'Emoji pertsonalizatua';
+
+  @override
+  String get sidebarPageIconRemove => 'Kendu';
+
+  @override
+  String get sidebarPageIconTabQuick => 'Azkarrak';
+
+  @override
+  String get sidebarPageIconTabImported => 'Inportatuak';
+
+  @override
+  String get sidebarPageIconTabAll => 'Denak';
+
+  @override
+  String get sidebarPageIconEmptyImported =>
+      'Oraindik ez duzu ikonorik inportatu Ezarpenetan.';
+
+  @override
+  String get settingsStripeSubscriptionRefreshed =>
+      'Harpidetzaren egoera eguneratu da.';
+
+  @override
+  String get settingsStripeBillingPortalUnavailable =>
+      'Fakturazio-portala ez dago erabilgarri.';
+
+  @override
+  String get settingsCouldNotOpenLink => 'Ezin izan da esteka ireki.';
+
+  @override
+  String get settingsStripeCheckoutUnavailable =>
+      'Ordainketa ez dago erabilgarri (konfiguratu Stripe zerbitzarian).';
+
+  @override
+  String get settingsCloudBackupEnablePlanSnack =>
+      'Gaitu Folio Cloud hodeiko babeskopiaren eginbidearekin, zure planean sartuta.';
+
+  @override
+  String get settingsNoActiveVault => 'Ez dago libreta aktiborik.';
+
+  @override
+  String get settingsCloudBackupsNeedPlan =>
+      'Folio Cloud aktiboa behar duzu hodeiko babeskopiarekin.';
+
+  @override
+  String settingsCloudBackupsDialogTitle(int count) {
+    return 'Hodeiko babeskopiak ($count/10)';
+  }
+
+  @override
+  String get settingsCloudBackupsEmpty =>
+      'Oraindik ez dago babeskopiarik kontu honetan.';
+
+  @override
+  String get settingsCloudBackupDownloadTooltip => 'Deskargatu';
+
+  @override
+  String get settingsCloudBackupSaveDialogTitle => 'Gorde babeskopia';
+
+  @override
+  String get settingsCloudBackupDownloadedSnack => 'Babeskopia deskargatu da.';
+
+  @override
+  String get settingsPublishedRequiresPlan =>
+      'Folio Cloud behar duzu web-argitalpen aktiborekin.';
+
+  @override
+  String get settingsPublishedPagesTitle => 'Argitaratutako orriak';
+
+  @override
+  String get settingsPublishedPagesEmpty =>
+      'Oraindik ez dago orri argitaraturik.';
+
+  @override
+  String get settingsPublishedDeleteDialogTitle => 'Argitalpena ezabatu?';
+
+  @override
+  String get settingsPublishedDeleteDialogBody =>
+      'HTML publikoa ezabatuko da eta estekak funtzionatzeari utziko dio.';
+
+  @override
+  String get settingsPublishedRemovedSnack => 'Argitalpena ezabatu da.';
+
+  @override
+  String get settingsCouldNotReadInstalledVersion =>
+      'Ezin izan da instalatutako bertsioa irakurri.';
+
+  @override
+  String settingsCouldNotOpenReleaseNotes(Object error) {
+    return 'Ezin izan dira bertsio-oharrak ireki: $error';
+  }
+
+  @override
+  String settingsUpdateFailed(Object error) {
+    return 'Ezin izan da eguneratu: $error';
+  }
+
+  @override
+  String get settingsSessionEndedSnack => 'Saioa itxita';
+
+  @override
+  String get settingsLabelYes => 'Bai';
+
+  @override
+  String get settingsLabelNo => 'Ez';
+
+  @override
+  String get settingsSecurityEncryptedHeroDescription =>
+      'Desblokeo azkarra, passkey, blokeo automatikoa eta giltzarako pasahitza zifratutako biltegian.';
+
+  @override
+  String get settingsUnencryptedVaultTitle => 'Zifratu gabeko biltegia';
+
+  @override
+  String get settingsUnencryptedVaultChipDataOnDisk => 'Datuak diskoan';
+
+  @override
+  String get settingsUnencryptedVaultChipEncryptionAvailable =>
+      'Zifratzea erabilgarri';
+
+  @override
+  String get settingsAppearanceChipTheme => 'Gaia';
+
+  @override
+  String get settingsAppearanceChipZoom => 'Zoom';
+
+  @override
+  String get settingsAppearanceChipLanguage => 'Hizkuntza';
+
+  @override
+  String get settingsAppearanceChipEditorWorkspace => 'Editorea eta lan-eremua';
+
+  @override
+  String get settingsWindowsScaleFollowTitle => 'Jarraitu Windows-eko eskala';
+
+  @override
+  String get settingsWindowsScaleFollowSubtitle =>
+      'Erabili automatikoki sistemaren eskala Windows-en.';
+
+  @override
+  String get settingsInterfaceZoomTitle => 'Interfazearen zooma';
+
+  @override
+  String get settingsInterfaceZoomSubtitle =>
+      'Handitu edo txikitu aplikazioaren tamaina orokorra.';
+
+  @override
+  String get settingsUiZoomReset => 'Berrezarri';
+
+  @override
+  String get settingsEditorSubsection => 'Editorea';
+
+  @override
+  String get settingsEditorContentWidthTitle => 'Edukiaren zabalera';
+
+  @override
+  String get settingsEditorContentWidthSubtitle =>
+      'Zehaztu blokeek editorean zenbat zabalera hartzen duten.';
+
+  @override
+  String get settingsEnterCreatesNewBlockTitle =>
+      'Sartu bloke berria sortzen du';
+
+  @override
+  String get settingsEnterCreatesNewBlockSubtitleWhenEnabled =>
+      'Desgaitu Enter lerro-jauzia txertatzeko.';
+
+  @override
+  String get settingsEnterCreatesNewBlockSubtitleWhenDisabled =>
+      'Orain Enter-k lerro-jauzia txertatzen du. Maius+Enter-k ere funtzionatzen du.';
+
+  @override
+  String get settingsWorkspaceSubsection => 'Lan-eremua';
+
+  @override
+  String get settingsCustomIconsTitle => 'Ikon pertsonalizatuak';
+
+  @override
+  String get settingsCustomIconsDescription =>
+      'Inportatu PNG, GIF edo WebP URL bat, edo notionicons.so bezalako guneetatik kopiatutako data:image bateragarri bat. Ondoren orri edo callout ikono gisa erabil dezakezu.';
+
+  @override
+  String settingsCustomIconsSavedCount(int count) {
+    return '$count gordeta';
+  }
+
+  @override
+  String get settingsCustomIconsChipUrl => 'PNG, GIF edo WebP URL';
+
+  @override
+  String get settingsCustomIconsChipDataImage => 'data:image/*';
+
+  @override
+  String get settingsCustomIconsChipPaste => 'Itsatsi arbelatik';
+
+  @override
+  String get settingsCustomIconsImportTitle => 'Inportatu ikono berria';
+
+  @override
+  String get settingsCustomIconsImportSubtitle =>
+      'Izena eman eta iturburua eskuz itsatsi dezakezu edo zuzenean arbelatik ekarri.';
+
+  @override
+  String get settingsCustomIconsFieldNameLabel => 'Izena';
+
+  @override
+  String get settingsCustomIconsFieldNameHint => 'Aukerakoa';
+
+  @override
+  String get settingsCustomIconsFieldSourceLabel => 'URL edo data:image';
+
+  @override
+  String get settingsCustomIconsFieldSourceHint =>
+      'https://…gif | …webp | …png edo data:image/…';
+
+  @override
+  String get settingsCustomIconsImportButton => 'Inportatu ikonoa';
+
+  @override
+  String get settingsCustomIconsFromClipboard => 'Arbelatik';
+
+  @override
+  String get settingsCustomIconsLibraryTitle => 'Liburutegia';
+
+  @override
+  String get settingsCustomIconsLibrarySubtitle =>
+      'Aplikazio osoan erabiltzeko prest';
+
+  @override
+  String get settingsCustomIconsEmpty => 'Oraindik ez duzu ikonorik inportatu.';
+
+  @override
+  String get settingsCustomIconsDeleteTooltip => 'Ezabatu ikonoa';
+
+  @override
+  String get settingsCustomIconsReferenceCopiedSnack =>
+      'Erreferentzia kopiatu da.';
+
+  @override
+  String get settingsCustomIconsCopyToken => 'Kopiatu tokena';
+
+  @override
+  String get settingsAiHeroQuillWithLocalAlt =>
+      'AA Quill Cloud-en exekutatzen da (hodeiko AA harpidetza edo erositako tinta). Aukeratu beste hornitzaile bat behean Ollama edo LM Studio lokalarentzat.';
+
+  @override
+  String get settingsAiHeroQuillCloudOnly =>
+      'AA Quill Cloud-en exekutatzen da (hodeiko AA harpidetza edo erositako tinta).';
+
+  @override
+  String get settingsAiHeroLocalDefault =>
+      'Konektatu Ollama edo LM Studio lokalean; laguntzaileak hemen konfiguratzen duzun eredil eta testuingurua erabiltzen ditu.';
+
+  @override
+  String get settingsAiHeroQuillMobileOnly =>
+      'Gailu honetan Quill-ek Quill Cloud soilik erabil dezake. Aukeratu Quill Cloud AA gaitzeko.';
+
+  @override
+  String get settingsAiChipCloud => 'Hodeian';
+
+  @override
+  String get settingsAiSnackFirebaseUnavailableBuild =>
+      'Firebase ez dago erabilgarri konpilazio honetan.';
+
+  @override
+  String get settingsAiSnackSignInCloudAccount =>
+      'Hasi saioa hodeiko kontuan (Ezarpenak).';
+
+  @override
+  String settingsAiProviderSwitchFailed(Object error) {
+    return 'Ezin izan da AA hornitzailea aldatu: $error';
+  }
+
+  @override
+  String get settingsAboutHeroDescription =>
+      'Instalatutako bertsioa, eguneratzeen jatorria eta berritasunen eskuzko egiaztapena.';
+
+  @override
+  String get settingsOpenReleaseNotes => 'Ikusi bertsio-oharrak';
+
+  @override
+  String get settingsUpdateChannelLabel => 'Kanala';
+
+  @override
+  String get settingsUpdateChannelRelease => 'Release';
+
+  @override
+  String get settingsUpdateChannelBeta => 'Beta';
+
+  @override
+  String get settingsDataHeroDescription =>
+      'Fitxategi lokalen gaineko ekintza iraunkorrak. Ezabatu aurretik egin babeskopia bat.';
+
+  @override
+  String get settingsDangerZoneTitle => 'Arrisku-eremua';
+
+  @override
+  String get settingsDesktopHeroDescription =>
+      'Lasterbide orokorrak, erretilua eta leihoaren portaera mahaigainean.';
+
+  @override
+  String get settingsShortcutsHeroDescription =>
+      'Folio barruko konbinazioak soilik. Probatu tekla bat gorde aurretik.';
+
+  @override
+  String get settingsShortcutsTestChip => 'Probatu';
+
+  @override
+  String get settingsIntegrationsChipApprovedPermissions =>
+      'Onartutako baimenak';
+
+  @override
+  String get settingsIntegrationsChipRevocableAccess =>
+      'Ezeztatu daitekeen sarbidea';
+
+  @override
+  String get settingsIntegrationsChipExternalApps => 'Kanpoko aplikazioak';
+
+  @override
+  String get settingsIntegrationsActiveConnectionsTitle => 'Konexio aktiboak';
+
+  @override
+  String get settingsIntegrationsActiveConnectionsSubtitle =>
+      'Folio-rekin elkarreragin dezaketen aplikazioak';
+
+  @override
+  String get settingsViewInkUsageTable => 'Ikusi kontsumo-taula';
+
+  @override
+  String get settingsCloudInkUsageTableTitle => 'Tinta-kontsumo taula (OpenAI)';
+
+  @override
+  String get settingsCloudInkUsageTableIntro =>
+      'Ekintzako oinarrizko kostua. Prompt luze eta irteerako tokenengatik gehigarriak aplika daitezke.';
+
+  @override
+  String get settingsCloudInkDrops => 'tanta';
+
+  @override
+  String get settingsCloudInkTableCachedNotice =>
+      'Cache lokaleko taula erakusten (backend-erako konexiorik gabe).';
+
+  @override
+  String get settingsCloudInkOpRewriteBlock => 'Biridatzi blokea';
+
+  @override
+  String get settingsCloudInkOpSummarizeSelection => 'Laburbildu hautapena';
+
+  @override
+  String get settingsCloudInkOpExtractTasks => 'Atera zereginak';
+
+  @override
+  String get settingsCloudInkOpSummarizePage => 'Laburbildu orria';
+
+  @override
+  String get settingsCloudInkOpGenerateInsert => 'Sortu txertaketa';
+
+  @override
+  String get settingsCloudInkOpGeneratePage => 'Sortu orria';
+
+  @override
+  String get settingsCloudInkOpChatTurn => 'Txat-txanda';
+
+  @override
+  String get settingsCloudInkOpAgentMain => 'Agentearen exekuzio nagusia';
+
+  @override
+  String get settingsCloudInkOpAgentFollowup => 'Agentearen jarraipena';
+
+  @override
+  String get settingsCloudInkOpEditPagePanel => 'Orriaren edizioa (panela)';
+
+  @override
+  String get settingsCloudInkOpDefault => 'Lehenetsitako eragiketa';
+
+  @override
+  String get settingsDesktopRailSubtitle =>
+      'Aukeratu kategoria bat zerrendatik edo egin gora-behera edukian.';
+
+  @override
+  String get settingsCloudInkViewTableButton => 'Ikusi taula';
+
+  @override
+  String get settingsCloudInkHostedAiOpenAiHint =>
+      'OpenAI-rekin hodeiko AArentzako erreferentzia-prezioak.';
 }
