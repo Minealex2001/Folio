@@ -4,8 +4,6 @@ $ErrorActionPreference = "Stop"
 Write-Host "🚀 Iniciando proceso de compilación de Folio..." -ForegroundColor Cyan
 
 # 1. Limpieza y preparación
-Write-Host "`n🧹 Limpiando proyecto..." -ForegroundColor Yellow
-flutter clean
 Write-Host "📦 Obteniendo dependencias..." -ForegroundColor Yellow
 flutter pub get
 
