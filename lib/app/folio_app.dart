@@ -657,7 +657,7 @@ class _FolioAppState extends State<FolioApp> with WidgetsBindingObserver {
   }
 
   Future<void> _handleLockRequested() async {
-    widget.session.lock();
+    await widget.session.lock();
   }
 
   Future<void> _handleExitRequested() async {

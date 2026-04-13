@@ -2677,28 +2677,30 @@ class _SettingsPageState extends State<SettingsPage> {
               final settingsContent = ListenableBuilder(
                 listenable: _s,
                 builder: (context, _) {
-                  return DecoratedBox(
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        begin: Alignment.topCenter,
-                        end: Alignment.bottomCenter,
-                        colors: [
-                          scheme.surfaceContainer.withValues(alpha: 0.72),
-                          scheme.surfaceContainerLow,
-                        ],
+                  return RepaintBoundary(
+                    child: DecoratedBox(
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          begin: Alignment.topCenter,
+                          end: Alignment.bottomCenter,
+                          colors: [
+                            scheme.surfaceContainer.withValues(alpha: 0.72),
+                            scheme.surfaceContainerLow,
+                          ],
+                        ),
+                        borderRadius: BorderRadius.circular(28),
+                        border: Border.all(
+                          color: scheme.outlineVariant.withValues(alpha: 0.35),
+                        ),
                       ),
-                      borderRadius: BorderRadius.circular(28),
-                      border: Border.all(
-                        color: scheme.outlineVariant.withValues(alpha: 0.35),
-                      ),
-                    ),
-                    child: ListView(
-                      controller: _settingsScrollController,
-                      padding: const EdgeInsets.symmetric(
-                        vertical: 24,
-                        horizontal: 16,
-                      ),
-                      children: [
+                      child: ListView(
+                        controller: _settingsScrollController,
+                        cacheExtent: 1200,
+                        padding: const EdgeInsets.symmetric(
+                          vertical: 24,
+                          horizontal: 16,
+                        ),
+                        children: [
                         _SettingsOverviewBanner(appSettings: _app, session: _s),
                         const SizedBox(height: 8),
                         if (!wide) ...[
@@ -3680,9 +3682,9 @@ class _SettingsPageState extends State<SettingsPage> {
                                 ListTile(
                                   leading: const Icon(Icons.lock_outline),
                                   title: Text(l10n.lockNow),
-                                  onTap: () {
-                                    _s.lock();
-                                    Navigator.pop(context);
+                                  onTap: () async {
+                                    await _s.lock();
+                                    if (context.mounted) Navigator.pop(context);
                                   },
                                 ),
                                 const Divider(height: 1),
@@ -6767,6 +6769,7 @@ class _SettingsPageState extends State<SettingsPage> {
                         const SizedBox(height: 24),
                       ],
                     ),
+                  ),
                   );
                 },
               );

@@ -93,13 +93,18 @@ Widget _buildEditableMarkdownBlockRow(_BlockRowScope s) {
     showCursor: !readOnlyMode,
     maxLines: null,
     minLines: 1,
-    cursorColor: showInlinePreview ? scheme.onSurface : null,
+    cursorColor: scheme.onSurface,
     style: showInlinePreview
         ? currentStyle.copyWith(
             color: Colors.transparent,
             decoration: TextDecoration.none,
           )
         : currentStyle,
+    onTap: readOnlyMode
+        ? null
+        : () {
+            focus.requestFocus();
+          },
     textAlignVertical: isTopAlignedSlashBlock
         ? TextAlignVertical.top
         : TextAlignVertical.center,
@@ -255,12 +260,12 @@ Widget _buildEditableMarkdownBlockRow(_BlockRowScope s) {
                       child: Text('ℹ️ ${l10n.calloutTypeNote}'),
                     ),
                   ],
-                  icon: Icon(
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(minWidth: 34, minHeight: 36),
+                  child: Icon(
                     Icons.arrow_drop_down,
                     color: scheme.onSurfaceVariant,
                   ),
-                  constraints: const BoxConstraints(minWidth: 34),
-                  padding: EdgeInsets.zero,
                 ),
               ],
             ),

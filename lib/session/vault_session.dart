@@ -8,6 +8,7 @@ import 'package:local_auth/local_auth.dart';
 import 'package:path/path.dart' as p;
 import 'package:passkeys/authenticator.dart';
 import 'package:passkeys/types.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:uuid/uuid.dart';
 
 import '../data/vault_backup.dart';
@@ -101,6 +102,60 @@ class VaultSession extends ChangeNotifier {
       'Tu nombre es Quill. Eres la asistente de IA integrada en Folio.\n\n';
   static const String _quillIdentityLeadEn =
       "Your name is Quill. You are Folio's built-in AI assistant.\n\n";
+
+  static const _prefsLastSelectedPagePrefix = 'folio_last_selected_page_';
+
+  String? _lastSelectedPagePrefsKey(String? vaultId) {
+    if (vaultId == null || vaultId.isEmpty) return null;
+    return '$_prefsLastSelectedPagePrefix$vaultId';
+  }
+
+  Future<void> _persistLastSelectedPageForActiveVault(String? pageId) async {
+    final key = _lastSelectedPagePrefsKey(VaultPaths.activeVaultId);
+    if (key == null) return;
+    final p = await SharedPreferences.getInstance();
+    if (pageId != null &&
+        pageId.isNotEmpty &&
+        _pages.any((pg) => pg.id == pageId)) {
+      await p.setString(key, pageId);
+    } else {
+      await p.remove(key);
+    }
+  }
+
+  Future<void> _persistLastSelectedPageBeforeLock() async {
+    final key = _lastSelectedPagePrefsKey(VaultPaths.activeVaultId);
+    if (key == null) return;
+    final id = _selectedPageId;
+    final p = await SharedPreferences.getInstance();
+    if (id != null && id.isNotEmpty && _pages.any((pg) => pg.id == id)) {
+      await p.setString(key, id);
+    }
+  }
+
+  Future<void> _applyInitialPageSelection({
+    required bool preferPersistedPreference,
+  }) async {
+    if (_pages.isEmpty) {
+      _selectedPageId = null;
+      return;
+    }
+    if (preferPersistedPreference) {
+      final key = _lastSelectedPagePrefsKey(VaultPaths.activeVaultId);
+      if (key != null) {
+        final p = await SharedPreferences.getInstance();
+        final saved = p.getString(key);
+        if (saved != null &&
+            saved.isNotEmpty &&
+            _pages.any((pg) => pg.id == saved)) {
+          _selectedPageId = saved;
+          return;
+        }
+      }
+    }
+    final roots = _pages.where((p) => p.parentId == null).toList();
+    _selectedPageId = roots.isNotEmpty ? roots.first.id : _pages.first.id;
+  }
 
   bool _isManagedAttachmentPath(String? path) {
     final p = path?.trim();
@@ -537,7 +592,7 @@ class VaultSession extends ChangeNotifier {
         _dek = null;
         _pages = List.from(payload.pages);
         _loadRevisionsFromPayload(payload);
-        _pickInitialSelection();
+        await _applyInitialPageSelection(preferPersistedPreference: true);
         _state = VaultFlowState.unlocked;
         _restartIdleLockTimer();
       } else {
@@ -626,7 +681,7 @@ class VaultSession extends ChangeNotifier {
     final payload = await _repo.loadPayload(_dek);
     _pages = List.from(payload.pages);
     _loadRevisionsFromPayload(payload);
-    _pickInitialSelection();
+    await _applyInitialPageSelection(preferPersistedPreference: false);
     _state = VaultFlowState.unlocked;
     _restartIdleLockTimer();
     _resumeVaultIdAfterNewVault = null;
@@ -684,7 +739,7 @@ class VaultSession extends ChangeNotifier {
   Future<void> switchVault(String vaultId) async {
     await _registry.load();
     if (!_registry.containsVault(vaultId)) return;
-    lock();
+    await lock();
     VaultPaths.setActiveVaultId(vaultId);
     await _registry.setActiveVaultId(vaultId);
     _resumeVaultIdAfterNewVault = null;
@@ -1015,7 +1070,7 @@ class VaultSession extends ChangeNotifier {
       final payload = await _repo.loadPayload(null);
       _pages = List.from(payload.pages);
       _loadRevisionsFromPayload(payload);
-      _pickInitialSelection();
+      await _applyInitialPageSelection(preferPersistedPreference: true);
       _state = VaultFlowState.unlocked;
       _restartIdleLockTimer();
       notifyListeners();
@@ -1026,7 +1081,7 @@ class VaultSession extends ChangeNotifier {
     final payload = await _repo.loadPayload(_dek);
     _pages = List.from(payload.pages);
     _loadRevisionsFromPayload(payload);
-    _pickInitialSelection();
+    await _applyInitialPageSelection(preferPersistedPreference: true);
     _state = VaultFlowState.unlocked;
     _restartIdleLockTimer();
     notifyListeners();
@@ -1057,7 +1112,7 @@ class VaultSession extends ChangeNotifier {
     final payload = await _repo.loadPayload(_dek);
     _pages = List.from(payload.pages);
     _loadRevisionsFromPayload(payload);
-    _pickInitialSelection();
+    await _applyInitialPageSelection(preferPersistedPreference: true);
     _state = VaultFlowState.unlocked;
     _restartIdleLockTimer();
     notifyListeners();
@@ -1083,7 +1138,7 @@ class VaultSession extends ChangeNotifier {
     final payload = await _repo.loadPayload(_dek);
     _pages = List.from(payload.pages);
     _loadRevisionsFromPayload(payload);
-    _pickInitialSelection();
+    await _applyInitialPageSelection(preferPersistedPreference: true);
     _state = VaultFlowState.unlocked;
     _restartIdleLockTimer();
     notifyListeners();
@@ -1116,8 +1171,9 @@ class VaultSession extends ChangeNotifier {
     _selectedPageId = null;
   }
 
-  void lock() {
+  Future<void> lock() async {
     if (!vaultUsesEncryption) return;
+    await _persistLastSelectedPageBeforeLock();
     _clearVaultSessionMemory();
     _state = VaultFlowState.locked;
     notifyListeners();
@@ -1146,14 +1202,14 @@ class VaultSession extends ChangeNotifier {
   void onAppBackgrounded() {
     if (_state != VaultFlowState.unlocked) return;
     if (_lockOnAppBackground) {
-      lock();
+      unawaited(lock());
     }
   }
 
   void _restartIdleLockTimer() {
     _idleLockTimer?.cancel();
     _idleLockTimer = Timer(_idleLockDuration, () {
-      lock();
+      unawaited(lock());
     });
   }
 
@@ -1210,6 +1266,7 @@ class VaultSession extends ChangeNotifier {
     touchActivity();
     _selectedPageId = id;
     notifyListeners();
+    unawaited(_persistLastSelectedPageForActiveVault(id));
   }
 
   void requestScrollToBlock(String blockId) {
@@ -2095,6 +2152,9 @@ class VaultSession extends ChangeNotifier {
     _pageIdsPendingRevision.remove(id);
     if (wasSelected) {
       _pickInitialSelection();
+      unawaited(
+        _persistLastSelectedPageForActiveVault(_selectedPageId),
+      );
     }
     notifyListeners();
     scheduleSave();
@@ -2168,6 +2228,11 @@ class VaultSession extends ChangeNotifier {
   }
 
   /// Aplica estado remoto de colaboración (sin deshacer local explícito).
+  ///
+  /// Sustituye título y bloques por el snapshot remoto. Si el par remoto
+  /// está desactualizado, un bloque de texto (p. ej. cita) puede verse vacío
+  /// hasta la siguiente sincronización; el editor alineará controladores en
+  /// el siguiente frame.
   void applyRemoteCollabPageState({
     required String pageId,
     required String title,
@@ -3586,6 +3651,7 @@ class VaultSession extends ChangeNotifier {
     return '$prefix$chunk$suffix';
   }
 
+  /// Selección por defecto sin leer preferencias (p. ej. tras borrar página).
   void _pickInitialSelection() {
     if (_pages.isEmpty) {
       _selectedPageId = null;
