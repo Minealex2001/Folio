@@ -8,6 +8,7 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/services.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:system_theme/system_theme.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../data/vault_backup.dart';
 import '../desktop/desktop_integration.dart';
@@ -28,6 +29,7 @@ import '../services/device_sync/device_sync_models.dart';
 import '../services/integrations/integrations_bridge.dart';
 import '../services/integrations/integrations_markdown_codec.dart';
 import '../services/updater/github_release_updater.dart';
+import '../features/release_notes/release_notes_page.dart';
 import '../features/lock/lock_screen.dart';
 import '../features/onboarding/onboarding_flow.dart';
 import '../features/workspace/workspace_page.dart';
@@ -79,6 +81,8 @@ class _FolioAppState extends State<FolioApp> with WidgetsBindingObserver {
   var _openingByHotkey = false;
   String _desktopSettingsSignature = '';
   bool _updateDialogShown = false;
+  bool _releaseNotesCheckInProgress = false;
+  bool _releaseNotesShownThisRun = false;
   bool _handledInitialLaunchArgs = false;
   Timer? _scheduledVaultBackupTimer;
 
@@ -139,6 +143,7 @@ class _FolioAppState extends State<FolioApp> with WidgetsBindingObserver {
     });
     unawaited(_handleInitialLaunchArgs());
     _checkForUpdatesOnStartup();
+    unawaited(_maybeOpenReleaseNotesPage());
     _scheduledVaultBackupTimer = Timer.periodic(
       const Duration(minutes: 15),
       (_) => unawaited(_maybeRunScheduledVaultBackup()),
@@ -178,7 +183,77 @@ class _FolioAppState extends State<FolioApp> with WidgetsBindingObserver {
         }
       });
     }
+    unawaited(_maybeOpenReleaseNotesPage());
     if (mounted) setState(() {});
+  }
+
+  Future<void> _maybeOpenReleaseNotesPage() async {
+    if (_releaseNotesCheckInProgress || _releaseNotesShownThisRun) return;
+    _releaseNotesCheckInProgress = true;
+    try {
+      if (!mounted) return;
+      if (_updateDialogShown) return;
+      if (widget.session.state != VaultFlowState.unlocked) return;
+      final nav = _navKey.currentState;
+      final ctx = _navKey.currentContext;
+      if (nav == null || !nav.mounted || ctx == null || !ctx.mounted) return;
+      if (nav.canPop()) return;
+
+      final info = await PackageInfo.fromPlatform();
+      if (!mounted) return;
+      final appVersion = info.version.trim();
+      final buildNumber = info.buildNumber.trim();
+      if (appVersion.isEmpty) return;
+      final versionLabel = buildNumber.isEmpty
+          ? appVersion
+          : '$appVersion+$buildNumber';
+      final lastSeen = widget.appSettings.lastSeenReleaseNotesVersion.trim();
+
+      // Inicializa el marcador en instalaciones nuevas para no abrir en el primer arranque.
+      if (lastSeen.isEmpty) {
+        await widget.appSettings.setLastSeenReleaseNotesVersion(versionLabel);
+        return;
+      }
+      if (lastSeen == versionLabel) return;
+
+      final updater = GitHubReleaseUpdater(
+        owner: widget.appSettings.updaterGithubOwner,
+        repo: widget.appSettings.updaterGithubRepo,
+      );
+      ReleaseNotesResult? release;
+      try {
+        release = await updater.fetchReleaseNotesForVersion(
+          appVersion: appVersion,
+          buildNumber: buildNumber,
+        );
+      } catch (_) {
+        release = null;
+      }
+      if (!mounted) return;
+      if (_updateDialogShown) return;
+      if (widget.session.state != VaultFlowState.unlocked) return;
+      final safeNav = _navKey.currentState;
+      if (safeNav == null || !safeNav.mounted || safeNav.canPop()) return;
+
+      _releaseNotesShownThisRun = true;
+      await safeNav.push(
+        MaterialPageRoute<void>(
+          builder: (context) {
+            return ReleaseNotesPage(
+              versionLabel: versionLabel,
+              releaseTitle: release?.releaseName,
+              releaseNotes: release?.releaseNotes ?? '',
+              publishedAt: release?.publishedAt,
+              tagName: release?.tagName,
+            );
+          },
+          settings: const RouteSettings(name: 'release_notes'),
+        ),
+      );
+      await widget.appSettings.setLastSeenReleaseNotesVersion(versionLabel);
+    } finally {
+      _releaseNotesCheckInProgress = false;
+    }
   }
 
   void _showSnack(String message) {
@@ -836,7 +911,7 @@ class _FolioAppState extends State<FolioApp> with WidgetsBindingObserver {
             ),
             content: Text(
               '${l10n.updaterStartupDialogBody(result.releaseVersion.toString())}$betaNote\n\n'
-              '${l10n.updaterStartupDialogQuestion}',
+              '${defaultTargetPlatform == TargetPlatform.android ? '¿Abrir descarga del APK ahora?' : l10n.updaterStartupDialogQuestion}',
             ),
             actions: [
               TextButton(
@@ -852,6 +927,13 @@ class _FolioAppState extends State<FolioApp> with WidgetsBindingObserver {
         },
       );
       if (shouldInstall == true) {
+        if (defaultTargetPlatform == TargetPlatform.android) {
+          final raw = result.installerUrl ?? '';
+          final uri = Uri.tryParse(raw);
+          if (uri == null) return;
+          await launchUrl(uri, mode: LaunchMode.externalApplication);
+          return;
+        }
         final installer = await updater.downloadInstaller(result);
         await updater.launchInstallerAndExit(installer);
       }
@@ -937,8 +1019,8 @@ class _IntegrationApprovalDialog extends StatelessWidget {
         ? l10n.integrationApprovalUnknownVersion
         : previousApproval!.integrationVersion.trim();
     final isEncryptedContent =
-      client.integrationVersion.trim() ==
-      IntegrationsBridgeController.supportedIntegrationVersion;
+        client.integrationVersion.trim() ==
+        IntegrationsBridgeController.supportedIntegrationVersion;
     final appVersion = client.appVersion.trim().isEmpty
         ? l10n.integrationApprovalUnknownVersion
         : client.appVersion.trim();
