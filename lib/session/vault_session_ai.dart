@@ -5,6 +5,7 @@ extension VaultSessionAi on VaultSession {
     required String userPrompt,
     required List<AiChatMessage> conversationMessages,
     required bool isEs,
+    required String languageCode,
     required String referencePagesText,
     required String editTargetLine,
     required String pageBlocksContext,
@@ -26,6 +27,8 @@ extension VaultSessionAi on VaultSession {
             ? _folioAgentInAppGuide(isEs: isEs)
             : _folioAgentInAppGuideCompact(isEs: isEs),
       )
+      ..writeln()
+      ..writeln(_aiLanguageRule(languageCode, isEsInstruction: isEs))
       ..writeln()
       ..writeln(
         isEs
@@ -224,7 +227,10 @@ extension VaultSessionAi on VaultSession {
     final block = _blockById(page, blockId);
     if (block == null) throw StateError('Bloque no encontrado.');
     final body = selectionText.trim().isEmpty ? block.text : selectionText;
-    final lang = languageCode.toLowerCase().startsWith('es') ? 'es' : 'en';
+    final lang = _aiOutputLanguageName(
+      languageCode,
+      isEsInstruction: true,
+    );
     final prompt =
         '${VaultSession._quillIdentityLeadEs}'
         'Resume el siguiente fragmento en $lang de forma breve (viñetas si ayuda). '
@@ -259,7 +265,10 @@ extension VaultSessionAi on VaultSession {
     final block = _blockById(page, blockId);
     if (block == null) throw StateError('Bloque no encontrado.');
     final body = selectionText.trim().isEmpty ? block.text : selectionText;
-    final lang = languageCode.toLowerCase().startsWith('es') ? 'es' : 'en';
+    final lang = _aiOutputLanguageName(
+      languageCode,
+      isEsInstruction: true,
+    );
     final prompt =
         '${VaultSession._quillIdentityLeadEs}'
         'Del texto siguiente, extrae: (1) fechas o plazos mencionados, (2) tareas accionables claras. '
@@ -279,6 +288,7 @@ extension VaultSessionAi on VaultSession {
   Future<({String text, AiTokenUsage? usage})> summarizePageWithAi(
     String pageId, {
     List<AiFileAttachment> attachments = const [],
+    String languageCode = 'es',
   }) async {
     if (_state != VaultFlowState.unlocked ||
         (vaultUsesEncryption && _dek == null)) {
@@ -288,9 +298,14 @@ extension VaultSessionAi on VaultSession {
     if (ai == null) throw StateError('IA no configurada.');
     final page = _pageById(pageId);
     if (page == null) throw StateError('Página no encontrada.');
+    final languageRule = _aiLanguageRule(
+      languageCode,
+      isEsInstruction: true,
+    );
     final prompt =
         '${VaultSession._quillIdentityLeadEs}'
-        'Resume esta página en español de forma breve y accionable.\n'
+        '$languageRule\n'
+      'Resume esta página de forma breve y accionable.\n'
         'Título: ${page.title}\n'
         'Contenido:\n${page.plainTextContent}';
     final result = await ai.complete(
@@ -517,6 +532,49 @@ For images/blocks: use the + button or / command in a paragraph.
         .trim();
   }
 
+  String _baseLanguageCode(String languageCode) {
+    final code = languageCode.trim().toLowerCase();
+    if (code.isEmpty) return 'es';
+    if (code.contains('_')) return code.split('_').first;
+    if (code.contains('-')) return code.split('-').first;
+    return code;
+  }
+
+  String _aiOutputLanguageName(
+    String languageCode, {
+    required bool isEsInstruction,
+  }) {
+    switch (_baseLanguageCode(languageCode)) {
+      case 'es':
+        return isEsInstruction ? 'español' : 'Spanish';
+      case 'en':
+        return isEsInstruction ? 'inglés' : 'English';
+      case 'pt':
+        return isEsInstruction ? 'portugués de Brasil' : 'Brazilian Portuguese';
+      case 'ca':
+        return isEsInstruction ? 'catalán/valenciano' : 'Catalan/Valencian';
+      case 'gl':
+        return isEsInstruction ? 'gallego' : 'Galician';
+      case 'eu':
+        return isEsInstruction ? 'euskera' : 'Basque';
+      default:
+        return isEsInstruction ? 'español' : 'English';
+    }
+  }
+
+  String _aiLanguageRule(
+    String languageCode, {
+    required bool isEsInstruction,
+  }) {
+    final language = _aiOutputLanguageName(
+      languageCode,
+      isEsInstruction: isEsInstruction,
+    );
+    return isEsInstruction
+        ? 'Responde SIEMPRE en $language. Mantén ese idioma incluso si las instrucciones internas están en otro idioma.'
+        : 'Always respond in $language. Keep that language even if internal instructions are in another language.';
+  }
+
   Future<({String text, AiTokenUsage? usage})> chatWithAi({
     required List<AiChatMessage> messages,
     required String prompt,
@@ -542,9 +600,13 @@ For images/blocks: use the + button or / command in a paragraph.
         : '';
     final isEsChat = languageCode.toLowerCase().startsWith('es');
     final folioGuide = _folioAgentInAppGuide(isEs: isEsChat);
+    final languageRule = _aiLanguageRule(
+      languageCode,
+      isEsInstruction: isEsChat,
+    );
     final result = await ai.complete(
       AiCompletionRequest(
-        prompt: '$folioGuide\n\n${prompt.trim()}$scopedContext',
+        prompt: '$folioGuide\n\n$languageRule\n\n${prompt.trim()}$scopedContext',
         model: 'auto',
         messages: messages,
         attachments: attachments,
@@ -679,6 +741,7 @@ For images/blocks: use the + button or / command in a paragraph.
           userPrompt: prompt,
           conversationMessages: messages,
           isEs: isEs,
+          languageCode: languageCode,
           referencePagesText: referencePagesText,
           editTargetLine: editTargetLine,
           pageBlocksContext: pageBlocksContext,
@@ -827,6 +890,7 @@ For images/blocks: use the + button or / command in a paragraph.
         final summary = await summarizePageWithAi(
           scopePage.id,
           attachments: attachments,
+          languageCode: languageCode,
         );
         lastUsage = summary.usage ?? lastUsage;
         return finish(
