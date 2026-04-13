@@ -608,6 +608,9 @@
   "@scheduledVaultBackupSnackFail": {"placeholders": {"error": {}}},
   "vaultBackupOpenVaultHint": "As copias son para a caixa forte aberta agora: “{name}”.",
   "@vaultBackupOpenVaultHint": {"placeholders": {"name": {"type": "String"}}},
+  "vaultBackupDiskSizeApprox": "Tamaño aproximado no disco: {size}",
+  "@vaultBackupDiskSizeApprox": {"placeholders": {"size": {"type": "String"}}},
+  "vaultBackupDiskSizeLoading": "Calculando o tamaño no disco…",
   "vaultBackupRunNowTile": "Executar copia programada agora",
   "vaultBackupRunNowSubtitle": "Executa a copia agora (disco e/ou nube) sen agardar polo intervalo.",
   "vaultBackupRunNowNeedFolder": "Escolle unha carpeta local ou activa “Tamén subir [cite: 56] a Folio Cloud” para copias só na nube.",
@@ -1381,6 +1384,18 @@
   ,"settingsAcceptRemote": "Aceptar remota"
   ,"settingsClose": "Pechar"
   ,"settingsSectionDeviceSyncNav": "Sincronización"
+  ,"settingsSectionVault": "Caderno"
+  ,"settingsSectionVaultHeroDescription": "Seguridade ao desbloquear, copias, programación a disco e xestión de datos neste dispositivo."
+  ,"settingsSectionUiWorkspace": "Interface e escritorio"
+  ,"settingsSectionUiWorkspaceHeroDescription": "Tema, idioma, escala, editor, opcións de escritorio e atallos de teclado."
+  ,"settingsSubsectionVaultBackupImport": "Copias e importación"
+  ,"settingsSubsectionVaultScheduledLocal": "Copia programada (local)"
+  ,"settingsSubsectionVaultData": "Datos (zona de perigo)"
+  ,"folioCloudSubsectionAccount": "Conta"
+  ,"folioCloudSubsectionEncryptedBackups": "Copias cifradas (nube)"
+  ,"folioCloudSubsectionPublishing": "Publicación web"
+  ,"settingsFolioCloudSubsectionScheduledCloud": "Copia programada a Folio Cloud"
+  ,"settingsScheduledCloudUploadRequiresSchedule": "Activa antes a copia programada en Caderno › Copia programada (local)."
   ,"settingsSyncHeroTitle": "Sincronización entre dispositivos"
   ,"settingsSyncHeroDescription": "Emparella equipos na rede local; o relay só axuda a negociar a conexión e non envía o contido do vault."
   ,"settingsSyncChipPairingCode": "Código de ligazón"

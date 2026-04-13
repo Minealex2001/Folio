@@ -163,6 +163,8 @@ class AppSettings extends ChangeNotifier {
   static const _localeCodeKey = 'folio_locale_code';
   static const _vaultIdleLockMinutesKey = 'folio_vault_idle_lock_minutes';
   static const _vaultLockOnMinimizeKey = 'folio_vault_lock_on_minimize';
+  static const _lockScreenAutoQuickUnlockDoneKey =
+      'folio_lock_screen_auto_quick_unlock_done_v1';
   static const _enableGlobalSearchHotkeyKey =
       'folio_enable_global_search_hotkey';
   static const _globalSearchHotkeyKey = 'folio_global_search_hotkey';
@@ -201,6 +203,9 @@ class AppSettings extends ChangeNotifier {
       'folio_workspace_sidebar_auto_reveal';
   static const _workspacePageOutlineVisibleKey =
       'folio_workspace_page_outline_visible';
+  static const _aiChatPanelCollapsedKey = 'folio_ai_chat_panel_collapsed';
+  static const _aiChatPanelWidthKey = 'folio_ai_chat_panel_width';
+  static const _aiChatPanelHeightKey = 'folio_ai_chat_panel_height';
   static const _customIconsKey = 'folio_custom_icons_v1';
   static const _integrationCustomIconsKey =
       'folio_integration_custom_icons_by_app_v1';
@@ -249,6 +254,12 @@ class AppSettings extends ChangeNotifier {
   static const double minWorkspaceSidebarWidth = 220;
   static const double maxWorkspaceSidebarWidth = 480;
   static const double defaultWorkspaceSidebarWidth = 320;
+  static const double minAiChatPanelWidth = 280;
+  static const double maxAiChatPanelWidth = 720;
+  static const double defaultAiChatPanelWidth = 360;
+  static const double minAiChatPanelHeight = 320;
+  static const double maxAiChatPanelHeight = 1000;
+  static const double defaultAiChatPanelHeight = 520;
   static const String defaultUpdaterGithubOwner = 'Minealex2001';
   static const String defaultUpdaterGithubRepo = 'Folio';
   static const bool defaultCheckUpdatesOnStartup = true;
@@ -275,6 +286,7 @@ class AppSettings extends ChangeNotifier {
   Locale? _locale;
   int _vaultIdleLockMinutes = defaultVaultIdleLockMinutes;
   bool _vaultLockOnMinimize = false;
+  bool _lockScreenAutoQuickUnlockDone = false;
   bool _enableGlobalSearchHotkey = true;
   String _globalSearchHotkey = defaultGlobalSearchHotkey;
   bool _minimizeToTray = true;
@@ -302,6 +314,9 @@ class AppSettings extends ChangeNotifier {
   bool _workspaceSidebarCollapsed = false;
   bool _workspaceSidebarAutoReveal = false;
   bool _workspacePageOutlineVisible = true;
+  bool _aiChatPanelCollapsed = false;
+  double _aiChatPanelWidth = defaultAiChatPanelWidth;
+  double _aiChatPanelHeight = defaultAiChatPanelHeight;
   Map<FolioInAppShortcut, SingleActivator> _inAppShortcuts =
       defaultShortcutMap();
   final String _configuredIntegrationSecret;
@@ -336,6 +351,7 @@ class AppSettings extends ChangeNotifier {
   Locale? get locale => _locale;
   int get vaultIdleLockMinutes => _vaultIdleLockMinutes;
   bool get vaultLockOnMinimize => _vaultLockOnMinimize;
+  bool get lockScreenAutoQuickUnlockDone => _lockScreenAutoQuickUnlockDone;
   bool get enableGlobalSearchHotkey => _enableGlobalSearchHotkey;
   String get globalSearchHotkey => _globalSearchHotkey;
   bool get minimizeToTray => _minimizeToTray;
@@ -366,6 +382,9 @@ class AppSettings extends ChangeNotifier {
   bool get workspaceSidebarCollapsed => _workspaceSidebarCollapsed;
   bool get workspaceSidebarAutoReveal => _workspaceSidebarAutoReveal;
   bool get workspacePageOutlineVisible => _workspacePageOutlineVisible;
+  bool get aiChatPanelCollapsed => _aiChatPanelCollapsed;
+  double get aiChatPanelWidth => _aiChatPanelWidth;
+  double get aiChatPanelHeight => _aiChatPanelHeight;
   String get integrationSecret => _integrationSecret;
   bool get enterCreatesNewBlock => _enterCreatesNewBlock;
   bool get syncEnabled => _syncEnabled;
@@ -453,6 +472,8 @@ class AppSettings extends ChangeNotifier {
         ? defaultVaultIdleLockMinutes
         : idleMinutes;
     _vaultLockOnMinimize = p.getBool(_vaultLockOnMinimizeKey) ?? false;
+    _lockScreenAutoQuickUnlockDone =
+        p.getBool(_lockScreenAutoQuickUnlockDoneKey) ?? false;
     _enableGlobalSearchHotkey = p.getBool(_enableGlobalSearchHotkeyKey) ?? true;
     _globalSearchHotkey =
         p.getString(_globalSearchHotkeyKey) ?? defaultGlobalSearchHotkey;
@@ -508,6 +529,13 @@ class AppSettings extends ChangeNotifier {
         p.getBool(_workspaceSidebarAutoRevealKey) ?? false;
     _workspacePageOutlineVisible =
         p.getBool(_workspacePageOutlineVisibleKey) ?? true;
+    _aiChatPanelCollapsed = p.getBool(_aiChatPanelCollapsedKey) ?? false;
+    _aiChatPanelWidth = _sanitizeAiChatPanelWidth(
+      p.getDouble(_aiChatPanelWidthKey),
+    );
+    _aiChatPanelHeight = _sanitizeAiChatPanelHeight(
+      p.getDouble(_aiChatPanelHeightKey),
+    );
     _inAppShortcuts = parseShortcutOverrides(
       p.getString(_inAppShortcutsKey),
       defaultShortcutMap(),
@@ -759,6 +787,20 @@ class AppSettings extends ChangeNotifier {
     final raw = value ?? defaultWorkspaceSidebarWidth;
     if (raw < minWorkspaceSidebarWidth) return minWorkspaceSidebarWidth;
     if (raw > maxWorkspaceSidebarWidth) return maxWorkspaceSidebarWidth;
+    return raw;
+  }
+
+  double _sanitizeAiChatPanelWidth(double? value) {
+    final raw = value ?? defaultAiChatPanelWidth;
+    if (raw < minAiChatPanelWidth) return minAiChatPanelWidth;
+    if (raw > maxAiChatPanelWidth) return maxAiChatPanelWidth;
+    return raw;
+  }
+
+  double _sanitizeAiChatPanelHeight(double? value) {
+    final raw = value ?? defaultAiChatPanelHeight;
+    if (raw < minAiChatPanelHeight) return minAiChatPanelHeight;
+    if (raw > maxAiChatPanelHeight) return maxAiChatPanelHeight;
     return raw;
   }
 
@@ -1056,6 +1098,15 @@ class AppSettings extends ChangeNotifier {
     await p.setBool(_hasSeenQuillIntroKey, value);
   }
 
+  /// Tras el primer intento automático de Hello/passkey en la pantalla de bloqueo.
+  Future<void> setLockScreenAutoQuickUnlockDone() async {
+    if (_lockScreenAutoQuickUnlockDone) return;
+    _lockScreenAutoQuickUnlockDone = true;
+    notifyListeners();
+    final p = await SharedPreferences.getInstance();
+    await p.setBool(_lockScreenAutoQuickUnlockDoneKey, true);
+  }
+
   Future<void> setHasSeenQuillWorkspaceTour(bool value) async {
     if (_hasSeenQuillWorkspaceTour == value) return;
     _hasSeenQuillWorkspaceTour = value;
@@ -1133,6 +1184,32 @@ class AppSettings extends ChangeNotifier {
     notifyListeners();
     final p = await SharedPreferences.getInstance();
     await p.setBool(_workspaceSidebarCollapsedKey, value);
+  }
+
+  Future<void> setAiChatPanelCollapsed(bool value) async {
+    if (_aiChatPanelCollapsed == value) return;
+    _aiChatPanelCollapsed = value;
+    notifyListeners();
+    final p = await SharedPreferences.getInstance();
+    await p.setBool(_aiChatPanelCollapsedKey, value);
+  }
+
+  Future<void> setAiChatPanelWidth(double value) async {
+    final safe = _sanitizeAiChatPanelWidth(value);
+    if ((_aiChatPanelWidth - safe).abs() < 0.5) return;
+    _aiChatPanelWidth = safe;
+    notifyListeners();
+    final p = await SharedPreferences.getInstance();
+    await p.setDouble(_aiChatPanelWidthKey, safe);
+  }
+
+  Future<void> setAiChatPanelHeight(double value) async {
+    final safe = _sanitizeAiChatPanelHeight(value);
+    if ((_aiChatPanelHeight - safe).abs() < 0.5) return;
+    _aiChatPanelHeight = safe;
+    notifyListeners();
+    final p = await SharedPreferences.getInstance();
+    await p.setDouble(_aiChatPanelHeightKey, safe);
   }
 
   Future<void> setWorkspaceSidebarAutoReveal(bool value) async {

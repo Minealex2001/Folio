@@ -1723,6 +1723,14 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
+  String vaultBackupDiskSizeApprox(String size) {
+    return 'Approximate size on disk: $size';
+  }
+
+  @override
+  String get vaultBackupDiskSizeLoading => 'Calculating size on disk…';
+
+  @override
   String get vaultBackupRunNowTile => 'Run scheduled backup now';
 
   @override
@@ -4148,6 +4156,48 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get settingsSectionDeviceSyncNav => 'Device sync';
+
+  @override
+  String get settingsSectionVault => 'Notebook';
+
+  @override
+  String get settingsSectionVaultHeroDescription =>
+      'Unlock security, backups, scheduled copies to disk, and data management for this device.';
+
+  @override
+  String get settingsSectionUiWorkspace => 'Interface & desktop';
+
+  @override
+  String get settingsSectionUiWorkspaceHeroDescription =>
+      'Theme, language, scaling, editor layout, desktop options, and keyboard shortcuts.';
+
+  @override
+  String get settingsSubsectionVaultBackupImport => 'Backups & import';
+
+  @override
+  String get settingsSubsectionVaultScheduledLocal =>
+      'Scheduled backup (local)';
+
+  @override
+  String get settingsSubsectionVaultData => 'Data (danger zone)';
+
+  @override
+  String get folioCloudSubsectionAccount => 'Account';
+
+  @override
+  String get folioCloudSubsectionEncryptedBackups =>
+      'Encrypted backups (cloud)';
+
+  @override
+  String get folioCloudSubsectionPublishing => 'Web publishing';
+
+  @override
+  String get settingsFolioCloudSubsectionScheduledCloud =>
+      'Scheduled backup to Folio Cloud';
+
+  @override
+  String get settingsScheduledCloudUploadRequiresSchedule =>
+      'Turn on scheduled backup in Notebook › Scheduled backup (local) first.';
 
   @override
   String get settingsSyncHeroTitle => 'Device synchronization';

@@ -181,6 +181,14 @@ class _WorkspacePageState extends State<WorkspacePage> {
     setState(fn);
   }
 
+  void _applyAiChatPanelCollapsed(bool collapsed) {
+    if (!mounted) return;
+    if (_aiPanelCollapsed != collapsed) {
+      setState(() => _aiPanelCollapsed = collapsed);
+    }
+    unawaited(widget.appSettings.setAiChatPanelCollapsed(collapsed));
+  }
+
   String _t(String es, String en) {
     final lang = Localizations.localeOf(context).languageCode.toLowerCase();
     return lang.startsWith('es') ? es : en;
@@ -802,6 +810,9 @@ class _WorkspacePageState extends State<WorkspacePage> {
   @override
   void initState() {
     super.initState();
+    _aiPanelWidth = widget.appSettings.aiChatPanelWidth;
+    _aiPanelCollapsed = widget.appSettings.aiChatPanelCollapsed;
+    _aiPanelHeight = widget.appSettings.aiChatPanelHeight;
     _collab = CollabSessionController(
       vaultSession: widget.session,
       folioCloudEntitlements: widget.folioCloudEntitlements,
@@ -939,7 +950,12 @@ class _WorkspacePageState extends State<WorkspacePage> {
 
   void _onAppSettings() {
     _maybeShowQuillWorkspaceTour();
-    if (mounted) setState(() {});
+    if (!mounted) return;
+    setState(() {
+      _aiPanelWidth = widget.appSettings.aiChatPanelWidth;
+      _aiPanelCollapsed = widget.appSettings.aiChatPanelCollapsed;
+      _aiPanelHeight = widget.appSettings.aiChatPanelHeight;
+    });
   }
 
   bool _matchesActivator(SingleActivator activator, KeyEvent event) {
@@ -1068,10 +1084,10 @@ class _WorkspacePageState extends State<WorkspacePage> {
     final androidMobile = FolioAdaptive.shouldUseMobileWorkspace(w);
     final compact = w < FolioDesktop.compactBreakpoint || androidMobile;
     final aiOn = widget.appSettings.isAiRuntimeEnabled && _s.aiEnabled;
+    if (aiOn && !compact) {
+      _applyAiChatPanelCollapsed(false);
+    }
     setState(() {
-      if (aiOn && !compact) {
-        _aiPanelCollapsed = false;
-      }
       _showQuillWorkspaceTour = true;
     });
     if (aiOn && compact) {
@@ -1092,10 +1108,10 @@ class _WorkspacePageState extends State<WorkspacePage> {
     final androidMobile = FolioAdaptive.shouldUseMobileWorkspace(w);
     final compact = w < FolioDesktop.compactBreakpoint || androidMobile;
     final aiOn = widget.appSettings.isAiRuntimeEnabled && _s.aiEnabled;
+    if (aiOn && !compact) {
+      _applyAiChatPanelCollapsed(false);
+    }
     setState(() {
-      if (aiOn && !compact) {
-        _aiPanelCollapsed = false;
-      }
       _chatInputController.value = TextEditingValue(
         text: prompt,
         selection: TextSelection.collapsed(offset: prompt.length),
@@ -1976,6 +1992,9 @@ class _WorkspacePageState extends State<WorkspacePage> {
                   setState(() {
                     _aiPanelWidth = (_aiPanelWidth - d).clamp(280.0, maxW);
                   });
+                  unawaited(
+                    widget.appSettings.setAiChatPanelWidth(_aiPanelWidth),
+                  );
                 }
               : null,
           onResizeAiPanelHeight: useDesktopAiDock && !_aiPanelCollapsed
@@ -1986,6 +2005,9 @@ class _WorkspacePageState extends State<WorkspacePage> {
                       height * 0.85,
                     );
                   });
+                  unawaited(
+                    widget.appSettings.setAiChatPanelHeight(_aiPanelHeight),
+                  );
                 }
               : null,
           collabFloatingPanel: useDesktopCollabDock

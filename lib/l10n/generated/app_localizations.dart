@@ -3190,6 +3190,18 @@ abstract class AppLocalizations {
   /// **'Las copias son de la libreta abierta ahora: «{name}».'**
   String vaultBackupOpenVaultHint(String name);
 
+  /// No description provided for @vaultBackupDiskSizeApprox.
+  ///
+  /// In es, this message translates to:
+  /// **'Tamaño aproximado en disco: {size}'**
+  String vaultBackupDiskSizeApprox(String size);
+
+  /// No description provided for @vaultBackupDiskSizeLoading.
+  ///
+  /// In es, this message translates to:
+  /// **'Calculando tamaño en disco…'**
+  String get vaultBackupDiskSizeLoading;
+
   /// No description provided for @vaultBackupRunNowTile.
   ///
   /// In es, this message translates to:
@@ -7418,6 +7430,78 @@ abstract class AppLocalizations {
   /// In es, this message translates to:
   /// **'Sincronización'**
   String get settingsSectionDeviceSyncNav;
+
+  /// No description provided for @settingsSectionVault.
+  ///
+  /// In es, this message translates to:
+  /// **'Libreta'**
+  String get settingsSectionVault;
+
+  /// No description provided for @settingsSectionVaultHeroDescription.
+  ///
+  /// In es, this message translates to:
+  /// **'Seguridad al desbloquear, copias, programación a disco y gestión de datos en este dispositivo.'**
+  String get settingsSectionVaultHeroDescription;
+
+  /// No description provided for @settingsSectionUiWorkspace.
+  ///
+  /// In es, this message translates to:
+  /// **'Interfaz y escritorio'**
+  String get settingsSectionUiWorkspace;
+
+  /// No description provided for @settingsSectionUiWorkspaceHeroDescription.
+  ///
+  /// In es, this message translates to:
+  /// **'Tema, idioma, escala, editor, opciones de escritorio y atajos de teclado.'**
+  String get settingsSectionUiWorkspaceHeroDescription;
+
+  /// No description provided for @settingsSubsectionVaultBackupImport.
+  ///
+  /// In es, this message translates to:
+  /// **'Copias e importación'**
+  String get settingsSubsectionVaultBackupImport;
+
+  /// No description provided for @settingsSubsectionVaultScheduledLocal.
+  ///
+  /// In es, this message translates to:
+  /// **'Copia programada (local)'**
+  String get settingsSubsectionVaultScheduledLocal;
+
+  /// No description provided for @settingsSubsectionVaultData.
+  ///
+  /// In es, this message translates to:
+  /// **'Datos (zona peligrosa)'**
+  String get settingsSubsectionVaultData;
+
+  /// No description provided for @folioCloudSubsectionAccount.
+  ///
+  /// In es, this message translates to:
+  /// **'Cuenta'**
+  String get folioCloudSubsectionAccount;
+
+  /// No description provided for @folioCloudSubsectionEncryptedBackups.
+  ///
+  /// In es, this message translates to:
+  /// **'Copias cifradas (nube)'**
+  String get folioCloudSubsectionEncryptedBackups;
+
+  /// No description provided for @folioCloudSubsectionPublishing.
+  ///
+  /// In es, this message translates to:
+  /// **'Publicación web'**
+  String get folioCloudSubsectionPublishing;
+
+  /// No description provided for @settingsFolioCloudSubsectionScheduledCloud.
+  ///
+  /// In es, this message translates to:
+  /// **'Copia programada a Folio Cloud'**
+  String get settingsFolioCloudSubsectionScheduledCloud;
+
+  /// No description provided for @settingsScheduledCloudUploadRequiresSchedule.
+  ///
+  /// In es, this message translates to:
+  /// **'Activa antes la copia programada en Libreta › Copia programada (local).'**
+  String get settingsScheduledCloudUploadRequiresSchedule;
 
   /// No description provided for @settingsSyncHeroTitle.
   ///

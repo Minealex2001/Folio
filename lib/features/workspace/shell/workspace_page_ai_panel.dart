@@ -190,7 +190,7 @@ extension _WorkspacePageAiPanelModule on _WorkspacePageState {
         borderRadius: BorderRadius.circular(12),
         child: InkWell(
           borderRadius: BorderRadius.circular(12),
-          onTap: () => _setStateSafe(() => _aiPanelCollapsed = false),
+          onTap: () => _applyAiChatPanelCollapsed(false),
           child: SizedBox(
             width: 56,
             height: 56,
@@ -569,7 +569,7 @@ extension _WorkspacePageAiPanelModule on _WorkspacePageState {
                       if (onRequestClosePanel != null) {
                         onRequestClosePanel();
                       } else {
-                        _setStateSafe(() => _aiPanelCollapsed = true);
+                        _applyAiChatPanelCollapsed(true);
                       }
                     },
                     icon: const Icon(Icons.close_rounded),

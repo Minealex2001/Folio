@@ -606,6 +606,9 @@
   "@scheduledVaultBackupSnackFail": {"placeholders": {"error": {}}},
   "vaultBackupOpenVaultHint": "Backups are for the vault open right now: “{name}”.",
   "@vaultBackupOpenVaultHint": {"placeholders": {"name": {"type": "String"}}},
+  "vaultBackupDiskSizeApprox": "Approximate size on disk: {size}",
+  "@vaultBackupDiskSizeApprox": {"placeholders": {"size": {"type": "String"}}},
+  "vaultBackupDiskSizeLoading": "Calculating size on disk…",
   "vaultBackupRunNowTile": "Run scheduled backup now",
   "vaultBackupRunNowSubtitle": "Run the scheduled backup now (disk and/or cloud, depending on your settings) without waiting for the interval.",
   "vaultBackupRunNowNeedFolder": "Pick a local backup folder, or turn on “Also upload to Folio Cloud” for cloud-only backups.",
@@ -1379,6 +1382,18 @@
   ,"settingsAcceptRemote": "Accept remote"
   ,"settingsClose": "Close"
   ,"settingsSectionDeviceSyncNav": "Device sync"
+  ,"settingsSectionVault": "Notebook"
+  ,"settingsSectionVaultHeroDescription": "Unlock security, backups, scheduled copies to disk, and data management for this device."
+  ,"settingsSectionUiWorkspace": "Interface & desktop"
+  ,"settingsSectionUiWorkspaceHeroDescription": "Theme, language, scaling, editor layout, desktop options, and keyboard shortcuts."
+  ,"settingsSubsectionVaultBackupImport": "Backups & import"
+  ,"settingsSubsectionVaultScheduledLocal": "Scheduled backup (local)"
+  ,"settingsSubsectionVaultData": "Data (danger zone)"
+  ,"folioCloudSubsectionAccount": "Account"
+  ,"folioCloudSubsectionEncryptedBackups": "Encrypted backups (cloud)"
+  ,"folioCloudSubsectionPublishing": "Web publishing"
+  ,"settingsFolioCloudSubsectionScheduledCloud": "Scheduled backup to Folio Cloud"
+  ,"settingsScheduledCloudUploadRequiresSchedule": "Turn on scheduled backup in Notebook › Scheduled backup (local) first."
   ,"settingsSyncHeroTitle": "Device synchronization"
   ,"settingsSyncHeroDescription": "Pair machines on the local network; the relay only helps negotiate the connection and does not send vault content."
   ,"settingsSyncChipPairingCode": "Pairing code"

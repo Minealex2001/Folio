@@ -1,8 +1,9 @@
 /// Canal de actualización respecto a GitHub Releases.
 enum UpdateReleaseChannel {
-  /// Última release estable (excluye prereleases): API `releases/latest`.
+  /// Ultima release estable (excluye prereleases): API `releases/latest`.
   stable,
 
-  /// Última release marcada como prerelease en GitHub (betas).
+  /// Betas y estables: versión más nueva entre última estable y última pre-release
+  /// en GitHub (con instalador para la plataforma).
   beta,
 }

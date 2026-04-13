@@ -1746,6 +1746,14 @@ class AppLocalizationsEu extends AppLocalizations {
   }
 
   @override
+  String vaultBackupDiskSizeApprox(String size) {
+    return 'Diskoan gutxi gorabeherako tamaina: $size';
+  }
+
+  @override
+  String get vaultBackupDiskSizeLoading => 'Diskoko tamaina kalkulatzen…';
+
+  @override
   String get vaultBackupRunNowTile =>
       'Exekutatu programatutako babeskopia orain';
 
@@ -4206,6 +4214,49 @@ class AppLocalizationsEu extends AppLocalizations {
 
   @override
   String get settingsSectionDeviceSyncNav => 'Sinkronizazioa';
+
+  @override
+  String get settingsSectionVault => 'Koadernoa';
+
+  @override
+  String get settingsSectionVaultHeroDescription =>
+      'Desblokeatzearen segurtasuna, babeskopiak, diskoan programatzea eta gailu honetako datuen kudeaketa.';
+
+  @override
+  String get settingsSectionUiWorkspace => 'Interfazea eta mahaigaina';
+
+  @override
+  String get settingsSectionUiWorkspaceHeroDescription =>
+      'Gaia, hizkuntza, eskala, editorea, mahaigaineko aukerak eta teklatuko lasterbideak.';
+
+  @override
+  String get settingsSubsectionVaultBackupImport =>
+      'Babeskopiak eta inportazioa';
+
+  @override
+  String get settingsSubsectionVaultScheduledLocal =>
+      'Programatutako babeskopia (lokala)';
+
+  @override
+  String get settingsSubsectionVaultData => 'Datuak (arrisku-eremua)';
+
+  @override
+  String get folioCloudSubsectionAccount => 'Kontua';
+
+  @override
+  String get folioCloudSubsectionEncryptedBackups =>
+      'Zifratutako babeskopiak (hodeia)';
+
+  @override
+  String get folioCloudSubsectionPublishing => 'Web argitalpena';
+
+  @override
+  String get settingsFolioCloudSubsectionScheduledCloud =>
+      'Programatutako babeskopia Folio Cloud-era';
+
+  @override
+  String get settingsScheduledCloudUploadRequiresSchedule =>
+      'Aurrez aktibatu programatutako babeskopia Koadernoan › Programatutako babeskopia (lokala).';
 
   @override
   String get settingsSyncHeroTitle => 'Gailuen arteko sinkronizazioa';
