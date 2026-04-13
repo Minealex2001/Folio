@@ -17,6 +17,7 @@ import '../../../services/diarization_service.dart';
 import '../../../services/folio_cloud/folio_cloud_callable.dart';
 import '../../../services/folio_cloud/folio_cloud_entitlements.dart';
 import '../../../services/system_audio_service.dart';
+import '../../../services/transcription_hardware_profile.dart';
 import '../../../services/whisper_service.dart';
 import '../../../session/vault_session.dart';
 import 'folio_special_block_widgets.dart';
@@ -85,10 +86,16 @@ class _MeetingNoteBlockWidgetState extends State<MeetingNoteBlockWidget> {
   DateTime? _cloudProcessingStartedAt;
   Timer? _cloudEtaTicker;
 
+  late TranscriptionHardwareSnapshot _hardwareSnapshot;
+  bool _generateTranscription = true;
+
   @override
   void initState() {
     super.initState();
+    _hardwareSnapshot = TranscriptionHardwareProfile.loadCached();
+    _generateTranscription = widget.block.meetingNoteTranscriptionEnabled != false;
     _loadProviderFromBlock();
+    _normalizeMeetingNoteProviderWithAi();
     if (widget.resolvedFile != null) {
       _state = _MeetingState.completed;
       _transcript = widget.block.text;
@@ -104,6 +111,17 @@ class _MeetingNoteBlockWidgetState extends State<MeetingNoteBlockWidget> {
       _state = _MeetingState.completed;
       _transcript = widget.block.text;
       _savedAudioPath = widget.resolvedFile!.path;
+    }
+    if (oldWidget.appSettings.isAiRuntimeEnabled !=
+            widget.appSettings.isAiRuntimeEnabled ||
+        oldWidget.block.meetingNoteProvider != widget.block.meetingNoteProvider) {
+      _loadProviderFromBlock();
+      _normalizeMeetingNoteProviderWithAi();
+    }
+    if (oldWidget.block.meetingNoteTranscriptionEnabled !=
+        widget.block.meetingNoteTranscriptionEnabled) {
+      _generateTranscription =
+          widget.block.meetingNoteTranscriptionEnabled != false;
     }
   }
 
@@ -139,6 +157,18 @@ class _MeetingNoteBlockWidgetState extends State<MeetingNoteBlockWidget> {
         : _TranscriptionProvider.local;
   }
 
+  void _normalizeMeetingNoteProviderWithAi() {
+    if (_provider == _TranscriptionProvider.quillCloud &&
+        !widget.appSettings.isAiRuntimeEnabled) {
+      _provider = _TranscriptionProvider.local;
+      widget.session.updateBlockMeetingNoteProvider(
+        widget.page.id,
+        widget.block.id,
+        'local',
+      );
+    }
+  }
+
   void _saveProviderToBlock(_TranscriptionProvider provider) {
     final value = provider == _TranscriptionProvider.quillCloud
         ? 'quill_cloud'
@@ -150,16 +180,27 @@ class _MeetingNoteBlockWidgetState extends State<MeetingNoteBlockWidget> {
     );
   }
 
-  bool get _cloudAvailable {
+  bool get _folioCloudInkAvailable {
     final ent = widget.folioCloudEntitlements;
     if (ent == null) return false;
     return ent.snapshot.canUseCloudAi;
   }
 
-  String _activeModelId() {
-    final fromSettings = widget.appSettings.meetingNoteModelId.trim();
-    return fromSettings.isEmpty ? 'base' : fromSettings;
-  }
+  bool get _cloudTranscriptionAllowed =>
+      widget.appSettings.isAiRuntimeEnabled && _folioCloudInkAvailable;
+
+  bool get _effectiveCloudPostProcess =>
+      _provider == _TranscriptionProvider.quillCloud &&
+      _cloudTranscriptionAllowed &&
+      _generateTranscription;
+
+  bool get _runLocalWhisperDuringRecording =>
+      _generateTranscription &&
+      (_hardwareSnapshot.isLocalTranscriptionViable ||
+          widget.appSettings.meetingNoteForceLocalTranscription);
+
+  String _activeModelId() =>
+      widget.appSettings.resolvedMeetingNoteWhisperModelId();
 
   String _activeModelLabel(AppLocalizations l10n) {
     final model = WhisperService.instance.modelById(_activeModelId());
@@ -167,6 +208,8 @@ class _MeetingNoteBlockWidgetState extends State<MeetingNoteBlockWidget> {
     return switch (id) {
       'tiny' => l10n.meetingNoteModelTiny,
       'small' => l10n.meetingNoteModelSmall,
+      'medium' => l10n.meetingNoteModelMedium,
+      'turbo' => l10n.meetingNoteModelTurbo,
       _ => l10n.meetingNoteModelBase,
     };
   }
@@ -199,8 +242,40 @@ class _MeetingNoteBlockWidgetState extends State<MeetingNoteBlockWidget> {
     };
   }
 
+  bool get _recordingAudioOnlyBadge =>
+      !_generateTranscription ||
+      (!_runLocalWhisperDuringRecording && !_effectiveCloudPostProcess);
+
+  Color _recordingBadgeColor() {
+    if (_recordingAudioOnlyBadge) return widget.scheme.tertiary;
+    if (_provider == _TranscriptionProvider.quillCloud) {
+      return widget.scheme.primary;
+    }
+    return widget.scheme.onSurfaceVariant;
+  }
+
+  String _recordingBadgeLabel(AppLocalizations l10n) {
+    if (_recordingAudioOnlyBadge) return l10n.meetingNoteRecordingAudioOnlyBadge;
+    if (_provider == _TranscriptionProvider.quillCloud) {
+      return l10n.meetingNoteCloudRecordingBadge(_selectedLanguageLabel(l10n));
+    }
+    return l10n.meetingNoteRecordingBadge(
+      _selectedLanguageLabel(l10n),
+      _activeModelLabel(l10n),
+    );
+  }
+
+  String _recordingTranscriptCaption(AppLocalizations l10n) {
+    if (!_generateTranscription) {
+      return l10n.meetingNotePerNoteTranscriptionOffHint;
+    }
+    if (_transcript.isEmpty) return l10n.meetingNoteWaitingTranscription;
+    return _transcript;
+  }
+
   Future<void> _startRecording() async {
     final l10n = AppLocalizations.of(context);
+    _hardwareSnapshot = TranscriptionHardwareProfile.loadCached();
     setState(() {
       _state = _MeetingState.setup;
       _setupLabel = l10n.meetingNotePreparing;
@@ -209,24 +284,31 @@ class _MeetingNoteBlockWidgetState extends State<MeetingNoteBlockWidget> {
       _cloudFallbackNotice = null;
     });
 
-    try {
-      await WhisperService.instance.ensureReady(
-        modelId: _activeModelId(),
-        onProgress: (label, prog) {
-          if (!mounted) return;
-          setState(() {
-            _setupLabel = label;
-            _setupProgress = prog;
-          });
-        },
-      );
-    } catch (e) {
-      if (!mounted) return;
+    if (_runLocalWhisperDuringRecording) {
+      try {
+        await WhisperService.instance.ensureReady(
+          modelId: _activeModelId(),
+          onProgress: (label, prog) {
+            if (!mounted) return;
+            setState(() {
+              _setupLabel = label;
+              _setupProgress = prog;
+            });
+          },
+        );
+      } catch (e) {
+        if (!mounted) return;
+        setState(() {
+          _state = _MeetingState.idle;
+          _runtimeError = l10n.meetingNoteWhisperInitError(e.toString());
+        });
+        return;
+      }
+    } else if (mounted) {
       setState(() {
-        _state = _MeetingState.idle;
-        _runtimeError = l10n.meetingNoteWhisperInitError(e.toString());
+        _setupLabel = l10n.meetingNotePreparing;
+        _setupProgress = 1;
       });
-      return;
     }
 
     if (!mounted) return;
@@ -249,9 +331,11 @@ class _MeetingNoteBlockWidgetState extends State<MeetingNoteBlockWidget> {
       return;
     }
 
-    final sid = const Uuid().v4();
-    _diarizationSessionId = sid;
-    DiarizationService.instance.startSession(sid);
+    if (_runLocalWhisperDuringRecording) {
+      final sid = const Uuid().v4();
+      _diarizationSessionId = sid;
+      DiarizationService.instance.startSession(sid);
+    }
     _chunkSub = AudioMixerService.instance.chunkStream.listen(_onChunk);
 
     _pendingCloudChunks.clear();
@@ -271,31 +355,45 @@ class _MeetingNoteBlockWidgetState extends State<MeetingNoteBlockWidget> {
 
   Future<void> _onChunk(File chunkFile) async {
     if (!mounted) return;
-    setState(() => _transcribing = true);
 
-    final saveForCloud =
-        _provider == _TranscriptionProvider.quillCloud && _cloudAvailable;
-    if (saveForCloud) _pendingCloudChunks.add(chunkFile);
+    final saveForCloud = _effectiveCloudPostProcess;
+    final runLocal = _runLocalWhisperDuringRecording;
 
-    final chunkText = await _onChunkLocal(
-      chunkFile,
-      deleteAfter: !saveForCloud,
-    );
-
-    if (!mounted) return;
-    final l10n = AppLocalizations.of(context);
-    if (chunkText.isNotEmpty) {
-      setState(() {
-        _transcript = _mergeTranscriptChunk(_transcript, chunkText);
-      });
-    } else {
-      setState(() {
-        _runtimeError =
-            WhisperService.instance.lastError ??
-            l10n.meetingNoteChunkTranscriptionError;
-      });
+    if (!runLocal && !saveForCloud) {
+      unawaited(chunkFile.delete().catchError((_) => File('')));
+      return;
     }
-    if (mounted) setState(() => _transcribing = false);
+
+    if (runLocal) {
+      if (mounted) setState(() => _transcribing = true);
+    }
+
+    if (saveForCloud) {
+      _pendingCloudChunks.add(chunkFile);
+    }
+
+    if (runLocal) {
+      final chunkText = await _onChunkLocal(
+        chunkFile,
+        deleteAfter: !saveForCloud,
+      );
+
+      if (!mounted) return;
+      final l10n = AppLocalizations.of(context);
+      if (chunkText.isNotEmpty) {
+        setState(() {
+          _transcript = _mergeTranscriptChunk(_transcript, chunkText);
+          _runtimeError = null;
+        });
+      } else {
+        setState(() {
+          _runtimeError =
+              WhisperService.instance.lastError ??
+              l10n.meetingNoteChunkTranscriptionError;
+        });
+      }
+      if (mounted) setState(() => _transcribing = false);
+    }
   }
 
   Future<String> _onChunkLocal(
@@ -614,9 +712,7 @@ class _MeetingNoteBlockWidgetState extends State<MeetingNoteBlockWidget> {
     _savedAudioPath = wavFile.path;
 
     final shouldPostProcessCloud =
-        _provider == _TranscriptionProvider.quillCloud &&
-        _cloudAvailable &&
-        _pendingCloudChunks.isNotEmpty;
+        _effectiveCloudPostProcess && _pendingCloudChunks.isNotEmpty;
 
     if (shouldPostProcessCloud) {
       setState(() {
@@ -674,13 +770,40 @@ class _MeetingNoteBlockWidgetState extends State<MeetingNoteBlockWidget> {
               ),
             ),
           ),
-        FilledButton.tonalIcon(
-          onPressed: SystemAudioService.isSupported ? _startRecording : null,
-          icon: const Icon(Icons.mic_rounded),
-          label: Text(l10n.meetingNoteStartRecording),
+        SwitchListTile(
+          contentPadding: EdgeInsets.zero,
+          value: _generateTranscription,
+          onChanged: (v) {
+            setState(() => _generateTranscription = v);
+            widget.session.updateBlockMeetingNoteTranscriptionEnabled(
+              widget.page.id,
+              widget.block.id,
+              v ? null : false,
+            );
+          },
+          title: Text(l10n.meetingNoteGenerateTranscription),
+          subtitle: Text(
+            l10n.meetingNoteGenerateTranscriptionSubtitle,
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: widget.scheme.onSurfaceVariant,
+            ),
+          ),
         ),
-        const SizedBox(height: 8),
-        if (_cloudAvailable) ...[
+        if (_generateTranscription &&
+            _provider == _TranscriptionProvider.local &&
+            !_runLocalWhisperDuringRecording &&
+            !_effectiveCloudPostProcess) ...[
+          Padding(
+            padding: const EdgeInsets.only(bottom: 8),
+            child: Text(
+              l10n.meetingNoteLocalTranscriptionNotViable,
+              style: theme.textTheme.labelSmall?.copyWith(
+                color: widget.scheme.error,
+              ),
+            ),
+          ),
+        ],
+        if (_generateTranscription && _cloudTranscriptionAllowed) ...[
           Text(
             l10n.meetingNoteTranscriptionProvider,
             style: theme.textTheme.labelSmall?.copyWith(
@@ -719,42 +842,64 @@ class _MeetingNoteBlockWidgetState extends State<MeetingNoteBlockWidget> {
             ),
           ],
           const SizedBox(height: 8),
-        ],
-        DropdownButtonFormField<String>(
-          initialValue: _selectedLanguageCode,
-          decoration: InputDecoration(
-            labelText: l10n.meetingNoteTranscriptionLanguage,
-            border: const OutlineInputBorder(),
-            isDense: true,
+        ] else if (_generateTranscription &&
+            _folioCloudInkAvailable &&
+            !widget.appSettings.isAiRuntimeEnabled) ...[
+          Padding(
+            padding: const EdgeInsets.only(bottom: 8),
+            child: Text(
+              l10n.meetingNoteCloudRequiresAiEnabled,
+              style: theme.textTheme.labelSmall?.copyWith(
+                color: widget.scheme.onSurfaceVariant,
+              ),
+            ),
           ),
-          items: _languageOptions
-              .map(
-                (o) => DropdownMenuItem<String>(
-                  value: o.code,
-                  child: Text(_resolveLanguageLabel(l10n, o.labelKey)),
-                ),
-              )
-              .toList(),
-          onChanged: (value) {
-            setState(() {
-              _selectedLanguageCode = (value ?? 'auto').trim();
-            });
-          },
+        ],
+        FilledButton.tonalIcon(
+          onPressed: SystemAudioService.isSupported ? _startRecording : null,
+          icon: const Icon(Icons.mic_rounded),
+          label: Text(l10n.meetingNoteStartRecording),
         ),
         const SizedBox(height: 8),
+        if (_generateTranscription) ...[
+          DropdownButtonFormField<String>(
+            initialValue: _selectedLanguageCode,
+            decoration: InputDecoration(
+              labelText: l10n.meetingNoteTranscriptionLanguage,
+              border: const OutlineInputBorder(),
+              isDense: true,
+            ),
+            items: _languageOptions
+                .map(
+                  (o) => DropdownMenuItem<String>(
+                    value: o.code,
+                    child: Text(_resolveLanguageLabel(l10n, o.labelKey)),
+                  ),
+                )
+                .toList(),
+            onChanged: (value) {
+              setState(() {
+                _selectedLanguageCode = (value ?? 'auto').trim();
+              });
+            },
+          ),
+          const SizedBox(height: 8),
+        ],
         Text(
           l10n.meetingNoteDevicesInSettings,
           style: theme.textTheme.labelSmall?.copyWith(
             color: widget.scheme.onSurfaceVariant,
           ),
         ),
-        const SizedBox(height: 4),
-        Text(
-          l10n.meetingNoteModelInSettings(_activeModelLabel(l10n)),
-          style: theme.textTheme.labelSmall?.copyWith(
-            color: widget.scheme.onSurfaceVariant,
+        if (_generateTranscription) ...[
+          const SizedBox(height: 4),
+          Text(
+            l10n.meetingNoteModelInSettings(_activeModelLabel(l10n)),
+            style: theme.textTheme.labelSmall?.copyWith(
+              color: widget.scheme.onSurfaceVariant,
+            ),
           ),
-        ),
+        ],
         if (_runtimeError != null) ...[
           const SizedBox(height: 8),
           Text(
@@ -766,9 +911,12 @@ class _MeetingNoteBlockWidgetState extends State<MeetingNoteBlockWidget> {
         ],
         const SizedBox(height: 4),
         Text(
-          _provider == _TranscriptionProvider.quillCloud && _cloudAvailable
-              ? l10n.meetingNoteProviderCloudCost
-              : l10n.meetingNoteDescription,
+          !_generateTranscription
+              ? l10n.meetingNoteGenerateTranscriptionSubtitle
+              : _provider == _TranscriptionProvider.quillCloud &&
+                      _cloudTranscriptionAllowed
+                  ? l10n.meetingNoteProviderCloudCost
+                  : l10n.meetingNoteDescription,
           style: theme.textTheme.labelSmall?.copyWith(
             color: widget.scheme.onSurfaceVariant.withValues(alpha: 0.7),
           ),
@@ -824,18 +972,9 @@ class _MeetingNoteBlockWidgetState extends State<MeetingNoteBlockWidget> {
                 ),
               ),
               child: Text(
-                _provider == _TranscriptionProvider.quillCloud
-                    ? l10n.meetingNoteCloudRecordingBadge(
-                        _selectedLanguageLabel(l10n),
-                      )
-                    : l10n.meetingNoteRecordingBadge(
-                        _selectedLanguageLabel(l10n),
-                        _activeModelLabel(l10n),
-                      ),
+                _recordingBadgeLabel(l10n),
                 style: theme.textTheme.labelSmall?.copyWith(
-                  color: _provider == _TranscriptionProvider.quillCloud
-                      ? widget.scheme.primary
-                      : widget.scheme.onSurfaceVariant,
+                  color: _recordingBadgeColor(),
                   fontWeight: FontWeight.w600,
                 ),
               ),
@@ -891,17 +1030,15 @@ class _MeetingNoteBlockWidgetState extends State<MeetingNoteBlockWidget> {
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 SelectableText(
-                  _transcript.isEmpty
-                      ? l10n.meetingNoteWaitingTranscription
-                      : _transcript,
+                  _recordingTranscriptCaption(l10n),
                   style: theme.textTheme.bodySmall?.copyWith(
-                    color: _transcript.isEmpty
+                    color: _transcript.isEmpty || !_generateTranscription
                         ? widget.scheme.onSurfaceVariant.withValues(alpha: 0.5)
                         : widget.scheme.onSurface,
                     height: 1.5,
                   ),
                 ),
-                if (_transcribing)
+                if (_transcribing && _runLocalWhisperDuringRecording)
                   Padding(
                     padding: const EdgeInsets.only(top: 6),
                     child: Row(
@@ -1023,7 +1160,9 @@ class _MeetingNoteBlockWidgetState extends State<MeetingNoteBlockWidget> {
           ),
         ] else ...[
           Text(
-            l10n.meetingNoteNoTranscription,
+            widget.block.meetingNoteTranscriptionEnabled == false
+                ? l10n.meetingNotePerNoteTranscriptionOffHint
+                : l10n.meetingNoteNoTranscription,
             style: theme.textTheme.bodySmall?.copyWith(
               color: widget.scheme.onSurfaceVariant.withValues(alpha: 0.6),
             ),

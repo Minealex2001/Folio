@@ -2339,6 +2339,11 @@ class _WorkspacePageState extends State<WorkspacePage> {
     return url.isNotEmpty ? url : 'Nota de reunión';
   }
 
+  bool _meetingNoteHasTranscriptForAi(FolioBlock b) {
+    if (b.meetingNoteTranscriptionEnabled == false) return false;
+    return b.text.trim().isNotEmpty;
+  }
+
   String _meetingNoteChipLabel(AppLocalizations l10n, String path) {
     final payload = _aiMeetingPayloads[path] ?? _MeetingNoteAiPayload.both;
     final suffix = switch (payload) {
@@ -2363,7 +2368,9 @@ class _WorkspacePageState extends State<WorkspacePage> {
     final l10n = AppLocalizations.of(context);
 
     FolioBlock? picked = meetingBlocks.length == 1 ? meetingBlocks.first : null;
-    var payload = _MeetingNoteAiPayload.both;
+    var payload = (picked != null && _meetingNoteHasTranscriptForAi(picked))
+        ? _MeetingNoteAiPayload.both
+        : _MeetingNoteAiPayload.audio;
 
     final confirmed = await showDialog<bool>(
       context: context,
@@ -2398,7 +2405,15 @@ class _WorkspacePageState extends State<WorkspacePage> {
                           maxLines: 2,
                           overflow: TextOverflow.ellipsis,
                         ),
-                        onTap: () => setS(() => picked = b),
+                        onTap: () => setS(() {
+                          picked = b;
+                          if (!_meetingNoteHasTranscriptForAi(b)) {
+                            if (payload == _MeetingNoteAiPayload.transcript ||
+                                payload == _MeetingNoteAiPayload.both) {
+                              payload = _MeetingNoteAiPayload.audio;
+                            }
+                          }
+                        }),
                       ),
                     ),
                     const Divider(),
@@ -2408,30 +2423,45 @@ class _WorkspacePageState extends State<WorkspacePage> {
                     style: Theme.of(ctx).textTheme.labelMedium,
                   ),
                   const SizedBox(height: 8),
-                  Wrap(
-                    spacing: 8,
-                    runSpacing: 8,
-                    children: [
-                      ChoiceChip(
-                        label: Text(l10n.meetingNoteAiPayloadTranscript),
-                        selected: payload == _MeetingNoteAiPayload.transcript,
-                        onSelected: (_) => setS(
-                          () => payload = _MeetingNoteAiPayload.transcript,
-                        ),
-                      ),
-                      ChoiceChip(
-                        label: Text(l10n.meetingNoteAiPayloadAudio),
-                        selected: payload == _MeetingNoteAiPayload.audio,
-                        onSelected: (_) =>
-                            setS(() => payload = _MeetingNoteAiPayload.audio),
-                      ),
-                      ChoiceChip(
-                        label: Text(l10n.meetingNoteAiPayloadBoth),
-                        selected: payload == _MeetingNoteAiPayload.both,
-                        onSelected: (_) =>
-                            setS(() => payload = _MeetingNoteAiPayload.both),
-                      ),
-                    ],
+                  Builder(
+                    builder: (ctx2) {
+                      final canTranscript = picked != null &&
+                          _meetingNoteHasTranscriptForAi(picked!);
+                      return Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
+                        children: [
+                          ChoiceChip(
+                            label: Text(l10n.meetingNoteAiPayloadTranscript),
+                            selected:
+                                payload == _MeetingNoteAiPayload.transcript,
+                            onSelected: canTranscript
+                                ? (_) => setS(
+                                      () => payload =
+                                          _MeetingNoteAiPayload.transcript,
+                                    )
+                                : null,
+                          ),
+                          ChoiceChip(
+                            label: Text(l10n.meetingNoteAiPayloadAudio),
+                            selected: payload == _MeetingNoteAiPayload.audio,
+                            onSelected: (_) => setS(
+                              () => payload = _MeetingNoteAiPayload.audio,
+                            ),
+                          ),
+                          ChoiceChip(
+                            label: Text(l10n.meetingNoteAiPayloadBoth),
+                            selected: payload == _MeetingNoteAiPayload.both,
+                            onSelected: canTranscript
+                                ? (_) => setS(
+                                      () =>
+                                          payload = _MeetingNoteAiPayload.both,
+                                    )
+                                : null,
+                          ),
+                        ],
+                      );
+                    },
                   ),
                 ],
               ),

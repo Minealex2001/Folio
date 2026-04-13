@@ -284,6 +284,29 @@
   },
   "meetingNoteCloudEtaCalculating": "Calculando tempo restante...",
   "meetingNoteCloudRequiresAccount": "Requer uma conta Folio Cloud com Ink.",
+  "meetingNoteCloudRequiresAiEnabled": "Ative a IA em Definições para usar a transcrição na nuvem (Quill Cloud).",
+  "meetingNoteHardwareSummary": "{cpus} núcleos · {ramLabel}",
+  "@meetingNoteHardwareSummary": {
+    "placeholders": {
+      "cpus": {"type": "int"},
+      "ramLabel": {}
+    }
+  },
+  "meetingNoteHardwareRamUnknown": "RAM desconhecida",
+  "meetingNoteHardwareRecommended": "Modelo recomendado para este dispositivo: {modelLabel}",
+  "@meetingNoteHardwareRecommended": {
+    "placeholders": {
+      "modelLabel": {}
+    }
+  },
+  "meetingNoteLocalTranscriptionNotViable": "Este dispositivo não cumpre o mínimo para transcrição local. Só o áudio será guardado, a menos que ative «Forçar transcrição local» nas Definições ou use o Quill Cloud com IA ativada.",
+  "meetingNoteGenerateTranscription": "Gerar transcrição",
+  "meetingNoteGenerateTranscriptionSubtitle": "Desative para guardar apenas o áudio nesta nota.",
+  "meetingNoteSettingsAutoWhisperModel": "Escolher o modelo automaticamente conforme o hardware",
+  "meetingNoteSettingsForceLocalTranscription": "Forçar transcrição local (pode ser lenta ou instável)",
+  "meetingNoteSettingsHardwareIntro": "Desempenho detetado para transcrição local.",
+  "meetingNoteRecordingAudioOnlyBadge": "Só áudio",
+  "meetingNotePerNoteTranscriptionOffHint": "A transcrição está desativada para esta nota.",
   "meetingNoteTranscriptionProvider": "Mecanismo de transcrição",
   "meetingNoteRecordingTime": "Gravando  {mm}:{ss}",
   "@meetingNoteRecordingTime": {
@@ -317,6 +340,8 @@
   "meetingNoteModelTiny": "Rápido",
   "meetingNoteModelBase": "Equilibrado",
   "meetingNoteModelSmall": "Preciso",
+  "meetingNoteModelMedium": "Avançado",
+  "meetingNoteModelTurbo": "Máxima qualidade",
   "meetingNoteCopyTranscript": "Copiar transcrição",
   "meetingNoteSendToAi": "Enviar para IA…",
   "meetingNoteAiPayloadLabel": "O que enviar para a IA?",

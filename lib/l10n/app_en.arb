@@ -284,6 +284,29 @@
     },
     "meetingNoteCloudEtaCalculating": "Calculating remaining time...",
   "meetingNoteCloudRequiresAccount": "Requires a Folio Cloud account with Ink.",
+  "meetingNoteCloudRequiresAiEnabled": "Turn on AI in Settings to use cloud transcription (Quill Cloud).",
+  "meetingNoteHardwareSummary": "{cpus} cores · {ramLabel}",
+  "@meetingNoteHardwareSummary": {
+    "placeholders": {
+      "cpus": {"type": "int"},
+      "ramLabel": {}
+    }
+  },
+  "meetingNoteHardwareRamUnknown": "Unknown RAM",
+  "meetingNoteHardwareRecommended": "Recommended model for this device: {modelLabel}",
+  "@meetingNoteHardwareRecommended": {
+    "placeholders": {
+      "modelLabel": {}
+    }
+  },
+  "meetingNoteLocalTranscriptionNotViable": "This device is below the minimum for local transcription. Only audio will be saved unless you enable “Force local transcription” in Settings or use Quill Cloud with AI enabled.",
+  "meetingNoteGenerateTranscription": "Generate transcription",
+  "meetingNoteGenerateTranscriptionSubtitle": "Turn off to keep audio only for this note.",
+  "meetingNoteSettingsAutoWhisperModel": "Pick model automatically from hardware",
+  "meetingNoteSettingsForceLocalTranscription": "Force local transcription (may be slow or unstable)",
+  "meetingNoteSettingsHardwareIntro": "Detected capability for local transcription.",
+  "meetingNoteRecordingAudioOnlyBadge": "Audio only",
+  "meetingNotePerNoteTranscriptionOffHint": "Transcription is turned off for this note.",
   "meetingNoteTranscriptionProvider": "Transcription engine",
   "meetingNoteRecordingTime": "Recording  {mm}:{ss}",
   "@meetingNoteRecordingTime": {
@@ -317,6 +340,8 @@
   "meetingNoteModelTiny": "Fast",
   "meetingNoteModelBase": "Balanced",
   "meetingNoteModelSmall": "Accurate",
+  "meetingNoteModelMedium": "Advanced",
+  "meetingNoteModelTurbo": "Best quality",
   "meetingNoteCopyTranscript": "Copy transcript",
   "meetingNoteSendToAi": "Send to AI…",
   "meetingNoteAiPayloadLabel": "What to send to AI?",

@@ -359,6 +359,8 @@ class VaultSession extends ChangeNotifier {
               url: b.url,
               imageWidth: b.imageWidth,
               appearance: b.appearance,
+              meetingNoteProvider: b.meetingNoteProvider,
+              meetingNoteTranscriptionEnabled: b.meetingNoteTranscriptionEnabled,
             ),
           )
           .toList(),
@@ -382,6 +384,8 @@ class VaultSession extends ChangeNotifier {
             url: b.url,
             imageWidth: b.imageWidth,
             appearance: b.appearance,
+            meetingNoteProvider: b.meetingNoteProvider,
+            meetingNoteTranscriptionEnabled: b.meetingNoteTranscriptionEnabled,
           ),
         )
         .toList();
@@ -790,6 +794,8 @@ class VaultSession extends ChangeNotifier {
           icon: b.icon,
           url: b.url,
           appearance: b.appearance,
+          meetingNoteProvider: b.meetingNoteProvider,
+          meetingNoteTranscriptionEnabled: b.meetingNoteTranscriptionEnabled,
         );
         await _importBlockAttachmentIfNeeded(
           copied,
@@ -1855,6 +1861,8 @@ class VaultSession extends ChangeNotifier {
           url: b.url,
           imageWidth: b.imageWidth,
           appearance: b.appearance,
+          meetingNoteProvider: b.meetingNoteProvider,
+          meetingNoteTranscriptionEnabled: b.meetingNoteTranscriptionEnabled,
         );
       }
       return b;
@@ -1939,6 +1947,8 @@ class VaultSession extends ChangeNotifier {
           url: b.url,
           imageWidth: b.imageWidth,
           appearance: b.appearance,
+          meetingNoteProvider: b.meetingNoteProvider,
+          meetingNoteTranscriptionEnabled: b.meetingNoteTranscriptionEnabled,
         );
       }
       return b;
@@ -2355,6 +2365,20 @@ class VaultSession extends ChangeNotifier {
     scheduleSave(trackRevisionForPageId: pageId);
   }
 
+  void updateBlockMeetingNoteTranscriptionEnabled(
+    String pageId,
+    String blockId,
+    bool? enabled,
+  ) {
+    final page = _pageById(pageId);
+    if (page == null) return;
+    final b = _blockById(page, blockId);
+    if (b == null) return;
+    b.meetingNoteTranscriptionEnabled = enabled;
+    notifyListeners();
+    scheduleSave(trackRevisionForPageId: pageId);
+  }
+
   void updateBlockUrl(String pageId, String blockId, String? url) {
     final page = _pageById(pageId);
     if (page == null) return;
@@ -2600,6 +2624,8 @@ class VaultSession extends ChangeNotifier {
             url: b.url,
             imageWidth: b.imageWidth,
             appearance: b.appearance,
+            meetingNoteProvider: b.meetingNoteProvider,
+            meetingNoteTranscriptionEnabled: b.meetingNoteTranscriptionEnabled,
           ),
         )
         .toList();
@@ -3509,6 +3535,8 @@ class VaultSession extends ChangeNotifier {
             url: b.url,
             imageWidth: b.imageWidth,
             appearance: b.appearance,
+            meetingNoteProvider: b.meetingNoteProvider,
+            meetingNoteTranscriptionEnabled: b.meetingNoteTranscriptionEnabled,
           ),
         )
         .toList();

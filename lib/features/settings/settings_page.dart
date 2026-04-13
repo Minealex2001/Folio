@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:convert';
 import 'dart:io';
 
 import 'package:file_picker/file_picker.dart';
@@ -41,10 +40,10 @@ import '../../services/folio_cloud/folio_cloud_entitlements.dart';
 import '../../services/folio_cloud/folio_cloud_ai_pricing.dart';
 import '../../services/folio_cloud/folio_cloud_publish.dart';
 import '../../services/folio_cloud/folio_web_portal_api.dart';
-import '../../services/folio_cloud/folio_page_html_export.dart';
 import '../../services/device_sync/device_sync_controller.dart';
 import '../../services/device_sync/device_sync_models.dart';
 import '../../services/system_audio_service.dart';
+import '../../services/transcription_hardware_profile.dart';
 import '../../services/whisper_service.dart';
 import '../../services/updater/github_release_updater.dart';
 import '../../services/updater/update_release_channel.dart';
@@ -107,7 +106,6 @@ class _SettingsPageState extends State<SettingsPage> {
   bool _detectingAiProvider = false;
   bool _importingCustomIcon = false;
   String _installedVersionLabel = '...';
-  bool _releaseStatusBusy = false;
   bool _folioCloudActionBusy = false;
   bool _webLinkBusy = false;
   int? _cloudBackupCount;
@@ -115,19 +113,6 @@ class _SettingsPageState extends State<SettingsPage> {
   final AudioRecorder _meetingNoteDeviceProbe = AudioRecorder();
   List<InputDevice> _meetingNoteMicDevices = const [];
   List<SystemAudioDevice> _meetingNoteSystemDevices = const [];
-  ReleaseReadinessSnapshot _releaseSnapshot = const ReleaseReadinessSnapshot(
-    installedVersionLabel: '... ',
-    isSemverValid: false,
-    updateReleaseChannel: UpdateReleaseChannel.stable,
-    activeVaultId: '-',
-    activeVaultPath: '-',
-    isVaultUnlocked: false,
-    isVaultEncrypted: false,
-    isAiEnabled: false,
-    isAiEndpointPolicyValid: true,
-    aiSummary: 'IA desactivada',
-    checks: const <ReleaseCheckItem>[],
-  );
   final CustomIconImportService _customIconImportService =
       CustomIconImportService();
 
@@ -215,6 +200,8 @@ class _SettingsPageState extends State<SettingsPage> {
     return switch (id) {
       'tiny' => l10n.meetingNoteModelTiny,
       'small' => l10n.meetingNoteModelSmall,
+      'medium' => l10n.meetingNoteModelMedium,
+      'turbo' => l10n.meetingNoteModelTurbo,
       _ => l10n.meetingNoteModelBase,
     };
   }
@@ -379,8 +366,6 @@ class _SettingsPageState extends State<SettingsPage> {
   }
 
   Future<void> _refreshReleaseReadiness() async {
-    if (mounted) setState(() => _releaseStatusBusy = true);
-
     final vaultId = _s.activeVaultId;
     var vaultPath = '-';
     try {
@@ -390,7 +375,7 @@ class _SettingsPageState extends State<SettingsPage> {
       vaultPath = '-';
     }
 
-    final snapshot = evaluateReleaseReadiness(
+    evaluateReleaseReadiness(
       installedVersionLabel: _installedVersionLabel,
       updateReleaseChannel: _app.updateReleaseChannel,
       activeVaultId: vaultId,
@@ -403,12 +388,6 @@ class _SettingsPageState extends State<SettingsPage> {
       aiEndpointMode: _app.aiEndpointMode,
       aiRemoteEndpointConfirmed: _app.aiRemoteEndpointConfirmed,
     );
-
-    if (!mounted) return;
-    setState(() {
-      _releaseSnapshot = snapshot;
-      _releaseStatusBusy = false;
-    });
   }
 
   void _snack(String msg) {
@@ -505,24 +484,6 @@ class _SettingsPageState extends State<SettingsPage> {
     return isEs ? es : en;
   }
 
-  Future<void> _exportReleaseReadinessReport() async {
-    final destination = await FilePicker.platform.saveFile(
-      dialogTitle: 'Guardar reporte de release readiness',
-      fileName: buildReleaseReadinessFileName(DateTime.now()),
-      type: FileType.custom,
-      allowedExtensions: const ['txt'],
-    );
-    if (destination == null || destination.trim().isEmpty) return;
-    try {
-      await File(destination).writeAsString(_releaseSnapshot.toReportText());
-      if (!mounted) return;
-      _snack('Reporte guardado correctamente.');
-    } catch (e) {
-      if (!mounted) return;
-      _snack('No se pudo guardar el reporte: $e');
-    }
-  }
-
   Future<void> _revokeIntegrationApp(String appId) async {
     await _app.revokeIntegrationApp(appId);
     _snack('App revocada: $appId');
@@ -534,7 +495,7 @@ class _SettingsPageState extends State<SettingsPage> {
       return _t('Aun sin sincronizar', 'Not synced yet');
     }
     final at = DateTime.fromMillisecondsSinceEpoch(ms).toLocal();
-    final two = (int value) => value.toString().padLeft(2, '0');
+    String two(int value) => value.toString().padLeft(2, '0');
     return '${two(at.day)}/${two(at.month)}/${at.year} ${two(at.hour)}:${two(at.minute)}';
   }
 
@@ -743,6 +704,7 @@ class _SettingsPageState extends State<SettingsPage> {
       );
       return;
     }
+    if (!mounted) return;
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) {
@@ -780,7 +742,7 @@ class _SettingsPageState extends State<SettingsPage> {
                 _sync.cancelOutgoingPair(targetPeer.peerId);
                 Navigator.of(ctx).pop(false);
               },
-              child: Text(AppLocalizations.of(context).cancel),
+              child: Text(AppLocalizations.of(ctx).cancel),
             ),
             FilledButton(
               onPressed: () => Navigator.of(ctx).pop(true),
@@ -815,7 +777,7 @@ class _SettingsPageState extends State<SettingsPage> {
 
   String _formatSyncConflictTimestamp(int ms) {
     final at = DateTime.fromMillisecondsSinceEpoch(ms).toLocal();
-    final two = (int value) => value.toString().padLeft(2, '0');
+    String two(int value) => value.toString().padLeft(2, '0');
     return '${two(at.day)}/${two(at.month)} ${two(at.hour)}:${two(at.minute)}';
   }
 
@@ -1008,8 +970,9 @@ class _SettingsPageState extends State<SettingsPage> {
   }
 
   Future<bool> _verifyVaultPasswordForDelete(String vaultId) async {
-    final l10n = AppLocalizations.of(context);
     final dir = await VaultPaths.vaultDirectoryForId(vaultId);
+    if (!mounted) return false;
+    final l10n = AppLocalizations.of(context);
     final keysPath = File(
       '${dir.path}${Platform.pathSeparator}${VaultPaths.wrappedDekFile}',
     );
@@ -1019,6 +982,7 @@ class _SettingsPageState extends State<SettingsPage> {
     var obscure = true;
     String? password;
     while (mounted) {
+      if (!mounted) break;
       password = await showDialog<String>(
         context: context,
         barrierDismissible: false,
@@ -1078,6 +1042,7 @@ class _SettingsPageState extends State<SettingsPage> {
     final l10n = AppLocalizations.of(context);
     final active = _s.activeVaultId;
     final vaults = await _s.listVaultEntries();
+    if (!mounted) return;
     final others = vaults.where((e) => e.id != active).toList(growable: false);
     if (others.isEmpty) {
       _snack(l10n.noOtherVaultsSnack);
@@ -1887,7 +1852,9 @@ class _SettingsPageState extends State<SettingsPage> {
           entitlementSnapshot: snap,
         );
       } catch (e) {
-        _snack(AppLocalizations.of(context).folioCloudBackupCleanupWarning);
+        if (mounted) {
+          _snack(AppLocalizations.of(context).folioCloudBackupCleanupWarning);
+        }
       }
       if (mounted) {
         _snack(AppLocalizations.of(context).folioCloudUploadSnackOk);
@@ -1922,48 +1889,6 @@ class _SettingsPageState extends State<SettingsPage> {
       // No interrumpimos la UI por el contador.
     } finally {
       if (mounted) setState(() => _cloudBackupCountBusy = false);
-    }
-  }
-
-  Future<void> _folioPublishDemoPage() async {
-    if (_folioCloudActionBusy) return;
-    final snap = _folio.snapshot;
-    if (!snap.canPublishToWeb) {
-      _snack(
-        _t(
-          'Activa Folio Cloud con publicación web incluida en tu plan.',
-          'Enable Folio Cloud with web publishing included in your plan.',
-        ),
-      );
-      return;
-    }
-    setState(() => _folioCloudActionBusy = true);
-    try {
-      final slug = 'demo-${DateTime.now().millisecondsSinceEpoch}';
-      String? appIconDataUri;
-      try {
-        final data = await rootBundle.load('assets/icons/folio.ico');
-        appIconDataUri =
-            'data:image/x-icon;base64,${base64Encode(data.buffer.asUint8List())}';
-      } catch (_) {}
-      final html = folioWebExportShellHtml(
-        documentTitle: 'Folio',
-        pageHeading: 'Folio',
-        pageSubtitle: 'Página de prueba',
-        bodyHtml: '<p>Página publicada desde Folio.</p>',
-        appIconDataUri: appIconDataUri,
-      );
-      final res = await publishHtmlPage(
-        slug: slug,
-        html: html,
-        entitlementSnapshot: snap,
-      );
-      _snack(_t('Publicado: ${res.publicUrl}', 'Published: ${res.publicUrl}'));
-      await launchUrl(res.publicUrl, mode: LaunchMode.externalApplication);
-    } catch (e) {
-      _snack('$e');
-    } finally {
-      if (mounted) setState(() => _folioCloudActionBusy = false);
     }
   }
 
@@ -6291,6 +6216,106 @@ class _SettingsPageState extends State<SettingsPage> {
                                             ),
                                       ),
                                       const SizedBox(height: 12),
+                                      Builder(
+                                        builder: (ctx) {
+                                          final hw =
+                                              TranscriptionHardwareProfile
+                                                  .loadCached();
+                                          return Column(
+                                            crossAxisAlignment:
+                                                CrossAxisAlignment.stretch,
+                                            children: [
+                                              Text(
+                                                l10n.meetingNoteSettingsHardwareIntro,
+                                                style: Theme.of(ctx)
+                                                    .textTheme
+                                                    .labelMedium
+                                                    ?.copyWith(
+                                                      color: scheme
+                                                          .onSurfaceVariant,
+                                                      fontWeight:
+                                                          FontWeight.w600,
+                                                    ),
+                                              ),
+                                              const SizedBox(height: 6),
+                                              Text(
+                                                l10n.meetingNoteHardwareSummary(
+                                                  hw.logicalCpuCount,
+                                                  hw.ramLabelForUi(
+                                                    l10n
+                                                        .meetingNoteHardwareRamUnknown,
+                                                  ),
+                                                ),
+                                                style: Theme.of(ctx)
+                                                    .textTheme
+                                                    .bodySmall
+                                                    ?.copyWith(
+                                                      color: scheme
+                                                          .onSurfaceVariant,
+                                                    ),
+                                              ),
+                                              const SizedBox(height: 4),
+                                              Text(
+                                                l10n.meetingNoteHardwareRecommended(
+                                                  _meetingModelLabel(
+                                                    l10n,
+                                                    hw.recommendedWhisperModelId,
+                                                  ),
+                                                ),
+                                                style: Theme.of(ctx)
+                                                    .textTheme
+                                                    .bodySmall
+                                                    ?.copyWith(
+                                                      color: scheme
+                                                          .onSurfaceVariant,
+                                                    ),
+                                              ),
+                                              const SizedBox(height: 10),
+                                              SwitchListTile(
+                                                contentPadding:
+                                                    EdgeInsets.zero,
+                                                title: Text(
+                                                  l10n
+                                                      .meetingNoteSettingsAutoWhisperModel,
+                                                ),
+                                                value: _app
+                                                    .meetingNoteAutoWhisperModel,
+                                                onChanged: (v) {
+                                                  unawaited(
+                                                    _app
+                                                        .setMeetingNoteAutoWhisperModel(
+                                                      v,
+                                                    ),
+                                                  );
+                                                },
+                                              ),
+                                              if (!hw
+                                                  .isLocalTranscriptionViable) ...[
+                                                const SizedBox(height: 8),
+                                                SwitchListTile(
+                                                  contentPadding:
+                                                      EdgeInsets.zero,
+                                                  title: Text(
+                                                    l10n
+                                                        .meetingNoteSettingsForceLocalTranscription,
+                                                  ),
+                                                  value: _app
+                                                      .meetingNoteForceLocalTranscription,
+                                                  onChanged: (v) {
+                                                    unawaited(
+                                                      _app
+                                                          .setMeetingNoteForceLocalTranscription(
+                                                        v,
+                                                      ),
+                                                    );
+                                                  },
+                                                ),
+                                              ],
+                                              const SizedBox(height: 12),
+                                            ],
+                                          );
+                                        },
+                                      ),
                                       DropdownButtonFormField<String>(
                                         key: ValueKey<String>(
                                           'meeting-mic-${_app.meetingNoteMicDeviceId}-${_meetingNoteMicDevices.length}',
@@ -6393,11 +6418,11 @@ class _SettingsPageState extends State<SettingsPage> {
                                       const SizedBox(height: 10),
                                       DropdownButtonFormField<String>(
                                         key: ValueKey<String>(
-                                          'meeting-model-${_app.meetingNoteModelId}',
+                                          'meeting-model-${_app.meetingNoteAutoWhisperModel}-${_app.resolvedMeetingNoteWhisperModelId()}',
                                         ),
                                         initialValue: (() {
-                                          final id = _app.meetingNoteModelId;
-                                          if (id.isEmpty) return 'base';
+                                          final id =
+                                              _app.resolvedMeetingNoteWhisperModelId();
                                           return _meetingModelExists(id)
                                               ? id
                                               : 'base';
@@ -6421,13 +6446,15 @@ class _SettingsPageState extends State<SettingsPage> {
                                               ),
                                             )
                                             .toList(),
-                                        onChanged: (value) {
-                                          unawaited(
-                                            _app.setMeetingNoteModelId(
-                                              value ?? 'base',
-                                            ),
-                                          );
-                                        },
+                                        onChanged: _app.meetingNoteAutoWhisperModel
+                                            ? null
+                                            : (value) {
+                                                unawaited(
+                                                  _app.setMeetingNoteModelId(
+                                                    value ?? 'base',
+                                                  ),
+                                                );
+                                              },
                                       ),
                                       const SizedBox(height: 12),
                                       Padding(
@@ -7839,86 +7866,6 @@ class _AiSetupWizardDialogState extends State<_AiSetupWizardDialog> {
   }
 }
 
-class _ReleaseCheckRow extends StatelessWidget {
-  const _ReleaseCheckRow({
-    required this.label,
-    required this.ok,
-    required this.severity,
-    this.details,
-  });
-
-  final String label;
-  final bool ok;
-  final ReleaseCheckSeverity severity;
-  final String? details;
-
-  @override
-  Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    final color = ok
-        ? Colors.green
-        : (severity == ReleaseCheckSeverity.blocker
-              ? scheme.error
-              : Colors.orange);
-    final tagText = severity == ReleaseCheckSeverity.blocker
-        ? 'Bloqueador'
-        : 'Advertencia';
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Padding(
-            padding: const EdgeInsets.only(top: 2),
-            child: Icon(
-              ok ? Icons.check_circle_rounded : Icons.error_outline_rounded,
-              size: 18,
-              color: color,
-            ),
-          ),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Expanded(child: Text(label)),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 8,
-                        vertical: 2,
-                      ),
-                      decoration: BoxDecoration(
-                        color: color.withValues(alpha: 0.12),
-                        borderRadius: BorderRadius.circular(999),
-                      ),
-                      child: Text(
-                        tagText,
-                        style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                          color: color,
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-                if (details != null && details!.trim().isNotEmpty)
-                  Text(
-                    details!,
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: Theme.of(context).colorScheme.onSurfaceVariant,
-                    ),
-                  ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
 class _ProviderStatusLine extends StatelessWidget {
   const _ProviderStatusLine({
     required this.label,
@@ -8415,7 +8362,6 @@ class _SettingsOverviewStat extends StatelessWidget {
 /// Agrupa opciones dentro de un panel (sin cambiar el índice de sección del rail).
 class _SettingsSubsectionTitle extends StatelessWidget {
   const _SettingsSubsectionTitle({
-    super.key,
     required this.title,
     required this.scheme,
     this.topPadding = 16,
@@ -9189,66 +9135,6 @@ class _FolioCloudSubscriptionPanel extends StatelessWidget {
         ),
         const SizedBox(height: 8),
       ],
-    );
-  }
-}
-
-class _FolioCloudFeatureTile extends StatelessWidget {
-  const _FolioCloudFeatureTile({
-    required this.scheme,
-    required this.icon,
-    required this.title,
-    required this.included,
-    required this.includedLabel,
-    required this.notIncludedLabel,
-  });
-
-  final ColorScheme scheme;
-  final IconData icon;
-  final String title;
-  final bool included;
-  final String includedLabel;
-  final String notIncludedLabel;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-      decoration: BoxDecoration(
-        color: scheme.surface.withValues(alpha: 0.82),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: scheme.outlineVariant.withValues(alpha: 0.35),
-        ),
-      ),
-      child: Row(
-        children: [
-          Icon(icon, size: 22, color: scheme.primary),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Text(
-              title,
-              style: theme.textTheme.titleSmall?.copyWith(
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ),
-          Icon(
-            included ? Icons.check_circle_rounded : Icons.cancel_outlined,
-            size: 22,
-            color: included ? scheme.primary : scheme.outline,
-          ),
-          const SizedBox(width: 6),
-          Text(
-            included ? includedLabel : notIncludedLabel,
-            style: theme.textTheme.labelMedium?.copyWith(
-              color: included ? scheme.primary : scheme.onSurfaceVariant,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-        ],
-      ),
     );
   }
 }

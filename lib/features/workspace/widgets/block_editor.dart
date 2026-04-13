@@ -2,6 +2,8 @@ import 'dart:async';
 import 'dart:io';
 import 'dart:math' as math;
 
+import 'package:flutter/gestures.dart' show kPrimaryButton;
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:collection/collection.dart';
 import 'package:cryptography/cryptography.dart';
@@ -3640,18 +3642,22 @@ class BlockEditorState extends State<BlockEditor> with _BlockRowBuild {
     });
   }
 
-  void _handleTailBlankTap(TapDownDetails details, FolioPage page) {
-    if (page.blocks.isEmpty) return;
+  /// `true` si el punto cae en el hueco por debajo del último bloque (padding final).
+  bool _tailBlankHitTest(TapDownDetails details, FolioPage page) {
+    if (page.blocks.isEmpty) return false;
     final lastId = page.blocks.last.id;
     final ctx = _blockScrollKeys[lastId]?.currentContext;
-    if (ctx == null) return;
+    if (ctx == null) return false;
     final render = ctx.findRenderObject();
-    if (render is! RenderBox || !render.hasSize) return;
+    if (render is! RenderBox || !render.hasSize) return false;
     final topLeft = render.localToGlobal(Offset.zero);
     final bottomY = topLeft.dy + render.size.height;
     final tapY = details.globalPosition.dy;
-    // Solo crear bloque cuando el tap cae realmente por debajo del último bloque.
-    if (tapY <= bottomY + 2) return;
+    return tapY > bottomY + 2;
+  }
+
+  void _handleTailBlankDoubleTap(TapDownDetails details, FolioPage page) {
+    if (!_tailBlankHitTest(details, page)) return;
     _addBlock(page.id, transientFromTailTap: true);
   }
 
@@ -3826,9 +3832,9 @@ class BlockEditorState extends State<BlockEditor> with _BlockRowBuild {
               onPointerCancel: (_) => _endDragSelection(),
               child: GestureDetector(
                 behavior: HitTestBehavior.translucent,
-                onTapDown: readOnlyMode
+                onDoubleTapDown: readOnlyMode
                     ? null
-                    : (details) => _handleTailBlankTap(details, page),
+                    : (details) => _handleTailBlankDoubleTap(details, page),
                 child: Theme(
                   data: theme.copyWith(
                     inputDecorationTheme: const InputDecorationTheme(
@@ -3884,54 +3890,82 @@ class BlockEditorState extends State<BlockEditor> with _BlockRowBuild {
                                 setState(() => _hoveredBlockIndex = null);
                               }
                             },
-                            child: GestureDetector(
+                            child: Listener(
                               behavior: HitTestBehavior.translucent,
-                              onTapDown: readOnlyMode
+                              onPointerDown: readOnlyMode
                                   ? null
-                                  : (_) => _handleBlockSelection(
-                                      page,
-                                      b.id,
-                                      focusNode: focus,
-                                    ),
-                              onPanStart: readOnlyMode
-                                  ? null
-                                  : (_) => _beginDragSelection(
-                                      page,
-                                      b.id,
-                                      focusNode: focus,
-                                    ),
-                              onPanUpdate: readOnlyMode
-                                  ? null
-                                  : (_) => _updateDragSelection(page, b.id),
-                              child: AnimatedContainer(
-                                duration: const Duration(milliseconds: 120),
-                                curve: Curves.easeOut,
-                                margin: EdgeInsets.only(
-                                  bottom: androidPhoneLayout ? 6 : 1,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: _blockRowFill(
-                                    scheme,
-                                    index,
-                                    focus,
-                                    selected,
+                                  : (event) {
+                                      if ((event.buttons & kPrimaryButton) ==
+                                          0) {
+                                        return;
+                                      }
+                                      if (!HardwareKeyboard.instance.isShiftPressed &&
+                                          !_isAdditiveSelectionPressed) {
+                                        return;
+                                      }
+                                      _handleBlockSelection(
+                                        page,
+                                        b.id,
+                                        focusNode: focus,
+                                      );
+                                    },
+                              child: GestureDetector(
+                                behavior: HitTestBehavior.translucent,
+                                onTapDown: readOnlyMode
+                                    ? null
+                                    : (_) {
+                                        if (HardwareKeyboard
+                                                .instance.isShiftPressed ||
+                                            _isAdditiveSelectionPressed) {
+                                          return;
+                                        }
+                                        _handleBlockSelection(
+                                          page,
+                                          b.id,
+                                          focusNode: focus,
+                                        );
+                                      },
+                                onPanStart: readOnlyMode
+                                    ? null
+                                    : (_) => _beginDragSelection(
+                                          page,
+                                          b.id,
+                                          focusNode: focus,
+                                        ),
+                                onPanUpdate: readOnlyMode
+                                    ? null
+                                    : (_) =>
+                                        _updateDragSelection(page, b.id),
+                                child: AnimatedContainer(
+                                  duration: const Duration(milliseconds: 120),
+                                  curve: Curves.easeOut,
+                                  margin: EdgeInsets.only(
+                                    bottom: androidPhoneLayout ? 6 : 1,
                                   ),
-                                  borderRadius: BorderRadius.circular(
-                                    androidPhoneLayout ? 14 : 6,
+                                  decoration: BoxDecoration(
+                                    color: _blockRowFill(
+                                      scheme,
+                                      index,
+                                      focus,
+                                      selected,
+                                    ),
+                                    borderRadius: BorderRadius.circular(
+                                      androidPhoneLayout ? 14 : 6,
+                                    ),
                                   ),
-                                ),
-                                child: _buildBlockRow(
-                                  context: context,
-                                  scheme: scheme,
-                                  page: page,
-                                  block: b,
-                                  index: index,
-                                  ctrl: ctrl,
-                                  focus: focus,
-                                  style: style,
-                                  showActions: showActions,
-                                  showInlineEditControls:
-                                      showInlineEditControls,
+                                  child: _buildBlockRow(
+                                    context: context,
+                                    scheme: scheme,
+                                    page: page,
+                                    block: b,
+                                    index: index,
+                                    ctrl: ctrl,
+                                    focus: focus,
+                                    style: style,
+                                    showActions: showActions,
+                                    showInlineEditControls:
+                                        showInlineEditControls,
+                                  ),
                                 ),
                               ),
                             ),

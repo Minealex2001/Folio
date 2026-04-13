@@ -7,7 +7,9 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'folio_build_flags.dart';
 import 'folio_in_app_shortcuts.dart';
+import '../services/transcription_hardware_profile.dart';
 import '../services/updater/update_release_channel.dart';
+import '../services/whisper_service.dart';
 
 enum AiProvider { none, ollama, lmStudio, quillCloud }
 
@@ -224,6 +226,10 @@ class AppSettings extends ChangeNotifier {
   static const _meetingNoteSystemDeviceIdKey =
       'folio_meeting_note_system_device_id';
   static const _meetingNoteModelIdKey = 'folio_meeting_note_model_id';
+  static const _meetingNoteAutoWhisperModelKey =
+      'folio_meeting_note_auto_whisper_model';
+  static const _meetingNoteForceLocalTranscriptionKey =
+      'folio_meeting_note_force_local_transcription';
   static const int maxRecentSearchQueries = 10;
   static const int defaultScheduledVaultBackupIntervalHours = 24;
   static const int defaultVaultIdleLockMinutes = 15;
@@ -321,6 +327,8 @@ class AppSettings extends ChangeNotifier {
   String _meetingNoteMicDeviceId = '';
   String _meetingNoteSystemDeviceId = '';
   String _meetingNoteModelId = 'base';
+  bool _meetingNoteAutoWhisperModel = false;
+  bool _meetingNoteForceLocalTranscription = false;
 
   ThemeMode get themeMode => _themeMode;
   double get uiScale => _uiScale;
@@ -379,6 +387,20 @@ class AppSettings extends ChangeNotifier {
   String get meetingNoteMicDeviceId => _meetingNoteMicDeviceId;
   String get meetingNoteSystemDeviceId => _meetingNoteSystemDeviceId;
   String get meetingNoteModelId => _meetingNoteModelId;
+
+  bool get meetingNoteAutoWhisperModel => _meetingNoteAutoWhisperModel;
+
+  bool get meetingNoteForceLocalTranscription =>
+      _meetingNoteForceLocalTranscription;
+
+  /// Modelo Whisper efectivo (manual o recomendado por hardware si [meetingNoteAutoWhisperModel]).
+  String resolvedMeetingNoteWhisperModelId() {
+    final snap = TranscriptionHardwareProfile.loadCached();
+    final chosen = _meetingNoteAutoWhisperModel
+        ? snap.recommendedWhisperModelId
+        : (_meetingNoteModelId.trim().isEmpty ? 'base' : _meetingNoteModelId);
+    return WhisperService.instance.modelById(chosen)?.id ?? 'base';
+  }
 
   /// URL del portal para vincular cuenta web: [folioWebPortalBaseUrlFromEnvironment] o [defaultFolioWebPortalBaseUrl].
   String get folioWebPortalBaseUrlEffective {
@@ -526,6 +548,10 @@ class AppSettings extends ChangeNotifier {
     if (_meetingNoteModelId.isEmpty) {
       _meetingNoteModelId = 'base';
     }
+    _meetingNoteAutoWhisperModel =
+        p.getBool(_meetingNoteAutoWhisperModelKey) ?? false;
+    _meetingNoteForceLocalTranscription =
+        p.getBool(_meetingNoteForceLocalTranscriptionKey) ?? false;
     _integrationSecret = _configuredIntegrationSecret;
     final approvedRaw = p.getString(_approvedIntegrationAppsKey);
     if (approvedRaw != null && approvedRaw.trim().isNotEmpty) {
@@ -1275,11 +1301,32 @@ class AppSettings extends ChangeNotifier {
 
   Future<void> setMeetingNoteModelId(String value) async {
     final safe = value.trim().isEmpty ? 'base' : value.trim();
-    if (_meetingNoteModelId == safe) return;
+    if (_meetingNoteModelId == safe && !_meetingNoteAutoWhisperModel) return;
     _meetingNoteModelId = safe;
+    if (_meetingNoteAutoWhisperModel) {
+      _meetingNoteAutoWhisperModel = false;
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setBool(_meetingNoteAutoWhisperModelKey, false);
+    }
     notifyListeners();
     final p = await SharedPreferences.getInstance();
     await p.setString(_meetingNoteModelIdKey, safe);
+  }
+
+  Future<void> setMeetingNoteAutoWhisperModel(bool value) async {
+    if (_meetingNoteAutoWhisperModel == value) return;
+    _meetingNoteAutoWhisperModel = value;
+    notifyListeners();
+    final p = await SharedPreferences.getInstance();
+    await p.setBool(_meetingNoteAutoWhisperModelKey, value);
+  }
+
+  Future<void> setMeetingNoteForceLocalTranscription(bool value) async {
+    if (_meetingNoteForceLocalTranscription == value) return;
+    _meetingNoteForceLocalTranscription = value;
+    notifyListeners();
+    final p = await SharedPreferences.getInstance();
+    await p.setBool(_meetingNoteForceLocalTranscriptionKey, value);
   }
 
   Future<void> setInAppShortcut(
