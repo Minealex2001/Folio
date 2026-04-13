@@ -36,7 +36,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.folioCloudAiCompleteHttp = exports.folioCloudAiComplete = exports.monthlyInkRefill = exports.folioCloudTranscribeChunk = exports.createBillingPortalSession = exports.folioTrimVaultBackups = exports.folioUpsertVaultBackupIndex = exports.folioListBackupVaults = exports.folioListVaultBackups = exports.syncFolioCloudSubscriptionFromStripe = exports.createCheckoutSession = exports.removeCollabMember = exports.inviteCollabMember = exports.joinCollabRoomByCode = exports.createCollabRoom = exports.stripeWebhook = exports.folioCloudAiPricing = void 0;
+exports.folioCloudAiCompleteHttp = exports.folioCloudAiComplete = exports.monthlyInkRefill = exports.folioCloudTranscribeChunk = exports.createBillingPortalSession = exports.folioTrimVaultBackups = exports.folioUpsertVaultBackupIndex = exports.folioListBackupVaults = exports.folioListVaultBackups = exports.syncFolioCloudSubscriptionFromStripe = exports.createCheckoutSession = exports.closeCollabRoom = exports.removeCollabMember = exports.inviteCollabMember = exports.commitCollabMediaUpload = exports.prepareCollabMediaUpload = exports.joinCollabRoomByCode = exports.createCollabRoom = exports.stripeWebhook = exports.folioCloudAiPricing = void 0;
 const path = __importStar(require("path"));
 const dotenv_1 = require("dotenv");
 // Carga `functions/.env` (gitignored). En deploy, Firebase también inyecta estas variables.
@@ -353,8 +353,67 @@ function normalizeResponseSchema(raw) {
         return null;
     if (Array.isArray(raw))
         return null;
-    // Recortamos profundidad/tamaño más adelante con límites de prompt/ink; aquí solo validamos forma.
-    return raw;
+    // Recortamos profundidad/tamaño más adelante con límites de prompt/ink; aquí también
+    // reforzamos compatibilidad con json_schema.strict de OpenAI.
+    return enforceStrictObjectSchema(raw);
+}
+function enforceStrictObjectSchema(node) {
+    const clone = { ...node };
+    const nodeType = typeof clone.type === "string" ? clone.type : undefined;
+    if (nodeType === "object") {
+        clone.additionalProperties = false;
+    }
+    const properties = clone.properties;
+    if (properties && typeof properties === "object" && !Array.isArray(properties)) {
+        const nextProps = {};
+        for (const [key, value] of Object.entries(properties)) {
+            if (value && typeof value === "object" && !Array.isArray(value)) {
+                nextProps[key] = enforceStrictObjectSchema(value);
+            }
+            else {
+                nextProps[key] = value;
+            }
+        }
+        clone.properties = nextProps;
+        const requiredKeys = Object.keys(nextProps);
+        const existingRequired = Array.isArray(clone.required)
+            ? clone.required.filter((v) => typeof v === "string")
+            : [];
+        // En strict json_schema, OpenAI exige que required incluya todas las keys de properties.
+        clone.required = Array.from(new Set([...existingRequired, ...requiredKeys]));
+    }
+    const items = clone.items;
+    if (items && typeof items === "object" && !Array.isArray(items)) {
+        clone.items = enforceStrictObjectSchema(items);
+    }
+    const anyOf = clone.anyOf;
+    if (Array.isArray(anyOf)) {
+        clone.anyOf = anyOf.map((value) => {
+            if (value && typeof value === "object" && !Array.isArray(value)) {
+                return enforceStrictObjectSchema(value);
+            }
+            return value;
+        });
+    }
+    const oneOf = clone.oneOf;
+    if (Array.isArray(oneOf)) {
+        clone.oneOf = oneOf.map((value) => {
+            if (value && typeof value === "object" && !Array.isArray(value)) {
+                return enforceStrictObjectSchema(value);
+            }
+            return value;
+        });
+    }
+    const allOf = clone.allOf;
+    if (Array.isArray(allOf)) {
+        clone.allOf = allOf.map((value) => {
+            if (value && typeof value === "object" && !Array.isArray(value)) {
+                return enforceStrictObjectSchema(value);
+            }
+            return value;
+        });
+    }
+    return clone;
 }
 async function callOpenAiChatStructured(input) {
     var _a, _b, _c, _d, _e, _f;
@@ -1059,6 +1118,8 @@ async function assertFolioRealtimeCollabAllowed(uid) {
     }
 }
 const COLLAB_MAX_MEMBERS = 24;
+const COLLAB_MEDIA_MAX_BYTES = 80 * 1024 * 1024;
+const COLLAB_ALLOWED_MEDIA_KINDS = new Set(["image", "video", "audio", "file"]);
 const COLLAB_JOIN_EMOJIS = [
     "\u{1F331}",
     "\u{2B50}",
@@ -1135,6 +1196,7 @@ exports.createCollabRoom = (0, https_1.onCall)({ invoker: "public" }, async (req
                     ownerUid: uid,
                     vaultPageId,
                     memberUids: [uid],
+                    memberJoinedAt: { [uid]: now },
                     e2eV: 1,
                     contentVersion: 0,
                     joinCodeKey: key,
@@ -1192,10 +1254,123 @@ exports.joinCollabRoomByCode = (0, https_1.onCall)({ invoker: "public" }, async 
         }
         tx.update(roomRef, {
             memberUids: FieldValue.arrayUnion(uid),
+            [`memberJoinedAt.${uid}`]: FieldValue.serverTimestamp(),
             updatedAt: FieldValue.serverTimestamp(),
         });
     });
     return { roomId };
+});
+exports.prepareCollabMediaUpload = (0, https_1.onCall)({ invoker: "public" }, async (request) => {
+    var _a, _b, _c, _d, _e, _f, _g, _h;
+    if (!((_a = request.auth) === null || _a === void 0 ? void 0 : _a.uid)) {
+        throw new https_1.HttpsError("unauthenticated", "Login required");
+    }
+    const uid = request.auth.uid;
+    await assertFolioRealtimeCollabAllowed(uid);
+    const roomId = typeof ((_b = request.data) === null || _b === void 0 ? void 0 : _b.roomId) === "string" ? request.data.roomId.trim() : "";
+    if (!roomId) {
+        throw new https_1.HttpsError("invalid-argument", "roomId required");
+    }
+    const blockId = typeof ((_c = request.data) === null || _c === void 0 ? void 0 : _c.blockId) === "string" ? request.data.blockId.trim() : "";
+    if (!blockId || blockId.length > 128) {
+        throw new https_1.HttpsError("invalid-argument", "blockId invalid");
+    }
+    const mediaKind = typeof ((_d = request.data) === null || _d === void 0 ? void 0 : _d.mediaKind) === "string" ? request.data.mediaKind.trim() : "";
+    if (!COLLAB_ALLOWED_MEDIA_KINDS.has(mediaKind)) {
+        throw new https_1.HttpsError("invalid-argument", "mediaKind invalid");
+    }
+    const sizeBytes = Number((_f = (_e = request.data) === null || _e === void 0 ? void 0 : _e.sizeBytes) !== null && _f !== void 0 ? _f : 0);
+    if (!Number.isFinite(sizeBytes) || sizeBytes <= 0 || sizeBytes > COLLAB_MEDIA_MAX_BYTES) {
+        throw new https_1.HttpsError("invalid-argument", "sizeBytes invalid");
+    }
+    const roomRef = db.collection("collabRooms").doc(roomId);
+    const roomSnap = await roomRef.get();
+    if (!roomSnap.exists) {
+        throw new https_1.HttpsError("not-found", "Room not found");
+    }
+    const room = (_g = roomSnap.data()) !== null && _g !== void 0 ? _g : {};
+    const members = (_h = room.memberUids) !== null && _h !== void 0 ? _h : [];
+    if (!members.includes(uid) && room.ownerUid !== uid) {
+        throw new https_1.HttpsError("permission-denied", "Not a room member");
+    }
+    if (room.e2eV !== 1) {
+        throw new https_1.HttpsError("failed-precondition", "Room must be e2eV=1");
+    }
+    const mediaRef = roomRef.collection("media").doc();
+    const mediaId = mediaRef.id;
+    const storagePath = `collab-media-e2e/${roomId}/${mediaId}`;
+    return {
+        mediaId,
+        storagePath,
+        roomId,
+        blockId,
+        mediaKind,
+    };
+});
+exports.commitCollabMediaUpload = (0, https_1.onCall)({ invoker: "public" }, async (request) => {
+    var _a, _b, _c, _d, _e, _f, _g, _h, _j, _k, _l, _m;
+    if (!((_a = request.auth) === null || _a === void 0 ? void 0 : _a.uid)) {
+        throw new https_1.HttpsError("unauthenticated", "Login required");
+    }
+    const uid = request.auth.uid;
+    await assertFolioRealtimeCollabAllowed(uid);
+    const roomId = typeof ((_b = request.data) === null || _b === void 0 ? void 0 : _b.roomId) === "string" ? request.data.roomId.trim() : "";
+    const mediaId = typeof ((_c = request.data) === null || _c === void 0 ? void 0 : _c.mediaId) === "string" ? request.data.mediaId.trim() : "";
+    const blockId = typeof ((_d = request.data) === null || _d === void 0 ? void 0 : _d.blockId) === "string" ? request.data.blockId.trim() : "";
+    const storagePath = typeof ((_e = request.data) === null || _e === void 0 ? void 0 : _e.storagePath) === "string" ? request.data.storagePath.trim() : "";
+    const mediaKind = typeof ((_f = request.data) === null || _f === void 0 ? void 0 : _f.mediaKind) === "string" ? request.data.mediaKind.trim() : "";
+    const mimeType = typeof ((_g = request.data) === null || _g === void 0 ? void 0 : _g.mimeType) === "string" ? request.data.mimeType.trim() : "";
+    const fileName = typeof ((_h = request.data) === null || _h === void 0 ? void 0 : _h.fileName) === "string" ? request.data.fileName.trim() : "";
+    const sizeBytes = Number((_k = (_j = request.data) === null || _j === void 0 ? void 0 : _j.sizeBytes) !== null && _k !== void 0 ? _k : 0);
+    if (!roomId || !mediaId || !blockId || !storagePath || !mediaKind) {
+        throw new https_1.HttpsError("invalid-argument", "Missing required media fields");
+    }
+    if (!COLLAB_ALLOWED_MEDIA_KINDS.has(mediaKind)) {
+        throw new https_1.HttpsError("invalid-argument", "mediaKind invalid");
+    }
+    if (!storagePath.startsWith(`collab-media-e2e/${roomId}/${mediaId}`)) {
+        throw new https_1.HttpsError("invalid-argument", "storagePath invalid");
+    }
+    if (!Number.isFinite(sizeBytes) || sizeBytes <= 0 || sizeBytes > COLLAB_MEDIA_MAX_BYTES) {
+        throw new https_1.HttpsError("invalid-argument", "sizeBytes invalid");
+    }
+    const roomRef = db.collection("collabRooms").doc(roomId);
+    const roomSnap = await roomRef.get();
+    if (!roomSnap.exists) {
+        throw new https_1.HttpsError("not-found", "Room not found");
+    }
+    const room = (_l = roomSnap.data()) !== null && _l !== void 0 ? _l : {};
+    const members = (_m = room.memberUids) !== null && _m !== void 0 ? _m : [];
+    if (!members.includes(uid) && room.ownerUid !== uid) {
+        throw new https_1.HttpsError("permission-denied", "Not a room member");
+    }
+    if (room.e2eV !== 1) {
+        throw new https_1.HttpsError("failed-precondition", "Room must be e2eV=1");
+    }
+    const mediaRef = roomRef.collection("media").doc(mediaId);
+    try {
+        await mediaRef.create({
+            roomId,
+            mediaId,
+            blockId,
+            storagePath,
+            mediaKind,
+            mimeType,
+            fileName,
+            sizeBytes,
+            e2eV: 1,
+            uploaderUid: uid,
+            createdAt: FieldValue.serverTimestamp(),
+        });
+    }
+    catch (e) {
+        const code = e.code;
+        if (code === 6 || code === "6" || code === "already-exists") {
+            throw new https_1.HttpsError("already-exists", "Media already committed");
+        }
+        throw e;
+    }
+    return { ok: true };
 });
 exports.inviteCollabMember = (0, https_1.onCall)({ invoker: "public" }, async (request) => {
     var _a, _b, _c;
@@ -1275,6 +1450,43 @@ exports.removeCollabMember = (0, https_1.onCall)({ invoker: "public" }, async (r
             updatedAt: FieldValue.serverTimestamp(),
         });
     });
+    return { ok: true };
+});
+exports.closeCollabRoom = (0, https_1.onCall)({ invoker: "public" }, async (request) => {
+    var _a, _b, _c, _d;
+    if (!((_a = request.auth) === null || _a === void 0 ? void 0 : _a.uid)) {
+        throw new https_1.HttpsError("unauthenticated", "Login required");
+    }
+    const uid = request.auth.uid;
+    const roomId = typeof ((_b = request.data) === null || _b === void 0 ? void 0 : _b.roomId) === "string" ? request.data.roomId.trim() : "";
+    if (!roomId) {
+        throw new https_1.HttpsError("invalid-argument", "roomId required");
+    }
+    const roomRef = db.collection("collabRooms").doc(roomId);
+    const snap = await roomRef.get();
+    if (!snap.exists) {
+        throw new https_1.HttpsError("not-found", "Room not found");
+    }
+    const d = (_c = snap.data()) !== null && _c !== void 0 ? _c : {};
+    const ownerUid = (_d = d.ownerUid) !== null && _d !== void 0 ? _d : "";
+    if (!ownerUid || ownerUid != uid) {
+        throw new https_1.HttpsError("permission-denied", "Only the owner can close the room");
+    }
+    const joinCodeKey = typeof d.joinCodeKey === "string" ? d.joinCodeKey.trim() : "";
+    const mediaPrefix = `collab-media-e2e/${roomId}/`;
+    const bestEffortStorageDelete = admin
+        .storage()
+        .bucket()
+        .deleteFiles({ prefix: mediaPrefix })
+        .catch(() => undefined);
+    const bestEffortJoinDelete = joinCodeKey
+        ? db.collection("collabJoinIndex").doc(joinCodeKey).delete().catch(() => undefined)
+        : Promise.resolve();
+    await Promise.all([
+        db.recursiveDelete(roomRef),
+        bestEffortStorageDelete,
+        bestEffortJoinDelete,
+    ]);
     return { ok: true };
 });
 function assertValidVaultId(raw) {

@@ -10,17 +10,36 @@ class AiSafetyPolicy {
 
   static String detectMimeType(String filePath) {
     final lower = filePath.toLowerCase();
-    if (lower.endsWith('.png')) return 'image/png';
-    if (lower.endsWith('.jpg') || lower.endsWith('.jpeg')) return 'image/jpeg';
-    if (lower.endsWith('.webp')) return 'image/webp';
-    if (lower.endsWith('.gif')) return 'image/gif';
-    if (lower.endsWith('.bmp')) return 'image/bmp';
-    if (lower.endsWith('.pdf')) return 'application/pdf';
-    if (lower.endsWith('.md') || lower.endsWith('.markdown'))
+    if (lower.endsWith('.png')) {
+      return 'image/png';
+    }
+    if (lower.endsWith('.jpg') || lower.endsWith('.jpeg')) {
+      return 'image/jpeg';
+    }
+    if (lower.endsWith('.webp')) {
+      return 'image/webp';
+    }
+    if (lower.endsWith('.gif')) {
+      return 'image/gif';
+    }
+    if (lower.endsWith('.bmp')) {
+      return 'image/bmp';
+    }
+    if (lower.endsWith('.pdf')) {
+      return 'application/pdf';
+    }
+    if (lower.endsWith('.md') || lower.endsWith('.markdown')) {
       return 'text/markdown';
-    if (lower.endsWith('.json')) return 'application/json';
-    if (lower.endsWith('.csv')) return 'text/csv';
-    if (lower.endsWith('.txt')) return 'text/plain';
+    }
+    if (lower.endsWith('.json')) {
+      return 'application/json';
+    }
+    if (lower.endsWith('.csv')) {
+      return 'text/csv';
+    }
+    if (lower.endsWith('.txt')) {
+      return 'text/plain';
+    }
     return 'application/octet-stream';
   }
 

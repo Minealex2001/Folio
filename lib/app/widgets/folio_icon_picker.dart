@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 
 import '../app_settings.dart';
 import '../ui_tokens.dart';
-import 'folio_dialog.dart';
 import 'folio_icon_token_view.dart';
 
 enum _FolioIconPickerTab { quick, imported, all }

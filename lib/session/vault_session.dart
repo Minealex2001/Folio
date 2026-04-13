@@ -33,7 +33,7 @@ import '../services/ai/ai_safety_policy.dart';
 import '../services/ai/ai_service.dart';
 import '../services/ai/ai_intent_hints.dart';
 import '../services/ai/ai_types.dart';
-import '../services/run2doc/run2doc_markdown_codec.dart';
+import '../services/integrations/integrations_markdown_codec.dart';
 import '../services/app_logger.dart';
 import '../services/quick_unlock_storage.dart';
 

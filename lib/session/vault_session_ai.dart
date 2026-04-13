@@ -76,7 +76,7 @@ extension VaultSessionAi on VaultSession {
         '- ${isEs ? 'Si no hay pagina activa, NO uses summarize_current/append_current/replace_current/edit_current.' : 'If there is no active page, DO NOT use summarize_current/append_current/replace_current/edit_current.'}',
       )
       ..writeln(
-        '- ${isEs ? 'Si el contexto de paginas esta desactivado, usa solo modo chat.' : 'If page context is disabled, use chat mode only.'}',
+        '- ${isEs ? 'Si el contexto de páginas está desactivado, no cites notas existentes; aun así puedes usar create_page cuando el usuario pida crear una página nueva.' : 'If page context is disabled, do not reference existing notes; you may still use create_page when the user asks for a new page.'}',
       )
       ..writeln(
         '- ${isEs ? 'Prioridad de decision: create_page > edit_current > append/replace/summarize > chat.' : 'Decision priority: create_page > edit_current > append/replace/summarize > chat.'}',
@@ -175,7 +175,7 @@ extension VaultSessionAi on VaultSession {
         'Tarea: reescribir un bloque sin resumir la página completa. '
         'Devuelve exclusivamente el texto final del bloque, sin markdown fences ni explicación.\n\n'
         'Página: ${page.title}\n'
-        'Bloque actual:\n${blockContent}\n\n'
+        'Bloque actual:\n$blockContent\n\n'
         'Instrucción:\n${instruction.trim()}';
     final result = await ai.complete(
       AiCompletionRequest(
@@ -585,6 +585,10 @@ For images/blocks: use the + button or / command in a paragraph.
       prompt,
       languageCode: languageCode,
     );
+    final wantsCreatePage = _looksLikeCreatePageIntent(
+      prompt,
+      languageCode: languageCode,
+    );
     final wantsEditExistingBlocks =
         scopePage != null &&
         includePageContext &&
@@ -599,6 +603,7 @@ For images/blocks: use the + button or / command in a paragraph.
         'includePageContext': includePageContext,
         'contextPageCount': effectiveContextIds.length,
         'wantsSubpage': wantsSubpage,
+        'wantsCreatePage': wantsCreatePage,
         'wantsEditExistingBlocks': wantsEditExistingBlocks,
         'promptPreview': promptTrimmed.length > 140
             ? '${promptTrimmed.substring(0, 140)}...'
@@ -632,6 +637,42 @@ For images/blocks: use the + button or / command in a paragraph.
     }
 
     try {
+      if (wantsCreatePage) {
+        if (wantsSubpage && scopePage == null) {
+          return finish(
+            _formatAgentDecisionReply(
+              mode: 'create_page',
+              reason: isEs
+                  ? 'Detecté intención de crear subpágina pero no hay página activa.'
+                  : 'Detected subpage creation intent but there is no active page.',
+              reply: isEs
+                  ? 'Selecciona primero una página para crear la subpágina dentro.'
+                  : 'Select a page first to create the subpage inside it.',
+              isEs: isEs,
+            ),
+          );
+        }
+
+        final createdId = await generateStandalonePageWithAi(
+          prompt: prompt,
+          parentId: wantsSubpage ? scopePage?.id : null,
+          attachments: attachments,
+        );
+        final created = _pageById(createdId);
+        return finish(
+          _formatAgentDecisionReply(
+            mode: 'create_page',
+            reason: isEs
+                ? 'Detecté intención de crear página y ejecuté creación directa.'
+                : 'Detected page creation intent and executed direct creation.',
+            reply: isEs
+                ? 'He creado la página "${created?.title ?? 'Nueva página IA'}" con contenido inicial.'
+                : 'I created the page "${created?.title ?? 'New AI page'}" with initial content.',
+            isEs: isEs,
+          ),
+        );
+      }
+
       final result = await ai.complete(
         _buildAgentCompletionRequest(
           cloudInkOperation: resolveCloudInkOperation(),
@@ -1478,6 +1519,7 @@ For images/blocks: use the + button or / command in a paragraph.
 
   Map<String, dynamic> get _agentResponseSchema => <String, dynamic>{
     'type': 'object',
+    'additionalProperties': false,
     'properties': <String, dynamic>{
       'mode': <String, dynamic>{'type': 'string'},
       'reason': <String, dynamic>{'type': 'string'},
@@ -1488,6 +1530,7 @@ For images/blocks: use the + button or / command in a paragraph.
         'type': 'array',
         'items': <String, dynamic>{
           'type': 'object',
+          'additionalProperties': false,
           'properties': <String, dynamic>{
             'type': <String, dynamic>{'type': 'string'},
             'text': <String, dynamic>{'type': 'string'},
@@ -1507,15 +1550,68 @@ For images/blocks: use the + button or / command in a paragraph.
               },
             },
           },
-          'required': <String>['type'],
+          'required': <String>[
+            'type',
+            'text',
+            'checked',
+            'expanded',
+            'codeLanguage',
+            'depth',
+            'icon',
+            'url',
+            'imageWidth',
+            'cols',
+            'rows',
+          ],
         },
       },
       'operations': <String, dynamic>{
         'type': 'array',
-        'items': <String, dynamic>{'type': 'object'},
+        'items': <String, dynamic>{
+          'type': 'object',
+          'additionalProperties': false,
+          'properties': <String, dynamic>{
+            'type': <String, dynamic>{'type': 'string'},
+            'at': <String, dynamic>{'type': 'integer'},
+            'index': <String, dynamic>{'type': 'integer'},
+            'before': <String, dynamic>{'type': 'string'},
+            'text': <String, dynamic>{'type': 'string'},
+            'value': <String, dynamic>{'type': 'string'},
+            'col': <String, dynamic>{'type': 'integer'},
+            'row': <String, dynamic>{'type': 'integer'},
+            'title': <String, dynamic>{'type': 'string'},
+            'rows': <String, dynamic>{
+              'type': 'array',
+              'items': <String, dynamic>{
+                'type': 'array',
+                'items': <String, dynamic>{'type': 'string'},
+              },
+            },
+          },
+          'required': <String>[
+            'type',
+            'at',
+            'index',
+            'before',
+            'text',
+            'value',
+            'col',
+            'row',
+            'title',
+            'rows',
+          ],
+        },
       },
     },
-    'required': <String>['mode', 'reply'],
+    'required': <String>[
+      'mode',
+      'reason',
+      'reply',
+      'title',
+      'threadTitle',
+      'blocks',
+      'operations',
+    ],
   };
 
   bool _looksLikeEditIntent(String prompt, {required String languageCode}) {

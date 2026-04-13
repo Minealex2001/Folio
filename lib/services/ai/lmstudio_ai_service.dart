@@ -61,12 +61,21 @@ class LmStudioAiService implements AiService {
           {'role': 'user', 'content': userMessageContent},
         ],
       };
-      if (request.maxTokens != null) payload['max_tokens'] = request.maxTokens;
-      if (request.temperature != null) payload['temperature'] = request.temperature;
-      if (request.topK != null) payload['top_k'] = request.topK;
-      if (request.topP != null) payload['top_p'] = request.topP;
-      if (request.stop != null && request.stop!.isNotEmpty)
+      if (request.maxTokens != null) {
+        payload['max_tokens'] = request.maxTokens;
+      }
+      if (request.temperature != null) {
+        payload['temperature'] = request.temperature;
+      }
+      if (request.topK != null) {
+        payload['top_k'] = request.topK;
+      }
+      if (request.topP != null) {
+        payload['top_p'] = request.topP;
+      }
+      if (request.stop != null && request.stop!.isNotEmpty) {
         payload['stop'] = request.stop;
+      }
       if (request.responseSchema != null) {
         payload['response_format'] = <String, dynamic>{
           'type': 'json_schema',
@@ -85,13 +94,15 @@ class LmStudioAiService implements AiService {
       }
       final json = jsonDecode(body) as Map<String, dynamic>;
       final choices = json['choices'] as List<dynamic>? ?? const [];
-      if (choices.isEmpty)
+      if (choices.isEmpty) {
         throw StateError('LM Studio devolvió respuesta vacía');
+      }
       final first = choices.first as Map<String, dynamic>;
       final msg = (first['message'] as Map<String, dynamic>?) ?? const {};
       final content = (msg['content'] as String? ?? '').trim();
-      if (content.isEmpty)
+      if (content.isEmpty) {
         throw StateError('LM Studio devolvió respuesta vacía');
+      }
       final usageRaw = json['usage'];
       AiTokenUsage? usage;
       if (usageRaw is Map) {

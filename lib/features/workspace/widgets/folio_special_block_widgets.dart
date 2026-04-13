@@ -37,28 +37,49 @@ class _FolioAudioBlockPlayerState extends State<FolioAudioBlockPlayer> {
   var _playing = false;
   Duration _pos = Duration.zero;
   Duration _dur = Duration.zero;
+  Timer? _progressTimer;
 
   @override
   void initState() {
     super.initState();
-    _bind();
+    _prepare();
   }
 
-  Future<void> _bind() async {
+  Future<void> _prepare() async {
     await _player.setSource(DeviceFileSource(widget.file.path));
-    _player.onPlayerComplete.listen((_) {
-      if (mounted) setState(() => _playing = false);
+    final duration = await _player.getDuration();
+    if (mounted && duration != null) {
+      setState(() => _dur = duration);
+    }
+  }
+
+  void _startPollingProgress() {
+    _progressTimer?.cancel();
+    _progressTimer = Timer.periodic(const Duration(milliseconds: 250), (
+      _,
+    ) async {
+      final pos = await _player.getCurrentPosition();
+      final dur = await _player.getDuration();
+      if (!mounted) return;
+      setState(() {
+        if (pos != null) _pos = pos;
+        if (dur != null) _dur = dur;
+        if (_dur > Duration.zero && _pos >= _dur) {
+          _playing = false;
+          _progressTimer?.cancel();
+        }
+      });
     });
-    _player.onDurationChanged.listen((d) {
-      if (mounted) setState(() => _dur = d);
-    });
-    _player.onPositionChanged.listen((p) {
-      if (mounted) setState(() => _pos = p);
-    });
+  }
+
+  void _stopPollingProgress() {
+    _progressTimer?.cancel();
+    _progressTimer = null;
   }
 
   @override
   void dispose() {
+    _stopPollingProgress();
     unawaited(_player.dispose());
     super.dispose();
   }
@@ -72,6 +93,7 @@ class _FolioAudioBlockPlayerState extends State<FolioAudioBlockPlayer> {
           onPressed: () async {
             if (_playing) {
               await _player.pause();
+              _stopPollingProgress();
               if (mounted) setState(() => _playing = false);
             } else {
               if (_pos == Duration.zero) {
@@ -79,6 +101,7 @@ class _FolioAudioBlockPlayerState extends State<FolioAudioBlockPlayer> {
               } else {
                 await _player.resume();
               }
+              _startPollingProgress();
               if (mounted) setState(() => _playing = true);
             }
           },
@@ -205,6 +228,7 @@ class _FolioToggleBlockBodyState extends State<FolioToggleBlockBody> {
   @override
   Widget build(BuildContext context) {
     final open = widget.block.expanded ?? false;
+    final l10n = AppLocalizations.of(context);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -228,10 +252,10 @@ class _FolioToggleBlockBodyState extends State<FolioToggleBlockBody> {
               child: TextField(
                 controller: _title,
                 style: widget.textTheme.bodyLarge,
-                decoration: const InputDecoration(
+                decoration: InputDecoration(
                   isDense: true,
                   border: InputBorder.none,
-                  hintText: 'Título del desplegable',
+                  hintText: l10n.toggleTitleHint,
                 ),
                 onChanged: (_) => _emit(),
               ),
@@ -245,9 +269,9 @@ class _FolioToggleBlockBodyState extends State<FolioToggleBlockBody> {
             minLines: 2,
             maxLines: 8,
             style: widget.textTheme.bodyMedium,
-            decoration: const InputDecoration(
+            decoration: InputDecoration(
               border: OutlineInputBorder(),
-              hintText: 'Contenido…',
+              hintText: l10n.toggleBodyHint,
               isDense: true,
             ),
             onChanged: (_) => _emit(),
@@ -1137,19 +1161,6 @@ class _FolioTaskBlockBodyState extends State<FolioTaskBlockBody> {
   late TextEditingController _title;
   late FolioTaskData _data;
 
-  static const _statusLabels = {
-    'todo': 'Por hacer',
-    'in_progress': 'En progreso',
-    'done': 'Hecho',
-  };
-
-  static const _priorityLabels = <String?, String?>{
-    null: 'Sin prioridad',
-    'low': 'Baja',
-    'medium': 'Media',
-    'high': 'Alta',
-  };
-
   @override
   void initState() {
     super.initState();
@@ -1230,8 +1241,20 @@ class _FolioTaskBlockBodyState extends State<FolioTaskBlockBody> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     final scheme = widget.scheme;
     final tt = widget.textTheme;
+    final statusLabels = {
+      'todo': l10n.taskStatusTodo,
+      'in_progress': l10n.taskStatusInProgress,
+      'done': l10n.taskStatusDone,
+    };
+    final priorityLabels = <String?, String?>{
+      null: l10n.taskPriorityNone,
+      'low': l10n.taskPriorityLow,
+      'medium': l10n.taskPriorityMedium,
+      'high': l10n.taskPriorityHigh,
+    };
     final totalSubtasks = _data.subtasks.length;
     final doneSubtasks = _data.subtasks.where((s) => s.done).length;
     return Card(
@@ -1255,7 +1278,7 @@ class _FolioTaskBlockBodyState extends State<FolioTaskBlockBody> {
               scrollDirection: Axis.horizontal,
               child: Row(
                 children: [
-                  for (final entry in _statusLabels.entries)
+                  for (final entry in statusLabels.entries)
                     Padding(
                       padding: const EdgeInsets.only(right: FolioSpace.xs),
                       child: ChoiceChip(
@@ -1286,7 +1309,7 @@ class _FolioTaskBlockBodyState extends State<FolioTaskBlockBody> {
               style: tt.bodyMedium,
               maxLines: null,
               decoration: InputDecoration.collapsed(
-                hintText: 'Descripción de la tarea…',
+                hintText: l10n.taskTitleHint,
                 hintStyle: tt.bodyMedium?.copyWith(
                   color: scheme.onSurfaceVariant,
                 ),
@@ -1303,13 +1326,13 @@ class _FolioTaskBlockBodyState extends State<FolioTaskBlockBody> {
                 // Priority selector
                 PopupMenuButton<String?>(
                   initialValue: _data.priority,
-                  tooltip: 'Prioridad',
+                  tooltip: l10n.taskPriorityTooltip,
                   onSelected: (p) {
                     setState(() => _data = _data.copyWith(priority: p));
                     _emit(_data);
                   },
                   itemBuilder: (_) => [
-                    for (final entry in _priorityLabels.entries)
+                    for (final entry in priorityLabels.entries)
                       PopupMenuItem<String?>(
                         value: entry.key,
                         child: Row(
@@ -1320,7 +1343,7 @@ class _FolioTaskBlockBodyState extends State<FolioTaskBlockBody> {
                               color: _priorityColor(entry.key),
                             ),
                             const SizedBox(width: FolioSpace.xs),
-                            Text(entry.value ?? 'Sin prioridad'),
+                            Text(entry.value ?? l10n.taskPriorityNone),
                           ],
                         ),
                       ),
@@ -1335,7 +1358,7 @@ class _FolioTaskBlockBodyState extends State<FolioTaskBlockBody> {
                       ),
                       const SizedBox(width: FolioSpace.xxs),
                       Text(
-                        _priorityLabels[_data.priority] ?? 'Sin prioridad',
+                        priorityLabels[_data.priority] ?? l10n.taskPriorityNone,
                         style: tt.labelSmall?.copyWith(
                           color: _priorityColor(_data.priority),
                         ),
@@ -1383,7 +1406,7 @@ class _FolioTaskBlockBodyState extends State<FolioTaskBlockBody> {
                       ),
                       const SizedBox(width: FolioSpace.xxs),
                       Text(
-                        _data.dueDate ?? 'Sin fecha límite',
+                        _data.dueDate ?? l10n.taskNoDueDate,
                         style: tt.labelSmall?.copyWith(
                           color: _data.dueDate != null
                               ? scheme.primary
@@ -1432,7 +1455,7 @@ class _FolioTaskBlockBodyState extends State<FolioTaskBlockBody> {
                             decoration: InputDecoration(
                               isDense: true,
                               border: InputBorder.none,
-                              hintText: 'Subtarea…',
+                              hintText: l10n.taskSubtaskHint,
                               hintStyle: tt.bodySmall?.copyWith(
                                 color: scheme.onSurfaceVariant,
                               ),
@@ -1441,7 +1464,7 @@ class _FolioTaskBlockBodyState extends State<FolioTaskBlockBody> {
                           ),
                         ),
                         IconButton(
-                          tooltip: 'Quitar subtarea',
+                          tooltip: l10n.taskRemoveSubtask,
                           visualDensity: VisualDensity.compact,
                           onPressed: () => _removeSubtask(s.id),
                           icon: const Icon(Icons.close_rounded, size: 18),
@@ -1455,7 +1478,7 @@ class _FolioTaskBlockBodyState extends State<FolioTaskBlockBody> {
               child: TextButton.icon(
                 onPressed: _addSubtask,
                 icon: const Icon(Icons.add_task_rounded, size: 16),
-                label: const Text('Añadir subtarea'),
+                label: Text(l10n.taskAddSubtask),
               ),
             ),
           ],

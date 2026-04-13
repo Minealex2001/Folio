@@ -87,6 +87,7 @@ class WorkspaceBodyShell extends StatelessWidget {
   final ValueChanged<double>? onResizeSidebarDelta;
   final bool sidebarLeftEdgeHover;
   final VoidCallback? onSidebarEdgeEnter;
+
   /// Panel de IA flotante (esquina inferior derecha); null si no hay IA visible.
   final Widget? aiFloatingPanel;
   final double aiFloatingWidth;
@@ -112,13 +113,17 @@ class WorkspaceBodyShell extends StatelessWidget {
           LogicalKeyboardKey.arrowLeft,
           control: true,
           alt: true,
-        ): const _ResizeByDeltaIntent(-24),
+        ): const _ResizeByDeltaIntent(
+          -24,
+        ),
       if (!compact && showSidebarResizeHandle && onResizeSidebarDelta != null)
         const SingleActivator(
           LogicalKeyboardKey.arrowRight,
           control: true,
           alt: true,
-        ): const _ResizeByDeltaIntent(24),
+        ): const _ResizeByDeltaIntent(
+          24,
+        ),
       if (aiFloatingPanel != null &&
           aiFloatingShowResizeHandles &&
           onResizeAiPanelWidth != null)
@@ -127,7 +132,9 @@ class WorkspaceBodyShell extends StatelessWidget {
           control: true,
           alt: true,
           shift: true,
-        ): const _ResizeByDeltaIntent(-24),
+        ): const _ResizeByDeltaIntent(
+          -24,
+        ),
       if (aiFloatingPanel != null &&
           aiFloatingShowResizeHandles &&
           onResizeAiPanelWidth != null)
@@ -136,7 +143,9 @@ class WorkspaceBodyShell extends StatelessWidget {
           control: true,
           alt: true,
           shift: true,
-        ): const _ResizeByDeltaIntent(24),
+        ): const _ResizeByDeltaIntent(
+          24,
+        ),
       if (aiFloatingPanel != null &&
           aiFloatingShowResizeHandles &&
           onResizeAiPanelHeight != null)
@@ -145,7 +154,9 @@ class WorkspaceBodyShell extends StatelessWidget {
           control: true,
           alt: true,
           shift: true,
-        ): const _ResizeByDeltaIntent(24),
+        ): const _ResizeByDeltaIntent(
+          24,
+        ),
       if (aiFloatingPanel != null &&
           aiFloatingShowResizeHandles &&
           onResizeAiPanelHeight != null)
@@ -154,7 +165,9 @@ class WorkspaceBodyShell extends StatelessWidget {
           control: true,
           alt: true,
           shift: true,
-        ): const _ResizeByDeltaIntent(-24),
+        ): const _ResizeByDeltaIntent(
+          -24,
+        ),
     };
 
     final actions = <Type, Action<Intent>>{
@@ -164,12 +177,14 @@ class WorkspaceBodyShell extends StatelessWidget {
           // - Ctrl+Alt: Sidebar
           // - Ctrl+Alt+Shift: AI
           final pressed = HardwareKeyboard.instance.logicalKeysPressed;
-          final shift = pressed.contains(LogicalKeyboardKey.shiftLeft) ||
+          final shift =
+              pressed.contains(LogicalKeyboardKey.shiftLeft) ||
               pressed.contains(LogicalKeyboardKey.shiftRight);
 
           if (shift) {
             // AI panel
-            final upDown = pressed.contains(LogicalKeyboardKey.arrowUp) ||
+            final upDown =
+                pressed.contains(LogicalKeyboardKey.arrowUp) ||
                 pressed.contains(LogicalKeyboardKey.arrowDown);
             if (upDown) {
               onResizeAiPanelHeight?.call(intent.delta);
@@ -246,15 +261,18 @@ class WorkspaceBodyShell extends StatelessWidget {
               ),
             if (collabFloatingPanel != null)
               Positioned(
-                left: FolioSpace.md,
+                right: aiFloatingPanel != null
+                    ? (FolioSpace.md + aiFloatingWidth + FolioSpace.sm)
+                    : FolioSpace.md,
                 bottom: FolioSpace.md,
                 width: collabFloatingWidth,
                 height: collabFloatingHeight,
                 child: collabFloatingShowResizeHandles
                     ? Material(
                         elevation: FolioElevation.menu,
-                        shadowColor:
-                            scheme.shadow.withValues(alpha: FolioAlpha.soft),
+                        shadowColor: scheme.shadow.withValues(
+                          alpha: FolioAlpha.soft,
+                        ),
                         borderRadius: BorderRadius.circular(FolioRadius.xl),
                         clipBehavior: Clip.antiAlias,
                         color: scheme.surface,
@@ -269,8 +287,9 @@ class WorkspaceBodyShell extends StatelessWidget {
                                 child: GestureDetector(
                                   behavior: HitTestBehavior.opaque,
                                   onVerticalDragUpdate: (details) {
-                                    onResizeCollabPanelHeight
-                                        ?.call(-details.delta.dy);
+                                    onResizeCollabPanelHeight?.call(
+                                      -details.delta.dy,
+                                    );
                                   },
                                   child: Container(
                                     height: 7,
@@ -301,7 +320,9 @@ class WorkspaceBodyShell extends StatelessWidget {
                                         child: Container(
                                           width: 7,
                                           color: scheme.outlineVariant
-                                              .withValues(alpha: FolioAlpha.track),
+                                              .withValues(
+                                                alpha: FolioAlpha.track,
+                                              ),
                                         ),
                                       ),
                                     ),
@@ -314,8 +335,9 @@ class WorkspaceBodyShell extends StatelessWidget {
                       )
                     : Material(
                         elevation: FolioElevation.menu,
-                        shadowColor:
-                            scheme.shadow.withValues(alpha: FolioAlpha.soft),
+                        shadowColor: scheme.shadow.withValues(
+                          alpha: FolioAlpha.soft,
+                        ),
                         borderRadius: BorderRadius.circular(FolioRadius.lg),
                         clipBehavior: Clip.antiAlias,
                         color: scheme.surface,
@@ -331,8 +353,9 @@ class WorkspaceBodyShell extends StatelessWidget {
                 child: aiFloatingShowResizeHandles
                     ? Material(
                         elevation: FolioElevation.menu,
-                        shadowColor:
-                            scheme.shadow.withValues(alpha: FolioAlpha.soft),
+                        shadowColor: scheme.shadow.withValues(
+                          alpha: FolioAlpha.soft,
+                        ),
                         borderRadius: BorderRadius.circular(FolioRadius.xl),
                         clipBehavior: Clip.antiAlias,
                         color: scheme.surface,
@@ -347,8 +370,9 @@ class WorkspaceBodyShell extends StatelessWidget {
                                 child: GestureDetector(
                                   behavior: HitTestBehavior.opaque,
                                   onVerticalDragUpdate: (details) {
-                                    onResizeAiPanelHeight
-                                        ?.call(-details.delta.dy);
+                                    onResizeAiPanelHeight?.call(
+                                      -details.delta.dy,
+                                    );
                                   },
                                   child: Container(
                                     height: 7,
@@ -378,7 +402,9 @@ class WorkspaceBodyShell extends StatelessWidget {
                                         child: Container(
                                           width: 7,
                                           color: scheme.outlineVariant
-                                              .withValues(alpha: FolioAlpha.track),
+                                              .withValues(
+                                                alpha: FolioAlpha.track,
+                                              ),
                                         ),
                                       ),
                                     ),
@@ -392,8 +418,9 @@ class WorkspaceBodyShell extends StatelessWidget {
                       )
                     : Material(
                         elevation: FolioElevation.menu,
-                        shadowColor:
-                            scheme.shadow.withValues(alpha: FolioAlpha.soft),
+                        shadowColor: scheme.shadow.withValues(
+                          alpha: FolioAlpha.soft,
+                        ),
                         borderRadius: BorderRadius.circular(FolioRadius.lg),
                         clipBehavior: Clip.antiAlias,
                         color: scheme.surface,

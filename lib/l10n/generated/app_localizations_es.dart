@@ -275,6 +275,18 @@ class AppLocalizationsEs extends AppLocalizations {
   String get englishLanguage => 'Inglés';
 
   @override
+  String get brazilianPortugueseLanguage => 'Portugués (Brasil)';
+
+  @override
+  String get catalanLanguage => 'Catalán / Valenciano';
+
+  @override
+  String get galicianLanguage => 'Gallego';
+
+  @override
+  String get basqueLanguage => 'Euskera';
+
+  @override
   String get active => 'Activado';
 
   @override
@@ -744,6 +756,19 @@ class AppLocalizationsEs extends AppLocalizations {
   @override
   String get meetingNoteCloudProcessingSubtitle =>
       'Detectando hablantes y mejorando calidad. Un momento.';
+
+  @override
+  String meetingNoteCloudProgress(int done, int total) {
+    return 'Segmentos procesados: $done/$total';
+  }
+
+  @override
+  String meetingNoteCloudEta(Object remaining) {
+    return 'Tiempo restante estimado: $remaining';
+  }
+
+  @override
+  String get meetingNoteCloudEtaCalculating => 'Calculando tiempo restante...';
 
   @override
   String get meetingNoteCloudRequiresAccount =>
@@ -1890,6 +1915,28 @@ class AppLocalizationsEs extends AppLocalizations {
       'No puede usar el puente desde fuera de localhost.';
 
   @override
+  String get integrationApprovalEncryptedChip => 'Contenido cifrado (v2)';
+
+  @override
+  String get integrationApprovalUnencryptedChip => 'Contenido en claro (v1)';
+
+  @override
+  String get integrationApprovalEncryptedTitle =>
+      'Version 2: cifrado obligatorio de contenido';
+
+  @override
+  String get integrationApprovalEncryptedDescription =>
+      'Esta version exige payload cifrado para importar y actualizar contenido mediante el bridge local.';
+
+  @override
+  String get integrationApprovalUnencryptedTitle =>
+      'Version 1: contenido sin cifrar';
+
+  @override
+  String get integrationApprovalUnencryptedDescription =>
+      'Esta version permite payload en claro para contenido. Si quieres cifrado en tránsito, actualiza la integracion a la version 2.';
+
+  @override
   String get integrationApprovalDeny => 'Denegar';
 
   @override
@@ -2732,4 +2779,105 @@ class AppLocalizationsEs extends AppLocalizations {
 
   @override
   String get collabHidePanel => 'Ocultar panel de colaboración';
+
+  @override
+  String get shortcutsCaptureTitle => 'Nuevo atajo';
+
+  @override
+  String get shortcutsCaptureHint => 'Pulsa las teclas (Esc cancela).';
+
+  @override
+  String get updaterStartupDialogTitleStable => 'Actualización disponible';
+
+  @override
+  String get updaterStartupDialogTitleBeta => 'Beta disponible';
+
+  @override
+  String updaterStartupDialogBody(Object releaseVersion) {
+    return 'Hay una nueva versión ($releaseVersion) disponible.';
+  }
+
+  @override
+  String get updaterStartupDialogQuestion =>
+      '¿Quieres descargar e instalar ahora?';
+
+  @override
+  String get updaterStartupDialogLater => 'Más tarde';
+
+  @override
+  String get updaterStartupDialogUpdateNow => 'Actualizar ahora';
+
+  @override
+  String get updaterStartupDialogBetaNote => 'Versión beta (pre-release).';
+
+  @override
+  String get toggleTitleHint => 'Título del desplegable';
+
+  @override
+  String get toggleBodyHint => 'Contenido…';
+
+  @override
+  String get taskStatusTodo => 'Por hacer';
+
+  @override
+  String get taskStatusInProgress => 'En progreso';
+
+  @override
+  String get taskStatusDone => 'Hecho';
+
+  @override
+  String get taskPriorityNone => 'Sin prioridad';
+
+  @override
+  String get taskPriorityLow => 'Baja';
+
+  @override
+  String get taskPriorityMedium => 'Media';
+
+  @override
+  String get taskPriorityHigh => 'Alta';
+
+  @override
+  String get taskTitleHint => 'Descripción de la tarea…';
+
+  @override
+  String get taskPriorityTooltip => 'Prioridad';
+
+  @override
+  String get taskNoDueDate => 'Sin fecha límite';
+
+  @override
+  String get taskSubtaskHint => 'Subtarea…';
+
+  @override
+  String get taskRemoveSubtask => 'Quitar subtarea';
+
+  @override
+  String get taskAddSubtask => 'Añadir subtarea';
+
+  @override
+  String get templateEmojiLabel => 'Emoji';
+
+  @override
+  String aiGenericErrorWithReason(Object reason) {
+    return 'Error IA: $reason';
+  }
+
+  @override
+  String get calloutTypeTooltip => 'Tipo de callout';
+
+  @override
+  String get calloutTypeInfo => 'Info';
+
+  @override
+  String get calloutTypeSuccess => 'Éxito';
+
+  @override
+  String get calloutTypeWarning => 'Advertencia';
+
+  @override
+  String get calloutTypeError => 'Error';
+
+  @override
+  String get calloutTypeNote => 'Nota';
 }

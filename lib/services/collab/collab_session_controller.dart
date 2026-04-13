@@ -64,6 +64,7 @@ class CollabSessionController extends ChangeNotifier {
   final List<CollabChatMessageView> _messages = [];
 
   SecretKey? _roomKey;
+
   /// `null` = aún no leído; true/false según último snapshot de sala.
   bool? _roomUsesE2e;
 
@@ -81,6 +82,50 @@ class CollabSessionController extends ChangeNotifier {
 
   String? _lastError;
   String? get lastError => _lastError;
+
+  bool _isValidRoomId(String? raw) {
+    final rid = raw?.trim();
+    if (rid == null || rid.isEmpty) return false;
+    // Evita aceptar placeholders visuales (--- / —) como roomId real.
+    if (RegExp(r'^[-—]+$').hasMatch(rid)) return false;
+    return true;
+  }
+
+  void _setErrorCode(String code) {
+    _lastError = code;
+    notifyListeners();
+  }
+
+  bool _isCollabPermissionDeniedError(Object e) {
+    if (e is FirebaseException) {
+      final code = e.code.toLowerCase();
+      if (code == 'permission-denied' ||
+          code == 'cloud_firestore/permission-denied') {
+        return true;
+      }
+    }
+    final m = '$e'.toLowerCase();
+    return m.contains('permission-denied') ||
+        m.contains('insufficient permissions');
+  }
+
+  void _handleRoomClosedByPermissionDenied() {
+    final pageId = _pageId;
+    _lastError = 'collab_room_closed';
+    if (pageId != null) {
+      vaultSession.setPageCollabRoomId(pageId, null);
+    }
+    detach();
+  }
+
+  void _handleCollabError(Object e) {
+    if (_isCollabPermissionDeniedError(e)) {
+      _handleRoomClosedByPermissionDenied();
+      return;
+    }
+    _lastError = '$e';
+    notifyListeners();
+  }
 
   void clearError() {
     _lastError = null;
@@ -108,16 +153,24 @@ class CollabSessionController extends ChangeNotifier {
     _roomJoinCode = CollabE2eCrypto.normalizeJoinCode(t);
     _roomKey = null;
     notifyListeners();
-    if (_collabFirestorePolling()) {
-      await _pollRoomAndMessages();
-    } else {
-      final roomRef =
-          FirebaseFirestore.instance.collection('collabRooms').doc(_roomId);
-      final snap = await roomRef.get();
-      await _handleRoomSnapshot(snap);
-      final msgSnap =
-          await roomRef.collection('messages').orderBy('createdAt').limit(400).get();
-      await _handleMessagesQuery(msgSnap.docs);
+    try {
+      if (_collabFirestorePolling()) {
+        await _pollRoomAndMessages();
+      } else {
+        final roomRef = FirebaseFirestore.instance
+            .collection('collabRooms')
+            .doc(_roomId);
+        final snap = await roomRef.get();
+        await _handleRoomSnapshot(snap);
+        final msgSnap = await roomRef
+            .collection('messages')
+            .orderBy('createdAt')
+            .limit(400)
+            .get();
+        await _handleMessagesQuery(msgSnap.docs);
+      }
+    } catch (e) {
+      _handleCollabError(e);
     }
   }
 
@@ -127,7 +180,7 @@ class CollabSessionController extends ChangeNotifier {
     String? initialJoinCode,
   }) {
     final rid = roomId.trim();
-    if (rid.isEmpty) {
+    if (!_isValidRoomId(rid)) {
       detach();
       return;
     }
@@ -141,8 +194,8 @@ class CollabSessionController extends ChangeNotifier {
     final resolvedCode = (hint != null && hint.isNotEmpty)
         ? CollabE2eCrypto.normalizeJoinCode(hint)
         : (fromPage != null && fromPage.isNotEmpty
-            ? CollabE2eCrypto.normalizeJoinCode(fromPage)
-            : null);
+              ? CollabE2eCrypto.normalizeJoinCode(fromPage)
+              : null);
 
     if (_pageId == pageId && _roomId == rid) {
       if (resolvedCode != null) {
@@ -167,13 +220,18 @@ class CollabSessionController extends ChangeNotifier {
 
   Future<void> _refetchAfterJoinCode() async {
     if (!isAttached) return;
-    if (_collabFirestorePolling()) {
-      await _pollRoomAndMessages();
-    } else {
-      final roomRef =
-          FirebaseFirestore.instance.collection('collabRooms').doc(_roomId);
-      final snap = await roomRef.get();
-      await _handleRoomSnapshot(snap);
+    try {
+      if (_collabFirestorePolling()) {
+        await _pollRoomAndMessages();
+      } else {
+        final roomRef = FirebaseFirestore.instance
+            .collection('collabRooms')
+            .doc(_roomId);
+        final snap = await roomRef.get();
+        await _handleRoomSnapshot(snap);
+      }
+    } catch (e) {
+      _handleCollabError(e);
     }
   }
 
@@ -273,7 +331,9 @@ class CollabSessionController extends ChangeNotifier {
       blocksJson: blocksJson,
       roomKey: roomKey,
     );
-    final roomRef = FirebaseFirestore.instance.collection('collabRooms').doc(_roomId);
+    final roomRef = FirebaseFirestore.instance
+        .collection('collabRooms')
+        .doc(_roomId);
     try {
       await FirebaseFirestore.instance.runTransaction((tx) async {
         final snap = await tx.get(roomRef);
@@ -309,7 +369,9 @@ class CollabSessionController extends ChangeNotifier {
     if (user == null) return;
     final page = vaultSession.pages.firstWhereOrNull((p) => p.id == _pageId);
     if (page == null) return;
-    final roomRef = FirebaseFirestore.instance.collection('collabRooms').doc(_roomId);
+    final roomRef = FirebaseFirestore.instance
+        .collection('collabRooms')
+        .doc(_roomId);
     try {
       var newVersion = 0;
       await FirebaseFirestore.instance.runTransaction((tx) async {
@@ -325,21 +387,13 @@ class CollabSessionController extends ChangeNotifier {
         final e2eV = (d['e2eV'] as num?)?.toInt() ?? 0;
         final usesE2e = e2eV == 1;
         final v = (d['contentVersion'] as num?)?.toInt() ?? 0;
+        if (!usesE2e) {
+          throw StateError('e2e_required');
+        }
         if (usesE2e && v == 0) {
           throw StateError('pending_seal');
         }
         newVersion = v + 1;
-        if (!usesE2e) {
-          final blocksJson = page.blocks.map((b) => b.toJson()).toList();
-          tx.update(roomRef, {
-            'title': page.title,
-            'blocks': blocksJson,
-            'contentVersion': newVersion,
-            'updatedAt': FieldValue.serverTimestamp(),
-            'updatedBy': user.uid,
-          });
-          return;
-        }
         var key = _roomKey;
         key ??= await _unwrapRoomKey(d);
         if (key == null) {
@@ -365,18 +419,30 @@ class CollabSessionController extends ChangeNotifier {
       if (e.message == 'pending_seal') {
         return;
       }
+      if (e.message == 'e2e_required') {
+        _setErrorCode('collab_e2e_required');
+        return;
+      }
+      if (e.message == 'no_room_key') {
+        _setErrorCode('collab_needs_join_code');
+        return;
+      }
       _lastError = '$e';
       notifyListeners();
     } catch (e) {
-      _lastError = '$e';
-      notifyListeners();
+      _handleCollabError(e);
     }
   }
 
   void _startFirestore() {
     if (!isAttached) return;
-    final roomRef = FirebaseFirestore.instance.collection('collabRooms').doc(_roomId);
-    final msgQuery = roomRef.collection('messages').orderBy('createdAt').limit(400);
+    final roomRef = FirebaseFirestore.instance
+        .collection('collabRooms')
+        .doc(_roomId);
+    final msgQuery = roomRef
+        .collection('messages')
+        .orderBy('createdAt')
+        .limit(400);
 
     if (_collabFirestorePolling()) {
       _pollTimer?.cancel();
@@ -406,21 +472,27 @@ class CollabSessionController extends ChangeNotifier {
   Future<void> _pollRoomAndMessages() async {
     if (!isAttached) return;
     try {
-      final roomRef = FirebaseFirestore.instance.collection('collabRooms').doc(_roomId);
+      final roomRef = FirebaseFirestore.instance
+          .collection('collabRooms')
+          .doc(_roomId);
       final roomSnap = await roomRef.get();
       if (roomSnap.exists) {
         await _handleRoomSnapshot(roomSnap);
       }
-      final msgSnap =
-          await roomRef.collection('messages').orderBy('createdAt').limit(400).get();
+      final msgSnap = await roomRef
+          .collection('messages')
+          .orderBy('createdAt')
+          .limit(400)
+          .get();
       await _handleMessagesQuery(msgSnap.docs);
     } catch (e) {
-      _lastError = '$e';
-      notifyListeners();
+      _handleCollabError(e);
     }
   }
 
-  Future<void> _handleRoomSnapshot(DocumentSnapshot<Map<String, dynamic>> snap) async {
+  Future<void> _handleRoomSnapshot(
+    DocumentSnapshot<Map<String, dynamic>> snap,
+  ) async {
     if (!isAttached || !snap.exists) return;
     final data = snap.data();
     if (data == null) return;
@@ -429,15 +501,15 @@ class CollabSessionController extends ChangeNotifier {
     final usesE2e = e2eV == 1;
     _roomUsesE2e = usesE2e;
 
+    if (!usesE2e) {
+      _setErrorCode('collab_e2e_required');
+      return;
+    }
+
     final v = (data['contentVersion'] as num?)?.toInt() ?? 0;
     _remoteContentVersion = v;
 
-    final jc = data['joinCode'] as String?;
-    if (!usesE2e && jc != null && jc.trim().isNotEmpty) {
-      _roomJoinCode = jc.trim();
-    }
-
-    if (usesE2e && v == 0) {
+    if (v == 0) {
       await _sealPendingE2eRoom(data);
       return;
     }
@@ -449,11 +521,6 @@ class CollabSessionController extends ChangeNotifier {
     final nowMs = DateTime.now().millisecondsSinceEpoch;
     if (nowMs - _lastLocalPushMs < 700) {
       notifyListeners();
-      return;
-    }
-
-    if (!usesE2e) {
-      await _applyLegacyRoomContent(data, v);
       return;
     }
 
@@ -476,8 +543,7 @@ class CollabSessionController extends ChangeNotifier {
         cipherB64: cipher,
         roomKey: key,
       );
-      final nextBlocks =
-          dec.blocks.map((e) => FolioBlock.fromJson(e)).toList();
+      final nextBlocks = dec.blocks.map((e) => FolioBlock.fromJson(e)).toList();
 
       final page = vaultSession.pages.firstWhereOrNull((p) => p.id == _pageId);
       if (page == null) return;
@@ -505,41 +571,14 @@ class CollabSessionController extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<void> _applyLegacyRoomContent(Map<String, dynamic> data, int v) async {
-    final title = data['title'] as String? ?? '';
-    final rawBlocks = data['blocks'] as List<dynamic>?;
-    if (rawBlocks == null) {
-      _lastAppliedRemoteVersion = v;
-      notifyListeners();
-      return;
+  Future<void> _handleMessagesSnapshot(
+    QuerySnapshot<Map<String, dynamic>> snap,
+  ) async {
+    try {
+      await _handleMessagesQuery(snap.docs);
+    } catch (e) {
+      _handleCollabError(e);
     }
-    final nextBlocks = rawBlocks
-        .map((e) => FolioBlock.fromJson(Map<String, dynamic>.from(e as Map)))
-        .toList();
-
-    final page = vaultSession.pages.firstWhereOrNull((p) => p.id == _pageId);
-    if (page == null) return;
-
-    final remoteFp = folioPageContentFingerprint(
-      FolioPage(id: page.id, title: title, blocks: nextBlocks),
-    );
-    if (folioPageContentFingerprint(page) == remoteFp) {
-      _lastAppliedRemoteVersion = v;
-      notifyListeners();
-      return;
-    }
-
-    vaultSession.applyRemoteCollabPageState(
-      pageId: _pageId!,
-      title: title.isEmpty ? page.title : title,
-      blocks: nextBlocks,
-    );
-    _lastAppliedRemoteVersion = v;
-    notifyListeners();
-  }
-
-  Future<void> _handleMessagesSnapshot(QuerySnapshot<Map<String, dynamic>> snap) async {
-    await _handleMessagesQuery(snap.docs);
   }
 
   Future<void> _handleMessagesQuery(
@@ -548,7 +587,9 @@ class CollabSessionController extends ChangeNotifier {
     final list = <CollabChatMessageView>[];
     SecretKey? key = _roomKey;
     if (_roomUsesE2e == true) {
-      final roomRef = FirebaseFirestore.instance.collection('collabRooms').doc(_roomId);
+      final roomRef = FirebaseFirestore.instance
+          .collection('collabRooms')
+          .doc(_roomId);
       final rs = await roomRef.get();
       final d = rs.data();
       if (d != null) {
@@ -565,7 +606,8 @@ class CollabSessionController extends ChangeNotifier {
       if (ts is Timestamp) {
         ms = ts.millisecondsSinceEpoch;
       }
-      final e2eMsg = (m['e2eV'] as num?)?.toInt() == 1 ||
+      final e2eMsg =
+          (m['e2eV'] as num?)?.toInt() == 1 ||
           (m['cipherText'] as String?)?.isNotEmpty == true;
       if (e2eMsg && key != null) {
         final ct = m['cipherText'] as String? ?? '';
@@ -629,43 +671,97 @@ class CollabSessionController extends ChangeNotifier {
     if (user == null) return;
     final name = user.displayName?.trim().isNotEmpty == true
         ? user.displayName!.trim()
-        : (user.email?.trim().isNotEmpty == true ? user.email!.trim() : user.uid);
+        : (user.email?.trim().isNotEmpty == true
+              ? user.email!.trim()
+              : user.uid);
+    final localNow = DateTime.now().toUtc();
+    final optimisticId =
+        'local_${localNow.microsecondsSinceEpoch}_${user.uid.substring(0, 6)}';
+    _messages.add(
+      CollabChatMessageView(
+        id: optimisticId,
+        authorUid: user.uid,
+        authorName: name,
+        text: t,
+        createdAtMs: localNow.millisecondsSinceEpoch,
+      ),
+    );
+    notifyListeners();
+
+    var sent = false;
     try {
-      final roomRef = FirebaseFirestore.instance.collection('collabRooms').doc(_roomId);
-      final rs = await roomRef.get();
-      final d = rs.data() ?? {};
-      final e2eV = (d['e2eV'] as num?)?.toInt() ?? 0;
-      final usesE2e = e2eV == 1;
-      final cv = (d['contentVersion'] as num?)?.toInt() ?? 0;
+      final roomRef = FirebaseFirestore.instance
+          .collection('collabRooms')
+          .doc(_roomId);
+      var usesE2e = _roomUsesE2e;
+      var cv = _remoteContentVersion ?? 1;
+      Map<String, dynamic>? roomData;
+
+      if (usesE2e != true || cv <= 0 || _roomKey == null) {
+        final rs = await roomRef.get();
+        roomData = rs.data() ?? {};
+        final e2eV = (roomData['e2eV'] as num?)?.toInt() ?? 0;
+        usesE2e = e2eV == 1;
+        _roomUsesE2e = usesE2e;
+        cv = (roomData['contentVersion'] as num?)?.toInt() ?? 0;
+        _remoteContentVersion = cv;
+      }
+
+      if (usesE2e != true) {
+        _setErrorCode('collab_e2e_required');
+        return;
+      }
+      if (cv == 0) {
+        if (roomData != null) {
+          await _sealPendingE2eRoom(roomData);
+          cv = _remoteContentVersion ?? cv;
+        }
+        if (cv == 0) {
+          final refreshed = await roomRef.get();
+          final d2 = refreshed.data() ?? {};
+          cv = (d2['contentVersion'] as num?)?.toInt() ?? 0;
+          _remoteContentVersion = cv;
+          roomData = d2;
+        }
+        if (cv == 0) {
+          _setErrorCode('collab_pending_encryption');
+          return;
+        }
+      }
       final payload = <String, dynamic>{
         'authorUid': user.uid,
         'createdAt': Timestamp.fromDate(DateTime.now().toUtc()),
       };
-      if (usesE2e && cv > 0) {
-        var key = _roomKey;
-        key ??= await _unwrapRoomKey(d);
-        if (key == null) {
-          _lastError = 'collab_needs_join_code';
-          notifyListeners();
-          return;
-        }
-        _roomKey = key;
-        final ct = await CollabE2eCrypto.encryptChatMessageB64(
-          authorName: name,
-          text: t,
-          roomKey: key,
-        );
-        payload['e2eV'] = 1;
-        payload['authorName'] = '';
-        payload['cipherText'] = ct;
-      } else {
-        payload['authorName'] = name;
-        payload['text'] = t;
+      var key = _roomKey;
+      if (key == null && roomData != null) {
+        key = await _unwrapRoomKey(roomData);
       }
+      if (key == null) {
+        final rs = await roomRef.get();
+        key = await _unwrapRoomKey(rs.data() ?? {});
+      }
+      if (key == null) {
+        _setErrorCode('collab_needs_join_code');
+        return;
+      }
+      _roomKey = key;
+      final ct = await CollabE2eCrypto.encryptChatMessageB64(
+        authorName: name,
+        text: t,
+        roomKey: key,
+      );
+      payload['e2eV'] = 1;
+      payload['authorName'] = '';
+      payload['cipherText'] = ct;
       await roomRef.collection('messages').add(payload);
+      sent = true;
     } catch (e) {
-      _lastError = '$e';
-      notifyListeners();
+      _handleCollabError(e);
+    } finally {
+      if (!sent) {
+        _messages.removeWhere((m) => m.id == optimisticId);
+        notifyListeners();
+      }
     }
   }
 
@@ -680,7 +776,12 @@ class CollabSessionController extends ChangeNotifier {
         'vaultPageId': pageId,
       });
       if (res is Map && res['roomId'] is String) {
-        final rid = res['roomId'] as String;
+        final rid = (res['roomId'] as String).trim();
+        if (!_isValidRoomId(rid)) {
+          _lastError = 'collab_invalid_room_id';
+          notifyListeners();
+          return null;
+        }
         final code = (res['joinCode'] as String?)?.trim();
         if (code == null || code.isEmpty) {
           _lastError = 'collab_no_join_code';
@@ -689,7 +790,9 @@ class CollabSessionController extends ChangeNotifier {
         }
         vaultSession.setPageCollabRoomId(pageId, rid, joinCode: code);
         attach(pageId: pageId, roomId: rid, initialJoinCode: code);
-        final roomRef = FirebaseFirestore.instance.collection('collabRooms').doc(rid);
+        final roomRef = FirebaseFirestore.instance
+            .collection('collabRooms')
+            .doc(rid);
         final snap = await roomRef.get();
         if (snap.exists) {
           await _sealPendingE2eRoom(snap.data() ?? {});
@@ -720,15 +823,29 @@ class CollabSessionController extends ChangeNotifier {
     if (_roomId == null) return;
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) return;
+    var ok = false;
     try {
-      await callFolioHttpsCallable('removeCollabMember', {
-        'roomId': _roomId,
-        'targetUid': user.uid,
-      });
+      final roomRef = FirebaseFirestore.instance
+          .collection('collabRooms')
+          .doc(_roomId);
+      final snap = await roomRef.get();
+      final data = snap.data() ?? <String, dynamic>{};
+      final ownerUid = (data['ownerUid'] as String?)?.trim();
+      final amOwner = ownerUid != null && ownerUid == user.uid;
+      if (amOwner) {
+        await callFolioHttpsCallable('closeCollabRoom', {'roomId': _roomId});
+      } else {
+        await callFolioHttpsCallable('removeCollabMember', {
+          'roomId': _roomId,
+          'targetUid': user.uid,
+        });
+      }
+      ok = true;
     } catch (e) {
       _lastError = '$e';
       notifyListeners();
     }
+    if (!ok) return;
     vaultSession.setPageCollabRoomId(pageId, null);
     detach();
   }
@@ -762,7 +879,12 @@ class CollabSessionController extends ChangeNotifier {
         'joinCode': joinCodeInput,
       });
       if (res is Map && res['roomId'] is String) {
-        final rid = res['roomId'] as String;
+        final rid = (res['roomId'] as String).trim();
+        if (!_isValidRoomId(rid)) {
+          _lastError = 'collab_invalid_room_id';
+          notifyListeners();
+          return false;
+        }
         final code = joinCodeInput.trim();
         vaultSession.setPageCollabRoomId(pageId, rid, joinCode: code);
         attach(pageId: pageId, roomId: rid, initialJoinCode: code);

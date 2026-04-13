@@ -99,6 +99,10 @@
   "useSystemLanguage": "Use system language",
   "spanishLanguage": "Spanish",
   "englishLanguage": "English",
+  "brazilianPortugueseLanguage": "Portuguese (Brazil)",
+  "catalanLanguage": "Catalan / Valencian",
+  "galicianLanguage": "Galician",
+  "basqueLanguage": "Basque",
   "active": "Active",
   "inactive": "Inactive",
   "remove": "Remove",
@@ -261,6 +265,24 @@
   },
     "meetingNoteCloudProcessing": "Processing with Quill Cloud…",
     "meetingNoteCloudProcessingSubtitle": "Detecting speakers and improving quality. Please wait.",
+    "meetingNoteCloudProgress": "Processed chunks: {done}/{total}",
+    "@meetingNoteCloudProgress": {
+      "placeholders": {
+        "done": {
+          "type": "int"
+        },
+        "total": {
+          "type": "int"
+        }
+      }
+    },
+    "meetingNoteCloudEta": "Estimated time remaining: {remaining}",
+    "@meetingNoteCloudEta": {
+      "placeholders": {
+        "remaining": {}
+      }
+    },
+    "meetingNoteCloudEtaCalculating": "Calculating remaining time...",
   "meetingNoteCloudRequiresAccount": "Requires a Folio Cloud account with Ink.",
   "meetingNoteTranscriptionProvider": "Transcription engine",
   "meetingNoteRecordingTime": "Recording  {mm}:{ss}",
@@ -627,6 +649,12 @@
   ,"integrationApprovalCannotDoBypassLock": "It cannot bypass the vault lock, encryption, or your explicit approval."
   ,"integrationApprovalCannotDoWithoutSecret": "It cannot access protected endpoints without the shared secret."
   ,"integrationApprovalCannotDoRemoteAccess": "It cannot use the bridge from outside localhost."
+  ,"integrationApprovalEncryptedChip": "Encrypted content (v2)"
+  ,"integrationApprovalUnencryptedChip": "Unencrypted content (v1)"
+  ,"integrationApprovalEncryptedTitle": "Version 2: mandatory content encryption"
+  ,"integrationApprovalEncryptedDescription": "This version requires encrypted payloads to import and update content through the local bridge."
+  ,"integrationApprovalUnencryptedTitle": "Version 1: unencrypted content"
+  ,"integrationApprovalUnencryptedDescription": "This version allows plaintext payloads for content. If you need transport encryption, upgrade the integration to version 2."
   ,"integrationApprovalDeny": "Deny"
   ,"integrationApprovalApprove": "Approve"
   ,"integrationApprovalApproveUpdate": "Approve this update"
@@ -891,4 +919,38 @@
   ,"collabMissingJoinCodeHint": "This page is linked to a room but no code is saved here. Paste the host’s code to decrypt content and chat."
   ,"collabUnlockWithCode": "Unlock with code"
   ,"collabHidePanel": "Hide collaboration panel"
+  ,"shortcutsCaptureTitle": "New shortcut"
+  ,"shortcutsCaptureHint": "Press the keys (Esc cancels)."
+  ,"updaterStartupDialogTitleStable": "Update available"
+  ,"updaterStartupDialogTitleBeta": "Beta available"
+  ,"updaterStartupDialogBody": "A new version ({releaseVersion}) is available."
+  ,"@updaterStartupDialogBody": {"placeholders": {"releaseVersion": {}}}
+  ,"updaterStartupDialogQuestion": "Do you want to download and install it now?"
+  ,"updaterStartupDialogLater": "Later"
+  ,"updaterStartupDialogUpdateNow": "Update now"
+  ,"updaterStartupDialogBetaNote": "Beta version (pre-release)."
+  ,"toggleTitleHint": "Toggle title"
+  ,"toggleBodyHint": "Content…"
+  ,"taskStatusTodo": "To do"
+  ,"taskStatusInProgress": "In progress"
+  ,"taskStatusDone": "Done"
+  ,"taskPriorityNone": "No priority"
+  ,"taskPriorityLow": "Low"
+  ,"taskPriorityMedium": "Medium"
+  ,"taskPriorityHigh": "High"
+  ,"taskTitleHint": "Task description…"
+  ,"taskPriorityTooltip": "Priority"
+  ,"taskNoDueDate": "No due date"
+  ,"taskSubtaskHint": "Subtask…"
+  ,"taskRemoveSubtask": "Remove subtask"
+  ,"taskAddSubtask": "Add subtask"
+  ,"templateEmojiLabel": "Emoji"
+  ,"aiGenericErrorWithReason": "AI error: {reason}"
+  ,"@aiGenericErrorWithReason": {"placeholders": {"reason": {}}}
+  ,"calloutTypeTooltip": "Callout type"
+  ,"calloutTypeInfo": "Info"
+  ,"calloutTypeSuccess": "Success"
+  ,"calloutTypeWarning": "Warning"
+  ,"calloutTypeError": "Error"
+  ,"calloutTypeNote": "Note"
 }

@@ -390,8 +390,77 @@ function normalizeClientTemperature(raw: unknown): number | undefined {
 function normalizeResponseSchema(raw: unknown): Record<string, unknown> | null {
   if (!raw || typeof raw !== "object") return null;
   if (Array.isArray(raw)) return null;
-  // Recortamos profundidad/tamaño más adelante con límites de prompt/ink; aquí solo validamos forma.
-  return raw as Record<string, unknown>;
+  // Recortamos profundidad/tamaño más adelante con límites de prompt/ink; aquí también
+  // reforzamos compatibilidad con json_schema.strict de OpenAI.
+  return enforceStrictObjectSchema(raw as Record<string, unknown>);
+}
+
+function enforceStrictObjectSchema(
+  node: Record<string, unknown>
+): Record<string, unknown> {
+  const clone: Record<string, unknown> = { ...node };
+
+  const nodeType = typeof clone.type === "string" ? clone.type : undefined;
+  if (nodeType === "object") {
+    clone.additionalProperties = false;
+  }
+
+  const properties = clone.properties;
+  if (properties && typeof properties === "object" && !Array.isArray(properties)) {
+    const nextProps: Record<string, unknown> = {};
+    for (const [key, value] of Object.entries(properties as Record<string, unknown>)) {
+      if (value && typeof value === "object" && !Array.isArray(value)) {
+        nextProps[key] = enforceStrictObjectSchema(value as Record<string, unknown>);
+      } else {
+        nextProps[key] = value;
+      }
+    }
+    clone.properties = nextProps;
+
+    const requiredKeys = Object.keys(nextProps);
+    const existingRequired = Array.isArray(clone.required)
+      ? clone.required.filter((v): v is string => typeof v === "string")
+      : [];
+    // En strict json_schema, OpenAI exige que required incluya todas las keys de properties.
+    clone.required = Array.from(new Set([...existingRequired, ...requiredKeys]));
+  }
+
+  const items = clone.items;
+  if (items && typeof items === "object" && !Array.isArray(items)) {
+    clone.items = enforceStrictObjectSchema(items as Record<string, unknown>);
+  }
+
+  const anyOf = clone.anyOf;
+  if (Array.isArray(anyOf)) {
+    clone.anyOf = anyOf.map((value) => {
+      if (value && typeof value === "object" && !Array.isArray(value)) {
+        return enforceStrictObjectSchema(value as Record<string, unknown>);
+      }
+      return value;
+    });
+  }
+
+  const oneOf = clone.oneOf;
+  if (Array.isArray(oneOf)) {
+    clone.oneOf = oneOf.map((value) => {
+      if (value && typeof value === "object" && !Array.isArray(value)) {
+        return enforceStrictObjectSchema(value as Record<string, unknown>);
+      }
+      return value;
+    });
+  }
+
+  const allOf = clone.allOf;
+  if (Array.isArray(allOf)) {
+    clone.allOf = allOf.map((value) => {
+      if (value && typeof value === "object" && !Array.isArray(value)) {
+        return enforceStrictObjectSchema(value as Record<string, unknown>);
+      }
+      return value;
+    });
+  }
+
+  return clone;
 }
 
 async function callOpenAiChatStructured(input: {
@@ -1266,6 +1335,8 @@ async function assertFolioRealtimeCollabAllowed(uid: string): Promise<void> {
 }
 
 const COLLAB_MAX_MEMBERS = 24;
+const COLLAB_MEDIA_MAX_BYTES = 80 * 1024 * 1024;
+const COLLAB_ALLOWED_MEDIA_KINDS = new Set(["image", "video", "audio", "file"]);
 
 const COLLAB_JOIN_EMOJIS = [
   "\u{1F331}",
@@ -1349,6 +1420,7 @@ export const createCollabRoom = onCall({ invoker: "public" }, async (request) =>
           ownerUid: uid,
           vaultPageId,
           memberUids: [uid],
+          memberJoinedAt: { [uid]: now },
           e2eV: 1,
           contentVersion: 0,
           joinCodeKey: key,
@@ -1405,10 +1477,141 @@ export const joinCollabRoomByCode = onCall({ invoker: "public" }, async (request
     }
     tx.update(roomRef, {
       memberUids: FieldValue.arrayUnion(uid),
+      [`memberJoinedAt.${uid}`]: FieldValue.serverTimestamp(),
       updatedAt: FieldValue.serverTimestamp(),
     });
   });
   return { roomId };
+});
+
+export const prepareCollabMediaUpload = onCall({ invoker: "public" }, async (request) => {
+  if (!request.auth?.uid) {
+    throw new HttpsError("unauthenticated", "Login required");
+  }
+  const uid = request.auth.uid;
+  await assertFolioRealtimeCollabAllowed(uid);
+
+  const roomId =
+    typeof request.data?.roomId === "string" ? request.data.roomId.trim() : "";
+  if (!roomId) {
+    throw new HttpsError("invalid-argument", "roomId required");
+  }
+  const blockId =
+    typeof request.data?.blockId === "string" ? request.data.blockId.trim() : "";
+  if (!blockId || blockId.length > 128) {
+    throw new HttpsError("invalid-argument", "blockId invalid");
+  }
+  const mediaKind =
+    typeof request.data?.mediaKind === "string" ? request.data.mediaKind.trim() : "";
+  if (!COLLAB_ALLOWED_MEDIA_KINDS.has(mediaKind)) {
+    throw new HttpsError("invalid-argument", "mediaKind invalid");
+  }
+  const sizeBytes = Number(request.data?.sizeBytes ?? 0);
+  if (!Number.isFinite(sizeBytes) || sizeBytes <= 0 || sizeBytes > COLLAB_MEDIA_MAX_BYTES) {
+    throw new HttpsError("invalid-argument", "sizeBytes invalid");
+  }
+
+  const roomRef = db.collection("collabRooms").doc(roomId);
+  const roomSnap = await roomRef.get();
+  if (!roomSnap.exists) {
+    throw new HttpsError("not-found", "Room not found");
+  }
+  const room = roomSnap.data() ?? {};
+  const members = (room.memberUids as string[] | undefined) ?? [];
+  if (!members.includes(uid) && room.ownerUid !== uid) {
+    throw new HttpsError("permission-denied", "Not a room member");
+  }
+  if ((room.e2eV as number | undefined) !== 1) {
+    throw new HttpsError("failed-precondition", "Room must be e2eV=1");
+  }
+
+  const mediaRef = roomRef.collection("media").doc();
+  const mediaId = mediaRef.id;
+  const storagePath = `collab-media-e2e/${roomId}/${mediaId}`;
+
+  return {
+    mediaId,
+    storagePath,
+    roomId,
+    blockId,
+    mediaKind,
+  };
+});
+
+export const commitCollabMediaUpload = onCall({ invoker: "public" }, async (request) => {
+  if (!request.auth?.uid) {
+    throw new HttpsError("unauthenticated", "Login required");
+  }
+  const uid = request.auth.uid;
+  await assertFolioRealtimeCollabAllowed(uid);
+
+  const roomId =
+    typeof request.data?.roomId === "string" ? request.data.roomId.trim() : "";
+  const mediaId =
+    typeof request.data?.mediaId === "string" ? request.data.mediaId.trim() : "";
+  const blockId =
+    typeof request.data?.blockId === "string" ? request.data.blockId.trim() : "";
+  const storagePath =
+    typeof request.data?.storagePath === "string" ? request.data.storagePath.trim() : "";
+  const mediaKind =
+    typeof request.data?.mediaKind === "string" ? request.data.mediaKind.trim() : "";
+  const mimeType =
+    typeof request.data?.mimeType === "string" ? request.data.mimeType.trim() : "";
+  const fileName =
+    typeof request.data?.fileName === "string" ? request.data.fileName.trim() : "";
+  const sizeBytes = Number(request.data?.sizeBytes ?? 0);
+
+  if (!roomId || !mediaId || !blockId || !storagePath || !mediaKind) {
+    throw new HttpsError("invalid-argument", "Missing required media fields");
+  }
+  if (!COLLAB_ALLOWED_MEDIA_KINDS.has(mediaKind)) {
+    throw new HttpsError("invalid-argument", "mediaKind invalid");
+  }
+  if (!storagePath.startsWith(`collab-media-e2e/${roomId}/${mediaId}`)) {
+    throw new HttpsError("invalid-argument", "storagePath invalid");
+  }
+  if (!Number.isFinite(sizeBytes) || sizeBytes <= 0 || sizeBytes > COLLAB_MEDIA_MAX_BYTES) {
+    throw new HttpsError("invalid-argument", "sizeBytes invalid");
+  }
+
+  const roomRef = db.collection("collabRooms").doc(roomId);
+  const roomSnap = await roomRef.get();
+  if (!roomSnap.exists) {
+    throw new HttpsError("not-found", "Room not found");
+  }
+  const room = roomSnap.data() ?? {};
+  const members = (room.memberUids as string[] | undefined) ?? [];
+  if (!members.includes(uid) && room.ownerUid !== uid) {
+    throw new HttpsError("permission-denied", "Not a room member");
+  }
+  if ((room.e2eV as number | undefined) !== 1) {
+    throw new HttpsError("failed-precondition", "Room must be e2eV=1");
+  }
+
+  const mediaRef = roomRef.collection("media").doc(mediaId);
+  try {
+    await mediaRef.create({
+      roomId,
+      mediaId,
+      blockId,
+      storagePath,
+      mediaKind,
+      mimeType,
+      fileName,
+      sizeBytes,
+      e2eV: 1,
+      uploaderUid: uid,
+      createdAt: FieldValue.serverTimestamp(),
+    });
+  } catch (e: unknown) {
+    const code = (e as { code?: unknown }).code;
+    if (code === 6 || code === "6" || code === "already-exists") {
+      throw new HttpsError("already-exists", "Media already committed");
+    }
+    throw e;
+  }
+
+  return { ok: true };
 });
 
 export const inviteCollabMember = onCall({ invoker: "public" }, async (request) => {
@@ -1497,6 +1700,51 @@ export const removeCollabMember = onCall({ invoker: "public" }, async (request) 
       updatedAt: FieldValue.serverTimestamp(),
     });
   });
+  return { ok: true };
+});
+
+export const closeCollabRoom = onCall({ invoker: "public" }, async (request) => {
+  if (!request.auth?.uid) {
+    throw new HttpsError("unauthenticated", "Login required");
+  }
+  const uid = request.auth.uid;
+
+  const roomId =
+    typeof request.data?.roomId === "string" ? request.data.roomId.trim() : "";
+  if (!roomId) {
+    throw new HttpsError("invalid-argument", "roomId required");
+  }
+
+  const roomRef = db.collection("collabRooms").doc(roomId);
+  const snap = await roomRef.get();
+  if (!snap.exists) {
+    throw new HttpsError("not-found", "Room not found");
+  }
+  const d = snap.data() ?? {};
+  const ownerUid = (d.ownerUid as string | undefined) ?? "";
+  if (!ownerUid || ownerUid != uid) {
+    throw new HttpsError("permission-denied", "Only the owner can close the room");
+  }
+
+  const joinCodeKey =
+    typeof d.joinCodeKey === "string" ? d.joinCodeKey.trim() : "";
+
+  const mediaPrefix = `collab-media-e2e/${roomId}/`;
+  const bestEffortStorageDelete = admin
+    .storage()
+    .bucket()
+    .deleteFiles({ prefix: mediaPrefix })
+    .catch(() => undefined);
+  const bestEffortJoinDelete = joinCodeKey
+    ? db.collection("collabJoinIndex").doc(joinCodeKey).delete().catch(() => undefined)
+    : Promise.resolve();
+
+  await Promise.all([
+    db.recursiveDelete(roomRef),
+    bestEffortStorageDelete,
+    bestEffortJoinDelete,
+  ]);
+
   return { ok: true };
 });
 

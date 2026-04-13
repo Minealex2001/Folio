@@ -62,7 +62,35 @@ jobs:
         shell: pwsh
         run: flutter analyze
 
-      - name: Run tests
+      - name: Run tests with coverage
         working-directory: ${{ env.REPO_DIR }}
         shell: pwsh
-        run: flutter test
+        run: flutter test --coverage
+
+      - name: Coverage summary
+        working-directory: ${{ env.REPO_DIR }}
+        shell: pwsh
+        run: |
+          $lcovPath = Join-Path (Get-Location) 'coverage\lcov.info'
+          if (-not (Test-Path $lcovPath)) {
+            Write-Error "Coverage file not found: $lcovPath"
+            exit 1
+          }
+
+          $linesFound = 0
+          $linesHit = 0
+
+          Get-Content $lcovPath | ForEach-Object {
+            if ($_ -match '^LF:(\d+)$') { $linesFound += [int]$matches[1] }
+            if ($_ -match '^LH:(\d+)$') { $linesHit += [int]$matches[1] }
+          }
+
+          if ($linesFound -le 0) {
+            Write-Error 'No executable lines found in coverage report.'
+            exit 1
+          }
+
+          $coverage = [math]::Round(($linesHit / $linesFound) * 100, 2)
+          $summary = "Coverage: $coverage% ($linesHit/$linesFound lines)"
+          Write-Host $summary
+          Add-Content -Path $env:GITHUB_STEP_SUMMARY -Value $summary

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../../l10n/generated/app_localizations.dart';
 import '../../app/folio_in_app_shortcuts.dart';
 
 /// Diálogo modal: captura una pulsación y devuelve [SingleActivator].
@@ -12,7 +13,8 @@ class InAppShortcutCaptureDialog extends StatefulWidget {
       _InAppShortcutCaptureDialogState();
 }
 
-class _InAppShortcutCaptureDialogState extends State<InAppShortcutCaptureDialog> {
+class _InAppShortcutCaptureDialogState
+    extends State<InAppShortcutCaptureDialog> {
   SingleActivator? _captured;
 
   static bool _isModifierOnly(LogicalKeyboardKey k) {
@@ -32,8 +34,9 @@ class _InAppShortcutCaptureDialogState extends State<InAppShortcutCaptureDialog>
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     return AlertDialog(
-      title: const Text('Nuevo atajo'),
+      title: Text(l10n.shortcutsCaptureTitle),
       content: SizedBox(
         width: 320,
         child: Focus(
@@ -64,7 +67,7 @@ class _InAppShortcutCaptureDialogState extends State<InAppShortcutCaptureDialog>
             children: [
               Text(
                 _captured == null
-                    ? 'Pulsa las teclas (Esc cancela).'
+                    ? l10n.shortcutsCaptureHint
                     : describeActivator(_captured!),
                 style: Theme.of(context).textTheme.bodyLarge,
               ),
@@ -75,13 +78,13 @@ class _InAppShortcutCaptureDialogState extends State<InAppShortcutCaptureDialog>
       actions: [
         TextButton(
           onPressed: () => Navigator.of(context).pop(),
-          child: const Text('Cancelar'),
+          child: Text(l10n.cancel),
         ),
         FilledButton(
           onPressed: _captured == null
               ? null
               : () => Navigator.of(context).pop(_captured),
-          child: const Text('Guardar'),
+          child: Text(l10n.save),
         ),
       ],
     );

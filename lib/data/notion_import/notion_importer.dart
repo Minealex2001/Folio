@@ -82,11 +82,14 @@ NotionParsedExport parseNotionExportDirectory(Directory rootDir) {
   final htmlFiles = <File>[];
   final csvFiles = <File>[];
   for (final entity in rootDir.listSync(recursive: true, followLinks: false)) {
-    if (entity is! File) continue;
+    if (entity is! File) {
+      continue;
+    }
     final lower = entity.path.toLowerCase();
     if (lower.endsWith('.md')) mdFiles.add(entity);
-    if (lower.endsWith('.html') || lower.endsWith('.htm'))
+    if (lower.endsWith('.html') || lower.endsWith('.htm')) {
       htmlFiles.add(entity);
+    }
     if (lower.endsWith('.csv')) csvFiles.add(entity);
   }
 

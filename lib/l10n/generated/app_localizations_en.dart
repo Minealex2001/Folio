@@ -275,6 +275,18 @@ class AppLocalizationsEn extends AppLocalizations {
   String get englishLanguage => 'English';
 
   @override
+  String get brazilianPortugueseLanguage => 'Portuguese (Brazil)';
+
+  @override
+  String get catalanLanguage => 'Catalan / Valencian';
+
+  @override
+  String get galicianLanguage => 'Galician';
+
+  @override
+  String get basqueLanguage => 'Basque';
+
+  @override
   String get active => 'Active';
 
   @override
@@ -738,6 +750,19 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get meetingNoteCloudProcessingSubtitle =>
       'Detecting speakers and improving quality. Please wait.';
+
+  @override
+  String meetingNoteCloudProgress(int done, int total) {
+    return 'Processed chunks: $done/$total';
+  }
+
+  @override
+  String meetingNoteCloudEta(Object remaining) {
+    return 'Estimated time remaining: $remaining';
+  }
+
+  @override
+  String get meetingNoteCloudEtaCalculating => 'Calculating remaining time...';
 
   @override
   String get meetingNoteCloudRequiresAccount =>
@@ -1878,6 +1903,28 @@ class AppLocalizationsEn extends AppLocalizations {
       'It cannot use the bridge from outside localhost.';
 
   @override
+  String get integrationApprovalEncryptedChip => 'Encrypted content (v2)';
+
+  @override
+  String get integrationApprovalUnencryptedChip => 'Unencrypted content (v1)';
+
+  @override
+  String get integrationApprovalEncryptedTitle =>
+      'Version 2: mandatory content encryption';
+
+  @override
+  String get integrationApprovalEncryptedDescription =>
+      'This version requires encrypted payloads to import and update content through the local bridge.';
+
+  @override
+  String get integrationApprovalUnencryptedTitle =>
+      'Version 1: unencrypted content';
+
+  @override
+  String get integrationApprovalUnencryptedDescription =>
+      'This version allows plaintext payloads for content. If you need transport encryption, upgrade the integration to version 2.';
+
+  @override
   String get integrationApprovalDeny => 'Deny';
 
   @override
@@ -2712,4 +2759,105 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get collabHidePanel => 'Hide collaboration panel';
+
+  @override
+  String get shortcutsCaptureTitle => 'New shortcut';
+
+  @override
+  String get shortcutsCaptureHint => 'Press the keys (Esc cancels).';
+
+  @override
+  String get updaterStartupDialogTitleStable => 'Update available';
+
+  @override
+  String get updaterStartupDialogTitleBeta => 'Beta available';
+
+  @override
+  String updaterStartupDialogBody(Object releaseVersion) {
+    return 'A new version ($releaseVersion) is available.';
+  }
+
+  @override
+  String get updaterStartupDialogQuestion =>
+      'Do you want to download and install it now?';
+
+  @override
+  String get updaterStartupDialogLater => 'Later';
+
+  @override
+  String get updaterStartupDialogUpdateNow => 'Update now';
+
+  @override
+  String get updaterStartupDialogBetaNote => 'Beta version (pre-release).';
+
+  @override
+  String get toggleTitleHint => 'Toggle title';
+
+  @override
+  String get toggleBodyHint => 'Content…';
+
+  @override
+  String get taskStatusTodo => 'To do';
+
+  @override
+  String get taskStatusInProgress => 'In progress';
+
+  @override
+  String get taskStatusDone => 'Done';
+
+  @override
+  String get taskPriorityNone => 'No priority';
+
+  @override
+  String get taskPriorityLow => 'Low';
+
+  @override
+  String get taskPriorityMedium => 'Medium';
+
+  @override
+  String get taskPriorityHigh => 'High';
+
+  @override
+  String get taskTitleHint => 'Task description…';
+
+  @override
+  String get taskPriorityTooltip => 'Priority';
+
+  @override
+  String get taskNoDueDate => 'No due date';
+
+  @override
+  String get taskSubtaskHint => 'Subtask…';
+
+  @override
+  String get taskRemoveSubtask => 'Remove subtask';
+
+  @override
+  String get taskAddSubtask => 'Add subtask';
+
+  @override
+  String get templateEmojiLabel => 'Emoji';
+
+  @override
+  String aiGenericErrorWithReason(Object reason) {
+    return 'AI error: $reason';
+  }
+
+  @override
+  String get calloutTypeTooltip => 'Callout type';
+
+  @override
+  String get calloutTypeInfo => 'Info';
+
+  @override
+  String get calloutTypeSuccess => 'Success';
+
+  @override
+  String get calloutTypeWarning => 'Warning';
+
+  @override
+  String get calloutTypeError => 'Error';
+
+  @override
+  String get calloutTypeNote => 'Note';
 }

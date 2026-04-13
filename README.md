@@ -24,6 +24,7 @@ Folio is designed for users who value privacy, control, and productivity. Whethe
 ### Security, vault & sync
 
 - **Encrypted vaults**: Local-first storage with cryptographic operations; **lock** the vault when you step away.
+- **Local integrations (v2)**: The local integration bridge supports a current **v2** contract with mandatory encrypted content payloads, while **v1** remains legacy-compatible without content encryption.
 - **Authentication**: **Local auth** (e.g. biometrics) and **passkeys** where supported, in addition to your vault password.
 - **Optional device sync**: Pair devices and sync **between your own machines** (with conflict handling in settings)—not a mandatory cloud service.
 

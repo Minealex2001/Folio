@@ -47,14 +47,27 @@ class OllamaAiService implements AiService {
         ],
       };
       final options = <String, dynamic>{};
-      if (request.temperature != null) options['temperature'] = request.temperature;
-      if (request.topK != null) options['top_k'] = request.topK;
-      if (request.topP != null) options['top_p'] = request.topP;
-      if (request.stop != null && request.stop!.isNotEmpty)
+      if (request.temperature != null) {
+        options['temperature'] = request.temperature;
+      }
+      if (request.topK != null) {
+        options['top_k'] = request.topK;
+      }
+      if (request.topP != null) {
+        options['top_p'] = request.topP;
+      }
+      if (request.stop != null && request.stop!.isNotEmpty) {
         options['stop'] = request.stop;
-      if (request.maxTokens != null) options['num_predict'] = request.maxTokens;
-      if (options.isNotEmpty) payload['options'] = options;
-      if (request.responseSchema != null) payload['format'] = request.responseSchema;
+      }
+      if (request.maxTokens != null) {
+        options['num_predict'] = request.maxTokens;
+      }
+      if (options.isNotEmpty) {
+        payload['options'] = options;
+      }
+      if (request.responseSchema != null) {
+        payload['format'] = request.responseSchema;
+      }
       httpReq.write(jsonEncode(payload));
       final response = await httpReq.close().timeout(timeout);
       final body = await utf8.decodeStream(response).timeout(timeout);

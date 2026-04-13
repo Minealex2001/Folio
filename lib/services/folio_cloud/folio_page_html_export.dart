@@ -1,7 +1,7 @@
 import 'package:markdown/markdown.dart' as md;
 
 import '../../models/folio_page.dart';
-import '../run2doc/run2doc_markdown_codec.dart';
+import '../integrations/integrations_markdown_codec.dart';
 import 'folio_web_export_config.dart';
 
 String _folioEscapeHtml(String s) {
@@ -68,15 +68,13 @@ const String _folioPromoSvgFallback =
 String _folioPromoBarHtml(String? appIconDataUri) {
   final esc = _folioEscapeHtml;
   final href = folioWebExportResolvedDownloadHref();
-  final logo =
-      appIconDataUri != null && appIconDataUri.trim().isNotEmpty
-          ? '<img class="folio-promo__icon" src="${esc(appIconDataUri.trim())}" width="40" height="40" alt="" decoding="async">'
-          : _folioPromoSvgFallback;
+  final logo = appIconDataUri != null && appIconDataUri.trim().isNotEmpty
+      ? '<img class="folio-promo__icon" src="${esc(appIconDataUri.trim())}" width="40" height="40" alt="" decoding="async">'
+      : _folioPromoSvgFallback;
 
-  final cta =
-      href != null
-          ? '<a class="folio-promo__cta" href="${esc(href)}" rel="noopener noreferrer" target="_blank" aria-label="Descargar la aplicación Folio">Descargar Folio</a>'
-          : '<span class="folio-promo__cta folio-promo__cta--static" aria-disabled="true">Descargar Folio</span>';
+  final cta = href != null
+      ? '<a class="folio-promo__cta" href="${esc(href)}" rel="noopener noreferrer" target="_blank" aria-label="Descargar la aplicación Folio">Descargar Folio</a>'
+      : '<span class="folio-promo__cta folio-promo__cta--static" aria-disabled="true">Descargar Folio</span>';
 
   final storeLinks = <String>[];
   void addStore(String label, String url) {
@@ -91,10 +89,9 @@ String _folioPromoBarHtml(String? appIconDataUri) {
   addStore('iOS', folioWebExportAppStoreUrl);
   addStore('Windows', folioWebExportMicrosoftStoreUrl);
 
-  final storesHtml =
-      storeLinks.isEmpty
-          ? ''
-          : '<div class="folio-promo__stores" role="navigation" aria-label="Enlaces a tiendas">${storeLinks.join('<span class="folio-promo__sep" aria-hidden="true">·</span>')}</div>';
+  final storesHtml = storeLinks.isEmpty
+      ? ''
+      : '<div class="folio-promo__stores" role="navigation" aria-label="Enlaces a tiendas">${storeLinks.join('<span class="folio-promo__sep" aria-hidden="true">·</span>')}</div>';
 
   return '<aside class="folio-promo" role="complementary">\n'
       '<div class="folio-promo__inner">\n'
@@ -116,10 +113,9 @@ String _folioPromoBarHtml(String? appIconDataUri) {
 String _folioFooterHtml() {
   final esc = _folioEscapeHtml;
   final href = folioWebExportResolvedDownloadHref();
-  final cta =
-      href != null
-          ? '<div><a class="folio-footer__cta" href="${esc(href)}" rel="noopener noreferrer" target="_blank">Descargar Folio</a></div>\n'
-          : '';
+  final cta = href != null
+      ? '<div><a class="folio-footer__cta" href="${esc(href)}" rel="noopener noreferrer" target="_blank">Descargar Folio</a></div>\n'
+      : '';
   return '<footer class="folio-footer">\n'
       '<div>Folio · Publicación web</div>\n'
       '$cta'
@@ -143,10 +139,9 @@ String folioWebExportShellHtml({
   final ps = _folioEscapeHtml(pageSubtitle);
   final promo = _folioPromoBarHtml(appIconDataUri);
   final footer = _folioFooterHtml();
-  final favicon =
-      appIconDataUri != null && appIconDataUri.trim().isNotEmpty
-          ? '<link rel="icon" href="${_folioEscapeHtml(appIconDataUri.trim())}">\n'
-          : '';
+  final favicon = appIconDataUri != null && appIconDataUri.trim().isNotEmpty
+      ? '<link rel="icon" href="${_folioEscapeHtml(appIconDataUri.trim())}">\n'
+      : '';
 
   return '<!DOCTYPE html>\n'
       '<html lang="es">\n'
@@ -257,10 +252,7 @@ String folioWebExportShellHtml({
 
 /// HTML para [publishHtmlPage] (contenido vía Markdown de la página).
 String folioPageExportHtmlDocument(FolioPage page, {String? appIconDataUri}) {
-  final mdBody = FolioMarkdownCodec.exportPage(
-    page,
-    includeFrontMatter: false,
-  );
+  final mdBody = FolioMarkdownCodec.exportPage(page, includeFrontMatter: false);
   var bodyHtml = md.markdownToHtml(
     mdBody,
     extensionSet: md.ExtensionSet.gitHubFlavored,

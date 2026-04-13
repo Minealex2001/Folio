@@ -34,6 +34,7 @@ service cloud.firestore {
           || request.auth.uid in collabRoomDoc(roomId).data.memberUids
         );
     }
+
     // Per-user profile: folioCloud, ink, stripeCustomerId — solo escritura por Cloud Functions (webhooks/callables).
     match /users/{userId} {
       allow read: if request.auth != null && request.auth.uid == userId;
@@ -132,6 +133,7 @@ service cloud.firestore {
         && request.resource.data.ownerUid == resource.data.ownerUid
         && request.resource.data.vaultPageId == resource.data.vaultPageId
         && request.resource.data.memberUids == resource.data.memberUids
+        && request.resource.data.memberJoinedAt == resource.data.memberJoinedAt
         && request.resource.data.createdAt == resource.data.createdAt
         && request.resource.data.joinCodeKey == resource.data.joinCodeKey
         && (!('joinCode' in resource.data)
@@ -251,6 +253,13 @@ service cloud.firestore {
           );
 
         allow update, delete: if false;
+      }
+
+      match /media/{mediaId} {
+        allow read: if collabMember(roomId)
+          && resource.data.e2eV == 1;
+
+        allow create, update, delete: if false;
       }
     }
   }

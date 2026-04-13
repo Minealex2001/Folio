@@ -82,6 +82,8 @@ class _MeetingNoteBlockWidgetState extends State<MeetingNoteBlockWidget> {
   final List<File> _pendingCloudChunks = [];
   int _cloudTotalChunks = 0;
   int _cloudProcessedChunks = 0;
+  DateTime? _cloudProcessingStartedAt;
+  Timer? _cloudEtaTicker;
 
   @override
   void initState() {
@@ -120,6 +122,7 @@ class _MeetingNoteBlockWidgetState extends State<MeetingNoteBlockWidget> {
   @override
   void dispose() {
     _timer?.cancel();
+    _cloudEtaTicker?.cancel();
     _chunkSub?.cancel();
     final sid = _diarizationSessionId;
     if (sid != null) {
@@ -412,7 +415,33 @@ class _MeetingNoteBlockWidgetState extends State<MeetingNoteBlockWidget> {
       );
     }
 
+    _cloudEtaTicker?.cancel();
+    _cloudEtaTicker = null;
+    _cloudProcessingStartedAt = null;
     setState(() => _state = _MeetingState.completed);
+  }
+
+  Duration? _estimatedCloudRemaining() {
+    final startedAt = _cloudProcessingStartedAt;
+    if (startedAt == null) return null;
+    if (_cloudTotalChunks <= 0) return null;
+    if (_cloudProcessedChunks <= 0) return null;
+
+    final elapsed = DateTime.now().difference(startedAt);
+    final perChunkMs = elapsed.inMilliseconds / _cloudProcessedChunks;
+    final remainingChunks = _cloudTotalChunks - _cloudProcessedChunks;
+    if (remainingChunks <= 0) return Duration.zero;
+
+    final remainingMs = (perChunkMs * remainingChunks).round();
+    if (remainingMs < 0) return Duration.zero;
+    return Duration(milliseconds: remainingMs);
+  }
+
+  String _formatDurationClock(Duration d) {
+    final totalSeconds = d.inSeconds.clamp(0, 359999);
+    final mm = (totalSeconds ~/ 60).toString().padLeft(2, '0');
+    final ss = (totalSeconds % 60).toString().padLeft(2, '0');
+    return '$mm:$ss';
   }
 
   void _cleanupPendingChunks() {
@@ -594,6 +623,13 @@ class _MeetingNoteBlockWidgetState extends State<MeetingNoteBlockWidget> {
         _state = _MeetingState.cloudProcessing;
         _cloudTotalChunks = _pendingCloudChunks.length;
         _cloudProcessedChunks = 0;
+        _cloudProcessingStartedAt = DateTime.now();
+      });
+      _cloudEtaTicker?.cancel();
+      _cloudEtaTicker = Timer.periodic(const Duration(seconds: 1), (_) {
+        if (mounted && _state == _MeetingState.cloudProcessing) {
+          setState(() {});
+        }
       });
       await _processCloudChunks();
     } else {
@@ -900,6 +936,7 @@ class _MeetingNoteBlockWidgetState extends State<MeetingNoteBlockWidget> {
     final progress = _cloudTotalChunks > 0
         ? (_cloudProcessedChunks / _cloudTotalChunks).clamp(0, 1)
         : null;
+    final remaining = _estimatedCloudRemaining();
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -916,6 +953,25 @@ class _MeetingNoteBlockWidgetState extends State<MeetingNoteBlockWidget> {
         const SizedBox(height: 8),
         Text(
           l10n.meetingNoteCloudProcessingSubtitle,
+          style: theme.textTheme.labelSmall?.copyWith(
+            color: widget.scheme.onSurfaceVariant,
+          ),
+        ),
+        const SizedBox(height: 6),
+        Text(
+          l10n.meetingNoteCloudProgress(
+            _cloudProcessedChunks,
+            _cloudTotalChunks,
+          ),
+          style: theme.textTheme.labelSmall?.copyWith(
+            color: widget.scheme.onSurfaceVariant,
+          ),
+        ),
+        const SizedBox(height: 2),
+        Text(
+          remaining == null
+              ? l10n.meetingNoteCloudEtaCalculating
+              : l10n.meetingNoteCloudEta(_formatDurationClock(remaining)),
           style: theme.textTheme.labelSmall?.copyWith(
             color: widget.scheme.onSurfaceVariant,
           ),
@@ -1003,21 +1059,6 @@ class _MeetingNoteBlockWidgetState extends State<MeetingNoteBlockWidget> {
             ],
           ),
         ],
-        const SizedBox(height: 6),
-        TextButton.icon(
-          onPressed: _startRecording,
-          icon: const Icon(
-            Icons.fiber_manual_record_rounded,
-            size: 14,
-            color: Colors.red,
-          ),
-          label: Text(l10n.meetingNoteNewRecording),
-          style: TextButton.styleFrom(
-            padding: EdgeInsets.zero,
-            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-            visualDensity: VisualDensity.compact,
-          ),
-        ),
       ],
     );
   }
