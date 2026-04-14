@@ -37,6 +37,9 @@ import '../../services/folio_cloud/folio_cloud_backup.dart';
 import '../../services/folio_cloud/folio_cloud_billing.dart';
 import '../../services/folio_cloud/folio_cloud_checkout.dart';
 import '../../services/folio_cloud/folio_cloud_entitlements.dart';
+import '../../services/folio_cloud/folio_microsoft_store_channel.dart';
+import '../../services/folio_cloud/folio_microsoft_store_sync.dart';
+import '../../services/folio_cloud/folio_cloud_purchase_channel_dialog.dart';
 import '../../services/folio_cloud/folio_cloud_ai_pricing.dart';
 import '../../services/folio_cloud/folio_cloud_publish.dart';
 import '../../services/folio_cloud/folio_web_portal_api.dart';
@@ -1464,12 +1467,12 @@ class _SettingsPageState extends State<SettingsPage> {
     }
   }
 
-  Future<void> _syncFolioStripeSubscription() async {
+  Future<void> _syncFolioCloudBilling() async {
     if (_folioCloudActionBusy) return;
     final l10n = AppLocalizations.of(context);
     setState(() => _folioCloudActionBusy = true);
     try {
-      await _folio.refreshSubscriptionFromStripe();
+      await _folio.refreshFolioCloudBillingFromServers();
       if (!mounted) return;
       _snack(l10n.settingsStripeSubscriptionRefreshed);
     } catch (e) {
@@ -1754,24 +1757,60 @@ class _SettingsPageState extends State<SettingsPage> {
     );
   }
 
+  Future<void> _completeStripeFolioCheckout(FolioCheckoutKind kind) async {
+    final l10n = AppLocalizations.of(context);
+    final uri = await createFolioCheckoutUri(kind);
+    if (uri == null) {
+      _snack(l10n.settingsStripeCheckoutUnavailable);
+      return;
+    }
+    final ok = await launchUrl(uri, mode: LaunchMode.externalApplication);
+    if (!ok) {
+      _snack(l10n.settingsCouldNotOpenLink);
+    } else {
+      _folio.scheduleStripeSyncOnNextResume();
+    }
+  }
+
   Future<void> _openFolioCheckout(FolioCheckoutKind kind) async {
     if (_folioCloudActionBusy) return;
+    var channel = FolioCloudPurchaseChannel.stripeInBrowser;
+    if (FolioMicrosoftStoreChannel.isRuntimeSupported) {
+      final pick = await showFolioCloudPurchaseChannelDialog(
+        context,
+        checkoutKind: kind,
+      );
+      if (!mounted) return;
+      if (pick == null) return;
+      channel = pick;
+    }
     final l10n = AppLocalizations.of(context);
     setState(() => _folioCloudActionBusy = true);
     try {
-      final uri = await createFolioCheckoutUri(kind);
-      if (uri == null) {
-        _snack(l10n.settingsStripeCheckoutUnavailable);
-        return;
-      }
-      final ok = await launchUrl(uri, mode: LaunchMode.externalApplication);
-      if (!ok) {
-        _snack(l10n.settingsCouldNotOpenLink);
+      if (channel == FolioCloudPurchaseChannel.microsoftStore) {
+        try {
+          switch (kind) {
+            case FolioCheckoutKind.folioCloudMonthly:
+              await purchaseMicrosoftStoreMonthlyIfConfigured();
+            case FolioCheckoutKind.inkSmall:
+              await purchaseMicrosoftStoreInk(FolioMicrosoftStoreInkKind.small);
+            case FolioCheckoutKind.inkMedium:
+              await purchaseMicrosoftStoreInk(FolioMicrosoftStoreInkKind.medium);
+            case FolioCheckoutKind.inkLarge:
+              await purchaseMicrosoftStoreInk(FolioMicrosoftStoreInkKind.large);
+          }
+          if (!mounted) return;
+          _snack(l10n.folioCloudMicrosoftStoreAppliedSnack);
+        } catch (e) {
+          if (mounted) _snack('$e');
+        }
       } else {
-        _folio.scheduleStripeSyncOnNextResume();
+        try {
+          await _completeStripeFolioCheckout(kind);
+        } catch (e) {
+          if (mounted) _snack('$e');
+        }
       }
-    } catch (e) {
-      _snack('$e');
     } finally {
       if (mounted) setState(() => _folioCloudActionBusy = false);
     }
@@ -3517,6 +3556,9 @@ class _SettingsPageState extends State<SettingsPage> {
                                     busy: _folioCloudActionBusy,
                                     backupCount: _cloudBackupCount,
                                     backupCountBusy: _cloudBackupCountBusy,
+                                    showMicrosoftStoreBillingNote:
+                                        FolioMicrosoftStoreChannel
+                                            .isRuntimeSupported,
                                     onSubscribeMonthly: () =>
                                         _openFolioCheckout(
                                           FolioCheckoutKind.folioCloudMonthly,
@@ -3533,8 +3575,7 @@ class _SettingsPageState extends State<SettingsPage> {
                                       FolioCheckoutKind.inkLarge,
                                     ),
                                     onBillingPortal: _openFolioBillingPortal,
-                                    onRefreshStripe:
-                                        _syncFolioStripeSubscription,
+                                    onRefreshBilling: _syncFolioCloudBilling,
                                     onUploadBackup: _uploadFolioCloudBackup,
                                     onOpenBackups: _openFolioCloudBackupsDialog,
                                     onPublishedPages: _openPublishedPagesDialog,
@@ -8287,13 +8328,14 @@ class _FolioCloudSubscriptionPanel extends StatelessWidget {
     required this.busy,
     required this.backupCount,
     required this.backupCountBusy,
+    required this.showMicrosoftStoreBillingNote,
     required this.onSubscribeMonthly,
     required this.onOpenPitch,
     required this.onInkSmall,
     required this.onInkMedium,
     required this.onInkLarge,
     required this.onBillingPortal,
-    required this.onRefreshStripe,
+    required this.onRefreshBilling,
     required this.onUploadBackup,
     required this.onOpenBackups,
     required this.onPublishedPages,
@@ -8305,13 +8347,14 @@ class _FolioCloudSubscriptionPanel extends StatelessWidget {
   final bool busy;
   final int? backupCount;
   final bool backupCountBusy;
+  final bool showMicrosoftStoreBillingNote;
   final VoidCallback onSubscribeMonthly;
   final VoidCallback onOpenPitch;
   final VoidCallback onInkSmall;
   final VoidCallback onInkMedium;
   final VoidCallback onInkLarge;
   final VoidCallback onBillingPortal;
-  final VoidCallback onRefreshStripe;
+  final VoidCallback onRefreshBilling;
   final VoidCallback onUploadBackup;
   final VoidCallback onOpenBackups;
   final VoidCallback onPublishedPages;
@@ -8618,12 +8661,22 @@ class _FolioCloudSubscriptionPanel extends StatelessWidget {
                         ),
                         const SizedBox(width: 10),
                         OutlinedButton.icon(
-                          onPressed: busy ? null : onRefreshStripe,
+                          onPressed: busy ? null : onRefreshBilling,
                           icon: const Icon(Icons.sync, size: 20),
                           label: Text(l10n.folioCloudRefreshFromStripe),
                         ),
                       ],
                     ),
+                    if (showMicrosoftStoreBillingNote) ...[
+                      const SizedBox(height: 10),
+                      Text(
+                        l10n.folioCloudMicrosoftStoreSyncHint,
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: scheme.onSurfaceVariant,
+                          height: 1.35,
+                        ),
+                      ),
+                    ],
                   ],
                 ),
               ),

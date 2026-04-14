@@ -2658,6 +2658,68 @@ class AppLocalizationsPt extends AppLocalizations {
   String get folioCloudRefreshFromStripe => 'Atualizar';
 
   @override
+  String get folioCloudMicrosoftStoreBillingTitle =>
+      'Microsoft Store (Windows)';
+
+  @override
+  String get folioCloudMicrosoftStoreBillingSubtitle =>
+      'A mesma assinatura e tinta que com o Stripe; a Loja cobra e o servidor valida a compra. Configure os ids de produto com --dart-define e Azure AD nas Cloud Functions.';
+
+  @override
+  String get folioCloudMicrosoftStoreSubscribeButton => 'Assinatura na Loja';
+
+  @override
+  String get folioCloudMicrosoftStoreSyncButton => 'Sincronizar com a Loja';
+
+  @override
+  String get folioCloudMicrosoftStoreInkTitle => 'Tinta — Microsoft Store';
+
+  @override
+  String get folioCloudMicrosoftStoreInkPackSmall => 'Tinteiro pequeno (Loja)';
+
+  @override
+  String get folioCloudMicrosoftStoreInkPackMedium => 'Tinteiro médio (Loja)';
+
+  @override
+  String get folioCloudMicrosoftStoreInkPackLarge => 'Tinteiro grande (Loja)';
+
+  @override
+  String get folioCloudMicrosoftStoreSyncedSnack =>
+      'Sincronizado com a Microsoft Store.';
+
+  @override
+  String get folioCloudMicrosoftStoreAppliedSnack =>
+      'Compra aplicada. Se algo faltar, toque em sincronizar.';
+
+  @override
+  String get folioCloudPurchaseChannelTitle => 'Onde quer pagar?';
+
+  @override
+  String get folioCloudPurchaseChannelBody =>
+      'Use a Microsoft Store integrada no Windows ou pague com cartão no navegador (Stripe). O plano e a tinta são os mesmos.';
+
+  @override
+  String get folioCloudPurchaseChannelMicrosoftStore => 'Microsoft Store';
+
+  @override
+  String get folioCloudPurchaseChannelStripe => 'No navegador (Stripe)';
+
+  @override
+  String get folioCloudPurchaseChannelCancel => 'Cancelar';
+
+  @override
+  String get folioCloudPurchaseChannelStoreNotConfigured =>
+      'A opção da Loja não está configurada nesta compilação (faltam ids de produto).';
+
+  @override
+  String get folioCloudPurchaseChannelStoreNotConfiguredHint =>
+      'Compile com --dart-define=MS_STORE_… ou use o checkout no navegador.';
+
+  @override
+  String get folioCloudMicrosoftStoreSyncHint =>
+      'No Windows, «Atualizar» também sincroniza a Microsoft Store (mesmo botão que o Stripe).';
+
+  @override
   String get folioCloudUploadEncryptedBackup => 'Fazer backup na nuvem agora';
 
   @override
@@ -4364,7 +4426,7 @@ class AppLocalizationsPt extends AppLocalizations {
 
   @override
   String get settingsStripeSubscriptionRefreshed =>
-      'Estado da subscrição atualizado.';
+      'Faturação Folio Cloud atualizada.';
 
   @override
   String get settingsStripeBillingPortalUnavailable =>

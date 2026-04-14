@@ -6,6 +6,8 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/foundation.dart';
 
 import 'folio_cloud_billing.dart';
+import 'folio_microsoft_store_channel.dart';
+import 'folio_microsoft_store_sync.dart';
 import 'folio_web_portal_api.dart';
 
 /// En Windows/Linux el plugin usa un canal Pigeon que a menudo rompe con
@@ -273,6 +275,9 @@ class FolioCloudEntitlementsController extends ChangeNotifier {
   /// Tras abrir Checkout: en el próximo [handleAppResumed] se llama a Stripe una vez por si el webhook fue lento.
   bool _pendingStripeSyncOnResume = false;
 
+  /// Tras compra Microsoft Store: en el próximo [handleAppResumed] se revalida la colección en Functions.
+  bool _pendingMicrosoftStoreSyncOnResume = false;
+
   String Function()? _resolveWebPortalBaseUrl;
 
   /// Espejo de `/api/folio/entitlement` (cuenta web). Vacío si no hay URL o sesión.
@@ -360,6 +365,11 @@ class FolioCloudEntitlementsController extends ChangeNotifier {
   /// Marcar que el usuario abrió el pago en el navegador; al volver a la app se sincroniza con Stripe una vez.
   void scheduleStripeSyncOnNextResume() {
     _pendingStripeSyncOnResume = true;
+  }
+
+  /// Tras completar un flujo de compra en Microsoft Store (Windows).
+  void scheduleMicrosoftStoreSyncOnNextResume() {
+    _pendingMicrosoftStoreSyncOnResume = true;
   }
 
   static const int _firestoreServerFetchMaxAttempts = 7;
@@ -471,17 +481,32 @@ class FolioCloudEntitlementsController extends ChangeNotifier {
     await refreshUserDocFromServer(
       leadingDelay: const Duration(milliseconds: 1200),
     );
-    if (!_pendingStripeSyncOnResume) return;
-    _pendingStripeSyncOnResume = false;
-    _lastStripeSync = null;
-    try {
-      await syncFolioCloudSubscriptionFromStripe();
-    } catch (e) {
-      debugPrint('FolioCloudEntitlements: post-checkout Stripe sync: $e');
+    if (_pendingStripeSyncOnResume) {
+      _pendingStripeSyncOnResume = false;
+      _lastStripeSync = null;
+      try {
+        await syncFolioCloudSubscriptionFromStripe();
+      } catch (e) {
+        debugPrint('FolioCloudEntitlements: post-checkout Stripe sync: $e');
+      }
+      await refreshUserDocFromServer(
+        leadingDelay: const Duration(milliseconds: 400),
+      );
     }
-    await refreshUserDocFromServer(
-      leadingDelay: const Duration(milliseconds: 400),
-    );
+    if (_pendingMicrosoftStoreSyncOnResume &&
+        FolioMicrosoftStoreChannel.isRuntimeSupported) {
+      _pendingMicrosoftStoreSyncOnResume = false;
+      try {
+        await syncFolioMicrosoftStoreEntitlementsFromDevice();
+      } catch (e) {
+        debugPrint(
+          'FolioCloudEntitlements: post-Store purchase sync: $e',
+        );
+      }
+      await refreshUserDocFromServer(
+        leadingDelay: const Duration(milliseconds: 400),
+      );
+    }
     unawaited(refreshWebPortalEntitlement());
   }
 
@@ -498,6 +523,7 @@ class FolioCloudEntitlementsController extends ChangeNotifier {
       _subscribedUid = null;
       _serverFetchTruth = null;
       _pendingStripeSyncOnResume = false;
+      _pendingMicrosoftStoreSyncOnResume = false;
       snapshot = FolioCloudSnapshot.empty;
       _clearWebPortalMirror();
       notifyListeners();
@@ -508,6 +534,7 @@ class FolioCloudEntitlementsController extends ChangeNotifier {
     if (accountChanged) {
       _serverFetchTruth = null;
       _pendingStripeSyncOnResume = false;
+      _pendingMicrosoftStoreSyncOnResume = false;
       snapshot = FolioCloudSnapshot.empty;
       _clearWebPortalMirror();
       notifyListeners();
@@ -611,6 +638,87 @@ class FolioCloudEntitlementsController extends ChangeNotifier {
       snapshot = parsed;
       _serverFetchTruth = parsed;
       notifyListeners();
+    }
+  }
+
+  /// Sincroniza derechos Microsoft Store → Firestore (Windows, app desde la Tienda).
+  Future<void> refreshMicrosoftStoreEntitlements() async {
+    if (!isAvailable) return;
+    if (!FolioMicrosoftStoreChannel.isRuntimeSupported) return;
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    if (uid == null) return;
+    try {
+      await syncFolioMicrosoftStoreEntitlementsFromDevice();
+    } catch (e) {
+      debugPrint(
+        'FolioCloudEntitlements: refreshMicrosoftStoreEntitlements: $e',
+      );
+      rethrow;
+    }
+    final data = await _fetchUserDocFromServerWithRetries(uid);
+    if (data != null && FirebaseAuth.instance.currentUser?.uid == uid) {
+      final parsed = FolioCloudSnapshot.fromUserDoc(data);
+      snapshot = parsed;
+      _serverFetchTruth = parsed;
+      notifyListeners();
+    }
+  }
+
+  /// Una sola acción: revalida Stripe y, en Windows, Microsoft Store; actualiza el snapshot si al menos un canal responde.
+  Future<void> refreshFolioCloudBillingFromServers() async {
+    if (!isAvailable) return;
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    if (uid == null) return;
+    _lastStripeSync = null;
+
+    String? stripeErr;
+    try {
+      await syncFolioCloudSubscriptionFromStripe();
+    } catch (e) {
+      stripeErr = '$e';
+      debugPrint(
+        'FolioCloudEntitlements: refreshFolioCloudBillingFromServers Stripe: $e',
+      );
+    }
+
+    String? msErr;
+    if (FolioMicrosoftStoreChannel.isRuntimeSupported) {
+      try {
+        await syncFolioMicrosoftStoreEntitlementsFromDevice();
+      } catch (e) {
+        msErr = '$e';
+        debugPrint(
+          'FolioCloudEntitlements: refreshFolioCloudBillingFromServers MS: $e',
+        );
+      }
+    }
+
+    final data = await _fetchUserDocFromServerWithRetries(uid);
+    if (data != null && FirebaseAuth.instance.currentUser?.uid == uid) {
+      try {
+        final parsed = FolioCloudSnapshot.fromUserDoc(data);
+        snapshot = parsed;
+        _serverFetchTruth = parsed;
+        notifyListeners();
+      } catch (e, st) {
+        debugPrint(
+          'FolioCloudEntitlements: refreshFolioCloudBillingFromServers parse: $e',
+        );
+        debugPrint('$st');
+      }
+    }
+
+    final win = FolioMicrosoftStoreChannel.isRuntimeSupported;
+    final stripeOk = stripeErr == null;
+    final msOk = !win || msErr == null;
+    if (!win) {
+      if (!stripeOk) {
+        throw Exception(stripeErr);
+      }
+      return;
+    }
+    if (!stripeOk && !msOk) {
+      throw Exception('$stripeErr\n$msErr');
     }
   }
 

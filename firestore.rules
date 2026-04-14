@@ -51,6 +51,11 @@ service cloud.firestore {
       allow read, write: if false;
     }
 
+    // Idempotencia consumibles Microsoft Store (solo backend).
+    match /microsoftStoreProcessedPurchases/{docId} {
+      allow read, write: if false;
+    }
+
     // Índice de suscriptores Folio Cloud mensual (solo Functions; recarga de gotas día 1).
     match /folioCloudSubscribers/{uid} {
       allow read, write: if false;

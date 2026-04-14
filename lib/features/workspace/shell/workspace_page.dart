@@ -32,6 +32,9 @@ import '../../../services/ai/folio_cloud_ai_service.dart';
 import '../../../services/cloud_account/cloud_account_controller.dart';
 import '../../../services/collab/collab_session_controller.dart';
 import '../../../services/folio_cloud/folio_cloud_checkout.dart';
+import '../../../services/folio_cloud/folio_cloud_purchase_channel_dialog.dart';
+import '../../../services/folio_cloud/folio_microsoft_store_channel.dart';
+import '../../../services/folio_cloud/folio_microsoft_store_sync.dart';
 import '../../../services/folio_cloud/folio_cloud_ai_pricing.dart';
 import '../../../services/folio_cloud/folio_cloud_entitlements.dart';
 import '../../../services/folio_cloud/folio_cloud_publish.dart';
@@ -1363,8 +1366,30 @@ class _WorkspacePageState extends State<WorkspacePage> {
 
   Future<void> _openFolioCloudMonthlyCheckout() async {
     if (_folioCloudCheckoutBusy) return;
+    var channel = FolioCloudPurchaseChannel.stripeInBrowser;
+    if (FolioMicrosoftStoreChannel.isRuntimeSupported) {
+      final pick = await showFolioCloudPurchaseChannelDialog(
+        context,
+        checkoutKind: FolioCheckoutKind.folioCloudMonthly,
+      );
+      if (!mounted) return;
+      if (pick == null) return;
+      channel = pick;
+    }
     setState(() => _folioCloudCheckoutBusy = true);
     try {
+      final l10n = AppLocalizations.of(context);
+      if (channel == FolioCloudPurchaseChannel.microsoftStore) {
+        try {
+          await purchaseMicrosoftStoreMonthlyIfConfigured();
+          if (mounted) {
+            _snack(l10n.folioCloudMicrosoftStoreAppliedSnack);
+          }
+        } catch (e) {
+          _snack('$e', error: true);
+        }
+        return;
+      }
       final uri = await createFolioCheckoutUri(
         FolioCheckoutKind.folioCloudMonthly,
       );

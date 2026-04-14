@@ -9,12 +9,20 @@ project(runner LANGUAGES CXX)
 add_executable(${BINARY_NAME} WIN32
   "flutter_window.cpp"
   "main.cpp"
+  "microsoft_store_plugin.cpp"
   "system_audio_plugin.cpp"
   "utils.cpp"
   "win32_window.cpp"
   "${FLUTTER_MANAGED_DIR}/generated_plugin_registrant.cc"
   "Runner.rc"
   "runner.exe.manifest"
+)
+
+set_source_files_properties(
+  "microsoft_store_plugin.cpp"
+  PROPERTIES
+    COMPILE_OPTIONS "/utf-8;$<$<CXX_COMPILER_ID:MSVC>:/EHsc>"
+    COMPILE_DEFINITIONS "_HAS_EXCEPTIONS=1"
 )
 
 # Apply the standard set of build settings. This can be removed for applications
@@ -35,6 +43,7 @@ target_compile_definitions(${BINARY_NAME} PRIVATE "NOMINMAX")
 # dependencies here.
 target_link_libraries(${BINARY_NAME} PRIVATE flutter flutter_wrapper_app)
 target_link_libraries(${BINARY_NAME} PRIVATE "dwmapi.lib")
+target_link_libraries(${BINARY_NAME} PRIVATE "WindowsApp.lib")
 target_include_directories(${BINARY_NAME} PRIVATE "${CMAKE_SOURCE_DIR}")
 
 # Run the Flutter tool portions of the build. This must not be removed.

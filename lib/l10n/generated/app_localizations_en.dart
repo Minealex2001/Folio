@@ -2644,6 +2644,68 @@ class AppLocalizationsEn extends AppLocalizations {
   String get folioCloudRefreshFromStripe => 'Refresh';
 
   @override
+  String get folioCloudMicrosoftStoreBillingTitle =>
+      'Microsoft Store (Windows)';
+
+  @override
+  String get folioCloudMicrosoftStoreBillingSubtitle =>
+      'Same subscription and ink packs as Stripe; the Store charges and the server validates. Set product ids via --dart-define and Azure AD on Cloud Functions.';
+
+  @override
+  String get folioCloudMicrosoftStoreSubscribeButton => 'Subscribe in Store';
+
+  @override
+  String get folioCloudMicrosoftStoreSyncButton => 'Sync with Store';
+
+  @override
+  String get folioCloudMicrosoftStoreInkTitle => 'Ink — Microsoft Store';
+
+  @override
+  String get folioCloudMicrosoftStoreInkPackSmall => 'Small ink pack (Store)';
+
+  @override
+  String get folioCloudMicrosoftStoreInkPackMedium => 'Medium ink pack (Store)';
+
+  @override
+  String get folioCloudMicrosoftStoreInkPackLarge => 'Large ink pack (Store)';
+
+  @override
+  String get folioCloudMicrosoftStoreSyncedSnack =>
+      'Synced with Microsoft Store.';
+
+  @override
+  String get folioCloudMicrosoftStoreAppliedSnack =>
+      'Purchase applied. If something is missing, tap Sync.';
+
+  @override
+  String get folioCloudPurchaseChannelTitle => 'Where do you want to pay?';
+
+  @override
+  String get folioCloudPurchaseChannelBody =>
+      'Use the Microsoft Store built into Windows, or pay by card in the browser (Stripe). The plan and ink are the same.';
+
+  @override
+  String get folioCloudPurchaseChannelMicrosoftStore => 'Microsoft Store';
+
+  @override
+  String get folioCloudPurchaseChannelStripe => 'In the browser (Stripe)';
+
+  @override
+  String get folioCloudPurchaseChannelCancel => 'Cancel';
+
+  @override
+  String get folioCloudPurchaseChannelStoreNotConfigured =>
+      'The Store option is not configured in this build (product ids missing).';
+
+  @override
+  String get folioCloudPurchaseChannelStoreNotConfiguredHint =>
+      'Build with --dart-define=MS_STORE_… or use browser checkout.';
+
+  @override
+  String get folioCloudMicrosoftStoreSyncHint =>
+      'On Windows, Refresh also syncs the Microsoft Store (same button as Stripe).';
+
+  @override
   String get folioCloudUploadEncryptedBackup => 'Back up to cloud now';
 
   @override
@@ -4335,7 +4397,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get settingsStripeSubscriptionRefreshed =>
-      'Subscription status refreshed.';
+      'Folio Cloud billing updated.';
 
   @override
   String get settingsStripeBillingPortalUnavailable =>
