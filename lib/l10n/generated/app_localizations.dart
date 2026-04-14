@@ -4750,6 +4750,114 @@ abstract class AppLocalizations {
   /// **'Actualizar'**
   String get folioCloudRefreshFromStripe;
 
+  /// No description provided for @folioCloudMicrosoftStoreBillingTitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Microsoft Store (Windows)'**
+  String get folioCloudMicrosoftStoreBillingTitle;
+
+  /// No description provided for @folioCloudMicrosoftStoreBillingSubtitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Misma suscripción y tinteros que con Stripe; la Tienda cobra y el servidor valida la compra. Configura los ids de producto con --dart-define y Azure AD en Cloud Functions.'**
+  String get folioCloudMicrosoftStoreBillingSubtitle;
+
+  /// No description provided for @folioCloudMicrosoftStoreSubscribeButton.
+  ///
+  /// In es, this message translates to:
+  /// **'Suscripción en la Tienda'**
+  String get folioCloudMicrosoftStoreSubscribeButton;
+
+  /// No description provided for @folioCloudMicrosoftStoreSyncButton.
+  ///
+  /// In es, this message translates to:
+  /// **'Sincronizar con la Tienda'**
+  String get folioCloudMicrosoftStoreSyncButton;
+
+  /// No description provided for @folioCloudMicrosoftStoreInkTitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Tinta — Microsoft Store'**
+  String get folioCloudMicrosoftStoreInkTitle;
+
+  /// No description provided for @folioCloudMicrosoftStoreInkPackSmall.
+  ///
+  /// In es, this message translates to:
+  /// **'Tintero pequeño (Tienda)'**
+  String get folioCloudMicrosoftStoreInkPackSmall;
+
+  /// No description provided for @folioCloudMicrosoftStoreInkPackMedium.
+  ///
+  /// In es, this message translates to:
+  /// **'Tintero mediano (Tienda)'**
+  String get folioCloudMicrosoftStoreInkPackMedium;
+
+  /// No description provided for @folioCloudMicrosoftStoreInkPackLarge.
+  ///
+  /// In es, this message translates to:
+  /// **'Tintero grande (Tienda)'**
+  String get folioCloudMicrosoftStoreInkPackLarge;
+
+  /// No description provided for @folioCloudMicrosoftStoreSyncedSnack.
+  ///
+  /// In es, this message translates to:
+  /// **'Sincronizado con Microsoft Store.'**
+  String get folioCloudMicrosoftStoreSyncedSnack;
+
+  /// No description provided for @folioCloudMicrosoftStoreAppliedSnack.
+  ///
+  /// In es, this message translates to:
+  /// **'Compra aplicada. Si no ves los cambios, pulsa sincronizar.'**
+  String get folioCloudMicrosoftStoreAppliedSnack;
+
+  /// No description provided for @folioCloudPurchaseChannelTitle.
+  ///
+  /// In es, this message translates to:
+  /// **'¿Dónde quieres pagar?'**
+  String get folioCloudPurchaseChannelTitle;
+
+  /// No description provided for @folioCloudPurchaseChannelBody.
+  ///
+  /// In es, this message translates to:
+  /// **'Puedes usar la Microsoft Store integrada en Windows o pagar con tarjeta en el navegador (Stripe). El plan y la tinta son los mismos.'**
+  String get folioCloudPurchaseChannelBody;
+
+  /// No description provided for @folioCloudPurchaseChannelMicrosoftStore.
+  ///
+  /// In es, this message translates to:
+  /// **'Microsoft Store'**
+  String get folioCloudPurchaseChannelMicrosoftStore;
+
+  /// No description provided for @folioCloudPurchaseChannelStripe.
+  ///
+  /// In es, this message translates to:
+  /// **'En el navegador (Stripe)'**
+  String get folioCloudPurchaseChannelStripe;
+
+  /// No description provided for @folioCloudPurchaseChannelCancel.
+  ///
+  /// In es, this message translates to:
+  /// **'Cancelar'**
+  String get folioCloudPurchaseChannelCancel;
+
+  /// No description provided for @folioCloudPurchaseChannelStoreNotConfigured.
+  ///
+  /// In es, this message translates to:
+  /// **'La opción de la Tienda no está configurada en esta compilación (faltan ids de producto).'**
+  String get folioCloudPurchaseChannelStoreNotConfigured;
+
+  /// No description provided for @folioCloudPurchaseChannelStoreNotConfiguredHint.
+  ///
+  /// In es, this message translates to:
+  /// **'Compila con --dart-define=MS_STORE_… o usa el pago en el navegador.'**
+  String get folioCloudPurchaseChannelStoreNotConfiguredHint;
+
+  /// No description provided for @folioCloudMicrosoftStoreSyncHint.
+  ///
+  /// In es, this message translates to:
+  /// **'En Windows, «Actualizar» también sincroniza la Microsoft Store (mismo botón que Stripe).'**
+  String get folioCloudMicrosoftStoreSyncHint;
+
   /// No description provided for @folioCloudUploadEncryptedBackup.
   ///
   /// In es, this message translates to:
@@ -7740,7 +7848,7 @@ abstract class AppLocalizations {
   /// No description provided for @settingsStripeSubscriptionRefreshed.
   ///
   /// In es, this message translates to:
-  /// **'Estado de suscripción actualizado.'**
+  /// **'Facturación Folio Cloud actualizada.'**
   String get settingsStripeSubscriptionRefreshed;
 
   /// No description provided for @settingsStripeBillingPortalUnavailable.

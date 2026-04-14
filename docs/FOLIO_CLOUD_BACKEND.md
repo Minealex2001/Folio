@@ -4,8 +4,8 @@ El cliente Flutter **no es confiable**: cualquiera puede modificar el código. T
 
 - **Cloud Functions** (callables con `request.auth`, webhooks firmados por Stripe).
 - **Firestore**: documento `users/{uid}` con `allow write: if false` para el SDK cliente; solo el **Admin SDK** en Functions escribe `folioCloud`, `ink`, `stripeCustomerId`.
-- **Idempotencia**: eventos Stripe en `stripeWebhookEvents/{eventId}`; sesiones Checkout de pago único en `stripeProcessedCheckouts/{sessionId}` para no sumar gotas dos veces (`completed` + `async_payment_succeeded`).
-- **Índice de suscriptores mensuales**: `folioCloudSubscribers/{uid}` (solo Functions) para la recarga de gotas el día 1 sin escanear toda la colección `users`.
+- **Idempotencia**: eventos Stripe en `stripeWebhookEvents/{eventId}`; sesiones Checkout de pago único en `stripeProcessedCheckouts/{sessionId}` para no sumar gotas dos veces (`completed` + `async_payment_succeeded`); consumibles Microsoft Store en `microsoftStoreProcessedPurchases/{docId}` (hash estable por usuario + clave de línea de compra).
+- **Índice de suscriptores mensuales**: `folioCloudSubscribers/{uid}` (solo Functions) para la recarga de gotas el día 1 sin escanear toda la colección `users`. El documento puede incluir `subscriptionPriceId` (Stripe mensual resuelto) y/o `microsoftStoreMonthly: true` para suscriptores solo-Tienda; el job programado `monthlyInkRefill` aplica la recarga si coincide cualquiera de los dos.
 
 ## Cliente Flutter (Windows / Linux)
 
@@ -13,7 +13,34 @@ El paquete `cloud_functions` **no** expone en Windows (ni en Linux en muchos bui
 
 **IA en nube (`folioCloudAiComplete`):** está desplegada como Cloud Function **1st gen** (`firebase-functions/v1`), es decir en la infraestructura clásica de `cloudfunctions.net`, **no** como función v2 sobre Cloud Run. Así se evita el perímetro IAM y muchos **HTTP 429** que en escritorio se confunden con límites de tinta. El resto de callables del repo siguen en **v2** (Cloud Run); para ellas aplica el aviso IAM de abajo. Si en el proyecto ya existía `folioCloudAiComplete` como v2, conviene **borrarla** (consola GCP o `firebase functions:delete folioCloudAiComplete --region us-central1` según tu flujo) y luego `firebase deploy --only functions` para que solo quede la 1st gen con el mismo nombre.
 
-Como refuerzo para escritorio, también existe `folioCloudAiCompleteHttp` (HTTP **v1**). El cliente Windows/Linux lo usa solo si la callable devuelve **401 HTML** (bloqueo de infraestructura antes de entrar al protocolo callable). Este endpoint mantiene la misma validación de negocio (auth, tinta, cargo/reembolso) y responde en formato compatible con callable (`{result}` o `{error:{status,message}}`). La IA en nube está permitida si hay **suscripción activa con `cloudAi`** o, sin ello, si hay **tinta comprada** (`ink.purchasedBalance`); la tinta mensual del plan no se consume en ese segundo modo y al perder la suscripción `syncSubscriptionToUser` pone **`ink.monthlyBalance` en 0** conservando la comprada.
+Como refuerzo para escritorio, también existe `folioCloudAiCompleteHttp` (HTTP **v1**). El cliente Windows/Linux lo usa solo si la callable devuelve **401 HTML** (bloqueo de infraestructura antes de entrar al protocolo callable). Este endpoint mantiene la misma validación de negocio (auth, tinta, cargo/reembolso) y responde en formato compatible con callable (`{result}` o `{error:{status,message}}`). La IA en nube está permitida si hay **suscripción activa con `cloudAi`** o, sin ello, si hay **tinta comprada** (`ink.purchasedBalance`); la tinta mensual del plan no se consume en ese segundo modo y al perder la suscripción el backend (fusión Stripe + Microsoft Store vía `recomputeEffectiveFolioCloud`) pone **`ink.monthlyBalance` en 0** conservando la comprada.
+
+## Microsoft Store (Windows, MSIX)
+
+Stripe y la Tienda pueden convivir: el estado **por canal** vive en `users/{uid}.billing.stripe` y `users/{uid}.billing.microsoftStore`; la vista efectiva que leen las reglas (`folioCloud`, `ink`, índice) la calcula **`recomputeEffectiveFolioCloud`** tras webhooks Stripe o la callable **`validateMicrosoftStoreEntitlements`**.
+
+### Partner Center y Azure AD
+
+1. Crea en Partner Center la **suscripción mensual** y los **consumibles** de tinta (mismos importes lógicos que en Stripe).
+2. Registra una aplicación en **Azure AD** del inquilino ligado a Partner Center y configura los permisos que exige la [integración con Microsoft Store desde un servicio](https://learn.microsoft.com/en-us/windows/uwp/monetize/view-and-grant-products-from-a-service) (token de aplicación para la API de colecciones).
+3. Variables en Cloud Functions (ver [`functions/.env.example`](../functions/.env.example)):
+   - `AZURE_AD_TENANT_ID`, `AZURE_AD_CLIENT_ID`, `AZURE_AD_CLIENT_SECRET`
+   - `MS_STORE_PRODUCT_FOLIO_CLOUD_MONTHLY` y `MS_STORE_INK_SMALL` / `MS_STORE_INK_MEDIUM` / `MS_STORE_INK_LARGE` (ids de producto de la Tienda, alineados con el catálogo).
+
+### Cliente Windows
+
+- El runner registra el MethodChannel `folio/microsoft_store` ([`windows/runner/microsoft_store_plugin.cpp`](../windows/runner/microsoft_store_plugin.cpp)): obtiene el id de colección del usuario (`GetCustomerCollectionsIdAsync` con el contrato del SDK instalado) y ejecuta `RequestPurchaseAsync` por id de producto Tienda.
+- Los mismos ids deben inyectarse en el build con `--dart-define=MS_STORE_PRODUCT_FOLIO_CLOUD_MONTHLY=...` (y los de tinta); ver [`lib/services/folio_cloud/folio_microsoft_store_products.dart`](../lib/services/folio_cloud/folio_microsoft_store_products.dart).
+- Tras comprar o al pulsar «Sincronizar», la app llama la callable `validateMicrosoftStoreEntitlements` con `collectionsId` (mismo protocolo HTTP callable que el resto de Folio Cloud en escritorio).
+
+### Servidor
+
+- `validateMicrosoftStoreEntitlements`: POST a `https://collections.mp.microsoft.com/v6.0/collections/query` con token Azure AD y el `collectionsId` del cliente; interpreta ítems, actualiza `billing.microsoftStore`, aplica tinta consumible de forma idempotente y ejecuta `recomputeEffectiveFolioCloud`.
+- Si en tu entorno `GetCustomerCollectionsIdAsync("", "")` no devuelve un id válido, habrá que completar el flujo con **ticket de servicio** y `publisherUserId` según la documentación de Microsoft (sustituir las cadenas vacías en el plugin nativo).
+
+### Despliegue
+
+- Despliega reglas Firestore (colección `microsoftStoreProcessedPurchases`) y la nueva función: `firebase deploy --only functions:validateMicrosoftStoreEntitlements,firestore:rules` (ajusta al pipeline habitual).
 
 ### Aviso: 401 con página HTML «Error 401 (Unauthorized)»
 

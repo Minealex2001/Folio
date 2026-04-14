@@ -42,6 +42,8 @@ bool FlutterWindow::OnCreate() {
   RegisterPlugins(flutter_controller_->engine());
   SetChildContent(flutter_controller_->view()->GetNativeWindow());
 
+  microsoft_store_plugin_ = std::make_unique<FolioMicrosoftStorePlugin>(
+      flutter_controller_->engine()->messenger(), GetHandle());
   system_audio_plugin_ = std::make_unique<SystemAudioPlugin>(
       flutter_controller_->engine()->messenger());
 
@@ -78,6 +80,7 @@ bool FlutterWindow::OnCreate() {
 
 void FlutterWindow::OnDestroy() {
   launch_arguments_channel_ = nullptr;
+  microsoft_store_plugin_ = nullptr;
   system_audio_plugin_ = nullptr;
   if (flutter_controller_) {
     flutter_controller_ = nullptr;
@@ -90,6 +93,12 @@ LRESULT
 FlutterWindow::MessageHandler(HWND hwnd, UINT const message,
                               WPARAM const wparam,
                               LPARAM const lparam) noexcept {
+  const UINT k_ms_deferred = FolioMicrosoftStorePlugin::DeferredInvokeWindowMessage();
+  if (message == k_ms_deferred && microsoft_store_plugin_) {
+    microsoft_store_plugin_->ProcessDeferredInvoke(lparam);
+    return 0;
+  }
+
   // Give Flutter, including plugins, an opportunity to handle window messages.
   if (flutter_controller_) {
     std::optional<LRESULT> result =

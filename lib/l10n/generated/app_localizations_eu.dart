@@ -2683,6 +2683,68 @@ class AppLocalizationsEu extends AppLocalizations {
   String get folioCloudRefreshFromStripe => 'Eguneratu';
 
   @override
+  String get folioCloudMicrosoftStoreBillingTitle =>
+      'Microsoft Store (Windows)';
+
+  @override
+  String get folioCloudMicrosoftStoreBillingSubtitle =>
+      'Stripe-rekin berdina: harpidetza eta tinta; dendak kobratzen du eta zerbitzariak eroskera baliozkotzen du. Produktu-id-ak --dart-define-rekin eta Azure AD Cloud Functions-en konfiguratu.';
+
+  @override
+  String get folioCloudMicrosoftStoreSubscribeButton => 'Harpidetza dendan';
+
+  @override
+  String get folioCloudMicrosoftStoreSyncButton => 'Sinkronizatu dendarekin';
+
+  @override
+  String get folioCloudMicrosoftStoreInkTitle => 'Tinta — Microsoft Store';
+
+  @override
+  String get folioCloudMicrosoftStoreInkPackSmall => 'Tintazio txiki (denda)';
+
+  @override
+  String get folioCloudMicrosoftStoreInkPackMedium => 'Tintazio ertain (denda)';
+
+  @override
+  String get folioCloudMicrosoftStoreInkPackLarge => 'Tintazio handi (denda)';
+
+  @override
+  String get folioCloudMicrosoftStoreSyncedSnack =>
+      'Microsoft Store-rekin sinkronizatuta.';
+
+  @override
+  String get folioCloudMicrosoftStoreAppliedSnack =>
+      'Erosketa aplikatu da. Aldaketarik ikusten ez baduzu, sakatu sinkronizatu.';
+
+  @override
+  String get folioCloudPurchaseChannelTitle => 'Non ordaindu nahi duzu?';
+
+  @override
+  String get folioCloudPurchaseChannelBody =>
+      'Windows-en integratutako Microsoft Store erabili edo nabigatzailean txartelarekin ordaindu (Stripe). Plana eta tinta berdinak dira.';
+
+  @override
+  String get folioCloudPurchaseChannelMicrosoftStore => 'Microsoft Store';
+
+  @override
+  String get folioCloudPurchaseChannelStripe => 'Nabigatzailean (Stripe)';
+
+  @override
+  String get folioCloudPurchaseChannelCancel => 'Utzi';
+
+  @override
+  String get folioCloudPurchaseChannelStoreNotConfigured =>
+      'Dendaren aukera ez dago konfiguratuta konpilazio honetan (produktu-id-ak falta dira).';
+
+  @override
+  String get folioCloudPurchaseChannelStoreNotConfiguredHint =>
+      'Konpilatu --dart-define=MS_STORE_…-rekin edo erabili nabigatzaileko ordainketa.';
+
+  @override
+  String get folioCloudMicrosoftStoreSyncHint =>
+      'Windows-en, «Eguneratu» Microsoft Store ere sinkronizatzen du (Stripe-rekin botoi bera).';
+
+  @override
   String get folioCloudUploadEncryptedBackup => 'Egin babeskopia hodeian orain';
 
   @override
@@ -4394,7 +4456,7 @@ class AppLocalizationsEu extends AppLocalizations {
 
   @override
   String get settingsStripeSubscriptionRefreshed =>
-      'Harpidetzaren egoera eguneratu da.';
+      'Folio Cloud-eko fakturazioa eguneratu da.';
 
   @override
   String get settingsStripeBillingPortalUnavailable =>

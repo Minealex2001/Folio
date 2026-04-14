@@ -12,6 +12,12 @@ import { onRequest } from "firebase-functions/v2/https";
 import { onSchedule } from "firebase-functions/v2/scheduler";
 import Stripe from "stripe";
 
+import {
+  microsoftStoreValidationConfigured,
+  queryMicrosoftStoreUserCollection,
+  scanMicrosoftStoreCollectionItems,
+} from "./microsoft_store";
+
 admin.initializeApp();
 const db = admin.firestore();
 const FieldValue = admin.firestore.FieldValue;
@@ -911,37 +917,103 @@ function monthPeriodKeyEuropeMadrid(d = new Date()): string {
   return `${y}-${m}`;
 }
 
-async function syncSubscriptionToUser(
-  stripe: Stripe,
-  uid: string,
-  status: string,
-  priceId: string | undefined
-): Promise<void> {
-  const features = await folioCloudFeaturesFromPriceId(stripe, priceId);
-  const active =
-    status === "active" || status === "trialing" || status === "past_due";
-  const monthly = await isMonthlySubscriptionPrice(stripe, priceId);
+/**
+ * Fusiona `billing.stripe` + `billing.microsoftStore` en `folioCloud` y tinta mensual.
+ * Sin Stripe en servidor: solo se considera el slice de Microsoft Store + legacy.
+ */
+async function recomputeEffectiveFolioCloud(uid: string): Promise<void> {
+  const stripe = stripeClient();
   const ref = db.collection("users").doc(uid);
+  const snap = await ref.get();
+  const data = (snap.data() ?? {}) as Record<string, unknown>;
+  const billing = (data.billing as Record<string, unknown>) ?? {};
+  const stripeBilling = billing.stripe as Record<string, unknown> | undefined;
+  const msBilling = billing.microsoftStore as Record<string, unknown> | undefined;
+
+  let stripeStatus = "canceled";
+  let stripePriceId: string | undefined;
+  let stripeActiveFlag = false;
+  if (stripeBilling) {
+    stripeStatus = String(stripeBilling.subscriptionStatus ?? "canceled");
+    const sp = stripeBilling.subscriptionPriceId;
+    stripePriceId = typeof sp === "string" && sp ? sp : undefined;
+    stripeActiveFlag = Boolean(stripeBilling.active);
+  } else {
+    const fc = data.folioCloud as Record<string, unknown> | undefined;
+    if (fc) {
+      stripeStatus = String(fc.subscriptionStatus ?? "canceled");
+      const sp = fc.subscriptionPriceId;
+      stripePriceId = typeof sp === "string" && sp ? sp : undefined;
+      stripeActiveFlag =
+        Boolean(fc.active) && stripeStatus !== "canceled";
+    }
+  }
+
+  const msMonthlyActive = Boolean(msBilling?.subscriptionActive);
+
+  let stripeFeatures = {
+    backup: false,
+    cloudAi: false,
+    publishWeb: false,
+    realtimeCollab: false,
+  };
+  if (stripe && stripePriceId && stripeActiveFlag) {
+    stripeFeatures = await folioCloudFeaturesFromPriceId(stripe, stripePriceId);
+  }
+  const msFeatures = msMonthlyActive
+    ? {
+        backup: true,
+        cloudAi: true,
+        publishWeb: true,
+        realtimeCollab: true,
+      }
+    : {
+        backup: false,
+        cloudAi: false,
+        publishWeb: false,
+        realtimeCollab: false,
+      };
+  const features = {
+    backup: stripeFeatures.backup || msFeatures.backup,
+    cloudAi: stripeFeatures.cloudAi || msFeatures.cloudAi,
+    publishWeb: stripeFeatures.publishWeb || msFeatures.publishWeb,
+    realtimeCollab:
+      stripeFeatures.realtimeCollab || msFeatures.realtimeCollab,
+  };
+
+  const folioActive = stripeActiveFlag || msMonthlyActive;
+  let subscriptionStatus = stripeStatus;
+  if (
+    msMonthlyActive &&
+    (!stripeActiveFlag || stripeStatus === "canceled")
+  ) {
+    subscriptionStatus = "active";
+  }
+
+  let stripeMonthlyActive = false;
+  if (stripeActiveFlag && stripe && stripePriceId) {
+    stripeMonthlyActive = await isMonthlySubscriptionPrice(stripe, stripePriceId);
+  }
+  const needsMonthlyInk = stripeMonthlyActive || msMonthlyActive;
+
   await ref.set(
     {
       folioCloud: {
-        subscriptionStatus: status,
-        active,
+        subscriptionStatus,
+        active: folioActive,
         features,
-        subscriptionPriceId: priceId ?? null,
+        subscriptionPriceId: stripePriceId ?? null,
         updatedAt: FieldValue.serverTimestamp(),
       },
     },
     { merge: true }
   );
-  if (active && monthly) {
-    // Importante: sincronizar desde Stripe NO debe “recargar” la tinta cada vez.
-    // Solo recargamos si cambia el periodo mensual o si faltan campos.
+
+  if (needsMonthlyInk) {
     const currentPeriodKey = monthPeriodKeyEuropeMadrid();
 
     const FieldPath = admin.firestore.FieldPath;
     const deleteDotted: Record<string, unknown> = {
-      // Si existen campos literales con punto (bug/datos manuales), los borramos.
       [new FieldPath("ink.monthlyBalance") as unknown as string]:
         FieldValue.delete(),
       [new FieldPath("ink.purchasedBalance") as unknown as string]:
@@ -952,14 +1024,14 @@ async function syncSubscriptionToUser(
     };
 
     await db.runTransaction(async (tx) => {
-      const snap = await tx.get(ref);
-      const data = (snap.data() ?? {}) as Record<string, unknown>;
-      const inkRaw = (data.ink as Record<string, unknown>) ?? {};
+      const txSnap = await tx.get(ref);
+      const txData = (txSnap.data() ?? {}) as Record<string, unknown>;
+      const inkRaw = (txData.ink as Record<string, unknown>) ?? {};
       const existingMonthly = inkBalanceField(inkRaw.monthlyBalance);
       const existingPurchased = inkBalanceField(inkRaw.purchasedBalance);
 
-      const dottedMonthly = inkBalanceField(data["ink.monthlyBalance"]);
-      const dottedPurchased = inkBalanceField(data["ink.purchasedBalance"]);
+      const dottedMonthly = inkBalanceField(txData["ink.monthlyBalance"]);
+      const dottedPurchased = inkBalanceField(txData["ink.purchasedBalance"]);
 
       const monthlyBalance = Math.max(existingMonthly, dottedMonthly);
       const purchasedBalance = Math.max(existingPurchased, dottedPurchased);
@@ -969,8 +1041,8 @@ async function syncSubscriptionToUser(
           ? inkRaw.monthlyPeriodKey.trim()
           : "";
       const dottedKey =
-        typeof data["ink.monthlyPeriodKey"] === "string"
-          ? String(data["ink.monthlyPeriodKey"]).trim()
+        typeof txData["ink.monthlyPeriodKey"] === "string"
+          ? String(txData["ink.monthlyPeriodKey"]).trim()
           : "";
       const existingPeriodKey = rawKey || dottedKey;
 
@@ -986,15 +1058,15 @@ async function syncSubscriptionToUser(
             monthlyPeriodKey: currentPeriodKey,
             updatedAt: FieldValue.serverTimestamp(),
           },
-          // Limpieza de duplicados (si los hubiera).
           ...deleteDotted,
         },
         { merge: true }
       );
     });
 
-    let subIndexPrice: string | null = priceId ?? null;
-    if (!subIndexPrice) {
+    let subIndexPrice: string | null =
+      stripeMonthlyActive ? (stripePriceId ?? null) : null;
+    if (stripeMonthlyActive && stripe && !subIndexPrice) {
       const rawMonthly = priceFolioCloudMonthly();
       if (rawMonthly) {
         try {
@@ -1007,6 +1079,7 @@ async function syncSubscriptionToUser(
     await db.collection("folioCloudSubscribers").doc(uid).set(
       {
         subscriptionPriceId: subIndexPrice,
+        microsoftStoreMonthly: msMonthlyActive,
         updatedAt: FieldValue.serverTimestamp(),
       },
       { merge: true }
@@ -1027,11 +1100,11 @@ async function syncSubscriptionToUser(
     };
 
     await db.runTransaction(async (tx) => {
-      const snap = await tx.get(ref);
-      const data = (snap.data() ?? {}) as Record<string, unknown>;
-      const inkRaw = (data.ink as Record<string, unknown>) ?? {};
+      const txSnap = await tx.get(ref);
+      const txData = (txSnap.data() ?? {}) as Record<string, unknown>;
+      const inkRaw = (txData.ink as Record<string, unknown>) ?? {};
       const existingPurchased = inkBalanceField(inkRaw.purchasedBalance);
-      const dottedPurchased = inkBalanceField(data["ink.purchasedBalance"]);
+      const dottedPurchased = inkBalanceField(txData["ink.purchasedBalance"]);
       const purchasedBalance = Math.max(existingPurchased, dottedPurchased);
 
       tx.set(
@@ -1044,6 +1117,64 @@ async function syncSubscriptionToUser(
             updatedAt: FieldValue.serverTimestamp(),
           },
           ...deleteDottedInactive,
+        },
+        { merge: true }
+      );
+    });
+  }
+}
+
+async function syncSubscriptionToUser(
+  stripe: Stripe,
+  uid: string,
+  status: string,
+  priceId: string | undefined
+): Promise<void> {
+  const active =
+    status === "active" || status === "trialing" || status === "past_due";
+  const ref = db.collection("users").doc(uid);
+  await ref.set(
+    {
+      billing: {
+        stripe: {
+          subscriptionStatus: status,
+          subscriptionPriceId: priceId ?? null,
+          active,
+          updatedAt: FieldValue.serverTimestamp(),
+        },
+      },
+    },
+    { merge: true }
+  );
+  await recomputeEffectiveFolioCloud(uid);
+}
+
+async function grantMicrosoftStoreConsumableInk(
+  uid: string,
+  grants: { dedupKey: string; drops: number }[]
+): Promise<void> {
+  for (const g of grants) {
+    if (g.drops <= 0) continue;
+    const docId = createHash("sha256")
+      .update(`${uid}:${g.dedupKey}`)
+      .digest("hex")
+      .slice(0, 64);
+    const doneRef = db.collection("microsoftStoreProcessedPurchases").doc(docId);
+    await db.runTransaction(async (tx) => {
+      const doneSnap = await tx.get(doneRef);
+      if (doneSnap.exists) return;
+      tx.set(doneRef, {
+        uid,
+        dedupKey: g.dedupKey,
+        drops: g.drops,
+        processedAt: FieldValue.serverTimestamp(),
+      });
+      const uref = db.collection("users").doc(uid);
+      tx.set(
+        uref,
+        {
+          "ink.purchasedBalance": FieldValue.increment(g.drops),
+          "ink.updatedAt": FieldValue.serverTimestamp(),
         },
         { merge: true }
       );
@@ -1928,6 +2059,50 @@ export const syncFolioCloudSubscriptionFromStripe = onCall(
   }
 );
 
+export const validateMicrosoftStoreEntitlements = onCall(
+  { cors: true, invoker: "public" },
+  async (request) => {
+    if (!request.auth?.uid) {
+      throw new HttpsError("unauthenticated", "Login required");
+    }
+    const collectionsId = String(
+      (request.data as { collectionsId?: string })?.collectionsId ?? ""
+    ).trim();
+    if (!collectionsId) {
+      throw new HttpsError("invalid-argument", "collectionsId is required");
+    }
+    if (!microsoftStoreValidationConfigured()) {
+      throw new HttpsError(
+        "failed-precondition",
+        "Microsoft Store validation is not configured on the server."
+      );
+    }
+    const uid = request.auth.uid;
+    const items = await queryMicrosoftStoreUserCollection(collectionsId);
+    const scan = scanMicrosoftStoreCollectionItems(items);
+    await db.collection("users").doc(uid).set(
+      {
+        billing: {
+          microsoftStore: {
+            subscriptionActive: scan.subscriptionActive,
+            subscriptionStoreProductId: scan.subscriptionStoreProductId,
+            lastValidatedAt: FieldValue.serverTimestamp(),
+            lastItemCount: items.length,
+          },
+        },
+      },
+      { merge: true }
+    );
+    await grantMicrosoftStoreConsumableInk(uid, scan.consumableGrants);
+    await recomputeEffectiveFolioCloud(uid);
+    return {
+      ok: true as const,
+      subscriptionActive: scan.subscriptionActive,
+      storeItems: items.length,
+    };
+  }
+);
+
 export const folioListVaultBackups = onCall(
   { cors: true, invoker: "public" },
   async (request) => {
@@ -2373,10 +2548,11 @@ export const monthlyInkRefill = onSchedule(
     for (const doc of indexSnap.docs) {
       const uid = doc.id;
       const data = doc.data();
-      if (
+      const stripeMatch =
         data.subscriptionPriceId &&
-        data.subscriptionPriceId !== monthlyResolved
-      ) {
+        data.subscriptionPriceId === monthlyResolved;
+      const msMonthly = data.microsoftStoreMonthly === true;
+      if (!stripeMatch && !msMonthly) {
         continue;
       }
       const ref = db.collection("users").doc(uid);
