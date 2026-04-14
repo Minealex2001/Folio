@@ -75,7 +75,14 @@ Widget? _specialRowEmbed(_BlockRowScope s) {
                                     ),
                                   ),
                                 )
-                              : FolioEmbedWebView(url: url, scheme: scheme),
+                              : MetaData(
+                                  metaData: folioInteractiveMetaDataTag,
+                                  behavior: HitTestBehavior.translucent,
+                                  child: FolioEmbedWebView(
+                                    url: url,
+                                    scheme: scheme,
+                                  ),
+                                ),
                         ),
                       ),
                     ],

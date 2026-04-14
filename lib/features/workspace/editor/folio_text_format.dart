@@ -199,6 +199,16 @@ class FolioMarkdownPreview extends StatelessWidget {
   }
 }
 
+/// Marcador para hit-testing: indica que el tap ocurrió sobre un link.
+/// Se usa para que el contenedor de fila del editor no fuerce foco/edición.
+const String folioLinkMetaDataTag = 'folio.link';
+
+/// Marcador para hit-testing: indica que el tap ocurrió sobre un widget
+/// interactivo (no necesariamente un link).
+/// Se usa para que la fila del editor no cambie selección/foco al pulsar
+/// controles embebidos (p. ej. previews).
+const String folioInteractiveMetaDataTag = 'folio.interactive';
+
 class _FolioMarkdownAnchorBuilder extends MarkdownElementBuilder {
   _FolioMarkdownAnchorBuilder({required this.onTapLink, this.onFolioPageLink});
 
@@ -219,11 +229,16 @@ class _FolioMarkdownAnchorBuilder extends MarkdownElementBuilder {
 
     final pageId = folioPageIdFromFolioUri(href);
     if (pageId != null && onFolioPageLink != null) {
-      return GestureDetector(
-        onTap: () => onFolioPageLink!(pageId),
-        child: Text(
-          label.isEmpty ? href : label,
-          style: merged?.copyWith(decoration: TextDecoration.underline),
+      return MetaData(
+        metaData: folioLinkMetaDataTag,
+        behavior: HitTestBehavior.translucent,
+        child: Listener(
+          behavior: HitTestBehavior.translucent,
+          onPointerDown: (_) => onFolioPageLink!(pageId),
+          child: Text(
+            label.isEmpty ? href : label,
+            style: merged?.copyWith(decoration: TextDecoration.underline),
+          ),
         ),
       );
     }
@@ -241,11 +256,17 @@ class _FolioMarkdownAnchorBuilder extends MarkdownElementBuilder {
       );
     }
 
-    return GestureDetector(
-      onTap: () => onTapLink(label, href.isEmpty ? null : href, titleAttr),
-      child: Text(
-        label.isEmpty ? href : label,
-        style: merged?.copyWith(decoration: TextDecoration.underline),
+    return MetaData(
+      metaData: folioLinkMetaDataTag,
+      behavior: HitTestBehavior.translucent,
+      child: Listener(
+        behavior: HitTestBehavior.translucent,
+        onPointerDown: (_) =>
+            onTapLink(label, href.isEmpty ? null : href, titleAttr),
+        child: Text(
+          label.isEmpty ? href : label,
+          style: merged?.copyWith(decoration: TextDecoration.underline),
+        ),
       ),
     );
   }
@@ -395,6 +416,36 @@ bool folioToggleWrap(
     end = t;
   }
 
+  // Selección colapsada: insertar pareja y dejar cursor dentro.
+  if (start == end) {
+    final inserted = '$left$right';
+    final newText = text.replaceRange(start, end, inserted);
+    final caret = (start + left.length).clamp(0, newText.length);
+    controller.value = TextEditingValue(
+      text: newText,
+      selection: TextSelection.collapsed(offset: caret),
+    );
+    return true;
+  }
+
+  // Si la selección incluye espacios en extremos, envolver solo la parte útil
+  // para evitar `** hola **` con espacios dentro.
+  var innerStart = start;
+  var innerEnd = end;
+  while (innerStart < innerEnd && text.codeUnitAt(innerStart) == 0x20 /* ' ' */) {
+    innerStart++;
+  }
+  while (innerEnd > innerStart &&
+      text.codeUnitAt(innerEnd - 1) == 0x20 /* ' ' */) {
+    innerEnd--;
+  }
+
+  // Si todo eran espacios, envolver la selección original.
+  if (innerStart >= innerEnd) {
+    innerStart = start;
+    innerEnd = end;
+  }
+
   if (start >= left.length &&
       end + right.length <= text.length &&
       text.substring(start - left.length, start) == left &&
@@ -405,28 +456,31 @@ bool folioToggleWrap(
       end + right.length,
       inner,
     );
-    final newOffset = start - left.length + inner.length;
+    // Mantener selección sobre el texto "desenvuelto".
+    final newStart = start - left.length;
+    final newEnd = newStart + inner.length;
     controller.value = TextEditingValue(
       text: newText,
-      selection: TextSelection.collapsed(offset: newOffset),
+      selection: TextSelection(baseOffset: newStart, extentOffset: newEnd),
     );
     return true;
   }
 
   if (left == '`' && right == '`') {
-    final sel = text.substring(start, end);
+    final sel = text.substring(innerStart, innerEnd);
     if (sel.contains('`')) {
       return false;
     }
   }
 
-  final inner = text.substring(start, end);
+  final inner = text.substring(innerStart, innerEnd);
   final inserted = '$left$inner$right';
-  final newText = text.replaceRange(start, end, inserted);
-  final newOffset = start + inserted.length;
+  final newText = text.replaceRange(innerStart, innerEnd, inserted);
+  final newSelStart = innerStart + left.length;
+  final newSelEnd = newSelStart + inner.length;
   controller.value = TextEditingValue(
     text: newText,
-    selection: TextSelection.collapsed(offset: newOffset),
+    selection: TextSelection(baseOffset: newSelStart, extentOffset: newSelEnd),
   );
   return true;
 }

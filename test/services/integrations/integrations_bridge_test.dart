@@ -9,6 +9,7 @@ import 'package:folio/services/integrations/integrations_markdown_codec.dart';
 void main() {
   group('IntegrationsBridgeController auth without secret', () {
     late IntegrationsBridgeController bridge;
+    late int port;
 
     setUp(() async {
       bridge = IntegrationsBridgeController(
@@ -39,8 +40,10 @@ void main() {
         onClientObserved: (_) async {},
         isClientApproved: (_) => true,
         appInfoProvider: () => const <String, Object?>{},
+        port: 0,
       );
       await bridge.start();
+      port = bridge.port;
     });
 
     tearDown(() async {
@@ -53,7 +56,7 @@ void main() {
         final client = HttpClient();
         final req = await client.post(
           InternetAddress.loopbackIPv4.host,
-          IntegrationsLaunchSession.fixedPort,
+          port,
           '/session/start',
         );
         req.headers.set(IntegrationsBridgeController.headerAppId, 'app-a');
@@ -106,13 +109,15 @@ void main() {
         onClientObserved: (_) async {},
         isClientApproved: (_) => false,
         appInfoProvider: () => const <String, Object?>{},
+        port: 0,
       );
       await bridge.start();
+      port = bridge.port;
 
       final client = HttpClient();
       final req = await client.get(
         InternetAddress.loopbackIPv4.host,
-        IntegrationsLaunchSession.fixedPort,
+        port,
         '/health',
       );
       req.headers.set(IntegrationsBridgeController.headerAppId, 'blocked-app');
@@ -139,7 +144,7 @@ void main() {
       final client = HttpClient();
       final startReq = await client.post(
         InternetAddress.loopbackIPv4.host,
-        IntegrationsLaunchSession.fixedPort,
+        port,
         '/session/start',
       );
       startReq.headers.set(IntegrationsBridgeController.headerAppId, 'app-v1');
@@ -165,7 +170,7 @@ void main() {
 
       final importReq = await client.post(
         InternetAddress.loopbackIPv4.host,
-        IntegrationsLaunchSession.fixedPort,
+        port,
         '/imports/markdown',
       );
       importReq.headers.set(HttpHeaders.authorizationHeader, 'Bearer $nonce');
@@ -205,7 +210,7 @@ void main() {
       final client = HttpClient();
       final startReq = await client.post(
         InternetAddress.loopbackIPv4.host,
-        IntegrationsLaunchSession.fixedPort,
+        port,
         '/session/start',
       );
       startReq.headers.set(IntegrationsBridgeController.headerAppId, 'app-v2');
@@ -231,7 +236,7 @@ void main() {
 
       final importReq = await client.post(
         InternetAddress.loopbackIPv4.host,
-        IntegrationsLaunchSession.fixedPort,
+        port,
         '/imports/markdown',
       );
       importReq.headers.set(HttpHeaders.authorizationHeader, 'Bearer $nonce');
@@ -271,7 +276,7 @@ void main() {
       final client = HttpClient();
       final startReq = await client.post(
         InternetAddress.loopbackIPv4.host,
-        IntegrationsLaunchSession.fixedPort,
+        port,
         '/session/start',
       );
       startReq.headers.set(
@@ -311,7 +316,7 @@ void main() {
 
       final importReq = await client.post(
         InternetAddress.loopbackIPv4.host,
-        IntegrationsLaunchSession.fixedPort,
+        port,
         '/imports/markdown',
       );
       importReq.headers.set(HttpHeaders.authorizationHeader, 'Bearer $nonce');

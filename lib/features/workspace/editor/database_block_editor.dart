@@ -436,7 +436,7 @@ class _DatabaseBlockEditorState extends State<DatabaseBlockEditor> {
 
   @override
   Widget build(BuildContext context) {
-    final l10n = AppLocalizations.of(context)!;
+    final l10n = AppLocalizations.of(context);
     final active = _activeView;
     final rows = _visibleRowsFor(active);
     return Container(
@@ -839,7 +839,7 @@ class _DatabaseBlockEditorState extends State<DatabaseBlockEditor> {
   }
 
   Widget _queryBuilderCard(FolioDbView active) {
-    final l10n = AppLocalizations.of(context)!;
+    final l10n = AppLocalizations.of(context);
     final group = active.filter;
     return Card(
       color: _panelColor,
@@ -1219,7 +1219,8 @@ class _DatabaseBlockEditorState extends State<DatabaseBlockEditor> {
                   Text(p.name),
                   if (_isEditMode)
                     IconButton(
-                      tooltip: AppLocalizations.of(context)!.databaseConfigurePropertyTooltip,
+                      tooltip:
+                          AppLocalizations.of(context).databaseConfigurePropertyTooltip,
                       visualDensity: VisualDensity.compact,
                       icon: const Icon(Icons.tune_rounded, size: 16),
                       onPressed: () => _showPropertyConfigDialog(p),
@@ -1420,7 +1421,7 @@ class _DatabaseBlockEditorState extends State<DatabaseBlockEditor> {
   }
 
   Future<void> _showCreatePropertyDialog() async {
-    final l10n = AppLocalizations.of(context)!;
+    final l10n = AppLocalizations.of(context);
     final nameCtrl = TextEditingController(text: 'Propiedad');
     FolioDbPropertyType type = FolioDbPropertyType.text;
     final ok = await showDialog<bool>(
@@ -1487,7 +1488,7 @@ class _DatabaseBlockEditorState extends State<DatabaseBlockEditor> {
     await showDialog<void>(
       context: context,
       builder: (ctx) {
-        final dlgL10n = AppLocalizations.of(ctx)!;
+        final dlgL10n = AppLocalizations.of(ctx);
         return AlertDialog(
           title: Text(dlgL10n.databaseConfigurePropertyTitle(property.name)),
           content: SizedBox(
@@ -1661,7 +1662,7 @@ class _DatabaseBlockEditorState extends State<DatabaseBlockEditor> {
     FolioDbRow host,
     FolioDbProperty relationProp,
   ) async {
-    final l10n = AppLocalizations.of(context)!;
+    final l10n = AppLocalizations.of(context);
     final current = _data
         .sanitizedValue(relationProp, host.values[relationProp.id])
         .cast<String>()
@@ -1720,7 +1721,7 @@ class _DatabaseBlockEditorState extends State<DatabaseBlockEditor> {
   }
 
   Widget _buildBoard(FolioDbView view, List<FolioDbRow> rows) {
-    final l10n = AppLocalizations.of(context)!;
+    final l10n = AppLocalizations.of(context);
     final groupId = view.groupByPropertyId;
     if (groupId == null) {
       return Text(l10n.databaseBoardNeedsGroupProperty);
@@ -1841,7 +1842,7 @@ class _DatabaseBlockEditorState extends State<DatabaseBlockEditor> {
   }
 
   Widget _buildCalendar(FolioDbView view, List<FolioDbRow> rows) {
-    final l10n = AppLocalizations.of(context)!;
+    final l10n = AppLocalizations.of(context);
     final datePropId = view.calendarDatePropertyId;
     if (datePropId == null) {
       return Text(l10n.databaseCalendarNeedsDateProperty);

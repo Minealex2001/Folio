@@ -61,15 +61,6 @@ class BlockEditorState extends State<BlockEditor> with _BlockRowBuild {
   final Map<String, int> _collabUploadLastUiMsByBlockId = {};
   final Map<String, double> _collabUploadLastProgressByBlockId = {};
   final Map<String, int> _collabUploadLastEtaSecByBlockId = {};
-  final LayerLink _formatToolbarLayerLink = LayerLink();
-  OverlayEntry? _formatToolbarOverlayEntry;
-  // ignore: unused_field
-  String? _formatToolbarOverlayBlockId;
-
-  /// Bloque de texto cuya barra de formato sigue visible aunque el foco se mueva al pulsarla (p. ej. ScrollView).
-  // ignore: unused_field
-  String? _formatStickyBlockId;
-  Timer? _formatStickyClearTimer;
 
   /// Anclas para [VaultSession.requestScrollToBlock] (TOC).
   final Map<String, GlobalKey> _blockScrollKeys = {};
@@ -78,6 +69,26 @@ class BlockEditorState extends State<BlockEditor> with _BlockRowBuild {
   String? _prevPageIdForBlockScroll;
   int? _prevBlockCountForScroll;
   final Map<String, bool> _tailTapTransientTouchedByBlockId = {};
+  String? _pendingTailTransientBlockId;
+
+  void _focusBlockNowOrDefer(String blockId, {int cursorOffset = 0}) {
+    final idx = _controllerBlockIds.indexOf(blockId);
+    if (idx >= 0 && idx < _focusNodes.length) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        if (idx >= _focusNodes.length) return;
+        _focusNodes[idx].requestFocus();
+        if (idx < _controllers.length) {
+          final len = _controllers[idx].text.length;
+          final off = cursorOffset.clamp(0, len);
+          _controllers[idx].selection = TextSelection.collapsed(offset: off);
+        }
+      });
+      return;
+    }
+    _pendingFocusBlockId = blockId;
+    _pendingCursorOffset = cursorOffset;
+  }
 
   VaultSession get _s => widget.session;
   bool get readOnlyMode => widget.readOnlyMode;
@@ -178,19 +189,6 @@ class BlockEditorState extends State<BlockEditor> with _BlockRowBuild {
     );
   }
 
-  static const _slashFormatTypes = {
-    'paragraph',
-    'h1',
-    'h2',
-    'h3',
-    'bullet',
-    'numbered',
-    'todo',
-    'toggle',
-    'quote',
-    'callout',
-  };
-
   // ignore: unused_element
   bool _hasExpandedSelectionForBlockId(String blockId) {
     final idx = _controllerBlockIds.indexWhere((x) => x == blockId);
@@ -198,38 +196,6 @@ class BlockEditorState extends State<BlockEditor> with _BlockRowBuild {
     final sel = _controllers[idx].selection;
     return sel.isValid && !sel.isCollapsed;
   }
-
-  void _syncFormatStickyBlockId() {
-    _formatStickyClearTimer?.cancel();
-    _formatStickyClearTimer = null;
-    final page = _s.selectedPage;
-    if (page == null) {
-      _formatStickyBlockId = null;
-      _removeFormatToolbarOverlay();
-      return;
-    }
-    for (var i = 0; i < _focusNodes.length; i++) {
-      if (i >= page.blocks.length) break;
-      if (_focusNodes[i].hasFocus) {
-        final b = page.blocks[i];
-        if (_slashFormatTypes.contains(b.type)) {
-          _formatStickyBlockId = b.id;
-        } else {
-          _formatStickyBlockId = null;
-          _removeFormatToolbarOverlay();
-        }
-        return;
-      }
-    }
-    _formatStickyClearTimer = Timer(const Duration(milliseconds: 280), () {
-      if (!mounted) return;
-      if (!_focusNodes.any((n) => n.hasFocus)) {
-        setState(() => _formatStickyBlockId = null);
-        _removeFormatToolbarOverlay();
-      }
-    });
-  }
-
 
   void _dismissInlineSlash({required bool clearTypedCommand}) {
     final id = _slashBlockId;
@@ -386,70 +352,6 @@ class BlockEditorState extends State<BlockEditor> with _BlockRowBuild {
     _mentionPageId = null;
     _mentionSelectedIndex = 0;
     if (mounted) setState(() {});
-  }
-
-  void _removeFormatToolbarOverlay() {
-    _formatToolbarOverlayEntry?.remove();
-    _formatToolbarOverlayEntry = null;
-    _formatToolbarOverlayBlockId = null;
-  }
-
-  // ignore: unused_element
-  void _showOrUpdateFormatToolbarOverlay({
-    required String blockId,
-    required TextEditingController controller,
-    required FocusNode focusNode,
-    required ColorScheme scheme,
-    required FolioPage page,
-    required FolioBlock block,
-  }) {
-    _formatToolbarOverlayEntry?.remove();
-    _formatToolbarOverlayEntry = null;
-
-    Widget buildToolbar() {
-      return IgnorePointer(
-        ignoring: false,
-        child: CompositedTransformFollower(
-          link: _formatToolbarLayerLink,
-          showWhenUnlinked: true,
-          targetAnchor: Alignment.topLeft,
-          followerAnchor: Alignment.bottomLeft,
-          offset: const Offset(0, -8),
-          child: Align(
-            alignment: Alignment.topLeft,
-            widthFactor: 1,
-            heightFactor: 1,
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 520),
-              child: FolioFormatToolbar(
-                controller: controller,
-                colorScheme: scheme,
-                textFocusNode: focusNode,
-                onOpenBlockAppearance: _blockSupportsAppearance(block)
-                    ? () => unawaited(
-                        _editBlockAppearance(page, block, focusNode: focusNode),
-                      )
-                    : null,
-                onMentionPage: (ctx) => _toolbarMentionPage(ctx, controller),
-                onInsertUserMention: () =>
-                    _insertAtSelection(controller, '@usuario '),
-                onInsertDateMention: () => _insertAtSelection(
-                  controller,
-                  '@${DateFormat.yMMMd(Localizations.localeOf(context).toLanguageTag()).format(DateTime.now())} ',
-                ),
-                onInsertInlineMath: () =>
-                    _insertAtSelection(controller, r'\( x \)'),
-              ),
-            ),
-          ),
-        ),
-      );
-    }
-
-    _formatToolbarOverlayBlockId = blockId;
-    _formatToolbarOverlayEntry = OverlayEntry(builder: (ctx) => buildToolbar());
-    final overlay = Overlay.of(context, rootOverlay: true);
-    overlay.insert(_formatToolbarOverlayEntry!);
   }
 
   List<FolioPage> _catalogFilteredForMention(String query) {
@@ -1635,7 +1537,7 @@ class BlockEditorState extends State<BlockEditor> with _BlockRowBuild {
   }
 
   List<CodeLanguageOption> _codeLanguageOptionsForBlock(FolioBlock block) {
-    final l10n = AppLocalizations.of(context)!;
+    final l10n = AppLocalizations.of(context);
     final out = List<CodeLanguageOption>.from(
       buildCodeLanguagePickerOptions(l10n),
     );
@@ -1657,7 +1559,7 @@ class BlockEditorState extends State<BlockEditor> with _BlockRowBuild {
   }
 
   String _codeLangLabelForId(String id) {
-    return labelForCodeLanguageId(id, AppLocalizations.of(context)!);
+    return labelForCodeLanguageId(id, AppLocalizations.of(context));
   }
 
   void _onCodeLanguagePicked(
@@ -2009,6 +1911,7 @@ class BlockEditorState extends State<BlockEditor> with _BlockRowBuild {
     _pendingCursorOffset = 0;
     if (transientFromTailTap) {
       _tailTapTransientTouchedByBlockId[blockId] = false;
+      _pendingTailTransientBlockId = blockId;
     }
     _s.insertBlockAfter(
       pageId: pageId,
@@ -2210,44 +2113,6 @@ class BlockEditorState extends State<BlockEditor> with _BlockRowBuild {
     });
   }
 
-  /// `true` si el punto cae en el hueco por debajo del último bloque (padding final).
-  bool _tailBlankHitTest(TapDownDetails details, FolioPage page) {
-    if (page.blocks.isEmpty) return false;
-    final lastId = page.blocks.last.id;
-    final ctx = _blockScrollKeys[lastId]?.currentContext;
-    if (ctx == null) return false;
-    final render = ctx.findRenderObject();
-    if (render is! RenderBox || !render.hasSize) return false;
-    final topLeft = render.localToGlobal(Offset.zero);
-    final bottomY = topLeft.dy + render.size.height;
-    final tapY = details.globalPosition.dy;
-    return tapY > bottomY + 2;
-  }
-
-  void _handleTailBlankDoubleTap(TapDownDetails details, FolioPage page) {
-    if (!_tailBlankHitTest(details, page)) return;
-    _addBlock(page.id, transientFromTailTap: true);
-  }
-
-  Color _blockRowFill(
-    ColorScheme scheme,
-    FocusNode focus,
-    bool selected,
-    bool hovered,
-  ) {
-    final focused = focus.hasFocus;
-    if (selected) {
-      return scheme.primaryContainer.withValues(alpha: focused ? 0.42 : 0.3);
-    }
-    if (focused) {
-      return scheme.surfaceContainerHighest.withValues(alpha: 0.4);
-    }
-    if (hovered) {
-      return scheme.surfaceContainerHighest.withValues(alpha: 0.22);
-    }
-    return Colors.transparent;
-  }
-
   void _moveBlock(String pageId, String blockId, int delta) {
     final idx =
         _s.selectedPage?.blocks.indexWhere((b) => b.id == blockId) ?? -1;
@@ -2404,8 +2269,6 @@ class BlockEditorState extends State<BlockEditor> with _BlockRowBuild {
 
   @override
   void dispose() {
-    _formatStickyClearTimer?.cancel();
-    _removeFormatToolbarOverlay();
     _slashListScrollController.dispose();
     _mentionListScrollController.dispose();
     _blockListScrollController.dispose();
@@ -2439,9 +2302,6 @@ class BlockEditorState extends State<BlockEditor> with _BlockRowBuild {
     _mentionSelectedIndex = 0;
     _menuOpenBlockId = null;
     _mermaidEditingSourceIds.clear();
-    _formatStickyClearTimer?.cancel();
-    _formatStickyClearTimer = null;
-    _formatStickyBlockId = null;
     _selectedBlockIds.clear();
     _selectionAnchorBlockId = null;
     _dragSelectionActive = false;
@@ -2545,16 +2405,31 @@ class BlockEditorState extends State<BlockEditor> with _BlockRowBuild {
       _prevPageIdForBlockScroll = null;
       _prevBlockCountForScroll = null;
       _tailTapTransientTouchedByBlockId.clear();
+      _pendingTailTransientBlockId = null;
       setState(() {});
       return;
     }
     if (_boundPageId != null && _boundPageId != page.id) {
+      final oldPageId = _boundPageId!;
+      // Limpieza defensiva: si abandonamos una página dejando un bloque transient vacío,
+      // lo eliminamos para que no se acumulen "bloques fantasma".
+      for (final entry in _tailTapTransientTouchedByBlockId.entries) {
+        final blockId = entry.key;
+        final touched = entry.value;
+        if (!touched) {
+          _s.removeBlockIfMultiple(oldPageId, blockId);
+        }
+      }
       _selectedBlockIds.clear();
       _selectionAnchorBlockId = null;
     }
     _tailTapTransientTouchedByBlockId.removeWhere(
       (blockId, _) => !page.blocks.any((b) => b.id == blockId),
     );
+    if (_pendingTailTransientBlockId != null &&
+        !page.blocks.any((b) => b.id == _pendingTailTransientBlockId)) {
+      _pendingTailTransientBlockId = null;
+    }
     _selectedBlockIds.removeWhere(
       (blockId) => !page.blocks.any((b) => b.id == blockId),
     );
@@ -2573,6 +2448,31 @@ class BlockEditorState extends State<BlockEditor> with _BlockRowBuild {
         _syncControllers();
       }
     }
+
+    // Mantener sincronizados controllers que NO publican cambios al session
+    // (payload blocks que actualizan `block.text` desde widgets internos).
+    const skipTextSync = {
+      'toggle',
+      'column_list',
+      'template_button',
+      'toc',
+      'breadcrumb',
+      'child_page',
+    };
+    final n = math.min(page.blocks.length, _controllers.length);
+    for (var i = 0; i < n; i++) {
+      final b = page.blocks[i];
+      if (!skipTextSync.contains(b.type)) continue;
+      final c = _controllers[i];
+      if (c.text != b.text) {
+        // No preservamos selección: estos bloques no usan el controller para editar.
+        c.value = TextEditingValue(
+          text: b.text,
+          selection: TextSelection.collapsed(offset: b.text.length),
+        );
+      }
+    }
+
     final scrollId = _s.pendingScrollToBlockId;
     if (scrollId != null) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -2672,12 +2572,14 @@ class BlockEditorState extends State<BlockEditor> with _BlockRowBuild {
         if (!mounted) return;
         final p = _s.selectedPage;
         if (p == null || p.id != pid) return;
-        _syncFormatStickyBlockId();
         final idx = p.blocks.indexWhere((x) => x.id == bid);
         if (idx < 0) return;
         if (_tailTapTransientTouchedByBlockId.containsKey(bid) &&
             c.text.isNotEmpty) {
           _tailTapTransientTouchedByBlockId[bid] = true;
+          if (_pendingTailTransientBlockId == bid) {
+            _pendingTailTransientBlockId = null;
+          }
         }
         const skipTextSync = {
           'toggle',
@@ -2707,7 +2609,6 @@ class BlockEditorState extends State<BlockEditor> with _BlockRowBuild {
 
       void focusDecorListener() {
         if (!mounted) return;
-        _syncFormatStickyBlockId();
         if (!fn.hasFocus) {
           final touched = _tailTapTransientTouchedByBlockId[bid];
           if (touched != null) {
@@ -2728,10 +2629,16 @@ class BlockEditorState extends State<BlockEditor> with _BlockRowBuild {
                   return;
                 }
                 _tailTapTransientTouchedByBlockId.remove(bid);
+                if (_pendingTailTransientBlockId == bid) {
+                  _pendingTailTransientBlockId = null;
+                }
                 _s.removeBlockIfMultiple(pid, bid);
               });
             } else {
               _tailTapTransientTouchedByBlockId.remove(bid);
+              if (_pendingTailTransientBlockId == bid) {
+                _pendingTailTransientBlockId = null;
+              }
             }
           }
         }
@@ -4822,6 +4729,62 @@ class BlockEditorState extends State<BlockEditor> with _BlockRowBuild {
               onPointerCancel: (_) => _endDragSelection(),
               child: GestureDetector(
                 behavior: HitTestBehavior.translucent,
+                onTapDown: readOnlyMode
+                    ? null
+                    : (details) {
+                        // UX: un tap/click en cualquier espacio vacío de la página
+                        // (no dentro de un bloque) añade un bloque nuevo al final.
+                        if (!_hitTestInsideAnyBlockRow(
+                          details.globalPosition,
+                          page,
+                        )) {
+                          // Evitar crear infinitos bloques vacíos: si ya existe un
+                          // bloque transient pendiente (creado por click en blanco)
+                          // y sigue vacío, solo lo enfocamos.
+                          final pendingTransient = _pendingTailTransientBlockId;
+                          final pNow = _s.selectedPage;
+                          if (pendingTransient != null && pNow != null) {
+                            final b = pNow.blocks
+                                .where((x) => x.id == pendingTransient)
+                                .firstOrNull;
+                            if (b != null && b.text.trim().isEmpty) {
+                              // Si el bloque transient vacío ya está enfocado y el
+                              // usuario hace click en "fuera" (zona vacía), lo
+                              // interpretamos como cancelar y lo eliminamos.
+                              final idx = _controllerBlockIds.indexOf(b.id);
+                              final isFocused = idx >= 0 &&
+                                  idx < _focusNodes.length &&
+                                  _focusNodes[idx].hasFocus;
+                              if (isFocused) {
+                                _tailTapTransientTouchedByBlockId.remove(b.id);
+                                _pendingTailTransientBlockId = null;
+                                _s.removeBlockIfMultiple(page.id, b.id);
+                                return;
+                              }
+
+                              _focusBlockNowOrDefer(b.id, cursorOffset: 0);
+                              return;
+                            }
+                          }
+
+                          // Si ya existe un último bloque vacío (p. ej. página recién creada
+                          // o bloque que no se puede eliminar porque es el único), no creamos
+                          // otro: simplemente lo enfocamos.
+                          if (pNow != null && pNow.blocks.isNotEmpty) {
+                            final last = pNow.blocks.last;
+                            final lastIsPlainEmpty =
+                                last.type == 'paragraph' &&
+                                last.depth == 0 &&
+                                last.text.trim().isEmpty;
+                            if (lastIsPlainEmpty) {
+                              _focusBlockNowOrDefer(last.id, cursorOffset: 0);
+                              return;
+                            }
+                          }
+
+                          _addBlock(page.id, transientFromTailTap: true);
+                        }
+                      },
                 onDoubleTapDown: readOnlyMode
                     ? null
                     : (details) => _handleTailBlankDoubleTap(details, page),
@@ -4887,154 +4850,6 @@ class BlockEditorState extends State<BlockEditor> with _BlockRowBuild {
             ),
           ),
         ],
-      ),
-    );
-  }
-}
-
-/// Fila de la lista de bloques con hover local: evita [setState] en todo el
-/// [BlockEditor] al mover el ratón (véase plan de rendimiento del editor).
-class _BlockListRow extends StatefulWidget {
-  const _BlockListRow({
-    required this.editor,
-    required this.readOnlyMode,
-    required this.androidPhoneLayout,
-    required this.scheme,
-    required this.page,
-    required this.block,
-    required this.index,
-    required this.ctrl,
-    required this.focus,
-    required this.style,
-    required this.selected,
-    required this.showActionsBaseline,
-  });
-
-  final BlockEditorState editor;
-  final bool readOnlyMode;
-  final bool androidPhoneLayout;
-  final ColorScheme scheme;
-  final FolioPage page;
-  final FolioBlock block;
-  final int index;
-  final TextEditingController ctrl;
-  final FocusNode focus;
-  final TextStyle style;
-  final bool selected;
-  /// Sin contar hover: selección, foco, menú abierto, multiselección en escritorio.
-  final bool showActionsBaseline;
-
-  @override
-  State<_BlockListRow> createState() => _BlockListRowState();
-}
-
-class _BlockListRowState extends State<_BlockListRow> {
-  bool _hovered = false;
-
-  @override
-  Widget build(BuildContext context) {
-    final showActions =
-        !widget.readOnlyMode &&
-        (_hovered || widget.showActionsBaseline);
-    final showInlineEditControls =
-        !widget.readOnlyMode &&
-        (showActions || widget.selected || widget.focus.hasFocus);
-
-    return MouseRegion(
-      onEnter: (_) {
-        if (!_hovered) setState(() => _hovered = true);
-      },
-      onExit: (_) {
-        if (_hovered) setState(() => _hovered = false);
-      },
-      child: Listener(
-        behavior: HitTestBehavior.translucent,
-        onPointerDown: widget.readOnlyMode
-            ? null
-            : (event) {
-                if (event.kind == PointerDeviceKind.mouse &&
-                    event.buttons == kSecondaryMouseButton) {
-                  unawaited(
-                    widget.editor._showBlockContextMenuAtGlobal(
-                      event.position,
-                      context,
-                      widget.page,
-                      widget.block,
-                      widget.index,
-                    ),
-                  );
-                  return;
-                }
-                if ((event.buttons & kPrimaryButton) == 0) {
-                  return;
-                }
-                if (!HardwareKeyboard.instance.isShiftPressed &&
-                    !widget.editor._isAdditiveSelectionPressed) {
-                  return;
-                }
-                widget.editor._handleBlockSelection(
-                  widget.page,
-                  widget.block.id,
-                  focusNode: widget.focus,
-                );
-              },
-        child: GestureDetector(
-          behavior: HitTestBehavior.translucent,
-          onTapDown: widget.readOnlyMode
-              ? null
-              : (_) {
-                  if (HardwareKeyboard.instance.isShiftPressed ||
-                      widget.editor._isAdditiveSelectionPressed) {
-                    return;
-                  }
-                  widget.editor._handleBlockSelection(
-                    widget.page,
-                    widget.block.id,
-                    focusNode: widget.focus,
-                  );
-                },
-          onPanStart: widget.readOnlyMode
-              ? null
-              : (_) => widget.editor._beginDragSelection(
-                  widget.page,
-                  widget.block.id,
-                  focusNode: widget.focus,
-                ),
-          onPanUpdate: widget.readOnlyMode
-              ? null
-              : (_) =>
-                  widget.editor._updateDragSelection(widget.page, widget.block.id),
-          child: AnimatedContainer(
-            duration: const Duration(milliseconds: 120),
-            curve: Curves.easeOut,
-            margin: EdgeInsets.only(
-              bottom: widget.androidPhoneLayout ? 6 : 1,
-            ),
-            decoration: BoxDecoration(
-              color: widget.editor._blockRowFill(
-                widget.scheme,
-                widget.focus,
-                widget.selected,
-                _hovered,
-              ),
-              borderRadius: BorderRadius.circular(
-                widget.androidPhoneLayout ? 14 : 6,
-              ),
-            ),
-            child: widget.editor._buildBlockRow(
-              context: context,
-              scheme: widget.scheme,
-              page: widget.page,
-              block: widget.block,
-              index: widget.index,
-              ctrl: widget.ctrl,
-              focus: widget.focus,
-              style: widget.style,
-              showActions: showActions,
-              showInlineEditControls: showInlineEditControls,
-            ),
-          ),
-        ),
       ),
     );
   }

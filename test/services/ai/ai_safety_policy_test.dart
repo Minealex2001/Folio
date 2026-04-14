@@ -31,7 +31,7 @@ void main() {
     });
 
     test('acepta localhost en modo localhostOnly', () {
-      final err = AiSafetyPolicy.validateEndpoint(
+      final err = AiSafetyPolicy.validateEndpointIssue(
         rawUrl: 'http://127.0.0.1:11434',
         mode: AiEndpointMode.localhostOnly,
         remoteConfirmed: false,
@@ -40,7 +40,7 @@ void main() {
     });
 
     test('bloquea remoto en localhostOnly aunque esté confirmado', () {
-      final err = AiSafetyPolicy.validateEndpoint(
+      final err = AiSafetyPolicy.validateEndpointIssue(
         rawUrl: 'https://api.example.com/v1',
         mode: AiEndpointMode.localhostOnly,
         remoteConfirmed: true,
@@ -50,7 +50,7 @@ void main() {
     });
 
     test('bloquea remoto sin confirmación en allowRemote', () {
-      final err = AiSafetyPolicy.validateEndpoint(
+      final err = AiSafetyPolicy.validateEndpointIssue(
         rawUrl: 'https://api.example.com/v1',
         mode: AiEndpointMode.allowRemote,
         remoteConfirmed: false,
@@ -59,7 +59,7 @@ void main() {
     });
 
     test('permite remoto confirmado en allowRemote', () {
-      final err = AiSafetyPolicy.validateEndpoint(
+      final err = AiSafetyPolicy.validateEndpointIssue(
         rawUrl: 'https://api.example.com/v1',
         mode: AiEndpointMode.allowRemote,
         remoteConfirmed: true,
@@ -68,14 +68,14 @@ void main() {
     });
 
     test('rechaza URL inválida con mensaje de error', () {
-      final err = AiSafetyPolicy.validateEndpoint(
+      final err = AiSafetyPolicy.validateEndpointIssue(
         rawUrl: 'not-a-url',
         mode: AiEndpointMode.allowRemote,
         remoteConfirmed: true,
       );
 
       expect(err, isNotNull);
-      expect(err, contains('URL inválida'));
+      expect(err, AiEndpointValidationIssue.invalidUrl);
     });
 
     test('detectMimeType mapea extensiones comunes y fallback', () {

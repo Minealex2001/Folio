@@ -9,6 +9,7 @@ class FolioPage {
     required this.title,
     this.emoji,
     this.parentId,
+    this.isFolder = false,
     this.lastImportInfo,
     this.collabRoomId,
     this.collabJoinCode,
@@ -23,6 +24,7 @@ class FolioPage {
 
   /// null = raíz del árbol
   String? parentId;
+  bool isFolder;
   FolioPageImportInfo? lastImportInfo;
 
   /// Firestore `collabRooms` id when esta página tiene sala de colaboración.
@@ -37,6 +39,7 @@ class FolioPage {
     'title': title,
     if (emoji != null && emoji!.trim().isNotEmpty) 'emoji': emoji,
     if (parentId != null) 'parentId': parentId,
+    if (isFolder) 'isFolder': true,
     if (lastImportInfo != null) 'lastImportInfo': lastImportInfo!.toJson(),
     if (collabRoomId != null && collabRoomId!.trim().isNotEmpty)
       'collabRoomId': collabRoomId!.trim(),
@@ -66,6 +69,7 @@ class FolioPage {
           ? null
           : (j['emoji'] as String).trim(),
       parentId: j['parentId'] as String?,
+      isFolder: (j['isFolder'] as bool?) ?? false,
       lastImportInfo: j['lastImportInfo'] is Map<String, dynamic>
           ? FolioPageImportInfo.fromJson(
               j['lastImportInfo'] as Map<String, dynamic>,

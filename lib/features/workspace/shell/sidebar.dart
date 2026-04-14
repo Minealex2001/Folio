@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart' show TargetPlatform, defaultTargetPlatform, kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -41,7 +42,6 @@ class Sidebar extends StatefulWidget {
 }
 
 class _SidebarState extends State<Sidebar> {
-  static const _collapsedPrefix = 'folio_sidebar_collapsed_pages_';
   static const _recentPrefix = 'folio_sidebar_recent_pages_';
   static const _recentLimit = 6;
 
@@ -90,13 +90,6 @@ class _SidebarState extends State<Sidebar> {
     _reloadVaults();
   }
 
-  String _collapsedPrefsKey(String? vaultId) {
-    final safeVault = (vaultId == null || vaultId.isEmpty)
-        ? 'default'
-        : vaultId;
-    return '$_collapsedPrefix$safeVault';
-  }
-
   String _recentPrefsKey(String? vaultId) {
     final safeVault = (vaultId == null || vaultId.isEmpty)
         ? 'default'
@@ -106,11 +99,11 @@ class _SidebarState extends State<Sidebar> {
 
   Future<void> _loadCollapsedState() async {
     final vaultId = session.activeVaultId;
-    final prefs = await SharedPreferences.getInstance();
-    final saved =
-        prefs.getStringList(_collapsedPrefsKey(vaultId)) ?? const <String>[];
     final validPageIds = session.pages.map((p) => p.id).toSet();
-    final restored = saved.where(validPageIds.contains).toSet();
+    final restored = await widget.appSettings.loadWorkspaceSidebarCollapsedPageIds(
+      vaultId: vaultId,
+      validPageIds: validPageIds,
+    );
     if (!mounted) return;
     setState(() {
       _loadedCollapsedVaultId = vaultId;
@@ -121,10 +114,9 @@ class _SidebarState extends State<Sidebar> {
   }
 
   Future<void> _persistCollapsedState() async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setStringList(
-      _collapsedPrefsKey(session.activeVaultId),
-      _collapsedPageIds.toList()..sort(),
+    await widget.appSettings.persistWorkspaceSidebarCollapsedPageIds(
+      vaultId: session.activeVaultId,
+      collapsedPageIds: _collapsedPageIds,
     );
   }
 
@@ -211,12 +203,9 @@ class _SidebarState extends State<Sidebar> {
 
   ({List<_VisiblePageRow> rows, Map<String, bool> hasChildrenById})
       _buildVisiblePageRows(List<FolioPage> pages) {
-    final childrenByParent = <String?, List<FolioPage>>{};
+    final byId = <String, FolioPage>{for (final p in pages) p.id: p};
     final childCounts = <String, int>{};
-
-    // Preserve ordering by iterating `pages` once and appending.
     for (final p in pages) {
-      (childrenByParent[p.parentId] ??= <FolioPage>[]).add(p);
       final pid = p.parentId;
       if (pid != null) {
         childCounts[pid] = (childCounts[pid] ?? 0) + 1;
@@ -229,9 +218,11 @@ class _SidebarState extends State<Sidebar> {
 
     final rows = <_VisiblePageRow>[];
     void walk(String? parentId, double indent) {
-      final kids = childrenByParent[parentId];
-      if (kids == null) return;
-      for (final p in kids) {
+      final orderIds = session.pageOrderForParent(parentId);
+      if (orderIds.isEmpty) return;
+      for (final id in orderIds) {
+        final p = byId[id];
+        if (p == null) continue;
         rows.add(_VisiblePageRow(page: p, indent: indent));
         if (hasChildrenById[p.id] == true && !_isCollapsed(p.id)) {
           walk(p.id, indent + 14);
@@ -703,7 +694,8 @@ class _SidebarState extends State<Sidebar> {
     final showRowActions = _hoveredPageId == page.id;
     final hasChildren = _hasChildrenById[page.id] ?? false;
     final collapsed = _isCollapsed(page.id);
-    final canDelete = session.pages.length > 1 && !hasChildren;
+    final isFolder = page.isFolder;
+    final canDelete = session.pages.length > 1 && (!hasChildren || isFolder);
 
     return Padding(
       padding: EdgeInsets.fromLTRB(indent, 0, 0, FolioSpace.xs),
@@ -741,7 +733,13 @@ class _SidebarState extends State<Sidebar> {
                 : [],
           ),
           child: InkWell(
-            onTap: () => session.selectPage(page.id),
+            onTap: () {
+              if (isFolder) {
+                _toggleCollapsed(page.id);
+              } else {
+                session.selectPage(page.id);
+              }
+            },
             onDoubleTap: () => _rename(context, page),
             child: Semantics(
               selected: selected,
@@ -793,7 +791,7 @@ class _SidebarState extends State<Sidebar> {
                             FolioIconTokenView(
                               appSettings: widget.appSettings,
                               token: page.emoji,
-                              fallbackText: '📄',
+                              fallbackText: isFolder ? '📁' : '📄',
                               size: 18,
                             ),
                             const SizedBox(width: FolioSpace.xs),
@@ -864,6 +862,7 @@ class _SidebarState extends State<Sidebar> {
                                           ? scheme.onSecondaryContainer
                                           : scheme.onSurfaceVariant,
                                       onPressed: () {
+                                        if (!page.isFolder) return;
                                         session.addPage(parentId: page.id);
                                       },
                                     ),
@@ -915,7 +914,15 @@ class _SidebarState extends State<Sidebar> {
                                           ? scheme.onSecondaryContainer
                                           : scheme.onSurfaceVariant,
                                       onPressed: canDelete
-                                          ? () => session.deletePage(page.id)
+                                          ? () {
+                                              if (page.isFolder && hasChildren) {
+                                                session.deleteFolderMoveChildrenToRoot(
+                                                  page.id,
+                                                );
+                                              } else {
+                                                session.deletePage(page.id);
+                                              }
+                                            }
                                           : null,
                                     ),
                                   ],
@@ -934,6 +941,92 @@ class _SidebarState extends State<Sidebar> {
           ),
         ),
       ),
+    );
+  }
+
+  Widget _draggablePageTile(BuildContext context, FolioPage page, double indent) {
+    final scheme = Theme.of(context).colorScheme;
+    final isDesktop = !kIsWeb &&
+        (defaultTargetPlatform == TargetPlatform.windows ||
+            defaultTargetPlatform == TargetPlatform.macOS ||
+            defaultTargetPlatform == TargetPlatform.linux);
+
+    Widget buildDragChild() {
+      return DragTarget<String>(
+        onWillAcceptWithDetails: (details) {
+          final draggedId = details.data;
+          if (draggedId == page.id) return false;
+          // Solo permitir anidar sobre carpetas.
+          if (!page.isFolder) return false;
+          // Evitar ciclos: no permitir arrastrar un ancestro dentro de su descendiente.
+          if (session.isUnderAncestor(ancestorId: draggedId, nodeId: page.id)) {
+            return false;
+          }
+          return true;
+        },
+        onAcceptWithDetails: (details) {
+          final draggedId = details.data;
+          // Drop en el centro => anidar dentro de esta carpeta.
+          final order = session.pageOrderForParent(page.id);
+          session.movePage(
+            pageId: draggedId,
+            newParentId: page.id,
+            newIndex: order.length,
+          );
+          if (_isCollapsed(page.id)) {
+            _toggleCollapsed(page.id);
+          }
+        },
+        builder: (context, candidates, rejected) {
+          final hovering = candidates.isNotEmpty;
+          return DecoratedBox(
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(FolioRadius.lg),
+              border: hovering
+                  ? Border.all(
+                      color: scheme.primary.withValues(alpha: 0.35),
+                      width: 1.5,
+                    )
+                  : null,
+            ),
+            child: _tile(context, page, indent),
+          );
+        },
+      );
+    }
+
+    final feedback = Material(
+      color: Colors.transparent,
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 320),
+        child: Opacity(
+          opacity: 0.92,
+          child: _tile(context, page, indent),
+        ),
+      ),
+    );
+
+    if (isDesktop) {
+      return Draggable<String>(
+        data: page.id,
+        feedback: feedback,
+        dragAnchorStrategy: pointerDragAnchorStrategy,
+        childWhenDragging: Opacity(
+          opacity: 0.35,
+          child: _tile(context, page, indent),
+        ),
+        child: buildDragChild(),
+      );
+    }
+
+    return LongPressDraggable<String>(
+      data: page.id,
+      feedback: feedback,
+      childWhenDragging: Opacity(
+        opacity: 0.35,
+        child: _tile(context, page, indent),
+      ),
+      child: buildDragChild(),
     );
   }
 
@@ -1091,6 +1184,12 @@ class _SidebarState extends State<Sidebar> {
                 icon: const Icon(Icons.add_rounded),
                 label: Text(l10n.createPage),
               ),
+              const SizedBox(width: 6),
+              IconButton(
+                icon: const Icon(Icons.create_new_folder_outlined, size: 20),
+                tooltip: 'Nueva carpeta',
+                onPressed: () => session.addFolder(parentId: null),
+              ),
             ],
           ),
         ),
@@ -1117,17 +1216,112 @@ class _SidebarState extends State<Sidebar> {
                 ),
               ),
             ),
-            child: Scrollbar(
-              controller: _pagesScrollController,
-              child: ListView.builder(
-                controller: _pagesScrollController,
-                padding: EdgeInsets.zero,
-                itemCount: visible.rows.length,
-                itemBuilder: (context, index) {
-                  final row = visible.rows[index];
-                  return _tile(context, row.page, row.indent);
-                },
-              ),
+            child: DragTarget<String>(
+              onWillAcceptWithDetails: (details) {
+                final draggedId = details.data;
+                // Root nunca crea ciclo.
+                return draggedId.trim().isNotEmpty;
+              },
+              onAcceptWithDetails: (details) {
+                final draggedId = details.data;
+                final order = session.pageOrderForParent(null);
+                session.movePage(
+                  pageId: draggedId,
+                  newParentId: null,
+                  newIndex: order.length,
+                );
+              },
+              builder: (context, candidates, rejected) {
+                final hoveringRoot = candidates.isNotEmpty;
+                return AnimatedContainer(
+                  duration: const Duration(milliseconds: 140),
+                  curve: Curves.easeOut,
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(FolioRadius.xl),
+                    border: hoveringRoot
+                        ? Border.all(
+                            color: scheme.primary.withValues(alpha: 0.25),
+                            width: 2,
+                          )
+                        : null,
+                  ),
+                  child: Scrollbar(
+                    controller: _pagesScrollController,
+                    child: ListView.builder(
+                      controller: _pagesScrollController,
+                      padding: EdgeInsets.zero,
+                      itemCount: visible.rows.length * 2 + 1,
+                      itemBuilder: (context, index) {
+                        // Índices impares: items. Pares: gaps (drop zones).
+                        if (index.isOdd) {
+                          final row = visible.rows[index ~/ 2];
+                          return _draggablePageTile(
+                            context,
+                            row.page,
+                            row.indent,
+                          );
+                        }
+
+                        final gapIdx = index ~/ 2; // 0..rows.length
+                        final beforeRow = gapIdx < visible.rows.length
+                            ? visible.rows[gapIdx]
+                            : null;
+                        final parentId = beforeRow?.page.parentId ??
+                            (visible.rows.isNotEmpty
+                                ? visible.rows.last.page.parentId
+                                : null);
+                        final beforeId = beforeRow?.page.id;
+
+                        return DragTarget<String>(
+                          onWillAcceptWithDetails: (details) {
+                            final draggedId = details.data;
+                            if (beforeId != null && draggedId == beforeId) {
+                              return false;
+                            }
+                            // Evitar ciclos si cambia de padre y el padre destino está bajo el dragged.
+                            if (parentId != null &&
+                                session.isUnderAncestor(
+                                  ancestorId: draggedId,
+                                  nodeId: parentId,
+                                )) {
+                              return false;
+                            }
+                            return true;
+                          },
+                          onAcceptWithDetails: (details) {
+                            final draggedId = details.data;
+                            final order = session.pageOrderForParent(parentId);
+                            // Insertar en la posición del gap dentro de este parent.
+                            final idx = gapIdx.clamp(0, order.length);
+                            session.movePage(
+                              pageId: draggedId,
+                              newParentId: parentId,
+                              newIndex: idx,
+                            );
+                          },
+                          builder: (context, candidates, rejected) {
+                            final hovering = candidates.isNotEmpty;
+                            return AnimatedContainer(
+                              duration: const Duration(milliseconds: 120),
+                              margin: const EdgeInsets.symmetric(
+                                vertical: 2,
+                                horizontal: 6,
+                              ),
+                              height: hovering ? 10 : 6,
+                              decoration: BoxDecoration(
+                                color: hovering
+                                    ? scheme.primary.withValues(alpha: 0.45)
+                                    : Colors.transparent,
+                                borderRadius: BorderRadius.circular(999),
+                              ),
+                            );
+                          },
+                        );
+                      },
+                    ),
+                  ),
+                );
+              },
             ),
           ),
         ),

@@ -201,6 +201,8 @@ class AppSettings extends ChangeNotifier {
       'folio_workspace_sidebar_collapsed';
   static const _workspaceSidebarAutoRevealKey =
       'folio_workspace_sidebar_auto_reveal';
+  static const _workspaceSidebarCollapsedPagesPrefix =
+      'folio_workspace_sidebar_collapsed_pages_';
   static const _workspacePageOutlineVisibleKey =
       'folio_workspace_page_outline_visible';
   static const _aiChatPanelCollapsedKey = 'folio_ai_chat_panel_collapsed';
@@ -1176,6 +1178,33 @@ class AppSettings extends ChangeNotifier {
     notifyListeners();
     final p = await SharedPreferences.getInstance();
     await p.setDouble(_workspaceSidebarWidthKey, safe);
+  }
+
+  String _workspaceSidebarCollapsedPagesKey(String? vaultId) {
+    final safeVault = (vaultId == null || vaultId.trim().isEmpty)
+        ? 'default'
+        : vaultId.trim();
+    return '$_workspaceSidebarCollapsedPagesPrefix$safeVault';
+  }
+
+  Future<Set<String>> loadWorkspaceSidebarCollapsedPageIds({
+    required String? vaultId,
+    required Set<String> validPageIds,
+  }) async {
+    final p = await SharedPreferences.getInstance();
+    final saved =
+        p.getStringList(_workspaceSidebarCollapsedPagesKey(vaultId)) ??
+        const <String>[];
+    return saved.where(validPageIds.contains).toSet();
+  }
+
+  Future<void> persistWorkspaceSidebarCollapsedPageIds({
+    required String? vaultId,
+    required Set<String> collapsedPageIds,
+  }) async {
+    final p = await SharedPreferences.getInstance();
+    final sorted = collapsedPageIds.toList()..sort();
+    await p.setStringList(_workspaceSidebarCollapsedPagesKey(vaultId), sorted);
   }
 
   Future<void> setWorkspaceSidebarCollapsed(bool value) async {

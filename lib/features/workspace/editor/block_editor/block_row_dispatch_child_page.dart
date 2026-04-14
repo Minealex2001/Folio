@@ -19,7 +19,7 @@ Widget? _specialRowChildPage(_BlockRowScope s) {
   final showInlineEditControls = s.showInlineEditControls;
   final index = s.index;
   final readOnlyMode = s.readOnlyMode;
-  final l10n = AppLocalizations.of(context)!;
+  final l10n = AppLocalizations.of(context);
   final cid = block.text.trim();
   FolioPage? child;
   try {

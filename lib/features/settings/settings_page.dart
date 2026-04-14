@@ -533,6 +533,7 @@ class _SettingsPageState extends State<SettingsPage> {
 
   Future<void> _revokeIntegrationApp(String appId) async {
     await _app.revokeIntegrationApp(appId);
+    if (!mounted) return;
     _snack(AppLocalizations.of(context).settingsAppRevoked(appId));
   }
 
@@ -860,14 +861,13 @@ class _SettingsPageState extends State<SettingsPage> {
                               children: [
                                 TextButton(
                                   onPressed: () async {
+                                    final loc = AppLocalizations.of(context);
                                     await _s.resolveSyncConflictKeepLocal(
                                       conflict.id,
                                     );
                                     if (!mounted) return;
                                     _snack(
-                                      AppLocalizations.of(
-                                        context,
-                                      ).settingsLocalVersionKeptSnack,
+                                      loc.settingsLocalVersionKeptSnack,
                                     );
                                   },
                                   child: Text(
@@ -877,12 +877,12 @@ class _SettingsPageState extends State<SettingsPage> {
                                 const SizedBox(width: 8),
                                 FilledButton.tonal(
                                   onPressed: () async {
+                                    final loc = AppLocalizations.of(context);
                                     final ok = await _s
                                         .resolveSyncConflictAcceptRemote(
                                           conflict.id,
                                         );
                                     if (!mounted) return;
-                                    final loc = AppLocalizations.of(context);
                                     _snack(
                                       ok
                                           ? loc.settingsRemoteVersionAppliedSnack

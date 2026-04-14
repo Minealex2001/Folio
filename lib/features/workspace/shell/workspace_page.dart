@@ -1485,7 +1485,7 @@ class _WorkspacePageState extends State<WorkspacePage> {
       expanded = false;
     } else if (type == 'template_button') {
       text = FolioTemplateButtonData.localizedDefault(
-        AppLocalizations.of(context)!,
+        AppLocalizations.of(context),
       ).encode();
     } else if (type == 'column_list') {
       text = FolioColumnsData.empty().encode();
@@ -1702,7 +1702,7 @@ class _WorkspacePageState extends State<WorkspacePage> {
           if (page != null)
             _WorkspaceActionEntry(
               id: 'publish_web',
-              label: AppLocalizations.of(context)!.publishWebMenuLabel,
+              label: AppLocalizations.of(context).publishWebMenuLabel,
               icon: Icons.public_rounded,
               onPressed: _publishCurrentPageToWeb,
             ),
