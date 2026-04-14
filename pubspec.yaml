@@ -90,6 +90,7 @@ dev_dependencies:
   # rules and activating additional ones.
   flutter_lints: ^6.0.0
   flutter_launcher_icons: ^0.14.4
+  msix: ^3.16.13
 
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec
@@ -139,3 +140,19 @@ flutter_launcher_icons:
   image_path: ios/Runner/Assets.xcassets/AppIcon.appiconset/Icon-App-1024x1024@1x.png
   adaptive_icon_background: "#ffffff"
   adaptive_icon_foreground: ios/Runner/Assets.xcassets/AppIcon.appiconset/Icon-App-1024x1024@1x.png
+
+# MSIX: con store:false el paquete se firma con cert. de prueba (instalable en tu PC).
+# Para el MSIX que subes a Partner Center usa: dart run msix:create --store
+# (ese artefacto no está pensado para doble clic local; Microsoft lo firma al publicar).
+# msix_version: último segmento 0 según políticas de versión de la Store.
+msix_config:
+  display_name: Folio - Private Workspace
+  publisher_display_name: Minealex Games
+  # Estos 3 valores deben coincidir 1:1 con Partner Center → Product identity
+  identity_name: MinealexGames.Folio-PrivateWorkspace
+  publisher: CN=EFF3F915-1B14-4A6A-B8F6-8F232E1B13B0
+  msix_version: 0.0.3.0
+  logo_path: windows/runner/resources/app_icon.ico
+  capabilities: internetClient, microphone
+  store: true
+  install_certificate: true
