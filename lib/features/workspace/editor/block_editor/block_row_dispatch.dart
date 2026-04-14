@@ -1,24 +1,31 @@
 part of 'package:folio/features/workspace/editor/block_editor.dart';
 
+typedef _SpecialRowBuilder = Widget? Function(_BlockRowScope s);
+
+final Map<String, _SpecialRowBuilder> _specialRowBuildersByType = {
+  'image': _specialRowImage,
+  'table': _specialRowTable,
+  'database': _specialRowDatabase,
+  'equation': _specialRowEquation,
+  'mermaid': _specialRowMermaid,
+  'code': _specialRowCode,
+  'divider': _specialRowDivider,
+  'file': _specialRowFile,
+  'bookmark': _specialRowBookmark,
+  'embed': _specialRowEmbed,
+  'audio': _specialRowAudio,
+  'meeting_note': _specialRowMeetingNote,
+  'video': _specialRowVideo,
+  'toggle': _specialRowToggle,
+  'toc': _specialRowToc,
+  'breadcrumb': _specialRowBreadcrumb,
+  'child_page': _specialRowChildPage,
+  'template_button': _specialRowTemplateButton,
+  'task': _specialRowTask,
+  'column_list': _specialRowColumnList,
+};
+
 Widget? _buildSpecialBlockRowOrNull(_BlockRowScope s) {
-  return _specialRowImage(s) ??
-      _specialRowTable(s) ??
-      _specialRowDatabase(s) ??
-      _specialRowEquation(s) ??
-      _specialRowMermaid(s) ??
-      _specialRowCode(s) ??
-      _specialRowDivider(s) ??
-      _specialRowFile(s) ??
-      _specialRowBookmark(s) ??
-      _specialRowEmbed(s) ??
-      _specialRowAudio(s) ??
-      _specialRowMeetingNote(s) ??
-      _specialRowVideo(s) ??
-      _specialRowToggle(s) ??
-      _specialRowToc(s) ??
-      _specialRowBreadcrumb(s) ??
-      _specialRowChildPage(s) ??
-      _specialRowTemplateButton(s) ??
-      _specialRowTask(s) ??
-      _specialRowColumnList(s);
+  final builder = _specialRowBuildersByType[s.block.type];
+  return builder?.call(s);
 }

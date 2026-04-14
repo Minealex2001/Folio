@@ -74,11 +74,15 @@ Widget? _specialRowVideo(_BlockRowScope s) {
                               Expanded(
                                 child: ClipRRect(
                                   borderRadius: BorderRadius.circular(10),
-                                  child: FolioYoutubePreviewCard(
-                                    pageUrl: rawU,
-                                    videoId: ytId,
-                                    scheme: scheme,
-                                    compact: true,
+                                  child: MetaData(
+                                    metaData: folioInteractiveMetaDataTag,
+                                    behavior: HitTestBehavior.translucent,
+                                    child: FolioYoutubePreviewCard(
+                                      pageUrl: rawU,
+                                      videoId: ytId,
+                                      scheme: scheme,
+                                      compact: true,
+                                    ),
                                   ),
                                 ),
                               ),

@@ -9,7 +9,9 @@ void main() {
       );
 
       expect(parsed, isNotNull);
-      expect(parsed!.label, 'Plantilla');
+      // Default sin contexto de UI usa fallback estable (en) para no depender
+      // del locale del entorno de test.
+      expect(parsed!.label, 'Template');
       expect(parsed.blocks, isNotEmpty);
     });
 

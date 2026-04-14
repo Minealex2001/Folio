@@ -7,12 +7,14 @@ import '../models/local_collab.dart';
 import '../services/ai/ai_types.dart';
 
 /// Esquema 4: chats de IA. Esquema 5: `FolioPage.collabRoomId` y comentarios de archivo collab.
-const int kVaultPayloadVersion = 5;
+/// Esquema 6: orden persistido del árbol de páginas (sidebar) por `parentId`.
+const int kVaultPayloadVersion = 6;
 
 class VaultPayload {
   VaultPayload({
     this.version = kVaultPayloadVersion,
     required this.pages,
+    Map<String, List<String>>? pageOrderByParent,
     Map<String, List<FolioPageRevision>>? pageRevisions,
     Map<String, Map<String, String>>? pageAcl,
     List<LocalProfile>? localProfiles,
@@ -22,6 +24,7 @@ class VaultPayload {
     List<FolioPageTemplate>? pageTemplates,
   }) : pageRevisions = pageRevisions ?? {},
        pageAcl = pageAcl ?? {},
+       pageOrderByParent = pageOrderByParent ?? {},
        localProfiles = localProfiles ?? const [],
        comments = comments ?? const [],
        aiChatThreads = aiChatThreads ?? const [],
@@ -30,6 +33,8 @@ class VaultPayload {
 
   final int version;
   final List<FolioPage> pages;
+  /// Orden del árbol por `parentId`. La raíz se guarda como clave vacía `''`.
+  final Map<String, List<String>> pageOrderByParent;
   final Map<String, List<FolioPageRevision>> pageRevisions;
   final Map<String, Map<String, String>> pageAcl;
   final List<LocalProfile> localProfiles;
@@ -41,6 +46,7 @@ class VaultPayload {
   Map<String, dynamic> toJson() => {
     'version': version,
     'pages': pages.map((p) => p.toJson()).toList(),
+    if (pageOrderByParent.isNotEmpty) 'pageOrderByParent': pageOrderByParent,
     'pageRevisions': pageRevisions.map(
       (k, v) => MapEntry(k, v.map((r) => r.toJson()).toList()),
     ),
@@ -57,6 +63,17 @@ class VaultPayload {
     final list = (j['pages'] as List<dynamic>? ?? [])
         .map((e) => FolioPage.fromJson(Map<String, dynamic>.from(e as Map)))
         .toList();
+    final pageOrderByParent = <String, List<String>>{};
+    final rawOrder = j['pageOrderByParent'];
+    if (rawOrder is Map) {
+      for (final entry in rawOrder.entries) {
+        final key = '${entry.key}';
+        final v = entry.value;
+        if (v is List) {
+          pageOrderByParent[key] = v.map((x) => '$x').toList(growable: false);
+        }
+      }
+    }
     final revRoot = j['pageRevisions'];
     final pageRevisions = <String, List<FolioPageRevision>>{};
     if (revRoot is Map) {
@@ -102,6 +119,7 @@ class VaultPayload {
     return VaultPayload(
       version: j['version'] as int? ?? 1,
       pages: list,
+      pageOrderByParent: pageOrderByParent,
       pageRevisions: pageRevisions,
       pageAcl: acl,
       localProfiles: profiles,

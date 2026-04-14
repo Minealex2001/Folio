@@ -1,0 +1,200 @@
+00:00 +0: loading C:/Users/aleja/Repositories/Folio/test/app/app_settings_custom_icons_test.dart
+00:00 +0: C:/Users/aleja/Repositories/Folio/test/app/app_settings_custom_icons_test.dart: persists custom icons across loads
+00:00 +1: C:/Users/aleja/Repositories/Folio/test/app/app_settings_custom_icons_test.dart: preserves animated custom icon mime types across loads
+00:00 +2: C:/Users/aleja/Repositories/Folio/test/app/app_settings_custom_icons_test.dart: persists integration custom icons isolated by appId
+00:00 +3: C:/Users/aleja/Repositories/Folio/test/data/notion_import/notion_importer_test.dart: notion importer detecta markdown y convierte bloques basicos
+00:00 +4: C:/Users/aleja/Repositories/Folio/test/data/notion_import/notion_importer_test.dart: notion importer detecta html y convierte encabezados/parrafos
+00:00 +5: C:/Users/aleja/Repositories/Folio/test/data/notion_import/notion_importer_test.dart: notion importer detecta csv y lo convierte a database data
+00:00 +6: C:/Users/aleja/Repositories/Folio/test/data/vault_repository_test.dart: VaultRepository starter content crea p├íginas iniciales por defecto
+00:00 +7: C:/Users/aleja/Repositories/Folio/test/data/vault_repository_test.dart: VaultRepository starter content permite desactivar las p├íginas iniciales
+00:00 +8: C:/Users/aleja/Repositories/Folio/test/features/settings/release_readiness_test.dart: release readiness evaluator accepts valid semver and localhost AI endpoint
+00:00 +9: C:/Users/aleja/Repositories/Folio/test/features/settings/release_readiness_test.dart: release readiness evaluator fails AI endpoint policy for unconfirmed remote endpoint
+00:00 +10: C:/Users/aleja/Repositories/Folio/test/features/settings/release_readiness_test.dart: release readiness evaluator marks invalid semver label
+00:00 +11: C:/Users/aleja/Repositories/Folio/test/features/settings/release_readiness_test.dart: release readiness evaluator beta channel is warning and not a blocker
+00:00 +12: C:/Users/aleja/Repositories/Folio/test/features/settings/release_readiness_test.dart: builds deterministic release readiness report file name
+00:00 +13: C:/Users/aleja/Repositories/Folio/test/features/workspace/inline_link_tap_test.dart: markdown preview opens internal page links
+00:01 +14: C:/Users/aleja/Repositories/Folio/test/features/workspace/inline_link_tap_test.dart: markdown preview opens internal page links
+00:01 +15: C:/Users/aleja/Repositories/Folio/test/features/workspace/inline_link_tap_test.dart: markdown preview opens internal page links
+00:01 +16: C:/Users/aleja/Repositories/Folio/test/features/workspace/inline_link_tap_test.dart: markdown preview opens internal page links
+00:01 +17: C:/Users/aleja/Repositories/Folio/test/features/workspace/inline_link_tap_test.dart: markdown preview opens internal page links
+00:01 +18: C:/Users/aleja/Repositories/Folio/test/features/workspace/inline_link_tap_test.dart: markdown preview opens internal page links
+00:01 +19: C:/Users/aleja/Repositories/Folio/test/features/workspace/inline_link_tap_test.dart: markdown preview opens internal page links
+00:01 +20: C:/Users/aleja/Repositories/Folio/test/features/workspace/inline_link_tap_test.dart: tapping an inline page link opens it instead of entering edit mode
+00:01 +21: C:/Users/aleja/Repositories/Folio/test/features/workspace/inline_link_tap_test.dart: tapping an inline page link opens it instead of entering edit mode
+00:01 +22: C:/Users/aleja/Repositories/Folio/test/features/workspace/inline_link_tap_test.dart: tapping an inline page link opens it instead of entering edit mode
+00:01 +23: C:/Users/aleja/Repositories/Folio/test/features/workspace/inline_link_tap_test.dart: tapping an inline page link opens it instead of entering edit mode
+00:01 +24: C:/Users/aleja/Repositories/Folio/test/features/workspace/inline_link_tap_test.dart: tapping an inline page link opens it instead of entering edit mode
+00:01 +25: C:/Users/aleja/Repositories/Folio/test/features/workspace/inline_link_tap_test.dart: tapping an inline page link opens it instead of entering edit mode
+00:01 +26: C:/Users/aleja/Repositories/Folio/test/features/workspace/inline_link_tap_test.dart: tapping an inline page link opens it instead of entering edit mode
+00:01 +27: C:/Users/aleja/Repositories/Folio/test/features/workspace/inline_link_tap_test.dart: tapping an inline page link opens it instead of entering edit mode
+00:01 +28: C:/Users/aleja/Repositories/Folio/test/features/workspace/inline_link_tap_test.dart: tapping an inline page link opens it instead of entering edit mode
+00:01 +29: C:/Users/aleja/Repositories/Folio/test/features/workspace/inline_link_tap_test.dart: tapping an inline page link opens it instead of entering edit mode
+--------------------Doctor--------------------
+Doctor started
+Starting any passkey operation will trigger a check
+----------------------------------------------
+00:01 +30: C:/Users/aleja/Repositories/Folio/test/features/workspace/inline_link_tap_test.dart: markdown preview opens external links via callback
+00:01 +31: C:/Users/aleja/Repositories/Folio/test/models/folio_page_test.dart: FolioPage serializa y deserializa bloques y metadatos de colaboracion
+00:01 +32: C:/Users/aleja/Repositories/Folio/test/models/folio_page_test.dart: FolioPage crea bloque por defecto cuando blocks no existe en json
+00:01 +33: C:/Users/aleja/Repositories/Folio/test/models/folio_page_test.dart: FolioPage normaliza collabRoomId y collabJoinCode vacios a null
+00:01 +34: C:/Users/aleja/Repositories/Folio/test/models/folio_page_test.dart: FolioPage plainTextContent agrega representaciones especiales
+00:01 +35: C:/Users/aleja/Repositories/Folio/test/models/folio_page_test.dart: FolioPage syncPlainFallback actualiza bloque unico de parrafo
+00:01 +36: C:/Users/aleja/Repositories/Folio/test/models/folio_page_test.dart: FolioPage syncPlainFallback crea bloque cuando lista vacia
+00:01 +37: C:/Users/aleja/Repositories/Folio/test/models/folio_task_data_test.dart: FolioTaskData serializa y parsea subtareas
+00:01 +38: C:/Users/aleja/Repositories/Folio/test/models/folio_task_data_test.dart: FolioTaskData mantiene compatibilidad con payload sin subtareas
+00:01 +39: C:/Users/aleja/Repositories/Folio/test/models/folio_task_data_test.dart: FolioTaskData copyWith permite reemplazar subtareas
+00:02 +40: C:/Users/aleja/Repositories/Folio/test/models/folio_template_button_data_test.dart: FolioTemplateButtonData tryParse devuelve default cuando blocks viene vacio
+00:02 +41: C:/Users/aleja/Repositories/Folio/test/models/folio_template_button_data_test.dart: FolioTemplateButtonData roundtrip encode/parse conserva label y bloques
+00:02 +42: C:/Users/aleja/Repositories/Folio/test/models/folio_template_button_data_test.dart: FolioTemplateButtonData raw vacio devuelve null
+00:02 +43: C:/Users/aleja/Repositories/Folio/test/models/folio_toggle_data_test.dart: FolioToggleData raw vacio devuelve objeto vacio
+00:02 +44: C:/Users/aleja/Repositories/Folio/test/models/folio_toggle_data_test.dart: FolioToggleData roundtrip encode/parse mantiene campos
+00:02 +45: C:/Users/aleja/Repositories/Folio/test/models/folio_toggle_data_test.dart: FolioToggleData json invalido devuelve null
+00:02 +46: C:/Users/aleja/Repositories/Folio/test/services/ai/ai_intent_hints_test.dart: AiIntentHints retorna hints en espanol para edit
+00:02 +47: C:/Users/aleja/Repositories/Folio/test/services/ai/ai_intent_hints_test.dart: AiIntentHints retorna hints en ingles para create_page
+00:02 +48: C:/Users/aleja/Repositories/Folio/test/services/ai/ai_intent_hints_test.dart: AiIntentHints normaliza locale con region
+00:02 +49: C:/Users/aleja/Repositories/Folio/test/services/ai/ai_intent_hints_test.dart: AiIntentHints fallback en idioma desconocido combina en y es
+00:02 +50: C:/Users/aleja/Repositories/Folio/test/services/ai/ai_intent_hints_test.dart: AiIntentHints intent desconocido retorna lista vacia
+00:02 +51: C:/Users/aleja/Repositories/Folio/test/services/ai/ai_safety_policy_test.dart: AiSafetyPolicy parsea URL http/https v├ílida
+00:02 +52: C:/Users/aleja/Repositories/Folio/test/services/ai/ai_safety_policy_test.dart: AiSafetyPolicy rechaza URL sin esquema
+00:02 +53: C:/Users/aleja/Repositories/Folio/test/services/ai/ai_safety_policy_test.dart: AiSafetyPolicy isLocalhostHost detecta aliases de loopback
+00:02 +54: C:/Users/aleja/Repositories/Folio/test/services/ai/ai_safety_policy_test.dart: AiSafetyPolicy acepta localhost en modo localhostOnly
+00:02 +55: C:/Users/aleja/Repositories/Folio/test/services/ai/ai_safety_policy_test.dart: AiSafetyPolicy bloquea remoto en localhostOnly aunque est├® confirmado
+00:02 +56: C:/Users/aleja/Repositories/Folio/test/services/ai/ai_safety_policy_test.dart: AiSafetyPolicy bloquea remoto sin confirmaci├│n en allowRemote
+00:02 +57: C:/Users/aleja/Repositories/Folio/test/services/ai/ai_safety_policy_test.dart: AiSafetyPolicy permite remoto confirmado en allowRemote
+00:02 +58: C:/Users/aleja/Repositories/Folio/test/services/ai/ai_safety_policy_test.dart: AiSafetyPolicy rechaza URL inv├ílida con mensaje de error
+00:02 +59: C:/Users/aleja/Repositories/Folio/test/services/ai/ai_safety_policy_test.dart: AiSafetyPolicy detectMimeType mapea extensiones comunes y fallback
+00:02 +60: C:/Users/aleja/Repositories/Folio/test/services/ai/ai_safety_policy_test.dart: AiSafetyPolicy isImageMimeType detecta prefijo image/
+00:02 +61: C:/Users/aleja/Repositories/Folio/test/services/ai/ai_safety_policy_test.dart: AiSafetyPolicy isEndpointAllowed aplica regla por modo y confirmaci├│n
+00:02 +62: C:/Users/aleja/Repositories/Folio/test/services/ai/ai_safety_policy_test.dart: AiSafetyPolicy readImageAsBase64 retorna null para archivo vac├¡o
+00:02 +63: C:/Users/aleja/Repositories/Folio/test/services/ai/ai_safety_policy_test.dart: AiSafetyPolicy readImageAsBase64 codifica bytes v├ílidos
+00:02 +64: C:/Users/aleja/Repositories/Folio/test/services/ai/ai_safety_policy_test.dart: AiSafetyPolicy readAttachmentAsContext retorna texto para archivos textuales
+00:02 +65: C:/Users/aleja/Repositories/Folio/test/services/ai/ai_safety_policy_test.dart: AiSafetyPolicy readAttachmentAsContext retorna metadatos para binarios
+00:02 +66: C:/Users/aleja/Repositories/Folio/test/services/app_logger_test.dart: AppLogger escribe linea con nivel y contexto en sink
+00:02 +67: C:/Users/aleja/Repositories/Folio/test/services/app_logger_test.dart: AppLogger incluye error y stacktrace en salida de error
+00:02 +68: C:/Users/aleja/Repositories/Folio/test/services/app_logger_test.dart: AppLogger no falla si no hay sink configurado
+00:03 +69: C:/Users/aleja/Repositories/Folio/test/services/app_log_file_sink_test.dart: AppLogFileSink init crea directorio de logs y apunta a folio.log
+00:03 +70: C:/Users/aleja/Repositories/Folio/test/services/app_log_file_sink_test.dart: AppLogFileSink write agrega linea al archivo de log
+00:03 +71: C:/Users/aleja/Repositories/Folio/test/services/app_log_file_sink_test.dart: AppLogFileSink rota archivos cuando folio.log supera el maximo
+00:03 +72: C:/Users/aleja/Repositories/Folio/test/services/custom_icon_import_service_test.dart: imports remote GIF icons
+00:03 +72 -1: C:/Users/aleja/Repositories/Folio/test/services/custom_icon_import_service_test.dart: imports remote GIF icons [E]
+  Could not download the icon (400).
+  package:folio/services/custom_icon_import_service.dart 111:9  CustomIconImportService._importFromRemoteUri
+  
+Warning: At least one test in this suite creates an HttpClient. When running a test suite that uses
+TestWidgetsFlutterBinding, all HTTP requests will return status code 400, and no network request
+will actually be made. Any test expecting a real network connection and status code will fail.
+To test code that needs an HttpClient, provide your own HttpClient implementation to the code under
+test, so that your test can consistently provide a testable response to the code under test.
+00:03 +72 -1: C:/Users/aleja/Repositories/Folio/test/services/folio_cloud/folio_cloud_entitlements_test.dart: FolioCloudSnapshot.fromUserDoc parses nested folioCloud map like production Firestore
+00:03 +73 -1: C:/Users/aleja/Repositories/Folio/test/services/folio_cloud/folio_cloud_entitlements_test.dart: FolioCloudSnapshot.fromUserDoc infers active from subscriptionStatus when active flag missing
+00:03 +74 -1: C:/Users/aleja/Repositories/Folio/test/services/folio_cloud/folio_cloud_entitlements_test.dart: FolioCloudSnapshot.fromUserDoc returns empty entitlements when folioCloud missing
+00:03 +75 -1: C:/Users/aleja/Repositories/Folio/test/services/folio_cloud/folio_cloud_entitlements_test.dart: FolioCloudSnapshot.fromUserDoc canUseCloudAi with purchased ink only (no subscription)
+00:03 +76 -1: C:/Users/aleja/Repositories/Folio/test/services/folio_cloud/folio_cloud_entitlements_test.dart: FolioCloudSnapshot.fromUserDoc canUseCloudAi false when inactive subscription and no purchased ink
+00:03 +77 -1: C:/Users/aleja/Repositories/Folio/test/services/folio_cloud/folio_cloud_entitlements_test.dart: FolioCloudSnapshot.fromUserDoc null data yields empty
+00:03 +78 -1: C:/Users/aleja/Repositories/Folio/test/services/folio_cloud/folio_cloud_entitlements_test.dart: FolioCloudSnapshot.fromUserDoc negative ink field is shown as 0 (server clamps same way when debiting)
+00:03 +79 -1: C:/Users/aleja/Repositories/Folio/test/services/folio_cloud/folio_cloud_entitlements_test.dart: FolioCloudSnapshot.fromUserDoc purchased ink is not capped; huge monthlyBalance is capped for display
+FolioInkSnapshot: monthlyBalance=5000000 parece corrupto; mostrando como 100000.
+00:03 +80 -1: C:/Users/aleja/Repositories/Folio/test/services/folio_cloud/folio_cloud_entitlements_test.dart: FolioCloudEntitlementsController.applyInkBalancesFromCloudAi updates ink and preserves plan flags and monthlyPeriodKey
+00:03 +81 -1: C:/Users/aleja/Repositories/Folio/test/services/folio_cloud/folio_web_portal_api_test.dart: normalizeFolioWebLinkCode trims, removes inner spaces, uppercases
+00:03 +82 -1: C:/Users/aleja/Repositories/Folio/test/services/folio_cloud/folio_web_portal_api_test.dart: extractFolioPortalErrorMessage reads message key
+00:03 +83 -1: C:/Users/aleja/Repositories/Folio/test/services/folio_cloud/folio_web_portal_api_test.dart: extractFolioPortalErrorMessage reads error key
+00:03 +84 -1: C:/Users/aleja/Repositories/Folio/test/services/folio_cloud/folio_web_portal_api_test.dart: FolioWebEntitlementSnapshot.tryParseJsonObject parses typical payload
+00:03 +85 -1: C:/Users/aleja/Repositories/Folio/test/services/folio_cloud/folio_web_portal_api_test.dart: FolioWebEntitlementSnapshot.tryParseJsonObject returns null without linked bool
+00:03 +86 -1: C:/Users/aleja/Repositories/Folio/test/services/integrations/integrations_bridge_test.dart: IntegrationsBridgeController auth without secret POST /session/start works without X-Folio-Integration-Secret
+00:03 +87 -1: C:/Users/aleja/Repositories/Folio/test/services/integrations/integrations_bridge_test.dart: IntegrationsBridgeController auth without secret non-approved app is still blocked
+00:03 +88 -1: C:/Users/aleja/Repositories/Folio/test/services/integrations/integrations_bridge_test.dart: IntegrationsBridgeController auth without secret v1 allows plaintext payload for markdown import
+00:03 +89 -1: C:/Users/aleja/Repositories/Folio/test/services/integrations/integrations_bridge_test.dart: IntegrationsBridgeController auth without secret v2 rejects plaintext payload for markdown import
+00:03 +90 -1: C:/Users/aleja/Repositories/Folio/test/services/integrations/integrations_bridge_test.dart: IntegrationsBridgeController auth without secret v2 accepts encrypted payload for markdown import
+00:04 +91 -1: C:/Users/aleja/Repositories/Folio/test/services/integrations/integrations_markdown_codec_test.dart: Integrations markdown codec parsea bloques markdown enriquecidos
+00:04 +92 -1: C:/Users/aleja/Repositories/Folio/test/services/integrations/integrations_markdown_codec_test.dart: Integrations markdown codec exporta callouts y bloques de codigo a markdown
+00:04 +93 -1: C:/Users/aleja/Repositories/Folio/test/session/ai_generation_parser_test.dart: AI hybrid parser parsea JSON estructurado con tipos de bloque
+--------------------Doctor--------------------
+Doctor started
+Starting any passkey operation will trigger a check
+----------------------------------------------
+00:04 +94 -1: C:/Users/aleja/Repositories/Folio/test/session/ai_generation_parser_test.dart: AI hybrid parser acepta JSON con markdown fences y lo limpia
+--------------------Doctor--------------------
+Doctor started
+Starting any passkey operation will trigger a check
+----------------------------------------------
+00:04 +95 -1: C:/Users/aleja/Repositories/Folio/test/session/ai_generation_parser_test.dart: AI hybrid parser hace fallback a markdown cuando no hay JSON v├ílido
+--------------------Doctor--------------------
+Doctor started
+Starting any passkey operation will trigger a check
+----------------------------------------------
+00:04 +96 -1: C:/Users/aleja/Repositories/Folio/test/session/ai_generation_parser_test.dart: AI hybrid parser recupera bloques desde JSON malformado y normaliza type con pipes
+--------------------Doctor--------------------
+Doctor started
+Starting any passkey operation will trigger a check
+----------------------------------------------
+00:04 +97 -1: C:/Users/aleja/Repositories/Folio/test/session/ai_generation_parser_test.dart: AI hybrid parser parsea bloque table con filas y columnas
+--------------------Doctor--------------------
+Doctor started
+Starting any passkey operation will trigger a check
+----------------------------------------------
+00:04 +98 -1: C:/Users/aleja/Repositories/Folio/test/session/ai_generation_parser_test.dart: AI hybrid parser acepta bloque image con url aunque text venga vac├¡o
+--------------------Doctor--------------------
+Doctor started
+Starting any passkey operation will trigger a check
+----------------------------------------------
+00:04 +99 -1: C:/Users/aleja/Repositories/Folio/test/session/ai_intent_detection_test.dart: AI intent detection detecta create_page en ES con nota/pagina
+--------------------Doctor--------------------
+Doctor started
+Starting any passkey operation will trigger a check
+----------------------------------------------
+00:04 +100 -1: C:/Users/aleja/Repositories/Folio/test/session/ai_intent_detection_test.dart: AI intent detection detecta create_page en EN con new note/page
+--------------------Doctor--------------------
+Doctor started
+Starting any passkey operation will trigger a check
+----------------------------------------------
+00:04 +101 -1: C:/Users/aleja/Repositories/Folio/test/session/ai_intent_detection_test.dart: AI intent detection prefiere edit intent cuando hay verbo + objetivo existente
+--------------------Doctor--------------------
+Doctor started
+Starting any passkey operation will trigger a check
+----------------------------------------------
+00:04 +102 -1: C:/Users/aleja/Repositories/Folio/test/session/ai_intent_detection_test.dart: AI intent detection detecta subpage intent en ES y EN
+--------------------Doctor--------------------
+Doctor started
+Starting any passkey operation will trigger a check
+----------------------------------------------
+00:04 +103 -1: C:/Users/aleja/Repositories/Folio/test/session/ai_intent_detection_test.dart: AI mode normalization normaliza alias frecuentes a modos canonicos
+--------------------Doctor--------------------
+Doctor started
+Starting any passkey operation will trigger a check
+----------------------------------------------
+00:04 +104 -1: C:/Users/aleja/Repositories/Folio/test/session/vault_session_undo_redo_test.dart: VaultSession undo/redo por pagina undo/redo restaura cambios de texto del bloque
+--------------------Doctor--------------------
+Doctor started
+Starting any passkey operation will trigger a check
+----------------------------------------------
+00:04 +105 -1: C:/Users/aleja/Repositories/Folio/test/session/vault_session_undo_redo_test.dart: VaultSession undo/redo por pagina coalesce de tipeo permite deshacer varias teclas en un paso
+--------------------Doctor--------------------
+Doctor started
+Starting any passkey operation will trigger a check
+----------------------------------------------
+00:04 +106 -1: C:/Users/aleja/Repositories/Folio/test/session/vault_session_undo_redo_test.dart: VaultSession undo/redo por pagina undo/redo funciona para operaciones estructurales
+--------------------Doctor--------------------
+Doctor started
+Starting any passkey operation will trigger a check
+----------------------------------------------
+00:04 +107 -1: C:/Users/aleja/Repositories/Folio/test/session/vault_session_undo_redo_test.dart: VaultSession undo/redo por pagina undo/redo restaura la apariencia del bloque
+--------------------Doctor--------------------
+Doctor started
+Starting any passkey operation will trigger a check
+----------------------------------------------
+00:04 +108 -1: C:/Users/aleja/Repositories/Folio/test/session/vault_session_undo_redo_test.dart: VaultSession undo/redo por pagina borrado multiple se deshace en un solo paso
+--------------------Doctor--------------------
+Doctor started
+Starting any passkey operation will trigger a check
+----------------------------------------------
+00:04 +109 -1: C:/Users/aleja/Repositories/Folio/test/session/vault_session_undo_redo_test.dart: VaultSession undo/redo por pagina borrado multiple nunca elimina el ultimo bloque
+--------------------Doctor--------------------
+Doctor started
+Starting any passkey operation will trigger a check
+----------------------------------------------
+00:04 +110 -1: C:/Users/aleja/Repositories/Folio/test/widget_test.dart: MaterialApp de Folio se monta
+--------------------Doctor--------------------
+Doctor started
+Starting any passkey operation will trigger a check
+----------------------------------------------
+00:05 +111 -1: Some tests failed.

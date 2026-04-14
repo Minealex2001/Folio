@@ -108,32 +108,40 @@ Widget? _specialRowBookmark(_BlockRowScope s) {
                                 spacing: 8,
                                 runSpacing: 4,
                                 children: [
-                                  FilledButton.tonalIcon(
-                                    onPressed: () => unawaited(
-                                      st._openBlockUrlExternal(block.url),
-                                    ),
-                                    icon: const Icon(
-                                      Icons.open_in_new_rounded,
-                                      size: 18,
-                                    ),
-                                    label: Text(
-                                      AppLocalizations.of(
-                                        context,
-                                      ).bookmarkOpenLink,
-                                    ),
-                                  ),
-                                  OutlinedButton(
-                                    onPressed: () => unawaited(
-                                      st._editBookmarkUrlDialog(
-                                        page.id,
-                                        block.id,
-                                        index,
+                                  MetaData(
+                                    metaData: folioInteractiveMetaDataTag,
+                                    behavior: HitTestBehavior.translucent,
+                                    child: FilledButton.tonalIcon(
+                                      onPressed: () => unawaited(
+                                        st._openBlockUrlExternal(block.url),
+                                      ),
+                                      icon: const Icon(
+                                        Icons.open_in_new_rounded,
+                                        size: 18,
+                                      ),
+                                      label: Text(
+                                        AppLocalizations.of(
+                                          context,
+                                        ).bookmarkOpenLink,
                                       ),
                                     ),
-                                    child: Text(
-                                      AppLocalizations.of(
-                                        context,
-                                      ).bookmarkSetUrl,
+                                  ),
+                                  MetaData(
+                                    metaData: folioInteractiveMetaDataTag,
+                                    behavior: HitTestBehavior.translucent,
+                                    child: OutlinedButton(
+                                      onPressed: () => unawaited(
+                                        st._editBookmarkUrlDialog(
+                                          page.id,
+                                          block.id,
+                                          index,
+                                        ),
+                                      ),
+                                      child: Text(
+                                        AppLocalizations.of(
+                                          context,
+                                        ).bookmarkSetUrl,
+                                      ),
                                     ),
                                   ),
                                 ],

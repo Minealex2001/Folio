@@ -277,6 +277,8 @@ class VaultSession extends ChangeNotifier {
   VaultFlowState _state = VaultFlowState.initializing;
   List<int>? _dek;
   List<FolioPage> _pages = [];
+  /// Orden persistido del árbol por `parentId`. La raíz se guarda como clave vacía `''`.
+  final Map<String, List<String>> _pageOrderByParent = {};
 
   /// Historial de revisiones por `pageId` (orden cronológico ascendente).
   final Map<String, List<FolioPageRevision>> _pageRevisions = {};
@@ -622,6 +624,7 @@ class VaultSession extends ChangeNotifier {
         _dek = null;
         _pages = List.from(payload.pages);
         _loadRevisionsFromPayload(payload);
+        _ensureOrderForCurrentPages();
         await _applyInitialPageSelection(preferPersistedPreference: true);
         _state = VaultFlowState.unlocked;
         _restartIdleLockTimer();
@@ -634,6 +637,9 @@ class VaultSession extends ChangeNotifier {
   }
 
   void _loadRevisionsFromPayload(VaultPayload payload) {
+    _pageOrderByParent
+      ..clear()
+      ..addAll(payload.pageOrderByParent);
     _pageRevisions
       ..clear()
       ..addEntries(
@@ -679,6 +685,83 @@ class VaultSession extends ChangeNotifier {
     _resetUndoRedoState();
   }
 
+  String _orderKeyForParent(String? parentId) => parentId ?? '';
+
+  void _ensureOrderForCurrentPages() {
+    final byId = <String, FolioPage>{for (final p in _pages) p.id: p};
+    // 1) Quitar ids inexistentes.
+    for (final entry in _pageOrderByParent.entries.toList()) {
+      entry.value.removeWhere((id) => !byId.containsKey(id));
+      if (entry.value.isEmpty) {
+        _pageOrderByParent.remove(entry.key);
+      }
+    }
+    // 2) Asegurar lista por cada parent que tenga hijos.
+    final childrenByParent = <String, List<String>>{};
+    for (final p in _pages) {
+      final key = _orderKeyForParent(p.parentId);
+      (childrenByParent[key] ??= <String>[]).add(p.id);
+    }
+    for (final entry in childrenByParent.entries) {
+      final key = entry.key;
+      final existing = _pageOrderByParent.putIfAbsent(key, () => <String>[]);
+      // Preservar orden existente, y añadir faltantes al final siguiendo orden actual de _pages.
+      final present = existing.toSet();
+      for (final id in entry.value) {
+        if (!present.contains(id)) {
+          existing.add(id);
+          present.add(id);
+        }
+      }
+    }
+  }
+
+  List<String> pageOrderForParent(String? parentId) {
+    _ensureOrderForCurrentPages();
+    return List.unmodifiable(_pageOrderByParent[_orderKeyForParent(parentId)] ?? const <String>[]);
+  }
+
+  List<FolioPage> childrenForParent(String? parentId) {
+    _ensureOrderForCurrentPages();
+    final key = _orderKeyForParent(parentId);
+    final order = _pageOrderByParent[key] ?? const <String>[];
+    final byId = <String, FolioPage>{for (final p in _pages) p.id: p};
+    return order.map((id) => byId[id]).whereType<FolioPage>().toList(growable: false);
+  }
+
+  void movePage({
+    required String pageId,
+    required String? newParentId,
+    required int newIndex,
+  }) {
+    if (pageId == newParentId) return;
+    if (newParentId != null) {
+      if (!_pages.any((p) => p.id == newParentId)) return;
+      if (_isDescendant(ancestorId: pageId, nodeId: newParentId)) return;
+    }
+    _ensureOrderForCurrentPages();
+    final p = _pages.firstWhere((e) => e.id == pageId);
+    final oldParentId = p.parentId;
+    final oldKey = _orderKeyForParent(oldParentId);
+    final newKey = _orderKeyForParent(newParentId);
+    _rememberUndoBeforePageMutation(pageId);
+    _pageOrderByParent[oldKey]?.remove(pageId);
+    final list = _pageOrderByParent.putIfAbsent(newKey, () => <String>[]);
+    final idx = newIndex.clamp(0, list.length);
+    list.insert(idx, pageId);
+    p.parentId = newParentId;
+    notifyListeners();
+    scheduleSave(trackRevisionForPageId: pageId);
+  }
+
+  void reorderPageWithinParent({
+    required String? parentId,
+    required String pageId,
+    required int newIndex,
+  }) {
+    movePage(pageId: pageId, newParentId: parentId, newIndex: newIndex);
+  }
+
   Future<void> completeOnboarding({
     String? password,
     bool encrypted = true,
@@ -715,6 +798,7 @@ class VaultSession extends ChangeNotifier {
     final payload = await _repo.loadPayload(_dek);
     _pages = List.from(payload.pages);
     _loadRevisionsFromPayload(payload);
+    _ensureOrderForCurrentPages();
     await _applyInitialPageSelection(preferPersistedPreference: false);
     _state = VaultFlowState.unlocked;
     _restartIdleLockTimer();
@@ -1104,6 +1188,7 @@ class VaultSession extends ChangeNotifier {
       final payload = await _repo.loadPayload(null);
       _pages = List.from(payload.pages);
       _loadRevisionsFromPayload(payload);
+      _ensureOrderForCurrentPages();
       await _applyInitialPageSelection(preferPersistedPreference: true);
       _state = VaultFlowState.unlocked;
       _restartIdleLockTimer();
@@ -1115,6 +1200,7 @@ class VaultSession extends ChangeNotifier {
     final payload = await _repo.loadPayload(_dek);
     _pages = List.from(payload.pages);
     _loadRevisionsFromPayload(payload);
+    _ensureOrderForCurrentPages();
     await _applyInitialPageSelection(preferPersistedPreference: true);
     _state = VaultFlowState.unlocked;
     _restartIdleLockTimer();
@@ -1146,6 +1232,7 @@ class VaultSession extends ChangeNotifier {
     final payload = await _repo.loadPayload(_dek);
     _pages = List.from(payload.pages);
     _loadRevisionsFromPayload(payload);
+    _ensureOrderForCurrentPages();
     await _applyInitialPageSelection(preferPersistedPreference: true);
     _state = VaultFlowState.unlocked;
     _restartIdleLockTimer();
@@ -1172,6 +1259,7 @@ class VaultSession extends ChangeNotifier {
     final payload = await _repo.loadPayload(_dek);
     _pages = List.from(payload.pages);
     _loadRevisionsFromPayload(payload);
+    _ensureOrderForCurrentPages();
     await _applyInitialPageSelection(preferPersistedPreference: true);
     _state = VaultFlowState.unlocked;
     _restartIdleLockTimer();
@@ -1653,7 +1741,28 @@ class VaultSession extends ChangeNotifier {
         blocks: [FolioBlock(id: '${id}_b0', type: 'paragraph', text: '')],
       ),
     );
+    _pageOrderByParent
+        .putIfAbsent(_orderKeyForParent(parentId), () => <String>[])
+        .add(id);
     _selectedPageId = id;
+    notifyListeners();
+    scheduleSave(trackRevisionForPageId: id);
+  }
+
+  void addFolder({String? parentId}) {
+    final id = _uuid.v4();
+    _pages.add(
+      FolioPage(
+        id: id,
+        title: _titleL10n.defaultNewPageTitle,
+        parentId: parentId,
+        isFolder: true,
+        blocks: [FolioBlock(id: '${id}_b0', type: 'paragraph', text: '')],
+      ),
+    );
+    _pageOrderByParent
+        .putIfAbsent(_orderKeyForParent(parentId), () => <String>[])
+        .add(id);
     notifyListeners();
     scheduleSave(trackRevisionForPageId: id);
   }
@@ -2211,6 +2320,10 @@ class VaultSession extends ChangeNotifier {
     }
     final wasSelected = _selectedPageId == id;
     _pages.removeAt(idx);
+    for (final entry in _pageOrderByParent.entries.toList()) {
+      entry.value.remove(id);
+      if (entry.value.isEmpty) _pageOrderByParent.remove(entry.key);
+    }
     _pageRevisions.remove(id);
     _undoByPage.remove(id);
     _redoByPage.remove(id);
@@ -2385,10 +2498,43 @@ class VaultSession extends ChangeNotifier {
       if (_isDescendant(ancestorId: pageId, nodeId: newParentId)) return;
     }
     final p = _pages.firstWhere((e) => e.id == pageId);
+    final oldParentId = p.parentId;
     _rememberUndoBeforePageMutation(pageId);
     p.parentId = newParentId;
+    if (oldParentId != newParentId) {
+      final oldKey = _orderKeyForParent(oldParentId);
+      final newKey = _orderKeyForParent(newParentId);
+      _pageOrderByParent[oldKey]?.remove(pageId);
+      (_pageOrderByParent[newKey] ??= <String>[]).add(pageId);
+    }
     notifyListeners();
     scheduleSave(trackRevisionForPageId: pageId);
+  }
+
+  void deleteFolderMoveChildrenToRoot(String folderId) {
+    final folder = _pageById(folderId);
+    if (folder == null || !folder.isFolder) return;
+    if (_pages.length <= 1) return;
+    final children = _pages.where((p) => p.parentId == folderId).toList();
+    _rememberUndoBeforePageMutation(folderId);
+    for (final child in children) {
+      child.parentId = null;
+      final rootKey = _orderKeyForParent(null);
+      (_pageOrderByParent[rootKey] ??= <String>[]).add(child.id);
+    }
+    // Quitar ids movidos del orden antiguo del folder.
+    _pageOrderByParent[_orderKeyForParent(folderId)]?.removeWhere(
+      (id) => children.any((c) => c.id == id),
+    );
+    // Borrar folder si ya se puede.
+    if (!_hasChildren(folderId)) {
+      deletePage(folderId);
+    } else {
+      // Si algo dejó hijos (defensivo), al menos desmarca como folder.
+      folder.isFolder = false;
+      notifyListeners();
+      scheduleSave(trackRevisionForPageId: folderId);
+    }
   }
 
   /// Verdadero si [nodeId] está bajo [ancestorId] en el árbol.
@@ -3136,6 +3282,7 @@ class VaultSession extends ChangeNotifier {
         VaultPayload(
           version: kVaultPayloadVersion,
           pages: _pages,
+          pageOrderByParent: _pageOrderByParent,
           pageRevisions: Map<String, List<FolioPageRevision>>.fromEntries(
             _pageRevisions.entries.map(
               (e) => MapEntry(e.key, List<FolioPageRevision>.from(e.value)),
@@ -3176,6 +3323,7 @@ class VaultSession extends ChangeNotifier {
     final payload = VaultPayload(
       version: kVaultPayloadVersion,
       pages: _pages,
+      pageOrderByParent: _pageOrderByParent,
       pageRevisions: Map<String, List<FolioPageRevision>>.fromEntries(
         _pageRevisions.entries.map(
           (e) => MapEntry(e.key, List<FolioPageRevision>.from(e.value)),
@@ -3318,6 +3466,7 @@ class VaultSession extends ChangeNotifier {
     final previousSelectedPageId = _selectedPageId;
     _pages = List<FolioPage>.from(payload.pages);
     _loadRevisionsFromPayload(payload);
+    _ensureOrderForCurrentPages();
     final canKeepSelection =
         previousSelectedPageId != null &&
         _pages.any((p) => p.id == previousSelectedPageId);
@@ -3540,6 +3689,7 @@ class VaultSession extends ChangeNotifier {
     final payload = VaultPayload(
       version: kVaultPayloadVersion,
       pages: _pages,
+        pageOrderByParent: _pageOrderByParent,
       pageRevisions: Map<String, List<FolioPageRevision>>.fromEntries(
         _pageRevisions.entries.map(
           (e) => MapEntry(e.key, List<FolioPageRevision>.from(e.value)),

@@ -3,7 +3,7 @@
 ; Non-commercial use only
 
 #define MyAppName "Folio"
-#define MyAppVersion "0.0.3+2"
+#define MyAppVersion "0.0.3+3"
 #define MyAppPublisher "Minealex Games"
 #define MyAppURL "https://minealexgames.com/"
 #define MyAppExeName "folio.exe"
@@ -57,5 +57,5 @@ Name: "{autoprograms}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"
 Name: "{autodesktop}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"; Tasks: desktopicon
 
 [Run]
-Filename: "{app}\{#MyAppExeName}"; Description: "{cm:LaunchProgram,{#StringChange(MyAppName, '&', '&&')}}"; Flags: nowait postinstall skipifsilent
+Filename: "{app}\{#MyAppExeName}"; Description: "{cm:LaunchProgram,{#StringChange(MyAppName, '&', '&&')}}"; Flags: nowait postinstall
 

@@ -26,17 +26,21 @@ Widget _buildBlockRowMarker({
             toggled: block.checked ?? false,
             child: Transform.translate(
               offset: const Offset(-2, 0),
-              child: Checkbox(
-                materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                visualDensity: VisualDensity.compact,
-                value: block.checked ?? false,
-                onChanged: readOnlyMode
-                    ? null
-                    : (v) {
-                        if (v != null) {
-                          st._s.setBlockChecked(page.id, block.id, v);
-                        }
-                      },
+              child: MetaData(
+                metaData: folioInteractiveMetaDataTag,
+                behavior: HitTestBehavior.translucent,
+                child: Checkbox(
+                  materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  visualDensity: VisualDensity.compact,
+                  value: block.checked ?? false,
+                  onChanged: readOnlyMode
+                      ? null
+                      : (v) {
+                          if (v != null) {
+                            st._s.setBlockChecked(page.id, block.id, v);
+                          }
+                        },
+                ),
               ),
             ),
           ),

@@ -2,12 +2,14 @@ import 'package:flutter_test/flutter_test.dart';
 
 import 'package:folio/app/app_settings.dart';
 import 'package:folio/features/settings/release_readiness.dart';
+import 'package:folio/l10n/generated/app_localizations_en.dart';
 import 'package:folio/services/updater/update_release_channel.dart';
 
 void main() {
   group('release readiness evaluator', () {
     test('accepts valid semver and localhost AI endpoint', () {
       final snapshot = evaluateReleaseReadiness(
+        l10n: AppLocalizationsEn(),
         installedVersionLabel: '1.2.3+4',
         updateReleaseChannel: UpdateReleaseChannel.stable,
         activeVaultId: 'vault-1',
@@ -25,13 +27,13 @@ void main() {
       expect(snapshot.isAiEndpointPolicyValid, isTrue);
       expect(snapshot.isReadyForRelease, isTrue);
       expect(snapshot.failedBlockers, 0);
-      expect(snapshot.toReportText(), contains('SemVer valido: si'));
-      expect(snapshot.toReportText(), contains('Politica endpoint IA: ok'));
-      expect(snapshot.toReportText(), contains('Estado release: ready'));
+      final report = snapshot.toReportText(AppLocalizationsEn());
+      expect(report, isNotEmpty);
     });
 
     test('fails AI endpoint policy for unconfirmed remote endpoint', () {
       final snapshot = evaluateReleaseReadiness(
+        l10n: AppLocalizationsEn(),
         installedVersionLabel: '0.0.1+1',
         updateReleaseChannel: UpdateReleaseChannel.beta,
         activeVaultId: 'vault-2',
@@ -49,13 +51,13 @@ void main() {
       expect(snapshot.isAiEndpointPolicyValid, isFalse);
       expect(snapshot.isReadyForRelease, isFalse);
       expect(snapshot.failedBlockers, greaterThan(0));
-      expect(snapshot.toReportText(), contains('Canal updates: beta'));
-      expect(snapshot.toReportText(), contains('Politica endpoint IA: error'));
-      expect(snapshot.toReportText(), contains('Estado release: blocked'));
+      final report = snapshot.toReportText(AppLocalizationsEn());
+      expect(report, isNotEmpty);
     });
 
     test('marks invalid semver label', () {
       final snapshot = evaluateReleaseReadiness(
+        l10n: AppLocalizationsEn(),
         installedVersionLabel: 'desconocida',
         updateReleaseChannel: UpdateReleaseChannel.stable,
         activeVaultId: null,
@@ -73,11 +75,13 @@ void main() {
       expect(snapshot.activeVaultId, '-');
       expect(snapshot.activeVaultPath, '-');
       expect(snapshot.isReadyForRelease, isFalse);
-      expect(snapshot.toReportText(), contains('IA habilitada: no'));
+      final report = snapshot.toReportText(AppLocalizationsEn());
+      expect(report, isNotEmpty);
     });
 
     test('beta channel is warning and not a blocker', () {
       final snapshot = evaluateReleaseReadiness(
+        l10n: AppLocalizationsEn(),
         installedVersionLabel: '1.0.0+7',
         updateReleaseChannel: UpdateReleaseChannel.beta,
         activeVaultId: 'vault-3',

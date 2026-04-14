@@ -19,7 +19,7 @@ Widget? _specialRowAudio(_BlockRowScope s) {
   final showInlineEditControls = s.showInlineEditControls;
   final index = s.index;
   final readOnlyMode = s.readOnlyMode;
-  final l10n = AppLocalizations.of(context)!;
+  final l10n = AppLocalizations.of(context);
   return Padding(
     padding: EdgeInsetsDirectional.fromSTEB(block.depth * 28.0, 4, 4, 4),
     child: Row(
@@ -73,7 +73,14 @@ Widget? _specialRowAudio(_BlockRowScope s) {
                         ],
                       )
                     else
-                      FolioAudioBlockPlayer(file: snap.data!, scheme: scheme),
+                      MetaData(
+                        metaData: folioInteractiveMetaDataTag,
+                        behavior: HitTestBehavior.translucent,
+                        child: FolioAudioBlockPlayer(
+                          file: snap.data!,
+                          scheme: scheme,
+                        ),
+                      ),
                   ],
                 );
               },

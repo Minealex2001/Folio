@@ -19,24 +19,23 @@ Widget? _specialRowTask(_BlockRowScope s) {
   final showInlineEditControls = s.showInlineEditControls;
   final index = s.index;
   final readOnlyMode = s.readOnlyMode;
-  return Padding(
-    padding: EdgeInsetsDirectional.fromSTEB(block.depth * 28.0, 2, 4, 2),
-    child: Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        st._blockMenuSlot(showActions: showActions, menu: menu),
-        dragHandle,
-        marker,
-        Expanded(
-          child: FolioTaskBlockBody(
-            pageId: page.id,
-            block: block,
-            session: st._s,
-            scheme: scheme,
-            textTheme: theme.textTheme,
-          ),
-        ),
-      ],
+  return _specialRowChrome(
+    st: st,
+    block: block,
+    menu: menu,
+    dragHandle: dragHandle,
+    marker: marker,
+    showActions: showActions,
+    child: MetaData(
+      metaData: folioInteractiveMetaDataTag,
+      behavior: HitTestBehavior.translucent,
+      child: FolioTaskBlockBody(
+        pageId: page.id,
+        block: block,
+        session: st._s,
+        scheme: scheme,
+        textTheme: theme.textTheme,
+      ),
     ),
   );
 }

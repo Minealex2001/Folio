@@ -31,6 +31,10 @@ class CustomIconImportService {
     required AppLocalizations l10n,
     required String source,
     String? label,
+    Future<({int statusCode, String? contentType, List<int> bytes})> Function(
+      Uri uri,
+    )?
+    fetchRemote,
   }) async {
     final raw = source.trim();
     if (raw.isEmpty) {
@@ -46,7 +50,12 @@ class CustomIconImportService {
     if (uri.scheme != 'http' && uri.scheme != 'https') {
       throw CustomIconImportException(l10n.customIconImportHttpHttpsOnly);
     }
-    return _importFromRemoteUri(l10n, uri, label: label);
+    return _importFromRemoteUri(
+      l10n,
+      uri,
+      label: label,
+      fetchRemote: fetchRemote,
+    );
   }
 
   Future<CustomIconEntry> _importFromDataUri(
@@ -101,7 +110,49 @@ class CustomIconImportService {
     AppLocalizations l10n,
     Uri uri, {
     String? label,
+    Future<({int statusCode, String? contentType, List<int> bytes})> Function(
+      Uri uri,
+    )?
+    fetchRemote,
   }) async {
+    // En suites con TestWidgetsFlutterBinding, el HttpClient del SDK devuelve 400
+    // siempre. Esta inyección permite tests deterministas sin red real.
+    if (fetchRemote != null) {
+      final snap = await fetchRemote(uri);
+      if (snap.statusCode < 200 || snap.statusCode >= 300) {
+        throw CustomIconImportException(
+          l10n.customIconImportDownloadFailed(snap.statusCode.toString()),
+        );
+      }
+      final mimeType = (snap.contentType ?? '').toLowerCase().trim();
+      final bytes = snap.bytes;
+      if (bytes.isEmpty) {
+        throw CustomIconImportException(l10n.customIconImportUnsupportedFormat);
+      }
+      if (bytes.length > maxBytes) {
+        throw CustomIconImportException(l10n.customIconImportRemoteTooLarge);
+      }
+      final resolvedMimeType = _resolveMimeType(uri, mimeType, bytes);
+      final extension = _extensionForMimeType(resolvedMimeType);
+      if (extension == null) {
+        throw CustomIconImportException(l10n.customIconImportUnsupportedFormat);
+      }
+      final id = _uuid.v4();
+      final file = await _createTargetFile(id, extension);
+      await file.writeAsBytes(bytes, flush: true);
+      return CustomIconEntry(
+        id: id,
+        label: _sanitizeLabel(
+          label,
+          fallback: _fallbackLabelFromUri(l10n, uri),
+        ),
+        source: uri.toString(),
+        filePath: file.path,
+        mimeType: resolvedMimeType,
+        createdAtMs: DateTime.now().millisecondsSinceEpoch,
+      );
+    }
+
     final client = HttpClient()
       ..connectionTimeout = const Duration(seconds: 12);
     try {

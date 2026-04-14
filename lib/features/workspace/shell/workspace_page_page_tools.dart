@@ -15,7 +15,7 @@ extension _WorkspacePageToolsModule on _WorkspacePageState {
     if (page == null) {
       return Future.value(FolioMarkdownImportMode.newPage);
     }
-    final l10n = AppLocalizations.of(context)!;
+    final l10n = AppLocalizations.of(context);
     return showDialog<FolioMarkdownImportMode>(
       context: context,
       builder: (ctx) => FolioDialog(
@@ -108,7 +108,7 @@ extension _WorkspacePageToolsModule on _WorkspacePageState {
 
   Future<void> _importMarkdownFile() async {
     if (_s.state != VaultFlowState.unlocked) return;
-    final l10n = AppLocalizations.of(context)!;
+    final l10n = AppLocalizations.of(context);
     final pick = await FilePicker.platform.pickFiles(
       type: FileType.custom,
       allowedExtensions: const ['md', 'markdown'],
@@ -146,7 +146,7 @@ extension _WorkspacePageToolsModule on _WorkspacePageState {
   Future<void> _exportCurrentPageToMarkdown() async {
     final page = _s.selectedPage;
     if (page == null || _s.state != VaultFlowState.unlocked) return;
-    final l10n = AppLocalizations.of(context)!;
+    final l10n = AppLocalizations.of(context);
     final destination = await FilePicker.platform.saveFile(
       dialogTitle: l10n.exportMarkdownFileDialogTitle,
       fileName: _suggestMarkdownFileName(page.title),
@@ -179,7 +179,7 @@ extension _WorkspacePageToolsModule on _WorkspacePageState {
   Future<void> _publishCurrentPageToWeb() async {
     final page = _s.selectedPage;
     if (page == null || _s.state != VaultFlowState.unlocked) return;
-    final l10nRoot = AppLocalizations.of(context)!;
+    final l10nRoot = AppLocalizations.of(context);
     if (Firebase.apps.isEmpty) {
       _snack(l10nRoot.firebaseUnavailablePublish);
       return;

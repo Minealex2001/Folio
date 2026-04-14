@@ -153,16 +153,20 @@ Widget? _specialRowFile(_BlockRowScope s) {
                                   ],
                                 );
                               }
-                              return FolioFilePreviewCard(
-                                file: file,
-                                theme: theme,
-                                scheme: scheme,
-                                onOpenExternal: () =>
-                                    st._openBlockUrlExternal(block.url),
-                                onReplace: () =>
-                                    st._pickFileForBlock(page.id, block.id),
-                                onClear: () =>
-                                    st._clearBlockUrl(page.id, block.id),
+                              return MetaData(
+                                metaData: folioInteractiveMetaDataTag,
+                                behavior: HitTestBehavior.translucent,
+                                child: FolioFilePreviewCard(
+                                  file: file,
+                                  theme: theme,
+                                  scheme: scheme,
+                                  onOpenExternal: () =>
+                                      st._openBlockUrlExternal(block.url),
+                                  onReplace: () =>
+                                      st._pickFileForBlock(page.id, block.id),
+                                  onClear: () =>
+                                      st._clearBlockUrl(page.id, block.id),
+                                ),
                               );
                             },
                           ),

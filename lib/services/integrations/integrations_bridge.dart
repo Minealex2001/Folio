@@ -432,6 +432,7 @@ class IntegrationsBridgeController {
     this.onEvent,
     this.resolveLocale,
     this.allowedOrigins = const [],
+    int port = IntegrationsLaunchSession.fixedPort,
   }) : _onImport = onImport,
        _onUpdate = onUpdate,
        _onListPages = onListPages,
@@ -443,7 +444,8 @@ class IntegrationsBridgeController {
        _onApproveClient = onApproveClient,
        _onClientObserved = onClientObserved,
        _isClientApproved = isClientApproved,
-       _appInfoProvider = appInfoProvider;
+       _appInfoProvider = appInfoProvider,
+       _port = port;
 
   final Future<FolioMarkdownImportResult> Function(
     IntegrationsMarkdownImportRequest request,
@@ -496,16 +498,19 @@ class IntegrationsBridgeController {
   HttpServer? _server;
   IntegrationsLaunchSession? _activeSession;
   Timer? _expiryTimer;
+  int _port;
 
   IntegrationsLaunchSession? get activeSession => _activeSession;
+  int get port => _port;
 
   Future<void> start() async {
     if (_server != null) return;
     _server = await HttpServer.bind(
       InternetAddress.loopbackIPv4,
-      IntegrationsLaunchSession.fixedPort,
+      _port,
       shared: false,
     );
+    _port = _server!.port;
     unawaited(_listen(_server!));
   }
 
@@ -554,7 +559,7 @@ class IntegrationsBridgeController {
     final now = DateTime.now().toUtc();
     final session = IntegrationsLaunchSession(
       sessionId: _newSessionId(),
-      port: IntegrationsLaunchSession.fixedPort,
+      port: _port,
       nonce: _newNonce(),
       expiresAtUtc: now.add(sessionTtl),
       client: client,
@@ -647,7 +652,7 @@ class IntegrationsBridgeController {
       await _writeJson(request.response, HttpStatus.ok, {
         'ok': true,
         'appRunning': true,
-        'port': IntegrationsLaunchSession.fixedPort,
+        'port': _port,
         'importSessionActive': session != null,
         'sessionId': session?.sessionId,
         'state': session == null ? 'idle' : 'ready',
@@ -662,7 +667,7 @@ class IntegrationsBridgeController {
       await _writeJson(request.response, HttpStatus.ok, {
         'ok': true,
         'appRunning': true,
-        'bridgePort': IntegrationsLaunchSession.fixedPort,
+        'bridgePort': _port,
         'importSessionActive': session != null,
         'sessionId': session?.sessionId,
         'clientApproved': client != null && _isClientApproved(client),

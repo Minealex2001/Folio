@@ -14,6 +14,7 @@ import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/foundation.dart'
     show TargetPlatform, defaultTargetPlatform, setEquals;
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart' show HitTestResult, RenderMetaData;
 import 'package:flutter/services.dart';
 import 'package:flutter_code_editor/flutter_code_editor.dart';
 import 'package:image_picker/image_picker.dart';
@@ -85,6 +86,9 @@ part 'block_editor/block_row_dispatch_column_list.dart';
 part 'block_editor/editable_markdown_block_row.dart';
 part 'block_editor/block_row_extensions.dart';
 part 'block_editor/block_editor_state.dart';
+part 'block_editor/block_list_row.dart';
+part 'block_editor/special_row_chrome.dart';
+part 'block_editor/state_tail_and_fill.dart';
 /// `null` si el texto del bloque no es comando `/…`; si no, filtro tras la `/` (puede ser vacío).
 String? _slashFilterFromBlockText(String text) {
   if (!text.startsWith('/')) return null;

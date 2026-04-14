@@ -51,8 +51,9 @@ Widget _buildEditableMarkdownBlockRow(_BlockRowScope s) {
     math.max(100.0, MediaQuery.sizeOf(context).height * 0.25),
   );
 
-  /// Vista previa mientras escribes: el [TextField] va **encima** (texto transparente)
-  /// para no bloquear toques ni el cursor; el markdown queda detrás.
+  /// Vista previa mientras no está enfocado: el markdown queda interactivo
+  /// para que los enlaces se puedan pulsar sin entrar antes en edición.
+  /// Un toque fuera de un enlace vuelve a enfocar el editor.
   /// Sin previa si solo hay `#`…`######` y espacios (el render no muestra nada útil).
   final showInlinePreview =
       allowsSlash &&
@@ -123,8 +124,10 @@ Widget _buildEditableMarkdownBlockRow(_BlockRowScope s) {
 
   final stackedField = showInlinePreview
       ? Stack(
-          clipBehavior: Clip.hardEdge,
           children: [
+            // Mantener el TextField en el árbol (aunque sea invisible) para que
+            // el FocusNode esté adjunto y un click pueda entrar en edición.
+            field,
             Positioned.fill(
               child: Align(
                 alignment: isTopAlignedSlashBlock
@@ -137,7 +140,6 @@ Widget _buildEditableMarkdownBlockRow(_BlockRowScope s) {
                 ),
               ),
             ),
-            field,
           ],
         )
       : field;

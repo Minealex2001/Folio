@@ -19,37 +19,35 @@ Widget? _specialRowTable(_BlockRowScope s) {
   final showInlineEditControls = s.showInlineEditControls;
   final index = s.index;
   final readOnlyMode = s.readOnlyMode;
-  return Padding(
-    padding: EdgeInsetsDirectional.fromSTEB(block.depth * 28.0, 2, 4, 2),
-    child: Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        st._blockMenuSlot(showActions: showActions, menu: menu),
-        dragHandle,
-        marker,
-        Expanded(
-          child: IgnorePointer(
-            ignoring: readOnlyMode,
-            child: GestureDetector(
-              behavior: HitTestBehavior.opaque,
-              onTap: readOnlyMode
-                  ? null
-                  : () {
-                      focus.requestFocus();
-                    },
-              child: TableBlockEditor(
-                json: block.text,
-                scheme: scheme,
-                textTheme: theme.textTheme,
-                firstCellFocusNode: focus,
-                showToolbar: showInlineEditControls,
-                onChanged: (enc) =>
-                    st._onTableEncoded(page.id, block.id, index, enc),
-              ),
-            ),
+  return _specialRowChrome(
+    st: st,
+    block: block,
+    menu: menu,
+    dragHandle: dragHandle,
+    marker: marker,
+    showActions: showActions,
+    child: MetaData(
+      metaData: folioInteractiveMetaDataTag,
+      behavior: HitTestBehavior.translucent,
+      child: IgnorePointer(
+        ignoring: readOnlyMode,
+        child: GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTap: readOnlyMode
+              ? null
+              : () {
+                  focus.requestFocus();
+                },
+          child: TableBlockEditor(
+            json: block.text,
+            scheme: scheme,
+            textTheme: theme.textTheme,
+            firstCellFocusNode: focus,
+            showToolbar: showInlineEditControls,
+            onChanged: (enc) => st._onTableEncoded(page.id, block.id, index, enc),
           ),
         ),
-      ],
+      ),
     ),
   );
 }

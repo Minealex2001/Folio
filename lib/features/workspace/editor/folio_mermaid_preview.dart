@@ -43,7 +43,7 @@ void _showFolioMermaidExpanded(BuildContext context, String imageUrl) {
   showDialog<void>(
     context: context,
     builder: (ctx) {
-      final l10n = AppLocalizations.of(ctx)!;
+      final l10n = AppLocalizations.of(ctx);
       return Dialog.fullscreen(
         backgroundColor: Colors.white,
         child: Scaffold(
@@ -110,7 +110,7 @@ class FolioMermaidPreview extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final l10n = AppLocalizations.of(context)!;
+    final l10n = AppLocalizations.of(context);
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
     final mono = theme.textTheme.bodySmall?.copyWith(
