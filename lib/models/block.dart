@@ -65,6 +65,7 @@ class FolioBlock {
     required this.id,
     required this.type,
     required this.text,
+    this.richTextDeltaJson,
     this.checked,
     this.expanded,
     this.codeLanguage,
@@ -85,6 +86,11 @@ class FolioBlock {
 
   /// En texto y encabezados puede incluir Markdown inline (negrita, cursiva, código, tachado, subrayado, enlaces).
   String text;
+
+  /// Fuente de verdad WYSIWYG (Quill Delta) serializada como JSON.
+  /// Si existe, el editor rich-text debe cargar desde aquí y solo usar [text]
+  /// (Markdown) como formato de compatibilidad/export.
+  String? richTextDeltaJson;
   bool? checked;
 
   /// Solo [type] == `toggle`: panel de contenido abierto.
@@ -119,6 +125,7 @@ class FolioBlock {
     'id': id,
     'type': type,
     'text': text,
+    if (richTextDeltaJson != null) 'richTextDeltaJson': richTextDeltaJson,
     if (checked != null) 'checked': checked,
     if (expanded != null) 'expanded': expanded,
     if (codeLanguage != null) 'codeLanguage': codeLanguage,
@@ -138,6 +145,7 @@ class FolioBlock {
       id: j['id'] as String,
       type: j['type'] as String? ?? 'paragraph',
       text: j['text'] as String? ?? '',
+      richTextDeltaJson: j['richTextDeltaJson'] as String?,
       checked: j['checked'] as bool?,
       expanded: j['expanded'] as bool?,
       codeLanguage: j['codeLanguage'] as String?,
@@ -157,6 +165,7 @@ class FolioBlock {
   FolioBlock copyWith({
     String? text,
     String? type,
+    String? richTextDeltaJson,
     bool? checked,
     bool? expanded,
     String? codeLanguage,
@@ -172,6 +181,7 @@ class FolioBlock {
       id: id,
       type: type ?? this.type,
       text: text ?? this.text,
+      richTextDeltaJson: richTextDeltaJson ?? this.richTextDeltaJson,
       checked: checked ?? this.checked,
       expanded: expanded ?? this.expanded,
       codeLanguage: codeLanguage ?? this.codeLanguage,

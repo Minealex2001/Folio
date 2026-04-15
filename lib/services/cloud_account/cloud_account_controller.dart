@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:developer';
 
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
@@ -9,6 +10,8 @@ import '../folio_cloud/folio_cloud_identity_rest_verify.dart';
 /// Optional Firebase Authentication for future paid cloud sync.
 /// If [Firebase] was not initialized, [isAvailable] is false and methods throw.
 class CloudAccountController extends ChangeNotifier {
+  static const Duration _authNetworkTimeout = Duration(seconds: 15);
+
   CloudAccountController() {
     if (Firebase.apps.isNotEmpty) {
       _auth = FirebaseAuth.instance;
@@ -110,10 +113,22 @@ class CloudAccountController extends ChangeNotifier {
     if (auth == null) {
       throw StateError('Firebase not initialized');
     }
-    await auth.signInWithEmailAndPassword(
-      email: email.trim(),
-      password: password,
-    );
+    try {
+      await auth
+          .signInWithEmailAndPassword(
+            email: email.trim(),
+            password: password,
+          )
+          .timeout(_authNetworkTimeout);
+    } on TimeoutException catch (e, st) {
+      log(
+        'FirebaseAuth signIn timeout (possible blocked network).',
+        name: 'FolioCloudAuth',
+        error: e,
+        stackTrace: st,
+      );
+      throw FirebaseAuthException(code: 'network-request-failed');
+    }
   }
 
   Future<void> createUserWithEmailAndPassword({
@@ -124,10 +139,22 @@ class CloudAccountController extends ChangeNotifier {
     if (auth == null) {
       throw StateError('Firebase not initialized');
     }
-    await auth.createUserWithEmailAndPassword(
-      email: email.trim(),
-      password: password,
-    );
+    try {
+      await auth
+          .createUserWithEmailAndPassword(
+            email: email.trim(),
+            password: password,
+          )
+          .timeout(_authNetworkTimeout);
+    } on TimeoutException catch (e, st) {
+      log(
+        'FirebaseAuth createUser timeout (possible blocked network).',
+        name: 'FolioCloudAuth',
+        error: e,
+        stackTrace: st,
+      );
+      throw FirebaseAuthException(code: 'network-request-failed');
+    }
   }
 
   Future<void> sendPasswordResetEmail(String email) async {
@@ -135,7 +162,19 @@ class CloudAccountController extends ChangeNotifier {
     if (auth == null) {
       throw StateError('Firebase not initialized');
     }
-    await auth.sendPasswordResetEmail(email: email.trim());
+    try {
+      await auth
+          .sendPasswordResetEmail(email: email.trim())
+          .timeout(_authNetworkTimeout);
+    } on TimeoutException catch (e, st) {
+      log(
+        'FirebaseAuth resetPassword timeout (possible blocked network).',
+        name: 'FolioCloudAuth',
+        error: e,
+        stackTrace: st,
+      );
+      throw FirebaseAuthException(code: 'network-request-failed');
+    }
   }
 
   Future<void> signOut() async {

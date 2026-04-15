@@ -1,8 +1,10 @@
 import 'package:markdown/markdown.dart' as md;
 
+import '../../models/block.dart';
 import '../../models/folio_page.dart';
 import '../integrations/integrations_markdown_codec.dart';
 import 'folio_web_export_config.dart';
+import 'quill_delta_export.dart';
 
 String _folioEscapeHtml(String s) {
   return s
@@ -250,18 +252,153 @@ String folioWebExportShellHtml({
       '</html>\n';
 }
 
+enum _FolioExportListKind { none, ul, ol }
+
+bool _folioBlockSupportsRichDelta(FolioBlock b) {
+  switch (b.type) {
+    case 'paragraph':
+    case 'h1':
+    case 'h2':
+    case 'h3':
+    case 'quote':
+    case 'bullet':
+    case 'numbered':
+    case 'todo':
+      return true;
+    default:
+      return false;
+  }
+}
+
+bool _folioHasRichDelta(FolioBlock b) =>
+    b.richTextDeltaJson != null && b.richTextDeltaJson!.trim().isNotEmpty;
+
+_FolioExportListKind _folioListKindForBlock(FolioBlock b) {
+  if (b.type == 'bullet' || b.type == 'todo') return _FolioExportListKind.ul;
+  if (b.type == 'numbered') return _FolioExportListKind.ol;
+  return _FolioExportListKind.none;
+}
+
+String _folioWrapRichBlockHtml(FolioBlock block, String inner) {
+  switch (block.type) {
+    case 'paragraph':
+      return '<p>$inner</p>';
+    case 'h1':
+      return '<h1>$inner</h1>';
+    case 'h2':
+      return '<h2>$inner</h2>';
+    case 'h3':
+      return '<h3>$inner</h3>';
+    case 'quote':
+      return '<blockquote>\n<p>$inner</p>\n</blockquote>';
+    case 'bullet':
+    case 'numbered':
+      return '<li>$inner</li>';
+    case 'todo':
+      final mark = block.checked == true ? '☑ ' : '☐ ';
+      return '<li class="folio-todo"><span class="folio-todo__mark">$mark</span>$inner</li>';
+    default:
+      return '<p>$inner</p>';
+  }
+}
+
+String _folioMarkdownChunkToHtml(String mdChunk) {
+  return md
+      .markdownToHtml(mdChunk, extensionSet: md.ExtensionSet.gitHubFlavored)
+      .trim();
+}
+
+/// Extrae el interior de un único `<li>…</li>` desde Markdown de lista (`- ` o `1. `).
+String _folioMarkdownListLineToLiHtml(String mdListLine) {
+  final h = md.markdownToHtml(
+    mdListLine,
+    extensionSet: md.ExtensionSet.gitHubFlavored,
+  );
+  final ul = RegExp(
+    r'<ul>\s*([\s\S]*?)\s*</ul>',
+    caseSensitive: false,
+  ).firstMatch(h);
+  if (ul != null) return ul.group(1)!.trim();
+  final ol = RegExp(
+    r'<ol>\s*([\s\S]*?)\s*</ol>',
+    caseSensitive: false,
+  ).firstMatch(h);
+  if (ol != null) return ol.group(1)!.trim();
+  return h.trim();
+}
+
+/// Fragmento HTML del cuerpo (dentro de `.folio-content`): bloques + WYSIWYG (Delta) a HTML.
+String folioPageExportBodyHtml(FolioPage page) {
+  final counters = <int, int>{};
+  final buf = StringBuffer();
+  var openList = _FolioExportListKind.none;
+  var wroteTitle = false;
+
+  void closeList() {
+    if (openList == _FolioExportListKind.ul) buf.writeln('</ul>');
+    if (openList == _FolioExportListKind.ol) buf.writeln('</ol>');
+    openList = _FolioExportListKind.none;
+  }
+
+  for (final block in page.blocks) {
+    final md = FolioMarkdownCodec.exportBlockMarkdown(block, page, counters);
+    if (md == null || md.trim().isEmpty) continue;
+
+    final lk = _folioListKindForBlock(block);
+
+    if (block.type == 'toggle' && md.trim().startsWith('<details')) {
+      closeList();
+      buf.writeln(md);
+      continue;
+    }
+
+    late final String fragment;
+    if (_folioBlockSupportsRichDelta(block) && _folioHasRichDelta(block)) {
+      final inner = folioQuillDeltaJsonToInlineHtml(
+        block.richTextDeltaJson,
+        fallbackMarkdown: block.text,
+      );
+      fragment = _folioWrapRichBlockHtml(block, inner);
+      if (block.type == 'h1') wroteTitle = true;
+    } else {
+      if (lk == _FolioExportListKind.ul || lk == _FolioExportListKind.ol) {
+        fragment = _folioMarkdownListLineToLiHtml(md.split('\n').first);
+      } else {
+        fragment = _folioMarkdownChunkToHtml(md);
+      }
+      if (block.type == 'h1') wroteTitle = true;
+    }
+
+    if (fragment.trim().isEmpty) continue;
+
+    if (lk == _FolioExportListKind.none) {
+      closeList();
+      buf.writeln(fragment);
+    } else {
+      if (openList != lk) {
+        closeList();
+        buf.writeln(lk == _FolioExportListKind.ul ? '<ul>' : '<ol>');
+        openList = lk;
+      }
+      buf.writeln(fragment);
+    }
+  }
+  closeList();
+  var body = buf.toString();
+  if (!wroteTitle) {
+    final t = page.title.trim().isEmpty ? 'Folio' : page.title.trim();
+    body = '<h1>${_folioEscapeHtml(t)}</h1>\n\n$body';
+  }
+  return _folioTransformCalloutBlockquotes(body);
+}
+
 /// HTML para [publishHtmlPage] (contenido vía Markdown de la página).
 String folioPageExportHtmlDocument(
   FolioPage page, {
   String? appIconDataUri,
   required String pagePublishedSubtitle,
 }) {
-  final mdBody = FolioMarkdownCodec.exportPage(page, includeFrontMatter: false);
-  var bodyHtml = md.markdownToHtml(
-    mdBody,
-    extensionSet: md.ExtensionSet.gitHubFlavored,
-  );
-  bodyHtml = _folioTransformCalloutBlockquotes(bodyHtml);
+  var bodyHtml = folioPageExportBodyHtml(page);
   final title = page.title.trim().isEmpty ? 'Folio' : page.title.trim();
   return folioWebExportShellHtml(
     documentTitle: title,

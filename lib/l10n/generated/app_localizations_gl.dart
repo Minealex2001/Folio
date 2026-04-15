@@ -1129,6 +1129,12 @@ class AppLocalizationsGl extends AppLocalizations {
   String get formatToolbar => 'Barra de formato';
 
   @override
+  String get formatToolbarScrollPrevious => 'Ver ferramentas anteriores';
+
+  @override
+  String get formatToolbarScrollNext => 'Ver máis ferramentas';
+
+  @override
   String get linkTitle => 'Ligazón';
 
   @override
@@ -1396,6 +1402,9 @@ class AppLocalizationsGl extends AppLocalizations {
   String get exportMarkdownPage => 'Exportar Markdown';
 
   @override
+  String get exportPage => 'Exportar…';
+
+  @override
   String get workspaceUndoTooltip => 'Desfacer (Ctrl+Z)';
 
   @override
@@ -1567,7 +1576,7 @@ class AppLocalizationsGl extends AppLocalizations {
 
   @override
   String get aiSetupLmStudioBody =>
-      'Instala LM Studio, inicia o seu servidor local (compatible con OpenAI) e verifica que responde en http://127.0.0.1:1234.';
+      'Instala LM Studio, inicia o seu servidor local e verifica que responde en http://127.0.0.1:1234.';
 
   @override
   String get aiSetupOpenSettingsHint =>
@@ -1726,7 +1735,29 @@ class AppLocalizationsGl extends AppLocalizations {
   String get scheduledVaultBackupChooseFolder => 'Carpeta de copia';
 
   @override
-  String get scheduledVaultBackupIntervalLabel => 'Intervalo (horas)';
+  String get scheduledVaultBackupIntervalLabel => 'Intervalo entre copias';
+
+  @override
+  String scheduledVaultBackupEveryNMinutes(int n) {
+    String _temp0 = intl.Intl.pluralLogic(
+      n,
+      locale: localeName,
+      other: '$n minutos',
+      one: '1 minuto',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String scheduledVaultBackupEveryNHours(int n) {
+    String _temp0 = intl.Intl.pluralLogic(
+      n,
+      locale: localeName,
+      other: '$n horas',
+      one: '1 hora',
+    );
+    return '$_temp0';
+  }
 
   @override
   String scheduledVaultBackupLastRun(Object time) {
@@ -3645,6 +3676,9 @@ class AppLocalizationsGl extends AppLocalizations {
   }
 
   @override
+  String get importPage => 'Importar…';
+
+  @override
   String get exportMarkdownFileDialogTitle => 'Exportar páxina a Markdown';
 
   @override
@@ -3652,6 +3686,68 @@ class AppLocalizationsGl extends AppLocalizations {
 
   @override
   String markdownExportFailedWithError(Object error) {
+    return 'Non se puido exportar a páxina: $error';
+  }
+
+  @override
+  String get exportPageDialogTitle => 'Exportar páxina';
+
+  @override
+  String get exportPageFormatMarkdown => 'Markdown (.md)';
+
+  @override
+  String get exportPageFormatHtml => 'HTML (.html)';
+
+  @override
+  String get exportPageFormatTxt => 'Texto (.txt)';
+
+  @override
+  String get exportPageFormatJson => 'JSON (.json)';
+
+  @override
+  String get exportPageFormatPdf => 'PDF (.pdf)';
+
+  @override
+  String get exportHtmlFileDialogTitle => 'Exportar páxina a HTML';
+
+  @override
+  String get htmlExportSuccess => 'Páxina exportada a HTML.';
+
+  @override
+  String htmlExportFailedWithError(Object error) {
+    return 'Non se puido exportar a páxina: $error';
+  }
+
+  @override
+  String get exportTxtFileDialogTitle => 'Exportar páxina a texto';
+
+  @override
+  String get txtExportSuccess => 'Páxina exportada a texto.';
+
+  @override
+  String txtExportFailedWithError(Object error) {
+    return 'Non se puido exportar a páxina: $error';
+  }
+
+  @override
+  String get exportJsonFileDialogTitle => 'Exportar páxina a JSON';
+
+  @override
+  String get jsonExportSuccess => 'Páxina exportada a JSON.';
+
+  @override
+  String jsonExportFailedWithError(Object error) {
+    return 'Non se puido exportar a páxina: $error';
+  }
+
+  @override
+  String get exportPdfFileDialogTitle => 'Exportar páxina a PDF';
+
+  @override
+  String get pdfExportSuccess => 'Páxina exportada a PDF.';
+
+  @override
+  String pdfExportFailedWithError(Object error) {
     return 'Non se puido exportar a páxina: $error';
   }
 
@@ -4755,7 +4851,7 @@ class AppLocalizationsGl extends AppLocalizations {
 
   @override
   String get settingsCloudInkUsageTableTitle =>
-      'Táboa de consumo de gotas (OpenAI)';
+      'Táboa de consumo de gotas (Quill Cloud)';
 
   @override
   String get settingsCloudInkUsageTableIntro =>
@@ -4809,6 +4905,124 @@ class AppLocalizationsGl extends AppLocalizations {
   String get settingsCloudInkViewTableButton => 'Ver táboa';
 
   @override
-  String get settingsCloudInkHostedAiOpenAiHint =>
-      'Prezos de referencia para IA na nube con OpenAI.';
+  String get settingsCloudInkHostedAiQuillCloudHint =>
+      'Prezos de referencia para IA na nube en Quill Cloud.';
+
+  @override
+  String get vaultStarterHomeTitle => 'Comeza aquí';
+
+  @override
+  String get vaultStarterHomeHeading => 'O teu caderno xa está listo';
+
+  @override
+  String get vaultStarterHomeIntro =>
+      'Folio organiza as túas páxinas nun árbore, edita o contido por bloques e mantén os datos neste dispositivo. Esta mini guía dache un mapa rápido do que podes facer desde o primeiro minuto.';
+
+  @override
+  String get vaultStarterHomeCallout =>
+      'Podes borrar, renomear ou mover estas páxinas cando queiras. Son só unha base para arrancar máis rápido.';
+
+  @override
+  String get vaultStarterHomeSectionTips => 'O máis útil para empezar';
+
+  @override
+  String get vaultStarterHomeBulletSlash =>
+      'Pulsa / dentro dun parágrafo para inserir cabeceiras, listas, táboas, bloques de código, Mermaid e máis.';
+
+  @override
+  String get vaultStarterHomeBulletSidebar =>
+      'Usa o panel lateral para crear páxinas e subpáxinas, e reorganiza a árbore segundo a túa forma de traballar.';
+
+  @override
+  String get vaultStarterHomeBulletSettings =>
+      'Abre Axustes para activar IA, configurar copia de seguranza, cambiar idioma ou engadir desbloqueo rápido.';
+
+  @override
+  String get vaultStarterHomeTodo1 =>
+      'Crear a miña primeira páxina de traballo';
+
+  @override
+  String get vaultStarterHomeTodo2 =>
+      'Probar o menú / para inserir un bloque novo';
+
+  @override
+  String get vaultStarterHomeTodo3 =>
+      'Revisar Axustes e decidir se quero activar Quill ou un método de desbloqueo rápido';
+
+  @override
+  String get vaultStarterCapabilitiesTitle => 'Que pode facer Folio';
+
+  @override
+  String get vaultStarterCapabilitiesSectionMain => 'Capacidades principais';
+
+  @override
+  String get vaultStarterCapabilitiesBullet1 =>
+      'Tomar notas con estrutura libre usando parágrafos, títulos, listas, checklists, citas e divisores.';
+
+  @override
+  String get vaultStarterCapabilitiesBullet2 =>
+      'Traballar con bloques especiais como táboas, bases de datos, ficheiros, audio, vídeo, embeds e diagramas Mermaid.';
+
+  @override
+  String get vaultStarterCapabilitiesBullet3 =>
+      'Buscar contido, revisar historial de páxina e manter revisións dentro do mesmo caderno.';
+
+  @override
+  String get vaultStarterCapabilitiesBullet4 =>
+      'Exportar ou importar datos, incluíndo copia do caderno e importación desde Notion.';
+
+  @override
+  String get vaultStarterCapabilitiesSectionShortcuts => 'Atallos rápidos';
+
+  @override
+  String get vaultStarterCapabilitiesShortcutN =>
+      'Ctrl+N crea unha páxina nova.';
+
+  @override
+  String get vaultStarterCapabilitiesShortcutSearch =>
+      'Ctrl+K ou Ctrl+F abre a busca.';
+
+  @override
+  String get vaultStarterCapabilitiesShortcutSettings =>
+      'Ctrl+, abre Axustes e Ctrl+L bloquea o caderno.';
+
+  @override
+  String get vaultStarterCapabilitiesAiCallout =>
+      'A IA non se activa por defecto. Se decides usar Quill, configúraa en Axustes e elixes provedor, modelo e permisos de contexto.';
+
+  @override
+  String get vaultStarterQuillTitle => 'Quill e privacidade';
+
+  @override
+  String get vaultStarterQuillSectionWhat => 'Que pode facer Quill';
+
+  @override
+  String get vaultStarterQuillBullet1 =>
+      'Resumir, reescribir ou expandir o contido dunha páxina.';
+
+  @override
+  String get vaultStarterQuillBullet2 =>
+      'Responder dúbidas sobre bloques, atallos e formas de organizar as túas notas en Folio.';
+
+  @override
+  String get vaultStarterQuillBullet3 =>
+      'Traballar coa páxina aberta como contexto ou con varias páxinas que selecciones como referencia.';
+
+  @override
+  String get vaultStarterQuillSectionPrivacy => 'Privacidade e seguranza';
+
+  @override
+  String get vaultStarterQuillPrivacyBody =>
+      'As túas páxinas viven neste dispositivo. Se habilitas IA, revisa que contexto compartes e con que provedor. Se esqueces o contrasinal mestre dun caderno cifrado, Folio non pode recuperalo por ti.';
+
+  @override
+  String get vaultStarterQuillBackupCallout =>
+      'Fai unha copia do caderno cando teñas contido importante. A copia conserva os datos e anexos, pero non transfere Hello nin passkeys entre dispositivos.';
+
+  @override
+  String get vaultStarterQuillMermaidCaption => 'Proba rápida de Mermaid:';
+
+  @override
+  String get vaultStarterQuillMermaidSource =>
+      'graph TD\nInicio[Crear caderno] --> Organizar[Organizar páxinas]\nOrganizar --> Escribir[Escribir e enlazar ideas]\nEscribir --> Revisar[Buscar, revisar e mellorar]';
 }

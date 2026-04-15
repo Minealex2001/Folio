@@ -10,6 +10,91 @@ extension _WorkspacePageToolsModule on _WorkspacePageState {
     return '${safe.isEmpty ? 'page' : safe}.md';
   }
 
+  String _suggestHtmlFileName(String title) {
+    final base = title.trim().isEmpty ? 'page' : title.trim();
+    final safe = base
+        .replaceAll(RegExp(r'[\\/:*?"<>|]'), '_')
+        .replaceAll(RegExp(r'\s+'), ' ')
+        .trim();
+    return '${safe.isEmpty ? 'page' : safe}.html';
+  }
+
+  String _suggestTxtFileName(String title) {
+    final base = title.trim().isEmpty ? 'page' : title.trim();
+    final safe = base
+        .replaceAll(RegExp(r'[\\/:*?"<>|]'), '_')
+        .replaceAll(RegExp(r'\s+'), ' ')
+        .trim();
+    return '${safe.isEmpty ? 'page' : safe}.txt';
+  }
+
+  String _suggestJsonFileName(String title) {
+    final base = title.trim().isEmpty ? 'page' : title.trim();
+    final safe = base
+        .replaceAll(RegExp(r'[\\/:*?"<>|]'), '_')
+        .replaceAll(RegExp(r'\s+'), ' ')
+        .trim();
+    return '${safe.isEmpty ? 'page' : safe}.json';
+  }
+
+  String _suggestPdfFileName(String title) {
+    final base = title.trim().isEmpty ? 'page' : title.trim();
+    final safe = base
+        .replaceAll(RegExp(r'[\\/:*?"<>|]'), '_')
+        .replaceAll(RegExp(r'\s+'), ' ')
+        .trim();
+    return '${safe.isEmpty ? 'page' : safe}.pdf';
+  }
+
+  Future<void> _exportCurrentPage() async {
+    final page = _s.selectedPage;
+    if (page == null || _s.state != VaultFlowState.unlocked) return;
+    final l10n = AppLocalizations.of(context);
+
+    final format = await showDialog<_FolioPageExportFormat>(
+      context: context,
+      builder: (ctx) => SimpleDialog(
+        title: Text(l10n.exportPageDialogTitle),
+        children: [
+          SimpleDialogOption(
+            onPressed: () => Navigator.pop(ctx, _FolioPageExportFormat.markdown),
+            child: Text(l10n.exportPageFormatMarkdown),
+          ),
+          SimpleDialogOption(
+            onPressed: () => Navigator.pop(ctx, _FolioPageExportFormat.html),
+            child: Text(l10n.exportPageFormatHtml),
+          ),
+          SimpleDialogOption(
+            onPressed: () => Navigator.pop(ctx, _FolioPageExportFormat.txt),
+            child: Text(l10n.exportPageFormatTxt),
+          ),
+          SimpleDialogOption(
+            onPressed: () => Navigator.pop(ctx, _FolioPageExportFormat.json),
+            child: Text(l10n.exportPageFormatJson),
+          ),
+          SimpleDialogOption(
+            onPressed: () => Navigator.pop(ctx, _FolioPageExportFormat.pdf),
+            child: Text(l10n.exportPageFormatPdf),
+          ),
+        ],
+      ),
+    );
+    if (format == null) return;
+
+    switch (format) {
+      case _FolioPageExportFormat.markdown:
+        return _exportCurrentPageToMarkdown();
+      case _FolioPageExportFormat.html:
+        return _exportCurrentPageToHtml();
+      case _FolioPageExportFormat.txt:
+        return _exportCurrentPageToTxt();
+      case _FolioPageExportFormat.json:
+        return _exportCurrentPageToJson();
+      case _FolioPageExportFormat.pdf:
+        return _exportCurrentPageToPdf();
+    }
+  }
+
   Future<FolioMarkdownImportMode?> _askMarkdownImportMode() {
     final page = _s.selectedPage;
     if (page == null) {
@@ -106,12 +191,12 @@ extension _WorkspacePageToolsModule on _WorkspacePageState {
     _snack(l10n.templateSaved);
   }
 
-  Future<void> _importMarkdownFile() async {
+  Future<void> _importDocumentFile() async {
     if (_s.state != VaultFlowState.unlocked) return;
     final l10n = AppLocalizations.of(context);
-    final pick = await FilePicker.platform.pickFiles(
+    final pick = await FilePicker.pickFiles(
       type: FileType.custom,
-      allowedExtensions: const ['md', 'markdown'],
+      allowedExtensions: const ['md', 'markdown', 'txt', 'json', 'html', 'htm'],
       allowMultiple: false,
     );
     if (pick == null || pick.files.isEmpty || !mounted) return;
@@ -123,16 +208,20 @@ extension _WorkspacePageToolsModule on _WorkspacePageState {
     final mode = await _askMarkdownImportMode();
     if (mode == null) return;
     try {
-      final markdown = await File(path).readAsString();
-      final title = pick.files.single.name.replaceFirst(
-        RegExp(r'\.(md|markdown)$', caseSensitive: false),
-        '',
-      );
-      final result = _s.importMarkdownDocument(
-        markdown,
-        title: title,
-        mode: mode,
-      );
+      final name = pick.files.single.name;
+      final lower = name.toLowerCase();
+      final raw = await File(path).readAsString();
+      final title = name.replaceFirst(RegExp(r'\.[^.]+$'), '');
+
+      final FolioMarkdownImportResult result;
+      if (lower.endsWith('.json')) {
+        result = _s.importPageJsonDocument(raw, mode: mode);
+      } else if (lower.endsWith('.html') || lower.endsWith('.htm')) {
+        result = _s.importHtmlDocument(raw, title: title, mode: mode);
+      } else {
+        // .md/.markdown/.txt => Markdown
+        result = _s.importMarkdownDocument(raw, title: title, mode: mode);
+      }
       if (!mounted) return;
       _snack(
         l10n.markdownImportedBlocks(result.pageTitle, result.blockCount),
@@ -147,7 +236,7 @@ extension _WorkspacePageToolsModule on _WorkspacePageState {
     final page = _s.selectedPage;
     if (page == null || _s.state != VaultFlowState.unlocked) return;
     final l10n = AppLocalizations.of(context);
-    final destination = await FilePicker.platform.saveFile(
+    final destination = await FilePicker.saveFile(
       dialogTitle: l10n.exportMarkdownFileDialogTitle,
       fileName: _suggestMarkdownFileName(page.title),
       type: FileType.custom,
@@ -162,6 +251,104 @@ extension _WorkspacePageToolsModule on _WorkspacePageState {
     } catch (e) {
       if (!mounted) return;
       _snack(l10n.markdownExportFailedWithError('$e'));
+    }
+  }
+
+  Future<void> _exportCurrentPageToHtml() async {
+    final page = _s.selectedPage;
+    if (page == null || _s.state != VaultFlowState.unlocked) return;
+    final l10n = AppLocalizations.of(context);
+    final destination = await FilePicker.saveFile(
+      dialogTitle: l10n.exportHtmlFileDialogTitle,
+      fileName: _suggestHtmlFileName(page.title),
+      type: FileType.custom,
+      allowedExtensions: const ['html'],
+    );
+    if (destination == null || destination.trim().isEmpty) return;
+    try {
+      final html = folioPageExportHtmlDocument(
+        page,
+        pagePublishedSubtitle: l10n.pageHtmlExportPublishedWithFolio,
+      );
+      await File(destination).writeAsString(html);
+      if (!mounted) return;
+      _snack(l10n.htmlExportSuccess);
+    } catch (e) {
+      if (!mounted) return;
+      _snack(l10n.htmlExportFailedWithError('$e'));
+    }
+  }
+
+  Future<void> _exportCurrentPageToTxt() async {
+    final page = _s.selectedPage;
+    if (page == null || _s.state != VaultFlowState.unlocked) return;
+    final l10n = AppLocalizations.of(context);
+    final destination = await FilePicker.saveFile(
+      dialogTitle: l10n.exportTxtFileDialogTitle,
+      fileName: _suggestTxtFileName(page.title),
+      type: FileType.custom,
+      allowedExtensions: const ['txt'],
+    );
+    if (destination == null || destination.trim().isEmpty) return;
+    try {
+      await File(destination).writeAsString(page.plainTextContent);
+      if (!mounted) return;
+      _snack(l10n.txtExportSuccess);
+    } catch (e) {
+      if (!mounted) return;
+      _snack(l10n.txtExportFailedWithError('$e'));
+    }
+  }
+
+  Future<void> _exportCurrentPageToJson() async {
+    final page = _s.selectedPage;
+    if (page == null || _s.state != VaultFlowState.unlocked) return;
+    final l10n = AppLocalizations.of(context);
+    final destination = await FilePicker.saveFile(
+      dialogTitle: l10n.exportJsonFileDialogTitle,
+      fileName: _suggestJsonFileName(page.title),
+      type: FileType.custom,
+      allowedExtensions: const ['json'],
+    );
+    if (destination == null || destination.trim().isNotEmpty == false) return;
+    try {
+      final payload = <String, Object?>{
+        'schema': 'folio.page.v1',
+        'exportedAtMs': DateTime.now().millisecondsSinceEpoch,
+        'page': page.toJson(),
+      };
+      final json = const JsonEncoder.withIndent('  ').convert(payload);
+      await File(destination).writeAsString(json);
+      if (!mounted) return;
+      _snack(l10n.jsonExportSuccess);
+    } catch (e) {
+      if (!mounted) return;
+      _snack(l10n.jsonExportFailedWithError('$e'));
+    }
+  }
+
+  Future<void> _exportCurrentPageToPdf() async {
+    final page = _s.selectedPage;
+    if (page == null || _s.state != VaultFlowState.unlocked) return;
+    final l10n = AppLocalizations.of(context);
+    final destination = await FilePicker.saveFile(
+      dialogTitle: l10n.exportPdfFileDialogTitle,
+      fileName: _suggestPdfFileName(page.title),
+      type: FileType.custom,
+      allowedExtensions: const ['pdf'],
+    );
+    if (destination == null || destination.trim().isEmpty) return;
+    try {
+      final bytes = await folioPageExportPdfBytes(
+        page: page,
+        pagePublishedSubtitle: l10n.pageHtmlExportPublishedWithFolio,
+      );
+      await File(destination).writeAsBytes(bytes, flush: true);
+      if (!mounted) return;
+      _snack(l10n.pdfExportSuccess);
+    } catch (e) {
+      if (!mounted) return;
+      _snack(l10n.pdfExportFailedWithError('$e'));
     }
   }
 
@@ -256,4 +443,12 @@ extension _WorkspacePageToolsModule on _WorkspacePageState {
       slugController.dispose();
     }
   }
+}
+
+enum _FolioPageExportFormat {
+  markdown,
+  html,
+  txt,
+  json,
+  pdf,
 }

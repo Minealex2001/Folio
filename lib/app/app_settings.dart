@@ -223,6 +223,8 @@ class AppSettings extends ChangeNotifier {
       'folio_scheduled_vault_backup_enabled';
   static const _scheduledVaultBackupIntervalHoursKey =
       'folio_scheduled_vault_backup_interval_hours';
+  static const _scheduledVaultBackupIntervalMinutesKey =
+      'folio_scheduled_vault_backup_interval_minutes_v2';
   static const _scheduledVaultBackupDirectoryKey =
       'folio_scheduled_vault_backup_directory';
   static const _lastScheduledVaultBackupMsKey =
@@ -238,7 +240,50 @@ class AppSettings extends ChangeNotifier {
   static const _meetingNoteForceLocalTranscriptionKey =
       'folio_meeting_note_force_local_transcription';
   static const int maxRecentSearchQueries = 10;
-  static const int defaultScheduledVaultBackupIntervalHours = 24;
+
+  /// 30 min, luego cada hora hasta 24 h (índices del slider / menú).
+  static const List<int> scheduledVaultBackupIntervalChoicesMinutes = [
+    30,
+    60,
+    120,
+    180,
+    240,
+    300,
+    360,
+    420,
+    480,
+    540,
+    600,
+    660,
+    720,
+    780,
+    840,
+    900,
+    960,
+    1020,
+    1080,
+    1140,
+    1200,
+    1260,
+    1320,
+    1380,
+    1440,
+  ];
+
+  static const int defaultScheduledVaultBackupIntervalMinutes = 1440;
+
+  static int nearestScheduledBackupIntervalMinutes(int minutes) {
+    var best = scheduledVaultBackupIntervalChoicesMinutes.first;
+    var bestDist = (minutes - best).abs();
+    for (final m in scheduledVaultBackupIntervalChoicesMinutes) {
+      final d = (minutes - m).abs();
+      if (d < bestDist) {
+        best = m;
+        bestDist = d;
+      }
+    }
+    return best;
+  }
   static const int defaultVaultIdleLockMinutes = 15;
   static const String defaultGlobalSearchHotkey = 'Ctrl+Shift+K';
   static const int defaultAiTimeoutMs = 30000;
@@ -336,8 +381,8 @@ class AppSettings extends ChangeNotifier {
   int _syncLastSuccessMs = 0;
   List<String> _recentSearchQueries = const [];
   bool _scheduledVaultBackupEnabled = false;
-  int _scheduledVaultBackupIntervalHours =
-      defaultScheduledVaultBackupIntervalHours;
+  int _scheduledVaultBackupIntervalMinutes =
+      defaultScheduledVaultBackupIntervalMinutes;
   String _scheduledVaultBackupDirectory = '';
   int _lastScheduledVaultBackupMs = 0;
   bool _scheduledVaultBackupAlsoUploadCloud = false;
@@ -399,8 +444,17 @@ class AppSettings extends ChangeNotifier {
   List<String> get recentSearchQueries =>
       List.unmodifiable(_recentSearchQueries);
   bool get scheduledVaultBackupEnabled => _scheduledVaultBackupEnabled;
-  int get scheduledVaultBackupIntervalHours =>
-      _scheduledVaultBackupIntervalHours;
+  int get scheduledVaultBackupIntervalMinutes =>
+      _scheduledVaultBackupIntervalMinutes;
+
+  int get scheduledVaultBackupIntervalChoiceIndex {
+    final choices = scheduledVaultBackupIntervalChoicesMinutes;
+    final i = choices.indexOf(_scheduledVaultBackupIntervalMinutes);
+    if (i >= 0) return i;
+    return choices.indexOf(
+      nearestScheduledBackupIntervalMinutes(_scheduledVaultBackupIntervalMinutes),
+    );
+  }
   String get scheduledVaultBackupDirectory => _scheduledVaultBackupDirectory;
   int get lastScheduledVaultBackupMs => _lastScheduledVaultBackupMs;
   bool get scheduledVaultBackupAlsoUploadCloud =>
@@ -561,9 +615,27 @@ class AppSettings extends ChangeNotifier {
     );
     _scheduledVaultBackupEnabled =
         p.getBool(_scheduledVaultBackupEnabledKey) ?? false;
-    _scheduledVaultBackupIntervalHours = _sanitizeScheduledVaultBackupInterval(
-      p.getInt(_scheduledVaultBackupIntervalHoursKey),
-    );
+    final storedMinutes = p.getInt(_scheduledVaultBackupIntervalMinutesKey);
+    final legacyHours = p.getInt(_scheduledVaultBackupIntervalHoursKey);
+    if (storedMinutes != null) {
+      _scheduledVaultBackupIntervalMinutes =
+          _sanitizeScheduledVaultBackupIntervalMinutes(storedMinutes);
+    } else if (legacyHours != null) {
+      final migratedMin = (legacyHours * 60).clamp(
+        scheduledVaultBackupIntervalChoicesMinutes.first,
+        scheduledVaultBackupIntervalChoicesMinutes.last,
+      );
+      _scheduledVaultBackupIntervalMinutes =
+          nearestScheduledBackupIntervalMinutes(migratedMin);
+      await p.setInt(
+        _scheduledVaultBackupIntervalMinutesKey,
+        _scheduledVaultBackupIntervalMinutes,
+      );
+      await p.remove(_scheduledVaultBackupIntervalHoursKey);
+    } else {
+      _scheduledVaultBackupIntervalMinutes =
+          defaultScheduledVaultBackupIntervalMinutes;
+    }
     _scheduledVaultBackupDirectory =
         (p.getString(_scheduledVaultBackupDirectoryKey) ?? '').trim();
     _lastScheduledVaultBackupMs = p.getInt(_lastScheduledVaultBackupMsKey) ?? 0;
@@ -754,11 +826,10 @@ class AppSettings extends ChangeNotifier {
     return out;
   }
 
-  int _sanitizeScheduledVaultBackupInterval(int? value) {
-    final raw = value ?? defaultScheduledVaultBackupIntervalHours;
-    if (raw < 1) return 1;
-    if (raw > 168) return 168;
-    return raw;
+  int _sanitizeScheduledVaultBackupIntervalMinutes(int? value) {
+    final raw = value ?? defaultScheduledVaultBackupIntervalMinutes;
+    if (scheduledVaultBackupIntervalChoicesMinutes.contains(raw)) return raw;
+    return nearestScheduledBackupIntervalMinutes(raw);
   }
 
   double _sanitizeUiScale(double? value) {
@@ -1340,13 +1411,16 @@ class AppSettings extends ChangeNotifier {
     }
   }
 
-  Future<void> setScheduledVaultBackupIntervalHours(int value) async {
-    final safe = _sanitizeScheduledVaultBackupInterval(value);
-    if (_scheduledVaultBackupIntervalHours == safe) return;
-    _scheduledVaultBackupIntervalHours = safe;
+  Future<void> setScheduledVaultBackupIntervalMinutes(int value) async {
+    final safe = _sanitizeScheduledVaultBackupIntervalMinutes(value);
+    if (_scheduledVaultBackupIntervalMinutes == safe) return;
+    _scheduledVaultBackupIntervalMinutes = safe;
     notifyListeners();
     final p = await SharedPreferences.getInstance();
-    await p.setInt(_scheduledVaultBackupIntervalHoursKey, safe);
+    await p.setInt(_scheduledVaultBackupIntervalMinutesKey, safe);
+    if (p.containsKey(_scheduledVaultBackupIntervalHoursKey)) {
+      await p.remove(_scheduledVaultBackupIntervalHoursKey);
+    }
   }
 
   Future<void> setScheduledVaultBackupDirectory(String path) async {

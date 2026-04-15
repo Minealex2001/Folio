@@ -103,6 +103,79 @@ List<CodeLanguageOption> buildCodeLanguagePickerOptions(AppLocalizations l10n) =
         label: l10n.codeLangCss,
         icon: Icons.style_outlined,
       ),
+      // Idiomas extra: el motor de resaltado (highlight) soporta muchos ids;
+      // el picker solo necesita exponerlos. Si algún id no existe, el fallback
+      // seguirá siendo plaintext (ver modeForLanguageId).
+      const CodeLanguageOption(
+        id: 'csharp',
+        label: 'C#',
+        icon: Icons.tag_rounded,
+      ),
+      const CodeLanguageOption(
+        id: 'php',
+        label: 'PHP',
+        icon: Icons.web_rounded,
+      ),
+      const CodeLanguageOption(
+        id: 'ruby',
+        label: 'Ruby',
+        icon: Icons.diamond_outlined,
+      ),
+      const CodeLanguageOption(
+        id: 'swift',
+        label: 'Swift',
+        icon: Icons.bolt_rounded,
+      ),
+      const CodeLanguageOption(
+        id: 'r',
+        label: 'R',
+        icon: Icons.query_stats_rounded,
+      ),
+      const CodeLanguageOption(
+        id: 'scala',
+        label: 'Scala',
+        icon: Icons.stacked_line_chart_rounded,
+      ),
+      const CodeLanguageOption(
+        id: 'perl',
+        label: 'Perl',
+        icon: Icons.code_rounded,
+      ),
+      const CodeLanguageOption(
+        id: 'objectivec',
+        label: 'Objective-C',
+        icon: Icons.phone_iphone_rounded,
+      ),
+      const CodeLanguageOption(
+        id: 'powershell',
+        label: 'PowerShell',
+        icon: Icons.terminal_rounded,
+      ),
+      const CodeLanguageOption(
+        id: 'dockerfile',
+        label: 'Dockerfile',
+        icon: Icons.inventory_2_outlined,
+      ),
+      const CodeLanguageOption(
+        id: 'toml',
+        label: 'TOML',
+        icon: Icons.tune_rounded,
+      ),
+      const CodeLanguageOption(
+        id: 'ini',
+        label: 'INI',
+        icon: Icons.settings_rounded,
+      ),
+      const CodeLanguageOption(
+        id: 'graphql',
+        label: 'GraphQL',
+        icon: Icons.hub_rounded,
+      ),
+      const CodeLanguageOption(
+        id: 'protobuf',
+        label: 'Protocol Buffers',
+        icon: Icons.schema_rounded,
+      ),
       CodeLanguageOption(
         id: 'plaintext',
         label: l10n.codeLangPlainText,

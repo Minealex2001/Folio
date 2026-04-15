@@ -415,6 +415,8 @@
   "pasteAsEmbedSubtitleWeb": "Mostrar la página dentro del bloque (si el sistema lo permite)",
   "pasteAsMentionSubtitleRich": "Enlace con título de la página (p. ej. YouTube)",
   "formatToolbar": "Barra de formato",
+  "formatToolbarScrollPrevious": "Ver herramientas anteriores",
+  "formatToolbarScrollNext": "Ver más herramientas",
   "linkTitle": "Enlace",
   "visibleTextLabel": "Texto visible",
   "urlLabel": "URL",
@@ -497,6 +499,7 @@
   ,"aiPanelResizeHandleHint": "Arrastra horizontalmente para cambiar el ancho del asistente"
   ,"importMarkdownPage": "Importar Markdown"
   ,"exportMarkdownPage": "Exportar Markdown"
+  ,"exportPage": "Exportar…"
   ,"workspaceUndoTooltip": "Deshacer (Ctrl+Z)"
   ,"workspaceRedoTooltip": "Rehacer (Ctrl+Y)"
   ,"workspaceMoreActionsTooltip": "Más acciones"
@@ -549,7 +552,7 @@
   ,"aiSetupOllamaTitle": "Paso 1: Instalar Ollama"
   ,"aiSetupOllamaBody": "Instala Ollama, ejecuta el servicio y verifica que responda en http://127.0.0.1:11434."
   ,"aiSetupLmStudioTitle": "Paso 2: Instalar LM Studio"
-  ,"aiSetupLmStudioBody": "Instala LM Studio, inicia su servidor local (OpenAI compatible) y verifica que responda en http://127.0.0.1:1234."
+  ,"aiSetupLmStudioBody": "Instala LM Studio, inicia su servidor local y verifica que responda en http://127.0.0.1:1234."
   ,"aiSetupOpenSettingsHint": "Cuando uno de los proveedores esté operativo, pulsa Reintentar para autoconfigurarlo."
   ,"aiCompareCloudVsLocalTitle": "Cloud vs local"
   ,"aiCompareCloudTitle": "Folio Cloud"
@@ -598,7 +601,19 @@
   "scheduledVaultBackupTitle": "Copia cifrada programada",
   "scheduledVaultBackupSubtitle": "Con la libreta desbloqueada, cada copia es de la libreta abierta ahora. Folio guarda un ZIP en la carpeta indicada según el intervalo.",
   "scheduledVaultBackupChooseFolder": "Carpeta de copias",
-  "scheduledVaultBackupIntervalLabel": "Intervalo (horas)",
+  "scheduledVaultBackupIntervalLabel": "Intervalo entre copias",
+  "scheduledVaultBackupEveryNMinutes": "{n, plural, one{1 minuto} other{{n} minutos}}",
+  "@scheduledVaultBackupEveryNMinutes": {
+    "placeholders": {
+      "n": {"type": "int"}
+    }
+  },
+  "scheduledVaultBackupEveryNHours": "{n, plural, one{1 hora} other{{n} horas}}",
+  "@scheduledVaultBackupEveryNHours": {
+    "placeholders": {
+      "n": {"type": "int"}
+    }
+  },
   "scheduledVaultBackupLastRun": "Última copia: {time}",
   "@scheduledVaultBackupLastRun": {"placeholders": {"time": {}}},
   "scheduledVaultBackupSnackOk": "Copia programada guardada.",
@@ -1197,10 +1212,33 @@
   ,"@markdownImportedBlocks": {"placeholders": {"pageTitle": {}, "blockCount": {"type": "int"}}}
   ,"markdownImportFailedWithError": "No se pudo importar el Markdown: {error}"
   ,"@markdownImportFailedWithError": {"placeholders": {"error": {}}}
+  ,"importPage": "Importar…"
   ,"exportMarkdownFileDialogTitle": "Exportar página a Markdown"
   ,"markdownExportSuccess": "Página exportada a Markdown."
   ,"markdownExportFailedWithError": "No se pudo exportar la página: {error}"
   ,"@markdownExportFailedWithError": {"placeholders": {"error": {}}}
+  ,"exportPageDialogTitle": "Exportar página"
+  ,"exportPageFormatMarkdown": "Markdown (.md)"
+  ,"exportPageFormatHtml": "HTML (.html)"
+  ,"exportPageFormatTxt": "Texto (.txt)"
+  ,"exportPageFormatJson": "JSON (.json)"
+  ,"exportPageFormatPdf": "PDF (.pdf)"
+  ,"exportHtmlFileDialogTitle": "Exportar página a HTML"
+  ,"htmlExportSuccess": "Página exportada a HTML."
+  ,"htmlExportFailedWithError": "No se pudo exportar la página: {error}"
+  ,"@htmlExportFailedWithError": {"placeholders": {"error": {}}}
+  ,"exportTxtFileDialogTitle": "Exportar página a texto"
+  ,"txtExportSuccess": "Página exportada a texto."
+  ,"txtExportFailedWithError": "No se pudo exportar la página: {error}"
+  ,"@txtExportFailedWithError": {"placeholders": {"error": {}}}
+  ,"exportJsonFileDialogTitle": "Exportar página a JSON"
+  ,"jsonExportSuccess": "Página exportada a JSON."
+  ,"jsonExportFailedWithError": "No se pudo exportar la página: {error}"
+  ,"@jsonExportFailedWithError": {"placeholders": {"error": {}}}
+  ,"exportPdfFileDialogTitle": "Exportar página a PDF"
+  ,"pdfExportSuccess": "Página exportada a PDF."
+  ,"pdfExportFailedWithError": "No se pudo exportar la página: {error}"
+  ,"@pdfExportFailedWithError": {"placeholders": {"error": {}}}
   ,"firebaseUnavailablePublish": "Firebase no está disponible."
   ,"signInCloudToPublishWeb": "Inicia sesión en la cuenta en la nube (Ajustes) para publicar."
   ,"planMissingWebPublish": "Tu plan no incluye publicación web o la suscripción no está activa."
@@ -1547,7 +1585,7 @@
   ,"settingsIntegrationsActiveConnectionsTitle": "Conexiones activas"
   ,"settingsIntegrationsActiveConnectionsSubtitle": "Apps que ya pueden interactuar con Folio"
   ,"settingsViewInkUsageTable": "Ver tabla de consumo"
-  ,"settingsCloudInkUsageTableTitle": "Tabla de consumo de gotas (OpenAI)"
+  ,"settingsCloudInkUsageTableTitle": "Tabla de consumo de gotas (Quill Cloud)"
   ,"settingsCloudInkUsageTableIntro": "Coste base por acción. Se pueden aplicar suplementos por prompts largos y por tokens de salida."
   ,"settingsCloudInkDrops": "gotas"
   ,"settingsCloudInkTableCachedNotice": "Mostrando tabla en caché local (sin conexión al backend)."
@@ -1564,5 +1602,37 @@
   ,"settingsCloudInkOpDefault": "Operación por defecto"
   ,"settingsDesktopRailSubtitle": "Elige una categoría en la lista o desplázate por el contenido."
   ,"settingsCloudInkViewTableButton": "Ver tabla"
-  ,"settingsCloudInkHostedAiOpenAiHint": "Precios de referencia para IA en nube con OpenAI."
+  ,"settingsCloudInkHostedAiQuillCloudHint": "Precios de referencia para IA en nube en Quill Cloud."
+  ,"vaultStarterHomeTitle": "Empieza aquí"
+  ,"vaultStarterHomeHeading": "Tu libreta ya está lista"
+  ,"vaultStarterHomeIntro": "Folio organiza tus páginas en un árbol, edita contenido por bloques y mantiene los datos en este dispositivo. Esta mini guía te deja un mapa rápido de lo que puedes hacer desde el primer minuto."
+  ,"vaultStarterHomeCallout": "Puedes borrar, renombrar o mover estas páginas cuando quieras. Son solo una base para arrancar más rápido."
+  ,"vaultStarterHomeSectionTips": "Lo más útil para empezar"
+  ,"vaultStarterHomeBulletSlash": "Pulsa / dentro de un párrafo para insertar encabezados, listas, tablas, bloques de código, Mermaid y más."
+  ,"vaultStarterHomeBulletSidebar": "Usa el panel lateral para crear páginas y subpáginas, y reorganiza el árbol según tu forma de trabajar."
+  ,"vaultStarterHomeBulletSettings": "Abre Ajustes para activar IA, configurar copia de seguridad, cambiar idioma o añadir desbloqueo rápido."
+  ,"vaultStarterHomeTodo1": "Crear mi primera página de trabajo"
+  ,"vaultStarterHomeTodo2": "Probar el menú / para insertar un bloque nuevo"
+  ,"vaultStarterHomeTodo3": "Revisar Ajustes y decidir si quiero activar Quill o un método de desbloqueo rápido"
+  ,"vaultStarterCapabilitiesTitle": "Qué puede hacer Folio"
+  ,"vaultStarterCapabilitiesSectionMain": "Capacidades principales"
+  ,"vaultStarterCapabilitiesBullet1": "Tomar notas con estructura libre usando párrafos, títulos, listas, checklists, citas y divisores."
+  ,"vaultStarterCapabilitiesBullet2": "Trabajar con bloques especiales como tablas, bases de datos, archivos, audio, vídeo, embeds y diagramas Mermaid."
+  ,"vaultStarterCapabilitiesBullet3": "Buscar contenido, revisar historial de página y mantener revisiones dentro de la misma libreta."
+  ,"vaultStarterCapabilitiesBullet4": "Exportar o importar datos, incluyendo copia de la libreta e importación desde Notion."
+  ,"vaultStarterCapabilitiesSectionShortcuts": "Atajos rápidos"
+  ,"vaultStarterCapabilitiesShortcutN": "Ctrl+N crea una página nueva."
+  ,"vaultStarterCapabilitiesShortcutSearch": "Ctrl+K o Ctrl+F abre la búsqueda."
+  ,"vaultStarterCapabilitiesShortcutSettings": "Ctrl+, abre Ajustes y Ctrl+L bloquea la libreta."
+  ,"vaultStarterCapabilitiesAiCallout": "La IA no se activa por defecto. Si decides usar Quill, la configuras en Ajustes y eliges proveedor, modelo y permisos de contexto."
+  ,"vaultStarterQuillTitle": "Quill y privacidad"
+  ,"vaultStarterQuillSectionWhat": "Qué puede hacer Quill"
+  ,"vaultStarterQuillBullet1": "Resumir, reescribir o expandir el contenido de una página."
+  ,"vaultStarterQuillBullet2": "Responder dudas sobre bloques, atajos y formas de organizar tus notas en Folio."
+  ,"vaultStarterQuillBullet3": "Trabajar con la página abierta como contexto o con varias páginas que selecciones como referencia."
+  ,"vaultStarterQuillSectionPrivacy": "Privacidad y seguridad"
+  ,"vaultStarterQuillPrivacyBody": "Tus páginas viven en este dispositivo. Si habilitas IA, revisa qué contexto compartes y con qué proveedor. Si olvidas la contraseña maestra de una libreta cifrada, Folio no puede recuperarlo por ti."
+  ,"vaultStarterQuillBackupCallout": "Haz una copia de la libreta cuando tengas contenido importante. La copia conserva los datos y adjuntos, pero no transfiere Hello ni passkeys entre dispositivos."
+  ,"vaultStarterQuillMermaidCaption": "Prueba rápida de Mermaid:"
+  ,"vaultStarterQuillMermaidSource": "graph TD\nInicio[Crear libreta] --> Organizar[Organizar páginas]\nOrganizar --> Escribir[Escribir y enlazar ideas]\nEscribir --> Revisar[Buscar, revisar y mejorar]"
 }

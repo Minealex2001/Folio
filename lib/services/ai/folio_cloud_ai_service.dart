@@ -24,7 +24,6 @@ bool _looksLikeUpstreamLlmRejection(String d) {
       l.contains('upstream') && l.contains('powerup') ||
       l.contains('ink/tags') ||
       l.contains('403 forbidden') ||
-      l.contains('openai.com') ||
       l.contains('incorrect api key') ||
       l.contains('invalid_api_key') ||
       l.contains('rate limit') ||
@@ -34,11 +33,11 @@ bool _looksLikeUpstreamLlmRejection(String d) {
 }
 
 String _upstreamLlmVsFolioInkMessage() {
-  return 'El proveedor de IA en la nube (OpenAI) rechazó la petición por clave, cuota, '
-      'facturación o modelo en el servidor; no es el mismo límite que las gotas Folio del '
-      'panel. Quien despliega Functions debe revisar OPENAI_API_KEY y límites en '
-      'platform.openai.com. Si el saldo de gotas parece imposible (p. ej. millones), '
-      'revisa el campo ink en Firestore para tu usuario.';
+  return 'Quill Cloud rechazó la petición por clave, cuota, facturación o modelo en el '
+      'servidor; no es el mismo límite que las gotas Folio del panel. Quien opera el '
+      'backend debe revisar la configuración de inferencia de Quill Cloud y los límites '
+      'del proveedor. Si el saldo de gotas parece imposible (p. ej. millones), revisa '
+      'el campo ink en Firestore para tu usuario.';
 }
 
 String _mapFolioCloudAiError(FirebaseFunctionsException e) {

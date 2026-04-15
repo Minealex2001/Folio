@@ -39,6 +39,7 @@ import '../../../services/folio_cloud/folio_cloud_ai_pricing.dart';
 import '../../../services/folio_cloud/folio_cloud_entitlements.dart';
 import '../../../services/folio_cloud/folio_cloud_publish.dart';
 import '../../../services/folio_cloud/folio_page_html_export.dart';
+import '../../../services/folio_cloud/folio_page_pdf_export.dart';
 import '../../../services/device_sync/device_sync_controller.dart';
 import '../../../l10n/generated/app_localizations.dart';
 import '../../../data/vault_paths.dart';
@@ -1712,17 +1713,17 @@ class _WorkspacePageState extends State<WorkspacePage> {
             ),
           _WorkspaceActionEntry(
             id: 'import_md',
-            label: l10n.importMarkdownPage,
+            label: l10n.importPage,
             icon: Icons.file_upload_outlined,
-            onPressed: _importMarkdownFile,
+            onPressed: _importDocumentFile,
             forcePrimary: true,
           ),
           if (page != null)
             _WorkspaceActionEntry(
               id: 'export_md',
-              label: l10n.exportMarkdownPage,
+              label: l10n.exportPage,
               icon: Icons.file_download_outlined,
-              onPressed: _exportCurrentPageToMarkdown,
+              onPressed: _exportCurrentPage,
             ),
           if (page != null)
             _WorkspaceActionEntry(

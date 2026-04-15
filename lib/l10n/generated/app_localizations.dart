@@ -2128,6 +2128,18 @@ abstract class AppLocalizations {
   /// **'Barra de formato'**
   String get formatToolbar;
 
+  /// No description provided for @formatToolbarScrollPrevious.
+  ///
+  /// In es, this message translates to:
+  /// **'Ver herramientas anteriores'**
+  String get formatToolbarScrollPrevious;
+
+  /// No description provided for @formatToolbarScrollNext.
+  ///
+  /// In es, this message translates to:
+  /// **'Ver más herramientas'**
+  String get formatToolbarScrollNext;
+
   /// No description provided for @linkTitle.
   ///
   /// In es, this message translates to:
@@ -2596,6 +2608,12 @@ abstract class AppLocalizations {
   /// **'Exportar Markdown'**
   String get exportMarkdownPage;
 
+  /// No description provided for @exportPage.
+  ///
+  /// In es, this message translates to:
+  /// **'Exportar…'**
+  String get exportPage;
+
   /// No description provided for @workspaceUndoTooltip.
   ///
   /// In es, this message translates to:
@@ -2875,7 +2893,7 @@ abstract class AppLocalizations {
   /// No description provided for @aiSetupLmStudioBody.
   ///
   /// In es, this message translates to:
-  /// **'Instala LM Studio, inicia su servidor local (OpenAI compatible) y verifica que responda en http://127.0.0.1:1234.'**
+  /// **'Instala LM Studio, inicia su servidor local y verifica que responda en http://127.0.0.1:1234.'**
   String get aiSetupLmStudioBody;
 
   /// No description provided for @aiSetupOpenSettingsHint.
@@ -3163,8 +3181,20 @@ abstract class AppLocalizations {
   /// No description provided for @scheduledVaultBackupIntervalLabel.
   ///
   /// In es, this message translates to:
-  /// **'Intervalo (horas)'**
+  /// **'Intervalo entre copias'**
   String get scheduledVaultBackupIntervalLabel;
+
+  /// No description provided for @scheduledVaultBackupEveryNMinutes.
+  ///
+  /// In es, this message translates to:
+  /// **'{n, plural, one{1 minuto} other{{n} minutos}}'**
+  String scheduledVaultBackupEveryNMinutes(int n);
+
+  /// No description provided for @scheduledVaultBackupEveryNHours.
+  ///
+  /// In es, this message translates to:
+  /// **'{n, plural, one{1 hora} other{{n} horas}}'**
+  String scheduledVaultBackupEveryNHours(int n);
 
   /// No description provided for @scheduledVaultBackupLastRun.
   ///
@@ -6485,6 +6515,12 @@ abstract class AppLocalizations {
   /// **'No se pudo importar el Markdown: {error}'**
   String markdownImportFailedWithError(Object error);
 
+  /// No description provided for @importPage.
+  ///
+  /// In es, this message translates to:
+  /// **'Importar…'**
+  String get importPage;
+
   /// No description provided for @exportMarkdownFileDialogTitle.
   ///
   /// In es, this message translates to:
@@ -6502,6 +6538,114 @@ abstract class AppLocalizations {
   /// In es, this message translates to:
   /// **'No se pudo exportar la página: {error}'**
   String markdownExportFailedWithError(Object error);
+
+  /// No description provided for @exportPageDialogTitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Exportar página'**
+  String get exportPageDialogTitle;
+
+  /// No description provided for @exportPageFormatMarkdown.
+  ///
+  /// In es, this message translates to:
+  /// **'Markdown (.md)'**
+  String get exportPageFormatMarkdown;
+
+  /// No description provided for @exportPageFormatHtml.
+  ///
+  /// In es, this message translates to:
+  /// **'HTML (.html)'**
+  String get exportPageFormatHtml;
+
+  /// No description provided for @exportPageFormatTxt.
+  ///
+  /// In es, this message translates to:
+  /// **'Texto (.txt)'**
+  String get exportPageFormatTxt;
+
+  /// No description provided for @exportPageFormatJson.
+  ///
+  /// In es, this message translates to:
+  /// **'JSON (.json)'**
+  String get exportPageFormatJson;
+
+  /// No description provided for @exportPageFormatPdf.
+  ///
+  /// In es, this message translates to:
+  /// **'PDF (.pdf)'**
+  String get exportPageFormatPdf;
+
+  /// No description provided for @exportHtmlFileDialogTitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Exportar página a HTML'**
+  String get exportHtmlFileDialogTitle;
+
+  /// No description provided for @htmlExportSuccess.
+  ///
+  /// In es, this message translates to:
+  /// **'Página exportada a HTML.'**
+  String get htmlExportSuccess;
+
+  /// No description provided for @htmlExportFailedWithError.
+  ///
+  /// In es, this message translates to:
+  /// **'No se pudo exportar la página: {error}'**
+  String htmlExportFailedWithError(Object error);
+
+  /// No description provided for @exportTxtFileDialogTitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Exportar página a texto'**
+  String get exportTxtFileDialogTitle;
+
+  /// No description provided for @txtExportSuccess.
+  ///
+  /// In es, this message translates to:
+  /// **'Página exportada a texto.'**
+  String get txtExportSuccess;
+
+  /// No description provided for @txtExportFailedWithError.
+  ///
+  /// In es, this message translates to:
+  /// **'No se pudo exportar la página: {error}'**
+  String txtExportFailedWithError(Object error);
+
+  /// No description provided for @exportJsonFileDialogTitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Exportar página a JSON'**
+  String get exportJsonFileDialogTitle;
+
+  /// No description provided for @jsonExportSuccess.
+  ///
+  /// In es, this message translates to:
+  /// **'Página exportada a JSON.'**
+  String get jsonExportSuccess;
+
+  /// No description provided for @jsonExportFailedWithError.
+  ///
+  /// In es, this message translates to:
+  /// **'No se pudo exportar la página: {error}'**
+  String jsonExportFailedWithError(Object error);
+
+  /// No description provided for @exportPdfFileDialogTitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Exportar página a PDF'**
+  String get exportPdfFileDialogTitle;
+
+  /// No description provided for @pdfExportSuccess.
+  ///
+  /// In es, this message translates to:
+  /// **'Página exportada a PDF.'**
+  String get pdfExportSuccess;
+
+  /// No description provided for @pdfExportFailedWithError.
+  ///
+  /// In es, this message translates to:
+  /// **'No se pudo exportar la página: {error}'**
+  String pdfExportFailedWithError(Object error);
 
   /// No description provided for @firebaseUnavailablePublish.
   ///
@@ -8376,7 +8520,7 @@ abstract class AppLocalizations {
   /// No description provided for @settingsCloudInkUsageTableTitle.
   ///
   /// In es, this message translates to:
-  /// **'Tabla de consumo de gotas (OpenAI)'**
+  /// **'Tabla de consumo de gotas (Quill Cloud)'**
   String get settingsCloudInkUsageTableTitle;
 
   /// No description provided for @settingsCloudInkUsageTableIntro.
@@ -8475,11 +8619,203 @@ abstract class AppLocalizations {
   /// **'Ver tabla'**
   String get settingsCloudInkViewTableButton;
 
-  /// No description provided for @settingsCloudInkHostedAiOpenAiHint.
+  /// No description provided for @settingsCloudInkHostedAiQuillCloudHint.
   ///
   /// In es, this message translates to:
-  /// **'Precios de referencia para IA en nube con OpenAI.'**
-  String get settingsCloudInkHostedAiOpenAiHint;
+  /// **'Precios de referencia para IA en nube en Quill Cloud.'**
+  String get settingsCloudInkHostedAiQuillCloudHint;
+
+  /// No description provided for @vaultStarterHomeTitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Empieza aquí'**
+  String get vaultStarterHomeTitle;
+
+  /// No description provided for @vaultStarterHomeHeading.
+  ///
+  /// In es, this message translates to:
+  /// **'Tu libreta ya está lista'**
+  String get vaultStarterHomeHeading;
+
+  /// No description provided for @vaultStarterHomeIntro.
+  ///
+  /// In es, this message translates to:
+  /// **'Folio organiza tus páginas en un árbol, edita contenido por bloques y mantiene los datos en este dispositivo. Esta mini guía te deja un mapa rápido de lo que puedes hacer desde el primer minuto.'**
+  String get vaultStarterHomeIntro;
+
+  /// No description provided for @vaultStarterHomeCallout.
+  ///
+  /// In es, this message translates to:
+  /// **'Puedes borrar, renombrar o mover estas páginas cuando quieras. Son solo una base para arrancar más rápido.'**
+  String get vaultStarterHomeCallout;
+
+  /// No description provided for @vaultStarterHomeSectionTips.
+  ///
+  /// In es, this message translates to:
+  /// **'Lo más útil para empezar'**
+  String get vaultStarterHomeSectionTips;
+
+  /// No description provided for @vaultStarterHomeBulletSlash.
+  ///
+  /// In es, this message translates to:
+  /// **'Pulsa / dentro de un párrafo para insertar encabezados, listas, tablas, bloques de código, Mermaid y más.'**
+  String get vaultStarterHomeBulletSlash;
+
+  /// No description provided for @vaultStarterHomeBulletSidebar.
+  ///
+  /// In es, this message translates to:
+  /// **'Usa el panel lateral para crear páginas y subpáginas, y reorganiza el árbol según tu forma de trabajar.'**
+  String get vaultStarterHomeBulletSidebar;
+
+  /// No description provided for @vaultStarterHomeBulletSettings.
+  ///
+  /// In es, this message translates to:
+  /// **'Abre Ajustes para activar IA, configurar copia de seguridad, cambiar idioma o añadir desbloqueo rápido.'**
+  String get vaultStarterHomeBulletSettings;
+
+  /// No description provided for @vaultStarterHomeTodo1.
+  ///
+  /// In es, this message translates to:
+  /// **'Crear mi primera página de trabajo'**
+  String get vaultStarterHomeTodo1;
+
+  /// No description provided for @vaultStarterHomeTodo2.
+  ///
+  /// In es, this message translates to:
+  /// **'Probar el menú / para insertar un bloque nuevo'**
+  String get vaultStarterHomeTodo2;
+
+  /// No description provided for @vaultStarterHomeTodo3.
+  ///
+  /// In es, this message translates to:
+  /// **'Revisar Ajustes y decidir si quiero activar Quill o un método de desbloqueo rápido'**
+  String get vaultStarterHomeTodo3;
+
+  /// No description provided for @vaultStarterCapabilitiesTitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Qué puede hacer Folio'**
+  String get vaultStarterCapabilitiesTitle;
+
+  /// No description provided for @vaultStarterCapabilitiesSectionMain.
+  ///
+  /// In es, this message translates to:
+  /// **'Capacidades principales'**
+  String get vaultStarterCapabilitiesSectionMain;
+
+  /// No description provided for @vaultStarterCapabilitiesBullet1.
+  ///
+  /// In es, this message translates to:
+  /// **'Tomar notas con estructura libre usando párrafos, títulos, listas, checklists, citas y divisores.'**
+  String get vaultStarterCapabilitiesBullet1;
+
+  /// No description provided for @vaultStarterCapabilitiesBullet2.
+  ///
+  /// In es, this message translates to:
+  /// **'Trabajar con bloques especiales como tablas, bases de datos, archivos, audio, vídeo, embeds y diagramas Mermaid.'**
+  String get vaultStarterCapabilitiesBullet2;
+
+  /// No description provided for @vaultStarterCapabilitiesBullet3.
+  ///
+  /// In es, this message translates to:
+  /// **'Buscar contenido, revisar historial de página y mantener revisiones dentro de la misma libreta.'**
+  String get vaultStarterCapabilitiesBullet3;
+
+  /// No description provided for @vaultStarterCapabilitiesBullet4.
+  ///
+  /// In es, this message translates to:
+  /// **'Exportar o importar datos, incluyendo copia de la libreta e importación desde Notion.'**
+  String get vaultStarterCapabilitiesBullet4;
+
+  /// No description provided for @vaultStarterCapabilitiesSectionShortcuts.
+  ///
+  /// In es, this message translates to:
+  /// **'Atajos rápidos'**
+  String get vaultStarterCapabilitiesSectionShortcuts;
+
+  /// No description provided for @vaultStarterCapabilitiesShortcutN.
+  ///
+  /// In es, this message translates to:
+  /// **'Ctrl+N crea una página nueva.'**
+  String get vaultStarterCapabilitiesShortcutN;
+
+  /// No description provided for @vaultStarterCapabilitiesShortcutSearch.
+  ///
+  /// In es, this message translates to:
+  /// **'Ctrl+K o Ctrl+F abre la búsqueda.'**
+  String get vaultStarterCapabilitiesShortcutSearch;
+
+  /// No description provided for @vaultStarterCapabilitiesShortcutSettings.
+  ///
+  /// In es, this message translates to:
+  /// **'Ctrl+, abre Ajustes y Ctrl+L bloquea la libreta.'**
+  String get vaultStarterCapabilitiesShortcutSettings;
+
+  /// No description provided for @vaultStarterCapabilitiesAiCallout.
+  ///
+  /// In es, this message translates to:
+  /// **'La IA no se activa por defecto. Si decides usar Quill, la configuras en Ajustes y eliges proveedor, modelo y permisos de contexto.'**
+  String get vaultStarterCapabilitiesAiCallout;
+
+  /// No description provided for @vaultStarterQuillTitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Quill y privacidad'**
+  String get vaultStarterQuillTitle;
+
+  /// No description provided for @vaultStarterQuillSectionWhat.
+  ///
+  /// In es, this message translates to:
+  /// **'Qué puede hacer Quill'**
+  String get vaultStarterQuillSectionWhat;
+
+  /// No description provided for @vaultStarterQuillBullet1.
+  ///
+  /// In es, this message translates to:
+  /// **'Resumir, reescribir o expandir el contenido de una página.'**
+  String get vaultStarterQuillBullet1;
+
+  /// No description provided for @vaultStarterQuillBullet2.
+  ///
+  /// In es, this message translates to:
+  /// **'Responder dudas sobre bloques, atajos y formas de organizar tus notas en Folio.'**
+  String get vaultStarterQuillBullet2;
+
+  /// No description provided for @vaultStarterQuillBullet3.
+  ///
+  /// In es, this message translates to:
+  /// **'Trabajar con la página abierta como contexto o con varias páginas que selecciones como referencia.'**
+  String get vaultStarterQuillBullet3;
+
+  /// No description provided for @vaultStarterQuillSectionPrivacy.
+  ///
+  /// In es, this message translates to:
+  /// **'Privacidad y seguridad'**
+  String get vaultStarterQuillSectionPrivacy;
+
+  /// No description provided for @vaultStarterQuillPrivacyBody.
+  ///
+  /// In es, this message translates to:
+  /// **'Tus páginas viven en este dispositivo. Si habilitas IA, revisa qué contexto compartes y con qué proveedor. Si olvidas la contraseña maestra de una libreta cifrada, Folio no puede recuperarlo por ti.'**
+  String get vaultStarterQuillPrivacyBody;
+
+  /// No description provided for @vaultStarterQuillBackupCallout.
+  ///
+  /// In es, this message translates to:
+  /// **'Haz una copia de la libreta cuando tengas contenido importante. La copia conserva los datos y adjuntos, pero no transfiere Hello ni passkeys entre dispositivos.'**
+  String get vaultStarterQuillBackupCallout;
+
+  /// No description provided for @vaultStarterQuillMermaidCaption.
+  ///
+  /// In es, this message translates to:
+  /// **'Prueba rápida de Mermaid:'**
+  String get vaultStarterQuillMermaidCaption;
+
+  /// No description provided for @vaultStarterQuillMermaidSource.
+  ///
+  /// In es, this message translates to:
+  /// **'graph TD\nInicio[Crear libreta] --> Organizar[Organizar páginas]\nOrganizar --> Escribir[Escribir y enlazar ideas]\nEscribir --> Revisar[Buscar, revisar y mejorar]'**
+  String get vaultStarterQuillMermaidSource;
 }
 
 class _AppLocalizationsDelegate

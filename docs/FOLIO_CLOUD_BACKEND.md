@@ -71,7 +71,7 @@ Si una política de organización impide `allUsers`, hay que alinear excepciones
 - **Copia en la nube**: Ajustes → subir/listar/descargar ZIP cifrado; el cliente puede pasar un snapshot de entitlements para fallar antes de Storage (las reglas siguen siendo la autoridad).
 - **Copia programada local**: si el usuario activa “Subir también a Folio Cloud” y tiene sesión Firebase + `canUseCloudBackup`, tras un backup programado exitoso se sube el mismo ZIP con `uploadEncryptedBackupFile`.
 - **Publicación web**: desde el workspace, “Publicar en la web” exporta la página actual a HTML (Markdown → HTML simple) y llama a `publishHtmlPage`; en Ajustes hay listado de `publishedPages`, enlace y borrado (Storage + Firestore).
-- **IA en nube**: `folioCloudAiComplete` acepta **suscripción con `cloudAi`** o **solo tinta comprada** (sin suscripción); el cliente elige Folio Cloud cuando `canUseCloudAi` (misma regla en UI). Si OpenAI devuelve **401/403/429** (clave, cuota o facturación), el error es de la **API de OpenAI**, no de las gotas Folio en Firestore. Mensajes técnicos del upstream pueden aparecer en el detalle del error. En el cliente, valores de `ink` absurdamente altos en Firestore se **acotan solo para mostrar** en la UI; conviene corregir el documento `users/{uid}` si fue un error de datos.
+- **IA en nube**: `folioCloudAiComplete` acepta **suscripción con `cloudAi`** o **solo tinta comprada** (sin suscripción); el cliente elige Folio Cloud cuando `canUseCloudAi` (misma regla en UI). Si **Quill Cloud** devuelve **401/403/429** (clave, cuota o facturación), el error es del **proveedor de inferencia de Quill Cloud**, no de las gotas Folio en Firestore. Mensajes técnicos del upstream pueden aparecer en el detalle del error. En el cliente, valores de `ink` absurdamente altos en Firestore se **acotan solo para mostrar** en la UI; conviene corregir el documento `users/{uid}` si fue un error de datos.
 
 ## Gotas y Quill en nube
 
@@ -97,13 +97,12 @@ Si una política de organización impide `allUsers`, hay que alinear excepciones
 | `edit_page_panel` | 4          |
 | `default`         | 3          |
 
-- **Límites y suplementos** (mismo archivo): `INK_MAX_PER_REQUEST` (tope por llamada). Si el **input total** (suma aproximada de `prompt` + `systemPrompt` + `messages[].content`) supera `INK_PROMPT_LENGTH_SURCHARGE_THRESHOLD` caracteres, se suman gotas extra (`INK_EXTRA_FOR_LONG_PROMPT`). Tras una respuesta exitosa de OpenAI, puede aplicarse un **suplemento por tokens** según `usage.total_tokens` (`INK_TOKENS_PER_SURCHARGE_UNIT`, tope `INK_MAX_TOKEN_SURCHARGE`).
-- `folioCloudAiComplete` (callable **1st gen**) exige `folioCloud.active` y `features.cloudAi`, descuenta el coste base en una transacción y llama a **OpenAI** Chat Completions (`OPENAI_API_KEY`). Si la IA falla después del débito, se reembolsa el **mismo** importe base (`refundInkDropCharge`). Sin tinta suficiente: `HttpsError` con código `resource-exhausted`.
+- **Límites y suplementos** (mismo archivo): `INK_MAX_PER_REQUEST` (tope por llamada). Si el **input total** (suma aproximada de `prompt` + `systemPrompt` + `messages[].content`) supera `INK_PROMPT_LENGTH_SURCHARGE_THRESHOLD` caracteres, se suman gotas extra (`INK_EXTRA_FOR_LONG_PROMPT`). Tras una respuesta exitosa del proveedor de **Quill Cloud**, puede aplicarse un **suplemento por tokens** según `usage.total_tokens` (`INK_TOKENS_PER_SURCHARGE_UNIT`, tope `INK_MAX_TOKEN_SURCHARGE`).
+- `folioCloudAiComplete` (callable **1st gen**) exige `folioCloud.active` y `features.cloudAi`, descuenta el coste base en una transacción y llama al **endpoint de chat de Quill Cloud** (configuración vía variables de entorno en Functions). Si la IA falla después del débito, se reembolsa el **mismo** importe base (`refundInkDropCharge`). Sin tinta suficiente: `HttpsError` con código `resource-exhausted`.
 - **Respuesta** al cliente (JSON): `text` (string), `ink: { monthlyBalance, purchasedBalance }` (enteros), `inkCharged` (base + suplemento por tokens cobrado), `inkBaseCharged`, `inkTokenSurcharge`. El cliente Flutter aplica `ink` al `FolioCloudEntitlementsController` para no esperar solo al stream de Firestore.
 
-### Referencia: API de OpenAI
+### Referencia: endpoint de chat (Quill Cloud)
 
-- Documentación: [OpenAI API — Chat Completions](https://platform.openai.com/docs/api-reference/chat/create).
-- El backend usa `POST {OPENAI_BASE_URL}/chat/completions` con `Authorization: Bearer` y cuerpo `model`, `messages`, `max_tokens`, `temperature`. `OPENAI_BASE_URL` por defecto es `https://api.openai.com/v1` (compatible con proxies que expongan la misma forma de API).
+- El backend usa `POST {OPENAI_BASE_URL}/chat/completions` con `Authorization: Bearer` y cuerpo `model`, `messages`, `max_tokens`, `temperature`. La URL base y la clave se configuran en Cloud Functions (variables de entorno del proyecto).
 - Para **cobrar tinta en función del trabajo real**, se lee **`usage.total_tokens`** en la respuesta para el suplemento por tokens además del coste base por `operationKind`.
 - El modelo por defecto en código es `gpt-4o-mini`; `OPENAI_MODEL` en Functions lo sobrescribe. Opcionales: `OPENAI_MAX_OUTPUT_TOKENS`, `OPENAI_TEMPERATURE`.

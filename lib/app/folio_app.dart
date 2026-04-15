@@ -280,7 +280,7 @@ class _FolioAppState extends State<FolioApp> with WidgetsBindingObserver {
     if (dir.isEmpty && !cloudOnly) return;
     if (widget.session.state != VaultFlowState.unlocked) return;
     final intervalMs =
-        widget.appSettings.scheduledVaultBackupIntervalHours * 3600000;
+        widget.appSettings.scheduledVaultBackupIntervalMinutes * 60 * 1000;
     final now = DateTime.now().millisecondsSinceEpoch;
     final last = widget.appSettings.lastScheduledVaultBackupMs;
     if (last > 0 && now - last < intervalMs) return;

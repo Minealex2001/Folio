@@ -13,6 +13,7 @@ list(APPEND FLUTTER_PLUGIN_LIST
   hotkey_manager_windows
   local_auth_windows
   passkeys_windows
+  printing
   record_windows
   screen_retriever_windows
   syncfusion_pdfviewer_windows
@@ -25,6 +26,7 @@ list(APPEND FLUTTER_PLUGIN_LIST
 )
 
 list(APPEND FLUTTER_FFI_PLUGIN_LIST
+  jni
 )
 
 set(PLUGIN_BUNDLED_LIBRARIES)

@@ -1,8 +1,11 @@
 import 'dart:async';
+import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_markdown_plus/flutter_markdown_plus.dart';
+import 'package:flutter_colorpicker/flutter_colorpicker.dart';
 import 'package:markdown/markdown.dart' as md;
+import 'package:flutter_quill/flutter_quill.dart' as quill;
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../../data/folio_internal_link.dart';
@@ -473,6 +476,24 @@ bool folioToggleWrap(
     }
   }
 
+  // Si el usuario selecciona incluyendo los delimitadores (p. ej. selecciona
+  // `**hola**` entero), quitar los delimitadores exteriores en vez de anidar.
+  // Para inline code, dejamos que el guard anterior decida (no tocar selecciones
+  // que contienen backticks).
+  final selected = text.substring(start, end);
+  if (selected.length >= left.length + right.length &&
+      selected.startsWith(left) &&
+      selected.endsWith(right)) {
+    final inner = selected.substring(left.length, selected.length - right.length);
+    final newText = text.replaceRange(start, end, inner);
+    final newEnd = (start + inner.length).clamp(0, newText.length);
+    controller.value = TextEditingValue(
+      text: newText,
+      selection: TextSelection(baseOffset: start, extentOffset: newEnd),
+    );
+    return true;
+  }
+
   final inner = text.substring(innerStart, innerEnd);
   final inserted = '$left$inner$right';
   final newText = text.replaceRange(innerStart, innerEnd, inserted);
@@ -512,13 +533,195 @@ void folioApplyLink(
   );
 }
 
+/// Fila de herramientas horizontal con flechas cuando el contenido supera el ancho disponible.
+class _FolioToolbarScrollStrip extends StatefulWidget {
+  const _FolioToolbarScrollStrip({
+    required this.colorScheme,
+    required this.child,
+    this.editorFocusNode,
+    this.onInteractionStart,
+    this.onInteractionEnd,
+  });
+
+  final ColorScheme colorScheme;
+  final Widget child;
+
+  /// Foco del editor (Quill/TextField): se reclama en pointerDown para que la barra no desaparezca.
+  final FocusNode? editorFocusNode;
+
+  /// Igual que en el resto de botones de la barra — mantiene visible el panel mientras se pulsa.
+  final VoidCallback? onInteractionStart;
+  final VoidCallback? onInteractionEnd;
+
+  @override
+  State<_FolioToolbarScrollStrip> createState() => _FolioToolbarScrollStripState();
+}
+
+class _FolioToolbarScrollStripState extends State<_FolioToolbarScrollStrip> {
+  final ScrollController _controller = ScrollController();
+  bool _canScrollLeft = false;
+  bool _canScrollRight = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller.addListener(_syncArrowState);
+    // Dos frames: el scroll position a veces no está listo en el primero.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _syncArrowState();
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _syncArrowState();
+      });
+    });
+  }
+
+  @override
+  void dispose() {
+    _controller.removeListener(_syncArrowState);
+    _controller.dispose();
+    super.dispose();
+  }
+
+  void _syncArrowState() {
+    if (!mounted) return;
+    final c = _controller;
+    if (!c.hasClients) {
+      if (_canScrollLeft || _canScrollRight) {
+        setState(() {
+          _canScrollLeft = false;
+          _canScrollRight = false;
+        });
+      }
+      return;
+    }
+    final p = c.position;
+    final left = c.offset > 0.5;
+    final right = c.offset < p.maxScrollExtent - 0.5;
+    if (left != _canScrollLeft || right != _canScrollRight) {
+      setState(() {
+        _canScrollLeft = left;
+        _canScrollRight = right;
+      });
+    }
+  }
+
+  void _deferSyncArrowState() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _syncArrowState();
+    });
+  }
+
+  /// Después del frame para que [InkWell.onTap] se ejecute antes de limpiar
+  /// `_toolbarInteractionBlockId` en el padre (si no, la barra se desmonta y el scroll no aplica).
+  void _scheduleInteractionEnd() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) widget.onInteractionEnd?.call();
+    });
+  }
+
+  void _tryScrollStep(double direction) {
+    if (!_controller.hasClients) return;
+    final p = _controller.position;
+    final maxExt = p.maxScrollExtent;
+    if (maxExt <= 0) return;
+    final extent = p.viewportDimension;
+    final delta = direction * extent * 0.72;
+    final target = (_controller.offset + delta).clamp(0.0, maxExt);
+    if ((target - _controller.offset).abs() < 0.5) return;
+    _controller.animateTo(
+      target,
+      duration: const Duration(milliseconds: 220),
+      curve: Curves.easeOutCubic,
+    );
+  }
+
+  Widget _scrollArrowButton({
+    required IconData icon,
+    required String tooltip,
+    required double direction,
+  }) {
+    final enabled = direction < 0 ? _canScrollLeft : _canScrollRight;
+    final iconColor = widget.colorScheme.onSurfaceVariant;
+    final faded = iconColor.withValues(alpha: 0.38);
+    return Listener(
+      behavior: HitTestBehavior.translucent,
+      onPointerDown: (_) {
+        widget.onInteractionStart?.call();
+        final n = widget.editorFocusNode;
+        if (n != null && n.canRequestFocus) {
+          n.requestFocus();
+        }
+      },
+      onPointerUp: (_) => _scheduleInteractionEnd(),
+      onPointerCancel: (_) => _scheduleInteractionEnd(),
+      child: Tooltip(
+        message: tooltip,
+        child: InkWell(
+          canRequestFocus: false,
+          borderRadius: BorderRadius.circular(8),
+          // Siempre intentar scroll: los flags pueden ir un frame retrasados.
+          onTap: () => _tryScrollStep(direction),
+          child: SizedBox(
+            width: 36,
+            height: 40,
+            child: Center(
+              child: Icon(
+                icon,
+                size: 22,
+                color: enabled ? iconColor : faded,
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+
+    return NotificationListener<ScrollMetricsNotification>(
+      onNotification: (_) {
+        _deferSyncArrowState();
+        return false;
+      },
+      child: Row(
+        children: [
+          _scrollArrowButton(
+            icon: Icons.chevron_left_rounded,
+            tooltip: l10n.formatToolbarScrollPrevious,
+            direction: -1,
+          ),
+          Expanded(
+            child: SingleChildScrollView(
+              controller: _controller,
+              scrollDirection: Axis.horizontal,
+              physics: const ClampingScrollPhysics(),
+              primary: false,
+              child: widget.child,
+            ),
+          ),
+          _scrollArrowButton(
+            icon: Icons.chevron_right_rounded,
+            tooltip: l10n.formatToolbarScrollNext,
+            direction: 1,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 /// Barra compacta de formato inline (mismos marcadores que al teclear a mano).
-class FolioFormatToolbar extends StatelessWidget {
+class FolioFormatToolbar extends StatefulWidget {
   const FolioFormatToolbar({
     super.key,
     required this.controller,
     required this.colorScheme,
     required this.textFocusNode,
+    this.onInteractionStart,
+    this.onInteractionEnd,
     this.onOpenBlockAppearance,
     this.onMentionPage,
     this.onInsertUserMention,
@@ -529,6 +732,8 @@ class FolioFormatToolbar extends StatelessWidget {
   final TextEditingController controller;
   final ColorScheme colorScheme;
   final FocusNode textFocusNode;
+  final VoidCallback? onInteractionStart;
+  final VoidCallback? onInteractionEnd;
   final VoidCallback? onOpenBlockAppearance;
 
   /// Mención @página → enlace [folio://open/…].
@@ -543,8 +748,510 @@ class FolioFormatToolbar extends StatelessWidget {
   /// Inserta marcadores LaTeX en línea `\\( … \\)`.
   final VoidCallback? onInsertInlineMath;
 
+  @override
+  State<FolioFormatToolbar> createState() => _FolioFormatToolbarState();
+}
+
+/// Toolbar para `flutter_quill` (WYSIWYG).
+class FolioQuillFormatToolbar extends StatelessWidget {
+  const FolioQuillFormatToolbar({
+    super.key,
+    required this.controller,
+    required this.colorScheme,
+    required this.focusNode,
+    this.onInteractionStart,
+    this.onInteractionEnd,
+  });
+
+  final quill.QuillController controller;
+  final ColorScheme colorScheme;
+  final FocusNode focusNode;
+  final VoidCallback? onInteractionStart;
+  final VoidCallback? onInteractionEnd;
+
+  void _toggle(quill.Attribute attr) {
+    final current = controller.getSelectionStyle().attributes[attr.key];
+    controller.formatSelection(current == null ? attr : quill.Attribute.clone(attr, null));
+  }
+
+  void _setBlockAttr(quill.Attribute attr) {
+    final current = controller.getSelectionStyle().attributes[attr.key];
+    controller.formatSelection(current == null ? attr : quill.Attribute.clone(attr, null));
+  }
+
+  void _setList(quill.Attribute<String?> listAttr) {
+    final current = controller.getSelectionStyle().attributes[quill.Attribute.list.key];
+    final curVal = current?.value;
+    controller.formatSelection(curVal == listAttr.value ? quill.Attribute.clone(listAttr, null) : listAttr);
+  }
+
+  void _indent(bool increase) {
+    if (increase) {
+      controller.indentSelection(true);
+    } else {
+      controller.indentSelection(false);
+    }
+  }
+
+  void _clearInline() {
+    final attrs = controller.getSelectionStyle().attributes;
+    for (final key in attrs.keys.toList()) {
+      // No tocar atributos de bloque aquí.
+      if (quill.Attribute.blockKeys.contains(key)) continue;
+      controller.formatSelection(quill.Attribute.fromKeyValue(key, null));
+    }
+  }
+
   Future<void> _link(BuildContext context) async {
-    final value = controller.value;
+    final sel = controller.selection;
+    if (!sel.isValid || sel.isCollapsed) return;
+    final current = controller.getSelectionStyle().attributes[quill.Attribute.link.key]?.value;
+    final urlCtrl = TextEditingController(text: current is String ? current : '');
+    try {
+      final ok = await showDialog<bool>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: Text(AppLocalizations.of(context).linkTitle),
+          content: TextField(
+            controller: urlCtrl,
+            decoration: InputDecoration(
+              labelText: AppLocalizations.of(context).urlLabel,
+              hintText: AppLocalizations.of(context).urlHint,
+            ),
+            keyboardType: TextInputType.url,
+            autofocus: true,
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: Text(AppLocalizations.of(context).cancel),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(ctx, true),
+              child: Text(AppLocalizations.of(context).insert),
+            ),
+          ],
+        ),
+      );
+      if (ok == true && context.mounted) {
+        final url = urlCtrl.text.trim();
+        if (url.isEmpty) return;
+        controller.formatSelection(quill.LinkAttribute(url));
+      }
+    } finally {
+      urlCtrl.dispose();
+    }
+  }
+
+  void _unlink() {
+    controller.formatSelection(quill.LinkAttribute(null));
+  }
+
+  Future<void> _pickColor(
+    BuildContext context, {
+    required bool background,
+  }) async {
+    final attr = background ? quill.Attribute.background : quill.Attribute.color;
+
+    Color parseCurrent() {
+      final current =
+          controller.getSelectionStyle().attributes[attr.key]?.value as String?;
+      if (current == null || current.trim().isEmpty) {
+        return const Color(0xFF000000);
+      }
+      final s = current.trim();
+      final hex = s.startsWith('#') ? s.substring(1) : s;
+      if (hex.length != 6) return const Color(0xFF000000);
+      final v = int.tryParse(hex, radix: 16);
+      if (v == null) return const Color(0xFF000000);
+      return Color(0xFF000000 | v);
+    }
+
+    String toHex(Color c) {
+      final rgb = c.value & 0x00FFFFFF;
+      return '#${rgb.toRadixString(16).padLeft(6, '0')}';
+    }
+
+    Color temp = parseCurrent();
+    Future<Color?> showAnchoredPicker() async {
+      final buttonBox = context.findRenderObject() as RenderBox?;
+      final overlay =
+          Overlay.of(context).context.findRenderObject() as RenderBox?;
+      if (buttonBox == null || overlay == null) return null;
+      final buttonRect = buttonBox.localToGlobal(Offset.zero, ancestor: overlay) &
+          buttonBox.size;
+      final position = RelativeRect.fromRect(
+        buttonRect,
+        Offset.zero & overlay.size,
+      );
+
+      final scheme = Theme.of(context).colorScheme;
+      final maxW = math.min(360.0, overlay.size.width - 24.0);
+      final pickerW = maxW.clamp(280.0, 360.0);
+
+      return await showMenu<Color?>(
+        context: context,
+        position: position,
+        constraints: BoxConstraints.tightFor(width: pickerW),
+        items: [
+          PopupMenuItem<Color?>(
+            enabled: false,
+            padding: EdgeInsets.zero,
+            child: StatefulBuilder(
+              builder: (menuCtx, setMenuState) => Padding(
+                padding: const EdgeInsets.all(12),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            background ? 'Color de fondo' : 'Color de texto',
+                            style: Theme.of(menuCtx).textTheme.titleSmall,
+                          ),
+                        ),
+                        Container(
+                          width: 22,
+                          height: 22,
+                          decoration: BoxDecoration(
+                            color: temp,
+                            borderRadius: BorderRadius.circular(5),
+                            border: Border.all(
+                              color: scheme.outlineVariant.withValues(alpha: 0.7),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 10),
+                    ColorPicker(
+                      pickerColor: temp,
+                      onColorChanged: (c) => setMenuState(() => temp = c),
+                      enableAlpha: false,
+                      portraitOnly: true,
+                      colorPickerWidth: pickerW - 24,
+                      labelTypes: const [],
+                    ),
+                    const SizedBox(height: 10),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            toHex(temp).toUpperCase(),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: Theme.of(menuCtx).textTheme.labelLarge,
+                          ),
+                        ),
+                        TextButton(
+                          onPressed: () => Navigator.pop(menuCtx, null),
+                          child: Text(AppLocalizations.of(menuCtx).cancel),
+                        ),
+                        TextButton(
+                          onPressed: () =>
+                              Navigator.pop(menuCtx, const Color(0x00000000)),
+                          child: const Text('Quitar'),
+                        ),
+                        FilledButton(
+                          onPressed: () => Navigator.pop(menuCtx, temp),
+                          child: const Text('Aplicar'),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ],
+      );
+    }
+
+    final picked = await showAnchoredPicker();
+    if (picked == null) return;
+    if (picked.value == 0x00000000) {
+      controller.formatSelection(quill.Attribute.clone(attr, null));
+      return;
+    }
+    controller.formatSelection(quill.Attribute.clone(attr, toHex(picked)));
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final iconColor = colorScheme.onSurfaceVariant;
+    Widget btn({
+      required IconData icon,
+      required String tip,
+      required VoidCallback onActivate,
+    }) {
+      return Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 2),
+        child: Listener(
+          behavior: HitTestBehavior.translucent,
+          onPointerDown: (_) {
+            onInteractionStart?.call();
+            if (!focusNode.hasFocus) {
+              focusNode.requestFocus();
+            }
+            onActivate();
+          },
+          onPointerUp: (_) => onInteractionEnd?.call(),
+          onPointerCancel: (_) => onInteractionEnd?.call(),
+          child: Focus(
+            canRequestFocus: false,
+            descendantsAreFocusable: false,
+            child: IconButton(
+              style: IconButton.styleFrom(
+                visualDensity: VisualDensity.compact,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
+              ),
+              icon: Icon(icon, size: 20, color: iconColor),
+              onPressed: null, // activamos en pointerDown (desktop-safe)
+              tooltip: tip,
+            ),
+          ),
+        ),
+      );
+    }
+
+    return Semantics(
+      container: true,
+      label: AppLocalizations.of(context).formatToolbar,
+      child: BlockEditorFloatingPanel(
+        scheme: colorScheme,
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 560, maxHeight: 56),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+            child: _FolioToolbarScrollStrip(
+              colorScheme: colorScheme,
+              editorFocusNode: focusNode,
+              onInteractionStart: onInteractionStart,
+              onInteractionEnd: onInteractionEnd,
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  btn(
+                    icon: Icons.undo_rounded,
+                    tip: 'Deshacer',
+                    onActivate: () => controller.undo(),
+                  ),
+                  btn(
+                    icon: Icons.redo_rounded,
+                    tip: 'Rehacer',
+                    onActivate: () => controller.redo(),
+                  ),
+                  btn(
+                    icon: Icons.format_bold_rounded,
+                    tip: AppLocalizations.of(context).boldTip,
+                    onActivate: () => _toggle(quill.Attribute.bold),
+                  ),
+                  btn(
+                    icon: Icons.format_italic_rounded,
+                    tip: AppLocalizations.of(context).italicTip,
+                    onActivate: () => _toggle(quill.Attribute.italic),
+                  ),
+                  btn(
+                    icon: Icons.format_underlined_rounded,
+                    tip: AppLocalizations.of(context).underlineTip,
+                    onActivate: () => _toggle(quill.Attribute.underline),
+                  ),
+                  btn(
+                    icon: Icons.strikethrough_s_rounded,
+                    tip: AppLocalizations.of(context).strikeTip,
+                    onActivate: () => _toggle(quill.Attribute.strikeThrough),
+                  ),
+                  btn(
+                    icon: Icons.code_rounded,
+                    tip: AppLocalizations.of(context).inlineCodeTip,
+                    onActivate: () => _toggle(quill.Attribute.inlineCode),
+                  ),
+                  btn(
+                    icon: Icons.link_rounded,
+                    tip: AppLocalizations.of(context).linkTip,
+                    onActivate: () => unawaited(_link(context)),
+                  ),
+                  btn(
+                    icon: Icons.link_off_rounded,
+                    tip: 'Quitar enlace',
+                    onActivate: _unlink,
+                  ),
+                  btn(
+                    icon: Icons.format_color_text_rounded,
+                    tip: 'Color de texto',
+                    onActivate: () => unawaited(
+                      _pickColor(context, background: false),
+                    ),
+                  ),
+                  btn(
+                    icon: Icons.format_color_fill_rounded,
+                    tip: 'Color de fondo',
+                    onActivate: () => unawaited(
+                      _pickColor(context, background: true),
+                    ),
+                  ),
+                  btn(
+                    icon: Icons.highlight_rounded,
+                    tip: 'Resaltar',
+                    onActivate: () => controller.formatSelection(
+                      quill.Attribute.clone(
+                        quill.Attribute.background,
+                        '#fff59d',
+                      ),
+                    ),
+                  ),
+                  btn(
+                    icon: Icons.title_rounded,
+                    tip: 'H1',
+                    onActivate: () =>
+                        _setBlockAttr(const quill.HeaderAttribute(level: 1)),
+                  ),
+                  btn(
+                    icon: Icons.title_rounded,
+                    tip: 'H2',
+                    onActivate: () =>
+                        _setBlockAttr(const quill.HeaderAttribute(level: 2)),
+                  ),
+                  btn(
+                    icon: Icons.title_rounded,
+                    tip: 'H3',
+                    onActivate: () =>
+                        _setBlockAttr(const quill.HeaderAttribute(level: 3)),
+                  ),
+                  btn(
+                    icon: Icons.format_list_bulleted_rounded,
+                    tip: 'Lista',
+                    onActivate: () => _setList(quill.Attribute.ul),
+                  ),
+                  btn(
+                    icon: Icons.format_list_numbered_rounded,
+                    tip: 'Lista numerada',
+                    onActivate: () => _setList(quill.Attribute.ol),
+                  ),
+                  btn(
+                    icon: Icons.checklist_rounded,
+                    tip: 'Lista de tareas',
+                    onActivate: () => _setList(quill.Attribute.unchecked),
+                  ),
+                  btn(
+                    icon: Icons.format_quote_rounded,
+                    tip: 'Cita',
+                    onActivate: () => _setBlockAttr(quill.Attribute.blockQuote),
+                  ),
+                  btn(
+                    icon: Icons.format_indent_increase_rounded,
+                    tip: 'Aumentar sangría',
+                    onActivate: () => _indent(true),
+                  ),
+                  btn(
+                    icon: Icons.format_indent_decrease_rounded,
+                    tip: 'Reducir sangría',
+                    onActivate: () => _indent(false),
+                  ),
+                  btn(
+                    icon: Icons.format_clear_rounded,
+                    tip: 'Limpiar formato',
+                    onActivate: _clearInline,
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _FolioFormatToolbarState extends State<FolioFormatToolbar> {
+  TextSelection? _lastSelection;
+  bool _skipNextPressed = false;
+
+  VoidCallback? _controllerListener;
+
+  @override
+  void initState() {
+    super.initState();
+    _attachControllerListener(widget.controller);
+  }
+
+  @override
+  void didUpdateWidget(covariant FolioFormatToolbar oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.controller != widget.controller) {
+      _detachControllerListener(oldWidget.controller);
+      _attachControllerListener(widget.controller);
+    }
+  }
+
+  @override
+  void dispose() {
+    _detachControllerListener(widget.controller);
+    super.dispose();
+  }
+
+  void _attachControllerListener(TextEditingController c) {
+    void listener() {
+      final sel = c.selection;
+      if (!sel.isValid) return;
+      _lastSelection = sel;
+    }
+
+    _controllerListener = listener;
+    c.addListener(listener);
+    // Captura inicial por si el caller ya tiene selección.
+    listener();
+  }
+
+  void _detachControllerListener(TextEditingController c) {
+    final l = _controllerListener;
+    if (l == null) return;
+    c.removeListener(l);
+    _controllerListener = null;
+  }
+
+  void _captureSelection() {
+    final sel = widget.controller.selection;
+    if (!sel.isValid) return;
+    _lastSelection = sel;
+  }
+
+  void _restoreSelectionIfPossible() {
+    final sel = _lastSelection;
+    if (sel == null || !sel.isValid) return;
+    final len = widget.controller.text.length;
+    if (len == 0) return;
+    final base = sel.baseOffset.clamp(0, len);
+    final extent = sel.extentOffset.clamp(0, len);
+    widget.controller.selection = TextSelection(
+      baseOffset: base,
+      extentOffset: extent,
+    );
+  }
+
+  void _selectAllIfCollapsedOrInvalid() {
+    final sel = widget.controller.selection;
+    final len = widget.controller.text.length;
+    if (len == 0) return;
+    if (!sel.isValid || sel.isCollapsed) {
+      widget.controller.selection = TextSelection(baseOffset: 0, extentOffset: len);
+    }
+  }
+
+  void _applyInlineFormat(bool Function() op, {bool wrapWholeBlockWhenNoSelection = true}) {
+    _restoreSelectionIfPossible();
+    if (wrapWholeBlockWhenNoSelection) {
+      _selectAllIfCollapsedOrInvalid();
+    }
+    op();
+    widget.textFocusNode.requestFocus();
+  }
+
+  Future<void> _link(BuildContext context) async {
+    final value = widget.controller.value;
     final text = value.text;
     var start = value.selection.start;
     var end = value.selection.end;
@@ -607,8 +1314,9 @@ class FolioFormatToolbar extends StatelessWidget {
         final u = urlCtrl.text.trim();
         if (u.isEmpty) return;
         final lab = labelCtrl.text.trim();
-        folioApplyLink(controller, lab, u);
-        textFocusNode.requestFocus();
+        _restoreSelectionIfPossible();
+        folioApplyLink(widget.controller, lab, u);
+        widget.textFocusNode.requestFocus();
       }
     } finally {
       labelCtrl.dispose();
@@ -618,29 +1326,52 @@ class FolioFormatToolbar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    void applyFormat(void Function() op) {
-      op();
-      textFocusNode.requestFocus();
-    }
-
-    final iconColor = colorScheme.onSurfaceVariant;
+    final iconColor = widget.colorScheme.onSurfaceVariant;
     Widget btn({
       required IconData icon,
       required String tip,
       required VoidCallback onPressed,
+      bool activateOnPointerDown = false,
     }) {
       return Padding(
         padding: const EdgeInsets.symmetric(horizontal: 2.0),
-        child: IconButton(
-          style: IconButton.styleFrom(
-            visualDensity: VisualDensity.compact,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(8),
+        child: Listener(
+          behavior: HitTestBehavior.translucent,
+          onPointerDown: (_) {
+            _captureSelection();
+            widget.onInteractionStart?.call();
+            // En desktop, el foco puede cambiar en pointerDown y hacer que la
+            // toolbar se desmonte antes del "tap" (por lo tanto, sin onPressed).
+            // Reclamamos el foco del TextField inmediatamente.
+            widget.textFocusNode.requestFocus();
+            if (activateOnPointerDown) {
+              _skipNextPressed = true;
+              onPressed();
+            }
+          },
+          onPointerUp: (_) => widget.onInteractionEnd?.call(),
+          onPointerCancel: (_) => widget.onInteractionEnd?.call(),
+          child: Focus(
+            canRequestFocus: false,
+            descendantsAreFocusable: false,
+            child: IconButton(
+              style: IconButton.styleFrom(
+                visualDensity: VisualDensity.compact,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
+              ),
+              icon: Icon(icon, size: 20, color: iconColor),
+              onPressed: () {
+                if (activateOnPointerDown && _skipNextPressed) {
+                  _skipNextPressed = false;
+                  return;
+                }
+                onPressed();
+              },
+              tooltip: tip,
             ),
           ),
-          icon: Icon(icon, size: 20, color: iconColor),
-          onPressed: onPressed,
-          tooltip: tip,
         ),
       );
     }
@@ -648,92 +1379,119 @@ class FolioFormatToolbar extends StatelessWidget {
     return Semantics(
       container: true,
       label: AppLocalizations.of(context).formatToolbar,
-      child: BlockEditorFloatingPanel(
-        scheme: colorScheme,
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 560, maxHeight: 56),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-            child: SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              physics: const ClampingScrollPhysics(),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  if (onOpenBlockAppearance != null)
+      child: FocusScope(
+        canRequestFocus: false,
+        child: BlockEditorFloatingPanel(
+          scheme: widget.colorScheme,
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 560, maxHeight: 56),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+              child: _FolioToolbarScrollStrip(
+                colorScheme: widget.colorScheme,
+                editorFocusNode: widget.textFocusNode,
+                onInteractionStart: widget.onInteractionStart,
+                onInteractionEnd: widget.onInteractionEnd,
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    if (widget.onOpenBlockAppearance != null)
+                      btn(
+                        icon: Icons.palette_outlined,
+                        tip: 'Apariencia del bloque',
+                        onPressed: () => _applyInlineFormat(() {
+                          widget.onOpenBlockAppearance!.call();
+                          return true;
+                        }),
+                      ),
                     btn(
-                      icon: Icons.palette_outlined,
-                      tip: 'Apariencia del bloque',
-                      onPressed: () => applyFormat(onOpenBlockAppearance!),
+                      icon: Icons.format_bold_rounded,
+                      tip: AppLocalizations.of(context).boldTip,
+                      onPressed: () => _applyInlineFormat(
+                        () => folioToggleWrap(widget.controller, '**', '**'),
+                      ),
+                      activateOnPointerDown: true,
                     ),
-                  btn(
-                    icon: Icons.format_bold_rounded,
-                    tip: AppLocalizations.of(context).boldTip,
-                    onPressed: () => applyFormat(
-                      () => folioToggleWrap(controller, '**', '**'),
-                    ),
-                  ),
-                  btn(
-                    icon: Icons.format_italic_rounded,
-                    tip: AppLocalizations.of(context).italicTip,
-                    onPressed: () => applyFormat(
-                      () => folioToggleWrap(controller, '_', '_'),
-                    ),
-                  ),
-                  btn(
-                    icon: Icons.format_underlined_rounded,
-                    tip: AppLocalizations.of(context).underlineTip,
-                    onPressed: () => applyFormat(
-                      () => folioToggleWrap(controller, '<u>', '</u>'),
-                    ),
-                  ),
-                  btn(
-                    icon: Icons.code_rounded,
-                    tip: AppLocalizations.of(context).inlineCodeTip,
-                    onPressed: () => applyFormat(
-                      () => folioToggleWrap(controller, '`', '`'),
-                    ),
-                  ),
-                  btn(
-                    icon: Icons.strikethrough_s_rounded,
-                    tip: AppLocalizations.of(context).strikeTip,
-                    onPressed: () => applyFormat(
-                      () => folioToggleWrap(controller, '~~', '~~'),
-                    ),
-                  ),
-                  btn(
-                    icon: Icons.link_rounded,
-                    tip: AppLocalizations.of(context).linkTip,
-                    onPressed: () => _link(context),
-                  ),
-                  if (onMentionPage != null)
                     btn(
-                      icon: Icons.insert_link_outlined,
-                      tip: 'Mencionar página (@página)',
-                      onPressed: () async {
-                        await onMentionPage!(context);
-                        textFocusNode.requestFocus();
+                      icon: Icons.format_italic_rounded,
+                      tip: AppLocalizations.of(context).italicTip,
+                      onPressed: () => _applyInlineFormat(
+                        () => folioToggleWrap(widget.controller, '_', '_'),
+                      ),
+                      activateOnPointerDown: true,
+                    ),
+                    btn(
+                      icon: Icons.format_underlined_rounded,
+                      tip: AppLocalizations.of(context).underlineTip,
+                      onPressed: () => _applyInlineFormat(
+                        () => folioToggleWrap(widget.controller, '<u>', '</u>'),
+                      ),
+                      activateOnPointerDown: true,
+                    ),
+                    btn(
+                      icon: Icons.code_rounded,
+                      tip: AppLocalizations.of(context).inlineCodeTip,
+                      onPressed: () => _applyInlineFormat(
+                        () => folioToggleWrap(widget.controller, '`', '`'),
+                        wrapWholeBlockWhenNoSelection: false,
+                      ),
+                      activateOnPointerDown: true,
+                    ),
+                    btn(
+                      icon: Icons.strikethrough_s_rounded,
+                      tip: AppLocalizations.of(context).strikeTip,
+                      onPressed: () => _applyInlineFormat(
+                        () => folioToggleWrap(widget.controller, '~~', '~~'),
+                      ),
+                      activateOnPointerDown: true,
+                    ),
+                    btn(
+                      icon: Icons.link_rounded,
+                      tip: AppLocalizations.of(context).linkTip,
+                      onPressed: () {
+                        _restoreSelectionIfPossible();
+                        unawaited(_link(context));
                       },
                     ),
-                  if (onInsertUserMention != null)
-                    btn(
-                      icon: Icons.alternate_email_rounded,
-                      tip: '@usuario',
-                      onPressed: () => applyFormat(onInsertUserMention!),
-                    ),
-                  if (onInsertDateMention != null)
-                    btn(
-                      icon: Icons.event_rounded,
-                      tip: '@fecha',
-                      onPressed: () => applyFormat(onInsertDateMention!),
-                    ),
-                  if (onInsertInlineMath != null)
-                    btn(
-                      icon: Icons.functions_rounded,
-                      tip: 'Matemáticas en línea \\( \\)',
-                      onPressed: () => applyFormat(onInsertInlineMath!),
-                    ),
-                ],
+                    if (widget.onMentionPage != null)
+                      btn(
+                        icon: Icons.insert_link_outlined,
+                        tip: 'Mencionar página (@página)',
+                        onPressed: () async {
+                          _restoreSelectionIfPossible();
+                          await widget.onMentionPage!(context);
+                          widget.textFocusNode.requestFocus();
+                        },
+                      ),
+                    if (widget.onInsertUserMention != null)
+                      btn(
+                        icon: Icons.alternate_email_rounded,
+                        tip: '@usuario',
+                        onPressed: () => _applyInlineFormat(() {
+                          widget.onInsertUserMention!.call();
+                          return true;
+                        }),
+                      ),
+                    if (widget.onInsertDateMention != null)
+                      btn(
+                        icon: Icons.event_rounded,
+                        tip: '@fecha',
+                        onPressed: () => _applyInlineFormat(() {
+                          widget.onInsertDateMention!.call();
+                          return true;
+                        }),
+                      ),
+                    if (widget.onInsertInlineMath != null)
+                      btn(
+                        icon: Icons.functions_rounded,
+                        tip: 'Matemáticas en línea \\( \\)',
+                        onPressed: () => _applyInlineFormat(() {
+                          widget.onInsertInlineMath!.call();
+                          return true;
+                        }),
+                      ),
+                  ],
+                ),
               ),
             ),
           ),

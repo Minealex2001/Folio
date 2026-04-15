@@ -1,8 +1,30 @@
 part of 'package:folio/features/workspace/editor/block_editor.dart';
 
+@visibleForTesting
+String? folioParseMarkdownCodeFenceShortcut(String text) {
+  // Atajo de línea completa: ```lang (opcional) con espacios opcionales.
+  // No usa trimLeft para evitar conversiones inesperadas en texto indentado.
+  final m = RegExp(r'^```\s*([A-Za-z0-9_+\-]*)\s*$').firstMatch(text);
+  if (m == null) return null;
+  final raw = (m.group(1) ?? '').trim().toLowerCase();
+  if (raw.isEmpty) return '';
+  return switch (raw) {
+    'js' => 'javascript',
+    'ts' => 'typescript',
+    'sh' => 'bash',
+    'shell' => 'bash',
+    'yml' => 'yaml',
+    'text' => 'plaintext',
+    _ => raw,
+  };
+}
+
 class BlockEditorState extends State<BlockEditor> with _BlockRowBuild {
   static const _uuid = Uuid();
   final List<TextEditingController> _controllers = [];
+  final Map<String, quill.QuillController> _quillByBlockId = {};
+  final Map<String, Timer> _quillDebounceByBlockId = {};
+  final Map<String, String> _quillLastMdByBlockId = {};
   final List<FocusNode> _focusNodes = [];
   final List<VoidCallback> _textListeners = [];
   final List<VoidCallback> _focusDecorListeners = [];
@@ -70,24 +92,136 @@ class BlockEditorState extends State<BlockEditor> with _BlockRowBuild {
   int? _prevBlockCountForScroll;
   final Map<String, bool> _tailTapTransientTouchedByBlockId = {};
   String? _pendingTailTransientBlockId;
+  bool _ensuringTrailingSentinel = false;
+  String? _toolbarInteractionBlockId;
+  int _toolbarInteractionToken = 0;
 
-  void _focusBlockNowOrDefer(String blockId, {int cursorOffset = 0}) {
-    final idx = _controllerBlockIds.indexOf(blockId);
-    if (idx >= 0 && idx < _focusNodes.length) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (!mounted) return;
-        if (idx >= _focusNodes.length) return;
-        _focusNodes[idx].requestFocus();
-        if (idx < _controllers.length) {
-          final len = _controllers[idx].text.length;
-          final off = cursorOffset.clamp(0, len);
-          _controllers[idx].selection = TextSelection.collapsed(offset: off);
+  void _onToolbarPointerDown(String blockId) {
+    _toolbarInteractionToken++;
+    _toolbarInteractionBlockId = blockId;
+    if (!mounted) return;
+    setState(() {});
+  }
+
+  void _onToolbarPointerUpOrCancel(String blockId) {
+    if (_toolbarInteractionBlockId != blockId) return;
+    final token = _toolbarInteractionToken;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      // Si hubo otra interacción más reciente, no limpiar aún.
+      if (token != _toolbarInteractionToken) return;
+      if (_toolbarInteractionBlockId != blockId) return;
+      _toolbarInteractionBlockId = null;
+      setState(() {});
+    });
+  }
+
+  quill.QuillController _ensureQuillController({
+    required String pageId,
+    required FolioBlock block,
+  }) {
+    final existing = _quillByBlockId[block.id];
+    if (existing != null) return existing;
+    quill.Document doc;
+    final deltaJson = block.richTextDeltaJson?.trim();
+    if (deltaJson != null && deltaJson.isNotEmpty) {
+      try {
+        final raw = jsonDecode(deltaJson);
+        final delta = Delta.fromJson(raw as List);
+        doc = quill.Document.fromDelta(delta);
+      } catch (_) {
+        doc = FolioMarkdownQuillCodec.markdownToDocument(block.text);
+      }
+    } else {
+      doc = FolioMarkdownQuillCodec.markdownToDocument(block.text);
+    }
+    _quillLastMdByBlockId[block.id] = block.text;
+    final qc = quill.QuillController(
+      document: doc,
+      selection: const TextSelection.collapsed(offset: 0),
+    );
+    void flushNow() {
+      if (!mounted) return;
+      final md = FolioMarkdownQuillCodec.documentToMarkdown(qc.document);
+      final deltaStr = jsonEncode(qc.document.toDelta().toJson());
+      _quillLastMdByBlockId[block.id] = md;
+      _runWithShortcutsIgnored(() {
+        _s.updateBlockText(pageId, block.id, md);
+        // Persistencia dual: guardar Delta/JSON en el bloque.
+        final page = _s.selectedPage;
+        if (page != null && page.id == pageId) {
+          final b = page.blocks.firstWhereOrNull((x) => x.id == block.id);
+          if (b != null) {
+            b.richTextDeltaJson = deltaStr;
+          }
+        }
+        final idx = _controllerBlockIds.indexOf(block.id);
+        if (idx >= 0 && idx < _controllers.length) {
+          _controllers[idx].value = TextEditingValue(
+            text: md,
+            selection: TextSelection.collapsed(offset: md.length),
+          );
         }
       });
-      return;
     }
-    _pendingFocusBlockId = blockId;
-    _pendingCursorOffset = cursorOffset;
+    void listener() {
+      // Convertir a markdown con debounce para evitar trabajo por tecla.
+      _quillDebounceByBlockId[block.id]?.cancel();
+      _quillDebounceByBlockId[block.id] = Timer(const Duration(milliseconds: 200), () {
+        flushNow();
+      });
+    }
+
+    qc.addListener(listener);
+    _quillByBlockId[block.id] = qc;
+    return qc;
+  }
+
+  void _disposeQuillFor(String blockId) {
+    _quillDebounceByBlockId.remove(blockId)?.cancel();
+    final qc = _quillByBlockId.remove(blockId);
+    qc?.dispose();
+    _quillLastMdByBlockId.remove(blockId);
+  }
+
+  bool _isTrailingSentinel(FolioBlock b) {
+    return b.type == 'paragraph' && b.depth == 0 && b.text.trim().isEmpty;
+  }
+
+  /// Garantiza que la página tenga un último bloque vacío (sentinela).
+  /// Devuelve `true` si no hubo cambios; `false` si insertamos y debemos esperar
+  /// a la siguiente notificación del session para continuar.
+  bool _ensureTrailingSentinel(FolioPage page) {
+    if (_ensuringTrailingSentinel) return true;
+    if (page.blocks.isEmpty) return true;
+    final last = page.blocks.last;
+    if (_isTrailingSentinel(last)) return true;
+
+    _ensuringTrailingSentinel = true;
+    String? focusId;
+    int? focusOff;
+    for (var i = 0; i < _focusNodes.length && i < _controllerBlockIds.length; i++) {
+      if (_focusNodes[i].hasFocus) {
+        focusId = _controllerBlockIds[i];
+        focusOff = _controllers[i].selection.baseOffset.clamp(
+          0,
+          _controllers[i].text.length,
+        );
+        break;
+      }
+    }
+    if (focusId != null) {
+      _pendingFocusBlockId = focusId;
+      _pendingCursorOffset = focusOff ?? 0;
+    }
+    final blockId = '${page.id}_${_uuid.v4()}';
+    _s.insertBlockAfter(
+      pageId: page.id,
+      afterBlockId: last.id,
+      block: FolioBlock(id: blockId, type: 'paragraph', text: ''),
+    );
+    _ensuringTrailingSentinel = false;
+    return false;
   }
 
   VaultSession get _s => widget.session;
@@ -931,6 +1065,7 @@ class BlockEditorState extends State<BlockEditor> with _BlockRowBuild {
   ) {
     String? type;
     var replacement = '';
+    final fenceLang = folioParseMarkdownCodeFenceShortcut(text);
 
     // No convertir con `# ` / `## ` / `### ` + espacio: pierde el foco y
     // impide escribir “# Título” en la misma línea. Usa /h1 o pega “# Texto”.
@@ -938,7 +1073,7 @@ class BlockEditorState extends State<BlockEditor> with _BlockRowBuild {
       type = 'bullet';
     } else if (text == '[] ' || text == '[ ] ') {
       type = 'todo';
-    } else if (text == '``` ') {
+    } else if (fenceLang != null) {
       type = 'code';
     } else if (!text.contains('\n') && !text.contains('\r')) {
       final m = RegExp(r'^(#{1,3})\s+(.+)$').firstMatch(text);
@@ -959,6 +1094,13 @@ class BlockEditorState extends State<BlockEditor> with _BlockRowBuild {
 
     _ignoreShortcuts = true;
     _s.changeBlockType(pageId, blockId, type);
+    if (type == 'code' && fenceLang != null && fenceLang.isNotEmpty) {
+      _s.setBlockCodeLanguage(pageId, blockId, fenceLang);
+      if (index >= 0 && index < _controllers.length) {
+        _pendingFocusIndex = index;
+        _pendingCursorOffset = 0;
+      }
+    }
     _s.updateBlockText(pageId, blockId, replacement);
     if (index < _controllers.length) {
       _controllers[index].value = TextEditingValue(
@@ -1439,14 +1581,15 @@ class BlockEditorState extends State<BlockEditor> with _BlockRowBuild {
     return showModalBottomSheet<String>(
       context: context,
       builder: (ctx) => SafeArea(
-        child: ListView(
-          children: [
-            for (final p in pages)
-              ListTile(
-                title: Text(p.title),
-                onTap: () => Navigator.pop(ctx, p.id),
-              ),
-          ],
+        child: ListView.builder(
+          itemCount: pages.length,
+          itemBuilder: (context, i) {
+            final p = pages[i];
+            return ListTile(
+              title: Text(p.title),
+              onTap: () => Navigator.pop(ctx, p.id),
+            );
+          },
         ),
       ),
     );
@@ -1903,23 +2046,6 @@ class BlockEditorState extends State<BlockEditor> with _BlockRowBuild {
     );
   }
 
-  void _addBlock(String pageId, {bool transientFromTailTap = false}) {
-    final page = _s.selectedPage;
-    if (page == null || page.blocks.isEmpty) return;
-    final blockId = '${pageId}_${_uuid.v4()}';
-    _pendingFocusIndex = page.blocks.length;
-    _pendingCursorOffset = 0;
-    if (transientFromTailTap) {
-      _tailTapTransientTouchedByBlockId[blockId] = false;
-      _pendingTailTransientBlockId = blockId;
-    }
-    _s.insertBlockAfter(
-      pageId: pageId,
-      afterBlockId: page.blocks.last.id,
-      block: FolioBlock(id: blockId, type: 'paragraph', text: ''),
-    );
-  }
-
   bool _isBlockSelected(String blockId) => _selectedBlockIds.contains(blockId);
 
   bool get _isAdditiveSelectionPressed {
@@ -2280,6 +2406,8 @@ class BlockEditorState extends State<BlockEditor> with _BlockRowBuild {
 
   void _disposeControllers() {
     final n = _controllers.length;
+    final controllersToDispose = <TextEditingController>[];
+    final focusToDispose = <FocusNode>[];
     for (var i = 0; i < n; i++) {
       if (i < _textListeners.length) {
         _controllers[i].removeListener(_textListeners[i]);
@@ -2287,8 +2415,14 @@ class BlockEditorState extends State<BlockEditor> with _BlockRowBuild {
       if (i < _focusDecorListeners.length) {
         _focusNodes[i].removeListener(_focusDecorListeners[i]);
       }
-      _controllers[i].dispose();
-      _focusNodes[i].dispose();
+      // Evitar dispose mientras el FocusNode aún puede notificar cambios
+      // (especialmente en Windows/Quill con callbacks de foco/IME pendientes).
+      final fn = _focusNodes[i];
+      if (fn.hasFocus) {
+        fn.unfocus();
+      }
+      controllersToDispose.add(_controllers[i]);
+      focusToDispose.add(fn);
     }
     _controllers.clear();
     _focusNodes.clear();
@@ -2317,6 +2451,29 @@ class BlockEditorState extends State<BlockEditor> with _BlockRowBuild {
     _collabUploadLastEtaSecByBlockId.clear();
     _blockScrollKeys.clear();
     _tailTapTransientTouchedByBlockId.clear();
+    final quillIds = _quillByBlockId.keys.toList();
+    for (final id in quillIds) {
+      // Evitar que Quill intente pedir teclado tras el teardown.
+      final qc = _quillByBlockId[id];
+      if (qc != null) {
+        qc.skipRequestKeyboard = true;
+      }
+      _quillDebounceByBlockId[id]?.cancel();
+    }
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      // Dispose diferido: deja que se drenen callbacks del frame actual.
+      for (final c in controllersToDispose) {
+        c.dispose();
+      }
+      for (final f in focusToDispose) {
+        f.dispose();
+      }
+      for (final id in quillIds) {
+        _disposeQuillFor(id);
+      }
+      _quillByBlockId.clear();
+      _quillDebounceByBlockId.clear();
+    });
   }
 
   bool _controllersMismatchPage(FolioPage page) {
@@ -2407,6 +2564,9 @@ class BlockEditorState extends State<BlockEditor> with _BlockRowBuild {
       _tailTapTransientTouchedByBlockId.clear();
       _pendingTailTransientBlockId = null;
       setState(() {});
+      return;
+    }
+    if (!_ensureTrailingSentinel(page)) {
       return;
     }
     if (_boundPageId != null && _boundPageId != page.id) {
@@ -2557,6 +2717,17 @@ class BlockEditorState extends State<BlockEditor> with _BlockRowBuild {
     for (final b in page.blocks) {
       final bid = b.id;
       final pid = page.id;
+      if (_stylableBlockTypes.contains(b.type)) {
+        // Asegurar controlador WYSIWYG y sincronizar desde el modelo si cambió
+        // (p. ej. undo/redo o cambios remotos).
+        final qc = _ensureQuillController(pageId: pid, block: b);
+        final last = _quillLastMdByBlockId[bid];
+        if (last != null && last != b.text) {
+          qc.document = FolioMarkdownQuillCodec.markdownToDocument(b.text);
+          _quillLastMdByBlockId[bid] = b.text;
+          _quillDebounceByBlockId[bid]?.cancel();
+        }
+      }
       final TextEditingController c = _usesCodeControllerForBlockType(b.type)
           ? CodeController(
               text: b.text,
@@ -2610,6 +2781,25 @@ class BlockEditorState extends State<BlockEditor> with _BlockRowBuild {
       void focusDecorListener() {
         if (!mounted) return;
         if (!fn.hasFocus) {
+          // Flush inmediato de WYSIWYG al perder foco.
+          if (_stylableBlockTypes.contains(b.type)) {
+            final qc = _quillByBlockId[bid];
+            if (qc != null) {
+              _quillDebounceByBlockId[bid]?.cancel();
+              final md = FolioMarkdownQuillCodec.documentToMarkdown(qc.document);
+              _quillLastMdByBlockId[bid] = md;
+              _runWithShortcutsIgnored(() {
+                _s.updateBlockText(pid, bid, md);
+                final idx = _controllerBlockIds.indexOf(bid);
+                if (idx >= 0 && idx < _controllers.length) {
+                  _controllers[idx].value = TextEditingValue(
+                    text: md,
+                    selection: TextSelection.collapsed(offset: md.length),
+                  );
+                }
+              });
+            }
+          }
           final touched = _tailTapTransientTouchedByBlockId[bid];
           if (touched != null) {
             if (!touched && c.text.trim().isEmpty) {
@@ -3394,7 +3584,7 @@ class BlockEditorState extends State<BlockEditor> with _BlockRowBuild {
   ) async {
     File? file;
     if (_pickImageViaFileDialog) {
-      final result = await FilePicker.platform.pickFiles(
+      final result = await FilePicker.pickFiles(
         type: FileType.image,
         allowMultiple: false,
         withData: false,
@@ -3457,7 +3647,7 @@ class BlockEditorState extends State<BlockEditor> with _BlockRowBuild {
   }
 
   Future<void> _pickFileForBlock(String pageId, String blockId) async {
-    final result = await FilePicker.platform.pickFiles();
+    final result = await FilePicker.pickFiles();
     if (result != null && result.files.single.path != null) {
       final file = File(result.files.single.path!);
       final rel = await VaultPaths.importAttachmentFile(
@@ -3478,7 +3668,7 @@ class BlockEditorState extends State<BlockEditor> with _BlockRowBuild {
   }
 
   Future<void> _pickVideoForBlock(String pageId, String blockId) async {
-    final result = await FilePicker.platform.pickFiles(type: FileType.video);
+    final result = await FilePicker.pickFiles(type: FileType.video);
     if (result != null && result.files.single.path != null) {
       final file = File(result.files.single.path!);
       final rel = await VaultPaths.importAttachmentFile(
@@ -3499,7 +3689,7 @@ class BlockEditorState extends State<BlockEditor> with _BlockRowBuild {
   }
 
   Future<void> _pickAudioForBlock(String pageId, String blockId) async {
-    final result = await FilePicker.platform.pickFiles(type: FileType.audio);
+    final result = await FilePicker.pickFiles(type: FileType.audio);
     if (result != null && result.files.single.path != null) {
       final file = File(result.files.single.path!);
       final rel = await VaultPaths.importAttachmentFile(
@@ -4729,65 +4919,7 @@ class BlockEditorState extends State<BlockEditor> with _BlockRowBuild {
               onPointerCancel: (_) => _endDragSelection(),
               child: GestureDetector(
                 behavior: HitTestBehavior.translucent,
-                onTapDown: readOnlyMode
-                    ? null
-                    : (details) {
-                        // UX: un tap/click en cualquier espacio vacío de la página
-                        // (no dentro de un bloque) añade un bloque nuevo al final.
-                        if (!_hitTestInsideAnyBlockRow(
-                          details.globalPosition,
-                          page,
-                        )) {
-                          // Evitar crear infinitos bloques vacíos: si ya existe un
-                          // bloque transient pendiente (creado por click en blanco)
-                          // y sigue vacío, solo lo enfocamos.
-                          final pendingTransient = _pendingTailTransientBlockId;
-                          final pNow = _s.selectedPage;
-                          if (pendingTransient != null && pNow != null) {
-                            final b = pNow.blocks
-                                .where((x) => x.id == pendingTransient)
-                                .firstOrNull;
-                            if (b != null && b.text.trim().isEmpty) {
-                              // Si el bloque transient vacío ya está enfocado y el
-                              // usuario hace click en "fuera" (zona vacía), lo
-                              // interpretamos como cancelar y lo eliminamos.
-                              final idx = _controllerBlockIds.indexOf(b.id);
-                              final isFocused = idx >= 0 &&
-                                  idx < _focusNodes.length &&
-                                  _focusNodes[idx].hasFocus;
-                              if (isFocused) {
-                                _tailTapTransientTouchedByBlockId.remove(b.id);
-                                _pendingTailTransientBlockId = null;
-                                _s.removeBlockIfMultiple(page.id, b.id);
-                                return;
-                              }
-
-                              _focusBlockNowOrDefer(b.id, cursorOffset: 0);
-                              return;
-                            }
-                          }
-
-                          // Si ya existe un último bloque vacío (p. ej. página recién creada
-                          // o bloque que no se puede eliminar porque es el único), no creamos
-                          // otro: simplemente lo enfocamos.
-                          if (pNow != null && pNow.blocks.isNotEmpty) {
-                            final last = pNow.blocks.last;
-                            final lastIsPlainEmpty =
-                                last.type == 'paragraph' &&
-                                last.depth == 0 &&
-                                last.text.trim().isEmpty;
-                            if (lastIsPlainEmpty) {
-                              _focusBlockNowOrDefer(last.id, cursorOffset: 0);
-                              return;
-                            }
-                          }
-
-                          _addBlock(page.id, transientFromTailTap: true);
-                        }
-                      },
-                onDoubleTapDown: readOnlyMode
-                    ? null
-                    : (details) => _handleTailBlankDoubleTap(details, page),
+                onTapDown: null,
                 child: Theme(
                   data: theme.copyWith(
                     inputDecorationTheme: const InputDecorationTheme(
@@ -4816,6 +4948,19 @@ class BlockEditorState extends State<BlockEditor> with _BlockRowBuild {
                       final b = page.blocks[index];
                       final ctrl = _controllers[index];
                       final focus = _focusNodes[index];
+                      final isLast = index == page.blocks.length - 1;
+                      final hideTrailingSentinel =
+                          page.blocks.length > 1 &&
+                          isLast &&
+                          _isTrailingSentinel(b) &&
+                          ctrl.text.trim().isEmpty &&
+                          !focus.hasFocus;
+                      if (hideTrailingSentinel) {
+                        return KeyedSubtree(
+                          key: ValueKey('block_row_${b.id}'),
+                          child: const SizedBox.shrink(),
+                        );
+                      }
                       final style = _styleFor(b.type, theme.textTheme);
                       final selected = _isBlockSelected(b.id);
                       final showActionsBaseline =

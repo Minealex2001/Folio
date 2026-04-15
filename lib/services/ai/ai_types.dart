@@ -55,7 +55,7 @@ class AiFileAttachment {
   final String content;
 }
 
-/// Uso de tokens devuelto por el backend (Ollama / OpenAI-compatible).
+/// Uso de tokens devuelto por el backend (Ollama local o inferencia Quill Cloud).
 class AiTokenUsage {
   const AiTokenUsage({
     this.promptTokens,

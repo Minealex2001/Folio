@@ -867,7 +867,7 @@ extension _WorkspacePageAiPanelModule on _WorkspacePageState {
                           crossAxisAlignment: CrossAxisAlignment.end,
                           children: [
                             IconButton(
-                              onPressed: _openAiContextPickerFromButton,
+                              onPressed: _openCloudContextPickerFromButton,
                               icon: const Icon(
                                 Icons.add_circle_outline_rounded,
                               ),

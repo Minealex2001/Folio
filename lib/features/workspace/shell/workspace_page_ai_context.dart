@@ -274,7 +274,7 @@ extension _WorkspacePageAiContextModule on _WorkspacePageState {
     if (mounted) _setStateSafe(() {});
   }
 
-  void _openAiContextPickerFromButton() {
+  void _openCloudContextPickerFromButton() {
     _chatInputFocusNode.requestFocus();
     _aiContextMenuView = _AiContextMenuView.root;
     _showAiContextMenu(pinned: true);

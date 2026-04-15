@@ -51,7 +51,7 @@ const INK_MAX_PER_REQUEST = 16;
 const INK_PROMPT_LENGTH_SURCHARGE_THRESHOLD = 32000;
 const INK_EXTRA_FOR_LONG_PROMPT = 2;
 
-/** Tras OpenAI, cargo extra por volumen de tokens (`usage.total_tokens`). */
+/** Tras inferencia remota (Quill Cloud), cargo extra por volumen de tokens (`usage.total_tokens`). */
 const INK_TOKENS_PER_SURCHARGE_UNIT = 6000;
 const INK_MAX_TOKEN_SURCHARGE = 10;
 
@@ -100,6 +100,10 @@ function openAiChatCompletionsUrl(): string {
   return `${openAiBaseUrl()}/chat/completions`;
 }
 
+function openAiAudioTranscriptionsUrl(): string {
+  return `${openAiBaseUrl()}/audio/transcriptions`;
+}
+
 function parseOpenAiApiErrorMessage(raw: string): string {
   try {
     const errBody = JSON.parse(raw) as {
@@ -136,9 +140,9 @@ async function openAiFetchChatCompletion(
 
 function throwOpenAiHttpError(status: number, raw: string): never {
   const openAiMsg = parseOpenAiApiErrorMessage(raw);
-  console.error("OpenAI HTTP error", status, raw.slice(0, 800));
+  console.error("Quill Cloud inference HTTP error", status, raw.slice(0, 800));
   const quotaHint =
-    "Esto viene de la API de OpenAI (clave, cuota, facturación o modelo), no del saldo de gotas Folio en Firestore. Revisa OPENAI_API_KEY y límites en platform.openai.com.";
+    "Esto viene del proveedor de inferencia de Quill Cloud (clave, cuota, facturación o modelo), no del saldo de gotas Folio en Firestore. Revisa la configuración de la función y los límites del proveedor.";
   if (status === 401 || status === 403 || status === 429) {
     throw new AiHttpsError(
       "failed-precondition",
@@ -148,16 +152,16 @@ function throwOpenAiHttpError(status: number, raw: string): never {
   if (status === 400 || status === 404) {
     const hint =
       status === 404
-        ? " Comprueba OPENAI_MODEL y OPENAI_BASE_URL."
+        ? " Comprueba el modelo y la URL base configurados en la función."
         : "";
     throw new AiHttpsError(
       "failed-precondition",
-      (openAiMsg || `OpenAI API HTTP ${status}`) + hint
+      (openAiMsg || `Quill Cloud HTTP ${status}`) + hint
     );
   }
   throw new AiHttpsError(
     "internal",
-    openAiMsg || "AI provider returned an error. Try again later."
+    openAiMsg || "Quill Cloud devolvió un error. Inténtalo más tarde."
   );
 }
 
@@ -270,14 +274,14 @@ function parseOpenAiSuccessResponse(raw: string): {
     throw new AiHttpsError("internal", "Invalid AI response");
   }
   if (json.error?.message) {
-    console.error("OpenAI API error object", json.error);
+    console.error("Quill Cloud API error object", json.error);
     throw new AiHttpsError("internal", "AI provider error");
   }
   const content = json.choices?.[0]?.message?.content;
   const text = typeof content === "string" ? content : "";
   if (!text.trim()) {
     const reason = json.choices?.[0]?.finish_reason;
-    console.warn("OpenAI empty output", { reason });
+    console.warn("Quill Cloud empty model output", { reason });
     const hint =
       reason === "content_filter"
         ? " (contenido filtrado por políticas del proveedor)"
@@ -295,7 +299,7 @@ function parseOpenAiSuccessResponse(raw: string): {
 }
 
 /**
- * Inferencia vía OpenAI Chat Completions (o API compatible: mismo path y cuerpo).
+ * Inferencia Quill Cloud (chat completions; mismo path y cuerpo que APIs compatibles).
  */
 async function callOpenAiGenerate(prompt: string): Promise<{
   text: string;
@@ -305,7 +309,7 @@ async function callOpenAiGenerate(prompt: string): Promise<{
   if (!key) {
     throw new AiHttpsError(
       "failed-precondition",
-      "Server AI not configured (set OPENAI_API_KEY on Cloud Functions)"
+      "Quill Cloud: inferencia no configurada en Cloud Functions (clave API del proveedor)."
     );
   }
 
@@ -339,7 +343,7 @@ async function callOpenAiGenerate(prompt: string): Promise<{
 
   throw new AiHttpsError(
     "internal",
-    "OpenAI request stopped after too many retries. Try again later."
+    "Quill Cloud: demasiados reintentos. Prueba más tarde."
   );
 }
 
@@ -397,7 +401,7 @@ function normalizeResponseSchema(raw: unknown): Record<string, unknown> | null {
   if (!raw || typeof raw !== "object") return null;
   if (Array.isArray(raw)) return null;
   // Recortamos profundidad/tamaño más adelante con límites de prompt/ink; aquí también
-  // reforzamos compatibilidad con json_schema.strict de OpenAI.
+  // reforzamos compatibilidad con json_schema.strict del proveedor.
   return enforceStrictObjectSchema(raw as Record<string, unknown>);
 }
 
@@ -427,7 +431,7 @@ function enforceStrictObjectSchema(
     const existingRequired = Array.isArray(clone.required)
       ? clone.required.filter((v): v is string => typeof v === "string")
       : [];
-    // En strict json_schema, OpenAI exige que required incluya todas las keys de properties.
+    // En strict json_schema, el proveedor exige que required incluya todas las keys de properties.
     clone.required = Array.from(new Set([...existingRequired, ...requiredKeys]));
   }
 
@@ -481,7 +485,7 @@ async function callOpenAiChatStructured(input: {
   if (!key) {
     throw new AiHttpsError(
       "failed-precondition",
-      "Server AI not configured (set OPENAI_API_KEY on Cloud Functions)"
+      "Quill Cloud: inferencia no configurada en Cloud Functions (clave API del proveedor)."
     );
   }
 
@@ -544,7 +548,7 @@ async function callOpenAiChatStructured(input: {
 
   throw new AiHttpsError(
     "internal",
-    "OpenAI request stopped after too many retries. Try again later."
+    "Quill Cloud: demasiados reintentos. Prueba más tarde."
   );
 }
 
@@ -2291,16 +2295,16 @@ interface _WhisperSegment {
  */
 async function _diarizeSegmentsWithGpt(
   segments: _WhisperSegment[],
-  openaiKey: string
+  inferenceApiKey: string
 ): Promise<string> {
   const segmentList = segments
     .map((s) => `[${s.start.toFixed(1)}s-${s.end.toFixed(1)}s]: "${s.text.trim()}"`)
     .join("\n");
 
-  const resp = await fetch("https://api.openai.com/v1/chat/completions", {
+  const resp = await fetch(openAiChatCompletionsUrl(), {
     method: "POST",
     headers: {
-      Authorization: `Bearer ${openaiKey}`,
+      Authorization: `Bearer ${inferenceApiKey}`,
       "Content-Type": "application/json",
     },
     body: JSON.stringify({
@@ -2328,7 +2332,7 @@ async function _diarizeSegmentsWithGpt(
 
   if (!resp.ok) {
     const body = await resp.text().catch(() => `HTTP ${resp.status}`);
-    throw new Error(`GPT diarization HTTP ${resp.status}: ${body}`);
+    throw new Error(`Diarization HTTP ${resp.status}: ${body}`);
   }
 
   const gptResult = (await resp.json()) as {
@@ -2348,7 +2352,7 @@ async function _diarizeSegmentsWithGpt(
     if (Array.isArray(arr)) turns = arr as DiarTurn[];
   }
 
-  if (!turns.length) throw new Error("Empty diarization response from GPT");
+  if (!turns.length) throw new Error("Empty diarization response from model");
 
   return turns
     .filter((t) => typeof t.text === "string" && t.text.trim().length > 0)
@@ -2431,9 +2435,9 @@ export const folioCloudTranscribeChunk = onCall(
       inkDebited = true;
     }
 
-    // ── Llamar a OpenAI Whisper ───────────────────────────────────────────────
-    const openaiKey = openAiApiKey();
-    if (!openaiKey) {
+    // ── Transcripción de audio (endpoint del proveedor Quill Cloud) ───────────
+    const inferenceApiKey = openAiApiKey();
+    if (!inferenceApiKey) {
       if (inkDebited) {
         await refundInkDropCharge(uid, inkCost).catch((e) =>
           console.error("folioCloudTranscribeChunk: refund after missing key", e)
@@ -2441,7 +2445,7 @@ export const folioCloudTranscribeChunk = onCall(
       }
       throw new HttpsError(
         "failed-precondition",
-        "Server AI not configured (set OPENAI_API_KEY on Cloud Functions)"
+        "Quill Cloud: inferencia no configurada en Cloud Functions (clave API del proveedor)."
       );
     }
 
@@ -2458,9 +2462,9 @@ export const folioCloudTranscribeChunk = onCall(
       }
       form.append("response_format", "verbose_json");
 
-      const resp = await fetch("https://api.openai.com/v1/audio/transcriptions", {
+      const resp = await fetch(openAiAudioTranscriptionsUrl(), {
         method: "POST",
-        headers: { Authorization: `Bearer ${openaiKey}` },
+        headers: { Authorization: `Bearer ${inferenceApiKey}` },
         body: form,
       });
 
@@ -2480,9 +2484,9 @@ export const folioCloudTranscribeChunk = onCall(
       if (rawText.length === 0) {
         transcript = "";
       } else if (segments.length > 1) {
-        // Diarización con GPT-4o-mini
+        // Diarización con el modelo de chat configurado
         try {
-          transcript = await _diarizeSegmentsWithGpt(segments, openaiKey);
+          transcript = await _diarizeSegmentsWithGpt(segments, inferenceApiKey);
         } catch (diarErr) {
           console.warn(
             "folioCloudTranscribeChunk: diarization fallback to plain text",

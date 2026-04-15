@@ -415,6 +415,8 @@
   "pasteAsEmbedSubtitleWeb": "Show the page inside the block (when supported)",
   "pasteAsMentionSubtitleRich": "Link with page title (e.g. YouTube)",
   "formatToolbar": "Format toolbar",
+  "formatToolbarScrollPrevious": "Show earlier tools",
+  "formatToolbarScrollNext": "Show more tools",
   "linkTitle": "Link",
   "visibleTextLabel": "Visible text",
   "urlLabel": "URL",
@@ -497,6 +499,7 @@
   "aiPanelResizeHandleHint": "Drag horizontally to change the assistant panel width",
   "importMarkdownPage": "Import Markdown",
   "exportMarkdownPage": "Export Markdown",
+  "exportPage": "Export…",
   "workspaceUndoTooltip": "Undo (Ctrl+Z)",
   "workspaceRedoTooltip": "Redo (Ctrl+Y)",
   "workspaceMoreActionsTooltip": "More actions",
@@ -549,7 +552,7 @@
   "aiSetupOllamaTitle": "Step 1: Install Ollama",
   "aiSetupOllamaBody": "Install Ollama, run the local service, and verify it responds at http://127.0.0.1:11434.",
   "aiSetupLmStudioTitle": "Step 2: Install LM Studio",
-  "aiSetupLmStudioBody": "Install LM Studio, start its local server (OpenAI-compatible), and verify it responds at http://127.0.0.1:1234.",
+  "aiSetupLmStudioBody": "Install LM Studio, start its local server, and verify it responds at http://127.0.0.1:1234.",
   "aiSetupOpenSettingsHint": "When one provider is operational, press Retry to auto-configure it.",
   "aiCompareCloudVsLocalTitle": "Cloud vs local",
   "aiCompareCloudTitle": "Folio Cloud",
@@ -598,7 +601,19 @@
   "scheduledVaultBackupTitle": "Scheduled encrypted backup",
   "scheduledVaultBackupSubtitle": "While the vault is unlocked, each backup is the currently open vault. Folio saves a ZIP to the folder below on the chosen interval.",
   "scheduledVaultBackupChooseFolder": "Backup folder",
-  "scheduledVaultBackupIntervalLabel": "Interval (hours)",
+  "scheduledVaultBackupIntervalLabel": "Backup interval",
+  "scheduledVaultBackupEveryNMinutes": "{n, plural, one{1 minute} other{{n} minutes}}",
+  "@scheduledVaultBackupEveryNMinutes": {
+    "placeholders": {
+      "n": {"type": "int"}
+    }
+  },
+  "scheduledVaultBackupEveryNHours": "{n, plural, one{1 hour} other{{n} hours}}",
+  "@scheduledVaultBackupEveryNHours": {
+    "placeholders": {
+      "n": {"type": "int"}
+    }
+  },
   "scheduledVaultBackupLastRun": "Last backup: {time}",
   "@scheduledVaultBackupLastRun": {"placeholders": {"time": {}}},
   "scheduledVaultBackupSnackOk": "Scheduled backup saved.",
@@ -1197,10 +1212,33 @@
   ,"@markdownImportedBlocks": {"placeholders": {"pageTitle": {}, "blockCount": {"type": "int"}}}
   ,"markdownImportFailedWithError": "Could not import Markdown: {error}"
   ,"@markdownImportFailedWithError": {"placeholders": {"error": {}}}
+  ,"importPage": "Import…"
   ,"exportMarkdownFileDialogTitle": "Export page to Markdown"
   ,"markdownExportSuccess": "Page exported to Markdown."
   ,"markdownExportFailedWithError": "Could not export page: {error}"
   ,"@markdownExportFailedWithError": {"placeholders": {"error": {}}}
+  ,"exportPageDialogTitle": "Export page"
+  ,"exportPageFormatMarkdown": "Markdown (.md)"
+  ,"exportPageFormatHtml": "HTML (.html)"
+  ,"exportPageFormatTxt": "Text (.txt)"
+  ,"exportPageFormatJson": "JSON (.json)"
+  ,"exportPageFormatPdf": "PDF (.pdf)"
+  ,"exportHtmlFileDialogTitle": "Export page to HTML"
+  ,"htmlExportSuccess": "Page exported to HTML."
+  ,"htmlExportFailedWithError": "Could not export page: {error}"
+  ,"@htmlExportFailedWithError": {"placeholders": {"error": {}}}
+  ,"exportTxtFileDialogTitle": "Export page to text"
+  ,"txtExportSuccess": "Page exported to text."
+  ,"txtExportFailedWithError": "Could not export page: {error}"
+  ,"@txtExportFailedWithError": {"placeholders": {"error": {}}}
+  ,"exportJsonFileDialogTitle": "Export page to JSON"
+  ,"jsonExportSuccess": "Page exported to JSON."
+  ,"jsonExportFailedWithError": "Could not export page: {error}"
+  ,"@jsonExportFailedWithError": {"placeholders": {"error": {}}}
+  ,"exportPdfFileDialogTitle": "Export page to PDF"
+  ,"pdfExportSuccess": "Page exported to PDF."
+  ,"pdfExportFailedWithError": "Could not export page: {error}"
+  ,"@pdfExportFailedWithError": {"placeholders": {"error": {}}}
   ,"firebaseUnavailablePublish": "Firebase is not available."
   ,"signInCloudToPublishWeb": "Sign in to your cloud account (Settings) to publish."
   ,"planMissingWebPublish": "Your plan does not include web publishing or the subscription is not active."
@@ -1547,7 +1585,7 @@
   ,"settingsIntegrationsActiveConnectionsTitle": "Active connections"
   ,"settingsIntegrationsActiveConnectionsSubtitle": "Apps already allowed to interact with Folio"
   ,"settingsViewInkUsageTable": "View usage table"
-  ,"settingsCloudInkUsageTableTitle": "Ink usage table (OpenAI)"
+  ,"settingsCloudInkUsageTableTitle": "Ink usage table (Quill Cloud)"
   ,"settingsCloudInkUsageTableIntro": "Base cost per action. Extra surcharges may apply for long prompts and output token usage."
   ,"settingsCloudInkDrops": "drops"
   ,"settingsCloudInkTableCachedNotice": "Showing local cached table (no backend connection)."
@@ -1564,5 +1602,37 @@
   ,"settingsCloudInkOpDefault": "Fallback operation"
   ,"settingsDesktopRailSubtitle": "Pick a category from the list or scroll the content."
   ,"settingsCloudInkViewTableButton": "View table"
-  ,"settingsCloudInkHostedAiOpenAiHint": "Reference pricing for hosted AI with OpenAI."
+  ,"settingsCloudInkHostedAiQuillCloudHint": "Reference pricing for cloud AI on Quill Cloud."
+  ,"vaultStarterHomeTitle": "Start here"
+  ,"vaultStarterHomeHeading": "Your notebook is ready"
+  ,"vaultStarterHomeIntro": "Folio organizes your pages in a tree, edits content in blocks, and keeps data on this device. This short guide maps what you can do from minute one."
+  ,"vaultStarterHomeCallout": "You can delete, rename, or move these pages anytime—they are just a quick starting point."
+  ,"vaultStarterHomeSectionTips": "Most useful to begin"
+  ,"vaultStarterHomeBulletSlash": "Press / in a paragraph to insert headings, lists, tables, code blocks, Mermaid, and more."
+  ,"vaultStarterHomeBulletSidebar": "Use the side panel to create pages and subpages, and reorder the tree to match how you work."
+  ,"vaultStarterHomeBulletSettings": "Open Settings to enable AI, configure backup, change language, or add quick unlock."
+  ,"vaultStarterHomeTodo1": "Create my first working page"
+  ,"vaultStarterHomeTodo2": "Try the / menu to insert a new block"
+  ,"vaultStarterHomeTodo3": "Review Settings and decide whether to enable Quill or quick unlock"
+  ,"vaultStarterCapabilitiesTitle": "What Folio can do"
+  ,"vaultStarterCapabilitiesSectionMain": "Main capabilities"
+  ,"vaultStarterCapabilitiesBullet1": "Take notes with free-form structure using paragraphs, headings, lists, checklists, quotes, and dividers."
+  ,"vaultStarterCapabilitiesBullet2": "Use special blocks such as tables, databases, files, audio, video, embeds, and Mermaid diagrams."
+  ,"vaultStarterCapabilitiesBullet3": "Search content, browse page history, and keep revisions inside the same notebook."
+  ,"vaultStarterCapabilitiesBullet4": "Export or import data, including notebook backup and Notion import."
+  ,"vaultStarterCapabilitiesSectionShortcuts": "Quick shortcuts"
+  ,"vaultStarterCapabilitiesShortcutN": "Ctrl+N creates a new page."
+  ,"vaultStarterCapabilitiesShortcutSearch": "Ctrl+K or Ctrl+F opens search."
+  ,"vaultStarterCapabilitiesShortcutSettings": "Ctrl+, opens Settings and Ctrl+L locks the notebook."
+  ,"vaultStarterCapabilitiesAiCallout": "AI is off by default. If you use Quill, configure it in Settings—provider, model, and context permissions."
+  ,"vaultStarterQuillTitle": "Quill and privacy"
+  ,"vaultStarterQuillSectionWhat": "What Quill can do"
+  ,"vaultStarterQuillBullet1": "Summarize, rewrite, or expand the content of a page."
+  ,"vaultStarterQuillBullet2": "Answer questions about blocks, shortcuts, and how to organize notes in Folio."
+  ,"vaultStarterQuillBullet3": "Work with the open page as context or with several pages you pick as references."
+  ,"vaultStarterQuillSectionPrivacy": "Privacy and security"
+  ,"vaultStarterQuillPrivacyBody": "Your pages live on this device. If you enable AI, check what context you share and with which provider. If you forget the master password of an encrypted notebook, Folio cannot recover it for you."
+  ,"vaultStarterQuillBackupCallout": "Back up the notebook when you have important content. The backup keeps data and attachments but does not transfer Hello or passkeys across devices."
+  ,"vaultStarterQuillMermaidCaption": "Quick Mermaid tryout:"
+  ,"vaultStarterQuillMermaidSource": "graph TD\nStart[Create notebook] --> Organize[Organize pages]\nOrganize --> Write[Write and link ideas]\nWrite --> Review[Search, review, improve]"
 }

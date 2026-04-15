@@ -1128,6 +1128,12 @@ class AppLocalizationsEu extends AppLocalizations {
   String get formatToolbar => 'Formatu-barra';
 
   @override
+  String get formatToolbarScrollPrevious => 'Aurreko tresnak';
+
+  @override
+  String get formatToolbarScrollNext => 'Tresna gehiago';
+
+  @override
   String get linkTitle => 'Esteka';
 
   @override
@@ -1395,6 +1401,9 @@ class AppLocalizationsEu extends AppLocalizations {
   String get exportMarkdownPage => 'Esportatu Markdown';
 
   @override
+  String get exportPage => 'Esportatu…';
+
+  @override
   String get workspaceUndoTooltip => 'Desegin (Ctrl+Z)';
 
   @override
@@ -1564,7 +1573,7 @@ class AppLocalizationsEu extends AppLocalizations {
 
   @override
   String get aiSetupLmStudioBody =>
-      'Instalatu LM Studio, abiarazi bere tokiko zerbitzaria (OpenAI-rekin bateragarria) eta egiaztatu http://127.0.0.1:1234 helbidean erantzuten duela.';
+      'Instalatu LM Studio, abiarazi bere tokiko zerbitzaria eta egiaztatu http://127.0.0.1:1234 helbidean erantzuten duela.';
 
   @override
   String get aiSetupOpenSettingsHint =>
@@ -1724,7 +1733,29 @@ class AppLocalizationsEu extends AppLocalizations {
   String get scheduledVaultBackupChooseFolder => 'Babeskopia-karpeta';
 
   @override
-  String get scheduledVaultBackupIntervalLabel => 'Maiztasuna (orduak)';
+  String get scheduledVaultBackupIntervalLabel => 'Maiztasuna';
+
+  @override
+  String scheduledVaultBackupEveryNMinutes(int n) {
+    String _temp0 = intl.Intl.pluralLogic(
+      n,
+      locale: localeName,
+      other: '$n minutu',
+      one: '1 minutu',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String scheduledVaultBackupEveryNHours(int n) {
+    String _temp0 = intl.Intl.pluralLogic(
+      n,
+      locale: localeName,
+      other: '$n ordu',
+      one: '1 ordu',
+    );
+    return '$_temp0';
+  }
 
   @override
   String scheduledVaultBackupLastRun(Object time) {
@@ -3650,6 +3681,9 @@ class AppLocalizationsEu extends AppLocalizations {
   }
 
   @override
+  String get importPage => 'Inportatu…';
+
+  @override
   String get exportMarkdownFileDialogTitle =>
       'Esportatu orrialdea Markdown-era';
 
@@ -3658,6 +3692,68 @@ class AppLocalizationsEu extends AppLocalizations {
 
   @override
   String markdownExportFailedWithError(Object error) {
+    return 'Ezin izan da orrialdea esportatu: $error';
+  }
+
+  @override
+  String get exportPageDialogTitle => 'Esportatu orrialdea';
+
+  @override
+  String get exportPageFormatMarkdown => 'Markdown (.md)';
+
+  @override
+  String get exportPageFormatHtml => 'HTML (.html)';
+
+  @override
+  String get exportPageFormatTxt => 'Testua (.txt)';
+
+  @override
+  String get exportPageFormatJson => 'JSON (.json)';
+
+  @override
+  String get exportPageFormatPdf => 'PDF (.pdf)';
+
+  @override
+  String get exportHtmlFileDialogTitle => 'Esportatu orrialdea HTML-ra';
+
+  @override
+  String get htmlExportSuccess => 'Orrialdea HTML-ra esportatu da.';
+
+  @override
+  String htmlExportFailedWithError(Object error) {
+    return 'Ezin izan da orrialdea esportatu: $error';
+  }
+
+  @override
+  String get exportTxtFileDialogTitle => 'Esportatu orrialdea testu gisa';
+
+  @override
+  String get txtExportSuccess => 'Orrialdea testu gisa esportatu da.';
+
+  @override
+  String txtExportFailedWithError(Object error) {
+    return 'Ezin izan da orrialdea esportatu: $error';
+  }
+
+  @override
+  String get exportJsonFileDialogTitle => 'Esportatu orrialdea JSON-era';
+
+  @override
+  String get jsonExportSuccess => 'Orrialdea JSON-era esportatu da.';
+
+  @override
+  String jsonExportFailedWithError(Object error) {
+    return 'Ezin izan da orrialdea esportatu: $error';
+  }
+
+  @override
+  String get exportPdfFileDialogTitle => 'Esportatu orrialdea PDF-era';
+
+  @override
+  String get pdfExportSuccess => 'Orrialdea PDF-era esportatu da.';
+
+  @override
+  String pdfExportFailedWithError(Object error) {
     return 'Ezin izan da orrialdea esportatu: $error';
   }
 
@@ -4765,7 +4861,8 @@ class AppLocalizationsEu extends AppLocalizations {
   String get settingsViewInkUsageTable => 'Ikusi kontsumo-taula';
 
   @override
-  String get settingsCloudInkUsageTableTitle => 'Tinta-kontsumo taula (OpenAI)';
+  String get settingsCloudInkUsageTableTitle =>
+      'Tinta-kontsumo taula (Quill Cloud)';
 
   @override
   String get settingsCloudInkUsageTableIntro =>
@@ -4819,6 +4916,123 @@ class AppLocalizationsEu extends AppLocalizations {
   String get settingsCloudInkViewTableButton => 'Ikusi taula';
 
   @override
-  String get settingsCloudInkHostedAiOpenAiHint =>
-      'OpenAI-rekin hodeiko AArentzako erreferentzia-prezioak.';
+  String get settingsCloudInkHostedAiQuillCloudHint =>
+      'Quill Cloud-en hodeiko AArentzako erreferentzia-prezioak.';
+
+  @override
+  String get vaultStarterHomeTitle => 'Hasi hemen';
+
+  @override
+  String get vaultStarterHomeHeading => 'Zure koadernoa prest dago';
+
+  @override
+  String get vaultStarterHomeIntro =>
+      'Foliok orriak zuhaitz batean antolatzen ditu, blokeetan editatzen du edukia eta datuak gailu honetan gordetzen ditu. Gida labur honek lehen minututik zer egin dezakezun erakusten dizu.';
+
+  @override
+  String get vaultStarterHomeCallout =>
+      'Orri hauek ezabatu, berrizendatu edo mugitu ditzakezu noiznahi. Hasiera azkarragoa izateko oinarri bat besterik ez dira.';
+
+  @override
+  String get vaultStarterHomeSectionTips => 'Hasierako aholku erabilgarrienak';
+
+  @override
+  String get vaultStarterHomeBulletSlash =>
+      'Sakatu / paragrafo batean goiburuak, zerrendak, taulak, kode-blokeak, Mermaid eta gehiago txertatzeko.';
+
+  @override
+  String get vaultStarterHomeBulletSidebar =>
+      'Erabili panel albokorra orri eta azpiorriak sortzeko, eta antolatu zuhaitza zure lan modura.';
+
+  @override
+  String get vaultStarterHomeBulletSettings =>
+      'Ireki Ezarpenak AA gaitzeko, babeskopia konfiguratzeko, hizkuntza aldatzeko edo desblokeo azkarra gehitzeko.';
+
+  @override
+  String get vaultStarterHomeTodo1 => 'Sortu nire lehen lan-orria';
+
+  @override
+  String get vaultStarterHomeTodo2 =>
+      'Probatu / menua bloke berri bat txertatzeko';
+
+  @override
+  String get vaultStarterHomeTodo3 =>
+      'Berrikusi Ezarpenak eta erabaki Quill edo desblokeo azkar bat gaitu nahi dudan';
+
+  @override
+  String get vaultStarterCapabilitiesTitle => 'Zer egin dezake Folio-k';
+
+  @override
+  String get vaultStarterCapabilitiesSectionMain => 'Gaitasun nagusiak';
+
+  @override
+  String get vaultStarterCapabilitiesBullet1 =>
+      'Hartu oharrak egitura askearekin: paragrafoak, goiburuak, zerrendak, egikaratzeko zerrendak, aipamenak eta bereizleak.';
+
+  @override
+  String get vaultStarterCapabilitiesBullet2 =>
+      'Lan egin bloke bereziekin: taulak, datu-baseak, fitxategiak, audioa, bideoa, kapsulak eta Mermaid diagramak.';
+
+  @override
+  String get vaultStarterCapabilitiesBullet3 =>
+      'Bilatu edukia, ikusi orriaren historia eta mantendu berrikuspenak koaderno berean.';
+
+  @override
+  String get vaultStarterCapabilitiesBullet4 =>
+      'Esportatu edo inportatu datuak, koadernoaren babeskopia eta Notion-etik inportazioa barne.';
+
+  @override
+  String get vaultStarterCapabilitiesSectionShortcuts => 'Laster-teklak';
+
+  @override
+  String get vaultStarterCapabilitiesShortcutN =>
+      'Ctrl+N orri berria sortzen du.';
+
+  @override
+  String get vaultStarterCapabilitiesShortcutSearch =>
+      'Ctrl+K edo Ctrl+F bilaketa irekitzen du.';
+
+  @override
+  String get vaultStarterCapabilitiesShortcutSettings =>
+      'Ctrl+, Ezarpenak irekitzen ditu eta Ctrl+L koadernoa blokeatzen du.';
+
+  @override
+  String get vaultStarterCapabilitiesAiCallout =>
+      'AA lehenespenez ez dago gaituta. Quill erabiltzen baduzu, konfiguratu Ezarpenetan—hornikailua, eredua eta testuinguruaren baimenak.';
+
+  @override
+  String get vaultStarterQuillTitle => 'Quill eta pribatutasuna';
+
+  @override
+  String get vaultStarterQuillSectionWhat => 'Zer egin dezake Quill-ek';
+
+  @override
+  String get vaultStarterQuillBullet1 =>
+      'Laburtu, berridatzi edo zabaldu orri baten edukia.';
+
+  @override
+  String get vaultStarterQuillBullet2 =>
+      'Erantzun blokeei, lasterbideei eta Folio-ko oharrak nola antolatu galderak.';
+
+  @override
+  String get vaultStarterQuillBullet3 =>
+      'Lan egin irekitako orria testuinguru gisa edo hautatzen dituzun hainbat orri erreferentzia gisa.';
+
+  @override
+  String get vaultStarterQuillSectionPrivacy => 'Pribatutasuna eta segurtasuna';
+
+  @override
+  String get vaultStarterQuillPrivacyBody =>
+      'Zure orriak gailu honetan bizi dira. AA gaitzen baduzu, egiaztatu zer testuinguru partekatzen duzun eta zein hornikailurekin. Koaderno zifratu baten pasahitz nagusia ahazten baduzu, Foliok ezin du berreskuratu.';
+
+  @override
+  String get vaultStarterQuillBackupCallout =>
+      'Egin koadernoaren babeskopia edukia garrantzitsua duzunean. Babeskopeak datuak eta eranskinak gordetzen ditu, baina ez du Hello edo passkeys gailu artean transferitzen.';
+
+  @override
+  String get vaultStarterQuillMermaidCaption => 'Mermaid proba azkarra:';
+
+  @override
+  String get vaultStarterQuillMermaidSource =>
+      'graph TD\nHasiera[Sortu koadernoa] --> Antolatu[Antolatu orriak]\nAntolatu --> Idatzi[Idatzi eta lotu ideiak]\nIdatzi --> Berrikusi[Bilatu, berrikusi eta hobetu]';
 }
