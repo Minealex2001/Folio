@@ -1,5 +1,6 @@
 import 'package:file_picker/file_picker.dart';
 import 'dart:io';
+import 'package:flutter/foundation.dart' show TargetPlatform, defaultTargetPlatform;
 import 'package:flutter/material.dart';
 import 'package:path/path.dart' as p;
 
@@ -13,6 +14,7 @@ import '../../session/vault_session.dart';
 import '../../services/cloud_account/cloud_account_controller.dart';
 import '../../services/folio_cloud/folio_cloud_backup.dart';
 import '../../services/folio_cloud/folio_cloud_entitlements.dart';
+import '../../services/folio_cloud/folio_cloud_reachability.dart';
 import '../settings/folio_cloud_reauth_dialog.dart';
 import 'cloud_sign_in_dialog.dart';
 
@@ -143,6 +145,17 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
 
     setState(() => _error = null);
 
+    if (defaultTargetPlatform == TargetPlatform.windows) {
+      final ok = await folioGoogleApisReachable();
+      if (!ok) {
+        if (!mounted) return;
+        setState(() => _error = l10n.cloudAuthErrorNetwork);
+        return;
+      }
+    }
+
+    if (!mounted) return;
+
     // 1) Sign in if needed.
     if (!_cloud.isSignedIn) {
       final ok = await showDialog<bool>(
@@ -163,6 +176,7 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
       setState(() => _error = l10n.cloudAuthErrorGeneric);
       return;
     }
+    if (!mounted) return;
     final verified = await showDialog<bool>(
       context: context,
       barrierDismissible: true,
@@ -295,7 +309,7 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
 
   Future<void> _pickBackupFile() async {
     setState(() => _error = null);
-    final pick = await FilePicker.platform.pickFiles(
+    final pick = await FilePicker.pickFiles(
       type: FileType.custom,
       allowedExtensions: const ['zip'],
       allowMultiple: false,
@@ -359,7 +373,7 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
 
   Future<void> _pickNotionFile() async {
     setState(() => _error = null);
-    final pick = await FilePicker.platform.pickFiles(
+    final pick = await FilePicker.pickFiles(
       type: FileType.custom,
       allowedExtensions: const ['zip'],
       allowMultiple: false,

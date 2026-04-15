@@ -211,7 +211,7 @@ extension _WorkspacePageAiAttachmentsModule on _WorkspacePageState {
   }
 
   Future<void> _pickAiAttachments() async {
-    final result = await FilePicker.platform.pickFiles(allowMultiple: true);
+    final result = await FilePicker.pickFiles(allowMultiple: true);
     if (result == null) return;
     for (final f in result.files) {
       final path = f.path;

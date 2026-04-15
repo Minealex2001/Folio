@@ -971,8 +971,8 @@ class _SidebarState extends State<Sidebar> {
         onWillAcceptWithDetails: (details) {
           final draggedId = details.data;
           if (draggedId == page.id) return false;
-          // Solo permitir anidar sobre carpetas.
-          if (!page.isFolder) return false;
+          // Permitir anidar sobre cualquier página: si se suelta encima de otra
+          // página, la movida se convierte en subpágina (newParentId = page.id).
           // Evitar ciclos: no permitir arrastrar un ancestro dentro de su descendiente.
           if (session.isUnderAncestor(ancestorId: draggedId, nodeId: page.id)) {
             return false;

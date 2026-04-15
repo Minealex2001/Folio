@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:io';
 import 'dart:math' as math;
 import 'dart:ui' show PointerDeviceKind;
@@ -12,11 +13,12 @@ import 'package:cryptography/cryptography.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/foundation.dart'
-    show TargetPlatform, defaultTargetPlatform, setEquals;
+    show TargetPlatform, defaultTargetPlatform, setEquals, visibleForTesting;
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart' show HitTestResult, RenderMetaData;
 import 'package:flutter/services.dart';
 import 'package:flutter_code_editor/flutter_code_editor.dart';
+import 'package:dart_quill_delta/dart_quill_delta.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:path/path.dart' as p;
 import 'package:uuid/uuid.dart';
@@ -59,6 +61,8 @@ import 'ai_typewriter_message.dart';
 import 'block_editor/block_row_registry.dart';
 import 'block_editor/block_editor_callout.dart';
 import 'block_editor/block_row_chrome.dart';
+import 'package:flutter_quill/flutter_quill.dart' as quill;
+import 'richtext/markdown_quill_codec.dart';
 
 part 'block_editor/block_row_scope.dart';
 part 'block_editor/block_row_marker.dart';

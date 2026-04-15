@@ -111,4 +111,53 @@ void main() {
 
     expect(openedHref, 'https://example.com');
   });
+
+  testWidgets('markdown preview renders strikethrough for ~~text~~', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Builder(
+          builder: (context) => Scaffold(
+            body: FolioMarkdownPreview(
+              data: '~~tachado~~',
+              styleSheet: folioMarkdownStyleSheet(
+                context,
+                Theme.of(context).textTheme.bodyMedium!,
+                Theme.of(context).colorScheme,
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    // `flutter_markdown_plus` renderiza como RichText; buscamos una TextSpan con
+    // decoración de tachado.
+    final rich = tester.widgetList<RichText>(find.byType(RichText));
+    bool hasStrike = false;
+    for (final r in rich) {
+      final span = r.text;
+      if (span is TextSpan) {
+        final stack = <InlineSpan>[span];
+        while (stack.isNotEmpty) {
+          final cur = stack.removeLast();
+          if (cur is TextSpan) {
+            final deco = cur.style?.decoration;
+            if (deco == TextDecoration.lineThrough) {
+              hasStrike = true;
+              break;
+            }
+            final children = cur.children;
+            if (children != null) {
+              stack.addAll(children.reversed);
+            }
+          }
+        }
+      }
+      if (hasStrike) break;
+    }
+    expect(hasStrike, true);
+  });
 }

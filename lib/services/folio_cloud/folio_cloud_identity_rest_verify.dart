@@ -1,4 +1,7 @@
+import 'dart:async';
 import 'dart:convert';
+import 'dart:developer';
+import 'dart:io';
 
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:http/http.dart' as http;
@@ -20,15 +23,44 @@ Future<void> verifyFolioCloudPasswordViaIdentityToolkit({
     'https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword'
     '?key=${Uri.encodeQueryComponent(apiKey)}',
   );
-  final res = await http.post(
-    uri,
-    headers: const {'Content-Type': 'application/json'},
-    body: jsonEncode(<String, Object?>{
-      'email': email.trim(),
-      'password': password,
-      'returnSecureToken': true,
-    }),
-  );
+  http.Response res;
+  try {
+    res = await http
+        .post(
+          uri,
+          headers: const {'Content-Type': 'application/json'},
+          body: jsonEncode(<String, Object?>{
+            'email': email.trim(),
+            'password': password,
+            'returnSecureToken': true,
+          }),
+        )
+        .timeout(const Duration(seconds: 15));
+  } on TimeoutException catch (e, st) {
+    log(
+      'IdentityToolkit timeout posting to ${uri.host}.',
+      name: 'FolioCloudAuth',
+      error: e,
+      stackTrace: st,
+    );
+    throw FirebaseAuthException(code: 'network-request-failed');
+  } on SocketException catch (e, st) {
+    log(
+      'IdentityToolkit socket error posting to ${uri.host}.',
+      name: 'FolioCloudAuth',
+      error: e,
+      stackTrace: st,
+    );
+    throw FirebaseAuthException(code: 'network-request-failed');
+  } on HttpException catch (e, st) {
+    log(
+      'IdentityToolkit HTTP error posting to ${uri.host}.',
+      name: 'FolioCloudAuth',
+      error: e,
+      stackTrace: st,
+    );
+    throw FirebaseAuthException(code: 'network-request-failed');
+  }
   final body = jsonDecode(res.body);
   if (body is! Map<String, dynamic>) {
     throw FirebaseAuthException(

@@ -1,12 +1,14 @@
 import 'dart:async';
 
 import 'package:file_picker/file_picker.dart';
+import 'package:flutter/foundation.dart' show TargetPlatform, defaultTargetPlatform;
 import 'package:flutter/material.dart';
 import 'package:uuid/uuid.dart';
 
 import '../../../l10n/generated/app_localizations.dart';
 import '../../../models/folio_page_template.dart';
 import '../../../services/cloud_account/cloud_account_controller.dart';
+import '../../../services/folio_cloud/folio_cloud_reachability.dart';
 import '../../../services/community_templates/community_template_store.dart';
 import '../../../session/vault_session.dart';
 import '../../onboarding/cloud_sign_in_dialog.dart';
@@ -252,6 +254,17 @@ class _TemplateGalleryPageState extends State<TemplateGalleryPage>
   Future<void> _openCloudSignIn() async {
     final l10n = AppLocalizations.of(context);
     if (!widget.cloud.isAvailable) return;
+    if (defaultTargetPlatform == TargetPlatform.windows) {
+      final ok = await folioGoogleApisReachable();
+      if (!ok) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(l10n.cloudAuthErrorNetwork)),
+        );
+        return;
+      }
+    }
+    if (!mounted) return;
     await showDialog<bool>(
       context: context,
       barrierDismissible: true,
@@ -1126,7 +1139,7 @@ class _TemplateGalleryPageState extends State<TemplateGalleryPage>
 
   Future<void> _importTemplate() async {
     final l10n = AppLocalizations.of(context);
-    final pick = await FilePicker.platform.pickFiles(
+    final pick = await FilePicker.pickFiles(
       type: FileType.custom,
       allowedExtensions: const ['folio-template', 'json'],
       allowMultiple: false,
@@ -1161,7 +1174,7 @@ class _TemplateGalleryPageState extends State<TemplateGalleryPage>
         .replaceAll(RegExp(r'[^\w\s-]'), '')
         .trim()
         .replaceAll(RegExp(r'\s+'), '_');
-    final destination = await FilePicker.platform.saveFile(
+    final destination = await FilePicker.saveFile(
       dialogTitle: l10n.templateExportPickTitle,
       fileName: '$safeName.folio-template',
     );

@@ -16,7 +16,7 @@ publish_to: 'none' # Remove this line if you wish to publish to pub.dev
 # https://developer.apple.com/library/archive/documentation/General/Reference/InfoPlistKeyReference/Articles/CoreFoundationKeys.html
 # In Windows, build-name is used as the major, minor, and patch parts
 # of the product and file versions while build-number is used as the build suffix.
-version: 0.0.3+3
+version: 0.0.3+4
 
 environment:
   sdk: ^3.11.1
@@ -44,10 +44,10 @@ dependencies:
   passkeys: ^2.18.0
   path: ^1.9.1
   shared_preferences: ^2.5.4
-  google_fonts: ^6.2.1
+  google_fonts: ^8.0.2
   system_theme: ^3.1.2
   image_picker: ^1.1.2
-  file_picker: ^10.3.10
+  file_picker: ^11.0.2
   flutter_code_editor: ^0.3.5
   highlight: ^0.7.0
   diff_match_patch: ^0.4.1
@@ -57,12 +57,14 @@ dependencies:
   video_player: ^2.11.1
   url_launcher: ^6.3.2
   emoji_picker_flutter: ^4.4.0
-  syncfusion_flutter_pdfviewer: ^31.1.21
+  syncfusion_flutter_pdfviewer: ^33.1.49
   hotkey_manager: ^0.2.3
   window_manager: ^0.5.1
   tray_manager: ^0.5.1
-  syncfusion_flutter_pdf: ^31.2.18
+  syncfusion_flutter_pdf: ^33.1.49
+  printing: ^5.14.3
   http: ^1.5.0
+  # 10.x requiere win32 ^6; file_picker 11 aún usa win32 ^5 (incompatible en pub).
   package_info_plus: ^9.0.0
   pub_semver: ^2.2.0
   video_player_win: ^3.2.2
@@ -78,6 +80,7 @@ dependencies:
   cloud_firestore: ^6.2.0
   firebase_storage: ^13.2.0
   cloud_functions: ^6.1.0
+  flutter_quill: ^11.5.0
 
 dev_dependencies:
   flutter_test:
@@ -91,6 +94,12 @@ dev_dependencies:
   flutter_lints: ^6.0.0
   flutter_launcher_icons: ^0.14.4
   msix: ^3.16.13
+
+# passkeys_doctor (via passkeys) pins device_info_plus ^11.x; Syncfusion pdfviewer
+# needs ^12.x. package_info_plus 10.x needs win32 ^6 but file_picker 11 still uses
+# win32 ^5, so we stay on package_info_plus 9.x and override device_info to 12.x.
+dependency_overrides:
+  device_info_plus: ^12.4.0
 
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec
@@ -151,7 +160,7 @@ msix_config:
   # Estos 3 valores deben coincidir 1:1 con Partner Center → Product identity
   identity_name: MinealexGames.Folio-PrivateWorkspace
   publisher: CN=EFF3F915-1B14-4A6A-B8F6-8F232E1B13B0
-  msix_version: 0.0.3.0
+  msix_version: 0.0.3.4
   logo_path: windows/runner/resources/app_icon.ico
   capabilities: internetClient, microphone
   store: true

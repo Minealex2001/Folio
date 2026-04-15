@@ -1,6 +1,9 @@
 import 'dart:typed_data';
 
+import 'package:flutter/widgets.dart' show Locale;
+
 import '../crypto/vault_crypto.dart';
+import '../l10n/generated/app_localizations.dart';
 import '../models/block.dart';
 import '../models/folio_page.dart';
 import 'vault_payload.dart';
@@ -11,52 +14,53 @@ enum VaultStarterContent {
   disabled,
 }
 
-List<FolioPage> buildVaultStarterPages(VaultStarterContent starterContent) {
+List<FolioPage> buildVaultStarterPages(
+  VaultStarterContent starterContent,
+  AppLocalizations l10n,
+) {
   if (starterContent == VaultStarterContent.disabled) {
     return const [];
   }
   return [
     FolioPage(
       id: 'starter_home',
-      title: 'Empieza aquí',
+      title: l10n.vaultStarterHomeTitle,
       blocks: [
         FolioBlock(
           id: 'starter_home_b0',
           type: 'h1',
-          text: 'Tu libreta ya está lista',
+          text: l10n.vaultStarterHomeHeading,
         ),
         FolioBlock(
           id: 'starter_home_b1',
           type: 'paragraph',
-          text:
-              'Folio organiza tus páginas en un árbol, edita contenido por bloques y mantiene los datos en este dispositivo. Esta mini guía te deja un mapa rápido de lo que puedes hacer desde el primer minuto.',
+          text: l10n.vaultStarterHomeIntro,
         ),
         FolioBlock(
           id: 'starter_home_b2',
           type: 'callout',
-          text:
-              'Puedes borrar, renombrar o mover estas páginas cuando quieras. Son solo una base para arrancar más rápido.',
+          text: l10n.vaultStarterHomeCallout,
           icon: '💡',
         ),
         FolioBlock(
           id: 'starter_home_b3',
           type: 'h2',
-          text: 'Lo más útil para empezar',
+          text: l10n.vaultStarterHomeSectionTips,
         ),
         FolioBlock(
           id: 'starter_home_b4',
           type: 'bullet',
-          text: 'Pulsa / dentro de un párrafo para insertar encabezados, listas, tablas, bloques de código, Mermaid y más.',
+          text: l10n.vaultStarterHomeBulletSlash,
         ),
         FolioBlock(
           id: 'starter_home_b5',
           type: 'bullet',
-          text: 'Usa el panel lateral para crear páginas y subpáginas, y reorganiza el árbol según tu forma de trabajar.',
+          text: l10n.vaultStarterHomeBulletSidebar,
         ),
         FolioBlock(
           id: 'starter_home_b6',
           type: 'bullet',
-          text: 'Abre Ajustes para activar IA, configurar copia de seguridad, cambiar idioma o añadir desbloqueo rápido.',
+          text: l10n.vaultStarterHomeBulletSettings,
         ),
         FolioBlock(
           id: 'starter_home_b7',
@@ -66,132 +70,129 @@ List<FolioPage> buildVaultStarterPages(VaultStarterContent starterContent) {
         FolioBlock(
           id: 'starter_home_b8',
           type: 'todo',
-          text: 'Crear mi primera página de trabajo',
+          text: l10n.vaultStarterHomeTodo1,
           checked: false,
         ),
         FolioBlock(
           id: 'starter_home_b9',
           type: 'todo',
-          text: 'Probar el menú / para insertar un bloque nuevo',
+          text: l10n.vaultStarterHomeTodo2,
           checked: false,
         ),
         FolioBlock(
           id: 'starter_home_b10',
           type: 'todo',
-          text: 'Revisar Ajustes y decidir si quiero activar Quill o un método de desbloqueo rápido',
+          text: l10n.vaultStarterHomeTodo3,
           checked: false,
         ),
       ],
     ),
     FolioPage(
       id: 'starter_capabilities',
-      title: 'Qué puede hacer Folio',
+      title: l10n.vaultStarterCapabilitiesTitle,
       blocks: [
         FolioBlock(
           id: 'starter_capabilities_b0',
           type: 'h2',
-          text: 'Capacidades principales',
+          text: l10n.vaultStarterCapabilitiesSectionMain,
         ),
         FolioBlock(
           id: 'starter_capabilities_b1',
           type: 'bullet',
-          text: 'Tomar notas con estructura libre usando párrafos, títulos, listas, checklists, citas y divisores.',
+          text: l10n.vaultStarterCapabilitiesBullet1,
         ),
         FolioBlock(
           id: 'starter_capabilities_b2',
           type: 'bullet',
-          text: 'Trabajar con bloques especiales como tablas, bases de datos, archivos, audio, vídeo, embeds y diagramas Mermaid.',
+          text: l10n.vaultStarterCapabilitiesBullet2,
         ),
         FolioBlock(
           id: 'starter_capabilities_b3',
           type: 'bullet',
-          text: 'Buscar contenido, revisar historial de página y mantener revisiones dentro de la misma libreta.',
+          text: l10n.vaultStarterCapabilitiesBullet3,
         ),
         FolioBlock(
           id: 'starter_capabilities_b4',
           type: 'bullet',
-          text: 'Exportar o importar datos, incluyendo copia de la libreta e importación desde Notion.',
+          text: l10n.vaultStarterCapabilitiesBullet4,
         ),
         FolioBlock(
           id: 'starter_capabilities_b5',
           type: 'h2',
-          text: 'Atajos rápidos',
+          text: l10n.vaultStarterCapabilitiesSectionShortcuts,
         ),
         FolioBlock(
           id: 'starter_capabilities_b6',
           type: 'bullet',
-          text: 'Ctrl+N crea una página nueva.',
+          text: l10n.vaultStarterCapabilitiesShortcutN,
         ),
         FolioBlock(
           id: 'starter_capabilities_b7',
           type: 'bullet',
-          text: 'Ctrl+K o Ctrl+F abre la búsqueda.',
+          text: l10n.vaultStarterCapabilitiesShortcutSearch,
         ),
         FolioBlock(
           id: 'starter_capabilities_b8',
           type: 'bullet',
-          text: 'Ctrl+, abre Ajustes y Ctrl+L bloquea la libreta.',
+          text: l10n.vaultStarterCapabilitiesShortcutSettings,
         ),
         FolioBlock(
           id: 'starter_capabilities_b9',
           type: 'callout',
-          text:
-              'La IA no se activa por defecto. Si decides usar Quill, la configuras en Ajustes y eliges proveedor, modelo y permisos de contexto.',
+          text: l10n.vaultStarterCapabilitiesAiCallout,
           icon: '🧠',
         ),
       ],
     ),
     FolioPage(
       id: 'starter_quill',
-      title: 'Quill y privacidad',
+      title: l10n.vaultStarterQuillTitle,
       blocks: [
         FolioBlock(
           id: 'starter_quill_b0',
           type: 'h2',
-          text: 'Qué puede hacer Quill',
+          text: l10n.vaultStarterQuillSectionWhat,
         ),
         FolioBlock(
           id: 'starter_quill_b1',
           type: 'bullet',
-          text: 'Resumir, reescribir o expandir el contenido de una página.',
+          text: l10n.vaultStarterQuillBullet1,
         ),
         FolioBlock(
           id: 'starter_quill_b2',
           type: 'bullet',
-          text: 'Responder dudas sobre bloques, atajos y formas de organizar tus notas en Folio.',
+          text: l10n.vaultStarterQuillBullet2,
         ),
         FolioBlock(
           id: 'starter_quill_b3',
           type: 'bullet',
-          text: 'Trabajar con la página abierta como contexto o con varias páginas que selecciones como referencia.',
+          text: l10n.vaultStarterQuillBullet3,
         ),
         FolioBlock(
           id: 'starter_quill_b4',
           type: 'h2',
-          text: 'Privacidad y seguridad',
+          text: l10n.vaultStarterQuillSectionPrivacy,
         ),
         FolioBlock(
           id: 'starter_quill_b5',
           type: 'paragraph',
-          text:
-              'Tus páginas viven en este dispositivo. Si habilitas IA, revisa qué contexto compartes y con qué proveedor. Si olvidas la contraseña maestra de una libreta cifrada, Folio no puede recuperarlo por ti.',
+          text: l10n.vaultStarterQuillPrivacyBody,
         ),
         FolioBlock(
           id: 'starter_quill_b6',
           type: 'callout',
-          text:
-              'Haz una copia de la libreta cuando tengas contenido importante. La copia conserva los datos y adjuntos, pero no transfiere Hello ni passkeys entre dispositivos.',
+          text: l10n.vaultStarterQuillBackupCallout,
           icon: '🔐',
         ),
         FolioBlock(
           id: 'starter_quill_b7',
           type: 'paragraph',
-          text: 'Prueba rápida de Mermaid:',
+          text: l10n.vaultStarterQuillMermaidCaption,
         ),
         FolioBlock(
           id: 'starter_quill_b8',
           type: 'mermaid',
-          text: 'graph TD\nInicio[Crear libreta] --> Organizar[Organizar páginas]\nOrganizar --> Escribir[Escribir y enlazar ideas]\nEscribir --> Revisar[Buscar, revisar y mejorar]',
+          text: l10n.vaultStarterQuillMermaidSource,
         ),
       ],
     ),
@@ -215,9 +216,11 @@ class VaultRepository {
     bool encrypted = true,
     List<FolioPage>? initialPages,
     VaultStarterContent starterContent = VaultStarterContent.enabled,
+    AppLocalizations? starterL10n,
   }) async {
+    final l10n = starterL10n ?? lookupAppLocalizations(const Locale('es'));
     final payload = VaultPayload(
-      pages: initialPages ?? buildVaultStarterPages(starterContent),
+      pages: initialPages ?? buildVaultStarterPages(starterContent, l10n),
     );
     final modePath = await VaultPaths.vaultModePath();
     final payloadPath = await VaultPaths.cipherPayloadPath();

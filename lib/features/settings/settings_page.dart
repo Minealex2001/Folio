@@ -33,6 +33,7 @@ import '../../services/ai/lmstudio_ai_service.dart';
 import '../../services/ai/ollama_ai_service.dart';
 import '../../services/custom_icon_import_service.dart';
 import '../../services/cloud_account/cloud_account_controller.dart';
+import '../../services/folio_cloud/folio_cloud_reachability.dart';
 import '../../services/folio_cloud/folio_cloud_backup.dart';
 import '../../services/folio_cloud/folio_cloud_billing.dart';
 import '../../services/folio_cloud/folio_cloud_checkout.dart';
@@ -275,6 +276,16 @@ class _SettingsPageState extends State<SettingsPage> {
     }).toList(growable: false);
   }
 
+  String _scheduledVaultBackupIntervalSummary(
+    AppLocalizations l10n,
+    int minutes,
+  ) {
+    if (minutes < 60) {
+      return l10n.scheduledVaultBackupEveryNMinutes(minutes);
+    }
+    return l10n.scheduledVaultBackupEveryNHours(minutes ~/ 60);
+  }
+
   String _formatScheduledBackupTime(int ms) {
     if (ms <= 0) return '—';
     final d = DateTime.fromMillisecondsSinceEpoch(ms);
@@ -306,7 +317,7 @@ class _SettingsPageState extends State<SettingsPage> {
   }
 
   Future<void> _pickScheduledVaultBackupFolder() async {
-    final path = await FilePicker.platform.getDirectoryPath();
+    final path = await FilePicker.getDirectoryPath();
     if (path == null || !mounted) return;
     await _app.setScheduledVaultBackupDirectory(path);
     if (mounted) setState(() {});
@@ -584,6 +595,15 @@ class _SettingsPageState extends State<SettingsPage> {
 
   Future<void> _showCloudAuthDialog({required bool register}) async {
     final l10n = AppLocalizations.of(context);
+    if (defaultTargetPlatform == TargetPlatform.windows) {
+      final ok = await folioGoogleApisReachable();
+      if (!ok) {
+        if (!mounted) return;
+        _snack(l10n.cloudAuthErrorNetwork);
+        return;
+      }
+    }
+    if (!mounted) return;
     await showDialog<void>(
       context: context,
       builder: (ctx) => _CloudAuthDialog(
@@ -604,6 +624,15 @@ class _SettingsPageState extends State<SettingsPage> {
   Future<void> _showCloudPasswordResetDialog({String? fixedEmail}) async {
     if (!_cloud.isAvailable) return;
     final l10n = AppLocalizations.of(context);
+    if (defaultTargetPlatform == TargetPlatform.windows) {
+      final ok = await folioGoogleApisReachable();
+      if (!ok) {
+        if (!mounted) return;
+        _snack(l10n.cloudAuthErrorNetwork);
+        return;
+      }
+    }
+    if (!mounted) return;
     final email = await showDialog<String?>(
       context: context,
       builder: (ctx) =>
@@ -1265,6 +1294,25 @@ class _SettingsPageState extends State<SettingsPage> {
             Text(l10n.aiSetupChooseProviderBody),
             const SizedBox(height: 12),
             ListTile(
+              leading: const Icon(Icons.cloud_outlined),
+              title: Text(_providerLabel(AiProvider.quillCloud, l10n)),
+              onTap: () {
+                if (!_folio.isAvailable) {
+                  _snack(l10n.settingsAiSnackFirebaseUnavailableBuild);
+                  return;
+                }
+                if (!_cloud.isSignedIn) {
+                  _snack(l10n.settingsAiSnackSignInCloudAccount);
+                  return;
+                }
+                if (!_folio.snapshot.canUseCloudAi) {
+                  _snack(l10n.aiProviderFolioCloudBlockedSnack);
+                  return;
+                }
+                Navigator.pop(ctx, AiProvider.quillCloud);
+              },
+            ),
+            ListTile(
               leading: const Icon(Icons.hub_outlined),
               title: const Text('Ollama'),
               onTap: () => Navigator.pop(ctx, AiProvider.ollama),
@@ -1315,6 +1363,19 @@ class _SettingsPageState extends State<SettingsPage> {
       final l10n = AppLocalizations.of(context);
       final selectedProvider = await _askUserProviderChoice();
       if (!mounted || selectedProvider == null) return false;
+      if (selectedProvider == AiProvider.quillCloud) {
+        await _app.setAiProvider(AiProvider.quillCloud);
+        await _saveAiFields();
+        if (mounted) {
+          final l10nDone = AppLocalizations.of(context);
+          _snack(
+            l10nDone.aiProviderAutoConfigured(
+              _providerLabel(AiProvider.quillCloud, l10nDone),
+            ),
+          );
+        }
+        return true;
+      }
       var retry = true;
       while (retry && mounted) {
         final action = await showDialog<_AiWizardAction>(
@@ -1950,7 +2011,7 @@ class _SettingsPageState extends State<SettingsPage> {
                             final verified =
                                 await _verifyFolioCloudAccountForBackups();
                             if (!verified || !mounted) return;
-                            final path = await FilePicker.platform.saveFile(
+                            final path = await FilePicker.saveFile(
                               dialogTitle: l10n.settingsCloudBackupSaveDialogTitle,
                               fileName: e.fileName,
                             );
@@ -2158,7 +2219,7 @@ class _SettingsPageState extends State<SettingsPage> {
     );
     if (verified != true || !mounted) return;
 
-    final path = await FilePicker.platform.saveFile(
+    final path = await FilePicker.saveFile(
       dialogTitle: l10n.saveVaultBackupDialogTitle,
       fileName: _suggestedBackupFileName(),
       type: FileType.custom,
@@ -2221,7 +2282,7 @@ class _SettingsPageState extends State<SettingsPage> {
     );
     if (verified != true || !mounted) return;
 
-    final pick = await FilePicker.platform.pickFiles(
+    final pick = await FilePicker.pickFiles(
       type: FileType.custom,
       allowedExtensions: const ['zip'],
       allowMultiple: false,
@@ -2271,7 +2332,7 @@ class _SettingsPageState extends State<SettingsPage> {
     );
     if (verified != true || !mounted) return;
 
-    final pick = await FilePicker.platform.pickFiles(
+    final pick = await FilePicker.pickFiles(
       type: FileType.custom,
       allowedExtensions: const ['zip'],
       allowMultiple: false,
@@ -3228,68 +3289,6 @@ class _SettingsPageState extends State<SettingsPage> {
                                 },
                               ),
                               ListenableBuilder(
-                                listenable: Listenable.merge([
-                                  _cloud,
-                                  _folio,
-                                  _app,
-                                  _s,
-                                ]),
-                                builder: (context, _) {
-                                  if (!_folio.isAvailable ||
-                                      !_cloud.isSignedIn) {
-                                    return const SizedBox.shrink();
-                                  }
-                                  return Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.stretch,
-                                    children: [
-                                      _SettingsSubsectionTitle(
-                                        title: l10n
-                                            .settingsFolioCloudSubsectionScheduledCloud,
-                                        scheme: scheme,
-                                        topPadding: 8,
-                                      ),
-                                      const Divider(height: 1),
-                                      SwitchListTile(
-                                        secondary: const Icon(
-                                          Icons.cloud_upload_outlined,
-                                        ),
-                                        title: Text(
-                                          l10n.scheduledVaultBackupCloudSyncTitle,
-                                        ),
-                                        subtitle: Text(
-                                          _app.scheduledVaultBackupEnabled
-                                              ? l10n
-                                                  .scheduledVaultBackupCloudSyncSubtitle
-                                              : l10n
-                                                  .settingsScheduledCloudUploadRequiresSchedule,
-                                        ),
-                                        value: _app
-                                            .scheduledVaultBackupAlsoUploadCloud,
-                                        onChanged:
-                                            _s.state == VaultFlowState.unlocked &&
-                                                _app.scheduledVaultBackupEnabled &&
-                                                !_folioCloudActionBusy
-                                            ? (v) {
-                                                unawaited(
-                                                  _app
-                                                      .setScheduledVaultBackupAlsoUploadCloud(
-                                                        v,
-                                                      )
-                                                      .then((_) {
-                                                        if (mounted) {
-                                                          setState(() {});
-                                                        }
-                                                      }),
-                                                );
-                                              }
-                                            : null,
-                                      ),
-                                    ],
-                                  );
-                                },
-                              ),
-                              ListenableBuilder(
                                 listenable: Listenable.merge([_cloud, _folio]),
                                 builder: (context, _) {
                                   if (!AppSettings.folioWebPortalLinkEnabled) {
@@ -3944,47 +3943,67 @@ class _SettingsPageState extends State<SettingsPage> {
                               ),
                               if (_app.scheduledVaultBackupEnabled) ...[
                                 ListTile(
+                                  isThreeLine: true,
                                   leading: const Icon(Icons.timer_outlined),
                                   title: Text(
                                     l10n.scheduledVaultBackupIntervalLabel,
                                   ),
-                                  trailing: DropdownButton<int>(
-                                    value: _app
-                                        .scheduledVaultBackupIntervalHours
-                                        .clamp(1, 168),
-                                    items: const [
-                                      DropdownMenuItem(
-                                        value: 6,
-                                        child: Text('6 h'),
+                                  subtitle: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.stretch,
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      const SizedBox(height: 4),
+                                      Text(
+                                        _scheduledVaultBackupIntervalSummary(
+                                          l10n,
+                                          _app.scheduledVaultBackupIntervalMinutes,
+                                        ),
                                       ),
-                                      DropdownMenuItem(
-                                        value: 12,
-                                        child: Text('12 h'),
-                                      ),
-                                      DropdownMenuItem(
-                                        value: 24,
-                                        child: Text('24 h'),
-                                      ),
-                                      DropdownMenuItem(
-                                        value: 48,
-                                        child: Text('48 h'),
-                                      ),
-                                      DropdownMenuItem(
-                                        value: 168,
-                                        child: Text('7 d'),
+                                      SliderTheme(
+                                        data: SliderTheme.of(context).copyWith(
+                                          trackHeight: 3,
+                                        ),
+                                        child: Slider(
+                                          min: 0,
+                                          max:
+                                              (AppSettings
+                                                      .scheduledVaultBackupIntervalChoicesMinutes
+                                                      .length -
+                                                  1)
+                                                  .toDouble(),
+                                          divisions: AppSettings
+                                                  .scheduledVaultBackupIntervalChoicesMinutes
+                                                  .length -
+                                              1,
+                                          value: _app
+                                              .scheduledVaultBackupIntervalChoiceIndex
+                                              .toDouble(),
+                                          onChanged:
+                                              _s.state ==
+                                                  VaultFlowState.unlocked
+                                              ? (v) async {
+                                                  final i = v.round().clamp(
+                                                    0,
+                                                    AppSettings
+                                                            .scheduledVaultBackupIntervalChoicesMinutes
+                                                            .length -
+                                                        1,
+                                                  );
+                                                  final minutes = AppSettings
+                                                      .scheduledVaultBackupIntervalChoicesMinutes[i];
+                                                  await _app
+                                                      .setScheduledVaultBackupIntervalMinutes(
+                                                        minutes,
+                                                      );
+                                                  if (mounted) {
+                                                    setState(() {});
+                                                  }
+                                                }
+                                              : null,
+                                        ),
                                       ),
                                     ],
-                                    onChanged:
-                                        _s.state == VaultFlowState.unlocked
-                                        ? (v) async {
-                                            if (v == null) return;
-                                            await _app
-                                                .setScheduledVaultBackupIntervalHours(
-                                                  v,
-                                                );
-                                            if (mounted) setState(() {});
-                                          }
-                                        : null,
                                   ),
                                 ),
                                 ListTile(
@@ -4016,6 +4035,63 @@ class _SettingsPageState extends State<SettingsPage> {
                                   ),
                                 ),
                               ],
+                              ListenableBuilder(
+                                listenable: Listenable.merge([
+                                  _cloud,
+                                  _folio,
+                                  _app,
+                                  _s,
+                                ]),
+                                builder: (context, _) {
+                                  if (!_folio.isAvailable ||
+                                      !_cloud.isSignedIn) {
+                                    return const SizedBox.shrink();
+                                  }
+                                  return Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.stretch,
+                                    children: [
+                                      const Divider(height: 1),
+                                      SwitchListTile(
+                                        secondary: const Icon(
+                                          Icons.cloud_upload_outlined,
+                                        ),
+                                        title: Text(
+                                          l10n.scheduledVaultBackupCloudSyncTitle,
+                                        ),
+                                        subtitle: Text(
+                                          _app.scheduledVaultBackupEnabled
+                                              ? l10n
+                                                  .scheduledVaultBackupCloudSyncSubtitle
+                                              : l10n
+                                                  .settingsScheduledCloudUploadRequiresSchedule,
+                                        ),
+                                        value: _app
+                                            .scheduledVaultBackupAlsoUploadCloud,
+                                        onChanged:
+                                            _s.state ==
+                                                    VaultFlowState.unlocked &&
+                                                _app.scheduledVaultBackupEnabled &&
+                                                !_folioCloudActionBusy
+                                                ? (v) {
+                                                    unawaited(
+                                                      _app
+                                                          .setScheduledVaultBackupAlsoUploadCloud(
+                                                            v,
+                                                          )
+                                                          .then((_) {
+                                                            if (mounted) {
+                                                              setState(() {});
+                                                            }
+                                                          }),
+                                                    );
+                                                  }
+                                                : null,
+                                      ),
+                                    ],
+                                  );
+                                },
+                              ),
                               ListTile(
                                 leading: const Icon(Icons.save_alt_rounded),
                                 title: Text(l10n.vaultBackupRunNowTile),
@@ -8702,7 +8778,7 @@ class _FolioCloudSubscriptionPanel extends StatelessWidget {
               Padding(
                 padding: const EdgeInsets.only(bottom: 8),
                 child: Text(
-                  l10n.settingsCloudInkHostedAiOpenAiHint,
+                  l10n.settingsCloudInkHostedAiQuillCloudHint,
                   style: theme.textTheme.bodySmall?.copyWith(
                     color: scheme.onSurfaceVariant,
                     height: 1.3,

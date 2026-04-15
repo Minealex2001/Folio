@@ -1115,6 +1115,12 @@ class AppLocalizationsEn extends AppLocalizations {
   String get formatToolbar => 'Format toolbar';
 
   @override
+  String get formatToolbarScrollPrevious => 'Show earlier tools';
+
+  @override
+  String get formatToolbarScrollNext => 'Show more tools';
+
+  @override
   String get linkTitle => 'Link';
 
   @override
@@ -1379,6 +1385,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get exportMarkdownPage => 'Export Markdown';
 
   @override
+  String get exportPage => 'Export…';
+
+  @override
   String get workspaceUndoTooltip => 'Undo (Ctrl+Z)';
 
   @override
@@ -1547,7 +1556,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get aiSetupLmStudioBody =>
-      'Install LM Studio, start its local server (OpenAI-compatible), and verify it responds at http://127.0.0.1:1234.';
+      'Install LM Studio, start its local server, and verify it responds at http://127.0.0.1:1234.';
 
   @override
   String get aiSetupOpenSettingsHint =>
@@ -1702,7 +1711,29 @@ class AppLocalizationsEn extends AppLocalizations {
   String get scheduledVaultBackupChooseFolder => 'Backup folder';
 
   @override
-  String get scheduledVaultBackupIntervalLabel => 'Interval (hours)';
+  String get scheduledVaultBackupIntervalLabel => 'Backup interval';
+
+  @override
+  String scheduledVaultBackupEveryNMinutes(int n) {
+    String _temp0 = intl.Intl.pluralLogic(
+      n,
+      locale: localeName,
+      other: '$n minutes',
+      one: '1 minute',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String scheduledVaultBackupEveryNHours(int n) {
+    String _temp0 = intl.Intl.pluralLogic(
+      n,
+      locale: localeName,
+      other: '$n hours',
+      one: '1 hour',
+    );
+    return '$_temp0';
+  }
 
   @override
   String scheduledVaultBackupLastRun(Object time) {
@@ -3600,6 +3631,9 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
+  String get importPage => 'Import…';
+
+  @override
   String get exportMarkdownFileDialogTitle => 'Export page to Markdown';
 
   @override
@@ -3607,6 +3641,68 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String markdownExportFailedWithError(Object error) {
+    return 'Could not export page: $error';
+  }
+
+  @override
+  String get exportPageDialogTitle => 'Export page';
+
+  @override
+  String get exportPageFormatMarkdown => 'Markdown (.md)';
+
+  @override
+  String get exportPageFormatHtml => 'HTML (.html)';
+
+  @override
+  String get exportPageFormatTxt => 'Text (.txt)';
+
+  @override
+  String get exportPageFormatJson => 'JSON (.json)';
+
+  @override
+  String get exportPageFormatPdf => 'PDF (.pdf)';
+
+  @override
+  String get exportHtmlFileDialogTitle => 'Export page to HTML';
+
+  @override
+  String get htmlExportSuccess => 'Page exported to HTML.';
+
+  @override
+  String htmlExportFailedWithError(Object error) {
+    return 'Could not export page: $error';
+  }
+
+  @override
+  String get exportTxtFileDialogTitle => 'Export page to text';
+
+  @override
+  String get txtExportSuccess => 'Page exported to text.';
+
+  @override
+  String txtExportFailedWithError(Object error) {
+    return 'Could not export page: $error';
+  }
+
+  @override
+  String get exportJsonFileDialogTitle => 'Export page to JSON';
+
+  @override
+  String get jsonExportSuccess => 'Page exported to JSON.';
+
+  @override
+  String jsonExportFailedWithError(Object error) {
+    return 'Could not export page: $error';
+  }
+
+  @override
+  String get exportPdfFileDialogTitle => 'Export page to PDF';
+
+  @override
+  String get pdfExportSuccess => 'Page exported to PDF.';
+
+  @override
+  String pdfExportFailedWithError(Object error) {
     return 'Could not export page: $error';
   }
 
@@ -4701,7 +4797,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get settingsViewInkUsageTable => 'View usage table';
 
   @override
-  String get settingsCloudInkUsageTableTitle => 'Ink usage table (OpenAI)';
+  String get settingsCloudInkUsageTableTitle => 'Ink usage table (Quill Cloud)';
 
   @override
   String get settingsCloudInkUsageTableIntro =>
@@ -4755,6 +4851,121 @@ class AppLocalizationsEn extends AppLocalizations {
   String get settingsCloudInkViewTableButton => 'View table';
 
   @override
-  String get settingsCloudInkHostedAiOpenAiHint =>
-      'Reference pricing for hosted AI with OpenAI.';
+  String get settingsCloudInkHostedAiQuillCloudHint =>
+      'Reference pricing for cloud AI on Quill Cloud.';
+
+  @override
+  String get vaultStarterHomeTitle => 'Start here';
+
+  @override
+  String get vaultStarterHomeHeading => 'Your notebook is ready';
+
+  @override
+  String get vaultStarterHomeIntro =>
+      'Folio organizes your pages in a tree, edits content in blocks, and keeps data on this device. This short guide maps what you can do from minute one.';
+
+  @override
+  String get vaultStarterHomeCallout =>
+      'You can delete, rename, or move these pages anytime—they are just a quick starting point.';
+
+  @override
+  String get vaultStarterHomeSectionTips => 'Most useful to begin';
+
+  @override
+  String get vaultStarterHomeBulletSlash =>
+      'Press / in a paragraph to insert headings, lists, tables, code blocks, Mermaid, and more.';
+
+  @override
+  String get vaultStarterHomeBulletSidebar =>
+      'Use the side panel to create pages and subpages, and reorder the tree to match how you work.';
+
+  @override
+  String get vaultStarterHomeBulletSettings =>
+      'Open Settings to enable AI, configure backup, change language, or add quick unlock.';
+
+  @override
+  String get vaultStarterHomeTodo1 => 'Create my first working page';
+
+  @override
+  String get vaultStarterHomeTodo2 => 'Try the / menu to insert a new block';
+
+  @override
+  String get vaultStarterHomeTodo3 =>
+      'Review Settings and decide whether to enable Quill or quick unlock';
+
+  @override
+  String get vaultStarterCapabilitiesTitle => 'What Folio can do';
+
+  @override
+  String get vaultStarterCapabilitiesSectionMain => 'Main capabilities';
+
+  @override
+  String get vaultStarterCapabilitiesBullet1 =>
+      'Take notes with free-form structure using paragraphs, headings, lists, checklists, quotes, and dividers.';
+
+  @override
+  String get vaultStarterCapabilitiesBullet2 =>
+      'Use special blocks such as tables, databases, files, audio, video, embeds, and Mermaid diagrams.';
+
+  @override
+  String get vaultStarterCapabilitiesBullet3 =>
+      'Search content, browse page history, and keep revisions inside the same notebook.';
+
+  @override
+  String get vaultStarterCapabilitiesBullet4 =>
+      'Export or import data, including notebook backup and Notion import.';
+
+  @override
+  String get vaultStarterCapabilitiesSectionShortcuts => 'Quick shortcuts';
+
+  @override
+  String get vaultStarterCapabilitiesShortcutN => 'Ctrl+N creates a new page.';
+
+  @override
+  String get vaultStarterCapabilitiesShortcutSearch =>
+      'Ctrl+K or Ctrl+F opens search.';
+
+  @override
+  String get vaultStarterCapabilitiesShortcutSettings =>
+      'Ctrl+, opens Settings and Ctrl+L locks the notebook.';
+
+  @override
+  String get vaultStarterCapabilitiesAiCallout =>
+      'AI is off by default. If you use Quill, configure it in Settings—provider, model, and context permissions.';
+
+  @override
+  String get vaultStarterQuillTitle => 'Quill and privacy';
+
+  @override
+  String get vaultStarterQuillSectionWhat => 'What Quill can do';
+
+  @override
+  String get vaultStarterQuillBullet1 =>
+      'Summarize, rewrite, or expand the content of a page.';
+
+  @override
+  String get vaultStarterQuillBullet2 =>
+      'Answer questions about blocks, shortcuts, and how to organize notes in Folio.';
+
+  @override
+  String get vaultStarterQuillBullet3 =>
+      'Work with the open page as context or with several pages you pick as references.';
+
+  @override
+  String get vaultStarterQuillSectionPrivacy => 'Privacy and security';
+
+  @override
+  String get vaultStarterQuillPrivacyBody =>
+      'Your pages live on this device. If you enable AI, check what context you share and with which provider. If you forget the master password of an encrypted notebook, Folio cannot recover it for you.';
+
+  @override
+  String get vaultStarterQuillBackupCallout =>
+      'Back up the notebook when you have important content. The backup keeps data and attachments but does not transfer Hello or passkeys across devices.';
+
+  @override
+  String get vaultStarterQuillMermaidCaption => 'Quick Mermaid tryout:';
+
+  @override
+  String get vaultStarterQuillMermaidSource =>
+      'graph TD\nStart[Create notebook] --> Organize[Organize pages]\nOrganize --> Write[Write and link ideas]\nWrite --> Review[Search, review, improve]';
 }

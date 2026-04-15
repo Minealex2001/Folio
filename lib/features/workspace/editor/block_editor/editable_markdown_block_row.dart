@@ -87,42 +87,144 @@ Widget _buildEditableMarkdownBlockRow(_BlockRowScope s) {
 
   final mdSheet = folioMarkdownStyleSheet(context, currentStyle, scheme);
 
-  final field = TextField(
-    controller: ctrl,
-    focusNode: focus,
-    readOnly: readOnlyMode,
-    showCursor: !readOnlyMode,
-    maxLines: null,
-    minLines: 1,
-    cursorColor: scheme.onSurface,
-    style: showInlinePreview
-        ? currentStyle.copyWith(
-            color: Colors.transparent,
-            decoration: TextDecoration.none,
-          )
-        : currentStyle,
-    onTap: readOnlyMode
-        ? null
-        : () {
-            focus.requestFocus();
-          },
-    textAlignVertical: isTopAlignedSlashBlock
-        ? TextAlignVertical.top
-        : TextAlignVertical.center,
-    decoration: isListLine
-        ? InputDecoration.collapsed(
-            hintText: block.type == 'todo' ? 'Tarea…' : '',
-          )
-        : InputDecoration(
-            border: InputBorder.none,
-            isDense: true,
-            filled: false,
-            hintText: isParagraph ? 'Escribe…  /  para tipos de bloque' : null,
-            contentPadding: EdgeInsets.zero,
-          ),
-  );
+  final isWysiwygBlock = _stylableBlockTypes.contains(block.type);
+  final quillCtrl = isWysiwygBlock && !readOnlyMode
+      ? st._ensureQuillController(pageId: page.id, block: block)
+      : null;
 
-  final stackedField = showInlinePreview
+  final field = isWysiwygBlock
+      ? () {
+          final c = quillCtrl ??
+              quill.QuillController(
+                document: FolioMarkdownQuillCodec.markdownToDocument(ctrl.text),
+                selection: const TextSelection.collapsed(offset: 0),
+              );
+          c.readOnly = readOnlyMode;
+
+          final editor = quill.QuillEditor.basic(
+            controller: c,
+            focusNode: focus,
+            config: quill.QuillEditorConfig(
+              expands: false,
+              padding: EdgeInsets.zero,
+              scrollable: false,
+              autoFocus: false,
+            ),
+          );
+
+          // Importante: mantener el QuillEditor SIEMPRE montado (misma
+          // estructura), para evitar unmount mientras Quill tiene callbacks de
+          // foco/IME pendientes (crash en Windows).
+          final showPreviewOverlay =
+              !readOnlyMode && !focus.hasFocus && allowsSlash;
+          // Preview sin foco:
+          // - Debajo: Quill (readOnly) para conservar estilos avanzados (color/fondo/highlight).
+          // - Encima: Markdown preview para hit-testing de links internos (folio://open/...)
+          //   y para conservar comportamiento previo. El texto normal se hace
+          //   transparente para no tapar el render WYSIWYG; los links se mantienen
+          //   visibles/clicables.
+          final mdSheetTransparent = mdSheet.copyWith(
+            p: mdSheet.p?.copyWith(color: Colors.transparent),
+            strong: mdSheet.strong?.copyWith(color: Colors.transparent),
+            em: mdSheet.em?.copyWith(color: Colors.transparent),
+            del: mdSheet.del?.copyWith(color: Colors.transparent),
+            code: mdSheet.code?.copyWith(color: Colors.transparent),
+            // Links visibles para que el usuario sepa dónde clicar.
+            a: mdSheet.a,
+          );
+
+          return Stack(
+            children: [
+              Opacity(
+                opacity: showPreviewOverlay ? 0 : 1,
+                child: IgnorePointer(
+                  ignoring: showPreviewOverlay,
+                  child: editor,
+                ),
+              ),
+              if (showPreviewOverlay)
+                Positioned.fill(
+                  child: Stack(
+                    children: [
+                      Align(
+                        alignment: isTopAlignedSlashBlock
+                            ? AlignmentDirectional.topStart
+                            : AlignmentDirectional.centerStart,
+                        child: quill.QuillEditor.basic(
+                          controller: c..readOnly = true,
+                          focusNode: FocusNode(skipTraversal: true),
+                          config: const quill.QuillEditorConfig(
+                            expands: false,
+                            padding: EdgeInsets.zero,
+                            scrollable: false,
+                            autoFocus: false,
+                            showCursor: false,
+                            enableInteractiveSelection: false,
+                          ),
+                        ),
+                      ),
+                      Positioned.fill(
+                        child: Align(
+                          alignment: isTopAlignedSlashBlock
+                              ? AlignmentDirectional.topStart
+                              : AlignmentDirectional.centerStart,
+                          child: FolioMarkdownPreview(
+                            data: ctrl.text,
+                            styleSheet: mdSheetTransparent,
+                            onFolioPageLink: st._s.selectPage,
+                          ),
+                        ),
+                      ),
+                      // Tap en cualquier zona no-link: entrar en edición.
+                      Positioned.fill(
+                        child: GestureDetector(
+                          behavior: HitTestBehavior.translucent,
+                          onTap: () => focus.requestFocus(),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+            ],
+          );
+        }()
+      : TextField(
+          controller: ctrl,
+          focusNode: focus,
+          readOnly: readOnlyMode,
+          showCursor: !readOnlyMode,
+          maxLines: null,
+          minLines: 1,
+          cursorColor: scheme.onSurface,
+          style: showInlinePreview
+              ? currentStyle.copyWith(
+                  color: Colors.transparent,
+                  decoration: TextDecoration.none,
+                )
+              : currentStyle,
+          onTap: readOnlyMode
+              ? null
+              : () {
+                  focus.requestFocus();
+                },
+          textAlignVertical: isTopAlignedSlashBlock
+              ? TextAlignVertical.top
+              : TextAlignVertical.center,
+          decoration: isListLine
+              ? InputDecoration.collapsed(
+                  hintText: block.type == 'todo' ? 'Tarea…' : '',
+                )
+              : InputDecoration(
+                  border: InputBorder.none,
+                  isDense: true,
+                  filled: false,
+                  hintText:
+                      isParagraph ? 'Escribe…  /  para tipos de bloque' : null,
+                  contentPadding: EdgeInsets.zero,
+                ),
+        );
+
+  final stackedField = showInlinePreview && !isWysiwygBlock
       ? Stack(
           children: [
             // Mantener el TextField en el árbol (aunque sea invisible) para que
@@ -293,7 +395,7 @@ Widget _buildEditableMarkdownBlockRow(_BlockRowScope s) {
       allowsSlash &&
       !showSlashMenu &&
       !showMentionMenu &&
-      focus.hasFocus;
+      (focus.hasFocus || st._toolbarInteractionBlockId == block.id);
 
   /// Barra de formato **en el árbol del bloque** (no Overlay): evita capas a
   /// pantalla completa, hit-test erróneos y bloques grises gigantes.
@@ -307,29 +409,43 @@ Widget _buildEditableMarkdownBlockRow(_BlockRowScope s) {
               padding: const EdgeInsets.only(top: FolioSpace.xs),
               child: Align(
                 alignment: Alignment.centerLeft,
-                child: FolioFormatToolbar(
-                  controller: ctrl,
-                  colorScheme: scheme,
-                  textFocusNode: focus,
-                  onOpenBlockAppearance: st._blockSupportsAppearance(block)
-                      ? () => unawaited(
-                          st._editBlockAppearance(
-                            page,
-                            block,
-                            focusNode: focus,
-                          ),
-                        )
-                      : null,
-                  onMentionPage: (ctx) => st._toolbarMentionPage(ctx, ctrl),
-                  onInsertUserMention: () =>
-                      st._insertAtSelection(ctrl, '@usuario '),
-                  onInsertDateMention: () => st._insertAtSelection(
-                    ctrl,
-                    '@${DateFormat.yMMMd(Localizations.localeOf(context).toLanguageTag()).format(DateTime.now())} ',
-                  ),
-                  onInsertInlineMath: () =>
-                      st._insertAtSelection(ctrl, r'\( x \)'),
-                ),
+                child: isWysiwygBlock && quillCtrl != null
+                    ? FolioQuillFormatToolbar(
+                        controller: quillCtrl,
+                        colorScheme: scheme,
+                        focusNode: focus,
+                        onInteractionStart: () =>
+                            st._onToolbarPointerDown(block.id),
+                        onInteractionEnd: () =>
+                            st._onToolbarPointerUpOrCancel(block.id),
+                      )
+                    : FolioFormatToolbar(
+                        controller: ctrl,
+                        colorScheme: scheme,
+                        textFocusNode: focus,
+                        onInteractionStart: () =>
+                            st._onToolbarPointerDown(block.id),
+                        onInteractionEnd: () =>
+                            st._onToolbarPointerUpOrCancel(block.id),
+                        onOpenBlockAppearance: st._blockSupportsAppearance(block)
+                            ? () => unawaited(
+                                st._editBlockAppearance(
+                                  page,
+                                  block,
+                                  focusNode: focus,
+                                ),
+                              )
+                            : null,
+                        onMentionPage: (ctx) => st._toolbarMentionPage(ctx, ctrl),
+                        onInsertUserMention: () =>
+                            st._insertAtSelection(ctrl, '@usuario '),
+                        onInsertDateMention: () => st._insertAtSelection(
+                          ctrl,
+                          '@${DateFormat.yMMMd(Localizations.localeOf(context).toLanguageTag()).format(DateTime.now())} ',
+                        ),
+                        onInsertInlineMath: () =>
+                            st._insertAtSelection(ctrl, r'\( x \)'),
+                      ),
               ),
             ),
           ],

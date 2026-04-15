@@ -4,6 +4,7 @@ import 'dart:io';
 
 import 'package:collection/collection.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/scheduler.dart';
 import 'package:flutter/widgets.dart' show Locale;
 import 'package:local_auth/local_auth.dart';
 import 'package:path/path.dart' as p;
@@ -14,6 +15,7 @@ import 'package:uuid/uuid.dart';
 
 import '../data/vault_backup.dart';
 import '../data/notion_import/notion_importer.dart';
+import '../data/import/simple_html_blocks.dart';
 import '../data/vault_paths.dart';
 import '../data/vault_payload.dart';
 import '../data/vault_registry.dart';
@@ -369,6 +371,31 @@ class VaultSession extends ChangeNotifier {
   final Map<String, List<_PageUndoSnapshot>> _redoByPage = {};
   final Map<String, DateTime> _lastUndoTypingCaptureAt = {};
 
+  /// Evita un `notifyListeners` por tecla: un único aviso al cerrar el frame.
+  bool _typingNotifyFrameScheduled = false;
+
+  SchedulerBinding? get _schedulerOrNull {
+    try {
+      return SchedulerBinding.instance;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  void _scheduleCoalescedTypingNotify() {
+    if (_typingNotifyFrameScheduled) return;
+    final scheduler = _schedulerOrNull;
+    if (scheduler == null) {
+      notifyListeners();
+      return;
+    }
+    _typingNotifyFrameScheduled = true;
+    scheduler.scheduleFrameCallback((_) {
+      _typingNotifyFrameScheduled = false;
+      notifyListeners();
+    });
+  }
+
   bool get canUndoSelectedPage => canUndoPage(_selectedPageId);
   bool get canRedoSelectedPage => canRedoPage(_selectedPageId);
 
@@ -639,7 +666,11 @@ class VaultSession extends ChangeNotifier {
   void _loadRevisionsFromPayload(VaultPayload payload) {
     _pageOrderByParent
       ..clear()
-      ..addAll(payload.pageOrderByParent);
+      ..addEntries(
+        payload.pageOrderByParent.entries.map(
+          (e) => MapEntry(e.key, List<String>.from(e.value)),
+        ),
+      );
     _pageRevisions
       ..clear()
       ..addEntries(
@@ -691,9 +722,12 @@ class VaultSession extends ChangeNotifier {
     final byId = <String, FolioPage>{for (final p in _pages) p.id: p};
     // 1) Quitar ids inexistentes.
     for (final entry in _pageOrderByParent.entries.toList()) {
-      entry.value.removeWhere((id) => !byId.containsKey(id));
-      if (entry.value.isEmpty) {
+      final next = List<String>.from(entry.value)
+        ..removeWhere((id) => !byId.containsKey(id));
+      if (next.isEmpty) {
         _pageOrderByParent.remove(entry.key);
+      } else {
+        _pageOrderByParent[entry.key] = next;
       }
     }
     // 2) Asegurar lista por cada parent que tenga hijos.
@@ -792,6 +826,7 @@ class VaultSession extends ChangeNotifier {
       starterContent: createStarterPages
           ? VaultStarterContent.enabled
           : VaultStarterContent.disabled,
+      starterL10n: createStarterPages ? _titleL10n : null,
     );
     _vaultUsesEncryption = encrypted;
     _dek = dek?.toList();
@@ -1082,6 +1117,7 @@ class VaultSession extends ChangeNotifier {
       final newDek = await _repo.createVault(
         password: masterPassword,
         encrypted: true,
+        starterContent: VaultStarterContent.disabled,
       );
       final oldDek = _dek;
       final oldPages = _pages;
@@ -1909,6 +1945,236 @@ class VaultSession extends ChangeNotifier {
     }
   }
 
+  List<FolioBlock> _reassignBlockIdsForPage(
+    String pageId,
+    List<FolioBlock> blocks, {
+    int startIndex = 0,
+  }) {
+    final out = <FolioBlock>[];
+    for (var i = 0; i < blocks.length; i++) {
+      final b = FolioBlock.fromJson(blocks[i].toJson());
+      out.add(
+        FolioBlock.fromJson({
+          ...b.toJson(),
+          'id': '${pageId}_b${startIndex + i}',
+        }),
+      );
+    }
+    return out;
+  }
+
+  FolioMarkdownImportResult importHtmlDocument(
+    String html, {
+    String? title,
+    String? parentId,
+    FolioMarkdownImportMode mode = FolioMarkdownImportMode.newPage,
+  }) {
+    if (!isUnlocked) {
+      throw StateError('Unlock Folio before importing.');
+    }
+
+    final trimmed = html.trim();
+    if (trimmed.isEmpty) {
+      throw ArgumentError('HTML vacío.');
+    }
+
+    final blocks = folioParseHtmlBlocks(trimmed);
+    if (blocks.isEmpty) {
+      throw ArgumentError('HTML vacío.');
+    }
+
+    final targetPageId = _selectedPageId;
+    if (mode != FolioMarkdownImportMode.newPage && targetPageId == null) {
+      throw StateError('No hay página activa para importar.');
+    }
+
+    switch (mode) {
+      case FolioMarkdownImportMode.newPage:
+        final id = _uuid.v4();
+        final resolvedTitle = (title ?? 'Imported page').trim().isEmpty
+            ? 'Imported page'
+            : (title ?? 'Imported page').trim();
+        final finalBlocks = _reassignBlockIdsForPage(id, blocks);
+        _pages.add(
+          FolioPage(
+            id: id,
+            title: resolvedTitle,
+            parentId: parentId,
+            blocks: finalBlocks,
+          ),
+        );
+        _selectedPageId = id;
+        notifyListeners();
+        scheduleSave(trackRevisionForPageId: id);
+        return FolioMarkdownImportResult(
+          pageId: id,
+          pageTitle: resolvedTitle,
+          mode: mode,
+          blockCount: finalBlocks.length,
+        );
+      case FolioMarkdownImportMode.replaceCurrentPage:
+        final page = selectedPage;
+        if (page == null) {
+          throw StateError('No hay página activa para reemplazar.');
+        }
+        final finalBlocks = _reassignBlockIdsForPage(page.id, blocks);
+        page.title = (title ?? page.title).trim().isEmpty
+            ? page.title
+            : (title ?? page.title).trim();
+        page.blocks = finalBlocks;
+        _selectedPageId = page.id;
+        _contentEpoch++;
+        notifyListeners();
+        scheduleSave(trackRevisionForPageId: page.id);
+        return FolioMarkdownImportResult(
+          pageId: page.id,
+          pageTitle: page.title,
+          mode: mode,
+          blockCount: finalBlocks.length,
+        );
+      case FolioMarkdownImportMode.appendToCurrentPage:
+        final page = selectedPage;
+        if (page == null) {
+          throw StateError('No hay página activa para anexar contenido.');
+        }
+        final appended = _reassignBlockIdsForPage(
+          page.id,
+          blocks,
+          startIndex: page.blocks.length,
+        );
+        final existingSingleEmpty =
+            page.blocks.length == 1 &&
+            page.blocks.first.type == 'paragraph' &&
+            page.blocks.first.text.trim().isEmpty;
+        page.blocks = existingSingleEmpty ? appended : [...page.blocks, ...appended];
+        _selectedPageId = page.id;
+        _contentEpoch++;
+        notifyListeners();
+        scheduleSave(trackRevisionForPageId: page.id);
+        return FolioMarkdownImportResult(
+          pageId: page.id,
+          pageTitle: page.title,
+          mode: mode,
+          blockCount: appended.length,
+        );
+    }
+  }
+
+  FolioMarkdownImportResult importPageJsonDocument(
+    String jsonString, {
+    String? parentId,
+    FolioMarkdownImportMode mode = FolioMarkdownImportMode.newPage,
+  }) {
+    if (!isUnlocked) {
+      throw StateError('Unlock Folio before importing.');
+    }
+    final trimmed = jsonString.trim();
+    if (trimmed.isEmpty) {
+      throw ArgumentError('JSON vacío.');
+    }
+    dynamic raw;
+    try {
+      raw = jsonDecode(trimmed);
+    } catch (e) {
+      throw ArgumentError('JSON inválido: $e');
+    }
+    Map<String, dynamic> pageJson;
+    if (raw is Map && raw['schema'] is String && raw['page'] is Map) {
+      pageJson = Map<String, dynamic>.from(raw['page'] as Map);
+    } else if (raw is Map) {
+      pageJson = Map<String, dynamic>.from(raw);
+    } else {
+      throw ArgumentError('JSON inválido: se esperaba un objeto.');
+    }
+    final importedTitle = (pageJson['title'] as String?)?.trim();
+    final rawBlocks = pageJson['blocks'];
+    if (rawBlocks is! List) {
+      throw ArgumentError('JSON inválido: falta blocks[].');
+    }
+    final blocks = rawBlocks
+        .map((e) => FolioBlock.fromJson(Map<String, dynamic>.from(e as Map)))
+        .toList();
+    if (blocks.isEmpty) {
+      throw ArgumentError('JSON inválido: blocks[] vacío.');
+    }
+
+    final targetPageId = _selectedPageId;
+    if (mode != FolioMarkdownImportMode.newPage && targetPageId == null) {
+      throw StateError('No hay página activa para importar.');
+    }
+
+    switch (mode) {
+      case FolioMarkdownImportMode.newPage:
+        final id = _uuid.v4();
+        final title = (importedTitle == null || importedTitle.isEmpty)
+            ? 'Imported page'
+            : importedTitle;
+        final finalBlocks = _reassignBlockIdsForPage(id, blocks);
+        _pages.add(
+          FolioPage(
+            id: id,
+            title: title,
+            parentId: parentId,
+            blocks: finalBlocks,
+          ),
+        );
+        _selectedPageId = id;
+        notifyListeners();
+        scheduleSave(trackRevisionForPageId: id);
+        return FolioMarkdownImportResult(
+          pageId: id,
+          pageTitle: title,
+          mode: mode,
+          blockCount: finalBlocks.length,
+        );
+      case FolioMarkdownImportMode.replaceCurrentPage:
+        final page = selectedPage;
+        if (page == null) {
+          throw StateError('No hay página activa para reemplazar.');
+        }
+        final finalBlocks = _reassignBlockIdsForPage(page.id, blocks);
+        if (importedTitle != null && importedTitle.isNotEmpty) {
+          page.title = importedTitle;
+        }
+        page.blocks = finalBlocks;
+        _selectedPageId = page.id;
+        _contentEpoch++;
+        notifyListeners();
+        scheduleSave(trackRevisionForPageId: page.id);
+        return FolioMarkdownImportResult(
+          pageId: page.id,
+          pageTitle: page.title,
+          mode: mode,
+          blockCount: finalBlocks.length,
+        );
+      case FolioMarkdownImportMode.appendToCurrentPage:
+        final page = selectedPage;
+        if (page == null) {
+          throw StateError('No hay página activa para anexar contenido.');
+        }
+        final appended = _reassignBlockIdsForPage(
+          page.id,
+          blocks,
+          startIndex: page.blocks.length,
+        );
+        final existingSingleEmpty =
+            page.blocks.length == 1 &&
+            page.blocks.first.type == 'paragraph' &&
+            page.blocks.first.text.trim().isEmpty;
+        page.blocks = existingSingleEmpty ? appended : [...page.blocks, ...appended];
+        _selectedPageId = page.id;
+        _contentEpoch++;
+        notifyListeners();
+        scheduleSave(trackRevisionForPageId: page.id);
+        return FolioMarkdownImportResult(
+          pageId: page.id,
+          pageTitle: page.title,
+          mode: mode,
+          blockCount: appended.length,
+        );
+    }
+  }
+
   /// Actualiza el contenido de una página existente desde una app externa.
   ///
   /// Solo la app que importó originalmente la página puede actualizarla
@@ -2566,7 +2832,7 @@ class VaultSession extends ChangeNotifier {
       );
     }
     b.text = text;
-    notifyListeners();
+    _scheduleCoalescedTypingNotify();
     scheduleSave(trackRevisionForPageId: pageId);
   }
 

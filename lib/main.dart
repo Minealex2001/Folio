@@ -17,35 +17,35 @@ import 'services/platform/launch_arguments.dart';
 import 'session/vault_session.dart';
 
 Future<void> main() async {
-  WidgetsFlutterBinding.ensureInitialized();
-  AppLogger.setSink(await AppLogFileSink.init());
-
-  FlutterError.onError = (details) {
-    FlutterError.presentError(details);
-    AppLogger.error(
-      'Flutter framework error',
-      tag: 'crash',
-      error: details.exception,
-      stackTrace: details.stack,
-      context: {
-        'library': details.library,
-        'context': details.context?.toDescription(),
-      },
-    );
-  };
-
-  PlatformDispatcher.instance.onError = (error, stackTrace) {
-    AppLogger.error(
-      'Uncaught PlatformDispatcher error',
-      tag: 'crash',
-      error: error,
-      stackTrace: stackTrace,
-    );
-    return true;
-  };
-
   await runZonedGuarded(
     () async {
+      WidgetsFlutterBinding.ensureInitialized();
+      AppLogger.setSink(await AppLogFileSink.init());
+
+      FlutterError.onError = (details) {
+        FlutterError.presentError(details);
+        AppLogger.error(
+          'Flutter framework error',
+          tag: 'crash',
+          error: details.exception,
+          stackTrace: details.stack,
+          context: {
+            'library': details.library,
+            'context': details.context?.toDescription(),
+          },
+        );
+      };
+
+      PlatformDispatcher.instance.onError = (error, stackTrace) {
+        AppLogger.error(
+          'Uncaught PlatformDispatcher error',
+          tag: 'crash',
+          error: error,
+          stackTrace: stackTrace,
+        );
+        return true;
+      };
+
       SystemTheme.fallbackColor = const Color(0xFF455A64);
       await SystemTheme.accentColor.load();
 

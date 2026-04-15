@@ -7,8 +7,8 @@ Folio es **open source**. Ninguna credencial con poder real debe estar en el rep
 | Secreto | Uso |
 |--------|-----|
 | `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET` | Pagos y verificación de webhooks (solo **Cloud Functions** / Secret Manager) |
-| `OPENAI_API_KEY` (y opcional `OPENAI_MODEL`, `OPENAI_BASE_URL`) | IA en nube (`folioCloudAiComplete`); clave desde [OpenAI Platform](https://platform.openai.com/api-keys) |
-| Claves de proveedores de IA (Vertex, OpenAI, etc.) | Solo en el servidor que hace inferencia |
+| `OPENAI_API_KEY` (y opcional `OPENAI_MODEL`, `OPENAI_BASE_URL`) | Inferencia **Quill Cloud** (`folioCloudAiComplete`); clave API del proveedor configurado en tu despliegue |
+| Otras claves de proveedores de IA | Solo en el servidor que hace inferencia |
 | Tokens de API de terceros | Mismo criterio |
 
 ## Firebase en el cliente
@@ -21,7 +21,7 @@ Folio es **open source**. Ninguna credencial con poder real debe estar en el rep
 
 - Variables sensibles en **Google Cloud Secret Manager** o `firebase functions:config:set` / `.env` **local** ignorado por Git.
 - Copia `functions/.env.example` → `functions/.env` (no subir `.env`). Al arrancar, las Functions cargan ese archivo con **dotenv** (`loadEnv` en `functions/src/index.ts`).
-- **`OPENAI_API_KEY`**: el archivo `functions/.env` **no** se sube al desplegar (`firebase.json` lo ignora). En producción define la clave como **variable de entorno** de la función (Firebase Console → *Functions* → tu función → *Configuration* → *Environment variables*, o el flujo que uses en CI). Valor: clave de [OpenAI Platform](https://platform.openai.com/api-keys). Si más adelante usas **Secret Manager** (`firebase functions:secrets:set` + `secrets: [...]` en código), **elimina antes** la variable de entorno plana `OPENAI_API_KEY` en Cloud Run; si coexisten con el mismo nombre, el despliegue falla con *Secret environment variable overlaps non secret environment variable*. Quien desplegaba con `GEMINI_API_KEY` debe sustituirla por `OPENAI_API_KEY` y borrar la variable antigua en Cloud Run.
+- **`OPENAI_API_KEY`**: nombre heredado en código para la clave del proveedor de inferencia de **Quill Cloud**. El archivo `functions/.env` **no** se sube al desplegar (`firebase.json` lo ignora). En producción define la clave como **variable de entorno** de la función (Firebase Console → *Functions* → tu función → *Configuration* → *Environment variables*, o el flujo que uses en CI). Si más adelante usas **Secret Manager** (`firebase functions:secrets:set` + `secrets: [...]` en código), **elimina antes** la variable de entorno plana `OPENAI_API_KEY` en Cloud Run; si coexisten con el mismo nombre, el despliegue falla con *Secret environment variable overlaps non secret environment variable*. Quien desplegaba con `GEMINI_API_KEY` debe sustituirla por `OPENAI_API_KEY` y borrar la variable antigua en Cloud Run.
 - Guía paso a paso (webhook, Stripe CLI, emulador): [FOLIO_CLOUD_STRIPE_SETUP.md](FOLIO_CLOUD_STRIPE_SETUP.md).
 
 ### Variables de precios Stripe (IDs públicos de precio)

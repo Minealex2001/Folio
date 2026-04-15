@@ -65,6 +65,14 @@ class FolioMarkdownCodec {
     );
   }
 
+  /// Un solo bloque como Markdown (misma lógica que [exportPage]).
+  static String? exportBlockMarkdown(
+    FolioBlock block,
+    FolioPage page,
+    Map<int, int> numberedCounters,
+  ) =>
+      _renderBlock(block, page, numberedCounters);
+
   static String exportPage(FolioPage page, {bool includeFrontMatter = true}) {
     final out = <String>[];
     if (includeFrontMatter) {
