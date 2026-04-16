@@ -29,6 +29,7 @@ import '../models/folio_table_data.dart';
 import '../models/folio_toggle_data.dart';
 import '../models/folio_task_data.dart';
 import '../models/folio_kanban_data.dart';
+import '../models/jira_integration_state.dart';
 import '../models/vault_task_list_entry.dart';
 import '../models/folio_columns_data.dart';
 import '../models/folio_page_template.dart';
@@ -292,6 +293,7 @@ class VaultSession extends ChangeNotifier {
   late final List<AiChatThreadData> _aiChatThreads;
   int _aiActiveChatIndex = 0;
   final List<FolioPageTemplate> _pageTemplates = [];
+  JiraIntegrationState _jira = JiraIntegrationState.empty;
   String? _selectedPageId;
   Timer? _saveDebounce;
   Timer? _revisionIdleTimer;
@@ -364,6 +366,9 @@ class VaultSession extends ChangeNotifier {
   AiChatThreadData get activeAiChat => _aiChatThreads[_aiActiveChatIndex];
   List<FolioPageTemplate> get pageTemplates =>
       List.unmodifiable(_pageTemplates);
+  JiraIntegrationState get jiraIntegrationState => _jira;
+  List<JiraConnection> get jiraConnections => _jira.connections;
+  List<JiraSource> get jiraSources => _jira.sources;
   List<SyncConflictEntry> get syncConflicts =>
       List.unmodifiable(_syncConflicts);
 
@@ -721,7 +726,67 @@ class VaultSession extends ChangeNotifier {
     _pageTemplates
       ..clear()
       ..addAll(payload.pageTemplates);
+    _jira = payload.jira;
     _resetUndoRedoState();
+  }
+
+  void upsertJiraConnection(JiraConnection connection) {
+    if (_state != VaultFlowState.unlocked) return;
+    final next = List<JiraConnection>.from(_jira.connections);
+    final i = next.indexWhere((c) => c.id == connection.id);
+    if (i >= 0) {
+      next[i] = connection;
+    } else {
+      next.add(connection);
+    }
+    _jira = JiraIntegrationState(
+      connections: List.unmodifiable(next),
+      sources: _jira.sources,
+    );
+    notifyListeners();
+    scheduleSave();
+  }
+
+  void removeJiraConnection(String connectionId) {
+    if (_state != VaultFlowState.unlocked) return;
+    final nextConnections =
+        _jira.connections.where((c) => c.id != connectionId).toList();
+    final nextSources =
+        _jira.sources.where((s) => s.connectionId != connectionId).toList();
+    _jira = JiraIntegrationState(
+      connections: List.unmodifiable(nextConnections),
+      sources: List.unmodifiable(nextSources),
+    );
+    notifyListeners();
+    scheduleSave();
+  }
+
+  void upsertJiraSource(JiraSource source) {
+    if (_state != VaultFlowState.unlocked) return;
+    final next = List<JiraSource>.from(_jira.sources);
+    final i = next.indexWhere((s) => s.id == source.id);
+    if (i >= 0) {
+      next[i] = source;
+    } else {
+      next.add(source);
+    }
+    _jira = JiraIntegrationState(
+      connections: _jira.connections,
+      sources: List.unmodifiable(next),
+    );
+    notifyListeners();
+    scheduleSave();
+  }
+
+  void removeJiraSource(String sourceId) {
+    if (_state != VaultFlowState.unlocked) return;
+    final next = _jira.sources.where((s) => s.id != sourceId).toList();
+    _jira = JiraIntegrationState(
+      connections: _jira.connections,
+      sources: List.unmodifiable(next),
+    );
+    notifyListeners();
+    scheduleSave();
   }
 
   String _orderKeyForParent(String? parentId) => parentId ?? '';
@@ -3369,12 +3434,21 @@ class VaultSession extends ChangeNotifier {
       b.checked = status == 'done';
     } else if (b.type == 'task') {
       final t = FolioTaskData.tryParse(b.text) ?? FolioTaskData.defaults();
-      b.text = t.copyWith(status: status, columnId: status).encode();
+      final next = t.copyWith(status: status, columnId: status);
+      b.text = _markTaskNeedsPushIfJiraLinked(next).encode();
     } else {
       return;
     }
     notifyListeners();
     scheduleSave(trackRevisionForPageId: pageId);
+  }
+
+  FolioTaskData _markTaskNeedsPushIfJiraLinked(FolioTaskData t) {
+    final ext = t.external;
+    if (ext == null || ext.provider != 'jira') return t;
+    final cur = (ext.syncState ?? '').trim();
+    if (cur == 'conflict') return t;
+    return t.copyWith(external: ext.copyWith(syncState: 'needsPush'));
   }
 
   /// Mueve una tarjeta `task` a una columna Kanban (dinámica).
@@ -3390,12 +3464,13 @@ class VaultSession extends ChangeNotifier {
         (normalized == 'todo' || normalized == 'in_progress' || normalized == 'done')
             ? normalized
             : null;
-    b.text = t
+    final next = t
         .copyWith(
           columnId: normalized.isEmpty ? null : normalized,
           status: nextStatus ?? t.status,
         )
-        .encode();
+        ;
+    b.text = _markTaskNeedsPushIfJiraLinked(next).encode();
     notifyListeners();
     scheduleSave(trackRevisionForPageId: pageId);
   }
@@ -3738,6 +3813,7 @@ class VaultSession extends ChangeNotifier {
           aiChatThreads: List<AiChatThreadData>.from(_aiChatThreads),
           aiActiveChatIndex: _aiActiveChatIndex,
           pageTemplates: List<FolioPageTemplate>.from(_pageTemplates),
+          jira: _jira,
         ),
         _dek,
       );
@@ -3779,6 +3855,7 @@ class VaultSession extends ChangeNotifier {
       aiChatThreads: List<AiChatThreadData>.from(_aiChatThreads),
       aiActiveChatIndex: _aiActiveChatIndex,
       pageTemplates: List<FolioPageTemplate>.from(_pageTemplates),
+      jira: _jira,
     );
     return payload.encodeUtf8();
   }

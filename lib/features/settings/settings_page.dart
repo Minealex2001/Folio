@@ -53,6 +53,7 @@ import '../../services/updater/github_release_updater.dart';
 import '../../services/updater/update_release_channel.dart';
 import '../../session/vault_session.dart';
 import '../release_notes/release_notes_page.dart';
+import 'jira_integration_settings.dart';
 import 'release_readiness.dart';
 import 'folio_cloud_reauth_dialog.dart';
 import 'folio_cloud_subscription_pitch_page.dart';
@@ -6763,6 +6764,25 @@ class _SettingsPageState extends State<SettingsPage> {
                                     crossAxisAlignment:
                                         CrossAxisAlignment.start,
                                     children: [
+                                      Text(
+                                        Localizations.localeOf(context)
+                                                    .languageCode ==
+                                                'es'
+                                            ? 'Integraciones nativas'
+                                            : 'Native integrations',
+                                        style: Theme.of(context)
+                                            .textTheme
+                                            .titleSmall
+                                            ?.copyWith(
+                                              fontWeight: FontWeight.w800,
+                                            ),
+                                      ),
+                                      const SizedBox(height: 10),
+                                      JiraIntegrationCard(
+                                        session: _s,
+                                        appSettings: _app,
+                                      ),
+                                      const SizedBox(height: 18),
                                       Row(
                                         children: [
                                           Text(

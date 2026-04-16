@@ -42,6 +42,9 @@ class FolioKanbanData {
     this.v = 2,
     this.includeSimpleTodos = true,
     this.viewMode = FolioKanbanViewMode.kanban,
+    this.jiraSourceId,
+    this.jiraAutoImport = false,
+    this.jiraCreateIssuesOnQuickAdd = false,
     List<FolioKanbanColumnSpec>? columns,
   }) : columns = List.unmodifiable(columns ?? defaultColumns);
 
@@ -56,26 +59,51 @@ class FolioKanbanData {
   final FolioKanbanViewMode viewMode;
   final List<FolioKanbanColumnSpec> columns;
 
+  /// Referencia a una “fuente” Jira preconfigurada en Ajustes → Integraciones.
+  /// Si es null/vacío, el tablero funciona 100% local.
+  final String? jiraSourceId;
+
+  /// Si true, el tablero puede auto-importar/refrescar issues desde Jira.
+  /// (La configuración completa vive en Ajustes → Integraciones.)
+  final bool jiraAutoImport;
+
+  /// Si true, al usar Quick Add en Kanban se crea un issue en Jira cuando
+  /// el tablero tiene [jiraSourceId] configurado.
+  final bool jiraCreateIssuesOnQuickAdd;
+
   static FolioKanbanData defaults() => FolioKanbanData();
 
   FolioKanbanData copyWith({
     int? v,
     bool? includeSimpleTodos,
     FolioKanbanViewMode? viewMode,
+    Object? jiraSourceId = _sentinel,
+    bool? jiraAutoImport,
+    bool? jiraCreateIssuesOnQuickAdd,
     List<FolioKanbanColumnSpec>? columns,
   }) {
     return FolioKanbanData(
       v: v ?? this.v,
       includeSimpleTodos: includeSimpleTodos ?? this.includeSimpleTodos,
       viewMode: viewMode ?? this.viewMode,
+      jiraSourceId:
+          jiraSourceId == _sentinel ? this.jiraSourceId : jiraSourceId as String?,
+      jiraAutoImport: jiraAutoImport ?? this.jiraAutoImport,
+      jiraCreateIssuesOnQuickAdd:
+          jiraCreateIssuesOnQuickAdd ?? this.jiraCreateIssuesOnQuickAdd,
       columns: columns ?? this.columns,
     );
   }
+
+  static const Object _sentinel = Object();
 
   String encode() => jsonEncode({
         'v': v,
         'includeSimpleTodos': includeSimpleTodos,
         'viewMode': viewMode.name,
+        if ((jiraSourceId ?? '').trim().isNotEmpty) 'jiraSourceId': jiraSourceId,
+        if (jiraAutoImport) 'jiraAutoImport': true,
+        if (jiraCreateIssuesOnQuickAdd) 'jiraCreateIssuesOnQuickAdd': true,
         'columns': columns.map((c) => c.toJson()).toList(),
       });
 
@@ -101,10 +129,15 @@ class FolioKanbanData {
         (e) => e.name == rawMode,
         orElse: () => FolioKanbanViewMode.kanban,
       );
+      final sourceId = (m['jiraSourceId'] as String?)?.trim();
       return FolioKanbanData(
         v: (m['v'] as num?)?.toInt() ?? 2,
         includeSimpleTodos: m['includeSimpleTodos'] as bool? ?? true,
         viewMode: mode,
+        jiraSourceId: (sourceId?.isEmpty ?? true) ? null : sourceId,
+        jiraAutoImport: m['jiraAutoImport'] as bool? ?? false,
+        jiraCreateIssuesOnQuickAdd:
+            m['jiraCreateIssuesOnQuickAdd'] as bool? ?? false,
         columns: useDefaults ? defaultColumns : cols,
       );
     } catch (_) {
