@@ -631,8 +631,13 @@
   "settingsSearchSections": "Search settings",
   "settingsSearchSectionsHint": "Filter categories in the sidebar",
   "scheduledVaultBackupTitle": "Scheduled encrypted backup",
-  "scheduledVaultBackupSubtitle": "While the vault is unlocked, each backup is the currently open vault. Folio saves a ZIP to the folder below on the chosen interval.",
+  "scheduledVaultBackupSubtitle": "While the vault is unlocked, Folio automatically backs it up on the chosen interval. Enable folder backup, cloud backup, or both below.",
+  "scheduledVaultBackupFolderTitle": "Backup to folder",
+  "scheduledVaultBackupFolderSubtitle": "Save an encrypted ZIP backup to the configured folder on each interval.",
   "scheduledVaultBackupChooseFolder": "Backup folder",
+  "scheduledVaultBackupClearFolderTooltip": "Clear folder",
+  "scheduledVaultBackupCloudOnlyTitle": "Cloud-only scheduled backups",
+  "scheduledVaultBackupCloudOnlySubtitle": "Do not write ZIP files to disk. Upload backups to the cloud only.",
   "scheduledVaultBackupIntervalLabel": "Backup interval",
   "scheduledVaultBackupEveryNMinutes": "{n, plural, one{1 minute} other{{n} minutes}}",
   "@scheduledVaultBackupEveryNMinutes": {
@@ -961,8 +966,8 @@
   ,"folioCloudUploadEncryptedBackup": "Back up to cloud now"
   ,"folioCloudUploadEncryptedBackupSubtitle": "Folio builds an encrypted backup of your open vault and uploads it—no manual ZIP export."
   ,"folioCloudUploadSnackOk": "Vault backup saved to the cloud."
-  ,"scheduledVaultBackupCloudSyncTitle": "Also upload to Folio Cloud"
-  ,"scheduledVaultBackupCloudSyncSubtitle": "After each scheduled backup, automatically uploads the same ZIP to your account. For cloud-only backups, leave the folder unset and enable this option."
+  ,"scheduledVaultBackupCloudSyncTitle": "Backup to Folio Cloud"
+  ,"scheduledVaultBackupCloudSyncSubtitle": "After each scheduled backup interval, automatically uploads an encrypted backup to your Folio Cloud account."
   ,"folioCloudCloudBackupsList": "Cloud backups"
   ,"folioCloudBackupsUsed": "Used"
   ,"folioCloudBackupsLimit": "Limit"
@@ -1559,10 +1564,21 @@
   ,"settingsCloudBackupsNeedPlan": "You need an active Folio Cloud plan with cloud backup."
   ,"settingsCloudBackupsDialogTitle": "Cloud backups ({count}/10)"
   ,"@settingsCloudBackupsDialogTitle": {"placeholders": {"count": {"type": "int"}}}
+  ,"settingsCloudBackupsVaultLabel": "Notebook"
   ,"settingsCloudBackupsEmpty": "No backups in this account yet."
   ,"settingsCloudBackupDownloadTooltip": "Download"
+  ,"settingsCloudBackupActionDownload": "Download"
+  ,"settingsCloudBackupActionImportOverwrite": "Import (overwrite)"
   ,"settingsCloudBackupSaveDialogTitle": "Save backup"
   ,"settingsCloudBackupDownloadedSnack": "Backup downloaded."
+  ,"settingsCloudBackupDeletedSnack": "Backup deleted."
+  ,"settingsCloudBackupImportedSnack": "Import completed."
+  ,"settingsCloudBackupVaultMustBeUnlocked": "The vault must be unlocked."
+  ,"settingsCloudBackupsTotalLabel": "Total: {size}"
+  ,"@settingsCloudBackupsTotalLabel": {"placeholders": {"size": {}}}
+  ,"settingsCloudBackupImportOverwriteTitle": "Import (overwrite)"
+  ,"settingsCloudBackupImportOverwriteBody": "This will overwrite the contents of the currently open vault. Make sure you have a local backup before continuing."
+  ,"settingsCloudBackupDeleteWarning": "Are you sure you want to delete this cloud backup? This action cannot be undone."
   ,"settingsPublishedRequiresPlan": "You need Folio Cloud with web publishing enabled."
   ,"settingsPublishedPagesTitle": "Published pages"
   ,"settingsPublishedPagesEmpty": "No published pages yet."

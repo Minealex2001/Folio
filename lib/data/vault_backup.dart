@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:archive/archive_io.dart';
+import 'package:cryptography/cryptography.dart';
 import 'package:path/path.dart' as p;
 
 import '../crypto/vault_crypto.dart';
@@ -24,6 +25,92 @@ const String kVaultBackupManifestFile = 'manifest.json';
 
 const String _vaultModePlain = 'plain';
 const String _vaultModeEncrypted = 'encrypted';
+
+String _hexFromBytes(List<int> bytes) {
+  final sb = StringBuffer();
+  for (final b in bytes) {
+    sb.write(b.toRadixString(16).padLeft(2, '0'));
+  }
+  return sb.toString();
+}
+
+Future<String> _sha256FileHex(File f) async {
+  final algo = Sha256();
+  final hash = await algo.hash(await f.readAsBytes());
+  return _hexFromBytes(hash.bytes);
+}
+
+class VaultCloudBackupFingerprint {
+  const VaultCloudBackupFingerprint({
+    required this.fingerprint,
+    required this.vaultBytes,
+    required this.attachmentsBytes,
+  });
+
+  final String fingerprint;
+  final int vaultBytes;
+  final int attachmentsBytes;
+}
+
+/// Calcula un fingerprint estable del contenido de la libreta activa, pensado para
+/// deduplicar copias en la nube. Incluye:
+/// - `vault.bin` (siempre)
+/// - `vault.keys` (si existe)
+/// - Resumen rápido de adjuntos: ruta relativa + tamaño + mtime (no hash por archivo).
+///
+/// También devuelve el desglose aproximado de tamaño (vault vs adjuntos).
+Future<VaultCloudBackupFingerprint> computeVaultCloudBackupFingerprint() async {
+  final wrapped = await VaultPaths.wrappedDekPath();
+  final cipher = await VaultPaths.cipherPayloadPath();
+  if (!cipher.existsSync()) {
+    throw VaultBackupException('No hay libreta para exportar.');
+  }
+
+  final parts = <String>[];
+  int vaultBytes = 0;
+  int attachmentsBytes = 0;
+
+  final cipherHash = await _sha256FileHex(cipher);
+  final cipherLen = await cipher.length();
+  vaultBytes += cipherLen;
+  parts.add('vault.bin:$cipherHash:$cipherLen');
+
+  if (wrapped.existsSync()) {
+    final keysHash = await _sha256FileHex(wrapped);
+    final keysLen = await wrapped.length();
+    vaultBytes += keysLen;
+    parts.add('vault.keys:$keysHash:$keysLen');
+  }
+
+  final vaultDir = await VaultPaths.vaultDirectory();
+  final attDir = Directory(p.join(vaultDir.path, VaultPaths.attachmentsDirName));
+  if (attDir.existsSync()) {
+    final attEntries = <String>[];
+    await for (final entity in attDir.list(recursive: true, followLinks: false)) {
+      if (entity is! File) continue;
+      final rel = p.relative(entity.path, from: attDir.path).replaceAll(r'\', '/');
+      final stat = await entity.stat();
+      final len = stat.size;
+      attachmentsBytes += len;
+      attEntries.add('$rel:$len:${stat.modified.millisecondsSinceEpoch}');
+    }
+    attEntries.sort();
+    parts.add('attachments:${attEntries.join("|")}');
+  } else {
+    parts.add('attachments:');
+  }
+
+  // Fingerprint final (hash del resumen) para evitar valores enormes.
+  final algo = Sha256();
+  final sumHash = await algo.hash(utf8.encode(parts.join('\n')));
+  final fingerprint = _hexFromBytes(sumHash.bytes);
+
+  return VaultCloudBackupFingerprint(
+    fingerprint: fingerprint,
+    vaultBytes: vaultBytes,
+    attachmentsBytes: attachmentsBytes,
+  );
+}
 
 bool _modeFileIsPlain(File modeFile) {
   if (!modeFile.existsSync()) return false;
@@ -60,9 +147,15 @@ Future<bool> _extractedBackupIsPlain(Directory extractedDir) async {
 
 /// Devuelve true si el ZIP representa una copia **en texto plano** (sin cifrado).
 Future<bool> isPlainBackupZip(File zipFile) async {
+  return isPlainBackupArchive(zipFile);
+}
+
+/// Devuelve true si el archivo representa una copia **en texto plano** (sin cifrado).
+/// Soporta ZIP y TAR.GZ (y otros contenedores que `archive` pueda extraer).
+Future<bool> isPlainBackupArchive(File archiveFile) async {
   final tmp = Directory.systemTemp.createTempSync('folio_backup_probe_');
   try {
-    await extractBackupZipToDirectory(zipFile, tmp);
+    await extractBackupArchiveToDirectory(archiveFile, tmp);
     return _extractedBackupIsPlain(tmp);
   } finally {
     try {
@@ -143,16 +236,93 @@ Future<void> exportVaultZip(File destination) async {
   }
 }
 
+/// Crea un TAR.GZ con el mismo contenido que [exportVaultZip], pensado para copias en la nube.
+/// Se genera sin cargar el vault completo en memoria (streaming desde disco).
+Future<void> exportVaultTarGz(File destination) async {
+  final wrapped = await VaultPaths.wrappedDekPath();
+  final cipher = await VaultPaths.cipherPayloadPath();
+  final modeFile = await VaultPaths.vaultModePath();
+  final plain = _modeFileIsPlain(modeFile);
+  if (!cipher.existsSync()) {
+    throw VaultBackupException('No hay libreta para exportar.');
+  }
+  if (!plain && !wrapped.existsSync()) {
+    throw VaultBackupException('No hay libreta para exportar.');
+  }
+
+  final manifest = jsonEncode(<String, Object?>{
+    'formatVersion': kVaultBackupFormatVersion,
+    'exportedAt': DateTime.now().toUtc().toIso8601String(),
+    'appName': 'Folio',
+  });
+
+  final tmpDir = await Directory.systemTemp.createTemp('folio_backup_tgz_');
+  final tarPath = p.join(tmpDir.path, 'vault.tar');
+  final manifestFile = File(p.join(tmpDir.path, kVaultBackupManifestFile));
+  await manifestFile.writeAsString(manifest, flush: true);
+
+  final encoder = TarFileEncoder();
+  encoder.create(tarPath);
+  try {
+    await encoder.addFile(manifestFile, kVaultBackupManifestFile);
+    if (!plain) {
+      await encoder.addFile(wrapped, VaultPaths.wrappedDekFile);
+    }
+    await encoder.addFile(cipher, VaultPaths.cipherPayloadFile);
+    if (modeFile.existsSync()) {
+      await encoder.addFile(modeFile, VaultPaths.vaultModeFile);
+    }
+
+    final vaultDir = await VaultPaths.vaultDirectory();
+    final attDir = Directory(p.join(vaultDir.path, VaultPaths.attachmentsDirName));
+    if (attDir.existsSync()) {
+      await for (final entity in attDir.list(recursive: true, followLinks: false)) {
+        if (entity is File) {
+          final rel = p.relative(entity.path, from: attDir.path);
+          final tarName = p.posix.join(
+            VaultPaths.attachmentsDirName,
+            rel.replaceAll(r'\', '/'),
+          );
+          await encoder.addFile(entity, tarName);
+        }
+      }
+    }
+  } finally {
+    await encoder.close();
+  }
+
+  try {
+    // GZip del TAR a destino final.
+    final input = InputFileStream(tarPath);
+    final output = OutputFileStream(destination.path);
+    GZipEncoder().encodeStream(input, output, level: 6);
+    await input.close();
+    await output.close();
+  } finally {
+    try {
+      await tmpDir.delete(recursive: true);
+    } catch (_) {}
+  }
+}
+
 /// Extrae un ZIP de copia a [outDir] (debe existir o crearse antes).
 Future<void> extractBackupZipToDirectory(File zipFile, Directory outDir) async {
-  if (!zipFile.existsSync()) {
+  await extractBackupArchiveToDirectory(zipFile, outDir);
+}
+
+/// Extrae un archivo de copia (ZIP/TAR.GZ) a [outDir] (debe existir o crearse antes).
+Future<void> extractBackupArchiveToDirectory(
+  File archiveFile,
+  Directory outDir,
+) async {
+  if (!archiveFile.existsSync()) {
     throw VaultBackupException('No se encontró el archivo de copia.');
   }
   if (!outDir.existsSync()) {
     await outDir.create(recursive: true);
   }
   try {
-    await extractFileToDisk(zipFile.path, outDir.path);
+    await extractFileToDisk(archiveFile.path, outDir.path);
   } on ArgumentError catch (e) {
     throw VaultBackupException('Archivo de copia no válido: $e');
   }

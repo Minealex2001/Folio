@@ -631,8 +631,13 @@
   "settingsSearchSections": "Buscar en ajustes",
   "settingsSearchSectionsHint": "Filtra categorías en la barra lateral",
   "scheduledVaultBackupTitle": "Copia cifrada programada",
-  "scheduledVaultBackupSubtitle": "Con la libreta desbloqueada, cada copia es de la libreta abierta ahora. Folio guarda un ZIP en la carpeta indicada según el intervalo.",
+  "scheduledVaultBackupSubtitle": "Con la libreta desbloqueada, Folio la copia automáticamente en el intervalo elegido. Activa la copia en carpeta, en la nube, o ambas.",
+  "scheduledVaultBackupFolderTitle": "Copia en carpeta",
+  "scheduledVaultBackupFolderSubtitle": "Guarda una copia cifrada en ZIP en la carpeta configurada en cada intervalo.",
   "scheduledVaultBackupChooseFolder": "Carpeta de copias",
+  "scheduledVaultBackupClearFolderTooltip": "Quitar carpeta",
+  "scheduledVaultBackupCloudOnlyTitle": "Copias programadas solo en la nube",
+  "scheduledVaultBackupCloudOnlySubtitle": "No guarda ZIPs en disco. Sube copias solo a la nube.",
   "scheduledVaultBackupIntervalLabel": "Intervalo entre copias",
   "scheduledVaultBackupEveryNMinutes": "{n, plural, one{1 minuto} other{{n} minutos}}",
   "@scheduledVaultBackupEveryNMinutes": {
@@ -961,8 +966,8 @@
   ,"folioCloudUploadEncryptedBackup": "Copia a la nube ahora"
   ,"folioCloudUploadEncryptedBackupSubtitle": "Folio genera la copia cifrada de la libreta abierta y la sube solo; no tienes que exportar un .zip."
   ,"folioCloudUploadSnackOk": "Copia de la libreta guardada en la nube."
-  ,"scheduledVaultBackupCloudSyncTitle": "Subir también a Folio Cloud"
-  ,"scheduledVaultBackupCloudSyncSubtitle": "Tras cada copia programada, sube automáticamente el mismo ZIP a tu cuenta. Si no quieres copia en disco, deja la carpeta sin elegir y activa solo esta opción."
+  ,"scheduledVaultBackupCloudSyncTitle": "Copia en Folio Cloud"
+  ,"scheduledVaultBackupCloudSyncSubtitle": "En cada intervalo programado, sube automáticamente una copia cifrada a tu cuenta de Folio Cloud."
   ,"folioCloudCloudBackupsList": "Copias en la nube"
   ,"folioCloudBackupsUsed": "Usadas"
   ,"folioCloudBackupsLimit": "Límite"
@@ -1559,10 +1564,21 @@
   ,"settingsCloudBackupsNeedPlan": "Necesitas Folio Cloud activo con copia en la nube."
   ,"settingsCloudBackupsDialogTitle": "Copias en la nube ({count}/10)"
   ,"@settingsCloudBackupsDialogTitle": {"placeholders": {"count": {"type": "int"}}}
+  ,"settingsCloudBackupsVaultLabel": "Libreta"
   ,"settingsCloudBackupsEmpty": "Aún no hay copias en esta cuenta."
   ,"settingsCloudBackupDownloadTooltip": "Descargar"
+  ,"settingsCloudBackupActionDownload": "Descargar"
+  ,"settingsCloudBackupActionImportOverwrite": "Importar (machacar)"
   ,"settingsCloudBackupSaveDialogTitle": "Guardar copia"
   ,"settingsCloudBackupDownloadedSnack": "Copia descargada."
+  ,"settingsCloudBackupDeletedSnack": "Copia borrada."
+  ,"settingsCloudBackupImportedSnack": "Importación completada."
+  ,"settingsCloudBackupVaultMustBeUnlocked": "La libreta debe estar desbloqueada."
+  ,"settingsCloudBackupsTotalLabel": "Total: {size}"
+  ,"@settingsCloudBackupsTotalLabel": {"placeholders": {"size": {}}}
+  ,"settingsCloudBackupImportOverwriteTitle": "Importar (machacar)"
+  ,"settingsCloudBackupImportOverwriteBody": "Esto reemplazará (machacará) el contenido de la libreta activa. Asegúrate de tener una copia local antes de continuar."
+  ,"settingsCloudBackupDeleteWarning": "¿Seguro que quieres borrar esta copia de la nube? Esta acción no se puede deshacer."
   ,"settingsPublishedRequiresPlan": "Necesitas Folio Cloud con publicación web activa."
   ,"settingsPublishedPagesTitle": "Páginas publicadas"
   ,"settingsPublishedPagesEmpty": "Aún no hay páginas publicadas."

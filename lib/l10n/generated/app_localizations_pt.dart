@@ -1813,10 +1813,28 @@ class AppLocalizationsPt extends AppLocalizations {
 
   @override
   String get scheduledVaultBackupSubtitle =>
-      'Enquanto o cofre estiver desbloqueado, cada backup é do cofre aberto no momento. O Folio salva um ZIP na pasta abaixo no intervalo escolhido.';
+      'Enquanto o cofre estiver desbloqueado, o Folio faz backup automático no intervalo escolhido. Ative o backup em pasta, na nuvem, ou ambos.';
+
+  @override
+  String get scheduledVaultBackupFolderTitle => 'Backup em pasta';
+
+  @override
+  String get scheduledVaultBackupFolderSubtitle =>
+      'Salva um backup cifrado em ZIP na pasta configurada a cada intervalo.';
 
   @override
   String get scheduledVaultBackupChooseFolder => 'Pasta de backup';
+
+  @override
+  String get scheduledVaultBackupClearFolderTooltip => 'Limpar pasta';
+
+  @override
+  String get scheduledVaultBackupCloudOnlyTitle =>
+      'Backups agendados só na nuvem';
+
+  @override
+  String get scheduledVaultBackupCloudOnlySubtitle =>
+      'Não guarda ZIPs no disco. Envia backups apenas para a nuvem.';
 
   @override
   String get scheduledVaultBackupIntervalLabel => 'Intervalo entre backups';
@@ -2862,12 +2880,11 @@ class AppLocalizationsPt extends AppLocalizations {
   String get folioCloudUploadSnackOk => 'Backup do cofre salvo na nuvem.';
 
   @override
-  String get scheduledVaultBackupCloudSyncTitle =>
-      'Também enviar para o Folio Cloud';
+  String get scheduledVaultBackupCloudSyncTitle => 'Backup no Folio Cloud';
 
   @override
   String get scheduledVaultBackupCloudSyncSubtitle =>
-      'Após cada backup agendado, envia automaticamente o mesmo ZIP para sua conta. Para backups apenas na nuvem, deixe a pasta local vazia.';
+      'Em cada intervalo agendado, envia automaticamente um backup cifrado para sua conta no Folio Cloud.';
 
   @override
   String get folioCloudCloudBackupsList => 'Backups na nuvem';
@@ -4735,16 +4752,52 @@ class AppLocalizationsPt extends AppLocalizations {
   }
 
   @override
+  String get settingsCloudBackupsVaultLabel => 'Cofre';
+
+  @override
   String get settingsCloudBackupsEmpty => 'Ainda não há cópias nesta conta.';
 
   @override
   String get settingsCloudBackupDownloadTooltip => 'Transferir';
 
   @override
+  String get settingsCloudBackupActionDownload => 'Transferir';
+
+  @override
+  String get settingsCloudBackupActionImportOverwrite =>
+      'Importar (substituir)';
+
+  @override
   String get settingsCloudBackupSaveDialogTitle => 'Guardar cópia';
 
   @override
   String get settingsCloudBackupDownloadedSnack => 'Cópia transferida.';
+
+  @override
+  String get settingsCloudBackupDeletedSnack => 'Cópia eliminada.';
+
+  @override
+  String get settingsCloudBackupImportedSnack => 'Importação concluída.';
+
+  @override
+  String get settingsCloudBackupVaultMustBeUnlocked =>
+      'O caderno tem de estar desbloqueado.';
+
+  @override
+  String settingsCloudBackupsTotalLabel(Object size) {
+    return 'Total: $size';
+  }
+
+  @override
+  String get settingsCloudBackupImportOverwriteTitle => 'Importar (substituir)';
+
+  @override
+  String get settingsCloudBackupImportOverwriteBody =>
+      'Isto irá substituir o conteúdo do caderno aberto. Certifique-se de que tem uma cópia local antes de continuar.';
+
+  @override
+  String get settingsCloudBackupDeleteWarning =>
+      'Tem a certeza de que quer eliminar esta cópia da nuvem? Esta ação não pode ser anulada.';
 
   @override
   String get settingsPublishedRequiresPlan =>

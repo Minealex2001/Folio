@@ -1832,11 +1832,29 @@ class AppLocalizationsCa extends AppLocalizations {
 
   @override
   String get scheduledVaultBackupSubtitle =>
-      'Mentre la caixa forta estigui desbloquejada, es farà una còpia de la caixa actual. El Folio desarà un ZIP a la carpeta de sota amb l\'interval triat.';
+      'Mentre la caixa forta estigui desbloquejada, el Folio la copia automàticament amb l\'interval triat. Activa la còpia a carpeta, al núvol, o totes dues.';
+
+  @override
+  String get scheduledVaultBackupFolderTitle => 'Còpia a carpeta';
+
+  @override
+  String get scheduledVaultBackupFolderSubtitle =>
+      'Desa una còpia xifrada en ZIP a la carpeta configurada a cada interval.';
 
   @override
   String get scheduledVaultBackupChooseFolder =>
       'Carpeta de còpia de seguretat';
+
+  @override
+  String get scheduledVaultBackupClearFolderTooltip => 'Treure carpeta';
+
+  @override
+  String get scheduledVaultBackupCloudOnlyTitle =>
+      'Còpies programades només al núvol';
+
+  @override
+  String get scheduledVaultBackupCloudOnlySubtitle =>
+      'No desa ZIPs al disc. Puja còpies només al núvol.';
 
   @override
   String get scheduledVaultBackupIntervalLabel => 'Interval entre còpies';
@@ -2890,11 +2908,11 @@ class AppLocalizationsCa extends AppLocalizations {
       'S\'ha desat la còpia de la caixa al núvol.';
 
   @override
-  String get scheduledVaultBackupCloudSyncTitle => 'Puja també a Folio Cloud';
+  String get scheduledVaultBackupCloudSyncTitle => 'Còpia a Folio Cloud';
 
   @override
   String get scheduledVaultBackupCloudSyncSubtitle =>
-      'Després de cada còpia programada, puja el mateix ZIP al teu compte automàticament. Per a còpies només al núvol, deixa la carpeta local buida.';
+      'En cada interval programat, puja automàticament una còpia xifrada al teu compte de Folio Cloud.';
 
   @override
   String get folioCloudCloudBackupsList => 'Còpies al núvol';
@@ -4763,6 +4781,9 @@ class AppLocalizationsCa extends AppLocalizations {
   }
 
   @override
+  String get settingsCloudBackupsVaultLabel => 'Caixa forta';
+
+  @override
   String get settingsCloudBackupsEmpty =>
       'Encara no hi ha còpies en aquest compte.';
 
@@ -4770,10 +4791,44 @@ class AppLocalizationsCa extends AppLocalizations {
   String get settingsCloudBackupDownloadTooltip => 'Descarregar';
 
   @override
+  String get settingsCloudBackupActionDownload => 'Descarregar';
+
+  @override
+  String get settingsCloudBackupActionImportOverwrite =>
+      'Importar (sobreescriure)';
+
+  @override
   String get settingsCloudBackupSaveDialogTitle => 'Desar còpia';
 
   @override
   String get settingsCloudBackupDownloadedSnack => 'Còpia descarregada.';
+
+  @override
+  String get settingsCloudBackupDeletedSnack => 'Còpia eliminada.';
+
+  @override
+  String get settingsCloudBackupImportedSnack => 'Importació completada.';
+
+  @override
+  String get settingsCloudBackupVaultMustBeUnlocked =>
+      'La llibreta ha d\'estar desbloquejada.';
+
+  @override
+  String settingsCloudBackupsTotalLabel(Object size) {
+    return 'Total: $size';
+  }
+
+  @override
+  String get settingsCloudBackupImportOverwriteTitle =>
+      'Importar (sobreescriure)';
+
+  @override
+  String get settingsCloudBackupImportOverwriteBody =>
+      'Això sobreescriurà el contingut de la llibreta oberta. Assegura\'t de tenir una còpia local abans de continuar.';
+
+  @override
+  String get settingsCloudBackupDeleteWarning =>
+      'Segur que vols eliminar aquesta còpia del núvol? Aquesta acció no es pot desfer.';
 
   @override
   String get settingsPublishedRequiresPlan =>

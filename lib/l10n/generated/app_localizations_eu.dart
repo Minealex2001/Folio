@@ -1829,10 +1829,28 @@ class AppLocalizationsEu extends AppLocalizations {
 
   @override
   String get scheduledVaultBackupSubtitle =>
-      'Gorde-lekua desblokeatuta dagoen bitartean, babeskopia bakoitza unean irekita dagoen gorde-lekuarena da. Foliok ZIP bat gordeko du beheko karpetan aukeratutako maiztasunarekin.';
+      'Gorde-lekua desblokeatuta dagoen bitartean, Foliok automatikoki egiten du babeskopia aukeratutako maiztasunarekin. Aktibatu karpetako babeskopia, hodeikoa, edo biak.';
+
+  @override
+  String get scheduledVaultBackupFolderTitle => 'Babeskopia karpetan';
+
+  @override
+  String get scheduledVaultBackupFolderSubtitle =>
+      'ZIP enkriptatua gordetzen du konfiguratutako karpetan intervalo bakoitzean.';
 
   @override
   String get scheduledVaultBackupChooseFolder => 'Babeskopia-karpeta';
+
+  @override
+  String get scheduledVaultBackupClearFolderTooltip => 'Karpeta garbitu';
+
+  @override
+  String get scheduledVaultBackupCloudOnlyTitle =>
+      'Programatutako babeskopiak hodeian soilik';
+
+  @override
+  String get scheduledVaultBackupCloudOnlySubtitle =>
+      'Ez du ZIPik gordetzen diskoan. Babeskopiak hodeira bakarrik igotzen ditu.';
 
   @override
   String get scheduledVaultBackupIntervalLabel => 'Maiztasuna';
@@ -2889,11 +2907,11 @@ class AppLocalizationsEu extends AppLocalizations {
       'Gorde-lekuaren babeskopia hodeian gordeta.';
 
   @override
-  String get scheduledVaultBackupCloudSyncTitle => 'Igo Folio Cloud-era ere';
+  String get scheduledVaultBackupCloudSyncTitle => 'Babeskopia Folio Cloud-en';
 
   @override
   String get scheduledVaultBackupCloudSyncSubtitle =>
-      'Programatutako babeskopia bakoitzaren ondoren, ZIP bera automatikoki igotzen du zure kontura. Hodeian soilik gordetzeko, utzi tokiko karpeta hautatu gabe.';
+      'Programatutako intervalo bakoitzean, babeskopia enkriptatua automatikoki igotzen du zure Folio Cloud kontura.';
 
   @override
   String get folioCloudCloudBackupsList => 'Hodeiko babeskopiak';
@@ -4766,6 +4784,9 @@ class AppLocalizationsEu extends AppLocalizations {
   }
 
   @override
+  String get settingsCloudBackupsVaultLabel => 'Gorde-lekua';
+
+  @override
   String get settingsCloudBackupsEmpty =>
       'Oraindik ez dago babeskopiarik kontu honetan.';
 
@@ -4773,10 +4794,44 @@ class AppLocalizationsEu extends AppLocalizations {
   String get settingsCloudBackupDownloadTooltip => 'Deskargatu';
 
   @override
+  String get settingsCloudBackupActionDownload => 'Deskargatu';
+
+  @override
+  String get settingsCloudBackupActionImportOverwrite =>
+      'Inportatu (gainidatzi)';
+
+  @override
   String get settingsCloudBackupSaveDialogTitle => 'Gorde babeskopia';
 
   @override
   String get settingsCloudBackupDownloadedSnack => 'Babeskopia deskargatu da.';
+
+  @override
+  String get settingsCloudBackupDeletedSnack => 'Babeskopia ezabatu da.';
+
+  @override
+  String get settingsCloudBackupImportedSnack => 'Inportazioa osatu da.';
+
+  @override
+  String get settingsCloudBackupVaultMustBeUnlocked =>
+      'Libreta desblokeatuta egon behar da.';
+
+  @override
+  String settingsCloudBackupsTotalLabel(Object size) {
+    return 'Guztira: $size';
+  }
+
+  @override
+  String get settingsCloudBackupImportOverwriteTitle =>
+      'Inportatu (gainidatzi)';
+
+  @override
+  String get settingsCloudBackupImportOverwriteBody =>
+      'Honek irekitako libretaren edukia gainidatziko du. Ziurtatu jarraitu aurretik kopia lokal bat duzula.';
+
+  @override
+  String get settingsCloudBackupDeleteWarning =>
+      'Ziur hodeiko babeskopia hau ezabatu nahi duzula? Ekintza hau ezin da desegin.';
 
   @override
   String get settingsPublishedRequiresPlan =>

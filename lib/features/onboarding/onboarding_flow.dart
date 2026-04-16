@@ -247,7 +247,7 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
       if (!mounted) return;
       bool? isPlain;
       try {
-        isPlain = await isPlainBackupZip(dest);
+        isPlain = await isPlainBackupArchive(dest);
       } catch (_) {
         isPlain = null;
       }

@@ -16,7 +16,7 @@ publish_to: 'none' # Remove this line if you wish to publish to pub.dev
 # https://developer.apple.com/library/archive/documentation/General/Reference/InfoPlistKeyReference/Articles/CoreFoundationKeys.html
 # In Windows, build-name is used as the major, minor, and patch parts
 # of the product and file versions while build-number is used as the build suffix.
-version: 0.0.3+4
+version: 0.0.3+5
 
 environment:
   sdk: ^3.11.1
@@ -162,7 +162,7 @@ msix_config:
   # Estos 3 valores deben coincidir 1:1 con Partner Center → Product identity
   identity_name: MinealexGames.Folio-PrivateWorkspace
   publisher: CN=EFF3F915-1B14-4A6A-B8F6-8F232E1B13B0
-  msix_version: 0.0.3.4
+  msix_version: 0.3.5.0
   logo_path: windows/runner/resources/app_icon.ico
   capabilities: internetClient, microphone
   store: true

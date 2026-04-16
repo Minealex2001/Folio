@@ -1830,10 +1830,28 @@ class AppLocalizationsGl extends AppLocalizations {
 
   @override
   String get scheduledVaultBackupSubtitle =>
-      'Mentres a caixa forte estea desbloqueada, cada copia é da caixa aberta nese momento. [cite: 55] Folio garda un ZIP na carpeta de abaixo co intervalo escollido.';
+      'Mentres a caixa forte estea desbloqueada, Folio cópiaa automáticamente co intervalo escollido. Activa a copia en carpeta, na nube, ou as dúas.';
+
+  @override
+  String get scheduledVaultBackupFolderTitle => 'Copia en carpeta';
+
+  @override
+  String get scheduledVaultBackupFolderSubtitle =>
+      'Garda unha copia cifrada en ZIP na carpeta configurada en cada intervalo.';
 
   @override
   String get scheduledVaultBackupChooseFolder => 'Carpeta de copia';
+
+  @override
+  String get scheduledVaultBackupClearFolderTooltip => 'Quitar carpeta';
+
+  @override
+  String get scheduledVaultBackupCloudOnlyTitle =>
+      'Copias programadas só na nube';
+
+  @override
+  String get scheduledVaultBackupCloudOnlySubtitle =>
+      'Non garda ZIPs no disco. Sobe copias só á nube.';
 
   @override
   String get scheduledVaultBackupIntervalLabel => 'Intervalo entre copias';
@@ -2887,11 +2905,11 @@ class AppLocalizationsGl extends AppLocalizations {
   String get folioCloudUploadSnackOk => 'Copia da caixa forte gardada na nube.';
 
   @override
-  String get scheduledVaultBackupCloudSyncTitle => 'Tamén subir a Folio Cloud';
+  String get scheduledVaultBackupCloudSyncTitle => 'Copia en Folio Cloud';
 
   @override
   String get scheduledVaultBackupCloudSyncSubtitle =>
-      'Tras cada copia programada, sube automaticamente o mesmo ZIP á túa conta. [cite: 91] Para copias só na nube, deixa a carpeta sen definir e activa esta opción.';
+      'En cada intervalo programado, sobe automáticamente unha copia cifrada á túa conta de Folio Cloud.';
 
   @override
   String get folioCloudCloudBackupsList => 'Copias na nube';
@@ -4759,16 +4777,53 @@ class AppLocalizationsGl extends AppLocalizations {
   }
 
   @override
+  String get settingsCloudBackupsVaultLabel => 'Caixa forte';
+
+  @override
   String get settingsCloudBackupsEmpty => 'Aínda non hai copias nesta conta.';
 
   @override
   String get settingsCloudBackupDownloadTooltip => 'Descargar';
 
   @override
+  String get settingsCloudBackupActionDownload => 'Descargar';
+
+  @override
+  String get settingsCloudBackupActionImportOverwrite =>
+      'Importar (sobrescribir)';
+
+  @override
   String get settingsCloudBackupSaveDialogTitle => 'Gardar copia';
 
   @override
   String get settingsCloudBackupDownloadedSnack => 'Copia descargada.';
+
+  @override
+  String get settingsCloudBackupDeletedSnack => 'Copia borrada.';
+
+  @override
+  String get settingsCloudBackupImportedSnack => 'Importación completada.';
+
+  @override
+  String get settingsCloudBackupVaultMustBeUnlocked =>
+      'A libreta debe estar desbloqueada.';
+
+  @override
+  String settingsCloudBackupsTotalLabel(Object size) {
+    return 'Total: $size';
+  }
+
+  @override
+  String get settingsCloudBackupImportOverwriteTitle =>
+      'Importar (sobrescribir)';
+
+  @override
+  String get settingsCloudBackupImportOverwriteBody =>
+      'Isto sobrescribirá o contido da libreta aberta. Asegúrate de ter unha copia local antes de continuar.';
+
+  @override
+  String get settingsCloudBackupDeleteWarning =>
+      'Seguro que queres borrar esta copia da nube? Esta acción non se pode desfacer.';
 
   @override
   String get settingsPublishedRequiresPlan =>

@@ -2122,13 +2122,90 @@ export const folioListVaultBackups = onCall(
     const items = files
       .filter((f) => !f.name.endsWith("/"))
       .map((f) => {
+        const meta = (f.metadata ?? {}) as Record<string, unknown>;
+        const rawSize = meta["size"];
+        const sizeBytes =
+          typeof rawSize === "number"
+            ? rawSize
+            : typeof rawSize === "string"
+              ? Number(rawSize)
+              : 0;
+        const timeCreated =
+          typeof meta["timeCreated"] === "string" ? meta["timeCreated"] : "";
         const parts = f.name.split("/");
         const fileName = parts[parts.length - 1] ?? f.name;
-        return { fileName, storagePath: f.name };
+        return {
+          fileName,
+          storagePath: f.name,
+          sizeBytes: Number.isFinite(sizeBytes) && sizeBytes > 0 ? sizeBytes : 0,
+          createdAt: timeCreated,
+        };
       })
       .filter((x) => x.fileName.length > 0);
     items.sort((a, b) => b.fileName.localeCompare(a.fileName));
     return { items };
+  }
+);
+
+export const folioTrimVaultBackupsByBytes = onCall(
+  { cors: true, invoker: "public" },
+  async (request) => {
+    if (!request.auth?.uid) {
+      throw new HttpsError("unauthenticated", "Login required");
+    }
+    const uid = request.auth.uid;
+    await assertFolioCloudBackupAllowed(uid);
+    const vaultId = assertValidVaultId((request.data as any)?.vaultId);
+    const maxBytesRaw = (request.data as any)?.maxBytes;
+    const maxBytes =
+      typeof maxBytesRaw === "number" && Number.isFinite(maxBytesRaw)
+        ? Math.max(1, Math.min(50 * 1024 * 1024 * 1024, Math.trunc(maxBytesRaw)))
+        : 5 * 1024 * 1024 * 1024; // default 5 GB
+
+    const prefix = `users/${uid}/vaults/${vaultId}/backups/`;
+    const bucket = admin.storage().bucket();
+    const [files] = await bucket.getFiles({ prefix, autoPaginate: true });
+    const items = files.filter((f) => !f.name.endsWith("/"));
+
+    const sizeOf = (f: any): number => {
+      const meta = (f?.metadata ?? {}) as Record<string, unknown>;
+      const raw = meta["size"];
+      const n =
+        typeof raw === "number" ? raw : typeof raw === "string" ? Number(raw) : 0;
+      return Number.isFinite(n) && n > 0 ? n : 0;
+    };
+
+    // Oldest first by name (timestamps in filename sort lexicographically).
+    items.sort((a, b) => a.name.localeCompare(b.name));
+
+    let totalBytes = 0;
+    for (const f of items) totalBytes += sizeOf(f);
+
+    const toDelete: typeof items = [];
+    for (const f of items) {
+      if (totalBytes <= maxBytes) break;
+      const sz = sizeOf(f);
+      toDelete.push(f);
+      totalBytes -= sz;
+    }
+
+    let deleted = 0;
+    const errors: string[] = [];
+    for (const f of toDelete) {
+      try {
+        await f.delete();
+        deleted++;
+      } catch (e: unknown) {
+        console.warn("folioTrimVaultBackupsByBytes: delete failed", f.name, e);
+        errors.push(f.name);
+      }
+    }
+    return {
+      ok: errors.length === 0,
+      deleted,
+      remainingBytes: Math.max(0, totalBytes),
+      failed: errors.slice(0, 10),
+    };
   }
 );
 
@@ -2199,6 +2276,140 @@ export const folioUpsertVaultBackupIndex = onCall(
         { merge: true }
       );
     return { ok: true };
+  }
+);
+
+export const folioGetLatestVaultBackupMeta = onCall(
+  { cors: true, invoker: "public" },
+  async (request) => {
+    if (!request.auth?.uid) {
+      throw new HttpsError("unauthenticated", "Login required");
+    }
+    const uid = request.auth.uid;
+    await assertFolioCloudBackupAllowed(uid);
+    const vaultId = assertValidVaultId((request.data as any)?.vaultId);
+    const ref = db
+      .collection("users")
+      .doc(uid)
+      .collection("vaultBackups")
+      .doc(vaultId);
+    const snap = await ref.get();
+    const data = (snap.data() ?? {}) as Record<string, unknown>;
+    return {
+      ok: true as const,
+      latest: {
+        storagePath:
+          typeof data.latestStoragePath === "string" ? data.latestStoragePath : "",
+        fileName: typeof data.latestFileName === "string" ? data.latestFileName : "",
+        fingerprint:
+          typeof data.latestFingerprint === "string" ? data.latestFingerprint : "",
+        sizeBytes: typeof data.latestSizeBytes === "number" ? data.latestSizeBytes : 0,
+        containerFormat:
+          typeof data.latestContainerFormat === "string"
+            ? data.latestContainerFormat
+            : "",
+        updatedAt: data.latestUpdatedAt ?? null,
+      },
+    };
+  }
+);
+
+export const folioRecordVaultBackupMeta = onCall(
+  { cors: true, invoker: "public" },
+  async (request) => {
+    if (!request.auth?.uid) {
+      throw new HttpsError("unauthenticated", "Login required");
+    }
+    const uid = request.auth.uid;
+    await assertFolioCloudBackupAllowed(uid);
+
+    const vaultId = assertValidVaultId((request.data as any)?.vaultId);
+    const fileNameRaw = (request.data as any)?.fileName;
+    const storagePathRaw = (request.data as any)?.storagePath;
+    const fingerprintRaw = (request.data as any)?.fingerprint;
+    const sizeBytesRaw = (request.data as any)?.sizeBytes;
+    const containerFormatRaw = (request.data as any)?.containerFormat;
+    const vaultBytesRaw = (request.data as any)?.vaultBytes;
+    const attachmentsBytesRaw = (request.data as any)?.attachmentsBytes;
+
+    const fileName = typeof fileNameRaw === "string" ? fileNameRaw.trim() : "";
+    const storagePath =
+      typeof storagePathRaw === "string" ? storagePathRaw.trim() : "";
+    const fingerprint =
+      typeof fingerprintRaw === "string" ? fingerprintRaw.trim() : "";
+    const containerFormat =
+      typeof containerFormatRaw === "string" ? containerFormatRaw.trim() : "";
+    const sizeBytes =
+      typeof sizeBytesRaw === "number" && Number.isFinite(sizeBytesRaw)
+        ? Math.max(0, Math.trunc(sizeBytesRaw))
+        : 0;
+    const vaultBytes =
+      typeof vaultBytesRaw === "number" && Number.isFinite(vaultBytesRaw)
+        ? Math.max(0, Math.trunc(vaultBytesRaw))
+        : 0;
+    const attachmentsBytes =
+      typeof attachmentsBytesRaw === "number" && Number.isFinite(attachmentsBytesRaw)
+        ? Math.max(0, Math.trunc(attachmentsBytesRaw))
+        : 0;
+
+    if (!fileName || fileName.length > 220) {
+      throw new HttpsError("invalid-argument", "fileName invalid");
+    }
+    if (!storagePath || storagePath.length > 600) {
+      throw new HttpsError("invalid-argument", "storagePath invalid");
+    }
+    if (!storagePath.startsWith(`users/${uid}/vaults/${vaultId}/backups/`)) {
+      throw new HttpsError("invalid-argument", "storagePath invalid");
+    }
+    if (!fingerprint || fingerprint.length > 200) {
+      throw new HttpsError("invalid-argument", "fingerprint invalid");
+    }
+
+    const now = FieldValue.serverTimestamp();
+    const itemRef = db
+      .collection("users")
+      .doc(uid)
+      .collection("vaultBackups")
+      .doc(vaultId)
+      .collection("items")
+      .doc(fileName);
+    const vaultRef = db
+      .collection("users")
+      .doc(uid)
+      .collection("vaultBackups")
+      .doc(vaultId);
+
+    const batch = db.batch();
+    batch.set(
+      itemRef,
+      {
+        uid,
+        vaultId,
+        fileName,
+        storagePath,
+        fingerprint,
+        containerFormat: containerFormat.slice(0, 40),
+        sizeBytes,
+        vaultBytes,
+        attachmentsBytes,
+        createdAt: now,
+      },
+      { merge: true }
+    );
+    batch.set(
+      vaultRef,
+      {
+        latestFileName: fileName,
+        latestStoragePath: storagePath,
+        latestFingerprint: fingerprint,
+        latestContainerFormat: containerFormat.slice(0, 40),
+        latestSizeBytes: sizeBytes,
+        latestUpdatedAt: now,
+      },
+      { merge: true }
+    );
+    await batch.commit();
+    return { ok: true as const };
   }
 );
 

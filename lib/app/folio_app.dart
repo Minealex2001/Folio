@@ -273,11 +273,11 @@ class _FolioAppState extends State<FolioApp> with WidgetsBindingObserver {
         Firebase.apps.isNotEmpty &&
         FirebaseAuth.instance.currentUser != null &&
         _folioCloudEntitlements.snapshot.canUseCloudBackup;
-    final cloudOnly =
-        dir.isEmpty &&
-        widget.appSettings.scheduledVaultBackupAlsoUploadCloud &&
-        canCloud;
-    if (dir.isEmpty && !cloudOnly) return;
+    final willDoFolder =
+        widget.appSettings.scheduledVaultBackupFolderEnabled && dir.isNotEmpty;
+    final willDoCloud =
+        widget.appSettings.scheduledVaultBackupAlsoUploadCloud && canCloud;
+    if (!willDoFolder && !willDoCloud) return;
     if (widget.session.state != VaultFlowState.unlocked) return;
     final intervalMs =
         widget.appSettings.scheduledVaultBackupIntervalMinutes * 60 * 1000;
@@ -1035,30 +1035,18 @@ class _FolioAppState extends State<FolioApp> with WidgetsBindingObserver {
         }
         return Shortcuts(
           shortcuts: const <ShortcutActivator, Intent>{
-            SingleActivator(
-              LogicalKeyboardKey.equal,
-              control: true,
-            ): _ZoomInIntent(),
-            SingleActivator(
-              LogicalKeyboardKey.numpadAdd,
-              control: true,
-            ): _ZoomInIntent(),
-            SingleActivator(
-              LogicalKeyboardKey.minus,
-              control: true,
-            ): _ZoomOutIntent(),
-            SingleActivator(
-              LogicalKeyboardKey.numpadSubtract,
-              control: true,
-            ): _ZoomOutIntent(),
-            SingleActivator(
-              LogicalKeyboardKey.digit0,
-              control: true,
-            ): _ZoomResetIntent(),
-            SingleActivator(
-              LogicalKeyboardKey.numpad0,
-              control: true,
-            ): _ZoomResetIntent(),
+            SingleActivator(LogicalKeyboardKey.equal, control: true):
+                _ZoomInIntent(),
+            SingleActivator(LogicalKeyboardKey.numpadAdd, control: true):
+                _ZoomInIntent(),
+            SingleActivator(LogicalKeyboardKey.minus, control: true):
+                _ZoomOutIntent(),
+            SingleActivator(LogicalKeyboardKey.numpadSubtract, control: true):
+                _ZoomOutIntent(),
+            SingleActivator(LogicalKeyboardKey.digit0, control: true):
+                _ZoomResetIntent(),
+            SingleActivator(LogicalKeyboardKey.numpad0, control: true):
+                _ZoomResetIntent(),
           },
           child: Actions(
             actions: <Type, Action<Intent>>{

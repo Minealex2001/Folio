@@ -1034,6 +1034,30 @@ class VaultSession extends ChangeNotifier {
     }
   }
 
+  /// Importa una copia (ZIP o TAR.GZ) y **machaca** la libreta activa.
+  /// Requiere que la UI haya verificado identidad (la libreta debe estar desbloqueada).
+  Future<void> importVaultBackupOverwriteActive(
+    String archivePath,
+    String backupPassword,
+  ) async {
+    if (!isUnlocked) {
+      throw StateError('La libreta debe estar desbloqueada para importar.');
+    }
+    final temp = Directory.systemTemp.createTempSync('folio_import_overwrite_');
+    try {
+      await extractBackupArchiveToDirectory(File(archivePath), temp);
+      await validateImportZip(temp, backupPassword);
+      await applyImportFromDirectory(temp);
+      await bootstrap();
+    } finally {
+      try {
+        if (temp.existsSync()) {
+          await temp.delete(recursive: true);
+        }
+      } catch (_) {}
+    }
+  }
+
   String _newBlockId(String pageId) => '${pageId}_${_uuid.v4()}';
 
   Future<List<FolioPage>> _materializeNotionPages(

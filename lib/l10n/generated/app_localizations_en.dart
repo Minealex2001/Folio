@@ -1806,10 +1806,28 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get scheduledVaultBackupSubtitle =>
-      'While the vault is unlocked, each backup is the currently open vault. Folio saves a ZIP to the folder below on the chosen interval.';
+      'While the vault is unlocked, Folio automatically backs it up on the chosen interval. Enable folder backup, cloud backup, or both below.';
+
+  @override
+  String get scheduledVaultBackupFolderTitle => 'Backup to folder';
+
+  @override
+  String get scheduledVaultBackupFolderSubtitle =>
+      'Save an encrypted ZIP backup to the configured folder on each interval.';
 
   @override
   String get scheduledVaultBackupChooseFolder => 'Backup folder';
+
+  @override
+  String get scheduledVaultBackupClearFolderTooltip => 'Clear folder';
+
+  @override
+  String get scheduledVaultBackupCloudOnlyTitle =>
+      'Cloud-only scheduled backups';
+
+  @override
+  String get scheduledVaultBackupCloudOnlySubtitle =>
+      'Do not write ZIP files to disk. Upload backups to the cloud only.';
 
   @override
   String get scheduledVaultBackupIntervalLabel => 'Backup interval';
@@ -2848,11 +2866,11 @@ class AppLocalizationsEn extends AppLocalizations {
   String get folioCloudUploadSnackOk => 'Vault backup saved to the cloud.';
 
   @override
-  String get scheduledVaultBackupCloudSyncTitle => 'Also upload to Folio Cloud';
+  String get scheduledVaultBackupCloudSyncTitle => 'Backup to Folio Cloud';
 
   @override
   String get scheduledVaultBackupCloudSyncSubtitle =>
-      'After each scheduled backup, automatically uploads the same ZIP to your account. For cloud-only backups, leave the folder unset and enable this option.';
+      'After each scheduled backup interval, automatically uploads an encrypted backup to your Folio Cloud account.';
 
   @override
   String get folioCloudCloudBackupsList => 'Cloud backups';
@@ -4705,16 +4723,51 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
+  String get settingsCloudBackupsVaultLabel => 'Notebook';
+
+  @override
   String get settingsCloudBackupsEmpty => 'No backups in this account yet.';
 
   @override
   String get settingsCloudBackupDownloadTooltip => 'Download';
 
   @override
+  String get settingsCloudBackupActionDownload => 'Download';
+
+  @override
+  String get settingsCloudBackupActionImportOverwrite => 'Import (overwrite)';
+
+  @override
   String get settingsCloudBackupSaveDialogTitle => 'Save backup';
 
   @override
   String get settingsCloudBackupDownloadedSnack => 'Backup downloaded.';
+
+  @override
+  String get settingsCloudBackupDeletedSnack => 'Backup deleted.';
+
+  @override
+  String get settingsCloudBackupImportedSnack => 'Import completed.';
+
+  @override
+  String get settingsCloudBackupVaultMustBeUnlocked =>
+      'The vault must be unlocked.';
+
+  @override
+  String settingsCloudBackupsTotalLabel(Object size) {
+    return 'Total: $size';
+  }
+
+  @override
+  String get settingsCloudBackupImportOverwriteTitle => 'Import (overwrite)';
+
+  @override
+  String get settingsCloudBackupImportOverwriteBody =>
+      'This will overwrite the contents of the currently open vault. Make sure you have a local backup before continuing.';
+
+  @override
+  String get settingsCloudBackupDeleteWarning =>
+      'Are you sure you want to delete this cloud backup? This action cannot be undone.';
 
   @override
   String get settingsPublishedRequiresPlan =>

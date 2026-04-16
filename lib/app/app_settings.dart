@@ -232,6 +232,8 @@ class AppSettings extends ChangeNotifier {
       'folio_last_scheduled_vault_backup_ms';
   static const _scheduledVaultBackupAlsoUploadCloudKey =
       'folio_scheduled_vault_backup_also_cloud_v1';
+  static const _scheduledVaultBackupFolderEnabledKey =
+      'folio_scheduled_vault_backup_folder_enabled_v1';
   static const _meetingNoteMicDeviceIdKey = 'folio_meeting_note_mic_device_id';
   static const _meetingNoteSystemDeviceIdKey =
       'folio_meeting_note_system_device_id';
@@ -285,6 +287,7 @@ class AppSettings extends ChangeNotifier {
     }
     return best;
   }
+
   static const int defaultVaultIdleLockMinutes = 15;
   static const String defaultGlobalSearchHotkey = 'Ctrl+Shift+K';
   static const int defaultAiTimeoutMs = 30000;
@@ -388,6 +391,7 @@ class AppSettings extends ChangeNotifier {
   String _scheduledVaultBackupDirectory = '';
   int _lastScheduledVaultBackupMs = 0;
   bool _scheduledVaultBackupAlsoUploadCloud = false;
+  bool _scheduledVaultBackupFolderEnabled = false;
   String _meetingNoteMicDeviceId = '';
   String _meetingNoteSystemDeviceId = '';
   String _meetingNoteModelId = 'base';
@@ -453,6 +457,7 @@ class AppSettings extends ChangeNotifier {
     }
     notifyListeners();
   }
+
   bool get enterCreatesNewBlock => _enterCreatesNewBlock;
   bool get syncEnabled => _syncEnabled;
   bool get syncRelayEnabled => _syncRelayEnabled;
@@ -472,13 +477,18 @@ class AppSettings extends ChangeNotifier {
     final i = choices.indexOf(_scheduledVaultBackupIntervalMinutes);
     if (i >= 0) return i;
     return choices.indexOf(
-      nearestScheduledBackupIntervalMinutes(_scheduledVaultBackupIntervalMinutes),
+      nearestScheduledBackupIntervalMinutes(
+        _scheduledVaultBackupIntervalMinutes,
+      ),
     );
   }
+
   String get scheduledVaultBackupDirectory => _scheduledVaultBackupDirectory;
   int get lastScheduledVaultBackupMs => _lastScheduledVaultBackupMs;
   bool get scheduledVaultBackupAlsoUploadCloud =>
       _scheduledVaultBackupAlsoUploadCloud;
+  bool get scheduledVaultBackupFolderEnabled =>
+      _scheduledVaultBackupFolderEnabled;
   String get meetingNoteMicDeviceId => _meetingNoteMicDeviceId;
   String get meetingNoteSystemDeviceId => _meetingNoteSystemDeviceId;
   String get meetingNoteModelId => _meetingNoteModelId;
@@ -662,6 +672,10 @@ class AppSettings extends ChangeNotifier {
     _lastScheduledVaultBackupMs = p.getInt(_lastScheduledVaultBackupMsKey) ?? 0;
     _scheduledVaultBackupAlsoUploadCloud =
         p.getBool(_scheduledVaultBackupAlsoUploadCloudKey) ?? false;
+    // Migración: si la clave no existe, inferir del directorio configurado.
+    _scheduledVaultBackupFolderEnabled =
+        p.getBool(_scheduledVaultBackupFolderEnabledKey) ??
+        _scheduledVaultBackupDirectory.isNotEmpty;
     _meetingNoteMicDeviceId = (p.getString(_meetingNoteMicDeviceIdKey) ?? '')
         .trim();
     _meetingNoteSystemDeviceId =
@@ -1472,6 +1486,14 @@ class AppSettings extends ChangeNotifier {
     notifyListeners();
     final p = await SharedPreferences.getInstance();
     await p.setBool(_scheduledVaultBackupAlsoUploadCloudKey, value);
+  }
+
+  Future<void> setScheduledVaultBackupFolderEnabled(bool value) async {
+    if (_scheduledVaultBackupFolderEnabled == value) return;
+    _scheduledVaultBackupFolderEnabled = value;
+    notifyListeners();
+    final p = await SharedPreferences.getInstance();
+    await p.setBool(_scheduledVaultBackupFolderEnabledKey, value);
   }
 
   Future<void> setMeetingNoteMicDeviceId(String value) async {

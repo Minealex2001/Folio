@@ -11,8 +11,10 @@ import '../session/vault_session.dart';
 import 'folio_cloud/folio_cloud_backup.dart';
 import 'folio_cloud/folio_cloud_entitlements.dart';
 
-/// Exporta la libreta **abierta** al directorio configurado en [AppSettings.scheduledVaultBackupDirectory].
-/// Opcionalmente sube a Folio Cloud si el usuario lo tiene activado.
+/// Exporta la libreta **abierta** según las opciones configuradas en [AppSettings]:
+/// - Backup a carpeta local (ZIP) si [AppSettings.scheduledVaultBackupFolderEnabled] y hay directorio.
+/// - Backup a la nube si [AppSettings.scheduledVaultBackupAlsoUploadCloud] y hay entitlement.
+/// Ambas opciones son independientes y pueden estar activas al mismo tiempo.
 Future<void> runScheduledFolderVaultExport({
   required VaultSession session,
   required AppSettings appSettings,
@@ -23,18 +25,39 @@ Future<void> runScheduledFolderVaultExport({
   }
 
   final dir = appSettings.scheduledVaultBackupDirectory.trim();
-  final canCloud = folioEntitlements != null &&
+  final wantFolder =
+      appSettings.scheduledVaultBackupFolderEnabled && dir.isNotEmpty;
+  final canCloud =
+      folioEntitlements != null &&
       Firebase.apps.isNotEmpty &&
       FirebaseAuth.instance.currentUser != null &&
       folioEntitlements.snapshot.canUseCloudBackup;
-  final wantCloud =
-      appSettings.scheduledVaultBackupAlsoUploadCloud && canCloud;
+  final wantCloud = appSettings.scheduledVaultBackupAlsoUploadCloud && canCloud;
+
+  if (!wantFolder && !wantCloud) {
+    throw VaultBackupException('No hay destino de copia configurado.');
+  }
+
   final now = DateTime.now().millisecondsSinceEpoch;
 
-  if (dir.isEmpty) {
-    if (!wantCloud) {
-      throw VaultBackupException('Carpeta de copias no configurada.');
+  // — Backup local —
+  if (wantFolder) {
+    final destDir = Directory(dir);
+    if (!destDir.existsSync()) {
+      try {
+        await destDir.create(recursive: true);
+      } catch (e) {
+        throw VaultBackupException('No se pudo crear la carpeta: $e');
+      }
     }
+    final stamp = DateTime.now().toUtc().toIso8601String().replaceAll(':', '-');
+    final base = stamp.contains('.') ? stamp.split('.').first : stamp;
+    final backupPath = p.join(dir, 'folio-scheduled-$base.zip');
+    await session.exportVaultBackup(backupPath);
+  }
+
+  // — Backup en la nube —
+  if (wantCloud) {
     final vaultId = session.activeVaultId;
     if (vaultId == null || vaultId.trim().isEmpty) {
       throw VaultBackupException('No hay libreta activa.');
@@ -42,7 +65,7 @@ Future<void> runScheduledFolderVaultExport({
     await uploadOpenVaultEncryptedToCloud(
       session: session,
       vaultId: vaultId,
-      entitlementSnapshot: folioEntitlements.snapshot,
+      entitlementSnapshot: folioEntitlements!.snapshot,
     );
     try {
       final label = await session.getActiveVaultDisplayLabel();
@@ -63,55 +86,16 @@ Future<void> runScheduledFolderVaultExport({
     } catch (e) {
       debugPrint('Folio scheduled backup cloud trim: $e');
     }
-    await appSettings.setLastScheduledVaultBackupMs(now);
-    return;
-  }
-
-  final destDir = Directory(dir);
-  if (!destDir.existsSync()) {
     try {
-      await destDir.create(recursive: true);
-    } catch (e) {
-      throw VaultBackupException('No se pudo crear la carpeta: $e');
-    }
-  }
-  final stamp = DateTime.now().toUtc().toIso8601String().replaceAll(':', '-');
-  final base = stamp.contains('.') ? stamp.split('.').first : stamp;
-  final path = p.join(dir, 'folio-scheduled-$base.zip');
-  await session.exportVaultBackup(path);
-  await appSettings.setLastScheduledVaultBackupMs(now);
-  if (wantCloud) {
-    try {
-      final vaultId = session.activeVaultId;
-      if (vaultId == null || vaultId.trim().isEmpty) {
-        throw VaultBackupException('No hay libreta activa.');
-      }
-      await uploadEncryptedBackupFile(
-        File(path),
+      await trimFolioCloudBackupsByBytes(
         vaultId: vaultId,
+        maxBytes: 5 * 1024 * 1024 * 1024, // 5 GB
         entitlementSnapshot: folioEntitlements.snapshot,
       );
-      try {
-        final label = await session.getActiveVaultDisplayLabel();
-        await upsertFolioCloudBackupVaultIndex(
-          vaultId: vaultId,
-          displayName: label,
-          entitlementSnapshot: folioEntitlements.snapshot,
-        );
-      } catch (e) {
-        debugPrint('Folio scheduled backup cloud index: $e');
-      }
-      try {
-        await trimFolioCloudBackups(
-          vaultId: vaultId,
-          maxCount: 10,
-          entitlementSnapshot: folioEntitlements.snapshot,
-        );
-      } catch (e) {
-        debugPrint('Folio scheduled backup cloud trim: $e');
-      }
     } catch (e) {
-      debugPrint('Folio scheduled backup cloud upload: $e');
+      debugPrint('Folio scheduled backup cloud trim-bytes: $e');
     }
   }
+
+  await appSettings.setLastScheduledVaultBackupMs(now);
 }

@@ -36,7 +36,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.folioCloudAiCompleteHttp = exports.folioCloudAiComplete = exports.monthlyInkRefill = exports.folioCloudTranscribeChunk = exports.createBillingPortalSession = exports.folioTrimVaultBackups = exports.folioUpsertVaultBackupIndex = exports.folioListBackupVaults = exports.folioListVaultBackups = exports.validateMicrosoftStoreEntitlements = exports.syncFolioCloudSubscriptionFromStripe = exports.createCheckoutSession = exports.closeCollabRoom = exports.removeCollabMember = exports.inviteCollabMember = exports.commitCollabMediaUpload = exports.prepareCollabMediaUpload = exports.joinCollabRoomByCode = exports.createCollabRoom = exports.stripeWebhook = exports.folioCloudAiPricing = void 0;
+exports.folioCloudAiCompleteHttp = exports.folioCloudAiComplete = exports.monthlyInkRefill = exports.folioCloudTranscribeChunk = exports.createBillingPortalSession = exports.folioTrimVaultBackups = exports.folioRecordVaultBackupMeta = exports.folioGetLatestVaultBackupMeta = exports.folioUpsertVaultBackupIndex = exports.folioListBackupVaults = exports.folioTrimVaultBackupsByBytes = exports.folioListVaultBackups = exports.validateMicrosoftStoreEntitlements = exports.syncFolioCloudSubscriptionFromStripe = exports.createCheckoutSession = exports.closeCollabRoom = exports.removeCollabMember = exports.inviteCollabMember = exports.commitCollabMediaUpload = exports.prepareCollabMediaUpload = exports.joinCollabRoomByCode = exports.createCollabRoom = exports.stripeWebhook = exports.folioCloudAiPricing = void 0;
 const path = __importStar(require("path"));
 const dotenv_1 = require("dotenv");
 // Carga `functions/.env` (gitignored). En deploy, Firebase también inyecta estas variables.
@@ -169,7 +169,7 @@ function throwOpenAiHttpError(status, raw) {
             : "";
         throw new AiHttpsError("failed-precondition", (openAiMsg || `Quill Cloud HTTP ${status}`) + hint);
     }
-    throw new AiHttpsError("internal", openAiMsg || "AI provider returned an error. Try again later.");
+    throw new AiHttpsError("internal", openAiMsg || "Quill Cloud devolvió un error. Inténtalo más tarde.");
 }
 function resolveInkCost(operationKind, promptLength) {
     var _a;
@@ -1793,14 +1793,82 @@ exports.folioListVaultBackups = (0, https_1.onCall)({ cors: true, invoker: "publ
     const items = files
         .filter((f) => !f.name.endsWith("/"))
         .map((f) => {
-        var _a;
+        var _a, _b;
+        const meta = ((_a = f.metadata) !== null && _a !== void 0 ? _a : {});
+        const rawSize = meta["size"];
+        const sizeBytes = typeof rawSize === "number"
+            ? rawSize
+            : typeof rawSize === "string"
+                ? Number(rawSize)
+                : 0;
+        const timeCreated = typeof meta["timeCreated"] === "string" ? meta["timeCreated"] : "";
         const parts = f.name.split("/");
-        const fileName = (_a = parts[parts.length - 1]) !== null && _a !== void 0 ? _a : f.name;
-        return { fileName, storagePath: f.name };
+        const fileName = (_b = parts[parts.length - 1]) !== null && _b !== void 0 ? _b : f.name;
+        return {
+            fileName,
+            storagePath: f.name,
+            sizeBytes: Number.isFinite(sizeBytes) && sizeBytes > 0 ? sizeBytes : 0,
+            createdAt: timeCreated,
+        };
     })
         .filter((x) => x.fileName.length > 0);
     items.sort((a, b) => b.fileName.localeCompare(a.fileName));
     return { items };
+});
+exports.folioTrimVaultBackupsByBytes = (0, https_1.onCall)({ cors: true, invoker: "public" }, async (request) => {
+    var _a, _b, _c;
+    if (!((_a = request.auth) === null || _a === void 0 ? void 0 : _a.uid)) {
+        throw new https_1.HttpsError("unauthenticated", "Login required");
+    }
+    const uid = request.auth.uid;
+    await assertFolioCloudBackupAllowed(uid);
+    const vaultId = assertValidVaultId((_b = request.data) === null || _b === void 0 ? void 0 : _b.vaultId);
+    const maxBytesRaw = (_c = request.data) === null || _c === void 0 ? void 0 : _c.maxBytes;
+    const maxBytes = typeof maxBytesRaw === "number" && Number.isFinite(maxBytesRaw)
+        ? Math.max(1, Math.min(50 * 1024 * 1024 * 1024, Math.trunc(maxBytesRaw)))
+        : 5 * 1024 * 1024 * 1024; // default 5 GB
+    const prefix = `users/${uid}/vaults/${vaultId}/backups/`;
+    const bucket = admin.storage().bucket();
+    const [files] = await bucket.getFiles({ prefix, autoPaginate: true });
+    const items = files.filter((f) => !f.name.endsWith("/"));
+    const sizeOf = (f) => {
+        var _a;
+        const meta = ((_a = f === null || f === void 0 ? void 0 : f.metadata) !== null && _a !== void 0 ? _a : {});
+        const raw = meta["size"];
+        const n = typeof raw === "number" ? raw : typeof raw === "string" ? Number(raw) : 0;
+        return Number.isFinite(n) && n > 0 ? n : 0;
+    };
+    // Oldest first by name (timestamps in filename sort lexicographically).
+    items.sort((a, b) => a.name.localeCompare(b.name));
+    let totalBytes = 0;
+    for (const f of items)
+        totalBytes += sizeOf(f);
+    const toDelete = [];
+    for (const f of items) {
+        if (totalBytes <= maxBytes)
+            break;
+        const sz = sizeOf(f);
+        toDelete.push(f);
+        totalBytes -= sz;
+    }
+    let deleted = 0;
+    const errors = [];
+    for (const f of toDelete) {
+        try {
+            await f.delete();
+            deleted++;
+        }
+        catch (e) {
+            console.warn("folioTrimVaultBackupsByBytes: delete failed", f.name, e);
+            errors.push(f.name);
+        }
+    }
+    return {
+        ok: errors.length === 0,
+        deleted,
+        remainingBytes: Math.max(0, totalBytes),
+        failed: errors.slice(0, 10),
+    };
 });
 exports.folioListBackupVaults = (0, https_1.onCall)({ cors: true, invoker: "public" }, async (request) => {
     var _a, _b;
@@ -1862,6 +1930,112 @@ exports.folioUpsertVaultBackupIndex = (0, https_1.onCall)({ cors: true, invoker:
         displayName: displayName.slice(0, 120),
         updatedAt: FieldValue.serverTimestamp(),
     }, { merge: true });
+    return { ok: true };
+});
+exports.folioGetLatestVaultBackupMeta = (0, https_1.onCall)({ cors: true, invoker: "public" }, async (request) => {
+    var _a, _b, _c, _d;
+    if (!((_a = request.auth) === null || _a === void 0 ? void 0 : _a.uid)) {
+        throw new https_1.HttpsError("unauthenticated", "Login required");
+    }
+    const uid = request.auth.uid;
+    await assertFolioCloudBackupAllowed(uid);
+    const vaultId = assertValidVaultId((_b = request.data) === null || _b === void 0 ? void 0 : _b.vaultId);
+    const ref = db
+        .collection("users")
+        .doc(uid)
+        .collection("vaultBackups")
+        .doc(vaultId);
+    const snap = await ref.get();
+    const data = ((_c = snap.data()) !== null && _c !== void 0 ? _c : {});
+    return {
+        ok: true,
+        latest: {
+            storagePath: typeof data.latestStoragePath === "string" ? data.latestStoragePath : "",
+            fileName: typeof data.latestFileName === "string" ? data.latestFileName : "",
+            fingerprint: typeof data.latestFingerprint === "string" ? data.latestFingerprint : "",
+            sizeBytes: typeof data.latestSizeBytes === "number" ? data.latestSizeBytes : 0,
+            containerFormat: typeof data.latestContainerFormat === "string"
+                ? data.latestContainerFormat
+                : "",
+            updatedAt: (_d = data.latestUpdatedAt) !== null && _d !== void 0 ? _d : null,
+        },
+    };
+});
+exports.folioRecordVaultBackupMeta = (0, https_1.onCall)({ cors: true, invoker: "public" }, async (request) => {
+    var _a, _b, _c, _d, _e, _f, _g, _h, _j;
+    if (!((_a = request.auth) === null || _a === void 0 ? void 0 : _a.uid)) {
+        throw new https_1.HttpsError("unauthenticated", "Login required");
+    }
+    const uid = request.auth.uid;
+    await assertFolioCloudBackupAllowed(uid);
+    const vaultId = assertValidVaultId((_b = request.data) === null || _b === void 0 ? void 0 : _b.vaultId);
+    const fileNameRaw = (_c = request.data) === null || _c === void 0 ? void 0 : _c.fileName;
+    const storagePathRaw = (_d = request.data) === null || _d === void 0 ? void 0 : _d.storagePath;
+    const fingerprintRaw = (_e = request.data) === null || _e === void 0 ? void 0 : _e.fingerprint;
+    const sizeBytesRaw = (_f = request.data) === null || _f === void 0 ? void 0 : _f.sizeBytes;
+    const containerFormatRaw = (_g = request.data) === null || _g === void 0 ? void 0 : _g.containerFormat;
+    const vaultBytesRaw = (_h = request.data) === null || _h === void 0 ? void 0 : _h.vaultBytes;
+    const attachmentsBytesRaw = (_j = request.data) === null || _j === void 0 ? void 0 : _j.attachmentsBytes;
+    const fileName = typeof fileNameRaw === "string" ? fileNameRaw.trim() : "";
+    const storagePath = typeof storagePathRaw === "string" ? storagePathRaw.trim() : "";
+    const fingerprint = typeof fingerprintRaw === "string" ? fingerprintRaw.trim() : "";
+    const containerFormat = typeof containerFormatRaw === "string" ? containerFormatRaw.trim() : "";
+    const sizeBytes = typeof sizeBytesRaw === "number" && Number.isFinite(sizeBytesRaw)
+        ? Math.max(0, Math.trunc(sizeBytesRaw))
+        : 0;
+    const vaultBytes = typeof vaultBytesRaw === "number" && Number.isFinite(vaultBytesRaw)
+        ? Math.max(0, Math.trunc(vaultBytesRaw))
+        : 0;
+    const attachmentsBytes = typeof attachmentsBytesRaw === "number" && Number.isFinite(attachmentsBytesRaw)
+        ? Math.max(0, Math.trunc(attachmentsBytesRaw))
+        : 0;
+    if (!fileName || fileName.length > 220) {
+        throw new https_1.HttpsError("invalid-argument", "fileName invalid");
+    }
+    if (!storagePath || storagePath.length > 600) {
+        throw new https_1.HttpsError("invalid-argument", "storagePath invalid");
+    }
+    if (!storagePath.startsWith(`users/${uid}/vaults/${vaultId}/backups/`)) {
+        throw new https_1.HttpsError("invalid-argument", "storagePath invalid");
+    }
+    if (!fingerprint || fingerprint.length > 200) {
+        throw new https_1.HttpsError("invalid-argument", "fingerprint invalid");
+    }
+    const now = FieldValue.serverTimestamp();
+    const itemRef = db
+        .collection("users")
+        .doc(uid)
+        .collection("vaultBackups")
+        .doc(vaultId)
+        .collection("items")
+        .doc(fileName);
+    const vaultRef = db
+        .collection("users")
+        .doc(uid)
+        .collection("vaultBackups")
+        .doc(vaultId);
+    const batch = db.batch();
+    batch.set(itemRef, {
+        uid,
+        vaultId,
+        fileName,
+        storagePath,
+        fingerprint,
+        containerFormat: containerFormat.slice(0, 40),
+        sizeBytes,
+        vaultBytes,
+        attachmentsBytes,
+        createdAt: now,
+    }, { merge: true });
+    batch.set(vaultRef, {
+        latestFileName: fileName,
+        latestStoragePath: storagePath,
+        latestFingerprint: fingerprint,
+        latestContainerFormat: containerFormat.slice(0, 40),
+        latestSizeBytes: sizeBytes,
+        latestUpdatedAt: now,
+    }, { merge: true });
+    await batch.commit();
     return { ok: true };
 });
 exports.folioTrimVaultBackups = (0, https_1.onCall)({ cors: true, invoker: "public" }, async (request) => {

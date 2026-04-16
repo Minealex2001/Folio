@@ -3361,14 +3361,44 @@ abstract class AppLocalizations {
   /// No description provided for @scheduledVaultBackupSubtitle.
   ///
   /// In es, this message translates to:
-  /// **'Con la libreta desbloqueada, cada copia es de la libreta abierta ahora. Folio guarda un ZIP en la carpeta indicada según el intervalo.'**
+  /// **'Con la libreta desbloqueada, Folio la copia automáticamente en el intervalo elegido. Activa la copia en carpeta, en la nube, o ambas.'**
   String get scheduledVaultBackupSubtitle;
+
+  /// No description provided for @scheduledVaultBackupFolderTitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Copia en carpeta'**
+  String get scheduledVaultBackupFolderTitle;
+
+  /// No description provided for @scheduledVaultBackupFolderSubtitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Guarda una copia cifrada en ZIP en la carpeta configurada en cada intervalo.'**
+  String get scheduledVaultBackupFolderSubtitle;
 
   /// No description provided for @scheduledVaultBackupChooseFolder.
   ///
   /// In es, this message translates to:
   /// **'Carpeta de copias'**
   String get scheduledVaultBackupChooseFolder;
+
+  /// No description provided for @scheduledVaultBackupClearFolderTooltip.
+  ///
+  /// In es, this message translates to:
+  /// **'Quitar carpeta'**
+  String get scheduledVaultBackupClearFolderTooltip;
+
+  /// No description provided for @scheduledVaultBackupCloudOnlyTitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Copias programadas solo en la nube'**
+  String get scheduledVaultBackupCloudOnlyTitle;
+
+  /// No description provided for @scheduledVaultBackupCloudOnlySubtitle.
+  ///
+  /// In es, this message translates to:
+  /// **'No guarda ZIPs en disco. Sube copias solo a la nube.'**
+  String get scheduledVaultBackupCloudOnlySubtitle;
 
   /// No description provided for @scheduledVaultBackupIntervalLabel.
   ///
@@ -5101,13 +5131,13 @@ abstract class AppLocalizations {
   /// No description provided for @scheduledVaultBackupCloudSyncTitle.
   ///
   /// In es, this message translates to:
-  /// **'Subir también a Folio Cloud'**
+  /// **'Copia en Folio Cloud'**
   String get scheduledVaultBackupCloudSyncTitle;
 
   /// No description provided for @scheduledVaultBackupCloudSyncSubtitle.
   ///
   /// In es, this message translates to:
-  /// **'Tras cada copia programada, sube automáticamente el mismo ZIP a tu cuenta. Si no quieres copia en disco, deja la carpeta sin elegir y activa solo esta opción.'**
+  /// **'En cada intervalo programado, sube automáticamente una copia cifrada a tu cuenta de Folio Cloud.'**
   String get scheduledVaultBackupCloudSyncSubtitle;
 
   /// No description provided for @folioCloudCloudBackupsList.
@@ -8385,6 +8415,12 @@ abstract class AppLocalizations {
   /// **'Copias en la nube ({count}/10)'**
   String settingsCloudBackupsDialogTitle(int count);
 
+  /// No description provided for @settingsCloudBackupsVaultLabel.
+  ///
+  /// In es, this message translates to:
+  /// **'Libreta'**
+  String get settingsCloudBackupsVaultLabel;
+
   /// No description provided for @settingsCloudBackupsEmpty.
   ///
   /// In es, this message translates to:
@@ -8397,6 +8433,18 @@ abstract class AppLocalizations {
   /// **'Descargar'**
   String get settingsCloudBackupDownloadTooltip;
 
+  /// No description provided for @settingsCloudBackupActionDownload.
+  ///
+  /// In es, this message translates to:
+  /// **'Descargar'**
+  String get settingsCloudBackupActionDownload;
+
+  /// No description provided for @settingsCloudBackupActionImportOverwrite.
+  ///
+  /// In es, this message translates to:
+  /// **'Importar (machacar)'**
+  String get settingsCloudBackupActionImportOverwrite;
+
   /// No description provided for @settingsCloudBackupSaveDialogTitle.
   ///
   /// In es, this message translates to:
@@ -8408,6 +8456,48 @@ abstract class AppLocalizations {
   /// In es, this message translates to:
   /// **'Copia descargada.'**
   String get settingsCloudBackupDownloadedSnack;
+
+  /// No description provided for @settingsCloudBackupDeletedSnack.
+  ///
+  /// In es, this message translates to:
+  /// **'Copia borrada.'**
+  String get settingsCloudBackupDeletedSnack;
+
+  /// No description provided for @settingsCloudBackupImportedSnack.
+  ///
+  /// In es, this message translates to:
+  /// **'Importación completada.'**
+  String get settingsCloudBackupImportedSnack;
+
+  /// No description provided for @settingsCloudBackupVaultMustBeUnlocked.
+  ///
+  /// In es, this message translates to:
+  /// **'La libreta debe estar desbloqueada.'**
+  String get settingsCloudBackupVaultMustBeUnlocked;
+
+  /// No description provided for @settingsCloudBackupsTotalLabel.
+  ///
+  /// In es, this message translates to:
+  /// **'Total: {size}'**
+  String settingsCloudBackupsTotalLabel(Object size);
+
+  /// No description provided for @settingsCloudBackupImportOverwriteTitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Importar (machacar)'**
+  String get settingsCloudBackupImportOverwriteTitle;
+
+  /// No description provided for @settingsCloudBackupImportOverwriteBody.
+  ///
+  /// In es, this message translates to:
+  /// **'Esto reemplazará (machacará) el contenido de la libreta activa. Asegúrate de tener una copia local antes de continuar.'**
+  String get settingsCloudBackupImportOverwriteBody;
+
+  /// No description provided for @settingsCloudBackupDeleteWarning.
+  ///
+  /// In es, this message translates to:
+  /// **'¿Seguro que quieres borrar esta copia de la nube? Esta acción no se puede deshacer.'**
+  String get settingsCloudBackupDeleteWarning;
 
   /// No description provided for @settingsPublishedRequiresPlan.
   ///
