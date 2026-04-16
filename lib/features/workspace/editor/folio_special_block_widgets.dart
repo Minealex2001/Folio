@@ -1195,7 +1195,10 @@ class _FolioTaskBlockBodyState extends State<FolioTaskBlockBody> {
 
   void _setSubtaskDone(String subtaskId, bool done) {
     final next = _data.subtasks
-        .map((s) => s.id == subtaskId ? s.copyWith(done: done) : s)
+        .map(
+          (s) =>
+              s.id == subtaskId ? s.copyWith(status: done ? 'done' : 'todo') : s,
+        )
         .toList(growable: false);
     setState(() => _data = _data.copyWith(subtasks: next));
     _emit(_data);
@@ -1220,7 +1223,7 @@ class _FolioTaskBlockBodyState extends State<FolioTaskBlockBody> {
   void _addSubtask() {
     final next = [
       ..._data.subtasks,
-      FolioTaskSubtask(id: 'st_${_uuid.v4()}', title: '', done: false),
+      FolioTaskSubtask(id: 'st_${_uuid.v4()}', title: '', status: 'todo'),
     ];
     setState(() => _data = _data.copyWith(subtasks: next));
     _emit(_data);
@@ -1256,7 +1259,7 @@ class _FolioTaskBlockBodyState extends State<FolioTaskBlockBody> {
       'high': l10n.taskPriorityHigh,
     };
     final totalSubtasks = _data.subtasks.length;
-    final doneSubtasks = _data.subtasks.where((s) => s.done).length;
+    final doneSubtasks = _data.subtasks.where((s) => s.status == 'done').length;
     return Card(
       margin: const EdgeInsets.symmetric(vertical: 4),
       color: scheme.surfaceContainerLow,
@@ -1445,7 +1448,7 @@ class _FolioTaskBlockBodyState extends State<FolioTaskBlockBody> {
                       key: ValueKey(s.id),
                       children: [
                         Checkbox(
-                          value: s.done,
+                          value: s.status == 'done',
                           visualDensity: VisualDensity.compact,
                           onChanged: (v) => _setSubtaskDone(s.id, v == true),
                         ),

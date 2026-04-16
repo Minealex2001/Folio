@@ -6,6 +6,7 @@ final Map<String, _SpecialRowBuilder> _specialRowBuildersByType = {
   'image': _specialRowImage,
   'table': _specialRowTable,
   'database': _specialRowDatabase,
+  'kanban': _specialRowKanban,
   'equation': _specialRowEquation,
   'mermaid': _specialRowMermaid,
   'code': _specialRowCode,

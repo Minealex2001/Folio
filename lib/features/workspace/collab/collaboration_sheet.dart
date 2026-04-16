@@ -7,6 +7,7 @@ import 'package:flutter/services.dart';
 import '../../../app/ui_tokens.dart';
 import '../../../l10n/generated/app_localizations.dart';
 import '../../../services/collab/collab_session_controller.dart';
+import '../editor/block_editor_support_widgets.dart';
 
 String _formatCollabTime(BuildContext context, int createdAtMs) {
   if (createdAtMs <= 0) return '';
@@ -364,71 +365,96 @@ class _CollaborationSheetBodyState extends State<CollaborationSheetBody> {
                         const SizedBox(height: 10),
                         Padding(
                           padding: const EdgeInsets.symmetric(horizontal: 16),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.stretch,
-                            children: [
-                              FilledButton.icon(
-                                onPressed: !widget.canHostCollab || _busy
-                                    ? null
-                                    : () => _run(() async {
-                                        await widget.collab.createRoomForPage(
-                                          pageId: widget.pageId,
-                                        );
-                                      }),
-                                icon: const Icon(Icons.add_home_work_outlined),
-                                label: Text(l10n.collabCreateRoom),
-                              ),
-                              if (!widget.canHostCollab) ...[
-                                const SizedBox(height: 8),
-                                Text(
-                                  l10n.collabHostRequiresPlan,
-                                  style: theme.textTheme.bodySmall?.copyWith(
-                                    color: scheme.onSurfaceVariant,
+                          child: BlockEditorFloatingPanel(
+                            scheme: scheme,
+                            child: Padding(
+                              padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.stretch,
+                                children: [
+                                  Text(
+                                    l10n.collabCreateRoom,
+                                    style: theme.textTheme.titleSmall?.copyWith(
+                                      fontWeight: FontWeight.w800,
+                                      letterSpacing: -0.2,
+                                    ),
                                   ),
-                                ),
-                              ],
-                            ],
-                          ),
-                        ),
-                        Padding(
-                          padding: const EdgeInsets.all(16),
-                          child: TextField(
-                            controller: _joinCodeCtrl,
-                            textAlign: TextAlign.center,
-                            style: theme.textTheme.titleMedium?.copyWith(
-                              letterSpacing: 0.5,
-                              fontWeight: FontWeight.w600,
-                            ),
-                            decoration: InputDecoration(
-                              labelText: l10n.collabJoinCodeLabel,
-                              hintText: l10n.collabJoinCodeHint,
-                              border: const OutlineInputBorder(),
-                            ),
-                          ),
-                        ),
-                        Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 16),
-                          child: OutlinedButton.icon(
-                            onPressed: _busy
-                                ? null
-                                : () => _run(() async {
-                                    final ok = await widget.collab
-                                        .joinRoomByCode(
-                                          pageId: widget.pageId,
-                                          joinCodeInput: _joinCodeCtrl.text,
-                                        );
-                                    if (context.mounted && !ok) {
-                                      ScaffoldMessenger.of(
-                                        context,
-                                      ).showSnackBar(
-                                        SnackBar(
-                                          content: Text(l10n.collabJoinFailed),
+                                  const SizedBox(height: 10),
+                                  FilledButton.icon(
+                                    onPressed: !widget.canHostCollab || _busy
+                                        ? null
+                                        : () => _run(() async {
+                                              await widget.collab
+                                                  .createRoomForPage(
+                                                pageId: widget.pageId,
+                                              );
+                                            }),
+                                    icon: const Icon(
+                                      Icons.add_home_work_outlined,
+                                    ),
+                                    label: Text(l10n.collabCreateRoom),
+                                  ),
+                                  if (!widget.canHostCollab) ...[
+                                    const SizedBox(height: 8),
+                                    Text(
+                                      l10n.collabHostRequiresPlan,
+                                      style:
+                                          theme.textTheme.bodySmall?.copyWith(
+                                        color: scheme.onSurfaceVariant,
+                                      ),
+                                    ),
+                                  ],
+                                  const SizedBox(height: 12),
+                                  TextField(
+                                    controller: _joinCodeCtrl,
+                                    textAlign: TextAlign.center,
+                                    style: theme.textTheme.titleMedium?.copyWith(
+                                      letterSpacing: 0.5,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                    decoration: InputDecoration(
+                                      labelText: l10n.collabJoinCodeLabel,
+                                      hintText: l10n.collabJoinCodeHint,
+                                      filled: true,
+                                      fillColor: scheme
+                                          .surfaceContainerHighest
+                                          .withValues(alpha: 0.25),
+                                      border: OutlineInputBorder(
+                                        borderRadius: BorderRadius.circular(14),
+                                        borderSide: BorderSide(
+                                          color: scheme.outlineVariant
+                                              .withValues(alpha: 0.35),
                                         ),
-                                      );
-                                    }
-                                  }),
-                            icon: const Icon(Icons.login_rounded),
-                            label: Text(l10n.collabJoinRoom),
+                                      ),
+                                    ),
+                                  ),
+                                  const SizedBox(height: 10),
+                                  OutlinedButton.icon(
+                                    onPressed: _busy
+                                        ? null
+                                        : () => _run(() async {
+                                              final ok = await widget.collab
+                                                  .joinRoomByCode(
+                                                pageId: widget.pageId,
+                                                joinCodeInput: _joinCodeCtrl.text,
+                                              );
+                                              if (context.mounted && !ok) {
+                                                ScaffoldMessenger.of(context)
+                                                    .showSnackBar(
+                                                  SnackBar(
+                                                    content: Text(
+                                                      l10n.collabJoinFailed,
+                                                    ),
+                                                  ),
+                                                );
+                                              }
+                                            }),
+                                    icon: const Icon(Icons.login_rounded),
+                                    label: Text(l10n.collabJoinRoom),
+                                  ),
+                                ],
+                              ),
+                            ),
                           ),
                         ),
                       ],

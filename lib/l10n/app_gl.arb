@@ -575,6 +575,38 @@
   "exit": "Saír",
   "trayMenuCloseApplication": "Pechar aplicación",
   "keyboardShortcutsSection": "Teclado (na app)",
+  "tasksCaptureSettingsSection": "Tarefas (captura rápida)",
+  "taskInboxPageTitle": "Bandexa de tarefas",
+  "taskInboxPageSubtitle": "Páxina onde se gardan as tarefas engadidas con captura rápida.",
+  "taskInboxNone": "Sen definir (créase ao gardar a primeira)",
+  "taskInboxDefaultTitle": "Bandexa de tarefas",
+  "taskAliasManageTitle": "Alias de destino",
+  "taskAliasManageSubtitle": "Usa `#etiqueta` ou `@etiqueta` ao final da captura. Define a clave sen símbolo (ex. traballo) e a páxina destino.",
+  "taskAliasAddButton": "Engadir alias",
+  "taskAliasTagLabel": "Etiqueta",
+  "taskAliasTargetLabel": "Páxina",
+  "taskAliasDeleteTooltip": "Quitar",
+  "taskQuickAddTitle": "Captura rápida de tarefa",
+  "taskQuickAddHint": "Ex.: Mercar leite mañá alta #traballo. Tamén: due:2026-04-20, p1, en progreso.",
+  "taskQuickAddConfirm": "Engadir",
+  "taskQuickAddSuccess": "Tarefa engadida.",
+  "taskQuickAddAliasTargetMissing": "A páxina dese alias xa non existe.",
+  "taskHubTitle": "Todas as tarefas",
+  "taskHubClose": "Pechar vista",
+  "taskHubDashboardHelpTitle": "Ideas tipo dashboard",
+  "taskHubDashboardHelpBody": "Crea unha páxina co bloque columnas e enlaza páxinas de listas por contexto, ou usa un bloque base de datos con datas e estados para un taboleiro.",
+  "taskHubEmpty": "Non hai tarefas neste caderno.",
+  "taskHubFilterAll": "Todas",
+  "taskHubFilterActive": "Pendentes",
+  "taskHubFilterDone": "Feitas",
+  "taskHubFilterDueToday": "Vencen hoxe",
+  "taskHubFilterDueWeek": "Esta semana",
+  "taskHubFilterOverdue": "Vencidas",
+  "taskHubOpen": "Abrir",
+  "taskHubMarkDone": "Feito",
+  "taskHubIncludeTodos": "Incluír checklists",
+  "sidebarQuickAddTask": "Tarefa rápida",
+  "sidebarTaskHub": "Todas as tarefas",
   "shortcutTestAction": "Proba",
   "shortcutChangeAction": "Cambiar",
   "shortcutTestHint": "Co foco fóra dun campo de texto, “{combo}” debería funcionar no espazo de traballo.",
@@ -1016,6 +1048,21 @@
   ,"taskSubtaskHint": "Subtarefa…"
   ,"taskRemoveSubtask": "Eliminar subtarefa"
   ,"taskAddSubtask": "Engadir subtarefa"
+  ,"title": "Título"
+  ,"description": "Descrición"
+  ,"priority": "Prioridade"
+  ,"status": "Estado"
+  ,"none": "Ningunha"
+  ,"low": "Baixa"
+  ,"medium": "Media"
+  ,"high": "Alta"
+  ,"startDate": "Data de inicio"
+  ,"dueDate": "Data de vencemento"
+  ,"timeSpentMinutes": "Tempo investido (minutos)"
+  ,"taskBlocked": "Bloqueada"
+  ,"taskBlockedReason": "Motivo do bloqueo"
+  ,"subtasks": "Subtarefas"
+  ,"add": "Engadir"
   ,"templateEmojiLabel": "Emoji"
   ,"aiGenericErrorWithReason": "Erro de IA: {reason}"
   ,"@aiGenericErrorWithReason": {"placeholders": {"reason": {}}}
@@ -1155,6 +1202,17 @@
   ,"blockTypeTableHint": "Filas e columnas"
   ,"blockTypeDatabaseLabel": "Base de datos"
   ,"blockTypeDatabaseHint": "Vista lista/táboa/táboiro"
+  ,"blockTypeKanbanLabel": "Kanban"
+  ,"blockTypeKanbanHint": "Vista táboiro para as tarefas desta páxina"
+  ,"kanbanBlockRowTitle": "Táboiro Kanban"
+  ,"kanbanBlockRowSubtitle": "Ao abrir a páxina móstrase o táboiro. Na barra usa «Abrir editor de bloques» para editar ou quitar este bloque."
+  ,"kanbanRowTodosExcluded": "Sen checklists"
+  ,"kanbanToolbarOpenEditor": "Abrir editor de bloques"
+  ,"kanbanToolbarAddTask": "Engadir tarefa"
+  ,"kanbanClassicModeBanner": "Editor de bloques: podes mover ou eliminar o bloque Kanban."
+  ,"kanbanBackToBoard": "Volver ao táboiro"
+  ,"kanbanMultipleBlocksSnack": "Esta páxina ten máis dun bloque Kanban; úsase o primeiro."
+  ,"kanbanEmptyColumn": "Sen tarefas"
   ,"blockTypeEquationLabel": "Ecuación (LaTeX)"
   ,"blockTypeEquationHint": "Fórmulas matemáticas"
   ,"blockTypeMermaidLabel": "Diagrama (Mermaid)"

@@ -28,6 +28,8 @@ import '../models/local_collab.dart';
 import '../models/folio_table_data.dart';
 import '../models/folio_toggle_data.dart';
 import '../models/folio_task_data.dart';
+import '../models/folio_kanban_data.dart';
+import '../models/vault_task_list_entry.dart';
 import '../models/folio_columns_data.dart';
 import '../models/folio_page_template.dart';
 import '../models/folio_template_button_data.dart';
@@ -351,6 +353,12 @@ class VaultSession extends ChangeNotifier {
   bool get aiEnabled => _aiService != null;
   bool get vaultUsesEncryption => _vaultUsesEncryption;
   bool get isUnlocked => _state == VaultFlowState.unlocked;
+
+  /// Para tests que llaman a [collectTaskBlocks] sin [bootstrap].
+  @visibleForTesting
+  void debugMarkUnlockedForTests() {
+    _state = VaultFlowState.unlocked;
+  }
   List<AiChatThreadData> get aiChatThreads => List.unmodifiable(_aiChatThreads);
   int get aiActiveChatIndex => _aiActiveChatIndex;
   AiChatThreadData get activeAiChat => _aiChatThreads[_aiActiveChatIndex];
@@ -3005,6 +3013,8 @@ class VaultSession extends ChangeNotifier {
       b.text = '';
     } else if (oldType == 'database' && newType != 'database') {
       b.text = '';
+    } else if (oldType == 'kanban' && newType != 'kanban') {
+      b.text = '';
     }
     b.type = newType;
     if (newType != 'todo') {
@@ -3031,6 +3041,10 @@ class VaultSession extends ChangeNotifier {
         b.text = db.encode();
       } else if (b.text.isEmpty || FolioDatabaseData.tryParse(b.text) == null) {
         b.text = FolioDatabaseData.empty().encode();
+      }
+    } else if (newType == 'kanban') {
+      if (b.text.isEmpty || FolioKanbanData.tryParse(b.text) == null) {
+        b.text = FolioKanbanData.defaults().encode();
       }
     } else if (newType == 'image' && oldType != 'image') {
       b.text = '';
@@ -3222,6 +3236,166 @@ class VaultSession extends ChangeNotifier {
     if (page == null) return;
     _rememberUndoBeforePageMutation(pageId);
     page.blocks.add(block);
+    notifyListeners();
+    scheduleSave(trackRevisionForPageId: pageId);
+  }
+
+  /// Añade un bloque `task` y devuelve su id, o cadena vacía si falla.
+  String appendTaskBlockReturningId({
+    required String pageId,
+    required FolioTaskData task,
+  }) {
+    final page = _pageById(pageId);
+    if (page == null) return '';
+    final bid = '${pageId}_${_uuid.v4()}';
+    _rememberUndoBeforePageMutation(pageId);
+    page.blocks.add(
+      FolioBlock(
+        id: bid,
+        type: 'task',
+        text: task.encode(),
+      ),
+    );
+    notifyListeners();
+    scheduleSave(trackRevisionForPageId: pageId);
+    return bid;
+  }
+
+  /// Crea una página raíz pensada como bandeja de tareas (emoji bandeja de entrada).
+  String createTaskInboxPage({required String title}) {
+    final id = _uuid.v4();
+    _pages.add(
+      FolioPage(
+        id: id,
+        title: title,
+        parentId: null,
+        emoji: '📥',
+        blocks: [
+          FolioBlock(id: '${id}_b0', type: 'paragraph', text: ''),
+        ],
+      ),
+    );
+    _pageOrderByParent
+        .putIfAbsent(_orderKeyForParent(null), () => <String>[])
+        .add(id);
+    notifyListeners();
+    scheduleSave(trackRevisionForPageId: id);
+    return id;
+  }
+
+  /// Lista bloques `task` y opcionalmente `todo`.
+  ///
+  /// Si [pageId] no es null, solo se considera esa página (si existe).
+  List<VaultTaskListEntry> collectTaskBlocks({
+    bool includeSimpleTodos = true,
+    String? pageId,
+  }) {
+    if (_state != VaultFlowState.unlocked) return const [];
+    final out = <VaultTaskListEntry>[];
+    final pages = pageId == null
+        ? _pages
+        : () {
+            final p = _pageById(pageId);
+            return p == null ? const <FolioPage>[] : <FolioPage>[p];
+          }();
+    for (final page in pages) {
+      final pageTitle = page.title.trim().isEmpty
+          ? _titleL10n.untitled
+          : page.title;
+      for (final block in page.blocks) {
+        if (block.type == 'task') {
+          final task = FolioTaskData.tryParse(block.text);
+          if (task == null) continue;
+          out.add(
+            VaultTaskListEntry(
+              pageId: page.id,
+              pageTitle: pageTitle,
+              blockId: block.id,
+              blockType: 'task',
+              task: task,
+            ),
+          );
+        } else if (includeSimpleTodos && block.type == 'todo') {
+          out.add(
+            VaultTaskListEntry(
+              pageId: page.id,
+              pageTitle: pageTitle,
+              blockId: block.id,
+              blockType: 'todo',
+              todoChecked: block.checked,
+              todoText: block.text,
+            ),
+          );
+        }
+      }
+    }
+    return out;
+  }
+
+  void setTaskBlockDone(
+    String pageId,
+    String blockId, {
+    required bool done,
+  }) {
+    final page = _pageById(pageId);
+    if (page == null) return;
+    final b = _blockById(page, blockId);
+    if (b == null) return;
+    _rememberUndoBeforePageMutation(pageId);
+    if (b.type == 'todo') {
+      b.checked = done;
+    } else if (b.type == 'task') {
+      final t = FolioTaskData.tryParse(b.text) ?? FolioTaskData.defaults();
+      b.text = t.copyWith(status: done ? 'done' : 'todo').encode();
+    } else {
+      return;
+    }
+    notifyListeners();
+    scheduleSave(trackRevisionForPageId: pageId);
+  }
+
+  /// Actualiza el estado de una tarjeta `task` o `todo` para columnas Kanban.
+  void setVaultTaskEntryKanbanStatus(
+    String pageId,
+    String blockId,
+    String status,
+  ) {
+    final page = _pageById(pageId);
+    if (page == null) return;
+    final b = _blockById(page, blockId);
+    if (b == null) return;
+    _rememberUndoBeforePageMutation(pageId);
+    if (b.type == 'todo') {
+      b.checked = status == 'done';
+    } else if (b.type == 'task') {
+      final t = FolioTaskData.tryParse(b.text) ?? FolioTaskData.defaults();
+      b.text = t.copyWith(status: status, columnId: status).encode();
+    } else {
+      return;
+    }
+    notifyListeners();
+    scheduleSave(trackRevisionForPageId: pageId);
+  }
+
+  /// Mueve una tarjeta `task` a una columna Kanban (dinámica).
+  void setTaskBlockColumnId(String pageId, String blockId, String columnId) {
+    final page = _pageById(pageId);
+    if (page == null) return;
+    final b = _blockById(page, blockId);
+    if (b == null || b.type != 'task') return;
+    _rememberUndoBeforePageMutation(pageId);
+    final t = FolioTaskData.tryParse(b.text) ?? FolioTaskData.defaults();
+    final normalized = columnId.trim();
+    final nextStatus =
+        (normalized == 'todo' || normalized == 'in_progress' || normalized == 'done')
+            ? normalized
+            : null;
+    b.text = t
+        .copyWith(
+          columnId: normalized.isEmpty ? null : normalized,
+          status: nextStatus ?? t.status,
+        )
+        .encode();
     notifyListeners();
     scheduleSave(trackRevisionForPageId: pageId);
   }

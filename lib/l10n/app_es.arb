@@ -573,6 +573,38 @@
   "exit": "Salir",
   "trayMenuCloseApplication": "Cerrar aplicación",
   "keyboardShortcutsSection": "Teclado (en la app)",
+  "tasksCaptureSettingsSection": "Tareas (captura rápida)",
+  "taskInboxPageTitle": "Bandeja de tareas",
+  "taskInboxPageSubtitle": "Página donde se guardan las tareas añadidas con captura rápida.",
+  "taskInboxNone": "Sin definir (se crea al guardar la primera)",
+  "taskInboxDefaultTitle": "Bandeja de tareas",
+  "taskAliasManageTitle": "Alias de destino",
+  "taskAliasManageSubtitle": "Usa `#etiqueta` o `@etiqueta` al final de la captura. Define aquí la clave sin símbolo (ej. trabajo) y la página destino.",
+  "taskAliasAddButton": "Añadir alias",
+  "taskAliasTagLabel": "Etiqueta",
+  "taskAliasTargetLabel": "Página",
+  "taskAliasDeleteTooltip": "Quitar",
+  "taskQuickAddTitle": "Captura rápida de tarea",
+  "taskQuickAddHint": "Ej.: Comprar leche mañana alta #trabajo. También: due:2026-04-20, p1, en progreso.",
+  "taskQuickAddConfirm": "Añadir",
+  "taskQuickAddSuccess": "Tarea añadida.",
+  "taskQuickAddAliasTargetMissing": "La página de ese alias ya no existe.",
+  "taskHubTitle": "Todas las tareas",
+  "taskHubClose": "Cerrar vista",
+  "taskHubDashboardHelpTitle": "Ideas tipo dashboard",
+  "taskHubDashboardHelpBody": "Crea una página con el bloque columnas y enlaza páginas de listas por contexto, o usa un bloque base de datos con fechas y estados para un tablero. La captura rápida y esta vista se inspiran en apps como Snippets (snippets.ch).",
+  "taskHubEmpty": "No hay tareas en esta libreta.",
+  "taskHubFilterAll": "Todas",
+  "taskHubFilterActive": "Pendientes",
+  "taskHubFilterDone": "Hechas",
+  "taskHubFilterDueToday": "Vencen hoy",
+  "taskHubFilterDueWeek": "Esta semana",
+  "taskHubFilterOverdue": "Vencidas",
+  "taskHubOpen": "Abrir",
+  "taskHubMarkDone": "Hecho",
+  "taskHubIncludeTodos": "Incluir checklists",
+  "sidebarQuickAddTask": "Tarea rápida",
+  "sidebarTaskHub": "Todas las tareas",
   "shortcutTestAction": "Probar",
   "shortcutChangeAction": "Cambiar",
   "shortcutTestHint": "Con el foco fuera de un campo de texto, “{combo}” debería funcionar en el escritorio.",
@@ -1014,6 +1046,21 @@
   ,"taskSubtaskHint": "Subtarea…"
   ,"taskRemoveSubtask": "Quitar subtarea"
   ,"taskAddSubtask": "Añadir subtarea"
+  ,"title": "Título"
+  ,"description": "Descripción"
+  ,"priority": "Prioridad"
+  ,"status": "Estado"
+  ,"none": "Ninguna"
+  ,"low": "Baja"
+  ,"medium": "Media"
+  ,"high": "Alta"
+  ,"startDate": "Fecha de inicio"
+  ,"dueDate": "Fecha límite"
+  ,"timeSpentMinutes": "Tiempo invertido (minutos)"
+  ,"taskBlocked": "Bloqueada"
+  ,"taskBlockedReason": "Motivo de bloqueo"
+  ,"subtasks": "Subtareas"
+  ,"add": "Añadir"
   ,"templateEmojiLabel": "Emoji"
   ,"aiGenericErrorWithReason": "Error IA: {reason}"
   ,"@aiGenericErrorWithReason": {"placeholders": {"reason": {}}}
@@ -1153,6 +1200,17 @@
   ,"blockTypeTableHint": "Filas y columnas"
   ,"blockTypeDatabaseLabel": "Base de datos"
   ,"blockTypeDatabaseHint": "Vista lista/tabla/tablero"
+  ,"blockTypeKanbanLabel": "Kanban"
+  ,"blockTypeKanbanHint": "Vista tablero para las tareas de esta página"
+  ,"kanbanBlockRowTitle": "Tablero Kanban"
+  ,"kanbanBlockRowSubtitle": "Al abrir la página verás el tablero. En la barra del tablero usa «Abrir editor de bloques» para editar o quitar este bloque."
+  ,"kanbanRowTodosExcluded": "Sin checklists"
+  ,"kanbanToolbarOpenEditor": "Abrir editor de bloques"
+  ,"kanbanToolbarAddTask": "Añadir tarea"
+  ,"kanbanClassicModeBanner": "Editor de bloques: puedes mover o eliminar el bloque Kanban."
+  ,"kanbanBackToBoard": "Volver al tablero"
+  ,"kanbanMultipleBlocksSnack": "Esta página tiene más de un bloque Kanban; se usa el primero."
+  ,"kanbanEmptyColumn": "Sin tareas"
   ,"blockTypeEquationLabel": "Ecuación (LaTeX)"
   ,"blockTypeEquationHint": "Fórmulas matemáticas"
   ,"blockTypeMermaidLabel": "Diagrama (Mermaid)"

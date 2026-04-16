@@ -1650,6 +1650,107 @@ class AppLocalizationsCa extends AppLocalizations {
   String get keyboardShortcutsSection => 'Teclat (a l\'app)';
 
   @override
+  String get tasksCaptureSettingsSection => 'Tasques (captura ràpida)';
+
+  @override
+  String get taskInboxPageTitle => 'Safata de tasques';
+
+  @override
+  String get taskInboxPageSubtitle =>
+      'Pàgina on es guarden les tasques afegides amb captura ràpida.';
+
+  @override
+  String get taskInboxNone => 'Sense definir (es crea en desar la primera)';
+
+  @override
+  String get taskInboxDefaultTitle => 'Safata de tasques';
+
+  @override
+  String get taskAliasManageTitle => 'Àlies de destinació';
+
+  @override
+  String get taskAliasManageSubtitle =>
+      'Usa `#etiqueta` o `@etiqueta` al final de la captura. Defineix la clau sense símbol (ex. feina) i la pàgina destí.';
+
+  @override
+  String get taskAliasAddButton => 'Afegir àlies';
+
+  @override
+  String get taskAliasTagLabel => 'Etiqueta';
+
+  @override
+  String get taskAliasTargetLabel => 'Pàgina';
+
+  @override
+  String get taskAliasDeleteTooltip => 'Treure';
+
+  @override
+  String get taskQuickAddTitle => 'Captura ràpida de tasca';
+
+  @override
+  String get taskQuickAddHint =>
+      'Ex.: Comprar llet demà alta #feina. També: due:2026-04-20, p1, en progrés.';
+
+  @override
+  String get taskQuickAddConfirm => 'Afegir';
+
+  @override
+  String get taskQuickAddSuccess => 'Tasca afegida.';
+
+  @override
+  String get taskQuickAddAliasTargetMissing =>
+      'La pàgina d\'aquest àlies ja no existeix.';
+
+  @override
+  String get taskHubTitle => 'Totes les tasques';
+
+  @override
+  String get taskHubClose => 'Tancar vista';
+
+  @override
+  String get taskHubDashboardHelpTitle => 'Idees tipus dashboard';
+
+  @override
+  String get taskHubDashboardHelpBody =>
+      'Crea una pàgina amb el bloc columnes i enllaça pàgines de llistes per context, o usa un bloc base de dades amb dates i estats per un tauler. La captura ràpida i aquesta vista s\'inspiren en apps com Snippets (snippets.ch).';
+
+  @override
+  String get taskHubEmpty => 'No hi ha tasques en aquesta llibreta.';
+
+  @override
+  String get taskHubFilterAll => 'Totes';
+
+  @override
+  String get taskHubFilterActive => 'Pendents';
+
+  @override
+  String get taskHubFilterDone => 'Fetes';
+
+  @override
+  String get taskHubFilterDueToday => 'Vençen avui';
+
+  @override
+  String get taskHubFilterDueWeek => 'Aquesta setmana';
+
+  @override
+  String get taskHubFilterOverdue => 'Vençudes';
+
+  @override
+  String get taskHubOpen => 'Obrir';
+
+  @override
+  String get taskHubMarkDone => 'Fet';
+
+  @override
+  String get taskHubIncludeTodos => 'Incloure checklists';
+
+  @override
+  String get sidebarQuickAddTask => 'Tasca ràpida';
+
+  @override
+  String get sidebarTaskHub => 'Totes les tasques';
+
+  @override
   String get shortcutTestAction => 'Prova';
 
   @override
@@ -3063,6 +3164,51 @@ class AppLocalizationsCa extends AppLocalizations {
   String get taskAddSubtask => 'Afegeix una subtasca';
 
   @override
+  String get title => 'Títol';
+
+  @override
+  String get description => 'Descripció';
+
+  @override
+  String get priority => 'Prioritat';
+
+  @override
+  String get status => 'Estat';
+
+  @override
+  String get none => 'Cap';
+
+  @override
+  String get low => 'Baixa';
+
+  @override
+  String get medium => 'Mitjana';
+
+  @override
+  String get high => 'Alta';
+
+  @override
+  String get startDate => 'Data d\'inici';
+
+  @override
+  String get dueDate => 'Data de venciment';
+
+  @override
+  String get timeSpentMinutes => 'Temps invertit (minuts)';
+
+  @override
+  String get taskBlocked => 'Bloquejada';
+
+  @override
+  String get taskBlockedReason => 'Motiu del bloqueig';
+
+  @override
+  String get subtasks => 'Subtasques';
+
+  @override
+  String get add => 'Afegeix';
+
+  @override
   String get templateEmojiLabel => 'Emoji';
 
   @override
@@ -3480,6 +3626,43 @@ class AppLocalizationsCa extends AppLocalizations {
 
   @override
   String get blockTypeDatabaseHint => 'Vista de llista/taula/tauler';
+
+  @override
+  String get blockTypeKanbanLabel => 'Kanban';
+
+  @override
+  String get blockTypeKanbanHint =>
+      'Vista de tauler per a les tasques d\'aquesta pàgina';
+
+  @override
+  String get kanbanBlockRowTitle => 'Tauler Kanban';
+
+  @override
+  String get kanbanBlockRowSubtitle =>
+      'En obrir la pàgina es mostra el tauler. A la barra del tauler usa «Obrir editor de blocs» per editar o eliminar aquest bloc.';
+
+  @override
+  String get kanbanRowTodosExcluded => 'Sense checklists';
+
+  @override
+  String get kanbanToolbarOpenEditor => 'Obrir editor de blocs';
+
+  @override
+  String get kanbanToolbarAddTask => 'Afegir tasca';
+
+  @override
+  String get kanbanClassicModeBanner =>
+      'Editor de blocs: pots moure o eliminar el bloc Kanban.';
+
+  @override
+  String get kanbanBackToBoard => 'Tornar al tauler';
+
+  @override
+  String get kanbanMultipleBlocksSnack =>
+      'Aquesta pàgina té més d\'un bloc Kanban; s\'utilitza el primer.';
+
+  @override
+  String get kanbanEmptyColumn => 'Sense tasques';
 
   @override
   String get blockTypeEquationLabel => 'Equació (LaTeX)';

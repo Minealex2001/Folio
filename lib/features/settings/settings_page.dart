@@ -152,6 +152,9 @@ class _SettingsPageState extends State<SettingsPage> {
   final CustomIconImportService _customIconImportService =
       CustomIconImportService();
 
+  String? _taskInboxPageIdLoaded;
+  Map<String, String> _taskAliasesLoaded = const {};
+
   @override
   void initState() {
     super.initState();
@@ -177,6 +180,104 @@ class _SettingsPageState extends State<SettingsPage> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) unawaited(_refreshCloudBackupCount());
     });
+    unawaited(_loadTaskCapturePrefs());
+  }
+
+  Future<void> _loadTaskCapturePrefs() async {
+    if (!_s.isUnlocked) return;
+    final vid = _s.activeVaultId;
+    final inbox = await _app.getTaskInboxPageId(vid);
+    final aliases = await _app.getTaskAliasPageMap(vid);
+    if (!mounted) return;
+    setState(() {
+      _taskInboxPageIdLoaded = inbox;
+      _taskAliasesLoaded = Map<String, String>.from(aliases);
+    });
+  }
+
+  Future<void> _addTaskAliasDialog() async {
+    final l10n = AppLocalizations.of(context);
+    var tag = '';
+    String? pageId = _s.pages.isEmpty ? null : _s.pages.first.id;
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) {
+        return StatefulBuilder(
+          builder: (ctx, setSt) {
+            return FolioDialog(
+              title: Text(l10n.taskAliasAddButton),
+              content: SizedBox(
+                width: 400,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    TextField(
+                      autofocus: true,
+                      decoration: InputDecoration(
+                        labelText: l10n.taskAliasTagLabel,
+                        hintText: 'trabajo',
+                      ),
+                      onChanged: (v) => tag = v,
+                    ),
+                    const SizedBox(height: 12),
+                    DropdownButtonFormField<String>(
+                      // ignore: deprecated_member_use
+                      value: pageId,
+                      decoration: InputDecoration(
+                        labelText: l10n.taskAliasTargetLabel,
+                        border: const OutlineInputBorder(),
+                      ),
+                      items: _s.pages
+                          .map(
+                            (p) => DropdownMenuItem<String>(
+                              value: p.id,
+                              child: Text(
+                                p.title.trim().isEmpty
+                                    ? l10n.untitledFallback
+                                    : p.title,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                          )
+                          .toList(),
+                      onChanged: (v) => setSt(() => pageId = v),
+                    ),
+                  ],
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(ctx, false),
+                  child: Text(l10n.cancel),
+                ),
+                FilledButton(
+                  onPressed: () => Navigator.pop(ctx, true),
+                  child: Text(l10n.save),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+    if (ok != true || !mounted) return;
+    final key = tag.trim().toLowerCase().replaceAll(RegExp(r'^[#@]+'), '');
+    final pid = pageId?.trim() ?? '';
+    if (key.isEmpty || pid.isEmpty) return;
+    final next = Map<String, String>.from(_taskAliasesLoaded)..[key] = pid;
+    await _app.setTaskAliasPageMap(_s.activeVaultId, next);
+    if (mounted) {
+      setState(() => _taskAliasesLoaded = next);
+    }
+  }
+
+  Future<void> _removeTaskAlias(String key) async {
+    final next = Map<String, String>.from(_taskAliasesLoaded)..remove(key);
+    await _app.setTaskAliasPageMap(_s.activeVaultId, next);
+    if (mounted) {
+      setState(() => _taskAliasesLoaded = next);
+    }
   }
 
   @override
@@ -4163,6 +4264,103 @@ class _SettingsPageState extends State<SettingsPage> {
                                 subtitle: Text(l10n.deleteOtherVaultTitle),
                                 onTap: _deleteOtherVault,
                               ),
+                              if (_s.isUnlocked) ...[
+                                const Divider(height: 1),
+                                _SettingsSubsectionTitle(
+                                  title: l10n.tasksCaptureSettingsSection,
+                                  scheme: scheme,
+                                  topPadding: 8,
+                                ),
+                                const Divider(height: 1),
+                                ListTile(
+                                  leading: const Icon(Icons.inbox_rounded),
+                                  title: Text(l10n.taskInboxPageTitle),
+                                  subtitle: Text(l10n.taskInboxPageSubtitle),
+                                ),
+                                Padding(
+                                  padding: const EdgeInsets.fromLTRB(
+                                    16,
+                                    0,
+                                    16,
+                                    8,
+                                  ),
+                                  child: DropdownButtonFormField<String?>(
+                                    // ignore: deprecated_member_use
+                                    value:
+                                        _taskInboxPageIdLoaded != null &&
+                                            _s.pages.any(
+                                              (p) =>
+                                                  p.id == _taskInboxPageIdLoaded,
+                                            )
+                                        ? _taskInboxPageIdLoaded
+                                        : null,
+                                    decoration: InputDecoration(
+                                      labelText: l10n.taskInboxPageTitle,
+                                      border: const OutlineInputBorder(),
+                                    ),
+                                    items: [
+                                      DropdownMenuItem<String?>(
+                                        value: null,
+                                        child: Text(l10n.taskInboxNone),
+                                      ),
+                                      ..._s.pages.map(
+                                        (p) => DropdownMenuItem<String?>(
+                                          value: p.id,
+                                          child: Text(
+                                            p.title.trim().isEmpty
+                                                ? l10n.untitledFallback
+                                                : p.title,
+                                            maxLines: 1,
+                                            overflow: TextOverflow.ellipsis,
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                    onChanged: (v) async {
+                                      await _app.setTaskInboxPageId(
+                                        _s.activeVaultId,
+                                        v,
+                                      );
+                                      if (mounted) {
+                                        setState(
+                                          () => _taskInboxPageIdLoaded = v,
+                                        );
+                                      }
+                                    },
+                                  ),
+                                ),
+                                ListTile(
+                                  leading: const Icon(Icons.tag_rounded),
+                                  title: Text(l10n.taskAliasManageTitle),
+                                  subtitle: Text(l10n.taskAliasManageSubtitle),
+                                  trailing: TextButton(
+                                    onPressed: _addTaskAliasDialog,
+                                    child: Text(l10n.taskAliasAddButton),
+                                  ),
+                                ),
+                                if (_taskAliasesLoaded.isNotEmpty)
+                                  ..._taskAliasesLoaded.entries.map((e) {
+                                    final matches = _s.pages
+                                        .where((x) => x.id == e.value)
+                                        .toList();
+                                    final p = matches.isEmpty ? null : matches.first;
+                                    final pageLabel = p == null
+                                        ? e.value
+                                        : (p.title.trim().isEmpty
+                                              ? l10n.untitledFallback
+                                              : p.title);
+                                    return ListTile(
+                                      title: Text('#${e.key}'),
+                                      subtitle: Text(pageLabel),
+                                      trailing: IconButton(
+                                        tooltip: l10n.taskAliasDeleteTooltip,
+                                        icon: const Icon(Icons.delete_outline),
+                                        onPressed: () =>
+                                            _removeTaskAlias(e.key),
+                                      ),
+                                    );
+                                  }),
+                              ],
                             ],
                           ),
                         ),

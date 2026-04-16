@@ -1794,4 +1794,77 @@ class AppSettings extends ChangeNotifier {
     notifyListeners();
     await _persistIntegrationCustomIconsByApp();
   }
+
+  static String _taskInboxPagePrefsKey(String vaultId) =>
+      'folio_task_inbox_page_v1_${vaultId.trim()}';
+
+  static String _taskAliasesPrefsKey(String vaultId) =>
+      'folio_task_aliases_v1_${vaultId.trim()}';
+
+  /// Página donde se añaden las tareas de captura rápida para esta libreta.
+  Future<String?> getTaskInboxPageId(String? vaultId) async {
+    final id = (vaultId ?? '').trim();
+    if (id.isEmpty) return null;
+    final p = await SharedPreferences.getInstance();
+    final v = (p.getString(_taskInboxPagePrefsKey(id)) ?? '').trim();
+    return v.isEmpty ? null : v;
+  }
+
+  Future<void> setTaskInboxPageId(String? vaultId, String? pageId) async {
+    final id = (vaultId ?? '').trim();
+    if (id.isEmpty) return;
+    final p = await SharedPreferences.getInstance();
+    final pid = pageId?.trim() ?? '';
+    if (pid.isEmpty) {
+      await p.remove(_taskInboxPagePrefsKey(id));
+    } else {
+      await p.setString(_taskInboxPagePrefsKey(id), pid);
+    }
+  }
+
+  /// Mapeo etiqueta (sin `#`, minúsculas) o `#tag` → id de página destino.
+  Future<Map<String, String>> getTaskAliasPageMap(String? vaultId) async {
+    final id = (vaultId ?? '').trim();
+    if (id.isEmpty) return const {};
+    final p = await SharedPreferences.getInstance();
+    final raw = p.getString(_taskAliasesPrefsKey(id));
+    if (raw == null || raw.trim().isEmpty) return const {};
+    try {
+      final decoded = jsonDecode(raw);
+      if (decoded is! Map) return const {};
+      final out = <String, String>{};
+      for (final e in decoded.entries) {
+        final k = e.key.toString().trim().toLowerCase();
+        final v = e.value.toString().trim();
+        if (k.isNotEmpty && v.isNotEmpty) {
+          out[k] = v;
+        }
+      }
+      return out;
+    } catch (_) {
+      return const {};
+    }
+  }
+
+  Future<void> setTaskAliasPageMap(
+    String? vaultId,
+    Map<String, String> map,
+  ) async {
+    final id = (vaultId ?? '').trim();
+    if (id.isEmpty) return;
+    final p = await SharedPreferences.getInstance();
+    final clean = <String, String>{};
+    for (final e in map.entries) {
+      final k = e.key.trim().toLowerCase();
+      final v = e.value.trim();
+      if (k.isNotEmpty && v.isNotEmpty) {
+        clean[k] = v;
+      }
+    }
+    if (clean.isEmpty) {
+      await p.remove(_taskAliasesPrefsKey(id));
+    } else {
+      await p.setString(_taskAliasesPrefsKey(id), jsonEncode(clean));
+    }
+  }
 }

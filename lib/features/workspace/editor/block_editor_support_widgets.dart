@@ -1,9 +1,58 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 
 import '../../../app/ui_tokens.dart';
 import '../../../l10n/generated/app_localizations.dart';
 import '../../../models/folio_page.dart';
 import 'block_type_catalog.dart';
+
+/// Abre el selector de tipos como un menú anclado (`showMenu`) al widget
+/// representado por [anchorContext]. Útil en escritorio para acciones rápidas
+/// (p. ej. “Añadir bloque”) sin bottom-sheet.
+Future<String?> showBlockTypePickerMenu({
+  required BuildContext anchorContext,
+  Set<String>? allowedTypeKeys,
+}) async {
+  final theme = Theme.of(anchorContext);
+  final scheme = theme.colorScheme;
+
+  final buttonBox = anchorContext.findRenderObject() as RenderBox?;
+  final overlayBox =
+      Overlay.of(anchorContext).context.findRenderObject() as RenderBox?;
+  if (buttonBox == null || overlayBox == null) return null;
+
+  final buttonRect =
+      buttonBox.localToGlobal(Offset.zero, ancestor: overlayBox) &
+      buttonBox.size;
+  final position = RelativeRect.fromRect(
+    buttonRect,
+    Offset.zero & overlayBox.size,
+  );
+
+  final maxW = math.min(520.0, overlayBox.size.width - 24.0);
+  final menuW = maxW.clamp(360.0, 520.0);
+  final maxH = math.min(640.0, overlayBox.size.height - 24.0);
+
+  return showMenu<String?>(
+    context: anchorContext,
+    position: position,
+    constraints: BoxConstraints.tightFor(width: menuW),
+    items: [
+      PopupMenuItem<String?>(
+        enabled: false,
+        padding: EdgeInsets.zero,
+        child: ConstrainedBox(
+          constraints: BoxConstraints(maxHeight: maxH),
+          child: _BlockTypePickerMenuBody(
+            scheme: scheme,
+            allowedTypeKeys: allowedTypeKeys,
+          ),
+        ),
+      ),
+    ],
+  );
+}
 
 /// Panel flotante alineado con menús slash, menciones y la barra de formato.
 class BlockEditorFloatingPanel extends StatelessWidget {
@@ -551,6 +600,185 @@ class BlockTypePickerSheetState extends State<BlockTypePickerSheet> {
   }
 }
 
+/// Variante de escritorio/tablet: diálogo centrado y con tamaño acotado.
+class BlockTypePickerDialog extends StatefulWidget {
+  const BlockTypePickerDialog({super.key});
+
+  @override
+  State<BlockTypePickerDialog> createState() => _BlockTypePickerDialogState();
+}
+
+class _BlockTypePickerDialogState extends State<BlockTypePickerDialog> {
+  final _filter = TextEditingController();
+  final _scrollController = ScrollController();
+  var _query = '';
+
+  @override
+  void initState() {
+    super.initState();
+    _filter.addListener(() => setState(() => _query = _filter.text));
+  }
+
+  @override
+  void dispose() {
+    _filter.dispose();
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    final l10n = AppLocalizations.of(context);
+    final filtered = filterBlockTypeCatalog(_query, l10n);
+
+    final maxW = math.min(560.0, MediaQuery.sizeOf(context).width - 24.0);
+    final maxH = math.min(720.0, MediaQuery.sizeOf(context).height - 24.0);
+
+    return Dialog(
+      insetPadding: const EdgeInsets.all(12),
+      backgroundColor: Colors.transparent,
+      child: ConstrainedBox(
+        constraints: BoxConstraints(maxWidth: maxW, maxHeight: maxH),
+        child: Material(
+          color: scheme.surface,
+          elevation: FolioElevation.menu,
+          shadowColor: scheme.shadow.withValues(alpha: 0.25),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(24),
+            side: BorderSide(
+              color: scheme.outlineVariant.withValues(alpha: FolioAlpha.border),
+            ),
+          ),
+          clipBehavior: Clip.antiAlias,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(20, 18, 12, 6),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            l10n.blockTypesSheetTitle,
+                            style: theme.textTheme.titleLarge?.copyWith(
+                              fontWeight: FontWeight.w700,
+                              letterSpacing: -0.3,
+                            ),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            l10n.blockTypesSheetSubtitle,
+                            style: theme.textTheme.bodyMedium?.copyWith(
+                              color: scheme.onSurfaceVariant,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    IconButton(
+                      tooltip: MaterialLocalizations.of(context).closeButtonTooltip,
+                      onPressed: () => Navigator.pop(context),
+                      icon: const Icon(Icons.close_rounded),
+                    ),
+                  ],
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
+                child: TextField(
+                  controller: _filter,
+                  autofocus: true,
+                  decoration: InputDecoration(
+                    hintText: l10n.searchByNameOrShortcut,
+                    filled: true,
+                    fillColor: scheme.surfaceContainerHighest.withValues(
+                      alpha: 0.42,
+                    ),
+                    prefixIcon: Icon(
+                      Icons.search_rounded,
+                      color: scheme.onSurfaceVariant,
+                    ),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(16),
+                      borderSide: BorderSide.none,
+                    ),
+                    contentPadding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 14,
+                    ),
+                  ),
+                ),
+              ),
+              Expanded(
+                child: filtered.isEmpty
+                    ? Center(
+                        child: Padding(
+                          padding: const EdgeInsets.all(32),
+                          child: Text(
+                            l10n.blockTypeFilterEmpty,
+                            textAlign: TextAlign.center,
+                            style: theme.textTheme.bodyLarge?.copyWith(
+                              color: scheme.onSurfaceVariant,
+                            ),
+                          ),
+                        ),
+                      )
+                    : ListView(
+                        controller: _scrollController,
+                        padding: const EdgeInsets.fromLTRB(12, 0, 12, 16),
+                        children: _sectionedTiles(
+                          theme,
+                          scheme,
+                          l10n,
+                          filtered,
+                        ),
+                      ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  List<Widget> _sectionedTiles(
+    ThemeData theme,
+    ColorScheme scheme,
+    AppLocalizations l10n,
+    List<BlockTypeDef> items,
+  ) {
+    final children = <Widget>[];
+    BlockTypeSection? previousSection;
+    for (final definition in items) {
+      if (previousSection != definition.section) {
+        previousSection = definition.section;
+        children.add(
+          Padding(
+            padding: const EdgeInsets.fromLTRB(8, 14, 8, 6),
+            child: Text(
+              blockSectionTitle(definition.section, l10n),
+              style: theme.textTheme.labelLarge?.copyWith(
+                color: scheme.primary,
+                fontWeight: FontWeight.w800,
+                letterSpacing: 0.3,
+              ),
+            ),
+          ),
+        );
+      }
+      children.add(
+        _BlockTypeTile(definition: definition, scheme: scheme, theme: theme),
+      );
+    }
+    return children;
+  }
+}
+
 class _BlockTypeTile extends StatelessWidget {
   const _BlockTypeTile({
     required this.definition,
@@ -647,6 +875,161 @@ class _BlockTypeTile extends StatelessWidget {
               ],
             ),
           ),
+        ),
+      ),
+    );
+  }
+}
+
+class _BlockTypePickerMenuBody extends StatefulWidget {
+  const _BlockTypePickerMenuBody({
+    required this.scheme,
+    this.allowedTypeKeys,
+  });
+
+  final ColorScheme scheme;
+  final Set<String>? allowedTypeKeys;
+
+  @override
+  State<_BlockTypePickerMenuBody> createState() => _BlockTypePickerMenuBodyState();
+}
+
+class _BlockTypePickerMenuBodyState extends State<_BlockTypePickerMenuBody> {
+  final _filter = TextEditingController();
+  final _scrollController = ScrollController();
+  var _query = '';
+
+  @override
+  void initState() {
+    super.initState();
+    _filter.addListener(() => setState(() => _query = _filter.text));
+  }
+
+  @override
+  void dispose() {
+    _filter.dispose();
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  List<BlockTypeDef> _filtered(AppLocalizations l10n) {
+    final all = filterBlockTypeCatalog(_query, l10n);
+    final allowed = widget.allowedTypeKeys;
+    if (allowed == null) return all;
+    return all.where((d) => allowed.contains(d.key)).toList();
+  }
+
+  List<Widget> _sectionedTiles(
+    ThemeData theme,
+    ColorScheme scheme,
+    AppLocalizations l10n,
+    List<BlockTypeDef> items,
+  ) {
+    final children = <Widget>[];
+    BlockTypeSection? previousSection;
+    for (final definition in items) {
+      if (previousSection != definition.section) {
+        previousSection = definition.section;
+        children.add(
+          Padding(
+            padding: const EdgeInsets.fromLTRB(12, 14, 12, 6),
+            child: Text(
+              blockSectionTitle(definition.section, l10n),
+              style: theme.textTheme.labelLarge?.copyWith(
+                color: scheme.primary,
+                fontWeight: FontWeight.w800,
+                letterSpacing: 0.3,
+              ),
+            ),
+          ),
+        );
+      }
+      children.add(
+        _BlockTypeTile(definition: definition, scheme: scheme, theme: theme),
+      );
+    }
+    return children;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final scheme = widget.scheme;
+    final l10n = AppLocalizations.of(context);
+    final filtered = _filtered(l10n);
+
+    return BlockEditorFloatingPanel(
+      scheme: scheme,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(12, 12, 12, 12),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(8, 2, 8, 10),
+              child: Text(
+                l10n.blockTypesSheetTitle,
+                style: theme.textTheme.titleMedium?.copyWith(
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: -0.2,
+                ),
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 4),
+              child: TextField(
+                controller: _filter,
+                autofocus: true,
+                decoration: InputDecoration(
+                  hintText: l10n.searchByNameOrShortcut,
+                  filled: true,
+                  fillColor: scheme.surfaceContainerHighest.withValues(
+                    alpha: 0.35,
+                  ),
+                  prefixIcon: Icon(
+                    Icons.search_rounded,
+                    color: scheme.onSurfaceVariant,
+                  ),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(14),
+                    borderSide: BorderSide.none,
+                  ),
+                  contentPadding: const EdgeInsets.symmetric(
+                    horizontal: 14,
+                    vertical: 12,
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(height: 8),
+            Flexible(
+              child: filtered.isEmpty
+                  ? Padding(
+                      padding: const EdgeInsets.all(22),
+                      child: Center(
+                        child: Text(
+                          l10n.blockTypeFilterEmpty,
+                          textAlign: TextAlign.center,
+                          style: theme.textTheme.bodyMedium?.copyWith(
+                            color: scheme.onSurfaceVariant,
+                          ),
+                        ),
+                      ),
+                    )
+                  : ListView(
+                      controller: _scrollController,
+                      shrinkWrap: true,
+                      padding: const EdgeInsets.fromLTRB(4, 0, 4, 6),
+                      children: _sectionedTiles(
+                        theme,
+                        scheme,
+                        l10n,
+                        filtered,
+                      ),
+                    ),
+            ),
+          ],
         ),
       ),
     );

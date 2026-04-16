@@ -5,9 +5,13 @@ import '../block_type_catalog.dart';
 
 /// `null` si el texto del bloque no es comando `/…`; si no, filtro tras la `/` (puede ser vacío).
 String? slashFilterFromBlockText(String text) {
-  if (!text.startsWith('/')) return null;
-  if (text.contains('\n')) return null;
-  final tail = text.substring(1);
+  // Quill/WYSIWYG suele añadir `\n` final aunque sea una sola línea.
+  // Para slash-commands queremos permitir SOLO saltos finales, pero seguir
+  // rechazando comandos multilínea reales.
+  final t = text.replaceAll(RegExp(r'[\r\n]+$'), '');
+  if (!t.startsWith('/')) return null;
+  if (t.contains('\n') || t.contains('\r')) return null;
+  final tail = t.substring(1);
   if (tail.contains(' ')) return null;
   return tail;
 }

@@ -5,6 +5,7 @@ import '../../models/folio_page.dart';
 import '../../models/folio_table_data.dart';
 import '../../models/folio_toggle_data.dart';
 import '../../models/folio_task_data.dart';
+import '../../models/folio_kanban_data.dart';
 
 enum FolioMarkdownImportMode {
   newPage,
@@ -687,6 +688,9 @@ class FolioMarkdownCodec {
           '',
           '</details>',
         ].join('\n');
+      case 'kanban':
+        _resetNumberedCounters(numberedCounters, 0);
+        return _renderKanbanExport(block, page);
       case 'database':
       case 'column_list':
       case 'template_button':
@@ -699,6 +703,32 @@ class FolioMarkdownCodec {
         _resetNumberedCounters(numberedCounters, 0);
         return block.text.trim();
     }
+  }
+
+  static String _renderKanbanExport(FolioBlock block, FolioPage page) {
+    final data =
+        FolioKanbanData.tryParse(block.text) ?? FolioKanbanData.defaults();
+    final lines = <String>[
+      '<!-- folio:kanban (tasks on this page) -->',
+      if (!data.includeSimpleTodos) '<!-- kanban: checklist items excluded -->',
+    ];
+    var taskLines = 0;
+    for (final b in page.blocks) {
+      if (b.type == 'task') {
+        final task = FolioTaskData.tryParse(b.text);
+        if (task == null) continue;
+        final taskDone = task.status == 'done';
+        lines.add('- [${taskDone ? 'x' : ' '}] ${task.title.trim()}');
+        taskLines++;
+      } else if (data.includeSimpleTodos && b.type == 'todo') {
+        lines.add('- [${b.checked == true ? 'x' : ' '}] ${b.text.trim()}');
+        taskLines++;
+      }
+    }
+    if (taskLines == 0) {
+      lines.add('<!-- (no task/todo blocks on page) -->');
+    }
+    return lines.join('\n');
   }
 
   static String _renderTable(FolioBlock block) {
