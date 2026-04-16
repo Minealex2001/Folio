@@ -1646,6 +1646,108 @@ class AppLocalizationsEu extends AppLocalizations {
   String get keyboardShortcutsSection => 'Teklatua (aplikazioan)';
 
   @override
+  String get tasksCaptureSettingsSection => 'Zereginak (azken harrapaketa)';
+
+  @override
+  String get taskInboxPageTitle => 'Zereginen sarrerako orria';
+
+  @override
+  String get taskInboxPageSubtitle =>
+      'Azken harrapaketaz gehitutako zereginak gordetzen diren orria.';
+
+  @override
+  String get taskInboxNone =>
+      'Definitu gabe (lehenengoa gordetzean sortzen da)';
+
+  @override
+  String get taskInboxDefaultTitle => 'Zereginen sarrerako orria';
+
+  @override
+  String get taskAliasManageTitle => 'Helburuko aliasak';
+
+  @override
+  String get taskAliasManageSubtitle =>
+      'Erabili `#etiketa` edo `@etiketa` amaieran. Definitu gakoa ikurrik gabe (adib. lana) eta helburuko orria.';
+
+  @override
+  String get taskAliasAddButton => 'Gehitu aliasa';
+
+  @override
+  String get taskAliasTagLabel => 'Etiketa';
+
+  @override
+  String get taskAliasTargetLabel => 'Orria';
+
+  @override
+  String get taskAliasDeleteTooltip => 'Kendu';
+
+  @override
+  String get taskQuickAddTitle => 'Zeregin azken harrapaketa';
+
+  @override
+  String get taskQuickAddHint =>
+      'Adib.: Erosi esnea bihar altua #lana. Halaber: due:2026-04-20, p1, aurrerapenean.';
+
+  @override
+  String get taskQuickAddConfirm => 'Gehitu';
+
+  @override
+  String get taskQuickAddSuccess => 'Zeregina gehituta.';
+
+  @override
+  String get taskQuickAddAliasTargetMissing =>
+      'Aliasaren helburuko orria jada ez dago.';
+
+  @override
+  String get taskHubTitle => 'Zeregin guztiak';
+
+  @override
+  String get taskHubClose => 'Itxi ikuspegia';
+
+  @override
+  String get taskHubDashboardHelpTitle => 'Dashboard estiloko ideiak';
+
+  @override
+  String get taskHubDashboardHelpBody =>
+      'Sortu zutabe-bloke bat duen orria eta lotu zerrenda-orriak testuinguruka, edo erabili datu-base bloke bat data eta egoerekin. Azken harrapaketa eta ikuspegi hau Snippets bezalako aplikazioetan inspiratuta daude.';
+
+  @override
+  String get taskHubEmpty => 'Ez dago zereginik liburu honetan.';
+
+  @override
+  String get taskHubFilterAll => 'Guztiak';
+
+  @override
+  String get taskHubFilterActive => 'Zain';
+
+  @override
+  String get taskHubFilterDone => 'Eginda';
+
+  @override
+  String get taskHubFilterDueToday => 'Gaur amaitzen dira';
+
+  @override
+  String get taskHubFilterDueWeek => 'Aste honetan';
+
+  @override
+  String get taskHubFilterOverdue => 'Epeaz kanpo';
+
+  @override
+  String get taskHubOpen => 'Ireki';
+
+  @override
+  String get taskHubMarkDone => 'Eginda';
+
+  @override
+  String get taskHubIncludeTodos => 'Sartu kontrol-zerrendak';
+
+  @override
+  String get sidebarQuickAddTask => 'Zeregin azkarra';
+
+  @override
+  String get sidebarTaskHub => 'Zeregin guztiak';
+
+  @override
   String get shortcutTestAction => 'Probatu';
 
   @override
@@ -3061,6 +3163,51 @@ class AppLocalizationsEu extends AppLocalizations {
   String get taskAddSubtask => 'Gehitu azpiataza';
 
   @override
+  String get title => 'Izenburua';
+
+  @override
+  String get description => 'Deskribapena';
+
+  @override
+  String get priority => 'Lehentasuna';
+
+  @override
+  String get status => 'Egoera';
+
+  @override
+  String get none => 'Bat ere ez';
+
+  @override
+  String get low => 'Baxua';
+
+  @override
+  String get medium => 'Ertaina';
+
+  @override
+  String get high => 'Altua';
+
+  @override
+  String get startDate => 'Hasiera-data';
+
+  @override
+  String get dueDate => 'Amaiera-data';
+
+  @override
+  String get timeSpentMinutes => 'Erabilitako denbora (minutuak)';
+
+  @override
+  String get taskBlocked => 'Blokeatuta';
+
+  @override
+  String get taskBlockedReason => 'Blokeoaren arrazoia';
+
+  @override
+  String get subtasks => 'Azpiatazak';
+
+  @override
+  String get add => 'Gehitu';
+
+  @override
   String get templateEmojiLabel => 'Emojia';
 
   @override
@@ -3478,6 +3625,43 @@ class AppLocalizationsEu extends AppLocalizations {
 
   @override
   String get blockTypeDatabaseHint => 'Zerrenda/taula/tableroko ikuspegia';
+
+  @override
+  String get blockTypeKanbanLabel => 'Kanban';
+
+  @override
+  String get blockTypeKanbanHint =>
+      'Orrialde honetako zereginentzako tablero-ikuspegia';
+
+  @override
+  String get kanbanBlockRowTitle => 'Kanban tableroa';
+
+  @override
+  String get kanbanBlockRowSubtitle =>
+      'Orrialdea irekitzean tableroa ikusiko duzu. Tableroko barran erabili «Ireki bloke-editorea» bloke hau editatu edo kentzeko.';
+
+  @override
+  String get kanbanRowTodosExcluded => 'Checklistik gabe';
+
+  @override
+  String get kanbanToolbarOpenEditor => 'Ireki bloke-editorea';
+
+  @override
+  String get kanbanToolbarAddTask => 'Gehitu zeregina';
+
+  @override
+  String get kanbanClassicModeBanner =>
+      'Bloke-editorea: Kanban blokea mugitu edo kendu dezakezu.';
+
+  @override
+  String get kanbanBackToBoard => 'Itzuli tablerora';
+
+  @override
+  String get kanbanMultipleBlocksSnack =>
+      'Orrialde honek Kanban bloke bat baino gehiago ditu; lehena erabiltzen da.';
+
+  @override
+  String get kanbanEmptyColumn => 'Zereginik ez';
 
   @override
   String get blockTypeEquationLabel => 'Ekuazioa (LaTeX)';

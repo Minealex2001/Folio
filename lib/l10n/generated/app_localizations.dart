@@ -3016,6 +3016,198 @@ abstract class AppLocalizations {
   /// **'Teclado (en la app)'**
   String get keyboardShortcutsSection;
 
+  /// No description provided for @tasksCaptureSettingsSection.
+  ///
+  /// In es, this message translates to:
+  /// **'Tareas (captura rápida)'**
+  String get tasksCaptureSettingsSection;
+
+  /// No description provided for @taskInboxPageTitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Bandeja de tareas'**
+  String get taskInboxPageTitle;
+
+  /// No description provided for @taskInboxPageSubtitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Página donde se guardan las tareas añadidas con captura rápida.'**
+  String get taskInboxPageSubtitle;
+
+  /// No description provided for @taskInboxNone.
+  ///
+  /// In es, this message translates to:
+  /// **'Sin definir (se crea al guardar la primera)'**
+  String get taskInboxNone;
+
+  /// No description provided for @taskInboxDefaultTitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Bandeja de tareas'**
+  String get taskInboxDefaultTitle;
+
+  /// No description provided for @taskAliasManageTitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Alias de destino'**
+  String get taskAliasManageTitle;
+
+  /// No description provided for @taskAliasManageSubtitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Usa `#etiqueta` o `@etiqueta` al final de la captura. Define aquí la clave sin símbolo (ej. trabajo) y la página destino.'**
+  String get taskAliasManageSubtitle;
+
+  /// No description provided for @taskAliasAddButton.
+  ///
+  /// In es, this message translates to:
+  /// **'Añadir alias'**
+  String get taskAliasAddButton;
+
+  /// No description provided for @taskAliasTagLabel.
+  ///
+  /// In es, this message translates to:
+  /// **'Etiqueta'**
+  String get taskAliasTagLabel;
+
+  /// No description provided for @taskAliasTargetLabel.
+  ///
+  /// In es, this message translates to:
+  /// **'Página'**
+  String get taskAliasTargetLabel;
+
+  /// No description provided for @taskAliasDeleteTooltip.
+  ///
+  /// In es, this message translates to:
+  /// **'Quitar'**
+  String get taskAliasDeleteTooltip;
+
+  /// No description provided for @taskQuickAddTitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Captura rápida de tarea'**
+  String get taskQuickAddTitle;
+
+  /// No description provided for @taskQuickAddHint.
+  ///
+  /// In es, this message translates to:
+  /// **'Ej.: Comprar leche mañana alta #trabajo. También: due:2026-04-20, p1, en progreso.'**
+  String get taskQuickAddHint;
+
+  /// No description provided for @taskQuickAddConfirm.
+  ///
+  /// In es, this message translates to:
+  /// **'Añadir'**
+  String get taskQuickAddConfirm;
+
+  /// No description provided for @taskQuickAddSuccess.
+  ///
+  /// In es, this message translates to:
+  /// **'Tarea añadida.'**
+  String get taskQuickAddSuccess;
+
+  /// No description provided for @taskQuickAddAliasTargetMissing.
+  ///
+  /// In es, this message translates to:
+  /// **'La página de ese alias ya no existe.'**
+  String get taskQuickAddAliasTargetMissing;
+
+  /// No description provided for @taskHubTitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Todas las tareas'**
+  String get taskHubTitle;
+
+  /// No description provided for @taskHubClose.
+  ///
+  /// In es, this message translates to:
+  /// **'Cerrar vista'**
+  String get taskHubClose;
+
+  /// No description provided for @taskHubDashboardHelpTitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Ideas tipo dashboard'**
+  String get taskHubDashboardHelpTitle;
+
+  /// No description provided for @taskHubDashboardHelpBody.
+  ///
+  /// In es, this message translates to:
+  /// **'Crea una página con el bloque columnas y enlaza páginas de listas por contexto, o usa un bloque base de datos con fechas y estados para un tablero. La captura rápida y esta vista se inspiran en apps como Snippets (snippets.ch).'**
+  String get taskHubDashboardHelpBody;
+
+  /// No description provided for @taskHubEmpty.
+  ///
+  /// In es, this message translates to:
+  /// **'No hay tareas en esta libreta.'**
+  String get taskHubEmpty;
+
+  /// No description provided for @taskHubFilterAll.
+  ///
+  /// In es, this message translates to:
+  /// **'Todas'**
+  String get taskHubFilterAll;
+
+  /// No description provided for @taskHubFilterActive.
+  ///
+  /// In es, this message translates to:
+  /// **'Pendientes'**
+  String get taskHubFilterActive;
+
+  /// No description provided for @taskHubFilterDone.
+  ///
+  /// In es, this message translates to:
+  /// **'Hechas'**
+  String get taskHubFilterDone;
+
+  /// No description provided for @taskHubFilterDueToday.
+  ///
+  /// In es, this message translates to:
+  /// **'Vencen hoy'**
+  String get taskHubFilterDueToday;
+
+  /// No description provided for @taskHubFilterDueWeek.
+  ///
+  /// In es, this message translates to:
+  /// **'Esta semana'**
+  String get taskHubFilterDueWeek;
+
+  /// No description provided for @taskHubFilterOverdue.
+  ///
+  /// In es, this message translates to:
+  /// **'Vencidas'**
+  String get taskHubFilterOverdue;
+
+  /// No description provided for @taskHubOpen.
+  ///
+  /// In es, this message translates to:
+  /// **'Abrir'**
+  String get taskHubOpen;
+
+  /// No description provided for @taskHubMarkDone.
+  ///
+  /// In es, this message translates to:
+  /// **'Hecho'**
+  String get taskHubMarkDone;
+
+  /// No description provided for @taskHubIncludeTodos.
+  ///
+  /// In es, this message translates to:
+  /// **'Incluir checklists'**
+  String get taskHubIncludeTodos;
+
+  /// No description provided for @sidebarQuickAddTask.
+  ///
+  /// In es, this message translates to:
+  /// **'Tarea rápida'**
+  String get sidebarQuickAddTask;
+
+  /// No description provided for @sidebarTaskHub.
+  ///
+  /// In es, this message translates to:
+  /// **'Todas las tareas'**
+  String get sidebarTaskHub;
+
   /// No description provided for @shortcutTestAction.
   ///
   /// In es, this message translates to:
@@ -5392,6 +5584,96 @@ abstract class AppLocalizations {
   /// **'Añadir subtarea'**
   String get taskAddSubtask;
 
+  /// No description provided for @title.
+  ///
+  /// In es, this message translates to:
+  /// **'Título'**
+  String get title;
+
+  /// No description provided for @description.
+  ///
+  /// In es, this message translates to:
+  /// **'Descripción'**
+  String get description;
+
+  /// No description provided for @priority.
+  ///
+  /// In es, this message translates to:
+  /// **'Prioridad'**
+  String get priority;
+
+  /// No description provided for @status.
+  ///
+  /// In es, this message translates to:
+  /// **'Estado'**
+  String get status;
+
+  /// No description provided for @none.
+  ///
+  /// In es, this message translates to:
+  /// **'Ninguna'**
+  String get none;
+
+  /// No description provided for @low.
+  ///
+  /// In es, this message translates to:
+  /// **'Baja'**
+  String get low;
+
+  /// No description provided for @medium.
+  ///
+  /// In es, this message translates to:
+  /// **'Media'**
+  String get medium;
+
+  /// No description provided for @high.
+  ///
+  /// In es, this message translates to:
+  /// **'Alta'**
+  String get high;
+
+  /// No description provided for @startDate.
+  ///
+  /// In es, this message translates to:
+  /// **'Fecha de inicio'**
+  String get startDate;
+
+  /// No description provided for @dueDate.
+  ///
+  /// In es, this message translates to:
+  /// **'Fecha límite'**
+  String get dueDate;
+
+  /// No description provided for @timeSpentMinutes.
+  ///
+  /// In es, this message translates to:
+  /// **'Tiempo invertido (minutos)'**
+  String get timeSpentMinutes;
+
+  /// No description provided for @taskBlocked.
+  ///
+  /// In es, this message translates to:
+  /// **'Bloqueada'**
+  String get taskBlocked;
+
+  /// No description provided for @taskBlockedReason.
+  ///
+  /// In es, this message translates to:
+  /// **'Motivo de bloqueo'**
+  String get taskBlockedReason;
+
+  /// No description provided for @subtasks.
+  ///
+  /// In es, this message translates to:
+  /// **'Subtareas'**
+  String get subtasks;
+
+  /// No description provided for @add.
+  ///
+  /// In es, this message translates to:
+  /// **'Añadir'**
+  String get add;
+
   /// No description provided for @templateEmojiLabel.
   ///
   /// In es, this message translates to:
@@ -6195,6 +6477,72 @@ abstract class AppLocalizations {
   /// In es, this message translates to:
   /// **'Vista lista/tabla/tablero'**
   String get blockTypeDatabaseHint;
+
+  /// No description provided for @blockTypeKanbanLabel.
+  ///
+  /// In es, this message translates to:
+  /// **'Kanban'**
+  String get blockTypeKanbanLabel;
+
+  /// No description provided for @blockTypeKanbanHint.
+  ///
+  /// In es, this message translates to:
+  /// **'Vista tablero para las tareas de esta página'**
+  String get blockTypeKanbanHint;
+
+  /// No description provided for @kanbanBlockRowTitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Tablero Kanban'**
+  String get kanbanBlockRowTitle;
+
+  /// No description provided for @kanbanBlockRowSubtitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Al abrir la página verás el tablero. En la barra del tablero usa «Abrir editor de bloques» para editar o quitar este bloque.'**
+  String get kanbanBlockRowSubtitle;
+
+  /// No description provided for @kanbanRowTodosExcluded.
+  ///
+  /// In es, this message translates to:
+  /// **'Sin checklists'**
+  String get kanbanRowTodosExcluded;
+
+  /// No description provided for @kanbanToolbarOpenEditor.
+  ///
+  /// In es, this message translates to:
+  /// **'Abrir editor de bloques'**
+  String get kanbanToolbarOpenEditor;
+
+  /// No description provided for @kanbanToolbarAddTask.
+  ///
+  /// In es, this message translates to:
+  /// **'Añadir tarea'**
+  String get kanbanToolbarAddTask;
+
+  /// No description provided for @kanbanClassicModeBanner.
+  ///
+  /// In es, this message translates to:
+  /// **'Editor de bloques: puedes mover o eliminar el bloque Kanban.'**
+  String get kanbanClassicModeBanner;
+
+  /// No description provided for @kanbanBackToBoard.
+  ///
+  /// In es, this message translates to:
+  /// **'Volver al tablero'**
+  String get kanbanBackToBoard;
+
+  /// No description provided for @kanbanMultipleBlocksSnack.
+  ///
+  /// In es, this message translates to:
+  /// **'Esta página tiene más de un bloque Kanban; se usa el primero.'**
+  String get kanbanMultipleBlocksSnack;
+
+  /// No description provided for @kanbanEmptyColumn.
+  ///
+  /// In es, this message translates to:
+  /// **'Sin tareas'**
+  String get kanbanEmptyColumn;
 
   /// No description provided for @blockTypeEquationLabel.
   ///

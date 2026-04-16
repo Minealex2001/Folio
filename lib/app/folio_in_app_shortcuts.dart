@@ -7,6 +7,7 @@ import 'package:flutter/services.dart';
 enum FolioInAppShortcut {
   search,
   newPage,
+  quickAddTask,
   settings,
   lock,
   pageNext,
@@ -18,6 +19,7 @@ extension FolioInAppShortcutLabels on FolioInAppShortcut {
   String get settingsLabel => switch (this) {
     FolioInAppShortcut.search => 'Buscar en la libreta',
     FolioInAppShortcut.newPage => 'Nueva página',
+    FolioInAppShortcut.quickAddTask => 'Captura rápida de tarea',
     FolioInAppShortcut.settings => 'Abrir ajustes',
     FolioInAppShortcut.lock => 'Bloquear libreta',
     FolioInAppShortcut.pageNext => 'Página siguiente',
@@ -33,6 +35,11 @@ extension FolioInAppShortcutLabels on FolioInAppShortcut {
     FolioInAppShortcut.newPage => const SingleActivator(
       LogicalKeyboardKey.keyN,
       control: true,
+    ),
+    FolioInAppShortcut.quickAddTask => const SingleActivator(
+      LogicalKeyboardKey.keyT,
+      control: true,
+      shift: true,
     ),
     FolioInAppShortcut.settings => const SingleActivator(
       LogicalKeyboardKey.comma,

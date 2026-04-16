@@ -1626,6 +1626,107 @@ class AppLocalizationsEn extends AppLocalizations {
   String get keyboardShortcutsSection => 'Keyboard (in app)';
 
   @override
+  String get tasksCaptureSettingsSection => 'Tasks (quick capture)';
+
+  @override
+  String get taskInboxPageTitle => 'Task inbox page';
+
+  @override
+  String get taskInboxPageSubtitle =>
+      'Page where quick-captured tasks are appended.';
+
+  @override
+  String get taskInboxNone => 'Not set (created on first save)';
+
+  @override
+  String get taskInboxDefaultTitle => 'Task inbox';
+
+  @override
+  String get taskAliasManageTitle => 'Destination aliases';
+
+  @override
+  String get taskAliasManageSubtitle =>
+      'End capture with `#tag` or `@tag`. Define the key without the symbol (e.g. work) and the target page.';
+
+  @override
+  String get taskAliasAddButton => 'Add alias';
+
+  @override
+  String get taskAliasTagLabel => 'Tag';
+
+  @override
+  String get taskAliasTargetLabel => 'Page';
+
+  @override
+  String get taskAliasDeleteTooltip => 'Remove';
+
+  @override
+  String get taskQuickAddTitle => 'Quick add task';
+
+  @override
+  String get taskQuickAddHint =>
+      'E.g. Buy milk tomorrow high #work. Also: due:2026-04-20, p1, in progress.';
+
+  @override
+  String get taskQuickAddConfirm => 'Add';
+
+  @override
+  String get taskQuickAddSuccess => 'Task added.';
+
+  @override
+  String get taskQuickAddAliasTargetMissing =>
+      'The alias target page no longer exists.';
+
+  @override
+  String get taskHubTitle => 'All tasks';
+
+  @override
+  String get taskHubClose => 'Close view';
+
+  @override
+  String get taskHubDashboardHelpTitle => 'Dashboard-style ideas';
+
+  @override
+  String get taskHubDashboardHelpBody =>
+      'Create a page with a columns block linking list pages per context, or a database block with dates and statuses for a board. Quick capture and this view are inspired by apps like Snippets (snippets.ch).';
+
+  @override
+  String get taskHubEmpty => 'No tasks in this vault.';
+
+  @override
+  String get taskHubFilterAll => 'All';
+
+  @override
+  String get taskHubFilterActive => 'Open';
+
+  @override
+  String get taskHubFilterDone => 'Done';
+
+  @override
+  String get taskHubFilterDueToday => 'Due today';
+
+  @override
+  String get taskHubFilterDueWeek => 'This week';
+
+  @override
+  String get taskHubFilterOverdue => 'Overdue';
+
+  @override
+  String get taskHubOpen => 'Open';
+
+  @override
+  String get taskHubMarkDone => 'Done';
+
+  @override
+  String get taskHubIncludeTodos => 'Include checklist items';
+
+  @override
+  String get sidebarQuickAddTask => 'Quick task';
+
+  @override
+  String get sidebarTaskHub => 'All tasks';
+
+  @override
   String get shortcutTestAction => 'Test';
 
   @override
@@ -3018,6 +3119,51 @@ class AppLocalizationsEn extends AppLocalizations {
   String get taskAddSubtask => 'Add subtask';
 
   @override
+  String get title => 'Title';
+
+  @override
+  String get description => 'Description';
+
+  @override
+  String get priority => 'Priority';
+
+  @override
+  String get status => 'Status';
+
+  @override
+  String get none => 'None';
+
+  @override
+  String get low => 'Low';
+
+  @override
+  String get medium => 'Medium';
+
+  @override
+  String get high => 'High';
+
+  @override
+  String get startDate => 'Start date';
+
+  @override
+  String get dueDate => 'Due date';
+
+  @override
+  String get timeSpentMinutes => 'Time spent (minutes)';
+
+  @override
+  String get taskBlocked => 'Blocked';
+
+  @override
+  String get taskBlockedReason => 'Block reason';
+
+  @override
+  String get subtasks => 'Subtasks';
+
+  @override
+  String get add => 'Add';
+
+  @override
   String get templateEmojiLabel => 'Emoji';
 
   @override
@@ -3434,6 +3580,42 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get blockTypeDatabaseHint => 'List, table, or board view';
+
+  @override
+  String get blockTypeKanbanLabel => 'Kanban';
+
+  @override
+  String get blockTypeKanbanHint => 'Board view for tasks on this page';
+
+  @override
+  String get kanbanBlockRowTitle => 'Kanban board';
+
+  @override
+  String get kanbanBlockRowSubtitle =>
+      'Opening this page shows the board. On the board, use “Open block editor” to edit or remove this block.';
+
+  @override
+  String get kanbanRowTodosExcluded => 'Checklists off';
+
+  @override
+  String get kanbanToolbarOpenEditor => 'Open block editor';
+
+  @override
+  String get kanbanToolbarAddTask => 'Add task';
+
+  @override
+  String get kanbanClassicModeBanner =>
+      'Block editor: you can move or delete the Kanban block.';
+
+  @override
+  String get kanbanBackToBoard => 'Back to board';
+
+  @override
+  String get kanbanMultipleBlocksSnack =>
+      'This page has more than one Kanban block; using the first one.';
+
+  @override
+  String get kanbanEmptyColumn => 'No tasks';
 
   @override
   String get blockTypeEquationLabel => 'Equation (LaTeX)';

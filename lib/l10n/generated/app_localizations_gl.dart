@@ -1648,6 +1648,107 @@ class AppLocalizationsGl extends AppLocalizations {
   String get keyboardShortcutsSection => 'Teclado (na app)';
 
   @override
+  String get tasksCaptureSettingsSection => 'Tarefas (captura rápida)';
+
+  @override
+  String get taskInboxPageTitle => 'Bandexa de tarefas';
+
+  @override
+  String get taskInboxPageSubtitle =>
+      'Páxina onde se gardan as tarefas engadidas con captura rápida.';
+
+  @override
+  String get taskInboxNone => 'Sen definir (créase ao gardar a primeira)';
+
+  @override
+  String get taskInboxDefaultTitle => 'Bandexa de tarefas';
+
+  @override
+  String get taskAliasManageTitle => 'Alias de destino';
+
+  @override
+  String get taskAliasManageSubtitle =>
+      'Usa `#etiqueta` ou `@etiqueta` ao final da captura. Define a clave sen símbolo (ex. traballo) e a páxina destino.';
+
+  @override
+  String get taskAliasAddButton => 'Engadir alias';
+
+  @override
+  String get taskAliasTagLabel => 'Etiqueta';
+
+  @override
+  String get taskAliasTargetLabel => 'Páxina';
+
+  @override
+  String get taskAliasDeleteTooltip => 'Quitar';
+
+  @override
+  String get taskQuickAddTitle => 'Captura rápida de tarefa';
+
+  @override
+  String get taskQuickAddHint =>
+      'Ex.: Mercar leite mañá alta #traballo. Tamén: due:2026-04-20, p1, en progreso.';
+
+  @override
+  String get taskQuickAddConfirm => 'Engadir';
+
+  @override
+  String get taskQuickAddSuccess => 'Tarefa engadida.';
+
+  @override
+  String get taskQuickAddAliasTargetMissing =>
+      'A páxina dese alias xa non existe.';
+
+  @override
+  String get taskHubTitle => 'Todas as tarefas';
+
+  @override
+  String get taskHubClose => 'Pechar vista';
+
+  @override
+  String get taskHubDashboardHelpTitle => 'Ideas tipo dashboard';
+
+  @override
+  String get taskHubDashboardHelpBody =>
+      'Crea unha páxina co bloque columnas e enlaza páxinas de listas por contexto, ou usa un bloque base de datos con datas e estados para un taboleiro.';
+
+  @override
+  String get taskHubEmpty => 'Non hai tarefas neste caderno.';
+
+  @override
+  String get taskHubFilterAll => 'Todas';
+
+  @override
+  String get taskHubFilterActive => 'Pendentes';
+
+  @override
+  String get taskHubFilterDone => 'Feitas';
+
+  @override
+  String get taskHubFilterDueToday => 'Vencen hoxe';
+
+  @override
+  String get taskHubFilterDueWeek => 'Esta semana';
+
+  @override
+  String get taskHubFilterOverdue => 'Vencidas';
+
+  @override
+  String get taskHubOpen => 'Abrir';
+
+  @override
+  String get taskHubMarkDone => 'Feito';
+
+  @override
+  String get taskHubIncludeTodos => 'Incluír checklists';
+
+  @override
+  String get sidebarQuickAddTask => 'Tarefa rápida';
+
+  @override
+  String get sidebarTaskHub => 'Todas as tarefas';
+
+  @override
   String get shortcutTestAction => 'Proba';
 
   @override
@@ -3060,6 +3161,51 @@ class AppLocalizationsGl extends AppLocalizations {
   String get taskAddSubtask => 'Engadir subtarefa';
 
   @override
+  String get title => 'Título';
+
+  @override
+  String get description => 'Descrición';
+
+  @override
+  String get priority => 'Prioridade';
+
+  @override
+  String get status => 'Estado';
+
+  @override
+  String get none => 'Ningunha';
+
+  @override
+  String get low => 'Baixa';
+
+  @override
+  String get medium => 'Media';
+
+  @override
+  String get high => 'Alta';
+
+  @override
+  String get startDate => 'Data de inicio';
+
+  @override
+  String get dueDate => 'Data de vencemento';
+
+  @override
+  String get timeSpentMinutes => 'Tempo investido (minutos)';
+
+  @override
+  String get taskBlocked => 'Bloqueada';
+
+  @override
+  String get taskBlockedReason => 'Motivo do bloqueo';
+
+  @override
+  String get subtasks => 'Subtarefas';
+
+  @override
+  String get add => 'Engadir';
+
+  @override
   String get templateEmojiLabel => 'Emoji';
 
   @override
@@ -3477,6 +3623,43 @@ class AppLocalizationsGl extends AppLocalizations {
 
   @override
   String get blockTypeDatabaseHint => 'Vista lista/táboa/táboiro';
+
+  @override
+  String get blockTypeKanbanLabel => 'Kanban';
+
+  @override
+  String get blockTypeKanbanHint =>
+      'Vista táboiro para as tarefas desta páxina';
+
+  @override
+  String get kanbanBlockRowTitle => 'Táboiro Kanban';
+
+  @override
+  String get kanbanBlockRowSubtitle =>
+      'Ao abrir a páxina móstrase o táboiro. Na barra usa «Abrir editor de bloques» para editar ou quitar este bloque.';
+
+  @override
+  String get kanbanRowTodosExcluded => 'Sen checklists';
+
+  @override
+  String get kanbanToolbarOpenEditor => 'Abrir editor de bloques';
+
+  @override
+  String get kanbanToolbarAddTask => 'Engadir tarefa';
+
+  @override
+  String get kanbanClassicModeBanner =>
+      'Editor de bloques: podes mover ou eliminar o bloque Kanban.';
+
+  @override
+  String get kanbanBackToBoard => 'Volver ao táboiro';
+
+  @override
+  String get kanbanMultipleBlocksSnack =>
+      'Esta páxina ten máis dun bloque Kanban; úsase o primeiro.';
+
+  @override
+  String get kanbanEmptyColumn => 'Sen tarefas';
 
   @override
   String get blockTypeEquationLabel => 'Ecuación (LaTeX)';

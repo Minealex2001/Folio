@@ -1126,14 +1126,30 @@ class BlockEditorState extends State<BlockEditor> with _BlockRowBuild {
   }
 
   Future<String?> _openBlockTypePicker(BuildContext context) {
+    final w = MediaQuery.sizeOf(context).width;
+    final androidPhoneLayout = FolioAdaptive.isAndroidPhoneWidth(w);
+    final isHandheldPlatform =
+        defaultTargetPlatform == TargetPlatform.android ||
+        defaultTargetPlatform == TargetPlatform.iOS;
+    final scheme = Theme.of(context).colorScheme;
+    final barrier = scheme.scrim.withValues(alpha: FolioAlpha.scrim);
+
+    // En escritorio/tablet, un sheet a pantalla completa se ve raro para un
+    // selector rápido. Usamos un diálogo centrado con tamaño acotado.
+    if (!isHandheldPlatform || !androidPhoneLayout) {
+      return showDialog<String>(
+        context: context,
+        barrierColor: barrier,
+        builder: (ctx) => const BlockTypePickerDialog(),
+      );
+    }
+
     return showModalBottomSheet<String>(
       context: context,
       isScrollControlled: true,
       useSafeArea: true,
       backgroundColor: Colors.transparent,
-      barrierColor: Theme.of(
-        context,
-      ).colorScheme.scrim.withValues(alpha: FolioAlpha.scrim),
+      barrierColor: barrier,
       builder: (ctx) => const BlockTypePickerSheet(),
     );
   }

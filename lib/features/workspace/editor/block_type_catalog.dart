@@ -86,11 +86,6 @@ const List<BlockTypeTemplate> blockTypeTemplates = [
     section: BlockTypeSection.lists,
   ),
   BlockTypeTemplate(
-    key: 'task',
-    icon: Icons.task_alt_rounded,
-    section: BlockTypeSection.lists,
-  ),
-  BlockTypeTemplate(
     key: 'toggle',
     icon: Icons.unfold_more_rounded,
     section: BlockTypeSection.lists,
@@ -141,6 +136,11 @@ const List<BlockTypeTemplate> blockTypeTemplates = [
     icon: Icons.dataset_rounded,
     section: BlockTypeSection.media,
     beta: true,
+  ),
+  BlockTypeTemplate(
+    key: 'kanban',
+    icon: Icons.view_kanban_rounded,
+    section: BlockTypeSection.media,
   ),
   BlockTypeTemplate(
     key: 'equation',
@@ -242,6 +242,8 @@ String blockTypeLabelForKey(String key, AppLocalizations l10n) {
       return l10n.blockTypeTableLabel;
     case 'database':
       return l10n.blockTypeDatabaseLabel;
+    case 'kanban':
+      return l10n.blockTypeKanbanLabel;
     case 'equation':
       return l10n.blockTypeEquationLabel;
     case 'mermaid':
@@ -307,6 +309,8 @@ String blockTypeHintForKey(String key, AppLocalizations l10n) {
       return l10n.blockTypeTableHint;
     case 'database':
       return l10n.blockTypeDatabaseHint;
+    case 'kanban':
+      return l10n.blockTypeKanbanHint;
     case 'equation':
       return l10n.blockTypeEquationHint;
     case 'mermaid':

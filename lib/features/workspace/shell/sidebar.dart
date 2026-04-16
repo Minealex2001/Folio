@@ -28,6 +28,7 @@ class Sidebar extends StatefulWidget {
     this.onForceSync,
     this.onOpenSettings,
     this.onLock,
+    this.onQuickAddTask,
   });
 
   final VaultSession session;
@@ -37,6 +38,7 @@ class Sidebar extends StatefulWidget {
   final VoidCallback? onForceSync;
   final VoidCallback? onOpenSettings;
   final VoidCallback? onLock;
+  final VoidCallback? onQuickAddTask;
 
   @override
   State<Sidebar> createState() => _SidebarState();
@@ -612,33 +614,13 @@ class _SidebarState extends State<Sidebar> {
   }
 
   void _rename(BuildContext context, FolioPage page) {
-    final l10n = AppLocalizations.of(context);
-    final titleController = TextEditingController(text: page.title);
     showDialog<void>(
       context: context,
-      builder: (ctx) => FolioDialog(
-        title: Text(l10n.renamePageTitle),
-        content: TextField(
-          controller: titleController,
-          autofocus: true,
-          decoration: InputDecoration(labelText: l10n.titleLabel),
-          onSubmitted: (_) => Navigator.of(ctx).pop(),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(),
-            child: Text(l10n.cancel),
-          ),
-          TextButton(
-            onPressed: () {
-              session.renamePage(page.id, titleController.text);
-              Navigator.of(ctx).pop();
-            },
-            child: Text(l10n.save),
-          ),
-        ],
+      builder: (ctx) => _RenamePageDialog(
+        initialTitle: page.title,
+        onSave: (newTitle) => session.renamePage(page.id, newTitle),
       ),
-    ).then((_) => titleController.dispose());
+    );
   }
 
   void _move(BuildContext context, FolioPage page) {
@@ -1167,6 +1149,25 @@ class _SidebarState extends State<Sidebar> {
               ),
             ),
           ),
+        if (widget.onQuickAddTask != null)
+          Padding(
+            padding: const EdgeInsets.fromLTRB(
+              FolioSpace.sm,
+              0,
+              FolioSpace.sm,
+              FolioSpace.sm,
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                FilledButton.tonalIcon(
+                  onPressed: widget.onQuickAddTask,
+                  icon: const Icon(Icons.add_task_rounded, size: 20),
+                  label: Text(l10n.sidebarQuickAddTask),
+                ),
+              ],
+            ),
+          ),
         _recentPagesSection(context),
         Padding(
           padding: const EdgeInsets.fromLTRB(
@@ -1361,4 +1362,62 @@ class _VisiblePageRow {
   const _VisiblePageRow({required this.page, required this.indent});
   final FolioPage page;
   final double indent;
+}
+
+class _RenamePageDialog extends StatefulWidget {
+  const _RenamePageDialog({
+    required this.initialTitle,
+    required this.onSave,
+  });
+
+  final String initialTitle;
+  final ValueChanged<String> onSave;
+
+  @override
+  State<_RenamePageDialog> createState() => _RenamePageDialogState();
+}
+
+class _RenamePageDialogState extends State<_RenamePageDialog> {
+  late final TextEditingController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = TextEditingController(text: widget.initialTitle);
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  void _saveAndClose() {
+    widget.onSave(_controller.text);
+    Navigator.of(context).pop();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+    return FolioDialog(
+      title: Text(l10n.renamePageTitle),
+      content: TextField(
+        controller: _controller,
+        autofocus: true,
+        decoration: InputDecoration(labelText: l10n.titleLabel),
+        onSubmitted: (_) => _saveAndClose(),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: Text(l10n.cancel),
+        ),
+        TextButton(
+          onPressed: _saveAndClose,
+          child: Text(l10n.save),
+        ),
+      ],
+    );
+  }
 }

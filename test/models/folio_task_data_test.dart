@@ -10,8 +10,8 @@ void main() {
         priority: 'high',
         dueDate: '2026-03-31',
         subtasks: const [
-          FolioTaskSubtask(id: 's1', title: 'Modelo', done: true),
-          FolioTaskSubtask(id: 's2', title: 'UI', done: false),
+          FolioTaskSubtask(id: 's1', title: 'Modelo', status: 'done'),
+          FolioTaskSubtask(id: 's2', title: 'UI', status: 'todo'),
         ],
       );
 
@@ -22,7 +22,7 @@ void main() {
       expect(parsed.priority, 'high');
       expect(parsed.dueDate, '2026-03-31');
       expect(parsed.subtasks.length, 2);
-      expect(parsed.subtasks.first.done, isTrue);
+      expect(parsed.subtasks.first.status, 'done');
       expect(parsed.subtasks.last.title, 'UI');
     });
 
@@ -38,7 +38,7 @@ void main() {
       final base = FolioTaskData.defaults();
       final next = base.copyWith(
         subtasks: const [
-          FolioTaskSubtask(id: 'a', title: 'Primera', done: false),
+          FolioTaskSubtask(id: 'a', title: 'Primera', status: 'todo'),
         ],
       );
       expect(next.subtasks.length, 1);

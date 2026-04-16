@@ -36,6 +36,7 @@ import '../../../app/ui_tokens.dart';
 import '../../../models/block.dart';
 import '../../../models/folio_template_button_data.dart';
 import '../../../models/folio_database_data.dart';
+import '../../../models/folio_kanban_data.dart';
 import '../../../models/folio_page.dart';
 import '../../../models/folio_table_data.dart';
 import '../../../services/integrations/integrations_markdown_codec.dart';
@@ -70,6 +71,7 @@ part 'block_editor/block_row_dispatch.dart';
 part 'block_editor/block_row_dispatch_image.dart';
 part 'block_editor/block_row_dispatch_table.dart';
 part 'block_editor/block_row_dispatch_database.dart';
+part 'block_editor/block_row_dispatch_kanban.dart';
 part 'block_editor/block_row_dispatch_equation.dart';
 part 'block_editor/block_row_dispatch_mermaid.dart';
 part 'block_editor/block_row_dispatch_code.dart';
@@ -95,9 +97,13 @@ part 'block_editor/special_row_chrome.dart';
 part 'block_editor/state_tail_and_fill.dart';
 /// `null` si el texto del bloque no es comando `/…`; si no, filtro tras la `/` (puede ser vacío).
 String? _slashFilterFromBlockText(String text) {
-  if (!text.startsWith('/')) return null;
-  if (text.contains('\n')) return null;
-  final tail = text.substring(1);
+  // Quill/WYSIWYG suele añadir `\n` final aunque sea una sola línea.
+  // Para slash-commands queremos permitir SOLO saltos finales, pero seguir
+  // rechazando comandos multilínea reales.
+  final t = text.replaceAll(RegExp(r'[\r\n]+$'), '');
+  if (!t.startsWith('/')) return null;
+  if (t.contains('\n') || t.contains('\r')) return null;
+  final tail = t.substring(1);
   if (tail.contains(' ')) return null;
   return tail;
 }

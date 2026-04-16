@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart'
+    show TargetPlatform, defaultTargetPlatform;
 
 import '../../../l10n/generated/app_localizations.dart';
 import '../../../models/folio_page.dart';
@@ -12,6 +14,31 @@ void openPageHistoryScreen({
   required VaultSession session,
   required FolioPage page,
 }) {
+  final isHandheldPlatform =
+      defaultTargetPlatform == TargetPlatform.android ||
+      defaultTargetPlatform == TargetPlatform.iOS;
+  if (!isHandheldPlatform) {
+    showDialog<void>(
+      context: context,
+      barrierColor:
+          Theme.of(context).colorScheme.scrim.withValues(alpha: 0.55),
+      builder: (ctx) => Dialog(
+        insetPadding: const EdgeInsets.all(16),
+        clipBehavior: Clip.antiAlias,
+        child: SizedBox(
+          width: 760,
+          height: 720,
+          child: PageHistoryScreen(
+            session: session,
+            page: page,
+            embedded: true,
+          ),
+        ),
+      ),
+    );
+    return;
+  }
+
   Navigator.of(context).push<void>(
     MaterialPageRoute<void>(
       builder: (ctx) => PageHistoryScreen(session: session, page: page),
@@ -24,10 +51,12 @@ class PageHistoryScreen extends StatelessWidget {
     super.key,
     required this.session,
     required this.page,
+    this.embedded = false,
   });
 
   final VaultSession session;
   final FolioPage page;
+  final bool embedded;
 
   static String _formatRevisionTimestamp(int savedAtMs) {
     final d = DateTime.fromMillisecondsSinceEpoch(savedAtMs);
@@ -105,29 +134,7 @@ class PageHistoryScreen extends StatelessWidget {
     final scheme = theme.colorScheme;
     final textTheme = theme.textTheme;
 
-    return Scaffold(
-      backgroundColor: scheme.surface,
-      appBar: AppBar(
-        toolbarHeight: 72,
-        titleSpacing: 0,
-        title: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(l10n.pageHistoryTitle),
-            Text(
-              page.title.isEmpty ? l10n.untitledFallback : page.title,
-              style: textTheme.bodyMedium?.copyWith(
-                color: scheme.onSurfaceVariant,
-                fontWeight: FontWeight.w500,
-              ),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-            ),
-          ],
-        ),
-      ),
-      body: AnimatedBuilder(
+    final body = AnimatedBuilder(
         animation: session,
         builder: (context, _) {
           final items = session.revisionsForPage(page.id);
@@ -223,7 +230,81 @@ class PageHistoryScreen extends StatelessWidget {
             ],
           );
         },
+      );
+
+    if (embedded) {
+      return Material(
+        color: scheme.surface,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(12, 10, 12, 6),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          l10n.pageHistoryTitle,
+                          style: textTheme.titleLarge?.copyWith(
+                            fontWeight: FontWeight.w700,
+                            letterSpacing: -0.3,
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          page.title.isEmpty ? l10n.untitledFallback : page.title,
+                          style: textTheme.bodyMedium?.copyWith(
+                            color: scheme.onSurfaceVariant,
+                            fontWeight: FontWeight.w500,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ],
+                    ),
+                  ),
+                  IconButton(
+                    tooltip:
+                        MaterialLocalizations.of(context).closeButtonTooltip,
+                    onPressed: () => Navigator.pop(context),
+                    icon: const Icon(Icons.close_rounded),
+                  ),
+                ],
+              ),
+            ),
+            const Divider(height: 1),
+            Expanded(child: body),
+          ],
+        ),
+      );
+    }
+
+    return Scaffold(
+      backgroundColor: scheme.surface,
+      appBar: AppBar(
+        toolbarHeight: 72,
+        titleSpacing: 0,
+        title: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(l10n.pageHistoryTitle),
+            Text(
+              page.title.isEmpty ? l10n.untitledFallback : page.title,
+              style: textTheme.bodyMedium?.copyWith(
+                color: scheme.onSurfaceVariant,
+                fontWeight: FontWeight.w500,
+              ),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ],
+        ),
       ),
+      body: body,
     );
   }
 }

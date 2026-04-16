@@ -46,39 +46,153 @@ extension _WorkspacePageToolsModule on _WorkspacePageState {
     return '${safe.isEmpty ? 'page' : safe}.pdf';
   }
 
-  Future<void> _exportCurrentPage() async {
+  Future<_FolioPageExportFormat?> _showExportFormatMenu(
+    BuildContext anchorContext,
+    AppLocalizations l10n,
+  ) async {
+    final theme = Theme.of(anchorContext);
+    final scheme = theme.colorScheme;
+
+    final buttonBox = anchorContext.findRenderObject() as RenderBox?;
+    final overlayBox =
+        Overlay.of(anchorContext).context.findRenderObject() as RenderBox?;
+    if (buttonBox == null || overlayBox == null) return null;
+
+    final buttonRect =
+        buttonBox.localToGlobal(Offset.zero, ancestor: overlayBox) &
+        buttonBox.size;
+    final position = RelativeRect.fromRect(
+      buttonRect,
+      Offset.zero & overlayBox.size,
+    );
+
+    final maxW = math.min(420.0, overlayBox.size.width - 24.0);
+    final menuW = maxW.clamp(280.0, 420.0);
+    final maxH = math.min(420.0, overlayBox.size.height - 24.0);
+
+    Widget tile({
+      required _FolioPageExportFormat value,
+      required IconData icon,
+      required String label,
+    }) {
+      return Padding(
+        padding: const EdgeInsets.only(bottom: 6),
+        child: Material(
+          color: scheme.surfaceContainerLow.withValues(alpha: 0.55),
+          borderRadius: BorderRadius.circular(14),
+          clipBehavior: Clip.antiAlias,
+          child: InkWell(
+            onTap: () => Navigator.pop(anchorContext, value),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+              child: Row(
+                children: [
+                  Container(
+                    width: 38,
+                    height: 38,
+                    decoration: BoxDecoration(
+                      color: scheme.surfaceContainerHighest.withValues(
+                        alpha: 0.5,
+                      ),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Icon(icon, size: 20, color: scheme.onSurface),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      label,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      );
+    }
+
+    return showMenu<_FolioPageExportFormat>(
+      context: anchorContext,
+      position: position,
+      constraints: BoxConstraints.tightFor(width: menuW),
+      items: [
+        PopupMenuItem<_FolioPageExportFormat>(
+          enabled: false,
+          padding: EdgeInsets.zero,
+          child: ConstrainedBox(
+            constraints: BoxConstraints(maxHeight: maxH),
+            child: BlockEditorFloatingPanel(
+              scheme: scheme,
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(10, 10, 10, 10),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(8, 2, 8, 8),
+                      child: Text(
+                        l10n.exportPageDialogTitle,
+                        style: theme.textTheme.titleSmall?.copyWith(
+                          fontWeight: FontWeight.w700,
+                          letterSpacing: -0.2,
+                        ),
+                      ),
+                    ),
+                    Flexible(
+                      child: ListView(
+                        shrinkWrap: true,
+                        padding: const EdgeInsets.fromLTRB(0, 0, 0, 2),
+                        children: [
+                          tile(
+                            value: _FolioPageExportFormat.markdown,
+                            icon: Icons.description_outlined,
+                            label: l10n.exportPageFormatMarkdown,
+                          ),
+                          tile(
+                            value: _FolioPageExportFormat.html,
+                            icon: Icons.language_rounded,
+                            label: l10n.exportPageFormatHtml,
+                          ),
+                          tile(
+                            value: _FolioPageExportFormat.txt,
+                            icon: Icons.subject_rounded,
+                            label: l10n.exportPageFormatTxt,
+                          ),
+                          tile(
+                            value: _FolioPageExportFormat.json,
+                            icon: Icons.data_object_rounded,
+                            label: l10n.exportPageFormatJson,
+                          ),
+                          tile(
+                            value: _FolioPageExportFormat.pdf,
+                            icon: Icons.picture_as_pdf_rounded,
+                            label: l10n.exportPageFormatPdf,
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Future<void> _exportCurrentPage([BuildContext? anchorContext]) async {
     final page = _s.selectedPage;
     if (page == null || _s.state != VaultFlowState.unlocked) return;
     final l10n = AppLocalizations.of(context);
-
-    final format = await showDialog<_FolioPageExportFormat>(
-      context: context,
-      builder: (ctx) => SimpleDialog(
-        title: Text(l10n.exportPageDialogTitle),
-        children: [
-          SimpleDialogOption(
-            onPressed: () => Navigator.pop(ctx, _FolioPageExportFormat.markdown),
-            child: Text(l10n.exportPageFormatMarkdown),
-          ),
-          SimpleDialogOption(
-            onPressed: () => Navigator.pop(ctx, _FolioPageExportFormat.html),
-            child: Text(l10n.exportPageFormatHtml),
-          ),
-          SimpleDialogOption(
-            onPressed: () => Navigator.pop(ctx, _FolioPageExportFormat.txt),
-            child: Text(l10n.exportPageFormatTxt),
-          ),
-          SimpleDialogOption(
-            onPressed: () => Navigator.pop(ctx, _FolioPageExportFormat.json),
-            child: Text(l10n.exportPageFormatJson),
-          ),
-          SimpleDialogOption(
-            onPressed: () => Navigator.pop(ctx, _FolioPageExportFormat.pdf),
-            child: Text(l10n.exportPageFormatPdf),
-          ),
-        ],
-      ),
-    );
+    final format = await _showExportFormatMenu(anchorContext ?? context, l10n);
     if (format == null) return;
 
     switch (format) {
@@ -363,7 +477,114 @@ extension _WorkspacePageToolsModule on _WorkspacePageState {
     return s.isEmpty ? 'page' : s;
   }
 
-  Future<void> _publishCurrentPageToWeb() async {
+  Future<String?> _showPublishWebSlugMenu({
+    required BuildContext anchorContext,
+    required TextEditingController slugController,
+    required AppLocalizations l10n,
+  }) async {
+    final theme = Theme.of(anchorContext);
+    final scheme = theme.colorScheme;
+
+    final buttonBox = anchorContext.findRenderObject() as RenderBox?;
+    final overlayBox =
+        Overlay.of(anchorContext).context.findRenderObject() as RenderBox?;
+    if (buttonBox == null || overlayBox == null) return null;
+
+    final buttonRect =
+        buttonBox.localToGlobal(Offset.zero, ancestor: overlayBox) &
+        buttonBox.size;
+    final position = RelativeRect.fromRect(
+      buttonRect,
+      Offset.zero & overlayBox.size,
+    );
+
+    final maxW = math.min(520.0, overlayBox.size.width - 24.0);
+    final menuW = maxW.clamp(360.0, 520.0);
+    final maxH = math.min(340.0, overlayBox.size.height - 24.0);
+
+    String? result;
+    await showMenu<void>(
+      context: anchorContext,
+      position: position,
+      constraints: BoxConstraints.tightFor(width: menuW),
+      items: [
+        PopupMenuItem<void>(
+          enabled: false,
+          padding: EdgeInsets.zero,
+          child: ConstrainedBox(
+            constraints: BoxConstraints(maxHeight: maxH),
+            child: BlockEditorFloatingPanel(
+              scheme: scheme,
+              child: StatefulBuilder(
+                builder: (menuCtx, setMenuState) {
+                  String? errorText;
+                  void closeWithSlug() {
+                    final slug = slugController.text.trim();
+                    if (slug.isEmpty) {
+                      setMenuState(() {
+                        errorText = l10n.publishWebEmptySlug;
+                      });
+                      return;
+                    }
+                    result = slug;
+                    Navigator.pop(menuCtx);
+                  }
+
+                  return Padding(
+                    padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        Padding(
+                          padding: const EdgeInsets.fromLTRB(4, 2, 4, 8),
+                          child: Text(
+                            l10n.publishWebDialogTitle,
+                            style: theme.textTheme.titleSmall?.copyWith(
+                              fontWeight: FontWeight.w700,
+                              letterSpacing: -0.2,
+                            ),
+                          ),
+                        ),
+                        TextField(
+                          controller: slugController,
+                          autofocus: true,
+                          decoration: InputDecoration(
+                            labelText: l10n.publishWebSlugLabel,
+                            hintText: l10n.publishWebSlugHint,
+                            helperText: l10n.publishWebSlugHelper,
+                            errorText: errorText,
+                          ),
+                          onSubmitted: (_) => closeWithSlug(),
+                        ),
+                        const SizedBox(height: 12),
+                        Row(
+                          children: [
+                            TextButton(
+                              onPressed: () => Navigator.pop(menuCtx),
+                              child: Text(l10n.cancel),
+                            ),
+                            const Spacer(),
+                            FilledButton(
+                              onPressed: closeWithSlug,
+                              child: Text(l10n.publishWebAction),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  );
+                },
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+    return result;
+  }
+
+  Future<void> _publishCurrentPageToWeb([BuildContext? anchorContext]) async {
     final page = _s.selectedPage;
     if (page == null || _s.state != VaultFlowState.unlocked) return;
     final l10nRoot = AppLocalizations.of(context);
@@ -384,40 +605,12 @@ extension _WorkspacePageToolsModule on _WorkspacePageState {
     );
     final snap = widget.folioCloudEntitlements.snapshot;
     try {
-      final go = await showDialog<bool>(
-        context: context,
-        builder: (ctx) {
-          final l10n = AppLocalizations.of(ctx);
-          return AlertDialog(
-            title: Text(l10n.publishWebDialogTitle),
-            content: TextField(
-              controller: slugController,
-              decoration: InputDecoration(
-                labelText: l10n.publishWebSlugLabel,
-                hintText: l10n.publishWebSlugHint,
-                helperText: l10n.publishWebSlugHelper,
-              ),
-              autofocus: true,
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(ctx, false),
-                child: Text(l10n.cancel),
-              ),
-              FilledButton(
-                onPressed: () => Navigator.pop(ctx, true),
-                child: Text(l10n.publishWebAction),
-              ),
-            ],
-          );
-        },
+      final slug = await _showPublishWebSlugMenu(
+        anchorContext: anchorContext ?? context,
+        slugController: slugController,
+        l10n: l10nRoot,
       );
-      if (go != true || !mounted) return;
-      final slug = slugController.text.trim();
-      if (slug.isEmpty) {
-        _snack(l10nRoot.publishWebEmptySlug);
-        return;
-      }
+      if (slug == null || !mounted) return;
       String? appIconDataUri;
       try {
         final data = await rootBundle.load('assets/icons/folio.ico');

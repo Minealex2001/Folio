@@ -27,6 +27,7 @@ import '../../../models/block.dart';
 import '../../../models/folio_columns_data.dart';
 import '../../../models/folio_template_button_data.dart';
 import '../../../models/folio_toggle_data.dart';
+import '../../../models/folio_kanban_data.dart';
 import '../../../services/ai/ai_types.dart';
 import '../../../services/ai/folio_cloud_ai_service.dart';
 import '../../../services/cloud_account/cloud_account_controller.dart';
@@ -58,6 +59,8 @@ import '../history/page_outline_panel.dart';
 import '../collab/collaboration_sheet.dart';
 import 'workspace_editor_surface.dart';
 import 'workspace_shell.dart';
+import '../tasks/task_quick_add_dialog.dart';
+import '../kanban/kanban_board_page.dart';
 
 part 'workspace_page_ai_chat.dart';
 part 'workspace_page_ai_context.dart';
@@ -136,6 +139,9 @@ class _WorkspacePageState extends State<WorkspacePage> {
   String? _lastCollabObservedMessageId;
   String? _lastCollabObservedRoomId;
   bool _showQuillWorkspaceTour = false;
+  /// Al abrir el editor clásico en una página con Kanban, se guarda su id aquí.
+  String? _kanbanClassicEditPageId;
+  String? _lastSessionPageIdForKanban;
   final Set<String> _expandedThoughtMessageKeys = <String>{};
   final ScrollController _aiChatScrollController = ScrollController();
 
@@ -833,6 +839,7 @@ class _WorkspacePageState extends State<WorkspacePage> {
     widget.folioCloudEntitlements.addListener(_onFolioCloudEntitlements);
     unawaited(_refreshCloudInkPricing());
     _syncTitleFromSession();
+    _lastSessionPageIdForKanban = _s.selectedPageId;
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _maybeShowQuillWorkspaceTour();
       _syncCollabForSelectedPage();
@@ -900,6 +907,10 @@ class _WorkspacePageState extends State<WorkspacePage> {
   void _onSession() {
     if (!mounted) return;
     final currentPageId = _s.selectedPageId;
+    if (currentPageId != _lastSessionPageIdForKanban) {
+      _lastSessionPageIdForKanban = currentPageId;
+      _kanbanClassicEditPageId = null;
+    }
     if (currentPageId != _lastPageIdForMobileMode) {
       _lastPageIdForMobileMode = currentPageId;
       final media = MediaQuery.maybeOf(context);
@@ -987,6 +998,14 @@ class _WorkspacePageState extends State<WorkspacePage> {
         action: () {
           if (_shouldHandleShortcut(FolioInAppShortcut.newPage)) {
             _s.addPage(parentId: null);
+          }
+        },
+      ),
+      (
+        activator: a.inAppShortcut(FolioInAppShortcut.quickAddTask),
+        action: () {
+          if (_shouldHandleShortcut(FolioInAppShortcut.quickAddTask)) {
+            unawaited(_showQuickAddTask());
           }
         },
       ),
@@ -1431,6 +1450,7 @@ class _WorkspacePageState extends State<WorkspacePage> {
     switch (shortcut) {
       case FolioInAppShortcut.search:
       case FolioInAppShortcut.newPage:
+      case FolioInAppShortcut.quickAddTask:
       case FolioInAppShortcut.settings:
       case FolioInAppShortcut.lock:
       case FolioInAppShortcut.pageNext:
@@ -1456,10 +1476,14 @@ class _WorkspacePageState extends State<WorkspacePage> {
     }
   }
 
-  void _openPageHistoryScreen() {
+  void _openPageHistoryScreen([BuildContext? anchorContext]) {
     final page = _s.selectedPage;
     if (page == null) return;
-    openPageHistoryScreen(context: context, session: _s, page: page);
+    openPageHistoryScreen(
+      context: anchorContext ?? context,
+      session: _s,
+      page: page,
+    );
   }
 
   List<String> _buildPagePathSegments(FolioPage? page) {
@@ -1518,6 +1542,8 @@ class _WorkspacePageState extends State<WorkspacePage> {
     } else if (type == 'equation') {
       text = r'E = mc^2';
       codeLanguage = 'plaintext';
+    } else if (type == 'kanban') {
+      text = FolioKanbanData.defaults().encode();
     }
     if (type == 'code') codeLanguage = 'dart';
     _s.appendBlock(
@@ -1541,6 +1567,14 @@ class _WorkspacePageState extends State<WorkspacePage> {
     _appendBlockToPage(page, type);
   }
 
+  Future<void> _addBlockToCurrentPageFromMenu(BuildContext anchorContext) async {
+    final page = _s.selectedPage;
+    if (page == null) return;
+    final type = await showBlockTypePickerMenu(anchorContext: anchorContext);
+    if (type == null || !mounted) return;
+    _appendBlockToPage(page, type);
+  }
+
   void _forceSyncNow() {
     try {
       widget.deviceSyncController.refreshSettingsSnapshot();
@@ -1553,6 +1587,110 @@ class _WorkspacePageState extends State<WorkspacePage> {
         _snack('No se pudo forzar la sincronización: $e', error: true);
       }
     }
+  }
+
+  Future<void> _showQuickAddTask() async {
+    final kanbanPages = _s.pages
+        .where((p) => p.blocks.any((b) => b.type == 'kanban'))
+        .toList();
+    if (kanbanPages.isEmpty) return;
+
+    if (kanbanPages.length == 1) {
+      await showTaskQuickAddDialog(
+        context: context,
+        session: _s,
+        appSettings: widget.appSettings,
+        targetPageId: kanbanPages.single.id,
+      );
+    } else {
+      final l10n = AppLocalizations.of(context);
+      final selected = await showModalBottomSheet<String>(
+        context: context,
+        isScrollControlled: true,
+        backgroundColor: Colors.transparent,
+        builder: (sheetContext) {
+          final scheme = Theme.of(sheetContext).colorScheme;
+          final theme = Theme.of(sheetContext);
+          return SafeArea(
+            child: Padding(
+              padding: const EdgeInsets.all(FolioSpace.md),
+              child: Material(
+                color: scheme.surface,
+                elevation: 6,
+                borderRadius: BorderRadius.circular(FolioRadius.lg),
+                clipBehavior: Clip.antiAlias,
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 520),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(
+                          FolioSpace.md,
+                          FolioSpace.md,
+                          FolioSpace.md,
+                          FolioSpace.sm,
+                        ),
+                        child: Row(
+                          children: [
+                            const Icon(Icons.view_kanban_rounded),
+                            const SizedBox(width: FolioSpace.sm),
+                            Expanded(
+                              child: Text(
+                                l10n.sidebarQuickAddTask,
+                                style: theme.textTheme.titleMedium?.copyWith(
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
+                            ),
+                            IconButton(
+                              tooltip: l10n.cancel,
+                              onPressed: () =>
+                                  Navigator.of(sheetContext).pop<String>(null),
+                              icon: const Icon(Icons.close_rounded),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const Divider(height: 1),
+                      Flexible(
+                        child: ListView.separated(
+                          shrinkWrap: true,
+                          itemCount: kanbanPages.length,
+                          separatorBuilder: (context, _) =>
+                              const Divider(height: 1),
+                          itemBuilder: (context, i) {
+                            final p = kanbanPages[i];
+                            final title = p.title.trim().isEmpty
+                                ? l10n.untitled
+                                : p.title.trim();
+                            return ListTile(
+                              leading: const Icon(Icons.description_outlined),
+                              title: Text(title),
+                              onTap: () =>
+                                  Navigator.of(sheetContext).pop<String>(p.id),
+                            );
+                          },
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          );
+        },
+      );
+      if (selected != null && mounted) {
+        await showTaskQuickAddDialog(
+          context: context,
+          session: _s,
+          appSettings: widget.appSettings,
+          targetPageId: selected,
+        );
+      }
+    }
+    if (mounted) setState(() {});
   }
 
   @override
@@ -1588,6 +1726,8 @@ class _WorkspacePageState extends State<WorkspacePage> {
         : (widget.appSettings.workspaceSidebarCollapsed
               ? (_sidebarPeek ? widget.appSettings.workspaceSidebarWidth : 0.0)
               : widget.appSettings.workspaceSidebarWidth);
+    final hasAnyKanbanPage =
+        _s.pages.any((p) => p.blocks.any((b) => b.type == 'kanban'));
     final sidePanel = Material(
       color: scheme.surfaceContainerLow,
       child: MouseRegion(
@@ -1604,6 +1744,7 @@ class _WorkspacePageState extends State<WorkspacePage> {
           onForceSync: _forceSyncNow,
           onOpenSettings: _openSettings,
           onLock: () => unawaited(_s.lock()),
+          onQuickAddTask: hasAnyKanbanPage ? _showQuickAddTask : null,
         ),
       ),
     );
@@ -1617,6 +1758,11 @@ class _WorkspacePageState extends State<WorkspacePage> {
       a.inAppShortcut(FolioInAppShortcut.newPage): () {
         if (_shouldHandleShortcut(FolioInAppShortcut.newPage)) {
           _s.addPage(parentId: null);
+        }
+      },
+      a.inAppShortcut(FolioInAppShortcut.quickAddTask): () {
+        if (_shouldHandleShortcut(FolioInAppShortcut.quickAddTask)) {
+          unawaited(_showQuickAddTask());
         }
       },
       a.inAppShortcut(FolioInAppShortcut.settings): () {
@@ -1762,7 +1908,7 @@ class _WorkspacePageState extends State<WorkspacePage> {
             _WorkspaceActionEntry(
               id: 'close_page',
               label: l10n.closeCurrentPage,
-              icon: Icons.tab_unselected_rounded,
+              icon: Icons.close_rounded,
               onPressed: _s.clearSelectedPage,
             ),
           if (page != null)
@@ -1808,33 +1954,70 @@ class _WorkspacePageState extends State<WorkspacePage> {
         }
 
         final widgets = <Widget>[
-          ...primary.map(
-            (action) => IconButton(
+          ...primary.map((action) {
+            if (action.id == 'add_block') {
+              return Builder(
+                builder: (buttonContext) => IconButton(
+                  tooltip: action.label,
+                  icon: Icon(action.icon),
+                  onPressed: action.enabled
+                      ? () => _addBlockToCurrentPageFromMenu(buttonContext)
+                      : null,
+                ),
+              );
+            }
+            if (action.id == 'export_md') {
+              return Builder(
+                builder: (buttonContext) => IconButton(
+                  tooltip: action.label,
+                  icon: Icon(action.icon),
+                  onPressed:
+                      action.enabled ? () => _exportCurrentPage(buttonContext) : null,
+                ),
+              );
+            }
+            if (action.id == 'publish_web') {
+              return Builder(
+                builder: (buttonContext) => IconButton(
+                  tooltip: action.label,
+                  icon: Icon(action.icon),
+                  onPressed: action.enabled
+                      ? () => _publishCurrentPageToWeb(buttonContext)
+                      : null,
+                ),
+              );
+            }
+            if (action.id == 'history') {
+              return Builder(
+                builder: (buttonContext) => IconButton(
+                  tooltip: action.label,
+                  icon: Icon(action.icon),
+                  onPressed: action.enabled
+                      ? () => _openPageHistoryScreen(buttonContext)
+                      : null,
+                ),
+              );
+            }
+            return IconButton(
               tooltip: action.label,
               icon: Icon(action.icon),
               onPressed: action.enabled ? action.onPressed : null,
-            ),
-          ),
+            );
+          }),
           if (overflow.isNotEmpty)
-            PopupMenuButton<_WorkspaceActionEntry>(
-              tooltip: l10n.workspaceMoreActionsTooltip,
-              icon: const Icon(Icons.more_horiz_rounded),
-              itemBuilder: (context) => overflow
-                  .map(
-                    (action) => PopupMenuItem<_WorkspaceActionEntry>(
-                      value: action,
-                      enabled: action.enabled,
-                      child: Row(
-                        children: [
-                          Icon(action.icon, size: 18),
-                          const SizedBox(width: FolioSpace.sm),
-                          Expanded(child: Text(action.label)),
-                        ],
-                      ),
-                    ),
-                  )
-                  .toList(growable: false),
-              onSelected: (action) => action.onPressed(),
+            Builder(
+              builder: (buttonContext) => IconButton(
+                tooltip: l10n.workspaceMoreActionsTooltip,
+                icon: const Icon(Icons.more_horiz_rounded),
+                onPressed: () async {
+                  final chosen = await _showWorkspaceActionsMenu(
+                    anchorContext: buttonContext,
+                    actions: overflow,
+                  );
+                  if (chosen == null) return;
+                  chosen.onPressed();
+                },
+              ),
             ),
         ];
 
@@ -1905,6 +2088,71 @@ class _WorkspacePageState extends State<WorkspacePage> {
         ? null
         : _blockEditorKeyForPage(page.id);
 
+    bool pageHasKanban(FolioPage p) =>
+        p.blocks.any((b) => b.type == 'kanban');
+
+    final showKanbanBoard =
+        page != null &&
+        pageHasKanban(page) &&
+        _kanbanClassicEditPageId != page.id;
+
+    Widget baseEditor = page == null
+        ? const SizedBox.shrink()
+        : KeyedSubtree(
+            key: ValueKey('${page.id}-${_s.contentEpoch}'),
+            child: showKanbanBoard
+                ? KanbanBoardPage(
+                    pageId: page.id,
+                    session: _s,
+                    appSettings: widget.appSettings,
+                    onOpenClassicEditor: () => setState(
+                      () => _kanbanClassicEditPageId = page.id,
+                    ),
+                  )
+                : BlockEditor(
+                    key: activeBlockEditorKey,
+                    session: _s,
+                    appSettings: widget.appSettings,
+                    readOnlyMode: editorReadOnlyMode,
+                    folioCloudEntitlements: widget.folioCloudEntitlements,
+                  ),
+          );
+
+    if (page != null &&
+        pageHasKanban(page) &&
+        _kanbanClassicEditPageId == page.id) {
+      baseEditor = Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Material(
+            color: scheme.surfaceContainerHigh.withValues(alpha: 0.95),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(
+                horizontal: FolioSpace.md,
+                vertical: FolioSpace.sm,
+              ),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      l10n.kanbanClassicModeBanner,
+                      style: theme.textTheme.bodyMedium,
+                    ),
+                  ),
+                  TextButton(
+                    onPressed: () =>
+                        setState(() => _kanbanClassicEditPageId = null),
+                    child: Text(l10n.kanbanBackToBoard),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          Expanded(child: baseEditor),
+        ],
+      );
+    }
+
     final editorSurface = WorkspaceEditorSurface(
       compact: compact,
       mobileOptimized: androidMobileWorkspace,
@@ -1920,30 +2168,24 @@ class _WorkspacePageState extends State<WorkspacePage> {
       },
       onCreatePage: () => _s.addPage(parentId: null),
       onOpenSearch: widget.onOpenSearch,
-      editor: page == null
-          ? const SizedBox.shrink()
-          : KeyedSubtree(
-              key: ValueKey('${page.id}-${_s.contentEpoch}'),
-              child: BlockEditor(
-                key: activeBlockEditorKey,
-                session: _s,
-                appSettings: widget.appSettings,
-                readOnlyMode: editorReadOnlyMode,
-                folioCloudEntitlements: widget.folioCloudEntitlements,
-              ),
-            ),
+      editor: baseEditor,
     );
-    final editorContent = !compact && page != null
+
+    final showOutlinePanel = !compact &&
+        page != null &&
+        !showKanbanBoard &&
+        widget.appSettings.workspacePageOutlineVisible;
+
+    final editorContent = showOutlinePanel
         ? Row(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               Expanded(child: editorSurface),
-              if (widget.appSettings.workspacePageOutlineVisible)
-                PageOutlinePanel(
-                  blocks: page.blocks,
-                  scheme: scheme,
-                  blockEditorKey: activeBlockEditorKey!,
-                ),
+              PageOutlinePanel(
+                blocks: page.blocks,
+                scheme: scheme,
+                blockEditorKey: activeBlockEditorKey!,
+              ),
             ],
           )
         : editorSurface;
@@ -2151,4 +2393,135 @@ class _WorkspaceActionEntry {
   final bool forcePrimary;
   final bool enabled;
   final bool forceOverflow;
+}
+
+Future<_WorkspaceActionEntry?> _showWorkspaceActionsMenu({
+  required BuildContext anchorContext,
+  required List<_WorkspaceActionEntry> actions,
+}) async {
+  final theme = Theme.of(anchorContext);
+  final scheme = theme.colorScheme;
+
+  final buttonBox = anchorContext.findRenderObject() as RenderBox?;
+  final overlayBox =
+      Overlay.of(anchorContext).context.findRenderObject() as RenderBox?;
+  if (buttonBox == null || overlayBox == null) return null;
+
+  final buttonRect =
+      buttonBox.localToGlobal(Offset.zero, ancestor: overlayBox) &
+      buttonBox.size;
+  final position = RelativeRect.fromRect(
+    buttonRect,
+    Offset.zero & overlayBox.size,
+  );
+
+  final maxW = math.min(420.0, overlayBox.size.width - 24.0);
+  final menuW = maxW.clamp(280.0, 420.0);
+  final maxH = math.min(560.0, overlayBox.size.height - 24.0);
+
+  return showMenu<_WorkspaceActionEntry>(
+    context: anchorContext,
+    position: position,
+    constraints: BoxConstraints.tightFor(width: menuW),
+    items: [
+      PopupMenuItem<_WorkspaceActionEntry>(
+        enabled: false,
+        padding: EdgeInsets.zero,
+        child: ConstrainedBox(
+          constraints: BoxConstraints(maxHeight: maxH),
+          child: BlockEditorFloatingPanel(
+            scheme: scheme,
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(10, 10, 10, 10),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(8, 2, 8, 8),
+                    child: Text(
+                      AppLocalizations.of(anchorContext)
+                          .workspaceMoreActionsTooltip,
+                      style: theme.textTheme.titleSmall?.copyWith(
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: -0.2,
+                      ),
+                    ),
+                  ),
+                  Flexible(
+                    child: ListView.builder(
+                      shrinkWrap: true,
+                      itemCount: actions.length,
+                      itemBuilder: (ctx, i) {
+                        final a = actions[i];
+                        final enabled = a.enabled;
+                        return Padding(
+                          padding: const EdgeInsets.only(bottom: 6),
+                          child: Material(
+                            color: scheme.surfaceContainerLow.withValues(
+                              alpha: 0.55,
+                            ),
+                            borderRadius: BorderRadius.circular(14),
+                            clipBehavior: Clip.antiAlias,
+                            child: InkWell(
+                              onTap:
+                                  enabled ? () => Navigator.pop(ctx, a) : null,
+                              child: Padding(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 12,
+                                  vertical: 10,
+                                ),
+                                child: Row(
+                                  children: [
+                                    Container(
+                                      width: 38,
+                                      height: 38,
+                                      decoration: BoxDecoration(
+                                        color: scheme
+                                            .surfaceContainerHighest
+                                            .withValues(alpha: 0.5),
+                                        borderRadius: BorderRadius.circular(12),
+                                      ),
+                                      child: Icon(
+                                        a.icon,
+                                        size: 20,
+                                        color: enabled
+                                            ? scheme.onSurface
+                                            : scheme.onSurfaceVariant
+                                                .withValues(alpha: 0.55),
+                                      ),
+                                    ),
+                                    const SizedBox(width: 12),
+                                    Expanded(
+                                      child: Text(
+                                        a.label,
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: theme.textTheme.bodyMedium
+                                            ?.copyWith(
+                                          fontWeight: FontWeight.w600,
+                                          color: enabled
+                                              ? scheme.onSurface
+                                              : scheme.onSurfaceVariant
+                                                  .withValues(alpha: 0.6),
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    ],
+  );
 }
