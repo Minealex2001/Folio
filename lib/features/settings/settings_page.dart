@@ -155,6 +155,20 @@ class _SettingsPageState extends State<SettingsPage> {
 
   String? _taskInboxPageIdLoaded;
   Map<String, String> _taskAliasesLoaded = const {};
+  bool _deferHeavyBuild = true;
+  bool _didRunDeferredInit = false;
+
+  void _runDeferredInitIfNeeded() {
+    if (_didRunDeferredInit) return;
+    _didRunDeferredInit = true;
+
+    unawaited(_loadMeetingNoteDevices());
+    _refreshSecurityFlags();
+    _loadInstalledVersionInfo();
+    _refreshReleaseReadiness();
+    unawaited(_refreshCloudBackupCount());
+    unawaited(_loadTaskCapturePrefs());
+  }
 
   @override
   void initState() {
@@ -174,14 +188,12 @@ class _SettingsPageState extends State<SettingsPage> {
     _settingsSectionFilterController.addListener(() {
       if (mounted) setState(() {});
     });
-    unawaited(_loadMeetingNoteDevices());
-    _refreshSecurityFlags();
-    _loadInstalledVersionInfo();
-    _refreshReleaseReadiness();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) unawaited(_refreshCloudBackupCount());
+      if (!mounted) return;
+      // Evita el “parón” al navegar: primer frame ligero, luego render/cargas.
+      setState(() => _deferHeavyBuild = false);
+      _runDeferredInitIfNeeded();
     });
-    unawaited(_loadTaskCapturePrefs());
   }
 
   Future<void> _loadTaskCapturePrefs() async {
@@ -2745,6 +2757,25 @@ class _SettingsPageState extends State<SettingsPage> {
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
+    if (_deferHeavyBuild) {
+      return Scaffold(
+        appBar: AppBar(title: Text(l10n.settings)),
+        body: Center(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const SizedBox(
+                width: 28,
+                height: 28,
+                child: CircularProgressIndicator(strokeWidth: 3),
+              ),
+              const SizedBox(height: 12),
+              Text(l10n.loading),
+            ],
+          ),
+        ),
+      );
+    }
     final scheme = Theme.of(context).colorScheme;
     final windowWidth = MediaQuery.sizeOf(context).width;
     final showDesktopOnlySections = FolioAdaptive.shouldUseDesktopSections(
