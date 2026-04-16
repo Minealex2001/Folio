@@ -3636,6 +3636,68 @@ class AppLocalizationsEn extends AppLocalizations {
   String get kanbanEmptyColumn => 'No tasks';
 
   @override
+  String get blockTypeDriveLabel => 'File Drive';
+
+  @override
+  String get blockTypeDriveHint => 'Integrated file manager';
+
+  @override
+  String get driveBlockRowTitle => 'File drive';
+
+  @override
+  String driveBlockRowSubtitle(int files, int folders) {
+    return '$files files · $folders folders';
+  }
+
+  @override
+  String get driveNewFolder => 'New folder';
+
+  @override
+  String get driveUploadFile => 'Upload file';
+
+  @override
+  String get driveImportFromVault => 'Import from vault';
+
+  @override
+  String get driveViewGrid => 'Grid';
+
+  @override
+  String get driveViewList => 'List';
+
+  @override
+  String get driveEditBlock => 'Edit block';
+
+  @override
+  String get driveFolderEmpty => 'This folder is empty';
+
+  @override
+  String get driveDeleteConfirm => 'Delete this file?';
+
+  @override
+  String get driveOpenFile => 'Open file';
+
+  @override
+  String get driveMoveTo => 'Move to…';
+
+  @override
+  String get driveClassicModeBanner =>
+      'Block editor: you can move or delete the Drive block.';
+
+  @override
+  String get driveBackToDrive => 'Back to drive';
+
+  @override
+  String get driveMultipleBlocksSnack =>
+      'This page has more than one Drive block; using the first one.';
+
+  @override
+  String get driveDeleteOriginalsTitle => 'Delete originals on import';
+
+  @override
+  String get driveDeleteOriginalsSubtitle =>
+      'When uploading files to the drive, the originals are automatically deleted from disk.';
+
+  @override
   String get blockTypeEquationLabel => 'Equation (LaTeX)';
 
   @override
@@ -4535,6 +4597,9 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get settingsSubsectionVaultScheduledLocal =>
       'Scheduled backup (local)';
+
+  @override
+  String get settingsSubsectionDrive => 'Drive';
 
   @override
   String get settingsSubsectionVaultData => 'Data (danger zone)';

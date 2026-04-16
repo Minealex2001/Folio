@@ -5,17 +5,20 @@
 list(APPEND FLUTTER_PLUGIN_LIST
   audioplayers_windows
   cloud_firestore
+  desktop_drop
   emoji_picker_flutter
   file_selector_windows
   firebase_auth
   firebase_core
   firebase_storage
   hotkey_manager_windows
+  irondash_engine_context
   local_auth_windows
   passkeys_windows
   printing
   record_windows
   screen_retriever_windows
+  super_native_extensions
   syncfusion_pdfviewer_windows
   system_theme
   tray_manager

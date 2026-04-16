@@ -267,27 +267,28 @@ class _FolioAppState extends State<FolioApp> with WidgetsBindingObserver {
 
   Future<void> _maybeRunScheduledVaultBackup() async {
     if (!mounted) return;
-    if (!widget.appSettings.scheduledVaultBackupEnabled) return;
-    final dir = widget.appSettings.scheduledVaultBackupDirectory.trim();
+    if (widget.session.state != VaultFlowState.unlocked) return;
+    final vaultId = widget.session.activeVaultId ?? '';
+    final prefs = await widget.appSettings.getVaultBackupPrefs(
+      vaultId.isEmpty ? null : vaultId,
+    );
+    if (!prefs.enabled) return;
     final canCloud =
         Firebase.apps.isNotEmpty &&
         FirebaseAuth.instance.currentUser != null &&
         _folioCloudEntitlements.snapshot.canUseCloudBackup;
-    final willDoFolder =
-        widget.appSettings.scheduledVaultBackupFolderEnabled && dir.isNotEmpty;
-    final willDoCloud =
-        widget.appSettings.scheduledVaultBackupAlsoUploadCloud && canCloud;
+    final willDoFolder = prefs.folderEnabled && prefs.directory.isNotEmpty;
+    final willDoCloud = prefs.alsoCloud && canCloud;
     if (!willDoFolder && !willDoCloud) return;
-    if (widget.session.state != VaultFlowState.unlocked) return;
-    final intervalMs =
-        widget.appSettings.scheduledVaultBackupIntervalMinutes * 60 * 1000;
+    final intervalMs = prefs.intervalMinutes * 60 * 1000;
     final now = DateTime.now().millisecondsSinceEpoch;
-    final last = widget.appSettings.lastScheduledVaultBackupMs;
+    final last = prefs.lastMs;
     if (last > 0 && now - last < intervalMs) return;
     try {
       await runScheduledFolderVaultExport(
         session: widget.session,
         appSettings: widget.appSettings,
+        vaultId: vaultId.isEmpty ? null : vaultId,
         folioEntitlements: _folioCloudEntitlements,
       );
       final okCtx = _navKey.currentContext;

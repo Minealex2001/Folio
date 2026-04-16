@@ -3682,6 +3682,68 @@ class AppLocalizationsEu extends AppLocalizations {
   String get kanbanEmptyColumn => 'Zereginik ez';
 
   @override
+  String get blockTypeDriveLabel => 'Fitxategi Drive';
+
+  @override
+  String get blockTypeDriveHint => 'Fitxategi kudeatzailea orri honetarako';
+
+  @override
+  String get driveBlockRowTitle => 'Fitxategi Drive';
+
+  @override
+  String driveBlockRowSubtitle(int files, int folders) {
+    return '$files fitxategi · $folders karpeta';
+  }
+
+  @override
+  String get driveNewFolder => 'Karpeta berria';
+
+  @override
+  String get driveUploadFile => 'Fitxategia igo';
+
+  @override
+  String get driveImportFromVault => 'Inportatu vault-etik';
+
+  @override
+  String get driveViewGrid => 'Sarea';
+
+  @override
+  String get driveViewList => 'Zerrenda';
+
+  @override
+  String get driveEditBlock => 'Blokea editatu';
+
+  @override
+  String get driveFolderEmpty => 'Karpeta honek ez dauka ezer';
+
+  @override
+  String get driveDeleteConfirm => 'Fitxategi hau ezabatu?';
+
+  @override
+  String get driveOpenFile => 'Fitxategia ireki';
+
+  @override
+  String get driveMoveTo => 'Mugitu hona…';
+
+  @override
+  String get driveClassicModeBanner =>
+      'Bloke editorea: Drive blokea mugitu edo ezabatu dezakezu.';
+
+  @override
+  String get driveBackToDrive => 'Drive-ra itzuli';
+
+  @override
+  String get driveMultipleBlocksSnack =>
+      'Orri honek Drive bloke bat baino gehiago ditu; lehena erabiltzen da.';
+
+  @override
+  String get driveDeleteOriginalsTitle => 'Originalak inportatzean ezabatu';
+
+  @override
+  String get driveDeleteOriginalsSubtitle =>
+      'Fitxategiak drivera igotzerakoan, originalak automatikoki ezabatzen dira diskotik.';
+
+  @override
   String get blockTypeEquationLabel => 'Ekuazioa (LaTeX)';
 
   @override
@@ -4596,6 +4658,9 @@ class AppLocalizationsEu extends AppLocalizations {
   @override
   String get settingsSubsectionVaultScheduledLocal =>
       'Programatutako babeskopia (lokala)';
+
+  @override
+  String get settingsSubsectionDrive => 'Drive';
 
   @override
   String get settingsSubsectionVaultData => 'Datuak (arrisku-eremua)';

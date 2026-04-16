@@ -4,12 +4,15 @@
 
 list(APPEND FLUTTER_PLUGIN_LIST
   audioplayers_linux
+  desktop_drop
   emoji_picker_flutter
   file_selector_linux
   hotkey_manager_linux
+  irondash_engine_context
   printing
   record_linux
   screen_retriever_linux
+  super_native_extensions
   syncfusion_pdfviewer_linux
   system_theme
   tray_manager

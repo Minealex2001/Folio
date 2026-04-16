@@ -156,6 +156,7 @@ class _SettingsPageState extends State<SettingsPage> {
 
   String? _taskInboxPageIdLoaded;
   Map<String, String> _taskAliasesLoaded = const {};
+  VaultBackupPrefs _vaultBackupPrefs = const VaultBackupPrefs();
   bool _deferHeavyBuild = true;
   bool _didRunDeferredInit = false;
 
@@ -169,6 +170,7 @@ class _SettingsPageState extends State<SettingsPage> {
     _refreshReleaseReadiness();
     unawaited(_refreshCloudBackupCount());
     unawaited(_loadTaskCapturePrefs());
+    unawaited(_loadVaultBackupPrefs());
   }
 
   @override
@@ -207,6 +209,15 @@ class _SettingsPageState extends State<SettingsPage> {
       _taskInboxPageIdLoaded = inbox;
       _taskAliasesLoaded = Map<String, String>.from(aliases);
     });
+  }
+
+  String? get _vaultId => _s.activeVaultId;
+
+  Future<void> _loadVaultBackupPrefs() async {
+    if (!_s.isUnlocked) return;
+    final prefs = await _app.getVaultBackupPrefs(_vaultId);
+    if (!mounted) return;
+    setState(() => _vaultBackupPrefs = prefs);
   }
 
   Future<void> _addTaskAliasDialog() async {
@@ -436,8 +447,8 @@ class _SettingsPageState extends State<SettingsPage> {
   Future<void> _pickScheduledVaultBackupFolder() async {
     final path = await FilePicker.getDirectoryPath();
     if (path == null || !mounted) return;
-    await _app.setScheduledVaultBackupDirectory(path);
-    if (mounted) setState(() {});
+    await _app.setVaultBackupDirectory(_vaultId, path);
+    await _loadVaultBackupPrefs();
   }
 
   List<_SettingsSectionId> _sectionOrderForCurrentLayout() {
@@ -631,13 +642,12 @@ class _SettingsPageState extends State<SettingsPage> {
   Future<void> _runBackupNowToScheduledFolder() async {
     if (_s.state != VaultFlowState.unlocked) return;
     final l10n = AppLocalizations.of(context);
-    final dirEmpty = _app.scheduledVaultBackupDirectory.trim().isEmpty;
+    final dirEmpty = _vaultBackupPrefs.directory.trim().isEmpty;
     final canCloud =
         _folio.isAvailable &&
         _cloud.isSignedIn &&
         _folio.snapshot.canUseCloudBackup;
-    final cloudOnly =
-        dirEmpty && _app.scheduledVaultBackupAlsoUploadCloud && canCloud;
+    final cloudOnly = dirEmpty && _vaultBackupPrefs.alsoCloud && canCloud;
     if (dirEmpty && !cloudOnly) {
       _snack(l10n.vaultBackupRunNowNeedFolder);
       return;
@@ -646,6 +656,7 @@ class _SettingsPageState extends State<SettingsPage> {
       await runScheduledFolderVaultExport(
         session: _s,
         appSettings: _app,
+        vaultId: _vaultId,
         folioEntitlements: _folio,
       );
       if (mounted) {
@@ -654,6 +665,7 @@ class _SettingsPageState extends State<SettingsPage> {
               ? l10n.folioCloudUploadSnackOk
               : l10n.scheduledVaultBackupSnackOk,
         );
+        await _loadVaultBackupPrefs();
       }
     } on VaultBackupException catch (e) {
       if (mounted) _snack('$e');
@@ -4431,18 +4443,18 @@ class _SettingsPageState extends State<SettingsPage> {
                                   subtitle: Text(
                                     l10n.scheduledVaultBackupSubtitle,
                                   ),
-                                  value: _app.scheduledVaultBackupEnabled,
+                                  value: _vaultBackupPrefs.enabled,
                                   onChanged: _s.state == VaultFlowState.unlocked
                                       ? (v) async {
-                                          await _app
-                                              .setScheduledVaultBackupEnabled(
-                                                v,
-                                              );
-                                          if (mounted) setState(() {});
+                                          await _app.setVaultBackupEnabled(
+                                            _vaultId,
+                                            v,
+                                          );
+                                          await _loadVaultBackupPrefs();
                                         }
                                       : null,
                                 ),
-                                if (_app.scheduledVaultBackupEnabled) ...[
+                                if (_vaultBackupPrefs.enabled) ...[
                                   ListTile(
                                     isThreeLine: true,
                                     leading: const Icon(Icons.timer_outlined),
@@ -4458,7 +4470,7 @@ class _SettingsPageState extends State<SettingsPage> {
                                         Text(
                                           _scheduledVaultBackupIntervalSummary(
                                             l10n,
-                                            _app.scheduledVaultBackupIntervalMinutes,
+                                            _vaultBackupPrefs.intervalMinutes,
                                           ),
                                         ),
                                         SliderTheme(
@@ -4478,9 +4490,11 @@ class _SettingsPageState extends State<SettingsPage> {
                                                     .scheduledVaultBackupIntervalChoicesMinutes
                                                     .length -
                                                 1,
-                                            value: _app
-                                                .scheduledVaultBackupIntervalChoiceIndex
-                                                .toDouble(),
+                                            value:
+                                                AppSettings.vaultBackupIntervalChoiceIndex(
+                                                  _vaultBackupPrefs
+                                                      .intervalMinutes,
+                                                ).toDouble(),
                                             onChanged:
                                                 _s.state ==
                                                     VaultFlowState.unlocked
@@ -4495,12 +4509,11 @@ class _SettingsPageState extends State<SettingsPage> {
                                                     final minutes = AppSettings
                                                         .scheduledVaultBackupIntervalChoicesMinutes[i];
                                                     await _app
-                                                        .setScheduledVaultBackupIntervalMinutes(
+                                                        .setVaultBackupIntervalMinutes(
+                                                          _vaultId,
                                                           minutes,
                                                         );
-                                                    if (mounted) {
-                                                      setState(() {});
-                                                    }
+                                                    await _loadVaultBackupPrefs();
                                                   }
                                                 : null,
                                           ),
@@ -4520,39 +4533,34 @@ class _SettingsPageState extends State<SettingsPage> {
                                     subtitle: Text(
                                       l10n.scheduledVaultBackupFolderSubtitle,
                                     ),
-                                    value:
-                                        _app.scheduledVaultBackupFolderEnabled,
+                                    value: _vaultBackupPrefs.folderEnabled,
                                     onChanged:
                                         _s.state == VaultFlowState.unlocked
                                         ? (v) async {
                                             await _app
-                                                .setScheduledVaultBackupFolderEnabled(
+                                                .setVaultBackupFolderEnabled(
+                                                  _vaultId,
                                                   v,
                                                 );
-                                            if (mounted) setState(() {});
+                                            await _loadVaultBackupPrefs();
                                           }
                                         : null,
                                   ),
-                                  if (_app
-                                      .scheduledVaultBackupFolderEnabled) ...[
+                                  if (_vaultBackupPrefs.folderEnabled) ...[
                                     ListTile(
                                       leading: const Icon(Icons.folder_rounded),
                                       title: Text(
                                         l10n.scheduledVaultBackupChooseFolder,
                                       ),
                                       subtitle: Text(
-                                        _app
-                                                .scheduledVaultBackupDirectory
-                                                .isEmpty
+                                        _vaultBackupPrefs.directory.isEmpty
                                             ? '—'
-                                            : _app.scheduledVaultBackupDirectory,
+                                            : _vaultBackupPrefs.directory,
                                         maxLines: 2,
                                         overflow: TextOverflow.ellipsis,
                                       ),
                                       trailing:
-                                          _app
-                                              .scheduledVaultBackupDirectory
-                                              .isEmpty
+                                          _vaultBackupPrefs.directory.isEmpty
                                           ? null
                                           : IconButton(
                                               tooltip: l10n
@@ -4565,12 +4573,11 @@ class _SettingsPageState extends State<SettingsPage> {
                                                       VaultFlowState.unlocked
                                                   ? () async {
                                                       await _app
-                                                          .setScheduledVaultBackupDirectory(
+                                                          .setVaultBackupDirectory(
+                                                            _vaultId,
                                                             '',
                                                           );
-                                                      if (mounted) {
-                                                        setState(() {});
-                                                      }
+                                                      await _loadVaultBackupPrefs();
                                                     }
                                                   : null,
                                             ),
@@ -4585,7 +4592,7 @@ class _SettingsPageState extends State<SettingsPage> {
                                       title: Text(
                                         l10n.scheduledVaultBackupLastRun(
                                           _formatScheduledBackupTime(
-                                            _app.lastScheduledVaultBackupMs,
+                                            _vaultBackupPrefs.lastMs,
                                           ),
                                         ),
                                       ),
@@ -4619,8 +4626,7 @@ class _SettingsPageState extends State<SettingsPage> {
                                             subtitle: Text(
                                               l10n.scheduledVaultBackupCloudSyncSubtitle,
                                             ),
-                                            value: _app
-                                                .scheduledVaultBackupAlsoUploadCloud,
+                                            value: _vaultBackupPrefs.alsoCloud,
                                             onChanged:
                                                 _s.state ==
                                                         VaultFlowState
@@ -4629,13 +4635,12 @@ class _SettingsPageState extends State<SettingsPage> {
                                                 ? (v) {
                                                     unawaited(
                                                       _app
-                                                          .setScheduledVaultBackupAlsoUploadCloud(
+                                                          .setVaultBackupAlsoCloud(
+                                                            _vaultId,
                                                             v,
                                                           )
-                                                          .then((_) {
-                                                            if (mounted) {
-                                                              setState(() {});
-                                                            }
+                                                          .then((_) async {
+                                                            await _loadVaultBackupPrefs();
                                                           }),
                                                     );
                                                   }
@@ -4655,6 +4660,25 @@ class _SettingsPageState extends State<SettingsPage> {
                                   onTap: _s.state == VaultFlowState.unlocked
                                       ? _runBackupNowToScheduledFolder
                                       : null,
+                                ),
+                                const Divider(height: 1),
+                                _SettingsSubsectionTitle(
+                                  title: l10n.settingsSubsectionDrive,
+                                  scheme: scheme,
+                                  topPadding: 8,
+                                ),
+                                const Divider(height: 1),
+                                SwitchListTile(
+                                  secondary: const Icon(
+                                    Icons.folder_copy_rounded,
+                                  ),
+                                  title: Text(l10n.driveDeleteOriginalsTitle),
+                                  subtitle: Text(
+                                    l10n.driveDeleteOriginalsSubtitle,
+                                  ),
+                                  value: _app.driveDeleteOriginalsOnUpload,
+                                  onChanged:
+                                      _app.setDriveDeleteOriginalsOnUpload,
                                 ),
                                 const Divider(height: 1),
                                 _SettingsSubsectionTitle(

@@ -152,6 +152,46 @@ class IntegrationAppApproval {
   static String _normalize(String value) => value.trim();
 }
 
+/// Configuración de backup automático por libreta.
+class VaultBackupPrefs {
+  const VaultBackupPrefs({
+    this.enabled = false,
+    this.folderEnabled = false,
+    this.intervalMinutes =
+        AppSettings.defaultScheduledVaultBackupIntervalMinutes,
+    this.directory = '',
+    this.lastMs = 0,
+    this.alsoCloud = false,
+  });
+
+  final bool enabled;
+  final bool folderEnabled;
+  final int intervalMinutes;
+  final String directory;
+  final int lastMs;
+  final bool alsoCloud;
+
+  static const VaultBackupPrefs defaults = VaultBackupPrefs();
+
+  VaultBackupPrefs copyWith({
+    bool? enabled,
+    bool? folderEnabled,
+    int? intervalMinutes,
+    String? directory,
+    int? lastMs,
+    bool? alsoCloud,
+  }) {
+    return VaultBackupPrefs(
+      enabled: enabled ?? this.enabled,
+      folderEnabled: folderEnabled ?? this.folderEnabled,
+      intervalMinutes: intervalMinutes ?? this.intervalMinutes,
+      directory: directory ?? this.directory,
+      lastMs: lastMs ?? this.lastMs,
+      alsoCloud: alsoCloud ?? this.alsoCloud,
+    );
+  }
+}
+
 /// Preferencias de la app persistidas (p. ej. tema). No se borran al eliminar la libreta.
 class AppSettings extends ChangeNotifier {
   AppSettings({String integrationSecret = ''})
@@ -242,6 +282,8 @@ class AppSettings extends ChangeNotifier {
       'folio_meeting_note_auto_whisper_model';
   static const _meetingNoteForceLocalTranscriptionKey =
       'folio_meeting_note_force_local_transcription';
+  static const _driveDeleteOriginalsOnUploadKey =
+      'folio_drive_delete_originals_on_upload';
   static const int maxRecentSearchQueries = 10;
 
   /// 30 min, luego cada hora hasta 24 h (índices del slider / menú).
@@ -397,6 +439,7 @@ class AppSettings extends ChangeNotifier {
   String _meetingNoteModelId = 'base';
   bool _meetingNoteAutoWhisperModel = false;
   bool _meetingNoteForceLocalTranscription = false;
+  bool _driveDeleteOriginalsOnUpload = false;
 
   ThemeMode get themeMode => _themeMode;
   double get uiScale => _uiScale;
@@ -497,6 +540,8 @@ class AppSettings extends ChangeNotifier {
 
   bool get meetingNoteForceLocalTranscription =>
       _meetingNoteForceLocalTranscription;
+
+  bool get driveDeleteOriginalsOnUpload => _driveDeleteOriginalsOnUpload;
 
   /// Modelo Whisper efectivo (manual o recomendado por hardware si [meetingNoteAutoWhisperModel]).
   String resolvedMeetingNoteWhisperModelId() {
@@ -689,6 +734,8 @@ class AppSettings extends ChangeNotifier {
         p.getBool(_meetingNoteAutoWhisperModelKey) ?? false;
     _meetingNoteForceLocalTranscription =
         p.getBool(_meetingNoteForceLocalTranscriptionKey) ?? false;
+    _driveDeleteOriginalsOnUpload =
+        p.getBool(_driveDeleteOriginalsOnUploadKey) ?? false;
     _integrationSecret = _configuredIntegrationSecret;
     final approvedRaw = p.getString(_approvedIntegrationAppsKey);
     if (approvedRaw != null && approvedRaw.trim().isNotEmpty) {
@@ -1552,6 +1599,14 @@ class AppSettings extends ChangeNotifier {
     await p.setBool(_meetingNoteForceLocalTranscriptionKey, value);
   }
 
+  Future<void> setDriveDeleteOriginalsOnUpload(bool value) async {
+    if (_driveDeleteOriginalsOnUpload == value) return;
+    _driveDeleteOriginalsOnUpload = value;
+    notifyListeners();
+    final p = await SharedPreferences.getInstance();
+    await p.setBool(_driveDeleteOriginalsOnUploadKey, value);
+  }
+
   Future<void> setInAppShortcut(
     FolioInAppShortcut id,
     SingleActivator activator,
@@ -1837,6 +1892,175 @@ class AppSettings extends ChangeNotifier {
     notifyListeners();
     await _persistIntegrationCustomIconsByApp();
   }
+
+  // ─── Backup programado por libreta ──────────────────────────────────────────
+
+  static String _vbEnabledKey(String vid) =>
+      'folio_vault_backup_enabled_v2_$vid';
+  static String _vbFolderEnabledKey(String vid) =>
+      'folio_vault_backup_folder_enabled_v2_$vid';
+  static String _vbIntervalMinutesKey(String vid) =>
+      'folio_vault_backup_interval_v2_$vid';
+  static String _vbDirectoryKey(String vid) => 'folio_vault_backup_dir_v2_$vid';
+  static String _vbLastMsKey(String vid) =>
+      'folio_vault_backup_last_ms_v2_$vid';
+  static String _vbAlsoCloudKey(String vid) =>
+      'folio_vault_backup_cloud_v2_$vid';
+
+  /// Devuelve la configuración de backup automático para la libreta [vaultId].
+  /// Si no existe configuración per-libreta pero hay ajustes globales legacy,
+  /// migra automáticamente y borra las claves globales.
+  Future<VaultBackupPrefs> getVaultBackupPrefs(String? vaultId) async {
+    final vid = (vaultId ?? '').trim();
+    if (vid.isEmpty) return VaultBackupPrefs.defaults;
+    final p = await SharedPreferences.getInstance();
+    // Si ya hay configuración per-libreta, devolverla directamente.
+    if (p.containsKey(_vbEnabledKey(vid))) {
+      return VaultBackupPrefs(
+        enabled: p.getBool(_vbEnabledKey(vid)) ?? false,
+        folderEnabled: p.getBool(_vbFolderEnabledKey(vid)) ?? false,
+        intervalMinutes: _sanitizeScheduledVaultBackupIntervalMinutes(
+          p.getInt(_vbIntervalMinutesKey(vid)) ??
+              defaultScheduledVaultBackupIntervalMinutes,
+        ),
+        directory: (p.getString(_vbDirectoryKey(vid)) ?? '').trim(),
+        lastMs: p.getInt(_vbLastMsKey(vid)) ?? 0,
+        alsoCloud: p.getBool(_vbAlsoCloudKey(vid)) ?? false,
+      );
+    }
+    // Migración: si había configuración global legacy, moverla a esta libreta.
+    final globalEnabled = p.getBool(_scheduledVaultBackupEnabledKey) ?? false;
+    final globalDir = (p.getString(_scheduledVaultBackupDirectoryKey) ?? '')
+        .trim();
+    if (globalEnabled || globalDir.isNotEmpty) {
+      final storedMinutes = p.getInt(_scheduledVaultBackupIntervalMinutesKey);
+      final legacyHours = p.getInt(_scheduledVaultBackupIntervalHoursKey);
+      int intervalMin = defaultScheduledVaultBackupIntervalMinutes;
+      if (storedMinutes != null) {
+        intervalMin = _sanitizeScheduledVaultBackupIntervalMinutes(
+          storedMinutes,
+        );
+      } else if (legacyHours != null) {
+        intervalMin = nearestScheduledBackupIntervalMinutes(
+          (legacyHours * 60).clamp(
+            scheduledVaultBackupIntervalChoicesMinutes.first,
+            scheduledVaultBackupIntervalChoicesMinutes.last,
+          ),
+        );
+      }
+      final migrated = VaultBackupPrefs(
+        enabled: globalEnabled,
+        folderEnabled:
+            p.getBool(_scheduledVaultBackupFolderEnabledKey) ??
+            globalDir.isNotEmpty,
+        intervalMinutes: intervalMin,
+        directory: globalDir,
+        lastMs: p.getInt(_lastScheduledVaultBackupMsKey) ?? 0,
+        alsoCloud: p.getBool(_scheduledVaultBackupAlsoUploadCloudKey) ?? false,
+      );
+      // Escribir en per-libreta y borrar claves globales.
+      await _writeVaultBackupPrefs(p, vid, migrated);
+      for (final k in [
+        _scheduledVaultBackupEnabledKey,
+        _scheduledVaultBackupFolderEnabledKey,
+        _scheduledVaultBackupIntervalMinutesKey,
+        _scheduledVaultBackupIntervalHoursKey,
+        _scheduledVaultBackupDirectoryKey,
+        _lastScheduledVaultBackupMsKey,
+        _scheduledVaultBackupAlsoUploadCloudKey,
+      ]) {
+        await p.remove(k);
+      }
+      notifyListeners();
+      return migrated;
+    }
+    return VaultBackupPrefs.defaults;
+  }
+
+  Future<void> _writeVaultBackupPrefs(
+    SharedPreferences p,
+    String vid,
+    VaultBackupPrefs prefs,
+  ) async {
+    await p.setBool(_vbEnabledKey(vid), prefs.enabled);
+    await p.setBool(_vbFolderEnabledKey(vid), prefs.folderEnabled);
+    await p.setInt(_vbIntervalMinutesKey(vid), prefs.intervalMinutes);
+    if (prefs.directory.isEmpty) {
+      await p.remove(_vbDirectoryKey(vid));
+    } else {
+      await p.setString(_vbDirectoryKey(vid), prefs.directory);
+    }
+    await p.setInt(_vbLastMsKey(vid), prefs.lastMs < 0 ? 0 : prefs.lastMs);
+    await p.setBool(_vbAlsoCloudKey(vid), prefs.alsoCloud);
+  }
+
+  Future<void> setVaultBackupEnabled(String? vaultId, bool value) async {
+    final vid = (vaultId ?? '').trim();
+    if (vid.isEmpty) return;
+    final p = await SharedPreferences.getInstance();
+    await p.setBool(_vbEnabledKey(vid), value);
+    if (value && !(p.containsKey(_vbLastMsKey(vid)))) {
+      await p.setInt(_vbLastMsKey(vid), DateTime.now().millisecondsSinceEpoch);
+    }
+    notifyListeners();
+  }
+
+  Future<void> setVaultBackupFolderEnabled(String? vaultId, bool value) async {
+    final vid = (vaultId ?? '').trim();
+    if (vid.isEmpty) return;
+    final p = await SharedPreferences.getInstance();
+    await p.setBool(_vbFolderEnabledKey(vid), value);
+    notifyListeners();
+  }
+
+  Future<void> setVaultBackupIntervalMinutes(String? vaultId, int value) async {
+    final vid = (vaultId ?? '').trim();
+    if (vid.isEmpty) return;
+    final safe = _sanitizeScheduledVaultBackupIntervalMinutes(value);
+    final p = await SharedPreferences.getInstance();
+    await p.setInt(_vbIntervalMinutesKey(vid), safe);
+    notifyListeners();
+  }
+
+  Future<void> setVaultBackupDirectory(String? vaultId, String path) async {
+    final vid = (vaultId ?? '').trim();
+    if (vid.isEmpty) return;
+    final safe = path.trim();
+    final p = await SharedPreferences.getInstance();
+    if (safe.isEmpty) {
+      await p.remove(_vbDirectoryKey(vid));
+    } else {
+      await p.setString(_vbDirectoryKey(vid), safe);
+    }
+    notifyListeners();
+  }
+
+  Future<void> setVaultBackupLastMs(String? vaultId, int value) async {
+    final vid = (vaultId ?? '').trim();
+    if (vid.isEmpty) return;
+    final p = await SharedPreferences.getInstance();
+    await p.setInt(_vbLastMsKey(vid), value < 0 ? 0 : value);
+    notifyListeners();
+  }
+
+  Future<void> setVaultBackupAlsoCloud(String? vaultId, bool value) async {
+    final vid = (vaultId ?? '').trim();
+    if (vid.isEmpty) return;
+    final p = await SharedPreferences.getInstance();
+    await p.setBool(_vbAlsoCloudKey(vid), value);
+    notifyListeners();
+  }
+
+  static int vaultBackupIntervalChoiceIndex(int intervalMinutes) {
+    final choices = scheduledVaultBackupIntervalChoicesMinutes;
+    final i = choices.indexOf(intervalMinutes);
+    if (i >= 0) return i;
+    return choices.indexOf(
+      nearestScheduledBackupIntervalMinutes(intervalMinutes),
+    );
+  }
+
+  // ─── Task capture ────────────────────────────────────────────────────────────
 
   static String _taskInboxPagePrefsKey(String vaultId) =>
       'folio_task_inbox_page_v1_${vaultId.trim()}';

@@ -28,6 +28,7 @@ import '../models/local_collab.dart';
 import '../models/folio_table_data.dart';
 import '../models/folio_toggle_data.dart';
 import '../models/folio_task_data.dart';
+import '../models/folio_drive_data.dart';
 import '../models/folio_kanban_data.dart';
 import '../models/jira_integration_state.dart';
 import '../models/vault_task_list_entry.dart';
@@ -282,6 +283,7 @@ class VaultSession extends ChangeNotifier {
   VaultFlowState _state = VaultFlowState.initializing;
   List<int>? _dek;
   List<FolioPage> _pages = [];
+
   /// Orden persistido del árbol por `parentId`. La raíz se guarda como clave vacía `''`.
   final Map<String, List<String>> _pageOrderByParent = {};
 
@@ -361,6 +363,7 @@ class VaultSession extends ChangeNotifier {
   void debugMarkUnlockedForTests() {
     _state = VaultFlowState.unlocked;
   }
+
   List<AiChatThreadData> get aiChatThreads => List.unmodifiable(_aiChatThreads);
   int get aiActiveChatIndex => _aiActiveChatIndex;
   AiChatThreadData get activeAiChat => _aiChatThreads[_aiActiveChatIndex];
@@ -749,10 +752,12 @@ class VaultSession extends ChangeNotifier {
 
   void removeJiraConnection(String connectionId) {
     if (_state != VaultFlowState.unlocked) return;
-    final nextConnections =
-        _jira.connections.where((c) => c.id != connectionId).toList();
-    final nextSources =
-        _jira.sources.where((s) => s.connectionId != connectionId).toList();
+    final nextConnections = _jira.connections
+        .where((c) => c.id != connectionId)
+        .toList();
+    final nextSources = _jira.sources
+        .where((s) => s.connectionId != connectionId)
+        .toList();
     _jira = JiraIntegrationState(
       connections: List.unmodifiable(nextConnections),
       sources: List.unmodifiable(nextSources),
@@ -825,7 +830,9 @@ class VaultSession extends ChangeNotifier {
 
   List<String> pageOrderForParent(String? parentId) {
     _ensureOrderForCurrentPages();
-    return List.unmodifiable(_pageOrderByParent[_orderKeyForParent(parentId)] ?? const <String>[]);
+    return List.unmodifiable(
+      _pageOrderByParent[_orderKeyForParent(parentId)] ?? const <String>[],
+    );
   }
 
   List<FolioPage> childrenForParent(String? parentId) {
@@ -833,7 +840,10 @@ class VaultSession extends ChangeNotifier {
     final key = _orderKeyForParent(parentId);
     final order = _pageOrderByParent[key] ?? const <String>[];
     final byId = <String, FolioPage>{for (final p in _pages) p.id: p};
-    return order.map((id) => byId[id]).whereType<FolioPage>().toList(growable: false);
+    return order
+        .map((id) => byId[id])
+        .whereType<FolioPage>()
+        .toList(growable: false);
   }
 
   void movePage({
@@ -2143,7 +2153,9 @@ class VaultSession extends ChangeNotifier {
             page.blocks.length == 1 &&
             page.blocks.first.type == 'paragraph' &&
             page.blocks.first.text.trim().isEmpty;
-        page.blocks = existingSingleEmpty ? appended : [...page.blocks, ...appended];
+        page.blocks = existingSingleEmpty
+            ? appended
+            : [...page.blocks, ...appended];
         _selectedPageId = page.id;
         _contentEpoch++;
         notifyListeners();
@@ -2258,7 +2270,9 @@ class VaultSession extends ChangeNotifier {
             page.blocks.length == 1 &&
             page.blocks.first.type == 'paragraph' &&
             page.blocks.first.text.trim().isEmpty;
-        page.blocks = existingSingleEmpty ? appended : [...page.blocks, ...appended];
+        page.blocks = existingSingleEmpty
+            ? appended
+            : [...page.blocks, ...appended];
         _selectedPageId = page.id;
         _contentEpoch++;
         notifyListeners();
@@ -3135,6 +3149,10 @@ class VaultSession extends ChangeNotifier {
       if (b.text.isEmpty || FolioKanbanData.tryParse(b.text) == null) {
         b.text = FolioKanbanData.defaults().encode();
       }
+    } else if (newType == 'drive') {
+      if (b.text.isEmpty || FolioFileDriveData.tryParse(b.text) == null) {
+        b.text = FolioFileDriveData.defaults().encode();
+      }
     } else if (newType == 'image' && oldType != 'image') {
       b.text = '';
     }
@@ -3338,13 +3356,7 @@ class VaultSession extends ChangeNotifier {
     if (page == null) return '';
     final bid = '${pageId}_${_uuid.v4()}';
     _rememberUndoBeforePageMutation(pageId);
-    page.blocks.add(
-      FolioBlock(
-        id: bid,
-        type: 'task',
-        text: task.encode(),
-      ),
-    );
+    page.blocks.add(FolioBlock(id: bid, type: 'task', text: task.encode()));
     notifyListeners();
     scheduleSave(trackRevisionForPageId: pageId);
     return bid;
@@ -3359,9 +3371,7 @@ class VaultSession extends ChangeNotifier {
         title: title,
         parentId: null,
         emoji: '📥',
-        blocks: [
-          FolioBlock(id: '${id}_b0', type: 'paragraph', text: ''),
-        ],
+        blocks: [FolioBlock(id: '${id}_b0', type: 'paragraph', text: '')],
       ),
     );
     _pageOrderByParent
@@ -3421,11 +3431,7 @@ class VaultSession extends ChangeNotifier {
     return out;
   }
 
-  void setTaskBlockDone(
-    String pageId,
-    String blockId, {
-    required bool done,
-  }) {
+  void setTaskBlockDone(String pageId, String blockId, {required bool done}) {
     final page = _pageById(pageId);
     if (page == null) return;
     final b = _blockById(page, blockId);
@@ -3439,6 +3445,22 @@ class VaultSession extends ChangeNotifier {
     } else {
       return;
     }
+    notifyListeners();
+    scheduleSave(trackRevisionForPageId: pageId);
+  }
+
+  /// Persiste la configuración del bloque `drive` de una página.
+  void setPageDriveData(
+    String pageId,
+    String blockId,
+    FolioFileDriveData data,
+  ) {
+    final page = _pageById(pageId);
+    if (page == null) return;
+    final b = _blockById(page, blockId);
+    if (b == null || b.type != 'drive') return;
+    _rememberUndoBeforePageMutation(pageId);
+    b.text = data.encode();
     notifyListeners();
     scheduleSave(trackRevisionForPageId: pageId);
   }
@@ -3485,15 +3507,15 @@ class VaultSession extends ChangeNotifier {
     final t = FolioTaskData.tryParse(b.text) ?? FolioTaskData.defaults();
     final normalized = columnId.trim();
     final nextStatus =
-        (normalized == 'todo' || normalized == 'in_progress' || normalized == 'done')
-            ? normalized
-            : null;
-    final next = t
-        .copyWith(
-          columnId: normalized.isEmpty ? null : normalized,
-          status: nextStatus ?? t.status,
-        )
-        ;
+        (normalized == 'todo' ||
+            normalized == 'in_progress' ||
+            normalized == 'done')
+        ? normalized
+        : null;
+    final next = t.copyWith(
+      columnId: normalized.isEmpty ? null : normalized,
+      status: nextStatus ?? t.status,
+    );
     b.text = _markTaskNeedsPushIfJiraLinked(next).encode();
     notifyListeners();
     scheduleSave(trackRevisionForPageId: pageId);
@@ -4230,7 +4252,7 @@ class VaultSession extends ChangeNotifier {
     final payload = VaultPayload(
       version: kVaultPayloadVersion,
       pages: _pages,
-        pageOrderByParent: _pageOrderByParent,
+      pageOrderByParent: _pageOrderByParent,
       pageRevisions: Map<String, List<FolioPageRevision>>.fromEntries(
         _pageRevisions.entries.map(
           (e) => MapEntry(e.key, List<FolioPageRevision>.from(e.value)),

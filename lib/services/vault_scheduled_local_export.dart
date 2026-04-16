@@ -11,34 +11,35 @@ import '../session/vault_session.dart';
 import 'folio_cloud/folio_cloud_backup.dart';
 import 'folio_cloud/folio_cloud_entitlements.dart';
 
-/// Exporta la libreta **abierta** según las opciones configuradas en [AppSettings]:
-/// - Backup a carpeta local (ZIP) si [AppSettings.scheduledVaultBackupFolderEnabled] y hay directorio.
-/// - Backup a la nube si [AppSettings.scheduledVaultBackupAlsoUploadCloud] y hay entitlement.
+/// Exporta la libreta **abierta** según las opciones configuradas en [AppSettings]
+/// para la libreta identificada por [vaultId]:
+/// - Backup a carpeta local (ZIP) si [VaultBackupPrefs.folderEnabled] y hay directorio.
+/// - Backup a la nube si [VaultBackupPrefs.alsoCloud] y hay entitlement.
 /// Ambas opciones son independientes y pueden estar activas al mismo tiempo.
 Future<void> runScheduledFolderVaultExport({
   required VaultSession session,
   required AppSettings appSettings,
+  String? vaultId,
   FolioCloudEntitlementsController? folioEntitlements,
 }) async {
   if (!session.isUnlocked) {
     throw VaultBackupException('La libreta debe estar desbloqueada.');
   }
 
-  final dir = appSettings.scheduledVaultBackupDirectory.trim();
-  final wantFolder =
-      appSettings.scheduledVaultBackupFolderEnabled && dir.isNotEmpty;
+  final vid = (vaultId ?? session.activeVaultId ?? '').trim();
+  final prefs = await appSettings.getVaultBackupPrefs(vid.isEmpty ? null : vid);
+  final dir = prefs.directory.trim();
+  final wantFolder = prefs.folderEnabled && dir.isNotEmpty;
   final canCloud =
       folioEntitlements != null &&
       Firebase.apps.isNotEmpty &&
       FirebaseAuth.instance.currentUser != null &&
       folioEntitlements.snapshot.canUseCloudBackup;
-  final wantCloud = appSettings.scheduledVaultBackupAlsoUploadCloud && canCloud;
+  final wantCloud = prefs.alsoCloud && canCloud;
 
   if (!wantFolder && !wantCloud) {
     throw VaultBackupException('No hay destino de copia configurado.');
   }
-
-  final now = DateTime.now().millisecondsSinceEpoch;
 
   // — Backup local —
   if (wantFolder) {
@@ -58,19 +59,19 @@ Future<void> runScheduledFolderVaultExport({
 
   // — Backup en la nube —
   if (wantCloud) {
-    final vaultId = session.activeVaultId;
-    if (vaultId == null || vaultId.trim().isEmpty) {
+    final activeVaultId = vid.isEmpty ? session.activeVaultId : vid;
+    if (activeVaultId == null || activeVaultId.trim().isEmpty) {
       throw VaultBackupException('No hay libreta activa.');
     }
     await uploadOpenVaultEncryptedToCloud(
       session: session,
-      vaultId: vaultId,
-      entitlementSnapshot: folioEntitlements!.snapshot,
+      vaultId: activeVaultId,
+      entitlementSnapshot: folioEntitlements.snapshot,
     );
     try {
       final label = await session.getActiveVaultDisplayLabel();
       await upsertFolioCloudBackupVaultIndex(
-        vaultId: vaultId,
+        vaultId: activeVaultId,
         displayName: label,
         entitlementSnapshot: folioEntitlements.snapshot,
       );
@@ -79,7 +80,7 @@ Future<void> runScheduledFolderVaultExport({
     }
     try {
       await trimFolioCloudBackups(
-        vaultId: vaultId,
+        vaultId: activeVaultId,
         maxCount: 10,
         entitlementSnapshot: folioEntitlements.snapshot,
       );
@@ -88,7 +89,7 @@ Future<void> runScheduledFolderVaultExport({
     }
     try {
       await trimFolioCloudBackupsByBytes(
-        vaultId: vaultId,
+        vaultId: activeVaultId,
         maxBytes: 5 * 1024 * 1024 * 1024, // 5 GB
         entitlementSnapshot: folioEntitlements.snapshot,
       );
@@ -97,5 +98,8 @@ Future<void> runScheduledFolderVaultExport({
     }
   }
 
-  await appSettings.setLastScheduledVaultBackupMs(now);
+  await appSettings.setVaultBackupLastMs(
+    vid.isEmpty ? null : vid,
+    DateTime.now().millisecondsSinceEpoch,
+  );
 }

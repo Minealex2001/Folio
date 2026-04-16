@@ -143,6 +143,11 @@ const List<BlockTypeTemplate> blockTypeTemplates = [
     section: BlockTypeSection.media,
   ),
   BlockTypeTemplate(
+    key: 'drive',
+    icon: Icons.drive_folder_upload_rounded,
+    section: BlockTypeSection.media,
+  ),
+  BlockTypeTemplate(
     key: 'equation',
     icon: Icons.functions_rounded,
     section: BlockTypeSection.advanced,
@@ -244,6 +249,8 @@ String blockTypeLabelForKey(String key, AppLocalizations l10n) {
       return l10n.blockTypeDatabaseLabel;
     case 'kanban':
       return l10n.blockTypeKanbanLabel;
+    case 'drive':
+      return l10n.blockTypeDriveLabel;
     case 'equation':
       return l10n.blockTypeEquationLabel;
     case 'mermaid':
@@ -311,6 +318,8 @@ String blockTypeHintForKey(String key, AppLocalizations l10n) {
       return l10n.blockTypeDatabaseHint;
     case 'kanban':
       return l10n.blockTypeKanbanHint;
+    case 'drive':
+      return l10n.blockTypeDriveHint;
     case 'equation':
       return l10n.blockTypeEquationHint;
     case 'mermaid':

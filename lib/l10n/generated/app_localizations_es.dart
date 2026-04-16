@@ -3661,6 +3661,68 @@ class AppLocalizationsEs extends AppLocalizations {
   String get kanbanEmptyColumn => 'Sin tareas';
 
   @override
+  String get blockTypeDriveLabel => 'Archivo Drive';
+
+  @override
+  String get blockTypeDriveHint => 'Gestor de archivos integrado';
+
+  @override
+  String get driveBlockRowTitle => 'Archivo Drive';
+
+  @override
+  String driveBlockRowSubtitle(int files, int folders) {
+    return '$files archivos · $folders carpetas';
+  }
+
+  @override
+  String get driveNewFolder => 'Nueva carpeta';
+
+  @override
+  String get driveUploadFile => 'Subir archivo';
+
+  @override
+  String get driveImportFromVault => 'Importar del vault';
+
+  @override
+  String get driveViewGrid => 'Cuadrícula';
+
+  @override
+  String get driveViewList => 'Lista';
+
+  @override
+  String get driveEditBlock => 'Editar bloque';
+
+  @override
+  String get driveFolderEmpty => 'Esta carpeta está vacía';
+
+  @override
+  String get driveDeleteConfirm => '¿Eliminar este archivo?';
+
+  @override
+  String get driveOpenFile => 'Abrir archivo';
+
+  @override
+  String get driveMoveTo => 'Mover a…';
+
+  @override
+  String get driveClassicModeBanner =>
+      'Editor de bloques: puedes mover o eliminar el bloque Drive.';
+
+  @override
+  String get driveBackToDrive => 'Volver al drive';
+
+  @override
+  String get driveMultipleBlocksSnack =>
+      'Esta página tiene más de un bloque Drive; se usa el primero.';
+
+  @override
+  String get driveDeleteOriginalsTitle => 'Eliminar originales al importar';
+
+  @override
+  String get driveDeleteOriginalsSubtitle =>
+      'Al subir archivos al drive, los originales se eliminan automáticamente del disco.';
+
+  @override
   String get blockTypeEquationLabel => 'Ecuación (LaTeX)';
 
   @override
@@ -4568,6 +4630,9 @@ class AppLocalizationsEs extends AppLocalizations {
   @override
   String get settingsSubsectionVaultScheduledLocal =>
       'Copia programada (local)';
+
+  @override
+  String get settingsSubsectionDrive => 'Drive';
 
   @override
   String get settingsSubsectionVaultData => 'Datos (zona peligrosa)';

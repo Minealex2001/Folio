@@ -3655,6 +3655,68 @@ class AppLocalizationsPt extends AppLocalizations {
   String get kanbanEmptyColumn => 'Sem tarefas';
 
   @override
+  String get blockTypeDriveLabel => 'Arquivo Drive';
+
+  @override
+  String get blockTypeDriveHint => 'Gestor de ficheiros integrado';
+
+  @override
+  String get driveBlockRowTitle => 'Arquivo Drive';
+
+  @override
+  String driveBlockRowSubtitle(int files, int folders) {
+    return '$files ficheiros · $folders pastas';
+  }
+
+  @override
+  String get driveNewFolder => 'Nova pasta';
+
+  @override
+  String get driveUploadFile => 'Enviar ficheiro';
+
+  @override
+  String get driveImportFromVault => 'Importar do vault';
+
+  @override
+  String get driveViewGrid => 'Grelha';
+
+  @override
+  String get driveViewList => 'Lista';
+
+  @override
+  String get driveEditBlock => 'Editar bloco';
+
+  @override
+  String get driveFolderEmpty => 'Esta pasta está vazia';
+
+  @override
+  String get driveDeleteConfirm => 'Eliminar este ficheiro?';
+
+  @override
+  String get driveOpenFile => 'Abrir ficheiro';
+
+  @override
+  String get driveMoveTo => 'Mover para…';
+
+  @override
+  String get driveClassicModeBanner =>
+      'Editor de blocos: pode mover ou eliminar o bloco Drive.';
+
+  @override
+  String get driveBackToDrive => 'Voltar ao drive';
+
+  @override
+  String get driveMultipleBlocksSnack =>
+      'Esta página tem mais de um bloco Drive; é usado o primeiro.';
+
+  @override
+  String get driveDeleteOriginalsTitle => 'Eliminar originais ao importar';
+
+  @override
+  String get driveDeleteOriginalsSubtitle =>
+      'Ao enviar ficheiros para o drive, os originais são eliminados automaticamente do disco.';
+
+  @override
   String get blockTypeEquationLabel => 'Equação (LaTeX)';
 
   @override
@@ -4562,6 +4624,9 @@ class AppLocalizationsPt extends AppLocalizations {
 
   @override
   String get settingsSubsectionVaultScheduledLocal => 'Backup agendado (local)';
+
+  @override
+  String get settingsSubsectionDrive => 'Drive';
 
   @override
   String get settingsSubsectionVaultData => 'Dados (zona de perigo)';

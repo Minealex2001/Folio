@@ -3680,6 +3680,68 @@ class AppLocalizationsGl extends AppLocalizations {
   String get kanbanEmptyColumn => 'Sen tarefas';
 
   @override
+  String get blockTypeDriveLabel => 'Arquivo Drive';
+
+  @override
+  String get blockTypeDriveHint => 'Xestor de ficheiros integrado';
+
+  @override
+  String get driveBlockRowTitle => 'Arquivo Drive';
+
+  @override
+  String driveBlockRowSubtitle(int files, int folders) {
+    return '$files ficheiros · $folders cartafoles';
+  }
+
+  @override
+  String get driveNewFolder => 'Novo cartafol';
+
+  @override
+  String get driveUploadFile => 'Subir ficheiro';
+
+  @override
+  String get driveImportFromVault => 'Importar do vault';
+
+  @override
+  String get driveViewGrid => 'Grade';
+
+  @override
+  String get driveViewList => 'Lista';
+
+  @override
+  String get driveEditBlock => 'Editar bloque';
+
+  @override
+  String get driveFolderEmpty => 'Este cartafol está baleiro';
+
+  @override
+  String get driveDeleteConfirm => 'Eliminar este ficheiro?';
+
+  @override
+  String get driveOpenFile => 'Abrir ficheiro';
+
+  @override
+  String get driveMoveTo => 'Mover a…';
+
+  @override
+  String get driveClassicModeBanner =>
+      'Editor de bloques: podes mover ou eliminar o bloque Drive.';
+
+  @override
+  String get driveBackToDrive => 'Volver ao drive';
+
+  @override
+  String get driveMultipleBlocksSnack =>
+      'Esta páxina ten máis dun bloque Drive; úsase o primeiro.';
+
+  @override
+  String get driveDeleteOriginalsTitle => 'Eliminar orixinais ao importar';
+
+  @override
+  String get driveDeleteOriginalsSubtitle =>
+      'Ao subir ficheiros ao drive, os orixinais elimínanse automaticamente do disco.';
+
+  @override
   String get blockTypeEquationLabel => 'Ecuación (LaTeX)';
 
   @override
@@ -4587,6 +4649,9 @@ class AppLocalizationsGl extends AppLocalizations {
   @override
   String get settingsSubsectionVaultScheduledLocal =>
       'Copia programada (local)';
+
+  @override
+  String get settingsSubsectionDrive => 'Drive';
 
   @override
   String get settingsSubsectionVaultData => 'Datos (zona de perigo)';

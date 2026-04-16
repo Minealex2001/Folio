@@ -3683,6 +3683,68 @@ class AppLocalizationsCa extends AppLocalizations {
   String get kanbanEmptyColumn => 'Sense tasques';
 
   @override
+  String get blockTypeDriveLabel => 'Fitxer Drive';
+
+  @override
+  String get blockTypeDriveHint => 'Gestor de fitxers integrat';
+
+  @override
+  String get driveBlockRowTitle => 'Fitxer Drive';
+
+  @override
+  String driveBlockRowSubtitle(int files, int folders) {
+    return '$files fitxers · $folders carpetes';
+  }
+
+  @override
+  String get driveNewFolder => 'Carpeta nova';
+
+  @override
+  String get driveUploadFile => 'Pujar fitxer';
+
+  @override
+  String get driveImportFromVault => 'Importar del vault';
+
+  @override
+  String get driveViewGrid => 'Quadrícula';
+
+  @override
+  String get driveViewList => 'Llista';
+
+  @override
+  String get driveEditBlock => 'Edita el bloc';
+
+  @override
+  String get driveFolderEmpty => 'Aquesta carpeta està buida';
+
+  @override
+  String get driveDeleteConfirm => 'Eliminar aquest fitxer?';
+
+  @override
+  String get driveOpenFile => 'Obrir fitxer';
+
+  @override
+  String get driveMoveTo => 'Mou a…';
+
+  @override
+  String get driveClassicModeBanner =>
+      'Editor de blocs: pots moure o eliminar el bloc Drive.';
+
+  @override
+  String get driveBackToDrive => 'Tornar al drive';
+
+  @override
+  String get driveMultipleBlocksSnack =>
+      'Aquesta pàgina té més d\'un bloc Drive; s\'usa el primer.';
+
+  @override
+  String get driveDeleteOriginalsTitle => 'Eliminar originals en importar';
+
+  @override
+  String get driveDeleteOriginalsSubtitle =>
+      'En pujar fitxers al drive, els originals s\'eliminen automàticament del disc.';
+
+  @override
   String get blockTypeEquationLabel => 'Equació (LaTeX)';
 
   @override
@@ -4591,6 +4653,9 @@ class AppLocalizationsCa extends AppLocalizations {
   @override
   String get settingsSubsectionVaultScheduledLocal =>
       'Còpia programada (local)';
+
+  @override
+  String get settingsSubsectionDrive => 'Drive';
 
   @override
   String get settingsSubsectionVaultData => 'Dades (zona de perill)';

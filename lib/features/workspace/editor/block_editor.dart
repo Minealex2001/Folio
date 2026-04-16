@@ -36,6 +36,7 @@ import '../../../app/ui_tokens.dart';
 import '../../../models/block.dart';
 import '../../../models/folio_template_button_data.dart';
 import '../../../models/folio_database_data.dart';
+import '../../../models/folio_drive_data.dart';
 import '../../../models/folio_kanban_data.dart';
 import '../../../models/folio_page.dart';
 import '../../../models/folio_table_data.dart';
@@ -88,6 +89,7 @@ part 'block_editor/block_row_dispatch_breadcrumb.dart';
 part 'block_editor/block_row_dispatch_child_page.dart';
 part 'block_editor/block_row_dispatch_template_button.dart';
 part 'block_editor/block_row_dispatch_task.dart';
+part 'block_editor/block_row_dispatch_drive.dart';
 part 'block_editor/block_row_dispatch_column_list.dart';
 part 'block_editor/editable_markdown_block_row.dart';
 part 'block_editor/block_row_extensions.dart';
@@ -95,6 +97,7 @@ part 'block_editor/block_editor_state.dart';
 part 'block_editor/block_list_row.dart';
 part 'block_editor/special_row_chrome.dart';
 part 'block_editor/state_tail_and_fill.dart';
+
 /// `null` si el texto del bloque no es comando `/…`; si no, filtro tras la `/` (puede ser vacío).
 String? _slashFilterFromBlockText(String text) {
   // Quill/WYSIWYG suele añadir `\n` final aunque sea una sola línea.
@@ -236,5 +239,3 @@ class BlockEditor extends StatefulWidget {
   @override
   State<BlockEditor> createState() => BlockEditorState();
 }
-
-

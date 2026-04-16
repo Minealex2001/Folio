@@ -60,6 +60,7 @@ import '../collab/collaboration_sheet.dart';
 import 'workspace_editor_surface.dart';
 import 'workspace_shell.dart';
 import '../tasks/task_quick_add_dialog.dart';
+import '../drive/drive_page.dart';
 import '../kanban/kanban_board_page.dart';
 
 part 'workspace_page_ai_chat.dart';
@@ -139,9 +140,13 @@ class _WorkspacePageState extends State<WorkspacePage> {
   String? _lastCollabObservedMessageId;
   String? _lastCollabObservedRoomId;
   bool _showQuillWorkspaceTour = false;
+
   /// Al abrir el editor clásico en una página con Kanban, se guarda su id aquí.
   String? _kanbanClassicEditPageId;
   String? _lastSessionPageIdForKanban;
+
+  /// Al abrir el editor clásico en una página con Drive, se guarda su id aquí.
+  String? _driveClassicEditPageId;
   final Set<String> _expandedThoughtMessageKeys = <String>{};
   final ScrollController _aiChatScrollController = ScrollController();
 
@@ -910,6 +915,7 @@ class _WorkspacePageState extends State<WorkspacePage> {
     if (currentPageId != _lastSessionPageIdForKanban) {
       _lastSessionPageIdForKanban = currentPageId;
       _kanbanClassicEditPageId = null;
+      _driveClassicEditPageId = null;
     }
     if (currentPageId != _lastPageIdForMobileMode) {
       _lastPageIdForMobileMode = currentPageId;
@@ -1567,7 +1573,9 @@ class _WorkspacePageState extends State<WorkspacePage> {
     _appendBlockToPage(page, type);
   }
 
-  Future<void> _addBlockToCurrentPageFromMenu(BuildContext anchorContext) async {
+  Future<void> _addBlockToCurrentPageFromMenu(
+    BuildContext anchorContext,
+  ) async {
     final page = _s.selectedPage;
     if (page == null) return;
     final type = await showBlockTypePickerMenu(anchorContext: anchorContext);
@@ -1726,8 +1734,9 @@ class _WorkspacePageState extends State<WorkspacePage> {
         : (widget.appSettings.workspaceSidebarCollapsed
               ? (_sidebarPeek ? widget.appSettings.workspaceSidebarWidth : 0.0)
               : widget.appSettings.workspaceSidebarWidth);
-    final hasAnyKanbanPage =
-        _s.pages.any((p) => p.blocks.any((b) => b.type == 'kanban'));
+    final hasAnyKanbanPage = _s.pages.any(
+      (p) => p.blocks.any((b) => b.type == 'kanban'),
+    );
     final sidePanel = Material(
       color: scheme.surfaceContainerLow,
       child: MouseRegion(
@@ -1971,8 +1980,9 @@ class _WorkspacePageState extends State<WorkspacePage> {
                 builder: (buttonContext) => IconButton(
                   tooltip: action.label,
                   icon: Icon(action.icon),
-                  onPressed:
-                      action.enabled ? () => _exportCurrentPage(buttonContext) : null,
+                  onPressed: action.enabled
+                      ? () => _exportCurrentPage(buttonContext)
+                      : null,
                 ),
               );
             }
@@ -2088,13 +2098,19 @@ class _WorkspacePageState extends State<WorkspacePage> {
         ? null
         : _blockEditorKeyForPage(page.id);
 
-    bool pageHasKanban(FolioPage p) =>
-        p.blocks.any((b) => b.type == 'kanban');
+    bool pageHasKanban(FolioPage p) => p.blocks.any((b) => b.type == 'kanban');
+
+    bool pageHasDrive(FolioPage p) => p.blocks.any((b) => b.type == 'drive');
 
     final showKanbanBoard =
         page != null &&
         pageHasKanban(page) &&
         _kanbanClassicEditPageId != page.id;
+
+    final showDrivePage =
+        page != null &&
+        pageHasDrive(page) &&
+        _driveClassicEditPageId != page.id;
 
     Widget baseEditor = page == null
         ? const SizedBox.shrink()
@@ -2105,9 +2121,16 @@ class _WorkspacePageState extends State<WorkspacePage> {
                     pageId: page.id,
                     session: _s,
                     appSettings: widget.appSettings,
-                    onOpenClassicEditor: () => setState(
-                      () => _kanbanClassicEditPageId = page.id,
-                    ),
+                    onOpenClassicEditor: () =>
+                        setState(() => _kanbanClassicEditPageId = page.id),
+                  )
+                : showDrivePage
+                ? DrivePage(
+                    pageId: page.id,
+                    session: _s,
+                    appSettings: widget.appSettings,
+                    onOpenClassicEditor: () =>
+                        setState(() => _driveClassicEditPageId = page.id),
                   )
                 : BlockEditor(
                     key: activeBlockEditorKey,
@@ -2117,6 +2140,41 @@ class _WorkspacePageState extends State<WorkspacePage> {
                     folioCloudEntitlements: widget.folioCloudEntitlements,
                   ),
           );
+
+    if (page != null &&
+        pageHasDrive(page) &&
+        _driveClassicEditPageId == page.id) {
+      baseEditor = Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Material(
+            color: scheme.surfaceContainerHigh.withValues(alpha: 0.95),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(
+                horizontal: FolioSpace.md,
+                vertical: FolioSpace.sm,
+              ),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      l10n.driveClassicModeBanner,
+                      style: theme.textTheme.bodyMedium,
+                    ),
+                  ),
+                  TextButton(
+                    onPressed: () =>
+                        setState(() => _driveClassicEditPageId = null),
+                    child: Text(l10n.driveBackToDrive),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          Expanded(child: baseEditor),
+        ],
+      );
+    }
 
     if (page != null &&
         pageHasKanban(page) &&
@@ -2171,9 +2229,11 @@ class _WorkspacePageState extends State<WorkspacePage> {
       editor: baseEditor,
     );
 
-    final showOutlinePanel = !compact &&
+    final showOutlinePanel =
+        !compact &&
         page != null &&
         !showKanbanBoard &&
+        !showDrivePage &&
         widget.appSettings.workspacePageOutlineVisible;
 
     final editorContent = showOutlinePanel
@@ -2440,8 +2500,9 @@ Future<_WorkspaceActionEntry?> _showWorkspaceActionsMenu({
                   Padding(
                     padding: const EdgeInsets.fromLTRB(8, 2, 8, 8),
                     child: Text(
-                      AppLocalizations.of(anchorContext)
-                          .workspaceMoreActionsTooltip,
+                      AppLocalizations.of(
+                        anchorContext,
+                      ).workspaceMoreActionsTooltip,
                       style: theme.textTheme.titleSmall?.copyWith(
                         fontWeight: FontWeight.w700,
                         letterSpacing: -0.2,
@@ -2464,8 +2525,9 @@ Future<_WorkspaceActionEntry?> _showWorkspaceActionsMenu({
                             borderRadius: BorderRadius.circular(14),
                             clipBehavior: Clip.antiAlias,
                             child: InkWell(
-                              onTap:
-                                  enabled ? () => Navigator.pop(ctx, a) : null,
+                              onTap: enabled
+                                  ? () => Navigator.pop(ctx, a)
+                                  : null,
                               child: Padding(
                                 padding: const EdgeInsets.symmetric(
                                   horizontal: 12,
@@ -2477,8 +2539,7 @@ Future<_WorkspaceActionEntry?> _showWorkspaceActionsMenu({
                                       width: 38,
                                       height: 38,
                                       decoration: BoxDecoration(
-                                        color: scheme
-                                            .surfaceContainerHighest
+                                        color: scheme.surfaceContainerHighest
                                             .withValues(alpha: 0.5),
                                         borderRadius: BorderRadius.circular(12),
                                       ),
@@ -2488,7 +2549,7 @@ Future<_WorkspaceActionEntry?> _showWorkspaceActionsMenu({
                                         color: enabled
                                             ? scheme.onSurface
                                             : scheme.onSurfaceVariant
-                                                .withValues(alpha: 0.55),
+                                                  .withValues(alpha: 0.55),
                                       ),
                                     ),
                                     const SizedBox(width: 12),
@@ -2499,12 +2560,12 @@ Future<_WorkspaceActionEntry?> _showWorkspaceActionsMenu({
                                         overflow: TextOverflow.ellipsis,
                                         style: theme.textTheme.bodyMedium
                                             ?.copyWith(
-                                          fontWeight: FontWeight.w600,
-                                          color: enabled
-                                              ? scheme.onSurface
-                                              : scheme.onSurfaceVariant
-                                                  .withValues(alpha: 0.6),
-                                        ),
+                                              fontWeight: FontWeight.w600,
+                                              color: enabled
+                                                  ? scheme.onSurface
+                                                  : scheme.onSurfaceVariant
+                                                        .withValues(alpha: 0.6),
+                                            ),
                                       ),
                                     ),
                                   ],

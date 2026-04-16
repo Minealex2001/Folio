@@ -6574,6 +6574,120 @@ abstract class AppLocalizations {
   /// **'Sin tareas'**
   String get kanbanEmptyColumn;
 
+  /// No description provided for @blockTypeDriveLabel.
+  ///
+  /// In es, this message translates to:
+  /// **'Archivo Drive'**
+  String get blockTypeDriveLabel;
+
+  /// No description provided for @blockTypeDriveHint.
+  ///
+  /// In es, this message translates to:
+  /// **'Gestor de archivos integrado'**
+  String get blockTypeDriveHint;
+
+  /// No description provided for @driveBlockRowTitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Archivo Drive'**
+  String get driveBlockRowTitle;
+
+  /// No description provided for @driveBlockRowSubtitle.
+  ///
+  /// In es, this message translates to:
+  /// **'{files} archivos · {folders} carpetas'**
+  String driveBlockRowSubtitle(int files, int folders);
+
+  /// No description provided for @driveNewFolder.
+  ///
+  /// In es, this message translates to:
+  /// **'Nueva carpeta'**
+  String get driveNewFolder;
+
+  /// No description provided for @driveUploadFile.
+  ///
+  /// In es, this message translates to:
+  /// **'Subir archivo'**
+  String get driveUploadFile;
+
+  /// No description provided for @driveImportFromVault.
+  ///
+  /// In es, this message translates to:
+  /// **'Importar del vault'**
+  String get driveImportFromVault;
+
+  /// No description provided for @driveViewGrid.
+  ///
+  /// In es, this message translates to:
+  /// **'Cuadrícula'**
+  String get driveViewGrid;
+
+  /// No description provided for @driveViewList.
+  ///
+  /// In es, this message translates to:
+  /// **'Lista'**
+  String get driveViewList;
+
+  /// No description provided for @driveEditBlock.
+  ///
+  /// In es, this message translates to:
+  /// **'Editar bloque'**
+  String get driveEditBlock;
+
+  /// No description provided for @driveFolderEmpty.
+  ///
+  /// In es, this message translates to:
+  /// **'Esta carpeta está vacía'**
+  String get driveFolderEmpty;
+
+  /// No description provided for @driveDeleteConfirm.
+  ///
+  /// In es, this message translates to:
+  /// **'¿Eliminar este archivo?'**
+  String get driveDeleteConfirm;
+
+  /// No description provided for @driveOpenFile.
+  ///
+  /// In es, this message translates to:
+  /// **'Abrir archivo'**
+  String get driveOpenFile;
+
+  /// No description provided for @driveMoveTo.
+  ///
+  /// In es, this message translates to:
+  /// **'Mover a…'**
+  String get driveMoveTo;
+
+  /// No description provided for @driveClassicModeBanner.
+  ///
+  /// In es, this message translates to:
+  /// **'Editor de bloques: puedes mover o eliminar el bloque Drive.'**
+  String get driveClassicModeBanner;
+
+  /// No description provided for @driveBackToDrive.
+  ///
+  /// In es, this message translates to:
+  /// **'Volver al drive'**
+  String get driveBackToDrive;
+
+  /// No description provided for @driveMultipleBlocksSnack.
+  ///
+  /// In es, this message translates to:
+  /// **'Esta página tiene más de un bloque Drive; se usa el primero.'**
+  String get driveMultipleBlocksSnack;
+
+  /// No description provided for @driveDeleteOriginalsTitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Eliminar originales al importar'**
+  String get driveDeleteOriginalsTitle;
+
+  /// No description provided for @driveDeleteOriginalsSubtitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Al subir archivos al drive, los originales se eliminan automáticamente del disco.'**
+  String get driveDeleteOriginalsSubtitle;
+
   /// No description provided for @blockTypeEquationLabel.
   ///
   /// In es, this message translates to:
@@ -8096,6 +8210,12 @@ abstract class AppLocalizations {
   /// In es, this message translates to:
   /// **'Copia programada (local)'**
   String get settingsSubsectionVaultScheduledLocal;
+
+  /// No description provided for @settingsSubsectionDrive.
+  ///
+  /// In es, this message translates to:
+  /// **'Drive'**
+  String get settingsSubsectionDrive;
 
   /// No description provided for @settingsSubsectionVaultData.
   ///
