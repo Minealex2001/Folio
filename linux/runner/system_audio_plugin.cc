@@ -15,7 +15,7 @@ static SystemAudioPlugin* g_plugin = nullptr;
 static void method_call_cb(FlMethodChannel* channel,
                            FlMethodCall* method_call,
                            gpointer user_data) {
-  auto* self = static_cast<SystemAudioPlugin*>(user_data);
+  (void)user_data;
   const gchar* method = fl_method_call_get_name(method_call);
 
   g_autoptr(FlMethodResponse) response = nullptr;
