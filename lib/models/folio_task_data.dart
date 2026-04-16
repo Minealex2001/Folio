@@ -17,6 +17,8 @@ class FolioTaskData {
     this.startDate,
     this.dueDate,
     this.timeSpentMinutes,
+    this.external,
+    this.jira,
     List<FolioTaskSubtask>? subtasks,
   }) : subtasks = List<FolioTaskSubtask>.from(subtasks ?? const []);
 
@@ -40,7 +42,9 @@ class FolioTaskData {
   /// Motivo de bloqueo (opcional).
   final String blockedReason;
 
-  /// Prioridad opcional: `'low'`, `'medium'` o `'high'`.
+  /// Prioridad opcional.
+  ///
+  /// Compatible con Jira por defecto: `'lowest'`, `'low'`, `'medium'`, `'high'`, `'highest'`.
   final String? priority;
 
   /// Descripción de la tarea (texto libre).
@@ -55,11 +59,17 @@ class FolioTaskData {
   /// Tiempo invertido (acumulado) en minutos.
   final int? timeSpentMinutes;
 
+  /// Enlace opcional a un proveedor externo (p. ej. Jira).
+  final FolioExternalTaskLink? external;
+
+  /// Snapshot opcional de campos Jira para UI rica sin refetch constante.
+  final FolioJiraIssueSnapshot? jira;
+
   /// Subtareas opcionales asociadas a la tarea principal.
   final List<FolioTaskSubtask> subtasks;
 
   static const _validStatuses = {'todo', 'in_progress', 'done'};
-  static const _validPriorities = {'low', 'medium', 'high'};
+  static const _validPriorities = {'lowest', 'low', 'medium', 'high', 'highest'};
 
   static FolioTaskData defaults() => FolioTaskData(
     title: '',
@@ -73,6 +83,8 @@ class FolioTaskData {
     startDate: null,
     dueDate: null,
     timeSpentMinutes: null,
+    external: null,
+    jira: null,
     subtasks: const [],
   );
 
@@ -88,6 +100,8 @@ class FolioTaskData {
     Object? startDate = _sentinel,
     Object? dueDate = _sentinel,
     Object? timeSpentMinutes = _sentinel,
+    Object? external = _sentinel,
+    Object? jira = _sentinel,
     Object? subtasks = _sentinel,
   }) {
     return FolioTaskData(
@@ -111,6 +125,10 @@ class FolioTaskData {
       timeSpentMinutes: timeSpentMinutes == _sentinel
           ? this.timeSpentMinutes
           : timeSpentMinutes as int?,
+      external: external == _sentinel
+          ? this.external
+          : external as FolioExternalTaskLink?,
+      jira: jira == _sentinel ? this.jira : jira as FolioJiraIssueSnapshot?,
       subtasks: subtasks == _sentinel
           ? this.subtasks
           : (subtasks as List<FolioTaskSubtask>),
@@ -144,6 +162,8 @@ class FolioTaskData {
     if (startDate != null) 'startDate': startDate,
     if (dueDate != null) 'dueDate': dueDate,
     if (timeSpentMinutes != null) 'timeSpentMinutes': timeSpentMinutes,
+    if (external != null) 'external': external!.toJson(),
+    if (jira != null) 'jira': jira!.toJson(),
     if (subtasks.isNotEmpty)
       'subtasks': subtasks.map((s) => s.toJson()).toList(growable: false),
   });
@@ -163,6 +183,8 @@ class FolioTaskData {
       final rawStartDate = (m['startDate'] as String?)?.trim();
       final rawTimeSpent = m['timeSpentMinutes'];
       final rawSubtasks = m['subtasks'];
+      final rawExternal = m['external'];
+      final rawJira = m['jira'];
       final subtasks = <FolioTaskSubtask>[];
       if (rawSubtasks is List) {
         for (final s in rawSubtasks) {
@@ -173,6 +195,16 @@ class FolioTaskData {
             if (parsed != null) subtasks.add(parsed);
           }
         }
+      }
+      FolioExternalTaskLink? external;
+      if (rawExternal is Map) {
+        external = FolioExternalTaskLink.tryParse(
+          Map<String, dynamic>.from(rawExternal),
+        );
+      }
+      FolioJiraIssueSnapshot? jira;
+      if (rawJira is Map) {
+        jira = FolioJiraIssueSnapshot.tryParse(Map<String, dynamic>.from(rawJira));
       }
       return FolioTaskData(
         title: (m['title'] as String?) ?? '',
@@ -186,11 +218,282 @@ class FolioTaskData {
         startDate: (rawStartDate?.isEmpty ?? true) ? null : rawStartDate,
         dueDate: (m['dueDate'] as String?),
         timeSpentMinutes: rawTimeSpent is num ? rawTimeSpent.toInt() : null,
+        external: external,
+        jira: jira,
         subtasks: subtasks,
       );
     } catch (_) {
       return null;
     }
+  }
+}
+
+/// Referencia estable a una tarea remota (issue) en un proveedor externo.
+///
+/// Hoy se usa para Jira, pero está pensado para extenderse a otros.
+class FolioExternalTaskLink {
+  const FolioExternalTaskLink({
+    required this.provider,
+    required this.issueId,
+    this.issueKey,
+    this.deployment,
+    this.baseUrl,
+    this.cloudId,
+    this.lastSyncedAtMs,
+    this.remoteUpdatedAtMs,
+    this.etag,
+    this.remoteVersion,
+    this.syncState,
+  });
+
+  /// Identificador del proveedor, p. ej. `jira`.
+  final String provider;
+
+  /// Identificador estable del issue en el proveedor.
+  final String issueId;
+
+  /// Identificador humano opcional, p. ej. `ABC-123`.
+  final String? issueKey;
+
+  /// `cloud` | `server` (opcional).
+  final String? deployment;
+
+  /// Para Server/DC: `https://jira.ejemplo.com` (opcional).
+  final String? baseUrl;
+
+  /// Para Cloud: `cloudId` del sitio Atlassian (opcional).
+  final String? cloudId;
+
+  /// Epoch ms local de la última sincronización.
+  final int? lastSyncedAtMs;
+
+  /// Epoch ms (según proveedor) de la última modificación remota observada.
+  final int? remoteUpdatedAtMs;
+
+  /// ETag / version string del proveedor para detección de conflictos.
+  final String? etag;
+
+  /// Version/contador remoto (si está disponible) para conflictos.
+  final String? remoteVersion;
+
+  /// `ok` | `needsPull` | `needsPush` | `conflict` (opcional).
+  final String? syncState;
+
+  Map<String, Object?> toJson() => <String, Object?>{
+    'provider': provider,
+    'issueId': issueId,
+    if ((issueKey ?? '').trim().isNotEmpty) 'issueKey': issueKey,
+    if ((deployment ?? '').trim().isNotEmpty) 'deployment': deployment,
+    if ((baseUrl ?? '').trim().isNotEmpty) 'baseUrl': baseUrl,
+    if ((cloudId ?? '').trim().isNotEmpty) 'cloudId': cloudId,
+    if (lastSyncedAtMs != null) 'lastSyncedAtMs': lastSyncedAtMs,
+    if (remoteUpdatedAtMs != null) 'remoteUpdatedAtMs': remoteUpdatedAtMs,
+    if ((etag ?? '').trim().isNotEmpty) 'etag': etag,
+    if ((remoteVersion ?? '').trim().isNotEmpty) 'remoteVersion': remoteVersion,
+    if ((syncState ?? '').trim().isNotEmpty) 'syncState': syncState,
+  };
+
+  FolioExternalTaskLink copyWith({
+    String? provider,
+    String? issueId,
+    Object? issueKey = FolioTaskData._sentinel,
+    Object? deployment = FolioTaskData._sentinel,
+    Object? baseUrl = FolioTaskData._sentinel,
+    Object? cloudId = FolioTaskData._sentinel,
+    Object? lastSyncedAtMs = FolioTaskData._sentinel,
+    Object? remoteUpdatedAtMs = FolioTaskData._sentinel,
+    Object? etag = FolioTaskData._sentinel,
+    Object? remoteVersion = FolioTaskData._sentinel,
+    Object? syncState = FolioTaskData._sentinel,
+  }) {
+    return FolioExternalTaskLink(
+      provider: provider ?? this.provider,
+      issueId: issueId ?? this.issueId,
+      issueKey: issueKey == FolioTaskData._sentinel ? this.issueKey : issueKey as String?,
+      deployment: deployment == FolioTaskData._sentinel ? this.deployment : deployment as String?,
+      baseUrl: baseUrl == FolioTaskData._sentinel ? this.baseUrl : baseUrl as String?,
+      cloudId: cloudId == FolioTaskData._sentinel ? this.cloudId : cloudId as String?,
+      lastSyncedAtMs: lastSyncedAtMs == FolioTaskData._sentinel
+          ? this.lastSyncedAtMs
+          : lastSyncedAtMs as int?,
+      remoteUpdatedAtMs: remoteUpdatedAtMs == FolioTaskData._sentinel
+          ? this.remoteUpdatedAtMs
+          : remoteUpdatedAtMs as int?,
+      etag: etag == FolioTaskData._sentinel ? this.etag : etag as String?,
+      remoteVersion: remoteVersion == FolioTaskData._sentinel
+          ? this.remoteVersion
+          : remoteVersion as String?,
+      syncState: syncState == FolioTaskData._sentinel ? this.syncState : syncState as String?,
+    );
+  }
+
+  static FolioExternalTaskLink? tryParse(Map<String, dynamic> map) {
+    final provider = (map['provider'] as String? ?? '').trim();
+    final issueId = (map['issueId'] as String? ?? '').trim();
+    if (provider.isEmpty || issueId.isEmpty) return null;
+    final issueKey = (map['issueKey'] as String?)?.trim();
+    final deployment = (map['deployment'] as String?)?.trim();
+    final baseUrl = (map['baseUrl'] as String?)?.trim();
+    final cloudId = (map['cloudId'] as String?)?.trim();
+    final lastSyncedAtMs = map['lastSyncedAtMs'] is num
+        ? (map['lastSyncedAtMs'] as num).toInt()
+        : null;
+    final remoteUpdatedAtMs = map['remoteUpdatedAtMs'] is num
+        ? (map['remoteUpdatedAtMs'] as num).toInt()
+        : null;
+    final etag = (map['etag'] as String?)?.trim();
+    final remoteVersion = (map['remoteVersion'] as String?)?.trim();
+    final syncState = (map['syncState'] as String?)?.trim();
+    return FolioExternalTaskLink(
+      provider: provider,
+      issueId: issueId,
+      issueKey: (issueKey?.isEmpty ?? true) ? null : issueKey,
+      deployment: (deployment?.isEmpty ?? true) ? null : deployment,
+      baseUrl: (baseUrl?.isEmpty ?? true) ? null : baseUrl,
+      cloudId: (cloudId?.isEmpty ?? true) ? null : cloudId,
+      lastSyncedAtMs: lastSyncedAtMs,
+      remoteUpdatedAtMs: remoteUpdatedAtMs,
+      etag: (etag?.isEmpty ?? true) ? null : etag,
+      remoteVersion: (remoteVersion?.isEmpty ?? true) ? null : remoteVersion,
+      syncState: (syncState?.isEmpty ?? true) ? null : syncState,
+    );
+  }
+}
+
+class FolioJiraIssueSnapshot {
+  const FolioJiraIssueSnapshot({
+    this.projectKey,
+    this.issueType,
+    this.statusId,
+    this.statusName,
+    this.assigneeAccountId,
+    this.assigneeDisplayName,
+    this.reporterAccountId,
+    this.reporterDisplayName,
+    this.labels = const [],
+    this.components = const [],
+    this.sprintId,
+    this.sprintName,
+    this.boardId,
+    this.customFields = const {},
+    this.originalEstimateMinutes,
+    this.remainingEstimateMinutes,
+    this.timeSpentMinutes,
+    this.worklogCount,
+    this.commentCount,
+    this.attachmentCount,
+  });
+
+  final String? projectKey;
+  final String? issueType;
+  final String? statusId;
+  final String? statusName;
+
+  final String? assigneeAccountId;
+  final String? assigneeDisplayName;
+  final String? reporterAccountId;
+  final String? reporterDisplayName;
+
+  final List<String> labels;
+  final List<String> components;
+
+  final String? sprintId;
+  final String? sprintName;
+  final String? boardId;
+
+  /// fieldId -> value (JSON-friendly). Solo incluye el set configurado.
+  final Map<String, Object?> customFields;
+
+  final int? originalEstimateMinutes;
+  final int? remainingEstimateMinutes;
+  final int? timeSpentMinutes;
+  final int? worklogCount;
+  final int? commentCount;
+  final int? attachmentCount;
+
+  Map<String, Object?> toJson() => <String, Object?>{
+        if ((projectKey ?? '').trim().isNotEmpty) 'projectKey': projectKey,
+        if ((issueType ?? '').trim().isNotEmpty) 'issueType': issueType,
+        if ((statusId ?? '').trim().isNotEmpty) 'statusId': statusId,
+        if ((statusName ?? '').trim().isNotEmpty) 'statusName': statusName,
+        if ((assigneeAccountId ?? '').trim().isNotEmpty)
+          'assigneeAccountId': assigneeAccountId,
+        if ((assigneeDisplayName ?? '').trim().isNotEmpty)
+          'assigneeDisplayName': assigneeDisplayName,
+        if ((reporterAccountId ?? '').trim().isNotEmpty)
+          'reporterAccountId': reporterAccountId,
+        if ((reporterDisplayName ?? '').trim().isNotEmpty)
+          'reporterDisplayName': reporterDisplayName,
+        if (labels.isNotEmpty) 'labels': labels,
+        if (components.isNotEmpty) 'components': components,
+        if ((sprintId ?? '').trim().isNotEmpty) 'sprintId': sprintId,
+        if ((sprintName ?? '').trim().isNotEmpty) 'sprintName': sprintName,
+        if ((boardId ?? '').trim().isNotEmpty) 'boardId': boardId,
+        if (customFields.isNotEmpty) 'customFields': customFields,
+        if (originalEstimateMinutes != null)
+          'originalEstimateMinutes': originalEstimateMinutes,
+        if (remainingEstimateMinutes != null)
+          'remainingEstimateMinutes': remainingEstimateMinutes,
+        if (timeSpentMinutes != null) 'timeSpentMinutes': timeSpentMinutes,
+        if (worklogCount != null) 'worklogCount': worklogCount,
+        if (commentCount != null) 'commentCount': commentCount,
+        if (attachmentCount != null) 'attachmentCount': attachmentCount,
+      };
+
+  static FolioJiraIssueSnapshot? tryParse(Map<String, dynamic> map) {
+    final projectKey = (map['projectKey'] as String?)?.trim();
+    final issueType = (map['issueType'] as String?)?.trim();
+    final statusId = (map['statusId'] as String?)?.trim();
+    final statusName = (map['statusName'] as String?)?.trim();
+    final assigneeAccountId = (map['assigneeAccountId'] as String?)?.trim();
+    final assigneeDisplayName = (map['assigneeDisplayName'] as String?)?.trim();
+    final reporterAccountId = (map['reporterAccountId'] as String?)?.trim();
+    final reporterDisplayName = (map['reporterDisplayName'] as String?)?.trim();
+    final labels = <String>[];
+    final rawLabels = map['labels'];
+    if (rawLabels is List) {
+      labels.addAll(rawLabels.map((e) => '$e').where((e) => e.trim().isNotEmpty));
+    }
+    final components = <String>[];
+    final rawComponents = map['components'];
+    if (rawComponents is List) {
+      components.addAll(
+        rawComponents.map((e) => '$e').where((e) => e.trim().isNotEmpty),
+      );
+    }
+    final sprintId = (map['sprintId'] as String?)?.trim();
+    final sprintName = (map['sprintName'] as String?)?.trim();
+    final boardId = (map['boardId'] as String?)?.trim();
+    final customFieldsRaw = map['customFields'];
+    final customFields =
+        customFieldsRaw is Map ? Map<String, Object?>.from(customFieldsRaw) : const <String, Object?>{};
+    int? asInt(Object? v) => v is num ? v.toInt() : null;
+    return FolioJiraIssueSnapshot(
+      projectKey: (projectKey?.isEmpty ?? true) ? null : projectKey,
+      issueType: (issueType?.isEmpty ?? true) ? null : issueType,
+      statusId: (statusId?.isEmpty ?? true) ? null : statusId,
+      statusName: (statusName?.isEmpty ?? true) ? null : statusName,
+      assigneeAccountId:
+          (assigneeAccountId?.isEmpty ?? true) ? null : assigneeAccountId,
+      assigneeDisplayName:
+          (assigneeDisplayName?.isEmpty ?? true) ? null : assigneeDisplayName,
+      reporterAccountId:
+          (reporterAccountId?.isEmpty ?? true) ? null : reporterAccountId,
+      reporterDisplayName:
+          (reporterDisplayName?.isEmpty ?? true) ? null : reporterDisplayName,
+      labels: List.unmodifiable(labels),
+      components: List.unmodifiable(components),
+      sprintId: (sprintId?.isEmpty ?? true) ? null : sprintId,
+      sprintName: (sprintName?.isEmpty ?? true) ? null : sprintName,
+      boardId: (boardId?.isEmpty ?? true) ? null : boardId,
+      customFields: Map.unmodifiable(customFields),
+      originalEstimateMinutes: asInt(map['originalEstimateMinutes']),
+      remainingEstimateMinutes: asInt(map['remainingEstimateMinutes']),
+      timeSpentMinutes: asInt(map['timeSpentMinutes']),
+      worklogCount: asInt(map['worklogCount']),
+      commentCount: asInt(map['commentCount']),
+      attachmentCount: asInt(map['attachmentCount']),
+    );
   }
 }
 

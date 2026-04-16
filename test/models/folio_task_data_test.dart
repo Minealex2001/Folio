@@ -44,5 +44,59 @@ void main() {
       expect(next.subtasks.length, 1);
       expect(next.subtasks.first.id, 'a');
     });
+
+    test('serializa y parsea external (Jira)', () {
+      final data = FolioTaskData(
+        title: 'Sync issue',
+        status: 'todo',
+        external: const FolioExternalTaskLink(
+          provider: 'jira',
+          issueId: '10001',
+          issueKey: 'ABC-123',
+          deployment: 'cloud',
+          cloudId: 'cloud_1',
+          remoteVersion: '42',
+          syncState: 'ok',
+        ),
+      );
+      final parsed = FolioTaskData.tryParse(data.encode());
+      expect(parsed, isNotNull);
+      expect(parsed!.external, isNotNull);
+      expect(parsed.external!.provider, 'jira');
+      expect(parsed.external!.issueId, '10001');
+      expect(parsed.external!.issueKey, 'ABC-123');
+      expect(parsed.external!.deployment, 'cloud');
+      expect(parsed.external!.cloudId, 'cloud_1');
+      expect(parsed.external!.remoteVersion, '42');
+    });
+
+    test('serializa y parsea snapshot Jira', () {
+      final data = FolioTaskData(
+        title: 'Issue con snapshot',
+        status: 'todo',
+        external: const FolioExternalTaskLink(provider: 'jira', issueId: '1'),
+        jira: const FolioJiraIssueSnapshot(
+          projectKey: 'ABC',
+          issueType: 'Task',
+          statusId: '10000',
+          statusName: 'To Do',
+          assigneeAccountId: 'acc_1',
+          assigneeDisplayName: 'Alice',
+          labels: ['a', 'b'],
+          components: ['Comp'],
+          customFields: {'customfield_10016': 'X'},
+          worklogCount: 2,
+          commentCount: 3,
+          attachmentCount: 4,
+        ),
+      );
+      final parsed = FolioTaskData.tryParse(data.encode());
+      expect(parsed, isNotNull);
+      expect(parsed!.jira, isNotNull);
+      expect(parsed.jira!.projectKey, 'ABC');
+      expect(parsed.jira!.labels, ['a', 'b']);
+      expect(parsed.jira!.customFields['customfield_10016'], 'X');
+      expect(parsed.jira!.attachmentCount, 4);
+    });
   });
 }

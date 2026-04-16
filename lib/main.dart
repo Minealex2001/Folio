@@ -3,6 +3,7 @@ import 'dart:ui';
 
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:system_theme/system_theme.dart';
 
 import 'app/app_settings.dart';
@@ -12,6 +13,8 @@ import 'firebase_options.dart';
 import 'services/app_log_file_sink.dart';
 import 'services/app_logger.dart';
 import 'services/cloud_account/cloud_account_controller.dart';
+import 'services/env/local_env_loader.dart';
+import 'services/env/local_env.dart';
 import 'services/folio_cloud/folio_cloud_entitlements.dart';
 import 'services/platform/launch_arguments.dart';
 import 'session/vault_session.dart';
@@ -21,6 +24,45 @@ Future<void> main() async {
     () async {
       WidgetsFlutterBinding.ensureInitialized();
       AppLogger.setSink(await AppLogFileSink.init());
+
+      // Cargar variables locales (no versionadas) desde `.env`.
+      try {
+        final res = await LocalEnvLoader.loadLocalEnv(filename: '.env');
+        if (res.loaded) {
+          AppLogger.info(
+            'dotenv loaded',
+            tag: 'env',
+            context: {'path': res.path ?? '—'},
+          );
+          // No loguear valores; solo presencia.
+          AppLogger.info(
+            'dotenv keys present',
+            tag: 'env',
+            context: {
+              'hasClientId':
+                  LocalEnv.has('JIRA_OAUTH_CLIENT_ID') ||
+                      (dotenv.env['JIRA_OAUTH_CLIENT_ID'] ?? '').trim().isNotEmpty,
+              'hasClientSecret':
+                  LocalEnv.has('JIRA_OAUTH_CLIENT_SECRET') ||
+                      (dotenv.env['JIRA_OAUTH_CLIENT_SECRET'] ?? '').trim().isNotEmpty,
+            },
+          );
+          // ignore: avoid_print
+          print(
+            '[folio.env] keys present hasClientId='
+            '${LocalEnv.has('JIRA_OAUTH_CLIENT_ID') || (dotenv.env['JIRA_OAUTH_CLIENT_ID'] ?? '').trim().isNotEmpty} '
+            'hasClientSecret='
+            '${LocalEnv.has('JIRA_OAUTH_CLIENT_SECRET') || (dotenv.env['JIRA_OAUTH_CLIENT_SECRET'] ?? '').trim().isNotEmpty}',
+          );
+        } else {
+          AppLogger.warn('dotenv not found', tag: 'env');
+        }
+      } catch (e, st) {
+        AppLogger.warn('dotenv load failed', tag: 'env', context: {'error': '$e'});
+        AppLogger.debug('dotenv load stack', tag: 'env', context: {'stack': '$st'});
+        // ignore: avoid_print
+        print('[folio.env] load failed error=$e');
+      }
 
       FlutterError.onError = (details) {
         FlutterError.presentError(details);

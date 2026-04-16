@@ -195,6 +195,7 @@ class AppSettings extends ChangeNotifier {
   static const _betaBannerDismissedKey = 'folio_beta_banner_dismissed';
   static const _inAppShortcutsKey = 'folio_in_app_shortcuts_json';
   static const _approvedIntegrationAppsKey = 'folio_approved_integration_apps';
+  static const _jiraOAuthClientIdKey = 'folio_jira_oauth_client_id';
   static const _editorContentWidthKey = 'folio_editor_content_width';
   static const _workspaceSidebarWidthKey = 'folio_workspace_sidebar_width';
   static const _workspaceSidebarCollapsedKey =
@@ -368,6 +369,7 @@ class AppSettings extends ChangeNotifier {
       defaultShortcutMap();
   final String _configuredIntegrationSecret;
   String _integrationSecret = '';
+  String _jiraOAuthClientId = '';
   Map<String, IntegrationAppApproval> _approvedIntegrationApps = {};
   List<CustomIconEntry> _customIcons = const <CustomIconEntry>[];
   Map<String, List<CustomIconEntry>> _integrationCustomIconsByApp =
@@ -433,6 +435,24 @@ class AppSettings extends ChangeNotifier {
   double get aiChatPanelWidth => _aiChatPanelWidth;
   double get aiChatPanelHeight => _aiChatPanelHeight;
   String get integrationSecret => _integrationSecret;
+
+  /// Temporal: `client_id` para OAuth 3LO de Jira Cloud configurado por usuario.
+  /// En producción se espera que esto venga del entorno/build, pero este override
+  /// permite iterar sin recompilar.
+  String get jiraOAuthClientId => _jiraOAuthClientId;
+
+  Future<void> setJiraOAuthClientId(String value) async {
+    final next = value.trim();
+    if (next == _jiraOAuthClientId) return;
+    _jiraOAuthClientId = next;
+    final p = await SharedPreferences.getInstance();
+    if (next.isEmpty) {
+      await p.remove(_jiraOAuthClientIdKey);
+    } else {
+      await p.setString(_jiraOAuthClientIdKey, next);
+    }
+    notifyListeners();
+  }
   bool get enterCreatesNewBlock => _enterCreatesNewBlock;
   bool get syncEnabled => _syncEnabled;
   bool get syncRelayEnabled => _syncRelayEnabled;
@@ -596,6 +616,7 @@ class AppSettings extends ChangeNotifier {
       p.getString(_inAppShortcutsKey),
       defaultShortcutMap(),
     );
+    _jiraOAuthClientId = (p.getString(_jiraOAuthClientIdKey) ?? '').trim();
     _enterCreatesNewBlock = p.getBool(_enterCreatesNewBlockKey) ?? true;
     _syncEnabled = p.getBool(_syncEnabledKey) ?? true;
     _syncRelayEnabled = p.getBool(_syncRelayEnabledKey) ?? true;

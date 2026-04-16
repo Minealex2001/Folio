@@ -3,12 +3,14 @@ import 'dart:convert';
 import '../models/folio_page.dart';
 import '../models/folio_page_revision.dart';
 import '../models/folio_page_template.dart';
+import '../models/jira_integration_state.dart';
 import '../models/local_collab.dart';
 import '../services/ai/ai_types.dart';
 
 /// Esquema 4: chats de IA. Esquema 5: `FolioPage.collabRoomId` y comentarios de archivo collab.
 /// Esquema 6: orden persistido del árbol de páginas (sidebar) por `parentId`.
-const int kVaultPayloadVersion = 6;
+/// Esquema 7: estado de integraciones nativas (Jira).
+const int kVaultPayloadVersion = 7;
 
 class VaultPayload {
   VaultPayload({
@@ -22,6 +24,7 @@ class VaultPayload {
     List<AiChatThreadData>? aiChatThreads,
     int? aiActiveChatIndex,
     List<FolioPageTemplate>? pageTemplates,
+    JiraIntegrationState? jira,
   }) : pageRevisions = pageRevisions ?? {},
        pageAcl = pageAcl ?? {},
        pageOrderByParent = pageOrderByParent ?? {},
@@ -29,7 +32,8 @@ class VaultPayload {
        comments = comments ?? const [],
        aiChatThreads = aiChatThreads ?? const [],
        aiActiveChatIndex = aiActiveChatIndex ?? 0,
-       pageTemplates = pageTemplates ?? const [];
+       pageTemplates = pageTemplates ?? const [],
+       jira = jira ?? JiraIntegrationState.empty;
 
   final int version;
   final List<FolioPage> pages;
@@ -42,6 +46,7 @@ class VaultPayload {
   final List<AiChatThreadData> aiChatThreads;
   final int aiActiveChatIndex;
   final List<FolioPageTemplate> pageTemplates;
+  final JiraIntegrationState jira;
 
   Map<String, dynamic> toJson() => {
     'version': version,
@@ -57,6 +62,7 @@ class VaultPayload {
     'aiActiveChatIndex': aiActiveChatIndex,
     if (pageTemplates.isNotEmpty)
       'pageTemplates': pageTemplates.map((t) => t.toJson()).toList(),
+    if (jira.connections.isNotEmpty || jira.sources.isNotEmpty) 'jira': jira.toJson(),
   };
 
   factory VaultPayload.fromJson(Map<String, dynamic> j) {
@@ -116,6 +122,7 @@ class VaultPayload {
         .map((e) => FolioPageTemplate.fromJson(Map<String, dynamic>.from(e)))
         .where((t) => t.id.isNotEmpty)
         .toList();
+    final jira = JiraIntegrationState.fromJson(j['jira']);
     return VaultPayload(
       version: j['version'] as int? ?? 1,
       pages: list,
@@ -127,6 +134,7 @@ class VaultPayload {
       aiChatThreads: aiThreads,
       aiActiveChatIndex: aiIndex,
       pageTemplates: templates,
+      jira: jira,
     );
   }
 

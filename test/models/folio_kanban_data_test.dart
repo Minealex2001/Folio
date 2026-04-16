@@ -30,6 +30,19 @@ void main() {
       expect(parsed.columns[2].title, 'C');
     });
 
+    test('serializa y parsea config Jira mínima (jiraSourceId)', () {
+      final d = FolioKanbanData.defaults().copyWith(
+        jiraSourceId: 'jira_source_1',
+        jiraAutoImport: true,
+        jiraCreateIssuesOnQuickAdd: true,
+      );
+      final parsed = FolioKanbanData.tryParse(d.encode());
+      expect(parsed, isNotNull);
+      expect(parsed!.jiraSourceId, 'jira_source_1');
+      expect(parsed.jiraAutoImport, isTrue);
+      expect(parsed.jiraCreateIssuesOnQuickAdd, isTrue);
+    });
+
     test('permite columnas parciales (usuario puede personalizar)', () {
       const raw = '{"v":2,"includeSimpleTodos":true,"columns":[{"id":"todo"}]}';
       final parsed = FolioKanbanData.tryParse(raw);
