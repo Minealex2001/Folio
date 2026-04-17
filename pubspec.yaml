@@ -85,6 +85,7 @@ dependencies:
   cross_file: ^0.3.4+2
   desktop_drop: ^0.4.4
   super_clipboard: ^0.8.9
+  firebase_analytics: ^12.3.0
 
 dev_dependencies:
   flutter_test:

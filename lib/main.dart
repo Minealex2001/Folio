@@ -12,6 +12,8 @@ import 'app/folio_runtime_config.dart';
 import 'firebase_options.dart';
 import 'services/app_log_file_sink.dart';
 import 'services/app_logger.dart';
+import 'services/folio_diagnostic_reporter.dart';
+import 'services/folio_telemetry.dart';
 import 'services/cloud_account/cloud_account_controller.dart';
 import 'services/env/local_env_loader.dart';
 import 'services/env/local_env.dart';
@@ -76,6 +78,12 @@ Future<void> main() async {
             'context': details.context?.toDescription(),
           },
         );
+        unawaited(
+          FolioDiagnosticReporter.maybeReportCrash(
+            details.exception,
+            details.stack ?? StackTrace.empty,
+          ),
+        );
       };
 
       PlatformDispatcher.instance.onError = (error, stackTrace) {
@@ -85,6 +93,7 @@ Future<void> main() async {
           error: error,
           stackTrace: stackTrace,
         );
+        unawaited(FolioDiagnosticReporter.maybeReportCrash(error, stackTrace));
         return true;
       };
 
@@ -111,6 +120,7 @@ Future<void> main() async {
         integrationSecret: runtimeConfig.integrationSecret,
       );
       await appSettings.load();
+      await FolioTelemetry.applyAfterSettingsLoaded(appSettings);
       final session = VaultSession(titleLocale: appSettings.locale);
       final initialLaunchArgs =
           await PlatformLaunchArguments.initialArguments();
@@ -130,6 +140,9 @@ Future<void> main() async {
         tag: 'crash',
         error: error,
         stackTrace: stackTrace,
+      );
+      unawaited(
+        FolioDiagnosticReporter.maybeReportCrash(error, stackTrace),
       );
     },
   );

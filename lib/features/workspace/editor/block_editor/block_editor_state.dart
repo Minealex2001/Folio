@@ -144,6 +144,7 @@ class BlockEditorState extends State<BlockEditor> with _BlockRowBuild {
       if (!mounted) return;
       final md = FolioMarkdownQuillCodec.documentToMarkdown(qc.document);
       final deltaStr = jsonEncode(qc.document.toDelta().toJson());
+      final caret = qc.selection.baseOffset;
       _quillLastMdByBlockId[block.id] = md;
       _runWithShortcutsIgnored(() {
         _s.updateBlockText(pageId, block.id, md);
@@ -157,14 +158,27 @@ class BlockEditorState extends State<BlockEditor> with _BlockRowBuild {
         }
         final idx = _controllerBlockIds.indexOf(block.id);
         if (idx >= 0 && idx < _controllers.length) {
+          final safe = caret.clamp(0, md.length);
           _controllers[idx].value = TextEditingValue(
             text: md,
-            selection: TextSelection.collapsed(offset: md.length),
+            selection: TextSelection.collapsed(offset: safe),
           );
         }
       });
     }
     void listener() {
+      if (!mounted) return;
+      final idx = _controllerBlockIds.indexOf(block.id);
+      if (idx >= 0) {
+        final plain = qc.document.toPlainText();
+        _syncInlineOverlaysOnly(
+          pageId,
+          block.id,
+          plain,
+          qc.selection,
+          idx,
+        );
+      }
       // Convertir a markdown con debounce para evitar trabajo por tecla.
       _quillDebounceByBlockId[block.id]?.cancel();
       _quillDebounceByBlockId[block.id] = Timer(const Duration(milliseconds: 200), () {
@@ -382,6 +396,8 @@ class BlockEditorState extends State<BlockEditor> with _BlockRowBuild {
       return;
     }
 
+    _pendingFocusBlockId = id;
+    _pendingCursorOffset = 0;
     _runWithShortcutsIgnored(() {
       // Remove the trailing slash command from the block's text.
       _s.updateBlockText(pid, id, '');
@@ -403,18 +419,6 @@ class BlockEditorState extends State<BlockEditor> with _BlockRowBuild {
       }
     });
     if (mounted) setState(() {});
-    if (idx >= 0 && mounted) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (!mounted) return;
-        if (idx >= _focusNodes.length) return;
-        _focusNodes[idx].requestFocus();
-        if (idx < _controllers.length) {
-          _controllers[idx].selection = const TextSelection.collapsed(
-            offset: 0,
-          );
-        }
-      });
-    }
   }
 
   Future<void> _runInlineSlashAction(
@@ -474,9 +478,41 @@ class BlockEditorState extends State<BlockEditor> with _BlockRowBuild {
     }
 
     if (actionKey == 'cmd_turn_into') {
+      var preservedOff = 0;
+      final qc = _quillByBlockId[blockId];
+      final idx = _controllerBlockIds.indexWhere((x) => x == blockId);
+      if (qc != null && qc.selection.isValid) {
+        preservedOff = qc.selection.baseOffset.clamp(
+          0,
+          qc.document.toPlainText().length,
+        );
+      } else if (idx >= 0 && idx < _controllers.length) {
+        final c = _controllers[idx];
+        if (c.selection.isValid) {
+          preservedOff = c.selection.baseOffset.clamp(0, c.text.length);
+        }
+      }
       final choice = await _openBlockTypePicker(context);
-      if (choice == null || choice.startsWith('cmd_')) return;
+      if (!mounted || choice == null || choice.startsWith('cmd_')) return;
+      _pendingFocusBlockId = blockId;
+      _pendingCursorOffset = preservedOff;
       _s.changeBlockType(pageId, blockId, choice);
+      final p2 = _s.selectedPage;
+      if (p2 != null && mounted) {
+        final j = p2.blocks.indexWhere((x) => x.id == blockId);
+        if (j >= 0 && j < _controllers.length) {
+          final nb = p2.blocks[j];
+          final len = nb.text.length;
+          final off = preservedOff.clamp(0, len);
+          _ignoreShortcuts = true;
+          _controllers[j].value = TextEditingValue(
+            text: nb.text,
+            selection: TextSelection.collapsed(offset: off),
+          );
+          _ignoreShortcuts = false;
+        }
+      }
+      if (mounted) setState(() {});
       return;
     }
   }
@@ -983,7 +1019,46 @@ class BlockEditorState extends State<BlockEditor> with _BlockRowBuild {
       return;
     }
 
-    final slashFilter = _slashFilterFromBlockText(text);
+    final sel = index < _controllers.length
+        ? _controllers[index].selection
+        : const TextSelection.collapsed(offset: -1);
+    _syncInlineOverlaysOnly(pageId, blockId, text, sel, index);
+  }
+
+  /// Menús `/` y `@` sin persistir texto (p. ej. Quill en vivo antes del debounce).
+  void _syncInlineOverlaysOnly(
+    String pageId,
+    String blockId,
+    String text,
+    TextSelection sel,
+    int index,
+  ) {
+    if (_ignoreShortcuts) return;
+    final pg = _s.selectedPage;
+    if (pg == null || pg.id != pageId) return;
+    final bi = pg.blocks.indexWhere((b) => b.id == blockId);
+    if (bi < 0) return;
+    final btype = pg.blocks[bi].type;
+    const slashTypes = {
+      'paragraph',
+      'h1',
+      'h2',
+      'h3',
+      'bullet',
+      'numbered',
+      'todo',
+      'toggle',
+      'quote',
+      'callout',
+    };
+    if (!slashTypes.contains(btype)) {
+      return;
+    }
+
+    final slashFilter = (sel.isValid
+            ? _slashFilterFromPlainTextAndSelection(text, sel)
+            : null) ??
+        _slashFilterFromBlockText(text);
     if (slashFilter != null) {
       if (_mentionBlockId == blockId) {
         _dismissInlineMention();
@@ -1017,10 +1092,8 @@ class BlockEditorState extends State<BlockEditor> with _BlockRowBuild {
       _dismissInlineSlash(clearTypedCommand: false);
     }
 
-    final sel = index < _controllers.length
-        ? _controllers[index].selection
-        : const TextSelection.collapsed(offset: -1);
-    final mentionFilter = _mentionFilterFromSelection(text, sel);
+    final mentionFilter =
+        sel.isValid ? _mentionFilterFromSelection(text, sel) : null;
     if (mentionFilter != null) {
       final open = _mentionBlockId != blockId;
       _mentionPageId = pageId;
@@ -1050,11 +1123,112 @@ class BlockEditorState extends State<BlockEditor> with _BlockRowBuild {
     }
   }
 
+  static String _quillMarkdownNormalize(String s) {
+    return s.replaceAll('\r\n', '\n').replaceAll('\r', '\n').trimRight();
+  }
+
   /// `#` / `##` solos (o solo con espacios): el markdown no pinta texto y el
   /// campo con color transparente parece “vacío”; no usar vista previa aún.
   static bool _isIncompleteAtxHeadingLine(String text) {
     if (text.contains('\n') || text.contains('\r')) return false;
     return RegExp(r'^#{1,6}\s*$').hasMatch(text.trim());
+  }
+
+  /// Al pasar de WYSIWYG a otro tipo, el Quill del id queda huérfano: hay que
+  /// liberarlo para que al volver se cree desde el markdown del modelo.
+  void _disposeQuillForBlocksNoLongerStylable(FolioPage page) {
+    for (final id in _quillByBlockId.keys.toList()) {
+      FolioBlock? b;
+      for (final x in page.blocks) {
+        if (x.id == id) {
+          b = x;
+          break;
+        }
+      }
+      if (b == null || !_stylableBlockTypes.contains(b.type)) {
+        _disposeQuillFor(id);
+      }
+    }
+  }
+
+  /// Si el session actualizó `block.text` sin pasar por Quill (p. ej.
+  /// [VaultSession.changeBlockType]), el documento Quill puede quedar obsoleto.
+  void _reconcileStylableQuillDocumentsWithModel(FolioPage page) {
+    for (final b in page.blocks) {
+      if (!_stylableBlockTypes.contains(b.type)) continue;
+      final qc = _quillByBlockId[b.id];
+      if (qc == null) continue;
+      final last = _quillLastMdByBlockId[b.id];
+      if (last == b.text) continue;
+      if (last != null &&
+          _quillMarkdownNormalize(last) == _quillMarkdownNormalize(b.text)) {
+        _quillLastMdByBlockId[b.id] = b.text;
+        continue;
+      }
+      final oldPlain = qc.document.toPlainText();
+      final oldSel = qc.selection;
+      qc.document = FolioMarkdownQuillCodec.markdownToDocument(b.text);
+      _quillLastMdByBlockId[b.id] = b.text;
+      _quillDebounceByBlockId[b.id]?.cancel();
+      final newPlain = qc.document.toPlainText();
+      if (newPlain == oldPlain && oldSel.isValid) {
+        qc.updateSelection(oldSel, quill.ChangeSource.remote);
+      } else if (oldSel.isValid) {
+        final o = oldSel.baseOffset.clamp(0, oldPlain.length);
+        final at = o.clamp(0, newPlain.length);
+        qc.updateSelection(
+          TextSelection.collapsed(offset: at),
+          quill.ChangeSource.remote,
+        );
+      }
+    }
+  }
+
+  void _finalizePendingEditorFocus(FolioPage page) {
+    int? idx = _pendingFocusIndex;
+    final off = _pendingCursorOffset;
+    final id = _pendingFocusBlockId;
+    _pendingFocusIndex = null;
+    _pendingCursorOffset = null;
+    _pendingFocusBlockId = null;
+
+    if (id != null) {
+      final j = page.blocks.indexWhere((b) => b.id == id);
+      if (j >= 0) idx = j;
+    }
+    if (idx == null || idx < 0 || idx >= _focusNodes.length) return;
+
+    final iFocus = idx;
+    final pageId = page.id;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      final p = _s.selectedPage;
+      if (p == null || p.id != pageId) return;
+      if (iFocus >= _focusNodes.length || iFocus >= p.blocks.length) return;
+      final block = p.blocks[iFocus];
+      final bid = block.id;
+      if (_controllerBlockIds.length != p.blocks.length ||
+          iFocus >= _controllerBlockIds.length ||
+          _controllerBlockIds[iFocus] != bid) {
+        return;
+      }
+      _focusNodes[iFocus].requestFocus();
+      if (_stylableBlockTypes.contains(block.type)) {
+        final qc = _quillByBlockId[bid];
+        if (qc != null) {
+          final plainLen = qc.document.toPlainText().length;
+          final o = (off ?? plainLen).clamp(0, plainLen);
+          qc.updateSelection(
+            TextSelection.collapsed(offset: o),
+            quill.ChangeSource.remote,
+          );
+        }
+      } else if (iFocus < _controllers.length) {
+        final len = _controllers[iFocus].text.length;
+        final o = (off ?? len).clamp(0, len);
+        _controllers[iFocus].selection = TextSelection.collapsed(offset: o);
+      }
+    });
   }
 
   bool _tryMarkdownShortcut(
@@ -1092,14 +1266,13 @@ class BlockEditorState extends State<BlockEditor> with _BlockRowBuild {
     }
     if (type == null) return false;
 
+    _pendingFocusBlockId = blockId;
+    _pendingCursorOffset = replacement.length;
     _ignoreShortcuts = true;
     _s.changeBlockType(pageId, blockId, type);
     if (type == 'code' && fenceLang != null && fenceLang.isNotEmpty) {
       _s.setBlockCodeLanguage(pageId, blockId, fenceLang);
-      if (index >= 0 && index < _controllers.length) {
-        _pendingFocusIndex = index;
-        _pendingCursorOffset = 0;
-      }
+      _pendingCursorOffset = 0;
     }
     _s.updateBlockText(pageId, blockId, replacement);
     if (index < _controllers.length) {
@@ -1110,18 +1283,6 @@ class BlockEditorState extends State<BlockEditor> with _BlockRowBuild {
     }
     _ignoreShortcuts = false;
 
-    if (mounted) {
-      final i = index;
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (!mounted) return;
-        if (i >= _focusNodes.length) return;
-        _focusNodes[i].requestFocus();
-        if (i < _controllers.length) {
-          final len = _controllers[i].text.length;
-          _controllers[i].selection = TextSelection.collapsed(offset: len);
-        }
-      });
-    }
     return true;
   }
 
@@ -2563,10 +2724,6 @@ class BlockEditorState extends State<BlockEditor> with _BlockRowBuild {
     _controllerBlockIds
       ..clear()
       ..addAll(newIds);
-
-    _pendingFocusBlockId = null;
-    _pendingFocusIndex = null;
-    _pendingCursorOffset = null;
   }
 
   void _onSession() {
@@ -2700,7 +2857,10 @@ class BlockEditorState extends State<BlockEditor> with _BlockRowBuild {
         WidgetsBinding.instance.addPostFrameCallback((_) => scrollNow());
       });
     }
+    _disposeQuillForBlocksNoLongerStylable(page);
+    _reconcileStylableQuillDocumentsWithModel(page);
     setState(() {});
+    _finalizePendingEditorFocus(page);
   }
 
   /// API pública para paneles externos (p. ej. índice lateral) que quieran
@@ -2739,9 +2899,26 @@ class BlockEditorState extends State<BlockEditor> with _BlockRowBuild {
         final qc = _ensureQuillController(pageId: pid, block: b);
         final last = _quillLastMdByBlockId[bid];
         if (last != null && last != b.text) {
-          qc.document = FolioMarkdownQuillCodec.markdownToDocument(b.text);
-          _quillLastMdByBlockId[bid] = b.text;
-          _quillDebounceByBlockId[bid]?.cancel();
+          if (_quillMarkdownNormalize(last) == _quillMarkdownNormalize(b.text)) {
+            _quillLastMdByBlockId[bid] = b.text;
+          } else {
+            final oldPlain = qc.document.toPlainText();
+            final oldSel = qc.selection;
+            qc.document = FolioMarkdownQuillCodec.markdownToDocument(b.text);
+            _quillLastMdByBlockId[bid] = b.text;
+            _quillDebounceByBlockId[bid]?.cancel();
+            final newPlain = qc.document.toPlainText();
+            if (newPlain == oldPlain && oldSel.isValid) {
+              qc.updateSelection(oldSel, quill.ChangeSource.remote);
+            } else if (oldSel.isValid) {
+              final o = oldSel.baseOffset.clamp(0, oldPlain.length);
+              final at = o.clamp(0, newPlain.length);
+              qc.updateSelection(
+                TextSelection.collapsed(offset: at),
+                quill.ChangeSource.remote,
+              );
+            }
+          }
         }
       }
       final TextEditingController c = _usesCodeControllerForBlockType(b.type)
@@ -2808,9 +2985,10 @@ class BlockEditorState extends State<BlockEditor> with _BlockRowBuild {
                 _s.updateBlockText(pid, bid, md);
                 final idx = _controllerBlockIds.indexOf(bid);
                 if (idx >= 0 && idx < _controllers.length) {
+                  final caret = qc.selection.baseOffset.clamp(0, md.length);
                   _controllers[idx].value = TextEditingValue(
                     text: md,
-                    selection: TextSelection.collapsed(offset: md.length),
+                    selection: TextSelection.collapsed(offset: caret),
                   );
                 }
               });
@@ -2915,17 +3093,8 @@ class BlockEditorState extends State<BlockEditor> with _BlockRowBuild {
     if (idxToFocus != null &&
         idxToFocus >= 0 &&
         idxToFocus < _focusNodes.length) {
-      final iFocus = idxToFocus;
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (!mounted) return;
-        if (iFocus >= _focusNodes.length) return;
-        _focusNodes[iFocus].requestFocus();
-        if (offToFocus != null && iFocus < _controllers.length) {
-          final len = _controllers[iFocus].text.length;
-          final off = offToFocus.clamp(0, len);
-          _controllers[iFocus].selection = TextSelection.collapsed(offset: off);
-        }
-      });
+      _pendingFocusIndex = idxToFocus;
+      _pendingCursorOffset = offToFocus;
     }
   }
 
@@ -2954,8 +3123,20 @@ class BlockEditorState extends State<BlockEditor> with _BlockRowBuild {
       return KeyEventResult.handled;
     }
 
+    var liveText = ctrl.text;
+    var liveSel = ctrl.selection;
+    final quillLive = _quillByBlockId[blockId];
+    if (quillLive != null &&
+        index >= 0 &&
+        index < page.blocks.length &&
+        _stylableBlockTypes.contains(page.blocks[index].type)) {
+      liveText = quillLive.document.toPlainText();
+      liveSel = quillLive.selection;
+    }
+
     final slashFilter = _slashBlockId == blockId
-        ? _slashFilterFromBlockText(ctrl.text)
+        ? ((_slashFilterFromPlainTextAndSelection(liveText, liveSel)) ??
+            _slashFilterFromBlockText(liveText))
         : null;
     if (slashFilter != null) {
       final slashItems = _catalogFilteredForSlash(slashFilter);
@@ -2996,7 +3177,7 @@ class BlockEditorState extends State<BlockEditor> with _BlockRowBuild {
     }
 
     final mentionFilter = _mentionBlockId == blockId
-        ? _mentionFilterFromSelection(ctrl.text, ctrl.selection)
+        ? _mentionFilterFromSelection(liveText, liveSel)
         : null;
     if (mentionFilter != null) {
       final mentionItems = _catalogFilteredForMention(mentionFilter);
@@ -3972,16 +4153,39 @@ class BlockEditorState extends State<BlockEditor> with _BlockRowBuild {
         if (!mounted) return;
         final choice = await _openBlockTypePicker(menuContext);
         if (!mounted || choice == null) return;
-        _s.changeBlockType(page.id, b.id, choice);
+        final blockId = b.id;
+        var preservedOff = 0;
+        final i0 = page.blocks.indexWhere((x) => x.id == blockId);
+        if (i0 >= 0 && i0 < _controllers.length) {
+          if (_stylableBlockTypes.contains(b.type)) {
+            final qc = _quillByBlockId[blockId];
+            if (qc != null && qc.selection.isValid) {
+              preservedOff = qc.selection.baseOffset.clamp(
+                0,
+                qc.document.toPlainText().length,
+              );
+            }
+          } else {
+            final c = _controllers[i0];
+            if (c.selection.isValid) {
+              preservedOff = c.selection.baseOffset.clamp(0, c.text.length);
+            }
+          }
+        }
+        _pendingFocusBlockId = blockId;
+        _pendingCursorOffset = preservedOff;
+        _s.changeBlockType(page.id, blockId, choice);
         final p2 = _s.selectedPage;
         if (p2 != null && mounted) {
-          final j = p2.blocks.indexWhere((x) => x.id == b.id);
+          final j = p2.blocks.indexWhere((x) => x.id == blockId);
           if (j >= 0 && j < _controllers.length) {
             final nb = p2.blocks[j];
+            final len = nb.text.length;
+            final off = preservedOff.clamp(0, len);
             _ignoreShortcuts = true;
             _controllers[j].value = TextEditingValue(
               text: nb.text,
-              selection: TextSelection.collapsed(offset: nb.text.length),
+              selection: TextSelection.collapsed(offset: off),
             );
             _ignoreShortcuts = false;
           }

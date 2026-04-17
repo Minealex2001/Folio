@@ -112,6 +112,55 @@ Future<VaultCloudBackupFingerprint> computeVaultCloudBackupFingerprint() async {
   );
 }
 
+/// Fingerprint por **contenido** (SHA-256 de cada archivo) para cloud-packs
+/// incrementales; evita falsos positivos con `mtime` al deduplicar blobs.
+Future<String> computeVaultCloudPackContentFingerprint() async {
+  final wrapped = await VaultPaths.wrappedDekPath();
+  final cipher = await VaultPaths.cipherPayloadPath();
+  if (!cipher.existsSync()) {
+    throw VaultBackupException('No hay libreta para exportar.');
+  }
+
+  final parts = <String>[];
+  final cipherHash = await _sha256FileHex(cipher);
+  final cipherLen = await cipher.length();
+  parts.add('vault.bin:$cipherHash:$cipherLen');
+
+  if (wrapped.existsSync()) {
+    final keysHash = await _sha256FileHex(wrapped);
+    final keysLen = await wrapped.length();
+    parts.add('vault.keys:$keysHash:$keysLen');
+  }
+
+  final modeFile = await VaultPaths.vaultModePath();
+  if (modeFile.existsSync()) {
+    final modeHash = await _sha256FileHex(modeFile);
+    final modeLen = await modeFile.length();
+    parts.add('vault.mode:$modeHash:$modeLen');
+  }
+
+  final vaultDir = await VaultPaths.vaultDirectory();
+  final attDir = Directory(p.join(vaultDir.path, VaultPaths.attachmentsDirName));
+  if (attDir.existsSync()) {
+    final attEntries = <String>[];
+    await for (final entity in attDir.list(recursive: true, followLinks: false)) {
+      if (entity is! File) continue;
+      final rel = p.relative(entity.path, from: attDir.path).replaceAll(r'\', '/');
+      final h = await _sha256FileHex(entity);
+      final len = await entity.length();
+      attEntries.add('$rel:$h:$len');
+    }
+    attEntries.sort();
+    parts.add('attachments:${attEntries.join("|")}');
+  } else {
+    parts.add('attachments:');
+  }
+
+  final algo = Sha256();
+  final sumHash = await algo.hash(utf8.encode(parts.join('\n')));
+  return _hexFromBytes(sumHash.bytes);
+}
+
 bool _modeFileIsPlain(File modeFile) {
   if (!modeFile.existsSync()) return false;
   return modeFile.readAsStringSync().trim().toLowerCase() == _vaultModePlain;
@@ -130,6 +179,9 @@ bool _extractedDirIsEncryptedByMode(Directory extractedDir) {
 
 /// Libreta sin cifrado: `vault.mode` = plain, o sin `vault.keys` y `vault.bin` decodificable
 /// como [VaultPayload] (p. ej. copia antigua sin `vault.mode`).
+Future<bool> isPlainExtractedBackupDirectory(Directory extractedDir) =>
+    _extractedBackupIsPlain(extractedDir);
+
 Future<bool> _extractedBackupIsPlain(Directory extractedDir) async {
   if (_extractedDirIsPlainBackup(extractedDir)) return true;
   final keysFile = File(p.join(extractedDir.path, VaultPaths.wrappedDekFile));

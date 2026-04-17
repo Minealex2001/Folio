@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart'
     show TargetPlatform, defaultTargetPlatform, kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:system_theme/system_theme.dart';
 
 import 'folio_build_flags.dart';
 import 'folio_in_app_shortcuts.dart';
@@ -23,6 +24,13 @@ bool get aiLocalProvidersSupported {
 enum AiEndpointMode { localhostOnly, allowRemote }
 
 enum UiScaleMode { manual, followWindows }
+
+/// Origen del color de acento para Material [ColorScheme.fromSeed].
+enum FolioAccentColorMode {
+  followSystem,
+  folioDefault,
+  custom,
+}
 
 class CustomIconEntry {
   const CustomIconEntry({
@@ -284,7 +292,15 @@ class AppSettings extends ChangeNotifier {
       'folio_meeting_note_force_local_transcription';
   static const _driveDeleteOriginalsOnUploadKey =
       'folio_drive_delete_originals_on_upload';
+  static const _telemetryEnabledKey = 'folio_telemetry_enabled';
+  static const _autoCrashReportsKey = 'folio_auto_crash_reports';
+  static const _accentColorModeKey = 'folio_accent_color_mode';
+  static const _customAccentArgbKey = 'folio_custom_accent_argb';
   static const int maxRecentSearchQueries = 10;
+
+  /// Canal de distribución (Store / GitHub / web) vía `--dart-define=FOLIO_DISTRIBUTION=...`.
+  static const String distributionChannelFromEnvironment =
+      String.fromEnvironment('FOLIO_DISTRIBUTION', defaultValue: '');
 
   /// 30 min, luego cada hora hasta 24 h (índices del slider / menú).
   static const List<int> scheduledVaultBackupIntervalChoicesMinutes = [
@@ -440,8 +456,30 @@ class AppSettings extends ChangeNotifier {
   bool _meetingNoteAutoWhisperModel = false;
   bool _meetingNoteForceLocalTranscription = false;
   bool _driveDeleteOriginalsOnUpload = false;
+  bool _telemetryEnabled = false;
+  bool _autoCrashReports = false;
+  FolioAccentColorMode _accentColorMode = FolioAccentColorMode.followSystem;
+  int _customAccentArgb = 0xFF455A64;
 
   ThemeMode get themeMode => _themeMode;
+
+  /// Semilla de color para temas claro/oscuro (Material 3).
+  Color resolveAccentSeedColor() {
+    switch (_accentColorMode) {
+      case FolioAccentColorMode.followSystem:
+        return SystemTheme.accentColor.accent;
+      case FolioAccentColorMode.folioDefault:
+        return const Color(0xFF455A64);
+      case FolioAccentColorMode.custom:
+        return Color(_customAccentArgb);
+    }
+  }
+
+  bool get telemetryEnabled => _telemetryEnabled;
+  bool get autoCrashReports => _autoCrashReports;
+  FolioAccentColorMode get accentColorMode => _accentColorMode;
+  int get customAccentArgb => _customAccentArgb;
+
   double get uiScale => _uiScale;
   UiScaleMode get uiScaleMode => _uiScaleMode;
   Locale? get locale => _locale;
@@ -736,6 +774,16 @@ class AppSettings extends ChangeNotifier {
         p.getBool(_meetingNoteForceLocalTranscriptionKey) ?? false;
     _driveDeleteOriginalsOnUpload =
         p.getBool(_driveDeleteOriginalsOnUploadKey) ?? false;
+    _telemetryEnabled = p.getBool(_telemetryEnabledKey) ?? false;
+    _autoCrashReports = p.getBool(_autoCrashReportsKey) ?? false;
+    _accentColorMode =
+        _parseAccentColorMode(p.getString(_accentColorModeKey)) ??
+        FolioAccentColorMode.followSystem;
+    final storedAccent = p.getInt(_customAccentArgbKey);
+    _customAccentArgb =
+        storedAccent != null && storedAccent != 0
+        ? storedAccent
+        : 0xFF455A64;
     _integrationSecret = _configuredIntegrationSecret;
     final approvedRaw = p.getString(_approvedIntegrationAppsKey);
     if (approvedRaw != null && approvedRaw.trim().isNotEmpty) {
@@ -838,6 +886,19 @@ class AppSettings extends ChangeNotifier {
         return ThemeMode.dark;
       case 'system':
         return ThemeMode.system;
+      default:
+        return null;
+    }
+  }
+
+  FolioAccentColorMode? _parseAccentColorMode(String? raw) {
+    switch ((raw ?? '').trim()) {
+      case 'followSystem':
+        return FolioAccentColorMode.followSystem;
+      case 'folioDefault':
+        return FolioAccentColorMode.folioDefault;
+      case 'custom':
+        return FolioAccentColorMode.custom;
       default:
         return null;
     }
@@ -1605,6 +1666,43 @@ class AppSettings extends ChangeNotifier {
     notifyListeners();
     final p = await SharedPreferences.getInstance();
     await p.setBool(_driveDeleteOriginalsOnUploadKey, value);
+  }
+
+  Future<void> setTelemetryEnabled(bool value) async {
+    if (_telemetryEnabled == value) return;
+    _telemetryEnabled = value;
+    notifyListeners();
+    final p = await SharedPreferences.getInstance();
+    await p.setBool(_telemetryEnabledKey, value);
+  }
+
+  Future<void> setAutoCrashReports(bool value) async {
+    if (_autoCrashReports == value) return;
+    _autoCrashReports = value;
+    notifyListeners();
+    final p = await SharedPreferences.getInstance();
+    await p.setBool(_autoCrashReportsKey, value);
+  }
+
+  Future<void> setAccentColorMode(FolioAccentColorMode mode) async {
+    if (_accentColorMode == mode) return;
+    _accentColorMode = mode;
+    notifyListeners();
+    final p = await SharedPreferences.getInstance();
+    final v = switch (mode) {
+      FolioAccentColorMode.followSystem => 'followSystem',
+      FolioAccentColorMode.folioDefault => 'folioDefault',
+      FolioAccentColorMode.custom => 'custom',
+    };
+    await p.setString(_accentColorModeKey, v);
+  }
+
+  Future<void> setCustomAccentArgb(int argb) async {
+    if (_customAccentArgb == argb) return;
+    _customAccentArgb = argb;
+    notifyListeners();
+    final p = await SharedPreferences.getInstance();
+    await p.setInt(_customAccentArgbKey, argb);
   }
 
   Future<void> setInAppShortcut(

@@ -8,6 +8,9 @@ enum FolioCheckoutKind {
   inkSmall,
   inkMedium,
   inkLarge,
+  backupStoragePackSmall,
+  backupStoragePackMedium,
+  backupStoragePackLarge,
 }
 
 String _kindParam(FolioCheckoutKind k) {
@@ -20,6 +23,12 @@ String _kindParam(FolioCheckoutKind k) {
       return 'ink_medium';
     case FolioCheckoutKind.inkLarge:
       return 'ink_large';
+    case FolioCheckoutKind.backupStoragePackSmall:
+      return 'backup_storage_pack_small';
+    case FolioCheckoutKind.backupStoragePackMedium:
+      return 'backup_storage_pack_medium';
+    case FolioCheckoutKind.backupStoragePackLarge:
+      return 'backup_storage_pack_large';
   }
 }
 

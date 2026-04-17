@@ -17,6 +17,11 @@ void main() {
             'realtimeCollab': true,
           },
         },
+        'folioBackup': <String, dynamic>{
+          'quotaBytes': 6000000000,
+          'usedBytes': 1000,
+          'purchasedBytes': 1000000000,
+        },
         'ink.monthlyBalance': 500,
         'ink.monthlyPeriodKey': '2026-04',
       };
@@ -35,6 +40,28 @@ void main() {
       expect(snap.canRealtimeCollab, isTrue);
       expect(snap.ink.monthlyBalance, 500);
       expect(snap.ink.monthlyPeriodKey, '2026-04');
+      expect(snap.backupQuotaBytes, 6000000000);
+      expect(snap.backupUsedBytes, 1000);
+      expect(snap.backupPurchasedBytes, 1000000000);
+      expect(snap.backupSubscriptionExtraBytes, 0);
+      expect(snap.backupExtraBytesTotal, 1000000000);
+    });
+
+    test('parses stripeSubscriptionExtraBytes under folioBackup', () {
+      final data = <String, dynamic>{
+        'folioCloud': <String, dynamic>{
+          'active': true,
+          'features': <String, dynamic>{'backup': true},
+        },
+        'folioBackup': <String, dynamic>{
+          'purchasedBytes': 100,
+          'stripeSubscriptionExtraBytes': 2000000000,
+        },
+      };
+      final snap = FolioCloudSnapshot.fromUserDoc(data);
+      expect(snap.backupPurchasedBytes, 100);
+      expect(snap.backupSubscriptionExtraBytes, 2000000000);
+      expect(snap.backupExtraBytesTotal, 2000000100);
     });
 
     test('infers active from subscriptionStatus when active flag missing', () {
@@ -142,6 +169,10 @@ void main() {
         cloudAi: true,
         publishWeb: false,
         realtimeCollab: false,
+        backupQuotaBytes: 6000000000,
+        backupUsedBytes: 1234,
+        backupPurchasedBytes: 1000000000,
+        backupSubscriptionExtraBytes: 500000000,
         ink: FolioInkSnapshot(
           monthlyBalance: 100,
           purchasedBalance: 5,
@@ -156,6 +187,10 @@ void main() {
       expect(c.snapshot.ink.purchasedBalance, 12);
       expect(c.snapshot.ink.monthlyPeriodKey, '2026-04');
       expect(c.snapshot.canUseCloudAi, isTrue);
+      expect(c.snapshot.backupQuotaBytes, 6000000000);
+      expect(c.snapshot.backupUsedBytes, 1234);
+      expect(c.snapshot.backupPurchasedBytes, 1000000000);
+      expect(c.snapshot.backupSubscriptionExtraBytes, 500000000);
     });
   });
 }

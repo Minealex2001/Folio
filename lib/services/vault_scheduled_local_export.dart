@@ -9,6 +9,7 @@ import '../app/app_settings.dart';
 import '../data/vault_backup.dart';
 import '../session/vault_session.dart';
 import 'folio_cloud/folio_cloud_backup.dart';
+import 'folio_cloud/folio_cloud_pack_sync.dart';
 import 'folio_cloud/folio_cloud_entitlements.dart';
 
 /// Exporta la libreta **abierta** según las opciones configuradas en [AppSettings]
@@ -63,7 +64,7 @@ Future<void> runScheduledFolderVaultExport({
     if (activeVaultId == null || activeVaultId.trim().isEmpty) {
       throw VaultBackupException('No hay libreta activa.');
     }
-    await uploadOpenVaultEncryptedToCloud(
+    await uploadOpenVaultCloudPack(
       session: session,
       vaultId: activeVaultId,
       entitlementSnapshot: folioEntitlements.snapshot,
@@ -77,24 +78,6 @@ Future<void> runScheduledFolderVaultExport({
       );
     } catch (e) {
       debugPrint('Folio scheduled backup cloud index: $e');
-    }
-    try {
-      await trimFolioCloudBackups(
-        vaultId: activeVaultId,
-        maxCount: 10,
-        entitlementSnapshot: folioEntitlements.snapshot,
-      );
-    } catch (e) {
-      debugPrint('Folio scheduled backup cloud trim: $e');
-    }
-    try {
-      await trimFolioCloudBackupsByBytes(
-        vaultId: activeVaultId,
-        maxBytes: 5 * 1024 * 1024 * 1024, // 5 GB
-        entitlementSnapshot: folioEntitlements.snapshot,
-      );
-    } catch (e) {
-      debugPrint('Folio scheduled backup cloud trim-bytes: $e');
     }
   }
 

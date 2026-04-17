@@ -11,8 +11,10 @@ import 'package:path/path.dart' as p;
 import 'package:passkeys/authenticator.dart';
 import 'package:passkeys/types.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:cryptography/cryptography.dart';
 import 'package:uuid/uuid.dart';
 
+import '../crypto/vault_crypto.dart';
 import '../data/vault_backup.dart';
 import '../data/notion_import/notion_importer.dart';
 import '../data/import/simple_html_blocks.dart';
@@ -357,6 +359,36 @@ class VaultSession extends ChangeNotifier {
   bool get aiEnabled => _aiService != null;
   bool get vaultUsesEncryption => _vaultUsesEncryption;
   bool get isUnlocked => _state == VaultFlowState.unlocked;
+
+  /// DEK en bruto para el envoltorio de recuperación de copia incremental (libreta cifrada desbloqueada).
+  List<int>? get cloudPackRestoreDekMaterial {
+    if (!vaultUsesEncryption || !isUnlocked || _dek == null) return null;
+    return _dek;
+  }
+
+  /// Clave AES-GCM para blobs y snapshots de copia incremental en la nube.
+  /// Libreta cifrada: usa la DEK en memoria. En claro: derivada de `vault.bin`.
+  Future<SecretKey> cloudPackEncryptionKey() async {
+    if (!isUnlocked) {
+      throw StateError('La libreta debe estar desbloqueada.');
+    }
+    if (vaultUsesEncryption) {
+      if (_dek == null) {
+        throw StateError('La libreta cifrada debe tener la DEK en memoria.');
+      }
+      return VaultCrypto.dekFromBytes(_dek!);
+    }
+    final cipher = await VaultPaths.cipherPayloadPath();
+    if (!cipher.existsSync()) {
+      throw StateError('No hay libreta.');
+    }
+    final bytes = await cipher.readAsBytes();
+    final h = await Sha256().hash(bytes);
+    final h2 = await Sha256().hash(
+      Uint8List.fromList(utf8.encode('FolioCloudPackPlainV1') + h.bytes),
+    );
+    return SecretKey(h2.bytes);
+  }
 
   /// Para tests que llaman a [collectTaskBlocks] sin [bootstrap].
   @visibleForTesting
@@ -1068,6 +1100,20 @@ class VaultSession extends ChangeNotifier {
     }
   }
 
+  /// Como [importVaultBackupOverwriteActive] pero el árbol de copia ya está extraído
+  /// (p. ej. cloud-pack incremental).
+  Future<void> importVaultBackupOverwriteActiveFromExtractedDir(
+    Directory extractedDir,
+    String backupPassword,
+  ) async {
+    if (!isUnlocked) {
+      throw StateError('La libreta debe estar desbloqueada para importar.');
+    }
+    await validateImportZip(extractedDir, backupPassword);
+    await applyImportFromDirectory(extractedDir);
+    await bootstrap();
+  }
+
   String _newBlockId(String pageId) => '${pageId}_${_uuid.v4()}';
 
   Future<List<FolioPage>> _materializeNotionPages(
@@ -1323,6 +1369,41 @@ class VaultSession extends ChangeNotifier {
         }
       } catch (_) {}
     }
+  }
+
+  /// Onboarding por copia ya extraída en disco (p. ej. cloud-pack descargado).
+  Future<void> completeOnboardingFromExtractedDirectory(
+    Directory extractedDir,
+    String backupPassword,
+  ) async {
+    await _registry.load();
+    if (VaultPaths.activeVaultId != null && await VaultPaths.vaultExists()) {
+      throw StateError('Ya hay datos en la libreta actual.');
+    }
+    await validateImportZip(extractedDir, backupPassword);
+
+    var id = VaultPaths.activeVaultId;
+    if (id == null) {
+      id = _uuid.v4();
+      VaultPaths.setActiveVaultId(id);
+    }
+    final root = await VaultPaths.vaultDirectoryForId(id);
+    await applyImportToVaultRoot(extractedDir, root);
+
+    if (!_registry.containsVault(id)) {
+      final ordinal = _registry.vaults.length + 1;
+      await _registry.add(
+        VaultEntry(
+          id: id,
+          displayName: 'Libreta $ordinal',
+          createdAtMs: DateTime.now().millisecondsSinceEpoch,
+        ),
+      );
+    }
+    await _registry.setActiveVaultId(id);
+
+    await unlockWithPassword(backupPassword);
+    _resumeVaultIdAfterNewVault = null;
   }
 
   Future<void> unlockWithPassword(String password) async {

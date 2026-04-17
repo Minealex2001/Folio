@@ -82,3 +82,25 @@ Future<void> purchaseMicrosoftStoreInk(FolioMicrosoftStoreInkKind kind) async {
 }
 
 enum FolioMicrosoftStoreInkKind { small, medium, large }
+
+enum FolioMicrosoftStoreBackupStorageKind { small, medium, large }
+
+Future<void> purchaseMicrosoftStoreBackupStorage(
+  FolioMicrosoftStoreBackupStorageKind kind,
+) async {
+  final id = switch (kind) {
+    FolioMicrosoftStoreBackupStorageKind.small =>
+      FolioMicrosoftStoreProducts.backupStoragePackSmall,
+    FolioMicrosoftStoreBackupStorageKind.medium =>
+      FolioMicrosoftStoreProducts.backupStoragePackMedium,
+    FolioMicrosoftStoreBackupStorageKind.large =>
+      FolioMicrosoftStoreProducts.backupStoragePackLarge,
+  }
+      .trim();
+  if (id.isEmpty) {
+    throw StateError(
+      'Microsoft Store product id not set for this backup tier (dart-define)',
+    );
+  }
+  await purchaseMicrosoftStoreProductAndSync(id);
+}

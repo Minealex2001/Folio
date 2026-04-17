@@ -4,10 +4,14 @@ exports.msStoreProductFolioMonthly = msStoreProductFolioMonthly;
 exports.msStoreInkSmall = msStoreInkSmall;
 exports.msStoreInkMedium = msStoreInkMedium;
 exports.msStoreInkLarge = msStoreInkLarge;
+exports.msStoreBackupStoragePackSmall = msStoreBackupStoragePackSmall;
+exports.msStoreBackupStoragePackMedium = msStoreBackupStoragePackMedium;
+exports.msStoreBackupStoragePackLarge = msStoreBackupStoragePackLarge;
 exports.microsoftStoreValidationConfigured = microsoftStoreValidationConfigured;
 exports.acquireMicrosoftStoreAccessToken = acquireMicrosoftStoreAccessToken;
 exports.queryMicrosoftStoreUserCollection = queryMicrosoftStoreUserCollection;
 exports.inkDropsForMicrosoftStoreProductId = inkDropsForMicrosoftStoreProductId;
+exports.backupBytesForMicrosoftStoreProductId = backupBytesForMicrosoftStoreProductId;
 exports.itemMatchesMonthlySubscription = itemMatchesMonthlySubscription;
 exports.microsoftPurchaseDedupKey = microsoftPurchaseDedupKey;
 exports.scanMicrosoftStoreCollectionItems = scanMicrosoftStoreCollectionItems;
@@ -29,6 +33,24 @@ function msStoreInkLarge() {
     var _a, _b;
     return (_b = (_a = process.env.MS_STORE_INK_LARGE) === null || _a === void 0 ? void 0 : _a.trim()) !== null && _b !== void 0 ? _b : "";
 }
+/** Producto Store: librería pequeña (+20 GB). Hereda MS_STORE_BACKUP_STORAGE_PACK si no hay _SMALL. */
+function msStoreBackupStoragePackSmall() {
+    var _a, _b;
+    return (((_a = process.env.MS_STORE_BACKUP_STORAGE_PACK_SMALL) === null || _a === void 0 ? void 0 : _a.trim()) ||
+        ((_b = process.env.MS_STORE_BACKUP_STORAGE_PACK) === null || _b === void 0 ? void 0 : _b.trim()) ||
+        "");
+}
+function msStoreBackupStoragePackMedium() {
+    var _a, _b;
+    return (_b = (_a = process.env.MS_STORE_BACKUP_STORAGE_PACK_MEDIUM) === null || _a === void 0 ? void 0 : _a.trim()) !== null && _b !== void 0 ? _b : "";
+}
+function msStoreBackupStoragePackLarge() {
+    var _a, _b;
+    return (_b = (_a = process.env.MS_STORE_BACKUP_STORAGE_PACK_LARGE) === null || _a === void 0 ? void 0 : _a.trim()) !== null && _b !== void 0 ? _b : "";
+}
+const MS_BACKUP_GRANT_SMALL = 20 * 1024 * 1024 * 1024;
+const MS_BACKUP_GRANT_MEDIUM = 75 * 1024 * 1024 * 1024;
+const MS_BACKUP_GRANT_LARGE = 250 * 1024 * 1024 * 1024;
 function azureTenantId() {
     var _a, _b;
     return (_b = (_a = process.env.AZURE_AD_TENANT_ID) === null || _a === void 0 ? void 0 : _a.trim()) !== null && _b !== void 0 ? _b : "";
@@ -174,6 +196,21 @@ function inkDropsForMicrosoftStoreProductId(productId) {
         return 2500;
     return 0;
 }
+function backupBytesForMicrosoftStoreProductId(productId) {
+    const p = normId(productId);
+    if (!p)
+        return 0;
+    const large = normId(msStoreBackupStoragePackLarge());
+    const medium = normId(msStoreBackupStoragePackMedium());
+    const small = normId(msStoreBackupStoragePackSmall());
+    if (large && p === large)
+        return MS_BACKUP_GRANT_LARGE;
+    if (medium && p === medium)
+        return MS_BACKUP_GRANT_MEDIUM;
+    if (small && p === small)
+        return MS_BACKUP_GRANT_SMALL;
+    return 0;
+}
 function itemMatchesMonthlySubscription(item) {
     const pid = itemProductId(item);
     if (!pid)
@@ -213,14 +250,12 @@ function scanMicrosoftStoreCollectionItems(items) {
         }
     }
     const consumableGrants = [];
+    const backupStorageGrants = [];
     for (const item of items) {
         const pid = itemProductId(item);
         if (!pid)
             continue;
         if (normId(pid) === normId(monthlyId))
-            continue;
-        const dropsEach = inkDropsForMicrosoftStoreProductId(pid);
-        if (dropsEach <= 0)
             continue;
         if (!itemLooksActive(item))
             continue;
@@ -228,12 +263,24 @@ function scanMicrosoftStoreCollectionItems(items) {
         if (!key)
             continue;
         const qty = itemQuantity(item);
-        consumableGrants.push({ dedupKey: key, drops: dropsEach * qty });
+        const dropsEach = inkDropsForMicrosoftStoreProductId(pid);
+        if (dropsEach > 0) {
+            consumableGrants.push({ dedupKey: key, drops: dropsEach * qty });
+            continue;
+        }
+        const backupEach = backupBytesForMicrosoftStoreProductId(pid);
+        if (backupEach > 0) {
+            backupStorageGrants.push({
+                dedupKey: `${key}:backup`,
+                bytes: backupEach * qty,
+            });
+        }
     }
     return {
         subscriptionActive,
         subscriptionStoreProductId,
         consumableGrants,
+        backupStorageGrants,
     };
 }
 //# sourceMappingURL=microsoft_store.js.map

@@ -23,5 +23,28 @@ class FolioMicrosoftStoreProducts {
     defaultValue: '',
   );
 
+  /// Librería pequeña (+5 GB). Si no hay `MS_STORE_BACKUP_STORAGE_PACK_SMALL`, usa el id legado `MS_STORE_BACKUP_STORAGE_PACK`.
+  static String get backupStoragePackSmall {
+    const primary = String.fromEnvironment(
+      'MS_STORE_BACKUP_STORAGE_PACK_SMALL',
+      defaultValue: '',
+    );
+    if (primary.trim().isNotEmpty) return primary;
+    return const String.fromEnvironment(
+      'MS_STORE_BACKUP_STORAGE_PACK',
+      defaultValue: '',
+    );
+  }
+
+  static const String backupStoragePackMedium = String.fromEnvironment(
+    'MS_STORE_BACKUP_STORAGE_PACK_MEDIUM',
+    defaultValue: '',
+  );
+
+  static const String backupStoragePackLarge = String.fromEnvironment(
+    'MS_STORE_BACKUP_STORAGE_PACK_LARGE',
+    defaultValue: '',
+  );
+
   static bool get hasMonthlyProductId => folioCloudMonthly.trim().isNotEmpty;
 }

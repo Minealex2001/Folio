@@ -124,7 +124,7 @@
   "lockAutoByInactivity": "Bloqueo automático por inactividade",
   "minutesShort": "{minutes} min",
   "@minutesShort": {"placeholders": {"minutes": {"type": "int"}}},
-  "settingsAppearanceHint": "A cor principal segue a cor de acento de Windows cando está dispoñible.",
+  "settingsAppearanceHint": "Elixe o brillo do tema, a orixe da cor de acento (Windows, Folio ou personalizada), o zoom e o idioma.",
   "backupFilePasswordLabel": "Contrasinal do ficheiro de copia",
   "backupFilePasswordHelper": "Usa a contrasinal mestra utilizada para crear esta copia, non a doutro dispositivo.",
   "backupPasswordDialogTitle": "Contrasinal da copia",
@@ -974,6 +974,27 @@
   ,"folioCloudBackupsUsed": "Usado"
   ,"folioCloudBackupsLimit": "Límite"
   ,"folioCloudBackupsRemaining": "Restante"
+  ,"folioCloudBackupStorageStatUsed": "Usado (almacenamento)"
+  ,"folioCloudBackupStorageStatQuota": "Cota"
+  ,"folioCloudBackupStorageStatRemaining": "Restante"
+  ,"folioCloudBackupStorageExpansionTitle": "Ampliar almacenamento de copias"
+  ,"folioCloudBackupStorageLibrarySmallTitle": "Biblioteca pequena"
+  ,"folioCloudBackupStorageLibrarySmallDetail": "+20 GB · 1,99 €/mes"
+  ,"folioCloudBackupStorageLibraryMediumTitle": "Biblioteca mediana"
+  ,"folioCloudBackupStorageLibraryMediumDetail": "+75 GB · 4,99 €/mes"
+  ,"folioCloudBackupStorageLibraryLargeTitle": "Biblioteca grande"
+  ,"folioCloudBackupStorageLibraryLargeDetail": "+250 GB · 9,99 €/mes"
+  ,"folioCloudSubscribeBackupStorageAddon": "Subscribirse"
+  ,"folioCloudBackupTypeIncremental": "Copia incremental (última)"
+  ,"folioCloudBackupPackNoDownload": "As copias incrementais restáuranse con «Importar e sobrescribir». Non hai descarga de ficheiro separada."
+  ,"folioCloudBackupQuotaExceeded": "Non hai abondo almacenamento para copias na nube. Compra unha ampliación ou borra copias completas antigas en backups/."
+  ,"onboardingCloudBackupNeedLegacyArchive": "Este caderno só ten unha copia incremental na nube. Para configurar un dispositivo novo, descarga un arquivo completo (.tar.gz) desde outro dispositivo con Folio ou créao dende Axustes → exportar."
+  ,"onboardingCloudBackupNeedRestoreWrap": "Esta copia incremental aínda non ten chave de recuperación na nube. No dispositivo onde a creaches, abre Folio → Axustes → sube a copia á nube (introduce o contrasinal do caderno cando se solicite). Tamén podes usar un arquivo completo (.zip) se o tes."
+  ,"onboardingCloudBackupIncrementalRestoreBody": "Copia incremental na nube lista. Introduce o contrasinal do caderno (o mesmo que usas para desbloquealo). Se o caderno estaba sen cifrar, usa o contrasinal de recuperación que definiches ao subir a copia."
+  ,"settingsCloudBackupWrapPasswordTitle": "Recuperación noutros dispositivos"
+  ,"settingsCloudBackupWrapPasswordBody": "Introduce o contrasinal deste caderno. Gardarase cifrado na túa conta para restaurar a copia incremental ao instalar Folio nun dispositivo novo."
+  ,"settingsCloudBackupWrapPasswordRequired": "Fai falta o contrasinal do caderno."
+  ,"settingsCloudBackupWrapPasswordBodyPlain": "Opcional: elixe un contrasinal de recuperación para restaurar esta copia incremental noutro dispositivo. Déixao baleiro se só vas usar este equipo."
   ,"folioCloudPublishTestPage": "Publicar páxina de proba"
   ,"folioCloudPublishedPagesList": "Páxinas publicadas"
   ,"folioCloudReauthDialogTitle": "Confirmar conta de Folio Cloud"
@@ -1532,7 +1553,15 @@
   ,"settingsSubsectionDrive": "Drive"
   ,"settingsSubsectionVaultData": "Datos (zona de perigo)"
   ,"folioCloudSubsectionAccount": "Conta"
-  ,"folioCloudSubsectionEncryptedBackups": "Copias cifradas (nube)"
+  ,"folioCloudSubsectionEncryptedBackups": "Copias e almacenamento (nube)"
+  ,"folioCloudBackupStorageSectionIntro": "O uso inclúe a copia incremental (cloud-pack) e os arquivos completos antigos en backups/. Podes subscribirte a unha biblioteca pequena, mediana ou grande (cota extra mensual mentres a subscrición estea activa)."
+  ,"folioCloudBackupStoragePurchasedExtra": "Ampliacións mercadas: +{size}"
+  ,"@folioCloudBackupStoragePurchasedExtra": {"placeholders": {"size": {}}}
+  ,"folioCloudBackupStorageBarTitle": "Uso de almacenamento"
+  ,"folioCloudBackupStorageBarPercent": "{percent} %"
+  ,"@folioCloudBackupStorageBarPercent": {"placeholders": {"percent": {"type": "int"}}}
+  ,"folioCloudBackupStorageBarDetail": "Usado: {used} · Cota total: {total} · Libre: {free}"
+  ,"@folioCloudBackupStorageBarDetail": {"placeholders": {"used": {}, "total": {}, "free": {}}}
   ,"folioCloudSubsectionPublishing": "Publicación web"
   ,"settingsFolioCloudSubsectionScheduledCloud": "Copia programada a Folio Cloud"
   ,"settingsScheduledCloudUploadRequiresSchedule": "Activa antes a copia programada en Caderno › Copia programada (local)."
@@ -1578,6 +1607,12 @@
   ,"sidebarPageIconTabImported": "Importados"
   ,"sidebarPageIconTabAll": "Todos"
   ,"sidebarPageIconEmptyImported": "Aínda non importaches iconas en Axustes."
+  ,"sidebarDeletePageMenuTitle": "Eliminar páxina"
+  ,"sidebarDeleteFolderMenuTitle": "Quitar cartafol"
+  ,"sidebarDeletePageConfirmInline": "Eliminar «{title}»? Non se pode desfacer."
+  ,"@sidebarDeletePageConfirmInline": {"placeholders": {"title": {}}}
+  ,"sidebarDeleteFolderConfirmInline": "Quitar cartafol «{title}»? As subpáxinas pasan á raíz do caderno."
+  ,"@sidebarDeleteFolderConfirmInline": {"placeholders": {"title": {}}}
   ,"settingsStripeSubscriptionRefreshed": "Facturación Folio Cloud actualizada."
   ,"settingsStripeBillingPortalUnavailable": "Portal de facturación non dispoñible."
   ,"settingsCouldNotOpenLink": "Non se puido abrir a ligazón."
@@ -1732,4 +1767,27 @@
   ,"vaultStarterQuillBackupCallout": "Fai unha copia do caderno cando teñas contido importante. A copia conserva os datos e anexos, pero non transfere Hello nin passkeys entre dispositivos."
   ,"vaultStarterQuillMermaidCaption": "Proba rápida de Mermaid:"
   ,"vaultStarterQuillMermaidSource": "graph TD\nInicio[Crear caderno] --> Organizar[Organizar páxinas]\nOrganizar --> Escribir[Escribir e enlazar ideas]\nEscribir --> Revisar[Buscar, revisar e mellorar]"
+  ,"settingsAccentColorTitle": "Cor de acento"
+  ,"settingsAccentFollowSystem": "Windows"
+  ,"settingsAccentFolioDefault": "Folio"
+  ,"settingsAccentCustom": "Personalizado"
+  ,"settingsAccentPickColor": "Elixir cor predefinida"
+  ,"settingsPrivacySectionTitle": "Privacidade e diagnósticos"
+  ,"settingsTelemetryTitle": "Estatísticas de uso anónimas"
+  ,"settingsTelemetrySubtitle": "Axuda a medir instalacións e uso de funcións. Non se envía contido do caderno nin títulos."
+  ,"onboardingTelemetryTitle": "Estatísticas de uso"
+  ,"onboardingTelemetryBody": "Folio pode enviar analítica anónima para entender como se usa a app. Podes cambialo en calquera momento en Axustes."
+  ,"onboardingTelemetrySwitchTitle": "Estatísticas de uso anónimas"
+  ,"onboardingTelemetrySwitchSubtitle": "Axuda a medir instalacións e uso de funcións. Non se envía contido do caderno nin títulos."
+  ,"onboardingTelemetryFootnote": "Non se envía contido do caderno nin títulos de páxinas."
+  ,"settingsAutoCrashReportsTitle": "Enviar diagnósticos de fallos automaticamente"
+  ,"settingsAutoCrashReportsSubtitle": "Se hai un erro grave, envíase un anaco do rexistro a Folio (opcional, limitado por sesión)."
+  ,"settingsReportBugButton": "Informar dun erro"
+  ,"settingsPrivacyFootnote": "Podes engadir unha nota; pode abrirse a páxina de incidencias no navegador."
+  ,"settingsReportBugDialogTitle": "Informar dun erro"
+  ,"settingsReportBugDialogBody": "Enviaremos metadatos anónimos, un anaco do rexistro e a túa nota. Despois podes abrir o xestor de incidencias."
+  ,"settingsReportBugNoteLabel": "Que ocorreu? (opcional)"
+  ,"settingsReportBugSend": "Enviar e continuar"
+  ,"settingsReportBugSentOk": "Diagnóstico enviado."
+  ,"settingsReportBugSentFail": "Non se puido enviar o diagnóstico. Revisa a conexión ou inténtao máis tarde."
 }

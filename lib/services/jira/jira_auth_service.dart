@@ -3,14 +3,17 @@ import 'dart:convert';
 import 'dart:io';
 import 'dart:math';
 
+import 'package:firebase_core/firebase_core.dart';
 import 'package:http/http.dart' as http;
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:uuid/uuid.dart';
 
+import '../../firebase_options.dart';
 import '../../models/jira_integration_state.dart';
 import '../app_logger.dart';
 import '../env/local_env.dart';
+import '../folio_cloud/folio_cloud_callable.dart';
 
 class JiraAuthCancelledException implements Exception {
   const JiraAuthCancelledException();
@@ -98,14 +101,6 @@ class JiraAuthService {
     final clientId =
         overrideClientId.trim().isNotEmpty ? overrideClientId.trim() : jiraCloudClientId();
     final clientSecret = jiraCloudClientSecret().trim();
-    if (clientSecret.isEmpty) {
-      throw StateError(
-        'Falta JIRA_OAUTH_CLIENT_SECRET. '
-        'Asegúrate de que `.env` se está cargando (ver logs `folio.env`) '
-        'o define la variable por entorno / --dart-define. '
-        'En escritorio, alternativa recomendada: crea `%APPDATA%\\Folio\\.env` con la variable.',
-      );
-    }
 
     // Loopback callback (puerto fijo).
     HttpServer server;
@@ -163,28 +158,36 @@ class JiraAuthService {
       cancelToken: cancelToken,
     );
 
-    // Exchange token.
-    final tokenResp = await _client.post(
-      Uri.https('auth.atlassian.com', '/oauth/token'),
-      headers: {
-        'content-type': 'application/json',
-        'authorization':
-            'Basic ${base64Encode(utf8.encode('$clientId:$clientSecret'))}',
-      },
-      body: jsonEncode({
-        'grant_type': 'authorization_code',
-        'client_id': clientId,
-        'client_secret': clientSecret,
-        'code': code,
-        'redirect_uri': redirectUri.toString(),
-      }),
-    );
-    if (tokenResp.statusCode < 200 || tokenResp.statusCode >= 300) {
-      throw StateError(
-        'OAuth token exchange falló (${tokenResp.statusCode}): ${tokenResp.body}',
+    final Map<String, dynamic> tokenJson;
+    if (clientSecret.isNotEmpty) {
+      final tokenResp = await _client.post(
+        Uri.https('auth.atlassian.com', '/oauth/token'),
+        headers: {
+          'content-type': 'application/json',
+          'authorization':
+              'Basic ${base64Encode(utf8.encode('$clientId:$clientSecret'))}',
+        },
+        body: jsonEncode({
+          'grant_type': 'authorization_code',
+          'client_id': clientId,
+          'client_secret': clientSecret,
+          'code': code,
+          'redirect_uri': redirectUri.toString(),
+        }),
+      );
+      if (tokenResp.statusCode < 200 || tokenResp.statusCode >= 300) {
+        throw StateError(
+          'OAuth token exchange falló (${tokenResp.statusCode}): ${tokenResp.body}',
+        );
+      }
+      tokenJson = Map<String, dynamic>.from(jsonDecode(tokenResp.body) as Map);
+    } else {
+      tokenJson = await _exchangeJiraCodeViaFolioCloud(
+        code: code,
+        clientId: clientId,
+        redirectUri: redirectUri,
       );
     }
-    final tokenJson = jsonDecode(tokenResp.body) as Map;
     final accessToken = (tokenJson['access_token'] as String? ?? '').trim();
     final refreshToken = (tokenJson['refresh_token'] as String? ?? '').trim();
     final expiresIn = (tokenJson['expires_in'] as num?)?.toInt() ?? 0;
@@ -265,6 +268,65 @@ class JiraAuthService {
         ? uri.path.substring(0, uri.path.length - 1)
         : uri.path;
     return uri.replace(path: normalizedPath, query: '', fragment: '');
+  }
+
+  Future<Map<String, dynamic>> _exchangeJiraCodeViaFolioCloud({
+    required String code,
+    required String clientId,
+    required Uri redirectUri,
+  }) async {
+    if (Firebase.apps.isEmpty) {
+      throw StateError(
+        'Falta JIRA_OAUTH_CLIENT_SECRET en este equipo y Firebase no está inicializado. '
+        'Opciones: crea %APPDATA%\\Folio\\.env con la variable, usa --dart-define al compilar, '
+        'o despliega Cloud Functions con JIRA_OAUTH_CLIENT_SECRET (folioJiraExchangeOAuth).',
+      );
+    }
+    final projectId = DefaultFirebaseOptions.currentPlatform.projectId;
+    final uri = Uri.parse(
+      'https://$kFolioCloudFunctionsRegion-$projectId.cloudfunctions.net/folioJiraExchangeOAuth',
+    );
+    AppLogger.info(
+      'Jira OAuth token via Folio Cloud',
+      tag: 'jira',
+      context: {'uri': uri.toString()},
+    );
+    final resp = await _client.post(
+      uri,
+      headers: {'content-type': 'application/json; charset=utf-8'},
+      body: jsonEncode({
+        'code': code,
+        'redirectUri': redirectUri.toString(),
+        'clientId': clientId,
+      }),
+    );
+    late final Map<String, dynamic> mapTry;
+    try {
+      final decoded = jsonDecode(resp.body);
+      if (decoded is! Map) {
+        throw StateError('bad shape');
+      }
+      mapTry = Map<String, dynamic>.from(decoded);
+    } catch (_) {
+      throw StateError(
+        'Respuesta inválida del servidor Jira OAuth (${resp.statusCode}): ${resp.body}',
+      );
+    }
+    if (resp.statusCode == 503 &&
+        mapTry['error']?.toString() == 'jira_oauth_not_configured') {
+      throw StateError(
+        'El servidor Folio no tiene configurado JIRA_OAUTH_CLIENT_SECRET. '
+        'Contacta al administrador o define el secret localmente en %APPDATA%\\Folio\\.env.',
+      );
+    }
+    if (resp.statusCode < 200 || resp.statusCode >= 300) {
+      final err =
+          mapTry['error']?.toString() ?? mapTry['body']?.toString() ?? resp.body;
+      throw StateError(
+        'Intercambio OAuth Jira vía servidor falló (${resp.statusCode}): $err',
+      );
+    }
+    return mapTry;
   }
 
   Future<String> _awaitOAuthCode(

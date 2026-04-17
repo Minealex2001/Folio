@@ -6,6 +6,7 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/foundation.dart';
 
 import 'folio_cloud_billing.dart';
+import 'folio_cloud_callable.dart';
 import 'folio_microsoft_store_channel.dart';
 import 'folio_microsoft_store_sync.dart';
 import 'folio_web_portal_api.dart';
@@ -175,6 +176,10 @@ class FolioCloudSnapshot {
     required this.cloudAi,
     required this.publishWeb,
     required this.realtimeCollab,
+    this.backupQuotaBytes = 0,
+    this.backupUsedBytes = 0,
+    this.backupPurchasedBytes = 0,
+    this.backupSubscriptionExtraBytes = 0,
     FolioInkSnapshot? ink,
   }) : _ink = ink;
 
@@ -184,7 +189,24 @@ class FolioCloudSnapshot {
   final bool cloudAi;
   final bool publishWeb;
   final bool realtimeCollab;
+
+  /// Cuota de copias en la nube (bytes); `folioBackup.quotaBytes` en Firestore.
+  final int backupQuotaBytes;
+
+  /// Uso contabilizado (bytes); `folioBackup.usedBytes`.
+  final int backupUsedBytes;
+
+  /// Compras únicas / consumibles (bytes); `folioBackup.purchasedBytes`.
+  final int backupPurchasedBytes;
+
+  /// Ampliación por suscripciones Stripe a librerías de copia; `folioBackup.stripeSubscriptionExtraBytes`.
+  final int backupSubscriptionExtraBytes;
+
   final FolioInkSnapshot? _ink;
+
+  /// Espacio extra total (compras únicas + suscripciones de ampliación).
+  int get backupExtraBytesTotal =>
+      backupPurchasedBytes + backupSubscriptionExtraBytes;
 
   /// Tras hot reload puede existir un snapshot antiguo sin tinta; nunca devolver null.
   FolioInkSnapshot get ink => _ink ?? FolioInkSnapshot.empty;
@@ -209,7 +231,21 @@ class FolioCloudSnapshot {
     cloudAi: false,
     publishWeb: false,
     realtimeCollab: false,
+    backupQuotaBytes: 0,
+    backupUsedBytes: 0,
+    backupPurchasedBytes: 0,
+    backupSubscriptionExtraBytes: 0,
   );
+
+  static int _folioBackupIntField(Map<String, dynamic>? data, String field) {
+    if (data == null) return 0;
+    final fb = data['folioBackup'];
+    if (fb is! Map) return 0;
+    final v = fb[field];
+    if (v is int) return v;
+    if (v is num) return v.toInt();
+    return int.tryParse('$v') ?? 0;
+  }
 
   static FolioCloudSnapshot fromUserDoc(Map<String, dynamic>? data) {
     if (data == null) return FolioCloudSnapshot.empty;
@@ -222,6 +258,11 @@ class FolioCloudSnapshot {
         cloudAi: false,
         publishWeb: false,
         realtimeCollab: false,
+        backupQuotaBytes: _folioBackupIntField(data, 'quotaBytes'),
+        backupUsedBytes: _folioBackupIntField(data, 'usedBytes'),
+        backupPurchasedBytes: _folioBackupIntField(data, 'purchasedBytes'),
+        backupSubscriptionExtraBytes:
+            _folioBackupIntField(data, 'stripeSubscriptionExtraBytes'),
         ink: FolioInkSnapshot.fromUserDoc(data),
       );
     }
@@ -245,6 +286,11 @@ class FolioCloudSnapshot {
       cloudAi: f('cloudAi'),
       publishWeb: f('publishWeb'),
       realtimeCollab: f('realtimeCollab'),
+      backupQuotaBytes: _folioBackupIntField(data, 'quotaBytes'),
+      backupUsedBytes: _folioBackupIntField(data, 'usedBytes'),
+      backupPurchasedBytes: _folioBackupIntField(data, 'purchasedBytes'),
+      backupSubscriptionExtraBytes:
+          _folioBackupIntField(data, 'stripeSubscriptionExtraBytes'),
       ink: FolioInkSnapshot.fromUserDoc(data),
     );
   }
@@ -446,6 +492,41 @@ class FolioCloudEntitlementsController extends ChangeNotifier {
     snapshot = parsed;
     _serverFetchTruth = parsed;
     notifyListeners();
+    if (parsed.canUseCloudBackup) {
+      unawaited(refreshBackupStorageUsageFromServer());
+    }
+  }
+
+  /// Ajusta [backupUsedBytes] con `folioGetBackupStorageUsage` (incluye ZIP/TAR legado en `backups/`).
+  Future<void> refreshBackupStorageUsageFromServer() async {
+    if (!isAvailable) return;
+    if (!snapshot.canUseCloudBackup) return;
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    if (uid == null) return;
+    try {
+      final m = await folioGetBackupStorageUsageCallable();
+      final u = m['usedBytes'];
+      final used = u is int ? u : int.tryParse('$u') ?? snapshot.backupUsedBytes;
+      final q = m['quotaBytes'];
+      final quota = q is int ? q : int.tryParse('$q') ?? snapshot.backupQuotaBytes;
+      final prev = snapshot;
+      snapshot = FolioCloudSnapshot(
+        active: prev.active,
+        subscriptionStatus: prev.subscriptionStatus,
+        backup: prev.backup,
+        cloudAi: prev.cloudAi,
+        publishWeb: prev.publishWeb,
+        realtimeCollab: prev.realtimeCollab,
+        backupQuotaBytes: quota,
+        backupUsedBytes: used,
+        backupPurchasedBytes: prev.backupPurchasedBytes,
+        backupSubscriptionExtraBytes: prev.backupSubscriptionExtraBytes,
+        ink: prev.ink,
+      );
+      notifyListeners();
+    } catch (e) {
+      debugPrint('FolioCloudEntitlements: backup usage callable: $e');
+    }
   }
 
   /// Tras `folioCloudAiComplete`: aplica saldos devueltos por el servidor sin esperar al stream.
@@ -467,6 +548,10 @@ class FolioCloudEntitlementsController extends ChangeNotifier {
       cloudAi: prev.cloudAi,
       publishWeb: prev.publishWeb,
       realtimeCollab: prev.realtimeCollab,
+      backupQuotaBytes: prev.backupQuotaBytes,
+      backupUsedBytes: prev.backupUsedBytes,
+      backupPurchasedBytes: prev.backupPurchasedBytes,
+      backupSubscriptionExtraBytes: prev.backupSubscriptionExtraBytes,
       ink: ink,
     );
     notifyListeners();
@@ -553,6 +638,9 @@ class FolioCloudEntitlementsController extends ChangeNotifier {
       snapshot = parsed;
       _serverFetchTruth = parsed;
       notifyListeners();
+      if (parsed.canUseCloudBackup) {
+        unawaited(refreshBackupStorageUsageFromServer());
+      }
     } else {
       _serverFetchTruth = null;
     }

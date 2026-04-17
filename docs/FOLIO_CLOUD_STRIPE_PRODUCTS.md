@@ -8,6 +8,9 @@ Crear estos productos y precios en el [Dashboard de Stripe](https://dashboard.st
 | Tintero pequeño | Pago único | 1,99 € | +300 gotas (no caducan) |
 | Tintero mediano | Pago único | 4,99 € | +1.000 gotas |
 | Tintero grande | Pago único | 9,99 € | +2.500 gotas |
+| Librería pequeña (copias) | Suscripción mensual | 1,99 €/mes | +20 GB mientras esté activa (`STRIPE_PRICE_BACKUP_STORAGE_PACK_SMALL`) |
+| Librería mediana (copias) | Suscripción mensual | 4,99 €/mes | +75 GB (`STRIPE_PRICE_BACKUP_STORAGE_PACK_MEDIUM`) |
+| Librería grande (copias) | Suscripción mensual | 9,99 €/mes | +250 GB (`STRIPE_PRICE_BACKUP_STORAGE_PACK_LARGE`) |
 
 ## Suscripción mensual y features
 

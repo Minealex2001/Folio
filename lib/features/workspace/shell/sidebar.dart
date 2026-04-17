@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math' as math;
 
 import 'package:flutter/foundation.dart'
     show TargetPlatform, defaultTargetPlatform, kIsWeb;
@@ -13,6 +14,7 @@ import '../../../app/widgets/folio_icon_picker.dart';
 import '../../../app/widgets/folio_icon_token_view.dart';
 import '../../../data/vault_registry.dart';
 import '../../../services/cloud_account/cloud_account_controller.dart';
+import '../editor/block_editor_support_widgets.dart';
 import '../templates/template_gallery_page.dart';
 import '../../../l10n/generated/app_localizations.dart';
 import '../../../models/folio_page.dart';
@@ -671,15 +673,145 @@ class _SidebarState extends State<Sidebar> {
     );
   }
 
+  String _sidebarDeleteLabel(FolioPage page, AppLocalizations l10n) {
+    final t = page.title.trim();
+    return t.isEmpty ? l10n.untitledFallback : t;
+  }
+
+  /// Mismo patrón que exportar página: [showMenu] anclado + [BlockEditorFloatingPanel].
+  Future<void> _showDeletePageConfirmMenu(
+    BuildContext anchorContext,
+    FolioPage page,
+  ) async {
+    final hasChildren = _hasChildrenById[page.id] ?? false;
+    final isFolderWithChildren = page.isFolder && hasChildren;
+    final l10n = AppLocalizations.of(anchorContext);
+    final theme = Theme.of(anchorContext);
+    final scheme = theme.colorScheme;
+    final label = _sidebarDeleteLabel(page, l10n);
+
+    final buttonBox = anchorContext.findRenderObject() as RenderBox?;
+    final overlayBox =
+        Overlay.of(anchorContext).context.findRenderObject() as RenderBox?;
+    if (buttonBox == null || overlayBox == null) return;
+
+    final buttonRect =
+        buttonBox.localToGlobal(Offset.zero, ancestor: overlayBox) &
+        buttonBox.size;
+    final position = RelativeRect.fromRect(
+      buttonRect,
+      Offset.zero & overlayBox.size,
+    );
+
+    final maxW = math.min(420.0, overlayBox.size.width - 24.0);
+    final menuW = maxW.clamp(280.0, 420.0);
+    final maxH = math.min(320.0, overlayBox.size.height - 24.0);
+
+    final confirmed = await showMenu<bool>(
+      context: anchorContext,
+      position: position,
+      useRootNavigator: true,
+      constraints: BoxConstraints.tightFor(width: menuW),
+      items: [
+        PopupMenuItem<bool>(
+          enabled: false,
+          height: 240,
+          padding: EdgeInsets.zero,
+          child: ConstrainedBox(
+            constraints: BoxConstraints(maxHeight: maxH),
+            child: BlockEditorFloatingPanel(
+              scheme: scheme,
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(10, 10, 10, 10),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(8, 2, 8, 8),
+                      child: Text(
+                        isFolderWithChildren
+                            ? l10n.sidebarDeleteFolderMenuTitle
+                            : l10n.sidebarDeletePageMenuTitle,
+                        style: theme.textTheme.titleSmall?.copyWith(
+                          fontWeight: FontWeight.w700,
+                          letterSpacing: -0.2,
+                        ),
+                      ),
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(8, 0, 8, 12),
+                      child: Text(
+                        isFolderWithChildren
+                            ? l10n.sidebarDeleteFolderConfirmInline(label)
+                            : l10n.sidebarDeletePageConfirmInline(label),
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: scheme.onSurfaceVariant,
+                          height: 1.35,
+                        ),
+                      ),
+                    ),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.end,
+                      children: [
+                        Builder(
+                          builder: (menuCtx) {
+                            return TextButton(
+                              onPressed: () {
+                                Navigator.of(
+                                  menuCtx,
+                                  rootNavigator: true,
+                                ).pop(false);
+                              },
+                              child: Text(l10n.cancel),
+                            );
+                          },
+                        ),
+                        const SizedBox(width: 8),
+                        Builder(
+                          builder: (menuCtx) {
+                            return FilledButton(
+                              style: FilledButton.styleFrom(
+                                backgroundColor: scheme.error,
+                                foregroundColor: scheme.onError,
+                              ),
+                              onPressed: () {
+                                Navigator.of(
+                                  menuCtx,
+                                  rootNavigator: true,
+                                ).pop(true);
+                              },
+                              child: Text(l10n.delete),
+                            );
+                          },
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+    if (confirmed != true || !mounted) return;
+    if (isFolderWithChildren) {
+      session.deleteFolderMoveChildrenToRoot(page.id);
+    } else {
+      session.deletePage(page.id);
+    }
+  }
+
   Widget _tile(BuildContext context, FolioPage page, double indent) {
     final l10n = AppLocalizations.of(context);
     final scheme = Theme.of(context).colorScheme;
     final selected = page.id == session.selectedPageId;
-    final showRowActions = _hoveredPageId == page.id;
     final hasChildren = _hasChildrenById[page.id] ?? false;
     final collapsed = _isCollapsed(page.id);
     final isFolder = page.isFolder;
     final canDelete = session.pages.length > 1 && (!hasChildren || isFolder);
+    final showRowActions = _hoveredPageId == page.id;
 
     return Padding(
       padding: EdgeInsets.fromLTRB(indent, 0, 0, FolioSpace.xs),
@@ -893,29 +1025,29 @@ class _SidebarState extends State<Sidebar> {
                                         onPressed: () =>
                                             _savePageAsTemplate(context, page),
                                       ),
-                                      IconButton(
-                                        icon: const Icon(
-                                          Icons.delete_outline,
-                                          size: 18,
-                                        ),
-                                        tooltip: l10n.delete,
-                                        visualDensity: VisualDensity.compact,
-                                        color: selected
-                                            ? scheme.onSecondaryContainer
-                                            : scheme.onSurfaceVariant,
-                                        onPressed: canDelete
-                                            ? () {
-                                                if (page.isFolder &&
-                                                    hasChildren) {
-                                                  session
-                                                      .deleteFolderMoveChildrenToRoot(
-                                                        page.id,
-                                                      );
-                                                } else {
-                                                  session.deletePage(page.id);
-                                                }
-                                              }
-                                            : null,
+                                      Builder(
+                                        builder: (btnCtx) {
+                                          return IconButton(
+                                            icon: const Icon(
+                                              Icons.delete_outline,
+                                              size: 18,
+                                            ),
+                                            tooltip: l10n.delete,
+                                            visualDensity:
+                                                VisualDensity.compact,
+                                            color: selected
+                                                ? scheme.onSecondaryContainer
+                                                : scheme.onSurfaceVariant,
+                                            onPressed: canDelete
+                                                ? () => unawaited(
+                                                      _showDeletePageConfirmMenu(
+                                                        btnCtx,
+                                                        page,
+                                                      ),
+                                                    )
+                                                : null,
+                                          );
+                                        },
                                       ),
                                     ],
                                   ),

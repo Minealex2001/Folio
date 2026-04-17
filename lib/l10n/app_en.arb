@@ -124,7 +124,7 @@
   "lockAutoByInactivity": "Auto-lock after inactivity",
   "minutesShort": "{minutes} min",
   "@minutesShort": {"placeholders": {"minutes": {"type": "int"}}},
-  "settingsAppearanceHint": "The main color follows the Windows accent color when available.",
+  "settingsAppearanceHint": "Choose theme brightness, accent source (Windows, Folio, or custom), zoom, and language.",
   "backupFilePasswordLabel": "Backup file password",
   "backupFilePasswordHelper": "Use the master password used to create this backup, not from another device.",
   "backupPasswordDialogTitle": "Backup password",
@@ -964,7 +964,7 @@
   ,"folioCloudPurchaseChannelStoreNotConfiguredHint": "Build with --dart-define=MS_STORE_… or use browser checkout."
   ,"folioCloudMicrosoftStoreSyncHint": "On Windows, Refresh also syncs the Microsoft Store (same button as Stripe)."
   ,"folioCloudUploadEncryptedBackup": "Back up to cloud now"
-  ,"folioCloudUploadEncryptedBackupSubtitle": "Folio builds an encrypted backup of your open vault and uploads it—no manual ZIP export."
+  ,"folioCloudUploadEncryptedBackupSubtitle": "Folio uploads an incremental encrypted cloud backup of your open vault (only changed blobs)—no manual export."
   ,"folioCloudUploadSnackOk": "Vault backup saved to the cloud."
   ,"scheduledVaultBackupCloudSyncTitle": "Backup to Folio Cloud"
   ,"scheduledVaultBackupCloudSyncSubtitle": "After each scheduled backup interval, automatically uploads an encrypted backup to your Folio Cloud account."
@@ -972,6 +972,27 @@
   ,"folioCloudBackupsUsed": "Used"
   ,"folioCloudBackupsLimit": "Limit"
   ,"folioCloudBackupsRemaining": "Remaining"
+  ,"folioCloudBackupStorageStatUsed": "Used (storage)"
+  ,"folioCloudBackupStorageStatQuota": "Quota"
+  ,"folioCloudBackupStorageStatRemaining": "Remaining"
+  ,"folioCloudBackupStorageExpansionTitle": "Extra backup storage"
+  ,"folioCloudBackupStorageLibrarySmallTitle": "Small library"
+  ,"folioCloudBackupStorageLibrarySmallDetail": "+20 GB · €1.99/mo"
+  ,"folioCloudBackupStorageLibraryMediumTitle": "Medium library"
+  ,"folioCloudBackupStorageLibraryMediumDetail": "+75 GB · €4.99/mo"
+  ,"folioCloudBackupStorageLibraryLargeTitle": "Large library"
+  ,"folioCloudBackupStorageLibraryLargeDetail": "+250 GB · €9.99/mo"
+  ,"folioCloudSubscribeBackupStorageAddon": "Subscribe"
+  ,"folioCloudBackupTypeIncremental": "Incremental backup (latest)"
+  ,"folioCloudBackupPackNoDownload": "Incremental backups are restored with “Import and overwrite”. There is no separate file download."
+  ,"folioCloudBackupQuotaExceeded": "Not enough cloud backup storage. Buy a storage expansion or delete old full backups under backups/."
+  ,"onboardingCloudBackupNeedLegacyArchive": "This vault only has an incremental cloud backup. To set up on a new device, download a full archive (.tar.gz) from another device with Folio, or create one from Settings → export."
+  ,"onboardingCloudBackupNeedRestoreWrap": "This incremental backup does not have a recovery key in the cloud yet. On the device where you created it, open Folio → Settings → upload the cloud backup (enter your vault password when prompted). You can also use a full archive (.zip) if you have one."
+  ,"onboardingCloudBackupIncrementalRestoreBody": "Incremental cloud backup selected. Enter your vault password (the one you use to unlock). If the vault was unencrypted, use the recovery password you set when uploading."
+  ,"settingsCloudBackupWrapPasswordTitle": "Recovery on other devices"
+  ,"settingsCloudBackupWrapPasswordBody": "Enter this vault’s password. It will be stored encrypted in your account so you can restore the incremental backup when installing Folio on a new device."
+  ,"settingsCloudBackupWrapPasswordRequired": "The vault password is required."
+  ,"settingsCloudBackupWrapPasswordBodyPlain": "Optional: choose a recovery password to restore this incremental backup on another device. Leave it blank if you only use this device."
   ,"folioCloudPublishTestPage": "Publish test page"
   ,"folioCloudPublishedPagesList": "Published pages"
   ,"folioCloudReauthDialogTitle": "Confirm Folio Cloud account"
@@ -1530,7 +1551,15 @@
   ,"settingsSubsectionDrive": "Drive"
   ,"settingsSubsectionVaultData": "Data (danger zone)"
   ,"folioCloudSubsectionAccount": "Account"
-  ,"folioCloudSubsectionEncryptedBackups": "Encrypted backups (cloud)"
+  ,"folioCloudSubsectionEncryptedBackups": "Cloud backups & storage"
+  ,"folioCloudBackupStorageSectionIntro": "Usage counts incremental cloud backups and any full archives still under backups/. You can subscribe to a small, medium, or large storage library (extra quota renews monthly while the subscription is active)."
+  ,"folioCloudBackupStoragePurchasedExtra": "Purchased add-ons: +{size}"
+  ,"@folioCloudBackupStoragePurchasedExtra": {"placeholders": {"size": {}}}
+  ,"folioCloudBackupStorageBarTitle": "Storage usage"
+  ,"folioCloudBackupStorageBarPercent": "{percent}%"
+  ,"@folioCloudBackupStorageBarPercent": {"placeholders": {"percent": {"type": "int"}}}
+  ,"folioCloudBackupStorageBarDetail": "Used: {used} · Total quota: {total} · Free: {free}"
+  ,"@folioCloudBackupStorageBarDetail": {"placeholders": {"used": {}, "total": {}, "free": {}}}
   ,"folioCloudSubsectionPublishing": "Web publishing"
   ,"settingsFolioCloudSubsectionScheduledCloud": "Scheduled backup to Folio Cloud"
   ,"settingsScheduledCloudUploadRequiresSchedule": "Turn on scheduled backup in Notebook › Scheduled backup (local) first."
@@ -1576,6 +1605,12 @@
   ,"sidebarPageIconTabImported": "Imported"
   ,"sidebarPageIconTabAll": "All"
   ,"sidebarPageIconEmptyImported": "You have not imported icons in Settings yet."
+  ,"sidebarDeletePageMenuTitle": "Delete page"
+  ,"sidebarDeleteFolderMenuTitle": "Remove folder"
+  ,"sidebarDeletePageConfirmInline": "Delete «{title}»? This cannot be undone."
+  ,"@sidebarDeletePageConfirmInline": {"placeholders": {"title": {}}}
+  ,"sidebarDeleteFolderConfirmInline": "Remove folder «{title}»? Subpages will move to the notebook root."
+  ,"@sidebarDeleteFolderConfirmInline": {"placeholders": {"title": {}}}
   ,"settingsStripeSubscriptionRefreshed": "Folio Cloud billing updated."
   ,"settingsStripeBillingPortalUnavailable": "Billing portal unavailable."
   ,"settingsCouldNotOpenLink": "Could not open the link."
@@ -1730,4 +1765,27 @@
   ,"vaultStarterQuillBackupCallout": "Back up the notebook when you have important content. The backup keeps data and attachments but does not transfer Hello or passkeys across devices."
   ,"vaultStarterQuillMermaidCaption": "Quick Mermaid tryout:"
   ,"vaultStarterQuillMermaidSource": "graph TD\nStart[Create notebook] --> Organize[Organize pages]\nOrganize --> Write[Write and link ideas]\nWrite --> Review[Search, review, improve]"
+  ,"settingsAccentColorTitle": "Accent color"
+  ,"settingsAccentFollowSystem": "Windows"
+  ,"settingsAccentFolioDefault": "Folio"
+  ,"settingsAccentCustom": "Custom"
+  ,"settingsAccentPickColor": "Choose preset color"
+  ,"settingsPrivacySectionTitle": "Privacy and diagnostics"
+  ,"settingsTelemetryTitle": "Anonymous usage statistics"
+  ,"settingsTelemetrySubtitle": "Helps measure installs and feature usage. No notebook content or titles are sent."
+  ,"onboardingTelemetryTitle": "Usage statistics"
+  ,"onboardingTelemetryBody": "Folio can send anonymous analytics so we understand how the app is used. You can change this anytime in Settings."
+  ,"onboardingTelemetrySwitchTitle": "Anonymous usage statistics"
+  ,"onboardingTelemetrySwitchSubtitle": "Helps measure installs and feature usage. No notebook content or titles are sent."
+  ,"onboardingTelemetryFootnote": "No notebook content or page titles are sent."
+  ,"settingsAutoCrashReportsTitle": "Send crash diagnostics automatically"
+  ,"settingsAutoCrashReportsSubtitle": "When a crash occurs, sends a short log excerpt to Folio (opt-in, limited per session)."
+  ,"settingsReportBugButton": "Report a bug"
+  ,"settingsPrivacyFootnote": "You can attach a note; an issue page may open in the browser."
+  ,"settingsReportBugDialogTitle": "Report a bug"
+  ,"settingsReportBugDialogBody": "We will send anonymous metadata, a short log tail, and your note. Then you can open the issue tracker."
+  ,"settingsReportBugNoteLabel": "What happened? (optional)"
+  ,"settingsReportBugSend": "Send and continue"
+  ,"settingsReportBugSentOk": "Diagnostic sent."
+  ,"settingsReportBugSentFail": "Could not send diagnostic. Check your connection or try again later."
 }

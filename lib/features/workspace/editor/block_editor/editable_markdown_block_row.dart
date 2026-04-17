@@ -30,16 +30,26 @@ Widget _buildEditableMarkdownBlockRow(_BlockRowScope s) {
       block.type == 'quote' ||
       block.type == 'callout';
 
+  final isWysiwygBlock = _stylableBlockTypes.contains(block.type);
+  final quillCtrl = isWysiwygBlock && !readOnlyMode
+      ? st._ensureQuillController(pageId: page.id, block: block)
+      : null;
+  final plainForMenus =
+      quillCtrl != null ? quillCtrl.document.toPlainText() : ctrl.text;
+  final selForMenus =
+      quillCtrl != null ? quillCtrl.selection : ctrl.selection;
+
   final allowsSlash = blockEditorTypeUsesSlashMenu(block.type);
   final String? slashTail = allowsSlash
-      ? _slashFilterFromBlockText(ctrl.text)
+      ? ((_slashFilterFromPlainTextAndSelection(plainForMenus, selForMenus)) ??
+          _slashFilterFromBlockText(plainForMenus))
       : null;
   final showSlashMenu = slashTail != null && st._slashBlockId == block.id;
   final slashItems = showSlashMenu
       ? st._catalogFilteredForSlash(slashTail)
       : const <BlockTypeDef>[];
   final mentionTail = allowsSlash
-      ? _mentionFilterFromSelection(ctrl.text, ctrl.selection)
+      ? _mentionFilterFromSelection(plainForMenus, selForMenus)
       : null;
   final showMentionMenu =
       !showSlashMenu && mentionTail != null && st._mentionBlockId == block.id;
@@ -86,11 +96,6 @@ Widget _buildEditableMarkdownBlockRow(_BlockRowScope s) {
   );
 
   final mdSheet = folioMarkdownStyleSheet(context, currentStyle, scheme);
-
-  final isWysiwygBlock = _stylableBlockTypes.contains(block.type);
-  final quillCtrl = isWysiwygBlock && !readOnlyMode
-      ? st._ensureQuillController(pageId: page.id, block: block)
-      : null;
 
   final field = isWysiwygBlock
       ? () {

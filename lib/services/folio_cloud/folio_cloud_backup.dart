@@ -14,6 +14,11 @@ import 'folio_cloud_entitlements.dart';
 // Nota: listamos copias siempre vía callable (incluye sizeBytes y soporta escritorio).
 
 void _requireCloudBackupEntitlement(FolioCloudSnapshot? snapshot) {
+  requireFolioCloudBackupEntitlement(snapshot);
+}
+
+/// Visible para otros servicios de copia (p. ej. cloud-pack).
+void requireFolioCloudBackupEntitlement(FolioCloudSnapshot? snapshot) {
   if (snapshot != null && !snapshot.canUseCloudBackup) {
     throw StateError(
       'Tu plan Folio Cloud no incluye copia en la nube o la suscripción no está activa.',
@@ -155,12 +160,16 @@ class FolioCloudBackupEntry {
     required this.storagePath,
     required this.sizeBytes,
     required this.createdAt,
+    this.isCloudPack = false,
   });
 
   final String fileName;
   final String storagePath;
   final int sizeBytes;
   final String createdAt;
+
+  /// Copia incremental (cloud-pack); restaurar con [downloadLatestCloudPackToDirectory].
+  final bool isCloudPack;
 }
 
 class FolioCloudBackupVaultEntry {
@@ -214,9 +223,35 @@ Future<List<FolioCloudBackupEntry>> _listFolioCloudBackupsViaCallable({
   if (raw is! Map) {
     throw StateError('Respuesta inválida al listar copias en la nube.');
   }
+  final legacy = <FolioCloudBackupEntry>[];
+  FolioCloudBackupEntry? cloudPack;
+  final cloud = raw['cloudPack'];
+  if (cloud is Map) {
+    final m = Map<String, dynamic>.from(cloud);
+    final fn = m['fileName']?.toString() ?? '';
+    final sp = m['storagePath']?.toString() ?? '';
+    final szRaw = m['sizeBytes'];
+    final sz = szRaw is int
+        ? szRaw
+        : szRaw is num
+            ? szRaw.toInt()
+            : int.tryParse('$szRaw') ?? 0;
+    final createdAt = m['createdAt']?.toString() ?? '';
+    if (fn.isNotEmpty && sp.isNotEmpty) {
+      cloudPack = FolioCloudBackupEntry(
+        fileName: fn,
+        storagePath: sp,
+        sizeBytes: sz < 0 ? 0 : sz,
+        createdAt: createdAt,
+        isCloudPack: true,
+      );
+    }
+  }
   final items = raw['items'];
-  if (items is! List) return const [];
-  final out = <FolioCloudBackupEntry>[];
+  if (items is! List) {
+    if (cloudPack != null) return <FolioCloudBackupEntry>[cloudPack];
+    return const [];
+  }
   for (final e in items) {
     if (e is! Map) continue;
     final m = Map<String, dynamic>.from(e);
@@ -230,17 +265,21 @@ Future<List<FolioCloudBackupEntry>> _listFolioCloudBackupsViaCallable({
             : int.tryParse('$szRaw') ?? 0;
     final createdAt = m['createdAt']?.toString() ?? '';
     if (fn.isEmpty || sp.isEmpty) continue;
-    out.add(
+    legacy.add(
       FolioCloudBackupEntry(
         fileName: fn,
         storagePath: sp,
         sizeBytes: sz < 0 ? 0 : sz,
         createdAt: createdAt,
+        isCloudPack: false,
       ),
     );
   }
-  out.sort((a, b) => b.fileName.compareTo(a.fileName));
-  return out;
+  legacy.sort((a, b) => b.fileName.compareTo(a.fileName));
+  if (cloudPack != null) {
+    return <FolioCloudBackupEntry>[cloudPack, ...legacy];
+  }
+  return legacy;
 }
 
 /// Lista archivos en la carpeta de copias de Folio Cloud.

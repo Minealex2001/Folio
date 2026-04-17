@@ -14,6 +14,7 @@ import 'package:url_launcher/url_launcher.dart';
 import 'package:path/path.dart' as p;
 
 import '../../app/app_settings.dart';
+import '../../app/folio_build_flags.dart';
 import '../../app/folio_in_app_shortcuts.dart';
 import '../../app/ui_tokens.dart';
 import '../../app/widgets/folio_dialog.dart';
@@ -36,6 +37,8 @@ import '../../services/custom_icon_import_service.dart';
 import '../../services/cloud_account/cloud_account_controller.dart';
 import '../../services/folio_cloud/folio_cloud_reachability.dart';
 import '../../services/folio_cloud/folio_cloud_backup.dart';
+import '../../services/folio_cloud/folio_cloud_callable.dart';
+import '../../services/folio_cloud/folio_cloud_pack_sync.dart';
 import '../../services/folio_cloud/folio_cloud_billing.dart';
 import '../../services/folio_cloud/folio_cloud_checkout.dart';
 import '../../services/folio_cloud/folio_cloud_entitlements.dart';
@@ -59,6 +62,7 @@ import 'release_readiness.dart';
 import 'folio_cloud_reauth_dialog.dart';
 import 'folio_cloud_subscription_pitch_page.dart';
 import 'vault_identity_verify_dialog.dart';
+import '../../services/folio_diagnostic_reporter.dart';
 import '../../services/vault_scheduled_local_export.dart';
 
 String settingsCloudInkOperationLabel(
@@ -556,6 +560,69 @@ class _SettingsPageState extends State<SettingsPage> {
         _installedVersionLabel = 'desconocida';
       });
       await _refreshReleaseReadiness();
+    }
+  }
+
+  Future<void> _reportBugFlow() async {
+    final l10n = AppLocalizations.of(context);
+    final noteCtrl = TextEditingController();
+    try {
+      final send = await showDialog<bool>(
+        context: context,
+        builder: (ctx) {
+          return AlertDialog(
+            title: Text(l10n.settingsReportBugDialogTitle),
+            content: SingleChildScrollView(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(l10n.settingsReportBugDialogBody),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: noteCtrl,
+                    decoration: InputDecoration(
+                      labelText: l10n.settingsReportBugNoteLabel,
+                      border: const OutlineInputBorder(),
+                    ),
+                    maxLines: 4,
+                  ),
+                ],
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(ctx, false),
+                child: Text(l10n.cancel),
+              ),
+              FilledButton(
+                onPressed: () => Navigator.pop(ctx, true),
+                child: Text(l10n.settingsReportBugSend),
+              ),
+            ],
+          );
+        },
+      );
+      if (send != true || !mounted) return;
+      final ok = await FolioDiagnosticReporter.submit(
+        kind: 'manual',
+        userNote: noteCtrl.text,
+        settings: _app,
+      );
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            ok ? l10n.settingsReportBugSentOk : l10n.settingsReportBugSentFail,
+          ),
+        ),
+      );
+      final uri = Uri.parse(kFolioBugReportUrl);
+      if (await canLaunchUrl(uri)) {
+        await launchUrl(uri, mode: LaunchMode.externalApplication);
+      }
+    } finally {
+      noteCtrl.dispose();
     }
   }
 
@@ -1979,6 +2046,18 @@ class _SettingsPageState extends State<SettingsPage> {
               );
             case FolioCheckoutKind.inkLarge:
               await purchaseMicrosoftStoreInk(FolioMicrosoftStoreInkKind.large);
+            case FolioCheckoutKind.backupStoragePackSmall:
+              await purchaseMicrosoftStoreBackupStorage(
+                FolioMicrosoftStoreBackupStorageKind.small,
+              );
+            case FolioCheckoutKind.backupStoragePackMedium:
+              await purchaseMicrosoftStoreBackupStorage(
+                FolioMicrosoftStoreBackupStorageKind.medium,
+              );
+            case FolioCheckoutKind.backupStoragePackLarge:
+              await purchaseMicrosoftStoreBackupStorage(
+                FolioMicrosoftStoreBackupStorageKind.large,
+              );
           }
           if (!mounted) return;
           _snack(l10n.folioCloudMicrosoftStoreAppliedSnack);
@@ -2021,37 +2100,105 @@ class _SettingsPageState extends State<SettingsPage> {
           entitlementSnapshot: snap,
         );
       } catch (_) {}
-      await uploadOpenVaultEncryptedToCloud(
+      String? restoreWrapPassword;
+      try {
+        final raw = await callFolioHttpsCallable(
+          'folioGetLatestCloudPackMeta',
+          <String, dynamic>{'vaultId': vaultId},
+        );
+        final latest = raw is Map ? raw['latest'] : null;
+        final hasRestoreWrap =
+            latest is Map && latest['hasRestoreWrap'] == true;
+        if (!hasRestoreWrap && mounted) {
+          final l10nDlg = AppLocalizations.of(context);
+          final ctrl = TextEditingController();
+          var obscure = true;
+          final encrypted = _s.vaultUsesEncryption;
+          try {
+            final ok = await showDialog<bool>(
+              context: context,
+              barrierDismissible: false,
+              builder: (ctx) {
+                return StatefulBuilder(
+                  builder: (ctx, setSt) {
+                    return AlertDialog(
+                      title: Text(l10nDlg.settingsCloudBackupWrapPasswordTitle),
+                      content: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          Text(
+                            encrypted
+                                ? l10nDlg.settingsCloudBackupWrapPasswordBody
+                                : l10nDlg.settingsCloudBackupWrapPasswordBodyPlain,
+                          ),
+                          const SizedBox(height: 12),
+                          FolioPasswordField(
+                            controller: ctrl,
+                            obscureText: obscure,
+                            labelText: l10nDlg.backupPasswordLabel,
+                            showPasswordTooltip: l10nDlg.showPassword,
+                            hidePasswordTooltip: l10nDlg.hidePassword,
+                            onToggleObscure: () {
+                              setSt(() => obscure = !obscure);
+                            },
+                          ),
+                        ],
+                      ),
+                      actions: [
+                        TextButton(
+                          onPressed: () => Navigator.of(ctx).pop(false),
+                          child: Text(l10nDlg.cancel),
+                        ),
+                        FilledButton(
+                          onPressed: () => Navigator.of(ctx).pop(true),
+                          child: Text(l10nDlg.ok),
+                        ),
+                      ],
+                    );
+                  },
+                );
+              },
+            );
+            if (ok != true) return;
+            final trimmed = ctrl.text.trim();
+            if (encrypted && trimmed.isEmpty) {
+              if (mounted) {
+                _snack(l10n.settingsCloudBackupWrapPasswordRequired);
+              }
+              return;
+            }
+            restoreWrapPassword = trimmed.isEmpty ? null : trimmed;
+          } finally {
+            ctrl.dispose();
+          }
+        }
+      } catch (_) {
+        // Si falla el meta, uploadOpenVaultCloudPack volverá a comprobar.
+      }
+      await uploadOpenVaultCloudPack(
         session: _s,
         vaultId: vaultId,
         entitlementSnapshot: snap,
+        restoreWrapPassword: restoreWrapPassword,
       );
-      // Best-effort: recorta a 10 copias por libreta.
-      try {
-        await trimFolioCloudBackups(
-          vaultId: vaultId,
-          maxCount: 10,
-          entitlementSnapshot: snap,
-        );
-      } catch (e) {
-        if (mounted) {
-          _snack(AppLocalizations.of(context).folioCloudBackupCleanupWarning);
-        }
-      }
-      // Best-effort: recorte por bytes (limita coste/espacio).
-      try {
-        await trimFolioCloudBackupsByBytes(
-          vaultId: vaultId,
-          maxBytes: 5 * 1024 * 1024 * 1024, // 5 GB
-          entitlementSnapshot: snap,
-        );
-      } catch (_) {}
       if (mounted) {
         _snack(AppLocalizations.of(context).folioCloudUploadSnackOk);
       }
+      unawaited(_folio.refreshBackupStorageUsageFromServer());
       await _refreshCloudBackupCount();
     } catch (e) {
-      if (mounted) _snack('$e');
+      if (mounted) {
+        final msg = '$e';
+        if (msg.contains('resource-exhausted') ||
+            msg.contains('cuota') ||
+            msg.contains('Cuota') ||
+            msg.contains('superó')) {
+          _snack(l10n.folioCloudBackupQuotaExceeded);
+        } else {
+          _snack(msg);
+        }
+      }
     } finally {
       if (mounted) setState(() => _folioCloudActionBusy = false);
     }
@@ -2199,36 +2346,57 @@ class _SettingsPageState extends State<SettingsPage> {
                         final when = whenRaw.isNotEmpty ? whenRaw : '—';
                         return ListTile(
                           title: Text(
-                            e.fileName,
-                            style: const TextStyle(fontFamily: 'monospace'),
+                            e.isCloudPack
+                                ? l10n.folioCloudBackupTypeIncremental
+                                : e.fileName,
+                            style: TextStyle(
+                              fontFamily:
+                                  e.isCloudPack ? null : 'monospace',
+                              fontWeight:
+                                  e.isCloudPack ? FontWeight.w700 : null,
+                            ),
                           ),
                           subtitle: Text(
-                            '$sizeLabel · $when',
-                            maxLines: 1,
+                            e.isCloudPack
+                                ? '${e.fileName} · $sizeLabel · $when'
+                                : '$sizeLabel · $when',
+                            maxLines: 2,
                             overflow: TextOverflow.ellipsis,
                           ),
                           trailing: PopupMenuButton<String>(
                             tooltip: l10n.workspaceMoreActionsTooltip,
                             itemBuilder: (mCtx) => [
-                              PopupMenuItem(
-                                value: 'download',
-                                child: Text(
-                                  l10n.settingsCloudBackupActionDownload,
+                              if (!e.isCloudPack)
+                                PopupMenuItem(
+                                  value: 'download',
+                                  child: Text(
+                                    l10n.settingsCloudBackupActionDownload,
+                                  ),
                                 ),
-                              ),
                               PopupMenuItem(
                                 value: 'import_overwrite',
                                 child: Text(
                                   l10n.settingsCloudBackupActionImportOverwrite,
                                 ),
                               ),
-                              PopupMenuItem(
-                                value: 'delete',
-                                child: Text(l10n.delete),
-                              ),
+                              if (!e.isCloudPack)
+                                PopupMenuItem(
+                                  value: 'delete',
+                                  child: Text(l10n.delete),
+                                ),
                             ],
                             onSelected: (action) async {
                               if (action == 'download') {
+                                if (e.isCloudPack) {
+                                  ScaffoldMessenger.of(ctx).showSnackBar(
+                                    SnackBar(
+                                      content: Text(
+                                        l10n.folioCloudBackupPackNoDownload,
+                                      ),
+                                    ),
+                                  );
+                                  return;
+                                }
                                 final verified =
                                     await _verifyFolioCloudAccountForBackups();
                                 if (!verified || !mounted) return;
@@ -2307,64 +2475,138 @@ class _SettingsPageState extends State<SettingsPage> {
                                 );
                                 final localFile = File(localPath);
                                 try {
-                                  await downloadFolioCloudBackup(
-                                    entry: e,
-                                    destinationFile: localFile,
-                                    entitlementSnapshot: snap,
-                                  );
-                                  final isPlain = await isPlainBackupArchive(
-                                    localFile,
-                                  );
                                   String password = '';
-                                  if (!isPlain) {
-                                    final ctrl = TextEditingController();
-                                    var obscure = true;
-                                    final ok = await showDialog<bool>(
-                                      context: ctx,
-                                      builder: (dCtx) => StatefulBuilder(
-                                        builder: (dCtx, setSt2) => AlertDialog(
-                                          title: Text(
-                                            l10n.backupPasswordDialogTitle,
-                                          ),
-                                          content: FolioPasswordField(
-                                            controller: ctrl,
-                                            labelText: l10n.passwordLabel,
-                                            obscureText: obscure,
-                                            onToggleObscure: () => setSt2(
-                                              () => obscure = !obscure,
-                                            ),
-                                            showPasswordTooltip:
-                                                l10n.showPassword,
-                                            hidePasswordTooltip:
-                                                l10n.hidePassword,
-                                          ),
-                                          actions: [
-                                            TextButton(
-                                              onPressed: () =>
-                                                  Navigator.pop(dCtx, false),
-                                              child: Text(l10n.cancel),
-                                            ),
-                                            FilledButton(
-                                              onPressed: () =>
-                                                  Navigator.pop(dCtx, true),
-                                              child: Text(
-                                                l10n.settingsCloudBackupActionImportOverwrite,
-                                              ),
-                                            ),
-                                          ],
-                                        ),
+                                  if (e.isCloudPack) {
+                                    final extract = Directory(
+                                      p.join(tmpDir.path, 'vault_extract'),
+                                    );
+                                    await extract.create(recursive: true);
+                                    await downloadLatestCloudPackToDirectory(
+                                      session: _s,
+                                      vaultId: selectedVaultId,
+                                      extractDir: extract,
+                                      entitlementSnapshot: snap,
+                                    );
+                                    final modeFile = File(
+                                      p.join(
+                                        extract.path,
+                                        VaultPaths.vaultModeFile,
                                       ),
                                     );
-                                    password = ctrl.text;
-                                    ctrl.dispose();
-                                    if (ok != true || password.trim().isEmpty) {
-                                      return;
+                                    final isPlain = modeFile.existsSync() &&
+                                        modeFile.readAsStringSync().trim().toLowerCase() ==
+                                            'plain';
+                                    if (!isPlain) {
+                                      final ctrl = TextEditingController();
+                                      var obscure = true;
+                                      final ok = await showDialog<bool>(
+                                        context: ctx,
+                                        builder: (dCtx) => StatefulBuilder(
+                                          builder: (dCtx, setSt2) => AlertDialog(
+                                            title: Text(
+                                              l10n.backupPasswordDialogTitle,
+                                            ),
+                                            content: FolioPasswordField(
+                                              controller: ctrl,
+                                              labelText: l10n.passwordLabel,
+                                              obscureText: obscure,
+                                              onToggleObscure: () => setSt2(
+                                                () => obscure = !obscure,
+                                              ),
+                                              showPasswordTooltip:
+                                                  l10n.showPassword,
+                                              hidePasswordTooltip:
+                                                  l10n.hidePassword,
+                                            ),
+                                            actions: [
+                                              TextButton(
+                                                onPressed: () =>
+                                                    Navigator.pop(dCtx, false),
+                                                child: Text(l10n.cancel),
+                                              ),
+                                              FilledButton(
+                                                onPressed: () =>
+                                                    Navigator.pop(dCtx, true),
+                                                child: Text(
+                                                  l10n.settingsCloudBackupActionImportOverwrite,
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                      );
+                                      password = ctrl.text;
+                                      ctrl.dispose();
+                                      if (ok != true ||
+                                          password.trim().isEmpty) {
+                                        return;
+                                      }
                                     }
+                                    await _s
+                                        .importVaultBackupOverwriteActiveFromExtractedDir(
+                                      extract,
+                                      password,
+                                    );
+                                  } else {
+                                    await downloadFolioCloudBackup(
+                                      entry: e,
+                                      destinationFile: localFile,
+                                      entitlementSnapshot: snap,
+                                    );
+                                    final isPlain = await isPlainBackupArchive(
+                                      localFile,
+                                    );
+                                    if (!isPlain) {
+                                      final ctrl = TextEditingController();
+                                      var obscure = true;
+                                      final ok = await showDialog<bool>(
+                                        context: ctx,
+                                        builder: (dCtx) => StatefulBuilder(
+                                          builder: (dCtx, setSt2) => AlertDialog(
+                                            title: Text(
+                                              l10n.backupPasswordDialogTitle,
+                                            ),
+                                            content: FolioPasswordField(
+                                              controller: ctrl,
+                                              labelText: l10n.passwordLabel,
+                                              obscureText: obscure,
+                                              onToggleObscure: () => setSt2(
+                                                () => obscure = !obscure,
+                                              ),
+                                              showPasswordTooltip:
+                                                  l10n.showPassword,
+                                              hidePasswordTooltip:
+                                                  l10n.hidePassword,
+                                            ),
+                                            actions: [
+                                              TextButton(
+                                                onPressed: () =>
+                                                    Navigator.pop(dCtx, false),
+                                                child: Text(l10n.cancel),
+                                              ),
+                                              FilledButton(
+                                                onPressed: () =>
+                                                    Navigator.pop(dCtx, true),
+                                                child: Text(
+                                                  l10n.settingsCloudBackupActionImportOverwrite,
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                      );
+                                      password = ctrl.text;
+                                      ctrl.dispose();
+                                      if (ok != true ||
+                                          password.trim().isEmpty) {
+                                        return;
+                                      }
+                                    }
+                                    await _s.importVaultBackupOverwriteActive(
+                                      localFile.path,
+                                      password,
+                                    );
                                   }
-                                  await _s.importVaultBackupOverwriteActive(
-                                    localFile.path,
-                                    password,
-                                  );
                                   if (!ctx.mounted) return;
                                   Navigator.pop(ctx);
                                   _snack(l10n.settingsCloudBackupImportedSnack);
@@ -4067,6 +4309,18 @@ class _SettingsPageState extends State<SettingsPage> {
                                       onInkLarge: () => _openFolioCheckout(
                                         FolioCheckoutKind.inkLarge,
                                       ),
+                                      onBackupStoragePackSmall: () =>
+                                          _openFolioCheckout(
+                                        FolioCheckoutKind.backupStoragePackSmall,
+                                      ),
+                                      onBackupStoragePackMedium: () =>
+                                          _openFolioCheckout(
+                                        FolioCheckoutKind.backupStoragePackMedium,
+                                      ),
+                                      onBackupStoragePackLarge: () =>
+                                          _openFolioCheckout(
+                                        FolioCheckoutKind.backupStoragePackLarge,
+                                      ),
                                       onBillingPortal: _openFolioBillingPortal,
                                       onRefreshBilling: _syncFolioCloudBilling,
                                       onUploadBackup: _uploadFolioCloudBackup,
@@ -4949,6 +5203,148 @@ class _SettingsPageState extends State<SettingsPage> {
                                   ),
                                 ),
                                 const SizedBox(height: 12),
+                                Text(
+                                  l10n.settingsAccentColorTitle,
+                                  style: Theme.of(context).textTheme.titleSmall,
+                                ),
+                                const SizedBox(height: 8),
+                                Padding(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 16,
+                                  ),
+                                  child: SegmentedButton<FolioAccentColorMode>(
+                                    segments: [
+                                      ButtonSegment<FolioAccentColorMode>(
+                                        value: FolioAccentColorMode.followSystem,
+                                        label: Text(l10n.settingsAccentFollowSystem),
+                                        icon: const Icon(
+                                          Icons.palette_outlined,
+                                          size: 18,
+                                        ),
+                                      ),
+                                      ButtonSegment<FolioAccentColorMode>(
+                                        value: FolioAccentColorMode.folioDefault,
+                                        label: Text(l10n.settingsAccentFolioDefault),
+                                        icon: const Icon(
+                                          Icons.brush_outlined,
+                                          size: 18,
+                                        ),
+                                      ),
+                                      ButtonSegment<FolioAccentColorMode>(
+                                        value: FolioAccentColorMode.custom,
+                                        label: Text(l10n.settingsAccentCustom),
+                                        icon: const Icon(
+                                          Icons.color_lens_outlined,
+                                          size: 18,
+                                        ),
+                                      ),
+                                    ],
+                                    selected: {_app.accentColorMode},
+                                    onSelectionChanged: (s) {
+                                      _app.setAccentColorMode(s.first);
+                                    },
+                                  ),
+                                ),
+                                if (_app.accentColorMode ==
+                                    FolioAccentColorMode.custom) ...[
+                                  const SizedBox(height: 8),
+                                  ListTile(
+                                    leading: Icon(
+                                      Icons.color_lens,
+                                      color: Color(_app.customAccentArgb),
+                                    ),
+                                    title: Text(l10n.settingsAccentPickColor),
+                                    trailing: const Icon(Icons.chevron_right),
+                                    onTap: () async {
+                                      const presets = <int>[
+                                        0xFF455A64,
+                                        0xFF1565C0,
+                                        0xFF0277BD,
+                                        0xFF6A1B9A,
+                                        0xFFAD1457,
+                                        0xFF2E7D32,
+                                        0xFF558B2F,
+                                        0xFFBF360C,
+                                        0xFF00695C,
+                                        0xFF283593,
+                                        0xFF4E342E,
+                                        0xFF37474F,
+                                      ];
+                                      final picked = await showDialog<int>(
+                                        context: context,
+                                        builder: (ctx) {
+                                          return AlertDialog(
+                                            title: Text(l10n.settingsAccentPickColor),
+                                            content: Wrap(
+                                              spacing: 10,
+                                              runSpacing: 10,
+                                              children: [
+                                                for (final a in presets)
+                                                  Material(
+                                                    color: Color(a),
+                                                    elevation: 2,
+                                                    shape: const CircleBorder(),
+                                                    child: InkWell(
+                                                      customBorder:
+                                                          const CircleBorder(),
+                                                      onTap: () =>
+                                                          Navigator.pop(ctx, a),
+                                                      child: const SizedBox(
+                                                        width: 44,
+                                                        height: 44,
+                                                      ),
+                                                    ),
+                                                  ),
+                                              ],
+                                            ),
+                                            actions: [
+                                              TextButton(
+                                                onPressed: () =>
+                                                    Navigator.pop(ctx),
+                                                child: Text(l10n.cancel),
+                                              ),
+                                            ],
+                                          );
+                                        },
+                                      );
+                                      if (picked != null && mounted) {
+                                        await _app.setCustomAccentArgb(picked);
+                                      }
+                                    },
+                                  ),
+                                ],
+                                const SizedBox(height: 12),
+                                const Divider(height: 1),
+                                _SettingsSubsectionTitle(
+                                  title: l10n.settingsPrivacySectionTitle,
+                                  scheme: scheme,
+                                  topPadding: 8,
+                                ),
+                                const Divider(height: 1),
+                                SwitchListTile(
+                                  secondary: const Icon(Icons.analytics_outlined),
+                                  title: Text(l10n.settingsTelemetryTitle),
+                                  subtitle: Text(l10n.settingsTelemetrySubtitle),
+                                  value: _app.telemetryEnabled,
+                                  onChanged: (v) => _app.setTelemetryEnabled(v),
+                                ),
+                                const Divider(height: 1),
+                                SwitchListTile(
+                                  secondary: const Icon(Icons.bug_report_outlined),
+                                  title: Text(l10n.settingsAutoCrashReportsTitle),
+                                  subtitle: Text(
+                                    l10n.settingsAutoCrashReportsSubtitle,
+                                  ),
+                                  value: _app.autoCrashReports,
+                                  onChanged: (v) => _app.setAutoCrashReports(v),
+                                ),
+                                const Divider(height: 1),
+                                ListTile(
+                                  leading: const Icon(Icons.mail_outline),
+                                  title: Text(l10n.settingsReportBugButton),
+                                  subtitle: Text(l10n.settingsPrivacyFootnote),
+                                  onTap: _reportBugFlow,
+                                ),
                                 const Divider(height: 1),
                                 SwitchListTile(
                                   secondary: const Icon(Icons.desktop_windows),
@@ -9168,6 +9564,9 @@ class _FolioCloudSubscriptionPanel extends StatelessWidget {
     required this.onInkSmall,
     required this.onInkMedium,
     required this.onInkLarge,
+    required this.onBackupStoragePackSmall,
+    required this.onBackupStoragePackMedium,
+    required this.onBackupStoragePackLarge,
     required this.onBillingPortal,
     required this.onRefreshBilling,
     required this.onUploadBackup,
@@ -9187,6 +9586,9 @@ class _FolioCloudSubscriptionPanel extends StatelessWidget {
   final VoidCallback onInkSmall;
   final VoidCallback onInkMedium;
   final VoidCallback onInkLarge;
+  final VoidCallback onBackupStoragePackSmall;
+  final VoidCallback onBackupStoragePackMedium;
+  final VoidCallback onBackupStoragePackLarge;
   final VoidCallback onBillingPortal;
   final VoidCallback onRefreshBilling;
   final VoidCallback onUploadBackup;
@@ -9352,6 +9754,20 @@ class _FolioCloudSubscriptionPanel extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+
+    String fmtStorageBytes(int b) {
+      if (b < 1024) return '$b B';
+      final kb = b / 1024;
+      if (kb < 1024) {
+        return '${kb.toStringAsFixed(kb >= 100 ? 0 : 1)} KB';
+      }
+      final mb = kb / 1024;
+      if (mb < 1024) {
+        return '${mb.toStringAsFixed(mb >= 100 ? 0 : 1)} MB';
+      }
+      final gb = mb / 1024;
+      return '${gb.toStringAsFixed(gb >= 100 ? 1 : 2)} GB';
+    }
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -9678,47 +10094,237 @@ class _FolioCloudSubscriptionPanel extends StatelessWidget {
         const Divider(height: 1),
         Padding(
           padding: const EdgeInsets.fromLTRB(16, 10, 16, 4),
-          child: LayoutBuilder(
-            builder: (context, constraints) {
-              final cardMin = ((constraints.maxWidth - 20) / 3).clamp(
-                104.0,
-                220.0,
-              );
-              final used = backupCount;
-              final remaining = used == null ? null : (10 - used).clamp(0, 10);
-              final loading = backupCountBusy && used == null;
-              final usedLabel = loading ? '…' : (used == null ? '—' : '$used');
-              final remainingLabel = loading
-                  ? '…'
-                  : (remaining == null ? '—' : '$remaining');
-              return Wrap(
-                spacing: 10,
-                runSpacing: 10,
-                children: [
-                  _FolioCloudInkStatCard(
-                    scheme: scheme,
-                    icon: Icons.cloud_outlined,
-                    label: l10n.folioCloudBackupsUsed,
-                    valueText: usedLabel,
-                    minWidth: cardMin,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              if (snap.canUseCloudBackup)
+                Text(
+                  l10n.folioCloudBackupStorageSectionIntro,
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: scheme.onSurfaceVariant,
+                    height: 1.4,
                   ),
-                  _FolioCloudInkStatCard(
-                    scheme: scheme,
-                    icon: Icons.flag_outlined,
-                    label: l10n.folioCloudBackupsLimit,
-                    valueText: '10',
-                    minWidth: cardMin,
+                ),
+              if (!snap.canUseCloudBackup) ...[
+                Text(
+                  l10n.settingsCloudBackupsNeedPlan,
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: scheme.onSurfaceVariant,
+                    height: 1.4,
                   ),
-                  _FolioCloudInkStatCard(
-                    scheme: scheme,
-                    icon: Icons.timer_outlined,
-                    label: l10n.folioCloudBackupsRemaining,
-                    valueText: remainingLabel,
-                    minWidth: cardMin,
+                ),
+                const SizedBox(height: 10),
+              ],
+              if (snap.canUseCloudBackup) const SizedBox(height: 10),
+              if (snap.canUseCloudBackup && snap.backupExtraBytesTotal > 0)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 10),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 10,
+                    ),
+                    decoration: BoxDecoration(
+                      color: scheme.primaryContainer.withValues(alpha: 0.45),
+                      borderRadius: BorderRadius.circular(14),
+                      border: Border.all(
+                        color: scheme.outlineVariant.withValues(alpha: 0.4),
+                      ),
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(
+                          Icons.add_box_outlined,
+                          size: 22,
+                          color: scheme.primary,
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Text(
+                            l10n.folioCloudBackupStoragePurchasedExtra(
+                              fmtStorageBytes(snap.backupExtraBytesTotal),
+                            ),
+                            style: theme.textTheme.bodySmall?.copyWith(
+                              color: scheme.onPrimaryContainer,
+                              fontWeight: FontWeight.w700,
+                              height: 1.3,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
-                ],
-              );
-            },
+                ),
+              LayoutBuilder(
+                builder: (context, constraints) {
+                  final quota = snap.backupQuotaBytes;
+                  final usedBytes = snap.backupUsedBytes;
+                  final remainingBytes =
+                      quota > 0 ? (quota - usedBytes).clamp(0, quota) : 0;
+                  final loading = backupCountBusy && backupCount == null;
+                  final usedLabel = loading
+                      ? '…'
+                      : (quota > 0 ? fmtStorageBytes(usedBytes) : '—');
+                  final quotaLabel =
+                      loading ? '…' : (quota > 0 ? fmtStorageBytes(quota) : '—');
+                  final remainingLabel = loading
+                      ? '…'
+                      : (quota > 0 ? fmtStorageBytes(remainingBytes) : '—');
+                  final pct = quota > 0 && !loading
+                      ? ((usedBytes / quota) * 100).round().clamp(0, 100)
+                      : null;
+
+                  if (!snap.canUseCloudBackup) {
+                    return const SizedBox.shrink();
+                  }
+
+                  if (loading || (quota > 0 && !loading)) {
+                    return Container(
+                      padding: const EdgeInsets.all(14),
+                      decoration: BoxDecoration(
+                        color: scheme.surfaceContainerLow.withValues(
+                          alpha: 0.85,
+                        ),
+                        borderRadius: BorderRadius.circular(18),
+                        border: Border.all(
+                          color: scheme.outlineVariant.withValues(alpha: 0.45),
+                        ),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          Row(
+                            children: [
+                              Icon(
+                                Icons.pie_chart_outline_rounded,
+                                size: 22,
+                                color: scheme.primary,
+                              ),
+                              const SizedBox(width: 10),
+                              Expanded(
+                                child: Text(
+                                  l10n.folioCloudBackupStorageBarTitle,
+                                  style: theme.textTheme.titleSmall?.copyWith(
+                                    fontWeight: FontWeight.w800,
+                                  ),
+                                ),
+                              ),
+                              if (pct != null)
+                                Text(
+                                  l10n.folioCloudBackupStorageBarPercent(pct),
+                                  style: theme.textTheme.titleMedium?.copyWith(
+                                    fontWeight: FontWeight.w900,
+                                    color: scheme.primary,
+                                  ),
+                                ),
+                            ],
+                          ),
+                          const SizedBox(height: 14),
+                          ClipRRect(
+                            borderRadius: BorderRadius.circular(10),
+                            child: SizedBox(
+                              height: 26,
+                              child: LinearProgressIndicator(
+                                value: loading
+                                    ? null
+                                    : (usedBytes / quota).clamp(0.0, 1.0),
+                                minHeight: 26,
+                                backgroundColor: scheme.surfaceContainerHighest
+                                    .withValues(alpha: 0.9),
+                                valueColor: AlwaysStoppedAnimation<Color>(
+                                  pct != null && pct >= 90
+                                      ? scheme.error
+                                      : scheme.primary,
+                                ),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 10),
+                          Text(
+                            loading
+                                ? '…'
+                                : l10n.folioCloudBackupStorageBarDetail(
+                                    usedLabel,
+                                    quotaLabel,
+                                    remainingLabel,
+                                  ),
+                            style: theme.textTheme.bodySmall?.copyWith(
+                              color: scheme.onSurfaceVariant,
+                              height: 1.4,
+                            ),
+                          ),
+                        ],
+                      ),
+                    );
+                  }
+
+                  return Padding(
+                    padding: const EdgeInsets.only(top: 4),
+                    child: Text(
+                      '${l10n.folioCloudBackupStorageStatUsed}: $usedLabel · '
+                      '${l10n.folioCloudBackupStorageStatQuota}: $quotaLabel',
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: scheme.onSurfaceVariant,
+                        height: 1.4,
+                      ),
+                    ),
+                  );
+                },
+              ),
+              if (snap.canUseCloudBackup && snap.active && snap.backup) ...[
+                const SizedBox(height: 16),
+                Text(
+                  l10n.folioCloudBackupStorageExpansionTitle,
+                  style: theme.textTheme.titleSmall?.copyWith(
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                LayoutBuilder(
+                  builder: (context, constraints) {
+                    final narrow = constraints.maxWidth < 520;
+                    final cards = [
+                      _FolioCloudBackupStorageTierCard(
+                        scheme: scheme,
+                        title: l10n.folioCloudBackupStorageLibrarySmallTitle,
+                        detail: l10n.folioCloudBackupStorageLibrarySmallDetail,
+                        onPressed: busy ? null : onBackupStoragePackSmall,
+                      ),
+                      _FolioCloudBackupStorageTierCard(
+                        scheme: scheme,
+                        title: l10n.folioCloudBackupStorageLibraryMediumTitle,
+                        detail: l10n.folioCloudBackupStorageLibraryMediumDetail,
+                        onPressed: busy ? null : onBackupStoragePackMedium,
+                      ),
+                      _FolioCloudBackupStorageTierCard(
+                        scheme: scheme,
+                        title: l10n.folioCloudBackupStorageLibraryLargeTitle,
+                        detail: l10n.folioCloudBackupStorageLibraryLargeDetail,
+                        onPressed: busy ? null : onBackupStoragePackLarge,
+                      ),
+                    ];
+                    if (narrow) {
+                      return Column(
+                        children: [
+                          for (var i = 0; i < cards.length; i++) ...[
+                            if (i > 0) const SizedBox(height: 10),
+                            cards[i],
+                          ],
+                        ],
+                      );
+                    }
+                    return Row(
+                      children: [
+                        for (var i = 0; i < cards.length; i++) ...[
+                          if (i > 0) const SizedBox(width: 10),
+                          Expanded(child: cards[i]),
+                        ],
+                      ],
+                    );
+                  },
+                ),
+              ],
+            ],
           ),
         ),
         ListTile(
@@ -9878,6 +10484,72 @@ class _FolioCloudInkPackCard extends StatelessWidget {
           FilledButton.tonal(
             onPressed: onPressed,
             child: Text(AppLocalizations.of(context).continueAction),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _FolioCloudBackupStorageTierCard extends StatelessWidget {
+  const _FolioCloudBackupStorageTierCard({
+    required this.scheme,
+    required this.title,
+    required this.detail,
+    required this.onPressed,
+  });
+
+  final ColorScheme scheme;
+  final String title;
+  final String detail;
+  final VoidCallback? onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final l10n = AppLocalizations.of(context);
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: scheme.surface.withValues(alpha: 0.86),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(
+          color: scheme.outlineVariant.withValues(alpha: 0.35),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.local_library_outlined, color: scheme.tertiary),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  title,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: theme.textTheme.labelLarge?.copyWith(
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Text(
+            detail,
+            style: theme.textTheme.titleSmall?.copyWith(
+              fontWeight: FontWeight.w900,
+              letterSpacing: -0.2,
+              color: scheme.onSurface,
+              height: 1.25,
+            ),
+          ),
+          const SizedBox(height: 10),
+          FilledButton.tonal(
+            onPressed: onPressed,
+            child: Text(l10n.folioCloudSubscribeBackupStorageAddon),
           ),
         ],
       ),

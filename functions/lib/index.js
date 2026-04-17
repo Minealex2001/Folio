@@ -36,7 +36,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.folioCloudAiCompleteHttp = exports.folioCloudAiComplete = exports.monthlyInkRefill = exports.folioCloudTranscribeChunk = exports.createBillingPortalSession = exports.folioTrimVaultBackups = exports.folioRecordVaultBackupMeta = exports.folioGetLatestVaultBackupMeta = exports.folioUpsertVaultBackupIndex = exports.folioListBackupVaults = exports.folioTrimVaultBackupsByBytes = exports.folioListVaultBackups = exports.validateMicrosoftStoreEntitlements = exports.syncFolioCloudSubscriptionFromStripe = exports.createCheckoutSession = exports.closeCollabRoom = exports.removeCollabMember = exports.inviteCollabMember = exports.commitCollabMediaUpload = exports.prepareCollabMediaUpload = exports.joinCollabRoomByCode = exports.createCollabRoom = exports.stripeWebhook = exports.folioCloudAiPricing = void 0;
+exports.folioReportDiagnostic = exports.folioJiraExchangeOAuth = exports.folioCloudAiCompleteHttp = exports.folioCloudAiComplete = exports.monthlyInkRefill = exports.folioCloudTranscribeChunk = exports.createBillingPortalSession = exports.folioTrimVaultBackups = exports.folioRecordVaultBackupMeta = exports.folioGetLatestVaultBackupMeta = exports.folioUpsertVaultBackupIndex = exports.folioListBackupVaults = exports.folioTrimVaultBackupsByBytes = exports.folioListVaultBackups = exports.folioGetBackupStorageUsage = exports.folioFinalizeCloudPack = exports.folioCheckCloudPackBlobsExist = exports.folioGetCloudPackRestoreWrap = exports.folioGetLatestCloudPackMeta = exports.validateMicrosoftStoreEntitlements = exports.syncFolioCloudSubscriptionFromStripe = exports.createCheckoutSession = exports.closeCollabRoom = exports.removeCollabMember = exports.inviteCollabMember = exports.commitCollabMediaUpload = exports.prepareCollabMediaUpload = exports.joinCollabRoomByCode = exports.createCollabRoom = exports.stripeWebhook = exports.folioCloudAiPricing = void 0;
 const path = __importStar(require("path"));
 const dotenv_1 = require("dotenv");
 // Carga `functions/.env` (gitignored). En deploy, Firebase también inyecta estas variables.
@@ -663,6 +663,40 @@ function priceInkLarge() {
     var _a, _b;
     return (_b = (_a = process.env.STRIPE_PRICE_INK_LARGE) === null || _a === void 0 ? void 0 : _a.trim()) !== null && _b !== void 0 ? _b : "";
 }
+/** Precio Stripe recurrente (mensual) — librería pequeña: +20 GB. Hereda STRIPE_PRICE_BACKUP_STORAGE_PACK si no hay _SMALL. */
+function priceBackupStoragePackSmall() {
+    var _a, _b;
+    return (((_a = process.env.STRIPE_PRICE_BACKUP_STORAGE_PACK_SMALL) === null || _a === void 0 ? void 0 : _a.trim()) ||
+        ((_b = process.env.STRIPE_PRICE_BACKUP_STORAGE_PACK) === null || _b === void 0 ? void 0 : _b.trim()) ||
+        "");
+}
+function priceBackupStoragePackMedium() {
+    var _a, _b;
+    return (_b = (_a = process.env.STRIPE_PRICE_BACKUP_STORAGE_PACK_MEDIUM) === null || _a === void 0 ? void 0 : _a.trim()) !== null && _b !== void 0 ? _b : "";
+}
+function priceBackupStoragePackLarge() {
+    var _a, _b;
+    return (_b = (_a = process.env.STRIPE_PRICE_BACKUP_STORAGE_PACK_LARGE) === null || _a === void 0 ? void 0 : _a.trim()) !== null && _b !== void 0 ? _b : "";
+}
+/** 5 GiB base con suscripción Folio Cloud (backup). */
+const FOLIO_BACKUP_BASE_QUOTA_BYTES = 5 * 1024 * 1024 * 1024;
+const BACKUP_STORAGE_GRANT_SMALL_BYTES = 20 * 1024 * 1024 * 1024;
+const BACKUP_STORAGE_GRANT_MEDIUM_BYTES = 75 * 1024 * 1024 * 1024;
+const BACKUP_STORAGE_GRANT_LARGE_BYTES = 250 * 1024 * 1024 * 1024;
+async function backupStorageBytesForPriceId(stripe, priceId) {
+    if (!priceId)
+        return 0;
+    if (await catalogMatchesPrice(stripe, priceBackupStoragePackLarge(), priceId)) {
+        return BACKUP_STORAGE_GRANT_LARGE_BYTES;
+    }
+    if (await catalogMatchesPrice(stripe, priceBackupStoragePackMedium(), priceId)) {
+        return BACKUP_STORAGE_GRANT_MEDIUM_BYTES;
+    }
+    if (await catalogMatchesPrice(stripe, priceBackupStoragePackSmall(), priceId)) {
+        return BACKUP_STORAGE_GRANT_SMALL_BYTES;
+    }
+    return 0;
+}
 /**
  * Las variables pueden ser `price_...` o `prod_...`. Checkout necesita un Price;
  * si pasas un producto, se usa su precio por defecto (Dashboard → producto → precio por defecto).
@@ -719,6 +753,58 @@ async function isMonthlySubscriptionPrice(stripe, priceId) {
     const legacy = stripePriceIdsLegacy();
     return legacy.length > 0 && legacy.includes(priceId);
 }
+/** Suscripción Stripe que lleva el precio mensual Folio Cloud (no ampliaciones de copias). */
+function pickFolioCloudMainSubscriptionFromList(list, monthlyPriceId) {
+    const priority = ["active", "trialing", "past_due", "unpaid"];
+    const leg = stripePriceIdsLegacy();
+    for (const st of priority) {
+        const hit = list.find((s) => {
+            if (s.status !== st)
+                return false;
+            return s.items.data.some((it) => {
+                var _a;
+                const pid = (_a = it.price) === null || _a === void 0 ? void 0 : _a.id;
+                if (!pid)
+                    return false;
+                if (monthlyPriceId && pid === monthlyPriceId)
+                    return true;
+                if (leg.length > 0 && leg.includes(pid))
+                    return true;
+                return false;
+            });
+        });
+        if (hit)
+            return hit;
+    }
+    return undefined;
+}
+async function findFolioCloudMainSubscription(stripe, uid, customerId, initialList) {
+    let monthlyPriceId = null;
+    const rawMonthly = priceFolioCloudMonthly();
+    if (rawMonthly) {
+        try {
+            monthlyPriceId = await resolveCatalogIdToPriceId(stripe, rawMonthly);
+        }
+        catch {
+            monthlyPriceId = null;
+        }
+    }
+    let chosen = pickFolioCloudMainSubscriptionFromList(initialList, monthlyPriceId);
+    if (chosen)
+        return chosen;
+    const escapedUid = uid.replace(/\\/g, "\\\\").replace(/'/g, "\\'");
+    try {
+        const byMeta = await stripe.subscriptions.search({
+            query: `metadata['firebase_uid']:'${escapedUid}'`,
+            limit: 20,
+        });
+        chosen = pickFolioCloudMainSubscriptionFromList(byMeta.data, monthlyPriceId);
+    }
+    catch (e) {
+        console.warn("findFolioCloudMainSubscription: search fallback failed", e);
+    }
+    return chosen;
+}
 async function folioCloudFeaturesFromPriceId(stripe, priceId) {
     if (await isMonthlySubscriptionPrice(stripe, priceId)) {
         return {
@@ -767,6 +853,126 @@ async function inkDropsForPriceId(stripe, priceId) {
     if (large && (await catalogMatchesPrice(stripe, large, priceId)))
         return 2500;
     return 0;
+}
+/** Compras únicas (Stripe payment + Microsoft Store consumible); no incluye ampliaciones por suscripción. */
+function folioBackupPurchasedField(data) {
+    const fb = data.folioBackup;
+    const v = fb === null || fb === void 0 ? void 0 : fb.purchasedBytes;
+    if (typeof v === "number" && Number.isFinite(v))
+        return Math.max(0, Math.trunc(v));
+    return 0;
+}
+function folioBackupStripeSubscriptionExtraField(data) {
+    const fb = data.folioBackup;
+    const v = fb === null || fb === void 0 ? void 0 : fb.stripeSubscriptionExtraBytes;
+    if (typeof v === "number" && Number.isFinite(v))
+        return Math.max(0, Math.trunc(v));
+    return 0;
+}
+async function recomputeStripeBackupSubscriptionExtraBytes(stripe, uid) {
+    var _a, _b;
+    const ref = db.collection("users").doc(uid);
+    const snap = await ref.get();
+    const customerId = snap.get("stripeCustomerId");
+    if (!(customerId === null || customerId === void 0 ? void 0 : customerId.trim())) {
+        await ref.set({
+            folioBackup: {
+                stripeSubscriptionExtraBytes: 0,
+                updatedAt: FieldValue.serverTimestamp(),
+            },
+        }, { merge: true });
+        await updateFolioBackupQuotaBytes(uid);
+        return;
+    }
+    const okStatus = new Set(["active", "trialing", "past_due"]);
+    const subs = await stripe.subscriptions.list({
+        customer: customerId.trim(),
+        status: "all",
+        limit: 100,
+    });
+    let extra = 0;
+    for (const sub of subs.data) {
+        if (!okStatus.has(sub.status))
+            continue;
+        for (const item of sub.items.data) {
+            const pid = (_a = item.price) === null || _a === void 0 ? void 0 : _a.id;
+            if (!pid)
+                continue;
+            const b = await backupStorageBytesForPriceId(stripe, pid);
+            if (b > 0)
+                extra += b * ((_b = item.quantity) !== null && _b !== void 0 ? _b : 1);
+        }
+    }
+    await ref.set({
+        folioBackup: {
+            stripeSubscriptionExtraBytes: extra,
+            updatedAt: FieldValue.serverTimestamp(),
+        },
+    }, { merge: true });
+    await updateFolioBackupQuotaBytes(uid);
+}
+function folioBackupUsedField(data) {
+    const fb = data.folioBackup;
+    const v = fb === null || fb === void 0 ? void 0 : fb.usedBytes;
+    if (typeof v === "number" && Number.isFinite(v))
+        return Math.max(0, Math.trunc(v));
+    return 0;
+}
+/** Suma tamaños en Storage bajo users/{uid}/vaults/.../backups/ (ZIP/TAR legado). */
+async function scanLegacyBackupArchiveBytes(uid) {
+    const bucket = admin.storage().bucket();
+    const prefix = `users/${uid}/vaults/`;
+    const [files] = await bucket.getFiles({ prefix, autoPaginate: true });
+    let total = 0;
+    for (const f of files) {
+        const name = f.name;
+        if (name.endsWith("/"))
+            continue;
+        if (!name.includes("/backups/"))
+            continue;
+        const lower = name.toLowerCase();
+        if (!lower.endsWith(".tar.gz") &&
+            !lower.endsWith(".tgz") &&
+            !lower.endsWith(".zip")) {
+            continue;
+        }
+        const meta = f.metadata;
+        const rawSize = meta === null || meta === void 0 ? void 0 : meta.size;
+        const n = typeof rawSize === "number"
+            ? rawSize
+            : typeof rawSize === "string"
+                ? Number(rawSize)
+                : NaN;
+        if (Number.isFinite(n) && n > 0)
+            total += Math.trunc(n);
+    }
+    return total;
+}
+async function updateFolioBackupQuotaBytes(uid) {
+    const ref = db.collection("users").doc(uid);
+    await db.runTransaction(async (tx) => {
+        var _a;
+        const snap = await tx.get(ref);
+        const data = ((_a = snap.data()) !== null && _a !== void 0 ? _a : {});
+        const fc = data.folioCloud;
+        const features = fc === null || fc === void 0 ? void 0 : fc.features;
+        const active = (fc === null || fc === void 0 ? void 0 : fc.active) === true;
+        const backupOk = (features === null || features === void 0 ? void 0 : features.backup) === true;
+        const purchased = folioBackupPurchasedField(data);
+        const subExtra = folioBackupStripeSubscriptionExtraField(data);
+        const used = folioBackupUsedField(data);
+        const quotaBytes = active && backupOk
+            ? FOLIO_BACKUP_BASE_QUOTA_BYTES + purchased + subExtra
+            : 0;
+        tx.set(ref, {
+            folioBackup: {
+                purchasedBytes: purchased,
+                usedBytes: used,
+                quotaBytes,
+                updatedAt: FieldValue.serverTimestamp(),
+            },
+        }, { merge: true });
+    });
 }
 function monthPeriodKeyEuropeMadrid(d = new Date()) {
     var _a, _b, _c, _d;
@@ -945,6 +1151,7 @@ async function recomputeEffectiveFolioCloud(uid) {
             }, { merge: true });
         });
     }
+    await updateFolioBackupQuotaBytes(uid);
 }
 async function syncSubscriptionToUser(stripe, uid, status, priceId) {
     const active = status === "active" || status === "trialing" || status === "past_due";
@@ -984,6 +1191,33 @@ async function grantMicrosoftStoreConsumableInk(uid, grants) {
             tx.set(uref, {
                 "ink.purchasedBalance": FieldValue.increment(g.drops),
                 "ink.updatedAt": FieldValue.serverTimestamp(),
+            }, { merge: true });
+        });
+    }
+}
+async function grantMicrosoftStoreBackupStorage(uid, grants) {
+    for (const g of grants) {
+        if (g.bytes <= 0)
+            continue;
+        const docId = (0, crypto_1.createHash)("sha256")
+            .update(`${uid}:${g.dedupKey}:foliobackup`)
+            .digest("hex")
+            .slice(0, 64);
+        const doneRef = db.collection("microsoftStoreProcessedBackupGrants").doc(docId);
+        await db.runTransaction(async (tx) => {
+            const doneSnap = await tx.get(doneRef);
+            if (doneSnap.exists)
+                return;
+            tx.set(doneRef, {
+                uid,
+                dedupKey: g.dedupKey,
+                bytes: g.bytes,
+                processedAt: FieldValue.serverTimestamp(),
+            });
+            const uref = db.collection("users").doc(uid);
+            tx.set(uref, {
+                "folioBackup.purchasedBytes": FieldValue.increment(g.bytes),
+                "folioBackup.updatedAt": FieldValue.serverTimestamp(),
             }, { merge: true });
         });
     }
@@ -1031,7 +1265,7 @@ async function ensureStripeCustomerId(stripe, uid) {
  * `checkout.session.async_payment_succeeded`).
  */
 async function grantPaymentCheckoutInkIfNeeded(stripe, uid, expanded) {
-    var _a, _b, _c;
+    var _a, _b, _c, _d;
     const doneRef = db.collection("stripeProcessedCheckouts").doc(expanded.id);
     const doneSnap = await doneRef.get();
     if (doneSnap.exists)
@@ -1040,26 +1274,41 @@ async function grantPaymentCheckoutInkIfNeeded(stripe, uid, expanded) {
         return;
     const lineItems = (_b = (_a = expanded.line_items) === null || _a === void 0 ? void 0 : _a.data) !== null && _b !== void 0 ? _b : [];
     let totalAdded = 0;
+    let totalBackupBytes = 0;
     for (const item of lineItems) {
         const priceObj = item.price;
         const linePriceId = typeof priceObj === "string" ? priceObj : priceObj === null || priceObj === void 0 ? void 0 : priceObj.id;
         const drops = await inkDropsForPriceId(stripe, linePriceId);
         if (drops > 0)
             totalAdded += drops * ((_c = item.quantity) !== null && _c !== void 0 ? _c : 1);
+        const b = await backupStorageBytesForPriceId(stripe, linePriceId);
+        if (b > 0)
+            totalBackupBytes += b * ((_d = item.quantity) !== null && _d !== void 0 ? _d : 1);
     }
     const batch = db.batch();
+    const userRef = db.collection("users").doc(uid);
     if (totalAdded > 0) {
-        batch.set(db.collection("users").doc(uid), {
+        batch.set(userRef, {
             "ink.purchasedBalance": FieldValue.increment(totalAdded),
             "ink.updatedAt": FieldValue.serverTimestamp(),
+        }, { merge: true });
+    }
+    if (totalBackupBytes > 0) {
+        batch.set(userRef, {
+            "folioBackup.purchasedBytes": FieldValue.increment(totalBackupBytes),
+            "folioBackup.updatedAt": FieldValue.serverTimestamp(),
         }, { merge: true });
     }
     batch.set(doneRef, {
         uid,
         dropsAdded: totalAdded,
+        backupBytesAdded: totalBackupBytes,
         processedAt: FieldValue.serverTimestamp(),
     });
     await batch.commit();
+    if (totalBackupBytes > 0) {
+        await updateFolioBackupQuotaBytes(uid);
+    }
 }
 async function handleCheckoutSessionCompleted(stripe, session) {
     var _a, _b, _c, _d, _e;
@@ -1104,7 +1353,18 @@ async function handleCheckoutSessionCompleted(stripe, session) {
                 .doc(uid)
                 .set({ stripeCustomerId: customerId }, { merge: true });
         }
-        await syncSubscriptionToUser(stripe, uid, sub.status, priceId);
+        const isMainMonthly = await isMonthlySubscriptionPrice(stripe, priceId);
+        const backupTier = await backupStorageBytesForPriceId(stripe, priceId);
+        if (isMainMonthly) {
+            await syncSubscriptionToUser(stripe, uid, sub.status, priceId);
+        }
+        else if (backupTier > 0) {
+            await recomputeStripeBackupSubscriptionExtraBytes(stripe, uid);
+        }
+        else {
+            console.warn("checkout.session.completed: subscription price is neither Folio Cloud monthly nor backup add-on", priceId);
+            await recomputeStripeBackupSubscriptionExtraBytes(stripe, uid);
+        }
         // Misma sesión puede incluir ítems one-time (p. ej. pack de tinta) además de la sub.
         // `grantPaymentCheckoutInkIfNeeded` solo suma gotas para precios de tinta; el precio
         // de la suscripción devuelve 0 en `inkDropsForPriceId`.
@@ -1131,7 +1391,7 @@ exports.stripeWebhook = (0, https_2.onRequest)(
 // En Functions v2 (Cloud Run), si no se marca como público, Cloud Run rechaza con 401
 // antes de que podamos verificar `stripe-signature`.
 { cors: false, memory: "256MiB", invoker: "public" }, async (req, res) => {
-    var _a, _b, _c, _d;
+    var _a, _b, _c, _d, _e;
     if (req.method !== "POST") {
         res.status(405).send("Method Not Allowed");
         return;
@@ -1178,20 +1438,22 @@ exports.stripeWebhook = (0, https_2.onRequest)(
             case "customer.subscription.updated":
             case "customer.subscription.deleted": {
                 const sub = event.data.object;
-                const subUid = (_a = sub.metadata) === null || _a === void 0 ? void 0 : _a.firebase_uid;
+                const subUid = (_b = (_a = sub.metadata) === null || _a === void 0 ? void 0 : _a.firebase_uid) === null || _b === void 0 ? void 0 : _b.trim();
                 if (!subUid)
                     break;
-                const customerRef = typeof sub.customer === "string" ? sub.customer : (_b = sub.customer) === null || _b === void 0 ? void 0 : _b.id;
+                const customerRef = typeof sub.customer === "string" ? sub.customer : (_c = sub.customer) === null || _c === void 0 ? void 0 : _c.id;
                 if (customerRef) {
                     await db.collection("users").doc(subUid).set({ stripeCustomerId: customerRef }, { merge: true });
                 }
-                const priceId = (_d = (_c = sub.items.data[0]) === null || _c === void 0 ? void 0 : _c.price) === null || _d === void 0 ? void 0 : _d.id;
-                if (event.type === "customer.subscription.deleted") {
-                    await syncSubscriptionToUser(stripe, subUid, "canceled", priceId);
+                const priceId = (_e = (_d = sub.items.data[0]) === null || _d === void 0 ? void 0 : _d.price) === null || _e === void 0 ? void 0 : _e.id;
+                const statusForBilling = event.type === "customer.subscription.deleted"
+                    ? "canceled"
+                    : sub.status;
+                const isMain = await isMonthlySubscriptionPrice(stripe, priceId);
+                if (isMain) {
+                    await syncSubscriptionToUser(stripe, subUid, statusForBilling, priceId);
                 }
-                else {
-                    await syncSubscriptionToUser(stripe, subUid, sub.status, priceId);
-                }
+                await recomputeStripeBackupSubscriptionExtraBytes(stripe, subUid);
                 break;
             }
             default:
@@ -1628,12 +1890,19 @@ exports.createCheckoutSession = (0, https_1.onCall)({ invoker: "public" }, async
         throw new https_1.HttpsError("failed-precondition", "Stripe not configured on server");
     }
     const uid = request.auth.uid;
-    const kind = (_c = (_b = request.data) === null || _b === void 0 ? void 0 : _b.kind) !== null && _c !== void 0 ? _c : "folio_cloud_monthly";
+    let kindRaw = (_c = (_b = request.data) === null || _b === void 0 ? void 0 : _b.kind) !== null && _c !== void 0 ? _c : "folio_cloud_monthly";
+    if (kindRaw === "backup_storage_pack") {
+        kindRaw = "backup_storage_pack_small";
+    }
+    const kind = kindRaw;
     const priceIdMap = {
         folio_cloud_monthly: priceFolioCloudMonthly(),
         ink_small: priceInkSmall(),
         ink_medium: priceInkMedium(),
         ink_large: priceInkLarge(),
+        backup_storage_pack_small: priceBackupStoragePackSmall(),
+        backup_storage_pack_medium: priceBackupStoragePackMedium(),
+        backup_storage_pack_large: priceBackupStoragePackLarge(),
     };
     const rawCatalogId = (_d = priceIdMap[kind]) === null || _d === void 0 ? void 0 : _d.trim();
     if (!rawCatalogId) {
@@ -1653,7 +1922,10 @@ exports.createCheckoutSession = (0, https_1.onCall)({ invoker: "public" }, async
         ((_f = process.env.BILLING_PORTAL_RETURN_URL) === null || _f === void 0 ? void 0 : _f.trim()) ||
         "https://folio.app";
     const cancelUrl = ((_g = process.env.STRIPE_CHECKOUT_CANCEL_URL) === null || _g === void 0 ? void 0 : _g.trim()) || successUrl;
-    const isSubscription = kind === "folio_cloud_monthly";
+    const isSubscription = kind === "folio_cloud_monthly" ||
+        kind === "backup_storage_pack_small" ||
+        kind === "backup_storage_pack_medium" ||
+        kind === "backup_storage_pack_large";
     let session;
     try {
         session = await stripe.checkout.sessions.create({
@@ -1705,31 +1977,9 @@ exports.syncFolioCloudSubscriptionFromStripe = (0, https_1.onCall)({ invoker: "p
     const subs = await stripe.subscriptions.list({
         customer: customerId,
         status: "all",
-        limit: 20,
+        limit: 100,
     });
-    const priority = ["active", "trialing", "past_due", "unpaid"];
-    function pickSubscription(list) {
-        for (const st of priority) {
-            const hit = list.find((s) => s.status === st);
-            if (hit)
-                return hit;
-        }
-        return undefined;
-    }
-    let chosen = pickSubscription(subs.data);
-    if (!chosen) {
-        const escapedUid = uid.replace(/\\/g, "\\\\").replace(/'/g, "\\'");
-        try {
-            const byMeta = await stripe.subscriptions.search({
-                query: `metadata['firebase_uid']:'${escapedUid}'`,
-                limit: 10,
-            });
-            chosen = pickSubscription(byMeta.data);
-        }
-        catch (e) {
-            console.warn("syncFolioCloudSubscriptionFromStripe: search fallback failed", e);
-        }
-    }
+    let chosen = await findFolioCloudMainSubscription(stripe, uid, customerId, subs.data);
     if (chosen) {
         const c = chosen.customer;
         const cid = typeof c === "string" ? c : c === null || c === void 0 ? void 0 : c.id;
@@ -1772,6 +2022,7 @@ exports.validateMicrosoftStoreEntitlements = (0, https_1.onCall)({ cors: true, i
         },
     }, { merge: true });
     await grantMicrosoftStoreConsumableInk(uid, scan.consumableGrants);
+    await grantMicrosoftStoreBackupStorage(uid, scan.backupStorageGrants);
     await recomputeEffectiveFolioCloud(uid);
     return {
         ok: true,
@@ -1779,8 +2030,285 @@ exports.validateMicrosoftStoreEntitlements = (0, https_1.onCall)({ cors: true, i
         storeItems: items.length,
     };
 });
-exports.folioListVaultBackups = (0, https_1.onCall)({ cors: true, invoker: "public" }, async (request) => {
+function assertValidCloudPackBlobId(raw) {
+    const s = typeof raw === "string" ? raw.trim().toLowerCase() : "";
+    if (!/^[0-9a-f]{64}$/.test(s)) {
+        throw new https_1.HttpsError("invalid-argument", "Invalid blobId");
+    }
+    return s;
+}
+function assertCloudPackSnapshotStoragePath(uid, vaultId, pathRaw) {
+    const path = typeof pathRaw === "string" ? pathRaw.trim() : "";
+    const prefix = `users/${uid}/vaults/${vaultId}/cloud-packs/snapshots/`;
+    if (!path.startsWith(prefix) || path.includes("..")) {
+        throw new https_1.HttpsError("invalid-argument", "Invalid snapshot storage path");
+    }
+    return path;
+}
+function parseCloudPackBlobSizeList(raw) {
+    if (!Array.isArray(raw))
+        return [];
+    const out = [];
+    for (const x of raw) {
+        if (x === null || typeof x !== "object")
+            continue;
+        const o = x;
+        const blobId = assertValidCloudPackBlobId(o.blobId);
+        const szRaw = o.sizeBytes;
+        const sz = typeof szRaw === "number" && Number.isFinite(szRaw)
+            ? Math.max(0, Math.trunc(szRaw))
+            : 0;
+        if (sz <= 0 || sz > 2 * 1024 * 1024 * 1024)
+            continue;
+        out.push({ blobId, sizeBytes: sz });
+    }
+    return out;
+}
+function effectiveBackupQuotaBytes(data) {
+    const fb = data.folioBackup;
+    const q = fb === null || fb === void 0 ? void 0 : fb.quotaBytes;
+    if (typeof q === "number" && Number.isFinite(q) && q >= 0) {
+        return Math.trunc(q);
+    }
+    const fc = data.folioCloud;
+    const features = fc === null || fc === void 0 ? void 0 : fc.features;
+    if ((fc === null || fc === void 0 ? void 0 : fc.active) === true && (features === null || features === void 0 ? void 0 : features.backup) === true) {
+        return (FOLIO_BACKUP_BASE_QUOTA_BYTES +
+            folioBackupPurchasedField(data) +
+            folioBackupStripeSubscriptionExtraField(data));
+    }
+    return 0;
+}
+exports.folioGetLatestCloudPackMeta = (0, https_1.onCall)({ cors: true, invoker: "public" }, async (request) => {
+    var _a, _b, _c, _d;
+    if (!((_a = request.auth) === null || _a === void 0 ? void 0 : _a.uid)) {
+        throw new https_1.HttpsError("unauthenticated", "Login required");
+    }
+    const uid = request.auth.uid;
+    await assertFolioCloudBackupAllowed(uid);
+    const vaultId = assertValidVaultId((_b = request.data) === null || _b === void 0 ? void 0 : _b.vaultId);
+    const snap = await db
+        .collection("users")
+        .doc(uid)
+        .collection("vaultBackups")
+        .doc(vaultId)
+        .get();
+    const data = ((_c = snap.data()) !== null && _c !== void 0 ? _c : {});
+    const wrapB64 = typeof data.cloudPackRestoreWrapB64 === "string"
+        ? data.cloudPackRestoreWrapB64.trim()
+        : "";
+    const wrapKind = data.cloudPackRestoreWrapKind;
+    const hasRestoreWrap = wrapB64.length > 0 &&
+        (wrapKind === "vaultDek" || wrapKind === "packKey");
+    return {
+        ok: true,
+        latest: {
+            snapshotStoragePath: typeof data.latestCloudPackSnapshotPath === "string"
+                ? data.latestCloudPackSnapshotPath
+                : "",
+            snapshotSizeBytes: typeof data.latestCloudPackSnapshotSizeBytes === "number"
+                ? data.latestCloudPackSnapshotSizeBytes
+                : 0,
+            contentFingerprint: typeof data.latestCloudPackContentFingerprint === "string"
+                ? data.latestCloudPackContentFingerprint
+                : "",
+            updatedAt: (_d = data.latestCloudPackUpdatedAt) !== null && _d !== void 0 ? _d : null,
+            hasRestoreWrap,
+        },
+    };
+});
+exports.folioGetCloudPackRestoreWrap = (0, https_1.onCall)({ cors: true, invoker: "public" }, async (request) => {
+    var _a, _b, _c;
+    if (!((_a = request.auth) === null || _a === void 0 ? void 0 : _a.uid)) {
+        throw new https_1.HttpsError("unauthenticated", "Login required");
+    }
+    const uid = request.auth.uid;
+    await assertFolioCloudBackupAllowed(uid);
+    const vaultId = assertValidVaultId((_b = request.data) === null || _b === void 0 ? void 0 : _b.vaultId);
+    const snap = await db
+        .collection("users")
+        .doc(uid)
+        .collection("vaultBackups")
+        .doc(vaultId)
+        .get();
+    const data = ((_c = snap.data()) !== null && _c !== void 0 ? _c : {});
+    const wrapB64 = typeof data.cloudPackRestoreWrapB64 === "string"
+        ? data.cloudPackRestoreWrapB64.trim()
+        : "";
+    const kind = data.cloudPackRestoreWrapKind;
+    if (!wrapB64 ||
+        (kind !== "vaultDek" && kind !== "packKey")) {
+        throw new https_1.HttpsError("failed-precondition", "No hay envoltorio de recuperación para esta libreta. Sube una copia desde Folio con la contraseña indicada.");
+    }
+    return {
+        ok: true,
+        wrapB64,
+        wrapKind: kind,
+    };
+});
+exports.folioCheckCloudPackBlobsExist = (0, https_1.onCall)({ cors: true, invoker: "public" }, async (request) => {
+    var _a, _b, _c;
+    if (!((_a = request.auth) === null || _a === void 0 ? void 0 : _a.uid)) {
+        throw new https_1.HttpsError("unauthenticated", "Login required");
+    }
+    const uid = request.auth.uid;
+    await assertFolioCloudBackupAllowed(uid);
+    const vaultId = assertValidVaultId((_b = request.data) === null || _b === void 0 ? void 0 : _b.vaultId);
+    const rawIds = (_c = request.data) === null || _c === void 0 ? void 0 : _c.blobIds;
+    if (!Array.isArray(rawIds) || rawIds.length > 500) {
+        throw new https_1.HttpsError("invalid-argument", "blobIds invalid");
+    }
+    const bucket = admin.storage().bucket();
+    const missing = [];
+    for (const id of rawIds) {
+        const bid = assertValidCloudPackBlobId(id);
+        const name = `users/${uid}/vaults/${vaultId}/cloud-packs/blobs/${bid}`;
+        const [exists] = await bucket.file(name).exists();
+        if (!exists)
+            missing.push(bid);
+    }
+    return { missing };
+});
+exports.folioFinalizeCloudPack = (0, https_1.onCall)({ cors: true, invoker: "public" }, async (request) => {
+    var _a, _b, _c, _d, _e, _f, _g, _h, _j, _k, _l, _m;
+    if (!((_a = request.auth) === null || _a === void 0 ? void 0 : _a.uid)) {
+        throw new https_1.HttpsError("unauthenticated", "Login required");
+    }
+    const uid = request.auth.uid;
+    await assertFolioCloudBackupAllowed(uid);
+    const vaultId = assertValidVaultId((_b = request.data) === null || _b === void 0 ? void 0 : _b.vaultId);
+    const snapPath = assertCloudPackSnapshotStoragePath(uid, vaultId, (_c = request.data) === null || _c === void 0 ? void 0 : _c.snapshotStoragePath);
+    const snapSizeRaw = (_d = request.data) === null || _d === void 0 ? void 0 : _d.snapshotSizeBytes;
+    const snapSize = typeof snapSizeRaw === "number" && Number.isFinite(snapSizeRaw)
+        ? Math.max(0, Math.trunc(snapSizeRaw))
+        : 0;
+    if (snapSize <= 0 || snapSize > 256 * 1024 * 1024) {
+        throw new https_1.HttpsError("invalid-argument", "snapshotSizeBytes invalid");
+    }
+    const fpRaw = (_e = request.data) === null || _e === void 0 ? void 0 : _e.contentFingerprint;
+    const fingerprint = typeof fpRaw === "string" ? fpRaw.trim().toLowerCase() : "";
+    if (!fingerprint || fingerprint.length > 200 || !/^[0-9a-f]+$/.test(fingerprint)) {
+        throw new https_1.HttpsError("invalid-argument", "contentFingerprint invalid");
+    }
+    const oldPathRaw = (_f = request.data) === null || _f === void 0 ? void 0 : _f.oldSnapshotStoragePath;
+    let oldSnapSize = 0;
+    if (typeof oldPathRaw === "string" && oldPathRaw.trim()) {
+        const op = oldPathRaw.trim();
+        const okPrefix = `users/${uid}/vaults/${vaultId}/cloud-packs/snapshots/`;
+        if (!op.startsWith(okPrefix) || op.includes("..")) {
+            throw new https_1.HttpsError("invalid-argument", "oldSnapshotStoragePath invalid");
+        }
+        const oldSzRaw = (_g = request.data) === null || _g === void 0 ? void 0 : _g.oldSnapshotSizeBytes;
+        oldSnapSize =
+            typeof oldSzRaw === "number" && Number.isFinite(oldSzRaw)
+                ? Math.max(0, Math.trunc(oldSzRaw))
+                : 0;
+    }
+    const newBlobs = parseCloudPackBlobSizeList((_h = request.data) === null || _h === void 0 ? void 0 : _h.newBlobs);
+    const deleteBlobs = parseCloudPackBlobSizeList((_j = request.data) === null || _j === void 0 ? void 0 : _j.deleteBlobs);
+    if (newBlobs.length > 2000 || deleteBlobs.length > 2000) {
+        throw new https_1.HttpsError("invalid-argument", "Too many blob entries");
+    }
+    const userRef = db.collection("users").doc(uid);
+    const userSnap = await userRef.get();
+    const udata = ((_k = userSnap.data()) !== null && _k !== void 0 ? _k : {});
+    let used = folioBackupUsedField(udata);
+    const quota = effectiveBackupQuotaBytes(udata);
+    const legacyBytes = await scanLegacyBackupArchiveBytes(uid);
+    const wrapB64Raw = (_l = request.data) === null || _l === void 0 ? void 0 : _l.cloudPackRestoreWrapB64;
+    const wrapKindRaw = (_m = request.data) === null || _m === void 0 ? void 0 : _m.cloudPackRestoreWrapKind;
+    let restoreWrapB64 = null;
+    let restoreWrapKind = null;
+    if (wrapB64Raw != null && String(wrapB64Raw).trim() !== "") {
+        if (wrapKindRaw !== "vaultDek" && wrapKindRaw !== "packKey") {
+            throw new https_1.HttpsError("invalid-argument", "cloudPackRestoreWrapKind must be vaultDek or packKey");
+        }
+        const s = String(wrapB64Raw).trim();
+        let buf;
+        try {
+            buf = Buffer.from(s, "base64");
+        }
+        catch {
+            throw new https_1.HttpsError("invalid-argument", "cloudPackRestoreWrapB64 invalid base64");
+        }
+        if (buf.length < 44 || buf.length > 4096) {
+            throw new https_1.HttpsError("invalid-argument", "cloudPackRestoreWrapB64 size invalid");
+        }
+        restoreWrapB64 = s;
+        restoreWrapKind = wrapKindRaw;
+    }
+    let delta = snapSize - oldSnapSize;
+    for (const b of newBlobs)
+        delta += b.sizeBytes;
+    for (const b of deleteBlobs)
+        delta -= b.sizeBytes;
+    const newUsed = Math.max(0, used + delta);
+    if (quota > 0 && newUsed + legacyBytes > quota) {
+        throw new https_1.HttpsError("resource-exhausted", "Se superó la cuota de almacenamiento de copias en la nube.");
+    }
+    const bucket = admin.storage().bucket();
+    const [fileMeta] = await bucket.file(snapPath).getMetadata();
+    const rawSz = fileMeta.size;
+    const metaSize = typeof rawSz === "number"
+        ? rawSz
+        : typeof rawSz === "string"
+            ? Number(rawSz)
+            : 0;
+    if (!Number.isFinite(metaSize) || metaSize <= 0 || Math.abs(metaSize - snapSize) > 16) {
+        throw new https_1.HttpsError("failed-precondition", "Snapshot not found in storage or size mismatch.");
+    }
+    await userRef.update({
+        "folioBackup.usedBytes": newUsed,
+        "folioBackup.updatedAt": FieldValue.serverTimestamp(),
+    });
+    const vaultBackupRef = db
+        .collection("users")
+        .doc(uid)
+        .collection("vaultBackups")
+        .doc(vaultId);
+    const vaultPatch = {
+        latestCloudPackSnapshotPath: snapPath,
+        latestCloudPackSnapshotSizeBytes: snapSize,
+        latestCloudPackContentFingerprint: fingerprint.slice(0, 200),
+        latestCloudPackUpdatedAt: FieldValue.serverTimestamp(),
+    };
+    if (restoreWrapB64 != null && restoreWrapKind != null) {
+        vaultPatch.cloudPackRestoreWrapB64 = restoreWrapB64;
+        vaultPatch.cloudPackRestoreWrapKind = restoreWrapKind;
+    }
+    await vaultBackupRef.set(vaultPatch, { merge: true });
+    return {
+        ok: true,
+        usedBytes: newUsed,
+        quotaBytes: quota,
+        legacyBytes,
+        totalUsedBytes: newUsed + legacyBytes,
+    };
+});
+exports.folioGetBackupStorageUsage = (0, https_1.onCall)({ cors: true, invoker: "public" }, async (request) => {
     var _a, _b;
+    if (!((_a = request.auth) === null || _a === void 0 ? void 0 : _a.uid)) {
+        throw new https_1.HttpsError("unauthenticated", "Login required");
+    }
+    const uid = request.auth.uid;
+    await assertFolioCloudBackupAllowed(uid);
+    const snap = await db.collection("users").doc(uid).get();
+    const data = ((_b = snap.data()) !== null && _b !== void 0 ? _b : {});
+    const usedCloud = folioBackupUsedField(data);
+    const legacyBytes = await scanLegacyBackupArchiveBytes(uid);
+    return {
+        ok: true,
+        usedBytes: usedCloud + legacyBytes,
+        cloudPackUsedBytes: usedCloud,
+        legacyBackupBytes: legacyBytes,
+        quotaBytes: effectiveBackupQuotaBytes(data),
+        purchasedBytes: folioBackupPurchasedField(data),
+        subscriptionExtraBytes: folioBackupStripeSubscriptionExtraField(data),
+        baseQuotaBytes: FOLIO_BACKUP_BASE_QUOTA_BYTES,
+    };
+});
+exports.folioListVaultBackups = (0, https_1.onCall)({ cors: true, invoker: "public" }, async (request) => {
+    var _a, _b, _c, _d;
     if (!((_a = request.auth) === null || _a === void 0 ? void 0 : _a.uid)) {
         throw new https_1.HttpsError("unauthenticated", "Login required");
     }
@@ -1813,7 +2341,36 @@ exports.folioListVaultBackups = (0, https_1.onCall)({ cors: true, invoker: "publ
     })
         .filter((x) => x.fileName.length > 0);
     items.sort((a, b) => b.fileName.localeCompare(a.fileName));
-    return { items };
+    const vSnap = await db
+        .collection("users")
+        .doc(uid)
+        .collection("vaultBackups")
+        .doc(vaultId)
+        .get();
+    const vd = ((_c = vSnap.data()) !== null && _c !== void 0 ? _c : {});
+    const cpPath = typeof vd.latestCloudPackSnapshotPath === "string"
+        ? vd.latestCloudPackSnapshotPath.trim()
+        : "";
+    let cloudPack = null;
+    if (cpPath) {
+        const fn = (_d = cpPath.split("/").pop()) !== null && _d !== void 0 ? _d : "snap.bin";
+        const sz = typeof vd.latestCloudPackSnapshotSizeBytes === "number"
+            ? vd.latestCloudPackSnapshotSizeBytes
+            : 0;
+        const upd = vd.latestCloudPackUpdatedAt;
+        let createdAt = "";
+        if (upd instanceof admin.firestore.Timestamp) {
+            createdAt = upd.toDate().toISOString();
+        }
+        cloudPack = {
+            fileName: fn,
+            storagePath: cpPath,
+            sizeBytes: sz,
+            createdAt,
+            isCloudPack: true,
+        };
+    }
+    return { items, cloudPack };
 });
 exports.folioTrimVaultBackupsByBytes = (0, https_1.onCall)({ cors: true, invoker: "public" }, async (request) => {
     var _a, _b, _c;
@@ -2430,6 +2987,166 @@ exports.folioCloudAiCompleteHttp = functionsV1
         res
             .status(200)
             .json(callableLikeErrorBody("internal", "Internal error"));
+    }
+});
+const FOLIO_JIRA_DEFAULT_CLOUD_CLIENT_ID = "7HEIa3N2dGmMWWscFmYnjGRLNSjzg8hI";
+function jiraOauthEnvClientId() {
+    var _a;
+    return ((_a = process.env.JIRA_OAUTH_CLIENT_ID) === null || _a === void 0 ? void 0 : _a.trim()) || FOLIO_JIRA_DEFAULT_CLOUD_CLIENT_ID;
+}
+function jiraOauthEnvClientSecret() {
+    var _a, _b;
+    return (_b = (_a = process.env.JIRA_OAUTH_CLIENT_SECRET) === null || _a === void 0 ? void 0 : _a.trim()) !== null && _b !== void 0 ? _b : "";
+}
+/**
+ * Intercambio authorization_code → tokens (Jira Cloud 3LO).
+ * Invocación pública: el código OAuth es de un solo uso y corta vida; el redirect
+ * debe ser loopback Folio (mismo puerto que el cliente).
+ */
+exports.folioJiraExchangeOAuth = (0, https_2.onRequest)({ cors: true, memory: "256MiB", invoker: "public" }, async (req, res) => {
+    var _a, _b, _c, _d;
+    res.set("Access-Control-Allow-Origin", "*");
+    res.set("Access-Control-Allow-Headers", "Content-Type");
+    res.set("Access-Control-Allow-Methods", "POST, OPTIONS");
+    if (req.method === "OPTIONS") {
+        res.status(204).send("");
+        return;
+    }
+    if (req.method !== "POST") {
+        res.status(405).json({ error: "method_not_allowed" });
+        return;
+    }
+    const secret = jiraOauthEnvClientSecret();
+    if (!secret) {
+        res.status(503).json({ error: "jira_oauth_not_configured" });
+        return;
+    }
+    const raw = typeof req.body === "string"
+        ? (() => {
+            try {
+                return JSON.parse(req.body || "{}");
+            }
+            catch {
+                return {};
+            }
+        })()
+        : ((_a = req.body) !== null && _a !== void 0 ? _a : {});
+    const code = String((_b = raw.code) !== null && _b !== void 0 ? _b : "").trim();
+    let redirectUri = String((_c = raw.redirectUri) !== null && _c !== void 0 ? _c : "").trim();
+    const clientIdRaw = String((_d = raw.clientId) !== null && _d !== void 0 ? _d : "").trim();
+    const clientId = clientIdRaw || jiraOauthEnvClientId();
+    if (!code || !redirectUri) {
+        res.status(400).json({ error: "missing_code_or_redirect" });
+        return;
+    }
+    try {
+        const u = new URL(redirectUri);
+        if (u.protocol !== "http:" || u.hostname !== "127.0.0.1") {
+            res.status(400).json({ error: "invalid_redirect_uri" });
+            return;
+        }
+        if (u.port !== "45747") {
+            res.status(400).json({ error: "invalid_redirect_uri" });
+            return;
+        }
+        if (!u.pathname.endsWith("/callback")) {
+            res.status(400).json({ error: "invalid_redirect_uri" });
+            return;
+        }
+        redirectUri = u.toString();
+    }
+    catch {
+        res.status(400).json({ error: "invalid_redirect_uri" });
+        return;
+    }
+    const tokenResp = await fetch("https://auth.atlassian.com/oauth/token", {
+        method: "POST",
+        headers: {
+            "content-type": "application/json",
+            authorization: "Basic " +
+                Buffer.from(`${clientId}:${secret}`, "utf8").toString("base64"),
+        },
+        body: JSON.stringify({
+            grant_type: "authorization_code",
+            client_id: clientId,
+            client_secret: secret,
+            code,
+            redirect_uri: redirectUri,
+        }),
+    });
+    const text = await tokenResp.text();
+    if (!tokenResp.ok) {
+        console.warn("folioJiraExchangeOAuth: Atlassian error", tokenResp.status, text);
+        res.status(502).json({
+            error: "atlassian_token_failed",
+            status: tokenResp.status,
+            body: text.length > 800 ? `${text.slice(0, 800)}…` : text,
+        });
+        return;
+    }
+    try {
+        const json = JSON.parse(text);
+        res.status(200).json(json);
+    }
+    catch {
+        res.status(502).json({ error: "invalid_atlassian_json" });
+    }
+});
+/**
+ * Informes de diagnóstico opcionales desde el cliente (fallos, “reportar bug”).
+ * Sin autenticación Firebase: no incluir datos de libreta; solo metadatos y trozo de log.
+ */
+exports.folioReportDiagnostic = (0, https_2.onRequest)({ cors: true, memory: "256MiB", invoker: "public" }, async (req, res) => {
+    var _a, _b, _c, _d, _e, _f, _g, _h;
+    res.set("Access-Control-Allow-Origin", "*");
+    res.set("Access-Control-Allow-Headers", "Content-Type");
+    res.set("Access-Control-Allow-Methods", "POST, OPTIONS");
+    if (req.method === "OPTIONS") {
+        res.status(204).send("");
+        return;
+    }
+    if (req.method !== "POST") {
+        res.status(405).json({ error: "method_not_allowed" });
+        return;
+    }
+    const raw = typeof req.body === "string"
+        ? (() => {
+            try {
+                return JSON.parse(req.body || "{}");
+            }
+            catch {
+                return {};
+            }
+        })()
+        : ((_a = req.body) !== null && _a !== void 0 ? _a : {});
+    const installId = String((_b = raw.installId) !== null && _b !== void 0 ? _b : "").trim().slice(0, 120);
+    const kind = String((_c = raw.kind) !== null && _c !== void 0 ? _c : "manual").trim().slice(0, 64);
+    const appVersion = String((_d = raw.appVersion) !== null && _d !== void 0 ? _d : "").trim().slice(0, 64);
+    const platform = String((_e = raw.platform) !== null && _e !== void 0 ? _e : "").trim().slice(0, 64);
+    const channel = String((_f = raw.channel) !== null && _f !== void 0 ? _f : "").trim().slice(0, 64);
+    const userNote = String((_g = raw.userNote) !== null && _g !== void 0 ? _g : "").trim().slice(0, 2000);
+    const logExcerpt = String((_h = raw.logExcerpt) !== null && _h !== void 0 ? _h : "").trim().slice(0, 12000);
+    if (!installId) {
+        res.status(400).json({ error: "missing_install_id" });
+        return;
+    }
+    try {
+        await db.collection("folio_diagnostics").add({
+            createdAt: FieldValue.serverTimestamp(),
+            installId,
+            kind,
+            appVersion,
+            platform,
+            channel,
+            userNote,
+            logExcerpt,
+            telemetryEnabled: Boolean(raw.telemetryEnabled),
+        });
+        res.status(200).json({ ok: true });
+    }
+    catch (e) {
+        console.error("folioReportDiagnostic", e);
+        res.status(500).json({ error: "write_failed" });
     }
 });
 //# sourceMappingURL=index.js.map

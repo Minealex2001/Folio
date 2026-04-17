@@ -739,7 +739,7 @@ abstract class AppLocalizations {
   /// No description provided for @settingsAppearanceHint.
   ///
   /// In es, this message translates to:
-  /// **'El color principal sigue al acento de Windows cuando está disponible.'**
+  /// **'Elige el brillo del tema, el origen del color de acento (Windows, Folio o personalizado), el zoom y el idioma.'**
   String get settingsAppearanceHint;
 
   /// No description provided for @backupFilePasswordLabel.
@@ -5119,7 +5119,7 @@ abstract class AppLocalizations {
   /// No description provided for @folioCloudUploadEncryptedBackupSubtitle.
   ///
   /// In es, this message translates to:
-  /// **'Folio genera la copia cifrada de la libreta abierta y la sube solo; no tienes que exportar un .zip.'**
+  /// **'Folio sube una copia incremental cifrada en la nube de la libreta abierta (solo lo que cambió); no hace falta exportar un .zip.'**
   String get folioCloudUploadEncryptedBackupSubtitle;
 
   /// No description provided for @folioCloudUploadSnackOk.
@@ -5163,6 +5163,132 @@ abstract class AppLocalizations {
   /// In es, this message translates to:
   /// **'Restantes'**
   String get folioCloudBackupsRemaining;
+
+  /// No description provided for @folioCloudBackupStorageStatUsed.
+  ///
+  /// In es, this message translates to:
+  /// **'Usado (almacenamiento)'**
+  String get folioCloudBackupStorageStatUsed;
+
+  /// No description provided for @folioCloudBackupStorageStatQuota.
+  ///
+  /// In es, this message translates to:
+  /// **'Cuota'**
+  String get folioCloudBackupStorageStatQuota;
+
+  /// No description provided for @folioCloudBackupStorageStatRemaining.
+  ///
+  /// In es, this message translates to:
+  /// **'Restante'**
+  String get folioCloudBackupStorageStatRemaining;
+
+  /// No description provided for @folioCloudBackupStorageExpansionTitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Ampliar almacenamiento de copias'**
+  String get folioCloudBackupStorageExpansionTitle;
+
+  /// No description provided for @folioCloudBackupStorageLibrarySmallTitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Librería pequeña'**
+  String get folioCloudBackupStorageLibrarySmallTitle;
+
+  /// No description provided for @folioCloudBackupStorageLibrarySmallDetail.
+  ///
+  /// In es, this message translates to:
+  /// **'+20 GB · 1,99 €/mes'**
+  String get folioCloudBackupStorageLibrarySmallDetail;
+
+  /// No description provided for @folioCloudBackupStorageLibraryMediumTitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Librería mediana'**
+  String get folioCloudBackupStorageLibraryMediumTitle;
+
+  /// No description provided for @folioCloudBackupStorageLibraryMediumDetail.
+  ///
+  /// In es, this message translates to:
+  /// **'+75 GB · 4,99 €/mes'**
+  String get folioCloudBackupStorageLibraryMediumDetail;
+
+  /// No description provided for @folioCloudBackupStorageLibraryLargeTitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Librería grande'**
+  String get folioCloudBackupStorageLibraryLargeTitle;
+
+  /// No description provided for @folioCloudBackupStorageLibraryLargeDetail.
+  ///
+  /// In es, this message translates to:
+  /// **'+250 GB · 9,99 €/mes'**
+  String get folioCloudBackupStorageLibraryLargeDetail;
+
+  /// No description provided for @folioCloudSubscribeBackupStorageAddon.
+  ///
+  /// In es, this message translates to:
+  /// **'Suscribirse'**
+  String get folioCloudSubscribeBackupStorageAddon;
+
+  /// No description provided for @folioCloudBackupTypeIncremental.
+  ///
+  /// In es, this message translates to:
+  /// **'Copia incremental (última)'**
+  String get folioCloudBackupTypeIncremental;
+
+  /// No description provided for @folioCloudBackupPackNoDownload.
+  ///
+  /// In es, this message translates to:
+  /// **'Las copias incrementales se restauran con «Importar y sobrescribir». No hay descarga de archivo aparte.'**
+  String get folioCloudBackupPackNoDownload;
+
+  /// No description provided for @folioCloudBackupQuotaExceeded.
+  ///
+  /// In es, this message translates to:
+  /// **'No hay suficiente almacenamiento para copias en la nube. Compra una ampliación o borra copias completas antiguas en backups/.'**
+  String get folioCloudBackupQuotaExceeded;
+
+  /// No description provided for @onboardingCloudBackupNeedLegacyArchive.
+  ///
+  /// In es, this message translates to:
+  /// **'Esta libreta solo tiene una copia incremental en la nube. Para configurar un dispositivo nuevo, descarga un archivo completo (.tar.gz) desde otro dispositivo con Folio o créalo desde Ajustes → exportar.'**
+  String get onboardingCloudBackupNeedLegacyArchive;
+
+  /// No description provided for @onboardingCloudBackupNeedRestoreWrap.
+  ///
+  /// In es, this message translates to:
+  /// **'Esta copia incremental aún no tiene clave de recuperación en la nube. En el dispositivo donde creaste la copia, abre Folio → Ajustes → sube la copia a la nube (introduce la contraseña de la libreta cuando se solicite). También puedes usar un archivo completo (.zip) si lo tienes.'**
+  String get onboardingCloudBackupNeedRestoreWrap;
+
+  /// No description provided for @onboardingCloudBackupIncrementalRestoreBody.
+  ///
+  /// In es, this message translates to:
+  /// **'Copia incremental en la nube lista. Introduce la contraseña de la libreta (la misma que usas para desbloquearla). Si la libreta estaba en claro, usa la contraseña de recuperación que definiste al subir la copia.'**
+  String get onboardingCloudBackupIncrementalRestoreBody;
+
+  /// No description provided for @settingsCloudBackupWrapPasswordTitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Recuperación en otros dispositivos'**
+  String get settingsCloudBackupWrapPasswordTitle;
+
+  /// No description provided for @settingsCloudBackupWrapPasswordBody.
+  ///
+  /// In es, this message translates to:
+  /// **'Introduce la contraseña de esta libreta. Se guardará cifrada en tu cuenta para restaurar la copia incremental al instalar Folio en un dispositivo nuevo.'**
+  String get settingsCloudBackupWrapPasswordBody;
+
+  /// No description provided for @settingsCloudBackupWrapPasswordRequired.
+  ///
+  /// In es, this message translates to:
+  /// **'Hace falta la contraseña de la libreta.'**
+  String get settingsCloudBackupWrapPasswordRequired;
+
+  /// No description provided for @settingsCloudBackupWrapPasswordBodyPlain.
+  ///
+  /// In es, this message translates to:
+  /// **'Opcional: elige una contraseña de recuperación para restaurar esta copia incremental en otro dispositivo. Déjala en blanco si solo usarás este equipo.'**
+  String get settingsCloudBackupWrapPasswordBodyPlain;
 
   /// No description provided for @folioCloudPublishTestPage.
   ///
@@ -8232,8 +8358,42 @@ abstract class AppLocalizations {
   /// No description provided for @folioCloudSubsectionEncryptedBackups.
   ///
   /// In es, this message translates to:
-  /// **'Copias cifradas (nube)'**
+  /// **'Copias y almacenamiento (nube)'**
   String get folioCloudSubsectionEncryptedBackups;
+
+  /// No description provided for @folioCloudBackupStorageSectionIntro.
+  ///
+  /// In es, this message translates to:
+  /// **'El uso incluye la copia incremental (cloud-pack) y los archivos completos antiguos en la carpeta backups/. Puedes suscribirte a una librería pequeña, mediana o grande (cuota extra mensual mientras la suscripción esté activa).'**
+  String get folioCloudBackupStorageSectionIntro;
+
+  /// No description provided for @folioCloudBackupStoragePurchasedExtra.
+  ///
+  /// In es, this message translates to:
+  /// **'Ampliaciones compradas: +{size}'**
+  String folioCloudBackupStoragePurchasedExtra(Object size);
+
+  /// No description provided for @folioCloudBackupStorageBarTitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Uso de almacenamiento'**
+  String get folioCloudBackupStorageBarTitle;
+
+  /// No description provided for @folioCloudBackupStorageBarPercent.
+  ///
+  /// In es, this message translates to:
+  /// **'{percent} %'**
+  String folioCloudBackupStorageBarPercent(int percent);
+
+  /// No description provided for @folioCloudBackupStorageBarDetail.
+  ///
+  /// In es, this message translates to:
+  /// **'Usado: {used} · Cuota total: {total} · Libre: {free}'**
+  String folioCloudBackupStorageBarDetail(
+    Object used,
+    Object total,
+    Object free,
+  );
 
   /// No description provided for @folioCloudSubsectionPublishing.
   ///
@@ -8486,6 +8646,30 @@ abstract class AppLocalizations {
   /// In es, this message translates to:
   /// **'Todavía no has importado iconos en Ajustes.'**
   String get sidebarPageIconEmptyImported;
+
+  /// No description provided for @sidebarDeletePageMenuTitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Eliminar página'**
+  String get sidebarDeletePageMenuTitle;
+
+  /// No description provided for @sidebarDeleteFolderMenuTitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Quitar carpeta'**
+  String get sidebarDeleteFolderMenuTitle;
+
+  /// No description provided for @sidebarDeletePageConfirmInline.
+  ///
+  /// In es, this message translates to:
+  /// **'¿Eliminar «{title}»? No se puede deshacer.'**
+  String sidebarDeletePageConfirmInline(Object title);
+
+  /// No description provided for @sidebarDeleteFolderConfirmInline.
+  ///
+  /// In es, this message translates to:
+  /// **'¿Quitar carpeta «{title}»? Las subpáginas pasan a la raíz de la libreta.'**
+  String sidebarDeleteFolderConfirmInline(Object title);
 
   /// No description provided for @settingsStripeSubscriptionRefreshed.
   ///
@@ -9374,6 +9558,144 @@ abstract class AppLocalizations {
   /// In es, this message translates to:
   /// **'graph TD\nInicio[Crear libreta] --> Organizar[Organizar páginas]\nOrganizar --> Escribir[Escribir y enlazar ideas]\nEscribir --> Revisar[Buscar, revisar y mejorar]'**
   String get vaultStarterQuillMermaidSource;
+
+  /// No description provided for @settingsAccentColorTitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Color de acento'**
+  String get settingsAccentColorTitle;
+
+  /// No description provided for @settingsAccentFollowSystem.
+  ///
+  /// In es, this message translates to:
+  /// **'Windows'**
+  String get settingsAccentFollowSystem;
+
+  /// No description provided for @settingsAccentFolioDefault.
+  ///
+  /// In es, this message translates to:
+  /// **'Folio'**
+  String get settingsAccentFolioDefault;
+
+  /// No description provided for @settingsAccentCustom.
+  ///
+  /// In es, this message translates to:
+  /// **'Personalizado'**
+  String get settingsAccentCustom;
+
+  /// No description provided for @settingsAccentPickColor.
+  ///
+  /// In es, this message translates to:
+  /// **'Elegir color predefinido'**
+  String get settingsAccentPickColor;
+
+  /// No description provided for @settingsPrivacySectionTitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Privacidad y diagnósticos'**
+  String get settingsPrivacySectionTitle;
+
+  /// No description provided for @settingsTelemetryTitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Estadísticas de uso anónimas'**
+  String get settingsTelemetryTitle;
+
+  /// No description provided for @settingsTelemetrySubtitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Ayuda a medir instalaciones y uso de funciones. No se envía contenido de la libreta ni títulos.'**
+  String get settingsTelemetrySubtitle;
+
+  /// No description provided for @onboardingTelemetryTitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Estadísticas de uso'**
+  String get onboardingTelemetryTitle;
+
+  /// No description provided for @onboardingTelemetryBody.
+  ///
+  /// In es, this message translates to:
+  /// **'Folio puede enviar analítica anónima para entender cómo se usa la app. Puedes cambiarlo en cualquier momento en Ajustes.'**
+  String get onboardingTelemetryBody;
+
+  /// No description provided for @onboardingTelemetrySwitchTitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Estadísticas de uso anónimas'**
+  String get onboardingTelemetrySwitchTitle;
+
+  /// No description provided for @onboardingTelemetrySwitchSubtitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Ayuda a medir instalaciones y uso de funciones. No se envía contenido de la libreta ni títulos.'**
+  String get onboardingTelemetrySwitchSubtitle;
+
+  /// No description provided for @onboardingTelemetryFootnote.
+  ///
+  /// In es, this message translates to:
+  /// **'No se envía contenido de la libreta ni títulos de páginas.'**
+  String get onboardingTelemetryFootnote;
+
+  /// No description provided for @settingsAutoCrashReportsTitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Enviar diagnósticos de fallos automáticamente'**
+  String get settingsAutoCrashReportsTitle;
+
+  /// No description provided for @settingsAutoCrashReportsSubtitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Si hay un error grave, se envía un trozo del log a Folio (opcional, limitado por sesión).'**
+  String get settingsAutoCrashReportsSubtitle;
+
+  /// No description provided for @settingsReportBugButton.
+  ///
+  /// In es, this message translates to:
+  /// **'Reportar un error'**
+  String get settingsReportBugButton;
+
+  /// No description provided for @settingsPrivacyFootnote.
+  ///
+  /// In es, this message translates to:
+  /// **'Puedes añadir una nota; puede abrirse el enlace de incidencias en el navegador.'**
+  String get settingsPrivacyFootnote;
+
+  /// No description provided for @settingsReportBugDialogTitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Reportar un error'**
+  String get settingsReportBugDialogTitle;
+
+  /// No description provided for @settingsReportBugDialogBody.
+  ///
+  /// In es, this message translates to:
+  /// **'Enviaremos metadatos anónimos, un trozo del log y tu nota. Después podrás abrir el gestor de incidencias.'**
+  String get settingsReportBugDialogBody;
+
+  /// No description provided for @settingsReportBugNoteLabel.
+  ///
+  /// In es, this message translates to:
+  /// **'¿Qué ocurrió? (opcional)'**
+  String get settingsReportBugNoteLabel;
+
+  /// No description provided for @settingsReportBugSend.
+  ///
+  /// In es, this message translates to:
+  /// **'Enviar y continuar'**
+  String get settingsReportBugSend;
+
+  /// No description provided for @settingsReportBugSentOk.
+  ///
+  /// In es, this message translates to:
+  /// **'Diagnóstico enviado.'**
+  String get settingsReportBugSentOk;
+
+  /// No description provided for @settingsReportBugSentFail.
+  ///
+  /// In es, this message translates to:
+  /// **'No se pudo enviar el diagnóstico. Revisa la conexión o inténtalo más tarde.'**
+  String get settingsReportBugSentFail;
 }
 
 class _AppLocalizationsDelegate

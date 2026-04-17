@@ -22,6 +22,8 @@ import '../services/platform/launch_arguments.dart';
 import '../services/cloud_account/cloud_account_controller.dart';
 import '../services/ai/folio_cloud_ai_service.dart';
 import '../services/folio_cloud/folio_cloud_entitlements.dart';
+import '../services/folio_diagnostic_reporter.dart';
+import '../services/folio_telemetry.dart';
 import '../services/vault_scheduled_local_export.dart';
 import '../features/settings/vault_identity_verify_dialog.dart';
 import '../services/device_sync/device_sync_controller.dart';
@@ -88,6 +90,7 @@ class _FolioAppState extends State<FolioApp> with WidgetsBindingObserver {
   @override
   void initState() {
     super.initState();
+    FolioDiagnosticReporter.bindAppSettings(widget.appSettings);
     WidgetsBinding.instance.addObserver(this);
     widget.session.titleLocale = widget.appSettings.locale;
     widget.session.addListener(_onSession);
@@ -159,6 +162,7 @@ class _FolioAppState extends State<FolioApp> with WidgetsBindingObserver {
 
   @override
   void dispose() {
+    FolioDiagnosticReporter.bindAppSettings(null);
     _scheduledVaultBackupTimer?.cancel();
     _launchArgsSub?.cancel();
     _accentSub?.cancel();
@@ -445,6 +449,8 @@ class _FolioAppState extends State<FolioApp> with WidgetsBindingObserver {
     _applyAiSettings();
     _applyDeviceSyncSettings();
     _applyDesktopSettingsIfNeeded();
+    FolioDiagnosticReporter.bindAppSettings(widget.appSettings);
+    unawaited(FolioTelemetry.onSettingsChanged(widget.appSettings));
     if (mounted) setState(() {});
   }
 
@@ -992,7 +998,7 @@ class _FolioAppState extends State<FolioApp> with WidgetsBindingObserver {
 
   @override
   Widget build(BuildContext context) {
-    final seed = SystemTheme.accentColor.accent;
+    final seed = widget.appSettings.resolveAccentSeedColor();
     return MaterialApp(
       navigatorKey: _navKey,
       onGenerateTitle: (context) => AppLocalizations.of(context).appTitle,

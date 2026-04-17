@@ -124,7 +124,7 @@
   "lockAutoByInactivity": "Bloqueo automático por inactividad",
   "minutesShort": "{minutes} min",
   "@minutesShort": {"placeholders": {"minutes": {"type": "int"}}},
-  "settingsAppearanceHint": "El color principal sigue al acento de Windows cuando está disponible.",
+  "settingsAppearanceHint": "Elige el brillo del tema, el origen del color de acento (Windows, Folio o personalizado), el zoom y el idioma.",
   "backupFilePasswordLabel": "Contraseña del archivo de copia",
   "backupFilePasswordHelper": "Es la contraseña maestra con la que se creó la copia, no la de otro dispositivo.",
   "backupPasswordDialogTitle": "Contraseña de la copia",
@@ -964,7 +964,7 @@
   ,"folioCloudPurchaseChannelStoreNotConfiguredHint": "Compila con --dart-define=MS_STORE_… o usa el pago en el navegador."
   ,"folioCloudMicrosoftStoreSyncHint": "En Windows, «Actualizar» también sincroniza la Microsoft Store (mismo botón que Stripe)."
   ,"folioCloudUploadEncryptedBackup": "Copia a la nube ahora"
-  ,"folioCloudUploadEncryptedBackupSubtitle": "Folio genera la copia cifrada de la libreta abierta y la sube solo; no tienes que exportar un .zip."
+  ,"folioCloudUploadEncryptedBackupSubtitle": "Folio sube una copia incremental cifrada en la nube de la libreta abierta (solo lo que cambió); no hace falta exportar un .zip."
   ,"folioCloudUploadSnackOk": "Copia de la libreta guardada en la nube."
   ,"scheduledVaultBackupCloudSyncTitle": "Copia en Folio Cloud"
   ,"scheduledVaultBackupCloudSyncSubtitle": "En cada intervalo programado, sube automáticamente una copia cifrada a tu cuenta de Folio Cloud."
@@ -972,6 +972,27 @@
   ,"folioCloudBackupsUsed": "Usadas"
   ,"folioCloudBackupsLimit": "Límite"
   ,"folioCloudBackupsRemaining": "Restantes"
+  ,"folioCloudBackupStorageStatUsed": "Usado (almacenamiento)"
+  ,"folioCloudBackupStorageStatQuota": "Cuota"
+  ,"folioCloudBackupStorageStatRemaining": "Restante"
+  ,"folioCloudBackupStorageExpansionTitle": "Ampliar almacenamiento de copias"
+  ,"folioCloudBackupStorageLibrarySmallTitle": "Librería pequeña"
+  ,"folioCloudBackupStorageLibrarySmallDetail": "+20 GB · 1,99 €/mes"
+  ,"folioCloudBackupStorageLibraryMediumTitle": "Librería mediana"
+  ,"folioCloudBackupStorageLibraryMediumDetail": "+75 GB · 4,99 €/mes"
+  ,"folioCloudBackupStorageLibraryLargeTitle": "Librería grande"
+  ,"folioCloudBackupStorageLibraryLargeDetail": "+250 GB · 9,99 €/mes"
+  ,"folioCloudSubscribeBackupStorageAddon": "Suscribirse"
+  ,"folioCloudBackupTypeIncremental": "Copia incremental (última)"
+  ,"folioCloudBackupPackNoDownload": "Las copias incrementales se restauran con «Importar y sobrescribir». No hay descarga de archivo aparte."
+  ,"folioCloudBackupQuotaExceeded": "No hay suficiente almacenamiento para copias en la nube. Compra una ampliación o borra copias completas antiguas en backups/."
+  ,"onboardingCloudBackupNeedLegacyArchive": "Esta libreta solo tiene una copia incremental en la nube. Para configurar un dispositivo nuevo, descarga un archivo completo (.tar.gz) desde otro dispositivo con Folio o créalo desde Ajustes → exportar."
+  ,"onboardingCloudBackupNeedRestoreWrap": "Esta copia incremental aún no tiene clave de recuperación en la nube. En el dispositivo donde creaste la copia, abre Folio → Ajustes → sube la copia a la nube (introduce la contraseña de la libreta cuando se solicite). También puedes usar un archivo completo (.zip) si lo tienes."
+  ,"onboardingCloudBackupIncrementalRestoreBody": "Copia incremental en la nube lista. Introduce la contraseña de la libreta (la misma que usas para desbloquearla). Si la libreta estaba en claro, usa la contraseña de recuperación que definiste al subir la copia."
+  ,"settingsCloudBackupWrapPasswordTitle": "Recuperación en otros dispositivos"
+  ,"settingsCloudBackupWrapPasswordBody": "Introduce la contraseña de esta libreta. Se guardará cifrada en tu cuenta para restaurar la copia incremental al instalar Folio en un dispositivo nuevo."
+  ,"settingsCloudBackupWrapPasswordRequired": "Hace falta la contraseña de la libreta."
+  ,"settingsCloudBackupWrapPasswordBodyPlain": "Opcional: elige una contraseña de recuperación para restaurar esta copia incremental en otro dispositivo. Déjala en blanco si solo usarás este equipo."
   ,"folioCloudPublishTestPage": "Publicar página de prueba"
   ,"folioCloudPublishedPagesList": "Páginas publicadas"
   ,"folioCloudReauthDialogTitle": "Confirmar cuenta Folio Cloud"
@@ -1530,7 +1551,15 @@
   ,"settingsSubsectionDrive": "Drive"
   ,"settingsSubsectionVaultData": "Datos (zona peligrosa)"
   ,"folioCloudSubsectionAccount": "Cuenta"
-  ,"folioCloudSubsectionEncryptedBackups": "Copias cifradas (nube)"
+  ,"folioCloudSubsectionEncryptedBackups": "Copias y almacenamiento (nube)"
+  ,"folioCloudBackupStorageSectionIntro": "El uso incluye la copia incremental (cloud-pack) y los archivos completos antiguos en la carpeta backups/. Puedes suscribirte a una librería pequeña, mediana o grande (cuota extra mensual mientras la suscripción esté activa)."
+  ,"folioCloudBackupStoragePurchasedExtra": "Ampliaciones compradas: +{size}"
+  ,"@folioCloudBackupStoragePurchasedExtra": {"placeholders": {"size": {}}}
+  ,"folioCloudBackupStorageBarTitle": "Uso de almacenamiento"
+  ,"folioCloudBackupStorageBarPercent": "{percent} %"
+  ,"@folioCloudBackupStorageBarPercent": {"placeholders": {"percent": {"type": "int"}}}
+  ,"folioCloudBackupStorageBarDetail": "Usado: {used} · Cuota total: {total} · Libre: {free}"
+  ,"@folioCloudBackupStorageBarDetail": {"placeholders": {"used": {}, "total": {}, "free": {}}}
   ,"folioCloudSubsectionPublishing": "Publicación web"
   ,"settingsFolioCloudSubsectionScheduledCloud": "Copia programada a Folio Cloud"
   ,"settingsScheduledCloudUploadRequiresSchedule": "Activa antes la copia programada en Libreta › Copia programada (local)."
@@ -1576,6 +1605,12 @@
   ,"sidebarPageIconTabImported": "Importados"
   ,"sidebarPageIconTabAll": "Todos"
   ,"sidebarPageIconEmptyImported": "Todavía no has importado iconos en Ajustes."
+  ,"sidebarDeletePageMenuTitle": "Eliminar página"
+  ,"sidebarDeleteFolderMenuTitle": "Quitar carpeta"
+  ,"sidebarDeletePageConfirmInline": "¿Eliminar «{title}»? No se puede deshacer."
+  ,"@sidebarDeletePageConfirmInline": {"placeholders": {"title": {}}}
+  ,"sidebarDeleteFolderConfirmInline": "¿Quitar carpeta «{title}»? Las subpáginas pasan a la raíz de la libreta."
+  ,"@sidebarDeleteFolderConfirmInline": {"placeholders": {"title": {}}}
   ,"settingsStripeSubscriptionRefreshed": "Facturación Folio Cloud actualizada."
   ,"settingsStripeBillingPortalUnavailable": "Portal de facturación no disponible."
   ,"settingsCouldNotOpenLink": "No se pudo abrir el enlace."
@@ -1730,4 +1765,27 @@
   ,"vaultStarterQuillBackupCallout": "Haz una copia de la libreta cuando tengas contenido importante. La copia conserva los datos y adjuntos, pero no transfiere Hello ni passkeys entre dispositivos."
   ,"vaultStarterQuillMermaidCaption": "Prueba rápida de Mermaid:"
   ,"vaultStarterQuillMermaidSource": "graph TD\nInicio[Crear libreta] --> Organizar[Organizar páginas]\nOrganizar --> Escribir[Escribir y enlazar ideas]\nEscribir --> Revisar[Buscar, revisar y mejorar]"
+  ,"settingsAccentColorTitle": "Color de acento"
+  ,"settingsAccentFollowSystem": "Windows"
+  ,"settingsAccentFolioDefault": "Folio"
+  ,"settingsAccentCustom": "Personalizado"
+  ,"settingsAccentPickColor": "Elegir color predefinido"
+  ,"settingsPrivacySectionTitle": "Privacidad y diagnósticos"
+  ,"settingsTelemetryTitle": "Estadísticas de uso anónimas"
+  ,"settingsTelemetrySubtitle": "Ayuda a medir instalaciones y uso de funciones. No se envía contenido de la libreta ni títulos."
+  ,"onboardingTelemetryTitle": "Estadísticas de uso"
+  ,"onboardingTelemetryBody": "Folio puede enviar analítica anónima para entender cómo se usa la app. Puedes cambiarlo en cualquier momento en Ajustes."
+  ,"onboardingTelemetrySwitchTitle": "Estadísticas de uso anónimas"
+  ,"onboardingTelemetrySwitchSubtitle": "Ayuda a medir instalaciones y uso de funciones. No se envía contenido de la libreta ni títulos."
+  ,"onboardingTelemetryFootnote": "No se envía contenido de la libreta ni títulos de páginas."
+  ,"settingsAutoCrashReportsTitle": "Enviar diagnósticos de fallos automáticamente"
+  ,"settingsAutoCrashReportsSubtitle": "Si hay un error grave, se envía un trozo del log a Folio (opcional, limitado por sesión)."
+  ,"settingsReportBugButton": "Reportar un error"
+  ,"settingsPrivacyFootnote": "Puedes añadir una nota; puede abrirse el enlace de incidencias en el navegador."
+  ,"settingsReportBugDialogTitle": "Reportar un error"
+  ,"settingsReportBugDialogBody": "Enviaremos metadatos anónimos, un trozo del log y tu nota. Después podrás abrir el gestor de incidencias."
+  ,"settingsReportBugNoteLabel": "¿Qué ocurrió? (opcional)"
+  ,"settingsReportBugSend": "Enviar y continuar"
+  ,"settingsReportBugSentOk": "Diagnóstico enviado."
+  ,"settingsReportBugSentFail": "No se pudo enviar el diagnóstico. Revisa la conexión o inténtalo más tarde."
 }

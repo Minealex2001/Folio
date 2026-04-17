@@ -351,7 +351,7 @@ class AppLocalizationsEu extends AppLocalizations {
 
   @override
   String get settingsAppearanceHint =>
-      'Kolore nagusiak Windows-en nabarmentze-kolorea jarraitzen du eskuragarri dagoenean.';
+      'Aukeratu temaren distira, nabarmentze-kolorearen jatorria (Windows, Folio edo pertsonalizatua), zooma eta hizkuntza.';
 
   @override
   String get backupFilePasswordLabel => 'Babeskopia fitxategiaren pasahitza';
@@ -2926,6 +2926,82 @@ class AppLocalizationsEu extends AppLocalizations {
   String get folioCloudBackupsRemaining => 'Geratzen dena';
 
   @override
+  String get folioCloudBackupStorageStatUsed => 'Erabilita (biltegiratzea)';
+
+  @override
+  String get folioCloudBackupStorageStatQuota => 'Kuota';
+
+  @override
+  String get folioCloudBackupStorageStatRemaining => 'Geratzen dena';
+
+  @override
+  String get folioCloudBackupStorageExpansionTitle =>
+      'Hodeiko babeskopien biltegiratzea zabaldu';
+
+  @override
+  String get folioCloudBackupStorageLibrarySmallTitle => 'Liburutegi txikia';
+
+  @override
+  String get folioCloudBackupStorageLibrarySmallDetail => '+20 GB · 1,99 €/hil';
+
+  @override
+  String get folioCloudBackupStorageLibraryMediumTitle => 'Liburutegi ertaina';
+
+  @override
+  String get folioCloudBackupStorageLibraryMediumDetail =>
+      '+75 GB · 4,99 €/hil';
+
+  @override
+  String get folioCloudBackupStorageLibraryLargeTitle => 'Liburutegi handia';
+
+  @override
+  String get folioCloudBackupStorageLibraryLargeDetail =>
+      '+250 GB · 9,99 €/hil';
+
+  @override
+  String get folioCloudSubscribeBackupStorageAddon => 'Harpidetu';
+
+  @override
+  String get folioCloudBackupTypeIncremental =>
+      'Babeskopi inkrementala (azkena)';
+
+  @override
+  String get folioCloudBackupPackNoDownload =>
+      'Babeskopi inkrementalak «Inportatu eta gainidatzi» bidez leheneratzen dira. Ez dago fitxategi deskargarik bereizita.';
+
+  @override
+  String get folioCloudBackupQuotaExceeded =>
+      'Ez dago hodeiko babeskopientzako biltegiratze nahikorik. Erosi zabaltze bat edo ezabatu backups/ karpetako babeskopi oso zaharrak.';
+
+  @override
+  String get onboardingCloudBackupNeedLegacyArchive =>
+      'Koaderno honek babeskopi inkrementala soilik du hodeian. Gailu berri bat konfiguratzeko, deskargatu (.tar.gz) fitxategi oso bat Folio duen beste gailu batetik edo sortu ezarpenak → esportatu ataletik.';
+
+  @override
+  String get onboardingCloudBackupNeedRestoreWrap =>
+      'Babeskopi inkremental honek oraindik ez du berreskuratze-giltza hodeian. Sortu zenuen gailuan, ireki Folio → Ezarpenak → igo babeskopia hodeira (sartu koadernoaren pasahitza eskatzen dizunean). (.zip) fitxategi oso bat ere erabil dezakezu baduzu.';
+
+  @override
+  String get onboardingCloudBackupIncrementalRestoreBody =>
+      'Hodeiko babeskopi inkrementala prest. Sartu koadernoaren pasahitza (desblokeatzeko erabiltzen duzuna). Koadernoa zifratu gabe bazegoen, erabili igoeran ezarri zenuen berreskuratze-pasahitza.';
+
+  @override
+  String get settingsCloudBackupWrapPasswordTitle =>
+      'Berreskuratzea beste gailuetan';
+
+  @override
+  String get settingsCloudBackupWrapPasswordBody =>
+      'Sartu koaderno honen pasahitza. Zure kontuan zifratuta gordeko da babeskopi inkrementala Folio gailu berri batean instalatzean leheneratzeko.';
+
+  @override
+  String get settingsCloudBackupWrapPasswordRequired =>
+      'Koadernoaren pasahitza beharrezkoa da.';
+
+  @override
+  String get settingsCloudBackupWrapPasswordBodyPlain =>
+      'Aukerakoa: aukeratu berreskuratze-pasahitza bat babeskopi inkrementala beste gailu batean leheneratzeko. Utzi hutsik gailu hau soilik erabiliko baduzu.';
+
+  @override
   String get folioCloudPublishTestPage => 'Argitaratu probako orrialdea';
 
   @override
@@ -4670,7 +4746,33 @@ class AppLocalizationsEu extends AppLocalizations {
 
   @override
   String get folioCloudSubsectionEncryptedBackups =>
-      'Zifratutako babeskopiak (hodeia)';
+      'Babeskopiak eta biltegiratzea (hodeia)';
+
+  @override
+  String get folioCloudBackupStorageSectionIntro =>
+      'Erabilera inkrementala (cloud-pack) eta backups/ karpetako fitxategi oso zaharrak barne hartzen ditu. Liburutegi txiki, ertain edo handi batera harpidetu zaitezke (kuota extra hilabetean zehar, harpidetza aktibo dagoen bitartean).';
+
+  @override
+  String folioCloudBackupStoragePurchasedExtra(Object size) {
+    return 'Erositako zabaltzeak: +$size';
+  }
+
+  @override
+  String get folioCloudBackupStorageBarTitle => 'Biltegiratze-erabilera';
+
+  @override
+  String folioCloudBackupStorageBarPercent(int percent) {
+    return '$percent %';
+  }
+
+  @override
+  String folioCloudBackupStorageBarDetail(
+    Object used,
+    Object total,
+    Object free,
+  ) {
+    return 'Erabilita: $used · Kuota osoa: $total · Librea: $free';
+  }
 
   @override
   String get folioCloudSubsectionPublishing => 'Web argitalpena';
@@ -4816,6 +4918,22 @@ class AppLocalizationsEu extends AppLocalizations {
   @override
   String get sidebarPageIconEmptyImported =>
       'Oraindik ez duzu ikonorik inportatu Ezarpenetan.';
+
+  @override
+  String get sidebarDeletePageMenuTitle => 'Ezabatu orria';
+
+  @override
+  String get sidebarDeleteFolderMenuTitle => 'Kendu karpeta';
+
+  @override
+  String sidebarDeletePageConfirmInline(Object title) {
+    return 'Ezabatu «$title»? Ezin da desegin.';
+  }
+
+  @override
+  String sidebarDeleteFolderConfirmInline(Object title) {
+    return 'Kendu «$title» karpeta? Azpiorreak koadernoaren errorera pasatuko dira.';
+  }
 
   @override
   String get settingsStripeSubscriptionRefreshed =>
@@ -5339,4 +5457,83 @@ class AppLocalizationsEu extends AppLocalizations {
   @override
   String get vaultStarterQuillMermaidSource =>
       'graph TD\nHasiera[Sortu koadernoa] --> Antolatu[Antolatu orriak]\nAntolatu --> Idatzi[Idatzi eta lotu ideiak]\nIdatzi --> Berrikusi[Bilatu, berrikusi eta hobetu]';
+
+  @override
+  String get settingsAccentColorTitle => 'Azentu-kolorea';
+
+  @override
+  String get settingsAccentFollowSystem => 'Windows';
+
+  @override
+  String get settingsAccentFolioDefault => 'Folio';
+
+  @override
+  String get settingsAccentCustom => 'Pertsonalizatua';
+
+  @override
+  String get settingsAccentPickColor => 'Aurrezarritako kolorea aukeratu';
+
+  @override
+  String get settingsPrivacySectionTitle => 'Pribatutasuna eta diagnostikoak';
+
+  @override
+  String get settingsTelemetryTitle => 'Erabilera-estatistika anonimoak';
+
+  @override
+  String get settingsTelemetrySubtitle =>
+      'Instalazioak eta eginbideen erabilera neurtzen laguntzen du. Ez da koaderno-edukirik edo izenbururik bidaltzen.';
+
+  @override
+  String get onboardingTelemetryTitle => 'Erabilera estatistikak';
+
+  @override
+  String get onboardingTelemetryBody =>
+      'Foliok analitika anonimoa bidali dezake aplikazioa nola erabiltzen den ulertzeko. Edozein unetan alda dezakezu Ezarpenetan.';
+
+  @override
+  String get onboardingTelemetrySwitchTitle =>
+      'Erabilera-estatistika anonimoak';
+
+  @override
+  String get onboardingTelemetrySwitchSubtitle =>
+      'Instalazioak eta eginbideen erabilera neurtzen laguntzen du. Ez da koaderno-edukirik edo izenbururik bidaltzen.';
+
+  @override
+  String get onboardingTelemetryFootnote =>
+      'Ez da koaderno-edukirik edo orrien izenbururik bidaltzen.';
+
+  @override
+  String get settingsAutoCrashReportsTitle =>
+      'Bidali hondamen-diagnostikoak automatikoki';
+
+  @override
+  String get settingsAutoCrashReportsSubtitle =>
+      'Akats larri bat gertatzen bada, logaren zati bat bidaltzen zaio Folioren (aukerakoa, saio bakoitzeko mugatua).';
+
+  @override
+  String get settingsReportBugButton => 'Akats baten berri eman';
+
+  @override
+  String get settingsPrivacyFootnote =>
+      'Ohar bat gehitu dezakezu; arazoen esteka nabigatzailean ireki daiteke.';
+
+  @override
+  String get settingsReportBugDialogTitle => 'Akats baten berri eman';
+
+  @override
+  String get settingsReportBugDialogBody =>
+      'Metadatu anonimoak, logaren zati bat eta zure oharra bidaliko ditugu. Gero, arazoen kudeatzailea ireki dezakezu.';
+
+  @override
+  String get settingsReportBugNoteLabel => 'Zertan gertatu da? (aukerakoa)';
+
+  @override
+  String get settingsReportBugSend => 'Bidali eta jarraitu';
+
+  @override
+  String get settingsReportBugSentOk => 'Diagnostikoa bidalita.';
+
+  @override
+  String get settingsReportBugSentFail =>
+      'Ezin izan da diagnostikoa bidali. Egiaztatu konexioa edo saiatu beranduago.';
 }

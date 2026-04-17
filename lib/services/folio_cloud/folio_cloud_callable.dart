@@ -299,3 +299,21 @@ Future<dynamic> _callFolioCloudAiHttpFallback({
 
   return map['result'];
 }
+
+/// Callable `folioGetBackupStorageUsage` (uso total = cloud-pack + archivos legado en `backups/`).
+Future<Map<String, dynamic>> folioGetBackupStorageUsageCallable() async {
+  if (Firebase.apps.isEmpty) {
+    throw StateError('Firebase not initialized');
+  }
+  if (FirebaseAuth.instance.currentUser == null) {
+    throw StateError('Not signed in');
+  }
+  final raw = await callFolioHttpsCallable(
+    'folioGetBackupStorageUsage',
+    <String, dynamic>{},
+  );
+  if (raw is! Map) {
+    throw StateError('Respuesta inválida');
+  }
+  return Map<String, dynamic>.from(raw);
+}

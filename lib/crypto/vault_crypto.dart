@@ -95,6 +95,24 @@ class VaultCrypto {
     return out.takeBytes();
   }
 
+  /// Cifrado determinístico para blobs de copia incremental en la nube: mismo
+  /// plaintext y misma base de nonce → mismo ciphertext (deduplicación en Storage).
+  /// [nonceBasis] debe incluir contexto único por archivo (p. ej. rol + ruta).
+  static Future<Uint8List> encryptPayloadDeterministicPack({
+    required List<int> plain,
+    required SecretKey dek,
+    required List<int> nonceBasis,
+  }) async {
+    final basisHash = await Sha256().hash(nonceBasis);
+    final nonce = Uint8List.fromList(basisHash.bytes.sublist(0, nonceLength));
+    final box = await _aes.encrypt(plain, secretKey: dek, nonce: nonce);
+    final out = BytesBuilder(copy: false);
+    out.add(box.nonce);
+    out.add(box.cipherText);
+    out.add(box.mac.bytes);
+    return out.takeBytes();
+  }
+
   static Future<Uint8List> decryptPayload({
     required List<int> blob,
     required SecretKey dek,

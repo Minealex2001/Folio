@@ -111,6 +111,52 @@ String? _slashFilterFromBlockText(String text) {
   return tail;
 }
 
+/// Filtro `/comando` usando la **línea del cursor** en texto plano (p. ej. Quill).
+///
+/// Permite varias líneas en el bloque mientras el `/…` está en la línea activa.
+String? _slashFilterFromPlainTextAndSelection(
+  String plain,
+  TextSelection selection,
+) {
+  if (!selection.isValid || !selection.isCollapsed) return null;
+  final caret = selection.baseOffset.clamp(0, plain.length);
+  var lineStart = 0;
+  for (var i = caret - 1; i >= 0; i--) {
+    final ch = plain.codeUnitAt(i);
+    if (ch == 0x0A || ch == 0x0D) {
+      lineStart = i + 1;
+      if (ch == 0x0D &&
+          lineStart < plain.length &&
+          plain.codeUnitAt(lineStart) == 0x0A) {
+        lineStart++;
+      }
+      break;
+    }
+  }
+  var lineEnd = plain.length;
+  for (var i = caret; i < plain.length; i++) {
+    final ch = plain.codeUnitAt(i);
+    if (ch == 0x0A || ch == 0x0D) {
+      lineEnd = i;
+      break;
+    }
+  }
+  if (lineEnd < lineStart) return null;
+  var line = plain.substring(lineStart, lineEnd);
+  if (line.endsWith('\r')) {
+    line = line.substring(0, line.length - 1);
+  }
+  if (!line.startsWith('/')) return null;
+  final relCaret = caret - lineStart;
+  if (relCaret < 1) {
+    return '';
+  }
+  final prefix = line.substring(0, relCaret);
+  if (!prefix.startsWith('/')) return null;
+  if (prefix.contains(' ')) return null;
+  return prefix.substring(1);
+}
+
 int? _mentionTriggerStartFromSelection(String text, TextSelection selection) {
   if (!selection.isValid || !selection.isCollapsed) return null;
   final caret = selection.baseOffset;

@@ -19,6 +19,27 @@ export function msStoreInkLarge(): string {
   return process.env.MS_STORE_INK_LARGE?.trim() ?? "";
 }
 
+/** Producto Store: librería pequeña (+20 GB). Hereda MS_STORE_BACKUP_STORAGE_PACK si no hay _SMALL. */
+export function msStoreBackupStoragePackSmall(): string {
+  return (
+    process.env.MS_STORE_BACKUP_STORAGE_PACK_SMALL?.trim() ||
+    process.env.MS_STORE_BACKUP_STORAGE_PACK?.trim() ||
+    ""
+  );
+}
+
+export function msStoreBackupStoragePackMedium(): string {
+  return process.env.MS_STORE_BACKUP_STORAGE_PACK_MEDIUM?.trim() ?? "";
+}
+
+export function msStoreBackupStoragePackLarge(): string {
+  return process.env.MS_STORE_BACKUP_STORAGE_PACK_LARGE?.trim() ?? "";
+}
+
+const MS_BACKUP_GRANT_SMALL = 20 * 1024 * 1024 * 1024;
+const MS_BACKUP_GRANT_MEDIUM = 75 * 1024 * 1024 * 1024;
+const MS_BACKUP_GRANT_LARGE = 250 * 1024 * 1024 * 1024;
+
 function azureTenantId(): string {
   return process.env.AZURE_AD_TENANT_ID?.trim() ?? "";
 }
@@ -187,6 +208,20 @@ export function inkDropsForMicrosoftStoreProductId(
   return 0;
 }
 
+export function backupBytesForMicrosoftStoreProductId(
+  productId: string
+): number {
+  const p = normId(productId);
+  if (!p) return 0;
+  const large = normId(msStoreBackupStoragePackLarge());
+  const medium = normId(msStoreBackupStoragePackMedium());
+  const small = normId(msStoreBackupStoragePackSmall());
+  if (large && p === large) return MS_BACKUP_GRANT_LARGE;
+  if (medium && p === medium) return MS_BACKUP_GRANT_MEDIUM;
+  if (small && p === small) return MS_BACKUP_GRANT_SMALL;
+  return 0;
+}
+
 export function itemMatchesMonthlySubscription(
   item: Record<string, unknown>
 ): boolean {
@@ -221,6 +256,7 @@ export type MicrosoftStoreCollectionScan = {
   subscriptionActive: boolean;
   subscriptionStoreProductId: string | null;
   consumableGrants: { dedupKey: string; drops: number }[];
+  backupStorageGrants: { dedupKey: string; bytes: number }[];
 };
 
 export function scanMicrosoftStoreCollectionItems(
@@ -239,22 +275,33 @@ export function scanMicrosoftStoreCollectionItems(
   }
 
   const consumableGrants: { dedupKey: string; drops: number }[] = [];
+  const backupStorageGrants: { dedupKey: string; bytes: number }[] = [];
   for (const item of items) {
     const pid = itemProductId(item);
     if (!pid) continue;
     if (normId(pid) === normId(monthlyId)) continue;
-    const dropsEach = inkDropsForMicrosoftStoreProductId(pid);
-    if (dropsEach <= 0) continue;
     if (!itemLooksActive(item)) continue;
     const key = microsoftPurchaseDedupKey(item);
     if (!key) continue;
     const qty = itemQuantity(item);
-    consumableGrants.push({ dedupKey: key, drops: dropsEach * qty });
+    const dropsEach = inkDropsForMicrosoftStoreProductId(pid);
+    if (dropsEach > 0) {
+      consumableGrants.push({ dedupKey: key, drops: dropsEach * qty });
+      continue;
+    }
+    const backupEach = backupBytesForMicrosoftStoreProductId(pid);
+    if (backupEach > 0) {
+      backupStorageGrants.push({
+        dedupKey: `${key}:backup`,
+        bytes: backupEach * qty,
+      });
+    }
   }
 
   return {
     subscriptionActive,
     subscriptionStoreProductId,
     consumableGrants,
+    backupStorageGrants,
   };
 }

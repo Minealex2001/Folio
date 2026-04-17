@@ -22,6 +22,12 @@ bool _microsoftStoreProductConfigured(FolioCheckoutKind kind) {
       return FolioMicrosoftStoreProducts.inkMedium.trim().isNotEmpty;
     case FolioCheckoutKind.inkLarge:
       return FolioMicrosoftStoreProducts.inkLarge.trim().isNotEmpty;
+    case FolioCheckoutKind.backupStoragePackSmall:
+      return FolioMicrosoftStoreProducts.backupStoragePackSmall.trim().isNotEmpty;
+    case FolioCheckoutKind.backupStoragePackMedium:
+      return FolioMicrosoftStoreProducts.backupStoragePackMedium.trim().isNotEmpty;
+    case FolioCheckoutKind.backupStoragePackLarge:
+      return FolioMicrosoftStoreProducts.backupStoragePackLarge.trim().isNotEmpty;
   }
 }
 

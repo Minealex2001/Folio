@@ -350,7 +350,7 @@ class AppLocalizationsEs extends AppLocalizations {
 
   @override
   String get settingsAppearanceHint =>
-      'El color principal sigue al acento de Windows cuando está disponible.';
+      'Elige el brillo del tema, el origen del color de acento (Windows, Folio o personalizado), el zoom y el idioma.';
 
   @override
   String get backupFilePasswordLabel => 'Contraseña del archivo de copia';
@@ -2880,7 +2880,7 @@ class AppLocalizationsEs extends AppLocalizations {
 
   @override
   String get folioCloudUploadEncryptedBackupSubtitle =>
-      'Folio genera la copia cifrada de la libreta abierta y la sube solo; no tienes que exportar un .zip.';
+      'Folio sube una copia incremental cifrada en la nube de la libreta abierta (solo lo que cambió); no hace falta exportar un .zip.';
 
   @override
   String get folioCloudUploadSnackOk =>
@@ -2904,6 +2904,81 @@ class AppLocalizationsEs extends AppLocalizations {
 
   @override
   String get folioCloudBackupsRemaining => 'Restantes';
+
+  @override
+  String get folioCloudBackupStorageStatUsed => 'Usado (almacenamiento)';
+
+  @override
+  String get folioCloudBackupStorageStatQuota => 'Cuota';
+
+  @override
+  String get folioCloudBackupStorageStatRemaining => 'Restante';
+
+  @override
+  String get folioCloudBackupStorageExpansionTitle =>
+      'Ampliar almacenamiento de copias';
+
+  @override
+  String get folioCloudBackupStorageLibrarySmallTitle => 'Librería pequeña';
+
+  @override
+  String get folioCloudBackupStorageLibrarySmallDetail => '+20 GB · 1,99 €/mes';
+
+  @override
+  String get folioCloudBackupStorageLibraryMediumTitle => 'Librería mediana';
+
+  @override
+  String get folioCloudBackupStorageLibraryMediumDetail =>
+      '+75 GB · 4,99 €/mes';
+
+  @override
+  String get folioCloudBackupStorageLibraryLargeTitle => 'Librería grande';
+
+  @override
+  String get folioCloudBackupStorageLibraryLargeDetail =>
+      '+250 GB · 9,99 €/mes';
+
+  @override
+  String get folioCloudSubscribeBackupStorageAddon => 'Suscribirse';
+
+  @override
+  String get folioCloudBackupTypeIncremental => 'Copia incremental (última)';
+
+  @override
+  String get folioCloudBackupPackNoDownload =>
+      'Las copias incrementales se restauran con «Importar y sobrescribir». No hay descarga de archivo aparte.';
+
+  @override
+  String get folioCloudBackupQuotaExceeded =>
+      'No hay suficiente almacenamiento para copias en la nube. Compra una ampliación o borra copias completas antiguas en backups/.';
+
+  @override
+  String get onboardingCloudBackupNeedLegacyArchive =>
+      'Esta libreta solo tiene una copia incremental en la nube. Para configurar un dispositivo nuevo, descarga un archivo completo (.tar.gz) desde otro dispositivo con Folio o créalo desde Ajustes → exportar.';
+
+  @override
+  String get onboardingCloudBackupNeedRestoreWrap =>
+      'Esta copia incremental aún no tiene clave de recuperación en la nube. En el dispositivo donde creaste la copia, abre Folio → Ajustes → sube la copia a la nube (introduce la contraseña de la libreta cuando se solicite). También puedes usar un archivo completo (.zip) si lo tienes.';
+
+  @override
+  String get onboardingCloudBackupIncrementalRestoreBody =>
+      'Copia incremental en la nube lista. Introduce la contraseña de la libreta (la misma que usas para desbloquearla). Si la libreta estaba en claro, usa la contraseña de recuperación que definiste al subir la copia.';
+
+  @override
+  String get settingsCloudBackupWrapPasswordTitle =>
+      'Recuperación en otros dispositivos';
+
+  @override
+  String get settingsCloudBackupWrapPasswordBody =>
+      'Introduce la contraseña de esta libreta. Se guardará cifrada en tu cuenta para restaurar la copia incremental al instalar Folio en un dispositivo nuevo.';
+
+  @override
+  String get settingsCloudBackupWrapPasswordRequired =>
+      'Hace falta la contraseña de la libreta.';
+
+  @override
+  String get settingsCloudBackupWrapPasswordBodyPlain =>
+      'Opcional: elige una contraseña de recuperación para restaurar esta copia incremental en otro dispositivo. Déjala en blanco si solo usarás este equipo.';
 
   @override
   String get folioCloudPublishTestPage => 'Publicar página de prueba';
@@ -4641,7 +4716,34 @@ class AppLocalizationsEs extends AppLocalizations {
   String get folioCloudSubsectionAccount => 'Cuenta';
 
   @override
-  String get folioCloudSubsectionEncryptedBackups => 'Copias cifradas (nube)';
+  String get folioCloudSubsectionEncryptedBackups =>
+      'Copias y almacenamiento (nube)';
+
+  @override
+  String get folioCloudBackupStorageSectionIntro =>
+      'El uso incluye la copia incremental (cloud-pack) y los archivos completos antiguos en la carpeta backups/. Puedes suscribirte a una librería pequeña, mediana o grande (cuota extra mensual mientras la suscripción esté activa).';
+
+  @override
+  String folioCloudBackupStoragePurchasedExtra(Object size) {
+    return 'Ampliaciones compradas: +$size';
+  }
+
+  @override
+  String get folioCloudBackupStorageBarTitle => 'Uso de almacenamiento';
+
+  @override
+  String folioCloudBackupStorageBarPercent(int percent) {
+    return '$percent %';
+  }
+
+  @override
+  String folioCloudBackupStorageBarDetail(
+    Object used,
+    Object total,
+    Object free,
+  ) {
+    return 'Usado: $used · Cuota total: $total · Libre: $free';
+  }
 
   @override
   String get folioCloudSubsectionPublishing => 'Publicación web';
@@ -4790,6 +4892,22 @@ class AppLocalizationsEs extends AppLocalizations {
   @override
   String get sidebarPageIconEmptyImported =>
       'Todavía no has importado iconos en Ajustes.';
+
+  @override
+  String get sidebarDeletePageMenuTitle => 'Eliminar página';
+
+  @override
+  String get sidebarDeleteFolderMenuTitle => 'Quitar carpeta';
+
+  @override
+  String sidebarDeletePageConfirmInline(Object title) {
+    return '¿Eliminar «$title»? No se puede deshacer.';
+  }
+
+  @override
+  String sidebarDeleteFolderConfirmInline(Object title) {
+    return '¿Quitar carpeta «$title»? Las subpáginas pasan a la raíz de la libreta.';
+  }
 
   @override
   String get settingsStripeSubscriptionRefreshed =>
@@ -5306,4 +5424,82 @@ class AppLocalizationsEs extends AppLocalizations {
   @override
   String get vaultStarterQuillMermaidSource =>
       'graph TD\nInicio[Crear libreta] --> Organizar[Organizar páginas]\nOrganizar --> Escribir[Escribir y enlazar ideas]\nEscribir --> Revisar[Buscar, revisar y mejorar]';
+
+  @override
+  String get settingsAccentColorTitle => 'Color de acento';
+
+  @override
+  String get settingsAccentFollowSystem => 'Windows';
+
+  @override
+  String get settingsAccentFolioDefault => 'Folio';
+
+  @override
+  String get settingsAccentCustom => 'Personalizado';
+
+  @override
+  String get settingsAccentPickColor => 'Elegir color predefinido';
+
+  @override
+  String get settingsPrivacySectionTitle => 'Privacidad y diagnósticos';
+
+  @override
+  String get settingsTelemetryTitle => 'Estadísticas de uso anónimas';
+
+  @override
+  String get settingsTelemetrySubtitle =>
+      'Ayuda a medir instalaciones y uso de funciones. No se envía contenido de la libreta ni títulos.';
+
+  @override
+  String get onboardingTelemetryTitle => 'Estadísticas de uso';
+
+  @override
+  String get onboardingTelemetryBody =>
+      'Folio puede enviar analítica anónima para entender cómo se usa la app. Puedes cambiarlo en cualquier momento en Ajustes.';
+
+  @override
+  String get onboardingTelemetrySwitchTitle => 'Estadísticas de uso anónimas';
+
+  @override
+  String get onboardingTelemetrySwitchSubtitle =>
+      'Ayuda a medir instalaciones y uso de funciones. No se envía contenido de la libreta ni títulos.';
+
+  @override
+  String get onboardingTelemetryFootnote =>
+      'No se envía contenido de la libreta ni títulos de páginas.';
+
+  @override
+  String get settingsAutoCrashReportsTitle =>
+      'Enviar diagnósticos de fallos automáticamente';
+
+  @override
+  String get settingsAutoCrashReportsSubtitle =>
+      'Si hay un error grave, se envía un trozo del log a Folio (opcional, limitado por sesión).';
+
+  @override
+  String get settingsReportBugButton => 'Reportar un error';
+
+  @override
+  String get settingsPrivacyFootnote =>
+      'Puedes añadir una nota; puede abrirse el enlace de incidencias en el navegador.';
+
+  @override
+  String get settingsReportBugDialogTitle => 'Reportar un error';
+
+  @override
+  String get settingsReportBugDialogBody =>
+      'Enviaremos metadatos anónimos, un trozo del log y tu nota. Después podrás abrir el gestor de incidencias.';
+
+  @override
+  String get settingsReportBugNoteLabel => '¿Qué ocurrió? (opcional)';
+
+  @override
+  String get settingsReportBugSend => 'Enviar y continuar';
+
+  @override
+  String get settingsReportBugSentOk => 'Diagnóstico enviado.';
+
+  @override
+  String get settingsReportBugSentFail =>
+      'No se pudo enviar el diagnóstico. Revisa la conexión o inténtalo más tarde.';
 }
