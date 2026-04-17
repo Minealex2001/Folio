@@ -167,7 +167,7 @@ msix_config:
   identity_name: MinealexGames.Folio-PrivateWorkspace
   publisher: CN=EFF3F915-1B14-4A6A-B8F6-8F232E1B13B0
   msix_version: 0.3.5.0
-  logo_path: windows/runner/resources/app_icon.ico
+  logo_path: assets/icons/folio.ico
   capabilities: internetClient, microphone
   store: true
   install_certificate: true

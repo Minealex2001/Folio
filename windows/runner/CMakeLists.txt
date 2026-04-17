@@ -18,6 +18,17 @@ add_executable(${BINARY_NAME} WIN32
   "runner.exe.manifest"
 )
 
+# Origen único del icono: assets/icons/folio.ico → recursos del .exe (Runner.rc).
+set(_FOLIO_ICO_SRC "${CMAKE_CURRENT_SOURCE_DIR}/../../assets/icons/folio.ico")
+set(_FOLIO_ICO_DST "${CMAKE_CURRENT_SOURCE_DIR}/resources/app_icon.ico")
+add_custom_command(
+  TARGET ${BINARY_NAME} PRE_BUILD
+  COMMAND ${CMAKE_COMMAND} -E copy_if_different
+    "${_FOLIO_ICO_SRC}"
+    "${_FOLIO_ICO_DST}"
+  COMMENT "Sync Windows app icon from assets/icons/folio.ico"
+)
+
 set_source_files_properties(
   "microsoft_store_plugin.cpp"
   PROPERTIES

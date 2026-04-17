@@ -36,7 +36,7 @@ PrivilegesRequiredOverridesAllowed=dialog
 ; Cierra procesos que bloqueen archivos del {app} (útil si Folio sigue en memoria).
 CloseApplications=yes
 OutputBaseFilename=Folio-Setup-{#MyAppVersion}
-SetupIconFile=C:\Users\aleja\Repositories\Folio\assets\icons\folio.ico
+SetupIconFile=assets\icons\folio.ico
 SolidCompression=yes
 WizardStyle=modern dynamic windows11
 

@@ -150,7 +150,6 @@ class _SettingsPageState extends State<SettingsPage> {
   String _installedVersionLabel = '...';
   bool _folioCloudActionBusy = false;
   bool _webLinkBusy = false;
-  int? _cloudBackupCount;
   bool _cloudBackupCountBusy = false;
   final AudioRecorder _meetingNoteDeviceProbe = AudioRecorder();
   List<InputDevice> _meetingNoteMicDevices = const [];
@@ -2215,12 +2214,11 @@ class _SettingsPageState extends State<SettingsPage> {
     if (!snap.canUseCloudBackup) return;
     setState(() => _cloudBackupCountBusy = true);
     try {
-      final entries = await listFolioCloudBackups(
+      await listFolioCloudBackups(
         vaultId: vaultId,
         entitlementSnapshot: snap,
       );
       if (!mounted) return;
-      setState(() => _cloudBackupCount = entries.length);
     } catch (_) {
       // No interrumpimos la UI por el contador.
     } finally {
@@ -2264,7 +2262,6 @@ class _SettingsPageState extends State<SettingsPage> {
     if (!mounted) return;
     setState(() {
       _folioCloudActionBusy = false;
-      _cloudBackupCount = initialEntries.length;
     });
 
     final l10n = AppLocalizations.of(context);
@@ -4289,8 +4286,6 @@ class _SettingsPageState extends State<SettingsPage> {
                                       l10n: l10n,
                                       snap: _folio.snapshot,
                                       busy: _folioCloudActionBusy,
-                                      backupCount: _cloudBackupCount,
-                                      backupCountBusy: _cloudBackupCountBusy,
                                       showMicrosoftStoreBillingNote:
                                           FolioMicrosoftStoreChannel
                                               .isRuntimeSupported,
@@ -9556,8 +9551,6 @@ class _FolioCloudSubscriptionPanel extends StatelessWidget {
     required this.l10n,
     required this.snap,
     required this.busy,
-    required this.backupCount,
-    required this.backupCountBusy,
     required this.showMicrosoftStoreBillingNote,
     required this.onSubscribeMonthly,
     required this.onOpenPitch,
@@ -9578,8 +9571,6 @@ class _FolioCloudSubscriptionPanel extends StatelessWidget {
   final AppLocalizations l10n;
   final FolioCloudSnapshot snap;
   final bool busy;
-  final int? backupCount;
-  final bool backupCountBusy;
   final bool showMicrosoftStoreBillingNote;
   final VoidCallback onSubscribeMonthly;
   final VoidCallback onOpenPitch;
@@ -10157,116 +10148,101 @@ class _FolioCloudSubscriptionPanel extends StatelessWidget {
                 ),
               LayoutBuilder(
                 builder: (context, constraints) {
-                  final quota = snap.backupQuotaBytes;
-                  final usedBytes = snap.backupUsedBytes;
-                  final remainingBytes =
-                      quota > 0 ? (quota - usedBytes).clamp(0, quota) : 0;
-                  final loading = backupCountBusy && backupCount == null;
-                  final usedLabel = loading
-                      ? '…'
-                      : (quota > 0 ? fmtStorageBytes(usedBytes) : '—');
-                  final quotaLabel =
-                      loading ? '…' : (quota > 0 ? fmtStorageBytes(quota) : '—');
-                  final remainingLabel = loading
-                      ? '…'
-                      : (quota > 0 ? fmtStorageBytes(remainingBytes) : '—');
-                  final pct = quota > 0 && !loading
-                      ? ((usedBytes / quota) * 100).round().clamp(0, 100)
-                      : null;
-
                   if (!snap.canUseCloudBackup) {
                     return const SizedBox.shrink();
                   }
 
-                  if (loading || (quota > 0 && !loading)) {
-                    return Container(
-                      padding: const EdgeInsets.all(14),
-                      decoration: BoxDecoration(
-                        color: scheme.surfaceContainerLow.withValues(
-                          alpha: 0.85,
-                        ),
-                        borderRadius: BorderRadius.circular(18),
-                        border: Border.all(
-                          color: scheme.outlineVariant.withValues(alpha: 0.45),
-                        ),
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: [
-                          Row(
-                            children: [
-                              Icon(
-                                Icons.pie_chart_outline_rounded,
-                                size: 22,
-                                color: scheme.primary,
-                              ),
-                              const SizedBox(width: 10),
-                              Expanded(
-                                child: Text(
-                                  l10n.folioCloudBackupStorageBarTitle,
-                                  style: theme.textTheme.titleSmall?.copyWith(
-                                    fontWeight: FontWeight.w800,
-                                  ),
-                                ),
-                              ),
-                              if (pct != null)
-                                Text(
-                                  l10n.folioCloudBackupStorageBarPercent(pct),
-                                  style: theme.textTheme.titleMedium?.copyWith(
-                                    fontWeight: FontWeight.w900,
-                                    color: scheme.primary,
-                                  ),
-                                ),
-                            ],
-                          ),
-                          const SizedBox(height: 14),
-                          ClipRRect(
-                            borderRadius: BorderRadius.circular(10),
-                            child: SizedBox(
-                              height: 26,
-                              child: LinearProgressIndicator(
-                                value: loading
-                                    ? null
-                                    : (usedBytes / quota).clamp(0.0, 1.0),
-                                minHeight: 26,
-                                backgroundColor: scheme.surfaceContainerHighest
-                                    .withValues(alpha: 0.9),
-                                valueColor: AlwaysStoppedAnimation<Color>(
-                                  pct != null && pct >= 90
-                                      ? scheme.error
-                                      : scheme.primary,
-                                ),
-                              ),
-                            ),
-                          ),
-                          const SizedBox(height: 10),
-                          Text(
-                            loading
-                                ? '…'
-                                : l10n.folioCloudBackupStorageBarDetail(
-                                    usedLabel,
-                                    quotaLabel,
-                                    remainingLabel,
-                                  ),
-                            style: theme.textTheme.bodySmall?.copyWith(
-                              color: scheme.onSurfaceVariant,
-                              height: 1.4,
-                            ),
-                          ),
-                        ],
-                      ),
-                    );
-                  }
+                  final quota = snap.backupQuotaBytes;
+                  final usedBytes = snap.backupUsedBytes;
+                  final remainingBytes =
+                      quota > 0 ? (quota - usedBytes).clamp(0, quota) : 0;
+                  final determinate = quota > 0;
+                  final usedLabel = determinate
+                      ? fmtStorageBytes(usedBytes)
+                      : '…';
+                  final quotaLabel =
+                      determinate ? fmtStorageBytes(quota) : '…';
+                  final remainingLabel =
+                      determinate ? fmtStorageBytes(remainingBytes) : '…';
+                  final pct = determinate
+                      ? ((usedBytes / quota) * 100).round().clamp(0, 100)
+                      : null;
 
-                  return Padding(
-                    padding: const EdgeInsets.only(top: 4),
-                    child: Text(
-                      '${l10n.folioCloudBackupStorageStatUsed}: $usedLabel · '
-                      '${l10n.folioCloudBackupStorageStatQuota}: $quotaLabel',
-                      style: theme.textTheme.bodySmall?.copyWith(
-                        color: scheme.onSurfaceVariant,
-                        height: 1.4,
+                  return Container(
+                    padding: const EdgeInsets.all(14),
+                    decoration: BoxDecoration(
+                      color: scheme.surfaceContainerLow.withValues(
+                        alpha: 0.85,
                       ),
+                      borderRadius: BorderRadius.circular(18),
+                      border: Border.all(
+                        color: scheme.outlineVariant.withValues(alpha: 0.45),
+                      ),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        Row(
+                          children: [
+                            Icon(
+                              Icons.pie_chart_outline_rounded,
+                              size: 22,
+                              color: scheme.primary,
+                            ),
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: Text(
+                                l10n.folioCloudBackupStorageBarTitle,
+                                style: theme.textTheme.titleSmall?.copyWith(
+                                  fontWeight: FontWeight.w800,
+                                ),
+                              ),
+                            ),
+                            if (pct != null)
+                              Text(
+                                l10n.folioCloudBackupStorageBarPercent(pct),
+                                style: theme.textTheme.titleMedium?.copyWith(
+                                  fontWeight: FontWeight.w900,
+                                  color: scheme.primary,
+                                ),
+                              ),
+                          ],
+                        ),
+                        const SizedBox(height: 14),
+                        ClipRRect(
+                          borderRadius: BorderRadius.circular(10),
+                          child: SizedBox(
+                            height: 26,
+                            child: LinearProgressIndicator(
+                              value: determinate
+                                  ? (usedBytes / quota).clamp(0.0, 1.0)
+                                  : null,
+                              minHeight: 26,
+                              backgroundColor: scheme.surfaceContainerHighest
+                                  .withValues(alpha: 0.9),
+                              valueColor: AlwaysStoppedAnimation<Color>(
+                                pct != null && pct >= 90
+                                    ? scheme.error
+                                    : scheme.primary,
+                              ),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 10),
+                        Text(
+                          determinate
+                              ? l10n.folioCloudBackupStorageBarDetail(
+                                  usedLabel,
+                                  quotaLabel,
+                                  remainingLabel,
+                                )
+                              : '…',
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: scheme.onSurfaceVariant,
+                            height: 1.4,
+                          ),
+                        ),
+                      ],
                     ),
                   );
                 },
