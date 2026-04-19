@@ -1,1 +1,17 @@
-{}
+{
+  "ca": [
+    "cloudPackRestorePasswordHelper"
+  ],
+
+  "eu": [
+    "cloudPackRestorePasswordHelper"
+  ],
+
+  "gl": [
+    "cloudPackRestorePasswordHelper"
+  ],
+
+  "pt": [
+    "cloudPackRestorePasswordHelper"
+  ]
+}

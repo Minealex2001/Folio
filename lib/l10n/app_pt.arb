@@ -1862,4 +1862,5 @@
   ,"importPdfFailed": "Não foi possível importar o PDF: {error}"
   ,"@importPdfFailed": {"placeholders": {"error": {"type": "String"}}}
   ,"importPdfNoText": "O PDF não contém texto extraível"
+  ,"downloadDesktopApp": "Baixar aplicativo para desktop"
 }

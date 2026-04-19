@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -128,6 +129,7 @@ class VaultRegistry {
 
   /// Migra `folio_vault/` legacy a `folio_vaults/<uuid>/` y registra una libreta.
   Future<void> migrateFromLegacyIfNeeded() async {
+    if (kIsWeb) return; // No hay filesystem legacy en web
     await load();
     if (_vaults.isNotEmpty) return;
 

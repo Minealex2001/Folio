@@ -6,6 +6,8 @@ import 'package:flutter/foundation.dart'
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'package:url_launcher/url_launcher.dart';
+
 import '../../../app/app_settings.dart';
 import '../../../app/ui_tokens.dart';
 import '../../../app/widgets/folio_feedback.dart';
@@ -1337,6 +1339,26 @@ class _SidebarState extends State<Sidebar> {
                 ),
               ),
             ),
+            if (kIsWeb)
+              Padding(
+                padding: const EdgeInsets.fromLTRB(
+                  FolioSpace.sm,
+                  0,
+                  FolioSpace.sm,
+                  FolioSpace.xs,
+                ),
+                child: FilledButton.icon(
+                  onPressed: () => launchUrl(
+                    Uri.parse('https://minealexgames.com/folio'),
+                    mode: LaunchMode.externalApplication,
+                  ),
+                  icon: const Icon(Icons.download_rounded),
+                  label: Text(l10n.downloadDesktopApp),
+                  style: FilledButton.styleFrom(
+                    minimumSize: const Size.fromHeight(40),
+                  ),
+                ),
+              ),
             if (widget.onOpenSettings != null)
               Padding(
                 padding: const EdgeInsets.fromLTRB(

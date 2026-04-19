@@ -74,7 +74,7 @@ class DeviceSyncController extends ChangeNotifier {
   InternetAddress? _acceptedIncomingPairReplyHost;
   bool _incomingRequesterConfirmed = false;
   bool _acceptedIncomingRequesterConfirmed = false;
-  final Set<InternetAddress> _broadcastTargets = <InternetAddress>{
+  late final Set<InternetAddress> _broadcastTargets = <InternetAddress>{
     InternetAddress('255.255.255.255'),
     _multicastGroup,
   };
@@ -1457,20 +1457,19 @@ class DeviceSyncController extends ChangeNotifier {
       '🧪',
       '🛟',
     ];
-    var hash = 0xcbf29ce484222325;
-    const prime = 0x100000001b3;
+    var hash = 0x811c9dc5;
+    const prime = 0x01000193;
+    const mask = 0xffffffff;
     for (final unit in seed.codeUnits) {
       hash ^= unit;
-      hash = (hash * prime) & 0xffffffffffffffff;
+      hash = (hash * prime) & mask;
     }
     final emojis = <String>[];
     var cursor = hash;
     for (var i = 0; i < 3; i++) {
       final index = cursor % emojiTable.length;
       emojis.add(emojiTable[index]);
-      cursor =
-          ((cursor ~/ emojiTable.length) ^ (hash >> (i * 11))) &
-          0xffffffffffffffff;
+      cursor = ((cursor ~/ emojiTable.length) ^ (hash >> (i * 4))) & mask;
     }
     return emojis;
   }

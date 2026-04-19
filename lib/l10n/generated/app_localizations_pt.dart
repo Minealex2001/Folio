@@ -3064,6 +3064,10 @@ class AppLocalizationsPt extends AppLocalizations {
       'Backup incremental na nuvem selecionado. Digite a senha do cofre (a mesma que usa para desbloquear). Se o cofre não era criptografado, use a senha de recuperação definida ao enviar o backup.';
 
   @override
+  String get cloudPackRestorePasswordHelper =>
+      'Sin contraseña → déjalo en blanco';
+
+  @override
   String get settingsCloudBackupWrapPasswordTitle =>
       'Recuperação em outros dispositivos';
 
@@ -5726,4 +5730,7 @@ class AppLocalizationsPt extends AppLocalizations {
 
   @override
   String get importPdfNoText => 'O PDF não contém texto extraível';
+
+  @override
+  String get downloadDesktopApp => 'Baixar aplicativo para desktop';
 }

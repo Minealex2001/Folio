@@ -1023,7 +1023,8 @@
   ,"folioCloudBackupQuotaExceeded": "Not enough cloud backup storage. Buy a storage expansion or delete old full backups under backups/."
   ,"onboardingCloudBackupNeedLegacyArchive": "This vault only has an incremental cloud backup. To set up on a new device, download a full archive (.tar.gz) from another device with Folio, or create one from Settings → export."
   ,"onboardingCloudBackupNeedRestoreWrap": "This incremental backup does not have a recovery key in the cloud yet. On the device where you created it, open Folio → Settings → upload the cloud backup (enter your vault password when prompted). You can also use a full archive (.zip) if you have one."
-  ,"onboardingCloudBackupIncrementalRestoreBody": "Incremental cloud backup selected. Enter your vault password (the one you use to unlock). If the vault was unencrypted, use the recovery password you set when uploading."
+  ,"onboardingCloudBackupIncrementalRestoreBody": "Incremental cloud backup selected. Enter your vault password (the one you use to unlock it). If your vault has no password, leave the field blank."
+  ,"cloudPackRestorePasswordHelper": "No password → leave blank"
   ,"settingsCloudBackupWrapPasswordTitle": "Recovery on other devices"
   ,"settingsCloudBackupWrapPasswordBody": "Enter this vault’s password. It will be stored encrypted in your account so you can restore the incremental backup when installing Folio on a new device."
   ,"settingsCloudBackupWrapPasswordRequired": "The vault password is required."
@@ -1862,4 +1863,5 @@
   ,"importPdfFailed": "Could not import PDF: {error}"
   ,"@importPdfFailed": {"placeholders": {"error": {"type": "String"}}}
   ,"importPdfNoText": "The PDF contains no extractable text"
+  ,"downloadDesktopApp": "Download desktop app"
 }

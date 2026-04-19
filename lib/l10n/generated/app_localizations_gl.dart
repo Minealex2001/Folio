@@ -3088,6 +3088,10 @@ class AppLocalizationsGl extends AppLocalizations {
       'Copia incremental na nube lista. Introduce o contrasinal do caderno (o mesmo que usas para desbloquealo). Se o caderno estaba sen cifrar, usa o contrasinal de recuperación que definiches ao subir a copia.';
 
   @override
+  String get cloudPackRestorePasswordHelper =>
+      'Sin contraseña → déjalo en blanco';
+
+  @override
   String get settingsCloudBackupWrapPasswordTitle =>
       'Recuperación noutros dispositivos';
 
@@ -5752,4 +5756,7 @@ class AppLocalizationsGl extends AppLocalizations {
 
   @override
   String get importPdfNoText => 'O PDF non conteñ texto extraíble';
+
+  @override
+  String get downloadDesktopApp => 'Descargar a aplicación de escritorio';
 }

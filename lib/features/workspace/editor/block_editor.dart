@@ -13,7 +13,12 @@ import 'package:cryptography/cryptography.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/foundation.dart'
-    show TargetPlatform, defaultTargetPlatform, setEquals, visibleForTesting;
+    show
+        TargetPlatform,
+        defaultTargetPlatform,
+        kIsWeb,
+        setEquals,
+        visibleForTesting;
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart' show HitTestResult, RenderMetaData;
 import 'package:flutter/services.dart';

@@ -1,5 +1,7 @@
 import 'dart:io';
 
+import 'package:flutter/foundation.dart' show kIsWeb;
+
 class FolioRuntimeConfig {
   const FolioRuntimeConfig({required this.integrationSecret});
 
@@ -13,16 +15,18 @@ class FolioRuntimeConfig {
       return FolioRuntimeConfig(integrationSecret: defineSecret);
     }
 
-    final envSecret =
-        Platform.environment['FOLIO_INTEGRATION_SECRET']?.trim() ?? '';
-    if (envSecret.isNotEmpty) {
-      return FolioRuntimeConfig(integrationSecret: envSecret);
-    }
-    for (final fileName in const ['.env.local', '.env']) {
-      final env = await _tryReadEnvFile(fileName);
-      final secret = env['FOLIO_INTEGRATION_SECRET']?.trim() ?? '';
-      if (secret.isNotEmpty) {
-        return FolioRuntimeConfig(integrationSecret: secret);
+    if (!kIsWeb) {
+      final envSecret =
+          Platform.environment['FOLIO_INTEGRATION_SECRET']?.trim() ?? '';
+      if (envSecret.isNotEmpty) {
+        return FolioRuntimeConfig(integrationSecret: envSecret);
+      }
+      for (final fileName in const ['.env.local', '.env']) {
+        final env = await _tryReadEnvFile(fileName);
+        final secret = env['FOLIO_INTEGRATION_SECRET']?.trim() ?? '';
+        if (secret.isNotEmpty) {
+          return FolioRuntimeConfig(integrationSecret: secret);
+        }
       }
     }
 

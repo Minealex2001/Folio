@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:ui';
 
 import 'package:firebase_core/firebase_core.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:system_theme/system_theme.dart';
@@ -25,7 +26,7 @@ Future<void> main() async {
   await runZonedGuarded(
     () async {
       WidgetsFlutterBinding.ensureInitialized();
-      AppLogger.setSink(await AppLogFileSink.init());
+      if (!kIsWeb) AppLogger.setSink(await AppLogFileSink.init());
 
       // Cargar variables locales (no versionadas) desde `.env`.
       try {

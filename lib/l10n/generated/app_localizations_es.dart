@@ -3067,7 +3067,11 @@ class AppLocalizationsEs extends AppLocalizations {
 
   @override
   String get onboardingCloudBackupIncrementalRestoreBody =>
-      'Copia incremental en la nube lista. Introduce la contraseña de la libreta (la misma que usas para desbloquearla). Si la libreta estaba en claro, usa la contraseña de recuperación que definiste al subir la copia.';
+      'Copia incremental en la nube lista. Introduce la contraseña de la libreta (la misma que usas para desbloquearla). Si la libreta no tiene contraseña, deja el campo en blanco.';
+
+  @override
+  String get cloudPackRestorePasswordHelper =>
+      'Sin contraseña → déjalo en blanco';
 
   @override
   String get settingsCloudBackupWrapPasswordTitle =>
@@ -5730,4 +5734,7 @@ class AppLocalizationsEs extends AppLocalizations {
 
   @override
   String get importPdfNoText => 'El PDF no contiene texto extraíble';
+
+  @override
+  String get downloadDesktopApp => 'Descargar app de escritorio';
 }

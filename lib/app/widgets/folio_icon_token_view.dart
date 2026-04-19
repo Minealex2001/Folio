@@ -1,9 +1,12 @@
-import 'dart:io';
+import 'dart:typed_data';
 
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
 import '../app_settings.dart';
+import 'folio_icon_token_file_io.dart'
+    if (dart.library.html) 'folio_icon_token_file_web.dart';
 
 class FolioIconTokenView extends StatelessWidget {
   const FolioIconTokenView({
@@ -24,22 +27,8 @@ class FolioIconTokenView extends StatelessWidget {
     final raw = token?.trim();
     final customIcon = appSettings.customIconForToken(raw);
     if (customIcon != null) {
-      if (customIcon.isSvg) {
-        return SvgPicture.file(
-          File(customIcon.filePath),
-          width: size,
-          height: size,
-          fit: BoxFit.contain,
-          placeholderBuilder: (_) => _fallback(),
-        );
-      }
-      return Image.file(
-        File(customIcon.filePath),
-        width: size,
-        height: size,
-        fit: BoxFit.contain,
-        errorBuilder: (_, _, _) => _fallback(),
-      );
+      if (kIsWeb) return _fallback(); // Custom file icons not supported on web
+      return _buildFileIcon(customIcon.filePath, customIcon.isSvg);
     }
     final text = (raw == null || raw.isEmpty) ? fallbackText : raw;
     return SizedBox(
@@ -48,6 +37,31 @@ class FolioIconTokenView extends StatelessWidget {
       child: Center(
         child: Text(text, style: TextStyle(fontSize: size * 0.82)),
       ),
+    );
+  }
+
+  Widget _buildFileIcon(String filePath, bool isSvg) {
+    return FutureBuilder<Uint8List>(
+      future: readIconFileBytes(filePath),
+      builder: (context, snapshot) {
+        if (!snapshot.hasData) return _fallback();
+        if (isSvg) {
+          return SvgPicture.memory(
+            snapshot.data!,
+            width: size,
+            height: size,
+            fit: BoxFit.contain,
+            placeholderBuilder: (_) => _fallback(),
+          );
+        }
+        return Image.memory(
+          snapshot.data!,
+          width: size,
+          height: size,
+          fit: BoxFit.contain,
+          errorBuilder: (_, _, _) => _fallback(),
+        );
+      },
     );
   }
 

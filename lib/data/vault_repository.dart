@@ -204,9 +204,8 @@ class VaultRepository {
   static const String _modePlain = 'plain';
 
   Future<bool> isPlaintextVault() async {
-    final modePath = await VaultPaths.vaultModePath();
-    if (!modePath.existsSync()) return false;
-    final raw = await modePath.readAsString();
+    final raw = await VaultPaths.readVaultMode();
+    if (raw == null) return false;
     return raw.trim().toLowerCase() == _modePlain;
   }
 
@@ -222,9 +221,6 @@ class VaultRepository {
     final payload = VaultPayload(
       pages: initialPages ?? buildVaultStarterPages(starterContent, l10n),
     );
-    final modePath = await VaultPaths.vaultModePath();
-    final payloadPath = await VaultPaths.cipherPayloadPath();
-    final wrappedPath = await VaultPaths.wrappedDekPath();
     if (encrypted) {
       if (password == null || password.isEmpty) {
         throw StateError('Se requiere contraseña para libreta cifrada');
@@ -239,26 +235,26 @@ class VaultRepository {
         plain: payload.encodeUtf8(),
         dek: dek,
       );
-      await wrappedPath.writeAsBytes(wrapped);
-      await payloadPath.writeAsBytes(enc);
-      await modePath.writeAsString(_modeEncrypted, flush: true);
+      await VaultPaths.writeWrappedDek(wrapped);
+      await VaultPaths.writeCipherPayload(enc);
+      await VaultPaths.writeVaultMode(_modeEncrypted);
       return dekBytes;
     }
-    if (wrappedPath.existsSync()) {
-      await wrappedPath.delete();
-    }
-    await payloadPath.writeAsBytes(payload.encodeUtf8());
-    await modePath.writeAsString(_modePlain, flush: true);
+    await VaultPaths.deleteWrappedDek();
+    await VaultPaths.writeCipherPayload(Uint8List.fromList(payload.encodeUtf8()));
+    await VaultPaths.writeVaultMode(_modePlain);
     return null;
   }
 
   Future<Uint8List> unlockWithPassword(String password) async {
-    final wrapped = await (await VaultPaths.wrappedDekPath()).readAsBytes();
+    final wrapped = await VaultPaths.readWrappedDek();
+    if (wrapped == null) throw StateError('vault.keys no encontrado');
     return VaultCrypto.unwrapDek(wrapped: wrapped, password: password);
   }
 
   Future<VaultPayload> loadPayload(List<int>? dekBytes) async {
-    final raw = await (await VaultPaths.cipherPayloadPath()).readAsBytes();
+    final raw = await VaultPaths.readCipherPayload();
+    if (raw == null) throw StateError('vault.bin no encontrado');
     if (await isPlaintextVault()) {
       return VaultPayload.decodeUtf8(raw);
     }
@@ -272,9 +268,7 @@ class VaultRepository {
 
   Future<void> savePayload(VaultPayload payload, List<int>? dekBytes) async {
     if (await isPlaintextVault()) {
-      await (await VaultPaths.cipherPayloadPath()).writeAsBytes(
-        payload.encodeUtf8(),
-      );
+      await VaultPaths.writeCipherPayload(Uint8List.fromList(payload.encodeUtf8()));
       return;
     }
     if (dekBytes == null) {
@@ -285,15 +279,15 @@ class VaultRepository {
       plain: payload.encodeUtf8(),
       dek: dek,
     );
-    await (await VaultPaths.cipherPayloadPath()).writeAsBytes(enc);
+    await VaultPaths.writeCipherPayload(enc);
   }
 
   Future<void> rewrapDek({
     required String currentPassword,
     required String newPassword,
   }) async {
-    final wrappedPath = await VaultPaths.wrappedDekPath();
-    final wrapped = await wrappedPath.readAsBytes();
+    final wrapped = await VaultPaths.readWrappedDek();
+    if (wrapped == null) throw StateError('vault.keys no encontrado');
     final dek = await VaultCrypto.unwrapDek(
       wrapped: wrapped,
       password: currentPassword,
@@ -302,7 +296,7 @@ class VaultRepository {
       dek: dek,
       password: newPassword,
     );
-    await wrappedPath.writeAsBytes(rewrapped, flush: true);
+    await VaultPaths.writeWrappedDek(rewrapped);
   }
 
   /// Pasa una libreta en texto plano a cifrado con [password]. Sobreescribe
@@ -327,12 +321,9 @@ class VaultRepository {
       plain: payload.encodeUtf8(),
       dek: dek,
     );
-    final modePath = await VaultPaths.vaultModePath();
-    final payloadPath = await VaultPaths.cipherPayloadPath();
-    final wrappedPath = await VaultPaths.wrappedDekPath();
-    await wrappedPath.writeAsBytes(wrapped, flush: true);
-    await payloadPath.writeAsBytes(enc, flush: true);
-    await modePath.writeAsString(_modeEncrypted, flush: true);
+    await VaultPaths.writeWrappedDek(wrapped);
+    await VaultPaths.writeCipherPayload(enc);
+    await VaultPaths.writeVaultMode(_modeEncrypted);
     return dekBytes;
   }
 }

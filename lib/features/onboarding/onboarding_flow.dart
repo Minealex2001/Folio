@@ -3,7 +3,8 @@ import 'dart:io';
 
 import 'package:cloud_functions/cloud_functions.dart';
 import 'package:file_picker/file_picker.dart';
-import 'package:flutter/foundation.dart' show TargetPlatform, defaultTargetPlatform;
+import 'package:flutter/foundation.dart'
+    show TargetPlatform, defaultTargetPlatform;
 import 'package:flutter/material.dart';
 import 'package:path/path.dart' as p;
 
@@ -64,6 +65,7 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
   var _obscureNotionConfirm = true;
   var _createWithoutEncryption = false;
   var _createStarterPages = true;
+
   /// Elección en onboarding (se persiste al salir del paso).
   var _onboardingTelemetryEnabled = false;
 
@@ -233,8 +235,7 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
 
       final chosen = await showDialog<FolioCloudBackupEntry>(
         context: context,
-        builder: (ctx) =>
-            _CloudBackupPickerDialog(l10n: l10n, items: backups),
+        builder: (ctx) => _CloudBackupPickerDialog(l10n: l10n, items: backups),
       );
       if (!mounted || chosen == null) {
         setState(() => _busy = false);
@@ -357,10 +358,6 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
     if (_onboardingCloudPackVaultId != null) {
       final vid = _onboardingCloudPackVaultId!;
       final pwd = _backupPassword.text.trim();
-      if (pwd.isEmpty) {
-        setState(() => _error = l10n.enterBackupPasswordError);
-        return;
-      }
       setState(() {
         _busy = true;
         _error = null;
@@ -428,9 +425,7 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
     final pwd = _backupPassword.text;
     final isPlain = _backupZipIsPlain == true;
     if (!isPlain && pwd.isEmpty) {
-      setState(
-        () => _error = l10n.enterBackupPasswordError,
-      );
+      setState(() => _error = l10n.enterBackupPasswordError);
       return;
     }
     setState(() {
@@ -1000,7 +995,9 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
         const SizedBox(height: FolioSpace.md),
         Text(
           _onboardingCloudPackVaultId != null
-              ? AppLocalizations.of(context).onboardingCloudBackupIncrementalRestoreBody
+              ? AppLocalizations.of(
+                  context,
+                ).onboardingCloudBackupIncrementalRestoreBody
               : AppLocalizations.of(context).importBackupBody,
           style: Theme.of(context).textTheme.bodyLarge?.copyWith(
             height: 1.45,
@@ -1055,13 +1052,15 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
             ),
             textAlign: TextAlign.center,
           )
-        else if (_onboardingCloudPackVaultId != null ||
-            _backupZipPath != null)
+        else if (_onboardingCloudPackVaultId != null || _backupZipPath != null)
           FolioPasswordField(
             controller: _backupPassword,
             obscureText: _obscureBackupPassword,
             enabled: !_busy,
             labelText: AppLocalizations.of(context).backupPasswordLabel,
+            helperText: _onboardingCloudPackVaultId != null
+                ? AppLocalizations.of(context).cloudPackRestorePasswordHelper
+                : null,
             showPasswordTooltip: AppLocalizations.of(context).showPassword,
             hidePasswordTooltip: AppLocalizations.of(context).hidePassword,
             onToggleObscure: () {
@@ -1369,7 +1368,9 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
                   borderRadius: BorderRadius.circular(FolioRadius.md),
                 ),
               ),
-              onPressed: _busy ? null : () => unawaited(_persistTelemetryAndGoToCloud()),
+              onPressed: _busy
+                  ? null
+                  : () => unawaited(_persistTelemetryAndGoToCloud()),
               child: Text(l10n.continueAction),
             ),
           ],
@@ -1835,7 +1836,9 @@ class _CloudBackupPickerDialog extends StatelessWidget {
             final e = items[i];
             return ListTile(
               leading: Icon(
-                e.isCloudPack ? Icons.cloud_sync_outlined : Icons.archive_outlined,
+                e.isCloudPack
+                    ? Icons.cloud_sync_outlined
+                    : Icons.archive_outlined,
               ),
               title: Text(
                 e.fileName,

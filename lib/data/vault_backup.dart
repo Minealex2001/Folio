@@ -3,6 +3,7 @@ import 'dart:io';
 
 import 'package:archive/archive_io.dart';
 import 'package:cryptography/cryptography.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:path/path.dart' as p;
 
 import '../crypto/vault_crypto.dart';
@@ -60,6 +61,7 @@ class VaultCloudBackupFingerprint {
 ///
 /// También devuelve el desglose aproximado de tamaño (vault vs adjuntos).
 Future<VaultCloudBackupFingerprint> computeVaultCloudBackupFingerprint() async {
+  if (kIsWeb) throw UnsupportedError('Backup not supported on web');
   final wrapped = await VaultPaths.wrappedDekPath();
   final cipher = await VaultPaths.cipherPayloadPath();
   if (!cipher.existsSync()) {
@@ -83,12 +85,19 @@ Future<VaultCloudBackupFingerprint> computeVaultCloudBackupFingerprint() async {
   }
 
   final vaultDir = await VaultPaths.vaultDirectory();
-  final attDir = Directory(p.join(vaultDir.path, VaultPaths.attachmentsDirName));
+  final attDir = Directory(
+    p.join(vaultDir.path, VaultPaths.attachmentsDirName),
+  );
   if (attDir.existsSync()) {
     final attEntries = <String>[];
-    await for (final entity in attDir.list(recursive: true, followLinks: false)) {
+    await for (final entity in attDir.list(
+      recursive: true,
+      followLinks: false,
+    )) {
       if (entity is! File) continue;
-      final rel = p.relative(entity.path, from: attDir.path).replaceAll(r'\', '/');
+      final rel = p
+          .relative(entity.path, from: attDir.path)
+          .replaceAll(r'\', '/');
       final stat = await entity.stat();
       final len = stat.size;
       attachmentsBytes += len;
@@ -115,6 +124,7 @@ Future<VaultCloudBackupFingerprint> computeVaultCloudBackupFingerprint() async {
 /// Fingerprint por **contenido** (SHA-256 de cada archivo) para cloud-packs
 /// incrementales; evita falsos positivos con `mtime` al deduplicar blobs.
 Future<String> computeVaultCloudPackContentFingerprint() async {
+  if (kIsWeb) throw UnsupportedError('Backup not supported on web');
   final wrapped = await VaultPaths.wrappedDekPath();
   final cipher = await VaultPaths.cipherPayloadPath();
   if (!cipher.existsSync()) {
@@ -140,12 +150,19 @@ Future<String> computeVaultCloudPackContentFingerprint() async {
   }
 
   final vaultDir = await VaultPaths.vaultDirectory();
-  final attDir = Directory(p.join(vaultDir.path, VaultPaths.attachmentsDirName));
+  final attDir = Directory(
+    p.join(vaultDir.path, VaultPaths.attachmentsDirName),
+  );
   if (attDir.existsSync()) {
     final attEntries = <String>[];
-    await for (final entity in attDir.list(recursive: true, followLinks: false)) {
+    await for (final entity in attDir.list(
+      recursive: true,
+      followLinks: false,
+    )) {
       if (entity is! File) continue;
-      final rel = p.relative(entity.path, from: attDir.path).replaceAll(r'\', '/');
+      final rel = p
+          .relative(entity.path, from: attDir.path)
+          .replaceAll(r'\', '/');
       final h = await _sha256FileHex(entity);
       final len = await entity.length();
       attEntries.add('$rel:$h:$len');
@@ -221,6 +238,7 @@ Future<bool> isPlainBackupArchive(File archiveFile) async {
 /// Crea un ZIP con `manifest.json`, `vault.bin`, opcionalmente `vault.keys` y `vault.mode`,
 /// y `attachments/` (solo lectura en disco). Libretas en texto plano no tienen `vault.keys`.
 Future<void> exportVaultZip(File destination) async {
+  if (kIsWeb) throw UnsupportedError('Backup not supported on web');
   final wrapped = await VaultPaths.wrappedDekPath();
   final cipher = await VaultPaths.cipherPayloadPath();
   final modeFile = await VaultPaths.vaultModePath();
@@ -291,6 +309,7 @@ Future<void> exportVaultZip(File destination) async {
 /// Crea un TAR.GZ con el mismo contenido que [exportVaultZip], pensado para copias en la nube.
 /// Se genera sin cargar el vault completo en memoria (streaming desde disco).
 Future<void> exportVaultTarGz(File destination) async {
+  if (kIsWeb) throw UnsupportedError('Backup not supported on web');
   final wrapped = await VaultPaths.wrappedDekPath();
   final cipher = await VaultPaths.cipherPayloadPath();
   final modeFile = await VaultPaths.vaultModePath();
@@ -326,9 +345,14 @@ Future<void> exportVaultTarGz(File destination) async {
     }
 
     final vaultDir = await VaultPaths.vaultDirectory();
-    final attDir = Directory(p.join(vaultDir.path, VaultPaths.attachmentsDirName));
+    final attDir = Directory(
+      p.join(vaultDir.path, VaultPaths.attachmentsDirName),
+    );
     if (attDir.existsSync()) {
-      await for (final entity in attDir.list(recursive: true, followLinks: false)) {
+      await for (final entity in attDir.list(
+        recursive: true,
+        followLinks: false,
+      )) {
         if (entity is File) {
           final rel = p.relative(entity.path, from: attDir.path);
           final tarName = p.posix.join(
@@ -420,7 +444,9 @@ Future<void> validateImportZip(Directory extractedDir, String password) async {
     try {
       VaultPayload.decodeUtf8(await binFile.readAsBytes());
     } catch (_) {
-      throw VaultBackupException('El contenido de la libreta en la copia no es válido.');
+      throw VaultBackupException(
+        'El contenido de la libreta en la copia no es válido.',
+      );
     }
     return;
   }
@@ -447,6 +473,7 @@ Future<void> validateImportZip(Directory extractedDir, String password) async {
 
 /// Sustituye el material de la libreta **activa** por el del directorio ya validado.
 Future<void> applyImportFromDirectory(Directory extractedDir) async {
+  if (kIsWeb) throw UnsupportedError('Backup not supported on web');
   final root = await VaultPaths.vaultDirectory();
   await applyImportToVaultRoot(extractedDir, root);
 }
@@ -456,6 +483,7 @@ Future<void> applyImportToVaultRoot(
   Directory extractedDir,
   Directory vaultRoot,
 ) async {
+  if (kIsWeb) throw UnsupportedError('Backup not supported on web');
   final keysSrc = File(p.join(extractedDir.path, VaultPaths.wrappedDekFile));
   final binSrc = File(p.join(extractedDir.path, VaultPaths.cipherPayloadFile));
   final modeSrc = File(p.join(extractedDir.path, VaultPaths.vaultModeFile));

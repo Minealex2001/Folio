@@ -65,8 +65,9 @@ Future<String?> uploadOpenVaultCloudPack({
       'esta copia incremental en otro dispositivo.',
     );
   }
+  final plainNeedsWrap = !session.vaultUsesEncryption && !hasRestoreWrap;
   final mustNotSkipUploadForWrap =
-      pw.isNotEmpty && !hasRestoreWrap;
+      (pw.isNotEmpty && !hasRestoreWrap) || plainNeedsWrap;
   final latestFp = latest?['contentFingerprint']?.toString().trim() ?? '';
   if (!mustNotSkipUploadForWrap &&
       latestFp.isNotEmpty &&
@@ -102,6 +103,15 @@ Future<String?> uploadOpenVaultCloudPack({
       );
       restoreWrapKind = 'packKey';
     }
+  } else if (plainNeedsWrap) {
+    // Libreta sin cifrado: crear restore wrap con contraseña vacía para
+    // permitir restaurar en otro dispositivo sin necesidad de contraseña.
+    final rawPk = await packKey.extractBytes();
+    restoreWrapBytes = await VaultCrypto.wrapDek(
+      dek: Uint8List.fromList(rawPk),
+      password: '',
+    );
+    restoreWrapKind = 'packKey';
   }
 
   FolioCloudPackSnapshotManifest? oldManifest;
@@ -190,10 +200,15 @@ Future<String?> uploadOpenVaultCloudPack({
   }
 
   final vaultDir = await VaultPaths.vaultDirectory();
-  final attDir = Directory(p.join(vaultDir.path, VaultPaths.attachmentsDirName));
+  final attDir = Directory(
+    p.join(vaultDir.path, VaultPaths.attachmentsDirName),
+  );
   final attPaths = <String>[];
   if (attDir.existsSync()) {
-    await for (final entity in attDir.list(recursive: true, followLinks: false)) {
+    await for (final entity in attDir.list(
+      recursive: true,
+      followLinks: false,
+    )) {
       if (entity is! File) continue;
       final rel = p
           .relative(entity.path, from: attDir.path)
@@ -219,11 +234,9 @@ Future<String?> uploadOpenVaultCloudPack({
     items: items,
     contentFingerprint: contentFp,
   );
-  final snapCipher =
-      await cloudPackEncryptSnapshotManifest(snapClear, packKey);
+  final snapCipher = await cloudPackEncryptSnapshotManifest(snapClear, packKey);
 
-  final stamp =
-      DateTime.now().toUtc().toIso8601String().replaceAll(':', '-');
+  final stamp = DateTime.now().toUtc().toIso8601String().replaceAll(':', '-');
   final snapName = 'snap-$stamp.bin';
   final snapRef = FirebaseStorage.instance.ref().child(
     'users/${user.uid}/vaults/$vaultId/cloud-packs/snapshots/$snapName',
@@ -273,7 +286,8 @@ Future<String?> uploadOpenVaultCloudPack({
     'oldSnapshotSizeBytes': oldSnapSize > 0 ? oldSnapSize : null,
     'newBlobs': newBlobList,
     'deleteBlobs': deleteList,
-    if (restoreWrapBytes != null && restoreWrapKind != null) ...<String, dynamic>{
+    if (restoreWrapBytes != null &&
+        restoreWrapKind != null) ...<String, dynamic>{
       'cloudPackRestoreWrapB64': base64Encode(restoreWrapBytes),
       'cloudPackRestoreWrapKind': restoreWrapKind,
     },
@@ -290,9 +304,7 @@ Future<String?> uploadOpenVaultCloudPack({
     if (bid.isEmpty) continue;
     try {
       await FirebaseStorage.instance
-          .ref(
-            'users/${user.uid}/vaults/$vaultId/cloud-packs/blobs/$bid',
-          )
+          .ref('users/${user.uid}/vaults/$vaultId/cloud-packs/blobs/$bid')
           .delete();
     } catch (_) {}
   }
@@ -339,10 +351,7 @@ Future<FolioCloudPackSnapshotManifest?> _downloadDecryptManifest({
   final max = 32 * 1024 * 1024;
   final data = await FirebaseStorage.instance.ref(storagePath).getData(max);
   if (data == null || data.isEmpty) return null;
-  return cloudPackDecryptSnapshotManifest(
-    cipherBlob: data,
-    packKey: packKey,
-  );
+  return cloudPackDecryptSnapshotManifest(cipherBlob: data, packKey: packKey);
 }
 
 Future<void> _ensureBlobUploaded({
@@ -504,17 +513,21 @@ Future<void> _downloadCloudPackTreeToDirectory({
 
     switch (item.role) {
       case FolioCloudPackBlobRole.backupManifest:
-        await File(p.join(extractDir.path, kVaultBackupManifestFile))
-            .writeAsBytes(clear, flush: true);
+        await File(
+          p.join(extractDir.path, kVaultBackupManifestFile),
+        ).writeAsBytes(clear, flush: true);
       case FolioCloudPackBlobRole.vaultKeys:
-        await File(p.join(extractDir.path, VaultPaths.wrappedDekFile))
-            .writeAsBytes(clear, flush: true);
+        await File(
+          p.join(extractDir.path, VaultPaths.wrappedDekFile),
+        ).writeAsBytes(clear, flush: true);
       case FolioCloudPackBlobRole.vaultBin:
-        await File(p.join(extractDir.path, VaultPaths.cipherPayloadFile))
-            .writeAsBytes(clear, flush: true);
+        await File(
+          p.join(extractDir.path, VaultPaths.cipherPayloadFile),
+        ).writeAsBytes(clear, flush: true);
       case FolioCloudPackBlobRole.vaultMode:
-        await File(p.join(extractDir.path, VaultPaths.vaultModeFile))
-            .writeAsBytes(clear, flush: true);
+        await File(
+          p.join(extractDir.path, VaultPaths.vaultModeFile),
+        ).writeAsBytes(clear, flush: true);
       case FolioCloudPackBlobRole.attachment:
         final rel = item.relativePath!;
         final out = File(p.join(extractDir.path, rel));

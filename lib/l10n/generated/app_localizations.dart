@@ -5473,8 +5473,14 @@ abstract class AppLocalizations {
   /// No description provided for @onboardingCloudBackupIncrementalRestoreBody.
   ///
   /// In es, this message translates to:
-  /// **'Copia incremental en la nube lista. Introduce la contraseña de la libreta (la misma que usas para desbloquearla). Si la libreta estaba en claro, usa la contraseña de recuperación que definiste al subir la copia.'**
+  /// **'Copia incremental en la nube lista. Introduce la contraseña de la libreta (la misma que usas para desbloquearla). Si la libreta no tiene contraseña, deja el campo en blanco.'**
   String get onboardingCloudBackupIncrementalRestoreBody;
+
+  /// No description provided for @cloudPackRestorePasswordHelper.
+  ///
+  /// In es, this message translates to:
+  /// **'Sin contraseña → déjalo en blanco'**
+  String get cloudPackRestorePasswordHelper;
 
   /// No description provided for @settingsCloudBackupWrapPasswordTitle.
   ///
@@ -10122,6 +10128,12 @@ abstract class AppLocalizations {
   /// In es, this message translates to:
   /// **'El PDF no contiene texto extraíble'**
   String get importPdfNoText;
+
+  /// No description provided for @downloadDesktopApp.
+  ///
+  /// In es, this message translates to:
+  /// **'Descargar app de escritorio'**
+  String get downloadDesktopApp;
 }
 
 class _AppLocalizationsDelegate

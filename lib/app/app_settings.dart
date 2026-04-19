@@ -507,7 +507,7 @@ class AppSettings extends ChangeNotifier {
   bool get aiAlwaysShowThought => _aiAlwaysShowThought;
   bool get aiLaunchProviderWithApp => _aiLaunchProviderWithApp;
   int get aiContextWindowTokens => _aiContextWindowTokens;
-  bool get isAiAvailable => !kIsWeb;
+  bool get isAiAvailable => true;
   bool get isAiRuntimeEnabled => _aiEnabled;
   bool get hasSeenQuillIntro => _hasSeenQuillIntro;
   bool get hasSeenQuillWorkspaceTour => _hasSeenQuillWorkspaceTour;

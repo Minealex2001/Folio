@@ -1862,4 +1862,5 @@
   ,"importPdfFailed": "No s'ha pogut importar el PDF: {error}"
   ,"@importPdfFailed": {"placeholders": {"error": {"type": "String"}}}
   ,"importPdfNoText": "El PDF no conté text extrectable"
+  ,"downloadDesktopApp": "Descarrega l'aplicació d'escriptori"
 }

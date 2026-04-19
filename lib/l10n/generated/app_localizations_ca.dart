@@ -3091,6 +3091,10 @@ class AppLocalizationsCa extends AppLocalizations {
       'Còpia incremental al núvol llesta. Introdueix la contrasenya de la llibreta (la mateixa que fas servir per desbloquejar-la). Si la llibreta era sense xifrar, usa la contrasenya de recuperació que vas definir en pujar la còpia.';
 
   @override
+  String get cloudPackRestorePasswordHelper =>
+      'Sin contraseña → déjalo en blanco';
+
+  @override
   String get settingsCloudBackupWrapPasswordTitle =>
       'Recuperació en altres dispositius';
 
@@ -5756,4 +5760,7 @@ class AppLocalizationsCa extends AppLocalizations {
 
   @override
   String get importPdfNoText => 'El PDF no conté text extrectable';
+
+  @override
+  String get downloadDesktopApp => 'Descarrega l\'aplicació d\'escriptori';
 }

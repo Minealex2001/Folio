@@ -3043,7 +3043,10 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get onboardingCloudBackupIncrementalRestoreBody =>
-      'Incremental cloud backup selected. Enter your vault password (the one you use to unlock). If the vault was unencrypted, use the recovery password you set when uploading.';
+      'Incremental cloud backup selected. Enter your vault password (the one you use to unlock it). If your vault has no password, leave the field blank.';
+
+  @override
+  String get cloudPackRestorePasswordHelper => 'No password → leave blank';
 
   @override
   String get settingsCloudBackupWrapPasswordTitle =>
@@ -5686,4 +5689,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get importPdfNoText => 'The PDF contains no extractable text';
+
+  @override
+  String get downloadDesktopApp => 'Download desktop app';
 }

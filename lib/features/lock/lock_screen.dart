@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:passkeys/exceptions.dart';
 
@@ -188,7 +189,7 @@ class _LockScreenState extends State<LockScreen> {
                 onPressed: _busy ? null : _unlockPassword,
                 child: Text(l10n.unlock),
               ),
-              if (_quickEnabled) ...[
+              if (!kIsWeb && _quickEnabled) ...[
                 const SizedBox(height: FolioSpace.md),
                 OutlinedButton.icon(
                   style: OutlinedButton.styleFrom(
@@ -307,7 +308,7 @@ class _LockScreenState extends State<LockScreen> {
                             spacing: 12,
                             runSpacing: 12,
                             children: [
-                              if (_quickEnabled)
+                              if (!kIsWeb && _quickEnabled)
                                 Chip(
                                   avatar: const Icon(
                                     Icons.fingerprint,

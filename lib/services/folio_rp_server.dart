@@ -5,6 +5,7 @@ import 'dart:math';
 import 'package:flutter/foundation.dart';
 
 import '../data/vault_paths.dart';
+import '../data/storage/vault_storage.dart';
 
 /// Relying party **local** para passkeys (mismo enfoque que el ejemplo oficial de `passkeys`).
 /// Solo metadatos de credencial; no contiene el contenido de la libreta.
@@ -64,10 +65,10 @@ class FolioRpServer {
       _users[defaultUserName]!.credentialID!.isNotEmpty;
 
   Future<void> loadFromDisk() async {
-    final f = await VaultPaths.rpStatePath();
-    if (!f.existsSync()) return;
+    final raw = await VaultPaths.readRpState();
+    if (raw == null) return;
     try {
-      final map = jsonDecode(await f.readAsString()) as Map<String, dynamic>;
+      final map = jsonDecode(raw) as Map<String, dynamic>;
       final users = map['users'] as Map<String, dynamic>? ?? {};
       _users.clear();
       for (final e in users.entries) {
@@ -81,12 +82,11 @@ class FolioRpServer {
   }
 
   Future<void> saveToDisk() async {
-    final f = await VaultPaths.rpStatePath();
     final users = <String, dynamic>{};
     for (final e in _users.entries) {
       users[e.key] = e.value.toJson();
     }
-    await f.writeAsString(jsonEncode({'users': users}));
+    await VaultPaths.writeRpState(jsonEncode({'users': users}));
   }
 
   String startPasskeyRegister() {
@@ -198,9 +198,9 @@ class FolioRpServer {
   Future<void> clearPasskey() async {
     _users.remove(defaultUserName);
     _inFlight.clear();
-    final f = await VaultPaths.rpStatePath();
-    if (f.existsSync()) {
-      await f.delete();
+    final id = VaultPaths.activeVaultId;
+    if (id != null) {
+      await VaultStorage.instance.deleteVaultFile(id, VaultPaths.rpStateFile);
     }
   }
 

@@ -1023,7 +1023,8 @@
   ,"folioCloudBackupQuotaExceeded": "No hay suficiente almacenamiento para copias en la nube. Compra una ampliación o borra copias completas antiguas en backups/."
   ,"onboardingCloudBackupNeedLegacyArchive": "Esta libreta solo tiene una copia incremental en la nube. Para configurar un dispositivo nuevo, descarga un archivo completo (.tar.gz) desde otro dispositivo con Folio o créalo desde Ajustes → exportar."
   ,"onboardingCloudBackupNeedRestoreWrap": "Esta copia incremental aún no tiene clave de recuperación en la nube. En el dispositivo donde creaste la copia, abre Folio → Ajustes → sube la copia a la nube (introduce la contraseña de la libreta cuando se solicite). También puedes usar un archivo completo (.zip) si lo tienes."
-  ,"onboardingCloudBackupIncrementalRestoreBody": "Copia incremental en la nube lista. Introduce la contraseña de la libreta (la misma que usas para desbloquearla). Si la libreta estaba en claro, usa la contraseña de recuperación que definiste al subir la copia."
+  ,"onboardingCloudBackupIncrementalRestoreBody": "Copia incremental en la nube lista. Introduce la contraseña de la libreta (la misma que usas para desbloquearla). Si la libreta no tiene contraseña, deja el campo en blanco."
+  ,"cloudPackRestorePasswordHelper": "Sin contraseña → déjalo en blanco"
   ,"settingsCloudBackupWrapPasswordTitle": "Recuperación en otros dispositivos"
   ,"settingsCloudBackupWrapPasswordBody": "Introduce la contraseña de esta libreta. Se guardará cifrada en tu cuenta para restaurar la copia incremental al instalar Folio en un dispositivo nuevo."
   ,"settingsCloudBackupWrapPasswordRequired": "Hace falta la contraseña de la libreta."
@@ -1862,4 +1863,5 @@
   ,"importPdfFailed": "No se pudo importar el PDF: {error}"
   ,"@importPdfFailed": {"placeholders": {"error": {"type": "String"}}}
   ,"importPdfNoText": "El PDF no contiene texto extraíble"
+  ,"downloadDesktopApp": "Descargar app de escritorio"
 }

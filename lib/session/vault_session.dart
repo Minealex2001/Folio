@@ -414,11 +414,10 @@ class VaultSession extends ChangeNotifier {
       }
       return VaultCrypto.dekFromBytes(_dek!);
     }
-    final cipher = await VaultPaths.cipherPayloadPath();
-    if (!cipher.existsSync()) {
+    final bytes = await VaultPaths.readCipherPayload();
+    if (bytes == null) {
       throw StateError('No hay libreta.');
     }
-    final bytes = await cipher.readAsBytes();
     final h = await Sha256().hash(bytes);
     final h2 = await Sha256().hash(
       Uint8List.fromList(utf8.encode('FolioCloudPackPlainV1') + h.bytes),
@@ -958,7 +957,7 @@ class VaultSession extends ChangeNotifier {
       id = _uuid.v4();
       VaultPaths.setActiveVaultId(id);
     }
-    await VaultPaths.vaultDirectoryForId(id);
+    await VaultPaths.initVaultStorage(id);
     if (!_registry.containsVault(id)) {
       final ordinal = _registry.vaults.length + 1;
       await _registry.add(
@@ -1012,6 +1011,7 @@ class VaultSession extends ChangeNotifier {
       ),
     );
     VaultPaths.setActiveVaultId(newId);
+    await VaultPaths.initVaultStorage(newId);
     await _registry.setActiveVaultId(newId);
     _clearVaultSessionMemory();
     _state = VaultFlowState.initializing;
@@ -1075,6 +1075,7 @@ class VaultSession extends ChangeNotifier {
   /// La UI debe haber verificado la identidad de la libreta **actual** (contraseña / Hello / passkey).
   /// [zipPath] ruta del `.zip` a crear.
   Future<void> exportVaultBackup(String zipPath) async {
+    if (kIsWeb) throw UnsupportedError('Backup not available on web');
     await persistNow();
     await exportVaultZip(File(zipPath));
   }
@@ -1086,6 +1087,7 @@ class VaultSession extends ChangeNotifier {
     String backupPassword, {
     String? displayName,
   }) async {
+    if (kIsWeb) throw UnsupportedError('Backup import not available on web');
     final temp = Directory.systemTemp.createTempSync('folio_import_new_');
     try {
       await extractBackupZipToDirectory(File(zipPath), temp);
@@ -1118,6 +1120,7 @@ class VaultSession extends ChangeNotifier {
     String archivePath,
     String backupPassword,
   ) async {
+    if (kIsWeb) throw UnsupportedError('Backup import not available on web');
     if (!isUnlocked) {
       throw StateError('La libreta debe estar desbloqueada para importar.');
     }
@@ -1293,6 +1296,7 @@ class VaultSession extends ChangeNotifier {
     required String masterPassword,
     String? displayName,
   }) async {
+    if (kIsWeb) throw UnsupportedError('Notion import not available on web');
     final temp = await Directory.systemTemp.createTemp('folio_notion_import_');
     final prevVaultId = VaultPaths.activeVaultId;
     final newId = _uuid.v4();
@@ -1367,6 +1371,7 @@ class VaultSession extends ChangeNotifier {
     String zipPath,
     String backupPassword,
   ) async {
+    if (kIsWeb) throw UnsupportedError('Backup import not available on web');
     await _registry.load();
     if (VaultPaths.activeVaultId != null && await VaultPaths.vaultExists()) {
       throw StateError('Ya hay datos en la libreta actual.');
@@ -1468,6 +1473,8 @@ class VaultSession extends ChangeNotifier {
   }
 
   Future<void> unlockWithDeviceAuth() async {
+    if (kIsWeb)
+      throw UnsupportedError('Device authentication is not available on web');
     final supported = await _localAuth.isDeviceSupported();
     if (!supported) {
       throw StateError('Este dispositivo no admite biometría o Windows Hello');
@@ -1600,6 +1607,8 @@ class VaultSession extends ChangeNotifier {
   }
 
   Future<void> enableDeviceQuickUnlock() async {
+    if (kIsWeb)
+      throw UnsupportedError('Device authentication is not available on web');
     if (!vaultUsesEncryption) {
       throw StateError('El desbloqueo rápido requiere libreta cifrada');
     }
@@ -4442,14 +4451,15 @@ class VaultSession extends ChangeNotifier {
   }
 
   String _syncFingerprintBytes(List<int> data) {
-    // FNV-1a 64-bit para detectar cambios de snapshot de forma ligera.
-    var hash = 0xcbf29ce484222325;
-    const prime = 0x100000001b3;
+    // FNV-1a 32-bit for lightweight snapshot change detection (JS-safe).
+    var hash = 0x811c9dc5;
+    const prime = 0x01000193;
+    const mask = 0xffffffff;
     for (final b in data) {
       hash ^= b;
-      hash = (hash * prime) & 0xffffffffffffffff;
+      hash = (hash * prime) & mask;
     }
-    return hash.toRadixString(16).padLeft(16, '0');
+    return hash.toRadixString(16).padLeft(8, '0');
   }
 
   bool _dekMatchesQuickStorage(Uint8List dek) {

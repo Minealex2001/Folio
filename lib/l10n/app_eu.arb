@@ -1863,4 +1863,5 @@
   ,"importPdfFailed": "Ezin izan da PDFa inportatu: {error}"
   ,"@importPdfFailed": {"placeholders": {"error": {"type": "String"}}}
   ,"importPdfNoText": "PDFak ez du testu erauzigarririk"
+  ,"downloadDesktopApp": "Deskargatu mahaigaineko aplikazioa"
 }

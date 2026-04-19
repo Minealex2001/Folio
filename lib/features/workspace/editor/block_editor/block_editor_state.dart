@@ -2126,6 +2126,96 @@ class BlockEditorState extends State<BlockEditor> with _BlockRowBuild {
 
     final widthFactor = _imageWidthFor(block);
     final isRemote = rel.startsWith('http://') || rel.startsWith('https://');
+    if (kIsWeb && !isRemote) {
+      return FutureBuilder<Uint8List?>(
+        key: ValueKey(rel),
+        future: VaultPaths.readAttachmentBytes(rel),
+        builder: (context, snap) {
+          if (!snap.hasData) {
+            return const SizedBox(
+              height: 100,
+              child: Center(child: CircularProgressIndicator()),
+            );
+          }
+          final bytes = snap.data;
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              if (showControls)
+                _blockMediaWidthToolbar(page, block, Theme.of(context)),
+              _buildCollabUploadProgressBadge(
+                block.id,
+                Theme.of(context),
+                scheme,
+              ),
+              LayoutBuilder(
+                builder: (context, constraints) {
+                  final maxW = constraints.maxWidth.isFinite
+                      ? constraints.maxWidth
+                      : MediaQuery.sizeOf(context).width;
+                  final targetW = (maxW * widthFactor).clamp(120.0, maxW);
+                  return Align(
+                    alignment: Alignment.centerLeft,
+                    child: SizedBox(
+                      width: targetW,
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(8),
+                        child: ConstrainedBox(
+                          constraints: const BoxConstraints(maxHeight: 380),
+                          child: bytes == null
+                              ? Padding(
+                                  padding: const EdgeInsets.symmetric(
+                                    vertical: 8,
+                                  ),
+                                  child: Text(
+                                    AppLocalizations.of(context).fileNotFound,
+                                    style: TextStyle(
+                                      color: scheme.error,
+                                      fontSize: 13,
+                                    ),
+                                  ),
+                                )
+                              : Image.memory(
+                                  bytes,
+                                  fit: BoxFit.contain,
+                                  errorBuilder: (context, error, stackTrace) =>
+                                      Padding(
+                                        padding: const EdgeInsets.symmetric(
+                                          vertical: 8,
+                                        ),
+                                        child: Text(
+                                          AppLocalizations.of(
+                                            context,
+                                          ).couldNotLoadImage,
+                                          style: TextStyle(
+                                            color: scheme.error,
+                                            fontSize: 13,
+                                          ),
+                                        ),
+                                      ),
+                                ),
+                        ),
+                      ),
+                    ),
+                  );
+                },
+              ),
+              if (showControls)
+                Padding(
+                  padding: const EdgeInsets.only(top: 4),
+                  child: Text(
+                    'Ancho: ${(widthFactor * 100).round()}%',
+                    style: TextStyle(
+                      color: scheme.onSurfaceVariant,
+                      fontSize: 12,
+                    ),
+                  ),
+                ),
+            ],
+          );
+        },
+      );
+    }
     return FutureBuilder<Directory>(
       key: ValueKey(rel),
       future: VaultPaths.vaultDirectory(),
@@ -3814,15 +3904,24 @@ class BlockEditorState extends State<BlockEditor> with _BlockRowBuild {
     int index,
   ) async {
     File? file;
-    if (_pickImageViaFileDialog) {
+    String? webRel;
+    if (_pickImageViaFileDialog || kIsWeb) {
       final result = await FilePicker.pickFiles(
         type: FileType.image,
         allowMultiple: false,
-        withData: false,
+        withData: kIsWeb,
       );
-      final path = result?.files.single.path;
-      if (path != null) {
-        file = File(path);
+      if (kIsWeb) {
+        final bytes = result?.files.single.bytes;
+        if (bytes != null) {
+          final ext = p.extension(result!.files.single.name);
+          webRel = await VaultPaths.importAttachmentBytes(bytes, ext);
+        }
+      } else {
+        final path = result?.files.single.path;
+        if (path != null) {
+          file = File(path);
+        }
       }
     } else {
       final picker = ImagePicker();
@@ -3831,8 +3930,9 @@ class BlockEditorState extends State<BlockEditor> with _BlockRowBuild {
         file = File(x.path);
       }
     }
-    if (!mounted || file == null || !file.existsSync()) return;
-    final rel = await VaultPaths.importAttachmentFile(file);
+    if (!mounted || (file == null && webRel == null)) return;
+    if (file != null && !kIsWeb && !file.existsSync()) return;
+    final rel = webRel ?? await VaultPaths.importAttachmentFile(file!);
     if (!mounted) return;
     _ignoreShortcuts = true;
     _s.updateBlockText(pageId, blockId, rel);
@@ -3844,23 +3944,25 @@ class BlockEditorState extends State<BlockEditor> with _BlockRowBuild {
     }
     _ignoreShortcuts = false;
     setState(() {});
-    _enqueueCollabMediaUpload(
-      pageId: pageId,
-      blockId: blockId,
-      localFile: file,
-      mediaKind: 'image',
-      onCommittedUri: (uri) {
-        _ignoreShortcuts = true;
-        _s.updateBlockText(pageId, blockId, uri);
-        if (index < _controllers.length) {
-          _controllers[index].value = TextEditingValue(
-            text: uri,
-            selection: TextSelection.collapsed(offset: uri.length),
-          );
-        }
-        _ignoreShortcuts = false;
-      },
-    );
+    if (file != null) {
+      _enqueueCollabMediaUpload(
+        pageId: pageId,
+        blockId: blockId,
+        localFile: file,
+        mediaKind: 'image',
+        onCommittedUri: (uri) {
+          _ignoreShortcuts = true;
+          _s.updateBlockText(pageId, blockId, uri);
+          if (index < _controllers.length) {
+            _controllers[index].value = TextEditingValue(
+              text: uri,
+              selection: TextSelection.collapsed(offset: uri.length),
+            );
+          }
+          _ignoreShortcuts = false;
+        },
+      );
+    }
   }
 
   Future<void> _clearImageBlock(
@@ -3878,8 +3980,21 @@ class BlockEditorState extends State<BlockEditor> with _BlockRowBuild {
   }
 
   Future<void> _pickFileForBlock(String pageId, String blockId) async {
-    final result = await FilePicker.pickFiles();
-    if (result != null && result.files.single.path != null) {
+    final result = await FilePicker.pickFiles(withData: kIsWeb);
+    if (result == null) return;
+    if (kIsWeb) {
+      final bytes = result.files.single.bytes;
+      if (bytes != null) {
+        final ext = p.extension(result.files.single.name);
+        final rel = await VaultPaths.importAttachmentBytes(
+          bytes,
+          ext,
+          preferredName: result.files.single.name,
+        );
+        _s.updateBlockUrl(pageId, blockId, rel);
+        setState(() {});
+      }
+    } else if (result.files.single.path != null) {
       final file = File(result.files.single.path!);
       final rel = await VaultPaths.importAttachmentFile(
         file,
@@ -3899,8 +4014,24 @@ class BlockEditorState extends State<BlockEditor> with _BlockRowBuild {
   }
 
   Future<void> _pickVideoForBlock(String pageId, String blockId) async {
-    final result = await FilePicker.pickFiles(type: FileType.video);
-    if (result != null && result.files.single.path != null) {
+    final result = await FilePicker.pickFiles(
+      type: FileType.video,
+      withData: kIsWeb,
+    );
+    if (result == null) return;
+    if (kIsWeb) {
+      final bytes = result.files.single.bytes;
+      if (bytes != null) {
+        final ext = p.extension(result.files.single.name);
+        final rel = await VaultPaths.importAttachmentBytes(
+          bytes,
+          ext,
+          preferredName: result.files.single.name,
+        );
+        _s.updateBlockUrl(pageId, blockId, rel);
+        setState(() {});
+      }
+    } else if (result.files.single.path != null) {
       final file = File(result.files.single.path!);
       final rel = await VaultPaths.importAttachmentFile(
         file,
@@ -3920,8 +4051,24 @@ class BlockEditorState extends State<BlockEditor> with _BlockRowBuild {
   }
 
   Future<void> _pickAudioForBlock(String pageId, String blockId) async {
-    final result = await FilePicker.pickFiles(type: FileType.audio);
-    if (result != null && result.files.single.path != null) {
+    final result = await FilePicker.pickFiles(
+      type: FileType.audio,
+      withData: kIsWeb,
+    );
+    if (result == null) return;
+    if (kIsWeb) {
+      final bytes = result.files.single.bytes;
+      if (bytes != null) {
+        final ext = p.extension(result.files.single.name);
+        final rel = await VaultPaths.importAttachmentBytes(
+          bytes,
+          ext,
+          preferredName: result.files.single.name,
+        );
+        _s.updateBlockUrl(pageId, blockId, rel);
+        setState(() {});
+      }
+    } else if (result.files.single.path != null) {
       final file = File(result.files.single.path!);
       final rel = await VaultPaths.importAttachmentFile(
         file,

@@ -3092,6 +3092,10 @@ class AppLocalizationsEu extends AppLocalizations {
       'Hodeiko babeskopi inkrementala prest. Sartu koadernoaren pasahitza (desblokeatzeko erabiltzen duzuna). Koadernoa zifratu gabe bazegoen, erabili igoeran ezarri zenuen berreskuratze-pasahitza.';
 
   @override
+  String get cloudPackRestorePasswordHelper =>
+      'Sin contraseña → déjalo en blanco';
+
+  @override
   String get settingsCloudBackupWrapPasswordTitle =>
       'Berreskuratzea beste gailuetan';
 
@@ -5765,4 +5769,7 @@ class AppLocalizationsEu extends AppLocalizations {
 
   @override
   String get importPdfNoText => 'PDFak ez du testu erauzigarririk';
+
+  @override
+  String get downloadDesktopApp => 'Deskargatu mahaigaineko aplikazioa';
 }
