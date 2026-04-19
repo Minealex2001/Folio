@@ -709,6 +709,24 @@ class AppLocalizationsEn extends AppLocalizations {
   String get propStatusDone => 'Done';
 
   @override
+  String get tagSectionTitle => 'Tags';
+
+  @override
+  String get tagAdd => 'Add tag';
+
+  @override
+  String get tagRemove => 'Remove tag';
+
+  @override
+  String get tagFilterAll => 'All';
+
+  @override
+  String get tagInputHint => 'New tag…';
+
+  @override
+  String get tagNoPagesForFilter => 'No pages with this tag.';
+
+  @override
   String get tocBlockTitle => 'Table of contents';
 
   @override

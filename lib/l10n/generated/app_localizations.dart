@@ -1402,6 +1402,42 @@ abstract class AppLocalizations {
   /// **'Hecho'**
   String get propStatusDone;
 
+  /// No description provided for @tagSectionTitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Etiquetas'**
+  String get tagSectionTitle;
+
+  /// No description provided for @tagAdd.
+  ///
+  /// In es, this message translates to:
+  /// **'Añadir etiqueta'**
+  String get tagAdd;
+
+  /// No description provided for @tagRemove.
+  ///
+  /// In es, this message translates to:
+  /// **'Eliminar etiqueta'**
+  String get tagRemove;
+
+  /// No description provided for @tagFilterAll.
+  ///
+  /// In es, this message translates to:
+  /// **'Todas'**
+  String get tagFilterAll;
+
+  /// No description provided for @tagInputHint.
+  ///
+  /// In es, this message translates to:
+  /// **'Nueva etiqueta…'**
+  String get tagInputHint;
+
+  /// No description provided for @tagNoPagesForFilter.
+  ///
+  /// In es, this message translates to:
+  /// **'No hay páginas con esta etiqueta.'**
+  String get tagNoPagesForFilter;
+
   /// No description provided for @tocBlockTitle.
   ///
   /// In es, this message translates to:

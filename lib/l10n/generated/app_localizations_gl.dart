@@ -718,6 +718,24 @@ class AppLocalizationsGl extends AppLocalizations {
   String get propStatusDone => 'Feito';
 
   @override
+  String get tagSectionTitle => 'Etiquetas';
+
+  @override
+  String get tagAdd => 'Engadir etiqueta';
+
+  @override
+  String get tagRemove => 'Eliminar etiqueta';
+
+  @override
+  String get tagFilterAll => 'Todas';
+
+  @override
+  String get tagInputHint => 'Nova etiqueta…';
+
+  @override
+  String get tagNoPagesForFilter => 'Non hai páxinas con esta etiqueta.';
+
+  @override
   String get tocBlockTitle => 'Índice de contidos';
 
   @override

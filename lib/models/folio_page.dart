@@ -16,10 +16,12 @@ class FolioPage {
     this.collabJoinCode,
     List<FolioBlock>? blocks,
     List<FolioPageProperty>? properties,
+    List<String>? tags,
   }) : blocks = (blocks != null && blocks.isNotEmpty)
            ? blocks
            : [FolioBlock(id: '${id}_b0', type: 'paragraph', text: '')],
-       properties = properties ?? [];
+       properties = properties ?? [],
+       tags = tags ?? [];
 
   final String id;
   String title;
@@ -40,6 +42,9 @@ class FolioPage {
   /// Structured frontmatter properties (text, date, status, etc.).
   List<FolioPageProperty> properties;
 
+  /// User-defined tags for filtering and organisation.
+  List<String> tags;
+
   Map<String, dynamic> toJson() => {
     'id': id,
     'title': title,
@@ -54,6 +59,7 @@ class FolioPage {
     'blocks': blocks.map((b) => b.toJson()).toList(),
     if (properties.isNotEmpty)
       'properties': properties.map((p) => p.toJson()).toList(),
+    if (tags.isNotEmpty) 'tags': tags,
   };
 
   factory FolioPage.fromJson(Map<String, dynamic> j) {
@@ -100,6 +106,7 @@ class FolioPage {
               )
               .toList() ??
           [],
+      tags: (j['tags'] as List<dynamic>?)?.cast<String>() ?? [],
     );
   }
 

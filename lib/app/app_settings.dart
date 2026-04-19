@@ -300,8 +300,12 @@ class AppSettings extends ChangeNotifier {
   static const int maxRecentSearchQueries = 10;
 
   /// Canal de distribución (Store / GitHub / web) vía `--dart-define=FOLIO_DISTRIBUTION=...`.
+<<<<<<< HEAD
   static const String distributionChannelFromEnvironment =
       FolioDistribution.raw;
+=======
+  static const String distributionChannelFromEnvironment = FolioDistribution.raw;
+>>>>>>> 60059c3 (feat: Add FolioDistribution class for build-time distribution channels)
 
   /// 30 min, luego cada hora hasta 24 h (índices del slider / menú).
   static const List<int> scheduledVaultBackupIntervalChoicesMinutes = [

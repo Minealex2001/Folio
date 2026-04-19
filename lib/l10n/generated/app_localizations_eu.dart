@@ -714,6 +714,24 @@ class AppLocalizationsEu extends AppLocalizations {
   String get propStatusDone => 'Eginda';
 
   @override
+  String get tagSectionTitle => 'Etiketak';
+
+  @override
+  String get tagAdd => 'Etiketa gehitu';
+
+  @override
+  String get tagRemove => 'Etiketa ezabatu';
+
+  @override
+  String get tagFilterAll => 'Guztiak';
+
+  @override
+  String get tagInputHint => 'Etiketa berria…';
+
+  @override
+  String get tagNoPagesForFilter => 'Ez dago orririk etiketa honekin.';
+
+  @override
   String get tocBlockTitle => 'Edukien aurkibidea';
 
   @override

@@ -511,6 +511,7 @@ class _ValueDisplay extends StatelessWidget {
     BuildContext context, {
     TextInputType keyboard = TextInputType.text,
   }) async {
+    final l10n = AppLocalizations.of(context);
     final ctrl = TextEditingController(text: prop.value as String? ?? '');
     final result = await showDialog<String>(
       context: context,
@@ -725,7 +726,7 @@ class _SelectSheetState extends State<_SelectSheet> {
                       title: Text(
                         opt,
                         style: TextStyle(
-                          color: isSelected ? scheme.primary : fg,
+                          color: isSelected ? scheme.primary : null,
                           fontWeight: isSelected ? FontWeight.w600 : null,
                         ),
                       ),

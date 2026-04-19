@@ -3086,6 +3086,37 @@ class VaultSession extends ChangeNotifier {
     scheduleSave();
   }
 
+  // ---------------------------------------------------------------------------
+  // Tags
+  // ---------------------------------------------------------------------------
+
+  /// All unique tags across all pages, sorted alphabetically.
+  List<String> get allTags {
+    final tags = <String>{};
+    for (final p in _pages) {
+      tags.addAll(p.tags);
+    }
+    return tags.toList()..sort();
+  }
+
+  void addPageTag(String pageId, String tag) {
+    final t = tag.trim();
+    if (t.isEmpty) return;
+    final p = _pageById(pageId);
+    if (p == null) return;
+    if (p.tags.contains(t)) return;
+    p.tags.add(t);
+    notifyListeners();
+    scheduleSave();
+  }
+
+  void removePageTag(String pageId, String tag) {
+    final p = _pageById(pageId);
+    if (p == null) return;
+    p.tags.remove(tag);
+    notifyListeners();
+    scheduleSave();
+  }
 
   void setPageParent(String pageId, String? newParentId) {
     if (pageId == newParentId) return;
