@@ -5,6 +5,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/foundation.dart';
 
+import '../../app/folio_distribution.dart';
 import 'folio_cloud_billing.dart';
 import 'folio_cloud_callable.dart';
 import 'folio_microsoft_store_channel.dart';
@@ -415,6 +416,7 @@ class FolioCloudEntitlementsController extends ChangeNotifier {
 
   /// Tras completar un flujo de compra en Microsoft Store (Windows).
   void scheduleMicrosoftStoreSyncOnNextResume() {
+    if (!FolioDistribution.showMicrosoftStoreIntegration) return;
     _pendingMicrosoftStoreSyncOnResume = true;
   }
 
@@ -579,7 +581,8 @@ class FolioCloudEntitlementsController extends ChangeNotifier {
       );
     }
     if (_pendingMicrosoftStoreSyncOnResume &&
-        FolioMicrosoftStoreChannel.isRuntimeSupported) {
+        FolioMicrosoftStoreChannel.isRuntimeSupported &&
+        FolioDistribution.showMicrosoftStoreIntegration) {
       _pendingMicrosoftStoreSyncOnResume = false;
       try {
         await syncFolioMicrosoftStoreEntitlementsFromDevice();
@@ -733,6 +736,7 @@ class FolioCloudEntitlementsController extends ChangeNotifier {
   Future<void> refreshMicrosoftStoreEntitlements() async {
     if (!isAvailable) return;
     if (!FolioMicrosoftStoreChannel.isRuntimeSupported) return;
+    if (!FolioDistribution.showMicrosoftStoreIntegration) return;
     final uid = FirebaseAuth.instance.currentUser?.uid;
     if (uid == null) return;
     try {
@@ -770,7 +774,8 @@ class FolioCloudEntitlementsController extends ChangeNotifier {
     }
 
     String? msErr;
-    if (FolioMicrosoftStoreChannel.isRuntimeSupported) {
+    if (FolioMicrosoftStoreChannel.isRuntimeSupported &&
+        FolioDistribution.showMicrosoftStoreIntegration) {
       try {
         await syncFolioMicrosoftStoreEntitlementsFromDevice();
       } catch (e) {
@@ -796,7 +801,8 @@ class FolioCloudEntitlementsController extends ChangeNotifier {
       }
     }
 
-    final win = FolioMicrosoftStoreChannel.isRuntimeSupported;
+    final win = FolioMicrosoftStoreChannel.isRuntimeSupported &&
+        FolioDistribution.showMicrosoftStoreIntegration;
     final stripeOk = stripeErr == null;
     final msOk = !win || msErr == null;
     if (!win) {

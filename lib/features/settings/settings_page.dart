@@ -15,6 +15,7 @@ import 'package:path/path.dart' as p;
 
 import '../../app/app_settings.dart';
 import '../../app/folio_build_flags.dart';
+import '../../app/folio_distribution.dart';
 import '../../app/folio_in_app_shortcuts.dart';
 import '../../app/ui_tokens.dart';
 import '../../app/widgets/folio_dialog.dart';
@@ -2020,7 +2021,8 @@ class _SettingsPageState extends State<SettingsPage> {
   Future<void> _openFolioCheckout(FolioCheckoutKind kind) async {
     if (_folioCloudActionBusy) return;
     var channel = FolioCloudPurchaseChannel.stripeInBrowser;
-    if (FolioMicrosoftStoreChannel.isRuntimeSupported) {
+    if (FolioMicrosoftStoreChannel.isRuntimeSupported &&
+        FolioDistribution.showMicrosoftStoreIntegration) {
       final pick = await showFolioCloudPurchaseChannelDialog(
         context,
         checkoutKind: kind,
@@ -4288,7 +4290,9 @@ class _SettingsPageState extends State<SettingsPage> {
                                       busy: _folioCloudActionBusy,
                                       showMicrosoftStoreBillingNote:
                                           FolioMicrosoftStoreChannel
-                                              .isRuntimeSupported,
+                                              .isRuntimeSupported &&
+                                          FolioDistribution
+                                              .showMicrosoftStoreIntegration,
                                       onSubscribeMonthly: () =>
                                           _openFolioCheckout(
                                             FolioCheckoutKind.folioCloudMonthly,

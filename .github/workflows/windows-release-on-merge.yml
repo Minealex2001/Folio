@@ -120,9 +120,9 @@ jobs:
           JIRA_OAUTH_CLIENT_SECRET: ${{ secrets.JIRA_OAUTH_CLIENT_SECRET }}
         run: |
           if ($env:JIRA_OAUTH_CLIENT_SECRET -and $env:JIRA_OAUTH_CLIENT_SECRET.Trim().Length -gt 0) {
-            flutter build windows --release --dart-define=JIRA_OAUTH_CLIENT_SECRET=$env:JIRA_OAUTH_CLIENT_SECRET
+            flutter build windows --release --dart-define=FOLIO_DISTRIBUTION=github --dart-define=JIRA_OAUTH_CLIENT_SECRET=$env:JIRA_OAUTH_CLIENT_SECRET
           } else {
-            flutter build windows --release
+            flutter build windows --release --dart-define=FOLIO_DISTRIBUTION=github
           }
 
       - name: Install Inno Setup

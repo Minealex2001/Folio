@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:passkeys/exceptions.dart';
 
+import '../../app/widgets/folio_password_field.dart';
 import '../../l10n/generated/app_localizations.dart';
 import '../../session/vault_session.dart';
 
@@ -117,22 +118,14 @@ class _VaultIdentityVerifyDialogState extends State<VaultIdentityVerifyDialog> {
               child: widget.body,
             ),
             const SizedBox(height: 16),
-            TextField(
+            FolioPasswordField(
               controller: _password,
+              labelText: l10n.masterPassword,
               obscureText: _obscure,
+              onToggleObscure: () => setState(() => _obscure = !_obscure),
+              showPasswordTooltip: l10n.showPassword,
+              hidePasswordTooltip: l10n.hidePassword,
               enabled: !_busy,
-              decoration: InputDecoration(
-                labelText: l10n.masterPassword,
-                suffixIcon: IconButton(
-                  onPressed: _busy
-                      ? null
-                      : () => setState(() => _obscure = !_obscure),
-                  icon: Icon(
-                    _obscure ? Icons.visibility : Icons.visibility_off,
-                  ),
-                  tooltip: _obscure ? l10n.showPassword : l10n.hidePassword,
-                ),
-              ),
               onSubmitted: (_) => _verifyPassword(),
             ),
             const SizedBox(height: 12),

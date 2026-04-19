@@ -96,6 +96,10 @@ class BlockEditorState extends State<BlockEditor> with _BlockRowBuild {
   String? _toolbarInteractionBlockId;
   int _toolbarInteractionToken = 0;
 
+  /// Bloque cuyo [TextEditingController] tiene una selección no-colapsada
+  /// (texto seleccionado). Se actualiza desde el textListener de cada bloque.
+  String? _selectionActiveBlockId;
+
   void _onToolbarPointerDown(String blockId) {
     _toolbarInteractionToken++;
     _toolbarInteractionBlockId = blockId;
@@ -166,24 +170,35 @@ class BlockEditorState extends State<BlockEditor> with _BlockRowBuild {
         }
       });
     }
+
     void listener() {
       if (!mounted) return;
       final idx = _controllerBlockIds.indexOf(block.id);
       if (idx >= 0) {
         final plain = qc.document.toPlainText();
-        _syncInlineOverlaysOnly(
-          pageId,
-          block.id,
-          plain,
-          qc.selection,
-          idx,
-        );
+        _syncInlineOverlaysOnly(pageId, block.id, plain, qc.selection, idx);
       }
+
+      // Rastrear selección activa para el toolbar flotante.
+      final qSel = qc.selection;
+      final hasQuillSelection = qSel.isValid && !qSel.isCollapsed;
+      final wasActive = _selectionActiveBlockId == block.id;
+      if (hasQuillSelection && !wasActive) {
+        _selectionActiveBlockId = block.id;
+        setState(() {});
+      } else if (!hasQuillSelection && wasActive) {
+        _selectionActiveBlockId = null;
+        setState(() {});
+      }
+
       // Convertir a markdown con debounce para evitar trabajo por tecla.
       _quillDebounceByBlockId[block.id]?.cancel();
-      _quillDebounceByBlockId[block.id] = Timer(const Duration(milliseconds: 200), () {
-        flushNow();
-      });
+      _quillDebounceByBlockId[block.id] = Timer(
+        const Duration(milliseconds: 200),
+        () {
+          flushNow();
+        },
+      );
     }
 
     qc.addListener(listener);
@@ -214,7 +229,11 @@ class BlockEditorState extends State<BlockEditor> with _BlockRowBuild {
     _ensuringTrailingSentinel = true;
     String? focusId;
     int? focusOff;
-    for (var i = 0; i < _focusNodes.length && i < _controllerBlockIds.length; i++) {
+    for (
+      var i = 0;
+      i < _focusNodes.length && i < _controllerBlockIds.length;
+      i++
+    ) {
       if (_focusNodes[i].hasFocus) {
         focusId = _controllerBlockIds[i];
         focusOff = _controllers[i].selection.baseOffset.clamp(
@@ -1055,7 +1074,8 @@ class BlockEditorState extends State<BlockEditor> with _BlockRowBuild {
       return;
     }
 
-    final slashFilter = (sel.isValid
+    final slashFilter =
+        (sel.isValid
             ? _slashFilterFromPlainTextAndSelection(text, sel)
             : null) ??
         _slashFilterFromBlockText(text);
@@ -1092,8 +1112,9 @@ class BlockEditorState extends State<BlockEditor> with _BlockRowBuild {
       _dismissInlineSlash(clearTypedCommand: false);
     }
 
-    final mentionFilter =
-        sel.isValid ? _mentionFilterFromSelection(text, sel) : null;
+    final mentionFilter = sel.isValid
+        ? _mentionFilterFromSelection(text, sel)
+        : null;
     if (mentionFilter != null) {
       final open = _mentionBlockId != blockId;
       _mentionPageId = pageId;
@@ -1736,7 +1757,6 @@ class BlockEditorState extends State<BlockEditor> with _BlockRowBuild {
     }
     _ignoreShortcuts = false;
   }
-
 
   Future<void> _toolbarMentionPage(
     BuildContext ctx,
@@ -2452,8 +2472,6 @@ class BlockEditorState extends State<BlockEditor> with _BlockRowBuild {
     _s.reorderBlockAt(page.id, oldIndex, newIndex);
   }
 
-
-
   void _mutateTable(
     String pageId,
     String blockId,
@@ -2563,6 +2581,7 @@ class BlockEditorState extends State<BlockEditor> with _BlockRowBuild {
       showInlineEditControls: showInlineEditControls,
     );
   }
+
   @override
   void initState() {
     super.initState();
@@ -2612,6 +2631,7 @@ class BlockEditorState extends State<BlockEditor> with _BlockRowBuild {
     _mentionPageId = null;
     _mentionSelectedIndex = 0;
     _menuOpenBlockId = null;
+    _selectionActiveBlockId = null;
     _mermaidEditingSourceIds.clear();
     _selectedBlockIds.clear();
     _selectionAnchorBlockId = null;
@@ -2899,7 +2919,8 @@ class BlockEditorState extends State<BlockEditor> with _BlockRowBuild {
         final qc = _ensureQuillController(pageId: pid, block: b);
         final last = _quillLastMdByBlockId[bid];
         if (last != null && last != b.text) {
-          if (_quillMarkdownNormalize(last) == _quillMarkdownNormalize(b.text)) {
+          if (_quillMarkdownNormalize(last) ==
+              _quillMarkdownNormalize(b.text)) {
             _quillLastMdByBlockId[bid] = b.text;
           } else {
             final oldPlain = qc.document.toPlainText();
@@ -2955,6 +2976,17 @@ class BlockEditorState extends State<BlockEditor> with _BlockRowBuild {
         };
         if (skipTextSync.contains(p.blocks[idx].type)) return;
         _syncBlockTextFromController(pid, bid, c.text, idx);
+
+        // Rastrear si este bloque tiene selección de texto activa.
+        final hasSelection = c.selection.isValid && !c.selection.isCollapsed;
+        final wasActive = _selectionActiveBlockId == bid;
+        if (hasSelection && !wasActive) {
+          _selectionActiveBlockId = bid;
+          setState(() {});
+        } else if (!hasSelection && wasActive) {
+          _selectionActiveBlockId = null;
+          setState(() {});
+        }
       }
 
       c.addListener(textListener);
@@ -2974,12 +3006,18 @@ class BlockEditorState extends State<BlockEditor> with _BlockRowBuild {
       void focusDecorListener() {
         if (!mounted) return;
         if (!fn.hasFocus) {
+          // Limpiar selección activa al perder foco (si era este bloque).
+          if (_selectionActiveBlockId == bid) {
+            _selectionActiveBlockId = null;
+          }
           // Flush inmediato de WYSIWYG al perder foco.
           if (_stylableBlockTypes.contains(b.type)) {
             final qc = _quillByBlockId[bid];
             if (qc != null) {
               _quillDebounceByBlockId[bid]?.cancel();
-              final md = FolioMarkdownQuillCodec.documentToMarkdown(qc.document);
+              final md = FolioMarkdownQuillCodec.documentToMarkdown(
+                qc.document,
+              );
               _quillLastMdByBlockId[bid] = md;
               _runWithShortcutsIgnored(() {
                 _s.updateBlockText(pid, bid, md);
@@ -3136,7 +3174,7 @@ class BlockEditorState extends State<BlockEditor> with _BlockRowBuild {
 
     final slashFilter = _slashBlockId == blockId
         ? ((_slashFilterFromPlainTextAndSelection(liveText, liveSel)) ??
-            _slashFilterFromBlockText(liveText))
+              _slashFilterFromBlockText(liveText))
         : null;
     if (slashFilter != null) {
       final slashItems = _catalogFilteredForSlash(slashFilter);
@@ -3516,7 +3554,8 @@ class BlockEditorState extends State<BlockEditor> with _BlockRowBuild {
       );
       // Windows/Linux: los eventos de tarea llegan fuera del hilo de plataforma y
       // disparan [shell.cc] "non-platform thread" (flutterfire / Storage C++).
-      final snapshotEventsSafe = defaultTargetPlatform != TargetPlatform.windows &&
+      final snapshotEventsSafe =
+          defaultTargetPlatform != TargetPlatform.windows &&
           defaultTargetPlatform != TargetPlatform.linux;
       StreamSubscription<TaskSnapshot>? snapshotSub;
       if (snapshotEventsSafe) {
@@ -3529,8 +3568,9 @@ class BlockEditorState extends State<BlockEditor> with _BlockRowBuild {
               : (transferred / total).clamp(0.0, 1.0);
           Duration? eta;
           if (total != null && transferred > 0 && transferred < total) {
-            final elapsedMs =
-                DateTime.now().difference(startedAt).inMilliseconds;
+            final elapsedMs = DateTime.now()
+                .difference(startedAt)
+                .inMilliseconds;
             if (elapsedMs > 0) {
               final rate = transferred / elapsedMs;
               if (rate > 0) {
@@ -3695,6 +3735,7 @@ class BlockEditorState extends State<BlockEditor> with _BlockRowBuild {
     }
     return null;
   }
+
   int _bumpCollabUploadToken(String blockId) {
     final next = (_collabUploadTokenByBlockId[blockId] ?? 0) + 1;
     _collabUploadTokenByBlockId[blockId] = next;
@@ -3759,6 +3800,7 @@ class BlockEditorState extends State<BlockEditor> with _BlockRowBuild {
       ),
     );
   }
+
   /// En escritorio `image_picker` suele lanzar [MissingPluginException]; ahí usamos diálogo nativo.
   bool get _pickImageViaFileDialog {
     if (FolioAdaptive.isAndroidDesktopLikeWidth(
@@ -3973,6 +4015,7 @@ class BlockEditorState extends State<BlockEditor> with _BlockRowBuild {
       () => _resolveBlockUrlFile(key),
     );
   }
+
   PopupMenuButton<String> _blockMenuButton({
     required BuildContext menuContext,
     required FolioPage page,
@@ -4316,7 +4359,9 @@ class BlockEditorState extends State<BlockEditor> with _BlockRowBuild {
       _mutateTable(page.id, b.id, index, (d) => d.removeLastCol());
     } else if (v == 'db_row_add') {
       _mutateDatabase(page.id, b.id, index, (d) {
-        d.rows.add(FolioDbRow(id: '${page.id}_r_${BlockEditorState._uuid.v4()}'));
+        d.rows.add(
+          FolioDbRow(id: '${page.id}_r_${BlockEditorState._uuid.v4()}'),
+        );
       });
     } else if (v == 'db_col_add') {
       _mutateDatabase(page.id, b.id, index, (d) {
@@ -5023,6 +5068,7 @@ class BlockEditorState extends State<BlockEditor> with _BlockRowBuild {
       );
     }
   }
+
   @override
   Widget build(BuildContext context) {
     final page = _s.selectedPage;
@@ -5187,8 +5233,7 @@ class BlockEditorState extends State<BlockEditor> with _BlockRowBuild {
                           selected ||
                           focus.hasFocus ||
                           _menuOpenBlockId == b.id ||
-                          (!androidPhoneLayout &&
-                              _selectedBlockIds.length > 1);
+                          (!androidPhoneLayout && _selectedBlockIds.length > 1);
                       return KeyedSubtree(
                         key: ValueKey('block_row_${b.id}'),
                         child: RepaintBoundary(

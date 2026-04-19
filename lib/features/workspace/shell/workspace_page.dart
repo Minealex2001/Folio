@@ -17,6 +17,7 @@ import 'package:url_launcher/url_launcher.dart';
 import 'package:uuid/uuid.dart';
 
 import '../../../app/app_settings.dart';
+import '../../../app/folio_distribution.dart';
 import '../../../app/folio_in_app_shortcuts.dart';
 import '../../../app/ui_tokens.dart';
 import '../../../app/widgets/folio_cloud_ai_ink_dialog.dart';
@@ -1393,7 +1394,8 @@ class _WorkspacePageState extends State<WorkspacePage> {
   Future<void> _openFolioCloudMonthlyCheckout() async {
     if (_folioCloudCheckoutBusy) return;
     var channel = FolioCloudPurchaseChannel.stripeInBrowser;
-    if (FolioMicrosoftStoreChannel.isRuntimeSupported) {
+    if (FolioMicrosoftStoreChannel.isRuntimeSupported &&
+        FolioDistribution.showMicrosoftStoreIntegration) {
       final pick = await showFolioCloudPurchaseChannelDialog(
         context,
         checkoutKind: FolioCheckoutKind.folioCloudMonthly,

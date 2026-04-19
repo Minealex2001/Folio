@@ -7,6 +7,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:system_theme/system_theme.dart';
 
 import 'folio_build_flags.dart';
+import 'folio_distribution.dart';
 import 'folio_in_app_shortcuts.dart';
 import '../services/transcription_hardware_profile.dart';
 import '../services/updater/update_release_channel.dart';
@@ -299,8 +300,7 @@ class AppSettings extends ChangeNotifier {
   static const int maxRecentSearchQueries = 10;
 
   /// Canal de distribución (Store / GitHub / web) vía `--dart-define=FOLIO_DISTRIBUTION=...`.
-  static const String distributionChannelFromEnvironment =
-      String.fromEnvironment('FOLIO_DISTRIBUTION', defaultValue: '');
+  static const String distributionChannelFromEnvironment = FolioDistribution.raw;
 
   /// 30 min, luego cada hora hasta 24 h (índices del slider / menú).
   static const List<int> scheduledVaultBackupIntervalChoicesMinutes = [

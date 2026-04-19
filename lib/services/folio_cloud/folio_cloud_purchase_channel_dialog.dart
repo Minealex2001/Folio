@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../app/folio_distribution.dart';
 import '../../app/widgets/folio_dialog.dart';
 import '../../l10n/generated/app_localizations.dart';
 import 'folio_cloud_checkout.dart';
@@ -33,11 +34,17 @@ bool _microsoftStoreProductConfigured(FolioCheckoutKind kind) {
 
 /// En Windows muestra el selector Tienda / navegador. Devuelve [null] si cancela.
 /// Fuera de Windows no debe llamarse (o se puede llamar y devolverá [null]).
+///
+/// Si [FolioDistribution.showMicrosoftStoreIntegration] es falso, no debe
+/// llamarse; si se llama, devuelve [null] (equivalente a cancelar).
 Future<FolioCloudPurchaseChannel?> showFolioCloudPurchaseChannelDialog(
   BuildContext context, {
   required FolioCheckoutKind checkoutKind,
 }) async {
   if (!FolioMicrosoftStoreChannel.isRuntimeSupported) {
+    return null;
+  }
+  if (!FolioDistribution.showMicrosoftStoreIntegration) {
     return null;
   }
   final l10n = AppLocalizations.of(context);

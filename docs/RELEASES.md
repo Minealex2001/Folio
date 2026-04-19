@@ -30,6 +30,23 @@ En Ajustes → Acerca de puedes elegir el canal **Beta**. Ese modo usa la **últ
 - Misma convención de tag semver y mismo nombre de asset `.exe` que en releases estables.
 - Si no hay ninguna pre-release publicada, la app indicará que no hay betas disponibles.
 
+## `FOLIO_DISTRIBUTION` (facturación Folio Cloud)
+
+El instalador de GitHub se compila con `--dart-define=FOLIO_DISTRIBUTION=github` (definido en el workflow de release). Eso **desactiva la integración Microsoft Store** en la app (compras IAP de la Tienda y sync asociada); **Stripe en navegador sigue activo**.
+
+| Valor | Uso típico |
+|--------|------------|
+| `github` | Instalador Windows desde releases (sin Microsoft Store en UI). |
+| `microsoft_store` | MSIX / Partner Center; los `MS_STORE_*` deben coincidir con `functions/.env` (backend). El script `builld_all.ps1` los lee de ahí y los pasa como `--dart-define` solo en el build Windows Store (ver `lib/services/folio_cloud/folio_microsoft_store_products.dart`). |
+| `play_store` | Reservado para builds Android publicados en Google Play (sin Microsoft Store). |
+| *(vacío)* | Legado / desarrollo local: en Windows puede ofrecerse Tienda además de Stripe si el runtime y los defines lo permiten. |
+
+## Workflow «Folio build all» (GitHub Actions)
+
+- Archivo: [`.github/workflows/folio-build-all.yml`](../.github/workflows/folio-build-all.yml) (manual: **Actions → Folio build all → Run workflow**).
+- Tres jobs en paralelo: **Windows** (ejecuta `builld_all.ps1 -SkipAndroid -SkipLinux`), **Android APK** y **Linux** (ZIP del bundle). Artefactos: `folio-output-windows`, `folio-output-android`, `folio-output-linux`.
+- Opcional: secret **`FOLIO_MS_STORE_ENV`** (texto multilínea con líneas `MS_STORE_*=…`) para inyectar ids de producto en el build Store del job Windows; sin él, el paso MSIX puede fallar si faltan defines (marca **Omitir MSIX** en el workflow si solo quieres el ZIP GitHub).
+
 ## Notas operativas
 
 - El repositorio puede ser privado durante desarrollo, pero el updater se apoya en el endpoint público de releases para producción.
