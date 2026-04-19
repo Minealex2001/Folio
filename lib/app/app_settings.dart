@@ -27,11 +27,7 @@ enum AiEndpointMode { localhostOnly, allowRemote }
 enum UiScaleMode { manual, followWindows }
 
 /// Origen del color de acento para Material [ColorScheme.fromSeed].
-enum FolioAccentColorMode {
-  followSystem,
-  folioDefault,
-  custom,
-}
+enum FolioAccentColorMode { followSystem, folioDefault, custom }
 
 class CustomIconEntry {
   const CustomIconEntry({
@@ -255,6 +251,10 @@ class AppSettings extends ChangeNotifier {
       'folio_workspace_sidebar_collapsed_pages_';
   static const _workspacePageOutlineVisibleKey =
       'folio_workspace_page_outline_visible';
+  static const _workspaceBacklinksVisibleKey =
+      'folio_workspace_backlinks_visible';
+  static const _workspaceCommentsVisibleKey =
+      'folio_workspace_comments_visible';
   static const _aiChatPanelCollapsedKey = 'folio_ai_chat_panel_collapsed';
   static const _aiChatPanelWidthKey = 'folio_ai_chat_panel_width';
   static const _aiChatPanelHeightKey = 'folio_ai_chat_panel_height';
@@ -300,7 +300,8 @@ class AppSettings extends ChangeNotifier {
   static const int maxRecentSearchQueries = 10;
 
   /// Canal de distribución (Store / GitHub / web) vía `--dart-define=FOLIO_DISTRIBUTION=...`.
-  static const String distributionChannelFromEnvironment = FolioDistribution.raw;
+  static const String distributionChannelFromEnvironment =
+      FolioDistribution.raw;
 
   /// 30 min, luego cada hora hasta 24 h (índices del slider / menú).
   static const List<int> scheduledVaultBackupIntervalChoicesMinutes = [
@@ -423,6 +424,8 @@ class AppSettings extends ChangeNotifier {
   bool _workspaceSidebarCollapsed = false;
   bool _workspaceSidebarAutoReveal = false;
   bool _workspacePageOutlineVisible = true;
+  bool _workspaceBacklinksVisible = false;
+  bool _workspaceCommentsVisible = false;
   bool _aiChatPanelCollapsed = false;
   double _aiChatPanelWidth = defaultAiChatPanelWidth;
   double _aiChatPanelHeight = defaultAiChatPanelHeight;
@@ -516,6 +519,8 @@ class AppSettings extends ChangeNotifier {
   bool get workspaceSidebarCollapsed => _workspaceSidebarCollapsed;
   bool get workspaceSidebarAutoReveal => _workspaceSidebarAutoReveal;
   bool get workspacePageOutlineVisible => _workspacePageOutlineVisible;
+  bool get workspaceBacklinksVisible => _workspaceBacklinksVisible;
+  bool get workspaceCommentsVisible => _workspaceCommentsVisible;
   bool get aiChatPanelCollapsed => _aiChatPanelCollapsed;
   double get aiChatPanelWidth => _aiChatPanelWidth;
   double get aiChatPanelHeight => _aiChatPanelHeight;
@@ -698,6 +703,10 @@ class AppSettings extends ChangeNotifier {
         p.getBool(_workspaceSidebarAutoRevealKey) ?? false;
     _workspacePageOutlineVisible =
         p.getBool(_workspacePageOutlineVisibleKey) ?? true;
+    _workspaceBacklinksVisible =
+        p.getBool(_workspaceBacklinksVisibleKey) ?? false;
+    _workspaceCommentsVisible =
+        p.getBool(_workspaceCommentsVisibleKey) ?? false;
     _aiChatPanelCollapsed = p.getBool(_aiChatPanelCollapsedKey) ?? false;
     _aiChatPanelWidth = _sanitizeAiChatPanelWidth(
       p.getDouble(_aiChatPanelWidthKey),
@@ -780,8 +789,7 @@ class AppSettings extends ChangeNotifier {
         _parseAccentColorMode(p.getString(_accentColorModeKey)) ??
         FolioAccentColorMode.followSystem;
     final storedAccent = p.getInt(_customAccentArgbKey);
-    _customAccentArgb =
-        storedAccent != null && storedAccent != 0
+    _customAccentArgb = storedAccent != null && storedAccent != 0
         ? storedAccent
         : 0xFF455A64;
     _integrationSecret = _configuredIntegrationSecret;
@@ -1469,6 +1477,22 @@ class AppSettings extends ChangeNotifier {
     notifyListeners();
     final p = await SharedPreferences.getInstance();
     await p.setBool(_workspacePageOutlineVisibleKey, value);
+  }
+
+  Future<void> setWorkspaceBacklinksVisible(bool value) async {
+    if (_workspaceBacklinksVisible == value) return;
+    _workspaceBacklinksVisible = value;
+    notifyListeners();
+    final p = await SharedPreferences.getInstance();
+    await p.setBool(_workspaceBacklinksVisibleKey, value);
+  }
+
+  Future<void> setWorkspaceCommentsVisible(bool value) async {
+    if (_workspaceCommentsVisible == value) return;
+    _workspaceCommentsVisible = value;
+    notifyListeners();
+    final p = await SharedPreferences.getInstance();
+    await p.setBool(_workspaceCommentsVisibleKey, value);
   }
 
   Future<void> setEnterCreatesNewBlock(bool value) async {

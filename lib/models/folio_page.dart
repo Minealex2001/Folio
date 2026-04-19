@@ -2,6 +2,7 @@ import 'block.dart';
 import 'folio_database_data.dart';
 import 'folio_page_import_info.dart';
 import 'folio_table_data.dart';
+import 'page_property.dart';
 
 class FolioPage {
   FolioPage({
@@ -14,9 +15,11 @@ class FolioPage {
     this.collabRoomId,
     this.collabJoinCode,
     List<FolioBlock>? blocks,
+    List<FolioPageProperty>? properties,
   }) : blocks = (blocks != null && blocks.isNotEmpty)
            ? blocks
-           : [FolioBlock(id: '${id}_b0', type: 'paragraph', text: '')];
+           : [FolioBlock(id: '${id}_b0', type: 'paragraph', text: '')],
+       properties = properties ?? [];
 
   final String id;
   String title;
@@ -34,6 +37,9 @@ class FolioPage {
   String? collabJoinCode;
   List<FolioBlock> blocks;
 
+  /// Structured frontmatter properties (text, date, status, etc.).
+  List<FolioPageProperty> properties;
+
   Map<String, dynamic> toJson() => {
     'id': id,
     'title': title,
@@ -46,6 +52,8 @@ class FolioPage {
     if (collabJoinCode != null && collabJoinCode!.trim().isNotEmpty)
       'collabJoinCode': collabJoinCode!.trim(),
     'blocks': blocks.map((b) => b.toJson()).toList(),
+    if (properties.isNotEmpty)
+      'properties': properties.map((p) => p.toJson()).toList(),
   };
 
   factory FolioPage.fromJson(Map<String, dynamic> j) {
@@ -84,6 +92,14 @@ class FolioPage {
       collabJoinCode:
           (joinCode == null || joinCode.isEmpty) ? null : joinCode,
       blocks: blocks,
+      properties: (j['properties'] as List<dynamic>?)
+              ?.map(
+                (e) => FolioPageProperty.fromJson(
+                  Map<String, dynamic>.from(e as Map),
+                ),
+              )
+              .toList() ??
+          [],
     );
   }
 

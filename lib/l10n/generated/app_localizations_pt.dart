@@ -622,6 +622,93 @@ class AppLocalizationsPt extends AppLocalizations {
   String get hidePageOutline => 'Ocultar estrutura';
 
   @override
+  String get backlinksTitle => 'Referências de entrada';
+
+  @override
+  String get backlinksEmpty => 'Nenhuma página aponta para aqui ainda.';
+
+  @override
+  String get showBacklinks => 'Mostrar referências';
+
+  @override
+  String get hideBacklinks => 'Ocultar referências';
+
+  @override
+  String get commentsTitle => 'Comentários';
+
+  @override
+  String get commentsEmpty => 'Sem comentários ainda. Seja o primeiro!';
+
+  @override
+  String get commentsAddHint => 'Adicione um comentário…';
+
+  @override
+  String get commentsResolve => 'Resolver';
+
+  @override
+  String get commentsReopen => 'Reabrir';
+
+  @override
+  String get commentsDelete => 'Eliminar';
+
+  @override
+  String get commentsResolved => 'Resolvido';
+
+  @override
+  String get showComments => 'Mostrar comentários';
+
+  @override
+  String get hideComments => 'Ocultar comentários';
+
+  @override
+  String get propTitle => 'Propriedades';
+
+  @override
+  String get propAdd => 'Adicionar propriedade';
+
+  @override
+  String get propRemove => 'Remover propriedade';
+
+  @override
+  String get propRename => 'Renomear';
+
+  @override
+  String get propTypeText => 'Texto';
+
+  @override
+  String get propTypeNumber => 'Número';
+
+  @override
+  String get propTypeDate => 'Data';
+
+  @override
+  String get propTypeSelect => 'Seleção';
+
+  @override
+  String get propTypeStatus => 'Estado';
+
+  @override
+  String get propTypeUrl => 'URL';
+
+  @override
+  String get propTypeCheckbox => 'Caixa de seleção';
+
+  @override
+  String get propNotSet => 'Vazio';
+
+  @override
+  String get propAddOption => 'Adicionar opção';
+
+  @override
+  String get propStatusNotStarted => 'Não iniciado';
+
+  @override
+  String get propStatusInProgress => 'Em progresso';
+
+  @override
+  String get propStatusDone => 'Concluído';
+
+  @override
   String get tocBlockTitle => 'Sumário';
 
   @override

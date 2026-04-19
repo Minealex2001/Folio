@@ -57,12 +57,15 @@ import '../history/page_history_sheet.dart';
 import '../history/mermaid_markdown_builder.dart';
 import 'sidebar.dart';
 import '../history/page_outline_panel.dart';
+import '../history/backlinks_panel.dart';
+import '../history/comments_panel.dart';
 import '../collab/collaboration_sheet.dart';
 import 'workspace_editor_surface.dart';
 import 'workspace_shell.dart';
 import '../tasks/task_quick_add_dialog.dart';
 import '../drive/drive_page.dart';
 import '../kanban/kanban_board_page.dart';
+import '../widgets/page_properties_widget.dart';
 
 part 'workspace_page_ai_chat.dart';
 part 'workspace_page_ai_context.dart';
@@ -1845,6 +1848,40 @@ class _WorkspacePageState extends State<WorkspacePage> {
             ),
           if (!compact && page != null)
             _WorkspaceActionEntry(
+              id: 'toggle_backlinks',
+              label: widget.appSettings.workspaceBacklinksVisible
+                  ? l10n.hideBacklinks
+                  : l10n.showBacklinks,
+              icon: widget.appSettings.workspaceBacklinksVisible
+                  ? Icons.link_off_rounded
+                  : Icons.link_rounded,
+              onPressed: () async {
+                await widget.appSettings.setWorkspaceBacklinksVisible(
+                  !widget.appSettings.workspaceBacklinksVisible,
+                );
+                if (mounted) setState(() {});
+              },
+              forcePrimary: true,
+            ),
+          if (!compact && page != null)
+            _WorkspaceActionEntry(
+              id: 'toggle_comments',
+              label: widget.appSettings.workspaceCommentsVisible
+                  ? l10n.hideComments
+                  : l10n.showComments,
+              icon: widget.appSettings.workspaceCommentsVisible
+                  ? Icons.chat_bubble_rounded
+                  : Icons.chat_bubble_outline_rounded,
+              onPressed: () async {
+                await widget.appSettings.setWorkspaceCommentsVisible(
+                  !widget.appSettings.workspaceCommentsVisible,
+                );
+                if (mounted) setState(() {});
+              },
+              forcePrimary: true,
+            ),
+          if (!compact && page != null)
+            _WorkspaceActionEntry(
               id: 'toggle_page_outline',
               label: widget.appSettings.workspacePageOutlineVisible
                   ? l10n.hidePageOutline
@@ -2229,6 +2266,13 @@ class _WorkspacePageState extends State<WorkspacePage> {
       onCreatePage: () => _s.addPage(parentId: null),
       onOpenSearch: widget.onOpenSearch,
       editor: baseEditor,
+      propertiesSection: page != null
+          ? PagePropertiesWidget(
+              page: page,
+              session: _s,
+              readOnly: editorReadOnlyMode,
+            )
+          : null,
     );
 
     final showOutlinePanel =
@@ -2238,19 +2282,57 @@ class _WorkspacePageState extends State<WorkspacePage> {
         !showDrivePage &&
         widget.appSettings.workspacePageOutlineVisible;
 
-    final editorContent = showOutlinePanel
-        ? Row(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Expanded(child: editorSurface),
-              PageOutlinePanel(
-                blocks: page.blocks,
-                scheme: scheme,
-                blockEditorKey: activeBlockEditorKey!,
-              ),
-            ],
-          )
-        : editorSurface;
+    final showBacklinksPanel =
+        !compact &&
+        page != null &&
+        !showKanbanBoard &&
+        !showDrivePage &&
+        widget.appSettings.workspaceBacklinksVisible;
+
+    final showCommentsPanel =
+        !compact &&
+        page != null &&
+        !showKanbanBoard &&
+        !showDrivePage &&
+        widget.appSettings.workspaceCommentsVisible;
+
+    Widget editorWithPanels = editorSurface;
+    if (showOutlinePanel) {
+      editorWithPanels = Row(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Expanded(child: editorWithPanels),
+          PageOutlinePanel(
+            blocks: page.blocks,
+            scheme: scheme,
+            blockEditorKey: activeBlockEditorKey!,
+          ),
+        ],
+      );
+    }
+    if (showBacklinksPanel) {
+      editorWithPanels = Row(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Expanded(child: editorWithPanels),
+          BacklinksPanel(pageId: page.id, session: _s, scheme: scheme),
+        ],
+      );
+    }
+    if (showCommentsPanel) {
+      editorWithPanels = Row(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Expanded(child: editorWithPanels),
+          ListenableBuilder(
+            listenable: _s,
+            builder: (context, _) =>
+                CommentsPanel(pageId: page.id, session: _s, scheme: scheme),
+          ),
+        ],
+      );
+    }
+    final editorContent = editorWithPanels;
     return CallbackShortcuts(
       bindings: shortcutBindings,
       child: Scaffold(

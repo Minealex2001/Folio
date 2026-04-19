@@ -24,6 +24,8 @@ class LocalPageComment {
     this.blockId,
     this.collabMessageId,
     this.authorDisplayName,
+    this.resolved = false,
+    this.resolvedAtMs,
   });
 
   final String id;
@@ -37,6 +39,10 @@ class LocalPageComment {
   final String? collabMessageId;
   final String? authorDisplayName;
 
+  /// Si el comentario ha sido marcado como resuelto.
+  bool resolved;
+  int? resolvedAtMs;
+
   Map<String, dynamic> toJson() => {
     'id': id,
     'pageId': pageId,
@@ -47,6 +53,8 @@ class LocalPageComment {
     if (collabMessageId != null) 'collabMessageId': collabMessageId,
     if (authorDisplayName != null && authorDisplayName!.trim().isNotEmpty)
       'authorDisplayName': authorDisplayName!.trim(),
+    if (resolved) 'resolved': resolved,
+    if (resolvedAtMs != null) 'resolvedAtMs': resolvedAtMs,
   };
 
   factory LocalPageComment.fromJson(Map<String, dynamic> j) {
@@ -59,6 +67,8 @@ class LocalPageComment {
       blockId: j['blockId'] as String?,
       collabMessageId: j['collabMessageId'] as String?,
       authorDisplayName: j['authorDisplayName'] as String?,
+      resolved: (j['resolved'] as bool?) ?? false,
+      resolvedAtMs: (j['resolvedAtMs'] as num?)?.toInt(),
     );
   }
 }

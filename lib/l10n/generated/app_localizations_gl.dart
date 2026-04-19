@@ -631,6 +631,93 @@ class AppLocalizationsGl extends AppLocalizations {
   String get hidePageOutline => 'Agochar esquema';
 
   @override
+  String get backlinksTitle => 'Referencias entrantes';
+
+  @override
+  String get backlinksEmpty => 'Ningunha páxina enlaza aquí todavía.';
+
+  @override
+  String get showBacklinks => 'Amosar referencias';
+
+  @override
+  String get hideBacklinks => 'Agochar referencias';
+
+  @override
+  String get commentsTitle => 'Comentarios';
+
+  @override
+  String get commentsEmpty => 'Sen comentarios. É o primeiro!';
+
+  @override
+  String get commentsAddHint => 'Engade un comentario…';
+
+  @override
+  String get commentsResolve => 'Resolver';
+
+  @override
+  String get commentsReopen => 'Reabrir';
+
+  @override
+  String get commentsDelete => 'Eliminar';
+
+  @override
+  String get commentsResolved => 'Resolto';
+
+  @override
+  String get showComments => 'Mostrar comentarios';
+
+  @override
+  String get hideComments => 'Agochar comentarios';
+
+  @override
+  String get propTitle => 'Propiedades';
+
+  @override
+  String get propAdd => 'Engadir propiedade';
+
+  @override
+  String get propRemove => 'Eliminar propiedade';
+
+  @override
+  String get propRename => 'Renomear';
+
+  @override
+  String get propTypeText => 'Texto';
+
+  @override
+  String get propTypeNumber => 'Número';
+
+  @override
+  String get propTypeDate => 'Data';
+
+  @override
+  String get propTypeSelect => 'Selección';
+
+  @override
+  String get propTypeStatus => 'Estado';
+
+  @override
+  String get propTypeUrl => 'URL';
+
+  @override
+  String get propTypeCheckbox => 'Caixa';
+
+  @override
+  String get propNotSet => 'Baleiro';
+
+  @override
+  String get propAddOption => 'Engadir opción';
+
+  @override
+  String get propStatusNotStarted => 'Non iniciado';
+
+  @override
+  String get propStatusInProgress => 'En progreso';
+
+  @override
+  String get propStatusDone => 'Feito';
+
+  @override
   String get tocBlockTitle => 'Índice de contidos';
 
   @override

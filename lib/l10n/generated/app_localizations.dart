@@ -1228,6 +1228,180 @@ abstract class AppLocalizations {
   /// **'Ocultar índice'**
   String get hidePageOutline;
 
+  /// No description provided for @backlinksTitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Referencias entrantes'**
+  String get backlinksTitle;
+
+  /// No description provided for @backlinksEmpty.
+  ///
+  /// In es, this message translates to:
+  /// **'Ninguna página enlaza aquí todavía.'**
+  String get backlinksEmpty;
+
+  /// No description provided for @showBacklinks.
+  ///
+  /// In es, this message translates to:
+  /// **'Mostrar referencias'**
+  String get showBacklinks;
+
+  /// No description provided for @hideBacklinks.
+  ///
+  /// In es, this message translates to:
+  /// **'Ocultar referencias'**
+  String get hideBacklinks;
+
+  /// No description provided for @commentsTitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Comentarios'**
+  String get commentsTitle;
+
+  /// No description provided for @commentsEmpty.
+  ///
+  /// In es, this message translates to:
+  /// **'Sin comentarios. ¡Sé el primero!'**
+  String get commentsEmpty;
+
+  /// No description provided for @commentsAddHint.
+  ///
+  /// In es, this message translates to:
+  /// **'Escribe un comentario…'**
+  String get commentsAddHint;
+
+  /// No description provided for @commentsResolve.
+  ///
+  /// In es, this message translates to:
+  /// **'Resolver'**
+  String get commentsResolve;
+
+  /// No description provided for @commentsReopen.
+  ///
+  /// In es, this message translates to:
+  /// **'Reabrir'**
+  String get commentsReopen;
+
+  /// No description provided for @commentsDelete.
+  ///
+  /// In es, this message translates to:
+  /// **'Eliminar'**
+  String get commentsDelete;
+
+  /// No description provided for @commentsResolved.
+  ///
+  /// In es, this message translates to:
+  /// **'Resuelto'**
+  String get commentsResolved;
+
+  /// No description provided for @showComments.
+  ///
+  /// In es, this message translates to:
+  /// **'Mostrar comentarios'**
+  String get showComments;
+
+  /// No description provided for @hideComments.
+  ///
+  /// In es, this message translates to:
+  /// **'Ocultar comentarios'**
+  String get hideComments;
+
+  /// No description provided for @propTitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Propiedades'**
+  String get propTitle;
+
+  /// No description provided for @propAdd.
+  ///
+  /// In es, this message translates to:
+  /// **'Añadir propiedad'**
+  String get propAdd;
+
+  /// No description provided for @propRemove.
+  ///
+  /// In es, this message translates to:
+  /// **'Eliminar propiedad'**
+  String get propRemove;
+
+  /// No description provided for @propRename.
+  ///
+  /// In es, this message translates to:
+  /// **'Renombrar'**
+  String get propRename;
+
+  /// No description provided for @propTypeText.
+  ///
+  /// In es, this message translates to:
+  /// **'Texto'**
+  String get propTypeText;
+
+  /// No description provided for @propTypeNumber.
+  ///
+  /// In es, this message translates to:
+  /// **'Número'**
+  String get propTypeNumber;
+
+  /// No description provided for @propTypeDate.
+  ///
+  /// In es, this message translates to:
+  /// **'Fecha'**
+  String get propTypeDate;
+
+  /// No description provided for @propTypeSelect.
+  ///
+  /// In es, this message translates to:
+  /// **'Selección'**
+  String get propTypeSelect;
+
+  /// No description provided for @propTypeStatus.
+  ///
+  /// In es, this message translates to:
+  /// **'Estado'**
+  String get propTypeStatus;
+
+  /// No description provided for @propTypeUrl.
+  ///
+  /// In es, this message translates to:
+  /// **'URL'**
+  String get propTypeUrl;
+
+  /// No description provided for @propTypeCheckbox.
+  ///
+  /// In es, this message translates to:
+  /// **'Casilla'**
+  String get propTypeCheckbox;
+
+  /// No description provided for @propNotSet.
+  ///
+  /// In es, this message translates to:
+  /// **'Vacío'**
+  String get propNotSet;
+
+  /// No description provided for @propAddOption.
+  ///
+  /// In es, this message translates to:
+  /// **'Añadir opción'**
+  String get propAddOption;
+
+  /// No description provided for @propStatusNotStarted.
+  ///
+  /// In es, this message translates to:
+  /// **'No iniciado'**
+  String get propStatusNotStarted;
+
+  /// No description provided for @propStatusInProgress.
+  ///
+  /// In es, this message translates to:
+  /// **'En progreso'**
+  String get propStatusInProgress;
+
+  /// No description provided for @propStatusDone.
+  ///
+  /// In es, this message translates to:
+  /// **'Hecho'**
+  String get propStatusDone;
+
   /// No description provided for @tocBlockTitle.
   ///
   /// In es, this message translates to:

@@ -20,6 +20,7 @@ class WorkspaceEditorSurface extends StatelessWidget {
     this.onOpenSearch,
     required this.editor,
     required this.editorMaxWidth,
+    this.propertiesSection,
   });
 
   final bool compact;
@@ -33,6 +34,7 @@ class WorkspaceEditorSurface extends StatelessWidget {
   final VoidCallback? onOpenSearch;
   final Widget editor;
   final double editorMaxWidth;
+  final Widget? propertiesSection;
 
   @override
   Widget build(BuildContext context) {
@@ -164,6 +166,7 @@ class WorkspaceEditorSurface extends StatelessWidget {
                                 ),
                                 onChanged: onTitleChanged,
                               ),
+                            if (propertiesSection != null) propertiesSection!,
                             const SizedBox(height: FolioSpace.xs),
                             Expanded(child: editor),
                           ],

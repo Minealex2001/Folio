@@ -33,11 +33,13 @@ import '../models/folio_task_data.dart';
 import '../models/folio_drive_data.dart';
 import '../models/folio_kanban_data.dart';
 import '../models/jira_integration_state.dart';
+import '../models/page_property.dart';
 import '../models/vault_task_list_entry.dart';
 import '../models/folio_columns_data.dart';
 import '../models/folio_page_template.dart';
 import '../models/folio_template_button_data.dart';
 import '../models/folio_page_import_info.dart';
+import '../data/folio_internal_link.dart';
 import '../services/folio_rp_server.dart';
 import '../services/ai/ai_safety_policy.dart';
 import '../services/ai/ai_service.dart';
@@ -293,7 +295,7 @@ class VaultSession extends ChangeNotifier {
   final Map<String, List<FolioPageRevision>> _pageRevisions = {};
   final Map<String, Map<String, String>> _pageAcl = {};
   final List<LocalProfile> _localProfiles = [];
-  final List<LocalPageComment> _comments = [];
+  List<LocalPageComment> _comments = [];
   late final List<AiChatThreadData> _aiChatThreads;
   int _aiActiveChatIndex = 0;
   final List<FolioPageTemplate> _pageTemplates = [];
@@ -351,9 +353,43 @@ class VaultSession extends ChangeNotifier {
   VaultFlowState get state => _state;
   List<FolioPage> get pages => List.unmodifiable(_pages);
   String? get selectedPageId => _selectedPageId;
+
+  /// ID del perfil local activo (el primero de la lista, o 'local-default').
+  String get activeProfileId =>
+      _localProfiles.isEmpty ? 'local-default' : _localProfiles.first.id;
+
+  /// Nombre visible del perfil local activo.
+  String get activeProfileName =>
+      _localProfiles.isEmpty ? 'Yo' : _localProfiles.first.name;
+
   List<LocalPageComment> commentsForPage(String pageId) =>
       _comments.where((c) => c.pageId == pageId).toList()
         ..sort((a, b) => b.createdAtMs.compareTo(a.createdAtMs));
+
+  /// Devuelve las páginas que contienen al menos un enlace `folio://open/<pageId>`
+  /// apuntando a [targetPageId], excluyendo la propia página destino.
+  List<FolioPage> backlinkPagesFor(String targetPageId) {
+    // Regex para URIs folio://open/... dentro de texto markdown.
+    final uriRe = RegExp(r'folio://[^\s)"]+');
+    final result = <FolioPage>[];
+    for (final page in _pages) {
+      if (page.id == targetPageId) continue;
+      var found = false;
+      for (final block in page.blocks) {
+        if (found) break;
+        for (final match in uriRe.allMatches(block.text)) {
+          final linked = folioPageIdFromFolioUri(match.group(0));
+          if (linked == targetPageId) {
+            found = true;
+            break;
+          }
+        }
+      }
+      if (found) result.add(page);
+    }
+    return result;
+  }
+
   Duration get idleLockDuration => _idleLockDuration;
   bool get lockOnAppBackground => _lockOnAppBackground;
   bool get aiEnabled => _aiService != null;
@@ -2949,6 +2985,108 @@ class VaultSession extends ChangeNotifier {
     scheduleSave();
   }
 
+  void deleteComment(String commentId) {
+    final idx = _comments.indexWhere((c) => c.id == commentId);
+    if (idx == -1) return;
+    _comments.removeAt(idx);
+    notifyListeners();
+    scheduleSave();
+  }
+
+  void updateComment(String commentId, String newText) {
+    final t = newText.trim();
+    if (t.isEmpty) return;
+    final c = _comments.firstWhere(
+      (c) => c.id == commentId,
+      orElse: () => throw StateError('Comment not found'),
+    );
+    c.text = t;
+    notifyListeners();
+    scheduleSave();
+  }
+
+  void resolveComment(String commentId, {bool resolved = true}) {
+    final idx = _comments.indexWhere((c) => c.id == commentId);
+    if (idx == -1) return;
+    _comments[idx].resolved = resolved;
+    _comments[idx].resolvedAtMs = resolved
+        ? DateTime.now().millisecondsSinceEpoch
+        : null;
+    notifyListeners();
+    scheduleSave();
+  }
+
+  List<LocalPageComment> commentsForBlock(String blockId) =>
+      _comments.where((c) => c.blockId == blockId).toList()
+        ..sort((a, b) => a.createdAtMs.compareTo(b.createdAtMs));
+
+  // ---------------------------------------------------------------------------
+  // Page properties (frontmatter)
+  // ---------------------------------------------------------------------------
+
+  void addPageProperty(String pageId, FolioPageProperty prop) {
+    final p = _pageById(pageId);
+    if (p == null) return;
+    p.properties.add(prop);
+    notifyListeners();
+    scheduleSave();
+  }
+
+  void updatePagePropertyValue(String pageId, String propId, dynamic value) {
+    final p = _pageById(pageId);
+    if (p == null) return;
+    final idx = p.properties.indexWhere((pr) => pr.id == propId);
+    if (idx == -1) return;
+    p.properties[idx].value = value;
+    notifyListeners();
+    scheduleSave();
+  }
+
+  void removePageProperty(String pageId, String propId) {
+    final p = _pageById(pageId);
+    if (p == null) return;
+    p.properties.removeWhere((pr) => pr.id == propId);
+    notifyListeners();
+    scheduleSave();
+  }
+
+  void renamePageProperty(String pageId, String propId, String newName) {
+    final p = _pageById(pageId);
+    if (p == null) return;
+    final idx = p.properties.indexWhere((pr) => pr.id == propId);
+    if (idx == -1) return;
+    final trimmed = newName.trim();
+    if (trimmed.isEmpty) return;
+    p.properties[idx].name = trimmed;
+    notifyListeners();
+    scheduleSave();
+  }
+
+  void addPagePropertyOption(String pageId, String propId, String option) {
+    final p = _pageById(pageId);
+    if (p == null) return;
+    final idx = p.properties.indexWhere((pr) => pr.id == propId);
+    if (idx == -1) return;
+    final o = option.trim();
+    if (o.isEmpty || p.properties[idx].options.contains(o)) return;
+    p.properties[idx].options.add(o);
+    notifyListeners();
+    scheduleSave();
+  }
+
+  void reorderPageProperties(String pageId, int oldIndex, int newIndex) {
+    final p = _pageById(pageId);
+    if (p == null) return;
+    if (oldIndex < 0 || oldIndex >= p.properties.length) return;
+    final item = p.properties.removeAt(oldIndex);
+    final insertAt = (newIndex > oldIndex ? newIndex - 1 : newIndex)
+        .clamp(0, p.properties.length);
+    p.properties.insert(insertAt, item);
+    notifyListeners();
+    scheduleSave();
+  }
+
+
   void setPageParent(String pageId, String? newParentId) {
     if (pageId == newParentId) return;
     if (newParentId != null) {
@@ -4109,6 +4247,7 @@ class VaultSession extends ChangeNotifier {
   }) async {
     final previousSelectedPageId = _selectedPageId;
     _pages = List<FolioPage>.from(payload.pages);
+    _comments = List<LocalPageComment>.from(payload.comments);
     _loadRevisionsFromPayload(payload);
     _ensureOrderForCurrentPages();
     final canKeepSelection =

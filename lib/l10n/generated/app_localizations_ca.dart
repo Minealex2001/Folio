@@ -630,6 +630,93 @@ class AppLocalizationsCa extends AppLocalizations {
   String get hidePageOutline => 'Amaga l\'esquema';
 
   @override
+  String get backlinksTitle => 'Referències entrants';
+
+  @override
+  String get backlinksEmpty => 'Cap pàgina no enllaça aquí encara.';
+
+  @override
+  String get showBacklinks => 'Mostra les referències';
+
+  @override
+  String get hideBacklinks => 'Amaga les referències';
+
+  @override
+  String get commentsTitle => 'Comentaris';
+
+  @override
+  String get commentsEmpty => 'Sense comentaris. Sigues el primer!';
+
+  @override
+  String get commentsAddHint => 'Afegeix un comentari…';
+
+  @override
+  String get commentsResolve => 'Resol';
+
+  @override
+  String get commentsReopen => 'Reobre';
+
+  @override
+  String get commentsDelete => 'Elimina';
+
+  @override
+  String get commentsResolved => 'Resolt';
+
+  @override
+  String get showComments => 'Mostra comentaris';
+
+  @override
+  String get hideComments => 'Amaga comentaris';
+
+  @override
+  String get propTitle => 'Propietats';
+
+  @override
+  String get propAdd => 'Afegeix propietat';
+
+  @override
+  String get propRemove => 'Elimina propietat';
+
+  @override
+  String get propRename => 'Reanomena';
+
+  @override
+  String get propTypeText => 'Text';
+
+  @override
+  String get propTypeNumber => 'Número';
+
+  @override
+  String get propTypeDate => 'Data';
+
+  @override
+  String get propTypeSelect => 'Selecció';
+
+  @override
+  String get propTypeStatus => 'Estat';
+
+  @override
+  String get propTypeUrl => 'URL';
+
+  @override
+  String get propTypeCheckbox => 'Casella';
+
+  @override
+  String get propNotSet => 'Buit';
+
+  @override
+  String get propAddOption => 'Afegeix opció';
+
+  @override
+  String get propStatusNotStarted => 'No iniciat';
+
+  @override
+  String get propStatusInProgress => 'En progrés';
+
+  @override
+  String get propStatusDone => 'Fet';
+
+  @override
   String get tocBlockTitle => 'Taula de continguts';
 
   @override

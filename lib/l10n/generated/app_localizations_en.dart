@@ -622,6 +622,93 @@ class AppLocalizationsEn extends AppLocalizations {
   String get hidePageOutline => 'Hide outline';
 
   @override
+  String get backlinksTitle => 'Backlinks';
+
+  @override
+  String get backlinksEmpty => 'No pages link here yet.';
+
+  @override
+  String get showBacklinks => 'Show backlinks';
+
+  @override
+  String get hideBacklinks => 'Hide backlinks';
+
+  @override
+  String get commentsTitle => 'Comments';
+
+  @override
+  String get commentsEmpty => 'No comments yet. Be the first!';
+
+  @override
+  String get commentsAddHint => 'Add a comment…';
+
+  @override
+  String get commentsResolve => 'Resolve';
+
+  @override
+  String get commentsReopen => 'Reopen';
+
+  @override
+  String get commentsDelete => 'Delete';
+
+  @override
+  String get commentsResolved => 'Resolved';
+
+  @override
+  String get showComments => 'Show comments';
+
+  @override
+  String get hideComments => 'Hide comments';
+
+  @override
+  String get propTitle => 'Properties';
+
+  @override
+  String get propAdd => 'Add property';
+
+  @override
+  String get propRemove => 'Remove property';
+
+  @override
+  String get propRename => 'Rename';
+
+  @override
+  String get propTypeText => 'Text';
+
+  @override
+  String get propTypeNumber => 'Number';
+
+  @override
+  String get propTypeDate => 'Date';
+
+  @override
+  String get propTypeSelect => 'Select';
+
+  @override
+  String get propTypeStatus => 'Status';
+
+  @override
+  String get propTypeUrl => 'URL';
+
+  @override
+  String get propTypeCheckbox => 'Checkbox';
+
+  @override
+  String get propNotSet => 'Empty';
+
+  @override
+  String get propAddOption => 'Add option';
+
+  @override
+  String get propStatusNotStarted => 'Not started';
+
+  @override
+  String get propStatusInProgress => 'In progress';
+
+  @override
+  String get propStatusDone => 'Done';
+
+  @override
   String get tocBlockTitle => 'Table of contents';
 
   @override

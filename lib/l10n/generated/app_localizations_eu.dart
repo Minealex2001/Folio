@@ -626,6 +626,94 @@ class AppLocalizationsEu extends AppLocalizations {
   String get hidePageOutline => 'Ezkutatu eskema';
 
   @override
+  String get backlinksTitle => 'Sarrerako erreferentziak';
+
+  @override
+  String get backlinksEmpty =>
+      'Oraindik ez dago orrialde bat hona estekatzeko.';
+
+  @override
+  String get showBacklinks => 'Erakutsi erreferentziak';
+
+  @override
+  String get hideBacklinks => 'Ezkutatu erreferentziak';
+
+  @override
+  String get commentsTitle => 'Iruzkinak';
+
+  @override
+  String get commentsEmpty => 'Oraindik ez dago iruzkinik. Izan zaitez lehena!';
+
+  @override
+  String get commentsAddHint => 'Gehitu iruzkina…';
+
+  @override
+  String get commentsResolve => 'Konpondu';
+
+  @override
+  String get commentsReopen => 'Berriro ireki';
+
+  @override
+  String get commentsDelete => 'Ezabatu';
+
+  @override
+  String get commentsResolved => 'Ebatzita';
+
+  @override
+  String get showComments => 'Erakutsi iruzkinak';
+
+  @override
+  String get hideComments => 'Ezkutatu iruzkinak';
+
+  @override
+  String get propTitle => 'Propietateak';
+
+  @override
+  String get propAdd => 'Gehitu propietatea';
+
+  @override
+  String get propRemove => 'Ezabatu propietatea';
+
+  @override
+  String get propRename => 'Berrizendatu';
+
+  @override
+  String get propTypeText => 'Testua';
+
+  @override
+  String get propTypeNumber => 'Zenbakia';
+
+  @override
+  String get propTypeDate => 'Data';
+
+  @override
+  String get propTypeSelect => 'Hautapena';
+
+  @override
+  String get propTypeStatus => 'Egoera';
+
+  @override
+  String get propTypeUrl => 'URL';
+
+  @override
+  String get propTypeCheckbox => 'Kontrol-laukia';
+
+  @override
+  String get propNotSet => 'Hutsik';
+
+  @override
+  String get propAddOption => 'Gehitu aukera';
+
+  @override
+  String get propStatusNotStarted => 'Hasi gabe';
+
+  @override
+  String get propStatusInProgress => 'Abian';
+
+  @override
+  String get propStatusDone => 'Eginda';
+
+  @override
   String get tocBlockTitle => 'Edukien aurkibidea';
 
   @override
