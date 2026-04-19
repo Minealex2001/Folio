@@ -3363,6 +3363,43 @@ class AppLocalizationsEu extends AppLocalizations {
   String get taskAddSubtask => 'Gehitu azpiataza';
 
   @override
+  String get taskRecurrenceNone => 'Errepikatu gabe';
+
+  @override
+  String get taskRecurrenceLabel => 'Errepikapena';
+
+  @override
+  String get taskRecurrenceDaily => 'Egunero';
+
+  @override
+  String get taskRecurrenceWeekly => 'Astero';
+
+  @override
+  String get taskRecurrenceMonthly => 'Hilero';
+
+  @override
+  String get taskRecurrenceYearly => 'Urtero';
+
+  @override
+  String get taskReminderTooltip => 'Gogoratu muga-egunean';
+
+  @override
+  String get taskReminderOnTooltip => 'Gogorarazlea aktibo';
+
+  @override
+  String get taskOverdueReminder => 'Iraungitako zeregina';
+
+  @override
+  String get taskDueTodayReminder => 'Gaur iraungitzen da';
+
+  @override
+  String get settingsWindowsNotifications => 'Windows jakinarazpenak';
+
+  @override
+  String get settingsWindowsNotificationsSubtitle =>
+      'Windows jakinarazpen natiboek erakutsiko dituzte gaur iraungitzen diren edo berandututa dauden zereginak';
+
+  @override
   String get title => 'Izenburua';
 
   @override
@@ -5642,4 +5679,90 @@ class AppLocalizationsEu extends AppLocalizations {
   @override
   String get settingsReportBugSentFail =>
       'Ezin izan da diagnostikoa bidali. Egiaztatu konexioa edo saiatu beranduago.';
+
+  @override
+  String get zenModeEnter => 'Zen modua';
+
+  @override
+  String get zenModeExit => 'Zen modutik irten';
+
+  @override
+  String get syncedBlockCreate => 'Blokea sinkronizatu';
+
+  @override
+  String get syncedBlockInsert => 'Txertatu bloke sinkronizatua…';
+
+  @override
+  String get syncedBlockBadge => 'Bloke sinkronizatua';
+
+  @override
+  String get syncedBlockCreated =>
+      'Blokea sinkronizatuta. IDa arbelean kopiatuta.';
+
+  @override
+  String get syncedBlockInsertTitle => 'Txertatu bloke sinkronizatua';
+
+  @override
+  String get syncedBlockIdLabel => 'Sinkronizazio taldearen IDa';
+
+  @override
+  String get syncedBlockIdHint =>
+      'Itsatsi beste bloke sinkronizatu batetik kopiatutako IDa';
+
+  @override
+  String get syncedBlockIdInvalid => 'Baliogabeko IDa edo ez da aurkitu';
+
+  @override
+  String get syncedBlockUnsync => 'Blokea desinkronizatu';
+
+  @override
+  String get syncedBlockUnsynced => 'Blokea desinkronizatuta';
+
+  @override
+  String syncedBlockGroupCount(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count kopia sinkronizatuta',
+      one: '1 kopia sinkronizatuta',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get graphViewTitle => 'Grafo ikuspegia';
+
+  @override
+  String get graphViewEmpty => 'Ez dago orrien arteko loturarik';
+
+  @override
+  String get graphViewIncludeOrphans => 'Lotura gabeko orriak sartu';
+
+  @override
+  String get graphViewOpenPage => 'Orria ireki';
+
+  @override
+  String get importPdf => 'PDF inportatu…';
+
+  @override
+  String get importPdfDialogTitle => 'PDF orri gisa inportatu';
+
+  @override
+  String get importPdfAnnotationsOnly => 'Oharrak soilik';
+
+  @override
+  String get importPdfFullText => 'Testu osoa + oharrak';
+
+  @override
+  String importPdfSuccess(String title) {
+    return 'PDF inportatuta: $title';
+  }
+
+  @override
+  String importPdfFailed(String error) {
+    return 'Ezin izan da PDFa inportatu: $error';
+  }
+
+  @override
+  String get importPdfNoText => 'PDFak ez du testu erauzigarririk';
 }

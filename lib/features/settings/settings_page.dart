@@ -2131,7 +2131,8 @@ class _SettingsPageState extends State<SettingsPage> {
                           Text(
                             encrypted
                                 ? l10nDlg.settingsCloudBackupWrapPasswordBody
-                                : l10nDlg.settingsCloudBackupWrapPasswordBodyPlain,
+                                : l10nDlg
+                                      .settingsCloudBackupWrapPasswordBodyPlain,
                           ),
                           const SizedBox(height: 12),
                           FolioPasswordField(
@@ -2216,10 +2217,7 @@ class _SettingsPageState extends State<SettingsPage> {
     if (!snap.canUseCloudBackup) return;
     setState(() => _cloudBackupCountBusy = true);
     try {
-      await listFolioCloudBackups(
-        vaultId: vaultId,
-        entitlementSnapshot: snap,
-      );
+      await listFolioCloudBackups(vaultId: vaultId, entitlementSnapshot: snap);
       if (!mounted) return;
     } catch (_) {
       // No interrumpimos la UI por el contador.
@@ -2349,10 +2347,10 @@ class _SettingsPageState extends State<SettingsPage> {
                                 ? l10n.folioCloudBackupTypeIncremental
                                 : e.fileName,
                             style: TextStyle(
-                              fontFamily:
-                                  e.isCloudPack ? null : 'monospace',
-                              fontWeight:
-                                  e.isCloudPack ? FontWeight.w700 : null,
+                              fontFamily: e.isCloudPack ? null : 'monospace',
+                              fontWeight: e.isCloudPack
+                                  ? FontWeight.w700
+                                  : null,
                             ),
                           ),
                           subtitle: Text(
@@ -2492,8 +2490,12 @@ class _SettingsPageState extends State<SettingsPage> {
                                         VaultPaths.vaultModeFile,
                                       ),
                                     );
-                                    final isPlain = modeFile.existsSync() &&
-                                        modeFile.readAsStringSync().trim().toLowerCase() ==
+                                    final isPlain =
+                                        modeFile.existsSync() &&
+                                        modeFile
+                                                .readAsStringSync()
+                                                .trim()
+                                                .toLowerCase() ==
                                             'plain';
                                     if (!isPlain) {
                                       final ctrl = TextEditingController();
@@ -2543,9 +2545,9 @@ class _SettingsPageState extends State<SettingsPage> {
                                     }
                                     await _s
                                         .importVaultBackupOverwriteActiveFromExtractedDir(
-                                      extract,
-                                      password,
-                                    );
+                                          extract,
+                                          password,
+                                        );
                                   } else {
                                     await downloadFolioCloudBackup(
                                       entry: e,
@@ -4310,16 +4312,19 @@ class _SettingsPageState extends State<SettingsPage> {
                                       ),
                                       onBackupStoragePackSmall: () =>
                                           _openFolioCheckout(
-                                        FolioCheckoutKind.backupStoragePackSmall,
-                                      ),
+                                            FolioCheckoutKind
+                                                .backupStoragePackSmall,
+                                          ),
                                       onBackupStoragePackMedium: () =>
                                           _openFolioCheckout(
-                                        FolioCheckoutKind.backupStoragePackMedium,
-                                      ),
+                                            FolioCheckoutKind
+                                                .backupStoragePackMedium,
+                                          ),
                                       onBackupStoragePackLarge: () =>
                                           _openFolioCheckout(
-                                        FolioCheckoutKind.backupStoragePackLarge,
-                                      ),
+                                            FolioCheckoutKind
+                                                .backupStoragePackLarge,
+                                          ),
                                       onBillingPortal: _openFolioBillingPortal,
                                       onRefreshBilling: _syncFolioCloudBilling,
                                       onUploadBackup: _uploadFolioCloudBackup,
@@ -5214,16 +5219,22 @@ class _SettingsPageState extends State<SettingsPage> {
                                   child: SegmentedButton<FolioAccentColorMode>(
                                     segments: [
                                       ButtonSegment<FolioAccentColorMode>(
-                                        value: FolioAccentColorMode.followSystem,
-                                        label: Text(l10n.settingsAccentFollowSystem),
+                                        value:
+                                            FolioAccentColorMode.followSystem,
+                                        label: Text(
+                                          l10n.settingsAccentFollowSystem,
+                                        ),
                                         icon: const Icon(
                                           Icons.palette_outlined,
                                           size: 18,
                                         ),
                                       ),
                                       ButtonSegment<FolioAccentColorMode>(
-                                        value: FolioAccentColorMode.folioDefault,
-                                        label: Text(l10n.settingsAccentFolioDefault),
+                                        value:
+                                            FolioAccentColorMode.folioDefault,
+                                        label: Text(
+                                          l10n.settingsAccentFolioDefault,
+                                        ),
                                         icon: const Icon(
                                           Icons.brush_outlined,
                                           size: 18,
@@ -5273,7 +5284,9 @@ class _SettingsPageState extends State<SettingsPage> {
                                         context: context,
                                         builder: (ctx) {
                                           return AlertDialog(
-                                            title: Text(l10n.settingsAccentPickColor),
+                                            title: Text(
+                                              l10n.settingsAccentPickColor,
+                                            ),
                                             content: Wrap(
                                               spacing: 10,
                                               runSpacing: 10,
@@ -5321,16 +5334,24 @@ class _SettingsPageState extends State<SettingsPage> {
                                 ),
                                 const Divider(height: 1),
                                 SwitchListTile(
-                                  secondary: const Icon(Icons.analytics_outlined),
+                                  secondary: const Icon(
+                                    Icons.analytics_outlined,
+                                  ),
                                   title: Text(l10n.settingsTelemetryTitle),
-                                  subtitle: Text(l10n.settingsTelemetrySubtitle),
+                                  subtitle: Text(
+                                    l10n.settingsTelemetrySubtitle,
+                                  ),
                                   value: _app.telemetryEnabled,
                                   onChanged: (v) => _app.setTelemetryEnabled(v),
                                 ),
                                 const Divider(height: 1),
                                 SwitchListTile(
-                                  secondary: const Icon(Icons.bug_report_outlined),
-                                  title: Text(l10n.settingsAutoCrashReportsTitle),
+                                  secondary: const Icon(
+                                    Icons.bug_report_outlined,
+                                  ),
+                                  title: Text(
+                                    l10n.settingsAutoCrashReportsTitle,
+                                  ),
                                   subtitle: Text(
                                     l10n.settingsAutoCrashReportsSubtitle,
                                   ),
@@ -6148,6 +6169,23 @@ class _SettingsPageState extends State<SettingsPage> {
                                     value: _app.closeToTray,
                                     onChanged: _app.setCloseToTray,
                                   ),
+                                  if (Platform.isWindows) ...[
+                                    const Divider(height: 1),
+                                    SwitchListTile(
+                                      secondary: const Icon(
+                                        Icons.notifications_outlined,
+                                      ),
+                                      title: Text(
+                                        l10n.settingsWindowsNotifications,
+                                      ),
+                                      subtitle: Text(
+                                        l10n.settingsWindowsNotificationsSubtitle,
+                                      ),
+                                      value: _app.windowsNotificationsEnabled,
+                                      onChanged:
+                                          _app.setWindowsNotificationsEnabled,
+                                    ),
+                                  ],
                                   const Divider(height: 1),
                                   Padding(
                                     padding: const EdgeInsets.fromLTRB(
@@ -10158,16 +10196,17 @@ class _FolioCloudSubscriptionPanel extends StatelessWidget {
 
                   final quota = snap.backupQuotaBytes;
                   final usedBytes = snap.backupUsedBytes;
-                  final remainingBytes =
-                      quota > 0 ? (quota - usedBytes).clamp(0, quota) : 0;
+                  final remainingBytes = quota > 0
+                      ? (quota - usedBytes).clamp(0, quota)
+                      : 0;
                   final determinate = quota > 0;
                   final usedLabel = determinate
                       ? fmtStorageBytes(usedBytes)
                       : '…';
-                  final quotaLabel =
-                      determinate ? fmtStorageBytes(quota) : '…';
-                  final remainingLabel =
-                      determinate ? fmtStorageBytes(remainingBytes) : '…';
+                  final quotaLabel = determinate ? fmtStorageBytes(quota) : '…';
+                  final remainingLabel = determinate
+                      ? fmtStorageBytes(remainingBytes)
+                      : '…';
                   final pct = determinate
                       ? ((usedBytes / quota) * 100).round().clamp(0, 100)
                       : null;
@@ -10175,9 +10214,7 @@ class _FolioCloudSubscriptionPanel extends StatelessWidget {
                   return Container(
                     padding: const EdgeInsets.all(14),
                     decoration: BoxDecoration(
-                      color: scheme.surfaceContainerLow.withValues(
-                        alpha: 0.85,
-                      ),
+                      color: scheme.surfaceContainerLow.withValues(alpha: 0.85),
                       borderRadius: BorderRadius.circular(18),
                       border: Border.all(
                         color: scheme.outlineVariant.withValues(alpha: 0.45),

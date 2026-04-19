@@ -1,0 +1,55 @@
+Analyzing Folio...                                              
+
+  error - Target of URI doesn't exist: 'package:system_theme/system_theme.dart' - lib\app\app_settings.dart:7:8 - uri_does_not_exist
+  error - Undefined name 'SystemTheme' - lib\app\app_settings.dart:476:16 - undefined_identifier
+  error - Target of URI doesn't exist: 'package:system_theme/system_theme.dart' - lib\app\folio_app.dart:10:8 - uri_does_not_exist
+  error - The name 'SystemAccentColor' isn't a type, so it can't be used as a type argument - lib\app\folio_app.dart:68:22 - non_type_as_type_argument
+  error - Undefined name 'SystemTheme' - lib\app\folio_app.dart:163:18 - undefined_identifier
+   info - Don't use 'BuildContext's across async gaps - lib\features\settings\jira_integration_settings.dart:286:9 - use_build_context_synchronously
+   info - Unnecessary use of string interpolation - lib\features\settings\jira_integration_settings.dart:783:34 - unnecessary_string_interpolations
+   info - 'value' is deprecated and shouldn't be used. Use initialValue instead. This will set the initial value for the form field. This feature was deprecated after v3.33.0-1.0.pre - lib\features\settings\jira_integration_settings.dart:843:21 - deprecated_member_use
+   info - 'value' is deprecated and shouldn't be used. Use initialValue instead. This will set the initial value for the form field. This feature was deprecated after v3.33.0-1.0.pre - lib\features\settings\jira_integration_settings.dart:887:15 - deprecated_member_use
+   info - Unnecessary use of multiple underscores - lib\features\settings\jira_integration_settings.dart:992:41 - unnecessary_underscores
+   info - Unnecessary use of multiple underscores - lib\features\settings\jira_integration_settings.dart:1115:41 - unnecessary_underscores
+   info - Don't use 'BuildContext's across async gaps, guarded by an unrelated 'mounted' check - lib\features\settings\settings_page.dart:2441:35 - use_build_context_synchronously
+   info - Don't use 'BuildContext's across async gaps - lib\features\settings\settings_page.dart:2504:41 - use_build_context_synchronously
+   info - Don't use 'BuildContext's across async gaps - lib\features\settings\settings_page.dart:2564:41 - use_build_context_synchronously
+   info - 'value' is deprecated and shouldn't be used. Use initialValue instead. This will set the initial value for the form field. This feature was deprecated after v3.33.0-1.0.pre - lib\features\settings\settings_page.dart:2697:23 - deprecated_member_use
+   info - Statements in an if should be enclosed in a block - lib\features\settings\settings_page.dart:4453:49 - curly_braces_in_flow_control_structures
+   info - Statements in an if should be enclosed in a block - lib\features\settings\settings_page.dart:4485:41 - curly_braces_in_flow_control_structures
+   info - Unnecessary use of multiple underscores - lib\features\workspace\drive\drive_page.dart:1934:31 - unnecessary_underscores
+   info - Unnecessary use of multiple underscores - lib\features\workspace\drive\drive_page.dart:1934:35 - unnecessary_underscores
+   info - Unnecessary use of multiple underscores - lib\features\workspace\drive\drive_page.dart:2130:31 - unnecessary_underscores
+   info - Unnecessary use of multiple underscores - lib\features\workspace\drive\drive_page.dart:2130:35 - unnecessary_underscores
+   info - The imported package 'dart_quill_delta' isn't a dependency of the importing package - lib\features\workspace\editor\block_editor.dart:21:8 - depend_on_referenced_packages
+   info - The local variable '_toolbarContent' starts with an underscore - lib\features\workspace\editor\block_editor\editable_markdown_block_row.dart:415:16 - no_leading_underscores_for_local_identifiers
+   info - Don't use 'BuildContext's across async gaps, guarded by an unrelated 'mounted' check - lib\features\workspace\editor\folio_special_block_widgets.dart:1396:23 - use_build_context_synchronously
+   info - The imported package 'flutter_colorpicker' isn't a dependency of the importing package - lib\features\workspace\editor\folio_text_format.dart:6:8 - depend_on_referenced_packages
+   info - 'value' is deprecated and shouldn't be used. Use component accessors like .r or .g, or toARGB32 for an explicit conversion - lib\features\workspace\editor\folio_text_format.dart:871:21 - deprecated_member_use
+   info - 'value' is deprecated and shouldn't be used. Use component accessors like .r or .g, or toARGB32 for an explicit conversion - lib\features\workspace\editor\folio_text_format.dart:973:16 - deprecated_member_use
+   info - The imported package 'dart_quill_delta' isn't a dependency of the importing package - lib\features\workspace\editor\richtext\markdown_quill_codec.dart:1:8 - depend_on_referenced_packages
+   info - Use an initializing formal to assign a parameter to a field - lib\features\workspace\graph\graph_view_screen.dart:301:7 - prefer_initializing_formals
+   info - Don't use 'BuildContext's across async gaps - lib\features\workspace\kanban\kanban_board_page.dart:239:7 - use_build_context_synchronously
+   info - Don't use 'BuildContext's across async gaps - lib\features\workspace\kanban\kanban_board_page.dart:371:28 - use_build_context_synchronously
+   info - Don't use 'BuildContext's across async gaps - lib\features\workspace\kanban\kanban_board_page.dart:382:28 - use_build_context_synchronously
+   info - 'value' is deprecated and shouldn't be used. Use initialValue instead. This will set the initial value for the form field. This feature was deprecated after v3.33.0-1.0.pre - lib\features\workspace\kanban\kanban_board_page.dart:739:37 - deprecated_member_use
+   info - Statements in an if should be enclosed in a block - lib\features\workspace\kanban\kanban_board_page.dart:1350:31 - curly_braces_in_flow_control_structures
+   info - Use the null-aware marker '?' rather than a null check via an 'if' - lib\features\workspace\shell\workspace_editor_surface.dart:169:29 - use_null_aware_elements
+  error - Target of URI doesn't exist: 'package:syncfusion_flutter_pdf/syncfusion_flutter_pdf.dart' - lib\features\workspace\shell\workspace_page.dart:16:8 - uri_does_not_exist
+  error - The method 'PdfDocument' isn't defined for the type '_WorkspacePageState' - lib\features\workspace\shell\workspace_page_page_tools.dart:398:22 - undefined_method
+  error - The method 'PdfTextExtractor' isn't defined for the type '_WorkspacePageState' - lib\features\workspace\shell\workspace_page_page_tools.dart:413:29 - undefined_method
+  error - The name 'PdfTextMarkupAnnotation' isn't defined, so it can't be used in an 'is' expression - lib\features\workspace\shell\workspace_page_page_tools.dart:427:29 - type_test_with_undefined_name
+warning - Dead code - lib\features\workspace\shell\workspace_page_page_tools.dart:432:18 - dead_code
+  error - The name 'PdfPopupAnnotation' isn't defined, so it can't be used in an 'is' expression - lib\features\workspace\shell\workspace_page_page_tools.dart:432:36 - type_test_with_undefined_name
+  error - Target of URI doesn't exist: 'package:system_theme/system_theme.dart' - lib\main.dart:7:8 - uri_does_not_exist
+  error - Undefined name 'SystemTheme' - lib\main.dart:100:7 - undefined_identifier
+  error - Undefined name 'SystemTheme' - lib\main.dart:101:13 - undefined_identifier
+   info - Use the null-aware marker '?' rather than a null check via an 'if' - lib\services\env\local_env_loader.dart:117:7 - use_null_aware_elements
+   info - The imported package 'pdf' isn't a dependency of the importing package - lib\services\folio_cloud\folio_page_pdf_export.dart:6:8 - depend_on_referenced_packages
+   info - 'convertHtml' is deprecated and shouldn't be used. Please use another method to create your PDF document - lib\services\folio_cloud\folio_page_pdf_export.dart:17:15 - deprecated_member_use
+   info - 'convertHtml' is deprecated and shouldn't be used. Please use another method to create your PDF document - lib\services\folio_cloud\folio_page_pdf_export.dart:33:21 - deprecated_member_use
+   info - The imported package 'dart_quill_delta' isn't a dependency of the importing package - lib\services\folio_cloud\quill_delta_export.dart:3:8 - depend_on_referenced_packages
+   info - The imported package 'http_parser' isn't a dependency of the importing package - lib\services\jira\jira_api_client.dart:4:8 - depend_on_referenced_packages
+   info - The imported package 'dart_quill_delta' isn't a dependency of the importing package - test\features\workspace\markdown_quill_codec_test.dart:4:8 - depend_on_referenced_packages
+
+51 issues found. (ran in 12.2s)

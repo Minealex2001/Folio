@@ -43,6 +43,10 @@
 34. [Onboarding](#34-onboarding)
 35. [Actualizador integrado](#35-actualizador-integrado)
 36. [Diagnóstico y reporte de bugs](#36-diagnóstico-y-reporte-de-bugs)
+37. [Modo zen / escritura sin distracciones](#37-modo-zen--escritura-sin-distracciones)
+38. [Bloques sincronizados](#38-bloques-sincronizados)
+39. [Vista de grafo](#39-vista-de-grafo)
+40. [Importar PDF con anotaciones](#40-importar-pdf-con-anotaciones)
 
 ---
 
@@ -748,3 +752,81 @@ Flujo de bienvenida (`lib/features/onboarding/`):
 | `syncPendingConflicts` | List | Conflictos de sync pendientes de resolución |
 | `syncLastSuccessMs` | int | Timestamp del último sync exitoso |
 | `enterCreatesNewBlock` | bool | `Enter` crea nuevo bloque (vs salto de línea) |
+
+---
+
+## 37. Modo zen / escritura sin distracciones
+
+Implementado en `lib/features/workspace/shell/workspace_page.dart`.
+
+- **Activación**: atajo `F11` (hotkey hardware en `_onHardwareKeyEvent`) o botón de la barra de herramientas del editor (`id: 'zen_mode'`).
+- **Efecto sobre la interfaz**:
+  - Oculta la barra de herramientas superior (`appBar: null`).
+  - Oculta los paneles laterales (outline, backlinks, comentarios) y el resize handle.
+  - Oculta el panel flotante de IA y el de colaboración.
+  - Fija el ancho del contenido del editor a 740 px centrado.
+  - Colapsa el sidebar (`effectiveSidebarW` devuelve 0.0).
+- **Salida**: botón semitransparente superpuesto sobre el editor (`Icons.fullscreen_exit_rounded`) que llama a `setState(() => _zenMode = false)`; también disponible volviendo a pulsar `F11`.
+- **Estado**: `bool _zenMode = false` en `_WorkspacePageState`.
+
+---
+
+## 38. Bloques sincronizados
+
+Implementado en `lib/models/block.dart`, `lib/session/vault_session.dart` y `lib/features/workspace/editor/block_editor/`.
+
+### Modelo de datos
+
+- `FolioBlock.syncGroupId`: campo `String?` añadido al modelo de bloque. Persiste en JSON (`syncGroupId`) y se propaga en `copyWith()` con sentinel `clearSyncGroupId`.
+
+### Operaciones en `VaultSession`
+
+| Método | Descripción |
+|---|---|
+| `createSyncGroup(pageId, blockId)` | Asigna un nuevo UUID como `syncGroupId` al bloque origen |
+| `insertSyncedBlock(targetPageId, syncGroupId)` | Inserta una copia del bloque en otra página con el mismo `syncGroupId` |
+| `unsyncBlock(pageId, blockId)` | Borra el `syncGroupId` del bloque (desvincula sin borrar contenido) |
+| `syncGroupBlockCount(syncGroupId)` | Devuelve cuántos bloques comparten ese grupo en toda la libreta |
+| `updateBlockTextFull(pageId, blockId, text, deltaJson)` | Actualiza texto + Delta JSON y dispara la propagación |
+| `_propagateSyncedBlockContent(syncGroupId, text, deltaJson)` | Propaga el contenido a todos los bloques del grupo en otras páginas |
+
+### Integración en el editor
+
+- Menú contextual del bloque: opciones `sync_create`, `sync_insert`, `sync_unsync`.
+- Badge visual en `editable_markdown_block_row.dart`: icono `Icons.sync_rounded` + contador del grupo.
+- Al perder el foco, `flushNow()` llama a `updateBlockTextFull` para propagar los cambios.
+
+---
+
+## 39. Vista de grafo
+
+Implementado en `lib/features/workspace/graph/graph_view_screen.dart`.
+
+- **Acceso**: botón en la barra de herramientas del workspace (`id: 'graph_view'`) → `Navigator.push` a `GraphViewScreen`.
+- **Algoritmo**: layout force-directed con 200 iteraciones. Parámetros: repulsión = 5 000, spring = 0.04, damping = 0.85, gravedad central = 0.015.
+- **Renderizado**:
+  - Nodos como círculos con etiqueta de título de página; tamaño proporcional a backlinks.
+  - Aristas mediante `CustomPainter` (`_EdgePainter`) con líneas semitransparentes.
+  - `InteractiveViewer` para zoom y paneo libre.
+- **Interacción**:
+  - Hover sobre nodo: resalte visual (`_hoveredNodeId`).
+  - Tap en nodo: `Navigator.pop()` + `onOpenPage(pageId)` para navegar a la página.
+- **Filtro**: switch "Incluir páginas sin enlaces" (`_includeOrphans`) en el AppBar.
+- **Estado vacío**: mensaje `graphViewEmpty` cuando no hay páginas con relaciones.
+
+---
+
+## 40. Importar PDF con anotaciones
+
+Implementado en `lib/features/workspace/shell/workspace_page_page_tools.dart`.
+
+- **Activación**: menú de importación → extensión `pdf` añadida a `allowedExtensions` en `FilePicker`.
+- **Diálogo de opciones**: permite elegir entre:
+  - **Solo anotaciones**: extrae marcas de texto (`PdfTextMarkupAnnotation`) y notas popup (`PdfPopupAnnotation`).
+  - **Texto completo**: extrae todo el texto con `PdfTextExtractor.extractText()`.
+- **Procesamiento**:
+  - Abre el archivo con `PdfDocument(inputBytes: bytes)` de `syncfusion_flutter_pdf`.
+  - Construye un documento Markdown con el contenido extraído.
+  - Las anotaciones se formatean como bloques de cita `> [Anotación]: texto`.
+- **Resultado**: llama a `_s.importMarkdownDocument(fileName, markdown)` para crear una nueva página en la libreta.
+- **Feedback**: snackbar de éxito (`importPdfSuccess`) o error (`importPdfFailed`); aviso si no se encontró texto (`importPdfNoText`).

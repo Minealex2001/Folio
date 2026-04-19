@@ -86,7 +86,8 @@ class PagePropertiesWidget extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final props = page.properties;
-    if (props.isEmpty && readOnly) return const SizedBox.shrink();
+    final hasTags = page.tags.isNotEmpty;
+    if (props.isEmpty && !hasTags && readOnly) return const SizedBox.shrink();
 
     final l10n = AppLocalizations.of(context);
     final scheme = Theme.of(context).colorScheme;
@@ -95,6 +96,8 @@ class PagePropertiesWidget extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       mainAxisSize: MainAxisSize.min,
       children: [
+        // Tags row
+        _TagsRow(page: page, session: session, readOnly: readOnly),
         for (final prop in props)
           _PropertyRow(
             key: ValueKey(prop.id),
@@ -135,6 +138,216 @@ class PagePropertiesWidget extends StatelessWidget {
       showDragHandle: true,
       useSafeArea: true,
       builder: (ctx) => _AddPropertySheet(pageId: page.id, session: session),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Tags row — same 32 px height as other property rows, tap → bottom sheet
+// ---------------------------------------------------------------------------
+
+class _TagsRow extends StatelessWidget {
+  const _TagsRow({
+    required this.page,
+    required this.session,
+    required this.readOnly,
+  });
+
+  final FolioPage page;
+  final VaultSession session;
+  final bool readOnly;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+    final scheme = Theme.of(context).colorScheme;
+    final textTheme = Theme.of(context).textTheme;
+    final tags = page.tags;
+
+    if (tags.isEmpty && readOnly) return const SizedBox.shrink();
+
+    return SizedBox(
+      height: 32,
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: readOnly ? null : () => _openSheet(context),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            Icon(
+              Icons.label_outline_rounded,
+              size: 14,
+              color: scheme.onSurfaceVariant,
+            ),
+            const SizedBox(width: FolioSpace.xs),
+            SizedBox(
+              width: 108,
+              child: Text(
+                l10n.tagSectionTitle,
+                style: textTheme.bodySmall?.copyWith(
+                  color: scheme.onSurfaceVariant,
+                ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+            const SizedBox(width: FolioSpace.xs),
+            Expanded(
+              child: tags.isEmpty
+                  ? Text(
+                      l10n.tagAdd,
+                      style: textTheme.bodySmall?.copyWith(
+                        color: scheme.onSurfaceVariant.withValues(alpha: 0.4),
+                      ),
+                    )
+                  : SingleChildScrollView(
+                      scrollDirection: Axis.horizontal,
+                      child: Row(
+                        children: [
+                          for (final tag in tags) ...[
+                            _TagChip(label: tag),
+                            const SizedBox(width: 4),
+                          ],
+                        ],
+                      ),
+                    ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _openSheet(BuildContext context) {
+    showModalBottomSheet<void>(
+      context: context,
+      showDragHandle: true,
+      useSafeArea: true,
+      isScrollControlled: true,
+      builder: (ctx) => _TagsSheet(pageId: page.id, session: session),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Tags management bottom sheet
+// ---------------------------------------------------------------------------
+
+class _TagsSheet extends StatefulWidget {
+  const _TagsSheet({required this.pageId, required this.session});
+
+  final String pageId;
+  final VaultSession session;
+
+  @override
+  State<_TagsSheet> createState() => _TagsSheetState();
+}
+
+class _TagsSheetState extends State<_TagsSheet> {
+  final TextEditingController _ctrl = TextEditingController();
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  void _submit() {
+    final t = _ctrl.text.trim();
+    if (t.isNotEmpty) {
+      widget.session.addPageTag(widget.pageId, t);
+      _ctrl.clear();
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+    final textTheme = Theme.of(context).textTheme;
+
+    return Padding(
+      padding: EdgeInsets.only(
+        left: FolioSpace.md,
+        right: FolioSpace.md,
+        top: FolioSpace.xs,
+        bottom: MediaQuery.viewInsetsOf(context).bottom + FolioSpace.md,
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(l10n.tagSectionTitle, style: textTheme.titleSmall),
+          const SizedBox(height: FolioSpace.sm),
+          ListenableBuilder(
+            listenable: widget.session,
+            builder: (context, _) {
+              final idx = widget.session.pages.indexWhere(
+                (p) => p.id == widget.pageId,
+              );
+              final tags = idx >= 0
+                  ? widget.session.pages[idx].tags
+                  : const <String>[];
+              if (tags.isEmpty) return const SizedBox.shrink();
+              return Padding(
+                padding: const EdgeInsets.only(bottom: FolioSpace.sm),
+                child: Wrap(
+                  spacing: FolioSpace.xs,
+                  runSpacing: FolioSpace.xs,
+                  children: [
+                    for (final tag in tags)
+                      InputChip(
+                        label: Text(tag, style: textTheme.labelMedium),
+                        deleteIcon: const Icon(Icons.close_rounded, size: 14),
+                        onDeleted: () =>
+                            widget.session.removePageTag(widget.pageId, tag),
+                      ),
+                  ],
+                ),
+              );
+            },
+          ),
+          TextField(
+            controller: _ctrl,
+            autofocus: true,
+            textInputAction: TextInputAction.done,
+            decoration: InputDecoration(
+              hintText: l10n.tagInputHint,
+              prefixIcon: const Icon(Icons.add_rounded),
+              border: const OutlineInputBorder(),
+            ),
+            onSubmitted: (_) => _submit(),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Tag chip (display only — removal handled inside _TagsSheet)
+// ---------------------------------------------------------------------------
+
+class _TagChip extends StatelessWidget {
+  const _TagChip({required this.label});
+
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final textTheme = Theme.of(context).textTheme;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+      decoration: BoxDecoration(
+        color: scheme.secondaryContainer.withValues(alpha: 0.7),
+        borderRadius: BorderRadius.circular(FolioRadius.xs),
+      ),
+      child: Text(
+        label,
+        style: textTheme.labelSmall?.copyWith(
+          color: scheme.onSecondaryContainer,
+        ),
+      ),
     );
   }
 }
@@ -511,7 +724,6 @@ class _ValueDisplay extends StatelessWidget {
     BuildContext context, {
     TextInputType keyboard = TextInputType.text,
   }) async {
-    final l10n = AppLocalizations.of(context);
     final ctrl = TextEditingController(text: prop.value as String? ?? '');
     final result = await showDialog<String>(
       context: context,
@@ -726,7 +938,7 @@ class _SelectSheetState extends State<_SelectSheet> {
                       title: Text(
                         opt,
                         style: TextStyle(
-                          color: isSelected ? scheme.primary : null,
+                          color: isSelected ? scheme.primary : fg,
                           fontWeight: isSelected ? FontWeight.w600 : null,
                         ),
                       ),

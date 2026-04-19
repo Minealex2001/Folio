@@ -13,6 +13,7 @@ import 'package:file_picker/file_picker.dart';
 import 'package:flutter_markdown_plus/flutter_markdown_plus.dart';
 import 'package:markdown/markdown.dart' as md;
 import 'package:flutter/services.dart';
+import 'package:syncfusion_flutter_pdf/pdf.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:uuid/uuid.dart';
 
@@ -53,6 +54,7 @@ import 'ai_typing_indicator.dart';
 import '../editor/ai_typewriter_message.dart';
 import '../editor/block_editor.dart';
 import '../editor/block_editor_support_widgets.dart';
+import '../graph/graph_view_screen.dart';
 import '../history/page_history_sheet.dart';
 import '../history/mermaid_markdown_builder.dart';
 import 'sidebar.dart';
@@ -141,6 +143,7 @@ class _WorkspacePageState extends State<WorkspacePage> {
   bool _collabPanelCollapsed = true;
   bool _collabSheetOpen = false;
   int _collabUnreadCount = 0;
+  bool _zenMode = false;
   String? _lastCollabObservedMessageId;
   String? _lastCollabObservedRoomId;
   bool _showQuillWorkspaceTour = false;
@@ -167,6 +170,17 @@ class _WorkspacePageState extends State<WorkspacePage> {
   bool _aiContextMenuUsingKeyboard = false; // Track keyboard vs mouse
   bool _mobileEditMode = false;
   String? _lastPageIdForMobileMode;
+
+  /// Fingerprint de lo que el build del WorkspacePage realmente usa de la sesión.
+  /// Si no cambia, se omite el setState en _onSession para evitar reconstrucciones innecesarias.
+  String _lastWorkspaceFingerprint = '';
+
+  /// Clave para saber cuándo hay que re-sincronizar el collab (pageId + collabRoomId).
+  String _lastCollabSyncKey = '';
+
+  /// Caché de si alguna página tiene bloques kanban, actualizado solo en setState.
+  bool _hasAnyKanbanPage = false;
+
   bool _sidebarPeek = false;
   double _aiPanelHeight = 520;
   bool _folioCloudCheckoutBusy = false;
@@ -849,6 +863,9 @@ class _WorkspacePageState extends State<WorkspacePage> {
     unawaited(_refreshCloudInkPricing());
     _syncTitleFromSession();
     _lastSessionPageIdForKanban = _s.selectedPageId;
+    _hasAnyKanbanPage = _s.pages.any(
+      (p) => p.blocks.any((b) => b.type == 'kanban'),
+    );
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _maybeShowQuillWorkspaceTour();
       _syncCollabForSelectedPage();
@@ -953,8 +970,32 @@ class _WorkspacePageState extends State<WorkspacePage> {
       _aiTypewriterActiveMessageKeys.clear();
     }
     _syncTitleFromSession();
-    _syncCollabForSelectedPage();
-    setState(() {});
+
+    // Solo sincronizar collab cuando cambia la página o su collabRoomId.
+    final collabSyncKey =
+        '${_s.selectedPageId}|${_s.selectedPage?.collabRoomId ?? ""}';
+    if (collabSyncKey != _lastCollabSyncKey) {
+      _lastCollabSyncKey = collabSyncKey;
+      _syncCollabForSelectedPage();
+    }
+
+    // Fingerprint: solo llamar setState cuando algo visible en el build cambió.
+    // Durante typing normal, nada de esto cambia → cero reconstrucciones del WorkspacePage.
+    final fp =
+        '${_s.selectedPageId}|${_s.contentEpoch}'
+        '|${_s.canUndoSelectedPage}|${_s.canRedoSelectedPage}'
+        '|${_s.hasPendingDiskSave}|${_s.isPersistingToDisk}'
+        '|${_s.aiEnabled}|${chat.id}|${chat.messages.length}'
+        '|${_s.selectedPage?.collabRoomId ?? ""}';
+    if (fp != _lastWorkspaceFingerprint) {
+      _lastWorkspaceFingerprint = fp;
+      // Actualizar caché kanban solo cuando realmente reconstruimos.
+      _hasAnyKanbanPage = _s.pages.any(
+        (p) => p.blocks.any((b) => b.type == 'kanban'),
+      );
+      setState(() {});
+    }
+
     _updateAiContextMenu();
     if (countChanged || threadChanged) {
       _scheduleAiChatScrollToBottom();
@@ -1096,6 +1137,15 @@ class _WorkspacePageState extends State<WorkspacePage> {
         ),
         action: () {
           _s.redoPageEdits();
+        },
+      ),
+      (
+        activator: const SingleActivator(LogicalKeyboardKey.f11),
+        action: () {
+          setState(() {
+            _zenMode = !_zenMode;
+            if (_zenMode) _sidebarPeek = false;
+          });
         },
       ),
     ];
@@ -1734,14 +1784,14 @@ class _WorkspacePageState extends State<WorkspacePage> {
         !compact && page != null && cloudSignedIn && hasCollabRoom;
     final useMobileCollabFab =
         compact && page != null && cloudSignedIn && hasCollabRoom;
-    final effectiveSidebarW = compact
+    final effectiveSidebarW = _zenMode
+        ? 0.0
+        : compact
         ? 0.0
         : (widget.appSettings.workspaceSidebarCollapsed
               ? (_sidebarPeek ? widget.appSettings.workspaceSidebarWidth : 0.0)
               : widget.appSettings.workspaceSidebarWidth);
-    final hasAnyKanbanPage = _s.pages.any(
-      (p) => p.blocks.any((b) => b.type == 'kanban'),
-    );
+    final hasAnyKanbanPage = _hasAnyKanbanPage;
     final sidePanel = Material(
       color: scheme.surfaceContainerLow,
       child: MouseRegion(
@@ -1911,6 +1961,38 @@ class _WorkspacePageState extends State<WorkspacePage> {
             icon: Icons.file_upload_outlined,
             onPressed: _importDocumentFile,
             forcePrimary: true,
+          ),
+          _WorkspaceActionEntry(
+            id: 'zen_mode',
+            label: _zenMode ? l10n.zenModeExit : l10n.zenModeEnter,
+            icon: _zenMode
+                ? Icons.fullscreen_exit_rounded
+                : Icons.self_improvement_rounded,
+            onPressed: () {
+              setState(() {
+                _zenMode = !_zenMode;
+                if (_zenMode) _sidebarPeek = false;
+              });
+            },
+            forcePrimary: true,
+          ),
+          _WorkspaceActionEntry(
+            id: 'graph_view',
+            label: l10n.graphViewTitle,
+            icon: Icons.bubble_chart_rounded,
+            onPressed: () {
+              Navigator.of(context).push(
+                MaterialPageRoute<void>(
+                  builder: (_) => GraphViewScreen(
+                    session: _s,
+                    onOpenPage: (pageId) {
+                      _s.selectPage(pageId);
+                    },
+                  ),
+                ),
+              );
+            },
+            forcePrimary: false,
           ),
           if (page != null)
             _WorkspaceActionEntry(
@@ -2257,7 +2339,7 @@ class _WorkspacePageState extends State<WorkspacePage> {
       page: page,
       pagePath: _buildPagePathSegments(page),
       titleController: _titleController,
-      editorMaxWidth: widget.appSettings.editorContentWidth,
+      editorMaxWidth: _zenMode ? 740.0 : widget.appSettings.editorContentWidth,
       onTitleChanged: (value) {
         if (page != null && page.id == _s.selectedPageId) {
           _s.updatePageTitleLive(page.id, value);
@@ -2277,6 +2359,7 @@ class _WorkspacePageState extends State<WorkspacePage> {
 
     final showOutlinePanel =
         !compact &&
+        !_zenMode &&
         page != null &&
         !showKanbanBoard &&
         !showDrivePage &&
@@ -2284,6 +2367,7 @@ class _WorkspacePageState extends State<WorkspacePage> {
 
     final showBacklinksPanel =
         !compact &&
+        !_zenMode &&
         page != null &&
         !showKanbanBoard &&
         !showDrivePage &&
@@ -2291,6 +2375,7 @@ class _WorkspacePageState extends State<WorkspacePage> {
 
     final showCommentsPanel =
         !compact &&
+        !_zenMode &&
         page != null &&
         !showKanbanBoard &&
         !showDrivePage &&
@@ -2346,23 +2431,66 @@ class _WorkspacePageState extends State<WorkspacePage> {
                 child: SafeArea(child: sidePanel),
               )
             : null,
-        appBar: WorkspaceTopAppBar(
-          title: androidPhoneLayout
-              ? ((page?.title.trim().isNotEmpty ?? false)
-                    ? page!.title.trim()
-                    : l10n.appTitle)
-              : l10n.appTitle,
-          compact: compact,
-          actions: appBarActions,
-          onOpenDrawer: () => _scaffoldKey.currentState?.openDrawer(),
-        ),
+        appBar: _zenMode
+            ? null
+            : WorkspaceTopAppBar(
+                title: androidPhoneLayout
+                    ? ((page?.title.trim().isNotEmpty ?? false)
+                          ? page!.title.trim()
+                          : l10n.appTitle)
+                    : l10n.appTitle,
+                compact: compact,
+                actions: appBarActions,
+                onOpenDrawer: () => _scaffoldKey.currentState?.openDrawer(),
+              ),
         body: WorkspaceBodyShell(
           compact: compact,
           sidePanelWidth: effectiveSidebarW,
           sidePanel: sidePanel,
-          editorContent: editorContent,
+          editorContent: _zenMode
+              ? Stack(
+                  children: [
+                    editorContent,
+                    Positioned(
+                      top: 8,
+                      right: 12,
+                      child: SafeArea(
+                        child: AnimatedOpacity(
+                          opacity: 0.85,
+                          duration: const Duration(milliseconds: 200),
+                          child: FilledButton.tonal(
+                            style: FilledButton.styleFrom(
+                              visualDensity: VisualDensity.compact,
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 12,
+                                vertical: 6,
+                              ),
+                            ),
+                            onPressed: () => setState(() => _zenMode = false),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                const Icon(
+                                  Icons.fullscreen_exit_rounded,
+                                  size: 16,
+                                ),
+                                const SizedBox(width: 6),
+                                Text(
+                                  l10n.zenModeExit,
+                                  style: const TextStyle(fontSize: 12),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                )
+              : editorContent,
           showSidebarResizeHandle:
               !compact &&
+              !_zenMode &&
               !widget.appSettings.workspaceSidebarCollapsed &&
               effectiveSidebarW > 0,
           onResizeSidebarDelta: !compact
@@ -2376,11 +2504,13 @@ class _WorkspacePageState extends State<WorkspacePage> {
               : null,
           sidebarLeftEdgeHover:
               !compact &&
+              !_zenMode &&
               widget.appSettings.workspaceSidebarCollapsed &&
               widget.appSettings.workspaceSidebarAutoReveal &&
               !_sidebarPeek,
           onSidebarEdgeEnter: () {
-            if (!widget.appSettings.workspaceSidebarAutoReveal ||
+            if (_zenMode ||
+                !widget.appSettings.workspaceSidebarAutoReveal ||
                 !widget.appSettings.workspaceSidebarCollapsed) {
               return;
             }
@@ -2390,7 +2520,7 @@ class _WorkspacePageState extends State<WorkspacePage> {
           betaBanner: widget.appSettings.shouldShowBetaBanner
               ? _buildBetaBanner(scheme, l10n)
               : null,
-          aiFloatingPanel: useDesktopAiDock
+          aiFloatingPanel: useDesktopAiDock && !_zenMode
               ? (_aiPanelCollapsed
                     ? _buildAiCollapsedFab(context, scheme)
                     : _buildAiPanel(context))
@@ -2422,7 +2552,7 @@ class _WorkspacePageState extends State<WorkspacePage> {
                   );
                 }
               : null,
-          collabFloatingPanel: useDesktopCollabDock
+          collabFloatingPanel: useDesktopCollabDock && !_zenMode
               ? (_collabPanelCollapsed
                     ? _buildCollabCollapsedFab(context, scheme)
                     : _buildCollabDockPanel(context))

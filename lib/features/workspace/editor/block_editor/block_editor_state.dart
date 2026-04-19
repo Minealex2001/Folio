@@ -151,15 +151,7 @@ class BlockEditorState extends State<BlockEditor> with _BlockRowBuild {
       final caret = qc.selection.baseOffset;
       _quillLastMdByBlockId[block.id] = md;
       _runWithShortcutsIgnored(() {
-        _s.updateBlockText(pageId, block.id, md);
-        // Persistencia dual: guardar Delta/JSON en el bloque.
-        final page = _s.selectedPage;
-        if (page != null && page.id == pageId) {
-          final b = page.blocks.firstWhereOrNull((x) => x.id == block.id);
-          if (b != null) {
-            b.richTextDeltaJson = deltaStr;
-          }
-        }
+        _s.updateBlockTextFull(pageId, block.id, md, deltaStr);
         final idx = _controllerBlockIds.indexOf(block.id);
         if (idx >= 0 && idx < _controllers.length) {
           final safe = caret.clamp(0, md.length);
@@ -4419,6 +4411,66 @@ class BlockEditorState extends State<BlockEditor> with _BlockRowBuild {
       _s.updateBlockIcon(page.id, b.id, '🚨');
     } else if (v == 'callout_tone_note') {
       _s.updateBlockIcon(page.id, b.id, 'ℹ️');
+    } else if (v == 'sync_create') {
+      WidgetsBinding.instance.addPostFrameCallback((_) async {
+        if (!mounted) return;
+        final groupId = _s.createSyncGroup(page.id, b.id);
+        unawaited(Clipboard.setData(ClipboardData(text: groupId)));
+        if (!mounted) return;
+        final l10n = AppLocalizations.of(context);
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(l10n.syncedBlockCreated)));
+      });
+    } else if (v == 'sync_unsync') {
+      _s.unsyncBlock(page.id, b.id);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(AppLocalizations.of(context).syncedBlockUnsynced),
+        ),
+      );
+    } else if (v == 'sync_insert') {
+      WidgetsBinding.instance.addPostFrameCallback((_) async {
+        if (!mounted) return;
+        final l10n = AppLocalizations.of(context);
+        final tc = TextEditingController();
+        final groupId = await showDialog<String>(
+          context: context,
+          builder: (ctx) => AlertDialog(
+            title: Text(l10n.syncedBlockInsertTitle),
+            content: TextField(
+              controller: tc,
+              autofocus: true,
+              decoration: InputDecoration(
+                labelText: l10n.syncedBlockIdLabel,
+                hintText: l10n.syncedBlockIdHint,
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(ctx),
+                child: Text(l10n.cancel),
+              ),
+              FilledButton(
+                onPressed: () => Navigator.pop(ctx, tc.text.trim()),
+                child: Text(l10n.continueAction),
+              ),
+            ],
+          ),
+        );
+        WidgetsBinding.instance.addPostFrameCallback((_) => tc.dispose());
+        if (!mounted || groupId == null || groupId.isEmpty) return;
+        final ok = _s.insertSyncedBlock(page.id, b.id, groupId);
+        if (!mounted) return;
+        if (!ok) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(AppLocalizations.of(context).syncedBlockIdInvalid),
+            ),
+          );
+        }
+      });
     }
   }
 
@@ -4811,6 +4863,27 @@ class BlockEditorState extends State<BlockEditor> with _BlockRowBuild {
           label: l10n.blockEditorMenuAddProperty,
         ),
       ],
+      const PopupMenuDivider(),
+      if (b.syncGroupId == null)
+        item(
+          ctx,
+          value: 'sync_create',
+          icon: Icons.sync_rounded,
+          label: l10n.syncedBlockCreate,
+        ),
+      if (b.syncGroupId != null)
+        item(
+          ctx,
+          value: 'sync_unsync',
+          icon: Icons.sync_disabled_rounded,
+          label: l10n.syncedBlockUnsync,
+        ),
+      item(
+        ctx,
+        value: 'sync_insert',
+        icon: Icons.add_link_rounded,
+        label: l10n.syncedBlockInsert,
+      ),
       const PopupMenuDivider(),
       item(
         ctx,

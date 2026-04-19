@@ -22,6 +22,9 @@ import '../tasks/task_quick_add_dialog.dart';
 
 enum _KanbanFilter { all, active, done, dueToday, dueWeek, overdue }
 
+/// Formatea 'YYYY-MM-DD' o 'YYYY-MM-DDTHH:MM' para mostrarlo en la UI.
+String _fmtDue(String due) => due.replaceFirst('T', ' ');
+
 String _formatJiraError(Object e, {required bool isEs}) {
   if (e is JiraApiException) {
     if (e.statusCode == 410) {
@@ -80,7 +83,9 @@ class _KanbanBoardPageState extends State<KanbanBoardPage> {
     try {
       messenger.showSnackBar(
         SnackBar(
-          content: Text(isEs ? 'Jira: sincronizando (pull)…' : 'Jira: syncing (pull)…'),
+          content: Text(
+            isEs ? 'Jira: sincronizando (pull)…' : 'Jira: syncing (pull)…',
+          ),
         ),
       );
       final pull = await const JiraSyncService().pullIssuesIntoPage(
@@ -90,7 +95,9 @@ class _KanbanBoardPageState extends State<KanbanBoardPage> {
       );
       messenger.showSnackBar(
         SnackBar(
-          content: Text(isEs ? 'Jira: pull OK · ahora push…' : 'Jira: pull OK · now push…'),
+          content: Text(
+            isEs ? 'Jira: pull OK · ahora push…' : 'Jira: pull OK · now push…',
+          ),
         ),
       );
       final push = await const JiraSyncService().pushLinkedTasksFromPage(
@@ -126,16 +133,7 @@ class _KanbanBoardPageState extends State<KanbanBoardPage> {
 
   DateTime? _parseIsoDate(String? iso) {
     if (iso == null || iso.trim().isEmpty) return null;
-    try {
-      final p = iso.trim().split('-');
-      if (p.length != 3) return null;
-      final y = int.parse(p[0]);
-      final m = int.parse(p[1]);
-      final d = int.parse(p[2]);
-      return DateTime(y, m, d);
-    } catch (_) {
-      return null;
-    }
+    return DateTime.tryParse(iso.trim());
   }
 
   bool _matchesFilter(VaultTaskListEntry e) {
@@ -187,14 +185,16 @@ class _KanbanBoardPageState extends State<KanbanBoardPage> {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (!mounted) return;
         final l10n = AppLocalizations.of(context);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(l10n.kanbanMultipleBlocksSnack)),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(l10n.kanbanMultipleBlocksSnack)));
       });
     }
     return _KanbanBlockConfig(
       blockId: first?.id ?? '',
-      data: FolioKanbanData.tryParse(first?.text ?? '') ?? FolioKanbanData.defaults(),
+      data:
+          FolioKanbanData.tryParse(first?.text ?? '') ??
+          FolioKanbanData.defaults(),
     );
   }
 
@@ -225,7 +225,9 @@ class _KanbanBoardPageState extends State<KanbanBoardPage> {
           page: page,
           kanbanBlockId: cfg.blockId,
           jiraSourceId: sourceId,
-          defaultColumnId: data.columns.isEmpty ? 'todo' : data.columns.first.id,
+          defaultColumnId: data.columns.isEmpty
+              ? 'todo'
+              : data.columns.first.id,
         );
         if (created && mounted) {
           setState(() {});
@@ -250,8 +252,9 @@ class _KanbanBoardPageState extends State<KanbanBoardPage> {
   }) async {
     final l10n = AppLocalizations.of(context);
     final isEs = Localizations.localeOf(context).languageCode == 'es';
-    final source =
-        widget.session.jiraSources.firstWhereOrNull((s) => s.id == jiraSourceId);
+    final source = widget.session.jiraSources.firstWhereOrNull(
+      (s) => s.id == jiraSourceId,
+    );
     if (source == null) return false;
     if (source.type != JiraSourceType.project ||
         (source.projectKey ?? '').trim().isEmpty) {
@@ -351,7 +354,8 @@ class _KanbanBoardPageState extends State<KanbanBoardPage> {
         columnId: defaultColumnId,
         external: external,
       );
-      final newBlockId = '${widget.pageId}_${DateTime.now().microsecondsSinceEpoch}';
+      final newBlockId =
+          '${widget.pageId}_${DateTime.now().microsecondsSinceEpoch}';
       widget.session.insertBlockAfter(
         pageId: widget.pageId,
         afterBlockId: kanbanBlockId.isEmpty
@@ -367,7 +371,9 @@ class _KanbanBoardPageState extends State<KanbanBoardPage> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-            isEs ? 'Issue creado: ${created.key}' : 'Issue created: ${created.key}',
+            isEs
+                ? 'Issue creado: ${created.key}'
+                : 'Issue created: ${created.key}',
           ),
         ),
       );
@@ -596,7 +602,8 @@ class _KanbanBoardPageState extends State<KanbanBoardPage> {
     required int index,
   }) {
     if (data.columns.length <= 1) return;
-    final cols = List<FolioKanbanColumnSpec>.from(data.columns)..removeAt(index);
+    final cols = List<FolioKanbanColumnSpec>.from(data.columns)
+      ..removeAt(index);
     _persistKanbanData(pageId, kanbanBlockId, data.copyWith(columns: cols));
   }
 
@@ -654,7 +661,8 @@ class _KanbanBoardPageState extends State<KanbanBoardPage> {
                               ),
                               IconButton(
                                 tooltip: l10n.cancel,
-                                onPressed: () => Navigator.of(sheetContext).pop(),
+                                onPressed: () =>
+                                    Navigator.of(sheetContext).pop(),
                                 icon: const Icon(Icons.close_rounded),
                               ),
                             ],
@@ -706,19 +714,24 @@ class _KanbanBoardPageState extends State<KanbanBoardPage> {
                           const SizedBox(height: 6),
                           Builder(
                             builder: (ctx) {
-                              final isEs = Localizations.localeOf(ctx).languageCode == 'es';
+                              final isEs =
+                                  Localizations.localeOf(ctx).languageCode ==
+                                  'es';
                               // Defensive: avoid DropdownButton crashes if sources contain duplicates
                               // (e.g. corrupted state) or if a previously-selected source was deleted.
                               final sourcesById = <String, JiraSource>{};
                               for (final s in widget.session.jiraSources) {
                                 sourcesById[s.id] = s;
                               }
-                              final sources = sourcesById.values.toList(growable: false);
+                              final sources = sourcesById.values.toList(
+                                growable: false,
+                              );
                               final selected = (data.jiraSourceId ?? '').trim();
                               final selectedValue =
-                                  selected.isEmpty || !sourcesById.containsKey(selected)
-                                      ? null
-                                      : selected;
+                                  selected.isEmpty ||
+                                      !sourcesById.containsKey(selected)
+                                  ? null
+                                  : selected;
                               return Column(
                                 crossAxisAlignment: CrossAxisAlignment.stretch,
                                 children: [
@@ -746,7 +759,10 @@ class _KanbanBoardPageState extends State<KanbanBoardPage> {
                                         latestPage.id,
                                         latestCfg.blockId,
                                         data.copyWith(
-                                          jiraSourceId: v?.trim().isEmpty == true ? null : v,
+                                          jiraSourceId:
+                                              v?.trim().isEmpty == true
+                                              ? null
+                                              : v,
                                         ),
                                       );
                                     },
@@ -981,7 +997,9 @@ class _KanbanBoardPageState extends State<KanbanBoardPage> {
             const SizedBox(width: FolioSpace.xs),
             if ((data.jiraSourceId ?? '').trim().isNotEmpty)
               IconButton(
-                tooltip: isEs ? 'Sincronizar Jira (pull + push)' : 'Sync Jira (pull + push)',
+                tooltip: isEs
+                    ? 'Sincronizar Jira (pull + push)'
+                    : 'Sync Jira (pull + push)',
                 onPressed: _jiraSyncBusy
                     ? null
                     : () => _syncJira(jiraSourceId: data.jiraSourceId!.trim()),
@@ -1033,17 +1051,20 @@ class _KanbanBoardPageState extends State<KanbanBoardPage> {
             ChoiceChip(
               label: Text(l10n.taskHubFilterDueToday),
               selected: _filter == _KanbanFilter.dueToday,
-              onSelected: (_) => setState(() => _filter = _KanbanFilter.dueToday),
+              onSelected: (_) =>
+                  setState(() => _filter = _KanbanFilter.dueToday),
             ),
             ChoiceChip(
               label: Text(l10n.taskHubFilterDueWeek),
               selected: _filter == _KanbanFilter.dueWeek,
-              onSelected: (_) => setState(() => _filter = _KanbanFilter.dueWeek),
+              onSelected: (_) =>
+                  setState(() => _filter = _KanbanFilter.dueWeek),
             ),
             ChoiceChip(
               label: Text(l10n.taskHubFilterOverdue),
               selected: _filter == _KanbanFilter.overdue,
-              onSelected: (_) => setState(() => _filter = _KanbanFilter.overdue),
+              onSelected: (_) =>
+                  setState(() => _filter = _KanbanFilter.overdue),
             ),
             if (data.includeSimpleTodos)
               FilterChip(
@@ -1057,53 +1078,57 @@ class _KanbanBoardPageState extends State<KanbanBoardPage> {
         Expanded(
           child: switch (mode) {
             FolioKanbanViewMode.kanban => _KanbanViewKanban(
-                data: data,
-                byColumn: byColumn,
-                columnTitle: (c) => _columnTitle(l10n, c),
-                columnColor: (c) => _columnColor(scheme, c),
-                scheme: scheme,
-                textTheme: textTheme,
-                l10n: l10n,
-                onMoveTaskToColumn: (e, columnId) {
-                  widget.session.setTaskBlockColumnId(e.pageId, e.blockId, columnId);
-                },
-                onOpenBlock: (e) {
-                  widget.session.selectPage(e.pageId);
-                  widget.session.requestScrollToBlock(e.blockId);
-                },
-                onOpenDetails: _openTaskDetails,
-              ),
+              data: data,
+              byColumn: byColumn,
+              columnTitle: (c) => _columnTitle(l10n, c),
+              columnColor: (c) => _columnColor(scheme, c),
+              scheme: scheme,
+              textTheme: textTheme,
+              l10n: l10n,
+              onMoveTaskToColumn: (e, columnId) {
+                widget.session.setTaskBlockColumnId(
+                  e.pageId,
+                  e.blockId,
+                  columnId,
+                );
+              },
+              onOpenBlock: (e) {
+                widget.session.selectPage(e.pageId);
+                widget.session.requestScrollToBlock(e.blockId);
+              },
+              onOpenDetails: _openTaskDetails,
+            ),
             FolioKanbanViewMode.list => _KanbanViewList(
-                data: data,
-                byColumn: byColumn,
-                columnTitle: (c) => _columnTitle(l10n, c),
-                l10n: l10n,
-                scheme: scheme,
-                textTheme: textTheme,
-                onOpenDetails: _openTaskDetails,
-              ),
+              data: data,
+              byColumn: byColumn,
+              columnTitle: (c) => _columnTitle(l10n, c),
+              l10n: l10n,
+              scheme: scheme,
+              textTheme: textTheme,
+              onOpenDetails: _openTaskDetails,
+            ),
             FolioKanbanViewMode.grid => _KanbanViewGrid(
-                data: data,
-                entries: visible,
-                allowedColumnIds: allowed,
-                columnTitleById: (id) {
-                  for (final c in data.columns) {
-                    if (c.id == id) return _columnTitle(l10n, c);
-                  }
-                  return id;
-                },
-                l10n: l10n,
-                scheme: scheme,
-                textTheme: textTheme,
-                onOpenDetails: _openTaskDetails,
-              ),
+              data: data,
+              entries: visible,
+              allowedColumnIds: allowed,
+              columnTitleById: (id) {
+                for (final c in data.columns) {
+                  if (c.id == id) return _columnTitle(l10n, c);
+                }
+                return id;
+              },
+              l10n: l10n,
+              scheme: scheme,
+              textTheme: textTheme,
+              onOpenDetails: _openTaskDetails,
+            ),
             FolioKanbanViewMode.timeline => _KanbanViewTimeline(
-                entries: visible,
-                l10n: l10n,
-                scheme: scheme,
-                textTheme: textTheme,
-                onOpenDetails: _openTaskDetails,
-              ),
+              entries: visible,
+              l10n: l10n,
+              scheme: scheme,
+              textTheme: textTheme,
+              onOpenDetails: _openTaskDetails,
+            ),
           },
         ),
       ],
@@ -1321,7 +1346,8 @@ class _KanbanColumn extends StatelessWidget {
                           final e = entries[i];
                           final subtitle = StringBuffer();
                           if (e.blockType == 'task') {
-                            if (e.dueDate != null) subtitle.write(e.dueDate);
+                            if (e.dueDate != null)
+                              subtitle.write(_fmtDue(e.dueDate!));
                             if (e.priority != null) {
                               if (subtitle.isNotEmpty) subtitle.write(' · ');
                               subtitle.write(e.priority);
@@ -1330,32 +1356,41 @@ class _KanbanColumn extends StatelessWidget {
                           final ext = e.task?.external;
                           final jiraState = (ext?.provider == 'jira')
                               ? ((ext?.syncState ?? 'ok').trim().isEmpty
-                                  ? 'ok'
-                                  : (ext!.syncState ?? 'ok').trim())
+                                    ? 'ok'
+                                    : (ext!.syncState ?? 'ok').trim())
                               : null;
 
                           Widget? jiraBadge() {
                             if (jiraState == null) return null;
                             if (jiraState == 'ok') return null;
-                            final isEs = Localizations.localeOf(context).languageCode == 'es';
+                            final isEs =
+                                Localizations.localeOf(context).languageCode ==
+                                'es';
                             Color c() => switch (jiraState) {
-                                  'conflict' => scheme.error,
-                                  'needsPush' => scheme.tertiary,
-                                  'needsPull' => scheme.secondary,
-                                  _ => scheme.primary,
-                                };
+                              'conflict' => scheme.error,
+                              'needsPush' => scheme.tertiary,
+                              'needsPull' => scheme.secondary,
+                              _ => scheme.primary,
+                            };
                             String label() => switch (jiraState) {
-                                  'conflict' => isEs ? 'Conflicto' : 'Conflict',
-                                  'needsPush' => isEs ? 'Pendiente push' : 'Needs push',
-                                  'needsPull' => isEs ? 'Pendiente pull' : 'Needs pull',
-                                  _ => 'Jira',
-                                };
+                              'conflict' => isEs ? 'Conflicto' : 'Conflict',
+                              'needsPush' =>
+                                isEs ? 'Pendiente push' : 'Needs push',
+                              'needsPull' =>
+                                isEs ? 'Pendiente pull' : 'Needs pull',
+                              _ => 'Jira',
+                            };
                             return Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 8,
+                                vertical: 5,
+                              ),
                               decoration: BoxDecoration(
                                 color: c().withValues(alpha: 0.12),
                                 borderRadius: BorderRadius.circular(999),
-                                border: Border.all(color: c().withValues(alpha: 0.35)),
+                                border: Border.all(
+                                  color: c().withValues(alpha: 0.35),
+                                ),
                               ),
                               child: Row(
                                 mainAxisSize: MainAxisSize.min,
@@ -1377,6 +1412,7 @@ class _KanbanColumn extends StatelessWidget {
                               ),
                             );
                           }
+
                           final tile = Card(
                             elevation: 0,
                             color: scheme.surface.withValues(alpha: 0.9),
@@ -1456,8 +1492,10 @@ class _KanbanColumn extends StatelessWidget {
                                 child: Opacity(opacity: 0.9, child: tile),
                               ),
                             ),
-                            childWhenDragging:
-                                Opacity(opacity: 0.35, child: tile),
+                            childWhenDragging: Opacity(
+                              opacity: 0.35,
+                              child: tile,
+                            ),
                             child: tile,
                           );
                         },
@@ -1510,8 +1548,9 @@ class _KanbanViewList extends StatelessWidget {
             padding: const EdgeInsets.only(bottom: 12),
             child: Text(
               l10n.kanbanEmptyColumn,
-              style:
-                  textTheme.bodyMedium?.copyWith(color: scheme.onSurfaceVariant),
+              style: textTheme.bodyMedium?.copyWith(
+                color: scheme.onSurfaceVariant,
+              ),
             ),
           ),
         );
@@ -1523,7 +1562,7 @@ class _KanbanViewList extends StatelessWidget {
               color: scheme.surfaceContainerHighest.withValues(alpha: 0.25),
               child: ListTile(
                 title: Text(e.displayTitle.isEmpty ? '—' : e.displayTitle),
-                subtitle: e.dueDate == null ? null : Text(e.dueDate!),
+                subtitle: e.dueDate == null ? null : Text(_fmtDue(e.dueDate!)),
                 onTap: () => onOpenDetails(e),
               ),
             ),
@@ -1598,8 +1637,9 @@ class _KanbanViewGrid extends StatelessWidget {
                         maxLines: 3,
                         overflow: TextOverflow.ellipsis,
                         style: textTheme.titleSmall?.copyWith(
-                          decoration:
-                              e.isDone ? TextDecoration.lineThrough : null,
+                          decoration: e.isDone
+                              ? TextDecoration.lineThrough
+                              : null,
                         ),
                       ),
                       const Spacer(),
@@ -1613,7 +1653,7 @@ class _KanbanViewGrid extends StatelessWidget {
                           ),
                           if (e.dueDate != null)
                             Chip(
-                              label: Text(e.dueDate!),
+                              label: Text(_fmtDue(e.dueDate!)),
                               visualDensity: VisualDensity.compact,
                             ),
                         ],
@@ -1668,7 +1708,7 @@ class _KanbanViewTimeline extends StatelessWidget {
         final e = items[i];
         final range = (e.startDate == null && e.dueDate == null)
             ? l10n.none
-            : '${e.startDate ?? '—'} → ${e.dueDate ?? '—'}';
+            : '${e.startDate ?? '—'} → ${e.dueDate != null ? _fmtDue(e.dueDate!) : '—'}';
         return Card(
           elevation: 0,
           color: scheme.surfaceContainerHighest.withValues(alpha: 0.25),
@@ -1684,13 +1724,7 @@ class _KanbanViewTimeline extends StatelessWidget {
 
   DateTime? _tryParseIso(String? iso) {
     if (iso == null || iso.trim().isEmpty) return null;
-    try {
-      final p = iso.trim().split('-');
-      if (p.length != 3) return null;
-      return DateTime(int.parse(p[0]), int.parse(p[1]), int.parse(p[2]));
-    } catch (_) {
-      return null;
-    }
+    return DateTime.tryParse(iso.trim());
   }
 }
 
@@ -1830,7 +1864,9 @@ class _TaskDetailsContentState extends State<_TaskDetailsContent> {
   void _reloadFromSession({bool keepUserTextIfSame = false}) {
     FolioPage? page;
     try {
-      page = widget.session.pages.firstWhere((p) => p.id == widget.taskRef.pageId);
+      page = widget.session.pages.firstWhere(
+        (p) => p.id == widget.taskRef.pageId,
+      );
     } catch (_) {
       page = null;
     }
@@ -1857,7 +1893,8 @@ class _TaskDetailsContentState extends State<_TaskDetailsContent> {
     if (!keepUserTextIfSame || _timeCtrl.text != timeText) {
       _timeCtrl.text = timeText;
     }
-    if (!keepUserTextIfSame || _blockedReasonCtrl.text != parsed.blockedReason) {
+    if (!keepUserTextIfSame ||
+        _blockedReasonCtrl.text != parsed.blockedReason) {
       _blockedReasonCtrl.text = parsed.blockedReason;
     }
 
@@ -1880,7 +1917,8 @@ class _TaskDetailsContentState extends State<_TaskDetailsContent> {
     if (!_jiraAutoPulledOnce &&
         ext != null &&
         ext.provider == 'jira' &&
-        (ext.issueId.trim().isNotEmpty || (ext.issueKey ?? '').trim().isNotEmpty)) {
+        (ext.issueId.trim().isNotEmpty ||
+            (ext.issueKey ?? '').trim().isNotEmpty)) {
       _jiraAutoPulledOnce = true;
       unawaited(_jiraRefresh());
     }
@@ -1892,9 +1930,7 @@ class _TaskDetailsContentState extends State<_TaskDetailsContent> {
     if (ext != null && ext.provider == 'jira') {
       final cur = (ext.syncState ?? '').trim();
       if (cur != 'conflict') {
-        next = next.copyWith(
-          external: ext.copyWith(syncState: 'needsPush'),
-        );
+        next = next.copyWith(external: ext.copyWith(syncState: 'needsPush'));
       }
     }
     widget.session.updateBlockText(
@@ -1917,11 +1953,11 @@ class _TaskDetailsContentState extends State<_TaskDetailsContent> {
         content: Text(
           data.external?.provider == 'jira'
               ? (isEs
-                  ? 'Esta acción borrará la tarea en Folio y también el issue en Jira (incluyendo subtareas vinculadas). ¿Continuar?'
-                  : 'This will delete the task in Folio and also the issue in Jira (including linked subtasks). Continue?')
+                    ? 'Esta acción borrará la tarea en Folio y también el issue en Jira (incluyendo subtareas vinculadas). ¿Continuar?'
+                    : 'This will delete the task in Folio and also the issue in Jira (including linked subtasks). Continue?')
               : (isEs
-                  ? '¿Borrar la tarea en Folio?'
-                  : 'Delete this task in Folio?'),
+                    ? '¿Borrar la tarea en Folio?'
+                    : 'Delete this task in Folio?'),
         ),
         actions: [
           TextButton(
@@ -1969,29 +2005,31 @@ class _TaskDetailsContentState extends State<_TaskDetailsContent> {
         if (ext == null || ext.provider != 'jira') continue;
         final client = _jiraClientFor(ext);
         if (client == null) {
-          throw StateError(isEs
-              ? 'No se encontró la conexión Jira para borrar el issue.'
-              : 'Jira connection not found to delete issue.');
+          throw StateError(
+            isEs
+                ? 'No se encontró la conexión Jira para borrar el issue.'
+                : 'Jira connection not found to delete issue.',
+          );
         }
-        final issueIdOrKey =
-            (ext.issueKey ?? '').trim().isNotEmpty ? ext.issueKey!.trim() : ext.issueId;
+        final issueIdOrKey = (ext.issueKey ?? '').trim().isNotEmpty
+            ? ext.issueKey!.trim()
+            : ext.issueId;
         await client.deleteIssue(issueIdOrKey);
       }
 
       // Delete locally (single undo step).
-      widget.session.removeBlocksIfMultiple(widget.taskRef.pageId, toDeleteBlockIds);
+      widget.session.removeBlocksIfMultiple(
+        widget.taskRef.pageId,
+        toDeleteBlockIds,
+      );
 
       messenger.showSnackBar(
-        SnackBar(
-          content: Text(isEs ? 'Tarea borrada.' : 'Task deleted.'),
-        ),
+        SnackBar(content: Text(isEs ? 'Tarea borrada.' : 'Task deleted.')),
       );
       widget.onClose();
     } catch (e) {
       messenger.showSnackBar(
-        SnackBar(
-          content: Text(_formatJiraError(e, isEs: isEs)),
-        ),
+        SnackBar(content: Text(_formatJiraError(e, isEs: isEs))),
       );
     } finally {
       if (mounted) setState(() => _deleteBusy = false);
@@ -2062,8 +2100,10 @@ class _TaskDetailsContentState extends State<_TaskDetailsContent> {
       _jiraError = null;
     });
     try {
-      final comments =
-          await client.listComments(issueIdOrKey: ext.issueKey ?? ext.issueId, maxResults: 50);
+      final comments = await client.listComments(
+        issueIdOrKey: ext.issueKey ?? ext.issueId,
+        maxResults: 50,
+      );
       setState(() => _jiraComments = comments);
     } catch (e) {
       setState(() => _jiraError = '$e');
@@ -2181,9 +2221,14 @@ class _TaskDetailsContentState extends State<_TaskDetailsContent> {
         // Fallback: pull only this issue and overwrite local mirror fields.
         final client = _jiraClientOrSetError(ext);
         if (client == null) return;
-        final issue = await client.getIssueExpanded(ext.issueKey ?? ext.issueId);
+        final issue = await client.getIssueExpanded(
+          ext.issueKey ?? ext.issueId,
+        );
         final nextExt = ext.copyWith(
-          remoteUpdatedAtMs: DateTime.tryParse((issue.updatedAt ?? '').trim())?.millisecondsSinceEpoch ??
+          remoteUpdatedAtMs:
+              DateTime.tryParse(
+                (issue.updatedAt ?? '').trim(),
+              )?.millisecondsSinceEpoch ??
               ext.remoteUpdatedAtMs,
           syncState: 'ok',
           lastSyncedAtMs: DateTime.now().millisecondsSinceEpoch,
@@ -2240,10 +2285,13 @@ class _TaskDetailsContentState extends State<_TaskDetailsContent> {
       _jiraError = null;
     });
     try {
-      final issueIdOrKey =
-          (ext.issueKey ?? '').trim().isNotEmpty ? ext.issueKey!.trim() : ext.issueId;
+      final issueIdOrKey = (ext.issueKey ?? '').trim().isNotEmpty
+          ? ext.issueKey!.trim()
+          : ext.issueId;
       // Force push: write current local mirror fields, regardless of remoteUpdatedAtMs.
-      final desiredPriorityName = switch ((data.priority ?? '').trim().toLowerCase()) {
+      final desiredPriorityName = switch ((data.priority ?? '')
+          .trim()
+          .toLowerCase()) {
         'highest' => 'Highest',
         'high' => 'High',
         'medium' => 'Medium',
@@ -2262,8 +2310,10 @@ class _TaskDetailsContentState extends State<_TaskDetailsContent> {
       int? remoteUpdatedAtMs = ext.remoteUpdatedAtMs;
       try {
         final refreshed = await client.getIssueExpanded(issueIdOrKey);
-        remoteUpdatedAtMs = DateTime.tryParse((refreshed.updatedAt ?? '').trim())
-                ?.millisecondsSinceEpoch ??
+        remoteUpdatedAtMs =
+            DateTime.tryParse(
+              (refreshed.updatedAt ?? '').trim(),
+            )?.millisecondsSinceEpoch ??
             remoteUpdatedAtMs;
         setState(() => _jiraIssue = refreshed);
       } catch (_) {}
@@ -2295,7 +2345,9 @@ class _TaskDetailsContentState extends State<_TaskDetailsContent> {
     // Cloud: try infer from known connections (siteUrl).
     final cloudId = (ext.cloudId ?? '').trim();
     final conn = widget.session.jiraConnections.firstWhereOrNull(
-      (c) => c.deployment == JiraDeployment.cloud && (c.cloudId ?? '').trim() == cloudId,
+      (c) =>
+          c.deployment == JiraDeployment.cloud &&
+          (c.cloudId ?? '').trim() == cloudId,
     );
     final site = (conn?.siteUrl ?? '').trim();
     final siteUri = Uri.tryParse(site);
@@ -2305,13 +2357,7 @@ class _TaskDetailsContentState extends State<_TaskDetailsContent> {
 
   DateTime? _parseIso(String? iso) {
     if (iso == null || iso.trim().isEmpty) return null;
-    try {
-      final p = iso.trim().split('-');
-      if (p.length != 3) return null;
-      return DateTime(int.parse(p[0]), int.parse(p[1]), int.parse(p[2]));
-    } catch (_) {
-      return null;
-    }
+    return DateTime.tryParse(iso.trim());
   }
 
   String? _iso(DateTime? d) {
@@ -2320,6 +2366,15 @@ class _TaskDetailsContentState extends State<_TaskDetailsContent> {
     final m = d.month.toString().padLeft(2, '0');
     final day = d.day.toString().padLeft(2, '0');
     return '$y-$m-$day';
+  }
+
+  String _isoWithTime(DateTime d, TimeOfDay t) {
+    final y = d.year.toString().padLeft(4, '0');
+    final m = d.month.toString().padLeft(2, '0');
+    final day = d.day.toString().padLeft(2, '0');
+    final h = t.hour.toString().padLeft(2, '0');
+    final min = t.minute.toString().padLeft(2, '0');
+    return '$y-$m-${day}T$h:$min';
   }
 
   Future<void> _pickDate({required bool start}) async {
@@ -2334,10 +2389,22 @@ class _TaskDetailsContentState extends State<_TaskDetailsContent> {
       lastDate: DateTime(now.year + 10),
     );
     if (!mounted || picked == null) return;
-    final next = start
-        ? cur.copyWith(startDate: _iso(picked))
-        : cur.copyWith(dueDate: _iso(picked));
-    _emit(next);
+    if (start) {
+      _emit(cur.copyWith(startDate: _iso(picked)));
+      return;
+    }
+    final existingDt = _parseIso(cur.dueDate);
+    final pickedTime = await showTimePicker(
+      context: context,
+      initialTime: existingDt != null && (cur.dueDate?.contains('T') ?? false)
+          ? TimeOfDay(hour: existingDt.hour, minute: existingDt.minute)
+          : TimeOfDay.now(),
+    );
+    if (!mounted) return;
+    final iso = pickedTime != null
+        ? _isoWithTime(picked, pickedTime)
+        : _iso(picked);
+    _emit(cur.copyWith(dueDate: iso));
   }
 
   void _addSubtask() {
@@ -2387,317 +2454,394 @@ class _TaskDetailsContentState extends State<_TaskDetailsContent> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                Row(
-                  children: [
-                    const Icon(Icons.task_alt_rounded),
-                    const SizedBox(width: FolioSpace.sm),
-                    Expanded(
-                      child: Text(
-                        l10n.taskQuickAddTitle,
-                        style: theme.textTheme.titleMedium?.copyWith(
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                    ),
-                    IconButton(
-                      tooltip: l10n.delete,
-                      onPressed: _deleteBusy ? null : _deleteTaskWithJiraIfLinked,
-                      icon: _deleteBusy
-                          ? const SizedBox(
-                              width: 18,
-                              height: 18,
-                              child: CircularProgressIndicator(strokeWidth: 2),
-                            )
-                          : const Icon(Icons.delete_outline_rounded),
-                    ),
-                    IconButton(
-                      tooltip: l10n.cancel,
-                      onPressed: widget.onClose,
-                      icon: const Icon(Icons.close_rounded),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: FolioSpace.sm),
-                if (data.external?.provider == 'jira') ...[
-                  Builder(
-                    builder: (ctx) {
-                      final isEs = Localizations.localeOf(ctx).languageCode == 'es';
-                      final ext = data.external!;
-                      final uri = _jiraBrowseUri(ext);
-                      final label = (ext.issueKey ?? '').trim().isNotEmpty == true
-                          ? ext.issueKey!.trim()
-                          : ext.issueId;
-                      return Container(
-                        padding: const EdgeInsets.all(12),
-                        decoration: BoxDecoration(
-                          color: scheme.surfaceContainerHighest.withValues(alpha: 0.25),
-                          borderRadius: BorderRadius.circular(FolioRadius.md),
-                          border: Border.all(
-                            color: scheme.outlineVariant.withValues(alpha: 0.35),
-                          ),
-                        ),
-                        child: Row(
-                          children: [
-                            const Icon(Icons.grid_view_rounded, size: 18),
-                            const SizedBox(width: 10),
-                            Expanded(
-                              child: Text(
-                                'Jira · $label',
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: theme.textTheme.bodyMedium?.copyWith(
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                            ),
-                            const SizedBox(width: 8),
-                            OutlinedButton.icon(
-                              onPressed: uri == null
-                                  ? null
-                                  : () async {
-                                      await launchUrl(
-                                        uri,
-                                        mode: LaunchMode.externalApplication,
-                                      );
-                                    },
-                              icon: const Icon(Icons.open_in_new_rounded, size: 18),
-                              label: Text(isEs ? 'Abrir' : l10n.taskHubOpen),
-                            ),
-                          ],
-                        ),
-                      );
-                    },
-                  ),
-                  const SizedBox(height: 10),
-                  _JiraDetailsSection(
-                    scheme: scheme,
-                    data: data,
-                    busy: _jiraBusy,
-                    error: _jiraError,
-                    issue: _jiraIssue,
-                    comments: _jiraComments,
-                    worklogs: _jiraWorklogs,
-                    newCommentCtrl: _jiraNewCommentCtrl,
-                    worklogMinutesCtrl: _jiraWorklogMinutesCtrl,
-                    onRefresh: _jiraRefresh,
-                    onResolveKeepRemote: _jiraResolveKeepRemote,
-                    onResolveKeepLocalForcePush: _jiraResolveKeepLocalForcePush,
-                    onLoadComments: _jiraLoadComments,
-                    onAddComment: _jiraAddComment,
-                    onLoadWorklogs: _jiraLoadWorklogs,
-                    onAddWorklog: _jiraAddWorklog,
-                  ),
-                  const SizedBox(height: 10),
-                ],
-                TextField(
-                  controller: _titleCtrl,
-                  maxLines: 2,
-                  decoration: InputDecoration(
-                    labelText: l10n.title,
-                    border: const OutlineInputBorder(),
-                  ),
-                  onChanged: (v) => _emit(data.copyWith(title: v.trim())),
-                ),
-                const SizedBox(height: 10),
-                TextField(
-                  controller: _descCtrl,
-                  minLines: 2,
-                  maxLines: 8,
-                  decoration: InputDecoration(
-                    labelText: l10n.description,
-                    border: const OutlineInputBorder(),
-                  ),
-                  onChanged: (v) => _emit(data.copyWith(description: v)),
-                ),
-                const SizedBox(height: 10),
-                Row(
-                  children: [
-                    Expanded(
-                      child: DropdownButtonFormField<String?>(
-                        initialValue: data.priority,
-                        decoration: InputDecoration(
-                          labelText: l10n.priority,
-                          border: const OutlineInputBorder(),
-                        ),
-                        items: [
-                          DropdownMenuItem<String?>(value: null, child: Text(l10n.none)),
-                          const DropdownMenuItem(value: 'lowest', child: Text('Lowest')),
-                          DropdownMenuItem(value: 'low', child: Text(l10n.low)),
-                          DropdownMenuItem(
-                            value: 'medium',
-                            child: Text(l10n.medium),
-                          ),
-                          DropdownMenuItem(
-                            value: 'high',
-                            child: Text(l10n.high),
-                          ),
-                          const DropdownMenuItem(value: 'highest', child: Text('Highest')),
-                        ],
-                        onChanged: (v) => _emit(data.copyWith(priority: v)),
-                      ),
-                    ),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: DropdownButtonFormField<String>(
-                        initialValue: data.status,
-                        decoration: InputDecoration(
-                          labelText: l10n.status,
-                          border: const OutlineInputBorder(),
-                        ),
-                        items: [
-                          DropdownMenuItem(
-                            value: 'todo',
-                            child: Text(l10n.taskStatusTodo),
-                          ),
-                          DropdownMenuItem(
-                            value: 'in_progress',
-                            child: Text(l10n.taskStatusInProgress),
-                          ),
-                          DropdownMenuItem(
-                            value: 'done',
-                            child: Text(l10n.taskStatusDone),
-                          ),
-                        ],
-                        onChanged: (v) => _emit(data.copyWith(status: v ?? 'todo')),
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 10),
-                SwitchListTile.adaptive(
-                  contentPadding: EdgeInsets.zero,
-                  title: Text(l10n.taskBlocked),
-                  value: data.blocked,
-                  onChanged: (v) => _emit(data.copyWith(blocked: v)),
-                ),
-                if (data.blocked) ...[
-                  const SizedBox(height: 6),
-                  TextField(
-                    controller: _blockedReasonCtrl,
-                    maxLines: 3,
-                    decoration: InputDecoration(
-                      labelText: l10n.taskBlockedReason,
-                      border: const OutlineInputBorder(),
-                    ),
-                    onChanged: (v) => _emit(data.copyWith(blockedReason: v)),
-                  ),
-                  const SizedBox(height: 10),
-                ],
-                Row(
-                  children: [
-                    Expanded(
-                      child: OutlinedButton.icon(
-                        onPressed: () => _pickDate(start: true),
-                        icon: const Icon(Icons.play_arrow_rounded),
-                        label: Text(
-                          data.startDate == null
-                              ? l10n.startDate
-                              : '${l10n.startDate}: ${data.startDate}',
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: OutlinedButton.icon(
-                        onPressed: () => _pickDate(start: false),
-                        icon: const Icon(Icons.flag_outlined),
-                        label: Text(
-                          data.dueDate == null
-                              ? l10n.dueDate
-                              : '${l10n.dueDate}: ${data.dueDate}',
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 10),
-                TextField(
-                  controller: _timeCtrl,
-                  keyboardType: TextInputType.number,
-                  decoration: InputDecoration(
-                    labelText: l10n.timeSpentMinutes,
-                    border: const OutlineInputBorder(),
-                  ),
-                  onChanged: (v) => _emit(
-                    data.copyWith(timeSpentMinutes: int.tryParse(v.trim())),
-                  ),
-                ),
-                const SizedBox(height: FolioSpace.md),
-                Row(
-                  children: [
-                    Expanded(
-                      child: Text(
-                        l10n.subtasks,
-                        style: theme.textTheme.titleSmall?.copyWith(
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                    ),
-                    OutlinedButton.icon(
-                      onPressed: _addSubtask,
-                      icon: const Icon(Icons.add_rounded, size: 18),
-                      label: Text(l10n.add),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 6),
-                _childTasks.isEmpty
-                    ? Padding(
-                        padding: const EdgeInsets.symmetric(vertical: 8),
+                  Row(
+                    children: [
+                      const Icon(Icons.task_alt_rounded),
+                      const SizedBox(width: FolioSpace.sm),
+                      Expanded(
                         child: Text(
-                          l10n.kanbanEmptyColumn,
-                          style: theme.textTheme.bodyMedium?.copyWith(
-                            color: scheme.onSurfaceVariant,
+                          l10n.taskQuickAddTitle,
+                          style: theme.textTheme.titleMedium?.copyWith(
+                            fontWeight: FontWeight.w700,
                           ),
                         ),
-                      )
-                    : ListView.separated(
-                        shrinkWrap: true,
-                        physics: const NeverScrollableScrollPhysics(),
-                        itemCount: _childTasks.length,
-                        separatorBuilder: (context, _) => const SizedBox(height: 8),
-                        itemBuilder: (context, i) {
-                          final child = _childTasks[i];
-                          final s = child.data;
-                          return Card(
-                            elevation: 0,
-                            color: scheme.surfaceContainerHighest.withValues(alpha: 0.25),
-                            clipBehavior: Clip.antiAlias,
-                            child: InkWell(
-                              onTap: () => widget.onOpenTaskRef(
-                                _TaskRef(
-                                  pageId: widget.taskRef.pageId,
-                                  blockId: child.blockId,
+                      ),
+                      IconButton(
+                        tooltip: l10n.delete,
+                        onPressed: _deleteBusy
+                            ? null
+                            : _deleteTaskWithJiraIfLinked,
+                        icon: _deleteBusy
+                            ? const SizedBox(
+                                width: 18,
+                                height: 18,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                ),
+                              )
+                            : const Icon(Icons.delete_outline_rounded),
+                      ),
+                      IconButton(
+                        tooltip: l10n.cancel,
+                        onPressed: widget.onClose,
+                        icon: const Icon(Icons.close_rounded),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: FolioSpace.sm),
+                  if (data.external?.provider == 'jira') ...[
+                    Builder(
+                      builder: (ctx) {
+                        final isEs =
+                            Localizations.localeOf(ctx).languageCode == 'es';
+                        final ext = data.external!;
+                        final uri = _jiraBrowseUri(ext);
+                        final label =
+                            (ext.issueKey ?? '').trim().isNotEmpty == true
+                            ? ext.issueKey!.trim()
+                            : ext.issueId;
+                        return Container(
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: scheme.surfaceContainerHighest.withValues(
+                              alpha: 0.25,
+                            ),
+                            borderRadius: BorderRadius.circular(FolioRadius.md),
+                            border: Border.all(
+                              color: scheme.outlineVariant.withValues(
+                                alpha: 0.35,
+                              ),
+                            ),
+                          ),
+                          child: Row(
+                            children: [
+                              const Icon(Icons.grid_view_rounded, size: 18),
+                              const SizedBox(width: 10),
+                              Expanded(
+                                child: Text(
+                                  'Jira · $label',
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: theme.textTheme.bodyMedium?.copyWith(
+                                    fontWeight: FontWeight.w600,
+                                  ),
                                 ),
                               ),
-                              child: Padding(
-                                padding: const EdgeInsets.all(10),
-                                child: Row(
-                                  children: [
-                                    Checkbox(
-                                      value: s.status == 'done',
-                                      visualDensity: VisualDensity.compact,
-                                      onChanged: (v) {
-                                        final next = s.copyWith(
-                                          status: v == true ? 'done' : 'todo',
-                                        );
-                                        widget.session.updateBlockText(
-                                          widget.taskRef.pageId,
-                                          child.blockId,
-                                          next.encode(),
+                              const SizedBox(width: 8),
+                              OutlinedButton.icon(
+                                onPressed: uri == null
+                                    ? null
+                                    : () async {
+                                        await launchUrl(
+                                          uri,
+                                          mode: LaunchMode.externalApplication,
                                         );
                                       },
-                                    ),
-                                    Expanded(
-                                      child: TextFormField(
-                                        key: ValueKey('detail_subtask_${child.blockId}'),
-                                        initialValue: s.title,
-                                        decoration: InputDecoration(
-                                          labelText: l10n.title,
-                                          border: const OutlineInputBorder(),
-                                        ),
+                                icon: const Icon(
+                                  Icons.open_in_new_rounded,
+                                  size: 18,
+                                ),
+                                label: Text(isEs ? 'Abrir' : l10n.taskHubOpen),
+                              ),
+                            ],
+                          ),
+                        );
+                      },
+                    ),
+                    const SizedBox(height: 10),
+                    _JiraDetailsSection(
+                      scheme: scheme,
+                      data: data,
+                      busy: _jiraBusy,
+                      error: _jiraError,
+                      issue: _jiraIssue,
+                      comments: _jiraComments,
+                      worklogs: _jiraWorklogs,
+                      newCommentCtrl: _jiraNewCommentCtrl,
+                      worklogMinutesCtrl: _jiraWorklogMinutesCtrl,
+                      onRefresh: _jiraRefresh,
+                      onResolveKeepRemote: _jiraResolveKeepRemote,
+                      onResolveKeepLocalForcePush:
+                          _jiraResolveKeepLocalForcePush,
+                      onLoadComments: _jiraLoadComments,
+                      onAddComment: _jiraAddComment,
+                      onLoadWorklogs: _jiraLoadWorklogs,
+                      onAddWorklog: _jiraAddWorklog,
+                    ),
+                    const SizedBox(height: 10),
+                  ],
+                  TextField(
+                    controller: _titleCtrl,
+                    maxLines: 2,
+                    decoration: InputDecoration(
+                      labelText: l10n.title,
+                      border: const OutlineInputBorder(),
+                    ),
+                    onChanged: (v) => _emit(data.copyWith(title: v.trim())),
+                  ),
+                  const SizedBox(height: 10),
+                  TextField(
+                    controller: _descCtrl,
+                    minLines: 2,
+                    maxLines: 8,
+                    decoration: InputDecoration(
+                      labelText: l10n.description,
+                      border: const OutlineInputBorder(),
+                    ),
+                    onChanged: (v) => _emit(data.copyWith(description: v)),
+                  ),
+                  const SizedBox(height: 10),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: DropdownButtonFormField<String?>(
+                          initialValue: data.priority,
+                          decoration: InputDecoration(
+                            labelText: l10n.priority,
+                            border: const OutlineInputBorder(),
+                          ),
+                          items: [
+                            DropdownMenuItem<String?>(
+                              value: null,
+                              child: Text(l10n.none),
+                            ),
+                            const DropdownMenuItem(
+                              value: 'lowest',
+                              child: Text('Lowest'),
+                            ),
+                            DropdownMenuItem(
+                              value: 'low',
+                              child: Text(l10n.low),
+                            ),
+                            DropdownMenuItem(
+                              value: 'medium',
+                              child: Text(l10n.medium),
+                            ),
+                            DropdownMenuItem(
+                              value: 'high',
+                              child: Text(l10n.high),
+                            ),
+                            const DropdownMenuItem(
+                              value: 'highest',
+                              child: Text('Highest'),
+                            ),
+                          ],
+                          onChanged: (v) => _emit(data.copyWith(priority: v)),
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: DropdownButtonFormField<String>(
+                          initialValue: data.status,
+                          decoration: InputDecoration(
+                            labelText: l10n.status,
+                            border: const OutlineInputBorder(),
+                          ),
+                          items: [
+                            DropdownMenuItem(
+                              value: 'todo',
+                              child: Text(l10n.taskStatusTodo),
+                            ),
+                            DropdownMenuItem(
+                              value: 'in_progress',
+                              child: Text(l10n.taskStatusInProgress),
+                            ),
+                            DropdownMenuItem(
+                              value: 'done',
+                              child: Text(l10n.taskStatusDone),
+                            ),
+                          ],
+                          onChanged: (v) =>
+                              _emit(data.copyWith(status: v ?? 'todo')),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 10),
+                  SwitchListTile.adaptive(
+                    contentPadding: EdgeInsets.zero,
+                    title: Text(l10n.taskBlocked),
+                    value: data.blocked,
+                    onChanged: (v) => _emit(data.copyWith(blocked: v)),
+                  ),
+                  if (data.blocked) ...[
+                    const SizedBox(height: 6),
+                    TextField(
+                      controller: _blockedReasonCtrl,
+                      maxLines: 3,
+                      decoration: InputDecoration(
+                        labelText: l10n.taskBlockedReason,
+                        border: const OutlineInputBorder(),
+                      ),
+                      onChanged: (v) => _emit(data.copyWith(blockedReason: v)),
+                    ),
+                    const SizedBox(height: 10),
+                  ],
+                  Row(
+                    children: [
+                      Expanded(
+                        child: OutlinedButton.icon(
+                          onPressed: () => _pickDate(start: true),
+                          icon: const Icon(Icons.play_arrow_rounded),
+                          label: Text(
+                            data.startDate == null
+                                ? l10n.startDate
+                                : '${l10n.startDate}: ${data.startDate}',
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: OutlinedButton.icon(
+                          onPressed: () => _pickDate(start: false),
+                          icon: const Icon(Icons.flag_outlined),
+                          label: Text(
+                            data.dueDate == null
+                                ? l10n.dueDate
+                                : '${l10n.dueDate}: ${_fmtDue(data.dueDate!)}',
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 10),
+                  // Recurrence + reminder row
+                  Row(
+                    children: [
+                      Expanded(
+                        child: DropdownButtonFormField<String?>(
+                          initialValue: data.recurrence,
+                          decoration: InputDecoration(
+                            labelText: l10n.taskRecurrenceLabel,
+                            prefixIcon: const Icon(
+                              Icons.repeat_rounded,
+                              size: 20,
+                            ),
+                            border: const OutlineInputBorder(),
+                          ),
+                          items: [
+                            DropdownMenuItem<String?>(
+                              value: null,
+                              child: Text(l10n.taskRecurrenceNone),
+                            ),
+                            DropdownMenuItem<String?>(
+                              value: 'daily',
+                              child: Text(l10n.taskRecurrenceDaily),
+                            ),
+                            DropdownMenuItem<String?>(
+                              value: 'weekly',
+                              child: Text(l10n.taskRecurrenceWeekly),
+                            ),
+                            DropdownMenuItem<String?>(
+                              value: 'monthly',
+                              child: Text(l10n.taskRecurrenceMonthly),
+                            ),
+                            DropdownMenuItem<String?>(
+                              value: 'yearly',
+                              child: Text(l10n.taskRecurrenceYearly),
+                            ),
+                          ],
+                          onChanged: (v) => _emit(data.copyWith(recurrence: v)),
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      Tooltip(
+                        message: data.reminderEnabled
+                            ? l10n.taskReminderOnTooltip
+                            : l10n.taskReminderTooltip,
+                        child: FilterChip(
+                          avatar: Icon(
+                            data.reminderEnabled
+                                ? Icons.notifications_rounded
+                                : Icons.notifications_none_rounded,
+                            size: 18,
+                          ),
+                          label: Text(
+                            data.reminderEnabled
+                                ? l10n.taskReminderOnTooltip
+                                : l10n.taskReminderTooltip,
+                          ),
+                          selected: data.reminderEnabled,
+                          onSelected: (v) =>
+                              _emit(data.copyWith(reminderEnabled: v)),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 10),
+                  TextField(
+                    controller: _timeCtrl,
+                    keyboardType: TextInputType.number,
+                    decoration: InputDecoration(
+                      labelText: l10n.timeSpentMinutes,
+                      border: const OutlineInputBorder(),
+                    ),
+                    onChanged: (v) => _emit(
+                      data.copyWith(timeSpentMinutes: int.tryParse(v.trim())),
+                    ),
+                  ),
+                  const SizedBox(height: FolioSpace.md),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          l10n.subtasks,
+                          style: theme.textTheme.titleSmall?.copyWith(
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ),
+                      OutlinedButton.icon(
+                        onPressed: _addSubtask,
+                        icon: const Icon(Icons.add_rounded, size: 18),
+                        label: Text(l10n.add),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 6),
+                  _childTasks.isEmpty
+                      ? Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 8),
+                          child: Text(
+                            l10n.kanbanEmptyColumn,
+                            style: theme.textTheme.bodyMedium?.copyWith(
+                              color: scheme.onSurfaceVariant,
+                            ),
+                          ),
+                        )
+                      : ListView.separated(
+                          shrinkWrap: true,
+                          physics: const NeverScrollableScrollPhysics(),
+                          itemCount: _childTasks.length,
+                          separatorBuilder: (context, _) =>
+                              const SizedBox(height: 8),
+                          itemBuilder: (context, i) {
+                            final child = _childTasks[i];
+                            final s = child.data;
+                            return Card(
+                              elevation: 0,
+                              color: scheme.surfaceContainerHighest.withValues(
+                                alpha: 0.25,
+                              ),
+                              clipBehavior: Clip.antiAlias,
+                              child: InkWell(
+                                onTap: () => widget.onOpenTaskRef(
+                                  _TaskRef(
+                                    pageId: widget.taskRef.pageId,
+                                    blockId: child.blockId,
+                                  ),
+                                ),
+                                child: Padding(
+                                  padding: const EdgeInsets.all(10),
+                                  child: Row(
+                                    children: [
+                                      Checkbox(
+                                        value: s.status == 'done',
+                                        visualDensity: VisualDensity.compact,
                                         onChanged: (v) {
-                                          final next = s.copyWith(title: v);
+                                          final next = s.copyWith(
+                                            status: v == true ? 'done' : 'todo',
+                                          );
                                           widget.session.updateBlockText(
                                             widget.taskRef.pageId,
                                             child.blockId,
@@ -2705,38 +2849,61 @@ class _TaskDetailsContentState extends State<_TaskDetailsContent> {
                                           );
                                         },
                                       ),
-                                    ),
-                                    const SizedBox(width: 8),
-                                    IconButton(
-                                      tooltip: l10n.taskHubOpen,
-                                      onPressed: () => widget.onOpenTaskRef(
-                                        _TaskRef(
-                                          pageId: widget.taskRef.pageId,
-                                          blockId: child.blockId,
+                                      Expanded(
+                                        child: TextFormField(
+                                          key: ValueKey(
+                                            'detail_subtask_${child.blockId}',
+                                          ),
+                                          initialValue: s.title,
+                                          decoration: InputDecoration(
+                                            labelText: l10n.title,
+                                            border: const OutlineInputBorder(),
+                                          ),
+                                          onChanged: (v) {
+                                            final next = s.copyWith(title: v);
+                                            widget.session.updateBlockText(
+                                              widget.taskRef.pageId,
+                                              child.blockId,
+                                              next.encode(),
+                                            );
+                                          },
                                         ),
                                       ),
-                                      icon: const Icon(Icons.open_in_new_rounded),
-                                    ),
-                                    IconButton(
-                                      tooltip: l10n.delete,
-                                      onPressed: () {
-                                        widget.session.removeBlockIfMultiple(
-                                          widget.taskRef.pageId,
-                                          child.blockId,
-                                        );
-                                      },
-                                      icon: const Icon(Icons.delete_outline_rounded),
-                                    ),
-                                  ],
+                                      const SizedBox(width: 8),
+                                      IconButton(
+                                        tooltip: l10n.taskHubOpen,
+                                        onPressed: () => widget.onOpenTaskRef(
+                                          _TaskRef(
+                                            pageId: widget.taskRef.pageId,
+                                            blockId: child.blockId,
+                                          ),
+                                        ),
+                                        icon: const Icon(
+                                          Icons.open_in_new_rounded,
+                                        ),
+                                      ),
+                                      IconButton(
+                                        tooltip: l10n.delete,
+                                        onPressed: () {
+                                          widget.session.removeBlockIfMultiple(
+                                            widget.taskRef.pageId,
+                                            child.blockId,
+                                          );
+                                        },
+                                        icon: const Icon(
+                                          Icons.delete_outline_rounded,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
                                 ),
                               ),
-                            ),
-                          );
-                        },
-                      ),
-              ],
+                            );
+                          },
+                        ),
+                ],
+              ),
             ),
-          ),
     );
   }
 }
@@ -2783,36 +2950,40 @@ class _JiraDetailsSection extends StatelessWidget {
     final isEs = Localizations.localeOf(context).languageCode == 'es';
     final ext = data.external!;
     final snap = data.jira;
-    final state = (ext.syncState ?? 'ok').trim().isEmpty ? 'ok' : ext.syncState!.trim();
+    final state = (ext.syncState ?? 'ok').trim().isEmpty
+        ? 'ok'
+        : ext.syncState!.trim();
     Color stateColor() => switch (state) {
-          'conflict' => scheme.error,
-          'needsPush' => scheme.tertiary,
-          'needsPull' => scheme.secondary,
-          _ => scheme.primary,
-        };
+      'conflict' => scheme.error,
+      'needsPush' => scheme.tertiary,
+      'needsPull' => scheme.secondary,
+      _ => scheme.primary,
+    };
 
     Widget pill(String text) => Container(
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-          decoration: BoxDecoration(
-            color: stateColor().withValues(alpha: 0.12),
-            borderRadius: BorderRadius.circular(999),
-            border: Border.all(color: stateColor().withValues(alpha: 0.35)),
-          ),
-          child: Text(
-            text,
-            style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                  fontWeight: FontWeight.w800,
-                  color: stateColor(),
-                ),
-          ),
-        );
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: stateColor().withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: stateColor().withValues(alpha: 0.35)),
+      ),
+      child: Text(
+        text,
+        style: Theme.of(context).textTheme.labelSmall?.copyWith(
+          fontWeight: FontWeight.w800,
+          color: stateColor(),
+        ),
+      ),
+    );
 
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
         color: scheme.surfaceContainerHighest.withValues(alpha: 0.18),
         borderRadius: BorderRadius.circular(FolioRadius.md),
-        border: Border.all(color: scheme.outlineVariant.withValues(alpha: 0.35)),
+        border: Border.all(
+          color: scheme.outlineVariant.withValues(alpha: 0.35),
+        ),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -2828,9 +2999,9 @@ class _JiraDetailsSection extends StatelessWidget {
               Expanded(
                 child: Text(
                   isEs ? 'Jira' : 'Jira',
-                  style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                        fontWeight: FontWeight.w800,
-                      ),
+                  style: Theme.of(
+                    context,
+                  ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w800),
                 ),
               ),
               pill(state),
@@ -2865,9 +3036,9 @@ class _JiraDetailsSection extends StatelessWidget {
                         ? 'Conflicto: hubo cambios en Jira y en Folio.'
                         : 'Conflict: there were changes in Jira and Folio.',
                     style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: scheme.onErrorContainer,
-                          fontWeight: FontWeight.w700,
-                        ),
+                      color: scheme.onErrorContainer,
+                      fontWeight: FontWeight.w700,
+                    ),
                   ),
                   const SizedBox(height: 8),
                   Builder(
@@ -2882,15 +3053,22 @@ class _JiraDetailsSection extends StatelessWidget {
 
                       Widget diffRow(String label, String folio, String jira) {
                         final same = folio.trim() == jira.trim();
-                        final folioText = folio.trim().isEmpty ? '—' : folio.trim();
-                        final jiraText = jira.trim().isEmpty ? '—' : jira.trim();
-                        final baseStyle = Theme.of(ctx).textTheme.bodySmall?.copyWith(
-                              color: scheme.onErrorContainer.withValues(alpha: 0.92),
+                        final folioText = folio.trim().isEmpty
+                            ? '—'
+                            : folio.trim();
+                        final jiraText = jira.trim().isEmpty
+                            ? '—'
+                            : jira.trim();
+                        final baseStyle = Theme.of(ctx).textTheme.bodySmall
+                            ?.copyWith(
+                              color: scheme.onErrorContainer.withValues(
+                                alpha: 0.92,
+                              ),
                             );
                         final hi = Theme.of(ctx).textTheme.bodySmall?.copyWith(
-                              color: scheme.onErrorContainer,
-                              fontWeight: FontWeight.w800,
-                            );
+                          color: scheme.onErrorContainer,
+                          fontWeight: FontWeight.w800,
+                        );
                         return Container(
                           padding: const EdgeInsets.all(10),
                           decoration: BoxDecoration(
@@ -2898,7 +3076,9 @@ class _JiraDetailsSection extends StatelessWidget {
                             borderRadius: BorderRadius.circular(10),
                             border: Border.all(
                               color: same
-                                  ? scheme.outlineVariant.withValues(alpha: 0.35)
+                                  ? scheme.outlineVariant.withValues(
+                                      alpha: 0.35,
+                                    )
                                   : scheme.error.withValues(alpha: 0.35),
                             ),
                           ),
@@ -2907,7 +3087,8 @@ class _JiraDetailsSection extends StatelessWidget {
                             children: [
                               Text(
                                 label,
-                                style: Theme.of(ctx).textTheme.labelSmall?.copyWith(
+                                style: Theme.of(ctx).textTheme.labelSmall
+                                    ?.copyWith(
                                       color: scheme.onErrorContainer,
                                       fontWeight: FontWeight.w900,
                                     ),
@@ -2934,15 +3115,20 @@ class _JiraDetailsSection extends StatelessWidget {
                               ? 'Pulsa Pull para cargar el estado remoto y ver las diferencias.'
                               : 'Press Pull to load remote state and see differences.',
                           style: Theme.of(ctx).textTheme.bodySmall?.copyWith(
-                                color: scheme.onErrorContainer.withValues(alpha: 0.9),
-                              ),
+                            color: scheme.onErrorContainer.withValues(
+                              alpha: 0.9,
+                            ),
+                          ),
                         );
                       }
 
                       final localTitle = norm(data.title);
                       final remoteTitle = norm(jira.summary);
                       final localDesc = cut(norm(data.description), max: 140);
-                      final remoteDesc = cut(norm(jira.descriptionText), max: 140);
+                      final remoteDesc = cut(
+                        norm(jira.descriptionText),
+                        max: 140,
+                      );
                       final localDue = norm(data.dueDate);
                       final remoteDue = norm(jira.dueDateIso);
                       final localPriority = norm(data.priority);
@@ -2953,7 +3139,11 @@ class _JiraDetailsSection extends StatelessWidget {
                       return Column(
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
-                          diffRow(isEs ? 'Título' : 'Title', localTitle, remoteTitle),
+                          diffRow(
+                            isEs ? 'Título' : 'Title',
+                            localTitle,
+                            remoteTitle,
+                          ),
                           const SizedBox(height: 8),
                           diffRow(
                             isEs ? 'Descripción' : 'Description',
@@ -2989,11 +3179,17 @@ class _JiraDetailsSection extends StatelessWidget {
                     children: [
                       OutlinedButton(
                         onPressed: busy ? null : onResolveKeepRemote,
-                        child: Text(isEs ? 'Mantener Jira (Pull)' : 'Keep Jira (Pull)'),
+                        child: Text(
+                          isEs ? 'Mantener Jira (Pull)' : 'Keep Jira (Pull)',
+                        ),
                       ),
                       FilledButton(
                         onPressed: busy ? null : onResolveKeepLocalForcePush,
-                        child: Text(isEs ? 'Mantener Folio (Force push)' : 'Keep Folio (Force push)'),
+                        child: Text(
+                          isEs
+                              ? 'Mantener Folio (Force push)'
+                              : 'Keep Folio (Force push)',
+                        ),
                       ),
                     ],
                   ),
@@ -3005,10 +3201,9 @@ class _JiraDetailsSection extends StatelessWidget {
             const SizedBox(height: 8),
             Text(
               error!,
-              style: Theme.of(context)
-                  .textTheme
-                  .bodySmall
-                  ?.copyWith(color: scheme.error),
+              style: Theme.of(
+                context,
+              ).textTheme.bodySmall?.copyWith(color: scheme.error),
             ),
           ],
           const SizedBox(height: 10),
@@ -3016,10 +3211,26 @@ class _JiraDetailsSection extends StatelessWidget {
             spacing: 10,
             runSpacing: 10,
             children: [
-              _kvChip(context, isEs ? 'Estado' : 'Status', snap?.statusName ?? issue?.statusName ?? '—'),
-              _kvChip(context, isEs ? 'Assignee' : 'Assignee', snap?.assigneeDisplayName ?? issue?.assigneeDisplayName ?? '—'),
-              _kvChip(context, isEs ? 'Labels' : 'Labels', (snap?.labels ?? issue?.labels ?? const []).join(', ')),
-              _kvChip(context, isEs ? 'Componentes' : 'Components', (snap?.components ?? issue?.components ?? const []).join(', ')),
+              _kvChip(
+                context,
+                isEs ? 'Estado' : 'Status',
+                snap?.statusName ?? issue?.statusName ?? '—',
+              ),
+              _kvChip(
+                context,
+                isEs ? 'Assignee' : 'Assignee',
+                snap?.assigneeDisplayName ?? issue?.assigneeDisplayName ?? '—',
+              ),
+              _kvChip(
+                context,
+                isEs ? 'Labels' : 'Labels',
+                (snap?.labels ?? issue?.labels ?? const []).join(', '),
+              ),
+              _kvChip(
+                context,
+                isEs ? 'Componentes' : 'Components',
+                (snap?.components ?? issue?.components ?? const []).join(', '),
+              ),
             ],
           ),
           const SizedBox(height: 12),
@@ -3027,7 +3238,9 @@ class _JiraDetailsSection extends StatelessWidget {
             tilePadding: EdgeInsets.zero,
             title: Text(
               isEs ? 'Comentarios' : 'Comments',
-              style: Theme.of(context).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w800),
+              style: Theme.of(
+                context,
+              ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w800),
             ),
             trailing: Wrap(
               spacing: 8,
@@ -3067,36 +3280,41 @@ class _JiraDetailsSection extends StatelessWidget {
                   child: Text(
                     isEs ? 'Sin comentarios cargados.' : 'No comments loaded.',
                     style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: scheme.onSurfaceVariant,
-                        ),
+                      color: scheme.onSurfaceVariant,
+                    ),
                   ),
                 )
               else
-                ...comments.map((c) => Padding(
-                      padding: const EdgeInsets.only(bottom: 8),
-                      child: Container(
-                        padding: const EdgeInsets.all(10),
-                        decoration: BoxDecoration(
-                          color: scheme.surface.withValues(alpha: 0.9),
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(color: scheme.outlineVariant.withValues(alpha: 0.35)),
-                        ),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              '${c.authorDisplayName ?? '—'} · ${(c.created ?? '').trim()}',
-                              style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                                    fontWeight: FontWeight.w800,
-                                    color: scheme.onSurfaceVariant,
-                                  ),
-                            ),
-                            const SizedBox(height: 6),
-                            Text(c.bodyText ?? ''),
-                          ],
+                ...comments.map(
+                  (c) => Padding(
+                    padding: const EdgeInsets.only(bottom: 8),
+                    child: Container(
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(
+                        color: scheme.surface.withValues(alpha: 0.9),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(
+                          color: scheme.outlineVariant.withValues(alpha: 0.35),
                         ),
                       ),
-                    )),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            '${c.authorDisplayName ?? '—'} · ${(c.created ?? '').trim()}',
+                            style: Theme.of(context).textTheme.labelSmall
+                                ?.copyWith(
+                                  fontWeight: FontWeight.w800,
+                                  color: scheme.onSurfaceVariant,
+                                ),
+                          ),
+                          const SizedBox(height: 6),
+                          Text(c.bodyText ?? ''),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
               const SizedBox(height: 10),
             ],
           ),
@@ -3105,7 +3323,9 @@ class _JiraDetailsSection extends StatelessWidget {
             tilePadding: EdgeInsets.zero,
             title: Text(
               isEs ? 'Adjuntos' : 'Attachments',
-              style: Theme.of(context).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w800),
+              style: Theme.of(
+                context,
+              ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w800),
             ),
             children: [
               const SizedBox(height: 8),
@@ -3113,29 +3333,38 @@ class _JiraDetailsSection extends StatelessWidget {
                 Align(
                   alignment: Alignment.centerLeft,
                   child: Text(
-                    isEs ? 'Pulsa Pull para ver adjuntos.' : 'Press Pull to see attachments.',
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(color: scheme.onSurfaceVariant),
+                    isEs
+                        ? 'Pulsa Pull para ver adjuntos.'
+                        : 'Press Pull to see attachments.',
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: scheme.onSurfaceVariant,
+                    ),
                   ),
                 )
               else
-                ...issue!.attachments.map((a) => ListTile(
-                      dense: true,
-                      contentPadding: EdgeInsets.zero,
-                      leading: const Icon(Icons.attachment_rounded),
-                      title: Text(a.filename),
-                      subtitle: Text('${a.size ?? 0} bytes'),
-                      trailing: IconButton(
-                        tooltip: isEs ? 'Abrir' : 'Open',
-                        onPressed: (a.contentUrl ?? '').trim().isEmpty
-                            ? null
-                            : () async {
-                                final uri = Uri.tryParse(a.contentUrl!);
-                                if (uri == null) return;
-                                await launchUrl(uri, mode: LaunchMode.externalApplication);
-                              },
-                        icon: const Icon(Icons.open_in_new_rounded),
-                      ),
-                    )),
+                ...issue!.attachments.map(
+                  (a) => ListTile(
+                    dense: true,
+                    contentPadding: EdgeInsets.zero,
+                    leading: const Icon(Icons.attachment_rounded),
+                    title: Text(a.filename),
+                    subtitle: Text('${a.size ?? 0} bytes'),
+                    trailing: IconButton(
+                      tooltip: isEs ? 'Abrir' : 'Open',
+                      onPressed: (a.contentUrl ?? '').trim().isEmpty
+                          ? null
+                          : () async {
+                              final uri = Uri.tryParse(a.contentUrl!);
+                              if (uri == null) return;
+                              await launchUrl(
+                                uri,
+                                mode: LaunchMode.externalApplication,
+                              );
+                            },
+                      icon: const Icon(Icons.open_in_new_rounded),
+                    ),
+                  ),
+                ),
             ],
           ),
           const SizedBox(height: 6),
@@ -3143,7 +3372,9 @@ class _JiraDetailsSection extends StatelessWidget {
             tilePadding: EdgeInsets.zero,
             title: Text(
               isEs ? 'Worklog / Tiempo' : 'Worklog / Time',
-              style: Theme.of(context).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w800),
+              style: Theme.of(
+                context,
+              ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w800),
             ),
             trailing: OutlinedButton(
               onPressed: busy ? null : onLoadWorklogs,
@@ -3204,19 +3435,23 @@ class _JiraDetailsSection extends StatelessWidget {
                   alignment: Alignment.centerLeft,
                   child: Text(
                     isEs ? 'Sin worklogs cargados.' : 'No worklogs loaded.',
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(color: scheme.onSurfaceVariant),
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: scheme.onSurfaceVariant,
+                    ),
                   ),
                 )
               else
-                ...worklogs.map((w) => ListTile(
-                      dense: true,
-                      contentPadding: EdgeInsets.zero,
-                      leading: const Icon(Icons.timer_outlined),
-                      title: Text(
-                        '${w.authorDisplayName ?? '—'} · ${(w.timeSpentSeconds ?? 0) ~/ 60} min',
-                      ),
-                      subtitle: Text((w.started ?? '').trim()),
-                    )),
+                ...worklogs.map(
+                  (w) => ListTile(
+                    dense: true,
+                    contentPadding: EdgeInsets.zero,
+                    leading: const Icon(Icons.timer_outlined),
+                    title: Text(
+                      '${w.authorDisplayName ?? '—'} · ${(w.timeSpentSeconds ?? 0) ~/ 60} min',
+                    ),
+                    subtitle: Text((w.started ?? '').trim()),
+                  ),
+                ),
               const SizedBox(height: 6),
             ],
           ),
@@ -3232,14 +3467,16 @@ class _JiraDetailsSection extends StatelessWidget {
       decoration: BoxDecoration(
         color: scheme.surface.withValues(alpha: 0.9),
         borderRadius: BorderRadius.circular(999),
-        border: Border.all(color: scheme.outlineVariant.withValues(alpha: 0.35)),
+        border: Border.all(
+          color: scheme.outlineVariant.withValues(alpha: 0.35),
+        ),
       ),
       child: Text(
         '$k: $text',
         style: Theme.of(context).textTheme.labelSmall?.copyWith(
-              fontWeight: FontWeight.w700,
-              color: scheme.onSurfaceVariant,
-            ),
+          fontWeight: FontWeight.w700,
+          color: scheme.onSurfaceVariant,
+        ),
       ),
     );
   }
@@ -3250,5 +3487,3 @@ class _ChildTaskRow {
   final String blockId;
   final FolioTaskData data;
 }
-
-

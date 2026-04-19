@@ -3362,6 +3362,43 @@ class AppLocalizationsCa extends AppLocalizations {
   String get taskAddSubtask => 'Afegeix una subtasca';
 
   @override
+  String get taskRecurrenceNone => 'Sense repetició';
+
+  @override
+  String get taskRecurrenceLabel => 'Repetició';
+
+  @override
+  String get taskRecurrenceDaily => 'Cada dia';
+
+  @override
+  String get taskRecurrenceWeekly => 'Cada setmana';
+
+  @override
+  String get taskRecurrenceMonthly => 'Cada mes';
+
+  @override
+  String get taskRecurrenceYearly => 'Cada any';
+
+  @override
+  String get taskReminderTooltip => 'Recorda\'m a la data límit';
+
+  @override
+  String get taskReminderOnTooltip => 'Recordatori actiu';
+
+  @override
+  String get taskOverdueReminder => 'Tasca vençuda';
+
+  @override
+  String get taskDueTodayReminder => 'Venç avui';
+
+  @override
+  String get settingsWindowsNotifications => 'Notificacions de Windows';
+
+  @override
+  String get settingsWindowsNotificationsSubtitle =>
+      'Mostra alertes natives de Windows quan una tasca venci avui o estigui vençuda';
+
+  @override
   String get title => 'Títol';
 
   @override
@@ -5633,4 +5670,90 @@ class AppLocalizationsCa extends AppLocalizations {
   @override
   String get settingsReportBugSentFail =>
       'No s\'ha pogut enviar el diagnòstic. Reviseu la connexió o torneu-ho a provar més tard.';
+
+  @override
+  String get zenModeEnter => 'Mode zen';
+
+  @override
+  String get zenModeExit => 'Sortir del mode zen';
+
+  @override
+  String get syncedBlockCreate => 'Sincronitzar bloc';
+
+  @override
+  String get syncedBlockInsert => 'Inserir bloc sincronitzat…';
+
+  @override
+  String get syncedBlockBadge => 'Bloc sincronitzat';
+
+  @override
+  String get syncedBlockCreated =>
+      'Bloc sincronitzat. ID copiat al porta-retalls.';
+
+  @override
+  String get syncedBlockInsertTitle => 'Inserir bloc sincronitzat';
+
+  @override
+  String get syncedBlockIdLabel => 'ID del grup de sincronització';
+
+  @override
+  String get syncedBlockIdHint =>
+      'Enganxeu l\'ID copiat d\'un altre bloc sincronitzat';
+
+  @override
+  String get syncedBlockIdInvalid => 'ID invàlid o no trobat';
+
+  @override
+  String get syncedBlockUnsync => 'Dessincronitzar bloc';
+
+  @override
+  String get syncedBlockUnsynced => 'Bloc dessincronitzat';
+
+  @override
+  String syncedBlockGroupCount(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count còpies sincronitzades',
+      one: '1 còpia sincronitzada',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get graphViewTitle => 'Vista de graf';
+
+  @override
+  String get graphViewEmpty => 'No hi ha enllaços entre pàgines';
+
+  @override
+  String get graphViewIncludeOrphans => 'Incloure pàgines sense enllaços';
+
+  @override
+  String get graphViewOpenPage => 'Obrir pàgina';
+
+  @override
+  String get importPdf => 'Importar PDF…';
+
+  @override
+  String get importPdfDialogTitle => 'Importar PDF com a pàgina';
+
+  @override
+  String get importPdfAnnotationsOnly => 'Només anotacions';
+
+  @override
+  String get importPdfFullText => 'Text complet + anotacions';
+
+  @override
+  String importPdfSuccess(String title) {
+    return 'PDF importat: $title';
+  }
+
+  @override
+  String importPdfFailed(String error) {
+    return 'No s\'ha pogut importar el PDF: $error';
+  }
+
+  @override
+  String get importPdfNoText => 'El PDF no conté text extrectable';
 }

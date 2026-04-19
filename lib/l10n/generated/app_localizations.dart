@@ -5950,6 +5950,78 @@ abstract class AppLocalizations {
   /// **'Añadir subtarea'**
   String get taskAddSubtask;
 
+  /// No description provided for @taskRecurrenceNone.
+  ///
+  /// In es, this message translates to:
+  /// **'Sin repetición'**
+  String get taskRecurrenceNone;
+
+  /// No description provided for @taskRecurrenceLabel.
+  ///
+  /// In es, this message translates to:
+  /// **'Repetición'**
+  String get taskRecurrenceLabel;
+
+  /// No description provided for @taskRecurrenceDaily.
+  ///
+  /// In es, this message translates to:
+  /// **'Cada día'**
+  String get taskRecurrenceDaily;
+
+  /// No description provided for @taskRecurrenceWeekly.
+  ///
+  /// In es, this message translates to:
+  /// **'Cada semana'**
+  String get taskRecurrenceWeekly;
+
+  /// No description provided for @taskRecurrenceMonthly.
+  ///
+  /// In es, this message translates to:
+  /// **'Cada mes'**
+  String get taskRecurrenceMonthly;
+
+  /// No description provided for @taskRecurrenceYearly.
+  ///
+  /// In es, this message translates to:
+  /// **'Cada año'**
+  String get taskRecurrenceYearly;
+
+  /// No description provided for @taskReminderTooltip.
+  ///
+  /// In es, this message translates to:
+  /// **'Recordarme en la fecha límite'**
+  String get taskReminderTooltip;
+
+  /// No description provided for @taskReminderOnTooltip.
+  ///
+  /// In es, this message translates to:
+  /// **'Recordatorio activo'**
+  String get taskReminderOnTooltip;
+
+  /// No description provided for @taskOverdueReminder.
+  ///
+  /// In es, this message translates to:
+  /// **'Tarea vencida'**
+  String get taskOverdueReminder;
+
+  /// No description provided for @taskDueTodayReminder.
+  ///
+  /// In es, this message translates to:
+  /// **'Vence hoy'**
+  String get taskDueTodayReminder;
+
+  /// No description provided for @settingsWindowsNotifications.
+  ///
+  /// In es, this message translates to:
+  /// **'Notificaciones de Windows'**
+  String get settingsWindowsNotifications;
+
+  /// No description provided for @settingsWindowsNotificationsSubtitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Muestra alertas nativas de Windows cuando una tarea vence hoy o está vencida'**
+  String get settingsWindowsNotificationsSubtitle;
+
   /// No description provided for @title.
   ///
   /// In es, this message translates to:
@@ -9906,6 +9978,150 @@ abstract class AppLocalizations {
   /// In es, this message translates to:
   /// **'No se pudo enviar el diagnóstico. Revisa la conexión o inténtalo más tarde.'**
   String get settingsReportBugSentFail;
+
+  /// No description provided for @zenModeEnter.
+  ///
+  /// In es, this message translates to:
+  /// **'Modo zen'**
+  String get zenModeEnter;
+
+  /// No description provided for @zenModeExit.
+  ///
+  /// In es, this message translates to:
+  /// **'Salir del modo zen'**
+  String get zenModeExit;
+
+  /// No description provided for @syncedBlockCreate.
+  ///
+  /// In es, this message translates to:
+  /// **'Sincronizar bloque'**
+  String get syncedBlockCreate;
+
+  /// No description provided for @syncedBlockInsert.
+  ///
+  /// In es, this message translates to:
+  /// **'Insertar bloque sincronizado…'**
+  String get syncedBlockInsert;
+
+  /// No description provided for @syncedBlockBadge.
+  ///
+  /// In es, this message translates to:
+  /// **'Bloque sincronizado'**
+  String get syncedBlockBadge;
+
+  /// No description provided for @syncedBlockCreated.
+  ///
+  /// In es, this message translates to:
+  /// **'Bloque sincronizado. ID copiado al portapapeles.'**
+  String get syncedBlockCreated;
+
+  /// No description provided for @syncedBlockInsertTitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Insertar bloque sincronizado'**
+  String get syncedBlockInsertTitle;
+
+  /// No description provided for @syncedBlockIdLabel.
+  ///
+  /// In es, this message translates to:
+  /// **'ID del grupo de sincronización'**
+  String get syncedBlockIdLabel;
+
+  /// No description provided for @syncedBlockIdHint.
+  ///
+  /// In es, this message translates to:
+  /// **'Pega el ID copiado de otro bloque sincronizado'**
+  String get syncedBlockIdHint;
+
+  /// No description provided for @syncedBlockIdInvalid.
+  ///
+  /// In es, this message translates to:
+  /// **'ID inválido o no encontrado'**
+  String get syncedBlockIdInvalid;
+
+  /// No description provided for @syncedBlockUnsync.
+  ///
+  /// In es, this message translates to:
+  /// **'Desincronizar bloque'**
+  String get syncedBlockUnsync;
+
+  /// No description provided for @syncedBlockUnsynced.
+  ///
+  /// In es, this message translates to:
+  /// **'Bloque desincronizado'**
+  String get syncedBlockUnsynced;
+
+  /// No description provided for @syncedBlockGroupCount.
+  ///
+  /// In es, this message translates to:
+  /// **'{count,plural, =1{1 copia sincronizada} other{{count} copias sincronizadas}}'**
+  String syncedBlockGroupCount(int count);
+
+  /// No description provided for @graphViewTitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Vista de grafo'**
+  String get graphViewTitle;
+
+  /// No description provided for @graphViewEmpty.
+  ///
+  /// In es, this message translates to:
+  /// **'No hay enlaces entre páginas'**
+  String get graphViewEmpty;
+
+  /// No description provided for @graphViewIncludeOrphans.
+  ///
+  /// In es, this message translates to:
+  /// **'Incluir páginas sin enlaces'**
+  String get graphViewIncludeOrphans;
+
+  /// No description provided for @graphViewOpenPage.
+  ///
+  /// In es, this message translates to:
+  /// **'Abrir página'**
+  String get graphViewOpenPage;
+
+  /// No description provided for @importPdf.
+  ///
+  /// In es, this message translates to:
+  /// **'Importar PDF…'**
+  String get importPdf;
+
+  /// No description provided for @importPdfDialogTitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Importar PDF como página'**
+  String get importPdfDialogTitle;
+
+  /// No description provided for @importPdfAnnotationsOnly.
+  ///
+  /// In es, this message translates to:
+  /// **'Solo anotaciones del PDF'**
+  String get importPdfAnnotationsOnly;
+
+  /// No description provided for @importPdfFullText.
+  ///
+  /// In es, this message translates to:
+  /// **'Texto completo + anotaciones'**
+  String get importPdfFullText;
+
+  /// No description provided for @importPdfSuccess.
+  ///
+  /// In es, this message translates to:
+  /// **'PDF importado: {title}'**
+  String importPdfSuccess(String title);
+
+  /// No description provided for @importPdfFailed.
+  ///
+  /// In es, this message translates to:
+  /// **'No se pudo importar el PDF: {error}'**
+  String importPdfFailed(String error);
+
+  /// No description provided for @importPdfNoText.
+  ///
+  /// In es, this message translates to:
+  /// **'El PDF no contiene texto extraíble'**
+  String get importPdfNoText;
 }
 
 class _AppLocalizationsDelegate

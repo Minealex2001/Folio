@@ -16,6 +16,8 @@ class FolioTaskData {
     this.description = '',
     this.startDate,
     this.dueDate,
+    this.recurrence,
+    this.reminderEnabled = false,
     this.timeSpentMinutes,
     this.external,
     this.jira,
@@ -56,6 +58,12 @@ class FolioTaskData {
   /// Fecha límite opcional en formato ISO-8601 (`'YYYY-MM-DD'`).
   final String? dueDate;
 
+  /// Recurrencia opcional: `'daily'`, `'weekly'`, `'monthly'` o `'yearly'`.
+  final String? recurrence;
+
+  /// Si true, el usuario quiere que la app le recuerde esta tarea cuando llegue [dueDate].
+  final bool reminderEnabled;
+
   /// Tiempo invertido (acumulado) en minutos.
   final int? timeSpentMinutes;
 
@@ -69,7 +77,15 @@ class FolioTaskData {
   final List<FolioTaskSubtask> subtasks;
 
   static const _validStatuses = {'todo', 'in_progress', 'done'};
-  static const _validPriorities = {'lowest', 'low', 'medium', 'high', 'highest'};
+  static const _validPriorities = {
+    'lowest',
+    'low',
+    'medium',
+    'high',
+    'highest',
+  };
+
+  static const _validRecurrences = {'daily', 'weekly', 'monthly', 'yearly'};
 
   static FolioTaskData defaults() => FolioTaskData(
     title: '',
@@ -82,6 +98,8 @@ class FolioTaskData {
     description: '',
     startDate: null,
     dueDate: null,
+    recurrence: null,
+    reminderEnabled: false,
     timeSpentMinutes: null,
     external: null,
     jira: null,
@@ -99,6 +117,8 @@ class FolioTaskData {
     Object? description = _sentinel,
     Object? startDate = _sentinel,
     Object? dueDate = _sentinel,
+    Object? recurrence = _sentinel,
+    bool? reminderEnabled,
     Object? timeSpentMinutes = _sentinel,
     Object? external = _sentinel,
     Object? jira = _sentinel,
@@ -119,9 +139,12 @@ class FolioTaskData {
       description: description == _sentinel
           ? this.description
           : (description as String),
-      startDate:
-          startDate == _sentinel ? this.startDate : startDate as String?,
+      startDate: startDate == _sentinel ? this.startDate : startDate as String?,
       dueDate: dueDate == _sentinel ? this.dueDate : dueDate as String?,
+      recurrence: recurrence == _sentinel
+          ? this.recurrence
+          : recurrence as String?,
+      reminderEnabled: reminderEnabled ?? this.reminderEnabled,
       timeSpentMinutes: timeSpentMinutes == _sentinel
           ? this.timeSpentMinutes
           : timeSpentMinutes as int?,
@@ -161,6 +184,8 @@ class FolioTaskData {
     if (description.trim().isNotEmpty) 'description': description,
     if (startDate != null) 'startDate': startDate,
     if (dueDate != null) 'dueDate': dueDate,
+    if (recurrence != null) 'recurrence': recurrence,
+    if (reminderEnabled) 'reminderEnabled': true,
     if (timeSpentMinutes != null) 'timeSpentMinutes': timeSpentMinutes,
     if (external != null) 'external': external!.toJson(),
     if (jira != null) 'jira': jira!.toJson(),
@@ -181,6 +206,8 @@ class FolioTaskData {
       final rawBlockedReason = (m['blockedReason'] as String?) ?? '';
       final rawDescription = (m['description'] as String?) ?? '';
       final rawStartDate = (m['startDate'] as String?)?.trim();
+      final rawRecurrence = (m['recurrence'] as String?)?.trim();
+      final rawReminderEnabled = m['reminderEnabled'] == true;
       final rawTimeSpent = m['timeSpentMinutes'];
       final rawSubtasks = m['subtasks'];
       final rawExternal = m['external'];
@@ -204,7 +231,9 @@ class FolioTaskData {
       }
       FolioJiraIssueSnapshot? jira;
       if (rawJira is Map) {
-        jira = FolioJiraIssueSnapshot.tryParse(Map<String, dynamic>.from(rawJira));
+        jira = FolioJiraIssueSnapshot.tryParse(
+          Map<String, dynamic>.from(rawJira),
+        );
       }
       return FolioTaskData(
         title: (m['title'] as String?) ?? '',
@@ -217,6 +246,10 @@ class FolioTaskData {
         description: rawDescription,
         startDate: (rawStartDate?.isEmpty ?? true) ? null : rawStartDate,
         dueDate: (m['dueDate'] as String?),
+        recurrence: (_validRecurrences.contains(rawRecurrence))
+            ? rawRecurrence
+            : null,
+        reminderEnabled: rawReminderEnabled,
         timeSpentMinutes: rawTimeSpent is num ? rawTimeSpent.toInt() : null,
         external: external,
         jira: jira,
@@ -309,10 +342,18 @@ class FolioExternalTaskLink {
     return FolioExternalTaskLink(
       provider: provider ?? this.provider,
       issueId: issueId ?? this.issueId,
-      issueKey: issueKey == FolioTaskData._sentinel ? this.issueKey : issueKey as String?,
-      deployment: deployment == FolioTaskData._sentinel ? this.deployment : deployment as String?,
-      baseUrl: baseUrl == FolioTaskData._sentinel ? this.baseUrl : baseUrl as String?,
-      cloudId: cloudId == FolioTaskData._sentinel ? this.cloudId : cloudId as String?,
+      issueKey: issueKey == FolioTaskData._sentinel
+          ? this.issueKey
+          : issueKey as String?,
+      deployment: deployment == FolioTaskData._sentinel
+          ? this.deployment
+          : deployment as String?,
+      baseUrl: baseUrl == FolioTaskData._sentinel
+          ? this.baseUrl
+          : baseUrl as String?,
+      cloudId: cloudId == FolioTaskData._sentinel
+          ? this.cloudId
+          : cloudId as String?,
       lastSyncedAtMs: lastSyncedAtMs == FolioTaskData._sentinel
           ? this.lastSyncedAtMs
           : lastSyncedAtMs as int?,
@@ -323,7 +364,9 @@ class FolioExternalTaskLink {
       remoteVersion: remoteVersion == FolioTaskData._sentinel
           ? this.remoteVersion
           : remoteVersion as String?,
-      syncState: syncState == FolioTaskData._sentinel ? this.syncState : syncState as String?,
+      syncState: syncState == FolioTaskData._sentinel
+          ? this.syncState
+          : syncState as String?,
     );
   }
 
@@ -412,33 +455,33 @@ class FolioJiraIssueSnapshot {
   final int? attachmentCount;
 
   Map<String, Object?> toJson() => <String, Object?>{
-        if ((projectKey ?? '').trim().isNotEmpty) 'projectKey': projectKey,
-        if ((issueType ?? '').trim().isNotEmpty) 'issueType': issueType,
-        if ((statusId ?? '').trim().isNotEmpty) 'statusId': statusId,
-        if ((statusName ?? '').trim().isNotEmpty) 'statusName': statusName,
-        if ((assigneeAccountId ?? '').trim().isNotEmpty)
-          'assigneeAccountId': assigneeAccountId,
-        if ((assigneeDisplayName ?? '').trim().isNotEmpty)
-          'assigneeDisplayName': assigneeDisplayName,
-        if ((reporterAccountId ?? '').trim().isNotEmpty)
-          'reporterAccountId': reporterAccountId,
-        if ((reporterDisplayName ?? '').trim().isNotEmpty)
-          'reporterDisplayName': reporterDisplayName,
-        if (labels.isNotEmpty) 'labels': labels,
-        if (components.isNotEmpty) 'components': components,
-        if ((sprintId ?? '').trim().isNotEmpty) 'sprintId': sprintId,
-        if ((sprintName ?? '').trim().isNotEmpty) 'sprintName': sprintName,
-        if ((boardId ?? '').trim().isNotEmpty) 'boardId': boardId,
-        if (customFields.isNotEmpty) 'customFields': customFields,
-        if (originalEstimateMinutes != null)
-          'originalEstimateMinutes': originalEstimateMinutes,
-        if (remainingEstimateMinutes != null)
-          'remainingEstimateMinutes': remainingEstimateMinutes,
-        if (timeSpentMinutes != null) 'timeSpentMinutes': timeSpentMinutes,
-        if (worklogCount != null) 'worklogCount': worklogCount,
-        if (commentCount != null) 'commentCount': commentCount,
-        if (attachmentCount != null) 'attachmentCount': attachmentCount,
-      };
+    if ((projectKey ?? '').trim().isNotEmpty) 'projectKey': projectKey,
+    if ((issueType ?? '').trim().isNotEmpty) 'issueType': issueType,
+    if ((statusId ?? '').trim().isNotEmpty) 'statusId': statusId,
+    if ((statusName ?? '').trim().isNotEmpty) 'statusName': statusName,
+    if ((assigneeAccountId ?? '').trim().isNotEmpty)
+      'assigneeAccountId': assigneeAccountId,
+    if ((assigneeDisplayName ?? '').trim().isNotEmpty)
+      'assigneeDisplayName': assigneeDisplayName,
+    if ((reporterAccountId ?? '').trim().isNotEmpty)
+      'reporterAccountId': reporterAccountId,
+    if ((reporterDisplayName ?? '').trim().isNotEmpty)
+      'reporterDisplayName': reporterDisplayName,
+    if (labels.isNotEmpty) 'labels': labels,
+    if (components.isNotEmpty) 'components': components,
+    if ((sprintId ?? '').trim().isNotEmpty) 'sprintId': sprintId,
+    if ((sprintName ?? '').trim().isNotEmpty) 'sprintName': sprintName,
+    if ((boardId ?? '').trim().isNotEmpty) 'boardId': boardId,
+    if (customFields.isNotEmpty) 'customFields': customFields,
+    if (originalEstimateMinutes != null)
+      'originalEstimateMinutes': originalEstimateMinutes,
+    if (remainingEstimateMinutes != null)
+      'remainingEstimateMinutes': remainingEstimateMinutes,
+    if (timeSpentMinutes != null) 'timeSpentMinutes': timeSpentMinutes,
+    if (worklogCount != null) 'worklogCount': worklogCount,
+    if (commentCount != null) 'commentCount': commentCount,
+    if (attachmentCount != null) 'attachmentCount': attachmentCount,
+  };
 
   static FolioJiraIssueSnapshot? tryParse(Map<String, dynamic> map) {
     final projectKey = (map['projectKey'] as String?)?.trim();
@@ -452,7 +495,9 @@ class FolioJiraIssueSnapshot {
     final labels = <String>[];
     final rawLabels = map['labels'];
     if (rawLabels is List) {
-      labels.addAll(rawLabels.map((e) => '$e').where((e) => e.trim().isNotEmpty));
+      labels.addAll(
+        rawLabels.map((e) => '$e').where((e) => e.trim().isNotEmpty),
+      );
     }
     final components = <String>[];
     final rawComponents = map['components'];
@@ -465,22 +510,27 @@ class FolioJiraIssueSnapshot {
     final sprintName = (map['sprintName'] as String?)?.trim();
     final boardId = (map['boardId'] as String?)?.trim();
     final customFieldsRaw = map['customFields'];
-    final customFields =
-        customFieldsRaw is Map ? Map<String, Object?>.from(customFieldsRaw) : const <String, Object?>{};
+    final customFields = customFieldsRaw is Map
+        ? Map<String, Object?>.from(customFieldsRaw)
+        : const <String, Object?>{};
     int? asInt(Object? v) => v is num ? v.toInt() : null;
     return FolioJiraIssueSnapshot(
       projectKey: (projectKey?.isEmpty ?? true) ? null : projectKey,
       issueType: (issueType?.isEmpty ?? true) ? null : issueType,
       statusId: (statusId?.isEmpty ?? true) ? null : statusId,
       statusName: (statusName?.isEmpty ?? true) ? null : statusName,
-      assigneeAccountId:
-          (assigneeAccountId?.isEmpty ?? true) ? null : assigneeAccountId,
-      assigneeDisplayName:
-          (assigneeDisplayName?.isEmpty ?? true) ? null : assigneeDisplayName,
-      reporterAccountId:
-          (reporterAccountId?.isEmpty ?? true) ? null : reporterAccountId,
-      reporterDisplayName:
-          (reporterDisplayName?.isEmpty ?? true) ? null : reporterDisplayName,
+      assigneeAccountId: (assigneeAccountId?.isEmpty ?? true)
+          ? null
+          : assigneeAccountId,
+      assigneeDisplayName: (assigneeDisplayName?.isEmpty ?? true)
+          ? null
+          : assigneeDisplayName,
+      reporterAccountId: (reporterAccountId?.isEmpty ?? true)
+          ? null
+          : reporterAccountId,
+      reporterDisplayName: (reporterDisplayName?.isEmpty ?? true)
+          ? null
+          : reporterDisplayName,
       labels: List.unmodifiable(labels),
       components: List.unmodifiable(components),
       sprintId: (sprintId?.isEmpty ?? true) ? null : sprintId,
@@ -547,7 +597,9 @@ class FolioTaskSubtask {
       startDate: startDate == FolioTaskData._sentinel
           ? this.startDate
           : startDate as String?,
-      dueDate: dueDate == FolioTaskData._sentinel ? this.dueDate : dueDate as String?,
+      dueDate: dueDate == FolioTaskData._sentinel
+          ? this.dueDate
+          : dueDate as String?,
       timeSpentMinutes: timeSpentMinutes == FolioTaskData._sentinel
           ? this.timeSpentMinutes
           : timeSpentMinutes as int?,
@@ -555,25 +607,27 @@ class FolioTaskSubtask {
   }
 
   Map<String, dynamic> toJson() => {
-        'id': id,
-        'title': title,
-        'status': status,
-        if ((columnId ?? '').trim().isNotEmpty) 'columnId': columnId,
-        if (priority != null) 'priority': priority,
-        if (description.trim().isNotEmpty) 'description': description,
-        if (startDate != null) 'startDate': startDate,
-        if (dueDate != null) 'dueDate': dueDate,
-        if (timeSpentMinutes != null) 'timeSpentMinutes': timeSpentMinutes,
-      };
+    'id': id,
+    'title': title,
+    'status': status,
+    if ((columnId ?? '').trim().isNotEmpty) 'columnId': columnId,
+    if (priority != null) 'priority': priority,
+    if (description.trim().isNotEmpty) 'description': description,
+    if (startDate != null) 'startDate': startDate,
+    if (dueDate != null) 'dueDate': dueDate,
+    if (timeSpentMinutes != null) 'timeSpentMinutes': timeSpentMinutes,
+  };
 
   static FolioTaskSubtask? tryParse(Map<String, dynamic> map) {
     final id = (map['id'] as String? ?? '').trim();
     final title = (map['title'] as String? ?? '').trim();
     if (id.isEmpty && title.isEmpty) return null;
-    final rawStatus = (map['status'] as String?) ??
+    final rawStatus =
+        (map['status'] as String?) ??
         ((map['done'] == true) ? 'done' : 'todo'); // compat v1
-    final status =
-        FolioTaskData._validStatuses.contains(rawStatus) ? rawStatus : 'todo';
+    final status = FolioTaskData._validStatuses.contains(rawStatus)
+        ? rawStatus
+        : 'todo';
     final rawPriority = map['priority'] as String?;
     final priority = FolioTaskData._validPriorities.contains(rawPriority)
         ? rawPriority
@@ -589,8 +643,9 @@ class FolioTaskSubtask {
       description: (map['description'] as String?) ?? '',
       startDate: (map['startDate'] as String?)?.trim(),
       dueDate: (map['dueDate'] as String?)?.trim(),
-      timeSpentMinutes:
-          map['timeSpentMinutes'] is num ? (map['timeSpentMinutes'] as num).toInt() : null,
+      timeSpentMinutes: map['timeSpentMinutes'] is num
+          ? (map['timeSpentMinutes'] as num).toInt()
+          : null,
     );
   }
 }

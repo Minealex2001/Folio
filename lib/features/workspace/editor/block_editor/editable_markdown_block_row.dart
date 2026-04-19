@@ -590,6 +590,45 @@ Widget _buildEditableMarkdownBlockRow(_BlockRowScope s) {
     menuSlot: st._blockMenuSlot(showActions: showActions, menu: menu),
     dragHandle: dragHandle,
     marker: marker,
-    child: textSlot,
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        textSlot,
+        if (block.syncGroupId != null)
+          Padding(
+            padding: const EdgeInsets.only(top: 2, bottom: 2),
+            child: Builder(
+              builder: (ctx) {
+                final syncScheme = Theme.of(ctx).colorScheme;
+                final count = st._s.syncGroupBlockCount(block.syncGroupId!);
+                return Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      Icons.sync_rounded,
+                      size: 11,
+                      color: syncScheme.primary.withAlpha(180),
+                    ),
+                    const SizedBox(width: 3),
+                    Text(
+                      count > 1
+                          ? AppLocalizations.of(
+                              ctx,
+                            ).syncedBlockGroupCount(count)
+                          : AppLocalizations.of(ctx).syncedBlockBadge,
+                      style: TextStyle(
+                        fontSize: 10,
+                        color: syncScheme.primary.withAlpha(180),
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ],
+                );
+              },
+            ),
+          ),
+      ],
+    ),
   );
 }

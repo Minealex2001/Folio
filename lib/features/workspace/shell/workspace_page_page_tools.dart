@@ -310,7 +310,15 @@ extension _WorkspacePageToolsModule on _WorkspacePageState {
     final l10n = AppLocalizations.of(context);
     final pick = await FilePicker.pickFiles(
       type: FileType.custom,
-      allowedExtensions: const ['md', 'markdown', 'txt', 'json', 'html', 'htm'],
+      allowedExtensions: const [
+        'md',
+        'markdown',
+        'txt',
+        'json',
+        'html',
+        'htm',
+        'pdf',
+      ],
       allowMultiple: false,
     );
     if (pick == null || pick.files.isEmpty || !mounted) return;
@@ -319,11 +327,17 @@ extension _WorkspacePageToolsModule on _WorkspacePageState {
       _snack(l10n.markdownImportCouldNotReadPath);
       return;
     }
+    final name = pick.files.single.name;
+    final lower = name.toLowerCase();
+
+    if (lower.endsWith('.pdf')) {
+      await _importPdfDocument(path, name);
+      return;
+    }
+
     final mode = await _askMarkdownImportMode();
     if (mode == null) return;
     try {
-      final name = pick.files.single.name;
-      final lower = name.toLowerCase();
       final raw = await File(path).readAsString();
       final title = name.replaceFirst(RegExp(r'\.[^.]+$'), '');
 
@@ -337,12 +351,112 @@ extension _WorkspacePageToolsModule on _WorkspacePageState {
         result = _s.importMarkdownDocument(raw, title: title, mode: mode);
       }
       if (!mounted) return;
-      _snack(
-        l10n.markdownImportedBlocks(result.pageTitle, result.blockCount),
-      );
+      _snack(l10n.markdownImportedBlocks(result.pageTitle, result.blockCount));
     } catch (e) {
       if (!mounted) return;
       _snack(l10n.markdownImportFailedWithError('$e'));
+    }
+  }
+
+  Future<void> _importPdfDocument(String path, String fileName) async {
+    if (!mounted) return;
+    final l10n = AppLocalizations.of(context);
+    final ctx = context;
+
+    // Ask user: full text or annotations only?
+    final annotationsOnly = await showDialog<bool>(
+      context: ctx,
+      builder: (dialogCtx) => AlertDialog(
+        title: Text(l10n.importPdfDialogTitle),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              leading: const Icon(Icons.text_snippet_outlined),
+              title: Text(l10n.importPdfFullText),
+              onTap: () => Navigator.of(dialogCtx).pop(false),
+            ),
+            ListTile(
+              leading: const Icon(Icons.comment_outlined),
+              title: Text(l10n.importPdfAnnotationsOnly),
+              onTap: () => Navigator.of(dialogCtx).pop(true),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogCtx).pop(null),
+            child: Text(l10n.cancel),
+          ),
+        ],
+      ),
+    );
+    if (annotationsOnly == null || !mounted) return;
+
+    try {
+      final bytes = await File(path).readAsBytes();
+      final pdfDoc = PdfDocument(inputBytes: bytes);
+      final title = fileName.replaceFirst(
+        RegExp(r'\.pdf$', caseSensitive: false),
+        '',
+      );
+      final buffer = StringBuffer();
+
+      buffer.writeln('# $title\n');
+
+      final pageCount = pdfDoc.pages.count;
+      for (var i = 0; i < pageCount; i++) {
+        final pdfPage = pdfDoc.pages[i];
+
+        if (!annotationsOnly) {
+          // Extract page text
+          final extractor = PdfTextExtractor(pdfDoc);
+          final pageText = extractor
+              .extractText(startPageIndex: i, endPageIndex: i)
+              .trim();
+          if (pageText.isNotEmpty) {
+            buffer.writeln(pageText);
+            buffer.writeln();
+          }
+        }
+
+        // Extract annotations
+        final annotations = pdfPage.annotations;
+        for (var j = 0; j < annotations.count; j++) {
+          final annotation = annotations[j];
+          if (annotation is PdfTextMarkupAnnotation) {
+            final selectedText = annotation.text.trim();
+            if (selectedText.isNotEmpty) {
+              buffer.writeln('> $selectedText\n');
+            }
+          } else if (annotation is PdfPopupAnnotation) {
+            final popupText = annotation.text.trim();
+            if (popupText.isNotEmpty) {
+              buffer.writeln('> 📌 $popupText\n');
+            }
+          }
+        }
+      }
+
+      pdfDoc.dispose();
+
+      final markdown = buffer.toString().trim();
+      if (!mounted) return;
+      if (markdown.isEmpty || markdown == '# $title') {
+        _snack(l10n.importPdfNoText);
+        return;
+      }
+
+      _s.importMarkdownDocument(
+        markdown,
+        title: title,
+        mode: FolioMarkdownImportMode.newPage,
+      );
+      if (!mounted) return;
+      _snack(l10n.importPdfSuccess(title));
+    } catch (e) {
+      if (!mounted) return;
+      _snack(l10n.importPdfFailed('$e'));
     }
   }
 
@@ -638,10 +752,4 @@ extension _WorkspacePageToolsModule on _WorkspacePageState {
   }
 }
 
-enum _FolioPageExportFormat {
-  markdown,
-  html,
-  txt,
-  json,
-  pdf,
-}
+enum _FolioPageExportFormat { markdown, html, txt, json, pdf }

@@ -3334,6 +3334,43 @@ class AppLocalizationsPt extends AppLocalizations {
   String get taskAddSubtask => 'Adicionar subtarefa';
 
   @override
+  String get taskRecurrenceNone => 'Sem repetição';
+
+  @override
+  String get taskRecurrenceLabel => 'Repetição';
+
+  @override
+  String get taskRecurrenceDaily => 'Diário';
+
+  @override
+  String get taskRecurrenceWeekly => 'Semanal';
+
+  @override
+  String get taskRecurrenceMonthly => 'Mensal';
+
+  @override
+  String get taskRecurrenceYearly => 'Anual';
+
+  @override
+  String get taskReminderTooltip => 'Lembrar na data limite';
+
+  @override
+  String get taskReminderOnTooltip => 'Lembrete ativo';
+
+  @override
+  String get taskOverdueReminder => 'Tarefa em atraso';
+
+  @override
+  String get taskDueTodayReminder => 'Vence hoje';
+
+  @override
+  String get settingsWindowsNotifications => 'Notificações do Windows';
+
+  @override
+  String get settingsWindowsNotificationsSubtitle =>
+      'Mostra alertas nativas do Windows quando uma tarefa vence hoje ou está atrasada';
+
+  @override
   String get title => 'Título';
 
   @override
@@ -5603,4 +5640,90 @@ class AppLocalizationsPt extends AppLocalizations {
   @override
   String get settingsReportBugSentFail =>
       'Não foi possível enviar o diagnóstico. Verifique a ligação ou tente mais tarde.';
+
+  @override
+  String get zenModeEnter => 'Modo zen';
+
+  @override
+  String get zenModeExit => 'Sair do modo zen';
+
+  @override
+  String get syncedBlockCreate => 'Sincronizar bloco';
+
+  @override
+  String get syncedBlockInsert => 'Inserir bloco sincronizado…';
+
+  @override
+  String get syncedBlockBadge => 'Bloco sincronizado';
+
+  @override
+  String get syncedBlockCreated =>
+      'Bloco sincronizado. ID copiado para a área de transferência.';
+
+  @override
+  String get syncedBlockInsertTitle => 'Inserir bloco sincronizado';
+
+  @override
+  String get syncedBlockIdLabel => 'ID do grupo de sincronização';
+
+  @override
+  String get syncedBlockIdHint =>
+      'Cole o ID copiado de outro bloco sincronizado';
+
+  @override
+  String get syncedBlockIdInvalid => 'ID inválido ou não encontrado';
+
+  @override
+  String get syncedBlockUnsync => 'Dessincronizar bloco';
+
+  @override
+  String get syncedBlockUnsynced => 'Bloco dessincronizado';
+
+  @override
+  String syncedBlockGroupCount(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count cópias sincronizadas',
+      one: '1 cópia sincronizada',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get graphViewTitle => 'Vista de grafo';
+
+  @override
+  String get graphViewEmpty => 'Não há ligações entre páginas';
+
+  @override
+  String get graphViewIncludeOrphans => 'Incluir páginas sem ligações';
+
+  @override
+  String get graphViewOpenPage => 'Abrir página';
+
+  @override
+  String get importPdf => 'Importar PDF…';
+
+  @override
+  String get importPdfDialogTitle => 'Importar PDF como página';
+
+  @override
+  String get importPdfAnnotationsOnly => 'Apenas anotações';
+
+  @override
+  String get importPdfFullText => 'Texto completo + anotações';
+
+  @override
+  String importPdfSuccess(String title) {
+    return 'PDF importado: $title';
+  }
+
+  @override
+  String importPdfFailed(String error) {
+    return 'Não foi possível importar o PDF: $error';
+  }
+
+  @override
+  String get importPdfNoText => 'O PDF não contém texto extraível';
 }

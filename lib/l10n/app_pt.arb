@@ -1107,6 +1107,18 @@
   "taskSubtaskHint": "Subtarefa…",
   "taskRemoveSubtask": "Remover subtarefa",
   "taskAddSubtask": "Adicionar subtarefa",
+  "taskRecurrenceNone": "Sem repetição",
+  "taskRecurrenceLabel": "Repetição",
+  "taskRecurrenceDaily": "Diário",
+  "taskRecurrenceWeekly": "Semanal",
+  "taskRecurrenceMonthly": "Mensal",
+  "taskRecurrenceYearly": "Anual",
+  "taskReminderTooltip": "Lembrar na data limite",
+  "taskReminderOnTooltip": "Lembrete ativo",
+  "taskOverdueReminder": "Tarefa em atraso",
+  "taskDueTodayReminder": "Vence hoje",
+  "settingsWindowsNotifications": "Notificações do Windows",
+  "settingsWindowsNotificationsSubtitle": "Mostra alertas nativas do Windows quando uma tarefa vence hoje ou está atrasada",
   "title": "Título",
   "description": "Descrição",
   "priority": "Prioridade",
@@ -1823,4 +1835,31 @@
   "settingsReportBugSend": "Enviar e continuar",
   "settingsReportBugSentOk": "Diagnóstico enviado.",
   "settingsReportBugSentFail": "Não foi possível enviar o diagnóstico. Verifique a ligação ou tente mais tarde."
+  ,"zenModeEnter": "Modo zen"
+  ,"zenModeExit": "Sair do modo zen"
+  ,"syncedBlockCreate": "Sincronizar bloco"
+  ,"syncedBlockInsert": "Inserir bloco sincronizado…"
+  ,"syncedBlockBadge": "Bloco sincronizado"
+  ,"syncedBlockCreated": "Bloco sincronizado. ID copiado para a área de transferência."
+  ,"syncedBlockInsertTitle": "Inserir bloco sincronizado"
+  ,"syncedBlockIdLabel": "ID do grupo de sincronização"
+  ,"syncedBlockIdHint": "Cole o ID copiado de outro bloco sincronizado"
+  ,"syncedBlockIdInvalid": "ID inválido ou não encontrado"
+  ,"syncedBlockUnsync": "Dessincronizar bloco"
+  ,"syncedBlockUnsynced": "Bloco dessincronizado"
+  ,"syncedBlockGroupCount": "{count,plural, =1{1 cópia sincronizada} other{{count} cópias sincronizadas}}"
+  ,"@syncedBlockGroupCount": {"placeholders": {"count": {"type": "int"}}}
+  ,"graphViewTitle": "Vista de grafo"
+  ,"graphViewEmpty": "Não há ligações entre páginas"
+  ,"graphViewIncludeOrphans": "Incluir páginas sem ligações"
+  ,"graphViewOpenPage": "Abrir página"
+  ,"importPdf": "Importar PDF…"
+  ,"importPdfDialogTitle": "Importar PDF como página"
+  ,"importPdfAnnotationsOnly": "Apenas anotações"
+  ,"importPdfFullText": "Texto completo + anotações"
+  ,"importPdfSuccess": "PDF importado: {title}"
+  ,"@importPdfSuccess": {"placeholders": {"title": {"type": "String"}}}
+  ,"importPdfFailed": "Não foi possível importar o PDF: {error}"
+  ,"@importPdfFailed": {"placeholders": {"error": {"type": "String"}}}
+  ,"importPdfNoText": "O PDF não contém texto extraível"
 }

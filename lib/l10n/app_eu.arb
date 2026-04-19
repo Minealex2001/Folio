@@ -1108,6 +1108,18 @@
   "taskSubtaskHint": "Azpiataza…",
   "taskRemoveSubtask": "Kendu azpiataza",
   "taskAddSubtask": "Gehitu azpiataza",
+  "taskRecurrenceNone": "Errepikatu gabe",
+  "taskRecurrenceLabel": "Errepikapena",
+  "taskRecurrenceDaily": "Egunero",
+  "taskRecurrenceWeekly": "Astero",
+  "taskRecurrenceMonthly": "Hilero",
+  "taskRecurrenceYearly": "Urtero",
+  "taskReminderTooltip": "Gogoratu muga-egunean",
+  "taskReminderOnTooltip": "Gogorarazlea aktibo",
+  "taskOverdueReminder": "Iraungitako zeregina",
+  "taskDueTodayReminder": "Gaur iraungitzen da",
+  "settingsWindowsNotifications": "Windows jakinarazpenak",
+  "settingsWindowsNotificationsSubtitle": "Windows jakinarazpen natiboek erakutsiko dituzte gaur iraungitzen diren edo berandututa dauden zereginak",
   "title": "Izenburua",
   "description": "Deskribapena",
   "priority": "Lehentasuna",
@@ -1824,4 +1836,31 @@
   "settingsReportBugSend": "Bidali eta jarraitu",
   "settingsReportBugSentOk": "Diagnostikoa bidalita.",
   "settingsReportBugSentFail": "Ezin izan da diagnostikoa bidali. Egiaztatu konexioa edo saiatu beranduago."
+  ,"zenModeEnter": "Zen modua"
+  ,"zenModeExit": "Zen modutik irten"
+  ,"syncedBlockCreate": "Blokea sinkronizatu"
+  ,"syncedBlockInsert": "Txertatu bloke sinkronizatua…"
+  ,"syncedBlockBadge": "Bloke sinkronizatua"
+  ,"syncedBlockCreated": "Blokea sinkronizatuta. IDa arbelean kopiatuta."
+  ,"syncedBlockInsertTitle": "Txertatu bloke sinkronizatua"
+  ,"syncedBlockIdLabel": "Sinkronizazio taldearen IDa"
+  ,"syncedBlockIdHint": "Itsatsi beste bloke sinkronizatu batetik kopiatutako IDa"
+  ,"syncedBlockIdInvalid": "Baliogabeko IDa edo ez da aurkitu"
+  ,"syncedBlockUnsync": "Blokea desinkronizatu"
+  ,"syncedBlockUnsynced": "Blokea desinkronizatuta"
+  ,"syncedBlockGroupCount": "{count,plural, =1{1 kopia sinkronizatuta} other{{count} kopia sinkronizatuta}}"
+  ,"@syncedBlockGroupCount": {"placeholders": {"count": {"type": "int"}}}
+  ,"graphViewTitle": "Grafo ikuspegia"
+  ,"graphViewEmpty": "Ez dago orrien arteko loturarik"
+  ,"graphViewIncludeOrphans": "Lotura gabeko orriak sartu"
+  ,"graphViewOpenPage": "Orria ireki"
+  ,"importPdf": "PDF inportatu…"
+  ,"importPdfDialogTitle": "PDF orri gisa inportatu"
+  ,"importPdfAnnotationsOnly": "Oharrak soilik"
+  ,"importPdfFullText": "Testu osoa + oharrak"
+  ,"importPdfSuccess": "PDF inportatuta: {title}"
+  ,"@importPdfSuccess": {"placeholders": {"title": {"type": "String"}}}
+  ,"importPdfFailed": "Ezin izan da PDFa inportatu: {error}"
+  ,"@importPdfFailed": {"placeholders": {"error": {"type": "String"}}}
+  ,"importPdfNoText": "PDFak ez du testu erauzigarririk"
 }

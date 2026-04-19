@@ -215,6 +215,8 @@ class AppSettings extends ChangeNotifier {
   static const _globalSearchHotkeyKey = 'folio_global_search_hotkey';
   static const _minimizeToTrayKey = 'folio_minimize_to_tray';
   static const _closeToTrayKey = 'folio_close_to_tray';
+  static const _windowsNotificationsEnabledKey =
+      'folio_windows_notifications_enabled';
   static const _aiEnabledKey = 'folio_ai_enabled';
   static const _aiProviderKey = 'folio_ai_provider';
   static const _aiBaseUrlKey = 'folio_ai_base_url';
@@ -300,12 +302,8 @@ class AppSettings extends ChangeNotifier {
   static const int maxRecentSearchQueries = 10;
 
   /// Canal de distribución (Store / GitHub / web) vía `--dart-define=FOLIO_DISTRIBUTION=...`.
-<<<<<<< HEAD
   static const String distributionChannelFromEnvironment =
       FolioDistribution.raw;
-=======
-  static const String distributionChannelFromEnvironment = FolioDistribution.raw;
->>>>>>> 60059c3 (feat: Add FolioDistribution class for build-time distribution channels)
 
   /// 30 min, luego cada hora hasta 24 h (índices del slider / menú).
   static const List<int> scheduledVaultBackupIntervalChoicesMinutes = [
@@ -405,6 +403,7 @@ class AppSettings extends ChangeNotifier {
   String _globalSearchHotkey = defaultGlobalSearchHotkey;
   bool _minimizeToTray = true;
   bool _closeToTray = true;
+  bool _windowsNotificationsEnabled = false;
   bool _aiEnabled = false;
   AiProvider _aiProvider = AiProvider.none;
   String _aiBaseUrl = defaultOllamaUrl;
@@ -497,6 +496,7 @@ class AppSettings extends ChangeNotifier {
   String get globalSearchHotkey => _globalSearchHotkey;
   bool get minimizeToTray => _minimizeToTray;
   bool get closeToTray => _closeToTray;
+  bool get windowsNotificationsEnabled => _windowsNotificationsEnabled;
   bool get aiEnabled => _aiEnabled;
   AiProvider get aiProvider => _aiProvider;
   String get aiBaseUrl => _aiBaseUrl;
@@ -657,6 +657,8 @@ class AppSettings extends ChangeNotifier {
         p.getString(_globalSearchHotkeyKey) ?? defaultGlobalSearchHotkey;
     _minimizeToTray = p.getBool(_minimizeToTrayKey) ?? true;
     _closeToTray = p.getBool(_closeToTrayKey) ?? true;
+    _windowsNotificationsEnabled =
+        p.getBool(_windowsNotificationsEnabledKey) ?? false;
     _aiEnabled = p.getBool(_aiEnabledKey) ?? false;
     _aiProvider = _parseAiProvider(p.getString(_aiProviderKey));
     if (!aiLocalProvidersSupported &&
@@ -1201,6 +1203,14 @@ class AppSettings extends ChangeNotifier {
     notifyListeners();
     final p = await SharedPreferences.getInstance();
     await p.setBool(_closeToTrayKey, value);
+  }
+
+  Future<void> setWindowsNotificationsEnabled(bool value) async {
+    if (_windowsNotificationsEnabled == value) return;
+    _windowsNotificationsEnabled = value;
+    notifyListeners();
+    final p = await SharedPreferences.getInstance();
+    await p.setBool(_windowsNotificationsEnabledKey, value);
   }
 
   Future<void> setAiEnabled(bool value) async {

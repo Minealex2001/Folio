@@ -50,10 +50,12 @@ class _GlobalSearchPopupState extends State<GlobalSearchPopup> {
 
   void _refresh() {
     final tasksOnly = _scope == _GlobalSearchScope.tasks;
-    final includeTitle = tasksOnly ||
+    final includeTitle =
+        tasksOnly ||
         _scope == _GlobalSearchScope.all ||
         _scope == _GlobalSearchScope.title;
-    final includeContent = tasksOnly ||
+    final includeContent =
+        tasksOnly ||
         _scope == _GlobalSearchScope.all ||
         _scope == _GlobalSearchScope.content;
     setState(() {
@@ -96,10 +98,7 @@ class _GlobalSearchPopupState extends State<GlobalSearchPopup> {
         title: Text(l10n.searchShortcutsHelpTitle),
         content: Text(l10n.searchShortcutsHelpBody),
         actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: Text(l10n.ok),
-          ),
+          TextButton(onPressed: () => Navigator.pop(ctx), child: Text(l10n.ok)),
         ],
       ),
     );
@@ -145,10 +144,13 @@ class _GlobalSearchPopupState extends State<GlobalSearchPopup> {
     final recent = widget.appSettings.recentSearchQueries;
     return CallbackShortcuts(
       bindings: {
-        const SingleActivator(LogicalKeyboardKey.arrowDown, control: true):
-            () => _nudgeSelection(1),
-        const SingleActivator(LogicalKeyboardKey.arrowUp, control: true):
-            () => _nudgeSelection(-1),
+        const SingleActivator(
+          LogicalKeyboardKey.arrowDown,
+          control: true,
+        ): () =>
+            _nudgeSelection(1),
+        const SingleActivator(LogicalKeyboardKey.arrowUp, control: true): () =>
+            _nudgeSelection(-1),
       },
       child: Dialog(
         insetPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 56),
@@ -298,7 +300,8 @@ class _GlobalSearchPopupState extends State<GlobalSearchPopup> {
                           )
                         : ListView.separated(
                             itemCount: _results.length,
-                            separatorBuilder: (_, _) => const Divider(height: 1),
+                            separatorBuilder: (_, _) =>
+                                const Divider(height: 1),
                             itemBuilder: (context, i) {
                               final r = _results[i];
                               final selected = i == _selectedIndex;

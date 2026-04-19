@@ -25,6 +25,8 @@ import '../services/folio_cloud/folio_cloud_entitlements.dart';
 import '../services/folio_diagnostic_reporter.dart';
 import '../services/folio_telemetry.dart';
 import '../services/vault_scheduled_local_export.dart';
+import '../services/tasks/task_reminder_service.dart';
+import '../services/tasks/platform_notification_service.dart';
 import '../features/settings/vault_identity_verify_dialog.dart';
 import '../services/device_sync/device_sync_controller.dart';
 import '../services/device_sync/device_sync_models.dart';
@@ -86,6 +88,8 @@ class _FolioAppState extends State<FolioApp> with WidgetsBindingObserver {
   bool _releaseNotesShownThisRun = false;
   bool _handledInitialLaunchArgs = false;
   Timer? _scheduledVaultBackupTimer;
+  TaskReminderService? _taskReminderService;
+  StreamSubscription<List<TaskReminderEvent>>? _reminderSub;
 
   @override
   void initState() {
@@ -155,6 +159,7 @@ class _FolioAppState extends State<FolioApp> with WidgetsBindingObserver {
       (_) => unawaited(_maybeRunScheduledVaultBackup()),
     );
     unawaited(_maybeRunScheduledVaultBackup());
+    unawaited(_initPlatformNotifications());
     _accentSub = SystemTheme.onChange.listen((_) {
       if (mounted) setState(() {});
     });
@@ -163,6 +168,8 @@ class _FolioAppState extends State<FolioApp> with WidgetsBindingObserver {
   @override
   void dispose() {
     FolioDiagnosticReporter.bindAppSettings(null);
+    _reminderSub?.cancel();
+    _taskReminderService?.dispose();
     _scheduledVaultBackupTimer?.cancel();
     _launchArgsSub?.cancel();
     _accentSub?.cancel();
@@ -267,6 +274,32 @@ class _FolioAppState extends State<FolioApp> with WidgetsBindingObserver {
     final ctx = _navKey.currentContext;
     if (ctx == null || message.trim().isEmpty) return;
     ScaffoldMessenger.of(ctx).showSnackBar(SnackBar(content: Text(message)));
+  }
+
+  Future<void> _initPlatformNotifications() async {
+    await PlatformNotificationService.init();
+    _taskReminderService = TaskReminderService(session: widget.session);
+    _reminderSub = _taskReminderService!.stream.listen(_onReminderEvents);
+    _taskReminderService!.start();
+  }
+
+  void _onReminderEvents(List<TaskReminderEvent> events) {
+    if (!widget.appSettings.windowsNotificationsEnabled) return;
+    if (!PlatformNotificationService.supported) return;
+    final lang = widget.appSettings.locale?.languageCode ?? 'es';
+    for (final event in events) {
+      final id = event.blockId.hashCode.abs() % 65535;
+      final title = switch (lang) {
+        'en' => event.isOverdue ? 'Overdue task' : 'Task due today',
+        'ca' => event.isOverdue ? 'Tasca vençuda' : 'Tasca per avui',
+        'pt' => event.isOverdue ? 'Tarefa vencida' : 'Tarefa para hoje',
+        'gl' => event.isOverdue ? 'Tarefa vencida' : 'Tarefa para hoxe',
+        'eu' => event.isOverdue ? 'Epemuga igarotako zeregina' : 'Gaurko zeregina',
+        _ => event.isOverdue ? 'Tarea vencida' : 'Tarea para hoy',
+      };
+      final body = '${event.pageTitle}: ${event.taskTitle}';
+      unawaited(PlatformNotificationService.show(id: id, title: title, body: body));
+    }
   }
 
   Future<void> _maybeRunScheduledVaultBackup() async {

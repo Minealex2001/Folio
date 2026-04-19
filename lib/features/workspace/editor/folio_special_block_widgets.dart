@@ -1196,8 +1196,9 @@ class _FolioTaskBlockBodyState extends State<FolioTaskBlockBody> {
   void _setSubtaskDone(String subtaskId, bool done) {
     final next = _data.subtasks
         .map(
-          (s) =>
-              s.id == subtaskId ? s.copyWith(status: done ? 'done' : 'todo') : s,
+          (s) => s.id == subtaskId
+              ? s.copyWith(status: done ? 'done' : 'todo')
+              : s,
         )
         .toList(growable: false);
     setState(() => _data = _data.copyWith(subtasks: next));
@@ -1228,6 +1229,9 @@ class _FolioTaskBlockBodyState extends State<FolioTaskBlockBody> {
     setState(() => _data = _data.copyWith(subtasks: next));
     _emit(_data);
   }
+
+  /// Formatea 'YYYY-MM-DD' o 'YYYY-MM-DDTHH:MM' para mostrarlo en la UI.
+  static String _fmtDue(String due) => due.replaceFirst('T', ' ');
 
   Color _priorityColor(String? priority) {
     switch (priority) {
@@ -1384,12 +1388,28 @@ class _FolioTaskBlockBodyState extends State<FolioTaskBlockBody> {
                       firstDate: DateTime(2000),
                       lastDate: DateTime(2100),
                     );
-                    if (picked != null) {
-                      final iso =
-                          '${picked.year.toString().padLeft(4, '0')}-${picked.month.toString().padLeft(2, '0')}-${picked.day.toString().padLeft(2, '0')}';
-                      setState(() => _data = _data.copyWith(dueDate: iso));
-                      _emit(_data);
-                    }
+                    if (!mounted || picked == null) return;
+                    final existingDt = _data.dueDate != null
+                        ? DateTime.tryParse(_data.dueDate!)
+                        : null;
+                    final pickedTime = await showTimePicker(
+                      context: context,
+                      initialTime:
+                          existingDt != null && (_data.dueDate!.contains('T'))
+                          ? TimeOfDay(
+                              hour: existingDt.hour,
+                              minute: existingDt.minute,
+                            )
+                          : TimeOfDay.now(),
+                    );
+                    if (!mounted) return;
+                    final dateStr =
+                        '${picked.year.toString().padLeft(4, '0')}-${picked.month.toString().padLeft(2, '0')}-${picked.day.toString().padLeft(2, '0')}';
+                    final iso = pickedTime != null
+                        ? '${dateStr}T${pickedTime.hour.toString().padLeft(2, '0')}:${pickedTime.minute.toString().padLeft(2, '0')}'
+                        : dateStr;
+                    setState(() => _data = _data.copyWith(dueDate: iso));
+                    _emit(_data);
                   },
                   onLongPress: () {
                     if (_data.dueDate != null) {
@@ -1409,7 +1429,9 @@ class _FolioTaskBlockBodyState extends State<FolioTaskBlockBody> {
                       ),
                       const SizedBox(width: FolioSpace.xxs),
                       Text(
-                        _data.dueDate ?? l10n.taskNoDueDate,
+                        _data.dueDate != null
+                            ? _fmtDue(_data.dueDate!)
+                            : l10n.taskNoDueDate,
                         style: tt.labelSmall?.copyWith(
                           color: _data.dueDate != null
                               ? scheme.primary
@@ -1417,6 +1439,45 @@ class _FolioTaskBlockBodyState extends State<FolioTaskBlockBody> {
                         ),
                       ),
                     ],
+                  ),
+                ),
+                const SizedBox(width: FolioSpace.md),
+                // Recurrence selector
+                _RecurrenceSelector(
+                  value: _data.recurrence,
+                  l10n: l10n,
+                  scheme: scheme,
+                  tt: tt,
+                  onChanged: (r) {
+                    setState(() => _data = _data.copyWith(recurrence: r));
+                    _emit(_data);
+                  },
+                ),
+                const SizedBox(width: FolioSpace.sm),
+                // Reminder toggle
+                Tooltip(
+                  message: _data.reminderEnabled
+                      ? l10n.taskReminderOnTooltip
+                      : l10n.taskReminderTooltip,
+                  child: InkWell(
+                    borderRadius: BorderRadius.circular(FolioRadius.xs),
+                    onTap: () {
+                      setState(
+                        () => _data = _data.copyWith(
+                          reminderEnabled: !_data.reminderEnabled,
+                        ),
+                      );
+                      _emit(_data);
+                    },
+                    child: Icon(
+                      _data.reminderEnabled
+                          ? Icons.notifications_rounded
+                          : Icons.notifications_none_rounded,
+                      size: 18,
+                      color: _data.reminderEnabled
+                          ? scheme.primary
+                          : scheme.onSurfaceVariant,
+                    ),
                   ),
                 ),
                 const Spacer(),
@@ -1486,6 +1547,77 @@ class _FolioTaskBlockBodyState extends State<FolioTaskBlockBody> {
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+/// Selector de recurrencia compacto para bloques de tarea.
+class _RecurrenceSelector extends StatelessWidget {
+  const _RecurrenceSelector({
+    required this.value,
+    required this.l10n,
+    required this.scheme,
+    required this.tt,
+    required this.onChanged,
+  });
+
+  final String? value;
+  final AppLocalizations l10n;
+  final ColorScheme scheme;
+  final TextTheme tt;
+  final ValueChanged<String?> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final isSet = value != null;
+    final label = switch (value) {
+      'daily' => l10n.taskRecurrenceDaily,
+      'weekly' => l10n.taskRecurrenceWeekly,
+      'monthly' => l10n.taskRecurrenceMonthly,
+      'yearly' => l10n.taskRecurrenceYearly,
+      _ => null,
+    };
+
+    return PopupMenuButton<String?>(
+      tooltip: '',
+      initialValue: value,
+      onSelected: onChanged,
+      itemBuilder: (_) => [
+        PopupMenuItem<String?>(
+          value: null,
+          child: Text(l10n.taskRecurrenceNone),
+        ),
+        PopupMenuItem<String?>(
+          value: 'daily',
+          child: Text(l10n.taskRecurrenceDaily),
+        ),
+        PopupMenuItem<String?>(
+          value: 'weekly',
+          child: Text(l10n.taskRecurrenceWeekly),
+        ),
+        PopupMenuItem<String?>(
+          value: 'monthly',
+          child: Text(l10n.taskRecurrenceMonthly),
+        ),
+        PopupMenuItem<String?>(
+          value: 'yearly',
+          child: Text(l10n.taskRecurrenceYearly),
+        ),
+      ],
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(
+            Icons.repeat_rounded,
+            size: 16,
+            color: isSet ? scheme.primary : scheme.onSurfaceVariant,
+          ),
+          if (label != null) ...[
+            const SizedBox(width: FolioSpace.xxs),
+            Text(label, style: tt.labelSmall?.copyWith(color: scheme.primary)),
+          ],
+        ],
       ),
     );
   }

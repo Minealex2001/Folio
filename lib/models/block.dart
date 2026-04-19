@@ -76,6 +76,7 @@ class FolioBlock {
     this.appearance,
     this.meetingNoteProvider,
     this.meetingNoteTranscriptionEnabled,
+    this.syncGroupId,
   });
 
   final String id;
@@ -121,6 +122,10 @@ class FolioBlock {
   /// `null` o `true` = generar transcripción; `false` = solo audio (sin Whisper).
   bool? meetingNoteTranscriptionEnabled;
 
+  /// UUID que identifica el grupo de bloques sincronizados. Todos los bloques
+  /// con el mismo [syncGroupId] comparten contenido y se actualizan en cascada.
+  String? syncGroupId;
+
   Map<String, dynamic> toJson() => {
     'id': id,
     'type': type,
@@ -138,6 +143,7 @@ class FolioBlock {
     if (meetingNoteProvider != null) 'meetingNoteProvider': meetingNoteProvider,
     if (meetingNoteTranscriptionEnabled == false)
       'meetingNoteTranscriptionEnabled': false,
+    if (syncGroupId != null) 'syncGroupId': syncGroupId,
   };
 
   factory FolioBlock.fromJson(Map<String, dynamic> j) {
@@ -159,6 +165,7 @@ class FolioBlock {
       meetingNoteProvider: j['meetingNoteProvider'] as String?,
       meetingNoteTranscriptionEnabled:
           j['meetingNoteTranscriptionEnabled'] as bool?,
+      syncGroupId: j['syncGroupId'] as String?,
     );
   }
 
@@ -176,6 +183,8 @@ class FolioBlock {
     FolioBlockAppearance? appearance,
     String? meetingNoteProvider,
     bool? meetingNoteTranscriptionEnabled,
+    String? syncGroupId,
+    bool clearSyncGroupId = false,
   }) {
     return FolioBlock(
       id: id,
@@ -192,7 +201,9 @@ class FolioBlock {
       appearance: appearance ?? this.appearance,
       meetingNoteProvider: meetingNoteProvider ?? this.meetingNoteProvider,
       meetingNoteTranscriptionEnabled:
-          meetingNoteTranscriptionEnabled ?? this.meetingNoteTranscriptionEnabled,
+          meetingNoteTranscriptionEnabled ??
+          this.meetingNoteTranscriptionEnabled,
+      syncGroupId: clearSyncGroupId ? null : (syncGroupId ?? this.syncGroupId),
     );
   }
 }

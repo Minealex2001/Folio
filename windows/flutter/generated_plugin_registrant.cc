@@ -17,6 +17,7 @@
 #include <hotkey_manager_windows/hotkey_manager_windows_plugin_c_api.h>
 #include <irondash_engine_context/irondash_engine_context_plugin_c_api.h>
 #include <local_auth_windows/local_auth_plugin.h>
+#include <local_notifier/local_notifier_plugin.h>
 #include <passkeys_windows/passkeys_windows_plugin.h>
 #include <printing/printing_plugin.h>
 #include <record_windows/record_windows_plugin_c_api.h>
@@ -53,6 +54,8 @@ void RegisterPlugins(flutter::PluginRegistry* registry) {
       registry->GetRegistrarForPlugin("IrondashEngineContextPluginCApi"));
   LocalAuthPluginRegisterWithRegistrar(
       registry->GetRegistrarForPlugin("LocalAuthPlugin"));
+  LocalNotifierPluginRegisterWithRegistrar(
+      registry->GetRegistrarForPlugin("LocalNotifierPlugin"));
   PasskeysWindowsPluginRegisterWithRegistrar(
       registry->GetRegistrarForPlugin("PasskeysWindowsPlugin"));
   PrintingPluginRegisterWithRegistrar(

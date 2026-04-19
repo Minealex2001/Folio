@@ -1,6 +1,8 @@
 part of 'vault_session.dart';
 
 extension VaultSessionAi on VaultSession {
+  // -------------------------------------------------------------------------
+
   AiCompletionRequest _buildAgentCompletionRequest({
     required String userPrompt,
     required List<AiChatMessage> conversationMessages,
@@ -227,10 +229,7 @@ extension VaultSessionAi on VaultSession {
     final block = _blockById(page, blockId);
     if (block == null) throw StateError('Bloque no encontrado.');
     final body = selectionText.trim().isEmpty ? block.text : selectionText;
-    final lang = _aiOutputLanguageName(
-      languageCode,
-      isEsInstruction: true,
-    );
+    final lang = _aiOutputLanguageName(languageCode, isEsInstruction: true);
     final prompt =
         '${VaultSession._quillIdentityLeadEs}'
         'Resume el siguiente fragmento en $lang de forma breve (viñetas si ayuda). '
@@ -265,10 +264,7 @@ extension VaultSessionAi on VaultSession {
     final block = _blockById(page, blockId);
     if (block == null) throw StateError('Bloque no encontrado.');
     final body = selectionText.trim().isEmpty ? block.text : selectionText;
-    final lang = _aiOutputLanguageName(
-      languageCode,
-      isEsInstruction: true,
-    );
+    final lang = _aiOutputLanguageName(languageCode, isEsInstruction: true);
     final prompt =
         '${VaultSession._quillIdentityLeadEs}'
         'Del texto siguiente, extrae: (1) fechas o plazos mencionados, (2) tareas accionables claras. '
@@ -298,14 +294,11 @@ extension VaultSessionAi on VaultSession {
     if (ai == null) throw StateError('IA no configurada.');
     final page = _pageById(pageId);
     if (page == null) throw StateError('Página no encontrada.');
-    final languageRule = _aiLanguageRule(
-      languageCode,
-      isEsInstruction: true,
-    );
+    final languageRule = _aiLanguageRule(languageCode, isEsInstruction: true);
     final prompt =
         '${VaultSession._quillIdentityLeadEs}'
         '$languageRule\n'
-      'Resume esta página de forma breve y accionable.\n'
+        'Resume esta página de forma breve y accionable.\n'
         'Título: ${page.title}\n'
         'Contenido:\n${page.plainTextContent}';
     final result = await ai.complete(
@@ -562,10 +555,7 @@ For images/blocks: use the + button or / command in a paragraph.
     }
   }
 
-  String _aiLanguageRule(
-    String languageCode, {
-    required bool isEsInstruction,
-  }) {
+  String _aiLanguageRule(String languageCode, {required bool isEsInstruction}) {
     final language = _aiOutputLanguageName(
       languageCode,
       isEsInstruction: isEsInstruction,
@@ -606,7 +596,8 @@ For images/blocks: use the + button or / command in a paragraph.
     );
     final result = await ai.complete(
       AiCompletionRequest(
-        prompt: '$folioGuide\n\n$languageRule\n\n${prompt.trim()}$scopedContext',
+        prompt:
+            '$folioGuide\n\n$languageRule\n\n${prompt.trim()}$scopedContext',
         model: 'auto',
         messages: messages,
         attachments: attachments,
@@ -778,7 +769,7 @@ For images/blocks: use the + button or / command in a paragraph.
                   '${isEs ? 'Devuelve SOLO JSON con mode="edit_current" y operations no vacía usando blockId reales.' : 'Return ONLY JSON with mode="edit_current" and a non-empty operations list using real blockIds.'}\n\n'
                   '$editTargetLine\n'
                   '${isEs ? 'Bloques de la página en edición (ids válidos):' : 'Blocks of the page under edit (valid ids):'}\n$pageBlocksContext\n\n'
-                                   '${_titleL10n.aiPromptUserMessage}\n${prompt.trim()}',
+                  '${_titleL10n.aiPromptUserMessage}\n${prompt.trim()}',
               model: 'auto',
               messages: messages,
               attachments: attachments,
@@ -829,7 +820,7 @@ For images/blocks: use the + button or / command in a paragraph.
                 '${isEs ? 'No crees páginas nuevas ni reemplaces todo el contenido.' : 'Do not create new pages or replace all content.'}\n\n'
                 '$editTargetLine\n'
                 '${isEs ? 'Bloques de la página en edición (ids válidos):' : 'Blocks of the page under edit (valid ids):'}\n$pageBlocksContext\n\n'
-                                 '${_titleL10n.aiPromptUserMessage}\n${prompt.trim()}',
+                '${_titleL10n.aiPromptUserMessage}\n${prompt.trim()}',
             model: 'auto',
             messages: messages,
             attachments: attachments,

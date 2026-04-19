@@ -3079,8 +3079,10 @@ class VaultSession extends ChangeNotifier {
     if (p == null) return;
     if (oldIndex < 0 || oldIndex >= p.properties.length) return;
     final item = p.properties.removeAt(oldIndex);
-    final insertAt = (newIndex > oldIndex ? newIndex - 1 : newIndex)
-        .clamp(0, p.properties.length);
+    final insertAt = (newIndex > oldIndex ? newIndex - 1 : newIndex).clamp(
+      0,
+      p.properties.length,
+    );
     p.properties.insert(insertAt, item);
     notifyListeners();
     scheduleSave();
@@ -3195,6 +3197,136 @@ class VaultSession extends ChangeNotifier {
     b.text = text;
     _scheduleCoalescedTypingNotify();
     scheduleSave(trackRevisionForPageId: pageId);
+  }
+
+  /// Actualiza texto y Delta de un bloque de forma atómica.
+  /// Si el bloque pertenece a un grupo de sincronización, propaga
+  /// los cambios a todos los bloques del mismo grupo.
+  void updateBlockTextFull(
+    String pageId,
+    String blockId,
+    String text,
+    String? richTextDeltaJson,
+  ) {
+    final page = _pageById(pageId);
+    if (page == null) return;
+    final b = _blockById(page, blockId);
+    if (b == null) return;
+    _rememberUndoBeforePageMutation(pageId, isTyping: true);
+    if (b.type == 'image' && b.text.isNotEmpty && b.text != text) {
+      _deleteManagedAttachmentIfUnused(
+        b.text,
+        excludingPageId: pageId,
+        excludingBlockId: blockId,
+      );
+    }
+    b.text = text;
+    b.richTextDeltaJson = richTextDeltaJson;
+    final groupId = b.syncGroupId;
+    if (groupId != null) {
+      _propagateSyncedBlockContent(
+        groupId,
+        sourceBlockId: blockId,
+        text: text,
+        richTextDeltaJson: richTextDeltaJson,
+      );
+    }
+    _scheduleCoalescedTypingNotify();
+    scheduleSave(trackRevisionForPageId: pageId);
+  }
+
+  void _propagateSyncedBlockContent(
+    String groupId, {
+    required String sourceBlockId,
+    required String text,
+    required String? richTextDeltaJson,
+  }) {
+    final pagesChanged = <String>{};
+    for (final p in _pages) {
+      for (final block in p.blocks) {
+        if (block.id != sourceBlockId && block.syncGroupId == groupId) {
+          block.text = text;
+          block.richTextDeltaJson = richTextDeltaJson;
+          pagesChanged.add(p.id);
+        }
+      }
+    }
+    for (final pid in pagesChanged) {
+      scheduleSave(trackRevisionForPageId: pid);
+    }
+  }
+
+  /// Asigna un nuevo UUID de sincronización al bloque y devuelve el UUID
+  /// para que el llamador pueda copiarlo al portapapeles.
+  String createSyncGroup(String pageId, String blockId) {
+    final page = _pageById(pageId);
+    if (page == null) return '';
+    final b = _blockById(page, blockId);
+    if (b == null) return '';
+    final groupId = b.syncGroupId ?? _uuid.v4();
+    b.syncGroupId = groupId;
+    notifyListeners();
+    scheduleSave(trackRevisionForPageId: pageId);
+    return groupId;
+  }
+
+  /// Inserta una nueva copia sincronizada de [syncGroupId] después de [afterBlockId].
+  /// Devuelve `true` si encontró el grupo y lo insertó; `false` si no existe.
+  bool insertSyncedBlock(
+    String pageId,
+    String afterBlockId,
+    String syncGroupId,
+  ) {
+    FolioBlock? source;
+    for (final p in _pages) {
+      for (final blk in p.blocks) {
+        if (blk.syncGroupId == syncGroupId) {
+          source = blk;
+          break;
+        }
+      }
+      if (source != null) break;
+    }
+    if (source == null) return false;
+    final newBlock = FolioBlock(
+      id: _newBlockId(pageId),
+      type: source.type,
+      text: source.text,
+      richTextDeltaJson: source.richTextDeltaJson,
+      syncGroupId: syncGroupId,
+      checked: source.checked,
+      depth: source.depth,
+      icon: source.icon,
+      appearance: source.appearance,
+    );
+    insertBlockAfter(
+      pageId: pageId,
+      afterBlockId: afterBlockId,
+      block: newBlock,
+    );
+    return true;
+  }
+
+  /// Elimina el syncGroupId del bloque (desincroniza sin borrar contenido).
+  void unsyncBlock(String pageId, String blockId) {
+    final page = _pageById(pageId);
+    if (page == null) return;
+    final b = _blockById(page, blockId);
+    if (b == null) return;
+    b.syncGroupId = null;
+    notifyListeners();
+    scheduleSave(trackRevisionForPageId: pageId);
+  }
+
+  /// Número de bloques en un grupo de sincronización.
+  int syncGroupBlockCount(String syncGroupId) {
+    var count = 0;
+    for (final p in _pages) {
+      for (final blk in p.blocks) {
+        if (blk.syncGroupId == syncGroupId) count++;
+      }
+    }
+    return count;
   }
 
   void setBlockChecked(String pageId, String blockId, bool checked) {

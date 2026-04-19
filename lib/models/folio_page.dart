@@ -93,12 +93,11 @@ class FolioPage {
                     Map<String, dynamic>.from(j['lastImportInfo'] as Map),
                   )
                 : null),
-      collabRoomId:
-          (roomId == null || roomId.isEmpty) ? null : roomId,
-      collabJoinCode:
-          (joinCode == null || joinCode.isEmpty) ? null : joinCode,
+      collabRoomId: (roomId == null || roomId.isEmpty) ? null : roomId,
+      collabJoinCode: (joinCode == null || joinCode.isEmpty) ? null : joinCode,
       blocks: blocks,
-      properties: (j['properties'] as List<dynamic>?)
+      properties:
+          (j['properties'] as List<dynamic>?)
               ?.map(
                 (e) => FolioPageProperty.fromJson(
                   Map<String, dynamic>.from(e as Map),

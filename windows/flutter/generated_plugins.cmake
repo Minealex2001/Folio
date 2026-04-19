@@ -14,6 +14,7 @@ list(APPEND FLUTTER_PLUGIN_LIST
   hotkey_manager_windows
   irondash_engine_context
   local_auth_windows
+  local_notifier
   passkeys_windows
   printing
   record_windows

@@ -1107,6 +1107,18 @@
   "taskSubtaskHint": "Subtasca…",
   "taskRemoveSubtask": "Suprimeix la subtasca",
   "taskAddSubtask": "Afegeix una subtasca",
+  "taskRecurrenceNone": "Sense repetició",
+  "taskRecurrenceLabel": "Repetició",
+  "taskRecurrenceDaily": "Cada dia",
+  "taskRecurrenceWeekly": "Cada setmana",
+  "taskRecurrenceMonthly": "Cada mes",
+  "taskRecurrenceYearly": "Cada any",
+  "taskReminderTooltip": "Recorda'm a la data límit",
+  "taskReminderOnTooltip": "Recordatori actiu",
+  "taskOverdueReminder": "Tasca vençuda",
+  "taskDueTodayReminder": "Venç avui",
+  "settingsWindowsNotifications": "Notificacions de Windows",
+  "settingsWindowsNotificationsSubtitle": "Mostra alertes natives de Windows quan una tasca venci avui o estigui vençuda",
   "title": "Títol",
   "description": "Descripció",
   "priority": "Prioritat",
@@ -1823,4 +1835,31 @@
   "settingsReportBugSend": "Enviar i continuar",
   "settingsReportBugSentOk": "Diagnòstic enviat.",
   "settingsReportBugSentFail": "No s'ha pogut enviar el diagnòstic. Reviseu la connexió o torneu-ho a provar més tard."
+  ,"zenModeEnter": "Mode zen"
+  ,"zenModeExit": "Sortir del mode zen"
+  ,"syncedBlockCreate": "Sincronitzar bloc"
+  ,"syncedBlockInsert": "Inserir bloc sincronitzat…"
+  ,"syncedBlockBadge": "Bloc sincronitzat"
+  ,"syncedBlockCreated": "Bloc sincronitzat. ID copiat al porta-retalls."
+  ,"syncedBlockInsertTitle": "Inserir bloc sincronitzat"
+  ,"syncedBlockIdLabel": "ID del grup de sincronització"
+  ,"syncedBlockIdHint": "Enganxeu l'ID copiat d'un altre bloc sincronitzat"
+  ,"syncedBlockIdInvalid": "ID invàlid o no trobat"
+  ,"syncedBlockUnsync": "Dessincronitzar bloc"
+  ,"syncedBlockUnsynced": "Bloc dessincronitzat"
+  ,"syncedBlockGroupCount": "{count,plural, =1{1 còpia sincronitzada} other{{count} còpies sincronitzades}}"
+  ,"@syncedBlockGroupCount": {"placeholders": {"count": {"type": "int"}}}
+  ,"graphViewTitle": "Vista de graf"
+  ,"graphViewEmpty": "No hi ha enllaços entre pàgines"
+  ,"graphViewIncludeOrphans": "Incloure pàgines sense enllaços"
+  ,"graphViewOpenPage": "Obrir pàgina"
+  ,"importPdf": "Importar PDF…"
+  ,"importPdfDialogTitle": "Importar PDF com a pàgina"
+  ,"importPdfAnnotationsOnly": "Només anotacions"
+  ,"importPdfFullText": "Text complet + anotacions"
+  ,"importPdfSuccess": "PDF importat: {title}"
+  ,"@importPdfSuccess": {"placeholders": {"title": {"type": "String"}}}
+  ,"importPdfFailed": "No s'ha pogut importar el PDF: {error}"
+  ,"@importPdfFailed": {"placeholders": {"error": {"type": "String"}}}
+  ,"importPdfNoText": "El PDF no conté text extrectable"
 }
