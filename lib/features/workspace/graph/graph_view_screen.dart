@@ -192,105 +192,121 @@ class _GraphViewScreenState extends State<GraphViewScreen>
                 style: TextStyle(color: scheme.onSurfaceVariant),
               ),
             )
-          : InteractiveViewer(
-              transformationController: _tc,
-              constrained: false,
-              minScale: 0.1,
-              maxScale: 4.0,
-              boundaryMargin: const EdgeInsets.all(500),
-              child: SizedBox(
-                width: maxPos.dx - minPos.dx + 200,
-                height: maxPos.dy - minPos.dy + 200,
-                child: Stack(
-                  children: [
-                    // Edges layer
-                    Positioned.fill(
-                      child: CustomPaint(
-                        painter: _EdgePainter(
-                          nodes: _nodes,
-                          edges: _edges,
-                          edgeColor: scheme.outlineVariant,
-                          offset: -minPos + const Offset(100, 100),
-                        ),
-                      ),
-                    ),
-                    // Nodes layer
-                    ..._nodes.map((node) {
-                      final drawPos =
-                          node.pos - minPos + const Offset(100, 100);
-                      final isHovered = _hoveredNodeId == node.id;
-                      return Positioned(
-                        left: drawPos.dx - _nodeRadius - 40,
-                        top: drawPos.dy - _nodeRadius - 8,
-                        width: 80 + _nodeRadius * 2,
-                        child: GestureDetector(
-                          onTap: () {
-                            Navigator.of(context).pop();
-                            widget.onOpenPage(node.id);
-                          },
-                          child: MouseRegion(
-                            cursor: SystemMouseCursors.click,
-                            onEnter: (_) =>
-                                setState(() => _hoveredNodeId = node.id),
-                            onExit: (_) =>
-                                setState(() => _hoveredNodeId = null),
-                            child: Column(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                AnimatedContainer(
-                                  duration: const Duration(milliseconds: 120),
-                                  width: isHovered
-                                      ? _nodeRadius * 2.4
-                                      : _nodeRadius * 2,
-                                  height: isHovered
-                                      ? _nodeRadius * 2.4
-                                      : _nodeRadius * 2,
-                                  decoration: BoxDecoration(
-                                    shape: BoxShape.circle,
-                                    color: isHovered
-                                        ? scheme.primary
-                                        : scheme.primaryContainer,
-                                    border: Border.all(
-                                      color: scheme.primary,
-                                      width: 1.5,
-                                    ),
-                                    boxShadow: isHovered
-                                        ? [
-                                            BoxShadow(
-                                              color: scheme.primary.withAlpha(
-                                                80,
-                                              ),
-                                              blurRadius: 8,
-                                            ),
-                                          ]
-                                        : null,
-                                  ),
-                                ),
-                                const SizedBox(height: 4),
-                                Text(
-                                  node.label,
-                                  textAlign: TextAlign.center,
-                                  maxLines: 2,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: TextStyle(
-                                    fontSize: _fontSize,
-                                    fontWeight: isHovered
-                                        ? FontWeight.w600
-                                        : FontWeight.w400,
-                                    color: isHovered
-                                        ? scheme.primary
-                                        : scheme.onSurface,
-                                  ),
-                                ),
-                              ],
+          : LayoutBuilder(
+              builder: (context, viewportConstraints) {
+                final graphW = maxPos.dx - minPos.dx + 200;
+                final graphH = maxPos.dy - minPos.dy + 200;
+                // Canvas is at least the viewport size so nodes are centered
+                // rather than stuck in the top-left corner.
+                final canvasW = math.max(graphW, viewportConstraints.maxWidth);
+                final canvasH = math.max(graphH, viewportConstraints.maxHeight);
+                // Offset that maps simulation coords to canvas coords,
+                // centering the bounding box within the canvas.
+                final dx = (canvasW - graphW) / 2 - minPos.dx + 100;
+                final dy = (canvasH - graphH) / 2 - minPos.dy + 100;
+                final nodeOffset = Offset(dx, dy);
+
+                return InteractiveViewer(
+                  transformationController: _tc,
+                  constrained: false,
+                  minScale: 0.1,
+                  maxScale: 4.0,
+                  boundaryMargin: const EdgeInsets.all(500),
+                  child: SizedBox(
+                    width: canvasW,
+                    height: canvasH,
+                    child: Stack(
+                      children: [
+                        // Edges layer
+                        Positioned.fill(
+                          child: CustomPaint(
+                            painter: _EdgePainter(
+                              nodes: _nodes,
+                              edges: _edges,
+                              edgeColor: scheme.outlineVariant,
+                              offset: nodeOffset,
                             ),
                           ),
                         ),
-                      );
-                    }),
-                  ],
-                ),
-              ),
+                        // Nodes layer
+                        ..._nodes.map((node) {
+                          final drawPos = node.pos + nodeOffset;
+                          final isHovered = _hoveredNodeId == node.id;
+                          return Positioned(
+                            left: drawPos.dx - _nodeRadius - 40,
+                            top: drawPos.dy - _nodeRadius - 8,
+                            width: 80 + _nodeRadius * 2,
+                            child: GestureDetector(
+                              onTap: () {
+                                Navigator.of(context).pop();
+                                widget.onOpenPage(node.id);
+                              },
+                              child: MouseRegion(
+                                cursor: SystemMouseCursors.click,
+                                onEnter: (_) =>
+                                    setState(() => _hoveredNodeId = node.id),
+                                onExit: (_) =>
+                                    setState(() => _hoveredNodeId = null),
+                                child: Column(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    AnimatedContainer(
+                                      duration: const Duration(
+                                        milliseconds: 120,
+                                      ),
+                                      width: isHovered
+                                          ? _nodeRadius * 2.4
+                                          : _nodeRadius * 2,
+                                      height: isHovered
+                                          ? _nodeRadius * 2.4
+                                          : _nodeRadius * 2,
+                                      decoration: BoxDecoration(
+                                        shape: BoxShape.circle,
+                                        color: isHovered
+                                            ? scheme.primary
+                                            : scheme.primaryContainer,
+                                        border: Border.all(
+                                          color: scheme.primary,
+                                          width: 1.5,
+                                        ),
+                                        boxShadow: isHovered
+                                            ? [
+                                                BoxShadow(
+                                                  color: scheme.primary
+                                                      .withAlpha(80),
+                                                  blurRadius: 8,
+                                                ),
+                                              ]
+                                            : null,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 4),
+                                    Text(
+                                      node.label,
+                                      textAlign: TextAlign.center,
+                                      maxLines: 2,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: TextStyle(
+                                        fontSize: _fontSize,
+                                        fontWeight: isHovered
+                                            ? FontWeight.w600
+                                            : FontWeight.w400,
+                                        color: isHovered
+                                            ? scheme.primary
+                                            : scheme.onSurface,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          );
+                        }),
+                      ],
+                    ),
+                  ),
+                );
+              },
             ),
     );
   }

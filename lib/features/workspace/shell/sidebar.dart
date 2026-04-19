@@ -1056,286 +1056,304 @@ class _SidebarState extends State<Sidebar> {
     );
     _hasChildrenById = visible.hasChildrenById;
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        _vaultToolbar(context),
-        if (showDeskTools)
-          Padding(
-            padding: const EdgeInsets.fromLTRB(
-              FolioSpace.sm,
-              0,
-              FolioSpace.sm,
-              FolioSpace.sm,
-            ),
-            child: Container(
-              padding: const EdgeInsets.all(FolioSpace.xs),
-              decoration: BoxDecoration(
-                color: scheme.surfaceContainerHigh,
-                borderRadius: BorderRadius.circular(FolioRadius.lg),
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        // When the sidebar is animating to/from zero width, the available
+        // width can be tiny (a few pixels). Rendering the full Column in
+        // that state causes a RenderFlex overflow because Wrap stacks all
+        // chips vertically. Return an empty box to avoid the assertion.
+        if (constraints.maxWidth < 32) return const SizedBox.shrink();
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            _vaultToolbar(context),
+            if (showDeskTools)
+              Padding(
+                padding: const EdgeInsets.fromLTRB(
+                  FolioSpace.sm,
+                  0,
+                  FolioSpace.sm,
+                  FolioSpace.sm,
+                ),
+                child: Container(
+                  padding: const EdgeInsets.all(FolioSpace.xs),
+                  decoration: BoxDecoration(
+                    color: scheme.surfaceContainerHigh,
+                    borderRadius: BorderRadius.circular(FolioRadius.lg),
+                  ),
+                  child: Row(
+                    children: [
+                      if (widget.onSearch != null)
+                        Expanded(
+                          child: FilledButton.tonalIcon(
+                            onPressed: widget.onSearch,
+                            icon: const Icon(Icons.search_rounded),
+                            label: Text(l10n.search),
+                          ),
+                        ),
+                      if (widget.onSearch != null &&
+                          (widget.onForceSync != null || widget.onLock != null))
+                        const SizedBox(width: FolioSpace.xs),
+                      if (widget.onForceSync != null)
+                        IconButton(
+                          tooltip: l10n.forceSyncTooltip,
+                          icon: const Icon(Icons.sync_rounded),
+                          onPressed: widget.onForceSync,
+                        ),
+                      if (widget.onLock != null)
+                        IconButton(
+                          tooltip: l10n.lockNow,
+                          icon: const Icon(Icons.lock_outline_rounded),
+                          onPressed: widget.onLock,
+                        ),
+                    ],
+                  ),
+                ),
+              ),
+            if (widget.onQuickAddTask != null)
+              Padding(
+                padding: const EdgeInsets.fromLTRB(
+                  FolioSpace.sm,
+                  0,
+                  FolioSpace.sm,
+                  FolioSpace.sm,
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    FilledButton.tonalIcon(
+                      onPressed: widget.onQuickAddTask,
+                      icon: const Icon(Icons.add_task_rounded, size: 20),
+                      label: Text(l10n.sidebarQuickAddTask),
+                    ),
+                  ],
+                ),
+              ),
+            _recentPagesSection(context),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(
+                FolioSpace.md,
+                FolioSpace.sm,
+                FolioSpace.sm,
+                FolioSpace.sm,
               ),
               child: Row(
                 children: [
-                  if (widget.onSearch != null)
-                    Expanded(
-                      child: FilledButton.tonalIcon(
-                        onPressed: widget.onSearch,
-                        icon: const Icon(Icons.search_rounded),
-                        label: Text(l10n.search),
-                      ),
+                  Text(
+                    l10n.pages,
+                    style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                      fontWeight: FontWeight.w600,
                     ),
-                  if (widget.onSearch != null &&
-                      (widget.onForceSync != null || widget.onLock != null))
-                    const SizedBox(width: FolioSpace.xs),
-                  if (widget.onForceSync != null)
-                    IconButton(
-                      tooltip: l10n.forceSyncTooltip,
-                      icon: const Icon(Icons.sync_rounded),
-                      onPressed: widget.onForceSync,
+                  ),
+                  const Spacer(),
+                  IconButton(
+                    icon: const Icon(Icons.layers_outlined, size: 20),
+                    tooltip: l10n.templateFromGallery,
+                    onPressed: () => _openTemplateGallery(context),
+                  ),
+                  const SizedBox(width: 4),
+                  FilledButton.tonalIcon(
+                    onPressed: () => session.addPage(parentId: null),
+                    icon: const Icon(Icons.add_rounded),
+                    label: Text(l10n.createPage),
+                  ),
+                  const SizedBox(width: 6),
+                  IconButton(
+                    icon: const Icon(
+                      Icons.create_new_folder_outlined,
+                      size: 20,
                     ),
-                  if (widget.onLock != null)
-                    IconButton(
-                      tooltip: l10n.lockNow,
-                      icon: const Icon(Icons.lock_outline_rounded),
-                      onPressed: widget.onLock,
-                    ),
+                    tooltip: 'Nueva carpeta',
+                    onPressed: () => session.addFolder(parentId: null),
+                  ),
                 ],
               ),
             ),
-          ),
-        if (widget.onQuickAddTask != null)
-          Padding(
-            padding: const EdgeInsets.fromLTRB(
-              FolioSpace.sm,
-              0,
-              FolioSpace.sm,
-              FolioSpace.sm,
+            _TagFilterBar(
+              tags: session.allTags,
+              selected: _selectedTagFilter,
+              onSelect: (tag) => setState(() {
+                _selectedTagFilter = _selectedTagFilter == tag ? null : tag;
+              }),
             ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                FilledButton.tonalIcon(
-                  onPressed: widget.onQuickAddTask,
-                  icon: const Icon(Icons.add_task_rounded, size: 20),
-                  label: Text(l10n.sidebarQuickAddTask),
+            Expanded(
+              child: Container(
+                margin: const EdgeInsets.fromLTRB(
+                  FolioSpace.sm,
+                  0,
+                  FolioSpace.sm,
+                  FolioSpace.sm,
                 ),
-              ],
-            ),
-          ),
-        _recentPagesSection(context),
-        Padding(
-          padding: const EdgeInsets.fromLTRB(
-            FolioSpace.md,
-            FolioSpace.sm,
-            FolioSpace.sm,
-            FolioSpace.sm,
-          ),
-          child: Row(
-            children: [
-              Text(
-                l10n.pages,
-                style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                  color: Theme.of(context).colorScheme.onSurfaceVariant,
-                  fontWeight: FontWeight.w600,
+                padding: const EdgeInsets.fromLTRB(
+                  FolioSpace.xs,
+                  FolioSpace.xs,
+                  FolioSpace.xs,
+                  FolioSpace.sm,
                 ),
-              ),
-              const Spacer(),
-              IconButton(
-                icon: const Icon(Icons.layers_outlined, size: 20),
-                tooltip: l10n.templateFromGallery,
-                onPressed: () => _openTemplateGallery(context),
-              ),
-              const SizedBox(width: 4),
-              FilledButton.tonalIcon(
-                onPressed: () => session.addPage(parentId: null),
-                icon: const Icon(Icons.add_rounded),
-                label: Text(l10n.createPage),
-              ),
-              const SizedBox(width: 6),
-              IconButton(
-                icon: const Icon(Icons.create_new_folder_outlined, size: 20),
-                tooltip: 'Nueva carpeta',
-                onPressed: () => session.addFolder(parentId: null),
-              ),
-            ],
-          ),
-        ),
-        _TagFilterBar(
-          tags: session.allTags,
-          selected: _selectedTagFilter,
-          onSelect: (tag) => setState(() {
-            _selectedTagFilter = _selectedTagFilter == tag ? null : tag;
-          }),
-        ),
-        Expanded(
-          child: Container(
-            margin: const EdgeInsets.fromLTRB(
-              FolioSpace.sm,
-              0,
-              FolioSpace.sm,
-              FolioSpace.sm,
-            ),
-            padding: const EdgeInsets.fromLTRB(
-              FolioSpace.xs,
-              FolioSpace.xs,
-              FolioSpace.xs,
-              FolioSpace.sm,
-            ),
-            decoration: BoxDecoration(
-              color: scheme.surfaceContainerLow,
-              borderRadius: BorderRadius.circular(FolioRadius.xl),
-              border: Border.all(
-                color: scheme.outlineVariant.withValues(
-                  alpha: FolioAlpha.track,
-                ),
-              ),
-            ),
-            child: DragTarget<String>(
-              onWillAcceptWithDetails: (details) {
-                final draggedId = details.data;
-                // Root nunca crea ciclo.
-                return draggedId.trim().isNotEmpty;
-              },
-              onAcceptWithDetails: (details) {
-                final draggedId = details.data;
-                final order = session.pageOrderForParent(null);
-                session.movePage(
-                  pageId: draggedId,
-                  newParentId: null,
-                  newIndex: order.length,
-                );
-              },
-              builder: (context, candidates, rejected) {
-                final hoveringRoot = candidates.isNotEmpty;
-                return AnimatedContainer(
-                  duration: const Duration(milliseconds: 140),
-                  curve: Curves.easeOut,
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(FolioRadius.xl),
-                    border: hoveringRoot
-                        ? Border.all(
-                            color: scheme.primary.withValues(alpha: 0.25),
-                            width: 2,
-                          )
-                        : null,
+                decoration: BoxDecoration(
+                  color: scheme.surfaceContainerLow,
+                  borderRadius: BorderRadius.circular(FolioRadius.xl),
+                  border: Border.all(
+                    color: scheme.outlineVariant.withValues(
+                      alpha: FolioAlpha.track,
+                    ),
                   ),
-                  child: visible.rows.isEmpty && _selectedTagFilter != null
-                      ? Center(
-                          child: Padding(
-                            padding: const EdgeInsets.all(FolioSpace.md),
-                            child: Text(
-                              AppLocalizations.of(context).tagNoPagesForFilter,
-                              style: Theme.of(context).textTheme.bodySmall
-                                  ?.copyWith(
-                                    color: Theme.of(
+                ),
+                child: DragTarget<String>(
+                  onWillAcceptWithDetails: (details) {
+                    final draggedId = details.data;
+                    // Root nunca crea ciclo.
+                    return draggedId.trim().isNotEmpty;
+                  },
+                  onAcceptWithDetails: (details) {
+                    final draggedId = details.data;
+                    final order = session.pageOrderForParent(null);
+                    session.movePage(
+                      pageId: draggedId,
+                      newParentId: null,
+                      newIndex: order.length,
+                    );
+                  },
+                  builder: (context, candidates, rejected) {
+                    final hoveringRoot = candidates.isNotEmpty;
+                    return AnimatedContainer(
+                      duration: const Duration(milliseconds: 140),
+                      curve: Curves.easeOut,
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(FolioRadius.xl),
+                        border: hoveringRoot
+                            ? Border.all(
+                                color: scheme.primary.withValues(alpha: 0.25),
+                                width: 2,
+                              )
+                            : null,
+                      ),
+                      child: visible.rows.isEmpty && _selectedTagFilter != null
+                          ? Center(
+                              child: Padding(
+                                padding: const EdgeInsets.all(FolioSpace.md),
+                                child: Text(
+                                  AppLocalizations.of(
+                                    context,
+                                  ).tagNoPagesForFilter,
+                                  style: Theme.of(context).textTheme.bodySmall
+                                      ?.copyWith(
+                                        color: Theme.of(
+                                          context,
+                                        ).colorScheme.onSurfaceVariant,
+                                      ),
+                                  textAlign: TextAlign.center,
+                                ),
+                              ),
+                            )
+                          : Scrollbar(
+                              controller: _pagesScrollController,
+                              child: ListView.builder(
+                                controller: _pagesScrollController,
+                                padding: EdgeInsets.zero,
+                                itemCount: visible.rows.length * 2 + 1,
+                                itemBuilder: (context, index) {
+                                  // Índices impares: items. Pares: gaps (drop zones).
+                                  if (index.isOdd) {
+                                    final row = visible.rows[index ~/ 2];
+                                    return _draggablePageTile(
                                       context,
-                                    ).colorScheme.onSurfaceVariant,
-                                  ),
-                              textAlign: TextAlign.center,
+                                      row.page,
+                                      row.indent,
+                                    );
+                                  }
+
+                                  final gapIdx = index ~/ 2; // 0..rows.length
+                                  final beforeRow = gapIdx < visible.rows.length
+                                      ? visible.rows[gapIdx]
+                                      : null;
+                                  final parentId =
+                                      beforeRow?.page.parentId ??
+                                      (visible.rows.isNotEmpty
+                                          ? visible.rows.last.page.parentId
+                                          : null);
+                                  final beforeId = beforeRow?.page.id;
+
+                                  return DragTarget<String>(
+                                    onWillAcceptWithDetails: (details) {
+                                      final draggedId = details.data;
+                                      if (beforeId != null &&
+                                          draggedId == beforeId) {
+                                        return false;
+                                      }
+                                      // Evitar ciclos si cambia de padre y el padre destino está bajo el dragged.
+                                      if (parentId != null &&
+                                          session.isUnderAncestor(
+                                            ancestorId: draggedId,
+                                            nodeId: parentId,
+                                          )) {
+                                        return false;
+                                      }
+                                      return true;
+                                    },
+                                    onAcceptWithDetails: (details) {
+                                      final draggedId = details.data;
+                                      final order = session.pageOrderForParent(
+                                        parentId,
+                                      );
+                                      // Insertar en la posición del gap dentro de este parent.
+                                      final idx = gapIdx.clamp(0, order.length);
+                                      session.movePage(
+                                        pageId: draggedId,
+                                        newParentId: parentId,
+                                        newIndex: idx,
+                                      );
+                                    },
+                                    builder: (context, candidates, rejected) {
+                                      final hovering = candidates.isNotEmpty;
+                                      return AnimatedContainer(
+                                        duration: const Duration(
+                                          milliseconds: 120,
+                                        ),
+                                        margin: const EdgeInsets.symmetric(
+                                          vertical: 2,
+                                          horizontal: 6,
+                                        ),
+                                        height: hovering ? 10 : 6,
+                                        decoration: BoxDecoration(
+                                          color: hovering
+                                              ? scheme.primary.withValues(
+                                                  alpha: 0.45,
+                                                )
+                                              : Colors.transparent,
+                                          borderRadius: BorderRadius.circular(
+                                            999,
+                                          ),
+                                        ),
+                                      );
+                                    },
+                                  );
+                                },
+                              ),
                             ),
-                          ),
-                        )
-                      : Scrollbar(
-                          controller: _pagesScrollController,
-                          child: ListView.builder(
-                            controller: _pagesScrollController,
-                            padding: EdgeInsets.zero,
-                            itemCount: visible.rows.length * 2 + 1,
-                            itemBuilder: (context, index) {
-                              // Índices impares: items. Pares: gaps (drop zones).
-                              if (index.isOdd) {
-                                final row = visible.rows[index ~/ 2];
-                                return _draggablePageTile(
-                                  context,
-                                  row.page,
-                                  row.indent,
-                                );
-                              }
-
-                              final gapIdx = index ~/ 2; // 0..rows.length
-                              final beforeRow = gapIdx < visible.rows.length
-                                  ? visible.rows[gapIdx]
-                                  : null;
-                              final parentId =
-                                  beforeRow?.page.parentId ??
-                                  (visible.rows.isNotEmpty
-                                      ? visible.rows.last.page.parentId
-                                      : null);
-                              final beforeId = beforeRow?.page.id;
-
-                              return DragTarget<String>(
-                                onWillAcceptWithDetails: (details) {
-                                  final draggedId = details.data;
-                                  if (beforeId != null &&
-                                      draggedId == beforeId) {
-                                    return false;
-                                  }
-                                  // Evitar ciclos si cambia de padre y el padre destino está bajo el dragged.
-                                  if (parentId != null &&
-                                      session.isUnderAncestor(
-                                        ancestorId: draggedId,
-                                        nodeId: parentId,
-                                      )) {
-                                    return false;
-                                  }
-                                  return true;
-                                },
-                                onAcceptWithDetails: (details) {
-                                  final draggedId = details.data;
-                                  final order = session.pageOrderForParent(
-                                    parentId,
-                                  );
-                                  // Insertar en la posición del gap dentro de este parent.
-                                  final idx = gapIdx.clamp(0, order.length);
-                                  session.movePage(
-                                    pageId: draggedId,
-                                    newParentId: parentId,
-                                    newIndex: idx,
-                                  );
-                                },
-                                builder: (context, candidates, rejected) {
-                                  final hovering = candidates.isNotEmpty;
-                                  return AnimatedContainer(
-                                    duration: const Duration(milliseconds: 120),
-                                    margin: const EdgeInsets.symmetric(
-                                      vertical: 2,
-                                      horizontal: 6,
-                                    ),
-                                    height: hovering ? 10 : 6,
-                                    decoration: BoxDecoration(
-                                      color: hovering
-                                          ? scheme.primary.withValues(
-                                              alpha: 0.45,
-                                            )
-                                          : Colors.transparent,
-                                      borderRadius: BorderRadius.circular(999),
-                                    ),
-                                  );
-                                },
-                              );
-                            },
-                          ),
-                        ),
-                );
-              },
+                    );
+                  },
+                ),
+              ),
             ),
-          ),
-        ),
-        if (widget.onOpenSettings != null)
-          Padding(
-            padding: const EdgeInsets.fromLTRB(
-              FolioSpace.sm,
-              0,
-              FolioSpace.sm,
-              FolioSpace.sm,
-            ),
-            child: FilledButton.tonalIcon(
-              onPressed: widget.onOpenSettings,
-              icon: const Icon(Icons.settings_rounded),
-              label: Text(l10n.settings),
-            ),
-          ),
-      ],
+            if (widget.onOpenSettings != null)
+              Padding(
+                padding: const EdgeInsets.fromLTRB(
+                  FolioSpace.sm,
+                  0,
+                  FolioSpace.sm,
+                  FolioSpace.sm,
+                ),
+                child: FilledButton.tonalIcon(
+                  onPressed: widget.onOpenSettings,
+                  icon: const Icon(Icons.settings_rounded),
+                  label: Text(l10n.settings),
+                ),
+              ),
+          ],
+        );
+      },
     );
   }
 }
