@@ -9085,6 +9085,12 @@ abstract class AppLocalizations {
   /// **'Esto reemplazará (machacará) el contenido de la libreta activa. Asegúrate de tener una copia local antes de continuar.'**
   String get settingsCloudBackupImportOverwriteBody;
 
+  /// No description provided for @settingsCloudBackupImportRemoteCloudPackIntro.
+  ///
+  /// In es, this message translates to:
+  /// **'Esta copia incremental es de otra libreta de tu cuenta Folio Cloud. Introduce la contraseña de esa libreta para descargarla (déjala en blanco si no está cifrada).'**
+  String get settingsCloudBackupImportRemoteCloudPackIntro;
+
   /// No description provided for @settingsCloudBackupDeleteWarning.
   ///
   /// In es, this message translates to:

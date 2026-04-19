@@ -1141,24 +1141,33 @@ class _SidebarState extends State<Sidebar> {
               ),
               child: Row(
                 children: [
-                  Text(
-                    l10n.pages,
-                    style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                      color: Theme.of(context).colorScheme.onSurfaceVariant,
-                      fontWeight: FontWeight.w600,
+                  Expanded(
+                    child: Text(
+                      l10n.pages,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
+                        fontWeight: FontWeight.w600,
+                      ),
                     ),
                   ),
-                  const Spacer(),
                   IconButton(
                     icon: const Icon(Icons.layers_outlined, size: 20),
                     tooltip: l10n.templateFromGallery,
                     onPressed: () => _openTemplateGallery(context),
                   ),
                   const SizedBox(width: 4),
-                  FilledButton.tonalIcon(
-                    onPressed: () => session.addPage(parentId: null),
-                    icon: const Icon(Icons.add_rounded),
-                    label: Text(l10n.createPage),
+                  Flexible(
+                    child: FilledButton.tonalIcon(
+                      onPressed: () => session.addPage(parentId: null),
+                      icon: const Icon(Icons.add_rounded),
+                      label: Text(
+                        l10n.createPage,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
                   ),
                   const SizedBox(width: 6),
                   IconButton(
@@ -1166,7 +1175,7 @@ class _SidebarState extends State<Sidebar> {
                       Icons.create_new_folder_outlined,
                       size: 20,
                     ),
-                    tooltip: 'Nueva carpeta',
+                    tooltip: l10n.driveNewFolder,
                     onPressed: () => session.addFolder(parentId: null),
                   ),
                 ],

@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:io';
 
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/services.dart';
 
 class SystemAudioDevice {
@@ -107,5 +108,6 @@ class SystemAudioService {
 
   /// Devuelve true si audio del sistema está soportado en esta plataforma.
   static bool get isSupported =>
-      Platform.isWindows || Platform.isMacOS || Platform.isLinux;
+      !kIsWeb &&
+      (Platform.isWindows || Platform.isMacOS || Platform.isLinux);
 }

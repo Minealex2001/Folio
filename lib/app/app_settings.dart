@@ -363,7 +363,8 @@ class AppSettings extends ChangeNotifier {
   static const double minEditorContentWidth = 840;
   static const double maxEditorContentWidth = 1400;
   static const double defaultEditorContentWidth = 1080;
-  static const double minWorkspaceSidebarWidth = 220;
+  /// Mínimo al redimensionar la barra lateral del workspace (escritorio).
+  static const double minWorkspaceSidebarWidth = 300;
   static const double maxWorkspaceSidebarWidth = 480;
   static const double defaultWorkspaceSidebarWidth = 320;
   static const double minAiChatPanelWidth = 280;

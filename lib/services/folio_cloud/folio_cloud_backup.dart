@@ -1,6 +1,8 @@
 import 'dart:io';
+import 'dart:typed_data';
 
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:path/path.dart' as p;
@@ -298,6 +300,37 @@ Future<List<FolioCloudBackupEntry>> listFolioCloudBackups({
   return _listFolioCloudBackupsViaCallable(vaultId: vaultId);
 }
 
+int _folioCloudBackupGetDataMaxBytes(FolioCloudBackupEntry entry) {
+  const cap = 512 * 1024 * 1024;
+  if (entry.sizeBytes <= 0) return cap;
+  final padded = entry.sizeBytes + 65536;
+  if (padded < entry.sizeBytes) return cap;
+  return padded > cap ? cap : padded;
+}
+
+/// Descarga los bytes de una copia (ZIP/TAR.GZ) desde Storage.
+///
+/// En web se usa en lugar de [Reference.writeToFile], que no está soportado.
+Future<Uint8List> downloadFolioCloudBackupBytes({
+  required FolioCloudBackupEntry entry,
+  FolioCloudSnapshot? entitlementSnapshot,
+}) async {
+  _requireCloudBackupEntitlement(entitlementSnapshot);
+  if (Firebase.apps.isEmpty) {
+    throw StateError('Firebase not initialized');
+  }
+  if (FirebaseAuth.instance.currentUser == null) {
+    throw StateError('Not signed in');
+  }
+  final ref = FirebaseStorage.instance.ref(entry.storagePath);
+  final maxBytes = _folioCloudBackupGetDataMaxBytes(entry);
+  final data = await ref.getData(maxBytes);
+  if (data == null || data.isEmpty) {
+    throw StateError('La descarga no devolvió datos.');
+  }
+  return data;
+}
+
 /// Descarga una copia de la nube a un archivo local.
 Future<void> downloadFolioCloudBackup({
   required FolioCloudBackupEntry entry,
@@ -311,7 +344,15 @@ Future<void> downloadFolioCloudBackup({
   final user = FirebaseAuth.instance.currentUser;
   if (user == null) throw StateError('Not signed in');
   final ref = FirebaseStorage.instance.ref(entry.storagePath);
-  await ref.writeToFile(destinationFile);
+  if (kIsWeb) {
+    final data = await downloadFolioCloudBackupBytes(
+      entry: entry,
+      entitlementSnapshot: entitlementSnapshot,
+    );
+    await destinationFile.writeAsBytes(data, flush: true);
+  } else {
+    await ref.writeToFile(destinationFile);
+  }
 }
 
 Future<void> deleteFolioCloudBackup({

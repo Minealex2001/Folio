@@ -1682,6 +1682,7 @@
   ,"@settingsCloudBackupsTotalLabel": {"placeholders": {"size": {}}}
   ,"settingsCloudBackupImportOverwriteTitle": "Import (overwrite)"
   ,"settingsCloudBackupImportOverwriteBody": "This will overwrite the contents of the currently open vault. Make sure you have a local backup before continuing."
+  ,"settingsCloudBackupImportRemoteCloudPackIntro": "This incremental backup belongs to another notebook in your Folio Cloud account. Enter that notebook’s vault password to download it (leave blank if that notebook is not encrypted)."
   ,"settingsCloudBackupDeleteWarning": "Are you sure you want to delete this cloud backup? This action cannot be undone."
   ,"settingsPublishedRequiresPlan": "You need Folio Cloud with web publishing enabled."
   ,"settingsPublishedPagesTitle": "Published pages"

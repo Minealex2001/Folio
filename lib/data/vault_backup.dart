@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:io';
+import 'dart:typed_data';
 
 import 'package:archive/archive_io.dart';
 import 'package:cryptography/cryptography.dart';
@@ -7,6 +8,7 @@ import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:path/path.dart' as p;
 
 import '../crypto/vault_crypto.dart';
+import 'storage/vault_storage.dart';
 import 'vault_payload.dart';
 import 'vault_paths.dart';
 
@@ -471,9 +473,102 @@ Future<void> validateImportZip(Directory extractedDir, String password) async {
   }
 }
 
+/// Aplica una copia ya extraída a [vaultId] en almacenamiento web (IndexedDB).
+Future<void> _applyImportToVaultStorageFromExtractedDir(
+  Directory extractedDir,
+  String vaultId,
+) async {
+  final keysSrc = File(p.join(extractedDir.path, VaultPaths.wrappedDekFile));
+  final binSrc = File(p.join(extractedDir.path, VaultPaths.cipherPayloadFile));
+  final modeSrc = File(p.join(extractedDir.path, VaultPaths.vaultModeFile));
+  if (!binSrc.existsSync()) {
+    throw VaultBackupException('Falta vault.bin en la copia.');
+  }
+
+  if (await _extractedBackupIsPlain(extractedDir)) {
+    await VaultStorage.instance.deleteVaultFile(vaultId, VaultPaths.wrappedDekFile);
+    await VaultStorage.instance.writeVaultFile(
+      vaultId,
+      VaultPaths.cipherPayloadFile,
+      await binSrc.readAsBytes(),
+    );
+    if (modeSrc.existsSync()) {
+      await VaultStorage.instance.writeVaultFile(
+        vaultId,
+        VaultPaths.vaultModeFile,
+        Uint8List.fromList(utf8.encode(await modeSrc.readAsString())),
+      );
+    } else {
+      await VaultStorage.instance.writeVaultFile(
+        vaultId,
+        VaultPaths.vaultModeFile,
+        Uint8List.fromList(utf8.encode(_vaultModePlain)),
+      );
+    }
+  } else {
+    if (!keysSrc.existsSync()) {
+      throw VaultBackupException('Falta vault.keys en la copia cifrada.');
+    }
+    await VaultStorage.instance.writeVaultFile(
+      vaultId,
+      VaultPaths.wrappedDekFile,
+      await keysSrc.readAsBytes(),
+    );
+    await VaultStorage.instance.writeVaultFile(
+      vaultId,
+      VaultPaths.cipherPayloadFile,
+      await binSrc.readAsBytes(),
+    );
+    if (modeSrc.existsSync()) {
+      await VaultStorage.instance.writeVaultFile(
+        vaultId,
+        VaultPaths.vaultModeFile,
+        Uint8List.fromList(utf8.encode(await modeSrc.readAsString())),
+      );
+    } else {
+      await VaultStorage.instance.writeVaultFile(
+        vaultId,
+        VaultPaths.vaultModeFile,
+        Uint8List.fromList(utf8.encode(_vaultModeEncrypted)),
+      );
+    }
+  }
+
+  await VaultStorage.instance.clearAttachments(vaultId);
+
+  final attachmentsSrc = Directory(
+    p.join(extractedDir.path, VaultPaths.attachmentsDirName),
+  );
+  if (attachmentsSrc.existsSync()) {
+    await for (final entity in attachmentsSrc.list(
+      recursive: true,
+      followLinks: false,
+    )) {
+      if (entity is File) {
+        final rel = p
+            .relative(entity.path, from: attachmentsSrc.path)
+            .replaceAll(r'\', '/');
+        final vaultRel = p.posix.join(VaultPaths.attachmentsDirName, rel);
+        await VaultStorage.instance.writeVaultFile(
+          vaultId,
+          vaultRel,
+          await entity.readAsBytes(),
+        );
+      }
+    }
+  }
+}
+
 /// Sustituye el material de la libreta **activa** por el del directorio ya validado.
 Future<void> applyImportFromDirectory(Directory extractedDir) async {
-  if (kIsWeb) throw UnsupportedError('Backup not supported on web');
+  if (kIsWeb) {
+    final vaultId = VaultPaths.activeVaultId;
+    if (vaultId == null || vaultId.isEmpty) {
+      throw VaultBackupException('No hay libreta activa.');
+    }
+    await _applyImportToVaultStorageFromExtractedDir(extractedDir, vaultId);
+    return;
+  }
   final root = await VaultPaths.vaultDirectory();
   await applyImportToVaultRoot(extractedDir, root);
 }
@@ -483,7 +578,11 @@ Future<void> applyImportToVaultRoot(
   Directory extractedDir,
   Directory vaultRoot,
 ) async {
-  if (kIsWeb) throw UnsupportedError('Backup not supported on web');
+  if (kIsWeb) {
+    final vaultId = p.basename(vaultRoot.path);
+    await _applyImportToVaultStorageFromExtractedDir(extractedDir, vaultId);
+    return;
+  }
   final keysSrc = File(p.join(extractedDir.path, VaultPaths.wrappedDekFile));
   final binSrc = File(p.join(extractedDir.path, VaultPaths.cipherPayloadFile));
   final modeSrc = File(p.join(extractedDir.path, VaultPaths.vaultModeFile));

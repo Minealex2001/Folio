@@ -286,6 +286,10 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
         _busy = false;
         _error = '$e';
       });
+    } finally {
+      if (mounted) {
+        setState(() => _busy = false);
+      }
     }
   }
 
@@ -376,11 +380,9 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
           tmp,
           vaultPwd,
         );
-        if (mounted) setState(() => _busy = false);
       } on VaultCryptoException catch (e) {
         if (mounted) {
           setState(() {
-            _busy = false;
             _error = '$e';
           });
         }
@@ -388,7 +390,6 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
         if (mounted) {
           final isWrap = e.code.toLowerCase() == 'failed-precondition';
           setState(() {
-            _busy = false;
             _error = isWrap
                 ? l10n.onboardingCloudBackupNeedRestoreWrap
                 : l10n.importFailedError(e.message ?? '$e');
@@ -397,14 +398,12 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
       } on VaultBackupException catch (e) {
         if (mounted) {
           setState(() {
-            _busy = false;
             _error = '$e';
           });
         }
       } catch (e) {
         if (mounted) {
           setState(() {
-            _busy = false;
             _error = l10n.importFailedError('$e');
           });
         }
@@ -414,6 +413,9 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
             await tmp.delete(recursive: true);
           }
         } catch (_) {}
+        if (mounted) {
+          setState(() => _busy = false);
+        }
       }
       return;
     }
@@ -440,16 +442,18 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
     } on VaultBackupException catch (e) {
       if (mounted) {
         setState(() {
-          _busy = false;
           _error = '$e';
         });
       }
     } catch (e) {
       if (mounted) {
         setState(() {
-          _busy = false;
           _error = l10n.importFailedError('$e');
         });
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _busy = false);
       }
     }
   }

@@ -1681,6 +1681,7 @@
   "@settingsCloudBackupsTotalLabel": {"placeholders": {"size": {}}},
   "settingsCloudBackupImportOverwriteTitle": "Importar (substituir)",
   "settingsCloudBackupImportOverwriteBody": "Isto irá substituir o conteúdo do caderno aberto. Certifique-se de que tem uma cópia local antes de continuar.",
+  "settingsCloudBackupImportRemoteCloudPackIntro": "Esta cópia incremental é doutro caderno da súa conta Folio Cloud. Introduza a palabra dese caderno para a descargar (deixe en branco se non está cifrado).",
   "settingsCloudBackupDeleteWarning": "Tem a certeza de que quer eliminar esta cópia da nuvem? Esta ação não pode ser anulada.",
   "settingsPublishedRequiresPlan": "Precisa do Folio Cloud com publicação web ativa.",
   "settingsPublishedPagesTitle": "Páginas publicadas",

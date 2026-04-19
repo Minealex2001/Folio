@@ -5151,6 +5151,10 @@ class AppLocalizationsGl extends AppLocalizations {
       'Isto sobrescribirá o contido da libreta aberta. Asegúrate de ter unha copia local antes de continuar.';
 
   @override
+  String get settingsCloudBackupImportRemoteCloudPackIntro =>
+      'Esta copia incremental é doutra libreta da túa conta Folio Cloud. Introduce o contrasinal desa libreta para descargala (deixa en branco se non está cifrada).';
+
+  @override
   String get settingsCloudBackupDeleteWarning =>
       'Seguro que queres borrar esta copia da nube? Esta acción non se pode desfacer.';
 

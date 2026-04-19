@@ -1682,6 +1682,7 @@
   "@settingsCloudBackupsTotalLabel": {"placeholders": {"size": {}}},
   "settingsCloudBackupImportOverwriteTitle": "Inportatu (gainidatzi)",
   "settingsCloudBackupImportOverwriteBody": "Honek irekitako libretaren edukia gainidatziko du. Ziurtatu jarraitu aurretik kopia lokal bat duzula.",
+  "settingsCloudBackupImportRemoteCloudPackIntro": "Inkrementu babeskopia hau zure Folio Cloud kontuko beste libreta batekoa da. Sartu libreta horren pasahitza deskargatzeko (hutsik utzi zifratu gabe badago).",
   "settingsCloudBackupDeleteWarning": "Ziur hodeiko babeskopia hau ezabatu nahi duzula? Ekintza hau ezin da desegin.",
   "settingsPublishedRequiresPlan": "Folio Cloud behar duzu web-argitalpen aktiborekin.",
   "settingsPublishedPagesTitle": "Argitaratutako orriak",

@@ -1120,7 +1120,6 @@ class VaultSession extends ChangeNotifier {
     String archivePath,
     String backupPassword,
   ) async {
-    if (kIsWeb) throw UnsupportedError('Backup import not available on web');
     if (!isUnlocked) {
       throw StateError('La libreta debe estar desbloqueada para importar.');
     }
@@ -1401,6 +1400,9 @@ class VaultSession extends ChangeNotifier {
       }
       await _registry.setActiveVaultId(id);
 
+      final plainImported = await _repo.isPlaintextVault();
+      _vaultUsesEncryption = !plainImported;
+
       await unlockWithPassword(backupPassword);
       _resumeVaultIdAfterNewVault = null;
     } finally {
@@ -1442,6 +1444,9 @@ class VaultSession extends ChangeNotifier {
       );
     }
     await _registry.setActiveVaultId(id);
+
+    final plainImported = await _repo.isPlaintextVault();
+    _vaultUsesEncryption = !plainImported;
 
     await unlockWithPassword(backupPassword);
     _resumeVaultIdAfterNewVault = null;

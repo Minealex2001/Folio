@@ -64,6 +64,7 @@ import 'folio_cloud_reauth_dialog.dart';
 import 'folio_cloud_subscription_pitch_page.dart';
 import 'vault_identity_verify_dialog.dart';
 import '../../services/folio_diagnostic_reporter.dart';
+import '../../services/platform/browser_file_download.dart';
 import '../../services/vault_scheduled_local_export.dart';
 
 String settingsCloudInkOperationLabel(
@@ -363,6 +364,61 @@ class _SettingsPageState extends State<SettingsPage> {
       if (m.id == id) return true;
     }
     return false;
+  }
+
+  /// Evita [value] duplicado con el ítem '' (predeterminado) o ids repetidos del SO.
+  List<DropdownMenuItem<String>> _meetingMicDropdownItems(
+    AppLocalizations l10n,
+  ) {
+    final items = <DropdownMenuItem<String>>[
+      DropdownMenuItem<String>(
+        value: '',
+        child: Text(l10n.meetingNoteSettingsSystemDefault),
+      ),
+    ];
+    final seen = <String>{''};
+    for (final d in _meetingNoteMicDevices) {
+      final id = d.id;
+      if (id.isEmpty || !seen.add(id)) continue;
+      items.add(
+        DropdownMenuItem<String>(
+          value: id,
+          child: Text(
+            d.label.trim().isEmpty ? id : d.label,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+        ),
+      );
+    }
+    return items;
+  }
+
+  List<DropdownMenuItem<String>> _meetingSystemDropdownItems(
+    AppLocalizations l10n,
+  ) {
+    final items = <DropdownMenuItem<String>>[
+      DropdownMenuItem<String>(
+        value: '',
+        child: Text(l10n.meetingNoteSettingsSystemDefault),
+      ),
+    ];
+    final seen = <String>{''};
+    for (final d in _meetingNoteSystemDevices) {
+      final id = d.id;
+      if (id.isEmpty || !seen.add(id)) continue;
+      items.add(
+        DropdownMenuItem<String>(
+          value: id,
+          child: Text(
+            d.label.trim().isEmpty ? id : d.label,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+        ),
+      );
+    }
+    return items;
   }
 
   String _meetingModelLabel(AppLocalizations l10n, String id) {
@@ -1183,9 +1239,7 @@ class _SettingsPageState extends State<SettingsPage> {
 
   Future<bool> _vaultRequiresPassword(String vaultId) async {
     final dir = await VaultPaths.vaultDirectoryForId(vaultId);
-    final modePath = File(
-      '${dir.path}${Platform.pathSeparator}${VaultPaths.vaultModeFile}',
-    );
+    final modePath = File(p.join(dir.path, VaultPaths.vaultModeFile));
     if (!modePath.existsSync()) return true;
     final raw = await modePath.readAsString();
     return raw.trim().toLowerCase() != 'plain';
@@ -1195,9 +1249,7 @@ class _SettingsPageState extends State<SettingsPage> {
     final dir = await VaultPaths.vaultDirectoryForId(vaultId);
     if (!mounted) return false;
     final l10n = AppLocalizations.of(context);
-    final keysPath = File(
-      '${dir.path}${Platform.pathSeparator}${VaultPaths.wrappedDekFile}',
-    );
+    final keysPath = File(p.join(dir.path, VaultPaths.wrappedDekFile));
     if (!keysPath.existsSync()) return true;
 
     final controller = TextEditingController();
@@ -2397,18 +2449,31 @@ class _SettingsPageState extends State<SettingsPage> {
                                 final verified =
                                     await _verifyFolioCloudAccountForBackups();
                                 if (!verified || !mounted) return;
-                                final path = await FilePicker.saveFile(
-                                  dialogTitle:
-                                      l10n.settingsCloudBackupSaveDialogTitle,
-                                  fileName: e.fileName,
-                                );
-                                if (path == null || !ctx.mounted) return;
                                 try {
-                                  await downloadFolioCloudBackup(
-                                    entry: e,
-                                    destinationFile: File(path),
-                                    entitlementSnapshot: snap,
-                                  );
+                                  if (kIsWeb) {
+                                    final bytes =
+                                        await downloadFolioCloudBackupBytes(
+                                      entry: e,
+                                      entitlementSnapshot: snap,
+                                    );
+                                    if (!ctx.mounted) return;
+                                    folioTriggerBrowserDownload(
+                                      e.fileName,
+                                      bytes,
+                                    );
+                                  } else {
+                                    final path = await FilePicker.saveFile(
+                                      dialogTitle: l10n
+                                          .settingsCloudBackupSaveDialogTitle,
+                                      fileName: e.fileName,
+                                    );
+                                    if (path == null || !ctx.mounted) return;
+                                    await downloadFolioCloudBackup(
+                                      entry: e,
+                                      destinationFile: File(path),
+                                      entitlementSnapshot: snap,
+                                    );
+                                  }
                                   if (!ctx.mounted) return;
                                   Navigator.pop(ctx);
                                   if (mounted) {
@@ -2478,46 +2543,57 @@ class _SettingsPageState extends State<SettingsPage> {
                                       p.join(tmpDir.path, 'vault_extract'),
                                     );
                                     await extract.create(recursive: true);
-                                    await downloadLatestCloudPackToDirectory(
-                                      session: _s,
-                                      vaultId: selectedVaultId,
-                                      extractDir: extract,
-                                      entitlementSnapshot: snap,
-                                    );
-                                    final modeFile = File(
-                                      p.join(
-                                        extract.path,
-                                        VaultPaths.vaultModeFile,
-                                      ),
-                                    );
-                                    final isPlain =
-                                        modeFile.existsSync() &&
-                                        modeFile
-                                                .readAsStringSync()
-                                                .trim()
-                                                .toLowerCase() ==
-                                            'plain';
-                                    if (!isPlain) {
+                                    final activeId =
+                                        _s.activeVaultId?.trim() ?? '';
+                                    final sameCloudVault =
+                                        selectedVaultId == activeId;
+                                    if (!sameCloudVault) {
                                       final ctrl = TextEditingController();
                                       var obscure = true;
                                       final ok = await showDialog<bool>(
                                         context: ctx,
                                         builder: (dCtx) => StatefulBuilder(
-                                          builder: (dCtx, setSt2) => AlertDialog(
+                                          builder: (dCtx, setSt2) =>
+                                              AlertDialog(
                                             title: Text(
                                               l10n.backupPasswordDialogTitle,
                                             ),
-                                            content: FolioPasswordField(
-                                              controller: ctrl,
-                                              labelText: l10n.passwordLabel,
-                                              obscureText: obscure,
-                                              onToggleObscure: () => setSt2(
-                                                () => obscure = !obscure,
+                                            content: SingleChildScrollView(
+                                              child: Column(
+                                                mainAxisSize: MainAxisSize.min,
+                                                crossAxisAlignment:
+                                                    CrossAxisAlignment.stretch,
+                                                children: [
+                                                  Text(
+                                                    l10n
+                                                        .settingsCloudBackupImportRemoteCloudPackIntro,
+                                                  ),
+                                                  const SizedBox(height: 12),
+                                                  FolioPasswordField(
+                                                    controller: ctrl,
+                                                    labelText:
+                                                        l10n.passwordLabel,
+                                                    obscureText: obscure,
+                                                    onToggleObscure: () =>
+                                                        setSt2(
+                                                          () => obscure =
+                                                              !obscure,
+                                                        ),
+                                                    showPasswordTooltip:
+                                                        l10n.showPassword,
+                                                    hidePasswordTooltip:
+                                                        l10n.hidePassword,
+                                                  ),
+                                                  const SizedBox(height: 8),
+                                                  Text(
+                                                    l10n
+                                                        .cloudPackRestorePasswordHelper,
+                                                    style: Theme.of(dCtx)
+                                                        .textTheme
+                                                        .bodySmall,
+                                                  ),
+                                                ],
                                               ),
-                                              showPasswordTooltip:
-                                                  l10n.showPassword,
-                                              hidePasswordTooltip:
-                                                  l10n.hidePassword,
                                             ),
                                             actions: [
                                               TextButton(
@@ -2538,9 +2614,86 @@ class _SettingsPageState extends State<SettingsPage> {
                                       );
                                       password = ctrl.text;
                                       ctrl.dispose();
-                                      if (ok != true ||
-                                          password.trim().isEmpty) {
+                                      if (ok != true) {
                                         return;
+                                      }
+                                      await downloadCloudPackToDirectoryForRestore(
+                                        vaultId: selectedVaultId,
+                                        restorePassword: password,
+                                        extractDir: extract,
+                                        entitlementSnapshot: snap,
+                                      );
+                                    } else {
+                                      await downloadLatestCloudPackToDirectory(
+                                        session: _s,
+                                        vaultId: selectedVaultId,
+                                        extractDir: extract,
+                                        entitlementSnapshot: snap,
+                                      );
+                                      final modeFile = File(
+                                        p.join(
+                                          extract.path,
+                                          VaultPaths.vaultModeFile,
+                                        ),
+                                      );
+                                      final isPlain =
+                                          modeFile.existsSync() &&
+                                              modeFile
+                                                  .readAsStringSync()
+                                                  .trim()
+                                                  .toLowerCase() ==
+                                                  'plain';
+                                      if (!isPlain) {
+                                        final ctrl =
+                                            TextEditingController();
+                                        var obscure = true;
+                                        final ok = await showDialog<bool>(
+                                          context: ctx,
+                                          builder: (dCtx) =>
+                                              StatefulBuilder(
+                                            builder: (dCtx, setSt2) =>
+                                                AlertDialog(
+                                              title: Text(
+                                                l10n.backupPasswordDialogTitle,
+                                              ),
+                                              content: FolioPasswordField(
+                                                controller: ctrl,
+                                                labelText:
+                                                    l10n.passwordLabel,
+                                                obscureText: obscure,
+                                                onToggleObscure: () => setSt2(
+                                                  () => obscure = !obscure,
+                                                ),
+                                                showPasswordTooltip:
+                                                    l10n.showPassword,
+                                                hidePasswordTooltip:
+                                                    l10n.hidePassword,
+                                              ),
+                                              actions: [
+                                                TextButton(
+                                                  onPressed: () =>
+                                                      Navigator.pop(
+                                                          dCtx, false),
+                                                  child: Text(l10n.cancel),
+                                                ),
+                                                FilledButton(
+                                                  onPressed: () =>
+                                                      Navigator.pop(
+                                                          dCtx, true),
+                                                  child: Text(
+                                                    l10n.settingsCloudBackupActionImportOverwrite,
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                          ),
+                                        );
+                                        password = ctrl.text;
+                                        ctrl.dispose();
+                                        if (ok != true ||
+                                            password.trim().isEmpty) {
+                                          return;
+                                        }
                                       }
                                     }
                                     await _s
@@ -3209,7 +3362,7 @@ class _SettingsPageState extends State<SettingsPage> {
       final betaNote = result.isPrerelease
           ? '\n\n${l10n.updaterStartupDialogBetaNote}'
           : '';
-      final question = Platform.isAndroid
+      final question = defaultTargetPlatform == TargetPlatform.android
           ? l10n.updaterOpenApkDownloadQuestion
           : l10n.updaterStartupDialogQuestion;
       final newVer = result.releaseVersion ?? result.currentVersion;
@@ -3239,7 +3392,7 @@ class _SettingsPageState extends State<SettingsPage> {
         ),
       );
       if (go != true) return;
-      if (Platform.isAndroid) {
+      if (defaultTargetPlatform == TargetPlatform.android) {
         final raw = result.installerUrl ?? '';
         final uri = Uri.tryParse(raw);
         if (uri == null) {
@@ -6169,7 +6322,9 @@ class _SettingsPageState extends State<SettingsPage> {
                                     value: _app.closeToTray,
                                     onChanged: _app.setCloseToTray,
                                   ),
-                                  if (Platform.isWindows) ...[
+                                  if (!kIsWeb &&
+                                      defaultTargetPlatform ==
+                                          TargetPlatform.windows) ...[
                                     const Divider(height: 1),
                                     SwitchListTile(
                                       secondary: const Icon(
@@ -6334,27 +6489,7 @@ class _SettingsPageState extends State<SettingsPage> {
                                               icon: const Icon(Icons.refresh),
                                             ),
                                           ),
-                                          items: [
-                                            DropdownMenuItem<String>(
-                                              value: '',
-                                              child: Text(
-                                                l10n.meetingNoteSettingsSystemDefault,
-                                              ),
-                                            ),
-                                            ..._meetingNoteMicDevices.map(
-                                              (d) => DropdownMenuItem<String>(
-                                                value: d.id,
-                                                child: Text(
-                                                  d.label.trim().isEmpty
-                                                      ? d.id
-                                                      : d.label,
-                                                  maxLines: 1,
-                                                  overflow:
-                                                      TextOverflow.ellipsis,
-                                                ),
-                                              ),
-                                            ),
-                                          ],
+                                          items: _meetingMicDropdownItems(l10n),
                                           onChanged: (value) {
                                             unawaited(
                                               _app.setMeetingNoteMicDeviceId(
@@ -6382,27 +6517,7 @@ class _SettingsPageState extends State<SettingsPage> {
                                             border: const OutlineInputBorder(),
                                             isDense: true,
                                           ),
-                                          items: [
-                                            DropdownMenuItem<String>(
-                                              value: '',
-                                              child: Text(
-                                                l10n.meetingNoteSettingsSystemDefault,
-                                              ),
-                                            ),
-                                            ..._meetingNoteSystemDevices.map(
-                                              (d) => DropdownMenuItem<String>(
-                                                value: d.id,
-                                                child: Text(
-                                                  d.label.trim().isEmpty
-                                                      ? d.id
-                                                      : d.label,
-                                                  maxLines: 1,
-                                                  overflow:
-                                                      TextOverflow.ellipsis,
-                                                ),
-                                              ),
-                                            ),
-                                          ],
+                                          items: _meetingSystemDropdownItems(l10n),
                                           onChanged: (value) {
                                             unawaited(
                                               _app.setMeetingNoteSystemDeviceId(

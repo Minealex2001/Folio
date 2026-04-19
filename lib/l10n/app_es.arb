@@ -1682,6 +1682,7 @@
   ,"@settingsCloudBackupsTotalLabel": {"placeholders": {"size": {}}}
   ,"settingsCloudBackupImportOverwriteTitle": "Importar (machacar)"
   ,"settingsCloudBackupImportOverwriteBody": "Esto reemplazará (machacará) el contenido de la libreta activa. Asegúrate de tener una copia local antes de continuar."
+  ,"settingsCloudBackupImportRemoteCloudPackIntro": "Esta copia incremental es de otra libreta de tu cuenta Folio Cloud. Introduce la contraseña de esa libreta para descargarla (déjala en blanco si no está cifrada)."
   ,"settingsCloudBackupDeleteWarning": "¿Seguro que quieres borrar esta copia de la nube? Esta acción no se puede deshacer."
   ,"settingsPublishedRequiresPlan": "Necesitas Folio Cloud con publicación web activa."
   ,"settingsPublishedPagesTitle": "Páginas publicadas"

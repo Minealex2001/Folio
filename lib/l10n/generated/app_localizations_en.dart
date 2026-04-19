@@ -5089,6 +5089,10 @@ class AppLocalizationsEn extends AppLocalizations {
       'This will overwrite the contents of the currently open vault. Make sure you have a local backup before continuing.';
 
   @override
+  String get settingsCloudBackupImportRemoteCloudPackIntro =>
+      'This incremental backup belongs to another notebook in your Folio Cloud account. Enter that notebook’s vault password to download it (leave blank if that notebook is not encrypted).';
+
+  @override
   String get settingsCloudBackupDeleteWarning =>
       'Are you sure you want to delete this cloud backup? This action cannot be undone.';
 

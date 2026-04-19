@@ -5125,6 +5125,10 @@ class AppLocalizationsPt extends AppLocalizations {
       'Isto irá substituir o conteúdo do caderno aberto. Certifique-se de que tem uma cópia local antes de continuar.';
 
   @override
+  String get settingsCloudBackupImportRemoteCloudPackIntro =>
+      'Esta cópia incremental é doutro caderno da súa conta Folio Cloud. Introduza a palabra dese caderno para a descargar (deixe en branco se non está cifrado).';
+
+  @override
   String get settingsCloudBackupDeleteWarning =>
       'Tem a certeza de que quer eliminar esta cópia da nuvem? Esta ação não pode ser anulada.';
 

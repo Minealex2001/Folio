@@ -5160,6 +5160,10 @@ class AppLocalizationsEu extends AppLocalizations {
       'Honek irekitako libretaren edukia gainidatziko du. Ziurtatu jarraitu aurretik kopia lokal bat duzula.';
 
   @override
+  String get settingsCloudBackupImportRemoteCloudPackIntro =>
+      'Inkrementu babeskopia hau zure Folio Cloud kontuko beste libreta batekoa da. Sartu libreta horren pasahitza deskargatzeko (hutsik utzi zifratu gabe badago).';
+
+  @override
   String get settingsCloudBackupDeleteWarning =>
       'Ziur hodeiko babeskopia hau ezabatu nahi duzula? Ekintza hau ezin da desegin.';
 

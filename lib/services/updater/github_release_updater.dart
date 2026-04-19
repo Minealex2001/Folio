@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:http/http.dart' as http;
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:path/path.dart' as p;
@@ -24,6 +25,9 @@ class GitHubReleaseUpdater {
   Future<UpdateCheckResult> checkForUpdate({
     required UpdateReleaseChannel channel,
   }) async {
+    if (kIsWeb) {
+      return UpdateCheckResult.unsupportedPlatform();
+    }
     final supportsPlatform = Platform.isWindows || Platform.isAndroid;
     if (!supportsPlatform) {
       return UpdateCheckResult.unsupportedPlatform();
