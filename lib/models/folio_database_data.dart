@@ -15,9 +15,12 @@ enum FolioDbPropertyType {
   relation,
   rollup,
   formula,
+  aiGenerated,
 }
 
-enum FolioDbViewType { table, list, board, calendar }
+enum FolioDbViewType { table, list, board, calendar, gallery, timeline }
+
+enum TimelineZoom { day, week, month }
 
 enum FolioDbFilterOperator {
   equals,
@@ -136,10 +139,16 @@ class FolioDbProperty {
   FolioDbPropertyType type;
   List<String> options;
   String? formulaExpression;
+  // Relation
   String? relationTargetDatabaseId;
+  String? backRelationPropertyId; // ID of the inverse property in the target DB
+  // Rollup
   String? rollupRelationPropertyId;
   String? rollupTargetPropertyId;
   String? rollupOperation;
+  // AI Generated
+  String? aiPrompt; // Template with {PropertyName} placeholders
+  List<String> aiInputPropertyIds = [];
 
   Map<String, dynamic> toJson() => {
     'id': id,
@@ -154,6 +163,10 @@ class FolioDbProperty {
     if (rollupTargetPropertyId != null)
       'rollupTargetPropertyId': rollupTargetPropertyId,
     if (rollupOperation != null) 'rollupOperation': rollupOperation,
+    if (backRelationPropertyId != null)
+      'backRelationPropertyId': backRelationPropertyId,
+    if (aiPrompt != null) 'aiPrompt': aiPrompt,
+    if (aiInputPropertyIds.isNotEmpty) 'aiInputPropertyIds': aiInputPropertyIds,
   };
 
   factory FolioDbProperty.fromJson(Map<String, dynamic> j) {
@@ -171,9 +184,14 @@ class FolioDbProperty {
       )
       ..formulaExpression = j['formulaExpression'] as String?
       ..relationTargetDatabaseId = j['relationTargetDatabaseId'] as String?
+      ..backRelationPropertyId = j['backRelationPropertyId'] as String?
       ..rollupRelationPropertyId = j['rollupRelationPropertyId'] as String?
       ..rollupTargetPropertyId = j['rollupTargetPropertyId'] as String?
-      ..rollupOperation = j['rollupOperation'] as String?;
+      ..rollupOperation = j['rollupOperation'] as String?
+      ..aiPrompt = j['aiPrompt'] as String?
+      ..aiInputPropertyIds = (j['aiInputPropertyIds'] as List<dynamic>? ?? [])
+          .map((e) => e.toString())
+          .toList();
   }
 }
 
@@ -201,6 +219,13 @@ class FolioDbView {
     required this.type,
     this.groupByPropertyId,
     this.calendarDatePropertyId,
+    this.galleryImagePropertyId,
+    this.galleryTitlePropertyId,
+    this.galleryColumns = 3,
+    this.timelineStartDatePropertyId,
+    this.timelineEndDatePropertyId,
+    this.timelineGroupByPropertyId,
+    this.timelineZoom = TimelineZoom.week,
     this.filter,
     List<String>? visiblePropertyIds,
     List<FolioDbSortSpec>? sorts,
@@ -212,6 +237,15 @@ class FolioDbView {
   FolioDbViewType type;
   String? groupByPropertyId;
   String? calendarDatePropertyId;
+  // Gallery
+  String? galleryImagePropertyId;
+  String? galleryTitlePropertyId;
+  int galleryColumns;
+  // Timeline
+  String? timelineStartDatePropertyId;
+  String? timelineEndDatePropertyId;
+  String? timelineGroupByPropertyId;
+  TimelineZoom timelineZoom;
   FolioDbFilterGroup? filter;
   List<String> visiblePropertyIds;
   List<FolioDbSortSpec> sorts;
@@ -223,6 +257,18 @@ class FolioDbView {
     if (groupByPropertyId != null) 'groupByPropertyId': groupByPropertyId,
     if (calendarDatePropertyId != null)
       'calendarDatePropertyId': calendarDatePropertyId,
+    if (galleryImagePropertyId != null)
+      'galleryImagePropertyId': galleryImagePropertyId,
+    if (galleryTitlePropertyId != null)
+      'galleryTitlePropertyId': galleryTitlePropertyId,
+    if (galleryColumns != 3) 'galleryColumns': galleryColumns,
+    if (timelineStartDatePropertyId != null)
+      'timelineStartDatePropertyId': timelineStartDatePropertyId,
+    if (timelineEndDatePropertyId != null)
+      'timelineEndDatePropertyId': timelineEndDatePropertyId,
+    if (timelineGroupByPropertyId != null)
+      'timelineGroupByPropertyId': timelineGroupByPropertyId,
+    if (timelineZoom != TimelineZoom.week) 'timelineZoom': timelineZoom.name,
     if (filter != null) 'filter': filter!.toJson(),
     if (visiblePropertyIds.isNotEmpty) 'visiblePropertyIds': visiblePropertyIds,
     if (sorts.isNotEmpty) 'sorts': sorts.map((s) => s.toJson()).toList(),
@@ -239,6 +285,16 @@ class FolioDbView {
       ),
       groupByPropertyId: j['groupByPropertyId'] as String?,
       calendarDatePropertyId: j['calendarDatePropertyId'] as String?,
+      galleryImagePropertyId: j['galleryImagePropertyId'] as String?,
+      galleryTitlePropertyId: j['galleryTitlePropertyId'] as String?,
+      galleryColumns: (j['galleryColumns'] as num?)?.toInt() ?? 3,
+      timelineStartDatePropertyId: j['timelineStartDatePropertyId'] as String?,
+      timelineEndDatePropertyId: j['timelineEndDatePropertyId'] as String?,
+      timelineGroupByPropertyId: j['timelineGroupByPropertyId'] as String?,
+      timelineZoom: TimelineZoom.values.firstWhere(
+        (e) => e.name == (j['timelineZoom'] as String? ?? ''),
+        orElse: () => TimelineZoom.week,
+      ),
       visiblePropertyIds:
           (j['visiblePropertyIds'] as List<dynamic>? ?? const [])
               .map((e) => e.toString())
@@ -286,7 +342,7 @@ class FolioDatabaseData {
        rows = List<FolioDbRow>.from(rows),
        views = List<FolioDbView>.from(views);
 
-  static const int currentVersion = 5;
+  static const int currentVersion = 6;
 
   List<FolioDbProperty> properties;
   List<FolioDbRow> rows;
@@ -457,6 +513,24 @@ class FolioDatabaseData {
       }
       schemaVersion = 5;
     }
+    if (schemaVersion < 6) {
+      // Auto-detect timeline date properties for existing timeline views.
+      final dateProps = properties
+          .where((p) => p.type == FolioDbPropertyType.date)
+          .map((p) => p.id)
+          .toList();
+      for (final view in views) {
+        if (view.type == FolioDbViewType.timeline) {
+          view.timelineStartDatePropertyId ??= dateProps.isNotEmpty
+              ? dateProps.first
+              : null;
+          view.timelineEndDatePropertyId ??= dateProps.length >= 2
+              ? dateProps[1]
+              : null;
+        }
+      }
+      schemaVersion = 6;
+    }
   }
 
   static String plainTextFromJson(String text) {
@@ -488,6 +562,9 @@ class FolioDatabaseData {
         return _evalFormula(row, property.formulaExpression ?? '');
       case FolioDbPropertyType.rollup:
         return _evalRollup(row, property);
+      case FolioDbPropertyType.aiGenerated:
+        // AI values are stored; return cached string.
+        return raw?.toString() ?? '';
       default:
         return raw;
     }
@@ -495,6 +572,8 @@ class FolioDatabaseData {
 
   dynamic sanitizedValue(FolioDbProperty property, dynamic raw) {
     switch (property.type) {
+      case FolioDbPropertyType.aiGenerated:
+        return raw?.toString() ?? '';
       case FolioDbPropertyType.number:
         if (raw is num) return raw;
         return num.tryParse('${raw ?? ''}');
@@ -700,9 +779,142 @@ class FolioDatabaseData {
         final b = DateTime.tryParse('${args[1] ?? ''}');
         if (a == null || b == null) return 0;
         return b.difference(a).inDays;
+      // Math extensions
+      case 'floor':
+        return args.isEmpty ? 0 : (_asNum(args[0])).floor();
+      case 'ceil':
+        return args.isEmpty ? 0 : (_asNum(args[0])).ceil();
+      case 'round':
+        if (args.isEmpty) return 0;
+        final decimals = args.length >= 2 ? (_asNum(args[1])).toInt() : 0;
+        final factor = _asNum('1' + ('0' * decimals));
+        return ((_asNum(args[0]) * factor).round()) / factor;
+      case 'abs':
+        return args.isEmpty ? 0 : (_asNum(args[0])).abs();
+      case 'mod':
+        if (args.length < 2) return 0;
+        final divisor = _asNum(args[1]);
+        return divisor == 0 ? 0 : _asNum(args[0]) % divisor;
+      case 'power':
+        if (args.length < 2) return 0;
+        return _mathPow(_asNum(args[0]), _asNum(args[1]));
+      // Logic extensions
+      case 'not':
+        return args.isEmpty ? true : !_truthy(args[0]);
+      case 'and':
+        return args.length >= 2
+            ? (_truthy(args[0]) && _truthy(args[1]))
+            : false;
+      case 'or':
+        return args.length >= 2
+            ? (_truthy(args[0]) || _truthy(args[1]))
+            : false;
+      case 'isempty':
+        if (args.isEmpty) return true;
+        final ev = args[0];
+        if (ev == null) return true;
+        if (ev is String) return ev.trim().isEmpty;
+        if (ev is List) return ev.isEmpty;
+        return false;
+      case 'isnotempty':
+        if (args.isEmpty) return false;
+        final env = args[0];
+        if (env == null) return false;
+        if (env is String) return env.trim().isNotEmpty;
+        if (env is List) return env.isNotEmpty;
+        return true;
+      // String extensions
+      case 'length':
+        return args.isEmpty ? 0 : '${args[0] ?? ''}'.length;
+      case 'trim':
+        return args.isEmpty ? '' : '${args[0] ?? ''}'.trim();
+      case 'replace':
+        if (args.length < 3) return args.isEmpty ? '' : '${args[0]}';
+        return '${args[0] ?? ''}'.replaceAll(
+          '${args[1] ?? ''}',
+          '${args[2] ?? ''}',
+        );
+      case 'slice':
+        if (args.isEmpty) return '';
+        final str = '${args[0] ?? ''}';
+        final start = args.length >= 2
+            ? (_asNum(args[1])).toInt().clamp(0, str.length)
+            : 0;
+        final end = args.length >= 3
+            ? (_asNum(args[2])).toInt().clamp(0, str.length)
+            : str.length;
+        return str.substring(start, end > start ? end : start);
+      // Date extensions
+      case 'dateadd':
+        if (args.length < 3) return args.isEmpty ? '' : '${args[0]}';
+        final baseDate = DateTime.tryParse('${args[0] ?? ''}');
+        if (baseDate == null) return '';
+        final n = (_asNum(args[1])).toInt();
+        final unit = '${args[2] ?? 'day'}'.toLowerCase().trim();
+        final result = _dateAdd(baseDate, n, unit);
+        return result.toIso8601String().substring(0, 10);
+      case 'datesubtract':
+        if (args.length < 3) return args.isEmpty ? '' : '${args[0]}';
+        final baseDs = DateTime.tryParse('${args[0] ?? ''}');
+        if (baseDs == null) return '';
+        final ns = (_asNum(args[1])).toInt();
+        final units = '${args[2] ?? 'day'}'.toLowerCase().trim();
+        final rs = _dateAdd(baseDs, -ns, units);
+        return rs.toIso8601String().substring(0, 10);
+      case 'dateformat':
+        if (args.isEmpty) return '';
+        final df = DateTime.tryParse('${args[0] ?? ''}');
+        if (df == null) return '';
+        final pattern = args.length >= 2 ? '${args[1]}' : 'YYYY-MM-DD';
+        return _formatDate(df, pattern);
+      case 'year':
+        if (args.isEmpty) return 0;
+        return DateTime.tryParse('${args[0] ?? ''}')?.year ?? 0;
+      case 'month':
+        if (args.isEmpty) return 0;
+        return DateTime.tryParse('${args[0] ?? ''}')?.month ?? 0;
+      case 'day':
+        if (args.isEmpty) return 0;
+        return DateTime.tryParse('${args[0] ?? ''}')?.day ?? 0;
+      case 'weekday':
+        if (args.isEmpty) return 0;
+        return DateTime.tryParse('${args[0] ?? ''}')?.weekday ?? 0;
       default:
         return '';
     }
+  }
+
+  num _mathPow(num base, num exp) {
+    if (exp == 0) return 1;
+    num result = 1;
+    final isNeg = exp < 0;
+    final absExp = exp.abs().toInt();
+    for (var i = 0; i < absExp; i++) {
+      result *= base;
+    }
+    return isNeg ? 1 / result : result;
+  }
+
+  DateTime _dateAdd(DateTime base, int n, String unit) {
+    switch (unit) {
+      case 'year':
+        return DateTime(base.year + n, base.month, base.day);
+      case 'month':
+        return DateTime(base.year, base.month + n, base.day);
+      case 'week':
+        return base.add(Duration(days: n * 7));
+      default:
+        return base.add(Duration(days: n)); // day
+    }
+  }
+
+  String _formatDate(DateTime d, String pattern) {
+    return pattern
+        .replaceAll('YYYY', d.year.toString().padLeft(4, '0'))
+        .replaceAll('MM', d.month.toString().padLeft(2, '0'))
+        .replaceAll('DD', d.day.toString().padLeft(2, '0'))
+        .replaceAll('HH', d.hour.toString().padLeft(2, '0'))
+        .replaceAll('mm', d.minute.toString().padLeft(2, '0'));
   }
 
   bool _truthy(dynamic v) {

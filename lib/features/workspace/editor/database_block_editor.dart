@@ -3,6 +3,8 @@ import 'package:uuid/uuid.dart';
 
 import '../../../l10n/generated/app_localizations.dart';
 import '../../../models/folio_database_data.dart';
+import '../../../services/ai/ai_service.dart';
+import '../../../services/ai/ai_types.dart';
 
 class DatabaseBlockEditor extends StatefulWidget {
   const DatabaseBlockEditor({
@@ -12,6 +14,7 @@ class DatabaseBlockEditor extends StatefulWidget {
     required this.scheme,
     required this.textTheme,
     this.controlsVisible = true,
+    this.aiService,
   });
 
   final String json;
@@ -19,6 +22,7 @@ class DatabaseBlockEditor extends StatefulWidget {
   final ColorScheme scheme;
   final TextTheme textTheme;
   final bool controlsVisible;
+  final AiService? aiService;
 
   @override
   State<DatabaseBlockEditor> createState() => _DatabaseBlockEditorState();
@@ -131,6 +135,10 @@ class _DatabaseBlockEditorState extends State<DatabaseBlockEditor> {
         return Icons.view_kanban_rounded;
       case FolioDbViewType.calendar:
         return Icons.calendar_month_rounded;
+      case FolioDbViewType.gallery:
+        return Icons.grid_view_rounded;
+      case FolioDbViewType.timeline:
+        return Icons.view_timeline_rounded;
     }
   }
 
@@ -144,6 +152,10 @@ class _DatabaseBlockEditorState extends State<DatabaseBlockEditor> {
         return _t('Tablero', 'Board');
       case FolioDbViewType.calendar:
         return _t('Calendario', 'Calendar');
+      case FolioDbViewType.gallery:
+        return _t('Galería', 'Gallery');
+      case FolioDbViewType.timeline:
+        return _t('Línea de tiempo', 'Timeline');
     }
   }
 
@@ -216,6 +228,34 @@ class _DatabaseBlockEditorState extends State<DatabaseBlockEditor> {
       calendarDatePropertyId: selectedType == FolioDbViewType.calendar
           ? active.calendarDatePropertyId
           : null,
+      galleryImagePropertyId: selectedType == FolioDbViewType.gallery
+          ? active.galleryImagePropertyId
+          : null,
+      galleryTitlePropertyId: selectedType == FolioDbViewType.gallery
+          ? active.galleryTitlePropertyId
+          : null,
+      galleryColumns: active.galleryColumns,
+      timelineStartDatePropertyId: selectedType == FolioDbViewType.timeline
+          ? (active.type == FolioDbViewType.timeline
+                ? active.timelineStartDatePropertyId
+                : _data.properties
+                      .where((p) => p.type == FolioDbPropertyType.date)
+                      .firstOrNull
+                      ?.id)
+          : null,
+      timelineEndDatePropertyId: selectedType == FolioDbViewType.timeline
+          ? (active.type == FolioDbViewType.timeline
+                ? active.timelineEndDatePropertyId
+                : _data.properties
+                      .where((p) => p.type == FolioDbPropertyType.date)
+                      .skip(1)
+                      .firstOrNull
+                      ?.id)
+          : null,
+      timelineGroupByPropertyId: selectedType == FolioDbViewType.timeline
+          ? active.timelineGroupByPropertyId
+          : null,
+      timelineZoom: active.timelineZoom,
       filter: active.filter == null
           ? null
           : FolioDbFilterGroup.fromJson(active.filter!.toJson()),
@@ -1067,6 +1107,10 @@ class _DatabaseBlockEditorState extends State<DatabaseBlockEditor> {
         return _buildList(view, rows);
       case FolioDbViewType.table:
         return _buildTable(view, rows);
+      case FolioDbViewType.gallery:
+        return _buildGallery(view, rows);
+      case FolioDbViewType.timeline:
+        return _buildTimeline(view, rows);
     }
   }
 
@@ -1219,8 +1263,9 @@ class _DatabaseBlockEditorState extends State<DatabaseBlockEditor> {
                   Text(p.name),
                   if (_isEditMode)
                     IconButton(
-                      tooltip:
-                          AppLocalizations.of(context).databaseConfigurePropertyTooltip,
+                      tooltip: AppLocalizations.of(
+                        context,
+                      ).databaseConfigurePropertyTooltip,
                       visualDensity: VisualDensity.compact,
                       icon: const Icon(Icons.tune_rounded, size: 16),
                       onPressed: () => _showPropertyConfigDialog(p),
@@ -1246,6 +1291,33 @@ class _DatabaseBlockEditorState extends State<DatabaseBlockEditor> {
         property.type == FolioDbPropertyType.rollup;
     if (isComputed) {
       return Text((resolved ?? '').toString());
+    }
+    // AI Generated: show cached value + generate button.
+    if (property.type == FolioDbPropertyType.aiGenerated) {
+      final cached = (row.values[property.id] ?? '').toString();
+      return Row(
+        children: [
+          Expanded(
+            child: Text(
+              cached.isEmpty ? _t('Sin valor', 'No value') : cached,
+              style: cached.isEmpty
+                  ? widget.textTheme.bodySmall?.copyWith(
+                      color: widget.scheme.onSurface.withValues(alpha: 0.45),
+                    )
+                  : null,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+          if (widget.aiService != null && editable)
+            IconButton(
+              icon: const Icon(Icons.auto_awesome_rounded, size: 16),
+              tooltip: _t('Generar con IA', 'Generate with AI'),
+              onPressed: () => _generateAiPropertyValue(row, property),
+              padding: EdgeInsets.zero,
+              constraints: const BoxConstraints(),
+            ),
+        ],
+      );
     }
     if (!editable) {
       final raw = _data.sanitizedValue(property, row.values[property.id]);
@@ -1526,7 +1598,12 @@ class _DatabaseBlockEditorState extends State<DatabaseBlockEditor> {
                     ),
                     const SizedBox(height: 6),
                     const Text(
-                      'Funciones: if, concat, upper, lower, contains, add/sub/mul/div, now, date, daysBetween',
+                      'Funciones: if, concat, upper, lower, contains, add/sub/mul/div, '
+                      'floor, ceil, round, abs, mod, power, not, and, or, '
+                      'isEmpty, isNotEmpty, length, trim, replace, slice, '
+                      'dateAdd, dateSubtract, dateFormat, year, month, day, weekday, '
+                      'now, date, daysBetween',
+                      style: TextStyle(fontSize: 11),
                     ),
                   ],
                   if (property.type == FolioDbPropertyType.relation) ...[
@@ -1546,6 +1623,12 @@ class _DatabaseBlockEditorState extends State<DatabaseBlockEditor> {
                               labelText: 'Target DB',
                             ),
                           ),
+                    ),
+                  ],
+                  if (property.type == FolioDbPropertyType.aiGenerated) ...[
+                    _AiPropertyConfigSection(
+                      property: property,
+                      allProperties: _data.properties,
                     ),
                   ],
                   if (property.type == FolioDbPropertyType.rollup) ...[
@@ -1885,6 +1968,403 @@ class _DatabaseBlockEditorState extends State<DatabaseBlockEditor> {
           ),
         );
       }).toList(),
+    );
+  }
+
+  Widget _buildGallery(FolioDbView view, List<FolioDbRow> rows) {
+    final l10n = AppLocalizations.of(context);
+    if (_data.properties.isEmpty) {
+      return Text(l10n.databaseNoDatedEvents);
+    }
+    final titlePropId =
+        view.galleryTitlePropertyId ?? _data.properties.first.id;
+    final imagePropId = view.galleryImagePropertyId;
+    final cols = view.galleryColumns.clamp(1, 6);
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final itemWidth = (constraints.maxWidth - (cols - 1) * 8) / cols;
+        return Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: rows.map((row) {
+            final title = (row.values[titlePropId] ?? '').toString();
+            final imageUrl = imagePropId != null
+                ? (row.values[imagePropId] ?? '').toString()
+                : '';
+            return SizedBox(
+              width: itemWidth,
+              child: Card(
+                elevation: 0,
+                clipBehavior: Clip.antiAlias,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10),
+                  side: BorderSide(color: _subtleBorder),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    if (imageUrl.isNotEmpty)
+                      AspectRatio(
+                        aspectRatio: 16 / 9,
+                        child: Image.network(
+                          imageUrl,
+                          fit: BoxFit.cover,
+                          errorBuilder: (a, b, c) => Container(
+                            color: widget.scheme.surfaceContainerHighest,
+                            child: Icon(
+                              Icons.broken_image_rounded,
+                              color: widget.scheme.onSurface.withValues(
+                                alpha: 0.3,
+                              ),
+                            ),
+                          ),
+                        ),
+                      )
+                    else
+                      Container(
+                        height: 72,
+                        color: widget.scheme.surfaceContainerHighest,
+                        child: Icon(
+                          Icons.image_not_supported_outlined,
+                          color: widget.scheme.onSurface.withValues(
+                            alpha: 0.25,
+                          ),
+                        ),
+                      ),
+                    Padding(
+                      padding: const EdgeInsets.all(8),
+                      child: Text(
+                        title.isEmpty ? _t('Sin título', 'Untitled') : title,
+                        style: widget.textTheme.bodyMedium?.copyWith(
+                          fontWeight: FontWeight.w600,
+                        ),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          }).toList(),
+        );
+      },
+    );
+  }
+
+  Widget _buildTimeline(FolioDbView view, List<FolioDbRow> rows) {
+    final startPropId = view.timelineStartDatePropertyId;
+    if (startPropId == null) {
+      return Text(
+        _t(
+          'Configura una propiedad de fecha de inicio en los ajustes de vista.',
+          'Configure a start date property in view settings.',
+        ),
+      );
+    }
+    final endPropId = view.timelineEndDatePropertyId;
+    final titlePropId = _data.properties.firstOrNull?.id;
+    if (titlePropId == null) return const SizedBox.shrink();
+
+    // Collect dated rows.
+    final dated = <({FolioDbRow row, DateTime start, DateTime end})>[];
+    for (final r in rows) {
+      final startStr = (r.values[startPropId] ?? '').toString();
+      final start = DateTime.tryParse(startStr);
+      if (start == null) continue;
+      final endStr = endPropId != null
+          ? (r.values[endPropId] ?? '').toString()
+          : '';
+      final end =
+          DateTime.tryParse(endStr) ?? start.add(const Duration(days: 1));
+      dated.add((row: r, start: start, end: end));
+    }
+    if (dated.isEmpty) {
+      return Text(_t('No hay filas con fechas.', 'No rows with dates.'));
+    }
+
+    final minDate = dated
+        .map((e) => e.start)
+        .reduce((a, b) => a.isBefore(b) ? a : b);
+    final maxDate = dated
+        .map((e) => e.end)
+        .reduce((a, b) => a.isAfter(b) ? a : b);
+    // Show at least 14 days.
+    final totalDays = maxDate.difference(minDate).inDays.clamp(14, 365) + 2;
+    final zoom = view.timelineZoom;
+    final dayWidth = zoom == TimelineZoom.day
+        ? 40.0
+        : zoom == TimelineZoom.week
+        ? 20.0
+        : 8.0;
+    final totalWidth = totalDays * dayWidth;
+    const rowHeight = 36.0;
+    const headerHeight = 32.0;
+
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      child: SizedBox(
+        width: totalWidth,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Date header row
+            SizedBox(
+              height: headerHeight,
+              child: Stack(
+                children: [
+                  for (var i = 0; i < totalDays; i += _headerStep(zoom))
+                    Positioned(
+                      left: i * dayWidth,
+                      child: Container(
+                        width: _headerStep(zoom) * dayWidth,
+                        height: headerHeight,
+                        alignment: Alignment.centerLeft,
+                        decoration: BoxDecoration(
+                          border: Border(
+                            right: BorderSide(color: _subtleBorder),
+                          ),
+                        ),
+                        padding: const EdgeInsets.only(left: 4),
+                        child: Text(
+                          _formatTimelineHeader(
+                            minDate.add(Duration(days: i)),
+                            zoom,
+                          ),
+                          style: widget.textTheme.labelSmall,
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+            ),
+            // Rows
+            ...dated.map((e) {
+              final offsetDays = e.start.difference(minDate).inDays;
+              final durationDays = e.end
+                  .difference(e.start)
+                  .inDays
+                  .clamp(1, totalDays);
+              final title = (e.row.values[titlePropId] ?? '').toString();
+              return SizedBox(
+                height: rowHeight,
+                child: Stack(
+                  children: [
+                    // Grid lines
+                    ...List.generate(
+                      (totalDays / _headerStep(zoom)).ceil(),
+                      (i) => Positioned(
+                        left: i * _headerStep(zoom) * dayWidth,
+                        top: 0,
+                        bottom: 0,
+                        child: VerticalDivider(color: _subtleBorder, width: 1),
+                      ),
+                    ),
+                    // Bar
+                    Positioned(
+                      left: offsetDays * dayWidth,
+                      top: 4,
+                      height: rowHeight - 8,
+                      width: (durationDays * dayWidth).clamp(20.0, totalWidth),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 6),
+                        decoration: BoxDecoration(
+                          color: widget.scheme.primaryContainer,
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        alignment: Alignment.centerLeft,
+                        child: Text(
+                          title.isEmpty ? _t('Sin título', 'Untitled') : title,
+                          style: widget.textTheme.labelSmall?.copyWith(
+                            color: widget.scheme.onPrimaryContainer,
+                          ),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            }),
+          ],
+        ),
+      ),
+    );
+  }
+
+  int _headerStep(TimelineZoom zoom) {
+    switch (zoom) {
+      case TimelineZoom.day:
+        return 1;
+      case TimelineZoom.week:
+        return 7;
+      case TimelineZoom.month:
+        return 30;
+    }
+  }
+
+  String _formatTimelineHeader(DateTime d, TimelineZoom zoom) {
+    switch (zoom) {
+      case TimelineZoom.day:
+        return '${d.day}/${d.month}';
+      case TimelineZoom.week:
+        return 'W${_isoWeek(d)}';
+      case TimelineZoom.month:
+        return '${_monthName(d.month)} ${d.year}';
+    }
+  }
+
+  int _isoWeek(DateTime d) {
+    final startOfYear = DateTime(d.year, 1, 1);
+    final days = d.difference(startOfYear).inDays;
+    return ((days + startOfYear.weekday - 1) / 7).ceil() + 1;
+  }
+
+  String _monthName(int m) {
+    const names = [
+      '',
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'May',
+      'Jun',
+      'Jul',
+      'Aug',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dec',
+    ];
+    return names[m.clamp(1, 12)];
+  }
+
+  Future<void> _generateAiPropertyValue(
+    FolioDbRow row,
+    FolioDbProperty property,
+  ) async {
+    final ai = widget.aiService;
+    if (ai == null) return;
+    final prompt = property.aiPrompt ?? '';
+    if (prompt.isEmpty) return;
+
+    // Build prompt by replacing {PropertyName} placeholders with row values.
+    var resolved = prompt;
+    for (final p in _data.properties) {
+      final val = (_data.resolvedValue(row, p) ?? '').toString();
+      resolved = resolved.replaceAll('{${p.name}}', val);
+    }
+
+    try {
+      final result = await ai.complete(
+        AiCompletionRequest(
+          prompt: resolved,
+          model: 'gpt-4o-mini',
+          maxTokens: 200,
+          temperature: 0.3,
+          cloudInkOperation: 'database_property',
+        ),
+      );
+      if (!mounted) return;
+      row.values[property.id] = result.text.trim();
+      _emit();
+      setState(() {});
+    } catch (_) {
+      // Silently ignore errors; user can retry.
+    }
+  }
+
+  Future<void> _generateAllAiPropertyValues(FolioDbProperty property) async {
+    for (final row in _data.rows) {
+      await _generateAiPropertyValue(row, property);
+    }
+  }
+}
+
+// ---------------------------------------------------------------------------
+// _AiPropertyConfigSection — inline config widget for aiGenerated properties
+// ---------------------------------------------------------------------------
+
+class _AiPropertyConfigSection extends StatefulWidget {
+  const _AiPropertyConfigSection({
+    required this.property,
+    required this.allProperties,
+  });
+
+  final FolioDbProperty property;
+  final List<FolioDbProperty> allProperties;
+
+  @override
+  State<_AiPropertyConfigSection> createState() =>
+      _AiPropertyConfigSectionState();
+}
+
+class _AiPropertyConfigSectionState extends State<_AiPropertyConfigSection> {
+  late final TextEditingController _promptCtrl;
+
+  @override
+  void initState() {
+    super.initState();
+    _promptCtrl = TextEditingController(text: widget.property.aiPrompt ?? '');
+  }
+
+  @override
+  void dispose() {
+    _promptCtrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final inputIds = widget.property.aiInputPropertyIds;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        TextFormField(
+          controller: _promptCtrl,
+          maxLines: 3,
+          decoration: InputDecoration(
+            labelText: 'Prompt IA',
+            hintText:
+                'Usa {NombrePropiedad} para insertar valores de otras columnas.',
+          ),
+          onChanged: (v) =>
+              widget.property.aiPrompt = v.trim().isEmpty ? null : v.trim(),
+        ),
+        const SizedBox(height: 8),
+        Text(
+          'Propiedades de entrada (opcional):',
+          style: Theme.of(context).textTheme.labelSmall,
+        ),
+        Wrap(
+          spacing: 6,
+          runSpacing: 4,
+          children: widget.allProperties
+              .where(
+                (p) =>
+                    p.id != widget.property.id &&
+                    p.type != FolioDbPropertyType.aiGenerated,
+              )
+              .map((p) {
+                final selected = inputIds.contains(p.id);
+                return FilterChip(
+                  label: Text(p.name),
+                  selected: selected,
+                  onSelected: (on) {
+                    setState(() {
+                      if (on) {
+                        inputIds.add(p.id);
+                      } else {
+                        inputIds.remove(p.id);
+                      }
+                      widget.property.aiInputPropertyIds = inputIds;
+                    });
+                  },
+                );
+              })
+              .toList(),
+        ),
+      ],
     );
   }
 }

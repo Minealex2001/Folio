@@ -394,6 +394,7 @@ class VaultSession extends ChangeNotifier {
   Duration get idleLockDuration => _idleLockDuration;
   bool get lockOnAppBackground => _lockOnAppBackground;
   bool get aiEnabled => _aiService != null;
+  AiService? get aiService => _aiService;
   bool get vaultUsesEncryption => _vaultUsesEncryption;
   bool get isUnlocked => _state == VaultFlowState.unlocked;
 
