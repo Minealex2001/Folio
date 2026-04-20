@@ -3877,6 +3877,65 @@ class AppLocalizationsPt extends AppLocalizations {
   String get kanbanEmptyColumn => 'Sem tarefas';
 
   @override
+  String get blockTypeCanvasLabel => 'Tela infinita';
+
+  @override
+  String get blockTypeCanvasHint =>
+      'Quadro branco livre com nós, formas e setas';
+
+  @override
+  String get canvasBlockRowTitle => 'Tela infinita';
+
+  @override
+  String canvasBlockRowSubtitle(int nodes, int strokes) {
+    return '$nodes nós · $strokes traços';
+  }
+
+  @override
+  String get canvasToolbarOpenEditor => 'Abrir editor de blocos';
+
+  @override
+  String get canvasToolbarAddNode => 'Adicionar nota';
+
+  @override
+  String get canvasToolbarAddShape => 'Adicionar forma';
+
+  @override
+  String get canvasToolbarDraw => 'Desenhar';
+
+  @override
+  String get canvasToolbarSelect => 'Selecionar';
+
+  @override
+  String get canvasToolbarExport => 'Exportar como imagem';
+
+  @override
+  String get canvasToolbarConnect => 'Ligar nós';
+
+  @override
+  String get canvasToolbarAddBlock => 'Adicionar bloco';
+
+  @override
+  String get canvasClassicModeBanner =>
+      'Editor de blocos: pode mover ou eliminar o bloco Tela.';
+
+  @override
+  String get canvasBackToCanvas => 'Voltar à tela';
+
+  @override
+  String get canvasMultipleBlocksSnack =>
+      'Esta página tem mais de um bloco Tela; usa-se o primeiro.';
+
+  @override
+  String get canvasExportSuccess => 'Tela exportada com sucesso';
+
+  @override
+  String get canvasExportError => 'Erro ao exportar a tela';
+
+  @override
+  String get canvasDeleteNodeConfirm => 'Eliminar este nó?';
+
+  @override
   String get blockTypeDriveLabel => 'Arquivo Drive';
 
   @override
@@ -5737,4 +5796,82 @@ class AppLocalizationsPt extends AppLocalizations {
 
   @override
   String get downloadDesktopApp => 'Baixar aplicativo para desktop';
+
+  @override
+  String get appStoreTitle => 'Loja de apps';
+
+  @override
+  String get appStoreTabExplore => 'Explorar';
+
+  @override
+  String appStoreTabInstalled(int count) {
+    return 'Instalados ($count)';
+  }
+
+  @override
+  String get appStoreTooltipRefresh => 'Atualizar';
+
+  @override
+  String get appStoreTooltipInstallFile => 'Instalar de arquivo (.folioapp)';
+
+  @override
+  String get appStoreSearchHint => 'Buscar apps…';
+
+  @override
+  String get appStoreNoResults => 'Nenhum app encontrado.';
+
+  @override
+  String get appStoreSectionOfficials => 'Oficiais';
+
+  @override
+  String get appStoreSectionOfficialsSubtitle =>
+      'Integradas no Folio · Sem download';
+
+  @override
+  String get appStoreSectionCommunity => 'Community';
+
+  @override
+  String get appStoreSectionCommunitySubtitle =>
+      'Publicadas no registry público';
+
+  @override
+  String get appStoreInstallConfirmTitle => 'Instalar app local';
+
+  @override
+  String get appStoreInstallConfirmBody =>
+      'Este app não foi verificado. Instale apenas arquivos de fontes confiáveis.';
+
+  @override
+  String get appStoreInstallButton => 'Instalar';
+
+  @override
+  String get appStoreInstalledChip => 'Instalado';
+
+  @override
+  String appStoreInstallSuccess(String name) {
+    return '\"$name\" instalado com sucesso.';
+  }
+
+  @override
+  String appStoreInstallError(String message) {
+    return 'Erro: $message';
+  }
+
+  @override
+  String get appStoreUninstallTitle => 'Desinstalar app';
+
+  @override
+  String appStoreUninstallBody(String name) {
+    return 'Desinstalar \"$name\"? Seus arquivos serão excluídos.';
+  }
+
+  @override
+  String get appStoreUninstallButton => 'Desinstalar';
+
+  @override
+  String get appStoreInstalledEmpty =>
+      'Nenhum app instalado.\nExplore a loja ou instale um .folioapp.';
+
+  @override
+  String get settingsIntegrationsNativeTitle => 'Integrações nativas';
 }

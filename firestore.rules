@@ -8,18 +8,24 @@ service cloud.firestore {
 
     function folioPublishWebOk() {
       let d = userData(request.auth.uid);
-      return d.folioCloud != null
-        && d.folioCloud.active == true
-        && d.folioCloud.features != null
-        && d.folioCloud.features.publishWeb == true;
+      return d.folioStaff == true
+        || (
+          d.folioCloud != null
+          && d.folioCloud.active == true
+          && d.folioCloud.features != null
+          && d.folioCloud.features.publishWeb == true
+        );
     }
 
     function folioRealtimeCollabOk() {
       let d = userData(request.auth.uid);
-      return d.folioCloud != null
-        && d.folioCloud.active == true
-        && d.folioCloud.features != null
-        && d.folioCloud.features.realtimeCollab == true;
+      return d.folioStaff == true
+        || (
+          d.folioCloud != null
+          && d.folioCloud.active == true
+          && d.folioCloud.features != null
+          && d.folioCloud.features.realtimeCollab == true
+        );
     }
 
     function collabRoomDoc(roomId) {

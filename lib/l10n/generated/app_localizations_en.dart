@@ -3853,6 +3853,65 @@ class AppLocalizationsEn extends AppLocalizations {
   String get kanbanEmptyColumn => 'No tasks';
 
   @override
+  String get blockTypeCanvasLabel => 'Infinite canvas';
+
+  @override
+  String get blockTypeCanvasHint =>
+      'Free-form whiteboard with nodes, shapes, and arrows';
+
+  @override
+  String get canvasBlockRowTitle => 'Infinite canvas';
+
+  @override
+  String canvasBlockRowSubtitle(int nodes, int strokes) {
+    return '$nodes nodes · $strokes strokes';
+  }
+
+  @override
+  String get canvasToolbarOpenEditor => 'Open block editor';
+
+  @override
+  String get canvasToolbarAddNode => 'Add note';
+
+  @override
+  String get canvasToolbarAddShape => 'Add shape';
+
+  @override
+  String get canvasToolbarDraw => 'Draw';
+
+  @override
+  String get canvasToolbarSelect => 'Select';
+
+  @override
+  String get canvasToolbarExport => 'Export as image';
+
+  @override
+  String get canvasToolbarConnect => 'Connect nodes';
+
+  @override
+  String get canvasToolbarAddBlock => 'Add block';
+
+  @override
+  String get canvasClassicModeBanner =>
+      'Block editor: you can move or delete the Canvas block.';
+
+  @override
+  String get canvasBackToCanvas => 'Back to canvas';
+
+  @override
+  String get canvasMultipleBlocksSnack =>
+      'This page has more than one Canvas block; using the first one.';
+
+  @override
+  String get canvasExportSuccess => 'Canvas exported successfully';
+
+  @override
+  String get canvasExportError => 'Error exporting the canvas';
+
+  @override
+  String get canvasDeleteNodeConfirm => 'Delete this node?';
+
+  @override
   String get blockTypeDriveLabel => 'File Drive';
 
   @override
@@ -5696,4 +5755,82 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get downloadDesktopApp => 'Download desktop app';
+
+  @override
+  String get appStoreTitle => 'App Store';
+
+  @override
+  String get appStoreTabExplore => 'Explore';
+
+  @override
+  String appStoreTabInstalled(int count) {
+    return 'Installed ($count)';
+  }
+
+  @override
+  String get appStoreTooltipRefresh => 'Refresh';
+
+  @override
+  String get appStoreTooltipInstallFile => 'Install from file (.folioapp)';
+
+  @override
+  String get appStoreSearchHint => 'Search apps…';
+
+  @override
+  String get appStoreNoResults => 'No apps found.';
+
+  @override
+  String get appStoreSectionOfficials => 'Official';
+
+  @override
+  String get appStoreSectionOfficialsSubtitle =>
+      'Built into Folio · No download required';
+
+  @override
+  String get appStoreSectionCommunity => 'Community';
+
+  @override
+  String get appStoreSectionCommunitySubtitle =>
+      'Published in the public registry';
+
+  @override
+  String get appStoreInstallConfirmTitle => 'Install local app';
+
+  @override
+  String get appStoreInstallConfirmBody =>
+      'This app has not been verified. Only install files from sources you trust.';
+
+  @override
+  String get appStoreInstallButton => 'Install';
+
+  @override
+  String get appStoreInstalledChip => 'Installed';
+
+  @override
+  String appStoreInstallSuccess(String name) {
+    return '\"$name\" installed successfully.';
+  }
+
+  @override
+  String appStoreInstallError(String message) {
+    return 'Error: $message';
+  }
+
+  @override
+  String get appStoreUninstallTitle => 'Uninstall app';
+
+  @override
+  String appStoreUninstallBody(String name) {
+    return 'Uninstall \"$name\"? Its files will be deleted.';
+  }
+
+  @override
+  String get appStoreUninstallButton => 'Uninstall';
+
+  @override
+  String get appStoreInstalledEmpty =>
+      'No apps installed.\nExplore the store or install a .folioapp.';
+
+  @override
+  String get settingsIntegrationsNativeTitle => 'Native integrations';
 }

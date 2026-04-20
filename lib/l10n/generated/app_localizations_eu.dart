@@ -3905,6 +3905,65 @@ class AppLocalizationsEu extends AppLocalizations {
   String get kanbanEmptyColumn => 'Zereginik ez';
 
   @override
+  String get blockTypeCanvasLabel => 'Mihise infinitua';
+
+  @override
+  String get blockTypeCanvasHint =>
+      'Arbela librea nodoekin, formen eta gezietan';
+
+  @override
+  String get canvasBlockRowTitle => 'Mihise infinitua';
+
+  @override
+  String canvasBlockRowSubtitle(int nodes, int strokes) {
+    return '$nodes nodo · $strokes lerro';
+  }
+
+  @override
+  String get canvasToolbarOpenEditor => 'Ireki bloke editorea';
+
+  @override
+  String get canvasToolbarAddNode => 'Gehitu oharra';
+
+  @override
+  String get canvasToolbarAddShape => 'Gehitu forma';
+
+  @override
+  String get canvasToolbarDraw => 'Marraztu';
+
+  @override
+  String get canvasToolbarSelect => 'Hautatu';
+
+  @override
+  String get canvasToolbarExport => 'Esportatu irudi gisa';
+
+  @override
+  String get canvasToolbarConnect => 'Lotu nodoak';
+
+  @override
+  String get canvasToolbarAddBlock => 'Blokea gehitu';
+
+  @override
+  String get canvasClassicModeBanner =>
+      'Bloke editorea: Mihise blokea mugitu edo ezabatu dezakezu.';
+
+  @override
+  String get canvasBackToCanvas => 'Itzuli mihisera';
+
+  @override
+  String get canvasMultipleBlocksSnack =>
+      'Orrialde honek Mihise bloke bat baino gehiago ditu; lehena erabiltzen da.';
+
+  @override
+  String get canvasExportSuccess => 'Mihisea ondo esportatu da';
+
+  @override
+  String get canvasExportError => 'Errorea mihisea esportatzerakoan';
+
+  @override
+  String get canvasDeleteNodeConfirm => 'Nodo hau ezabatu?';
+
+  @override
   String get blockTypeDriveLabel => 'Fitxategi Drive';
 
   @override
@@ -5776,4 +5835,82 @@ class AppLocalizationsEu extends AppLocalizations {
 
   @override
   String get downloadDesktopApp => 'Deskargatu mahaigaineko aplikazioa';
+
+  @override
+  String get appStoreTitle => 'App Denda';
+
+  @override
+  String get appStoreTabExplore => 'Arakatu';
+
+  @override
+  String appStoreTabInstalled(int count) {
+    return 'Instalatuta ($count)';
+  }
+
+  @override
+  String get appStoreTooltipRefresh => 'Freskatu';
+
+  @override
+  String get appStoreTooltipInstallFile => 'Instalatu fitxategitik (.folioapp)';
+
+  @override
+  String get appStoreSearchHint => 'Bilatu appak…';
+
+  @override
+  String get appStoreNoResults => 'Ez da appaik aurkitu.';
+
+  @override
+  String get appStoreSectionOfficials => 'Ofizialak';
+
+  @override
+  String get appStoreSectionOfficialsSubtitle =>
+      'Folio-n integratuta · Deskargaketarik gabe';
+
+  @override
+  String get appStoreSectionCommunity => 'Community';
+
+  @override
+  String get appStoreSectionCommunitySubtitle =>
+      'Erregistro publikoan argitaratuta';
+
+  @override
+  String get appStoreInstallConfirmTitle => 'Tokiko app instalatu';
+
+  @override
+  String get appStoreInstallConfirmBody =>
+      'App hau ez da egiaztatu. Instalatu fidatzen zaren iturburuetako fitxategiak soilik.';
+
+  @override
+  String get appStoreInstallButton => 'Instalatu';
+
+  @override
+  String get appStoreInstalledChip => 'Instalatuta';
+
+  @override
+  String appStoreInstallSuccess(String name) {
+    return '\"$name\" behar bezala instalatu da.';
+  }
+
+  @override
+  String appStoreInstallError(String message) {
+    return 'Errorea: $message';
+  }
+
+  @override
+  String get appStoreUninstallTitle => 'Desinstalatu app';
+
+  @override
+  String appStoreUninstallBody(String name) {
+    return '\"$name\" desinstalatu? Fitxategiak ezabatuko dira.';
+  }
+
+  @override
+  String get appStoreUninstallButton => 'Desinstalatu';
+
+  @override
+  String get appStoreInstalledEmpty =>
+      'Ez dago appaik instalatuta.\nArakatu denda edo instalatu .folioapp bat.';
+
+  @override
+  String get settingsIntegrationsNativeTitle => 'Jatorrizko integrazioak';
 }

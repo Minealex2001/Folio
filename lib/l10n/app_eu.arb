@@ -1285,6 +1285,25 @@
   "kanbanBackToBoard": "Itzuli tablerora",
   "kanbanMultipleBlocksSnack": "Orrialde honek Kanban bloke bat baino gehiago ditu; lehena erabiltzen da.",
   "kanbanEmptyColumn": "Zereginik ez",
+  "blockTypeCanvasLabel": "Mihise infinitua",
+  "blockTypeCanvasHint": "Arbela librea nodoekin, formen eta gezietan",
+  "canvasBlockRowTitle": "Mihise infinitua",
+  "canvasBlockRowSubtitle": "{nodes} nodo · {strokes} lerro",
+  "@canvasBlockRowSubtitle": {"placeholders": {"nodes": {"type": "int"}, "strokes": {"type": "int"}}},
+  "canvasToolbarOpenEditor": "Ireki bloke editorea",
+  "canvasToolbarAddNode": "Gehitu oharra",
+  "canvasToolbarAddShape": "Gehitu forma",
+  "canvasToolbarDraw": "Marraztu",
+  "canvasToolbarSelect": "Hautatu",
+  "canvasToolbarExport": "Esportatu irudi gisa",
+  "canvasToolbarConnect": "Lotu nodoak",
+  "canvasToolbarAddBlock": "Blokea gehitu",
+  "canvasClassicModeBanner": "Bloke editorea: Mihise blokea mugitu edo ezabatu dezakezu.",
+  "canvasBackToCanvas": "Itzuli mihisera",
+  "canvasMultipleBlocksSnack": "Orrialde honek Mihise bloke bat baino gehiago ditu; lehena erabiltzen da.",
+  "canvasExportSuccess": "Mihisea ondo esportatu da",
+  "canvasExportError": "Errorea mihisea esportatzerakoan",
+  "canvasDeleteNodeConfirm": "Nodo hau ezabatu?",
   "blockTypeDriveLabel": "Fitxategi Drive",
   "blockTypeDriveHint": "Fitxategi kudeatzailea orri honetarako",
   "driveBlockRowTitle": "Fitxategi Drive",
@@ -1865,4 +1884,30 @@
   ,"@importPdfFailed": {"placeholders": {"error": {"type": "String"}}}
   ,"importPdfNoText": "PDFak ez du testu erauzigarririk"
   ,"downloadDesktopApp": "Deskargatu mahaigaineko aplikazioa"
+  ,"appStoreTitle": "App Denda"
+  ,"appStoreTabExplore": "Arakatu"
+  ,"appStoreTabInstalled": "Instalatuta ({count})"
+  ,"@appStoreTabInstalled": {"placeholders": {"count": {"type": "int"}}}
+  ,"appStoreTooltipRefresh": "Freskatu"
+  ,"appStoreTooltipInstallFile": "Instalatu fitxategitik (.folioapp)"
+  ,"appStoreSearchHint": "Bilatu appak…"
+  ,"appStoreNoResults": "Ez da appaik aurkitu."
+  ,"appStoreSectionOfficials": "Ofizialak"
+  ,"appStoreSectionOfficialsSubtitle": "Folio-n integratuta · Deskargaketarik gabe"
+  ,"appStoreSectionCommunity": "Community"
+  ,"appStoreSectionCommunitySubtitle": "Erregistro publikoan argitaratuta"
+  ,"appStoreInstallConfirmTitle": "Tokiko app instalatu"
+  ,"appStoreInstallConfirmBody": "App hau ez da egiaztatu. Instalatu fidatzen zaren iturburuetako fitxategiak soilik."
+  ,"appStoreInstallButton": "Instalatu"
+  ,"appStoreInstalledChip": "Instalatuta"
+  ,"appStoreInstallSuccess": "\"{name}\" behar bezala instalatu da."
+  ,"@appStoreInstallSuccess": {"placeholders": {"name": {"type": "String"}}}
+  ,"appStoreInstallError": "Errorea: {message}"
+  ,"@appStoreInstallError": {"placeholders": {"message": {"type": "String"}}}
+  ,"appStoreUninstallTitle": "Desinstalatu app"
+  ,"appStoreUninstallBody": "\"{name}\" desinstalatu? Fitxategiak ezabatuko dira."
+  ,"@appStoreUninstallBody": {"placeholders": {"name": {"type": "String"}}}
+  ,"appStoreUninstallButton": "Desinstalatu"
+  ,"appStoreInstalledEmpty": "Ez dago appaik instalatuta.\nArakatu denda edo instalatu .folioapp bat."
+  ,"settingsIntegrationsNativeTitle": "Jatorrizko integrazioak"
 }

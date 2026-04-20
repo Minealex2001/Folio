@@ -8,6 +8,7 @@ final Map<String, _SpecialRowBuilder> _specialRowBuildersByType = {
   'database': _specialRowDatabase,
   'kanban': _specialRowKanban,
   'drive': _specialRowDrive,
+  'canvas': _specialRowCanvas,
   'equation': _specialRowEquation,
   'mermaid': _specialRowMermaid,
   'code': _specialRowCode,
@@ -29,5 +30,21 @@ final Map<String, _SpecialRowBuilder> _specialRowBuildersByType = {
 
 Widget? _buildSpecialBlockRowOrNull(_BlockRowScope s) {
   final builder = _specialRowBuildersByType[s.block.type];
-  return builder?.call(s);
+  if (builder != null) return builder.call(s);
+
+  // Bloques de apps instaladas: tipo namespaced (ej. com.acme.chart)
+  if (s.block.type.contains('.')) {
+    return CustomAppBlockWidget(
+      block: s.block,
+      scheme: s.scheme,
+      appRegistry: AppExtensionRegistry.instance,
+      onBlockUpdated: (data) {
+        // Serializa los datos del bloque custom como JSON en el campo text
+        final encoded = const JsonEncoder().convert(data);
+        s.st.widget.session.updateBlockText(s.page.id, s.block.id, encoded);
+      },
+    );
+  }
+
+  return null;
 }

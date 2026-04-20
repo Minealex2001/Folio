@@ -3882,6 +3882,64 @@ class AppLocalizationsEs extends AppLocalizations {
   String get kanbanEmptyColumn => 'Sin tareas';
 
   @override
+  String get blockTypeCanvasLabel => 'Lienzo infinito';
+
+  @override
+  String get blockTypeCanvasHint => 'Pizarra libre con nodos, formas y flechas';
+
+  @override
+  String get canvasBlockRowTitle => 'Lienzo infinito';
+
+  @override
+  String canvasBlockRowSubtitle(int nodes, int strokes) {
+    return '$nodes nodos · $strokes trazos';
+  }
+
+  @override
+  String get canvasToolbarOpenEditor => 'Abrir editor de bloques';
+
+  @override
+  String get canvasToolbarAddNode => 'Añadir nota';
+
+  @override
+  String get canvasToolbarAddShape => 'Añadir forma';
+
+  @override
+  String get canvasToolbarDraw => 'Dibujar';
+
+  @override
+  String get canvasToolbarSelect => 'Seleccionar';
+
+  @override
+  String get canvasToolbarExport => 'Exportar como imagen';
+
+  @override
+  String get canvasToolbarConnect => 'Conectar nodos';
+
+  @override
+  String get canvasToolbarAddBlock => 'Añadir bloque';
+
+  @override
+  String get canvasClassicModeBanner =>
+      'Editor de bloques: puedes mover o eliminar el bloque Lienzo.';
+
+  @override
+  String get canvasBackToCanvas => 'Volver al lienzo';
+
+  @override
+  String get canvasMultipleBlocksSnack =>
+      'Esta página tiene más de un bloque Lienzo; se usa el primero.';
+
+  @override
+  String get canvasExportSuccess => 'Lienzo exportado correctamente';
+
+  @override
+  String get canvasExportError => 'Error al exportar el lienzo';
+
+  @override
+  String get canvasDeleteNodeConfirm => '¿Eliminar este nodo?';
+
+  @override
   String get blockTypeDriveLabel => 'Archivo Drive';
 
   @override
@@ -5741,4 +5799,82 @@ class AppLocalizationsEs extends AppLocalizations {
 
   @override
   String get downloadDesktopApp => 'Descargar app de escritorio';
+
+  @override
+  String get appStoreTitle => 'Tienda de Apps';
+
+  @override
+  String get appStoreTabExplore => 'Explorar';
+
+  @override
+  String appStoreTabInstalled(int count) {
+    return 'Instaladas ($count)';
+  }
+
+  @override
+  String get appStoreTooltipRefresh => 'Actualizar';
+
+  @override
+  String get appStoreTooltipInstallFile => 'Instalar desde archivo (.folioapp)';
+
+  @override
+  String get appStoreSearchHint => 'Buscar apps…';
+
+  @override
+  String get appStoreNoResults => 'No se encontraron apps.';
+
+  @override
+  String get appStoreSectionOfficials => 'Oficiales';
+
+  @override
+  String get appStoreSectionOfficialsSubtitle =>
+      'Integradas en Folio · Sin descarga';
+
+  @override
+  String get appStoreSectionCommunity => 'Community';
+
+  @override
+  String get appStoreSectionCommunitySubtitle =>
+      'Publicadas en el registry público';
+
+  @override
+  String get appStoreInstallConfirmTitle => 'Instalar app local';
+
+  @override
+  String get appStoreInstallConfirmBody =>
+      'Esta app no ha sido verificada. Instala solo archivos de fuentes en las que confíes.';
+
+  @override
+  String get appStoreInstallButton => 'Instalar';
+
+  @override
+  String get appStoreInstalledChip => 'Instalada';
+
+  @override
+  String appStoreInstallSuccess(String name) {
+    return '\"$name\" instalada correctamente.';
+  }
+
+  @override
+  String appStoreInstallError(String message) {
+    return 'Error: $message';
+  }
+
+  @override
+  String get appStoreUninstallTitle => 'Desinstalar app';
+
+  @override
+  String appStoreUninstallBody(String name) {
+    return '¿Desinstalar \"$name\"? Se eliminarán sus archivos.';
+  }
+
+  @override
+  String get appStoreUninstallButton => 'Desinstalar';
+
+  @override
+  String get appStoreInstalledEmpty =>
+      'No hay apps instaladas.\nExplora la tienda o instala un .folioapp.';
+
+  @override
+  String get settingsIntegrationsNativeTitle => 'Integraciones nativas';
 }

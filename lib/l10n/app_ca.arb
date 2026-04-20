@@ -1284,6 +1284,25 @@
   "kanbanBackToBoard": "Tornar al tauler",
   "kanbanMultipleBlocksSnack": "Aquesta pàgina té més d'un bloc Kanban; s'utilitza el primer.",
   "kanbanEmptyColumn": "Sense tasques",
+  "blockTypeCanvasLabel": "Llenç infinit",
+  "blockTypeCanvasHint": "Pissarra lliure amb nodes, formes i fletxes",
+  "canvasBlockRowTitle": "Llenç infinit",
+  "canvasBlockRowSubtitle": "{nodes} nodes · {strokes} traços",
+  "@canvasBlockRowSubtitle": {"placeholders": {"nodes": {"type": "int"}, "strokes": {"type": "int"}}},
+  "canvasToolbarOpenEditor": "Obre l'editor de blocs",
+  "canvasToolbarAddNode": "Afegir nota",
+  "canvasToolbarAddShape": "Afegir forma",
+  "canvasToolbarDraw": "Dibuixar",
+  "canvasToolbarSelect": "Seleccionar",
+  "canvasToolbarExport": "Exportar com a imatge",
+  "canvasToolbarConnect": "Connectar nodes",
+  "canvasToolbarAddBlock": "Afegir bloc",
+  "canvasClassicModeBanner": "Editor de blocs: pots moure o eliminar el bloc Llenç.",
+  "canvasBackToCanvas": "Tornar al llenç",
+  "canvasMultipleBlocksSnack": "Aquesta pàgina té més d'un bloc Llenç; s'utilitza el primer.",
+  "canvasExportSuccess": "Llenç exportat correctament",
+  "canvasExportError": "Error en exportar el llenç",
+  "canvasDeleteNodeConfirm": "Eliminar aquest node?",
   "blockTypeDriveLabel": "Fitxer Drive",
   "blockTypeDriveHint": "Gestor de fitxers integrat",
   "driveBlockRowTitle": "Fitxer Drive",
@@ -1864,4 +1883,30 @@
   ,"@importPdfFailed": {"placeholders": {"error": {"type": "String"}}}
   ,"importPdfNoText": "El PDF no conté text extrectable"
   ,"downloadDesktopApp": "Descarrega l'aplicació d'escriptori"
+  ,"appStoreTitle": "Botiga d'apps"
+  ,"appStoreTabExplore": "Explorar"
+  ,"appStoreTabInstalled": "Instal·lades ({count})"
+  ,"@appStoreTabInstalled": {"placeholders": {"count": {"type": "int"}}}
+  ,"appStoreTooltipRefresh": "Actualitzar"
+  ,"appStoreTooltipInstallFile": "Instal·lar des d'arxiu (.folioapp)"
+  ,"appStoreSearchHint": "Cerca apps…"
+  ,"appStoreNoResults": "No s'han trobat apps."
+  ,"appStoreSectionOfficials": "Oficials"
+  ,"appStoreSectionOfficialsSubtitle": "Integrades a Folio · Sense descàrrega"
+  ,"appStoreSectionCommunity": "Community"
+  ,"appStoreSectionCommunitySubtitle": "Publicades al registry públic"
+  ,"appStoreInstallConfirmTitle": "Instal·lar app local"
+  ,"appStoreInstallConfirmBody": "Aquesta app no ha estat verificada. Instal·la nomsés arxius de fonts de confiança."
+  ,"appStoreInstallButton": "Instal·lar"
+  ,"appStoreInstalledChip": "Instal·lada"
+  ,"appStoreInstallSuccess": "\"{name}\" instal·lada correctament."
+  ,"@appStoreInstallSuccess": {"placeholders": {"name": {"type": "String"}}}
+  ,"appStoreInstallError": "Error: {message}"
+  ,"@appStoreInstallError": {"placeholders": {"message": {"type": "String"}}}
+  ,"appStoreUninstallTitle": "Desinstal·lar app"
+  ,"appStoreUninstallBody": "Desinstal·lar \"{name}\"? S'eliminaran els seus fitxers."
+  ,"@appStoreUninstallBody": {"placeholders": {"name": {"type": "String"}}}
+  ,"appStoreUninstallButton": "Desinstal·lar"
+  ,"appStoreInstalledEmpty": "No hi ha apps instal·lades.\nExplora la botiga o instal·la un .folioapp."
+  ,"settingsIntegrationsNativeTitle": "Integracions natives"
 }

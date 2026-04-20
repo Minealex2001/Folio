@@ -6988,6 +6988,114 @@ abstract class AppLocalizations {
   /// **'Sin tareas'**
   String get kanbanEmptyColumn;
 
+  /// No description provided for @blockTypeCanvasLabel.
+  ///
+  /// In es, this message translates to:
+  /// **'Lienzo infinito'**
+  String get blockTypeCanvasLabel;
+
+  /// No description provided for @blockTypeCanvasHint.
+  ///
+  /// In es, this message translates to:
+  /// **'Pizarra libre con nodos, formas y flechas'**
+  String get blockTypeCanvasHint;
+
+  /// No description provided for @canvasBlockRowTitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Lienzo infinito'**
+  String get canvasBlockRowTitle;
+
+  /// No description provided for @canvasBlockRowSubtitle.
+  ///
+  /// In es, this message translates to:
+  /// **'{nodes} nodos · {strokes} trazos'**
+  String canvasBlockRowSubtitle(int nodes, int strokes);
+
+  /// No description provided for @canvasToolbarOpenEditor.
+  ///
+  /// In es, this message translates to:
+  /// **'Abrir editor de bloques'**
+  String get canvasToolbarOpenEditor;
+
+  /// No description provided for @canvasToolbarAddNode.
+  ///
+  /// In es, this message translates to:
+  /// **'Añadir nota'**
+  String get canvasToolbarAddNode;
+
+  /// No description provided for @canvasToolbarAddShape.
+  ///
+  /// In es, this message translates to:
+  /// **'Añadir forma'**
+  String get canvasToolbarAddShape;
+
+  /// No description provided for @canvasToolbarDraw.
+  ///
+  /// In es, this message translates to:
+  /// **'Dibujar'**
+  String get canvasToolbarDraw;
+
+  /// No description provided for @canvasToolbarSelect.
+  ///
+  /// In es, this message translates to:
+  /// **'Seleccionar'**
+  String get canvasToolbarSelect;
+
+  /// No description provided for @canvasToolbarExport.
+  ///
+  /// In es, this message translates to:
+  /// **'Exportar como imagen'**
+  String get canvasToolbarExport;
+
+  /// No description provided for @canvasToolbarConnect.
+  ///
+  /// In es, this message translates to:
+  /// **'Conectar nodos'**
+  String get canvasToolbarConnect;
+
+  /// No description provided for @canvasToolbarAddBlock.
+  ///
+  /// In es, this message translates to:
+  /// **'Añadir bloque'**
+  String get canvasToolbarAddBlock;
+
+  /// No description provided for @canvasClassicModeBanner.
+  ///
+  /// In es, this message translates to:
+  /// **'Editor de bloques: puedes mover o eliminar el bloque Lienzo.'**
+  String get canvasClassicModeBanner;
+
+  /// No description provided for @canvasBackToCanvas.
+  ///
+  /// In es, this message translates to:
+  /// **'Volver al lienzo'**
+  String get canvasBackToCanvas;
+
+  /// No description provided for @canvasMultipleBlocksSnack.
+  ///
+  /// In es, this message translates to:
+  /// **'Esta página tiene más de un bloque Lienzo; se usa el primero.'**
+  String get canvasMultipleBlocksSnack;
+
+  /// No description provided for @canvasExportSuccess.
+  ///
+  /// In es, this message translates to:
+  /// **'Lienzo exportado correctamente'**
+  String get canvasExportSuccess;
+
+  /// No description provided for @canvasExportError.
+  ///
+  /// In es, this message translates to:
+  /// **'Error al exportar el lienzo'**
+  String get canvasExportError;
+
+  /// No description provided for @canvasDeleteNodeConfirm.
+  ///
+  /// In es, this message translates to:
+  /// **'¿Eliminar este nodo?'**
+  String get canvasDeleteNodeConfirm;
+
   /// No description provided for @blockTypeDriveLabel.
   ///
   /// In es, this message translates to:
@@ -10140,6 +10248,138 @@ abstract class AppLocalizations {
   /// In es, this message translates to:
   /// **'Descargar app de escritorio'**
   String get downloadDesktopApp;
+
+  /// No description provided for @appStoreTitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Tienda de Apps'**
+  String get appStoreTitle;
+
+  /// No description provided for @appStoreTabExplore.
+  ///
+  /// In es, this message translates to:
+  /// **'Explorar'**
+  String get appStoreTabExplore;
+
+  /// No description provided for @appStoreTabInstalled.
+  ///
+  /// In es, this message translates to:
+  /// **'Instaladas ({count})'**
+  String appStoreTabInstalled(int count);
+
+  /// No description provided for @appStoreTooltipRefresh.
+  ///
+  /// In es, this message translates to:
+  /// **'Actualizar'**
+  String get appStoreTooltipRefresh;
+
+  /// No description provided for @appStoreTooltipInstallFile.
+  ///
+  /// In es, this message translates to:
+  /// **'Instalar desde archivo (.folioapp)'**
+  String get appStoreTooltipInstallFile;
+
+  /// No description provided for @appStoreSearchHint.
+  ///
+  /// In es, this message translates to:
+  /// **'Buscar apps…'**
+  String get appStoreSearchHint;
+
+  /// No description provided for @appStoreNoResults.
+  ///
+  /// In es, this message translates to:
+  /// **'No se encontraron apps.'**
+  String get appStoreNoResults;
+
+  /// No description provided for @appStoreSectionOfficials.
+  ///
+  /// In es, this message translates to:
+  /// **'Oficiales'**
+  String get appStoreSectionOfficials;
+
+  /// No description provided for @appStoreSectionOfficialsSubtitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Integradas en Folio · Sin descarga'**
+  String get appStoreSectionOfficialsSubtitle;
+
+  /// No description provided for @appStoreSectionCommunity.
+  ///
+  /// In es, this message translates to:
+  /// **'Community'**
+  String get appStoreSectionCommunity;
+
+  /// No description provided for @appStoreSectionCommunitySubtitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Publicadas en el registry público'**
+  String get appStoreSectionCommunitySubtitle;
+
+  /// No description provided for @appStoreInstallConfirmTitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Instalar app local'**
+  String get appStoreInstallConfirmTitle;
+
+  /// No description provided for @appStoreInstallConfirmBody.
+  ///
+  /// In es, this message translates to:
+  /// **'Esta app no ha sido verificada. Instala solo archivos de fuentes en las que confíes.'**
+  String get appStoreInstallConfirmBody;
+
+  /// No description provided for @appStoreInstallButton.
+  ///
+  /// In es, this message translates to:
+  /// **'Instalar'**
+  String get appStoreInstallButton;
+
+  /// No description provided for @appStoreInstalledChip.
+  ///
+  /// In es, this message translates to:
+  /// **'Instalada'**
+  String get appStoreInstalledChip;
+
+  /// No description provided for @appStoreInstallSuccess.
+  ///
+  /// In es, this message translates to:
+  /// **'\"{name}\" instalada correctamente.'**
+  String appStoreInstallSuccess(String name);
+
+  /// No description provided for @appStoreInstallError.
+  ///
+  /// In es, this message translates to:
+  /// **'Error: {message}'**
+  String appStoreInstallError(String message);
+
+  /// No description provided for @appStoreUninstallTitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Desinstalar app'**
+  String get appStoreUninstallTitle;
+
+  /// No description provided for @appStoreUninstallBody.
+  ///
+  /// In es, this message translates to:
+  /// **'¿Desinstalar \"{name}\"? Se eliminarán sus archivos.'**
+  String appStoreUninstallBody(String name);
+
+  /// No description provided for @appStoreUninstallButton.
+  ///
+  /// In es, this message translates to:
+  /// **'Desinstalar'**
+  String get appStoreUninstallButton;
+
+  /// No description provided for @appStoreInstalledEmpty.
+  ///
+  /// In es, this message translates to:
+  /// **'No hay apps instaladas.\nExplora la tienda o instala un .folioapp.'**
+  String get appStoreInstalledEmpty;
+
+  /// No description provided for @settingsIntegrationsNativeTitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Integraciones nativas'**
+  String get settingsIntegrationsNativeTitle;
 }
 
 class _AppLocalizationsDelegate

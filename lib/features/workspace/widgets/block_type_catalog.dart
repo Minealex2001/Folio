@@ -192,6 +192,14 @@ const blockTypeCatalog = <BlockTypeDef>[
     section: BlockTypeSection.advanced,
   ),
   BlockTypeDef(
+    key: 'canvas',
+    label: 'Lienzo infinito',
+    hint: 'Pizarra libre con nodos, formas y flechas',
+    icon: Icons.gesture_rounded,
+    section: BlockTypeSection.advanced,
+    beta: true,
+  ),
+  BlockTypeDef(
     key: 'embed',
     label: 'Incrustado web',
     hint: 'YouTube, Figma, Docs…',

@@ -3904,6 +3904,65 @@ class AppLocalizationsCa extends AppLocalizations {
   String get kanbanEmptyColumn => 'Sense tasques';
 
   @override
+  String get blockTypeCanvasLabel => 'Llenç infinit';
+
+  @override
+  String get blockTypeCanvasHint =>
+      'Pissarra lliure amb nodes, formes i fletxes';
+
+  @override
+  String get canvasBlockRowTitle => 'Llenç infinit';
+
+  @override
+  String canvasBlockRowSubtitle(int nodes, int strokes) {
+    return '$nodes nodes · $strokes traços';
+  }
+
+  @override
+  String get canvasToolbarOpenEditor => 'Obre l\'editor de blocs';
+
+  @override
+  String get canvasToolbarAddNode => 'Afegir nota';
+
+  @override
+  String get canvasToolbarAddShape => 'Afegir forma';
+
+  @override
+  String get canvasToolbarDraw => 'Dibuixar';
+
+  @override
+  String get canvasToolbarSelect => 'Seleccionar';
+
+  @override
+  String get canvasToolbarExport => 'Exportar com a imatge';
+
+  @override
+  String get canvasToolbarConnect => 'Connectar nodes';
+
+  @override
+  String get canvasToolbarAddBlock => 'Afegir bloc';
+
+  @override
+  String get canvasClassicModeBanner =>
+      'Editor de blocs: pots moure o eliminar el bloc Llenç.';
+
+  @override
+  String get canvasBackToCanvas => 'Tornar al llenç';
+
+  @override
+  String get canvasMultipleBlocksSnack =>
+      'Aquesta pàgina té més d\'un bloc Llenç; s\'utilitza el primer.';
+
+  @override
+  String get canvasExportSuccess => 'Llenç exportat correctament';
+
+  @override
+  String get canvasExportError => 'Error en exportar el llenç';
+
+  @override
+  String get canvasDeleteNodeConfirm => 'Eliminar aquest node?';
+
+  @override
   String get blockTypeDriveLabel => 'Fitxer Drive';
 
   @override
@@ -5767,4 +5826,83 @@ class AppLocalizationsCa extends AppLocalizations {
 
   @override
   String get downloadDesktopApp => 'Descarrega l\'aplicació d\'escriptori';
+
+  @override
+  String get appStoreTitle => 'Botiga d\'apps';
+
+  @override
+  String get appStoreTabExplore => 'Explorar';
+
+  @override
+  String appStoreTabInstalled(int count) {
+    return 'Instal·lades ($count)';
+  }
+
+  @override
+  String get appStoreTooltipRefresh => 'Actualitzar';
+
+  @override
+  String get appStoreTooltipInstallFile =>
+      'Instal·lar des d\'arxiu (.folioapp)';
+
+  @override
+  String get appStoreSearchHint => 'Cerca apps…';
+
+  @override
+  String get appStoreNoResults => 'No s\'han trobat apps.';
+
+  @override
+  String get appStoreSectionOfficials => 'Oficials';
+
+  @override
+  String get appStoreSectionOfficialsSubtitle =>
+      'Integrades a Folio · Sense descàrrega';
+
+  @override
+  String get appStoreSectionCommunity => 'Community';
+
+  @override
+  String get appStoreSectionCommunitySubtitle =>
+      'Publicades al registry públic';
+
+  @override
+  String get appStoreInstallConfirmTitle => 'Instal·lar app local';
+
+  @override
+  String get appStoreInstallConfirmBody =>
+      'Aquesta app no ha estat verificada. Instal·la nomsés arxius de fonts de confiança.';
+
+  @override
+  String get appStoreInstallButton => 'Instal·lar';
+
+  @override
+  String get appStoreInstalledChip => 'Instal·lada';
+
+  @override
+  String appStoreInstallSuccess(String name) {
+    return '\"$name\" instal·lada correctament.';
+  }
+
+  @override
+  String appStoreInstallError(String message) {
+    return 'Error: $message';
+  }
+
+  @override
+  String get appStoreUninstallTitle => 'Desinstal·lar app';
+
+  @override
+  String appStoreUninstallBody(String name) {
+    return 'Desinstal·lar \"$name\"? S\'eliminaran els seus fitxers.';
+  }
+
+  @override
+  String get appStoreUninstallButton => 'Desinstal·lar';
+
+  @override
+  String get appStoreInstalledEmpty =>
+      'No hi ha apps instal·lades.\nExplora la botiga o instal·la un .folioapp.';
+
+  @override
+  String get settingsIntegrationsNativeTitle => 'Integracions natives';
 }

@@ -31,6 +31,7 @@ import '../models/folio_table_data.dart';
 import '../models/folio_toggle_data.dart';
 import '../models/folio_task_data.dart';
 import '../models/folio_drive_data.dart';
+import '../models/folio_canvas_data.dart';
 import '../models/folio_kanban_data.dart';
 import '../models/jira_integration_state.dart';
 import '../models/page_property.dart';
@@ -3548,6 +3549,10 @@ class VaultSession extends ChangeNotifier {
     } else if (newType == 'drive') {
       if (b.text.isEmpty || FolioFileDriveData.tryParse(b.text) == null) {
         b.text = FolioFileDriveData.defaults().encode();
+      }
+    } else if (newType == 'canvas') {
+      if (b.text.isEmpty || FolioCanvasData.tryParse(b.text) == null) {
+        b.text = FolioCanvasData.defaults().encode();
       }
     } else if (newType == 'image' && oldType != 'image') {
       b.text = '';

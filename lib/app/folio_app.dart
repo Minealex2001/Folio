@@ -32,6 +32,9 @@ import '../services/device_sync/device_sync_controller.dart';
 import '../services/device_sync/device_sync_models.dart';
 import '../services/integrations/integrations_bridge.dart';
 import '../services/integrations/integrations_markdown_codec.dart';
+import '../services/app_store/app_store_service.dart';
+import '../services/app_store/app_extension_registry.dart';
+import '../services/app_store/integration_auth_service.dart';
 import '../services/updater/github_release_updater.dart';
 import '../features/release_notes/release_notes_page.dart';
 import '../features/lock/lock_screen.dart';
@@ -142,6 +145,19 @@ class _FolioAppState extends State<FolioApp> with WidgetsBindingObserver {
     _applyAiSettings();
     _applyDeviceSyncSettings();
     _maybeLaunchAiProvider();
+    unawaited(IntegrationAuthService.instance.load());
+    unawaited(
+      AppStoreService.instance.init().then((_) {
+        AppExtensionRegistry.instance.loadFromInstalledApps(
+          AppStoreService.instance.installedApps,
+        );
+        AppStoreService.instance.addListener(() {
+          AppExtensionRegistry.instance.loadFromInstalledApps(
+            AppStoreService.instance.installedApps,
+          );
+        });
+      }),
+    );
     widget.session.bootstrap();
     unawaited(_loadInstalledVersionInfo());
     unawaited(_startIntegrationsBridge());
@@ -294,11 +310,14 @@ class _FolioAppState extends State<FolioApp> with WidgetsBindingObserver {
         'ca' => event.isOverdue ? 'Tasca vençuda' : 'Tasca per avui',
         'pt' => event.isOverdue ? 'Tarefa vencida' : 'Tarefa para hoje',
         'gl' => event.isOverdue ? 'Tarefa vencida' : 'Tarefa para hoxe',
-        'eu' => event.isOverdue ? 'Epemuga igarotako zeregina' : 'Gaurko zeregina',
+        'eu' =>
+          event.isOverdue ? 'Epemuga igarotako zeregina' : 'Gaurko zeregina',
         _ => event.isOverdue ? 'Tarea vencida' : 'Tarea para hoy',
       };
       final body = '${event.pageTitle}: ${event.taskTitle}';
-      unawaited(PlatformNotificationService.show(id: id, title: title, body: body));
+      unawaited(
+        PlatformNotificationService.show(id: id, title: title, body: body),
+      );
     }
   }
 

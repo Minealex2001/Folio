@@ -178,13 +178,19 @@ const List<BlockTypeTemplate> blockTypeTemplates = [
     section: BlockTypeSection.advanced,
   ),
   BlockTypeTemplate(
+    key: 'canvas',
+    icon: Icons.gesture_rounded,
+    section: BlockTypeSection.advanced,
+    beta: true,
+  ),
+  BlockTypeTemplate(
     key: 'embed',
     icon: Icons.web_rounded,
     section: BlockTypeSection.embeds,
   ),
 ];
 
-enum BlockTypeSection { basicText, lists, media, advanced, embeds }
+enum BlockTypeSection { basicText, lists, media, advanced, embeds, apps }
 
 String blockSectionTitle(BlockTypeSection section, AppLocalizations l10n) {
   switch (section) {
@@ -198,7 +204,17 @@ String blockSectionTitle(BlockTypeSection section, AppLocalizations l10n) {
       return l10n.blockTypeSectionAdvanced;
     case BlockTypeSection.embeds:
       return l10n.blockTypeSectionEmbeds;
+    case BlockTypeSection.apps:
+      return 'Apps';
   }
+}
+
+/// Devuelve el icono asociado al tipo de bloque, o [Icons.widgets_outlined] si no se encuentra.
+IconData blockTypeIconForKey(String key) {
+  for (final t in blockTypeTemplates) {
+    if (t.key == key) return t.icon;
+  }
+  return Icons.widgets_outlined;
 }
 
 String blockTypeLabelForKey(String key, AppLocalizations l10n) {
@@ -251,6 +267,8 @@ String blockTypeLabelForKey(String key, AppLocalizations l10n) {
       return l10n.blockTypeKanbanLabel;
     case 'drive':
       return l10n.blockTypeDriveLabel;
+    case 'canvas':
+      return l10n.blockTypeCanvasLabel;
     case 'equation':
       return l10n.blockTypeEquationLabel;
     case 'mermaid':
@@ -320,6 +338,8 @@ String blockTypeHintForKey(String key, AppLocalizations l10n) {
       return l10n.blockTypeKanbanHint;
     case 'drive':
       return l10n.blockTypeDriveHint;
+    case 'canvas':
+      return l10n.blockTypeCanvasHint;
     case 'equation':
       return l10n.blockTypeEquationHint;
     case 'mermaid':

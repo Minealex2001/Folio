@@ -90,6 +90,26 @@ void main() {
       expect(snap.canUseCloudAi, isFalse);
     });
 
+    test('folioStaff enables cloud features without active subscription', () {
+      final snap = FolioCloudSnapshot.fromUserDoc(<String, dynamic>{
+        'folioStaff': true,
+        'folioCloud': <String, dynamic>{
+          'active': false,
+          'features': <String, dynamic>{
+            'backup': false,
+            'cloudAi': false,
+            'publishWeb': false,
+            'realtimeCollab': false,
+          },
+        },
+      });
+      expect(snap.folioStaff, isTrue);
+      expect(snap.canUseCloudBackup, isTrue);
+      expect(snap.canUseCloudAi, isTrue);
+      expect(snap.canPublishToWeb, isTrue);
+      expect(snap.canRealtimeCollab, isTrue);
+    });
+
     test('canUseCloudAi with purchased ink only (no subscription)', () {
       final snap = FolioCloudSnapshot.fromUserDoc(<String, dynamic>{
         'ink': <String, dynamic>{

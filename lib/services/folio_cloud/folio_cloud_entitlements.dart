@@ -177,12 +177,16 @@ class FolioCloudSnapshot {
     required this.cloudAi,
     required this.publishWeb,
     required this.realtimeCollab,
+    this.folioStaff = false,
     this.backupQuotaBytes = 0,
     this.backupUsedBytes = 0,
     this.backupPurchasedBytes = 0,
     this.backupSubscriptionExtraBytes = 0,
     FolioInkSnapshot? ink,
   }) : _ink = ink;
+
+  /// Staff/admin (Firestore `users/{uid}.folioStaff`): nube ilimitada sin plan.
+  final bool folioStaff;
 
   final bool active;
   final String? subscriptionStatus;
@@ -212,18 +216,18 @@ class FolioCloudSnapshot {
   /// Tras hot reload puede existir un snapshot antiguo sin tinta; nunca devolver null.
   FolioInkSnapshot get ink => _ink ?? FolioInkSnapshot.empty;
 
-  /// Alineado con reglas de Storage (`folioCloud.active` + feature).
-  bool get canUseCloudBackup => active && backup;
+  /// Alineado con reglas de Storage (`folioCloud.active` + feature o `folioStaff`).
+  bool get canUseCloudBackup => folioStaff || (active && backup);
 
   /// Publicación web (Storage `published/` + Firestore `publishedPages`).
-  bool get canPublishToWeb => active && publishWeb;
+  bool get canPublishToWeb => folioStaff || (active && publishWeb);
 
   /// Colaboración en vivo (Firestore `collabRooms`).
-  bool get canRealtimeCollab => active && realtimeCollab;
+  bool get canRealtimeCollab => folioStaff || (active && realtimeCollab);
 
-  /// Callable `folioCloudAiComplete`: suscripción con IA en la nube, o tinta comprada (sin suscripción).
+  /// Callable `folioCloudAiComplete`: suscripción con IA en la nube, tinta comprada, o staff.
   bool get canUseCloudAi =>
-      (active && cloudAi) || ink.purchasedBalance > 0;
+      folioStaff || (active && cloudAi) || ink.purchasedBalance > 0;
 
   static const FolioCloudSnapshot empty = FolioCloudSnapshot(
     active: false,
@@ -232,6 +236,7 @@ class FolioCloudSnapshot {
     cloudAi: false,
     publishWeb: false,
     realtimeCollab: false,
+    folioStaff: false,
     backupQuotaBytes: 0,
     backupUsedBytes: 0,
     backupPurchasedBytes: 0,
@@ -259,6 +264,7 @@ class FolioCloudSnapshot {
         cloudAi: false,
         publishWeb: false,
         realtimeCollab: false,
+        folioStaff: _folioBool(data['folioStaff']),
         backupQuotaBytes: _folioBackupIntField(data, 'quotaBytes'),
         backupUsedBytes: _folioBackupIntField(data, 'usedBytes'),
         backupPurchasedBytes: _folioBackupIntField(data, 'purchasedBytes'),
@@ -287,6 +293,7 @@ class FolioCloudSnapshot {
       cloudAi: f('cloudAi'),
       publishWeb: f('publishWeb'),
       realtimeCollab: f('realtimeCollab'),
+      folioStaff: _folioBool(data['folioStaff']),
       backupQuotaBytes: _folioBackupIntField(data, 'quotaBytes'),
       backupUsedBytes: _folioBackupIntField(data, 'usedBytes'),
       backupPurchasedBytes: _folioBackupIntField(data, 'purchasedBytes'),
@@ -519,6 +526,7 @@ class FolioCloudEntitlementsController extends ChangeNotifier {
         cloudAi: prev.cloudAi,
         publishWeb: prev.publishWeb,
         realtimeCollab: prev.realtimeCollab,
+        folioStaff: prev.folioStaff,
         backupQuotaBytes: quota,
         backupUsedBytes: used,
         backupPurchasedBytes: prev.backupPurchasedBytes,
@@ -550,6 +558,7 @@ class FolioCloudEntitlementsController extends ChangeNotifier {
       cloudAi: prev.cloudAi,
       publishWeb: prev.publishWeb,
       realtimeCollab: prev.realtimeCollab,
+      folioStaff: prev.folioStaff,
       backupQuotaBytes: prev.backupQuotaBytes,
       backupUsedBytes: prev.backupUsedBytes,
       backupPurchasedBytes: prev.backupPurchasedBytes,

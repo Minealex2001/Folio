@@ -66,6 +66,9 @@ import 'vault_identity_verify_dialog.dart';
 import '../../services/folio_diagnostic_reporter.dart';
 import '../../services/platform/browser_file_download.dart';
 import '../../services/vault_scheduled_local_export.dart';
+import '../../services/app_store/app_store_service.dart';
+import '../../services/app_store/folio_built_in_apps.dart';
+import '../app_store/app_store_screen.dart';
 
 String settingsCloudInkOperationLabel(
   AppLocalizations l10n,
@@ -2453,9 +2456,9 @@ class _SettingsPageState extends State<SettingsPage> {
                                   if (kIsWeb) {
                                     final bytes =
                                         await downloadFolioCloudBackupBytes(
-                                      entry: e,
-                                      entitlementSnapshot: snap,
-                                    );
+                                          entry: e,
+                                          entitlementSnapshot: snap,
+                                        );
                                     if (!ctx.mounted) return;
                                     folioTriggerBrowserDownload(
                                       e.fileName,
@@ -2553,8 +2556,7 @@ class _SettingsPageState extends State<SettingsPage> {
                                       final ok = await showDialog<bool>(
                                         context: ctx,
                                         builder: (dCtx) => StatefulBuilder(
-                                          builder: (dCtx, setSt2) =>
-                                              AlertDialog(
+                                          builder: (dCtx, setSt2) => AlertDialog(
                                             title: Text(
                                               l10n.backupPasswordDialogTitle,
                                             ),
@@ -2565,8 +2567,7 @@ class _SettingsPageState extends State<SettingsPage> {
                                                     CrossAxisAlignment.stretch,
                                                 children: [
                                                   Text(
-                                                    l10n
-                                                        .settingsCloudBackupImportRemoteCloudPackIntro,
+                                                    l10n.settingsCloudBackupImportRemoteCloudPackIntro,
                                                   ),
                                                   const SizedBox(height: 12),
                                                   FolioPasswordField(
@@ -2586,11 +2587,10 @@ class _SettingsPageState extends State<SettingsPage> {
                                                   ),
                                                   const SizedBox(height: 8),
                                                   Text(
-                                                    l10n
-                                                        .cloudPackRestorePasswordHelper,
-                                                    style: Theme.of(dCtx)
-                                                        .textTheme
-                                                        .bodySmall,
+                                                    l10n.cloudPackRestorePasswordHelper,
+                                                    style: Theme.of(
+                                                      dCtx,
+                                                    ).textTheme.bodySmall,
                                                   ),
                                                 ],
                                               ),
@@ -2638,28 +2638,24 @@ class _SettingsPageState extends State<SettingsPage> {
                                       );
                                       final isPlain =
                                           modeFile.existsSync() &&
-                                              modeFile
+                                          modeFile
                                                   .readAsStringSync()
                                                   .trim()
                                                   .toLowerCase() ==
-                                                  'plain';
+                                              'plain';
                                       if (!isPlain) {
-                                        final ctrl =
-                                            TextEditingController();
+                                        final ctrl = TextEditingController();
                                         var obscure = true;
                                         final ok = await showDialog<bool>(
                                           context: ctx,
-                                          builder: (dCtx) =>
-                                              StatefulBuilder(
-                                            builder: (dCtx, setSt2) =>
-                                                AlertDialog(
+                                          builder: (dCtx) => StatefulBuilder(
+                                            builder: (dCtx, setSt2) => AlertDialog(
                                               title: Text(
                                                 l10n.backupPasswordDialogTitle,
                                               ),
                                               content: FolioPasswordField(
                                                 controller: ctrl,
-                                                labelText:
-                                                    l10n.passwordLabel,
+                                                labelText: l10n.passwordLabel,
                                                 obscureText: obscure,
                                                 onToggleObscure: () => setSt2(
                                                   () => obscure = !obscure,
@@ -2673,13 +2669,14 @@ class _SettingsPageState extends State<SettingsPage> {
                                                 TextButton(
                                                   onPressed: () =>
                                                       Navigator.pop(
-                                                          dCtx, false),
+                                                        dCtx,
+                                                        false,
+                                                      ),
                                                   child: Text(l10n.cancel),
                                                 ),
                                                 FilledButton(
                                                   onPressed: () =>
-                                                      Navigator.pop(
-                                                          dCtx, true),
+                                                      Navigator.pop(dCtx, true),
                                                   child: Text(
                                                     l10n.settingsCloudBackupActionImportOverwrite,
                                                   ),
@@ -6517,7 +6514,9 @@ class _SettingsPageState extends State<SettingsPage> {
                                             border: const OutlineInputBorder(),
                                             isDense: true,
                                           ),
-                                          items: _meetingSystemDropdownItems(l10n),
+                                          items: _meetingSystemDropdownItems(
+                                            l10n,
+                                          ),
                                           onChanged: (value) {
                                             unawaited(
                                               _app.setMeetingNoteSystemDeviceId(
@@ -7809,6 +7808,44 @@ class _SettingsPageState extends State<SettingsPage> {
 
                           if (showDesktopOnlySections) ...[
                             _SettingsPanel(
+                              margin: const EdgeInsets.only(bottom: 24),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.stretch,
+                                children: [
+                                  ListenableBuilder(
+                                    listenable: AppStoreService.instance,
+                                    builder: (context, _) {
+                                      final installed = AppStoreService
+                                          .instance
+                                          .installedApps;
+                                      return ListTile(
+                                        leading: const Icon(
+                                          Icons.extension_outlined,
+                                        ),
+                                        title: const Text('Tienda de Apps'),
+                                        subtitle: Text(
+                                          installed.isEmpty
+                                              ? 'Sin apps instaladas'
+                                              : '${installed.length} app${installed.length == 1 ? '' : 's'} instalada${installed.length == 1 ? '' : 's'}',
+                                        ),
+                                        trailing: FilledButton.tonal(
+                                          onPressed: () {
+                                            Navigator.of(context).push<void>(
+                                              MaterialPageRoute<void>(
+                                                builder: (_) =>
+                                                    const AppStoreScreen(),
+                                              ),
+                                            );
+                                          },
+                                          child: const Text('Abrir tienda'),
+                                        ),
+                                      );
+                                    },
+                                  ),
+                                ],
+                              ),
+                            ),
+                            _SettingsPanel(
                               key: _sectionKey(_SettingsSectionId.integrations),
                               margin: const EdgeInsets.only(bottom: 24),
                               child: Column(
@@ -7850,26 +7887,41 @@ class _SettingsPageState extends State<SettingsPage> {
                                       crossAxisAlignment:
                                           CrossAxisAlignment.start,
                                       children: [
-                                        Text(
-                                          Localizations.localeOf(
-                                                    context,
-                                                  ).languageCode ==
-                                                  'es'
-                                              ? 'Integraciones nativas'
-                                              : 'Native integrations',
-                                          style: Theme.of(context)
-                                              .textTheme
-                                              .titleSmall
-                                              ?.copyWith(
-                                                fontWeight: FontWeight.w800,
-                                              ),
+                                        ListenableBuilder(
+                                          listenable: AppStoreService.instance,
+                                          builder: (context, _) {
+                                            final jiraInstalled =
+                                                AppStoreService.instance
+                                                    .isInstalled(
+                                                      FolioBuiltInApps.jiraId,
+                                                    );
+                                            if (!jiraInstalled) {
+                                              return const SizedBox.shrink();
+                                            }
+                                            return Column(
+                                              crossAxisAlignment:
+                                                  CrossAxisAlignment.start,
+                                              children: [
+                                                Text(
+                                                  l10n.settingsIntegrationsNativeTitle,
+                                                  style: Theme.of(context)
+                                                      .textTheme
+                                                      .titleSmall
+                                                      ?.copyWith(
+                                                        fontWeight:
+                                                            FontWeight.w800,
+                                                      ),
+                                                ),
+                                                const SizedBox(height: 10),
+                                                JiraIntegrationCard(
+                                                  session: _s,
+                                                  appSettings: _app,
+                                                ),
+                                                const SizedBox(height: 18),
+                                              ],
+                                            );
+                                          },
                                         ),
-                                        const SizedBox(height: 10),
-                                        JiraIntegrationCard(
-                                          session: _s,
-                                          appSettings: _app,
-                                        ),
-                                        const SizedBox(height: 18),
                                         Row(
                                           children: [
                                             Text(

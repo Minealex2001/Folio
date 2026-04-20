@@ -215,6 +215,7 @@ bool folioBlocksCanMerge(FolioBlock prev, FolioBlock cur) {
     'table',
     'database',
     'kanban',
+    'canvas',
     'mermaid',
     'bookmark',
     'embed',

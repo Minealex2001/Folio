@@ -608,12 +608,26 @@ class BlockEditorState extends State<BlockEditor> with _BlockRowBuild {
             a.hint.toLowerCase().contains(normalized);
       }),
     );
+
+    // Slash commands de apps instaladas
+    final appSlashCmds = AppExtensionRegistry.instance.registeredSlashCommands;
+    filtered.addAll(
+      appSlashCmds.where((a) {
+        if (normalized.isEmpty) return true;
+        return a.key.contains(normalized) ||
+            a.label.toLowerCase().contains(normalized) ||
+            a.hint.toLowerCase().contains(normalized);
+      }),
+    );
+
     if (filtered.length < 2) return filtered;
     final catalogIndex = {
       for (var i = 0; i < blockTypeTemplates.length; i++)
         blockTypeTemplates[i].key: i,
       for (var i = 0; i < inline.length; i++)
         inline[i].key: blockTypeTemplates.length + i,
+      for (var i = 0; i < appSlashCmds.length; i++)
+        appSlashCmds[i].key: blockTypeTemplates.length + inline.length + i,
     };
     filtered.sort((a, b) {
       final aScore = _slashRecentByType[a.key] ?? 0;

@@ -67,6 +67,7 @@ import 'workspace_shell.dart';
 import '../tasks/task_quick_add_dialog.dart';
 import '../drive/drive_page.dart';
 import '../kanban/kanban_board_page.dart';
+import '../canvas/canvas_page.dart';
 import '../widgets/page_properties_widget.dart';
 
 part 'workspace_page_ai_chat.dart';
@@ -154,6 +155,9 @@ class _WorkspacePageState extends State<WorkspacePage> {
 
   /// Al abrir el editor clásico en una página con Drive, se guarda su id aquí.
   String? _driveClassicEditPageId;
+
+  /// Al abrir el editor clásico en una página con Canvas, se guarda su id aquí.
+  String? _canvasClassicEditPageId;
   final Set<String> _expandedThoughtMessageKeys = <String>{};
   final ScrollController _aiChatScrollController = ScrollController();
 
@@ -937,6 +941,7 @@ class _WorkspacePageState extends State<WorkspacePage> {
       _lastSessionPageIdForKanban = currentPageId;
       _kanbanClassicEditPageId = null;
       _driveClassicEditPageId = null;
+      _canvasClassicEditPageId = null;
     }
     if (currentPageId != _lastPageIdForMobileMode) {
       _lastPageIdForMobileMode = currentPageId;
@@ -2223,6 +2228,8 @@ class _WorkspacePageState extends State<WorkspacePage> {
 
     bool pageHasDrive(FolioPage p) => p.blocks.any((b) => b.type == 'drive');
 
+    bool pageHasCanvas(FolioPage p) => p.blocks.any((b) => b.type == 'canvas');
+
     final showKanbanBoard =
         page != null &&
         pageHasKanban(page) &&
@@ -2232,6 +2239,11 @@ class _WorkspacePageState extends State<WorkspacePage> {
         page != null &&
         pageHasDrive(page) &&
         _driveClassicEditPageId != page.id;
+
+    final showCanvasPage =
+        page != null &&
+        pageHasCanvas(page) &&
+        _canvasClassicEditPageId != page.id;
 
     Widget baseEditor = page == null
         ? const SizedBox.shrink()
@@ -2252,6 +2264,14 @@ class _WorkspacePageState extends State<WorkspacePage> {
                     appSettings: widget.appSettings,
                     onOpenClassicEditor: () =>
                         setState(() => _driveClassicEditPageId = page.id),
+                  )
+                : showCanvasPage
+                ? CanvasPage(
+                    pageId: page.id,
+                    session: _s,
+                    appSettings: widget.appSettings,
+                    onOpenClassicEditor: () =>
+                        setState(() => _canvasClassicEditPageId = page.id),
                   )
                 : BlockEditor(
                     key: activeBlockEditorKey,
@@ -2332,6 +2352,41 @@ class _WorkspacePageState extends State<WorkspacePage> {
       );
     }
 
+    if (page != null &&
+        pageHasCanvas(page) &&
+        _canvasClassicEditPageId == page.id) {
+      baseEditor = Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Material(
+            color: scheme.surfaceContainerHigh.withValues(alpha: 0.95),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(
+                horizontal: FolioSpace.md,
+                vertical: FolioSpace.sm,
+              ),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      l10n.canvasClassicModeBanner,
+                      style: theme.textTheme.bodyMedium,
+                    ),
+                  ),
+                  TextButton(
+                    onPressed: () =>
+                        setState(() => _canvasClassicEditPageId = null),
+                    child: Text(l10n.canvasBackToCanvas),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          Expanded(child: baseEditor),
+        ],
+      );
+    }
+
     final editorSurface = WorkspaceEditorSurface(
       compact: compact,
       mobileOptimized: androidMobileWorkspace,
@@ -2363,6 +2418,7 @@ class _WorkspacePageState extends State<WorkspacePage> {
         page != null &&
         !showKanbanBoard &&
         !showDrivePage &&
+        !showCanvasPage &&
         widget.appSettings.workspacePageOutlineVisible;
 
     final showBacklinksPanel =
@@ -2371,6 +2427,7 @@ class _WorkspacePageState extends State<WorkspacePage> {
         page != null &&
         !showKanbanBoard &&
         !showDrivePage &&
+        !showCanvasPage &&
         widget.appSettings.workspaceBacklinksVisible;
 
     final showCommentsPanel =
@@ -2379,6 +2436,7 @@ class _WorkspacePageState extends State<WorkspacePage> {
         page != null &&
         !showKanbanBoard &&
         !showDrivePage &&
+        !showCanvasPage &&
         widget.appSettings.workspaceCommentsVisible;
 
     Widget editorWithPanels = editorSurface;

@@ -571,6 +571,10 @@ async function chargeInkExtraIfPossible(
 ): Promise<number> {
   if (extra <= 0) return 0;
   const ref = db.collection("users").doc(uid);
+  const pre = await ref.get();
+  if (isFolioStaffUser((pre.data() ?? {}) as Record<string, unknown>)) {
+    return 0;
+  }
   let charged = 0;
   await db.runTransaction(async (tx) => {
     const snap = await tx.get(ref);
@@ -646,6 +650,26 @@ async function runFolioCloudAiForUid(
 
   const inkExhaustedMsg =
     "Insufficient ink. Buy an ink pack in Folio Cloud settings, wait for your monthly refill with an active subscription, or switch to a local AI provider (Ollama / LM Studio).";
+
+  const preSnap = await ref.get();
+  const preData = (preSnap.data() ?? {}) as Record<string, unknown>;
+  if (isFolioStaffUser(preData)) {
+    const { text } = await callOpenAiChatStructured(input);
+    const finalSnap = await ref.get();
+    const inkOut = readInkBalances(
+      (finalSnap.data() ?? {}) as Record<string, unknown>
+    );
+    return {
+      text,
+      ink: {
+        monthlyBalance: inkOut.monthly,
+        purchasedBalance: inkOut.purchased,
+      },
+      inkCharged: 0,
+      inkBaseCharged: 0,
+      inkTokenSurcharge: 0,
+    };
+  }
 
   let allowSubscriptionInk = false;
   await db.runTransaction(async (tx) => {
@@ -798,6 +822,13 @@ function priceBackupStoragePackLarge(): string {
 
 /** 5 GiB base con suscripción Folio Cloud (backup). */
 const FOLIO_BACKUP_BASE_QUOTA_BYTES = 5 * 1024 * 1024 * 1024;
+
+/** Cuota efectiva para cuentas staff (`users/{uid}.folioStaff`): sin límite práctico en servidor. */
+const FOLIO_STAFF_BACKUP_QUOTA_BYTES = Number.MAX_SAFE_INTEGER;
+
+function isFolioStaffUser(data: Record<string, unknown>): boolean {
+  return data.folioStaff === true;
+}
 
 const BACKUP_STORAGE_GRANT_SMALL_BYTES = 20 * 1024 * 1024 * 1024;
 const BACKUP_STORAGE_GRANT_MEDIUM_BYTES = 75 * 1024 * 1024 * 1024;
@@ -1111,6 +1142,24 @@ async function updateFolioBackupQuotaBytes(uid: string): Promise<void> {
   await db.runTransaction(async (tx) => {
     const snap = await tx.get(ref);
     const data = (snap.data() ?? {}) as Record<string, unknown>;
+    if (isFolioStaffUser(data)) {
+      const purchased = folioBackupPurchasedField(data);
+      const subExtra = folioBackupStripeSubscriptionExtraField(data);
+      const used = folioBackupUsedField(data);
+      tx.set(
+        ref,
+        {
+          folioBackup: {
+            purchasedBytes: purchased,
+            usedBytes: used,
+            quotaBytes: FOLIO_STAFF_BACKUP_QUOTA_BYTES,
+            updatedAt: FieldValue.serverTimestamp(),
+          },
+        },
+        { merge: true }
+      );
+      return;
+    }
     const fc = data.folioCloud as Record<string, unknown> | undefined;
     const features = fc?.features as Record<string, unknown> | undefined;
     const active = fc?.active === true;
@@ -1750,6 +1799,9 @@ export type CheckoutKind =
 async function assertFolioCloudBackupAllowed(uid: string): Promise<void> {
   const snap = await db.collection("users").doc(uid).get();
   const data = snap.data() ?? {};
+  if (isFolioStaffUser(data as Record<string, unknown>)) {
+    return;
+  }
   const fc = data.folioCloud as Record<string, unknown> | undefined;
   const features = fc?.features as Record<string, unknown> | undefined;
   if (fc?.active !== true || features?.backup !== true) {
@@ -1764,6 +1816,9 @@ async function assertFolioCloudBackupAllowed(uid: string): Promise<void> {
 async function assertFolioRealtimeCollabAllowed(uid: string): Promise<void> {
   const snap = await db.collection("users").doc(uid).get();
   const data = snap.data() ?? {};
+  if (isFolioStaffUser(data as Record<string, unknown>)) {
+    return;
+  }
   const fc = data.folioCloud as Record<string, unknown> | undefined;
   const features = fc?.features as Record<string, unknown> | undefined;
   if (fc?.active !== true || features?.realtimeCollab !== true) {
@@ -2446,6 +2501,9 @@ function parseCloudPackBlobSizeList(
 }
 
 function effectiveBackupQuotaBytes(data: Record<string, unknown>): number {
+  if (isFolioStaffUser(data)) {
+    return FOLIO_STAFF_BACKUP_QUOTA_BYTES;
+  }
   const fb = data.folioBackup as Record<string, unknown> | undefined;
   const q = fb?.quotaBytes;
   if (typeof q === "number" && Number.isFinite(q) && q >= 0) {
@@ -3270,45 +3328,51 @@ export const folioCloudTranscribeChunk = onCall(
         : baseInkCost;
     let inkDebited = false;
 
-    // ── Debitar Tinta si se solicita ─────────────────────────────────────────
+    // ── Debitar Tinta si se solicita (cuentas staff: sin cargo) ──────────────
     if (chargeInk) {
-      const inkExhaustedMsg =
-        "Tinta insuficiente para la transcripción en la nube. Compra un tintero, " +
-        "espera la recarga mensual con suscripción activa, o usa transcripción local.";
-
       const userRef = db.collection("users").doc(uid);
-      await db.runTransaction(async (tx) => {
-        const snap = await tx.get(userRef);
-        const dataDoc = snap.data() ?? {};
-        const fc = dataDoc.folioCloud as Record<string, unknown> | undefined;
-        const hasSubCloudAi =
-          fc?.active === true &&
-          (fc?.features as Record<string, unknown>)?.cloudAi === true;
+      const preStaffSnap = await userRef.get();
+      const skipInkForStaff = isFolioStaffUser(
+        (preStaffSnap.data() ?? {}) as Record<string, unknown>
+      );
+      if (!skipInkForStaff) {
+        const inkExhaustedMsg =
+          "Tinta insuficiente para la transcripción en la nube. Compra un tintero, " +
+          "espera la recarga mensual con suscripción activa, o usa transcripción local.";
 
-        const { monthly, purchased } = readInkBalances(dataDoc);
-        if (hasSubCloudAi) {
-          if (monthly + purchased < inkCost) {
-            throw new HttpsError("resource-exhausted", inkExhaustedMsg);
+        await db.runTransaction(async (tx) => {
+          const snap = await tx.get(userRef);
+          const dataDoc = snap.data() ?? {};
+          const fc = dataDoc.folioCloud as Record<string, unknown> | undefined;
+          const hasSubCloudAi =
+            fc?.active === true &&
+            (fc?.features as Record<string, unknown>)?.cloudAi === true;
+
+          const { monthly, purchased } = readInkBalances(dataDoc);
+          if (hasSubCloudAi) {
+            if (monthly + purchased < inkCost) {
+              throw new HttpsError("resource-exhausted", inkExhaustedMsg);
+            }
+            const next = debitInkBalances(monthly, purchased, inkCost);
+            tx.update(userRef, {
+              "ink.monthlyBalance": next.monthly,
+              "ink.purchasedBalance": next.purchased,
+              "ink.updatedAt": FieldValue.serverTimestamp(),
+            });
+          } else {
+            if (purchased < inkCost) {
+              throw new HttpsError("resource-exhausted", inkExhaustedMsg);
+            }
+            const next = debitInkBalances(0, purchased, inkCost);
+            tx.update(userRef, {
+              "ink.monthlyBalance": 0,
+              "ink.purchasedBalance": next.purchased,
+              "ink.updatedAt": FieldValue.serverTimestamp(),
+            });
           }
-          const next = debitInkBalances(monthly, purchased, inkCost);
-          tx.update(userRef, {
-            "ink.monthlyBalance": next.monthly,
-            "ink.purchasedBalance": next.purchased,
-            "ink.updatedAt": FieldValue.serverTimestamp(),
-          });
-        } else {
-          if (purchased < inkCost) {
-            throw new HttpsError("resource-exhausted", inkExhaustedMsg);
-          }
-          const next = debitInkBalances(0, purchased, inkCost);
-          tx.update(userRef, {
-            "ink.monthlyBalance": 0,
-            "ink.purchasedBalance": next.purchased,
-            "ink.updatedAt": FieldValue.serverTimestamp(),
-          });
-        }
-      });
-      inkDebited = true;
+        });
+        inkDebited = true;
+      }
     }
 
     // ── Transcripción de audio (endpoint del proveedor Quill Cloud) ───────────
