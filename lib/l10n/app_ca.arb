@@ -2072,4 +2072,5 @@
   ,"@workspaceHomeClockTimezoneLine": {"placeholders": {"zoneName": {"type": "String"}, "offset": {"type": "String"}}}
   ,"workspaceHomeSectionLabelSearch": "Camp de cerca"
   ,"workspaceHomeSectionLabelCreatePage": "Botó pàgina nova"
+  ,"jiraCloudMissingOAuthSecret": "Falta JIRA_OAUTH_CLIENT_SECRET. Pots definir-lo a lib/config/folio_local_secrets.dart (còpia des de l'arxiu .example), en un .env que Folio carrega en arrencar o amb --dart-define. Reinicia l'app i revisa el registre folio.env."
 }

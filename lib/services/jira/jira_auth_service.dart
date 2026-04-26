@@ -5,10 +5,10 @@ import 'dart:math';
 
 import 'package:firebase_core/firebase_core.dart';
 import 'package:http/http.dart' as http;
-import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:uuid/uuid.dart';
 
+import '../../config/folio_local_secrets.dart';
 import '../../firebase_options.dart';
 import '../../models/jira_integration_state.dart';
 import '../app_logger.dart';
@@ -54,14 +54,10 @@ class JiraAuthService {
   static String _readEnv(String key) {
     final define = String.fromEnvironment(key).trim();
     if (define.isNotEmpty) return define;
+    final fromDart = FolioLocalSecrets.valueForDefineKey(key).trim();
+    if (fromDart.isNotEmpty) return fromDart;
     final local = (LocalEnv.get(key) ?? '').trim();
     if (local.isNotEmpty) return local;
-    try {
-      final dot = (dotenv.env[key] ?? '').trim();
-      if (dot.isNotEmpty) return dot;
-    } catch (_) {
-      // flutter_dotenv puede no estar inicializado en algunos entornos/tests.
-    }
     return (Platform.environment[key] ?? '').trim();
   }
 
@@ -278,8 +274,8 @@ class JiraAuthService {
     if (Firebase.apps.isEmpty) {
       throw StateError(
         'Falta JIRA_OAUTH_CLIENT_SECRET en este equipo y Firebase no está inicializado. '
-        'Opciones: crea %APPDATA%\\Folio\\.env con la variable, usa --dart-define al compilar, '
-        'o despliega Cloud Functions con JIRA_OAUTH_CLIENT_SECRET (folioJiraExchangeOAuth).',
+        'Opciones: lib/config/folio_local_secrets.dart (copia desde .example), %APPDATA%\\Folio\\.env, '
+        '--dart-define al compilar, o Cloud Functions con JIRA_OAUTH_CLIENT_SECRET (folioJiraExchangeOAuth).',
       );
     }
     final projectId = DefaultFirebaseOptions.currentPlatform.projectId;
@@ -316,7 +312,7 @@ class JiraAuthService {
         mapTry['error']?.toString() == 'jira_oauth_not_configured') {
       throw StateError(
         'El servidor Folio no tiene configurado JIRA_OAUTH_CLIENT_SECRET. '
-        'Contacta al administrador o define el secret localmente en %APPDATA%\\Folio\\.env.',
+        'Contacta al administrador o define el secret en lib/config/folio_local_secrets.dart o %APPDATA%\\Folio\\.env.',
       );
     }
     if (resp.statusCode < 200 || resp.statusCode >= 300) {

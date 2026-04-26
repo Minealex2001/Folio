@@ -57,6 +57,11 @@ jobs:
         shell: pwsh
         run: dart pub get --enforce-lockfile
 
+      - name: Local secrets stub (gitignored file required for analyze)
+        working-directory: ${{ env.REPO_DIR }}
+        shell: pwsh
+        run: Copy-Item -Force lib/config/folio_local_secrets.example.dart lib/config/folio_local_secrets.dart
+
       - name: Static analysis
         working-directory: ${{ env.REPO_DIR }}
         shell: pwsh

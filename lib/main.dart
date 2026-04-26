@@ -4,10 +4,10 @@ import 'dart:ui';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
-import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:system_theme/system_theme.dart';
 
 import 'app/app_settings.dart';
+import 'config/folio_local_secrets.dart';
 import 'app/folio_app.dart';
 import 'app/folio_runtime_config.dart';
 import 'firebase_options.dart';
@@ -34,36 +34,30 @@ Future<void> main() async {
         final res = await LocalEnvLoader.loadLocalEnv(filename: '.env');
         if (res.loaded) {
           AppLogger.info(
-            'dotenv loaded',
+            'local env file loaded',
             tag: 'env',
             context: {'path': res.path ?? '—'},
           );
           // No loguear valores; solo presencia.
           AppLogger.info(
-            'dotenv keys present',
+            'local env keys present',
             tag: 'env',
             context: {
-              'hasClientId':
-                  LocalEnv.has('JIRA_OAUTH_CLIENT_ID') ||
-                      (dotenv.env['JIRA_OAUTH_CLIENT_ID'] ?? '').trim().isNotEmpty,
-              'hasClientSecret':
-                  LocalEnv.has('JIRA_OAUTH_CLIENT_SECRET') ||
-                      (dotenv.env['JIRA_OAUTH_CLIENT_SECRET'] ?? '').trim().isNotEmpty,
+              'hasClientId': _hasJiraClientId(),
+              'hasClientSecret': _hasJiraClientSecret(),
             },
           );
           // ignore: avoid_print
           print(
-            '[folio.env] keys present hasClientId='
-            '${LocalEnv.has('JIRA_OAUTH_CLIENT_ID') || (dotenv.env['JIRA_OAUTH_CLIENT_ID'] ?? '').trim().isNotEmpty} '
-            'hasClientSecret='
-            '${LocalEnv.has('JIRA_OAUTH_CLIENT_SECRET') || (dotenv.env['JIRA_OAUTH_CLIENT_SECRET'] ?? '').trim().isNotEmpty}',
+            '[folio.env] keys present hasClientId=${_hasJiraClientId()} '
+            'hasClientSecret=${_hasJiraClientSecret()}',
           );
         } else {
-          AppLogger.warn('dotenv not found', tag: 'env');
+          AppLogger.warn('local env file not found', tag: 'env');
         }
       } catch (e, st) {
-        AppLogger.warn('dotenv load failed', tag: 'env', context: {'error': '$e'});
-        AppLogger.debug('dotenv load stack', tag: 'env', context: {'stack': '$st'});
+        AppLogger.warn('local env load failed', tag: 'env', context: {'error': '$e'});
+        AppLogger.debug('local env load stack', tag: 'env', context: {'stack': '$st'});
         // ignore: avoid_print
         print('[folio.env] load failed error=$e');
       }
@@ -149,4 +143,30 @@ Future<void> main() async {
       );
     },
   );
+}
+
+bool _hasJiraClientId() {
+  if (const String.fromEnvironment('JIRA_OAUTH_CLIENT_ID').trim().isNotEmpty) {
+    return true;
+  }
+  if (FolioLocalSecrets.valueForDefineKey('JIRA_OAUTH_CLIENT_ID')
+      .trim()
+      .isNotEmpty) {
+    return true;
+  }
+  return LocalEnv.has('JIRA_OAUTH_CLIENT_ID');
+}
+
+bool _hasJiraClientSecret() {
+  if (const String.fromEnvironment('JIRA_OAUTH_CLIENT_SECRET')
+      .trim()
+      .isNotEmpty) {
+    return true;
+  }
+  if (FolioLocalSecrets.valueForDefineKey('JIRA_OAUTH_CLIENT_SECRET')
+      .trim()
+      .isNotEmpty) {
+    return true;
+  }
+  return LocalEnv.has('JIRA_OAUTH_CLIENT_SECRET');
 }

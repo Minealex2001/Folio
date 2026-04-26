@@ -46,6 +46,9 @@ app.*.map.json
 .env
 .env.local
 
+# Secretos locales Dart (copiar desde lib/config/folio_local_secrets.example.dart)
+lib/config/folio_local_secrets.dart
+
 # Folio Cloud / Firebase Functions (secrets locales)
 functions/.env
 functions/.secret.local

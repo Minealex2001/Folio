@@ -11292,6 +11292,12 @@ abstract class AppLocalizations {
   /// In es, this message translates to:
   /// **'Botón nueva página'**
   String get workspaceHomeSectionLabelCreatePage;
+
+  /// No description provided for @jiraCloudMissingOAuthSecret.
+  ///
+  /// In es, this message translates to:
+  /// **'Falta JIRA_OAUTH_CLIENT_SECRET. Puedes definirlo en lib/config/folio_local_secrets.dart (copia desde el .example), en un .env que Folio carga al arrancar o con --dart-define. Reinicia la app y revisa el log folio.env.'**
+  String get jiraCloudMissingOAuthSecret;
 }
 
 class _AppLocalizationsDelegate

@@ -183,6 +183,7 @@ class _JiraIntegrationConfigDialogState extends State<JiraIntegrationConfigDialo
 
   Future<void> _connectCloud() async {
     final isEs = Localizations.localeOf(context).languageCode == 'es';
+    final l10n = AppLocalizations.of(context);
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(
@@ -356,9 +357,7 @@ class _JiraIntegrationConfigDialogState extends State<JiraIntegrationConfigDialo
                 ? 'Timeout conectando Jira Cloud. Si no se abre el navegador, revisa que Windows permita abrir enlaces externos.'
                 : 'Timeout connecting Jira Cloud. If the browser does not open, check Windows allows opening external links.')
             : isMissingSecret
-            ? (isEs
-                ? 'Falta JIRA_OAUTH_CLIENT_SECRET. Folio carga `.env` al arrancar: reinicia la app y verifica el log `folio.env` ("dotenv loaded").'
-                : 'Missing JIRA_OAUTH_CLIENT_SECRET. Folio loads `.env` on startup: restart the app and check the `folio.env` log ("dotenv loaded").')
+            ? l10n.jiraCloudMissingOAuthSecret
             : (isEs
                 ? 'Error conectando Jira Cloud: $e'
                 : 'Error connecting Jira Cloud: $e');

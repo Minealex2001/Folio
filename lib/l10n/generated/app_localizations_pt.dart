@@ -6421,4 +6421,8 @@ class AppLocalizationsPt extends AppLocalizations {
 
   @override
   String get workspaceHomeSectionLabelCreatePage => 'Botão nova página';
+
+  @override
+  String get jiraCloudMissingOAuthSecret =>
+      'Falta JIRA_OAUTH_CLIENT_SECRET. Defina-o em lib/config/folio_local_secrets.dart (cópia do .example), num .env que o Folio carrega ao iniciar ou com --dart-define. Reinicie o app e verifique o log folio.env.';
 }

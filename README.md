@@ -60,6 +60,12 @@ cd folio
 # 2. Install dependencies
 flutter pub get
 
+# 2b. Local dev secrets (optional but required for some integrations)
+# Copy the example and fill in if you use Jira OAuth, Folio integration secret, etc.
+# cp lib/config/folio_local_secrets.example.dart lib/config/folio_local_secrets.dart   # Unix
+# Copy-Item lib/config/folio_local_secrets.example.dart lib/config/folio_local_secrets.dart   # PowerShell
+# The copied file is gitignored. CI must create it the same way before `flutter analyze` / build.
+
 # 3. Run static analysis
 flutter analyze
 

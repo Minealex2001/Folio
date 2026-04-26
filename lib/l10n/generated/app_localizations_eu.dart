@@ -6466,4 +6466,8 @@ class AppLocalizationsEu extends AppLocalizations {
 
   @override
   String get workspaceHomeSectionLabelCreatePage => 'Orri berriaren botoia';
+
+  @override
+  String get jiraCloudMissingOAuthSecret =>
+      'JIRA_OAUTH_CLIENT_SECRET falta du. Ezarri lib/config/folio_local_secrets.dart fitxategian (.example-tik kopiatu), Folio-k abioan kargatzen duen .env batean edo --dart-define bidez. Berrabiarazi app-a eta egiaztatu folio.env loga.';
 }
