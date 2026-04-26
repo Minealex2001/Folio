@@ -67,7 +67,8 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
   var _createStarterPages = true;
 
   /// Elección en onboarding (se persiste al salir del paso).
-  var _onboardingTelemetryEnabled = false;
+  /// Default: true (telemetría habilitada, puede desactivarse en Settings)
+  var _onboardingTelemetryEnabled = true;
 
   static const _minLen = 10;
 
@@ -373,6 +374,7 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
           restorePassword: pwd,
           extractDir: tmp,
           entitlementSnapshot: _folio.snapshot,
+          telemetrySettings: widget.appSettings,
         );
         final isPlain = await isPlainExtractedBackupDirectory(tmp);
         final vaultPwd = isPlain ? '' : pwd;

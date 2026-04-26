@@ -10380,6 +10380,918 @@ abstract class AppLocalizations {
   /// In es, this message translates to:
   /// **'Integraciones nativas'**
   String get settingsIntegrationsNativeTitle;
+
+  /// No description provided for @telemetryDashboardTitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Panel de telemetría'**
+  String get telemetryDashboardTitle;
+
+  /// No description provided for @telemetryDashboardAccessDenied.
+  ///
+  /// In es, this message translates to:
+  /// **'Acceso denegado'**
+  String get telemetryDashboardAccessDenied;
+
+  /// No description provided for @telemetryDashboardStaffOnlyBody.
+  ///
+  /// In es, this message translates to:
+  /// **'Solo el personal de Folio puede abrir esta pantalla.'**
+  String get telemetryDashboardStaffOnlyBody;
+
+  /// No description provided for @telemetryDashboardFlushTooltip.
+  ///
+  /// In es, this message translates to:
+  /// **'Enviar eventos pendientes y actualizar'**
+  String get telemetryDashboardFlushTooltip;
+
+  /// No description provided for @telemetryDashboardErrorLoading.
+  ///
+  /// In es, this message translates to:
+  /// **'No se pudieron cargar los datos'**
+  String get telemetryDashboardErrorLoading;
+
+  /// No description provided for @telemetryDashboardErrorDetail.
+  ///
+  /// In es, this message translates to:
+  /// **'{detail}'**
+  String telemetryDashboardErrorDetail(String detail);
+
+  /// No description provided for @telemetryDashboardNoDataForDate.
+  ///
+  /// In es, this message translates to:
+  /// **'Sin datos para {date}'**
+  String telemetryDashboardNoDataForDate(String date);
+
+  /// No description provided for @telemetryDashboardNoDataHint.
+  ///
+  /// In es, this message translates to:
+  /// **'Usa el icono de envío para vaciar eventos pendientes y luego actualiza.\nLos totales globales aparecen tras la tarea programada (02:00 UTC, día UTC anterior).'**
+  String get telemetryDashboardNoDataHint;
+
+  /// No description provided for @telemetryDashboardFlushRefresh.
+  ///
+  /// In es, this message translates to:
+  /// **'Vaciar y actualizar'**
+  String get telemetryDashboardFlushRefresh;
+
+  /// No description provided for @telemetryDashboardSectionGlobalTitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Estadísticas globales (todos los usuarios)'**
+  String get telemetryDashboardSectionGlobalTitle;
+
+  /// No description provided for @telemetryDashboardSectionGlobalSubtitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Totales del trabajo de agregación nocturno (02:00 UTC).'**
+  String get telemetryDashboardSectionGlobalSubtitle;
+
+  /// No description provided for @telemetryDashboardMetricUsers.
+  ///
+  /// In es, this message translates to:
+  /// **'Usuarios'**
+  String get telemetryDashboardMetricUsers;
+
+  /// No description provided for @telemetryDashboardMetricEvents.
+  ///
+  /// In es, this message translates to:
+  /// **'Eventos'**
+  String get telemetryDashboardMetricEvents;
+
+  /// No description provided for @telemetryDashboardMetricErrors.
+  ///
+  /// In es, this message translates to:
+  /// **'Errores'**
+  String get telemetryDashboardMetricErrors;
+
+  /// No description provided for @telemetryDashboardByType.
+  ///
+  /// In es, this message translates to:
+  /// **'Por tipo'**
+  String get telemetryDashboardByType;
+
+  /// No description provided for @telemetryDashboardNoEventBreakdown.
+  ///
+  /// In es, this message translates to:
+  /// **'No hay desglose por tipo de evento.'**
+  String get telemetryDashboardNoEventBreakdown;
+
+  /// No description provided for @telemetryDashboardEventTypeUnknown.
+  ///
+  /// In es, this message translates to:
+  /// **'Desconocido'**
+  String get telemetryDashboardEventTypeUnknown;
+
+  /// No description provided for @settingsTelemetryDashboardListSubtitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Ver estadísticas globales de uso agregadas.'**
+  String get settingsTelemetryDashboardListSubtitle;
+
+  /// No description provided for @telemetryDashboardGlobalMissingHint.
+  ///
+  /// In es, this message translates to:
+  /// **'Aún no hay totales globales para esta fecha UTC. Puedes revisar datos por usuario y eventos en bruto abajo.'**
+  String get telemetryDashboardGlobalMissingHint;
+
+  /// No description provided for @telemetryDashboardPerUserDayTitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Por usuario (día seleccionado)'**
+  String get telemetryDashboardPerUserDayTitle;
+
+  /// No description provided for @telemetryDashboardPerUserDaySubtitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Estadísticas diarias para {date} (analytics_events/*/stats).'**
+  String telemetryDashboardPerUserDaySubtitle(String date);
+
+  /// No description provided for @telemetryDashboardRecentEventsTitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Últimos eventos en bruto'**
+  String get telemetryDashboardRecentEventsTitle;
+
+  /// No description provided for @telemetryDashboardRecentEventsSubtitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Hasta 80 eventos más recientes de todos los usuarios con sesión.'**
+  String get telemetryDashboardRecentEventsSubtitle;
+
+  /// No description provided for @telemetryDashboardNoPerUserStats.
+  ///
+  /// In es, this message translates to:
+  /// **'No hay estadísticas por usuario para esta fecha.'**
+  String get telemetryDashboardNoPerUserStats;
+
+  /// No description provided for @telemetryDashboardNoRecentEvents.
+  ///
+  /// In es, this message translates to:
+  /// **'No hay eventos en Firestore.'**
+  String get telemetryDashboardNoRecentEvents;
+
+  /// No description provided for @telemetryDashboardColUser.
+  ///
+  /// In es, this message translates to:
+  /// **'Usuario'**
+  String get telemetryDashboardColUser;
+
+  /// No description provided for @telemetryDashboardColEvents.
+  ///
+  /// In es, this message translates to:
+  /// **'Eventos'**
+  String get telemetryDashboardColEvents;
+
+  /// No description provided for @telemetryDashboardColErrors.
+  ///
+  /// In es, this message translates to:
+  /// **'Errores'**
+  String get telemetryDashboardColErrors;
+
+  /// No description provided for @telemetryDashboardColTime.
+  ///
+  /// In es, this message translates to:
+  /// **'Hora'**
+  String get telemetryDashboardColTime;
+
+  /// No description provided for @telemetryDashboardColType.
+  ///
+  /// In es, this message translates to:
+  /// **'Tipo'**
+  String get telemetryDashboardColType;
+
+  /// No description provided for @telemetryDashboardColSummary.
+  ///
+  /// In es, this message translates to:
+  /// **'Resumen'**
+  String get telemetryDashboardColSummary;
+
+  /// No description provided for @telemetryDashboardEmptyAll.
+  ///
+  /// In es, this message translates to:
+  /// **'No hay datos que mostrar. Prueba otra fecha, vacía eventos pendientes o comprueba que los índices de Firestore estén desplegados.'**
+  String get telemetryDashboardEmptyAll;
+
+  /// No description provided for @telemetrySentDataCategoriesTitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Ejemplos de categorías de telemetría'**
+  String get telemetrySentDataCategoriesTitle;
+
+  /// No description provided for @telemetrySentDataFeatureUsageTitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Uso de funciones'**
+  String get telemetrySentDataFeatureUsageTitle;
+
+  /// No description provided for @telemetrySentDataFeatureUsageBody.
+  ///
+  /// In es, this message translates to:
+  /// **'Cuando abres el editor, el tablero, la búsqueda, los ajustes u otras funciones.'**
+  String get telemetrySentDataFeatureUsageBody;
+
+  /// No description provided for @telemetrySentDataContentActionsTitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Acciones sobre el contenido'**
+  String get telemetrySentDataContentActionsTitle;
+
+  /// No description provided for @telemetrySentDataContentActionsBody.
+  ///
+  /// In es, this message translates to:
+  /// **'Crear, editar o eliminar notas y tableros.'**
+  String get telemetrySentDataContentActionsBody;
+
+  /// No description provided for @telemetrySentDataSearchesTitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Búsquedas'**
+  String get telemetrySentDataSearchesTitle;
+
+  /// No description provided for @telemetrySentDataSearchesBody.
+  ///
+  /// In es, this message translates to:
+  /// **'Consultas de búsqueda y uso de filtros.'**
+  String get telemetrySentDataSearchesBody;
+
+  /// No description provided for @telemetrySentDataSyncTitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Sincronización'**
+  String get telemetrySentDataSyncTitle;
+
+  /// No description provided for @telemetrySentDataSyncBody.
+  ///
+  /// In es, this message translates to:
+  /// **'Estado y duración de la copia en la nube.'**
+  String get telemetrySentDataSyncBody;
+
+  /// No description provided for @telemetrySentDataPerformanceTitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Rendimiento'**
+  String get telemetrySentDataPerformanceTitle;
+
+  /// No description provided for @telemetrySentDataPerformanceBody.
+  ///
+  /// In es, this message translates to:
+  /// **'Duración de operaciones y señales básicas de rendimiento.'**
+  String get telemetrySentDataPerformanceBody;
+
+  /// No description provided for @telemetrySentDataErrorsTitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Errores'**
+  String get telemetrySentDataErrorsTitle;
+
+  /// No description provided for @telemetrySentDataErrorsBody.
+  ///
+  /// In es, this message translates to:
+  /// **'Errores de la app y cierres inesperados (si la telemetría está activa).'**
+  String get telemetrySentDataErrorsBody;
+
+  /// No description provided for @telemetrySentDataPrivacyNote.
+  ///
+  /// In es, this message translates to:
+  /// **'Tu privacidad importa. No vendemos estos datos ni los usamos para publicidad.'**
+  String get telemetrySentDataPrivacyNote;
+
+  /// No description provided for @telemetrySentDataChannelsNote.
+  ///
+  /// In es, this message translates to:
+  /// **'Firebase Analytics usa un identificador anónimo de instalación. Una copia de eventos en Firestore solo se envía si tienes sesión iniciada en Folio Cloud.'**
+  String get telemetrySentDataChannelsNote;
+
+  /// No description provided for @telemetrySentDataViewTechnicalDetails.
+  ///
+  /// In es, this message translates to:
+  /// **'Ver detalles técnicos'**
+  String get telemetrySentDataViewTechnicalDetails;
+
+  /// No description provided for @telemetrySentDataHideTechnicalDetails.
+  ///
+  /// In es, this message translates to:
+  /// **'Ocultar detalles técnicos'**
+  String get telemetrySentDataHideTechnicalDetails;
+
+  /// No description provided for @telemetrySentDataNoEventsYet.
+  ///
+  /// In es, this message translates to:
+  /// **'Aún no hay eventos guardados localmente.'**
+  String get telemetrySentDataNoEventsYet;
+
+  /// No description provided for @workspaceRecentPagesSectionTitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Recientes'**
+  String get workspaceRecentPagesSectionTitle;
+
+  /// No description provided for @workspaceHomeHeadline.
+  ///
+  /// In es, this message translates to:
+  /// **'Tu espacio'**
+  String get workspaceHomeHeadline;
+
+  /// No description provided for @workspaceHomeSubtitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Retoma donde lo dejaste, busca o empieza algo nuevo.'**
+  String get workspaceHomeSubtitle;
+
+  /// No description provided for @workspaceHomeSearchHint.
+  ///
+  /// In es, this message translates to:
+  /// **'Buscar…'**
+  String get workspaceHomeSearchHint;
+
+  /// No description provided for @workspaceHomeNoRecentPages.
+  ///
+  /// In es, this message translates to:
+  /// **'Aún no hay páginas recientes. Crea una o usa el buscador.'**
+  String get workspaceHomeNoRecentPages;
+
+  /// No description provided for @workspaceHomeVisitedAt.
+  ///
+  /// In es, this message translates to:
+  /// **'Abierta {dateTime}'**
+  String workspaceHomeVisitedAt(String dateTime);
+
+  /// No description provided for @workspaceHomeTip0.
+  ///
+  /// In es, this message translates to:
+  /// **'Consejo: crea una página y usa / para insertar bloques rápidamente.'**
+  String get workspaceHomeTip0;
+
+  /// No description provided for @workspaceHomeTip1.
+  ///
+  /// In es, this message translates to:
+  /// **'Folio guarda los cambios automáticamente. Solo empieza a escribir.'**
+  String get workspaceHomeTip1;
+
+  /// No description provided for @workspaceHomeTip2.
+  ///
+  /// In es, this message translates to:
+  /// **'Usa buscar para saltar entre páginas sin perder el ritmo.'**
+  String get workspaceHomeTip2;
+
+  /// No description provided for @workspaceHomeTip3.
+  ///
+  /// In es, this message translates to:
+  /// **'Las subpáginas ayudan a mantener cada tema ordenado.'**
+  String get workspaceHomeTip3;
+
+  /// No description provided for @workspaceHomeTip4.
+  ///
+  /// In es, this message translates to:
+  /// **'Reorganiza páginas desde la barra lateral y mantén el cofre ordenado al crecer.'**
+  String get workspaceHomeTip4;
+
+  /// No description provided for @workspaceHomeTip5.
+  ///
+  /// In es, this message translates to:
+  /// **'Las plantillas agilizan estructuras repetidas; ábrelas desde accesos rápidos.'**
+  String get workspaceHomeTip5;
+
+  /// No description provided for @workspaceHomeTip6.
+  ///
+  /// In es, this message translates to:
+  /// **'La vista de grafo muestra cómo se enlazan las páginas; úsala si pierdes el hilo.'**
+  String get workspaceHomeTip6;
+
+  /// No description provided for @workspaceHomeTip7.
+  ///
+  /// In es, this message translates to:
+  /// **'Combina títulos, listas y bloques enriquecidos para que las notas largas se lean mejor.'**
+  String get workspaceHomeTip7;
+
+  /// No description provided for @workspaceHomeTip8.
+  ///
+  /// In es, this message translates to:
+  /// **'Las tareas con fecha aparecen en inicio; pon fechas desde Kanban o bloques de tarea.'**
+  String get workspaceHomeTip8;
+
+  /// No description provided for @workspaceHomeTip9.
+  ///
+  /// In es, this message translates to:
+  /// **'Bloquea el cofre al alejarte del equipo; la contraseña no sale de este dispositivo.'**
+  String get workspaceHomeTip9;
+
+  /// No description provided for @workspaceHomeTip10.
+  ///
+  /// In es, this message translates to:
+  /// **'Exporta una página a Markdown o PDF desde la barra cuando quieras compartirla.'**
+  String get workspaceHomeTip10;
+
+  /// No description provided for @workspaceHomeTip11.
+  ///
+  /// In es, this message translates to:
+  /// **'La sincronización entre dispositivos alinea copias; fuerza sincronización en la barra lateral tras emparejar.'**
+  String get workspaceHomeTip11;
+
+  /// No description provided for @settingsWorkspaceOpenToHomeTitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Abrir en inicio'**
+  String get settingsWorkspaceOpenToHomeTitle;
+
+  /// No description provided for @settingsWorkspaceOpenToHomeSubtitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Tras desbloquear, mostrar la pantalla de inicio en lugar de la última página abierta.'**
+  String get settingsWorkspaceOpenToHomeSubtitle;
+
+  /// No description provided for @workspaceHomeGreetingMorning.
+  ///
+  /// In es, this message translates to:
+  /// **'Buenos días'**
+  String get workspaceHomeGreetingMorning;
+
+  /// No description provided for @workspaceHomeGreetingAfternoon.
+  ///
+  /// In es, this message translates to:
+  /// **'Buenas tardes'**
+  String get workspaceHomeGreetingAfternoon;
+
+  /// No description provided for @workspaceHomeGreetingEvening.
+  ///
+  /// In es, this message translates to:
+  /// **'Buenas tardes'**
+  String get workspaceHomeGreetingEvening;
+
+  /// No description provided for @workspaceHomeGreetingNight.
+  ///
+  /// In es, this message translates to:
+  /// **'Buenas noches'**
+  String get workspaceHomeGreetingNight;
+
+  /// No description provided for @workspaceHomeNoRecentMatch.
+  ///
+  /// In es, this message translates to:
+  /// **'Ninguna página reciente coincide con el filtro.'**
+  String get workspaceHomeNoRecentMatch;
+
+  /// No description provided for @workspaceHomeGlobalSearchTooltip.
+  ///
+  /// In es, this message translates to:
+  /// **'Buscar en todo el cofre'**
+  String get workspaceHomeGlobalSearchTooltip;
+
+  /// No description provided for @workspaceHomeSearchSemanticsLabel.
+  ///
+  /// In es, this message translates to:
+  /// **'Filtra páginas recientes al escribir; usa el botón al final del campo para la búsqueda global'**
+  String get workspaceHomeSearchSemanticsLabel;
+
+  /// No description provided for @workspaceHomeQuickActionsTitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Accesos rápidos'**
+  String get workspaceHomeQuickActionsTitle;
+
+  /// No description provided for @workspaceHomeQuickSettings.
+  ///
+  /// In es, this message translates to:
+  /// **'Ajustes'**
+  String get workspaceHomeQuickSettings;
+
+  /// No description provided for @workspaceHomeQuickGraph.
+  ///
+  /// In es, this message translates to:
+  /// **'Vista de grafo'**
+  String get workspaceHomeQuickGraph;
+
+  /// No description provided for @workspaceHomeQuickTemplates.
+  ///
+  /// In es, this message translates to:
+  /// **'Plantillas'**
+  String get workspaceHomeQuickTemplates;
+
+  /// No description provided for @workspaceHomeQuickLock.
+  ///
+  /// In es, this message translates to:
+  /// **'Bloquear cofre'**
+  String get workspaceHomeQuickLock;
+
+  /// No description provided for @workspaceHomeQuickSync.
+  ///
+  /// In es, this message translates to:
+  /// **'Sincronizar dispositivos'**
+  String get workspaceHomeQuickSync;
+
+  /// No description provided for @workspaceHomeQuickTask.
+  ///
+  /// In es, this message translates to:
+  /// **'Tarea rápida'**
+  String get workspaceHomeQuickTask;
+
+  /// No description provided for @workspaceHomeQuickFolder.
+  ///
+  /// In es, this message translates to:
+  /// **'Nueva carpeta'**
+  String get workspaceHomeQuickFolder;
+
+  /// No description provided for @workspaceHomeQuickImport.
+  ///
+  /// In es, this message translates to:
+  /// **'Importar Markdown'**
+  String get workspaceHomeQuickImport;
+
+  /// No description provided for @workspaceHomeRootPagesTitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Páginas raíz'**
+  String get workspaceHomeRootPagesTitle;
+
+  /// No description provided for @workspaceHomeMiniStats.
+  ///
+  /// In es, this message translates to:
+  /// **'{pageCount} páginas · {taskCount} tareas con fecha (14 días)'**
+  String workspaceHomeMiniStats(int pageCount, int taskCount);
+
+  /// No description provided for @workspaceHomeUpcomingTasksTitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Tareas próximas (14 días)'**
+  String get workspaceHomeUpcomingTasksTitle;
+
+  /// No description provided for @workspaceHomeUpcomingTasksEmpty.
+  ///
+  /// In es, this message translates to:
+  /// **'No hay tareas con fecha en las próximas dos semanas.'**
+  String get workspaceHomeUpcomingTasksEmpty;
+
+  /// No description provided for @workspaceHomeAiTasksChipLabel.
+  ///
+  /// In es, this message translates to:
+  /// **'Preguntar a Quill sobre estas tareas'**
+  String get workspaceHomeAiTasksChipLabel;
+
+  /// No description provided for @workspaceHomeAiTasksPrompt.
+  ///
+  /// In es, this message translates to:
+  /// **'Estas son mis tareas con fecha (próximas y atrasadas):\n\n{taskList}\n\n¿Qué debería priorizar hoy?'**
+  String workspaceHomeAiTasksPrompt(String taskList);
+
+  /// No description provided for @workspaceHomeAiTasksPromptEmpty.
+  ///
+  /// In es, this message translates to:
+  /// **'(No hay tareas con fecha en las próximas dos semanas.)'**
+  String get workspaceHomeAiTasksPromptEmpty;
+
+  /// No description provided for @workspaceHomeCustomizeTooltip.
+  ///
+  /// In es, this message translates to:
+  /// **'Personalizar inicio'**
+  String get workspaceHomeCustomizeTooltip;
+
+  /// No description provided for @workspaceHomeCustomizeTitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Pantalla de inicio'**
+  String get workspaceHomeCustomizeTitle;
+
+  /// No description provided for @workspaceHomeToggleFolioCloudTitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Resumen Folio Cloud'**
+  String get workspaceHomeToggleFolioCloudTitle;
+
+  /// No description provided for @workspaceHomeToggleFolioCloudSubtitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Tinta y espacio de copias en la nube si has iniciado sesión'**
+  String get workspaceHomeToggleFolioCloudSubtitle;
+
+  /// No description provided for @workspaceHomeToggleRootPagesTitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Páginas raíz'**
+  String get workspaceHomeToggleRootPagesTitle;
+
+  /// No description provided for @workspaceHomeToggleRootPagesSubtitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Chips horizontales de páginas de primer nivel'**
+  String get workspaceHomeToggleRootPagesSubtitle;
+
+  /// No description provided for @workspaceHomeToggleMiniStatsTitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Contadores'**
+  String get workspaceHomeToggleMiniStatsTitle;
+
+  /// No description provided for @workspaceHomeToggleMiniStatsSubtitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Número de páginas y tareas con fecha (14 días)'**
+  String get workspaceHomeToggleMiniStatsSubtitle;
+
+  /// No description provided for @workspaceHomeToggleTasksTitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Tareas próximas'**
+  String get workspaceHomeToggleTasksTitle;
+
+  /// No description provided for @workspaceHomeToggleTasksSubtitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Franja de dos semanas y lista'**
+  String get workspaceHomeToggleTasksSubtitle;
+
+  /// No description provided for @workspaceHomeToggleQuickActionsTitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Accesos rápidos'**
+  String get workspaceHomeToggleQuickActionsTitle;
+
+  /// No description provided for @workspaceHomeToggleQuickActionsSubtitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Rejilla o menú de atajos'**
+  String get workspaceHomeToggleQuickActionsSubtitle;
+
+  /// No description provided for @workspaceHomeToggleTipTitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Consejo del día'**
+  String get workspaceHomeToggleTipTitle;
+
+  /// No description provided for @workspaceHomeToggleTipSubtitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Consejo rotativo del workspace'**
+  String get workspaceHomeToggleTipSubtitle;
+
+  /// No description provided for @workspaceHomeCloudCardTitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Folio Cloud'**
+  String get workspaceHomeCloudCardTitle;
+
+  /// No description provided for @workspaceHomeCloudStaffShort.
+  ///
+  /// In es, this message translates to:
+  /// **'Acceso staff'**
+  String get workspaceHomeCloudStaffShort;
+
+  /// No description provided for @workspaceHomeCloudOpenSettings.
+  ///
+  /// In es, this message translates to:
+  /// **'Abrir ajustes'**
+  String get workspaceHomeCloudOpenSettings;
+
+  /// No description provided for @workspaceHomeVaultStatusTitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Estado del cofre'**
+  String get workspaceHomeVaultStatusTitle;
+
+  /// No description provided for @workspaceHomeVaultBackupOff.
+  ///
+  /// In es, this message translates to:
+  /// **'Las copias programadas están desactivadas para esta libreta.'**
+  String get workspaceHomeVaultBackupOff;
+
+  /// No description provided for @workspaceHomeVaultBackupNeverRun.
+  ///
+  /// In es, this message translates to:
+  /// **'Aún no se ha ejecutado ninguna copia con la configuración actual.'**
+  String get workspaceHomeVaultBackupNeverRun;
+
+  /// No description provided for @workspaceHomeVaultBackupLast.
+  ///
+  /// In es, this message translates to:
+  /// **'Última copia: {when}'**
+  String workspaceHomeVaultBackupLast(String when);
+
+  /// No description provided for @workspaceHomeVaultBackupEvery.
+  ///
+  /// In es, this message translates to:
+  /// **'Cada {label}'**
+  String workspaceHomeVaultBackupEvery(String label);
+
+  /// No description provided for @workspaceHomeVaultSyncConflicts.
+  ///
+  /// In es, this message translates to:
+  /// **'{count, plural, one{1 conflicto de sincronización pendiente} other{{count} conflictos de sincronización pendientes}}'**
+  String workspaceHomeVaultSyncConflicts(int count);
+
+  /// No description provided for @workspaceHomeVaultReadOnlyHint.
+  ///
+  /// In es, this message translates to:
+  /// **'Vista de solo lectura en esta pantalla; activa la edición desde la barra del espacio de trabajo.'**
+  String get workspaceHomeVaultReadOnlyHint;
+
+  /// No description provided for @workspaceHomeOnboardingTitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Primera semana'**
+  String get workspaceHomeOnboardingTitle;
+
+  /// No description provided for @workspaceHomeOnboardingHint.
+  ///
+  /// In es, this message translates to:
+  /// **'Se completan solos según vayas usando Folio.'**
+  String get workspaceHomeOnboardingHint;
+
+  /// No description provided for @workspaceHomeOnboardingStepPage.
+  ///
+  /// In es, this message translates to:
+  /// **'Crea una página'**
+  String get workspaceHomeOnboardingStepPage;
+
+  /// No description provided for @workspaceHomeOnboardingStepSubpage.
+  ///
+  /// In es, this message translates to:
+  /// **'Crea una subpágina bajo una página'**
+  String get workspaceHomeOnboardingStepSubpage;
+
+  /// No description provided for @workspaceHomeOnboardingStepSearch.
+  ///
+  /// In es, this message translates to:
+  /// **'Usa la búsqueda global una vez'**
+  String get workspaceHomeOnboardingStepSearch;
+
+  /// No description provided for @workspaceHomeOnboardingDismiss.
+  ///
+  /// In es, this message translates to:
+  /// **'Ocultar lista'**
+  String get workspaceHomeOnboardingDismiss;
+
+  /// No description provided for @workspaceHomeWhatsNewTitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Novedades'**
+  String get workspaceHomeWhatsNewTitle;
+
+  /// No description provided for @workspaceHomeWhatsNewVersion.
+  ///
+  /// In es, this message translates to:
+  /// **'Versión {version}'**
+  String workspaceHomeWhatsNewVersion(String version);
+
+  /// No description provided for @workspaceHomeWhatsNewUnread.
+  ///
+  /// In es, this message translates to:
+  /// **'Aún no has abierto las notas de esta versión.'**
+  String get workspaceHomeWhatsNewUnread;
+
+  /// No description provided for @workspaceHomeWhatsNewCurrent.
+  ///
+  /// In es, this message translates to:
+  /// **'Consulta los cambios de esta versión.'**
+  String get workspaceHomeWhatsNewCurrent;
+
+  /// No description provided for @workspaceHomeWhatsNewOpen.
+  ///
+  /// In es, this message translates to:
+  /// **'Abrir notas de la versión'**
+  String get workspaceHomeWhatsNewOpen;
+
+  /// No description provided for @workspaceHomeToggleVaultStatusTitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Estado del cofre'**
+  String get workspaceHomeToggleVaultStatusTitle;
+
+  /// No description provided for @workspaceHomeToggleVaultStatusSubtitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Copias, conflictos de sync, solo lectura'**
+  String get workspaceHomeToggleVaultStatusSubtitle;
+
+  /// No description provided for @workspaceHomeToggleOnboardingTitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Lista primera semana'**
+  String get workspaceHomeToggleOnboardingTitle;
+
+  /// No description provided for @workspaceHomeToggleOnboardingSubtitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Objetivos breves (se oculta sola a los 7 días)'**
+  String get workspaceHomeToggleOnboardingSubtitle;
+
+  /// No description provided for @workspaceHomeToggleWhatsNewTitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Novedades'**
+  String get workspaceHomeToggleWhatsNewTitle;
+
+  /// No description provided for @workspaceHomeToggleWhatsNewSubtitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Mostrar la tarjeta cuando haya una versión nueva sin leer'**
+  String get workspaceHomeToggleWhatsNewSubtitle;
+
+  /// No description provided for @workspaceHomeWhatsNewDismissTooltip.
+  ///
+  /// In es, this message translates to:
+  /// **'Ocultar hasta la próxima actualización'**
+  String get workspaceHomeWhatsNewDismissTooltip;
+
+  /// No description provided for @workspaceHomeReorderSectionsTitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Ordenar secciones del inicio'**
+  String get workspaceHomeReorderSectionsTitle;
+
+  /// No description provided for @workspaceHomeReorderMainColumn.
+  ///
+  /// In es, this message translates to:
+  /// **'Columna principal'**
+  String get workspaceHomeReorderMainColumn;
+
+  /// No description provided for @workspaceHomeReorderSideColumn.
+  ///
+  /// In es, this message translates to:
+  /// **'Columna lateral'**
+  String get workspaceHomeReorderSideColumn;
+
+  /// No description provided for @workspaceHomeColumnLayoutTitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Columnas'**
+  String get workspaceHomeColumnLayoutTitle;
+
+  /// No description provided for @workspaceHomeColumnLayoutSubtitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Cómo se divide el diseño en pantallas anchas'**
+  String get workspaceHomeColumnLayoutSubtitle;
+
+  /// No description provided for @workspaceHomeColumnLayoutAuto.
+  ///
+  /// In es, this message translates to:
+  /// **'Automático'**
+  String get workspaceHomeColumnLayoutAuto;
+
+  /// No description provided for @workspaceHomeColumnLayoutSingle.
+  ///
+  /// In es, this message translates to:
+  /// **'Una columna'**
+  String get workspaceHomeColumnLayoutSingle;
+
+  /// No description provided for @workspaceHomeColumnLayoutDual.
+  ///
+  /// In es, this message translates to:
+  /// **'Dos columnas'**
+  String get workspaceHomeColumnLayoutDual;
+
+  /// No description provided for @workspaceHomeClockShowSecondsTitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Reloj: mostrar segundos'**
+  String get workspaceHomeClockShowSecondsTitle;
+
+  /// No description provided for @workspaceHomeClockShowSecondsSubtitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Actualiza la hora cada segundo'**
+  String get workspaceHomeClockShowSecondsSubtitle;
+
+  /// No description provided for @workspaceHomeClock24HourTitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Hora en 24 h'**
+  String get workspaceHomeClock24HourTitle;
+
+  /// No description provided for @workspaceHomeClock24HourSubtitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Usar formato 24 h en lugar de AM/PM'**
+  String get workspaceHomeClock24HourSubtitle;
+
+  /// No description provided for @workspaceHomeClockShowTimezoneTitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Mostrar zona horaria'**
+  String get workspaceHomeClockShowTimezoneTitle;
+
+  /// No description provided for @workspaceHomeClockShowTimezoneSubtitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Nombre y desfase UTC bajo el reloj'**
+  String get workspaceHomeClockShowTimezoneSubtitle;
+
+  /// No description provided for @workspaceHomeClockTimezoneLine.
+  ///
+  /// In es, this message translates to:
+  /// **'{zoneName} ({offset})'**
+  String workspaceHomeClockTimezoneLine(String zoneName, String offset);
+
+  /// No description provided for @workspaceHomeSectionLabelSearch.
+  ///
+  /// In es, this message translates to:
+  /// **'Campo de búsqueda'**
+  String get workspaceHomeSectionLabelSearch;
+
+  /// No description provided for @workspaceHomeSectionLabelCreatePage.
+  ///
+  /// In es, this message translates to:
+  /// **'Botón nueva página'**
+  String get workspaceHomeSectionLabelCreatePage;
 }
 
 class _AppLocalizationsDelegate

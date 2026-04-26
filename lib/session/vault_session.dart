@@ -18,6 +18,7 @@ import '../crypto/vault_crypto.dart';
 import '../data/vault_backup.dart';
 import '../data/notion_import/notion_importer.dart';
 import '../data/import/simple_html_blocks.dart';
+import '../app/workspace_prefs_keys.dart';
 import '../data/vault_paths.dart';
 import '../data/vault_payload.dart';
 import '../data/vault_registry.dart';
@@ -167,9 +168,13 @@ class VaultSession extends ChangeNotifier {
       return;
     }
     if (preferPersistedPreference) {
+      final p = await SharedPreferences.getInstance();
+      if (p.getBool(WorkspacePrefsKeys.openWorkspaceToHome) ?? false) {
+        _selectedPageId = null;
+        return;
+      }
       final key = _lastSelectedPagePrefsKey(VaultPaths.activeVaultId);
       if (key != null) {
-        final p = await SharedPreferences.getInstance();
         final saved = p.getString(key);
         if (saved != null &&
             saved.isNotEmpty &&

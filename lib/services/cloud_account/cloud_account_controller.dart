@@ -6,6 +6,7 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/foundation.dart';
 
 import '../folio_cloud/folio_cloud_identity_rest_verify.dart';
+import '../folio_firestore_sync.dart';
 
 /// Optional Firebase Authentication for future paid cloud sync.
 /// If [Firebase] was not initialized, [isAvailable] is false and methods throw.
@@ -113,6 +114,9 @@ class CloudAccountController extends ChangeNotifier {
     if (auth == null) {
       throw StateError('Firebase not initialized');
     }
+    if (auth.currentUser != null) {
+      await FolioFirestoreSync.flush();
+    }
     try {
       await auth
           .signInWithEmailAndPassword(
@@ -182,6 +186,7 @@ class CloudAccountController extends ChangeNotifier {
     if (auth == null) {
       throw StateError('Firebase not initialized');
     }
+    await FolioFirestoreSync.flush();
     await auth.signOut();
   }
 

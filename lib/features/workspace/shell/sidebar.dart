@@ -4,7 +4,6 @@ import 'dart:math' as math;
 import 'package:flutter/foundation.dart'
     show TargetPlatform, defaultTargetPlatform, kIsWeb, setEquals;
 import 'package:flutter/material.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:url_launcher/url_launcher.dart';
 
@@ -17,6 +16,7 @@ import '../../../app/widgets/folio_icon_token_view.dart';
 import '../../../data/vault_registry.dart';
 import '../../../services/cloud_account/cloud_account_controller.dart';
 import '../editor/block_editor_support_widgets.dart';
+import '../recent_page_visits.dart';
 import '../templates/template_gallery_page.dart';
 import '../../../l10n/generated/app_localizations.dart';
 import '../../../models/folio_page.dart';
@@ -49,9 +49,6 @@ class Sidebar extends StatefulWidget {
 }
 
 class _SidebarState extends State<Sidebar> {
-  static const _recentPrefix = 'folio_sidebar_recent_pages_';
-  static const _recentLimit = 6;
-
   VaultSession get session => widget.session;
 
   List<VaultEntry> _vaults = [];
@@ -62,7 +59,7 @@ class _SidebarState extends State<Sidebar> {
   Set<String> _lastPageIds = const {};
   final ScrollController _pagesScrollController = ScrollController();
   String? _loadedCollapsedVaultId;
-  final List<String> _recentPageIds = <String>[];
+  final List<RecentPageVisit> _recentVisits = <RecentPageVisit>[];
   String? _loadedRecentVaultId;
   String? _lastSelectedPageId;
   Map<String, bool> _hasChildrenById = const <String, bool>{};
@@ -136,13 +133,6 @@ class _SidebarState extends State<Sidebar> {
     return buf.toString();
   }
 
-  String _recentPrefsKey(String? vaultId) {
-    final safeVault = (vaultId == null || vaultId.isEmpty)
-        ? 'default'
-        : vaultId;
-    return '$_recentPrefix$safeVault';
-  }
-
   Future<void> _loadCollapsedState() async {
     final vaultId = session.activeVaultId;
     final validPageIds = session.pages.map((p) => p.id).toSet();
@@ -169,39 +159,40 @@ class _SidebarState extends State<Sidebar> {
 
   Future<void> _loadRecentState() async {
     final vaultId = session.activeVaultId;
-    final prefs = await SharedPreferences.getInstance();
-    final saved =
-        prefs.getStringList(_recentPrefsKey(vaultId)) ?? const <String>[];
     final validPageIds = session.pages.map((p) => p.id).toSet();
-    final restored = saved
-        .where(validPageIds.contains)
-        .take(_recentLimit)
-        .toList();
+    final restored = await RecentPageVisitsStore.load(
+      vaultId: vaultId,
+      validPageIds: validPageIds,
+      limit: kRecentPageVisitsStorageLimit,
+    );
     if (!mounted) return;
     setState(() {
       _loadedRecentVaultId = vaultId;
-      _recentPageIds
+      _recentVisits
         ..clear()
         ..addAll(restored);
     });
   }
 
   Future<void> _persistRecentState() async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setStringList(
-      _recentPrefsKey(session.activeVaultId),
-      _recentPageIds.take(_recentLimit).toList(growable: false),
+    await RecentPageVisitsStore.save(
+      vaultId: session.activeVaultId,
+      visits: _recentVisits,
+      limit: kRecentPageVisitsStorageLimit,
     );
   }
 
   void _registerRecentPage(String pageId) {
     if (!session.pages.any((p) => p.id == pageId)) return;
     setState(() {
-      _recentPageIds.remove(pageId);
-      _recentPageIds.insert(0, pageId);
-      if (_recentPageIds.length > _recentLimit) {
-        _recentPageIds.removeRange(_recentLimit, _recentPageIds.length);
-      }
+      final next = RecentPageVisitsStore.withNewVisit(
+        _recentVisits,
+        pageId,
+        limit: kRecentPageVisitsStorageLimit,
+      );
+      _recentVisits
+        ..clear()
+        ..addAll(next);
     });
     unawaited(_persistRecentState());
   }
@@ -219,8 +210,8 @@ class _SidebarState extends State<Sidebar> {
       unawaited(_persistCollapsedState());
     }
     var changedRecentState = false;
-    _recentPageIds.removeWhere((id) {
-      final remove = !validPageIds.contains(id);
+    _recentVisits.removeWhere((v) {
+      final remove = !validPageIds.contains(v.pageId);
       if (remove) changedRecentState = true;
       return remove;
     });
@@ -983,8 +974,9 @@ class _SidebarState extends State<Sidebar> {
     final pagesById = <String, FolioPage>{
       for (final p in session.pages) p.id: p,
     };
-    final recentPages = _recentPageIds
-        .map((id) => pagesById[id])
+    final recentPages = _recentVisits
+        .take(kRecentPageVisitsSidebarDisplayLimit)
+        .map((v) => pagesById[v.pageId])
         .whereType<FolioPage>()
         .toList(growable: false);
     if (recentPages.isEmpty) return const SizedBox.shrink();
@@ -1005,7 +997,7 @@ class _SidebarState extends State<Sidebar> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              'Recientes',
+              AppLocalizations.of(context).workspaceRecentPagesSectionTitle,
               style: theme.textTheme.labelLarge?.copyWith(
                 color: scheme.onSurfaceVariant,
                 fontWeight: FontWeight.w700,

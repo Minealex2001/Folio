@@ -24,6 +24,7 @@ import '../services/ai/folio_cloud_ai_service.dart';
 import '../services/folio_cloud/folio_cloud_entitlements.dart';
 import '../services/folio_diagnostic_reporter.dart';
 import '../services/folio_telemetry.dart';
+import '../services/folio_telemetry_navigator_observer.dart';
 import '../services/vault_scheduled_local_export.dart';
 import '../services/tasks/task_reminder_service.dart';
 import '../services/tasks/platform_notification_service.dart';
@@ -94,9 +95,15 @@ class _FolioAppState extends State<FolioApp> with WidgetsBindingObserver {
   TaskReminderService? _taskReminderService;
   StreamSubscription<List<TaskReminderEvent>>? _reminderSub;
 
+  late final FolioTelemetryNavigatorObserver _telemetryNavObserver;
+  VaultFlowState? _lastVaultFlowForTelemetry;
+
   @override
   void initState() {
     super.initState();
+    _telemetryNavObserver =
+        FolioTelemetryNavigatorObserver(() => widget.appSettings);
+    _lastVaultFlowForTelemetry = widget.session.state;
     FolioDiagnosticReporter.bindAppSettings(widget.appSettings);
     WidgetsBinding.instance.addObserver(this);
     widget.session.titleLocale = widget.appSettings.locale;
@@ -204,6 +211,19 @@ class _FolioAppState extends State<FolioApp> with WidgetsBindingObserver {
   }
 
   void _onSession() {
+    final nextVault = widget.session.state;
+    if (_lastVaultFlowForTelemetry != nextVault) {
+      if (_lastVaultFlowForTelemetry != null) {
+        unawaited(
+          FolioTelemetry.logNavigation(
+            widget.appSettings,
+            _vaultTelemetryScreen(_lastVaultFlowForTelemetry!),
+            _vaultTelemetryScreen(nextVault),
+          ),
+        );
+      }
+      _lastVaultFlowForTelemetry = nextVault;
+    }
     if (widget.session.state == VaultFlowState.locked) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         final nav = _navKey.currentState;
@@ -215,6 +235,45 @@ class _FolioAppState extends State<FolioApp> with WidgetsBindingObserver {
     }
     unawaited(_maybeOpenReleaseNotesPage());
     if (mounted) setState(() {});
+  }
+
+  Future<void> _openReleaseNotesForUser(BuildContext context) async {
+    try {
+      final info = await PackageInfo.fromPlatform();
+      final appVersion = info.version.trim();
+      final buildNumber = info.buildNumber.trim();
+      if (appVersion.isEmpty) return;
+      final versionLabel = buildNumber.isEmpty
+          ? appVersion
+          : '$appVersion+$buildNumber';
+      final updater = GitHubReleaseUpdater(
+        owner: widget.appSettings.updaterGithubOwner,
+        repo: widget.appSettings.updaterGithubRepo,
+      );
+      ReleaseNotesResult? release;
+      try {
+        release = await updater.fetchReleaseNotesForVersion(
+          appVersion: appVersion,
+          buildNumber: buildNumber,
+        );
+      } catch (_) {
+        release = null;
+      }
+      if (!context.mounted) return;
+      await Navigator.of(context).push<void>(
+        MaterialPageRoute<void>(
+          builder: (ctx) => ReleaseNotesPage(
+            versionLabel: versionLabel,
+            releaseTitle: release?.releaseName,
+            releaseNotes: release?.releaseNotes ?? '',
+            publishedAt: release?.publishedAt,
+            tagName: release?.tagName,
+          ),
+          settings: const RouteSettings(name: 'release_notes'),
+        ),
+      );
+      await widget.appSettings.setLastSeenReleaseNotesVersion(versionLabel);
+    } catch (_) {}
   }
 
   Future<void> _maybeOpenReleaseNotesPage() async {
@@ -369,8 +428,44 @@ class _FolioAppState extends State<FolioApp> with WidgetsBindingObserver {
     return widget.session.exportSyncSnapshotBytes();
   }
 
+  String _vaultTelemetryScreen(VaultFlowState s) {
+    switch (s) {
+      case VaultFlowState.initializing:
+        return 'vault_initializing';
+      case VaultFlowState.needsOnboarding:
+        return 'vault_onboarding';
+      case VaultFlowState.locked:
+        return 'vault_locked';
+      case VaultFlowState.unlocked:
+        return 'workspace';
+    }
+  }
+
   Future<bool> _importSyncSnapshot(List<int> snapshot, String _) async {
-    return widget.session.applySyncSnapshotBytes(snapshot);
+    final sw = Stopwatch()..start();
+    try {
+      final ok = await widget.session.applySyncSnapshotBytes(snapshot);
+      unawaited(
+        FolioTelemetry.logSyncEvent(
+          widget.appSettings,
+          'device_lan_import',
+          ok,
+          durationMs: sw.elapsedMilliseconds,
+        ),
+      );
+      return ok;
+    } catch (e) {
+      unawaited(
+        FolioTelemetry.logSyncEvent(
+          widget.appSettings,
+          'device_lan_import',
+          false,
+          errorMessage: '$e',
+          durationMs: sw.elapsedMilliseconds,
+        ),
+      );
+      rethrow;
+    }
   }
 
   void _showIncomingPairRequestDialog(IncomingPairRequest request) {
@@ -691,7 +786,7 @@ class _FolioAppState extends State<FolioApp> with WidgetsBindingObserver {
     );
   }
 
-  Future<void> _handleSearchRequested() async {
+  Future<void> _handleSearchRequested([String? initialQuery]) async {
     if (_openingByHotkey) return;
     _openingByHotkey = true;
     try {
@@ -706,12 +801,17 @@ class _FolioAppState extends State<FolioApp> with WidgetsBindingObserver {
         if (unlocked != true) return;
       }
       if (!mounted || widget.session.state != VaultFlowState.unlocked) return;
+      unawaited(
+        FolioTelemetry.logFeatureUsed(widget.appSettings, 'global_search'),
+      );
+      final q = initialQuery?.trim();
       await showDialog<bool>(
         context: _navKey.currentContext ?? context,
         barrierDismissible: true,
         builder: (ctx) => GlobalSearchPopup(
           session: widget.session,
           appSettings: widget.appSettings,
+          initialQuery: (q == null || q.isEmpty) ? null : q,
         ),
       );
     } finally {
@@ -1053,6 +1153,7 @@ class _FolioAppState extends State<FolioApp> with WidgetsBindingObserver {
     final seed = widget.appSettings.resolveAccentSeedColor();
     return MaterialApp(
       navigatorKey: _navKey,
+      navigatorObservers: [_telemetryNavObserver],
       onGenerateTitle: (context) => AppLocalizations.of(context).appTitle,
       theme: folioLightTheme(seed),
       darkTheme: folioDarkTheme(seed),
@@ -1145,6 +1246,7 @@ class _FolioAppState extends State<FolioApp> with WidgetsBindingObserver {
         cloudAccountController: widget.cloudAccountController,
         folioCloudEntitlements: _folioCloudEntitlements,
         onOpenSearch: _handleSearchRequested,
+        onOpenReleaseNotes: _openReleaseNotesForUser,
       ),
     );
   }
@@ -1613,6 +1715,7 @@ class _HomeByState extends StatelessWidget {
     required this.cloudAccountController,
     required this.folioCloudEntitlements,
     required this.onOpenSearch,
+    required this.onOpenReleaseNotes,
   });
 
   final VaultSession session;
@@ -1620,7 +1723,8 @@ class _HomeByState extends StatelessWidget {
   final DeviceSyncController deviceSyncController;
   final CloudAccountController cloudAccountController;
   final FolioCloudEntitlementsController folioCloudEntitlements;
-  final VoidCallback onOpenSearch;
+  final void Function([String? initialQuery]) onOpenSearch;
+  final Future<void> Function(BuildContext context) onOpenReleaseNotes;
 
   @override
   Widget build(BuildContext context) {
@@ -1658,6 +1762,7 @@ class _HomeByState extends StatelessWidget {
           cloudAccountController: cloudAccountController,
           folioCloudEntitlements: folioCloudEntitlements,
           onOpenSearch: onOpenSearch,
+          onOpenReleaseNotes: onOpenReleaseNotes,
         );
     }
   }

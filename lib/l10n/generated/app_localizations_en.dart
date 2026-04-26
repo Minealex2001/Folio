@@ -5833,4 +5833,543 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get settingsIntegrationsNativeTitle => 'Native integrations';
+
+  @override
+  String get telemetryDashboardTitle => 'Telemetry dashboard';
+
+  @override
+  String get telemetryDashboardAccessDenied => 'Access denied';
+
+  @override
+  String get telemetryDashboardStaffOnlyBody =>
+      'Only Folio staff can open this screen.';
+
+  @override
+  String get telemetryDashboardFlushTooltip =>
+      'Send pending events and refresh';
+
+  @override
+  String get telemetryDashboardErrorLoading => 'Could not load data';
+
+  @override
+  String telemetryDashboardErrorDetail(String detail) {
+    return '$detail';
+  }
+
+  @override
+  String telemetryDashboardNoDataForDate(String date) {
+    return 'No data for $date';
+  }
+
+  @override
+  String get telemetryDashboardNoDataHint =>
+      'Use the send icon to flush pending events, then refresh.\nGlobal totals appear after the scheduled job (02:00 UTC, previous UTC day).';
+
+  @override
+  String get telemetryDashboardFlushRefresh => 'Flush and refresh';
+
+  @override
+  String get telemetryDashboardSectionGlobalTitle => 'Global stats (all users)';
+
+  @override
+  String get telemetryDashboardSectionGlobalSubtitle =>
+      'Totals from the nightly aggregation job (02:00 UTC).';
+
+  @override
+  String get telemetryDashboardMetricUsers => 'Users';
+
+  @override
+  String get telemetryDashboardMetricEvents => 'Events';
+
+  @override
+  String get telemetryDashboardMetricErrors => 'Errors';
+
+  @override
+  String get telemetryDashboardByType => 'By type';
+
+  @override
+  String get telemetryDashboardNoEventBreakdown => 'No event type breakdown.';
+
+  @override
+  String get telemetryDashboardEventTypeUnknown => 'Unknown';
+
+  @override
+  String get settingsTelemetryDashboardListSubtitle =>
+      'View aggregated global usage statistics.';
+
+  @override
+  String get telemetryDashboardGlobalMissingHint =>
+      'Global totals for this UTC date are not available yet. You can still review per-user and raw events below.';
+
+  @override
+  String get telemetryDashboardPerUserDayTitle => 'By user (selected day)';
+
+  @override
+  String telemetryDashboardPerUserDaySubtitle(String date) {
+    return 'Daily stats for $date (analytics_events/*/stats).';
+  }
+
+  @override
+  String get telemetryDashboardRecentEventsTitle => 'Latest raw events';
+
+  @override
+  String get telemetryDashboardRecentEventsSubtitle =>
+      'Up to 80 most recent events across all signed-in users.';
+
+  @override
+  String get telemetryDashboardNoPerUserStats =>
+      'No per-user stats for this date.';
+
+  @override
+  String get telemetryDashboardNoRecentEvents => 'No events in Firestore.';
+
+  @override
+  String get telemetryDashboardColUser => 'User';
+
+  @override
+  String get telemetryDashboardColEvents => 'Events';
+
+  @override
+  String get telemetryDashboardColErrors => 'Errors';
+
+  @override
+  String get telemetryDashboardColTime => 'Time';
+
+  @override
+  String get telemetryDashboardColType => 'Type';
+
+  @override
+  String get telemetryDashboardColSummary => 'Summary';
+
+  @override
+  String get telemetryDashboardEmptyAll =>
+      'Nothing to show for this view. Try another date, flush pending events, or confirm Firestore indexes are deployed.';
+
+  @override
+  String get telemetrySentDataCategoriesTitle =>
+      'Examples of telemetry categories';
+
+  @override
+  String get telemetrySentDataFeatureUsageTitle => 'Feature usage';
+
+  @override
+  String get telemetrySentDataFeatureUsageBody =>
+      'When you open the editor, board, search, settings, and other features.';
+
+  @override
+  String get telemetrySentDataContentActionsTitle => 'Content actions';
+
+  @override
+  String get telemetrySentDataContentActionsBody =>
+      'Creating, editing, or deleting notes and boards.';
+
+  @override
+  String get telemetrySentDataSearchesTitle => 'Searches';
+
+  @override
+  String get telemetrySentDataSearchesBody =>
+      'Search queries and filter usage.';
+
+  @override
+  String get telemetrySentDataSyncTitle => 'Sync events';
+
+  @override
+  String get telemetrySentDataSyncBody => 'Cloud backup status and duration.';
+
+  @override
+  String get telemetrySentDataPerformanceTitle => 'Performance';
+
+  @override
+  String get telemetrySentDataPerformanceBody =>
+      'Operation duration and basic performance signals.';
+
+  @override
+  String get telemetrySentDataErrorsTitle => 'Errors';
+
+  @override
+  String get telemetrySentDataErrorsBody =>
+      'App errors and crashes (when telemetry is enabled).';
+
+  @override
+  String get telemetrySentDataPrivacyNote =>
+      'Your privacy matters. We do not sell this data or use it for ads.';
+
+  @override
+  String get telemetrySentDataChannelsNote =>
+      'Firebase Analytics uses an anonymous installation ID. A copy of events in Firestore is only sent while you are signed in to Folio Cloud.';
+
+  @override
+  String get telemetrySentDataViewTechnicalDetails => 'View technical details';
+
+  @override
+  String get telemetrySentDataHideTechnicalDetails => 'Hide technical details';
+
+  @override
+  String get telemetrySentDataNoEventsYet => 'No events recorded locally yet.';
+
+  @override
+  String get workspaceRecentPagesSectionTitle => 'Recent';
+
+  @override
+  String get workspaceHomeHeadline => 'Your space';
+
+  @override
+  String get workspaceHomeSubtitle =>
+      'Pick up where you left off, search, or start something new.';
+
+  @override
+  String get workspaceHomeSearchHint => 'Search…';
+
+  @override
+  String get workspaceHomeNoRecentPages =>
+      'No recent pages yet. Create one or use search.';
+
+  @override
+  String workspaceHomeVisitedAt(String dateTime) {
+    return 'Opened $dateTime';
+  }
+
+  @override
+  String get workspaceHomeTip0 =>
+      'Tip: create a page and use / to insert blocks quickly.';
+
+  @override
+  String get workspaceHomeTip1 =>
+      'Folio auto-saves your changes. Just start writing.';
+
+  @override
+  String get workspaceHomeTip2 =>
+      'Use search to jump across pages and keep momentum.';
+
+  @override
+  String get workspaceHomeTip3 =>
+      'Subpages help keep each topic clean and structured.';
+
+  @override
+  String get workspaceHomeTip4 =>
+      'Reorder pages from the sidebar and keep your vault tidy as it grows.';
+
+  @override
+  String get workspaceHomeTip5 =>
+      'Templates speed up recurring structures—open the gallery from quick actions.';
+
+  @override
+  String get workspaceHomeTip6 =>
+      'Graph view shows how pages link together; use it when navigation gets complex.';
+
+  @override
+  String get workspaceHomeTip7 =>
+      'Mix headings, lists, and embeds so long notes stay easy to scan.';
+
+  @override
+  String get workspaceHomeTip8 =>
+      'Tasks with due dates surface on home—set dates from Kanban or task blocks.';
+
+  @override
+  String get workspaceHomeTip9 =>
+      'Lock the vault when you step away; your passphrase stays on this device.';
+
+  @override
+  String get workspaceHomeTip10 =>
+      'Export a page to Markdown or PDF from the toolbar when you need to share.';
+
+  @override
+  String get workspaceHomeTip11 =>
+      'Device sync aligns vault snapshots—use force sync in the sidebar after pairing.';
+
+  @override
+  String get settingsWorkspaceOpenToHomeTitle => 'Open to home';
+
+  @override
+  String get settingsWorkspaceOpenToHomeSubtitle =>
+      'After unlock, show the home screen instead of the last opened page.';
+
+  @override
+  String get workspaceHomeGreetingMorning => 'Good morning';
+
+  @override
+  String get workspaceHomeGreetingAfternoon => 'Good afternoon';
+
+  @override
+  String get workspaceHomeGreetingEvening => 'Good evening';
+
+  @override
+  String get workspaceHomeGreetingNight => 'Good night';
+
+  @override
+  String get workspaceHomeNoRecentMatch => 'No recent pages match your filter.';
+
+  @override
+  String get workspaceHomeGlobalSearchTooltip =>
+      'Search everywhere in the vault';
+
+  @override
+  String get workspaceHomeSearchSemanticsLabel =>
+      'Filter recent pages as you type; use the button at the end of the field for global search';
+
+  @override
+  String get workspaceHomeQuickActionsTitle => 'Quick actions';
+
+  @override
+  String get workspaceHomeQuickSettings => 'Settings';
+
+  @override
+  String get workspaceHomeQuickGraph => 'Graph view';
+
+  @override
+  String get workspaceHomeQuickTemplates => 'Templates';
+
+  @override
+  String get workspaceHomeQuickLock => 'Lock vault';
+
+  @override
+  String get workspaceHomeQuickSync => 'Sync devices';
+
+  @override
+  String get workspaceHomeQuickTask => 'Quick task';
+
+  @override
+  String get workspaceHomeQuickFolder => 'New folder';
+
+  @override
+  String get workspaceHomeQuickImport => 'Import Markdown';
+
+  @override
+  String get workspaceHomeRootPagesTitle => 'Top-level pages';
+
+  @override
+  String workspaceHomeMiniStats(int pageCount, int taskCount) {
+    return '$pageCount pages · $taskCount tasks with due dates (14 days)';
+  }
+
+  @override
+  String get workspaceHomeUpcomingTasksTitle => 'Upcoming tasks (14 days)';
+
+  @override
+  String get workspaceHomeUpcomingTasksEmpty =>
+      'No tasks with a due date in the next two weeks.';
+
+  @override
+  String get workspaceHomeAiTasksChipLabel => 'Ask Quill about these tasks';
+
+  @override
+  String workspaceHomeAiTasksPrompt(String taskList) {
+    return 'Here are my tasks with dates (upcoming and overdue):\n\n$taskList\n\nWhat should I prioritize today?';
+  }
+
+  @override
+  String get workspaceHomeAiTasksPromptEmpty =>
+      '(No dated tasks in the next two weeks.)';
+
+  @override
+  String get workspaceHomeCustomizeTooltip => 'Personalize home';
+
+  @override
+  String get workspaceHomeCustomizeTitle => 'Home screen';
+
+  @override
+  String get workspaceHomeToggleFolioCloudTitle => 'Folio Cloud summary';
+
+  @override
+  String get workspaceHomeToggleFolioCloudSubtitle =>
+      'Ink and cloud backup space when you are signed in';
+
+  @override
+  String get workspaceHomeToggleRootPagesTitle => 'Top-level pages';
+
+  @override
+  String get workspaceHomeToggleRootPagesSubtitle =>
+      'Horizontal chips for root pages';
+
+  @override
+  String get workspaceHomeToggleMiniStatsTitle => 'Counts';
+
+  @override
+  String get workspaceHomeToggleMiniStatsSubtitle =>
+      'Page count and dated tasks (14 days)';
+
+  @override
+  String get workspaceHomeToggleTasksTitle => 'Upcoming tasks';
+
+  @override
+  String get workspaceHomeToggleTasksSubtitle => 'Two-week strip and task list';
+
+  @override
+  String get workspaceHomeToggleQuickActionsTitle => 'Quick actions';
+
+  @override
+  String get workspaceHomeToggleQuickActionsSubtitle =>
+      'Shortcuts grid or menu';
+
+  @override
+  String get workspaceHomeToggleTipTitle => 'Tip of the day';
+
+  @override
+  String get workspaceHomeToggleTipSubtitle => 'Rotating workspace tip';
+
+  @override
+  String get workspaceHomeCloudCardTitle => 'Folio Cloud';
+
+  @override
+  String get workspaceHomeCloudStaffShort => 'Staff access';
+
+  @override
+  String get workspaceHomeCloudOpenSettings => 'Open Settings';
+
+  @override
+  String get workspaceHomeVaultStatusTitle => 'Vault status';
+
+  @override
+  String get workspaceHomeVaultBackupOff =>
+      'Scheduled backups are off for this vault.';
+
+  @override
+  String get workspaceHomeVaultBackupNeverRun =>
+      'No backup has run yet with the current settings.';
+
+  @override
+  String workspaceHomeVaultBackupLast(String when) {
+    return 'Last backup: $when';
+  }
+
+  @override
+  String workspaceHomeVaultBackupEvery(String label) {
+    return 'Every $label';
+  }
+
+  @override
+  String workspaceHomeVaultSyncConflicts(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count pending sync conflicts',
+      one: '1 pending sync conflict',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get workspaceHomeVaultReadOnlyHint =>
+      'Read-only preview on this screen—enable editing from the workspace bar.';
+
+  @override
+  String get workspaceHomeOnboardingTitle => 'First week';
+
+  @override
+  String get workspaceHomeOnboardingHint =>
+      'These complete on their own as you use Folio.';
+
+  @override
+  String get workspaceHomeOnboardingStepPage => 'Create a page';
+
+  @override
+  String get workspaceHomeOnboardingStepSubpage =>
+      'Create a subpage under a page';
+
+  @override
+  String get workspaceHomeOnboardingStepSearch => 'Use global search once';
+
+  @override
+  String get workspaceHomeOnboardingDismiss => 'Hide checklist';
+
+  @override
+  String get workspaceHomeWhatsNewTitle => 'What\'s new';
+
+  @override
+  String workspaceHomeWhatsNewVersion(String version) {
+    return 'Version $version';
+  }
+
+  @override
+  String get workspaceHomeWhatsNewUnread =>
+      'You have not opened the release notes for this version yet.';
+
+  @override
+  String get workspaceHomeWhatsNewCurrent =>
+      'See what changed in this version.';
+
+  @override
+  String get workspaceHomeWhatsNewOpen => 'Open release notes';
+
+  @override
+  String get workspaceHomeToggleVaultStatusTitle => 'Vault status';
+
+  @override
+  String get workspaceHomeToggleVaultStatusSubtitle =>
+      'Backups, sync conflicts, read-only';
+
+  @override
+  String get workspaceHomeToggleOnboardingTitle => 'First-week checklist';
+
+  @override
+  String get workspaceHomeToggleOnboardingSubtitle =>
+      'Short goals for new vaults (auto-hides after 7 days)';
+
+  @override
+  String get workspaceHomeToggleWhatsNewTitle => 'What\'s new';
+
+  @override
+  String get workspaceHomeToggleWhatsNewSubtitle =>
+      'Show the update card when a new version has not been read yet';
+
+  @override
+  String get workspaceHomeWhatsNewDismissTooltip =>
+      'Hide until the next update';
+
+  @override
+  String get workspaceHomeReorderSectionsTitle => 'Reorder home sections';
+
+  @override
+  String get workspaceHomeReorderMainColumn => 'Main column';
+
+  @override
+  String get workspaceHomeReorderSideColumn => 'Side column';
+
+  @override
+  String get workspaceHomeColumnLayoutTitle => 'Columns';
+
+  @override
+  String get workspaceHomeColumnLayoutSubtitle =>
+      'How wide the layout splits on large screens';
+
+  @override
+  String get workspaceHomeColumnLayoutAuto => 'Automatic';
+
+  @override
+  String get workspaceHomeColumnLayoutSingle => 'Single column';
+
+  @override
+  String get workspaceHomeColumnLayoutDual => 'Two columns';
+
+  @override
+  String get workspaceHomeClockShowSecondsTitle => 'Clock: show seconds';
+
+  @override
+  String get workspaceHomeClockShowSecondsSubtitle =>
+      'Updates the time every second';
+
+  @override
+  String get workspaceHomeClock24HourTitle => '24-hour time';
+
+  @override
+  String get workspaceHomeClock24HourSubtitle =>
+      'Use 24-hour format instead of AM/PM';
+
+  @override
+  String get workspaceHomeClockShowTimezoneTitle => 'Show time zone';
+
+  @override
+  String get workspaceHomeClockShowTimezoneSubtitle =>
+      'Name and UTC offset under the clock';
+
+  @override
+  String workspaceHomeClockTimezoneLine(String zoneName, String offset) {
+    return '$zoneName ($offset)';
+  }
+
+  @override
+  String get workspaceHomeSectionLabelSearch => 'Search field';
+
+  @override
+  String get workspaceHomeSectionLabelCreatePage => 'New page button';
 }

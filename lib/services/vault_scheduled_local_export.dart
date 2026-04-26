@@ -68,6 +68,7 @@ Future<void> runScheduledFolderVaultExport({
       session: session,
       vaultId: activeVaultId,
       entitlementSnapshot: folioEntitlements.snapshot,
+      telemetrySettings: appSettings,
     );
     try {
       final label = await session.getActiveVaultDisplayLabel();

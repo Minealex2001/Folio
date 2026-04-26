@@ -5905,4 +5905,557 @@ class AppLocalizationsCa extends AppLocalizations {
 
   @override
   String get settingsIntegrationsNativeTitle => 'Integracions natives';
+
+  @override
+  String get telemetryDashboardTitle => 'Tauler de telemetria';
+
+  @override
+  String get telemetryDashboardAccessDenied => 'Accés denegat';
+
+  @override
+  String get telemetryDashboardStaffOnlyBody =>
+      'Només el personal de Folio pot obrir aquesta pantalla.';
+
+  @override
+  String get telemetryDashboardFlushTooltip =>
+      'Enviar esdeveniments pendents i actualitzar';
+
+  @override
+  String get telemetryDashboardErrorLoading =>
+      'No s\'han pogut carregar les dades';
+
+  @override
+  String telemetryDashboardErrorDetail(String detail) {
+    return '$detail';
+  }
+
+  @override
+  String telemetryDashboardNoDataForDate(String date) {
+    return 'Sense dades per a $date';
+  }
+
+  @override
+  String get telemetryDashboardNoDataHint =>
+      'Utilitza la icona d\'enviament per buidar esdeveniments pendents i després actualitza.\nEls totals globals apareixen després de la tasca programada (02:00 UTC, dia UTC anterior).';
+
+  @override
+  String get telemetryDashboardFlushRefresh => 'Buidar i actualitzar';
+
+  @override
+  String get telemetryDashboardSectionGlobalTitle =>
+      'Estadístiques globals (tots els usuaris)';
+
+  @override
+  String get telemetryDashboardSectionGlobalSubtitle =>
+      'Totals de l\'agregació nocturna (02:00 UTC).';
+
+  @override
+  String get telemetryDashboardMetricUsers => 'Usuaris';
+
+  @override
+  String get telemetryDashboardMetricEvents => 'Esdeveniments';
+
+  @override
+  String get telemetryDashboardMetricErrors => 'Errors';
+
+  @override
+  String get telemetryDashboardByType => 'Per tipus';
+
+  @override
+  String get telemetryDashboardNoEventBreakdown =>
+      'Sense desglossament per tipus d\'esdeveniment.';
+
+  @override
+  String get telemetryDashboardEventTypeUnknown => 'Desconegut';
+
+  @override
+  String get settingsTelemetryDashboardListSubtitle =>
+      'Mostra estadístiques globals d\'ús agregades.';
+
+  @override
+  String get telemetryDashboardGlobalMissingHint =>
+      'Encara no hi ha totals globals per a aquesta data UTC. Pots revisar dades per usuari i esdeveniments en brut a continuació.';
+
+  @override
+  String get telemetryDashboardPerUserDayTitle =>
+      'Per usuari (dia seleccionat)';
+
+  @override
+  String telemetryDashboardPerUserDaySubtitle(String date) {
+    return 'Estadístiques diàries per a $date (analytics_events/*/stats).';
+  }
+
+  @override
+  String get telemetryDashboardRecentEventsTitle =>
+      'Últims esdeveniments en brut';
+
+  @override
+  String get telemetryDashboardRecentEventsSubtitle =>
+      'Fins a 80 esdeveniments més recents de tots els usuaris amb sessió.';
+
+  @override
+  String get telemetryDashboardNoPerUserStats =>
+      'No hi ha estadístiques per usuari per a aquesta data.';
+
+  @override
+  String get telemetryDashboardNoRecentEvents =>
+      'No hi ha esdeveniments a Firestore.';
+
+  @override
+  String get telemetryDashboardColUser => 'Usuari';
+
+  @override
+  String get telemetryDashboardColEvents => 'Esdeveniments';
+
+  @override
+  String get telemetryDashboardColErrors => 'Errors';
+
+  @override
+  String get telemetryDashboardColTime => 'Hora';
+
+  @override
+  String get telemetryDashboardColType => 'Tipus';
+
+  @override
+  String get telemetryDashboardColSummary => 'Resum';
+
+  @override
+  String get telemetryDashboardEmptyAll =>
+      'No hi ha dades que mostrar. Prova una altra data, buida esdeveniments pendents o comprova que els índexs de Firestore estiguin desplegats.';
+
+  @override
+  String get telemetrySentDataCategoriesTitle =>
+      'Exemples de categories de telemetria';
+
+  @override
+  String get telemetrySentDataFeatureUsageTitle => 'Ús de funcions';
+
+  @override
+  String get telemetrySentDataFeatureUsageBody =>
+      'Quan obres l’editor, el tauler, la cerca, els ajustos o altres funcions.';
+
+  @override
+  String get telemetrySentDataContentActionsTitle =>
+      'Accions sobre el contingut';
+
+  @override
+  String get telemetrySentDataContentActionsBody =>
+      'Crear, editar o eliminar notes i taulers.';
+
+  @override
+  String get telemetrySentDataSearchesTitle => 'Cerques';
+
+  @override
+  String get telemetrySentDataSearchesBody =>
+      'Consultes de cerca i ús de filtres.';
+
+  @override
+  String get telemetrySentDataSyncTitle => 'Sincronització';
+
+  @override
+  String get telemetrySentDataSyncBody =>
+      'Estat i durada de la còpia al núvol.';
+
+  @override
+  String get telemetrySentDataPerformanceTitle => 'Rendiment';
+
+  @override
+  String get telemetrySentDataPerformanceBody =>
+      'Durada d’operacions i senyals bàsiques de rendiment.';
+
+  @override
+  String get telemetrySentDataErrorsTitle => 'Errors';
+
+  @override
+  String get telemetrySentDataErrorsBody =>
+      'Errors de l’app i tancaments inesperats (si la telemetria està activa).';
+
+  @override
+  String get telemetrySentDataPrivacyNote =>
+      'La teva privacitat importa. No venem aquestes dades ni les usem per a publicitat.';
+
+  @override
+  String get telemetrySentDataChannelsNote =>
+      'Firebase Analytics usa un identificador anònim d’instal·lació. Una còpia d’esdeveniments a Firestore només s’envia si has iniciat sessió a Folio Cloud.';
+
+  @override
+  String get telemetrySentDataViewTechnicalDetails => 'Veure detalls tècnics';
+
+  @override
+  String get telemetrySentDataHideTechnicalDetails => 'Amagar detalls tècnics';
+
+  @override
+  String get telemetrySentDataNoEventsYet =>
+      'Encara no hi ha esdeveniments desats localment.';
+
+  @override
+  String get workspaceRecentPagesSectionTitle => 'Recents';
+
+  @override
+  String get workspaceHomeHeadline => 'El teu espai';
+
+  @override
+  String get workspaceHomeSubtitle =>
+      'Reprèn on ho vas deixar, cerca o comença alguna cosa nova.';
+
+  @override
+  String get workspaceHomeSearchHint => 'Cercar…';
+
+  @override
+  String get workspaceHomeNoRecentPages =>
+      'Encara no hi ha pàgines recents. Crea’n una o usa el cercador.';
+
+  @override
+  String workspaceHomeVisitedAt(String dateTime) {
+    return 'Oberta $dateTime';
+  }
+
+  @override
+  String get workspaceHomeTip0 =>
+      'Consell: crea una pàgina i usa / per inserir blocs ràpidament.';
+
+  @override
+  String get workspaceHomeTip1 =>
+      'Folio desa els canvis automàticament. Només comença a escriure.';
+
+  @override
+  String get workspaceHomeTip2 =>
+      'Usa cercar per saltar entre pàgines sense perdre el ritme.';
+
+  @override
+  String get workspaceHomeTip3 =>
+      'Les subpàgines ajuden a mantenir cada tema ordenat.';
+
+  @override
+  String get workspaceHomeTip4 =>
+      'Reorganitza pàgines des de la barra lateral i mantén el cofre net en créixer.';
+
+  @override
+  String get workspaceHomeTip5 =>
+      'Les plantilles agilitzen estructures repetides; obre-les des d\'accions ràpides.';
+
+  @override
+  String get workspaceHomeTip6 =>
+      'La vista de graf mostra com es enllacen les pàgines; usa-la si et perds.';
+
+  @override
+  String get workspaceHomeTip7 =>
+      'Combina títols, llistes i blocs enriquits perquè les notes llargues es llegeixin millor.';
+
+  @override
+  String get workspaceHomeTip8 =>
+      'Les tasques amb data surten a l\'inici; posa dates des de Kanban o blocs de tasca.';
+
+  @override
+  String get workspaceHomeTip9 =>
+      'Bloqueja el cofre en allunyar-te del lloc; la contrasenya no surt d\'aquest dispositiu.';
+
+  @override
+  String get workspaceHomeTip10 =>
+      'Exporta una pàgina a Markdown o PDF des de la barra quan vulguis compartir-la.';
+
+  @override
+  String get workspaceHomeTip11 =>
+      'La sincronització entre dispositius alinea còpies; força la sincronització a la barra lateral després d\'emparellar.';
+
+  @override
+  String get settingsWorkspaceOpenToHomeTitle => 'Obrir a l’inici';
+
+  @override
+  String get settingsWorkspaceOpenToHomeSubtitle =>
+      'Després de desbloquejar, mostra la pantalla d’inici en lloc de l’última pàgina oberta.';
+
+  @override
+  String get workspaceHomeGreetingMorning => 'Bon dia';
+
+  @override
+  String get workspaceHomeGreetingAfternoon => 'Bona tarda';
+
+  @override
+  String get workspaceHomeGreetingEvening => 'Bona tarda';
+
+  @override
+  String get workspaceHomeGreetingNight => 'Bona nit';
+
+  @override
+  String get workspaceHomeNoRecentMatch =>
+      'Cap pàgina recent coincideix amb el filtre.';
+
+  @override
+  String get workspaceHomeGlobalSearchTooltip => 'Cerca a tot el cofre';
+
+  @override
+  String get workspaceHomeSearchSemanticsLabel =>
+      'Filtra pàgines recents mentre escrius; usa el botó al final del camp per a la cerca global';
+
+  @override
+  String get workspaceHomeQuickActionsTitle => 'Accions ràpides';
+
+  @override
+  String get workspaceHomeQuickSettings => 'Ajustos';
+
+  @override
+  String get workspaceHomeQuickGraph => 'Vista de graf';
+
+  @override
+  String get workspaceHomeQuickTemplates => 'Plantilles';
+
+  @override
+  String get workspaceHomeQuickLock => 'Bloquejar cofre';
+
+  @override
+  String get workspaceHomeQuickSync => 'Sincronitzar dispositius';
+
+  @override
+  String get workspaceHomeQuickTask => 'Tasca ràpida';
+
+  @override
+  String get workspaceHomeQuickFolder => 'Carpeta nova';
+
+  @override
+  String get workspaceHomeQuickImport => 'Importar Markdown';
+
+  @override
+  String get workspaceHomeRootPagesTitle => 'Pàgines arrel';
+
+  @override
+  String workspaceHomeMiniStats(int pageCount, int taskCount) {
+    return '$pageCount pàgines · $taskCount tasques amb data (14 dies)';
+  }
+
+  @override
+  String get workspaceHomeUpcomingTasksTitle => 'Tasques properes (14 dies)';
+
+  @override
+  String get workspaceHomeUpcomingTasksEmpty =>
+      'No hi ha tasques amb data en les pròximes dues setmanes.';
+
+  @override
+  String get workspaceHomeAiTasksChipLabel =>
+      'Pregunta a Quill sobre aquestes tasques';
+
+  @override
+  String workspaceHomeAiTasksPrompt(String taskList) {
+    return 'Aquestes són les meves tasques amb data (properes i endarrerides):\n\n$taskList\n\nQuè hauria de prioritzar avui?';
+  }
+
+  @override
+  String get workspaceHomeAiTasksPromptEmpty =>
+      '(No hi ha tasques amb data en les pròximes dues setmanes.)';
+
+  @override
+  String get workspaceHomeCustomizeTooltip => 'Personalitzar inici';
+
+  @override
+  String get workspaceHomeCustomizeTitle => 'Pantalla d\'inici';
+
+  @override
+  String get workspaceHomeToggleFolioCloudTitle => 'Resum Folio Cloud';
+
+  @override
+  String get workspaceHomeToggleFolioCloudSubtitle =>
+      'Tinta i espai de còpies al núvol si has iniciat sessió';
+
+  @override
+  String get workspaceHomeToggleRootPagesTitle => 'Pàgines arrel';
+
+  @override
+  String get workspaceHomeToggleRootPagesSubtitle =>
+      'Xips horitzontals de pàgines de primer nivell';
+
+  @override
+  String get workspaceHomeToggleMiniStatsTitle => 'Comptadors';
+
+  @override
+  String get workspaceHomeToggleMiniStatsSubtitle =>
+      'Nombre de pàgines i tasques amb data (14 dies)';
+
+  @override
+  String get workspaceHomeToggleTasksTitle => 'Tasques properes';
+
+  @override
+  String get workspaceHomeToggleTasksSubtitle =>
+      'Franja de dues setmanes i llista';
+
+  @override
+  String get workspaceHomeToggleQuickActionsTitle => 'Accions ràpides';
+
+  @override
+  String get workspaceHomeToggleQuickActionsSubtitle =>
+      'Graella o menú d\'accessos';
+
+  @override
+  String get workspaceHomeToggleTipTitle => 'Consell del dia';
+
+  @override
+  String get workspaceHomeToggleTipSubtitle =>
+      'Consell rotatiu de l\'espai de treball';
+
+  @override
+  String get workspaceHomeCloudCardTitle => 'Folio Cloud';
+
+  @override
+  String get workspaceHomeCloudStaffShort => 'Accés staff';
+
+  @override
+  String get workspaceHomeCloudOpenSettings => 'Obrir ajustos';
+
+  @override
+  String get workspaceHomeVaultStatusTitle => 'Estat del cofre';
+
+  @override
+  String get workspaceHomeVaultBackupOff =>
+      'Les còpies programades estan desactivades per a aquesta llibreta.';
+
+  @override
+  String get workspaceHomeVaultBackupNeverRun =>
+      'Encara no s\'ha executat cap còpia amb la configuració actual.';
+
+  @override
+  String workspaceHomeVaultBackupLast(String when) {
+    return 'Última còpia: $when';
+  }
+
+  @override
+  String workspaceHomeVaultBackupEvery(String label) {
+    return 'Cada $label';
+  }
+
+  @override
+  String workspaceHomeVaultSyncConflicts(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count conflictes de sincronització pendents',
+      one: '1 conflicte de sincronització pendent',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get workspaceHomeVaultReadOnlyHint =>
+      'Vista només de lectura; activa l\'edició des de la barra de treball.';
+
+  @override
+  String get workspaceHomeOnboardingTitle => 'Primera setmana';
+
+  @override
+  String get workspaceHomeOnboardingHint =>
+      'Es completen sols mentre fas servir Folio.';
+
+  @override
+  String get workspaceHomeOnboardingStepPage => 'Crea una pàgina';
+
+  @override
+  String get workspaceHomeOnboardingStepSubpage =>
+      'Crea una subpàgina sota una pàgina';
+
+  @override
+  String get workspaceHomeOnboardingStepSearch =>
+      'Usa la cerca global una vegada';
+
+  @override
+  String get workspaceHomeOnboardingDismiss => 'Amagar llista';
+
+  @override
+  String get workspaceHomeWhatsNewTitle => 'Novetats';
+
+  @override
+  String workspaceHomeWhatsNewVersion(String version) {
+    return 'Versió $version';
+  }
+
+  @override
+  String get workspaceHomeWhatsNewUnread =>
+      'Encara no has obert les notes d\'aquesta versió.';
+
+  @override
+  String get workspaceHomeWhatsNewCurrent =>
+      'Consulta els canvis d\'aquesta versió.';
+
+  @override
+  String get workspaceHomeWhatsNewOpen => 'Obrir notes de la versió';
+
+  @override
+  String get workspaceHomeToggleVaultStatusTitle => 'Estat del cofre';
+
+  @override
+  String get workspaceHomeToggleVaultStatusSubtitle =>
+      'Còpies, conflictes, només lectura';
+
+  @override
+  String get workspaceHomeToggleOnboardingTitle => 'Llista primera setmana';
+
+  @override
+  String get workspaceHomeToggleOnboardingSubtitle =>
+      'Objectius breus (s\'amaga sola als 7 dies)';
+
+  @override
+  String get workspaceHomeToggleWhatsNewTitle => 'Novetats';
+
+  @override
+  String get workspaceHomeToggleWhatsNewSubtitle =>
+      'Mostra la targeta quan hi hagi una versió nova sense llegir';
+
+  @override
+  String get workspaceHomeWhatsNewDismissTooltip =>
+      'Amaga fins a la propera actualització';
+
+  @override
+  String get workspaceHomeReorderSectionsTitle =>
+      'Reordenar seccions de l\'inici';
+
+  @override
+  String get workspaceHomeReorderMainColumn => 'Columna principal';
+
+  @override
+  String get workspaceHomeReorderSideColumn => 'Columna lateral';
+
+  @override
+  String get workspaceHomeColumnLayoutTitle => 'Columnes';
+
+  @override
+  String get workspaceHomeColumnLayoutSubtitle =>
+      'Com es divideix el disseny en pantalles amples';
+
+  @override
+  String get workspaceHomeColumnLayoutAuto => 'Automàtic';
+
+  @override
+  String get workspaceHomeColumnLayoutSingle => 'Una columna';
+
+  @override
+  String get workspaceHomeColumnLayoutDual => 'Dues columnes';
+
+  @override
+  String get workspaceHomeClockShowSecondsTitle => 'Rellotge: mostrar segons';
+
+  @override
+  String get workspaceHomeClockShowSecondsSubtitle =>
+      'Actualitza l\'hora cada segon';
+
+  @override
+  String get workspaceHomeClock24HourTitle => 'Hora en 24 h';
+
+  @override
+  String get workspaceHomeClock24HourSubtitle =>
+      'Usar format 24 h en lloc d\'AM/PM';
+
+  @override
+  String get workspaceHomeClockShowTimezoneTitle => 'Mostrar zona horària';
+
+  @override
+  String get workspaceHomeClockShowTimezoneSubtitle =>
+      'Nom i desfasament UTC sota el rellotge';
+
+  @override
+  String workspaceHomeClockTimezoneLine(String zoneName, String offset) {
+    return '$zoneName ($offset)';
+  }
+
+  @override
+  String get workspaceHomeSectionLabelSearch => 'Camp de cerca';
+
+  @override
+  String get workspaceHomeSectionLabelCreatePage => 'Botó pàgina nova';
 }

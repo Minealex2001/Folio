@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
@@ -19,6 +20,7 @@ class FolioDiagnosticReporter {
 
   static AppSettings? _appSettings;
   static var _autoReportsThisSession = 0;
+  static var _telemetryCrashLogged = false;
   static const _maxAutoReportsPerSession = 3;
 
   static void bindAppSettings(AppSettings? settings) {
@@ -65,6 +67,19 @@ class FolioDiagnosticReporter {
     if (settings == null || !settings.autoCrashReports) return;
     if (_autoReportsThisSession >= _maxAutoReportsPerSession) return;
     _autoReportsThisSession++;
+    if (settings.telemetryEnabled &&
+        !_telemetryCrashLogged &&
+        _autoReportsThisSession == 1) {
+      _telemetryCrashLogged = true;
+      unawaited(
+        FolioTelemetry.logError(
+          settings,
+          error,
+          'auto_crash_report',
+          stackTrace: stackTrace,
+        ),
+      );
+    }
     await submit(
       kind: 'crash',
       userNote: '',

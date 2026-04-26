@@ -471,7 +471,7 @@ class _TemplateGalleryDialogState extends State<_TemplateGalleryDialog> {
 
   Future<void> _importTemplate() async {
     final l10n = AppLocalizations.of(context);
-    final pick = await FilePicker.platform.pickFiles(
+    final pick = await FilePicker.pickFiles(
       type: FileType.custom,
       allowedExtensions: const ['folio-template', 'json'],
       allowMultiple: false,
@@ -506,7 +506,7 @@ class _TemplateGalleryDialogState extends State<_TemplateGalleryDialog> {
         .replaceAll(RegExp(r'[^\w\s-]'), '')
         .trim()
         .replaceAll(RegExp(r'\s+'), '_');
-    final destination = await FilePicker.platform.saveFile(
+    final destination = await FilePicker.saveFile(
       dialogTitle: l10n.templateExportPickTitle,
       fileName: '$safeName.folio-template',
     );

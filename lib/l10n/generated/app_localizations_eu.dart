@@ -5913,4 +5913,557 @@ class AppLocalizationsEu extends AppLocalizations {
 
   @override
   String get settingsIntegrationsNativeTitle => 'Jatorrizko integrazioak';
+
+  @override
+  String get telemetryDashboardTitle => 'Telemetria-panela';
+
+  @override
+  String get telemetryDashboardAccessDenied => 'Sarbidea ukatuta';
+
+  @override
+  String get telemetryDashboardStaffOnlyBody =>
+      'Folioko langileek bakarrik ireki dezakete pantaila hau.';
+
+  @override
+  String get telemetryDashboardFlushTooltip =>
+      'Bidali zain dauden gertaerak eta eguneratu';
+
+  @override
+  String get telemetryDashboardErrorLoading => 'Ezin izan dira datuak kargatu';
+
+  @override
+  String telemetryDashboardErrorDetail(String detail) {
+    return '$detail';
+  }
+
+  @override
+  String telemetryDashboardNoDataForDate(String date) {
+    return 'Daturik ez $date egunerako';
+  }
+
+  @override
+  String get telemetryDashboardNoDataHint =>
+      'Erabili bidalketa-ikonoarekin zain dauden gertaerak husteko eta gero eguneratu.\nGlobalen guztizkoak programatutako lanaren ondoren agertzen dira (02:00 UTC, aurreko UTC eguna).';
+
+  @override
+  String get telemetryDashboardFlushRefresh => 'Hustu eta eguneratu';
+
+  @override
+  String get telemetryDashboardSectionGlobalTitle =>
+      'Estatistika globalak (erabiltzaile guztiak)';
+
+  @override
+  String get telemetryDashboardSectionGlobalSubtitle =>
+      'Gaueko biltze-lanaren guztizkoak (02:00 UTC).';
+
+  @override
+  String get telemetryDashboardMetricUsers => 'Erabiltzaileak';
+
+  @override
+  String get telemetryDashboardMetricEvents => 'Gertaerak';
+
+  @override
+  String get telemetryDashboardMetricErrors => 'Erroreak';
+
+  @override
+  String get telemetryDashboardByType => 'Mota bidez';
+
+  @override
+  String get telemetryDashboardNoEventBreakdown =>
+      'Ez dago gertaera-motaren zatiketarik.';
+
+  @override
+  String get telemetryDashboardEventTypeUnknown => 'Ezezaguna';
+
+  @override
+  String get settingsTelemetryDashboardListSubtitle =>
+      'Ikusi erabilera globalaren estatistikak bilduta.';
+
+  @override
+  String get telemetryDashboardGlobalMissingHint =>
+      'Oraindik ez dago UTC data honetarako guztizko agregaturik. Behean erabiltzaileko eta gertaera gordinak ikus ditzakezu.';
+
+  @override
+  String get telemetryDashboardPerUserDayTitle =>
+      'Erabiltzaileka (aukeratutako eguna)';
+
+  @override
+  String telemetryDashboardPerUserDaySubtitle(String date) {
+    return 'Eguneko estatistikak $date egunerako (analytics_events/*/stats).';
+  }
+
+  @override
+  String get telemetryDashboardRecentEventsTitle => 'Azken gertaera gordinak';
+
+  @override
+  String get telemetryDashboardRecentEventsSubtitle =>
+      'Saioa duten erabiltzaile guztien azken 80 gertaera.';
+
+  @override
+  String get telemetryDashboardNoPerUserStats =>
+      'Ez dago erabiltzaileko estatistikarik data honetarako.';
+
+  @override
+  String get telemetryDashboardNoRecentEvents =>
+      'Ez dago gertaerarik Firestore-n.';
+
+  @override
+  String get telemetryDashboardColUser => 'Erabiltzailea';
+
+  @override
+  String get telemetryDashboardColEvents => 'Gertaerak';
+
+  @override
+  String get telemetryDashboardColErrors => 'Erroreak';
+
+  @override
+  String get telemetryDashboardColTime => 'Ordua';
+
+  @override
+  String get telemetryDashboardColType => 'Mota';
+
+  @override
+  String get telemetryDashboardColSummary => 'Laburpena';
+
+  @override
+  String get telemetryDashboardEmptyAll =>
+      'Ez dago erakusteko daturik. Probatu beste data bat, hustu zain dauden gertaerak edo egiaztatu Firestore-ren indizeak hedatuta daudela.';
+
+  @override
+  String get telemetrySentDataCategoriesTitle =>
+      'Telemetria-kategorien adibideak';
+
+  @override
+  String get telemetrySentDataFeatureUsageTitle => 'Ezaugarrien erabilera';
+
+  @override
+  String get telemetrySentDataFeatureUsageBody =>
+      'Editorea, taula, bilaketa, ezarpenak edo beste ezaugarri batzuk irekitzean.';
+
+  @override
+  String get telemetrySentDataContentActionsTitle =>
+      'Edukiaren gaineko ekintzak';
+
+  @override
+  String get telemetrySentDataContentActionsBody =>
+      'Ohar eta taulak sortzea, editatzea edo ezabatzea.';
+
+  @override
+  String get telemetrySentDataSearchesTitle => 'Bilaketak';
+
+  @override
+  String get telemetrySentDataSearchesBody =>
+      'Bilaketa-kontsultak eta iragazkien erabilera.';
+
+  @override
+  String get telemetrySentDataSyncTitle => 'Sinkronizazioa';
+
+  @override
+  String get telemetrySentDataSyncBody =>
+      'Hodeiko babes-kopiaren egoera eta iraupena.';
+
+  @override
+  String get telemetrySentDataPerformanceTitle => 'Errendimendua';
+
+  @override
+  String get telemetrySentDataPerformanceBody =>
+      'Eragiketen iraupena eta errendimendu-seinale oinarrizkoak.';
+
+  @override
+  String get telemetrySentDataErrorsTitle => 'Erroreak';
+
+  @override
+  String get telemetrySentDataErrorsBody =>
+      'Aplikazioaren erroreak eta ustekabeko itxierak (telemetria aktibo badago).';
+
+  @override
+  String get telemetrySentDataPrivacyNote =>
+      'Zure pribatutasuna garrantzitsua da. Ez ditugu datu hauek saltzen edo publizitaterako erabiltzen.';
+
+  @override
+  String get telemetrySentDataChannelsNote =>
+      'Firebase Analytics-ek instalazioaren ID anonimo bat erabiltzen du. Firestore-ko gertaeren kopia bat Folio Cloud-en saioa hasita baduzu bakarrik bidaltzen da.';
+
+  @override
+  String get telemetrySentDataViewTechnicalDetails =>
+      'Ikusi xehetasun teknikoak';
+
+  @override
+  String get telemetrySentDataHideTechnicalDetails =>
+      'Ezkutatu xehetasun teknikoak';
+
+  @override
+  String get telemetrySentDataNoEventsYet =>
+      'Oraindik ez dago tokian tokiko gertaerarik gordeta.';
+
+  @override
+  String get workspaceRecentPagesSectionTitle => 'Azkenak';
+
+  @override
+  String get workspaceHomeHeadline => 'Zure tokia';
+
+  @override
+  String get workspaceHomeSubtitle =>
+      'Berkatu utzitako tokian, bilatu edo hasi zerbait berria.';
+
+  @override
+  String get workspaceHomeSearchHint => 'Bilatu…';
+
+  @override
+  String get workspaceHomeNoRecentPages =>
+      'Oraindik ez dago azken orririk. Sortu bat edo erabili bilatzailea.';
+
+  @override
+  String workspaceHomeVisitedAt(String dateTime) {
+    return 'Irekita $dateTime';
+  }
+
+  @override
+  String get workspaceHomeTip0 =>
+      'Aholkua: sortu orri bat eta erabili / blokeak azkar txertatzeko.';
+
+  @override
+  String get workspaceHomeTip1 =>
+      'Foliok automatikoki gordetzen ditu aldaketak. Hasi idazten.';
+
+  @override
+  String get workspaceHomeTip2 => 'Erabili bilaketa orrietan salto egiteko.';
+
+  @override
+  String get workspaceHomeTip3 =>
+      'Azpiorriek gai bakoitza antolatuta mantentzen laguntzen dute.';
+
+  @override
+  String get workspaceHomeTip4 =>
+      'Antolatu orriak alboko barratik eta mantendu kutxa garbi hazten den heinean.';
+
+  @override
+  String get workspaceHomeTip5 =>
+      'Txantiloiek egitura errepikatuak azkartzen dituzte; ireki ekintza azkarretatik.';
+
+  @override
+  String get workspaceHomeTip6 =>
+      'Grafo ikuspegiak orrien arteko loturak erakusten ditu; erabili galtzen bazara.';
+
+  @override
+  String get workspaceHomeTip7 =>
+      'Nahastu izenburuak, zerrendak eta bloke aberastuak oharrak erraz irakurtzeko.';
+
+  @override
+  String get workspaceHomeTip8 =>
+      'Data duten zereginak hasieran agertzen dira; ezarri data Kanban edo zeregin blokeetatik.';
+
+  @override
+  String get workspaceHomeTip9 =>
+      'Blokeatu kutxa gailutik aldentzen zarenean; pasahitza ez da gailu honetatik ateratzen.';
+
+  @override
+  String get workspaceHomeTip10 =>
+      'Esportatu orria Markdown edo PDFra barratik partekatu nahi duzunean.';
+
+  @override
+  String get workspaceHomeTip11 =>
+      'Gailuen arteko sinkronizazioak babeskopiak lerrokatzen ditu; behartu sinkronizazioa alboko barran parekatu ondoren.';
+
+  @override
+  String get settingsWorkspaceOpenToHomeTitle => 'Ireki hasieran';
+
+  @override
+  String get settingsWorkspaceOpenToHomeSubtitle =>
+      'Desblokeatu ondoren, erakutsi hasierako pantaila azken irekitako orria beharrean.';
+
+  @override
+  String get workspaceHomeGreetingMorning => 'Egun on';
+
+  @override
+  String get workspaceHomeGreetingAfternoon => 'Arratsalde on';
+
+  @override
+  String get workspaceHomeGreetingEvening => 'Arratsalde on';
+
+  @override
+  String get workspaceHomeGreetingNight => 'Gabon';
+
+  @override
+  String get workspaceHomeNoRecentMatch =>
+      'Ez dago iragazkiarekin bat datorren azken orririk.';
+
+  @override
+  String get workspaceHomeGlobalSearchTooltip => 'Bilatu kutxa osoan';
+
+  @override
+  String get workspaceHomeSearchSemanticsLabel =>
+      'Iragazi azken orriak idatzi ahala; erabili eremuaren amaierako botoia bilaketa orokorrerako';
+
+  @override
+  String get workspaceHomeQuickActionsTitle => 'Ekintza azkarrak';
+
+  @override
+  String get workspaceHomeQuickSettings => 'Ezarpenak';
+
+  @override
+  String get workspaceHomeQuickGraph => 'Grafo ikuspegia';
+
+  @override
+  String get workspaceHomeQuickTemplates => 'Txantiloiak';
+
+  @override
+  String get workspaceHomeQuickLock => 'Blokeatu kutxa';
+
+  @override
+  String get workspaceHomeQuickSync => 'Sinkronizatu gailuak';
+
+  @override
+  String get workspaceHomeQuickTask => 'Zeregin azkarra';
+
+  @override
+  String get workspaceHomeQuickFolder => 'Karpeta berria';
+
+  @override
+  String get workspaceHomeQuickImport => 'Inportatu Markdown';
+
+  @override
+  String get workspaceHomeRootPagesTitle => 'Erroko orriak';
+
+  @override
+  String workspaceHomeMiniStats(int pageCount, int taskCount) {
+    return '$pageCount orri · $taskCount data duten zeregin (14 egun)';
+  }
+
+  @override
+  String get workspaceHomeUpcomingTasksTitle => 'Hurrengo zereginak (14 egun)';
+
+  @override
+  String get workspaceHomeUpcomingTasksEmpty =>
+      'Ez dago data duten zereginik hurrengo bi asteetan.';
+
+  @override
+  String get workspaceHomeAiTasksChipLabel =>
+      'Galdetu Quill-i zeregin hauei buruz';
+
+  @override
+  String workspaceHomeAiTasksPrompt(String taskList) {
+    return 'Hauek dira data duten nire zereginak (hurrengoak eta atzeratuak):\n\n$taskList\n\nZer lehenetsi beharko nuke gaur?';
+  }
+
+  @override
+  String get workspaceHomeAiTasksPromptEmpty =>
+      '(Ez dago data duten zereginik hurrengo bi asteetan.)';
+
+  @override
+  String get workspaceHomeCustomizeTooltip => 'Pertsonalizatu hasiera';
+
+  @override
+  String get workspaceHomeCustomizeTitle => 'Hasierako pantaila';
+
+  @override
+  String get workspaceHomeToggleFolioCloudTitle => 'Folio Cloud laburpena';
+
+  @override
+  String get workspaceHomeToggleFolioCloudSubtitle =>
+      'Tinta eta hodeiko babeskopiaren tokia saioa hasita badago';
+
+  @override
+  String get workspaceHomeToggleRootPagesTitle => 'Erroko orriak';
+
+  @override
+  String get workspaceHomeToggleRootPagesSubtitle =>
+      'Lehen mailako orrien chip horizontalak';
+
+  @override
+  String get workspaceHomeToggleMiniStatsTitle => 'Zenbatzaileak';
+
+  @override
+  String get workspaceHomeToggleMiniStatsSubtitle =>
+      'Orri kopurua eta data duten zereginak (14 egun)';
+
+  @override
+  String get workspaceHomeToggleTasksTitle => 'Hurrengo zereginak';
+
+  @override
+  String get workspaceHomeToggleTasksSubtitle =>
+      'Bi asteko barra eta zereginen zerrenda';
+
+  @override
+  String get workspaceHomeToggleQuickActionsTitle => 'Ekintza azkarrak';
+
+  @override
+  String get workspaceHomeToggleQuickActionsSubtitle =>
+      'Lasterbideen sareta edo menua';
+
+  @override
+  String get workspaceHomeToggleTipTitle => 'Eguneko aholkua';
+
+  @override
+  String get workspaceHomeToggleTipSubtitle =>
+      'Laneko espazioaren aholku aldakorra';
+
+  @override
+  String get workspaceHomeCloudCardTitle => 'Folio Cloud';
+
+  @override
+  String get workspaceHomeCloudStaffShort => 'Staff sarbidea';
+
+  @override
+  String get workspaceHomeCloudOpenSettings => 'Ireki ezarpenak';
+
+  @override
+  String get workspaceHomeVaultStatusTitle => 'Kutxaren egoera';
+
+  @override
+  String get workspaceHomeVaultBackupOff =>
+      'Programatutako babeskopiak desgaituta daude koaderno honetan.';
+
+  @override
+  String get workspaceHomeVaultBackupNeverRun =>
+      'Oraindik ez da babeskopiarik exekutatu uneko ezarpenekin.';
+
+  @override
+  String workspaceHomeVaultBackupLast(String when) {
+    return 'Azken babeskopia: $when';
+  }
+
+  @override
+  String workspaceHomeVaultBackupEvery(String label) {
+    return 'Bitartea: $label';
+  }
+
+  @override
+  String workspaceHomeVaultSyncConflicts(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count sinkronizazio gatazka zain',
+      one: '1 sinkronizazio gatazka zain',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get workspaceHomeVaultReadOnlyHint =>
+      'Irakurketa soilik ikuspegia; gaitu edizioa laneko barratik.';
+
+  @override
+  String get workspaceHomeOnboardingTitle => 'Lehen astea';
+
+  @override
+  String get workspaceHomeOnboardingHint =>
+      'Folio erabiltzen duzun heinean automatikoki osatzen dira.';
+
+  @override
+  String get workspaceHomeOnboardingStepPage => 'Sortu orri bat';
+
+  @override
+  String get workspaceHomeOnboardingStepSubpage =>
+      'Sortu azpiorri bat orri baten azpian';
+
+  @override
+  String get workspaceHomeOnboardingStepSearch =>
+      'Erabili bilaketa orokorra behin';
+
+  @override
+  String get workspaceHomeOnboardingDismiss => 'Ezkutatu zerrenda';
+
+  @override
+  String get workspaceHomeWhatsNewTitle => 'Berriak';
+
+  @override
+  String workspaceHomeWhatsNewVersion(String version) {
+    return '$version bertsioa';
+  }
+
+  @override
+  String get workspaceHomeWhatsNewUnread =>
+      'Oraindik ez duzu bertsio honetako oharrak ireki.';
+
+  @override
+  String get workspaceHomeWhatsNewCurrent =>
+      'Ikusi bertsio honetako aldaketak.';
+
+  @override
+  String get workspaceHomeWhatsNewOpen => 'Ireki bertsio-oharrak';
+
+  @override
+  String get workspaceHomeToggleVaultStatusTitle => 'Kutxaren egoera';
+
+  @override
+  String get workspaceHomeToggleVaultStatusSubtitle =>
+      'Babeskopiak, gatazkak, irakurketa soilik';
+
+  @override
+  String get workspaceHomeToggleOnboardingTitle => 'Lehen asteko zerrenda';
+
+  @override
+  String get workspaceHomeToggleOnboardingSubtitle =>
+      'Helburu laburrak (7 egunetan ezkutatzen da)';
+
+  @override
+  String get workspaceHomeToggleWhatsNewTitle => 'Berriak';
+
+  @override
+  String get workspaceHomeToggleWhatsNewSubtitle =>
+      'Erakutsi txartela bertsio berri bat irakurri gabe dagoenean';
+
+  @override
+  String get workspaceHomeWhatsNewDismissTooltip =>
+      'Ezkutatu hurrengo eguneratu arte';
+
+  @override
+  String get workspaceHomeReorderSectionsTitle =>
+      'Berrantolatu hasierako atalak';
+
+  @override
+  String get workspaceHomeReorderMainColumn => 'Zutabe nagusia';
+
+  @override
+  String get workspaceHomeReorderSideColumn => 'Alboko zutabea';
+
+  @override
+  String get workspaceHomeColumnLayoutTitle => 'Zutabeak';
+
+  @override
+  String get workspaceHomeColumnLayoutSubtitle =>
+      'Nola banatzen den diseinua pantaila zabaletan';
+
+  @override
+  String get workspaceHomeColumnLayoutAuto => 'Automatikoa';
+
+  @override
+  String get workspaceHomeColumnLayoutSingle => 'Zutabe bakarra';
+
+  @override
+  String get workspaceHomeColumnLayoutDual => 'Bi zutabe';
+
+  @override
+  String get workspaceHomeClockShowSecondsTitle =>
+      'Erlojua: erakutsi segunduak';
+
+  @override
+  String get workspaceHomeClockShowSecondsSubtitle =>
+      'Ordua segundoro eguneratzen du';
+
+  @override
+  String get workspaceHomeClock24HourTitle => '24 orduko ordua';
+
+  @override
+  String get workspaceHomeClock24HourSubtitle =>
+      'Erabili 24 orduko formatua AM/PM ordez';
+
+  @override
+  String get workspaceHomeClockShowTimezoneTitle => 'Erakutsi ordu-zona';
+
+  @override
+  String get workspaceHomeClockShowTimezoneSubtitle =>
+      'Izena eta UTC desplazamendua erlojuaren azpian';
+
+  @override
+  String workspaceHomeClockTimezoneLine(String zoneName, String offset) {
+    return '$zoneName ($offset)';
+  }
+
+  @override
+  String get workspaceHomeSectionLabelSearch => 'Bilaketa-eremua';
+
+  @override
+  String get workspaceHomeSectionLabelCreatePage => 'Orri berriaren botoia';
 }

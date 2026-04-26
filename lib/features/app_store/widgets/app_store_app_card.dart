@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 
 import '../../../models/folio_app_registry_entry.dart';
-import '../../../services/app_store/app_store_service.dart';
 
 /// Tarjeta de una app en la tienda (para el listado del registry).
 class AppStoreAppCard extends StatelessWidget {
@@ -245,7 +244,7 @@ class AppIcon extends StatelessWidget {
           width: size,
           height: size,
           fit: BoxFit.cover,
-          errorBuilder: (_, __, ___) => _placeholder(scheme),
+          errorBuilder: (context, error, stackTrace) => _placeholder(scheme),
         ),
       );
     }

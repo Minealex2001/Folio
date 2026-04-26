@@ -16,10 +16,12 @@ class GlobalSearchPopup extends StatefulWidget {
     super.key,
     required this.session,
     required this.appSettings,
+    this.initialQuery,
   });
 
   final VaultSession session;
   final AppSettings appSettings;
+  final String? initialQuery;
 
   @override
   State<GlobalSearchPopup> createState() => _GlobalSearchPopupState();
@@ -36,8 +38,16 @@ class _GlobalSearchPopupState extends State<GlobalSearchPopup> {
   @override
   void initState() {
     super.initState();
+    final q = widget.initialQuery?.trim();
+    if (q != null && q.isNotEmpty) {
+      _query.text = q;
+    }
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) _focus.requestFocus();
+      if (!mounted) return;
+      _focus.requestFocus();
+      if (q != null && q.isNotEmpty) {
+        _refresh();
+      }
     });
   }
 

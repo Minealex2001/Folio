@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
@@ -8,10 +9,12 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:path/path.dart' as p;
 
+import '../../app/app_settings.dart';
 import '../../data/folio_cloud_pack_format.dart';
 import '../../data/vault_backup.dart';
 import '../../data/vault_paths.dart';
 import '../../session/vault_session.dart';
+import '../folio_telemetry.dart';
 import 'folio_cloud_backup.dart';
 import 'folio_cloud_callable.dart';
 import '../../crypto/vault_crypto.dart';
@@ -29,6 +32,26 @@ List<int> _nonceBasisVaultMode() => utf8.encode('folio-pack:vault_mode');
 List<int> _nonceBasisAttachment(String posixPath) =>
     utf8.encode('folio-pack:att:$posixPath');
 
+void _logSyncTelemetry(
+  AppSettings? settings,
+  String syncType,
+  bool success, {
+  String? errorMessage,
+  int? durationMs,
+}) {
+  final s = settings;
+  if (s == null || !s.telemetryEnabled) return;
+  unawaited(
+    FolioTelemetry.logSyncEvent(
+      s,
+      syncType,
+      success,
+      errorMessage: errorMessage,
+      durationMs: durationMs,
+    ),
+  );
+}
+
 /// Sube la libreta abierta como cloud-pack incremental (blobs cifrados + snapshot).
 ///
 /// [restoreWrapPassword]: contraseña de la libreta (cifrada) o contraseña de recuperación
@@ -40,7 +63,10 @@ Future<String?> uploadOpenVaultCloudPack({
   required String vaultId,
   FolioCloudSnapshot? entitlementSnapshot,
   String? restoreWrapPassword,
+  AppSettings? telemetrySettings,
 }) async {
+  final sw = Stopwatch()..start();
+  try {
   requireFolioCloudBackupEntitlement(entitlementSnapshot);
   if (!session.isUnlocked) {
     throw StateError(
@@ -75,9 +101,22 @@ Future<String?> uploadOpenVaultCloudPack({
     final sp = latest?['snapshotStoragePath']?.toString().trim() ?? '';
     if (sp.isNotEmpty) {
       try {
-        return await FirebaseStorage.instance.ref(sp).getDownloadURL();
+        final u = await FirebaseStorage.instance.ref(sp).getDownloadURL();
+        _logSyncTelemetry(
+          telemetrySettings,
+          'cloud_pack_push',
+          true,
+          durationMs: sw.elapsedMilliseconds,
+        );
+        return u;
       } catch (_) {}
     }
+    _logSyncTelemetry(
+      telemetrySettings,
+      'cloud_pack_push',
+      true,
+      durationMs: sw.elapsedMilliseconds,
+    );
     return '';
   }
 
@@ -317,7 +356,24 @@ Future<String?> uploadOpenVaultCloudPack({
     );
   } catch (_) {}
 
-  return await snapRef.getDownloadURL();
+  final url = await snapRef.getDownloadURL();
+  _logSyncTelemetry(
+    telemetrySettings,
+    'cloud_pack_push',
+    true,
+    durationMs: sw.elapsedMilliseconds,
+  );
+  return url;
+  } catch (e) {
+    _logSyncTelemetry(
+      telemetrySettings,
+      'cloud_pack_push',
+      false,
+      errorMessage: '$e',
+      durationMs: sw.elapsedMilliseconds,
+    );
+    rethrow;
+  }
 }
 
 bool _modeFileIsPlainCloud(File modeFile) {
@@ -403,31 +459,50 @@ Future<void> downloadLatestCloudPackToDirectory({
   required String vaultId,
   required Directory extractDir,
   FolioCloudSnapshot? entitlementSnapshot,
+  AppSettings? telemetrySettings,
 }) async {
-  requireFolioCloudBackupEntitlement(entitlementSnapshot);
-  if (!session.isUnlocked) {
-    throw StateError('La libreta debe estar desbloqueada.');
-  }
-  if (Firebase.apps.isEmpty) {
-    throw StateError('Firebase not initialized');
-  }
-  final user = FirebaseAuth.instance.currentUser;
-  if (user == null) throw StateError('Not signed in');
+  final sw = Stopwatch()..start();
+  try {
+    requireFolioCloudBackupEntitlement(entitlementSnapshot);
+    if (!session.isUnlocked) {
+      throw StateError('La libreta debe estar desbloqueada.');
+    }
+    if (Firebase.apps.isEmpty) {
+      throw StateError('Firebase not initialized');
+    }
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) throw StateError('Not signed in');
 
-  final latest = await _getLatestCloudPackMeta(vaultId: vaultId);
-  final path = latest?['snapshotStoragePath']?.toString().trim() ?? '';
-  if (path.isEmpty) {
-    throw StateError('No hay copia incremental en la nube.');
-  }
+    final latest = await _getLatestCloudPackMeta(vaultId: vaultId);
+    final path = latest?['snapshotStoragePath']?.toString().trim() ?? '';
+    if (path.isEmpty) {
+      throw StateError('No hay copia incremental en la nube.');
+    }
 
-  final packKey = await session.cloudPackEncryptionKey();
-  await _downloadCloudPackTreeToDirectory(
-    uid: user.uid,
-    vaultId: vaultId,
-    snapshotStoragePath: path,
-    packKey: packKey,
-    extractDir: extractDir,
-  );
+    final packKey = await session.cloudPackEncryptionKey();
+    await _downloadCloudPackTreeToDirectory(
+      uid: user.uid,
+      vaultId: vaultId,
+      snapshotStoragePath: path,
+      packKey: packKey,
+      extractDir: extractDir,
+    );
+    _logSyncTelemetry(
+      telemetrySettings,
+      'cloud_pack_pull',
+      true,
+      durationMs: sw.elapsedMilliseconds,
+    );
+  } catch (e) {
+    _logSyncTelemetry(
+      telemetrySettings,
+      'cloud_pack_pull',
+      false,
+      errorMessage: '$e',
+      durationMs: sw.elapsedMilliseconds,
+    );
+    rethrow;
+  }
 }
 
 /// Restaura el último cloud-pack en [extractDir] usando el envoltorio de recuperación
@@ -437,7 +512,10 @@ Future<void> downloadCloudPackToDirectoryForRestore({
   required String restorePassword,
   required Directory extractDir,
   FolioCloudSnapshot? entitlementSnapshot,
+  AppSettings? telemetrySettings,
 }) async {
+  final sw = Stopwatch()..start();
+  try {
   requireFolioCloudBackupEntitlement(entitlementSnapshot);
   if (Firebase.apps.isEmpty) {
     throw StateError('Firebase not initialized');
@@ -479,6 +557,22 @@ Future<void> downloadCloudPackToDirectoryForRestore({
     packKey: packKey,
     extractDir: extractDir,
   );
+  _logSyncTelemetry(
+    telemetrySettings,
+    'cloud_pack_pull_restore',
+    true,
+    durationMs: sw.elapsedMilliseconds,
+  );
+  } catch (e) {
+    _logSyncTelemetry(
+      telemetrySettings,
+      'cloud_pack_pull_restore',
+      false,
+      errorMessage: '$e',
+      durationMs: sw.elapsedMilliseconds,
+    );
+    rethrow;
+  }
 }
 
 Future<void> _downloadCloudPackTreeToDirectory({

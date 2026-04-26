@@ -58,8 +58,9 @@ class _AppStoreScreenState extends State<AppStoreScreen>
     try {
       await _store.fetchRegistry();
     } catch (e) {
-      if (mounted)
+      if (mounted) {
         setState(() => _registryError = 'Error al cargar la tienda: $e');
+      }
     } finally {
       if (mounted) setState(() => _loadingRegistry = false);
     }
@@ -381,7 +382,6 @@ class _InstalledTab extends StatelessWidget {
     AppStoreService store,
     InstalledFolioApp app,
   ) async {
-    final l10n = AppLocalizations.of(context);
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) {

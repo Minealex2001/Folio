@@ -15,6 +15,7 @@ import 'services/app_log_file_sink.dart';
 import 'services/app_logger.dart';
 import 'services/folio_diagnostic_reporter.dart';
 import 'services/folio_telemetry.dart';
+import 'services/folio_firestore_sync.dart';
 import 'services/cloud_account/cloud_account_controller.dart';
 import 'services/env/local_env_loader.dart';
 import 'services/env/local_env.dart';
@@ -122,6 +123,7 @@ Future<void> main() async {
       );
       await appSettings.load();
       await FolioTelemetry.applyAfterSettingsLoaded(appSettings);
+      FolioFirestoreSync.initialize();
       final session = VaultSession(titleLocale: appSettings.locale);
       final initialLaunchArgs =
           await PlatformLaunchArguments.initialArguments();

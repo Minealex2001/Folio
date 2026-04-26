@@ -277,5 +277,36 @@ service cloud.firestore {
         allow create, update, delete: if false;
       }
     }
+
+    // Telemetría: cada usuario puede escribir/leer sus propios eventos; staff puede leer todos.
+    function isStaff() {
+      return request.auth != null && userData(request.auth.uid).folioStaff == true;
+    }
+
+    match /analytics_events/{userId} {
+      allow read: if request.auth != null && (request.auth.uid == userId || isStaff());
+
+      match /events/{eventId} {
+        allow read: if request.auth != null && (request.auth.uid == userId || isStaff());
+        allow create: if request.auth != null && request.auth.uid == userId;
+        allow update, delete: if false;
+      }
+
+      match /stats/{dateStr} {
+        allow read: if request.auth != null && (request.auth.uid == userId || isStaff());
+        allow write: if false; // Solo Cloud Functions
+      }
+    }
+
+    // Estadísticas globales de telemetría (solo staff)
+    match /telemetryGlobalStats/{dateStr} {
+      allow read: if isStaff();
+      allow write: if false; // Solo Cloud Functions
+    }
+
+    // Índice diario UID → agregación (solo backend; actualizado por trigger CF)
+    match /telemetryDailyUserIndex/{dateStr} {
+      allow read, write: if false;
+    }
   }
 }

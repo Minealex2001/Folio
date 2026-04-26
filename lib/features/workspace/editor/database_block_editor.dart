@@ -2273,12 +2273,6 @@ class _DatabaseBlockEditorState extends State<DatabaseBlockEditor> {
       // Silently ignore errors; user can retry.
     }
   }
-
-  Future<void> _generateAllAiPropertyValues(FolioDbProperty property) async {
-    for (final row in _data.rows) {
-      await _generateAiPropertyValue(row, property);
-    }
-  }
 }
 
 // ---------------------------------------------------------------------------

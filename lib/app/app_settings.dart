@@ -1,7 +1,7 @@
 import 'dart:convert';
 
 import 'package:flutter/foundation.dart'
-    show TargetPlatform, defaultTargetPlatform, kIsWeb;
+    show TargetPlatform, defaultTargetPlatform, kIsWeb, listEquals;
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:system_theme/system_theme.dart';
@@ -9,11 +9,85 @@ import 'package:system_theme/system_theme.dart';
 import 'folio_build_flags.dart';
 import 'folio_distribution.dart';
 import 'folio_in_app_shortcuts.dart';
+import 'workspace_prefs_keys.dart';
 import '../services/transcription_hardware_profile.dart';
 import '../services/updater/update_release_channel.dart';
 import '../services/whisper_service.dart';
 
 enum AiProvider { none, ollama, lmStudio, quillCloud }
+
+/// Disposición de columnas en la pantalla de inicio del workspace.
+enum WorkspaceHomeColumnLayout { auto, single, dual }
+
+/// IDs de módulos ordenables en la columna izquierda/derecha del inicio.
+abstract final class WorkspaceHomeSectionIds {
+  static const folioCloud = 'folio_cloud';
+  static const vaultStatus = 'vault_status';
+  static const onboarding = 'onboarding';
+  static const whatsNew = 'whats_new';
+  static const search = 'search';
+  static const rootPages = 'root_pages';
+  static const miniStats = 'mini_stats';
+  static const recents = 'recents';
+  static const tasks = 'tasks';
+  static const quickActions = 'quick_actions';
+  static const tip = 'tip';
+  static const createPage = 'create_page';
+
+  static const List<String> defaultLeft = [
+    folioCloud,
+    vaultStatus,
+    onboarding,
+    whatsNew,
+    search,
+    rootPages,
+    miniStats,
+    recents,
+  ];
+
+  static const List<String> defaultRight = [
+    tasks,
+    quickActions,
+    tip,
+    createPage,
+  ];
+
+  static List<String> sanitizeOrder(String? raw, List<String> canonical) {
+    if (raw == null || raw.trim().isEmpty) {
+      return List<String>.from(canonical);
+    }
+    try {
+      final decoded = jsonDecode(raw);
+      if (decoded is! List) return List<String>.from(canonical);
+      final list = decoded.map((e) => '$e'.trim()).where((e) => e.isNotEmpty).toList();
+      final out = <String>[];
+      for (final id in list) {
+        if (canonical.contains(id) && !out.contains(id)) {
+          out.add(id);
+        }
+      }
+      for (final id in canonical) {
+        if (!out.contains(id)) {
+          out.add(id);
+        }
+      }
+      return out;
+    } catch (_) {
+      return List<String>.from(canonical);
+    }
+  }
+}
+
+WorkspaceHomeColumnLayout _parseWorkspaceHomeColumnLayout(String? raw) {
+  switch ((raw ?? '').trim().toLowerCase()) {
+    case 'single':
+      return WorkspaceHomeColumnLayout.single;
+    case 'dual':
+      return WorkspaceHomeColumnLayout.dual;
+    default:
+      return WorkspaceHomeColumnLayout.auto;
+  }
+}
 
 /// Ollama y LM Studio solo en escritorio y web; en Android/iOS Quill usa Folio Cloud.
 bool get aiLocalProvidersSupported {
@@ -257,6 +331,37 @@ class AppSettings extends ChangeNotifier {
       'folio_workspace_backlinks_visible';
   static const _workspaceCommentsVisibleKey =
       'folio_workspace_comments_visible';
+  static const _workspaceHomeShowFolioCloudCardKey =
+      'folio_workspace_home_show_cloud_card';
+  static const _workspaceHomeShowRootPagesKey =
+      'folio_workspace_home_show_root_pages';
+  static const _workspaceHomeShowMiniStatsKey =
+      'folio_workspace_home_show_mini_stats';
+  static const _workspaceHomeShowTasksSectionKey =
+      'folio_workspace_home_show_tasks';
+  static const _workspaceHomeShowQuickActionsKey =
+      'folio_workspace_home_show_quick_actions';
+  static const _workspaceHomeShowTipKey = 'folio_workspace_home_show_tip';
+  static const _workspaceHomeShowVaultStatusKey =
+      'folio_workspace_home_show_vault_status';
+  static const _workspaceHomeShowOnboardingKey =
+      'folio_workspace_home_show_onboarding';
+  static const _workspaceHomeShowWhatsNewKey =
+      'folio_workspace_home_show_whats_new';
+  static const _workspaceHomeColumnLayoutKey =
+      'folio_workspace_home_column_layout';
+  static const _workspaceHomeClockShowSecondsKey =
+      'folio_workspace_home_clock_show_seconds';
+  static const _workspaceHomeClock24HourKey =
+      'folio_workspace_home_clock_24h';
+  static const _workspaceHomeClockShowTimezoneKey =
+      'folio_workspace_home_clock_show_timezone';
+  static const _workspaceHomeWhatsNewDismissedVersionKey =
+      'folio_workspace_home_whats_new_dismissed_version';
+  static const _workspaceHomeLeftSectionOrderKey =
+      'folio_workspace_home_left_section_order';
+  static const _workspaceHomeRightSectionOrderKey =
+      'folio_workspace_home_right_section_order';
   static const _aiChatPanelCollapsedKey = 'folio_ai_chat_panel_collapsed';
   static const _aiChatPanelWidthKey = 'folio_ai_chat_panel_width';
   static const _aiChatPanelHeightKey = 'folio_ai_chat_panel_height';
@@ -427,9 +532,29 @@ class AppSettings extends ChangeNotifier {
   double _workspaceSidebarWidth = defaultWorkspaceSidebarWidth;
   bool _workspaceSidebarCollapsed = false;
   bool _workspaceSidebarAutoReveal = false;
+  bool _workspaceOpenToHome = false;
   bool _workspacePageOutlineVisible = true;
   bool _workspaceBacklinksVisible = false;
   bool _workspaceCommentsVisible = false;
+  bool _workspaceHomeShowFolioCloudCard = true;
+  bool _workspaceHomeShowRootPages = true;
+  bool _workspaceHomeShowMiniStats = true;
+  bool _workspaceHomeShowTasksSection = true;
+  bool _workspaceHomeShowQuickActions = true;
+  bool _workspaceHomeShowTip = true;
+  bool _workspaceHomeShowVaultStatus = true;
+  bool _workspaceHomeShowOnboarding = true;
+  bool _workspaceHomeShowWhatsNew = true;
+  WorkspaceHomeColumnLayout _workspaceHomeColumnLayout =
+      WorkspaceHomeColumnLayout.auto;
+  bool _workspaceHomeClockShowSeconds = false;
+  bool _workspaceHomeClock24Hour = false;
+  bool _workspaceHomeClockShowTimezone = false;
+  String _workspaceHomeWhatsNewDismissedVersion = '';
+  List<String> _workspaceHomeLeftSectionOrder =
+      List<String>.from(WorkspaceHomeSectionIds.defaultLeft);
+  List<String> _workspaceHomeRightSectionOrder =
+      List<String>.from(WorkspaceHomeSectionIds.defaultRight);
   bool _aiChatPanelCollapsed = false;
   double _aiChatPanelWidth = defaultAiChatPanelWidth;
   double _aiChatPanelHeight = defaultAiChatPanelHeight;
@@ -463,7 +588,7 @@ class AppSettings extends ChangeNotifier {
   bool _meetingNoteAutoWhisperModel = false;
   bool _meetingNoteForceLocalTranscription = false;
   bool _driveDeleteOriginalsOnUpload = false;
-  bool _telemetryEnabled = false;
+  bool _telemetryEnabled = true;
   bool _autoCrashReports = false;
   FolioAccentColorMode _accentColorMode = FolioAccentColorMode.followSystem;
   int _customAccentArgb = 0xFF455A64;
@@ -523,9 +648,31 @@ class AppSettings extends ChangeNotifier {
   double get workspaceSidebarWidth => _workspaceSidebarWidth;
   bool get workspaceSidebarCollapsed => _workspaceSidebarCollapsed;
   bool get workspaceSidebarAutoReveal => _workspaceSidebarAutoReveal;
+  bool get workspaceOpenToHome => _workspaceOpenToHome;
   bool get workspacePageOutlineVisible => _workspacePageOutlineVisible;
   bool get workspaceBacklinksVisible => _workspaceBacklinksVisible;
   bool get workspaceCommentsVisible => _workspaceCommentsVisible;
+  bool get workspaceHomeShowFolioCloudCard =>
+      _workspaceHomeShowFolioCloudCard;
+  bool get workspaceHomeShowRootPages => _workspaceHomeShowRootPages;
+  bool get workspaceHomeShowMiniStats => _workspaceHomeShowMiniStats;
+  bool get workspaceHomeShowTasksSection => _workspaceHomeShowTasksSection;
+  bool get workspaceHomeShowQuickActions => _workspaceHomeShowQuickActions;
+  bool get workspaceHomeShowTip => _workspaceHomeShowTip;
+  bool get workspaceHomeShowVaultStatus => _workspaceHomeShowVaultStatus;
+  bool get workspaceHomeShowOnboarding => _workspaceHomeShowOnboarding;
+  bool get workspaceHomeShowWhatsNew => _workspaceHomeShowWhatsNew;
+  WorkspaceHomeColumnLayout get workspaceHomeColumnLayout =>
+      _workspaceHomeColumnLayout;
+  bool get workspaceHomeClockShowSeconds => _workspaceHomeClockShowSeconds;
+  bool get workspaceHomeClock24Hour => _workspaceHomeClock24Hour;
+  bool get workspaceHomeClockShowTimezone => _workspaceHomeClockShowTimezone;
+  String get workspaceHomeWhatsNewDismissedVersion =>
+      _workspaceHomeWhatsNewDismissedVersion;
+  List<String> get workspaceHomeLeftSectionOrder =>
+      List<String>.unmodifiable(_workspaceHomeLeftSectionOrder);
+  List<String> get workspaceHomeRightSectionOrder =>
+      List<String>.unmodifiable(_workspaceHomeRightSectionOrder);
   bool get aiChatPanelCollapsed => _aiChatPanelCollapsed;
   double get aiChatPanelWidth => _aiChatPanelWidth;
   double get aiChatPanelHeight => _aiChatPanelHeight;
@@ -708,12 +855,50 @@ class AppSettings extends ChangeNotifier {
         p.getBool(_workspaceSidebarCollapsedKey) ?? false;
     _workspaceSidebarAutoReveal =
         p.getBool(_workspaceSidebarAutoRevealKey) ?? false;
+    _workspaceOpenToHome =
+        p.getBool(WorkspacePrefsKeys.openWorkspaceToHome) ?? false;
     _workspacePageOutlineVisible =
         p.getBool(_workspacePageOutlineVisibleKey) ?? true;
     _workspaceBacklinksVisible =
         p.getBool(_workspaceBacklinksVisibleKey) ?? false;
     _workspaceCommentsVisible =
         p.getBool(_workspaceCommentsVisibleKey) ?? false;
+    _workspaceHomeShowFolioCloudCard =
+        p.getBool(_workspaceHomeShowFolioCloudCardKey) ?? true;
+    _workspaceHomeShowRootPages =
+        p.getBool(_workspaceHomeShowRootPagesKey) ?? true;
+    _workspaceHomeShowMiniStats =
+        p.getBool(_workspaceHomeShowMiniStatsKey) ?? true;
+    _workspaceHomeShowTasksSection =
+        p.getBool(_workspaceHomeShowTasksSectionKey) ?? true;
+    _workspaceHomeShowQuickActions =
+        p.getBool(_workspaceHomeShowQuickActionsKey) ?? true;
+    _workspaceHomeShowTip = p.getBool(_workspaceHomeShowTipKey) ?? true;
+    _workspaceHomeShowVaultStatus =
+        p.getBool(_workspaceHomeShowVaultStatusKey) ?? true;
+    _workspaceHomeShowOnboarding =
+        p.getBool(_workspaceHomeShowOnboardingKey) ?? true;
+    _workspaceHomeShowWhatsNew =
+        p.getBool(_workspaceHomeShowWhatsNewKey) ?? true;
+    _workspaceHomeColumnLayout = _parseWorkspaceHomeColumnLayout(
+      p.getString(_workspaceHomeColumnLayoutKey),
+    );
+    _workspaceHomeClockShowSeconds =
+        p.getBool(_workspaceHomeClockShowSecondsKey) ?? false;
+    _workspaceHomeClock24Hour =
+        p.getBool(_workspaceHomeClock24HourKey) ?? false;
+    _workspaceHomeClockShowTimezone =
+        p.getBool(_workspaceHomeClockShowTimezoneKey) ?? false;
+    _workspaceHomeWhatsNewDismissedVersion =
+        (p.getString(_workspaceHomeWhatsNewDismissedVersionKey) ?? '').trim();
+    _workspaceHomeLeftSectionOrder = WorkspaceHomeSectionIds.sanitizeOrder(
+      p.getString(_workspaceHomeLeftSectionOrderKey),
+      WorkspaceHomeSectionIds.defaultLeft,
+    );
+    _workspaceHomeRightSectionOrder = WorkspaceHomeSectionIds.sanitizeOrder(
+      p.getString(_workspaceHomeRightSectionOrderKey),
+      WorkspaceHomeSectionIds.defaultRight,
+    );
     _aiChatPanelCollapsed = p.getBool(_aiChatPanelCollapsedKey) ?? false;
     _aiChatPanelWidth = _sanitizeAiChatPanelWidth(
       p.getDouble(_aiChatPanelWidthKey),
@@ -790,7 +975,7 @@ class AppSettings extends ChangeNotifier {
         p.getBool(_meetingNoteForceLocalTranscriptionKey) ?? false;
     _driveDeleteOriginalsOnUpload =
         p.getBool(_driveDeleteOriginalsOnUploadKey) ?? false;
-    _telemetryEnabled = p.getBool(_telemetryEnabledKey) ?? false;
+    _telemetryEnabled = p.getBool(_telemetryEnabledKey) ?? true;
     _autoCrashReports = p.getBool(_autoCrashReportsKey) ?? false;
     _accentColorMode =
         _parseAccentColorMode(p.getString(_accentColorModeKey)) ??
@@ -1486,6 +1671,14 @@ class AppSettings extends ChangeNotifier {
     await p.setBool(_workspaceSidebarAutoRevealKey, value);
   }
 
+  Future<void> setWorkspaceOpenToHome(bool value) async {
+    if (_workspaceOpenToHome == value) return;
+    _workspaceOpenToHome = value;
+    notifyListeners();
+    final p = await SharedPreferences.getInstance();
+    await p.setBool(WorkspacePrefsKeys.openWorkspaceToHome, value);
+  }
+
   Future<void> setWorkspacePageOutlineVisible(bool value) async {
     if (_workspacePageOutlineVisible == value) return;
     _workspacePageOutlineVisible = value;
@@ -1508,6 +1701,147 @@ class AppSettings extends ChangeNotifier {
     notifyListeners();
     final p = await SharedPreferences.getInstance();
     await p.setBool(_workspaceCommentsVisibleKey, value);
+  }
+
+  Future<void> setWorkspaceHomeShowFolioCloudCard(bool value) async {
+    if (_workspaceHomeShowFolioCloudCard == value) return;
+    _workspaceHomeShowFolioCloudCard = value;
+    notifyListeners();
+    final p = await SharedPreferences.getInstance();
+    await p.setBool(_workspaceHomeShowFolioCloudCardKey, value);
+  }
+
+  Future<void> setWorkspaceHomeShowRootPages(bool value) async {
+    if (_workspaceHomeShowRootPages == value) return;
+    _workspaceHomeShowRootPages = value;
+    notifyListeners();
+    final p = await SharedPreferences.getInstance();
+    await p.setBool(_workspaceHomeShowRootPagesKey, value);
+  }
+
+  Future<void> setWorkspaceHomeShowMiniStats(bool value) async {
+    if (_workspaceHomeShowMiniStats == value) return;
+    _workspaceHomeShowMiniStats = value;
+    notifyListeners();
+    final p = await SharedPreferences.getInstance();
+    await p.setBool(_workspaceHomeShowMiniStatsKey, value);
+  }
+
+  Future<void> setWorkspaceHomeShowTasksSection(bool value) async {
+    if (_workspaceHomeShowTasksSection == value) return;
+    _workspaceHomeShowTasksSection = value;
+    notifyListeners();
+    final p = await SharedPreferences.getInstance();
+    await p.setBool(_workspaceHomeShowTasksSectionKey, value);
+  }
+
+  Future<void> setWorkspaceHomeShowQuickActions(bool value) async {
+    if (_workspaceHomeShowQuickActions == value) return;
+    _workspaceHomeShowQuickActions = value;
+    notifyListeners();
+    final p = await SharedPreferences.getInstance();
+    await p.setBool(_workspaceHomeShowQuickActionsKey, value);
+  }
+
+  Future<void> setWorkspaceHomeShowTip(bool value) async {
+    if (_workspaceHomeShowTip == value) return;
+    _workspaceHomeShowTip = value;
+    notifyListeners();
+    final p = await SharedPreferences.getInstance();
+    await p.setBool(_workspaceHomeShowTipKey, value);
+  }
+
+  Future<void> setWorkspaceHomeShowVaultStatus(bool value) async {
+    if (_workspaceHomeShowVaultStatus == value) return;
+    _workspaceHomeShowVaultStatus = value;
+    notifyListeners();
+    final p = await SharedPreferences.getInstance();
+    await p.setBool(_workspaceHomeShowVaultStatusKey, value);
+  }
+
+  Future<void> setWorkspaceHomeShowOnboarding(bool value) async {
+    if (_workspaceHomeShowOnboarding == value) return;
+    _workspaceHomeShowOnboarding = value;
+    notifyListeners();
+    final p = await SharedPreferences.getInstance();
+    await p.setBool(_workspaceHomeShowOnboardingKey, value);
+  }
+
+  Future<void> setWorkspaceHomeShowWhatsNew(bool value) async {
+    if (_workspaceHomeShowWhatsNew == value) return;
+    _workspaceHomeShowWhatsNew = value;
+    notifyListeners();
+    final p = await SharedPreferences.getInstance();
+    await p.setBool(_workspaceHomeShowWhatsNewKey, value);
+  }
+
+  Future<void> setWorkspaceHomeColumnLayout(
+    WorkspaceHomeColumnLayout value,
+  ) async {
+    if (_workspaceHomeColumnLayout == value) return;
+    _workspaceHomeColumnLayout = value;
+    notifyListeners();
+    final p = await SharedPreferences.getInstance();
+    await p.setString(_workspaceHomeColumnLayoutKey, value.name);
+  }
+
+  Future<void> setWorkspaceHomeClockShowSeconds(bool value) async {
+    if (_workspaceHomeClockShowSeconds == value) return;
+    _workspaceHomeClockShowSeconds = value;
+    notifyListeners();
+    final p = await SharedPreferences.getInstance();
+    await p.setBool(_workspaceHomeClockShowSecondsKey, value);
+  }
+
+  Future<void> setWorkspaceHomeClock24Hour(bool value) async {
+    if (_workspaceHomeClock24Hour == value) return;
+    _workspaceHomeClock24Hour = value;
+    notifyListeners();
+    final p = await SharedPreferences.getInstance();
+    await p.setBool(_workspaceHomeClock24HourKey, value);
+  }
+
+  Future<void> setWorkspaceHomeClockShowTimezone(bool value) async {
+    if (_workspaceHomeClockShowTimezone == value) return;
+    _workspaceHomeClockShowTimezone = value;
+    notifyListeners();
+    final p = await SharedPreferences.getInstance();
+    await p.setBool(_workspaceHomeClockShowTimezoneKey, value);
+  }
+
+  Future<void> setWorkspaceHomeWhatsNewDismissedForVersion(
+    String versionLabel,
+  ) async {
+    final safe = versionLabel.trim();
+    if (_workspaceHomeWhatsNewDismissedVersion == safe) return;
+    _workspaceHomeWhatsNewDismissedVersion = safe;
+    notifyListeners();
+    final p = await SharedPreferences.getInstance();
+    await p.setString(_workspaceHomeWhatsNewDismissedVersionKey, safe);
+  }
+
+  Future<void> setWorkspaceHomeLeftSectionOrder(List<String> value) async {
+    final next = WorkspaceHomeSectionIds.sanitizeOrder(
+      jsonEncode(value),
+      WorkspaceHomeSectionIds.defaultLeft,
+    );
+    if (listEquals(_workspaceHomeLeftSectionOrder, next)) return;
+    _workspaceHomeLeftSectionOrder = next;
+    notifyListeners();
+    final p = await SharedPreferences.getInstance();
+    await p.setString(_workspaceHomeLeftSectionOrderKey, jsonEncode(next));
+  }
+
+  Future<void> setWorkspaceHomeRightSectionOrder(List<String> value) async {
+    final next = WorkspaceHomeSectionIds.sanitizeOrder(
+      jsonEncode(value),
+      WorkspaceHomeSectionIds.defaultRight,
+    );
+    if (listEquals(_workspaceHomeRightSectionOrder, next)) return;
+    _workspaceHomeRightSectionOrder = next;
+    notifyListeners();
+    final p = await SharedPreferences.getInstance();
+    await p.setString(_workspaceHomeRightSectionOrderKey, jsonEncode(next));
   }
 
   Future<void> setEnterCreatesNewBlock(bool value) async {

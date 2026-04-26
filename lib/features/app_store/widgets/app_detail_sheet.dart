@@ -1,6 +1,5 @@
 import 'dart:async';
 
-import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 
 import '../../../models/folio_app_package.dart';
@@ -8,8 +7,7 @@ import '../../../models/folio_app_registry_entry.dart';
 import '../../../models/installed_folio_app.dart';
 import '../../../services/app_store/app_store_service.dart';
 import '../../../services/app_store/integration_auth_service.dart';
-import 'app_store_app_card.dart'
-    show AppIcon, InstalledAppCard, AppStoreAppCard;
+import 'app_store_app_card.dart' show AppIcon;
 
 /// Hoja de detalle de una app (desde el registry o instalada).
 class AppDetailSheet extends StatefulWidget {
@@ -66,10 +64,6 @@ class _AppDetailSheetState extends State<AppDetailSheet> {
 
   FolioAppPackage? get _installedPackage =>
       _store.installedById(_appId)?.package;
-
-  // Permisos que requiere el paquete.
-  List<FolioAppPermission> get _requiredPermissions =>
-      widget.registryEntry != null ? [] : widget.installed!.package.permissions;
 
   @override
   Widget build(BuildContext context) {
@@ -270,7 +264,7 @@ class _AppDetailSheetState extends State<AppDetailSheet> {
         for (final integration in integrations)
           ListenableBuilder(
             listenable: IntegrationAuthService.instance,
-            builder: (_, __) {
+            builder: (context, child) {
               final status = IntegrationAuthService.instance.statusFor(
                 integration.key,
               );

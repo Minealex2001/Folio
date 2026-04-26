@@ -69,6 +69,9 @@ import '../../services/vault_scheduled_local_export.dart';
 import '../../services/app_store/app_store_service.dart';
 import '../../services/app_store/folio_built_in_apps.dart';
 import '../app_store/app_store_screen.dart';
+import 'widgets/telemetry_sent_data_widget.dart';
+import '../telemetry_dashboard/telemetry_dashboard_page.dart';
+import '../../services/folio_firestore_sync.dart';
 
 String settingsCloudInkOperationLabel(
   AppLocalizations l10n,
@@ -1888,6 +1891,7 @@ class _SettingsPageState extends State<SettingsPage> {
     final signedIn = _cloud.isSignedIn;
     Navigator.of(context).push<void>(
       MaterialPageRoute<void>(
+        settings: const RouteSettings(name: 'folio_cloud_pitch'),
         builder: (ctx) => FolioCloudSubscriptionPitchPage(
           busy: _folioCloudActionBusy,
           primaryCtaLabel: signedIn
@@ -2238,6 +2242,7 @@ class _SettingsPageState extends State<SettingsPage> {
         vaultId: vaultId,
         entitlementSnapshot: snap,
         restoreWrapPassword: restoreWrapPassword,
+        telemetrySettings: _app,
       );
       if (mounted) {
         _snack(AppLocalizations.of(context).folioCloudUploadSnackOk);
@@ -2622,6 +2627,7 @@ class _SettingsPageState extends State<SettingsPage> {
                                         restorePassword: password,
                                         extractDir: extract,
                                         entitlementSnapshot: snap,
+                                        telemetrySettings: _app,
                                       );
                                     } else {
                                       await downloadLatestCloudPackToDirectory(
@@ -2629,6 +2635,7 @@ class _SettingsPageState extends State<SettingsPage> {
                                         vaultId: selectedVaultId,
                                         extractDir: extract,
                                         entitlementSnapshot: snap,
+                                        telemetrySettings: _app,
                                       );
                                       final modeFile = File(
                                         p.join(
@@ -5494,6 +5501,38 @@ class _SettingsPageState extends State<SettingsPage> {
                                   value: _app.telemetryEnabled,
                                   onChanged: (v) => _app.setTelemetryEnabled(v),
                                 ),
+                                const TelemetrySentDataWidget(),
+                                // Botón de Dashboard solo si es staff
+                                if (_folio.snapshot.folioStaff)
+                                  ListTile(
+                                    leading: const Icon(
+                                      Icons.dashboard_outlined,
+                                    ),
+                                    title: Text(l10n.telemetryDashboardTitle),
+                                    subtitle: Text(
+                                      l10n.settingsTelemetryDashboardListSubtitle,
+                                    ),
+                                    trailing: const Icon(
+                                      Icons.arrow_forward_ios,
+                                      size: 16,
+                                    ),
+                                    onTap: () async {
+                                      await FolioFirestoreSync.flush();
+                                      if (!context.mounted) return;
+                                      Navigator.of(context).push(
+                                        MaterialPageRoute<void>(
+                                          settings: const RouteSettings(
+                                            name: 'telemetry_dashboard',
+                                          ),
+                                          builder: (context) =>
+                                              TelemetryDashboardPage(
+                                                folioCloudSnapshot:
+                                                    _folio.snapshot,
+                                              ),
+                                        ),
+                                      );
+                                    },
+                                  ),
                                 const Divider(height: 1),
                                 SwitchListTile(
                                   secondary: const Icon(
@@ -5750,6 +5789,20 @@ class _SettingsPageState extends State<SettingsPage> {
                                   value: _app.workspaceSidebarAutoReveal,
                                   onChanged: (v) =>
                                       _app.setWorkspaceSidebarAutoReveal(v),
+                                ),
+                                SwitchListTile(
+                                  secondary: const Icon(
+                                    Icons.home_outlined,
+                                  ),
+                                  title: Text(
+                                    l10n.settingsWorkspaceOpenToHomeTitle,
+                                  ),
+                                  subtitle: Text(
+                                    l10n.settingsWorkspaceOpenToHomeSubtitle,
+                                  ),
+                                  value: _app.workspaceOpenToHome,
+                                  onChanged: (v) =>
+                                      _app.setWorkspaceOpenToHome(v),
                                 ),
                               ],
                             ),

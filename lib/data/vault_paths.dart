@@ -4,7 +4,6 @@ import 'dart:typed_data';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
-import 'package:uuid/uuid.dart';
 
 import 'storage/vault_storage.dart';
 
@@ -22,8 +21,6 @@ class VaultPaths {
   static const String cipherPayloadFile = 'vault.bin';
   static const String vaultModeFile = 'vault.mode';
   static const String rpStateFile = 'webauthn_rp.json';
-
-  static const _uuid = Uuid();
 
   static String? _activeVaultId;
 
@@ -48,8 +45,8 @@ class VaultPaths {
   static Future<Uint8List?> readWrappedDek() =>
       VaultStorage.instance.readVaultFile(_assertVaultId(), wrappedDekFile);
 
-  static Future<void> writeWrappedDek(Uint8List data) =>
-      VaultStorage.instance.writeVaultFile(_assertVaultId(), wrappedDekFile, data);
+  static Future<void> writeWrappedDek(Uint8List data) => VaultStorage.instance
+      .writeVaultFile(_assertVaultId(), wrappedDekFile, data);
 
   static Future<void> deleteWrappedDek() =>
       VaultStorage.instance.deleteVaultFile(_assertVaultId(), wrappedDekFile);
@@ -60,15 +57,18 @@ class VaultPaths {
   static Future<Uint8List?> readCipherPayload() =>
       VaultStorage.instance.readVaultFile(_assertVaultId(), cipherPayloadFile);
 
-  static Future<void> writeCipherPayload(Uint8List data) =>
-      VaultStorage.instance.writeVaultFile(_assertVaultId(), cipherPayloadFile, data);
+  static Future<void> writeCipherPayload(Uint8List data) => VaultStorage
+      .instance
+      .writeVaultFile(_assertVaultId(), cipherPayloadFile, data);
 
-  static Future<bool> cipherPayloadExists() =>
-      VaultStorage.instance.vaultFileExists(_assertVaultId(), cipherPayloadFile);
+  static Future<bool> cipherPayloadExists() => VaultStorage.instance
+      .vaultFileExists(_assertVaultId(), cipherPayloadFile);
 
   static Future<String?> readVaultMode() async {
-    final bytes =
-        await VaultStorage.instance.readVaultFile(_assertVaultId(), vaultModeFile);
+    final bytes = await VaultStorage.instance.readVaultFile(
+      _assertVaultId(),
+      vaultModeFile,
+    );
     if (bytes == null) return null;
     return String.fromCharCodes(bytes).trim();
   }
@@ -81,8 +81,10 @@ class VaultPaths {
       );
 
   static Future<String?> readRpState() async {
-    final bytes =
-        await VaultStorage.instance.readVaultFile(_assertVaultId(), rpStateFile);
+    final bytes = await VaultStorage.instance.readVaultFile(
+      _assertVaultId(),
+      rpStateFile,
+    );
     if (bytes == null) return null;
     return String.fromCharCodes(bytes);
   }
@@ -218,7 +220,9 @@ class VaultPaths {
     bool preserveFileName = false,
   }) async {
     if (kIsWeb) {
-      throw UnsupportedError('importAttachmentFile not supported on web. Use importAttachmentBytes.');
+      throw UnsupportedError(
+        'importAttachmentFile not supported on web. Use importAttachmentBytes.',
+      );
     }
     final id = _assertVaultId();
     return VaultStorage.instance.importAttachmentFromFile(

@@ -78,12 +78,6 @@ window.Folio = {
         c.webMessage.listen(_onWindowsMessage);
 
         // Inyectar datos del bloque antes del HTML
-        final blockJson = jsonEncode(widget.block.toJson());
-        final escapedHtml = html
-            .replaceAll('\\', '\\\\')
-            .replaceAll("'", "\\'")
-            .replaceAll('\n', '\\n')
-            .replaceAll('\r', '');
         // Carga HTML como data URI
         final dataUri =
             'data:text/html;charset=utf-8,${Uri.encodeComponent(html)}';
@@ -127,8 +121,6 @@ window.Folio = {
   String? _buildHtml() {
     final blockType = widget.appRegistry.blockTypeForKey(widget.block.type);
     if (blockType == null) return null;
-
-    final rendererHtmlAsset = blockType.renderer.htmlAsset;
 
     // Buscar la app propietaria del bloque
     final parts = widget.block.type.split('.');
@@ -224,7 +216,7 @@ $inject
       }
       return Webview(
         c,
-        permissionRequested: (_, __, ___) async =>
+        permissionRequested: (controller, url, kind) async =>
             WebviewPermissionDecision.allow,
       );
     }
@@ -264,9 +256,9 @@ class _ErrorView extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: scheme.errorContainer.withOpacity(0.3),
+        color: scheme.errorContainer.withValues(alpha: 0.3),
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: scheme.error.withOpacity(0.3)),
+        border: Border.all(color: scheme.error.withValues(alpha: 0.3)),
       ),
       child: Row(
         children: [

@@ -5901,4 +5901,553 @@ class AppLocalizationsGl extends AppLocalizations {
 
   @override
   String get settingsIntegrationsNativeTitle => 'Integracións nativas';
+
+  @override
+  String get telemetryDashboardTitle => 'Panel de telemetría';
+
+  @override
+  String get telemetryDashboardAccessDenied => 'Acceso denegado';
+
+  @override
+  String get telemetryDashboardStaffOnlyBody =>
+      'Só o persoal de Folio pode abrir esta pantalla.';
+
+  @override
+  String get telemetryDashboardFlushTooltip =>
+      'Enviar eventos pendentes e actualizar';
+
+  @override
+  String get telemetryDashboardErrorLoading =>
+      'Non se puideron cargar os datos';
+
+  @override
+  String telemetryDashboardErrorDetail(String detail) {
+    return '$detail';
+  }
+
+  @override
+  String telemetryDashboardNoDataForDate(String date) {
+    return 'Sen datos para $date';
+  }
+
+  @override
+  String get telemetryDashboardNoDataHint =>
+      'Usa a icona de envío para baleirar eventos pendentes e logo actualiza.\nOs totais globais aparecen tras a tarefa programada (02:00 UTC, día UTC anterior).';
+
+  @override
+  String get telemetryDashboardFlushRefresh => 'Baleirar e actualizar';
+
+  @override
+  String get telemetryDashboardSectionGlobalTitle =>
+      'Estatísticas globais (todos os usuarios)';
+
+  @override
+  String get telemetryDashboardSectionGlobalSubtitle =>
+      'Totais da agregación nocturna (02:00 UTC).';
+
+  @override
+  String get telemetryDashboardMetricUsers => 'Usuarios';
+
+  @override
+  String get telemetryDashboardMetricEvents => 'Eventos';
+
+  @override
+  String get telemetryDashboardMetricErrors => 'Erros';
+
+  @override
+  String get telemetryDashboardByType => 'Por tipo';
+
+  @override
+  String get telemetryDashboardNoEventBreakdown =>
+      'Sen desglose por tipo de evento.';
+
+  @override
+  String get telemetryDashboardEventTypeUnknown => 'Descoñecido';
+
+  @override
+  String get settingsTelemetryDashboardListSubtitle =>
+      'Ver estatísticas globais de uso agregadas.';
+
+  @override
+  String get telemetryDashboardGlobalMissingHint =>
+      'Aínda non hai totais globais para esta data UTC. Podes revisar datos por usuario e eventos en bruto abaixo.';
+
+  @override
+  String get telemetryDashboardPerUserDayTitle =>
+      'Por usuario (día seleccionado)';
+
+  @override
+  String telemetryDashboardPerUserDaySubtitle(String date) {
+    return 'Estatísticas diarias para $date (analytics_events/*/stats).';
+  }
+
+  @override
+  String get telemetryDashboardRecentEventsTitle => 'Últimos eventos en bruto';
+
+  @override
+  String get telemetryDashboardRecentEventsSubtitle =>
+      'Ata 80 eventos máis recentes de todos os usuarios con sesión.';
+
+  @override
+  String get telemetryDashboardNoPerUserStats =>
+      'Non hai estatísticas por usuario para esta data.';
+
+  @override
+  String get telemetryDashboardNoRecentEvents =>
+      'Non hai eventos en Firestore.';
+
+  @override
+  String get telemetryDashboardColUser => 'Usuario';
+
+  @override
+  String get telemetryDashboardColEvents => 'Eventos';
+
+  @override
+  String get telemetryDashboardColErrors => 'Erros';
+
+  @override
+  String get telemetryDashboardColTime => 'Hora';
+
+  @override
+  String get telemetryDashboardColType => 'Tipo';
+
+  @override
+  String get telemetryDashboardColSummary => 'Resumo';
+
+  @override
+  String get telemetryDashboardEmptyAll =>
+      'Non hai datos que mostrar. Proba outra data, baleira eventos pendentes ou comproba que os índices de Firestore estean despregados.';
+
+  @override
+  String get telemetrySentDataCategoriesTitle =>
+      'Exemplos de categorías de telemetría';
+
+  @override
+  String get telemetrySentDataFeatureUsageTitle => 'Uso de funcións';
+
+  @override
+  String get telemetrySentDataFeatureUsageBody =>
+      'Cando abres o editor, o taboleiro, a busca, os axustes ou outras funcións.';
+
+  @override
+  String get telemetrySentDataContentActionsTitle => 'Accións sobre o contido';
+
+  @override
+  String get telemetrySentDataContentActionsBody =>
+      'Crear, editar ou eliminar notas e taboleiros.';
+
+  @override
+  String get telemetrySentDataSearchesTitle => 'Buscas';
+
+  @override
+  String get telemetrySentDataSearchesBody =>
+      'Consultas de busca e uso de filtros.';
+
+  @override
+  String get telemetrySentDataSyncTitle => 'Sincronización';
+
+  @override
+  String get telemetrySentDataSyncBody => 'Estado e duración da copia na nube.';
+
+  @override
+  String get telemetrySentDataPerformanceTitle => 'Rendemento';
+
+  @override
+  String get telemetrySentDataPerformanceBody =>
+      'Duración de operacións e sinais básicas de rendemento.';
+
+  @override
+  String get telemetrySentDataErrorsTitle => 'Erros';
+
+  @override
+  String get telemetrySentDataErrorsBody =>
+      'Erros da app e peches inesperados (se a telemetría está activa).';
+
+  @override
+  String get telemetrySentDataPrivacyNote =>
+      'A túa privacidade importa. Non vendemos estes datos nin os usamos para publicidade.';
+
+  @override
+  String get telemetrySentDataChannelsNote =>
+      'Firebase Analytics usa un identificador anónimo de instalación. Unha copia de eventos en Firestore só se envía se tes sesión iniciada en Folio Cloud.';
+
+  @override
+  String get telemetrySentDataViewTechnicalDetails => 'Ver detalles técnicos';
+
+  @override
+  String get telemetrySentDataHideTechnicalDetails =>
+      'Ocultar detalles técnicos';
+
+  @override
+  String get telemetrySentDataNoEventsYet =>
+      'Aínda non hai eventos gardados localmente.';
+
+  @override
+  String get workspaceRecentPagesSectionTitle => 'Recentes';
+
+  @override
+  String get workspaceHomeHeadline => 'O teu espazo';
+
+  @override
+  String get workspaceHomeSubtitle =>
+      'Retoma onde o deixaches, busca ou comeza algo novo.';
+
+  @override
+  String get workspaceHomeSearchHint => 'Buscar…';
+
+  @override
+  String get workspaceHomeNoRecentPages =>
+      'Aínda non hai páxinas recentes. Crea unha ou usa o buscador.';
+
+  @override
+  String workspaceHomeVisitedAt(String dateTime) {
+    return 'Aberta $dateTime';
+  }
+
+  @override
+  String get workspaceHomeTip0 =>
+      'Consello: crea unha páxina e usa / para inserir bloques rápido.';
+
+  @override
+  String get workspaceHomeTip1 =>
+      'Folio garda os cambios automaticamente. Só comeza a escribir.';
+
+  @override
+  String get workspaceHomeTip2 => 'Usa buscar para saltar entre páxinas.';
+
+  @override
+  String get workspaceHomeTip3 =>
+      'As subpáxinas axudan a manter cada tema ordenado.';
+
+  @override
+  String get workspaceHomeTip4 =>
+      'Reorganiza páxinas desde a barra lateral e mantén o cofre ordenado ó medrar.';
+
+  @override
+  String get workspaceHomeTip5 =>
+      'As plantillas agilizan estruturas repetidas; ábreas dende accesos rápidos.';
+
+  @override
+  String get workspaceHomeTip6 =>
+      'A vista de grafo mostra como se enlazan as páxinas; úsaa se te perdes.';
+
+  @override
+  String get workspaceHomeTip7 =>
+      'Combina títulos, listas e bloques enriquecidos para que as notas longas se lean mellor.';
+
+  @override
+  String get workspaceHomeTip8 =>
+      'As tarefas con data aparecen no inicio; pon datas dende Kanban ou bloques de tarefa.';
+
+  @override
+  String get workspaceHomeTip9 =>
+      'Bloquea o cofre cando te afastes do equipo; o contrasinal non sae deste dispositivo.';
+
+  @override
+  String get workspaceHomeTip10 =>
+      'Exporta unha páxina a Markdown ou PDF dende a barra cando queiras compartila.';
+
+  @override
+  String get workspaceHomeTip11 =>
+      'A sincronización entre dispositivos alinea copias; forza a sincronización na barra lateral tras emparellar.';
+
+  @override
+  String get settingsWorkspaceOpenToHomeTitle => 'Abrir no inicio';
+
+  @override
+  String get settingsWorkspaceOpenToHomeSubtitle =>
+      'Tras desbloquear, mostrar a pantalla de inicio no lugar da última páxina aberta.';
+
+  @override
+  String get workspaceHomeGreetingMorning => 'Bo día';
+
+  @override
+  String get workspaceHomeGreetingAfternoon => 'Boas tardes';
+
+  @override
+  String get workspaceHomeGreetingEvening => 'Boas tardes';
+
+  @override
+  String get workspaceHomeGreetingNight => 'Boas noites';
+
+  @override
+  String get workspaceHomeNoRecentMatch =>
+      'Ningunha páxina recente coincide co filtro.';
+
+  @override
+  String get workspaceHomeGlobalSearchTooltip => 'Buscar en todo o cofre';
+
+  @override
+  String get workspaceHomeSearchSemanticsLabel =>
+      'Filtra páxinas recentes mentres escribes; usa o botón ao final do campo para a busca global';
+
+  @override
+  String get workspaceHomeQuickActionsTitle => 'Accesos rápidos';
+
+  @override
+  String get workspaceHomeQuickSettings => 'Axustes';
+
+  @override
+  String get workspaceHomeQuickGraph => 'Vista de grafo';
+
+  @override
+  String get workspaceHomeQuickTemplates => 'Plantillas';
+
+  @override
+  String get workspaceHomeQuickLock => 'Bloquear cofre';
+
+  @override
+  String get workspaceHomeQuickSync => 'Sincronizar dispositivos';
+
+  @override
+  String get workspaceHomeQuickTask => 'Tarefa rápida';
+
+  @override
+  String get workspaceHomeQuickFolder => 'Novo cartafol';
+
+  @override
+  String get workspaceHomeQuickImport => 'Importar Markdown';
+
+  @override
+  String get workspaceHomeRootPagesTitle => 'Páxinas raíz';
+
+  @override
+  String workspaceHomeMiniStats(int pageCount, int taskCount) {
+    return '$pageCount páxinas · $taskCount tarefas con data (14 días)';
+  }
+
+  @override
+  String get workspaceHomeUpcomingTasksTitle => 'Tarefas próximas (14 días)';
+
+  @override
+  String get workspaceHomeUpcomingTasksEmpty =>
+      'Non hai tarefas con data nas próximas dúas semanas.';
+
+  @override
+  String get workspaceHomeAiTasksChipLabel =>
+      'Preguntar a Quill sobre estas tarefas';
+
+  @override
+  String workspaceHomeAiTasksPrompt(String taskList) {
+    return 'Estas son as miñas tarefas con data (próximas e atrasadas):\n\n$taskList\n\nQue debería priorizar hoxe?';
+  }
+
+  @override
+  String get workspaceHomeAiTasksPromptEmpty =>
+      '(Non hai tarefas con data nas próximas dúas semanas.)';
+
+  @override
+  String get workspaceHomeCustomizeTooltip => 'Personalizar inicio';
+
+  @override
+  String get workspaceHomeCustomizeTitle => 'Pantalla de inicio';
+
+  @override
+  String get workspaceHomeToggleFolioCloudTitle => 'Resumo Folio Cloud';
+
+  @override
+  String get workspaceHomeToggleFolioCloudSubtitle =>
+      'Tinta e espazo de copias na nube se iniciaches sesión';
+
+  @override
+  String get workspaceHomeToggleRootPagesTitle => 'Páxinas raíz';
+
+  @override
+  String get workspaceHomeToggleRootPagesSubtitle =>
+      'Chips horizontais de páxinas de primeiro nivel';
+
+  @override
+  String get workspaceHomeToggleMiniStatsTitle => 'Contadores';
+
+  @override
+  String get workspaceHomeToggleMiniStatsSubtitle =>
+      'Número de páxinas e tarefas con data (14 días)';
+
+  @override
+  String get workspaceHomeToggleTasksTitle => 'Tarefas próximas';
+
+  @override
+  String get workspaceHomeToggleTasksSubtitle =>
+      'Franxa de dúas semanas e lista';
+
+  @override
+  String get workspaceHomeToggleQuickActionsTitle => 'Accesos rápidos';
+
+  @override
+  String get workspaceHomeToggleQuickActionsSubtitle =>
+      'Grella ou menú de atallos';
+
+  @override
+  String get workspaceHomeToggleTipTitle => 'Consello do día';
+
+  @override
+  String get workspaceHomeToggleTipSubtitle =>
+      'Consello rotativo do espazo de traballo';
+
+  @override
+  String get workspaceHomeCloudCardTitle => 'Folio Cloud';
+
+  @override
+  String get workspaceHomeCloudStaffShort => 'Acceso staff';
+
+  @override
+  String get workspaceHomeCloudOpenSettings => 'Abrir axustes';
+
+  @override
+  String get workspaceHomeVaultStatusTitle => 'Estado do cofre';
+
+  @override
+  String get workspaceHomeVaultBackupOff =>
+      'As copias programadas están desactivadas para esta libreta.';
+
+  @override
+  String get workspaceHomeVaultBackupNeverRun =>
+      'Aínda non se executou ningunha copia coa configuración actual.';
+
+  @override
+  String workspaceHomeVaultBackupLast(String when) {
+    return 'Última copia: $when';
+  }
+
+  @override
+  String workspaceHomeVaultBackupEvery(String label) {
+    return 'Cada $label';
+  }
+
+  @override
+  String workspaceHomeVaultSyncConflicts(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count conflitos de sincronización pendentes',
+      one: '1 conflito de sincronización pendente',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get workspaceHomeVaultReadOnlyHint =>
+      'Vista só de lectura; activa a edición desde a barra do espazo de traballo.';
+
+  @override
+  String get workspaceHomeOnboardingTitle => 'Primeira semana';
+
+  @override
+  String get workspaceHomeOnboardingHint =>
+      'Complétanse sós mentres usas Folio.';
+
+  @override
+  String get workspaceHomeOnboardingStepPage => 'Crea unha páxina';
+
+  @override
+  String get workspaceHomeOnboardingStepSubpage =>
+      'Crea unha subpáxina baixo unha páxina';
+
+  @override
+  String get workspaceHomeOnboardingStepSearch => 'Usa a busca global unha vez';
+
+  @override
+  String get workspaceHomeOnboardingDismiss => 'Ocultar lista';
+
+  @override
+  String get workspaceHomeWhatsNewTitle => 'Novidades';
+
+  @override
+  String workspaceHomeWhatsNewVersion(String version) {
+    return 'Versión $version';
+  }
+
+  @override
+  String get workspaceHomeWhatsNewUnread =>
+      'Aínda non abriches as notas desta versión.';
+
+  @override
+  String get workspaceHomeWhatsNewCurrent =>
+      'Consulta os cambios desta versión.';
+
+  @override
+  String get workspaceHomeWhatsNewOpen => 'Abrir notas da versión';
+
+  @override
+  String get workspaceHomeToggleVaultStatusTitle => 'Estado do cofre';
+
+  @override
+  String get workspaceHomeToggleVaultStatusSubtitle =>
+      'Copias, conflitos, só lectura';
+
+  @override
+  String get workspaceHomeToggleOnboardingTitle => 'Lista primeira semana';
+
+  @override
+  String get workspaceHomeToggleOnboardingSubtitle =>
+      'Obxectivos breves (ocultase só ao cabo de 7 días)';
+
+  @override
+  String get workspaceHomeToggleWhatsNewTitle => 'Novidades';
+
+  @override
+  String get workspaceHomeToggleWhatsNewSubtitle =>
+      'Mostrar a tarxeta cando haxa unha versión nova sen ler';
+
+  @override
+  String get workspaceHomeWhatsNewDismissTooltip =>
+      'Agochar ata a próxima actualización';
+
+  @override
+  String get workspaceHomeReorderSectionsTitle =>
+      'Reordenar seccións do inicio';
+
+  @override
+  String get workspaceHomeReorderMainColumn => 'Columna principal';
+
+  @override
+  String get workspaceHomeReorderSideColumn => 'Columna lateral';
+
+  @override
+  String get workspaceHomeColumnLayoutTitle => 'Columnas';
+
+  @override
+  String get workspaceHomeColumnLayoutSubtitle =>
+      'Como se divide o deseño en pantallas anchas';
+
+  @override
+  String get workspaceHomeColumnLayoutAuto => 'Automático';
+
+  @override
+  String get workspaceHomeColumnLayoutSingle => 'Unha columna';
+
+  @override
+  String get workspaceHomeColumnLayoutDual => 'Dúas columnas';
+
+  @override
+  String get workspaceHomeClockShowSecondsTitle => 'Reloxo: mostrar segundos';
+
+  @override
+  String get workspaceHomeClockShowSecondsSubtitle =>
+      'Actualiza a hora cada segundo';
+
+  @override
+  String get workspaceHomeClock24HourTitle => 'Hora en 24 h';
+
+  @override
+  String get workspaceHomeClock24HourSubtitle =>
+      'Usar formato 24 h no canto de AM/PM';
+
+  @override
+  String get workspaceHomeClockShowTimezoneTitle => 'Mostrar fuso horario';
+
+  @override
+  String get workspaceHomeClockShowTimezoneSubtitle =>
+      'Nome e desfase UTC debaixo do reloxo';
+
+  @override
+  String workspaceHomeClockTimezoneLine(String zoneName, String offset) {
+    return '$zoneName ($offset)';
+  }
+
+  @override
+  String get workspaceHomeSectionLabelSearch => 'Campo de busca';
+
+  @override
+  String get workspaceHomeSectionLabelCreatePage => 'Botón páxina nova';
 }

@@ -191,7 +191,7 @@ Configure in Folio settings → AI Provider.
 - **Data Locality**: All content and processing occurs locally; no cloud synchronization required
 - **AI Integration**: Local AI providers (Ollama, LM Studio) run on your machine—no external API calls
 - **Encryption**: Cryptographic operations powered by trusted libraries
-- **No Telemetry**: No analytics, tracking, or data collection
+- **Privacy-First Telemetry**: Telemetry enabled by default to improve the app, but you can disable it anytime in Settings. See [TELEMETRY.md](docs/TELEMETRY.md) for details
 - **Safe Defaults**: Privacy-first settings out of the box
 
 **See [SECURITY.md](SECURITY.md) for detailed security policies and vulnerability reporting guidelines.**

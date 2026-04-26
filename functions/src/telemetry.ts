@@ -1,0 +1,248 @@
+import * as admin from 'firebase-admin';
+import { Timestamp } from 'firebase-admin/firestore';
+import { onDocumentCreated } from 'firebase-functions/v2/firestore';
+import { onSchedule } from 'firebase-functions/v2/scheduler';
+
+const FieldValue = admin.firestore.FieldValue;
+
+function firestore() {
+  return admin.firestore();
+}
+
+/**
+ * Mantiene un índice de UIDs con actividad por día UTC (arrayUnion).
+ * Evita collectionGroup('events') completo en el job de agregación diaria.
+ */
+export const onTelemetryEventCreated = onDocumentCreated(
+  {
+    region: 'us-east1',
+    document: 'analytics_events/{userId}/events/{eventId}',
+    memory: '256MiB',
+  },
+  async (event) => {
+    const userId = event.params.userId as string;
+    if (!userId) return;
+    const dateStr = new Date().toISOString().split('T')[0];
+    await firestore()
+      .collection('telemetryDailyUserIndex')
+      .doc(dateStr)
+      .set(
+        {
+          userIds: FieldValue.arrayUnion(userId),
+          updatedAt: Timestamp.now(),
+        },
+        { merge: true },
+      );
+  },
+);
+
+async function userIdsForAggregation(dateStr: string): Promise<Set<string>> {
+  const indexSnap = await firestore()
+    .collection('telemetryDailyUserIndex')
+    .doc(dateStr)
+    .get();
+
+  const fromIndex = new Set<string>();
+  if (indexSnap.exists) {
+    const raw = indexSnap.data()?.userIds;
+    if (Array.isArray(raw)) {
+      for (const id of raw) {
+        if (typeof id === 'string' && id.length > 0) fromIndex.add(id);
+      }
+    }
+  }
+
+  if (fromIndex.size > 0) {
+    return fromIndex;
+  }
+
+  console.warn(
+    `telemetryDailyUserIndex/${dateStr} empty; falling back to collectionGroup(events)`,
+  );
+  const usersSnapshot = await firestore()
+    .collectionGroup('events')
+    .select()
+    .get();
+
+  const userIds = new Set<string>();
+  usersSnapshot.forEach((doc) => {
+    const path = doc.ref.path;
+    const match = path.match(/analytics_events\/([^/]+)\//);
+    if (match) {
+      userIds.add(match[1]);
+    }
+  });
+  return userIds;
+}
+
+/**
+ * Función programada que se ejecuta cada hora para agregar eventos diarios
+ * Suma eventos por tipo, cuenta errores, duración total de sync/performance
+ */
+export const aggregateDailyTelemetryStats = onSchedule(
+  {
+    region: 'us-east1',
+    schedule: '0 * * * *',
+    timeZone: 'UTC',
+    memory: '256MiB',
+  },
+  async () => {
+    try {
+      const now = new Date();
+      const dateStr = now.toISOString().split('T')[0];
+
+      const userIds = await userIdsForAggregation(dateStr);
+
+      for (const userId of userIds) {
+        await aggregateUserDailyStats(userId, dateStr);
+      }
+
+      console.log(
+        `Aggregated telemetry stats for ${userIds.size} users on ${dateStr}`,
+      );
+    } catch (error) {
+      console.error('Failed to aggregate telemetry stats:', error);
+      throw error;
+    }
+  },
+);
+
+/**
+ * Agrega las estadísticas diarias para un usuario específico
+ */
+async function aggregateUserDailyStats(
+  userId: string,
+  dateStr: string,
+): Promise<void> {
+  try {
+    const dayStart = new Date(`${dateStr}T00:00:00.000Z`);
+    const dayEnd = new Date(`${dateStr}T00:00:00.000Z`);
+    dayEnd.setUTCDate(dayEnd.getUTCDate() + 1);
+
+    const eventsSnapshot = await firestore()
+      .collection('analytics_events')
+      .doc(userId)
+      .collection('events')
+      .where('timestamp', '>=', Timestamp.fromDate(dayStart))
+      .where('timestamp', '<', Timestamp.fromDate(dayEnd))
+      .get();
+
+    const stats = {
+      date: dateStr,
+      totalEvents: eventsSnapshot.size,
+      eventsByType: {} as Record<string, number>,
+      errorCount: 0,
+      totalSyncTimeMs: 0,
+      totalPerformanceTimeMs: 0,
+      lastUpdate: Timestamp.now(),
+    };
+
+    eventsSnapshot.forEach((doc) => {
+      const data = doc.data();
+      const type = data.type || 'unknown';
+
+      stats.eventsByType[type] = (stats.eventsByType[type] || 0) + 1;
+
+      if (type === 'error') {
+        stats.errorCount++;
+      }
+
+      const durationMs =
+        typeof data.durationMs === 'number' && !Number.isNaN(data.durationMs)
+          ? data.durationMs
+          : 0;
+      if (type === 'sync' && durationMs > 0) {
+        stats.totalSyncTimeMs += durationMs;
+      }
+      if (type === 'performance') {
+        stats.totalPerformanceTimeMs += durationMs;
+      }
+    });
+
+    const statsRef = firestore()
+      .collection('analytics_events')
+      .doc(userId)
+      .collection('stats')
+      .doc(dateStr);
+
+    await statsRef.set(stats, { merge: true });
+  } catch (error) {
+    console.error(`Failed to aggregate stats for user ${userId}:`, error);
+    throw error;
+  }
+}
+
+/**
+ * Función que calcula agregados globales de telemetría (para dashboards administrativos)
+ * Se puede ejecutar manualmente o en horarios específicos
+ */
+export const aggregateGlobalTelemetryStats = onSchedule(
+  {
+    region: 'us-east1',
+    schedule: '0 2 * * *',
+    timeZone: 'UTC',
+    memory: '256MiB',
+  },
+  async () => {
+    try {
+      const now = new Date();
+      const yesterday = new Date(now);
+      yesterday.setUTCDate(yesterday.getUTCDate() - 1);
+      const dateStr = yesterday.toISOString().split('T')[0];
+
+      const statsSnapshot = await firestore()
+        .collectionGroup('stats')
+        .where('date', '==', dateStr)
+        .get();
+
+      const globalStats = {
+        date: dateStr,
+        totalUsersWithEvents: 0,
+        totalEvents: 0,
+        globalEventsByType: {} as Record<string, number>,
+        totalErrors: 0,
+        totalSyncTimeMs: 0,
+        totalPerformanceTimeMs: 0,
+        activeUsers: new Set<string>(),
+        lastUpdate: Timestamp.now(),
+      };
+
+      statsSnapshot.forEach((doc) => {
+        const data = doc.data();
+        const uid = doc.ref.path.split('/')[1];
+
+        globalStats.activeUsers.add(uid);
+        globalStats.totalEvents += data.totalEvents || 0;
+        globalStats.totalErrors += data.errorCount || 0;
+        globalStats.totalSyncTimeMs += data.totalSyncTimeMs || 0;
+        globalStats.totalPerformanceTimeMs +=
+          data.totalPerformanceTimeMs || 0;
+
+        const eventsByType = data.eventsByType || {};
+        for (const [type, count] of Object.entries(eventsByType)) {
+          globalStats.globalEventsByType[type] =
+            (globalStats.globalEventsByType[type] || 0) + (count as number);
+        }
+      });
+
+      globalStats.totalUsersWithEvents = globalStats.activeUsers.size;
+
+      await firestore()
+        .collection('telemetryGlobalStats')
+        .doc(dateStr)
+        .set({
+          ...globalStats,
+          activeUsers: Array.from(globalStats.activeUsers),
+          eventsByType: globalStats.globalEventsByType,
+        });
+
+      console.log(
+        `Aggregated global telemetry stats for ${globalStats.totalUsersWithEvents} users on ${dateStr}. ` +
+          `Total events: ${globalStats.totalEvents}`,
+      );
+    } catch (error) {
+      console.error('Failed to aggregate global telemetry stats:', error);
+      throw error;
+    }
+  },
+);

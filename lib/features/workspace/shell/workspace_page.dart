@@ -65,6 +65,7 @@ import '../collab/collaboration_sheet.dart';
 import 'workspace_editor_surface.dart';
 import 'workspace_shell.dart';
 import '../tasks/task_quick_add_dialog.dart';
+import '../templates/template_gallery_page.dart';
 import '../drive/drive_page.dart';
 import '../kanban/kanban_board_page.dart';
 import '../canvas/canvas_page.dart';
@@ -87,6 +88,7 @@ class WorkspacePage extends StatefulWidget {
     required this.cloudAccountController,
     required this.folioCloudEntitlements,
     required this.onOpenSearch,
+    required this.onOpenReleaseNotes,
   });
 
   final VaultSession session;
@@ -94,7 +96,8 @@ class WorkspacePage extends StatefulWidget {
   final DeviceSyncController deviceSyncController;
   final CloudAccountController cloudAccountController;
   final FolioCloudEntitlementsController folioCloudEntitlements;
-  final VoidCallback onOpenSearch;
+  final void Function([String? initialQuery]) onOpenSearch;
+  final Future<void> Function(BuildContext context) onOpenReleaseNotes;
 
   @override
   State<WorkspacePage> createState() => _WorkspacePageState();
@@ -1211,6 +1214,31 @@ class _WorkspacePageState extends State<WorkspacePage> {
     _chatInputFocusNode.requestFocus();
   }
 
+  void _openHomeAiTasksSummary() {
+    if (!mounted) return;
+    final l10n = AppLocalizations.of(context);
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final horizonEnd = today.add(const Duration(days: 14));
+    final lines = <String>[];
+    for (final e in _s.collectTaskBlocks(includeSimpleTodos: false)) {
+      if (e.isDone) continue;
+      final dStr = e.dueDate;
+      if (dStr == null || dStr.trim().isEmpty) continue;
+      final parsed = DateTime.tryParse(dStr.trim());
+      if (parsed == null) continue;
+      final day = DateTime(parsed.year, parsed.month, parsed.day);
+      if (day.isAfter(horizonEnd)) continue;
+      final title =
+          e.displayTitle.trim().isEmpty ? l10n.none : e.displayTitle;
+      lines.add('• $title (${e.pageTitle}) - $dStr');
+    }
+    final body = lines.isEmpty
+        ? l10n.workspaceHomeAiTasksPromptEmpty
+        : lines.join('\n');
+    _useQuillTourPrompt(l10n.workspaceHomeAiTasksPrompt(body));
+  }
+
   Widget _buildBetaBanner(ColorScheme scheme, AppLocalizations l10n) {
     return Material(
       color: scheme.tertiaryContainer,
@@ -1409,6 +1437,7 @@ class _WorkspacePageState extends State<WorkspacePage> {
   void _openSettings() {
     Navigator.of(context).push<void>(
       MaterialPageRoute<void>(
+        settings: const RouteSettings(name: 'settings'),
         builder: (ctx) => SettingsPage(
           session: _s,
           appSettings: widget.appSettings,
@@ -1420,12 +1449,39 @@ class _WorkspacePageState extends State<WorkspacePage> {
     );
   }
 
+  void _openGraphView() {
+    Navigator.of(context).push<void>(
+      MaterialPageRoute<void>(
+        settings: const RouteSettings(name: 'graph_view'),
+        builder: (_) => GraphViewScreen(
+          session: _s,
+          onOpenPage: _s.selectPage,
+        ),
+      ),
+    );
+  }
+
+  Future<void> _openTemplateGalleryFromHome() async {
+    final result = await openTemplateGalleryPage(
+      context: context,
+      session: _s,
+      cloud: widget.cloudAccountController,
+    );
+    if (!mounted || result == null) return;
+    if (result.template != null) {
+      _s.addPageFromTemplate(result.template!);
+    } else {
+      _s.addPage(parentId: null);
+    }
+  }
+
   void _openFolioCloudSubscriptionPitch() {
     if (_folioCloudCheckoutBusy) return;
     final l10n = AppLocalizations.of(context);
     final signedIn = widget.cloudAccountController.isSignedIn;
     Navigator.of(context).push<void>(
       MaterialPageRoute<void>(
+        settings: const RouteSettings(name: 'folio_cloud_pitch'),
         builder: (ctx) => FolioCloudSubscriptionPitchPage(
           busy: _folioCloudCheckoutBusy,
           primaryCtaLabel: signedIn
@@ -1809,7 +1865,7 @@ class _WorkspacePageState extends State<WorkspacePage> {
           session: _s,
           appSettings: widget.appSettings,
           cloudAccountController: widget.cloudAccountController,
-          onSearch: widget.onOpenSearch,
+          onSearch: () => widget.onOpenSearch(),
           onForceSync: _forceSyncNow,
           onOpenSettings: _openSettings,
           onLock: () => unawaited(_s.lock()),
@@ -1985,18 +2041,7 @@ class _WorkspacePageState extends State<WorkspacePage> {
             id: 'graph_view',
             label: l10n.graphViewTitle,
             icon: Icons.bubble_chart_rounded,
-            onPressed: () {
-              Navigator.of(context).push(
-                MaterialPageRoute<void>(
-                  builder: (_) => GraphViewScreen(
-                    session: _s,
-                    onOpenPage: (pageId) {
-                      _s.selectPage(pageId);
-                    },
-                  ),
-                ),
-              );
-            },
+            onPressed: _openGraphView,
             forcePrimary: false,
           ),
           if (page != null)
@@ -2402,6 +2447,18 @@ class _WorkspacePageState extends State<WorkspacePage> {
       },
       onCreatePage: () => _s.addPage(parentId: null),
       onOpenSearch: widget.onOpenSearch,
+      onOpenSettings: _openSettings,
+      onOpenGraph: _openGraphView,
+      onOpenTemplateGallery: _openTemplateGalleryFromHome,
+      onLockVault: () => unawaited(_s.lock()),
+      onForceSyncDevices: _forceSyncNow,
+      onQuickAddTask: hasAnyKanbanPage ? _showQuickAddTask : null,
+      onAddRootFolder: () => _s.addFolder(parentId: null),
+      onImportMarkdown: _importDocumentFile,
+      cloudAccount: widget.cloudAccountController,
+      folioCloudEntitlements: widget.folioCloudEntitlements,
+      mobilePreviewReadOnly: editorReadOnlyMode,
+      onOpenReleaseNotes: widget.onOpenReleaseNotes,
       editor: baseEditor,
       propertiesSection: page != null
           ? PagePropertiesWidget(
@@ -2410,6 +2467,14 @@ class _WorkspacePageState extends State<WorkspacePage> {
               readOnly: editorReadOnlyMode,
             )
           : null,
+      session: _s,
+      appSettings: widget.appSettings,
+      onSelectPage: _s.selectPage,
+      onOpenTaskInPage: (pageId, blockId) {
+        _s.selectPage(pageId);
+        _s.requestScrollToBlock(blockId);
+      },
+      onAskAiAboutUpcomingTasks: _openHomeAiTasksSummary,
     );
 
     final showOutlinePanel =

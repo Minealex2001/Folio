@@ -18,6 +18,12 @@ import {
   scanMicrosoftStoreCollectionItems,
 } from "./microsoft_store";
 
+export {
+  aggregateDailyTelemetryStats,
+  aggregateGlobalTelemetryStats,
+  onTelemetryEventCreated,
+} from "./telemetry";
+
 admin.initializeApp();
 const db = admin.firestore();
 const FieldValue = admin.firestore.FieldValue;
