@@ -4026,6 +4026,9 @@ class AppLocalizationsEu extends AppLocalizations {
       'Fitxategiak drivera igotzerakoan, originalak automatikoki ezabatzen dira diskotik.';
 
   @override
+  String get driveAllFilesRoot => 'Fitxategi guztiak';
+
+  @override
   String get blockTypeEquationLabel => 'Ekuazioa (LaTeX)';
 
   @override

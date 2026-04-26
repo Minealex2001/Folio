@@ -1294,14 +1294,26 @@ class _WorkspaceHomeViewState extends State<WorkspaceHomeView> {
           ),
         ),
         const SizedBox(height: FolioSpace.sm),
-        GridView.count(
-          crossAxisCount: 2,
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-          mainAxisSpacing: FolioSpace.sm,
-          crossAxisSpacing: FolioSpace.sm,
-          childAspectRatio: 2.2,
-          children: tiles,
+        LayoutBuilder(
+          builder: (context, constraints) {
+            final maxW = constraints.maxWidth;
+            const spacing = FolioSpace.sm;
+            const aspect = 2.2;
+            final tileW = (maxW - spacing) / 2;
+            final tileH = tileW / aspect;
+            return Wrap(
+              spacing: spacing,
+              runSpacing: spacing,
+              children: [
+                for (final t in tiles)
+                  SizedBox(
+                    width: tileW,
+                    height: tileH,
+                    child: t,
+                  ),
+              ],
+            );
+          },
         ),
       ],
     );

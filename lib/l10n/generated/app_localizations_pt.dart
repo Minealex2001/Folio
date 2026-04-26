@@ -3998,6 +3998,9 @@ class AppLocalizationsPt extends AppLocalizations {
       'Ao enviar ficheiros para o drive, os originais são eliminados automaticamente do disco.';
 
   @override
+  String get driveAllFilesRoot => 'Todos os ficheiros';
+
+  @override
   String get blockTypeEquationLabel => 'Equação (LaTeX)';
 
   @override

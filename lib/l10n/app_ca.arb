@@ -1323,6 +1323,7 @@
   "driveMultipleBlocksSnack": "Aquesta pàgina té més d'un bloc Drive; s'usa el primer.",
   "driveDeleteOriginalsTitle": "Eliminar originals en importar",
   "driveDeleteOriginalsSubtitle": "En pujar fitxers al drive, els originals s'eliminen automàticament del disc.",
+  "driveAllFilesRoot": "Tots els fitxers",
   "blockTypeEquationLabel": "Equació (LaTeX)",
   "blockTypeEquationHint": "Fórmules matemàtiques",
   "blockTypeMermaidLabel": "Diagrama (Mermaid)",

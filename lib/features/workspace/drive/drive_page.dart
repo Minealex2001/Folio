@@ -743,6 +743,7 @@ class _DrivePageState extends State<DrivePage> {
                         _selectedFolderId = id;
                         _selectedItem = null;
                       }),
+                      l10n: l10n,
                       scheme: scheme,
                       theme: theme,
                     ),
@@ -960,6 +961,30 @@ class _DriveToolbar extends StatelessWidget {
 
 // ── Folder tree ───────────────────────────────────────────────────────────────
 
+class _FlatFolderNode {
+  const _FlatFolderNode({required this.folder, required this.depth});
+  final FolioDriveFolder folder;
+  final int depth;
+}
+
+List<_FlatFolderNode> _flattenDriveFolderSubtree(
+  List<FolioDriveFolder> all,
+  List<FolioDriveFolder> roots,
+) {
+  final out = <_FlatFolderNode>[];
+  void walk(FolioDriveFolder folder, int depth) {
+    out.add(_FlatFolderNode(folder: folder, depth: depth));
+    final children = all.where((f) => f.parentId == folder.id).toList();
+    for (final child in children) {
+      walk(child, depth + 1);
+    }
+  }
+  for (final root in roots) {
+    walk(root, 0);
+  }
+  return out;
+}
+
 class _FolderTree extends StatelessWidget {
   const _FolderTree({
     required this.data,
@@ -994,12 +1019,13 @@ class _FolderTree extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final rootFolders = data.folders.where((f) => f.parentId == null).toList();
+    final flatFolders = _flattenDriveFolderSubtree(data.folders, rootFolders);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         // "All files" root item.
         _FolderTreeItem(
-          label: 'All files',
+          label: l10n.driveAllFilesRoot,
           labelOverride: null,
           icon: Icons.drive_folder_upload_rounded,
           isSelected: selectedFolderId == null,
@@ -1014,126 +1040,49 @@ class _FolderTree extends StatelessWidget {
         ),
         const Divider(height: 1, indent: FolioSpace.xs),
         Expanded(
-          child: ListView(
+          child: ListView.builder(
             padding: const EdgeInsets.only(bottom: FolioSpace.md),
-            children: [
-              for (final folder in rootFolders)
-                _FolderTreeItemRecursive(
-                  folder: folder,
-                  allFolders: data.folders,
-                  selectedFolderId: selectedFolderId,
-                  depth: 0,
-                  onSelectFolder: onSelectFolder,
-                  onRenameFolder: onRenameFolder,
-                  onDeleteFolder: onDeleteFolder,
-                  onMoveFolder: onMoveFolder,
-                  onMoveEntry: onMoveEntryToFolder,
-                  onChangeColor: onChangeColor,
-                  data: data,
-                  l10n: l10n,
-                  scheme: scheme,
-                  theme: theme,
+            itemCount: flatFolders.length,
+            itemBuilder: (context, index) {
+              final node = flatFolders[index];
+              final folder = node.folder;
+              return Padding(
+                padding: EdgeInsets.only(left: node.depth * 12.0),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: _FolderTreeItem(
+                        label: folder.name,
+                        icon: Icons.folder_rounded,
+                        iconColor: folder.colorValue != null
+                            ? Color(folder.colorValue!)
+                            : null,
+                        isSelected: selectedFolderId == folder.id,
+                        folderId: folder.id,
+                        onTap: () => onSelectFolder(folder.id),
+                        onMoveEntry: onMoveEntryToFolder,
+                        onMoveFolder: onMoveFolder,
+                        canAcceptCycle: (f) =>
+                            !data.wouldCreateCycle(f.id, folder.id),
+                        l10n: l10n,
+                        scheme: scheme,
+                        theme: theme,
+                      ),
+                    ),
+                    _FolderContextMenuButton(
+                      folder: folder,
+                      onRename: onRenameFolder,
+                      onDelete: onDeleteFolder,
+                      onChangeColor: onChangeColor,
+                      l10n: l10n,
+                      scheme: scheme,
+                    ),
+                  ],
                 ),
-            ],
+              );
+            },
           ),
         ),
-      ],
-    );
-  }
-}
-
-// (removed unused constant)
-
-class _FolderTreeItemRecursive extends StatelessWidget {
-  const _FolderTreeItemRecursive({
-    required this.folder,
-    required this.allFolders,
-    required this.selectedFolderId,
-    required this.depth,
-    required this.onSelectFolder,
-    required this.onRenameFolder,
-    required this.onDeleteFolder,
-    required this.onMoveFolder,
-    required this.onMoveEntry,
-    required this.onChangeColor,
-    required this.data,
-    required this.l10n,
-    required this.scheme,
-    required this.theme,
-  });
-
-  final FolioDriveFolder folder;
-  final List<FolioDriveFolder> allFolders;
-  final String? selectedFolderId;
-  final int depth;
-  final ValueChanged<String?> onSelectFolder;
-  final ValueChanged<FolioDriveFolder> onRenameFolder;
-  final ValueChanged<FolioDriveFolder> onDeleteFolder;
-  final void Function(FolioDriveFolder, String?) onMoveFolder;
-  final void Function(FolioDriveEntry, String?) onMoveEntry;
-  final void Function(FolioDriveFolder, int?) onChangeColor;
-  final FolioFileDriveData data;
-  final AppLocalizations l10n;
-  final ColorScheme scheme;
-  final ThemeData theme;
-
-  @override
-  Widget build(BuildContext context) {
-    final children = allFolders.where((f) => f.parentId == folder.id).toList();
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        Padding(
-          padding: EdgeInsets.only(left: depth * 12.0),
-          child: Row(
-            children: [
-              Expanded(
-                child: _FolderTreeItem(
-                  label: folder.name,
-                  icon: Icons.folder_rounded,
-                  iconColor: folder.colorValue != null
-                      ? Color(folder.colorValue!)
-                      : null,
-                  isSelected: selectedFolderId == folder.id,
-                  folderId: folder.id,
-                  onTap: () => onSelectFolder(folder.id),
-                  onMoveEntry: onMoveEntry,
-                  onMoveFolder: onMoveFolder,
-                  canAcceptCycle: (f) =>
-                      !data.wouldCreateCycle(f.id, folder.id),
-                  l10n: l10n,
-                  scheme: scheme,
-                  theme: theme,
-                ),
-              ),
-              _FolderContextMenuButton(
-                folder: folder,
-                onRename: onRenameFolder,
-                onDelete: onDeleteFolder,
-                onChangeColor: onChangeColor,
-                l10n: l10n,
-                scheme: scheme,
-              ),
-            ],
-          ),
-        ),
-        for (final child in children)
-          _FolderTreeItemRecursive(
-            folder: child,
-            allFolders: allFolders,
-            selectedFolderId: selectedFolderId,
-            depth: depth + 1,
-            onSelectFolder: onSelectFolder,
-            onRenameFolder: onRenameFolder,
-            onDeleteFolder: onDeleteFolder,
-            onMoveFolder: onMoveFolder,
-            onMoveEntry: onMoveEntry,
-            onChangeColor: onChangeColor,
-            data: data,
-            l10n: l10n,
-            scheme: scheme,
-            theme: theme,
-          ),
       ],
     );
   }
@@ -2516,6 +2465,7 @@ class _BreadcrumbBar extends StatelessWidget {
     required this.data,
     required this.selectedFolderId,
     required this.onNavigate,
+    required this.l10n,
     required this.scheme,
     required this.theme,
   });
@@ -2523,6 +2473,7 @@ class _BreadcrumbBar extends StatelessWidget {
   final FolioFileDriveData data;
   final String? selectedFolderId;
   final ValueChanged<String?> onNavigate;
+  final AppLocalizations l10n;
   final ColorScheme scheme;
   final ThemeData theme;
 
@@ -2557,7 +2508,7 @@ class _BreadcrumbBar extends StatelessWidget {
                 padding: const EdgeInsets.symmetric(horizontal: FolioSpace.xxs),
               ),
               child: Text(
-                'All files',
+                l10n.driveAllFilesRoot,
                 style: theme.textTheme.labelMedium?.copyWith(
                   color: scheme.primary,
                 ),
@@ -2567,7 +2518,7 @@ class _BreadcrumbBar extends StatelessWidget {
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: FolioSpace.xxs),
               child: Text(
-                'All files',
+                l10n.driveAllFilesRoot,
                 style: theme.textTheme.labelMedium?.copyWith(
                   fontWeight: FontWeight.w600,
                 ),

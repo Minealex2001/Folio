@@ -1323,6 +1323,7 @@
   "driveMultipleBlocksSnack": "Esta página tem mais de um bloco Drive; é usado o primeiro.",
   "driveDeleteOriginalsTitle": "Eliminar originais ao importar",
   "driveDeleteOriginalsSubtitle": "Ao enviar ficheiros para o drive, os originais são eliminados automaticamente do disco.",
+  "driveAllFilesRoot": "Todos os ficheiros",
   "blockTypeEquationLabel": "Equação (LaTeX)",
   "blockTypeEquationHint": "Fórmulas matemáticas",
   "blockTypeMermaidLabel": "Diagrama (Mermaid)",

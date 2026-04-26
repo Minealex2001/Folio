@@ -1324,6 +1324,7 @@
   ,"driveMultipleBlocksSnack": "This page has more than one Drive block; using the first one."
   ,"driveDeleteOriginalsTitle": "Delete originals on import"
   ,"driveDeleteOriginalsSubtitle": "When uploading files to the drive, the originals are automatically deleted from disk."
+  ,"driveAllFilesRoot": "All files"
   ,"blockTypeEquationLabel": "Equation (LaTeX)"
   ,"blockTypeEquationHint": "Math formulas"
   ,"blockTypeMermaidLabel": "Diagram (Mermaid)"

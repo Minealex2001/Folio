@@ -1324,6 +1324,7 @@
   "driveMultipleBlocksSnack": "Orri honek Drive bloke bat baino gehiago ditu; lehena erabiltzen da.",
   "driveDeleteOriginalsTitle": "Originalak inportatzean ezabatu",
   "driveDeleteOriginalsSubtitle": "Fitxategiak drivera igotzerakoan, originalak automatikoki ezabatzen dira diskotik.",
+  "driveAllFilesRoot": "Fitxategi guztiak",
   "blockTypeEquationLabel": "Ekuazioa (LaTeX)",
   "blockTypeEquationHint": "Matematika-formulak",
   "blockTypeMermaidLabel": "Diagrama (Mermaid)",

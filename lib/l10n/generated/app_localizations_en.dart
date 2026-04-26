@@ -3974,6 +3974,9 @@ class AppLocalizationsEn extends AppLocalizations {
       'When uploading files to the drive, the originals are automatically deleted from disk.';
 
   @override
+  String get driveAllFilesRoot => 'All files';
+
+  @override
   String get blockTypeEquationLabel => 'Equation (LaTeX)';
 
   @override

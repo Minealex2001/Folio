@@ -686,24 +686,29 @@ class _SidebarState extends State<Sidebar> {
       builder: (ctx) {
         return FolioDialog(
           title: Text(l10n.movePageTitle(page.title)),
-          content: SizedBox(
-            width: 420,
-            child: ListView(
-              shrinkWrap: true,
-              children: options
-                  .map(
-                    (e) => ListTile(
-                      title: Text(e.value),
-                      trailing: page.parentId == e.key
-                          ? const Icon(Icons.check, size: 20)
-                          : null,
-                      onTap: () {
-                        session.setPageParent(page.id, e.key);
-                        Navigator.pop(ctx);
-                      },
-                    ),
-                  )
-                  .toList(),
+          content: ConstrainedBox(
+            constraints: BoxConstraints(
+              maxWidth: 420,
+              maxHeight: math.min(
+                480,
+                math.max(160, options.length * 56 + 24),
+              ),
+            ),
+            child: ListView.builder(
+              itemCount: options.length,
+              itemBuilder: (context, i) {
+                final e = options[i];
+                return ListTile(
+                  title: Text(e.value),
+                  trailing: page.parentId == e.key
+                      ? const Icon(Icons.check, size: 20)
+                      : null,
+                  onTap: () {
+                    session.setPageParent(page.id, e.key);
+                    Navigator.pop(ctx);
+                  },
+                );
+              },
             ),
           ),
           actions: [

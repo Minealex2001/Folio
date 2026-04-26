@@ -4022,6 +4022,9 @@ class AppLocalizationsGl extends AppLocalizations {
       'Ao subir ficheiros ao drive, os orixinais elimínanse automaticamente do disco.';
 
   @override
+  String get driveAllFilesRoot => 'Todos os ficheiros';
+
+  @override
   String get blockTypeEquationLabel => 'Ecuación (LaTeX)';
 
   @override

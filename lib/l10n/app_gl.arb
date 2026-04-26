@@ -1325,6 +1325,7 @@
   ,"driveMultipleBlocksSnack": "Esta páxina ten máis dun bloque Drive; úsase o primeiro."
   ,"driveDeleteOriginalsTitle": "Eliminar orixinais ao importar"
   ,"driveDeleteOriginalsSubtitle": "Ao subir ficheiros ao drive, os orixinais elimínanse automaticamente do disco."
+  ,"driveAllFilesRoot": "Todos os ficheiros"
   ,"blockTypeEquationLabel": "Ecuación (LaTeX)"
   ,"blockTypeEquationHint": "Fórmulas matemáticas"
   ,"blockTypeMermaidLabel": "Diagrama (Mermaid)"

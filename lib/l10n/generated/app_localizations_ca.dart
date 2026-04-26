@@ -4025,6 +4025,9 @@ class AppLocalizationsCa extends AppLocalizations {
       'En pujar fitxers al drive, els originals s\'eliminen automàticament del disc.';
 
   @override
+  String get driveAllFilesRoot => 'Tots els fitxers';
+
+  @override
   String get blockTypeEquationLabel => 'Equació (LaTeX)';
 
   @override

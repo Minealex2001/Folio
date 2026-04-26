@@ -7210,6 +7210,12 @@ abstract class AppLocalizations {
   /// **'Al subir archivos al drive, los originales se eliminan automáticamente del disco.'**
   String get driveDeleteOriginalsSubtitle;
 
+  /// No description provided for @driveAllFilesRoot.
+  ///
+  /// In es, this message translates to:
+  /// **'Todos los archivos'**
+  String get driveAllFilesRoot;
+
   /// No description provided for @blockTypeEquationLabel.
   ///
   /// In es, this message translates to:

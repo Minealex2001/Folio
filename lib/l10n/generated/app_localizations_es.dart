@@ -4002,6 +4002,9 @@ class AppLocalizationsEs extends AppLocalizations {
       'Al subir archivos al drive, los originales se eliminan automáticamente del disco.';
 
   @override
+  String get driveAllFilesRoot => 'Todos los archivos';
+
+  @override
   String get blockTypeEquationLabel => 'Ecuación (LaTeX)';
 
   @override
