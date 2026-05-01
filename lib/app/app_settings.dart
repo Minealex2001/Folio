@@ -507,7 +507,7 @@ class AppSettings extends ChangeNotifier {
   bool _lockScreenAutoQuickUnlockDone = false;
   bool _enableGlobalSearchHotkey = true;
   String _globalSearchHotkey = defaultGlobalSearchHotkey;
-  bool _minimizeToTray = true;
+  bool _minimizeToTray = false;
   bool _closeToTray = true;
   bool _windowsNotificationsEnabled = false;
   bool _aiEnabled = false;
@@ -803,7 +803,7 @@ class AppSettings extends ChangeNotifier {
     _enableGlobalSearchHotkey = p.getBool(_enableGlobalSearchHotkeyKey) ?? true;
     _globalSearchHotkey =
         p.getString(_globalSearchHotkeyKey) ?? defaultGlobalSearchHotkey;
-    _minimizeToTray = p.getBool(_minimizeToTrayKey) ?? true;
+    _minimizeToTray = p.getBool(_minimizeToTrayKey) ?? false;
     _closeToTray = p.getBool(_closeToTrayKey) ?? true;
     _windowsNotificationsEnabled =
         p.getBool(_windowsNotificationsEnabledKey) ?? false;

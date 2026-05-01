@@ -181,7 +181,6 @@ const List<BlockTypeTemplate> blockTypeTemplates = [
     key: 'canvas',
     icon: Icons.gesture_rounded,
     section: BlockTypeSection.advanced,
-    beta: true,
   ),
   BlockTypeTemplate(
     key: 'embed',

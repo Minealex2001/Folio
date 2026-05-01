@@ -29,11 +29,13 @@ class CanvasPage extends StatefulWidget {
 
 class _CanvasPageState extends State<CanvasPage> {
   var _warnedMultipleCanvas = false;
+  String? _lastKnownCanvasText;
 
   @override
   void initState() {
     super.initState();
     widget.session.addListener(_onSession);
+    _lastKnownCanvasText = _canvasBlockText();
     _warnMultipleCanvasIfNeeded();
   }
 
@@ -45,8 +47,27 @@ class _CanvasPageState extends State<CanvasPage> {
 
   void _onSession() {
     if (!mounted) return;
+    final next = _canvasBlockText();
+    if (_lastKnownCanvasText != null &&
+        next != null &&
+        next != _lastKnownCanvasText) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        final l10n = AppLocalizations.of(context);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(l10n.canvasCollabRemoteUpdate)),
+        );
+      });
+    }
+    _lastKnownCanvasText = next;
     setState(() {});
     _warnMultipleCanvasIfNeeded();
+  }
+
+  String? _canvasBlockText() {
+    final page = widget.session.pages.where((p) => p.id == widget.pageId).firstOrNull;
+    final block = page?.blocks.where((b) => b.type == 'canvas').firstOrNull;
+    return block?.text;
   }
 
   void _warnMultipleCanvasIfNeeded() {
@@ -81,7 +102,9 @@ class _CanvasPageState extends State<CanvasPage> {
   void _saveData(FolioCanvasData data) {
     final id = _blockId();
     if (id == null) return;
-    widget.session.updateBlockText(widget.pageId, id, data.encode());
+    final encoded = data.encode();
+    _lastKnownCanvasText = encoded;
+    widget.session.updateBlockText(widget.pageId, id, encoded);
   }
 
   @override

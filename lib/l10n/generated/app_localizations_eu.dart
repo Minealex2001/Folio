@@ -187,7 +187,7 @@ class AppLocalizationsEu extends AppLocalizations {
 
   @override
   String get passwordMustBeStrongError =>
-      'Pasahitzak sendoa izan behar du jarraitzeko.';
+      'Pasahitzak gutxienez Ondo izan behar du jarraitzeko.';
 
   @override
   String get passwordStrengthLabel => 'Indarra';
@@ -199,7 +199,7 @@ class AppLocalizationsEu extends AppLocalizations {
   String get passwordStrengthWeak => 'Ahula';
 
   @override
-  String get passwordStrengthFair => 'Onargarria';
+  String get passwordStrengthFair => 'Ondo';
 
   @override
   String get passwordStrengthStrong => 'Sendoa';
@@ -385,7 +385,7 @@ class AppLocalizationsEu extends AppLocalizations {
 
   @override
   String get newPasswordMustBeStrongError =>
-      'Pasahitz berriak sendoa izan behar du.';
+      'Pasahitz berriak gutxienez Ondo izan behar du.';
 
   @override
   String get newPasswordMustDifferError =>
@@ -3962,6 +3962,184 @@ class AppLocalizationsEu extends AppLocalizations {
 
   @override
   String get canvasDeleteNodeConfirm => 'Nodo hau ezabatu?';
+
+  @override
+  String get canvasConnectTapTarget => 'Sakatu helburuko nodoa konektatzeko';
+
+  @override
+  String get canvasEmptyNotePlaceholder => '(ohar hutsa)';
+
+  @override
+  String get canvasEmptyBlockPlaceholder => '(hutsik)';
+
+  @override
+  String get canvasColorPickerTooltip => 'Kolorea';
+
+  @override
+  String get canvasFolioHintWriteHere => 'Idatzi hemen…';
+
+  @override
+  String get canvasToolbarMarquee => 'Hautapen laukizuzena';
+
+  @override
+  String get canvasToolbarAddFrame => 'Gehitu markoa';
+
+  @override
+  String get canvasToolbarLayers => 'Geruzak';
+
+  @override
+  String get canvasToolbarGroup => 'Taldekatu';
+
+  @override
+  String get canvasToolbarUngroup => 'Desagertu taldea';
+
+  @override
+  String get canvasToolbarUndo => 'Desegin';
+
+  @override
+  String get canvasToolbarRedo => 'Berregin';
+
+  @override
+  String get canvasToolbarRotate => 'Biratu 15°';
+
+  @override
+  String get canvasToolbarSnap => 'Lauki-saretara egokitu';
+
+  @override
+  String get canvasToolbarTemplate => 'Txantiloia';
+
+  @override
+  String get canvasTemplateDialogTitle => 'Txertatu txantiloia';
+
+  @override
+  String get canvasTemplateMergeHint =>
+      'Elementu berriak mihisera gehituko dira.';
+
+  @override
+  String get canvasExportPng => 'PNG irudia';
+
+  @override
+  String get canvasExportSvg => 'SVG';
+
+  @override
+  String get canvasExportPdf => 'PDF';
+
+  @override
+  String get canvasLayersTitle => 'Geruzak';
+
+  @override
+  String get canvasLayerImageBrief => 'Irudia';
+
+  @override
+  String get canvasEdgeInspector => 'Konektoreak';
+
+  @override
+  String get canvasEdgeStyleStraight => 'Zuzena';
+
+  @override
+  String get canvasEdgeStyleArrow => 'Gezia';
+
+  @override
+  String get canvasEdgeStyleCurve => 'Kurbatu';
+
+  @override
+  String get canvasEdgeStyleBezier => 'Bezier';
+
+  @override
+  String get canvasEdgeLabelHint => 'Etiketa';
+
+  @override
+  String get canvasDrawInk => 'Arkatza';
+
+  @override
+  String get canvasDrawHighlighter => 'Nabarmentzailea';
+
+  @override
+  String get canvasDrawEraser => 'Ezabatzailea';
+
+  @override
+  String get canvasCollabRemoteUpdate => 'Mihisea lankidetzatik eguneratu da';
+
+  @override
+  String get canvasFrameLabel => 'Markoa';
+
+  @override
+  String get canvasRichEmbedBadge => 'Eduki aberastua';
+
+  @override
+  String get canvasMarqueeHint => 'Arrastatu hutsunean hautatzeko';
+
+  @override
+  String get canvasTplMindmapBranch => 'Adarra';
+
+  @override
+  String get canvasTplFlowStart => 'Hasiera';
+
+  @override
+  String get canvasTplFlowProcess => 'Prozesua';
+
+  @override
+  String get canvasTplFlowDecision => 'Erabakia?';
+
+  @override
+  String get canvasTplFlowBranchYes => 'Bai adarra';
+
+  @override
+  String get canvasTplFlowEnd => 'Amaiera';
+
+  @override
+  String get canvasTplFlowNo => 'Ez';
+
+  @override
+  String get canvasTplFlowEdgeYes => 'Bai';
+
+  @override
+  String get canvasTplFlowEdgeNo => 'Ez';
+
+  @override
+  String get canvasTplJourneyTitle => 'User journey';
+
+  @override
+  String get canvasTplJourneyDiscover => 'Aurkitzea';
+
+  @override
+  String get canvasTplJourneyConsider => 'Kontuan hartzea';
+
+  @override
+  String get canvasTplJourneyBuy => 'Erosketa';
+
+  @override
+  String get canvasTplJourneyRetain => 'Atxikitzea';
+
+  @override
+  String get canvasTplSwotTitle => 'SWOT analisia';
+
+  @override
+  String get canvasTplSwotStrengths => 'Indarrak';
+
+  @override
+  String get canvasTplSwotWeaknesses => 'Ahultasunak';
+
+  @override
+  String get canvasTplSwotOpportunities => 'Aukerak';
+
+  @override
+  String get canvasTplSwotThreats => 'Mehatxuak';
+
+  @override
+  String get canvasTemplateMindmap => 'Gogoeta-maparen mapa';
+
+  @override
+  String get canvasTemplateFlowchart => 'Fluxu diagrama';
+
+  @override
+  String get canvasTemplateUserJourney => 'User journey';
+
+  @override
+  String get canvasTemplateSwot => 'SWOT';
+
+  @override
+  String get canvasTplMindmapCenter => 'Gai nagusia';
 
   @override
   String get blockTypeDriveLabel => 'Fitxategi Drive';

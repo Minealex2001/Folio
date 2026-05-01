@@ -187,7 +187,7 @@ class AppLocalizationsPt extends AppLocalizations {
 
   @override
   String get passwordMustBeStrongError =>
-      'A senha deve ser Forte para continuar.';
+      'A senha deve ser pelo menos Boa para continuar.';
 
   @override
   String get passwordStrengthLabel => 'Força';
@@ -199,7 +199,7 @@ class AppLocalizationsPt extends AppLocalizations {
   String get passwordStrengthWeak => 'Fraca';
 
   @override
-  String get passwordStrengthFair => 'Razoável';
+  String get passwordStrengthFair => 'Boa';
 
   @override
   String get passwordStrengthStrong => 'Forte';
@@ -383,7 +383,8 @@ class AppLocalizationsPt extends AppLocalizations {
   String get newPasswordsMismatchError => 'As novas senhas não coincidem.';
 
   @override
-  String get newPasswordMustBeStrongError => 'A nova senha deve ser Forte.';
+  String get newPasswordMustBeStrongError =>
+      'A nova senha deve ser pelo menos Boa.';
 
   @override
   String get newPasswordMustDifferError => 'A nova senha deve ser diferente.';
@@ -3934,6 +3935,183 @@ class AppLocalizationsPt extends AppLocalizations {
 
   @override
   String get canvasDeleteNodeConfirm => 'Eliminar este nó?';
+
+  @override
+  String get canvasConnectTapTarget => 'Toque o nó de destino para ligar';
+
+  @override
+  String get canvasEmptyNotePlaceholder => '(nota vazia)';
+
+  @override
+  String get canvasEmptyBlockPlaceholder => '(vazio)';
+
+  @override
+  String get canvasColorPickerTooltip => 'Cor';
+
+  @override
+  String get canvasFolioHintWriteHere => 'Escreva aqui…';
+
+  @override
+  String get canvasToolbarMarquee => 'Seleção retangular';
+
+  @override
+  String get canvasToolbarAddFrame => 'Adicionar moldura';
+
+  @override
+  String get canvasToolbarLayers => 'Camadas';
+
+  @override
+  String get canvasToolbarGroup => 'Agrupar';
+
+  @override
+  String get canvasToolbarUngroup => 'Desagrupar';
+
+  @override
+  String get canvasToolbarUndo => 'Desfazer';
+
+  @override
+  String get canvasToolbarRedo => 'Refazer';
+
+  @override
+  String get canvasToolbarRotate => 'Rodar 15°';
+
+  @override
+  String get canvasToolbarSnap => 'Ajustar à grelha';
+
+  @override
+  String get canvasToolbarTemplate => 'Modelo';
+
+  @override
+  String get canvasTemplateDialogTitle => 'Inserir modelo';
+
+  @override
+  String get canvasTemplateMergeHint => 'Novos itens serão adicionados à tela.';
+
+  @override
+  String get canvasExportPng => 'Imagem PNG';
+
+  @override
+  String get canvasExportSvg => 'SVG';
+
+  @override
+  String get canvasExportPdf => 'PDF';
+
+  @override
+  String get canvasLayersTitle => 'Camadas';
+
+  @override
+  String get canvasLayerImageBrief => 'Imagem';
+
+  @override
+  String get canvasEdgeInspector => 'Conectores';
+
+  @override
+  String get canvasEdgeStyleStraight => 'Reta';
+
+  @override
+  String get canvasEdgeStyleArrow => 'Seta';
+
+  @override
+  String get canvasEdgeStyleCurve => 'Curva';
+
+  @override
+  String get canvasEdgeStyleBezier => 'Bezier';
+
+  @override
+  String get canvasEdgeLabelHint => 'Etiqueta';
+
+  @override
+  String get canvasDrawInk => 'Caneta';
+
+  @override
+  String get canvasDrawHighlighter => 'Marcador';
+
+  @override
+  String get canvasDrawEraser => 'Borracha';
+
+  @override
+  String get canvasCollabRemoteUpdate => 'Tela atualizada pela colaboração';
+
+  @override
+  String get canvasFrameLabel => 'Moldura';
+
+  @override
+  String get canvasRichEmbedBadge => 'Conteúdo rico';
+
+  @override
+  String get canvasMarqueeHint => 'Arraste na área vazia para selecionar';
+
+  @override
+  String get canvasTplMindmapBranch => 'Ramo';
+
+  @override
+  String get canvasTplFlowStart => 'Início';
+
+  @override
+  String get canvasTplFlowProcess => 'Processo';
+
+  @override
+  String get canvasTplFlowDecision => 'Decisão?';
+
+  @override
+  String get canvasTplFlowBranchYes => 'Ramo sim';
+
+  @override
+  String get canvasTplFlowEnd => 'Fim';
+
+  @override
+  String get canvasTplFlowNo => 'Não';
+
+  @override
+  String get canvasTplFlowEdgeYes => 'Sim';
+
+  @override
+  String get canvasTplFlowEdgeNo => 'Não';
+
+  @override
+  String get canvasTplJourneyTitle => 'User journey';
+
+  @override
+  String get canvasTplJourneyDiscover => 'Descoberta';
+
+  @override
+  String get canvasTplJourneyConsider => 'Consideração';
+
+  @override
+  String get canvasTplJourneyBuy => 'Compra';
+
+  @override
+  String get canvasTplJourneyRetain => 'Retenção';
+
+  @override
+  String get canvasTplSwotTitle => 'Análise SWOT';
+
+  @override
+  String get canvasTplSwotStrengths => 'Forças';
+
+  @override
+  String get canvasTplSwotWeaknesses => 'Fraquezas';
+
+  @override
+  String get canvasTplSwotOpportunities => 'Oportunidades';
+
+  @override
+  String get canvasTplSwotThreats => 'Ameaças';
+
+  @override
+  String get canvasTemplateMindmap => 'Mapa mental';
+
+  @override
+  String get canvasTemplateFlowchart => 'Fluxograma';
+
+  @override
+  String get canvasTemplateUserJourney => 'User journey';
+
+  @override
+  String get canvasTemplateSwot => 'SWOT';
+
+  @override
+  String get canvasTplMindmapCenter => 'Tema central';
 
   @override
   String get blockTypeDriveLabel => 'Arquivo Drive';

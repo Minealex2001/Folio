@@ -47,7 +47,7 @@
 38. [Bloques sincronizados](#38-bloques-sincronizados)
 39. [Vista de grafo](#39-vista-de-grafo)
 40. [Importar PDF con anotaciones](#40-importar-pdf-con-anotaciones)
-41. [Lienzo infinito (canvas, beta)](#41-lienzo-infinito-canvas-beta)
+41. [Lienzo infinito (canvas)](#41-lienzo-infinito-canvas)
 42. [Pantalla de inicio (Home)](#42-pantalla-de-inicio-home)
 
 **Apéndice:** [configuración persistida (`AppSettings`)](#apéndice-configuración-persistida-appsettings)
@@ -118,7 +118,7 @@ El editor es completamente personalizado (no usa un widget de terceros como edit
 | `breadcrumb` | Miga de pan de la página |
 | `template_button` | Botón de plantilla con bloques predefinidos |
 | `column_list` | Columnas de bloques |
-| `canvas` | Lienzo infinito (beta): nodos, formas, trazos y conectores ([§41](#41-lienzo-infinito-canvas-beta)) |
+| `canvas` | Lienzo infinito: nodos, formas, trazos y conectores ([§41](#41-lienzo-infinito-canvas)) |
 | `embed` | Iframe/WebView (YouTube, web general) |
 
 ### Tablero Kanban (`kanban`)
@@ -824,9 +824,9 @@ Implementado en `lib/features/workspace/shell/workspace_page_page_tools.dart`.
 
 ---
 
-## 41. Lienzo infinito (canvas, beta)
+## 41. Lienzo infinito (canvas)
 
-- Bloque `canvas` en el catálogo (`block_type_catalog.dart`, sección avanzada, **beta**).
+- Bloque `canvas` en el catálogo (`block_type_catalog.dart`, sección avanzada).
 - Al abrir una página que contiene el bloque, la interfaz pasa a `CanvasPage` (`lib/features/workspace/canvas/canvas_page.dart`), del mismo modo que la vista dedicada del tablero Kanban.
 - Motor `FolioCanvasBoard` (`lib/features/workspace/canvas/folio_canvas_board.dart`): pan y zoom ilimitados con `InteractiveViewer`; nodos de texto, formas geométricas, imágenes; conectores entre nodos; dibujo libre (trazos); persistencia con debounce de 500 ms en `FolioCanvasData` serializado en `block.text`.
 - Más de un bloque `canvas` en la misma página muestra aviso localizado (`canvasMultipleBlocksSnack`); se utiliza el primero.

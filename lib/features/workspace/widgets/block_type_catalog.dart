@@ -197,7 +197,6 @@ const blockTypeCatalog = <BlockTypeDef>[
     hint: 'Pizarra libre con nodos, formas y flechas',
     icon: Icons.gesture_rounded,
     section: BlockTypeSection.advanced,
-    beta: true,
   ),
   BlockTypeDef(
     key: 'embed',

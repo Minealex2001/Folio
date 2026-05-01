@@ -319,7 +319,7 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
           _error = AppLocalizations.of(context).minCharactersError(_minLen);
           return;
         }
-        if (_passwordStrength != _PasswordStrength.strong) {
+        if (!_meetsVaultMasterPasswordPolicy(_passwordStrength)) {
           _error = AppLocalizations.of(context).passwordMustBeStrongError;
           return;
         }
@@ -486,7 +486,7 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
       setState(() => _error = l10n.minCharactersError(_minLen));
       return;
     }
-    if (_passwordStrengthFor(pwd) != _PasswordStrength.strong) {
+    if (!_meetsVaultMasterPasswordPolicy(_passwordStrengthFor(pwd))) {
       setState(() => _error = l10n.passwordMustBeStrongError);
       return;
     }
@@ -1949,3 +1949,6 @@ _PasswordStrength _passwordStrengthFor(String text) {
   if (score == 3 || score == 4) return _PasswordStrength.fair;
   return _PasswordStrength.strong;
 }
+
+bool _meetsVaultMasterPasswordPolicy(_PasswordStrength strength) =>
+    strength == _PasswordStrength.fair || strength == _PasswordStrength.strong;

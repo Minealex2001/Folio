@@ -69,11 +69,11 @@
     }
   },
   "passwordMismatchError": "Passwords do not match.",
-  "passwordMustBeStrongError": "Password must be Strong to continue.",
+  "passwordMustBeStrongError": "Password must be at least Good to continue.",
   "passwordStrengthLabel": "Strength",
   "passwordStrengthVeryWeak": "Very weak",
   "passwordStrengthWeak": "Weak",
-  "passwordStrengthFair": "Fair",
+  "passwordStrengthFair": "Good",
   "passwordStrengthStrong": "Strong",
   "showPassword": "Show password",
   "hidePassword": "Hide password",
@@ -135,7 +135,7 @@
   "@passwordStrengthWithValue": {"placeholders": {"value": {}}},
   "fillAllFieldsError": "Fill in all fields.",
   "newPasswordsMismatchError": "New passwords do not match.",
-  "newPasswordMustBeStrongError": "The new password must be Strong.",
+  "newPasswordMustBeStrongError": "The new password must be at least Good.",
   "newPasswordMustDifferError": "The new password must be different.",
   "incorrectPasswordError": "Incorrect password.",
   "useHelloBiometrics": "Use Hello / biometrics",
@@ -1304,6 +1304,65 @@
   ,"canvasExportSuccess": "Canvas exported successfully"
   ,"canvasExportError": "Error exporting the canvas"
   ,"canvasDeleteNodeConfirm": "Delete this node?"
+  ,"canvasConnectTapTarget": "Tap the destination node to connect"
+  ,"canvasEmptyNotePlaceholder": "(empty note)"
+  ,"canvasEmptyBlockPlaceholder": "(empty)"
+  ,"canvasColorPickerTooltip": "Color"
+  ,"canvasFolioHintWriteHere": "Write here…"
+  ,"canvasToolbarMarquee": "Rectangular selection"
+  ,"canvasToolbarAddFrame": "Add frame"
+  ,"canvasToolbarLayers": "Layers"
+  ,"canvasToolbarGroup": "Group"
+  ,"canvasToolbarUngroup": "Ungroup"
+  ,"canvasToolbarUndo": "Undo"
+  ,"canvasToolbarRedo": "Redo"
+  ,"canvasToolbarRotate": "Rotate 15°"
+  ,"canvasToolbarSnap": "Snap to grid"
+  ,"canvasToolbarTemplate": "Template"
+  ,"canvasTemplateDialogTitle": "Insert template"
+  ,"canvasTemplateMergeHint": "New items will be added to the canvas."
+  ,"canvasExportPng": "PNG image"
+  ,"canvasExportSvg": "SVG"
+  ,"canvasExportPdf": "PDF"
+  ,"canvasLayersTitle": "Layers"
+  ,"canvasLayerImageBrief": "Image"
+  ,"canvasEdgeInspector": "Connectors"
+  ,"canvasEdgeStyleStraight": "Straight"
+  ,"canvasEdgeStyleArrow": "Arrow"
+  ,"canvasEdgeStyleCurve": "Curved"
+  ,"canvasEdgeStyleBezier": "Bezier"
+  ,"canvasEdgeLabelHint": "Label"
+  ,"canvasDrawInk": "Pen"
+  ,"canvasDrawHighlighter": "Highlighter"
+  ,"canvasDrawEraser": "Eraser"
+  ,"canvasCollabRemoteUpdate": "Canvas updated from collaboration"
+  ,"canvasFrameLabel": "Frame"
+  ,"canvasRichEmbedBadge": "Rich content"
+  ,"canvasMarqueeHint": "Drag on empty area to select"
+  ,"canvasTplMindmapBranch": "Branch"
+  ,"canvasTplFlowStart": "Start"
+  ,"canvasTplFlowProcess": "Process"
+  ,"canvasTplFlowDecision": "Decision?"
+  ,"canvasTplFlowBranchYes": "Yes branch"
+  ,"canvasTplFlowEnd": "End"
+  ,"canvasTplFlowNo": "No"
+  ,"canvasTplFlowEdgeYes": "Yes"
+  ,"canvasTplFlowEdgeNo": "No"
+  ,"canvasTplJourneyTitle": "User journey"
+  ,"canvasTplJourneyDiscover": "Discovery"
+  ,"canvasTplJourneyConsider": "Consideration"
+  ,"canvasTplJourneyBuy": "Purchase"
+  ,"canvasTplJourneyRetain": "Retention"
+  ,"canvasTplSwotTitle": "SWOT analysis"
+  ,"canvasTplSwotStrengths": "Strengths"
+  ,"canvasTplSwotWeaknesses": "Weaknesses"
+  ,"canvasTplSwotOpportunities": "Opportunities"
+  ,"canvasTplSwotThreats": "Threats"
+  ,"canvasTemplateMindmap": "Mind map"
+  ,"canvasTemplateFlowchart": "Flowchart"
+  ,"canvasTemplateUserJourney": "User journey"
+  ,"canvasTemplateSwot": "SWOT"
+  ,"canvasTplMindmapCenter": "Central topic"
   ,"blockTypeDriveLabel": "File Drive"
   ,"blockTypeDriveHint": "Integrated file manager"
   ,"driveBlockRowTitle": "File drive"

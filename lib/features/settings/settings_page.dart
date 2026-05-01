@@ -9196,6 +9196,9 @@ _PasswordStrength _passwordStrengthFor(String text) {
   return _PasswordStrength.strong;
 }
 
+bool _meetsVaultMasterPasswordPolicy(_PasswordStrength strength) =>
+    strength == _PasswordStrength.fair || strength == _PasswordStrength.strong;
+
 class _EncryptPlainVaultDialog extends StatefulWidget {
   const _EncryptPlainVaultDialog({required this.session});
 
@@ -9233,7 +9236,7 @@ class _EncryptPlainVaultDialogState extends State<_EncryptPlainVaultDialog> {
       setState(() => _error = l10n.passwordMismatchError);
       return;
     }
-    if (_passwordStrengthFor(pw) != _PasswordStrength.strong) {
+    if (!_meetsVaultMasterPasswordPolicy(_passwordStrengthFor(pw))) {
       setState(() => _error = l10n.passwordMustBeStrongError);
       return;
     }
@@ -9393,7 +9396,7 @@ class _ChangeMasterPasswordDialogState
       );
       return;
     }
-    if (_passwordStrengthFor(nextPassword) != _PasswordStrength.strong) {
+    if (!_meetsVaultMasterPasswordPolicy(_passwordStrengthFor(nextPassword))) {
       setState(
         () =>
             _error = AppLocalizations.of(context).newPasswordMustBeStrongError,
@@ -9924,7 +9927,7 @@ class _IntegrationAppCard extends StatelessWidget {
 }
 
 class _SettingsPanel extends StatelessWidget {
-  const _SettingsPanel({super.key, required this.child, this.margin});
+  const _SettingsPanel({required this.child, this.margin});
 
   final Widget child;
   final EdgeInsetsGeometry? margin;

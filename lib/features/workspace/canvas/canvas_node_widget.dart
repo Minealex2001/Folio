@@ -1,10 +1,23 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
+import '../../../l10n/generated/app_localizations.dart';
 import '../../../models/folio_canvas_data.dart';
 import '../editor/block_type_catalog.dart';
+import 'canvas_contrast.dart';
 
 /// Modo de interacción del lienzo.
-enum CanvasMode { select, draw, addNote, addShape, addFolioBlock, connect }
+enum CanvasMode {
+  select,
+  marquee,
+  draw,
+  erase,
+  addNote,
+  addShape,
+  addFolioBlock,
+  connect,
+  addFrame,
+}
 
 /// Widget que representa un nodo individual dentro del lienzo infinito.
 class CanvasNodeWidget extends StatefulWidget {
@@ -14,7 +27,8 @@ class CanvasNodeWidget extends StatefulWidget {
     required this.isSelected,
     required this.mode,
     required this.viewportScale,
-    required this.onTap,
+    required this.onSelectTap,
+    this.onDragStart,
     required this.onDragDelta,
     required this.onEditText,
     required this.onToggleChecked,
@@ -26,7 +40,9 @@ class CanvasNodeWidget extends StatefulWidget {
   final bool isSelected;
   final CanvasMode mode;
   final double viewportScale;
-  final VoidCallback onTap;
+  /// [shift] indica si Mayús estaba pulsado (selección múltiple).
+  final void Function({required bool shift}) onSelectTap;
+  final VoidCallback? onDragStart;
   final ValueChanged<Offset> onDragDelta;
   final ValueChanged<String> onEditText;
   final VoidCallback onToggleChecked;
@@ -80,13 +96,20 @@ class _CanvasNodeWidgetState extends State<CanvasNodeWidget> {
   }
 
   Color _nodeColor(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
     final hex = widget.node.color;
     if (hex != null) {
       final clean = hex.replaceAll('#', '');
       final v = int.tryParse(clean, radix: 16);
-      if (v != null) return Color(clean.length == 6 ? (0xFF000000 | v) : v);
+      if (v != null) {
+        final c = Color(clean.length == 6 ? (0xFF000000 | v) : v);
+        if (c.a < 0.2) {
+          return scheme.surfaceContainerHighest;
+        }
+        return c;
+      }
     }
-    return Theme.of(context).colorScheme.surfaceContainerHighest;
+    return scheme.surfaceContainerHighest;
   }
 
   @override
@@ -105,9 +128,15 @@ class _CanvasNodeWidgetState extends State<CanvasNodeWidget> {
         content = _buildImageNode(context);
       case CanvasNodeType.folioBlock:
         content = _buildFolioBlockNode(context);
+      case CanvasNodeType.frame:
+        content = _buildFrameNode(context);
     }
 
     Widget wrapped = GestureDetector(
+      onPanStart: (node.locked ||
+              !(widget.mode == CanvasMode.select || widget.mode == CanvasMode.connect))
+          ? null
+          : (_) => widget.onDragStart?.call(),
       onTap: () {
         if (_editing) {
           _commitEdit();
@@ -116,7 +145,8 @@ class _CanvasNodeWidgetState extends State<CanvasNodeWidget> {
         if (widget.mode == CanvasMode.connect) {
           widget.onConnectFrom();
         } else {
-          widget.onTap();
+          final shift = HardwareKeyboard.instance.isShiftPressed;
+          widget.onSelectTap(shift: shift);
         }
       },
       onDoubleTap: () {
@@ -146,6 +176,7 @@ class _CanvasNodeWidgetState extends State<CanvasNodeWidget> {
         }
       },
       onPanUpdate: (details) {
+        if (node.locked) return;
         if (widget.mode == CanvasMode.select ||
             widget.mode == CanvasMode.connect) {
           widget.onDragDelta(details.delta / widget.viewportScale);
@@ -154,7 +185,8 @@ class _CanvasNodeWidgetState extends State<CanvasNodeWidget> {
       child: content,
     );
 
-    if (selected && widget.mode == CanvasMode.select) {
+    if (selected &&
+        (widget.mode == CanvasMode.select || widget.mode == CanvasMode.marquee)) {
       wrapped = Stack(
         clipBehavior: Clip.none,
         children: [
@@ -174,15 +206,44 @@ class _CanvasNodeWidgetState extends State<CanvasNodeWidget> {
       );
     }
 
+    wrapped = Transform.rotate(
+      angle: node.rotation,
+      child: wrapped,
+    );
+
+    if (!node.visible) {
+      wrapped = Offstage(offstage: true, child: wrapped);
+    }
+
     return wrapped;
   }
 
+  Widget _buildFrameNode(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final l10n = AppLocalizations.of(context);
+    return CustomPaint(
+      painter: _DashedRectPainter(color: scheme.outline),
+      child: Center(
+        child: Padding(
+          padding: const EdgeInsets.all(8),
+          child: Text(
+            widget.node.text.isEmpty ? l10n.canvasFrameLabel : widget.node.text,
+            style: TextStyle(
+              color: scheme.onSurface,
+              fontSize: 13,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
   Widget _buildTextNode(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     final bgColor = _nodeColor(context);
-    final textColor =
-        ThemeData.estimateBrightnessForColor(bgColor) == Brightness.dark
-        ? Colors.white
-        : Colors.black87;
+    final textColor = canvasTextOnBackground(bgColor);
+    final hintColor = canvasSecondaryTextOnBackground(bgColor);
 
     if (_editing) {
       return Container(
@@ -193,7 +254,11 @@ class _CanvasNodeWidgetState extends State<CanvasNodeWidget> {
           autofocus: true,
           maxLines: null,
           style: TextStyle(color: textColor, fontSize: 14),
-          decoration: const InputDecoration.collapsed(hintText: ''),
+          cursorColor: textColor,
+          decoration: InputDecoration.collapsed(
+            hintText: '',
+            hintStyle: TextStyle(color: hintColor),
+          ),
           onSubmitted: (_) => _commitEdit(),
           onTapOutside: (_) => _commitEdit(),
         ),
@@ -204,9 +269,9 @@ class _CanvasNodeWidgetState extends State<CanvasNodeWidget> {
       color: bgColor,
       padding: const EdgeInsets.all(10),
       child: Text(
-        widget.node.text.isEmpty ? '(nota vacía)' : widget.node.text,
+        widget.node.text.isEmpty ? l10n.canvasEmptyNotePlaceholder : widget.node.text,
         style: TextStyle(
-          color: widget.node.text.isEmpty ? Colors.grey : textColor,
+          color: widget.node.text.isEmpty ? hintColor : textColor,
           fontSize: 14,
         ),
       ),
@@ -215,6 +280,7 @@ class _CanvasNodeWidgetState extends State<CanvasNodeWidget> {
 
   Widget _buildShapeNode(BuildContext context) {
     final color = _nodeColor(context);
+    final textColor = canvasTextOnBackground(color);
     return CustomPaint(
       painter: _ShapePainter(
         shapeType: widget.node.shapeType,
@@ -226,7 +292,7 @@ class _CanvasNodeWidgetState extends State<CanvasNodeWidget> {
       child: Center(
         child: Text(
           widget.node.text,
-          style: const TextStyle(fontSize: 13),
+          style: TextStyle(fontSize: 13, color: textColor),
           textAlign: TextAlign.center,
         ),
       ),
@@ -249,6 +315,8 @@ class _CanvasNodeWidgetState extends State<CanvasNodeWidget> {
       blockType: widget.node.folioBlockType ?? 'paragraph',
       text: widget.node.folioBlockText ?? '',
       checked: widget.node.folioBlockChecked ?? false,
+      hasRichPayload: widget.node.folioBlockPayload != null &&
+          widget.node.folioBlockPayload!.trim().isNotEmpty,
       editing: _editing,
       textCtrl: _textCtrl,
       onToggleChecked: widget.onToggleChecked,
@@ -264,6 +332,7 @@ class _FolioBlockRenderer extends StatelessWidget {
     required this.blockType,
     required this.text,
     required this.checked,
+    required this.hasRichPayload,
     required this.editing,
     required this.textCtrl,
     required this.onToggleChecked,
@@ -273,6 +342,7 @@ class _FolioBlockRenderer extends StatelessWidget {
   final String blockType;
   final String text;
   final bool checked;
+  final bool hasRichPayload;
   final bool editing;
   final TextEditingController textCtrl;
   final VoidCallback onToggleChecked;
@@ -281,6 +351,7 @@ class _FolioBlockRenderer extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
+    final l10n = AppLocalizations.of(context);
 
     // Bloques que NO tienen texto editable
     if (blockType == 'divider') {
@@ -301,7 +372,7 @@ class _FolioBlockRenderer extends StatelessWidget {
             decoration: InputDecoration(
               border: InputBorder.none,
               contentPadding: EdgeInsets.zero,
-              hintText: 'Escribe aquí...',
+              hintText: l10n.canvasFolioHintWriteHere,
               hintStyle: TextStyle(
                 color: scheme.onSurfaceVariant.withValues(alpha: 0.45),
               ),
@@ -309,7 +380,7 @@ class _FolioBlockRenderer extends StatelessWidget {
             onTapOutside: (_) => onCommitEdit(),
           )
         : Text(
-            text.isEmpty ? '(vacío)' : text,
+            text.isEmpty ? l10n.canvasEmptyBlockPlaceholder : text,
             style: _textStyle(context).copyWith(
               color: text.isEmpty
                   ? scheme.onSurfaceVariant.withValues(alpha: 0.4)
@@ -319,6 +390,30 @@ class _FolioBlockRenderer extends StatelessWidget {
                   : null,
             ),
           );
+
+    Widget wrapDefault(Widget child) {
+      if (!hasRichPayload) return child;
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Padding(
+            padding: const EdgeInsets.only(left: 8, top: 4),
+            child: Row(
+              children: [
+                Icon(Icons.article_outlined, size: 14, color: scheme.primary),
+                const SizedBox(width: 4),
+                Text(
+                  l10n.canvasRichEmbedBadge,
+                  style: TextStyle(fontSize: 11, color: scheme.primary),
+                ),
+              ],
+            ),
+          ),
+          child,
+        ],
+      );
+    }
 
     switch (blockType) {
       // ── Encabezados ──────────────────────────────────────────────────────
@@ -357,7 +452,7 @@ class _FolioBlockRenderer extends StatelessWidget {
                   child: editing
                       ? textWidget
                       : Text(
-                          text.isEmpty ? '(vacío)' : text,
+                          text.isEmpty ? l10n.canvasEmptyBlockPlaceholder : text,
                           style: _textStyle(context).copyWith(
                             color: checked
                                 ? scheme.onSurfaceVariant.withValues(
@@ -609,11 +704,13 @@ class _FolioBlockRenderer extends StatelessWidget {
 
       // ── Paragraph y resto de tipos con texto ──────────────────────────────
       default:
-        return Container(
-          color: scheme.surface,
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-          alignment: Alignment.topLeft,
-          child: textWidget,
+        return wrapDefault(
+          Container(
+            color: scheme.surface,
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+            alignment: Alignment.topLeft,
+            child: textWidget,
+          ),
         );
     }
   }
@@ -680,6 +777,40 @@ class _FolioBlockRenderer extends StatelessWidget {
         return TextStyle(fontSize: 14, color: scheme.onSurface, height: 1.5);
     }
   }
+}
+
+// ─── Marco punteado ───────────────────────────────────────────────────────────
+
+class _DashedRectPainter extends CustomPainter {
+  _DashedRectPainter({required this.color});
+
+  final Color color;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final r = RRect.fromRectAndRadius(
+      Rect.fromLTWH(0, 0, size.width, size.height),
+      const Radius.circular(8),
+    );
+    final paint = Paint()
+      ..color = color
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 2;
+    const dash = 8.0;
+    final path = Path()..addRRect(r);
+    for (final metric in path.computeMetrics()) {
+      var d = 0.0;
+      while (d < metric.length) {
+        final e = (d + dash).clamp(0.0, metric.length);
+        final seg = metric.extractPath(d, e);
+        canvas.drawPath(seg, paint);
+        d += dash * 2;
+      }
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _DashedRectPainter old) => old.color != color;
 }
 
 // ─── Botón eliminar ──────────────────────────────────────────────────────────

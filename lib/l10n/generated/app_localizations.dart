@@ -427,7 +427,7 @@ abstract class AppLocalizations {
   /// No description provided for @passwordMustBeStrongError.
   ///
   /// In es, this message translates to:
-  /// **'La contraseña debe ser Fuerte para continuar.'**
+  /// **'La contraseña debe ser al menos Buena para continuar.'**
   String get passwordMustBeStrongError;
 
   /// No description provided for @passwordStrengthLabel.
@@ -451,7 +451,7 @@ abstract class AppLocalizations {
   /// No description provided for @passwordStrengthFair.
   ///
   /// In es, this message translates to:
-  /// **'Aceptable'**
+  /// **'Buena'**
   String get passwordStrengthFair;
 
   /// No description provided for @passwordStrengthStrong.
@@ -799,7 +799,7 @@ abstract class AppLocalizations {
   /// No description provided for @newPasswordMustBeStrongError.
   ///
   /// In es, this message translates to:
-  /// **'La nueva contraseña debe ser Fuerte.'**
+  /// **'La nueva contraseña debe ser al menos Buena.'**
   String get newPasswordMustBeStrongError;
 
   /// No description provided for @newPasswordMustDifferError.
@@ -7095,6 +7095,360 @@ abstract class AppLocalizations {
   /// In es, this message translates to:
   /// **'¿Eliminar este nodo?'**
   String get canvasDeleteNodeConfirm;
+
+  /// No description provided for @canvasConnectTapTarget.
+  ///
+  /// In es, this message translates to:
+  /// **'Toca el nodo de destino para conectar'**
+  String get canvasConnectTapTarget;
+
+  /// No description provided for @canvasEmptyNotePlaceholder.
+  ///
+  /// In es, this message translates to:
+  /// **'(nota vacía)'**
+  String get canvasEmptyNotePlaceholder;
+
+  /// No description provided for @canvasEmptyBlockPlaceholder.
+  ///
+  /// In es, this message translates to:
+  /// **'(vacío)'**
+  String get canvasEmptyBlockPlaceholder;
+
+  /// No description provided for @canvasColorPickerTooltip.
+  ///
+  /// In es, this message translates to:
+  /// **'Color'**
+  String get canvasColorPickerTooltip;
+
+  /// No description provided for @canvasFolioHintWriteHere.
+  ///
+  /// In es, this message translates to:
+  /// **'Escribe aquí…'**
+  String get canvasFolioHintWriteHere;
+
+  /// No description provided for @canvasToolbarMarquee.
+  ///
+  /// In es, this message translates to:
+  /// **'Selección rectangular'**
+  String get canvasToolbarMarquee;
+
+  /// No description provided for @canvasToolbarAddFrame.
+  ///
+  /// In es, this message translates to:
+  /// **'Añadir marco'**
+  String get canvasToolbarAddFrame;
+
+  /// No description provided for @canvasToolbarLayers.
+  ///
+  /// In es, this message translates to:
+  /// **'Capas'**
+  String get canvasToolbarLayers;
+
+  /// No description provided for @canvasToolbarGroup.
+  ///
+  /// In es, this message translates to:
+  /// **'Agrupar'**
+  String get canvasToolbarGroup;
+
+  /// No description provided for @canvasToolbarUngroup.
+  ///
+  /// In es, this message translates to:
+  /// **'Desagrupar'**
+  String get canvasToolbarUngroup;
+
+  /// No description provided for @canvasToolbarUndo.
+  ///
+  /// In es, this message translates to:
+  /// **'Deshacer'**
+  String get canvasToolbarUndo;
+
+  /// No description provided for @canvasToolbarRedo.
+  ///
+  /// In es, this message translates to:
+  /// **'Rehacer'**
+  String get canvasToolbarRedo;
+
+  /// No description provided for @canvasToolbarRotate.
+  ///
+  /// In es, this message translates to:
+  /// **'Rotar 15°'**
+  String get canvasToolbarRotate;
+
+  /// No description provided for @canvasToolbarSnap.
+  ///
+  /// In es, this message translates to:
+  /// **'Ajustar a cuadrícula'**
+  String get canvasToolbarSnap;
+
+  /// No description provided for @canvasToolbarTemplate.
+  ///
+  /// In es, this message translates to:
+  /// **'Plantilla'**
+  String get canvasToolbarTemplate;
+
+  /// No description provided for @canvasTemplateDialogTitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Insertar plantilla'**
+  String get canvasTemplateDialogTitle;
+
+  /// No description provided for @canvasTemplateMergeHint.
+  ///
+  /// In es, this message translates to:
+  /// **'Se añadirán elementos al lienzo.'**
+  String get canvasTemplateMergeHint;
+
+  /// No description provided for @canvasExportPng.
+  ///
+  /// In es, this message translates to:
+  /// **'Imagen PNG'**
+  String get canvasExportPng;
+
+  /// No description provided for @canvasExportSvg.
+  ///
+  /// In es, this message translates to:
+  /// **'SVG'**
+  String get canvasExportSvg;
+
+  /// No description provided for @canvasExportPdf.
+  ///
+  /// In es, this message translates to:
+  /// **'PDF'**
+  String get canvasExportPdf;
+
+  /// No description provided for @canvasLayersTitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Capas'**
+  String get canvasLayersTitle;
+
+  /// No description provided for @canvasLayerImageBrief.
+  ///
+  /// In es, this message translates to:
+  /// **'Imagen'**
+  String get canvasLayerImageBrief;
+
+  /// No description provided for @canvasEdgeInspector.
+  ///
+  /// In es, this message translates to:
+  /// **'Conectores'**
+  String get canvasEdgeInspector;
+
+  /// No description provided for @canvasEdgeStyleStraight.
+  ///
+  /// In es, this message translates to:
+  /// **'Recto'**
+  String get canvasEdgeStyleStraight;
+
+  /// No description provided for @canvasEdgeStyleArrow.
+  ///
+  /// In es, this message translates to:
+  /// **'Flecha'**
+  String get canvasEdgeStyleArrow;
+
+  /// No description provided for @canvasEdgeStyleCurve.
+  ///
+  /// In es, this message translates to:
+  /// **'Curva'**
+  String get canvasEdgeStyleCurve;
+
+  /// No description provided for @canvasEdgeStyleBezier.
+  ///
+  /// In es, this message translates to:
+  /// **'Bezier'**
+  String get canvasEdgeStyleBezier;
+
+  /// No description provided for @canvasEdgeLabelHint.
+  ///
+  /// In es, this message translates to:
+  /// **'Etiqueta'**
+  String get canvasEdgeLabelHint;
+
+  /// No description provided for @canvasDrawInk.
+  ///
+  /// In es, this message translates to:
+  /// **'Bolígrafo'**
+  String get canvasDrawInk;
+
+  /// No description provided for @canvasDrawHighlighter.
+  ///
+  /// In es, this message translates to:
+  /// **'Resaltador'**
+  String get canvasDrawHighlighter;
+
+  /// No description provided for @canvasDrawEraser.
+  ///
+  /// In es, this message translates to:
+  /// **'Borrador'**
+  String get canvasDrawEraser;
+
+  /// No description provided for @canvasCollabRemoteUpdate.
+  ///
+  /// In es, this message translates to:
+  /// **'Lienzo actualizado desde la colaboración'**
+  String get canvasCollabRemoteUpdate;
+
+  /// No description provided for @canvasFrameLabel.
+  ///
+  /// In es, this message translates to:
+  /// **'Marco'**
+  String get canvasFrameLabel;
+
+  /// No description provided for @canvasRichEmbedBadge.
+  ///
+  /// In es, this message translates to:
+  /// **'Contenido enriquecido'**
+  String get canvasRichEmbedBadge;
+
+  /// No description provided for @canvasMarqueeHint.
+  ///
+  /// In es, this message translates to:
+  /// **'Arrastra en el vacío para seleccionar'**
+  String get canvasMarqueeHint;
+
+  /// No description provided for @canvasTplMindmapBranch.
+  ///
+  /// In es, this message translates to:
+  /// **'Rama'**
+  String get canvasTplMindmapBranch;
+
+  /// No description provided for @canvasTplFlowStart.
+  ///
+  /// In es, this message translates to:
+  /// **'Inicio'**
+  String get canvasTplFlowStart;
+
+  /// No description provided for @canvasTplFlowProcess.
+  ///
+  /// In es, this message translates to:
+  /// **'Proceso'**
+  String get canvasTplFlowProcess;
+
+  /// No description provided for @canvasTplFlowDecision.
+  ///
+  /// In es, this message translates to:
+  /// **'¿Decisión?'**
+  String get canvasTplFlowDecision;
+
+  /// No description provided for @canvasTplFlowBranchYes.
+  ///
+  /// In es, this message translates to:
+  /// **'Rama sí'**
+  String get canvasTplFlowBranchYes;
+
+  /// No description provided for @canvasTplFlowEnd.
+  ///
+  /// In es, this message translates to:
+  /// **'Fin'**
+  String get canvasTplFlowEnd;
+
+  /// No description provided for @canvasTplFlowNo.
+  ///
+  /// In es, this message translates to:
+  /// **'No'**
+  String get canvasTplFlowNo;
+
+  /// No description provided for @canvasTplFlowEdgeYes.
+  ///
+  /// In es, this message translates to:
+  /// **'Sí'**
+  String get canvasTplFlowEdgeYes;
+
+  /// No description provided for @canvasTplFlowEdgeNo.
+  ///
+  /// In es, this message translates to:
+  /// **'No'**
+  String get canvasTplFlowEdgeNo;
+
+  /// No description provided for @canvasTplJourneyTitle.
+  ///
+  /// In es, this message translates to:
+  /// **'User journey'**
+  String get canvasTplJourneyTitle;
+
+  /// No description provided for @canvasTplJourneyDiscover.
+  ///
+  /// In es, this message translates to:
+  /// **'Descubrimiento'**
+  String get canvasTplJourneyDiscover;
+
+  /// No description provided for @canvasTplJourneyConsider.
+  ///
+  /// In es, this message translates to:
+  /// **'Consideración'**
+  String get canvasTplJourneyConsider;
+
+  /// No description provided for @canvasTplJourneyBuy.
+  ///
+  /// In es, this message translates to:
+  /// **'Compra'**
+  String get canvasTplJourneyBuy;
+
+  /// No description provided for @canvasTplJourneyRetain.
+  ///
+  /// In es, this message translates to:
+  /// **'Retención'**
+  String get canvasTplJourneyRetain;
+
+  /// No description provided for @canvasTplSwotTitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Análisis SWOT'**
+  String get canvasTplSwotTitle;
+
+  /// No description provided for @canvasTplSwotStrengths.
+  ///
+  /// In es, this message translates to:
+  /// **'Fortalezas'**
+  String get canvasTplSwotStrengths;
+
+  /// No description provided for @canvasTplSwotWeaknesses.
+  ///
+  /// In es, this message translates to:
+  /// **'Debilidades'**
+  String get canvasTplSwotWeaknesses;
+
+  /// No description provided for @canvasTplSwotOpportunities.
+  ///
+  /// In es, this message translates to:
+  /// **'Oportunidades'**
+  String get canvasTplSwotOpportunities;
+
+  /// No description provided for @canvasTplSwotThreats.
+  ///
+  /// In es, this message translates to:
+  /// **'Amenazas'**
+  String get canvasTplSwotThreats;
+
+  /// No description provided for @canvasTemplateMindmap.
+  ///
+  /// In es, this message translates to:
+  /// **'Mapa mental'**
+  String get canvasTemplateMindmap;
+
+  /// No description provided for @canvasTemplateFlowchart.
+  ///
+  /// In es, this message translates to:
+  /// **'Diagrama de flujo'**
+  String get canvasTemplateFlowchart;
+
+  /// No description provided for @canvasTemplateUserJourney.
+  ///
+  /// In es, this message translates to:
+  /// **'User journey'**
+  String get canvasTemplateUserJourney;
+
+  /// No description provided for @canvasTemplateSwot.
+  ///
+  /// In es, this message translates to:
+  /// **'SWOT'**
+  String get canvasTemplateSwot;
+
+  /// No description provided for @canvasTplMindmapCenter.
+  ///
+  /// In es, this message translates to:
+  /// **'Tema central'**
+  String get canvasTplMindmapCenter;
 
   /// No description provided for @blockTypeDriveLabel.
   ///
