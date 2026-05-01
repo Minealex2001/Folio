@@ -1,7 +1,7 @@
 # Folio — Inventario completo de funcionalidades implementadas
 
 > Documento generado a partir de una exploración exhaustiva del código fuente.  
-> Última actualización sincronizada con la rama principal del repositorio.
+> Última revisión: 2026-05-01 (sincronizado con el estado del repositorio).
 
 ---
 
@@ -47,6 +47,10 @@
 38. [Bloques sincronizados](#38-bloques-sincronizados)
 39. [Vista de grafo](#39-vista-de-grafo)
 40. [Importar PDF con anotaciones](#40-importar-pdf-con-anotaciones)
+41. [Lienzo infinito (canvas, beta)](#41-lienzo-infinito-canvas-beta)
+42. [Pantalla de inicio (Home)](#42-pantalla-de-inicio-home)
+
+**Apéndice:** [configuración persistida (`AppSettings`)](#apéndice-configuración-persistida-appsettings)
 
 ---
 
@@ -67,7 +71,7 @@ La app es **local-first**: los datos se almacenan en disco; la nube (Firebase) e
 
 ## 2. Editor de bloques
 
-El editor es completamente personalizado (no usa un widget de terceros como editor principal). Está implementado en `lib/features/workspace/editor/block_editor/block_editor_state.dart` (~5 000 líneas) y sus ficheros de despacho asociados.
+El editor es completamente personalizado (no usa un widget de terceros como editor principal). Está implementado en `lib/features/workspace/editor/block_editor/block_editor_state.dart` (parte de `block_editor.dart`; ~5 250 líneas) y sus ficheros de despacho asociados.
 
 ### Comportamiento general
 
@@ -81,46 +85,51 @@ El editor es completamente personalizado (no usa un widget de terceros como edit
 
 ## 3. Tipos de bloque
 
-31+ tipos catalogados en `lib/features/workspace/editor/block_editor/block_type_catalog.dart`:
+**31 tipos** en el menú `/` y el selector de tipo (`blockTypeTemplates` en `lib/features/workspace/editor/block_type_catalog.dart`). El modelo de página admite además tipos como `task` (tareas del sistema) que no están en esa lista del slash.
 
 | Clave | Descripción |
 |---|---|
 | `paragraph` | Párrafo de texto rico (WYSIWYG) |
+| `child_page` | Enlace a subpágina |
 | `h1` | Encabezado 1 (WYSIWYG) |
 | `h2` | Encabezado 2 (WYSIWYG) |
 | `h3` | Encabezado 3 (WYSIWYG) |
 | `quote` | Cita con barra lateral (WYSIWYG) |
+| `divider` | Separador horizontal |
 | `callout` | Bloque callout con icono emoji (WYSIWYG) |
 | `bullet` | Lista de viñetas (WYSIWYG, anidable) |
 | `numbered` | Lista numerada (WYSIWYG, anidable) |
 | `todo` | Lista de tareas con checkbox (WYSIWYG, anidable) |
 | `toggle` | Sección colapsable (WYSIWYG) |
-| `divider` | Separador horizontal |
 | `image` | Imagen local, remota o URL |
+| `bookmark` | Marcador de URL con título y favicon |
 | `video` | Video local o URL |
 | `audio` | Audio local |
-| `file` | Archivo adjunto genérico |
-| `bookmark` | Marcador de URL con título y favicon |
-| `embed` | Iframe/WebView (YouTube, web general) |
+| `meeting_note` | Nota de reunión con grabación y transcripción (beta) |
 | `code` | Bloque de código con resaltado sintáctico |
-| `equation` | Ecuación LaTeX |
-| `mermaid` | Diagrama Mermaid (fuente editable + preview) |
+| `file` | Archivo adjunto genérico |
 | `table` | Tabla editable (`FolioTableData`) |
 | `database` | Base de datos (beta, `FolioDatabaseData`) |
-| `kanban` | Tablero kanban (beta) |
+| `kanban` | Tablero Kanban de página (`FolioKanbanData`; detalle en la subsección *Tablero Kanban*) |
+| `drive` | Integración Drive |
+| `equation` | Ecuación LaTeX |
+| `mermaid` | Diagrama Mermaid (fuente editable + preview) |
 | `toc` | Tabla de contenidos automática |
 | `breadcrumb` | Miga de pan de la página |
 | `template_button` | Botón de plantilla con bloques predefinidos |
 | `column_list` | Columnas de bloques |
-| `child_page` | Enlace a subpágina |
-| `meeting_note` | Nota de reunión con grabación y transcripción (beta) |
-| `drive` | Integración Drive |
-| `task` | Tarea del sistema (`lib/services/tasks/`) |
+| `canvas` | Lienzo infinito (beta): nodos, formas, trazos y conectores ([§41](#41-lienzo-infinito-canvas-beta)) |
+| `embed` | Iframe/WebView (YouTube, web general) |
+
+### Tablero Kanban (`kanban`)
+
+- Configuración serializada en `block.text` como `FolioKanbanData` (`lib/models/folio_kanban_data.dart`).
+- Vista de página: `KanbanBoardPage` (`lib/features/workspace/kanban/kanban_board_page.dart`) — columnas, tarjetas vinculadas a tareas, conmutación entre vista tablero y editor clásico (banner `kanbanClassicModeBanner`, acciones `kanbanToolbarOpenEditor` / `kanbanToolbarAddTask`).
+- Varias instancias del bloque en la misma página: aviso `kanbanMultipleBlocksSnack` (se usa el primero).
 
 ### Selector de tipo de bloque
 
-- Diálogo centrado en escritorio/tablet: `BlockTypePickerDialog`
-- Bottom sheet en móvil Android: `BlockTypePickerSheet`
+- Diálogo centrado en escritorio/tablet y bottom sheet en móvil: `BlockTypePickerDialog` / `BlockTypePickerSheet` en `lib/features/workspace/editor/block_editor_support_widgets.dart`.
 
 ---
 
@@ -557,8 +566,8 @@ El usuario puede añadir contexto al chat IA usando el menú `@` en el campo de 
 
 ### Microsoft Store
 
-- La app se distribuye a través de Microsoft Store (ver `installer.iss` para el instalador MSIX).
-- `Folio-MicrosoftStore-0.0.3-5.msix` en `/Output/`.
+- La app se distribuye a través de Microsoft Store (ver `installer.iss` y el workflow de CI para artefactos MSIX).
+- Los paquetes MSIX generados en release suelen ubicarse bajo `Output/` con nombre acorde a la versión del manifiesto.
 
 ### Suscripción y entitlements
 
@@ -733,25 +742,7 @@ Flujo de bienvenida (`lib/features/onboarding/`):
 - Flags de build: `folio_build_flags` (debug/profile/release, plataforma, versión).
 - Log estructurado: `AppLogger` (`lib/services/app_logger.dart`).
 - Historial de sesiones IA y gestión de hilos persistida localmente.
-
----
-
-## Apéndice: configuración persistida (`AppSettings`)
-
-| Clave | Tipo | Descripción |
-|---|---|---|
-| `themeMode` | enum | Tema (claro/oscuro/sistema) |
-| `accentColorMode` | enum | Modo de color de acento |
-| `uiScale` | double | Factor de escala de UI |
-| `uiScaleMode` | enum | Modo de escala (auto/manual) |
-| `aiProvider` | enum | Proveedor IA seleccionado |
-| `syncEnabled` | bool | Sync P2P activada |
-| `syncRelayEnabled` | bool | Relay P2P activado |
-| `syncDeviceId` | String | ID único del dispositivo |
-| `syncDeviceName` | String | Nombre del dispositivo en la red |
-| `syncPendingConflicts` | List | Conflictos de sync pendientes de resolución |
-| `syncLastSuccessMs` | int | Timestamp del último sync exitoso |
-| `enterCreatesNewBlock` | bool | `Enter` crea nuevo bloque (vs salto de línea) |
+- Telemetría opcional (Analytics / eventos con sesión Cloud): ver `docs/TELEMETRY.md`; desactivable en Ajustes → Privacidad.
 
 ---
 
@@ -830,3 +821,76 @@ Implementado en `lib/features/workspace/shell/workspace_page_page_tools.dart`.
   - Las anotaciones se formatean como bloques de cita `> [Anotación]: texto`.
 - **Resultado**: llama a `_s.importMarkdownDocument(fileName, markdown)` para crear una nueva página en la libreta.
 - **Feedback**: snackbar de éxito (`importPdfSuccess`) o error (`importPdfFailed`); aviso si no se encontró texto (`importPdfNoText`).
+
+---
+
+## 41. Lienzo infinito (canvas, beta)
+
+- Bloque `canvas` en el catálogo (`block_type_catalog.dart`, sección avanzada, **beta**).
+- Al abrir una página que contiene el bloque, la interfaz pasa a `CanvasPage` (`lib/features/workspace/canvas/canvas_page.dart`), del mismo modo que la vista dedicada del tablero Kanban.
+- Motor `FolioCanvasBoard` (`lib/features/workspace/canvas/folio_canvas_board.dart`): pan y zoom ilimitados con `InteractiveViewer`; nodos de texto, formas geométricas, imágenes; conectores entre nodos; dibujo libre (trazos); persistencia con debounce de 500 ms en `FolioCanvasData` serializado en `block.text`.
+- Más de un bloque `canvas` en la misma página muestra aviso localizado (`canvasMultipleBlocksSnack`); se utiliza el primero.
+
+---
+
+## 42. Pantalla de inicio (Home)
+
+Vista central del workspace cuando **no hay página abierta** (`page == null` en `VaultSession`). `WorkspaceEditorSurface` (`lib/features/workspace/shell/workspace_editor_surface.dart`) muestra entonces `WorkspaceHomeView` (`lib/features/workspace/shell/workspace_home_view.dart`) con transición `AnimatedSwitcher`.
+
+### Abrir siempre en Home
+
+- Ajustes del workspace: interruptor **«Abrir al inicio»** (p. ej. `settingsWorkspaceOpenToHomeTitle` en l10n; el subtítulo aclara que aplica **tras desbloquear** el cofre) — persiste `folio_workspace_open_to_home` (`WorkspacePrefsKeys.openWorkspaceToHome`).
+- Al aplicar la selección inicial de página, `VaultSession._applyInitialPageSelection()` (`lib/session/vault_session.dart`) lee esa preferencia: si está activa, deja `_selectedPageId == null` y se muestra Home en lugar de restaurar la última página guardada o la primera raíz.
+
+### Cabecera y reloj
+
+- Saludo según la hora local (`workspaceHomeGreetingMorning` / `Afternoon` / `Evening` / `Night`).
+- Fecha larga y hora destacada; opciones en la hoja de personalización: **12 h / 24 h**, **mostrar segundos**, **mostrar zona horaria** (`workspaceHomeClock*` en `AppSettings`).
+
+### Diseño en columnas
+
+- `WorkspaceHomeColumnLayout`: **automático** (dos columnas si el ancho ≥ 880 px y el modo no es compacto/móvil), **una columna** o **dos columnas** forzadas (en dual, umbral reducido a 640 px).
+- Ancho máximo del contenido ~1040 px en dos columnas y ~600 px en una.
+
+### Módulos (ordenables y opcionales)
+
+Los bloques de contenido se identifican por `WorkspaceHomeSectionIds` (`lib/app/app_settings.dart`): orden por defecto en columna izquierda `folio_cloud`, `vault_status`, `onboarding`, `whats_new`, `search`, `root_pages`, `mini_stats`, `recents`; en la derecha `tasks`, `quick_actions`, `tip`, `create_page`. El usuario puede **reordenar** listas izquierda/derecha y **mostrar u ocultar** cada sección desde el bottom sheet «personalizar» (icono de afinación en la cabecera).
+
+| ID (interno) | Rol |
+|---|---|
+| `folio_cloud` | Tarjeta rápida Folio Cloud si hay Firebase y sesión iniciada |
+| `vault_status` | Resumen / estado del cofre |
+| `onboarding` | Tarjeta de bienvenida (lógica de primera vez y cierre) |
+| `whats_new` | Novedades de versión (descarte por versión en prefs) |
+| `search` | Campo que filtra **páginas recientes** por título; envío / icono abre **búsqueda global** con la consulta |
+| `root_pages` | Hasta 8 páginas raíz como chips con icono |
+| `mini_stats` | Conteo de páginas y tareas próximas |
+| `recents` | Lista de visitas recientes (`RecentPageVisitsChangeNotifier`, `lib/features/workspace/recent_page_visits.dart`) |
+| `tasks` | Tareas con vencimiento en **14 días**, franja semanal de conteos; chip opcional para **preguntar a la IA** sobre esas tareas si el runtime de IA está habilitado |
+| `quick_actions` | Accesos: ajustes, **vista de grafo**, plantillas, bloquear cofre, sync de dispositivos, tarea rápida, carpeta raíz, importar Markdown |
+| `tip` | Consejo del día (12 textos rotativos según fecha) |
+| `create_page` | Botón principal crear página |
+
+### Otras notas
+
+- Vista adaptada a `compact` / `mobileOptimized` (menos columnas y márgenes).
+- Cuenta Cloud y `FolioCloudEntitlementsController` alimentan la tarjeta Cloud y el estado de suscripción cuando aplica.
+
+---
+
+## Apéndice: configuración persistida (`AppSettings`)
+
+| Clave | Tipo | Descripción |
+|---|---|---|
+| `themeMode` | enum | Tema (claro/oscuro/sistema) |
+| `accentColorMode` | enum | Modo de color de acento |
+| `uiScale` | double | Factor de escala de UI |
+| `uiScaleMode` | enum | Modo de escala (auto/manual) |
+| `aiProvider` | enum | Proveedor IA seleccionado |
+| `syncEnabled` | bool | Sync P2P activada |
+| `syncRelayEnabled` | bool | Relay P2P activado |
+| `syncDeviceId` | String | ID único del dispositivo |
+| `syncDeviceName` | String | Nombre del dispositivo en la red |
+| `syncPendingConflicts` | List | Conflictos de sync pendientes de resolución |
+| `syncLastSuccessMs` | int | Timestamp del último sync exitoso |
+| `enterCreatesNewBlock` | bool | `Enter` crea nuevo bloque (vs salto de línea) |
