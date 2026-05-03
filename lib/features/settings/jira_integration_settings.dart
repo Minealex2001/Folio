@@ -779,7 +779,7 @@ class _CreateOrEditSourceDialogState extends State<_CreateOrEditSourceDialog> {
                 _projectCtrl.text = b.projectKey!;
               }
               if (_nameCtrl.text.trim().isEmpty) {
-                _nameCtrl.text = '${b.name}';
+                _nameCtrl.text = b.name;
               }
               setState(() {});
             },
@@ -839,7 +839,7 @@ class _CreateOrEditSourceDialogState extends State<_CreateOrEditSourceDialog> {
               children: [
                 Expanded(
                   child: DropdownButtonFormField<JiraConnection>(
-                    value: _selected,
+                    initialValue: _selected,
                     decoration: InputDecoration(
                       labelText: isEs ? 'Conexión' : 'Connection',
                       border: const OutlineInputBorder(),
@@ -883,7 +883,7 @@ class _CreateOrEditSourceDialogState extends State<_CreateOrEditSourceDialog> {
             ],
             const SizedBox(height: 10),
             DropdownButtonFormField<JiraSourceType>(
-              value: _type,
+              initialValue: _type,
               decoration: InputDecoration(
                 labelText: isEs ? 'Tipo' : 'Type',
                 border: const OutlineInputBorder(),
@@ -988,7 +988,7 @@ class _ConnectionsTab extends StatelessWidget {
                 )
               : ListView.separated(
                   itemCount: connections.length,
-                  separatorBuilder: (_, __) => const SizedBox(height: 10),
+                  separatorBuilder: (_, _) => const SizedBox(height: 10),
                   itemBuilder: (context, i) {
                     final c = connections[i];
                     final subtitle = c.deployment == JiraDeployment.cloud
@@ -1111,7 +1111,7 @@ class _SourcesTab extends StatelessWidget {
                 )
               : ListView.separated(
                   itemCount: sources.length,
-                  separatorBuilder: (_, __) => const SizedBox(height: 10),
+                  separatorBuilder: (_, _) => const SizedBox(height: 10),
                   itemBuilder: (context, i) {
                     final s = sources[i];
                     final subtitle = switch (s.type) {

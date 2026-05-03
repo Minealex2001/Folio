@@ -105,7 +105,7 @@ class FolioMarkdownCodec {
       }
     }
 
-    return out.join('\n').trimRight() + '\n';
+    return '${out.join('\n').trimRight()}\n';
   }
 
   /// Parses a Markdown string into a list of [FolioBlock]s.

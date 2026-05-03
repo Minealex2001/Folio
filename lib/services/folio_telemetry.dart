@@ -181,7 +181,7 @@ class FolioTelemetry {
         parameters: {
           'search_term': queryType.trim(),
           'result_count': resultCount,
-          if (durationMs != null) 'duration_ms': durationMs,
+          'duration_ms': ?durationMs,
         },
       );
       _logEventToFirestore(
@@ -213,7 +213,7 @@ class FolioTelemetry {
           'success': success,
           if (errorMessage != null && errorMessage.isNotEmpty)
             'error': errorMessage,
-          if (durationMs != null) 'duration_ms': durationMs,
+          'duration_ms': ?durationMs,
         },
       );
       _logEventToFirestore(

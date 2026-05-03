@@ -787,7 +787,7 @@ class FolioDatabaseData {
       case 'round':
         if (args.isEmpty) return 0;
         final decimals = args.length >= 2 ? (_asNum(args[1])).toInt() : 0;
-        final factor = _asNum('1' + ('0' * decimals));
+        final factor = _asNum('1${'0' * decimals}');
         return ((_asNum(args[0]) * factor).round()) / factor;
       case 'abs':
         return args.isEmpty ? 0 : (_asNum(args[0])).abs();

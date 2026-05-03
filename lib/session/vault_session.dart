@@ -1485,8 +1485,9 @@ class VaultSession extends ChangeNotifier {
   }
 
   Future<void> unlockWithDeviceAuth() async {
-    if (kIsWeb)
+    if (kIsWeb) {
       throw UnsupportedError('Device authentication is not available on web');
+    }
     final supported = await _localAuth.isDeviceSupported();
     if (!supported) {
       throw StateError('Este dispositivo no admite biometría o Windows Hello');
@@ -1619,8 +1620,9 @@ class VaultSession extends ChangeNotifier {
   }
 
   Future<void> enableDeviceQuickUnlock() async {
-    if (kIsWeb)
+    if (kIsWeb) {
       throw UnsupportedError('Device authentication is not available on web');
+    }
     if (!vaultUsesEncryption) {
       throw StateError('El desbloqueo rápido requiere libreta cifrada');
     }

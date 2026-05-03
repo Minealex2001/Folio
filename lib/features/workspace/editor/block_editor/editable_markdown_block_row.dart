@@ -412,7 +412,7 @@ Widget _buildEditableMarkdownBlockRow(_BlockRowScope s) {
   /// pantalla completa, hit-test erróneos y bloques grises gigantes.
   /// Aparece ENCIMA del texto cuando hay selección activa, con animación de
   /// altura y opacidad para que se sienta flotante sin usar Overlay.
-  final Widget _toolbarContent = Padding(
+  final Widget toolbarContent = Padding(
     padding: const EdgeInsets.only(bottom: FolioSpace.xs),
     child: Align(
       alignment: Alignment.centerLeft,
@@ -459,7 +459,7 @@ Widget _buildEditableMarkdownBlockRow(_BlockRowScope s) {
         crossFadeState: showFloatingToolbar
             ? CrossFadeState.showFirst
             : CrossFadeState.showSecond,
-        firstChild: _toolbarContent,
+        firstChild: toolbarContent,
         secondChild: const SizedBox.shrink(),
       ),
       textContainer,

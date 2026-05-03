@@ -736,7 +736,7 @@ class _KanbanBoardPageState extends State<KanbanBoardPage> {
                                 crossAxisAlignment: CrossAxisAlignment.stretch,
                                 children: [
                                   DropdownButtonFormField<String?>(
-                                    value: selectedValue,
+                                    initialValue: selectedValue,
                                     decoration: InputDecoration(
                                       labelText: isEs
                                           ? 'Fuente Jira (opcional)'
@@ -1346,8 +1346,9 @@ class _KanbanColumn extends StatelessWidget {
                           final e = entries[i];
                           final subtitle = StringBuffer();
                           if (e.blockType == 'task') {
-                            if (e.dueDate != null)
+                            if (e.dueDate != null) {
                               subtitle.write(_fmtDue(e.dueDate!));
+                            }
                             if (e.priority != null) {
                               if (subtitle.isNotEmpty) subtitle.write(' · ');
                               subtitle.write(e.priority);

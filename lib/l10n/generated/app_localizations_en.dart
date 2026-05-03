@@ -35,6 +35,89 @@ class AppLocalizationsEn extends AppLocalizations {
   String get retry => 'Retry';
 
   @override
+  String get skip => 'Skip';
+
+  @override
+  String onboardingProgressSemantics(int current, int total) {
+    return 'Step $current of $total';
+  }
+
+  @override
+  String get welcomeOptionCreateTitle => 'Create a new vault';
+
+  @override
+  String get welcomeOptionCreateBody =>
+      'Start with a blank encrypted vault on this device.';
+
+  @override
+  String get welcomeOptionImportTitle => 'I have data to import';
+
+  @override
+  String get welcomeOptionImportBody =>
+      'Restore from a backup file, Folio Cloud, or a Notion export.';
+
+  @override
+  String get welcomeNewVaultTitle => 'New vault';
+
+  @override
+  String get welcomeNewVaultBody =>
+      'Choose a master password and optional starter pages. You can change other settings later in Settings.';
+
+  @override
+  String get newVaultLeftPanelTitle => 'New vault';
+
+  @override
+  String get newVaultLeftPanelBody =>
+      'Create an additional encrypted vault on this device.';
+
+  @override
+  String get importSourceTitle => 'Where is your data?';
+
+  @override
+  String get importSourceBody =>
+      'Pick a source. You can change other settings later in Settings.';
+
+  @override
+  String get importSourceBackupSubtitle =>
+      'A .zip backup you exported from Folio on another device.';
+
+  @override
+  String get importSourceCloudSubtitle =>
+      'List and download a backup from your Folio Cloud account.';
+
+  @override
+  String get importSourceNotionSubtitle =>
+      'A Notion HTML/Markdown export as a .zip file.';
+
+  @override
+  String get onboardingAppearanceTitle => 'Appearance';
+
+  @override
+  String get onboardingAppearanceBody =>
+      'Choose theme brightness and accent color. You can refine this later in Settings.';
+
+  @override
+  String get onboardingSecurityTitle => 'Security';
+
+  @override
+  String get onboardingSecurityBody =>
+      'Configure automatic locking while Folio is open and when you minimize the window.';
+
+  @override
+  String get onboardingBackupsTitle => 'Scheduled backups';
+
+  @override
+  String get onboardingBackupsBody =>
+      'Optionally enable automatic encrypted backups on an interval. You can change folders and cloud upload in Settings.';
+
+  @override
+  String get onboardingSystemTitle => 'Windows behavior';
+
+  @override
+  String get onboardingSystemBody =>
+      'Tray and notification preferences for Folio on Windows.';
+
+  @override
   String get settings => 'Settings';
 
   @override
@@ -133,6 +216,10 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get readyBody =>
       'An encrypted vault will be created on this device. Later you can add Windows Hello, biometrics, or a passkey for faster unlock (Settings).';
+
+  @override
+  String get readyBodyPlainVault =>
+      'A non-encrypted vault will be created on this device. You can change more options in Settings whenever you like.';
 
   @override
   String get quillIntroTitle => 'Meet Quill';

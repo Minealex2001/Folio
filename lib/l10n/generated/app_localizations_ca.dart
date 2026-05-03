@@ -35,6 +35,89 @@ class AppLocalizationsCa extends AppLocalizations {
   String get retry => 'Torna-ho a provar';
 
   @override
+  String get skip => 'Omet';
+
+  @override
+  String onboardingProgressSemantics(int current, int total) {
+    return 'Pas $current de $total';
+  }
+
+  @override
+  String get welcomeOptionCreateTitle => 'Crea un quadern nou';
+
+  @override
+  String get welcomeOptionCreateBody =>
+      'Comença amb un quadern buit xifrat en aquest dispositiu.';
+
+  @override
+  String get welcomeOptionImportTitle => 'Tinc dades per importar';
+
+  @override
+  String get welcomeOptionImportBody =>
+      'Restaura des d’una còpia, Folio Cloud o una exportació de Notion.';
+
+  @override
+  String get welcomeNewVaultTitle => 'Quadern nou';
+
+  @override
+  String get welcomeNewVaultBody =>
+      'Trieu una contrasenya mestra i, si voleu, pàgines d’ajuda inicials. La resta d’ajustos es poden canviar després a Configuració.';
+
+  @override
+  String get newVaultLeftPanelTitle => 'Quadern nou';
+
+  @override
+  String get newVaultLeftPanelBody =>
+      'Crea un quadern xifrat addicional en aquest dispositiu.';
+
+  @override
+  String get importSourceTitle => 'On són les teves dades?';
+
+  @override
+  String get importSourceBody =>
+      'Trieu un origen. La resta d’ajustos es poden canviar després a Configuració.';
+
+  @override
+  String get importSourceBackupSubtitle =>
+      'Una còpia .zip exportada des de Folio en un altre dispositiu.';
+
+  @override
+  String get importSourceCloudSubtitle =>
+      'Llista i descarrega una còpia des del compte de Folio Cloud.';
+
+  @override
+  String get importSourceNotionSubtitle =>
+      'Una exportació HTML/Markdown de Notion en un fitxer .zip.';
+
+  @override
+  String get onboardingAppearanceTitle => 'Aparença';
+
+  @override
+  String get onboardingAppearanceBody =>
+      'Trieu el brill del tema i el color d’accent. Es pot afinar després a Configuració.';
+
+  @override
+  String get onboardingSecurityTitle => 'Seguretat';
+
+  @override
+  String get onboardingSecurityBody =>
+      'Configureu el bloqueig automàtic mentre Folio està obert i en minimitzar la finestra.';
+
+  @override
+  String get onboardingBackupsTitle => 'Còpies programades';
+
+  @override
+  String get onboardingBackupsBody =>
+      'Opcionalment activeu còpies xifrades automàtiques en un interval. Les carpetes i la pujada al núvol es poden canviar a Configuració.';
+
+  @override
+  String get onboardingSystemTitle => 'Comportament a Windows';
+
+  @override
+  String get onboardingSystemBody =>
+      'Preferències de safata i notificacions de Folio a Windows.';
+
+  @override
   String get settings => 'Configuració';
 
   @override
@@ -133,6 +216,10 @@ class AppLocalizationsCa extends AppLocalizations {
   @override
   String get readyBody =>
       'Es crearà una caixa forta xifrada en aquest dispositiu. Més tard podràs afegir Windows Hello, biometria o una clau de pas per a un desbloqueig més ràpid (Configuració).';
+
+  @override
+  String get readyBodyPlainVault =>
+      'Es crearà una caixa forta sense xifrar en aquest dispositiu. Podràs canviar més opcions a Configuració quan vulguis.';
 
   @override
   String get quillIntroTitle => 'Coneix el Quill';

@@ -57,7 +57,7 @@ class _FolioCanvasBoardState extends State<FolioCanvasBoard> {
   List<Offset> _currentStrokePoints = [];
   bool _isDrawing = false;
   Color _drawColor = Colors.black;
-  double _drawWidth = 2.5;
+  final double _drawWidth = 2.5;
 
   Color _nodeColor = const Color(0xFFFFF9C4);
 

@@ -2861,7 +2861,7 @@ class _SettingsPageState extends State<SettingsPage> {
                 children: [
                   if (vaults.length > 1) ...[
                     DropdownButtonFormField<String>(
-                      value: selectedVaultId.isNotEmpty
+                      initialValue: selectedVaultId.isNotEmpty
                           ? selectedVaultId
                           : null,
                       decoration: InputDecoration(
@@ -4674,8 +4674,9 @@ class _SettingsPageState extends State<SettingsPage> {
                                                       ],
                                                     ),
                                                   );
-                                                  if (ok != true || !mounted)
+                                                  if (ok != true || !mounted) {
                                                     return;
+                                                  }
                                                   await _s.revokePasskey();
                                                   await _refreshSecurityFlags();
                                                   if (!mounted) return;
@@ -4708,8 +4709,9 @@ class _SettingsPageState extends State<SettingsPage> {
                                         title: Text(l10n.lockNow),
                                         onTap: () async {
                                           await _s.lock();
-                                          if (context.mounted)
+                                          if (context.mounted) {
                                             Navigator.pop(context);
+                                          }
                                         },
                                       ),
                                       const Divider(height: 1),

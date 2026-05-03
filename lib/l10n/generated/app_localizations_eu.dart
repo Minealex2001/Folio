@@ -35,6 +35,89 @@ class AppLocalizationsEu extends AppLocalizations {
   String get retry => 'Saiatu berriro';
 
   @override
+  String get skip => 'Saltatu';
+
+  @override
+  String onboardingProgressSemantics(int current, int total) {
+    return '$current. urratsa ${total}tik';
+  }
+
+  @override
+  String get welcomeOptionCreateTitle => 'Sortu koaderno berria';
+
+  @override
+  String get welcomeOptionCreateBody =>
+      'Hasi gailu honetan koaderno zifratu hutsez.';
+
+  @override
+  String get welcomeOptionImportTitle => 'Inportatzeko datuak ditut';
+
+  @override
+  String get welcomeOptionImportBody =>
+      'Berreskuratu babeskopia fitxategitik, Folio Cloudetik edo Notion esportaziotik.';
+
+  @override
+  String get welcomeNewVaultTitle => 'Koaderno berria';
+
+  @override
+  String get welcomeNewVaultBody =>
+      'Aukeratu pasahitz nagusia eta, nahi baduzu, hasierako laguntza orriak. Beste ezarpenak gero alda ditzakezu Ezarpenetan.';
+
+  @override
+  String get newVaultLeftPanelTitle => 'Koaderno berria';
+
+  @override
+  String get newVaultLeftPanelBody =>
+      'Sortu koaderno zifratu gehigarria gailu honetan.';
+
+  @override
+  String get importSourceTitle => 'Non daude zure datuak?';
+
+  @override
+  String get importSourceBody =>
+      'Aukeratu jatorria. Beste ezarpenak gero alda ditzakezu Ezarpenetan.';
+
+  @override
+  String get importSourceBackupSubtitle =>
+      'Beste gailu bateko Foliotik esportatutako .zip babeskopia.';
+
+  @override
+  String get importSourceCloudSubtitle =>
+      'Zerrendatu eta deskargatu babeskopia bat zure Folio Cloud kontutik.';
+
+  @override
+  String get importSourceNotionSubtitle =>
+      'Notion HTML/Markdown esportazioa .zip fitxategi batean.';
+
+  @override
+  String get onboardingAppearanceTitle => 'Itxura';
+
+  @override
+  String get onboardingAppearanceBody =>
+      'Aukeratu gaiaren distira eta azentu-kolorea. Gero xehetu dezakezu Ezarpenetan.';
+
+  @override
+  String get onboardingSecurityTitle => 'Segurtasuna';
+
+  @override
+  String get onboardingSecurityBody =>
+      'Konfiguratu blokeo automatikoa Folio irekita dagoenean eta leihoa minimizatzean.';
+
+  @override
+  String get onboardingBackupsTitle => 'Programatutako babeskopiak';
+
+  @override
+  String get onboardingBackupsBody =>
+      'Aukeran gaitu automatikoki zifratutako babeskopiak tarte batean. Karpetak eta hodeira igotzea Ezarpenetan alda daitezke.';
+
+  @override
+  String get onboardingSystemTitle => 'Windows-en portaera';
+
+  @override
+  String get onboardingSystemBody =>
+      'Erretilua eta jakinarazpenen hobespenak Windows-en.';
+
+  @override
   String get settings => 'Ezarpenak';
 
   @override
@@ -133,6 +216,10 @@ class AppLocalizationsEu extends AppLocalizations {
   @override
   String get readyBody =>
       'Gorde-leku enkriptatu bat sortuko da gailu honetan. Geroago, Windows Hello, biometria edo sarbide-gako bat gehitu ahal izango duzu desblokeatze azkarragoa izateko (Ezarpenak).';
+
+  @override
+  String get readyBodyPlainVault =>
+      'Enkriptatu gabeko gorde-leku bat sortuko da gailu honetan. Aukera gehiago alda ditzakezu Ezarpenetan nahi duzunean.';
 
   @override
   String get quillIntroTitle => 'Ezagutu Quill';

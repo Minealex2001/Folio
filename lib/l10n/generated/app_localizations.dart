@@ -154,6 +154,144 @@ abstract class AppLocalizations {
   /// **'Reintentar'**
   String get retry;
 
+  /// No description provided for @skip.
+  ///
+  /// In es, this message translates to:
+  /// **'Omitir'**
+  String get skip;
+
+  /// No description provided for @onboardingProgressSemantics.
+  ///
+  /// In es, this message translates to:
+  /// **'Paso {current} de {total}'**
+  String onboardingProgressSemantics(int current, int total);
+
+  /// No description provided for @welcomeOptionCreateTitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Crear libreta nueva'**
+  String get welcomeOptionCreateTitle;
+
+  /// No description provided for @welcomeOptionCreateBody.
+  ///
+  /// In es, this message translates to:
+  /// **'Empieza con una libreta cifrada vacía en este dispositivo.'**
+  String get welcomeOptionCreateBody;
+
+  /// No description provided for @welcomeOptionImportTitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Tengo datos para importar'**
+  String get welcomeOptionImportTitle;
+
+  /// No description provided for @welcomeOptionImportBody.
+  ///
+  /// In es, this message translates to:
+  /// **'Restaurar desde un archivo de copia, Folio Cloud o una exportación de Notion.'**
+  String get welcomeOptionImportBody;
+
+  /// No description provided for @welcomeNewVaultTitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Nueva libreta'**
+  String get welcomeNewVaultTitle;
+
+  /// No description provided for @welcomeNewVaultBody.
+  ///
+  /// In es, this message translates to:
+  /// **'Elige una contraseña maestra y, si quieres, páginas de ayuda iniciales. El resto de ajustes puedes cambiarlos después en Ajustes.'**
+  String get welcomeNewVaultBody;
+
+  /// No description provided for @newVaultLeftPanelTitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Nueva libreta'**
+  String get newVaultLeftPanelTitle;
+
+  /// No description provided for @newVaultLeftPanelBody.
+  ///
+  /// In es, this message translates to:
+  /// **'Crea una libreta cifrada adicional en este dispositivo.'**
+  String get newVaultLeftPanelBody;
+
+  /// No description provided for @importSourceTitle.
+  ///
+  /// In es, this message translates to:
+  /// **'¿Dónde están tus datos?'**
+  String get importSourceTitle;
+
+  /// No description provided for @importSourceBody.
+  ///
+  /// In es, this message translates to:
+  /// **'Elige un origen. El resto de ajustes puedes cambiarlos después en Ajustes.'**
+  String get importSourceBody;
+
+  /// No description provided for @importSourceBackupSubtitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Una copia .zip exportada desde Folio en otro equipo.'**
+  String get importSourceBackupSubtitle;
+
+  /// No description provided for @importSourceCloudSubtitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Listar y descargar una copia desde tu cuenta de Folio Cloud.'**
+  String get importSourceCloudSubtitle;
+
+  /// No description provided for @importSourceNotionSubtitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Una exportación HTML/Markdown de Notion en un archivo .zip.'**
+  String get importSourceNotionSubtitle;
+
+  /// No description provided for @onboardingAppearanceTitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Apariencia'**
+  String get onboardingAppearanceTitle;
+
+  /// No description provided for @onboardingAppearanceBody.
+  ///
+  /// In es, this message translates to:
+  /// **'Elige el brillo del tema y el color de acento. Podrás afinarlo después en Ajustes.'**
+  String get onboardingAppearanceBody;
+
+  /// No description provided for @onboardingSecurityTitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Seguridad'**
+  String get onboardingSecurityTitle;
+
+  /// No description provided for @onboardingSecurityBody.
+  ///
+  /// In es, this message translates to:
+  /// **'Configura el bloqueo automático mientras Folio está abierto y al minimizar la ventana.'**
+  String get onboardingSecurityBody;
+
+  /// No description provided for @onboardingBackupsTitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Copias programadas'**
+  String get onboardingBackupsTitle;
+
+  /// No description provided for @onboardingBackupsBody.
+  ///
+  /// In es, this message translates to:
+  /// **'Opcionalmente activa copias cifradas automáticas en un intervalo. Las carpetas y la subida a la nube se pueden cambiar en Ajustes.'**
+  String get onboardingBackupsBody;
+
+  /// No description provided for @onboardingSystemTitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Comportamiento en Windows'**
+  String get onboardingSystemTitle;
+
+  /// No description provided for @onboardingSystemBody.
+  ///
+  /// In es, this message translates to:
+  /// **'Preferencias de bandeja y notificaciones de Folio en Windows.'**
+  String get onboardingSystemBody;
+
   /// No description provided for @settings.
   ///
   /// In es, this message translates to:
@@ -229,7 +367,7 @@ abstract class AppLocalizations {
   /// No description provided for @welcomeBody.
   ///
   /// In es, this message translates to:
-  /// **'Folio guarda tus páginas solo en este dispositivo, cifradas con una contraseña maestra. Si la olvidas, no podremos recuperar los datos.\n\nNo hay sincronización en la nube.'**
+  /// **'Folio guarda tus páginas solo en este dispositivo, cifradas con una contraseña maestra. Si la olvidas, no podremos recuperar los datos.'**
   String get welcomeBody;
 
   /// No description provided for @createNewVault.
@@ -253,7 +391,7 @@ abstract class AppLocalizations {
   /// No description provided for @importBackupBody.
   ///
   /// In es, this message translates to:
-  /// **'El archivo contiene los mismos datos cifrados que en el otro equipo. Necesitas la contraseña maestra con la que se creó esa copia.\n\nLa passkey y el desbloqueo rápido (Hello) no van en el archivo y no son transferibles; podrás configurarlos después en Ajustes.'**
+  /// **'El archivo contiene los mismos datos cifrados que en el otro equipo. Necesitas la contraseña maestra con la que se creó esa copia.\n\nLa passkey y el desbloqueo rápido no van en el archivo y no son transferibles; podrás configurarlos después en Ajustes.'**
   String get importBackupBody;
 
   /// No description provided for @chooseZipFile.
@@ -339,6 +477,12 @@ abstract class AppLocalizations {
   /// In es, this message translates to:
   /// **'Se creará una libreta cifrada en este equipo. Podrás añadir después Windows Hello, biometría o una passkey para desbloquear más rápido (Ajustes).'**
   String get readyBody;
+
+  /// No description provided for @readyBodyPlainVault.
+  ///
+  /// In es, this message translates to:
+  /// **'Se creará una libreta sin cifrar en este equipo. Podrás cambiar más opciones en Ajustes cuando quieras.'**
+  String get readyBodyPlainVault;
 
   /// No description provided for @quillIntroTitle.
   ///

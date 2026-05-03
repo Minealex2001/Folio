@@ -35,6 +35,89 @@ class AppLocalizationsEs extends AppLocalizations {
   String get retry => 'Reintentar';
 
   @override
+  String get skip => 'Omitir';
+
+  @override
+  String onboardingProgressSemantics(int current, int total) {
+    return 'Paso $current de $total';
+  }
+
+  @override
+  String get welcomeOptionCreateTitle => 'Crear libreta nueva';
+
+  @override
+  String get welcomeOptionCreateBody =>
+      'Empieza con una libreta cifrada vacía en este dispositivo.';
+
+  @override
+  String get welcomeOptionImportTitle => 'Tengo datos para importar';
+
+  @override
+  String get welcomeOptionImportBody =>
+      'Restaurar desde un archivo de copia, Folio Cloud o una exportación de Notion.';
+
+  @override
+  String get welcomeNewVaultTitle => 'Nueva libreta';
+
+  @override
+  String get welcomeNewVaultBody =>
+      'Elige una contraseña maestra y, si quieres, páginas de ayuda iniciales. El resto de ajustes puedes cambiarlos después en Ajustes.';
+
+  @override
+  String get newVaultLeftPanelTitle => 'Nueva libreta';
+
+  @override
+  String get newVaultLeftPanelBody =>
+      'Crea una libreta cifrada adicional en este dispositivo.';
+
+  @override
+  String get importSourceTitle => '¿Dónde están tus datos?';
+
+  @override
+  String get importSourceBody =>
+      'Elige un origen. El resto de ajustes puedes cambiarlos después en Ajustes.';
+
+  @override
+  String get importSourceBackupSubtitle =>
+      'Una copia .zip exportada desde Folio en otro equipo.';
+
+  @override
+  String get importSourceCloudSubtitle =>
+      'Listar y descargar una copia desde tu cuenta de Folio Cloud.';
+
+  @override
+  String get importSourceNotionSubtitle =>
+      'Una exportación HTML/Markdown de Notion en un archivo .zip.';
+
+  @override
+  String get onboardingAppearanceTitle => 'Apariencia';
+
+  @override
+  String get onboardingAppearanceBody =>
+      'Elige el brillo del tema y el color de acento. Podrás afinarlo después en Ajustes.';
+
+  @override
+  String get onboardingSecurityTitle => 'Seguridad';
+
+  @override
+  String get onboardingSecurityBody =>
+      'Configura el bloqueo automático mientras Folio está abierto y al minimizar la ventana.';
+
+  @override
+  String get onboardingBackupsTitle => 'Copias programadas';
+
+  @override
+  String get onboardingBackupsBody =>
+      'Opcionalmente activa copias cifradas automáticas en un intervalo. Las carpetas y la subida a la nube se pueden cambiar en Ajustes.';
+
+  @override
+  String get onboardingSystemTitle => 'Comportamiento en Windows';
+
+  @override
+  String get onboardingSystemBody =>
+      'Preferencias de bandeja y notificaciones de Folio en Windows.';
+
+  @override
   String get settings => 'Ajustes';
 
   @override
@@ -72,7 +155,7 @@ class AppLocalizationsEs extends AppLocalizations {
 
   @override
   String get welcomeBody =>
-      'Folio guarda tus páginas solo en este dispositivo, cifradas con una contraseña maestra. Si la olvidas, no podremos recuperar los datos.\n\nNo hay sincronización en la nube.';
+      'Folio guarda tus páginas solo en este dispositivo, cifradas con una contraseña maestra. Si la olvidas, no podremos recuperar los datos.';
 
   @override
   String get createNewVault => 'Crear libreta nueva';
@@ -85,7 +168,7 @@ class AppLocalizationsEs extends AppLocalizations {
 
   @override
   String get importBackupBody =>
-      'El archivo contiene los mismos datos cifrados que en el otro equipo. Necesitas la contraseña maestra con la que se creó esa copia.\n\nLa passkey y el desbloqueo rápido (Hello) no van en el archivo y no son transferibles; podrás configurarlos después en Ajustes.';
+      'El archivo contiene los mismos datos cifrados que en el otro equipo. Necesitas la contraseña maestra con la que se creó esa copia.\n\nLa passkey y el desbloqueo rápido no van en el archivo y no son transferibles; podrás configurarlos después en Ajustes.';
 
   @override
   String get chooseZipFile => 'Elegir archivo .zip';
@@ -133,6 +216,10 @@ class AppLocalizationsEs extends AppLocalizations {
   @override
   String get readyBody =>
       'Se creará una libreta cifrada en este equipo. Podrás añadir después Windows Hello, biometría o una passkey para desbloquear más rápido (Ajustes).';
+
+  @override
+  String get readyBodyPlainVault =>
+      'Se creará una libreta sin cifrar en este equipo. Podrás cambiar más opciones en Ajustes cuando quieras.';
 
   @override
   String get quillIntroTitle => 'Conoce a Quill';

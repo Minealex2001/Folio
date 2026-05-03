@@ -1880,7 +1880,7 @@ class _FileGridCard extends StatelessWidget {
     final isDraggingMultiple = isMultiSelected && multiSelectedCount > 1;
     return Draggable<FolioDriveEntry>(
       data: entry,
-      dragAnchorStrategy: (_, __, ___) => const Offset(40, 40),
+      dragAnchorStrategy: (_, _, _) => const Offset(40, 40),
       feedback: Material(
         color: Colors.transparent,
         child: Container(
@@ -2076,7 +2076,7 @@ class _FileListRow extends StatelessWidget {
     final isDraggingMultiple = isMultiSelected && multiSelectedCount > 1;
     return Draggable<FolioDriveEntry>(
       data: entry,
-      dragAnchorStrategy: (_, __, ___) => const Offset(20, 16),
+      dragAnchorStrategy: (_, _, _) => const Offset(20, 16),
       feedback: Material(
         color: Colors.transparent,
         child: Container(

@@ -114,7 +114,7 @@ class LocalEnvLoader {
     // 3) Walk up from cwd / scriptDir looking for pubspec.yaml, then load .env beside it.
     final roots = <String>{
       Directory.current.path,
-      if (scriptDir != null) scriptDir,
+      ?scriptDir,
     };
     for (final root in roots) {
       var dir = Directory(root);
