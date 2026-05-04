@@ -15,6 +15,8 @@ Future<FolioCallableHttpResponse> folioCallableHttpPost({
   required Uri uri,
   required String body,
   required String bearerToken,
+  Duration connectionTimeout = const Duration(seconds: 15),
+  Duration bodyTimeout = const Duration(seconds: 120),
 }) async {
   throw UnsupportedError('folioCallableHttpPost is not used on web');
 }

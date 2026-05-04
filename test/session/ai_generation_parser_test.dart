@@ -1,4 +1,7 @@
+import 'dart:convert';
+
 import 'package:flutter_test/flutter_test.dart';
+import 'package:folio/models/folio_task_data.dart';
 import 'package:folio/session/vault_session.dart';
 
 void main() {
@@ -93,6 +96,31 @@ void main() {
       expect(blocks.first.text, contains('"cols":2'));
       expect(blocks.first.text, contains('Nombre'));
       expect(blocks.first.text, contains('Ana'));
+    });
+
+    test('parsea bloque task con título o JSON en text', () {
+      final session = VaultSession();
+      final taskJson = FolioTaskData(
+        title: 'Con JSON',
+        status: 'in_progress',
+        priority: 'high',
+      ).encode();
+      final output = jsonEncode({
+        'title': 'Tareas',
+        'blocks': [
+          {'type': 'task', 'title': 'Solo título'},
+          {'type': 'task', 'text': taskJson},
+        ],
+      });
+      final blocks = session.parseAiOutputForTesting(output);
+      expect(blocks.length, 2);
+      expect(blocks.every((b) => b.type == 'task'), isTrue);
+      final a = FolioTaskData.tryParse(blocks[0].text);
+      expect(a?.title, 'Solo título');
+      final b = FolioTaskData.tryParse(blocks[1].text);
+      expect(b?.title, 'Con JSON');
+      expect(b?.status, 'in_progress');
+      expect(b?.priority, 'high');
     });
 
     test('acepta bloque image con url aunque text venga vacío', () {

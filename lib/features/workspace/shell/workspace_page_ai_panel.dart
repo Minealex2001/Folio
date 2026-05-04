@@ -86,7 +86,6 @@ extension _WorkspacePageAiPanelModule on _WorkspacePageState {
     ColorScheme scheme,
     AppLocalizations l10n,
   ) {
-    final textColor = scheme.onSurface;
     return Padding(
       padding: const EdgeInsets.only(bottom: 16),
       child: Row(
@@ -125,9 +124,7 @@ extension _WorkspacePageAiPanelModule on _WorkspacePageState {
                     FolioRadius.lg,
                   ).copyWith(topLeft: Radius.zero),
                 ),
-                child: FolioAiTypingIndicator(
-                  color: textColor.withValues(alpha: 0.75),
-                ),
+                child: FolioAiChatReplySkeleton(colorScheme: scheme),
               ),
             ),
           ),
@@ -178,6 +175,91 @@ extension _WorkspacePageAiPanelModule on _WorkspacePageState {
           ),
         ),
       ],
+    );
+  }
+
+  Future<void> _showAiChatHeaderDetailsSheet({
+    required AppLocalizations l10n,
+    required ThemeData theme,
+    required ColorScheme scheme,
+    required bool showInkInChat,
+    required bool isCloudProvider,
+    required FolioInkSnapshot inkSnap,
+    required bool inkLooksLow,
+    required bool inkLooksEmpty,
+    required String Function() providerLabel,
+    required int estInkCost,
+  }) async {
+    if (!mounted) return;
+    await showModalBottomSheet<void>(
+      context: context,
+      showDragHandle: true,
+      builder: (ctx) {
+        return SafeArea(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Text(
+                  l10n.aiChatHeaderDetailsTitle,
+                  style: theme.textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                const SizedBox(height: 16),
+                ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  leading: Icon(
+                    isCloudProvider
+                        ? Icons.cloud_outlined
+                        : Icons.computer_outlined,
+                  ),
+                  title: Text(l10n.aiChatHeaderProviderSection),
+                  subtitle: Text(providerLabel()),
+                ),
+                if (showInkInChat) ...[
+                  const Divider(height: 24),
+                  ListTile(
+                    contentPadding: EdgeInsets.zero,
+                    leading: Icon(
+                      Icons.water_drop_outlined,
+                      color: inkLooksLow
+                          ? scheme.error
+                          : scheme.onSurfaceVariant,
+                    ),
+                    title: Text(l10n.aiChatInkRemaining(inkSnap.totalInk)),
+                    subtitle: Text(
+                      l10n.aiChatInkBreakdownTooltip(
+                        inkSnap.monthlyBalance,
+                        inkSnap.purchasedBalance,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    l10n.aiChatInkEstimatedCost(estInkCost),
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: scheme.onSurfaceVariant,
+                    ),
+                  ),
+                ],
+                if (inkLooksEmpty) ...[
+                  const SizedBox(height: 16),
+                  FilledButton.tonalIcon(
+                    onPressed: () {
+                      Navigator.pop(ctx);
+                      _openSettings();
+                    },
+                    icon: const Icon(Icons.shopping_bag_outlined),
+                    label: Text(l10n.folioCloudBuyInk),
+                  ),
+                ],
+              ],
+            ),
+          ),
+        );
+      },
     );
   }
 
@@ -325,6 +407,8 @@ extension _WorkspacePageAiPanelModule on _WorkspacePageState {
         inkSnap.totalInk > 0 &&
         inkSnap.totalInk <= lowInkThreshold;
     final inkLooksEmpty = showInkInChat && inkSnap.totalInk <= 0;
+    final dockWide =
+        MediaQuery.sizeOf(context).width >= FolioDesktop.compactBreakpoint;
 
     String providerLabel() {
       switch (widget.appSettings.aiProvider) {
@@ -437,42 +521,6 @@ extension _WorkspacePageAiPanelModule on _WorkspacePageState {
                                     ),
                                   ),
                                 ),
-                                Container(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 8,
-                                    vertical: 3,
-                                  ),
-                                  decoration: BoxDecoration(
-                                    color: scheme.surfaceContainerHighest,
-                                    border: Border.all(
-                                      color: scheme.outlineVariant.withValues(
-                                        alpha: 0.40,
-                                      ),
-                                    ),
-                                    borderRadius: BorderRadius.circular(999),
-                                  ),
-                                  child: Row(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      Icon(
-                                        isCloudProvider
-                                            ? Icons.cloud_outlined
-                                            : Icons.computer_outlined,
-                                        size: 14,
-                                        color: scheme.onSurfaceVariant,
-                                      ),
-                                      const SizedBox(width: 5),
-                                      Text(
-                                        providerLabel(),
-                                        style: theme.textTheme.labelSmall
-                                            ?.copyWith(
-                                              color: scheme.onSurfaceVariant,
-                                              fontWeight: FontWeight.w700,
-                                            ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
                               ],
                             ),
                           ],
@@ -489,80 +537,42 @@ extension _WorkspacePageAiPanelModule on _WorkspacePageState {
                             height: 1.35,
                           ),
                         ),
-                        if (showInkInChat) ...[
-                          const SizedBox(height: 6),
-                          Wrap(
-                            spacing: 8,
-                            runSpacing: 8,
-                            children: [
-                              Tooltip(
-                                message: l10n.aiChatInkBreakdownTooltip(
-                                  inkSnap.monthlyBalance,
-                                  inkSnap.purchasedBalance,
-                                ),
-                                child: Container(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 10,
-                                    vertical: 6,
-                                  ),
-                                  decoration: BoxDecoration(
-                                    color: inkLooksLow
-                                        ? scheme.tertiaryContainer.withValues(
-                                            alpha: 0.65,
-                                          )
-                                        : scheme.primary.withValues(
-                                            alpha: 0.10,
-                                          ),
-                                    borderRadius: BorderRadius.circular(999),
-                                  ),
-                                  child: Row(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      Icon(
-                                        Icons.water_drop_outlined,
-                                        size: 16,
-                                        color: inkLooksLow
-                                            ? scheme.onTertiaryContainer
-                                            : scheme.primary.withValues(
-                                                alpha: 0.92,
-                                              ),
-                                      ),
-                                      const SizedBox(width: 6),
-                                      Flexible(
-                                        child: Text(
-                                          l10n.aiChatInkRemaining(
-                                            inkSnap.totalInk,
-                                          ),
-                                          maxLines: 1,
-                                          overflow: TextOverflow.ellipsis,
-                                          softWrap: false,
-                                          style: theme.textTheme.labelSmall
-                                              ?.copyWith(
-                                                color: inkLooksLow
-                                                    ? scheme.onTertiaryContainer
-                                                    : scheme.onSurfaceVariant,
-                                                fontWeight: FontWeight.w800,
-                                              ),
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                          if (inkLooksEmpty) ...[
-                            const SizedBox(height: 8),
-                            FilledButton.tonalIcon(
-                              onPressed: _openSettings,
-                              icon: const Icon(Icons.shopping_bag_outlined),
-                              label: Text(_t('Comprar tinta', 'Buy ink')),
-                            ),
-                          ],
-                        ],
                       ],
                     ),
                   ),
+                  IconButton(
+                    tooltip: l10n.aiChatHeaderMenuTooltip,
+                    onPressed: () => unawaited(
+                      _showAiChatHeaderDetailsSheet(
+                        l10n: l10n,
+                        theme: theme,
+                        scheme: scheme,
+                        showInkInChat: showInkInChat,
+                        isCloudProvider: isCloudProvider,
+                        inkSnap: inkSnap,
+                        inkLooksLow: inkLooksLow,
+                        inkLooksEmpty: inkLooksEmpty,
+                        providerLabel: providerLabel,
+                        estInkCost: estInkCost,
+                      ),
+                    ),
+                    icon: const Icon(Icons.more_vert_rounded),
+                  ),
+                  if (dockWide)
+                    IconButton(
+                      tooltip: l10n.aiChatSplitViewTooltip,
+                      onPressed: () async {
+                        final v = !widget.appSettings.aiChatSplitView;
+                        await widget.appSettings.setAiChatSplitView(v);
+                        if (!mounted) return;
+                        _setStateSafe(() {});
+                      },
+                      icon: Icon(
+                        widget.appSettings.aiChatSplitView
+                            ? Icons.view_column_rounded
+                            : Icons.view_sidebar_rounded,
+                      ),
+                    ),
                   IconButton(
                     tooltip: l10n.aiHidePanel,
                     onPressed: () {
@@ -578,53 +588,103 @@ extension _WorkspacePageAiPanelModule on _WorkspacePageState {
               ),
             ),
             Container(
-              height: 44,
+              height: 92,
               margin: const EdgeInsets.symmetric(horizontal: 10),
-              child: Row(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  Expanded(
-                    child: ListView.separated(
-                      scrollDirection: Axis.horizontal,
-                      itemCount: _s.aiChatThreads.length,
-                      separatorBuilder: (_, _) => const SizedBox(width: 6),
-                      itemBuilder: (context, i) {
-                        final active = i == _s.aiActiveChatIndex;
-                        return ChoiceChip(
-                          label: Text(
-                            _s.aiChatThreads[i].title,
-                            overflow: TextOverflow.ellipsis,
+                  Row(
+                    children: [
+                      IconButton(
+                        tooltip: l10n.aiChatThreadsPickerTooltip,
+                        onPressed: _aiChatBusy
+                            ? null
+                            : () => unawaited(_showAiThreadsPickerSheet()),
+                        icon: const Icon(Icons.list_alt_rounded),
+                      ),
+                      Expanded(
+                        child: TextField(
+                          controller: _aiThreadSearchController,
+                          onChanged: (_) => _setStateSafe(() {}),
+                          decoration: InputDecoration(
+                            hintText: l10n.aiThreadSearchHint,
+                            isDense: true,
+                            prefixIcon: const Icon(Icons.search, size: 20),
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            contentPadding: const EdgeInsets.symmetric(
+                              horizontal: 8,
+                              vertical: 10,
+                            ),
                           ),
-                          selected: active,
-                          visualDensity: VisualDensity.compact,
-                          onSelected: _aiChatBusy
-                              ? null
-                              : (_) {
-                                  _s.syncActiveAiChatAttachmentPaths(
-                                    _aiAttachmentPaths,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 6),
+                  Expanded(
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: Builder(
+                            builder: (ctx) {
+                              final indices = _filteredAiChatThreadIndices(
+                                _aiThreadSearchController.text,
+                              );
+                              return ListView.separated(
+                                scrollDirection: Axis.horizontal,
+                                itemCount: indices.length,
+                                separatorBuilder: (_, _) =>
+                                    const SizedBox(width: 6),
+                                itemBuilder: (context, j) {
+                                  final i = indices[j];
+                                  final active = i == _s.aiActiveChatIndex;
+                                  return ChoiceChip(
+                                    label: Text(
+                                      _s.aiChatThreads[i].title,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                    selected: active,
+                                    visualDensity: VisualDensity.compact,
+                                    onSelected: _aiChatBusy
+                                        ? null
+                                        : (_) {
+                                            _s.syncActiveAiChatAttachmentPaths(
+                                              _aiAttachmentPaths,
+                                            );
+                                            _setStateSafe(
+                                              () => _lastChatTokenUsage = null,
+                                            );
+                                            _s.selectAiChat(i);
+                                          },
                                   );
-                                  _setStateSafe(() => _lastChatTokenUsage = null);
-                                  _s.selectAiChat(i);
                                 },
-                        );
-                      },
+                              );
+                            },
+                          ),
+                        ),
+                        const SizedBox(width: 2),
+                        IconButton(
+                          tooltip: l10n.aiRenameChatTooltip,
+                          onPressed: _aiChatBusy
+                              ? null
+                              : _showRenameActiveChatDialog,
+                          icon: const Icon(Icons.edit_outlined),
+                        ),
+                        const SizedBox(width: 4),
+                        IconButton(
+                          tooltip: l10n.aiDeleteCurrentChat,
+                          onPressed: _aiChatBusy ? null : _deleteActiveChat,
+                          icon: const Icon(Icons.delete_outline_rounded),
+                        ),
+                        const SizedBox(width: 2),
+                        FilledButton.tonal(
+                          onPressed: _aiChatBusy ? null : _createNewChat,
+                          child: Text(l10n.aiNewChat),
+                        ),
+                      ],
                     ),
-                  ),
-                  const SizedBox(width: 2),
-                  IconButton(
-                    tooltip: l10n.aiRenameChatTooltip,
-                    onPressed: _aiChatBusy ? null : _showRenameActiveChatDialog,
-                    icon: const Icon(Icons.edit_outlined),
-                  ),
-                  const SizedBox(width: 4),
-                  IconButton(
-                    tooltip: l10n.aiDeleteCurrentChat,
-                    onPressed: _aiChatBusy ? null : _deleteActiveChat,
-                    icon: const Icon(Icons.delete_outline_rounded),
-                  ),
-                  const SizedBox(width: 2),
-                  FilledButton.tonal(
-                    onPressed: _aiChatBusy ? null : _createNewChat,
-                    child: Text(l10n.aiNewChat),
                   ),
                 ],
               ),
@@ -724,22 +784,6 @@ extension _WorkspacePageAiPanelModule on _WorkspacePageState {
               ),
             ),
             Padding(
-              padding: const EdgeInsets.fromLTRB(14, 0, 14, 6),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  _buildAiChatContextRow(theme, scheme, l10n),
-                  const SizedBox(height: 4),
-                  Text(
-                    l10n.aiChatKeyboardHint,
-                    style: theme.textTheme.labelSmall?.copyWith(
-                      color: scheme.onSurfaceVariant.withValues(alpha: 0.88),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            Padding(
               padding: const EdgeInsets.fromLTRB(10, 8, 10, 10),
               child: Container(
                 padding: const EdgeInsets.fromLTRB(10, 10, 10, 10),
@@ -764,100 +808,135 @@ extension _WorkspacePageAiPanelModule on _WorkspacePageState {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    if (showInkInChat) ...[
-                      Padding(
-                        padding: const EdgeInsets.only(
-                          left: 8,
-                          right: 8,
-                          top: 2,
-                          bottom: 6,
+                    Theme(
+                      data: theme.copyWith(dividerColor: Colors.transparent),
+                      child: ExpansionTile(
+                        key: ValueKey<String>(_activeChat.id),
+                        tilePadding: const EdgeInsets.symmetric(horizontal: 4),
+                        childrenPadding: const EdgeInsets.fromLTRB(4, 0, 4, 4),
+                        title: Text(
+                          l10n.aiChatComposerContextTileTitle,
+                          style: theme.textTheme.titleSmall?.copyWith(
+                            fontWeight: FontWeight.w700,
+                          ),
                         ),
-                        child: Row(
-                          children: [
-                            Icon(
-                              Icons.water_drop_outlined,
-                              size: 16,
-                              color: inkLooksLow
-                                  ? scheme.tertiary
-                                  : scheme.onSurfaceVariant,
-                            ),
-                            const SizedBox(width: 6),
-                            Expanded(
-                              child: Text(
-                                _t(
-                                  'Coste estimado: $estInkCost gotas.',
-                                  'Estimated cost: $estInkCost ink.',
-                                ),
-                                maxLines: 2,
-                                overflow: TextOverflow.ellipsis,
-                                style: theme.textTheme.labelSmall?.copyWith(
-                                  color: scheme.onSurfaceVariant.withValues(
-                                    alpha: 0.92,
-                                  ),
-                                  fontWeight: FontWeight.w600,
-                                  height: 1.25,
-                                ),
-                              ),
-                            ),
-                            if (inkLooksLow || inkLooksEmpty) ...[
-                              const SizedBox(width: 8),
-                              TextButton(
-                                onPressed: _openSettings,
-                                child: Text(_t('Tinta', 'Ink')),
-                              ),
-                            ],
-                          ],
+                        subtitle: Text(
+                          l10n.aiChatComposerContextTileSubtitle,
+                          style: theme.textTheme.labelSmall?.copyWith(
+                            color: scheme.onSurfaceVariant,
+                          ),
                         ),
-                      ),
-                    ],
-                    Builder(
-                      builder: (context) {
-                        final items = _buildActiveAiContextItems(l10n);
-                        if (items.isEmpty) {
-                          return Padding(
-                            padding: const EdgeInsets.only(
-                              bottom: 8,
-                              left: 8,
-                              right: 8,
-                              top: 4,
-                            ),
+                        children: [
+                          _buildAiChatContextRow(theme, scheme, l10n),
+                          Padding(
+                            padding: const EdgeInsets.fromLTRB(8, 4, 8, 8),
                             child: Text(
-                              l10n.aiContextComposerHint,
+                              l10n.aiChatKeyboardHint,
                               style: theme.textTheme.labelSmall?.copyWith(
-                                color: scheme.onSurfaceVariant,
+                                color: scheme.onSurfaceVariant.withValues(
+                                  alpha: 0.88,
+                                ),
                               ),
                             ),
-                          );
-                        }
-                        return Padding(
-                          padding: const EdgeInsets.only(
-                            bottom: 8,
-                            left: 8,
-                            right: 8,
-                            top: 4,
                           ),
-                          child: Wrap(
-                            spacing: 6,
-                            runSpacing: 6,
-                            children: items
-                                .map(
-                                  (item) => InputChip(
-                                    visualDensity: VisualDensity.compact,
-                                    avatar: Icon(
-                                      _iconForAiContextItem(item.kind),
-                                      size: 16,
-                                    ),
-                                    label: Text(item.label),
-                                    onDeleted:
-                                        item.kind == _AiContextItemKind.addFile
-                                        ? null
-                                        : () => _removeAiContextItem(item),
+                          if (showInkInChat)
+                            Padding(
+                              padding: const EdgeInsets.only(
+                                left: 8,
+                                right: 8,
+                                top: 2,
+                                bottom: 6,
+                              ),
+                              child: Row(
+                                children: [
+                                  Icon(
+                                    Icons.water_drop_outlined,
+                                    size: 16,
+                                    color: inkLooksLow
+                                        ? scheme.tertiary
+                                        : scheme.onSurfaceVariant,
                                   ),
-                                )
-                                .toList(),
+                                  const SizedBox(width: 6),
+                                  Expanded(
+                                    child: Text(
+                                      l10n.aiChatInkEstimatedCost(estInkCost),
+                                      maxLines: 2,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: theme.textTheme.labelSmall
+                                          ?.copyWith(
+                                            color: scheme.onSurfaceVariant
+                                                .withValues(alpha: 0.92),
+                                            fontWeight: FontWeight.w600,
+                                            height: 1.25,
+                                          ),
+                                    ),
+                                  ),
+                                  if (inkLooksLow || inkLooksEmpty) ...[
+                                    const SizedBox(width: 8),
+                                    TextButton(
+                                      onPressed: _openSettings,
+                                      child: Text(l10n.folioCloudBuyInk),
+                                    ),
+                                  ],
+                                ],
+                              ),
+                            ),
+                          Builder(
+                            builder: (context) {
+                              final items = _buildActiveAiContextItems(l10n);
+                              if (items.isEmpty) {
+                                return Padding(
+                                  padding: const EdgeInsets.only(
+                                    bottom: 8,
+                                    left: 8,
+                                    right: 8,
+                                    top: 4,
+                                  ),
+                                  child: Text(
+                                    l10n.aiContextComposerHint,
+                                    style: theme.textTheme.labelSmall
+                                        ?.copyWith(
+                                          color: scheme.onSurfaceVariant,
+                                        ),
+                                  ),
+                                );
+                              }
+                              return Padding(
+                                padding: const EdgeInsets.only(
+                                  bottom: 8,
+                                  left: 8,
+                                  right: 8,
+                                  top: 4,
+                                ),
+                                child: Wrap(
+                                  spacing: 6,
+                                  runSpacing: 6,
+                                  children: items
+                                      .map(
+                                        (item) => InputChip(
+                                          visualDensity:
+                                              VisualDensity.compact,
+                                          avatar: Icon(
+                                            _iconForAiContextItem(item.kind),
+                                            size: 16,
+                                          ),
+                                          label: Text(item.label),
+                                          onDeleted:
+                                              item.kind ==
+                                                  _AiContextItemKind.addFile
+                                              ? null
+                                              : () => _removeAiContextItem(
+                                                  item,
+                                                ),
+                                        ),
+                                      )
+                                      .toList(),
+                                ),
+                              );
+                            },
                           ),
-                        );
-                      },
+                        ],
+                      ),
                     ),
                     CompositedTransformTarget(
                       link: _aiComposerLayerLink,
@@ -867,7 +946,9 @@ extension _WorkspacePageAiPanelModule on _WorkspacePageState {
                           crossAxisAlignment: CrossAxisAlignment.end,
                           children: [
                             IconButton(
-                              onPressed: _openCloudContextPickerFromButton,
+                              onPressed: _aiChatBusy
+                                  ? null
+                                  : _openCloudContextPickerFromButton,
                               icon: const Icon(
                                 Icons.add_circle_outline_rounded,
                               ),
@@ -884,6 +965,7 @@ extension _WorkspacePageAiPanelModule on _WorkspacePageState {
                                   child: TextField(
                                     focusNode: _chatInputFocusNode,
                                     controller: _chatInputController,
+                                    readOnly: _aiChatBusy,
                                     minLines: 1,
                                     maxLines: 5,
                                     onTap: _updateAiContextMenu,

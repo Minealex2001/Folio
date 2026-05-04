@@ -8,6 +8,7 @@ import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 import 'package:pub_semver/pub_semver.dart';
 
+import '../../app/folio_distribution.dart';
 import '../app_logger.dart';
 import 'update_release_channel.dart';
 
@@ -31,6 +32,10 @@ class GitHubReleaseUpdater {
     final supportsPlatform = Platform.isWindows || Platform.isAndroid;
     if (!supportsPlatform) {
       return UpdateCheckResult.unsupportedPlatform();
+    }
+    if (!FolioDistribution.offersGitHubSelfUpdate) {
+      final currentVersion = await _currentVersion();
+      return UpdateCheckResult.noUpdate(currentVersion: currentVersion);
     }
 
     final currentVersion = await _currentVersion();

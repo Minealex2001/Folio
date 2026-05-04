@@ -521,10 +521,15 @@ Implementado en `lib/services/device_sync/device_sync_controller.dart`.
 - Feedback por mensaje: `helpful` / `not_helpful`.
 - Adjuntos de archivo: `AiFileAttachment` (nombre, MIME type, contenido).
 - Conteo de tokens: `AiTokenUsage`.
+- Cabecera compacta: proveedor y tinta (Quill Cloud) en hoja inferior desde el menú «⋮».
+- Hilos: búsqueda en línea + botón de lista que abre selector vertical con filtro.
+- Compositor: bloque plegable «Contexto, tinta y adjuntos» (uso de contexto, atajos, coste de tinta y chips `@`).
+- Mientras `_aiChatBusy`: campo de entrada solo lectura y burbuja esqueleto con shimmer al final del listado.
+- Mensaje del asistente: menú «⋮» (copiar respuesta, copiar JSON estructurado si aplica, copiar mensaje completo).
 
 ### Multi-hilo (`lib/features/workspace/shell/workspace_page_ai_threads.dart`)
 
-- Varios hilos de conversación independientes.
+- Varios hilos de conversación independientes; hoja modal con lista filtrable por título.
 - **Auto-renombre**: el primer turno de cada hilo genera automáticamente un título vía `threadTitle` en la respuesta JSON.
 - Diálogo de renombrado manual.
 - Subtítulo de contexto: "página actual", "N páginas", "desactivado".
@@ -553,36 +558,74 @@ El usuario puede añadir contexto al chat IA usando el menú `@` en el campo de 
 
 ## 25. Folio Cloud
 
-### Backup cifrado
+Capa **opcional** en la nube (Firebase + Stripe y/o Microsoft Store). El núcleo de la app —caja fuerte, editor, sincronización local entre dispositivos, IA local— funciona **sin** Folio Cloud; si Firebase no arranca o no hay proyecto configurado, estas rutas quedan deshabilitadas. Resumen orientado a producto: [README.md](../README.md) («Building without Folio Cloud»); despliegue y secretos: [FOLIO_CLOUD_SECRETS.md](FOLIO_CLOUD_SECRETS.md).
 
-- Backup de la libreta cifrado y almacenado en Firebase Storage.
-- Restauración desde el backup durante el onboarding.
+### Cuenta y autoridad en servidor
 
-### Publicación de páginas web
+- **Sesión Folio Cloud** = usuario **Firebase Auth**.
+- Estado de plan, tinta y flags de funciones viven en Firestore `users/{uid}`; el cliente **no** es confiable: escritura de `folioCloud`, `ink` y campos de facturación vía **Admin SDK** en Cloud Functions y webhooks. Detalle: [FOLIO_CLOUD_BACKEND.md](FOLIO_CLOUD_BACKEND.md).
 
-- Exportar una página como página web pública.
-- **Slug personalizable**: `_showPublishWebSlugMenu` permite definir la URL amigable.
-- Implementado en `lib/features/workspace/shell/workspace_page_page_tools.dart`.
+### Entitlements (`folioCloud.features`)
 
-### Microsoft Store
+El webhook de Stripe (y la recomputación tras Microsoft Store) rellena banderas que la app y las reglas usan como contrato:
 
-- La app se distribuye a través de Microsoft Store (ver `installer.iss` y el workflow de CI para artefactos MSIX).
-- Los paquetes MSIX generados en release suelen ubicarse bajo `Output/` con nombre acorde a la versión del manifiesto.
+| Flag | Rol |
+|------|-----|
+| `backup` | Copias ZIP **cifradas** en Storage bajo `users/{uid}/backups/**` |
+| `cloudAi` | IA hospedada en Cloud Functions (claves del proveedor solo en servidor); consumo con **Ink** |
+| `publishWeb` | HTML público en `published/{uid}/**` + índice Firestore `publishedPages` |
+| `realtimeCollab` | Colaboración en vivo (salas Firestore, subida de medios colaborativos) cuando el plan lo incluye |
 
-### Suscripción y entitlements
+Implementación cliente: `lib/services/folio_cloud/folio_cloud_entitlements.dart` (`canUseCloudBackup`, `canUseCloudAi`, `canPublishToWeb`, `canRealtimeCollab`, etc.).
 
-- Sistema de suscripción con entitlements gestionado en Folio Cloud.
-- Controla el acceso a funciones premium (Cloud AI, backup, collab ilimitado, etc.).
+### Copia cifrada en la nube
 
-### Cloud Functions (TypeScript)
+- Subida manual y listado/descarga desde Ajustes; **restauración** desde onboarding o flujos de copia.
+- Tras un **backup programado** local, si el usuario activa «también subir a Folio Cloud» y tiene permiso, se reutiliza el mismo ZIP cifrado (`uploadEncryptedBackupFile` / índices en servidor).
+- En **Windows/Linux**, el SDK a veces no lista bien Storage; la app usa la callable **`folioListVaultBackups`** (lista con Admin SDK en servidor).
+- **Cuota de almacenamiento** de copias y ampliaciones por suscripción («Biblioteca» pequeña/mediana/grande): catálogo en [FOLIO_CLOUD_STRIPE_PRODUCTS.md](FOLIO_CLOUD_STRIPE_PRODUCTS.md); callables de apoyo p. ej. `folioGetBackupStorageUsage`, `folioTrimVaultBackups`, `folioTrimVaultBackupsByBytes`, índice multi-libreta (`folioListBackupVaults`, `folioUpsertVaultBackupIndex`, …).
 
-Funciones en `functions/src/`:
+### IA en la nube
 
-| Función | Propósito |
-|---|---|
-| `prepareCollabMediaUpload` | Reserva slot en Storage + crea doc Firestore |
-| `commitCollabMediaUpload` | Confirma la subida y registra metadatos |
-| (otras) | Gestión de rooms, entitlements, AI relay |
+- Cliente: `lib/services/ai/folio_cloud_ai_service.dart` (`FolioCloudAiService`).
+- Callable **`folioCloudAiComplete`** (Firebase Functions **1st gen**); fallback HTTP **`folioCloudAiCompleteHttp`** cuando el protocolo callable en escritorio devuelve 401 HTML (perímetro/IAM). Tabla de costes por `operationKind`, suplementos por tamaño y tokens: [FOLIO_CLOUD_BACKEND.md](FOLIO_CLOUD_BACKEND.md).
+- Uso permitido con **suscripción activa que incluya `cloudAi`** o con **tinta comprada** sin suscripción (reglas documentadas en backend).
+- **`folioCloudAiPricing`**: expone al cliente precios/costes de referencia.
+- **`folioCloudTranscribeChunk`**: transcripción por chunks (flujos de audio).
+
+### Publicación web
+
+- Exportar la página actual a HTML y publicar: `lib/services/folio_cloud/folio_cloud_publish.dart` (`publishHtmlPage`); UI y slug en `lib/features/workspace/shell/workspace_page_page_tools.dart` (**slug** vía `_showPublishWebSlugMenu`).
+
+### Facturación
+
+- **Stripe**: `createCheckoutSession`, `createBillingPortalSession`, webhook **`stripeWebhook`**; sincronización manual **`syncFolioCloudSubscriptionFromStripe`** si hace falta.
+- **Microsoft Store** (build MSIX): compras y suscripción alineadas con el mismo modelo de productos; callable **`validateMicrosoftStoreEntitlements`** tras compra o «Sincronizar». Variables y Partner Center: [FOLIO_CLOUD_BACKEND.md](FOLIO_CLOUD_BACKEND.md).
+- Precios, tinteros y addons de almacenamiento: [FOLIO_CLOUD_STRIPE_PRODUCTS.md](FOLIO_CLOUD_STRIPE_PRODUCTS.md). Job programado **`monthlyInkRefill`** (recarga de gotas el día 1 para suscriptores mensuales).
+
+### Telemetría
+
+- Una copia detallada de eventos opcionales en Firestore **solo si hay sesión** Folio Cloud (Firebase UID en la ruta). No sustituye Analytics con ID de instalación anónimo. Ver [TELEMETRY.md](TELEMETRY.md).
+
+### Cliente Windows/Linux y callables
+
+- Donde el plugin `cloud_functions` no es fiable, las callables se invocan por **HTTP** con `Authorization: Bearer` (ID token), misma URL que documenta Firebase: `lib/services/folio_cloud/folio_cloud_callable.dart`.
+
+### Cloud Functions (`functions/src/index.ts`, referencia)
+
+| Área | Export(s) |
+|------|-----------|
+| Colaboración | `createCollabRoom`, `joinCollabRoomByCode`, `prepareCollabMediaUpload`, `commitCollabMediaUpload`, `inviteCollabMember`, `removeCollabMember`, `closeCollabRoom` |
+| Pagos y cuenta | `createCheckoutSession`, `createBillingPortalSession`, `stripeWebhook`, `syncFolioCloudSubscriptionFromStripe`, `validateMicrosoftStoreEntitlements` |
+| Copias / vault / almacenamiento | `folioListVaultBackups`, `folioGetBackupStorageUsage`, `folioTrimVaultBackups`, `folioTrimVaultBackupsByBytes`, `folioListBackupVaults`, `folioUpsertVaultBackupIndex`, `folioGetLatestVaultBackupMeta`, `folioRecordVaultBackupMeta`, … |
+| Cloud pack (metadatos/restore) | `folioGetLatestCloudPackMeta`, `folioGetCloudPackRestoreWrap`, `folioCheckCloudPackBlobsExist`, `folioFinalizeCloudPack` |
+| IA | `folioCloudAiComplete`, `folioCloudAiCompleteHttp`, `folioCloudAiPricing`, `folioCloudTranscribeChunk` |
+| Operaciones | `monthlyInkRefill` (programada) |
+| Otras HTTP | `folioJiraExchangeOAuth`, `folioReportDiagnostic` (integración/diagnóstico; no son el núcleo «Folio Cloud» de suscripción) |
+
+### Nota: distribución Windows
+
+- Los artefactos **MSIX** y el instalador (`installer.iss`, CI) son la **distribución de la aplicación**; la Microsoft Store actúa además como **canal de pago** Folio Cloud en Windows. Los builds release suelen dejarse bajo `Output/` según el manifiesto.
 
 ---
 

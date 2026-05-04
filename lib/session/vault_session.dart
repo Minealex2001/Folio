@@ -4062,6 +4062,60 @@ class VaultSession extends ChangeNotifier {
     scheduleSave(trackRevisionForPageId: pageId);
   }
 
+  /// Mueve un bloque a otra página. Regenera el id del bloque y limpia
+  /// [FolioTaskData.parentTaskId] / dependencias al cruzar de página.
+  void moveBlockToPage({
+    required String fromPageId,
+    required String toPageId,
+    required String blockId,
+  }) {
+    if (fromPageId == toPageId) return;
+    final from = _pageById(fromPageId);
+    final to = _pageById(toPageId);
+    if (from == null || to == null) return;
+    if (from.blocks.length <= 1) return;
+    final i = from.blocks.indexWhere((b) => b.id == blockId);
+    if (i < 0) return;
+    final b = from.blocks[i];
+    _rememberUndoBeforePageMutation(fromPageId);
+    _rememberUndoBeforePageMutation(toPageId);
+    from.blocks.removeAt(i);
+
+    final newId = _newBlockId(toPageId);
+    var payload = b.text;
+    if (b.type == 'task') {
+      final t = FolioTaskData.tryParse(b.text) ?? FolioTaskData.defaults();
+      payload = t
+          .copyWith(
+            parentTaskId: null,
+            blockedByTaskIds: const [],
+          )
+          .encode();
+    }
+
+    final moved = FolioBlock(
+      id: newId,
+      type: b.type,
+      text: payload,
+      richTextDeltaJson: b.richTextDeltaJson,
+      checked: b.checked,
+      expanded: b.expanded,
+      codeLanguage: b.codeLanguage,
+      depth: 0,
+      icon: b.icon,
+      url: b.url,
+      imageWidth: b.imageWidth,
+      appearance: b.appearance,
+      meetingNoteProvider: b.meetingNoteProvider,
+      meetingNoteTranscriptionEnabled: b.meetingNoteTranscriptionEnabled,
+      syncGroupId: b.syncGroupId,
+    );
+    to.blocks.add(moved);
+    notifyListeners();
+    scheduleSave(trackRevisionForPageId: fromPageId);
+    scheduleSave(trackRevisionForPageId: toPageId);
+  }
+
   void removeBlockIfMultiple(String pageId, String blockId) {
     final page = _pageById(pageId);
     if (page == null || page.blocks.length <= 1) return;

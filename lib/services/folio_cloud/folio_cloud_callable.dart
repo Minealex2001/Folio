@@ -5,6 +5,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/foundation.dart'
     show kIsWeb, defaultTargetPlatform, TargetPlatform;
+import 'package:flutter/services.dart' show PlatformException;
 
 import '../../firebase_options.dart';
 import 'folio_cloud_callable_post.dart'
@@ -58,9 +59,36 @@ Future<dynamic> callFolioHttpsCallable(
   if (folioHttpsCallableUsesHttp) {
     return _callFolioHttpsViaHttp(name, parameters);
   }
-  final callable = _folioFunctions.httpsCallable(name);
-  final res = await callable.call(parameters);
-  return res.data;
+  try {
+    final callable = _folioFunctions.httpsCallable(name);
+    final res = await callable.call(parameters);
+    return res.data;
+  } on StateError {
+    rethrow;
+  } on FirebaseFunctionsException {
+    rethrow;
+  } on FirebaseException catch (e) {
+    final c = e.code.toLowerCase();
+    const networkish = <String>{
+      'unavailable',
+      'network-request-failed',
+      'deadline-exceeded',
+      'aborted',
+      'cancelled',
+    };
+    if (networkish.contains(c)) {
+      throw FirebaseFunctionsException(
+        message: e.message ?? e.toString(),
+        code: c == 'deadline-exceeded' ? 'deadline-exceeded' : 'unavailable',
+      );
+    }
+    rethrow;
+  } on PlatformException catch (e) {
+    throw FirebaseFunctionsException(
+      message: e.message ?? e.toString(),
+      code: 'unavailable',
+    );
+  }
 }
 
 Future<dynamic> _callFolioHttpsViaHttp(String name, Object? parameters) async {

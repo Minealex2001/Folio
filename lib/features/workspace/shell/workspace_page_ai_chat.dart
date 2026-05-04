@@ -47,7 +47,11 @@ extension _WorkspacePageAiChatModule on _WorkspacePageState {
       }
       _s.appendMessageToAiChatById(
         targetChatId,
-        AiChatMessage.now(role: 'assistant', content: outcome.reply),
+        AiChatMessage.now(
+          role: 'assistant',
+          content: outcome.reply,
+          agentApplySnapshot: outcome.agentApplySnapshot,
+        ),
       );
     } catch (e) {
       if (!mounted) return;
@@ -80,6 +84,7 @@ extension _WorkspacePageAiChatModule on _WorkspacePageState {
     final isCloudProvider =
         widget.appSettings.aiProvider == AiProvider.quillCloud;
     final op = isCloudProvider ? _aiInkEstimateOperationKind : null;
+    final extra = _composeAiExtraContextForNextSend();
     return _s.agentChatWithAi(
       messages: threadMessages,
       prompt: t,
@@ -89,7 +94,57 @@ extension _WorkspacePageAiChatModule on _WorkspacePageState {
       attachments: attachments,
       languageCode: languageCode,
       cloudInkOperation: op,
+      extraContextSections: extra,
     );
+  }
+
+  String _composeAiExtraContextForNextSend() {
+    final isEs = Localizations.localeOf(context).languageCode.toLowerCase().startsWith('es');
+    final b = StringBuffer();
+    if (_aiAttachNextEditorSelection) {
+      _aiAttachNextEditorSelection = false;
+      final snippet = _readEditorSelectionPlainForAi();
+      if (snippet != null && snippet.trim().isNotEmpty) {
+        b.writeln(
+          isEs ? '--- Selección del editor ---' : '--- Editor selection ---',
+        );
+        b.writeln(snippet.trim());
+      }
+    }
+    if (_aiAttachNextLastMeeting) {
+      _aiAttachNextLastMeeting = false;
+      final m = _readLastMeetingSnippetOnPage();
+      if (m != null && m.trim().isNotEmpty) {
+        b.writeln(
+          isEs
+              ? '--- Última nota de reunión en la página ---'
+              : '--- Last meeting note on this page ---',
+        );
+        b.writeln(m.trim());
+      }
+    }
+    return b.toString().trim();
+  }
+
+  String? _readEditorSelectionPlainForAi() {
+    final page = _s.selectedPage;
+    if (page == null) return null;
+    final key = _blockEditorKeysByPage[page.id];
+    return key?.currentState?.plainSelectionTextForAi();
+  }
+
+  String? _readLastMeetingSnippetOnPage() {
+    final page = _s.selectedPage;
+    if (page == null) return null;
+    FolioBlock? last;
+    for (final block in page.blocks) {
+      if (block.type == 'meeting_note' && block.text.trim().isNotEmpty) {
+        last = block;
+      }
+    }
+    final t = last?.text.trim();
+    if (t == null || t.isEmpty) return null;
+    return t.length > 12000 ? t.substring(0, 12000) : t;
   }
 }
 

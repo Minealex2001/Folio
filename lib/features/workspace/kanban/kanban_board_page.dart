@@ -2708,10 +2708,12 @@ class _TaskDetailsContentState extends State<_TaskDetailsContent> {
                   const SizedBox(height: 10),
                   // Recurrence + reminder row
                   Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Expanded(
                         child: DropdownButtonFormField<String?>(
                           initialValue: data.recurrence,
+                          isDense: true,
                           decoration: InputDecoration(
                             labelText: l10n.taskRecurrenceLabel,
                             prefixIcon: const Icon(
@@ -2719,6 +2721,7 @@ class _TaskDetailsContentState extends State<_TaskDetailsContent> {
                               size: 20,
                             ),
                             border: const OutlineInputBorder(),
+                            isDense: true,
                           ),
                           items: [
                             DropdownMenuItem<String?>(
@@ -2745,26 +2748,27 @@ class _TaskDetailsContentState extends State<_TaskDetailsContent> {
                           onChanged: (v) => _emit(data.copyWith(recurrence: v)),
                         ),
                       ),
-                      const SizedBox(width: 10),
+                      const SizedBox(width: 8),
                       Tooltip(
                         message: data.reminderEnabled
                             ? l10n.taskReminderOnTooltip
                             : l10n.taskReminderTooltip,
-                        child: FilterChip(
-                          avatar: Icon(
+                        child: IconButton.filledTonal(
+                          onPressed: () => _emit(
+                            data.copyWith(
+                              reminderEnabled: !data.reminderEnabled,
+                            ),
+                          ),
+                          style: IconButton.styleFrom(
+                            backgroundColor: data.reminderEnabled
+                                ? Theme.of(context).colorScheme.primaryContainer
+                                : null,
+                          ),
+                          icon: Icon(
                             data.reminderEnabled
-                                ? Icons.notifications_rounded
+                                ? Icons.notifications_active_rounded
                                 : Icons.notifications_none_rounded,
-                            size: 18,
                           ),
-                          label: Text(
-                            data.reminderEnabled
-                                ? l10n.taskReminderOnTooltip
-                                : l10n.taskReminderTooltip,
-                          ),
-                          selected: data.reminderEnabled,
-                          onSelected: (v) =>
-                              _emit(data.copyWith(reminderEnabled: v)),
                         ),
                       ),
                     ],

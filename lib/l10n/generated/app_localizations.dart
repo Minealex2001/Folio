@@ -2926,6 +2926,18 @@ abstract class AppLocalizations {
   /// **'Adjuntar página'**
   String get aiContextAddPage;
 
+  /// No description provided for @aiContextEditorSelection.
+  ///
+  /// In es, this message translates to:
+  /// **'Incluir selección del editor (próximo envío)'**
+  String get aiContextEditorSelection;
+
+  /// No description provided for @aiContextLastMeetingOnPage.
+  ///
+  /// In es, this message translates to:
+  /// **'Incluir última reunión de la página (próximo envío)'**
+  String get aiContextLastMeetingOnPage;
+
   /// No description provided for @aiShowPanel.
   ///
   /// In es, this message translates to:
@@ -3466,6 +3478,42 @@ abstract class AppLocalizations {
   /// **'La página de ese alias ya no existe.'**
   String get taskQuickAddAliasTargetMissing;
 
+  /// No description provided for @taskQuickAddTagsLabel.
+  ///
+  /// In es, this message translates to:
+  /// **'Etiquetas'**
+  String get taskQuickAddTagsLabel;
+
+  /// No description provided for @taskQuickAddTagsHint.
+  ///
+  /// In es, this message translates to:
+  /// **'Separadas por comas (ej.: trabajo, cliente)'**
+  String get taskQuickAddTagsHint;
+
+  /// No description provided for @taskQuickAddAssigneeLabel.
+  ///
+  /// In es, this message translates to:
+  /// **'Asignado a'**
+  String get taskQuickAddAssigneeLabel;
+
+  /// No description provided for @taskQuickAddStoryPointsLabel.
+  ///
+  /// In es, this message translates to:
+  /// **'Story points'**
+  String get taskQuickAddStoryPointsLabel;
+
+  /// No description provided for @taskQuickAddEstimatedMinutesLabel.
+  ///
+  /// In es, this message translates to:
+  /// **'Minutos estimados'**
+  String get taskQuickAddEstimatedMinutesLabel;
+
+  /// No description provided for @taskBlockExpandDetailsTitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Notas, etiquetas y asignado'**
+  String get taskBlockExpandDetailsTitle;
+
   /// No description provided for @taskHubTitle.
   ///
   /// In es, this message translates to:
@@ -3549,6 +3597,36 @@ abstract class AppLocalizations {
   /// In es, this message translates to:
   /// **'Incluir checklists'**
   String get taskHubIncludeTodos;
+
+  /// No description provided for @vaultTaskHubSearchHint.
+  ///
+  /// In es, this message translates to:
+  /// **'Buscar por título, página, etiqueta o asignado'**
+  String get vaultTaskHubSearchHint;
+
+  /// No description provided for @vaultTaskPresetNext7Days.
+  ///
+  /// In es, this message translates to:
+  /// **'Próximos 7 días'**
+  String get vaultTaskPresetNext7Days;
+
+  /// No description provided for @vaultTaskPresetNoDueDate.
+  ///
+  /// In es, this message translates to:
+  /// **'Sin fecha'**
+  String get vaultTaskPresetNoDueDate;
+
+  /// No description provided for @taskVaultMoveToPage.
+  ///
+  /// In es, this message translates to:
+  /// **'Mover a otra página…'**
+  String get taskVaultMoveToPage;
+
+  /// No description provided for @taskVaultMovePickTitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Elige la página de destino'**
+  String get taskVaultMovePickTitle;
 
   /// No description provided for @sidebarQuickAddTask.
   ///
@@ -6128,6 +6206,18 @@ abstract class AppLocalizations {
   /// **'Ya tienes la versión más reciente.'**
   String get updaterManualCheckAlreadyLatest;
 
+  /// No description provided for @updaterStoreListingOpenFailed.
+  ///
+  /// In es, this message translates to:
+  /// **'No se pudo abrir la tienda.'**
+  String get updaterStoreListingOpenFailed;
+
+  /// No description provided for @updaterMicrosoftStoreListingMissing.
+  ///
+  /// In es, this message translates to:
+  /// **'Esta compilación no incluye el enlace a la ficha en Microsoft Store.'**
+  String get updaterMicrosoftStoreListingMissing;
+
   /// No description provided for @updaterDialogLineCurrentVersion.
   ///
   /// In es, this message translates to:
@@ -6956,11 +7046,281 @@ abstract class AppLocalizations {
   /// **'Elegir tipo de bloque con el selector'**
   String get blockEditorCmdTurnIntoHint;
 
+  /// No description provided for @blockEditorCmdAiSummarize.
+  ///
+  /// In es, this message translates to:
+  /// **'Quill: resumir'**
+  String get blockEditorCmdAiSummarize;
+
+  /// No description provided for @blockEditorCmdAiSummarizeHint.
+  ///
+  /// In es, this message translates to:
+  /// **'Comando /ai summarize · resume la página o la selección'**
+  String get blockEditorCmdAiSummarizeHint;
+
+  /// No description provided for @blockEditorCmdAiContinue.
+  ///
+  /// In es, this message translates to:
+  /// **'Quill: continuar'**
+  String get blockEditorCmdAiContinue;
+
+  /// No description provided for @blockEditorCmdAiContinueHint.
+  ///
+  /// In es, this message translates to:
+  /// **'Comando /ai continue · sigue escribiendo desde el cursor'**
+  String get blockEditorCmdAiContinueHint;
+
+  /// No description provided for @blockEditorCmdAiExplain.
+  ///
+  /// In es, this message translates to:
+  /// **'Quill: explicar'**
+  String get blockEditorCmdAiExplain;
+
+  /// No description provided for @blockEditorCmdAiExplainHint.
+  ///
+  /// In es, this message translates to:
+  /// **'Comando /ai explain · explica el párrafo o selección'**
+  String get blockEditorCmdAiExplainHint;
+
+  /// No description provided for @blockEditorCmdAiActionItems.
+  ///
+  /// In es, this message translates to:
+  /// **'Quill: action items'**
+  String get blockEditorCmdAiActionItems;
+
+  /// No description provided for @blockEditorCmdAiActionItemsHint.
+  ///
+  /// In es, this message translates to:
+  /// **'Comando /ai action items · extrae tareas del texto'**
+  String get blockEditorCmdAiActionItemsHint;
+
+  /// No description provided for @blockEditorCmdAiTodo.
+  ///
+  /// In es, this message translates to:
+  /// **'Quill: lista de tareas'**
+  String get blockEditorCmdAiTodo;
+
+  /// No description provided for @blockEditorCmdAiTodoHint.
+  ///
+  /// In es, this message translates to:
+  /// **'Comando /ai todo · convierte la selección en tareas'**
+  String get blockEditorCmdAiTodoHint;
+
+  /// No description provided for @blockEditorCmdAiMindmap.
+  ///
+  /// In es, this message translates to:
+  /// **'Quill: mapa mental'**
+  String get blockEditorCmdAiMindmap;
+
+  /// No description provided for @blockEditorCmdAiMindmapHint.
+  ///
+  /// In es, this message translates to:
+  /// **'Comando /ai mindmap · estructura jerárquica o canvas'**
+  String get blockEditorCmdAiMindmapHint;
+
+  /// No description provided for @blockEditorCmdAiTable.
+  ///
+  /// In es, this message translates to:
+  /// **'Quill: tabla'**
+  String get blockEditorCmdAiTable;
+
+  /// No description provided for @blockEditorCmdAiTableHint.
+  ///
+  /// In es, this message translates to:
+  /// **'Comando /ai table · tabla desde texto'**
+  String get blockEditorCmdAiTableHint;
+
+  /// No description provided for @blockEditorCmdAiImprove.
+  ///
+  /// In es, this message translates to:
+  /// **'Quill: mejorar redacción'**
+  String get blockEditorCmdAiImprove;
+
+  /// No description provided for @blockEditorCmdAiImproveHint.
+  ///
+  /// In es, this message translates to:
+  /// **'Comando /ai improve · claridad y tono profesional'**
+  String get blockEditorCmdAiImproveHint;
+
+  /// No description provided for @blockEditorCmdAiTranslate.
+  ///
+  /// In es, this message translates to:
+  /// **'Quill: traducir'**
+  String get blockEditorCmdAiTranslate;
+
+  /// No description provided for @blockEditorCmdAiTranslateHint.
+  ///
+  /// In es, this message translates to:
+  /// **'Comando /ai translate · traduce la selección o el bloque'**
+  String get blockEditorCmdAiTranslateHint;
+
+  /// No description provided for @blockEditorAiSlashUnavailable.
+  ///
+  /// In es, this message translates to:
+  /// **'Los comandos Quill del editor no están conectados en esta vista.'**
+  String get blockEditorAiSlashUnavailable;
+
+  /// No description provided for @blockEditorAskQuillTooltip.
+  ///
+  /// In es, this message translates to:
+  /// **'Preguntar a Quill sobre la selección'**
+  String get blockEditorAskQuillTooltip;
+
+  /// No description provided for @aiChatSplitViewTooltip.
+  ///
+  /// In es, this message translates to:
+  /// **'Vista dividida: editor y chat a la vez'**
+  String get aiChatSplitViewTooltip;
+
+  /// No description provided for @aiThreadSearchHint.
+  ///
+  /// In es, this message translates to:
+  /// **'Buscar hilos…'**
+  String get aiThreadSearchHint;
+
+  /// No description provided for @settingsAiChatSplitViewTitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Chat Quill en vista dividida'**
+  String get settingsAiChatSplitViewTitle;
+
+  /// No description provided for @settingsAiChatSplitViewSubtitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Muestra el panel de chat junto al editor en escritorio.'**
+  String get settingsAiChatSplitViewSubtitle;
+
+  /// No description provided for @settingsAiQuillCopilotExperimentalTitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Copilot Quill (experimental)'**
+  String get settingsAiQuillCopilotExperimentalTitle;
+
+  /// No description provided for @settingsAiQuillCopilotExperimentalSubtitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Reservado: sugerencias en tiempo real al escribir (aún sin inferencia automática).'**
+  String get settingsAiQuillCopilotExperimentalSubtitle;
+
+  /// No description provided for @aiChatApplyInsertEnd.
+  ///
+  /// In es, this message translates to:
+  /// **'Insertar bloques al final'**
+  String get aiChatApplyInsertEnd;
+
+  /// No description provided for @aiChatApplyReplacePage.
+  ///
+  /// In es, this message translates to:
+  /// **'Reemplazar página'**
+  String get aiChatApplyReplacePage;
+
+  /// No description provided for @aiChatApplyOperations.
+  ///
+  /// In es, this message translates to:
+  /// **'Aplicar operaciones'**
+  String get aiChatApplyOperations;
+
+  /// No description provided for @aiChatApplySnapshotSuccess.
+  ///
+  /// In es, this message translates to:
+  /// **'Cambios aplicados en la página abierta.'**
+  String get aiChatApplySnapshotSuccess;
+
+  /// No description provided for @aiChatApplySnapshotFailure.
+  ///
+  /// In es, this message translates to:
+  /// **'No se pudieron aplicar los cambios (revisa la página o el JSON).'**
+  String get aiChatApplySnapshotFailure;
+
+  /// No description provided for @aiChatHeaderMenuTooltip.
+  ///
+  /// In es, this message translates to:
+  /// **'Detalles del asistente'**
+  String get aiChatHeaderMenuTooltip;
+
+  /// No description provided for @aiChatHeaderDetailsTitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Asistente y tinta'**
+  String get aiChatHeaderDetailsTitle;
+
+  /// No description provided for @aiChatHeaderProviderSection.
+  ///
+  /// In es, this message translates to:
+  /// **'Proveedor'**
+  String get aiChatHeaderProviderSection;
+
+  /// No description provided for @aiChatThreadsListTitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Hilos de conversación'**
+  String get aiChatThreadsListTitle;
+
+  /// No description provided for @aiChatThreadsEmptySearch.
+  ///
+  /// In es, this message translates to:
+  /// **'Ningún hilo coincide con la búsqueda.'**
+  String get aiChatThreadsEmptySearch;
+
+  /// No description provided for @aiChatThreadsPickerTooltip.
+  ///
+  /// In es, this message translates to:
+  /// **'Lista de hilos'**
+  String get aiChatThreadsPickerTooltip;
+
+  /// No description provided for @aiChatComposerContextTileTitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Contexto, tinta y adjuntos'**
+  String get aiChatComposerContextTileTitle;
+
+  /// No description provided for @aiChatComposerContextTileSubtitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Toca para expandir o contraer'**
+  String get aiChatComposerContextTileSubtitle;
+
+  /// No description provided for @aiMessageActionCopyReply.
+  ///
+  /// In es, this message translates to:
+  /// **'Copiar respuesta'**
+  String get aiMessageActionCopyReply;
+
+  /// No description provided for @aiMessageActionCopyStructuredJson.
+  ///
+  /// In es, this message translates to:
+  /// **'Copiar JSON estructurado'**
+  String get aiMessageActionCopyStructuredJson;
+
+  /// No description provided for @aiMessageActionCopyFull.
+  ///
+  /// In es, this message translates to:
+  /// **'Copiar mensaje completo'**
+  String get aiMessageActionCopyFull;
+
+  /// No description provided for @aiMessageMoreActions.
+  ///
+  /// In es, this message translates to:
+  /// **'Más acciones'**
+  String get aiMessageMoreActions;
+
+  /// No description provided for @aiChatInkEstimatedCost.
+  ///
+  /// In es, this message translates to:
+  /// **'Coste estimado de este mensaje: {cost} gotas.'**
+  String aiChatInkEstimatedCost(int cost);
+
   /// No description provided for @blockEditorMarkTaskComplete.
   ///
   /// In es, this message translates to:
   /// **'Marcar tarea completada'**
   String get blockEditorMarkTaskComplete;
+
+  /// No description provided for @blockEditorTodoPlaceholder.
+  ///
+  /// In es, this message translates to:
+  /// **'Tarea…'**
+  String get blockEditorTodoPlaceholder;
 
   /// No description provided for @blockEditorCalloutIconPickerTitle.
   ///
@@ -7033,6 +7393,12 @@ abstract class AppLocalizations {
   /// In es, this message translates to:
   /// **'Integraciones'**
   String get blockTypeSectionEmbeds;
+
+  /// No description provided for @blockTypeSectionAiQuill.
+  ///
+  /// In es, this message translates to:
+  /// **'Quill (IA)'**
+  String get blockTypeSectionAiQuill;
 
   /// No description provided for @blockTypeParagraphLabel.
   ///
@@ -10304,7 +10670,7 @@ abstract class AppLocalizations {
   /// No description provided for @settingsAboutHeroDescription.
   ///
   /// In es, this message translates to:
-  /// **'Versión instalada, origen de actualizaciones y comprobación manual de novedades.'**
+  /// **'Versión del build, notas de publicación y canal de actualización. Las acciones están en la lista de abajo.'**
   String get settingsAboutHeroDescription;
 
   /// No description provided for @settingsOpenReleaseNotes.
@@ -10348,6 +10714,24 @@ abstract class AppLocalizations {
   /// In es, this message translates to:
   /// **'Atajos globales, bandeja del sistema y comportamiento de la ventana en el escritorio.'**
   String get settingsDesktopHeroDescription;
+
+  /// No description provided for @settingsDesktopHeroChipGlobalSearch.
+  ///
+  /// In es, this message translates to:
+  /// **'Atajo de búsqueda'**
+  String get settingsDesktopHeroChipGlobalSearch;
+
+  /// No description provided for @settingsDesktopHeroChipMinimizeTray.
+  ///
+  /// In es, this message translates to:
+  /// **'Comportamiento al minimizar'**
+  String get settingsDesktopHeroChipMinimizeTray;
+
+  /// No description provided for @settingsDesktopHeroChipCloseTray.
+  ///
+  /// In es, this message translates to:
+  /// **'Comportamiento al cerrar'**
+  String get settingsDesktopHeroChipCloseTray;
 
   /// No description provided for @settingsShortcutsHeroDescription.
   ///
@@ -11620,6 +12004,12 @@ abstract class AppLocalizations {
   /// In es, this message translates to:
   /// **'Tarea rápida'**
   String get workspaceHomeQuickTask;
+
+  /// No description provided for @workspaceHomeQuickVaultTasks.
+  ///
+  /// In es, this message translates to:
+  /// **'Todas las tareas'**
+  String get workspaceHomeQuickVaultTasks;
 
   /// No description provided for @workspaceHomeQuickFolder.
   ///

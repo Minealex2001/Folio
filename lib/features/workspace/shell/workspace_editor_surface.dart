@@ -35,6 +35,7 @@ class WorkspaceEditorSurface extends StatelessWidget {
     this.onLockVault,
     this.onForceSyncDevices,
     this.onQuickAddTask,
+    this.onOpenVaultTasks,
     this.onAddRootFolder,
     this.onImportMarkdown,
     required this.cloudAccount,
@@ -66,6 +67,7 @@ class WorkspaceEditorSurface extends StatelessWidget {
   final VoidCallback? onLockVault;
   final VoidCallback? onForceSyncDevices;
   final VoidCallback? onQuickAddTask;
+  final VoidCallback? onOpenVaultTasks;
   final VoidCallback? onAddRootFolder;
   final VoidCallback? onImportMarkdown;
   final CloudAccountController cloudAccount;
@@ -141,6 +143,7 @@ class WorkspaceEditorSurface extends StatelessWidget {
                     onLockVault: onLockVault,
                     onForceSyncDevices: onForceSyncDevices,
                     onQuickAddTask: onQuickAddTask,
+                    onOpenVaultTasks: onOpenVaultTasks,
                     onAddRootFolder: onAddRootFolder,
                     onImportMarkdown: onImportMarkdown,
                     cloudAccount: cloudAccount,

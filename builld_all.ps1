@@ -83,7 +83,7 @@ function Get-MicrosoftStoreDartDefinesFromEnv {
             continue
         }
         $key = $line.Substring(0, $eq).Trim()
-        if ($key -notmatch '^MS_STORE_') {
+        if ($key -ne 'FOLIO_MS_STORE_LISTING_PRODUCT_ID' -and $key -notmatch '^MS_STORE_') {
             continue
         }
         $val = $line.Substring($eq + 1).Trim()

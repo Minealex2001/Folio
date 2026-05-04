@@ -42,6 +42,10 @@ class _TaskQuickAddDialogState extends State<_TaskQuickAddDialog> {
   late final TextEditingController _titleCtrl = TextEditingController();
   late final TextEditingController _descCtrl = TextEditingController();
   late final TextEditingController _timeCtrl = TextEditingController();
+  late final TextEditingController _tagsCtrl = TextEditingController();
+  late final TextEditingController _assigneeCtrl = TextEditingController();
+  late final TextEditingController _storyPointsCtrl = TextEditingController();
+  late final TextEditingController _estimateCtrl = TextEditingController();
   String _status = 'todo';
   String? _priority;
   DateTime? _start;
@@ -53,6 +57,10 @@ class _TaskQuickAddDialogState extends State<_TaskQuickAddDialog> {
     _titleCtrl.dispose();
     _descCtrl.dispose();
     _timeCtrl.dispose();
+    _tagsCtrl.dispose();
+    _assigneeCtrl.dispose();
+    _storyPointsCtrl.dispose();
+    _estimateCtrl.dispose();
     super.dispose();
   }
 
@@ -64,7 +72,34 @@ class _TaskQuickAddDialogState extends State<_TaskQuickAddDialog> {
     return v;
   }
 
+  int? _estimateMinutesOrNull() {
+    final raw = _estimateCtrl.text.trim();
+    if (raw.isEmpty) return null;
+    final v = int.tryParse(raw);
+    if (v == null || v < 0) return null;
+    return v;
+  }
+
+  double? _storyPointsOrNull() {
+    final raw = _storyPointsCtrl.text.trim();
+    if (raw.isEmpty) return null;
+    final v = double.tryParse(raw.replaceAll(',', '.'));
+    if (v == null || v < 0) return null;
+    return v;
+  }
+
+  List<String> _tagsFromField() {
+    final raw = _tagsCtrl.text.trim();
+    if (raw.isEmpty) return const [];
+    return raw
+        .split(RegExp(r'[;,]'))
+        .map((e) => e.trim())
+        .where((e) => e.isNotEmpty)
+        .toList(growable: false);
+  }
+
   FolioTaskData _buildTask() {
+    final assignee = _assigneeCtrl.text.trim();
     return FolioTaskData(
       title: _titleCtrl.text.trim(),
       status: _status,
@@ -74,6 +109,10 @@ class _TaskQuickAddDialogState extends State<_TaskQuickAddDialog> {
       startDate: _isoDateOrNull(_start),
       dueDate: _isoDateOrNull(_due),
       timeSpentMinutes: _timeMinutesOrNull(),
+      estimatedMinutes: _estimateMinutesOrNull(),
+      storyPoints: _storyPointsOrNull(),
+      tags: _tagsFromField(),
+      assignee: assignee.isEmpty ? null : assignee,
       subtasks: List<FolioTaskSubtask>.from(_subtasks),
     );
   }
@@ -275,6 +314,51 @@ class _TaskQuickAddDialogState extends State<_TaskQuickAddDialog> {
                       _due == null
                           ? l10n.dueDate
                           : '${l10n.dueDate}: ${_isoDateOrNull(_due)}',
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 10),
+            TextField(
+              controller: _tagsCtrl,
+              decoration: InputDecoration(
+                labelText: l10n.taskQuickAddTagsLabel,
+                hintText: l10n.taskQuickAddTagsHint,
+                border: const OutlineInputBorder(),
+              ),
+            ),
+            const SizedBox(height: 10),
+            TextField(
+              controller: _assigneeCtrl,
+              decoration: InputDecoration(
+                labelText: l10n.taskQuickAddAssigneeLabel,
+                border: const OutlineInputBorder(),
+              ),
+            ),
+            const SizedBox(height: 10),
+            Row(
+              children: [
+                Expanded(
+                  child: TextField(
+                    controller: _estimateCtrl,
+                    keyboardType: TextInputType.number,
+                    decoration: InputDecoration(
+                      labelText: l10n.taskQuickAddEstimatedMinutesLabel,
+                      border: const OutlineInputBorder(),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: TextField(
+                    controller: _storyPointsCtrl,
+                    keyboardType: const TextInputType.numberWithOptions(
+                      decimal: true,
+                    ),
+                    decoration: InputDecoration(
+                      labelText: l10n.taskQuickAddStoryPointsLabel,
+                      border: const OutlineInputBorder(),
                     ),
                   ),
                 ),

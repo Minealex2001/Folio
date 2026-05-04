@@ -1,5 +1,8 @@
+import 'dart:convert';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:folio/models/folio_task_data.dart';
+import 'package:folio/services/tasks/task_reminder_service.dart';
 
 void main() {
   group('FolioTaskData', () {
@@ -68,6 +71,54 @@ void main() {
       expect(parsed.external!.deployment, 'cloud');
       expect(parsed.external!.cloudId, 'cloud_1');
       expect(parsed.external!.remoteVersion, '42');
+    });
+
+    test('v4: serializa y parsea tags, assignee, dependencias y metadatos IA', () {
+      final data = FolioTaskData(
+        title: 'Tarea rica',
+        status: 'todo',
+        tags: const ['review', 'cliente'],
+        assignee: '@ana',
+        estimatedMinutes: 45,
+        storyPoints: 3.5,
+        customProperties: const {'area': 'work'},
+        recurringRule: 'FREQ=DAILY',
+        blockedByTaskIds: const ['page_block1', 'page_block2'],
+        aiGenerated: true,
+        createdFromBlockId: 'blk_src',
+        aiContextPageId: 'page_ctx',
+        confidenceScore: 0.82,
+        suggestedDueDate: '2026-06-01',
+      );
+      final parsed = FolioTaskData.tryParse(data.encode());
+      expect(parsed, isNotNull);
+      expect(parsed!.tags, ['review', 'cliente']);
+      expect(parsed.assignee, '@ana');
+      expect(parsed.estimatedMinutes, 45);
+      expect(parsed.storyPoints, 3.5);
+      expect(parsed.customProperties['area'], 'work');
+      expect(parsed.recurringRule, 'FREQ=DAILY');
+      expect(parsed.blockedByTaskIds, ['page_block1', 'page_block2']);
+      expect(parsed.aiGenerated, isTrue);
+      expect(parsed.createdFromBlockId, 'blk_src');
+      expect(parsed.aiContextPageId, 'page_ctx');
+      expect(parsed.confidenceScore, closeTo(0.82, 1e-9));
+      expect(parsed.suggestedDueDate, '2026-06-01');
+      final map = jsonDecode(data.encode()) as Map<String, dynamic>;
+      expect(map['v'], 4);
+    });
+
+    test('advanceRecurrence usa recurringRule FREQ=WEEKLY', () {
+      final data = FolioTaskData(
+        title: 'R',
+        status: 'done',
+        dueDate: '2026-06-01',
+        recurringRule: 'FREQ=WEEKLY;INTERVAL=1',
+      );
+      final next = TaskReminderService.advanceRecurrence(data);
+      expect(next, isNotNull);
+      expect(next!.status, 'todo');
+      expect(next.dueDate, startsWith('2026-06-08'));
     });
 
     test('serializa y parsea snapshot Jira', () {

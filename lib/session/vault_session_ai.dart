@@ -13,6 +13,7 @@ extension VaultSessionAi on VaultSession {
     required String pageBlocksContext,
     required List<AiFileAttachment> attachments,
     required String cloudInkOperation,
+    String extraContextSections = '',
   }) {
     final isFirstTurn = conversationMessages.isEmpty;
     final agentIdentity = isEs
@@ -54,7 +55,7 @@ extension VaultSessionAi on VaultSession {
         '"threadTitle":"${isEs ? 'opcional (2-8 palabras) para renombrar la pestaña del chat SOLO en el primer turno; cadena vacía si no aplica' : 'optional (2-8 words) to rename the chat tab ONLY on the first turn; empty string if N/A'}",',
       )
       ..writeln(
-        '"blocks":[{"type":"paragraph|h1|h2|h3|bullet|numbered|todo|quote|code|callout|toggle|divider|table|image|file|video|audio|meeting_note|bookmark|embed|equation|mermaid","text":"...","checked":false,"expanded":true,"codeLanguage":"dart","depth":0,"icon":"emoji","url":"https://...","imageWidth":0.8,"cols":2,"rows":[["a","b"]]}],',
+        '"blocks":[{"type":"paragraph|h1|h2|h3|bullet|numbered|todo|task|quote|code|callout|toggle|divider|table|image|file|video|audio|meeting_note|bookmark|embed|equation|mermaid|database|canvas","text":"... (para database/canvas/task: JSON Folio válido en text; task puede ser título plano o JSON FolioTaskData)","checked":false,"expanded":true,"codeLanguage":"dart","depth":0,"icon":"emoji","url":"https://...","imageWidth":0.8,"cols":2,"rows":[["a","b"]]}],',
       )
       ..writeln(
         '"operations":[{"kind":"update_page_title|update_block_text|update_block|replace_block|insert_after|insert_before|move_block|delete_block|table_add_column|table_set_cell","title":"${isEs ? 'nuevo título (solo update_page_title)' : 'new title (update_page_title only)'}","blockId":"id","text":"...","checked":false,"expanded":true,"codeLanguage":"dart","depth":0,"icon":"emoji","url":"https://...","imageWidth":0.8,"targetIndex":0,"block":{},"blocks":[],"header":"...","values":[],"row":0,"col":0,"value":"..."}]',
@@ -102,7 +103,16 @@ extension VaultSessionAi on VaultSession {
             ? 'Contenido de páginas (referencia; puede haber varias):'
             : 'Page contents (reference; there may be several):',
       )
-      ..writeln(referencePagesText)
+      ..writeln(referencePagesText);
+    final extra = extraContextSections.trim();
+    if (extra.isNotEmpty) {
+      contextMessage.writeln();
+      contextMessage.writeln(
+        isEs ? 'Contexto adicional explícito:' : 'Explicit extra context:',
+      );
+      contextMessage.writeln(extra);
+    }
+    contextMessage
       ..writeln()
       ..writeln(editTargetLine)
       ..writeln(
@@ -616,6 +626,7 @@ For images/blocks: use the + button or / command in a paragraph.
     List<AiFileAttachment> attachments = const [],
     String languageCode = 'es',
     String? cloudInkOperation,
+    String extraContextSections = '',
   }) async {
     if (_state != VaultFlowState.unlocked ||
         (vaultUsesEncryption && _dek == null)) {
@@ -625,8 +636,14 @@ For images/blocks: use the + button or / command in a paragraph.
     if (ai == null) throw StateError('IA no configurada.');
     await pingAi();
     AiTokenUsage? lastUsage;
-    AgentChatOutcome finish(String reply) =>
-        AgentChatOutcome(reply: reply, usage: lastUsage);
+    AgentChatOutcome finish(
+      String reply, {
+      Map<String, dynamic>? agentApplySnapshot,
+    }) => AgentChatOutcome(
+      reply: reply,
+      usage: lastUsage,
+      agentApplySnapshot: agentApplySnapshot,
+    );
     final isEs = languageCode.toLowerCase().startsWith('es');
     final scopePage = scopePageId == null ? null : _pageById(scopePageId);
     final effectiveContextIds = _resolveAiChatContextPageIds(
@@ -737,6 +754,7 @@ For images/blocks: use the + button or / command in a paragraph.
           editTargetLine: editTargetLine,
           pageBlocksContext: pageBlocksContext,
           attachments: attachments,
+          extraContextSections: extraContextSections,
         ),
       );
       lastUsage = result.usage ?? lastUsage;
@@ -1052,7 +1070,7 @@ For images/blocks: use the + button or / command in a paragraph.
               prompt:
                   '${isEs ? VaultSession._quillIdentityLeadEs : VaultSession._quillIdentityLeadEn}'
                   '${isEs ? 'Respondiste en modo chat, pero el usuario quiere crear una nueva página. Devuelve SOLO JSON con mode=create_page, el título en "title" y los bloques en "blocks" usando el formato nativo de Folio. Por defecto genera contenido detallado y completo (mínimo 10-15 bloques), salvo que el mensaje original pida algo corto.' : 'You responded in chat mode, but the user wants to create a new page. Return ONLY JSON with mode=create_page, the title in "title" and the blocks in "blocks" using Folio native block format. By default generate detailed, comprehensive content (minimum 10-15 blocks), unless the original message asked for something short.'}\n'
-                  '${isEs ? 'Formato de bloque nativo:' : 'Native block format:'} {"type":"paragraph|h1|h2|h3|bullet|numbered|todo|quote|code|callout|toggle|divider|table|image|file|video|audio|meeting_note|bookmark|embed|equation|mermaid","text":"...","checked":false,"expanded":true,"codeLanguage":"dart","depth":0,"icon":"emoji","url":"https://...","imageWidth":0.8,"cols":2,"rows":[["a","b"]]}\n'
+                  '${isEs ? 'Formato de bloque nativo:' : 'Native block format:'} {"type":"paragraph|h1|h2|h3|bullet|numbered|todo|quote|code|callout|toggle|divider|table|image|file|video|audio|meeting_note|bookmark|embed|equation|mermaid|database|canvas","text":"...","checked":false,"expanded":true,"codeLanguage":"dart","depth":0,"icon":"emoji","url":"https://...","imageWidth":0.8,"cols":2,"rows":[["a","b"]]}\n'
                   '${isEs ? 'No uses markdown fences ni texto fuera del JSON.' : 'Do not use markdown fences or text outside JSON.'}\n\n'
                   '${_titleL10n.aiPromptOriginalMessage}\n${prompt.trim()}',
               model: 'auto',
@@ -1134,6 +1152,11 @@ For images/blocks: use the + button or / command in a paragraph.
             reason: reason,
             reply: reply,
             isEs: isEs,
+          ),
+          agentApplySnapshot: _folioChatAgentApplySnapshotFromDecoded(
+            scopePage: scopePage,
+            mode: mode,
+            decoded: decoded,
           ),
         );
       }
@@ -1270,7 +1293,7 @@ For images/blocks: use the + button or / command in a paragraph.
             prompt:
                 '${isEs ? VaultSession._quillIdentityLeadEs : VaultSession._quillIdentityLeadEn}'
                 '${isEs ? 'La respuesta anterior no fue JSON válido. El usuario quiere crear una página. Devuelve SOLO JSON con mode=create_page, el título en "title" y los bloques en "blocks". Por defecto genera contenido detallado y completo (mínimo 10-15 bloques), salvo que el mensaje original pida algo corto.' : 'The previous response was not valid JSON. The user wants to create a page. Return ONLY JSON with mode=create_page, the title in "title" and the blocks in "blocks". By default generate detailed, comprehensive content (minimum 10-15 blocks), unless the original message asked for something short.'}\n'
-                '${isEs ? 'Formato de bloque:' : 'Block format:'} {"type":"paragraph|h1|h2|h3|bullet|numbered|todo|quote|code|callout|toggle|divider|table|image|file|video|audio|meeting_note|bookmark|embed|equation|mermaid","text":"...","checked":false,"expanded":true,"codeLanguage":"dart","depth":0,"icon":"emoji","url":"https://...","imageWidth":0.8,"cols":2,"rows":[["a","b"]]}\n'
+                '${isEs ? 'Formato de bloque:' : 'Block format:'} {"type":"paragraph|h1|h2|h3|bullet|numbered|todo|quote|code|callout|toggle|divider|table|image|file|video|audio|meeting_note|bookmark|embed|equation|mermaid|database|canvas","text":"...","checked":false,"expanded":true,"codeLanguage":"dart","depth":0,"icon":"emoji","url":"https://...","imageWidth":0.8,"cols":2,"rows":[["a","b"]]}\n'
                 '${isEs ? 'No uses markdown fences ni texto fuera del JSON.' : 'Do not use markdown fences or text outside JSON.'}\n\n'
                 '${_titleL10n.aiPromptOriginalMessage}\n${prompt.trim()}',
             model: 'auto',
@@ -2150,7 +2173,7 @@ For images/blocks: use the + button or / command in a paragraph.
             '"operations":[{"kind":"update_page_title|append_blocks|replace_page","title":"nuevo título si renombrar","blocks":[...]}]'
             '}\n'
             'Para renombrar la página usa una operación {"kind":"update_page_title","title":"..."} (puede ir sola o junto a otras).\n'
-            'Bloques permitidos: paragraph,h1,h2,h3,bullet,numbered,todo,quote,code,callout,toggle,divider,table,image,file,video,audio,meeting_note,bookmark,embed,equation,mermaid.\n'
+            'Bloques permitidos: paragraph,h1,h2,h3,bullet,numbered,todo,task,quote,code,callout,toggle,divider,table,image,file,video,audio,meeting_note,bookmark,embed,equation,mermaid.\n'
             'Para table usa: {"type":"table","cols":N,"rows":[["c1","c2"],["v1","v2"]]}.\n'
             'Para code puedes añadir codeLanguage. Para todo puedes añadir checked.\n'
             'No uses markdown ni texto fuera del JSON.\n\n'
@@ -2305,6 +2328,49 @@ For images/blocks: use the + button or / command in a paragraph.
             tableRows: rows,
           ),
         );
+        continue;
+      }
+      if (type == 'database') {
+        final rawText = (map['text'] as String? ?? '').trim();
+        final db = rawText.isNotEmpty
+            ? FolioDatabaseData.tryParse(rawText)
+            : null;
+        blocks.add(
+          _AiBlockSpec(
+            type: 'database',
+            text: (db ?? FolioDatabaseData.empty()).encode(),
+          ),
+        );
+        continue;
+      }
+      if (type == 'canvas') {
+        final rawText = (map['text'] as String? ?? '').trim();
+        final cv = rawText.isNotEmpty
+            ? FolioCanvasData.tryParse(rawText)
+            : null;
+        blocks.add(
+          _AiBlockSpec(
+            type: 'canvas',
+            text: (cv ?? FolioCanvasData.defaults()).encode(),
+          ),
+        );
+        continue;
+      }
+      if (type == 'task') {
+        final rawText = (map['text'] as String? ?? '').trim();
+        final titleFromMap = (map['title'] as String? ?? '').trim();
+        FolioTaskData task;
+        if (rawText.startsWith('{')) {
+          task =
+              FolioTaskData.tryParse(rawText) ??
+              FolioTaskData.defaults().copyWith(title: titleFromMap);
+        } else if (rawText.isNotEmpty) {
+          task = FolioTaskData(title: rawText, status: 'todo');
+        } else {
+          task = FolioTaskData(title: titleFromMap, status: 'todo');
+        }
+        if (task.title.trim().isEmpty) continue;
+        blocks.add(_AiBlockSpec(type: 'task', text: task.encode()));
         continue;
       }
       final text = (map['text'] as String? ?? '').trim();
@@ -2465,6 +2531,13 @@ For images/blocks: use the + button or / command in a paragraph.
     return out;
   }
 
+  String _materializeAiTaskBlockText(String raw) {
+    final parsed = FolioTaskData.tryParse(raw);
+    if (parsed != null) return parsed.encode();
+    final title = raw.trim();
+    return FolioTaskData(title: title, status: 'todo').encode();
+  }
+
   List<FolioBlock> _materializeAiBlocks(
     String pageId,
     List<_AiBlockSpec> specs,
@@ -2487,6 +2560,7 @@ For images/blocks: use the + button or / command in a paragraph.
       final canUseUrlOnly = urlOnlyTypes.contains(type) && hasUrl;
       if (type != 'divider' &&
           type != 'table' &&
+          type != 'task' &&
           text.isEmpty &&
           !canUseUrlOnly) {
         continue;
@@ -2497,7 +2571,11 @@ For images/blocks: use the + button or / command in a paragraph.
           type: type,
           text: type == 'divider'
               ? ''
-              : (type == 'table' ? _buildTableBlockText(s) : text),
+              : (type == 'table'
+                    ? _buildTableBlockText(s)
+                    : (type == 'task'
+                          ? _materializeAiTaskBlockText(s.text)
+                          : text)),
           checked: type == 'todo' ? (s.checked ?? false) : null,
           codeLanguage: type == 'code'
               ? (s.codeLanguage?.trim().isEmpty ?? true
@@ -2578,6 +2656,7 @@ For images/blocks: use the + button or / command in a paragraph.
       'bullet',
       'numbered',
       'todo',
+      'task',
       'toggle',
       'code',
       'quote',
@@ -2593,6 +2672,8 @@ For images/blocks: use the + button or / command in a paragraph.
       'equation',
       'mermaid',
       'meeting_note',
+      'database',
+      'canvas',
     };
     final normalized = raw.trim().toLowerCase();
     final type = normalized.contains('|')
@@ -2623,6 +2704,62 @@ For images/blocks: use the + button or / command in a paragraph.
     }
     return FolioTableData(cols: cols, cells: cells).encode();
   }
+
+  /// Aplica en la página indicada el JSON que el agente devolvió en modo `chat`
+  /// (bloques u operaciones) cuando no se auto-materializó.
+  bool applyAgentChatSnapshotToPage({
+    required String pageId,
+    required Map<String, dynamic> snapshot,
+    required AiAgentApplyKind kind,
+  }) {
+    if (_state != VaultFlowState.unlocked ||
+        (vaultUsesEncryption && _dek == null)) {
+      return false;
+    }
+    final page = _pageById(pageId);
+    if (page == null) return false;
+    try {
+      if (kind == AiAgentApplyKind.insertBlocksAtEnd) {
+        final raw = snapshot['blocks'];
+        if (raw is! List || raw.isEmpty) return false;
+        final specs = _parseAiBlocksFromDynamicList(raw);
+        if (specs.isEmpty) return false;
+        page.blocks.addAll(_materializeAiBlocks(page.id, specs));
+      } else if (kind == AiAgentApplyKind.replaceAllBlocks) {
+        final raw = snapshot['blocks'];
+        if (raw is! List || raw.isEmpty) return false;
+        final specs = _parseAiBlocksFromDynamicList(raw);
+        if (specs.isEmpty) return false;
+        page.blocks = _materializeAiBlocks(page.id, specs);
+      } else if (kind == AiAgentApplyKind.applyEditOperations) {
+        final raw = snapshot['operations'];
+        if (raw is! List || raw.isEmpty) return false;
+        if (!_applyAgentEditOperations(page, raw)) return false;
+      }
+      _notifySessionListeners();
+      scheduleSave(trackRevisionForPageId: page.id);
+      return true;
+    } catch (_) {
+      return false;
+    }
+  }
+}
+
+Map<String, dynamic>? _folioChatAgentApplySnapshotFromDecoded({
+  required FolioPage? scopePage,
+  required String mode,
+  required Map<String, dynamic> decoded,
+}) {
+  if (scopePage == null || mode != 'chat') return null;
+  final rawBlocks = decoded['blocks'];
+  final rawOps = decoded['operations'];
+  final hasB = rawBlocks is List && rawBlocks.isNotEmpty;
+  final hasO = rawOps is List && rawOps.isNotEmpty;
+  if (!hasB && !hasO) return null;
+  return <String, dynamic>{
+    if (hasB) 'blocks': jsonDecode(jsonEncode(rawBlocks)),
+    if (hasO) 'operations': jsonDecode(jsonEncode(rawOps)),
+  };
 }
 
 class _AiPageDraft {

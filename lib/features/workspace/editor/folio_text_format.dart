@@ -727,6 +727,7 @@ class FolioFormatToolbar extends StatefulWidget {
     this.onInsertUserMention,
     this.onInsertDateMention,
     this.onInsertInlineMath,
+    this.onAskQuill,
   });
 
   final TextEditingController controller;
@@ -748,6 +749,9 @@ class FolioFormatToolbar extends StatefulWidget {
   /// Inserta marcadores LaTeX en línea `\\( … \\)`.
   final VoidCallback? onInsertInlineMath;
 
+  /// Pregunta a Quill sobre la selección (panel de chat).
+  final VoidCallback? onAskQuill;
+
   @override
   State<FolioFormatToolbar> createState() => _FolioFormatToolbarState();
 }
@@ -761,6 +765,7 @@ class FolioQuillFormatToolbar extends StatelessWidget {
     required this.focusNode,
     this.onInteractionStart,
     this.onInteractionEnd,
+    this.onAskQuill,
   });
 
   final quill.QuillController controller;
@@ -768,6 +773,7 @@ class FolioQuillFormatToolbar extends StatelessWidget {
   final FocusNode focusNode;
   final VoidCallback? onInteractionStart;
   final VoidCallback? onInteractionEnd;
+  final VoidCallback? onAskQuill;
 
   void _toggle(quill.Attribute attr) {
     final current = controller.getSelectionStyle().attributes[attr.key];
@@ -1156,6 +1162,12 @@ class FolioQuillFormatToolbar extends StatelessWidget {
                     tip: AppLocalizations.of(context).formatToolbarQuillClear,
                     onActivate: _clearInline,
                   ),
+                  if (onAskQuill != null)
+                    btn(
+                      icon: Icons.smart_toy_outlined,
+                      tip: AppLocalizations.of(context).blockEditorAskQuillTooltip,
+                      onActivate: onAskQuill!,
+                    ),
                 ],
               ),
             ),
@@ -1489,6 +1501,16 @@ class _FolioFormatToolbarState extends State<FolioFormatToolbar> {
                           widget.onInsertInlineMath!.call();
                           return true;
                         }),
+                      ),
+                    if (widget.onAskQuill != null)
+                      btn(
+                        icon: Icons.smart_toy_outlined,
+                        tip: AppLocalizations.of(context).blockEditorAskQuillTooltip,
+                        onPressed: () {
+                          _restoreSelectionIfPossible();
+                          widget.onAskQuill!.call();
+                          widget.textFocusNode.requestFocus();
+                        },
                       ),
                   ],
                 ),

@@ -12,6 +12,11 @@ extension _WorkspacePageAiContextModule on _WorkspacePageState {
             (b) => b.type == 'meeting_note' && (b.url ?? '').trim().isNotEmpty,
           ) ??
           false;
+      final hasMeetingText =
+          _s.selectedPage?.blocks.any(
+            (b) => b.type == 'meeting_note' && b.text.trim().isNotEmpty,
+          ) ??
+          false;
       return <_AiContextItem>[
         _AiContextItem(
           kind: _AiContextItemKind.addFile,
@@ -23,6 +28,17 @@ extension _WorkspacePageAiContextModule on _WorkspacePageState {
           id: '__open_pages__',
           label: l10n.aiContextAddPage,
         ),
+        _AiContextItem(
+          kind: _AiContextItemKind.editorSelection,
+          id: '__editor_selection__',
+          label: l10n.aiContextEditorSelection,
+        ),
+        if (hasMeetingText)
+          _AiContextItem(
+            kind: _AiContextItemKind.lastMeetingOnPage,
+            id: '__last_meeting_on_page__',
+            label: l10n.aiContextLastMeetingOnPage,
+          ),
         if (hasMeetingBlocks)
           _AiContextItem(
             kind: _AiContextItemKind.meetingNote,
@@ -48,10 +64,28 @@ extension _WorkspacePageAiContextModule on _WorkspacePageState {
       ),
     ];
     if (needle.isEmpty) return suggestions.take(8).toList();
-    return suggestions
-        .where((item) => item.label.toLowerCase().contains(needle))
-        .take(8)
-        .toList();
+    final ranked = FolioVaultLightSearch(_s.pages).rankPageIds(needle, maxResults: 6);
+    final rankedSet = ranked.toSet();
+    final merged = <_AiContextItem>[];
+    for (final id in ranked) {
+      final p = _s.pages.where((x) => x.id == id).firstOrNull;
+      if (p == null) continue;
+      merged.add(
+        _AiContextItem(
+          kind: _AiContextItemKind.page,
+          id: p.id,
+          label: p.title.trim().isEmpty ? l10n.untitledFallback : p.title,
+        ),
+      );
+    }
+    for (final item in suggestions) {
+      if (merged.length >= 8) break;
+      if (item.kind == _AiContextItemKind.page && rankedSet.contains(item.id)) {
+        continue;
+      }
+      if (item.label.toLowerCase().contains(needle)) merged.add(item);
+    }
+    return merged.take(8).toList();
   }
 
   bool _chatInputHasContextTrigger() {
@@ -218,7 +252,29 @@ extension _WorkspacePageAiContextModule on _WorkspacePageState {
         return Icons.add_circle_outline_rounded;
       case _AiContextItemKind.meetingNote:
         return Icons.mic_rounded;
+      case _AiContextItemKind.editorSelection:
+        return Icons.text_fields_rounded;
+      case _AiContextItemKind.lastMeetingOnPage:
+        return Icons.transcribe_rounded;
     }
+  }
+
+  void _stripComposerAtTokenIfAny() {
+    final value = _chatInputController.value;
+    final text = value.text;
+    final selection = value.selection;
+    if (!selection.isValid) return;
+    final caret = selection.baseOffset;
+    if (caret < 0 || caret > text.length) return;
+    final prefix = text.substring(0, caret);
+    final match = RegExp(r'(^|\s)@([^\s@]*)$').firstMatch(prefix);
+    if (match == null) return;
+    final replaceStart = match.start + (match.group(1)?.length ?? 0);
+    final newText = text.replaceRange(replaceStart, caret, '');
+    _chatInputController.value = TextEditingValue(
+      text: newText,
+      selection: TextSelection.collapsed(offset: replaceStart),
+    );
   }
 
   Future<void> _applyAiContextSuggestion(_AiContextItem item) async {
@@ -251,6 +307,16 @@ extension _WorkspacePageAiContextModule on _WorkspacePageState {
       case _AiContextItemKind.meetingNote:
         await _pickMeetingNoteAttachment();
         _showAiContextMenu(pinned: true);
+        break;
+      case _AiContextItemKind.editorSelection:
+        _aiAttachNextEditorSelection = true;
+        _stripComposerAtTokenIfAny();
+        _hideAiContextMenu();
+        break;
+      case _AiContextItemKind.lastMeetingOnPage:
+        _aiAttachNextLastMeeting = true;
+        _stripComposerAtTokenIfAny();
+        _hideAiContextMenu();
         break;
     }
     if (_aiContextMenuView == _AiContextMenuView.pages) {
@@ -310,6 +376,9 @@ extension _WorkspacePageAiContextModule on _WorkspacePageState {
         _s.syncActiveAiChatAttachmentPaths(_aiAttachmentPaths);
         break;
       case _AiContextItemKind.addFile:
+        break;
+      case _AiContextItemKind.editorSelection:
+      case _AiContextItemKind.lastMeetingOnPage:
         break;
     }
   }

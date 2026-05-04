@@ -365,6 +365,9 @@ class AppSettings extends ChangeNotifier {
   static const _aiChatPanelCollapsedKey = 'folio_ai_chat_panel_collapsed';
   static const _aiChatPanelWidthKey = 'folio_ai_chat_panel_width';
   static const _aiChatPanelHeightKey = 'folio_ai_chat_panel_height';
+  static const _aiChatSplitViewKey = 'folio_ai_chat_split_view';
+  static const _aiQuillCopilotExperimentalKey =
+      'folio_ai_quill_copilot_experimental';
   static const _customIconsKey = 'folio_custom_icons_v1';
   static const _integrationCustomIconsKey =
       'folio_integration_custom_icons_by_app_v1';
@@ -558,6 +561,8 @@ class AppSettings extends ChangeNotifier {
   bool _aiChatPanelCollapsed = false;
   double _aiChatPanelWidth = defaultAiChatPanelWidth;
   double _aiChatPanelHeight = defaultAiChatPanelHeight;
+  bool _aiChatSplitView = false;
+  bool _aiQuillCopilotExperimental = false;
   Map<FolioInAppShortcut, SingleActivator> _inAppShortcuts =
       defaultShortcutMap();
   final String _configuredIntegrationSecret;
@@ -642,7 +647,8 @@ class AppSettings extends ChangeNotifier {
   String get lastSeenReleaseNotesVersion => _lastSeenReleaseNotesVersion;
   String get updaterGithubOwner => defaultUpdaterGithubOwner;
   String get updaterGithubRepo => defaultUpdaterGithubRepo;
-  bool get checkUpdatesOnStartup => defaultCheckUpdatesOnStartup;
+  bool get checkUpdatesOnStartup =>
+      defaultCheckUpdatesOnStartup && FolioDistribution.offersGitHubSelfUpdate;
   UpdateReleaseChannel get updateReleaseChannel => _updateReleaseChannel;
   double get editorContentWidth => _editorContentWidth;
   double get workspaceSidebarWidth => _workspaceSidebarWidth;
@@ -676,6 +682,8 @@ class AppSettings extends ChangeNotifier {
   bool get aiChatPanelCollapsed => _aiChatPanelCollapsed;
   double get aiChatPanelWidth => _aiChatPanelWidth;
   double get aiChatPanelHeight => _aiChatPanelHeight;
+  bool get aiChatSplitView => _aiChatSplitView;
+  bool get aiQuillCopilotExperimental => _aiQuillCopilotExperimental;
   String get integrationSecret => _integrationSecret;
 
   /// Temporal: `client_id` para OAuth 3LO de Jira Cloud configurado por usuario.
@@ -906,6 +914,9 @@ class AppSettings extends ChangeNotifier {
     _aiChatPanelHeight = _sanitizeAiChatPanelHeight(
       p.getDouble(_aiChatPanelHeightKey),
     );
+    _aiChatSplitView = p.getBool(_aiChatSplitViewKey) ?? false;
+    _aiQuillCopilotExperimental =
+        p.getBool(_aiQuillCopilotExperimentalKey) ?? false;
     _inAppShortcuts = parseShortcutOverrides(
       p.getString(_inAppShortcutsKey),
       defaultShortcutMap(),
@@ -1661,6 +1672,22 @@ class AppSettings extends ChangeNotifier {
     notifyListeners();
     final p = await SharedPreferences.getInstance();
     await p.setDouble(_aiChatPanelHeightKey, safe);
+  }
+
+  Future<void> setAiChatSplitView(bool value) async {
+    if (_aiChatSplitView == value) return;
+    _aiChatSplitView = value;
+    notifyListeners();
+    final p = await SharedPreferences.getInstance();
+    await p.setBool(_aiChatSplitViewKey, value);
+  }
+
+  Future<void> setAiQuillCopilotExperimental(bool value) async {
+    if (_aiQuillCopilotExperimental == value) return;
+    _aiQuillCopilotExperimental = value;
+    notifyListeners();
+    final p = await SharedPreferences.getInstance();
+    await p.setBool(_aiQuillCopilotExperimentalKey, value);
   }
 
   Future<void> setWorkspaceSidebarAutoReveal(bool value) async {

@@ -1,6 +1,132 @@
 part of 'workspace_page.dart';
 
 extension _WorkspacePageAiThreadsModule on _WorkspacePageState {
+  List<int> _filteredAiChatThreadIndices(String query) {
+    final q = query.trim().toLowerCase();
+    if (q.isEmpty) {
+      return List<int>.generate(_s.aiChatThreads.length, (i) => i);
+    }
+    final out = <int>[];
+    for (var i = 0; i < _s.aiChatThreads.length; i++) {
+      if (_s.aiChatThreads[i].title.toLowerCase().contains(q)) {
+        out.add(i);
+      }
+    }
+    return out;
+  }
+
+  Future<void> _showAiThreadsPickerSheet() async {
+    final l10n = AppLocalizations.of(context);
+    final searchCtrl = TextEditingController();
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      showDragHandle: true,
+      builder: (sheetCtx) {
+        final maxH = MediaQuery.sizeOf(sheetCtx).height * 0.55;
+        return Padding(
+          padding: EdgeInsets.only(
+            bottom: MediaQuery.viewInsetsOf(sheetCtx).bottom,
+          ),
+          child: StatefulBuilder(
+            builder: (sheetCtx, setModal) {
+              final indices = _filteredAiChatThreadIndices(searchCtrl.text);
+              return SafeArea(
+                child: ConstrainedBox(
+                  constraints: BoxConstraints(maxHeight: maxH),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(20, 8, 20, 12),
+                        child: Text(
+                          l10n.aiChatThreadsListTitle,
+                          style: Theme.of(sheetCtx).textTheme.titleMedium
+                              ?.copyWith(fontWeight: FontWeight.w700),
+                        ),
+                      ),
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 16),
+                        child: TextField(
+                          controller: searchCtrl,
+                          onChanged: (_) => setModal(() {}),
+                          decoration: InputDecoration(
+                            hintText: l10n.aiThreadSearchHint,
+                            prefixIcon: const Icon(Icons.search),
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            isDense: true,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Expanded(
+                        child: indices.isEmpty
+                            ? Center(
+                                child: Padding(
+                                  padding: const EdgeInsets.all(24),
+                                  child: Text(
+                                    l10n.aiChatThreadsEmptySearch,
+                                    style: Theme.of(sheetCtx)
+                                        .textTheme
+                                        .bodyMedium
+                                        ?.copyWith(
+                                          color: Theme.of(sheetCtx)
+                                              .colorScheme
+                                              .onSurfaceVariant,
+                                        ),
+                                    textAlign: TextAlign.center,
+                                  ),
+                                ),
+                              )
+                            : ListView.builder(
+                                itemCount: indices.length,
+                                itemBuilder: (ctx, j) {
+                                  final i = indices[j];
+                                  final active = i == _s.aiActiveChatIndex;
+                                  final title = _s.aiChatThreads[i].title;
+                                  return ListTile(
+                                    selected: active,
+                                    title: Text(
+                                      title.isEmpty
+                                          ? l10n.untitledFallback
+                                          : title,
+                                      maxLines: 2,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                    onTap: _aiChatBusy
+                                        ? null
+                                        : () {
+                                            _s.syncActiveAiChatAttachmentPaths(
+                                              _aiAttachmentPaths,
+                                            );
+                                            _setStateSafe(
+                                              () =>
+                                                  _lastChatTokenUsage = null,
+                                            );
+                                            _s.selectAiChat(i);
+                                            Navigator.pop(sheetCtx);
+                                          },
+                                  );
+                                },
+                              ),
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            },
+          ),
+        );
+      },
+    );
+    // El route puede animar un frame más tras el pop; no dispose hasta después.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      searchCtrl.dispose();
+    });
+  }
+
   String _aiPanelContextSubtitle(AppLocalizations l10n) {
     final chat = _activeChat;
     if (!chat.includePageContext) return l10n.aiChatContextDisabledSubtitle;

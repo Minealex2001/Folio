@@ -221,7 +221,9 @@ Widget _buildEditableMarkdownBlockRow(_BlockRowScope s) {
               : TextAlignVertical.center,
           decoration: isListLine
               ? InputDecoration.collapsed(
-                  hintText: block.type == 'todo' ? 'Tarea…' : '',
+                  hintText: block.type == 'todo'
+                      ? l10n.blockEditorTodoPlaceholder
+                      : '',
                 )
               : InputDecoration(
                   border: InputBorder.none,

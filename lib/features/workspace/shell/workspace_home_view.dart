@@ -39,6 +39,7 @@ class WorkspaceHomeView extends StatefulWidget {
     this.onLockVault,
     this.onForceSyncDevices,
     this.onQuickAddTask,
+    this.onOpenVaultTasks,
     this.onAddRootFolder,
     this.onImportMarkdown,
     required this.cloudAccount,
@@ -66,6 +67,7 @@ class WorkspaceHomeView extends StatefulWidget {
   final VoidCallback? onLockVault;
   final VoidCallback? onForceSyncDevices;
   final VoidCallback? onQuickAddTask;
+  final VoidCallback? onOpenVaultTasks;
   final VoidCallback? onAddRootFolder;
   final VoidCallback? onImportMarkdown;
 
@@ -1265,6 +1267,12 @@ class _WorkspaceHomeViewState extends State<WorkspaceHomeView> {
       Icons.add_task_rounded,
       l10n.workspaceHomeQuickTask,
       l10n.workspaceHomeQuickTask,
+    );
+    pushIf(
+      widget.onOpenVaultTasks,
+      Icons.task_alt_outlined,
+      l10n.workspaceHomeQuickVaultTasks,
+      l10n.sidebarTaskHub,
     );
     pushIf(
       widget.onAddRootFolder,

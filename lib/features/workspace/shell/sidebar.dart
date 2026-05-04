@@ -33,6 +33,7 @@ class Sidebar extends StatefulWidget {
     this.onOpenSettings,
     this.onLock,
     this.onQuickAddTask,
+    this.onOpenVaultTaskHub,
   });
 
   final VaultSession session;
@@ -43,6 +44,7 @@ class Sidebar extends StatefulWidget {
   final VoidCallback? onOpenSettings;
   final VoidCallback? onLock;
   final VoidCallback? onQuickAddTask;
+  final VoidCallback? onOpenVaultTaskHub;
 
   @override
   State<Sidebar> createState() => _SidebarState();
@@ -1109,7 +1111,7 @@ class _SidebarState extends State<Sidebar> {
                   ),
                 ),
               ),
-            if (widget.onQuickAddTask != null)
+            if (widget.onQuickAddTask != null || widget.onOpenVaultTaskHub != null)
               Padding(
                 padding: const EdgeInsets.fromLTRB(
                   FolioSpace.sm,
@@ -1120,11 +1122,21 @@ class _SidebarState extends State<Sidebar> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    FilledButton.tonalIcon(
-                      onPressed: widget.onQuickAddTask,
-                      icon: const Icon(Icons.add_task_rounded, size: 20),
-                      label: Text(l10n.sidebarQuickAddTask),
-                    ),
+                    if (widget.onQuickAddTask != null)
+                      FilledButton.tonalIcon(
+                        onPressed: widget.onQuickAddTask,
+                        icon: const Icon(Icons.add_task_rounded, size: 20),
+                        label: Text(l10n.sidebarQuickAddTask),
+                      ),
+                    if (widget.onQuickAddTask != null &&
+                        widget.onOpenVaultTaskHub != null)
+                      const SizedBox(height: FolioSpace.xs),
+                    if (widget.onOpenVaultTaskHub != null)
+                      OutlinedButton.icon(
+                        onPressed: widget.onOpenVaultTaskHub,
+                        icon: const Icon(Icons.task_alt_outlined, size: 20),
+                        label: Text(l10n.sidebarTaskHub),
+                      ),
                   ],
                 ),
               ),

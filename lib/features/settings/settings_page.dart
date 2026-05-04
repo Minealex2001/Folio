@@ -16,6 +16,7 @@ import 'package:path/path.dart' as p;
 import '../../app/app_settings.dart';
 import '../../app/folio_build_flags.dart';
 import '../../app/folio_distribution.dart';
+import '../../app/folio_store_listing.dart';
 import '../../app/folio_in_app_shortcuts.dart';
 import '../../app/ui_tokens.dart';
 import '../../app/widgets/folio_dialog.dart';
@@ -3382,6 +3383,47 @@ class _SettingsPageState extends State<SettingsPage> {
     final l10n = AppLocalizations.of(context);
     setState(() => _checkingUpdates = true);
     try {
+      if (!FolioDistribution.offersGitHubSelfUpdate) {
+        if (FolioDistribution.isMicrosoftStore) {
+          if (defaultTargetPlatform != TargetPlatform.windows) {
+            if (mounted) {
+              _snack(l10n.updaterManualCheckUnsupportedPlatform);
+            }
+            return;
+          }
+          if (!FolioStoreListing.hasMicrosoftStoreListingProductId) {
+            if (mounted) {
+              _snack(l10n.updaterMicrosoftStoreListingMissing);
+            }
+            return;
+          }
+          final ok = await FolioStoreListing.openMicrosoftStoreProductPage();
+          if (!mounted) return;
+          if (!ok) {
+            _snack(l10n.updaterStoreListingOpenFailed);
+          }
+          return;
+        }
+        if (FolioDistribution.isPlayStore) {
+          if (defaultTargetPlatform != TargetPlatform.android) {
+            if (mounted) {
+              _snack(l10n.updaterManualCheckUnsupportedPlatform);
+            }
+            return;
+          }
+          final ok = await FolioStoreListing.openGooglePlayAppPage();
+          if (!mounted) return;
+          if (!ok) {
+            _snack(l10n.updaterStoreListingOpenFailed);
+          }
+          return;
+        }
+        if (mounted) {
+          _snack(l10n.updaterManualCheckUnsupportedPlatform);
+        }
+        return;
+      }
+
       final updater = _buildUpdater();
       final result = await updater.checkForUpdate(
         channel: _app.updateReleaseChannel,
@@ -6460,15 +6502,18 @@ class _SettingsPageState extends State<SettingsPage> {
                                         chips: [
                                           _SettingsInfoChip(
                                             icon: Icons.search_rounded,
-                                            label: l10n.globalSearchHotkey,
+                                            label: l10n
+                                                .settingsDesktopHeroChipGlobalSearch,
                                           ),
                                           _SettingsInfoChip(
                                             icon: Icons.minimize_rounded,
-                                            label: l10n.minimizeToTray,
+                                            label: l10n
+                                                .settingsDesktopHeroChipMinimizeTray,
                                           ),
                                           _SettingsInfoChip(
                                             icon: Icons.close_rounded,
-                                            label: l10n.closeToTray,
+                                            label: l10n
+                                                .settingsDesktopHeroChipCloseTray,
                                           ),
                                         ],
                                       ),
@@ -7396,6 +7441,50 @@ class _SettingsPageState extends State<SettingsPage> {
                                             ? _app.setAiAlwaysShowThought
                                             : null,
                                       ),
+                                      SwitchListTile(
+                                        secondary: const Icon(
+                                          Icons.view_column_outlined,
+                                        ),
+                                        title: Text(
+                                          l10n.settingsAiChatSplitViewTitle,
+                                        ),
+                                        subtitle: Text(
+                                          l10n.settingsAiChatSplitViewSubtitle,
+                                        ),
+                                        value: _app.aiChatSplitView,
+                                        onChanged: _app.aiEnabled
+                                            ? (v) async {
+                                                await _app.setAiChatSplitView(
+                                                  v,
+                                                );
+                                                if (mounted) setState(() {});
+                                              }
+                                            : null,
+                                      ),
+                                      SwitchListTile(
+                                        secondary: const Icon(
+                                          Icons.auto_fix_high_outlined,
+                                        ),
+                                        title: Text(
+                                          l10n
+                                              .settingsAiQuillCopilotExperimentalTitle,
+                                        ),
+                                        subtitle: Text(
+                                          l10n
+                                              .settingsAiQuillCopilotExperimentalSubtitle,
+                                        ),
+                                        value:
+                                            _app.aiQuillCopilotExperimental,
+                                        onChanged: _app.aiEnabled
+                                            ? (v) async {
+                                                await _app
+                                                    .setAiQuillCopilotExperimental(
+                                                      v,
+                                                    );
+                                                if (mounted) setState(() {});
+                                              }
+                                            : null,
+                                      ),
                                       if (aiLocalProvidersSupported &&
                                           _app.aiProvider !=
                                               AiProvider.quillCloud) ...[
@@ -8112,16 +8201,6 @@ class _SettingsPageState extends State<SettingsPage> {
                                       title: l10n.about,
                                       description:
                                           l10n.settingsAboutHeroDescription,
-                                      chips: [
-                                        _SettingsInfoChip(
-                                          icon: Icons.tag_rounded,
-                                          label: l10n.installedVersion,
-                                        ),
-                                        _SettingsInfoChip(
-                                          icon: Icons.system_update_rounded,
-                                          label: l10n.checkUpdates,
-                                        ),
-                                      ],
                                     ),
                                     const Divider(height: 1),
                                     ListTile(
@@ -8152,19 +8231,22 @@ class _SettingsPageState extends State<SettingsPage> {
                                           ? null
                                           : _openReleaseNotesNow,
                                     ),
-                                    if (showDesktopOnlySections) ...[
-                                      const Divider(height: 1),
-                                      ListTile(
-                                        leading: const Icon(
-                                          Icons.cloud_outlined,
+                                    if (FolioDistribution
+                                        .offersGitHubSelfUpdate) ...[
+                                      if (showDesktopOnlySections) ...[
+                                        const Divider(height: 1),
+                                        ListTile(
+                                          leading: const Icon(
+                                            Icons.cloud_outlined,
+                                          ),
+                                          title: Text(
+                                            l10n.updaterGithubRepository,
+                                          ),
+                                          subtitle: Text(
+                                            '${_app.updaterGithubOwner}/${_app.updaterGithubRepo}',
+                                          ),
                                         ),
-                                        title: Text(
-                                          l10n.updaterGithubRepository,
-                                        ),
-                                        subtitle: Text(
-                                          '${_app.updaterGithubOwner}/${_app.updaterGithubRepo}',
-                                        ),
-                                      ),
+                                      ],
                                       const Divider(height: 1),
                                       Padding(
                                         padding: const EdgeInsets.fromLTRB(
@@ -8185,16 +8267,15 @@ class _SettingsPageState extends State<SettingsPage> {
                                             ),
                                             const SizedBox(height: 8),
                                             SegmentedButton<
-                                              UpdateReleaseChannel
-                                            >(
+                                                UpdateReleaseChannel>(
                                               segments: [
                                                 ButtonSegment<
-                                                  UpdateReleaseChannel
-                                                >(
+                                                    UpdateReleaseChannel>(
                                                   value: UpdateReleaseChannel
                                                       .stable,
                                                   label: Text(
-                                                    l10n.settingsUpdateChannelRelease,
+                                                    l10n
+                                                        .settingsUpdateChannelRelease,
                                                   ),
                                                   icon: const Icon(
                                                     Icons.verified_outlined,
@@ -8202,12 +8283,12 @@ class _SettingsPageState extends State<SettingsPage> {
                                                   ),
                                                 ),
                                                 ButtonSegment<
-                                                  UpdateReleaseChannel
-                                                >(
-                                                  value:
-                                                      UpdateReleaseChannel.beta,
+                                                    UpdateReleaseChannel>(
+                                                  value: UpdateReleaseChannel
+                                                      .beta,
                                                   label: Text(
-                                                    l10n.settingsUpdateChannelBeta,
+                                                    l10n
+                                                        .settingsUpdateChannelBeta,
                                                   ),
                                                   icon: const Icon(
                                                     Icons.science_outlined,
@@ -8229,39 +8310,39 @@ class _SettingsPageState extends State<SettingsPage> {
                                               _app.updateReleaseChannel ==
                                                       UpdateReleaseChannel.beta
                                                   ? l10n.updaterBetaDescription
-                                                  : l10n.updaterStableDescription,
+                                                  : l10n
+                                                      .updaterStableDescription,
                                               style: Theme.of(context)
                                                   .textTheme
                                                   .bodySmall
                                                   ?.copyWith(
-                                                    color:
-                                                        scheme.onSurfaceVariant,
+                                                    color: scheme
+                                                        .onSurfaceVariant,
                                                   ),
                                             ),
                                           ],
                                         ),
                                       ),
-                                      const Divider(height: 1),
-                                      ListTile(
-                                        leading: const Icon(
-                                          Icons.system_update_rounded,
-                                        ),
-                                        title: Text(l10n.checkUpdates),
-                                        trailing: _checkingUpdates
-                                            ? const SizedBox(
-                                                height: 20,
-                                                width: 20,
-                                                child:
-                                                    CircularProgressIndicator(
-                                                      strokeWidth: 2,
-                                                    ),
-                                              )
-                                            : null,
-                                        onTap: _checkingUpdates
-                                            ? null
-                                            : _checkUpdatesNow,
-                                      ),
                                     ],
+                                    const Divider(height: 1),
+                                    ListTile(
+                                      leading: const Icon(
+                                        Icons.system_update_rounded,
+                                      ),
+                                      title: Text(l10n.checkUpdates),
+                                      trailing: _checkingUpdates
+                                          ? const SizedBox(
+                                              height: 20,
+                                              width: 20,
+                                              child: CircularProgressIndicator(
+                                                strokeWidth: 2,
+                                              ),
+                                            )
+                                          : null,
+                                      onTap: _checkingUpdates
+                                          ? null
+                                          : _checkUpdatesNow,
+                                    ),
                                   ],
                                 ),
                               ),
@@ -9716,12 +9797,14 @@ class _SettingsPanelHeroCard extends StatelessWidget {
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
           colors: [
-            scheme.primaryContainer.withValues(alpha: 0.55),
-            scheme.surfaceContainerHigh,
+            scheme.surfaceContainerHigh.withValues(alpha: 0.9),
+            scheme.surfaceContainerLow,
           ],
         ),
         borderRadius: BorderRadius.circular(22),
-        border: Border.all(color: scheme.outlineVariant.withValues(alpha: 0.5)),
+        border: Border.all(
+          color: scheme.outlineVariant.withValues(alpha: 0.35),
+        ),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -9736,7 +9819,7 @@ class _SettingsPanelHeroCard extends StatelessWidget {
                   color: scheme.surface,
                   borderRadius: BorderRadius.circular(14),
                 ),
-                child: Icon(icon, color: scheme.primary, size: 24),
+                child: Icon(icon, color: scheme.onSurfaceVariant, size: 22),
               ),
               const SizedBox(width: 12),
               Expanded(
@@ -9749,8 +9832,8 @@ class _SettingsPanelHeroCard extends StatelessWidget {
                         Expanded(
                           child: Text(
                             title,
-                            style: Theme.of(context).textTheme.titleMedium
-                                ?.copyWith(fontWeight: FontWeight.w700),
+                            style: Theme.of(context).textTheme.titleSmall
+                                ?.copyWith(fontWeight: FontWeight.w600),
                           ),
                         ),
                         if (trailingBadge != null) ...[
@@ -9763,8 +9846,9 @@ class _SettingsPanelHeroCard extends StatelessWidget {
                     Text(
                       description,
                       style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: scheme.onSurfaceVariant,
+                        color: scheme.onSurfaceVariant.withValues(alpha: 0.85),
                         height: 1.4,
+                        fontWeight: FontWeight.w400,
                       ),
                     ),
                   ],
@@ -9792,22 +9876,24 @@ class _SettingsInfoChip extends StatelessWidget {
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
       decoration: BoxDecoration(
-        color: scheme.surface.withValues(alpha: 0.9),
+        color: scheme.surfaceContainerLowest.withValues(alpha: 0.75),
         borderRadius: BorderRadius.circular(999),
-        border: Border.all(color: scheme.outlineVariant.withValues(alpha: 0.5)),
+        border: Border.all(
+          color: scheme.outlineVariant.withValues(alpha: 0.32),
+        ),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, size: 16, color: scheme.onSurfaceVariant),
-          const SizedBox(width: 6),
+          Icon(icon, size: 14, color: scheme.onSurfaceVariant),
+          const SizedBox(width: 5),
           Text(
             label,
-            style: Theme.of(context).textTheme.labelMedium?.copyWith(
-              color: scheme.onSurface,
-              fontWeight: FontWeight.w600,
+            style: Theme.of(context).textTheme.labelSmall?.copyWith(
+              color: scheme.onSurfaceVariant,
+              fontWeight: FontWeight.w500,
             ),
           ),
         ],

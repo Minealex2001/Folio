@@ -1559,6 +1559,13 @@ class AppLocalizationsEn extends AppLocalizations {
   String get aiContextAddPage => 'Attach page';
 
   @override
+  String get aiContextEditorSelection => 'Include editor selection (next send)';
+
+  @override
+  String get aiContextLastMeetingOnPage =>
+      'Include last meeting on page (next send)';
+
+  @override
   String get aiShowPanel => 'Show AI panel';
 
   @override
@@ -1871,6 +1878,24 @@ class AppLocalizationsEn extends AppLocalizations {
       'The alias target page no longer exists.';
 
   @override
+  String get taskQuickAddTagsLabel => 'Tags';
+
+  @override
+  String get taskQuickAddTagsHint => 'Comma-separated (e.g. work, client)';
+
+  @override
+  String get taskQuickAddAssigneeLabel => 'Assignee';
+
+  @override
+  String get taskQuickAddStoryPointsLabel => 'Story points';
+
+  @override
+  String get taskQuickAddEstimatedMinutesLabel => 'Estimated minutes';
+
+  @override
+  String get taskBlockExpandDetailsTitle => 'Notes, tags & assignee';
+
+  @override
   String get taskHubTitle => 'All tasks';
 
   @override
@@ -1912,6 +1937,21 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get taskHubIncludeTodos => 'Include checklist items';
+
+  @override
+  String get vaultTaskHubSearchHint => 'Search by title, page, tag or assignee';
+
+  @override
+  String get vaultTaskPresetNext7Days => 'Next 7 days';
+
+  @override
+  String get vaultTaskPresetNoDueDate => 'No due date';
+
+  @override
+  String get taskVaultMoveToPage => 'Move to another page…';
+
+  @override
+  String get taskVaultMovePickTitle => 'Choose destination page';
 
   @override
   String get sidebarQuickAddTask => 'Quick task';
@@ -3431,6 +3471,13 @@ class AppLocalizationsEn extends AppLocalizations {
       'You already have the latest version.';
 
   @override
+  String get updaterStoreListingOpenFailed => 'Could not open the store.';
+
+  @override
+  String get updaterMicrosoftStoreListingMissing =>
+      'This build is missing the Microsoft Store listing link.';
+
+  @override
   String updaterDialogLineCurrentVersion(Object currentVersion) {
     return 'Current version: $currentVersion';
   }
@@ -3865,7 +3912,157 @@ class AppLocalizationsEn extends AppLocalizations {
   String get blockEditorCmdTurnIntoHint => 'Pick a block type from the picker';
 
   @override
+  String get blockEditorCmdAiSummarize => 'Quill: summarize';
+
+  @override
+  String get blockEditorCmdAiSummarizeHint =>
+      '/ai summarize · summarize the page or selection';
+
+  @override
+  String get blockEditorCmdAiContinue => 'Quill: continue';
+
+  @override
+  String get blockEditorCmdAiContinueHint =>
+      '/ai continue · keep writing from the cursor';
+
+  @override
+  String get blockEditorCmdAiExplain => 'Quill: explain';
+
+  @override
+  String get blockEditorCmdAiExplainHint =>
+      '/ai explain · explain the paragraph or selection';
+
+  @override
+  String get blockEditorCmdAiActionItems => 'Quill: action items';
+
+  @override
+  String get blockEditorCmdAiActionItemsHint =>
+      '/ai action items · extract tasks from text';
+
+  @override
+  String get blockEditorCmdAiTodo => 'Quill: to-do list';
+
+  @override
+  String get blockEditorCmdAiTodoHint => '/ai todo · turn selection into tasks';
+
+  @override
+  String get blockEditorCmdAiMindmap => 'Quill: mind map';
+
+  @override
+  String get blockEditorCmdAiMindmapHint =>
+      '/ai mindmap · hierarchical outline or canvas';
+
+  @override
+  String get blockEditorCmdAiTable => 'Quill: table';
+
+  @override
+  String get blockEditorCmdAiTableHint => '/ai table · build a table from text';
+
+  @override
+  String get blockEditorCmdAiImprove => 'Quill: improve writing';
+
+  @override
+  String get blockEditorCmdAiImproveHint =>
+      '/ai improve · clarity and professional tone';
+
+  @override
+  String get blockEditorCmdAiTranslate => 'Quill: translate';
+
+  @override
+  String get blockEditorCmdAiTranslateHint =>
+      '/ai translate · translate selection or block';
+
+  @override
+  String get blockEditorAiSlashUnavailable =>
+      'Editor Quill slash commands are not wired in this view.';
+
+  @override
+  String get blockEditorAskQuillTooltip => 'Ask Quill about the selection';
+
+  @override
+  String get aiChatSplitViewTooltip =>
+      'Split view: editor and chat side by side';
+
+  @override
+  String get aiThreadSearchHint => 'Search threads…';
+
+  @override
+  String get settingsAiChatSplitViewTitle => 'Quill chat split view';
+
+  @override
+  String get settingsAiChatSplitViewSubtitle =>
+      'Shows the chat panel beside the editor on desktop.';
+
+  @override
+  String get settingsAiQuillCopilotExperimentalTitle =>
+      'Quill Copilot (experimental)';
+
+  @override
+  String get settingsAiQuillCopilotExperimentalSubtitle =>
+      'Reserved for live writing suggestions (no auto inference yet).';
+
+  @override
+  String get aiChatApplyInsertEnd => 'Insert blocks at end';
+
+  @override
+  String get aiChatApplyReplacePage => 'Replace page blocks';
+
+  @override
+  String get aiChatApplyOperations => 'Apply edit operations';
+
+  @override
+  String get aiChatApplySnapshotSuccess => 'Changes applied to the open page.';
+
+  @override
+  String get aiChatApplySnapshotFailure =>
+      'Could not apply changes (check the page or JSON).';
+
+  @override
+  String get aiChatHeaderMenuTooltip => 'Assistant details';
+
+  @override
+  String get aiChatHeaderDetailsTitle => 'Assistant and ink';
+
+  @override
+  String get aiChatHeaderProviderSection => 'Provider';
+
+  @override
+  String get aiChatThreadsListTitle => 'Conversation threads';
+
+  @override
+  String get aiChatThreadsEmptySearch => 'No threads match your search.';
+
+  @override
+  String get aiChatThreadsPickerTooltip => 'Thread list';
+
+  @override
+  String get aiChatComposerContextTileTitle => 'Context, ink, and attachments';
+
+  @override
+  String get aiChatComposerContextTileSubtitle => 'Tap to expand or collapse';
+
+  @override
+  String get aiMessageActionCopyReply => 'Copy reply';
+
+  @override
+  String get aiMessageActionCopyStructuredJson => 'Copy structured JSON';
+
+  @override
+  String get aiMessageActionCopyFull => 'Copy full message';
+
+  @override
+  String get aiMessageMoreActions => 'More actions';
+
+  @override
+  String aiChatInkEstimatedCost(int cost) {
+    return 'Estimated cost for this message: $cost ink.';
+  }
+
+  @override
   String get blockEditorMarkTaskComplete => 'Mark task complete';
+
+  @override
+  String get blockEditorTodoPlaceholder => 'Task…';
 
   @override
   String get blockEditorCalloutIconPickerTitle => 'Callout icon';
@@ -3904,6 +4101,9 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get blockTypeSectionEmbeds => 'Integrations';
+
+  @override
+  String get blockTypeSectionAiQuill => 'Quill (AI)';
 
   @override
   String get blockTypeParagraphLabel => 'Text';
@@ -5766,7 +5966,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get settingsAboutHeroDescription =>
-      'Installed version, update source, and manual checks for new releases.';
+      'Build version, release notes, and your update channel. Use the list below to check for updates.';
 
   @override
   String get settingsOpenReleaseNotes => 'Open release notes';
@@ -5790,6 +5990,15 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get settingsDesktopHeroDescription =>
       'Global shortcuts, system tray, and window behavior on desktop.';
+
+  @override
+  String get settingsDesktopHeroChipGlobalSearch => 'Search shortcut';
+
+  @override
+  String get settingsDesktopHeroChipMinimizeTray => 'Minimize behavior';
+
+  @override
+  String get settingsDesktopHeroChipCloseTray => 'Close behavior';
 
   @override
   String get settingsShortcutsHeroDescription =>
@@ -6528,6 +6737,9 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get workspaceHomeQuickTask => 'Quick task';
+
+  @override
+  String get workspaceHomeQuickVaultTasks => 'All tasks';
 
   @override
   String get workspaceHomeQuickFolder => 'New folder';

@@ -189,7 +189,7 @@ const List<BlockTypeTemplate> blockTypeTemplates = [
   ),
 ];
 
-enum BlockTypeSection { basicText, lists, media, advanced, embeds, apps }
+enum BlockTypeSection { basicText, lists, media, advanced, embeds, aiQuill, apps }
 
 String blockSectionTitle(BlockTypeSection section, AppLocalizations l10n) {
   switch (section) {
@@ -203,6 +203,8 @@ String blockSectionTitle(BlockTypeSection section, AppLocalizations l10n) {
       return l10n.blockTypeSectionAdvanced;
     case BlockTypeSection.embeds:
       return l10n.blockTypeSectionEmbeds;
+    case BlockTypeSection.aiQuill:
+      return l10n.blockTypeSectionAiQuill;
     case BlockTypeSection.apps:
       return 'Apps';
   }

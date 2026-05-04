@@ -66,9 +66,28 @@ class TaskQuickCaptureParser {
     line = relative.$2;
     line = line.replaceAll(RegExp(r'\s+'), ' ').trim();
 
+    final timeStrip = _consumeTimeFromLine(line);
+    line = timeStrip.stripped;
+    if (due != null && timeStrip.hhmm != null && !due!.contains('T')) {
+      due = '$due${timeStrip.hhmm}';
+    }
+    line = line.replaceAll(RegExp(r'\s+'), ' ').trim();
+
+    final hashTags = <String>[];
+    line = line.replaceAllMapped(
+      RegExp(r'(?:^|\s)#([\w\-]+)(?=\s|$)', caseSensitive: false),
+      (m) {
+        hashTags.add(m.group(1)!);
+        return ' ';
+      },
+    );
+    line = line.replaceAll(RegExp(r'\s+'), ' ').trim();
+
     final lower = line.toLowerCase();
     String? priority;
-    if (_containsWord(lower, const ['p1', 'urgente', 'urgent', '!', 'alta', 'high'])) {
+    if (lower.contains('!!')) {
+      priority = 'highest';
+    } else if (_containsWord(lower, const ['p1', 'urgente', 'urgent', '!', 'alta', 'high'])) {
       priority = 'high';
     } else if (_containsWord(lower, const ['p2', 'media', 'medium', 'normal'])) {
       priority = 'medium';
@@ -99,11 +118,58 @@ class TaskQuickCaptureParser {
         columnId: status,
         priority: priority,
         dueDate: due,
+        tags: hashTags,
         subtasks: const [],
       ),
       consumedAliasTag: aliasTag,
       targetPageIdFromAlias: targetPageId,
     );
+  }
+
+  /// Quita la primera hora reconocida y devuelve sufijo `THH:MM` para combinar
+  /// con una fecha `YYYY-MM-DD`.
+  static _TimeStrip _consumeTimeFromLine(String line) {
+    var s = line;
+    String? hhmm;
+
+    Match? m12 = RegExp(
+      r'\b(?:@|at|a las|las)\s*(\d{1,2})(?::(\d{2}))?\s*(am|pm)\b',
+      caseSensitive: false,
+    ).firstMatch(s);
+    m12 ??= RegExp(
+      r'\b(\d{1,2})(?::(\d{2}))?\s*(am|pm)\b',
+      caseSensitive: false,
+    ).firstMatch(s);
+    if (m12 != null) {
+      var h = int.parse(m12.group(1)!);
+      final min = int.tryParse(m12.group(2) ?? '0') ?? 0;
+      final ap = (m12.group(3) ?? '').toLowerCase();
+      if (ap == 'pm' && h < 12) {
+        h += 12;
+      }
+      if (ap == 'am' && h == 12) {
+        h = 0;
+      }
+      if (h >= 0 && h < 24 && min >= 0 && min < 60) {
+        hhmm =
+            'T${h.toString().padLeft(2, '0')}:${min.toString().padLeft(2, '0')}';
+        s = '${s.substring(0, m12.start)} ${s.substring(m12.end)}';
+      }
+    } else {
+      final m24 = RegExp(
+        r'\b([01]?\d|2[0-3]):([0-5]\d)\b',
+        caseSensitive: false,
+      ).firstMatch(s);
+      if (m24 != null) {
+        final h = int.parse(m24.group(1)!);
+        final min = int.parse(m24.group(2)!);
+        hhmm =
+            'T${h.toString().padLeft(2, '0')}:${min.toString().padLeft(2, '0')}';
+        s = '${s.substring(0, m24.start)} ${s.substring(m24.end)}';
+      }
+    }
+    s = s.replaceAll(RegExp(r'\s+'), ' ').trim();
+    return _TimeStrip(s, hhmm);
   }
 
   static bool _containsWord(String lower, List<String> tokens) {
@@ -131,6 +197,7 @@ class TaskQuickCaptureParser {
     for (final p in ['p1', 'p2', 'p3', 'urgente', 'urgent', 'alta', 'high', 'media', 'medium', 'normal', 'baja', 'low']) {
       s = s.replaceAll(RegExp('(^|\\s)${RegExp.escape(p)}(\\s|\$)', caseSensitive: false), ' ');
     }
+    s = s.replaceAll('!!', ' ');
     s = s.replaceAll('!', '');
     return s.replaceAll(RegExp(r'\s+'), ' ').trim();
   }
@@ -198,4 +265,11 @@ class TaskQuickCaptureParser {
     final day = d.day.toString().padLeft(2, '0');
     return '$y-$m-$day';
   }
+}
+
+class _TimeStrip {
+  const _TimeStrip(this.stripped, this.hhmm);
+
+  final String stripped;
+  final String? hhmm;
 }

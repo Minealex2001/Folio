@@ -558,6 +558,8 @@
   ,"aiContextCurrentPageFallback": "Página actual"
   ,"aiContextAddFile": "Adjuntar archivo"
   ,"aiContextAddPage": "Adjuntar página"
+  ,"aiContextEditorSelection": "Incluir selección del editor (próximo envío)"
+  ,"aiContextLastMeetingOnPage": "Incluir última reunión de la página (próximo envío)"
   ,"aiShowPanel": "Mostrar panel IA"
   ,"aiHidePanel": "Ocultar panel IA"
   ,"aiPanelResizeHandle": "Redimensionar panel de IA"
@@ -654,6 +656,12 @@
   "taskQuickAddConfirm": "Añadir",
   "taskQuickAddSuccess": "Tarea añadida.",
   "taskQuickAddAliasTargetMissing": "La página de ese alias ya no existe.",
+  "taskQuickAddTagsLabel": "Etiquetas",
+  "taskQuickAddTagsHint": "Separadas por comas (ej.: trabajo, cliente)",
+  "taskQuickAddAssigneeLabel": "Asignado a",
+  "taskQuickAddStoryPointsLabel": "Story points",
+  "taskQuickAddEstimatedMinutesLabel": "Minutos estimados",
+  "taskBlockExpandDetailsTitle": "Notas, etiquetas y asignado",
   "taskHubTitle": "Todas las tareas",
   "taskHubClose": "Cerrar vista",
   "taskHubDashboardHelpTitle": "Ideas tipo dashboard",
@@ -668,6 +676,11 @@
   "taskHubOpen": "Abrir",
   "taskHubMarkDone": "Hecho",
   "taskHubIncludeTodos": "Incluir checklists",
+  "vaultTaskHubSearchHint": "Buscar por título, página, etiqueta o asignado",
+  "vaultTaskPresetNext7Days": "Próximos 7 días",
+  "vaultTaskPresetNoDueDate": "Sin fecha",
+  "taskVaultMoveToPage": "Mover a otra página…",
+  "taskVaultMovePickTitle": "Elige la página de destino",
   "sidebarQuickAddTask": "Tarea rápida",
   "sidebarTaskHub": "Todas las tareas",
   "shortcutTestAction": "Probar",
@@ -1149,6 +1162,8 @@
   ,"updaterOpenApkDownloadQuestion": "¿Abrir descarga del APK ahora?"
   ,"updaterManualCheckUnsupportedPlatform": "El actualizador integrado solo está disponible en Windows y Android."
   ,"updaterManualCheckAlreadyLatest": "Ya tienes la versión más reciente."
+  ,"updaterStoreListingOpenFailed": "No se pudo abrir la tienda."
+  ,"updaterMicrosoftStoreListingMissing": "Esta compilación no incluye el enlace a la ficha en Microsoft Store."
   ,"updaterDialogLineCurrentVersion": "Versión actual: {currentVersion}"
   ,"@updaterDialogLineCurrentVersion": {"placeholders": {"currentVersion": {}}}
   ,"updaterDialogLineNewVersion": "Nueva versión: {releaseVersion}"
@@ -1294,7 +1309,53 @@
   ,"blockEditorCmdMentionPageHint": "Inserta enlace interno a una página"
   ,"blockEditorCmdTurnInto": "Convertir bloque"
   ,"blockEditorCmdTurnIntoHint": "Elegir tipo de bloque con el selector"
+  ,"blockEditorCmdAiSummarize": "Quill: resumir"
+  ,"blockEditorCmdAiSummarizeHint": "Comando /ai summarize · resume la página o la selección"
+  ,"blockEditorCmdAiContinue": "Quill: continuar"
+  ,"blockEditorCmdAiContinueHint": "Comando /ai continue · sigue escribiendo desde el cursor"
+  ,"blockEditorCmdAiExplain": "Quill: explicar"
+  ,"blockEditorCmdAiExplainHint": "Comando /ai explain · explica el párrafo o selección"
+  ,"blockEditorCmdAiActionItems": "Quill: action items"
+  ,"blockEditorCmdAiActionItemsHint": "Comando /ai action items · extrae tareas del texto"
+  ,"blockEditorCmdAiTodo": "Quill: lista de tareas"
+  ,"blockEditorCmdAiTodoHint": "Comando /ai todo · convierte la selección en tareas"
+  ,"blockEditorCmdAiMindmap": "Quill: mapa mental"
+  ,"blockEditorCmdAiMindmapHint": "Comando /ai mindmap · estructura jerárquica o canvas"
+  ,"blockEditorCmdAiTable": "Quill: tabla"
+  ,"blockEditorCmdAiTableHint": "Comando /ai table · tabla desde texto"
+  ,"blockEditorCmdAiImprove": "Quill: mejorar redacción"
+  ,"blockEditorCmdAiImproveHint": "Comando /ai improve · claridad y tono profesional"
+  ,"blockEditorCmdAiTranslate": "Quill: traducir"
+  ,"blockEditorCmdAiTranslateHint": "Comando /ai translate · traduce la selección o el bloque"
+  ,"blockEditorAiSlashUnavailable": "Los comandos Quill del editor no están conectados en esta vista."
+  ,"blockEditorAskQuillTooltip": "Preguntar a Quill sobre la selección"
+  ,"aiChatSplitViewTooltip": "Vista dividida: editor y chat a la vez"
+  ,"aiThreadSearchHint": "Buscar hilos…"
+  ,"settingsAiChatSplitViewTitle": "Chat Quill en vista dividida"
+  ,"settingsAiChatSplitViewSubtitle": "Muestra el panel de chat junto al editor en escritorio."
+  ,"settingsAiQuillCopilotExperimentalTitle": "Copilot Quill (experimental)"
+  ,"settingsAiQuillCopilotExperimentalSubtitle": "Reservado: sugerencias en tiempo real al escribir (aún sin inferencia automática)."
+  ,"aiChatApplyInsertEnd": "Insertar bloques al final"
+  ,"aiChatApplyReplacePage": "Reemplazar página"
+  ,"aiChatApplyOperations": "Aplicar operaciones"
+  ,"aiChatApplySnapshotSuccess": "Cambios aplicados en la página abierta."
+  ,"aiChatApplySnapshotFailure": "No se pudieron aplicar los cambios (revisa la página o el JSON)."
+  ,"aiChatHeaderMenuTooltip": "Detalles del asistente"
+  ,"aiChatHeaderDetailsTitle": "Asistente y tinta"
+  ,"aiChatHeaderProviderSection": "Proveedor"
+  ,"aiChatThreadsListTitle": "Hilos de conversación"
+  ,"aiChatThreadsEmptySearch": "Ningún hilo coincide con la búsqueda."
+  ,"aiChatThreadsPickerTooltip": "Lista de hilos"
+  ,"aiChatComposerContextTileTitle": "Contexto, tinta y adjuntos"
+  ,"aiChatComposerContextTileSubtitle": "Toca para expandir o contraer"
+  ,"aiMessageActionCopyReply": "Copiar respuesta"
+  ,"aiMessageActionCopyStructuredJson": "Copiar JSON estructurado"
+  ,"aiMessageActionCopyFull": "Copiar mensaje completo"
+  ,"aiMessageMoreActions": "Más acciones"
+  ,"aiChatInkEstimatedCost": "Coste estimado de este mensaje: {cost} gotas."
+  ,"@aiChatInkEstimatedCost": {"placeholders": {"cost": {"type": "int"}}}
   ,"blockEditorMarkTaskComplete": "Marcar tarea completada"
+  ,"blockEditorTodoPlaceholder": "Tarea…"
   ,"blockEditorCalloutIconPickerTitle": "Icono del callout"
   ,"blockEditorCalloutIconPickerHelper": "Selecciona un icono para cambiar el tono visual del bloque destacado."
   ,"blockEditorIconPickerCustomEmoji": "Emoji personalizado"
@@ -1307,6 +1368,7 @@
   ,"blockTypeSectionMedia": "Multimedia y datos"
   ,"blockTypeSectionAdvanced": "Avanzado y diseño"
   ,"blockTypeSectionEmbeds": "Integraciones"
+  ,"blockTypeSectionAiQuill": "Quill (IA)"
   ,"blockTypeParagraphLabel": "Texto"
   ,"blockTypeParagraphHint": "Párrafo"
   ,"blockTypeChildPageLabel": "Página"
@@ -1904,7 +1966,7 @@
   ,"settingsAiSnackSignInCloudAccount": "Inicia sesión en la cuenta en la nube (Ajustes)."
   ,"settingsAiProviderSwitchFailed": "Error al cambiar proveedor: {error}"
   ,"@settingsAiProviderSwitchFailed": {"placeholders": {"error": {}}}
-  ,"settingsAboutHeroDescription": "Versión instalada, origen de actualizaciones y comprobación manual de novedades."
+  ,"settingsAboutHeroDescription": "Versión del build, notas de publicación y canal de actualización. Las acciones están en la lista de abajo."
   ,"settingsOpenReleaseNotes": "Ver notas de versión"
   ,"settingsUpdateChannelLabel": "Canal"
   ,"settingsUpdateChannelRelease": "Release"
@@ -1912,6 +1974,9 @@
   ,"settingsDataHeroDescription": "Acciones permanentes sobre archivos locales. Haz una copia de seguridad antes de borrar."
   ,"settingsDangerZoneTitle": "Zona de peligro"
   ,"settingsDesktopHeroDescription": "Atajos globales, bandeja del sistema y comportamiento de la ventana en el escritorio."
+  ,"settingsDesktopHeroChipGlobalSearch": "Atajo de búsqueda"
+  ,"settingsDesktopHeroChipMinimizeTray": "Comportamiento al minimizar"
+  ,"settingsDesktopHeroChipCloseTray": "Comportamiento al cerrar"
   ,"settingsShortcutsHeroDescription": "Combinaciones solo dentro de Folio. Prueba una tecla antes de guardarla."
   ,"settingsShortcutsTestChip": "Probar"
   ,"settingsIntegrationsChipApprovedPermissions": "Permisos aprobados"
@@ -2135,6 +2200,7 @@
   ,"workspaceHomeQuickLock": "Bloquear cofre"
   ,"workspaceHomeQuickSync": "Sincronizar dispositivos"
   ,"workspaceHomeQuickTask": "Tarea rápida"
+  ,"workspaceHomeQuickVaultTasks": "Todas las tareas"
   ,"workspaceHomeQuickFolder": "Nueva carpeta"
   ,"workspaceHomeQuickImport": "Importar Markdown"
   ,"workspaceHomeRootPagesTitle": "Páginas raíz"

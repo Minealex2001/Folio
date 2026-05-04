@@ -1159,6 +1159,9 @@ class FolioTaskBlockBody extends StatefulWidget {
 class _FolioTaskBlockBodyState extends State<FolioTaskBlockBody> {
   static const _uuid = Uuid();
   late TextEditingController _title;
+  late TextEditingController _descCtrl;
+  late TextEditingController _tagsFieldCtrl;
+  late TextEditingController _assigneeFieldCtrl;
   late FolioTaskData _data;
 
   @override
@@ -1167,6 +1170,9 @@ class _FolioTaskBlockBodyState extends State<FolioTaskBlockBody> {
     _data =
         FolioTaskData.tryParse(widget.block.text) ?? FolioTaskData.defaults();
     _title = TextEditingController(text: _data.title);
+    _descCtrl = TextEditingController(text: _data.description);
+    _tagsFieldCtrl = TextEditingController(text: _data.tags.join(', '));
+    _assigneeFieldCtrl = TextEditingController(text: _data.assignee ?? '');
   }
 
   @override
@@ -1176,12 +1182,22 @@ class _FolioTaskBlockBodyState extends State<FolioTaskBlockBody> {
       _data =
           FolioTaskData.tryParse(widget.block.text) ?? FolioTaskData.defaults();
       if (_title.text != _data.title) _title.text = _data.title;
+      if (_descCtrl.text != _data.description) {
+        _descCtrl.text = _data.description;
+      }
+      final tagLine = _data.tags.join(', ');
+      if (_tagsFieldCtrl.text != tagLine) _tagsFieldCtrl.text = tagLine;
+      final a = _data.assignee ?? '';
+      if (_assigneeFieldCtrl.text != a) _assigneeFieldCtrl.text = a;
     }
   }
 
   @override
   void dispose() {
     _title.dispose();
+    _descCtrl.dispose();
+    _tagsFieldCtrl.dispose();
+    _assigneeFieldCtrl.dispose();
     super.dispose();
   }
 
@@ -1325,6 +1341,64 @@ class _FolioTaskBlockBodyState extends State<FolioTaskBlockBody> {
                 _data = _data.copyWith(title: v);
                 _emit(_data);
               },
+            ),
+            const SizedBox(height: FolioSpace.xs),
+            ExpansionTile(
+              title: Text(l10n.taskBlockExpandDetailsTitle),
+              initiallyExpanded: _data.description.trim().isNotEmpty ||
+                  _data.tags.isNotEmpty ||
+                  (_data.assignee ?? '').trim().isNotEmpty,
+              childrenPadding: const EdgeInsets.only(
+                bottom: FolioSpace.sm,
+              ),
+              children: [
+                TextField(
+                  controller: _descCtrl,
+                  minLines: 2,
+                  maxLines: 8,
+                  decoration: InputDecoration(
+                    labelText: l10n.description,
+                    border: const OutlineInputBorder(),
+                  ),
+                  onChanged: (v) {
+                    _data = _data.copyWith(description: v);
+                    _emit(_data);
+                  },
+                ),
+                const SizedBox(height: FolioSpace.sm),
+                TextField(
+                  controller: _tagsFieldCtrl,
+                  decoration: InputDecoration(
+                    labelText: l10n.taskQuickAddTagsLabel,
+                    hintText: l10n.taskQuickAddTagsHint,
+                    border: const OutlineInputBorder(),
+                  ),
+                  onChanged: (v) {
+                    final list = v
+                        .split(RegExp(r'[;,]'))
+                        .map((e) => e.trim())
+                        .where((e) => e.isNotEmpty)
+                        .toList(growable: false);
+                    _data = _data.copyWith(tags: list);
+                    _emit(_data);
+                  },
+                ),
+                const SizedBox(height: FolioSpace.sm),
+                TextField(
+                  controller: _assigneeFieldCtrl,
+                  decoration: InputDecoration(
+                    labelText: l10n.taskQuickAddAssigneeLabel,
+                    border: const OutlineInputBorder(),
+                  ),
+                  onChanged: (v) {
+                    final t = v.trim();
+                    _data = _data.copyWith(
+                      assignee: t.isEmpty ? null : t,
+                    );
+                    _emit(_data);
+                  },
+                ),
+              ],
             ),
             const SizedBox(height: FolioSpace.sm),
             // Priority + due date row

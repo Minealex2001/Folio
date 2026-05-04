@@ -1565,6 +1565,14 @@ class AppLocalizationsEs extends AppLocalizations {
   String get aiContextAddPage => 'Adjuntar página';
 
   @override
+  String get aiContextEditorSelection =>
+      'Incluir selección del editor (próximo envío)';
+
+  @override
+  String get aiContextLastMeetingOnPage =>
+      'Incluir última reunión de la página (próximo envío)';
+
+  @override
   String get aiShowPanel => 'Mostrar panel IA';
 
   @override
@@ -1878,6 +1886,25 @@ class AppLocalizationsEs extends AppLocalizations {
       'La página de ese alias ya no existe.';
 
   @override
+  String get taskQuickAddTagsLabel => 'Etiquetas';
+
+  @override
+  String get taskQuickAddTagsHint =>
+      'Separadas por comas (ej.: trabajo, cliente)';
+
+  @override
+  String get taskQuickAddAssigneeLabel => 'Asignado a';
+
+  @override
+  String get taskQuickAddStoryPointsLabel => 'Story points';
+
+  @override
+  String get taskQuickAddEstimatedMinutesLabel => 'Minutos estimados';
+
+  @override
+  String get taskBlockExpandDetailsTitle => 'Notas, etiquetas y asignado';
+
+  @override
   String get taskHubTitle => 'Todas las tareas';
 
   @override
@@ -1919,6 +1946,22 @@ class AppLocalizationsEs extends AppLocalizations {
 
   @override
   String get taskHubIncludeTodos => 'Incluir checklists';
+
+  @override
+  String get vaultTaskHubSearchHint =>
+      'Buscar por título, página, etiqueta o asignado';
+
+  @override
+  String get vaultTaskPresetNext7Days => 'Próximos 7 días';
+
+  @override
+  String get vaultTaskPresetNoDueDate => 'Sin fecha';
+
+  @override
+  String get taskVaultMoveToPage => 'Mover a otra página…';
+
+  @override
+  String get taskVaultMovePickTitle => 'Elige la página de destino';
 
   @override
   String get sidebarQuickAddTask => 'Tarea rápida';
@@ -3461,6 +3504,13 @@ class AppLocalizationsEs extends AppLocalizations {
       'Ya tienes la versión más reciente.';
 
   @override
+  String get updaterStoreListingOpenFailed => 'No se pudo abrir la tienda.';
+
+  @override
+  String get updaterMicrosoftStoreListingMissing =>
+      'Esta compilación no incluye el enlace a la ficha en Microsoft Store.';
+
+  @override
   String updaterDialogLineCurrentVersion(Object currentVersion) {
     return 'Versión actual: $currentVersion';
   }
@@ -3898,7 +3948,162 @@ class AppLocalizationsEs extends AppLocalizations {
       'Elegir tipo de bloque con el selector';
 
   @override
+  String get blockEditorCmdAiSummarize => 'Quill: resumir';
+
+  @override
+  String get blockEditorCmdAiSummarizeHint =>
+      'Comando /ai summarize · resume la página o la selección';
+
+  @override
+  String get blockEditorCmdAiContinue => 'Quill: continuar';
+
+  @override
+  String get blockEditorCmdAiContinueHint =>
+      'Comando /ai continue · sigue escribiendo desde el cursor';
+
+  @override
+  String get blockEditorCmdAiExplain => 'Quill: explicar';
+
+  @override
+  String get blockEditorCmdAiExplainHint =>
+      'Comando /ai explain · explica el párrafo o selección';
+
+  @override
+  String get blockEditorCmdAiActionItems => 'Quill: action items';
+
+  @override
+  String get blockEditorCmdAiActionItemsHint =>
+      'Comando /ai action items · extrae tareas del texto';
+
+  @override
+  String get blockEditorCmdAiTodo => 'Quill: lista de tareas';
+
+  @override
+  String get blockEditorCmdAiTodoHint =>
+      'Comando /ai todo · convierte la selección en tareas';
+
+  @override
+  String get blockEditorCmdAiMindmap => 'Quill: mapa mental';
+
+  @override
+  String get blockEditorCmdAiMindmapHint =>
+      'Comando /ai mindmap · estructura jerárquica o canvas';
+
+  @override
+  String get blockEditorCmdAiTable => 'Quill: tabla';
+
+  @override
+  String get blockEditorCmdAiTableHint =>
+      'Comando /ai table · tabla desde texto';
+
+  @override
+  String get blockEditorCmdAiImprove => 'Quill: mejorar redacción';
+
+  @override
+  String get blockEditorCmdAiImproveHint =>
+      'Comando /ai improve · claridad y tono profesional';
+
+  @override
+  String get blockEditorCmdAiTranslate => 'Quill: traducir';
+
+  @override
+  String get blockEditorCmdAiTranslateHint =>
+      'Comando /ai translate · traduce la selección o el bloque';
+
+  @override
+  String get blockEditorAiSlashUnavailable =>
+      'Los comandos Quill del editor no están conectados en esta vista.';
+
+  @override
+  String get blockEditorAskQuillTooltip =>
+      'Preguntar a Quill sobre la selección';
+
+  @override
+  String get aiChatSplitViewTooltip => 'Vista dividida: editor y chat a la vez';
+
+  @override
+  String get aiThreadSearchHint => 'Buscar hilos…';
+
+  @override
+  String get settingsAiChatSplitViewTitle => 'Chat Quill en vista dividida';
+
+  @override
+  String get settingsAiChatSplitViewSubtitle =>
+      'Muestra el panel de chat junto al editor en escritorio.';
+
+  @override
+  String get settingsAiQuillCopilotExperimentalTitle =>
+      'Copilot Quill (experimental)';
+
+  @override
+  String get settingsAiQuillCopilotExperimentalSubtitle =>
+      'Reservado: sugerencias en tiempo real al escribir (aún sin inferencia automática).';
+
+  @override
+  String get aiChatApplyInsertEnd => 'Insertar bloques al final';
+
+  @override
+  String get aiChatApplyReplacePage => 'Reemplazar página';
+
+  @override
+  String get aiChatApplyOperations => 'Aplicar operaciones';
+
+  @override
+  String get aiChatApplySnapshotSuccess =>
+      'Cambios aplicados en la página abierta.';
+
+  @override
+  String get aiChatApplySnapshotFailure =>
+      'No se pudieron aplicar los cambios (revisa la página o el JSON).';
+
+  @override
+  String get aiChatHeaderMenuTooltip => 'Detalles del asistente';
+
+  @override
+  String get aiChatHeaderDetailsTitle => 'Asistente y tinta';
+
+  @override
+  String get aiChatHeaderProviderSection => 'Proveedor';
+
+  @override
+  String get aiChatThreadsListTitle => 'Hilos de conversación';
+
+  @override
+  String get aiChatThreadsEmptySearch =>
+      'Ningún hilo coincide con la búsqueda.';
+
+  @override
+  String get aiChatThreadsPickerTooltip => 'Lista de hilos';
+
+  @override
+  String get aiChatComposerContextTileTitle => 'Contexto, tinta y adjuntos';
+
+  @override
+  String get aiChatComposerContextTileSubtitle =>
+      'Toca para expandir o contraer';
+
+  @override
+  String get aiMessageActionCopyReply => 'Copiar respuesta';
+
+  @override
+  String get aiMessageActionCopyStructuredJson => 'Copiar JSON estructurado';
+
+  @override
+  String get aiMessageActionCopyFull => 'Copiar mensaje completo';
+
+  @override
+  String get aiMessageMoreActions => 'Más acciones';
+
+  @override
+  String aiChatInkEstimatedCost(int cost) {
+    return 'Coste estimado de este mensaje: $cost gotas.';
+  }
+
+  @override
   String get blockEditorMarkTaskComplete => 'Marcar tarea completada';
+
+  @override
+  String get blockEditorTodoPlaceholder => 'Tarea…';
 
   @override
   String get blockEditorCalloutIconPickerTitle => 'Icono del callout';
@@ -3937,6 +4142,9 @@ class AppLocalizationsEs extends AppLocalizations {
 
   @override
   String get blockTypeSectionEmbeds => 'Integraciones';
+
+  @override
+  String get blockTypeSectionAiQuill => 'Quill (IA)';
 
   @override
   String get blockTypeParagraphLabel => 'Texto';
@@ -5811,7 +6019,7 @@ class AppLocalizationsEs extends AppLocalizations {
 
   @override
   String get settingsAboutHeroDescription =>
-      'Versión instalada, origen de actualizaciones y comprobación manual de novedades.';
+      'Versión del build, notas de publicación y canal de actualización. Las acciones están en la lista de abajo.';
 
   @override
   String get settingsOpenReleaseNotes => 'Ver notas de versión';
@@ -5835,6 +6043,16 @@ class AppLocalizationsEs extends AppLocalizations {
   @override
   String get settingsDesktopHeroDescription =>
       'Atajos globales, bandeja del sistema y comportamiento de la ventana en el escritorio.';
+
+  @override
+  String get settingsDesktopHeroChipGlobalSearch => 'Atajo de búsqueda';
+
+  @override
+  String get settingsDesktopHeroChipMinimizeTray =>
+      'Comportamiento al minimizar';
+
+  @override
+  String get settingsDesktopHeroChipCloseTray => 'Comportamiento al cerrar';
 
   @override
   String get settingsShortcutsHeroDescription =>
@@ -6585,6 +6803,9 @@ class AppLocalizationsEs extends AppLocalizations {
 
   @override
   String get workspaceHomeQuickTask => 'Tarea rápida';
+
+  @override
+  String get workspaceHomeQuickVaultTasks => 'Todas las tareas';
 
   @override
   String get workspaceHomeQuickFolder => 'Nueva carpeta';

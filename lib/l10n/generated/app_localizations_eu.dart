@@ -1575,6 +1575,14 @@ class AppLocalizationsEu extends AppLocalizations {
   String get aiContextAddPage => 'Erantsi orrialdea';
 
   @override
+  String get aiContextEditorSelection =>
+      'Sartu editorearen hautapena (hurrengo bidalketa)';
+
+  @override
+  String get aiContextLastMeetingOnPage =>
+      'Sartu orrialdeko azken bilera (hurrengo bidalketa)';
+
+  @override
   String get aiShowPanel => 'Erakutsi AA panela';
 
   @override
@@ -1892,6 +1900,25 @@ class AppLocalizationsEu extends AppLocalizations {
       'Aliasaren helburuko orria jada ez dago.';
 
   @override
+  String get taskQuickAddTagsLabel => 'Etiketak';
+
+  @override
+  String get taskQuickAddTagsHint =>
+      'Komatxiz bereiziak (adib.: lana, bezeroa)';
+
+  @override
+  String get taskQuickAddAssigneeLabel => 'Esleituta';
+
+  @override
+  String get taskQuickAddStoryPointsLabel => 'Story points';
+
+  @override
+  String get taskQuickAddEstimatedMinutesLabel => 'Estimatutako minutuak';
+
+  @override
+  String get taskBlockExpandDetailsTitle => 'Oharrak, etiketak eta esleipena';
+
+  @override
   String get taskHubTitle => 'Zeregin guztiak';
 
   @override
@@ -1933,6 +1960,22 @@ class AppLocalizationsEu extends AppLocalizations {
 
   @override
   String get taskHubIncludeTodos => 'Sartu kontrol-zerrendak';
+
+  @override
+  String get vaultTaskHubSearchHint =>
+      'Bilatu izenburu, orri, etiketa edo esleipenaren arabera';
+
+  @override
+  String get vaultTaskPresetNext7Days => 'Hurrengo 7 egunak';
+
+  @override
+  String get vaultTaskPresetNoDueDate => 'Data gabe';
+
+  @override
+  String get taskVaultMoveToPage => 'Beste orri batera eraman…';
+
+  @override
+  String get taskVaultMovePickTitle => 'Aukeratu helburuko orria';
 
   @override
   String get sidebarQuickAddTask => 'Zeregin azkarra';
@@ -3484,6 +3527,13 @@ class AppLocalizationsEu extends AppLocalizations {
   String get updaterManualCheckAlreadyLatest => 'Azken bertsioa duzu jada.';
 
   @override
+  String get updaterStoreListingOpenFailed => 'Ezin izan da denda ireki.';
+
+  @override
+  String get updaterMicrosoftStoreListingMissing =>
+      'Konpilazio honek ez dauka Microsoft Store-ko aplikazio-orrirarako esteka.';
+
+  @override
   String updaterDialogLineCurrentVersion(Object currentVersion) {
     return 'Uneko bertsioa: $currentVersion';
   }
@@ -3920,7 +3970,162 @@ class AppLocalizationsEu extends AppLocalizations {
   String get blockEditorCmdTurnIntoHint => 'Aukeratu bloke mota hautatzailean';
 
   @override
+  String get blockEditorCmdAiSummarize => 'Quill: laburtu';
+
+  @override
+  String get blockEditorCmdAiSummarizeHint =>
+      '/ai summarize · laburtu orria edo hautapena';
+
+  @override
+  String get blockEditorCmdAiContinue => 'Quill: jarraitu';
+
+  @override
+  String get blockEditorCmdAiContinueHint =>
+      '/ai continue · idatzi jarraitu kurtsoretik';
+
+  @override
+  String get blockEditorCmdAiExplain => 'Quill: azaldu';
+
+  @override
+  String get blockEditorCmdAiExplainHint =>
+      '/ai explain · azaldu paragrafoa edo hautapena';
+
+  @override
+  String get blockEditorCmdAiActionItems => 'Quill: action items';
+
+  @override
+  String get blockEditorCmdAiActionItemsHint =>
+      '/ai action items · atera zereginak testutik';
+
+  @override
+  String get blockEditorCmdAiTodo => 'Quill: zeregin zerrenda';
+
+  @override
+  String get blockEditorCmdAiTodoHint =>
+      '/ai todo · bihurtu hautapena zereginetan';
+
+  @override
+  String get blockEditorCmdAiMindmap => 'Quill: gogoeta-map';
+
+  @override
+  String get blockEditorCmdAiMindmapHint =>
+      '/ai mindmap · egitura hierarkikoa edo canvas';
+
+  @override
+  String get blockEditorCmdAiTable => 'Quill: taula';
+
+  @override
+  String get blockEditorCmdAiTableHint => '/ai table · taula testutik';
+
+  @override
+  String get blockEditorCmdAiImprove => 'Quill: hobetu idazkera';
+
+  @override
+  String get blockEditorCmdAiImproveHint =>
+      '/ai improve · argitasuna eta tonu profesionala';
+
+  @override
+  String get blockEditorCmdAiTranslate => 'Quill: itzuli';
+
+  @override
+  String get blockEditorCmdAiTranslateHint =>
+      '/ai translate · itzuli hautapena edo blokea';
+
+  @override
+  String get blockEditorAiSlashUnavailable =>
+      'Editoreko Quill komandoak ez daude ikuspegi honetan konektatuta.';
+
+  @override
+  String get blockEditorAskQuillTooltip => 'Galdetu Quill-i hautapenari buruz';
+
+  @override
+  String get aiChatSplitViewTooltip =>
+      'Banatutako ikuspegia: editorea eta txat batera';
+
+  @override
+  String get aiThreadSearchHint => 'Bilatu hariak…';
+
+  @override
+  String get settingsAiChatSplitViewTitle => 'Quill txat ikuspegi banatuan';
+
+  @override
+  String get settingsAiChatSplitViewSubtitle =>
+      'Mahaigainean txat-panela editorearen ondoan erakusten du.';
+
+  @override
+  String get settingsAiQuillCopilotExperimentalTitle =>
+      'Quill Copilot (esperimentala)';
+
+  @override
+  String get settingsAiQuillCopilotExperimentalSubtitle =>
+      'Denbora errealeko iradokizunetarako erreserbatuta (inferentzia automatikorik gabe oraindik).';
+
+  @override
+  String get aiChatApplyInsertEnd => 'Txertatu blokeak amaieran';
+
+  @override
+  String get aiChatApplyReplacePage => 'Ordezkatu orrialdea';
+
+  @override
+  String get aiChatApplyOperations => 'Ezarri eragiketak';
+
+  @override
+  String get aiChatApplySnapshotSuccess =>
+      'Aldaketak irekitako orrian aplikatu dira.';
+
+  @override
+  String get aiChatApplySnapshotFailure =>
+      'Ezin izan dira aldaketak aplikatu (egiaztatu orria edo JSONa).';
+
+  @override
+  String get aiChatHeaderMenuTooltip => 'Laguntzailearen xehetasunak';
+
+  @override
+  String get aiChatHeaderDetailsTitle => 'Laguntzailea eta tinta';
+
+  @override
+  String get aiChatHeaderProviderSection => 'Hornitzailea';
+
+  @override
+  String get aiChatThreadsListTitle => 'Elkarrizket hariak';
+
+  @override
+  String get aiChatThreadsEmptySearch =>
+      'Ez dago bilaketarekin bat datorren haririk.';
+
+  @override
+  String get aiChatThreadsPickerTooltip => 'Hari zerrenda';
+
+  @override
+  String get aiChatComposerContextTileTitle =>
+      'Testuingurua, tinta eta eranskinak';
+
+  @override
+  String get aiChatComposerContextTileSubtitle =>
+      'Sakatu zabaltzeko edo tolesteko';
+
+  @override
+  String get aiMessageActionCopyReply => 'Kopiatu erantzuna';
+
+  @override
+  String get aiMessageActionCopyStructuredJson => 'Kopiatu JSON egituratua';
+
+  @override
+  String get aiMessageActionCopyFull => 'Kopiatu mezu osoa';
+
+  @override
+  String get aiMessageMoreActions => 'Ekintza gehiago';
+
+  @override
+  String aiChatInkEstimatedCost(int cost) {
+    return 'Mezu honen kostu estimatua: $cost tanta.';
+  }
+
+  @override
   String get blockEditorMarkTaskComplete => 'Markatu ataza osatuta';
+
+  @override
+  String get blockEditorTodoPlaceholder => 'Ataza…';
 
   @override
   String get blockEditorCalloutIconPickerTitle => 'Callout ikonoa';
@@ -3959,6 +4164,9 @@ class AppLocalizationsEu extends AppLocalizations {
 
   @override
   String get blockTypeSectionEmbeds => 'Integrazioak';
+
+  @override
+  String get blockTypeSectionAiQuill => 'Quill (IA)';
 
   @override
   String get blockTypeParagraphLabel => 'Testua';
@@ -5845,7 +6053,7 @@ class AppLocalizationsEu extends AppLocalizations {
 
   @override
   String get settingsAboutHeroDescription =>
-      'Instalatutako bertsioa, eguneratzeen jatorria eta berritasunen eskuzko egiaztapena.';
+      'Build-aren bertsioa, argitalpen-oharrak eta eguneratze-kanala. Ekintzak beheko zerrendan daude.';
 
   @override
   String get settingsOpenReleaseNotes => 'Ikusi bertsio-oharrak';
@@ -5869,6 +6077,15 @@ class AppLocalizationsEu extends AppLocalizations {
   @override
   String get settingsDesktopHeroDescription =>
       'Lasterbide orokorrak, erretilua eta leihoaren portaera mahaigainean.';
+
+  @override
+  String get settingsDesktopHeroChipGlobalSearch => 'Bilaketa-lasterbidea';
+
+  @override
+  String get settingsDesktopHeroChipMinimizeTray => 'Minimizatzeko jokabidea';
+
+  @override
+  String get settingsDesktopHeroChipCloseTray => 'Ixteko jokabidea';
 
   @override
   String get settingsShortcutsHeroDescription =>
@@ -6621,6 +6838,9 @@ class AppLocalizationsEu extends AppLocalizations {
 
   @override
   String get workspaceHomeQuickTask => 'Zeregin azkarra';
+
+  @override
+  String get workspaceHomeQuickVaultTasks => 'Zeregin guztiak';
 
   @override
   String get workspaceHomeQuickFolder => 'Karpeta berria';

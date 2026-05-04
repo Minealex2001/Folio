@@ -43,5 +43,39 @@ void main() {
 
       expect(s.collectTaskBlocks(pageId: 'missing'), isEmpty);
     });
+
+    test('moveBlockToPage mueve bloque task y limpia parentTaskId', () {
+      final s = VaultSession();
+      s.debugMarkUnlockedForTests();
+      s.addPage(parentId: null);
+      final p1 = s.selectedPage!.id;
+      s.addPage(parentId: null);
+      final p2 = s.selectedPage!.id;
+      const taskId = 'p1_taskmove';
+      s.appendBlock(
+        pageId: p1,
+        block: FolioBlock(
+          id: taskId,
+          type: 'task',
+          text: FolioTaskData(
+            title: 'Move me',
+            status: 'todo',
+            parentTaskId: 'some_parent',
+          ).encode(),
+        ),
+      );
+
+      s.moveBlockToPage(fromPageId: p1, toPageId: p2, blockId: taskId);
+
+      final p1page = s.pages.firstWhere((p) => p.id == p1);
+      final p2page = s.pages.firstWhere((p) => p.id == p2);
+      expect(p1page.blocks.any((b) => b.id == taskId), isFalse);
+      final moved = p2page.blocks.where((b) => b.type == 'task').single;
+      expect(moved.id.startsWith('${p2}_'), isTrue);
+      final data = FolioTaskData.tryParse(moved.text);
+      expect(data, isNotNull);
+      expect(data!.title, 'Move me');
+      expect(data.parentTaskId, isNull);
+    });
   });
 }

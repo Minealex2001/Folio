@@ -31,6 +31,7 @@ import '../../../models/folio_template_button_data.dart';
 import '../../../models/folio_toggle_data.dart';
 import '../../../models/folio_kanban_data.dart';
 import '../../../services/ai/ai_types.dart';
+import '../../../services/ai/folio_vault_light_search.dart';
 import '../../../services/ai/folio_cloud_ai_service.dart';
 import '../../../services/cloud_account/cloud_account_controller.dart';
 import '../../../services/collab/collab_session_controller.dart';
@@ -50,7 +51,7 @@ import '../../../services/integrations/integrations_markdown_codec.dart';
 import '../../../session/vault_session.dart';
 import '../../settings/folio_cloud_subscription_pitch_page.dart';
 import '../../settings/settings_page.dart' show SettingsPage;
-import 'ai_typing_indicator.dart';
+import 'ai_chat_reply_skeleton.dart';
 import '../editor/ai_typewriter_message.dart';
 import '../editor/block_editor.dart';
 import '../editor/block_editor_support_widgets.dart';
@@ -65,11 +66,13 @@ import '../collab/collaboration_sheet.dart';
 import 'workspace_editor_surface.dart';
 import 'workspace_shell.dart';
 import '../tasks/task_quick_add_dialog.dart';
+import '../tasks/vault_task_hub_page.dart';
 import '../templates/template_gallery_page.dart';
 import '../drive/drive_page.dart';
 import '../kanban/kanban_board_page.dart';
 import '../canvas/canvas_page.dart';
 import '../widgets/page_properties_widget.dart';
+import '../ai/ai_slash_intent.dart';
 
 part 'workspace_page_ai_chat.dart';
 part 'workspace_page_ai_context.dart';
@@ -78,6 +81,7 @@ part 'workspace_page_collab.dart';
 part 'workspace_page_page_tools.dart';
 part 'workspace_page_ai_attachments.dart';
 part 'workspace_page_ai_panel.dart';
+part 'workspace_page_ai_slash.dart';
 
 class WorkspacePage extends StatefulWidget {
   const WorkspacePage({
@@ -103,7 +107,15 @@ class WorkspacePage extends StatefulWidget {
   State<WorkspacePage> createState() => _WorkspacePageState();
 }
 
-enum _AiContextItemKind { currentPage, page, file, addFile, meetingNote }
+enum _AiContextItemKind {
+  currentPage,
+  page,
+  file,
+  addFile,
+  meetingNote,
+  editorSelection,
+  lastMeetingOnPage,
+}
 
 enum _AiContextMenuView { root, pages }
 
@@ -169,12 +181,14 @@ class _WorkspacePageState extends State<WorkspacePage> {
   String? _lastAiChatIdForScroll;
   int _lastAiChatMessageCount = -1;
   final Set<String> _aiTypewriterActiveMessageKeys = <String>{};
-  final Map<int, String?> _messageFeedback =
-      {}; // Track feedback for each message
   Timer? _draftSaveTimer;
   String _chatDraft = ''; // Auto-save draft
   int _aiContextMenuSelectedIndex = 0; // Keyboard navigation
   bool _aiContextMenuUsingKeyboard = false; // Track keyboard vs mouse
+  bool _aiAttachNextEditorSelection = false;
+  bool _aiAttachNextLastMeeting = false;
+  final TextEditingController _aiThreadSearchController =
+      TextEditingController();
   bool _mobileEditMode = false;
   String? _lastPageIdForMobileMode;
 
@@ -485,8 +499,33 @@ class _WorkspacePageState extends State<WorkspacePage> {
       content: old.content,
       timestamp: old.timestamp,
       feedback: feedback,
+      agentApplySnapshot: old.agentApplySnapshot,
     );
     _s.updateMessageInActiveAiChat(messageIndex, updated);
+  }
+
+  void _tryApplyAgentChatSnapshot(
+    AiChatMessage message,
+    AiAgentApplyKind kind,
+  ) {
+    final snap = message.agentApplySnapshot;
+    if (snap == null) return;
+    final pageId = _s.selectedPageId;
+    if (pageId == null || pageId.isEmpty) {
+      final l10n = AppLocalizations.of(context);
+      _snack(l10n.aiChatApplySnapshotFailure, error: true);
+      return;
+    }
+    final ok = _s.applyAgentChatSnapshotToPage(
+      pageId: pageId,
+      snapshot: snap,
+      kind: kind,
+    );
+    final l10n = AppLocalizations.of(context);
+    _snack(
+      ok ? l10n.aiChatApplySnapshotSuccess : l10n.aiChatApplySnapshotFailure,
+      error: !ok,
+    );
   }
 
   Widget _buildAiMessageRow(
@@ -509,7 +548,7 @@ class _WorkspacePageState extends State<WorkspacePage> {
         ? scheme.primaryContainer.withValues(alpha: 0.92)
         : scheme.surface;
     final textColor = isUser ? scheme.onPrimaryContainer : scheme.onSurface;
-    final feedback = _messageFeedback[messageIndex] ?? message.feedback;
+    final feedback = message.feedback;
     final isHelpful = feedback == 'helpful';
     final isNotHelpful = feedback == 'not_helpful';
 
@@ -695,24 +734,74 @@ class _WorkspacePageState extends State<WorkspacePage> {
                           const SizedBox(height: 12),
                           Row(
                             children: [
-                              IconButton(
-                                iconSize: 18,
+                              PopupMenuButton<void>(
                                 padding: EdgeInsets.zero,
-                                constraints: const BoxConstraints(
-                                  minWidth: 32,
-                                  minHeight: 32,
-                                ),
                                 icon: Icon(
-                                  Icons.content_copy_rounded,
+                                  Icons.more_vert_rounded,
+                                  size: 20,
                                   color: textColor.withValues(alpha: 0.7),
                                 ),
-                                tooltip: l10n.aiCopyMessage,
-                                onPressed: () => _copyToClipboard(
-                                  bodyContent.isEmpty
-                                      ? message.content
-                                      : bodyContent,
-                                  l10n.aiCopiedToClipboard,
-                                ),
+                                tooltip: l10n.aiMessageMoreActions,
+                                itemBuilder: (ctx) => [
+                                  PopupMenuItem<void>(
+                                    child: Text(l10n.aiMessageActionCopyReply),
+                                    onTap: () {
+                                      WidgetsBinding.instance
+                                          .addPostFrameCallback((_) {
+                                        if (!mounted) return;
+                                        final t = bodyContent.isEmpty
+                                            ? message.content
+                                            : bodyContent;
+                                        unawaited(
+                                          _copyToClipboard(
+                                            t,
+                                            l10n.aiCopiedToClipboard,
+                                          ),
+                                        );
+                                      });
+                                    },
+                                  ),
+                                  if (message.agentApplySnapshot != null)
+                                    PopupMenuItem<void>(
+                                      child: Text(
+                                        l10n.aiMessageActionCopyStructuredJson,
+                                      ),
+                                      onTap: () {
+                                        WidgetsBinding.instance
+                                            .addPostFrameCallback((_) {
+                                          if (!mounted) return;
+                                          try {
+                                            final s = JsonEncoder.withIndent(
+                                              '  ',
+                                            ).convert(
+                                              message.agentApplySnapshot!,
+                                            );
+                                            unawaited(
+                                              _copyToClipboard(
+                                                s,
+                                                l10n.aiCopiedToClipboard,
+                                              ),
+                                            );
+                                          } catch (_) {}
+                                        });
+                                      },
+                                    ),
+                                  PopupMenuItem<void>(
+                                    child: Text(l10n.aiMessageActionCopyFull),
+                                    onTap: () {
+                                      WidgetsBinding.instance
+                                          .addPostFrameCallback((_) {
+                                        if (!mounted) return;
+                                        unawaited(
+                                          _copyToClipboard(
+                                            message.content,
+                                            l10n.aiCopiedToClipboard,
+                                          ),
+                                        );
+                                      });
+                                    },
+                                  ),
+                                ],
                               ),
                               const SizedBox(width: 4),
                               IconButton(
@@ -735,10 +824,6 @@ class _WorkspacePageState extends State<WorkspacePage> {
                                   final newFeedback = isHelpful
                                       ? null
                                       : 'helpful';
-                                  setState(
-                                    () => _messageFeedback[messageIndex] =
-                                        newFeedback,
-                                  );
                                   _updateMessageFeedback(
                                     messageIndex,
                                     newFeedback,
@@ -766,10 +851,6 @@ class _WorkspacePageState extends State<WorkspacePage> {
                                   final newFeedback = isNotHelpful
                                       ? null
                                       : 'not_helpful';
-                                  setState(
-                                    () => _messageFeedback[messageIndex] =
-                                        newFeedback,
-                                  );
                                   _updateMessageFeedback(
                                     messageIndex,
                                     newFeedback,
@@ -778,6 +859,64 @@ class _WorkspacePageState extends State<WorkspacePage> {
                               ),
                             ],
                           ),
+                          if (message.agentApplySnapshot != null)
+                            Builder(
+                              builder: (ctx) {
+                                final snap = message.agentApplySnapshot!;
+                                final bl = snap['blocks'];
+                                final op = snap['operations'];
+                                final hasBlocks = bl is List && bl.isNotEmpty;
+                                final hasOps = op is List && op.isNotEmpty;
+                                if (!hasBlocks && !hasOps) {
+                                  return const SizedBox.shrink();
+                                }
+                                return Padding(
+                                  padding: const EdgeInsets.only(top: 10),
+                                  child: Wrap(
+                                    spacing: 8,
+                                    runSpacing: 8,
+                                    children: [
+                                      if (hasBlocks)
+                                        FilledButton.tonal(
+                                          onPressed: () =>
+                                              _tryApplyAgentChatSnapshot(
+                                                message,
+                                                AiAgentApplyKind
+                                                    .insertBlocksAtEnd,
+                                              ),
+                                          child: Text(
+                                            l10n.aiChatApplyInsertEnd,
+                                          ),
+                                        ),
+                                      if (hasBlocks)
+                                        OutlinedButton(
+                                          onPressed: () =>
+                                              _tryApplyAgentChatSnapshot(
+                                                message,
+                                                AiAgentApplyKind
+                                                    .replaceAllBlocks,
+                                              ),
+                                          child: Text(
+                                            l10n.aiChatApplyReplacePage,
+                                          ),
+                                        ),
+                                      if (hasOps)
+                                        FilledButton.tonal(
+                                          onPressed: () =>
+                                              _tryApplyAgentChatSnapshot(
+                                                message,
+                                                AiAgentApplyKind
+                                                    .applyEditOperations,
+                                              ),
+                                          child: Text(
+                                            l10n.aiChatApplyOperations,
+                                          ),
+                                        ),
+                                    ],
+                                  ),
+                                );
+                              },
+                            ),
                         ],
                       ],
                     ),
@@ -895,6 +1034,7 @@ class _WorkspacePageState extends State<WorkspacePage> {
     _titleController.dispose();
     _chatInputController.dispose();
     _chatInputFocusNode.dispose();
+    _aiThreadSearchController.dispose();
     _aiChatScrollController.dispose();
     super.dispose();
   }
@@ -989,12 +1129,17 @@ class _WorkspacePageState extends State<WorkspacePage> {
 
     // Fingerprint: solo llamar setState cuando algo visible en el build cambió.
     // Durante typing normal, nada de esto cambia → cero reconstrucciones del WorkspacePage.
+    // Incluir feedback por mensaje para que pulgares útil/no útil refresquen sin mapa local.
+    final aiMessageFeedbackFp = chat.messages
+        .map((m) => m.feedback ?? '-')
+        .join('|');
     final fp =
         '${_s.selectedPageId}|${_s.contentEpoch}'
         '|${_s.canUndoSelectedPage}|${_s.canRedoSelectedPage}'
         '|${_s.hasPendingDiskSave}|${_s.isPersistingToDisk}'
         '|${_s.aiEnabled}|${chat.id}|${chat.messages.length}'
-        '|${_s.selectedPage?.collabRoomId ?? ""}';
+        '|${_s.selectedPage?.collabRoomId ?? ""}'
+        '|$aiMessageFeedbackFp';
     if (fp != _lastWorkspaceFingerprint) {
       _lastWorkspaceFingerprint = fp;
       // Actualizar caché kanban solo cuando realmente reconstruimos.
@@ -1817,6 +1962,23 @@ class _WorkspacePageState extends State<WorkspacePage> {
     if (mounted) setState(() {});
   }
 
+  void _openVaultTaskHub() {
+    if (!_s.isUnlocked) return;
+    unawaited(
+      Navigator.of(context).push<void>(
+        MaterialPageRoute<void>(
+          builder: (ctx) => VaultTaskHubPage(
+            session: _s,
+            onOpenTaskInPage: (pageId, blockId) {
+              _s.selectPage(pageId);
+              _s.requestScrollToBlock(blockId);
+            },
+          ),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
@@ -1870,6 +2032,7 @@ class _WorkspacePageState extends State<WorkspacePage> {
           onOpenSettings: _openSettings,
           onLock: () => unawaited(_s.lock()),
           onQuickAddTask: hasAnyKanbanPage ? _showQuickAddTask : null,
+          onOpenVaultTaskHub: _s.isUnlocked ? _openVaultTaskHub : null,
         ),
       ),
     );
@@ -2324,6 +2487,7 @@ class _WorkspacePageState extends State<WorkspacePage> {
                     appSettings: widget.appSettings,
                     readOnlyMode: editorReadOnlyMode,
                     folioCloudEntitlements: widget.folioCloudEntitlements,
+                    onAiSlashCommand: _handleFolioAiSlash,
                   ),
           );
 
@@ -2453,6 +2617,7 @@ class _WorkspacePageState extends State<WorkspacePage> {
       onLockVault: () => unawaited(_s.lock()),
       onForceSyncDevices: _forceSyncNow,
       onQuickAddTask: hasAnyKanbanPage ? _showQuickAddTask : null,
+      onOpenVaultTasks: _s.isUnlocked ? _openVaultTaskHub : null,
       onAddRootFolder: () => _s.addFolder(parentId: null),
       onImportMarkdown: _importDocumentFile,
       cloudAccount: widget.cloudAccountController,
@@ -2541,6 +2706,66 @@ class _WorkspacePageState extends State<WorkspacePage> {
       );
     }
     final editorContent = editorWithPanels;
+    final useSplitAi =
+        useDesktopAiDock && !_zenMode && widget.appSettings.aiChatSplitView;
+    final Widget shellEditorBody;
+    if (_zenMode) {
+      shellEditorBody = Stack(
+        children: [
+          editorContent,
+          Positioned(
+            top: 8,
+            right: 12,
+            child: SafeArea(
+              child: AnimatedOpacity(
+                opacity: 0.85,
+                duration: const Duration(milliseconds: 200),
+                child: FilledButton.tonal(
+                  style: FilledButton.styleFrom(
+                    visualDensity: VisualDensity.compact,
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 6,
+                    ),
+                  ),
+                  onPressed: () => setState(() => _zenMode = false),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(Icons.fullscreen_exit_rounded, size: 16),
+                      const SizedBox(width: 6),
+                      Text(
+                        l10n.zenModeExit,
+                        style: const TextStyle(fontSize: 12),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ],
+      );
+    } else if (useSplitAi) {
+      shellEditorBody = Row(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Expanded(flex: 3, child: editorContent),
+          const VerticalDivider(width: 1),
+          SizedBox(
+            width: _aiPanelWidth.clamp(280.0, 520.0),
+            child: Material(
+              color: scheme.surfaceContainerLow,
+              child: _aiPanelCollapsed
+                  ? Center(child: _buildAiCollapsedFab(context, scheme))
+                  : _buildAiPanel(context),
+            ),
+          ),
+        ],
+      );
+    } else {
+      shellEditorBody = editorContent;
+    }
     return CallbackShortcuts(
       bindings: shortcutBindings,
       child: Scaffold(
@@ -2570,47 +2795,7 @@ class _WorkspacePageState extends State<WorkspacePage> {
           compact: compact,
           sidePanelWidth: effectiveSidebarW,
           sidePanel: sidePanel,
-          editorContent: _zenMode
-              ? Stack(
-                  children: [
-                    editorContent,
-                    Positioned(
-                      top: 8,
-                      right: 12,
-                      child: SafeArea(
-                        child: AnimatedOpacity(
-                          opacity: 0.85,
-                          duration: const Duration(milliseconds: 200),
-                          child: FilledButton.tonal(
-                            style: FilledButton.styleFrom(
-                              visualDensity: VisualDensity.compact,
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 12,
-                                vertical: 6,
-                              ),
-                            ),
-                            onPressed: () => setState(() => _zenMode = false),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                const Icon(
-                                  Icons.fullscreen_exit_rounded,
-                                  size: 16,
-                                ),
-                                const SizedBox(width: 6),
-                                Text(
-                                  l10n.zenModeExit,
-                                  style: const TextStyle(fontSize: 12),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
-                )
-              : editorContent,
+          editorContent: shellEditorBody,
           showSidebarResizeHandle:
               !compact &&
               !_zenMode &&
@@ -2643,7 +2828,7 @@ class _WorkspacePageState extends State<WorkspacePage> {
           betaBanner: widget.appSettings.shouldShowBetaBanner
               ? _buildBetaBanner(scheme, l10n)
               : null,
-          aiFloatingPanel: useDesktopAiDock && !_zenMode
+          aiFloatingPanel: useDesktopAiDock && !_zenMode && !useSplitAi
               ? (_aiPanelCollapsed
                     ? _buildAiCollapsedFab(context, scheme)
                     : _buildAiPanel(context))

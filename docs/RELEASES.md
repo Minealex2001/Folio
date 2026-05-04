@@ -41,6 +41,8 @@ El instalador de GitHub se compila con `--dart-define=FOLIO_DISTRIBUTION=github`
 | `play_store` | Reservado para builds Android publicados en Google Play (sin Microsoft Store). |
 | *(vacío)* | Legado / desarrollo local: en Windows puede ofrecerse Tienda además de Stripe si el runtime y los defines lo permiten. |
 
+En builds `microsoft_store` y `play_store`, la app **no** ofrece descarga/instalación de actualizaciones desde GitHub (`FolioDistribution.offersGitHubSelfUpdate`); las tiendas gestionan esas actualizaciones. Las **notas de versión** de la release en GitHub siguen pudiendo mostrarse (solo lectura). En Ajustes, **Buscar actualizaciones** abre la ficha en Microsoft Store o Google Play: en Windows Store define `FOLIO_MS_STORE_LISTING_PRODUCT_ID` (id de producto de Partner Center; `builld_all.ps1` lo lee también desde `functions/.env` si la línea está presente). En Play, por defecto se usa el `applicationId` de Android; opcional `--dart-define=FOLIO_PLAY_STORE_APP_ID=...`.
+
 ## Workflow «Folio build all» (GitHub Actions)
 
 - Archivo: [`.github/workflows/folio-build-all.yml`](../.github/workflows/folio-build-all.yml) (manual: **Actions → Folio build all → Run workflow**).

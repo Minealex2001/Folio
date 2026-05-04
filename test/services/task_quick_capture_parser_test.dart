@@ -33,4 +33,32 @@ void main() {
     expect(r.task.title, 'Hacer informe');
     expect(r.targetPageIdFromAlias, 'page-1');
   });
+
+  test('parse !! as highest priority and inline #tags', () {
+    final r = TaskQuickCaptureParser.parse(
+      'Revisar PR !! #review #cliente',
+      nowLocal: fixedNow,
+    );
+    expect(r.task.priority, 'highest');
+    expect(r.task.tags, containsAll(['review', 'cliente']));
+    expect(r.task.title, 'Revisar PR');
+  });
+
+  test('parse time 3pm with tomorrow', () {
+    final r = TaskQuickCaptureParser.parse(
+      'Llamar mañana 3pm',
+      nowLocal: fixedNow,
+    );
+    expect(r.task.dueDate, '2026-04-17T15:00');
+    expect(r.task.title, 'Llamar');
+  });
+
+  test('parse 24h time', () {
+    final r = TaskQuickCaptureParser.parse(
+      'due:2026-04-20 14:30 reunión',
+      nowLocal: fixedNow,
+    );
+    expect(r.task.dueDate, '2026-04-20T14:30');
+    expect(r.task.title, 'reunión');
+  });
 }

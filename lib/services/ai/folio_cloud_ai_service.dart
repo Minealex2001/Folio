@@ -169,6 +169,17 @@ class FolioCloudAiService implements AiService {
         _mapFolioCloudAiError(e),
         functionsCode: e.code,
       );
+    } catch (e) {
+      if (e is StateError) rethrow;
+      throw FolioCloudAiException(
+        _mapFolioCloudAiError(
+          FirebaseFunctionsException(
+            message: '',
+            code: 'unavailable',
+          ),
+        ),
+        functionsCode: 'unavailable',
+      );
     }
   }
 

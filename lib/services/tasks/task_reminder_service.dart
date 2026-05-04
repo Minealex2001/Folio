@@ -108,7 +108,19 @@ class TaskReminderService {
   /// fecha. Devuelve null si no hay recurrencia configurada.
   static FolioTaskData? advanceRecurrence(FolioTaskData data) {
     final due = data.dueDate;
-    final recurrence = data.recurrence;
+    var recurrence = data.recurrence;
+    if (recurrence == null) {
+      final rr = (data.recurringRule ?? '').trim().toUpperCase();
+      if (rr.startsWith('FREQ=DAILY')) {
+        recurrence = 'daily';
+      } else if (rr.startsWith('FREQ=WEEKLY')) {
+        recurrence = 'weekly';
+      } else if (rr.startsWith('FREQ=MONTHLY')) {
+        recurrence = 'monthly';
+      } else if (rr.startsWith('FREQ=YEARLY')) {
+        recurrence = 'yearly';
+      }
+    }
     if (due == null || recurrence == null) return null;
 
     final date = DateTime.tryParse(due);

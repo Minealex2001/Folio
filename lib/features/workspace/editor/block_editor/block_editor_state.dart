@@ -24,6 +24,7 @@ class BlockEditorState extends State<BlockEditor> with _BlockRowBuild {
   final List<TextEditingController> _controllers = [];
   final Map<String, quill.QuillController> _quillByBlockId = {};
   final Map<String, Timer> _quillDebounceByBlockId = {};
+  Timer? _quillCopilotProbeTimer;
   final Map<String, String> _quillLastMdByBlockId = {};
   /// [QuillEditor.basic] crea un [ScrollController] por defecto; sin reutilizarlo,
   /// cada [setState] del editor destruye el estado de scroll/selección del Quill.
@@ -314,6 +315,16 @@ class BlockEditorState extends State<BlockEditor> with _BlockRowBuild {
                         focusNode: focus,
                         onInteractionStart: () => _onToolbarPointerDown(bid),
                         onInteractionEnd: () => _onToolbarPointerUpOrCancel(bid),
+                        onAskQuill: widget.readOnlyMode ||
+                                widget.onAiSlashCommand == null
+                            ? null
+                            : () => unawaited(
+                                _dispatchAiSlashFromToolbar(
+                                  intent: AiSlashIntent.explain,
+                                  pageId: page.id,
+                                  blockId: forToolbar.id,
+                                ),
+                              ),
                       )
                     : FolioFormatToolbar(
                         controller: ctrl,
@@ -321,6 +332,16 @@ class BlockEditorState extends State<BlockEditor> with _BlockRowBuild {
                         textFocusNode: focus,
                         onInteractionStart: () => _onToolbarPointerDown(bid),
                         onInteractionEnd: () => _onToolbarPointerUpOrCancel(bid),
+                        onAskQuill: widget.readOnlyMode ||
+                                widget.onAiSlashCommand == null
+                            ? null
+                            : () => unawaited(
+                                _dispatchAiSlashFromToolbar(
+                                  intent: AiSlashIntent.explain,
+                                  pageId: page.id,
+                                  blockId: forToolbar.id,
+                                ),
+                              ),
                         onOpenBlockAppearance: _blockSupportsAppearance(forToolbar)
                             ? () => unawaited(
                                 _editBlockAppearance(
@@ -423,6 +444,7 @@ class BlockEditorState extends State<BlockEditor> with _BlockRowBuild {
           flushNow();
         },
       );
+      _scheduleQuillCopilotProbe(block.id);
     }
 
     qc.addListener(listener);
@@ -628,6 +650,12 @@ class BlockEditorState extends State<BlockEditor> with _BlockRowBuild {
     _trimSlashRecents();
 
     if (typeKey.startsWith('cmd_')) {
+      String? aiCapturedPlain;
+      String? aiCapturedSel;
+      if (typeKey.startsWith('cmd_ai_')) {
+        aiCapturedPlain = _livePlainTextForBlock(id);
+        aiCapturedSel = _plainAiSelectionForBlock(id);
+      }
       if (idx >= 0 && idx < _controllers.length) {
         final c = _controllers[idx];
         _runWithShortcutsIgnored(() {
@@ -638,7 +666,15 @@ class BlockEditorState extends State<BlockEditor> with _BlockRowBuild {
           _s.updateBlockText(pid, id, '');
         });
       }
-      unawaited(_runInlineSlashAction(typeKey, pageId: pid, blockId: id));
+      unawaited(
+        _runInlineSlashAction(
+          typeKey,
+          pageId: pid,
+          blockId: id,
+          aiBlockPlainCapture: aiCapturedPlain,
+          aiSelectionCapture: aiCapturedSel,
+        ),
+      );
       return;
     }
 
@@ -668,15 +704,160 @@ class BlockEditorState extends State<BlockEditor> with _BlockRowBuild {
     _scheduleFormatToolbarOverlayUpdate();
   }
 
+  String? _plainAiSelectionForBlock(String blockId) {
+    final qc = _quillByBlockId[blockId];
+    if (qc != null && qc.selection.isValid && !qc.selection.isCollapsed) {
+      final plain = qc.document.toPlainText();
+      final a = qc.selection.start.clamp(0, plain.length);
+      final b = qc.selection.end.clamp(0, plain.length);
+      if (a < b) {
+        final s = plain.substring(a, b).trim();
+        if (s.isNotEmpty) return s;
+      }
+    }
+    final idx = _controllerBlockIds.indexWhere((x) => x == blockId);
+    if (idx >= 0 && idx < _controllers.length) {
+      final c = _controllers[idx];
+      final sel = c.selection;
+      if (sel.isValid && !sel.isCollapsed) {
+        final t = c.text;
+        final a = sel.start.clamp(0, t.length);
+        final b = sel.end.clamp(0, t.length);
+        if (a < b) {
+          final s = t.substring(a, b).trim();
+          if (s.isNotEmpty) return s;
+        }
+      }
+    }
+    return null;
+  }
+
+  String _livePlainTextForBlock(String blockId) {
+    final qc = _quillByBlockId[blockId];
+    if (qc != null) return qc.document.toPlainText();
+    final idx = _controllerBlockIds.indexWhere((x) => x == blockId);
+    if (idx >= 0 && idx < _controllers.length) return _controllers[idx].text;
+    final pg = _s.selectedPage;
+    if (pg == null) return '';
+    for (final b in pg.blocks) {
+      if (b.id == blockId) return b.text;
+    }
+    return '';
+  }
+
+  /// Selección de texto plano no colapsada (markdown con foco o cualquier bloque Quill con selección).
+  void _scheduleQuillCopilotProbe(String _) {
+    if (!widget.appSettings.aiQuillCopilotExperimental) return;
+    _quillCopilotProbeTimer?.cancel();
+    _quillCopilotProbeTimer = Timer(const Duration(milliseconds: 900), () {
+      // Reservado: pipeline de sugerencias en tiempo real (sin inferencia aún).
+    });
+  }
+
+  Future<void> _dispatchAiSlashFromToolbar({
+    required AiSlashIntent intent,
+    required String pageId,
+    required String blockId,
+  }) async {
+    if (widget.readOnlyMode) return;
+    final cb = widget.onAiSlashCommand;
+    if (cb == null) {
+      if (mounted) {
+        final l10n = AppLocalizations.of(context);
+        ScaffoldMessenger.maybeOf(context)?.showSnackBar(
+          SnackBar(content: Text(l10n.blockEditorAiSlashUnavailable)),
+        );
+      }
+      return;
+    }
+    final sel = _plainAiSelectionForBlock(blockId);
+    final plain = _livePlainTextForBlock(blockId);
+    try {
+      await cb(
+        FolioAiSlashParams(
+          intent: intent,
+          pageId: pageId,
+          blockId: blockId,
+          selectionPlain: sel,
+          blockPlain: plain,
+        ),
+      );
+    } catch (e) {
+      if (mounted) {
+        final l10n = AppLocalizations.of(context);
+        ScaffoldMessenger.maybeOf(context)?.showSnackBar(
+          SnackBar(content: Text(l10n.aiErrorWithDetails(e))),
+        );
+      }
+    }
+  }
+
+  String? plainSelectionTextForAi() {
+    for (var i = 0; i < _focusNodes.length && i < _controllerBlockIds.length; i++) {
+      if (!_focusNodes[i].hasFocus) continue;
+      final s = _plainAiSelectionForBlock(_controllerBlockIds[i]);
+      if (s != null) return s;
+    }
+    final pg = _s.selectedPage;
+    if (pg == null) return null;
+    for (final b in pg.blocks) {
+      if (!_quillByBlockId.containsKey(b.id)) continue;
+      final q = _quillByBlockId[b.id]!;
+      if (q.selection.isValid && !q.selection.isCollapsed) {
+        return _plainAiSelectionForBlock(b.id);
+      }
+    }
+    return null;
+  }
+
   Future<void> _runInlineSlashAction(
     String actionKey, {
     required String pageId,
     required String blockId,
+    String? aiBlockPlainCapture,
+    String? aiSelectionCapture,
   }) async {
     final page = _s.selectedPage;
     if (page == null || page.id != pageId) return;
     final blockIndex = page.blocks.indexWhere((b) => b.id == blockId);
     if (blockIndex < 0) return;
+
+    if (actionKey.startsWith('cmd_ai_')) {
+      if (widget.readOnlyMode) return;
+      final intent = aiSlashIntentFromCmdKey(actionKey);
+      if (intent == null) return;
+      final cb = widget.onAiSlashCommand;
+      if (cb == null) {
+        if (mounted) {
+          final l10n = AppLocalizations.of(context);
+          ScaffoldMessenger.maybeOf(context)?.showSnackBar(
+            SnackBar(content: Text(l10n.blockEditorAiSlashUnavailable)),
+          );
+        }
+        return;
+      }
+      final sel = aiSelectionCapture ?? _plainAiSelectionForBlock(blockId);
+      final plain = aiBlockPlainCapture ?? _livePlainTextForBlock(blockId);
+      try {
+        await cb(
+          FolioAiSlashParams(
+            intent: intent,
+            pageId: pageId,
+            blockId: blockId,
+            selectionPlain: sel,
+            blockPlain: plain,
+          ),
+        );
+      } catch (e) {
+        if (mounted) {
+          final l10n = AppLocalizations.of(context);
+          ScaffoldMessenger.maybeOf(context)?.showSnackBar(
+            SnackBar(content: Text(l10n.aiErrorWithDetails(e))),
+          );
+        }
+      }
+      return;
+    }
 
     if (actionKey == 'cmd_insert_date') {
       final date = DateFormat.yMMMd(
@@ -2925,6 +3106,7 @@ class BlockEditorState extends State<BlockEditor> with _BlockRowBuild {
 
   @override
   void dispose() {
+    _quillCopilotProbeTimer?.cancel();
     _blockListScrollController.removeListener(_scheduleFormatToolbarOverlayUpdate);
     _removeFormatToolbarOverlay();
     _slashListScrollController.dispose();
@@ -3323,6 +3505,7 @@ class BlockEditorState extends State<BlockEditor> with _BlockRowBuild {
         };
         if (skipTextSync.contains(p.blocks[idx].type)) return;
         _syncBlockTextFromController(pid, bid, c.text, idx);
+        _scheduleQuillCopilotProbe(bid);
 
         // Rastrear si este bloque tiene selección de texto activa.
         final hasSelection = c.selection.isValid && !c.selection.isCollapsed;
