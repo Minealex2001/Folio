@@ -3,7 +3,7 @@
 ; Non-commercial use only
 
 #define MyAppName "Folio"
-#define MyAppVersion "0.0.3+5"
+#define MyAppVersion "0.0.4+1"
 #define MyAppPublisher "Minealex Games"
 #define MyAppURL "https://minealexgames.com/"
 #define MyAppExeName "folio.exe"
@@ -48,8 +48,8 @@ Name: "spanish"; MessagesFile: "compiler:Languages\Spanish.isl"
 Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{cm:AdditionalIcons}"; Flags: unchecked
 
 [Files]
-Source: "C:\Users\aleja\Repositories\Folio\build\windows\x64\runner\Release\{#MyAppExeName}"; DestDir: "{app}"; Flags: ignoreversion
-Source: "C:\Users\aleja\Repositories\Folio\build\windows\x64\runner\Release\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
+Source: "E:\Folio-1\build\windows\x64\runner\Release\{#MyAppExeName}"; DestDir: "{app}"; Flags: ignoreversion
+Source: "E:\Folio-1\build\windows\x64\runner\Release\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
 ; NOTE: Don't use "Flags: ignoreversion" on any shared system files
 
 [Icons]
