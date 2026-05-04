@@ -4,7 +4,8 @@ import 'package:firebase_analytics/firebase_analytics.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'dart:convert';
-import 'package:flutter/foundation.dart';
+import 'package:flutter/foundation.dart'
+    show TargetPlatform, defaultTargetPlatform, kDebugMode, kIsWeb;
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:uuid/uuid.dart';
@@ -19,7 +20,8 @@ class FolioTelemetry {
   FolioTelemetry._();
 
   static const _installIdKey = 'folio_anonymous_install_id';
-  static const _firstOpenKey = 'folio_first_open_logged_v1';
+  /// Ping único a GA4 por instalación (independiente del interruptor de telemetría).
+  static const _installPingKey = 'folio_install_ping_sent_v1';
 
   static Future<String> anonymousInstallId() async {
     final p = await SharedPreferences.getInstance();
@@ -35,6 +37,8 @@ class FolioTelemetry {
   static Future<void> applyAfterSettingsLoaded(AppSettings settings) async {
     if (Firebase.apps.isEmpty) return;
     try {
+      await _recordMinimalInstallIfNeeded(settings);
+
       await FirebaseAnalytics.instance.setAnalyticsCollectionEnabled(
         settings.telemetryEnabled,
       );
@@ -50,18 +54,6 @@ class FolioTelemetry {
           value: channel.length > 36 ? channel.substring(0, 36) : channel,
         );
       }
-
-      final p = await SharedPreferences.getInstance();
-      if (p.getBool(_firstOpenKey) ?? false) return;
-      await p.setBool(_firstOpenKey, true);
-      final info = await PackageInfo.fromPlatform();
-      await FirebaseAnalytics.instance.logEvent(
-        name: 'first_open',
-        parameters: {
-          'app_version': info.version,
-          'build_number': info.buildNumber,
-        },
-      );
     } catch (e, st) {
       AppLogger.warn(
         'Telemetry init failed',
@@ -74,6 +66,59 @@ class FolioTelemetry {
         context: {'stack': '$st'},
       );
     }
+  }
+
+  /// Un evento [folio_install] por instalación (GA4), aunque la telemetría opcional esté desactivada.
+  static Future<void> _recordMinimalInstallIfNeeded(
+    AppSettings settings,
+  ) async {
+    if (Firebase.apps.isEmpty) return;
+    final prefs = await SharedPreferences.getInstance();
+    if (prefs.getBool(_installPingKey) ?? false) return;
+
+    try {
+      await FirebaseAnalytics.instance.setAnalyticsCollectionEnabled(true);
+      final id = await anonymousInstallId();
+      await FirebaseAnalytics.instance.setUserId(id: id);
+
+      final info = await PackageInfo.fromPlatform();
+      await FirebaseAnalytics.instance.logEvent(
+        name: 'folio_install',
+        parameters: {
+          'app_version': info.version,
+          'build_number': info.buildNumber,
+          'folio_platform': _analyticsPlatformLabel(),
+        },
+      );
+      await prefs.setBool(_installPingKey, true);
+    } catch (e, st) {
+      AppLogger.warn(
+        'Minimal install telemetry failed',
+        tag: 'telemetry',
+        context: {'error': '$e'},
+      );
+      AppLogger.debug(
+        'Minimal install telemetry stack',
+        tag: 'telemetry',
+        context: {'stack': '$st'},
+      );
+    } finally {
+      await FirebaseAnalytics.instance.setAnalyticsCollectionEnabled(
+        settings.telemetryEnabled,
+      );
+    }
+  }
+
+  static String _analyticsPlatformLabel() {
+    if (kIsWeb) return 'web';
+    return switch (defaultTargetPlatform) {
+      TargetPlatform.android => 'android',
+      TargetPlatform.iOS => 'ios',
+      TargetPlatform.macOS => 'macos',
+      TargetPlatform.windows => 'windows',
+      TargetPlatform.linux => 'linux',
+      _ => 'other',
+    };
   }
 
   static Future<void> onSettingsChanged(AppSettings settings) async {

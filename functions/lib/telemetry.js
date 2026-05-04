@@ -174,62 +174,65 @@ async function aggregateUserDailyStats(userId, dateStr) {
         throw error;
     }
 }
+async function aggregateGlobalStatsForDate(dateStr) {
+    const statsSnapshot = await firestore()
+        .collectionGroup('stats')
+        .where('date', '==', dateStr)
+        .get();
+    const globalStats = {
+        date: dateStr,
+        totalUsersWithEvents: 0,
+        totalEvents: 0,
+        globalEventsByType: {},
+        totalErrors: 0,
+        totalSyncTimeMs: 0,
+        totalPerformanceTimeMs: 0,
+        activeUsers: new Set(),
+        lastUpdate: firestore_1.Timestamp.now(),
+    };
+    statsSnapshot.forEach((doc) => {
+        const data = doc.data();
+        const uid = doc.ref.path.split('/')[1];
+        globalStats.activeUsers.add(uid);
+        globalStats.totalEvents += data.totalEvents || 0;
+        globalStats.totalErrors += data.errorCount || 0;
+        globalStats.totalSyncTimeMs += data.totalSyncTimeMs || 0;
+        globalStats.totalPerformanceTimeMs += data.totalPerformanceTimeMs || 0;
+        const eventsByType = data.eventsByType || {};
+        for (const [type, count] of Object.entries(eventsByType)) {
+            globalStats.globalEventsByType[type] =
+                (globalStats.globalEventsByType[type] || 0) + count;
+        }
+    });
+    globalStats.totalUsersWithEvents = globalStats.activeUsers.size;
+    await firestore()
+        .collection('telemetryGlobalStats')
+        .doc(dateStr)
+        .set({
+        ...globalStats,
+        activeUsers: Array.from(globalStats.activeUsers),
+        eventsByType: globalStats.globalEventsByType,
+    });
+    console.log(`Aggregated global telemetry stats for ${globalStats.totalUsersWithEvents} users on ${dateStr}. ` +
+        `Total events: ${globalStats.totalEvents}`);
+}
 /**
- * Función que calcula agregados globales de telemetría (para dashboards administrativos)
- * Se puede ejecutar manualmente o en horarios específicos
+ * Agregados globales para el panel staff: día UTC actual y anterior (cada hora).
  */
 exports.aggregateGlobalTelemetryStats = (0, scheduler_1.onSchedule)({
     region: 'us-east1',
-    schedule: '0 2 * * *',
+    schedule: '15 * * * *',
     timeZone: 'UTC',
     memory: '256MiB',
 }, async () => {
     try {
         const now = new Date();
+        const todayStr = now.toISOString().split('T')[0];
         const yesterday = new Date(now);
         yesterday.setUTCDate(yesterday.getUTCDate() - 1);
-        const dateStr = yesterday.toISOString().split('T')[0];
-        const statsSnapshot = await firestore()
-            .collectionGroup('stats')
-            .where('date', '==', dateStr)
-            .get();
-        const globalStats = {
-            date: dateStr,
-            totalUsersWithEvents: 0,
-            totalEvents: 0,
-            globalEventsByType: {},
-            totalErrors: 0,
-            totalSyncTimeMs: 0,
-            totalPerformanceTimeMs: 0,
-            activeUsers: new Set(),
-            lastUpdate: firestore_1.Timestamp.now(),
-        };
-        statsSnapshot.forEach((doc) => {
-            const data = doc.data();
-            const uid = doc.ref.path.split('/')[1];
-            globalStats.activeUsers.add(uid);
-            globalStats.totalEvents += data.totalEvents || 0;
-            globalStats.totalErrors += data.errorCount || 0;
-            globalStats.totalSyncTimeMs += data.totalSyncTimeMs || 0;
-            globalStats.totalPerformanceTimeMs +=
-                data.totalPerformanceTimeMs || 0;
-            const eventsByType = data.eventsByType || {};
-            for (const [type, count] of Object.entries(eventsByType)) {
-                globalStats.globalEventsByType[type] =
-                    (globalStats.globalEventsByType[type] || 0) + count;
-            }
-        });
-        globalStats.totalUsersWithEvents = globalStats.activeUsers.size;
-        await firestore()
-            .collection('telemetryGlobalStats')
-            .doc(dateStr)
-            .set({
-            ...globalStats,
-            activeUsers: Array.from(globalStats.activeUsers),
-            eventsByType: globalStats.globalEventsByType,
-        });
-        console.log(`Aggregated global telemetry stats for ${globalStats.totalUsersWithEvents} users on ${dateStr}. ` +
-            `Total events: ${globalStats.totalEvents}`);
+        const yesterdayStr = yesterday.toISOString().split('T')[0];
+        await aggregateGlobalStatsForDate(todayStr);
+        await aggregateGlobalStatsForDate(yesterdayStr);
     }
     catch (error) {
         console.error('Failed to aggregate global telemetry stats:', error);

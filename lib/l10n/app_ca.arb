@@ -729,6 +729,32 @@
   "vaultBackupRunNowTile": "Executa la còpia programada ara",
   "vaultBackupRunNowSubtitle": "Executa la còpia de seguretat ara (al disc i/o al núvol) sense esperar a l'interval.",
   "vaultBackupRunNowNeedFolder": "Tria una carpeta local o activa “Puja també a Folio Cloud” per a còpies només al núvol.",
+  "vaultBackupProgressDialogTitle": "Còpia en curs",
+  "vaultBackupProgressCompactHint": "Els detalls apareixen a la consola de depuració.",
+  "vaultBackupProgressLocalZipStart": "S’està creant el ZIP a la carpeta configurada…",
+  "vaultBackupProgressLocalZipDone": "ZIP a la carpeta finalitzat.",
+  "vaultCloudPackProgressPreparing": "S’està preparant la pujada al núvol…",
+  "vaultCloudPackProgressPersisting": "S’estan desant els canvis locals de la caixa…",
+  "vaultCloudPackProgressFingerprint": "S’està calculant la petjada del contingut…",
+  "vaultCloudPackProgressFetchingMeta": "S’està consultant l’estat a Folio Cloud…",
+  "vaultCloudPackProgressSkippedUpToDate": "Res a pujar: el núvol ja té aquesta versió.",
+  "vaultCloudPackProgressRestoreWrap": "S’estan preparant les claus de recuperació per altres dispositius…",
+  "vaultCloudPackProgressIndexingLocal": "S’està inventariant els fitxers locals…",
+  "vaultCloudPackProgressDownloadingManifest": "S’està descarregant l’inventari anterior del núvol…",
+  "vaultCloudPackProgressBlobManifest": "Manifest de la còpia",
+  "vaultCloudPackProgressBlobVaultKeys": "Claus de la caixa (vault.keys)",
+  "vaultCloudPackProgressBlobVaultData": "Dades xifrades de la caixa (vault.bin)",
+  "vaultCloudPackProgressBlobVaultMode": "Mode de la caixa",
+  "vaultCloudPackProgressBlobAttachment": "Adjunt: {name}",
+  "@vaultCloudPackProgressBlobAttachment": {"placeholders": {"name": {"type": "String"}}},
+  "vaultCloudPackProgressBlobAttachmentAnonymous": "Adjunt",
+  "vaultCloudPackProgressUploadingBlobProgress": "S’està pujant la part {current} de {total}: {part}",
+  "@vaultCloudPackProgressUploadingBlobProgress": {"placeholders": {"current": {"type": "int"}, "total": {"type": "int"}, "part": {"type": "String"}}},
+  "vaultCloudPackProgressUploadingSnapshot": "S’està pujant l’índex de la còpia (snapshot)…",
+  "vaultCloudPackProgressFinalizing": "S’està registrant la còpia al servidor…",
+  "vaultCloudPackProgressCleaningBlobs": "S’estan eliminant dades antigues al núvol…",
+  "vaultCloudPackProgressUpdatingIndex": "S’està actualitzant l’índex de còpies…",
+  "vaultCloudPackProgressComplete": "Còpia al núvol completada.",
   "vaultIdentitySyncTitle": "Sincronització",
   "vaultIdentitySyncBody": "Introdueix la contrasenya de la caixa (o Hello / clau de pas) per continuar.",
   "vaultIdentityCloudBackupTitle": "Còpies al núvol",
@@ -1028,8 +1054,14 @@
   "folioCloudPurchaseChannelStoreNotConfigured": "L’opció de la Botiga no està configurada en aquesta compilació (manquen ids de producte).",
   "folioCloudPurchaseChannelStoreNotConfiguredHint": "Compila amb --dart-define=MS_STORE_… o usa el pagament al navegador.",
   "folioCloudMicrosoftStoreSyncHint": "A Windows, «Actualitzar» també sincronitza la Microsoft Store (mateix botó que Stripe).",
-  "folioCloudUploadEncryptedBackup": "Fes una còpia al núvol ara",
-  "folioCloudUploadEncryptedBackupSubtitle": "Folio crea una còpia xifrada de la caixa oberta i la puja — sense exportació ZIP manual.",
+  "folioCloudIncrementalBackupManualHint": "Per pujar ara una còpia incremental xifrada (sense exportar .zip), ves a Configuració → Llibreta i toca «{actionTitle}»; allà configures carpeta local i/o Folio Cloud.",
+  "@folioCloudIncrementalBackupManualHint": {
+    "placeholders": {
+      "actionTitle": {
+        "type": "String"
+      }
+    }
+  },
   "folioCloudUploadSnackOk": "S'ha desat la còpia de la caixa al núvol.",
   "scheduledVaultBackupCloudSyncTitle": "Còpia a Folio Cloud",
   "scheduledVaultBackupCloudSyncSubtitle": "En cada interval programat, puja automàticament una còpia xifrada al teu compte de Folio Cloud.",
@@ -1173,12 +1205,27 @@
   "calloutTypeWarning": "Avís",
   "calloutTypeError": "Error",
   "calloutTypeNote": "Nota",
-  "blockEditorEnterHintNewBlock": "Retorn: bloc nou (en codi: Retorn = línia)",
+  "blockEditorEnterHintNewBlock": "Retorn: bloc nou si està activat (Ctrl+Retorn / Cmd+Retorn: sempre) · en codi: Retorn = línia",
   "blockEditorEnterHintNewLine": "Retorn: línia nova",
-  "blockEditorShortcutsHintMobile": "{enterHint} · / per a blocs · toca el bloc per a més accions",
+  "blockEditorSlashNoMatches": "Sense coincidències",
+  "blockEditorShortcutsHintMobile": "{enterHint} · Ctrl+Retorn / Cmd+Retorn: bloc nou · / per a blocs · toca el bloc per a més accions",
   "@blockEditorShortcutsHintMobile": {"placeholders": {"enterHint": {"type": "String"}}},
-  "blockEditorShortcutsHintDesktop": "{enterHint} · Maj+Retorn: línia · / tipus · # títol (mateixa línia) · - · * · [] · ``` espai · taula/imatge a / · format: barra en enfocar o ** _ <u> ` ~~",
+  "blockEditorShortcutsHintDesktop": "{enterHint} · Ctrl+Retorn / Cmd+Retorn: sempre bloc nou · Maj+Retorn: línia · / tipus · # títol (mateixa línia) · - · * · [] · ``` espai · taula/imatge a / · format: barra flotant en seleccionar text o ** _ <u> ` ~~",
   "@blockEditorShortcutsHintDesktop": {"placeholders": {"enterHint": {"type": "String"}}},
+  "formatToolbarQuillUnlink": "Treure l'enllaç",
+  "formatToolbarQuillTextColor": "Color del text",
+  "formatToolbarQuillFillColor": "Color de fons",
+  "formatToolbarQuillHighlight": "Ressaltar",
+  "formatToolbarQuillHeading1": "Títol 1",
+  "formatToolbarQuillHeading2": "Títol 2",
+  "formatToolbarQuillHeading3": "Títol 3",
+  "formatToolbarQuillBulletList": "Llista amb pics",
+  "formatToolbarQuillNumberedList": "Llista numerada",
+  "formatToolbarQuillChecklist": "Llista de tasques",
+  "formatToolbarQuillQuote": "Cita",
+  "formatToolbarQuillIndentMore": "Augmentar la indentació",
+  "formatToolbarQuillIndentLess": "Reduir la indentació",
+  "formatToolbarQuillClear": "Netejar el format",
   "blockEditorSelectedBlocksBanner": "{count} blocs seleccionats · Maj: interval · Ctrl/Cmd: alternar",
   "@blockEditorSelectedBlocksBanner": {"placeholders": {"count": {"type": "int"}}},
   "blockEditorDuplicate": "Duplicar",
@@ -1703,7 +1750,7 @@
   "settingsSectionUiWorkspace": "Interfície i escriptori",
   "settingsSectionUiWorkspaceHeroDescription": "Tema, idioma, escala, editor, opcions d'escriptori i dreceres de teclat.",
   "settingsSubsectionVaultBackupImport": "Còpies i importació",
-  "settingsSubsectionVaultScheduledLocal": "Còpia programada (local)",
+  "settingsSubsectionVaultScheduledLocal": "Còpia programada",
   "settingsSubsectionDrive": "Drive",
   "settingsSubsectionVaultData": "Dades (zona de perill)",
   "folioCloudSubsectionAccount": "Compte",
@@ -1929,12 +1976,12 @@
   "settingsAccentPickColor": "Trieu un color predefinit",
   "settingsPrivacySectionTitle": "Privacitat i diagnòstics",
   "settingsTelemetryTitle": "Estadístiques d'ús anònimes",
-  "settingsTelemetrySubtitle": "Ajuda a mesurar instal·lacions i ús de funcions. No s'envia contingut del quadern ni títols.",
+  "settingsTelemetrySubtitle": "Si està actiu, ajuda a mesurar l'ús de funcions. Sempre s'envia un senyal anònim únic d'instal·lació. No es envia contingut del quadern ni títols.",
   "onboardingTelemetryTitle": "Estadístiques d'ús",
-  "onboardingTelemetryBody": "Folio pot enviar analítica anònima per entendre com s'utilitza l'app. Pots canviar-ho en qualsevol moment a Configuració.",
+  "onboardingTelemetryBody": "Si està actiu, Folio pot enviar analítica anònima per entendre com s'utilitza l'app. En el primer inici s'envia igualment un senyal anònim únic d'instal·lació. Pots canviar les estadístiques d'ús en qualsevol moment a Configuració.",
   "onboardingTelemetrySwitchTitle": "Estadístiques d'ús anònimes",
-  "onboardingTelemetrySwitchSubtitle": "Ajuda a mesurar instal·lacions i ús de funcions. No s'envia contingut del quadern ni títols.",
-  "onboardingTelemetryFootnote": "No s'envia contingut del quadern ni títols de pàgines.",
+  "onboardingTelemetrySwitchSubtitle": "Si està actiu, ajuda a mesurar l'ús de funcions. Encara que ho desactivis, es registra una instal·lació anònima única. No es envia contingut del quadern ni títols.",
+  "onboardingTelemetryFootnote": "No es envia contingut del quadern ni títols de pàgines. S'envia un esdeveniment anònim d'instal·lació una vegada per instal·lació, independentment d'aquest ajust.",
   "settingsAutoCrashReportsTitle": "Enviar diagnòstics de fallades automàticament",
   "settingsAutoCrashReportsSubtitle": "Si hi ha un error greu, s'envia un tall del registre a Folio (opcional, limitat per sessió).",
   "settingsReportBugButton": "Informar d'un error",
@@ -2008,10 +2055,10 @@
   ,"@telemetryDashboardErrorDetail": {"placeholders": {"detail": {"type": "String"}}}
   ,"telemetryDashboardNoDataForDate": "Sense dades per a {date}"
   ,"@telemetryDashboardNoDataForDate": {"placeholders": {"date": {"type": "String"}}}
-  ,"telemetryDashboardNoDataHint": "Utilitza la icona d'enviament per buidar esdeveniments pendents i després actualitza.\nEls totals globals apareixen després de la tasca programada (02:00 UTC, dia UTC anterior)."
+  ,"telemetryDashboardNoDataHint": "Utilitza la icona d'enviament per buidar esdeveniments pendents i després actualitza.\nEls totals globals s'actualitzen cada hora (UTC) per a avui i ahir."
   ,"telemetryDashboardFlushRefresh": "Buidar i actualitzar"
   ,"telemetryDashboardSectionGlobalTitle": "Estadístiques globals (tots els usuaris)"
-  ,"telemetryDashboardSectionGlobalSubtitle": "Totals de l'agregació nocturna (02:00 UTC)."
+  ,"telemetryDashboardSectionGlobalSubtitle": "Totals de l'agregació horària (UTC)."
   ,"telemetryDashboardMetricUsers": "Usuaris"
   ,"telemetryDashboardMetricEvents": "Esdeveniments"
   ,"telemetryDashboardMetricErrors": "Errors"
@@ -2046,9 +2093,9 @@
   ,"telemetrySentDataPerformanceTitle": "Rendiment"
   ,"telemetrySentDataPerformanceBody": "Durada d’operacions i senyals bàsiques de rendiment."
   ,"telemetrySentDataErrorsTitle": "Errors"
-  ,"telemetrySentDataErrorsBody": "Errors de l’app i tancaments inesperats (si la telemetria està activa)."
+  ,"telemetrySentDataErrorsBody": "Errors de l’app i tancaments inesperats (si les estadístiques d'ús estan actives)."
   ,"telemetrySentDataPrivacyNote": "La teva privacitat importa. No venem aquestes dades ni les usem per a publicitat."
-  ,"telemetrySentDataChannelsNote": "Firebase Analytics usa un identificador anònim d’instal·lació. Una còpia d’esdeveniments a Firestore només s’envia si has iniciat sessió a Folio Cloud."
+  ,"telemetrySentDataChannelsNote": "Firebase Analytics usa un identificador anònim d’instal·lació. S'envia una vegada per instal·lació l'esdeveniment folio_install encara que les estadístiques d'ús estiguin desactivades. La resta d'esdeveniments copiats a Firestore només s'envien amb sessió iniciada a Folio Cloud."
   ,"telemetrySentDataViewTechnicalDetails": "Veure detalls tècnics"
   ,"telemetrySentDataHideTechnicalDetails": "Amagar detalls tècnics"
   ,"telemetrySentDataNoEventsYet": "Encara no hi ha esdeveniments desats localment."
@@ -2162,5 +2209,5 @@
   ,"@workspaceHomeClockTimezoneLine": {"placeholders": {"zoneName": {"type": "String"}, "offset": {"type": "String"}}}
   ,"workspaceHomeSectionLabelSearch": "Camp de cerca"
   ,"workspaceHomeSectionLabelCreatePage": "Botó pàgina nova"
-  ,"jiraCloudMissingOAuthSecret": "Falta JIRA_OAUTH_CLIENT_SECRET. Pots definir-lo a lib/config/folio_local_secrets.dart (còpia des de l'arxiu .example), en un .env que Folio carrega en arrencar o amb --dart-define. Reinicia l'app i revisa el registre folio.env."
+  ,"jiraCloudMissingOAuthSecret": "Falta JIRA_OAUTH_CLIENT_SECRET. Defineix-lo sobretot a lib/config/folio_local_secrets.dart (còpia des de l'arxiu .example). A escriptori també pots usar un .env en arrencar; a web només aquest fitxer o --dart-define i recompilar. Reinicia l'app; si uses .env a escriptori, revisa el registre folio.env."
 }

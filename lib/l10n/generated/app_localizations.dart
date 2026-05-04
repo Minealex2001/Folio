@@ -3826,6 +3826,154 @@ abstract class AppLocalizations {
   /// **'Elige una carpeta local o activa «Subir también a Folio Cloud» para copia solo en la nube.'**
   String get vaultBackupRunNowNeedFolder;
 
+  /// No description provided for @vaultBackupProgressDialogTitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Copia en curso'**
+  String get vaultBackupProgressDialogTitle;
+
+  /// No description provided for @vaultBackupProgressCompactHint.
+  ///
+  /// In es, this message translates to:
+  /// **'Los detalles aparecen en la consola de depuración.'**
+  String get vaultBackupProgressCompactHint;
+
+  /// No description provided for @vaultBackupProgressLocalZipStart.
+  ///
+  /// In es, this message translates to:
+  /// **'Creando copia ZIP en la carpeta configurada…'**
+  String get vaultBackupProgressLocalZipStart;
+
+  /// No description provided for @vaultBackupProgressLocalZipDone.
+  ///
+  /// In es, this message translates to:
+  /// **'Copia ZIP en carpeta terminada.'**
+  String get vaultBackupProgressLocalZipDone;
+
+  /// No description provided for @vaultCloudPackProgressPreparing.
+  ///
+  /// In es, this message translates to:
+  /// **'Preparando subida a la nube…'**
+  String get vaultCloudPackProgressPreparing;
+
+  /// No description provided for @vaultCloudPackProgressPersisting.
+  ///
+  /// In es, this message translates to:
+  /// **'Guardando cambios locales de la libreta…'**
+  String get vaultCloudPackProgressPersisting;
+
+  /// No description provided for @vaultCloudPackProgressFingerprint.
+  ///
+  /// In es, this message translates to:
+  /// **'Calculando huella del contenido…'**
+  String get vaultCloudPackProgressFingerprint;
+
+  /// No description provided for @vaultCloudPackProgressFetchingMeta.
+  ///
+  /// In es, this message translates to:
+  /// **'Consultando el estado en Folio Cloud…'**
+  String get vaultCloudPackProgressFetchingMeta;
+
+  /// No description provided for @vaultCloudPackProgressSkippedUpToDate.
+  ///
+  /// In es, this message translates to:
+  /// **'Nada que subir: la nube ya tiene esta versión.'**
+  String get vaultCloudPackProgressSkippedUpToDate;
+
+  /// No description provided for @vaultCloudPackProgressRestoreWrap.
+  ///
+  /// In es, this message translates to:
+  /// **'Preparando claves de recuperación para otros dispositivos…'**
+  String get vaultCloudPackProgressRestoreWrap;
+
+  /// No description provided for @vaultCloudPackProgressIndexingLocal.
+  ///
+  /// In es, this message translates to:
+  /// **'Inventariando archivos locales…'**
+  String get vaultCloudPackProgressIndexingLocal;
+
+  /// No description provided for @vaultCloudPackProgressDownloadingManifest.
+  ///
+  /// In es, this message translates to:
+  /// **'Descargando inventario anterior de la nube…'**
+  String get vaultCloudPackProgressDownloadingManifest;
+
+  /// No description provided for @vaultCloudPackProgressBlobManifest.
+  ///
+  /// In es, this message translates to:
+  /// **'Manifiesto de copia'**
+  String get vaultCloudPackProgressBlobManifest;
+
+  /// No description provided for @vaultCloudPackProgressBlobVaultKeys.
+  ///
+  /// In es, this message translates to:
+  /// **'Claves de la libreta (vault.keys)'**
+  String get vaultCloudPackProgressBlobVaultKeys;
+
+  /// No description provided for @vaultCloudPackProgressBlobVaultData.
+  ///
+  /// In es, this message translates to:
+  /// **'Datos cifrados de la libreta (vault.bin)'**
+  String get vaultCloudPackProgressBlobVaultData;
+
+  /// No description provided for @vaultCloudPackProgressBlobVaultMode.
+  ///
+  /// In es, this message translates to:
+  /// **'Modo de la libreta'**
+  String get vaultCloudPackProgressBlobVaultMode;
+
+  /// No description provided for @vaultCloudPackProgressBlobAttachment.
+  ///
+  /// In es, this message translates to:
+  /// **'Adjunto: {name}'**
+  String vaultCloudPackProgressBlobAttachment(String name);
+
+  /// No description provided for @vaultCloudPackProgressBlobAttachmentAnonymous.
+  ///
+  /// In es, this message translates to:
+  /// **'Adjunto'**
+  String get vaultCloudPackProgressBlobAttachmentAnonymous;
+
+  /// No description provided for @vaultCloudPackProgressUploadingBlobProgress.
+  ///
+  /// In es, this message translates to:
+  /// **'Subiendo parte {current} de {total}: {part}'**
+  String vaultCloudPackProgressUploadingBlobProgress(
+    int current,
+    int total,
+    String part,
+  );
+
+  /// No description provided for @vaultCloudPackProgressUploadingSnapshot.
+  ///
+  /// In es, this message translates to:
+  /// **'Subiendo índice de la copia (snapshot)…'**
+  String get vaultCloudPackProgressUploadingSnapshot;
+
+  /// No description provided for @vaultCloudPackProgressFinalizing.
+  ///
+  /// In es, this message translates to:
+  /// **'Registrando la copia en el servidor…'**
+  String get vaultCloudPackProgressFinalizing;
+
+  /// No description provided for @vaultCloudPackProgressCleaningBlobs.
+  ///
+  /// In es, this message translates to:
+  /// **'Eliminando datos antiguos en la nube…'**
+  String get vaultCloudPackProgressCleaningBlobs;
+
+  /// No description provided for @vaultCloudPackProgressUpdatingIndex.
+  ///
+  /// In es, this message translates to:
+  /// **'Actualizando el índice de copias…'**
+  String get vaultCloudPackProgressUpdatingIndex;
+
+  /// No description provided for @vaultCloudPackProgressComplete.
+  ///
+  /// In es, this message translates to:
+  /// **'Copia en la nube completada.'**
+  String get vaultCloudPackProgressComplete;
+
   /// No description provided for @vaultIdentitySyncTitle.
   ///
   /// In es, this message translates to:
@@ -5464,17 +5612,11 @@ abstract class AppLocalizations {
   /// **'En Windows, «Actualizar» también sincroniza la Microsoft Store (mismo botón que Stripe).'**
   String get folioCloudMicrosoftStoreSyncHint;
 
-  /// No description provided for @folioCloudUploadEncryptedBackup.
+  /// No description provided for @folioCloudIncrementalBackupManualHint.
   ///
   /// In es, this message translates to:
-  /// **'Copia a la nube ahora'**
-  String get folioCloudUploadEncryptedBackup;
-
-  /// No description provided for @folioCloudUploadEncryptedBackupSubtitle.
-  ///
-  /// In es, this message translates to:
-  /// **'Folio sube una copia incremental cifrada en la nube de la libreta abierta (solo lo que cambió); no hace falta exportar un .zip.'**
-  String get folioCloudUploadEncryptedBackupSubtitle;
+  /// **'Para subir ahora una copia incremental cifrada (sin exportar .zip), ve a Ajustes → Libreta y pulsa «{actionTitle}»; allí configuras carpeta local y/o Folio Cloud.'**
+  String folioCloudIncrementalBackupManualHint(String actionTitle);
 
   /// No description provided for @folioCloudUploadSnackOk.
   ///
@@ -6313,7 +6455,7 @@ abstract class AppLocalizations {
   /// No description provided for @blockEditorEnterHintNewBlock.
   ///
   /// In es, this message translates to:
-  /// **'Enter: bloque nuevo (en código: Enter = línea)'**
+  /// **'Enter: bloque nuevo si está activado (Ctrl+Intro / Cmd+Intro: siempre) · en bloques de código: Enter = línea'**
   String get blockEditorEnterHintNewBlock;
 
   /// No description provided for @blockEditorEnterHintNewLine.
@@ -6322,17 +6464,107 @@ abstract class AppLocalizations {
   /// **'Enter: nueva línea'**
   String get blockEditorEnterHintNewLine;
 
+  /// No description provided for @blockEditorSlashNoMatches.
+  ///
+  /// In es, this message translates to:
+  /// **'Sin coincidencias'**
+  String get blockEditorSlashNoMatches;
+
   /// No description provided for @blockEditorShortcutsHintMobile.
   ///
   /// In es, this message translates to:
-  /// **'{enterHint} · / para bloques · toca el bloque para más acciones'**
+  /// **'{enterHint} · Ctrl+Intro / Cmd+Intro: bloque nuevo · / para bloques · toca el bloque para más acciones'**
   String blockEditorShortcutsHintMobile(String enterHint);
 
   /// No description provided for @blockEditorShortcutsHintDesktop.
   ///
   /// In es, this message translates to:
-  /// **'{enterHint} · Shift+Enter: línea · / tipos · # título (misma línea) · - · * · [] · ``` espacio · tabla/imagen en / · formato: barra al enfocar o ** _ <u> ` ~~'**
+  /// **'{enterHint} · Ctrl+Intro / Cmd+Intro: siempre bloque nuevo · Shift+Enter: línea · / tipos · # título (misma línea) · - · * · [] · ``` espacio · tabla/imagen en / · formato: barra flotante al seleccionar texto o ** _ <u> ` ~~'**
   String blockEditorShortcutsHintDesktop(String enterHint);
+
+  /// No description provided for @formatToolbarQuillUnlink.
+  ///
+  /// In es, this message translates to:
+  /// **'Quitar enlace'**
+  String get formatToolbarQuillUnlink;
+
+  /// No description provided for @formatToolbarQuillTextColor.
+  ///
+  /// In es, this message translates to:
+  /// **'Color de texto'**
+  String get formatToolbarQuillTextColor;
+
+  /// No description provided for @formatToolbarQuillFillColor.
+  ///
+  /// In es, this message translates to:
+  /// **'Color de fondo'**
+  String get formatToolbarQuillFillColor;
+
+  /// No description provided for @formatToolbarQuillHighlight.
+  ///
+  /// In es, this message translates to:
+  /// **'Resaltar'**
+  String get formatToolbarQuillHighlight;
+
+  /// No description provided for @formatToolbarQuillHeading1.
+  ///
+  /// In es, this message translates to:
+  /// **'Título 1'**
+  String get formatToolbarQuillHeading1;
+
+  /// No description provided for @formatToolbarQuillHeading2.
+  ///
+  /// In es, this message translates to:
+  /// **'Título 2'**
+  String get formatToolbarQuillHeading2;
+
+  /// No description provided for @formatToolbarQuillHeading3.
+  ///
+  /// In es, this message translates to:
+  /// **'Título 3'**
+  String get formatToolbarQuillHeading3;
+
+  /// No description provided for @formatToolbarQuillBulletList.
+  ///
+  /// In es, this message translates to:
+  /// **'Lista con viñetas'**
+  String get formatToolbarQuillBulletList;
+
+  /// No description provided for @formatToolbarQuillNumberedList.
+  ///
+  /// In es, this message translates to:
+  /// **'Lista numerada'**
+  String get formatToolbarQuillNumberedList;
+
+  /// No description provided for @formatToolbarQuillChecklist.
+  ///
+  /// In es, this message translates to:
+  /// **'Lista de tareas'**
+  String get formatToolbarQuillChecklist;
+
+  /// No description provided for @formatToolbarQuillQuote.
+  ///
+  /// In es, this message translates to:
+  /// **'Cita'**
+  String get formatToolbarQuillQuote;
+
+  /// No description provided for @formatToolbarQuillIndentMore.
+  ///
+  /// In es, this message translates to:
+  /// **'Aumentar sangría'**
+  String get formatToolbarQuillIndentMore;
+
+  /// No description provided for @formatToolbarQuillIndentLess.
+  ///
+  /// In es, this message translates to:
+  /// **'Reducir sangría'**
+  String get formatToolbarQuillIndentLess;
+
+  /// No description provided for @formatToolbarQuillClear.
+  ///
+  /// In es, this message translates to:
+  /// **'Limpiar formato'**
+  String get formatToolbarQuillClear;
 
   /// No description provided for @blockEditorSelectedBlocksBanner.
   ///
@@ -9234,7 +9466,7 @@ abstract class AppLocalizations {
   /// No description provided for @settingsSubsectionVaultScheduledLocal.
   ///
   /// In es, this message translates to:
-  /// **'Copia programada (local)'**
+  /// **'Copia programada'**
   String get settingsSubsectionVaultScheduledLocal;
 
   /// No description provided for @settingsSubsectionDrive.
@@ -10510,7 +10742,7 @@ abstract class AppLocalizations {
   /// No description provided for @settingsTelemetrySubtitle.
   ///
   /// In es, this message translates to:
-  /// **'Ayuda a medir instalaciones y uso de funciones. No se envía contenido de la libreta ni títulos.'**
+  /// **'Si está activado, ayuda a medir el uso de funciones. Siempre se envía una señal anónima única de instalación. No se envía contenido de la libreta ni títulos.'**
   String get settingsTelemetrySubtitle;
 
   /// No description provided for @onboardingTelemetryTitle.
@@ -10522,7 +10754,7 @@ abstract class AppLocalizations {
   /// No description provided for @onboardingTelemetryBody.
   ///
   /// In es, this message translates to:
-  /// **'Folio puede enviar analítica anónima para entender cómo se usa la app. Puedes cambiarlo en cualquier momento en Ajustes.'**
+  /// **'Si está activado, Folio puede enviar analítica anónima para entender cómo se usa la app. En el primer arranque se envía igualmente una señal anónima única de instalación. Puedes cambiar las estadísticas de uso en cualquier momento en Ajustes.'**
   String get onboardingTelemetryBody;
 
   /// No description provided for @onboardingTelemetrySwitchTitle.
@@ -10534,13 +10766,13 @@ abstract class AppLocalizations {
   /// No description provided for @onboardingTelemetrySwitchSubtitle.
   ///
   /// In es, this message translates to:
-  /// **'Ayuda a medir instalaciones y uso de funciones. No se envía contenido de la libreta ni títulos.'**
+  /// **'Si está activado, ayuda a medir el uso de funciones. Aunque lo desactives, se registra una instalación anónima única. No se envía contenido de la libreta ni títulos.'**
   String get onboardingTelemetrySwitchSubtitle;
 
   /// No description provided for @onboardingTelemetryFootnote.
   ///
   /// In es, this message translates to:
-  /// **'No se envía contenido de la libreta ni títulos de páginas.'**
+  /// **'No se envía contenido de la libreta ni títulos de páginas. Se envía un evento anónimo de instalación una vez por instalación, independientemente de este ajuste.'**
   String get onboardingTelemetryFootnote;
 
   /// No description provided for @settingsAutoCrashReportsTitle.
@@ -10930,7 +11162,7 @@ abstract class AppLocalizations {
   /// No description provided for @telemetryDashboardNoDataHint.
   ///
   /// In es, this message translates to:
-  /// **'Usa el icono de envío para vaciar eventos pendientes y luego actualiza.\nLos totales globales aparecen tras la tarea programada (02:00 UTC, día UTC anterior).'**
+  /// **'Usa el icono de envío para vaciar eventos pendientes y luego actualiza.\nLos totales globales se actualizan cada hora (UTC) para hoy y ayer.'**
   String get telemetryDashboardNoDataHint;
 
   /// No description provided for @telemetryDashboardFlushRefresh.
@@ -10948,7 +11180,7 @@ abstract class AppLocalizations {
   /// No description provided for @telemetryDashboardSectionGlobalSubtitle.
   ///
   /// In es, this message translates to:
-  /// **'Totales del trabajo de agregación nocturno (02:00 UTC).'**
+  /// **'Totales del trabajo de agregación horario (UTC).'**
   String get telemetryDashboardSectionGlobalSubtitle;
 
   /// No description provided for @telemetryDashboardMetricUsers.
@@ -11152,7 +11384,7 @@ abstract class AppLocalizations {
   /// No description provided for @telemetrySentDataErrorsBody.
   ///
   /// In es, this message translates to:
-  /// **'Errores de la app y cierres inesperados (si la telemetría está activa).'**
+  /// **'Errores de la app y cierres inesperados (si las estadísticas de uso están activas).'**
   String get telemetrySentDataErrorsBody;
 
   /// No description provided for @telemetrySentDataPrivacyNote.
@@ -11164,7 +11396,7 @@ abstract class AppLocalizations {
   /// No description provided for @telemetrySentDataChannelsNote.
   ///
   /// In es, this message translates to:
-  /// **'Firebase Analytics usa un identificador anónimo de instalación. Una copia de eventos en Firestore solo se envía si tienes sesión iniciada en Folio Cloud.'**
+  /// **'Firebase Analytics usa un identificador anónimo de instalación. Se envía una vez por instalación el evento folio_install aunque las estadísticas de uso estén desactivadas. El resto de eventos copiados a Firestore solo se envían con sesión iniciada en Folio Cloud.'**
   String get telemetrySentDataChannelsNote;
 
   /// No description provided for @telemetrySentDataViewTechnicalDetails.
@@ -11800,7 +12032,7 @@ abstract class AppLocalizations {
   /// No description provided for @jiraCloudMissingOAuthSecret.
   ///
   /// In es, this message translates to:
-  /// **'Falta JIRA_OAUTH_CLIENT_SECRET. Puedes definirlo en lib/config/folio_local_secrets.dart (copia desde el .example), en un .env que Folio carga al arrancar o con --dart-define. Reinicia la app y revisa el log folio.env.'**
+  /// **'Falta JIRA_OAUTH_CLIENT_SECRET. Defínelo sobre todo en lib/config/folio_local_secrets.dart (copia desde el .example). En escritorio también puedes usar un .env al arrancar; en web solo ese archivo o --dart-define y recompilar. Reinicia la app; si usas .env en escritorio, revisa el log folio.env.'**
   String get jiraCloudMissingOAuthSecret;
 }
 

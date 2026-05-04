@@ -2110,6 +2110,101 @@ class AppLocalizationsEu extends AppLocalizations {
       'Hautatu tokiko babeskopia-karpeta bat, edo aktibatu “Igo Folio Cloud-era ere” hodeian soilik gordetzeko.';
 
   @override
+  String get vaultBackupProgressDialogTitle => 'Babeskopia abian';
+
+  @override
+  String get vaultBackupProgressCompactHint =>
+      'Xehetasunak arazketa-kontsolan agertzen dira.';
+
+  @override
+  String get vaultBackupProgressLocalZipStart =>
+      'ZIP-a konfiguratutako karpetan sortzen…';
+
+  @override
+  String get vaultBackupProgressLocalZipDone => 'Karpetako ZIP-a amaituta.';
+
+  @override
+  String get vaultCloudPackProgressPreparing => 'Hodeira igotzeko prestatzen…';
+
+  @override
+  String get vaultCloudPackProgressPersisting =>
+      'Gordelekuaren tokiko aldaketak gordetzen…';
+
+  @override
+  String get vaultCloudPackProgressFingerprint =>
+      'Edukiaren hatz digitala kalkulatzen…';
+
+  @override
+  String get vaultCloudPackProgressFetchingMeta =>
+      'Folio Cloud-en egoera kontsultatzen…';
+
+  @override
+  String get vaultCloudPackProgressSkippedUpToDate =>
+      'Ez dago igo beharrik: hodeiak bertsio hau dueneko.';
+
+  @override
+  String get vaultCloudPackProgressRestoreWrap =>
+      'Beste gailuetarako berreskuratze-gakoak prestatzen…';
+
+  @override
+  String get vaultCloudPackProgressIndexingLocal =>
+      'Tokiko fitxategiak inbentariatzen…';
+
+  @override
+  String get vaultCloudPackProgressDownloadingManifest =>
+      'Hodeiko aurreko inbentarioa deskargatzen…';
+
+  @override
+  String get vaultCloudPackProgressBlobManifest => 'Babeskopiaren manifestua';
+
+  @override
+  String get vaultCloudPackProgressBlobVaultKeys =>
+      'Gordelekuaren gakoak (vault.keys)';
+
+  @override
+  String get vaultCloudPackProgressBlobVaultData =>
+      'Gordelekuaren datu enkriptatuak (vault.bin)';
+
+  @override
+  String get vaultCloudPackProgressBlobVaultMode => 'Gordelekuaren modua';
+
+  @override
+  String vaultCloudPackProgressBlobAttachment(String name) {
+    return 'Eranskina: $name';
+  }
+
+  @override
+  String get vaultCloudPackProgressBlobAttachmentAnonymous => 'Eranskina';
+
+  @override
+  String vaultCloudPackProgressUploadingBlobProgress(
+    int current,
+    int total,
+    String part,
+  ) {
+    return '${total}tik $current. zatia igotzen: $part';
+  }
+
+  @override
+  String get vaultCloudPackProgressUploadingSnapshot =>
+      'Babeskopiaren snapshot-a igotzen…';
+
+  @override
+  String get vaultCloudPackProgressFinalizing =>
+      'Babeskopia zerbitzarian erregistratzen…';
+
+  @override
+  String get vaultCloudPackProgressCleaningBlobs =>
+      'Hodeiko datu zaharrak kentzen…';
+
+  @override
+  String get vaultCloudPackProgressUpdatingIndex =>
+      'Babeskopien indizea eguneratzen…';
+
+  @override
+  String get vaultCloudPackProgressComplete => 'Hodeiko babeskopia osatuta.';
+
+  @override
   String get vaultIdentitySyncTitle => 'Sinkronizazioa';
 
   @override
@@ -3089,11 +3184,9 @@ class AppLocalizationsEu extends AppLocalizations {
       'Windows-en, «Eguneratu» Microsoft Store ere sinkronizatzen du (Stripe-rekin botoi bera).';
 
   @override
-  String get folioCloudUploadEncryptedBackup => 'Egin babeskopia hodeian orain';
-
-  @override
-  String get folioCloudUploadEncryptedBackupSubtitle =>
-      'Foliok irekita duzun gorde-lekuaren babeskopia enkriptatu bat sortu eta igotzen du — ZIP esportazio eskuzkorik gabe.';
+  String folioCloudIncrementalBackupManualHint(String actionTitle) {
+    return 'Orain babeskopia inkremental enkriptatu bat igotzeko (.zip esportatu gabe), joan Ezarpenak → Gordelekura eta sakatu «$actionTitle»; han konfiguratzen duzu tokiko karpeta eta/edo Folio Cloud.';
+  }
 
   @override
   String get folioCloudUploadSnackOk =>
@@ -3563,20 +3656,65 @@ class AppLocalizationsEu extends AppLocalizations {
 
   @override
   String get blockEditorEnterHintNewBlock =>
-      'Sartu: bloke berria (kodean: Sartu = lerroa)';
+      'Sartu: bloke berria gaituta dagoenean (Ktrl+Sartu / Cmd+Sartu: beti) · kodean: Sartu = lerroa';
 
   @override
   String get blockEditorEnterHintNewLine => 'Sartu: lerro berria';
 
   @override
+  String get blockEditorSlashNoMatches => 'Bat etortzerik ez';
+
+  @override
   String blockEditorShortcutsHintMobile(String enterHint) {
-    return '$enterHint · / blokeetarako · sakatu blokeari ekintza gehiagorako';
+    return '$enterHint · Ktrl+Sartu / Cmd+Sartu: bloke berria · / blokeetarako · sakatu blokeari ekintza gehiagorako';
   }
 
   @override
   String blockEditorShortcutsHintDesktop(String enterHint) {
-    return '$enterHint · Maius+Sartu: lerroa · / motak · # izenburua (lerro berean) · - · * · [] · ``` taula/irudia / · formatua: fokuratzean barra edo ** _ <u> ` ~~';
+    return '$enterHint · Ktrl+Sartu / Cmd+Sartu: beti bloke berria · Maius+Sartu: lerroa · / motak · # izenburua (lerro berean) · - · * · [] · ``` taula/irudia / · formatua: testua hautatzean barra flotatzailea edo ** _ <u> ` ~~';
   }
+
+  @override
+  String get formatToolbarQuillUnlink => 'Kendu esteka';
+
+  @override
+  String get formatToolbarQuillTextColor => 'Testuaren kolorea';
+
+  @override
+  String get formatToolbarQuillFillColor => 'Atzeko kolorea';
+
+  @override
+  String get formatToolbarQuillHighlight => 'Nabarmentzea';
+
+  @override
+  String get formatToolbarQuillHeading1 => '1. izenburua';
+
+  @override
+  String get formatToolbarQuillHeading2 => '2. izenburua';
+
+  @override
+  String get formatToolbarQuillHeading3 => '3. izenburua';
+
+  @override
+  String get formatToolbarQuillBulletList => 'Buletadun zerrenda';
+
+  @override
+  String get formatToolbarQuillNumberedList => 'Zenbakidun zerrenda';
+
+  @override
+  String get formatToolbarQuillChecklist => 'Eginkizun-zerrenda';
+
+  @override
+  String get formatToolbarQuillQuote => 'Aipua';
+
+  @override
+  String get formatToolbarQuillIndentMore => 'Handitu koska';
+
+  @override
+  String get formatToolbarQuillIndentLess => 'Txikiagotu koska';
+
+  @override
+  String get formatToolbarQuillClear => 'Garbitu formatua';
 
   @override
   String blockEditorSelectedBlocksBanner(int count) {
@@ -5207,7 +5345,7 @@ class AppLocalizationsEu extends AppLocalizations {
 
   @override
   String get settingsSubsectionVaultScheduledLocal =>
-      'Programatutako babeskopia (lokala)';
+      'Programatutako babeskopia';
 
   @override
   String get settingsSubsectionDrive => 'Drive';
@@ -5959,14 +6097,14 @@ class AppLocalizationsEu extends AppLocalizations {
 
   @override
   String get settingsTelemetrySubtitle =>
-      'Instalazioak eta eginbideen erabilera neurtzen laguntzen du. Ez da koaderno-edukirik edo izenbururik bidaltzen.';
+      'Aktibatuta badago, eginbideen erabilera neurtzen laguntzen du. Beti bidaltzen da instalazio seinale anonimo bakarra. Ez da koaderno-edukirik edo izenbururik bidaltzen.';
 
   @override
   String get onboardingTelemetryTitle => 'Erabilera estatistikak';
 
   @override
   String get onboardingTelemetryBody =>
-      'Foliok analitika anonimoa bidali dezake aplikazioa nola erabiltzen den ulertzeko. Edozein unetan alda dezakezu Ezarpenetan.';
+      'Aktibatuta badago, Foliok analitika anonimoa bidali dezake aplikazioa nola erabiltzen den ulertzeko. Lehen abioan halere bidaltzen da instalazio seinale anonimo bakarra. Erabilera-estatistikak edozein unetan alda ditzakezu Ezarpenetan.';
 
   @override
   String get onboardingTelemetrySwitchTitle =>
@@ -5974,11 +6112,11 @@ class AppLocalizationsEu extends AppLocalizations {
 
   @override
   String get onboardingTelemetrySwitchSubtitle =>
-      'Instalazioak eta eginbideen erabilera neurtzen laguntzen du. Ez da koaderno-edukirik edo izenbururik bidaltzen.';
+      'Aktibatuta badago, eginbideen erabilera neurtzen laguntzen du. Desgaituz ere, instalazio anonimo bakarra erregistratzen da. Ez da koaderno-edukirik edo izenbururik bidaltzen.';
 
   @override
   String get onboardingTelemetryFootnote =>
-      'Ez da koaderno-edukirik edo orrien izenbururik bidaltzen.';
+      'Ez da koaderno-edukirik edo orrien izenbururik bidaltzen. Instalazio gertaera anonimo bat bidaltzen da instalazio bakoitzean behin, ezarpen honetatik independentea.';
 
   @override
   String get settingsAutoCrashReportsTitle =>
@@ -6211,7 +6349,7 @@ class AppLocalizationsEu extends AppLocalizations {
 
   @override
   String get telemetryDashboardNoDataHint =>
-      'Erabili bidalketa-ikonoarekin zain dauden gertaerak husteko eta gero eguneratu.\nGlobalen guztizkoak programatutako lanaren ondoren agertzen dira (02:00 UTC, aurreko UTC eguna).';
+      'Erabili bidalketa-ikonoarekin zain dauden gertaerak husteko eta gero eguneratu.\nGlobalen guztizkoak orduro eguneratzen dira (UTC) gaurko eta atzoko egunerako.';
 
   @override
   String get telemetryDashboardFlushRefresh => 'Hustu eta eguneratu';
@@ -6222,7 +6360,7 @@ class AppLocalizationsEu extends AppLocalizations {
 
   @override
   String get telemetryDashboardSectionGlobalSubtitle =>
-      'Gaueko biltze-lanaren guztizkoak (02:00 UTC).';
+      'Orduroko biltze-lanaren guztizkoak (UTC).';
 
   @override
   String get telemetryDashboardMetricUsers => 'Erabiltzaileak';
@@ -6342,7 +6480,7 @@ class AppLocalizationsEu extends AppLocalizations {
 
   @override
   String get telemetrySentDataErrorsBody =>
-      'Aplikazioaren erroreak eta ustekabeko itxierak (telemetria aktibo badago).';
+      'Aplikazioaren erroreak eta ustekabeko itxierak (erabilera-estatistikak aktibo badaude).';
 
   @override
   String get telemetrySentDataPrivacyNote =>
@@ -6350,7 +6488,7 @@ class AppLocalizationsEu extends AppLocalizations {
 
   @override
   String get telemetrySentDataChannelsNote =>
-      'Firebase Analytics-ek instalazioaren ID anonimo bat erabiltzen du. Firestore-ko gertaeren kopia bat Folio Cloud-en saioa hasita baduzu bakarrik bidaltzen da.';
+      'Firebase Analytics-ek instalazioaren ID anonimo bat erabiltzen du. folio_install gertaera behin bidaltzen da instalazio bakoitzean erabilera-estatistikak desgaituta egon arren. Firestorera kopiatutako beste gertaerak Folio Cloud-en saioa hasita baduzu bakarrik bidaltzen dira.';
 
   @override
   String get telemetrySentDataViewTechnicalDetails =>
@@ -6737,5 +6875,5 @@ class AppLocalizationsEu extends AppLocalizations {
 
   @override
   String get jiraCloudMissingOAuthSecret =>
-      'JIRA_OAUTH_CLIENT_SECRET falta du. Ezarri lib/config/folio_local_secrets.dart fitxategian (.example-tik kopiatu), Folio-k abioan kargatzen duen .env batean edo --dart-define bidez. Berrabiarazi app-a eta egiaztatu folio.env loga.';
+      'JIRA_OAUTH_CLIENT_SECRET falta du. Batez ere lib/config/folio_local_secrets.dart-en ezarri (.example-tik kopiatu). Mahaigainean .env ere erabili dezakezu abioan; web-en fitxategi hori edo --dart-define eta berreraiki. Berrabiarazi app-a; mahaigainean .env erabiltzen baduzu, egiaztatu folio.env loga.';
 }

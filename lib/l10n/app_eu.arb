@@ -730,6 +730,32 @@
   "vaultBackupRunNowTile": "Exekutatu programatutako babeskopia orain",
   "vaultBackupRunNowSubtitle": "Exekutatu programatutako babeskopia orain (diskoan eta/edo hodeian) itxaron gabe.",
   "vaultBackupRunNowNeedFolder": "Hautatu tokiko babeskopia-karpeta bat, edo aktibatu “Igo Folio Cloud-era ere” hodeian soilik gordetzeko.",
+  "vaultBackupProgressDialogTitle": "Babeskopia abian",
+  "vaultBackupProgressCompactHint": "Xehetasunak arazketa-kontsolan agertzen dira.",
+  "vaultBackupProgressLocalZipStart": "ZIP-a konfiguratutako karpetan sortzen…",
+  "vaultBackupProgressLocalZipDone": "Karpetako ZIP-a amaituta.",
+  "vaultCloudPackProgressPreparing": "Hodeira igotzeko prestatzen…",
+  "vaultCloudPackProgressPersisting": "Gordelekuaren tokiko aldaketak gordetzen…",
+  "vaultCloudPackProgressFingerprint": "Edukiaren hatz digitala kalkulatzen…",
+  "vaultCloudPackProgressFetchingMeta": "Folio Cloud-en egoera kontsultatzen…",
+  "vaultCloudPackProgressSkippedUpToDate": "Ez dago igo beharrik: hodeiak bertsio hau dueneko.",
+  "vaultCloudPackProgressRestoreWrap": "Beste gailuetarako berreskuratze-gakoak prestatzen…",
+  "vaultCloudPackProgressIndexingLocal": "Tokiko fitxategiak inbentariatzen…",
+  "vaultCloudPackProgressDownloadingManifest": "Hodeiko aurreko inbentarioa deskargatzen…",
+  "vaultCloudPackProgressBlobManifest": "Babeskopiaren manifestua",
+  "vaultCloudPackProgressBlobVaultKeys": "Gordelekuaren gakoak (vault.keys)",
+  "vaultCloudPackProgressBlobVaultData": "Gordelekuaren datu enkriptatuak (vault.bin)",
+  "vaultCloudPackProgressBlobVaultMode": "Gordelekuaren modua",
+  "vaultCloudPackProgressBlobAttachment": "Eranskina: {name}",
+  "@vaultCloudPackProgressBlobAttachment": {"placeholders": {"name": {"type": "String"}}},
+  "vaultCloudPackProgressBlobAttachmentAnonymous": "Eranskina",
+  "vaultCloudPackProgressUploadingBlobProgress": "{total}tik {current}. zatia igotzen: {part}",
+  "@vaultCloudPackProgressUploadingBlobProgress": {"placeholders": {"current": {"type": "int"}, "total": {"type": "int"}, "part": {"type": "String"}}},
+  "vaultCloudPackProgressUploadingSnapshot": "Babeskopiaren snapshot-a igotzen…",
+  "vaultCloudPackProgressFinalizing": "Babeskopia zerbitzarian erregistratzen…",
+  "vaultCloudPackProgressCleaningBlobs": "Hodeiko datu zaharrak kentzen…",
+  "vaultCloudPackProgressUpdatingIndex": "Babeskopien indizea eguneratzen…",
+  "vaultCloudPackProgressComplete": "Hodeiko babeskopia osatuta.",
   "vaultIdentitySyncTitle": "Sinkronizazioa",
   "vaultIdentitySyncBody": "Sartu gorde-lekuaren pasahitza (edo Hello / sarbide-gakoa) jarraitzeko.",
   "vaultIdentityCloudBackupTitle": "Hodeiko babeskopiak",
@@ -1029,8 +1055,14 @@
   "folioCloudPurchaseChannelStoreNotConfigured": "Dendaren aukera ez dago konfiguratuta konpilazio honetan (produktu-id-ak falta dira).",
   "folioCloudPurchaseChannelStoreNotConfiguredHint": "Konpilatu --dart-define=MS_STORE_…-rekin edo erabili nabigatzaileko ordainketa.",
   "folioCloudMicrosoftStoreSyncHint": "Windows-en, «Eguneratu» Microsoft Store ere sinkronizatzen du (Stripe-rekin botoi bera).",
-  "folioCloudUploadEncryptedBackup": "Egin babeskopia hodeian orain",
-  "folioCloudUploadEncryptedBackupSubtitle": "Foliok irekita duzun gorde-lekuaren babeskopia enkriptatu bat sortu eta igotzen du — ZIP esportazio eskuzkorik gabe.",
+  "folioCloudIncrementalBackupManualHint": "Orain babeskopia inkremental enkriptatu bat igotzeko (.zip esportatu gabe), joan Ezarpenak → Gordelekura eta sakatu «{actionTitle}»; han konfiguratzen duzu tokiko karpeta eta/edo Folio Cloud.",
+  "@folioCloudIncrementalBackupManualHint": {
+    "placeholders": {
+      "actionTitle": {
+        "type": "String"
+      }
+    }
+  },
   "folioCloudUploadSnackOk": "Gorde-lekuaren babeskopia hodeian gordeta.",
   "scheduledVaultBackupCloudSyncTitle": "Babeskopia Folio Cloud-en",
   "scheduledVaultBackupCloudSyncSubtitle": "Programatutako intervalo bakoitzean, babeskopia enkriptatua automatikoki igotzen du zure Folio Cloud kontura.",
@@ -1174,12 +1206,27 @@
   "calloutTypeWarning": "Abisua",
   "calloutTypeError": "Errorea",
   "calloutTypeNote": "Oharra",
-  "blockEditorEnterHintNewBlock": "Sartu: bloke berria (kodean: Sartu = lerroa)",
+  "blockEditorEnterHintNewBlock": "Sartu: bloke berria gaituta dagoenean (Ktrl+Sartu / Cmd+Sartu: beti) · kodean: Sartu = lerroa",
   "blockEditorEnterHintNewLine": "Sartu: lerro berria",
-  "blockEditorShortcutsHintMobile": "{enterHint} · / blokeetarako · sakatu blokeari ekintza gehiagorako",
+  "blockEditorSlashNoMatches": "Bat etortzerik ez",
+  "blockEditorShortcutsHintMobile": "{enterHint} · Ktrl+Sartu / Cmd+Sartu: bloke berria · / blokeetarako · sakatu blokeari ekintza gehiagorako",
   "@blockEditorShortcutsHintMobile": {"placeholders": {"enterHint": {"type": "String"}}},
-  "blockEditorShortcutsHintDesktop": "{enterHint} · Maius+Sartu: lerroa · / motak · # izenburua (lerro berean) · - · * · [] · ``` taula/irudia / · formatua: fokuratzean barra edo ** _ <u> ` ~~",
+  "blockEditorShortcutsHintDesktop": "{enterHint} · Ktrl+Sartu / Cmd+Sartu: beti bloke berria · Maius+Sartu: lerroa · / motak · # izenburua (lerro berean) · - · * · [] · ``` taula/irudia / · formatua: testua hautatzean barra flotatzailea edo ** _ <u> ` ~~",
   "@blockEditorShortcutsHintDesktop": {"placeholders": {"enterHint": {"type": "String"}}},
+  "formatToolbarQuillUnlink": "Kendu esteka",
+  "formatToolbarQuillTextColor": "Testuaren kolorea",
+  "formatToolbarQuillFillColor": "Atzeko kolorea",
+  "formatToolbarQuillHighlight": "Nabarmentzea",
+  "formatToolbarQuillHeading1": "1. izenburua",
+  "formatToolbarQuillHeading2": "2. izenburua",
+  "formatToolbarQuillHeading3": "3. izenburua",
+  "formatToolbarQuillBulletList": "Buletadun zerrenda",
+  "formatToolbarQuillNumberedList": "Zenbakidun zerrenda",
+  "formatToolbarQuillChecklist": "Eginkizun-zerrenda",
+  "formatToolbarQuillQuote": "Aipua",
+  "formatToolbarQuillIndentMore": "Handitu koska",
+  "formatToolbarQuillIndentLess": "Txikiagotu koska",
+  "formatToolbarQuillClear": "Garbitu formatua",
   "blockEditorSelectedBlocksBanner": "{count} bloke hautatuak · Maius: tartea · Ktrl/Cmd: txandakatu",
   "@blockEditorSelectedBlocksBanner": {"placeholders": {"count": {"type": "int"}}},
   "blockEditorDuplicate": "Bikoiztu",
@@ -1704,7 +1751,7 @@
   "settingsSectionUiWorkspace": "Interfazea eta mahaigaina",
   "settingsSectionUiWorkspaceHeroDescription": "Gaia, hizkuntza, eskala, editorea, mahaigaineko aukerak eta teklatuko lasterbideak.",
   "settingsSubsectionVaultBackupImport": "Babeskopiak eta inportazioa",
-  "settingsSubsectionVaultScheduledLocal": "Programatutako babeskopia (lokala)",
+  "settingsSubsectionVaultScheduledLocal": "Programatutako babeskopia",
   "settingsSubsectionDrive": "Drive",
   "settingsSubsectionVaultData": "Datuak (arrisku-eremua)",
   "folioCloudSubsectionAccount": "Kontua",
@@ -1930,12 +1977,12 @@
   "settingsAccentPickColor": "Aurrezarritako kolorea aukeratu",
   "settingsPrivacySectionTitle": "Pribatutasuna eta diagnostikoak",
   "settingsTelemetryTitle": "Erabilera-estatistika anonimoak",
-  "settingsTelemetrySubtitle": "Instalazioak eta eginbideen erabilera neurtzen laguntzen du. Ez da koaderno-edukirik edo izenbururik bidaltzen.",
+  "settingsTelemetrySubtitle": "Aktibatuta badago, eginbideen erabilera neurtzen laguntzen du. Beti bidaltzen da instalazio seinale anonimo bakarra. Ez da koaderno-edukirik edo izenbururik bidaltzen.",
   "onboardingTelemetryTitle": "Erabilera estatistikak",
-  "onboardingTelemetryBody": "Foliok analitika anonimoa bidali dezake aplikazioa nola erabiltzen den ulertzeko. Edozein unetan alda dezakezu Ezarpenetan.",
+  "onboardingTelemetryBody": "Aktibatuta badago, Foliok analitika anonimoa bidali dezake aplikazioa nola erabiltzen den ulertzeko. Lehen abioan halere bidaltzen da instalazio seinale anonimo bakarra. Erabilera-estatistikak edozein unetan alda ditzakezu Ezarpenetan.",
   "onboardingTelemetrySwitchTitle": "Erabilera-estatistika anonimoak",
-  "onboardingTelemetrySwitchSubtitle": "Instalazioak eta eginbideen erabilera neurtzen laguntzen du. Ez da koaderno-edukirik edo izenbururik bidaltzen.",
-  "onboardingTelemetryFootnote": "Ez da koaderno-edukirik edo orrien izenbururik bidaltzen.",
+  "onboardingTelemetrySwitchSubtitle": "Aktibatuta badago, eginbideen erabilera neurtzen laguntzen du. Desgaituz ere, instalazio anonimo bakarra erregistratzen da. Ez da koaderno-edukirik edo izenbururik bidaltzen.",
+  "onboardingTelemetryFootnote": "Ez da koaderno-edukirik edo orrien izenbururik bidaltzen. Instalazio gertaera anonimo bat bidaltzen da instalazio bakoitzean behin, ezarpen honetatik independentea.",
   "settingsAutoCrashReportsTitle": "Bidali hondamen-diagnostikoak automatikoki",
   "settingsAutoCrashReportsSubtitle": "Akats larri bat gertatzen bada, logaren zati bat bidaltzen zaio Folioren (aukerakoa, saio bakoitzeko mugatua).",
   "settingsReportBugButton": "Akats baten berri eman",
@@ -2009,10 +2056,10 @@
   ,"@telemetryDashboardErrorDetail": {"placeholders": {"detail": {"type": "String"}}}
   ,"telemetryDashboardNoDataForDate": "Daturik ez {date} egunerako"
   ,"@telemetryDashboardNoDataForDate": {"placeholders": {"date": {"type": "String"}}}
-  ,"telemetryDashboardNoDataHint": "Erabili bidalketa-ikonoarekin zain dauden gertaerak husteko eta gero eguneratu.\nGlobalen guztizkoak programatutako lanaren ondoren agertzen dira (02:00 UTC, aurreko UTC eguna)."
+  ,"telemetryDashboardNoDataHint": "Erabili bidalketa-ikonoarekin zain dauden gertaerak husteko eta gero eguneratu.\nGlobalen guztizkoak orduro eguneratzen dira (UTC) gaurko eta atzoko egunerako."
   ,"telemetryDashboardFlushRefresh": "Hustu eta eguneratu"
   ,"telemetryDashboardSectionGlobalTitle": "Estatistika globalak (erabiltzaile guztiak)"
-  ,"telemetryDashboardSectionGlobalSubtitle": "Gaueko biltze-lanaren guztizkoak (02:00 UTC)."
+  ,"telemetryDashboardSectionGlobalSubtitle": "Orduroko biltze-lanaren guztizkoak (UTC)."
   ,"telemetryDashboardMetricUsers": "Erabiltzaileak"
   ,"telemetryDashboardMetricEvents": "Gertaerak"
   ,"telemetryDashboardMetricErrors": "Erroreak"
@@ -2047,9 +2094,9 @@
   ,"telemetrySentDataPerformanceTitle": "Errendimendua"
   ,"telemetrySentDataPerformanceBody": "Eragiketen iraupena eta errendimendu-seinale oinarrizkoak."
   ,"telemetrySentDataErrorsTitle": "Erroreak"
-  ,"telemetrySentDataErrorsBody": "Aplikazioaren erroreak eta ustekabeko itxierak (telemetria aktibo badago)."
+  ,"telemetrySentDataErrorsBody": "Aplikazioaren erroreak eta ustekabeko itxierak (erabilera-estatistikak aktibo badaude)."
   ,"telemetrySentDataPrivacyNote": "Zure pribatutasuna garrantzitsua da. Ez ditugu datu hauek saltzen edo publizitaterako erabiltzen."
-  ,"telemetrySentDataChannelsNote": "Firebase Analytics-ek instalazioaren ID anonimo bat erabiltzen du. Firestore-ko gertaeren kopia bat Folio Cloud-en saioa hasita baduzu bakarrik bidaltzen da."
+  ,"telemetrySentDataChannelsNote": "Firebase Analytics-ek instalazioaren ID anonimo bat erabiltzen du. folio_install gertaera behin bidaltzen da instalazio bakoitzean erabilera-estatistikak desgaituta egon arren. Firestorera kopiatutako beste gertaerak Folio Cloud-en saioa hasita baduzu bakarrik bidaltzen dira."
   ,"telemetrySentDataViewTechnicalDetails": "Ikusi xehetasun teknikoak"
   ,"telemetrySentDataHideTechnicalDetails": "Ezkutatu xehetasun teknikoak"
   ,"telemetrySentDataNoEventsYet": "Oraindik ez dago tokian tokiko gertaerarik gordeta."
@@ -2163,5 +2210,5 @@
   ,"@workspaceHomeClockTimezoneLine": {"placeholders": {"zoneName": {"type": "String"}, "offset": {"type": "String"}}}
   ,"workspaceHomeSectionLabelSearch": "Bilaketa-eremua"
   ,"workspaceHomeSectionLabelCreatePage": "Orri berriaren botoia"
-  ,"jiraCloudMissingOAuthSecret": "JIRA_OAUTH_CLIENT_SECRET falta du. Ezarri lib/config/folio_local_secrets.dart fitxategian (.example-tik kopiatu), Folio-k abioan kargatzen duen .env batean edo --dart-define bidez. Berrabiarazi app-a eta egiaztatu folio.env loga."
+  ,"jiraCloudMissingOAuthSecret": "JIRA_OAUTH_CLIENT_SECRET falta du. Batez ere lib/config/folio_local_secrets.dart-en ezarri (.example-tik kopiatu). Mahaigainean .env ere erabili dezakezu abioan; web-en fitxategi hori edo --dart-define eta berreraiki. Berrabiarazi app-a; mahaigainean .env erabiltzen baduzu, egiaztatu folio.env loga."
 }

@@ -25,6 +25,22 @@ class BlockEditorState extends State<BlockEditor> with _BlockRowBuild {
   final Map<String, quill.QuillController> _quillByBlockId = {};
   final Map<String, Timer> _quillDebounceByBlockId = {};
   final Map<String, String> _quillLastMdByBlockId = {};
+  /// [QuillEditor.basic] crea un [ScrollController] por defecto; sin reutilizarlo,
+  /// cada [setState] del editor destruye el estado de scroll/selección del Quill.
+  final Map<String, ScrollController> _quillMainScrollByBlockId = {};
+  final Map<String, ScrollController> _quillPreviewScrollByBlockId = {};
+
+  ScrollController _folioQuillMainScrollFor(String blockId) =>
+      _quillMainScrollByBlockId.putIfAbsent(
+        blockId,
+        ScrollController.new,
+      );
+
+  ScrollController _folioQuillPreviewScrollFor(String blockId) =>
+      _quillPreviewScrollByBlockId.putIfAbsent(
+        blockId,
+        ScrollController.new,
+      );
   final List<FocusNode> _focusNodes = [];
   final List<VoidCallback> _textListeners = [];
   final List<VoidCallback> _focusDecorListeners = [];
@@ -96,6 +112,10 @@ class BlockEditorState extends State<BlockEditor> with _BlockRowBuild {
   String? _toolbarInteractionBlockId;
   int _toolbarInteractionToken = 0;
 
+  OverlayEntry? _formatToolbarOverlayEntry;
+  final Map<String, GlobalKey> _formatToolbarHostKeys = {};
+  bool _formatToolbarOverlayPostFrameScheduled = false;
+
   /// Bloque cuyo [TextEditingController] tiene una selección no-colapsada
   /// (texto seleccionado). Se actualiza desde el textListener de cada bloque.
   String? _selectionActiveBlockId;
@@ -105,6 +125,7 @@ class BlockEditorState extends State<BlockEditor> with _BlockRowBuild {
     _toolbarInteractionBlockId = blockId;
     if (!mounted) return;
     setState(() {});
+    _scheduleFormatToolbarOverlayUpdate();
   }
 
   void _onToolbarPointerUpOrCancel(String blockId) {
@@ -117,7 +138,214 @@ class BlockEditorState extends State<BlockEditor> with _BlockRowBuild {
       if (_toolbarInteractionBlockId != blockId) return;
       _toolbarInteractionBlockId = null;
       setState(() {});
+      _scheduleFormatToolbarOverlayUpdate();
     });
+  }
+
+  GlobalKey _formatToolbarHostKeyFor(String blockId) =>
+      _formatToolbarHostKeys.putIfAbsent(blockId, GlobalKey.new);
+
+  void _removeFormatToolbarOverlay() {
+    _formatToolbarOverlayEntry?.remove();
+    _formatToolbarOverlayEntry = null;
+  }
+
+  void _scheduleFormatToolbarOverlayUpdate() {
+    if (_formatToolbarOverlayPostFrameScheduled) return;
+    _formatToolbarOverlayPostFrameScheduled = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _formatToolbarOverlayPostFrameScheduled = false;
+      if (!mounted) return;
+      _updateFormatToolbarOverlay();
+    });
+  }
+
+  quill.QuillRawEditorState? _findQuillRawEditorState(BuildContext context) {
+    quill.QuillRawEditorState? found;
+    void walk(Element e) {
+      if (found != null) return;
+      if (e is StatefulElement && e.state is quill.QuillRawEditorState) {
+        found = e.state as quill.QuillRawEditorState;
+        return;
+      }
+      e.visitChildren(walk);
+    }
+
+    walk(context as Element);
+    return found;
+  }
+
+  EditableTextState? _findEditableTextState(BuildContext context) {
+    EditableTextState? found;
+    void walk(Element e) {
+      if (found != null) return;
+      if (e is StatefulElement && e.state is EditableTextState) {
+        found = e.state as EditableTextState;
+        return;
+      }
+      e.visitChildren(walk);
+    }
+
+    walk(context as Element);
+    return found;
+  }
+
+  Offset? _formatToolbarAnchorGlobal({
+    required String blockId,
+    required BuildContext hostContext,
+    required FolioBlock block,
+  }) {
+    final qc = _quillByBlockId[blockId];
+    if (qc != null && _stylableBlockTypes.contains(block.type)) {
+      final raw = _findQuillRawEditorState(hostContext);
+      if (raw == null) return null;
+      return raw.contextMenuAnchors.primaryAnchor;
+    }
+    final ed = _findEditableTextState(hostContext);
+    if (ed == null) return null;
+    return ed.contextMenuAnchors.primaryAnchor;
+  }
+
+  void _updateFormatToolbarOverlay() {
+    if (!mounted) return;
+    if (widget.readOnlyMode) {
+      _removeFormatToolbarOverlay();
+      return;
+    }
+    final page = _s.selectedPage;
+    if (page == null) {
+      _removeFormatToolbarOverlay();
+      return;
+    }
+
+    final bid = _toolbarInteractionBlockId ?? _selectionActiveBlockId;
+    if (bid == null) {
+      _removeFormatToolbarOverlay();
+      return;
+    }
+
+    FolioBlock? block;
+    for (final b in page.blocks) {
+      if (b.id == bid) {
+        block = b;
+        break;
+      }
+    }
+    if (block == null) {
+      _removeFormatToolbarOverlay();
+      return;
+    }
+
+    if (!blockEditorTypeUsesSlashMenu(block.type)) {
+      _removeFormatToolbarOverlay();
+      return;
+    }
+
+    if (_slashBlockId == bid || _mentionBlockId == bid) {
+      _removeFormatToolbarOverlay();
+      return;
+    }
+
+    final hostKey = _formatToolbarHostKeys[bid];
+    final hostCtx = hostKey?.currentContext;
+    if (hostCtx == null) {
+      _removeFormatToolbarOverlay();
+      return;
+    }
+
+    final anchor = _formatToolbarAnchorGlobal(
+      blockId: bid,
+      hostContext: hostCtx,
+      block: block,
+    );
+    if (anchor == null) {
+      _removeFormatToolbarOverlay();
+      return;
+    }
+
+    final overlayState = Overlay.maybeOf(context, rootOverlay: true);
+    if (overlayState == null) {
+      return;
+    }
+
+    final scheme = Theme.of(context).colorScheme;
+    final media = MediaQuery.sizeOf(context);
+    const toolbarMaxW = 560.0;
+    const toolbarH = 56.0;
+    const gap = 6.0;
+    final width = math.min(toolbarMaxW, media.width - 16);
+    var left = anchor.dx - width / 2;
+    left = left.clamp(8.0, math.max(8.0, media.width - width - 8.0));
+    var top = anchor.dy - toolbarH - gap;
+    top = top.clamp(8.0, math.max(8.0, media.height - toolbarH - 8.0));
+
+    final idx = _controllerBlockIds.indexOf(bid);
+    if (idx < 0 || idx >= _controllers.length || idx >= _focusNodes.length) {
+      _removeFormatToolbarOverlay();
+      return;
+    }
+    final ctrl = _controllers[idx];
+    final focus = _focusNodes[idx];
+    final FolioBlock forToolbar = block;
+    final quillCtrl = _stylableBlockTypes.contains(forToolbar.type)
+        ? _ensureQuillController(pageId: page.id, block: forToolbar)
+        : null;
+
+    _formatToolbarOverlayEntry?.remove();
+    _formatToolbarOverlayEntry = OverlayEntry(
+      builder: (overlayCtx) {
+        return Stack(
+          children: [
+            Positioned(
+              left: left,
+              top: top,
+              width: width,
+              height: toolbarH,
+              child: Material(
+                elevation: 6,
+                color: Colors.transparent,
+                shadowColor: scheme.shadow.withValues(alpha: 0.35),
+                borderRadius: BorderRadius.circular(12),
+                clipBehavior: Clip.antiAlias,
+                child: quillCtrl != null
+                    ? FolioQuillFormatToolbar(
+                        controller: quillCtrl,
+                        colorScheme: scheme,
+                        focusNode: focus,
+                        onInteractionStart: () => _onToolbarPointerDown(bid),
+                        onInteractionEnd: () => _onToolbarPointerUpOrCancel(bid),
+                      )
+                    : FolioFormatToolbar(
+                        controller: ctrl,
+                        colorScheme: scheme,
+                        textFocusNode: focus,
+                        onInteractionStart: () => _onToolbarPointerDown(bid),
+                        onInteractionEnd: () => _onToolbarPointerUpOrCancel(bid),
+                        onOpenBlockAppearance: _blockSupportsAppearance(forToolbar)
+                            ? () => unawaited(
+                                _editBlockAppearance(
+                                  page,
+                                  forToolbar,
+                                  focusNode: focus,
+                                ),
+                              )
+                            : null,
+                        onMentionPage: (ctx) => _toolbarMentionPage(ctx, ctrl),
+                        onInsertUserMention: () => _insertAtSelection(ctrl, '@usuario '),
+                        onInsertDateMention: () => _insertAtSelection(
+                          ctrl,
+                          '@${DateFormat.yMMMd(Localizations.localeOf(overlayCtx).toLanguageTag()).format(DateTime.now())} ',
+                        ),
+                        onInsertInlineMath: () =>
+                            _insertAtSelection(ctrl, r'\( x \)'),
+                      ),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+    overlayState.insert(_formatToolbarOverlayEntry!);
   }
 
   quill.QuillController _ensureQuillController({
@@ -178,9 +406,13 @@ class BlockEditorState extends State<BlockEditor> with _BlockRowBuild {
       if (hasQuillSelection && !wasActive) {
         _selectionActiveBlockId = block.id;
         setState(() {});
+        _scheduleFormatToolbarOverlayUpdate();
       } else if (!hasQuillSelection && wasActive) {
         _selectionActiveBlockId = null;
         setState(() {});
+        _scheduleFormatToolbarOverlayUpdate();
+      } else if (hasQuillSelection && wasActive) {
+        _scheduleFormatToolbarOverlayUpdate();
       }
 
       // Convertir a markdown con debounce para evitar trabajo por tecla.
@@ -203,6 +435,8 @@ class BlockEditorState extends State<BlockEditor> with _BlockRowBuild {
     final qc = _quillByBlockId.remove(blockId);
     qc?.dispose();
     _quillLastMdByBlockId.remove(blockId);
+    _quillMainScrollByBlockId.remove(blockId)?.dispose();
+    _quillPreviewScrollByBlockId.remove(blockId)?.dispose();
   }
 
   bool _isTrailingSentinel(FolioBlock b) {
@@ -379,6 +613,7 @@ class BlockEditorState extends State<BlockEditor> with _BlockRowBuild {
       }
     }
     if (mounted) setState(() {});
+    _scheduleFormatToolbarOverlayUpdate();
   }
 
   void _applyInlineSlashChoice(String typeKey) {
@@ -430,6 +665,7 @@ class BlockEditorState extends State<BlockEditor> with _BlockRowBuild {
       }
     });
     if (mounted) setState(() {});
+    _scheduleFormatToolbarOverlayUpdate();
   }
 
   Future<void> _runInlineSlashAction(
@@ -533,6 +769,7 @@ class BlockEditorState extends State<BlockEditor> with _BlockRowBuild {
     _mentionPageId = null;
     _mentionSelectedIndex = 0;
     if (mounted) setState(() {});
+    _scheduleFormatToolbarOverlayUpdate();
   }
 
   List<FolioPage> _catalogFilteredForMention(String query) {
@@ -2682,11 +2919,14 @@ class BlockEditorState extends State<BlockEditor> with _BlockRowBuild {
   void initState() {
     super.initState();
     _s.addListener(_onSession);
+    _blockListScrollController.addListener(_scheduleFormatToolbarOverlayUpdate);
     _syncControllers();
   }
 
   @override
   void dispose() {
+    _blockListScrollController.removeListener(_scheduleFormatToolbarOverlayUpdate);
+    _removeFormatToolbarOverlay();
     _slashListScrollController.dispose();
     _mentionListScrollController.dispose();
     _blockListScrollController.dispose();
@@ -2697,6 +2937,16 @@ class BlockEditorState extends State<BlockEditor> with _BlockRowBuild {
   }
 
   void _disposeControllers() {
+    _removeFormatToolbarOverlay();
+    _formatToolbarHostKeys.clear();
+    for (final sc in _quillMainScrollByBlockId.values) {
+      sc.dispose();
+    }
+    _quillMainScrollByBlockId.clear();
+    for (final sc in _quillPreviewScrollByBlockId.values) {
+      sc.dispose();
+    }
+    _quillPreviewScrollByBlockId.clear();
     final n = _controllers.length;
     final controllersToDispose = <TextEditingController>[];
     final focusToDispose = <FocusNode>[];
@@ -2846,6 +3096,7 @@ class BlockEditorState extends State<BlockEditor> with _BlockRowBuild {
     if (!mounted) return;
     final page = _s.selectedPage;
     if (page == null) {
+      _removeFormatToolbarOverlay();
       _disposeControllers();
       _boundPageId = null;
       _prevPageIdForBlockScroll = null;
@@ -3079,9 +3330,13 @@ class BlockEditorState extends State<BlockEditor> with _BlockRowBuild {
         if (hasSelection && !wasActive) {
           _selectionActiveBlockId = bid;
           setState(() {});
+          _scheduleFormatToolbarOverlayUpdate();
         } else if (!hasSelection && wasActive) {
           _selectionActiveBlockId = null;
           setState(() {});
+          _scheduleFormatToolbarOverlayUpdate();
+        } else if (hasSelection && wasActive) {
+          _scheduleFormatToolbarOverlayUpdate();
         }
       }
 
@@ -3105,6 +3360,7 @@ class BlockEditorState extends State<BlockEditor> with _BlockRowBuild {
           // Limpiar selección activa al perder foco (si era este bloque).
           if (_selectionActiveBlockId == bid) {
             _selectionActiveBlockId = null;
+            _scheduleFormatToolbarOverlayUpdate();
           }
           // Flush inmediato de WYSIWYG al perder foco.
           if (_stylableBlockTypes.contains(b.type)) {
@@ -3230,6 +3486,135 @@ class BlockEditorState extends State<BlockEditor> with _BlockRowBuild {
       _pendingFocusIndex = idxToFocus;
       _pendingCursorOffset = offToFocus;
     }
+  }
+
+  /// Inserta un bloque nuevo debajo (o divide en el cursor) usando la misma lógica
+  /// que Enter con [enterCreatesNewBlock], o forzada con Ctrl/Meta+Enter.
+  ///
+  /// Para WYSIWYG (Quill) usa el markdown derivado del documento actual y el
+  /// offset de selección de Quill (mismo criterio que el flush al perder foco).
+  bool _tryInsertNewBlockFromCurrentCaret({
+    required FolioPage page,
+    required String blockId,
+    required int index,
+    required TextEditingController ctrl,
+    required bool force,
+  }) {
+    if (!force && !widget.appSettings.enterCreatesNewBlock) {
+      return false;
+    }
+    if (index < 0 || index >= page.blocks.length) {
+      return false;
+    }
+    final blockType = page.blocks[index].type;
+    if (blockType == 'code' ||
+        blockType == 'mermaid' ||
+        blockType == 'equation') {
+      return false;
+    }
+
+    String text;
+    TextSelection sel;
+    final qc = _quillByBlockId[blockId];
+    if (qc != null && _stylableBlockTypes.contains(blockType)) {
+      _quillDebounceByBlockId[blockId]?.cancel();
+      text = FolioMarkdownQuillCodec.documentToMarkdown(qc.document);
+      final off = qc.selection.baseOffset.clamp(0, text.length);
+      sel = TextSelection.collapsed(offset: off);
+    } else {
+      text = ctrl.text;
+      sel = ctrl.selection;
+    }
+
+    if (!sel.isValid || sel.start != sel.end) {
+      return false;
+    }
+    final at = sel.start.clamp(0, text.length);
+    final curType = page.blocks[index].type;
+    if (at == text.length) {
+      _pendingFocusIndex = index + 1;
+      _pendingCursorOffset = 0;
+      if (curType == 'bullet' || curType == 'todo' || curType == 'numbered') {
+        _s.insertBlockAfter(
+          pageId: page.id,
+          afterBlockId: blockId,
+          block: FolioBlock(
+            id: '${page.id}_${BlockEditorState._uuid.v4()}',
+            type: curType,
+            text: '',
+            checked: curType == 'todo' ? false : null,
+            depth: page.blocks[index].depth,
+            appearance: page.blocks[index].appearance,
+          ),
+        );
+      } else {
+        _s.insertEmptyParagraphAfter(pageId: page.id, afterBlockId: blockId);
+      }
+    } else {
+      final before = text.substring(0, at);
+      final after = text.substring(at);
+      _pendingFocusIndex = index + 1;
+      _pendingCursorOffset = 0;
+      _s.splitBlockAtCaret(
+        pageId: page.id,
+        blockId: blockId,
+        before: before,
+        after: after,
+      );
+    }
+    return true;
+  }
+
+  /// Solo pruebas: fuerza selección y actualiza la barra en Overlay (Quill/markdown).
+  @visibleForTesting
+  void debugShowFormatToolbarOverlayForTest() {
+    if (!mounted || widget.readOnlyMode || _controllerBlockIds.isEmpty) return;
+    final bid = _controllerBlockIds.first;
+    final qc = _quillByBlockId[bid];
+    if (qc != null) {
+      final plain = qc.document.toPlainText();
+      if (plain.isEmpty) return;
+      final end = math.min(4, plain.length);
+      qc.updateSelection(
+        TextSelection(baseOffset: 0, extentOffset: end),
+        quill.ChangeSource.local,
+      );
+    } else {
+      final c = _controllers.first;
+      if (c.text.isEmpty) return;
+      final end = math.min(4, c.text.length);
+      _runWithShortcutsIgnored(() {
+        c.selection = TextSelection(baseOffset: 0, extentOffset: end);
+      });
+    }
+    _selectionActiveBlockId = bid;
+    setState(() {});
+    _updateFormatToolbarOverlay();
+  }
+
+  /// Solo pruebas: misma inserción que Enter / Ctrl+Enter en el bloque enfocado.
+  @visibleForTesting
+  bool debugInvokeTryInsertNewBlockForTest({required bool force}) {
+    final page = _s.selectedPage;
+    if (page == null) return false;
+    for (var i = 0; i < _focusNodes.length; i++) {
+      if (i >= _controllerBlockIds.length || i >= _controllers.length) {
+        continue;
+      }
+      if (_focusNodes[i].hasFocus) {
+        final blockId = _controllerBlockIds[i];
+        final idx = page.blocks.indexWhere((b) => b.id == blockId);
+        if (idx < 0) return false;
+        return _tryInsertNewBlockFromCurrentCaret(
+          page: page,
+          blockId: blockId,
+          index: idx,
+          ctrl: _controllers[i],
+          force: force,
+        );
+      }
+    }
+    return false;
   }
 
   KeyEventResult _handleBlockKey(
@@ -3399,52 +3784,37 @@ class BlockEditorState extends State<BlockEditor> with _BlockRowBuild {
       return KeyEventResult.ignored;
     }
 
+    if (event.logicalKey == LogicalKeyboardKey.enter &&
+        !HardwareKeyboard.instance.isShiftPressed &&
+        (HardwareKeyboard.instance.isControlPressed ||
+            HardwareKeyboard.instance.isMetaPressed)) {
+      if (_slashBlockId != blockId &&
+          _mentionBlockId != blockId &&
+          _tryInsertNewBlockFromCurrentCaret(
+            page: page,
+            blockId: blockId,
+            index: index,
+            ctrl: ctrl,
+            force: true,
+          )) {
+        return KeyEventResult.handled;
+      }
+    }
+
     if (event.logicalKey == LogicalKeyboardKey.enter) {
       if (HardwareKeyboard.instance.isShiftPressed) {
         return KeyEventResult.ignored;
       }
-      if (!widget.appSettings.enterCreatesNewBlock) {
-        return KeyEventResult.ignored;
+      if (_tryInsertNewBlockFromCurrentCaret(
+            page: page,
+            blockId: blockId,
+            index: index,
+            ctrl: ctrl,
+            force: false,
+          )) {
+        return KeyEventResult.handled;
       }
-      final sel = ctrl.selection;
-      if (!sel.isValid || sel.start != sel.end) {
-        return KeyEventResult.ignored;
-      }
-      final at = sel.start;
-      final text = ctrl.text;
-      final curType = page.blocks[index].type;
-      if (at == text.length) {
-        _pendingFocusIndex = index + 1;
-        _pendingCursorOffset = 0;
-        if (curType == 'bullet' || curType == 'todo' || curType == 'numbered') {
-          _s.insertBlockAfter(
-            pageId: page.id,
-            afterBlockId: blockId,
-            block: FolioBlock(
-              id: '${page.id}_${BlockEditorState._uuid.v4()}',
-              type: curType,
-              text: '',
-              checked: curType == 'todo' ? false : null,
-              depth: page.blocks[index].depth,
-              appearance: page.blocks[index].appearance,
-            ),
-          );
-        } else {
-          _s.insertEmptyParagraphAfter(pageId: page.id, afterBlockId: blockId);
-        }
-      } else {
-        final before = text.substring(0, at);
-        final after = text.substring(at);
-        _pendingFocusIndex = index + 1;
-        _pendingCursorOffset = 0;
-        _s.splitBlockAtCaret(
-          pageId: page.id,
-          blockId: blockId,
-          before: before,
-          after: after,
-        );
-      }
-      return KeyEventResult.handled;
+      return KeyEventResult.ignored;
     }
 
     if (event.logicalKey == LogicalKeyboardKey.escape) {

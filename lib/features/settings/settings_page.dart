@@ -21,6 +21,7 @@ import '../../app/ui_tokens.dart';
 import '../../app/widgets/folio_dialog.dart';
 import '../../app/widgets/folio_icon_token_view.dart';
 import '../../app/widgets/folio_password_field.dart';
+import '../../app/widgets/vault_backup_progress_dialog.dart';
 import 'in_app_shortcut_capture_dialog.dart';
 import '../../crypto/vault_crypto.dart';
 import '../../data/notion_import/notion_importer.dart';
@@ -786,26 +787,62 @@ class _SettingsPageState extends State<SettingsPage> {
         _folio.isAvailable &&
         _cloud.isSignedIn &&
         _folio.snapshot.canUseCloudBackup;
-    final cloudOnly = dirEmpty && _vaultBackupPrefs.alsoCloud && canCloud;
-    if (dirEmpty && !cloudOnly) {
+    final wantFolder = _vaultBackupPrefs.folderEnabled && !dirEmpty;
+    final wantCloud = _vaultBackupPrefs.alsoCloud && canCloud;
+    if (!wantFolder && !wantCloud) {
       _snack(l10n.vaultBackupRunNowNeedFolder);
       return;
     }
+    if (wantCloud && !_folio.snapshot.canUseCloudBackup) {
+      _snack(l10n.settingsCloudBackupEnablePlanSnack);
+      return;
+    }
+    if (!mounted) return;
     try {
-      await runScheduledFolderVaultExport(
-        session: _s,
-        appSettings: _app,
-        vaultId: _vaultId,
-        folioEntitlements: _folio,
+      await showVaultBackupProgressDialog(
+        context: context,
+        l10n: l10n,
+        work: (ctrl) async {
+          if (wantFolder) {
+            ctrl.setProgress(0, indeterminate: true);
+            VaultBackupProgressController.logConsole(
+              l10n.vaultBackupProgressLocalZipStart,
+            );
+            await exportScheduledVaultZipToConfiguredFolder(
+              session: _s,
+              prefs: _vaultBackupPrefs,
+            );
+            ctrl.setProgress(0.15, indeterminate: false);
+            VaultBackupProgressController.logConsole(
+              l10n.vaultBackupProgressLocalZipDone,
+            );
+          }
+          if (wantCloud) {
+            final cloudOk = await _uploadFolioCloudBackup(
+              suppressSuccessSnack: true,
+              progress: ctrl,
+              cloudProgressMin: wantFolder ? 0.15 : 0.0,
+              cloudProgressMax: 1.0,
+              manageBusyState: false,
+            );
+            if (!cloudOk) return;
+          }
+          await _app.setVaultBackupLastMs(
+            _vaultId,
+            DateTime.now().millisecondsSinceEpoch,
+          );
+          if (mounted) {
+            if (wantCloud && wantFolder) {
+              _snack(l10n.scheduledVaultBackupSnackOk);
+            } else if (wantCloud) {
+              _snack(l10n.folioCloudUploadSnackOk);
+            } else {
+              _snack(l10n.scheduledVaultBackupSnackOk);
+            }
+            await _loadVaultBackupPrefs();
+          }
+        },
       );
-      if (mounted) {
-        _snack(
-          cloudOnly && dirEmpty
-              ? l10n.folioCloudUploadSnackOk
-              : l10n.scheduledVaultBackupSnackOk,
-        );
-        await _loadVaultBackupPrefs();
-      }
     } on VaultBackupException catch (e) {
       if (mounted) _snack('$e');
     } catch (e) {
@@ -2146,21 +2183,34 @@ class _SettingsPageState extends State<SettingsPage> {
     }
   }
 
-  Future<void> _uploadFolioCloudBackup() async {
-    if (_folioCloudActionBusy) return;
-    if (_s.state != VaultFlowState.unlocked) return;
+  /// Devuelve false si el usuario cancela o hay salida anticipa sin error.
+  Future<bool> _uploadFolioCloudBackup({
+    bool suppressSuccessSnack = false,
+    VaultBackupProgressController? progress,
+    double cloudProgressMin = 0.0,
+    double cloudProgressMax = 1.0,
+    bool manageBusyState = true,
+  }) async {
+    if (manageBusyState && _folioCloudActionBusy) return false;
+    if (_s.state != VaultFlowState.unlocked) return false;
     final l10n = AppLocalizations.of(context);
     final vaultId = _s.activeVaultId;
     if (vaultId == null || vaultId.trim().isEmpty) {
-      _snack(l10n.settingsNoActiveVault);
-      return;
+      if (progress == null) {
+        _snack(l10n.settingsNoActiveVault);
+      }
+      return false;
     }
     final snap = _folio.snapshot;
     if (!snap.canUseCloudBackup) {
-      _snack(l10n.settingsCloudBackupEnablePlanSnack);
-      return;
+      if (progress == null) {
+        _snack(l10n.settingsCloudBackupEnablePlanSnack);
+      }
+      return false;
     }
-    setState(() => _folioCloudActionBusy = true);
+    if (manageBusyState) {
+      setState(() => _folioCloudActionBusy = true);
+    }
     try {
       final label = await _s.getActiveVaultDisplayLabel();
       try {
@@ -2181,68 +2231,23 @@ class _SettingsPageState extends State<SettingsPage> {
             latest is Map && latest['hasRestoreWrap'] == true;
         if (!hasRestoreWrap && mounted) {
           final l10nDlg = AppLocalizations.of(context);
-          final ctrl = TextEditingController();
-          var obscure = true;
           final encrypted = _s.vaultUsesEncryption;
-          try {
-            final ok = await showDialog<bool>(
-              context: context,
-              barrierDismissible: false,
-              builder: (ctx) {
-                return StatefulBuilder(
-                  builder: (ctx, setSt) {
-                    return AlertDialog(
-                      title: Text(l10nDlg.settingsCloudBackupWrapPasswordTitle),
-                      content: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: [
-                          Text(
-                            encrypted
-                                ? l10nDlg.settingsCloudBackupWrapPasswordBody
-                                : l10nDlg
-                                      .settingsCloudBackupWrapPasswordBodyPlain,
-                          ),
-                          const SizedBox(height: 12),
-                          FolioPasswordField(
-                            controller: ctrl,
-                            obscureText: obscure,
-                            labelText: l10nDlg.backupPasswordLabel,
-                            showPasswordTooltip: l10nDlg.showPassword,
-                            hidePasswordTooltip: l10nDlg.hidePassword,
-                            onToggleObscure: () {
-                              setSt(() => obscure = !obscure);
-                            },
-                          ),
-                        ],
-                      ),
-                      actions: [
-                        TextButton(
-                          onPressed: () => Navigator.of(ctx).pop(false),
-                          child: Text(l10nDlg.cancel),
-                        ),
-                        FilledButton(
-                          onPressed: () => Navigator.of(ctx).pop(true),
-                          child: Text(l10nDlg.ok),
-                        ),
-                      ],
-                    );
-                  },
-                );
-              },
-            );
-            if (ok != true) return;
-            final trimmed = ctrl.text.trim();
-            if (encrypted && trimmed.isEmpty) {
-              if (mounted) {
-                _snack(l10n.settingsCloudBackupWrapPasswordRequired);
-              }
-              return;
+          final pwd = await showDialog<String?>(
+            context: context,
+            barrierDismissible: false,
+            builder: (ctx) => _CloudPackWrapPasswordDialog(
+              l10n: l10nDlg,
+              encrypted: encrypted,
+            ),
+          );
+          if (pwd == null) return false;
+          if (encrypted && pwd.isEmpty) {
+            if (mounted) {
+              _snack(l10n.settingsCloudBackupWrapPasswordRequired);
             }
-            restoreWrapPassword = trimmed.isEmpty ? null : trimmed;
-          } finally {
-            ctrl.dispose();
+            return false;
           }
+          restoreWrapPassword = pwd.isEmpty ? null : pwd;
         }
       } catch (_) {
         // Si falla el meta, uploadOpenVaultCloudPack volverá a comprobar.
@@ -2253,13 +2258,28 @@ class _SettingsPageState extends State<SettingsPage> {
         entitlementSnapshot: snap,
         restoreWrapPassword: restoreWrapPassword,
         telemetrySettings: _app,
+        onProgress: progress == null
+            ? null
+            : (u) {
+                final span = cloudProgressMax - cloudProgressMin;
+                final t =
+                    cloudProgressMin + span * u.progress.clamp(0.0, 1.0);
+                progress.setProgress(t);
+                VaultBackupProgressController.logConsole(
+                  cloudPackProgressLogLine(l10n, u),
+                );
+              },
       );
-      if (mounted) {
+      if (mounted && !suppressSuccessSnack) {
         _snack(AppLocalizations.of(context).folioCloudUploadSnackOk);
       }
-      unawaited(_folio.refreshBackupStorageUsageFromServer());
-      await _refreshCloudBackupCount();
+      if (mounted) {
+        unawaited(_folio.refreshBackupStorageUsageFromServer());
+        await _refreshCloudBackupCount();
+      }
+      return true;
     } catch (e) {
+      if (progress != null) rethrow;
       if (mounted) {
         final msg = '$e';
         if (msg.contains('resource-exhausted') ||
@@ -2271,20 +2291,25 @@ class _SettingsPageState extends State<SettingsPage> {
           _snack(msg);
         }
       }
+      return false;
     } finally {
-      if (mounted) setState(() => _folioCloudActionBusy = false);
+      if (mounted && manageBusyState) {
+        setState(() => _folioCloudActionBusy = false);
+      }
     }
   }
 
   /// Actualiza el contador de copias en la nube. No pide reautenticación Folio Cloud
   /// (eso queda solo para [downloadFolioCloudBackup] vía el diálogo de descarga).
   Future<void> _refreshCloudBackupCount() async {
+    if (!mounted) return;
     if (_cloudBackupCountBusy) return;
     if (!_cloud.isAvailable || !_cloud.isSignedIn) return;
     final vaultId = _s.activeVaultId;
     if (vaultId == null || vaultId.trim().isEmpty) return;
     final snap = _folio.snapshot;
     if (!snap.canUseCloudBackup) return;
+    if (!mounted) return;
     setState(() => _cloudBackupCountBusy = true);
     try {
       await listFolioCloudBackups(vaultId: vaultId, entitlementSnapshot: snap);
@@ -4539,8 +4564,6 @@ class _SettingsPageState extends State<SettingsPage> {
                                               _openFolioBillingPortal,
                                           onRefreshBilling:
                                               _syncFolioCloudBilling,
-                                          onUploadBackup:
-                                              _uploadFolioCloudBackup,
                                           onOpenBackups:
                                               _openFolioCloudBackupsDialog,
                                           onPublishedPages:
@@ -10153,6 +10176,72 @@ class _SettingsSubsectionTitle extends StatelessWidget {
   }
 }
 
+/// Diálogo de contraseña para el envoltorio de restauración en la nube.
+/// El [TextEditingController] vive en el [State] y se dispone al desmontar la ruta.
+class _CloudPackWrapPasswordDialog extends StatefulWidget {
+  const _CloudPackWrapPasswordDialog({
+    required this.l10n,
+    required this.encrypted,
+  });
+
+  final AppLocalizations l10n;
+  final bool encrypted;
+
+  @override
+  State<_CloudPackWrapPasswordDialog> createState() =>
+      _CloudPackWrapPasswordDialogState();
+}
+
+class _CloudPackWrapPasswordDialogState extends State<_CloudPackWrapPasswordDialog> {
+  late final TextEditingController _passwordCtrl = TextEditingController();
+  bool _obscure = true;
+
+  @override
+  void dispose() {
+    _passwordCtrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final l10nDlg = widget.l10n;
+    return AlertDialog(
+      title: Text(l10nDlg.settingsCloudBackupWrapPasswordTitle),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text(
+            widget.encrypted
+                ? l10nDlg.settingsCloudBackupWrapPasswordBody
+                : l10nDlg.settingsCloudBackupWrapPasswordBodyPlain,
+          ),
+          const SizedBox(height: 12),
+          FolioPasswordField(
+            controller: _passwordCtrl,
+            obscureText: _obscure,
+            labelText: l10nDlg.backupPasswordLabel,
+            showPasswordTooltip: l10nDlg.showPassword,
+            hidePasswordTooltip: l10nDlg.hidePassword,
+            onToggleObscure: () => setState(() => _obscure = !_obscure),
+          ),
+        ],
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: Text(l10nDlg.cancel),
+        ),
+        FilledButton(
+          onPressed: () =>
+              Navigator.of(context).pop(_passwordCtrl.text.trim()),
+          child: Text(l10nDlg.ok),
+        ),
+      ],
+    );
+  }
+}
+
 /// Invitación a ver el pitch de Folio Cloud cuando aún no hay sesión (cuenta opcional).
 class _FolioCloudGuestPitchTeaser extends StatelessWidget {
   const _FolioCloudGuestPitchTeaser({
@@ -10266,7 +10355,6 @@ class _FolioCloudSubscriptionPanel extends StatelessWidget {
     required this.onBackupStoragePackLarge,
     required this.onBillingPortal,
     required this.onRefreshBilling,
-    required this.onUploadBackup,
     required this.onOpenBackups,
     required this.onPublishedPages,
   });
@@ -10286,7 +10374,6 @@ class _FolioCloudSubscriptionPanel extends StatelessWidget {
   final VoidCallback onBackupStoragePackLarge;
   final VoidCallback onBillingPortal;
   final VoidCallback onRefreshBilling;
-  final VoidCallback onUploadBackup;
   final VoidCallback onOpenBackups;
   final VoidCallback onPublishedPages;
 
@@ -11006,13 +11093,19 @@ class _FolioCloudSubscriptionPanel extends StatelessWidget {
             ],
           ),
         ),
-        ListTile(
-          leading: const Icon(Icons.cloud_upload_outlined),
-          title: Text(l10n.folioCloudUploadEncryptedBackup),
-          subtitle: Text(l10n.folioCloudUploadEncryptedBackupSubtitle),
-          enabled: !busy && snap.canUseCloudBackup,
-          onTap: busy || !snap.canUseCloudBackup ? null : onUploadBackup,
-        ),
+        if (snap.canUseCloudBackup)
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 6, 16, 4),
+            child: Text(
+              l10n.folioCloudIncrementalBackupManualHint(
+                l10n.vaultBackupRunNowTile,
+              ),
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: scheme.onSurfaceVariant,
+                height: 1.4,
+              ),
+            ),
+          ),
         ListTile(
           leading: const Icon(Icons.cloud_download_outlined),
           title: Text(l10n.folioCloudCloudBackupsList),

@@ -729,6 +729,32 @@
   "vaultBackupRunNowTile": "Executar backup agendado agora",
   "vaultBackupRunNowSubtitle": "Executa o backup agendado agora (disco e/ou nuvem, dependendo das suas configurações) sem esperar pelo intervalo.",
   "vaultBackupRunNowNeedFolder": "Escolha uma pasta de backup local ou ative “Também enviar para o Folio Cloud” para backups apenas na nuvem.",
+  "vaultBackupProgressDialogTitle": "Backup em andamento",
+  "vaultBackupProgressCompactHint": "Os detalhes aparecem no console de depuração.",
+  "vaultBackupProgressLocalZipStart": "Criando ZIP na pasta configurada…",
+  "vaultBackupProgressLocalZipDone": "ZIP na pasta concluído.",
+  "vaultCloudPackProgressPreparing": "Preparando envio para a nuvem…",
+  "vaultCloudPackProgressPersisting": "Salvando alterações locais do cofre…",
+  "vaultCloudPackProgressFingerprint": "Calculando impressão digital do conteúdo…",
+  "vaultCloudPackProgressFetchingMeta": "Consultando o estado no Folio Cloud…",
+  "vaultCloudPackProgressSkippedUpToDate": "Nada a enviar: a nuvem já tem esta versão.",
+  "vaultCloudPackProgressRestoreWrap": "Preparando chaves de recuperação para outros dispositivos…",
+  "vaultCloudPackProgressIndexingLocal": "Inventariando ficheiros locais…",
+  "vaultCloudPackProgressDownloadingManifest": "Baixando inventário anterior da nuvem…",
+  "vaultCloudPackProgressBlobManifest": "Manifesto do backup",
+  "vaultCloudPackProgressBlobVaultKeys": "Chaves do cofre (vault.keys)",
+  "vaultCloudPackProgressBlobVaultData": "Dados cifrados do cofre (vault.bin)",
+  "vaultCloudPackProgressBlobVaultMode": "Modo do cofre",
+  "vaultCloudPackProgressBlobAttachment": "Anexo: {name}",
+  "@vaultCloudPackProgressBlobAttachment": {"placeholders": {"name": {"type": "String"}}},
+  "vaultCloudPackProgressBlobAttachmentAnonymous": "Anexo",
+  "vaultCloudPackProgressUploadingBlobProgress": "Enviando parte {current} de {total}: {part}",
+  "@vaultCloudPackProgressUploadingBlobProgress": {"placeholders": {"current": {"type": "int"}, "total": {"type": "int"}, "part": {"type": "String"}}},
+  "vaultCloudPackProgressUploadingSnapshot": "Enviando snapshot do backup…",
+  "vaultCloudPackProgressFinalizing": "Registrando backup no servidor…",
+  "vaultCloudPackProgressCleaningBlobs": "Removendo dados antigos na nuvem…",
+  "vaultCloudPackProgressUpdatingIndex": "Atualizando índice de backups…",
+  "vaultCloudPackProgressComplete": "Backup na nuvem concluído.",
   "vaultIdentitySyncTitle": "Sincronização",
   "vaultIdentitySyncBody": "Digite a senha do seu cofre (ou Hello / passkey) para continuar.",
   "vaultIdentityCloudBackupTitle": "Backups na nuvem",
@@ -1028,8 +1054,14 @@
   "folioCloudPurchaseChannelStoreNotConfigured": "A opção da Loja não está configurada nesta compilação (faltam ids de produto).",
   "folioCloudPurchaseChannelStoreNotConfiguredHint": "Compile com --dart-define=MS_STORE_… ou use o checkout no navegador.",
   "folioCloudMicrosoftStoreSyncHint": "No Windows, «Atualizar» também sincroniza a Microsoft Store (mesmo botão que o Stripe).",
-  "folioCloudUploadEncryptedBackup": "Fazer backup na nuvem agora",
-  "folioCloudUploadEncryptedBackupSubtitle": "O Folio cria um backup criptografado do seu cofre aberto e o envia — sem necessidade de exportação ZIP manual.",
+  "folioCloudIncrementalBackupManualHint": "Para enviar agora um backup incremental criptografado (sem exportar .zip), vá em Configurações → Caderno e toque em «{actionTitle}»; lá você configura pasta local e/ou Folio Cloud.",
+  "@folioCloudIncrementalBackupManualHint": {
+    "placeholders": {
+      "actionTitle": {
+        "type": "String"
+      }
+    }
+  },
   "folioCloudUploadSnackOk": "Backup do cofre salvo na nuvem.",
   "scheduledVaultBackupCloudSyncTitle": "Backup no Folio Cloud",
   "scheduledVaultBackupCloudSyncSubtitle": "Em cada intervalo agendado, envia automaticamente um backup cifrado para sua conta no Folio Cloud.",
@@ -1173,12 +1205,27 @@
   "calloutTypeWarning": "Aviso",
   "calloutTypeError": "Erro",
   "calloutTypeNote": "Nota",
-  "blockEditorEnterHintNewBlock": "Enter: novo bloco (em código: Enter = linha)",
+  "blockEditorEnterHintNewBlock": "Enter: novo bloco quando ativado (Ctrl+Enter / Cmd+Enter: sempre) · em código: Enter = linha",
   "blockEditorEnterHintNewLine": "Enter: nova linha",
-  "blockEditorShortcutsHintMobile": "{enterHint} · / para blocos · toque no bloco para mais ações",
+  "blockEditorSlashNoMatches": "Sem resultados",
+  "blockEditorShortcutsHintMobile": "{enterHint} · Ctrl+Enter / Cmd+Enter: novo bloco · / para blocos · toque no bloco para mais ações",
   "@blockEditorShortcutsHintMobile": {"placeholders": {"enterHint": {"type": "String"}}},
-  "blockEditorShortcutsHintDesktop": "{enterHint} · Shift+Enter: linha · / tipos · # título (mesma linha) · - · * · [] · ``` espaço · tabela/imagem em / · formato: barra ao focar ou ** _ <u> ` ~~",
+  "blockEditorShortcutsHintDesktop": "{enterHint} · Ctrl+Enter / Cmd+Enter: sempre novo bloco · Shift+Enter: linha · / tipos · # título (mesma linha) · - · * · [] · ``` espaço · tabela/imagem em / · formato: barra flutuante ao selecionar texto ou ** _ <u> ` ~~",
   "@blockEditorShortcutsHintDesktop": {"placeholders": {"enterHint": {"type": "String"}}},
+  "formatToolbarQuillUnlink": "Remover ligação",
+  "formatToolbarQuillTextColor": "Cor do texto",
+  "formatToolbarQuillFillColor": "Cor de fundo",
+  "formatToolbarQuillHighlight": "Realçar",
+  "formatToolbarQuillHeading1": "Título 1",
+  "formatToolbarQuillHeading2": "Título 2",
+  "formatToolbarQuillHeading3": "Título 3",
+  "formatToolbarQuillBulletList": "Lista com marcadores",
+  "formatToolbarQuillNumberedList": "Lista numerada",
+  "formatToolbarQuillChecklist": "Lista de tarefas",
+  "formatToolbarQuillQuote": "Citação",
+  "formatToolbarQuillIndentMore": "Aumentar indentação",
+  "formatToolbarQuillIndentLess": "Diminuir indentação",
+  "formatToolbarQuillClear": "Limpar formatação",
   "blockEditorSelectedBlocksBanner": "{count} blocos selecionados · Shift: intervalo · Ctrl/Cmd: alternar",
   "@blockEditorSelectedBlocksBanner": {"placeholders": {"count": {"type": "int"}}},
   "blockEditorDuplicate": "Duplicar",
@@ -1703,7 +1750,7 @@
   "settingsSectionUiWorkspace": "Interface e área de trabalho",
   "settingsSectionUiWorkspaceHeroDescription": "Tema, idioma, escala, editor, opções de desktop e atalhos de teclado.",
   "settingsSubsectionVaultBackupImport": "Cópias e importação",
-  "settingsSubsectionVaultScheduledLocal": "Backup agendado (local)",
+  "settingsSubsectionVaultScheduledLocal": "Backup agendado",
   "settingsSubsectionDrive": "Drive",
   "settingsSubsectionVaultData": "Dados (zona de perigo)",
   "folioCloudSubsectionAccount": "Conta",
@@ -1929,12 +1976,12 @@
   "settingsAccentPickColor": "Escolher cor predefinida",
   "settingsPrivacySectionTitle": "Privacidade e diagnósticos",
   "settingsTelemetryTitle": "Estatísticas de uso anónimas",
-  "settingsTelemetrySubtitle": "Ajuda a medir instalações e utilização. Não é enviado conteúdo do caderno nem títulos.",
+  "settingsTelemetrySubtitle": "Se estiver ativado, ajuda a medir a utilização de funcionalidades. É sempre enviado um sinal anónimo único de instalação. Não é enviado conteúdo do caderno nem títulos.",
   "onboardingTelemetryTitle": "Estatísticas de utilização",
-  "onboardingTelemetryBody": "O Folio pode enviar analytics anónimos para perceber como a app é usada. Pode alterar isto em qualquer momento nas Definições.",
+  "onboardingTelemetryBody": "Se estiver ativado, o Folio pode enviar analytics anónimos para perceber como a app é usada. Na primeira abertura é enviado de qualquer forma um sinal anónimo único de instalação. Pode alterar as estatísticas de utilização em qualquer momento nas Definições.",
   "onboardingTelemetrySwitchTitle": "Estatísticas de uso anónimas",
-  "onboardingTelemetrySwitchSubtitle": "Ajuda a medir instalações e utilização. Não é enviado conteúdo do caderno nem títulos.",
-  "onboardingTelemetryFootnote": "Não é enviado conteúdo do caderno nem títulos de páginas.",
+  "onboardingTelemetrySwitchSubtitle": "Se estiver ativado, ajuda a medir a utilização de funcionalidades. Mesmo que desative, regista-se uma instalação anónima única. Não é enviado conteúdo do caderno nem títulos.",
+  "onboardingTelemetryFootnote": "Não é enviado conteúdo do caderno nem títulos de páginas. É enviado um evento anónimo de instalação uma vez por instalação, independentemente desta opção.",
   "settingsAutoCrashReportsTitle": "Enviar diagnósticos de falhas automaticamente",
   "settingsAutoCrashReportsSubtitle": "Se ocorrer um erro grave, envia-se um excerto do registo para o Folio (opcional, limitado por sessão).",
   "settingsReportBugButton": "Reportar um erro",
@@ -2008,10 +2055,10 @@
   ,"@telemetryDashboardErrorDetail": {"placeholders": {"detail": {"type": "String"}}}
   ,"telemetryDashboardNoDataForDate": "Sem dados para {date}"
   ,"@telemetryDashboardNoDataForDate": {"placeholders": {"date": {"type": "String"}}}
-  ,"telemetryDashboardNoDataHint": "Use o ícone de envio para libertar eventos pendentes e depois atualize.\nOs totais globais aparecem após a tarefa agendada (02:00 UTC, dia UTC anterior)."
+  ,"telemetryDashboardNoDataHint": "Use o ícone de envio para libertar eventos pendentes e depois atualize.\nOs totais globais são atualizados de hora em hora (UTC) para hoje e ontem."
   ,"telemetryDashboardFlushRefresh": "Libertar e atualizar"
   ,"telemetryDashboardSectionGlobalTitle": "Estatísticas globais (todos os utilizadores)"
-  ,"telemetryDashboardSectionGlobalSubtitle": "Totais da agregação noturna (02:00 UTC)."
+  ,"telemetryDashboardSectionGlobalSubtitle": "Totais da agregação horária (UTC)."
   ,"telemetryDashboardMetricUsers": "Utilizadores"
   ,"telemetryDashboardMetricEvents": "Eventos"
   ,"telemetryDashboardMetricErrors": "Erros"
@@ -2046,9 +2093,9 @@
   ,"telemetrySentDataPerformanceTitle": "Desempenho"
   ,"telemetrySentDataPerformanceBody": "Duração das operações e sinais básicos de desempenho."
   ,"telemetrySentDataErrorsTitle": "Erros"
-  ,"telemetrySentDataErrorsBody": "Erros da aplicação e encerramentos inesperados (com a telemetria ativa)."
+  ,"telemetrySentDataErrorsBody": "Erros da aplicação e encerramentos inesperados (com as estatísticas de utilização ativas)."
   ,"telemetrySentDataPrivacyNote": "A sua privacidade importa. Não vendemos estes dados nem os usamos para publicidade."
-  ,"telemetrySentDataChannelsNote": "O Firebase Analytics usa um ID anónimo de instalação. Uma cópia dos eventos no Firestore só é enviada com sessão iniciada no Folio Cloud."
+  ,"telemetrySentDataChannelsNote": "O Firebase Analytics usa um ID anónimo de instalação. O evento folio_install é enviado uma vez por instalação mesmo com as estatísticas de utilização desativadas. Os outros eventos copiados para o Firestore só são enviados com sessão iniciada no Folio Cloud."
   ,"telemetrySentDataViewTechnicalDetails": "Ver detalhes técnicos"
   ,"telemetrySentDataHideTechnicalDetails": "Ocultar detalhes técnicos"
   ,"telemetrySentDataNoEventsYet": "Ainda não há eventos guardados localmente."
@@ -2162,5 +2209,5 @@
   ,"@workspaceHomeClockTimezoneLine": {"placeholders": {"zoneName": {"type": "String"}, "offset": {"type": "String"}}}
   ,"workspaceHomeSectionLabelSearch": "Campo de pesquisa"
   ,"workspaceHomeSectionLabelCreatePage": "Botão nova página"
-  ,"jiraCloudMissingOAuthSecret": "Falta JIRA_OAUTH_CLIENT_SECRET. Defina-o em lib/config/folio_local_secrets.dart (cópia do .example), num .env que o Folio carrega ao iniciar ou com --dart-define. Reinicie o app e verifique o log folio.env."
+  ,"jiraCloudMissingOAuthSecret": "Falta JIRA_OAUTH_CLIENT_SECRET. Defina-o principalmente em lib/config/folio_local_secrets.dart (cópia do .example). No desktop também pode usar um .env ao iniciar; na web use apenas esse arquivo ou --dart-define e recompile. Reinicie o app; se usar .env no desktop, verifique o log folio.env."
 }

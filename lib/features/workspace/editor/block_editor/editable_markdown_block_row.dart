@@ -110,6 +110,7 @@ Widget _buildEditableMarkdownBlockRow(_BlockRowScope s) {
           final editor = quill.QuillEditor.basic(
             controller: c,
             focusNode: focus,
+            scrollController: st._folioQuillMainScrollFor(block.id),
             config: quill.QuillEditorConfig(
               expands: false,
               padding: EdgeInsets.zero,
@@ -159,6 +160,8 @@ Widget _buildEditableMarkdownBlockRow(_BlockRowScope s) {
                         child: quill.QuillEditor.basic(
                           controller: c..readOnly = true,
                           focusNode: FocusNode(skipTraversal: true),
+                          scrollController:
+                              st._folioQuillPreviewScrollFor(block.id),
                           config: const quill.QuillEditorConfig(
                             expands: false,
                             padding: EdgeInsets.zero,
@@ -261,7 +264,10 @@ Widget _buildEditableMarkdownBlockRow(_BlockRowScope s) {
 
   final blockContent = readOnlyMode && allowsSlash
       ? readOnlyMarkdown
-      : stackedField;
+      : KeyedSubtree(
+          key: st._formatToolbarHostKeyFor(block.id),
+          child: stackedField,
+        );
 
   Widget textContainer = blockContent;
   if (block.type == 'quote') {
@@ -400,71 +406,9 @@ Widget _buildEditableMarkdownBlockRow(_BlockRowScope s) {
     );
   }
 
-  final showFloatingToolbar =
-      !readOnlyMode &&
-      allowsSlash &&
-      !showSlashMenu &&
-      !showMentionMenu &&
-      (st._selectionActiveBlockId == block.id ||
-          st._toolbarInteractionBlockId == block.id);
-
-  /// Barra de formato **en el árbol del bloque** (no Overlay): evita capas a
-  /// pantalla completa, hit-test erróneos y bloques grises gigantes.
-  /// Aparece ENCIMA del texto cuando hay selección activa, con animación de
-  /// altura y opacidad para que se sienta flotante sin usar Overlay.
-  final Widget toolbarContent = Padding(
-    padding: const EdgeInsets.only(bottom: FolioSpace.xs),
-    child: Align(
-      alignment: Alignment.centerLeft,
-      child: isWysiwygBlock && quillCtrl != null
-          ? FolioQuillFormatToolbar(
-              controller: quillCtrl,
-              colorScheme: scheme,
-              focusNode: focus,
-              onInteractionStart: () => st._onToolbarPointerDown(block.id),
-              onInteractionEnd: () => st._onToolbarPointerUpOrCancel(block.id),
-            )
-          : FolioFormatToolbar(
-              controller: ctrl,
-              colorScheme: scheme,
-              textFocusNode: focus,
-              onInteractionStart: () => st._onToolbarPointerDown(block.id),
-              onInteractionEnd: () => st._onToolbarPointerUpOrCancel(block.id),
-              onOpenBlockAppearance: st._blockSupportsAppearance(block)
-                  ? () => unawaited(
-                      st._editBlockAppearance(page, block, focusNode: focus),
-                    )
-                  : null,
-              onMentionPage: (ctx) => st._toolbarMentionPage(ctx, ctrl),
-              onInsertUserMention: () =>
-                  st._insertAtSelection(ctrl, '@usuario '),
-              onInsertDateMention: () => st._insertAtSelection(
-                ctrl,
-                '@${DateFormat.yMMMd(Localizations.localeOf(context).toLanguageTag()).format(DateTime.now())} ',
-              ),
-              onInsertInlineMath: () => st._insertAtSelection(ctrl, r'\( x \)'),
-            ),
-    ),
-  );
-
-  final Widget editorSlot = Column(
-    crossAxisAlignment: CrossAxisAlignment.stretch,
-    mainAxisSize: MainAxisSize.min,
-    children: [
-      AnimatedCrossFade(
-        duration: FolioMotion.short2,
-        sizeCurve: Curves.easeInOut,
-        firstCurve: Curves.easeIn,
-        secondCurve: Curves.easeOut,
-        crossFadeState: showFloatingToolbar
-            ? CrossFadeState.showFirst
-            : CrossFadeState.showSecond,
-        firstChild: toolbarContent,
-        secondChild: const SizedBox.shrink(),
-      ),
-      textContainer,
-    ],
-  );
+  /// La barra de formato va en un [Overlay] anclado a la selección
+  /// ([BlockEditorState._updateFormatToolbarOverlay]).
+  final Widget editorSlot = textContainer;
 
   final Widget textSlot;
   if (showSlashMenu) {
@@ -488,7 +432,7 @@ Widget _buildEditableMarkdownBlockRow(_BlockRowScope s) {
                       child: Padding(
                         padding: const EdgeInsets.symmetric(horizontal: 12),
                         child: Text(
-                          'Sin coincidencias',
+                          l10n.blockEditorSlashNoMatches,
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           style: theme.textTheme.bodySmall?.copyWith(

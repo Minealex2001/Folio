@@ -1,5 +1,7 @@
 import 'dart:io';
 
+import 'package:flutter/foundation.dart' show kIsWeb;
+
 import '../app_logger.dart';
 import 'local_env.dart';
 
@@ -22,6 +24,10 @@ class LocalEnvLoader {
     String filename = '.env',
     int maxSearchDepth = 30,
   }) async {
+    if (kIsWeb) {
+      return const LocalEnvLoadResult(loaded: false);
+    }
+
     // ignore: avoid_print
     print('[folio.env] probe start cwd=${Directory.current.path} script=${Platform.script}');
     AppLogger.info(

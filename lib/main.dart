@@ -29,37 +29,40 @@ Future<void> main() async {
       WidgetsFlutterBinding.ensureInitialized();
       if (!kIsWeb) AppLogger.setSink(await AppLogFileSink.init());
 
-      // Cargar variables locales (no versionadas) desde `.env`.
-      try {
-        final res = await LocalEnvLoader.loadLocalEnv(filename: '.env');
-        if (res.loaded) {
-          AppLogger.info(
-            'local env file loaded',
-            tag: 'env',
-            context: {'path': res.path ?? '—'},
-          );
-          // No loguear valores; solo presencia.
-          AppLogger.info(
-            'local env keys present',
-            tag: 'env',
-            context: {
-              'hasClientId': _hasJiraClientId(),
-              'hasClientSecret': _hasJiraClientSecret(),
-            },
-          );
+      // Opcional: `.env` en disco (solo dart:io). Los secretos habituales van en
+      // `lib/config/folio_local_secrets.dart` (y en web solo eso o --dart-define).
+      if (!kIsWeb) {
+        try {
+          final res = await LocalEnvLoader.loadLocalEnv(filename: '.env');
+          if (res.loaded) {
+            AppLogger.info(
+              'local env file loaded',
+              tag: 'env',
+              context: {'path': res.path ?? '—'},
+            );
+            // No loguear valores; solo presencia.
+            AppLogger.info(
+              'local env keys present',
+              tag: 'env',
+              context: {
+                'hasClientId': _hasJiraClientId(),
+                'hasClientSecret': _hasJiraClientSecret(),
+              },
+            );
+            // ignore: avoid_print
+            print(
+              '[folio.env] keys present hasClientId=${_hasJiraClientId()} '
+              'hasClientSecret=${_hasJiraClientSecret()}',
+            );
+          } else {
+            AppLogger.warn('local env file not found', tag: 'env');
+          }
+        } catch (e, st) {
+          AppLogger.warn('local env load failed', tag: 'env', context: {'error': '$e'});
+          AppLogger.debug('local env load stack', tag: 'env', context: {'stack': '$st'});
           // ignore: avoid_print
-          print(
-            '[folio.env] keys present hasClientId=${_hasJiraClientId()} '
-            'hasClientSecret=${_hasJiraClientSecret()}',
-          );
-        } else {
-          AppLogger.warn('local env file not found', tag: 'env');
+          print('[folio.env] load failed error=$e');
         }
-      } catch (e, st) {
-        AppLogger.warn('local env load failed', tag: 'env', context: {'error': '$e'});
-        AppLogger.debug('local env load stack', tag: 'env', context: {'stack': '$st'});
-        // ignore: avoid_print
-        print('[folio.env] load failed error=$e');
       }
 
       FlutterError.onError = (details) {

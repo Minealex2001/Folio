@@ -66,7 +66,7 @@ class DefaultFirebaseOptions {
     projectId: 'folio-minealexgames',
     storageBucket: 'folio-minealexgames.firebasestorage.app',
     iosClientId: '681177615508-8qe5e941bn39pbqg95k1i2d36maabc60.apps.googleusercontent.com',
-    iosBundleId: 'com.example.folio',
+    iosBundleId: 'com.minealexgames.folio.macos',
   );
 
   static const FirebaseOptions windows = FirebaseOptions(

@@ -729,6 +729,32 @@
   "vaultBackupRunNowTile": "Run scheduled backup now",
   "vaultBackupRunNowSubtitle": "Run the scheduled backup now (disk and/or cloud, depending on your settings) without waiting for the interval.",
   "vaultBackupRunNowNeedFolder": "Pick a local backup folder, or turn on “Also upload to Folio Cloud” for cloud-only backups.",
+  "vaultBackupProgressDialogTitle": "Backup in progress",
+  "vaultBackupProgressCompactHint": "Details appear in the debug console.",
+  "vaultBackupProgressLocalZipStart": "Creating scheduled ZIP in the configured folder…",
+  "vaultBackupProgressLocalZipDone": "Folder ZIP backup finished.",
+  "vaultCloudPackProgressPreparing": "Preparing cloud upload…",
+  "vaultCloudPackProgressPersisting": "Saving local vault changes…",
+  "vaultCloudPackProgressFingerprint": "Computing content fingerprint…",
+  "vaultCloudPackProgressFetchingMeta": "Checking Folio Cloud state…",
+  "vaultCloudPackProgressSkippedUpToDate": "Nothing to upload: cloud already has this version.",
+  "vaultCloudPackProgressRestoreWrap": "Preparing recovery keys for other devices…",
+  "vaultCloudPackProgressIndexingLocal": "Indexing local files…",
+  "vaultCloudPackProgressDownloadingManifest": "Downloading previous cloud inventory…",
+  "vaultCloudPackProgressBlobManifest": "Backup manifest",
+  "vaultCloudPackProgressBlobVaultKeys": "Vault keys (vault.keys)",
+  "vaultCloudPackProgressBlobVaultData": "Encrypted vault data (vault.bin)",
+  "vaultCloudPackProgressBlobVaultMode": "Vault mode",
+  "vaultCloudPackProgressBlobAttachment": "Attachment: {name}",
+  "@vaultCloudPackProgressBlobAttachment": {"placeholders": {"name": {"type": "String"}}},
+  "vaultCloudPackProgressBlobAttachmentAnonymous": "Attachment",
+  "vaultCloudPackProgressUploadingBlobProgress": "Uploading part {current} of {total}: {part}",
+  "@vaultCloudPackProgressUploadingBlobProgress": {"placeholders": {"current": {"type": "int"}, "total": {"type": "int"}, "part": {"type": "String"}}},
+  "vaultCloudPackProgressUploadingSnapshot": "Uploading backup snapshot…",
+  "vaultCloudPackProgressFinalizing": "Registering backup on the server…",
+  "vaultCloudPackProgressCleaningBlobs": "Removing old cloud data…",
+  "vaultCloudPackProgressUpdatingIndex": "Updating backup index…",
+  "vaultCloudPackProgressComplete": "Cloud backup complete.",
   "vaultIdentitySyncTitle": "Synchronization",
   "vaultIdentitySyncBody": "Enter your vault password (or Hello / passkey) to continue.",
   "vaultIdentityCloudBackupTitle": "Cloud backups",
@@ -1028,9 +1054,15 @@
   ,"folioCloudPurchaseChannelStoreNotConfigured": "The Store option is not configured in this build (product ids missing)."
   ,"folioCloudPurchaseChannelStoreNotConfiguredHint": "Build with --dart-define=MS_STORE_… or use browser checkout."
   ,"folioCloudMicrosoftStoreSyncHint": "On Windows, Refresh also syncs the Microsoft Store (same button as Stripe)."
-  ,"folioCloudUploadEncryptedBackup": "Back up to cloud now"
-  ,"folioCloudUploadEncryptedBackupSubtitle": "Folio uploads an incremental encrypted cloud backup of your open vault (only changed blobs)—no manual export."
-  ,"folioCloudUploadSnackOk": "Vault backup saved to the cloud."
+  ,"folioCloudIncrementalBackupManualHint": "To upload an incremental encrypted backup now (no .zip export), go to Settings → Notebook and tap {actionTitle}; there you enable a local folder and/or Folio Cloud."
+  ,"@folioCloudIncrementalBackupManualHint": {
+    "placeholders": {
+      "actionTitle": {
+        "type": "String"
+      }
+    }
+  },
+  "folioCloudUploadSnackOk": "Vault backup saved to the cloud."
   ,"scheduledVaultBackupCloudSyncTitle": "Backup to Folio Cloud"
   ,"scheduledVaultBackupCloudSyncSubtitle": "After each scheduled backup interval, automatically uploads an encrypted backup to your Folio Cloud account."
   ,"folioCloudCloudBackupsList": "Cloud backups"
@@ -1174,12 +1206,27 @@
   ,"calloutTypeWarning": "Warning"
   ,"calloutTypeError": "Error"
   ,"calloutTypeNote": "Note"
-  ,"blockEditorEnterHintNewBlock": "Enter: new block (in code: Enter = line)"
+  ,"blockEditorEnterHintNewBlock": "Enter: new block when enabled (Ctrl+Enter / Cmd+Enter: always) · in code blocks: Enter = line"
   ,"blockEditorEnterHintNewLine": "Enter: new line"
-  ,"blockEditorShortcutsHintMobile": "{enterHint} · / for blocks · tap a block for more actions"
+  ,"blockEditorSlashNoMatches": "No matches"
+  ,"blockEditorShortcutsHintMobile": "{enterHint} · Ctrl+Enter / Cmd+Enter: new block · / for blocks · tap a block for more actions"
   ,"@blockEditorShortcutsHintMobile": {"placeholders": {"enterHint": {"type": "String"}}}
-  ,"blockEditorShortcutsHintDesktop": "{enterHint} · Shift+Enter: line · / types · # heading (same line) · - · * · [] · ``` space · table/image under / · format: toolbar on focus or ** _ <u> ` ~~"
+  ,"blockEditorShortcutsHintDesktop": "{enterHint} · Ctrl+Enter / Cmd+Enter: always new block · Shift+Enter: line · / types · # heading (same line) · - · * · [] · ``` space · table/image under / · format: floating toolbar on text selection or ** _ <u> ` ~~"
   ,"@blockEditorShortcutsHintDesktop": {"placeholders": {"enterHint": {"type": "String"}}}
+  ,"formatToolbarQuillUnlink": "Remove link"
+  ,"formatToolbarQuillTextColor": "Text color"
+  ,"formatToolbarQuillFillColor": "Fill color"
+  ,"formatToolbarQuillHighlight": "Highlight"
+  ,"formatToolbarQuillHeading1": "Heading 1"
+  ,"formatToolbarQuillHeading2": "Heading 2"
+  ,"formatToolbarQuillHeading3": "Heading 3"
+  ,"formatToolbarQuillBulletList": "Bulleted list"
+  ,"formatToolbarQuillNumberedList": "Numbered list"
+  ,"formatToolbarQuillChecklist": "Checklist"
+  ,"formatToolbarQuillQuote": "Quote"
+  ,"formatToolbarQuillIndentMore": "Indent"
+  ,"formatToolbarQuillIndentLess": "Outdent"
+  ,"formatToolbarQuillClear": "Clear formatting"
   ,"blockEditorSelectedBlocksBanner": "{count} blocks selected · Shift: range · Ctrl/Cmd: toggle"
   ,"@blockEditorSelectedBlocksBanner": {"placeholders": {"count": {"type": "int"}}}
   ,"blockEditorDuplicate": "Duplicate"
@@ -1704,7 +1751,7 @@
   ,"settingsSectionUiWorkspace": "Interface & desktop"
   ,"settingsSectionUiWorkspaceHeroDescription": "Theme, language, scaling, editor layout, desktop options, and keyboard shortcuts."
   ,"settingsSubsectionVaultBackupImport": "Backups & import"
-  ,"settingsSubsectionVaultScheduledLocal": "Scheduled backup (local)"
+  ,"settingsSubsectionVaultScheduledLocal": "Scheduled backup"
   ,"settingsSubsectionDrive": "Drive"
   ,"settingsSubsectionVaultData": "Data (danger zone)"
   ,"folioCloudSubsectionAccount": "Account"
@@ -1930,12 +1977,12 @@
   ,"settingsAccentPickColor": "Choose preset color"
   ,"settingsPrivacySectionTitle": "Privacy and diagnostics"
   ,"settingsTelemetryTitle": "Anonymous usage statistics"
-  ,"settingsTelemetrySubtitle": "Helps measure installs and feature usage. No notebook content or titles are sent."
+  ,"settingsTelemetrySubtitle": "When enabled, helps measure feature usage. A one-time anonymous install signal is always sent. No notebook content or titles are sent."
   ,"onboardingTelemetryTitle": "Usage statistics"
-  ,"onboardingTelemetryBody": "Folio can send anonymous analytics so we understand how the app is used. You can change this anytime in Settings."
+  ,"onboardingTelemetryBody": "When enabled, Folio can send anonymous analytics so we understand how the app is used. A one-time anonymous install signal is sent on first launch either way. You can change usage statistics anytime in Settings."
   ,"onboardingTelemetrySwitchTitle": "Anonymous usage statistics"
-  ,"onboardingTelemetrySwitchSubtitle": "Helps measure installs and feature usage. No notebook content or titles are sent."
-  ,"onboardingTelemetryFootnote": "No notebook content or page titles are sent."
+  ,"onboardingTelemetrySwitchSubtitle": "When enabled, helps measure feature usage. A one-time anonymous install is still recorded if you turn this off. No notebook content or titles are sent."
+  ,"onboardingTelemetryFootnote": "No notebook content or page titles are sent. One anonymous install event is sent once per installation regardless of this setting."
   ,"settingsAutoCrashReportsTitle": "Send crash diagnostics automatically"
   ,"settingsAutoCrashReportsSubtitle": "When a crash occurs, sends a short log excerpt to Folio (opt-in, limited per session)."
   ,"settingsReportBugButton": "Report a bug"
@@ -2009,10 +2056,10 @@
   ,"@telemetryDashboardErrorDetail": {"placeholders": {"detail": {"type": "String"}}}
   ,"telemetryDashboardNoDataForDate": "No data for {date}"
   ,"@telemetryDashboardNoDataForDate": {"placeholders": {"date": {"type": "String"}}}
-  ,"telemetryDashboardNoDataHint": "Use the send icon to flush pending events, then refresh.\nGlobal totals appear after the scheduled job (02:00 UTC, previous UTC day)."
+  ,"telemetryDashboardNoDataHint": "Use the send icon to flush pending events, then refresh.\nGlobal totals update hourly (UTC) for today and yesterday."
   ,"telemetryDashboardFlushRefresh": "Flush and refresh"
   ,"telemetryDashboardSectionGlobalTitle": "Global stats (all users)"
-  ,"telemetryDashboardSectionGlobalSubtitle": "Totals from the nightly aggregation job (02:00 UTC)."
+  ,"telemetryDashboardSectionGlobalSubtitle": "Totals from the hourly aggregation job (UTC)."
   ,"telemetryDashboardMetricUsers": "Users"
   ,"telemetryDashboardMetricEvents": "Events"
   ,"telemetryDashboardMetricErrors": "Errors"
@@ -2047,9 +2094,9 @@
   ,"telemetrySentDataPerformanceTitle": "Performance"
   ,"telemetrySentDataPerformanceBody": "Operation duration and basic performance signals."
   ,"telemetrySentDataErrorsTitle": "Errors"
-  ,"telemetrySentDataErrorsBody": "App errors and crashes (when telemetry is enabled)."
+  ,"telemetrySentDataErrorsBody": "App errors and crashes (when usage statistics are enabled)."
   ,"telemetrySentDataPrivacyNote": "Your privacy matters. We do not sell this data or use it for ads."
-  ,"telemetrySentDataChannelsNote": "Firebase Analytics uses an anonymous installation ID. A copy of events in Firestore is only sent while you are signed in to Folio Cloud."
+  ,"telemetrySentDataChannelsNote": "Firebase Analytics uses an anonymous installation ID. A one-time folio_install event is sent once per installation even when usage statistics are off. Other events copied to Firestore are only sent while you are signed in to Folio Cloud."
   ,"telemetrySentDataViewTechnicalDetails": "View technical details"
   ,"telemetrySentDataHideTechnicalDetails": "Hide technical details"
   ,"telemetrySentDataNoEventsYet": "No events recorded locally yet."
@@ -2163,5 +2210,5 @@
   ,"@workspaceHomeClockTimezoneLine": {"placeholders": {"zoneName": {"type": "String"}, "offset": {"type": "String"}}}
   ,"workspaceHomeSectionLabelSearch": "Search field"
   ,"workspaceHomeSectionLabelCreatePage": "New page button"
-  ,"jiraCloudMissingOAuthSecret": "Missing JIRA_OAUTH_CLIENT_SECRET. Set it in lib/config/folio_local_secrets.dart (copy from the .example file), in a .env file Folio loads at startup, or via --dart-define. Restart the app and check the folio.env log."
+  ,"jiraCloudMissingOAuthSecret": "Missing JIRA_OAUTH_CLIENT_SECRET. Define it primarily in lib/config/folio_local_secrets.dart (copy from the .example file). On desktop you may also use a .env file at startup; on web use that file or --dart-define and rebuild. Restart the app; if you use .env on desktop, check the folio.env log."
 }

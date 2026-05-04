@@ -1036,12 +1036,12 @@ class FolioQuillFormatToolbar extends StatelessWidget {
                 children: [
                   btn(
                     icon: Icons.undo_rounded,
-                    tip: 'Deshacer',
+                    tip: AppLocalizations.of(context).canvasToolbarUndo,
                     onActivate: () => controller.undo(),
                   ),
                   btn(
                     icon: Icons.redo_rounded,
-                    tip: 'Rehacer',
+                    tip: AppLocalizations.of(context).canvasToolbarRedo,
                     onActivate: () => controller.redo(),
                   ),
                   btn(
@@ -1076,26 +1076,26 @@ class FolioQuillFormatToolbar extends StatelessWidget {
                   ),
                   btn(
                     icon: Icons.link_off_rounded,
-                    tip: 'Quitar enlace',
+                    tip: AppLocalizations.of(context).formatToolbarQuillUnlink,
                     onActivate: _unlink,
                   ),
                   btn(
                     icon: Icons.format_color_text_rounded,
-                    tip: 'Color de texto',
+                    tip: AppLocalizations.of(context).formatToolbarQuillTextColor,
                     onActivate: () => unawaited(
                       _pickColor(context, background: false),
                     ),
                   ),
                   btn(
                     icon: Icons.format_color_fill_rounded,
-                    tip: 'Color de fondo',
+                    tip: AppLocalizations.of(context).formatToolbarQuillFillColor,
                     onActivate: () => unawaited(
                       _pickColor(context, background: true),
                     ),
                   ),
                   btn(
                     icon: Icons.highlight_rounded,
-                    tip: 'Resaltar',
+                    tip: AppLocalizations.of(context).formatToolbarQuillHighlight,
                     onActivate: () => controller.formatSelection(
                       quill.Attribute.clone(
                         quill.Attribute.background,
@@ -1105,55 +1105,55 @@ class FolioQuillFormatToolbar extends StatelessWidget {
                   ),
                   btn(
                     icon: Icons.title_rounded,
-                    tip: 'H1',
+                    tip: AppLocalizations.of(context).formatToolbarQuillHeading1,
                     onActivate: () =>
                         _setBlockAttr(const quill.HeaderAttribute(level: 1)),
                   ),
                   btn(
                     icon: Icons.title_rounded,
-                    tip: 'H2',
+                    tip: AppLocalizations.of(context).formatToolbarQuillHeading2,
                     onActivate: () =>
                         _setBlockAttr(const quill.HeaderAttribute(level: 2)),
                   ),
                   btn(
                     icon: Icons.title_rounded,
-                    tip: 'H3',
+                    tip: AppLocalizations.of(context).formatToolbarQuillHeading3,
                     onActivate: () =>
                         _setBlockAttr(const quill.HeaderAttribute(level: 3)),
                   ),
                   btn(
                     icon: Icons.format_list_bulleted_rounded,
-                    tip: 'Lista',
+                    tip: AppLocalizations.of(context).formatToolbarQuillBulletList,
                     onActivate: () => _setList(quill.Attribute.ul),
                   ),
                   btn(
                     icon: Icons.format_list_numbered_rounded,
-                    tip: 'Lista numerada',
+                    tip: AppLocalizations.of(context).formatToolbarQuillNumberedList,
                     onActivate: () => _setList(quill.Attribute.ol),
                   ),
                   btn(
                     icon: Icons.checklist_rounded,
-                    tip: 'Lista de tareas',
+                    tip: AppLocalizations.of(context).formatToolbarQuillChecklist,
                     onActivate: () => _setList(quill.Attribute.unchecked),
                   ),
                   btn(
                     icon: Icons.format_quote_rounded,
-                    tip: 'Cita',
+                    tip: AppLocalizations.of(context).formatToolbarQuillQuote,
                     onActivate: () => _setBlockAttr(quill.Attribute.blockQuote),
                   ),
                   btn(
                     icon: Icons.format_indent_increase_rounded,
-                    tip: 'Aumentar sangría',
+                    tip: AppLocalizations.of(context).formatToolbarQuillIndentMore,
                     onActivate: () => _indent(true),
                   ),
                   btn(
                     icon: Icons.format_indent_decrease_rounded,
-                    tip: 'Reducir sangría',
+                    tip: AppLocalizations.of(context).formatToolbarQuillIndentLess,
                     onActivate: () => _indent(false),
                   ),
                   btn(
                     icon: Icons.format_clear_rounded,
-                    tip: 'Limpiar formato',
+                    tip: AppLocalizations.of(context).formatToolbarQuillClear,
                     onActivate: _clearInline,
                   ),
                 ],

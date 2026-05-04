@@ -12,6 +12,31 @@ import 'folio_cloud/folio_cloud_backup.dart';
 import 'folio_cloud/folio_cloud_pack_sync.dart';
 import 'folio_cloud/folio_cloud_entitlements.dart';
 
+/// Escribe un ZIP de copia programada en [prefs.directory] si la carpeta está activa y configurada.
+Future<void> exportScheduledVaultZipToConfiguredFolder({
+  required VaultSession session,
+  required VaultBackupPrefs prefs,
+}) async {
+  if (!session.isUnlocked) {
+    throw VaultBackupException('La libreta debe estar desbloqueada.');
+  }
+  final dir = prefs.directory.trim();
+  if (!prefs.folderEnabled || dir.isEmpty) return;
+
+  final destDir = Directory(dir);
+  if (!destDir.existsSync()) {
+    try {
+      await destDir.create(recursive: true);
+    } catch (e) {
+      throw VaultBackupException('No se pudo crear la carpeta: $e');
+    }
+  }
+  final stamp = DateTime.now().toUtc().toIso8601String().replaceAll(':', '-');
+  final base = stamp.contains('.') ? stamp.split('.').first : stamp;
+  final backupPath = p.join(dir, 'folio-scheduled-$base.zip');
+  await session.exportVaultBackup(backupPath);
+}
+
 /// Exporta la libreta **abierta** según las opciones configuradas en [AppSettings]
 /// para la libreta identificada por [vaultId]:
 /// - Backup a carpeta local (ZIP) si [VaultBackupPrefs.folderEnabled] y hay directorio.
@@ -44,18 +69,7 @@ Future<void> runScheduledFolderVaultExport({
 
   // — Backup local —
   if (wantFolder) {
-    final destDir = Directory(dir);
-    if (!destDir.existsSync()) {
-      try {
-        await destDir.create(recursive: true);
-      } catch (e) {
-        throw VaultBackupException('No se pudo crear la carpeta: $e');
-      }
-    }
-    final stamp = DateTime.now().toUtc().toIso8601String().replaceAll(':', '-');
-    final base = stamp.contains('.') ? stamp.split('.').first : stamp;
-    final backupPath = p.join(dir, 'folio-scheduled-$base.zip');
-    await session.exportVaultBackup(backupPath);
+    await exportScheduledVaultZipToConfiguredFolder(session: session, prefs: prefs);
   }
 
   // — Backup en la nube —

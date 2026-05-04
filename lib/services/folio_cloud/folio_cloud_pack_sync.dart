@@ -20,6 +20,7 @@ import 'folio_cloud_callable.dart';
 import '../../crypto/vault_crypto.dart';
 import 'folio_cloud_entitlements.dart';
 import 'folio_cloud_pack_crypto.dart';
+import '../vault_cloud_pack_progress.dart';
 
 List<int> _nonceBasisManifest() => utf8.encode('folio-pack:manifest');
 
@@ -64,6 +65,7 @@ Future<String?> uploadOpenVaultCloudPack({
   FolioCloudSnapshot? entitlementSnapshot,
   String? restoreWrapPassword,
   AppSettings? telemetrySettings,
+  OnVaultCloudPackProgress? onProgress,
 }) async {
   final sw = Stopwatch()..start();
   try {
@@ -79,9 +81,22 @@ Future<String?> uploadOpenVaultCloudPack({
   final user = FirebaseAuth.instance.currentUser;
   if (user == null) throw StateError('Not signed in');
 
+  void rep(VaultCloudPackProgressStep step, double progress01) {
+    onProgress?.call(
+      VaultCloudPackProgress(
+        progress: progress01.clamp(0.0, 1.0),
+        step: step,
+      ),
+    );
+  }
+
+  rep(VaultCloudPackProgressStep.preparing, 0.02);
+  rep(VaultCloudPackProgressStep.persisting, 0.04);
   await session.persistNow();
+  rep(VaultCloudPackProgressStep.fingerprinting, 0.07);
   final contentFp = await computeVaultCloudPackContentFingerprint();
 
+  rep(VaultCloudPackProgressStep.fetchingMeta, 0.09);
   final latest = await _getLatestCloudPackMeta(vaultId: vaultId);
   final hasRestoreWrap = latest?['hasRestoreWrap'] == true;
   final pw = restoreWrapPassword?.trim() ?? '';
@@ -108,6 +123,7 @@ Future<String?> uploadOpenVaultCloudPack({
           true,
           durationMs: sw.elapsedMilliseconds,
         );
+        rep(VaultCloudPackProgressStep.skippedUpToDate, 1.0);
         return u;
       } catch (_) {}
     }
@@ -117,10 +133,15 @@ Future<String?> uploadOpenVaultCloudPack({
       true,
       durationMs: sw.elapsedMilliseconds,
     );
+    rep(VaultCloudPackProgressStep.skippedUpToDate, 1.0);
     return '';
   }
 
   final packKey = await session.cloudPackEncryptionKey();
+
+  if (pw.isNotEmpty || plainNeedsWrap) {
+    rep(VaultCloudPackProgressStep.restoreWrap, 0.11);
+  }
 
   Uint8List? restoreWrapBytes;
   String? restoreWrapKind;
@@ -157,11 +178,13 @@ Future<String?> uploadOpenVaultCloudPack({
   final oldSnapPath = latest?['snapshotStoragePath']?.toString().trim() ?? '';
   final oldSnapSize = _parseInt(latest?['snapshotSizeBytes']);
   if (oldSnapPath.isNotEmpty) {
+    rep(VaultCloudPackProgressStep.downloadingPreviousManifest, 0.125);
     oldManifest = await _downloadDecryptManifest(
       storagePath: oldSnapPath,
       packKey: packKey,
     );
   }
+  rep(VaultCloudPackProgressStep.indexingLocal, 0.135);
 
   final wrapped = await VaultPaths.wrappedDekPath();
   final cipher = await VaultPaths.cipherPayloadPath();
@@ -174,6 +197,25 @@ Future<String?> uploadOpenVaultCloudPack({
     throw StateError('No hay libreta para exportar.');
   }
 
+  final vaultDir = await VaultPaths.vaultDirectory();
+  final attDir = Directory(
+    p.join(vaultDir.path, VaultPaths.attachmentsDirName),
+  );
+  final attPaths = <String>[];
+  if (attDir.existsSync()) {
+    await for (final entity in attDir.list(
+      recursive: true,
+      followLinks: false,
+    )) {
+      if (entity is! File) continue;
+      final rel = p
+          .relative(entity.path, from: attDir.path)
+          .replaceAll(r'\', '/');
+      attPaths.add('${VaultPaths.attachmentsDirName}/$rel');
+    }
+    attPaths.sort();
+  }
+
   final manifestJson = jsonEncode(<String, Object?>{
     'formatVersion': kVaultBackupFormatVersion,
     'exportedAt': DateTime.now().toUtc().toIso8601String(),
@@ -182,6 +224,14 @@ Future<String?> uploadOpenVaultCloudPack({
   final manifestPlain = utf8.encode(manifestJson);
 
   final items = <FolioCloudPackSnapshotItem>[];
+  final includeVaultKeys = !plain && wrapped.existsSync();
+  final includeVaultMode = modeFile.existsSync();
+  final totalBlobs = 1 +
+      (includeVaultKeys ? 1 : 0) +
+      1 +
+      (includeVaultMode ? 1 : 0) +
+      attPaths.length;
+  var blobsDone = 0;
 
   Future<void> addBlob({
     required FolioCloudPackBlobRole role,
@@ -208,6 +258,19 @@ Future<String?> uploadOpenVaultCloudPack({
       blobId: id,
       bytes: cipherBytes,
     );
+    blobsDone++;
+    final frac = totalBlobs <= 0 ? 1.0 : blobsDone / totalBlobs;
+    final p = 0.15 + 0.58 * frac;
+    onProgress?.call(
+      VaultCloudPackProgress(
+        progress: p.clamp(0.0, 0.93),
+        step: VaultCloudPackProgressStep.uploadingBlob,
+        blobRole: role,
+        attachmentRelativePath: attachmentPosix,
+        blobsCompleted: blobsDone,
+        blobsTotal: totalBlobs,
+      ),
+    );
   }
 
   await addBlob(
@@ -216,7 +279,7 @@ Future<String?> uploadOpenVaultCloudPack({
     nonceBasis: _nonceBasisManifest(),
   );
 
-  if (!plain && wrapped.existsSync()) {
+  if (includeVaultKeys) {
     await addBlob(
       role: FolioCloudPackBlobRole.vaultKeys,
       plainBytes: await wrapped.readAsBytes(),
@@ -230,7 +293,7 @@ Future<String?> uploadOpenVaultCloudPack({
     nonceBasis: _nonceBasisVaultBin(),
   );
 
-  if (modeFile.existsSync()) {
+  if (includeVaultMode) {
     await addBlob(
       role: FolioCloudPackBlobRole.vaultMode,
       plainBytes: await modeFile.readAsBytes(),
@@ -238,33 +301,15 @@ Future<String?> uploadOpenVaultCloudPack({
     );
   }
 
-  final vaultDir = await VaultPaths.vaultDirectory();
-  final attDir = Directory(
-    p.join(vaultDir.path, VaultPaths.attachmentsDirName),
-  );
-  final attPaths = <String>[];
-  if (attDir.existsSync()) {
-    await for (final entity in attDir.list(
-      recursive: true,
-      followLinks: false,
-    )) {
-      if (entity is! File) continue;
-      final rel = p
-          .relative(entity.path, from: attDir.path)
-          .replaceAll(r'\', '/');
-      attPaths.add('${VaultPaths.attachmentsDirName}/$rel');
-    }
-    attPaths.sort();
-    for (final posix in attPaths) {
-      final f = File(p.join(vaultDir.path, posix));
-      if (!f.existsSync()) continue;
-      await addBlob(
-        role: FolioCloudPackBlobRole.attachment,
-        plainBytes: await f.readAsBytes(),
-        nonceBasis: _nonceBasisAttachment(posix),
-        attachmentPosix: posix,
-      );
-    }
+  for (final posix in attPaths) {
+    final f = File(p.join(vaultDir.path, posix));
+    if (!f.existsSync()) continue;
+    await addBlob(
+      role: FolioCloudPackBlobRole.attachment,
+      plainBytes: await f.readAsBytes(),
+      nonceBasis: _nonceBasisAttachment(posix),
+      attachmentPosix: posix,
+    );
   }
 
   final snapClear = FolioCloudPackSnapshotManifest(
@@ -280,6 +325,7 @@ Future<String?> uploadOpenVaultCloudPack({
   final snapRef = FirebaseStorage.instance.ref().child(
     'users/${user.uid}/vaults/$vaultId/cloud-packs/snapshots/$snapName',
   );
+  rep(VaultCloudPackProgressStep.uploadingSnapshot, 0.76);
   await snapRef.putData(snapCipher);
   final snapSize = snapCipher.length;
 
@@ -316,6 +362,7 @@ Future<String?> uploadOpenVaultCloudPack({
     }
   }
 
+  rep(VaultCloudPackProgressStep.finalizing, 0.82);
   await callFolioHttpsCallable('folioFinalizeCloudPack', <String, dynamic>{
     'vaultId': vaultId,
     'snapshotStoragePath': snapRef.fullPath,
@@ -332,6 +379,7 @@ Future<String?> uploadOpenVaultCloudPack({
     },
   });
 
+  rep(VaultCloudPackProgressStep.cleaningOldBlobs, 0.88);
   if (oldSnapPath.isNotEmpty && oldSnapPath != snapRef.fullPath) {
     try {
       await FirebaseStorage.instance.ref(oldSnapPath).delete();
@@ -348,6 +396,7 @@ Future<String?> uploadOpenVaultCloudPack({
     } catch (_) {}
   }
 
+  rep(VaultCloudPackProgressStep.updatingVaultIndex, 0.93);
   try {
     await upsertFolioCloudBackupVaultIndex(
       vaultId: vaultId,
@@ -357,6 +406,7 @@ Future<String?> uploadOpenVaultCloudPack({
   } catch (_) {}
 
   final url = await snapRef.getDownloadURL();
+  rep(VaultCloudPackProgressStep.complete, 1.0);
   _logSyncTelemetry(
     telemetrySettings,
     'cloud_pack_push',
@@ -416,24 +466,21 @@ Future<void> _ensureBlobUploaded({
   required String blobId,
   required List<int> bytes,
 }) async {
-  final raw = await callFolioHttpsCallable(
-    'folioCheckCloudPackBlobsExist',
-    <String, dynamic>{
-      'vaultId': vaultId,
-      'blobIds': <String>[blobId],
-    },
-  );
-  var missing = <String>[blobId];
-  if (raw is Map) {
-    final m = raw['missing'];
-    if (m is List) {
-      missing = m.map((e) => e.toString()).toList();
-    }
-  }
-  if (missing.isEmpty) return;
   final ref = FirebaseStorage.instance.ref().child(
     'users/$uid/vaults/$vaultId/cloud-packs/blobs/$blobId',
   );
+  // Comprobar existencia en Storage desde el cliente (mismas reglas que la subida).
+  // Evita `folioCheckCloudPackBlobsExist`, que en escritorio usa HTTP callable y puede
+  // acabar en 504 por tiempo agotado en la cadena Functions → GCS.
+  try {
+    await ref.getMetadata();
+    return;
+  } on FirebaseException catch (e) {
+    final c = e.code;
+    if (c != 'object-not-found' && c != 'storage/object-not-found') {
+      rethrow;
+    }
+  }
   await ref.putData(Uint8List.fromList(bytes));
 }
 

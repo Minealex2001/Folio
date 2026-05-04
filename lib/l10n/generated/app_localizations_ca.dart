@@ -2111,6 +2111,102 @@ class AppLocalizationsCa extends AppLocalizations {
       'Tria una carpeta local o activa “Puja també a Folio Cloud” per a còpies només al núvol.';
 
   @override
+  String get vaultBackupProgressDialogTitle => 'Còpia en curs';
+
+  @override
+  String get vaultBackupProgressCompactHint =>
+      'Els detalls apareixen a la consola de depuració.';
+
+  @override
+  String get vaultBackupProgressLocalZipStart =>
+      'S’està creant el ZIP a la carpeta configurada…';
+
+  @override
+  String get vaultBackupProgressLocalZipDone => 'ZIP a la carpeta finalitzat.';
+
+  @override
+  String get vaultCloudPackProgressPreparing =>
+      'S’està preparant la pujada al núvol…';
+
+  @override
+  String get vaultCloudPackProgressPersisting =>
+      'S’estan desant els canvis locals de la caixa…';
+
+  @override
+  String get vaultCloudPackProgressFingerprint =>
+      'S’està calculant la petjada del contingut…';
+
+  @override
+  String get vaultCloudPackProgressFetchingMeta =>
+      'S’està consultant l’estat a Folio Cloud…';
+
+  @override
+  String get vaultCloudPackProgressSkippedUpToDate =>
+      'Res a pujar: el núvol ja té aquesta versió.';
+
+  @override
+  String get vaultCloudPackProgressRestoreWrap =>
+      'S’estan preparant les claus de recuperació per altres dispositius…';
+
+  @override
+  String get vaultCloudPackProgressIndexingLocal =>
+      'S’està inventariant els fitxers locals…';
+
+  @override
+  String get vaultCloudPackProgressDownloadingManifest =>
+      'S’està descarregant l’inventari anterior del núvol…';
+
+  @override
+  String get vaultCloudPackProgressBlobManifest => 'Manifest de la còpia';
+
+  @override
+  String get vaultCloudPackProgressBlobVaultKeys =>
+      'Claus de la caixa (vault.keys)';
+
+  @override
+  String get vaultCloudPackProgressBlobVaultData =>
+      'Dades xifrades de la caixa (vault.bin)';
+
+  @override
+  String get vaultCloudPackProgressBlobVaultMode => 'Mode de la caixa';
+
+  @override
+  String vaultCloudPackProgressBlobAttachment(String name) {
+    return 'Adjunt: $name';
+  }
+
+  @override
+  String get vaultCloudPackProgressBlobAttachmentAnonymous => 'Adjunt';
+
+  @override
+  String vaultCloudPackProgressUploadingBlobProgress(
+    int current,
+    int total,
+    String part,
+  ) {
+    return 'S’està pujant la part $current de $total: $part';
+  }
+
+  @override
+  String get vaultCloudPackProgressUploadingSnapshot =>
+      'S’està pujant l’índex de la còpia (snapshot)…';
+
+  @override
+  String get vaultCloudPackProgressFinalizing =>
+      'S’està registrant la còpia al servidor…';
+
+  @override
+  String get vaultCloudPackProgressCleaningBlobs =>
+      'S’estan eliminant dades antigues al núvol…';
+
+  @override
+  String get vaultCloudPackProgressUpdatingIndex =>
+      'S’està actualitzant l’índex de còpies…';
+
+  @override
+  String get vaultCloudPackProgressComplete => 'Còpia al núvol completada.';
+
+  @override
   String get vaultIdentitySyncTitle => 'Sincronització';
 
   @override
@@ -3089,11 +3185,9 @@ class AppLocalizationsCa extends AppLocalizations {
       'A Windows, «Actualitzar» també sincronitza la Microsoft Store (mateix botó que Stripe).';
 
   @override
-  String get folioCloudUploadEncryptedBackup => 'Fes una còpia al núvol ara';
-
-  @override
-  String get folioCloudUploadEncryptedBackupSubtitle =>
-      'Folio crea una còpia xifrada de la caixa oberta i la puja — sense exportació ZIP manual.';
+  String folioCloudIncrementalBackupManualHint(String actionTitle) {
+    return 'Per pujar ara una còpia incremental xifrada (sense exportar .zip), ves a Configuració → Llibreta i toca «$actionTitle»; allà configures carpeta local i/o Folio Cloud.';
+  }
 
   @override
   String get folioCloudUploadSnackOk =>
@@ -3562,20 +3656,65 @@ class AppLocalizationsCa extends AppLocalizations {
 
   @override
   String get blockEditorEnterHintNewBlock =>
-      'Retorn: bloc nou (en codi: Retorn = línia)';
+      'Retorn: bloc nou si està activat (Ctrl+Retorn / Cmd+Retorn: sempre) · en codi: Retorn = línia';
 
   @override
   String get blockEditorEnterHintNewLine => 'Retorn: línia nova';
 
   @override
+  String get blockEditorSlashNoMatches => 'Sense coincidències';
+
+  @override
   String blockEditorShortcutsHintMobile(String enterHint) {
-    return '$enterHint · / per a blocs · toca el bloc per a més accions';
+    return '$enterHint · Ctrl+Retorn / Cmd+Retorn: bloc nou · / per a blocs · toca el bloc per a més accions';
   }
 
   @override
   String blockEditorShortcutsHintDesktop(String enterHint) {
-    return '$enterHint · Maj+Retorn: línia · / tipus · # títol (mateixa línia) · - · * · [] · ``` espai · taula/imatge a / · format: barra en enfocar o ** _ <u> ` ~~';
+    return '$enterHint · Ctrl+Retorn / Cmd+Retorn: sempre bloc nou · Maj+Retorn: línia · / tipus · # títol (mateixa línia) · - · * · [] · ``` espai · taula/imatge a / · format: barra flotant en seleccionar text o ** _ <u> ` ~~';
   }
+
+  @override
+  String get formatToolbarQuillUnlink => 'Treure l\'enllaç';
+
+  @override
+  String get formatToolbarQuillTextColor => 'Color del text';
+
+  @override
+  String get formatToolbarQuillFillColor => 'Color de fons';
+
+  @override
+  String get formatToolbarQuillHighlight => 'Ressaltar';
+
+  @override
+  String get formatToolbarQuillHeading1 => 'Títol 1';
+
+  @override
+  String get formatToolbarQuillHeading2 => 'Títol 2';
+
+  @override
+  String get formatToolbarQuillHeading3 => 'Títol 3';
+
+  @override
+  String get formatToolbarQuillBulletList => 'Llista amb pics';
+
+  @override
+  String get formatToolbarQuillNumberedList => 'Llista numerada';
+
+  @override
+  String get formatToolbarQuillChecklist => 'Llista de tasques';
+
+  @override
+  String get formatToolbarQuillQuote => 'Cita';
+
+  @override
+  String get formatToolbarQuillIndentMore => 'Augmentar la indentació';
+
+  @override
+  String get formatToolbarQuillIndentLess => 'Reduir la indentació';
+
+  @override
+  String get formatToolbarQuillClear => 'Netejar el format';
 
   @override
   String blockEditorSelectedBlocksBanner(int count) {
@@ -5200,8 +5339,7 @@ class AppLocalizationsCa extends AppLocalizations {
   String get settingsSubsectionVaultBackupImport => 'Còpies i importació';
 
   @override
-  String get settingsSubsectionVaultScheduledLocal =>
-      'Còpia programada (local)';
+  String get settingsSubsectionVaultScheduledLocal => 'Còpia programada';
 
   @override
   String get settingsSubsectionDrive => 'Drive';
@@ -5952,25 +6090,25 @@ class AppLocalizationsCa extends AppLocalizations {
 
   @override
   String get settingsTelemetrySubtitle =>
-      'Ajuda a mesurar instal·lacions i ús de funcions. No s\'envia contingut del quadern ni títols.';
+      'Si està actiu, ajuda a mesurar l\'ús de funcions. Sempre s\'envia un senyal anònim únic d\'instal·lació. No es envia contingut del quadern ni títols.';
 
   @override
   String get onboardingTelemetryTitle => 'Estadístiques d\'ús';
 
   @override
   String get onboardingTelemetryBody =>
-      'Folio pot enviar analítica anònima per entendre com s\'utilitza l\'app. Pots canviar-ho en qualsevol moment a Configuració.';
+      'Si està actiu, Folio pot enviar analítica anònima per entendre com s\'utilitza l\'app. En el primer inici s\'envia igualment un senyal anònim únic d\'instal·lació. Pots canviar les estadístiques d\'ús en qualsevol moment a Configuració.';
 
   @override
   String get onboardingTelemetrySwitchTitle => 'Estadístiques d\'ús anònimes';
 
   @override
   String get onboardingTelemetrySwitchSubtitle =>
-      'Ajuda a mesurar instal·lacions i ús de funcions. No s\'envia contingut del quadern ni títols.';
+      'Si està actiu, ajuda a mesurar l\'ús de funcions. Encara que ho desactivis, es registra una instal·lació anònima única. No es envia contingut del quadern ni títols.';
 
   @override
   String get onboardingTelemetryFootnote =>
-      'No s\'envia contingut del quadern ni títols de pàgines.';
+      'No es envia contingut del quadern ni títols de pàgines. S\'envia un esdeveniment anònim d\'instal·lació una vegada per instal·lació, independentment d\'aquest ajust.';
 
   @override
   String get settingsAutoCrashReportsTitle =>
@@ -6205,7 +6343,7 @@ class AppLocalizationsCa extends AppLocalizations {
 
   @override
   String get telemetryDashboardNoDataHint =>
-      'Utilitza la icona d\'enviament per buidar esdeveniments pendents i després actualitza.\nEls totals globals apareixen després de la tasca programada (02:00 UTC, dia UTC anterior).';
+      'Utilitza la icona d\'enviament per buidar esdeveniments pendents i després actualitza.\nEls totals globals s\'actualitzen cada hora (UTC) per a avui i ahir.';
 
   @override
   String get telemetryDashboardFlushRefresh => 'Buidar i actualitzar';
@@ -6216,7 +6354,7 @@ class AppLocalizationsCa extends AppLocalizations {
 
   @override
   String get telemetryDashboardSectionGlobalSubtitle =>
-      'Totals de l\'agregació nocturna (02:00 UTC).';
+      'Totals de l\'agregació horària (UTC).';
 
   @override
   String get telemetryDashboardMetricUsers => 'Usuaris';
@@ -6337,7 +6475,7 @@ class AppLocalizationsCa extends AppLocalizations {
 
   @override
   String get telemetrySentDataErrorsBody =>
-      'Errors de l’app i tancaments inesperats (si la telemetria està activa).';
+      'Errors de l’app i tancaments inesperats (si les estadístiques d\'ús estan actives).';
 
   @override
   String get telemetrySentDataPrivacyNote =>
@@ -6345,7 +6483,7 @@ class AppLocalizationsCa extends AppLocalizations {
 
   @override
   String get telemetrySentDataChannelsNote =>
-      'Firebase Analytics usa un identificador anònim d’instal·lació. Una còpia d’esdeveniments a Firestore només s’envia si has iniciat sessió a Folio Cloud.';
+      'Firebase Analytics usa un identificador anònim d’instal·lació. S\'envia una vegada per instal·lació l\'esdeveniment folio_install encara que les estadístiques d\'ús estiguin desactivades. La resta d\'esdeveniments copiats a Firestore només s\'envien amb sessió iniciada a Folio Cloud.';
 
   @override
   String get telemetrySentDataViewTechnicalDetails => 'Veure detalls tècnics';
@@ -6730,5 +6868,5 @@ class AppLocalizationsCa extends AppLocalizations {
 
   @override
   String get jiraCloudMissingOAuthSecret =>
-      'Falta JIRA_OAUTH_CLIENT_SECRET. Pots definir-lo a lib/config/folio_local_secrets.dart (còpia des de l\'arxiu .example), en un .env que Folio carrega en arrencar o amb --dart-define. Reinicia l\'app i revisa el registre folio.env.';
+      'Falta JIRA_OAUTH_CLIENT_SECRET. Defineix-lo sobretot a lib/config/folio_local_secrets.dart (còpia des de l\'arxiu .example). A escriptori també pots usar un .env en arrencar; a web només aquest fitxer o --dart-define i recompilar. Reinicia l\'app; si uses .env a escriptori, revisa el registre folio.env.';
 }

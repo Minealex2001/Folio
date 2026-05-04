@@ -729,6 +729,32 @@
   "vaultBackupRunNowTile": "Copia programada ahora",
   "vaultBackupRunNowSubtitle": "Ejecuta ya la copia programada (disco y/o nube según lo tengas configurado), sin esperar al intervalo.",
   "vaultBackupRunNowNeedFolder": "Elige una carpeta local o activa «Subir también a Folio Cloud» para copia solo en la nube.",
+  "vaultBackupProgressDialogTitle": "Copia en curso",
+  "vaultBackupProgressCompactHint": "Los detalles aparecen en la consola de depuración.",
+  "vaultBackupProgressLocalZipStart": "Creando copia ZIP en la carpeta configurada…",
+  "vaultBackupProgressLocalZipDone": "Copia ZIP en carpeta terminada.",
+  "vaultCloudPackProgressPreparing": "Preparando subida a la nube…",
+  "vaultCloudPackProgressPersisting": "Guardando cambios locales de la libreta…",
+  "vaultCloudPackProgressFingerprint": "Calculando huella del contenido…",
+  "vaultCloudPackProgressFetchingMeta": "Consultando el estado en Folio Cloud…",
+  "vaultCloudPackProgressSkippedUpToDate": "Nada que subir: la nube ya tiene esta versión.",
+  "vaultCloudPackProgressRestoreWrap": "Preparando claves de recuperación para otros dispositivos…",
+  "vaultCloudPackProgressIndexingLocal": "Inventariando archivos locales…",
+  "vaultCloudPackProgressDownloadingManifest": "Descargando inventario anterior de la nube…",
+  "vaultCloudPackProgressBlobManifest": "Manifiesto de copia",
+  "vaultCloudPackProgressBlobVaultKeys": "Claves de la libreta (vault.keys)",
+  "vaultCloudPackProgressBlobVaultData": "Datos cifrados de la libreta (vault.bin)",
+  "vaultCloudPackProgressBlobVaultMode": "Modo de la libreta",
+  "vaultCloudPackProgressBlobAttachment": "Adjunto: {name}",
+  "@vaultCloudPackProgressBlobAttachment": {"placeholders": {"name": {"type": "String"}}},
+  "vaultCloudPackProgressBlobAttachmentAnonymous": "Adjunto",
+  "vaultCloudPackProgressUploadingBlobProgress": "Subiendo parte {current} de {total}: {part}",
+  "@vaultCloudPackProgressUploadingBlobProgress": {"placeholders": {"current": {"type": "int"}, "total": {"type": "int"}, "part": {"type": "String"}}},
+  "vaultCloudPackProgressUploadingSnapshot": "Subiendo índice de la copia (snapshot)…",
+  "vaultCloudPackProgressFinalizing": "Registrando la copia en el servidor…",
+  "vaultCloudPackProgressCleaningBlobs": "Eliminando datos antiguos en la nube…",
+  "vaultCloudPackProgressUpdatingIndex": "Actualizando el índice de copias…",
+  "vaultCloudPackProgressComplete": "Copia en la nube completada.",
   "vaultIdentitySyncTitle": "Sincronización",
   "vaultIdentitySyncBody": "Introduce la contraseña de la libreta (o Hello / passkey) para continuar.",
   "vaultIdentityCloudBackupTitle": "Copias en la nube",
@@ -1028,9 +1054,15 @@
   ,"folioCloudPurchaseChannelStoreNotConfigured": "La opción de la Tienda no está configurada en esta compilación (faltan ids de producto)."
   ,"folioCloudPurchaseChannelStoreNotConfiguredHint": "Compila con --dart-define=MS_STORE_… o usa el pago en el navegador."
   ,"folioCloudMicrosoftStoreSyncHint": "En Windows, «Actualizar» también sincroniza la Microsoft Store (mismo botón que Stripe)."
-  ,"folioCloudUploadEncryptedBackup": "Copia a la nube ahora"
-  ,"folioCloudUploadEncryptedBackupSubtitle": "Folio sube una copia incremental cifrada en la nube de la libreta abierta (solo lo que cambió); no hace falta exportar un .zip."
-  ,"folioCloudUploadSnackOk": "Copia de la libreta guardada en la nube."
+  ,"folioCloudIncrementalBackupManualHint": "Para subir ahora una copia incremental cifrada (sin exportar .zip), ve a Ajustes → Libreta y pulsa «{actionTitle}»; allí configuras carpeta local y/o Folio Cloud."
+  ,"@folioCloudIncrementalBackupManualHint": {
+    "placeholders": {
+      "actionTitle": {
+        "type": "String"
+      }
+    }
+  },
+  "folioCloudUploadSnackOk": "Copia de la libreta guardada en la nube."
   ,"scheduledVaultBackupCloudSyncTitle": "Copia en Folio Cloud"
   ,"scheduledVaultBackupCloudSyncSubtitle": "En cada intervalo programado, sube automáticamente una copia cifrada a tu cuenta de Folio Cloud."
   ,"folioCloudCloudBackupsList": "Copias en la nube"
@@ -1174,12 +1206,27 @@
   ,"calloutTypeWarning": "Advertencia"
   ,"calloutTypeError": "Error"
   ,"calloutTypeNote": "Nota"
-  ,"blockEditorEnterHintNewBlock": "Enter: bloque nuevo (en código: Enter = línea)"
+  ,"blockEditorEnterHintNewBlock": "Enter: bloque nuevo si está activado (Ctrl+Intro / Cmd+Intro: siempre) · en bloques de código: Enter = línea"
   ,"blockEditorEnterHintNewLine": "Enter: nueva línea"
-  ,"blockEditorShortcutsHintMobile": "{enterHint} · / para bloques · toca el bloque para más acciones"
+  ,"blockEditorSlashNoMatches": "Sin coincidencias"
+  ,"blockEditorShortcutsHintMobile": "{enterHint} · Ctrl+Intro / Cmd+Intro: bloque nuevo · / para bloques · toca el bloque para más acciones"
   ,"@blockEditorShortcutsHintMobile": {"placeholders": {"enterHint": {"type": "String"}}}
-  ,"blockEditorShortcutsHintDesktop": "{enterHint} · Shift+Enter: línea · / tipos · # título (misma línea) · - · * · [] · ``` espacio · tabla/imagen en / · formato: barra al enfocar o ** _ <u> ` ~~"
+  ,"blockEditorShortcutsHintDesktop": "{enterHint} · Ctrl+Intro / Cmd+Intro: siempre bloque nuevo · Shift+Enter: línea · / tipos · # título (misma línea) · - · * · [] · ``` espacio · tabla/imagen en / · formato: barra flotante al seleccionar texto o ** _ <u> ` ~~"
   ,"@blockEditorShortcutsHintDesktop": {"placeholders": {"enterHint": {"type": "String"}}}
+  ,"formatToolbarQuillUnlink": "Quitar enlace"
+  ,"formatToolbarQuillTextColor": "Color de texto"
+  ,"formatToolbarQuillFillColor": "Color de fondo"
+  ,"formatToolbarQuillHighlight": "Resaltar"
+  ,"formatToolbarQuillHeading1": "Título 1"
+  ,"formatToolbarQuillHeading2": "Título 2"
+  ,"formatToolbarQuillHeading3": "Título 3"
+  ,"formatToolbarQuillBulletList": "Lista con viñetas"
+  ,"formatToolbarQuillNumberedList": "Lista numerada"
+  ,"formatToolbarQuillChecklist": "Lista de tareas"
+  ,"formatToolbarQuillQuote": "Cita"
+  ,"formatToolbarQuillIndentMore": "Aumentar sangría"
+  ,"formatToolbarQuillIndentLess": "Reducir sangría"
+  ,"formatToolbarQuillClear": "Limpiar formato"
   ,"blockEditorSelectedBlocksBanner": "{count} bloques seleccionados · Shift: rango · Ctrl/Cmd: alternar"
   ,"@blockEditorSelectedBlocksBanner": {"placeholders": {"count": {"type": "int"}}}
   ,"blockEditorDuplicate": "Duplicar"
@@ -1704,7 +1751,7 @@
   ,"settingsSectionUiWorkspace": "Interfaz y escritorio"
   ,"settingsSectionUiWorkspaceHeroDescription": "Tema, idioma, escala, editor, opciones de escritorio y atajos de teclado."
   ,"settingsSubsectionVaultBackupImport": "Copias e importación"
-  ,"settingsSubsectionVaultScheduledLocal": "Copia programada (local)"
+  ,"settingsSubsectionVaultScheduledLocal": "Copia programada"
   ,"settingsSubsectionDrive": "Drive"
   ,"settingsSubsectionVaultData": "Datos (zona peligrosa)"
   ,"folioCloudSubsectionAccount": "Cuenta"
@@ -1930,12 +1977,12 @@
   ,"settingsAccentPickColor": "Elegir color predefinido"
   ,"settingsPrivacySectionTitle": "Privacidad y diagnósticos"
   ,"settingsTelemetryTitle": "Estadísticas de uso anónimas"
-  ,"settingsTelemetrySubtitle": "Ayuda a medir instalaciones y uso de funciones. No se envía contenido de la libreta ni títulos."
+  ,"settingsTelemetrySubtitle": "Si está activado, ayuda a medir el uso de funciones. Siempre se envía una señal anónima única de instalación. No se envía contenido de la libreta ni títulos."
   ,"onboardingTelemetryTitle": "Estadísticas de uso"
-  ,"onboardingTelemetryBody": "Folio puede enviar analítica anónima para entender cómo se usa la app. Puedes cambiarlo en cualquier momento en Ajustes."
+  ,"onboardingTelemetryBody": "Si está activado, Folio puede enviar analítica anónima para entender cómo se usa la app. En el primer arranque se envía igualmente una señal anónima única de instalación. Puedes cambiar las estadísticas de uso en cualquier momento en Ajustes."
   ,"onboardingTelemetrySwitchTitle": "Estadísticas de uso anónimas"
-  ,"onboardingTelemetrySwitchSubtitle": "Ayuda a medir instalaciones y uso de funciones. No se envía contenido de la libreta ni títulos."
-  ,"onboardingTelemetryFootnote": "No se envía contenido de la libreta ni títulos de páginas."
+  ,"onboardingTelemetrySwitchSubtitle": "Si está activado, ayuda a medir el uso de funciones. Aunque lo desactives, se registra una instalación anónima única. No se envía contenido de la libreta ni títulos."
+  ,"onboardingTelemetryFootnote": "No se envía contenido de la libreta ni títulos de páginas. Se envía un evento anónimo de instalación una vez por instalación, independientemente de este ajuste."
   ,"settingsAutoCrashReportsTitle": "Enviar diagnósticos de fallos automáticamente"
   ,"settingsAutoCrashReportsSubtitle": "Si hay un error grave, se envía un trozo del log a Folio (opcional, limitado por sesión)."
   ,"settingsReportBugButton": "Reportar un error"
@@ -2009,10 +2056,10 @@
   ,"@telemetryDashboardErrorDetail": {"placeholders": {"detail": {"type": "String"}}}
   ,"telemetryDashboardNoDataForDate": "Sin datos para {date}"
   ,"@telemetryDashboardNoDataForDate": {"placeholders": {"date": {"type": "String"}}}
-  ,"telemetryDashboardNoDataHint": "Usa el icono de envío para vaciar eventos pendientes y luego actualiza.\nLos totales globales aparecen tras la tarea programada (02:00 UTC, día UTC anterior)."
+  ,"telemetryDashboardNoDataHint": "Usa el icono de envío para vaciar eventos pendientes y luego actualiza.\nLos totales globales se actualizan cada hora (UTC) para hoy y ayer."
   ,"telemetryDashboardFlushRefresh": "Vaciar y actualizar"
   ,"telemetryDashboardSectionGlobalTitle": "Estadísticas globales (todos los usuarios)"
-  ,"telemetryDashboardSectionGlobalSubtitle": "Totales del trabajo de agregación nocturno (02:00 UTC)."
+  ,"telemetryDashboardSectionGlobalSubtitle": "Totales del trabajo de agregación horario (UTC)."
   ,"telemetryDashboardMetricUsers": "Usuarios"
   ,"telemetryDashboardMetricEvents": "Eventos"
   ,"telemetryDashboardMetricErrors": "Errores"
@@ -2047,9 +2094,9 @@
   ,"telemetrySentDataPerformanceTitle": "Rendimiento"
   ,"telemetrySentDataPerformanceBody": "Duración de operaciones y señales básicas de rendimiento."
   ,"telemetrySentDataErrorsTitle": "Errores"
-  ,"telemetrySentDataErrorsBody": "Errores de la app y cierres inesperados (si la telemetría está activa)."
+  ,"telemetrySentDataErrorsBody": "Errores de la app y cierres inesperados (si las estadísticas de uso están activas)."
   ,"telemetrySentDataPrivacyNote": "Tu privacidad importa. No vendemos estos datos ni los usamos para publicidad."
-  ,"telemetrySentDataChannelsNote": "Firebase Analytics usa un identificador anónimo de instalación. Una copia de eventos en Firestore solo se envía si tienes sesión iniciada en Folio Cloud."
+  ,"telemetrySentDataChannelsNote": "Firebase Analytics usa un identificador anónimo de instalación. Se envía una vez por instalación el evento folio_install aunque las estadísticas de uso estén desactivadas. El resto de eventos copiados a Firestore solo se envían con sesión iniciada en Folio Cloud."
   ,"telemetrySentDataViewTechnicalDetails": "Ver detalles técnicos"
   ,"telemetrySentDataHideTechnicalDetails": "Ocultar detalles técnicos"
   ,"telemetrySentDataNoEventsYet": "Aún no hay eventos guardados localmente."
@@ -2163,5 +2210,5 @@
   ,"@workspaceHomeClockTimezoneLine": {"placeholders": {"zoneName": {"type": "String"}, "offset": {"type": "String"}}}
   ,"workspaceHomeSectionLabelSearch": "Campo de búsqueda"
   ,"workspaceHomeSectionLabelCreatePage": "Botón nueva página"
-  ,"jiraCloudMissingOAuthSecret": "Falta JIRA_OAUTH_CLIENT_SECRET. Puedes definirlo en lib/config/folio_local_secrets.dart (copia desde el .example), en un .env que Folio carga al arrancar o con --dart-define. Reinicia la app y revisa el log folio.env."
+  ,"jiraCloudMissingOAuthSecret": "Falta JIRA_OAUTH_CLIENT_SECRET. Defínelo sobre todo en lib/config/folio_local_secrets.dart (copia desde el .example). En escritorio también puedes usar un .env al arrancar; en web solo ese archivo o --dart-define y recompilar. Reinicia la app; si usas .env en escritorio, revisa el log folio.env."
 }

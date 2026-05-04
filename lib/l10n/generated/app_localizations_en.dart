@@ -2085,6 +2085,96 @@ class AppLocalizationsEn extends AppLocalizations {
       'Pick a local backup folder, or turn on “Also upload to Folio Cloud” for cloud-only backups.';
 
   @override
+  String get vaultBackupProgressDialogTitle => 'Backup in progress';
+
+  @override
+  String get vaultBackupProgressCompactHint =>
+      'Details appear in the debug console.';
+
+  @override
+  String get vaultBackupProgressLocalZipStart =>
+      'Creating scheduled ZIP in the configured folder…';
+
+  @override
+  String get vaultBackupProgressLocalZipDone => 'Folder ZIP backup finished.';
+
+  @override
+  String get vaultCloudPackProgressPreparing => 'Preparing cloud upload…';
+
+  @override
+  String get vaultCloudPackProgressPersisting => 'Saving local vault changes…';
+
+  @override
+  String get vaultCloudPackProgressFingerprint =>
+      'Computing content fingerprint…';
+
+  @override
+  String get vaultCloudPackProgressFetchingMeta =>
+      'Checking Folio Cloud state…';
+
+  @override
+  String get vaultCloudPackProgressSkippedUpToDate =>
+      'Nothing to upload: cloud already has this version.';
+
+  @override
+  String get vaultCloudPackProgressRestoreWrap =>
+      'Preparing recovery keys for other devices…';
+
+  @override
+  String get vaultCloudPackProgressIndexingLocal => 'Indexing local files…';
+
+  @override
+  String get vaultCloudPackProgressDownloadingManifest =>
+      'Downloading previous cloud inventory…';
+
+  @override
+  String get vaultCloudPackProgressBlobManifest => 'Backup manifest';
+
+  @override
+  String get vaultCloudPackProgressBlobVaultKeys => 'Vault keys (vault.keys)';
+
+  @override
+  String get vaultCloudPackProgressBlobVaultData =>
+      'Encrypted vault data (vault.bin)';
+
+  @override
+  String get vaultCloudPackProgressBlobVaultMode => 'Vault mode';
+
+  @override
+  String vaultCloudPackProgressBlobAttachment(String name) {
+    return 'Attachment: $name';
+  }
+
+  @override
+  String get vaultCloudPackProgressBlobAttachmentAnonymous => 'Attachment';
+
+  @override
+  String vaultCloudPackProgressUploadingBlobProgress(
+    int current,
+    int total,
+    String part,
+  ) {
+    return 'Uploading part $current of $total: $part';
+  }
+
+  @override
+  String get vaultCloudPackProgressUploadingSnapshot =>
+      'Uploading backup snapshot…';
+
+  @override
+  String get vaultCloudPackProgressFinalizing =>
+      'Registering backup on the server…';
+
+  @override
+  String get vaultCloudPackProgressCleaningBlobs => 'Removing old cloud data…';
+
+  @override
+  String get vaultCloudPackProgressUpdatingIndex => 'Updating backup index…';
+
+  @override
+  String get vaultCloudPackProgressComplete => 'Cloud backup complete.';
+
+  @override
   String get vaultIdentitySyncTitle => 'Synchronization';
 
   @override
@@ -3049,11 +3139,9 @@ class AppLocalizationsEn extends AppLocalizations {
       'On Windows, Refresh also syncs the Microsoft Store (same button as Stripe).';
 
   @override
-  String get folioCloudUploadEncryptedBackup => 'Back up to cloud now';
-
-  @override
-  String get folioCloudUploadEncryptedBackupSubtitle =>
-      'Folio uploads an incremental encrypted cloud backup of your open vault (only changed blobs)—no manual export.';
+  String folioCloudIncrementalBackupManualHint(String actionTitle) {
+    return 'To upload an incremental encrypted backup now (no .zip export), go to Settings → Notebook and tap $actionTitle; there you enable a local folder and/or Folio Cloud.';
+  }
 
   @override
   String get folioCloudUploadSnackOk => 'Vault backup saved to the cloud.';
@@ -3514,20 +3602,65 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get blockEditorEnterHintNewBlock =>
-      'Enter: new block (in code: Enter = line)';
+      'Enter: new block when enabled (Ctrl+Enter / Cmd+Enter: always) · in code blocks: Enter = line';
 
   @override
   String get blockEditorEnterHintNewLine => 'Enter: new line';
 
   @override
+  String get blockEditorSlashNoMatches => 'No matches';
+
+  @override
   String blockEditorShortcutsHintMobile(String enterHint) {
-    return '$enterHint · / for blocks · tap a block for more actions';
+    return '$enterHint · Ctrl+Enter / Cmd+Enter: new block · / for blocks · tap a block for more actions';
   }
 
   @override
   String blockEditorShortcutsHintDesktop(String enterHint) {
-    return '$enterHint · Shift+Enter: line · / types · # heading (same line) · - · * · [] · ``` space · table/image under / · format: toolbar on focus or ** _ <u> ` ~~';
+    return '$enterHint · Ctrl+Enter / Cmd+Enter: always new block · Shift+Enter: line · / types · # heading (same line) · - · * · [] · ``` space · table/image under / · format: floating toolbar on text selection or ** _ <u> ` ~~';
   }
+
+  @override
+  String get formatToolbarQuillUnlink => 'Remove link';
+
+  @override
+  String get formatToolbarQuillTextColor => 'Text color';
+
+  @override
+  String get formatToolbarQuillFillColor => 'Fill color';
+
+  @override
+  String get formatToolbarQuillHighlight => 'Highlight';
+
+  @override
+  String get formatToolbarQuillHeading1 => 'Heading 1';
+
+  @override
+  String get formatToolbarQuillHeading2 => 'Heading 2';
+
+  @override
+  String get formatToolbarQuillHeading3 => 'Heading 3';
+
+  @override
+  String get formatToolbarQuillBulletList => 'Bulleted list';
+
+  @override
+  String get formatToolbarQuillNumberedList => 'Numbered list';
+
+  @override
+  String get formatToolbarQuillChecklist => 'Checklist';
+
+  @override
+  String get formatToolbarQuillQuote => 'Quote';
+
+  @override
+  String get formatToolbarQuillIndentMore => 'Indent';
+
+  @override
+  String get formatToolbarQuillIndentLess => 'Outdent';
+
+  @override
+  String get formatToolbarQuillClear => 'Clear formatting';
 
   @override
   String blockEditorSelectedBlocksBanner(int count) {
@@ -5140,8 +5273,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get settingsSubsectionVaultBackupImport => 'Backups & import';
 
   @override
-  String get settingsSubsectionVaultScheduledLocal =>
-      'Scheduled backup (local)';
+  String get settingsSubsectionVaultScheduledLocal => 'Scheduled backup';
 
   @override
   String get settingsSubsectionDrive => 'Drive';
@@ -5882,25 +6014,25 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get settingsTelemetrySubtitle =>
-      'Helps measure installs and feature usage. No notebook content or titles are sent.';
+      'When enabled, helps measure feature usage. A one-time anonymous install signal is always sent. No notebook content or titles are sent.';
 
   @override
   String get onboardingTelemetryTitle => 'Usage statistics';
 
   @override
   String get onboardingTelemetryBody =>
-      'Folio can send anonymous analytics so we understand how the app is used. You can change this anytime in Settings.';
+      'When enabled, Folio can send anonymous analytics so we understand how the app is used. A one-time anonymous install signal is sent on first launch either way. You can change usage statistics anytime in Settings.';
 
   @override
   String get onboardingTelemetrySwitchTitle => 'Anonymous usage statistics';
 
   @override
   String get onboardingTelemetrySwitchSubtitle =>
-      'Helps measure installs and feature usage. No notebook content or titles are sent.';
+      'When enabled, helps measure feature usage. A one-time anonymous install is still recorded if you turn this off. No notebook content or titles are sent.';
 
   @override
   String get onboardingTelemetryFootnote =>
-      'No notebook content or page titles are sent.';
+      'No notebook content or page titles are sent. One anonymous install event is sent once per installation regardless of this setting.';
 
   @override
   String get settingsAutoCrashReportsTitle =>
@@ -6132,7 +6264,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get telemetryDashboardNoDataHint =>
-      'Use the send icon to flush pending events, then refresh.\nGlobal totals appear after the scheduled job (02:00 UTC, previous UTC day).';
+      'Use the send icon to flush pending events, then refresh.\nGlobal totals update hourly (UTC) for today and yesterday.';
 
   @override
   String get telemetryDashboardFlushRefresh => 'Flush and refresh';
@@ -6142,7 +6274,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get telemetryDashboardSectionGlobalSubtitle =>
-      'Totals from the nightly aggregation job (02:00 UTC).';
+      'Totals from the hourly aggregation job (UTC).';
 
   @override
   String get telemetryDashboardMetricUsers => 'Users';
@@ -6257,7 +6389,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get telemetrySentDataErrorsBody =>
-      'App errors and crashes (when telemetry is enabled).';
+      'App errors and crashes (when usage statistics are enabled).';
 
   @override
   String get telemetrySentDataPrivacyNote =>
@@ -6265,7 +6397,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get telemetrySentDataChannelsNote =>
-      'Firebase Analytics uses an anonymous installation ID. A copy of events in Firestore is only sent while you are signed in to Folio Cloud.';
+      'Firebase Analytics uses an anonymous installation ID. A one-time folio_install event is sent once per installation even when usage statistics are off. Other events copied to Firestore are only sent while you are signed in to Folio Cloud.';
 
   @override
   String get telemetrySentDataViewTechnicalDetails => 'View technical details';
@@ -6644,5 +6776,5 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get jiraCloudMissingOAuthSecret =>
-      'Missing JIRA_OAUTH_CLIENT_SECRET. Set it in lib/config/folio_local_secrets.dart (copy from the .example file), in a .env file Folio loads at startup, or via --dart-define. Restart the app and check the folio.env log.';
+      'Missing JIRA_OAUTH_CLIENT_SECRET. Define it primarily in lib/config/folio_local_secrets.dart (copy from the .example file). On desktop you may also use a .env file at startup; on web use that file or --dart-define and rebuild. Restart the app; if you use .env on desktop, check the folio.env log.';
 }

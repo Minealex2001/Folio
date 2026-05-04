@@ -2108,6 +2108,101 @@ class AppLocalizationsGl extends AppLocalizations {
       'Escolle unha carpeta local ou activa “Tamén subir [cite: 56] a Folio Cloud” para copias só na nube.';
 
   @override
+  String get vaultBackupProgressDialogTitle => 'Copia en curso';
+
+  @override
+  String get vaultBackupProgressCompactHint =>
+      'Os detalles aparecen na consola de depuración.';
+
+  @override
+  String get vaultBackupProgressLocalZipStart =>
+      'Creando ZIP na carpeta configurada…';
+
+  @override
+  String get vaultBackupProgressLocalZipDone => 'ZIP na carpeta rematado.';
+
+  @override
+  String get vaultCloudPackProgressPreparing => 'Preparando subida á nube…';
+
+  @override
+  String get vaultCloudPackProgressPersisting =>
+      'Gardando cambios locais da caixa forte…';
+
+  @override
+  String get vaultCloudPackProgressFingerprint =>
+      'Calculando pegada do contido…';
+
+  @override
+  String get vaultCloudPackProgressFetchingMeta =>
+      'Consultando o estado en Folio Cloud…';
+
+  @override
+  String get vaultCloudPackProgressSkippedUpToDate =>
+      'Nada que subir: a nube xa ten esta versión.';
+
+  @override
+  String get vaultCloudPackProgressRestoreWrap =>
+      'Preparando chaves de recuperación para outros dispositivos…';
+
+  @override
+  String get vaultCloudPackProgressIndexingLocal =>
+      'Inventariando ficheiros locais…';
+
+  @override
+  String get vaultCloudPackProgressDownloadingManifest =>
+      'Descargando inventario anterior da nube…';
+
+  @override
+  String get vaultCloudPackProgressBlobManifest => 'Manifesto da copia';
+
+  @override
+  String get vaultCloudPackProgressBlobVaultKeys =>
+      'Chaves da caixa forte (vault.keys)';
+
+  @override
+  String get vaultCloudPackProgressBlobVaultData =>
+      'Datos cifrados da caixa forte (vault.bin)';
+
+  @override
+  String get vaultCloudPackProgressBlobVaultMode => 'Modo da caixa forte';
+
+  @override
+  String vaultCloudPackProgressBlobAttachment(String name) {
+    return 'Anexo: $name';
+  }
+
+  @override
+  String get vaultCloudPackProgressBlobAttachmentAnonymous => 'Anexo';
+
+  @override
+  String vaultCloudPackProgressUploadingBlobProgress(
+    int current,
+    int total,
+    String part,
+  ) {
+    return 'Subindo parte $current de $total: $part';
+  }
+
+  @override
+  String get vaultCloudPackProgressUploadingSnapshot =>
+      'Subindo índice da copia (snapshot)…';
+
+  @override
+  String get vaultCloudPackProgressFinalizing =>
+      'Rexistrando a copia no servidor…';
+
+  @override
+  String get vaultCloudPackProgressCleaningBlobs =>
+      'Eliminando datos antigos na nube…';
+
+  @override
+  String get vaultCloudPackProgressUpdatingIndex =>
+      'Actualizando o índice de copias…';
+
+  @override
+  String get vaultCloudPackProgressComplete => 'Copia na nube completada.';
+
+  @override
   String get vaultIdentitySyncTitle => 'Sincronización';
 
   @override
@@ -3087,11 +3182,9 @@ class AppLocalizationsGl extends AppLocalizations {
       'En Windows, «Actualizar» tamén sincroniza a Microsoft Store (mesmo botón que Stripe).';
 
   @override
-  String get folioCloudUploadEncryptedBackup => 'Facer copia na nube agora';
-
-  @override
-  String get folioCloudUploadEncryptedBackupSubtitle =>
-      'Folio crea unha copia cifrada da túa caixa forte aberta e súbea—sen exportación ZIP manual.';
+  String folioCloudIncrementalBackupManualHint(String actionTitle) {
+    return 'Para subir agora unha copia incremental cifrada (sen exportar .zip), vai a Axustes → Caderno e preme «$actionTitle»; alí configuras cartafol local e/ou Folio Cloud.';
+  }
 
   @override
   String get folioCloudUploadSnackOk => 'Copia da caixa forte gardada na nube.';
@@ -3559,20 +3652,65 @@ class AppLocalizationsGl extends AppLocalizations {
 
   @override
   String get blockEditorEnterHintNewBlock =>
-      'Intro: bloque novo (en código: Intro = liña)';
+      'Intro: bloque novo se está activado (Ctrl+Intro / Cmd+Intro: sempre) · en código: Intro = liña';
 
   @override
   String get blockEditorEnterHintNewLine => 'Intro: nova liña';
 
   @override
+  String get blockEditorSlashNoMatches => 'Sen coincidencias';
+
+  @override
   String blockEditorShortcutsHintMobile(String enterHint) {
-    return '$enterHint · / para bloques · toca o bloque para máis accións';
+    return '$enterHint · Ctrl+Intro / Cmd+Intro: bloque novo · / para bloques · toca o bloque para máis accións';
   }
 
   @override
   String blockEditorShortcutsHintDesktop(String enterHint) {
-    return '$enterHint · Maiús+Intro: liña · / tipos · # título (mesma liña) · - · * · [] · ``` espazo · táboa/imaxe en / · formato: barra ao enfocar ou ** _ <u> ` ~~';
+    return '$enterHint · Ctrl+Intro / Cmd+Intro: sempre bloque novo · Maiús+Intro: liña · / tipos · # título (mesma liña) · - · * · [] · ``` espazo · táboa/imaxe en / · formato: barra flotante ao seleccionar texto ou ** _ <u> ` ~~';
   }
+
+  @override
+  String get formatToolbarQuillUnlink => 'Quitar ligazón';
+
+  @override
+  String get formatToolbarQuillTextColor => 'Cor do texto';
+
+  @override
+  String get formatToolbarQuillFillColor => 'Cor de fondo';
+
+  @override
+  String get formatToolbarQuillHighlight => 'Resaltar';
+
+  @override
+  String get formatToolbarQuillHeading1 => 'Título 1';
+
+  @override
+  String get formatToolbarQuillHeading2 => 'Título 2';
+
+  @override
+  String get formatToolbarQuillHeading3 => 'Título 3';
+
+  @override
+  String get formatToolbarQuillBulletList => 'Lista con viñetas';
+
+  @override
+  String get formatToolbarQuillNumberedList => 'Lista numerada';
+
+  @override
+  String get formatToolbarQuillChecklist => 'Lista de tarefas';
+
+  @override
+  String get formatToolbarQuillQuote => 'Cita';
+
+  @override
+  String get formatToolbarQuillIndentMore => 'Aumentar sangría';
+
+  @override
+  String get formatToolbarQuillIndentLess => 'Reducir sangría';
+
+  @override
+  String get formatToolbarQuillClear => 'Limpar formato';
 
   @override
   String blockEditorSelectedBlocksBanner(int count) {
@@ -5195,8 +5333,7 @@ class AppLocalizationsGl extends AppLocalizations {
   String get settingsSubsectionVaultBackupImport => 'Copias e importación';
 
   @override
-  String get settingsSubsectionVaultScheduledLocal =>
-      'Copia programada (local)';
+  String get settingsSubsectionVaultScheduledLocal => 'Copia programada';
 
   @override
   String get settingsSubsectionDrive => 'Drive';
@@ -5947,25 +6084,25 @@ class AppLocalizationsGl extends AppLocalizations {
 
   @override
   String get settingsTelemetrySubtitle =>
-      'Axuda a medir instalacións e uso de funcións. Non se envía contido do caderno nin títulos.';
+      'Se está activado, axuda a medir o uso de funcións. Sempre se envía un sinal anónimo único de instalación. Non se envía contido do caderno nin títulos.';
 
   @override
   String get onboardingTelemetryTitle => 'Estatísticas de uso';
 
   @override
   String get onboardingTelemetryBody =>
-      'Folio pode enviar analítica anónima para entender como se usa a app. Podes cambialo en calquera momento en Axustes.';
+      'Se está activado, Folio pode enviar analítica anónima para entender como se usa a app. No primeiro arranque envíase igualmente un sinal anónimo único de instalación. Podes cambiar as estatísticas de uso en calquera momento en Axustes.';
 
   @override
   String get onboardingTelemetrySwitchTitle => 'Estatísticas de uso anónimas';
 
   @override
   String get onboardingTelemetrySwitchSubtitle =>
-      'Axuda a medir instalacións e uso de funcións. Non se envía contido do caderno nin títulos.';
+      'Se está activado, axuda a medir o uso de funcións. Aínda que o desactives, rexístrase unha instalación anónima única. Non se envía contido do caderno nin títulos.';
 
   @override
   String get onboardingTelemetryFootnote =>
-      'Non se envía contido do caderno nin títulos de páxinas.';
+      'Non se envía contido do caderno nin títulos de páxinas. Envíase un evento anónimo de instalación unha vez por instalación, independentemente deste axuste.';
 
   @override
   String get settingsAutoCrashReportsTitle =>
@@ -6200,7 +6337,7 @@ class AppLocalizationsGl extends AppLocalizations {
 
   @override
   String get telemetryDashboardNoDataHint =>
-      'Usa a icona de envío para baleirar eventos pendentes e logo actualiza.\nOs totais globais aparecen tras a tarefa programada (02:00 UTC, día UTC anterior).';
+      'Usa a icona de envío para baleirar eventos pendentes e logo actualiza.\nOs totais globais actualízanse cada hora (UTC) para hoxe e onte.';
 
   @override
   String get telemetryDashboardFlushRefresh => 'Baleirar e actualizar';
@@ -6211,7 +6348,7 @@ class AppLocalizationsGl extends AppLocalizations {
 
   @override
   String get telemetryDashboardSectionGlobalSubtitle =>
-      'Totais da agregación nocturna (02:00 UTC).';
+      'Totais da agregación horaria (UTC).';
 
   @override
   String get telemetryDashboardMetricUsers => 'Usuarios';
@@ -6329,7 +6466,7 @@ class AppLocalizationsGl extends AppLocalizations {
 
   @override
   String get telemetrySentDataErrorsBody =>
-      'Erros da app e peches inesperados (se a telemetría está activa).';
+      'Erros da app e peches inesperados (se as estatísticas de uso están activas).';
 
   @override
   String get telemetrySentDataPrivacyNote =>
@@ -6337,7 +6474,7 @@ class AppLocalizationsGl extends AppLocalizations {
 
   @override
   String get telemetrySentDataChannelsNote =>
-      'Firebase Analytics usa un identificador anónimo de instalación. Unha copia de eventos en Firestore só se envía se tes sesión iniciada en Folio Cloud.';
+      'Firebase Analytics usa un identificador anónimo de instalación. Envíase unha vez por instalación o evento folio_install aínda que as estatísticas de uso estean desactivadas. O resto de eventos copiados a Firestore só se envían con sesión iniciada en Folio Cloud.';
 
   @override
   String get telemetrySentDataViewTechnicalDetails => 'Ver detalles técnicos';
@@ -6721,5 +6858,5 @@ class AppLocalizationsGl extends AppLocalizations {
 
   @override
   String get jiraCloudMissingOAuthSecret =>
-      'Falta JIRA_OAUTH_CLIENT_SECRET. Podes definilo en lib/config/folio_local_secrets.dart (copia desde o .example), nun .env que Folio carga ao iniciar ou con --dart-define. Reinicia a app e revisa o log folio.env.';
+      'Falta JIRA_OAUTH_CLIENT_SECRET. Defíneo sobre todo en lib/config/folio_local_secrets.dart (copia desde o .example). En escritorio tamén podes usar un .env ao iniciar; na web só ese ficheiro ou --dart-define e recompilar. Reinicia a app; se usas .env en escritorio, revisa o log folio.env.';
 }

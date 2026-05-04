@@ -274,8 +274,9 @@ class JiraAuthService {
     if (Firebase.apps.isEmpty) {
       throw StateError(
         'Falta JIRA_OAUTH_CLIENT_SECRET en este equipo y Firebase no está inicializado. '
-        'Opciones: lib/config/folio_local_secrets.dart (copia desde .example), %APPDATA%\\Folio\\.env, '
-        '--dart-define al compilar, o Cloud Functions con JIRA_OAUTH_CLIENT_SECRET (folioJiraExchangeOAuth).',
+        'Opciones (en este orden de uso habitual): lib/config/folio_local_secrets.dart (copia desde .example), '
+        '--dart-define al compilar, %APPDATA%\\Folio\\.env en escritorio Windows, '
+        'o Cloud Functions con JIRA_OAUTH_CLIENT_SECRET (folioJiraExchangeOAuth).',
       );
     }
     final projectId = DefaultFirebaseOptions.currentPlatform.projectId;
@@ -312,7 +313,8 @@ class JiraAuthService {
         mapTry['error']?.toString() == 'jira_oauth_not_configured') {
       throw StateError(
         'El servidor Folio no tiene configurado JIRA_OAUTH_CLIENT_SECRET. '
-        'Contacta al administrador o define el secret en lib/config/folio_local_secrets.dart o %APPDATA%\\Folio\\.env.',
+        'Contacta al administrador o define el secret en lib/config/folio_local_secrets.dart '
+        '(preferido); en escritorio Windows también en %APPDATA%\\Folio\\.env.',
       );
     }
     if (resp.statusCode < 200 || resp.statusCode >= 300) {
