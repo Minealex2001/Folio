@@ -125,6 +125,8 @@
   "systemTheme": "Sistema",
   "lightTheme": "Clar",
   "darkTheme": "Fosc",
+  "settingsOledThemeTitle": "Tema OLED",
+  "settingsOledThemeBody": "Fes servir negre pur en mode fosc per estalviar bateria i reduir halos.",
   "language": "Idioma",
   "useSystemLanguage": "Utilitza l'idioma del sistema",
   "spanishLanguage": "Castellà",

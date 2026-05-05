@@ -125,6 +125,8 @@
   "systemTheme": "Sistema",
   "lightTheme": "Claro",
   "darkTheme": "Escuro",
+  "settingsOledThemeTitle": "Tema OLED",
+  "settingsOledThemeBody": "Usa negro puro no modo escuro para aforrar batería e reducir halos.",
   "language": "Idioma",
   "useSystemLanguage": "Usar o idioma do sistema",
   "spanishLanguage": "Español",

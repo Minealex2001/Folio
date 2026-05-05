@@ -97,7 +97,20 @@ Future<void> main() async {
       };
 
       SystemTheme.fallbackColor = const Color(0xFF455A64);
-      await SystemTheme.accentColor.load();
+      try {
+        await SystemTheme.accentColor.load();
+      } catch (e, st) {
+        AppLogger.warn(
+          'SystemTheme accent load failed',
+          tag: 'theme',
+          context: {'error': '$e'},
+        );
+        AppLogger.debug(
+          'SystemTheme accent stack',
+          tag: 'theme',
+          context: {'stack': '$st'},
+        );
+      }
 
       try {
         await Firebase.initializeApp(

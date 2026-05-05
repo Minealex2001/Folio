@@ -277,6 +277,7 @@ class AppSettings extends ChangeNotifier {
     : _configuredIntegrationSecret = integrationSecret.trim();
 
   static const _themeModeKey = 'folio_theme_mode';
+  static const _oledThemeEnabledKey = 'folio_oled_theme_enabled';
   static const _uiScaleKey = 'folio_ui_scale';
   static const _uiScaleModeKey = 'folio_ui_scale_mode';
   static const _localeCodeKey = 'folio_locale_code';
@@ -502,6 +503,7 @@ class AppSettings extends ChangeNotifier {
   );
 
   ThemeMode _themeMode = ThemeMode.system;
+  bool _oledThemeEnabled = false;
   double _uiScale = defaultUiScale;
   UiScaleMode _uiScaleMode = UiScaleMode.manual;
   Locale? _locale;
@@ -599,6 +601,7 @@ class AppSettings extends ChangeNotifier {
   int _customAccentArgb = 0xFF455A64;
 
   ThemeMode get themeMode => _themeMode;
+  bool get oledThemeEnabled => _oledThemeEnabled;
 
   /// Semilla de color para temas claro/oscuro (Material 3).
   Color resolveAccentSeedColor() {
@@ -795,6 +798,7 @@ class AppSettings extends ChangeNotifier {
     final p = await SharedPreferences.getInstance();
     final raw = p.getString(_themeModeKey);
     _themeMode = _parseThemeMode(raw) ?? ThemeMode.system;
+    _oledThemeEnabled = p.getBool(_oledThemeEnabledKey) ?? false;
     _uiScale = _sanitizeUiScale(p.getDouble(_uiScaleKey));
     _uiScaleMode = _parseUiScaleMode(p.getString(_uiScaleModeKey));
     final localeCode = p.getString(_localeCodeKey);
@@ -1318,6 +1322,14 @@ class AppSettings extends ChangeNotifier {
       ThemeMode.system => 'system',
     };
     await p.setString(_themeModeKey, v);
+  }
+
+  Future<void> setOledThemeEnabled(bool value) async {
+    if (_oledThemeEnabled == value) return;
+    _oledThemeEnabled = value;
+    notifyListeners();
+    final p = await SharedPreferences.getInstance();
+    await p.setBool(_oledThemeEnabledKey, value);
   }
 
   Future<void> setUiScale(double value) async {

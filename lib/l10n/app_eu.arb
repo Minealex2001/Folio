@@ -125,6 +125,8 @@
   "systemTheme": "Sistemarena",
   "lightTheme": "Argia",
   "darkTheme": "Iluna",
+  "settingsOledThemeTitle": "OLED gaia",
+  "settingsOledThemeBody": "Erabili beltz purua modu ilunean bateria aurrezteko eta distira murrizteko.",
   "language": "Hizkuntza",
   "useSystemLanguage": "Erabili sistemaren hizkuntza",
   "spanishLanguage": "Gaztelania",

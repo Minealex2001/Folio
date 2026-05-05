@@ -1,6 +1,7 @@
 import 'dart:async';
 
-import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:flutter/foundation.dart'
+    show TargetPlatform, defaultTargetPlatform, kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:passkeys/exceptions.dart';
 
@@ -51,6 +52,18 @@ class _LockScreenState extends State<LockScreen> {
     if (!mounted) return;
     if (widget.appSettings.lockScreenAutoQuickUnlockDone) return;
     if (!quick && !passkey) return;
+    // En Windows, abrir WebAuthn automáticamente al mostrar el bloqueo ha provocado
+    // cierres del proceso en algunos equipos. Hello puede seguir ofreciéndose en auto
+    // si está activo; la passkey sigue en el botón.
+    final windowsNoAutoPasskey =
+        !kIsWeb &&
+        defaultTargetPlatform == TargetPlatform.windows &&
+        passkey &&
+        !quick;
+    if (windowsNoAutoPasskey) {
+      await widget.appSettings.setLockScreenAutoQuickUnlockDone();
+      return;
+    }
     await widget.appSettings.setLockScreenAutoQuickUnlockDone();
     if (!mounted) return;
     WidgetsBinding.instance.addPostFrameCallback((_) {

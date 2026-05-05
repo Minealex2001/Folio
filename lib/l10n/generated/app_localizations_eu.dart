@@ -350,6 +350,13 @@ class AppLocalizationsEu extends AppLocalizations {
   String get darkTheme => 'Iluna';
 
   @override
+  String get settingsOledThemeTitle => 'OLED gaia';
+
+  @override
+  String get settingsOledThemeBody =>
+      'Erabili beltz purua modu ilunean bateria aurrezteko eta distira murrizteko.';
+
+  @override
   String get language => 'Hizkuntza';
 
   @override

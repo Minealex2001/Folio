@@ -261,7 +261,7 @@ class VaultSession extends ChangeNotifier {
   }) : _repo = repository ?? VaultRepository(),
        _quick = quickUnlock ?? QuickUnlockStorage(),
        _rp = rpServer ?? FolioRpServer(),
-       _passkeys = passkeys ?? PasskeyAuthenticator(),
+       _passkeysOverride = passkeys,
        _localAuth = localAuth ?? LocalAuthentication() {
     final l10n = lookupAppLocalizations(titleLocale ?? const Locale('es'));
     _aiChatThreads = [
@@ -282,7 +282,14 @@ class VaultSession extends ChangeNotifier {
   final VaultRepository _repo;
   final QuickUnlockStorage _quick;
   final FolioRpServer _rp;
-  final PasskeyAuthenticator _passkeys;
+  final PasskeyAuthenticator? _passkeysOverride;
+  PasskeyAuthenticator? _passkeysLazy;
+
+  /// PasskeysDoctor se engancha en el constructor de [PasskeyAuthenticator]; aplazar
+  /// la creación evita trabajo nativo/Pigeon al arrancar la app (p. ej. Windows).
+  PasskeyAuthenticator get _passkeys =>
+      _passkeysOverride ?? (_passkeysLazy ??= PasskeyAuthenticator());
+
   final LocalAuthentication _localAuth;
   void Function()? onPersisted;
   void Function(int pendingConflicts)? onSyncConflictCountChanged;

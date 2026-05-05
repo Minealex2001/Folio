@@ -22,6 +22,7 @@ import '../services/platform/launch_arguments.dart';
 import '../services/cloud_account/cloud_account_controller.dart';
 import '../services/ai/folio_cloud_ai_service.dart';
 import '../services/folio_cloud/folio_cloud_entitlements.dart';
+import '../services/app_logger.dart';
 import '../services/folio_diagnostic_reporter.dart';
 import '../services/folio_telemetry.dart';
 import '../services/folio_telemetry_navigator_observer.dart';
@@ -759,7 +760,16 @@ class _FolioAppState extends State<FolioApp> with WidgetsBindingObserver {
       labelsBuilder: _desktopLabels,
     );
     _desktop = desktop;
-    await desktop.initialize();
+    try {
+      await desktop.initialize();
+    } catch (e, st) {
+      AppLogger.error(
+        'Desktop integration init failed',
+        tag: 'desktop',
+        error: e,
+        stackTrace: st,
+      );
+    }
     _desktopSettingsSignature = _buildDesktopSettingsSignature();
   }
 
@@ -1156,7 +1166,9 @@ class _FolioAppState extends State<FolioApp> with WidgetsBindingObserver {
       navigatorObservers: [_telemetryNavObserver],
       onGenerateTitle: (context) => AppLocalizations.of(context).appTitle,
       theme: folioLightTheme(seed),
-      darkTheme: folioDarkTheme(seed),
+      darkTheme: widget.appSettings.oledThemeEnabled
+          ? folioOledTheme(seed)
+          : folioDarkTheme(seed),
       themeMode: widget.appSettings.themeMode,
       locale: widget.appSettings.locale,
       supportedLocales: AppLocalizations.supportedLocales,

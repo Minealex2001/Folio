@@ -351,6 +351,13 @@ class AppLocalizationsCa extends AppLocalizations {
   String get darkTheme => 'Fosc';
 
   @override
+  String get settingsOledThemeTitle => 'Tema OLED';
+
+  @override
+  String get settingsOledThemeBody =>
+      'Fes servir negre pur en mode fosc per estalviar bateria i reduir halos.';
+
+  @override
   String get language => 'Idioma';
 
   @override

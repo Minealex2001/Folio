@@ -5555,6 +5555,26 @@ class _SettingsPageState extends State<SettingsPage> {
                                         },
                                       ),
                                     ),
+                                    const SizedBox(height: 8),
+                                    Padding(
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 16,
+                                      ),
+                                      child: Card(
+                                        child: SwitchListTile(
+                                          title: Text(
+                                            l10n.settingsOledThemeTitle,
+                                          ),
+                                          subtitle: Text(
+                                            l10n.settingsOledThemeBody,
+                                          ),
+                                          value: _app.oledThemeEnabled,
+                                          onChanged: (value) {
+                                            _app.setOledThemeEnabled(value);
+                                          },
+                                        ),
+                                      ),
+                                    ),
                                     const SizedBox(height: 12),
                                     Text(
                                       l10n.settingsAccentColorTitle,

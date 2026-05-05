@@ -350,6 +350,13 @@ class AppLocalizationsEs extends AppLocalizations {
   String get darkTheme => 'Oscuro';
 
   @override
+  String get settingsOledThemeTitle => 'Tema OLED';
+
+  @override
+  String get settingsOledThemeBody =>
+      'Usa negro puro en el modo oscuro para ahorrar batería y reducir halos.';
+
+  @override
   String get language => 'Idioma';
 
   @override

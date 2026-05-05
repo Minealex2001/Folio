@@ -712,6 +712,18 @@ abstract class AppLocalizations {
   /// **'Oscuro'**
   String get darkTheme;
 
+  /// No description provided for @settingsOledThemeTitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Tema OLED'**
+  String get settingsOledThemeTitle;
+
+  /// No description provided for @settingsOledThemeBody.
+  ///
+  /// In es, this message translates to:
+  /// **'Usa negro puro en el modo oscuro para ahorrar batería y reducir halos.'**
+  String get settingsOledThemeBody;
+
   /// No description provided for @language.
   ///
   /// In es, this message translates to:

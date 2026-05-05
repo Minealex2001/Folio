@@ -19,6 +19,20 @@ import 'telemetry_models.dart';
 class FolioTelemetry {
   FolioTelemetry._();
 
+  /// En Windows/Linux el binario de Flutter no registra el plugin de Analytics
+  /// (no aparece en `generated_plugin_registrant.cc`); las llamadas Pigeon fallan
+  /// con `channel-error` y no deben ejecutarse.
+  static bool get _canUseFirebaseAnalytics {
+    if (kIsWeb) return true;
+    return switch (defaultTargetPlatform) {
+      TargetPlatform.android ||
+      TargetPlatform.iOS ||
+      TargetPlatform.macOS =>
+        true,
+      _ => false,
+    };
+  }
+
   static const _installIdKey = 'folio_anonymous_install_id';
   /// Ping único a GA4 por instalación (independiente del interruptor de telemetría).
   static const _installPingKey = 'folio_install_ping_sent_v1';
@@ -36,6 +50,7 @@ class FolioTelemetry {
 
   static Future<void> applyAfterSettingsLoaded(AppSettings settings) async {
     if (Firebase.apps.isEmpty) return;
+    if (!_canUseFirebaseAnalytics) return;
     try {
       await _recordMinimalInstallIfNeeded(settings);
 
@@ -72,7 +87,7 @@ class FolioTelemetry {
   static Future<void> _recordMinimalInstallIfNeeded(
     AppSettings settings,
   ) async {
-    if (Firebase.apps.isEmpty) return;
+    if (!_canUseFirebaseAnalytics || Firebase.apps.isEmpty) return;
     final prefs = await SharedPreferences.getInstance();
     if (prefs.getBool(_installPingKey) ?? false) return;
 
@@ -103,9 +118,11 @@ class FolioTelemetry {
         context: {'stack': '$st'},
       );
     } finally {
-      await FirebaseAnalytics.instance.setAnalyticsCollectionEnabled(
-        settings.telemetryEnabled,
-      );
+      try {
+        await FirebaseAnalytics.instance.setAnalyticsCollectionEnabled(
+          settings.telemetryEnabled,
+        );
+      } catch (_) {}
     }
   }
 
@@ -129,7 +146,11 @@ class FolioTelemetry {
     AppSettings settings,
     String featureName,
   ) async {
-    if (!settings.telemetryEnabled || Firebase.apps.isEmpty) return;
+    if (!_canUseFirebaseAnalytics ||
+        !settings.telemetryEnabled ||
+        Firebase.apps.isEmpty) {
+      return;
+    }
     final name = featureName.trim();
     if (name.isEmpty) return;
     try {
@@ -165,7 +186,11 @@ class FolioTelemetry {
     String contentType, {
     Map<String, dynamic> metadata = const {},
   }) async {
-    if (!settings.telemetryEnabled || Firebase.apps.isEmpty) return;
+    if (!_canUseFirebaseAnalytics ||
+        !settings.telemetryEnabled ||
+        Firebase.apps.isEmpty) {
+      return;
+    }
     try {
       await FirebaseAnalytics.instance.logEvent(
         name: 'content_action',
@@ -192,7 +217,11 @@ class FolioTelemetry {
     String fromScreen,
     String toScreen,
   ) async {
-    if (!settings.telemetryEnabled || Firebase.apps.isEmpty) return;
+    if (!_canUseFirebaseAnalytics ||
+        !settings.telemetryEnabled ||
+        Firebase.apps.isEmpty) {
+      return;
+    }
     try {
       await FirebaseAnalytics.instance.logEvent(
         name: 'screen_view',
@@ -219,7 +248,11 @@ class FolioTelemetry {
     int resultCount, {
     int? durationMs,
   }) async {
-    if (!settings.telemetryEnabled || Firebase.apps.isEmpty) return;
+    if (!_canUseFirebaseAnalytics ||
+        !settings.telemetryEnabled ||
+        Firebase.apps.isEmpty) {
+      return;
+    }
     try {
       await FirebaseAnalytics.instance.logEvent(
         name: 'search',
@@ -249,7 +282,11 @@ class FolioTelemetry {
     String? errorMessage,
     int? durationMs,
   }) async {
-    if (!settings.telemetryEnabled || Firebase.apps.isEmpty) return;
+    if (!_canUseFirebaseAnalytics ||
+        !settings.telemetryEnabled ||
+        Firebase.apps.isEmpty) {
+      return;
+    }
     try {
       await FirebaseAnalytics.instance.logEvent(
         name: 'sync_event',
@@ -281,7 +318,11 @@ class FolioTelemetry {
     int durationMs, {
     Map<String, dynamic> metadata = const {},
   }) async {
-    if (!settings.telemetryEnabled || Firebase.apps.isEmpty) return;
+    if (!_canUseFirebaseAnalytics ||
+        !settings.telemetryEnabled ||
+        Firebase.apps.isEmpty) {
+      return;
+    }
     try {
       await FirebaseAnalytics.instance.logEvent(
         name: 'performance',
@@ -309,7 +350,11 @@ class FolioTelemetry {
     String context, {
     StackTrace? stackTrace,
   }) async {
-    if (!settings.telemetryEnabled || Firebase.apps.isEmpty) return;
+    if (!_canUseFirebaseAnalytics ||
+        !settings.telemetryEnabled ||
+        Firebase.apps.isEmpty) {
+      return;
+    }
     try {
       final errorType = exception.runtimeType.toString();
       final errorMsg = exception.toString();
@@ -343,7 +388,11 @@ class FolioTelemetry {
     AppSettings settings,
     Map<String, dynamic> stats,
   ) async {
-    if (!settings.telemetryEnabled || Firebase.apps.isEmpty) return;
+    if (!_canUseFirebaseAnalytics ||
+        !settings.telemetryEnabled ||
+        Firebase.apps.isEmpty) {
+      return;
+    }
     try {
       // Enviar solo subset de stats a Firebase Analytics (límite de propiedades)
       final analyticsStats = <String, Object>{};

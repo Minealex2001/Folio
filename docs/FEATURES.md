@@ -70,6 +70,10 @@ La app es **local-first**: los datos se almacenan en disco; la nube (Firebase) e
 
 **Windows (CMake / super_native_extensions):** si al compilar aparece `Get-Item : No se encontró el elemento ...\AppData` en `resolve_symlinks.ps1`, ejecutar tras `flutter pub get`: `powershell -ExecutionPolicy Bypass -File tool/apply_cargokit_resolve_symlink_patch.ps1`. El proyecto incluye `tool/windows/cargokit_resolve_symlinks.ps1` (script endurecido). En `windows/CMakeLists.txt` se fija la política **CMP0175** para reducir avisos de plugins como `webview_windows`.
 
+**Escritorio (Windows / Linux) y Firebase Analytics:** el runner de Flutter no registra el plugin nativo de `firebase_analytics` en esas plataformas. `FolioTelemetry` evita todas las llamadas a Analytics ahí (no hay implementación Pigeon); Firebase Core, Auth y Firestore siguen usándose cuando aplica. El arranque también tolera fallos al cargar el acento del sistema (`SystemTheme`) y errores al inicializar bandeja / `window_manager` sin tumbar la app.
+
+**Windows y passkeys:** `PasskeyAuthenticator` se crea solo cuando hace falta (desbloqueo o registro), para no enganchar PasskeysDoctor al iniciar. En la pantalla de bloqueo, si solo hay passkey (sin Hello), no se lanza WebAuthn automáticamente al abrir el bloqueo; el usuario puede usar el botón.
+
 ---
 
 ## 2. Editor de bloques
@@ -771,6 +775,7 @@ Implementada en `lib/services/jira/` (3 ficheros: `jira_auth_service.dart`, `jir
 ### Modo de tema
 
 - Claro / Oscuro / Seguir sistema (`ThemeMode`), configurable en `AppSettings.themeMode`.
+- Opción **OLED** (negro puro) para el modo oscuro, configurable en `AppSettings.oledThemeEnabled`.
 
 ### Color de acento (`FolioAccentColorMode`)
 
