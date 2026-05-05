@@ -10,6 +10,11 @@ set(BINARY_NAME "folio")
 # versions of CMake.
 cmake_policy(VERSION 3.14...3.25)
 
+# Evita avisos CMP0175 desde plugins (p. ej. webview_windows) con CMake reciente.
+if(POLICY CMP0175)
+  cmake_policy(SET CMP0175 NEW)
+endif()
+
 # Define build configuration option.
 get_property(IS_MULTICONFIG GLOBAL PROPERTY GENERATOR_IS_MULTI_CONFIG)
 if(IS_MULTICONFIG)

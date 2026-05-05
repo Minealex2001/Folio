@@ -1,7 +1,7 @@
 # Folio — Inventario completo de funcionalidades implementadas
 
 > Documento generado a partir de una exploración exhaustiva del código fuente.  
-> Última revisión: 2026-05-04 (sincronizado con el estado del repositorio).
+> Última revisión: 2026-05-05 (sincronizado con el estado del repositorio).
 
 ---
 
@@ -67,6 +67,8 @@
 | Web | ✅ |
 
 La app es **local-first**: los datos se almacenan en disco; la nube (Firebase) es opcional.
+
+**Windows (CMake / super_native_extensions):** si al compilar aparece `Get-Item : No se encontró el elemento ...\AppData` en `resolve_symlinks.ps1`, ejecutar tras `flutter pub get`: `powershell -ExecutionPolicy Bypass -File tool/apply_cargokit_resolve_symlink_patch.ps1`. El proyecto incluye `tool/windows/cargokit_resolve_symlinks.ps1` (script endurecido). En `windows/CMakeLists.txt` se fija la política **CMP0175** para reducir avisos de plugins como `webview_windows`.
 
 ---
 
