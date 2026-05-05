@@ -1,7 +1,7 @@
 # Folio — Inventario completo de funcionalidades implementadas
 
 > Documento generado a partir de una exploración exhaustiva del código fuente.  
-> Última revisión: 2026-05-01 (sincronizado con el estado del repositorio).
+> Última revisión: 2026-05-04 (sincronizado con el estado del repositorio).
 
 ---
 
@@ -49,6 +49,7 @@
 40. [Importar PDF con anotaciones](#40-importar-pdf-con-anotaciones)
 41. [Lienzo infinito (canvas)](#41-lienzo-infinito-canvas)
 42. [Pantalla de inicio (Home)](#42-pantalla-de-inicio-home)
+43. [Hub de tareas de la libreta](#43-hub-de-tareas-de-la-libreta)
 
 **Apéndice:** [configuración persistida (`AppSettings`)](#apéndice-configuración-persistida-appsettings)
 
@@ -125,7 +126,15 @@ El editor es completamente personalizado (no usa un widget de terceros como edit
 
 - Configuración serializada en `block.text` como `FolioKanbanData` (`lib/models/folio_kanban_data.dart`).
 - Vista de página: `KanbanBoardPage` (`lib/features/workspace/kanban/kanban_board_page.dart`) — columnas, tarjetas vinculadas a tareas, conmutación entre vista tablero y editor clásico (banner `kanbanClassicModeBanner`, acciones `kanbanToolbarOpenEditor` / `kanbanToolbarAddTask`).
+- Detalle de tarea en el tablero: fechas inicio/vencimiento, bloqueo y motivo, **recurrencia** (diaria / semanal / mensual / anual o derivada de `recurringRule` RRULE), **recordatorio** (icono compacto junto al selector; ver [§31](#31-captura-rápida-de-tarea)), tiempo invertido, prioridad, descripción, subtareas, integración Jira cuando aplica.
 - Varias instancias del bloque en la misma página: aviso `kanbanMultipleBlocksSnack` (se usa el primero).
+
+### Bloque `task` (tareas enriquecidas)
+
+- **No** aparece en el menú `/` ni en `blockTypeTemplates` (sigue habiendo **31** tipos allí); el modelo de página sí admite `type: task` y la UI lo pinta en el editor (`folio_special_block_widgets.dart`) y en vistas globales.
+- Contenido en `block.text`: JSON **`FolioTaskData`** (`lib/models/folio_task_data.dart`), con `tryParse` / `encode` retrocompatibles entre versiones del esquema.
+- Campos destacados: `title`, `status` (`todo` / `in_progress` / `done`), `columnId`, `parentTaskId` (subtareas enlazadas), `blocked` + `blockedReason`, `priority`, `description`, `startDate` / `dueDate` (ISO), `recurrence` + `recurringRule` (RRULE iCalendar opcional), `reminderEnabled`, `timeSpentMinutes`, `tags`, `assignee`, `estimatedMinutes`, `storyPoints`, `customProperties`, `blockedByTaskIds`, metadatos de IA (`aiGenerated`, `aiContextPageId`, `confidenceScore`, `suggestedDueDate`, …), enlaces `external` / snapshot `jira`.
+- En el editor: checkbox y barra rápida; vista expandida con metadatos; arrastre y APIs de sesión cuando el bloque se mueve entre páginas (`VaultSession.moveBlockToPage`, etc.).
 
 ### Selector de tipo de bloque
 
@@ -513,31 +522,62 @@ Implementado en `lib/services/device_sync/device_sync_controller.dart`.
 | `edit_current` | Edita secciones específicas de la página |
 | `create_page` | Crea una nueva página con el resultado |
 
-### Interfaz de chat (`lib/features/workspace/shell/workspace_page_ai_panel.dart`)
+### Interfaz de chat (panel Quill)
 
-- Entrada: `Enter` envía, `Ctrl+Enter` inserta salto de línea.
-- Menú de contexto con navegación teclado (`↑` / `↓` / `Enter` / `Esc`).
-- Respuestas renderizadas con animación typewriter (30 ms tick, 4–14 chars/tick según longitud).
-- Feedback por mensaje: `helpful` / `not_helpful`.
-- Adjuntos de archivo: `AiFileAttachment` (nombre, MIME type, contenido).
-- Conteo de tokens: `AiTokenUsage`.
-- Cabecera compacta: proveedor y tinta (Quill Cloud) en hoja inferior desde el menú «⋮».
-- Hilos: búsqueda en línea + botón de lista que abre selector vertical con filtro.
-- Compositor: bloque plegable «Contexto, tinta y adjuntos» (uso de contexto, atajos, coste de tinta y chips `@`).
-- Mientras `_aiChatBusy`: campo de entrada solo lectura y burbuja esqueleto con shimmer al final del listado.
-- Mensaje del asistente: menú «⋮» (copiar respuesta, copiar JSON estructurado si aplica, copiar mensaje completo).
+Código principal: `lib/features/workspace/shell/workspace_page_ai_panel.dart` (cabecera, lista, compositor, móvil), `lib/features/workspace/shell/workspace_page_ai_threads.dart` (hoja selector de hilos), `lib/features/workspace/shell/ai_chat_reply_skeleton.dart` (shimmer), filas de mensaje y aplicación de snapshots en `lib/features/workspace/shell/workspace_page.dart`.
 
-### Multi-hilo (`lib/features/workspace/shell/workspace_page_ai_threads.dart`)
+#### Cabecera y modo de panel
 
-- Varios hilos de conversación independientes; hoja modal con lista filtrable por título.
-- **Auto-renombre**: el primer turno de cada hilo genera automáticamente un título vía `threadTitle` en la respuesta JSON.
-- Diálogo de renombrado manual.
-- Subtítulo de contexto: "página actual", "N páginas", "desactivado".
+- **Cabecera densa**: título del hilo + subtítulo de contexto (página actual, *N* páginas o contexto desactivado) sin reservar filas extra para proveedor/tinta en la barra principal.
+- Menú **«⋮»** abre una **hoja inferior** con el proveedor activo (local vs nube) y, si aplica Folio Cloud, **tinta restante**, desglose mensual vs comprada, **coste estimado** de la siguiente respuesta y atajo a comprar tinta cuando el saldo está vacío.
+- En **dock ancho**, botón de **vista dividida** (`aiChatSplitView` en ajustes): alterna entre panel lateral acoplado al editor y panel tipo lateral clásico (tooltip `aiChatSplitViewTooltip`).
+- **Móvil**: el chat abre en **`DraggableScrollableSheet`** (~92% altura inicial, redimensionable); al cerrar, **FAB** compacto para volver a mostrar el panel.
+
+#### Hilos de conversación
+
+- **Búsqueda** en línea que filtra por título; la misma consulta alimenta la fila de **chips** horizontales (acceso rápido) y el listado del modal.
+- Botón de **lista** abre **bottom sheet** con lista vertical scrollable, altura acotada (~55% pantalla), campo de búsqueda y estado vacío localizado si no hay coincidencias.
+- **Renombrar**, **eliminar** el hilo activo y **Nuevo chat** se deshabilitan mientras `_aiChatBusy` para evitar carreras con la generación en curso.
+
+#### Lista de mensajes
+
+- Burbujas diferenciadas usuario/asistente; **marca de tiempo** en mensajes del asistente.
+- **Razonamiento vs respuesta final**: si el contenido separa *thought* y cuerpo, bloque plegable etiquetado (`aiAgentThought`) con el razonamiento; debajo, divisor y cuerpo. Ajuste **`aiAlwaysShowThought`** para forzar el razonamiento siempre expandido.
+- **Typewriter** en respuestas nuevas del asistente (velocidad adaptada a la longitud); la animación se limita al hilo actual y a mensajes recién añadidos.
+- **Mientras genera** (`_aiChatBusy`): al final del listado, fila con la misma jerarquía visual que una respuesta (avatar + burbuja) rellenada con **`FolioAiChatReplySkeleton`** (varias barras redondeadas y **shimmer** vía `ShaderMask`); accesibilidad con `Semantics` y `aiTypingSemantics` (live region). No se muestran los puntos clásicos del indicador de escritura en esa fila.
+- **Menú «⋮»** en respuestas del asistente: copiar solo el **cuerpo** visible, copiar **JSON estructurado** del `agentApplySnapshot` si existe, copiar **mensaje completo**.
+- **Pulgares útil / no útil**: valores `helpful` y `not_helpful` en `AiChatMessage.feedback` (`lib/services/ai/ai_types.dart`), persistidos con `VaultSession.updateMessageInActiveAiChat`. La UI usa solo ese campo (sin mapa local por índice), de modo que el voto **no se arrastra** al cambiar de hilo; el panel hace `setState` cuando el **fingerprint** de feedbacks del hilo activo cambia.
+- Respuestas con **snapshot de agente** (`blocks` / `operations`): botones para **aplicar** a la página abierta (p. ej. insertar al final, reemplazar, ejecutar operaciones) según el flujo en sesión.
+
+#### Compositor
+
+- **`ExpansionTile`** «Contexto de esta pregunta» (título y subtítulo localizados): al expandir, **uso del contexto** respecto a la ventana de tokens (barra + resumen + tooltip), **chips `@`**, adjuntos, texto de **atajos** (`Enter` envía, `Ctrl+Enter` nueva línea).
+- Con **`_aiChatBusy`**: campo de entrada en **solo lectura**, envío deshabilitado o sustituido por indicador de ocupación para evitar doble envío.
+- Menú **`@`** con **navegación por teclado** cuando el overlay está abierto (`↑` / `↓` / `Enter` / `Esc`).
+
+#### Estado vacío y datos auxiliares
+
+- Pantalla sin mensajes: icono, **`aiChatEmptyHint`** y botón **`aiChatEmptyFocusComposer`** que enfoca el compositor.
+- Tras cada respuesta: **`AiTokenUsage`** cuando el backend lo devuelve.
+- **Adjuntos**: `AiFileAttachment` (nombre, MIME, contenido).
+
+### Multi-hilo (persistencia y títulos)
+
+- Varios hilos independientes guardados en la sesión/vault; la **UI** del selector se describe arriba en «Hilos de conversación».
+- **Auto-renombre**: el primer turno puede fijar título vía `threadTitle` en el JSON de respuesta.
+- **Renombrado manual** por diálogo.
+- Subtítulo de contexto en cabecera: «página actual», «*N* páginas», «desactivado».
 
 ### Sistema de prompt
 
 - Prompt de sistema bilingüe (español/inglés), seleccionado según locale.
 - El asistente se identifica como "Quill".
+
+### Bloques `task` en respuestas IA y herramientas Quill
+
+- El pipeline de materialización (`vault_session_ai.dart`) acepta bloques `task` con `text` en JSON `FolioTaskData` o título plano; normaliza títulos vacíos y serializa con `encode()`.
+- **`QuillToolExecutor`** (`lib/services/ai/quill_tools.dart`): acción **`insertTasksFromEncodedLines`** para insertar líneas codificadas como bloques `task` en el documento actual (integración con el agente / herramientas).
+- Comandos slash de IA (`workspace_page_ai_slash.dart`): prompts orientados a extraer *action items* como bloques `task` (JSON en `text` o campo `title`) o `todo` cuando basta una lista simple, con aplicación sobre la página abierta cuando el modo lo permite.
 
 ---
 
@@ -708,8 +748,19 @@ Implementada en `lib/services/jira/` (3 ficheros: `jira_auth_service.dart`, `jir
 ## 31. Captura rápida de tarea
 
 - Atajo por defecto: `Ctrl+Shift+T`.
-- Permite crear una tarea rápidamente sin abrir ninguna página.
-- Integrado con `lib/services/tasks/`.
+- Diálogo de captura (`task_quick_add_dialog.dart`) integrado con **`TaskQuickCaptureParser`** (`lib/services/tasks/task_quick_capture_parser.dart`): título, prioridad heurística, estado, fecha/hora y etiquetas sin escribir JSON a mano.
+- **Fechas**: `due: YYYY-MM-DD` / `vence:` / `para:`; expresiones relativas **`hoy` / `today`**, **`mañana` / `tomorrow`**, **`pasado mañana`**, **`esta semana` / `this week`**, **`próxima semana` / `next week`**; hora en 12 h/24 h (`@ 3pm`, `14:30`) que se anexa a la fecha ISO como sufijo `T…`.
+- **Prioridad**: `!!` → `highest`; palabras tipo `p1`, `urgente`, `high`, `p2`, `p3`, `baja`, etc.
+- **Estado**: frases `en progreso` / `in progress` / `doing` / `wip` → `in_progress`.
+- **`#etiquetas`** en línea → campo `tags` de `FolioTaskData`.
+- **Alias de página**: sufijo `#slug` o `@slug` al final de la línea, resuelto contra un mapa de alias → **destino distinto** (`targetPageIdFromAlias`) para crear la tarea en otra página sin abrirla.
+- Servicios en `lib/services/tasks/`: recordatorios, notificaciones de escritorio (ver abajo), tests del parser y de recurrencia.
+
+### Recordatorios y notificaciones
+
+- **`TaskReminderService`** (`task_reminder_service.dart`): recorre bloques `task`, comprueba `reminderEnabled` y fechas de vencimiento; emite eventos para tareas **vencidas** o **con vencimiento hoy** (intervalo configurable, p. ej. cada hora).
+- En **`FolioApp`** esos eventos se traducen en **notificaciones nativas** vía **`PlatformNotificationService`** (`platform_notification_service.dart`, `local_notifier`) en **Windows, macOS y Linux**, si el usuario activó las notificaciones en ajustes (`windowsNotificationsEnabled` en `AppSettings`; el nombre histórico cubre el toggle de escritorio). En **web** (y móvil sin plugin adicional) el servicio de bandeja no aplica; la lógica de detección sigue siendo reutilizable.
+- **`advanceRecurrence`**: al completar ciclos, puede calcular la siguiente `dueDate` a partir de `recurrence` o de un `recurringRule` con prefijo `FREQ=DAILY|WEEKLY|MONTHLY|YEARLY`.
 
 ---
 
@@ -910,7 +961,7 @@ Los bloques de contenido se identifican por `WorkspaceHomeSectionIds` (`lib/app/
 | `mini_stats` | Conteo de páginas y tareas próximas |
 | `recents` | Lista de visitas recientes (`RecentPageVisitsChangeNotifier`, `lib/features/workspace/recent_page_visits.dart`) |
 | `tasks` | Tareas con vencimiento en **14 días**, franja semanal de conteos; chip opcional para **preguntar a la IA** sobre esas tareas si el runtime de IA está habilitado |
-| `quick_actions` | Accesos: ajustes, **vista de grafo**, plantillas, bloquear cofre, sync de dispositivos, tarea rápida, carpeta raíz, importar Markdown |
+| `quick_actions` | Accesos: ajustes, **vista de grafo**, plantillas, bloquear cofre, sync de dispositivos, **tarea rápida**, **hub de tareas de la libreta** (lista global), carpeta raíz, importar Markdown |
 | `tip` | Consejo del día (12 textos rotativos según fecha) |
 | `create_page` | Botón principal crear página |
 
@@ -918,6 +969,40 @@ Los bloques de contenido se identifican por `WorkspaceHomeSectionIds` (`lib/app/
 
 - Vista adaptada a `compact` / `mobileOptimized` (menos columnas y márgenes).
 - Cuenta Cloud y `FolioCloudEntitlementsController` alimentan la tarjeta Cloud y el estado de suscripción cuando aplica.
+
+---
+
+## 43. Hub de tareas de la libreta
+
+Vista **`VaultTaskHubPage`** (`lib/features/workspace/tasks/vault_task_hub_page.dart`) que lista **todas** las tareas de la libreta **sin** necesidad de un bloque Kanban en la página: agrega entradas con `VaultSession.collectTaskBlocks` (bloques `task` y, opcionalmente, ítems `todo`).
+
+### Acceso
+
+- **Barra lateral** (`sidebar.dart`): acción dedicada cuando el cofre está desbloqueado (`onOpenVaultTaskHub`).
+- **Home** → módulo **Accesos rápidos**: icono de tareas de la libreta (`onOpenVaultTasks` en `workspace_home_view.dart` / `workspace_editor_surface.dart`).
+
+### Filtros y presets
+
+Definidos en `vault_task_entry_filters.dart` (`VaultTaskListPreset`):
+
+| Preset | Criterio (resumen) |
+|---|---|
+| `all` | Todas |
+| `active` | No completadas |
+| `done` | Completadas |
+| `dueToday` | Vencen hoy |
+| `next7Days` | Próximos 7 días |
+| `overdue` | Vencidas (solo bloques `task`) |
+| `noDueDate` | Sin fecha límite |
+
+- Búsqueda por texto en título, título de página, **tags** y **assignee**.
+- Opción para incluir o excluir tareas simples tipo **`todo`** además de bloques **`task`**.
+- Lista ordenada por fecha de vencimiento y título; las subtareas con `parentTaskId` se omiten en la lista principal (la jerarquía se ve en la página).
+
+### Acciones
+
+- Abrir la **página y bloque** de una tarea (`onOpenTaskInPage`).
+- **Mover** la tarea a otra página (diálogo de selección de página).
 
 ---
 
@@ -937,3 +1022,4 @@ Los bloques de contenido se identifican por `WorkspaceHomeSectionIds` (`lib/app/
 | `syncPendingConflicts` | List | Conflictos de sync pendientes de resolución |
 | `syncLastSuccessMs` | int | Timestamp del último sync exitoso |
 | `enterCreatesNewBlock` | bool | `Enter` crea nuevo bloque (vs salto de línea) |
+| `windowsNotificationsEnabled` | bool | Notificaciones de escritorio para recordatorios de tareas (Windows / macOS / Linux vía `local_notifier`) |
