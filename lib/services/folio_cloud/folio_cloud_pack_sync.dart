@@ -7,6 +7,7 @@ import 'package:cryptography/cryptography.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_storage/firebase_storage.dart';
+import 'folio_storage_transport.dart';
 import 'package:path/path.dart' as p;
 
 import '../../app/app_settings.dart';
@@ -327,7 +328,7 @@ Future<String?> uploadOpenVaultCloudPack({
     'users/${user.uid}/vaults/$vaultId/cloud-packs/snapshots/$snapName',
   );
   rep(VaultCloudPackProgressStep.uploadingSnapshot, 0.76);
-  await snapRef.putData(snapCipher);
+  await folioStoragePutData(snapRef, snapCipher);
   final snapSize = snapCipher.length;
 
   final oldIds = oldManifest == null
@@ -487,7 +488,10 @@ Future<FolioCloudPackSnapshotManifest?> _downloadDecryptManifest({
   required SecretKey packKey,
 }) async {
   final max = 32 * 1024 * 1024;
-  final data = await FirebaseStorage.instance.ref(storagePath).getData(max);
+  final data = await folioStorageGetData(
+    FirebaseStorage.instance.ref(storagePath),
+    max,
+  );
   if (data == null || data.isEmpty) return null;
   return cloudPackDecryptSnapshotManifest(cipherBlob: data, packKey: packKey);
 }
@@ -513,7 +517,7 @@ Future<void> _ensureBlobUploaded({
       rethrow;
     }
   }
-  await ref.putData(Uint8List.fromList(bytes));
+  await folioStoragePutData(ref, Uint8List.fromList(bytes));
 }
 
 Future<int?> _blobSizeIfExists({
@@ -697,7 +701,7 @@ Future<void> _downloadCloudPackTreeToDirectory({
       'users/$uid/vaults/$vaultId/cloud-packs/blobs/${item.blobId}',
     );
     final max = 512 * 1024 * 1024;
-    final data = await ref.getData(max);
+    final data = await folioStorageGetData(ref, max);
     if (data == null || data.isEmpty) {
       throw StateError('Falta un blob en la nube: ${item.blobId}');
     }

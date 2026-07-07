@@ -1184,27 +1184,32 @@ class _FolioAppState extends State<FolioApp> with WidgetsBindingObserver {
           isWindows: !kIsWeb && defaultTargetPlatform == TargetPlatform.windows,
           devicePixelRatio: media.devicePixelRatio,
         );
-        Widget content = child ?? const SizedBox.shrink();
-        if ((uiScale - 1.0).abs() > 0.001) {
-          content = ClipRect(
-            child: OverflowBox(
+        // La estructura del árbol se mantiene SIEMPRE igual (aunque la escala
+        // sea 1.0) para no re-parentar el subárbol que contiene el Navigator y
+        // sus FocusScope. Cambiar la profundidad del árbol al cruzar el límite
+        // de 1.0 provocaba la aserción '_elements.contains(element)' del
+        // framework al mover elementos con GlobalKey.
+        final double effectiveScale = (uiScale - 1.0).abs() > 0.001
+            ? uiScale
+            : 1.0;
+        final Widget content = ClipRect(
+          child: OverflowBox(
+            alignment: Alignment.topLeft,
+            minWidth: 0,
+            minHeight: 0,
+            maxWidth: double.infinity,
+            maxHeight: double.infinity,
+            child: Transform.scale(
               alignment: Alignment.topLeft,
-              minWidth: 0,
-              minHeight: 0,
-              maxWidth: double.infinity,
-              maxHeight: double.infinity,
-              child: Transform.scale(
-                alignment: Alignment.topLeft,
-                scale: uiScale,
-                child: SizedBox(
-                  width: media.size.width / uiScale,
-                  height: media.size.height / uiScale,
-                  child: content,
-                ),
+              scale: effectiveScale,
+              child: SizedBox(
+                width: media.size.width / effectiveScale,
+                height: media.size.height / effectiveScale,
+                child: child ?? const SizedBox.shrink(),
               ),
             ),
-          );
-        }
+          ),
+        );
         return Shortcuts(
           shortcuts: const <ShortcutActivator, Intent>{
             SingleActivator(LogicalKeyboardKey.equal, control: true):

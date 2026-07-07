@@ -4,6 +4,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_storage/firebase_storage.dart';
+import 'folio_storage_transport.dart';
 
 import '../folio_firestore_support.dart';
 import 'folio_cloud_entitlements.dart';
@@ -69,9 +70,10 @@ Future<FolioPublishResult> publishHtmlPage({
   }
   final path = 'published/${user.uid}/$safeSlug.html';
   final ref = FirebaseStorage.instance.ref().child(path);
-  await ref.putData(
+  await folioStoragePutData(
+    ref,
     utf8.encode(html),
-    SettableMetadata(contentType: 'text/html; charset=utf-8'),
+    metadata: SettableMetadata(contentType: 'text/html; charset=utf-8'),
   );
   final url = await ref.getDownloadURL();
   final uri = Uri.parse(url);

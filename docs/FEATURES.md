@@ -480,7 +480,8 @@ Implementado en `lib/services/collab/collab_session_controller.dart`.
 
 1. **Subida**: `_uploadCollabMediaForBlock()` → `prepareCollabMediaUpload` (Cloud Function) → cifrado AES-256-GCM → Firebase Storage → `commitCollabMediaUpload` (Cloud Function).
 2. **Descarga**: Firestore lookup (`collabRooms/{roomId}/media/{mediaId}`) → Firebase Storage → descifrado AES-256-GCM → caché local.
-3. Progreso de subida con ETA en tiempo real (solo Android/iOS/macOS; Windows/Linux usan modo simplificado por limitación de `firebase_storage`).
+3. Progreso de subida con ETA en tiempo real (solo Android/iOS/macOS; Windows/Linux usan modo simplificado sin barra de progreso).
+4. En **Windows/Linux**, subidas y descargas de Storage usan la **API REST** (`folio_firebase_storage_rest.dart` / `folio_storage_transport.dart`) en lugar del plugin nativo, que envía eventos `taskEvent` desde un hilo de fondo y provoca el error `non-platform thread` del motor Flutter.
 
 ---
 
@@ -673,6 +674,7 @@ Implementación cliente: `lib/services/folio_cloud/folio_cloud_entitlements.dart
 - Subida manual y listado/descarga desde Ajustes; **restauración** desde onboarding o flujos de copia.
 - Tras un **backup programado** local, si el usuario activa «también subir a Folio Cloud» y tiene permiso, se reutiliza el mismo ZIP cifrado (`uploadEncryptedBackupFile` / índices en servidor).
 - En **Windows/Linux**, el SDK a veces no lista bien Storage; la app usa la callable **`folioListVaultBackups`** (lista con Admin SDK en servidor).
+- Subidas (`putData`/`putFile`) y descargas (`getData`/`writeToFile`) en escritorio van por REST autenticada con ID token, evitando los canales `taskEvent` del plugin C++.
 - **Cuota de almacenamiento** de copias y ampliaciones por suscripción («Biblioteca» pequeña/mediana/grande): catálogo en [FOLIO_CLOUD_STRIPE_PRODUCTS.md](FOLIO_CLOUD_STRIPE_PRODUCTS.md); callables de apoyo p. ej. `folioGetBackupStorageUsage`, `folioTrimVaultBackups`, `folioTrimVaultBackupsByBytes`, índice multi-libreta (`folioListBackupVaults`, `folioUpsertVaultBackupIndex`, …).
 
 ### IA en la nube
@@ -837,6 +839,8 @@ Implementada en `lib/services/jira/` (3 ficheros: `jira_auth_service.dart`, `jir
 
 - `uiScale` (double) + `uiScaleMode` configurable en ajustes.
 - Permite aumentar o reducir el tamaño de toda la interfaz.
+- Atajos `Ctrl +`, `Ctrl -` y `Ctrl 0` para ajustar/resetear la escala en caliente.
+- El escalado se aplica con una estructura de árbol de widgets **estable** (siempre `ClipRect > OverflowBox > Transform.scale > SizedBox`, usando escala 1.0 cuando no hay override). Esto evita re-parentar el subárbol del `Navigator`/`FocusScope` al cruzar el límite de 1.0, que provocaba la aserción `_elements.contains(element)` del framework (`_FocusInheritedScope`).
 
 ### Design tokens
 

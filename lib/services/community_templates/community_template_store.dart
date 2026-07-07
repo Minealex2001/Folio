@@ -4,6 +4,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_storage/firebase_storage.dart';
+import '../folio_cloud/folio_storage_transport.dart';
 import 'package:http/http.dart' as http;
 import 'package:uuid/uuid.dart';
 
@@ -113,9 +114,10 @@ class CommunityTemplateStore {
     );
     final bytes = utf8.encode(published.encodeAsFile());
     final ref = FirebaseStorage.instance.ref().child(path);
-    await ref.putData(
+    await folioStoragePutData(
+      ref,
       bytes,
-      SettableMetadata(contentType: 'application/json; charset=utf-8'),
+      metadata: SettableMetadata(contentType: 'application/json; charset=utf-8'),
     );
     final downloadUrl = await ref.getDownloadURL();
     final batch = <String, dynamic>{

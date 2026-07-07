@@ -4300,17 +4300,29 @@ class BlockEditorState extends State<BlockEditor> with _BlockRowBuild {
       );
       final ref = FirebaseStorage.instance.ref(storagePath);
       final startedAt = DateTime.now();
-      final task = ref.putData(
-        cipher,
-        SettableMetadata(contentType: 'application/octet-stream'),
-      );
-      // Windows/Linux: los eventos de tarea llegan fuera del hilo de plataforma y
-      // disparan [shell.cc] "non-platform thread" (flutterfire / Storage C++).
-      final snapshotEventsSafe =
-          defaultTargetPlatform != TargetPlatform.windows &&
-          defaultTargetPlatform != TargetPlatform.linux;
-      StreamSubscription<TaskSnapshot>? snapshotSub;
-      if (snapshotEventsSafe) {
+      if (folioStorageUseRestTransport) {
+        if (mounted) {
+          setState(() {
+            _collabUploadByBlockId[blockId] = const _CollabUploadProgress(
+              encrypting: false,
+              progress: null,
+              eta: null,
+            );
+          });
+        }
+        await folioStoragePutData(
+          ref,
+          cipher,
+          metadata: SettableMetadata(
+            contentType: 'application/octet-stream',
+          ),
+        );
+      } else {
+        final task = ref.putData(
+          cipher,
+          SettableMetadata(contentType: 'application/octet-stream'),
+        );
+        StreamSubscription<TaskSnapshot>? snapshotSub;
         snapshotSub = task.snapshotEvents.listen((snap) {
           if (!_isActiveCollabUploadToken(blockId, token) || !mounted) return;
           final total = snap.totalBytes <= 0 ? null : snap.totalBytes;
@@ -4346,19 +4358,11 @@ class BlockEditorState extends State<BlockEditor> with _BlockRowBuild {
             );
           });
         });
-      } else if (mounted) {
-        setState(() {
-          _collabUploadByBlockId[blockId] = const _CollabUploadProgress(
-            encrypting: false,
-            progress: null,
-            eta: null,
-          );
-        });
-      }
-      try {
-        await task;
-      } finally {
-        await snapshotSub?.cancel();
+        try {
+          await task;
+        } finally {
+          await snapshotSub.cancel();
+        }
       }
 
       await callFolioHttpsCallable('commitCollabMediaUpload', {
@@ -4429,9 +4433,10 @@ class BlockEditorState extends State<BlockEditor> with _BlockRowBuild {
       );
       if (roomKey == null) return null;
 
-      final data = await FirebaseStorage.instance
-          .ref(storagePath)
-          .getData(80 * 1024 * 1024);
+      final data = await folioStorageGetData(
+        FirebaseStorage.instance.ref(storagePath),
+        80 * 1024 * 1024,
+      );
       if (data == null || data.isEmpty) return null;
       final clear = await CollabE2eCrypto.decryptBinaryBytes(
         cipherBytes: Uint8List.fromList(data),

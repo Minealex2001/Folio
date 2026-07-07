@@ -125,14 +125,10 @@ Future<void> main() async {
           options: DefaultFirebaseOptions.currentPlatform,
         );
 
-        // Workaround for https://github.com/firebase/flutterfire/issues/11141
-        // firebase_storage sends taskEvent channel messages from a native
-        // background thread on Windows (and sometimes other platforms), which
-        // violates Flutter's requirement that platform channel messages arrive
-        // on the platform thread. This causes the '_InactiveElements.remove'
-        // assertion during warm-up frame builds. We intercept those channels
-        // and bounce each message back onto the UI (platform) thread before
-        // forwarding it to the registered handler.
+        // Parche de seguridad adicional: si algún código sigue usando el plugin
+        // nativo (p. ej. delete/getDownloadURL), reencola mensajes taskEvent en el
+        // isolate principal. Las subidas/descargas en escritorio usan REST vía
+        // folio_storage_transport.dart y no deberían abrir taskEvent.
         if (!kIsWeb) {
           _patchFirebaseStorageTaskEventChannels();
         }

@@ -5,6 +5,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_storage/firebase_storage.dart';
+import 'folio_storage_transport.dart';
 import 'package:path/path.dart' as p;
 
 import 'folio_cloud_callable.dart';
@@ -51,7 +52,7 @@ Future<String> uploadEncryptedBackupFile(
   final ref = FirebaseStorage.instance.ref().child(
     'users/${user.uid}/vaults/$vaultId/backups/$name',
   );
-  await ref.putFile(file);
+  await folioStoragePutFile(ref, file);
   return await ref.getDownloadURL();
 }
 
@@ -135,8 +136,7 @@ Future<String> uploadOpenVaultEncryptedToCloud({
     final ref = FirebaseStorage.instance.ref().child(
       'users/${user.uid}/vaults/$vaultId/backups/$name',
     );
-    final snap = await ref.putFile(tgzFile);
-    final sizeBytes = snap.totalBytes;
+    final sizeBytes = await folioStoragePutFile(ref, tgzFile);
     try {
       await _recordBackupMeta(
         vaultId: vaultId,
@@ -334,7 +334,7 @@ Future<Uint8List> downloadFolioCloudBackupBytes({
   }
   final ref = FirebaseStorage.instance.ref(entry.storagePath);
   final maxBytes = _folioCloudBackupGetDataMaxBytes(entry);
-  final data = await ref.getData(maxBytes);
+  final data = await folioStorageGetData(ref, maxBytes);
   if (data == null || data.isEmpty) {
     throw StateError('La descarga no devolvió datos.');
   }
@@ -361,7 +361,7 @@ Future<void> downloadFolioCloudBackup({
     );
     await destinationFile.writeAsBytes(data, flush: true);
   } else {
-    await ref.writeToFile(destinationFile);
+    await folioStorageWriteToFile(ref, destinationFile);
   }
 }
 
