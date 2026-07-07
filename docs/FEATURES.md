@@ -1105,6 +1105,7 @@ Detalles de implementación:
 - **Robustez de caché:** opción `-Clean` / entrada de menú para `flutter clean` (resuelve el error de `CMakeCache.txt` cuando el repo se mueve de carpeta).
 - **Codificación:** el script se mantiene en ASCII para evitar fallos de parseo entre Windows PowerShell 5.1 (ANSI) y PowerShell 7 (UTF-8).
 - **`installer.iss`:** se corrigieron las rutas absolutas obsoletas (`E:\Folio-1\...`) por rutas relativas al repositorio.
+- **Versionado MSIX sincronizado:** `Build-WindowsStore` ejecuta `dart run msix:create --store --version <semver>.0` tomando la versión de `pubspec.yaml`. Partner Center rechaza paquetes con el mismo *full name* (p. ej. `...Folio-PrivateWorkspace_0.4.1.0_X64_`) si el contenido difiere, así que el `msix_version` debe subir en cada publicación. Antes quedaba fijo en `pubspec.yaml` (`msix_version: 0.4.1.0`) y provocaba el error *"You must upload at least one package / uniquely identified by their full names"*; ahora sigue automáticamente a la versión de la app (último segmento `0` según políticas de la Store).
 
 ### Toolchain de Windows (MSVC 14.51 / Visual Studio 18)
 

@@ -176,13 +176,16 @@ flutter_launcher_icons:
 # Para el MSIX que subes a Partner Center usa: dart run msix:create --store
 # (ese artefacto no está pensado para doble clic local; Microsoft lo firma al publicar).
 # msix_version: último segmento 0 según políticas de versión de la Store.
+# builld_all.ps1 lo sobrescribe con <version de arriba>.0 al crear el MSIX (--version),
+# así se evita subir dos paquetes con el mismo full name a Partner Center.
+# Debe ser SIEMPRE mayor que la última versión publicada en la Store.
 msix_config:
   display_name: Folio - Private Workspace
   publisher_display_name: Minealex Games
   # Estos 3 valores deben coincidir 1:1 con Partner Center → Product identity
   identity_name: MinealexGames.Folio-PrivateWorkspace
   publisher: CN=EFF3F915-1B14-4A6A-B8F6-8F232E1B13B0
-  msix_version: 0.4.1.0
+  msix_version: 0.5.0.0
   logo_path: assets/icons/folio.ico
   capabilities: internetClient, microphone
   store: true

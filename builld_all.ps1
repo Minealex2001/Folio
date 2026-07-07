@@ -304,7 +304,11 @@ function Build-WindowsStore {
     & flutter @winMsArgs
     Assert-LastExitCode 'flutter build windows (Microsoft Store)'
     Write-Host 'Windows (Microsoft Store) listo.' -ForegroundColor Green
-    & dart run msix:create
+    # La Store exige nombres de paquete unicos: la version del MSIX debe subir en cada
+    # publicacion. Se sincroniza con pubspec.yaml (semver) + segmento revision 0.
+    $msixVersion = (Get-PubspecSemver) + '.0'
+    Write-Host "MSIX version: $msixVersion (desde pubspec.yaml)" -ForegroundColor Gray
+    & dart run msix:create --store --version $msixVersion
     Assert-LastExitCode 'dart run msix:create'
     Copy-MsixToOutput
 }
@@ -336,13 +340,34 @@ function Build-Linux {
 # ---------------------------------------------------------------------------
 
 function Find-Iscc {
+    # 1) En el PATH.
     $cmd = Get-Command ISCC.exe -ErrorAction SilentlyContinue
     if ($cmd) { return $cmd.Source }
-    foreach ($candidate in @(
-        'C:\Program Files (x86)\Inno Setup 6\ISCC.exe',
-        'C:\Program Files\Inno Setup 6\ISCC.exe'
-    )) {
-        if (Test-Path -LiteralPath $candidate) { return $candidate }
+
+    # 2) Rutas de instalacion comunes (incluye instalacion por-usuario de winget).
+    $candidates = @(
+        (Join-Path ${env:ProgramFiles(x86)} 'Inno Setup 6\ISCC.exe'),
+        (Join-Path $env:ProgramFiles 'Inno Setup 6\ISCC.exe'),
+        (Join-Path $env:LOCALAPPDATA 'Programs\Inno Setup 6\ISCC.exe'),
+        (Join-Path ${env:ProgramFiles(x86)} 'Inno Setup 5\ISCC.exe'),
+        (Join-Path $env:ProgramFiles 'Inno Setup 5\ISCC.exe')
+    )
+    foreach ($candidate in $candidates) {
+        if ($candidate -and (Test-Path -LiteralPath $candidate)) { return $candidate }
+    }
+
+    # 3) Registro de desinstalacion de Inno Setup (InstallLocation).
+    $regRoots = @(
+        'HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\Inno Setup 6_is1',
+        'HKLM:\Software\Microsoft\Windows\CurrentVersion\Uninstall\Inno Setup 6_is1',
+        'HKLM:\Software\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall\Inno Setup 6_is1'
+    )
+    foreach ($root in $regRoots) {
+        $loc = (Get-ItemProperty -Path $root -Name 'InstallLocation' -ErrorAction SilentlyContinue).InstallLocation
+        if ($loc) {
+            $iscc = Join-Path $loc 'ISCC.exe'
+            if (Test-Path -LiteralPath $iscc) { return $iscc }
+        }
     }
     return $null
 }
@@ -440,7 +465,6 @@ Filename: "{app}\{#MyAppExeName}"; Description: "{cm:LaunchProgram,{#StringChang
         throw "No se genero el instalador esperado: $installerPath"
     }
     Write-Host "[ok] Instalador: $installerPath" -ForegroundColor Green
-    return $installerPath
 }
 
 # ---------------------------------------------------------------------------
@@ -524,7 +548,13 @@ function Invoke-PublishFlow {
     Assert-GhReady
     if ($Clean) { Invoke-FlutterClean }
     Invoke-FlutterPubGet
-    $installer = Build-WindowsInstaller -ForceRebuild:$Clean
+    # No capturar la salida por stream: 'flutter'/'ISCC' contaminarian el valor de retorno.
+    # La ruta del instalador es determinista (Folio-Setup-<semver>.exe en Output).
+    Build-WindowsInstaller -ForceRebuild:$Clean
+    $installer = Join-Path $OutputDir ("Folio-Setup-" + (Get-PubspecSemver) + ".exe")
+    if (-not (Test-Path -LiteralPath $installer)) {
+        throw "No se encontro el instalador esperado: $installer"
+    }
     Publish-Release -Tag $tag -InstallerPath $installer -AsPreRelease:$AsPreRelease -AsDraft:$DraftRelease
 }
 
