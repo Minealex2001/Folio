@@ -12,28 +12,31 @@ class JiraSyncService {
   const JiraSyncService();
 
   String? _mapFolioPriorityFromJira(String? jiraPriorityName) {
-    final n = (jiraPriorityName ?? '').trim().toLowerCase();
-    if (n.isEmpty) return null;
-    if (n.contains('block') || n.contains('critical') || n.contains('highest')) return 'highest';
-    if (n.contains('high') || n.contains('major') || n.contains('urgent')) return 'high';
-    if (n.contains('medium') || n.contains('normal')) return 'medium';
-    if (n.contains('lowest') || n.contains('trivial')) return 'lowest';
-    if (n.contains('low') || n.contains('minor')) return 'low';
-    // Default: keep unset.
-    return null;
+    return jiraPriorityName;
   }
 
   String? _mapJiraPriorityNameFromFolio(String? folioPriority) {
     final p = (folioPriority ?? '').trim().toLowerCase();
     if (p.isEmpty) return null;
-    return switch (p) {
-      'highest' => 'Highest',
-      'high' => 'High',
-      'medium' => 'Medium',
-      'low' => 'Low',
-      'lowest' => 'Lowest',
-      _ => null,
-    };
+    switch (p) {
+      case 'highest':
+        return 'Highest';
+      case 'high':
+        return 'High';
+      case 'medium':
+        return 'Medium';
+      case 'low':
+        return 'Low';
+      case 'lowest':
+        return 'Lowest';
+      default:
+        if (p == 'highest') return 'Highest';
+        if (p == 'high') return 'High';
+        if (p == 'medium') return 'Medium';
+        if (p == 'low') return 'Low';
+        if (p == 'lowest') return 'Lowest';
+        return folioPriority;
+    }
   }
 
   Future<JiraSyncResult> pullIssuesIntoPage({
@@ -657,6 +660,7 @@ class JiraSyncService {
       status: status,
       columnId: mappedColumnId,
       priority: _mapFolioPriorityFromJira(issue.priorityName),
+      assignee: issue.assigneeDisplayName,
       dueDate: issue.dueDateIso,
       external: external,
       jira: jira,
@@ -816,6 +820,8 @@ class JiraSyncService {
     if ((current.description).trim() != (next.description).trim()) return true;
     if ((current.dueDate ?? '').trim() != (next.dueDate ?? '').trim()) return true;
     if (current.status.trim() != next.status.trim()) return true;
+    if (current.priority != next.priority) return true;
+    if (current.assignee != next.assignee) return true;
     return false;
   }
 

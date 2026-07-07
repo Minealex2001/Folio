@@ -248,21 +248,6 @@ class _ExploreTab extends StatelessWidget {
     if (loading) {
       return const Center(child: CircularProgressIndicator.adaptive());
     }
-    if (error != null) {
-      return Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(error!, textAlign: TextAlign.center),
-            const SizedBox(height: 12),
-            FilledButton.tonal(
-              onPressed: onRefresh,
-              child: Text(AppLocalizations.of(context).retry),
-            ),
-          ],
-        ),
-      );
-    }
 
     final l10n = AppLocalizations.of(context);
     final entries = store.registry.apps.where((e) {
@@ -279,6 +264,8 @@ class _ExploreTab extends StatelessWidget {
       return pkg.name.toLowerCase().contains(q) ||
           pkg.description.toLowerCase().contains(q);
     }).toList();
+
+    final hasContent = entries.isNotEmpty || builtIns.isNotEmpty || error != null;
 
     return Column(
       children: [
@@ -303,7 +290,7 @@ class _ExploreTab extends StatelessWidget {
           ),
         ),
         Expanded(
-          child: (entries.isEmpty && builtIns.isEmpty)
+          child: !hasContent
               ? Center(child: Text(l10n.appStoreNoResults))
               : ListView(
                   children: [
@@ -335,6 +322,46 @@ class _ExploreTab extends StatelessWidget {
                           entry: entry,
                           isInstalled: store.isInstalled(entry.id),
                           onTap: () => onTapEntry(entry),
+                        ),
+                      ),
+                    ] else if (error != null) ...[
+                      _SectionHeader(
+                        icon: Icons.public_rounded,
+                        label: l10n.appStoreSectionCommunity,
+                        subtitle: l10n.appStoreSectionCommunitySubtitle,
+                      ),
+                      Container(
+                        margin: const EdgeInsets.symmetric(horizontal: 16),
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          color: Theme.of(context).colorScheme.errorContainer.withValues(alpha: 0.12),
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: Theme.of(context).colorScheme.error.withValues(alpha: 0.3)),
+                        ),
+                        child: Column(
+                          children: [
+                            Row(
+                              children: [
+                                Icon(Icons.cloud_off_rounded, color: Theme.of(context).colorScheme.error),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: Text(
+                                    error!,
+                                    style: TextStyle(
+                                      color: Theme.of(context).colorScheme.onErrorContainer,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 10),
+                            OutlinedButton.icon(
+                              onPressed: onRefresh,
+                              icon: const Icon(Icons.refresh_rounded, size: 16),
+                              label: Text(AppLocalizations.of(context).retry),
+                            ),
+                          ],
                         ),
                       ),
                     ],

@@ -21,6 +21,7 @@ class FolioTaskData {
     this.timeSpentMinutes,
     this.external,
     this.jira,
+    this.youtrack,
     List<FolioTaskSubtask>? subtasks,
     List<String>? tags,
     this.assignee,
@@ -148,6 +149,9 @@ class FolioTaskData {
   /// Snapshot opcional de campos Jira para UI rica sin refetch constante.
   final FolioJiraIssueSnapshot? jira;
 
+  /// Snapshot opcional de campos YouTrack para UI rica sin refetch constante.
+  final FolioYouTrackIssueSnapshot? youtrack;
+
   /// Subtareas opcionales asociadas a la tarea principal.
   final List<FolioTaskSubtask> subtasks;
 
@@ -214,6 +218,7 @@ class FolioTaskData {
     timeSpentMinutes: null,
     external: null,
     jira: null,
+    youtrack: null,
     subtasks: const [],
     tags: const [],
     assignee: null,
@@ -245,6 +250,7 @@ class FolioTaskData {
     Object? timeSpentMinutes = _sentinel,
     Object? external = _sentinel,
     Object? jira = _sentinel,
+    Object? youtrack = _sentinel,
     Object? subtasks = _sentinel,
     Object? tags = _sentinel,
     Object? assignee = _sentinel,
@@ -287,6 +293,7 @@ class FolioTaskData {
           ? this.external
           : external as FolioExternalTaskLink?,
       jira: jira == _sentinel ? this.jira : jira as FolioJiraIssueSnapshot?,
+      youtrack: youtrack == _sentinel ? this.youtrack : youtrack as FolioYouTrackIssueSnapshot?,
       subtasks: subtasks == _sentinel
           ? this.subtasks
           : (subtasks as List<FolioTaskSubtask>),
@@ -385,6 +392,7 @@ class FolioTaskData {
     if (timeSpentMinutes != null) 'timeSpentMinutes': timeSpentMinutes,
     if (external != null) 'external': external!.toJson(),
     if (jira != null) 'jira': jira!.toJson(),
+    if (youtrack != null) 'youtrack': youtrack!.toJson(),
     if (subtasks.isNotEmpty)
       'subtasks': subtasks.map((s) => s.toJson()).toList(growable: false),
     if (tags.isNotEmpty) 'tags': tags.toList(growable: false),
@@ -424,6 +432,7 @@ class FolioTaskData {
       final rawSubtasks = m['subtasks'];
       final rawExternal = m['external'];
       final rawJira = m['jira'];
+      final rawYouTrack = m['youtrack'];
       final subtasks = <FolioTaskSubtask>[];
       if (rawSubtasks is List) {
         for (final s in rawSubtasks) {
@@ -445,6 +454,12 @@ class FolioTaskData {
       if (rawJira is Map) {
         jira = FolioJiraIssueSnapshot.tryParse(
           Map<String, dynamic>.from(rawJira),
+        );
+      }
+      FolioYouTrackIssueSnapshot? youtrack;
+      if (rawYouTrack is Map) {
+        youtrack = FolioYouTrackIssueSnapshot.tryParse(
+          Map<String, dynamic>.from(rawYouTrack),
         );
       }
       final rawTags = m['tags'];
@@ -504,6 +519,7 @@ class FolioTaskData {
         timeSpentMinutes: rawTimeSpent is num ? rawTimeSpent.toInt() : null,
         external: external,
         jira: jira,
+        youtrack: youtrack,
         subtasks: subtasks,
         tags: tagList,
         assignee: (assigneeRaw?.isEmpty ?? true) ? null : assigneeRaw,
@@ -911,6 +927,131 @@ class FolioTaskSubtask {
       timeSpentMinutes: map['timeSpentMinutes'] is num
           ? (map['timeSpentMinutes'] as num).toInt()
           : null,
+    );
+  }
+}
+
+class FolioYouTrackIssueSnapshot {
+  const FolioYouTrackIssueSnapshot({
+    this.projectId,
+    this.projectShortName,
+    this.projectName,
+    this.stateName,
+    this.priorityName,
+    this.assigneeName,
+    this.subsystem,
+    this.commentCount,
+    this.attachmentCount,
+    this.type,
+    this.fixVersions,
+    this.affectedVersions,
+    this.fixedInBuild,
+    this.estimation,
+    this.spentTime,
+  });
+
+  final String? projectId;
+  final String? projectShortName;
+  final String? projectName;
+  final String? stateName;
+  final String? priorityName;
+  final String? assigneeName;
+  final String? subsystem;
+  final int? commentCount;
+  final int? attachmentCount;
+  final String? type;
+  final String? fixVersions;
+  final String? affectedVersions;
+  final String? fixedInBuild;
+  final String? estimation;
+  final String? spentTime;
+
+  FolioYouTrackIssueSnapshot copyWith({
+    String? projectId,
+    String? projectShortName,
+    String? projectName,
+    String? stateName,
+    String? priorityName,
+    String? assigneeName,
+    String? subsystem,
+    int? commentCount,
+    int? attachmentCount,
+    String? type,
+    String? fixVersions,
+    String? affectedVersions,
+    String? fixedInBuild,
+    String? estimation,
+    String? spentTime,
+  }) {
+    return FolioYouTrackIssueSnapshot(
+      projectId: projectId ?? this.projectId,
+      projectShortName: projectShortName ?? this.projectShortName,
+      projectName: projectName ?? this.projectName,
+      stateName: stateName ?? this.stateName,
+      priorityName: priorityName ?? this.priorityName,
+      assigneeName: assigneeName ?? this.assigneeName,
+      subsystem: subsystem ?? this.subsystem,
+      commentCount: commentCount ?? this.commentCount,
+      attachmentCount: attachmentCount ?? this.attachmentCount,
+      type: type ?? this.type,
+      fixVersions: fixVersions ?? this.fixVersions,
+      affectedVersions: affectedVersions ?? this.affectedVersions,
+      fixedInBuild: fixedInBuild ?? this.fixedInBuild,
+      estimation: estimation ?? this.estimation,
+      spentTime: spentTime ?? this.spentTime,
+    );
+  }
+
+  Map<String, Object?> toJson() => <String, Object?>{
+        if ((projectId ?? '').trim().isNotEmpty) 'projectId': projectId,
+        if ((projectShortName ?? '').trim().isNotEmpty) 'projectShortName': projectShortName,
+        if ((projectName ?? '').trim().isNotEmpty) 'projectName': projectName,
+        if ((stateName ?? '').trim().isNotEmpty) 'stateName': stateName,
+        if ((priorityName ?? '').trim().isNotEmpty) 'priorityName': priorityName,
+        if ((assigneeName ?? '').trim().isNotEmpty) 'assigneeName': assigneeName,
+        if ((subsystem ?? '').trim().isNotEmpty) 'subsystem': subsystem,
+        if (commentCount != null) 'commentCount': commentCount,
+        if (attachmentCount != null) 'attachmentCount': attachmentCount,
+        if ((type ?? '').trim().isNotEmpty) 'type': type,
+        if ((fixVersions ?? '').trim().isNotEmpty) 'fixVersions': fixVersions,
+        if ((affectedVersions ?? '').trim().isNotEmpty) 'affectedVersions': affectedVersions,
+        if ((fixedInBuild ?? '').trim().isNotEmpty) 'fixedInBuild': fixedInBuild,
+        if ((estimation ?? '').trim().isNotEmpty) 'estimation': estimation,
+        if ((spentTime ?? '').trim().isNotEmpty) 'spentTime': spentTime,
+      };
+
+  static FolioYouTrackIssueSnapshot? tryParse(Map<String, dynamic> map) {
+    final projectId = (map['projectId'] as String?)?.trim();
+    final projectShortName = (map['projectShortName'] as String?)?.trim();
+    final projectName = (map['projectName'] as String?)?.trim();
+    final stateName = (map['stateName'] as String?)?.trim();
+    final priorityName = (map['priorityName'] as String?)?.trim();
+    final assigneeName = (map['assigneeName'] as String?)?.trim();
+    final subsystem = (map['subsystem'] as String?)?.trim();
+    final type = (map['type'] as String?)?.trim();
+    final fixVersions = (map['fixVersions'] as String?)?.trim();
+    final affectedVersions = (map['affectedVersions'] as String?)?.trim();
+    final fixedInBuild = (map['fixedInBuild'] as String?)?.trim();
+    final estimation = (map['estimation'] as String?)?.trim();
+    final spentTime = (map['spentTime'] as String?)?.trim();
+    int? asInt(Object? v) => v is num ? v.toInt() : null;
+
+    return FolioYouTrackIssueSnapshot(
+      projectId: (projectId?.isEmpty ?? true) ? null : projectId,
+      projectShortName: (projectShortName?.isEmpty ?? true) ? null : projectShortName,
+      projectName: (projectName?.isEmpty ?? true) ? null : projectName,
+      stateName: (stateName?.isEmpty ?? true) ? null : stateName,
+      priorityName: (priorityName?.isEmpty ?? true) ? null : priorityName,
+      assigneeName: (assigneeName?.isEmpty ?? true) ? null : assigneeName,
+      subsystem: (subsystem?.isEmpty ?? true) ? null : subsystem,
+      commentCount: asInt(map['commentCount']),
+      attachmentCount: asInt(map['attachmentCount']),
+      type: (type?.isEmpty ?? true) ? null : type,
+      fixVersions: (fixVersions?.isEmpty ?? true) ? null : fixVersions,
+      affectedVersions: (affectedVersions?.isEmpty ?? true) ? null : affectedVersions,
+      fixedInBuild: (fixedInBuild?.isEmpty ?? true) ? null : fixedInBuild,
+      estimation: (estimation?.isEmpty ?? true) ? null : estimation,
+      spentTime: (spentTime?.isEmpty ?? true) ? null : spentTime,
     );
   }
 }

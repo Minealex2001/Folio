@@ -1,5 +1,8 @@
 import 'dart:async';
+import 'dart:typed_data';
 import 'dart:ui';
+
+import 'package:flutter/services.dart';
 
 import 'package:firebase_auth_platform_interface/firebase_auth_platform_interface.dart';
 import 'package:firebase_core/firebase_core.dart';
@@ -121,6 +124,18 @@ Future<void> main() async {
         await Firebase.initializeApp(
           options: DefaultFirebaseOptions.currentPlatform,
         );
+
+        // Workaround for https://github.com/firebase/flutterfire/issues/11141
+        // firebase_storage sends taskEvent channel messages from a native
+        // background thread on Windows (and sometimes other platforms), which
+        // violates Flutter's requirement that platform channel messages arrive
+        // on the platform thread. This causes the '_InactiveElements.remove'
+        // assertion during warm-up frame builds. We intercept those channels
+        // and bounce each message back onto the UI (platform) thread before
+        // forwarding it to the registered handler.
+        if (!kIsWeb) {
+          _patchFirebaseStorageTaskEventChannels();
+        }
       } catch (e, st) {
         AppLogger.error(
           'Firebase init failed',
@@ -190,4 +205,55 @@ bool _hasJiraClientSecret() {
     return true;
   }
   return LocalEnv.has('JIRA_OAUTH_CLIENT_SECRET');
+}
+
+/// Patches the `firebase_storage/taskEvent/*` method channels so that messages
+/// arriving from the native side on a background thread are re-dispatched on
+/// the main UI isolate before they reach Flutter's codec / element tree.
+///
+/// Background: the Windows (and sometimes iOS/macOS) implementation of
+/// `firebase_storage` calls back on a background C++ thread instead of the
+/// platform thread, which triggers the Flutter assertion
+/// `'_elements.contains(element)': is not true` during warm-up frame builds.
+///
+/// The workaround intercepts [PlatformDispatcher.instance.onPlatformMessage]
+/// — the single global raw message hook — and for channels whose name starts
+/// with the storage taskEvent prefix it re-enqueues the message on the Dart
+/// event loop via [scheduleMicrotask] before forwarding it to the
+/// framework's registered handler through [ChannelBuffers.push].
+///
+/// All other channels are forwarded synchronously as normal.
+void _patchFirebaseStorageTaskEventChannels() {
+  const _kStorageTaskPrefix =
+      'plugins.flutter.io/firebase_storage/taskEvent/';
+
+  // Save whatever handler may already be installed (usually null at this point).
+  final previousHandler = PlatformDispatcher.instance.onPlatformMessage;
+
+  PlatformDispatcher.instance.onPlatformMessage = (
+    String name,
+    ByteData? data,
+    PlatformMessageResponseCallback? callback,
+  ) {
+    if (name.startsWith(_kStorageTaskPrefix)) {
+      // Re-enqueue on the Dart microtask queue so it is guaranteed to run
+      // on the main isolate / event loop, not the background native thread.
+      scheduleMicrotask(() {
+        ServicesBinding.instance.channelBuffers.push(
+          name,
+          data,
+          callback ?? (_) {},
+        );
+      });
+    } else if (previousHandler != null) {
+      previousHandler(name, data, callback);
+    } else {
+      // Default: let the framework handle it normally.
+      ServicesBinding.instance.channelBuffers.push(
+        name,
+        data,
+        callback ?? (_) {},
+      );
+    }
+  };
 }

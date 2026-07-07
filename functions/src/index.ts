@@ -3774,18 +3774,72 @@ export const folioReportDiagnostic = onRequest(
       return;
     }
     try {
-      await db.collection("folio_diagnostics").add({
-        createdAt: FieldValue.serverTimestamp(),
-        installId,
-        kind,
-        appVersion,
-        platform,
-        channel,
-        userNote,
-        logExcerpt,
-        telemetryEnabled: Boolean(raw.telemetryEnabled),
-      });
-      res.status(200).json({ ok: true });
+      const ytBaseUrl = (process.env.YOUTRACK_BASE_URL ?? "").trim();
+      const ytToken = (process.env.YOUTRACK_TOKEN ?? "").trim();
+      const ytProjectId = (process.env.YOUTRACK_PROJECT_ID ?? "").trim();
+
+      let savedToYouTrack = false;
+
+      if (ytBaseUrl && ytToken && ytProjectId) {
+        const cleanBaseUrl = ytBaseUrl.replace(/\/+$/, "");
+        const summary = `Diagnostic Report (${kind}): ${platform} - ${appVersion}`;
+        const description = [
+          `# Diagnostic Report`,
+          `**Install ID:** ${installId}`,
+          `**Kind:** ${kind}`,
+          `**App Version:** ${appVersion}`,
+          `**Platform:** ${platform}`,
+          `**Channel:** ${channel}`,
+          `**Telemetry Enabled:** ${Boolean(raw.telemetryEnabled)}`,
+          ``,
+          `## User Note`,
+          userNote ? userNote : `*No user note provided*`,
+          ``,
+          `## Log Excerpt`,
+          `\`\`\``,
+          logExcerpt ? logExcerpt : `*No logs provided*`,
+          `\`\`\``
+        ].join("\n");
+
+        try {
+          const ytResponse = await fetch(`${cleanBaseUrl}/api/issues`, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${ytToken}`,
+            },
+            body: JSON.stringify({
+              project: { id: ytProjectId },
+              summary,
+              description,
+            }),
+          });
+
+          if (ytResponse.ok) {
+            savedToYouTrack = true;
+          } else {
+            const errText = await ytResponse.text();
+            console.error(`YouTrack issue creation failed: ${ytResponse.status} ${errText}`);
+          }
+        } catch (ytErr) {
+          console.error("YouTrack integration error", ytErr);
+        }
+      }
+
+      if (!savedToYouTrack) {
+        await db.collection("folio_diagnostics").add({
+          createdAt: FieldValue.serverTimestamp(),
+          installId,
+          kind,
+          appVersion,
+          platform,
+          channel,
+          userNote,
+          logExcerpt,
+          telemetryEnabled: Boolean(raw.telemetryEnabled),
+        });
+      }
+      res.status(200).json({ ok: true, savedToYouTrack });
     } catch (e) {
       console.error("folioReportDiagnostic", e);
       res.status(500).json({ error: "write_failed" });

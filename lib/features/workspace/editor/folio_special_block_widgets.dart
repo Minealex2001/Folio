@@ -1244,16 +1244,18 @@ class _FolioTaskBlockBodyState extends State<FolioTaskBlockBody> {
   static String _fmtDue(String due) => due.replaceFirst('T', ' ');
 
   Color _priorityColor(String? priority) {
-    switch (priority) {
-      case 'high':
-        return widget.scheme.error;
-      case 'medium':
-        return Colors.orange;
-      case 'low':
-        return widget.scheme.onSurfaceVariant;
-      default:
-        return widget.scheme.outlineVariant;
+    final p = (priority ?? '').trim().toLowerCase();
+    if (p.isEmpty) return widget.scheme.outlineVariant;
+    if (p == 'high' || p == 'highest' || p == 'critical' || p == 'showstopper' || p == 'major') {
+      return widget.scheme.error;
     }
+    if (p == 'medium' || p == 'normal') {
+      return Colors.orange;
+    }
+    if (p == 'low' || p == 'lowest' || p == 'minor' || p == 'minimal') {
+      return widget.scheme.onSurfaceVariant;
+    }
+    return widget.scheme.outlineVariant;
   }
 
   @override
@@ -1403,48 +1405,84 @@ class _FolioTaskBlockBodyState extends State<FolioTaskBlockBody> {
             Row(
               children: [
                 // Priority selector
-                PopupMenuButton<String?>(
-                  initialValue: _data.priority,
-                  tooltip: l10n.taskPriorityTooltip,
-                  onSelected: (p) {
-                    setState(() => _data = _data.copyWith(priority: p));
-                    _emit(_data);
-                  },
-                  itemBuilder: (_) => [
-                    for (final entry in priorityLabels.entries)
-                      PopupMenuItem<String?>(
-                        value: entry.key,
-                        child: Row(
-                          children: [
-                            Icon(
-                              Icons.flag_rounded,
-                              size: 16,
-                              color: _priorityColor(entry.key),
+                Builder(
+                  builder: (ctx) {
+                    final ext = _data.external;
+                    final isYouTrack = ext?.provider == 'youtrack';
+                    final isJira = ext?.provider == 'jira';
+
+                    final Map<String?, String?> dynamicPriorityLabels;
+                    if (isYouTrack) {
+                      dynamicPriorityLabels = {
+                        null: l10n.taskPriorityNone,
+                        'Showstopper': 'Showstopper',
+                        'Critical': 'Critical',
+                        'Major': 'Major',
+                        'Normal': 'Normal',
+                        'Minor': 'Minor',
+                        'Minimal': 'Minimal',
+                      };
+                    } else if (isJira) {
+                      dynamicPriorityLabels = {
+                        null: l10n.taskPriorityNone,
+                        'Highest': 'Highest',
+                        'High': 'High',
+                        'Medium': 'Medium',
+                        'Low': 'Low',
+                        'Lowest': 'Lowest',
+                      };
+                    } else {
+                      dynamicPriorityLabels = Map<String?, String?>.from(priorityLabels);
+                    }
+
+                    if (_data.priority != null && !dynamicPriorityLabels.containsKey(_data.priority)) {
+                      dynamicPriorityLabels[_data.priority] = _data.priority;
+                    }
+
+                    return PopupMenuButton<String?>(
+                      initialValue: _data.priority,
+                      tooltip: l10n.taskPriorityTooltip,
+                      onSelected: (p) {
+                        setState(() => _data = _data.copyWith(priority: p));
+                        _emit(_data);
+                      },
+                      itemBuilder: (_) => [
+                        for (final entry in dynamicPriorityLabels.entries)
+                          PopupMenuItem<String?>(
+                            value: entry.key,
+                            child: Row(
+                              children: [
+                                Icon(
+                                  Icons.flag_rounded,
+                                  size: 16,
+                                  color: _priorityColor(entry.key),
+                                ),
+                                const SizedBox(width: FolioSpace.xs),
+                                Text(entry.value ?? l10n.taskPriorityNone),
+                              ],
                             ),
-                            const SizedBox(width: FolioSpace.xs),
-                            Text(entry.value ?? l10n.taskPriorityNone),
-                          ],
-                        ),
+                          ),
+                      ],
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            Icons.flag_rounded,
+                            size: 16,
+                            color: _priorityColor(_data.priority),
+                          ),
+                          const SizedBox(width: FolioSpace.xxs),
+                          Text(
+                            dynamicPriorityLabels[_data.priority] ?? l10n.taskPriorityNone,
+                            style: tt.labelSmall?.copyWith(
+                              color: _priorityColor(_data.priority),
+                            ),
+                          ),
+                          const Icon(Icons.arrow_drop_down, size: 16),
+                        ],
                       ),
-                  ],
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(
-                        Icons.flag_rounded,
-                        size: 16,
-                        color: _priorityColor(_data.priority),
-                      ),
-                      const SizedBox(width: FolioSpace.xxs),
-                      Text(
-                        priorityLabels[_data.priority] ?? l10n.taskPriorityNone,
-                        style: tt.labelSmall?.copyWith(
-                          color: _priorityColor(_data.priority),
-                        ),
-                      ),
-                      const Icon(Icons.arrow_drop_down, size: 16),
-                    ],
-                  ),
+                    );
+                  },
                 ),
                 const SizedBox(width: FolioSpace.md),
                 // Due date

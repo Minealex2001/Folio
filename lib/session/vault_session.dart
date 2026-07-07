@@ -36,6 +36,7 @@ import '../models/folio_drive_data.dart';
 import '../models/folio_canvas_data.dart';
 import '../models/folio_kanban_data.dart';
 import '../models/jira_integration_state.dart';
+import '../models/youtrack_integration_state.dart';
 import '../models/page_property.dart';
 import '../models/vault_task_list_entry.dart';
 import '../models/folio_columns_data.dart';
@@ -314,6 +315,7 @@ class VaultSession extends ChangeNotifier {
   int _aiActiveChatIndex = 0;
   final List<FolioPageTemplate> _pageTemplates = [];
   JiraIntegrationState _jira = JiraIntegrationState.empty;
+  YouTrackIntegrationState _youtrack = YouTrackIntegrationState.empty;
   String? _selectedPageId;
   Timer? _saveDebounce;
   Timer? _revisionIdleTimer;
@@ -459,6 +461,9 @@ class VaultSession extends ChangeNotifier {
   JiraIntegrationState get jiraIntegrationState => _jira;
   List<JiraConnection> get jiraConnections => _jira.connections;
   List<JiraSource> get jiraSources => _jira.sources;
+  YouTrackIntegrationState get youtrackIntegrationState => _youtrack;
+  List<YouTrackConnection> get youtrackConnections => _youtrack.connections;
+  List<YouTrackSource> get youtrackSources => _youtrack.sources;
   List<SyncConflictEntry> get syncConflicts =>
       List.unmodifiable(_syncConflicts);
 
@@ -817,6 +822,7 @@ class VaultSession extends ChangeNotifier {
       ..clear()
       ..addAll(payload.pageTemplates);
     _jira = payload.jira;
+    _youtrack = payload.youtrack;
     _resetUndoRedoState();
   }
 
@@ -875,6 +881,67 @@ class VaultSession extends ChangeNotifier {
     final next = _jira.sources.where((s) => s.id != sourceId).toList();
     _jira = JiraIntegrationState(
       connections: _jira.connections,
+      sources: List.unmodifiable(next),
+    );
+    notifyListeners();
+    scheduleSave();
+  }
+
+  void upsertYouTrackConnection(YouTrackConnection connection) {
+    if (_state != VaultFlowState.unlocked) return;
+    final next = List<YouTrackConnection>.from(_youtrack.connections);
+    final i = next.indexWhere((c) => c.id == connection.id);
+    if (i >= 0) {
+      next[i] = connection;
+    } else {
+      next.add(connection);
+    }
+    _youtrack = YouTrackIntegrationState(
+      connections: List.unmodifiable(next),
+      sources: _youtrack.sources,
+    );
+    notifyListeners();
+    scheduleSave();
+  }
+
+  void removeYouTrackConnection(String connectionId) {
+    if (_state != VaultFlowState.unlocked) return;
+    final nextConnections = _youtrack.connections
+        .where((c) => c.id != connectionId)
+        .toList();
+    final nextSources = _youtrack.sources
+        .where((s) => s.connectionId != connectionId)
+        .toList();
+    _youtrack = YouTrackIntegrationState(
+      connections: List.unmodifiable(nextConnections),
+      sources: List.unmodifiable(nextSources),
+    );
+    notifyListeners();
+    scheduleSave();
+  }
+
+  void upsertYouTrackSource(YouTrackSource source) {
+    if (_state != VaultFlowState.unlocked) return;
+    final next = List<YouTrackSource>.from(_youtrack.sources);
+    final i = next.indexWhere((s) => s.id == source.id);
+    if (i >= 0) {
+      next[i] = source;
+    } else {
+      next.add(source);
+    }
+    _youtrack = YouTrackIntegrationState(
+      connections: _youtrack.connections,
+      sources: List.unmodifiable(next),
+    );
+    notifyListeners();
+    scheduleSave();
+  }
+
+  void removeYouTrackSource(String sourceId) {
+    if (_state != VaultFlowState.unlocked) return;
+    final next = _youtrack.sources.where((s) => s.id != sourceId).toList();
+    _youtrack = YouTrackIntegrationState(
+      connections: _youtrack.connections,
       sources: List.unmodifiable(next),
     );
     notifyListeners();
@@ -3958,7 +4025,7 @@ class VaultSession extends ChangeNotifier {
 
   FolioTaskData _markTaskNeedsPushIfJiraLinked(FolioTaskData t) {
     final ext = t.external;
-    if (ext == null || ext.provider != 'jira') return t;
+    if (ext == null || (ext.provider != 'jira' && ext.provider != 'youtrack')) return t;
     final cur = (ext.syncState ?? '').trim();
     if (cur == 'conflict') return t;
     return t.copyWith(external: ext.copyWith(syncState: 'needsPush'));
@@ -4391,6 +4458,7 @@ class VaultSession extends ChangeNotifier {
           aiActiveChatIndex: _aiActiveChatIndex,
           pageTemplates: List<FolioPageTemplate>.from(_pageTemplates),
           jira: _jira,
+          youtrack: _youtrack,
         ),
         _dek,
       );
@@ -4433,6 +4501,7 @@ class VaultSession extends ChangeNotifier {
       aiActiveChatIndex: _aiActiveChatIndex,
       pageTemplates: List<FolioPageTemplate>.from(_pageTemplates),
       jira: _jira,
+      youtrack: _youtrack,
     );
     return payload.encodeUtf8();
   }

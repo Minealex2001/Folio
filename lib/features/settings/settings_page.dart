@@ -61,6 +61,7 @@ import '../../services/updater/update_release_channel.dart';
 import '../../session/vault_session.dart';
 import '../release_notes/release_notes_page.dart';
 import 'jira_integration_settings.dart';
+import 'youtrack_integration_settings.dart';
 import 'release_readiness.dart';
 import 'folio_cloud_reauth_dialog.dart';
 import 'folio_cloud_subscription_pitch_page.dart';
@@ -8734,7 +8735,14 @@ class _SettingsPageState extends State<SettingsPage> {
                                                               FolioBuiltInApps
                                                                   .jiraId,
                                                             );
-                                                    if (!jiraInstalled) {
+                                                    final youtrackInstalled =
+                                                        AppStoreService.instance
+                                                            .isInstalled(
+                                                              FolioBuiltInApps
+                                                                  .youtrackId,
+                                                            );
+                                                    if (!jiraInstalled &&
+                                                        !youtrackInstalled) {
                                                       return const SizedBox.shrink();
                                                     }
                                                     return Column(
@@ -8756,12 +8764,26 @@ class _SettingsPageState extends State<SettingsPage> {
                                                         const SizedBox(
                                                           height: 10,
                                                         ),
-                                                        JiraIntegrationCard(
-                                                          session: _s,
-                                                          appSettings: _app,
-                                                        ),
+                                                        if (jiraInstalled) ...[
+                                                          JiraIntegrationCard(
+                                                            session: _s,
+                                                            appSettings: _app,
+                                                          ),
+                                                          const SizedBox(
+                                                            height: 10,
+                                                          ),
+                                                        ],
+                                                        if (youtrackInstalled) ...[
+                                                          YouTrackIntegrationCard(
+                                                            session: _s,
+                                                            appSettings: _app,
+                                                          ),
+                                                          const SizedBox(
+                                                            height: 10,
+                                                          ),
+                                                        ],
                                                         const SizedBox(
-                                                          height: 18,
+                                                          height: 8,
                                                         ),
                                                       ],
                                                     );

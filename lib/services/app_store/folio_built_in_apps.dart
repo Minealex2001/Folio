@@ -9,6 +9,7 @@ abstract class FolioBuiltInApps {
   // ── IDs canónicos ─────────────────────────────────────────────────────────
 
   static const String jiraId = 'com.folio.integrations.jira';
+  static const String youtrackId = 'com.folio.integrations.youtrack';
 
   // ── Definiciones de paquete ───────────────────────────────────────────────
 
@@ -26,8 +27,22 @@ abstract class FolioBuiltInApps {
     permissions: [FolioAppPermission.internet],
   );
 
+  static const FolioAppPackage youtrack = FolioAppPackage(
+    id: youtrackId,
+    name: 'YouTrack',
+    version: '1.0.0',
+    author: 'Folio',
+    description:
+        'Sincroniza tareas de JetBrains YouTrack con tableros Kanban en Folio. '
+        'Crea y actualiza tareas, y mapea estados directamente con tu backlog.',
+    iconUrl: '',
+    websiteUrl: 'https://www.jetbrains.com/youtrack/',
+    isBuiltIn: true,
+    permissions: [FolioAppPermission.internet],
+  );
+
   // ── Lista completa ────────────────────────────────────────────────────────
 
   /// Todas las apps oficiales integradas en Folio.
-  static const List<FolioAppPackage> all = [jira];
+  static const List<FolioAppPackage> all = [jira, youtrack];
 }

@@ -4,6 +4,7 @@ import '../models/folio_page.dart';
 import '../models/folio_page_revision.dart';
 import '../models/folio_page_template.dart';
 import '../models/jira_integration_state.dart';
+import '../models/youtrack_integration_state.dart';
 import '../models/local_collab.dart';
 import '../services/ai/ai_types.dart';
 
@@ -25,6 +26,7 @@ class VaultPayload {
     int? aiActiveChatIndex,
     List<FolioPageTemplate>? pageTemplates,
     JiraIntegrationState? jira,
+    YouTrackIntegrationState? youtrack,
   }) : pageRevisions = pageRevisions ?? {},
        pageAcl = pageAcl ?? {},
        pageOrderByParent = pageOrderByParent ?? {},
@@ -33,7 +35,8 @@ class VaultPayload {
        aiChatThreads = aiChatThreads ?? const [],
        aiActiveChatIndex = aiActiveChatIndex ?? 0,
        pageTemplates = pageTemplates ?? const [],
-       jira = jira ?? JiraIntegrationState.empty;
+       jira = jira ?? JiraIntegrationState.empty,
+       youtrack = youtrack ?? YouTrackIntegrationState.empty;
 
   final int version;
   final List<FolioPage> pages;
@@ -47,6 +50,7 @@ class VaultPayload {
   final int aiActiveChatIndex;
   final List<FolioPageTemplate> pageTemplates;
   final JiraIntegrationState jira;
+  final YouTrackIntegrationState youtrack;
 
   Map<String, dynamic> toJson() => {
     'version': version,
@@ -63,6 +67,7 @@ class VaultPayload {
     if (pageTemplates.isNotEmpty)
       'pageTemplates': pageTemplates.map((t) => t.toJson()).toList(),
     if (jira.connections.isNotEmpty || jira.sources.isNotEmpty) 'jira': jira.toJson(),
+    if (youtrack.connections.isNotEmpty || youtrack.sources.isNotEmpty) 'youtrack': youtrack.toJson(),
   };
 
   factory VaultPayload.fromJson(Map<String, dynamic> j) {
@@ -124,6 +129,7 @@ class VaultPayload {
         .where((t) => t.id.isNotEmpty)
         .toList();
     final jira = JiraIntegrationState.fromJson(j['jira']);
+    final youtrack = YouTrackIntegrationState.fromJson(j['youtrack']);
     return VaultPayload(
       version: j['version'] as int? ?? 1,
       pages: list,
@@ -136,6 +142,7 @@ class VaultPayload {
       aiActiveChatIndex: aiIndex,
       pageTemplates: templates,
       jira: jira,
+      youtrack: youtrack,
     );
   }
 
