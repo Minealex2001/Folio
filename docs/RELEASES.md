@@ -65,7 +65,9 @@ Modo directo (sin menú), útil para automatizar:
 .\builld_all.ps1 -Action prerelease -BumpVersion 1.4.0 -Yes
 ```
 
-Requisitos: [GitHub CLI](https://cli.github.com/) (`gh`) autenticado (`gh auth login`) e [Inno Setup](https://jrsoftware.org/isinfo.php) (`ISCC.exe`) para el instalador. Parámetros útiles: `-ReleaseTag`, `-ReleaseTarget` (por defecto `master`), `-DraftRelease`, `-Clean`.
+Requisitos: [GitHub CLI](https://cli.github.com/) (`gh`) autenticado (`gh auth login`) e [Inno Setup](https://jrsoftware.org/isinfo.php) (`ISCC.exe`) para el instalador. Parámetros útiles: `-ReleaseTag`, `-ReleaseTarget` (destino de la release; vacío = autodetecta la rama actual si está en el remoto, o la rama por defecto), `-DraftRelease`, `-Clean`.
+
+> El `target_commitish` se resuelve automáticamente: si omites `-ReleaseTarget`, el script usa la rama actual (si existe en `origin`) o la rama por defecto del remoto (`main`). GitHub crea el tag apuntando al **último commit de esa rama en el remoto**, así que empuja tus cambios antes de publicar.
 
 ## Workflow «Folio build all» (GitHub Actions)
 

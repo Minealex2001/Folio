@@ -43,8 +43,8 @@ param(
     [switch] $NonInteractive,
     # Tag de la release (por defecto v<semver de pubspec.yaml>).
     [string] $ReleaseTag = '',
-    # Rama/commit destino de la release en GitHub.
-    [string] $ReleaseTarget = 'master',
+    # Rama/commit destino de la release en GitHub. Vacio = autodetectar (rama actual o por defecto del remoto).
+    [string] $ReleaseTarget = '',
     # Publicar como pre-release (canal Beta). release=estable, prerelease=beta.
     [switch] $PreRelease,
     # Publicar como borrador (draft) en GitHub.
@@ -471,6 +471,29 @@ Filename: "{app}\{#MyAppExeName}"; Description: "{cm:LaunchProgram,{#StringChang
 # Publicacion en GitHub (gh CLI)
 # ---------------------------------------------------------------------------
 
+# Resuelve el target_commitish valido para la release:
+# 1) -ReleaseTarget si se pasa. 2) rama actual si existe en el remoto.
+# 3) rama por defecto del remoto (origin/HEAD). 4) 'main'.
+function Resolve-ReleaseTarget {
+    if (-not [string]::IsNullOrWhiteSpace($ReleaseTarget)) {
+        return $ReleaseTarget.Trim()
+    }
+    $branch = (& git rev-parse --abbrev-ref HEAD 2>$null)
+    if ($LASTEXITCODE -eq 0 -and $branch -and $branch -ne 'HEAD') {
+        & git show-ref --verify --quiet "refs/remotes/origin/$branch" 2>$null
+        if ($LASTEXITCODE -eq 0) {
+            $global:LASTEXITCODE = 0
+            return $branch
+        }
+    }
+    $def = (& git symbolic-ref --short refs/remotes/origin/HEAD 2>$null)
+    $global:LASTEXITCODE = 0
+    if ($def) {
+        return ($def -replace '^origin/', '')
+    }
+    return 'main'
+}
+
 function Assert-GhReady {
     $gh = Get-Command gh -ErrorAction SilentlyContinue
     if (-not $gh) {
@@ -497,12 +520,14 @@ function Publish-Release {
     }
     $global:LASTEXITCODE = 0
 
+    $target = Resolve-ReleaseTarget
+
     $ghArgs = [System.Collections.Generic.List[string]]::new()
     $ghArgs.Add('release'); $ghArgs.Add('create'); $ghArgs.Add($Tag)
     if (-not [string]::IsNullOrWhiteSpace($InstallerPath)) {
         $ghArgs.Add($InstallerPath)
     }
-    $ghArgs.Add('--target'); $ghArgs.Add($ReleaseTarget)
+    $ghArgs.Add('--target'); $ghArgs.Add($target)
     $ghArgs.Add('--title'); $ghArgs.Add($Tag)
     $ghArgs.Add('--generate-notes')
     if ($AsPreRelease) { $ghArgs.Add('--prerelease') }
@@ -537,7 +562,7 @@ function Invoke-PublishFlow {
     Write-Host " $kind" -ForegroundColor Cyan
     Write-Host "  Version pubspec : $(Get-PubspecVersionRaw)" -ForegroundColor Gray
     Write-Host "  Tag GitHub      : $tag" -ForegroundColor Gray
-    Write-Host "  Destino (target): $ReleaseTarget" -ForegroundColor Gray
+    Write-Host "  Destino (target): $(Resolve-ReleaseTarget)" -ForegroundColor Gray
     Write-Host "----------------------------------------------" -ForegroundColor DarkGray
 
     if (-not (Confirm-Action "Compilar instalador y publicar $tag ?")) {
