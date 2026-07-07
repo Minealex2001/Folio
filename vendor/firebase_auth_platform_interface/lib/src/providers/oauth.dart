@@ -12,7 +12,7 @@ import 'package:meta/meta.dart';
 /// standalone for integration with other 3rd party providers.
 class OAuthProvider extends AuthProvider {
   // ignore: public_member_api_docs
-  OAuthProvider(String providerId) : super(providerId);
+  OAuthProvider(super.providerId);
 
   List<String> _scopes = [];
   Map<String, String> _parameters = {};
@@ -75,19 +75,15 @@ class OAuthCredential extends AuthCredential {
   // ignore: public_member_api_docs
   @protected
   const OAuthCredential({
-    required String providerId,
-    required String signInMethod,
-    String? accessToken,
+    required super.providerId,
+    required super.signInMethod,
+    super.accessToken,
     this.idToken,
     this.secret,
     this.rawNonce,
     this.serverAuthCode,
     this.appleFullPersonName,
-  }) : super(
-          providerId: providerId,
-          signInMethod: signInMethod,
-          accessToken: accessToken,
-        );
+  });
 
   /// The OAuth ID token associated with the credential if it belongs to an
   /// OIDC provider, such as `google.com`.

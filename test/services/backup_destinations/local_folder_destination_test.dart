@@ -1,7 +1,6 @@
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:folio/services/backup_destinations/backup_destination.dart';
 import 'package:folio/services/backup_destinations/local_folder_destination.dart';
 
 void main() {

@@ -1,5 +1,4 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:folio/services/secure_credential_storage.dart';
 
 class _MemorySecureStorage {
   final Map<String, String> _data = {};

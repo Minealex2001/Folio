@@ -69,7 +69,7 @@ class AppleAuthProvider extends AuthProvider {
     return _kProviderId;
   }
 
-  List<String> _scopes = [];
+  final List<String> _scopes = [];
   Map<String, String> _parameters = {};
 
   /// Returns the currently assigned scopes to this provider instance.
@@ -102,17 +102,13 @@ class AppleAuthProvider extends AuthProvider {
 /// [AppleAuthProvider.credential].
 class AppleAuthCredential extends OAuthCredential {
   AppleAuthCredential._({
-    String? accessToken,
-    String? rawNonce,
-    String? idToken,
-    AppleFullPersonName? appleFullPersonName,
+    super.accessToken,
+    super.rawNonce,
+    super.idToken,
+    super.appleFullPersonName,
   }) : super(
           providerId: _kProviderId,
           signInMethod: _kProviderId,
-          accessToken: accessToken,
-          appleFullPersonName: appleFullPersonName,
-          rawNonce: rawNonce,
-          idToken: idToken,
         );
 
   factory AppleAuthCredential._credential(String accessToken) {

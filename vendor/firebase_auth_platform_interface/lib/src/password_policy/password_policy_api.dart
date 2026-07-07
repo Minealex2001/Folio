@@ -23,8 +23,8 @@ class PasswordPolicyApi {
         final policy = json.decode(response.body);
 
         // Validate schema version
-        final _schemaVersion = policy['schemaVersion'];
-        if (!isCorrectSchemaVersion(_schemaVersion)) {
+        final schemaVersion = policy['schemaVersion'];
+        if (!isCorrectSchemaVersion(schemaVersion)) {
           throw Exception(
             'Schema Version mismatch, expected version 1 but got $policy',
           );

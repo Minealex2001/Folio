@@ -1086,6 +1086,26 @@ Definidos en `vault_task_entry_filters.dart` (`VaultTaskListPreset`):
 - **`flutter_quill` actualizado a `11.5.1`** (el `pubspec.lock` quedaba en `11.5.0`). La `11.5.1` implementa el nuevo método `TextInputClient.onFocusReceived` requerido por Flutter 3.44+. Con `11.5.0`, `QuillRawEditorState` fallaba al compilar con el error *"missing implementations for these members"*.
 - **`ListView` en `settings_page.dart`**: se corrigió un parámetro inexistente (`scrollCacheExtent: ScrollCacheExtent.pixels(480)`) por el parámetro real del framework `cacheExtent: 480`.
 
+### Script de compilación y publicación (`builld_all.ps1`)
+
+`builld_all.ps1` se rehízo con un **menú interactivo** (además del modo directo por parámetros para CI). Al ejecutarlo sin argumentos (`.\builld_all.ps1`) muestra un menú con:
+
+- **Publicar RELEASE estable** en GitHub: compila el instalador Windows (`Folio-Setup-<semver>.exe` vía Inno Setup) y ejecuta `gh release create v<semver>` con `--generate-notes`.
+- **Publicar PRE-RELEASE / Beta**: igual, pero con `--prerelease` (alimenta el canal Beta del updater, ver [RELEASES.md](RELEASES.md)).
+- **Publicar solo notas** (changelog) sin adjuntar instalador.
+- **Compilar TODO** (Windows ZIP + MSIX + APK + Linux), o cada plataforma por separado.
+- **Generar solo el instalador Windows** (`.exe`).
+- **Mantenimiento**: `flutter clean` y cambio de versión en `pubspec.yaml`.
+
+Detalles de implementación:
+
+- **Compatibilidad CI intacta:** si se pasa `-SkipAndroid`, `-SkipLinux`, `-SkipMicrosoftStore` o `-NonInteractive`, el script salta el menú y ejecuta `build-all` (comportamiento legado que usa el workflow `folio-build-all.yml`). También admite `-Action <acción>` para invocación directa.
+- **Instalador dinámico:** genera un `.iss` temporal con rutas absolutas al `Release` actual y `OutputDir`, evitando las rutas fijas obsoletas. Requiere `ISCC.exe` (Inno Setup); localizado por PATH o rutas por defecto.
+- **Publicación:** usa `gh` (GitHub CLI); valida que esté instalado y autenticado, y que el tag no exista antes de publicar. Parámetros: `-ReleaseTag`, `-ReleaseTarget` (por defecto `master`), `-PreRelease`, `-DraftRelease`, `-BumpVersion`, `-Yes`.
+- **Robustez de caché:** opción `-Clean` / entrada de menú para `flutter clean` (resuelve el error de `CMakeCache.txt` cuando el repo se mueve de carpeta).
+- **Codificación:** el script se mantiene en ASCII para evitar fallos de parseo entre Windows PowerShell 5.1 (ANSI) y PowerShell 7 (UTF-8).
+- **`installer.iss`:** se corrigieron las rutas absolutas obsoletas (`E:\Folio-1\...`) por rutas relativas al repositorio.
+
 ### Toolchain de Windows (MSVC 14.51 / Visual Studio 18)
 
 - Se añadió `-D_SILENCE_EXPERIMENTAL_COROUTINE_DEPRECATION_WARNINGS` de forma global en `windows/CMakeLists.txt`. Los MSVC recientes convierten `<experimental/coroutine>` en error fatal (`STL1011`), lo que rompía la compilación de los plugins `audioplayers_windows`, `local_auth_windows` y `webview_windows` (que aún usan ese header vía C++/WinRT).

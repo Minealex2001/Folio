@@ -58,7 +58,7 @@ class GoogleAuthProvider extends AuthProvider {
     return _kProviderId;
   }
 
-  List<String> _scopes = [];
+  final List<String> _scopes = [];
   Map<dynamic, dynamic> _parameters = {};
 
   /// Returns the currently assigned scopes to this provider instance.
@@ -91,13 +91,11 @@ class GoogleAuthProvider extends AuthProvider {
 /// [GoogleAuthProvider.credential].
 class GoogleAuthCredential extends OAuthCredential {
   GoogleAuthCredential._({
-    String? accessToken,
-    String? idToken,
+    super.accessToken,
+    super.idToken,
   }) : super(
             providerId: _kProviderId,
-            signInMethod: _kProviderId,
-            accessToken: accessToken,
-            idToken: idToken);
+            signInMethod: _kProviderId);
 
   factory GoogleAuthCredential._credential({
     String? idToken,

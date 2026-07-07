@@ -13,21 +13,14 @@ class FirebaseAuthMultiFactorExceptionPlatform extends FirebaseAuthException
   // ignore: public_member_api_docs
   @protected
   FirebaseAuthMultiFactorExceptionPlatform({
-    String? message,
-    required String code,
-    String? email,
-    AuthCredential? credential,
-    String? phoneNumber,
-    String? tenantId,
+    super.message,
+    required super.code,
+    super.email,
+    super.credential,
+    super.phoneNumber,
+    super.tenantId,
     required this.resolver,
-  }) : super(
-          message: message,
-          code: code,
-          email: email,
-          credential: credential,
-          phoneNumber: phoneNumber,
-          tenantId: tenantId,
-        );
+  });
 
   final MultiFactorResolverPlatform resolver;
 }

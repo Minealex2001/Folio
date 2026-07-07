@@ -48,11 +48,10 @@ class PhoneAuthCredential extends AuthCredential {
   PhoneAuthCredential._({
     this.verificationId,
     this.smsCode,
-    int? token,
+    super.token,
   }) : super(
           providerId: _kProviderId,
           signInMethod: _kProviderId,
-          token: token,
         );
 
   factory PhoneAuthCredential._credential(

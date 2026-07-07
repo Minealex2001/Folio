@@ -15,9 +15,8 @@ import 'utils/exception.dart';
 /// Method Channel delegate for [UserPlatform] instances.
 class MethodChannelUser extends UserPlatform {
   /// Constructs a new [MethodChannelUser] instance.
-  MethodChannelUser(FirebaseAuthPlatform auth, MultiFactorPlatform multiFactor,
-      InternalUserDetails data)
-      : super(auth, multiFactor, data);
+  MethodChannelUser(super.auth, super.multiFactor,
+      super.data);
 
   final _api = FirebaseAuthUserHostApi();
 

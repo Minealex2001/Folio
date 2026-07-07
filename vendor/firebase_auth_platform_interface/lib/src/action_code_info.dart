@@ -17,7 +17,7 @@ class ActionCodeInfo {
 
   ActionCodeInfoOperation operation;
 
-  ActionCodeInfoData _data;
+  final ActionCodeInfoData _data;
 
   Map<String, dynamic> get data => _data.toMap();
 }

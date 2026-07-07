@@ -142,17 +142,12 @@ class MultiFactorInfo {
 /// Represents the information for a phone second factor.
 class PhoneMultiFactorInfo extends MultiFactorInfo {
   const PhoneMultiFactorInfo({
-    required String? displayName,
-    required double enrollmentTimestamp,
-    required String factorId,
-    required String uid,
+    required super.displayName,
+    required super.enrollmentTimestamp,
+    required super.factorId,
+    required super.uid,
     required this.phoneNumber,
-  }) : super(
-          displayName: displayName,
-          enrollmentTimestamp: enrollmentTimestamp,
-          factorId: factorId,
-          uid: uid,
-        );
+  });
 
   /// The phone number associated with this second factor verification method.
   final String phoneNumber;

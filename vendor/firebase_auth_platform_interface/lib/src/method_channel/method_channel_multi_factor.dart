@@ -11,7 +11,7 @@ import 'package:firebase_auth_platform_interface/src/pigeon/messages.pigeon.dart
 
 class MethodChannelMultiFactor extends MultiFactorPlatform {
   /// Constructs a new [MethodChannelMultiFactor] instance.
-  MethodChannelMultiFactor(FirebaseAuthPlatform auth) : super(auth);
+  MethodChannelMultiFactor(super.auth);
 
   final _api = MultiFactorUserHostApi();
 
@@ -38,10 +38,10 @@ class MethodChannelMultiFactor extends MultiFactorPlatform {
     MultiFactorAssertionPlatform assertion, {
     String? displayName,
   }) async {
-    final _assertion = assertion as MultiFactorAssertion;
+    final assertion0 = assertion as MultiFactorAssertion;
 
-    if (_assertion.credential is PhoneAuthCredential) {
-      final credential = _assertion.credential! as PhoneAuthCredential;
+    if (assertion0.credential is PhoneAuthCredential) {
+      final credential = assertion0.credential! as PhoneAuthCredential;
       final verificationId = credential.verificationId;
       final verificationCode = credential.smsCode;
 
@@ -64,11 +64,11 @@ class MethodChannelMultiFactor extends MultiFactorPlatform {
       } catch (e, stack) {
         convertPlatformException(e, stack);
       }
-    } else if (_assertion is TotpMultiFactorAssertion) {
+    } else if (assertion0 is TotpMultiFactorAssertion) {
       try {
         await _api.enrollTotp(
           pigeonDefault,
-          _assertion.assertionId,
+          assertion0.assertionId,
           displayName,
         );
       } catch (e, stack) {
@@ -76,7 +76,7 @@ class MethodChannelMultiFactor extends MultiFactorPlatform {
       }
     } else {
       throw UnimplementedError(
-        'Credential type ${_assertion.credential} is not supported yet',
+        'Credential type ${assertion0.credential} is not supported yet',
       );
     }
   }
@@ -116,13 +116,12 @@ class MethodChannelMultiFactor extends MultiFactorPlatform {
 
 class MethodChannelMultiFactorResolver extends MultiFactorResolverPlatform {
   MethodChannelMultiFactorResolver(
-    List<MultiFactorInfo> hints,
-    MultiFactorSession session,
+    super.hints,
+    super.session,
     String resolverId,
     MethodChannelFirebaseAuth auth,
   )   : _resolverId = resolverId,
-        _auth = auth,
-        super(hints, session);
+        _auth = auth;
 
   final String _resolverId;
 
@@ -133,10 +132,10 @@ class MethodChannelMultiFactorResolver extends MultiFactorResolverPlatform {
   Future<UserCredentialPlatform> resolveSignIn(
     MultiFactorAssertionPlatform assertion,
   ) async {
-    final _assertion = assertion as MultiFactorAssertion;
+    final assertion0 = assertion as MultiFactorAssertion;
 
-    if (_assertion.credential is PhoneAuthCredential) {
-      final credential = _assertion.credential! as PhoneAuthCredential;
+    if (assertion0.credential is PhoneAuthCredential) {
+      final credential = assertion0.credential! as PhoneAuthCredential;
       final verificationId = credential.verificationId;
       final verificationCode = credential.smsCode;
 
@@ -164,12 +163,12 @@ class MethodChannelMultiFactorResolver extends MultiFactorResolverPlatform {
       } catch (e, stack) {
         convertPlatformException(e, stack);
       }
-    } else if (_assertion is TotpMultiFactorAssertion) {
+    } else if (assertion0 is TotpMultiFactorAssertion) {
       try {
         final result = await _api.resolveSignIn(
           _resolverId,
           null,
-          _assertion.assertionId,
+          assertion0.assertionId,
         );
 
         MethodChannelUserCredential userCredential =
@@ -181,7 +180,7 @@ class MethodChannelMultiFactorResolver extends MultiFactorResolverPlatform {
       }
     } else {
       throw UnimplementedError(
-        'Credential type ${_assertion.credential} is not supported yet',
+        'Credential type ${assertion0.credential} is not supported yet',
       );
     }
   }
@@ -198,8 +197,8 @@ class MultiFactorAssertion extends MultiFactorAssertionPlatform {
 
 class PhoneMultiFactorAssertion extends MultiFactorAssertion {
   PhoneMultiFactorAssertion(
-    PhoneAuthCredential credential,
-  ) : super(credential);
+    PhoneAuthCredential super.credential,
+  );
 }
 
 /// Helper class used to generate PhoneMultiFactorAssertions.

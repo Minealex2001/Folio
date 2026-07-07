@@ -54,11 +54,11 @@ abstract class EmailAuthProvider extends AuthProvider {
 /// [EmailAuthProvider.credential].
 class EmailAuthCredential extends AuthCredential {
   EmailAuthCredential._(
-    String _signInMethod, {
+    String signInMethod, {
     required this.email,
     this.password,
     this.emailLink,
-  }) : super(providerId: _kProviderId, signInMethod: _signInMethod);
+  }) : super(providerId: _kProviderId, signInMethod: signInMethod);
 
   factory EmailAuthCredential._credential(String email, String password) {
     return EmailAuthCredential._(_kProviderId,
