@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:cloud_functions/cloud_functions.dart';
@@ -61,8 +62,15 @@ Future<dynamic> callFolioHttpsCallable(
   }
   try {
     final callable = _folioFunctions.httpsCallable(name);
-    final res = await callable.call(parameters);
+    final res = await callable
+        .call(parameters)
+        .timeout(const Duration(seconds: 120));
     return res.data;
+  } on TimeoutException catch (e) {
+    throw FirebaseFunctionsException(
+      message: 'Cloud Functions request timed out: $e',
+      code: 'deadline-exceeded',
+    );
   } on StateError {
     rethrow;
   } on FirebaseFunctionsException {

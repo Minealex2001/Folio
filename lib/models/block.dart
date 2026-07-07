@@ -146,9 +146,22 @@ class FolioBlock {
     if (syncGroupId != null) 'syncGroupId': syncGroupId,
   };
 
+  static int _fallbackIdCounter = 0;
+
+  /// Lee un id de bloque de forma tolerante: acepta strings, numérico legacy o
+  /// nulo (genera un id de reserva) sin lanzar `CastError` que rompería la carga
+  /// completa del vault.
+  static String _readId(Object? raw) {
+    if (raw is String && raw.isNotEmpty) return raw;
+    final asStr = raw?.toString();
+    if (asStr != null && asStr.isNotEmpty) return asStr;
+    return 'block_fallback_${DateTime.now().microsecondsSinceEpoch}_'
+        '${_fallbackIdCounter++}';
+  }
+
   factory FolioBlock.fromJson(Map<String, dynamic> j) {
     return FolioBlock(
-      id: j['id'] as String,
+      id: _readId(j['id']),
       type: j['type'] as String? ?? 'paragraph',
       text: j['text'] as String? ?? '',
       richTextDeltaJson: j['richTextDeltaJson'] as String?,

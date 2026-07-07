@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:file_picker/file_picker.dart';
@@ -35,7 +36,9 @@ class _AppStoreScreenState extends State<AppStoreScreen>
     super.initState();
     _tabController = TabController(length: 2, vsync: this);
     _store.addListener(_onStoreChanged);
-    _refreshRegistry();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) unawaited(_refreshRegistry());
+    });
   }
 
   @override
@@ -57,9 +60,27 @@ class _AppStoreScreenState extends State<AppStoreScreen>
     });
     try {
       await _store.fetchRegistry();
+      if (mounted) {
+        final code = _store.registryErrorCode;
+        setState(() {
+          if (code != null) {
+            final l10n = AppLocalizations.of(context);
+            _registryError = switch (code) {
+              'http' => l10n.appStoreRegistryLoadError(
+                _store.registryHttpStatus ?? 0,
+              ),
+              'offline' => l10n.appStoreRegistryOfflineCache,
+              _ => null,
+            };
+          } else {
+            _registryError = null;
+          }
+        });
+      }
     } catch (e) {
       if (mounted) {
-        setState(() => _registryError = 'Error al cargar la tienda: $e');
+        final l10n = AppLocalizations.of(context);
+        setState(() => _registryError = l10n.appStoreLoadError('$e'));
       }
     } finally {
       if (mounted) setState(() => _loadingRegistry = false);
@@ -119,7 +140,7 @@ class _AppStoreScreenState extends State<AppStoreScreen>
 
   Future<void> _installBuiltIn(FolioAppPackage pkg) async {
     if (_store.isInstalled(pkg.id)) return;
-    final result = _store.installBuiltIn(pkg.id);
+    final result = await _store.installBuiltIn(pkg.id);
     if (!mounted) return;
     final l10n = AppLocalizations.of(context);
     if (result is AppInstallError) {
@@ -478,7 +499,13 @@ class _BuiltInAppTile extends StatelessWidget {
       ),
       title: Row(
         children: [
-          Text(pkg.name, style: const TextStyle(fontWeight: FontWeight.w600)),
+          Expanded(
+            child: Text(
+              pkg.name,
+              style: const TextStyle(fontWeight: FontWeight.w600),
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
           const SizedBox(width: 6),
           Icon(Icons.verified_rounded, size: 14, color: scheme.primary),
         ],

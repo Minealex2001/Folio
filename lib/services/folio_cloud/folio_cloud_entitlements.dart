@@ -9,6 +9,7 @@ import '../../app/folio_distribution.dart';
 import '../folio_firestore_support.dart';
 import 'folio_cloud_billing.dart';
 import 'folio_cloud_callable.dart';
+import 'folio_firestore_rest.dart';
 import 'folio_microsoft_store_channel.dart';
 import 'folio_microsoft_store_sync.dart';
 import 'folio_web_portal_api.dart';
@@ -430,13 +431,47 @@ class FolioCloudEntitlementsController extends ChangeNotifier {
 
   static const int _firestoreServerFetchMaxAttempts = 7;
 
+  /// Lee `users/{uid}` por la API REST de Firestore (workaround para Windows,
+  /// donde el SDK nativo no está disponible). Reintentos suaves para el arranque
+  /// en frío del canal de red en escritorio.
+  Future<Map<String, dynamic>?> _fetchUserDocViaRest(
+    String uid, {
+    Duration leadingDelay = Duration.zero,
+  }) async {
+    if (kIsWeb) return null;
+    if (leadingDelay > Duration.zero) {
+      await Future<void>.delayed(leadingDelay);
+    }
+    for (var attempt = 0; attempt < _firestoreServerFetchMaxAttempts; attempt++) {
+      if (attempt > 0) {
+        await Future<void>.delayed(
+          Duration(milliseconds: 350 + 550 * attempt),
+        );
+      }
+      try {
+        final data = await folioFirestoreRestGetUserDoc(uid);
+        if (FirebaseAuth.instance.currentUser?.uid != uid) return null;
+        return data;
+      } catch (e) {
+        final canRetry = attempt < _firestoreServerFetchMaxAttempts - 1;
+        if (canRetry) continue;
+        debugPrint('FolioCloudEntitlements: REST fetch users/$uid: $e');
+        return null;
+      }
+    }
+    return null;
+  }
+
   Future<Map<String, dynamic>?> _fetchUserDocFromServerWithRetries(
     String uid, {
     Duration leadingDelay = Duration.zero,
   }) async {
-    // Windows: Firestore deshabilitado (crash nativo del SDK C++). No leemos el
-    // doc de usuario; los derechos web se aproximan vía portal/Stripe/Store.
-    if (!folioFirestoreSupported) return null;
+    // Windows: el SDK nativo de Firestore (C++) crashea. Como workaround leemos
+    // `users/{uid}` por la API REST de Firestore usando el ID token de Auth,
+    // que sí funciona en escritorio (igual que las Cloud Functions por HTTP).
+    if (!folioFirestoreSupported) {
+      return _fetchUserDocViaRest(uid, leadingDelay: leadingDelay);
+    }
     if (leadingDelay > Duration.zero) {
       await Future<void>.delayed(leadingDelay);
     }
@@ -472,7 +507,11 @@ class FolioCloudEntitlementsController extends ChangeNotifier {
               'FolioCloudEntitlements: server fetch falló; usando última caché local.',
             );
             return cached.data();
-          } catch (_) {/* ignore */}
+          } catch (cacheErr) {
+            debugPrint(
+              'FolioCloudEntitlements: caché local también falló: $cacheErr',
+            );
+          }
         }
         debugPrint(
           'FolioCloudEntitlements: fetch server users/$uid: $e',
@@ -617,7 +656,11 @@ class FolioCloudEntitlementsController extends ChangeNotifier {
   }
 
   void _onUser(User? user) {
-    unawaited(_docSub?.cancel());
+    unawaited(_handleUserChange(user));
+  }
+
+  Future<void> _handleUserChange(User? user) async {
+    await _docSub?.cancel();
     _docSub = null;
     _cancelUserDocPoll();
     if (user == null) {
@@ -640,7 +683,7 @@ class FolioCloudEntitlementsController extends ChangeNotifier {
       _clearWebPortalMirror();
       notifyListeners();
     }
-    unawaited(_subscribeUserDoc(user.uid));
+    await _subscribeUserDoc(user.uid);
     unawaited(refreshWebPortalEntitlement());
   }
 

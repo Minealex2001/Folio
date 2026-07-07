@@ -36,7 +36,7 @@ Widget? _specialRowEquation(_BlockRowScope s) {
               Padding(
                 padding: const EdgeInsets.only(bottom: 6),
                 child: Text(
-                  'LaTeX',
+                  AppLocalizations.of(context).equationLatexLabel,
                   style: theme.textTheme.labelLarge?.copyWith(
                     fontWeight: FontWeight.w600,
                     color: scheme.primary,

@@ -84,12 +84,13 @@ class VaultPayload {
     final pageRevisions = <String, List<FolioPageRevision>>{};
     if (revRoot is Map) {
       for (final e in revRoot.entries) {
-        final key = e.key as String;
-        final rawList = e.value as List<dynamic>? ?? [];
+        final key = '${e.key}';
+        final rawList = e.value is List ? e.value as List<dynamic> : const [];
         pageRevisions[key] = rawList
+            .whereType<Map>()
             .map(
               (x) => FolioPageRevision.fromJson(
-                Map<String, dynamic>.from(x as Map),
+                Map<String, dynamic>.from(x),
               ),
             )
             .toList();
@@ -99,7 +100,7 @@ class VaultPayload {
     final rawAcl = j['pageAcl'];
     if (rawAcl is Map) {
       for (final e in rawAcl.entries) {
-        acl[e.key as String] = Map<String, String>.from(
+        acl['${e.key}'] = Map<String, String>.from(
           (e.value as Map?)?.map((k, v) => MapEntry('$k', '$v')) ?? const {},
         );
       }

@@ -9,6 +9,14 @@ import 'app_logger.dart';
 import 'folio_firestore_support.dart';
 import 'telemetry_models.dart';
 
+/// Evento encolado con el UID de la sesión que lo generó.
+class _QueuedTelemetryEvent {
+  _QueuedTelemetryEvent({required this.event, required this.userId});
+
+  final TelemetryEvent event;
+  final String userId;
+}
+
 /// Sincroniza eventos de telemetría a Firestore en batches.
 ///
 /// - Acumula eventos en memoria y hace flush periódico (cada 5 min) o al agregar
@@ -24,7 +32,7 @@ class FolioFirestoreSync {
   static const _maxRetryDelayMs = 30000;
   static const _maxWritesPerCommit = 100;
 
-  static final List<TelemetryEvent> _eventQueue = [];
+  static final List<_QueuedTelemetryEvent> _eventQueue = [];
   static Timer? _flushTimer;
   static StreamSubscription<User?>? _authSub;
   static int _retryCount = 0;
@@ -53,7 +61,8 @@ class FolioFirestoreSync {
     _startFlushTimer();
     _authSub?.cancel();
     _authSub = FirebaseAuth.instance.authStateChanges().listen((user) {
-      onUserChanged(user?.uid ?? '');
+      final newUserId = user?.uid ?? '';
+      _flushChain = _flushChain.then((_) => onUserChanged(newUserId));
     });
     final currentUid = FirebaseAuth.instance.currentUser?.uid ?? '';
     if (currentUid.isNotEmpty) {
@@ -85,7 +94,9 @@ class FolioFirestoreSync {
   static void addEvent(TelemetryEvent event) {
     // Windows: Firestore deshabilitado; no acumulamos ni intentamos enviar.
     if (!folioFirestoreSupported) return;
-    _eventQueue.add(event);
+    final uid = FirebaseAuth.instance.currentUser?.uid ?? '';
+    if (uid.isEmpty) return;
+    _eventQueue.add(_QueuedTelemetryEvent(event: event, userId: uid));
     _flushChain = _flushChain.then((_) => _drainEventQueueBatches());
   }
 
@@ -120,33 +131,44 @@ class FolioFirestoreSync {
     while (_eventQueue.isNotEmpty) {
       if (Firebase.apps.isEmpty) return;
 
-      final uid = FirebaseAuth.instance.currentUser?.uid;
-      if (uid == null || uid.isEmpty) {
-        AppLogger.debug(
-          'Telemetry flush skipped (no auth user)',
-          tag: 'telemetry-sync',
-          context: {'queued': _eventQueue.length},
-        );
-        return;
+      final uid = _eventQueue.first.userId;
+      if (uid.isEmpty) {
+        _eventQueue.removeAt(0);
+        continue;
       }
 
-      final take = _eventQueue.length > _maxWritesPerCommit
-          ? _maxWritesPerCommit
-          : _eventQueue.length;
-      final chunk = List<TelemetryEvent>.from(_eventQueue.sublist(0, take));
-      _eventQueue.removeRange(0, take);
+      // Solo enviamos eventos de un mismo UID por batch.
+      var take = 0;
+      while (take < _eventQueue.length &&
+          take < _maxWritesPerCommit &&
+          _eventQueue[take].userId == uid) {
+        take++;
+      }
+      if (take == 0) {
+        _eventQueue.removeAt(0);
+        continue;
+      }
+
+      final chunk = List<_QueuedTelemetryEvent>.from(
+        _eventQueue.sublist(0, take),
+      );
       _retryCount = 0;
 
       final ok = await _sendBatchWithRetry(uid, chunk);
-      if (!ok) break;
+      if (ok) {
+        _eventQueue.removeRange(0, take);
+      } else {
+        break;
+      }
     }
   }
 
   static Future<bool> _sendBatchWithRetry(
     String userId,
-    List<TelemetryEvent> events,
+    List<_QueuedTelemetryEvent> queued,
   ) async {
-    if (events.isEmpty) return true;
+    if (queued.isEmpty) return true;
+    final events = queued.map((q) => q.event).toList();
     try {
       final info = await _packageInfo();
       final batch = FirebaseFirestore.instance.batch();
@@ -188,21 +210,21 @@ class FolioFirestoreSync {
         context: {'stack': '$st'},
       );
 
-      return _retryWithBackoff(userId, events);
+      return _retryWithBackoff(userId, queued);
     }
   }
 
   static Future<bool> _retryWithBackoff(
     String userId,
-    List<TelemetryEvent> events,
+    List<_QueuedTelemetryEvent> queued,
   ) async {
     if (_retryCount >= 5) {
       AppLogger.warn(
         'Telemetry sync max retries exceeded',
         tag: 'telemetry-sync',
-        context: {'userId': userId, 'eventCount': events.length},
+        context: {'userId': userId, 'eventCount': queued.length},
       );
-      _eventQueue.addAll(events);
+      _eventQueue.insertAll(0, queued);
       return false;
     }
 
@@ -218,6 +240,6 @@ class FolioFirestoreSync {
     );
 
     await Future.delayed(Duration(milliseconds: delayMs));
-    return _sendBatchWithRetry(userId, events);
+    return _sendBatchWithRetry(userId, queued);
   }
 }

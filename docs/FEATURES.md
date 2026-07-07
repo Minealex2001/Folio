@@ -1059,3 +1059,83 @@ En Windows, con el engine de Flutter 3.44 y el SDK C++ de Firebase, la app crash
    - **Fix:** Firestore queda **deshabilitado en Windows** mediante el guard central `folioFirestoreSupported` (`lib/services/folio_firestore_support.dart`). Todos los accesos a Firestore comprueban ese flag: las lecturas devuelven datos vacíos y las escrituras se ignoran o lanzan un error claro. Puntos protegidos: `FolioFirestoreSync` (telemetría), `FolioCloudEntitlementsController` (doc de usuario/derechos), `folio_cloud_publish` (publicación web), `CommunityTemplateStore` (galería comunitaria), `CollabSessionController` (colaboración en vivo), media E2E de colaboración en el editor de bloques y el panel de telemetría. El resto de plataformas (Android, iOS, macOS, Linux, Web) usan Firestore con normalidad.
 
 - Se subieron las versiones de Firebase (`firebase_core ^4.10.0`, `firebase_auth ^6.5.0`, `firebase_auth_platform_interface ^9.0.0`, `cloud_firestore ^6.5.0`, `firebase_storage ^13.4.0`, `cloud_functions ^6.3.0`).
+
+---
+
+## Correcciones y mejoras de robustez (julio 2026)
+
+### Tienda de Apps
+
+- **`setState() during build`:** `AppStoreService.fetchRegistry()` aplaza el primer `notifyListeners()` tras un microtask; `AppStoreScreen` lanza `_refreshRegistry()` en `addPostFrameCallback`.
+- **Overflows UI:** nombre de app integrada con `Expanded`; fila de tags/rating en tarjetas con `Wrap`.
+- **Localización:** textos de la tienda (pantalla, tarjetas, detalle, errores de registry) migrados a `lib/l10n/` (6 idiomas). El servicio expone códigos de error (`registryErrorCode`) traducidos en la UI.
+- **Persistencia:** `_finalizeInstall()` hace `await _saveInstalled()` antes de notificar.
+
+### Telemetría (`FolioFirestoreSync`)
+
+- Cada evento encolado guarda el `userId` de la sesión que lo generó (no el `currentUser` del momento del flush).
+- Los eventos solo se eliminan de la cola tras un `batch.commit()` exitoso; los fallidos se reinsertan al frente.
+- `onUserChanged` se encadena en `_flushChain` para no solapar drains.
+
+### Folio Cloud
+
+- **Callables IA (móvil/macOS):** timeout de 120 s en `folio_cloud_callable.dart` con mapeo a `deadline-exceeded`.
+- **Cloud-pack:** rollback de snapshot y blobs nuevos si falla `folioFinalizeCloudPack`.
+- **Logging:** `catch` silenciosos sustituidos por `AppLogger` en cloud-pack sync, backup metadata y entitlements.
+- **IA cloud:** errores no tipados preservan el mensaje real antes de mapear a `unavailable`.
+- **Entitlements:** cancelación serializada del listener de documento por UID (`await _docSub?.cancel()`).
+- **Backup:** comprobación de existencia del archivo antes de `putFile`.
+
+### Localización incremental
+
+- **Drive:** Cancel/Delete/Rename/Mover/color de carpeta usan claves `l10n` existentes o nuevas (`driveMoveToFolderTitle`, `driveFolderColor`).
+- **Kanban/Jira:** diálogos y mensajes de sync Jira migrados a claves `kanban*` y `jira*` en los 6 `.arb`.
+- **Release notes** y **estado vacío del editor** (`workspaceEditorReadyHeadline`, tips `workspaceHomeTip0–3`).
+- **Pendiente incremental:** `database_block_editor.dart` aún usa helper `_t(es, en)` en parte del editor de bases de datos; conviene migrar en una tanda dedicada.
+
+## Correcciones del sistema de notas (páginas y bloques) — julio 2026
+
+Revisión centrada en errores del editor de bloques, páginas y persistencia de notas.
+
+### Pérdida de datos (rich text WYSIWYG)
+
+- **Clonado de bloques:** `cloneBlocksWithNewIds` y `createPageFromTemplate` ahora copian `richTextDeltaJson`, evitando perder el formato Quill al duplicar bloques, instanciar plantillas o pegar. `syncGroupId` se omite a propósito para que el clon sea independiente.
+- **Flush al navegar:** `_disposeControllers()` vacía a la sesión los cambios Quill con debounce pendiente (`_flushPendingQuill`) antes de descartar los timers, en vez de cancelarlos sin guardar.
+- **Flush en blur:** al perder foco un bloque WYSIWYG se persiste con `updateBlockTextFull` (texto + Delta), no solo el Markdown.
+- **Bloqueo del vault:** `VaultSession.lock()` ejecuta `flushPendingSave()` (persistencia inmediata) antes de limpiar la memoria de sesión, evitando perder el autosave con debounce de 450 ms.
+
+### Lógica de bloques
+
+- **Backspace:** en bloques Quill usa el estado real del documento (texto plano y selección), no el `TextEditingController` espejo que puede estar desfasado; el caret tras merge se posiciona con la longitud de texto plano del bloque previo (`_blockCaretLength`).
+- **Split (Enter) y merge:** `splitBlockAtCaret` y `mergeBlockUp` limpian `richTextDeltaJson` de los bloques afectados para que el Markdown sea la fuente de verdad y no se restaure contenido obsoleto al recargar.
+- **Fuga de `FocusNode`:** el overlay de preview reutiliza un `FocusNode` cacheado por bloque (`_folioQuillPreviewFocusFor`) liberado en el teardown, en vez de crear uno nuevo en cada `build`.
+
+### Async y concurrencia
+
+- Comprobaciones `mounted` tras `await` en pegado de tabla, picker de emoji del callout y `catch` de subida cloud de notas de reunión.
+- Transcripción de reuniones: los chunks de audio se procesan en serie (`_chunkChain`) para no mezclar la transcripción fuera de orden.
+
+### Robustez del modelo
+
+- `FolioBlock.fromJson` / `FolioPage.fromJson`: lectura tolerante de `id` (string, numérico legacy o nulo) sin `CastError` que rompa la carga del vault; `tags` filtra no-strings; `VaultPayload.fromJson` tolera claves/valores no esperados en revisiones y ACL.
+- **Toggle legacy:** `FolioToggleData.parseOrLegacy` conserva como cuerpo el texto plano antiguo en vez de vaciarlo.
+- **Retroenlaces:** `backlinkPagesFor` detecta también bloques `child_page` que apuntan a la página objetivo.
+- **IDs únicos en columnas:** `FolioColumnsData.tryParse` deduplica los IDs de bloque de todas las columnas al cargar (reasignando IDs a duplicados/vacíos), evitando que un JSON corrupto/importado haga que varios bloques compartan el mismo `TextEditingController`.
+- **Flush antes de bloquear:** `VaultSession` expone hooks (`addPendingFlushHook`) que `flushPendingSave()` ejecuta antes de persistir; el editor registra uno que vacía a la sesión todos los bloques Quill con debounce pendiente, cerrando la ventana de pérdida al bloquear por inactividad o pasar a segundo plano.
+
+### Localización
+
+- Bloques de columnas: eliminado el helper `_t(es, en)`; etiquetas de tipo de bloque y controles de columna migrados a claves `columnBlockType*` / `columnList*` en los 6 idiomas.
+- Error inline de Mermaid (`mermaidInlineLoadError`), placeholder y etiqueta de ecuación (`equationEmptyPlaceholder`, `equationLatexLabel`) y fallback del botón de plantilla (`templateButtonDefaultLabel`) localizados.
+
+### Notas
+
+- Ambos pendientes menores previos (IDs duplicados de controllers en columnas y la ventana de pérdida en bloqueo por inactividad) quedaron resueltos con la deduplicación de IDs al parsear columnas y los hooks de flush previos a `flushPendingSave()`.
+
+## Workaround REST de Firestore en Windows — julio 2026
+
+En Windows el SDK nativo de Cloud Firestore (C++) crashea al inicializarse, por lo que estaba deshabilitado (`folioFirestoreSupported == false`) y todas las lecturas devolvían vacío. Efecto visible: la suscripción a Folio Cloud no aparecía en Ajustes, porque `FolioCloudEntitlementsController` no podía leer `users/{uid}`.
+
+- **Cliente REST** (`lib/services/folio_cloud/folio_firestore_rest.dart`): lee documentos de Firestore por su [API REST](https://firebase.google.com/docs/firestore/use-rest-api) usando el ID token de Firebase Auth como Bearer (Auth sí funciona en escritorio, igual que las Cloud Functions por HTTP). Incluye un decodificador del formato `Value` de Firestore (`integerValue` como String, `mapValue`, `arrayValue`, etc.) a `Map` plano compatible con los `fromJson` de la app. Reutilizable vía `folioFirestoreRestGetDocument(path)` y el atajo `folioFirestoreRestGetUserDoc(uid)`.
+- **Integración:** `_fetchUserDocFromServerWithRetries` usa el fallback REST cuando el SDK nativo no está disponible, con los mismos reintentos por arranque en frío. Como en Windows ya se usa sondeo (`_folioFirestoreUseGetPolling`) en vez de streams, todas las rutas de derechos (carga inicial, `handleAppResumed`, refresco manual, re-sync con Stripe) funcionan ahora.
+- **Alcance:** solo lecturas puntuales (`get`); no reemplaza streams en tiempo real (se aproximan con el sondeo existente) ni escrituras. El helper queda disponible para que otras lecturas (páginas publicadas, plantillas de comunidad, etc.) lo adopten si se requiere en Windows.

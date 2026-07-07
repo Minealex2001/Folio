@@ -390,6 +390,11 @@ class VaultSession extends ChangeNotifier {
       var found = false;
       for (final block in page.blocks) {
         if (found) break;
+        // Bloques child_page: su `text` es el id de la subpágina enlazada.
+        if (block.type == 'child_page' && block.text.trim() == targetPageId) {
+          found = true;
+          break;
+        }
         for (final match in uriRe.allMatches(block.text)) {
           final linked = folioPageIdFromFolioUri(match.group(0));
           if (linked == targetPageId) {
@@ -1584,9 +1589,46 @@ class VaultSession extends ChangeNotifier {
     _selectedPageId = null;
   }
 
+  /// Hooks que vacían a la sesión estado editable con debounce propio (p. ej.
+  /// los documentos Quill del editor de bloques) antes de un guardado forzado.
+  final List<void Function()> _pendingFlushHooks = [];
+
+  void addPendingFlushHook(void Function() hook) {
+    if (!_pendingFlushHooks.contains(hook)) _pendingFlushHooks.add(hook);
+  }
+
+  void removePendingFlushHook(void Function() hook) {
+    _pendingFlushHooks.remove(hook);
+  }
+
+  void _runPendingFlushHooks() {
+    for (final hook in List<void Function()>.from(_pendingFlushHooks)) {
+      try {
+        hook();
+      } catch (e) {
+        debugPrint('[vault] pending flush hook failed: $e');
+      }
+    }
+  }
+
+  /// Fuerza el vaciado a disco de cambios pendientes. Primero ejecuta los hooks
+  /// (que sincronizan al modelo el estado editable en debounce, p. ej. Quill) y
+  /// luego persiste si quedó un guardado pendiente. Evita perder los últimos
+  /// milisegundos de edición al bloquear o cambiar de contexto.
+  Future<void> flushPendingSave() async {
+    _runPendingFlushHooks();
+    if (_saveDebounce?.isActive ?? false) {
+      _saveDebounce!.cancel();
+      _saveDebounce = null;
+      await persistNow();
+    }
+  }
+
   Future<void> lock() async {
     if (!vaultUsesEncryption) return;
     await _persistLastSelectedPageBeforeLock();
+    // Vaciar el autosave pendiente antes de descartar la memoria de sesión.
+    await flushPendingSave();
     _clearVaultSessionMemory();
     _state = VaultFlowState.locked;
     notifyListeners();
@@ -3696,6 +3738,10 @@ class VaultSession extends ChangeNotifier {
             id: '${pageIdPrefix}_${_uuid.v4()}',
             type: b.type,
             text: b.text,
+            // Preserva el formato WYSIWYG (Quill Delta) al duplicar/clonar.
+            // syncGroupId se omite a propósito: un clon es independiente y no
+            // debe quedar vinculado en cascada al bloque original.
+            richTextDeltaJson: b.richTextDeltaJson,
             checked: b.checked,
             expanded: b.expanded,
             codeLanguage: b.codeLanguage,
@@ -3953,6 +3999,10 @@ class VaultSession extends ChangeNotifier {
     _rememberUndoBeforePageMutation(pageId);
     final cur = page.blocks[i];
     cur.text = before;
+    // El Delta previo cubría el texto completo; al partir, el Markdown `before`
+    // pasa a ser la fuente de verdad. Limpiar el Delta evita que al recargar se
+    // restaure el contenido completo anterior a la división.
+    cur.richTextDeltaJson = null;
     final sameListType =
         cur.type == 'bullet' || cur.type == 'todo' || cur.type == 'numbered';
     final sameCode = cur.type == 'code' || cur.type == 'equation';
@@ -4006,6 +4056,10 @@ class VaultSession extends ChangeNotifier {
     }
     _rememberUndoBeforePageMutation(pageId);
     prev.text = prev.text + cur.text;
+    // El Delta de `prev` solo cubría su contenido antiguo; tras fusionar, el
+    // Markdown combinado es la fuente de verdad. Limpiarlo evita perder el
+    // texto fusionado al recargar (donde el Delta tendría prioridad).
+    prev.richTextDeltaJson = null;
     page.blocks.removeAt(i);
     notifyListeners();
     scheduleSave(trackRevisionForPageId: pageId);
@@ -4853,6 +4907,7 @@ class VaultSession extends ChangeNotifier {
             id: '${id}_${_uuid.v4()}',
             type: b.type,
             text: b.text,
+            richTextDeltaJson: b.richTextDeltaJson,
             checked: b.checked,
             expanded: b.expanded,
             codeLanguage: b.codeLanguage,

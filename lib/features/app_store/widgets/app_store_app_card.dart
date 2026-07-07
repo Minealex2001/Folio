@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../l10n/generated/app_localizations.dart';
 import '../../../models/folio_app_registry_entry.dart';
 
 /// Tarjeta de una app en la tienda (para el listado del registry).
@@ -19,6 +20,7 @@ class AppStoreAppCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     final textTheme = Theme.of(context).textTheme;
+    final l10n = AppLocalizations.of(context);
 
     return Card(
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
@@ -51,7 +53,7 @@ class AppStoreAppCard extends StatelessWidget {
                         ),
                         if (entry.verifiedByFolio)
                           Tooltip(
-                            message: 'Verificado por Folio',
+                            message: l10n.appStoreVerifiedByFolio,
                             child: Icon(
                               Icons.verified_rounded,
                               size: 16,
@@ -70,7 +72,7 @@ class AppStoreAppCard extends StatelessWidget {
                               borderRadius: BorderRadius.circular(12),
                             ),
                             child: Text(
-                              'Instalada',
+                              l10n.appStoreInstalledChip,
                               style: textTheme.labelSmall?.copyWith(
                                 color: scheme.onPrimaryContainer,
                               ),
@@ -93,18 +95,17 @@ class AppStoreAppCard extends StatelessWidget {
                       overflow: TextOverflow.ellipsis,
                     ),
                     const SizedBox(height: 8),
-                    Row(
+                    Wrap(
+                      spacing: 4,
+                      runSpacing: 4,
+                      crossAxisAlignment: WrapCrossAlignment.center,
                       children: [
-                        if (entry.tags.isNotEmpty) ...[
+                        if (entry.tags.isNotEmpty)
                           for (final tag in entry.tags.take(3))
-                            Padding(
-                              padding: const EdgeInsets.only(right: 4),
-                              child: _TagChip(label: tag),
-                            ),
-                        ],
-                        const Spacer(),
+                            _TagChip(label: tag),
                         if (entry.rating > 0)
                           Row(
+                            mainAxisSize: MainAxisSize.min,
                             children: [
                               Icon(
                                 Icons.star_rounded,
@@ -158,6 +159,7 @@ class InstalledAppCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     final textTheme = Theme.of(context).textTheme;
+    final l10n = AppLocalizations.of(context);
 
     return Card(
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
@@ -181,7 +183,7 @@ class InstalledAppCard extends StatelessWidget {
                       ),
                     ),
                     Text(
-                      'v$version',
+                      l10n.appStoreVersionPrefix(version),
                       style: textTheme.bodySmall?.copyWith(
                         color: scheme.onSurfaceVariant,
                       ),
@@ -193,7 +195,7 @@ class InstalledAppCard extends StatelessWidget {
               const SizedBox(width: 4),
               IconButton(
                 icon: Icon(Icons.delete_outline_rounded, color: scheme.error),
-                tooltip: 'Desinstalar',
+                tooltip: l10n.appStoreUninstallTooltip,
                 onPressed: onUninstall,
               ),
             ],

@@ -71,7 +71,12 @@ class FolioPage {
                 (e) => FolioBlock.fromJson(Map<String, dynamic>.from(e as Map)),
               )
               .toList();
-    final id = j['id'] as String;
+    final rawId = j['id'];
+    final id = (rawId is String && rawId.isNotEmpty)
+        ? rawId
+        : (rawId?.toString().isNotEmpty ?? false)
+        ? rawId.toString()
+        : 'page_fallback_${DateTime.now().microsecondsSinceEpoch}';
     final rawRoom = j['collabRoomId'] as String?;
     final roomId = rawRoom?.trim();
     final rawJoin = j['collabJoinCode'] as String?;
@@ -105,7 +110,7 @@ class FolioPage {
               )
               .toList() ??
           [],
-      tags: (j['tags'] as List<dynamic>?)?.cast<String>() ?? [],
+      tags: (j['tags'] as List<dynamic>?)?.whereType<String>().toList() ?? [],
     );
   }
 

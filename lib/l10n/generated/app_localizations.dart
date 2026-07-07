@@ -8288,6 +8288,18 @@ abstract class AppLocalizations {
   /// **'Mover a…'**
   String get driveMoveTo;
 
+  /// No description provided for @driveMoveToFolderTitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Mover a carpeta'**
+  String get driveMoveToFolderTitle;
+
+  /// No description provided for @driveFolderColor.
+  ///
+  /// In es, this message translates to:
+  /// **'Color de carpeta'**
+  String get driveFolderColor;
+
   /// No description provided for @driveClassicModeBanner.
   ///
   /// In es, this message translates to:
@@ -11507,6 +11519,168 @@ abstract class AppLocalizations {
   /// **'No hay apps instaladas.\nExplora la tienda o instala un .folioapp.'**
   String get appStoreInstalledEmpty;
 
+  /// No description provided for @appStoreRegistryLoadError.
+  ///
+  /// In es, this message translates to:
+  /// **'Error {statusCode} al cargar el registry.'**
+  String appStoreRegistryLoadError(int statusCode);
+
+  /// No description provided for @appStoreRegistryOfflineCache.
+  ///
+  /// In es, this message translates to:
+  /// **'Sin conexión. Mostrando caché local.'**
+  String get appStoreRegistryOfflineCache;
+
+  /// No description provided for @appStoreLoadError.
+  ///
+  /// In es, this message translates to:
+  /// **'Error al cargar la tienda: {error}'**
+  String appStoreLoadError(String error);
+
+  /// No description provided for @appStoreVerifiedByFolio.
+  ///
+  /// In es, this message translates to:
+  /// **'Verificado por Folio'**
+  String get appStoreVerifiedByFolio;
+
+  /// No description provided for @appStoreCapabilitiesTitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Capacidades'**
+  String get appStoreCapabilitiesTitle;
+
+  /// No description provided for @appStoreConnectionsTitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Conexiones'**
+  String get appStoreConnectionsTitle;
+
+  /// No description provided for @appStoreConnected.
+  ///
+  /// In es, this message translates to:
+  /// **'Conectado'**
+  String get appStoreConnected;
+
+  /// No description provided for @appStoreNotConnected.
+  ///
+  /// In es, this message translates to:
+  /// **'No conectado'**
+  String get appStoreNotConnected;
+
+  /// No description provided for @appStoreDisconnect.
+  ///
+  /// In es, this message translates to:
+  /// **'Desconectar'**
+  String get appStoreDisconnect;
+
+  /// No description provided for @appStoreConnect.
+  ///
+  /// In es, this message translates to:
+  /// **'Conectar'**
+  String get appStoreConnect;
+
+  /// No description provided for @appStoreInstallFromRegistryTitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Instalar \"{name}\"'**
+  String appStoreInstallFromRegistryTitle(String name);
+
+  /// No description provided for @appStoreInstallUnverifiedLocalBody.
+  ///
+  /// In es, this message translates to:
+  /// **'Esta app no ha sido verificada localmente. Instala solo apps de fuentes en las que confíes.'**
+  String get appStoreInstallUnverifiedLocalBody;
+
+  /// No description provided for @appStorePermissionsRequested.
+  ///
+  /// In es, this message translates to:
+  /// **'Permisos que solicita:'**
+  String get appStorePermissionsRequested;
+
+  /// No description provided for @appStoreCapabilityBlockTypes.
+  ///
+  /// In es, this message translates to:
+  /// **'{count} tipo(s) de bloque'**
+  String appStoreCapabilityBlockTypes(int count);
+
+  /// No description provided for @appStoreCapabilitySlashCommands.
+  ///
+  /// In es, this message translates to:
+  /// **'{count} comando(s) slash'**
+  String appStoreCapabilitySlashCommands(int count);
+
+  /// No description provided for @appStoreCapabilityIntegrations.
+  ///
+  /// In es, this message translates to:
+  /// **'{count} integración(es)'**
+  String appStoreCapabilityIntegrations(int count);
+
+  /// No description provided for @appStoreCapabilityAiTransformers.
+  ///
+  /// In es, this message translates to:
+  /// **'{count} transformer(s) IA'**
+  String appStoreCapabilityAiTransformers(int count);
+
+  /// No description provided for @appStorePasteAccessToken.
+  ///
+  /// In es, this message translates to:
+  /// **'Pega tu access token'**
+  String get appStorePasteAccessToken;
+
+  /// No description provided for @appStoreTokenLabel.
+  ///
+  /// In es, this message translates to:
+  /// **'Token de {name}'**
+  String appStoreTokenLabel(String name);
+
+  /// No description provided for @appStoreApiKeyTitle.
+  ///
+  /// In es, this message translates to:
+  /// **'API Key'**
+  String get appStoreApiKeyTitle;
+
+  /// No description provided for @appStoreUninstallTooltip.
+  ///
+  /// In es, this message translates to:
+  /// **'Desinstalar'**
+  String get appStoreUninstallTooltip;
+
+  /// No description provided for @appStoreVersionPrefix.
+  ///
+  /// In es, this message translates to:
+  /// **'v{version}'**
+  String appStoreVersionPrefix(String version);
+
+  /// No description provided for @releaseNotesTitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Notas de versión'**
+  String get releaseNotesTitle;
+
+  /// No description provided for @releaseNotesContinue.
+  ///
+  /// In es, this message translates to:
+  /// **'Continuar'**
+  String get releaseNotesContinue;
+
+  /// No description provided for @workspaceEditorReadyHeadline.
+  ///
+  /// In es, this message translates to:
+  /// **'Tu espacio está listo'**
+  String get workspaceEditorReadyHeadline;
+
+  /// No description provided for @workspaceEditorReadySubtitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Crea una página para empezar a escribir o usa buscar para volver a una nota existente.'**
+  String get workspaceEditorReadySubtitle;
+
+  /// No description provided for @releaseNotesEmpty.
+  ///
+  /// In es, this message translates to:
+  /// **'No hay notas de versión disponibles para esta versión.'**
+  String get releaseNotesEmpty;
+
   /// No description provided for @settingsIntegrationsNativeTitle.
   ///
   /// In es, this message translates to:
@@ -12436,6 +12610,396 @@ abstract class AppLocalizations {
   /// In es, this message translates to:
   /// **'Falta JIRA_OAUTH_CLIENT_SECRET. Defínelo sobre todo en lib/config/folio_local_secrets.dart (copia desde el .example). En escritorio también puedes usar un .env al arrancar; en web solo ese archivo o --dart-define y recompilar. Reinicia la app; si usas .env en escritorio, revisa el log folio.env.'**
   String get jiraCloudMissingOAuthSecret;
+
+  /// No description provided for @kanbanJiraError.
+  ///
+  /// In es, this message translates to:
+  /// **'Error Jira: {error}'**
+  String kanbanJiraError(String error);
+
+  /// No description provided for @kanbanJiraSyncingPull.
+  ///
+  /// In es, this message translates to:
+  /// **'Jira: sincronizando (pull)…'**
+  String get kanbanJiraSyncingPull;
+
+  /// No description provided for @kanbanJiraPullOkPush.
+  ///
+  /// In es, this message translates to:
+  /// **'Jira: pull OK · ahora push…'**
+  String get kanbanJiraPullOkPush;
+
+  /// No description provided for @kanbanJiraNewIssue.
+  ///
+  /// In es, this message translates to:
+  /// **'Nuevo issue en Jira'**
+  String get kanbanJiraNewIssue;
+
+  /// No description provided for @kanbanJiraCreate.
+  ///
+  /// In es, this message translates to:
+  /// **'Crear'**
+  String get kanbanJiraCreate;
+
+  /// No description provided for @kanbanNone.
+  ///
+  /// In es, this message translates to:
+  /// **'Ninguna'**
+  String get kanbanNone;
+
+  /// No description provided for @kanbanConflict.
+  ///
+  /// In es, this message translates to:
+  /// **'Conflicto'**
+  String get kanbanConflict;
+
+  /// No description provided for @kanbanNeedsPush.
+  ///
+  /// In es, this message translates to:
+  /// **'Pendiente push'**
+  String get kanbanNeedsPush;
+
+  /// No description provided for @kanbanNeedsPull.
+  ///
+  /// In es, this message translates to:
+  /// **'Pendiente pull'**
+  String get kanbanNeedsPull;
+
+  /// No description provided for @kanbanDeleteTaskTitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Borrar tarea'**
+  String get kanbanDeleteTaskTitle;
+
+  /// No description provided for @kanbanDeleteTaskButton.
+  ///
+  /// In es, this message translates to:
+  /// **'Borrar'**
+  String get kanbanDeleteTaskButton;
+
+  /// No description provided for @kanbanTaskDeleted.
+  ///
+  /// In es, this message translates to:
+  /// **'Tarea borrada.'**
+  String get kanbanTaskDeleted;
+
+  /// No description provided for @kanbanForcePushTitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Forzar push a Jira'**
+  String get kanbanForcePushTitle;
+
+  /// No description provided for @kanbanForcePushButton.
+  ///
+  /// In es, this message translates to:
+  /// **'Forzar push'**
+  String get kanbanForcePushButton;
+
+  /// No description provided for @kanbanPull.
+  ///
+  /// In es, this message translates to:
+  /// **'Pull'**
+  String get kanbanPull;
+
+  /// No description provided for @kanbanTitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Título'**
+  String get kanbanTitle;
+
+  /// No description provided for @kanbanDescription.
+  ///
+  /// In es, this message translates to:
+  /// **'Descripción'**
+  String get kanbanDescription;
+
+  /// No description provided for @kanbanPriority.
+  ///
+  /// In es, this message translates to:
+  /// **'Prioridad'**
+  String get kanbanPriority;
+
+  /// No description provided for @kanbanStatusColumn.
+  ///
+  /// In es, this message translates to:
+  /// **'Estado/columna'**
+  String get kanbanStatusColumn;
+
+  /// No description provided for @kanbanDueDate.
+  ///
+  /// In es, this message translates to:
+  /// **'Fecha límite'**
+  String get kanbanDueDate;
+
+  /// No description provided for @kanbanKeepJiraPull.
+  ///
+  /// In es, this message translates to:
+  /// **'Mantener Jira (Pull)'**
+  String get kanbanKeepJiraPull;
+
+  /// No description provided for @kanbanStatus.
+  ///
+  /// In es, this message translates to:
+  /// **'Estado'**
+  String get kanbanStatus;
+
+  /// No description provided for @jiraIntegrationTitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Integración Jira'**
+  String get jiraIntegrationTitle;
+
+  /// No description provided for @jiraConnectionsTab.
+  ///
+  /// In es, this message translates to:
+  /// **'Conexiones'**
+  String get jiraConnectionsTab;
+
+  /// No description provided for @jiraSourcesTab.
+  ///
+  /// In es, this message translates to:
+  /// **'Fuentes'**
+  String get jiraSourcesTab;
+
+  /// No description provided for @jiraCreateConnectionFirst.
+  ///
+  /// In es, this message translates to:
+  /// **'Crea una conexión primero.'**
+  String get jiraCreateConnectionFirst;
+
+  /// No description provided for @jiraConnectingCloud.
+  ///
+  /// In es, this message translates to:
+  /// **'Conectando Jira Cloud…'**
+  String get jiraConnectingCloud;
+
+  /// No description provided for @jiraConnectionCreated.
+  ///
+  /// In es, this message translates to:
+  /// **'Conexión Jira Cloud creada.'**
+  String get jiraConnectionCreated;
+
+  /// No description provided for @jiraNewServerConnection.
+  ///
+  /// In es, this message translates to:
+  /// **'Nueva conexión Server/DC'**
+  String get jiraNewServerConnection;
+
+  /// No description provided for @jiraNewSource.
+  ///
+  /// In es, this message translates to:
+  /// **'Nueva fuente'**
+  String get jiraNewSource;
+
+  /// No description provided for @jiraConfigure.
+  ///
+  /// In es, this message translates to:
+  /// **'Configurar'**
+  String get jiraConfigure;
+
+  /// No description provided for @jiraSetClientId.
+  ///
+  /// In es, this message translates to:
+  /// **'Configurar Client ID'**
+  String get jiraSetClientId;
+
+  /// No description provided for @jiraOpenDeveloperConsole.
+  ///
+  /// In es, this message translates to:
+  /// **'Abrir Atlassian Developer Console'**
+  String get jiraOpenDeveloperConsole;
+
+  /// No description provided for @jiraStartingCloudConnection.
+  ///
+  /// In es, this message translates to:
+  /// **'Iniciando conexión con Jira Cloud…'**
+  String get jiraStartingCloudConnection;
+
+  /// No description provided for @jiraSave.
+  ///
+  /// In es, this message translates to:
+  /// **'Guardar'**
+  String get jiraSave;
+
+  /// No description provided for @jiraName.
+  ///
+  /// In es, this message translates to:
+  /// **'Nombre'**
+  String get jiraName;
+
+  /// No description provided for @jiraBaseUrl.
+  ///
+  /// In es, this message translates to:
+  /// **'Base URL'**
+  String get jiraBaseUrl;
+
+  /// No description provided for @jiraTokenPat.
+  ///
+  /// In es, this message translates to:
+  /// **'Token / PAT'**
+  String get jiraTokenPat;
+
+  /// No description provided for @jiraProject.
+  ///
+  /// In es, this message translates to:
+  /// **'Proyecto'**
+  String get jiraProject;
+
+  /// No description provided for @jiraBoard.
+  ///
+  /// In es, this message translates to:
+  /// **'Tablero'**
+  String get jiraBoard;
+
+  /// No description provided for @jiraConnection.
+  ///
+  /// In es, this message translates to:
+  /// **'Conexión'**
+  String get jiraConnection;
+
+  /// No description provided for @jiraType.
+  ///
+  /// In es, this message translates to:
+  /// **'Tipo'**
+  String get jiraType;
+
+  /// No description provided for @jiraSearchByName.
+  ///
+  /// In es, this message translates to:
+  /// **'Escribe para buscar (nombre)…'**
+  String get jiraSearchByName;
+
+  /// No description provided for @jiraReload.
+  ///
+  /// In es, this message translates to:
+  /// **'Recargar'**
+  String get jiraReload;
+
+  /// No description provided for @columnBlockTypeBullet.
+  ///
+  /// In es, this message translates to:
+  /// **'Lista'**
+  String get columnBlockTypeBullet;
+
+  /// No description provided for @columnBlockTypeNumbered.
+  ///
+  /// In es, this message translates to:
+  /// **'Numerada'**
+  String get columnBlockTypeNumbered;
+
+  /// No description provided for @columnBlockTypeTodo.
+  ///
+  /// In es, this message translates to:
+  /// **'Tarea'**
+  String get columnBlockTypeTodo;
+
+  /// No description provided for @columnBlockTypeQuote.
+  ///
+  /// In es, this message translates to:
+  /// **'Cita'**
+  String get columnBlockTypeQuote;
+
+  /// No description provided for @columnBlockTypeCallout.
+  ///
+  /// In es, this message translates to:
+  /// **'Callout'**
+  String get columnBlockTypeCallout;
+
+  /// No description provided for @columnBlockTypeCode.
+  ///
+  /// In es, this message translates to:
+  /// **'Código'**
+  String get columnBlockTypeCode;
+
+  /// No description provided for @columnBlockTypeEquation.
+  ///
+  /// In es, this message translates to:
+  /// **'Ecuación'**
+  String get columnBlockTypeEquation;
+
+  /// No description provided for @columnBlockTypeDivider.
+  ///
+  /// In es, this message translates to:
+  /// **'Divisor'**
+  String get columnBlockTypeDivider;
+
+  /// No description provided for @columnBlockTypeText.
+  ///
+  /// In es, this message translates to:
+  /// **'Texto'**
+  String get columnBlockTypeText;
+
+  /// No description provided for @columnBlockContentLabel.
+  ///
+  /// In es, this message translates to:
+  /// **'Contenido'**
+  String get columnBlockContentLabel;
+
+  /// No description provided for @columnListRemoveBlock.
+  ///
+  /// In es, this message translates to:
+  /// **'Eliminar bloque'**
+  String get columnListRemoveBlock;
+
+  /// No description provided for @columnListColumnsTitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Columnas'**
+  String get columnListColumnsTitle;
+
+  /// No description provided for @columnListEdit.
+  ///
+  /// In es, this message translates to:
+  /// **'Editar'**
+  String get columnListEdit;
+
+  /// No description provided for @columnListAddColumn.
+  ///
+  /// In es, this message translates to:
+  /// **'Añadir columna'**
+  String get columnListAddColumn;
+
+  /// No description provided for @columnListRemoveColumn.
+  ///
+  /// In es, this message translates to:
+  /// **'Quitar columna'**
+  String get columnListRemoveColumn;
+
+  /// No description provided for @columnListDone.
+  ///
+  /// In es, this message translates to:
+  /// **'Hecho'**
+  String get columnListDone;
+
+  /// No description provided for @columnListColumnLabel.
+  ///
+  /// In es, this message translates to:
+  /// **'Columna'**
+  String get columnListColumnLabel;
+
+  /// No description provided for @columnListAddBlock.
+  ///
+  /// In es, this message translates to:
+  /// **'Añadir bloque'**
+  String get columnListAddBlock;
+
+  /// No description provided for @equationEmptyPlaceholder.
+  ///
+  /// In es, this message translates to:
+  /// **'LaTeX…'**
+  String get equationEmptyPlaceholder;
+
+  /// No description provided for @equationLatexLabel.
+  ///
+  /// In es, this message translates to:
+  /// **'LaTeX'**
+  String get equationLatexLabel;
+
+  /// No description provided for @mermaidInlineLoadError.
+  ///
+  /// In es, this message translates to:
+  /// **'No se pudo mostrar el diagrama. Comprueba la sintaxis Mermaid o la conexión.'**
+  String get mermaidInlineLoadError;
 }
 
 class _AppLocalizationsDelegate

@@ -74,6 +74,10 @@ class _MeetingNoteBlockWidgetState extends State<MeetingNoteBlockWidget> {
   bool _languageInitialized = false;
   String? _diarizationSessionId;
   StreamSubscription<File>? _chunkSub;
+  /// Serializa el procesamiento de chunks de audio: `chunkStream` puede emitir
+  /// más rápido de lo que tarda `_onChunk`, y ejecutarlos en paralelo mezclaría
+  /// la transcripción fuera de orden.
+  Future<void> _chunkChain = Future<void>.value();
 
   String? _savedAudioPath;
   String? _runtimeError;
@@ -336,7 +340,13 @@ class _MeetingNoteBlockWidgetState extends State<MeetingNoteBlockWidget> {
       _diarizationSessionId = sid;
       DiarizationService.instance.startSession(sid);
     }
-    _chunkSub = AudioMixerService.instance.chunkStream.listen(_onChunk);
+    _chunkChain = Future<void>.value();
+    _chunkSub = AudioMixerService.instance.chunkStream.listen((chunkFile) {
+      // Encadenar para procesar los chunks estrictamente en orden de llegada.
+      _chunkChain = _chunkChain
+          .then((_) => _onChunk(chunkFile))
+          .catchError((_) {});
+    });
 
     _pendingCloudChunks.clear();
     _elapsed = Duration.zero;
@@ -479,17 +489,21 @@ class _MeetingNoteBlockWidgetState extends State<MeetingNoteBlockWidget> {
               : _mergeTranscriptChunk(cloudTranscript, text);
         }
       } on FirebaseFunctionsException catch (e) {
-        setState(() {
-          _cloudFallbackNotice = e.code == 'resource-exhausted'
-              ? l10n.meetingNoteCloudInkExhaustedNotice
-              : l10n.meetingNoteCloudFallbackNotice;
-        });
+        if (mounted) {
+          setState(() {
+            _cloudFallbackNotice = e.code == 'resource-exhausted'
+                ? l10n.meetingNoteCloudInkExhaustedNotice
+                : l10n.meetingNoteCloudFallbackNotice;
+          });
+        }
         cloudFailed = true;
         break;
       } catch (_) {
-        setState(() {
-          _cloudFallbackNotice = l10n.meetingNoteCloudFallbackNotice;
-        });
+        if (mounted) {
+          setState(() {
+            _cloudFallbackNotice = l10n.meetingNoteCloudFallbackNotice;
+          });
+        }
         cloudFailed = true;
         break;
       } finally {

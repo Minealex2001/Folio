@@ -4622,6 +4622,12 @@ class AppLocalizationsCa extends AppLocalizations {
   String get driveMoveTo => 'Mou a…';
 
   @override
+  String get driveMoveToFolderTitle => 'Moure a carpeta';
+
+  @override
+  String get driveFolderColor => 'Color de carpeta';
+
+  @override
   String get driveClassicModeBanner =>
       'Editor de blocs: pots moure o eliminar el bloc Drive.';
 
@@ -6531,6 +6537,109 @@ class AppLocalizationsCa extends AppLocalizations {
       'No hi ha apps instal·lades.\nExplora la botiga o instal·la un .folioapp.';
 
   @override
+  String appStoreRegistryLoadError(int statusCode) {
+    return 'Error $statusCode en carregar el registry.';
+  }
+
+  @override
+  String get appStoreRegistryOfflineCache =>
+      'Sense connexió. Mostrant la memòria cau local.';
+
+  @override
+  String appStoreLoadError(String error) {
+    return 'Error en carregar la botiga: $error';
+  }
+
+  @override
+  String get appStoreVerifiedByFolio => 'Verificat per Folio';
+
+  @override
+  String get appStoreCapabilitiesTitle => 'Capacitats';
+
+  @override
+  String get appStoreConnectionsTitle => 'Connexions';
+
+  @override
+  String get appStoreConnected => 'Connectat';
+
+  @override
+  String get appStoreNotConnected => 'No connectat';
+
+  @override
+  String get appStoreDisconnect => 'Desconnectar';
+
+  @override
+  String get appStoreConnect => 'Connectar';
+
+  @override
+  String appStoreInstallFromRegistryTitle(String name) {
+    return 'Instal·lar \"$name\"';
+  }
+
+  @override
+  String get appStoreInstallUnverifiedLocalBody =>
+      'Aquesta app no s\'ha verificat localment. Instal·la només apps de fonts en què confiïs.';
+
+  @override
+  String get appStorePermissionsRequested => 'Permisos que sol·licita:';
+
+  @override
+  String appStoreCapabilityBlockTypes(int count) {
+    return '$count tipus de bloc';
+  }
+
+  @override
+  String appStoreCapabilitySlashCommands(int count) {
+    return '$count ordre(s) slash';
+  }
+
+  @override
+  String appStoreCapabilityIntegrations(int count) {
+    return '$count integració(ns)';
+  }
+
+  @override
+  String appStoreCapabilityAiTransformers(int count) {
+    return '$count transformador(s) IA';
+  }
+
+  @override
+  String get appStorePasteAccessToken => 'Enganxa el teu access token';
+
+  @override
+  String appStoreTokenLabel(String name) {
+    return 'Token de $name';
+  }
+
+  @override
+  String get appStoreApiKeyTitle => 'API Key';
+
+  @override
+  String get appStoreUninstallTooltip => 'Desinstal·lar';
+
+  @override
+  String appStoreVersionPrefix(String version) {
+    return 'v$version';
+  }
+
+  @override
+  String get releaseNotesTitle => 'Notes de la versió';
+
+  @override
+  String get releaseNotesContinue => 'Continuar';
+
+  @override
+  String get workspaceEditorReadyHeadline => 'El teu espai està llest';
+
+  @override
+  String get workspaceEditorReadySubtitle =>
+      'Crea una pàgina per començar a escriure o usa la cerca per tornar a una nota existent.';
+
+  @override
+  String get releaseNotesEmpty =>
+      'No hi ha notes de versió disponibles per a aquesta versió.';
+
+  @override
   String get settingsIntegrationsNativeTitle => 'Integracions natives';
 
   @override
@@ -7092,4 +7201,202 @@ class AppLocalizationsCa extends AppLocalizations {
   @override
   String get jiraCloudMissingOAuthSecret =>
       'Falta JIRA_OAUTH_CLIENT_SECRET. Defineix-lo sobretot a lib/config/folio_local_secrets.dart (còpia des de l\'arxiu .example). A escriptori també pots usar un .env en arrencar; a web només aquest fitxer o --dart-define i recompilar. Reinicia l\'app; si uses .env a escriptori, revisa el registre folio.env.';
+
+  @override
+  String kanbanJiraError(String error) {
+    return 'Error Jira: $error';
+  }
+
+  @override
+  String get kanbanJiraSyncingPull => 'Jira: sincronitzant (pull)…';
+
+  @override
+  String get kanbanJiraPullOkPush => 'Jira: pull OK · ara push…';
+
+  @override
+  String get kanbanJiraNewIssue => 'Nou issue a Jira';
+
+  @override
+  String get kanbanJiraCreate => 'Crear';
+
+  @override
+  String get kanbanNone => 'Cap';
+
+  @override
+  String get kanbanConflict => 'Conflicte';
+
+  @override
+  String get kanbanNeedsPush => 'Pendent push';
+
+  @override
+  String get kanbanNeedsPull => 'Pendent pull';
+
+  @override
+  String get kanbanDeleteTaskTitle => 'Esborrar tasca';
+
+  @override
+  String get kanbanDeleteTaskButton => 'Esborrar';
+
+  @override
+  String get kanbanTaskDeleted => 'Tasca esborrada.';
+
+  @override
+  String get kanbanForcePushTitle => 'Forçar push a Jira';
+
+  @override
+  String get kanbanForcePushButton => 'Forçar push';
+
+  @override
+  String get kanbanPull => 'Pull';
+
+  @override
+  String get kanbanTitle => 'Títol';
+
+  @override
+  String get kanbanDescription => 'Descripció';
+
+  @override
+  String get kanbanPriority => 'Prioritat';
+
+  @override
+  String get kanbanStatusColumn => 'Estat/columna';
+
+  @override
+  String get kanbanDueDate => 'Data límit';
+
+  @override
+  String get kanbanKeepJiraPull => 'Mantenir Jira (Pull)';
+
+  @override
+  String get kanbanStatus => 'Estat';
+
+  @override
+  String get jiraIntegrationTitle => 'Integració Jira';
+
+  @override
+  String get jiraConnectionsTab => 'Connexions';
+
+  @override
+  String get jiraSourcesTab => 'Fonts';
+
+  @override
+  String get jiraCreateConnectionFirst => 'Crea una connexió primer.';
+
+  @override
+  String get jiraConnectingCloud => 'Connectant Jira Cloud…';
+
+  @override
+  String get jiraConnectionCreated => 'Connexió Jira Cloud creada.';
+
+  @override
+  String get jiraNewServerConnection => 'Nova connexió Server/DC';
+
+  @override
+  String get jiraNewSource => 'Nova font';
+
+  @override
+  String get jiraConfigure => 'Configurar';
+
+  @override
+  String get jiraSetClientId => 'Configurar Client ID';
+
+  @override
+  String get jiraOpenDeveloperConsole => 'Obrir Atlassian Developer Console';
+
+  @override
+  String get jiraStartingCloudConnection => 'Iniciant connexió amb Jira Cloud…';
+
+  @override
+  String get jiraSave => 'Desar';
+
+  @override
+  String get jiraName => 'Nom';
+
+  @override
+  String get jiraBaseUrl => 'Base URL';
+
+  @override
+  String get jiraTokenPat => 'Token / PAT';
+
+  @override
+  String get jiraProject => 'Projecte';
+
+  @override
+  String get jiraBoard => 'Tauler';
+
+  @override
+  String get jiraConnection => 'Connexió';
+
+  @override
+  String get jiraType => 'Tipus';
+
+  @override
+  String get jiraSearchByName => 'Escriu per cercar (nom)…';
+
+  @override
+  String get jiraReload => 'Recarregar';
+
+  @override
+  String get columnBlockTypeBullet => 'Llista';
+
+  @override
+  String get columnBlockTypeNumbered => 'Numerada';
+
+  @override
+  String get columnBlockTypeTodo => 'Tasca';
+
+  @override
+  String get columnBlockTypeQuote => 'Cita';
+
+  @override
+  String get columnBlockTypeCallout => 'Callout';
+
+  @override
+  String get columnBlockTypeCode => 'Codi';
+
+  @override
+  String get columnBlockTypeEquation => 'Equació';
+
+  @override
+  String get columnBlockTypeDivider => 'Divisor';
+
+  @override
+  String get columnBlockTypeText => 'Text';
+
+  @override
+  String get columnBlockContentLabel => 'Contingut';
+
+  @override
+  String get columnListRemoveBlock => 'Elimina el bloc';
+
+  @override
+  String get columnListColumnsTitle => 'Columnes';
+
+  @override
+  String get columnListEdit => 'Edita';
+
+  @override
+  String get columnListAddColumn => 'Afegeix columna';
+
+  @override
+  String get columnListRemoveColumn => 'Elimina la columna';
+
+  @override
+  String get columnListDone => 'Fet';
+
+  @override
+  String get columnListColumnLabel => 'Columna';
+
+  @override
+  String get columnListAddBlock => 'Afegeix bloc';
+
+  @override
+  String get equationEmptyPlaceholder => 'LaTeX…';
+
+  @override
+  String get equationLatexLabel => 'LaTeX';
+
+  @override
+  String get mermaidInlineLoadError =>
+      'No s\'ha pogut mostrar el diagrama. Comprova la sintaxi Mermaid o la connexió.';
 }

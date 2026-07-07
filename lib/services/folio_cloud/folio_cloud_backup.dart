@@ -12,6 +12,7 @@ import 'folio_cloud_callable.dart';
 import '../../data/vault_backup.dart';
 import '../../session/vault_session.dart';
 import 'folio_cloud_entitlements.dart';
+import '../app_logger.dart';
 
 // Nota: listamos copias siempre vía callable (incluye sizeBytes y soporta escritorio).
 
@@ -36,6 +37,9 @@ Future<String> uploadEncryptedBackupFile(
   FolioCloudSnapshot? entitlementSnapshot,
 }) async {
   _requireCloudBackupEntitlement(entitlementSnapshot);
+  if (!await file.exists()) {
+    throw StateError('El archivo de copia no existe: ${file.path}');
+  }
   if (Firebase.apps.isEmpty) {
     throw StateError('Firebase not initialized');
   }
@@ -144,7 +148,13 @@ Future<String> uploadOpenVaultEncryptedToCloud({
         attachmentsBytes: fp.attachmentsBytes,
         containerFormat: 'tar.gz',
       );
-    } catch (_) {}
+    } catch (e) {
+      AppLogger.warn(
+        'Backup subido pero falló el registro de metadata',
+        tag: 'cloud-backup',
+        context: {'vaultId': vaultId, 'error': '$e'},
+      );
+    }
     return await ref.getDownloadURL();
   } finally {
     try {

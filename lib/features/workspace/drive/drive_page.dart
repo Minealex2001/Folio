@@ -179,7 +179,7 @@ class _DrivePageState extends State<DrivePage> {
           actions: [
             TextButton(
               onPressed: () => Navigator.of(ctx2).pop<String?>(null),
-              child: const Text('Cancel'),
+              child: Text(l10n.cancel),
             ),
             FilledButton(
               onPressed: () => Navigator.of(ctx2).pop<String?>(text),
@@ -224,7 +224,7 @@ class _DrivePageState extends State<DrivePage> {
           actions: [
             TextButton(
               onPressed: () => Navigator.of(ctx2).pop<String?>(null),
-              child: const Text('Cancel'),
+              child: Text(l10n.cancel),
             ),
             FilledButton(
               onPressed: () => Navigator.of(ctx2).pop<String?>(text),
@@ -303,7 +303,7 @@ class _DrivePageState extends State<DrivePage> {
           actions: [
             TextButton(
               onPressed: () => Navigator.of(ctx2).pop<String?>(null),
-              child: const Text('Cancel'),
+              child: Text(l10n.cancel),
             ),
             FilledButton(
               onPressed: () => Navigator.of(ctx2).pop<String?>(text),
@@ -337,11 +337,11 @@ class _DrivePageState extends State<DrivePage> {
         actions: [
           TextButton(
             onPressed: () => Navigator.of(ctx).pop<bool?>(null),
-            child: const Text('Cancel'),
+            child: Text(l10n.cancel),
           ),
           FilledButton(
             onPressed: () => Navigator.of(ctx).pop<bool?>(true),
-            child: const Text('Delete'),
+            child: Text(l10n.delete),
           ),
         ],
       ),
@@ -1210,7 +1210,7 @@ class _FolderContextMenuButton extends StatelessWidget {
       icon: const Icon(Icons.more_vert, size: 16),
       iconSize: 16,
       itemBuilder: (_) => [
-        PopupMenuItem(value: 'rename', child: const Text('Rename')),
+        PopupMenuItem(value: 'rename', child: Text(l10n.rename)),
         PopupMenuItem(value: 'color', child: const Text('Change color')),
         PopupMenuItem(value: 'delete', child: Text(l10n.driveDeleteConfirm)),
       ],
@@ -1454,7 +1454,7 @@ class _FileAreaState extends State<_FileArea> {
                   visualDensity: VisualDensity.compact,
                 ),
                 icon: const Icon(Icons.drive_file_move_rounded, size: 16),
-                label: const Text('Mover a…'),
+                label: Text(widget.l10n.driveMoveTo),
                 onPressed: () =>
                     _showMultiMoveDialog(context, widget.data.folders),
               ),
@@ -1703,10 +1703,11 @@ class _FileAreaState extends State<_FileArea> {
     BuildContext context,
     List<FolioDriveFolder> folders,
   ) {
+    final l10n = AppLocalizations.of(context);
     showDialog<String?>(
       context: context,
       builder: (ctx) => SimpleDialog(
-        title: const Text('Mover a carpeta'),
+        title: Text(l10n.driveMoveToFolderTitle),
         children: [
           SimpleDialogOption(
             onPressed: () => Navigator.pop(ctx, ''),
@@ -2200,7 +2201,7 @@ class _FileContextMenuState extends State<_FileContextMenu> {
         padding: EdgeInsets.zero,
         itemBuilder: (_) => [
           PopupMenuItem(value: 'open', child: Text(widget.l10n.driveOpenFile)),
-          PopupMenuItem(value: 'rename', child: const Text('Rename')),
+          PopupMenuItem(value: 'rename', child: Text(widget.l10n.rename)),
           if (widget.folders.isNotEmpty)
             PopupMenuItem(value: 'move', child: Text(widget.l10n.driveMoveTo)),
           const PopupMenuDivider(),
@@ -2443,7 +2444,7 @@ class _VaultImportDialogState extends State<_VaultImportDialog> {
       actions: [
         TextButton(
           onPressed: () => Navigator.pop(context),
-          child: const Text('Cancel'),
+          child: Text(l10n.cancel),
         ),
         FilledButton(
           onPressed: _selected.isEmpty
@@ -2750,7 +2751,7 @@ class _DriveDetailsPanel extends StatelessWidget {
                       Icons.drive_file_rename_outline_rounded,
                       size: 18,
                     ),
-                    label: const Text('Rename'),
+                    label: Text(l10n.rename),
                   ),
                 ),
                 if (data.folders.isNotEmpty)
@@ -2787,7 +2788,7 @@ class _DriveDetailsPanel extends StatelessWidget {
                     child: TextButton.icon(
                       onPressed: () {},
                       icon: const Icon(Icons.delete_outline_rounded, size: 18),
-                      label: const Text('Delete'),
+                      label: Text(l10n.delete),
                       style: TextButton.styleFrom(
                         foregroundColor: scheme.error,
                       ),
@@ -2809,7 +2810,7 @@ class _DriveDetailsPanel extends StatelessWidget {
                       Icons.drive_file_rename_outline_rounded,
                       size: 18,
                     ),
-                    label: const Text('Rename'),
+                    label: Text(l10n.rename),
                   ),
                 ),
                 Padding(
@@ -2843,7 +2844,7 @@ class _DriveDetailsPanel extends StatelessWidget {
                     child: TextButton.icon(
                       onPressed: () {},
                       icon: const Icon(Icons.delete_outline_rounded, size: 18),
-                      label: const Text('Delete'),
+                      label: Text(l10n.delete),
                       style: TextButton.styleFrom(
                         foregroundColor: scheme.error,
                       ),
@@ -3048,8 +3049,9 @@ class _FolderColorPicker extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     return AlertDialog(
-      title: const Text('Folder color'),
+      title: Text(l10n.driveFolderColor),
       content: SizedBox(
         width: 280,
         child: Wrap(
@@ -3073,7 +3075,7 @@ class _FolderColorPicker extends StatelessWidget {
       actions: [
         TextButton(
           onPressed: () => Navigator.of(context).pop(),
-          child: const Text('Cancel'),
+          child: Text(l10n.cancel),
         ),
       ],
     );

@@ -4620,6 +4620,12 @@ class AppLocalizationsGl extends AppLocalizations {
   String get driveMoveTo => 'Mover a…';
 
   @override
+  String get driveMoveToFolderTitle => 'Mover a cartafol';
+
+  @override
+  String get driveFolderColor => 'Cor do cartafol';
+
+  @override
   String get driveClassicModeBanner =>
       'Editor de bloques: podes mover ou eliminar o bloque Drive.';
 
@@ -6528,6 +6534,109 @@ class AppLocalizationsGl extends AppLocalizations {
       'Non hai apps instaladas.\nExplora a tenda ou instala un .folioapp.';
 
   @override
+  String appStoreRegistryLoadError(int statusCode) {
+    return 'Erro $statusCode ao cargar o registry.';
+  }
+
+  @override
+  String get appStoreRegistryOfflineCache =>
+      'Sen conexión. Mostrando caché local.';
+
+  @override
+  String appStoreLoadError(String error) {
+    return 'Erro ao cargar a tenda: $error';
+  }
+
+  @override
+  String get appStoreVerifiedByFolio => 'Verificado por Folio';
+
+  @override
+  String get appStoreCapabilitiesTitle => 'Capacidades';
+
+  @override
+  String get appStoreConnectionsTitle => 'Conexións';
+
+  @override
+  String get appStoreConnected => 'Conectado';
+
+  @override
+  String get appStoreNotConnected => 'Non conectado';
+
+  @override
+  String get appStoreDisconnect => 'Desconectar';
+
+  @override
+  String get appStoreConnect => 'Conectar';
+
+  @override
+  String appStoreInstallFromRegistryTitle(String name) {
+    return 'Instalar \"$name\"';
+  }
+
+  @override
+  String get appStoreInstallUnverifiedLocalBody =>
+      'Esta app non foi verificada localmente. Instala só apps de fontes nas que confíes.';
+
+  @override
+  String get appStorePermissionsRequested => 'Permisos que solicita:';
+
+  @override
+  String appStoreCapabilityBlockTypes(int count) {
+    return '$count tipo(s) de bloque';
+  }
+
+  @override
+  String appStoreCapabilitySlashCommands(int count) {
+    return '$count comando(s) slash';
+  }
+
+  @override
+  String appStoreCapabilityIntegrations(int count) {
+    return '$count integración(es)';
+  }
+
+  @override
+  String appStoreCapabilityAiTransformers(int count) {
+    return '$count transformador(es) IA';
+  }
+
+  @override
+  String get appStorePasteAccessToken => 'Pega o teu access token';
+
+  @override
+  String appStoreTokenLabel(String name) {
+    return 'Token de $name';
+  }
+
+  @override
+  String get appStoreApiKeyTitle => 'API Key';
+
+  @override
+  String get appStoreUninstallTooltip => 'Desinstalar';
+
+  @override
+  String appStoreVersionPrefix(String version) {
+    return 'v$version';
+  }
+
+  @override
+  String get releaseNotesTitle => 'Notas de versión';
+
+  @override
+  String get releaseNotesContinue => 'Continuar';
+
+  @override
+  String get workspaceEditorReadyHeadline => 'O teu espazo está listo';
+
+  @override
+  String get workspaceEditorReadySubtitle =>
+      'Crea unha páxina para comezar a escribir ou usa a busca para volver a unha nota existente.';
+
+  @override
+  String get releaseNotesEmpty =>
+      'Non hai notas de versión dispoñibles para esta versión.';
+
+  @override
   String get settingsIntegrationsNativeTitle => 'Integracións nativas';
 
   @override
@@ -7085,4 +7194,203 @@ class AppLocalizationsGl extends AppLocalizations {
   @override
   String get jiraCloudMissingOAuthSecret =>
       'Falta JIRA_OAUTH_CLIENT_SECRET. Defíneo sobre todo en lib/config/folio_local_secrets.dart (copia desde o .example). En escritorio tamén podes usar un .env ao iniciar; na web só ese ficheiro ou --dart-define e recompilar. Reinicia a app; se usas .env en escritorio, revisa o log folio.env.';
+
+  @override
+  String kanbanJiraError(String error) {
+    return 'Erro Jira: $error';
+  }
+
+  @override
+  String get kanbanJiraSyncingPull => 'Jira: sincronizando (pull)…';
+
+  @override
+  String get kanbanJiraPullOkPush => 'Jira: pull OK · agora push…';
+
+  @override
+  String get kanbanJiraNewIssue => 'Novo issue en Jira';
+
+  @override
+  String get kanbanJiraCreate => 'Crear';
+
+  @override
+  String get kanbanNone => 'Ningunha';
+
+  @override
+  String get kanbanConflict => 'Conflito';
+
+  @override
+  String get kanbanNeedsPush => 'Pendente push';
+
+  @override
+  String get kanbanNeedsPull => 'Pendente pull';
+
+  @override
+  String get kanbanDeleteTaskTitle => 'Borrar tarefa';
+
+  @override
+  String get kanbanDeleteTaskButton => 'Borrar';
+
+  @override
+  String get kanbanTaskDeleted => 'Tarefa borrada.';
+
+  @override
+  String get kanbanForcePushTitle => 'Forzar push a Jira';
+
+  @override
+  String get kanbanForcePushButton => 'Forzar push';
+
+  @override
+  String get kanbanPull => 'Pull';
+
+  @override
+  String get kanbanTitle => 'Título';
+
+  @override
+  String get kanbanDescription => 'Descrición';
+
+  @override
+  String get kanbanPriority => 'Prioridade';
+
+  @override
+  String get kanbanStatusColumn => 'Estado/columna';
+
+  @override
+  String get kanbanDueDate => 'Data límite';
+
+  @override
+  String get kanbanKeepJiraPull => 'Manter Jira (Pull)';
+
+  @override
+  String get kanbanStatus => 'Estado';
+
+  @override
+  String get jiraIntegrationTitle => 'Integración Jira';
+
+  @override
+  String get jiraConnectionsTab => 'Conexións';
+
+  @override
+  String get jiraSourcesTab => 'Fontes';
+
+  @override
+  String get jiraCreateConnectionFirst => 'Crea unha conexión primeiro.';
+
+  @override
+  String get jiraConnectingCloud => 'Conectando Jira Cloud…';
+
+  @override
+  String get jiraConnectionCreated => 'Conexión Jira Cloud creada.';
+
+  @override
+  String get jiraNewServerConnection => 'Nova conexión Server/DC';
+
+  @override
+  String get jiraNewSource => 'Nova fonte';
+
+  @override
+  String get jiraConfigure => 'Configurar';
+
+  @override
+  String get jiraSetClientId => 'Configurar Client ID';
+
+  @override
+  String get jiraOpenDeveloperConsole => 'Abrir Atlassian Developer Console';
+
+  @override
+  String get jiraStartingCloudConnection =>
+      'Iniciando conexión con Jira Cloud…';
+
+  @override
+  String get jiraSave => 'Gardar';
+
+  @override
+  String get jiraName => 'Nome';
+
+  @override
+  String get jiraBaseUrl => 'Base URL';
+
+  @override
+  String get jiraTokenPat => 'Token / PAT';
+
+  @override
+  String get jiraProject => 'Proxecto';
+
+  @override
+  String get jiraBoard => 'Taboleiro';
+
+  @override
+  String get jiraConnection => 'Conexión';
+
+  @override
+  String get jiraType => 'Tipo';
+
+  @override
+  String get jiraSearchByName => 'Escribe para buscar (nome)…';
+
+  @override
+  String get jiraReload => 'Recargar';
+
+  @override
+  String get columnBlockTypeBullet => 'Lista';
+
+  @override
+  String get columnBlockTypeNumbered => 'Numerada';
+
+  @override
+  String get columnBlockTypeTodo => 'Tarefa';
+
+  @override
+  String get columnBlockTypeQuote => 'Cita';
+
+  @override
+  String get columnBlockTypeCallout => 'Callout';
+
+  @override
+  String get columnBlockTypeCode => 'Código';
+
+  @override
+  String get columnBlockTypeEquation => 'Ecuación';
+
+  @override
+  String get columnBlockTypeDivider => 'Divisor';
+
+  @override
+  String get columnBlockTypeText => 'Texto';
+
+  @override
+  String get columnBlockContentLabel => 'Contido';
+
+  @override
+  String get columnListRemoveBlock => 'Eliminar bloque';
+
+  @override
+  String get columnListColumnsTitle => 'Columnas';
+
+  @override
+  String get columnListEdit => 'Editar';
+
+  @override
+  String get columnListAddColumn => 'Engadir columna';
+
+  @override
+  String get columnListRemoveColumn => 'Quitar columna';
+
+  @override
+  String get columnListDone => 'Feito';
+
+  @override
+  String get columnListColumnLabel => 'Columna';
+
+  @override
+  String get columnListAddBlock => 'Engadir bloque';
+
+  @override
+  String get equationEmptyPlaceholder => 'LaTeX…';
+
+  @override
+  String get equationLatexLabel => 'LaTeX';
+
+  @override
+  String get mermaidInlineLoadError =>
+      'Non se puido amosar o diagrama. Comproba a sintaxe Mermaid ou a conexión.';
 }

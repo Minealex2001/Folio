@@ -107,7 +107,7 @@ class JiraIntegrationCard extends StatelessWidget {
                             )
                         : null,
                     icon: const Icon(Icons.tune_rounded, size: 18),
-                    label: Text(isEs ? 'Configurar' : l10n.settings),
+                    label: Text(l10n.jiraConfigure),
                   ),
                 ],
               ),
@@ -187,7 +187,7 @@ class _JiraIntegrationConfigDialogState extends State<JiraIntegrationConfigDialo
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(
-          isEs ? 'Iniciando conexión con Jira Cloud…' : 'Starting Jira Cloud connection…',
+          l10n.jiraStartingCloudConnection,
         ),
       ),
     );
@@ -202,7 +202,7 @@ class _JiraIntegrationConfigDialogState extends State<JiraIntegrationConfigDialo
         context: context,
         builder: (ctx) => AlertDialog(
           title: Text(
-            isEs ? 'Configurar Client ID' : 'Set Client ID',
+            l10n.jiraSetClientId,
           ),
           content: SizedBox(
             width: 560,
@@ -237,7 +237,7 @@ class _JiraIntegrationConfigDialogState extends State<JiraIntegrationConfigDialo
                   },
                   icon: const Icon(Icons.open_in_new_rounded, size: 18),
                   label: Text(
-                    isEs ? 'Abrir Atlassian Developer Console' : 'Open Atlassian Developer Console',
+                    l10n.jiraOpenDeveloperConsole,
                   ),
                 ),
                 const SizedBox(height: 10),
@@ -261,11 +261,11 @@ class _JiraIntegrationConfigDialogState extends State<JiraIntegrationConfigDialo
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(ctx, null),
-              child: Text(isEs ? 'Cancelar' : 'Cancel'),
+              child: Text(l10n.cancel),
             ),
             FilledButton(
               onPressed: () => Navigator.pop(ctx, ctrl.text),
-              child: Text(isEs ? 'Guardar' : 'Save'),
+              child: Text(l10n.jiraSave),
             ),
           ],
         ),
@@ -287,7 +287,7 @@ class _JiraIntegrationConfigDialogState extends State<JiraIntegrationConfigDialo
         context: context,
         barrierDismissible: false,
         builder: (ctx) => AlertDialog(
-          title: Text(isEs ? 'Conectando Jira Cloud…' : 'Connecting Jira Cloud…'),
+          title: Text(l10n.jiraConnectingCloud),
           content: Row(
             children: [
               const SizedBox(
@@ -311,7 +311,7 @@ class _JiraIntegrationConfigDialogState extends State<JiraIntegrationConfigDialo
                 cancelToken.cancel();
                 Navigator.of(ctx, rootNavigator: true).pop();
               },
-              child: Text(isEs ? 'Cancelar' : 'Cancel'),
+              child: Text(l10n.cancel),
             ),
           ],
         ),
@@ -332,7 +332,7 @@ class _JiraIntegrationConfigDialogState extends State<JiraIntegrationConfigDialo
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
-              isEs ? 'Conexión Jira Cloud creada.' : 'Jira Cloud connection created.',
+              l10n.jiraConnectionCreated,
             ),
           ),
         );
@@ -373,6 +373,7 @@ class _JiraIntegrationConfigDialogState extends State<JiraIntegrationConfigDialo
   }
 
   Future<void> _connectServer() async {
+    final l10n = AppLocalizations.of(context);
     final isEs = Localizations.localeOf(context).languageCode == 'es';
     final labelCtrl = TextEditingController(text: 'Jira Server');
     final baseCtrl = TextEditingController();
@@ -380,7 +381,7 @@ class _JiraIntegrationConfigDialogState extends State<JiraIntegrationConfigDialo
     final result = await showDialog<({String label, String baseUrl, String pat})?>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: Text(isEs ? 'Nueva conexión Server/DC' : 'New Server/DC connection'),
+        title: Text(l10n.jiraNewServerConnection),
         content: SizedBox(
           width: 520,
           child: Column(
@@ -453,10 +454,11 @@ class _JiraIntegrationConfigDialogState extends State<JiraIntegrationConfigDialo
   }
 
   Future<void> _createSource() async {
+    final l10n = AppLocalizations.of(context);
     final isEs = Localizations.localeOf(context).languageCode == 'es';
     final connections = widget.session.jiraConnections;
     if (connections.isEmpty) {
-      _setError(isEs ? 'Crea una conexión primero.' : 'Create a connection first.');
+      _setError(l10n.jiraCreateConnectionFirst);
       return;
     }
     final created = await showDialog<JiraSource?>(
@@ -473,6 +475,7 @@ class _JiraIntegrationConfigDialogState extends State<JiraIntegrationConfigDialo
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
+    final l10n = AppLocalizations.of(context);
     final isEs = Localizations.localeOf(context).languageCode == 'es';
     final connections = widget.session.jiraConnections;
     final sources = widget.session.jiraSources;
@@ -493,7 +496,7 @@ class _JiraIntegrationConfigDialogState extends State<JiraIntegrationConfigDialo
                 const SizedBox(width: 10),
                 Expanded(
                   child: Text(
-                    isEs ? 'Integración Jira' : 'Jira integration',
+                    l10n.jiraIntegrationTitle,
                     style: Theme.of(context).textTheme.titleLarge?.copyWith(
                           fontWeight: FontWeight.w800,
                         ),
@@ -510,8 +513,8 @@ class _JiraIntegrationConfigDialogState extends State<JiraIntegrationConfigDialo
             TabBar(
               controller: _tabs,
               tabs: [
-                Tab(text: isEs ? 'Conexiones' : 'Connections'),
-                Tab(text: isEs ? 'Fuentes' : 'Sources'),
+                Tab(text: l10n.jiraConnectionsTab),
+                Tab(text: l10n.jiraSourcesTab),
               ],
             ),
             const SizedBox(height: 12),
@@ -664,6 +667,7 @@ class _CreateOrEditSourceDialogState extends State<_CreateOrEditSourceDialog> {
   @override
   Widget build(BuildContext context) {
     final isEs = widget.isEs;
+    final l10n = AppLocalizations.of(context);
     final scheme = Theme.of(context).colorScheme;
 
     final projectHint = isEs
@@ -829,7 +833,7 @@ class _CreateOrEditSourceDialogState extends State<_CreateOrEditSourceDialog> {
     }
 
     return AlertDialog(
-      title: Text(isEs ? 'Nueva fuente' : 'New source'),
+      title: Text(l10n.jiraNewSource),
       content: SizedBox(
         width: 560,
         child: Column(
@@ -858,7 +862,7 @@ class _CreateOrEditSourceDialogState extends State<_CreateOrEditSourceDialog> {
                 ),
                 const SizedBox(width: 10),
                 IconButton(
-                  tooltip: isEs ? 'Recargar' : 'Reload',
+                  tooltip: l10n.jiraReload,
                   onPressed: _loading ? null : _reloadLists,
                   icon: _loading
                       ? const SizedBox(

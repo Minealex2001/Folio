@@ -4626,6 +4626,12 @@ class AppLocalizationsEu extends AppLocalizations {
   String get driveMoveTo => 'Mugitu hona…';
 
   @override
+  String get driveMoveToFolderTitle => 'Karpeta batera eraman';
+
+  @override
+  String get driveFolderColor => 'Karpetaren kolorea';
+
+  @override
   String get driveClassicModeBanner =>
       'Bloke editorea: Drive blokea mugitu edo ezabatu dezakezu.';
 
@@ -6542,6 +6548,109 @@ class AppLocalizationsEu extends AppLocalizations {
       'Ez dago appaik instalatuta.\nArakatu denda edo instalatu .folioapp bat.';
 
   @override
+  String appStoreRegistryLoadError(int statusCode) {
+    return 'Errorea $statusCode registrya kargatzean.';
+  }
+
+  @override
+  String get appStoreRegistryOfflineCache =>
+      'Konexiorik gabe. Cache lokala erakusten.';
+
+  @override
+  String appStoreLoadError(String error) {
+    return 'Errorea denda kargatzean: $error';
+  }
+
+  @override
+  String get appStoreVerifiedByFolio => 'Foliok egiaztatua';
+
+  @override
+  String get appStoreCapabilitiesTitle => 'Gaitasunak';
+
+  @override
+  String get appStoreConnectionsTitle => 'Konexioak';
+
+  @override
+  String get appStoreConnected => 'Konektatuta';
+
+  @override
+  String get appStoreNotConnected => 'Ez konektatuta';
+
+  @override
+  String get appStoreDisconnect => 'Deskonektatu';
+
+  @override
+  String get appStoreConnect => 'Konektatu';
+
+  @override
+  String appStoreInstallFromRegistryTitle(String name) {
+    return 'Instalatu \"$name\"';
+  }
+
+  @override
+  String get appStoreInstallUnverifiedLocalBody =>
+      'App hau ez da lokalki egiaztatu. Konfiantza duzun iturrietako appak bakarrik instalatu.';
+
+  @override
+  String get appStorePermissionsRequested => 'Eskatutako baimenak:';
+
+  @override
+  String appStoreCapabilityBlockTypes(int count) {
+    return '$count bloke mota';
+  }
+
+  @override
+  String appStoreCapabilitySlashCommands(int count) {
+    return '$count slash komando';
+  }
+
+  @override
+  String appStoreCapabilityIntegrations(int count) {
+    return '$count integrazio';
+  }
+
+  @override
+  String appStoreCapabilityAiTransformers(int count) {
+    return '$count IA transformadore';
+  }
+
+  @override
+  String get appStorePasteAccessToken => 'Itsatsi zure access token';
+
+  @override
+  String appStoreTokenLabel(String name) {
+    return '$name tokena';
+  }
+
+  @override
+  String get appStoreApiKeyTitle => 'API Key';
+
+  @override
+  String get appStoreUninstallTooltip => 'Desinstalatu';
+
+  @override
+  String appStoreVersionPrefix(String version) {
+    return 'v$version';
+  }
+
+  @override
+  String get releaseNotesTitle => 'Bertsio oharrak';
+
+  @override
+  String get releaseNotesContinue => 'Jarraitu';
+
+  @override
+  String get workspaceEditorReadyHeadline => 'Zure espazioa prest dago';
+
+  @override
+  String get workspaceEditorReadySubtitle =>
+      'Sortu orri bat idazten hasteko edo erabili bilaketa lehendik dagoen oharrera itzultzeko.';
+
+  @override
+  String get releaseNotesEmpty =>
+      'Ez dago bertsio oharrik eskuragarri bertsio honetarako.';
+
+  @override
   String get settingsIntegrationsNativeTitle => 'Jatorrizko integrazioak';
 
   @override
@@ -7103,4 +7212,202 @@ class AppLocalizationsEu extends AppLocalizations {
   @override
   String get jiraCloudMissingOAuthSecret =>
       'JIRA_OAUTH_CLIENT_SECRET falta du. Batez ere lib/config/folio_local_secrets.dart-en ezarri (.example-tik kopiatu). Mahaigainean .env ere erabili dezakezu abioan; web-en fitxategi hori edo --dart-define eta berreraiki. Berrabiarazi app-a; mahaigainean .env erabiltzen baduzu, egiaztatu folio.env loga.';
+
+  @override
+  String kanbanJiraError(String error) {
+    return 'Jira errorea: $error';
+  }
+
+  @override
+  String get kanbanJiraSyncingPull => 'Jira: sinkronizatzen (pull)…';
+
+  @override
+  String get kanbanJiraPullOkPush => 'Jira: pull OK · orain push…';
+
+  @override
+  String get kanbanJiraNewIssue => 'Jira issue berria';
+
+  @override
+  String get kanbanJiraCreate => 'Sortu';
+
+  @override
+  String get kanbanNone => 'Bat ere ez';
+
+  @override
+  String get kanbanConflict => 'Gatazka';
+
+  @override
+  String get kanbanNeedsPush => 'Push zain';
+
+  @override
+  String get kanbanNeedsPull => 'Pull zain';
+
+  @override
+  String get kanbanDeleteTaskTitle => 'Zeregina ezabatu';
+
+  @override
+  String get kanbanDeleteTaskButton => 'Ezabatu';
+
+  @override
+  String get kanbanTaskDeleted => 'Zeregina ezabatuta.';
+
+  @override
+  String get kanbanForcePushTitle => 'Jira-ra push behartu';
+
+  @override
+  String get kanbanForcePushButton => 'Push behartu';
+
+  @override
+  String get kanbanPull => 'Pull';
+
+  @override
+  String get kanbanTitle => 'Izenburua';
+
+  @override
+  String get kanbanDescription => 'Deskribapena';
+
+  @override
+  String get kanbanPriority => 'Lehentasuna';
+
+  @override
+  String get kanbanStatusColumn => 'Egoera/zutabea';
+
+  @override
+  String get kanbanDueDate => 'Epemuga';
+
+  @override
+  String get kanbanKeepJiraPull => 'Jira mantendu (Pull)';
+
+  @override
+  String get kanbanStatus => 'Egoera';
+
+  @override
+  String get jiraIntegrationTitle => 'Jira integrazioa';
+
+  @override
+  String get jiraConnectionsTab => 'Konexioak';
+
+  @override
+  String get jiraSourcesTab => 'Iturriak';
+
+  @override
+  String get jiraCreateConnectionFirst => 'Sortu konexio bat lehenik.';
+
+  @override
+  String get jiraConnectingCloud => 'Jira Cloud konektatzen…';
+
+  @override
+  String get jiraConnectionCreated => 'Jira Cloud konexioa sortuta.';
+
+  @override
+  String get jiraNewServerConnection => 'Server/DC konexio berria';
+
+  @override
+  String get jiraNewSource => 'Iturri berria';
+
+  @override
+  String get jiraConfigure => 'Konfiguratu';
+
+  @override
+  String get jiraSetClientId => 'Client ID konfiguratu';
+
+  @override
+  String get jiraOpenDeveloperConsole => 'Atlassian Developer Console ireki';
+
+  @override
+  String get jiraStartingCloudConnection => 'Jira Cloud konexioa hasten…';
+
+  @override
+  String get jiraSave => 'Gorde';
+
+  @override
+  String get jiraName => 'Izena';
+
+  @override
+  String get jiraBaseUrl => 'Base URL';
+
+  @override
+  String get jiraTokenPat => 'Token / PAT';
+
+  @override
+  String get jiraProject => 'Proiektua';
+
+  @override
+  String get jiraBoard => 'Taula';
+
+  @override
+  String get jiraConnection => 'Konexioa';
+
+  @override
+  String get jiraType => 'Mota';
+
+  @override
+  String get jiraSearchByName => 'Idatzi bilatzeko (izena)…';
+
+  @override
+  String get jiraReload => 'Berriz kargatu';
+
+  @override
+  String get columnBlockTypeBullet => 'Zerrenda';
+
+  @override
+  String get columnBlockTypeNumbered => 'Zenbakiduna';
+
+  @override
+  String get columnBlockTypeTodo => 'Zeregina';
+
+  @override
+  String get columnBlockTypeQuote => 'Aipua';
+
+  @override
+  String get columnBlockTypeCallout => 'Callout';
+
+  @override
+  String get columnBlockTypeCode => 'Kodea';
+
+  @override
+  String get columnBlockTypeEquation => 'Ekuazioa';
+
+  @override
+  String get columnBlockTypeDivider => 'Banatzailea';
+
+  @override
+  String get columnBlockTypeText => 'Testua';
+
+  @override
+  String get columnBlockContentLabel => 'Edukia';
+
+  @override
+  String get columnListRemoveBlock => 'Kendu blokea';
+
+  @override
+  String get columnListColumnsTitle => 'Zutabeak';
+
+  @override
+  String get columnListEdit => 'Editatu';
+
+  @override
+  String get columnListAddColumn => 'Gehitu zutabea';
+
+  @override
+  String get columnListRemoveColumn => 'Kendu zutabea';
+
+  @override
+  String get columnListDone => 'Eginda';
+
+  @override
+  String get columnListColumnLabel => 'Zutabea';
+
+  @override
+  String get columnListAddBlock => 'Gehitu blokea';
+
+  @override
+  String get equationEmptyPlaceholder => 'LaTeX…';
+
+  @override
+  String get equationLatexLabel => 'LaTeX';
+
+  @override
+  String get mermaidInlineLoadError =>
+      'Ezin izan da diagrama erakutsi. Egiaztatu Mermaid sintaxia edo konexioa.';
 }

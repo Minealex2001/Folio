@@ -159,7 +159,7 @@ Widget _buildEditableMarkdownBlockRow(_BlockRowScope s) {
                             : AlignmentDirectional.centerStart,
                         child: quill.QuillEditor.basic(
                           controller: c..readOnly = true,
-                          focusNode: FocusNode(skipTraversal: true),
+                          focusNode: st._folioQuillPreviewFocusFor(block.id),
                           scrollController:
                               st._folioQuillPreviewScrollFor(block.id),
                           config: const quill.QuillEditorConfig(
@@ -332,7 +332,7 @@ Widget _buildEditableMarkdownBlockRow(_BlockRowScope s) {
                             ? null
                             : () async {
                                 final emoji = await st._pickEmoji(context);
-                                if (emoji != null) {
+                                if (emoji != null && st.mounted) {
                                   st._s.updateBlockIcon(
                                     page.id,
                                     block.id,

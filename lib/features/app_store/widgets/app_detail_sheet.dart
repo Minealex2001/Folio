@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
+import '../../../l10n/generated/app_localizations.dart';
 import '../../../models/folio_app_package.dart';
 import '../../../models/folio_app_registry_entry.dart';
 import '../../../models/installed_folio_app.dart';
@@ -69,6 +70,7 @@ class _AppDetailSheetState extends State<AppDetailSheet> {
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     final textTheme = Theme.of(context).textTheme;
+    final l10n = AppLocalizations.of(context);
 
     return DraggableScrollableSheet(
       initialChildSize: 0.65,
@@ -116,7 +118,7 @@ class _AppDetailSheetState extends State<AppDetailSheet> {
                             ),
                           ),
                           Text(
-                            'v$_version',
+                            l10n.appStoreVersionPrefix(_version),
                             style: textTheme.bodySmall?.copyWith(
                               color: scheme.onSurfaceVariant,
                             ),
@@ -147,7 +149,7 @@ class _AppDetailSheetState extends State<AppDetailSheet> {
 
                 // Capacidades
                 if (_installedPackage != null) ...[
-                  _buildCapabilitiesSection(_installedPackage!),
+                  _buildCapabilitiesSection(context, _installedPackage!),
                   const SizedBox(height: 20),
                 ],
 
@@ -160,6 +162,7 @@ class _AppDetailSheetState extends State<AppDetailSheet> {
                             .isNotEmpty ??
                         false)) ...[
                   _buildIntegrationsSection(
+                    context,
                     _store.installedById(_appId)!.package.integrations,
                   ),
                 ],
@@ -172,6 +175,7 @@ class _AppDetailSheetState extends State<AppDetailSheet> {
   }
 
   Widget _buildActionButton(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     if (_installing) {
       return const Center(child: CircularProgressIndicator.adaptive());
     }
@@ -179,7 +183,7 @@ class _AppDetailSheetState extends State<AppDetailSheet> {
     if (_isInstalled) {
       return OutlinedButton.icon(
         icon: const Icon(Icons.delete_outline_rounded),
-        label: const Text('Desinstalar'),
+        label: Text(l10n.appStoreUninstallButton),
         style: OutlinedButton.styleFrom(
           foregroundColor: Theme.of(context).colorScheme.error,
           side: BorderSide(color: Theme.of(context).colorScheme.error),
@@ -192,7 +196,7 @@ class _AppDetailSheetState extends State<AppDetailSheet> {
     if (widget.registryEntry != null) {
       return FilledButton.icon(
         icon: const Icon(Icons.download_rounded),
-        label: const Text('Instalar'),
+        label: Text(l10n.appStoreInstallButton),
         style: FilledButton.styleFrom(
           minimumSize: const Size(double.infinity, 44),
         ),
@@ -203,22 +207,32 @@ class _AppDetailSheetState extends State<AppDetailSheet> {
     return const SizedBox.shrink();
   }
 
-  Widget _buildCapabilitiesSection(FolioAppPackage pkg) {
+  Widget _buildCapabilitiesSection(
+    BuildContext context,
+    FolioAppPackage pkg,
+  ) {
     final textTheme = Theme.of(context).textTheme;
     final scheme = Theme.of(context).colorScheme;
+    final l10n = AppLocalizations.of(context);
 
     final capabilities = <String>[];
     if (pkg.blockTypes.isNotEmpty) {
-      capabilities.add('${pkg.blockTypes.length} tipo(s) de bloque');
+      capabilities.add(l10n.appStoreCapabilityBlockTypes(pkg.blockTypes.length));
     }
     if (pkg.slashCommands.isNotEmpty) {
-      capabilities.add('${pkg.slashCommands.length} comando(s) slash');
+      capabilities.add(
+        l10n.appStoreCapabilitySlashCommands(pkg.slashCommands.length),
+      );
     }
     if (pkg.integrations.isNotEmpty) {
-      capabilities.add('${pkg.integrations.length} integración(es)');
+      capabilities.add(
+        l10n.appStoreCapabilityIntegrations(pkg.integrations.length),
+      );
     }
     if (pkg.aiTransformers.isNotEmpty) {
-      capabilities.add('${pkg.aiTransformers.length} transformer(s) IA');
+      capabilities.add(
+        l10n.appStoreCapabilityAiTransformers(pkg.aiTransformers.length),
+      );
     }
     if (capabilities.isEmpty) return const SizedBox.shrink();
 
@@ -226,7 +240,7 @@ class _AppDetailSheetState extends State<AppDetailSheet> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          'Capacidades',
+          l10n.appStoreCapabilitiesTitle,
           style: textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w600),
         ),
         const SizedBox(height: 8),
@@ -250,14 +264,18 @@ class _AppDetailSheetState extends State<AppDetailSheet> {
     );
   }
 
-  Widget _buildIntegrationsSection(List<FolioAppIntegration> integrations) {
+  Widget _buildIntegrationsSection(
+    BuildContext context,
+    List<FolioAppIntegration> integrations,
+  ) {
     final textTheme = Theme.of(context).textTheme;
+    final l10n = AppLocalizations.of(context);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          'Conexiones',
+          l10n.appStoreConnectionsTitle,
           style: textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w600),
         ),
         const SizedBox(height: 8),
@@ -273,7 +291,9 @@ class _AppDetailSheetState extends State<AppDetailSheet> {
                 leading: const Icon(Icons.link_rounded),
                 title: Text(integration.displayName),
                 subtitle: Text(
-                  status.isConnected ? 'Conectado' : 'No conectado',
+                  status.isConnected
+                      ? l10n.appStoreConnected
+                      : l10n.appStoreNotConnected,
                   style: TextStyle(
                     color: status.isConnected ? Colors.green : null,
                   ),
@@ -281,11 +301,11 @@ class _AppDetailSheetState extends State<AppDetailSheet> {
                 trailing: status.isConnected
                     ? TextButton(
                         onPressed: () => _disconnectIntegration(integration),
-                        child: const Text('Desconectar'),
+                        child: Text(l10n.appStoreDisconnect),
                       )
                     : FilledButton.tonal(
                         onPressed: () => _connectIntegration(integration),
-                        child: const Text('Conectar'),
+                        child: Text(l10n.appStoreConnect),
                       ),
               );
             },
@@ -330,23 +350,26 @@ class _AppDetailSheetState extends State<AppDetailSheet> {
   Future<void> _uninstall() async {
     final confirmed = await showDialog<bool>(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Desinstalar app'),
-        content: Text('¿Desinstalar "$_appName"? Se eliminarán sus archivos.'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(false),
-            child: const Text('Cancelar'),
-          ),
-          FilledButton(
-            style: FilledButton.styleFrom(
-              backgroundColor: Theme.of(ctx).colorScheme.error,
+      builder: (ctx) {
+        final innerL10n = AppLocalizations.of(ctx);
+        return AlertDialog(
+          title: Text(innerL10n.appStoreUninstallTitle),
+          content: Text(innerL10n.appStoreUninstallBody(_appName)),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(ctx).pop(false),
+              child: Text(innerL10n.cancel),
             ),
-            onPressed: () => Navigator.of(ctx).pop(true),
-            child: const Text('Desinstalar'),
-          ),
-        ],
-      ),
+            FilledButton(
+              style: FilledButton.styleFrom(
+                backgroundColor: Theme.of(ctx).colorScheme.error,
+              ),
+              onPressed: () => Navigator.of(ctx).pop(true),
+              child: Text(innerL10n.appStoreUninstallButton),
+            ),
+          ],
+        );
+      },
     );
     if (confirmed != true || !mounted) return;
     await _store.uninstall(_appId);
@@ -354,14 +377,15 @@ class _AppDetailSheetState extends State<AppDetailSheet> {
   }
 
   Future<void> _connectIntegration(FolioAppIntegration integration) async {
+    final l10n = AppLocalizations.of(context);
     if (integration.authType == FolioAppIntegrationAuthType.oauth2) {
       await IntegrationAuthService.instance.beginOAuthFlow(integration);
       if (!mounted) return;
       // Pedir token manual (hasta que haya deep-link callback)
       final token = await IntegrationAuthService.showTokenInputDialog(
         context,
-        title: 'Pega tu access token',
-        label: 'Token de ${integration.displayName}',
+        title: l10n.appStorePasteAccessToken,
+        label: l10n.appStoreTokenLabel(integration.displayName),
       );
       if (token != null && token.isNotEmpty) {
         await IntegrationAuthService.instance.saveOAuthToken(
@@ -372,8 +396,8 @@ class _AppDetailSheetState extends State<AppDetailSheet> {
     } else {
       final apiKey = await IntegrationAuthService.showTokenInputDialog(
         context,
-        title: 'API Key',
-        label: integration.apiKeyLabel ?? 'API Key',
+        title: l10n.appStoreApiKeyTitle,
+        label: integration.apiKeyLabel ?? l10n.appStoreApiKeyTitle,
       );
       if (apiKey != null && apiKey.isNotEmpty) {
         await IntegrationAuthService.instance.saveApiKey(
@@ -395,39 +419,39 @@ class _AppDetailSheetState extends State<AppDetailSheet> {
   }) async {
     final result = await showDialog<bool>(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: Text('Instalar "$appName"'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text(
-              'Esta app no ha sido verificada localmente. '
-              'Instala solo apps de fuentes en las que confíes.',
-            ),
-            if (permissions.isNotEmpty) ...[
-              const SizedBox(height: 12),
-              const Text(
-                'Permisos que solicita:',
-                style: TextStyle(fontWeight: FontWeight.w600),
-              ),
-              const SizedBox(height: 4),
-              for (final p in permissions)
-                Text('• ${folioAppPermissionDisplayName(p)}'),
+      builder: (ctx) {
+        final innerL10n = AppLocalizations.of(ctx);
+        return AlertDialog(
+          title: Text(innerL10n.appStoreInstallFromRegistryTitle(appName)),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(innerL10n.appStoreInstallUnverifiedLocalBody),
+              if (permissions.isNotEmpty) ...[
+                const SizedBox(height: 12),
+                Text(
+                  innerL10n.appStorePermissionsRequested,
+                  style: const TextStyle(fontWeight: FontWeight.w600),
+                ),
+                const SizedBox(height: 4),
+                for (final p in permissions)
+                  Text('• ${folioAppPermissionDisplayName(p)}'),
+              ],
             ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(ctx).pop(false),
+              child: Text(innerL10n.cancel),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.of(ctx).pop(true),
+              child: Text(innerL10n.appStoreInstallButton),
+            ),
           ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(false),
-            child: const Text('Cancelar'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.of(ctx).pop(true),
-            child: const Text('Instalar'),
-          ),
-        ],
-      ),
+        );
+      },
     );
     return result == true;
   }

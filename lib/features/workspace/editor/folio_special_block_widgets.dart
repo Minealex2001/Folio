@@ -154,7 +154,7 @@ class FolioEquationPreview extends StatelessWidget {
     final t = latex.trim();
     if (t.isEmpty) {
       return Text(
-        'LaTeX…',
+        AppLocalizations.of(context).equationEmptyPlaceholder,
         style: textStyle?.copyWith(color: scheme.onSurfaceVariant),
       );
     }
@@ -196,8 +196,7 @@ class _FolioToggleBlockBodyState extends State<FolioToggleBlockBody> {
   @override
   void initState() {
     super.initState();
-    final d =
-        FolioToggleData.tryParse(widget.block.text) ?? FolioToggleData.empty();
+    final d = FolioToggleData.parseOrLegacy(widget.block.text);
     _title = TextEditingController(text: d.title);
     _body = TextEditingController(text: d.body);
   }
@@ -206,9 +205,7 @@ class _FolioToggleBlockBodyState extends State<FolioToggleBlockBody> {
   void didUpdateWidget(covariant FolioToggleBlockBody oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.block.text != widget.block.text) {
-      final d =
-          FolioToggleData.tryParse(widget.block.text) ??
-          FolioToggleData.empty();
+      final d = FolioToggleData.parseOrLegacy(widget.block.text);
       if (_title.text != d.title) _title.text = d.title;
       if (_body.text != d.body) _body.text = d.body;
     }
@@ -515,15 +512,10 @@ class _FolioColumnListBlockBodyState extends State<FolioColumnListBlockBody> {
     }
   }
 
-  String _t(String es, String en) {
-    return Localizations.localeOf(
-          context,
-        ).languageCode.toLowerCase().startsWith('es')
-        ? es
-        : en;
-  }
+  AppLocalizations get _l10n => AppLocalizations.of(context);
 
   String _typeLabel(String type) {
+    final l10n = _l10n;
     switch (type) {
       case 'h1':
         return 'H1';
@@ -532,23 +524,23 @@ class _FolioColumnListBlockBodyState extends State<FolioColumnListBlockBody> {
       case 'h3':
         return 'H3';
       case 'bullet':
-        return _t('Lista', 'Bullets');
+        return l10n.columnBlockTypeBullet;
       case 'numbered':
-        return _t('Numerada', 'Numbered');
+        return l10n.columnBlockTypeNumbered;
       case 'todo':
-        return _t('Tarea', 'Todo');
+        return l10n.columnBlockTypeTodo;
       case 'quote':
-        return _t('Cita', 'Quote');
+        return l10n.columnBlockTypeQuote;
       case 'callout':
-        return _t('Callout', 'Callout');
+        return l10n.columnBlockTypeCallout;
       case 'code':
-        return _t('Código', 'Code');
+        return l10n.columnBlockTypeCode;
       case 'equation':
-        return _t('Ecuación', 'Equation');
+        return l10n.columnBlockTypeEquation;
       case 'divider':
-        return _t('Divisor', 'Divider');
+        return l10n.columnBlockTypeDivider;
       default:
-        return _t('Texto', 'Text');
+        return l10n.columnBlockTypeText;
     }
   }
 
@@ -696,7 +688,7 @@ class _FolioColumnListBlockBodyState extends State<FolioColumnListBlockBody> {
               maxLines: 6,
               style: widget.textTheme.bodyMedium,
               decoration: InputDecoration(
-                labelText: _t('Contenido', 'Content'),
+                labelText: _l10n.columnBlockContentLabel,
                 border: const OutlineInputBorder(),
               ),
               onChanged: (value) => _setBlockText(block, value),
@@ -719,7 +711,7 @@ class _FolioColumnListBlockBodyState extends State<FolioColumnListBlockBody> {
           ? widget.textTheme.bodyMedium?.copyWith(fontFamily: 'monospace')
           : widget.textTheme.bodyMedium,
       decoration: InputDecoration(
-        labelText: _t('Contenido', 'Content'),
+        labelText: _l10n.columnBlockContentLabel,
         border: const OutlineInputBorder(),
         alignLabelWithHint: isCodeLike,
       ),
@@ -797,7 +789,7 @@ class _FolioColumnListBlockBodyState extends State<FolioColumnListBlockBody> {
               ),
               const Spacer(),
               IconButton(
-                tooltip: _t('Eliminar bloque', 'Remove block'),
+                tooltip: _l10n.columnListRemoveBlock,
                 onPressed: () => _removeBlock(columnIndex, blockIndex),
                 icon: const Icon(Icons.delete_outline_rounded),
               ),
@@ -979,7 +971,7 @@ class _FolioColumnListBlockBodyState extends State<FolioColumnListBlockBody> {
                     key: const ValueKey('columns_toolbar'),
                     children: [
                       Text(
-                        _t('Columnas', 'Columns'),
+                        _l10n.columnListColumnsTitle,
                         style: widget.textTheme.titleSmall?.copyWith(
                           fontWeight: FontWeight.w700,
                         ),
@@ -989,7 +981,7 @@ class _FolioColumnListBlockBodyState extends State<FolioColumnListBlockBody> {
                         FilledButton.tonalIcon(
                           onPressed: () => _setEditing(true),
                           icon: const Icon(Icons.edit_outlined, size: 18),
-                          label: Text(_t('Editar', 'Edit')),
+                          label: Text(_l10n.columnListEdit),
                         )
                       else ...[
                         if (_data.columns.length < 3)
@@ -999,7 +991,7 @@ class _FolioColumnListBlockBodyState extends State<FolioColumnListBlockBody> {
                               Icons.view_week_outlined,
                               size: 18,
                             ),
-                            label: Text(_t('Añadir columna', 'Add column')),
+                            label: Text(_l10n.columnListAddColumn),
                           ),
                         const SizedBox(width: 8),
                         OutlinedButton.icon(
@@ -1008,7 +1000,7 @@ class _FolioColumnListBlockBodyState extends State<FolioColumnListBlockBody> {
                             _setEditing(false);
                           },
                           icon: const Icon(Icons.check_rounded, size: 18),
-                          label: Text(_t('Hecho', 'Done')),
+                          label: Text(_l10n.columnListDone),
                         ),
                       ],
                     ],
@@ -1044,17 +1036,14 @@ class _FolioColumnListBlockBodyState extends State<FolioColumnListBlockBody> {
                               Row(
                                 children: [
                                   Text(
-                                    '${_t('Columna', 'Column')} ${i + 1}',
+                                    '${_l10n.columnListColumnLabel} ${i + 1}',
                                     style: widget.textTheme.titleSmall
                                         ?.copyWith(fontWeight: FontWeight.w700),
                                   ),
                                   const Spacer(),
                                   if (_data.columns.length > 2)
                                     IconButton(
-                                      tooltip: _t(
-                                        'Quitar columna',
-                                        'Remove column',
-                                      ),
+                                      tooltip: _l10n.columnListRemoveColumn,
                                       onPressed: () => _removeColumn(i),
                                       icon: const Icon(Icons.close_rounded),
                                     ),
@@ -1085,7 +1074,7 @@ class _FolioColumnListBlockBodyState extends State<FolioColumnListBlockBody> {
                                 child: FilledButton.tonalIcon(
                                   onPressed: () => _addBlock(i),
                                   icon: const Icon(Icons.add_rounded, size: 18),
-                                  label: Text(_t('Añadir bloque', 'Add block')),
+                                  label: Text(_l10n.columnListAddBlock),
                                 ),
                               ),
                             ],
@@ -1131,7 +1120,11 @@ class FolioTemplateButtonBlockBody extends StatelessWidget {
           templateBlockId: block.id,
         ),
         icon: const Icon(Icons.post_add_rounded),
-        label: Text(data.label.isEmpty ? 'Plantilla' : data.label),
+        label: Text(
+          data.label.isEmpty
+              ? AppLocalizations.of(context).templateButtonDefaultLabel
+              : data.label,
+        ),
       ),
     );
   }

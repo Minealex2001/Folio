@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import '../../app/app_settings.dart';
+import '../app_logger.dart';
 
 /// Intenta abrir Ollama o LM Studio en Windows cuando el usuario lo solicita al iniciar Folio.
 class AiProviderLauncher {
@@ -17,7 +18,13 @@ class AiProviderLauncher {
     if (path == null) return;
     try {
       await Process.start(path, [], mode: ProcessStartMode.detached);
-    } catch (_) {}
+    } catch (e) {
+      AppLogger.debug(
+        'No se pudo lanzar el proveedor de IA local',
+        tag: 'ai-launcher',
+        context: {'path': path, 'error': '$e'},
+      );
+    }
   }
 
   static String? _firstExistingPath(List<String> paths) {

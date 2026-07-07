@@ -40,16 +40,20 @@ TextStyle? _kanbanTaskTitleStyle({
   );
 }
 
-String _formatJiraError(Object e, {required bool isEs}) {
+String _formatJiraError(
+  Object e,
+  AppLocalizations l10n, {
+  required bool isEs,
+}) {
   if (e is JiraApiException) {
     if (e.statusCode == 410) {
       return isEs
           ? 'Jira devolvió 410 (Gone). Suele ocurrir si la conexión/sitio ya no es válido (acceso revocado o cloudId incorrecto). Re-conecta Jira y vuelve a intentar.\nDetalle: $e'
           : 'Jira returned 410 (Gone). This usually means the connection/site is no longer valid (access revoked or wrong cloudId). Reconnect Jira and try again.\nDetails: $e';
     }
-    return '${isEs ? 'Error Jira' : 'Jira error'}: $e';
+    return l10n.kanbanJiraError('$e');
   }
-  return '${isEs ? 'Error Jira' : 'Jira error'}: $e';
+  return l10n.kanbanJiraError('$e');
 }
 
 /// Tablero Kanban para una sola página (modo página al detectar bloque `kanban`).
@@ -93,14 +97,13 @@ class _KanbanBoardPageState extends State<KanbanBoardPage> {
   Future<void> _syncJira({required String jiraSourceId}) async {
     if (_jiraSyncBusy) return;
     setState(() => _jiraSyncBusy = true);
+    final l10n = AppLocalizations.of(context);
     final isEs = Localizations.localeOf(context).languageCode == 'es';
     final messenger = ScaffoldMessenger.of(context);
     try {
       messenger.showSnackBar(
         SnackBar(
-          content: Text(
-            isEs ? 'Jira: sincronizando (pull)…' : 'Jira: syncing (pull)…',
-          ),
+          content: Text(l10n.kanbanJiraSyncingPull),
         ),
       );
       final pull = await const JiraSyncService().pullIssuesIntoPage(
@@ -110,9 +113,7 @@ class _KanbanBoardPageState extends State<KanbanBoardPage> {
       );
       messenger.showSnackBar(
         SnackBar(
-          content: Text(
-            isEs ? 'Jira: pull OK · ahora push…' : 'Jira: pull OK · now push…',
-          ),
+          content: Text(l10n.kanbanJiraPullOkPush),
         ),
       );
       final push = await const JiraSyncService().pushLinkedTasksFromPage(
@@ -130,7 +131,7 @@ class _KanbanBoardPageState extends State<KanbanBoardPage> {
       );
     } catch (e) {
       messenger.showSnackBar(
-        SnackBar(content: Text(_formatJiraError(e, isEs: isEs))),
+        SnackBar(content: Text(_formatJiraError(e, l10n, isEs: isEs))),
       );
     } finally {
       if (mounted) setState(() => _jiraSyncBusy = false);
@@ -295,7 +296,7 @@ class _KanbanBoardPageState extends State<KanbanBoardPage> {
     final summary = await showDialog<String?>(
       context: context,
       builder: (ctx) => FolioDialog(
-        title: Text(isEs ? 'Nuevo issue en Jira' : 'New Jira issue'),
+        title: Text(l10n.kanbanJiraNewIssue),
         content: SizedBox(
           width: 560,
           child: Column(
@@ -1974,10 +1975,11 @@ class _TaskDetailsContentState extends State<_TaskDetailsContent> {
     if (data == null) return;
 
     final isEs = Localizations.localeOf(context).languageCode == 'es';
+    final l10n = AppLocalizations.of(context);
     final confirm = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: Text(isEs ? 'Borrar tarea' : 'Delete task'),
+        title: Text(l10n.kanbanDeleteTaskTitle),
         content: Text(
           data.external?.provider == 'jira'
               ? (isEs
@@ -1990,11 +1992,11 @@ class _TaskDetailsContentState extends State<_TaskDetailsContent> {
         actions: [
           TextButton(
             onPressed: () => Navigator.of(ctx).pop(false),
-            child: Text(isEs ? 'Cancelar' : 'Cancel'),
+            child: Text(l10n.cancel),
           ),
           FilledButton(
             onPressed: () => Navigator.of(ctx).pop(true),
-            child: Text(isEs ? 'Borrar' : 'Delete'),
+            child: Text(l10n.kanbanDeleteTaskButton),
           ),
         ],
       ),
@@ -2052,12 +2054,12 @@ class _TaskDetailsContentState extends State<_TaskDetailsContent> {
       );
 
       messenger.showSnackBar(
-        SnackBar(content: Text(isEs ? 'Tarea borrada.' : 'Task deleted.')),
+        SnackBar(content: Text(l10n.kanbanTaskDeleted)),
       );
       widget.onClose();
     } catch (e) {
       messenger.showSnackBar(
-        SnackBar(content: Text(_formatJiraError(e, isEs: isEs))),
+        SnackBar(content: Text(_formatJiraError(e, l10n, isEs: isEs))),
       );
     } finally {
       if (mounted) setState(() => _deleteBusy = false);
@@ -2283,10 +2285,11 @@ class _TaskDetailsContentState extends State<_TaskDetailsContent> {
     final ext = data?.external;
     if (data == null || ext == null || ext.provider != 'jira') return;
     final isEs = Localizations.localeOf(context).languageCode == 'es';
+    final l10n = AppLocalizations.of(context);
     final ok = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: Text(isEs ? 'Forzar push a Jira' : 'Force push to Jira'),
+        title: Text(l10n.kanbanForcePushTitle),
         content: Text(
           isEs
               ? 'Esto sobrescribirá en Jira los cambios remotos detectados para este issue con lo que tienes en Folio. ¿Continuar?'
@@ -2295,11 +2298,11 @@ class _TaskDetailsContentState extends State<_TaskDetailsContent> {
         actions: [
           TextButton(
             onPressed: () => Navigator.of(ctx).pop(false),
-            child: Text(isEs ? 'Cancelar' : 'Cancel'),
+            child: Text(l10n.cancel),
           ),
           FilledButton(
             onPressed: () => Navigator.of(ctx).pop(true),
-            child: Text(isEs ? 'Forzar push' : 'Force push'),
+            child: Text(l10n.kanbanForcePushButton),
           ),
         ],
       ),
@@ -3008,6 +3011,7 @@ class _JiraDetailsSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     final isEs = Localizations.localeOf(context).languageCode == 'es';
     final ext = data.external!;
     final snap = data.jira;
@@ -3076,7 +3080,7 @@ class _JiraDetailsSection extends StatelessWidget {
                         child: CircularProgressIndicator(strokeWidth: 2),
                       )
                     : const Icon(Icons.refresh_rounded, size: 18),
-                label: Text(isEs ? 'Pull' : 'Pull'),
+                    label: Text(l10n.kanbanPull),
               ),
             ],
           ),

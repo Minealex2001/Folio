@@ -24,12 +24,19 @@ class BlockEditorState extends State<BlockEditor> with _BlockRowBuild {
   final List<TextEditingController> _controllers = [];
   final Map<String, quill.QuillController> _quillByBlockId = {};
   final Map<String, Timer> _quillDebounceByBlockId = {};
+  /// Persistencia inmediata (texto + Delta) del bloque WYSIWYG a la sesión.
+  /// Se usa para vaciar cambios pendientes antes de descartar el debounce
+  /// (cambio de página, bloqueo del vault, teardown de controllers).
+  final Map<String, void Function()> _quillPersistByBlockId = {};
   Timer? _quillCopilotProbeTimer;
   final Map<String, String> _quillLastMdByBlockId = {};
   /// [QuillEditor.basic] crea un [ScrollController] por defecto; sin reutilizarlo,
   /// cada [setState] del editor destruye el estado de scroll/selección del Quill.
   final Map<String, ScrollController> _quillMainScrollByBlockId = {};
   final Map<String, ScrollController> _quillPreviewScrollByBlockId = {};
+  /// FocusNode reutilizable del overlay de preview (solo lectura). Cachearlo
+  /// evita crear uno nuevo (y filtrarlo) en cada rebuild del editor.
+  final Map<String, FocusNode> _quillPreviewFocusByBlockId = {};
 
   ScrollController _folioQuillMainScrollFor(String blockId) =>
       _quillMainScrollByBlockId.putIfAbsent(
@@ -41,6 +48,12 @@ class BlockEditorState extends State<BlockEditor> with _BlockRowBuild {
       _quillPreviewScrollByBlockId.putIfAbsent(
         blockId,
         ScrollController.new,
+      );
+
+  FocusNode _folioQuillPreviewFocusFor(String blockId) =>
+      _quillPreviewFocusByBlockId.putIfAbsent(
+        blockId,
+        () => FocusNode(skipTraversal: true),
       );
   final List<FocusNode> _focusNodes = [];
   final List<VoidCallback> _textListeners = [];
@@ -393,6 +406,20 @@ class BlockEditorState extends State<BlockEditor> with _BlockRowBuild {
       document: doc,
       selection: const TextSelection.collapsed(offset: 0),
     );
+    // Persiste texto + Delta a la sesión sin tocar los TextEditingController.
+    // Seguro de invocar durante el teardown de controllers.
+    void persistToSession() {
+      if (!mounted) return;
+      final md = FolioMarkdownQuillCodec.documentToMarkdown(qc.document);
+      final deltaStr = jsonEncode(qc.document.toDelta().toJson());
+      _quillLastMdByBlockId[block.id] = md;
+      _runWithShortcutsIgnored(() {
+        _s.updateBlockTextFull(pageId, block.id, md, deltaStr);
+      });
+    }
+
+    _quillPersistByBlockId[block.id] = persistToSession;
+
     void flushNow() {
       if (!mounted) return;
       final md = FolioMarkdownQuillCodec.documentToMarkdown(qc.document);
@@ -452,13 +479,39 @@ class BlockEditorState extends State<BlockEditor> with _BlockRowBuild {
     return qc;
   }
 
+  /// Longitud del cursor para posicionar el caret tras un merge. En bloques
+  /// WYSIWYG usa la longitud de texto plano del documento Quill (no la del
+  /// Markdown, que difiere si hay formato inline).
+  int _blockCaretLength(FolioBlock block) {
+    final qc = _quillByBlockId[block.id];
+    if (qc != null && _stylableBlockTypes.contains(block.type)) {
+      var plain = qc.document.toPlainText();
+      if (plain.endsWith('\n')) {
+        plain = plain.substring(0, plain.length - 1);
+      }
+      return plain.length;
+    }
+    return block.text.length;
+  }
+
+  /// Vacía a la sesión los cambios WYSIWYG pendientes (debounce activo) de un
+  /// bloque, evitando la pérdida de texto/formato al descartar el timer.
+  void _flushPendingQuill(String blockId) {
+    final timer = _quillDebounceByBlockId[blockId];
+    if (timer == null || !timer.isActive) return;
+    timer.cancel();
+    _quillPersistByBlockId[blockId]?.call();
+  }
+
   void _disposeQuillFor(String blockId) {
     _quillDebounceByBlockId.remove(blockId)?.cancel();
+    _quillPersistByBlockId.remove(blockId);
     final qc = _quillByBlockId.remove(blockId);
     qc?.dispose();
     _quillLastMdByBlockId.remove(blockId);
     _quillMainScrollByBlockId.remove(blockId)?.dispose();
     _quillPreviewScrollByBlockId.remove(blockId)?.dispose();
+    _quillPreviewFocusByBlockId.remove(blockId)?.dispose();
   }
 
   bool _isTrailingSentinel(FolioBlock b) {
@@ -3100,8 +3153,18 @@ class BlockEditorState extends State<BlockEditor> with _BlockRowBuild {
   void initState() {
     super.initState();
     _s.addListener(_onSession);
+    // Permite que la sesión vacíe los cambios Quill pendientes (debounce) antes
+    // de un guardado forzado (p. ej. bloqueo por inactividad o segundo plano).
+    _s.addPendingFlushHook(_flushAllPendingQuill);
     _blockListScrollController.addListener(_scheduleFormatToolbarOverlayUpdate);
     _syncControllers();
+  }
+
+  /// Vacía a la sesión todos los bloques WYSIWYG con debounce pendiente.
+  void _flushAllPendingQuill() {
+    for (final id in _quillByBlockId.keys.toList()) {
+      _flushPendingQuill(id);
+    }
   }
 
   @override
@@ -3114,6 +3177,7 @@ class BlockEditorState extends State<BlockEditor> with _BlockRowBuild {
     _blockListScrollController.dispose();
     _resolvedFileFutureByUrl.clear();
     _s.removeListener(_onSession);
+    _s.removePendingFlushHook(_flushAllPendingQuill);
     _disposeControllers();
     super.dispose();
   }
@@ -3129,6 +3193,10 @@ class BlockEditorState extends State<BlockEditor> with _BlockRowBuild {
       sc.dispose();
     }
     _quillPreviewScrollByBlockId.clear();
+    for (final fn in _quillPreviewFocusByBlockId.values) {
+      fn.dispose();
+    }
+    _quillPreviewFocusByBlockId.clear();
     final n = _controllers.length;
     final controllersToDispose = <TextEditingController>[];
     final focusToDispose = <FocusNode>[];
@@ -3183,6 +3251,9 @@ class BlockEditorState extends State<BlockEditor> with _BlockRowBuild {
       if (qc != null) {
         qc.skipRequestKeyboard = true;
       }
+      // Persistir cambios pendientes ANTES de descartar el debounce para no
+      // perder edición rich-text al cambiar de página o bloquear el vault.
+      _flushPendingQuill(id);
       _quillDebounceByBlockId[id]?.cancel();
     }
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -3198,6 +3269,7 @@ class BlockEditorState extends State<BlockEditor> with _BlockRowBuild {
       }
       _quillByBlockId.clear();
       _quillDebounceByBlockId.clear();
+      _quillPersistByBlockId.clear();
     });
   }
 
@@ -3553,9 +3625,10 @@ class BlockEditorState extends State<BlockEditor> with _BlockRowBuild {
               final md = FolioMarkdownQuillCodec.documentToMarkdown(
                 qc.document,
               );
+              final deltaStr = jsonEncode(qc.document.toDelta().toJson());
               _quillLastMdByBlockId[bid] = md;
               _runWithShortcutsIgnored(() {
-                _s.updateBlockText(pid, bid, md);
+                _s.updateBlockTextFull(pid, bid, md, deltaStr);
                 final idx = _controllerBlockIds.indexOf(bid);
                 if (idx >= 0 && idx < _controllers.length) {
                   final caret = qc.selection.baseOffset.clamp(0, md.length);
@@ -4012,7 +4085,17 @@ class BlockEditorState extends State<BlockEditor> with _BlockRowBuild {
     }
 
     if (event.logicalKey == LogicalKeyboardKey.backspace) {
-      final sel = ctrl.selection;
+      // En bloques WYSIWYG la fuente de verdad es el documento Quill; usar
+      // `ctrl` (espejo Markdown) puede estar desfasado entre flushes.
+      final isQuillBlock =
+          quillLive != null &&
+          _stylableBlockTypes.contains(page.blocks[index].type);
+      final sel = isQuillBlock ? liveSel : ctrl.selection;
+      var text = isQuillBlock ? liveText : ctrl.text;
+      if (isQuillBlock && text.endsWith('\n')) {
+        // `Document.toPlainText()` siempre acaba en salto de línea.
+        text = text.substring(0, text.length - 1);
+      }
       if (!sel.isValid || sel.start != sel.end) {
         return KeyEventResult.ignored;
       }
@@ -4022,14 +4105,31 @@ class BlockEditorState extends State<BlockEditor> with _BlockRowBuild {
       if (page.blocks.length <= 1) {
         return KeyEventResult.ignored;
       }
-      if (ctrl.text.isEmpty) {
+      final prevLen = index > 0 ? _blockCaretLength(page.blocks[index - 1]) : 0;
+      if (text.isEmpty) {
         _pendingFocusIndex = index - 1;
-        final prevLen = index > 0 ? page.blocks[index - 1].text.length : 0;
         _pendingCursorOffset = prevLen;
         _s.removeBlockIfMultiple(page.id, blockId);
         return KeyEventResult.handled;
       }
-      final prevLen = page.blocks[index - 1].text.length;
+      // Asegurar que el texto del modelo esté al día antes de fusionar (el
+      // bloque WYSIWYG actual puede tener cambios en debounce sin persistir).
+      if (isQuillBlock) {
+        _quillDebounceByBlockId[blockId]?.cancel();
+        final qc = _quillByBlockId[blockId];
+        if (qc != null) {
+          final md = FolioMarkdownQuillCodec.documentToMarkdown(qc.document);
+          _quillLastMdByBlockId[blockId] = md;
+          _runWithShortcutsIgnored(() {
+            _s.updateBlockTextFull(
+              page.id,
+              blockId,
+              md,
+              jsonEncode(qc.document.toDelta().toJson()),
+            );
+          });
+        }
+      }
       final merged = _s.mergeBlockUp(page.id, blockId);
       if (!merged) {
         return KeyEventResult.ignored;

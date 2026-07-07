@@ -15,6 +15,7 @@ import '../../data/vault_backup.dart';
 import '../../data/vault_paths.dart';
 import '../../session/vault_session.dart';
 import '../folio_telemetry.dart';
+import '../app_logger.dart';
 import 'folio_cloud_backup.dart';
 import 'folio_cloud_callable.dart';
 import '../../crypto/vault_crypto.dart';
@@ -363,27 +364,46 @@ Future<String?> uploadOpenVaultCloudPack({
   }
 
   rep(VaultCloudPackProgressStep.finalizing, 0.82);
-  await callFolioHttpsCallable('folioFinalizeCloudPack', <String, dynamic>{
-    'vaultId': vaultId,
-    'snapshotStoragePath': snapRef.fullPath,
-    'snapshotSizeBytes': snapSize,
-    'contentFingerprint': contentFp,
-    'oldSnapshotStoragePath': oldSnapPath.isNotEmpty ? oldSnapPath : null,
-    'oldSnapshotSizeBytes': oldSnapSize > 0 ? oldSnapSize : null,
-    'newBlobs': newBlobList,
-    'deleteBlobs': deleteList,
-    if (restoreWrapBytes != null &&
-        restoreWrapKind != null) ...<String, dynamic>{
-      'cloudPackRestoreWrapB64': base64Encode(restoreWrapBytes),
-      'cloudPackRestoreWrapKind': restoreWrapKind,
-    },
-  });
+  try {
+    await callFolioHttpsCallable('folioFinalizeCloudPack', <String, dynamic>{
+      'vaultId': vaultId,
+      'snapshotStoragePath': snapRef.fullPath,
+      'snapshotSizeBytes': snapSize,
+      'contentFingerprint': contentFp,
+      'oldSnapshotStoragePath': oldSnapPath.isNotEmpty ? oldSnapPath : null,
+      'oldSnapshotSizeBytes': oldSnapSize > 0 ? oldSnapSize : null,
+      'newBlobs': newBlobList,
+      'deleteBlobs': deleteList,
+      if (restoreWrapBytes != null &&
+          restoreWrapKind != null) ...<String, dynamic>{
+        'cloudPackRestoreWrapB64': base64Encode(restoreWrapBytes),
+        'cloudPackRestoreWrapKind': restoreWrapKind,
+      },
+    });
+  } catch (e) {
+    await _rollbackFailedCloudPackUpload(
+      uid: user.uid,
+      vaultId: vaultId,
+      snapshotPath: snapRef.fullPath,
+      newBlobIds: newBlobList
+          .map((b) => b['blobId']?.toString() ?? '')
+          .where((id) => id.isNotEmpty)
+          .toList(),
+    );
+    rethrow;
+  }
 
   rep(VaultCloudPackProgressStep.cleaningOldBlobs, 0.88);
   if (oldSnapPath.isNotEmpty && oldSnapPath != snapRef.fullPath) {
     try {
       await FirebaseStorage.instance.ref(oldSnapPath).delete();
-    } catch (_) {}
+    } catch (e) {
+      AppLogger.warn(
+        'No se pudo borrar snapshot antiguo tras cloud-pack',
+        tag: 'cloud-pack',
+        context: {'path': oldSnapPath, 'error': '$e'},
+      );
+    }
   }
 
   for (final d in deleteList) {
@@ -393,7 +413,13 @@ Future<String?> uploadOpenVaultCloudPack({
       await FirebaseStorage.instance
           .ref('users/${user.uid}/vaults/$vaultId/cloud-packs/blobs/$bid')
           .delete();
-    } catch (_) {}
+    } catch (e) {
+      AppLogger.warn(
+        'No se pudo borrar blob obsoleto tras cloud-pack',
+        tag: 'cloud-pack',
+        context: {'blobId': bid, 'error': '$e'},
+      );
+    }
   }
 
   rep(VaultCloudPackProgressStep.updatingVaultIndex, 0.93);
@@ -403,7 +429,13 @@ Future<String?> uploadOpenVaultCloudPack({
       displayName: await session.getActiveVaultDisplayLabel(),
       entitlementSnapshot: entitlementSnapshot,
     );
-  } catch (_) {}
+  } catch (e) {
+    AppLogger.warn(
+      'Cloud-pack subido pero falló actualizar índice de libreta',
+      tag: 'cloud-pack',
+      context: {'vaultId': vaultId, 'error': '$e'},
+    );
+  }
 
   final url = await snapRef.getDownloadURL();
   rep(VaultCloudPackProgressStep.complete, 1.0);
@@ -497,6 +529,25 @@ Future<int?> _blobSizeIfExists({
     return m.size ?? 0;
   } catch (_) {
     return null;
+  }
+}
+
+/// Limpia snapshot y blobs recién subidos si falla `folioFinalizeCloudPack`.
+Future<void> _rollbackFailedCloudPackUpload({
+  required String uid,
+  required String vaultId,
+  required String snapshotPath,
+  required List<String> newBlobIds,
+}) async {
+  try {
+    await FirebaseStorage.instance.ref(snapshotPath).delete();
+  } catch (_) {}
+  for (final blobId in newBlobIds) {
+    try {
+      await FirebaseStorage.instance
+          .ref('users/$uid/vaults/$vaultId/cloud-packs/blobs/$blobId')
+          .delete();
+    } catch (_) {}
   }
 }
 

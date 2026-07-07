@@ -51,13 +51,15 @@ class AppStoreService extends ChangeNotifier {
   List<InstalledFolioApp> _installed = [];
   FolioAppRegistry _registry = FolioAppRegistry.empty;
   bool _loadingRegistry = false;
-  String? _registryError;
+  String? _registryErrorCode;
+  int? _registryHttpStatus;
 
   List<InstalledFolioApp> get installedApps => List.unmodifiable(_installed);
 
   FolioAppRegistry get registry => _registry;
   bool get loadingRegistry => _loadingRegistry;
-  String? get registryError => _registryError;
+  String? get registryErrorCode => _registryErrorCode;
+  int? get registryHttpStatus => _registryHttpStatus;
 
   /// Apps oficiales integradas en Folio (no requieren descarga).
   List<FolioAppPackage> get builtInApps => FolioBuiltInApps.all;
@@ -98,7 +100,10 @@ class AppStoreService extends ChangeNotifier {
   /// Recupera el registry remoto. Si falla, usa la caché local.
   Future<void> fetchRegistry() async {
     _loadingRegistry = true;
-    _registryError = null;
+    _registryErrorCode = null;
+    _registryHttpStatus = null;
+    // Evita notifyListeners() síncrono durante initState/build del listener.
+    await Future<void>.delayed(Duration.zero);
     notifyListeners();
 
     try {
@@ -110,11 +115,12 @@ class AppStoreService extends ChangeNotifier {
         _registry = FolioAppRegistry.fromJsonString(response.body);
         await _cacheRegistry(response.body);
       } else {
-        _registryError = 'Error ${response.statusCode} al cargar el registry.';
+        _registryErrorCode = 'http';
+        _registryHttpStatus = response.statusCode;
         await _loadCachedRegistry();
       }
     } catch (e) {
-      _registryError = 'Sin conexión. Mostrando caché local.';
+      _registryErrorCode = 'offline';
       await _loadCachedRegistry();
     }
 
@@ -150,7 +156,7 @@ class AppStoreService extends ChangeNotifier {
   // ── Instalación ───────────────────────────────────────────────────────────
 
   /// Instala una app oficial integrada (sin descarga ni descompresión).
-  AppInstallResult installBuiltIn(String appId) {
+  Future<AppInstallResult> installBuiltIn(String appId) async {
     final pkg = FolioBuiltInApps.all.firstWhere(
       (p) => p.id == appId,
       orElse: () => throw ArgumentError('App integrada no encontrada: $appId'),
@@ -207,11 +213,11 @@ class AppStoreService extends ChangeNotifier {
     return installFromBytes(bytes, grantedPermissions: grantedPermissions);
   }
 
-  AppInstallResult _finalizeInstall(
+  Future<AppInstallResult> _finalizeInstall(
     FolioAppPackage package,
     String? extractedPath,
     List<FolioAppPermission> grantedPermissions,
-  ) {
+  ) async {
     // Eliminar instalación anterior si existe
     _installed.removeWhere((a) => a.package.id == package.id);
 
@@ -225,7 +231,7 @@ class AppStoreService extends ChangeNotifier {
 
     _installed.add(app);
     _syncRegistry();
-    _saveInstalled();
+    await _saveInstalled();
     notifyListeners();
 
     return AppInstallSuccess(app);

@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_markdown_plus/flutter_markdown_plus.dart';
 import 'package:markdown/markdown.dart' as md;
 
+import '../../l10n/generated/app_localizations.dart';
+
 class ReleaseNotesPage extends StatelessWidget {
   const ReleaseNotesPage({
     super.key,
@@ -20,6 +22,7 @@ class ReleaseNotesPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     final isEs = Localizations.localeOf(
       context,
     ).languageCode.toLowerCase().startsWith('es');
@@ -33,7 +36,7 @@ class ReleaseNotesPage extends StatelessWidget {
     ].join(' · ');
 
     return Scaffold(
-      appBar: AppBar(title: Text(isEs ? 'Notas de version' : 'Release notes')),
+      appBar: AppBar(title: Text(l10n.releaseNotesTitle)),
       body: Center(
         child: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 980),
@@ -71,9 +74,7 @@ class ReleaseNotesPage extends StatelessWidget {
                 ),
                 child: normalizedNotes.isEmpty
                     ? Text(
-                        isEs
-                            ? 'No hay notas de version disponibles para esta version.'
-                            : 'No release notes are available for this version.',
+                        l10n.releaseNotesEmpty,
                         style: textTheme.bodyMedium?.copyWith(
                           color: scheme.onSurfaceVariant,
                         ),
@@ -91,7 +92,7 @@ class ReleaseNotesPage extends StatelessWidget {
                 alignment: Alignment.centerRight,
                 child: FilledButton(
                   onPressed: () => Navigator.of(context).maybePop(),
-                  child: Text(isEs ? 'Continuar' : 'Continue'),
+                  child: Text(l10n.releaseNotesContinue),
                 ),
               ),
             ],

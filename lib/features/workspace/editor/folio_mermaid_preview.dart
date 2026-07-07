@@ -178,7 +178,7 @@ class FolioMermaidPreview extends StatelessWidget {
                               const SizedBox(width: 12),
                               Expanded(
                                 child: Text(
-                                  'No se pudo mostrar el diagrama. Comprueba la sintaxis Mermaid o la conexión.',
+                                  l10n.mermaidInlineLoadError,
                                   style: theme.textTheme.bodySmall?.copyWith(
                                     color: scheme.onSurfaceVariant,
                                     height: 1.35,
