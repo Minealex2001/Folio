@@ -2600,5 +2600,23 @@
   "vaultStarterStudyPlanBullet3": "Simulacros ou autoavaliação antes de exames.",
   "vaultStarterStudyPlanTodo1": "Definir três sessões de estudo",
   "vaultStarterStudyPlanTodo2": "Marcar a próxima revisão no calendário",
-  "vaultStarterStudyPlanCallout": "Ajuste o plano todos os domingos: pouco texto, muita clareza."
+  "vaultStarterStudyPlanCallout": "Ajuste o plano todos os domingos: pouco texto, muita clareza.",
+  "vaultRecoveryTitle": "Problema ao abrir o caderno",
+  "vaultRecoveryBody": "Não foi possível ler o caderno ativo. Tente restaurar uma cópia local, importar um backup ou exportar o que restar no disco.",
+  "vaultRecoveryRestoreBak": "Restaurar cópia local (.bak)",
+  "vaultRecoveryRestoreBakFail": "Não há cópia .bak válida ou a restauração falhou.",
+  "vaultRecoveryRestoreZip": "Restaurar a partir de arquivo de backup",
+  "vaultRecoveryExportEmergency": "Exportar backup de emergência",
+  "vaultRecoveryExportOk": "Backup guardado: {path}",
+  "@vaultRecoveryExportOk": {
+    "placeholders": {
+      "path": {"type": "String"}
+    }
+  },
+  "vaultRecoveryOpenDataFolder": "Abrir pasta de dados",
+  "saveStatusIdle": "Guardado",
+  "saveStatusPending": "Alterações pendentes",
+  "saveStatusSaving": "A guardar…",
+  "saveStatusSaved": "Guardado",
+  "saveStatusError": "Falha ao guardar"
 }

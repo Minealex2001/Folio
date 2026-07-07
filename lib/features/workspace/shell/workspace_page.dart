@@ -63,6 +63,7 @@ import '../history/page_outline_panel.dart';
 import '../history/backlinks_panel.dart';
 import '../history/comments_panel.dart';
 import '../collab/collaboration_sheet.dart';
+import 'save_status_chip.dart';
 import 'workspace_editor_surface.dart';
 import 'workspace_shell.dart';
 import '../tasks/task_quick_add_dialog.dart';
@@ -2368,66 +2369,12 @@ class _WorkspacePageState extends State<WorkspacePage> {
             ),
         ];
 
-        if (_s.hasPendingDiskSave || _s.isPersistingToDisk) {
-          widgets.add(
-            Padding(
-              padding: const EdgeInsetsDirectional.only(end: FolioSpace.xs),
-              child: Center(
-                child: Semantics(
-                  label: _s.isPersistingToDisk
-                      ? l10n.savingVaultTooltip
-                      : l10n.autosaveSoonTooltip,
-                  liveRegion: true,
-                  child: Tooltip(
-                    message: _s.isPersistingToDisk
-                        ? l10n.savingVaultTooltip
-                        : l10n.autosaveSoonTooltip,
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: FolioSpace.sm,
-                        vertical: FolioSpace.xs,
-                      ),
-                      decoration: BoxDecoration(
-                        color: scheme.surfaceContainerHigh,
-                        borderRadius: BorderRadius.circular(FolioRadius.xl),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          if (_s.isPersistingToDisk)
-                            SizedBox(
-                              width: 18,
-                              height: 18,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 2,
-                                color: scheme.primary,
-                              ),
-                            )
-                          else
-                            Icon(
-                              Icons.save_outlined,
-                              size: 20,
-                              color: scheme.primary.withValues(alpha: 0.85),
-                            ),
-                          const SizedBox(width: FolioSpace.xs),
-                          Text(
-                            _s.isPersistingToDisk
-                                ? l10n.saveInProgress
-                                : l10n.savePending,
-                            style: theme.textTheme.labelLarge?.copyWith(
-                              color: scheme.onSurfaceVariant,
-                              fontWeight: FontWeight.w700,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-            ),
-          );
-        }
+        widgets.add(
+          ListenableBuilder(
+            listenable: _s.persistence,
+            builder: (context, _) => SaveStatusChip(status: _s.saveStatus),
+          ),
+        );
         return widgets;
       }(),
     ];

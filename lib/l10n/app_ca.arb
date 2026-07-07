@@ -2600,5 +2600,23 @@
   "vaultStarterStudyPlanBullet3": "Simulacres o autoavaluació abans d'exàmens.",
   "vaultStarterStudyPlanTodo1": "Definir tres sessions d'estudi",
   "vaultStarterStudyPlanTodo2": "Marcar el proper repàs al calendari",
-  "vaultStarterStudyPlanCallout": "Ajusta el pla cada diumenge: poc text, molta claredat."
+  "vaultStarterStudyPlanCallout": "Ajusta el pla cada diumenge: poc text, molta claredat.",
+  "vaultRecoveryTitle": "Problema en obrir la llibreta",
+  "vaultRecoveryBody": "No s'ha pogut llegir la llibreta activa. Pots provar de restaurar una còpia local, importar una còpia de seguretat o exportar el que quedi al disc.",
+  "vaultRecoveryRestoreBak": "Restaurar còpia local (.bak)",
+  "vaultRecoveryRestoreBakFail": "No hi ha còpia .bak vàlida o la restauració ha fallat.",
+  "vaultRecoveryRestoreZip": "Restaurar des d'un fitxer de còpia",
+  "vaultRecoveryExportEmergency": "Exportar còpia d'emergència",
+  "vaultRecoveryExportOk": "Còpia desada: {path}",
+  "@vaultRecoveryExportOk": {
+    "placeholders": {
+      "path": {"type": "String"}
+    }
+  },
+  "vaultRecoveryOpenDataFolder": "Obrir carpeta de dades",
+  "saveStatusIdle": "Desat",
+  "saveStatusPending": "Canvis pendents",
+  "saveStatusSaving": "Desant…",
+  "saveStatusSaved": "Desat",
+  "saveStatusError": "Error en desar"
 }

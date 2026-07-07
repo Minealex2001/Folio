@@ -2601,5 +2601,23 @@
   "vaultStarterStudyPlanBullet3": "Practice tests before exams.",
   "vaultStarterStudyPlanTodo1": "Define three study sessions",
   "vaultStarterStudyPlanTodo2": "Mark the next review on the calendar",
-  "vaultStarterStudyPlanCallout": "Adjust the plan each Sunday: little text, lots of clarity."
+  "vaultStarterStudyPlanCallout": "Adjust the plan each Sunday: little text, lots of clarity.",
+  "vaultRecoveryTitle": "Could not open vault",
+  "vaultRecoveryBody": "The active vault could not be read. Try restoring a local copy, importing a backup, or exporting what remains on disk.",
+  "vaultRecoveryRestoreBak": "Restore local copy (.bak)",
+  "vaultRecoveryRestoreBakFail": "No valid .bak copy or restore failed.",
+  "vaultRecoveryRestoreZip": "Restore from backup file",
+  "vaultRecoveryExportEmergency": "Export emergency backup",
+  "vaultRecoveryExportOk": "Backup saved: {path}",
+  "@vaultRecoveryExportOk": {
+    "placeholders": {
+      "path": {"type": "String"}
+    }
+  },
+  "vaultRecoveryOpenDataFolder": "Open data folder",
+  "saveStatusIdle": "Saved",
+  "saveStatusPending": "Pending changes",
+  "saveStatusSaving": "Saving…",
+  "saveStatusSaved": "Saved",
+  "saveStatusError": "Save failed"
 }

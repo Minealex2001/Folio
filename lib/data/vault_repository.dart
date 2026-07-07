@@ -2,7 +2,9 @@ import 'dart:typed_data';
 
 import 'package:flutter/widgets.dart' show Locale;
 
+import '../core/errors/vault_corruption_exception.dart';
 import '../crypto/vault_crypto.dart';
+import '../domain/vault/vault_migration.dart';
 import '../l10n/generated/app_localizations.dart';
 import '../models/folio_page.dart';
 import '../models/folio_usage_intent.dart';
@@ -75,17 +77,56 @@ class VaultRepository {
   }
 
   Future<VaultPayload> loadPayload(List<int>? dekBytes) async {
-    final raw = await VaultPaths.readCipherPayload();
-    if (raw == null) throw StateError('vault.bin no encontrado');
-    if (await isPlaintextVault()) {
-      return VaultPayload.decodeUtf8(raw);
+    final primary = await VaultPaths.readCipherPayload();
+    if (primary == null) {
+      throw StateError('vault.bin no encontrado');
     }
-    if (dekBytes == null) {
-      throw StateError('Se requiere DEK para abrir libreta cifrada');
+    try {
+      return await _decodeAndMigrate(primary, dekBytes);
+    } on VaultCorruptionException {
+      final backup = await VaultPaths.readCipherPayloadBackup();
+      if (backup == null) rethrow;
+      return await _decodeAndMigrate(
+        backup,
+        dekBytes,
+        restoredFromBackup: true,
+      );
     }
-    final dek = await VaultCrypto.dekFromBytes(dekBytes);
-    final clear = await VaultCrypto.decryptPayload(blob: raw, dek: dek);
-    return VaultPayload.decodeUtf8(clear);
+  }
+
+  Future<VaultPayload> _decodeAndMigrate(
+    Uint8List raw,
+    List<int>? dekBytes, {
+    bool restoredFromBackup = false,
+  }) async {
+    try {
+      final VaultPayload payload;
+      if (await isPlaintextVault()) {
+        payload = VaultPayload.decodeUtf8(raw);
+      } else {
+        if (dekBytes == null) {
+          throw StateError('Se requiere DEK para abrir libreta cifrada');
+        }
+        final dek = await VaultCrypto.dekFromBytes(dekBytes);
+        final clear = await VaultCrypto.decryptPayload(blob: raw, dek: dek);
+        payload = VaultPayload.decodeUtf8(clear);
+      }
+      return migrateVaultPayload(payload);
+    } on VaultCorruptionException {
+      rethrow;
+    } on VaultCryptoException catch (e) {
+      throw VaultCorruptionException(
+        'No se pudo descifrar la libreta',
+        cause: e,
+        restoredFromBackup: restoredFromBackup,
+      );
+    } catch (e) {
+      throw VaultCorruptionException(
+        'No se pudo leer la libreta',
+        cause: e,
+        restoredFromBackup: restoredFromBackup,
+      );
+    }
   }
 
   Future<void> savePayload(VaultPayload payload, List<int>? dekBytes) async {
@@ -103,6 +144,10 @@ class VaultRepository {
     );
     await VaultPaths.writeCipherPayload(enc);
   }
+
+  /// Restaura `vault.bin` desde la copia `.bak` local.
+  Future<bool> restoreCipherPayloadFromLocalBackup() =>
+      VaultPaths.restoreCipherPayloadFromBackup();
 
   Future<void> rewrapDek({
     required String currentPassword,

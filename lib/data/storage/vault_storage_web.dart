@@ -74,6 +74,23 @@ class VaultStorage {
     });
   }
 
+  Future<Uint8List?> readVaultFileBackup(
+    String vaultId,
+    String filename,
+  ) async {
+    return readVaultFile(vaultId, '$filename.bak');
+  }
+
+  Future<bool> restoreVaultFileFromBackup(
+    String vaultId,
+    String filename,
+  ) async {
+    final bak = await readVaultFileBackup(vaultId, filename);
+    if (bak == null) return false;
+    await writeVaultFile(vaultId, filename, bak);
+    return true;
+  }
+
   Future<bool> vaultFileExists(String vaultId, String filename) async {
     final raw = await _tx<Object?>(
       idbModeReadOnly,

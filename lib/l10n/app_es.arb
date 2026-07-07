@@ -2601,5 +2601,23 @@
   "vaultStarterStudyPlanBullet3": "Simulacros o autoevaluación antes de exámenes.",
   "vaultStarterStudyPlanTodo1": "Definir tres sesiones de estudio",
   "vaultStarterStudyPlanTodo2": "Marcar el próximo repaso en el calendario",
-  "vaultStarterStudyPlanCallout": "Ajusta el plan cada domingo: poco texto, mucha claridad."
+  "vaultStarterStudyPlanCallout": "Ajusta el plan cada domingo: poco texto, mucha claridad.",
+  "vaultRecoveryTitle": "Problema al abrir la libreta",
+  "vaultRecoveryBody": "No se pudo leer la libreta activa. Puedes intentar restaurar una copia local, importar un backup o exportar lo que quede en disco.",
+  "vaultRecoveryRestoreBak": "Restaurar copia local (.bak)",
+  "vaultRecoveryRestoreBakFail": "No hay copia .bak válida o la restauración falló.",
+  "vaultRecoveryRestoreZip": "Restaurar desde archivo de copia",
+  "vaultRecoveryExportEmergency": "Exportar copia de emergencia",
+  "vaultRecoveryExportOk": "Copia guardada: {path}",
+  "@vaultRecoveryExportOk": {
+    "placeholders": {
+      "path": {"type": "String"}
+    }
+  },
+  "vaultRecoveryOpenDataFolder": "Abrir carpeta de datos",
+  "saveStatusIdle": "Guardado",
+  "saveStatusPending": "Cambios pendientes",
+  "saveStatusSaving": "Guardando…",
+  "saveStatusSaved": "Guardado",
+  "saveStatusError": "Error al guardar"
 }

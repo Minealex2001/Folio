@@ -8167,4 +8167,47 @@ class AppLocalizationsGl extends AppLocalizations {
   @override
   String get vaultStarterStudyPlanCallout =>
       'Axusta o plan cada domingo: pouco texto, moita claridade.';
+
+  @override
+  String get vaultRecoveryTitle => 'Problema ao abrir o caderno';
+
+  @override
+  String get vaultRecoveryBody =>
+      'Non foi posible ler o caderno activo. Podes tentar restaurar unha copia local, importar un backup ou exportar o que quede no disco.';
+
+  @override
+  String get vaultRecoveryRestoreBak => 'Restaurar copia local (.bak)';
+
+  @override
+  String get vaultRecoveryRestoreBakFail =>
+      'Non hai copia .bak válida ou a restauración fallou.';
+
+  @override
+  String get vaultRecoveryRestoreZip => 'Restaurar desde ficheiro de copia';
+
+  @override
+  String get vaultRecoveryExportEmergency => 'Exportar copia de emerxencia';
+
+  @override
+  String vaultRecoveryExportOk(String path) {
+    return 'Copia gardada: $path';
+  }
+
+  @override
+  String get vaultRecoveryOpenDataFolder => 'Abrir cartafol de datos';
+
+  @override
+  String get saveStatusIdle => 'Gardado';
+
+  @override
+  String get saveStatusPending => 'Cambios pendentes';
+
+  @override
+  String get saveStatusSaving => 'Gardando…';
+
+  @override
+  String get saveStatusSaved => 'Gardado';
+
+  @override
+  String get saveStatusError => 'Erro ao gardar';
 }

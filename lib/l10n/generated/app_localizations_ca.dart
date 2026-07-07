@@ -8174,4 +8174,47 @@ class AppLocalizationsCa extends AppLocalizations {
   @override
   String get vaultStarterStudyPlanCallout =>
       'Ajusta el pla cada diumenge: poc text, molta claredat.';
+
+  @override
+  String get vaultRecoveryTitle => 'Problema en obrir la llibreta';
+
+  @override
+  String get vaultRecoveryBody =>
+      'No s\'ha pogut llegir la llibreta activa. Pots provar de restaurar una còpia local, importar una còpia de seguretat o exportar el que quedi al disc.';
+
+  @override
+  String get vaultRecoveryRestoreBak => 'Restaurar còpia local (.bak)';
+
+  @override
+  String get vaultRecoveryRestoreBakFail =>
+      'No hi ha còpia .bak vàlida o la restauració ha fallat.';
+
+  @override
+  String get vaultRecoveryRestoreZip => 'Restaurar des d\'un fitxer de còpia';
+
+  @override
+  String get vaultRecoveryExportEmergency => 'Exportar còpia d\'emergència';
+
+  @override
+  String vaultRecoveryExportOk(String path) {
+    return 'Còpia desada: $path';
+  }
+
+  @override
+  String get vaultRecoveryOpenDataFolder => 'Obrir carpeta de dades';
+
+  @override
+  String get saveStatusIdle => 'Desat';
+
+  @override
+  String get saveStatusPending => 'Canvis pendents';
+
+  @override
+  String get saveStatusSaving => 'Desant…';
+
+  @override
+  String get saveStatusSaved => 'Desat';
+
+  @override
+  String get saveStatusError => 'Error en desar';
 }

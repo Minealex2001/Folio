@@ -2,6 +2,9 @@ import 'dart:async';
 import 'package:flutter/foundation.dart'
     show TargetPlatform, defaultTargetPlatform, kIsWeb;
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+import 'folio_providers.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
@@ -10,6 +13,8 @@ import 'package:package_info_plus/package_info_plus.dart';
 import 'package:system_theme/system_theme.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import '../core/bootstrap/app_bootstrap.dart';
+import '../core/bootstrap/bootstrap_phase.dart';
 import '../data/vault_backup.dart';
 import '../desktop/desktop_integration.dart';
 import '../l10n/generated/app_localizations.dart';
@@ -41,6 +46,7 @@ import '../services/updater/github_release_updater.dart';
 import '../features/release_notes/release_notes_page.dart';
 import '../features/lock/lock_screen.dart';
 import '../features/onboarding/onboarding_flow.dart';
+import '../features/vault/recovery_screen.dart';
 import '../features/workspace/workspace.dart';
 import '../session/vault_session.dart';
 import 'app_settings.dart';
@@ -97,11 +103,97 @@ class _FolioAppState extends State<FolioApp> with WidgetsBindingObserver {
   StreamSubscription<List<TaskReminderEvent>>? _reminderSub;
 
   late final FolioTelemetryNavigatorObserver _telemetryNavObserver;
+  late final AppBootstrap _appBootstrap;
   VaultFlowState? _lastVaultFlowForTelemetry;
+
+  Future<void> _runVaultBootstrap() async {
+    final result = await _appBootstrap.runVaultPhase();
+    if (!mounted) return;
+    if (result.failedPhases.contains(BootstrapPhase.vaultOpen)) {
+      AppLogger.warn(
+        'Vault bootstrap degraded',
+        tag: 'bootstrap',
+        context: {'state': '${widget.session.state}'},
+      );
+    }
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      unawaited(_runSecondaryBootstrap());
+    });
+  }
+
+  Future<void> _runSecondaryBootstrap() async {
+    if (!mounted) return;
+    final bootstrap = _appBootstrap;
+    await bootstrap.runSecondaryPhase(
+      BootstrapPhase.deviceSync,
+      () => _deviceSyncController.load(),
+    );
+    if (!mounted) return;
+    _applySessionSecurityPolicy();
+    _folioCloudEntitlements.addListener(_onFolioCloudEntitlements);
+    _folioCloudEntitlements.setWebPortalBaseUrlResolver(
+      () => AppSettings.folioWebPortalLinkEnabled
+          ? widget.appSettings.folioWebPortalBaseUrlEffective
+          : '',
+    );
+    await bootstrap.runSecondaryPhase(
+      BootstrapPhase.firebase,
+      () => _folioCloudEntitlements.refreshWebPortalEntitlement(),
+    );
+    if (!mounted) return;
+    _applyAiSettings();
+    _applyDeviceSyncSettings();
+    _maybeLaunchAiProvider();
+    await bootstrap.runSecondaryPhase(
+      BootstrapPhase.integrations,
+      () async {
+        await IntegrationAuthService.instance.load();
+        await AppStoreService.instance.init();
+        AppExtensionRegistry.instance.loadFromInstalledApps(
+          AppStoreService.instance.installedApps,
+        );
+        AppStoreService.instance.addListener(() {
+          AppExtensionRegistry.instance.loadFromInstalledApps(
+            AppStoreService.instance.installedApps,
+          );
+        });
+      },
+    );
+    if (!mounted) return;
+    await bootstrap.runSecondaryPhase(
+      BootstrapPhase.desktop,
+      _initDesktopIntegration,
+    );
+    if (!mounted) return;
+    await bootstrap.runSecondaryPhase(
+      BootstrapPhase.integrations,
+      _startIntegrationsBridge,
+    );
+    if (!mounted) return;
+    unawaited(_loadInstalledVersionInfo());
+    unawaited(_handleInitialLaunchArgs());
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      unawaited(_checkForUpdatesOnStartup());
+    });
+    unawaited(_maybeOpenReleaseNotesPage());
+    _scheduledVaultBackupTimer = Timer.periodic(
+      const Duration(minutes: 15),
+      (_) => unawaited(_maybeRunScheduledVaultBackup()),
+    );
+    unawaited(_maybeRunScheduledVaultBackup());
+    await bootstrap.runSecondaryPhase(
+      BootstrapPhase.background,
+      _initPlatformNotifications,
+    );
+  }
 
   @override
   void initState() {
     super.initState();
+    _appBootstrap = AppBootstrap(
+      session: widget.session,
+      appSettings: widget.appSettings,
+    );
     _telemetryNavObserver =
         FolioTelemetryNavigatorObserver(() => widget.appSettings);
     _lastVaultFlowForTelemetry = widget.session.state;
@@ -141,49 +233,10 @@ class _FolioAppState extends State<FolioApp> with WidgetsBindingObserver {
       unawaited(widget.appSettings.setSyncPendingConflicts(count));
     };
     widget.session.onPersisted = _deviceSyncController.onLocalSnapshotPersisted;
-    unawaited(_deviceSyncController.load());
-    _applySessionSecurityPolicy();
-    _folioCloudEntitlements.addListener(_onFolioCloudEntitlements);
-    _folioCloudEntitlements.setWebPortalBaseUrlResolver(
-      () => AppSettings.folioWebPortalLinkEnabled
-          ? widget.appSettings.folioWebPortalBaseUrlEffective
-          : '',
-    );
-    unawaited(_folioCloudEntitlements.refreshWebPortalEntitlement());
-    _applyAiSettings();
-    _applyDeviceSyncSettings();
-    _maybeLaunchAiProvider();
-    unawaited(IntegrationAuthService.instance.load());
-    unawaited(
-      AppStoreService.instance.init().then((_) {
-        AppExtensionRegistry.instance.loadFromInstalledApps(
-          AppStoreService.instance.installedApps,
-        );
-        AppStoreService.instance.addListener(() {
-          AppExtensionRegistry.instance.loadFromInstalledApps(
-            AppStoreService.instance.installedApps,
-          );
-        });
-      }),
-    );
-    widget.session.bootstrap();
-    unawaited(_loadInstalledVersionInfo());
-    unawaited(_startIntegrationsBridge());
-    _initDesktopIntegration();
     _launchArgsSub = PlatformLaunchArguments.launchArguments().listen((args) {
       unawaited(_handleLaunchArguments(args, focusWindow: false));
     });
-    unawaited(_handleInitialLaunchArgs());
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      unawaited(_checkForUpdatesOnStartup());
-    });
-    unawaited(_maybeOpenReleaseNotesPage());
-    _scheduledVaultBackupTimer = Timer.periodic(
-      const Duration(minutes: 15),
-      (_) => unawaited(_maybeRunScheduledVaultBackup()),
-    );
-    unawaited(_maybeRunScheduledVaultBackup());
-    unawaited(_initPlatformNotifications());
+    unawaited(_runVaultBootstrap());
     _accentSub = SystemTheme.onChange.listen((_) {
       if (mounted) setState(() {});
     });
@@ -439,6 +492,8 @@ class _FolioAppState extends State<FolioApp> with WidgetsBindingObserver {
         return 'vault_locked';
       case VaultFlowState.unlocked:
         return 'workspace';
+      case VaultFlowState.recovery:
+        return 'vault_recovery';
     }
   }
 
@@ -1150,7 +1205,8 @@ class _FolioAppState extends State<FolioApp> with WidgetsBindingObserver {
     }
     if (state == AppLifecycleState.inactive ||
         state == AppLifecycleState.paused ||
-        state == AppLifecycleState.hidden) {
+        state == AppLifecycleState.hidden ||
+        state == AppLifecycleState.detached) {
       widget.session.onAppBackgrounded();
       if (widget.appSettings.minimizeToTray) {
         unawaited(_desktop?.hideToTray());
@@ -1161,7 +1217,14 @@ class _FolioAppState extends State<FolioApp> with WidgetsBindingObserver {
   @override
   Widget build(BuildContext context) {
     final seed = widget.appSettings.resolveAccentSeedColor();
-    return MaterialApp(
+    return ProviderScope(
+      overrides: [
+        vaultSessionProvider.overrideWithValue(widget.session),
+        vaultFlowStateProvider.overrideWith((ref) => widget.session.state),
+        selectedPageProvider.overrideWith((ref) => widget.session.selectedPageId),
+        saveStatusProvider.overrideWith((ref) => widget.session.saveStatus),
+      ],
+      child: MaterialApp(
       navigatorKey: _navKey,
       navigatorObservers: [_telemetryNavObserver],
       onGenerateTitle: (context) => AppLocalizations.of(context).appTitle,
@@ -1264,6 +1327,7 @@ class _FolioAppState extends State<FolioApp> with WidgetsBindingObserver {
         folioCloudEntitlements: _folioCloudEntitlements,
         onOpenSearch: _handleSearchRequested,
         onOpenReleaseNotes: _openReleaseNotesForUser,
+      ),
       ),
     );
   }
@@ -1771,6 +1835,8 @@ class _HomeByState extends StatelessWidget {
         return OnboardingFlow(session: session, appSettings: appSettings);
       case VaultFlowState.locked:
         return LockScreen(session: session, appSettings: appSettings);
+      case VaultFlowState.recovery:
+        return RecoveryScreen(session: session, appSettings: appSettings);
       case VaultFlowState.unlocked:
         return WorkspacePage(
           session: session,

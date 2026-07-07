@@ -237,6 +237,22 @@ Future<bool> isPlainBackupArchive(File archiveFile) async {
   }
 }
 
+/// Crea una copia ZIP automática antes de operaciones destructivas de importación.
+Future<String> createPreImportBackupZip() async {
+  if (kIsWeb) throw UnsupportedError('Backup not supported on web');
+  final vaultDir = await VaultPaths.vaultDirectory();
+  final backupsDir = Directory(p.join(vaultDir.path, 'backups'));
+  if (!backupsDir.existsSync()) {
+    await backupsDir.create(recursive: true);
+  }
+  final path = p.join(
+    backupsDir.path,
+    'pre_import_${DateTime.now().millisecondsSinceEpoch}.zip',
+  );
+  await exportVaultZip(File(path));
+  return path;
+}
+
 /// Crea un ZIP con `manifest.json`, `vault.bin`, opcionalmente `vault.keys` y `vault.mode`,
 /// y `attachments/` (solo lectura en disco). Libretas en texto plano no tienen `vault.keys`.
 Future<void> exportVaultZip(File destination) async {

@@ -2601,5 +2601,23 @@
   "vaultStarterStudyPlanBullet3": "Simulakroak edo autoebaluazioa azterketen aurretik.",
   "vaultStarterStudyPlanTodo1": "Definitu hiru ikasketa-saio",
   "vaultStarterStudyPlanTodo2": "Markatu hurrengo berrikuspena egutegian",
-  "vaultStarterStudyPlanCallout": "Doitu plana igande bakoitzean: testu gutxi, argitasun asko."
+  "vaultStarterStudyPlanCallout": "Doitu plana igande bakoitzean: testu gutxi, argitasun asko.",
+  "vaultRecoveryTitle": "Arazoa koadernoa irekitzean",
+  "vaultRecoveryBody": "Ezin izan da koaderno aktiboa irakurri. Saiatu kopia lokala leheneratzen, babeskopia inportatzen edo diskoan geratzen dena esportatzen.",
+  "vaultRecoveryRestoreBak": "Kopia lokala leheneratu (.bak)",
+  "vaultRecoveryRestoreBakFail": "Ez dago .bak kopia baliodunik edo leheneratzeak huts egin du.",
+  "vaultRecoveryRestoreZip": "Babeskopia fitxategitik leheneratu",
+  "vaultRecoveryExportEmergency": "Larrialdiko babeskopia esportatu",
+  "vaultRecoveryExportOk": "Babeskopia gordeta: {path}",
+  "@vaultRecoveryExportOk": {
+    "placeholders": {
+      "path": {"type": "String"}
+    }
+  },
+  "vaultRecoveryOpenDataFolder": "Datuen karpeta ireki",
+  "saveStatusIdle": "Gordeta",
+  "saveStatusPending": "Aldaketak zain",
+  "saveStatusSaving": "Gordetzen…",
+  "saveStatusSaved": "Gordeta",
+  "saveStatusError": "Errorea gordetzean"
 }

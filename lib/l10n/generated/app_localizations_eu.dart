@@ -8180,4 +8180,47 @@ class AppLocalizationsEu extends AppLocalizations {
   @override
   String get vaultStarterStudyPlanCallout =>
       'Doitu plana igande bakoitzean: testu gutxi, argitasun asko.';
+
+  @override
+  String get vaultRecoveryTitle => 'Arazoa koadernoa irekitzean';
+
+  @override
+  String get vaultRecoveryBody =>
+      'Ezin izan da koaderno aktiboa irakurri. Saiatu kopia lokala leheneratzen, babeskopia inportatzen edo diskoan geratzen dena esportatzen.';
+
+  @override
+  String get vaultRecoveryRestoreBak => 'Kopia lokala leheneratu (.bak)';
+
+  @override
+  String get vaultRecoveryRestoreBakFail =>
+      'Ez dago .bak kopia baliodunik edo leheneratzeak huts egin du.';
+
+  @override
+  String get vaultRecoveryRestoreZip => 'Babeskopia fitxategitik leheneratu';
+
+  @override
+  String get vaultRecoveryExportEmergency => 'Larrialdiko babeskopia esportatu';
+
+  @override
+  String vaultRecoveryExportOk(String path) {
+    return 'Babeskopia gordeta: $path';
+  }
+
+  @override
+  String get vaultRecoveryOpenDataFolder => 'Datuen karpeta ireki';
+
+  @override
+  String get saveStatusIdle => 'Gordeta';
+
+  @override
+  String get saveStatusPending => 'Aldaketak zain';
+
+  @override
+  String get saveStatusSaving => 'Gordetzen…';
+
+  @override
+  String get saveStatusSaved => 'Gordeta';
+
+  @override
+  String get saveStatusError => 'Errorea gordetzean';
 }

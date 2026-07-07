@@ -14308,6 +14308,84 @@ abstract class AppLocalizations {
   /// In es, this message translates to:
   /// **'Ajusta el plan cada domingo: poco texto, mucha claridad.'**
   String get vaultStarterStudyPlanCallout;
+
+  /// No description provided for @vaultRecoveryTitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Problema al abrir la libreta'**
+  String get vaultRecoveryTitle;
+
+  /// No description provided for @vaultRecoveryBody.
+  ///
+  /// In es, this message translates to:
+  /// **'No se pudo leer la libreta activa. Puedes intentar restaurar una copia local, importar un backup o exportar lo que quede en disco.'**
+  String get vaultRecoveryBody;
+
+  /// No description provided for @vaultRecoveryRestoreBak.
+  ///
+  /// In es, this message translates to:
+  /// **'Restaurar copia local (.bak)'**
+  String get vaultRecoveryRestoreBak;
+
+  /// No description provided for @vaultRecoveryRestoreBakFail.
+  ///
+  /// In es, this message translates to:
+  /// **'No hay copia .bak válida o la restauración falló.'**
+  String get vaultRecoveryRestoreBakFail;
+
+  /// No description provided for @vaultRecoveryRestoreZip.
+  ///
+  /// In es, this message translates to:
+  /// **'Restaurar desde archivo de copia'**
+  String get vaultRecoveryRestoreZip;
+
+  /// No description provided for @vaultRecoveryExportEmergency.
+  ///
+  /// In es, this message translates to:
+  /// **'Exportar copia de emergencia'**
+  String get vaultRecoveryExportEmergency;
+
+  /// No description provided for @vaultRecoveryExportOk.
+  ///
+  /// In es, this message translates to:
+  /// **'Copia guardada: {path}'**
+  String vaultRecoveryExportOk(String path);
+
+  /// No description provided for @vaultRecoveryOpenDataFolder.
+  ///
+  /// In es, this message translates to:
+  /// **'Abrir carpeta de datos'**
+  String get vaultRecoveryOpenDataFolder;
+
+  /// No description provided for @saveStatusIdle.
+  ///
+  /// In es, this message translates to:
+  /// **'Guardado'**
+  String get saveStatusIdle;
+
+  /// No description provided for @saveStatusPending.
+  ///
+  /// In es, this message translates to:
+  /// **'Cambios pendientes'**
+  String get saveStatusPending;
+
+  /// No description provided for @saveStatusSaving.
+  ///
+  /// In es, this message translates to:
+  /// **'Guardando…'**
+  String get saveStatusSaving;
+
+  /// No description provided for @saveStatusSaved.
+  ///
+  /// In es, this message translates to:
+  /// **'Guardado'**
+  String get saveStatusSaved;
+
+  /// No description provided for @saveStatusError.
+  ///
+  /// In es, this message translates to:
+  /// **'Error al guardar'**
+  String get saveStatusError;
 }
 
 class _AppLocalizationsDelegate

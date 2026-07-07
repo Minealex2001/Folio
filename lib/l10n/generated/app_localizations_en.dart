@@ -8058,4 +8058,47 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get vaultStarterStudyPlanCallout =>
       'Adjust the plan each Sunday: little text, lots of clarity.';
+
+  @override
+  String get vaultRecoveryTitle => 'Could not open vault';
+
+  @override
+  String get vaultRecoveryBody =>
+      'The active vault could not be read. Try restoring a local copy, importing a backup, or exporting what remains on disk.';
+
+  @override
+  String get vaultRecoveryRestoreBak => 'Restore local copy (.bak)';
+
+  @override
+  String get vaultRecoveryRestoreBakFail =>
+      'No valid .bak copy or restore failed.';
+
+  @override
+  String get vaultRecoveryRestoreZip => 'Restore from backup file';
+
+  @override
+  String get vaultRecoveryExportEmergency => 'Export emergency backup';
+
+  @override
+  String vaultRecoveryExportOk(String path) {
+    return 'Backup saved: $path';
+  }
+
+  @override
+  String get vaultRecoveryOpenDataFolder => 'Open data folder';
+
+  @override
+  String get saveStatusIdle => 'Saved';
+
+  @override
+  String get saveStatusPending => 'Pending changes';
+
+  @override
+  String get saveStatusSaving => 'Saving…';
+
+  @override
+  String get saveStatusSaved => 'Saved';
+
+  @override
+  String get saveStatusError => 'Save failed';
 }

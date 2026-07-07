@@ -8141,4 +8141,48 @@ class AppLocalizationsPt extends AppLocalizations {
   @override
   String get vaultStarterStudyPlanCallout =>
       'Ajuste o plano todos os domingos: pouco texto, muita clareza.';
+
+  @override
+  String get vaultRecoveryTitle => 'Problema ao abrir o caderno';
+
+  @override
+  String get vaultRecoveryBody =>
+      'Não foi possível ler o caderno ativo. Tente restaurar uma cópia local, importar um backup ou exportar o que restar no disco.';
+
+  @override
+  String get vaultRecoveryRestoreBak => 'Restaurar cópia local (.bak)';
+
+  @override
+  String get vaultRecoveryRestoreBakFail =>
+      'Não há cópia .bak válida ou a restauração falhou.';
+
+  @override
+  String get vaultRecoveryRestoreZip =>
+      'Restaurar a partir de arquivo de backup';
+
+  @override
+  String get vaultRecoveryExportEmergency => 'Exportar backup de emergência';
+
+  @override
+  String vaultRecoveryExportOk(String path) {
+    return 'Backup guardado: $path';
+  }
+
+  @override
+  String get vaultRecoveryOpenDataFolder => 'Abrir pasta de dados';
+
+  @override
+  String get saveStatusIdle => 'Guardado';
+
+  @override
+  String get saveStatusPending => 'Alterações pendentes';
+
+  @override
+  String get saveStatusSaving => 'A guardar…';
+
+  @override
+  String get saveStatusSaved => 'Guardado';
+
+  @override
+  String get saveStatusError => 'Falha ao guardar';
 }

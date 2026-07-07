@@ -14,6 +14,11 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:cryptography/cryptography.dart';
 import 'package:uuid/uuid.dart';
 
+import '../application/page_tree_controller.dart';
+import '../application/vault_ai_controller.dart';
+import '../application/vault_persistence_controller.dart';
+import '../application/vault_search_index.dart';
+import '../core/errors/vault_corruption_exception.dart';
 import '../crypto/vault_crypto.dart';
 import '../data/vault_backup.dart';
 import '../data/notion_import/notion_importer.dart';
@@ -56,7 +61,13 @@ import '../l10n/generated/app_localizations.dart';
 
 part 'vault_session_ai.dart';
 
-enum VaultFlowState { initializing, needsOnboarding, locked, unlocked }
+enum VaultFlowState {
+  initializing,
+  needsOnboarding,
+  locked,
+  unlocked,
+  recovery,
+}
 
 enum VaultSearchMatchKind { title, content }
 
@@ -273,6 +284,31 @@ class VaultSession extends ChangeNotifier {
         messages: const [],
       ),
     ];
+    _persistence = VaultPersistenceController(
+      buildPayload: _buildVaultPayloadForPersist,
+      savePayload: (payload) => _repo.savePayload(payload, _dek),
+      canPersist: () =>
+          _state == VaultFlowState.unlocked &&
+          (!vaultUsesEncryption || _dek != null),
+    );
+    _persistence.addListener(_notifySessionListeners);
+    _persistence.onPersisted = () {
+      try {
+        onPersisted?.call();
+      } catch (_) {}
+    };
+    _pageTree = PageTreeController(
+      pagesProvider: () => _pages,
+      orderProvider: () => _pageOrderByParent,
+      orderUpdater: (order) {
+        _pageOrderByParent
+          ..clear()
+          ..addAll(order);
+      },
+      selectedIdProvider: () => _selectedPageId,
+      selectedIdUpdater: (id) => _selectedPageId = id,
+    );
+    _aiController = VaultAiController()..initializeThreads(_aiChatThreads);
   }
 
   /// Idioma para títulos por defecto (páginas nuevas, chats). Actualizar al cambiar el idioma de la app.
@@ -317,12 +353,13 @@ class VaultSession extends ChangeNotifier {
   JiraIntegrationState _jira = JiraIntegrationState.empty;
   YouTrackIntegrationState _youtrack = YouTrackIntegrationState.empty;
   String? _selectedPageId;
-  Timer? _saveDebounce;
   Timer? _revisionIdleTimer;
   Timer? _idleLockTimer;
   final Set<String> _pageIdsPendingRevision = {};
-  int _persistDepth = 0;
-  int _suppressPersistedCallbackDepth = 0;
+  late final VaultPersistenceController _persistence;
+  final VaultSearchIndex _searchIndex = VaultSearchIndex();
+  late final PageTreeController _pageTree;
+  late final VaultAiController _aiController;
   String _syncBaselineFingerprint = '';
   int _syncPendingConflicts = 0;
   final List<SyncConflictEntry> _syncConflicts = [];
@@ -361,10 +398,20 @@ class VaultSession extends ChangeNotifier {
   static const Duration _revisionIdleDelay = Duration(milliseconds: 2500);
 
   /// Hay un guardado al disco programado (debounce) y aún no se ha ejecutado.
-  bool get hasPendingDiskSave => _saveDebounce != null;
+  bool get hasPendingDiskSave => _persistence.hasPendingDiskSave;
 
   /// Escritura cifrada de la libreta en curso (puede anidarse si varias rutas llaman a [persistNow]).
-  bool get isPersistingToDisk => _persistDepth > 0;
+  bool get isPersistingToDisk => _persistence.isPersistingToDisk;
+
+  SaveStatus get saveStatus => _persistence.status;
+
+  VaultPersistenceController get persistence => _persistence;
+
+  PageTreeController get pageTree => _pageTree;
+
+  VaultAiController get aiController => _aiController;
+
+  VaultSearchIndex get searchIndex => _searchIndex;
 
   VaultFlowState get state => _state;
   List<FolioPage> get pages => List.unmodifiable(_pages);
@@ -755,20 +802,75 @@ class VaultSession extends ChangeNotifier {
       final plain = await _repo.isPlaintextVault();
       _vaultUsesEncryption = !plain;
       if (plain) {
-        final payload = await _repo.loadPayload(null);
-        _dek = null;
-        _pages = List.from(payload.pages);
-        _loadRevisionsFromPayload(payload);
-        _ensureOrderForCurrentPages();
-        await _applyInitialPageSelection(preferPersistedPreference: true);
-        _state = VaultFlowState.unlocked;
-        _restartIdleLockTimer();
+        try {
+          final payload = await _repo.loadPayload(null);
+          _dek = null;
+          _pages = List.from(payload.pages);
+          _loadRevisionsFromPayload(payload);
+          _ensureOrderForCurrentPages();
+          await _applyInitialPageSelection(preferPersistedPreference: true);
+          _state = VaultFlowState.unlocked;
+          _restartIdleLockTimer();
+          _rebuildSearchIndex();
+          final vaultId = _vaultId;
+          if (vaultId != null) {
+            unawaited(_searchIndex.loadFromVault(vaultId));
+          }
+        } on VaultCorruptionException {
+          _dek = null;
+          _pages = [];
+          _selectedPageId = null;
+          _state = VaultFlowState.recovery;
+        }
       } else {
         _state = VaultFlowState.locked;
         _dek = null;
       }
     }
     notifyListeners();
+  }
+
+  /// Restaura `vault.bin` desde la copia `.bak` local y reintenta el arranque.
+  Future<bool> restoreVaultFromLocalBackup() async {
+    final ok = await _repo.restoreCipherPayloadFromLocalBackup();
+    if (!ok) return false;
+    await bootstrap();
+    return _state != VaultFlowState.recovery;
+  }
+
+  /// Carpeta de datos de la libreta activa (nativo).
+  Future<String?> activeVaultDataDirectoryPath() async {
+    final id = _vaultId;
+    if (id == null || id.isEmpty) return null;
+    try {
+      final dir = await VaultPaths.vaultDirectoryForId(id);
+      return dir.path;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// Exporta una copia ZIP de emergencia de la libreta activa.
+  Future<String> exportEmergencyBackupZip(String zipPath) async {
+    await flushPendingSave();
+    await exportVaultBackup(zipPath);
+    return zipPath;
+  }
+
+  /// Restaura desde un ZIP de copia sobre la libreta activa (modo recuperación).
+  Future<void> restoreFromBackupZip(String zipPath, String password) async {
+    if (kIsWeb) throw UnsupportedError('Backup import not available on web');
+    final temp = Directory.systemTemp.createTempSync('folio_recovery_import_');
+    try {
+      await extractBackupZipToDirectory(File(zipPath), temp);
+      await validateImportZip(temp, password);
+      await applyImportFromDirectory(temp);
+      await bootstrap();
+    } finally {
+      try {
+        if (temp.existsSync()) await temp.delete(recursive: true);
+      } catch (_) {}
+    }
   }
 
   void _loadRevisionsFromPayload(VaultPayload payload) {
@@ -951,35 +1053,7 @@ class VaultSession extends ChangeNotifier {
   String _orderKeyForParent(String? parentId) => parentId ?? '';
 
   void _ensureOrderForCurrentPages() {
-    final byId = <String, FolioPage>{for (final p in _pages) p.id: p};
-    // 1) Quitar ids inexistentes.
-    for (final entry in _pageOrderByParent.entries.toList()) {
-      final next = List<String>.from(entry.value)
-        ..removeWhere((id) => !byId.containsKey(id));
-      if (next.isEmpty) {
-        _pageOrderByParent.remove(entry.key);
-      } else {
-        _pageOrderByParent[entry.key] = next;
-      }
-    }
-    // 2) Asegurar lista por cada parent que tenga hijos.
-    final childrenByParent = <String, List<String>>{};
-    for (final p in _pages) {
-      final key = _orderKeyForParent(p.parentId);
-      (childrenByParent[key] ??= <String>[]).add(p.id);
-    }
-    for (final entry in childrenByParent.entries) {
-      final key = entry.key;
-      final existing = _pageOrderByParent.putIfAbsent(key, () => <String>[]);
-      // Preservar orden existente, y añadir faltantes al final siguiendo orden actual de _pages.
-      final present = existing.toSet();
-      for (final id in entry.value) {
-        if (!present.contains(id)) {
-          existing.add(id);
-          present.add(id);
-        }
-      }
-    }
+    _pageTree.ensureOrderForCurrentPages();
   }
 
   List<String> pageOrderForParent(String? parentId) {
@@ -1358,6 +1432,9 @@ class VaultSession extends ChangeNotifier {
         (vaultUsesEncryption && _dek == null)) {
       throw StateError('Debes desbloquear la libreta para importar.');
     }
+    try {
+      await createPreImportBackupZip();
+    } catch (_) {}
     final temp = await Directory.systemTemp.createTemp('folio_notion_import_');
     try {
       await extractNotionZipToDirectory(File(zipPath), temp);
@@ -1546,7 +1623,25 @@ class VaultSession extends ChangeNotifier {
   Future<void> unlockWithPassword(String password) async {
     if (!vaultUsesEncryption) {
       _dek = null;
-      final payload = await _repo.loadPayload(null);
+      try {
+        final payload = await _repo.loadPayload(null);
+        _pages = List.from(payload.pages);
+        _loadRevisionsFromPayload(payload);
+        _ensureOrderForCurrentPages();
+        await _applyInitialPageSelection(preferPersistedPreference: true);
+        _state = VaultFlowState.unlocked;
+        _restartIdleLockTimer();
+        notifyListeners();
+      } on VaultCorruptionException {
+        _state = VaultFlowState.recovery;
+        notifyListeners();
+      }
+      return;
+    }
+    try {
+      final dek = await _repo.unlockWithPassword(password);
+      _dek = dek.toList();
+      final payload = await _repo.loadPayload(_dek);
       _pages = List.from(payload.pages);
       _loadRevisionsFromPayload(payload);
       _ensureOrderForCurrentPages();
@@ -1554,18 +1649,11 @@ class VaultSession extends ChangeNotifier {
       _state = VaultFlowState.unlocked;
       _restartIdleLockTimer();
       notifyListeners();
-      return;
+    } on VaultCorruptionException {
+      _dek = null;
+      _state = VaultFlowState.recovery;
+      notifyListeners();
     }
-    final dek = await _repo.unlockWithPassword(password);
-    _dek = dek.toList();
-    final payload = await _repo.loadPayload(_dek);
-    _pages = List.from(payload.pages);
-    _loadRevisionsFromPayload(payload);
-    _ensureOrderForCurrentPages();
-    await _applyInitialPageSelection(preferPersistedPreference: true);
-    _state = VaultFlowState.unlocked;
-    _restartIdleLockTimer();
-    notifyListeners();
   }
 
   Future<void> unlockWithDeviceAuth() async {
@@ -1632,8 +1720,7 @@ class VaultSession extends ChangeNotifier {
 
   /// Vacía el estado en memoria de la libreta (sin fijar [VaultFlowState]).
   void _clearVaultSessionMemory() {
-    _saveDebounce?.cancel();
-    _saveDebounce = null;
+    _persistence.cancelPendingSave();
     _revisionIdleTimer?.cancel();
     _revisionIdleTimer = null;
     _idleLockTimer?.cancel();
@@ -1663,38 +1750,15 @@ class VaultSession extends ChangeNotifier {
 
   /// Hooks que vacían a la sesión estado editable con debounce propio (p. ej.
   /// los documentos Quill del editor de bloques) antes de un guardado forzado.
-  final List<void Function()> _pendingFlushHooks = [];
-
   void addPendingFlushHook(void Function() hook) {
-    if (!_pendingFlushHooks.contains(hook)) _pendingFlushHooks.add(hook);
+    _persistence.addPendingFlushHook(hook);
   }
 
   void removePendingFlushHook(void Function() hook) {
-    _pendingFlushHooks.remove(hook);
+    _persistence.removePendingFlushHook(hook);
   }
 
-  void _runPendingFlushHooks() {
-    for (final hook in List<void Function()>.from(_pendingFlushHooks)) {
-      try {
-        hook();
-      } catch (e) {
-        debugPrint('[vault] pending flush hook failed: $e');
-      }
-    }
-  }
-
-  /// Fuerza el vaciado a disco de cambios pendientes. Primero ejecuta los hooks
-  /// (que sincronizan al modelo el estado editable en debounce, p. ej. Quill) y
-  /// luego persiste si quedó un guardado pendiente. Evita perder los últimos
-  /// milisegundos de edición al bloquear o cambiar de contexto.
-  Future<void> flushPendingSave() async {
-    _runPendingFlushHooks();
-    if (_saveDebounce?.isActive ?? false) {
-      _saveDebounce!.cancel();
-      _saveDebounce = null;
-      await persistNow();
-    }
-  }
+  Future<void> flushPendingSave() => _persistence.flushPendingSave();
 
   Future<void> lock() async {
     if (!vaultUsesEncryption) return;
@@ -1728,6 +1792,7 @@ class VaultSession extends ChangeNotifier {
 
   void onAppBackgrounded() {
     if (_state != VaultFlowState.unlocked) return;
+    unawaited(flushPendingSave());
     if (_lockOnAppBackground) {
       unawaited(lock());
     }
@@ -4337,12 +4402,7 @@ class VaultSession extends ChangeNotifier {
         unawaited(_capturePendingRevisionsAndPersist());
       });
     }
-    _saveDebounce?.cancel();
-    _saveDebounce = Timer(const Duration(milliseconds: 450), () {
-      _saveDebounce = null;
-      notifyListeners();
-      unawaited(persistNow());
-    });
+    _persistence.scheduleSave();
     notifyListeners();
   }
 
@@ -4429,52 +4489,42 @@ class VaultSession extends ChangeNotifier {
     scheduleSave(trackRevisionForPageId: pageId);
   }
 
-  Future<void> persistNow() async {
-    if (vaultUsesEncryption && _dek == null) return;
-    var persisted = false;
-    _persistDepth++;
-    if (_persistDepth == 1) {
-      notifyListeners();
-    }
-    try {
-      await _repo.savePayload(
-        VaultPayload(
-          version: kVaultPayloadVersion,
-          pages: _pages,
-          pageOrderByParent: _pageOrderByParent,
-          pageRevisions: Map<String, List<FolioPageRevision>>.fromEntries(
-            _pageRevisions.entries.map(
-              (e) => MapEntry(e.key, List<FolioPageRevision>.from(e.value)),
-            ),
-          ),
-          pageAcl: Map<String, Map<String, String>>.fromEntries(
-            _pageAcl.entries.map(
-              (e) => MapEntry(e.key, Map<String, String>.from(e.value)),
-            ),
-          ),
-          localProfiles: List<LocalProfile>.from(_localProfiles),
-          comments: List<LocalPageComment>.from(_comments),
-          aiChatThreads: List<AiChatThreadData>.from(_aiChatThreads),
-          aiActiveChatIndex: _aiActiveChatIndex,
-          pageTemplates: List<FolioPageTemplate>.from(_pageTemplates),
-          jira: _jira,
-          youtrack: _youtrack,
+  VaultPayload _buildVaultPayloadForPersist() {
+    return VaultPayload(
+      version: kVaultPayloadVersion,
+      pages: _pages,
+      pageOrderByParent: _pageOrderByParent,
+      pageRevisions: Map<String, List<FolioPageRevision>>.fromEntries(
+        _pageRevisions.entries.map(
+          (e) => MapEntry(e.key, List<FolioPageRevision>.from(e.value)),
         ),
-        _dek,
-      );
-      persisted = true;
-    } finally {
-      _persistDepth--;
-      if (_persistDepth == 0) {
-        notifyListeners();
-      }
-    }
-    if (persisted && _suppressPersistedCallbackDepth == 0) {
-      try {
-        onPersisted?.call();
-      } catch (_) {
-        // No bloquea el guardado local si falla un listener externo.
-      }
+      ),
+      pageAcl: Map<String, Map<String, String>>.fromEntries(
+        _pageAcl.entries.map(
+          (e) => MapEntry(e.key, Map<String, String>.from(e.value)),
+        ),
+      ),
+      localProfiles: List<LocalProfile>.from(_localProfiles),
+      comments: List<LocalPageComment>.from(_comments),
+      aiChatThreads: List<AiChatThreadData>.from(_aiChatThreads),
+      aiActiveChatIndex: _aiActiveChatIndex,
+      pageTemplates: List<FolioPageTemplate>.from(_pageTemplates),
+      jira: _jira,
+      youtrack: _youtrack,
+    );
+  }
+
+  Future<void> persistNow() async {
+    await _persistence.persistNow();
+    _rebuildSearchIndex();
+  }
+
+  void _rebuildSearchIndex() {
+    if (_state != VaultFlowState.unlocked) return;
+    _searchIndex.rebuildFromPages(_pages);
+    final id = _vaultId;
+    if (id != null) {
+      unawaited(_searchIndex.persistToVault(id));
     }
   }
 
@@ -4641,12 +4691,8 @@ class VaultSession extends ChangeNotifier {
       _contentEpoch++;
     }
     notifyListeners();
-    _suppressPersistedCallbackDepth++;
-    try {
-      await persistNow();
-    } finally {
-      _suppressPersistedCallbackDepth--;
-    }
+    await _persistence.persistNowSuppressed();
+    _rebuildSearchIndex();
     _syncBaselineFingerprint = remoteFingerprint;
   }
 
@@ -4744,8 +4790,7 @@ class VaultSession extends ChangeNotifier {
 
   /// Borra la libreta **activa** por completo y actualiza el registro.
   Future<void> wipeVaultAndReset() async {
-    _saveDebounce?.cancel();
-    _saveDebounce = null;
+    _persistence.cancelPendingSave();
     _revisionIdleTimer?.cancel();
     _revisionIdleTimer = null;
     _pageIdsPendingRevision.clear();
@@ -4898,6 +4943,17 @@ class VaultSession extends ChangeNotifier {
       return const [];
     }
     touchActivity();
+    if (_searchIndex.version > 0) {
+      return _searchIndex.search(
+        query,
+        limit: limit,
+        includeTitleMatches: includeTitleMatches,
+        includeContentMatches: includeContentMatches,
+        sortByRecency: sortByRecency,
+        tasksOnly: tasksOnly,
+        lastEditedMs: _pageLastEditedMs,
+      );
+    }
     final out = <VaultSearchResult>[];
     for (final page in _pages) {
       final pageTitle = page.title.trim().isEmpty ? 'Sin título' : page.title;
@@ -5053,8 +5109,7 @@ class VaultSession extends ChangeNotifier {
 
   @override
   void dispose() {
-    _saveDebounce?.cancel();
-    _saveDebounce = null;
+    _persistence.dispose();
     _revisionIdleTimer?.cancel();
     _idleLockTimer?.cancel();
     super.dispose();

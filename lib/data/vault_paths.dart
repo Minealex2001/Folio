@@ -57,6 +57,12 @@ class VaultPaths {
   static Future<Uint8List?> readCipherPayload() =>
       VaultStorage.instance.readVaultFile(_assertVaultId(), cipherPayloadFile);
 
+  static Future<Uint8List?> readCipherPayloadBackup() => VaultStorage.instance
+      .readVaultFileBackup(_assertVaultId(), cipherPayloadFile);
+
+  static Future<bool> restoreCipherPayloadFromBackup() => VaultStorage.instance
+      .restoreVaultFileFromBackup(_assertVaultId(), cipherPayloadFile);
+
   static Future<void> writeCipherPayload(Uint8List data) => VaultStorage
       .instance
       .writeVaultFile(_assertVaultId(), cipherPayloadFile, data);
