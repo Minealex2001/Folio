@@ -14,6 +14,7 @@ import '../../models/folio_page_revision.dart';
 import '../../session/vault_session.dart';
 import '../folio_cloud/folio_cloud_callable.dart';
 import '../folio_cloud/folio_cloud_entitlements.dart';
+import '../folio_firestore_support.dart';
 
 bool _collabFirestorePolling() {
   if (kIsWeb) return false;
@@ -766,6 +767,13 @@ class CollabSessionController extends ChangeNotifier {
   }
 
   Future<String?> createRoomForPage({required String pageId}) async {
+    // Windows: Firestore no está disponible (crash nativo del SDK C++); la
+    // colaboración en tiempo real usa `collabRooms`, así que queda deshabilitada.
+    if (!folioFirestoreSupported) {
+      _lastError = 'collab_unsupported_platform';
+      notifyListeners();
+      return null;
+    }
     if (!folioCloudEntitlements.snapshot.canRealtimeCollab) {
       _lastError = 'no_entitlement';
       notifyListeners();
@@ -872,6 +880,12 @@ class CollabSessionController extends ChangeNotifier {
     required String pageId,
     required String joinCodeInput,
   }) async {
+    // Windows: sin Firestore no hay colaboración en tiempo real (ver arriba).
+    if (!folioFirestoreSupported) {
+      _lastError = 'collab_unsupported_platform';
+      notifyListeners();
+      return false;
+    }
     if (Firebase.apps.isEmpty) return false;
     if (FirebaseAuth.instance.currentUser == null) return false;
     try {

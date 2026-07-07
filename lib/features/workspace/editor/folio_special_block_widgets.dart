@@ -9,6 +9,7 @@ import 'package:uuid/uuid.dart';
 import '../../../app/ui_tokens.dart';
 import '../../../l10n/generated/app_localizations.dart';
 import '../history/page_outline.dart';
+import '../kanban/kanban_ui_helpers.dart';
 import '../../../models/block.dart';
 import '../../../models/folio_page.dart';
 import '../../../models/folio_columns_data.dart';
@@ -1267,11 +1268,6 @@ class _FolioTaskBlockBodyState extends State<FolioTaskBlockBody> {
     final l10n = AppLocalizations.of(context);
     final scheme = widget.scheme;
     final tt = widget.textTheme;
-    final statusLabels = {
-      'todo': l10n.taskStatusTodo,
-      'in_progress': l10n.taskStatusInProgress,
-      'done': l10n.taskStatusDone,
-    };
     final priorityLabels = <String?, String?>{
       null: l10n.taskPriorityNone,
       'low': l10n.taskPriorityLow,
@@ -1280,68 +1276,77 @@ class _FolioTaskBlockBodyState extends State<FolioTaskBlockBody> {
     };
     final totalSubtasks = _data.subtasks.length;
     final doneSubtasks = _data.subtasks.where((s) => s.status == 'done').length;
-    return Card(
-      margin: const EdgeInsets.symmetric(vertical: 4),
-      color: scheme.surfaceContainerLow,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(FolioRadius.md),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(
-          FolioSpace.sm,
-          FolioSpace.xs,
-          FolioSpace.sm,
-          FolioSpace.sm,
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            // Status chips row
-            SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              child: Row(
-                children: [
-                  for (final entry in statusLabels.entries)
-                    Padding(
-                      padding: const EdgeInsets.only(right: FolioSpace.xs),
-                      child: ChoiceChip(
-                        label: Text(entry.value),
-                        selected: _data.status == entry.key,
-                        onSelected: (_) {
-                          setState(
-                            () => _data = _data.copyWith(status: entry.key),
-                          );
-                          _emit(_data);
-                        },
-                        selectedColor: entry.key == 'done'
-                            ? scheme.primaryContainer
-                            : entry.key == 'in_progress'
-                            ? scheme.secondaryContainer
-                            : scheme.surfaceContainerHighest,
-                        labelStyle: tt.labelSmall,
-                        visualDensity: VisualDensity.compact,
-                      ),
-                    ),
-                ],
-              ),
+    return ListenableBuilder(
+      listenable: widget.session,
+      builder: (context, _) {
+        final kanbanCols = widget.session.kanbanDataForPage(widget.pageId).columns;
+        final allowedIds = kanbanCols.map((c) => c.id).toSet();
+        final effectiveCol = _data.effectiveColumnId(allowedColumnIds: allowedIds);
+        return Card(
+          margin: const EdgeInsets.symmetric(vertical: 4),
+          color: scheme.surfaceContainerLow,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(FolioRadius.md),
+          ),
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(
+              FolioSpace.sm,
+              FolioSpace.xs,
+              FolioSpace.sm,
+              FolioSpace.sm,
             ),
-            const SizedBox(height: FolioSpace.xs),
-            // Title text field
-            TextField(
-              controller: _title,
-              style: tt.bodyMedium,
-              maxLines: null,
-              decoration: InputDecoration.collapsed(
-                hintText: l10n.taskTitleHint,
-                hintStyle: tt.bodyMedium?.copyWith(
-                  color: scheme.onSurfaceVariant,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: Row(
+                    children: [
+                      for (final spec in kanbanCols)
+                        Padding(
+                          padding: const EdgeInsets.only(right: FolioSpace.xs),
+                          child: ChoiceChip(
+                            label: Text(folioKanbanColumnLabel(spec, l10n)),
+                            selected: effectiveCol == spec.id,
+                            onSelected: (_) {
+                              setState(
+                                () => _data = _data.withKanbanColumn(spec.id),
+                              );
+                              _emit(_data);
+                            },
+                            selectedColor: folioKanbanColumnChipSelectedColor(
+                              spec,
+                              scheme,
+                            ),
+                            labelStyle: tt.labelSmall,
+                            visualDensity: VisualDensity.compact,
+                          ),
+                        ),
+                    ],
+                  ),
                 ),
-              ),
-              onChanged: (v) {
-                _data = _data.copyWith(title: v);
-                _emit(_data);
-              },
-            ),
+                const SizedBox(height: FolioSpace.xs),
+                TextField(
+                  controller: _title,
+                  style: tt.bodyMedium?.copyWith(
+                    color: _data.blocked ? scheme.error : null,
+                    decoration: _data.blocked
+                        ? TextDecoration.lineThrough
+                        : null,
+                    decorationColor: _data.blocked ? scheme.error : null,
+                  ),
+                  maxLines: null,
+                  decoration: InputDecoration.collapsed(
+                    hintText: l10n.taskTitleHint,
+                    hintStyle: tt.bodyMedium?.copyWith(
+                      color: scheme.onSurfaceVariant,
+                    ),
+                  ),
+                  onChanged: (v) {
+                    _data = _data.copyWith(title: v);
+                    _emit(_data);
+                  },
+                ),
             const SizedBox(height: FolioSpace.xs),
             ExpansionTile(
               title: Text(l10n.taskBlockExpandDetailsTitle),
@@ -1622,6 +1627,8 @@ class _FolioTaskBlockBodyState extends State<FolioTaskBlockBody> {
           ],
         ),
       ),
+    );
+      },
     );
   }
 }

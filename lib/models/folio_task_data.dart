@@ -340,6 +340,22 @@ class FolioTaskData {
 
   static const Object _sentinel = Object();
 
+  /// Alinea [columnId] con una columna del tablero; si el id es uno de los tres
+  /// legacy (`todo` / `in_progress` / `done`), también actualiza [status].
+  FolioTaskData withKanbanColumn(String columnId) {
+    final normalized = columnId.trim();
+    final nextStatus =
+        (normalized == 'todo' ||
+            normalized == 'in_progress' ||
+            normalized == 'done')
+        ? normalized
+        : status;
+    return copyWith(
+      columnId: normalized.isEmpty ? null : normalized,
+      status: nextStatus,
+    );
+  }
+
   /// Columna efectiva para la UI Kanban.
   String effectiveColumnId({Set<String>? allowedColumnIds}) {
     final cid = (columnId ?? '').trim();

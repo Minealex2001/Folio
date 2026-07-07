@@ -19,11 +19,26 @@ import '../../../session/vault_session.dart';
 import '../../../services/jira/jira_api_client.dart';
 import '../../../services/jira/jira_sync_service.dart';
 import '../tasks/task_quick_add_dialog.dart';
+import 'kanban_ui_helpers.dart';
 
 enum _KanbanFilter { all, active, done, dueToday, dueWeek, overdue }
 
 /// Formatea 'YYYY-MM-DD' o 'YYYY-MM-DDTHH:MM' para mostrarlo en la UI.
 String _fmtDue(String due) => due.replaceFirst('T', ' ');
+
+TextStyle? _kanbanTaskTitleStyle({
+  required TextTheme textTheme,
+  required ColorScheme scheme,
+  required VaultTaskListEntry e,
+}) {
+  final blocked = e.isBlocked;
+  final strike = blocked || e.isDone;
+  return textTheme.titleSmall?.copyWith(
+    color: blocked ? scheme.error : null,
+    decoration: strike ? TextDecoration.lineThrough : null,
+    decorationColor: blocked ? scheme.error : null,
+  );
+}
 
 String _formatJiraError(Object e, {required bool isEs}) {
   if (e is JiraApiException) {
@@ -240,6 +255,7 @@ class _KanbanBoardPageState extends State<KanbanBoardPage> {
       session: widget.session,
       appSettings: widget.appSettings,
       targetPageId: widget.pageId,
+      kanbanColumns: widget.session.kanbanDataForPage(widget.pageId).columns,
     );
     if (mounted) setState(() {});
   }
@@ -1422,10 +1438,10 @@ class _KanbanColumn extends StatelessWidget {
                               onTap: () => onOpenDetails(e),
                               title: Text(
                                 e.displayTitle.isEmpty ? '—' : e.displayTitle,
-                                style: textTheme.titleSmall?.copyWith(
-                                  decoration: e.isDone
-                                      ? TextDecoration.lineThrough
-                                      : null,
+                                style: _kanbanTaskTitleStyle(
+                                  textTheme: textTheme,
+                                  scheme: scheme,
+                                  e: e,
                                 ),
                               ),
                               subtitle: subtitle.isEmpty
@@ -1480,10 +1496,7 @@ class _KanbanColumn extends StatelessWidget {
                           );
 
                           if (e.blockType != 'task') return tile;
-                          final blocked = e.task?.blocked == true;
-                          if (blocked) {
-                            return Opacity(opacity: 0.65, child: tile);
-                          }
+                          if (e.isBlocked) return tile;
                           return Draggable<VaultTaskListEntry>(
                             data: e,
                             feedback: SizedBox(
@@ -1562,7 +1575,14 @@ class _KanbanViewList extends StatelessWidget {
               elevation: 0,
               color: scheme.surfaceContainerHighest.withValues(alpha: 0.25),
               child: ListTile(
-                title: Text(e.displayTitle.isEmpty ? '—' : e.displayTitle),
+                title: Text(
+                  e.displayTitle.isEmpty ? '—' : e.displayTitle,
+                  style: _kanbanTaskTitleStyle(
+                    textTheme: textTheme,
+                    scheme: scheme,
+                    e: e,
+                  ),
+                ),
                 subtitle: e.dueDate == null ? null : Text(_fmtDue(e.dueDate!)),
                 onTap: () => onOpenDetails(e),
               ),
@@ -1637,10 +1657,10 @@ class _KanbanViewGrid extends StatelessWidget {
                         e.displayTitle.isEmpty ? '—' : e.displayTitle,
                         maxLines: 3,
                         overflow: TextOverflow.ellipsis,
-                        style: textTheme.titleSmall?.copyWith(
-                          decoration: e.isDone
-                              ? TextDecoration.lineThrough
-                              : null,
+                        style: _kanbanTaskTitleStyle(
+                          textTheme: textTheme,
+                          scheme: scheme,
+                          e: e,
                         ),
                       ),
                       const Spacer(),
@@ -1714,7 +1734,14 @@ class _KanbanViewTimeline extends StatelessWidget {
           elevation: 0,
           color: scheme.surfaceContainerHighest.withValues(alpha: 0.25),
           child: ListTile(
-            title: Text(e.displayTitle.isEmpty ? '—' : e.displayTitle),
+            title: Text(
+              e.displayTitle.isEmpty ? '—' : e.displayTitle,
+              style: _kanbanTaskTitleStyle(
+                textTheme: textTheme,
+                scheme: scheme,
+                e: e,
+              ),
+            ),
             subtitle: Text(range),
             onTap: () => onOpenDetails(e),
           ),
@@ -2439,6 +2466,8 @@ class _TaskDetailsContentState extends State<_TaskDetailsContent> {
     final scheme = Theme.of(context).colorScheme;
     final theme = Theme.of(context);
     final data = _data;
+    final kanbanCols = widget.session.kanbanDataForPage(widget.taskRef.pageId).columns;
+    final allowedColIds = kanbanCols.map((c) => c.id).toSet();
 
     return Padding(
       padding: const EdgeInsets.all(FolioSpace.md),
@@ -2574,6 +2603,13 @@ class _TaskDetailsContentState extends State<_TaskDetailsContent> {
                   TextField(
                     controller: _titleCtrl,
                     maxLines: 2,
+                    style: theme.textTheme.bodyLarge?.copyWith(
+                      color: data.blocked ? scheme.error : null,
+                      decoration: data.blocked
+                          ? TextDecoration.lineThrough
+                          : null,
+                      decorationColor: data.blocked ? scheme.error : null,
+                    ),
                     decoration: InputDecoration(
                       labelText: l10n.title,
                       border: const OutlineInputBorder(),
@@ -2632,28 +2668,48 @@ class _TaskDetailsContentState extends State<_TaskDetailsContent> {
                       ),
                       const SizedBox(width: 10),
                       Expanded(
-                        child: DropdownButtonFormField<String>(
-                          initialValue: data.status,
-                          decoration: InputDecoration(
-                            labelText: l10n.status,
-                            border: const OutlineInputBorder(),
-                          ),
-                          items: [
-                            DropdownMenuItem(
-                              value: 'todo',
-                              child: Text(l10n.taskStatusTodo),
-                            ),
-                            DropdownMenuItem(
-                              value: 'in_progress',
-                              child: Text(l10n.taskStatusInProgress),
-                            ),
-                            DropdownMenuItem(
-                              value: 'done',
-                              child: Text(l10n.taskStatusDone),
-                            ),
-                          ],
-                          onChanged: (v) =>
-                              _emit(data.copyWith(status: v ?? 'todo')),
+                        child: Builder(
+                          builder: (context) {
+                            final eff = data.effectiveColumnId(
+                              allowedColumnIds: allowedColIds,
+                            );
+                            final colMenuItems = <DropdownMenuItem<String>>[
+                              for (final c in kanbanCols)
+                                DropdownMenuItem(
+                                  value: c.id,
+                                  child: Text(folioKanbanColumnLabel(c, l10n)),
+                                ),
+                            ];
+                            var dropdownVal = eff;
+                            if (eff.isNotEmpty && !allowedColIds.contains(eff)) {
+                              colMenuItems.insert(
+                                0,
+                                DropdownMenuItem(
+                                  value: eff,
+                                  child: Text(eff),
+                                ),
+                              );
+                            }
+                            if (colMenuItems.isNotEmpty &&
+                                !colMenuItems.any((i) => i.value == dropdownVal)) {
+                              dropdownVal = colMenuItems.first.value!;
+                            }
+                            return DropdownButtonFormField<String>(
+                              key: ValueKey(
+                                'task-col-$dropdownVal-${kanbanCols.map((c) => c.id).join('|')}',
+                              ),
+                              // ignore: deprecated_member_use
+                              value: dropdownVal,
+                              decoration: InputDecoration(
+                                labelText: l10n.status,
+                                border: const OutlineInputBorder(),
+                              ),
+                              items: colMenuItems,
+                              onChanged: (v) {
+                                if (v != null) _emit(data.withKanbanColumn(v));
+                              },
+                            );
+                          },
                         ),
                       ),
                     ],

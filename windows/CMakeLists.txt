@@ -37,6 +37,12 @@ set(CMAKE_CXX_FLAGS_PROFILE "${CMAKE_CXX_FLAGS_RELEASE}")
 # Use Unicode for all projects.
 add_definitions(-DUNICODE -D_UNICODE)
 
+# MSVC 14.51+ (VS 18) convierte <experimental/coroutine> en error fatal (STL1011).
+# Varios plugins (audioplayers_windows, local_auth_windows, webview_windows) aún
+# usan el header experimental vía C++/WinRT, así que silenciamos la deprecación
+# de forma global para que compilen con toolchains recientes.
+add_definitions(-D_SILENCE_EXPERIMENTAL_COROUTINE_DEPRECATION_WARNINGS)
+
 # Compilation settings that should be applied to most targets.
 #
 # Be cautious about adding new options here, as plugins use this function by

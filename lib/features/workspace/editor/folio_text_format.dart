@@ -874,7 +874,7 @@ class FolioQuillFormatToolbar extends StatelessWidget {
     }
 
     String toHex(Color c) {
-      final rgb = c.value & 0x00FFFFFF;
+      final rgb = c.toARGB32() & 0x00FFFFFF;
       return '#${rgb.toRadixString(16).padLeft(6, '0')}';
     }
 
@@ -976,7 +976,7 @@ class FolioQuillFormatToolbar extends StatelessWidget {
 
     final picked = await showAnchoredPicker();
     if (picked == null) return;
-    if (picked.value == 0x00000000) {
+    if (picked.toARGB32() == 0x00000000) {
       controller.formatSelection(quill.Attribute.clone(attr, null));
       return;
     }

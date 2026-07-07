@@ -1,8 +1,10 @@
 import 'dart:async';
 import 'dart:ui';
 
+import 'package:firebase_auth_platform_interface/firebase_auth_platform_interface.dart';
 import 'package:firebase_core/firebase_core.dart';
-import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:flutter/foundation.dart'
+    show TargetPlatform, defaultTargetPlatform, kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:system_theme/system_theme.dart';
 
@@ -113,6 +115,9 @@ Future<void> main() async {
       }
 
       try {
+        if (!kIsWeb && defaultTargetPlatform == TargetPlatform.windows) {
+          FirebaseAuthPlatform.disableIdTokenChannelOnWindows = true;
+        }
         await Firebase.initializeApp(
           options: DefaultFirebaseOptions.currentPlatform,
         );

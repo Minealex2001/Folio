@@ -4066,6 +4066,9 @@ class BlockEditorState extends State<BlockEditor> with _BlockRowBuild {
     required String roomId,
     required String joinCode,
   }) async {
+    // Windows: Firestore deshabilitado (crash nativo del SDK C++); sin acceso a
+    // `collabRooms` no podemos resolver la clave de sala.
+    if (!folioFirestoreSupported) return null;
     final cached = _collabRoomKeyCache[roomId];
     if (cached != null) return cached;
 
@@ -4296,6 +4299,8 @@ class BlockEditorState extends State<BlockEditor> with _BlockRowBuild {
   }
 
   Future<File?> _resolveCollabMediaFile(String rawUrl) async {
+    // Windows: sin Firestore no hay metadatos de media de sala.
+    if (!folioFirestoreSupported) return null;
     final parsed = _parseCollabMediaUri(rawUrl);
     if (parsed == null) return null;
 

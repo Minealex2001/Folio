@@ -75,18 +75,25 @@ dependencies:
   audioplayers: ^6.6.0
   record: ^6.2.0
   intl: ^0.20.2
-  firebase_core: ^4.6.0
-  firebase_auth: ^6.3.0
-  cloud_firestore: ^6.2.0
-  firebase_storage: ^13.2.0
-  cloud_functions: ^6.1.0
-  flutter_quill: ^11.5.0
+  firebase_core: ^4.10.0
+  firebase_auth: ^6.5.0
+  # Declarado para `FirebaseAuthPlatform.disableIdTokenChannelOnWindows` en main
+  # (fork local vendorizado en Windows, ver dependency_overrides).
+  firebase_auth_platform_interface: ^9.0.0
+  cloud_firestore: ^6.5.0
+  firebase_storage: ^13.4.0
+  cloud_functions: ^6.3.0
+  flutter_quill: ^11.4.0
   cross_file: ^0.3.4+2
   desktop_drop: ^0.4.4
   super_clipboard: ^0.8.9
   firebase_analytics: ^12.3.0
   local_notifier: ^0.1.6
   idb_shim: ^2.6.1
+  dart_quill_delta: ^10.8.3
+  flutter_colorpicker: ^1.1.0
+  pdf: ^3.12.0
+  http_parser: ^4.1.2
 
 dev_dependencies:
   flutter_test:
@@ -106,6 +113,12 @@ dev_dependencies:
 # win32 ^5, so we stay on package_info_plus 9.x and override device_info to 12.x.
 dependency_overrides:
   device_info_plus: ^12.4.0
+  # Windows: evita el fast-fail (0xC0000409) del engine cuando firebase_auth
+  # emite por los EventChannel `id-token`/`auth-state` desde un hilo no-plataforma
+  # (firebase/flutterfire#18210 / #18226 / flutter/flutter#134346). Fork local
+  # (basado en hughesyadaddy@b897f94) que además omite el canal `auth-state`.
+  firebase_auth_platform_interface:
+    path: vendor/firebase_auth_platform_interface
 
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec

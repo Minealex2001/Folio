@@ -3656,8 +3656,7 @@ class _SettingsPageState extends State<SettingsPage> {
                         ),
                       ),
                       child: ListView(
-                        controller: _settingsScrollController,
-                        cacheExtent: 480,
+                        cacheExtent: 480, controller: _settingsScrollController,
                         padding: const EdgeInsets.symmetric(
                           vertical: 24,
                           horizontal: 16,

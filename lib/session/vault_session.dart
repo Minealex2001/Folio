@@ -3913,6 +3913,18 @@ class VaultSession extends ChangeNotifier {
     return t.copyWith(external: ext.copyWith(syncState: 'needsPush'));
   }
 
+  /// Primera configuración `kanban` de la página, o valores por defecto.
+  FolioKanbanData kanbanDataForPage(String pageId) {
+    final page = _pageById(pageId);
+    if (page == null) return FolioKanbanData.defaults();
+    for (final b in page.blocks) {
+      if (b.type == 'kanban') {
+        return FolioKanbanData.tryParse(b.text) ?? FolioKanbanData.defaults();
+      }
+    }
+    return FolioKanbanData.defaults();
+  }
+
   /// Mueve una tarjeta `task` a una columna Kanban (dinámica).
   void setTaskBlockColumnId(String pageId, String blockId, String columnId) {
     final page = _pageById(pageId);
@@ -3921,17 +3933,7 @@ class VaultSession extends ChangeNotifier {
     if (b == null || b.type != 'task') return;
     _rememberUndoBeforePageMutation(pageId);
     final t = FolioTaskData.tryParse(b.text) ?? FolioTaskData.defaults();
-    final normalized = columnId.trim();
-    final nextStatus =
-        (normalized == 'todo' ||
-            normalized == 'in_progress' ||
-            normalized == 'done')
-        ? normalized
-        : null;
-    final next = t.copyWith(
-      columnId: normalized.isEmpty ? null : normalized,
-      status: nextStatus ?? t.status,
-    );
+    final next = t.withKanbanColumn(columnId);
     b.text = _markTaskNeedsPushIfJiraLinked(next).encode();
     notifyListeners();
     scheduleSave(trackRevisionForPageId: pageId);

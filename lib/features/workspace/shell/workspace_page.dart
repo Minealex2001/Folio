@@ -1865,11 +1865,13 @@ class _WorkspacePageState extends State<WorkspacePage> {
     if (kanbanPages.isEmpty) return;
 
     if (kanbanPages.length == 1) {
+      final pid = kanbanPages.single.id;
       await showTaskQuickAddDialog(
         context: context,
         session: _s,
         appSettings: widget.appSettings,
-        targetPageId: kanbanPages.single.id,
+        targetPageId: pid,
+        kanbanColumns: _s.kanbanDataForPage(pid).columns,
       );
     } else {
       final l10n = AppLocalizations.of(context);
@@ -1956,6 +1958,7 @@ class _WorkspacePageState extends State<WorkspacePage> {
           session: _s,
           appSettings: widget.appSettings,
           targetPageId: selected,
+          kanbanColumns: _s.kanbanDataForPage(selected).columns,
         );
       }
     }

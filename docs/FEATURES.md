@@ -72,6 +72,8 @@ La app es **local-first**: los datos se almacenan en disco; la nube (Firebase) e
 
 **Escritorio (Windows / Linux) y Firebase Analytics:** el runner de Flutter no registra el plugin nativo de `firebase_analytics` en esas plataformas. `FolioTelemetry` evita todas las llamadas a Analytics ahí (no hay implementación Pigeon); Firebase Core, Auth y Firestore siguen usándose cuando aplica. El arranque también tolera fallos al cargar el acento del sistema (`SystemTheme`) y errores al inicializar bandeja / `window_manager` sin tumbar la app.
 
+**Windows y Firebase Auth:** un bug del plugin puede cerrar el proceso tras iniciar sesión o con sesión restaurada (canal `id-token` desde hilo nativo incorrecto; [firebase/flutterfire#18210](https://github.com/firebase/flutterfire/issues/18210)). En `main.dart`, antes de `Firebase.initializeApp`, se activa `FirebaseAuthPlatform.disableIdTokenChannelOnWindows` y en `pubspec.yaml` hay un `dependency_overrides` de `firebase_auth_platform_interface` con el parche comunitario que omite esa suscripción en Windows (trade-off documentado en el PR: `idTokenChanges()` no emite por refrescos de token; `authStateChanges()` y `getIdToken()` siguen funcionando).
+
 **Windows y passkeys:** `PasskeyAuthenticator` se crea solo cuando hace falta (desbloqueo o registro), para no enganchar PasskeysDoctor al iniciar. En la pantalla de bloqueo, si solo hay passkey (sin Hello), no se lanza WebAuthn automáticamente al abrir el bloqueo; el usuario puede usar el botón.
 
 ---
@@ -133,6 +135,8 @@ El editor es completamente personalizado (no usa un widget de terceros como edit
 - Configuración serializada en `block.text` como `FolioKanbanData` (`lib/models/folio_kanban_data.dart`).
 - Vista de página: `KanbanBoardPage` (`lib/features/workspace/kanban/kanban_board_page.dart`) — columnas, tarjetas vinculadas a tareas, conmutación entre vista tablero y editor clásico (banner `kanbanClassicModeBanner`, acciones `kanbanToolbarOpenEditor` / `kanbanToolbarAddTask`).
 - Detalle de tarea en el tablero: fechas inicio/vencimiento, bloqueo y motivo, **recurrencia** (diaria / semanal / mensual / anual o derivada de `recurringRule` RRULE), **recordatorio** (icono compacto junto al selector; ver [§31](#31-captura-rápida-de-tarea)), tiempo invertido, prioridad, descripción, subtareas, integración Jira cuando aplica.
+- El **selector de estado / columna** de una tarea sigue las columnas del **primer** bloque `kanban` de esa página (`VaultSession.kanbanDataForPage`): chips en el editor del bloque `task`, desplegable en el panel de detalle del tablero y lista desplegable en la captura rápida cuando se conoce la página destino; si el usuario añade columnas personalizadas al tablero, la UI se actualiza al vuelo (notificación de sesión).
+- Tarjetas **bloqueadas** (`FolioTaskData.blocked`): título en **rojo** y **tachado** en las vistas del tablero (columnas, lista, cuadrícula y línea de tiempo), en el hub global de tareas, en el bloque dentro del editor y en el campo título del detalle; no se pueden arrastrar entre columnas mientras siguen bloqueadas.
 - Varias instancias del bloque en la misma página: aviso `kanbanMultipleBlocksSnack` (se usa el primero).
 
 ### Bloque `task` (tareas enriquecidas)
@@ -1030,3 +1034,28 @@ Definidos en `vault_task_entry_filters.dart` (`VaultTaskListPreset`):
 | `syncLastSuccessMs` | int | Timestamp del último sync exitoso |
 | `enterCreatesNewBlock` | bool | `Enter` crea nuevo bloque (vs salto de línea) |
 | `windowsNotificationsEnabled` | bool | Notificaciones de escritorio para recordatorios de tareas (Windows / macOS / Linux vía `local_notifier`) |
+
+---
+
+## Apéndice: compatibilidad y correcciones de build
+
+### Migración a Flutter 3.44 / Dart 3.12
+
+- **`flutter_quill` actualizado a `11.5.1`** (el `pubspec.lock` quedaba en `11.5.0`). La `11.5.1` implementa el nuevo método `TextInputClient.onFocusReceived` requerido por Flutter 3.44+. Con `11.5.0`, `QuillRawEditorState` fallaba al compilar con el error *"missing implementations for these members"*.
+- **`ListView` en `settings_page.dart`**: se corrigió un parámetro inexistente (`scrollCacheExtent: ScrollCacheExtent.pixels(480)`) por el parámetro real del framework `cacheExtent: 480`.
+
+### Toolchain de Windows (MSVC 14.51 / Visual Studio 18)
+
+- Se añadió `-D_SILENCE_EXPERIMENTAL_COROUTINE_DEPRECATION_WARNINGS` de forma global en `windows/CMakeLists.txt`. Los MSVC recientes convierten `<experimental/coroutine>` en error fatal (`STL1011`), lo que rompía la compilación de los plugins `audioplayers_windows`, `local_auth_windows` y `webview_windows` (que aún usan ese header vía C++/WinRT).
+
+### Firebase en Windows (crash de arranque)
+
+En Windows, con el engine de Flutter 3.44 y el SDK C++ de Firebase, la app crasheaba al arrancar (antes de mostrar la ventana) por dos causas independientes:
+
+1. **`firebase_auth` — `__fastfail` (`0xC0000409`).** Los `EventChannel` nativos `id-token` y `auth-state` despachan desde un hilo en segundo plano. El engine actual trata el tráfico de canales fuera del hilo de plataforma como fatal, tumbando el proceso justo tras inicializar Firebase Auth.
+   - **Fix:** fork local vendorizado de `firebase_auth_platform_interface` (`vendor/firebase_auth_platform_interface`, base oficial `9.0.2`) referenciado con `dependency_overrides` (path). El parche omite el registro de **ambos** canales en Windows cuando la app activa `FirebaseAuthPlatform.disableIdTokenChannelOnWindows = true` (se hace en `main.dart`). `authStateChanges()`/`idTokenChanges()` siguen emitiendo el usuario en caché al suscribirse, así que el estado de sesión persistido se refleja al arrancar; lo que se pierde es la reactividad en vivo del canal (nuevos cambios de sesión no se propagan por stream en Windows).
+
+2. **`cloud_firestore` — `FirestoreInternalError` (excepción C++ no controlada, `0xE06D7363`).** El SDK C++ de Firestore lanza un error interno fatal al inicializarse en Windows con el toolchain/engine actual (persiste incluso tras actualizar a `cloud_firestore` con Firebase C++ 13.5.0).
+   - **Fix:** Firestore queda **deshabilitado en Windows** mediante el guard central `folioFirestoreSupported` (`lib/services/folio_firestore_support.dart`). Todos los accesos a Firestore comprueban ese flag: las lecturas devuelven datos vacíos y las escrituras se ignoran o lanzan un error claro. Puntos protegidos: `FolioFirestoreSync` (telemetría), `FolioCloudEntitlementsController` (doc de usuario/derechos), `folio_cloud_publish` (publicación web), `CommunityTemplateStore` (galería comunitaria), `CollabSessionController` (colaboración en vivo), media E2E de colaboración en el editor de bloques y el panel de telemetría. El resto de plataformas (Android, iOS, macOS, Linux, Web) usan Firestore con normalidad.
+
+- Se subieron las versiones de Firebase (`firebase_core ^4.10.0`, `firebase_auth ^6.5.0`, `firebase_auth_platform_interface ^9.0.0`, `cloud_firestore ^6.5.0`, `firebase_storage ^13.4.0`, `cloud_functions ^6.3.0`).

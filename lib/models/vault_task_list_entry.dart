@@ -32,6 +32,9 @@ class VaultTaskListEntry {
     return todoChecked == true;
   }
 
+  /// Tarea marcada como bloqueada (solo aplica a bloques `task`).
+  bool get isBlocked => blockType == 'task' && task?.blocked == true;
+
   String get displayTitle {
     if (blockType == 'task') {
       return (task?.title ?? '').trim();

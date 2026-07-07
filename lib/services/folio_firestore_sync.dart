@@ -6,6 +6,7 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 
 import 'app_logger.dart';
+import 'folio_firestore_support.dart';
 import 'telemetry_models.dart';
 
 /// Sincroniza eventos de telemetría a Firestore en batches.
@@ -40,6 +41,15 @@ class FolioFirestoreSync {
   /// Inicia el servicio de sincronización.
   /// Debe llamarse una vez al iniciar la app (en main.dart después de Firebase.init).
   static void initialize() {
+    // Windows: Firestore no está disponible (crash nativo del SDK C++). No
+    // arrancamos el timer ni la suscripción; la telemetría de Analytics sigue.
+    if (!folioFirestoreSupported) {
+      AppLogger.debug(
+        'FolioFirestoreSync deshabilitado en esta plataforma',
+        tag: 'telemetry-sync',
+      );
+      return;
+    }
     _startFlushTimer();
     _authSub?.cancel();
     _authSub = FirebaseAuth.instance.authStateChanges().listen((user) {
@@ -73,6 +83,8 @@ class FolioFirestoreSync {
 
   /// Agrega un evento a la cola y programa envío (encadenado, sin await).
   static void addEvent(TelemetryEvent event) {
+    // Windows: Firestore deshabilitado; no acumulamos ni intentamos enviar.
+    if (!folioFirestoreSupported) return;
     _eventQueue.add(event);
     _flushChain = _flushChain.then((_) => _drainEventQueueBatches());
   }
@@ -101,6 +113,10 @@ class FolioFirestoreSync {
   }
 
   static Future<void> _drainEventQueueBatches() async {
+    if (!folioFirestoreSupported) {
+      _eventQueue.clear();
+      return;
+    }
     while (_eventQueue.isNotEmpty) {
       if (Firebase.apps.isEmpty) return;
 

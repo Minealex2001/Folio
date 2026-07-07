@@ -103,6 +103,7 @@ The core app (vault, editor, local device sync, local AI) works **without** Fire
 | [docs/FOLIO_CLOUD_STRIPE_SETUP.md](docs/FOLIO_CLOUD_STRIPE_SETUP.md) | Stripe: `.env`, webhook, Stripe CLI, emulador |
 | [docs/FOLIO_CLOUD_STRIPE_PRODUCTS.md](docs/FOLIO_CLOUD_STRIPE_PRODUCTS.md) | Stripe catalog (Folio Cloud + tinteros) and webhook notes |
 | [docs/FOLIO_CLOUD_BACKEND.md](docs/FOLIO_CLOUD_BACKEND.md) | Server-authoritative Folio Cloud (Firestore, ink, idempotency) |
+| [docs/MIGRACION_ELECTRON.md](docs/MIGRACION_ELECTRON.md) | Runbook (para IA) para migrar la app de Flutter a Electron |
 
 ---
 

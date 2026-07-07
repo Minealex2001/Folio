@@ -216,8 +216,19 @@ class _VaultTaskHubPageState extends State<VaultTaskHubPage> {
                         final tagStr = tags.isEmpty
                             ? ''
                             : tags.take(4).join(', ');
+                        final blocked = e.isBlocked;
+                        final strike = blocked || e.isDone;
                         return ListTile(
-                          title: Text(e.displayTitle),
+                          title: Text(
+                            e.displayTitle,
+                            style: textTheme.titleMedium?.copyWith(
+                              color: blocked ? scheme.error : null,
+                              decoration: strike
+                                  ? TextDecoration.lineThrough
+                                  : null,
+                              decorationColor: blocked ? scheme.error : null,
+                            ),
+                          ),
                           subtitle: Text(
                             [
                               e.pageTitle,

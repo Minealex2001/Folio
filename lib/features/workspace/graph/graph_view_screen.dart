@@ -313,9 +313,8 @@ class _GraphViewScreenState extends State<GraphViewScreen>
 }
 
 class _GraphNode {
-  _GraphNode({required this.id, required this.label, required Offset pos})
-    : pos = pos,
-      vel = Offset.zero;
+  _GraphNode({required this.id, required this.label, required this.pos})
+    : vel = Offset.zero;
 
   final String id;
   final String label;

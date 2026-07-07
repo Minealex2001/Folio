@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 
 import '../../l10n/generated/app_localizations.dart';
 import '../../services/folio_cloud/folio_cloud_entitlements.dart';
+import '../../services/folio_firestore_support.dart';
 import '../../services/folio_firestore_sync.dart';
 
 /// Extrae `userId` de rutas `analytics_events/{userId}/...`.
@@ -109,6 +110,13 @@ class _TelemetryDashboardPageState extends State<TelemetryDashboardPage> {
       DateFormat('yyyy-MM-dd', 'en_US').format(_selectedDate);
 
   Future<_DashboardData> _loadData() async {
+    // Windows: Firestore no está disponible (crash nativo del SDK C++); el panel
+    // de telemetría lee stats agregadas de Firestore, así que no puede cargar.
+    if (!folioFirestoreSupported) {
+      throw StateError(
+        'El panel de telemetría no está disponible en esta plataforma.',
+      );
+    }
     final db = FirebaseFirestore.instance;
     const getOpts = GetOptions(source: Source.server);
 

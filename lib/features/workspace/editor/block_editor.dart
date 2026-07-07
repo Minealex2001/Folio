@@ -51,6 +51,7 @@ import '../../../session/vault_session.dart';
 import '../../../services/ai/ai_types.dart';
 import '../../../services/folio_cloud/folio_cloud_callable.dart';
 import '../../../services/folio_cloud/folio_cloud_entitlements.dart';
+import '../../../services/folio_firestore_support.dart';
 import 'code_block_languages.dart';
 import 'block_editor_support_widgets.dart';
 import 'block_type_catalog.dart';

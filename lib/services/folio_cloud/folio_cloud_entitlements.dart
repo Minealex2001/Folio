@@ -6,6 +6,7 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/foundation.dart';
 
 import '../../app/folio_distribution.dart';
+import '../folio_firestore_support.dart';
 import 'folio_cloud_billing.dart';
 import 'folio_cloud_callable.dart';
 import 'folio_microsoft_store_channel.dart';
@@ -433,6 +434,9 @@ class FolioCloudEntitlementsController extends ChangeNotifier {
     String uid, {
     Duration leadingDelay = Duration.zero,
   }) async {
+    // Windows: Firestore deshabilitado (crash nativo del SDK C++). No leemos el
+    // doc de usuario; los derechos web se aproximan vía portal/Stripe/Store.
+    if (!folioFirestoreSupported) return null;
     if (leadingDelay > Duration.zero) {
       await Future<void>.delayed(leadingDelay);
     }
