@@ -46,6 +46,8 @@ bool FlutterWindow::OnCreate() {
       flutter_controller_->engine()->messenger(), GetHandle());
   system_audio_plugin_ = std::make_unique<SystemAudioPlugin>(
       flutter_controller_->engine()->messenger());
+  smb_network_plugin_ = std::make_unique<SmbNetworkPlugin>(
+      flutter_controller_->engine()->messenger());
 
     launch_arguments_channel_ =
       std::make_unique<flutter::MethodChannel<flutter::EncodableValue>>(
@@ -81,6 +83,7 @@ bool FlutterWindow::OnCreate() {
 void FlutterWindow::OnDestroy() {
   launch_arguments_channel_ = nullptr;
   microsoft_store_plugin_ = nullptr;
+  smb_network_plugin_ = nullptr;
   system_audio_plugin_ = nullptr;
   if (flutter_controller_) {
     flutter_controller_ = nullptr;

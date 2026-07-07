@@ -67,7 +67,12 @@ import 'folio_cloud_subscription_pitch_page.dart';
 import 'vault_identity_verify_dialog.dart';
 import '../../services/folio_diagnostic_reporter.dart';
 import '../../services/platform/browser_file_download.dart';
-import '../../services/vault_scheduled_local_export.dart';
+import '../../services/secure_credential_storage.dart';
+import '../../services/backup_destinations/backup_export_runner.dart';
+import '../../services/backup_destinations/backup_destination.dart';
+import 'remote_backup_config_dialog.dart';
+import 'remote_backup_restore_dialog.dart';
+import 'remote_backup_export_destination_dialog.dart';
 import '../../services/app_store/app_store_service.dart';
 import '../../services/app_store/folio_built_in_apps.dart';
 import '../app_store/app_store_screen.dart';
@@ -170,6 +175,7 @@ class _SettingsPageState extends State<SettingsPage> {
   String? _taskInboxPageIdLoaded;
   Map<String, String> _taskAliasesLoaded = const {};
   VaultBackupPrefs _vaultBackupPrefs = const VaultBackupPrefs();
+  final SecureCredentialStorage _backupCredentials = SecureCredentialStorage();
   bool _deferHeavyBuild = true;
   bool _didRunDeferredInit = false;
 
@@ -519,6 +525,80 @@ class _SettingsPageState extends State<SettingsPage> {
     await _loadVaultBackupPrefs();
   }
 
+  Future<void> _enterNetworkBackupPath() async {
+    final l10n = AppLocalizations.of(context);
+    final ctrl = TextEditingController(text: _vaultBackupPrefs.directory);
+    final result = await showDialog<String>(
+      context: context,
+      builder: (ctx) => FolioDialog(
+        title: Text(l10n.remoteBackupEnterNetworkPath),
+        content: TextField(
+          controller: ctrl,
+          decoration: InputDecoration(
+            labelText: l10n.remoteBackupNetworkPathLabel,
+            hintText: l10n.remoteBackupNetworkPathHint,
+          ),
+          autofocus: true,
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: Text(l10n.cancel),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, ctrl.text.trim()),
+            child: Text(l10n.remoteBackupSave),
+          ),
+        ],
+      ),
+    );
+    if (result == null || !mounted) return;
+    await _app.setVaultBackupDirectory(_vaultId, result);
+    await _loadVaultBackupPrefs();
+  }
+
+  Future<void> _openRemoteBackupConfig({int initialTab = 0}) async {
+    if (_vaultId == null) return;
+    final updated = await RemoteBackupConfigDialog.show(
+      context,
+      l10n: AppLocalizations.of(context),
+      initialPrefs: _vaultBackupPrefs,
+      vaultId: _vaultId!,
+      credentials: _backupCredentials,
+      initialTab: initialTab,
+    );
+    if (updated == null || !mounted) return;
+    await _app.updateVaultBackupPrefs(_vaultId, updated);
+    await _loadVaultBackupPrefs();
+  }
+
+  Future<void> _openRemoteBackupRestore() async {
+    if (_vaultId == null) return;
+    final l10n = AppLocalizations.of(context);
+    if (!_vaultBackupPrefs.hasConfiguredNetworkDestination) {
+      final updated = await RemoteBackupConfigDialog.show(
+        context,
+        l10n: l10n,
+        initialPrefs: _vaultBackupPrefs,
+        vaultId: _vaultId!,
+        credentials: _backupCredentials,
+      );
+      if (updated == null || !mounted) return;
+      await _app.updateVaultBackupPrefs(_vaultId, updated);
+      await _loadVaultBackupPrefs();
+      if (!_vaultBackupPrefs.hasConfiguredNetworkDestination) return;
+    }
+    if (!mounted) return;
+    await RemoteBackupRestoreDialog.show(
+      context,
+      l10n: l10n,
+      session: _s,
+      prefs: _vaultBackupPrefs,
+      vaultId: _vaultId!,
+      credentials: _backupCredentials,
+    );
+  }
+
   List<_SettingsSectionId> _sectionOrderForCurrentLayout() {
     final windowWidth = MediaQuery.sizeOf(context).width;
     final showDesktopOnlySections = FolioAdaptive.shouldUseDesktopSections(
@@ -783,15 +863,16 @@ class _SettingsPageState extends State<SettingsPage> {
   Future<void> _runBackupNowToScheduledFolder() async {
     if (_s.state != VaultFlowState.unlocked) return;
     final l10n = AppLocalizations.of(context);
-    final dirEmpty = _vaultBackupPrefs.directory.trim().isEmpty;
     final canCloud =
         _folio.isAvailable &&
         _cloud.isSignedIn &&
         _folio.snapshot.canUseCloudBackup;
-    final wantFolder = _vaultBackupPrefs.folderEnabled && !dirEmpty;
+    final wantFolder = _vaultBackupPrefs.hasFolderDestination;
+    final wantWebdav = _vaultBackupPrefs.hasWebDavDestination;
+    final wantNetwork = wantFolder || wantWebdav;
     final wantCloud = _vaultBackupPrefs.alsoCloud && canCloud;
-    if (!wantFolder && !wantCloud) {
-      _snack(l10n.vaultBackupRunNowNeedFolder);
+    if (!wantNetwork && !wantCloud) {
+      _snack(l10n.vaultBackupRunNowNeedDestination);
       return;
     }
     if (wantCloud && !_folio.snapshot.canUseCloudBackup) {
@@ -804,25 +885,28 @@ class _SettingsPageState extends State<SettingsPage> {
         context: context,
         l10n: l10n,
         work: (ctrl) async {
-          if (wantFolder) {
+          if (wantNetwork) {
             ctrl.setProgress(0, indeterminate: true);
             VaultBackupProgressController.logConsole(
-              l10n.vaultBackupProgressLocalZipStart,
+              l10n.vaultBackupProgressNetworkStart,
             );
-            await exportScheduledVaultZipToConfiguredFolder(
+            if (_vaultId == null) return;
+            await BackupExportRunner(credentials: _backupCredentials)
+                .exportToDestinations(
               session: _s,
               prefs: _vaultBackupPrefs,
+              vaultId: _vaultId!,
             );
             ctrl.setProgress(0.15, indeterminate: false);
             VaultBackupProgressController.logConsole(
-              l10n.vaultBackupProgressLocalZipDone,
+              l10n.vaultBackupProgressNetworkDone,
             );
           }
           if (wantCloud) {
             final cloudOk = await _uploadFolioCloudBackup(
               suppressSuccessSnack: true,
               progress: ctrl,
-              cloudProgressMin: wantFolder ? 0.15 : 0.0,
+              cloudProgressMin: wantNetwork ? 0.15 : 0.0,
               cloudProgressMax: 1.0,
               manageBusyState: false,
             );
@@ -3100,16 +3184,63 @@ class _SettingsPageState extends State<SettingsPage> {
     );
     if (verified != true || !mounted) return;
 
-    final path = await FilePicker.saveFile(
-      dialogTitle: l10n.saveVaultBackupDialogTitle,
-      fileName: _suggestedBackupFileName(),
-      type: FileType.custom,
-      allowedExtensions: const ['zip'],
-    );
-    if (path == null || !mounted) return;
+    final canFolder = _vaultBackupPrefs.hasConfiguredFolder;
+    final canWebdav = _vaultBackupPrefs.hasConfiguredWebDav;
+    RemoteBackupExportChoice? choice = RemoteBackupExportChoice.localFile;
+    if (canFolder || canWebdav) {
+      final picked = await RemoteBackupExportDestinationDialog.show(
+        context,
+        l10n: l10n,
+        canFolder: canFolder,
+        canWebdav: canWebdav,
+      );
+      if (picked == null || !mounted) return;
+      choice = picked;
+    }
 
     try {
-      await _s.exportVaultBackup(path);
+      if (choice == RemoteBackupExportChoice.localFile) {
+        final path = await FilePicker.saveFile(
+          dialogTitle: l10n.saveVaultBackupDialogTitle,
+          fileName: _suggestedBackupFileName(),
+          type: FileType.custom,
+          allowedExtensions: const ['zip'],
+        );
+        if (path == null || !mounted) return;
+        await _s.exportVaultBackup(path);
+      } else {
+        if (_vaultId == null) return;
+        BackupDestination? only;
+        if (choice == RemoteBackupExportChoice.configuredFolder) {
+          only = await VaultBackupDestinations.configuredFolder(
+            prefs: _vaultBackupPrefs,
+            vaultId: _vaultId!,
+            credentials: _backupCredentials,
+          );
+        } else {
+          only = await VaultBackupDestinations.configuredWebDav(
+            prefs: _vaultBackupPrefs,
+            vaultId: _vaultId!,
+            credentials: _backupCredentials,
+          );
+        }
+        if (only == null) return;
+        await showVaultBackupProgressDialog(
+          context: context,
+          l10n: l10n,
+          work: (ctrl) async {
+            ctrl.setProgress(0, indeterminate: true);
+            await BackupExportRunner(credentials: _backupCredentials)
+                .exportToDestinations(
+              session: _s,
+              prefs: _vaultBackupPrefs,
+              vaultId: _vaultId!,
+              onlyDestinations: [only!],
+            );
+            ctrl.setProgress(1, indeterminate: false);
+          },
+        );
+      }
       if (mounted) {
         _snack(l10n.backupSavedSuccessSnack);
       }
@@ -5023,6 +5154,66 @@ class _SettingsPageState extends State<SettingsPage> {
                                             }
                                           : null,
                                     ),
+                                    const Divider(height: 1),
+                                    _SettingsSubsectionTitle(
+                                      title: l10n.remoteBackupConfigTitle,
+                                      scheme: scheme,
+                                      topPadding: 4,
+                                    ),
+                                    ListTile(
+                                      leading: const Icon(
+                                        Icons.lan_outlined,
+                                      ),
+                                      title: Text(
+                                        l10n.remoteBackupConfigureFolder,
+                                      ),
+                                      subtitle: Text(
+                                        _vaultBackupPrefs.directory.isEmpty
+                                            ? '—'
+                                            : _vaultBackupPrefs.directory,
+                                        maxLines: 2,
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                      onTap:
+                                          _s.state == VaultFlowState.unlocked
+                                          ? () => _openRemoteBackupConfig(
+                                              initialTab: 0,
+                                            )
+                                          : null,
+                                    ),
+                                    ListTile(
+                                      leading: const Icon(
+                                        Icons.cloud_outlined,
+                                      ),
+                                      title: Text(
+                                        l10n.remoteBackupConfigureWebdav,
+                                      ),
+                                      subtitle: Text(
+                                        _vaultBackupPrefs.webdavBaseUrl.isEmpty
+                                            ? '—'
+                                            : _vaultBackupPrefs.webdavBaseUrl,
+                                        maxLines: 2,
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                      onTap:
+                                          _s.state == VaultFlowState.unlocked
+                                          ? () => _openRemoteBackupConfig(
+                                              initialTab: 1,
+                                            )
+                                          : null,
+                                    ),
+                                    ListTile(
+                                      leading: const Icon(
+                                        Icons.restore_outlined,
+                                      ),
+                                      title: Text(l10n.remoteBackupRestoreOpen),
+                                      subtitle: Text(
+                                        l10n.remoteBackupRestoreTitle,
+                                      ),
+                                      onTap: _s.state == VaultFlowState.unlocked
+                                          ? _openRemoteBackupRestore
+                                          : null,
+                                    ),
                                     if (_vaultBackupPrefs.enabled) ...[
                                       ListTile(
                                         isThreeLine: true,
@@ -5166,6 +5357,19 @@ class _SettingsPageState extends State<SettingsPage> {
                                         ),
                                         ListTile(
                                           leading: const Icon(
+                                            Icons.edit_road_outlined,
+                                          ),
+                                          title: Text(
+                                            l10n.remoteBackupEnterNetworkPath,
+                                          ),
+                                          onTap:
+                                              _s.state ==
+                                                  VaultFlowState.unlocked
+                                              ? _enterNetworkBackupPath
+                                              : null,
+                                        ),
+                                        ListTile(
+                                          leading: const Icon(
                                             Icons.history_rounded,
                                           ),
                                           title: Text(
@@ -5174,6 +5378,49 @@ class _SettingsPageState extends State<SettingsPage> {
                                                 _vaultBackupPrefs.lastMs,
                                               ),
                                             ),
+                                          ),
+                                        ),
+                                      ],
+                                      // — Backup WebDAV —
+                                      const Divider(height: 1),
+                                      SwitchListTile(
+                                        secondary: const Icon(
+                                          Icons.cloud_outlined,
+                                        ),
+                                        title: Text(
+                                          l10n.remoteBackupWebdavTitle,
+                                        ),
+                                        subtitle: Text(
+                                          l10n.remoteBackupWebdavSubtitle,
+                                        ),
+                                        value: _vaultBackupPrefs.webdavEnabled,
+                                        onChanged:
+                                            _s.state == VaultFlowState.unlocked
+                                            ? (v) async {
+                                                await _app
+                                                    .setVaultBackupWebdavEnabled(
+                                                      _vaultId,
+                                                      v,
+                                                    );
+                                                await _loadVaultBackupPrefs();
+                                              }
+                                            : null,
+                                      ),
+                                      if (_vaultBackupPrefs.webdavEnabled &&
+                                          _vaultBackupPrefs
+                                              .webdavBaseUrl
+                                              .isNotEmpty) ...[
+                                        ListTile(
+                                          leading: const Icon(
+                                            Icons.link_outlined,
+                                          ),
+                                          title: Text(
+                                            l10n.remoteBackupWebdavUrlLabel,
+                                          ),
+                                          subtitle: Text(
+                                            _vaultBackupPrefs.webdavBaseUrl,
+                                            maxLines: 2,
+                                            overflow: TextOverflow.ellipsis,
                                           ),
                                         ),
                                       ],
@@ -5231,18 +5478,20 @@ class _SettingsPageState extends State<SettingsPage> {
                                         },
                                       ),
                                     ],
-                                    ListTile(
-                                      leading: const Icon(
-                                        Icons.save_alt_rounded,
+                                    if (_vaultBackupPrefs.enabled)
+                                      ListTile(
+                                        leading: const Icon(
+                                          Icons.save_alt_rounded,
+                                        ),
+                                        title: Text(l10n.vaultBackupRunNowTile),
+                                        subtitle: Text(
+                                          l10n.vaultBackupRunNowSubtitle,
+                                        ),
+                                        onTap:
+                                            _s.state == VaultFlowState.unlocked
+                                            ? _runBackupNowToScheduledFolder
+                                            : null,
                                       ),
-                                      title: Text(l10n.vaultBackupRunNowTile),
-                                      subtitle: Text(
-                                        l10n.vaultBackupRunNowSubtitle,
-                                      ),
-                                      onTap: _s.state == VaultFlowState.unlocked
-                                          ? _runBackupNowToScheduledFolder
-                                          : null,
-                                    ),
                                     const Divider(height: 1),
                                     _SettingsSubsectionTitle(
                                       title: l10n.settingsSubsectionDrive,

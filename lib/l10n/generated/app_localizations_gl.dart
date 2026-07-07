@@ -200,7 +200,7 @@ class AppLocalizationsGl extends AppLocalizations {
 
   @override
   String get createStarterPagesBody =>
-      'Engade unha pequena guía con exemplos, atallos e funcións de Folio. [cite: 7] Podes eliminar esas páxinas máis tarde.';
+      'Engade unha guía inicial personalizada segundo como vas usar Folio. Podes eliminar esas páxinas máis tarde.';
 
   @override
   String get passwordLabel => 'Contrasinal';
@@ -2170,6 +2170,151 @@ class AppLocalizationsGl extends AppLocalizations {
 
   @override
   String get vaultBackupProgressLocalZipDone => 'ZIP na carpeta rematado.';
+
+  @override
+  String get vaultBackupProgressNetworkStart =>
+      'Enviando copia ao destino de rede…';
+
+  @override
+  String get vaultBackupProgressNetworkDone =>
+      'Copia no destino de rede rematada.';
+
+  @override
+  String get vaultBackupRunNowNeedDestination =>
+      'Configura un cartafol de rede, WebDAV ou activa «Copia en Folio Cloud».';
+
+  @override
+  String get remoteBackupConfigTitle => 'Destino NAS ou servidor';
+
+  @override
+  String get remoteBackupTabFolder => 'Cartafol de rede';
+
+  @override
+  String get remoteBackupTabWebdav => 'WebDAV';
+
+  @override
+  String get remoteBackupNetworkPathLabel => 'Ruta do cartafol';
+
+  @override
+  String get remoteBackupNetworkPathHint =>
+      'Ex. Z:\\backups\\folio ou \\\\nas\\backups\\folio';
+
+  @override
+  String get remoteBackupCredentialsTitle => 'Credenciais do servidor';
+
+  @override
+  String get remoteBackupUsernameLabel => 'Usuario';
+
+  @override
+  String get remoteBackupPasswordLabel => 'Contrasinal';
+
+  @override
+  String get remoteBackupDomainLabel => 'Dominio';
+
+  @override
+  String get remoteBackupDomainOptional => 'Opcional (Windows/SMB)';
+
+  @override
+  String get remoteBackupRequiresAuth =>
+      'O servidor require usuario e contrasinal';
+
+  @override
+  String get remoteBackupRequiresAuthSubtitle =>
+      'Actívalo se Folio debe autenticarse (copias programadas sen unidade montada).';
+
+  @override
+  String get remoteBackupMountedDriveHint =>
+      'Se xa montaches a unidade no sistema, podes deixar as credenciais baleiras.';
+
+  @override
+  String get remoteBackupTestConnection => 'Probar conexión';
+
+  @override
+  String get remoteBackupTestConnectionOk => 'Conexión correcta.';
+
+  @override
+  String remoteBackupTestConnectionFail(Object error) {
+    return 'Non se puido conectar: $error';
+  }
+
+  @override
+  String get remoteBackupWebdavUrlLabel => 'URL do servidor WebDAV';
+
+  @override
+  String get remoteBackupWebdavPathLabel => 'Cartafol remoto';
+
+  @override
+  String get remoteBackupWebdavTitle => 'Copia en WebDAV';
+
+  @override
+  String get remoteBackupWebdavSubtitle =>
+      'Sube copias cifradas ao NAS ou servidor (Ugreen: activa WebDAV no panel, portos 5005/5006).';
+
+  @override
+  String get remoteBackupRetentionLabel => 'Copias a conservar';
+
+  @override
+  String get remoteBackupRetentionSubtitle =>
+      'En cada destino de rede; 0 = sen límite.';
+
+  @override
+  String get remoteBackupUgreenHelp =>
+      'En Ugreen NAS: crea un usuario con permiso de escritura e usa HTTPS se está dispoñible.';
+
+  @override
+  String get remoteBackupSave => 'Gardar destino';
+
+  @override
+  String get remoteBackupConfigureFolder => 'Configurar cartafol de rede';
+
+  @override
+  String get remoteBackupConfigureWebdav => 'Configurar WebDAV';
+
+  @override
+  String get remoteBackupRestoreTitle => 'Copias no NAS ou servidor';
+
+  @override
+  String get remoteBackupRestoreFromFolder => 'Cartafol';
+
+  @override
+  String get remoteBackupRestoreFromWebdav => 'WebDAV';
+
+  @override
+  String get remoteBackupRestoreEmpty => 'Non hai copias Folio neste destino.';
+
+  @override
+  String get remoteBackupRestoreDownload => 'Descargar';
+
+  @override
+  String get remoteBackupRestoreImportNew => 'Importar como caderno novo';
+
+  @override
+  String get remoteBackupRestoreImportOverwrite =>
+      'Sobrescribir caderno activo';
+
+  @override
+  String get remoteBackupRestoreOpen => 'Restaurar desde NAS ou servidor';
+
+  @override
+  String get remoteBackupExportDestinationTitle => 'Onde gardar a copia?';
+
+  @override
+  String get remoteBackupExportToLocalFile => 'Ficheiro neste equipo';
+
+  @override
+  String get remoteBackupExportToFolder => 'Cartafol ou NAS configurados';
+
+  @override
+  String get remoteBackupExportToWebdav => 'Servidor WebDAV configurado';
+
+  @override
+  String get remoteBackupEnterNetworkPath => 'Introducir ruta de rede';
+
+  @override
+  String get remoteBackupDialogClose => 'Pechar';
+
+  @override
+  String get remoteBackupDialogRefresh => 'Actualizar';
 
   @override
   String get vaultCloudPackProgressPreparing => 'Preparando subida á nube…';
@@ -7393,4 +7538,633 @@ class AppLocalizationsGl extends AppLocalizations {
   @override
   String get mermaidInlineLoadError =>
       'Non se puido amosar o diagrama. Comproba a sintaxe Mermaid ou a conexión.';
+
+  @override
+  String get onboardingUsageProfileTitle => 'Como vas usar Folio?';
+
+  @override
+  String get onboardingUsageProfileBody =>
+      'Escolleremos unhas páxinas de axuda iniciais adaptadas a ti. Podes borralas ou editalas cando queiras.';
+
+  @override
+  String get onboardingUsageProfileHint => 'Escolle ata 3 usos principais.';
+
+  @override
+  String get onboardingUsageProfileMinSelectionError =>
+      'Selecciona polo menos un uso para continuar.';
+
+  @override
+  String get onboardingUsageIntentNotesTitle => 'Notas persoais';
+
+  @override
+  String get onboardingUsageIntentTasksTitle => 'Tarefas';
+
+  @override
+  String get onboardingUsageIntentProjectsTitle => 'Proxectos';
+
+  @override
+  String get onboardingUsageIntentKnowledgeTitle => 'Base de coñecemento';
+
+  @override
+  String get onboardingUsageIntentJournalTitle => 'Diario';
+
+  @override
+  String get onboardingUsageIntentStudyTitle => 'Estudo';
+
+  @override
+  String get vaultStarterHomeIntroNotes =>
+      'Folio é un bo lugar para capturar ideas, enlazar pensamentos e ordenar notas persoais. Estas páxinas iniciais están pensadas para que comeces a escribir sen unha estrutura ríxida.';
+
+  @override
+  String get vaultStarterHomeIntroTasks =>
+      'Folio axúdache a combinar notas e listas de tarefas no mesmo caderno. Estas páxinas iniciais priorizan seguimento, prioridades e revisión periódica.';
+
+  @override
+  String get vaultStarterHomeIntroProjects =>
+      'Organiza o traballo por proxectos, reunións e entregables dentro dun árbore de páxinas. Estas páxinas iniciais déixanche un esquema para arrancar con foco.';
+
+  @override
+  String get vaultStarterHomeIntroKnowledge =>
+      'Constrúe unha wiki persoal con índices, fichas e notas de lectura. Estas páxinas iniciais favorecen enlaces entre temas e revisión.';
+
+  @override
+  String get vaultStarterHomeIntroJournal =>
+      'Usa Folio como espazo de reflexión diaria e repaso mensual. Estas páxinas iniciais propoñen rutinas lixeiras para manter o hábito.';
+
+  @override
+  String get vaultStarterHomeIntroStudy =>
+      'Centraliza apuntamentos, plans de estudo e repasos nun só sitio. Estas páxinas iniciais están orientadas a cursos e preparación.';
+
+  @override
+  String get vaultStarterHomeTodoNotes1 =>
+      'Volcar tres ideas soltas na bandexa de ideas';
+
+  @override
+  String get vaultStarterHomeTodoNotes2 =>
+      'Crear unha nota de captura rápida co menú /';
+
+  @override
+  String get vaultStarterHomeTodoNotes3 =>
+      'Enlazar dúas páxinas desde o panel lateral';
+
+  @override
+  String get vaultStarterHomeTodoTasks1 =>
+      'Engadir tres tarefas ao panel de tarefas';
+
+  @override
+  String get vaultStarterHomeTodoTasks2 =>
+      'Marcar unha tarefa como feita e outra con data';
+
+  @override
+  String get vaultStarterHomeTodoTasks3 => 'Planificar a revisión semanal';
+
+  @override
+  String get vaultStarterHomeTodoProjects1 =>
+      'Crear a primeira páxina dun proxecto';
+
+  @override
+  String get vaultStarterHomeTodoProjects2 =>
+      'Probar o modelo de notas de reunión';
+
+  @override
+  String get vaultStarterHomeTodoProjects3 =>
+      'Definir o seguinte fito no hub de proxectos';
+
+  @override
+  String get vaultStarterHomeTodoKnowledge1 =>
+      'Engadir tres temas ao índice de contidos';
+
+  @override
+  String get vaultStarterHomeTodoKnowledge2 =>
+      'Crear unha ficha de tema con enlaces';
+
+  @override
+  String get vaultStarterHomeTodoKnowledge3 =>
+      'Rexistrar unha lectura en curso';
+
+  @override
+  String get vaultStarterHomeTodoJournal1 =>
+      'Escribir a entrada de hoxe no diario';
+
+  @override
+  String get vaultStarterHomeTodoJournal2 =>
+      'Responder ás preguntas de reflexión';
+
+  @override
+  String get vaultStarterHomeTodoJournal3 => 'Revisar o resumo do mes anterior';
+
+  @override
+  String get vaultStarterHomeTodoStudy1 => 'Crear a páxina do curso actual';
+
+  @override
+  String get vaultStarterHomeTodoStudy2 =>
+      'Engadir tres conceptos clave aos apuntamentos';
+
+  @override
+  String get vaultStarterHomeTodoStudy3 =>
+      'Definir o plan de estudo desta semana';
+
+  @override
+  String get vaultStarterShortcutsTitle => 'Atallos e primeiros pasos';
+
+  @override
+  String get vaultStarterShortcutsSectionMain => 'O esencial de Folio';
+
+  @override
+  String get vaultStarterShortcutsBullet1 =>
+      'Cada páxina compóñese de bloques: parágrafos, títulos, listas, táboas e máis.';
+
+  @override
+  String get vaultStarterShortcutsBullet2 =>
+      'O panel lateral organiza páxinas e subpáxinas nun árbore.';
+
+  @override
+  String get vaultStarterShortcutsBullet3 =>
+      'A busca e o historial axúdanche a retomar contexto rapidamente.';
+
+  @override
+  String get vaultStarterShortcutsSectionKeys => 'Atallos útiles';
+
+  @override
+  String get vaultStarterShortcutsKeyN => 'Ctrl+N crea unha páxina nova.';
+
+  @override
+  String get vaultStarterShortcutsKeySearch => 'Ctrl+K ou Ctrl+F abre a busca.';
+
+  @override
+  String get vaultStarterShortcutsKeySettings =>
+      'Ctrl+, abre Axustes e Ctrl+L bloquea o caderno.';
+
+  @override
+  String get vaultStarterShortcutsCallout =>
+      'Preme / dentro dun parágrafo para inserir bloques sen saír do teclado.';
+
+  @override
+  String get vaultStarterNotesInboxTitle => 'Bandexa de ideas';
+
+  @override
+  String get vaultStarterNotesInboxHeading => 'Captura sen filtrar';
+
+  @override
+  String get vaultStarterNotesInboxIntro =>
+      'Usa esta páxina como inbox: anota ideas soltas, enlaces e pensamentos para revisar máis tarde.';
+
+  @override
+  String get vaultStarterNotesInboxSection => 'Como usala';
+
+  @override
+  String get vaultStarterNotesInboxBullet1 =>
+      'Escribe unha idea por viñeta ou parágrafo curto.';
+
+  @override
+  String get vaultStarterNotesInboxBullet2 =>
+      'Cando unha idea madure, crea unha páxina dedicada e enlázaa.';
+
+  @override
+  String get vaultStarterNotesInboxBullet3 =>
+      'Baleira a bandexa en revisións breves semanais.';
+
+  @override
+  String get vaultStarterNotesInboxTodo1 => 'Engadir tres ideas novas';
+
+  @override
+  String get vaultStarterNotesInboxTodo2 =>
+      'Mover unha idea á súa propia páxina';
+
+  @override
+  String get vaultStarterNotesInboxCallout =>
+      'Non busques perfección ao volcar: a bandexa é para pensar en voz alta.';
+
+  @override
+  String get vaultStarterNotesCaptureTitle => 'Captura rápida';
+
+  @override
+  String get vaultStarterNotesCaptureHeading => 'Unha nota en segundos';
+
+  @override
+  String get vaultStarterNotesCaptureIntro =>
+      'Modelo mínimo para anotar algo con contexto, fonte e seguintes pasos.';
+
+  @override
+  String get vaultStarterNotesCaptureSection => 'Estrutura suxerida';
+
+  @override
+  String get vaultStarterNotesCaptureBullet1 =>
+      'Título breve e parágrafo co detalle principal.';
+
+  @override
+  String get vaultStarterNotesCaptureBullet2 =>
+      'Bloque de cita ou callout para a conclusión clave.';
+
+  @override
+  String get vaultStarterNotesCaptureBullet3 =>
+      'Lista de accións opcionais se aplica.';
+
+  @override
+  String get vaultStarterNotesCaptureTodo1 => 'Completar o parágrafo principal';
+
+  @override
+  String get vaultStarterNotesCaptureTodo2 =>
+      'Engadir etiquetas ou enlazar páxinas relacionadas';
+
+  @override
+  String get vaultStarterNotesCaptureCallout =>
+      'Proba o menú / para inserir unha lista ou táboa sen cambiar de bloque.';
+
+  @override
+  String get vaultStarterTasksDashboardTitle => 'Panel de tarefas';
+
+  @override
+  String get vaultStarterTasksDashboardHeading => 'Que facer agora';
+
+  @override
+  String get vaultStarterTasksDashboardIntro =>
+      'Centraliza pendentes con bloques todo, datas en propiedades e prioridade visual.';
+
+  @override
+  String get vaultStarterTasksDashboardSection => 'Boas prácticas';
+
+  @override
+  String get vaultStarterTasksDashboardBullet1 =>
+      'Separa tarefas de hoxe, desta semana e algún día.';
+
+  @override
+  String get vaultStarterTasksDashboardBullet2 =>
+      'Usa checklists para pasos pequenos e repetibles.';
+
+  @override
+  String get vaultStarterTasksDashboardBullet3 =>
+      'Abre a vista de tarefas do caderno para ver todo xunto.';
+
+  @override
+  String get vaultStarterTasksDashboardTodo1 =>
+      'Engadir tres tarefas con distinta prioridade';
+
+  @override
+  String get vaultStarterTasksDashboardTodo2 => 'Marcar unha como completada';
+
+  @override
+  String get vaultStarterTasksDashboardCallout =>
+      'As tarefas tamén poden vivir dentro de páxinas de proxecto.';
+
+  @override
+  String get vaultStarterTasksWeeklyTitle => 'Revisión semanal';
+
+  @override
+  String get vaultStarterTasksWeeklyHeading => 'Pechar a semana con claridade';
+
+  @override
+  String get vaultStarterTasksWeeklyIntro =>
+      'Repasa o feito, o pendente e o que entra a próxima semana.';
+
+  @override
+  String get vaultStarterTasksWeeklySection => 'Axenda suxerida';
+
+  @override
+  String get vaultStarterTasksWeeklyBullet1 =>
+      'Lista de logros e bloqueos da semana.';
+
+  @override
+  String get vaultStarterTasksWeeklyBullet2 =>
+      'Tres prioridades para os próximos sete días.';
+
+  @override
+  String get vaultStarterTasksWeeklyBullet3 =>
+      'Notas breves para delegar ou pospoñer.';
+
+  @override
+  String get vaultStarterTasksWeeklyTodo1 => 'Completar o resumo da semana';
+
+  @override
+  String get vaultStarterTasksWeeklyTodo2 =>
+      'Elixir a prioridade número un do luns';
+
+  @override
+  String get vaultStarterTasksWeeklyCallout =>
+      'Unha revisión de 15 minutos adoita bastar para manter o sistema vivo.';
+
+  @override
+  String get vaultStarterProjectsHubTitle => 'Hub de proxectos';
+
+  @override
+  String get vaultStarterProjectsHubHeading => 'Vista xeral do traballo';
+
+  @override
+  String get vaultStarterProjectsHubIntro =>
+      'Agrupa obxectivo, estado, riscos e enlaces a páxinas fillas de cada proxecto.';
+
+  @override
+  String get vaultStarterProjectsHubSection => 'Seccións útiles';
+
+  @override
+  String get vaultStarterProjectsHubBullet1 =>
+      'Resumo executivo no primeiro parágrafo.';
+
+  @override
+  String get vaultStarterProjectsHubBullet2 =>
+      'Lista de entregables con checklists.';
+
+  @override
+  String get vaultStarterProjectsHubBullet3 =>
+      'Enlaces a reunións, decisións e documentación.';
+
+  @override
+  String get vaultStarterProjectsHubTodo1 => 'Definir o obxectivo do proxecto';
+
+  @override
+  String get vaultStarterProjectsHubTodo2 =>
+      'Crear a primeira subpáxina de entregable';
+
+  @override
+  String get vaultStarterProjectsHubCallout =>
+      'Duplica esta páxina como modelo para novos proxectos.';
+
+  @override
+  String get vaultStarterProjectsMeetingTitle => 'Notas de reunión';
+
+  @override
+  String get vaultStarterProjectsMeetingHeading => 'Reunión con contexto';
+
+  @override
+  String get vaultStarterProjectsMeetingIntro =>
+      'Modelo para asistentes, axenda, decisións e accións con responsable.';
+
+  @override
+  String get vaultStarterProjectsMeetingSection => 'Durante a reunión';
+
+  @override
+  String get vaultStarterProjectsMeetingBullet1 =>
+      'Anota decisións en callouts para atopalas despois.';
+
+  @override
+  String get vaultStarterProjectsMeetingBullet2 =>
+      'Converte acordos en todos con data se aplica.';
+
+  @override
+  String get vaultStarterProjectsMeetingBullet3 =>
+      'Enlaza a reunión desde o hub do proxecto.';
+
+  @override
+  String get vaultStarterProjectsMeetingTodo1 =>
+      'Completar asistentes e axenda';
+
+  @override
+  String get vaultStarterProjectsMeetingTodo2 =>
+      'Rexistrar polo menos unha acción con responsable';
+
+  @override
+  String get vaultStarterProjectsMeetingCallout =>
+      'Se gravas audio, podes usar bloques de nota de reunión con transcrición.';
+
+  @override
+  String get vaultStarterKnowledgeIndexTitle => 'Índice de contidos';
+
+  @override
+  String get vaultStarterKnowledgeIndexHeading => 'Mapa do teu coñecemento';
+
+  @override
+  String get vaultStarterKnowledgeIndexIntro =>
+      'Páxina índice con enlaces a temas, áreas e coleccións de notas.';
+
+  @override
+  String get vaultStarterKnowledgeIndexSection => 'Como mantelo';
+
+  @override
+  String get vaultStarterKnowledgeIndexBullet1 =>
+      'Agrupa por áreas amplas e enlaza fichas fillas.';
+
+  @override
+  String get vaultStarterKnowledgeIndexBullet2 =>
+      'Engade unha liña de resumo baixo cada enlace.';
+
+  @override
+  String get vaultStarterKnowledgeIndexBullet3 =>
+      'Revisa o índice cando crees páxinas novas.';
+
+  @override
+  String get vaultStarterKnowledgeIndexTodo1 => 'Engadir tres temas ao índice';
+
+  @override
+  String get vaultStarterKnowledgeIndexTodo2 =>
+      'Crear a primeira ficha de tema';
+
+  @override
+  String get vaultStarterKnowledgeIndexCallout =>
+      'Un bo índice reduce a fricción ao buscar ideas antigas.';
+
+  @override
+  String get vaultStarterKnowledgeTopicTitle => 'Ficha de tema';
+
+  @override
+  String get vaultStarterKnowledgeTopicHeading => 'Profundar nun concepto';
+
+  @override
+  String get vaultStarterKnowledgeTopicIntro =>
+      'Estrutura para definir, exemplificar e enlazar un tema con outros.';
+
+  @override
+  String get vaultStarterKnowledgeTopicSection => 'Apartados suxeridos';
+
+  @override
+  String get vaultStarterKnowledgeTopicBullet1 =>
+      'Definición breve e por que importa.';
+
+  @override
+  String get vaultStarterKnowledgeTopicBullet2 =>
+      'Exemplos, contraexemplos e referencias.';
+
+  @override
+  String get vaultStarterKnowledgeTopicBullet3 =>
+      'Preguntas abertas ou lagunas por investigar.';
+
+  @override
+  String get vaultStarterKnowledgeTopicTodo1 =>
+      'Escribir a definición nunha frase';
+
+  @override
+  String get vaultStarterKnowledgeTopicTodo2 =>
+      'Enlazar dous temas relacionados';
+
+  @override
+  String get vaultStarterKnowledgeTopicCallout =>
+      'As fichas maduran co tempo: volve a elas tras ler ou experimentar.';
+
+  @override
+  String get vaultStarterKnowledgeReadingTitle => 'Notas de lectura';
+
+  @override
+  String get vaultStarterKnowledgeReadingHeading => 'O que estás a ler';
+
+  @override
+  String get vaultStarterKnowledgeReadingIntro =>
+      'Rexistra fonte, ideas clave e como aplicalas no teu traballo ou estudo.';
+
+  @override
+  String get vaultStarterKnowledgeReadingSection => 'Modelo';
+
+  @override
+  String get vaultStarterKnowledgeReadingBullet1 =>
+      'Metadatos: título, autor e enlace.';
+
+  @override
+  String get vaultStarterKnowledgeReadingBullet2 =>
+      'Tres ideas que queiras conservar.';
+
+  @override
+  String get vaultStarterKnowledgeReadingBullet3 =>
+      'Unha acción concreta ao rematar.';
+
+  @override
+  String get vaultStarterKnowledgeReadingTodo1 => 'Anotar a fonte actual';
+
+  @override
+  String get vaultStarterKnowledgeReadingTodo2 =>
+      'Extraer polo menos dúas citas ou ideas';
+
+  @override
+  String get vaultStarterKnowledgeReadingCallout =>
+      'Enlaza lecturas desde o índice para ver a túa biblioteca viva.';
+
+  @override
+  String get vaultStarterJournalDailyTitle => 'Diario diario';
+
+  @override
+  String get vaultStarterJournalDailyHeading => 'Hoxe nunha páxina';
+
+  @override
+  String get vaultStarterJournalDailyIntro =>
+      'Espazo breve para rexistrar como foi o día, que aprendiches e que agradeces.';
+
+  @override
+  String get vaultStarterJournalDailySection => 'Preguntas opcionais';
+
+  @override
+  String get vaultStarterJournalDailyBullet1 =>
+      'Que foi o máis importante hoxe?';
+
+  @override
+  String get vaultStarterJournalDailyBullet2 =>
+      'Que me custou máis do esperado?';
+
+  @override
+  String get vaultStarterJournalDailyBullet3 =>
+      'Que quero repetir ou evitar mañá?';
+
+  @override
+  String get vaultStarterJournalDailyTodo1 =>
+      'Escribir polo menos tres liñas sobre hoxe';
+
+  @override
+  String get vaultStarterJournalDailyTodo2 => 'Engadir un momento destacado';
+
+  @override
+  String get vaultStarterJournalDailyCallout =>
+      'A constancia importa máis que a extensión: un parágrafo honesto abonda.';
+
+  @override
+  String get vaultStarterJournalMonthlyTitle => 'Reflexión mensual';
+
+  @override
+  String get vaultStarterJournalMonthlyHeading => 'Mirada ao mes';
+
+  @override
+  String get vaultStarterJournalMonthlyIntro =>
+      'Pecha o mes repasando logros, aprendizaxes e axustes para o seguinte.';
+
+  @override
+  String get vaultStarterJournalMonthlySection => 'Bloques suxeridos';
+
+  @override
+  String get vaultStarterJournalMonthlyBullet1 =>
+      'Tres momentos que queiras recordar.';
+
+  @override
+  String get vaultStarterJournalMonthlyBullet2 =>
+      'Un hábito que funcionou e outro a cambiar.';
+
+  @override
+  String get vaultStarterJournalMonthlyBullet3 =>
+      'Un obxectivo realista para o mes entrante.';
+
+  @override
+  String get vaultStarterJournalMonthlyTodo1 => 'Listar dous logros do mes';
+
+  @override
+  String get vaultStarterJournalMonthlyTodo2 =>
+      'Elixir un foco para o próximo mes';
+
+  @override
+  String get vaultStarterJournalMonthlyCallout =>
+      'Podes duplicar esta páxina cada mes e conservar o historial.';
+
+  @override
+  String get vaultStarterStudyCourseTitle => 'Apuntamentos de curso';
+
+  @override
+  String get vaultStarterStudyCourseHeading => 'Un curso, unha páxina raíz';
+
+  @override
+  String get vaultStarterStudyCourseIntro =>
+      'Organiza módulos, conceptos e exercicios baixo unha páxina de curso.';
+
+  @override
+  String get vaultStarterStudyCourseSection => 'Estrutura';
+
+  @override
+  String get vaultStarterStudyCourseBullet1 =>
+      'Resumo do temario e calendario.';
+
+  @override
+  String get vaultStarterStudyCourseBullet2 => 'Subpáxinas por tema ou sesión.';
+
+  @override
+  String get vaultStarterStudyCourseBullet3 => 'Lista de dúbidas pendentes.';
+
+  @override
+  String get vaultStarterStudyCourseTodo1 =>
+      'Nomear o curso e o profesor ou plataforma';
+
+  @override
+  String get vaultStarterStudyCourseTodo2 =>
+      'Crear a primeira subpáxina de tema';
+
+  @override
+  String get vaultStarterStudyCourseCallout =>
+      'Combina apuntamentos con bloques de código ou ecuación cando faga falta.';
+
+  @override
+  String get vaultStarterStudyPlanTitle => 'Plan de estudo';
+
+  @override
+  String get vaultStarterStudyPlanHeading => 'Esta semana de estudo';
+
+  @override
+  String get vaultStarterStudyPlanIntro =>
+      'Planifica sesións, repasos e avaliacións con todos e datas.';
+
+  @override
+  String get vaultStarterStudyPlanSection => 'Ritmo suxerido';
+
+  @override
+  String get vaultStarterStudyPlanBullet1 =>
+      'Bloques de estudo de 25–50 minutos.';
+
+  @override
+  String get vaultStarterStudyPlanBullet2 =>
+      'Repaso espaciado de temas anteriores.';
+
+  @override
+  String get vaultStarterStudyPlanBullet3 =>
+      'Simulacros ou autoavaliación antes de exames.';
+
+  @override
+  String get vaultStarterStudyPlanTodo1 => 'Definir tres sesións de estudo';
+
+  @override
+  String get vaultStarterStudyPlanTodo2 =>
+      'Marcar o próximo repaso no calendario';
+
+  @override
+  String get vaultStarterStudyPlanCallout =>
+      'Axusta o plan cada domingo: pouco texto, moita claridade.';
 }

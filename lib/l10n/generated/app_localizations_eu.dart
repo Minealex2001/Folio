@@ -199,7 +199,7 @@ class AppLocalizationsEu extends AppLocalizations {
 
   @override
   String get createStarterPagesBody =>
-      'Adibideak, lasterbideak eta Folioren gaitasunak biltzen dituen gida txiki bat gehitzen du. Orrialde horiek geroago ezaba ditzakezu.';
+      'Gehitu Folio nola erabiliko duzun arabera pertsonalizatutako hasierako gida. Orrialde horiek geroago ezaba ditzakezu.';
 
   @override
   String get passwordLabel => 'Pasahitza';
@@ -2172,6 +2172,153 @@ class AppLocalizationsEu extends AppLocalizations {
 
   @override
   String get vaultBackupProgressLocalZipDone => 'Karpetako ZIP-a amaituta.';
+
+  @override
+  String get vaultBackupProgressNetworkStart =>
+      'Sareko helmugara kopia bidaltzen…';
+
+  @override
+  String get vaultBackupProgressNetworkDone =>
+      'Sareko helmugako kopia amaituta.';
+
+  @override
+  String get vaultBackupRunNowNeedDestination =>
+      'Konfiguratu sareko karpeta bat, WebDAV edo aktibatu «Folio Cloud kopia».';
+
+  @override
+  String get remoteBackupConfigTitle => 'NAS edo zerbitzari helmuga';
+
+  @override
+  String get remoteBackupTabFolder => 'Sareko karpeta';
+
+  @override
+  String get remoteBackupTabWebdav => 'WebDAV';
+
+  @override
+  String get remoteBackupNetworkPathLabel => 'Karpetaren bidea';
+
+  @override
+  String get remoteBackupNetworkPathHint =>
+      'Adib. Z:\\backups\\folio edo \\\\nas\\backups\\folio';
+
+  @override
+  String get remoteBackupCredentialsTitle => 'Zerbitzariaren kredentzialak';
+
+  @override
+  String get remoteBackupUsernameLabel => 'Erabiltzailea';
+
+  @override
+  String get remoteBackupPasswordLabel => 'Pasahitza';
+
+  @override
+  String get remoteBackupDomainLabel => 'Domeinua';
+
+  @override
+  String get remoteBackupDomainOptional => 'Aukerakoa (Windows/SMB)';
+
+  @override
+  String get remoteBackupRequiresAuth =>
+      'Zerbitzariak erabiltzailea eta pasahitza eskatzen ditu';
+
+  @override
+  String get remoteBackupRequiresAuthSubtitle =>
+      'Aktibatu Folio-k autentifikatu behar badu (programatutako kopiak unitatea muntatu gabe).';
+
+  @override
+  String get remoteBackupMountedDriveHint =>
+      'Sistemak unitatea muntatuta baduzu, kredentzialak hutsik utzi ditzakezu.';
+
+  @override
+  String get remoteBackupTestConnection => 'Konexioa probatu';
+
+  @override
+  String get remoteBackupTestConnectionOk => 'Konexioa ondo.';
+
+  @override
+  String remoteBackupTestConnectionFail(Object error) {
+    return 'Ezin izan da konektatu: $error';
+  }
+
+  @override
+  String get remoteBackupWebdavUrlLabel => 'WebDAV zerbitzariaren URLa';
+
+  @override
+  String get remoteBackupWebdavPathLabel => 'Urruneko karpeta';
+
+  @override
+  String get remoteBackupWebdavTitle => 'WebDAV kopia';
+
+  @override
+  String get remoteBackupWebdavSubtitle =>
+      'Igo zifratutako kopiak NASera edo zerbitzarira (Ugreen: gaitu WebDAV panelan, 5005/5006 portuak).';
+
+  @override
+  String get remoteBackupRetentionLabel => 'Gordetzeko kopiak';
+
+  @override
+  String get remoteBackupRetentionSubtitle =>
+      'Sareko helmuga bakoitzeko; 0 = mugarik gabe.';
+
+  @override
+  String get remoteBackupUgreenHelp =>
+      'Ugreen NASean: sortu idazketa baimena duen erabiltzaile bat eta erabili HTTPS eskuragarri badago.';
+
+  @override
+  String get remoteBackupSave => 'Helmuga gorde';
+
+  @override
+  String get remoteBackupConfigureFolder => 'Sareko karpeta konfiguratu';
+
+  @override
+  String get remoteBackupConfigureWebdav => 'WebDAV konfiguratu';
+
+  @override
+  String get remoteBackupRestoreTitle => 'NASeko edo zerbitzariko kopiak';
+
+  @override
+  String get remoteBackupRestoreFromFolder => 'Karpeta';
+
+  @override
+  String get remoteBackupRestoreFromWebdav => 'WebDAV';
+
+  @override
+  String get remoteBackupRestoreEmpty =>
+      'Ez dago Folio kopiak helmuga honetan.';
+
+  @override
+  String get remoteBackupRestoreDownload => 'Deskargatu';
+
+  @override
+  String get remoteBackupRestoreImportNew => 'Inportatu koaderno berri gisa';
+
+  @override
+  String get remoteBackupRestoreImportOverwrite =>
+      'Gainidatzi koaderno aktiboa';
+
+  @override
+  String get remoteBackupRestoreOpen =>
+      'Berreskuratu NASetik edo zerbitzaritik';
+
+  @override
+  String get remoteBackupExportDestinationTitle => 'Non gorde kopia?';
+
+  @override
+  String get remoteBackupExportToLocalFile => 'Fitxategia gailu honetan';
+
+  @override
+  String get remoteBackupExportToFolder => 'Konfiguratutako karpeta edo NAS';
+
+  @override
+  String get remoteBackupExportToWebdav => 'Konfiguratutako WebDAV zerbitzaria';
+
+  @override
+  String get remoteBackupEnterNetworkPath => 'Sareko bidea sartu';
+
+  @override
+  String get remoteBackupDialogClose => 'Itxi';
+
+  @override
+  String get remoteBackupDialogRefresh => 'Freskatu';
 
   @override
   String get vaultCloudPackProgressPreparing => 'Hodeira igotzeko prestatzen…';
@@ -7410,4 +7557,627 @@ class AppLocalizationsEu extends AppLocalizations {
   @override
   String get mermaidInlineLoadError =>
       'Ezin izan da diagrama erakutsi. Egiaztatu Mermaid sintaxia edo konexioa.';
+
+  @override
+  String get onboardingUsageProfileTitle => 'Nola erabiliko duzu Folio?';
+
+  @override
+  String get onboardingUsageProfileBody =>
+      'Zuretzat egokitutako hasierako laguntza-orriak aukeratuko ditugu. Nahi duzunean ezaba ditzakezu edo editatu.';
+
+  @override
+  String get onboardingUsageProfileHint =>
+      'Aukeratu gehienez 3 erabilera nagusi.';
+
+  @override
+  String get onboardingUsageProfileMinSelectionError =>
+      'Hautatu gutxienez erabilera bat jarraitzeko.';
+
+  @override
+  String get onboardingUsageIntentNotesTitle => 'Ohar pertsonalak';
+
+  @override
+  String get onboardingUsageIntentTasksTitle => 'Zereginak';
+
+  @override
+  String get onboardingUsageIntentProjectsTitle => 'Proiektuak';
+
+  @override
+  String get onboardingUsageIntentKnowledgeTitle => 'Ezagutza-basea';
+
+  @override
+  String get onboardingUsageIntentJournalTitle => 'Egunkaria';
+
+  @override
+  String get onboardingUsageIntentStudyTitle => 'Ikasketa';
+
+  @override
+  String get vaultStarterHomeIntroNotes =>
+      'Folio ideiak harrapatzeko, pentsamenduak lotzeko eta ohar pertsonalak antolatzeko leku ona da. Hasierako orri hauek egitura zorrotzik gabe idazten hasteko pentsatu dira.';
+
+  @override
+  String get vaultStarterHomeIntroTasks =>
+      'Folio-k oharak eta zeregin-zerrendak koaderno berean konbinatzen laguntzen dizu. Hasierako orri hauek jarraipena, lehentasunak eta berrikuspen aldizkakoa lehenesten dituzte.';
+
+  @override
+  String get vaultStarterHomeIntroProjects =>
+      'Antolatu lana proiektuen, bilera eta entregableen arabera orrien zuhaitz batean. Hasierako orri hauek fokurarekin hasteko eskema bat uzten dizute.';
+
+  @override
+  String get vaultStarterHomeIntroKnowledge =>
+      'Eraiki wiki pertsonala indizeekin, gai-fitxekin eta irakurketa-oharrekin. Hasierako orri hauek gaien arteko loturak eta berrikuspena bultzatzen dituzte.';
+
+  @override
+  String get vaultStarterHomeIntroJournal =>
+      'Erabili Folio eguneroko gogoeta eta hileroko berrikuspenerako espazio gisa. Hasierako orri hauek ohitura mantentzeko errutina arinak proposatzen dituzte.';
+
+  @override
+  String get vaultStarterHomeIntroStudy =>
+      'Zentralizatu apunteak, ikasketa-planak eta berrikuspenak leku bakarrean. Hasierako orri hauek ikastaroetara eta prestakuntzara orientatuta daude.';
+
+  @override
+  String get vaultStarterHomeTodoNotes1 =>
+      'Bota hiru ideia askatu ideien sarreran';
+
+  @override
+  String get vaultStarterHomeTodoNotes2 =>
+      'Sortu harrapaketa azkarreko ohar bat / menuarekin';
+
+  @override
+  String get vaultStarterHomeTodoNotes3 => 'Lotu bi orri alboko paneletik';
+
+  @override
+  String get vaultStarterHomeTodoTasks1 =>
+      'Gehitu hiru zeregin zeregin-panelean';
+
+  @override
+  String get vaultStarterHomeTodoTasks2 =>
+      'Markatu zeregin bat eginda eta beste bat datarekin';
+
+  @override
+  String get vaultStarterHomeTodoTasks3 => 'Planifikatu asteko berrikuspena';
+
+  @override
+  String get vaultStarterHomeTodoProjects1 =>
+      'Sortu proiektu baten lehen orria';
+
+  @override
+  String get vaultStarterHomeTodoProjects2 =>
+      'Probatu bilera-oharren txantiloia';
+
+  @override
+  String get vaultStarterHomeTodoProjects3 =>
+      'Definitu hurrengo mugarria proiektuen hub-ean';
+
+  @override
+  String get vaultStarterHomeTodoKnowledge1 => 'Gehitu hiru gai eduki-indizean';
+
+  @override
+  String get vaultStarterHomeTodoKnowledge2 => 'Sortu gai-fitxa bat loturekin';
+
+  @override
+  String get vaultStarterHomeTodoKnowledge3 =>
+      'Erregistratu abian dagoen irakurketa bat';
+
+  @override
+  String get vaultStarterHomeTodoJournal1 => 'Idatzi gaurko egunkari-sarrera';
+
+  @override
+  String get vaultStarterHomeTodoJournal2 => 'Erantzun gogoeta-galderak';
+
+  @override
+  String get vaultStarterHomeTodoJournal3 =>
+      'Berrikusi aurreko hilabeteko laburpena';
+
+  @override
+  String get vaultStarterHomeTodoStudy1 => 'Sortu uneko ikastaroaren orria';
+
+  @override
+  String get vaultStarterHomeTodoStudy2 =>
+      'Gehitu hiru kontzeptu gako apunteetan';
+
+  @override
+  String get vaultStarterHomeTodoStudy3 =>
+      'Definitu aste honetako ikasketa-plana';
+
+  @override
+  String get vaultStarterShortcutsTitle => 'Laster-teklak eta lehen urratsak';
+
+  @override
+  String get vaultStarterShortcutsSectionMain => 'Folio-ren oinarriak';
+
+  @override
+  String get vaultStarterShortcutsBullet1 =>
+      'Orri bakoitza blokez osatuta dago: paragrafoak, izenburuak, zerrendak, taulak eta gehiago.';
+
+  @override
+  String get vaultStarterShortcutsBullet2 =>
+      'Alboko panelak orriak eta azpiorriak zuhaitz batean antolatzen ditu.';
+
+  @override
+  String get vaultStarterShortcutsBullet3 =>
+      'Bilaketak eta historialak testuingurua azkar berreskuratzen laguntzen dizute.';
+
+  @override
+  String get vaultStarterShortcutsSectionKeys => 'Laster-teklak erabilgarriak';
+
+  @override
+  String get vaultStarterShortcutsKeyN => 'Ctrl+N orri berria sortzen du.';
+
+  @override
+  String get vaultStarterShortcutsKeySearch =>
+      'Ctrl+K edo Ctrl+F bilaketa irekitzen du.';
+
+  @override
+  String get vaultStarterShortcutsKeySettings =>
+      'Ctrl+, Ezarpenak irekitzen ditu eta Ctrl+L koadernoa blokeatzen du.';
+
+  @override
+  String get vaultStarterShortcutsCallout =>
+      'Sakatu / paragrafo baten barruan teklatutik irten gabe blokeak txertatzeko.';
+
+  @override
+  String get vaultStarterNotesInboxTitle => 'Ideien sarrera';
+
+  @override
+  String get vaultStarterNotesInboxHeading => 'Harrapatu iragazkirik gabe';
+
+  @override
+  String get vaultStarterNotesInboxIntro =>
+      'Erabili orri hau sarrera gisa: idatzi ideia askatuak, loturak eta geroago berrikusteko pentsamenduak.';
+
+  @override
+  String get vaultStarterNotesInboxSection => 'Nola erabili';
+
+  @override
+  String get vaultStarterNotesInboxBullet1 =>
+      'Idatzi ideia bat bulet bakoitzeko edo paragrafo labur bakoitzeko.';
+
+  @override
+  String get vaultStarterNotesInboxBullet2 =>
+      'Ideia bat heldu denean, sortu orri dedikatu bat eta lotu.';
+
+  @override
+  String get vaultStarterNotesInboxBullet3 =>
+      'Hustu sarrera asteko berrikuspen laburretan.';
+
+  @override
+  String get vaultStarterNotesInboxTodo1 => 'Gehitu hiru ideia berri';
+
+  @override
+  String get vaultStarterNotesInboxTodo2 => 'Mugitu ideia bat bere orrira';
+
+  @override
+  String get vaultStarterNotesInboxCallout =>
+      'Ez bilatu perfekzioa botatzean: sarrera pentsatzen ozen egiteko da.';
+
+  @override
+  String get vaultStarterNotesCaptureTitle => 'Harrapaketa azkarra';
+
+  @override
+  String get vaultStarterNotesCaptureHeading => 'Ohar bat segundo batzuetan';
+
+  @override
+  String get vaultStarterNotesCaptureIntro =>
+      'Txantiloi minimoa zerbait testuinguruarekin, iturriarekin eta hurrengo urratsak erregistratzeko.';
+
+  @override
+  String get vaultStarterNotesCaptureSection => 'Egitura iradokia';
+
+  @override
+  String get vaultStarterNotesCaptureBullet1 =>
+      'Izenburu laburra eta paragrafoa xehetasun nagusiarekin.';
+
+  @override
+  String get vaultStarterNotesCaptureBullet2 =>
+      'Aipamen- edo callout-blokea ondorio nagusiarentzat.';
+
+  @override
+  String get vaultStarterNotesCaptureBullet3 =>
+      'Ekintza-zerrenda aukerakoa, aplikatzen bada.';
+
+  @override
+  String get vaultStarterNotesCaptureTodo1 => 'Osatu paragrafo nagusia';
+
+  @override
+  String get vaultStarterNotesCaptureTodo2 =>
+      'Gehitu etiketak edo lotu erlazionatutako orriak';
+
+  @override
+  String get vaultStarterNotesCaptureCallout =>
+      'Probatu / menua zerrenda edo taula txertatzeko blokea aldatu gabe.';
+
+  @override
+  String get vaultStarterTasksDashboardTitle => 'Zeregin-panela';
+
+  @override
+  String get vaultStarterTasksDashboardHeading => 'Zer egin orain';
+
+  @override
+  String get vaultStarterTasksDashboardIntro =>
+      'Zentralizatu zain daudenak todo-blokeekin, propietateetako dataekin eta lehentasun bisualekin.';
+
+  @override
+  String get vaultStarterTasksDashboardSection => 'Praktika onak';
+
+  @override
+  String get vaultStarterTasksDashboardBullet1 =>
+      'Bereizi gaurko, aste honetako eta noizbait zereginak.';
+
+  @override
+  String get vaultStarterTasksDashboardBullet2 =>
+      'Erabili checklistenak urrats txiki eta errepikagarrietarako.';
+
+  @override
+  String get vaultStarterTasksDashboardBullet3 =>
+      'Ireki koadernoko zeregin-ikuspegia dena elkarrekin ikusteko.';
+
+  @override
+  String get vaultStarterTasksDashboardTodo1 =>
+      'Gehitu hiru zeregin lehentasun desberdinekin';
+
+  @override
+  String get vaultStarterTasksDashboardTodo2 => 'Markatu bat osatuta';
+
+  @override
+  String get vaultStarterTasksDashboardCallout =>
+      'Zereginak proiektu-orrietan ere bizi daitezke.';
+
+  @override
+  String get vaultStarterTasksWeeklyTitle => 'Asteko berrikuspena';
+
+  @override
+  String get vaultStarterTasksWeeklyHeading => 'Itxi astea argitasunez';
+
+  @override
+  String get vaultStarterTasksWeeklyIntro =>
+      'Berrikusi egindakoa, zain dagoena eta hurrengo astean sartzen dena.';
+
+  @override
+  String get vaultStarterTasksWeeklySection => 'Agenda iradokia';
+
+  @override
+  String get vaultStarterTasksWeeklyBullet1 =>
+      'Asteko lorpenen eta blokeoen zerrenda.';
+
+  @override
+  String get vaultStarterTasksWeeklyBullet2 =>
+      'Hurrengo zazpi egunetarako hiru lehentasun.';
+
+  @override
+  String get vaultStarterTasksWeeklyBullet3 =>
+      'Ohar laburrak delegatzeko edo atzeratzeko.';
+
+  @override
+  String get vaultStarterTasksWeeklyTodo1 => 'Osatu asteko laburpena';
+
+  @override
+  String get vaultStarterTasksWeeklyTodo2 =>
+      'Aukeratu asteleheneko lehentasun nagusia';
+
+  @override
+  String get vaultStarterTasksWeeklyCallout =>
+      '15 minutuko berrikuspen bat askotan nahikoa da sistema bizirik mantentzeko.';
+
+  @override
+  String get vaultStarterProjectsHubTitle => 'Proiektuen hub-a';
+
+  @override
+  String get vaultStarterProjectsHubHeading => 'Lanaren ikuspegi orokorra';
+
+  @override
+  String get vaultStarterProjectsHubIntro =>
+      'Taldekatu helburua, egoera, arriskuak eta proiektu bakoitzeko orri umeen loturak.';
+
+  @override
+  String get vaultStarterProjectsHubSection => 'Atal erabilgarriak';
+
+  @override
+  String get vaultStarterProjectsHubBullet1 =>
+      'Laburpen exekutiboa lehen paragrafoan.';
+
+  @override
+  String get vaultStarterProjectsHubBullet2 =>
+      'Entregableen zerrenda checklistenekin.';
+
+  @override
+  String get vaultStarterProjectsHubBullet3 =>
+      'Loturak bileretara, erabakietara eta dokumentaziora.';
+
+  @override
+  String get vaultStarterProjectsHubTodo1 => 'Definitu proiektuaren helburua';
+
+  @override
+  String get vaultStarterProjectsHubTodo2 => 'Sortu lehen entregable azpiorria';
+
+  @override
+  String get vaultStarterProjectsHubCallout =>
+      'Bikoiztu orri hau txantiloi gisa proiektu berrientzat.';
+
+  @override
+  String get vaultStarterProjectsMeetingTitle => 'Bilera-oharrak';
+
+  @override
+  String get vaultStarterProjectsMeetingHeading => 'Bilera testuinguruarekin';
+
+  @override
+  String get vaultStarterProjectsMeetingIntro =>
+      'Txantiloia parte-hartzaileentzat, agendarentzat, erabakientzat eta arduradunarekin ekintzetarako.';
+
+  @override
+  String get vaultStarterProjectsMeetingSection => 'Bileran zehar';
+
+  @override
+  String get vaultStarterProjectsMeetingBullet1 =>
+      'Idatzi erabakiak calloutetan geroago aurkitzeko.';
+
+  @override
+  String get vaultStarterProjectsMeetingBullet2 =>
+      'Bihurtu akordioak data duten todo gisa, aplikatzen bada.';
+
+  @override
+  String get vaultStarterProjectsMeetingBullet3 =>
+      'Lotu bilera proiektuaren hub-etik.';
+
+  @override
+  String get vaultStarterProjectsMeetingTodo1 =>
+      'Osatu parte-hartzaileak eta agenda';
+
+  @override
+  String get vaultStarterProjectsMeetingTodo2 =>
+      'Erregistratu gutxienez ekintza bat arduradunarekin';
+
+  @override
+  String get vaultStarterProjectsMeetingCallout =>
+      'Audioa grabatzen baduzu, transkripzioa duten bilera-ohar blokeak erabil ditzakezu.';
+
+  @override
+  String get vaultStarterKnowledgeIndexTitle => 'Eduki-indizea';
+
+  @override
+  String get vaultStarterKnowledgeIndexHeading => 'Zure ezagutzaren mapa';
+
+  @override
+  String get vaultStarterKnowledgeIndexIntro =>
+      'Indize-orria gai, eremu eta ohar-bildumetarako loturekin.';
+
+  @override
+  String get vaultStarterKnowledgeIndexSection => 'Nola mantendu';
+
+  @override
+  String get vaultStarterKnowledgeIndexBullet1 =>
+      'Taldekatu eremu zabaletan eta lotu fitxa umeak.';
+
+  @override
+  String get vaultStarterKnowledgeIndexBullet2 =>
+      'Gehitu laburpen-lerro bat lotura bakoitzaren azpian.';
+
+  @override
+  String get vaultStarterKnowledgeIndexBullet3 =>
+      'Berrikusi indizea orri berriak sortzen dituzunean.';
+
+  @override
+  String get vaultStarterKnowledgeIndexTodo1 => 'Gehitu hiru gai indizean';
+
+  @override
+  String get vaultStarterKnowledgeIndexTodo2 => 'Sortu lehen gai-fitxa';
+
+  @override
+  String get vaultStarterKnowledgeIndexCallout =>
+      'Indize on batek ideia zaharrak bilatzean murrizten du frikzioa.';
+
+  @override
+  String get vaultStarterKnowledgeTopicTitle => 'Gai-fitxa';
+
+  @override
+  String get vaultStarterKnowledgeTopicHeading => 'Sakondu kontzeptu batean';
+
+  @override
+  String get vaultStarterKnowledgeTopicIntro =>
+      'Egitura gai bat definitzeko, adibideztatzeko eta besteekin lotzeko.';
+
+  @override
+  String get vaultStarterKnowledgeTopicSection => 'Atal iradokiak';
+
+  @override
+  String get vaultStarterKnowledgeTopicBullet1 =>
+      'Definizio laburra eta zergatik garrantzitsua den.';
+
+  @override
+  String get vaultStarterKnowledgeTopicBullet2 =>
+      'Adibideak, kontra-adibideak eta erreferentziak.';
+
+  @override
+  String get vaultStarterKnowledgeTopicBullet3 =>
+      'Galdera irekiak edo ikertzeko hutsuneak.';
+
+  @override
+  String get vaultStarterKnowledgeTopicTodo1 =>
+      'Idatzi definizioa esaldi batean';
+
+  @override
+  String get vaultStarterKnowledgeTopicTodo2 => 'Lotu bi gai erlazionatu';
+
+  @override
+  String get vaultStarterKnowledgeTopicCallout =>
+      'Fitxek denborarekin heldutzen dira: itzuli irakurri edo esperimentatu ondoren.';
+
+  @override
+  String get vaultStarterKnowledgeReadingTitle => 'Irakurketa-oharrak';
+
+  @override
+  String get vaultStarterKnowledgeReadingHeading => 'Zer irakurtzen ari zaren';
+
+  @override
+  String get vaultStarterKnowledgeReadingIntro =>
+      'Erregistratu iturria, ideia gakoak eta nola aplikatu zure lanean edo ikasketan.';
+
+  @override
+  String get vaultStarterKnowledgeReadingSection => 'Txantiloia';
+
+  @override
+  String get vaultStarterKnowledgeReadingBullet1 =>
+      'Metadatuak: izenburua, egilea eta lotura.';
+
+  @override
+  String get vaultStarterKnowledgeReadingBullet2 =>
+      'Gorde nahi dituzun hiru ideiak.';
+
+  @override
+  String get vaultStarterKnowledgeReadingBullet3 =>
+      'Ekintza zehatz bat amaitzean.';
+
+  @override
+  String get vaultStarterKnowledgeReadingTodo1 => 'Idatzi uneko iturria';
+
+  @override
+  String get vaultStarterKnowledgeReadingTodo2 =>
+      'Atera gutxienez bi aipamen edo ideia';
+
+  @override
+  String get vaultStarterKnowledgeReadingCallout =>
+      'Lotu irakurketak indizetik zure liburutegi bizia ikusteko.';
+
+  @override
+  String get vaultStarterJournalDailyTitle => 'Eguneroko egunkaria';
+
+  @override
+  String get vaultStarterJournalDailyHeading => 'Gaur orri batean';
+
+  @override
+  String get vaultStarterJournalDailyIntro =>
+      'Espazio laburra eguna nola joan den, zer ikasi duzun eta zer eskertzen duzun erregistratzeko.';
+
+  @override
+  String get vaultStarterJournalDailySection => 'Galdera aukerakoak';
+
+  @override
+  String get vaultStarterJournalDailyBullet1 =>
+      'Zer izan da gaurko garrantzitsuena?';
+
+  @override
+  String get vaultStarterJournalDailyBullet2 =>
+      'Zer kostatu zait espero baino gehiago?';
+
+  @override
+  String get vaultStarterJournalDailyBullet3 =>
+      'Zer nahi dut bihar errepikatu edo saihestu?';
+
+  @override
+  String get vaultStarterJournalDailyTodo1 =>
+      'Idatzi gutxienez hiru lerro gaurri buruz';
+
+  @override
+  String get vaultStarterJournalDailyTodo2 => 'Gehitu une nabarmen bat';
+
+  @override
+  String get vaultStarterJournalDailyCallout =>
+      'Konstantziak luzera baino garrantziago du: paragrafo zintzo bat nahikoa da.';
+
+  @override
+  String get vaultStarterJournalMonthlyTitle => 'Hileroko gogoeta';
+
+  @override
+  String get vaultStarterJournalMonthlyHeading => 'Hilabidea begiratuz';
+
+  @override
+  String get vaultStarterJournalMonthlyIntro =>
+      'Itxi hilabetea lorpenak, ikasketak eta hurrengorako doikuntzak berrikusiz.';
+
+  @override
+  String get vaultStarterJournalMonthlySection => 'Bloke iradokiak';
+
+  @override
+  String get vaultStarterJournalMonthlyBullet1 =>
+      'Gogoratu nahi dituzun hiru une.';
+
+  @override
+  String get vaultStarterJournalMonthlyBullet2 =>
+      'Ondo funtzionatu duen ohitura bat eta aldatzeko beste bat.';
+
+  @override
+  String get vaultStarterJournalMonthlyBullet3 =>
+      'Hurrengo hilabeterako helburu errealista bat.';
+
+  @override
+  String get vaultStarterJournalMonthlyTodo1 =>
+      'Zerrendatu hilabeteko bi lorpen';
+
+  @override
+  String get vaultStarterJournalMonthlyTodo2 =>
+      'Aukeratu hurrengo hilabeterako fokua';
+
+  @override
+  String get vaultStarterJournalMonthlyCallout =>
+      'Orri hau hilero bikoiztu dezakezu eta historiala gorde.';
+
+  @override
+  String get vaultStarterStudyCourseTitle => 'Ikastaro-apunteak';
+
+  @override
+  String get vaultStarterStudyCourseHeading => 'Ikastaro bat, erro-orri bat';
+
+  @override
+  String get vaultStarterStudyCourseIntro =>
+      'Antolatu moduluak, kontzeptuak eta ariketak ikastaro-orri baten azpian.';
+
+  @override
+  String get vaultStarterStudyCourseSection => 'Egitura';
+
+  @override
+  String get vaultStarterStudyCourseBullet1 => 'Gaien laburpena eta egutegia.';
+
+  @override
+  String get vaultStarterStudyCourseBullet2 =>
+      'Azpiorriak gai edo saio bakoitzeko.';
+
+  @override
+  String get vaultStarterStudyCourseBullet3 =>
+      'Zain dauden zalantzen zerrenda.';
+
+  @override
+  String get vaultStarterStudyCourseTodo1 =>
+      'Izendatu ikastaroa eta irakaslea edo plataforma';
+
+  @override
+  String get vaultStarterStudyCourseTodo2 => 'Sortu lehen gai azpiorria';
+
+  @override
+  String get vaultStarterStudyCourseCallout =>
+      'Konbinatu apunteak kode- edo ekuazio-blokeekin behar denean.';
+
+  @override
+  String get vaultStarterStudyPlanTitle => 'Ikasketa-plana';
+
+  @override
+  String get vaultStarterStudyPlanHeading => 'Aste honetako ikasketa';
+
+  @override
+  String get vaultStarterStudyPlanIntro =>
+      'Planifikatu saioak, berrikuspenak eta ebaluazioak todo eta dataekin.';
+
+  @override
+  String get vaultStarterStudyPlanSection => 'Erritmo iradokia';
+
+  @override
+  String get vaultStarterStudyPlanBullet1 => '25–50 minutuko ikasketa-blokeak.';
+
+  @override
+  String get vaultStarterStudyPlanBullet2 =>
+      'Aurreko gaien berrikuspen tartekatua.';
+
+  @override
+  String get vaultStarterStudyPlanBullet3 =>
+      'Simulakroak edo autoebaluazioa azterketen aurretik.';
+
+  @override
+  String get vaultStarterStudyPlanTodo1 => 'Definitu hiru ikasketa-saio';
+
+  @override
+  String get vaultStarterStudyPlanTodo2 =>
+      'Markatu hurrengo berrikuspena egutegian';
+
+  @override
+  String get vaultStarterStudyPlanCallout =>
+      'Doitu plana igande bakoitzean: testu gutxi, argitasun asko.';
 }

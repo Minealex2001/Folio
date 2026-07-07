@@ -4,200 +4,13 @@ import 'package:flutter/widgets.dart' show Locale;
 
 import '../crypto/vault_crypto.dart';
 import '../l10n/generated/app_localizations.dart';
-import '../models/block.dart';
 import '../models/folio_page.dart';
+import '../models/folio_usage_intent.dart';
 import 'vault_payload.dart';
 import 'vault_paths.dart';
+import 'vault_starter_pages.dart';
 
-enum VaultStarterContent {
-  enabled,
-  disabled,
-}
-
-List<FolioPage> buildVaultStarterPages(
-  VaultStarterContent starterContent,
-  AppLocalizations l10n,
-) {
-  if (starterContent == VaultStarterContent.disabled) {
-    return const [];
-  }
-  return [
-    FolioPage(
-      id: 'starter_home',
-      title: l10n.vaultStarterHomeTitle,
-      blocks: [
-        FolioBlock(
-          id: 'starter_home_b0',
-          type: 'h1',
-          text: l10n.vaultStarterHomeHeading,
-        ),
-        FolioBlock(
-          id: 'starter_home_b1',
-          type: 'paragraph',
-          text: l10n.vaultStarterHomeIntro,
-        ),
-        FolioBlock(
-          id: 'starter_home_b2',
-          type: 'callout',
-          text: l10n.vaultStarterHomeCallout,
-          icon: '💡',
-        ),
-        FolioBlock(
-          id: 'starter_home_b3',
-          type: 'h2',
-          text: l10n.vaultStarterHomeSectionTips,
-        ),
-        FolioBlock(
-          id: 'starter_home_b4',
-          type: 'bullet',
-          text: l10n.vaultStarterHomeBulletSlash,
-        ),
-        FolioBlock(
-          id: 'starter_home_b5',
-          type: 'bullet',
-          text: l10n.vaultStarterHomeBulletSidebar,
-        ),
-        FolioBlock(
-          id: 'starter_home_b6',
-          type: 'bullet',
-          text: l10n.vaultStarterHomeBulletSettings,
-        ),
-        FolioBlock(
-          id: 'starter_home_b7',
-          type: 'divider',
-          text: '',
-        ),
-        FolioBlock(
-          id: 'starter_home_b8',
-          type: 'todo',
-          text: l10n.vaultStarterHomeTodo1,
-          checked: false,
-        ),
-        FolioBlock(
-          id: 'starter_home_b9',
-          type: 'todo',
-          text: l10n.vaultStarterHomeTodo2,
-          checked: false,
-        ),
-        FolioBlock(
-          id: 'starter_home_b10',
-          type: 'todo',
-          text: l10n.vaultStarterHomeTodo3,
-          checked: false,
-        ),
-      ],
-    ),
-    FolioPage(
-      id: 'starter_capabilities',
-      title: l10n.vaultStarterCapabilitiesTitle,
-      blocks: [
-        FolioBlock(
-          id: 'starter_capabilities_b0',
-          type: 'h2',
-          text: l10n.vaultStarterCapabilitiesSectionMain,
-        ),
-        FolioBlock(
-          id: 'starter_capabilities_b1',
-          type: 'bullet',
-          text: l10n.vaultStarterCapabilitiesBullet1,
-        ),
-        FolioBlock(
-          id: 'starter_capabilities_b2',
-          type: 'bullet',
-          text: l10n.vaultStarterCapabilitiesBullet2,
-        ),
-        FolioBlock(
-          id: 'starter_capabilities_b3',
-          type: 'bullet',
-          text: l10n.vaultStarterCapabilitiesBullet3,
-        ),
-        FolioBlock(
-          id: 'starter_capabilities_b4',
-          type: 'bullet',
-          text: l10n.vaultStarterCapabilitiesBullet4,
-        ),
-        FolioBlock(
-          id: 'starter_capabilities_b5',
-          type: 'h2',
-          text: l10n.vaultStarterCapabilitiesSectionShortcuts,
-        ),
-        FolioBlock(
-          id: 'starter_capabilities_b6',
-          type: 'bullet',
-          text: l10n.vaultStarterCapabilitiesShortcutN,
-        ),
-        FolioBlock(
-          id: 'starter_capabilities_b7',
-          type: 'bullet',
-          text: l10n.vaultStarterCapabilitiesShortcutSearch,
-        ),
-        FolioBlock(
-          id: 'starter_capabilities_b8',
-          type: 'bullet',
-          text: l10n.vaultStarterCapabilitiesShortcutSettings,
-        ),
-        FolioBlock(
-          id: 'starter_capabilities_b9',
-          type: 'callout',
-          text: l10n.vaultStarterCapabilitiesAiCallout,
-          icon: '🧠',
-        ),
-      ],
-    ),
-    FolioPage(
-      id: 'starter_quill',
-      title: l10n.vaultStarterQuillTitle,
-      blocks: [
-        FolioBlock(
-          id: 'starter_quill_b0',
-          type: 'h2',
-          text: l10n.vaultStarterQuillSectionWhat,
-        ),
-        FolioBlock(
-          id: 'starter_quill_b1',
-          type: 'bullet',
-          text: l10n.vaultStarterQuillBullet1,
-        ),
-        FolioBlock(
-          id: 'starter_quill_b2',
-          type: 'bullet',
-          text: l10n.vaultStarterQuillBullet2,
-        ),
-        FolioBlock(
-          id: 'starter_quill_b3',
-          type: 'bullet',
-          text: l10n.vaultStarterQuillBullet3,
-        ),
-        FolioBlock(
-          id: 'starter_quill_b4',
-          type: 'h2',
-          text: l10n.vaultStarterQuillSectionPrivacy,
-        ),
-        FolioBlock(
-          id: 'starter_quill_b5',
-          type: 'paragraph',
-          text: l10n.vaultStarterQuillPrivacyBody,
-        ),
-        FolioBlock(
-          id: 'starter_quill_b6',
-          type: 'callout',
-          text: l10n.vaultStarterQuillBackupCallout,
-          icon: '🔐',
-        ),
-        FolioBlock(
-          id: 'starter_quill_b7',
-          type: 'paragraph',
-          text: l10n.vaultStarterQuillMermaidCaption,
-        ),
-        FolioBlock(
-          id: 'starter_quill_b8',
-          type: 'mermaid',
-          text: l10n.vaultStarterQuillMermaidSource,
-        ),
-      ],
-    ),
-  ];
-}
+export 'vault_starter_pages.dart' show VaultStarterContent, buildVaultStarterPages;
 
 class VaultRepository {
   static const String _modeEncrypted = 'encrypted';
@@ -216,10 +29,19 @@ class VaultRepository {
     List<FolioPage>? initialPages,
     VaultStarterContent starterContent = VaultStarterContent.enabled,
     AppLocalizations? starterL10n,
+    List<FolioUsageIntent> usageIntents = const [FolioUsageIntent.notes],
+    bool includeQuillStarterPage = false,
   }) async {
     final l10n = starterL10n ?? lookupAppLocalizations(const Locale('es'));
     final payload = VaultPayload(
-      pages: initialPages ?? buildVaultStarterPages(starterContent, l10n),
+      pages:
+          initialPages ??
+          buildVaultStarterPages(
+            starterContent: starterContent,
+            l10n: l10n,
+            usageIntents: usageIntents,
+            includeQuillPage: includeQuillStarterPage,
+          ),
     );
     if (encrypted) {
       if (password == null || password.isEmpty) {

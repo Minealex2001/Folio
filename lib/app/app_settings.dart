@@ -10,6 +10,7 @@ import 'folio_build_flags.dart';
 import 'folio_distribution.dart';
 import 'folio_in_app_shortcuts.dart';
 import 'workspace_prefs_keys.dart';
+import '../models/folio_usage_intent.dart';
 import '../services/transcription_hardware_profile.dart';
 import '../services/updater/update_release_channel.dart';
 import '../services/whisper_service.dart';
@@ -241,6 +242,14 @@ class VaultBackupPrefs {
     this.directory = '',
     this.lastMs = 0,
     this.alsoCloud = false,
+    this.folderRequiresAuth = false,
+    this.folderUsername = '',
+    this.folderDomain = '',
+    this.webdavEnabled = false,
+    this.webdavBaseUrl = '',
+    this.webdavRemotePath = '/folio-backups',
+    this.webdavUsername = '',
+    this.retentionCount = 10,
   });
 
   final bool enabled;
@@ -249,8 +258,33 @@ class VaultBackupPrefs {
   final String directory;
   final int lastMs;
   final bool alsoCloud;
+  final bool folderRequiresAuth;
+  final String folderUsername;
+  final String folderDomain;
+  final bool webdavEnabled;
+  final String webdavBaseUrl;
+  final String webdavRemotePath;
+  final String webdavUsername;
+  final int retentionCount;
 
   static const VaultBackupPrefs defaults = VaultBackupPrefs();
+
+  bool get hasFolderDestination => folderEnabled && directory.trim().isNotEmpty;
+
+  bool get hasWebDavDestination =>
+      webdavEnabled && webdavBaseUrl.trim().isNotEmpty;
+
+  bool get hasNetworkDestination => hasFolderDestination || hasWebDavDestination;
+
+  /// Carpeta de red configurada (independiente de la copia programada).
+  bool get hasConfiguredFolder => directory.trim().isNotEmpty;
+
+  /// WebDAV configurado (independiente de la copia programada).
+  bool get hasConfiguredWebDav => webdavBaseUrl.trim().isNotEmpty;
+
+  /// Hay algún destino NAS/servidor configurado para restaurar o exportar manual.
+  bool get hasConfiguredNetworkDestination =>
+      hasConfiguredFolder || hasConfiguredWebDav;
 
   VaultBackupPrefs copyWith({
     bool? enabled,
@@ -259,6 +293,14 @@ class VaultBackupPrefs {
     String? directory,
     int? lastMs,
     bool? alsoCloud,
+    bool? folderRequiresAuth,
+    String? folderUsername,
+    String? folderDomain,
+    bool? webdavEnabled,
+    String? webdavBaseUrl,
+    String? webdavRemotePath,
+    String? webdavUsername,
+    int? retentionCount,
   }) {
     return VaultBackupPrefs(
       enabled: enabled ?? this.enabled,
@@ -267,6 +309,14 @@ class VaultBackupPrefs {
       directory: directory ?? this.directory,
       lastMs: lastMs ?? this.lastMs,
       alsoCloud: alsoCloud ?? this.alsoCloud,
+      folderRequiresAuth: folderRequiresAuth ?? this.folderRequiresAuth,
+      folderUsername: folderUsername ?? this.folderUsername,
+      folderDomain: folderDomain ?? this.folderDomain,
+      webdavEnabled: webdavEnabled ?? this.webdavEnabled,
+      webdavBaseUrl: webdavBaseUrl ?? this.webdavBaseUrl,
+      webdavRemotePath: webdavRemotePath ?? this.webdavRemotePath,
+      webdavUsername: webdavUsername ?? this.webdavUsername,
+      retentionCount: retentionCount ?? this.retentionCount,
     );
   }
 }
@@ -305,6 +355,7 @@ class AppSettings extends ChangeNotifier {
       'folio_ai_launch_provider_with_app';
   static const _aiContextWindowTokensKey = 'folio_ai_context_window_tokens';
   static const _aiModelsPrefix = 'folio_ai_models_';
+  static const _usageIntentsKey = 'folio_usage_intents';
   static const _hasSeenQuillIntroKey = 'folio_has_seen_quill_intro';
   static const _hasSeenQuillWorkspaceTourKey =
       'folio_has_seen_quill_workspace_tour';
@@ -526,6 +577,7 @@ class AppSettings extends ChangeNotifier {
   bool _aiLaunchProviderWithApp = false;
   int _aiContextWindowTokens = defaultAiContextWindowTokens;
   final Map<AiProvider, List<String>> _cachedAiModelsByProvider = {};
+  List<FolioUsageIntent> _usageIntents = const [FolioUsageIntent.notes];
   bool _hasSeenQuillIntro = false;
   bool _hasSeenQuillWorkspaceTour = false;
   bool _hasAcceptedQuillGlobalScope = false;
@@ -643,6 +695,8 @@ class AppSettings extends ChangeNotifier {
   int get aiContextWindowTokens => _aiContextWindowTokens;
   bool get isAiAvailable => true;
   bool get isAiRuntimeEnabled => _aiEnabled;
+  List<FolioUsageIntent> get usageIntents =>
+      List<FolioUsageIntent>.unmodifiable(_usageIntents);
   bool get hasSeenQuillIntro => _hasSeenQuillIntro;
   bool get hasSeenQuillWorkspaceTour => _hasSeenQuillWorkspaceTour;
   bool get hasAcceptedQuillGlobalScope => _hasAcceptedQuillGlobalScope;
@@ -845,6 +899,7 @@ class AppSettings extends ChangeNotifier {
     _aiContextWindowTokens = _sanitizeContextWindowTokens(
       p.getInt(_aiContextWindowTokensKey),
     );
+    _usageIntents = FolioUsageIntent.parseList(p.getString(_usageIntentsKey));
     _hasSeenQuillIntro = p.getBool(_hasSeenQuillIntroKey) ?? false;
     _hasSeenQuillWorkspaceTour =
         p.getBool(_hasSeenQuillWorkspaceTourKey) ?? false;
@@ -1535,6 +1590,15 @@ class AppSettings extends ChangeNotifier {
     notifyListeners();
     final p = await SharedPreferences.getInstance();
     await p.setInt(_aiContextWindowTokensKey, safe);
+  }
+
+  Future<void> setUsageIntents(List<FolioUsageIntent> intents) async {
+    final safe = FolioUsageIntent.sanitizeSelection(intents);
+    if (listEquals(_usageIntents, safe)) return;
+    _usageIntents = List<FolioUsageIntent>.from(safe);
+    notifyListeners();
+    final p = await SharedPreferences.getInstance();
+    await p.setString(_usageIntentsKey, FolioUsageIntent.encodeList(safe));
   }
 
   Future<void> setHasSeenQuillIntro(bool value) async {
@@ -2416,6 +2480,48 @@ class AppSettings extends ChangeNotifier {
       'folio_vault_backup_last_ms_v2_$vid';
   static String _vbAlsoCloudKey(String vid) =>
       'folio_vault_backup_cloud_v2_$vid';
+  static String _vbFolderRequiresAuthKey(String vid) =>
+      'folio_vault_backup_folder_auth_v3_$vid';
+  static String _vbFolderUsernameKey(String vid) =>
+      'folio_vault_backup_folder_user_v3_$vid';
+  static String _vbFolderDomainKey(String vid) =>
+      'folio_vault_backup_folder_domain_v3_$vid';
+  static String _vbWebdavEnabledKey(String vid) =>
+      'folio_vault_backup_webdav_enabled_v3_$vid';
+  static String _vbWebdavBaseUrlKey(String vid) =>
+      'folio_vault_backup_webdav_url_v3_$vid';
+  static String _vbWebdavRemotePathKey(String vid) =>
+      'folio_vault_backup_webdav_path_v3_$vid';
+  static String _vbWebdavUsernameKey(String vid) =>
+      'folio_vault_backup_webdav_user_v3_$vid';
+  static String _vbRetentionCountKey(String vid) =>
+      'folio_vault_backup_retention_v3_$vid';
+
+  VaultBackupPrefs _readVaultBackupPrefsFromStore(
+    SharedPreferences p,
+    String vid,
+  ) {
+    return VaultBackupPrefs(
+      enabled: p.getBool(_vbEnabledKey(vid)) ?? false,
+      folderEnabled: p.getBool(_vbFolderEnabledKey(vid)) ?? false,
+      intervalMinutes: _sanitizeScheduledVaultBackupIntervalMinutes(
+        p.getInt(_vbIntervalMinutesKey(vid)) ??
+            defaultScheduledVaultBackupIntervalMinutes,
+      ),
+      directory: (p.getString(_vbDirectoryKey(vid)) ?? '').trim(),
+      lastMs: p.getInt(_vbLastMsKey(vid)) ?? 0,
+      alsoCloud: p.getBool(_vbAlsoCloudKey(vid)) ?? false,
+      folderRequiresAuth: p.getBool(_vbFolderRequiresAuthKey(vid)) ?? false,
+      folderUsername: (p.getString(_vbFolderUsernameKey(vid)) ?? '').trim(),
+      folderDomain: (p.getString(_vbFolderDomainKey(vid)) ?? '').trim(),
+      webdavEnabled: p.getBool(_vbWebdavEnabledKey(vid)) ?? false,
+      webdavBaseUrl: (p.getString(_vbWebdavBaseUrlKey(vid)) ?? '').trim(),
+      webdavRemotePath:
+          (p.getString(_vbWebdavRemotePathKey(vid)) ?? '/folio-backups').trim(),
+      webdavUsername: (p.getString(_vbWebdavUsernameKey(vid)) ?? '').trim(),
+      retentionCount: (p.getInt(_vbRetentionCountKey(vid)) ?? 10).clamp(0, 999),
+    );
+  }
 
   /// Devuelve la configuración de backup automático para la libreta [vaultId].
   /// Si no existe configuración per-libreta pero hay ajustes globales legacy,
@@ -2426,17 +2532,7 @@ class AppSettings extends ChangeNotifier {
     final p = await SharedPreferences.getInstance();
     // Si ya hay configuración per-libreta, devolverla directamente.
     if (p.containsKey(_vbEnabledKey(vid))) {
-      return VaultBackupPrefs(
-        enabled: p.getBool(_vbEnabledKey(vid)) ?? false,
-        folderEnabled: p.getBool(_vbFolderEnabledKey(vid)) ?? false,
-        intervalMinutes: _sanitizeScheduledVaultBackupIntervalMinutes(
-          p.getInt(_vbIntervalMinutesKey(vid)) ??
-              defaultScheduledVaultBackupIntervalMinutes,
-        ),
-        directory: (p.getString(_vbDirectoryKey(vid)) ?? '').trim(),
-        lastMs: p.getInt(_vbLastMsKey(vid)) ?? 0,
-        alsoCloud: p.getBool(_vbAlsoCloudKey(vid)) ?? false,
-      );
+      return _readVaultBackupPrefsFromStore(p, vid);
     }
     // Migración: si había configuración global legacy, moverla a esta libreta.
     final globalEnabled = p.getBool(_scheduledVaultBackupEnabledKey) ?? false;
@@ -2502,6 +2598,42 @@ class AppSettings extends ChangeNotifier {
     }
     await p.setInt(_vbLastMsKey(vid), prefs.lastMs < 0 ? 0 : prefs.lastMs);
     await p.setBool(_vbAlsoCloudKey(vid), prefs.alsoCloud);
+    await p.setBool(_vbFolderRequiresAuthKey(vid), prefs.folderRequiresAuth);
+    if (prefs.folderUsername.isEmpty) {
+      await p.remove(_vbFolderUsernameKey(vid));
+    } else {
+      await p.setString(_vbFolderUsernameKey(vid), prefs.folderUsername);
+    }
+    if (prefs.folderDomain.isEmpty) {
+      await p.remove(_vbFolderDomainKey(vid));
+    } else {
+      await p.setString(_vbFolderDomainKey(vid), prefs.folderDomain);
+    }
+    await p.setBool(_vbWebdavEnabledKey(vid), prefs.webdavEnabled);
+    if (prefs.webdavBaseUrl.isEmpty) {
+      await p.remove(_vbWebdavBaseUrlKey(vid));
+    } else {
+      await p.setString(_vbWebdavBaseUrlKey(vid), prefs.webdavBaseUrl);
+    }
+    if (prefs.webdavRemotePath.isEmpty) {
+      await p.remove(_vbWebdavRemotePathKey(vid));
+    } else {
+      await p.setString(_vbWebdavRemotePathKey(vid), prefs.webdavRemotePath);
+    }
+    if (prefs.webdavUsername.isEmpty) {
+      await p.remove(_vbWebdavUsernameKey(vid));
+    } else {
+      await p.setString(_vbWebdavUsernameKey(vid), prefs.webdavUsername);
+    }
+    await p.setInt(_vbRetentionCountKey(vid), prefs.retentionCount.clamp(0, 999));
+  }
+
+  Future<void> updateVaultBackupPrefs(String? vaultId, VaultBackupPrefs prefs) async {
+    final vid = (vaultId ?? '').trim();
+    if (vid.isEmpty) return;
+    final p = await SharedPreferences.getInstance();
+    await _writeVaultBackupPrefs(p, vid, prefs);
+    notifyListeners();
   }
 
   Future<void> setVaultBackupEnabled(String? vaultId, bool value) async {
@@ -2558,6 +2690,22 @@ class AppSettings extends ChangeNotifier {
     if (vid.isEmpty) return;
     final p = await SharedPreferences.getInstance();
     await p.setBool(_vbAlsoCloudKey(vid), value);
+    notifyListeners();
+  }
+
+  Future<void> setVaultBackupWebdavEnabled(String? vaultId, bool value) async {
+    final vid = (vaultId ?? '').trim();
+    if (vid.isEmpty) return;
+    final p = await SharedPreferences.getInstance();
+    await p.setBool(_vbWebdavEnabledKey(vid), value);
+    notifyListeners();
+  }
+
+  Future<void> setVaultBackupRetentionCount(String? vaultId, int value) async {
+    final vid = (vaultId ?? '').trim();
+    if (vid.isEmpty) return;
+    final p = await SharedPreferences.getInstance();
+    await p.setInt(_vbRetentionCountKey(vid), value.clamp(0, 999));
     notifyListeners();
   }
 

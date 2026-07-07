@@ -199,7 +199,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get createStarterPagesBody =>
-      'Adds a small guide with examples, shortcuts, and Folio capabilities. You can delete those pages later.';
+      'Adds a personalized starter guide based on how you plan to use Folio. You can delete those pages later.';
 
   @override
   String get passwordLabel => 'Password';
@@ -2144,6 +2144,151 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get vaultBackupProgressLocalZipDone => 'Folder ZIP backup finished.';
+
+  @override
+  String get vaultBackupProgressNetworkStart =>
+      'Sending backup to network destination…';
+
+  @override
+  String get vaultBackupProgressNetworkDone => 'Network backup finished.';
+
+  @override
+  String get vaultBackupRunNowNeedDestination =>
+      'Configure a network folder, WebDAV, or enable «Folio Cloud backup».';
+
+  @override
+  String get remoteBackupConfigTitle => 'NAS or server destination';
+
+  @override
+  String get remoteBackupTabFolder => 'Network folder';
+
+  @override
+  String get remoteBackupTabWebdav => 'WebDAV';
+
+  @override
+  String get remoteBackupNetworkPathLabel => 'Folder path';
+
+  @override
+  String get remoteBackupNetworkPathHint =>
+      'E.g. Z:\\backups\\folio or \\\\nas\\backups\\folio';
+
+  @override
+  String get remoteBackupCredentialsTitle => 'Server credentials';
+
+  @override
+  String get remoteBackupUsernameLabel => 'Username';
+
+  @override
+  String get remoteBackupPasswordLabel => 'Password';
+
+  @override
+  String get remoteBackupDomainLabel => 'Domain';
+
+  @override
+  String get remoteBackupDomainOptional => 'Optional (Windows/SMB)';
+
+  @override
+  String get remoteBackupRequiresAuth =>
+      'Server requires username and password';
+
+  @override
+  String get remoteBackupRequiresAuthSubtitle =>
+      'Enable if Folio must authenticate (scheduled backups without a mounted drive).';
+
+  @override
+  String get remoteBackupMountedDriveHint =>
+      'If the drive is already mounted in the OS, you can leave credentials empty.';
+
+  @override
+  String get remoteBackupTestConnection => 'Test connection';
+
+  @override
+  String get remoteBackupTestConnectionOk => 'Connection successful.';
+
+  @override
+  String remoteBackupTestConnectionFail(Object error) {
+    return 'Could not connect: $error';
+  }
+
+  @override
+  String get remoteBackupWebdavUrlLabel => 'WebDAV server URL';
+
+  @override
+  String get remoteBackupWebdavPathLabel => 'Remote folder';
+
+  @override
+  String get remoteBackupWebdavTitle => 'WebDAV backup';
+
+  @override
+  String get remoteBackupWebdavSubtitle =>
+      'Upload encrypted backups to your NAS or server (Ugreen: enable WebDAV in the panel, ports 5005/5006).';
+
+  @override
+  String get remoteBackupRetentionLabel => 'Backups to keep';
+
+  @override
+  String get remoteBackupRetentionSubtitle =>
+      'Per network destination; 0 = no limit.';
+
+  @override
+  String get remoteBackupUgreenHelp =>
+      'On Ugreen NAS: create a user with write access and use HTTPS when available.';
+
+  @override
+  String get remoteBackupSave => 'Save destination';
+
+  @override
+  String get remoteBackupConfigureFolder => 'Configure network folder';
+
+  @override
+  String get remoteBackupConfigureWebdav => 'Configure WebDAV';
+
+  @override
+  String get remoteBackupRestoreTitle => 'Backups on NAS or server';
+
+  @override
+  String get remoteBackupRestoreFromFolder => 'Folder';
+
+  @override
+  String get remoteBackupRestoreFromWebdav => 'WebDAV';
+
+  @override
+  String get remoteBackupRestoreEmpty =>
+      'No Folio backups found at this destination.';
+
+  @override
+  String get remoteBackupRestoreDownload => 'Download';
+
+  @override
+  String get remoteBackupRestoreImportNew => 'Import as new vault';
+
+  @override
+  String get remoteBackupRestoreImportOverwrite => 'Overwrite active vault';
+
+  @override
+  String get remoteBackupRestoreOpen => 'Restore from NAS or server';
+
+  @override
+  String get remoteBackupExportDestinationTitle =>
+      'Where should the backup be saved?';
+
+  @override
+  String get remoteBackupExportToLocalFile => 'File on this device';
+
+  @override
+  String get remoteBackupExportToFolder => 'Configured folder or NAS';
+
+  @override
+  String get remoteBackupExportToWebdav => 'Configured WebDAV server';
+
+  @override
+  String get remoteBackupEnterNetworkPath => 'Enter network path';
+
+  @override
+  String get remoteBackupDialogClose => 'Close';
+
+  @override
+  String get remoteBackupDialogRefresh => 'Refresh';
 
   @override
   String get vaultCloudPackProgressPreparing => 'Preparing cloud upload…';
@@ -7302,4 +7447,615 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get mermaidInlineLoadError =>
       'Couldn\'t display the diagram. Check the Mermaid syntax or your connection.';
+
+  @override
+  String get onboardingUsageProfileTitle => 'How will you use Folio?';
+
+  @override
+  String get onboardingUsageProfileBody =>
+      'We will add starter help pages tailored to you. You can delete or edit them anytime.';
+
+  @override
+  String get onboardingUsageProfileHint => 'Choose up to 3 main uses.';
+
+  @override
+  String get onboardingUsageProfileMinSelectionError =>
+      'Select at least one use to continue.';
+
+  @override
+  String get onboardingUsageIntentNotesTitle => 'Personal notes';
+
+  @override
+  String get onboardingUsageIntentTasksTitle => 'Tasks';
+
+  @override
+  String get onboardingUsageIntentProjectsTitle => 'Projects';
+
+  @override
+  String get onboardingUsageIntentKnowledgeTitle => 'Knowledge base';
+
+  @override
+  String get onboardingUsageIntentJournalTitle => 'Journal';
+
+  @override
+  String get onboardingUsageIntentStudyTitle => 'Study';
+
+  @override
+  String get vaultStarterHomeIntroNotes =>
+      'Folio is a great place to capture ideas, link thoughts, and organize personal notes. These starter pages help you begin writing without a rigid structure.';
+
+  @override
+  String get vaultStarterHomeIntroTasks =>
+      'Folio helps you combine notes and task lists in the same vault. These starter pages focus on tracking, priorities, and regular review.';
+
+  @override
+  String get vaultStarterHomeIntroProjects =>
+      'Organize work by projects, meetings, and deliverables inside a page tree. These starter pages give you a focused starting outline.';
+
+  @override
+  String get vaultStarterHomeIntroKnowledge =>
+      'Build a personal wiki with indexes, topic sheets, and reading notes. These starter pages encourage linking topics and review.';
+
+  @override
+  String get vaultStarterHomeIntroJournal =>
+      'Use Folio as a space for daily reflection and monthly review. These starter pages suggest light routines to keep the habit.';
+
+  @override
+  String get vaultStarterHomeIntroStudy =>
+      'Centralize class notes, study plans, and reviews in one place. These starter pages are oriented to courses and preparation.';
+
+  @override
+  String get vaultStarterHomeTodoNotes1 =>
+      'Dump three loose ideas into the idea inbox';
+
+  @override
+  String get vaultStarterHomeTodoNotes2 =>
+      'Create a quick-capture note with the / menu';
+
+  @override
+  String get vaultStarterHomeTodoNotes3 => 'Link two pages from the sidebar';
+
+  @override
+  String get vaultStarterHomeTodoTasks1 => 'Add three tasks to the task board';
+
+  @override
+  String get vaultStarterHomeTodoTasks2 =>
+      'Mark one task done and set a date on another';
+
+  @override
+  String get vaultStarterHomeTodoTasks3 => 'Plan the weekly review';
+
+  @override
+  String get vaultStarterHomeTodoProjects1 =>
+      'Create the first page for a project';
+
+  @override
+  String get vaultStarterHomeTodoProjects2 => 'Try the meeting notes template';
+
+  @override
+  String get vaultStarterHomeTodoProjects3 =>
+      'Define the next milestone in the project hub';
+
+  @override
+  String get vaultStarterHomeTodoKnowledge1 =>
+      'Add three topics to the content index';
+
+  @override
+  String get vaultStarterHomeTodoKnowledge2 =>
+      'Create a topic sheet with links';
+
+  @override
+  String get vaultStarterHomeTodoKnowledge3 => 'Log a reading in progress';
+
+  @override
+  String get vaultStarterHomeTodoJournal1 => 'Write today\'s journal entry';
+
+  @override
+  String get vaultStarterHomeTodoJournal2 => 'Answer the reflection prompts';
+
+  @override
+  String get vaultStarterHomeTodoJournal3 => 'Review last month\'s summary';
+
+  @override
+  String get vaultStarterHomeTodoStudy1 => 'Create the current course page';
+
+  @override
+  String get vaultStarterHomeTodoStudy2 =>
+      'Add three key concepts to your notes';
+
+  @override
+  String get vaultStarterHomeTodoStudy3 => 'Define this week\'s study plan';
+
+  @override
+  String get vaultStarterShortcutsTitle => 'Shortcuts and first steps';
+
+  @override
+  String get vaultStarterShortcutsSectionMain => 'Folio essentials';
+
+  @override
+  String get vaultStarterShortcutsBullet1 =>
+      'Each page is made of blocks: paragraphs, headings, lists, tables, and more.';
+
+  @override
+  String get vaultStarterShortcutsBullet2 =>
+      'The sidebar organizes pages and subpages in a tree.';
+
+  @override
+  String get vaultStarterShortcutsBullet3 =>
+      'Search and history help you regain context quickly.';
+
+  @override
+  String get vaultStarterShortcutsSectionKeys => 'Useful shortcuts';
+
+  @override
+  String get vaultStarterShortcutsKeyN => 'Ctrl+N creates a new page.';
+
+  @override
+  String get vaultStarterShortcutsKeySearch => 'Ctrl+K or Ctrl+F opens search.';
+
+  @override
+  String get vaultStarterShortcutsKeySettings =>
+      'Ctrl+, opens Settings and Ctrl+L locks the vault.';
+
+  @override
+  String get vaultStarterShortcutsCallout =>
+      'Press / inside a paragraph to insert blocks without leaving the keyboard.';
+
+  @override
+  String get vaultStarterNotesInboxTitle => 'Idea inbox';
+
+  @override
+  String get vaultStarterNotesInboxHeading => 'Capture without filtering';
+
+  @override
+  String get vaultStarterNotesInboxIntro =>
+      'Use this page as an inbox: jot loose ideas, links, and thoughts to review later.';
+
+  @override
+  String get vaultStarterNotesInboxSection => 'How to use it';
+
+  @override
+  String get vaultStarterNotesInboxBullet1 =>
+      'Write one idea per bullet or short paragraph.';
+
+  @override
+  String get vaultStarterNotesInboxBullet2 =>
+      'When an idea matures, create a dedicated page and link it.';
+
+  @override
+  String get vaultStarterNotesInboxBullet3 =>
+      'Clear the inbox in brief weekly reviews.';
+
+  @override
+  String get vaultStarterNotesInboxTodo1 => 'Add three new ideas';
+
+  @override
+  String get vaultStarterNotesInboxTodo2 => 'Move one idea to its own page';
+
+  @override
+  String get vaultStarterNotesInboxCallout =>
+      'Do not aim for perfection when dumping: the inbox is for thinking out loud.';
+
+  @override
+  String get vaultStarterNotesCaptureTitle => 'Quick capture';
+
+  @override
+  String get vaultStarterNotesCaptureHeading => 'A note in seconds';
+
+  @override
+  String get vaultStarterNotesCaptureIntro =>
+      'Minimal template to note something with context, source, and next steps.';
+
+  @override
+  String get vaultStarterNotesCaptureSection => 'Suggested structure';
+
+  @override
+  String get vaultStarterNotesCaptureBullet1 =>
+      'Short title and paragraph with the main detail.';
+
+  @override
+  String get vaultStarterNotesCaptureBullet2 =>
+      'Quote or callout block for the key takeaway.';
+
+  @override
+  String get vaultStarterNotesCaptureBullet3 =>
+      'Optional action list if it applies.';
+
+  @override
+  String get vaultStarterNotesCaptureTodo1 => 'Complete the main paragraph';
+
+  @override
+  String get vaultStarterNotesCaptureTodo2 => 'Add tags or link related pages';
+
+  @override
+  String get vaultStarterNotesCaptureCallout =>
+      'Try the / menu to insert a list or table without changing blocks.';
+
+  @override
+  String get vaultStarterTasksDashboardTitle => 'Task board';
+
+  @override
+  String get vaultStarterTasksDashboardHeading => 'What to do now';
+
+  @override
+  String get vaultStarterTasksDashboardIntro =>
+      'Centralize todos with todo blocks, dates in properties, and visual priority.';
+
+  @override
+  String get vaultStarterTasksDashboardSection => 'Good practices';
+
+  @override
+  String get vaultStarterTasksDashboardBullet1 =>
+      'Separate today, this week, and someday tasks.';
+
+  @override
+  String get vaultStarterTasksDashboardBullet2 =>
+      'Use checklists for small repeatable steps.';
+
+  @override
+  String get vaultStarterTasksDashboardBullet3 =>
+      'Open the vault task view to see everything together.';
+
+  @override
+  String get vaultStarterTasksDashboardTodo1 =>
+      'Add three tasks with different priority';
+
+  @override
+  String get vaultStarterTasksDashboardTodo2 => 'Mark one as completed';
+
+  @override
+  String get vaultStarterTasksDashboardCallout =>
+      'Tasks can also live inside project pages.';
+
+  @override
+  String get vaultStarterTasksWeeklyTitle => 'Weekly review';
+
+  @override
+  String get vaultStarterTasksWeeklyHeading => 'Close the week with clarity';
+
+  @override
+  String get vaultStarterTasksWeeklyIntro =>
+      'Review what was done, what is pending, and what comes next week.';
+
+  @override
+  String get vaultStarterTasksWeeklySection => 'Suggested agenda';
+
+  @override
+  String get vaultStarterTasksWeeklyBullet1 =>
+      'List of wins and blockers from the week.';
+
+  @override
+  String get vaultStarterTasksWeeklyBullet2 =>
+      'Three priorities for the next seven days.';
+
+  @override
+  String get vaultStarterTasksWeeklyBullet3 =>
+      'Short notes to delegate or postpone.';
+
+  @override
+  String get vaultStarterTasksWeeklyTodo1 => 'Complete the week summary';
+
+  @override
+  String get vaultStarterTasksWeeklyTodo2 =>
+      'Pick the number one Monday priority';
+
+  @override
+  String get vaultStarterTasksWeeklyCallout =>
+      'A 15-minute review is usually enough to keep the system alive.';
+
+  @override
+  String get vaultStarterProjectsHubTitle => 'Project hub';
+
+  @override
+  String get vaultStarterProjectsHubHeading => 'Work overview';
+
+  @override
+  String get vaultStarterProjectsHubIntro =>
+      'Group goal, status, risks, and links to child pages for each project.';
+
+  @override
+  String get vaultStarterProjectsHubSection => 'Useful sections';
+
+  @override
+  String get vaultStarterProjectsHubBullet1 =>
+      'Executive summary in the first paragraph.';
+
+  @override
+  String get vaultStarterProjectsHubBullet2 =>
+      'Deliverable list with checklists.';
+
+  @override
+  String get vaultStarterProjectsHubBullet3 =>
+      'Links to meetings, decisions, and docs.';
+
+  @override
+  String get vaultStarterProjectsHubTodo1 => 'Define the project goal';
+
+  @override
+  String get vaultStarterProjectsHubTodo2 =>
+      'Create the first deliverable subpage';
+
+  @override
+  String get vaultStarterProjectsHubCallout =>
+      'Duplicate this page as a template for new projects.';
+
+  @override
+  String get vaultStarterProjectsMeetingTitle => 'Meeting notes';
+
+  @override
+  String get vaultStarterProjectsMeetingHeading => 'Meeting with context';
+
+  @override
+  String get vaultStarterProjectsMeetingIntro =>
+      'Template for attendees, agenda, decisions, and actions with owner.';
+
+  @override
+  String get vaultStarterProjectsMeetingSection => 'During the meeting';
+
+  @override
+  String get vaultStarterProjectsMeetingBullet1 =>
+      'Note decisions in callouts to find them later.';
+
+  @override
+  String get vaultStarterProjectsMeetingBullet2 =>
+      'Turn agreements into todos with dates if needed.';
+
+  @override
+  String get vaultStarterProjectsMeetingBullet3 =>
+      'Link the meeting from the project hub.';
+
+  @override
+  String get vaultStarterProjectsMeetingTodo1 => 'Fill attendees and agenda';
+
+  @override
+  String get vaultStarterProjectsMeetingTodo2 =>
+      'Log at least one action with owner';
+
+  @override
+  String get vaultStarterProjectsMeetingCallout =>
+      'If you record audio, try meeting note blocks with transcription.';
+
+  @override
+  String get vaultStarterKnowledgeIndexTitle => 'Content index';
+
+  @override
+  String get vaultStarterKnowledgeIndexHeading => 'Map of your knowledge';
+
+  @override
+  String get vaultStarterKnowledgeIndexIntro =>
+      'Index page with links to topics, areas, and note collections.';
+
+  @override
+  String get vaultStarterKnowledgeIndexSection => 'How to maintain it';
+
+  @override
+  String get vaultStarterKnowledgeIndexBullet1 =>
+      'Group by broad areas and link child sheets.';
+
+  @override
+  String get vaultStarterKnowledgeIndexBullet2 =>
+      'Add a one-line summary under each link.';
+
+  @override
+  String get vaultStarterKnowledgeIndexBullet3 =>
+      'Review the index when creating new pages.';
+
+  @override
+  String get vaultStarterKnowledgeIndexTodo1 => 'Add three topics to the index';
+
+  @override
+  String get vaultStarterKnowledgeIndexTodo2 => 'Create the first topic sheet';
+
+  @override
+  String get vaultStarterKnowledgeIndexCallout =>
+      'A good index reduces friction when finding old ideas.';
+
+  @override
+  String get vaultStarterKnowledgeTopicTitle => 'Topic sheet';
+
+  @override
+  String get vaultStarterKnowledgeTopicHeading => 'Go deeper on a concept';
+
+  @override
+  String get vaultStarterKnowledgeTopicIntro =>
+      'Structure to define, exemplify, and link a topic with others.';
+
+  @override
+  String get vaultStarterKnowledgeTopicSection => 'Suggested sections';
+
+  @override
+  String get vaultStarterKnowledgeTopicBullet1 =>
+      'Brief definition and why it matters.';
+
+  @override
+  String get vaultStarterKnowledgeTopicBullet2 =>
+      'Examples, counterexamples, and references.';
+
+  @override
+  String get vaultStarterKnowledgeTopicBullet3 =>
+      'Open questions or gaps to research.';
+
+  @override
+  String get vaultStarterKnowledgeTopicTodo1 =>
+      'Write the definition in one sentence';
+
+  @override
+  String get vaultStarterKnowledgeTopicTodo2 => 'Link two related topics';
+
+  @override
+  String get vaultStarterKnowledgeTopicCallout =>
+      'Sheets mature over time: revisit them after reading or experimenting.';
+
+  @override
+  String get vaultStarterKnowledgeReadingTitle => 'Reading notes';
+
+  @override
+  String get vaultStarterKnowledgeReadingHeading => 'What you are reading';
+
+  @override
+  String get vaultStarterKnowledgeReadingIntro =>
+      'Log source, key ideas, and how to apply them in work or study.';
+
+  @override
+  String get vaultStarterKnowledgeReadingSection => 'Template';
+
+  @override
+  String get vaultStarterKnowledgeReadingBullet1 =>
+      'Metadata: title, author, and link.';
+
+  @override
+  String get vaultStarterKnowledgeReadingBullet2 =>
+      'Three ideas you want to keep.';
+
+  @override
+  String get vaultStarterKnowledgeReadingBullet3 =>
+      'One concrete action after finishing.';
+
+  @override
+  String get vaultStarterKnowledgeReadingTodo1 => 'Note the current source';
+
+  @override
+  String get vaultStarterKnowledgeReadingTodo2 =>
+      'Extract at least two quotes or ideas';
+
+  @override
+  String get vaultStarterKnowledgeReadingCallout =>
+      'Link readings from the index to see your living library.';
+
+  @override
+  String get vaultStarterJournalDailyTitle => 'Daily journal';
+
+  @override
+  String get vaultStarterJournalDailyHeading => 'Today on one page';
+
+  @override
+  String get vaultStarterJournalDailyIntro =>
+      'Brief space to record how the day went, what you learned, and what you appreciate.';
+
+  @override
+  String get vaultStarterJournalDailySection => 'Optional prompts';
+
+  @override
+  String get vaultStarterJournalDailyBullet1 => 'What mattered most today?';
+
+  @override
+  String get vaultStarterJournalDailyBullet2 =>
+      'What was harder than expected?';
+
+  @override
+  String get vaultStarterJournalDailyBullet3 =>
+      'What do I want to repeat or avoid tomorrow?';
+
+  @override
+  String get vaultStarterJournalDailyTodo1 =>
+      'Write at least three lines about today';
+
+  @override
+  String get vaultStarterJournalDailyTodo2 => 'Add one highlight moment';
+
+  @override
+  String get vaultStarterJournalDailyCallout =>
+      'Consistency matters more than length: one honest paragraph is enough.';
+
+  @override
+  String get vaultStarterJournalMonthlyTitle => 'Monthly reflection';
+
+  @override
+  String get vaultStarterJournalMonthlyHeading => 'Look back at the month';
+
+  @override
+  String get vaultStarterJournalMonthlyIntro =>
+      'Close the month reviewing wins, learnings, and adjustments for the next.';
+
+  @override
+  String get vaultStarterJournalMonthlySection => 'Suggested blocks';
+
+  @override
+  String get vaultStarterJournalMonthlyBullet1 =>
+      'Three moments you want to remember.';
+
+  @override
+  String get vaultStarterJournalMonthlyBullet2 =>
+      'One habit that worked and one to change.';
+
+  @override
+  String get vaultStarterJournalMonthlyBullet3 =>
+      'One realistic goal for the coming month.';
+
+  @override
+  String get vaultStarterJournalMonthlyTodo1 => 'List two wins from the month';
+
+  @override
+  String get vaultStarterJournalMonthlyTodo2 => 'Pick one focus for next month';
+
+  @override
+  String get vaultStarterJournalMonthlyCallout =>
+      'You can duplicate this page each month and keep the history.';
+
+  @override
+  String get vaultStarterStudyCourseTitle => 'Course notes';
+
+  @override
+  String get vaultStarterStudyCourseHeading => 'One course, one root page';
+
+  @override
+  String get vaultStarterStudyCourseIntro =>
+      'Organize modules, concepts, and exercises under a course page.';
+
+  @override
+  String get vaultStarterStudyCourseSection => 'Structure';
+
+  @override
+  String get vaultStarterStudyCourseBullet1 => 'Syllabus summary and calendar.';
+
+  @override
+  String get vaultStarterStudyCourseBullet2 => 'Subpages per topic or session.';
+
+  @override
+  String get vaultStarterStudyCourseBullet3 => 'List of open questions.';
+
+  @override
+  String get vaultStarterStudyCourseTodo1 =>
+      'Name the course and teacher or platform';
+
+  @override
+  String get vaultStarterStudyCourseTodo2 => 'Create the first topic subpage';
+
+  @override
+  String get vaultStarterStudyCourseCallout =>
+      'Combine notes with code or equation blocks when needed.';
+
+  @override
+  String get vaultStarterStudyPlanTitle => 'Study plan';
+
+  @override
+  String get vaultStarterStudyPlanHeading => 'This study week';
+
+  @override
+  String get vaultStarterStudyPlanIntro =>
+      'Plan sessions, reviews, and assessments with todos and dates.';
+
+  @override
+  String get vaultStarterStudyPlanSection => 'Suggested rhythm';
+
+  @override
+  String get vaultStarterStudyPlanBullet1 => '25–50 minute study blocks.';
+
+  @override
+  String get vaultStarterStudyPlanBullet2 =>
+      'Spaced review of previous topics.';
+
+  @override
+  String get vaultStarterStudyPlanBullet3 => 'Practice tests before exams.';
+
+  @override
+  String get vaultStarterStudyPlanTodo1 => 'Define three study sessions';
+
+  @override
+  String get vaultStarterStudyPlanTodo2 =>
+      'Mark the next review on the calendar';
+
+  @override
+  String get vaultStarterStudyPlanCallout =>
+      'Adjust the plan each Sunday: little text, lots of clarity.';
 }

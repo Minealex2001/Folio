@@ -15,6 +15,7 @@ import '../../crypto/vault_crypto.dart';
 import '../../data/notion_import/notion_importer.dart';
 import '../../data/vault_backup.dart';
 import '../../l10n/generated/app_localizations.dart';
+import '../../models/folio_usage_intent.dart';
 import '../../session/vault_session.dart';
 import '../../services/cloud_account/cloud_account_controller.dart';
 import '../../services/folio_cloud/folio_cloud_backup.dart';
@@ -65,6 +66,8 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
   var _obscureNotionConfirm = true;
   var _createWithoutEncryption = false;
   var _createStarterPages = true;
+  List<FolioUsageIntent> _selectedUsageIntents = const [FolioUsageIntent.notes];
+  String? _usageProfileError;
 
   /// Elección en onboarding (se persiste al salir del paso).
   /// Default: true (telemetría habilitada, puede desactivarse en Settings)
@@ -96,6 +99,9 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
   @override
   void initState() {
     super.initState();
+    _selectedUsageIntents = List<FolioUsageIntent>.from(
+      widget.appSettings.usageIntents,
+    );
     _syncDraftsFromAppSettings();
   }
 
@@ -156,6 +162,7 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
             steps.add(_OnboardingStepId.quillIntro);
           }
         }
+        steps.add(_OnboardingStepId.usageProfile);
         steps.add(_OnboardingStepId.ready);
         return steps;
     }
@@ -254,6 +261,10 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
       _error = null;
       _mode = _OnboardingMode.create;
       _createStarterPages = true;
+      _selectedUsageIntents = List<FolioUsageIntent>.from(
+        widget.appSettings.usageIntents,
+      );
+      _usageProfileError = null;
       _onboardingTelemetryEnabled = widget.appSettings.telemetryEnabled;
       _page = 1;
     });
@@ -732,6 +743,10 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
         password: _createWithoutEncryption ? null : _password.text,
         encrypted: !_createWithoutEncryption,
         createStarterPages: _createStarterPages,
+        usageIntents: _selectedUsageIntents,
+        includeQuillStarterPage: _flowSteps.contains(
+          _OnboardingStepId.quillIntro,
+        ),
       );
       await widget.appSettings.setHasSeenQuillIntro(true);
     } catch (e) {
@@ -954,6 +969,8 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
         return _stepFolioCloudIntro(context);
       case _OnboardingStepId.quillIntro:
         return _stepQuillIntro(context);
+      case _OnboardingStepId.usageProfile:
+        return _stepUsageProfile(context);
     }
   }
 
@@ -977,6 +994,8 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
         return Icons.cloud_outlined;
       case _OnboardingStepId.quillIntro:
         return Icons.auto_awesome_rounded;
+      case _OnboardingStepId.usageProfile:
+        return Icons.tune_rounded;
       case _OnboardingStepId.ready:
         return Icons.celebration_outlined;
       default:
@@ -988,6 +1007,7 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
     if (!_isFirstOnboarding &&
         (_currentStepId == _OnboardingStepId.welcome ||
             _currentStepId == _OnboardingStepId.password ||
+            _currentStepId == _OnboardingStepId.usageProfile ||
             _currentStepId == _OnboardingStepId.ready)) {
       return l10n.newVaultLeftPanelTitle;
     }
@@ -1012,6 +1032,8 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
         return l10n.onboardingFolioCloudTitle;
       case _OnboardingStepId.quillIntro:
         return l10n.quillIntroTitle;
+      case _OnboardingStepId.usageProfile:
+        return l10n.onboardingUsageProfileTitle;
       case _OnboardingStepId.ready:
         return l10n.readyTitle;
       default:
@@ -1023,6 +1045,7 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
     if (!_isFirstOnboarding &&
         (_currentStepId == _OnboardingStepId.welcome ||
             _currentStepId == _OnboardingStepId.password ||
+            _currentStepId == _OnboardingStepId.usageProfile ||
             _currentStepId == _OnboardingStepId.ready)) {
       return l10n.newVaultLeftPanelBody;
     }
@@ -1047,6 +1070,8 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
         return l10n.onboardingFolioCloudBody;
       case _OnboardingStepId.quillIntro:
         return l10n.quillIntroBody;
+      case _OnboardingStepId.usageProfile:
+        return l10n.onboardingUsageProfileBody;
       case _OnboardingStepId.ready:
         return _createWithoutEncryption
             ? l10n.readyBodyPlainVault
@@ -2220,6 +2245,130 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
     _goNext();
   }
 
+  Widget _stepUsageProfile(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+    final scheme = Theme.of(context).colorScheme;
+    final theme = Theme.of(context);
+    final intents = FolioUsageIntent.values;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        const SizedBox(height: FolioSpace.xl),
+        Icon(Icons.tune_rounded, size: 64, color: scheme.primary),
+        const SizedBox(height: FolioSpace.lg),
+        Text(
+          l10n.onboardingUsageProfileTitle,
+          style: theme.textTheme.headlineMedium?.copyWith(
+            fontWeight: FontWeight.w700,
+          ),
+          textAlign: TextAlign.center,
+        ),
+        const SizedBox(height: FolioSpace.md),
+        Text(
+          l10n.onboardingUsageProfileBody,
+          style: theme.textTheme.bodyLarge?.copyWith(
+            color: scheme.onSurfaceVariant,
+            height: 1.45,
+          ),
+          textAlign: TextAlign.center,
+        ),
+        const SizedBox(height: FolioSpace.sm),
+        Text(
+          l10n.onboardingUsageProfileHint,
+          style: theme.textTheme.bodySmall?.copyWith(
+            color: scheme.onSurfaceVariant,
+            height: 1.35,
+          ),
+          textAlign: TextAlign.center,
+        ),
+        const SizedBox(height: FolioSpace.lg),
+        Wrap(
+          spacing: FolioSpace.sm,
+          runSpacing: FolioSpace.sm,
+          children: [
+            for (final intent in intents)
+              FilterChip(
+                label: Text(_usageIntentTitle(l10n, intent)),
+                selected: _selectedUsageIntents.contains(intent),
+                onSelected: _busy
+                    ? null
+                    : (selected) {
+                        setState(() {
+                          _usageProfileError = null;
+                          if (selected) {
+                            if (_selectedUsageIntents.length >=
+                                FolioUsageIntent.maxSelection) {
+                              return;
+                            }
+                            _selectedUsageIntents = [
+                              ..._selectedUsageIntents,
+                              intent,
+                            ];
+                          } else {
+                            _selectedUsageIntents = _selectedUsageIntents
+                                .where((e) => e != intent)
+                                .toList();
+                          }
+                        });
+                      },
+              ),
+          ],
+        ),
+        if (_usageProfileError != null) ...[
+          const SizedBox(height: FolioSpace.sm),
+          Text(
+            _usageProfileError!,
+            style: theme.textTheme.bodySmall?.copyWith(color: scheme.error),
+            textAlign: TextAlign.center,
+          ),
+        ],
+        const SizedBox(height: FolioSpace.xl),
+        _onboardingBottomActions(
+          onBack: _busy ? null : _goBack,
+          onPrimary: _busy ? null : () => unawaited(_persistUsageProfileAndGoNext()),
+          primaryLabel: l10n.continueAction,
+        ),
+      ],
+    );
+  }
+
+  Future<void> _persistUsageProfileAndGoNext() async {
+    final safe = FolioUsageIntent.sanitizeSelection(_selectedUsageIntents);
+    if (safe.isEmpty) {
+      setState(() {
+        _usageProfileError = AppLocalizations.of(
+          context,
+        ).onboardingUsageProfileMinSelectionError;
+      });
+      return;
+    }
+    setState(() {
+      _selectedUsageIntents = List<FolioUsageIntent>.from(safe);
+      _usageProfileError = null;
+    });
+    await widget.appSettings.setUsageIntents(safe);
+    if (!mounted) return;
+    _goNext();
+  }
+
+  String _usageIntentTitle(AppLocalizations l10n, FolioUsageIntent intent) {
+    switch (intent) {
+      case FolioUsageIntent.notes:
+        return l10n.onboardingUsageIntentNotesTitle;
+      case FolioUsageIntent.tasks:
+        return l10n.onboardingUsageIntentTasksTitle;
+      case FolioUsageIntent.projects:
+        return l10n.onboardingUsageIntentProjectsTitle;
+      case FolioUsageIntent.knowledge:
+        return l10n.onboardingUsageIntentKnowledgeTitle;
+      case FolioUsageIntent.journal:
+        return l10n.onboardingUsageIntentJournalTitle;
+      case FolioUsageIntent.study:
+        return l10n.onboardingUsageIntentStudyTitle;
+    }
+  }
+
   Widget _stepTelemetry(BuildContext context) {
     final l10n = AppLocalizations.of(context);
     final scheme = Theme.of(context).colorScheme;
@@ -2649,6 +2798,7 @@ enum _OnboardingStepId {
   telemetry,
   cloudIntro,
   quillIntro,
+  usageProfile,
   importBackupForm,
   importNotionForm,
 }

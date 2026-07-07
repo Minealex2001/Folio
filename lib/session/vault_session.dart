@@ -25,6 +25,7 @@ import '../data/vault_registry.dart';
 import '../data/vault_repository.dart';
 import '../models/block.dart';
 import '../models/folio_page.dart';
+import '../models/folio_usage_intent.dart';
 import '../models/folio_page_revision.dart';
 import '../models/folio_database_data.dart';
 import '../models/local_collab.dart';
@@ -969,6 +970,8 @@ class VaultSession extends ChangeNotifier {
     String? password,
     bool encrypted = true,
     bool createStarterPages = true,
+    List<FolioUsageIntent> usageIntents = const [FolioUsageIntent.notes],
+    bool includeQuillStarterPage = false,
   }) async {
     await _registry.load();
     var id = VaultPaths.activeVaultId;
@@ -996,6 +999,8 @@ class VaultSession extends ChangeNotifier {
           ? VaultStarterContent.enabled
           : VaultStarterContent.disabled,
       starterL10n: createStarterPages ? _titleL10n : null,
+      usageIntents: usageIntents,
+      includeQuillStarterPage: includeQuillStarterPage,
     );
     _vaultUsesEncryption = encrypted;
     _dek = dek?.toList();

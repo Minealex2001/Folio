@@ -657,6 +657,23 @@ class _WorkspaceHomeViewState extends State<WorkspaceHomeView> {
               ),
             ),
           );
+          if (prefs.hasNetworkDestination) {
+            final destLabels = <String>[];
+            if (prefs.hasFolderDestination) {
+              destLabels.add(l10n.scheduledVaultBackupFolderTitle);
+            }
+            if (prefs.hasWebDavDestination) {
+              destLabels.add(l10n.remoteBackupWebdavTitle);
+            }
+            lines.add(
+              Text(
+                destLabels.join(' · '),
+                style: textTheme.labelMedium?.copyWith(
+                  color: scheme.primary,
+                ),
+              ),
+            );
+          }
         }
         if (conflicts > 0) {
           lines.add(const SizedBox(height: FolioSpace.xs));

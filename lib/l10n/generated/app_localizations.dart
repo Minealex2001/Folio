@@ -445,7 +445,7 @@ abstract class AppLocalizations {
   /// No description provided for @createStarterPagesBody.
   ///
   /// In es, this message translates to:
-  /// **'Añade una pequeña guía con ejemplos, atajos y capacidades de Folio. Podrás borrar esas páginas después.'**
+  /// **'Añade una guía inicial personalizada según cómo vayas a usar Folio. Podrás borrar esas páginas después.'**
   String get createStarterPagesBody;
 
   /// No description provided for @passwordLabel.
@@ -3805,7 +3805,7 @@ abstract class AppLocalizations {
   /// No description provided for @scheduledVaultBackupSubtitle.
   ///
   /// In es, this message translates to:
-  /// **'Con la libreta desbloqueada, Folio la copia automáticamente en el intervalo elegido. Activa la copia en carpeta, en la nube, o ambas.'**
+  /// **'Con la libreta desbloqueada, Folio la copia automáticamente en el intervalo elegido. Activa carpeta de red, WebDAV, Folio Cloud, o varias a la vez.'**
   String get scheduledVaultBackupSubtitle;
 
   /// No description provided for @scheduledVaultBackupFolderTitle.
@@ -3939,6 +3939,270 @@ abstract class AppLocalizations {
   /// In es, this message translates to:
   /// **'Copia ZIP en carpeta terminada.'**
   String get vaultBackupProgressLocalZipDone;
+
+  /// No description provided for @vaultBackupProgressNetworkStart.
+  ///
+  /// In es, this message translates to:
+  /// **'Enviando copia al destino de red…'**
+  String get vaultBackupProgressNetworkStart;
+
+  /// No description provided for @vaultBackupProgressNetworkDone.
+  ///
+  /// In es, this message translates to:
+  /// **'Copia en destino de red terminada.'**
+  String get vaultBackupProgressNetworkDone;
+
+  /// No description provided for @vaultBackupRunNowNeedDestination.
+  ///
+  /// In es, this message translates to:
+  /// **'Configura una carpeta de red, WebDAV o activa «Copia en Folio Cloud».'**
+  String get vaultBackupRunNowNeedDestination;
+
+  /// No description provided for @remoteBackupConfigTitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Destino NAS o servidor'**
+  String get remoteBackupConfigTitle;
+
+  /// No description provided for @remoteBackupTabFolder.
+  ///
+  /// In es, this message translates to:
+  /// **'Carpeta de red'**
+  String get remoteBackupTabFolder;
+
+  /// No description provided for @remoteBackupTabWebdav.
+  ///
+  /// In es, this message translates to:
+  /// **'WebDAV'**
+  String get remoteBackupTabWebdav;
+
+  /// No description provided for @remoteBackupNetworkPathLabel.
+  ///
+  /// In es, this message translates to:
+  /// **'Ruta de carpeta'**
+  String get remoteBackupNetworkPathLabel;
+
+  /// No description provided for @remoteBackupNetworkPathHint.
+  ///
+  /// In es, this message translates to:
+  /// **'Ej. Z:\\backups\\folio o \\\\nas\\backups\\folio'**
+  String get remoteBackupNetworkPathHint;
+
+  /// No description provided for @remoteBackupCredentialsTitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Credenciales del servidor'**
+  String get remoteBackupCredentialsTitle;
+
+  /// No description provided for @remoteBackupUsernameLabel.
+  ///
+  /// In es, this message translates to:
+  /// **'Usuario'**
+  String get remoteBackupUsernameLabel;
+
+  /// No description provided for @remoteBackupPasswordLabel.
+  ///
+  /// In es, this message translates to:
+  /// **'Contraseña'**
+  String get remoteBackupPasswordLabel;
+
+  /// No description provided for @remoteBackupDomainLabel.
+  ///
+  /// In es, this message translates to:
+  /// **'Dominio'**
+  String get remoteBackupDomainLabel;
+
+  /// No description provided for @remoteBackupDomainOptional.
+  ///
+  /// In es, this message translates to:
+  /// **'Opcional (Windows/SMB)'**
+  String get remoteBackupDomainOptional;
+
+  /// No description provided for @remoteBackupRequiresAuth.
+  ///
+  /// In es, this message translates to:
+  /// **'El servidor requiere usuario y contraseña'**
+  String get remoteBackupRequiresAuth;
+
+  /// No description provided for @remoteBackupRequiresAuthSubtitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Actívalo si Folio debe autenticarse (copias programadas sin unidad montada).'**
+  String get remoteBackupRequiresAuthSubtitle;
+
+  /// No description provided for @remoteBackupMountedDriveHint.
+  ///
+  /// In es, this message translates to:
+  /// **'Si ya montaste la unidad en el sistema, puedes dejar las credenciales vacías.'**
+  String get remoteBackupMountedDriveHint;
+
+  /// No description provided for @remoteBackupTestConnection.
+  ///
+  /// In es, this message translates to:
+  /// **'Probar conexión'**
+  String get remoteBackupTestConnection;
+
+  /// No description provided for @remoteBackupTestConnectionOk.
+  ///
+  /// In es, this message translates to:
+  /// **'Conexión correcta.'**
+  String get remoteBackupTestConnectionOk;
+
+  /// No description provided for @remoteBackupTestConnectionFail.
+  ///
+  /// In es, this message translates to:
+  /// **'No se pudo conectar: {error}'**
+  String remoteBackupTestConnectionFail(Object error);
+
+  /// No description provided for @remoteBackupWebdavUrlLabel.
+  ///
+  /// In es, this message translates to:
+  /// **'URL del servidor WebDAV'**
+  String get remoteBackupWebdavUrlLabel;
+
+  /// No description provided for @remoteBackupWebdavPathLabel.
+  ///
+  /// In es, this message translates to:
+  /// **'Carpeta remota'**
+  String get remoteBackupWebdavPathLabel;
+
+  /// No description provided for @remoteBackupWebdavTitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Copia en WebDAV'**
+  String get remoteBackupWebdavTitle;
+
+  /// No description provided for @remoteBackupWebdavSubtitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Sube copias cifradas a tu NAS o servidor (Ugreen: activa WebDAV en el panel, puertos 5005/5006).'**
+  String get remoteBackupWebdavSubtitle;
+
+  /// No description provided for @remoteBackupRetentionLabel.
+  ///
+  /// In es, this message translates to:
+  /// **'Copias a conservar'**
+  String get remoteBackupRetentionLabel;
+
+  /// No description provided for @remoteBackupRetentionSubtitle.
+  ///
+  /// In es, this message translates to:
+  /// **'En cada destino de red; 0 = sin límite.'**
+  String get remoteBackupRetentionSubtitle;
+
+  /// No description provided for @remoteBackupUgreenHelp.
+  ///
+  /// In es, this message translates to:
+  /// **'En Ugreen NAS: crea un usuario con permiso de escritura y usa HTTPS si está disponible.'**
+  String get remoteBackupUgreenHelp;
+
+  /// No description provided for @remoteBackupSave.
+  ///
+  /// In es, this message translates to:
+  /// **'Guardar destino'**
+  String get remoteBackupSave;
+
+  /// No description provided for @remoteBackupConfigureFolder.
+  ///
+  /// In es, this message translates to:
+  /// **'Configurar carpeta de red'**
+  String get remoteBackupConfigureFolder;
+
+  /// No description provided for @remoteBackupConfigureWebdav.
+  ///
+  /// In es, this message translates to:
+  /// **'Configurar WebDAV'**
+  String get remoteBackupConfigureWebdav;
+
+  /// No description provided for @remoteBackupRestoreTitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Copias en NAS o servidor'**
+  String get remoteBackupRestoreTitle;
+
+  /// No description provided for @remoteBackupRestoreFromFolder.
+  ///
+  /// In es, this message translates to:
+  /// **'Carpeta'**
+  String get remoteBackupRestoreFromFolder;
+
+  /// No description provided for @remoteBackupRestoreFromWebdav.
+  ///
+  /// In es, this message translates to:
+  /// **'WebDAV'**
+  String get remoteBackupRestoreFromWebdav;
+
+  /// No description provided for @remoteBackupRestoreEmpty.
+  ///
+  /// In es, this message translates to:
+  /// **'No hay copias Folio en este destino.'**
+  String get remoteBackupRestoreEmpty;
+
+  /// No description provided for @remoteBackupRestoreDownload.
+  ///
+  /// In es, this message translates to:
+  /// **'Descargar'**
+  String get remoteBackupRestoreDownload;
+
+  /// No description provided for @remoteBackupRestoreImportNew.
+  ///
+  /// In es, this message translates to:
+  /// **'Importar como libreta nueva'**
+  String get remoteBackupRestoreImportNew;
+
+  /// No description provided for @remoteBackupRestoreImportOverwrite.
+  ///
+  /// In es, this message translates to:
+  /// **'Sobrescribir libreta activa'**
+  String get remoteBackupRestoreImportOverwrite;
+
+  /// No description provided for @remoteBackupRestoreOpen.
+  ///
+  /// In es, this message translates to:
+  /// **'Restaurar desde NAS o servidor'**
+  String get remoteBackupRestoreOpen;
+
+  /// No description provided for @remoteBackupExportDestinationTitle.
+  ///
+  /// In es, this message translates to:
+  /// **'¿Dónde guardar la copia?'**
+  String get remoteBackupExportDestinationTitle;
+
+  /// No description provided for @remoteBackupExportToLocalFile.
+  ///
+  /// In es, this message translates to:
+  /// **'Archivo en este equipo'**
+  String get remoteBackupExportToLocalFile;
+
+  /// No description provided for @remoteBackupExportToFolder.
+  ///
+  /// In es, this message translates to:
+  /// **'Carpeta o NAS configurados'**
+  String get remoteBackupExportToFolder;
+
+  /// No description provided for @remoteBackupExportToWebdav.
+  ///
+  /// In es, this message translates to:
+  /// **'Servidor WebDAV configurado'**
+  String get remoteBackupExportToWebdav;
+
+  /// No description provided for @remoteBackupEnterNetworkPath.
+  ///
+  /// In es, this message translates to:
+  /// **'Introducir ruta de red'**
+  String get remoteBackupEnterNetworkPath;
+
+  /// No description provided for @remoteBackupDialogClose.
+  ///
+  /// In es, this message translates to:
+  /// **'Cerrar'**
+  String get remoteBackupDialogClose;
+
+  /// No description provided for @remoteBackupDialogRefresh.
+  ///
+  /// In es, this message translates to:
+  /// **'Actualizar'**
+  String get remoteBackupDialogRefresh;
 
   /// No description provided for @vaultCloudPackProgressPreparing.
   ///
@@ -13000,6 +13264,1050 @@ abstract class AppLocalizations {
   /// In es, this message translates to:
   /// **'No se pudo mostrar el diagrama. Comprueba la sintaxis Mermaid o la conexión.'**
   String get mermaidInlineLoadError;
+
+  /// No description provided for @onboardingUsageProfileTitle.
+  ///
+  /// In es, this message translates to:
+  /// **'¿Cómo vas a usar Folio?'**
+  String get onboardingUsageProfileTitle;
+
+  /// No description provided for @onboardingUsageProfileBody.
+  ///
+  /// In es, this message translates to:
+  /// **'Elegiremos unas páginas de ayuda iniciales adaptadas a ti. Puedes borrarlas o editarlas cuando quieras.'**
+  String get onboardingUsageProfileBody;
+
+  /// No description provided for @onboardingUsageProfileHint.
+  ///
+  /// In es, this message translates to:
+  /// **'Elige hasta 3 usos principales.'**
+  String get onboardingUsageProfileHint;
+
+  /// No description provided for @onboardingUsageProfileMinSelectionError.
+  ///
+  /// In es, this message translates to:
+  /// **'Selecciona al menos un uso para continuar.'**
+  String get onboardingUsageProfileMinSelectionError;
+
+  /// No description provided for @onboardingUsageIntentNotesTitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Notas personales'**
+  String get onboardingUsageIntentNotesTitle;
+
+  /// No description provided for @onboardingUsageIntentTasksTitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Tareas'**
+  String get onboardingUsageIntentTasksTitle;
+
+  /// No description provided for @onboardingUsageIntentProjectsTitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Proyectos'**
+  String get onboardingUsageIntentProjectsTitle;
+
+  /// No description provided for @onboardingUsageIntentKnowledgeTitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Base de conocimiento'**
+  String get onboardingUsageIntentKnowledgeTitle;
+
+  /// No description provided for @onboardingUsageIntentJournalTitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Diario'**
+  String get onboardingUsageIntentJournalTitle;
+
+  /// No description provided for @onboardingUsageIntentStudyTitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Estudio'**
+  String get onboardingUsageIntentStudyTitle;
+
+  /// No description provided for @vaultStarterHomeIntroNotes.
+  ///
+  /// In es, this message translates to:
+  /// **'Folio es un buen lugar para capturar ideas, enlazar pensamientos y ordenar notas personales. Estas páginas iniciales están pensadas para que empieces a escribir sin una estructura rígida.'**
+  String get vaultStarterHomeIntroNotes;
+
+  /// No description provided for @vaultStarterHomeIntroTasks.
+  ///
+  /// In es, this message translates to:
+  /// **'Folio te ayuda a combinar notas y listas de tareas en la misma libreta. Estas páginas iniciales priorizan seguimiento, prioridades y revisión periódica.'**
+  String get vaultStarterHomeIntroTasks;
+
+  /// No description provided for @vaultStarterHomeIntroProjects.
+  ///
+  /// In es, this message translates to:
+  /// **'Organiza trabajo por proyectos, reuniones y entregables dentro de un árbol de páginas. Estas páginas iniciales te dejan un esquema para arrancar con foco.'**
+  String get vaultStarterHomeIntroProjects;
+
+  /// No description provided for @vaultStarterHomeIntroKnowledge.
+  ///
+  /// In es, this message translates to:
+  /// **'Construye una wiki personal con índices, fichas y notas de lectura. Estas páginas iniciales favorecen enlaces entre temas y revisión.'**
+  String get vaultStarterHomeIntroKnowledge;
+
+  /// No description provided for @vaultStarterHomeIntroJournal.
+  ///
+  /// In es, this message translates to:
+  /// **'Usa Folio como espacio de reflexión diaria y repaso mensual. Estas páginas iniciales proponen rutinas ligeras para mantener el hábito.'**
+  String get vaultStarterHomeIntroJournal;
+
+  /// No description provided for @vaultStarterHomeIntroStudy.
+  ///
+  /// In es, this message translates to:
+  /// **'Centraliza apuntes, planes de estudio y repasos en un solo sitio. Estas páginas iniciales están orientadas a cursos y preparación.'**
+  String get vaultStarterHomeIntroStudy;
+
+  /// No description provided for @vaultStarterHomeTodoNotes1.
+  ///
+  /// In es, this message translates to:
+  /// **'Volcar tres ideas sueltas en la bandeja de ideas'**
+  String get vaultStarterHomeTodoNotes1;
+
+  /// No description provided for @vaultStarterHomeTodoNotes2.
+  ///
+  /// In es, this message translates to:
+  /// **'Crear una nota de captura rápida con el menú /'**
+  String get vaultStarterHomeTodoNotes2;
+
+  /// No description provided for @vaultStarterHomeTodoNotes3.
+  ///
+  /// In es, this message translates to:
+  /// **'Enlazar dos páginas desde el panel lateral'**
+  String get vaultStarterHomeTodoNotes3;
+
+  /// No description provided for @vaultStarterHomeTodoTasks1.
+  ///
+  /// In es, this message translates to:
+  /// **'Añadir tres tareas al panel de tareas'**
+  String get vaultStarterHomeTodoTasks1;
+
+  /// No description provided for @vaultStarterHomeTodoTasks2.
+  ///
+  /// In es, this message translates to:
+  /// **'Marcar una tarea como hecha y otra con fecha'**
+  String get vaultStarterHomeTodoTasks2;
+
+  /// No description provided for @vaultStarterHomeTodoTasks3.
+  ///
+  /// In es, this message translates to:
+  /// **'Planificar la revisión semanal'**
+  String get vaultStarterHomeTodoTasks3;
+
+  /// No description provided for @vaultStarterHomeTodoProjects1.
+  ///
+  /// In es, this message translates to:
+  /// **'Crear la primera página de un proyecto'**
+  String get vaultStarterHomeTodoProjects1;
+
+  /// No description provided for @vaultStarterHomeTodoProjects2.
+  ///
+  /// In es, this message translates to:
+  /// **'Probar la plantilla de notas de reunión'**
+  String get vaultStarterHomeTodoProjects2;
+
+  /// No description provided for @vaultStarterHomeTodoProjects3.
+  ///
+  /// In es, this message translates to:
+  /// **'Definir el siguiente hito en el hub de proyectos'**
+  String get vaultStarterHomeTodoProjects3;
+
+  /// No description provided for @vaultStarterHomeTodoKnowledge1.
+  ///
+  /// In es, this message translates to:
+  /// **'Añadir tres temas al índice de contenidos'**
+  String get vaultStarterHomeTodoKnowledge1;
+
+  /// No description provided for @vaultStarterHomeTodoKnowledge2.
+  ///
+  /// In es, this message translates to:
+  /// **'Crear una ficha de tema con enlaces'**
+  String get vaultStarterHomeTodoKnowledge2;
+
+  /// No description provided for @vaultStarterHomeTodoKnowledge3.
+  ///
+  /// In es, this message translates to:
+  /// **'Registrar una lectura en curso'**
+  String get vaultStarterHomeTodoKnowledge3;
+
+  /// No description provided for @vaultStarterHomeTodoJournal1.
+  ///
+  /// In es, this message translates to:
+  /// **'Escribir la entrada de hoy en el diario'**
+  String get vaultStarterHomeTodoJournal1;
+
+  /// No description provided for @vaultStarterHomeTodoJournal2.
+  ///
+  /// In es, this message translates to:
+  /// **'Responder a las preguntas de reflexión'**
+  String get vaultStarterHomeTodoJournal2;
+
+  /// No description provided for @vaultStarterHomeTodoJournal3.
+  ///
+  /// In es, this message translates to:
+  /// **'Revisar el resumen del mes anterior'**
+  String get vaultStarterHomeTodoJournal3;
+
+  /// No description provided for @vaultStarterHomeTodoStudy1.
+  ///
+  /// In es, this message translates to:
+  /// **'Crear la página del curso actual'**
+  String get vaultStarterHomeTodoStudy1;
+
+  /// No description provided for @vaultStarterHomeTodoStudy2.
+  ///
+  /// In es, this message translates to:
+  /// **'Añadir tres conceptos clave a los apuntes'**
+  String get vaultStarterHomeTodoStudy2;
+
+  /// No description provided for @vaultStarterHomeTodoStudy3.
+  ///
+  /// In es, this message translates to:
+  /// **'Definir el plan de estudio de esta semana'**
+  String get vaultStarterHomeTodoStudy3;
+
+  /// No description provided for @vaultStarterShortcutsTitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Atajos y primeros pasos'**
+  String get vaultStarterShortcutsTitle;
+
+  /// No description provided for @vaultStarterShortcutsSectionMain.
+  ///
+  /// In es, this message translates to:
+  /// **'Lo esencial de Folio'**
+  String get vaultStarterShortcutsSectionMain;
+
+  /// No description provided for @vaultStarterShortcutsBullet1.
+  ///
+  /// In es, this message translates to:
+  /// **'Cada página se compone de bloques: párrafos, títulos, listas, tablas y más.'**
+  String get vaultStarterShortcutsBullet1;
+
+  /// No description provided for @vaultStarterShortcutsBullet2.
+  ///
+  /// In es, this message translates to:
+  /// **'El panel lateral organiza páginas y subpáginas en un árbol.'**
+  String get vaultStarterShortcutsBullet2;
+
+  /// No description provided for @vaultStarterShortcutsBullet3.
+  ///
+  /// In es, this message translates to:
+  /// **'La búsqueda y el historial te ayudan a retomar contexto rápido.'**
+  String get vaultStarterShortcutsBullet3;
+
+  /// No description provided for @vaultStarterShortcutsSectionKeys.
+  ///
+  /// In es, this message translates to:
+  /// **'Atajos útiles'**
+  String get vaultStarterShortcutsSectionKeys;
+
+  /// No description provided for @vaultStarterShortcutsKeyN.
+  ///
+  /// In es, this message translates to:
+  /// **'Ctrl+N crea una página nueva.'**
+  String get vaultStarterShortcutsKeyN;
+
+  /// No description provided for @vaultStarterShortcutsKeySearch.
+  ///
+  /// In es, this message translates to:
+  /// **'Ctrl+K o Ctrl+F abre la búsqueda.'**
+  String get vaultStarterShortcutsKeySearch;
+
+  /// No description provided for @vaultStarterShortcutsKeySettings.
+  ///
+  /// In es, this message translates to:
+  /// **'Ctrl+, abre Ajustes y Ctrl+L bloquea la libreta.'**
+  String get vaultStarterShortcutsKeySettings;
+
+  /// No description provided for @vaultStarterShortcutsCallout.
+  ///
+  /// In es, this message translates to:
+  /// **'Pulsa / dentro de un párrafo para insertar bloques sin salir del teclado.'**
+  String get vaultStarterShortcutsCallout;
+
+  /// No description provided for @vaultStarterNotesInboxTitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Bandeja de ideas'**
+  String get vaultStarterNotesInboxTitle;
+
+  /// No description provided for @vaultStarterNotesInboxHeading.
+  ///
+  /// In es, this message translates to:
+  /// **'Captura sin filtrar'**
+  String get vaultStarterNotesInboxHeading;
+
+  /// No description provided for @vaultStarterNotesInboxIntro.
+  ///
+  /// In es, this message translates to:
+  /// **'Usa esta página como inbox: anota ideas sueltas, enlaces y pensamientos a revisar más tarde.'**
+  String get vaultStarterNotesInboxIntro;
+
+  /// No description provided for @vaultStarterNotesInboxSection.
+  ///
+  /// In es, this message translates to:
+  /// **'Cómo usarla'**
+  String get vaultStarterNotesInboxSection;
+
+  /// No description provided for @vaultStarterNotesInboxBullet1.
+  ///
+  /// In es, this message translates to:
+  /// **'Escribe una idea por viñeta o párrafo corto.'**
+  String get vaultStarterNotesInboxBullet1;
+
+  /// No description provided for @vaultStarterNotesInboxBullet2.
+  ///
+  /// In es, this message translates to:
+  /// **'Cuando una idea madure, crea una página dedicada y enlázala.'**
+  String get vaultStarterNotesInboxBullet2;
+
+  /// No description provided for @vaultStarterNotesInboxBullet3.
+  ///
+  /// In es, this message translates to:
+  /// **'Vacía la bandeja en revisiones breves semanales.'**
+  String get vaultStarterNotesInboxBullet3;
+
+  /// No description provided for @vaultStarterNotesInboxTodo1.
+  ///
+  /// In es, this message translates to:
+  /// **'Añadir tres ideas nuevas'**
+  String get vaultStarterNotesInboxTodo1;
+
+  /// No description provided for @vaultStarterNotesInboxTodo2.
+  ///
+  /// In es, this message translates to:
+  /// **'Mover una idea a su propia página'**
+  String get vaultStarterNotesInboxTodo2;
+
+  /// No description provided for @vaultStarterNotesInboxCallout.
+  ///
+  /// In es, this message translates to:
+  /// **'No busques perfección al volcar: la bandeja es para pensar en voz alta.'**
+  String get vaultStarterNotesInboxCallout;
+
+  /// No description provided for @vaultStarterNotesCaptureTitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Captura rápida'**
+  String get vaultStarterNotesCaptureTitle;
+
+  /// No description provided for @vaultStarterNotesCaptureHeading.
+  ///
+  /// In es, this message translates to:
+  /// **'Una nota en segundos'**
+  String get vaultStarterNotesCaptureHeading;
+
+  /// No description provided for @vaultStarterNotesCaptureIntro.
+  ///
+  /// In es, this message translates to:
+  /// **'Plantilla mínima para anotar algo con contexto, fuente y siguientes pasos.'**
+  String get vaultStarterNotesCaptureIntro;
+
+  /// No description provided for @vaultStarterNotesCaptureSection.
+  ///
+  /// In es, this message translates to:
+  /// **'Estructura sugerida'**
+  String get vaultStarterNotesCaptureSection;
+
+  /// No description provided for @vaultStarterNotesCaptureBullet1.
+  ///
+  /// In es, this message translates to:
+  /// **'Título breve y párrafo con el detalle principal.'**
+  String get vaultStarterNotesCaptureBullet1;
+
+  /// No description provided for @vaultStarterNotesCaptureBullet2.
+  ///
+  /// In es, this message translates to:
+  /// **'Bloque de cita o callout para la conclusión clave.'**
+  String get vaultStarterNotesCaptureBullet2;
+
+  /// No description provided for @vaultStarterNotesCaptureBullet3.
+  ///
+  /// In es, this message translates to:
+  /// **'Lista de acciones opcionales si aplica.'**
+  String get vaultStarterNotesCaptureBullet3;
+
+  /// No description provided for @vaultStarterNotesCaptureTodo1.
+  ///
+  /// In es, this message translates to:
+  /// **'Completar el párrafo principal'**
+  String get vaultStarterNotesCaptureTodo1;
+
+  /// No description provided for @vaultStarterNotesCaptureTodo2.
+  ///
+  /// In es, this message translates to:
+  /// **'Añadir etiquetas o enlazar páginas relacionadas'**
+  String get vaultStarterNotesCaptureTodo2;
+
+  /// No description provided for @vaultStarterNotesCaptureCallout.
+  ///
+  /// In es, this message translates to:
+  /// **'Prueba el menú / para insertar una lista o tabla sin cambiar de bloque.'**
+  String get vaultStarterNotesCaptureCallout;
+
+  /// No description provided for @vaultStarterTasksDashboardTitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Panel de tareas'**
+  String get vaultStarterTasksDashboardTitle;
+
+  /// No description provided for @vaultStarterTasksDashboardHeading.
+  ///
+  /// In es, this message translates to:
+  /// **'Qué hacer ahora'**
+  String get vaultStarterTasksDashboardHeading;
+
+  /// No description provided for @vaultStarterTasksDashboardIntro.
+  ///
+  /// In es, this message translates to:
+  /// **'Centraliza pendientes con bloques todo, fechas en propiedades y prioridad visual.'**
+  String get vaultStarterTasksDashboardIntro;
+
+  /// No description provided for @vaultStarterTasksDashboardSection.
+  ///
+  /// In es, this message translates to:
+  /// **'Buenas prácticas'**
+  String get vaultStarterTasksDashboardSection;
+
+  /// No description provided for @vaultStarterTasksDashboardBullet1.
+  ///
+  /// In es, this message translates to:
+  /// **'Separa tareas de hoy, esta semana y algún día.'**
+  String get vaultStarterTasksDashboardBullet1;
+
+  /// No description provided for @vaultStarterTasksDashboardBullet2.
+  ///
+  /// In es, this message translates to:
+  /// **'Usa checklists para pasos pequeños y repetibles.'**
+  String get vaultStarterTasksDashboardBullet2;
+
+  /// No description provided for @vaultStarterTasksDashboardBullet3.
+  ///
+  /// In es, this message translates to:
+  /// **'Abre la vista de tareas de la libreta para ver todo junto.'**
+  String get vaultStarterTasksDashboardBullet3;
+
+  /// No description provided for @vaultStarterTasksDashboardTodo1.
+  ///
+  /// In es, this message translates to:
+  /// **'Añadir tres tareas con distinta prioridad'**
+  String get vaultStarterTasksDashboardTodo1;
+
+  /// No description provided for @vaultStarterTasksDashboardTodo2.
+  ///
+  /// In es, this message translates to:
+  /// **'Marcar una como completada'**
+  String get vaultStarterTasksDashboardTodo2;
+
+  /// No description provided for @vaultStarterTasksDashboardCallout.
+  ///
+  /// In es, this message translates to:
+  /// **'Las tareas también pueden vivir dentro de páginas de proyecto.'**
+  String get vaultStarterTasksDashboardCallout;
+
+  /// No description provided for @vaultStarterTasksWeeklyTitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Revisión semanal'**
+  String get vaultStarterTasksWeeklyTitle;
+
+  /// No description provided for @vaultStarterTasksWeeklyHeading.
+  ///
+  /// In es, this message translates to:
+  /// **'Cerrar la semana con claridad'**
+  String get vaultStarterTasksWeeklyHeading;
+
+  /// No description provided for @vaultStarterTasksWeeklyIntro.
+  ///
+  /// In es, this message translates to:
+  /// **'Repasa lo hecho, lo pendiente y lo que entra la próxima semana.'**
+  String get vaultStarterTasksWeeklyIntro;
+
+  /// No description provided for @vaultStarterTasksWeeklySection.
+  ///
+  /// In es, this message translates to:
+  /// **'Agenda sugerida'**
+  String get vaultStarterTasksWeeklySection;
+
+  /// No description provided for @vaultStarterTasksWeeklyBullet1.
+  ///
+  /// In es, this message translates to:
+  /// **'Lista de logros y bloqueos de la semana.'**
+  String get vaultStarterTasksWeeklyBullet1;
+
+  /// No description provided for @vaultStarterTasksWeeklyBullet2.
+  ///
+  /// In es, this message translates to:
+  /// **'Tres prioridades para los próximos siete días.'**
+  String get vaultStarterTasksWeeklyBullet2;
+
+  /// No description provided for @vaultStarterTasksWeeklyBullet3.
+  ///
+  /// In es, this message translates to:
+  /// **'Notas breves para delegar o posponer.'**
+  String get vaultStarterTasksWeeklyBullet3;
+
+  /// No description provided for @vaultStarterTasksWeeklyTodo1.
+  ///
+  /// In es, this message translates to:
+  /// **'Completar el resumen de la semana'**
+  String get vaultStarterTasksWeeklyTodo1;
+
+  /// No description provided for @vaultStarterTasksWeeklyTodo2.
+  ///
+  /// In es, this message translates to:
+  /// **'Elegir la prioridad número uno del lunes'**
+  String get vaultStarterTasksWeeklyTodo2;
+
+  /// No description provided for @vaultStarterTasksWeeklyCallout.
+  ///
+  /// In es, this message translates to:
+  /// **'Una revisión de 15 minutos suele bastar para mantener el sistema vivo.'**
+  String get vaultStarterTasksWeeklyCallout;
+
+  /// No description provided for @vaultStarterProjectsHubTitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Hub de proyectos'**
+  String get vaultStarterProjectsHubTitle;
+
+  /// No description provided for @vaultStarterProjectsHubHeading.
+  ///
+  /// In es, this message translates to:
+  /// **'Vista general del trabajo'**
+  String get vaultStarterProjectsHubHeading;
+
+  /// No description provided for @vaultStarterProjectsHubIntro.
+  ///
+  /// In es, this message translates to:
+  /// **'Agrupa objetivo, estado, riesgos y enlaces a páginas hijas de cada proyecto.'**
+  String get vaultStarterProjectsHubIntro;
+
+  /// No description provided for @vaultStarterProjectsHubSection.
+  ///
+  /// In es, this message translates to:
+  /// **'Secciones útiles'**
+  String get vaultStarterProjectsHubSection;
+
+  /// No description provided for @vaultStarterProjectsHubBullet1.
+  ///
+  /// In es, this message translates to:
+  /// **'Resumen ejecutivo en el primer párrafo.'**
+  String get vaultStarterProjectsHubBullet1;
+
+  /// No description provided for @vaultStarterProjectsHubBullet2.
+  ///
+  /// In es, this message translates to:
+  /// **'Lista de entregables con checklists.'**
+  String get vaultStarterProjectsHubBullet2;
+
+  /// No description provided for @vaultStarterProjectsHubBullet3.
+  ///
+  /// In es, this message translates to:
+  /// **'Enlaces a reuniones, decisiones y documentación.'**
+  String get vaultStarterProjectsHubBullet3;
+
+  /// No description provided for @vaultStarterProjectsHubTodo1.
+  ///
+  /// In es, this message translates to:
+  /// **'Definir el objetivo del proyecto'**
+  String get vaultStarterProjectsHubTodo1;
+
+  /// No description provided for @vaultStarterProjectsHubTodo2.
+  ///
+  /// In es, this message translates to:
+  /// **'Crear la primera subpágina de entregable'**
+  String get vaultStarterProjectsHubTodo2;
+
+  /// No description provided for @vaultStarterProjectsHubCallout.
+  ///
+  /// In es, this message translates to:
+  /// **'Duplica esta página como plantilla para nuevos proyectos.'**
+  String get vaultStarterProjectsHubCallout;
+
+  /// No description provided for @vaultStarterProjectsMeetingTitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Notas de reunión'**
+  String get vaultStarterProjectsMeetingTitle;
+
+  /// No description provided for @vaultStarterProjectsMeetingHeading.
+  ///
+  /// In es, this message translates to:
+  /// **'Reunión con contexto'**
+  String get vaultStarterProjectsMeetingHeading;
+
+  /// No description provided for @vaultStarterProjectsMeetingIntro.
+  ///
+  /// In es, this message translates to:
+  /// **'Plantilla para asistentes, agenda, decisiones y acciones con responsable.'**
+  String get vaultStarterProjectsMeetingIntro;
+
+  /// No description provided for @vaultStarterProjectsMeetingSection.
+  ///
+  /// In es, this message translates to:
+  /// **'Durante la reunión'**
+  String get vaultStarterProjectsMeetingSection;
+
+  /// No description provided for @vaultStarterProjectsMeetingBullet1.
+  ///
+  /// In es, this message translates to:
+  /// **'Anota decisiones en callouts para encontrarlas después.'**
+  String get vaultStarterProjectsMeetingBullet1;
+
+  /// No description provided for @vaultStarterProjectsMeetingBullet2.
+  ///
+  /// In es, this message translates to:
+  /// **'Convierte acuerdos en todos con fecha si aplica.'**
+  String get vaultStarterProjectsMeetingBullet2;
+
+  /// No description provided for @vaultStarterProjectsMeetingBullet3.
+  ///
+  /// In es, this message translates to:
+  /// **'Enlaza la reunión desde el hub del proyecto.'**
+  String get vaultStarterProjectsMeetingBullet3;
+
+  /// No description provided for @vaultStarterProjectsMeetingTodo1.
+  ///
+  /// In es, this message translates to:
+  /// **'Completar asistentes y agenda'**
+  String get vaultStarterProjectsMeetingTodo1;
+
+  /// No description provided for @vaultStarterProjectsMeetingTodo2.
+  ///
+  /// In es, this message translates to:
+  /// **'Registrar al menos una acción con responsable'**
+  String get vaultStarterProjectsMeetingTodo2;
+
+  /// No description provided for @vaultStarterProjectsMeetingCallout.
+  ///
+  /// In es, this message translates to:
+  /// **'Si grabas audio, puedes usar bloques de nota de reunión con transcripción.'**
+  String get vaultStarterProjectsMeetingCallout;
+
+  /// No description provided for @vaultStarterKnowledgeIndexTitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Índice de contenidos'**
+  String get vaultStarterKnowledgeIndexTitle;
+
+  /// No description provided for @vaultStarterKnowledgeIndexHeading.
+  ///
+  /// In es, this message translates to:
+  /// **'Mapa de tu conocimiento'**
+  String get vaultStarterKnowledgeIndexHeading;
+
+  /// No description provided for @vaultStarterKnowledgeIndexIntro.
+  ///
+  /// In es, this message translates to:
+  /// **'Página índice con enlaces a temas, áreas y colecciones de notas.'**
+  String get vaultStarterKnowledgeIndexIntro;
+
+  /// No description provided for @vaultStarterKnowledgeIndexSection.
+  ///
+  /// In es, this message translates to:
+  /// **'Cómo mantenerlo'**
+  String get vaultStarterKnowledgeIndexSection;
+
+  /// No description provided for @vaultStarterKnowledgeIndexBullet1.
+  ///
+  /// In es, this message translates to:
+  /// **'Agrupa por áreas amplias y enlaza fichas hijas.'**
+  String get vaultStarterKnowledgeIndexBullet1;
+
+  /// No description provided for @vaultStarterKnowledgeIndexBullet2.
+  ///
+  /// In es, this message translates to:
+  /// **'Añade una línea de resumen bajo cada enlace.'**
+  String get vaultStarterKnowledgeIndexBullet2;
+
+  /// No description provided for @vaultStarterKnowledgeIndexBullet3.
+  ///
+  /// In es, this message translates to:
+  /// **'Revisa el índice cuando crees páginas nuevas.'**
+  String get vaultStarterKnowledgeIndexBullet3;
+
+  /// No description provided for @vaultStarterKnowledgeIndexTodo1.
+  ///
+  /// In es, this message translates to:
+  /// **'Añadir tres temas al índice'**
+  String get vaultStarterKnowledgeIndexTodo1;
+
+  /// No description provided for @vaultStarterKnowledgeIndexTodo2.
+  ///
+  /// In es, this message translates to:
+  /// **'Crear la primera ficha de tema'**
+  String get vaultStarterKnowledgeIndexTodo2;
+
+  /// No description provided for @vaultStarterKnowledgeIndexCallout.
+  ///
+  /// In es, this message translates to:
+  /// **'Un buen índice reduce la fricción al buscar ideas antiguas.'**
+  String get vaultStarterKnowledgeIndexCallout;
+
+  /// No description provided for @vaultStarterKnowledgeTopicTitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Ficha de tema'**
+  String get vaultStarterKnowledgeTopicTitle;
+
+  /// No description provided for @vaultStarterKnowledgeTopicHeading.
+  ///
+  /// In es, this message translates to:
+  /// **'Profundizar en un concepto'**
+  String get vaultStarterKnowledgeTopicHeading;
+
+  /// No description provided for @vaultStarterKnowledgeTopicIntro.
+  ///
+  /// In es, this message translates to:
+  /// **'Estructura para definir, ejemplificar y enlazar un tema con otros.'**
+  String get vaultStarterKnowledgeTopicIntro;
+
+  /// No description provided for @vaultStarterKnowledgeTopicSection.
+  ///
+  /// In es, this message translates to:
+  /// **'Apartados sugeridos'**
+  String get vaultStarterKnowledgeTopicSection;
+
+  /// No description provided for @vaultStarterKnowledgeTopicBullet1.
+  ///
+  /// In es, this message translates to:
+  /// **'Definición breve y por qué importa.'**
+  String get vaultStarterKnowledgeTopicBullet1;
+
+  /// No description provided for @vaultStarterKnowledgeTopicBullet2.
+  ///
+  /// In es, this message translates to:
+  /// **'Ejemplos, contraejemplos y referencias.'**
+  String get vaultStarterKnowledgeTopicBullet2;
+
+  /// No description provided for @vaultStarterKnowledgeTopicBullet3.
+  ///
+  /// In es, this message translates to:
+  /// **'Preguntas abiertas o lagunas por investigar.'**
+  String get vaultStarterKnowledgeTopicBullet3;
+
+  /// No description provided for @vaultStarterKnowledgeTopicTodo1.
+  ///
+  /// In es, this message translates to:
+  /// **'Escribir la definición en una frase'**
+  String get vaultStarterKnowledgeTopicTodo1;
+
+  /// No description provided for @vaultStarterKnowledgeTopicTodo2.
+  ///
+  /// In es, this message translates to:
+  /// **'Enlazar dos temas relacionados'**
+  String get vaultStarterKnowledgeTopicTodo2;
+
+  /// No description provided for @vaultStarterKnowledgeTopicCallout.
+  ///
+  /// In es, this message translates to:
+  /// **'Las fichas maduran con el tiempo: vuelve a ellas tras leer o experimentar.'**
+  String get vaultStarterKnowledgeTopicCallout;
+
+  /// No description provided for @vaultStarterKnowledgeReadingTitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Notas de lectura'**
+  String get vaultStarterKnowledgeReadingTitle;
+
+  /// No description provided for @vaultStarterKnowledgeReadingHeading.
+  ///
+  /// In es, this message translates to:
+  /// **'Lo que estás leyendo'**
+  String get vaultStarterKnowledgeReadingHeading;
+
+  /// No description provided for @vaultStarterKnowledgeReadingIntro.
+  ///
+  /// In es, this message translates to:
+  /// **'Registra fuente, ideas clave y cómo aplicarlas en tu trabajo o estudio.'**
+  String get vaultStarterKnowledgeReadingIntro;
+
+  /// No description provided for @vaultStarterKnowledgeReadingSection.
+  ///
+  /// In es, this message translates to:
+  /// **'Plantilla'**
+  String get vaultStarterKnowledgeReadingSection;
+
+  /// No description provided for @vaultStarterKnowledgeReadingBullet1.
+  ///
+  /// In es, this message translates to:
+  /// **'Metadatos: título, autor y enlace.'**
+  String get vaultStarterKnowledgeReadingBullet1;
+
+  /// No description provided for @vaultStarterKnowledgeReadingBullet2.
+  ///
+  /// In es, this message translates to:
+  /// **'Tres ideas que quieras conservar.'**
+  String get vaultStarterKnowledgeReadingBullet2;
+
+  /// No description provided for @vaultStarterKnowledgeReadingBullet3.
+  ///
+  /// In es, this message translates to:
+  /// **'Una acción concreta tras terminar.'**
+  String get vaultStarterKnowledgeReadingBullet3;
+
+  /// No description provided for @vaultStarterKnowledgeReadingTodo1.
+  ///
+  /// In es, this message translates to:
+  /// **'Anotar la fuente actual'**
+  String get vaultStarterKnowledgeReadingTodo1;
+
+  /// No description provided for @vaultStarterKnowledgeReadingTodo2.
+  ///
+  /// In es, this message translates to:
+  /// **'Extraer al menos dos citas o ideas'**
+  String get vaultStarterKnowledgeReadingTodo2;
+
+  /// No description provided for @vaultStarterKnowledgeReadingCallout.
+  ///
+  /// In es, this message translates to:
+  /// **'Enlaza lecturas desde el índice para ver tu biblioteca viva.'**
+  String get vaultStarterKnowledgeReadingCallout;
+
+  /// No description provided for @vaultStarterJournalDailyTitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Diario diario'**
+  String get vaultStarterJournalDailyTitle;
+
+  /// No description provided for @vaultStarterJournalDailyHeading.
+  ///
+  /// In es, this message translates to:
+  /// **'Hoy en una página'**
+  String get vaultStarterJournalDailyHeading;
+
+  /// No description provided for @vaultStarterJournalDailyIntro.
+  ///
+  /// In es, this message translates to:
+  /// **'Espacio breve para registrar cómo fue el día, qué aprendiste y qué agradeces.'**
+  String get vaultStarterJournalDailyIntro;
+
+  /// No description provided for @vaultStarterJournalDailySection.
+  ///
+  /// In es, this message translates to:
+  /// **'Preguntas opcionales'**
+  String get vaultStarterJournalDailySection;
+
+  /// No description provided for @vaultStarterJournalDailyBullet1.
+  ///
+  /// In es, this message translates to:
+  /// **'¿Qué fue lo más importante hoy?'**
+  String get vaultStarterJournalDailyBullet1;
+
+  /// No description provided for @vaultStarterJournalDailyBullet2.
+  ///
+  /// In es, this message translates to:
+  /// **'¿Qué me costó más de lo esperado?'**
+  String get vaultStarterJournalDailyBullet2;
+
+  /// No description provided for @vaultStarterJournalDailyBullet3.
+  ///
+  /// In es, this message translates to:
+  /// **'¿Qué quiero repetir o evitar mañana?'**
+  String get vaultStarterJournalDailyBullet3;
+
+  /// No description provided for @vaultStarterJournalDailyTodo1.
+  ///
+  /// In es, this message translates to:
+  /// **'Escribir al menos tres líneas sobre hoy'**
+  String get vaultStarterJournalDailyTodo1;
+
+  /// No description provided for @vaultStarterJournalDailyTodo2.
+  ///
+  /// In es, this message translates to:
+  /// **'Añadir un momento destacado'**
+  String get vaultStarterJournalDailyTodo2;
+
+  /// No description provided for @vaultStarterJournalDailyCallout.
+  ///
+  /// In es, this message translates to:
+  /// **'La constancia importa más que la extensión: un párrafo honesto basta.'**
+  String get vaultStarterJournalDailyCallout;
+
+  /// No description provided for @vaultStarterJournalMonthlyTitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Reflexión mensual'**
+  String get vaultStarterJournalMonthlyTitle;
+
+  /// No description provided for @vaultStarterJournalMonthlyHeading.
+  ///
+  /// In es, this message translates to:
+  /// **'Mirada al mes'**
+  String get vaultStarterJournalMonthlyHeading;
+
+  /// No description provided for @vaultStarterJournalMonthlyIntro.
+  ///
+  /// In es, this message translates to:
+  /// **'Cierra el mes repasando logros, aprendizajes y ajustes para el siguiente.'**
+  String get vaultStarterJournalMonthlyIntro;
+
+  /// No description provided for @vaultStarterJournalMonthlySection.
+  ///
+  /// In es, this message translates to:
+  /// **'Bloques sugeridos'**
+  String get vaultStarterJournalMonthlySection;
+
+  /// No description provided for @vaultStarterJournalMonthlyBullet1.
+  ///
+  /// In es, this message translates to:
+  /// **'Tres momentos que quieras recordar.'**
+  String get vaultStarterJournalMonthlyBullet1;
+
+  /// No description provided for @vaultStarterJournalMonthlyBullet2.
+  ///
+  /// In es, this message translates to:
+  /// **'Un hábito que funcionó y otro a cambiar.'**
+  String get vaultStarterJournalMonthlyBullet2;
+
+  /// No description provided for @vaultStarterJournalMonthlyBullet3.
+  ///
+  /// In es, this message translates to:
+  /// **'Un objetivo realista para el mes entrante.'**
+  String get vaultStarterJournalMonthlyBullet3;
+
+  /// No description provided for @vaultStarterJournalMonthlyTodo1.
+  ///
+  /// In es, this message translates to:
+  /// **'Listar dos logros del mes'**
+  String get vaultStarterJournalMonthlyTodo1;
+
+  /// No description provided for @vaultStarterJournalMonthlyTodo2.
+  ///
+  /// In es, this message translates to:
+  /// **'Elegir un foco para el próximo mes'**
+  String get vaultStarterJournalMonthlyTodo2;
+
+  /// No description provided for @vaultStarterJournalMonthlyCallout.
+  ///
+  /// In es, this message translates to:
+  /// **'Puedes duplicar esta página cada mes y conservar el historial.'**
+  String get vaultStarterJournalMonthlyCallout;
+
+  /// No description provided for @vaultStarterStudyCourseTitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Apuntes de curso'**
+  String get vaultStarterStudyCourseTitle;
+
+  /// No description provided for @vaultStarterStudyCourseHeading.
+  ///
+  /// In es, this message translates to:
+  /// **'Un curso, una página raíz'**
+  String get vaultStarterStudyCourseHeading;
+
+  /// No description provided for @vaultStarterStudyCourseIntro.
+  ///
+  /// In es, this message translates to:
+  /// **'Organiza módulos, conceptos y ejercicios bajo una página de curso.'**
+  String get vaultStarterStudyCourseIntro;
+
+  /// No description provided for @vaultStarterStudyCourseSection.
+  ///
+  /// In es, this message translates to:
+  /// **'Estructura'**
+  String get vaultStarterStudyCourseSection;
+
+  /// No description provided for @vaultStarterStudyCourseBullet1.
+  ///
+  /// In es, this message translates to:
+  /// **'Resumen del temario y calendario.'**
+  String get vaultStarterStudyCourseBullet1;
+
+  /// No description provided for @vaultStarterStudyCourseBullet2.
+  ///
+  /// In es, this message translates to:
+  /// **'Subpáginas por tema o sesión.'**
+  String get vaultStarterStudyCourseBullet2;
+
+  /// No description provided for @vaultStarterStudyCourseBullet3.
+  ///
+  /// In es, this message translates to:
+  /// **'Lista de dudas pendientes.'**
+  String get vaultStarterStudyCourseBullet3;
+
+  /// No description provided for @vaultStarterStudyCourseTodo1.
+  ///
+  /// In es, this message translates to:
+  /// **'Nombrar el curso y el profesor o plataforma'**
+  String get vaultStarterStudyCourseTodo1;
+
+  /// No description provided for @vaultStarterStudyCourseTodo2.
+  ///
+  /// In es, this message translates to:
+  /// **'Crear la primera subpágina de tema'**
+  String get vaultStarterStudyCourseTodo2;
+
+  /// No description provided for @vaultStarterStudyCourseCallout.
+  ///
+  /// In es, this message translates to:
+  /// **'Combina apuntes con bloques de código o ecuación cuando haga falta.'**
+  String get vaultStarterStudyCourseCallout;
+
+  /// No description provided for @vaultStarterStudyPlanTitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Plan de estudio'**
+  String get vaultStarterStudyPlanTitle;
+
+  /// No description provided for @vaultStarterStudyPlanHeading.
+  ///
+  /// In es, this message translates to:
+  /// **'Esta semana de estudio'**
+  String get vaultStarterStudyPlanHeading;
+
+  /// No description provided for @vaultStarterStudyPlanIntro.
+  ///
+  /// In es, this message translates to:
+  /// **'Planifica sesiones, repasos y evaluaciones con todos y fechas.'**
+  String get vaultStarterStudyPlanIntro;
+
+  /// No description provided for @vaultStarterStudyPlanSection.
+  ///
+  /// In es, this message translates to:
+  /// **'Ritmo sugerido'**
+  String get vaultStarterStudyPlanSection;
+
+  /// No description provided for @vaultStarterStudyPlanBullet1.
+  ///
+  /// In es, this message translates to:
+  /// **'Bloques de estudio de 25–50 minutos.'**
+  String get vaultStarterStudyPlanBullet1;
+
+  /// No description provided for @vaultStarterStudyPlanBullet2.
+  ///
+  /// In es, this message translates to:
+  /// **'Repaso espaciado de temas anteriores.'**
+  String get vaultStarterStudyPlanBullet2;
+
+  /// No description provided for @vaultStarterStudyPlanBullet3.
+  ///
+  /// In es, this message translates to:
+  /// **'Simulacros o autoevaluación antes de exámenes.'**
+  String get vaultStarterStudyPlanBullet3;
+
+  /// No description provided for @vaultStarterStudyPlanTodo1.
+  ///
+  /// In es, this message translates to:
+  /// **'Definir tres sesiones de estudio'**
+  String get vaultStarterStudyPlanTodo1;
+
+  /// No description provided for @vaultStarterStudyPlanTodo2.
+  ///
+  /// In es, this message translates to:
+  /// **'Marcar el próximo repaso en el calendario'**
+  String get vaultStarterStudyPlanTodo2;
+
+  /// No description provided for @vaultStarterStudyPlanCallout.
+  ///
+  /// In es, this message translates to:
+  /// **'Ajusta el plan cada domingo: poco texto, mucha claridad.'**
+  String get vaultStarterStudyPlanCallout;
 }
 
 class _AppLocalizationsDelegate

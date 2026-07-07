@@ -393,7 +393,7 @@ class _FolioAppState extends State<FolioApp> with WidgetsBindingObserver {
         Firebase.apps.isNotEmpty &&
         FirebaseAuth.instance.currentUser != null &&
         _folioCloudEntitlements.snapshot.canUseCloudBackup;
-    final willDoFolder = prefs.folderEnabled && prefs.directory.isNotEmpty;
+    final willDoFolder = prefs.hasNetworkDestination;
     final willDoCloud = prefs.alsoCloud && canCloud;
     if (!willDoFolder && !willDoCloud) return;
     final intervalMs = prefs.intervalMinutes * 60 * 1000;

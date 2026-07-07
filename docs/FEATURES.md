@@ -606,6 +606,46 @@ El usuario puede añadir contexto al chat IA usando el menú `@` en el campo de 
 
 ---
 
+## 24.1 Copias en NAS / servidor externo
+
+Copias cifradas (ZIP con `vault.bin`, `vault.keys` y adjuntos) hacia destinos de red **sin depender de Folio Cloud**. Escritorio (Windows prioritario); no disponible en web.
+
+### Destinos
+
+| Destino | Protocolo | Credenciales |
+|---------|-----------|--------------|
+| **Carpeta de red** | SMB/UNC o unidad montada (`\\nas\share`, `Z:\backups`) | Usuario, contraseña y dominio opcionales (`WNetAddConnection2` en Windows) |
+| **WebDAV** | HTTP(S) WebDAV (`webdav_client`) | Usuario y contraseña (Basic auth); contraseña en `flutter_secure_storage` |
+
+Ambos pueden combinarse con la copia programada en **Folio Cloud** (suscripción).
+
+### Configuración (Ajustes › Libreta)
+
+- **Destino NAS o servidor** (carpeta de red y WebDAV): siempre visible; no requiere activar la copia programada. Sirve para restaurar, exportar manualmente o, si lo activas, incluir en copias automáticas.
+- **Copia cifrada programada**: interruptor aparte con intervalo y destinos activos en cada ejecución.
+
+- **Configurar carpeta de red** / **Configurar WebDAV**: diálogo con credenciales y probar conexión (visible sin copia programada).
+- **Copias a conservar** por destino (retención; por defecto 10), en el diálogo de configuración.
+- **Restaurar desde NAS o servidor**: listar ZIP `folio-scheduled-*` / `folio-backup-*`, descargar, importar como libreta nueva o sobrescribir la activa.
+- Exportación manual: elegir archivo local, carpeta/NAS o WebDAV si están configurados.
+
+### Implementación
+
+- Destinos: `lib/services/backup_destinations/` (`BackupDestination`, `LocalFolderDestination`, `WebDavDestination`, `BackupExportRunner`).
+- Credenciales: `lib/services/secure_credential_storage.dart`.
+- SMB Windows: MethodChannel `folio/smb_network` (`windows/runner/smb_network_plugin.cpp`).
+- Orquestación programada: `lib/services/vault_scheduled_local_export.dart`.
+- UI: `lib/features/settings/remote_backup_config_dialog.dart`, `remote_backup_restore_dialog.dart`.
+
+### Ugreen NAS (orientativo)
+
+1. Activar **SMB** y/o **WebDAV** en el panel del NAS.
+2. Crear usuario con permiso de escritura en la carpeta de destino.
+3. WebDAV: puertos habituales **5005** (HTTP) / **5006** (HTTPS).
+4. En Windows, para copias programadas sin unidad montada: ruta UNC + credenciales en Folio.
+
+---
+
 ## 25. Folio Cloud
 
 Capa **opcional** en la nube (Firebase + Stripe y/o Microsoft Store). El núcleo de la app —caja fuerte, editor, sincronización local entre dispositivos, IA local— funciona **sin** Folio Cloud; si Firebase no arranca o no hay proyecto configurado, estas rutas quedan deshabilitadas. Resumen orientado a producto: [README.md](../README.md) («Building without Folio Cloud»); despliegue y secretos: [FOLIO_CLOUD_SECRETS.md](FOLIO_CLOUD_SECRETS.md).
@@ -828,6 +868,8 @@ Picker con tres pestañas:
 Flujo de bienvenida (`lib/features/onboarding/`):
 
 - **Crear libreta nueva**: nombre, icono, opción de cifrado.
+- **Perfil de uso** (`onboardingUsageProfile*`): paso antes de finalizar la creación donde el usuario elige hasta 3 usos (notas, tareas, proyectos, base de conocimiento, diario, estudio). La selección se persiste en `AppSettings.usageIntents` (`folio_usage_intents`) y se reutiliza al crear libretas adicionales.
+- **Páginas iniciales personalizadas**: si el interruptor «Crear páginas iniciales de ayuda» está activo, `buildVaultStarterPages` (`lib/data/vault_starter_pages.dart` + catálogo en `vault_starter_catalog.dart`) genera **4–6 páginas** según el perfil: siempre «Empieza aquí» (intro y todos adaptados al uso principal), páginas del catálogo por perfil (p. ej. bandeja de ideas, panel de tareas, hub de proyectos), «Atajos y primeros pasos» si hay hueco, y «Quill y privacidad» solo si el onboarding incluyó el paso de introducción a Quill.
 - **Importar backup**: desde Folio Cloud (backup cifrado) o archivo local.
 - **Importar desde Notion**: ZIP exportado.
 
