@@ -122,78 +122,109 @@ Widget _buildEditableMarkdownBlockRow(_BlockRowScope s) {
           // Importante: mantener el QuillEditor SIEMPRE montado (misma
           // estructura), para evitar unmount mientras Quill tiene callbacks de
           // foco/IME pendientes (crash en Windows).
+          final hasMarkdownBlocks = _hasMarkdownBlockStructures(ctrl.text);
+          final isTransitioning = st._transitioningBlockIds.contains(block.id);
           final showPreviewOverlay =
-              !readOnlyMode && !focus.hasFocus && allowsSlash;
-          // Preview sin foco:
-          // - Debajo: Quill (readOnly) para conservar estilos avanzados (color/fondo/highlight).
-          // - Encima: Markdown preview para hit-testing de links internos (folio://open/...)
-          //   y para conservar comportamiento previo. El texto normal se hace
-          //   transparente para no tapar el render WYSIWYG; los links se mantienen
-          //   visibles/clicables.
-          final mdSheetTransparent = mdSheet.copyWith(
-            p: mdSheet.p?.copyWith(color: Colors.transparent),
-            strong: mdSheet.strong?.copyWith(color: Colors.transparent),
-            em: mdSheet.em?.copyWith(color: Colors.transparent),
-            del: mdSheet.del?.copyWith(color: Colors.transparent),
-            code: mdSheet.code?.copyWith(color: Colors.transparent),
-            // Links visibles para que el usuario sepa dónde clicar.
-            a: mdSheet.a,
-          );
+              !readOnlyMode && !focus.hasFocus && allowsSlash && !isTransitioning;
 
-          return Stack(
+          final showTransparentMarkdownPreview = showPreviewOverlay && !hasMarkdownBlocks;
+
+          final showQuillEditor = !showPreviewOverlay || showTransparentMarkdownPreview;
+
+           return Stack(
             children: [
-              Opacity(
-                opacity: showPreviewOverlay ? 0 : 1,
-                child: IgnorePointer(
-                  ignoring: showPreviewOverlay,
-                  child: editor,
+              Offstage(
+                offstage: !showQuillEditor,
+                child: NotificationListener<ScrollNotification>(
+                  onNotification: (notification) => true,
+                  child: Opacity(
+                    opacity: showQuillEditor ? 1 : 0,
+                    child: IgnorePointer(
+                      ignoring: !showQuillEditor,
+                      child: editor,
+                    ),
+                  ),
                 ),
               ),
               if (showPreviewOverlay)
-                Positioned.fill(
-                  child: Stack(
-                    children: [
-                      Align(
-                        alignment: isTopAlignedSlashBlock
-                            ? AlignmentDirectional.topStart
-                            : AlignmentDirectional.centerStart,
-                        child: quill.QuillEditor.basic(
-                          controller: c..readOnly = true,
-                          focusNode: st._folioQuillPreviewFocusFor(block.id),
-                          scrollController:
-                              st._folioQuillPreviewScrollFor(block.id),
-                          config: const quill.QuillEditorConfig(
-                            expands: false,
-                            padding: EdgeInsets.zero,
-                            scrollable: false,
-                            autoFocus: false,
-                            showCursor: false,
-                            enableInteractiveSelection: false,
+                showQuillEditor
+                    ? Positioned.fill(
+                        child: Stack(
+                          children: [
+                            if (showTransparentMarkdownPreview)
+                              Align(
+                                alignment: isTopAlignedSlashBlock
+                                    ? AlignmentDirectional.topStart
+                                    : AlignmentDirectional.centerStart,
+                                child: NotificationListener<ScrollNotification>(
+                                  onNotification: (notification) => true,
+                                  child: quill.QuillEditor.basic(
+                                    controller: c..readOnly = true,
+                                    focusNode: st._folioQuillPreviewFocusFor(block.id),
+                                    scrollController:
+                                        st._folioQuillPreviewScrollFor(block.id),
+                                    config: const quill.QuillEditorConfig(
+                                      expands: false,
+                                      padding: EdgeInsets.zero,
+                                      scrollable: false,
+                                      autoFocus: false,
+                                      showCursor: false,
+                                      enableInteractiveSelection: false,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            Positioned.fill(
+                              child: Align(
+                                alignment: isTopAlignedSlashBlock
+                                    ? AlignmentDirectional.topStart
+                                    : AlignmentDirectional.centerStart,
+                                child: NotificationListener<ScrollNotification>(
+                                  onNotification: (notification) => true,
+                                  child: FolioMarkdownPreview(
+                                    data: ctrl.text,
+                                    styleSheet: mdSheet,
+                                    onFolioPageLink: st._s.selectPage,
+                                    isTransparentPreview: showTransparentMarkdownPreview,
+                                  ),
+                                ),
+                              ),
+                            ),
+                            // Tap en cualquier zona no-link: entrar en edición.
+                            Positioned.fill(
+                              child: GestureDetector(
+                                behavior: HitTestBehavior.translucent,
+                                onTap: () => focus.requestFocus(),
+                              ),
+                            ),
+                          ],
+                        ),
+                      )
+                    : Stack(
+                        children: [
+                          Align(
+                            alignment: isTopAlignedSlashBlock
+                                ? AlignmentDirectional.topStart
+                                : AlignmentDirectional.centerStart,
+                            child: NotificationListener<ScrollNotification>(
+                              onNotification: (notification) => true,
+                              child: FolioMarkdownPreview(
+                                data: ctrl.text,
+                                styleSheet: mdSheet,
+                                onFolioPageLink: st._s.selectPage,
+                                isTransparentPreview: showTransparentMarkdownPreview,
+                              ),
+                            ),
                           ),
-                        ),
-                      ),
-                      Positioned.fill(
-                        child: Align(
-                          alignment: isTopAlignedSlashBlock
-                              ? AlignmentDirectional.topStart
-                              : AlignmentDirectional.centerStart,
-                          child: FolioMarkdownPreview(
-                            data: ctrl.text,
-                            styleSheet: mdSheetTransparent,
-                            onFolioPageLink: st._s.selectPage,
+                          // Tap en cualquier zona no-link: entrar en edición.
+                          Positioned.fill(
+                            child: GestureDetector(
+                              behavior: HitTestBehavior.translucent,
+                              onTap: () => focus.requestFocus(),
+                            ),
                           ),
-                        ),
+                        ],
                       ),
-                      // Tap en cualquier zona no-link: entrar en edición.
-                      Positioned.fill(
-                        child: GestureDetector(
-                          behavior: HitTestBehavior.translucent,
-                          onTap: () => focus.requestFocus(),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
             ],
           );
         }()
@@ -578,3 +609,29 @@ Widget _buildEditableMarkdownBlockRow(_BlockRowScope s) {
     ),
   );
 }
+
+bool _hasMarkdownBlockStructures(String text) {
+  final lines = text.split('\n');
+  final headingRegExp = RegExp(r'^#{1,6}\s+');
+  final bulletRegExp = RegExp(r'^(\s*)[-*+]\s+');
+  final numberedRegExp = RegExp(r'^(\s*)\d+\.\s+');
+  final blockquoteRegExp = RegExp(r'^>\s+');
+  final checklistRegExp = RegExp(r'^(\s*)[-*+]\s+\[[ xX]\]\s+');
+  final hrRegExp = RegExp(r'^([-*_])\1{2,}\s*$');
+
+  for (var line in lines) {
+    line = line.trimLeft();
+    if (headingRegExp.hasMatch(line) ||
+        blockquoteRegExp.hasMatch(line) ||
+        checklistRegExp.hasMatch(line) ||
+        bulletRegExp.hasMatch(line) ||
+        numberedRegExp.hasMatch(line) ||
+        hrRegExp.hasMatch(line) ||
+        line.startsWith('```') ||
+        line.contains('|')) {
+      return true;
+    }
+  }
+  return false;
+}
+

@@ -141,6 +141,7 @@ class FolioMarkdownPreview extends StatelessWidget {
     required this.styleSheet,
     this.onTapLink,
     this.onFolioPageLink,
+    this.isTransparentPreview = false,
   });
 
   final String data;
@@ -152,6 +153,8 @@ class FolioMarkdownPreview extends StatelessWidget {
   /// Enlaces `folio://open/…` navegan a la página de la libreta.
   final void Function(String pageId)? onFolioPageLink;
 
+  final bool isTransparentPreview;
+
   static Future<void> _defaultOpenExternal(String? href) async {
     if (href == null || href.isEmpty) return;
     final u = Uri.tryParse(href);
@@ -160,6 +163,32 @@ class FolioMarkdownPreview extends StatelessWidget {
     if (await canLaunchUrl(u)) {
       await launchUrl(u, mode: LaunchMode.externalApplication);
     }
+  }
+
+  MarkdownStyleSheet _buildTransparentStyleSheet(MarkdownStyleSheet sheet) {
+    TextStyle? makeTrans(TextStyle? style) =>
+        style?.copyWith(color: Colors.transparent, backgroundColor: Colors.transparent);
+    return sheet.copyWith(
+      p: makeTrans(sheet.p),
+      h1: makeTrans(sheet.h1),
+      h2: makeTrans(sheet.h2),
+      h3: makeTrans(sheet.h3),
+      h4: makeTrans(sheet.h4),
+      h5: makeTrans(sheet.h5),
+      h6: makeTrans(sheet.h6),
+      strong: makeTrans(sheet.strong),
+      em: makeTrans(sheet.em),
+      del: makeTrans(sheet.del),
+      code: makeTrans(sheet.code),
+      blockquote: makeTrans(sheet.blockquote),
+      listBullet: makeTrans(sheet.listBullet),
+      tableHead: makeTrans(sheet.tableHead),
+      tableBody: makeTrans(sheet.tableBody),
+      blockquoteDecoration: const BoxDecoration(),
+      codeblockDecoration: const BoxDecoration(),
+      horizontalRuleDecoration: const BoxDecoration(),
+      tableBorder: const TableBorder(),
+    );
   }
 
   @override
@@ -172,29 +201,39 @@ class FolioMarkdownPreview extends StatelessWidget {
       }
     }
 
+    final effectiveStyleSheet = isTransparentPreview
+        ? _buildTransparentStyleSheet(styleSheet)
+        : styleSheet;
+
     return SingleChildScrollView(
       // Evita overflows cuando el preview se renderiza dentro de una altura fija
       // y permite desplazar contenido largo (p. ej., tablas).
-      physics: const ClampingScrollPhysics(),
+      physics: const NeverScrollableScrollPhysics(),
+      primary: false,
       clipBehavior: Clip.hardEdge,
       child: MarkdownBody(
         data: folioSanitizeMarkdownForPreview(data),
-        styleSheet: styleSheet,
+        styleSheet: effectiveStyleSheet,
         shrinkWrap: true,
         fitContent: true,
         softLineBreak: true,
         selectable: false,
         extensionSet: md.ExtensionSet.gitHubFlavored,
+        checkboxBuilder: isTransparentPreview
+            ? (bool value) => const SizedBox.shrink()
+            : null,
         builders: {
           'a': _FolioMarkdownAnchorBuilder(
             onTapLink: wrappedTap,
             onFolioPageLink: onFolioPageLink,
+            isTransparent: isTransparentPreview,
           ),
-          'pre': FolioMermaidMarkdownBuilder(),
+          'pre': FolioMermaidMarkdownBuilder(isTransparent: isTransparentPreview),
           'blockquote': _FolioMarkdownBlockquoteBuilder(
-            styleSheet: styleSheet,
+            styleSheet: effectiveStyleSheet,
             onTapLink: wrappedTap,
             onFolioPageLink: onFolioPageLink,
+            isTransparent: isTransparentPreview,
           ),
         },
       ),
@@ -213,10 +252,15 @@ const String folioLinkMetaDataTag = 'folio.link';
 const String folioInteractiveMetaDataTag = 'folio.interactive';
 
 class _FolioMarkdownAnchorBuilder extends MarkdownElementBuilder {
-  _FolioMarkdownAnchorBuilder({required this.onTapLink, this.onFolioPageLink});
+  _FolioMarkdownAnchorBuilder({
+    required this.onTapLink,
+    this.onFolioPageLink,
+    this.isTransparent = false,
+  });
 
   final void Function(String text, String? href, String title) onTapLink;
   final void Function(String pageId)? onFolioPageLink;
+  final bool isTransparent;
 
   @override
   Widget? visitElementAfterWithContext(
@@ -247,7 +291,7 @@ class _FolioMarkdownAnchorBuilder extends MarkdownElementBuilder {
     }
 
     final yt = folioYoutubeVideoIdFromUrl(href);
-    if (yt != null) {
+    if (yt != null && !isTransparent) {
       return Padding(
         padding: const EdgeInsets.symmetric(vertical: 6),
         child: FolioYoutubePreviewCard(
@@ -280,11 +324,13 @@ class _FolioMarkdownBlockquoteBuilder extends MarkdownElementBuilder {
     required this.styleSheet,
     required this.onTapLink,
     this.onFolioPageLink,
+    this.isTransparent = false,
   });
 
   final MarkdownStyleSheet styleSheet;
   final void Function(String text, String? href, String title) onTapLink;
   final void Function(String pageId)? onFolioPageLink;
+  final bool isTransparent;
 
   @override
   Widget? visitElementAfterWithContext(
@@ -305,41 +351,51 @@ class _FolioMarkdownBlockquoteBuilder extends MarkdownElementBuilder {
       softLineBreak: true,
       styleSheet: styleSheet,
       extensionSet: md.ExtensionSet.gitHubFlavored,
+      checkboxBuilder: isTransparent
+          ? (bool value) => const SizedBox.shrink()
+          : null,
       builders: {
         'a': _FolioMarkdownAnchorBuilder(
           onTapLink: onTapLink,
           onFolioPageLink: onFolioPageLink,
+          isTransparent: isTransparent,
         ),
-        'pre': FolioMermaidMarkdownBuilder(),
+        'pre': FolioMermaidMarkdownBuilder(isTransparent: isTransparent),
       },
     );
     if (alert == null) {
       return Container(
         padding: const EdgeInsets.only(left: 10, top: 2, bottom: 2),
-        decoration: BoxDecoration(
-          border: Border(
-            left: BorderSide(
-              color: scheme.outlineVariant.withValues(alpha: 0.85),
-              width: 3,
-            ),
-          ),
-        ),
+        decoration: isTransparent
+            ? const BoxDecoration()
+            : BoxDecoration(
+                border: Border(
+                  left: BorderSide(
+                    color: scheme.outlineVariant.withValues(alpha: 0.85),
+                    width: 3,
+                  ),
+                ),
+              ),
         child: child,
       );
     }
     return Container(
       margin: const EdgeInsets.symmetric(vertical: 4),
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-      decoration: BoxDecoration(
-        color: scheme.primaryContainer.withValues(alpha: 0.28),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: scheme.primaryContainer),
-      ),
+      decoration: isTransparent
+          ? const BoxDecoration()
+          : BoxDecoration(
+              color: scheme.primaryContainer.withValues(alpha: 0.28),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: scheme.primaryContainer),
+            ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(alert.icon, style: const TextStyle(fontSize: 18)),
-          const SizedBox(width: 8),
+          if (!isTransparent) ...[
+            Text(alert.icon, style: const TextStyle(fontSize: 18)),
+            const SizedBox(width: 8),
+          ],
           Expanded(child: child),
         ],
       ),

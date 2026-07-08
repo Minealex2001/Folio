@@ -84,6 +84,7 @@ class BlockEditorState extends State<BlockEditor> with _BlockRowBuild {
   int? _pendingCursorOffset;
   String? _pendingFocusBlockId;
   final Set<String> _selectedBlockIds = <String>{};
+  final Set<String> _transitioningBlockIds = <String>{};
   String? _selectionAnchorBlockId;
   bool _dragSelectionActive = false;
   String? _dragSelectionOriginBlockId;
@@ -2876,8 +2877,15 @@ class BlockEditorState extends State<BlockEditor> with _BlockRowBuild {
     } else if (!_isBlockSelected(blockId) || _selectedBlockIds.length > 1) {
       _selectOnlyBlock(blockId);
     }
-    if (requestFocus) {
-      focusNode?.requestFocus();
+    if (requestFocus && focusNode != null) {
+      _transitioningBlockIds.add(blockId);
+      setState(() {});
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        focusNode.requestFocus();
+        _transitioningBlockIds.remove(blockId);
+        setState(() {});
+      });
     }
   }
 
