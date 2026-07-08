@@ -2000,6 +2000,11 @@ exports.createCheckoutSession = (0, https_1.onCall)({ invoker: "public" }, async
                     metadata: { firebase_uid: uid },
                 }
                 : undefined,
+            managed_payments: {
+                enabled: true,
+            },
+        }, {
+            apiVersion: "2025-03-31.basil",
         });
     }
     catch (e) {
@@ -3155,7 +3160,7 @@ exports.folioJiraExchangeOAuth = (0, https_2.onRequest)({ cors: true, memory: "2
  * Sin autenticación Firebase: no incluir datos de libreta; solo metadatos y trozo de log.
  */
 exports.folioReportDiagnostic = (0, https_2.onRequest)({ cors: true, memory: "256MiB", invoker: "public" }, async (req, res) => {
-    var _a, _b, _c, _d, _e, _f, _g, _h;
+    var _a, _b, _c, _d, _e, _f, _g, _h, _j, _k, _l;
     res.set("Access-Control-Allow-Origin", "*");
     res.set("Access-Control-Allow-Headers", "Content-Type");
     res.set("Access-Control-Allow-Methods", "POST, OPTIONS");
@@ -3189,18 +3194,69 @@ exports.folioReportDiagnostic = (0, https_2.onRequest)({ cors: true, memory: "25
         return;
     }
     try {
-        await db.collection("folio_diagnostics").add({
-            createdAt: FieldValue.serverTimestamp(),
-            installId,
-            kind,
-            appVersion,
-            platform,
-            channel,
-            userNote,
-            logExcerpt,
-            telemetryEnabled: Boolean(raw.telemetryEnabled),
-        });
-        res.status(200).json({ ok: true });
+        const ytBaseUrl = ((_j = process.env.YOUTRACK_BASE_URL) !== null && _j !== void 0 ? _j : "").trim();
+        const ytToken = ((_k = process.env.YOUTRACK_TOKEN) !== null && _k !== void 0 ? _k : "").trim();
+        const ytProjectId = ((_l = process.env.YOUTRACK_PROJECT_ID) !== null && _l !== void 0 ? _l : "").trim();
+        let savedToYouTrack = false;
+        if (ytBaseUrl && ytToken && ytProjectId) {
+            const cleanBaseUrl = ytBaseUrl.replace(/\/+$/, "");
+            const summary = `Diagnostic Report (${kind}): ${platform} - ${appVersion}`;
+            const description = [
+                `# Diagnostic Report`,
+                `**Install ID:** ${installId}`,
+                `**Kind:** ${kind}`,
+                `**App Version:** ${appVersion}`,
+                `**Platform:** ${platform}`,
+                `**Channel:** ${channel}`,
+                `**Telemetry Enabled:** ${Boolean(raw.telemetryEnabled)}`,
+                ``,
+                `## User Note`,
+                userNote ? userNote : `*No user note provided*`,
+                ``,
+                `## Log Excerpt`,
+                `\`\`\``,
+                logExcerpt ? logExcerpt : `*No logs provided*`,
+                `\`\`\``
+            ].join("\n");
+            try {
+                const ytResponse = await fetch(`${cleanBaseUrl}/api/issues`, {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json",
+                        Authorization: `Bearer ${ytToken}`,
+                    },
+                    body: JSON.stringify({
+                        project: { id: ytProjectId },
+                        summary,
+                        description,
+                    }),
+                });
+                if (ytResponse.ok) {
+                    savedToYouTrack = true;
+                }
+                else {
+                    const errText = await ytResponse.text();
+                    console.error(`YouTrack issue creation failed: ${ytResponse.status} ${errText}`);
+                }
+            }
+            catch (ytErr) {
+                console.error("YouTrack integration error", ytErr);
+            }
+        }
+        if (!savedToYouTrack) {
+            await db.collection("folio_diagnostics").add({
+                createdAt: FieldValue.serverTimestamp(),
+                installId,
+                kind,
+                appVersion,
+                platform,
+                channel,
+                userNote,
+                logExcerpt,
+                telemetryEnabled: Boolean(raw.telemetryEnabled),
+            });
+        }
+        res.status(200).json({ ok: true, savedToYouTrack });
     }
     catch (e) {
         console.error("folioReportDiagnostic", e);

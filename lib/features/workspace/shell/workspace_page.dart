@@ -18,12 +18,12 @@ import 'package:url_launcher/url_launcher.dart';
 import 'package:uuid/uuid.dart';
 
 import '../../../app/app_settings.dart';
-import '../../../app/folio_distribution.dart';
 import '../../../app/folio_in_app_shortcuts.dart';
 import '../../../app/ui_tokens.dart';
 import '../../../app/widgets/folio_cloud_ai_ink_dialog.dart';
 import '../../../app/widgets/folio_dialog.dart';
 import '../../../app/widgets/folio_feedback.dart';
+import '../../../app/widgets/folio_in_app_checkout_dialog.dart';
 import '../../../models/folio_page.dart';
 import '../../../models/block.dart';
 import '../../../models/folio_columns_data.dart';
@@ -36,9 +36,6 @@ import '../../../services/ai/folio_cloud_ai_service.dart';
 import '../../../services/cloud_account/cloud_account_controller.dart';
 import '../../../services/collab/collab_session_controller.dart';
 import '../../../services/folio_cloud/folio_cloud_checkout.dart';
-import '../../../services/folio_cloud/folio_cloud_purchase_channel_dialog.dart';
-import '../../../services/folio_cloud/folio_microsoft_store_channel.dart';
-import '../../../services/folio_cloud/folio_microsoft_store_sync.dart';
 import '../../../services/folio_cloud/folio_cloud_ai_pricing.dart';
 import '../../../services/folio_cloud/folio_cloud_entitlements.dart';
 import '../../../services/folio_cloud/folio_cloud_publish.dart';
@@ -1653,31 +1650,8 @@ class _WorkspacePageState extends State<WorkspacePage> {
 
   Future<void> _openFolioCloudMonthlyCheckout() async {
     if (_folioCloudCheckoutBusy) return;
-    var channel = FolioCloudPurchaseChannel.stripeInBrowser;
-    if (FolioMicrosoftStoreChannel.isRuntimeSupported &&
-        FolioDistribution.showMicrosoftStoreIntegration) {
-      final pick = await showFolioCloudPurchaseChannelDialog(
-        context,
-        checkoutKind: FolioCheckoutKind.folioCloudMonthly,
-      );
-      if (!mounted) return;
-      if (pick == null) return;
-      channel = pick;
-    }
     setState(() => _folioCloudCheckoutBusy = true);
     try {
-      final l10n = AppLocalizations.of(context);
-      if (channel == FolioCloudPurchaseChannel.microsoftStore) {
-        try {
-          await purchaseMicrosoftStoreMonthlyIfConfigured();
-          if (mounted) {
-            _snack(l10n.folioCloudMicrosoftStoreAppliedSnack);
-          }
-        } catch (e) {
-          _snack('$e', error: true);
-        }
-        return;
-      }
       final uri = await createFolioCheckoutUri(
         FolioCheckoutKind.folioCloudMonthly,
       );
@@ -1691,14 +1665,34 @@ class _WorkspacePageState extends State<WorkspacePage> {
         );
         return;
       }
-      final ok = await launchUrl(uri, mode: LaunchMode.externalApplication);
-      if (!ok) {
-        _snack(
-          _t('No se pudo abrir el enlace.', 'Could not open the link.'),
-          error: true,
+      if (FolioInAppCheckoutDialog.isSupported) {
+        if (!mounted) return;
+        final success = await showDialog<bool>(
+          context: context,
+          builder: (ctx) => FolioInAppCheckoutDialog(
+            url: uri.toString(),
+            scheme: Theme.of(context).colorScheme,
+          ),
         );
+        if (success == true && mounted) {
+          _snack(
+            _t(
+              'Suscripción activada con éxito.',
+              'Subscription successfully activated.',
+            ),
+          );
+          await widget.folioCloudEntitlements.refreshFolioCloudBillingFromServers();
+        }
       } else {
-        widget.folioCloudEntitlements.scheduleStripeSyncOnNextResume();
+        final ok = await launchUrl(uri, mode: LaunchMode.externalApplication);
+        if (!ok) {
+          _snack(
+            _t('No se pudo abrir el enlace.', 'Could not open the link.'),
+            error: true,
+          );
+        } else {
+          widget.folioCloudEntitlements.scheduleStripeSyncOnNextResume();
+        }
       }
     } catch (e) {
       _snack('$e', error: true);

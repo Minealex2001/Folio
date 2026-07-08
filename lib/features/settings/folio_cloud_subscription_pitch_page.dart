@@ -53,6 +53,15 @@ class _FolioCloudSubscriptionPitchPageState
     super.dispose();
   }
 
+  String _t(String es, String en) {
+    try {
+      final code = Localizations.localeOf(context).languageCode;
+      return code == 'es' ? es : en;
+    } catch (_) {
+      return en;
+    }
+  }
+
   Animation<double> _interval(double begin, double end, {Curve curve = Curves.easeOutCubic}) {
     return CurvedAnimation(
       parent: _entrance,
@@ -101,21 +110,28 @@ class _FolioCloudSubscriptionPitchPageState
         animation: anim,
         slideY: 0.04,
         child: Container(
-          padding: const EdgeInsets.all(16),
+          padding: const EdgeInsets.all(18),
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(FolioRadius.xl),
             gradient: LinearGradient(
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
               colors: [
-                scheme.surfaceContainerHighest.withValues(alpha: 0.92),
-                scheme.surface.withValues(alpha: 0.98),
+                scheme.surface.withValues(alpha: 0.75),
+                scheme.surfaceContainerHighest.withValues(alpha: 0.4),
               ],
             ),
             border: Border.all(
-              color: scheme.outlineVariant.withValues(alpha: 0.35),
+              color: scheme.primary.withValues(alpha: 0.15),
+              width: 1.2,
             ),
-            boxShadow: FolioShadows.card(scheme),
+            boxShadow: [
+              BoxShadow(
+                color: scheme.primary.withValues(alpha: 0.06),
+                blurRadius: 20,
+                offset: const Offset(0, 8),
+              ),
+            ],
           ),
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -316,6 +332,77 @@ class _FolioCloudSubscriptionPitchPageState
               textAlign: wide ? TextAlign.left : TextAlign.center,
             ),
           ),
+          const SizedBox(height: FolioSpace.md),
+          _fadeSlide(
+            animation: subAnim,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(FolioRadius.xl),
+                gradient: LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [
+                    scheme.primaryContainer.withValues(alpha: 0.35),
+                    scheme.surface.withValues(alpha: 0.15),
+                  ],
+                ),
+                border: Border.all(
+                  color: scheme.primary.withValues(alpha: 0.35),
+                  width: 1.2,
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: scheme.primary.withValues(alpha: 0.08),
+                    blurRadius: 16,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                mainAxisAlignment: wide ? MainAxisAlignment.start : MainAxisAlignment.center,
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: scheme.primary.withValues(alpha: 0.15),
+                      shape: BoxShape.circle,
+                    ),
+                    child: Icon(
+                      Icons.workspace_premium_rounded,
+                      color: scheme.primary,
+                      size: 24,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Flexible(
+                    child: Column(
+                      crossAxisAlignment: wide ? CrossAxisAlignment.start : CrossAxisAlignment.center,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          _t('Plan Premium Mensual', 'Monthly Premium Plan'),
+                          style: theme.textTheme.labelMedium?.copyWith(
+                            color: scheme.onSurfaceVariant,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          l10n.folioCloudSubscribeMonthly,
+                          style: theme.textTheme.titleMedium?.copyWith(
+                            fontWeight: FontWeight.w900,
+                            letterSpacing: -0.2,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
           const SizedBox(height: FolioSpace.xl),
           _fadeSlide(
             animation: ctaAnim,
@@ -483,28 +570,28 @@ class _FolioCloudSubscriptionPitchPageState
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
                   colors: [
-                    Color.lerp(scheme.primaryContainer, scheme.surface, 0.35)!,
+                    Color.lerp(scheme.primaryContainer, scheme.surface, 0.2)!,
                     scheme.surface,
-                    Color.lerp(scheme.tertiaryContainer, scheme.surface, 0.55)!,
+                    Color.lerp(scheme.tertiaryContainer, scheme.surface, 0.4)!,
                   ],
-                  stops: const [0.0, 0.42, 1.0],
+                  stops: const [0.0, 0.5, 1.0],
                 ),
               ),
             ),
           ),
           // Orbes decorativos
           Positioned(
-            top: -60,
-            right: -30,
+            top: -120,
+            right: -60,
             child: IgnorePointer(
               child: Container(
-                width: 240,
-                height: 240,
+                width: 360,
+                height: 360,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
                   gradient: RadialGradient(
                     colors: [
-                      scheme.primary.withValues(alpha: 0.22),
+                      scheme.primary.withValues(alpha: 0.3),
                       scheme.primary.withValues(alpha: 0.0),
                     ],
                   ),
@@ -513,18 +600,37 @@ class _FolioCloudSubscriptionPitchPageState
             ),
           ),
           Positioned(
-            top: 120,
-            left: -50,
+            top: 180,
+            left: -100,
             child: IgnorePointer(
               child: Container(
-                width: 200,
-                height: 200,
+                width: 300,
+                height: 300,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
                   gradient: RadialGradient(
                     colors: [
-                      scheme.tertiary.withValues(alpha: 0.18),
+                      scheme.tertiary.withValues(alpha: 0.25),
                       scheme.tertiary.withValues(alpha: 0.0),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+          Positioned(
+            bottom: -80,
+            right: 40,
+            child: IgnorePointer(
+              child: Container(
+                width: 280,
+                height: 280,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  gradient: RadialGradient(
+                    colors: [
+                      scheme.secondary.withValues(alpha: 0.15),
+                      scheme.secondary.withValues(alpha: 0.0),
                     ],
                   ),
                 ),

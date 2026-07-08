@@ -23,6 +23,7 @@ import '../../app/widgets/folio_dialog.dart';
 import '../../app/widgets/folio_icon_token_view.dart';
 import '../../app/widgets/folio_password_field.dart';
 import '../../app/widgets/vault_backup_progress_dialog.dart';
+import '../../app/widgets/folio_in_app_checkout_dialog.dart';
 import 'in_app_shortcut_capture_dialog.dart';
 import '../../crypto/vault_crypto.dart';
 import '../../data/notion_import/notion_importer.dart';
@@ -45,9 +46,6 @@ import '../../services/folio_cloud/folio_cloud_pack_sync.dart';
 import '../../services/folio_cloud/folio_cloud_billing.dart';
 import '../../services/folio_cloud/folio_cloud_checkout.dart';
 import '../../services/folio_cloud/folio_cloud_entitlements.dart';
-import '../../services/folio_cloud/folio_microsoft_store_channel.dart';
-import '../../services/folio_cloud/folio_microsoft_store_sync.dart';
-import '../../services/folio_cloud/folio_cloud_purchase_channel_dialog.dart';
 import '../../services/folio_cloud/folio_cloud_ai_pricing.dart';
 import '../../services/folio_cloud/folio_cloud_publish.dart';
 import '../../services/folio_cloud/folio_web_portal_api.dart';
@@ -1930,9 +1928,23 @@ class _SettingsPageState extends State<SettingsPage> {
         _snack(l10n.settingsStripeBillingPortalUnavailable);
         return;
       }
-      final ok = await launchUrl(uri, mode: LaunchMode.externalApplication);
-      if (!ok) {
-        _snack(l10n.settingsCouldNotOpenLink);
+      if (FolioInAppCheckoutDialog.isSupported) {
+        if (!mounted) return;
+        await showDialog<bool>(
+          context: context,
+          builder: (ctx) => FolioInAppCheckoutDialog(
+            url: uri.toString(),
+            scheme: Theme.of(context).colorScheme,
+          ),
+        );
+        if (mounted) {
+          await _folio.refreshFolioCloudBillingFromServers();
+        }
+      } else {
+        final ok = await launchUrl(uri, mode: LaunchMode.externalApplication);
+        if (!ok) {
+          _snack(l10n.settingsCouldNotOpenLink);
+        }
       }
     } catch (e) {
       _snack('$e');
@@ -2202,68 +2214,40 @@ class _SettingsPageState extends State<SettingsPage> {
       _snack(l10n.settingsStripeCheckoutUnavailable);
       return;
     }
-    final ok = await launchUrl(uri, mode: LaunchMode.externalApplication);
-    if (!ok) {
-      _snack(l10n.settingsCouldNotOpenLink);
+    if (FolioInAppCheckoutDialog.isSupported) {
+      if (!mounted) return;
+      final success = await showDialog<bool>(
+        context: context,
+        builder: (ctx) => FolioInAppCheckoutDialog(
+          url: uri.toString(),
+          scheme: Theme.of(context).colorScheme,
+        ),
+      );
+      if (success == true && mounted) {
+        _snack(
+          Localizations.localeOf(context).languageCode == 'es'
+              ? 'Pago completado con éxito.'
+              : 'Payment completed successfully.',
+        );
+        await _folio.refreshFolioCloudBillingFromServers();
+      }
     } else {
-      _folio.scheduleStripeSyncOnNextResume();
+      final ok = await launchUrl(uri, mode: LaunchMode.externalApplication);
+      if (!ok) {
+        _snack(l10n.settingsCouldNotOpenLink);
+      } else {
+        _folio.scheduleStripeSyncOnNextResume();
+      }
     }
   }
 
   Future<void> _openFolioCheckout(FolioCheckoutKind kind) async {
     if (_folioCloudActionBusy) return;
-    var channel = FolioCloudPurchaseChannel.stripeInBrowser;
-    if (FolioMicrosoftStoreChannel.isRuntimeSupported &&
-        FolioDistribution.showMicrosoftStoreIntegration) {
-      final pick = await showFolioCloudPurchaseChannelDialog(
-        context,
-        checkoutKind: kind,
-      );
-      if (!mounted) return;
-      if (pick == null) return;
-      channel = pick;
-    }
-    final l10n = AppLocalizations.of(context);
     setState(() => _folioCloudActionBusy = true);
     try {
-      if (channel == FolioCloudPurchaseChannel.microsoftStore) {
-        try {
-          switch (kind) {
-            case FolioCheckoutKind.folioCloudMonthly:
-              await purchaseMicrosoftStoreMonthlyIfConfigured();
-            case FolioCheckoutKind.inkSmall:
-              await purchaseMicrosoftStoreInk(FolioMicrosoftStoreInkKind.small);
-            case FolioCheckoutKind.inkMedium:
-              await purchaseMicrosoftStoreInk(
-                FolioMicrosoftStoreInkKind.medium,
-              );
-            case FolioCheckoutKind.inkLarge:
-              await purchaseMicrosoftStoreInk(FolioMicrosoftStoreInkKind.large);
-            case FolioCheckoutKind.backupStoragePackSmall:
-              await purchaseMicrosoftStoreBackupStorage(
-                FolioMicrosoftStoreBackupStorageKind.small,
-              );
-            case FolioCheckoutKind.backupStoragePackMedium:
-              await purchaseMicrosoftStoreBackupStorage(
-                FolioMicrosoftStoreBackupStorageKind.medium,
-              );
-            case FolioCheckoutKind.backupStoragePackLarge:
-              await purchaseMicrosoftStoreBackupStorage(
-                FolioMicrosoftStoreBackupStorageKind.large,
-              );
-          }
-          if (!mounted) return;
-          _snack(l10n.folioCloudMicrosoftStoreAppliedSnack);
-        } catch (e) {
-          if (mounted) _snack('$e');
-        }
-      } else {
-        try {
-          await _completeStripeFolioCheckout(kind);
-        } catch (e) {
-          if (mounted) _snack('$e');
-        }
-      }
+      await _completeStripeFolioCheckout(kind);
+    } catch (e) {
+      if (mounted) _snack('$e');
     } finally {
       if (mounted) setState(() => _folioCloudActionBusy = false);
     }
@@ -4698,11 +4682,7 @@ class _SettingsPageState extends State<SettingsPage> {
                                           l10n: l10n,
                                           snap: _folio.snapshot,
                                           busy: _folioCloudActionBusy,
-                                          showMicrosoftStoreBillingNote:
-                                              FolioMicrosoftStoreChannel
-                                                  .isRuntimeSupported &&
-                                              FolioDistribution
-                                                  .showMicrosoftStoreIntegration,
+                                          showMicrosoftStoreBillingNote: false,
                                           onSubscribeMonthly: () =>
                                               _openFolioCheckout(
                                                 FolioCheckoutKind
@@ -10914,6 +10894,41 @@ class _FolioCloudSubscriptionPanel extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
 
+    Widget membershipChip({required IconData icon, required String label}) {
+      return Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+        decoration: BoxDecoration(
+          color: snap.active
+              ? Colors.white.withValues(alpha: 0.15)
+              : scheme.surfaceContainerLowest.withValues(alpha: 0.75),
+          borderRadius: BorderRadius.circular(999),
+          border: Border.all(
+            color: snap.active
+                ? Colors.white.withValues(alpha: 0.22)
+                : scheme.outlineVariant.withValues(alpha: 0.32),
+          ),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              icon,
+              size: 14,
+              color: snap.active ? Colors.white : scheme.onSurfaceVariant,
+            ),
+            const SizedBox(width: 6),
+            Text(
+              label,
+              style: theme.textTheme.labelMedium?.copyWith(
+                color: snap.active ? Colors.white : scheme.onSurface,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
     String fmtStorageBytes(int b) {
       if (b < 1024) return '$b B';
       final kb = b / 1024;
@@ -10953,20 +10968,47 @@ class _FolioCloudSubscriptionPanel extends StatelessWidget {
             children: [
               // Hero: subscription
               Container(
-                padding: const EdgeInsets.all(14),
+                padding: const EdgeInsets.all(18),
                 decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                    colors: [
-                      scheme.primaryContainer.withValues(alpha: 0.55),
-                      scheme.surfaceContainerHigh,
-                    ],
-                  ),
+                  gradient: snap.active
+                      ? LinearGradient(
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                          colors: [
+                            scheme.primary,
+                            scheme.tertiary,
+                          ],
+                        )
+                      : LinearGradient(
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                          colors: [
+                            scheme.surfaceContainerHighest.withValues(alpha: 0.5),
+                            scheme.surfaceContainerHigh.withValues(alpha: 0.95),
+                          ],
+                        ),
                   borderRadius: BorderRadius.circular(FolioRadius.xl),
                   border: Border.all(
-                    color: scheme.outlineVariant.withValues(alpha: 0.45),
+                    color: snap.active
+                        ? scheme.primary.withValues(alpha: 0.5)
+                        : scheme.outlineVariant.withValues(alpha: 0.45),
+                    width: 1.5,
                   ),
+                  boxShadow: snap.active
+                      ? [
+                          BoxShadow(
+                            color: scheme.primary.withValues(alpha: 0.25),
+                            blurRadius: 20,
+                            offset: const Offset(0, 8),
+                          ),
+                        ]
+                      : [
+                          BoxShadow(
+                            color: scheme.shadow.withValues(alpha: 0.04),
+                            blurRadius: 12,
+                            offset: const Offset(0, 4),
+                          ),
+                        ],
                 ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -10975,18 +11017,23 @@ class _FolioCloudSubscriptionPanel extends StatelessWidget {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Container(
-                          width: 44,
-                          height: 44,
+                          width: 46,
+                          height: 46,
                           decoration: BoxDecoration(
-                            color: scheme.surface.withValues(alpha: 0.9),
+                            color: snap.active
+                                ? Colors.white.withValues(alpha: 0.18)
+                                : scheme.surface.withValues(alpha: 0.9),
                             borderRadius: BorderRadius.circular(14),
+                            border: snap.active
+                                ? Border.all(color: Colors.white.withValues(alpha: 0.25))
+                                : null,
                           ),
                           child: Icon(
-                            Icons.cloud_outlined,
-                            color: scheme.primary,
+                            snap.active ? Icons.workspace_premium_rounded : Icons.cloud_outlined,
+                            color: snap.active ? Colors.white : scheme.primary,
                           ),
                         ),
-                        const SizedBox(width: 12),
+                        const SizedBox(width: 14),
                         Expanded(
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
@@ -10996,8 +11043,9 @@ class _FolioCloudSubscriptionPanel extends StatelessWidget {
                                     ? l10n.folioCloudPlanActiveHeadline
                                     : l10n.folioCloudSubscriptionNoneTitle,
                                 style: theme.textTheme.titleMedium?.copyWith(
-                                  fontWeight: FontWeight.w800,
-                                  letterSpacing: -0.2,
+                                  fontWeight: FontWeight.w900,
+                                  color: snap.active ? Colors.white : scheme.onSurface,
+                                  letterSpacing: -0.3,
                                 ),
                               ),
                               const SizedBox(height: 6),
@@ -11006,7 +11054,9 @@ class _FolioCloudSubscriptionPanel extends StatelessWidget {
                                     ? l10n.folioCloudSubscriptionActive
                                     : l10n.folioCloudSubscriptionNoneSubtitle,
                                 style: theme.textTheme.bodySmall?.copyWith(
-                                  color: scheme.onSurfaceVariant,
+                                  color: snap.active
+                                      ? Colors.white.withValues(alpha: 0.85)
+                                      : scheme.onSurfaceVariant,
                                   height: 1.35,
                                 ),
                               ),
@@ -11015,20 +11065,20 @@ class _FolioCloudSubscriptionPanel extends StatelessWidget {
                         ),
                       ],
                     ),
-                    const SizedBox(height: 12),
+                    const SizedBox(height: 14),
                     Wrap(
                       spacing: 8,
                       runSpacing: 8,
                       children: [
-                        _SettingsInfoChip(
+                        membershipChip(
                           icon: Icons.backup_outlined,
                           label: l10n.folioCloudFeatureBackup,
                         ),
-                        _SettingsInfoChip(
+                        membershipChip(
                           icon: Icons.auto_awesome_outlined,
                           label: l10n.folioCloudFeatureCloudAi,
                         ),
-                        _SettingsInfoChip(
+                        membershipChip(
                           icon: Icons.public_outlined,
                           label: l10n.folioCloudFeaturePublishWeb,
                         ),
@@ -11045,7 +11095,7 @@ class _FolioCloudSubscriptionPanel extends StatelessWidget {
                         ),
                       ),
                     ],
-                    const SizedBox(height: 12),
+                    const SizedBox(height: 14),
                     Row(
                       children: [
                         Expanded(
@@ -11066,6 +11116,12 @@ class _FolioCloudSubscriptionPanel extends StatelessWidget {
                                   ? l10n.folioCloudManageSubscription
                                   : l10n.folioCloudSubscribeMonthly,
                             ),
+                            style: snap.active
+                                ? FilledButton.styleFrom(
+                                    backgroundColor: Colors.white,
+                                    foregroundColor: scheme.primary,
+                                  )
+                                : null,
                           ),
                         ),
                         const SizedBox(width: 10),
@@ -11073,6 +11129,12 @@ class _FolioCloudSubscriptionPanel extends StatelessWidget {
                           onPressed: busy ? null : onRefreshBilling,
                           icon: const Icon(Icons.sync, size: 20),
                           label: Text(l10n.folioCloudRefreshFromStripe),
+                          style: snap.active
+                              ? OutlinedButton.styleFrom(
+                                  foregroundColor: Colors.white,
+                                  side: const BorderSide(color: Colors.white30),
+                                )
+                              : null,
                         ),
                       ],
                     ),
@@ -11584,57 +11646,145 @@ class _FolioCloudInkPackCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: scheme.surface.withValues(alpha: 0.86),
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(
-          color: scheme.outlineVariant.withValues(alpha: 0.35),
+    final isMedium = drops == 1000;
+    final isLarge = drops == 2500;
+    final isHighlighted = isMedium || isLarge;
+
+    final badgeLabel = isMedium
+        ? (Localizations.localeOf(context).languageCode == 'es' ? 'POPULAR' : 'POPULAR')
+        : (Localizations.localeOf(context).languageCode == 'es' ? 'MEJOR VALOR' : 'BEST VALUE');
+
+    final cardBorderColor = isLarge
+        ? scheme.tertiary.withValues(alpha: 0.5)
+        : isMedium
+            ? scheme.primary.withValues(alpha: 0.5)
+            : scheme.outlineVariant.withValues(alpha: 0.35);
+
+    final cardBgColor = isLarge
+        ? scheme.tertiaryContainer.withValues(alpha: 0.15)
+        : isMedium
+            ? scheme.primaryContainer.withValues(alpha: 0.15)
+            : scheme.surface.withValues(alpha: 0.86);
+
+    return InkWell(
+      onTap: onPressed,
+      borderRadius: BorderRadius.circular(18),
+      child: Container(
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: cardBgColor,
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(
+            color: cardBorderColor,
+            width: isHighlighted ? 1.5 : 1.0,
+          ),
+          boxShadow: isHighlighted
+              ? [
+                  BoxShadow(
+                    color: (isLarge ? scheme.tertiary : scheme.primary).withValues(alpha: 0.1),
+                    blurRadius: 16,
+                    offset: const Offset(0, 6),
+                  ),
+                ]
+              : [
+                  BoxShadow(
+                    color: scheme.shadow.withValues(alpha: 0.03),
+                    blurRadius: 10,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
         ),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Row(
-            children: [
-              Icon(Icons.opacity_outlined, color: scheme.primary),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Text(
-                  title,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  style: theme.textTheme.labelLarge?.copyWith(
+        child: Stack(
+          clipBehavior: Clip.none,
+          children: [
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Row(
+                  children: [
+                    Icon(
+                      Icons.opacity_outlined,
+                      color: isLarge
+                          ? scheme.tertiary
+                          : isMedium
+                              ? scheme.primary
+                              : scheme.onSurfaceVariant,
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        title,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: theme.textTheme.labelLarge?.copyWith(
+                          fontWeight: FontWeight.w800,
+                          color: scheme.onSurface,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 10),
+                Text(
+                  '+$drops',
+                  style: theme.textTheme.headlineMedium?.copyWith(
+                    fontWeight: FontWeight.w900,
+                    letterSpacing: -0.6,
+                    color: scheme.onSurface,
+                    height: 1.1,
+                  ),
+                ),
+                Text(
+                  'ink',
+                  style: theme.textTheme.labelSmall?.copyWith(
+                    color: scheme.onSurfaceVariant,
                     fontWeight: FontWeight.w800,
+                    letterSpacing: 0.8,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                FilledButton.tonal(
+                  onPressed: onPressed,
+                  style: isHighlighted
+                      ? FilledButton.styleFrom(
+                          backgroundColor: isLarge ? scheme.tertiary : scheme.primary,
+                          foregroundColor: isLarge ? scheme.onTertiary : scheme.onPrimary,
+                        )
+                      : null,
+                  child: Text(AppLocalizations.of(context).continueAction),
+                ),
+              ],
+            ),
+            if (isHighlighted)
+              Positioned(
+                top: -24,
+                right: -4,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                  decoration: BoxDecoration(
+                    color: isLarge ? scheme.tertiary : scheme.primary,
+                    borderRadius: BorderRadius.circular(8),
+                    boxShadow: [
+                      BoxShadow(
+                        color: (isLarge ? scheme.tertiary : scheme.primary).withValues(alpha: 0.3),
+                        blurRadius: 8,
+                        offset: const Offset(0, 2),
+                      ),
+                    ],
+                  ),
+                  child: Text(
+                    badgeLabel,
+                    style: theme.textTheme.labelSmall?.copyWith(
+                      color: isLarge ? scheme.onTertiary : scheme.onPrimary,
+                      fontWeight: FontWeight.w900,
+                      fontSize: 8.5,
+                      letterSpacing: 0.5,
+                    ),
                   ),
                 ),
               ),
-            ],
-          ),
-          const SizedBox(height: 10),
-          Text(
-            '+$drops',
-            style: theme.textTheme.headlineSmall?.copyWith(
-              fontWeight: FontWeight.w900,
-              letterSpacing: -0.4,
-              color: scheme.onSurface,
-            ),
-          ),
-          Text(
-            'ink',
-            style: theme.textTheme.labelSmall?.copyWith(
-              color: scheme.onSurfaceVariant,
-              fontWeight: FontWeight.w700,
-              letterSpacing: 0.6,
-            ),
-          ),
-          const SizedBox(height: 10),
-          FilledButton.tonal(
-            onPressed: onPressed,
-            child: Text(AppLocalizations.of(context).continueAction),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -11657,50 +11807,125 @@ class _FolioCloudBackupStorageTierCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final l10n = AppLocalizations.of(context);
-    return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: scheme.surface.withValues(alpha: 0.86),
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(
-          color: scheme.outlineVariant.withValues(alpha: 0.35),
+    final isMedium = title.toLowerCase().contains('medium') || title.toLowerCase().contains('median');
+    
+    final cardBorderColor = isMedium
+        ? scheme.tertiary.withValues(alpha: 0.5)
+        : scheme.outlineVariant.withValues(alpha: 0.35);
+
+    final cardBgColor = isMedium
+        ? scheme.tertiaryContainer.withValues(alpha: 0.15)
+        : scheme.surface.withValues(alpha: 0.86);
+
+    final badgeLabel = Localizations.localeOf(context).languageCode == 'es' ? 'POPULAR' : 'POPULAR';
+
+    return InkWell(
+      onTap: onPressed,
+      borderRadius: BorderRadius.circular(18),
+      child: Container(
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: cardBgColor,
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(
+            color: cardBorderColor,
+            width: isMedium ? 1.5 : 1.0,
+          ),
+          boxShadow: isMedium
+              ? [
+                  BoxShadow(
+                    color: scheme.tertiary.withValues(alpha: 0.1),
+                    blurRadius: 16,
+                    offset: const Offset(0, 6),
+                  ),
+                ]
+              : [
+                  BoxShadow(
+                    color: scheme.shadow.withValues(alpha: 0.03),
+                    blurRadius: 10,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
         ),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Row(
-            children: [
-              Icon(Icons.local_library_outlined, color: scheme.tertiary),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Text(
-                  title,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  style: theme.textTheme.labelLarge?.copyWith(
-                    fontWeight: FontWeight.w800,
+        child: Stack(
+          clipBehavior: Clip.none,
+          children: [
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Row(
+                  children: [
+                    Icon(
+                      Icons.local_library_outlined,
+                      color: isMedium ? scheme.tertiary : scheme.onSurfaceVariant,
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        title,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: theme.textTheme.labelLarge?.copyWith(
+                          fontWeight: FontWeight.w800,
+                          color: scheme.onSurface,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 10),
+                Text(
+                  detail,
+                  style: theme.textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.w900,
+                    letterSpacing: -0.2,
+                    color: scheme.onSurface,
+                    height: 1.25,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                FilledButton.tonal(
+                  onPressed: onPressed,
+                  style: isMedium
+                      ? FilledButton.styleFrom(
+                          backgroundColor: scheme.tertiary,
+                          foregroundColor: scheme.onTertiary,
+                        )
+                      : null,
+                  child: Text(l10n.folioCloudSubscribeBackupStorageAddon),
+                ),
+              ],
+            ),
+            if (isMedium)
+              Positioned(
+                top: -24,
+                right: -4,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                  decoration: BoxDecoration(
+                    color: scheme.tertiary,
+                    borderRadius: BorderRadius.circular(8),
+                    boxShadow: [
+                      BoxShadow(
+                        color: scheme.tertiary.withValues(alpha: 0.3),
+                        blurRadius: 8,
+                        offset: const Offset(0, 2),
+                      ),
+                    ],
+                  ),
+                  child: Text(
+                    badgeLabel,
+                    style: theme.textTheme.labelSmall?.copyWith(
+                      color: scheme.onTertiary,
+                      fontWeight: FontWeight.w900,
+                      fontSize: 8.5,
+                      letterSpacing: 0.5,
+                    ),
                   ),
                 ),
               ),
-            ],
-          ),
-          const SizedBox(height: 10),
-          Text(
-            detail,
-            style: theme.textTheme.titleSmall?.copyWith(
-              fontWeight: FontWeight.w900,
-              letterSpacing: -0.2,
-              color: scheme.onSurface,
-              height: 1.25,
-            ),
-          ),
-          const SizedBox(height: 10),
-          FilledButton.tonal(
-            onPressed: onPressed,
-            child: Text(l10n.folioCloudSubscribeBackupStorageAddon),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }

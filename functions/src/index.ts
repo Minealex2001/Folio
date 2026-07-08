@@ -2328,28 +2328,36 @@ export const createCheckoutSession = onCall(
       kind === "backup_storage_pack_large";
     let session: Stripe.Response<Stripe.Checkout.Session>;
     try {
-      session = await stripe.checkout.sessions.create({
-        mode: isSubscription ? "subscription" : "payment",
-        line_items: [{ price: priceId, quantity: 1 }],
-        // Cupones/códigos creados en Stripe Dashboard (Product catalog → Coupons).
-        allow_promotion_codes: true,
-        success_url: successUrl.includes("?")
-          ? `${successUrl}&session_id={CHECKOUT_SESSION_ID}`
-          : `${successUrl}?session_id={CHECKOUT_SESSION_ID}`,
-        cancel_url: cancelUrl,
-        client_reference_id: uid,
-        metadata: { firebase_uid: uid },
-        subscription_data: isSubscription
-          ? {
-              metadata: { firebase_uid: uid },
-            }
-          : undefined,
-        payment_intent_data: !isSubscription
-          ? {
-              metadata: { firebase_uid: uid },
-            }
-          : undefined,
-      });
+      session = await stripe.checkout.sessions.create(
+        {
+          mode: isSubscription ? "subscription" : "payment",
+          line_items: [{ price: priceId, quantity: 1 }],
+          // Cupones/códigos creados en Stripe Dashboard (Product catalog → Coupons).
+          allow_promotion_codes: true,
+          success_url: successUrl.includes("?")
+            ? `${successUrl}&session_id={CHECKOUT_SESSION_ID}`
+            : `${successUrl}?session_id={CHECKOUT_SESSION_ID}`,
+          cancel_url: cancelUrl,
+          client_reference_id: uid,
+          metadata: { firebase_uid: uid },
+          subscription_data: isSubscription
+            ? {
+                metadata: { firebase_uid: uid },
+              }
+            : undefined,
+          payment_intent_data: !isSubscription
+            ? {
+                metadata: { firebase_uid: uid },
+              }
+            : undefined,
+          managed_payments: {
+            enabled: true,
+          },
+        } as any,
+        {
+          apiVersion: "2025-03-31.basil" as any,
+        }
+      );
     } catch (e: unknown) {
       console.error(
         "createCheckoutSession: Stripe checkout.sessions.create",
