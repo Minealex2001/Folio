@@ -1,4 +1,5 @@
 import 'package:firebase_core/firebase_core.dart';
+import 'package:flutter/foundation.dart';
 
 import 'folio_cloud_callable.dart';
 
@@ -37,7 +38,10 @@ Future<Uri?> createFolioCheckoutUri(FolioCheckoutKind kind) async {
   if (Firebase.apps.isEmpty) return null;
   final res = await callFolioHttpsCallable(
     'createCheckoutSession',
-    <String, dynamic>{'kind': _kindParam(kind)},
+    <String, dynamic>{
+      'kind': _kindParam(kind),
+      'debug': kDebugMode,
+    },
   );
   final url = (res as Map?)?.cast<String, dynamic>()['url'] as String?;
   if (url == null || url.isEmpty) return null;

@@ -1,17 +1,81 @@
 {
   "ca": [
-    "cloudPackRestorePasswordHelper"
+    "cloudPackRestorePasswordHelper",
+    "settingsSearchNoResults",
+    "settingsSearchResultsTitle",
+    "settingsSearchThemeTitle",
+    "settingsSearchThemeDesc",
+    "settingsSearchLangTitle",
+    "settingsSearchLangDesc",
+    "settingsSearchAiTitle",
+    "settingsSearchAiDesc",
+    "settingsSearchQuickUnlockTitle",
+    "settingsSearchQuickUnlockDesc",
+    "settingsSearchCloudBackupTitle",
+    "settingsSearchCloudBackupDesc",
+    "settingsSearchJiraTitle",
+    "settingsSearchJiraDesc",
+    "settingsSearchYouTrackTitle",
+    "settingsSearchYouTrackDesc"
   ],
 
   "eu": [
-    "cloudPackRestorePasswordHelper"
+    "cloudPackRestorePasswordHelper",
+    "settingsSearchNoResults",
+    "settingsSearchResultsTitle",
+    "settingsSearchThemeTitle",
+    "settingsSearchThemeDesc",
+    "settingsSearchLangTitle",
+    "settingsSearchLangDesc",
+    "settingsSearchAiTitle",
+    "settingsSearchAiDesc",
+    "settingsSearchQuickUnlockTitle",
+    "settingsSearchQuickUnlockDesc",
+    "settingsSearchCloudBackupTitle",
+    "settingsSearchCloudBackupDesc",
+    "settingsSearchJiraTitle",
+    "settingsSearchJiraDesc",
+    "settingsSearchYouTrackTitle",
+    "settingsSearchYouTrackDesc"
   ],
 
   "gl": [
-    "cloudPackRestorePasswordHelper"
+    "cloudPackRestorePasswordHelper",
+    "settingsSearchNoResults",
+    "settingsSearchResultsTitle",
+    "settingsSearchThemeTitle",
+    "settingsSearchThemeDesc",
+    "settingsSearchLangTitle",
+    "settingsSearchLangDesc",
+    "settingsSearchAiTitle",
+    "settingsSearchAiDesc",
+    "settingsSearchQuickUnlockTitle",
+    "settingsSearchQuickUnlockDesc",
+    "settingsSearchCloudBackupTitle",
+    "settingsSearchCloudBackupDesc",
+    "settingsSearchJiraTitle",
+    "settingsSearchJiraDesc",
+    "settingsSearchYouTrackTitle",
+    "settingsSearchYouTrackDesc"
   ],
 
   "pt": [
-    "cloudPackRestorePasswordHelper"
+    "cloudPackRestorePasswordHelper",
+    "settingsSearchNoResults",
+    "settingsSearchResultsTitle",
+    "settingsSearchThemeTitle",
+    "settingsSearchThemeDesc",
+    "settingsSearchLangTitle",
+    "settingsSearchLangDesc",
+    "settingsSearchAiTitle",
+    "settingsSearchAiDesc",
+    "settingsSearchQuickUnlockTitle",
+    "settingsSearchQuickUnlockDesc",
+    "settingsSearchCloudBackupTitle",
+    "settingsSearchCloudBackupDesc",
+    "settingsSearchJiraTitle",
+    "settingsSearchJiraDesc",
+    "settingsSearchYouTrackTitle",
+    "settingsSearchYouTrackDesc"
   ]
 }

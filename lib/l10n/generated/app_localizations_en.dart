@@ -8101,4 +8101,59 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get saveStatusError => 'Save failed';
+
+  @override
+  String get settingsSearchNoResults => 'No matching settings found';
+
+  @override
+  String get settingsSearchResultsTitle => 'Search Results';
+
+  @override
+  String get settingsSearchThemeTitle => 'App Theme';
+
+  @override
+  String get settingsSearchThemeDesc =>
+      'Choose between light, dark, or system default theme.';
+
+  @override
+  String get settingsSearchLangTitle => 'App Language';
+
+  @override
+  String get settingsSearchLangDesc =>
+      'Change the default language of the interface.';
+
+  @override
+  String get settingsSearchAiTitle => 'Enable AI Services';
+
+  @override
+  String get settingsSearchAiDesc =>
+      'Enable or disable integration with local or cloud language models.';
+
+  @override
+  String get settingsSearchQuickUnlockTitle => 'Quick Unlock';
+
+  @override
+  String get settingsSearchQuickUnlockDesc =>
+      'Configure fingerprint, face recognition, or PIN unlock.';
+
+  @override
+  String get settingsSearchCloudBackupTitle => 'Cloud Backup';
+
+  @override
+  String get settingsSearchCloudBackupDesc =>
+      'Automatically backup your vaults securely in real-time.';
+
+  @override
+  String get settingsSearchJiraTitle => 'Connect Jira';
+
+  @override
+  String get settingsSearchJiraDesc =>
+      'Import your tasks and issues directly into Folio.';
+
+  @override
+  String get settingsSearchYouTrackTitle => 'Connect YouTrack';
+
+  @override
+  String get settingsSearchYouTrackDesc =>
+      'Manage your development issues from within Folio.';
 }

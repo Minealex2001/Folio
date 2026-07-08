@@ -141,11 +141,7 @@ class _SettingsPageState extends State<SettingsPage> {
   final ScrollController _settingsScrollController = ScrollController();
   final TextEditingController _settingsSectionFilterController =
       TextEditingController();
-  final Map<_SettingsSectionId, GlobalKey> _sectionKeysById = {
-    for (final id in _SettingsSectionId.values) id: GlobalKey(),
-  };
-  _SettingsSectionId _selectedDesktopSection = _SettingsSectionId.cloud;
-  bool _programmaticSectionScroll = false;
+  _SettingsSectionId? _selectedMobileSection;
 
   var _quickEnabled = false;
   var _passkeyRegistered = false;
@@ -191,6 +187,12 @@ class _SettingsPageState extends State<SettingsPage> {
     unawaited(_loadVaultBackupPrefs());
   }
 
+  void _onCloudOrFolioChanged() {
+    if (mounted) {
+      setState(() {});
+    }
+  }
+
   @override
   void initState() {
     super.initState();
@@ -205,10 +207,11 @@ class _SettingsPageState extends State<SettingsPage> {
     _customIconLabelController = TextEditingController();
     _webLinkCodeController = TextEditingController();
     _availableModels = _app.cachedAiModelsFor(_app.aiProvider);
-    _settingsScrollController.addListener(_handleSettingsScroll);
     _settingsSectionFilterController.addListener(() {
       if (mounted) setState(() {});
     });
+    _cloud.addListener(_onCloudOrFolioChanged);
+    _folio.addListener(_onCloudOrFolioChanged);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       // Evita el “parón” al navegar: primer frame ligero, luego render/cargas.
@@ -325,7 +328,8 @@ class _SettingsPageState extends State<SettingsPage> {
 
   @override
   void dispose() {
-    _settingsScrollController.removeListener(_handleSettingsScroll);
+    _cloud.removeListener(_onCloudOrFolioChanged);
+    _folio.removeListener(_onCloudOrFolioChanged);
     _settingsScrollController.dispose();
     _settingsSectionFilterController.dispose();
     _aiBaseUrlController.dispose();
@@ -444,22 +448,9 @@ class _SettingsPageState extends State<SettingsPage> {
     };
   }
 
-  GlobalKey _sectionKey(_SettingsSectionId id) {
-    return _sectionKeysById[id]!;
-  }
 
-  Future<bool> _ensureSectionVisible(_SettingsSectionId id) async {
-    if (!_settingsScrollController.hasClients) return false;
-    final targetContext = _sectionKeysById[id]?.currentContext;
-    if (targetContext == null) return false;
-    await Scrollable.ensureVisible(
-      targetContext,
-      duration: const Duration(milliseconds: 260),
-      curve: Curves.easeOutCubic,
-      alignment: 0.03,
-    );
-    return true;
-  }
+
+
 
   List<_SettingsSectionNavItem> _filterDesktopSections(
     List<_SettingsSectionNavItem> all,
@@ -598,95 +589,11 @@ class _SettingsPageState extends State<SettingsPage> {
     );
   }
 
-  List<_SettingsSectionId> _sectionOrderForCurrentLayout() {
-    final windowWidth = MediaQuery.sizeOf(context).width;
-    final showDesktopOnlySections = FolioAdaptive.shouldUseDesktopSections(
-      windowWidth,
-    );
-    return <_SettingsSectionId>[
-      _SettingsSectionId.cloud,
-      _SettingsSectionId.vault,
-      _SettingsSectionId.uiWorkspace,
-      if (_app.isAiAvailable) _SettingsSectionId.ai,
-      _SettingsSectionId.sync,
-      _SettingsSectionId.about,
-      if (showDesktopOnlySections) _SettingsSectionId.integrations,
-    ];
-  }
 
-  bool _settingsLayoutIsWide(double width) {
-    return width >= FolioDesktop.mediumBreakpoint ||
-        FolioAdaptive.isAndroidDesktopLikeWidth(width);
-  }
 
-  Future<void> _scrollToSection(_SettingsSectionId id) async {
-    if (mounted) {
-      setState(() => _selectedDesktopSection = id);
-    }
-    if (!mounted) return;
-    if (_settingsLayoutIsWide(MediaQuery.sizeOf(context).width)) {
-      return;
-    }
-    _programmaticSectionScroll = true;
-    if (await _ensureSectionVisible(id)) {
-      _programmaticSectionScroll = false;
-      return;
-    }
 
-    // En algunos frames el target puede no tener context aun; reintenta una vez.
-    WidgetsBinding.instance.addPostFrameCallback((_) async {
-      try {
-        if (!mounted) return;
-        if (await _ensureSectionVisible(id)) return;
-        if (!_settingsScrollController.hasClients) return;
 
-        // Si el target aun no tiene context (secciones lejanas), aproximamos y reintentamos.
-        final order = _sectionOrderForCurrentLayout();
-        final index = order.indexOf(id);
-        if (index >= 0 && order.length > 1) {
-          final max = _settingsScrollController.position.maxScrollExtent;
-          final target = (index / (order.length - 1)) * max;
-          await _settingsScrollController.animateTo(
-            target.clamp(0.0, max),
-            duration: const Duration(milliseconds: 260),
-            curve: Curves.easeOutCubic,
-          );
-          if (!mounted) return;
-          await _ensureSectionVisible(id);
-        }
-      } finally {
-        _programmaticSectionScroll = false;
-      }
-    });
-  }
 
-  void _handleSettingsScroll() {
-    if (!mounted || _programmaticSectionScroll) return;
-    if (_settingsLayoutIsWide(MediaQuery.sizeOf(context).width)) return;
-    final active = _activeSectionFromViewport();
-    if (active == null || active == _selectedDesktopSection) return;
-    setState(() => _selectedDesktopSection = active);
-  }
-
-  _SettingsSectionId? _activeSectionFromViewport() {
-    const thresholdTop = 156.0;
-    final visible = <MapEntry<_SettingsSectionId, double>>[];
-    for (final entry in _sectionKeysById.entries) {
-      final ctx = entry.value.currentContext;
-      if (ctx == null) continue;
-      final render = ctx.findRenderObject();
-      if (render is! RenderBox || !render.hasSize) continue;
-      final dy = render.localToGlobal(Offset.zero).dy;
-      visible.add(MapEntry(entry.key, dy));
-    }
-    if (visible.isEmpty) return null;
-    visible.sort((a, b) => a.value.compareTo(b.value));
-    final passed = visible.where((s) => s.value <= thresholdTop).toList();
-    if (passed.isNotEmpty) {
-      return passed.last.key;
-    }
-    return visible.first.key;
-  }
 
   Future<void> _refreshSecurityFlags() async {
     final q = await _s.quickUnlockEnabled;
@@ -3678,6 +3585,326 @@ class _SettingsPageState extends State<SettingsPage> {
     }
   }
 
+  String _getSectionTitle(AppLocalizations l10n, _SettingsSectionId sectionId) {
+    switch (sectionId) {
+      case _SettingsSectionId.cloud:
+        return l10n.cloudAccountSectionTitle;
+      case _SettingsSectionId.vault:
+        return l10n.settingsSectionVault;
+      case _SettingsSectionId.uiWorkspace:
+        return l10n.settingsSectionUiWorkspace;
+      case _SettingsSectionId.ai:
+        return l10n.ai;
+      case _SettingsSectionId.sync:
+        return l10n.settingsSectionDeviceSyncNav;
+      case _SettingsSectionId.about:
+        return l10n.about;
+      case _SettingsSectionId.integrations:
+        return l10n.integrations;
+    }
+  }
+
+
+
+  List<Widget> _buildSearchResults(BuildContext context, String query, AppLocalizations l10n, ColorScheme scheme) {
+    final cleanQuery = query.trim().toLowerCase();
+    if (cleanQuery.isEmpty) return const [];
+
+    final isEs = l10n.localeName == 'es';
+
+    final List<_SearchItem> items = [
+      _SearchItem(
+        category: _SettingsSectionId.uiWorkspace,
+        title: l10n.settingsSearchThemeTitle,
+        description: l10n.settingsSearchThemeDesc,
+        keywords: isEs
+            ? ['tema', 'apariencia', 'claro', 'oscuro', 'diseño', 'color']
+            : ['theme', 'dark', 'light', 'appearance', 'color'],
+        builder: (context) => Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            SegmentedButton<ThemeMode>(
+              segments: [
+                ButtonSegment<ThemeMode>(
+                  value: ThemeMode.system,
+                  label: Text(l10n.systemTheme),
+                  icon: const Icon(Icons.brightness_auto, size: 18),
+                ),
+                ButtonSegment<ThemeMode>(
+                  value: ThemeMode.light,
+                  label: Text(l10n.lightTheme),
+                  icon: const Icon(Icons.light_mode_outlined, size: 18),
+                ),
+                ButtonSegment<ThemeMode>(
+                  value: ThemeMode.dark,
+                  label: Text(l10n.darkTheme),
+                  icon: const Icon(Icons.dark_mode_outlined, size: 18),
+                ),
+              ],
+              selected: {_app.themeMode},
+              onSelectionChanged: (s) {
+                setState(() {
+                  _app.setThemeMode(s.first);
+                });
+              },
+            ),
+          ],
+        ),
+      ),
+      _SearchItem(
+        category: _SettingsSectionId.uiWorkspace,
+        title: l10n.settingsOledThemeTitle,
+        description: l10n.settingsOledThemeBody,
+        keywords: isEs
+            ? ['oled', 'negro', 'puro', 'batería']
+            : ['oled', 'black', 'pure', 'battery'],
+        builder: (context) => SwitchListTile(
+          title: Text(l10n.settingsOledThemeTitle),
+          subtitle: Text(l10n.settingsOledThemeBody),
+          value: _app.oledThemeEnabled,
+          onChanged: (value) {
+            setState(() {
+              _app.setOledThemeEnabled(value);
+            });
+          },
+        ),
+      ),
+      _SearchItem(
+        category: _SettingsSectionId.uiWorkspace,
+        title: l10n.settingsSearchLangTitle,
+        description: l10n.settingsSearchLangDesc,
+        keywords: isEs
+            ? ['idioma', 'lenguaje', 'español', 'inglés']
+            : ['language', 'spanish', 'english', 'lang'],
+        builder: (context) => SegmentedButton<String?>(
+          segments: [
+            ButtonSegment<String?>(
+              value: null,
+              label: Text(l10n.useSystemLanguage),
+            ),
+            ButtonSegment<String?>(
+              value: 'es',
+              label: Text(l10n.spanishLanguage),
+            ),
+            ButtonSegment<String?>(
+              value: 'en',
+              label: Text(l10n.englishLanguage),
+            ),
+          ],
+          selected: {_app.locale?.languageCode},
+          onSelectionChanged: (s) {
+            setState(() {
+              final code = s.first;
+              _app.setLocale(code == null ? null : Locale(code));
+            });
+          },
+        ),
+      ),
+      _SearchItem(
+        category: _SettingsSectionId.ai,
+        title: l10n.settingsSearchAiTitle,
+        description: l10n.settingsSearchAiDesc,
+        keywords: isEs
+            ? ['ia', 'ai', 'proveedor', 'modelos', 'inteligencia']
+            : ['ia', 'ai', 'provider', 'models', 'intelligence'],
+        builder: (context) => SwitchListTile(
+          title: Text(l10n.settingsSearchAiTitle),
+          value: _app.aiEnabled,
+          onChanged: (value) {
+            setState(() {
+              _app.setAiEnabled(value);
+            });
+          },
+        ),
+      ),
+      _SearchItem(
+        category: _SettingsSectionId.vault,
+        title: l10n.settingsSearchQuickUnlockTitle,
+        description: l10n.settingsSearchQuickUnlockDesc,
+        keywords: isEs
+            ? ['desbloqueo', 'biometria', 'huella', 'rostro', 'seguridad']
+            : ['unlock', 'biometrics', 'fingerprint', 'face', 'security'],
+        builder: (context) => Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text(_quickEnabled ? l10n.active : l10n.inactive),
+            _quickEnabled
+                ? TextButton(
+                    onPressed: () async {
+                      await _s.disableQuickUnlock();
+                      await _refreshSecurityFlags();
+                      _snack(l10n.quickUnlockDisabledSnack);
+                    },
+                    child: Text(l10n.remove),
+                  )
+                : FilledButton.tonal(
+                    onPressed: () async {
+                      try {
+                        await _s.enableDeviceQuickUnlock();
+                        await _refreshSecurityFlags();
+                        _snack(l10n.quickUnlockEnabledSnack);
+                      } catch (e) {
+                        _snack(isEs ? 'Error al habilitar' : 'Enable failed');
+                      }
+                    },
+                    child: Text(isEs ? 'Configurar' : 'Configure'),
+                  ),
+          ],
+        ),
+      ),
+      _SearchItem(
+        category: _SettingsSectionId.vault,
+        title: l10n.settingsSearchCloudBackupTitle,
+        description: l10n.settingsSearchCloudBackupDesc,
+        keywords: isEs
+            ? ['copia', 'nube', 'backup', 'sincronizacion', 'guardar']
+            : ['copy', 'cloud', 'backup', 'sync', 'save'],
+        builder: (context) => SwitchListTile(
+          title: Text(l10n.settingsSearchCloudBackupTitle),
+          value: _vaultBackupPrefs.enabled,
+          onChanged: _vaultId == null
+              ? null
+              : (value) async {
+                  await _app.setVaultBackupEnabled(_vaultId, value);
+                  await _loadVaultBackupPrefs();
+                },
+        ),
+      ),
+      _SearchItem(
+        category: _SettingsSectionId.integrations,
+        title: l10n.settingsSearchJiraTitle,
+        description: l10n.settingsSearchJiraDesc,
+        keywords: isEs
+            ? ['jira', 'tareas', 'sincronizar', 'proyectos', 'tickets']
+            : ['jira', 'tasks', 'sync', 'projects', 'tickets'],
+        builder: (context) => ListTile(
+          title: Text(l10n.settingsSearchJiraTitle),
+          trailing: const Icon(Icons.chevron_right_rounded),
+          onTap: () {
+            setState(() {
+              _selectedMobileSection = _SettingsSectionId.integrations;
+            });
+          },
+        ),
+      ),
+      _SearchItem(
+        category: _SettingsSectionId.integrations,
+        title: l10n.settingsSearchYouTrackTitle,
+        description: l10n.settingsSearchYouTrackDesc,
+        keywords: isEs
+            ? ['youtrack', 'bugs', 'tareas', 'tickets']
+            : ['youtrack', 'bugs', 'tasks', 'tickets'],
+        builder: (context) => ListTile(
+          title: Text(l10n.settingsSearchYouTrackTitle),
+          trailing: const Icon(Icons.chevron_right_rounded),
+          onTap: () {
+            setState(() {
+              _selectedMobileSection = _SettingsSectionId.integrations;
+            });
+          },
+        ),
+      ),
+    ];
+
+    final matches = items.where((item) {
+      return item.title.toLowerCase().contains(cleanQuery) ||
+          item.description.toLowerCase().contains(cleanQuery) ||
+          item.keywords.any((kw) => kw.toLowerCase().contains(cleanQuery));
+    }).toList();
+
+    if (matches.isEmpty) {
+      return [
+        Padding(
+          padding: const EdgeInsets.symmetric(vertical: 40),
+          child: Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(
+                  Icons.search_off_rounded,
+                  size: 48,
+                  color: scheme.onSurfaceVariant.withValues(alpha: 0.5),
+                ),
+                const SizedBox(height: 12),
+                Text(
+                  l10n.settingsSearchNoResults,
+                  style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                        color: scheme.onSurfaceVariant,
+                      ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ];
+    }
+
+    return [
+      Padding(
+        padding: const EdgeInsets.only(bottom: 16),
+        child: Text(
+          l10n.settingsSearchResultsTitle,
+          style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                fontWeight: FontWeight.bold,
+                color: scheme.primary,
+              ),
+        ),
+      ),
+      ...matches.map((item) {
+        return Padding(
+          padding: const EdgeInsets.only(bottom: 16),
+          child: _SettingsPanel(
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Expanded(
+                        child: Text(
+                          item.title,
+                          style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                                fontWeight: FontWeight.bold,
+                              ),
+                        ),
+                      ),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: scheme.secondaryContainer,
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Text(
+                          _getSectionTitle(l10n, item.category),
+                          style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                                color: scheme.onSecondaryContainer,
+                              ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    item.description,
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                          color: scheme.onSurfaceVariant,
+                        ),
+                  ),
+                  const SizedBox(height: 12),
+                  const Divider(),
+                  const SizedBox(height: 8),
+                  item.builder(context),
+                ],
+              ),
+            ),
+          ),
+        );
+      }),
+    ];
+  }
+
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
@@ -3745,70 +3972,171 @@ class _SettingsPageState extends State<SettingsPage> {
     return AnimatedBuilder(
       animation: _app,
       builder: (context, _) {
-        return Scaffold(
-          appBar: AppBar(title: Text(l10n.settings)),
-          body: LayoutBuilder(
-            builder: (context, constraints) {
-              final wide =
-                  constraints.maxWidth >= FolioDesktop.mediumBreakpoint ||
-                  FolioAdaptive.isAndroidDesktopLikeWidth(constraints.maxWidth);
-              final settingsContent = ListenableBuilder(
-                listenable: _s,
-                builder: (context, _) {
-                  return RepaintBoundary(
-                    child: DecoratedBox(
-                      decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          begin: Alignment.topCenter,
-                          end: Alignment.bottomCenter,
-                          colors: [
-                            scheme.surfaceContainer.withValues(alpha: 0.72),
-                            scheme.surfaceContainerLow,
-                          ],
-                        ),
-                        borderRadius: BorderRadius.circular(28),
-                        border: Border.all(
-                          color: scheme.outlineVariant.withValues(alpha: 0.35),
-                        ),
-                      ),
-                      child: ListView(
-                        controller: _settingsScrollController,
-                        cacheExtent: 480,
-                        padding: const EdgeInsets.symmetric(
-                          vertical: 24,
-                          horizontal: 16,
-                        ),
-                        children: [
-                          _SettingsOverviewBanner(
-                            appSettings: _app,
-                            session: _s,
+        final windowWidth = MediaQuery.sizeOf(context).width;
+        final isWide = windowWidth >= FolioDesktop.mediumBreakpoint ||
+            FolioAdaptive.isAndroidDesktopLikeWidth(windowWidth);
+
+        return WillPopScope(
+          onWillPop: () async {
+            if (_selectedMobileSection != null) {
+              setState(() {
+                _selectedMobileSection = null;
+              });
+              return false;
+            }
+            return true;
+          },
+          child: Scaffold(
+            appBar: AppBar(
+              title: Text(
+                (_selectedMobileSection != null)
+                    ? _getSectionTitle(l10n, _selectedMobileSection!)
+                    : l10n.settings,
+              ),
+              leading: (_selectedMobileSection != null)
+                  ? IconButton(
+                      icon: const Icon(Icons.arrow_back_rounded),
+                      onPressed: () {
+                        setState(() {
+                          _selectedMobileSection = null;
+                        });
+                      },
+                    )
+                  : null,
+            ),
+            body: LayoutBuilder(
+              builder: (context, constraints) {
+                final wide =
+                    constraints.maxWidth >= FolioDesktop.mediumBreakpoint ||
+                    FolioAdaptive.isAndroidDesktopLikeWidth(constraints.maxWidth);
+                final settingsContent = ListenableBuilder(
+                  listenable: _s,
+                  builder: (context, _) {
+                    return RepaintBoundary(
+                      child: DecoratedBox(
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            begin: Alignment.topCenter,
+                            end: Alignment.bottomCenter,
+                            colors: [
+                              scheme.surfaceContainer.withValues(alpha: 0.72),
+                              scheme.surfaceContainerLow,
+                            ],
                           ),
-                          const SizedBox(height: 8),
-                          if (!wide) ...[
-                            Semantics(
-                              label: l10n.settingsSearchSections,
-                              textField: true,
-                              child: TextField(
-                                controller: _settingsSectionFilterController,
-                                decoration: InputDecoration(
-                                  prefixIcon: const Icon(Icons.search_rounded),
-                                  labelText: l10n.settingsSearchSections,
-                                  hintText: l10n.settingsSearchSectionsHint,
-                                  border: const OutlineInputBorder(),
-                                ),
+                          borderRadius: BorderRadius.circular(28),
+                          border: Border.all(
+                            color: scheme.outlineVariant.withValues(alpha: 0.35),
+                          ),
+                        ),
+                        child: AnimatedSwitcher(
+                          duration: FolioMotion.medium1,
+                          switchInCurve: FolioMotion.emphasized,
+                          switchOutCurve: FolioMotion.emphasized,
+                          transitionBuilder: (child, animation) {
+                            final offsetAnimation = Tween<Offset>(
+                              begin: const Offset(0.08, 0.0),
+                              end: Offset.zero,
+                            ).animate(animation);
+                            return FadeTransition(
+                              opacity: animation,
+                              child: SlideTransition(
+                                position: offsetAnimation,
+                                child: child,
                               ),
+                            );
+                          },
+                          child: ListView(
+                            key: ValueKey<String>('${wide}_${_selectedMobileSection?.name}'),
+                            controller: _settingsScrollController,
+                            cacheExtent: 480,
+                            padding: const EdgeInsets.symmetric(
+                              vertical: 24,
+                              horizontal: 16,
                             ),
-                            const SizedBox(height: 12),
-                          ],
+                            children: [
+                              if (_selectedMobileSection == null) ...[
+                                _SettingsOverviewBanner(
+                                  appSettings: _app,
+                                  session: _s,
+                                  entitlements: _folio,
+                                ),
+                                const SizedBox(height: 12),
+                                Semantics(
+                                  label: l10n.settingsSearchSections,
+                                  textField: true,
+                                  child: TextField(
+                                    controller: _settingsSectionFilterController,
+                                    decoration: InputDecoration(
+                                      prefixIcon: const Icon(Icons.search_rounded),
+                                      labelText: l10n.settingsSearchSections,
+                                      hintText: l10n.settingsSearchSectionsHint,
+                                      border: const OutlineInputBorder(),
+                                    ),
+                                  ),
+                                ),
+                                                          if (_settingsSectionFilterController.text.trim().isNotEmpty) ...[
+                                  ..._buildSearchResults(context, _settingsSectionFilterController.text, l10n, scheme),
+                                ] else ...[
+                                  if (wide)
+                                    GridView.builder(
+                                      shrinkWrap: true,
+                                      physics: const NeverScrollableScrollPhysics(),
+                                      gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
+                                        maxCrossAxisExtent: 380,
+                                        mainAxisSpacing: 16,
+                                        crossAxisSpacing: 16,
+                                        mainAxisExtent: 110,
+                                      ),
+                                      itemCount: _filterDesktopSections(desktopSections).length,
+                                      itemBuilder: (context, idx) {
+                                        final sec = _filterDesktopSections(desktopSections)[idx];
+                                        return _SettingsMenuTile(
+                                          sec: sec,
+                                          l10n: l10n,
+                                          scheme: scheme,
+                                          app: _app,
+                                          cloud: _cloud,
+                                          installedVersionLabel: _installedVersionLabel,
+                                          onTap: () {
+                                            setState(() {
+                                              _selectedMobileSection = sec.id;
+                                            });
+                                            if (_settingsScrollController.hasClients) {
+                                              _settingsScrollController.jumpTo(0);
+                                            }
+                                          },
+                                        );
+                                      },
+                                    )
+                                  else
+                                    ..._filterDesktopSections(desktopSections).map(
+                                      (sec) => _SettingsMenuTile(
+                                        sec: sec,
+                                        l10n: l10n,
+                                        scheme: scheme,
+                                        app: _app,
+                                        cloud: _cloud,
+                                        installedVersionLabel: _installedVersionLabel,
+                                        onTap: () {
+                                          setState(() {
+                                            _selectedMobileSection = sec.id;
+                                          });
+                                          if (_settingsScrollController.hasClients) {
+                                            _settingsScrollController.jumpTo(0);
+                                          }
+                                        },
+                                      ),
+                                    ),
+                                ],
+                              ],
 
                           Visibility(
                             visible:
-                                !wide ||
-                                _selectedDesktopSection ==
+                                _selectedMobileSection ==
                                     _SettingsSectionId.cloud,
                             maintainState: false,
                             child: KeyedSubtree(
-                              key: _sectionKey(_SettingsSectionId.cloud),
+                              key: const ValueKey(_SettingsSectionId.cloud),
                               child: _SettingsPanel(
                                 margin: const EdgeInsets.only(bottom: 24),
                                 child: Column(
@@ -4733,12 +5061,11 @@ class _SettingsPageState extends State<SettingsPage> {
 
                           Visibility(
                             visible:
-                                !wide ||
-                                _selectedDesktopSection ==
+                                _selectedMobileSection ==
                                     _SettingsSectionId.vault,
                             maintainState: false,
                             child: KeyedSubtree(
-                              key: _sectionKey(_SettingsSectionId.vault),
+                              key: const ValueKey(_SettingsSectionId.vault),
                               child: _SettingsPanel(
                                 margin: const EdgeInsets.only(bottom: 24),
                                 child: Column(
@@ -5678,12 +6005,11 @@ class _SettingsPageState extends State<SettingsPage> {
 
                           Visibility(
                             visible:
-                                !wide ||
-                                _selectedDesktopSection ==
+                                _selectedMobileSection ==
                                     _SettingsSectionId.uiWorkspace,
                             maintainState: false,
                             child: KeyedSubtree(
-                              key: _sectionKey(_SettingsSectionId.uiWorkspace),
+                              key: const ValueKey(_SettingsSectionId.uiWorkspace),
                               child: _SettingsPanel(
                                 margin: const EdgeInsets.only(bottom: 24),
                                 child: Column(
@@ -7346,12 +7672,11 @@ class _SettingsPageState extends State<SettingsPage> {
                           if (_app.isAiAvailable) ...[
                             Visibility(
                               visible:
-                                  !wide ||
-                                  _selectedDesktopSection ==
+                                  _selectedMobileSection ==
                                       _SettingsSectionId.ai,
                               maintainState: false,
                               child: KeyedSubtree(
-                                key: _sectionKey(_SettingsSectionId.ai),
+                                key: const ValueKey(_SettingsSectionId.ai),
                                 child: _SettingsPanel(
                                   margin: const EdgeInsets.only(bottom: 24),
                                   child: Column(
@@ -8047,12 +8372,11 @@ class _SettingsPageState extends State<SettingsPage> {
 
                           Visibility(
                             visible:
-                                !wide ||
-                                _selectedDesktopSection ==
+                                _selectedMobileSection ==
                                     _SettingsSectionId.sync,
                             maintainState: false,
                             child: KeyedSubtree(
-                              key: _sectionKey(_SettingsSectionId.sync),
+                              key: const ValueKey(_SettingsSectionId.sync),
                               child: AnimatedBuilder(
                                 animation: _sync,
                                 builder: (context, _) => _SettingsPanel(
@@ -8436,12 +8760,11 @@ class _SettingsPageState extends State<SettingsPage> {
 
                           Visibility(
                             visible:
-                                !wide ||
-                                _selectedDesktopSection ==
+                                _selectedMobileSection ==
                                     _SettingsSectionId.about,
                             maintainState: false,
                             child: KeyedSubtree(
-                              key: _sectionKey(_SettingsSectionId.about),
+                              key: const ValueKey(_SettingsSectionId.about),
                               child: _SettingsPanel(
                                 margin: const EdgeInsets.only(bottom: 24),
                                 child: Column(
@@ -8602,14 +8925,11 @@ class _SettingsPageState extends State<SettingsPage> {
                           if (showDesktopOnlySections) ...[
                             Visibility(
                               visible:
-                                  !wide ||
-                                  _selectedDesktopSection ==
+                                  _selectedMobileSection ==
                                       _SettingsSectionId.integrations,
                               maintainState: false,
                               child: KeyedSubtree(
-                                key: _sectionKey(
-                                  _SettingsSectionId.integrations,
-                                ),
+                                key: const ValueKey(_SettingsSectionId.integrations),
                                 child: Column(
                                   crossAxisAlignment:
                                       CrossAxisAlignment.stretch,
@@ -8908,51 +9228,225 @@ class _SettingsPageState extends State<SettingsPage> {
                         ],
                       ),
                     ),
-                  );
+                  ),
+                );
                 },
               );
-              if (!wide) {
-                return Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: settingsContent,
-                );
-              }
-              return Align(
-                alignment: Alignment.topCenter,
+              return Center(
                 child: ConstrainedBox(
-                  constraints: const BoxConstraints(maxWidth: 1480),
+                  constraints: const BoxConstraints(maxWidth: 1000),
                   child: Padding(
-                    padding: const EdgeInsets.all(24),
-                    child: Row(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        SizedBox(
-                          width: 280,
-                          child: _SettingsDesktopRail(
-                            title: l10n.settings,
-                            subtitle: l10n.settingsDesktopRailSubtitle,
-                            currentSection: _selectedDesktopSection,
-                            onSelectSection: _scrollToSection,
-                            sections: _filterDesktopSections(desktopSections),
-                            sectionFilterController:
-                                _settingsSectionFilterController,
-                            sectionFilterHint: l10n.settingsSearchSectionsHint,
-                            sectionFilterLabel: l10n.settingsSearchSections,
-                          ),
-                        ),
-                        const SizedBox(width: 24),
-                        Expanded(child: settingsContent),
-                      ],
-                    ),
+                    padding: EdgeInsets.all(wide ? 24.0 : 16.0),
+                    child: settingsContent,
                   ),
                 ),
               );
             },
           ),
-        );
-      },
+        ),
+      );
+    },
+  );
+}
+}
+
+class _SettingsMenuTile extends StatefulWidget {
+  const _SettingsMenuTile({
+    required this.sec,
+    required this.l10n,
+    required this.scheme,
+    required this.app,
+    required this.cloud,
+    required this.installedVersionLabel,
+    required this.onTap,
+  });
+
+  final _SettingsSectionNavItem sec;
+  final AppLocalizations l10n;
+  final ColorScheme scheme;
+  final AppSettings app;
+  final CloudAccountController cloud;
+  final String installedVersionLabel;
+  final VoidCallback onTap;
+
+  @override
+  State<_SettingsMenuTile> createState() => _SettingsMenuTileState();
+}
+
+class _SettingsMenuTileState extends State<_SettingsMenuTile> {
+  bool _isHovered = false;
+
+  String _providerLabel(AiProvider provider, AppLocalizations l10n) {
+    switch (provider) {
+      case AiProvider.ollama:
+        return 'Ollama';
+      case AiProvider.lmStudio:
+        return 'LM Studio';
+      case AiProvider.quillCloud:
+        return 'Quill Cloud';
+      case AiProvider.none:
+        return l10n.aiProviderNone;
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    IconData icon;
+    List<Color> gradientColors;
+    String subtitle;
+
+    switch (widget.sec.id) {
+      case _SettingsSectionId.cloud:
+        icon = Icons.cloud_outlined;
+        gradientColors = const [Color(0xFF42A5F5), Color(0xFF1E88E5)];
+        subtitle = widget.cloud.isSignedIn
+            ? (widget.cloud.user?.email ?? 'Sesión iniciada')
+            : 'Configura tu cuenta';
+        break;
+      case _SettingsSectionId.vault:
+        icon = Icons.lock_outline_rounded;
+        gradientColors = const [Color(0xFFAB47BC), Color(0xFF7B1FA2)];
+        subtitle = 'Copia de seguridad, seguridad y datos';
+        break;
+      case _SettingsSectionId.uiWorkspace:
+        icon = Icons.palette_outlined;
+        gradientColors = const [Color(0xFFFF7043), Color(0xFFE64A19)];
+        subtitle = 'Temas, atajos de teclado y más';
+        break;
+      case _SettingsSectionId.ai:
+        icon = Icons.psychology_outlined;
+        gradientColors = const [Color(0xFF26A69A), Color(0xFF00796B)];
+        subtitle = widget.app.aiEnabled
+            ? 'Proveedor: ${_providerLabel(widget.app.aiProvider, widget.l10n)}'
+            : 'Deshabilitado';
+        break;
+      case _SettingsSectionId.sync:
+        icon = Icons.sync_rounded;
+        gradientColors = const [Color(0xFFEC407A), Color(0xFFC2185B)];
+        subtitle = 'Sincronizar tus dispositivos';
+        break;
+      case _SettingsSectionId.about:
+        icon = Icons.info_outline_rounded;
+        gradientColors = const [Color(0xFF78909C), Color(0xFF455A64)];
+        subtitle = 'Versión ${widget.installedVersionLabel}';
+        break;
+      case _SettingsSectionId.integrations:
+        icon = Icons.extension_outlined;
+        gradientColors = const [Color(0xFF26C6DA), Color(0xFF0097A7)];
+        subtitle = 'Conexiones con Jira, YouTrack y más';
+        break;
+    }
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 4),
+      child: MouseRegion(
+        onEnter: (_) => setState(() => _isHovered = true),
+        onExit: (_) => setState(() => _isHovered = false),
+        child: AnimatedScale(
+          scale: _isHovered ? 1.02 : 1.0,
+          duration: const Duration(milliseconds: 150),
+          curve: Curves.easeInOut,
+          child: Material(
+            color: Colors.transparent,
+            child: InkWell(
+              borderRadius: BorderRadius.circular(16),
+              onTap: widget.onTap,
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 200),
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(
+                    color: _isHovered
+                        ? widget.scheme.primary.withValues(alpha: 0.5)
+                        : widget.scheme.outlineVariant.withValues(alpha: 0.35),
+                    width: _isHovered ? 1.5 : 1.0,
+                  ),
+                  color: _isHovered
+                      ? widget.scheme.surfaceContainer
+                      : widget.scheme.surfaceContainerLow,
+                  boxShadow: _isHovered
+                      ? [
+                          BoxShadow(
+                            color: widget.scheme.shadow.withValues(alpha: 0.08),
+                            blurRadius: 16,
+                            offset: const Offset(0, 8),
+                          )
+                        ]
+                      : [],
+                ),
+                child: Row(
+                  children: [
+                    Container(
+                      width: 48,
+                      height: 48,
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          colors: gradientColors,
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                        ),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Icon(
+                        icon,
+                        color: Colors.white,
+                        size: 24,
+                      ),
+                    ),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Text(
+                            widget.sec.label,
+                            style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            subtitle,
+                            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                              color: widget.scheme.onSurfaceVariant,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ],
+                      ),
+                    ),
+                    Icon(
+                      Icons.chevron_right_rounded,
+                      color: widget.scheme.onSurfaceVariant.withValues(alpha: 0.7),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
     );
   }
+}
+
+class _SearchItem {
+  final _SettingsSectionId category;
+  final String title;
+  final String description;
+  final List<String> keywords;
+  final Widget Function(BuildContext context) builder;
+
+  _SearchItem({
+    required this.category,
+    required this.title,
+    required this.description,
+    required this.keywords,
+    required this.builder,
+  });
 }
 
 class _CloudAuthDialog extends StatefulWidget {
@@ -10338,26 +10832,32 @@ class _SettingsOverviewBanner extends StatelessWidget {
   const _SettingsOverviewBanner({
     required this.appSettings,
     required this.session,
+    required this.entitlements,
   });
 
   final AppSettings appSettings;
   final VaultSession session;
+  final FolioCloudEntitlementsController entitlements;
 
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
     final scheme = Theme.of(context).colorScheme;
     final theme = Theme.of(context);
-    final localeCode = appSettings.locale?.languageCode;
-    final localeLabel = localeCode == null
-        ? l10n.useSystemLanguage
-        : (localeCode == 'es' ? l10n.spanishLanguage : l10n.englishLanguage);
-    final aiLabel = appSettings.aiEnabled ? l10n.active : l10n.inactive;
+    
+    final isPremium = entitlements.snapshot.active;
+    final subLabel = isPremium 
+        ? (Localizations.localeOf(context).languageCode == 'es' ? 'Premium' : 'Premium') 
+        : (Localizations.localeOf(context).languageCode == 'es' ? 'Gratuito' : 'Free');
+
     final vaultLabel = session.vaultUsesEncryption
         ? l10n.encryptedVault
         : (Localizations.localeOf(context).languageCode == 'es'
               ? 'Sin cifrar'
               : 'Unencrypted');
+              
+    final statusLabel = Localizations.localeOf(context).languageCode == 'es' ? 'Al día' : 'Up to date';
+
     return Container(
       margin: const EdgeInsets.only(bottom: 20),
       padding: const EdgeInsets.all(20),
@@ -10425,9 +10925,9 @@ class _SettingsOverviewBanner extends StatelessWidget {
             runSpacing: 12,
             children: [
               _SettingsOverviewStat(
-                icon: Icons.palette_outlined,
-                label: l10n.language,
-                value: localeLabel,
+                icon: Icons.star_rounded,
+                label: Localizations.localeOf(context).languageCode == 'es' ? 'Plan' : 'Plan',
+                value: subLabel,
               ),
               _SettingsOverviewStat(
                 icon: Icons.shield_outlined,
@@ -10437,11 +10937,9 @@ class _SettingsOverviewBanner extends StatelessWidget {
                 value: vaultLabel,
               ),
               _SettingsOverviewStat(
-                icon: Icons.auto_awesome_outlined,
-                label: Localizations.localeOf(context).languageCode == 'es'
-                    ? 'IA'
-                    : 'AI',
-                value: aiLabel,
+                icon: Icons.check_circle_outline_rounded,
+                label: Localizations.localeOf(context).languageCode == 'es' ? 'Estado' : 'Status',
+                value: statusLabel,
               ),
             ],
           ),
@@ -11931,178 +12429,7 @@ class _FolioCloudBackupStorageTierCard extends StatelessWidget {
   }
 }
 
-class _SettingsDesktopRail extends StatelessWidget {
-  const _SettingsDesktopRail({
-    required this.title,
-    required this.subtitle,
-    required this.sections,
-    required this.currentSection,
-    required this.onSelectSection,
-    required this.sectionFilterController,
-    required this.sectionFilterHint,
-    required this.sectionFilterLabel,
-  });
 
-  final String title;
-  final String subtitle;
-  final List<_SettingsSectionNavItem> sections;
-  final _SettingsSectionId currentSection;
-  final ValueChanged<_SettingsSectionId> onSelectSection;
-  final TextEditingController sectionFilterController;
-  final String sectionFilterHint;
-  final String sectionFilterLabel;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final scheme = theme.colorScheme;
-    return Container(
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-          colors: [scheme.surface, scheme.surfaceContainerHigh],
-        ),
-        borderRadius: BorderRadius.circular(28),
-        border: Border.all(
-          color: scheme.outlineVariant.withValues(alpha: 0.35),
-        ),
-      ),
-      child: LayoutBuilder(
-        builder: (context, constraints) {
-          return SingleChildScrollView(
-            padding: const EdgeInsets.all(24),
-            child: ConstrainedBox(
-              constraints: BoxConstraints(
-                minHeight: constraints.maxHeight - 48,
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Container(
-                    width: 52,
-                    height: 52,
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                        colors: [
-                          scheme.primaryContainer,
-                          scheme.tertiaryContainer,
-                        ],
-                      ),
-                      borderRadius: BorderRadius.circular(18),
-                    ),
-                    child: Icon(
-                      Icons.tune_rounded,
-                      color: scheme.onPrimaryContainer,
-                    ),
-                  ),
-                  const SizedBox(height: 20),
-                  Text(
-                    title,
-                    style: theme.textTheme.headlineSmall?.copyWith(
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  Text(
-                    subtitle,
-                    style: theme.textTheme.bodyMedium?.copyWith(
-                      color: scheme.onSurfaceVariant,
-                      height: 1.45,
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  Semantics(
-                    label: sectionFilterLabel,
-                    textField: true,
-                    child: TextField(
-                      controller: sectionFilterController,
-                      decoration: InputDecoration(
-                        prefixIcon: const Icon(Icons.search_rounded),
-                        labelText: sectionFilterLabel,
-                        hintText: sectionFilterHint,
-                        isDense: true,
-                        border: const OutlineInputBorder(),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 24),
-                  const SizedBox(height: 8),
-                  ...sections.asMap().entries.map(
-                    (entry) {
-                      final selected = currentSection == entry.value.id;
-                      return Padding(
-                        padding: const EdgeInsets.only(bottom: 8),
-                        child: Material(
-                          color: Colors.transparent,
-                          child: InkWell(
-                            borderRadius: BorderRadius.circular(16),
-                            onTap: () => onSelectSection(entry.value.id),
-                            child: AnimatedContainer(
-                              duration: FolioMotion.short2,
-                              curve: FolioMotion.emphasized,
-                              width: double.infinity,
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 12,
-                                vertical: 12,
-                              ),
-                              decoration: BoxDecoration(
-                                color: selected
-                                    ? scheme.primaryContainer
-                                    : scheme.surface,
-                                borderRadius: BorderRadius.circular(16),
-                                border: Border.all(
-                                  color: selected
-                                      ? scheme.primary.withValues(alpha: 0.35)
-                                      : Colors.transparent,
-                                ),
-                              ),
-                              child: Row(
-                                children: [
-                                  AnimatedContainer(
-                                    duration: FolioMotion.short2,
-                                    curve: FolioMotion.emphasized,
-                                    width: 4,
-                                    height: 26,
-                                    decoration: BoxDecoration(
-                                      color: selected
-                                          ? scheme.primary
-                                          : Colors.transparent,
-                                      borderRadius: BorderRadius.circular(4),
-                                    ),
-                                  ),
-                                  const SizedBox(width: 12),
-                                  Expanded(
-                                    child: Text(
-                                      entry.value.label,
-                                      style: theme.textTheme.titleSmall
-                                          ?.copyWith(
-                                            fontWeight: FontWeight.w600,
-                                            color: selected
-                                                ? scheme.onPrimaryContainer
-                                                : scheme.onSurface,
-                                          ),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ),
-                        ),
-                      );
-                    },
-                  ),
-                ],
-              ),
-            ),
-          );
-        },
-      ),
-    );
-  }
-}
 
 class _SettingsSectionNavItem {
   const _SettingsSectionNavItem({

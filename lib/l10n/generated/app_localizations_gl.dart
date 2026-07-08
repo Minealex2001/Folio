@@ -8210,4 +8210,61 @@ class AppLocalizationsGl extends AppLocalizations {
 
   @override
   String get saveStatusError => 'Erro ao gardar';
+
+  @override
+  String get settingsSearchNoResults =>
+      'No se encontraron ajustes coincidentes';
+
+  @override
+  String get settingsSearchResultsTitle => 'Resultados de la búsqueda';
+
+  @override
+  String get settingsSearchThemeTitle => 'Tema de la aplicación';
+
+  @override
+  String get settingsSearchThemeDesc =>
+      'Elige entre tema claro, oscuro o el predeterminado del sistema.';
+
+  @override
+  String get settingsSearchLangTitle => 'Idioma de la aplicación';
+
+  @override
+  String get settingsSearchLangDesc =>
+      'Cambia el idioma predeterminado de la interfaz.';
+
+  @override
+  String get settingsSearchAiTitle => 'Habilitar servicios de IA';
+
+  @override
+  String get settingsSearchAiDesc =>
+      'Activa o desactiva la integración con modelos de lenguaje locales o en la nube.';
+
+  @override
+  String get settingsSearchQuickUnlockTitle => 'Desbloqueo rápido';
+
+  @override
+  String get settingsSearchQuickUnlockDesc =>
+      'Configura huella dactilar, reconocimiento facial o PIN de desbloqueo.';
+
+  @override
+  String get settingsSearchCloudBackupTitle =>
+      'Copia de seguridad automática en la nube';
+
+  @override
+  String get settingsSearchCloudBackupDesc =>
+      'Guarda tus libretas de forma segura con sincronización en tiempo real.';
+
+  @override
+  String get settingsSearchJiraTitle => 'Conectar Jira';
+
+  @override
+  String get settingsSearchJiraDesc =>
+      'Importa tus tareas e incidencias directamente a Folio.';
+
+  @override
+  String get settingsSearchYouTrackTitle => 'Conectar YouTrack';
+
+  @override
+  String get settingsSearchYouTrackDesc =>
+      'Administra tus tareas de desarrollo desde Folio.';
 }

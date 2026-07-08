@@ -84,13 +84,19 @@ const INK_EXTRA_FOR_LONG_PROMPT = 2;
 /** Tras inferencia remota (Quill Cloud), cargo extra por volumen de tokens (`usage.total_tokens`). */
 const INK_TOKENS_PER_SURCHARGE_UNIT = 6000;
 const INK_MAX_TOKEN_SURCHARGE = 10;
-function stripeSecret() {
-    var _a, _b;
-    return (_b = (_a = process.env.STRIPE_SECRET_KEY) === null || _a === void 0 ? void 0 : _a.trim()) !== null && _b !== void 0 ? _b : "";
+function stripeSecret(isDebug) {
+    var _a, _b, _c, _d;
+    if (isDebug) {
+        return ((_a = process.env.STRIPE_TEST_SECRET_KEY) === null || _a === void 0 ? void 0 : _a.trim()) || ((_b = process.env.STRIPE_SECRET_KEY) === null || _b === void 0 ? void 0 : _b.trim()) || "";
+    }
+    return (_d = (_c = process.env.STRIPE_SECRET_KEY) === null || _c === void 0 ? void 0 : _c.trim()) !== null && _d !== void 0 ? _d : "";
 }
-function webhookSecret() {
-    var _a, _b;
-    return (_b = (_a = process.env.STRIPE_WEBHOOK_SECRET) === null || _a === void 0 ? void 0 : _a.trim()) !== null && _b !== void 0 ? _b : "";
+function webhookSecret(isTest) {
+    var _a, _b, _c, _d;
+    if (isTest) {
+        return ((_a = process.env.STRIPE_TEST_WEBHOOK_SECRET) === null || _a === void 0 ? void 0 : _a.trim()) || ((_b = process.env.STRIPE_WEBHOOK_SECRET) === null || _b === void 0 ? void 0 : _b.trim()) || "";
+    }
+    return (_d = (_c = process.env.STRIPE_WEBHOOK_SECRET) === null || _c === void 0 ? void 0 : _c.trim()) !== null && _d !== void 0 ? _d : "";
 }
 function openAiApiKey() {
     var _a, _b;
@@ -657,8 +663,8 @@ async function verifiedUidFromBearerToken(authHeader) {
         throw new AiHttpsError("unauthenticated", "Login required");
     }
 }
-function stripeClient() {
-    const key = stripeSecret();
+function stripeClient(isDebug) {
+    const key = stripeSecret(isDebug);
     if (!key)
         return null;
     return new stripe_1.default(key, { apiVersion: "2025-02-24.acacia" });
@@ -673,36 +679,61 @@ function stripeCallErrorMessage(err) {
     }
     return "Unknown error";
 }
-function priceFolioCloudMonthly() {
-    var _a, _b;
-    return (_b = (_a = process.env.STRIPE_PRICE_FOLIO_CLOUD_MONTHLY) === null || _a === void 0 ? void 0 : _a.trim()) !== null && _b !== void 0 ? _b : "";
+function priceFolioCloudMonthly(isDebug) {
+    var _a, _b, _c, _d;
+    if (isDebug) {
+        return ((_a = process.env.STRIPE_TEST_PRICE_FOLIO_CLOUD_MONTHLY) === null || _a === void 0 ? void 0 : _a.trim()) || ((_b = process.env.STRIPE_PRICE_FOLIO_CLOUD_MONTHLY) === null || _b === void 0 ? void 0 : _b.trim()) || "";
+    }
+    return (_d = (_c = process.env.STRIPE_PRICE_FOLIO_CLOUD_MONTHLY) === null || _c === void 0 ? void 0 : _c.trim()) !== null && _d !== void 0 ? _d : "";
 }
-function priceInkSmall() {
-    var _a, _b;
-    return (_b = (_a = process.env.STRIPE_PRICE_INK_SMALL) === null || _a === void 0 ? void 0 : _a.trim()) !== null && _b !== void 0 ? _b : "";
+function priceInkSmall(isDebug) {
+    var _a, _b, _c, _d;
+    if (isDebug) {
+        return ((_a = process.env.STRIPE_TEST_PRICE_INK_SMALL) === null || _a === void 0 ? void 0 : _a.trim()) || ((_b = process.env.STRIPE_PRICE_INK_SMALL) === null || _b === void 0 ? void 0 : _b.trim()) || "";
+    }
+    return (_d = (_c = process.env.STRIPE_PRICE_INK_SMALL) === null || _c === void 0 ? void 0 : _c.trim()) !== null && _d !== void 0 ? _d : "";
 }
-function priceInkMedium() {
-    var _a, _b;
-    return (_b = (_a = process.env.STRIPE_PRICE_INK_MEDIUM) === null || _a === void 0 ? void 0 : _a.trim()) !== null && _b !== void 0 ? _b : "";
+function priceInkMedium(isDebug) {
+    var _a, _b, _c, _d;
+    if (isDebug) {
+        return ((_a = process.env.STRIPE_TEST_PRICE_INK_MEDIUM) === null || _a === void 0 ? void 0 : _a.trim()) || ((_b = process.env.STRIPE_PRICE_INK_MEDIUM) === null || _b === void 0 ? void 0 : _b.trim()) || "";
+    }
+    return (_d = (_c = process.env.STRIPE_PRICE_INK_MEDIUM) === null || _c === void 0 ? void 0 : _c.trim()) !== null && _d !== void 0 ? _d : "";
 }
-function priceInkLarge() {
-    var _a, _b;
-    return (_b = (_a = process.env.STRIPE_PRICE_INK_LARGE) === null || _a === void 0 ? void 0 : _a.trim()) !== null && _b !== void 0 ? _b : "";
+function priceInkLarge(isDebug) {
+    var _a, _b, _c, _d;
+    if (isDebug) {
+        return ((_a = process.env.STRIPE_TEST_PRICE_INK_LARGE) === null || _a === void 0 ? void 0 : _a.trim()) || ((_b = process.env.STRIPE_PRICE_INK_LARGE) === null || _b === void 0 ? void 0 : _b.trim()) || "";
+    }
+    return (_d = (_c = process.env.STRIPE_PRICE_INK_LARGE) === null || _c === void 0 ? void 0 : _c.trim()) !== null && _d !== void 0 ? _d : "";
 }
 /** Precio Stripe recurrente (mensual) — librería pequeña: +20 GB. Hereda STRIPE_PRICE_BACKUP_STORAGE_PACK si no hay _SMALL. */
-function priceBackupStoragePackSmall() {
-    var _a, _b;
-    return (((_a = process.env.STRIPE_PRICE_BACKUP_STORAGE_PACK_SMALL) === null || _a === void 0 ? void 0 : _a.trim()) ||
-        ((_b = process.env.STRIPE_PRICE_BACKUP_STORAGE_PACK) === null || _b === void 0 ? void 0 : _b.trim()) ||
+function priceBackupStoragePackSmall(isDebug) {
+    var _a, _b, _c, _d, _e, _f;
+    if (isDebug) {
+        return (((_a = process.env.STRIPE_TEST_PRICE_BACKUP_STORAGE_PACK_SMALL) === null || _a === void 0 ? void 0 : _a.trim()) ||
+            ((_b = process.env.STRIPE_TEST_PRICE_BACKUP_STORAGE_PACK) === null || _b === void 0 ? void 0 : _b.trim()) ||
+            ((_c = process.env.STRIPE_PRICE_BACKUP_STORAGE_PACK_SMALL) === null || _c === void 0 ? void 0 : _c.trim()) ||
+            ((_d = process.env.STRIPE_PRICE_BACKUP_STORAGE_PACK) === null || _d === void 0 ? void 0 : _d.trim()) ||
+            "");
+    }
+    return (((_e = process.env.STRIPE_PRICE_BACKUP_STORAGE_PACK_SMALL) === null || _e === void 0 ? void 0 : _e.trim()) ||
+        ((_f = process.env.STRIPE_PRICE_BACKUP_STORAGE_PACK) === null || _f === void 0 ? void 0 : _f.trim()) ||
         "");
 }
-function priceBackupStoragePackMedium() {
-    var _a, _b;
-    return (_b = (_a = process.env.STRIPE_PRICE_BACKUP_STORAGE_PACK_MEDIUM) === null || _a === void 0 ? void 0 : _a.trim()) !== null && _b !== void 0 ? _b : "";
+function priceBackupStoragePackMedium(isDebug) {
+    var _a, _b, _c, _d;
+    if (isDebug) {
+        return ((_a = process.env.STRIPE_TEST_PRICE_BACKUP_STORAGE_PACK_MEDIUM) === null || _a === void 0 ? void 0 : _a.trim()) || ((_b = process.env.STRIPE_PRICE_BACKUP_STORAGE_PACK_MEDIUM) === null || _b === void 0 ? void 0 : _b.trim()) || "";
+    }
+    return (_d = (_c = process.env.STRIPE_PRICE_BACKUP_STORAGE_PACK_MEDIUM) === null || _c === void 0 ? void 0 : _c.trim()) !== null && _d !== void 0 ? _d : "";
 }
-function priceBackupStoragePackLarge() {
-    var _a, _b;
-    return (_b = (_a = process.env.STRIPE_PRICE_BACKUP_STORAGE_PACK_LARGE) === null || _a === void 0 ? void 0 : _a.trim()) !== null && _b !== void 0 ? _b : "";
+function priceBackupStoragePackLarge(isDebug) {
+    var _a, _b, _c, _d;
+    if (isDebug) {
+        return ((_a = process.env.STRIPE_TEST_PRICE_BACKUP_STORAGE_PACK_LARGE) === null || _a === void 0 ? void 0 : _a.trim()) || ((_b = process.env.STRIPE_PRICE_BACKUP_STORAGE_PACK_LARGE) === null || _b === void 0 ? void 0 : _b.trim()) || "";
+    }
+    return (_d = (_c = process.env.STRIPE_PRICE_BACKUP_STORAGE_PACK_LARGE) === null || _c === void 0 ? void 0 : _c.trim()) !== null && _d !== void 0 ? _d : "";
 }
 /** 5 GiB base con suscripción Folio Cloud (backup). */
 const FOLIO_BACKUP_BASE_QUOTA_BYTES = 5 * 1024 * 1024 * 1024;
@@ -1441,31 +1472,45 @@ exports.stripeWebhook = (0, https_2.onRequest)(
         res.status(405).send("Method Not Allowed");
         return;
     }
-    const stripe = stripeClient();
-    const whSecret = webhookSecret();
-    if (!stripe || !whSecret) {
-        console.warn("Stripe webhook: missing STRIPE_SECRET_KEY or STRIPE_WEBHOOK_SECRET");
-        res.status(503).send("Stripe not configured");
-        return;
-    }
+    let stripe = stripeClient();
+    let whSecret = webhookSecret();
     const sig = req.headers["stripe-signature"];
     if (!sig || typeof sig !== "string") {
         res.status(400).send("Missing stripe-signature");
         return;
     }
+    const rawBody = req.rawBody;
+    if (!rawBody) {
+        res.status(400).send("Missing raw body");
+        return;
+    }
     let event;
     try {
-        const rawBody = req.rawBody;
-        if (!rawBody) {
-            res.status(400).send("Missing raw body");
-            return;
+        if (!stripe || !whSecret) {
+            throw new Error("Missing config");
         }
         event = stripe.webhooks.constructEvent(rawBody, sig, whSecret);
     }
     catch (err) {
-        console.error("Webhook signature verification failed", err);
-        res.status(400).send("Invalid signature");
-        return;
+        const testStripe = stripeClient(true);
+        const testWhSecret = webhookSecret(true);
+        if (testStripe && testWhSecret && (testStripe !== stripe || testWhSecret !== whSecret)) {
+            try {
+                event = testStripe.webhooks.constructEvent(rawBody, sig, testWhSecret);
+                stripe = testStripe;
+                console.log("Stripe webhook: verified signature using test secret key/webhook secret");
+            }
+            catch (testErr) {
+                console.error("Webhook signature verification failed for both live and test secrets", err, testErr);
+                res.status(400).send("Invalid signature");
+                return;
+            }
+        }
+        else {
+            console.error("Webhook signature verification failed", err);
+            res.status(400).send("Invalid signature");
+            return;
+        }
     }
     const stripeEventId = event.id;
     if (await isWebhookAlreadyProcessed(stripeEventId)) {
@@ -1932,30 +1977,31 @@ function assertValidVaultId(raw) {
  * o Cloud Run devolverá 401 HTML antes de ejecutar la función.
  */
 exports.createCheckoutSession = (0, https_1.onCall)({ invoker: "public" }, async (request) => {
-    var _a, _b, _c, _d, _e, _f, _g;
+    var _a, _b, _c, _d, _e, _f, _g, _h;
     if (!((_a = request.auth) === null || _a === void 0 ? void 0 : _a.uid)) {
         throw new https_1.HttpsError("unauthenticated", "Login required");
     }
-    const stripe = stripeClient();
+    const isDebug = ((_b = request.data) === null || _b === void 0 ? void 0 : _b.debug) === true;
+    const stripe = stripeClient(isDebug);
     if (!stripe) {
         throw new https_1.HttpsError("failed-precondition", "Stripe not configured on server");
     }
     const uid = request.auth.uid;
-    let kindRaw = (_c = (_b = request.data) === null || _b === void 0 ? void 0 : _b.kind) !== null && _c !== void 0 ? _c : "folio_cloud_monthly";
+    let kindRaw = (_d = (_c = request.data) === null || _c === void 0 ? void 0 : _c.kind) !== null && _d !== void 0 ? _d : "folio_cloud_monthly";
     if (kindRaw === "backup_storage_pack") {
         kindRaw = "backup_storage_pack_small";
     }
     const kind = kindRaw;
     const priceIdMap = {
-        folio_cloud_monthly: priceFolioCloudMonthly(),
-        ink_small: priceInkSmall(),
-        ink_medium: priceInkMedium(),
-        ink_large: priceInkLarge(),
-        backup_storage_pack_small: priceBackupStoragePackSmall(),
-        backup_storage_pack_medium: priceBackupStoragePackMedium(),
-        backup_storage_pack_large: priceBackupStoragePackLarge(),
+        folio_cloud_monthly: priceFolioCloudMonthly(isDebug),
+        ink_small: priceInkSmall(isDebug),
+        ink_medium: priceInkMedium(isDebug),
+        ink_large: priceInkLarge(isDebug),
+        backup_storage_pack_small: priceBackupStoragePackSmall(isDebug),
+        backup_storage_pack_medium: priceBackupStoragePackMedium(isDebug),
+        backup_storage_pack_large: priceBackupStoragePackLarge(isDebug),
     };
-    const rawCatalogId = (_d = priceIdMap[kind]) === null || _d === void 0 ? void 0 : _d.trim();
+    const rawCatalogId = (_e = priceIdMap[kind]) === null || _e === void 0 ? void 0 : _e.trim();
     if (!rawCatalogId) {
         throw new https_1.HttpsError("failed-precondition", `Stripe catalog id not configured for kind: ${kind}`);
     }
@@ -1969,10 +2015,10 @@ exports.createCheckoutSession = (0, https_1.onCall)({ invoker: "public" }, async
         console.error("resolveCatalogIdToPriceId", e);
         throw new https_1.HttpsError("failed-precondition", `Stripe: ${stripeCallErrorMessage(e)}`);
     }
-    const successUrl = ((_e = process.env.STRIPE_CHECKOUT_SUCCESS_URL) === null || _e === void 0 ? void 0 : _e.trim()) ||
-        ((_f = process.env.BILLING_PORTAL_RETURN_URL) === null || _f === void 0 ? void 0 : _f.trim()) ||
+    const successUrl = ((_f = process.env.STRIPE_CHECKOUT_SUCCESS_URL) === null || _f === void 0 ? void 0 : _f.trim()) ||
+        ((_g = process.env.BILLING_PORTAL_RETURN_URL) === null || _g === void 0 ? void 0 : _g.trim()) ||
         "https://folio.app";
-    const cancelUrl = ((_g = process.env.STRIPE_CHECKOUT_CANCEL_URL) === null || _g === void 0 ? void 0 : _g.trim()) || successUrl;
+    const cancelUrl = ((_h = process.env.STRIPE_CHECKOUT_CANCEL_URL) === null || _h === void 0 ? void 0 : _h.trim()) || successUrl;
     const isSubscription = kind === "folio_cloud_monthly" ||
         kind === "backup_storage_pack_small" ||
         kind === "backup_storage_pack_medium" ||
@@ -2017,11 +2063,12 @@ exports.createCheckoutSession = (0, https_1.onCall)({ invoker: "public" }, async
     return { url: session.url };
 });
 exports.syncFolioCloudSubscriptionFromStripe = (0, https_1.onCall)({ invoker: "public" }, async (request) => {
-    var _a, _b, _c;
+    var _a, _b, _c, _d;
     if (!((_a = request.auth) === null || _a === void 0 ? void 0 : _a.uid)) {
         throw new https_1.HttpsError("unauthenticated", "Login required");
     }
-    const stripe = stripeClient();
+    const isDebug = ((_b = request.data) === null || _b === void 0 ? void 0 : _b.debug) === true;
+    const stripe = stripeClient(isDebug);
     if (!stripe) {
         throw new https_1.HttpsError("failed-precondition", "Stripe not configured on server");
     }
@@ -2045,7 +2092,7 @@ exports.syncFolioCloudSubscriptionFromStripe = (0, https_1.onCall)({ invoker: "p
                 .doc(uid)
                 .set({ stripeCustomerId: cid }, { merge: true });
         }
-        const priceId = (_c = (_b = chosen.items.data[0]) === null || _b === void 0 ? void 0 : _b.price) === null || _c === void 0 ? void 0 : _c.id;
+        const priceId = (_d = (_c = chosen.items.data[0]) === null || _c === void 0 ? void 0 : _c.price) === null || _d === void 0 ? void 0 : _d.id;
         await syncSubscriptionToUser(stripe, uid, chosen.status, priceId);
         return { ok: true, status: chosen.status };
     }
@@ -2687,11 +2734,12 @@ exports.folioTrimVaultBackups = (0, https_1.onCall)({ cors: true, invoker: "publ
     return { ok: errors.length === 0, deleted, failed: errors.slice(0, 10) };
 });
 exports.createBillingPortalSession = (0, https_1.onCall)({ invoker: "public" }, async (request) => {
-    var _a, _b;
+    var _a, _b, _c;
     if (!((_a = request.auth) === null || _a === void 0 ? void 0 : _a.uid)) {
         throw new https_1.HttpsError("unauthenticated", "Login required");
     }
-    const stripe = stripeClient();
+    const isDebug = ((_b = request.data) === null || _b === void 0 ? void 0 : _b.debug) === true;
+    const stripe = stripeClient(isDebug);
     if (!stripe) {
         throw new https_1.HttpsError("failed-precondition", "Stripe not configured on server");
     }
@@ -2700,7 +2748,7 @@ exports.createBillingPortalSession = (0, https_1.onCall)({ invoker: "public" }, 
     if (!customerId) {
         throw new https_1.HttpsError("failed-precondition", "No Stripe customer yet. Complete checkout first.");
     }
-    const baseUrl = ((_b = process.env.BILLING_PORTAL_RETURN_URL) === null || _b === void 0 ? void 0 : _b.trim()) || "https://folio.app";
+    const baseUrl = ((_c = process.env.BILLING_PORTAL_RETURN_URL) === null || _c === void 0 ? void 0 : _c.trim()) || "https://folio.app";
     let session;
     try {
         session = await stripe.billingPortal.sessions.create({

@@ -61,11 +61,17 @@ const INK_EXTRA_FOR_LONG_PROMPT = 2;
 const INK_TOKENS_PER_SURCHARGE_UNIT = 6000;
 const INK_MAX_TOKEN_SURCHARGE = 10;
 
-function stripeSecret(): string {
+function stripeSecret(isDebug?: boolean): string {
+  if (isDebug) {
+    return process.env.STRIPE_TEST_SECRET_KEY?.trim() || process.env.STRIPE_SECRET_KEY?.trim() || "";
+  }
   return process.env.STRIPE_SECRET_KEY?.trim() ?? "";
 }
 
-function webhookSecret(): string {
+function webhookSecret(isTest?: boolean): string {
+  if (isTest) {
+    return process.env.STRIPE_TEST_WEBHOOK_SECRET?.trim() || process.env.STRIPE_WEBHOOK_SECRET?.trim() || "";
+  }
   return process.env.STRIPE_WEBHOOK_SECRET?.trim() ?? "";
 }
 
@@ -776,8 +782,8 @@ async function verifiedUidFromBearerToken(
   }
 }
 
-function stripeClient(): Stripe | null {
-  const key = stripeSecret();
+function stripeClient(isDebug?: boolean): Stripe | null {
+  const key = stripeSecret(isDebug);
   if (!key) return null;
   return new Stripe(key, { apiVersion: "2025-02-24.acacia" });
 }
@@ -793,24 +799,45 @@ function stripeCallErrorMessage(err: unknown): string {
   return "Unknown error";
 }
 
-function priceFolioCloudMonthly(): string {
+function priceFolioCloudMonthly(isDebug?: boolean): string {
+  if (isDebug) {
+    return process.env.STRIPE_TEST_PRICE_FOLIO_CLOUD_MONTHLY?.trim() || process.env.STRIPE_PRICE_FOLIO_CLOUD_MONTHLY?.trim() || "";
+  }
   return process.env.STRIPE_PRICE_FOLIO_CLOUD_MONTHLY?.trim() ?? "";
 }
 
-function priceInkSmall(): string {
+function priceInkSmall(isDebug?: boolean): string {
+  if (isDebug) {
+    return process.env.STRIPE_TEST_PRICE_INK_SMALL?.trim() || process.env.STRIPE_PRICE_INK_SMALL?.trim() || "";
+  }
   return process.env.STRIPE_PRICE_INK_SMALL?.trim() ?? "";
 }
 
-function priceInkMedium(): string {
+function priceInkMedium(isDebug?: boolean): string {
+  if (isDebug) {
+    return process.env.STRIPE_TEST_PRICE_INK_MEDIUM?.trim() || process.env.STRIPE_PRICE_INK_MEDIUM?.trim() || "";
+  }
   return process.env.STRIPE_PRICE_INK_MEDIUM?.trim() ?? "";
 }
 
-function priceInkLarge(): string {
+function priceInkLarge(isDebug?: boolean): string {
+  if (isDebug) {
+    return process.env.STRIPE_TEST_PRICE_INK_LARGE?.trim() || process.env.STRIPE_PRICE_INK_LARGE?.trim() || "";
+  }
   return process.env.STRIPE_PRICE_INK_LARGE?.trim() ?? "";
 }
 
 /** Precio Stripe recurrente (mensual) — librería pequeña: +20 GB. Hereda STRIPE_PRICE_BACKUP_STORAGE_PACK si no hay _SMALL. */
-function priceBackupStoragePackSmall(): string {
+function priceBackupStoragePackSmall(isDebug?: boolean): string {
+  if (isDebug) {
+    return (
+      process.env.STRIPE_TEST_PRICE_BACKUP_STORAGE_PACK_SMALL?.trim() ||
+      process.env.STRIPE_TEST_PRICE_BACKUP_STORAGE_PACK?.trim() ||
+      process.env.STRIPE_PRICE_BACKUP_STORAGE_PACK_SMALL?.trim() ||
+      process.env.STRIPE_PRICE_BACKUP_STORAGE_PACK?.trim() ||
+      ""
+    );
+  }
   return (
     process.env.STRIPE_PRICE_BACKUP_STORAGE_PACK_SMALL?.trim() ||
     process.env.STRIPE_PRICE_BACKUP_STORAGE_PACK?.trim() ||
@@ -818,11 +845,17 @@ function priceBackupStoragePackSmall(): string {
   );
 }
 
-function priceBackupStoragePackMedium(): string {
+function priceBackupStoragePackMedium(isDebug?: boolean): string {
+  if (isDebug) {
+    return process.env.STRIPE_TEST_PRICE_BACKUP_STORAGE_PACK_MEDIUM?.trim() || process.env.STRIPE_PRICE_BACKUP_STORAGE_PACK_MEDIUM?.trim() || "";
+  }
   return process.env.STRIPE_PRICE_BACKUP_STORAGE_PACK_MEDIUM?.trim() ?? "";
 }
 
-function priceBackupStoragePackLarge(): string {
+function priceBackupStoragePackLarge(isDebug?: boolean): string {
+  if (isDebug) {
+    return process.env.STRIPE_TEST_PRICE_BACKUP_STORAGE_PACK_LARGE?.trim() || process.env.STRIPE_PRICE_BACKUP_STORAGE_PACK_LARGE?.trim() || "";
+  }
   return process.env.STRIPE_PRICE_BACKUP_STORAGE_PACK_LARGE?.trim() ?? "";
 }
 
@@ -1712,30 +1745,42 @@ export const stripeWebhook = onRequest(
       res.status(405).send("Method Not Allowed");
       return;
     }
-    const stripe = stripeClient();
-    const whSecret = webhookSecret();
-    if (!stripe || !whSecret) {
-      console.warn("Stripe webhook: missing STRIPE_SECRET_KEY or STRIPE_WEBHOOK_SECRET");
-      res.status(503).send("Stripe not configured");
-      return;
-    }
+    let stripe = stripeClient();
+    let whSecret = webhookSecret();
     const sig = req.headers["stripe-signature"];
     if (!sig || typeof sig !== "string") {
       res.status(400).send("Missing stripe-signature");
       return;
     }
+    const rawBody = (req as { rawBody?: Buffer }).rawBody;
+    if (!rawBody) {
+      res.status(400).send("Missing raw body");
+      return;
+    }
     let event: Stripe.Event;
     try {
-      const rawBody = (req as { rawBody?: Buffer }).rawBody;
-      if (!rawBody) {
-        res.status(400).send("Missing raw body");
-        return;
+      if (!stripe || !whSecret) {
+        throw new Error("Missing config");
       }
       event = stripe.webhooks.constructEvent(rawBody, sig, whSecret);
     } catch (err) {
-      console.error("Webhook signature verification failed", err);
-      res.status(400).send("Invalid signature");
-      return;
+      const testStripe = stripeClient(true);
+      const testWhSecret = webhookSecret(true);
+      if (testStripe && testWhSecret && (testStripe !== stripe || testWhSecret !== whSecret)) {
+        try {
+          event = testStripe.webhooks.constructEvent(rawBody, sig, testWhSecret);
+          stripe = testStripe;
+          console.log("Stripe webhook: verified signature using test secret key/webhook secret");
+        } catch (testErr) {
+          console.error("Webhook signature verification failed for both live and test secrets", err, testErr);
+          res.status(400).send("Invalid signature");
+          return;
+        }
+      } else {
+        console.error("Webhook signature verification failed", err);
+        res.status(400).send("Invalid signature");
+        return;
+      }
     }
     const stripeEventId = event.id;
     if (await isWebhookAlreadyProcessed(stripeEventId)) {
@@ -2275,7 +2320,8 @@ export const createCheckoutSession = onCall(
     if (!request.auth?.uid) {
       throw new HttpsError("unauthenticated", "Login required");
     }
-    const stripe = stripeClient();
+    const isDebug = request.data?.debug === true;
+    const stripe = stripeClient(isDebug);
     if (!stripe) {
       throw new HttpsError(
         "failed-precondition",
@@ -2289,13 +2335,13 @@ export const createCheckoutSession = onCall(
     }
     const kind = kindRaw as CheckoutKind;
     const priceIdMap: Record<CheckoutKind, string> = {
-      folio_cloud_monthly: priceFolioCloudMonthly(),
-      ink_small: priceInkSmall(),
-      ink_medium: priceInkMedium(),
-      ink_large: priceInkLarge(),
-      backup_storage_pack_small: priceBackupStoragePackSmall(),
-      backup_storage_pack_medium: priceBackupStoragePackMedium(),
-      backup_storage_pack_large: priceBackupStoragePackLarge(),
+      folio_cloud_monthly: priceFolioCloudMonthly(isDebug),
+      ink_small: priceInkSmall(isDebug),
+      ink_medium: priceInkMedium(isDebug),
+      ink_large: priceInkLarge(isDebug),
+      backup_storage_pack_small: priceBackupStoragePackSmall(isDebug),
+      backup_storage_pack_medium: priceBackupStoragePackMedium(isDebug),
+      backup_storage_pack_large: priceBackupStoragePackLarge(isDebug),
     };
     const rawCatalogId = priceIdMap[kind]?.trim();
     if (!rawCatalogId) {
@@ -2384,7 +2430,8 @@ export const syncFolioCloudSubscriptionFromStripe = onCall(
     if (!request.auth?.uid) {
       throw new HttpsError("unauthenticated", "Login required");
     }
-    const stripe = stripeClient();
+    const isDebug = request.data?.debug === true;
+    const stripe = stripeClient(isDebug);
     if (!stripe) {
       throw new HttpsError(
         "failed-precondition",
@@ -3192,7 +3239,8 @@ export const createBillingPortalSession = onCall(
   if (!request.auth?.uid) {
     throw new HttpsError("unauthenticated", "Login required");
   }
-  const stripe = stripeClient();
+  const isDebug = request.data?.debug === true;
+  const stripe = stripeClient(isDebug);
   if (!stripe) {
     throw new HttpsError("failed-precondition", "Stripe not configured on server");
   }

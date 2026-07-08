@@ -2619,5 +2619,21 @@
   "saveStatusPending": "Cambios pendientes",
   "saveStatusSaving": "Guardando…",
   "saveStatusSaved": "Guardado",
-  "saveStatusError": "Error al guardar"
+  "saveStatusError": "Error al guardar",
+  "settingsSearchNoResults": "No se encontraron ajustes coincidentes",
+  "settingsSearchResultsTitle": "Resultados de la búsqueda",
+  "settingsSearchThemeTitle": "Tema de la aplicación",
+  "settingsSearchThemeDesc": "Elige entre tema claro, oscuro o el predeterminado del sistema.",
+  "settingsSearchLangTitle": "Idioma de la aplicación",
+  "settingsSearchLangDesc": "Cambia el idioma predeterminado de la interfaz.",
+  "settingsSearchAiTitle": "Habilitar servicios de IA",
+  "settingsSearchAiDesc": "Activa o desactiva la integración con modelos de lenguaje locales o en la nube.",
+  "settingsSearchQuickUnlockTitle": "Desbloqueo rápido",
+  "settingsSearchQuickUnlockDesc": "Configura huella dactilar, reconocimiento facial o PIN de desbloqueo.",
+  "settingsSearchCloudBackupTitle": "Copia de seguridad automática en la nube",
+  "settingsSearchCloudBackupDesc": "Guarda tus libretas de forma segura con sincronización en tiempo real.",
+  "settingsSearchJiraTitle": "Conectar Jira",
+  "settingsSearchJiraDesc": "Importa tus tareas e incidencias directamente a Folio.",
+  "settingsSearchYouTrackTitle": "Conectar YouTrack",
+  "settingsSearchYouTrackDesc": "Administra tus tareas de desarrollo desde Folio."
 }

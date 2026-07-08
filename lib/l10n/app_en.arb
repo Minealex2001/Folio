@@ -2619,5 +2619,21 @@
   "saveStatusPending": "Pending changes",
   "saveStatusSaving": "Saving…",
   "saveStatusSaved": "Saved",
-  "saveStatusError": "Save failed"
+  "saveStatusError": "Save failed",
+  "settingsSearchNoResults": "No matching settings found",
+  "settingsSearchResultsTitle": "Search Results",
+  "settingsSearchThemeTitle": "App Theme",
+  "settingsSearchThemeDesc": "Choose between light, dark, or system default theme.",
+  "settingsSearchLangTitle": "App Language",
+  "settingsSearchLangDesc": "Change the default language of the interface.",
+  "settingsSearchAiTitle": "Enable AI Services",
+  "settingsSearchAiDesc": "Enable or disable integration with local or cloud language models.",
+  "settingsSearchQuickUnlockTitle": "Quick Unlock",
+  "settingsSearchQuickUnlockDesc": "Configure fingerprint, face recognition, or PIN unlock.",
+  "settingsSearchCloudBackupTitle": "Cloud Backup",
+  "settingsSearchCloudBackupDesc": "Automatically backup your vaults securely in real-time.",
+  "settingsSearchJiraTitle": "Connect Jira",
+  "settingsSearchJiraDesc": "Import your tasks and issues directly into Folio.",
+  "settingsSearchYouTrackTitle": "Connect YouTrack",
+  "settingsSearchYouTrackDesc": "Manage your development issues from within Folio."
 }

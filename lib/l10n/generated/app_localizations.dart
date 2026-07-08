@@ -14386,6 +14386,102 @@ abstract class AppLocalizations {
   /// In es, this message translates to:
   /// **'Error al guardar'**
   String get saveStatusError;
+
+  /// No description provided for @settingsSearchNoResults.
+  ///
+  /// In es, this message translates to:
+  /// **'No se encontraron ajustes coincidentes'**
+  String get settingsSearchNoResults;
+
+  /// No description provided for @settingsSearchResultsTitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Resultados de la búsqueda'**
+  String get settingsSearchResultsTitle;
+
+  /// No description provided for @settingsSearchThemeTitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Tema de la aplicación'**
+  String get settingsSearchThemeTitle;
+
+  /// No description provided for @settingsSearchThemeDesc.
+  ///
+  /// In es, this message translates to:
+  /// **'Elige entre tema claro, oscuro o el predeterminado del sistema.'**
+  String get settingsSearchThemeDesc;
+
+  /// No description provided for @settingsSearchLangTitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Idioma de la aplicación'**
+  String get settingsSearchLangTitle;
+
+  /// No description provided for @settingsSearchLangDesc.
+  ///
+  /// In es, this message translates to:
+  /// **'Cambia el idioma predeterminado de la interfaz.'**
+  String get settingsSearchLangDesc;
+
+  /// No description provided for @settingsSearchAiTitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Habilitar servicios de IA'**
+  String get settingsSearchAiTitle;
+
+  /// No description provided for @settingsSearchAiDesc.
+  ///
+  /// In es, this message translates to:
+  /// **'Activa o desactiva la integración con modelos de lenguaje locales o en la nube.'**
+  String get settingsSearchAiDesc;
+
+  /// No description provided for @settingsSearchQuickUnlockTitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Desbloqueo rápido'**
+  String get settingsSearchQuickUnlockTitle;
+
+  /// No description provided for @settingsSearchQuickUnlockDesc.
+  ///
+  /// In es, this message translates to:
+  /// **'Configura huella dactilar, reconocimiento facial o PIN de desbloqueo.'**
+  String get settingsSearchQuickUnlockDesc;
+
+  /// No description provided for @settingsSearchCloudBackupTitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Copia de seguridad automática en la nube'**
+  String get settingsSearchCloudBackupTitle;
+
+  /// No description provided for @settingsSearchCloudBackupDesc.
+  ///
+  /// In es, this message translates to:
+  /// **'Guarda tus libretas de forma segura con sincronización en tiempo real.'**
+  String get settingsSearchCloudBackupDesc;
+
+  /// No description provided for @settingsSearchJiraTitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Conectar Jira'**
+  String get settingsSearchJiraTitle;
+
+  /// No description provided for @settingsSearchJiraDesc.
+  ///
+  /// In es, this message translates to:
+  /// **'Importa tus tareas e incidencias directamente a Folio.'**
+  String get settingsSearchJiraDesc;
+
+  /// No description provided for @settingsSearchYouTrackTitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Conectar YouTrack'**
+  String get settingsSearchYouTrackTitle;
+
+  /// No description provided for @settingsSearchYouTrackDesc.
+  ///
+  /// In es, this message translates to:
+  /// **'Administra tus tareas de desarrollo desde Folio.'**
+  String get settingsSearchYouTrackDesc;
 }
 
 class _AppLocalizationsDelegate
