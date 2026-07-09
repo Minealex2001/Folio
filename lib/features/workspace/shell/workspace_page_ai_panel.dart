@@ -102,7 +102,7 @@ extension _WorkspacePageAiPanelModule on _WorkspacePageState {
               shape: BoxShape.circle,
             ),
             child: Icon(
-              Icons.smart_toy_outlined,
+              _personaIcon(widget.appSettings.aiPersona),
               size: 16,
               color: scheme.onSecondaryContainer,
             ),
@@ -196,6 +196,7 @@ extension _WorkspacePageAiPanelModule on _WorkspacePageState {
       context: context,
       showDragHandle: true,
       builder: (ctx) {
+        final isEs = Localizations.localeOf(ctx).languageCode == 'es';
         return SafeArea(
           child: SingleChildScrollView(
             padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
@@ -245,6 +246,42 @@ extension _WorkspacePageAiPanelModule on _WorkspacePageState {
                     ),
                   ),
                 ],
+                const Divider(height: 24),
+                Text(
+                  l10n.aiPersonaLabel,
+                  style: theme.textTheme.labelMedium?.copyWith(
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                StatefulBuilder(
+                  builder: (context, setSheetState) {
+                    final l10nLocal = AppLocalizations.of(context);
+                    return DropdownButtonFormField<String>(
+                      value: widget.appSettings.aiPersona,
+                      decoration: InputDecoration(
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                      ),
+                      items: [
+                        DropdownMenuItem(value: 'quill', child: Text(l10nLocal.aiPersonaQuillShort)),
+                        DropdownMenuItem(value: 'translator', child: Text(l10nLocal.aiPersonaTranslatorShort)),
+                        DropdownMenuItem(value: 'summarizer', child: Text(l10nLocal.aiPersonaSummarizerShort)),
+                        DropdownMenuItem(value: 'coder', child: Text(l10nLocal.aiPersonaCoderShort)),
+                        DropdownMenuItem(value: 'custom', child: Text(l10nLocal.aiPersonaCustomShort)),
+                      ],
+                      onChanged: (val) async {
+                        if (val != null) {
+                          await widget.appSettings.setAiPersona(val);
+                          setSheetState(() {});
+                          _setStateSafe(() {});
+                        }
+                      },
+                    );
+                  }
+                ),
                 if (inkLooksEmpty) ...[
                   const SizedBox(height: 16),
                   FilledButton.tonalIcon(
@@ -480,7 +517,7 @@ extension _WorkspacePageAiPanelModule on _WorkspacePageState {
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: Icon(
-                      Icons.auto_awesome_rounded,
+                      _personaIcon(widget.appSettings.aiPersona),
                       size: 22,
                       color: scheme.onPrimaryContainer,
                     ),
@@ -493,16 +530,117 @@ extension _WorkspacePageAiPanelModule on _WorkspacePageState {
                         Row(
                           children: [
                             Flexible(
-                              child: Text(
-                                l10n.aiAssistantTitle,
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: theme.textTheme.titleSmall?.copyWith(
-                                  fontWeight: FontWeight.w800,
-                                  letterSpacing: -0.2,
+                              child: DropdownButtonHideUnderline(
+                                child: DropdownButton<String>(
+                                  value: widget.appSettings.aiPersona,
+                                  isDense: true,
+                                  dropdownColor: scheme.surfaceContainerHigh,
+                                  borderRadius: BorderRadius.circular(12),
+                                  icon: const Icon(Icons.arrow_drop_down_rounded, size: 20),
+                                  style: theme.textTheme.titleSmall?.copyWith(
+                                    fontWeight: FontWeight.w800,
+                                    letterSpacing: -0.2,
+                                    color: scheme.onSurface,
+                                  ),
+                                  selectedItemBuilder: (BuildContext context) {
+                                    return [
+                                      'quill',
+                                      'translator',
+                                      'summarizer',
+                                      'coder',
+                                      'custom'
+                                    ].map<Widget>((String val) {
+                                      String text = '';
+                                      switch (val) {
+                                        case 'quill':
+                                          text = l10n.aiPersonaQuillShort;
+                                          break;
+                                        case 'translator':
+                                          text = l10n.aiPersonaTranslatorShort;
+                                          break;
+                                        case 'summarizer':
+                                          text = l10n.aiPersonaSummarizerShort;
+                                          break;
+                                        case 'coder':
+                                          text = l10n.aiPersonaCoderShort;
+                                          break;
+                                        case 'custom':
+                                          text = l10n.aiPersonaCustomShort;
+                                          break;
+                                      }
+                                      return Align(
+                                        alignment: Alignment.centerLeft,
+                                        child: Text(
+                                          text,
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+                                      );
+                                    }).toList();
+                                  },
+                                  items: [
+                                    DropdownMenuItem(value: 'quill', child: Text(l10n.aiPersonaQuillShort)),
+                                    DropdownMenuItem(value: 'translator', child: Text(l10n.aiPersonaTranslatorShort)),
+                                    DropdownMenuItem(value: 'summarizer', child: Text(l10n.aiPersonaSummarizerShort)),
+                                    DropdownMenuItem(value: 'coder', child: Text(l10n.aiPersonaCoderShort)),
+                                    DropdownMenuItem(value: 'custom', child: Text(l10n.aiPersonaCustomShort)),
+                                  ],
+                                  onChanged: (val) async {
+                                    if (val != null) {
+                                      await widget.appSettings.setAiPersona(val);
+                                      _setStateSafe(() {});
+                                    }
+                                  },
                                 ),
                               ),
                             ),
+                            if (widget.appSettings.aiPersona == 'custom') ...[
+                              const SizedBox(width: 4),
+                              IconButton(
+                                constraints: const BoxConstraints(),
+                                padding: EdgeInsets.zero,
+                                icon: Icon(
+                                  Icons.edit_note_rounded,
+                                  size: 18,
+                                  color: scheme.primary,
+                                ),
+                                tooltip: l10n.aiPersonaCustomPromptLabel,
+                                onPressed: () async {
+                                  final ctrl = TextEditingController(text: widget.appSettings.aiCustomSystemPrompt);
+                                  final ok = await showDialog<bool>(
+                                    context: context,
+                                    builder: (ctx) => FolioDialog(
+                                      title: Text(l10n.aiPersonaCustom),
+                                      content: SizedBox(
+                                        width: 400,
+                                        child: TextField(
+                                          controller: ctrl,
+                                          maxLines: 6,
+                                          minLines: 2,
+                                          decoration: InputDecoration(
+                                            hintText: l10n.aiPersonaCustomPromptHint,
+                                            border: const OutlineInputBorder(),
+                                          ),
+                                        ),
+                                      ),
+                                      actions: [
+                                        TextButton(
+                                          onPressed: () => Navigator.pop(ctx, false),
+                                          child: Text(l10n.cancel),
+                                        ),
+                                        FilledButton(
+                                          onPressed: () => Navigator.pop(ctx, true),
+                                          child: Text(l10n.continueAction),
+                                        ),
+                                      ],
+                                    ),
+                                  );
+                                  if (ok == true) {
+                                    await widget.appSettings.setAiCustomSystemPrompt(ctrl.text);
+                                  }
+                                },
+                              ),
+                            ],
                             const SizedBox(width: 8),
                             Wrap(
                               spacing: 6,
@@ -1002,6 +1140,34 @@ extension _WorkspacePageAiPanelModule on _WorkspacePageState {
                               color: scheme.onSurfaceVariant,
                             ),
                             const SizedBox(width: 4),
+                            if (_transcribingVoice)
+                              const Padding(
+                                padding: EdgeInsets.all(12),
+                                child: SizedBox(
+                                  width: 20,
+                                  height: 20,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                  ),
+                                ),
+                              )
+                            else
+                              IconButton(
+                                onPressed: !aiReady ? null : _toggleVoiceRecording,
+                                icon: Icon(
+                                  _recordingVoice
+                                      ? Icons.stop_circle_rounded
+                                      : Icons.mic_rounded,
+                                  color: _recordingVoice
+                                      ? Colors.red
+                                      : scheme.onSurfaceVariant,
+                                ),
+                                tooltip: _recordingVoice
+                                    ? l10n.aiDictationRecordingStopTooltip
+                                    : l10n.aiDictationRecordingMicTooltip,
+                                padding: const EdgeInsets.all(12),
+                              ),
+                            const SizedBox(width: 4),
                             Expanded(
                               child: Padding(
                                 padding: const EdgeInsets.only(bottom: 2),
@@ -1074,6 +1240,84 @@ extension _WorkspacePageAiPanelModule on _WorkspacePageState {
     );
   }
 
-
+  Future<void> _toggleVoiceRecording() async {
+    final l10n = AppLocalizations.of(context);
+    if (_recordingVoice) {
+      try {
+        final path = await _audioRecorder.stop();
+        _setStateSafe(() {
+          _recordingVoice = false;
+          _transcribingVoice = true;
+        });
+        if (path != null) {
+          final file = File(path);
+          if (await file.exists()) {
+            final chosenModel = widget.appSettings.meetingNoteModelId;
+            try {
+              await WhisperService.instance.ensureReady(
+                modelId: chosenModel,
+              );
+            } catch (err) {
+              _snack(l10n.aiDictationWhisperNotReady, error: true);
+              _setStateSafe(() => _transcribingVoice = false);
+              return;
+            }
+            
+            final text = await WhisperService.instance.transcribe(
+              file,
+              language: Localizations.localeOf(context).languageCode,
+              modelId: chosenModel,
+            );
+            
+            if (text.trim().isNotEmpty) {
+              _setStateSafe(() {
+                final currentText = _chatInputController.text;
+                if (currentText.isEmpty) {
+                  _chatInputController.text = text.trim();
+                } else {
+                  _chatInputController.text = '$currentText ${text.trim()}';
+                }
+              });
+            } else {
+              _snack(l10n.aiDictationNoVoiceDetected, error: true);
+            }
+            
+            await file.delete().catchError((_) => File(''));
+          }
+        }
+      } catch (e) {
+        _snack(e.toString(), error: true);
+      } finally {
+        _setStateSafe(() {
+          _transcribingVoice = false;
+        });
+      }
+    } else {
+      try {
+        if (await _audioRecorder.hasPermission()) {
+          final tempDir = await getTemporaryDirectory();
+          final path = p.join(
+            tempDir.path,
+            'dictation_${DateTime.now().millisecondsSinceEpoch}.wav',
+          );
+          await _audioRecorder.start(
+            const RecordConfig(
+              encoder: AudioEncoder.wav,
+              sampleRate: 16000,
+              numChannels: 1,
+            ),
+            path: path,
+          );
+          _setStateSafe(() {
+            _recordingVoice = true;
+          });
+        } else {
+          _snack(l10n.aiDictationMicError, error: true);
+        }
+      } catch (e) {
+        _snack(e.toString(), error: true);
+      }
+    }
+  }
 }
 

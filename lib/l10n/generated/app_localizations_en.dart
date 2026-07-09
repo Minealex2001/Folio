@@ -8159,4 +8159,62 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get settingsSearchYouTrackDesc =>
       'Manage your development issues from within Folio.';
+
+  @override
+  String get aiPersonaLabel => 'Assistant Personality (Persona)';
+
+  @override
+  String get aiPersonaQuill => 'Quill (Folio general assistant)';
+
+  @override
+  String get aiPersonaQuillShort => 'Quill (General assistant)';
+
+  @override
+  String get aiPersonaTranslator => 'Translator (Text translation)';
+
+  @override
+  String get aiPersonaTranslatorShort => 'Expert translator';
+
+  @override
+  String get aiPersonaSummarizer => 'Summarizer (Key bullet points generation)';
+
+  @override
+  String get aiPersonaSummarizerShort => 'Text summarizer';
+
+  @override
+  String get aiPersonaCoder => 'Coder (Technical assistance and code)';
+
+  @override
+  String get aiPersonaCoderShort => 'Technical developer';
+
+  @override
+  String get aiPersonaCustom => 'Custom prompt (Set your own rules)';
+
+  @override
+  String get aiPersonaCustomShort => 'Custom prompt';
+
+  @override
+  String get aiPersonaCustomPromptLabel =>
+      'Custom system instructions (System Prompt):';
+
+  @override
+  String get aiPersonaCustomPromptHint =>
+      'E.g. You are an expert math teacher...';
+
+  @override
+  String get aiDictationMicError => 'Microphone access denied.';
+
+  @override
+  String get aiDictationWhisperNotReady =>
+      'Whisper model not ready. Please download it in Settings -> Transcription.';
+
+  @override
+  String get aiDictationNoVoiceDetected =>
+      'No voice detected or error during transcription.';
+
+  @override
+  String get aiDictationRecordingStopTooltip => 'Stop recording';
+
+  @override
+  String get aiDictationRecordingMicTooltip => 'Voice dictation';
 }

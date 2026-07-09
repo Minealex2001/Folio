@@ -800,11 +800,52 @@ class BlockEditorState extends State<BlockEditor> with _BlockRowBuild {
   }
 
   /// Selección de texto plano no colapsada (markdown con foco o cualquier bloque Quill con selección).
-  void _scheduleQuillCopilotProbe(String _) {
+  void _scheduleQuillCopilotProbe(String blockId) {
     if (!widget.appSettings.aiQuillCopilotExperimental) return;
     _quillCopilotProbeTimer?.cancel();
-    _quillCopilotProbeTimer = Timer(const Duration(milliseconds: 900), () {
-      // Reservado: pipeline de sugerencias en tiempo real (sin inferencia aún).
+    _quillCopilotProbeTimer = Timer(const Duration(milliseconds: 900), () async {
+      final ai = widget.session.aiService;
+      if (ai == null) return;
+
+      final p = _s.selectedPage;
+      if (p == null) return;
+      final idx = p.blocks.indexWhere((x) => x.id == blockId);
+      if (idx < 0 || idx >= _controllers.length) return;
+
+      final ctrl = _controllers[idx];
+      if (ctrl is! CopilotTextEditingController) return;
+
+      final text = ctrl.text;
+      final selection = ctrl.selection;
+      if (!selection.isValid || !selection.isCollapsed || selection.end != text.length) return;
+      if (text.trim().isEmpty) return;
+
+      try {
+        final promptText = "Complete the following sentence or paragraph naturally. Return ONLY the next words or sentence to complete it, do not repeat the prompt, do not add explanation. Prompt: $text";
+        final response = await ai.complete(
+          AiCompletionRequest(
+            prompt: promptText,
+            messages: [
+              AiChatMessage(
+                role: 'user',
+                content: promptText,
+                timestamp: DateTime.now(),
+              )
+            ],
+            model: 'auto',
+          ),
+        );
+        final suggestionText = response.text.trim();
+        if (suggestionText.isNotEmpty && mounted) {
+          if (ctrl.text == text && ctrl.selection == selection) {
+            setState(() {
+              ctrl.suggestion = suggestionText;
+            });
+          }
+        }
+      } catch (e) {
+        // Ignore background suggestion failures
+      }
     });
   }
 
@@ -3560,10 +3601,13 @@ class BlockEditorState extends State<BlockEditor> with _BlockRowBuild {
                     : b.codeLanguage,
               ),
             )
-          : TextEditingController(text: b.text);
+          : CopilotTextEditingController(text: b.text);
 
       void textListener() {
         if (!mounted) return;
+        if (c is CopilotTextEditingController && c.suggestion.isNotEmpty) {
+          c.suggestion = '';
+        }
         final p = _s.selectedPage;
         if (p == null || p.id != pid) return;
         final idx = p.blocks.indexWhere((x) => x.id == bid);
@@ -3888,6 +3932,34 @@ class BlockEditorState extends State<BlockEditor> with _BlockRowBuild {
     TextEditingController ctrl,
     KeyDownEvent event,
   ) {
+    if (event.logicalKey == LogicalKeyboardKey.tab) {
+      if (ctrl is CopilotTextEditingController && ctrl.suggestion.isNotEmpty) {
+        final suggestion = ctrl.suggestion;
+        ctrl.suggestion = '';
+        final text = ctrl.text;
+        final base = ctrl.selection.baseOffset;
+        final extent = ctrl.selection.extentOffset;
+        final start = base < extent ? base : extent;
+        final end = base < extent ? extent : base;
+
+        final newText = text.replaceRange(start, end, suggestion);
+        ctrl.text = newText;
+        ctrl.selection = TextSelection.collapsed(offset: start + suggestion.length);
+
+        _runWithShortcutsIgnored(() {
+          _s.updateBlockTextFull(
+            page.id,
+            blockId,
+            newText,
+            null,
+          );
+        });
+
+        _scheduleQuillCopilotProbe(blockId);
+        return KeyEventResult.handled;
+      }
+    }
+
     if ((event.logicalKey == LogicalKeyboardKey.keyZ) &&
         (HardwareKeyboard.instance.isControlPressed ||
             HardwareKeyboard.instance.isMetaPressed)) {

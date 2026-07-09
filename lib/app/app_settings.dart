@@ -355,6 +355,8 @@ class AppSettings extends ChangeNotifier {
       'folio_ai_launch_provider_with_app';
   static const _aiContextWindowTokensKey = 'folio_ai_context_window_tokens';
   static const _aiApiKeyKey = 'folio_ai_api_key';
+  static const _aiPersonaKey = 'folio_ai_persona';
+  static const _aiCustomSystemPromptKey = 'folio_ai_custom_system_prompt';
   static const _aiModelsPrefix = 'folio_ai_models_';
   static const _usageIntentsKey = 'folio_usage_intents';
   static const _hasSeenQuillIntroKey = 'folio_has_seen_quill_intro';
@@ -578,6 +580,8 @@ class AppSettings extends ChangeNotifier {
   bool _aiLaunchProviderWithApp = false;
   int _aiContextWindowTokens = defaultAiContextWindowTokens;
   String _aiApiKey = '';
+  String _aiPersona = 'quill';
+  String _aiCustomSystemPrompt = '';
   final Map<AiProvider, List<String>> _cachedAiModelsByProvider = {};
   List<FolioUsageIntent> _usageIntents = const [FolioUsageIntent.notes];
   bool _hasSeenQuillIntro = false;
@@ -696,6 +700,8 @@ class AppSettings extends ChangeNotifier {
   bool get aiLaunchProviderWithApp => _aiLaunchProviderWithApp;
   int get aiContextWindowTokens => _aiContextWindowTokens;
   String get aiApiKey => _aiApiKey;
+  String get aiPersona => _aiPersona;
+  String get aiCustomSystemPrompt => _aiCustomSystemPrompt;
   bool get isAiAvailable => true;
   bool get isAiRuntimeEnabled => _aiEnabled;
   List<FolioUsageIntent> get usageIntents =>
@@ -903,6 +909,8 @@ class AppSettings extends ChangeNotifier {
       p.getInt(_aiContextWindowTokensKey),
     );
     _aiApiKey = p.getString(_aiApiKeyKey) ?? '';
+    _aiPersona = p.getString(_aiPersonaKey) ?? 'quill';
+    _aiCustomSystemPrompt = p.getString(_aiCustomSystemPromptKey) ?? '';
     _usageIntents = FolioUsageIntent.parseList(p.getString(_usageIntentsKey));
     _hasSeenQuillIntro = p.getBool(_hasSeenQuillIntroKey) ?? false;
     _hasSeenQuillWorkspaceTour =
@@ -1541,6 +1549,23 @@ class AppSettings extends ChangeNotifier {
     notifyListeners();
     final p = await SharedPreferences.getInstance();
     await p.setString(_aiApiKeyKey, safe);
+  }
+
+  Future<void> setAiPersona(String value) async {
+    final safe = value.trim().toLowerCase();
+    if (_aiPersona == safe) return;
+    _aiPersona = safe;
+    notifyListeners();
+    final p = await SharedPreferences.getInstance();
+    await p.setString(_aiPersonaKey, safe);
+  }
+
+  Future<void> setAiCustomSystemPrompt(String value) async {
+    if (_aiCustomSystemPrompt == value) return;
+    _aiCustomSystemPrompt = value;
+    notifyListeners();
+    final p = await SharedPreferences.getInstance();
+    await p.setString(_aiCustomSystemPromptKey, value);
   }
 
   Future<void> setAiBaseUrl(String value) async {

@@ -8280,4 +8280,64 @@ class AppLocalizationsEu extends AppLocalizations {
   @override
   String get settingsSearchYouTrackDesc =>
       'Kudeatu zure garapen-zereginak Folio-tik.';
+
+  @override
+  String get aiPersonaLabel => 'Laguntzailearen nortasuna (Persona)';
+
+  @override
+  String get aiPersonaQuill => 'Quill (Folioren laguntzaile orokorra)';
+
+  @override
+  String get aiPersonaQuillShort => 'Quill (Laguntzaile orokorra)';
+
+  @override
+  String get aiPersonaTranslator => 'Itzultzailea (Testuak itzultzea)';
+
+  @override
+  String get aiPersonaTranslatorShort => 'Itzultzaile aditua';
+
+  @override
+  String get aiPersonaSummarizer =>
+      'Laburtzailea (Puntu garrantzitsuak sortzea)';
+
+  @override
+  String get aiPersonaSummarizerShort => 'Testu laburtzailea';
+
+  @override
+  String get aiPersonaCoder => 'Programatzailea (Laguntza teknikoa eta kodea)';
+
+  @override
+  String get aiPersonaCoderShort => 'Programatzaile teknikoa';
+
+  @override
+  String get aiPersonaCustom =>
+      'Prompt pertsonalizatua (Konfiguratu zeure arauak)';
+
+  @override
+  String get aiPersonaCustomShort => 'Prompt pertsonalizatua';
+
+  @override
+  String get aiPersonaCustomPromptLabel =>
+      'Sistemaren argibide pertsonalizatuak (System Prompt):';
+
+  @override
+  String get aiPersonaCustomPromptHint =>
+      'Adib. Matematikako irakasle aditua zara...';
+
+  @override
+  String get aiDictationMicError => 'Mikrofonorako sarbidea ukatu da.';
+
+  @override
+  String get aiDictationWhisperNotReady =>
+      'Whisper eredua ez dago prest. Deskargatu Ezarpenak -> Transkripzioa atalean.';
+
+  @override
+  String get aiDictationNoVoiceDetected =>
+      'Ez da ahotsik detektatu edo errorea gertatu da transkripzioan.';
+
+  @override
+  String get aiDictationRecordingStopTooltip => 'Gelditu grabazioa';
+
+  @override
+  String get aiDictationRecordingMicTooltip => 'Diktatu ahotsez';
 }

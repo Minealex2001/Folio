@@ -4,6 +4,8 @@ import 'dart:io';
 import 'dart:math' as math;
 
 import 'package:path/path.dart' as p;
+import 'package:record/record.dart';
+import 'package:path_provider/path_provider.dart';
 
 import 'package:collection/collection.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -22,6 +24,7 @@ import '../../../app/folio_in_app_shortcuts.dart';
 import '../../../app/ui_tokens.dart';
 import '../../../app/widgets/folio_cloud_ai_ink_dialog.dart';
 import '../../../app/widgets/folio_dialog.dart';
+import '../../../services/whisper_service.dart';
 import '../../../app/widgets/folio_feedback.dart';
 import '../../../app/widgets/folio_in_app_checkout_dialog.dart';
 import '../../../models/folio_page.dart';
@@ -136,6 +139,9 @@ class _AiContextItem {
 class _WorkspacePageState extends State<WorkspacePage> {
   late final TextEditingController _titleController;
   final _scaffoldKey = GlobalKey<ScaffoldState>();
+  final _audioRecorder = AudioRecorder();
+  bool _recordingVoice = false;
+  bool _transcribingVoice = false;
   final TextEditingController _chatInputController = TextEditingController();
   final FocusNode _chatInputFocusNode = FocusNode();
   final LayerLink _aiComposerLayerLink = LayerLink();
@@ -526,6 +532,22 @@ class _WorkspacePageState extends State<WorkspacePage> {
     );
   }
 
+  IconData _personaIcon(String persona) {
+    switch (persona) {
+      case 'translator':
+        return Icons.translate_rounded;
+      case 'summarizer':
+        return Icons.summarize_rounded;
+      case 'coder':
+        return Icons.code_rounded;
+      case 'custom':
+        return Icons.assignment_ind_rounded;
+      case 'quill':
+      default:
+        return Icons.auto_awesome_rounded;
+    }
+  }
+
   Widget _buildAiMessageRow(
     BuildContext context,
     AiChatMessage message,
@@ -589,7 +611,7 @@ class _WorkspacePageState extends State<WorkspacePage> {
                     shape: BoxShape.circle,
                   ),
                   child: Icon(
-                    Icons.auto_awesome_rounded,
+                    _personaIcon(widget.appSettings.aiPersona),
                     size: 16,
                     color: scheme.onSecondaryContainer,
                   ),

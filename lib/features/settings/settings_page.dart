@@ -148,6 +148,7 @@ class _SettingsPageState extends State<SettingsPage> {
   var _passkeyRegistered = false;
   late final TextEditingController _aiBaseUrlController;
   late final TextEditingController _aiApiKeyController;
+  late final TextEditingController _aiCustomPromptController;
   late final TextEditingController _aiTimeoutController;
   late final TextEditingController _aiContextWindowController;
   late final TextEditingController _customIconSourceController;
@@ -200,6 +201,7 @@ class _SettingsPageState extends State<SettingsPage> {
     super.initState();
     _aiBaseUrlController = TextEditingController(text: _app.aiBaseUrl);
     _aiApiKeyController = TextEditingController(text: _app.aiApiKey);
+    _aiCustomPromptController = TextEditingController(text: _app.aiCustomSystemPrompt);
     _aiTimeoutController = TextEditingController(
       text: _app.aiTimeoutMs.toString(),
     );
@@ -337,6 +339,7 @@ class _SettingsPageState extends State<SettingsPage> {
     _settingsSectionFilterController.dispose();
     _aiBaseUrlController.dispose();
     _aiApiKeyController.dispose();
+    _aiCustomPromptController.dispose();
     _aiTimeoutController.dispose();
     _aiContextWindowController.dispose();
     _customIconSourceController.dispose();
@@ -1492,6 +1495,7 @@ class _SettingsPageState extends State<SettingsPage> {
   Future<void> _saveAiFields() async {
     await _app.setAiBaseUrl(_aiBaseUrlController.text);
     await _app.setAiApiKey(_aiApiKeyController.text);
+    await _app.setAiCustomSystemPrompt(_aiCustomPromptController.text);
     final timeout = int.tryParse(_aiTimeoutController.text.trim());
     if (timeout != null) {
       await _app.setAiTimeoutMs(timeout);
@@ -3959,6 +3963,7 @@ class _SettingsPageState extends State<SettingsPage> {
       );
     }
     final scheme = Theme.of(context).colorScheme;
+    final isEs = Localizations.localeOf(context).languageCode == 'es';
     final windowWidth = MediaQuery.sizeOf(context).width;
     final showDesktopOnlySections = FolioAdaptive.shouldUseDesktopSections(
       windowWidth,
@@ -8161,6 +8166,75 @@ class _SettingsPageState extends State<SettingsPage> {
                                           ),
                                         ),
                                       ],
+                                      const Divider(height: 1),
+                                      ListTile(
+                                        leading: const Icon(
+                                          Icons.assignment_ind_outlined,
+                                        ),
+                                        title: Text(l10n.aiPersonaLabel),
+                                        subtitle: Column(
+                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                          children: [
+                                            DropdownButton<String>(
+                                              value: _app.aiPersona,
+                                              isExpanded: true,
+                                              underline: const SizedBox.shrink(),
+                                              onChanged: _app.aiEnabled
+                                                  ? (val) async {
+                                                      if (val != null) {
+                                                        await _app.setAiPersona(val);
+                                                        if (mounted) setState(() {});
+                                                      }
+                                                    }
+                                                  : null,
+                                              items: [
+                                                DropdownMenuItem(
+                                                  value: 'quill',
+                                                  child: Text(l10n.aiPersonaQuill),
+                                                ),
+                                                DropdownMenuItem(
+                                                  value: 'translator',
+                                                  child: Text(l10n.aiPersonaTranslator),
+                                                ),
+                                                DropdownMenuItem(
+                                                  value: 'summarizer',
+                                                  child: Text(l10n.aiPersonaSummarizer),
+                                                ),
+                                                DropdownMenuItem(
+                                                  value: 'coder',
+                                                  child: Text(l10n.aiPersonaCoder),
+                                                ),
+                                                DropdownMenuItem(
+                                                  value: 'custom',
+                                                  child: Text(l10n.aiPersonaCustom),
+                                                ),
+                                              ],
+                                            ),
+                                            if (_app.aiPersona == 'custom') ...[
+                                              const SizedBox(height: 8),
+                                              Text(
+                                                l10n.aiPersonaCustomPromptLabel,
+                                                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                                      color: scheme.onSurfaceVariant,
+                                                    ),
+                                              ),
+                                              const SizedBox(height: 4),
+                                              TextField(
+                                                controller: _aiCustomPromptController,
+                                                enabled: _app.aiEnabled,
+                                                maxLines: 4,
+                                                minLines: 1,
+                                                decoration: InputDecoration(
+                                                  hintText: l10n.aiPersonaCustomPromptHint,
+                                                  border: const OutlineInputBorder(),
+                                                  contentPadding: const EdgeInsets.all(10),
+                                                ),
+                                                onSubmitted: (_) => _saveAiFields(),
+                                              ),
+                                            ],
+                                          ],
+                                        ),
+                                      ),
                                       const Divider(height: 1),
                                       ListTile(
                                         leading: const Icon(Icons.hub_outlined),

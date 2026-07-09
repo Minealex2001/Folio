@@ -8269,4 +8269,63 @@ class AppLocalizationsGl extends AppLocalizations {
   @override
   String get settingsSearchYouTrackDesc =>
       'Administra as túas tarefas de desenvolvemento desde Folio.';
+
+  @override
+  String get aiPersonaLabel => 'Personalidade do Asistente (Persona)';
+
+  @override
+  String get aiPersonaQuill => 'Quill (Asistente xeral de Folio)';
+
+  @override
+  String get aiPersonaQuillShort => 'Quill (Asistente xeral)';
+
+  @override
+  String get aiPersonaTranslator => 'Tradutor (Tradución de textos)';
+
+  @override
+  String get aiPersonaTranslatorShort => 'Tradutor experto';
+
+  @override
+  String get aiPersonaSummarizer => 'Resumidor (Xeneración de viñetas clave)';
+
+  @override
+  String get aiPersonaSummarizerShort => 'Resumidor de textos';
+
+  @override
+  String get aiPersonaCoder => 'Programador (Asistencia técnica e código)';
+
+  @override
+  String get aiPersonaCoderShort => 'Programador técnico';
+
+  @override
+  String get aiPersonaCustom =>
+      'Prompt personalizado (Configura as túas propias regras)';
+
+  @override
+  String get aiPersonaCustomShort => 'Prompt personalizado';
+
+  @override
+  String get aiPersonaCustomPromptLabel =>
+      'Instrucións personalizadas do sistema (System Prompt):';
+
+  @override
+  String get aiPersonaCustomPromptHint =>
+      'Ej. Es un experto profesor de matemáticas...';
+
+  @override
+  String get aiDictationMicError => 'Acceso ao micrófono denegado.';
+
+  @override
+  String get aiDictationWhisperNotReady =>
+      'Modelo de Whisper no listo. Por favor descárgao en Axustes -> Transcrición.';
+
+  @override
+  String get aiDictationNoVoiceDetected =>
+      'Non se detectou voz ou houbo un erro na transcrición.';
+
+  @override
+  String get aiDictationRecordingStopTooltip => 'Deter gravación';
+
+  @override
+  String get aiDictationRecordingMicTooltip => 'Dictar por voz';
 }

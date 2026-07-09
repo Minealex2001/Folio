@@ -95,6 +95,8 @@ extension _WorkspacePageAiChatModule on _WorkspacePageState {
       languageCode: languageCode,
       cloudInkOperation: op,
       extraContextSections: extra,
+      persona: widget.appSettings.aiPersona,
+      customSystemPrompt: widget.appSettings.aiCustomSystemPrompt,
     );
   }
 

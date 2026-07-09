@@ -14,11 +14,36 @@ extension VaultSessionAi on VaultSession {
     required List<AiFileAttachment> attachments,
     required String cloudInkOperation,
     String extraContextSections = '',
+    String persona = 'quill',
+    String customSystemPrompt = '',
   }) {
     final isFirstTurn = conversationMessages.isEmpty;
-    final agentIdentity = isEs
-        ? 'Eres Quill, la asistente de IA integrada en Folio (notas locales, árbol de páginas, editor por bloques, búsqueda, libreta con cifrado opcional, panel de chat a la derecha). Ayudas con el contenido de las notas y con cómo usar la app; en modo chat sé clara, útil y natural.'
-        : 'You are Quill, Folio\'s built-in AI assistant (local notes, page tree, block editor, search, optional encrypted vault, chat panel on the side). You help with note content and how to use the app; in chat mode be clear, helpful, and natural.';
+    String agentIdentity;
+    switch (persona) {
+      case 'translator':
+        agentIdentity = isEs
+            ? 'Eres un Traductor experto. Traduce el texto que te pase el usuario al idioma que solicite o al español/inglés por defecto. Mantén el formato original del texto.'
+            : 'You are an expert Translator. Translate the user\'s text to their requested language, or English/Spanish by default. Maintain the original formatting.';
+        break;
+      case 'summarizer':
+        agentIdentity = isEs
+            ? 'Eres un Asistente experto en resúmenes. Extrae las ideas clave, conclusiones y puntos de acción del texto de forma clara, concisa y estructurada (con viñetas).'
+            : 'You are an expert Summarizer. Extract key ideas, conclusions, and action points from the text in a clear, concise, and structured bulleted way.';
+        break;
+      case 'coder':
+        agentIdentity = isEs
+            ? 'Eres un Programador y asistente de código experto. Proporciona explicaciones técnicas claras, código limpio y bien estructurado.'
+            : 'You are an expert Software Developer and code assistant. Provide clear technical explanations, clean and well-structured code.';
+        break;
+      case 'custom':
+        agentIdentity = customSystemPrompt.isNotEmpty ? customSystemPrompt : (isEs ? 'Eres un asistente de IA útil.' : 'You are a helpful AI assistant.');
+        break;
+      case 'quill':
+      default:
+        agentIdentity = isEs
+            ? 'Eres Quill, la asistente de IA integrada en Folio (notas locales, árbol de páginas, editor por bloques, búsqueda, libreta con cifrado opcional, panel de chat a la derecha). Ayudas con el contenido de las notas y con cómo usar la app; en modo chat sé clara, útil y natural.'
+            : 'You are Quill, Folio\'s built-in AI assistant (local notes, page tree, block editor, search, optional encrypted vault, chat panel on the side). You help with note content and how to use the app; in chat mode be clear, helpful, and natural.';
+    }
 
     final schema = _agentResponseSchema;
 
@@ -627,6 +652,8 @@ For images/blocks: use the + button or / command in a paragraph.
     String languageCode = 'es',
     String? cloudInkOperation,
     String extraContextSections = '',
+    String persona = 'quill',
+    String customSystemPrompt = '',
   }) async {
     if (_state != VaultFlowState.unlocked ||
         (vaultUsesEncryption && _dek == null)) {
@@ -755,6 +782,8 @@ For images/blocks: use the + button or / command in a paragraph.
           pageBlocksContext: pageBlocksContext,
           attachments: attachments,
           extraContextSections: extraContextSections,
+          persona: persona,
+          customSystemPrompt: customSystemPrompt,
         ),
       );
       lastUsage = result.usage ?? lastUsage;

@@ -14488,6 +14488,114 @@ abstract class AppLocalizations {
   /// In es, this message translates to:
   /// **'Administra tus tareas de desarrollo desde Folio.'**
   String get settingsSearchYouTrackDesc;
+
+  /// No description provided for @aiPersonaLabel.
+  ///
+  /// In es, this message translates to:
+  /// **'Personalidad del Asistente (Persona)'**
+  String get aiPersonaLabel;
+
+  /// No description provided for @aiPersonaQuill.
+  ///
+  /// In es, this message translates to:
+  /// **'Quill (Asistente general de Folio)'**
+  String get aiPersonaQuill;
+
+  /// No description provided for @aiPersonaQuillShort.
+  ///
+  /// In es, this message translates to:
+  /// **'Quill (Asistente general)'**
+  String get aiPersonaQuillShort;
+
+  /// No description provided for @aiPersonaTranslator.
+  ///
+  /// In es, this message translates to:
+  /// **'Traductor (Traducción de textos)'**
+  String get aiPersonaTranslator;
+
+  /// No description provided for @aiPersonaTranslatorShort.
+  ///
+  /// In es, this message translates to:
+  /// **'Traductor experto'**
+  String get aiPersonaTranslatorShort;
+
+  /// No description provided for @aiPersonaSummarizer.
+  ///
+  /// In es, this message translates to:
+  /// **'Resumidor (Generación de viñetas clave)'**
+  String get aiPersonaSummarizer;
+
+  /// No description provided for @aiPersonaSummarizerShort.
+  ///
+  /// In es, this message translates to:
+  /// **'Resumidor de textos'**
+  String get aiPersonaSummarizerShort;
+
+  /// No description provided for @aiPersonaCoder.
+  ///
+  /// In es, this message translates to:
+  /// **'Programador (Asistencia técnica y código)'**
+  String get aiPersonaCoder;
+
+  /// No description provided for @aiPersonaCoderShort.
+  ///
+  /// In es, this message translates to:
+  /// **'Programador técnico'**
+  String get aiPersonaCoderShort;
+
+  /// No description provided for @aiPersonaCustom.
+  ///
+  /// In es, this message translates to:
+  /// **'Prompt personalizado (Configura tus propias reglas)'**
+  String get aiPersonaCustom;
+
+  /// No description provided for @aiPersonaCustomShort.
+  ///
+  /// In es, this message translates to:
+  /// **'Prompt personalizado'**
+  String get aiPersonaCustomShort;
+
+  /// No description provided for @aiPersonaCustomPromptLabel.
+  ///
+  /// In es, this message translates to:
+  /// **'Instrucciones personalizadas del sistema (System Prompt):'**
+  String get aiPersonaCustomPromptLabel;
+
+  /// No description provided for @aiPersonaCustomPromptHint.
+  ///
+  /// In es, this message translates to:
+  /// **'Ej. Eres un experto profesor de matemáticas...'**
+  String get aiPersonaCustomPromptHint;
+
+  /// No description provided for @aiDictationMicError.
+  ///
+  /// In es, this message translates to:
+  /// **'Acceso al micrófono denegado.'**
+  String get aiDictationMicError;
+
+  /// No description provided for @aiDictationWhisperNotReady.
+  ///
+  /// In es, this message translates to:
+  /// **'Modelo de Whisper no listo. Por favor descárgalo en Ajustes -> Transcripción.'**
+  String get aiDictationWhisperNotReady;
+
+  /// No description provided for @aiDictationNoVoiceDetected.
+  ///
+  /// In es, this message translates to:
+  /// **'No se detectó voz o hubo un error en la transcripción.'**
+  String get aiDictationNoVoiceDetected;
+
+  /// No description provided for @aiDictationRecordingStopTooltip.
+  ///
+  /// In es, this message translates to:
+  /// **'Detener grabación'**
+  String get aiDictationRecordingStopTooltip;
+
+  /// No description provided for @aiDictationRecordingMicTooltip.
+  ///
+  /// In es, this message translates to:
+  /// **'Dictar por voz'**
+  String get aiDictationRecordingMicTooltip;
 }
 
 class _AppLocalizationsDelegate
