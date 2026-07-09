@@ -670,13 +670,16 @@ class AppLocalizationsGl extends AppLocalizations {
 
   @override
   String get searchDialogFooterHint =>
-      'Intro abre o resultado resaltado · Ctrl+↑ / Ctrl+↓ navegar · Esc pecha';
+      'Intro abre o resultado resaltado · ↑ / ↓ navegar · Esc pecha';
 
   @override
   String get searchFilterTasks => 'Tarefas';
 
   @override
   String get searchRecentQueries => 'Buscas recentes';
+
+  @override
+  String get searchClearRecent => 'Borrar buscas recentes';
 
   @override
   String get searchShortcutsHelpTooltip => 'Atallos de teclado';
@@ -686,7 +689,7 @@ class AppLocalizationsGl extends AppLocalizations {
 
   @override
   String get searchShortcutsHelpBody =>
-      'Intro: abrir o resultado resaltado\nCtrl+↑ ou Ctrl+↓: anterior / seguinte resultado\nEsc: pechar';
+      'Intro: abrir o resultado resaltado\n↑ ou ↓: anterior / seguinte resultado\nEsc: pechar';
 
   @override
   String get renamePageTitle => 'Renomear páxina';
@@ -3464,7 +3467,7 @@ class AppLocalizationsGl extends AppLocalizations {
 
   @override
   String get cloudPackRestorePasswordHelper =>
-      'Sin contraseña → déjalo en blanco';
+      'Sen contrasinal → déixao en branco';
 
   @override
   String get settingsCloudBackupWrapPasswordTitle =>
@@ -8212,59 +8215,58 @@ class AppLocalizationsGl extends AppLocalizations {
   String get saveStatusError => 'Erro ao gardar';
 
   @override
-  String get settingsSearchNoResults =>
-      'No se encontraron ajustes coincidentes';
+  String get settingsSearchNoResults => 'Non se atoparon axustes coincidentes';
 
   @override
-  String get settingsSearchResultsTitle => 'Resultados de la búsqueda';
+  String get settingsSearchResultsTitle => 'Resultados da busca';
 
   @override
-  String get settingsSearchThemeTitle => 'Tema de la aplicación';
+  String get settingsSearchThemeTitle => 'Tema da aplicación';
 
   @override
   String get settingsSearchThemeDesc =>
-      'Elige entre tema claro, oscuro o el predeterminado del sistema.';
+      'Elixe entre tema claro, escuro ou o predeterminado do sistema.';
 
   @override
-  String get settingsSearchLangTitle => 'Idioma de la aplicación';
+  String get settingsSearchLangTitle => 'Idioma da aplicación';
 
   @override
   String get settingsSearchLangDesc =>
-      'Cambia el idioma predeterminado de la interfaz.';
+      'Cambia o idioma predeterminado da interface.';
 
   @override
-  String get settingsSearchAiTitle => 'Habilitar servicios de IA';
+  String get settingsSearchAiTitle => 'Habilitar servizos de IA';
 
   @override
   String get settingsSearchAiDesc =>
-      'Activa o desactiva la integración con modelos de lenguaje locales o en la nube.';
+      'Activa ou desactiva la integración con modelos de linguaxe locais ou na nube.';
 
   @override
   String get settingsSearchQuickUnlockTitle => 'Desbloqueo rápido';
 
   @override
   String get settingsSearchQuickUnlockDesc =>
-      'Configura huella dactilar, reconocimiento facial o PIN de desbloqueo.';
+      'Configura pegada dixital, recoñecemento facial ou PIN de desbloqueo.';
 
   @override
   String get settingsSearchCloudBackupTitle =>
-      'Copia de seguridad automática en la nube';
+      'Copia de seguridade automática na nube';
 
   @override
   String get settingsSearchCloudBackupDesc =>
-      'Guarda tus libretas de forma segura con sincronización en tiempo real.';
+      'Garda os teus cadernos de forma segura con sincronización en tempo real.';
 
   @override
   String get settingsSearchJiraTitle => 'Conectar Jira';
 
   @override
   String get settingsSearchJiraDesc =>
-      'Importa tus tareas e incidencias directamente a Folio.';
+      'Importa as túas tarefas e incidencias directamente a Folio.';
 
   @override
   String get settingsSearchYouTrackTitle => 'Conectar YouTrack';
 
   @override
   String get settingsSearchYouTrackDesc =>
-      'Administra tus tareas de desarrollo desde Folio.';
+      'Administra as túas tarefas de desenvolvemento desde Folio.';
 }

@@ -22,16 +22,23 @@ class VaultSearchIndex {
     for (final page in pages) {
       final title = page.title.trim().isEmpty ? '' : page.title.trim();
       final blocks = <String>[];
+      final blockIds = <String>[];
+      final blockTypes = <String>[];
       for (final block in page.blocks) {
         final text = _blockSearchText(block);
-        if (text.isNotEmpty) blocks.add(text);
+        if (text.isNotEmpty) {
+          blocks.add(text);
+          blockIds.add(block.id);
+          blockTypes.add(block.type);
+        }
       }
       _pages[page.id] = _IndexedPage(
         pageId: page.id,
         titleLower: title.toLowerCase(),
         title: title.isEmpty ? 'Sin título' : title,
-        blockTextsLower: blocks.map((b) => b.toLowerCase()).toList(),
-        blockIds: page.blocks.map((b) => b.id).toList(),
+        blockTextsLower: blocks, // Keep original case for snippets!
+        blockIds: blockIds,
+        blockTypes: blockTypes,
       );
     }
     _version++;
@@ -46,46 +53,87 @@ class VaultSearchIndex {
     bool tasksOnly = false,
     int Function(String pageId)? lastEditedMs,
   }) {
-    final q = query.trim().toLowerCase();
-    if (q.isEmpty ||
+    final queryLower = query.toLowerCase().trim();
+    if (queryLower.isEmpty ||
         (!includeTitleMatches && !includeContentMatches)) {
       return const [];
     }
+    final terms = queryLower
+        .split(RegExp(r'\s+'))
+        .where((t) => t.isNotEmpty)
+        .toList();
+    if (terms.isEmpty) return const [];
+
     final out = <VaultSearchResult>[];
     for (final entry in _pages.values) {
       final pageLastEditedMs = lastEditedMs?.call(entry.pageId) ?? 0;
-      if (includeTitleMatches && entry.titleLower.contains(q)) {
-        final startsAt = entry.titleLower.indexOf(q);
-        final titleScore =
-            220 - (startsAt.clamp(0, 200)) + (entry.title.length <= 42 ? 15 : 0);
+      
+      final titleMatchesAll = terms.every((t) => entry.titleLower.contains(t));
+      if (includeTitleMatches && titleMatchesAll) {
+        final exactIdx = entry.titleLower.indexOf(queryLower);
+        var titleScore = 200;
+        if (exactIdx >= 0) {
+          titleScore += 100 + (30 - exactIdx.clamp(0, 30)) * 2;
+        } else {
+          var sumIdx = 0;
+          for (final t in terms) {
+            sumIdx += entry.titleLower.indexOf(t).clamp(0, 200);
+          }
+          titleScore += 50 - (sumIdx ~/ terms.length);
+        }
+        if (entry.title.length <= 42) titleScore += 15;
+
         out.add(
           VaultSearchResult(
             pageId: entry.pageId,
             pageTitle: entry.title,
-            snippet: _snippetAround(entry.title, q),
+            snippet: _snippetAroundMulti(entry.title, queryLower, terms),
             matchKind: VaultSearchMatchKind.title,
             pageLastEditedMs: pageLastEditedMs,
             score: titleScore,
           ),
         );
       }
+
       if (includeContentMatches) {
         for (var i = 0; i < entry.blockTextsLower.length; i++) {
-          final haystackLower = entry.blockTextsLower[i];
-          final idx = haystackLower.indexOf(q);
-          if (idx < 0) continue;
-          final blockId = i < entry.blockIds.length ? entry.blockIds[i] : null;
-          if (tasksOnly && blockId == null) continue;
           final haystack = entry.blockTextsLower[i];
+          final haystackLower = haystack.toLowerCase();
+          
+          final blockMatchesAll = terms.every((t) => haystackLower.contains(t));
+          if (!blockMatchesAll) continue;
+
+          final blockId = i < entry.blockIds.length ? entry.blockIds[i] : null;
+          final blockType = i < entry.blockTypes.length ? entry.blockTypes[i] : null;
+          if (tasksOnly && (blockId == null || (blockType != 'todo' && blockType != 'task'))) {
+            continue;
+          }
+
+          final exactIdx = haystackLower.indexOf(queryLower);
+          var contentScore = 100;
+          if (exactIdx >= 0) {
+            contentScore += 50 + (30 - exactIdx.clamp(0, 30));
+          } else {
+            var sumIdx = 0;
+            for (final t in terms) {
+              sumIdx += haystackLower.indexOf(t).clamp(0, 100);
+            }
+            contentScore += 30 - (sumIdx ~/ terms.length);
+          }
+
+          final snippet = _snippetAroundMulti(haystack, queryLower, terms);
+          if (snippet.length <= 88) contentScore += 8;
+
           out.add(
             VaultSearchResult(
               pageId: entry.pageId,
               pageTitle: entry.title,
               blockId: blockId,
-              snippet: _snippetAround(haystack, q),
+              blockType: blockType,
+              snippet: snippet,
               matchKind: VaultSearchMatchKind.content,
               pageLastEditedMs: pageLastEditedMs,
-              score: 120 - (idx.clamp(0, 100)),
+              score: contentScore,
             ),
           );
         }
@@ -145,16 +193,31 @@ class VaultSearchIndex {
     return txt.isNotEmpty ? txt : url;
   }
 
-  static String _snippetAround(String text, String queryLower) {
+  static String _snippetAroundMulti(String text, String queryLower, List<String> terms) {
     final clean = text.replaceAll('\n', ' ').trim();
     if (clean.isEmpty) return '';
     final lower = clean.toLowerCase();
-    final idx = lower.indexOf(queryLower);
+    
+    var idx = lower.indexOf(queryLower);
+    var matchedLength = queryLower.length;
+    
+    if (idx < 0 && terms.isNotEmpty) {
+      for (final term in terms) {
+        final tIdx = lower.indexOf(term);
+        if (tIdx >= 0) {
+          idx = tIdx;
+          matchedLength = term.length;
+          break;
+        }
+      }
+    }
+    
     if (idx < 0) {
       return clean.length <= 96 ? clean : '${clean.substring(0, 96)}...';
     }
+    
     final start = (idx - 28).clamp(0, clean.length);
-    final end = (idx + queryLower.length + 68).clamp(0, clean.length);
+    final end = (idx + matchedLength + 68).clamp(0, clean.length);
     final chunk = clean.substring(start, end).trim();
     final prefix = start > 0 ? '... ' : '';
     final suffix = end < clean.length ? ' ...' : '';
@@ -169,6 +232,7 @@ class _IndexedPage {
     required this.title,
     required this.blockTextsLower,
     required this.blockIds,
+    required this.blockTypes,
   });
 
   final String pageId;
@@ -176,6 +240,7 @@ class _IndexedPage {
   final String title;
   final List<String> blockTextsLower;
   final List<String> blockIds;
+  final List<String> blockTypes;
 
   Map<String, dynamic> toJson() => {
     'pageId': pageId,
@@ -183,6 +248,7 @@ class _IndexedPage {
     'title': title,
     'blockTextsLower': blockTextsLower,
     'blockIds': blockIds,
+    'blockTypes': blockTypes,
   };
 
   factory _IndexedPage.fromJson(Map<String, dynamic> json) {
@@ -194,6 +260,9 @@ class _IndexedPage {
           .map((e) => '$e')
           .toList(),
       blockIds: (json['blockIds'] as List<dynamic>? ?? const [])
+          .map((e) => '$e')
+          .toList(),
+      blockTypes: (json['blockTypes'] as List<dynamic>? ?? const [])
           .map((e) => '$e')
           .toList(),
     );

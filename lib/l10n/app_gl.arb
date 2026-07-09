@@ -226,12 +226,13 @@
   "sidebarVaultsLoading": "Cargando caixas fortes…",
   "sidebarVaultsEmpty": "Non hai caixas fortes dispoñibles",
   "forceSyncTooltip": "Forzar sincronización",
-  "searchDialogFooterHint": "Intro abre o resultado resaltado · Ctrl+↑ / Ctrl+↓ navegar · Esc pecha",
+  "searchDialogFooterHint": "Intro abre o resultado resaltado · ↑ / ↓ navegar · Esc pecha",
   "searchFilterTasks": "Tarefas",
   "searchRecentQueries": "Buscas recentes",
+  "searchClearRecent": "Borrar buscas recentes",
   "searchShortcutsHelpTooltip": "Atallos de teclado",
   "searchShortcutsHelpTitle": "Busca global",
-  "searchShortcutsHelpBody": "Intro: abrir o resultado resaltado\nCtrl+↑ ou Ctrl+↓: anterior / seguinte resultado\nEsc: pechar",
+  "searchShortcutsHelpBody": "Intro: abrir o resultado resaltado\n↑ ou ↓: anterior / seguinte resultado\nEsc: pechar",
   "renamePageTitle": "Renomear páxina",
   "@renamePageTitle": {"placeholders": {"title": {}}},
   "titleLabel": "Título",
@@ -1148,6 +1149,7 @@
   ,"onboardingCloudBackupNeedLegacyArchive": "Este caderno só ten unha copia incremental na nube. Para configurar un dispositivo novo, descarga un arquivo completo (.tar.gz) desde outro dispositivo con Folio ou créao dende Axustes → exportar."
   ,"onboardingCloudBackupNeedRestoreWrap": "Esta copia incremental aínda non ten chave de recuperación na nube. No dispositivo onde a creaches, abre Folio → Axustes → sube a copia á nube (introduce o contrasinal do caderno cando se solicite). Tamén podes usar un arquivo completo (.zip) se o tes."
   ,"onboardingCloudBackupIncrementalRestoreBody": "Copia incremental na nube lista. Introduce o contrasinal do caderno (o mesmo que usas para desbloquealo). Se o caderno estaba sen cifrar, usa o contrasinal de recuperación que definiches ao subir a copia."
+  ,"cloudPackRestorePasswordHelper": "Sen contrasinal → déixao en branco"
   ,"settingsCloudBackupWrapPasswordTitle": "Recuperación noutros dispositivos"
   ,"settingsCloudBackupWrapPasswordBody": "Introduce o contrasinal deste caderno. Gardarase cifrado na túa conta para restaurar a copia incremental ao instalar Folio nun dispositivo novo."
   ,"settingsCloudBackupWrapPasswordRequired": "Fai falta o contrasinal do caderno."
@@ -2620,5 +2622,21 @@
   "saveStatusPending": "Cambios pendentes",
   "saveStatusSaving": "Gardando…",
   "saveStatusSaved": "Gardado",
-  "saveStatusError": "Erro ao gardar"
+  "saveStatusError": "Erro ao gardar",
+  "settingsSearchNoResults": "Non se atoparon axustes coincidentes",
+  "settingsSearchResultsTitle": "Resultados da busca",
+  "settingsSearchThemeTitle": "Tema da aplicación",
+  "settingsSearchThemeDesc": "Elixe entre tema claro, escuro ou o predeterminado do sistema.",
+  "settingsSearchLangTitle": "Idioma da aplicación",
+  "settingsSearchLangDesc": "Cambia o idioma predeterminado da interface.",
+  "settingsSearchAiTitle": "Habilitar servizos de IA",
+  "settingsSearchAiDesc": "Activa ou desactiva la integración con modelos de linguaxe locais ou na nube.",
+  "settingsSearchQuickUnlockTitle": "Desbloqueo rápido",
+  "settingsSearchQuickUnlockDesc": "Configura pegada dixital, recoñecemento facial ou PIN de desbloqueo.",
+  "settingsSearchCloudBackupTitle": "Copia de seguridade automática na nube",
+  "settingsSearchCloudBackupDesc": "Garda os teus cadernos de forma segura con sincronización en tempo real.",
+  "settingsSearchJiraTitle": "Conectar Jira",
+  "settingsSearchJiraDesc": "Importa as túas tarefas e incidencias directamente a Folio.",
+  "settingsSearchYouTrackTitle": "Conectar YouTrack",
+  "settingsSearchYouTrackDesc": "Administra as túas tarefas de desenvolvemento desde Folio."
 }

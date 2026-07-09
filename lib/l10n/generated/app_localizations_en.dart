@@ -663,13 +663,16 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get searchDialogFooterHint =>
-      'Enter opens the highlighted result · Ctrl+↑ / Ctrl+↓ navigate · Esc closes';
+      'Enter opens the highlighted result · ↑ / ↓ navigate · Esc closes';
 
   @override
   String get searchFilterTasks => 'Tasks';
 
   @override
   String get searchRecentQueries => 'Recent searches';
+
+  @override
+  String get searchClearRecent => 'Clear recent searches';
 
   @override
   String get searchShortcutsHelpTooltip => 'Keyboard shortcuts';
@@ -679,7 +682,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get searchShortcutsHelpBody =>
-      'Enter: open the highlighted result\nCtrl+↑ or Ctrl+↓: previous / next result\nEsc: close';
+      'Enter: open the highlighted result\n↑ or ↓: previous / next result\nEsc: close';
 
   @override
   String get renamePageTitle => 'Rename page';

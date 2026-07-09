@@ -669,13 +669,16 @@ class AppLocalizationsCa extends AppLocalizations {
 
   @override
   String get searchDialogFooterHint =>
-      'Retorn obre el resultat destacat · Ctrl+↑ / Ctrl+↓ per navegar · Esc tanca';
+      'Retorn obre el resultat destacat · ↑ / ↓ per navegar · Esc tanca';
 
   @override
   String get searchFilterTasks => 'Tasques';
 
   @override
   String get searchRecentQueries => 'Cerques recents';
+
+  @override
+  String get searchClearRecent => 'Esborra les cerques recents';
 
   @override
   String get searchShortcutsHelpTooltip => 'Dreceres de teclat';
@@ -685,7 +688,7 @@ class AppLocalizationsCa extends AppLocalizations {
 
   @override
   String get searchShortcutsHelpBody =>
-      'Retorn: obre el resultat destacat\nCtrl+↑ o Ctrl+↓: anterior / següent resultat\nEsc: tanca';
+      'Retorn: obre el resultat destacat\n↑ o ↓: anterior / següent resultat\nEsc: tanca';
 
   @override
   String get renamePageTitle => 'Reanomena la pàgina';
@@ -3468,7 +3471,7 @@ class AppLocalizationsCa extends AppLocalizations {
 
   @override
   String get cloudPackRestorePasswordHelper =>
-      'Sin contraseña → déjalo en blanco';
+      'Sense contrasenya → deixa-ho en blanc';
 
   @override
   String get settingsCloudBackupWrapPasswordTitle =>
@@ -8220,58 +8223,58 @@ class AppLocalizationsCa extends AppLocalizations {
 
   @override
   String get settingsSearchNoResults =>
-      'No se encontraron ajustes coincidentes';
+      'No s\'han trobat paràmetres coincidents';
 
   @override
-  String get settingsSearchResultsTitle => 'Resultados de la búsqueda';
+  String get settingsSearchResultsTitle => 'Resultats de la cerca';
 
   @override
-  String get settingsSearchThemeTitle => 'Tema de la aplicación';
+  String get settingsSearchThemeTitle => 'Tema de l\'aplicació';
 
   @override
   String get settingsSearchThemeDesc =>
-      'Elige entre tema claro, oscuro o el predeterminado del sistema.';
+      'Tria entre el tema clar, fosc o el per defecte del sistema.';
 
   @override
-  String get settingsSearchLangTitle => 'Idioma de la aplicación';
+  String get settingsSearchLangTitle => 'Idioma de l\'aplicació';
 
   @override
   String get settingsSearchLangDesc =>
-      'Cambia el idioma predeterminado de la interfaz.';
+      'Canvia l\'idioma per defecte de la interfície.';
 
   @override
-  String get settingsSearchAiTitle => 'Habilitar servicios de IA';
+  String get settingsSearchAiTitle => 'Habilita els serveis d\'IA';
 
   @override
   String get settingsSearchAiDesc =>
-      'Activa o desactiva la integración con modelos de lenguaje locales o en la nube.';
+      'Activa o desactiva la integració amb models de llenguatge locals o al núvol.';
 
   @override
-  String get settingsSearchQuickUnlockTitle => 'Desbloqueo rápido';
+  String get settingsSearchQuickUnlockTitle => 'Desbloqueig ràpid';
 
   @override
   String get settingsSearchQuickUnlockDesc =>
-      'Configura huella dactilar, reconocimiento facial o PIN de desbloqueo.';
+      'Configura l\'empremta digital, el reconeixement facial o el PIN de desbloqueig.';
 
   @override
   String get settingsSearchCloudBackupTitle =>
-      'Copia de seguridad automática en la nube';
+      'Copia de seguretat automàtica al núvol';
 
   @override
   String get settingsSearchCloudBackupDesc =>
-      'Guarda tus libretas de forma segura con sincronización en tiempo real.';
+      'Desa les teves llibretes de manera segura amb sincronització en tempo real.';
 
   @override
-  String get settingsSearchJiraTitle => 'Conectar Jira';
+  String get settingsSearchJiraTitle => 'Connecta Jira';
 
   @override
   String get settingsSearchJiraDesc =>
-      'Importa tus tareas e incidencias directamente a Folio.';
+      'Importa les teves tasques i incidències directament a Folio.';
 
   @override
-  String get settingsSearchYouTrackTitle => 'Conectar YouTrack';
+  String get settingsSearchYouTrackTitle => 'Connecta YouTrack';
 
   @override
   String get settingsSearchYouTrackDesc =>
-      'Administra tus tareas de desarrollo desde Folio.';
+      'Gestiona les teves tasques de desenvolupament des de Folio.';
 }

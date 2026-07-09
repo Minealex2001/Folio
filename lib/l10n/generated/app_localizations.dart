@@ -1285,7 +1285,7 @@ abstract class AppLocalizations {
   /// No description provided for @searchDialogFooterHint.
   ///
   /// In es, this message translates to:
-  /// **'Enter abre el resultado resaltado · Ctrl+↑ / Ctrl+↓ navegar · Esc cierra'**
+  /// **'Enter abre el resultado resaltado · ↑ / ↓ navegar · Esc cierra'**
   String get searchDialogFooterHint;
 
   /// No description provided for @searchFilterTasks.
@@ -1299,6 +1299,12 @@ abstract class AppLocalizations {
   /// In es, this message translates to:
   /// **'Búsquedas recientes'**
   String get searchRecentQueries;
+
+  /// No description provided for @searchClearRecent.
+  ///
+  /// In es, this message translates to:
+  /// **'Borrar búsquedas recientes'**
+  String get searchClearRecent;
 
   /// No description provided for @searchShortcutsHelpTooltip.
   ///
@@ -1315,7 +1321,7 @@ abstract class AppLocalizations {
   /// No description provided for @searchShortcutsHelpBody.
   ///
   /// In es, this message translates to:
-  /// **'Enter: abrir el resultado resaltado\nCtrl+↑ o Ctrl+↓: anterior / siguiente\nEsc: cerrar'**
+  /// **'Enter: abrir el resultado resaltado\n↑ o ↓: anterior / siguiente\nEsc: cerrar'**
   String get searchShortcutsHelpBody;
 
   /// No description provided for @renamePageTitle.

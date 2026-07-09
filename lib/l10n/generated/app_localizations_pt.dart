@@ -662,13 +662,16 @@ class AppLocalizationsPt extends AppLocalizations {
 
   @override
   String get searchDialogFooterHint =>
-      'Enter abre o resultado destacado · Ctrl+↑ / Ctrl+↓ navegam · Esc fecha';
+      'Enter abre o resultado destacado · ↑ / ↓ navegar · Esc fecha';
 
   @override
   String get searchFilterTasks => 'Tarefas';
 
   @override
   String get searchRecentQueries => 'Buscas recentes';
+
+  @override
+  String get searchClearRecent => 'Limpar pesquisas recentes';
 
   @override
   String get searchShortcutsHelpTooltip => 'Atalhos de teclado';
@@ -678,7 +681,7 @@ class AppLocalizationsPt extends AppLocalizations {
 
   @override
   String get searchShortcutsHelpBody =>
-      'Enter: abrir o resultado destacado\nCtrl+↑ ou Ctrl+↓: resultado anterior / próximo\nEsc: fechar';
+      'Enter: abrir o resultado destacado\n↑ ou ↓: resultado anterior / próximo\nEsc: fechar';
 
   @override
   String get renamePageTitle => 'Renomear página';
@@ -3440,8 +3443,7 @@ class AppLocalizationsPt extends AppLocalizations {
       'Backup incremental na nuvem selecionado. Digite a senha do cofre (a mesma que usa para desbloquear). Se o cofre não era criptografado, use a senha de recuperação definida ao enviar o backup.';
 
   @override
-  String get cloudPackRestorePasswordHelper =>
-      'Sin contraseña → déjalo en blanco';
+  String get cloudPackRestorePasswordHelper => 'Sem senha → deixe em branco';
 
   @override
   String get settingsCloudBackupWrapPasswordTitle =>
@@ -8188,58 +8190,56 @@ class AppLocalizationsPt extends AppLocalizations {
 
   @override
   String get settingsSearchNoResults =>
-      'No se encontraron ajustes coincidentes';
+      'Nenhuma configuração correspondente encontrada';
 
   @override
-  String get settingsSearchResultsTitle => 'Resultados de la búsqueda';
+  String get settingsSearchResultsTitle => 'Resultados da Busca';
 
   @override
-  String get settingsSearchThemeTitle => 'Tema de la aplicación';
+  String get settingsSearchThemeTitle => 'Tema do Aplicativo';
 
   @override
   String get settingsSearchThemeDesc =>
-      'Elige entre tema claro, oscuro o el predeterminado del sistema.';
+      'Escolha entre o tema claro, escuro ou o padrão do sistema.';
 
   @override
-  String get settingsSearchLangTitle => 'Idioma de la aplicación';
+  String get settingsSearchLangTitle => 'Idioma do Aplicativo';
 
   @override
-  String get settingsSearchLangDesc =>
-      'Cambia el idioma predeterminado de la interfaz.';
+  String get settingsSearchLangDesc => 'Altere o idioma padrão da interface.';
 
   @override
-  String get settingsSearchAiTitle => 'Habilitar servicios de IA';
+  String get settingsSearchAiTitle => 'Habilitar Serviços de IA';
 
   @override
   String get settingsSearchAiDesc =>
-      'Activa o desactiva la integración con modelos de lenguaje locales o en la nube.';
+      'Ative ou desative a integração com modelos de linguagem locais ou na nuvem.';
 
   @override
-  String get settingsSearchQuickUnlockTitle => 'Desbloqueo rápido';
+  String get settingsSearchQuickUnlockTitle => 'Desbloqueio Rápido';
 
   @override
   String get settingsSearchQuickUnlockDesc =>
-      'Configura huella dactilar, reconocimiento facial o PIN de desbloqueo.';
+      'Configure impressão digital, reconhecimento facial ou PIN de desbloqueio.';
 
   @override
-  String get settingsSearchCloudBackupTitle =>
-      'Copia de seguridad automática en la nube';
+  String get settingsSearchCloudBackupTitle => 'Backup Automático na Nuvem';
 
   @override
   String get settingsSearchCloudBackupDesc =>
-      'Guarda tus libretas de forma segura con sincronización en tiempo real.';
+      'Salve suas pastas de trabalho com segurança com sincronização em tempo real.';
 
   @override
   String get settingsSearchJiraTitle => 'Conectar Jira';
 
   @override
   String get settingsSearchJiraDesc =>
-      'Importa tus tareas e incidencias directamente a Folio.';
+      'Importe suas tarefas e problemas diretamente para o Folio.';
 
   @override
   String get settingsSearchYouTrackTitle => 'Conectar YouTrack';
 
   @override
   String get settingsSearchYouTrackDesc =>
-      'Administra tus tareas de desarrollo desde Folio.';
+      'Gerencie suas tarefas de desenvolvimento a partir do Folio.';
 }

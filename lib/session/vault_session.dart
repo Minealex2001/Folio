@@ -78,6 +78,7 @@ class VaultSearchResult {
     required this.snippet,
     required this.matchKind,
     this.blockId,
+    this.blockType,
     this.pageLastEditedMs = 0,
     this.score = 0,
   });
@@ -87,6 +88,7 @@ class VaultSearchResult {
   final String snippet;
   final VaultSearchMatchKind matchKind;
   final String? blockId;
+  final String? blockType;
   final int pageLastEditedMs;
   final int score;
 }
@@ -4935,10 +4937,10 @@ class VaultSession extends ChangeNotifier {
     bool sortByRecency = false,
     bool tasksOnly = false,
   }) {
-    final q = query.trim().toLowerCase();
+    final queryLower = query.toLowerCase().trim();
     if (_state != VaultFlowState.unlocked ||
         (vaultUsesEncryption && _dek == null) ||
-        q.isEmpty ||
+        queryLower.isEmpty ||
         (!includeTitleMatches && !includeContentMatches)) {
       return const [];
     }
@@ -4954,26 +4956,48 @@ class VaultSession extends ChangeNotifier {
         lastEditedMs: _pageLastEditedMs,
       );
     }
+
+    final terms = queryLower
+        .split(RegExp(r'\s+'))
+        .where((t) => t.isNotEmpty)
+        .toList();
+    if (terms.isEmpty) {
+      return const [];
+    }
+
     final out = <VaultSearchResult>[];
     for (final page in _pages) {
       final pageTitle = page.title.trim().isEmpty ? 'Sin título' : page.title;
       final pageLastEditedMs = _pageLastEditedMs(page.id);
       final titleLower = pageTitle.toLowerCase();
-      if (includeTitleMatches && titleLower.contains(q)) {
-        final startsAt = titleLower.indexOf(q);
-        final titleScore =
-            220 - (startsAt.clamp(0, 200)) + (pageTitle.length <= 42 ? 15 : 0);
+      
+      final titleMatchesAll = terms.every((t) => titleLower.contains(t));
+      if (includeTitleMatches && titleMatchesAll) {
+        final exactIdx = titleLower.indexOf(queryLower);
+        var titleScore = 200;
+        if (exactIdx >= 0) {
+          titleScore += 100 + (30 - exactIdx.clamp(0, 30)) * 2;
+        } else {
+          var sumIdx = 0;
+          for (final t in terms) {
+            sumIdx += titleLower.indexOf(t).clamp(0, 200);
+          }
+          titleScore += 50 - (sumIdx ~/ terms.length);
+        }
+        if (pageTitle.length <= 42) titleScore += 15;
+
         out.add(
           VaultSearchResult(
             pageId: page.id,
             pageTitle: pageTitle,
-            snippet: _snippetAround(pageTitle, q),
+            snippet: _snippetAroundMulti(pageTitle, queryLower, terms),
             matchKind: VaultSearchMatchKind.title,
             pageLastEditedMs: pageLastEditedMs,
             score: titleScore,
           ),
         );
       }
+
       if (includeContentMatches) {
         for (final block in page.blocks) {
           if (tasksOnly && block.type != 'todo' && block.type != 'task') {
@@ -4981,16 +5005,31 @@ class VaultSession extends ChangeNotifier {
           }
           final haystack = _blockSearchText(block);
           final haystackLower = haystack.toLowerCase();
-          final idx = haystackLower.indexOf(q);
-          if (idx < 0) continue;
-          final snippet = _snippetAround(haystack, q);
-          final contentScore =
-              120 - (idx.clamp(0, 100)) + (snippet.length <= 88 ? 8 : 0);
+
+          final blockMatchesAll = terms.every((t) => haystackLower.contains(t));
+          if (!blockMatchesAll) continue;
+
+          final exactIdx = haystackLower.indexOf(queryLower);
+          var contentScore = 100;
+          if (exactIdx >= 0) {
+            contentScore += 50 + (30 - exactIdx.clamp(0, 30));
+          } else {
+            var sumIdx = 0;
+            for (final t in terms) {
+              sumIdx += haystackLower.indexOf(t).clamp(0, 100);
+            }
+            contentScore += 30 - (sumIdx ~/ terms.length);
+          }
+
+          final snippet = _snippetAroundMulti(haystack, queryLower, terms);
+          if (snippet.length <= 88) contentScore += 8;
+
           out.add(
             VaultSearchResult(
               pageId: page.id,
               pageTitle: pageTitle,
               blockId: block.id,
+              blockType: block.type,
               snippet: snippet,
               matchKind: VaultSearchMatchKind.content,
               pageLastEditedMs: pageLastEditedMs,
@@ -5081,16 +5120,31 @@ class VaultSession extends ChangeNotifier {
     return latest;
   }
 
-  String _snippetAround(String text, String queryLower) {
+  String _snippetAroundMulti(String text, String queryLower, List<String> terms) {
     final clean = text.replaceAll('\n', ' ').trim();
     if (clean.isEmpty) return '';
     final lower = clean.toLowerCase();
-    final idx = lower.indexOf(queryLower);
+    
+    var idx = lower.indexOf(queryLower);
+    var matchedLength = queryLower.length;
+    
+    if (idx < 0 && terms.isNotEmpty) {
+      for (final term in terms) {
+        final tIdx = lower.indexOf(term);
+        if (tIdx >= 0) {
+          idx = tIdx;
+          matchedLength = term.length;
+          break;
+        }
+      }
+    }
+    
     if (idx < 0) {
       return clean.length <= 96 ? clean : '${clean.substring(0, 96)}...';
     }
+    
     final start = (idx - 28).clamp(0, clean.length);
-    final end = (idx + queryLower.length + 68).clamp(0, clean.length);
+    final end = (idx + matchedLength + 68).clamp(0, clean.length);
     final chunk = clean.substring(start, end).trim();
     final prefix = start > 0 ? '... ' : '';
     final suffix = end < clean.length ? ' ...' : '';

@@ -666,13 +666,16 @@ class AppLocalizationsEu extends AppLocalizations {
 
   @override
   String get searchDialogFooterHint =>
-      'Sartu-k nabarmendutako emaitza irekitzen du · Ctrl+↑ / Ctrl+↓ nabigatzeko · Esc itxi';
+      'Sartu-k nabarmendutako emaitza irekitzen du · ↑ / ↓ nabigatzeko · Esc itxi';
 
   @override
   String get searchFilterTasks => 'Atazak';
 
   @override
   String get searchRecentQueries => 'Azken bilaketak';
+
+  @override
+  String get searchClearRecent => 'Garbitu azken bilaketak';
 
   @override
   String get searchShortcutsHelpTooltip => 'Teklatuko lasterbideak';
@@ -682,7 +685,7 @@ class AppLocalizationsEu extends AppLocalizations {
 
   @override
   String get searchShortcutsHelpBody =>
-      'Sartu: ireki nabarmendutako emaitza\nCtrl+↑ edo Ctrl+↓: aurreko / hurrengo emaitza\nEsc: itxi';
+      'Sartu: ireki nabarmendutako emaitza\n↑ edo ↓: aurreko / hurrengo emaitza\nEsc: itxi';
 
   @override
   String get renamePageTitle => 'Aldatu orrialdearen izena';
@@ -3469,8 +3472,7 @@ class AppLocalizationsEu extends AppLocalizations {
       'Hodeiko babeskopi inkrementala prest. Sartu koadernoaren pasahitza (desblokeatzeko erabiltzen duzuna). Koadernoa zifratu gabe bazegoen, erabili igoeran ezarri zenuen berreskuratze-pasahitza.';
 
   @override
-  String get cloudPackRestorePasswordHelper =>
-      'Sin contraseña → déjalo en blanco';
+  String get cloudPackRestorePasswordHelper => 'Pasahitzik gabe → utzi hutsik';
 
   @override
   String get settingsCloudBackupWrapPasswordTitle =>
@@ -8225,59 +8227,57 @@ class AppLocalizationsEu extends AppLocalizations {
   String get saveStatusError => 'Errorea gordetzean';
 
   @override
-  String get settingsSearchNoResults =>
-      'No se encontraron ajustes coincidentes';
+  String get settingsSearchNoResults => 'Ez da bat datorren ezarpenik aurkitu';
 
   @override
-  String get settingsSearchResultsTitle => 'Resultados de la búsqueda';
+  String get settingsSearchResultsTitle => 'Bilaketaren emaitzak';
 
   @override
-  String get settingsSearchThemeTitle => 'Tema de la aplicación';
+  String get settingsSearchThemeTitle => 'Aplikazioaren gaia';
 
   @override
   String get settingsSearchThemeDesc =>
-      'Elige entre tema claro, oscuro o el predeterminado del sistema.';
+      'Aukeratu argia, iluna edo sistemaren gaia lehenetsi bezala.';
 
   @override
-  String get settingsSearchLangTitle => 'Idioma de la aplicación';
+  String get settingsSearchLangTitle => 'Aplikazioaren hizkuntza';
 
   @override
   String get settingsSearchLangDesc =>
-      'Cambia el idioma predeterminado de la interfaz.';
+      'Aldatu interfazeko hizkuntza lehenetsia.';
 
   @override
-  String get settingsSearchAiTitle => 'Habilitar servicios de IA';
+  String get settingsSearchAiTitle => 'Gaitu adimen artifizialeko zerbitzuak';
 
   @override
   String get settingsSearchAiDesc =>
-      'Activa o desactiva la integración con modelos de lenguaje locales o en la nube.';
+      'Gaitu edo desgaitu tokiko edo hodeiko hizkuntza ereduak integratzea.';
 
   @override
-  String get settingsSearchQuickUnlockTitle => 'Desbloqueo rápido';
+  String get settingsSearchQuickUnlockTitle => 'Desblokeatze azkarra';
 
   @override
   String get settingsSearchQuickUnlockDesc =>
-      'Configura huella dactilar, reconocimiento facial o PIN de desbloqueo.';
+      'Konfiguratu hatz-marka, aurpegi-ezagutza edo desblokeatzeko PIN kodea.';
 
   @override
-  String get settingsSearchCloudBackupTitle =>
-      'Copia de seguridad automática en la nube';
+  String get settingsSearchCloudBackupTitle => 'Babeskopia automatikoa hodeian';
 
   @override
   String get settingsSearchCloudBackupDesc =>
-      'Guarda tus libretas de forma segura con sincronización en tiempo real.';
+      'Gorde zure liburuak modu seguruan denbora errealeko sinkronizazioarekin.';
 
   @override
-  String get settingsSearchJiraTitle => 'Conectar Jira';
+  String get settingsSearchJiraTitle => 'Konektatu Jira';
 
   @override
   String get settingsSearchJiraDesc =>
-      'Importa tus tareas e incidencias directamente a Folio.';
+      'Inportatu zure zereginak eta gorabeherak zuzenean Folio-ra.';
 
   @override
-  String get settingsSearchYouTrackTitle => 'Conectar YouTrack';
+  String get settingsSearchYouTrackTitle => 'Konektatu YouTrack';
 
   @override
   String get settingsSearchYouTrackDesc =>
-      'Administra tus tareas de desarrollo desde Folio.';
+      'Kudeatu zure garapen-zereginak Folio-tik.';
 }

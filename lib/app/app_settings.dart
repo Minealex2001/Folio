@@ -2013,6 +2013,23 @@ class AppSettings extends ChangeNotifier {
     await p.setStringList(_recentSearchQueriesKey, _recentSearchQueries);
   }
 
+  Future<void> removeRecentSearchQuery(String raw) async {
+    final q = raw.trim();
+    if (q.isEmpty) return;
+    _recentSearchQueries = _recentSearchQueries.where((x) => x != q).toList();
+    notifyListeners();
+    final p = await SharedPreferences.getInstance();
+    await p.setStringList(_recentSearchQueriesKey, _recentSearchQueries);
+  }
+
+  Future<void> clearRecentSearchQueries() async {
+    if (_recentSearchQueries.isEmpty) return;
+    _recentSearchQueries = const [];
+    notifyListeners();
+    final p = await SharedPreferences.getInstance();
+    await p.setStringList(_recentSearchQueriesKey, _recentSearchQueries);
+  }
+
   Future<void> setScheduledVaultBackupEnabled(bool value) async {
     if (_scheduledVaultBackupEnabled == value) return;
     _scheduledVaultBackupEnabled = value;
