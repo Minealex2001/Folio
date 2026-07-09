@@ -37,6 +37,7 @@ import '../../services/ai/ai_safety_policy.dart';
 import '../../services/ai/folio_cloud_ai_service.dart';
 import '../../services/ai/lmstudio_ai_service.dart';
 import '../../services/ai/ollama_ai_service.dart';
+import '../../services/ai/openai_compatible_ai_service.dart';
 import '../../services/custom_icon_import_service.dart';
 import '../../services/cloud_account/cloud_account_controller.dart';
 import '../../services/folio_cloud/folio_cloud_reachability.dart';
@@ -146,6 +147,7 @@ class _SettingsPageState extends State<SettingsPage> {
   var _quickEnabled = false;
   var _passkeyRegistered = false;
   late final TextEditingController _aiBaseUrlController;
+  late final TextEditingController _aiApiKeyController;
   late final TextEditingController _aiTimeoutController;
   late final TextEditingController _aiContextWindowController;
   late final TextEditingController _customIconSourceController;
@@ -197,6 +199,7 @@ class _SettingsPageState extends State<SettingsPage> {
   void initState() {
     super.initState();
     _aiBaseUrlController = TextEditingController(text: _app.aiBaseUrl);
+    _aiApiKeyController = TextEditingController(text: _app.aiApiKey);
     _aiTimeoutController = TextEditingController(
       text: _app.aiTimeoutMs.toString(),
     );
@@ -333,6 +336,7 @@ class _SettingsPageState extends State<SettingsPage> {
     _settingsScrollController.dispose();
     _settingsSectionFilterController.dispose();
     _aiBaseUrlController.dispose();
+    _aiApiKeyController.dispose();
     _aiTimeoutController.dispose();
     _aiContextWindowController.dispose();
     _customIconSourceController.dispose();
@@ -1487,6 +1491,7 @@ class _SettingsPageState extends State<SettingsPage> {
 
   Future<void> _saveAiFields() async {
     await _app.setAiBaseUrl(_aiBaseUrlController.text);
+    await _app.setAiApiKey(_aiApiKeyController.text);
     final timeout = int.tryParse(_aiTimeoutController.text.trim());
     if (timeout != null) {
       await _app.setAiTimeoutMs(timeout);
@@ -1556,6 +1561,10 @@ class _SettingsPageState extends State<SettingsPage> {
         return 'LM Studio';
       case AiProvider.quillCloud:
         return 'Quill Cloud';
+      case AiProvider.openAi:
+        return 'OpenAI';
+      case AiProvider.gemini:
+        return 'Gemini';
       case AiProvider.none:
         return l10n.aiProviderNone;
     }
@@ -1601,6 +1610,16 @@ class _SettingsPageState extends State<SettingsPage> {
               leading: const Icon(Icons.hub_outlined),
               title: const Text('LM Studio'),
               onTap: () => Navigator.pop(ctx, AiProvider.lmStudio),
+            ),
+            ListTile(
+              leading: const Icon(Icons.rocket_launch_outlined),
+              title: const Text('OpenAI'),
+              onTap: () => Navigator.pop(ctx, AiProvider.openAi),
+            ),
+            ListTile(
+              leading: const Icon(Icons.rocket_launch_outlined),
+              title: const Text('Gemini'),
+              onTap: () => Navigator.pop(ctx, AiProvider.gemini),
             ),
           ],
         ),
@@ -1720,6 +1739,8 @@ class _SettingsPageState extends State<SettingsPage> {
         throw StateError('Selecciona un proveedor IA primero.');
       case AiProvider.ollama:
       case AiProvider.lmStudio:
+      case AiProvider.openAi:
+      case AiProvider.gemini:
         break;
     }
     final uri = AiSafetyPolicy.parseAndNormalizeUrl(
@@ -1744,6 +1765,15 @@ class _SettingsPageState extends State<SettingsPage> {
           timeout: timeout,
           defaultModel: _app.aiModel,
         );
+      case AiProvider.openAi:
+      case AiProvider.gemini:
+        return OpenAiCompatibleAiService(
+          baseUrl: uri,
+          timeout: timeout,
+          defaultModel: _app.aiModel,
+          apiKey: _aiApiKeyController.text,
+          provider: _app.aiProvider.name,
+        );
       case AiProvider.none:
       case AiProvider.quillCloud:
         throw StateError(
@@ -1758,7 +1788,8 @@ class _SettingsPageState extends State<SettingsPage> {
     await _saveAiFields();
     if (!mounted) return;
     final l10n = AppLocalizations.of(context);
-    if (_app.aiProvider != AiProvider.quillCloud) {
+    final isLocal = _app.aiProvider == AiProvider.ollama || _app.aiProvider == AiProvider.lmStudio;
+    if (isLocal) {
       final err = AiSafetyPolicy.validateEndpointIssue(
         rawUrl: _app.aiBaseUrl,
         mode: _app.aiEndpointMode,
@@ -7981,8 +8012,8 @@ class _SettingsPageState extends State<SettingsPage> {
                                           child: LinearProgressIndicator(),
                                         ),
                                       if (aiLocalProvidersSupported &&
-                                          _app.aiProvider !=
-                                              AiProvider.quillCloud) ...[
+                                          (_app.aiProvider == AiProvider.ollama ||
+                                              _app.aiProvider == AiProvider.lmStudio)) ...[
                                         const Divider(height: 1),
                                         ListTile(
                                           leading: const Icon(
@@ -8209,15 +8240,24 @@ class _SettingsPageState extends State<SettingsPage> {
                                               ),
                                             ],
                                             DropdownMenuItem(
+                                              value: AiProvider.openAi,
+                                              child: const Text('OpenAI'),
+                                            ),
+                                            DropdownMenuItem(
+                                              value: AiProvider.gemini,
+                                              child: const Text('Gemini'),
+                                            ),
+                                            DropdownMenuItem(
                                               value: AiProvider.quillCloud,
                                               child: const Text('Quill Cloud'),
                                             ),
                                           ],
                                         ),
                                       ),
-                                      if (aiLocalProvidersSupported &&
-                                          _app.aiProvider !=
-                                              AiProvider.quillCloud) ...[
+                                      if (_app.aiProvider == AiProvider.ollama ||
+                                          _app.aiProvider == AiProvider.lmStudio ||
+                                          _app.aiProvider == AiProvider.openAi ||
+                                          _app.aiProvider == AiProvider.gemini) ...[
                                         const Divider(height: 1),
                                         ListTile(
                                           leading: const Icon(
@@ -8237,6 +8277,55 @@ class _SettingsPageState extends State<SettingsPage> {
                                             onSubmitted: (_) => _saveAiFields(),
                                           ),
                                         ),
+                                        if (_app.aiProvider == AiProvider.openAi ||
+                                            _app.aiProvider == AiProvider.gemini) ...[
+                                          const Divider(height: 1),
+                                          ListTile(
+                                            leading: const Icon(
+                                              Icons.key_rounded,
+                                            ),
+                                            title: const Text('Clave API (API Key)'),
+                                            subtitle: Column(
+                                              crossAxisAlignment: CrossAxisAlignment.start,
+                                              children: [
+                                                TextField(
+                                                  controller: _aiApiKeyController,
+                                                  obscureText: true,
+                                                  decoration: const InputDecoration(
+                                                    hintText: 'Ingresa tu API Key',
+                                                    border: InputBorder.none,
+                                                    enabledBorder: InputBorder.none,
+                                                    focusedBorder: InputBorder.none,
+                                                    contentPadding: EdgeInsets.zero,
+                                                  ),
+                                                  onSubmitted: (_) => _saveAiFields(),
+                                                ),
+                                                if (_app.aiProvider == AiProvider.gemini)
+                                                  Padding(
+                                                    padding: const EdgeInsets.only(top: 4, bottom: 4),
+                                                    child: Text(
+                                                      'Consigue tu clave API en aistudio.google.com',
+                                                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                                        color: scheme.primary,
+                                                        fontWeight: FontWeight.w600,
+                                                      ),
+                                                    ),
+                                                  ),
+                                                if (_app.aiProvider == AiProvider.openAi)
+                                                  Padding(
+                                                    padding: const EdgeInsets.only(top: 4, bottom: 4),
+                                                    child: Text(
+                                                      'Consigue tu clave API en platform.openai.com',
+                                                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                                        color: scheme.primary,
+                                                        fontWeight: FontWeight.w600,
+                                                      ),
+                                                    ),
+                                                  ),
+                                              ],
+                                            ),
+                                          ),
+                                        ],
                                         const Divider(height: 1),
                                         ListTile(
                                           leading: const Icon(
@@ -8306,52 +8395,55 @@ class _SettingsPageState extends State<SettingsPage> {
                                             onSubmitted: (_) => _saveAiFields(),
                                           ),
                                         ),
-                                        const Divider(height: 1),
-                                        SwitchListTile(
-                                          secondary: const Icon(
-                                            Icons.public_outlined,
-                                          ),
-                                          title: Text(
-                                            l10n.aiAllowRemoteEndpoint,
-                                          ),
-                                          subtitle: Text(
-                                            _app.aiEndpointMode ==
-                                                    AiEndpointMode.allowRemote
-                                                ? l10n.aiAllowRemoteEndpointAllowed
-                                                : l10n.aiAllowRemoteEndpointLocalhostOnly,
-                                          ),
-                                          value:
-                                              _app.aiEndpointMode ==
-                                              AiEndpointMode.allowRemote,
-                                          onChanged: (v) async {
-                                            await _app.setAiEndpointMode(
-                                              v
-                                                  ? AiEndpointMode.allowRemote
-                                                  : AiEndpointMode
-                                                        .localhostOnly,
-                                            );
-                                            if (v) {
-                                              await _confirmRemoteEndpointIfNeeded();
-                                            }
-                                          },
-                                        ),
-                                        if (_app.aiEndpointMode ==
-                                                AiEndpointMode.allowRemote &&
-                                            !_app.aiRemoteEndpointConfirmed)
-                                          Padding(
-                                            padding: const EdgeInsets.fromLTRB(
-                                              16,
-                                              0,
-                                              16,
-                                              16,
+                                        if (_app.aiProvider == AiProvider.ollama ||
+                                            _app.aiProvider == AiProvider.lmStudio) ...[
+                                          const Divider(height: 1),
+                                          SwitchListTile(
+                                            secondary: const Icon(
+                                              Icons.public_outlined,
                                             ),
-                                            child: Text(
-                                              l10n.aiAllowRemoteEndpointNotConfirmed,
-                                              style: TextStyle(
-                                                color: Colors.orange,
+                                            title: Text(
+                                              l10n.aiAllowRemoteEndpoint,
+                                            ),
+                                            subtitle: Text(
+                                              _app.aiEndpointMode ==
+                                                      AiEndpointMode.allowRemote
+                                                  ? l10n.aiAllowRemoteEndpointAllowed
+                                                  : l10n.aiAllowRemoteEndpointLocalhostOnly,
+                                            ),
+                                            value:
+                                                _app.aiEndpointMode ==
+                                                AiEndpointMode.allowRemote,
+                                            onChanged: (v) async {
+                                              await _app.setAiEndpointMode(
+                                                v
+                                                    ? AiEndpointMode.allowRemote
+                                                    : AiEndpointMode
+                                                          .localhostOnly,
+                                              );
+                                              if (v) {
+                                                await _confirmRemoteEndpointIfNeeded();
+                                              }
+                                            },
+                                          ),
+                                          if (_app.aiEndpointMode ==
+                                                  AiEndpointMode.allowRemote &&
+                                              !_app.aiRemoteEndpointConfirmed)
+                                            Padding(
+                                              padding: const EdgeInsets.fromLTRB(
+                                                16,
+                                                0,
+                                                16,
+                                                16,
+                                              ),
+                                              child: Text(
+                                                l10n.aiAllowRemoteEndpointNotConfirmed,
+                                                style: TextStyle(
+                                                  color: Colors.orange,
+                                                ),
                                               ),
                                             ),
-                                          ),
+                                        ],
                                         const Divider(height: 1),
                                         ListTile(
                                           leading: const Icon(
@@ -9284,6 +9376,10 @@ class _SettingsMenuTileState extends State<_SettingsMenuTile> {
         return 'LM Studio';
       case AiProvider.quillCloud:
         return 'Quill Cloud';
+      case AiProvider.openAi:
+        return 'OpenAI';
+      case AiProvider.gemini:
+        return 'Gemini';
       case AiProvider.none:
         return l10n.aiProviderNone;
     }

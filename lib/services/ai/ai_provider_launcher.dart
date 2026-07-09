@@ -13,6 +13,8 @@ class AiProviderLauncher {
       AiProvider.ollama => _firstExistingPath(_ollamaExePaths),
       AiProvider.lmStudio => _firstExistingPath(_lmStudioExePaths),
       AiProvider.quillCloud => null,
+      AiProvider.openAi => null,
+      AiProvider.gemini => null,
       AiProvider.none => null,
     };
     if (path == null) return;

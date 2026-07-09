@@ -101,6 +101,8 @@ class AiProviderDetector {
       AiProvider.lmStudio => const ['LM Studio.exe', 'LMStudio.exe', 'lms.exe'],
       AiProvider.none => const <String>[],
       AiProvider.quillCloud => const <String>[],
+      AiProvider.openAi => const <String>[],
+      AiProvider.gemini => const <String>[],
     };
 
     for (final exe in executableNames) {
@@ -130,6 +132,8 @@ class AiProviderDetector {
       AiProvider.lmStudio => const ['LM Studio.exe', 'LMStudio.exe', 'lms.exe'],
       AiProvider.none => const <String>[],
       AiProvider.quillCloud => const <String>[],
+      AiProvider.openAi => const <String>[],
+      AiProvider.gemini => const <String>[],
     };
     for (final processName in processNames) {
       try {
@@ -173,6 +177,8 @@ class AiProviderDetector {
         ],
       AiProvider.none => const [],
       AiProvider.quillCloud => const [],
+      AiProvider.openAi => const [],
+      AiProvider.gemini => const [],
     };
   }
 
@@ -197,6 +203,8 @@ class AiProviderDetector {
           return true;
         case AiProvider.none:
         case AiProvider.quillCloud:
+        case AiProvider.openAi:
+        case AiProvider.gemini:
           return false;
       }
     } catch (_) {

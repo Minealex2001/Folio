@@ -130,9 +130,15 @@ ReleaseReadinessSnapshot evaluateReleaseReadiness({
   var aiPolicyOk = true;
   var aiSummary = l10n.releaseReadinessAiSummaryDisabled;
   if (isAiEnabled) {
-    if (aiProvider == AiProvider.quillCloud) {
+    if (aiProvider == AiProvider.quillCloud ||
+        aiProvider == AiProvider.openAi ||
+        aiProvider == AiProvider.gemini) {
       aiPolicyOk = true;
-      aiSummary = l10n.releaseReadinessAiSummaryQuillCloud;
+      aiSummary = aiProvider == AiProvider.quillCloud
+          ? l10n.releaseReadinessAiSummaryQuillCloud
+          : (aiProvider == AiProvider.openAi
+              ? 'OpenAI Cloud'
+              : 'Gemini Cloud');
     } else {
       final issue = AiSafetyPolicy.validateEndpointIssue(
         rawUrl: aiBaseUrl,

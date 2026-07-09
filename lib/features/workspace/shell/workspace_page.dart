@@ -1994,8 +1994,7 @@ class _WorkspacePageState extends State<WorkspacePage> {
     final editorReadOnlyMode = verticalMobileWorkspace && !_mobileEditMode;
     final compact =
         width < FolioDesktop.compactBreakpoint || androidMobileWorkspace;
-    final aiSessionActive =
-        widget.appSettings.isAiRuntimeEnabled && _s.aiEnabled;
+    final aiSessionActive = widget.appSettings.isAiRuntimeEnabled;
     final useDesktopAiDock = !compact && aiSessionActive;
     final useMobileAiDock = compact && aiSessionActive;
     final cloudSignedIn =

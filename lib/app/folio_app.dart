@@ -23,6 +23,7 @@ import '../services/ai/ai_provider_launcher.dart';
 import '../services/ai/ai_safety_policy.dart';
 import '../services/ai/lmstudio_ai_service.dart';
 import '../services/ai/ollama_ai_service.dart';
+import '../services/ai/openai_compatible_ai_service.dart';
 import '../services/platform/launch_arguments.dart';
 import '../services/cloud_account/cloud_account_controller.dart';
 import '../services/ai/folio_cloud_ai_service.dart';
@@ -724,54 +725,49 @@ class _FolioAppState extends State<FolioApp> with WidgetsBindingObserver {
   }
 
   void _applyAiSettings() {
-    if (!aiLocalProvidersSupported) {
-      if (!widget.appSettings.isAiRuntimeEnabled) {
-        widget.session.setAiService(null);
-        return;
-      }
-      if (widget.appSettings.aiProvider == AiProvider.quillCloud) {
-        if (_folioCloudEntitlements.snapshot.canUseCloudAi) {
-          widget.session.setAiService(
-            FolioCloudAiService(entitlements: _folioCloudEntitlements),
-          );
-        } else {
-          widget.session.setAiService(null);
-        }
-        return;
-      }
-      widget.session.setAiService(null);
-      return;
-    }
     if (!widget.appSettings.isAiRuntimeEnabled) {
       widget.session.setAiService(null);
       return;
     }
-    switch (widget.appSettings.aiProvider) {
-      case AiProvider.none:
-        widget.session.setAiService(null);
-        return;
-      case AiProvider.quillCloud:
-        if (!_folioCloudEntitlements.snapshot.canUseCloudAi) {
-          widget.session.setAiService(null);
-          return;
-        }
-        widget.session.setAiService(
-          FolioCloudAiService(entitlements: _folioCloudEntitlements),
-        );
-        return;
-      case AiProvider.ollama:
-      case AiProvider.lmStudio:
-        break;
-    }
-    final endpointError = AiSafetyPolicy.validateEndpointIssue(
-      rawUrl: widget.appSettings.aiBaseUrl,
-      mode: widget.appSettings.aiEndpointMode,
-      remoteConfirmed: widget.appSettings.aiRemoteEndpointConfirmed,
-    );
-    if (endpointError != null) {
+
+    final provider = widget.appSettings.aiProvider;
+    if (provider == AiProvider.none) {
       widget.session.setAiService(null);
       return;
     }
+
+    // Quill Cloud
+    if (provider == AiProvider.quillCloud) {
+      if (_folioCloudEntitlements.snapshot.canUseCloudAi) {
+        widget.session.setAiService(
+          FolioCloudAiService(entitlements: _folioCloudEntitlements),
+        );
+      } else {
+        widget.session.setAiService(null);
+      }
+      return;
+    }
+
+    // Local providers check (Ollama and LM Studio are only supported on desktop/web)
+    final isLocalProvider = provider == AiProvider.ollama || provider == AiProvider.lmStudio;
+    if (isLocalProvider && !aiLocalProvidersSupported) {
+      widget.session.setAiService(null);
+      return;
+    }
+
+    // Validate endpoint only for local providers
+    if (isLocalProvider) {
+      final endpointError = AiSafetyPolicy.validateEndpointIssue(
+        rawUrl: widget.appSettings.aiBaseUrl,
+        mode: widget.appSettings.aiEndpointMode,
+        remoteConfirmed: widget.appSettings.aiRemoteEndpointConfirmed,
+      );
+      if (endpointError != null) {
+        widget.session.setAiService(null);
+        return;
+      }
+    }
+
     final uri = AiSafetyPolicy.parseAndNormalizeUrl(
       widget.appSettings.aiBaseUrl,
     );
@@ -779,8 +775,9 @@ class _FolioAppState extends State<FolioApp> with WidgetsBindingObserver {
       widget.session.setAiService(null);
       return;
     }
+
     final timeout = Duration(milliseconds: widget.appSettings.aiTimeoutMs);
-    switch (widget.appSettings.aiProvider) {
+    switch (provider) {
       case AiProvider.ollama:
         widget.session.setAiService(
           OllamaAiService(
@@ -799,8 +796,20 @@ class _FolioAppState extends State<FolioApp> with WidgetsBindingObserver {
           ),
         );
         break;
-      case AiProvider.none:
-      case AiProvider.quillCloud:
+      case AiProvider.openAi:
+      case AiProvider.gemini:
+        widget.session.setAiService(
+          OpenAiCompatibleAiService(
+            baseUrl: uri,
+            timeout: timeout,
+            defaultModel: widget.appSettings.aiModel,
+            apiKey: widget.appSettings.aiApiKey,
+            provider: provider.name,
+          ),
+        );
+        break;
+      default:
+        widget.session.setAiService(null);
         break;
     }
   }

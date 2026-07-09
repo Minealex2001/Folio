@@ -15,7 +15,7 @@ import '../services/transcription_hardware_profile.dart';
 import '../services/updater/update_release_channel.dart';
 import '../services/whisper_service.dart';
 
-enum AiProvider { none, ollama, lmStudio, quillCloud }
+enum AiProvider { none, ollama, lmStudio, quillCloud, openAi, gemini }
 
 /// Disposición de columnas en la pantalla de inicio del workspace.
 enum WorkspaceHomeColumnLayout { auto, single, dual }
@@ -354,6 +354,7 @@ class AppSettings extends ChangeNotifier {
   static const _aiLaunchProviderWithAppKey =
       'folio_ai_launch_provider_with_app';
   static const _aiContextWindowTokensKey = 'folio_ai_context_window_tokens';
+  static const _aiApiKeyKey = 'folio_ai_api_key';
   static const _aiModelsPrefix = 'folio_ai_models_';
   static const _usageIntentsKey = 'folio_usage_intents';
   static const _hasSeenQuillIntroKey = 'folio_has_seen_quill_intro';
@@ -576,6 +577,7 @@ class AppSettings extends ChangeNotifier {
   bool _aiAlwaysShowThought = false;
   bool _aiLaunchProviderWithApp = false;
   int _aiContextWindowTokens = defaultAiContextWindowTokens;
+  String _aiApiKey = '';
   final Map<AiProvider, List<String>> _cachedAiModelsByProvider = {};
   List<FolioUsageIntent> _usageIntents = const [FolioUsageIntent.notes];
   bool _hasSeenQuillIntro = false;
@@ -693,6 +695,7 @@ class AppSettings extends ChangeNotifier {
   bool get aiAlwaysShowThought => _aiAlwaysShowThought;
   bool get aiLaunchProviderWithApp => _aiLaunchProviderWithApp;
   int get aiContextWindowTokens => _aiContextWindowTokens;
+  String get aiApiKey => _aiApiKey;
   bool get isAiAvailable => true;
   bool get isAiRuntimeEnabled => _aiEnabled;
   List<FolioUsageIntent> get usageIntents =>
@@ -899,6 +902,7 @@ class AppSettings extends ChangeNotifier {
     _aiContextWindowTokens = _sanitizeContextWindowTokens(
       p.getInt(_aiContextWindowTokensKey),
     );
+    _aiApiKey = p.getString(_aiApiKeyKey) ?? '';
     _usageIntents = FolioUsageIntent.parseList(p.getString(_usageIntentsKey));
     _hasSeenQuillIntro = p.getBool(_hasSeenQuillIntroKey) ?? false;
     _hasSeenQuillWorkspaceTour =
@@ -1144,6 +1148,14 @@ class AppSettings extends ChangeNotifier {
           p.getStringList(_aiModelsKeyForProvider(AiProvider.quillCloud)) ??
               const <String>['quill-cloud'],
         ),
+        AiProvider.openAi: List<String>.from(
+          p.getStringList(_aiModelsKeyForProvider(AiProvider.openAi)) ??
+              const <String>['gpt-4o-mini', 'gpt-4o', 'gpt-4-turbo', 'gpt-4', 'gpt-3.5-turbo'],
+        ),
+        AiProvider.gemini: List<String>.from(
+          p.getStringList(_aiModelsKeyForProvider(AiProvider.gemini)) ??
+              const <String>['gemini-1.5-flash', 'gemini-1.5-pro', 'gemini-2.0-flash-exp', 'gemini-2.5-flash'],
+        ),
       });
     notifyListeners();
   }
@@ -1182,6 +1194,10 @@ class AppSettings extends ChangeNotifier {
         return AiProvider.lmStudio;
       case 'quillCloud':
         return AiProvider.quillCloud;
+      case 'openAi':
+        return AiProvider.openAi;
+      case 'gemini':
+        return AiProvider.gemini;
       default:
         return AiProvider.none;
     }
@@ -1322,6 +1338,10 @@ class AppSettings extends ChangeNotifier {
         return defaultLmStudioUrl;
       case AiProvider.quillCloud:
         return '';
+      case AiProvider.openAi:
+        return 'https://api.openai.com';
+      case AiProvider.gemini:
+        return 'https://generativelanguage.googleapis.com/v1beta/openai';
       case AiProvider.none:
         return defaultOllamaUrl;
     }
@@ -1335,6 +1355,10 @@ class AppSettings extends ChangeNotifier {
         return defaultLmStudioModel;
       case AiProvider.quillCloud:
         return 'quill-cloud';
+      case AiProvider.openAi:
+        return 'gpt-4o-mini';
+      case AiProvider.gemini:
+        return 'gemini-1.5-flash';
       case AiProvider.none:
         return defaultOllamaModel;
     }
@@ -1508,6 +1532,15 @@ class AppSettings extends ChangeNotifier {
     notifyListeners();
     final p = await SharedPreferences.getInstance();
     await p.setString(_aiProviderKey, value.name);
+  }
+
+  Future<void> setAiApiKey(String value) async {
+    final safe = value.trim();
+    if (_aiApiKey == safe) return;
+    _aiApiKey = safe;
+    notifyListeners();
+    final p = await SharedPreferences.getInstance();
+    await p.setString(_aiApiKeyKey, safe);
   }
 
   Future<void> setAiBaseUrl(String value) async {

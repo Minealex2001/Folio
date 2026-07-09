@@ -28,6 +28,7 @@ extension _WorkspacePageAiPanelModule on _WorkspacePageState {
   }
 
   KeyEventResult _onChatInputKey(FocusNode node, KeyEvent event) {
+    if (!widget.session.aiEnabled) return KeyEventResult.ignored;
     if (event is! KeyDownEvent) return KeyEventResult.ignored;
 
     // Handle keyboard navigation when context menu is open
@@ -420,8 +421,15 @@ extension _WorkspacePageAiPanelModule on _WorkspacePageState {
           return 'Ollama';
         case AiProvider.lmStudio:
           return 'LM Studio';
+        case AiProvider.openAi:
+          return 'OpenAI';
+        case AiProvider.gemini:
+          return 'Gemini';
       }
     }
+
+    final aiReady = widget.session.aiEnabled;
+    final isEs = Localizations.localeOf(context).languageCode == 'es';
 
     return SafeArea(
       top: false,
@@ -587,6 +595,43 @@ extension _WorkspacePageAiPanelModule on _WorkspacePageState {
                 ],
               ),
             ),
+            if (!aiReady)
+              Container(
+                margin: const EdgeInsets.fromLTRB(10, 0, 10, 10),
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: scheme.errorContainer.withValues(alpha: 0.8),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: scheme.error.withValues(alpha: 0.35)),
+                ),
+                child: Row(
+                  children: [
+                    Icon(Icons.warning_amber_rounded, color: scheme.onErrorContainer),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                        isCloudProvider
+                            ? (isEs
+                                ? 'Quill Cloud no está listo. Inicia sesión en Folio Cloud o verifica tu cuenta/tinta en Ajustes.'
+                                : 'Quill Cloud is not ready. Sign in to Folio Cloud or verify your account/ink in Settings.')
+                            : (isEs
+                                ? 'El proveedor de IA no está disponible. Verifica tu conexión o clave en Ajustes.'
+                                : 'AI provider not available. Verify your connection or key in Settings.'),
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: scheme.onErrorContainer,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.settings_outlined),
+                      onPressed: _openSettings,
+                      color: scheme.onErrorContainer,
+                      visualDensity: VisualDensity.compact,
+                    ),
+                  ],
+                ),
+              ),
             Container(
               height: 92,
               margin: const EdgeInsets.symmetric(horizontal: 10),
@@ -946,7 +991,7 @@ extension _WorkspacePageAiPanelModule on _WorkspacePageState {
                           crossAxisAlignment: CrossAxisAlignment.end,
                           children: [
                             IconButton(
-                              onPressed: _aiChatBusy
+                              onPressed: (_aiChatBusy || !aiReady)
                                   ? null
                                   : _openCloudContextPickerFromButton,
                               icon: const Icon(
@@ -965,7 +1010,7 @@ extension _WorkspacePageAiPanelModule on _WorkspacePageState {
                                   child: TextField(
                                     focusNode: _chatInputFocusNode,
                                     controller: _chatInputController,
-                                    readOnly: _aiChatBusy,
+                                    readOnly: _aiChatBusy || !aiReady,
                                     minLines: 1,
                                     maxLines: 5,
                                     onTap: _updateAiContextMenu,
@@ -995,7 +1040,7 @@ extension _WorkspacePageAiPanelModule on _WorkspacePageState {
                             ),
                             const SizedBox(width: 8),
                             FilledButton(
-                              onPressed: _aiChatBusy ? null : _sendAiChat,
+                              onPressed: (_aiChatBusy || !aiReady) ? null : _sendAiChat,
                               style: FilledButton.styleFrom(
                                 minimumSize: const Size(44, 44),
                                 shape: const CircleBorder(),
