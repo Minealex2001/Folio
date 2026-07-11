@@ -20,6 +20,7 @@ import 'package:url_launcher/url_launcher.dart';
 import 'package:uuid/uuid.dart';
 
 import '../../../app/app_settings.dart';
+import '../../../services/app_logger.dart';
 import '../../../app/folio_in_app_shortcuts.dart';
 import '../../../app/ui_tokens.dart';
 import '../../../app/widgets/folio_cloud_ai_ink_dialog.dart';
@@ -28,6 +29,7 @@ import '../../../services/whisper_service.dart';
 import '../../../app/widgets/folio_feedback.dart';
 import '../../../app/widgets/folio_in_app_checkout_dialog.dart';
 import '../../../models/folio_page.dart';
+import '../../../models/quill_system_prompt.dart';
 import '../../../models/block.dart';
 import '../../../models/folio_columns_data.dart';
 import '../../../models/folio_template_button_data.dart';
@@ -533,22 +535,6 @@ class _WorkspacePageState extends State<WorkspacePage> {
     );
   }
 
-  IconData _personaIcon(String persona) {
-    switch (persona) {
-      case 'translator':
-        return Icons.translate_rounded;
-      case 'summarizer':
-        return Icons.summarize_rounded;
-      case 'coder':
-        return Icons.code_rounded;
-      case 'custom':
-        return Icons.assignment_ind_rounded;
-      case 'quill':
-      default:
-        return Icons.auto_awesome_rounded;
-    }
-  }
-
   Widget _buildAiMessageRow(
     BuildContext context,
     AiChatMessage message,
@@ -612,7 +598,7 @@ class _WorkspacePageState extends State<WorkspacePage> {
                     shape: BoxShape.circle,
                   ),
                   child: Icon(
-                    _personaIcon(widget.appSettings.aiPersona),
+                    Icons.auto_awesome_rounded,
                     size: 16,
                     color: scheme.onSecondaryContainer,
                   ),
@@ -1600,7 +1586,7 @@ class _WorkspacePageState extends State<WorkspacePage> {
     }
   }
 
-  void _openSettings() {
+  void _openSettings({String? initialSection}) {
     Navigator.of(context).push<void>(
       MaterialPageRoute<void>(
         settings: const RouteSettings(name: 'settings'),
@@ -1610,6 +1596,7 @@ class _WorkspacePageState extends State<WorkspacePage> {
           deviceSyncController: widget.deviceSyncController,
           cloudAccountController: widget.cloudAccountController,
           folioCloudEntitlements: widget.folioCloudEntitlements,
+          initialSection: initialSection,
         ),
       ),
     );

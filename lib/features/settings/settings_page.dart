@@ -14,6 +14,7 @@ import 'package:url_launcher/url_launcher.dart';
 import 'package:path/path.dart' as p;
 
 import '../../app/app_settings.dart';
+import '../../models/quill_system_prompt.dart';
 import '../../app/folio_build_flags.dart';
 import '../../app/folio_distribution.dart';
 import '../../app/folio_store_listing.dart';
@@ -121,6 +122,7 @@ class SettingsPage extends StatefulWidget {
     required this.deviceSyncController,
     required this.cloudAccountController,
     required this.folioCloudEntitlements,
+    this.initialSection,
   });
 
   final VaultSession session;
@@ -128,6 +130,7 @@ class SettingsPage extends StatefulWidget {
   final DeviceSyncController deviceSyncController;
   final CloudAccountController cloudAccountController;
   final FolioCloudEntitlementsController folioCloudEntitlements;
+  final String? initialSection;
 
   @override
   State<SettingsPage> createState() => _SettingsPageState();
@@ -149,7 +152,6 @@ class _SettingsPageState extends State<SettingsPage> {
   var _passkeyRegistered = false;
   late final TextEditingController _aiBaseUrlController;
   late final TextEditingController _aiApiKeyController;
-  late final TextEditingController _aiCustomPromptController;
   late final TextEditingController _aiTimeoutController;
   late final TextEditingController _aiContextWindowController;
   late final TextEditingController _customIconSourceController;
@@ -202,7 +204,6 @@ class _SettingsPageState extends State<SettingsPage> {
     super.initState();
     _aiBaseUrlController = TextEditingController(text: _app.aiBaseUrl);
     _aiApiKeyController = TextEditingController(text: _app.aiApiKey);
-    _aiCustomPromptController = TextEditingController(text: _app.aiCustomSystemPrompt);
     _aiTimeoutController = TextEditingController(
       text: _app.aiTimeoutMs.toString(),
     );
@@ -223,6 +224,14 @@ class _SettingsPageState extends State<SettingsPage> {
       // Evita el “parón” al navegar: primer frame ligero, luego render/cargas.
       setState(() => _deferHeavyBuild = false);
       _runDeferredInitIfNeeded();
+      // Jump to a specific section if requested (e.g. opening from the chat panel)
+      if (widget.initialSection != null) {
+        final target = _SettingsSectionId.values.firstWhere(
+          (id) => id.name == widget.initialSection,
+          orElse: () => _SettingsSectionId.ai,
+        );
+        setState(() => _selectedMobileSection = target);
+      }
     });
   }
 
@@ -340,7 +349,6 @@ class _SettingsPageState extends State<SettingsPage> {
     _settingsSectionFilterController.dispose();
     _aiBaseUrlController.dispose();
     _aiApiKeyController.dispose();
-    _aiCustomPromptController.dispose();
     _aiTimeoutController.dispose();
     _aiContextWindowController.dispose();
     _customIconSourceController.dispose();
@@ -1496,7 +1504,6 @@ class _SettingsPageState extends State<SettingsPage> {
   Future<void> _saveAiFields() async {
     await _app.setAiBaseUrl(_aiBaseUrlController.text);
     await _app.setAiApiKey(_aiApiKeyController.text);
-    await _app.setAiCustomSystemPrompt(_aiCustomPromptController.text);
     final timeout = int.tryParse(_aiTimeoutController.text.trim());
     if (timeout != null) {
       await _app.setAiTimeoutMs(timeout);
@@ -3639,6 +3646,88 @@ class _SettingsPageState extends State<SettingsPage> {
       case _SettingsSectionId.integrations:
         return l10n.integrations;
     }
+  }
+
+  Future<void> _showEditQuillPromptDialog(QuillSystemPrompt? item, {bool readOnly = false}) async {
+    final isEs = Localizations.localeOf(context).languageCode == 'es';
+    final nameCtrl = TextEditingController(text: item?.name ?? '');
+    final promptCtrl = TextEditingController(text: item?.prompt ?? '');
+    final isNew = item == null;
+
+    final titleText = isNew
+        ? (isEs ? 'Crear instrucciones' : 'Create Instructions')
+        : (readOnly
+            ? (isEs ? 'Ver instrucciones' : 'View Instructions')
+            : (isEs ? 'Editar instrucciones' : 'Edit Instructions'));
+
+    await showDialog<void>(
+      context: context,
+      builder: (ctx) => FolioDialog(
+        title: Text(titleText),
+        content: SizedBox(
+          width: 420,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              if (!readOnly) ...[
+                TextField(
+                  controller: nameCtrl,
+                  decoration: InputDecoration(
+                    labelText: isEs ? 'Nombre' : 'Name',
+                    hintText: isEs ? 'Ej. Escritor de Poesía' : 'E.g. Poetry Writer',
+                    border: const OutlineInputBorder(),
+                  ),
+                ),
+                const SizedBox(height: 12),
+              ],
+              TextField(
+                controller: promptCtrl,
+                maxLines: 8,
+                minLines: 3,
+                readOnly: readOnly,
+                decoration: InputDecoration(
+                  labelText: isEs ? 'Instrucciones del sistema' : 'System Instructions',
+                  hintText: isEs
+                      ? 'Ej. Eres un experto tutor de inglés...'
+                      : 'E.g. You are an expert English tutor...',
+                  border: const OutlineInputBorder(),
+                ),
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: Text(readOnly ? (isEs ? 'Atrás' : 'Back') : (isEs ? 'Cancelar' : 'Cancel')),
+          ),
+          if (!readOnly)
+            FilledButton(
+              onPressed: () async {
+                final name = nameCtrl.text.trim();
+                final promptText = promptCtrl.text.trim();
+                if (name.isEmpty || promptText.isEmpty) return;
+                if (isNew) {
+                  final newPrompt = QuillSystemPrompt(
+                    id: 'custom_${DateTime.now().millisecondsSinceEpoch}',
+                    name: name,
+                    prompt: promptText,
+                    isSystemDefault: false,
+                  );
+                  await _app.addQuillSystemPrompt(newPrompt);
+                } else {
+                  final updated = item.copyWith(name: name, prompt: promptText);
+                  await _app.updateQuillSystemPrompt(updated);
+                }
+                if (ctx.mounted) Navigator.pop(ctx);
+                if (mounted) setState(() {});
+              },
+              child: Text(isEs ? 'Guardar' : 'Save'),
+            ),
+        ],
+      ),
+    );
   }
 
 
@@ -8168,75 +8257,7 @@ class _SettingsPageState extends State<SettingsPage> {
                                           ),
                                         ),
                                       ],
-                                      const Divider(height: 1),
-                                      ListTile(
-                                        leading: const Icon(
-                                          Icons.assignment_ind_outlined,
-                                        ),
-                                        title: Text(l10n.aiPersonaLabel),
-                                        subtitle: Column(
-                                          crossAxisAlignment: CrossAxisAlignment.start,
-                                          children: [
-                                            DropdownButton<String>(
-                                              value: _app.aiPersona,
-                                              isExpanded: true,
-                                              underline: const SizedBox.shrink(),
-                                              onChanged: _app.aiEnabled
-                                                  ? (val) async {
-                                                      if (val != null) {
-                                                        await _app.setAiPersona(val);
-                                                        if (mounted) setState(() {});
-                                                      }
-                                                    }
-                                                  : null,
-                                              items: [
-                                                DropdownMenuItem(
-                                                  value: 'quill',
-                                                  child: Text(l10n.aiPersonaQuill),
-                                                ),
-                                                DropdownMenuItem(
-                                                  value: 'translator',
-                                                  child: Text(l10n.aiPersonaTranslator),
-                                                ),
-                                                DropdownMenuItem(
-                                                  value: 'summarizer',
-                                                  child: Text(l10n.aiPersonaSummarizer),
-                                                ),
-                                                DropdownMenuItem(
-                                                  value: 'coder',
-                                                  child: Text(l10n.aiPersonaCoder),
-                                                ),
-                                                DropdownMenuItem(
-                                                  value: 'custom',
-                                                  child: Text(l10n.aiPersonaCustom),
-                                                ),
-                                              ],
-                                            ),
-                                            if (_app.aiPersona == 'custom') ...[
-                                              const SizedBox(height: 8),
-                                              Text(
-                                                l10n.aiPersonaCustomPromptLabel,
-                                                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                                                      color: scheme.onSurfaceVariant,
-                                                    ),
-                                              ),
-                                              const SizedBox(height: 4),
-                                              TextField(
-                                                controller: _aiCustomPromptController,
-                                                enabled: _app.aiEnabled,
-                                                maxLines: 4,
-                                                minLines: 1,
-                                                decoration: InputDecoration(
-                                                  hintText: l10n.aiPersonaCustomPromptHint,
-                                                  border: const OutlineInputBorder(),
-                                                  contentPadding: const EdgeInsets.all(10),
-                                                ),
-                                                onSubmitted: (_) => _saveAiFields(),
-                                              ),
-                                            ],
-                                          ],
-                                        ),
-                                      ),
+                                      const SizedBox.shrink(),
                                       const Divider(height: 1),
                                       ListTile(
                                         leading: const Icon(Icons.hub_outlined),
@@ -8537,6 +8558,143 @@ class _SettingsPageState extends State<SettingsPage> {
                               ),
                             ),
                           ],
+
+                          // ─── Quill Instructions Section ───
+                          Visibility(
+                            visible: _selectedMobileSection == _SettingsSectionId.ai,
+                            maintainState: false,
+                            child: _SettingsPanel(
+                              margin: const EdgeInsets.only(top: 16, bottom: 24),
+                              child: StatefulBuilder(
+                                builder: (context, setInnerState) {
+                                  final prompts = _app.quillSystemPrompts;
+                                  final theme = Theme.of(context);
+                                  final scheme = Theme.of(context).colorScheme;
+                                  final isEs = Localizations.localeOf(context).languageCode == 'es';
+                                  final l10n = AppLocalizations.of(context);
+                                  return Column(
+                                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                                    children: [
+                                      ListTile(
+                                        leading: const Icon(Icons.psychology_alt_outlined),
+                                        title: Text(isEs ? 'Instrucciones de Quill' : 'Quill Instructions'),
+                                        subtitle: Text(
+                                          isEs
+                                              ? 'Crea instrucciones personalizadas para que Quill las use automáticamente'
+                                              : 'Create custom instructions for Quill to use automatically',
+                                        ),
+                                        trailing: FilledButton.tonalIcon(
+                                          icon: const Icon(Icons.add, size: 16),
+                                          label: Text(isEs ? 'Nueva' : 'New'),
+                                          onPressed: () async {
+                                            await _showEditQuillPromptDialog(null);
+                                            setInnerState(() {});
+                                          },
+                                        ),
+                                      ),
+                                      const Divider(height: 1),
+                                      ...prompts.map((item) {
+                                        return Column(
+                                          children: [
+                                            ListTile(
+                                              leading: Icon(
+                                                item.isSystemDefault
+                                                    ? Icons.auto_awesome_rounded
+                                                    : Icons.notes_rounded,
+                                                color: item.isSystemDefault
+                                                    ? scheme.primary
+                                                    : scheme.onSurfaceVariant,
+                                                size: 20,
+                                              ),
+                                              title: Text(
+                                                item.name,
+                                                style: theme.textTheme.titleSmall?.copyWith(
+                                                  fontWeight: FontWeight.w600,
+                                                ),
+                                              ),
+                                              subtitle: Text(
+                                                item.prompt,
+                                                maxLines: 1,
+                                                overflow: TextOverflow.ellipsis,
+                                                style: theme.textTheme.bodySmall?.copyWith(
+                                                  color: scheme.onSurfaceVariant,
+                                                ),
+                                              ),
+                                              trailing: Row(
+                                                mainAxisSize: MainAxisSize.min,
+                                                children: [
+                                                  IconButton(
+                                                    icon: Icon(
+                                                      item.isSystemDefault
+                                                          ? Icons.visibility_outlined
+                                                          : Icons.edit_outlined,
+                                                      size: 20,
+                                                    ),
+                                                    tooltip: item.isSystemDefault
+                                                        ? (isEs ? 'Ver' : 'View')
+                                                        : (isEs ? 'Editar' : 'Edit'),
+                                                    onPressed: () async {
+                                                      await _showEditQuillPromptDialog(
+                                                        item,
+                                                        readOnly: item.isSystemDefault,
+                                                      );
+                                                      setInnerState(() {});
+                                                    },
+                                                  ),
+                                                  if (!item.isSystemDefault)
+                                                    IconButton(
+                                                      icon: Icon(
+                                                        Icons.delete_outline_rounded,
+                                                        size: 20,
+                                                        color: scheme.error,
+                                                      ),
+                                                      tooltip: isEs ? 'Eliminar' : 'Delete',
+                                                      onPressed: () async {
+                                                        final confirm = await showDialog<bool>(
+                                                          context: context,
+                                                          builder: (ctx) => FolioDialog(
+                                                            title: Text(isEs
+                                                                ? '¿Eliminar instrucciones?'
+                                                                : 'Delete instructions?'),
+                                                            content: Text(isEs
+                                                                ? '¿Estás seguro de que quieres eliminar "${item.name}"?'
+                                                                : 'Are you sure you want to delete "${item.name}"?'),
+                                                            actions: [
+                                                              TextButton(
+                                                                onPressed: () => Navigator.pop(ctx, false),
+                                                                child: Text(l10n.cancel),
+                                                              ),
+                                                              FilledButton(
+                                                                onPressed: () => Navigator.pop(ctx, true),
+                                                                style: FilledButton.styleFrom(
+                                                                  backgroundColor: scheme.error,
+                                                                  foregroundColor: scheme.onError,
+                                                                ),
+                                                                child: Text(l10n.delete),
+                                                              ),
+                                                            ],
+                                                          ),
+                                                        );
+                                                        if (confirm == true) {
+                                                          await _app.deleteQuillSystemPrompt(item.id);
+                                                          setInnerState(() {});
+                                                          if (mounted) setState(() {});
+                                                        }
+                                                      },
+                                                    ),
+                                                ],
+                                              ),
+                                            ),
+                                            const Divider(height: 1),
+                                          ],
+                                        );
+                                      }),
+                                    ],
+                                  );
+                                },
+                              ),
+                            ),
+                          ),
 
                           Visibility(
                             visible:

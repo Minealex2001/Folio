@@ -85,6 +85,13 @@ extension _WorkspacePageAiChatModule on _WorkspacePageState {
         widget.appSettings.aiProvider == AiProvider.quillCloud;
     final op = isCloudProvider ? _aiInkEstimateOperationKind : null;
     final extra = _composeAiExtraContextForNextSend();
+    final presets = widget.appSettings.quillSystemPrompts;
+    final bestPromptId = await _classifyBestPromptId(t, presets);
+    final preset = presets.firstWhere(
+      (p) => p.id == bestPromptId,
+      orElse: () => presets.firstWhere((p) => p.id == 'quill_default', orElse: () => presets.first),
+    );
+
     return _s.agentChatWithAi(
       messages: threadMessages,
       prompt: t,
@@ -95,8 +102,7 @@ extension _WorkspacePageAiChatModule on _WorkspacePageState {
       languageCode: languageCode,
       cloudInkOperation: op,
       extraContextSections: extra,
-      persona: widget.appSettings.aiPersona,
-      customSystemPrompt: widget.appSettings.aiCustomSystemPrompt,
+      systemPromptOverride: preset.prompt,
     );
   }
 
@@ -147,6 +153,44 @@ extension _WorkspacePageAiChatModule on _WorkspacePageState {
     final t = last?.text.trim();
     if (t == null || t.isEmpty) return null;
     return t.length > 12000 ? t.substring(0, 12000) : t;
+  }
+
+  Future<String> _classifyBestPromptId(String userPrompt, List<QuillSystemPrompt> prompts) async {
+    if (prompts.length <= 1) return prompts.first.id;
+
+    final ai = _s.aiService;
+    if (ai == null) return 'quill_default';
+
+    // Compact prompt to minimize tokens and latency
+    final systemInstruction =
+        'You are a routing agent. Classify the user request and respond with ONLY the exact ID of the best matching instruction preset from the list.\n'
+        'Respond ONLY with the exact ID string (no quotes, no punctuation, no other text).';
+
+    final promptBuilder = StringBuffer();
+    promptBuilder.writeln('Available instructions:');
+    for (final p in prompts) {
+      promptBuilder.writeln('- "${p.id}": ${p.name} (${p.prompt.substring(0, math.min(80, p.prompt.length))}...)');
+    }
+    promptBuilder.writeln('\nUser Request: "$userPrompt"');
+    promptBuilder.writeln('Best match ID:');
+
+    try {
+      final res = await ai.complete(AiCompletionRequest(
+        cloudInkOperation: 'agent_routing',
+        systemPrompt: systemInstruction,
+        prompt: promptBuilder.toString(),
+        model: 'auto',
+      ));
+      final choice = res.text.trim().replaceAll('"', '').replaceAll("'", '');
+      final matching = prompts.firstWhereOrNull((p) => p.id == choice);
+      if (matching != null) {
+        AppLogger.info('Quill auto-routed request to preset: ${matching.name} (${matching.id})', tag: 'ai.routing');
+        return matching.id;
+      }
+    } catch (e) {
+      AppLogger.error('Quill auto-routing failed', error: e, tag: 'ai.routing');
+    }
+    return 'quill_default';
   }
 }
 

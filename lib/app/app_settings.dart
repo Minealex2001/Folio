@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:ui' show PlatformDispatcher;
 
 import 'package:flutter/foundation.dart'
     show TargetPlatform, defaultTargetPlatform, kIsWeb, listEquals;
@@ -11,6 +12,7 @@ import 'folio_distribution.dart';
 import 'folio_in_app_shortcuts.dart';
 import 'workspace_prefs_keys.dart';
 import '../models/folio_usage_intent.dart';
+import '../models/quill_system_prompt.dart';
 import '../services/transcription_hardware_profile.dart';
 import '../services/updater/update_release_channel.dart';
 import '../services/whisper_service.dart';
@@ -357,6 +359,8 @@ class AppSettings extends ChangeNotifier {
   static const _aiApiKeyKey = 'folio_ai_api_key';
   static const _aiPersonaKey = 'folio_ai_persona';
   static const _aiCustomSystemPromptKey = 'folio_ai_custom_system_prompt';
+  static const _activeQuillPromptIdKey = 'folio_active_quill_prompt_id';
+  static const _quillSystemPromptsJsonKey = 'folio_quill_system_prompts_json';
   static const _aiModelsPrefix = 'folio_ai_models_';
   static const _usageIntentsKey = 'folio_usage_intents';
   static const _hasSeenQuillIntroKey = 'folio_has_seen_quill_intro';
@@ -582,6 +586,8 @@ class AppSettings extends ChangeNotifier {
   String _aiApiKey = '';
   String _aiPersona = 'quill';
   String _aiCustomSystemPrompt = '';
+  String _activeQuillPromptId = 'quill_default';
+  List<QuillSystemPrompt> _quillSystemPrompts = [];
   final Map<AiProvider, List<String>> _cachedAiModelsByProvider = {};
   List<FolioUsageIntent> _usageIntents = const [FolioUsageIntent.notes];
   bool _hasSeenQuillIntro = false;
@@ -702,6 +708,8 @@ class AppSettings extends ChangeNotifier {
   String get aiApiKey => _aiApiKey;
   String get aiPersona => _aiPersona;
   String get aiCustomSystemPrompt => _aiCustomSystemPrompt;
+  String get activeQuillPromptId => _activeQuillPromptId;
+  List<QuillSystemPrompt> get quillSystemPrompts => _quillSystemPrompts;
   bool get isAiAvailable => true;
   bool get isAiRuntimeEnabled => _aiEnabled;
   List<FolioUsageIntent> get usageIntents =>
@@ -911,6 +919,61 @@ class AppSettings extends ChangeNotifier {
     _aiApiKey = p.getString(_aiApiKeyKey) ?? '';
     _aiPersona = p.getString(_aiPersonaKey) ?? 'quill';
     _aiCustomSystemPrompt = p.getString(_aiCustomSystemPromptKey) ?? '';
+    _activeQuillPromptId = p.getString(_activeQuillPromptIdKey) ?? 'quill_default';
+
+    final promptsJson = p.getString(_quillSystemPromptsJsonKey);
+    if (promptsJson != null) {
+      try {
+        final decoded = jsonDecode(promptsJson) as List<dynamic>;
+        _quillSystemPrompts = decoded
+            .map((item) => QuillSystemPrompt.fromJson(item as Map<String, dynamic>))
+            .toList();
+      } catch (_) {
+        _quillSystemPrompts = [];
+      }
+    }
+
+    final locale = PlatformDispatcher.instance.locale.languageCode;
+    final isEs = locale == 'es';
+
+    final List<QuillSystemPrompt> defaultPrompts = [
+      QuillSystemPrompt(
+        id: 'quill_default',
+        name: isEs ? 'Quill (Predeterminado)' : 'Quill (Default)',
+        prompt: isEs
+            ? 'Eres Quill, la asistente de IA integrada en Folio (notas locales, árbol de páginas, editor por bloques, búsqueda, libreta con cifrado opcional, panel de chat a la derecha). Ayudas con el contenido de las notas y con cómo usar la app; en modo chat sé clara, útil y natural.'
+            : 'You are Quill, Folio\'s built-in AI assistant (local notes, page tree, block editor, search, optional encrypted vault, chat panel on the side). You help with note content and how to use the app; in chat mode be clear, helpful, and natural.',
+        isSystemDefault: true,
+      ),
+      QuillSystemPrompt(
+        id: 'quill_translator',
+        name: isEs ? 'Traductor' : 'Translator',
+        prompt: isEs
+            ? 'Eres un Traductor experto. Traduce el texto que te pase el usuario al idioma que solicite o al español/inglés por defecto. Mantén el formato original del texto.'
+            : 'You are an expert Translator. Translate the user\'s text to their requested language, or English/Spanish by default. Maintain the original formatting.',
+        isSystemDefault: true,
+      ),
+      QuillSystemPrompt(
+        id: 'quill_summarizer',
+        name: isEs ? 'Resumidor' : 'Summarizer',
+        prompt: isEs
+            ? 'Eres un Asistente experto en resúmenes. Extrae las ideas clave, conclusiones y puntos de acción del texto de forma clara, concisa y estructurada (con viñetas).'
+            : 'You are an expert Summarizer. Extract key ideas, conclusions, and action points from the text in a clear, concise, and structured bulleted way.',
+        isSystemDefault: true,
+      ),
+      QuillSystemPrompt(
+        id: 'quill_coder',
+        name: isEs ? 'Programador' : 'Coder',
+        prompt: isEs
+            ? 'Eres un Programador y asistente de código experto. Proporciona explicaciones técnicas claras, código limpio y bien estructurado.'
+            : 'You are an expert Software Developer and code assistant. Provide clear technical explanations, clean and well-structured code.',
+        isSystemDefault: true,
+      ),
+    ];
+
+    _quillSystemPrompts.removeWhere((p) => p.isSystemDefault);
+    _quillSystemPrompts.insertAll(0, defaultPrompts);
+
     _usageIntents = FolioUsageIntent.parseList(p.getString(_usageIntentsKey));
     _hasSeenQuillIntro = p.getBool(_hasSeenQuillIntroKey) ?? false;
     _hasSeenQuillWorkspaceTour =
@@ -1566,6 +1629,47 @@ class AppSettings extends ChangeNotifier {
     notifyListeners();
     final p = await SharedPreferences.getInstance();
     await p.setString(_aiCustomSystemPromptKey, value);
+  }
+
+  Future<void> setActiveQuillPromptId(String value) async {
+    final safe = value.trim();
+    if (_activeQuillPromptId == safe) return;
+    _activeQuillPromptId = safe;
+    notifyListeners();
+    final p = await SharedPreferences.getInstance();
+    await p.setString(_activeQuillPromptIdKey, safe);
+  }
+
+  Future<void> _saveQuillSystemPrompts() async {
+    final p = await SharedPreferences.getInstance();
+    final encoded = jsonEncode(_quillSystemPrompts.map((e) => e.toJson()).toList());
+    await p.setString(_quillSystemPromptsJsonKey, encoded);
+  }
+
+  Future<void> addQuillSystemPrompt(QuillSystemPrompt prompt) async {
+    _quillSystemPrompts.add(prompt);
+    notifyListeners();
+    await _saveQuillSystemPrompts();
+  }
+
+  Future<void> updateQuillSystemPrompt(QuillSystemPrompt prompt) async {
+    final idx = _quillSystemPrompts.indexWhere((e) => e.id == prompt.id);
+    if (idx != -1) {
+      _quillSystemPrompts[idx] = prompt;
+      notifyListeners();
+      await _saveQuillSystemPrompts();
+    }
+  }
+
+  Future<void> deleteQuillSystemPrompt(String id) async {
+    _quillSystemPrompts.removeWhere((e) => e.id == id && !e.isSystemDefault);
+    if (_activeQuillPromptId == id) {
+      _activeQuillPromptId = 'quill_default';
+      final p = await SharedPreferences.getInstance();
+      await p.setString(_activeQuillPromptIdKey, 'quill_default');
+    }
+    notifyListeners();
+    await _saveQuillSystemPrompts();
   }
 
   Future<void> setAiBaseUrl(String value) async {
