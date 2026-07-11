@@ -42,6 +42,7 @@ class WorkspaceHomeView extends StatefulWidget {
     this.onOpenVaultTasks,
     this.onAddRootFolder,
     this.onImportMarkdown,
+    this.onOpenFolioCloudPitch,
     required this.cloudAccount,
     required this.folioCloudEntitlements,
     required this.mobilePreviewReadOnly,
@@ -70,6 +71,7 @@ class WorkspaceHomeView extends StatefulWidget {
   final VoidCallback? onOpenVaultTasks;
   final VoidCallback? onAddRootFolder;
   final VoidCallback? onImportMarkdown;
+  final VoidCallback? onOpenFolioCloudPitch;
 
   @override
   State<WorkspaceHomeView> createState() => _WorkspaceHomeViewState();
@@ -90,6 +92,8 @@ class _WorkspaceHomeViewState extends State<WorkspaceHomeView> {
   int? _onboardAnchorMs;
   bool _onboardDismissedLoaded = false;
   bool _onboardDismissed = false;
+  bool _cloudGuestDismissed = false;
+  bool _cloudExploreDone = false;
   late final Future<PackageInfo> _packageInfoFuture = PackageInfo.fromPlatform();
 
   @override
@@ -546,12 +550,48 @@ class _WorkspaceHomeViewState extends State<WorkspaceHomeView> {
     }
     final dismissed =
         p.getBool(WorkspacePrefsKeys.homeOnboardDismissed(vid)) ?? false;
+    final cloudGuestDismissed =
+        p.getBool(WorkspacePrefsKeys.homeCloudGuestDismiss(vid)) ?? false;
+    final cloudExploreDone =
+        p.getBool(WorkspacePrefsKeys.homeOnboardCloudExploreDone(vid)) ?? false;
     if (!mounted) return;
     setState(() {
       _onboardAnchorMs = anchor;
       _onboardDismissedLoaded = true;
       _onboardDismissed = dismissed;
+      _cloudGuestDismissed = cloudGuestDismissed;
+      _cloudExploreDone = cloudExploreDone;
     });
+  }
+
+  Future<void> _dismissCloudGuestTeaser() async {
+    final vid = widget.session.activeVaultId ?? '';
+    if (vid.isEmpty) return;
+    final p = await SharedPreferences.getInstance();
+    await p.setBool(WorkspacePrefsKeys.homeCloudGuestDismiss(vid), true);
+    if (!mounted) return;
+    setState(() => _cloudGuestDismissed = true);
+  }
+
+  Future<void> _markCloudExploreDone() async {
+    final vid = widget.session.activeVaultId ?? '';
+    if (vid.isEmpty) return;
+    final p = await SharedPreferences.getInstance();
+    await p.setBool(WorkspacePrefsKeys.homeOnboardCloudExploreDone(vid), true);
+    if (!mounted) return;
+    setState(() => _cloudExploreDone = true);
+  }
+
+  bool _shouldShowCloudGuestTeaser() {
+    if (!widget.appSettings.workspaceHomeShowFolioCloudCard) return false;
+    if (Firebase.apps.isEmpty) return false;
+    if (_cloudGuestDismissed) return false;
+    if (widget.folioCloudEntitlements.snapshot.active) return false;
+    final anchor = _onboardAnchorMs;
+    if (anchor == null) return false;
+    final elapsed = DateTime.now().millisecondsSinceEpoch - anchor;
+    if (elapsed > 14 * 86400000) return false;
+    return true;
   }
 
   Future<void> _dismissOnboarding() async {
@@ -723,27 +763,102 @@ class _WorkspaceHomeViewState extends State<WorkspaceHomeView> {
     required TextTheme textTheme,
     required String label,
     required bool done,
+    VoidCallback? onTap,
   }) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 2),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Icon(
-            done ? Icons.check_circle_rounded : Icons.circle_outlined,
-            size: 22,
-            color: done ? scheme.primary : scheme.outlineVariant,
-          ),
-          const SizedBox(width: FolioSpace.sm),
-          Expanded(
-            child: Text(
-              label,
-              style: textTheme.bodyMedium?.copyWith(
-                color: scheme.onSurface,
-                fontWeight: done ? FontWeight.w600 : FontWeight.w500,
-              ),
+    final row = Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Icon(
+          done ? Icons.check_circle_rounded : Icons.circle_outlined,
+          size: 22,
+          color: done ? scheme.primary : scheme.outlineVariant,
+        ),
+        const SizedBox(width: FolioSpace.sm),
+        Expanded(
+          child: Text(
+            label,
+            style: textTheme.bodyMedium?.copyWith(
+              color: scheme.onSurface,
+              fontWeight: done ? FontWeight.w600 : FontWeight.w500,
             ),
           ),
+        ),
+      ],
+    );
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 2),
+      child: onTap == null
+          ? row
+          : InkWell(
+              onTap: onTap,
+              borderRadius: BorderRadius.circular(FolioRadius.sm),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 2),
+                child: row,
+              ),
+            ),
+    );
+  }
+
+  Future<void> _openCloudPitchFromHome() async {
+    await _markCloudExploreDone();
+    widget.onOpenFolioCloudPitch?.call();
+  }
+
+  Widget _buildFolioCloudGuestTeaser({
+    required AppLocalizations l10n,
+    required ColorScheme scheme,
+    required TextTheme textTheme,
+  }) {
+    return Container(
+      padding: const EdgeInsets.all(FolioSpace.md),
+      decoration: BoxDecoration(
+        color: scheme.surfaceContainerLow.withValues(alpha: 0.9),
+        borderRadius: BorderRadius.circular(FolioRadius.lg),
+        border: Border.all(
+          color: scheme.primary.withValues(alpha: 0.2),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.cloud_outlined, color: scheme.primary, size: 22),
+              const SizedBox(width: FolioSpace.sm),
+              Expanded(
+                child: Text(
+                  l10n.folioCloudPitchGuestTeaserTitle,
+                  style: textTheme.titleSmall?.copyWith(
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ),
+              IconButton(
+                tooltip: l10n.workspaceHomeOnboardingDismiss,
+                icon: const Icon(Icons.close_rounded),
+                onPressed: () => unawaited(_dismissCloudGuestTeaser()),
+              ),
+            ],
+          ),
+          const SizedBox(height: FolioSpace.xs),
+          Text(
+            l10n.folioCloudPitchGuestTeaserBody,
+            style: textTheme.bodySmall?.copyWith(
+              color: scheme.onSurfaceVariant,
+              height: 1.35,
+            ),
+          ),
+          const SizedBox(height: FolioSpace.sm),
+          if (widget.onOpenFolioCloudPitch != null)
+            Align(
+              alignment: Alignment.centerLeft,
+              child: TextButton.icon(
+                onPressed: () => unawaited(_openCloudPitchFromHome()),
+                icon: const Icon(Icons.auto_awesome_outlined, size: 18),
+                label: Text(l10n.workspaceHomeCloudGuestTeaserCta),
+              ),
+            ),
         ],
       ),
     );
@@ -758,6 +873,10 @@ class _WorkspaceHomeViewState extends State<WorkspaceHomeView> {
     final hasPage = pages.isNotEmpty;
     final hasSubpage = pages.any((p) => p.parentId != null);
     final usedSearch = widget.appSettings.recentSearchQueries.isNotEmpty;
+    final showCloudExplore = Firebase.apps.isNotEmpty;
+    final cloudExploreDone = _cloudExploreDone ||
+        widget.cloudAccount.isSignedIn ||
+        widget.folioCloudEntitlements.snapshot.active;
     return Container(
       padding: const EdgeInsets.all(FolioSpace.md),
       decoration: BoxDecoration(
@@ -815,6 +934,16 @@ class _WorkspaceHomeViewState extends State<WorkspaceHomeView> {
             label: l10n.workspaceHomeOnboardingStepSearch,
             done: usedSearch,
           ),
+          if (showCloudExplore)
+            _onboardingStepRow(
+              scheme: scheme,
+              textTheme: textTheme,
+              label: l10n.workspaceHomeOnboardingStepCloudExplore,
+              done: cloudExploreDone,
+              onTap: cloudExploreDone
+                  ? null
+                  : () => unawaited(_openCloudPitchFromHome()),
+            ),
         ],
       ),
     );
@@ -1466,6 +1595,7 @@ class _WorkspaceHomeViewState extends State<WorkspaceHomeView> {
         widget.appSettings.workspaceHomeShowFolioCloudCard &&
             Firebase.apps.isNotEmpty &&
             widget.cloudAccount.isSignedIn;
+    final showCloudGuestTeaser = _shouldShowCloudGuestTeaser();
 
     final body = LayoutBuilder(
       builder: (context, constraints) {
@@ -1573,13 +1703,22 @@ class _WorkspaceHomeViewState extends State<WorkspaceHomeView> {
         Widget? moduleLeft(String id) {
           switch (id) {
             case WorkspaceHomeSectionIds.folioCloud:
-              if (!showCloudQuick) return null;
-              return _buildFolioCloudQuickCard(
-                l10n: l10n,
-                scheme: scheme,
-                textTheme: theme.textTheme,
-                snap: widget.folioCloudEntitlements.snapshot,
-              );
+              if (showCloudQuick) {
+                return _buildFolioCloudQuickCard(
+                  l10n: l10n,
+                  scheme: scheme,
+                  textTheme: theme.textTheme,
+                  snap: widget.folioCloudEntitlements.snapshot,
+                );
+              }
+              if (showCloudGuestTeaser) {
+                return _buildFolioCloudGuestTeaser(
+                  l10n: l10n,
+                  scheme: scheme,
+                  textTheme: theme.textTheme,
+                );
+              }
+              return null;
             case WorkspaceHomeSectionIds.vaultStatus:
               if (!widget.appSettings.workspaceHomeShowVaultStatus) {
                 return null;

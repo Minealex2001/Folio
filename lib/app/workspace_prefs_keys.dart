@@ -7,4 +7,10 @@ abstract final class WorkspacePrefsKeys {
 
   static String homeOnboardDismissed(String vaultId) =>
       'folio_ws_home_onboard_dismiss_${vaultId.trim()}';
+
+  static String homeCloudGuestDismiss(String vaultId) =>
+      'folio_ws_home_cloud_guest_dismiss_${vaultId.trim()}';
+
+  static String homeOnboardCloudExploreDone(String vaultId) =>
+      'folio_ws_home_onboard_cloud_explore_${vaultId.trim()}';
 }

@@ -6284,6 +6284,132 @@ abstract class AppLocalizations {
   /// **'Lo veré en Ajustes'**
   String get onboardingFolioCloudLaterInSettings;
 
+  /// No description provided for @onboardingPersonalizeTitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Hazlo tuyo'**
+  String get onboardingPersonalizeTitle;
+
+  /// No description provided for @onboardingPersonalizeBody.
+  ///
+  /// In es, this message translates to:
+  /// **'Elige cómo se ve Folio y cuándo se bloquea. Puedes cambiarlo en Ajustes cuando quieras.'**
+  String get onboardingPersonalizeBody;
+
+  /// No description provided for @onboardingReliabilityTitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Copias y escritorio'**
+  String get onboardingReliabilityTitle;
+
+  /// No description provided for @onboardingReliabilityBody.
+  ///
+  /// In es, this message translates to:
+  /// **'Copias cifradas programadas y opciones de bandeja en Windows. Omite si prefieres configurarlo más tarde.'**
+  String get onboardingReliabilityBody;
+
+  /// No description provided for @onboardingPrivacyTrustTitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Privacidad y confianza'**
+  String get onboardingPrivacyTrustTitle;
+
+  /// No description provided for @onboardingPrivacyTrustBody.
+  ///
+  /// In es, this message translates to:
+  /// **'Tus notas permanecen en este dispositivo. Las estadísticas anónimas opcionales ayudan a mejorar Folio—tú decides.'**
+  String get onboardingPrivacyTrustBody;
+
+  /// No description provided for @onboardingPrivacyTrustLocalFirstBadge.
+  ///
+  /// In es, this message translates to:
+  /// **'Local-first: Folio funciona al completo sin la nube.'**
+  String get onboardingPrivacyTrustLocalFirstBadge;
+
+  /// No description provided for @onboardingReadySummaryCloudActive.
+  ///
+  /// In es, this message translates to:
+  /// **'Plan Folio Cloud activo—copias, IA en la nube y publicación disponibles.'**
+  String get onboardingReadySummaryCloudActive;
+
+  /// No description provided for @onboardingReadySummaryCloudSkipped.
+  ///
+  /// In es, this message translates to:
+  /// **'Puedes explorar Folio Cloud en cualquier momento desde Ajustes.'**
+  String get onboardingReadySummaryCloudSkipped;
+
+  /// No description provided for @onboardingFolioCloudPitchForNotes.
+  ///
+  /// In es, this message translates to:
+  /// **'Protege tus notas con copias cifradas en la nube cuando quieras una copia extra.'**
+  String get onboardingFolioCloudPitchForNotes;
+
+  /// No description provided for @onboardingFolioCloudPitchForJournal.
+  ///
+  /// In es, this message translates to:
+  /// **'Protege tu diario con copias cifradas bajo tu control.'**
+  String get onboardingFolioCloudPitchForJournal;
+
+  /// No description provided for @onboardingFolioCloudPitchForTasks.
+  ///
+  /// In es, this message translates to:
+  /// **'Comparte proyectos y publica páginas en la web cuando estés listo.'**
+  String get onboardingFolioCloudPitchForTasks;
+
+  /// No description provided for @onboardingFolioCloudPitchForProjects.
+  ///
+  /// In es, this message translates to:
+  /// **'Colabora y publica páginas seleccionadas—tu libreta completa sigue siendo privada.'**
+  String get onboardingFolioCloudPitchForProjects;
+
+  /// No description provided for @onboardingFolioCloudPitchForKnowledge.
+  ///
+  /// In es, this message translates to:
+  /// **'Usa la IA en la nube para organizar y explorar tu base de conocimiento.'**
+  String get onboardingFolioCloudPitchForKnowledge;
+
+  /// No description provided for @onboardingFolioCloudPitchForStudy.
+  ///
+  /// In es, this message translates to:
+  /// **'Estudia mejor con IA hospedada y recarga mensual de tinta.'**
+  String get onboardingFolioCloudPitchForStudy;
+
+  /// No description provided for @onboardingFolioCloudCtaSubscribe.
+  ///
+  /// In es, this message translates to:
+  /// **'Suscribirse — 4,99 €/mes'**
+  String get onboardingFolioCloudCtaSubscribe;
+
+  /// No description provided for @onboardingFolioCloudCtaCreateAccount.
+  ///
+  /// In es, this message translates to:
+  /// **'Crear cuenta y explorar'**
+  String get onboardingFolioCloudCtaCreateAccount;
+
+  /// No description provided for @onboardingFolioCloudSkip.
+  ///
+  /// In es, this message translates to:
+  /// **'Continuar sin nube'**
+  String get onboardingFolioCloudSkip;
+
+  /// No description provided for @folioCloudPitchPremiumMonthlyLabel.
+  ///
+  /// In es, this message translates to:
+  /// **'Plan Premium mensual'**
+  String get folioCloudPitchPremiumMonthlyLabel;
+
+  /// No description provided for @folioCloudCheckoutSuccess.
+  ///
+  /// In es, this message translates to:
+  /// **'Pago completado con éxito.'**
+  String get folioCloudCheckoutSuccess;
+
+  /// No description provided for @workspaceHomeCloudGuestTeaserCta.
+  ///
+  /// In es, this message translates to:
+  /// **'Ver qué incluye'**
+  String get workspaceHomeCloudGuestTeaserCta;
+
   /// No description provided for @collabMenuAction.
   ///
   /// In es, this message translates to:
@@ -12694,6 +12820,12 @@ abstract class AppLocalizations {
   /// In es, this message translates to:
   /// **'Usa la búsqueda global una vez'**
   String get workspaceHomeOnboardingStepSearch;
+
+  /// No description provided for @workspaceHomeOnboardingStepCloudExplore.
+  ///
+  /// In es, this message translates to:
+  /// **'Mira qué incluye Folio Cloud'**
+  String get workspaceHomeOnboardingStepCloudExplore;
 
   /// No description provided for @workspaceHomeOnboardingDismiss.
   ///

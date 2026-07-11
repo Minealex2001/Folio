@@ -1175,6 +1175,27 @@
   "onboardingFolioCloudFeatureWebTitle": "Publicació web",
   "onboardingFolioCloudFeatureWebBody": "Publica les pàgines que vulguis i controla què es fa públic. La resta de la teva caixa no es comparteix.",
   "onboardingFolioCloudLaterInSettings": "Ho miraré més tard a Configuració",
+  "onboardingPersonalizeTitle": "Fes-lo teu",
+  "onboardingPersonalizeBody": "Tria com es veu Folio i quan es bloqueja. Pots canviar-ho a Configuració quan vulguis.",
+  "onboardingReliabilityTitle": "Còpies i escriptori",
+  "onboardingReliabilityBody": "Còpies xifrades programades i opcions de la safata a Windows. Omet si prefereixes configurar-ho més tard.",
+  "onboardingPrivacyTrustTitle": "Privadesa i confiança",
+  "onboardingPrivacyTrustBody": "Les teves notes romanen en aquest dispositiu. Les estadístiques anònimes opcionals ajuden a millorar Folio—tu decideixes.",
+  "onboardingPrivacyTrustLocalFirstBadge": "Local-first: Folio funciona completament sense el núvol.",
+  "onboardingReadySummaryCloudActive": "Pla Folio Cloud actiu—còpies, IA al núvol i publicació disponibles.",
+  "onboardingReadySummaryCloudSkipped": "Pots explorar Folio Cloud en qualsevol moment des de Configuració.",
+  "onboardingFolioCloudPitchForNotes": "Protegeix les teves notes amb còpies xifrades al núvol quan vulguis una còpia extra.",
+  "onboardingFolioCloudPitchForJournal": "Protegeix el teu diari amb còpies xifrades sota el teu control.",
+  "onboardingFolioCloudPitchForTasks": "Comparteix projectes i publica pàgines al web quan estiguis preparat.",
+  "onboardingFolioCloudPitchForProjects": "Col·labora i publica pàgines seleccionades—la teva llibreta completa segueix sent privada.",
+  "onboardingFolioCloudPitchForKnowledge": "Usa la IA al núvol per organitzar i explorar la teva base de coneixement.",
+  "onboardingFolioCloudPitchForStudy": "Estudia millor amb IA allotjada i recàrrega mensual de tinta.",
+  "onboardingFolioCloudCtaSubscribe": "Subscriure's — 4,99 €/mes",
+  "onboardingFolioCloudCtaCreateAccount": "Crear compte i explorar",
+  "onboardingFolioCloudSkip": "Continuar sense núvol",
+  "folioCloudPitchPremiumMonthlyLabel": "Pla Premium mensual",
+  "folioCloudCheckoutSuccess": "Pagament completat amb èxit.",
+  "workspaceHomeCloudGuestTeaserCta": "Veure què inclou",
   "collabMenuAction": "Col·laboració en viu",
   "collabSheetTitle": "Col·laboració en viu",
   "collabHeaderSubtitle": "Requereix compte de Folio. Hostatjar requereix un pla; unir-se només requereix el codi. El contingut i el xat estan xifrats d'extrem a extrem; el servidor mai veu el teu text.",
@@ -2326,6 +2347,7 @@
   ,"workspaceHomeOnboardingStepPage": "Crea una pàgina"
   ,"workspaceHomeOnboardingStepSubpage": "Crea una subpàgina sota una pàgina"
   ,"workspaceHomeOnboardingStepSearch": "Usa la cerca global una vegada"
+  ,"workspaceHomeOnboardingStepCloudExplore": "Mira què inclou Folio Cloud"
   ,"workspaceHomeOnboardingDismiss": "Amagar llista"
   ,"workspaceHomeWhatsNewTitle": "Novetats"
   ,"workspaceHomeWhatsNewVersion": "Versió {version}"

@@ -46,6 +46,7 @@ import '../../services/folio_cloud/folio_cloud_callable.dart';
 import '../../services/folio_cloud/folio_cloud_pack_sync.dart';
 import '../../services/folio_cloud/folio_cloud_billing.dart';
 import '../../services/folio_cloud/folio_cloud_checkout.dart';
+import '../../services/folio_cloud/folio_cloud_conversion_flow.dart';
 import '../../services/folio_cloud/folio_cloud_entitlements.dart';
 import '../../services/folio_cloud/folio_cloud_ai_pricing.dart';
 import '../../services/folio_cloud/folio_cloud_publish.dart';
@@ -2151,6 +2152,11 @@ class _SettingsPageState extends State<SettingsPage> {
 
   Future<void> _completeStripeFolioCheckout(FolioCheckoutKind kind) async {
     final l10n = AppLocalizations.of(context);
+    if (kind == FolioCheckoutKind.folioCloudMonthly) {
+      await FolioCloudConversionFlow(cloud: _cloud, folio: _folio)
+          .openMonthlyCheckout(context, l10n: l10n);
+      return;
+    }
     final uri = await createFolioCheckoutUri(kind);
     if (uri == null) {
       _snack(l10n.settingsStripeCheckoutUnavailable);
@@ -2166,11 +2172,7 @@ class _SettingsPageState extends State<SettingsPage> {
         ),
       );
       if (success == true && mounted) {
-        _snack(
-          Localizations.localeOf(context).languageCode == 'es'
-              ? 'Pago completado con éxito.'
-              : 'Payment completed successfully.',
-        );
+        _snack(l10n.folioCloudCheckoutSuccess);
         await _folio.refreshFolioCloudBillingFromServers();
       }
     } else {

@@ -3514,6 +3514,82 @@ class AppLocalizationsEn extends AppLocalizations {
   String get onboardingFolioCloudLaterInSettings => 'I’ll check in Settings';
 
   @override
+  String get onboardingPersonalizeTitle => 'Make it yours';
+
+  @override
+  String get onboardingPersonalizeBody =>
+      'Choose how Folio looks and when it locks. You can change this anytime in Settings.';
+
+  @override
+  String get onboardingReliabilityTitle => 'Backups and desktop';
+
+  @override
+  String get onboardingReliabilityBody =>
+      'Optional scheduled encrypted backups and Windows tray options. Skip if you prefer to set this up later.';
+
+  @override
+  String get onboardingPrivacyTrustTitle => 'Privacy and trust';
+
+  @override
+  String get onboardingPrivacyTrustBody =>
+      'Your notes stay on this device. Optional anonymous usage statistics help improve Folio—you control this.';
+
+  @override
+  String get onboardingPrivacyTrustLocalFirstBadge =>
+      'Local-first: Folio works fully without the cloud.';
+
+  @override
+  String get onboardingReadySummaryCloudActive =>
+      'Folio Cloud plan active—backups, cloud AI, and publishing are available.';
+
+  @override
+  String get onboardingReadySummaryCloudSkipped =>
+      'You can explore Folio Cloud anytime in Settings.';
+
+  @override
+  String get onboardingFolioCloudPitchForNotes =>
+      'Keep your notes safe with encrypted cloud backups when you want an extra copy.';
+
+  @override
+  String get onboardingFolioCloudPitchForJournal =>
+      'Protect your journal with encrypted backups you control.';
+
+  @override
+  String get onboardingFolioCloudPitchForTasks =>
+      'Share projects and publish pages on the web when you are ready.';
+
+  @override
+  String get onboardingFolioCloudPitchForProjects =>
+      'Collaborate and publish selected pages—your full vault stays private.';
+
+  @override
+  String get onboardingFolioCloudPitchForKnowledge =>
+      'Use cloud AI to organize and explore your knowledge base.';
+
+  @override
+  String get onboardingFolioCloudPitchForStudy =>
+      'Study smarter with hosted AI and monthly ink refills.';
+
+  @override
+  String get onboardingFolioCloudCtaSubscribe => 'Subscribe — 4.99 €/month';
+
+  @override
+  String get onboardingFolioCloudCtaCreateAccount =>
+      'Create account and explore';
+
+  @override
+  String get onboardingFolioCloudSkip => 'Continue without cloud';
+
+  @override
+  String get folioCloudPitchPremiumMonthlyLabel => 'Monthly Premium plan';
+
+  @override
+  String get folioCloudCheckoutSuccess => 'Payment completed successfully.';
+
+  @override
+  String get workspaceHomeCloudGuestTeaserCta => 'See what\'s included';
+
+  @override
   String get collabMenuAction => 'Live collaboration';
 
   @override
@@ -7144,6 +7220,10 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get workspaceHomeOnboardingStepSearch => 'Use global search once';
+
+  @override
+  String get workspaceHomeOnboardingStepCloudExplore =>
+      'See what Folio Cloud includes';
 
   @override
   String get workspaceHomeOnboardingDismiss => 'Hide checklist';

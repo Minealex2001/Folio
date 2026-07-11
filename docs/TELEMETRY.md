@@ -13,6 +13,19 @@ Once per installation, the client sends a single Firebase Analytics event **`fol
 
 Staff dashboards use Firestore data under `analytics_events` and `telemetryGlobalStats`. **Install totals across all users (including anonymous)** are viewed in **Google Analytics / GA4** (event `folio_install` or stream reports), not in the in-app Firestore dashboard.
 
+### Folio Cloud onboarding funnel (optional telemetry)
+
+When usage statistics are enabled, the client may emit anonymous GA4 events during the Folio Cloud onboarding step:
+
+| Event | When |
+|-------|------|
+| `onboarding_cloud_pitch_viewed` | User reaches the Folio Cloud pitch step |
+| `onboarding_cloud_sign_in_tapped` | User taps create-account CTA |
+| `onboarding_cloud_checkout_tapped` | Signed-in user taps subscribe CTA |
+| `onboarding_cloud_skipped` | User chooses «Continue without cloud» |
+
+These do not include vault content or payment details.
+
 ## What we collect
 
 ### Feature usage

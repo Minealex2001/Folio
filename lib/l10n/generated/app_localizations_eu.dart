@@ -3571,6 +3571,81 @@ class AppLocalizationsEu extends AppLocalizations {
       'Geroago ikusiko dut Ezarpenetan';
 
   @override
+  String get onboardingPersonalizeTitle => 'Egokitu zuretzat';
+
+  @override
+  String get onboardingPersonalizeBody =>
+      'Aukeratu nola ikusten den Folio eta noiz blokeatzen den. Ezarpenetan alda dezakezu edonoiz.';
+
+  @override
+  String get onboardingReliabilityTitle => 'Babeskopiak eta mahaigaina';
+
+  @override
+  String get onboardingReliabilityBody =>
+      'Programatutako babeskopi zifratuak eta Windows bandeja aukerak. Saltatu geroago konfiguratu nahi baduzu.';
+
+  @override
+  String get onboardingPrivacyTrustTitle => 'Pribatutasuna eta konfiantza';
+
+  @override
+  String get onboardingPrivacyTrustBody =>
+      'Zure oharrak gailu honetan geratzen dira. Estatistika anonimoak aukerakoak dira Folio hobetzen laguntzeko—zu erabakitzen duzu.';
+
+  @override
+  String get onboardingPrivacyTrustLocalFirstBadge =>
+      'Local-first: Folio osoan funtzionatzen du hodeirik gabe.';
+
+  @override
+  String get onboardingReadySummaryCloudActive =>
+      'Folio Cloud plana aktibo—babeskopiak, hodeiko AA eta argitalpena eskuragarri.';
+
+  @override
+  String get onboardingReadySummaryCloudSkipped =>
+      'Folio Cloud edonoiz arakatu dezakezu Ezarpenetatik.';
+
+  @override
+  String get onboardingFolioCloudPitchForNotes =>
+      'Babestu zure oharrak hodeiko babeskopi zifratuekin kopia gehigarri bat nahi duzunean.';
+
+  @override
+  String get onboardingFolioCloudPitchForJournal =>
+      'Babestu zure egunkaria zuk kontrolatutako babeskopi zifratuekin.';
+
+  @override
+  String get onboardingFolioCloudPitchForTasks =>
+      'Partekatu proiektuak eta argitaratu orriak webean prest zaudenean.';
+
+  @override
+  String get onboardingFolioCloudPitchForProjects =>
+      'Elkarlanean aritu eta argitaratu hautatutako orriak—zure gorde-leku osoa pribatua da.';
+
+  @override
+  String get onboardingFolioCloudPitchForKnowledge =>
+      'Erabili hodeiko AA zure ezagutza-basea antolatzeko eta arakatzeko.';
+
+  @override
+  String get onboardingFolioCloudPitchForStudy =>
+      'Ikasi hobeto AA ostatatua eta hilabeteko tinta berritzearekin.';
+
+  @override
+  String get onboardingFolioCloudCtaSubscribe => 'Harpidetu — 4,99 €/hil';
+
+  @override
+  String get onboardingFolioCloudCtaCreateAccount => 'Kontua sortu eta arakatu';
+
+  @override
+  String get onboardingFolioCloudSkip => 'Jarraitu hodeirik gabe';
+
+  @override
+  String get folioCloudPitchPremiumMonthlyLabel => 'Hileko Premium plana';
+
+  @override
+  String get folioCloudCheckoutSuccess => 'Ordainketa arrakastaz osatu da.';
+
+  @override
+  String get workspaceHomeCloudGuestTeaserCta => 'Ikusi zer sartzen den';
+
+  @override
   String get collabMenuAction => 'Zuzeneko lankidetza';
 
   @override
@@ -7251,6 +7326,10 @@ class AppLocalizationsEu extends AppLocalizations {
   @override
   String get workspaceHomeOnboardingStepSearch =>
       'Erabili bilaketa orokorra behin';
+
+  @override
+  String get workspaceHomeOnboardingStepCloudExplore =>
+      'Ikusi zer sartzen den Folio Cloud-en';
 
   @override
   String get workspaceHomeOnboardingDismiss => 'Ezkutatu zerrenda';

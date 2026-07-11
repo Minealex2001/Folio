@@ -142,6 +142,25 @@ class FolioTelemetry {
     await applyAfterSettingsLoaded(settings);
   }
 
+  static Future<void> _logOnboardingCloudEvent(String name) async {
+    if (!_canUseFirebaseAnalytics || Firebase.apps.isEmpty) return;
+    try {
+      await FirebaseAnalytics.instance.logEvent(name: name);
+    } catch (_) {}
+  }
+
+  static Future<void> logOnboardingCloudPitchViewed() =>
+      _logOnboardingCloudEvent('onboarding_cloud_pitch_viewed');
+
+  static Future<void> logOnboardingCloudSignInTapped() =>
+      _logOnboardingCloudEvent('onboarding_cloud_sign_in_tapped');
+
+  static Future<void> logOnboardingCloudCheckoutTapped() =>
+      _logOnboardingCloudEvent('onboarding_cloud_checkout_tapped');
+
+  static Future<void> logOnboardingCloudSkipped() =>
+      _logOnboardingCloudEvent('onboarding_cloud_skipped');
+
   static Future<void> logFeatureUsed(
     AppSettings settings,
     String featureName,

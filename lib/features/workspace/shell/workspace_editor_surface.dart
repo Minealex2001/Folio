@@ -38,6 +38,7 @@ class WorkspaceEditorSurface extends StatelessWidget {
     this.onOpenVaultTasks,
     this.onAddRootFolder,
     this.onImportMarkdown,
+    this.onOpenFolioCloudPitch,
     required this.cloudAccount,
     required this.folioCloudEntitlements,
     required this.mobilePreviewReadOnly,
@@ -70,6 +71,7 @@ class WorkspaceEditorSurface extends StatelessWidget {
   final VoidCallback? onOpenVaultTasks;
   final VoidCallback? onAddRootFolder;
   final VoidCallback? onImportMarkdown;
+  final VoidCallback? onOpenFolioCloudPitch;
   final CloudAccountController cloudAccount;
   final FolioCloudEntitlementsController folioCloudEntitlements;
   final bool mobilePreviewReadOnly;
@@ -146,6 +148,7 @@ class WorkspaceEditorSurface extends StatelessWidget {
                     onOpenVaultTasks: onOpenVaultTasks,
                     onAddRootFolder: onAddRootFolder,
                     onImportMarkdown: onImportMarkdown,
+                    onOpenFolioCloudPitch: onOpenFolioCloudPitch,
                     cloudAccount: cloudAccount,
                     folioCloudEntitlements: folioCloudEntitlements,
                     mobilePreviewReadOnly: mobilePreviewReadOnly,

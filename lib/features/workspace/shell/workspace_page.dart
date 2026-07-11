@@ -38,6 +38,7 @@ import '../../../services/ai/folio_vault_light_search.dart';
 import '../../../services/ai/folio_cloud_ai_service.dart';
 import '../../../services/cloud_account/cloud_account_controller.dart';
 import '../../../services/collab/collab_session_controller.dart';
+import '../../../services/folio_cloud/folio_cloud_conversion_flow.dart';
 import '../../../services/folio_cloud/folio_cloud_checkout.dart';
 import '../../../services/folio_cloud/folio_cloud_ai_pricing.dart';
 import '../../../services/folio_cloud/folio_cloud_entitlements.dart';
@@ -1658,69 +1659,59 @@ class _WorkspacePageState extends State<WorkspacePage> {
           onPrimaryCta: () {
             Navigator.of(ctx).pop();
             if (!mounted) return;
-            if (signedIn) {
-              unawaited(_openFolioCloudMonthlyCheckout());
-            } else {
-              _openSettings();
-              _snack(l10n.folioCloudPitchOpenSettingsToSignIn);
-            }
+            unawaited(_runFolioCloudMonthlyFunnel());
           },
         ),
       ),
     );
   }
 
-  Future<void> _openFolioCloudMonthlyCheckout() async {
+  String _cloudAuthErrorMessage(AppLocalizations l10n, String code) {
+    switch (code) {
+      case 'invalid-email':
+        return l10n.cloudAuthErrorInvalidEmail;
+      case 'user-not-found':
+      case 'wrong-password':
+        return l10n.cloudAuthErrorInvalidCredential;
+      case 'user-disabled':
+        return l10n.cloudAuthErrorUserDisabled;
+      case 'email-already-in-use':
+        return l10n.cloudAuthErrorEmailAlreadyInUse;
+      case 'weak-password':
+        return l10n.cloudAuthErrorWeakPassword;
+      case 'invalid-credential':
+        return l10n.cloudAuthErrorInvalidCredential;
+      case 'network-request-failed':
+        return l10n.cloudAuthErrorNetwork;
+      case 'too-many-requests':
+        return l10n.cloudAuthErrorTooManyRequests;
+      case 'operation-not-allowed':
+        return l10n.cloudAuthErrorOperationNotAllowed;
+      default:
+        return l10n.cloudAuthErrorGeneric;
+    }
+  }
+
+  Future<void> _runFolioCloudMonthlyFunnel() async {
     if (_folioCloudCheckoutBusy) return;
     setState(() => _folioCloudCheckoutBusy = true);
     try {
-      final uri = await createFolioCheckoutUri(
-        FolioCheckoutKind.folioCloudMonthly,
+      final l10n = AppLocalizations.of(context);
+      await FolioCloudConversionFlow(
+        cloud: widget.cloudAccountController,
+        folio: widget.folioCloudEntitlements,
+      ).runMonthlySubscriptionFunnel(
+        context,
+        l10n: l10n,
+        onAuthError: (c) => _cloudAuthErrorMessage(l10n, c),
       );
-      if (uri == null) {
-        _snack(
-          _t(
-            'Pago no disponible (configura Stripe en el servidor).',
-            'Checkout unavailable (configure Stripe on server).',
-          ),
-          error: true,
-        );
-        return;
-      }
-      if (FolioInAppCheckoutDialog.isSupported) {
-        if (!mounted) return;
-        final success = await showDialog<bool>(
-          context: context,
-          builder: (ctx) => FolioInAppCheckoutDialog(
-            url: uri.toString(),
-            scheme: Theme.of(context).colorScheme,
-          ),
-        );
-        if (success == true && mounted) {
-          _snack(
-            _t(
-              'Suscripción activada con éxito.',
-              'Subscription successfully activated.',
-            ),
-          );
-          await widget.folioCloudEntitlements.refreshFolioCloudBillingFromServers();
-        }
-      } else {
-        final ok = await launchUrl(uri, mode: LaunchMode.externalApplication);
-        if (!ok) {
-          _snack(
-            _t('No se pudo abrir el enlace.', 'Could not open the link.'),
-            error: true,
-          );
-        } else {
-          widget.folioCloudEntitlements.scheduleStripeSyncOnNextResume();
-        }
-      }
-    } catch (e) {
-      _snack('$e', error: true);
     } finally {
       if (mounted) setState(() => _folioCloudCheckoutBusy = false);
     }
+  }
+
+  Future<void> _openFolioCloudMonthlyCheckout() async {
+    await _runFolioCloudMonthlyFunnel();
   }
 
   bool _isTextInputFocused() {
@@ -2585,6 +2576,7 @@ class _WorkspacePageState extends State<WorkspacePage> {
       onOpenVaultTasks: _s.isUnlocked ? _openVaultTaskHub : null,
       onAddRootFolder: () => _s.addFolder(parentId: null),
       onImportMarkdown: _importDocumentFile,
+      onOpenFolioCloudPitch: _openFolioCloudSubscriptionPitch,
       cloudAccount: widget.cloudAccountController,
       folioCloudEntitlements: widget.folioCloudEntitlements,
       mobilePreviewReadOnly: editorReadOnlyMode,

@@ -871,11 +871,14 @@ Picker con tres pestañas:
 
 Flujo de bienvenida (`lib/features/onboarding/`):
 
-- **Crear libreta nueva**: nombre, icono, opción de cifrado.
-- **Perfil de uso** (`onboardingUsageProfile*`): paso antes de finalizar la creación donde el usuario elige hasta 3 usos (notas, tareas, proyectos, base de conocimiento, diario, estudio). La selección se persiste en `AppSettings.usageIntents` (`folio_usage_intents`) y se reutiliza al crear libretas adicionales.
-- **Páginas iniciales personalizadas**: si el interruptor «Crear páginas iniciales de ayuda» está activo, `buildVaultStarterPages` (`lib/data/vault_starter_pages.dart` + catálogo en `vault_starter_catalog.dart`) genera **4–6 páginas** según el perfil: siempre «Empieza aquí» (intro y todos adaptados al uso principal), páginas del catálogo por perfil (p. ej. bandeja de ideas, panel de tareas, hub de proyectos), «Atajos y primeros pasos» si hay hueco, y «Quill y privacidad» solo si el onboarding incluyó el paso de introducción a Quill.
+- **Crear libreta nueva** (primera instalación): bienvenida → configuración de libreta (contraseña/cifrado) → **perfil de uso** → personalización (apariencia + bloqueo) → fiabilidad (copias + Windows) → privacidad y confianza (telemetría + mensaje local-first) → **Folio Cloud** (pitch visual con embudo opcional cuenta + checkout; omitible con «Continuar sin nube»; omitido si Firebase no está disponible) → introducción a Quill (si aplica) → listo con resumen de Cloud.
+- **Libreta adicional**: flujo corto — bienvenida → libreta → perfil de uso → listo.
+- **Perfil de uso** (`onboardingUsageProfile*`): hasta 3 usos (notas, tareas, proyectos, base de conocimiento, diario, estudio). Persistido en `AppSettings.usageIntents` (`folio_usage_intents`); personaliza el pitch de Folio Cloud y las páginas iniciales.
+- **Páginas iniciales personalizadas**: si «Crear páginas iniciales de ayuda» está activo, `buildVaultStarterPages` genera **4–6 páginas** según el perfil.
 - **Importar backup**: desde Folio Cloud (backup cifrado) o archivo local.
 - **Importar desde Notion**: ZIP exportado.
+- **Post-onboarding (home)**: checklist «Primera semana» incluye paso opcional «Mira qué incluye Folio Cloud»; tarjeta invitado de Folio Cloud (14 días, descartable) si no hay plan activo. Prefs: `folio_ws_home_cloud_guest_dismiss_{vaultId}`, `folio_ws_home_onboard_cloud_explore_{vaultId}`.
+- **Conversión Cloud compartida**: `lib/services/folio_cloud/folio_cloud_conversion_flow.dart` (sign-in + checkout Stripe) usada en onboarding, Ajustes y workspace.
 
 ---
 

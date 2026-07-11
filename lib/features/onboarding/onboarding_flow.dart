@@ -25,6 +25,7 @@ import '../../services/folio_cloud/folio_cloud_reachability.dart';
 import '../../services/folio_telemetry.dart';
 import '../settings/folio_cloud_reauth_dialog.dart';
 import 'cloud_sign_in_dialog.dart';
+import 'onboarding_cloud_pitch_step.dart';
 
 class OnboardingFlow extends StatefulWidget {
   const OnboardingFlow({
@@ -72,6 +73,7 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
   /// Elección en onboarding (se persiste al salir del paso).
   /// Default: true (telemetría habilitada, puede desactivarse en Settings)
   var _onboardingTelemetryEnabled = true;
+  var _onboardingCloudSkipped = true;
 
   static const _minLen = 10;
 
@@ -143,26 +145,20 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
       case _OnboardingMode.create:
         final steps = <_OnboardingStepId>[
           _OnboardingStepId.welcome,
-          _OnboardingStepId.password,
+          _OnboardingStepId.vaultSetup,
         ];
         if (_isFirstOnboarding) {
+          steps.add(_OnboardingStepId.usageProfile);
           steps.addAll([
-            _OnboardingStepId.appearance,
-            if (!_createWithoutEncryption) _OnboardingStepId.security,
-            _OnboardingStepId.backups,
+            _OnboardingStepId.personalize,
+            _OnboardingStepId.reliability,
+            _OnboardingStepId.privacyTrust,
+            if (_folio.isAvailable) _OnboardingStepId.folioCloud,
+            if (_shouldShowQuillIntro) _OnboardingStepId.quillIntro,
           ]);
-          if (defaultTargetPlatform == TargetPlatform.windows) {
-            steps.add(_OnboardingStepId.system);
-          }
-          steps.addAll([
-            _OnboardingStepId.telemetry,
-            _OnboardingStepId.cloudIntro,
-          ]);
-          if (_shouldShowQuillIntro) {
-            steps.add(_OnboardingStepId.quillIntro);
-          }
+        } else {
+          steps.add(_OnboardingStepId.usageProfile);
         }
-        steps.add(_OnboardingStepId.usageProfile);
         steps.add(_OnboardingStepId.ready);
         return steps;
     }
@@ -471,7 +467,7 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
   void _nextCreatePassword() {
     setState(() {
       _error = null;
-      if (_currentStepId != _OnboardingStepId.password) return;
+      if (_currentStepId != _OnboardingStepId.vaultSetup) return;
       if (_createWithoutEncryption) {
         _page++;
         return;
@@ -951,22 +947,18 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
         return _stepImportBackup(context);
       case _OnboardingStepId.importNotionForm:
         return _stepImportNotion(context);
-      case _OnboardingStepId.password:
+      case _OnboardingStepId.vaultSetup:
         return _stepPassword(context);
       case _OnboardingStepId.ready:
         return _stepReady(context);
-      case _OnboardingStepId.appearance:
-        return _stepAppearance(context);
-      case _OnboardingStepId.security:
-        return _stepSecurity(context);
-      case _OnboardingStepId.backups:
-        return _stepBackups(context);
-      case _OnboardingStepId.system:
-        return _stepSystem(context);
-      case _OnboardingStepId.telemetry:
-        return _stepTelemetry(context);
-      case _OnboardingStepId.cloudIntro:
-        return _stepFolioCloudIntro(context);
+      case _OnboardingStepId.personalize:
+        return _stepPersonalize(context);
+      case _OnboardingStepId.reliability:
+        return _stepReliability(context);
+      case _OnboardingStepId.privacyTrust:
+        return _stepPrivacyTrust(context);
+      case _OnboardingStepId.folioCloud:
+        return _stepFolioCloud(context);
       case _OnboardingStepId.quillIntro:
         return _stepQuillIntro(context);
       case _OnboardingStepId.usageProfile:
@@ -980,17 +972,13 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
       case _OnboardingStepId.importBackupForm:
       case _OnboardingStepId.importNotionForm:
         return Icons.archive_outlined;
-      case _OnboardingStepId.appearance:
+      case _OnboardingStepId.personalize:
         return Icons.palette_outlined;
-      case _OnboardingStepId.security:
-        return Icons.lock_outline_rounded;
-      case _OnboardingStepId.backups:
+      case _OnboardingStepId.reliability:
         return Icons.backup_outlined;
-      case _OnboardingStepId.system:
-        return Icons.desktop_windows_outlined;
-      case _OnboardingStepId.telemetry:
-        return Icons.analytics_outlined;
-      case _OnboardingStepId.cloudIntro:
+      case _OnboardingStepId.privacyTrust:
+        return Icons.verified_user_outlined;
+      case _OnboardingStepId.folioCloud:
         return Icons.cloud_outlined;
       case _OnboardingStepId.quillIntro:
         return Icons.auto_awesome_rounded;
@@ -1006,7 +994,7 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
   String _leftPanelTitle(AppLocalizations l10n) {
     if (!_isFirstOnboarding &&
         (_currentStepId == _OnboardingStepId.welcome ||
-            _currentStepId == _OnboardingStepId.password ||
+            _currentStepId == _OnboardingStepId.vaultSetup ||
             _currentStepId == _OnboardingStepId.usageProfile ||
             _currentStepId == _OnboardingStepId.ready)) {
       return l10n.newVaultLeftPanelTitle;
@@ -1018,17 +1006,13 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
         return l10n.importBackupTitle;
       case _OnboardingStepId.importNotionForm:
         return l10n.importNotionTitle;
-      case _OnboardingStepId.appearance:
-        return l10n.onboardingAppearanceTitle;
-      case _OnboardingStepId.security:
-        return l10n.onboardingSecurityTitle;
-      case _OnboardingStepId.backups:
-        return l10n.onboardingBackupsTitle;
-      case _OnboardingStepId.system:
-        return l10n.onboardingSystemTitle;
-      case _OnboardingStepId.telemetry:
-        return l10n.onboardingTelemetryTitle;
-      case _OnboardingStepId.cloudIntro:
+      case _OnboardingStepId.personalize:
+        return l10n.onboardingPersonalizeTitle;
+      case _OnboardingStepId.reliability:
+        return l10n.onboardingReliabilityTitle;
+      case _OnboardingStepId.privacyTrust:
+        return l10n.onboardingPrivacyTrustTitle;
+      case _OnboardingStepId.folioCloud:
         return l10n.onboardingFolioCloudTitle;
       case _OnboardingStepId.quillIntro:
         return l10n.quillIntroTitle;
@@ -1044,7 +1028,7 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
   String _leftPanelBody(AppLocalizations l10n) {
     if (!_isFirstOnboarding &&
         (_currentStepId == _OnboardingStepId.welcome ||
-            _currentStepId == _OnboardingStepId.password ||
+            _currentStepId == _OnboardingStepId.vaultSetup ||
             _currentStepId == _OnboardingStepId.usageProfile ||
             _currentStepId == _OnboardingStepId.ready)) {
       return l10n.newVaultLeftPanelBody;
@@ -1056,17 +1040,13 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
         return l10n.importBackupBody;
       case _OnboardingStepId.importNotionForm:
         return l10n.importNotionDialogBody;
-      case _OnboardingStepId.appearance:
-        return l10n.onboardingAppearanceBody;
-      case _OnboardingStepId.security:
-        return l10n.onboardingSecurityBody;
-      case _OnboardingStepId.backups:
-        return l10n.onboardingBackupsBody;
-      case _OnboardingStepId.system:
-        return l10n.onboardingSystemBody;
-      case _OnboardingStepId.telemetry:
-        return l10n.onboardingTelemetryBody;
-      case _OnboardingStepId.cloudIntro:
+      case _OnboardingStepId.personalize:
+        return l10n.onboardingPersonalizeBody;
+      case _OnboardingStepId.reliability:
+        return l10n.onboardingReliabilityBody;
+      case _OnboardingStepId.privacyTrust:
+        return l10n.onboardingPrivacyTrustBody;
+      case _OnboardingStepId.folioCloud:
         return l10n.onboardingFolioCloudBody;
       case _OnboardingStepId.quillIntro:
         return l10n.quillIntroBody;
@@ -1570,6 +1550,58 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
     _goNext();
   }
 
+  Future<void> _applyPersonalizeAndContinue() async {
+    await widget.appSettings.setThemeMode(_draftThemeMode);
+    await widget.appSettings.setAccentColorMode(_draftAccentMode);
+    if (_draftAccentMode == FolioAccentColorMode.custom) {
+      await widget.appSettings.setCustomAccentArgb(_draftCustomAccentArgb);
+    }
+    if (!_createWithoutEncryption) {
+      await widget.appSettings.setVaultIdleLockMinutes(_draftIdleLockMinutes);
+      await widget.appSettings.setVaultLockOnMinimize(_draftLockOnMinimize);
+    }
+    if (!mounted) return;
+    _goNext();
+  }
+
+  Future<void> _applyReliabilityAndContinue() async {
+    await widget.appSettings.setScheduledVaultBackupEnabled(
+      _draftScheduledBackupEnabled,
+    );
+    await widget.appSettings.setScheduledVaultBackupIntervalMinutes(
+      _draftScheduledBackupIntervalMinutes,
+    );
+    await widget.appSettings.setScheduledVaultBackupDirectory(
+      _draftScheduledBackupDirectory,
+    );
+    await widget.appSettings.setScheduledVaultBackupAlsoUploadCloud(
+      _draftScheduledBackupAlsoUploadCloud,
+    );
+    if (defaultTargetPlatform == TargetPlatform.windows) {
+      await widget.appSettings.setMinimizeToTray(_draftMinimizeToTray);
+      await widget.appSettings.setCloseToTray(_draftCloseToTray);
+      await widget.appSettings.setWindowsNotificationsEnabled(
+        _draftWindowsNotificationsEnabled,
+      );
+    }
+    if (!mounted) return;
+    _goNext();
+  }
+
+  Future<void> _applyPrivacyTrustAndContinue() async {
+    await widget.appSettings.setTelemetryEnabled(_onboardingTelemetryEnabled);
+    await FolioTelemetry.onSettingsChanged(widget.appSettings);
+    if (!mounted) return;
+    _goNext();
+  }
+
+  void _onFolioCloudStepContinue() {
+    setState(() {
+      _onboardingCloudSkipped = !_folio.snapshot.active;
+    });
+    _goNext();
+  }
+
   Future<void> _pickDraftBackupFolder() async {
     final dir = await FilePicker.getDirectoryPath();
     if (!mounted || dir == null) return;
@@ -1581,6 +1613,423 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
       return l10n.scheduledVaultBackupEveryNMinutes(minutes);
     }
     return l10n.scheduledVaultBackupEveryNHours(minutes ~/ 60);
+  }
+
+  Widget _stepPersonalize(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+    final scheme = Theme.of(context).colorScheme;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        const SizedBox(height: FolioSpace.lg),
+        Icon(Icons.palette_outlined, size: 64, color: scheme.primary),
+        const SizedBox(height: FolioSpace.lg),
+        Text(
+          l10n.onboardingPersonalizeTitle,
+          style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+            fontWeight: FontWeight.w700,
+          ),
+          textAlign: TextAlign.center,
+        ),
+        const SizedBox(height: FolioSpace.md),
+        Text(
+          l10n.onboardingPersonalizeBody,
+          style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+            color: scheme.onSurfaceVariant,
+            height: 1.45,
+          ),
+          textAlign: TextAlign.center,
+        ),
+        const SizedBox(height: FolioSpace.lg),
+        Text(
+          l10n.settingsAppearanceChipTheme,
+          style: Theme.of(context).textTheme.titleSmall?.copyWith(
+            fontWeight: FontWeight.w800,
+          ),
+        ),
+        const SizedBox(height: FolioSpace.sm),
+        SegmentedButton<ThemeMode>(
+          segments: [
+            ButtonSegment<ThemeMode>(
+              value: ThemeMode.system,
+              label: Text(l10n.systemTheme),
+              icon: const Icon(Icons.brightness_auto, size: 18),
+            ),
+            ButtonSegment<ThemeMode>(
+              value: ThemeMode.light,
+              label: Text(l10n.lightTheme),
+              icon: const Icon(Icons.light_mode_outlined, size: 18),
+            ),
+            ButtonSegment<ThemeMode>(
+              value: ThemeMode.dark,
+              label: Text(l10n.darkTheme),
+              icon: const Icon(Icons.dark_mode_outlined, size: 18),
+            ),
+          ],
+          selected: {_draftThemeMode},
+          onSelectionChanged: (s) {
+            setState(() => _draftThemeMode = s.first);
+          },
+        ),
+        const SizedBox(height: FolioSpace.lg),
+        Text(
+          l10n.settingsAccentColorTitle,
+          style: Theme.of(context).textTheme.titleSmall?.copyWith(
+            fontWeight: FontWeight.w800,
+          ),
+        ),
+        const SizedBox(height: FolioSpace.sm),
+        SegmentedButton<FolioAccentColorMode>(
+          segments: [
+            ButtonSegment<FolioAccentColorMode>(
+              value: FolioAccentColorMode.followSystem,
+              label: Text(l10n.settingsAccentFollowSystem),
+              icon: const Icon(Icons.palette_outlined, size: 18),
+            ),
+            ButtonSegment<FolioAccentColorMode>(
+              value: FolioAccentColorMode.folioDefault,
+              label: Text(l10n.settingsAccentFolioDefault),
+              icon: const Icon(Icons.brush_outlined, size: 18),
+            ),
+            ButtonSegment<FolioAccentColorMode>(
+              value: FolioAccentColorMode.custom,
+              label: Text(l10n.settingsAccentCustom),
+              icon: const Icon(Icons.color_lens_outlined, size: 18),
+            ),
+          ],
+          selected: {_draftAccentMode},
+          onSelectionChanged: (s) {
+            setState(() => _draftAccentMode = s.first);
+          },
+        ),
+        if (_draftAccentMode == FolioAccentColorMode.custom) ...[
+          const SizedBox(height: FolioSpace.sm),
+          ListTile(
+            contentPadding: EdgeInsets.zero,
+            leading: Icon(Icons.color_lens, color: Color(_draftCustomAccentArgb)),
+            title: Text(l10n.settingsAccentPickColor),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: () => unawaited(_pickDraftAccentPresets()),
+          ),
+        ],
+        if (!_createWithoutEncryption) ...[
+          const SizedBox(height: FolioSpace.lg),
+          Divider(color: scheme.outlineVariant.withValues(alpha: FolioAlpha.border)),
+          const SizedBox(height: FolioSpace.md),
+          Text(
+            l10n.onboardingSecurityTitle,
+            style: Theme.of(context).textTheme.titleSmall?.copyWith(
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+          const SizedBox(height: FolioSpace.sm),
+          Text(
+            l10n.lockAutoByInactivity,
+            style: Theme.of(context).textTheme.labelLarge,
+          ),
+          const SizedBox(height: FolioSpace.sm),
+          InputDecorator(
+            decoration: InputDecoration(
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(FolioRadius.md),
+              ),
+              contentPadding: const EdgeInsets.symmetric(horizontal: 12),
+            ),
+            child: DropdownButtonHideUnderline(
+              child: DropdownButton<int>(
+                isExpanded: true,
+                value: _coerceIdleLockMinutes(_draftIdleLockMinutes),
+                items: _idleLockPresets
+                    .map(
+                      (m) => DropdownMenuItem<int>(
+                        value: m,
+                        child: Text(l10n.minutesShort(m)),
+                      ),
+                    )
+                    .toList(),
+                onChanged: _busy
+                    ? null
+                    : (v) {
+                        if (v == null) return;
+                        setState(() => _draftIdleLockMinutes = v);
+                      },
+              ),
+            ),
+          ),
+          const SizedBox(height: FolioSpace.md),
+          SwitchListTile(
+            contentPadding: EdgeInsets.zero,
+            secondary: const Icon(Icons.minimize_rounded),
+            title: Text(l10n.lockOnMinimize),
+            value: _draftLockOnMinimize,
+            onChanged: _busy
+                ? null
+                : (v) {
+                    setState(() => _draftLockOnMinimize = v);
+                  },
+          ),
+        ],
+        const SizedBox(height: FolioSpace.xl),
+        _configStepActions(
+          onBack: _goBack,
+          onSkip: _skipConfigDraftStep,
+          onContinue: () => unawaited(_applyPersonalizeAndContinue()),
+        ),
+      ],
+    );
+  }
+
+  Widget _stepReliability(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+    final scheme = Theme.of(context).colorScheme;
+    final theme = Theme.of(context);
+    final choices = AppSettings.scheduledVaultBackupIntervalChoicesMinutes;
+    final isWindows = defaultTargetPlatform == TargetPlatform.windows;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        const SizedBox(height: FolioSpace.lg),
+        Icon(Icons.backup_outlined, size: 64, color: scheme.primary),
+        const SizedBox(height: FolioSpace.lg),
+        Text(
+          l10n.onboardingReliabilityTitle,
+          style: theme.textTheme.headlineMedium?.copyWith(
+            fontWeight: FontWeight.w700,
+          ),
+          textAlign: TextAlign.center,
+        ),
+        const SizedBox(height: FolioSpace.md),
+        Text(
+          l10n.onboardingReliabilityBody,
+          style: theme.textTheme.bodyLarge?.copyWith(
+            color: scheme.onSurfaceVariant,
+            height: 1.45,
+          ),
+          textAlign: TextAlign.center,
+        ),
+        const SizedBox(height: FolioSpace.lg),
+        SwitchListTile(
+          contentPadding: EdgeInsets.zero,
+          secondary: const Icon(Icons.schedule_rounded),
+          title: Text(l10n.scheduledVaultBackupTitle),
+          subtitle: Text(l10n.scheduledVaultBackupSubtitle),
+          value: _draftScheduledBackupEnabled,
+          onChanged: _busy
+              ? null
+              : (v) {
+                  setState(() => _draftScheduledBackupEnabled = v);
+                },
+        ),
+        if (_draftScheduledBackupEnabled) ...[
+          const SizedBox(height: FolioSpace.sm),
+          Text(
+            l10n.scheduledVaultBackupIntervalLabel,
+            style: theme.textTheme.titleSmall?.copyWith(
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+          const SizedBox(height: FolioSpace.sm),
+          InputDecorator(
+            decoration: InputDecoration(
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(FolioRadius.md),
+              ),
+              contentPadding: const EdgeInsets.symmetric(horizontal: 12),
+            ),
+            child: DropdownButtonHideUnderline(
+              child: DropdownButton<int>(
+                isExpanded: true,
+                value: choices.contains(_draftScheduledBackupIntervalMinutes)
+                    ? _draftScheduledBackupIntervalMinutes
+                    : choices.first,
+                items: choices
+                    .map(
+                      (m) => DropdownMenuItem<int>(
+                        value: m,
+                        child: Text(_scheduledBackupIntervalSummary(l10n, m)),
+                      ),
+                    )
+                    .toList(),
+                onChanged: _busy
+                    ? null
+                    : (v) {
+                        if (v == null) return;
+                        setState(
+                          () => _draftScheduledBackupIntervalMinutes = v,
+                        );
+                      },
+              ),
+            ),
+          ),
+          const SizedBox(height: FolioSpace.sm),
+          OutlinedButton.icon(
+            onPressed: _busy ? null : () => unawaited(_pickDraftBackupFolder()),
+            icon: const Icon(Icons.folder_open_outlined),
+            label: Text(l10n.scheduledVaultBackupChooseFolder),
+          ),
+          if (_draftScheduledBackupDirectory.isNotEmpty) ...[
+            const SizedBox(height: FolioSpace.xs),
+            Text(
+              _draftScheduledBackupDirectory,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: theme.textTheme.bodySmall,
+            ),
+          ],
+          if (_folio.isAvailable) ...[
+            const SizedBox(height: FolioSpace.md),
+            SwitchListTile(
+              contentPadding: EdgeInsets.zero,
+              secondary: const Icon(Icons.cloud_upload_outlined),
+              title: Text(l10n.scheduledVaultBackupCloudSyncTitle),
+              subtitle: Text(l10n.scheduledVaultBackupCloudSyncSubtitle),
+              value: _draftScheduledBackupAlsoUploadCloud,
+              onChanged: _busy
+                  ? null
+                  : (v) {
+                      setState(() => _draftScheduledBackupAlsoUploadCloud = v);
+                    },
+            ),
+          ],
+        ],
+        if (isWindows) ...[
+          const SizedBox(height: FolioSpace.lg),
+          Divider(color: scheme.outlineVariant.withValues(alpha: FolioAlpha.border)),
+          const SizedBox(height: FolioSpace.md),
+          Text(
+            l10n.onboardingSystemTitle,
+            style: theme.textTheme.titleSmall?.copyWith(
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+          const SizedBox(height: FolioSpace.sm),
+          SwitchListTile(
+            contentPadding: EdgeInsets.zero,
+            secondary: const Icon(Icons.minimize_outlined),
+            title: Text(l10n.minimizeToTray),
+            value: _draftMinimizeToTray,
+            onChanged: _busy
+                ? null
+                : (v) {
+                    setState(() => _draftMinimizeToTray = v);
+                  },
+          ),
+          SwitchListTile(
+            contentPadding: EdgeInsets.zero,
+            secondary: const Icon(Icons.close_fullscreen_outlined),
+            title: Text(l10n.closeToTray),
+            value: _draftCloseToTray,
+            onChanged: _busy
+                ? null
+                : (v) {
+                    setState(() => _draftCloseToTray = v);
+                  },
+          ),
+          SwitchListTile(
+            contentPadding: EdgeInsets.zero,
+            secondary: const Icon(Icons.notifications_outlined),
+            title: Text(l10n.settingsWindowsNotifications),
+            subtitle: Text(l10n.settingsWindowsNotificationsSubtitle),
+            value: _draftWindowsNotificationsEnabled,
+            onChanged: _busy
+                ? null
+                : (v) {
+                    setState(() => _draftWindowsNotificationsEnabled = v);
+                  },
+          ),
+        ],
+        const SizedBox(height: FolioSpace.xl),
+        _configStepActions(
+          onBack: _goBack,
+          onSkip: _skipConfigDraftStep,
+          onContinue: () => unawaited(_applyReliabilityAndContinue()),
+        ),
+      ],
+    );
+  }
+
+  Widget _stepPrivacyTrust(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+    final scheme = Theme.of(context).colorScheme;
+    final theme = Theme.of(context);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        const SizedBox(height: FolioSpace.lg),
+        Icon(Icons.verified_user_outlined, size: 64, color: scheme.primary),
+        const SizedBox(height: FolioSpace.lg),
+        Text(
+          l10n.onboardingPrivacyTrustTitle,
+          style: theme.textTheme.headlineMedium?.copyWith(
+            fontWeight: FontWeight.w700,
+          ),
+          textAlign: TextAlign.center,
+        ),
+        const SizedBox(height: FolioSpace.md),
+        Text(
+          l10n.onboardingPrivacyTrustBody,
+          style: theme.textTheme.bodyLarge?.copyWith(
+            color: scheme.onSurfaceVariant,
+            height: 1.45,
+          ),
+          textAlign: TextAlign.center,
+        ),
+        const SizedBox(height: FolioSpace.md),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+          decoration: BoxDecoration(
+            color: scheme.primaryContainer.withValues(alpha: 0.35),
+            borderRadius: BorderRadius.circular(FolioRadius.lg),
+            border: Border.all(
+              color: scheme.primary.withValues(alpha: 0.25),
+            ),
+          ),
+          child: Row(
+            children: [
+              Icon(Icons.shield_outlined, color: scheme.primary, size: 22),
+              const SizedBox(width: FolioSpace.sm),
+              Expanded(
+                child: Text(
+                  l10n.onboardingPrivacyTrustLocalFirstBadge,
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    fontWeight: FontWeight.w600,
+                    height: 1.35,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: FolioSpace.lg),
+        SwitchListTile(
+          contentPadding: EdgeInsets.zero,
+          secondary: const Icon(Icons.insights_outlined),
+          title: Text(l10n.onboardingTelemetrySwitchTitle),
+          subtitle: Text(l10n.onboardingTelemetrySwitchSubtitle),
+          value: _onboardingTelemetryEnabled,
+          onChanged: _busy
+              ? null
+              : (v) {
+                  setState(() => _onboardingTelemetryEnabled = v);
+                },
+        ),
+        const SizedBox(height: FolioSpace.sm),
+        Text(
+          l10n.onboardingTelemetryFootnote,
+          style: theme.textTheme.bodySmall?.copyWith(
+            color: scheme.onSurfaceVariant,
+            height: 1.35,
+          ),
+          textAlign: TextAlign.center,
+        ),
+        const SizedBox(height: FolioSpace.xl),
+        _configStepActions(
+          onBack: _goBack,
+          onSkip: _skipConfigDraftStep,
+          onContinue: () => unawaited(_applyPrivacyTrustAndContinue()),
+        ),
+      ],
+    );
   }
 
   Widget _stepAppearance(BuildContext context) {
@@ -2204,6 +2653,12 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
   Widget _stepReady(BuildContext context) {
     final l10n = AppLocalizations.of(context);
     final body = _createWithoutEncryption ? l10n.readyBodyPlainVault : l10n.readyBody;
+    final showCloudSummary = _isFirstOnboarding && _folio.isAvailable;
+    final cloudSummary = showCloudSummary
+        ? (_folio.snapshot.active
+            ? l10n.onboardingReadySummaryCloudActive
+            : l10n.onboardingReadySummaryCloudSkipped)
+        : null;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -2227,6 +2682,17 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
           style: Theme.of(context).textTheme.bodyLarge?.copyWith(height: 1.45),
           textAlign: TextAlign.center,
         ),
+        if (cloudSummary != null) ...[
+          const SizedBox(height: FolioSpace.md),
+          Text(
+            cloudSummary,
+            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+              color: Theme.of(context).colorScheme.onSurfaceVariant,
+              height: 1.4,
+            ),
+            textAlign: TextAlign.center,
+          ),
+        ],
         const SizedBox(height: FolioSpace.xl),
         _onboardingBottomActions(
           onBack: _busy ? null : _goBack,
@@ -2429,111 +2895,16 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
     );
   }
 
-  Widget _stepFolioCloudIntro(BuildContext context) {
+  Widget _stepFolioCloud(BuildContext context) {
     final l10n = AppLocalizations.of(context);
-    final theme = Theme.of(context);
-    final scheme = theme.colorScheme;
-
-    Widget feature({
-      required IconData icon,
-      required String title,
-      required String body,
-    }) {
-      return Container(
-        padding: const EdgeInsets.all(14),
-        decoration: BoxDecoration(
-          color: scheme.surface,
-          borderRadius: BorderRadius.circular(FolioRadius.lg),
-          border: Border.all(
-            color: scheme.outlineVariant.withValues(alpha: FolioAlpha.border),
-          ),
-        ),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Container(
-              width: 34,
-              height: 34,
-              decoration: BoxDecoration(
-                color: scheme.primary.withValues(alpha: 0.10),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Icon(icon, color: scheme.primary, size: 18),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    title,
-                    style: theme.textTheme.titleSmall?.copyWith(
-                      fontWeight: FontWeight.w800,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    body,
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      color: scheme.onSurfaceVariant,
-                      height: 1.35,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-      );
-    }
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        const SizedBox(height: FolioSpace.lg),
-        Icon(Icons.cloud_outlined, size: 64, color: scheme.primary),
-        const SizedBox(height: FolioSpace.lg),
-        Text(
-          l10n.onboardingFolioCloudTitle,
-          style: theme.textTheme.headlineMedium?.copyWith(
-            fontWeight: FontWeight.w700,
-          ),
-          textAlign: TextAlign.center,
-        ),
-        const SizedBox(height: FolioSpace.md),
-        Text(
-          l10n.onboardingFolioCloudBody,
-          style: theme.textTheme.bodyLarge?.copyWith(
-            color: scheme.onSurfaceVariant,
-            height: 1.45,
-          ),
-          textAlign: TextAlign.center,
-        ),
-        const SizedBox(height: FolioSpace.lg),
-        feature(
-          icon: Icons.backup_outlined,
-          title: l10n.onboardingFolioCloudFeatureBackupTitle,
-          body: l10n.onboardingFolioCloudFeatureBackupBody,
-        ),
-        const SizedBox(height: FolioSpace.sm),
-        feature(
-          icon: Icons.auto_awesome_outlined,
-          title: l10n.onboardingFolioCloudFeatureAiTitle,
-          body: l10n.onboardingFolioCloudFeatureAiBody,
-        ),
-        const SizedBox(height: FolioSpace.sm),
-        feature(
-          icon: Icons.public_outlined,
-          title: l10n.onboardingFolioCloudFeatureWebTitle,
-          body: l10n.onboardingFolioCloudFeatureWebBody,
-        ),
-        const SizedBox(height: FolioSpace.xl),
-        _onboardingBottomActions(
-          onBack: _busy ? null : _goBack,
-          onPrimary: _busy ? null : _goNext,
-          primaryLabel: l10n.continueAction,
-        ),
-      ],
+    return OnboardingCloudPitchStep(
+      cloud: _cloud,
+      folio: _folio,
+      usageIntents: _selectedUsageIntents,
+      onAuthError: (c) => _cloudAuthErrorMessage(l10n, c),
+      onContinue: _onFolioCloudStepContinue,
+      onBack: _goBack,
+      busy: _busy,
     );
   }
 
@@ -2789,14 +3160,12 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
 enum _OnboardingStepId {
   welcome,
   importChooser,
-  password,
+  vaultSetup,
   ready,
-  appearance,
-  security,
-  backups,
-  system,
-  telemetry,
-  cloudIntro,
+  personalize,
+  reliability,
+  privacyTrust,
+  folioCloud,
   quillIntro,
   usageProfile,
   importBackupForm,

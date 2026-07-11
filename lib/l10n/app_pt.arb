@@ -1175,6 +1175,27 @@
   "onboardingFolioCloudFeatureWebTitle": "Publicação na web",
   "onboardingFolioCloudFeatureWebBody": "Publique páginas selecionadas e controle o que se torna público. O resto do seu cofre não é compartilhado.",
   "onboardingFolioCloudLaterInSettings": "Verificarei depois nas Configurações",
+  "onboardingPersonalizeTitle": "Personalize",
+  "onboardingPersonalizeBody": "Escolha como o Folio aparece e quando bloqueia. Pode alterar isto nas Configurações a qualquer momento.",
+  "onboardingReliabilityTitle": "Backups e ambiente de trabalho",
+  "onboardingReliabilityBody": "Backups criptografados programados e opções da bandeja no Windows. Ignore se preferir configurar mais tarde.",
+  "onboardingPrivacyTrustTitle": "Privacidade e confiança",
+  "onboardingPrivacyTrustBody": "As suas notas ficam neste dispositivo. Estatísticas anónimas opcionais ajudam a melhorar o Folio—você decide.",
+  "onboardingPrivacyTrustLocalFirstBadge": "Local-first: o Folio funciona por completo sem a nuvem.",
+  "onboardingReadySummaryCloudActive": "Plano Folio Cloud ativo—backups, IA na nuvem e publicação disponíveis.",
+  "onboardingReadySummaryCloudSkipped": "Pode explorar o Folio Cloud a qualquer momento nas Configurações.",
+  "onboardingFolioCloudPitchForNotes": "Mantenha as suas notas seguras com backups criptografados na nuvem quando quiser uma cópia extra.",
+  "onboardingFolioCloudPitchForJournal": "Proteja o seu diário com backups criptografados sob o seu controlo.",
+  "onboardingFolioCloudPitchForTasks": "Partilhe projetos e publique páginas na web quando estiver pronto.",
+  "onboardingFolioCloudPitchForProjects": "Colabore e publique páginas selecionadas—o seu cofre completo permanece privado.",
+  "onboardingFolioCloudPitchForKnowledge": "Use a IA na nuvem para organizar e explorar a sua base de conhecimento.",
+  "onboardingFolioCloudPitchForStudy": "Estude melhor com IA hospedada e recarga mensal de tinta.",
+  "onboardingFolioCloudCtaSubscribe": "Subscrever — 4,99 €/mês",
+  "onboardingFolioCloudCtaCreateAccount": "Criar conta e explorar",
+  "onboardingFolioCloudSkip": "Continuar sem nuvem",
+  "folioCloudPitchPremiumMonthlyLabel": "Plano Premium mensal",
+  "folioCloudCheckoutSuccess": "Pagamento concluído com sucesso.",
+  "workspaceHomeCloudGuestTeaserCta": "Ver o que inclui",
   "collabMenuAction": "Colaboração ao vivo",
   "collabSheetTitle": "Colaboração ao vivo",
   "collabHeaderSubtitle": "Conta Folio necessária. Hospedar requer um plano com colaboração; participar requer apenas um código. Conteúdo e chat são criptografados de ponta a ponta; o servidor nunca vê seu texto.",
@@ -2326,6 +2347,7 @@
   ,"workspaceHomeOnboardingStepPage": "Crie uma página"
   ,"workspaceHomeOnboardingStepSubpage": "Crie uma subpágina sob uma página"
   ,"workspaceHomeOnboardingStepSearch": "Use a pesquisa global uma vez"
+  ,"workspaceHomeOnboardingStepCloudExplore": "Veja o que inclui o Folio Cloud"
   ,"workspaceHomeOnboardingDismiss": "Ocultar lista"
   ,"workspaceHomeWhatsNewTitle": "Novidades"
   ,"workspaceHomeWhatsNewVersion": "Versão {version}"

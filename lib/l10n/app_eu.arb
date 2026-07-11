@@ -1176,6 +1176,27 @@
   "onboardingFolioCloudFeatureWebTitle": "Web-argitalpena",
   "onboardingFolioCloudFeatureWebBody": "Argitaratu hautatutako orrialdeak eta kontrolatu zer bihurtzen den publiko. Gainerako gorde-lekua ez da partekatzen.",
   "onboardingFolioCloudLaterInSettings": "Geroago ikusiko dut Ezarpenetan",
+  "onboardingPersonalizeTitle": "Egokitu zuretzat",
+  "onboardingPersonalizeBody": "Aukeratu nola ikusten den Folio eta noiz blokeatzen den. Ezarpenetan alda dezakezu edonoiz.",
+  "onboardingReliabilityTitle": "Babeskopiak eta mahaigaina",
+  "onboardingReliabilityBody": "Programatutako babeskopi zifratuak eta Windows bandeja aukerak. Saltatu geroago konfiguratu nahi baduzu.",
+  "onboardingPrivacyTrustTitle": "Pribatutasuna eta konfiantza",
+  "onboardingPrivacyTrustBody": "Zure oharrak gailu honetan geratzen dira. Estatistika anonimoak aukerakoak dira Folio hobetzen laguntzeko—zu erabakitzen duzu.",
+  "onboardingPrivacyTrustLocalFirstBadge": "Local-first: Folio osoan funtzionatzen du hodeirik gabe.",
+  "onboardingReadySummaryCloudActive": "Folio Cloud plana aktibo—babeskopiak, hodeiko AA eta argitalpena eskuragarri.",
+  "onboardingReadySummaryCloudSkipped": "Folio Cloud edonoiz arakatu dezakezu Ezarpenetatik.",
+  "onboardingFolioCloudPitchForNotes": "Babestu zure oharrak hodeiko babeskopi zifratuekin kopia gehigarri bat nahi duzunean.",
+  "onboardingFolioCloudPitchForJournal": "Babestu zure egunkaria zuk kontrolatutako babeskopi zifratuekin.",
+  "onboardingFolioCloudPitchForTasks": "Partekatu proiektuak eta argitaratu orriak webean prest zaudenean.",
+  "onboardingFolioCloudPitchForProjects": "Elkarlanean aritu eta argitaratu hautatutako orriak—zure gorde-leku osoa pribatua da.",
+  "onboardingFolioCloudPitchForKnowledge": "Erabili hodeiko AA zure ezagutza-basea antolatzeko eta arakatzeko.",
+  "onboardingFolioCloudPitchForStudy": "Ikasi hobeto AA ostatatua eta hilabeteko tinta berritzearekin.",
+  "onboardingFolioCloudCtaSubscribe": "Harpidetu — 4,99 €/hil",
+  "onboardingFolioCloudCtaCreateAccount": "Kontua sortu eta arakatu",
+  "onboardingFolioCloudSkip": "Jarraitu hodeirik gabe",
+  "folioCloudPitchPremiumMonthlyLabel": "Hileko Premium plana",
+  "folioCloudCheckoutSuccess": "Ordainketa arrakastaz osatu da.",
+  "workspaceHomeCloudGuestTeaserCta": "Ikusi zer sartzen den",
   "collabMenuAction": "Zuzeneko lankidetza",
   "collabSheetTitle": "Zuzeneko lankidetza",
   "collabHeaderSubtitle": "Folio kontua behar da. Hostatzeak plan bat behar du; unetzeak kodea bakarrik. Edukia eta txata muturretik muturrera enkriptatuta daude; zerbitzariak ezin du zure testua ikusi.",
@@ -2327,6 +2348,7 @@
   ,"workspaceHomeOnboardingStepPage": "Sortu orri bat"
   ,"workspaceHomeOnboardingStepSubpage": "Sortu azpiorri bat orri baten azpian"
   ,"workspaceHomeOnboardingStepSearch": "Erabili bilaketa orokorra behin"
+  ,"workspaceHomeOnboardingStepCloudExplore": "Ikusi zer sartzen den Folio Cloud-en"
   ,"workspaceHomeOnboardingDismiss": "Ezkutatu zerrenda"
   ,"workspaceHomeWhatsNewTitle": "Berriak"
   ,"workspaceHomeWhatsNewVersion": "{version} bertsioa"
