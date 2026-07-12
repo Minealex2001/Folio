@@ -28,6 +28,7 @@ class VaultPersistenceController extends ChangeNotifier {
   void Function()? onPersisted;
 
   Timer? _saveDebounce;
+  Future<void>? _activeWrite;
   int _persistDepth = 0;
   int _suppressPersistedCallbackDepth = 0;
   SaveStatus _status = SaveStatus.idle;
@@ -76,6 +77,27 @@ class VaultPersistenceController extends ChangeNotifier {
   }
 
   Future<void> persistNow() async {
+    if (!_canPersist()) return;
+    // Mutex de escritura: solo una escritura a disco a la vez. Los llamadores
+    // concurrentes esperan y luego reconstruyen el payload con el estado más
+    // reciente, evitando last-write-wins con estados intermedios.
+    while (_activeWrite != null) {
+      try {
+        await _activeWrite;
+      } catch (_) {
+        // El error pertenece al llamador original; aquí solo esperamos turno.
+      }
+    }
+    final write = _doPersist();
+    _activeWrite = write;
+    try {
+      await write;
+    } finally {
+      if (identical(_activeWrite, write)) _activeWrite = null;
+    }
+  }
+
+  Future<void> _doPersist() async {
     if (!_canPersist()) return;
     var persisted = false;
     _persistDepth++;

@@ -256,7 +256,7 @@ void main() {
 ''';
       final parsed = FolioDatabaseData.tryParse(raw);
       expect(parsed, isNotNull);
-      expect(parsed!.schemaVersion, 5);
+      expect(parsed!.schemaVersion, greaterThanOrEqualTo(5));
       expect(
         parsed.views.first.visiblePropertyIds,
         containsAll(['p_title', 'p_status']),

@@ -156,21 +156,23 @@ class JiraAuthService {
 
     final Map<String, dynamic> tokenJson;
     if (clientSecret.isNotEmpty) {
-      final tokenResp = await _client.post(
-        Uri.https('auth.atlassian.com', '/oauth/token'),
-        headers: {
-          'content-type': 'application/json',
-          'authorization':
-              'Basic ${base64Encode(utf8.encode('$clientId:$clientSecret'))}',
-        },
-        body: jsonEncode({
-          'grant_type': 'authorization_code',
-          'client_id': clientId,
-          'client_secret': clientSecret,
-          'code': code,
-          'redirect_uri': redirectUri.toString(),
-        }),
-      );
+      final tokenResp = await _client
+          .post(
+            Uri.https('auth.atlassian.com', '/oauth/token'),
+            headers: {
+              'content-type': 'application/json',
+              'authorization':
+                  'Basic ${base64Encode(utf8.encode('$clientId:$clientSecret'))}',
+            },
+            body: jsonEncode({
+              'grant_type': 'authorization_code',
+              'client_id': clientId,
+              'client_secret': clientSecret,
+              'code': code,
+              'redirect_uri': redirectUri.toString(),
+            }),
+          )
+          .timeout(const Duration(seconds: 30));
       if (tokenResp.statusCode < 200 || tokenResp.statusCode >= 300) {
         throw StateError(
           'OAuth token exchange falló (${tokenResp.statusCode}): ${tokenResp.body}',
@@ -195,10 +197,12 @@ class JiraAuthService {
         expiresIn > 0 ? nowMs + (expiresIn * 1000) : (nowMs + 55 * 60 * 1000);
 
     // Discover accessible resources (cloudId + URLs).
-    final resourcesResp = await _client.get(
-      Uri.https('api.atlassian.com', '/oauth/token/accessible-resources'),
-      headers: {'authorization': 'Bearer $accessToken'},
-    );
+    final resourcesResp = await _client
+        .get(
+          Uri.https('api.atlassian.com', '/oauth/token/accessible-resources'),
+          headers: {'authorization': 'Bearer $accessToken'},
+        )
+        .timeout(const Duration(seconds: 30));
     if (resourcesResp.statusCode < 200 || resourcesResp.statusCode >= 300) {
       throw StateError(
         'No se pudieron leer recursos accesibles (${resourcesResp.statusCode}): ${resourcesResp.body}',
@@ -288,15 +292,17 @@ class JiraAuthService {
       tag: 'jira',
       context: {'uri': uri.toString()},
     );
-    final resp = await _client.post(
-      uri,
-      headers: {'content-type': 'application/json; charset=utf-8'},
-      body: jsonEncode({
-        'code': code,
-        'redirectUri': redirectUri.toString(),
-        'clientId': clientId,
-      }),
-    );
+    final resp = await _client
+        .post(
+          uri,
+          headers: {'content-type': 'application/json; charset=utf-8'},
+          body: jsonEncode({
+            'code': code,
+            'redirectUri': redirectUri.toString(),
+            'clientId': clientId,
+          }),
+        )
+        .timeout(const Duration(seconds: 30));
     late final Map<String, dynamic> mapTry;
     try {
       final decoded = jsonDecode(resp.body);

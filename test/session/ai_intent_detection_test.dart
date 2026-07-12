@@ -74,18 +74,79 @@ void main() {
         isTrue,
       );
     });
+
+    test('detecta traduccion bilingue sin crear pagina nueva', () {
+      final session = VaultSession();
+      expect(
+        session.detectBilingualTranslateIntentForTesting(
+          'Traduce esta pagina e insertalo en la misma',
+          languageCode: 'es',
+        ),
+        isTrue,
+      );
+      expect(
+        session.detectBilingualTranslateIntentForTesting(
+          'Translate this page and insert it in the same place',
+          languageCode: 'en',
+        ),
+        isTrue,
+      );
+      expect(
+        session.detectCreatePageIntentForTesting(
+          'Traduce esta pagina e insertalo en la misma',
+          languageCode: 'es',
+        ),
+        isFalse,
+      );
+      expect(
+        session.detectEditIntentForTesting(
+          'Traduce esta pagina e insertalo en la misma',
+          languageCode: 'es',
+        ),
+        isTrue,
+      );
+    });
+
+    test('sigue detectando create_page para nota nueva traducida', () {
+      final session = VaultSession();
+      expect(
+        session.detectCreatePageIntentForTesting(
+          'Crea una pagina nueva traducida al ingles',
+          languageCode: 'es',
+        ),
+        isTrue,
+      );
+      expect(
+        session.detectBilingualTranslateIntentForTesting(
+          'Crea una pagina nueva traducida al ingles',
+          languageCode: 'es',
+        ),
+        isFalse,
+      );
+    });
   });
 
   group('AI mode normalization', () {
     test('normaliza alias frecuentes a modos canonicos', () {
       final session = VaultSession();
-      expect(session.normalizeAgentModeForTesting('edit'), 'edit_current');
-      expect(session.normalizeAgentModeForTesting('update'), 'edit_current');
       expect(session.normalizeAgentModeForTesting('create'), 'create_page');
-      expect(session.normalizeAgentModeForTesting('new_page'), 'create_page');
-      expect(session.normalizeAgentModeForTesting('summary'), 'summarize_current');
+      expect(session.normalizeAgentModeForTesting('edit'), 'edit_current');
       expect(session.normalizeAgentModeForTesting('append'), 'append_current');
+      expect(session.normalizeAgentModeForTesting('replace'), 'replace_current');
+      expect(session.normalizeAgentModeForTesting('summarize'), 'summarize_current');
+    });
+  });
+
+  group('Bilingual translation response parsing', () {
+    test('parsea translations desde objeto JSON', () {
+      final session = VaultSession();
+      final parsed = session.parseBilingualTranslationResponseForTesting(
+        '{"translations":[{"blockId":"p1_b0","text":"Hello"}]}',
+        allowedBlockIds: {'p1_b0'},
+      );
+      expect(parsed.length, 1);
+      expect(parsed.first.blockId, 'p1_b0');
+      expect(parsed.first.text, 'Hello');
     });
   });
 }
-

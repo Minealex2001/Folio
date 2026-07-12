@@ -587,7 +587,8 @@ Código principal: `lib/features/workspace/shell/workspace_page_ai_panel.dart` (
 ### Bloques `task` en respuestas IA y herramientas Quill
 
 - El pipeline de materialización (`vault_session_ai.dart`) acepta bloques `task` con `text` en JSON `FolioTaskData` o título plano; normaliza títulos vacíos y serializa con `encode()`.
-- **`QuillToolExecutor`** (`lib/services/ai/quill_tools.dart`): acción **`insertTasksFromEncodedLines`** para insertar líneas codificadas como bloques `task` en el documento actual (integración con el agente / herramientas).
+- **`QuillToolExecutor`** (`lib/services/ai/quill_tools.dart`): acciones **`insertTasksFromEncodedLines`**, **`insertTodosFromLines`** y **`translatePageBilingual`** (traducción bilingüe: inserta cada bloque traducido justo después del original en la página abierta, procesando de abajo a arriba para no desplazar índices).
+- **Traducción bilingüe en chat**: si el usuario pide traducir la página actual e insertar en el mismo sitio (p. ej. «traduce esta página e insértalo en la misma»), Quill detecta la intención (`AiIntentHints.translateBilingual`), evita `create_page` y ejecuta el atajo `translatePageBilinguallyWithAi` antes del agente JSON genérico. El comando slash `/ai translate` sin selección ni texto en el bloque dispara el mismo modo bilingüe sobre la página abierta.
 - Comandos slash de IA (`workspace_page_ai_slash.dart`): prompts orientados a extraer *action items* como bloques `task` (JSON en `text` o campo `title`) o `todo` cuando basta una lista simple, con aplicación sobre la página abierta cuando el modo lo permite.
 
 ---
@@ -1177,6 +1178,7 @@ Revisión centrada en errores del editor de bloques, páginas y persistencia de 
 ### Lógica de bloques
 
 - **Backspace:** en bloques Quill usa el estado real del documento (texto plano y selección), no el `TextEditingController` espejo que puede estar desfasado; el caret tras merge se posiciona con la longitud de texto plano del bloque previo (`_blockCaretLength`).
+- **Caret tras primera palabra / centinela:** al insertar el bloque vacío final, el editor captura y restaura el offset desde Quill (no desde el controller sombra desfasado), hace flush del debounce antes de capturar, evita reconciliar el documento mientras hay foco/debounce pendiente y no devuelve el cursor al inicio si el bloque ya tiene texto.
 - **Split (Enter) y merge:** `splitBlockAtCaret` y `mergeBlockUp` limpian `richTextDeltaJson` de los bloques afectados para que el Markdown sea la fuente de verdad y no se restaure contenido obsoleto al recargar.
 - **Fuga de `FocusNode`:** el overlay de preview reutiliza un `FocusNode` cacheado por bloque (`_folioQuillPreviewFocusFor`) liberado en el teardown, en vez de crear uno nuevo en cada `build`.
 
@@ -1209,3 +1211,48 @@ En Windows el SDK nativo de Cloud Firestore (C++) crashea al inicializarse, por 
 - **Cliente REST** (`lib/services/folio_cloud/folio_firestore_rest.dart`): lee documentos de Firestore por su [API REST](https://firebase.google.com/docs/firestore/use-rest-api) usando el ID token de Firebase Auth como Bearer (Auth sí funciona en escritorio, igual que las Cloud Functions por HTTP). Incluye un decodificador del formato `Value` de Firestore (`integerValue` como String, `mapValue`, `arrayValue`, etc.) a `Map` plano compatible con los `fromJson` de la app. Reutilizable vía `folioFirestoreRestGetDocument(path)` y el atajo `folioFirestoreRestGetUserDoc(uid)`.
 - **Integración:** `_fetchUserDocFromServerWithRetries` usa el fallback REST cuando el SDK nativo no está disponible, con los mismos reintentos por arranque en frío. Como en Windows ya se usa sondeo (`_folioFirestoreUseGetPolling`) en vez de streams, todas las rutas de derechos (carga inicial, `handleAppResumed`, refresco manual, re-sync con Stripe) funcionan ahora.
 - **Alcance:** solo lecturas puntuales (`get`); no reemplaza streams en tiempo real (se aproximan con el sondeo existente) ni escrituras. El helper queda disponible para que otras lecturas (páginas publicadas, plantillas de comunidad, etc.) lo adopten si se requiere en Windows.
+
+## Auditoría de seguridad y mantenimiento — julio 2026
+
+Correcciones derivadas de la revisión integral del repositorio (seguridad, datos, localización e higiene).
+
+### Seguridad y cifrado del vault
+
+- **Índice de búsqueda:** en libretas cifradas el índice (`search_index.json`) ya no se persiste en disco; se mantiene solo en RAM y se borra al reconstruir. Evita títulos y fragmentos en texto plano fuera del blob cifrado.
+- **Desbloqueo rápido:** la DEK de quick unlock migra a `flutter_secure_storage` (DPAPI/Keychain); las copias legacy en SharedPreferences se migran en la primera lectura. Al revocar passkey se desactiva también el quick unlock.
+- **Integraciones OAuth/API keys:** `IntegrationAuthService` persiste tokens en almacén seguro del SO con migración automática desde SharedPreferences.
+- **Sync LAN entre dispositivos:** canal cifrado y autenticado con X25519 + HKDF + AES-256-GCM (`device_sync_crypto.dart`); snapshots y peticiones van sellados; peers no emparejados no pueden leer el vault.
+- **Passkeys:** `FolioRpServer` valida tipo WebAuthn (`webauthn.create` / `webauthn.get`), challenge, origen y coincidencia de `credentialID` tras la respuesta del autenticador.
+- **Auto-actualizador:** verificación SHA-256 del instalador contra el digest publicado en el asset de GitHub antes de ejecutar.
+
+### Integridad de datos
+
+- **Persistencia serializada:** mutex en `VaultPersistenceController`; `onAppBackgrounded` hace flush y luego lock en secuencia; flush obligatorio antes de imports y backups destructivos.
+- **Escritura atómica:** `AtomicFileWriter` usa `rename` con reemplazo (sin ventana sin archivo); restore desde `.bak` también para `vault.keys` y `vault.mode`.
+- **WebDAV:** timeouts de conexión/envío/recepción en operaciones de backup remoto.
+
+### Localización y UI
+
+- **Drive:** menús, panel de detalles, rutas raíz y tipos de archivo migrados a claves `drive*` en los 6 idiomas.
+- **ListTile en Home:** secciones de recientes y tareas envueltas en `Material` para evitar el error de fondo invisible con `tileColor`.
+- **Código muerto:** eliminado el catálogo duplicado en `lib/features/workspace/widgets/` (la versión activa es `editor/block_type_catalog.dart`).
+
+### Higiene del repositorio
+
+- `.gitignore` ampliado: `Output/`, `lib.zip`, `build_out.txt`; artefactos de build e instaladores fuera de git.
+- **`folio_local_secrets.dart`:** se versiona con placeholders vacíos; copiar desde `.example` para desarrollo local (no está en `.gitignore`).
+- **CI de localización:** script `tool/check_arb_parity.ps1` para comparar claves entre `app_*.arb`.
+
+### Documentación ampliada (índice)
+
+- **App Store / extensiones `.folioapp`:** `lib/features/app_store/`, `lib/services/app_store/`.
+- **Integración YouTrack:** ajustes en `lib/features/settings/youtrack_integration_settings.dart` y `lib/services/youtrack/`.
+- **Pantalla de recuperación:** `lib/features/vault/recovery_screen.dart` (restauración desde `.bak` local).
+- **Dashboard de telemetría:** `lib/features/telemetry_dashboard/telemetry_dashboard_page.dart`.
+
+### Pendiente (deuda conocida)
+
+- `database_block_editor.dart` y partes de `settings_page.dart` / `kanban_board_page.dart` aún usan `_t(es,en)` o ternarios manuales; migración gradual a `.arb`.
+- División de monolitos (`settings_page.dart`, `kanban_board_page.dart`, `block_editor_state.dart`) en módulos más pequeños.
+- Unificación de bridges `integrations_bridge` / `run2doc_bridge` (puertos ya separados: 45831 / 45832).
+- Endurecer Argon2id en nuevas libretas requiere migración de `vault.keys` existentes.

@@ -37,6 +37,9 @@ class JiraApiClient {
   }) : _http = httpClient ?? http.Client(),
        _connection = connection;
 
+  /// Límite común para llamadas HTTP; evita colgar la UI si Jira no responde.
+  static const Duration _httpTimeout = Duration(seconds: 30);
+
   final http.Client _http;
   JiraConnection _connection;
 
@@ -91,25 +94,28 @@ class JiraApiClient {
       return;
     }
     try {
-      final resp = await _http.post(
-        Uri.https('auth.atlassian.com', '/oauth/token'),
-        headers: {
-          'content-type': 'application/json',
-          'authorization':
-              'Basic ${base64Encode(utf8.encode('$clientId:${clientSecret.trim()}'))}',
-        },
-        body: jsonEncode({
-          'grant_type': 'refresh_token',
-          'client_id': clientId,
-          'client_secret': clientSecret,
-          'refresh_token': refresh,
-        }),
-      );
+      final resp = await _http
+          .post(
+            Uri.https('auth.atlassian.com', '/oauth/token'),
+            headers: {
+              'content-type': 'application/json',
+              'authorization':
+                  'Basic ${base64Encode(utf8.encode('$clientId:${clientSecret.trim()}'))}',
+            },
+            body: jsonEncode({
+              'grant_type': 'refresh_token',
+              'client_id': clientId,
+              'client_secret': clientSecret,
+              'refresh_token': refresh,
+            }),
+          )
+          .timeout(_httpTimeout);
       if (resp.statusCode < 200 || resp.statusCode >= 300) {
         AppLogger.warn(
           'Jira token refresh failed',
           tag: 'jira',
-          context: {'status': resp.statusCode, 'body': resp.body},
+          // No loguear el cuerpo completo: puede contener tokens.
+          context: {'status': resp.statusCode},
         );
         return;
       }
@@ -151,7 +157,9 @@ class JiraApiClient {
 
   Future<Map<String, dynamic>> _getJson(Uri uri) async {
     await _ensureValidAuth();
-    final resp = await _http.get(uri, headers: _authHeaders());
+    final resp = await _http
+        .get(uri, headers: _authHeaders())
+        .timeout(_httpTimeout);
     if (resp.statusCode < 200 || resp.statusCode >= 300) {
       final body = resp.body;
       final isAgile = uri.path.contains('/rest/agile/');
@@ -176,15 +184,17 @@ class JiraApiClient {
 
   Future<Map<String, dynamic>> _postJson(Uri uri, Map<String, Object?> body) async {
     await _ensureValidAuth();
-    final resp = await _http.post(
-      uri,
-      headers: {
-        ..._authHeaders(),
-        'content-type': 'application/json',
-        'accept': 'application/json',
-      },
-      body: jsonEncode(body),
-    );
+    final resp = await _http
+        .post(
+          uri,
+          headers: {
+            ..._authHeaders(),
+            'content-type': 'application/json',
+            'accept': 'application/json',
+          },
+          body: jsonEncode(body),
+        )
+        .timeout(_httpTimeout);
     if (resp.statusCode < 200 || resp.statusCode >= 300) {
       throw JiraApiException(
         'POST failed',
@@ -203,15 +213,17 @@ class JiraApiClient {
 
   Future<void> _putJson(Uri uri, Map<String, Object?> body) async {
     await _ensureValidAuth();
-    final resp = await _http.put(
-      uri,
-      headers: {
-        ..._authHeaders(),
-        'content-type': 'application/json',
-        'accept': 'application/json',
-      },
-      body: jsonEncode(body),
-    );
+    final resp = await _http
+        .put(
+          uri,
+          headers: {
+            ..._authHeaders(),
+            'content-type': 'application/json',
+            'accept': 'application/json',
+          },
+          body: jsonEncode(body),
+        )
+        .timeout(_httpTimeout);
     if (resp.statusCode < 200 || resp.statusCode >= 300) {
       throw JiraApiException(
         'PUT failed',
@@ -226,7 +238,9 @@ class JiraApiClient {
   Future<void> deleteIssue(String issueIdOrKey) async {
     await _ensureValidAuth();
     final uri = _restBase().replace(path: '${_restBase().path}/issue/$issueIdOrKey');
-    final resp = await _http.delete(uri, headers: _authHeaders());
+    final resp = await _http
+        .delete(uri, headers: _authHeaders())
+        .timeout(_httpTimeout);
     if (resp.statusCode < 200 || resp.statusCode >= 300) {
       throw JiraApiException(
         'DELETE issue failed',
@@ -378,7 +392,9 @@ class JiraApiClient {
   Future<List<JiraFieldMeta>> listFields() async {
     final uri = _restBase().replace(path: '${_restBase().path}/field');
     await _ensureValidAuth();
-    final resp = await _http.get(uri, headers: _authHeaders());
+    final resp = await _http
+        .get(uri, headers: _authHeaders())
+        .timeout(_httpTimeout);
     if (resp.statusCode < 200 || resp.statusCode >= 300) {
       throw JiraApiException(
         'GET /field failed',
@@ -436,7 +452,9 @@ class JiraApiClient {
       path: '${_restBase().path}/issue/$issueIdOrKey/comment/$commentId',
     );
     await _ensureValidAuth();
-    final resp = await _http.delete(uri, headers: _authHeaders());
+    final resp = await _http
+        .delete(uri, headers: _authHeaders())
+        .timeout(_httpTimeout);
     if (resp.statusCode < 200 || resp.statusCode >= 300) {
       throw JiraApiException(
         'DELETE comment failed',
@@ -649,7 +667,9 @@ class JiraApiClient {
       // Fallback a Server/DC: /project devuelve una lista.
       await _ensureValidAuth();
       final uri = _restBase().replace(path: '${_restBase().path}/project');
-      final resp = await _http.get(uri, headers: _authHeaders());
+      final resp = await _http
+          .get(uri, headers: _authHeaders())
+          .timeout(_httpTimeout);
       if (resp.statusCode < 200 || resp.statusCode >= 300) {
         throw JiraApiException(
           'GET projects failed',

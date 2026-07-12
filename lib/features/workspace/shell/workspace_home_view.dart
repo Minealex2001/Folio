@@ -1514,40 +1514,46 @@ class _WorkspaceHomeViewState extends State<WorkspaceHomeView> {
               v.visitedAtMs,
             );
             final openedStr = dateTimeMedium.format(opened);
-            return ListTile(
-              contentPadding: const EdgeInsets.symmetric(
-                horizontal: FolioSpace.sm,
-                vertical: FolioSpace.xs,
-              ),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(FolioRadius.md),
-              ),
-              tileColor: scheme.surfaceContainerHigh,
-              leading: FolioIconTokenView(
-                appSettings: widget.appSettings,
-                token: page.emoji,
-                fallbackText: '📄',
-                size: 28,
-              ),
-              title: Text(
-                page.title.trim().isEmpty ? l10n.untitled : page.title,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: textTheme.titleSmall?.copyWith(
-                  fontWeight: FontWeight.w600,
+            // Material propio: evita "ListTile background color or ink
+            // splashes may be invisible" cuando hay un contenedor con color
+            // entre el tile y el Material ancestro.
+            return Material(
+              type: MaterialType.transparency,
+              child: ListTile(
+                contentPadding: const EdgeInsets.symmetric(
+                  horizontal: FolioSpace.sm,
+                  vertical: FolioSpace.xs,
                 ),
-              ),
-              subtitle: Text(
-                l10n.workspaceHomeVisitedAt(openedStr),
-                style: textTheme.labelSmall?.copyWith(
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(FolioRadius.md),
+                ),
+                tileColor: scheme.surfaceContainerHigh,
+                leading: FolioIconTokenView(
+                  appSettings: widget.appSettings,
+                  token: page.emoji,
+                  fallbackText: '📄',
+                  size: 28,
+                ),
+                title: Text(
+                  page.title.trim().isEmpty ? l10n.untitled : page.title,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: textTheme.titleSmall?.copyWith(
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                subtitle: Text(
+                  l10n.workspaceHomeVisitedAt(openedStr),
+                  style: textTheme.labelSmall?.copyWith(
+                    color: scheme.onSurfaceVariant,
+                  ),
+                ),
+                trailing: Icon(
+                  Icons.chevron_right_rounded,
                   color: scheme.onSurfaceVariant,
                 ),
+                onTap: () => widget.onSelectPage(page.id),
               ),
-              trailing: Icon(
-                Icons.chevron_right_rounded,
-                color: scheme.onSurfaceVariant,
-              ),
-              onTap: () => widget.onSelectPage(page.id),
             );
           }),
       ],
@@ -1877,44 +1883,52 @@ class _WorkspaceHomeViewState extends State<WorkspaceHomeView> {
                     ...upcoming.map((e) {
                       final day = _taskDueDay(e)!;
                       final dueLabel = DateFormat.MMMd(locale).format(day);
-                      return ListTile(
-                        contentPadding: const EdgeInsets.symmetric(
-                          horizontal: FolioSpace.sm,
-                          vertical: FolioSpace.xs,
-                        ),
-                        dense: true,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(FolioRadius.md),
-                        ),
-                        tileColor: scheme.surfaceContainerHighest
-                            .withValues(alpha: 0.35),
-                        title: Text(
-                          e.displayTitle.isEmpty ? l10n.none : e.displayTitle,
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                          style: theme.textTheme.bodyMedium?.copyWith(
-                            fontWeight: FontWeight.w600,
+                      // Material propio: evita el error de fondo invisible
+                      // del ListTile con tileColor (ver _buildRecentsSection).
+                      return Material(
+                        type: MaterialType.transparency,
+                        child: ListTile(
+                          contentPadding: const EdgeInsets.symmetric(
+                            horizontal: FolioSpace.sm,
+                            vertical: FolioSpace.xs,
                           ),
-                        ),
-                        subtitle: Text(
-                          '${e.pageTitle} · $dueLabel',
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: theme.textTheme.labelSmall?.copyWith(
-                            color: scheme.onSurfaceVariant,
+                          dense: true,
+                          shape: RoundedRectangleBorder(
+                            borderRadius:
+                                BorderRadius.circular(FolioRadius.md),
                           ),
+                          tileColor: scheme.surfaceContainerHighest
+                              .withValues(alpha: 0.35),
+                          title: Text(
+                            e.displayTitle.isEmpty
+                                ? l10n.none
+                                : e.displayTitle,
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                            style: theme.textTheme.bodyMedium?.copyWith(
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                          subtitle: Text(
+                            '${e.pageTitle} · $dueLabel',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: theme.textTheme.labelSmall?.copyWith(
+                              color: scheme.onSurfaceVariant,
+                            ),
+                          ),
+                          trailing: Icon(
+                            Icons.event_rounded,
+                            size: 20,
+                            color: scheme.tertiary,
+                          ),
+                          onTap: widget.onOpenTaskInPage == null
+                              ? null
+                              : () => widget.onOpenTaskInPage!(
+                                    e.pageId,
+                                    e.blockId,
+                                  ),
                         ),
-                        trailing: Icon(
-                          Icons.event_rounded,
-                          size: 20,
-                          color: scheme.tertiary,
-                        ),
-                        onTap: widget.onOpenTaskInPage == null
-                            ? null
-                            : () => widget.onOpenTaskInPage!(
-                                  e.pageId,
-                                  e.blockId,
-                                ),
                       );
                     }),
                   if (showAiChip) ...[

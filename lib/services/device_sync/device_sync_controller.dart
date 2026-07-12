@@ -3,11 +3,13 @@ import 'dart:convert';
 import 'dart:io';
 import 'dart:math';
 
+import 'package:cryptography/cryptography.dart';
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../app/app_settings.dart';
 import '../platform/android_multicast_lock.dart';
+import 'device_sync_crypto.dart';
 import 'device_sync_models.dart';
 
 class _PendingPairAck {
@@ -47,6 +49,7 @@ class DeviceSyncController extends ChangeNotifier {
   final Future<bool> Function(List<int> snapshot, String fromPeerId)?
   _onImportSnapshot;
   final Random _random = Random.secure();
+  final DeviceSyncCrypto _crypto = DeviceSyncCrypto();
   static const String _pairedPeersKey = 'folio_device_sync_paired_peers_v1';
   static const int _discoveryPort = 45839;
   static const int _syncStreamPort = 45840;
@@ -138,6 +141,7 @@ class DeviceSyncController extends ChangeNotifier {
     if (_state != SyncControllerState.stopped) return;
     _state = SyncControllerState.searching;
     notifyListeners();
+    await _crypto.ensureKeyPair();
     await AndroidMulticastLock.acquire();
     final discoveryOk = await _startUdpDiscovery();
     if (!discoveryOk) {
@@ -618,6 +622,7 @@ class DeviceSyncController extends ChangeNotifier {
     _peerLastUdpHost[deviceId] = remoteHost;
     final deviceName = (map['deviceName'] as String? ?? '').trim();
     final pairingCode = _stringField(map, 'pairingCode');
+    final pubKey = _stringField(map, 'pubKey');
     final now = DateTime.now().millisecondsSinceEpoch;
     _discoveredById[deviceId] = SyncPeer(
       peerId: deviceId,
@@ -628,7 +633,9 @@ class DeviceSyncController extends ChangeNotifier {
       paired: _peers.any((peer) => peer.peerId == deviceId),
       source: SyncPeerDiscoverySource.localDiscovery,
       pairingCode: pairingCode.isEmpty ? null : pairingCode,
+      publicKeyB64: pubKey.isEmpty ? null : pubKey,
     );
+    _maybePinPeerPublicKey(deviceId, pubKey);
     if (_state == SyncControllerState.searching) {
       _state = SyncControllerState.active;
     }
@@ -943,6 +950,7 @@ class DeviceSyncController extends ChangeNotifier {
         lastSeenAtMs: DateTime.now().millisecondsSinceEpoch,
         paired: true,
         source: SyncPeerDiscoverySource.localDiscovery,
+        publicKeyB64: _discoveredById[peerId]?.publicKeyB64,
       ),
     );
     _broadcastHello();
@@ -1044,6 +1052,7 @@ class DeviceSyncController extends ChangeNotifier {
         lastSeenAtMs: DateTime.now().millisecondsSinceEpoch,
         paired: true,
         source: SyncPeerDiscoverySource.localDiscovery,
+        publicKeyB64: _discoveredById[fromDeviceId]?.publicKeyB64,
       ),
     );
     if (_pendingSnapshotPushPeers.contains(fromDeviceId)) {
@@ -1061,6 +1070,7 @@ class DeviceSyncController extends ChangeNotifier {
       'deviceId': _settings.syncDeviceId,
       'deviceName': _settings.syncDeviceName,
       'pairingCode': pairingCode,
+      'pubKey': _crypto.publicKeyB64,
       'helloReply': false,
       'ts': DateTime.now().millisecondsSinceEpoch,
     };
@@ -1077,6 +1087,7 @@ class DeviceSyncController extends ChangeNotifier {
       'deviceId': _settings.syncDeviceId,
       'deviceName': _settings.syncDeviceName,
       'pairingCode': pairingCode,
+      'pubKey': _crypto.publicKeyB64,
       'helloReply': true,
       'ts': DateTime.now().millisecondsSinceEpoch,
     };
@@ -1145,16 +1156,35 @@ class DeviceSyncController extends ChangeNotifier {
         if (toDeviceId != _settings.syncDeviceId) return;
         final fromDeviceId = _stringField(raw, 'fromDeviceId');
         final requestId = _stringField(raw, 'requestId');
-        final exporter = _onExportSnapshot;
-        final snapshot = exporter == null ? null : await exporter();
-        final ok = snapshot != null && snapshot.isNotEmpty;
+        // Seguridad: solo peers emparejados con clave anclada, y la petición
+        // debe demostrar posesión de la clave compartida (campo `auth`).
+        final sharedKey = await _sharedKeyForPairedPeer(fromDeviceId);
+        final authOk =
+            sharedKey != null &&
+            await _verifySnapshotAuth(
+              raw,
+              sharedKey: sharedKey,
+              expectedRequestId: requestId,
+            );
+        List<int>? snapshot;
+        if (authOk) {
+          final exporter = _onExportSnapshot;
+          snapshot = exporter == null ? null : await exporter();
+        }
+        String? snapshotEnc;
+        if (sharedKey != null && snapshot != null && snapshot.isNotEmpty) {
+          snapshotEnc = await _crypto.sealB64(
+            DeviceSyncCrypto.packTimestampEnvelope(snapshot),
+            sharedKey,
+          );
+        }
         final response = <String, Object?>{
           'type': 'folio.sync.snapshot_response',
           'requestId': requestId,
           'toDeviceId': fromDeviceId,
           'fromDeviceId': _settings.syncDeviceId,
-          'ok': ok,
-          if (ok) 'snapshotB64': base64Encode(snapshot),
+          'ok': snapshotEnc != null,
+          if (snapshotEnc != null) 'snapshotEnc': snapshotEnc,
         };
         socket.write('${jsonEncode(response)}\n');
         await socket.flush();
@@ -1165,15 +1195,19 @@ class DeviceSyncController extends ChangeNotifier {
         if (toDeviceId != _settings.syncDeviceId) return;
         final fromDeviceId = _stringField(raw, 'fromDeviceId');
         final requestId = _stringField(raw, 'requestId');
-        final snapshotB64 = _stringField(raw, 'snapshotB64');
+        final snapshotEnc = _stringField(raw, 'snapshotEnc');
         final importer = _onImportSnapshot;
         var ok = false;
-        if (importer != null &&
-            snapshotB64.isNotEmpty &&
-            fromDeviceId.isNotEmpty) {
+        // Seguridad: solo se aceptan snapshots cifrados con la clave del
+        // canal de un peer emparejado; abrir el blob autentica al emisor.
+        final sharedKey = await _sharedKeyForPairedPeer(fromDeviceId);
+        if (importer != null && snapshotEnc.isNotEmpty && sharedKey != null) {
           try {
-            final bytes = base64Decode(snapshotB64);
-            ok = await importer(bytes, fromDeviceId);
+            final envelope = await _crypto.openB64(snapshotEnc, sharedKey);
+            final bytes = DeviceSyncCrypto.unpackTimestampEnvelope(envelope);
+            if (bytes != null && bytes.isNotEmpty) {
+              ok = await importer(bytes, fromDeviceId);
+            }
             if (ok) {
               await _settings.setSyncLastSuccessMs(
                 DateTime.now().millisecondsSinceEpoch,
@@ -1202,6 +1236,37 @@ class DeviceSyncController extends ChangeNotifier {
     }
   }
 
+  /// Clave de canal con un peer emparejado con clave anclada, o `null`.
+  Future<SecretKey?> _sharedKeyForPairedPeer(String peerId) async {
+    if (peerId.isEmpty) return null;
+    final pinned = _pinnedKeyForPeer(peerId);
+    if (pinned == null) return null;
+    try {
+      return await _crypto.sharedKeyWith(pinned);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// Verifica el campo `auth` de una petición de snapshot: un sobre cifrado
+  /// con la clave compartida cuyo contenido es el `requestId` con timestamp.
+  Future<bool> _verifySnapshotAuth(
+    Map raw, {
+    required SecretKey sharedKey,
+    required String expectedRequestId,
+  }) async {
+    final auth = _stringField(raw, 'auth');
+    if (auth.isEmpty || expectedRequestId.isEmpty) return false;
+    try {
+      final envelope = await _crypto.openB64(auth, sharedKey);
+      final body = DeviceSyncCrypto.unpackTimestampEnvelope(envelope);
+      if (body == null) return false;
+      return utf8.decode(body) == expectedRequestId;
+    } catch (_) {
+      return false;
+    }
+  }
+
   Future<void> _maybePullSnapshotFromPeer(
     String peerId, {
     bool force = false,
@@ -1218,6 +1283,10 @@ class DeviceSyncController extends ChangeNotifier {
     }
     _lastSnapshotPullByPeer[peerId] = now;
 
+    // Seguridad: sin clave de canal no se sincroniza (peer sin anclar).
+    final sharedKey = await _sharedKeyForPairedPeer(peerId);
+    if (sharedKey == null) return;
+
     final requestId = _generateToken(12);
     Socket? socket;
     try {
@@ -1231,6 +1300,10 @@ class DeviceSyncController extends ChangeNotifier {
         'requestId': requestId,
         'toDeviceId': peerId,
         'fromDeviceId': _settings.syncDeviceId,
+        'auth': await _crypto.sealB64(
+          DeviceSyncCrypto.packTimestampEnvelope(utf8.encode(requestId)),
+          sharedKey,
+        ),
       };
       socket.write('${jsonEncode(request)}\n');
       await socket.flush();
@@ -1246,9 +1319,11 @@ class DeviceSyncController extends ChangeNotifier {
       if (_stringField(raw, 'toDeviceId') != _settings.syncDeviceId) return;
       if (_stringField(raw, 'fromDeviceId') != peerId) return;
       if (raw['ok'] != true) return;
-      final snapshotB64 = _stringField(raw, 'snapshotB64');
-      if (snapshotB64.isEmpty) return;
-      final bytes = base64Decode(snapshotB64);
+      final snapshotEnc = _stringField(raw, 'snapshotEnc');
+      if (snapshotEnc.isEmpty) return;
+      final envelope = await _crypto.openB64(snapshotEnc, sharedKey);
+      final bytes = DeviceSyncCrypto.unpackTimestampEnvelope(envelope);
+      if (bytes == null || bytes.isEmpty) return;
       final applied = await importer(bytes, peerId);
       if (applied) {
         await _settings.setSyncLastSuccessMs(
@@ -1268,6 +1343,9 @@ class DeviceSyncController extends ChangeNotifier {
     final host = _peerLastUdpHost[peerId];
     final exporter = _onExportSnapshot;
     if (host == null || exporter == null) return false;
+    // Seguridad: sin clave de canal no se sincroniza (peer sin anclar).
+    final sharedKey = await _sharedKeyForPairedPeer(peerId);
+    if (sharedKey == null) return false;
     final snapshot = await exporter();
     if (snapshot == null || snapshot.isEmpty) return false;
     final requestId = _generateToken(12);
@@ -1283,7 +1361,10 @@ class DeviceSyncController extends ChangeNotifier {
         'requestId': requestId,
         'toDeviceId': peerId,
         'fromDeviceId': _settings.syncDeviceId,
-        'snapshotB64': base64Encode(snapshot),
+        'snapshotEnc': await _crypto.sealB64(
+          DeviceSyncCrypto.packTimestampEnvelope(snapshot),
+          sharedKey,
+        ),
       };
       socket.write('${jsonEncode(request)}\n');
       await socket.flush();
@@ -1353,13 +1434,55 @@ class DeviceSyncController extends ChangeNotifier {
     }
   }
 
+  /// Clave pública anclada del peer emparejado, o `null` si no hay.
+  String? _pinnedKeyForPeer(String peerId) {
+    for (final peer in _peers) {
+      if (peer.peerId == peerId && peer.paired) {
+        final key = (peer.publicKeyB64 ?? '').trim();
+        return key.isEmpty ? null : key;
+      }
+    }
+    return null;
+  }
+
+  /// Ancla (trust-on-first-use) la clave pública de un peer ya emparejado que
+  /// aún no tenga clave fijada (p. ej. emparejamientos de versiones antiguas).
+  /// Si el peer ya tiene clave anclada y llega otra distinta, se ignora y se
+  /// avisa: puede ser un intento de suplantación.
+  void _maybePinPeerPublicKey(String peerId, String pubKey) {
+    if (pubKey.isEmpty) return;
+    final index = _peers.indexWhere(
+      (peer) => peer.peerId == peerId && peer.paired,
+    );
+    if (index == -1) return;
+    final current = (_peers[index].publicKeyB64 ?? '').trim();
+    if (current.isEmpty) {
+      _peers[index] = _peers[index].copyWith(publicKeyB64: pubKey);
+      unawaited(_persistPeers());
+      return;
+    }
+    if (current != pubKey) {
+      _onEvent?.call(
+        _localized(
+          'Aviso de seguridad: la clave del dispositivo "${_peers[index].deviceName}" cambio. Sincronizacion pausada con ese equipo; vuelve a vincularlo si confias en el cambio.',
+          'Security notice: the key for device "${_peers[index].deviceName}" changed. Sync with that device is paused; re-link it if you trust the change.',
+        ),
+      );
+    }
+  }
+
   void _upsertPeer(SyncPeer peer) {
     final index = _peers.indexWhere((item) => item.peerId == peer.peerId);
     if (index == -1) {
       _peers.add(peer);
       return;
     }
-    _peers[index] = peer;
+    // Conserva la clave anclada si la actualización no trae una nueva.
+    final existingKey = (_peers[index].publicKeyB64 ?? '').trim();
+    final incomingKey = (peer.publicKeyB64 ?? '').trim();
+    _peers[index] = incomingKey.isEmpty && existingKey.isNotEmpty
+        ? peer.copyWith(publicKeyB64: existingKey)
+        : peer;
   }
 
   Future<void> _markPeerPaired(SyncPeer peer) async {

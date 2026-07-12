@@ -28,6 +28,7 @@ class BlockEditorState extends State<BlockEditor> with _BlockRowBuild {
   /// Se usa para vaciar cambios pendientes antes de descartar el debounce
   /// (cambio de página, bloqueo del vault, teardown de controllers).
   final Map<String, void Function()> _quillPersistByBlockId = {};
+  final Map<String, void Function()> _quillFlushNowByBlockId = {};
   Timer? _quillCopilotProbeTimer;
   final Map<String, String> _quillLastMdByBlockId = {};
   /// [QuillEditor.basic] crea un [ScrollController] por defecto; sin reutilizarlo,
@@ -440,6 +441,8 @@ class BlockEditorState extends State<BlockEditor> with _BlockRowBuild {
       });
     }
 
+    _quillFlushNowByBlockId[block.id] = flushNow;
+
     void listener() {
       if (!mounted) return;
       final idx = _controllerBlockIds.indexOf(block.id);
@@ -480,6 +483,24 @@ class BlockEditorState extends State<BlockEditor> with _BlockRowBuild {
     return qc;
   }
 
+  /// Offset del caret en texto plano para un bloque (Quill si aplica).
+  int _liveCaretPlainOffset(String blockId, {int fallback = 0}) {
+    final qc = _quillByBlockId[blockId];
+    if (qc != null && qc.selection.isValid) {
+      final plain = qc.document.toPlainText();
+      return qc.selection.baseOffset.clamp(0, plain.length);
+    }
+    final idx = _controllerBlockIds.indexOf(blockId);
+    if (idx >= 0 && idx < _controllers.length) {
+      final c = _controllers[idx];
+      if (c.selection.isValid) {
+        return c.selection.baseOffset.clamp(0, c.text.length);
+      }
+      return c.text.length;
+    }
+    return fallback;
+  }
+
   /// Longitud del cursor para posicionar el caret tras un merge. En bloques
   /// WYSIWYG usa la longitud de texto plano del documento Quill (no la del
   /// Markdown, que difiere si hay formato inline).
@@ -501,12 +522,14 @@ class BlockEditorState extends State<BlockEditor> with _BlockRowBuild {
     final timer = _quillDebounceByBlockId[blockId];
     if (timer == null || !timer.isActive) return;
     timer.cancel();
-    _quillPersistByBlockId[blockId]?.call();
+    _quillDebounceByBlockId.remove(blockId);
+    _quillFlushNowByBlockId[blockId]?.call();
   }
 
   void _disposeQuillFor(String blockId) {
     _quillDebounceByBlockId.remove(blockId)?.cancel();
     _quillPersistByBlockId.remove(blockId);
+    _quillFlushNowByBlockId.remove(blockId);
     final qc = _quillByBlockId.remove(blockId);
     qc?.dispose();
     _quillLastMdByBlockId.remove(blockId);
@@ -537,13 +560,19 @@ class BlockEditorState extends State<BlockEditor> with _BlockRowBuild {
       i++
     ) {
       if (_focusNodes[i].hasFocus) {
-        focusId = _controllerBlockIds[i];
-        focusOff = _controllers[i].selection.baseOffset.clamp(
-          0,
-          _controllers[i].text.length,
-        );
+        final id = _controllerBlockIds[i];
+        focusId = id;
+        _flushPendingQuill(id);
+        focusOff = _liveCaretPlainOffset(id);
         break;
       }
+    }
+    if (focusId == null &&
+        _stylableBlockTypes.contains(last.type) &&
+        last.text.trim().isNotEmpty) {
+      _flushPendingQuill(last.id);
+      focusId = last.id;
+      focusOff = _liveCaretPlainOffset(last.id);
     }
     if (focusId != null) {
       _pendingFocusBlockId = focusId;
@@ -1698,6 +1727,25 @@ class BlockEditorState extends State<BlockEditor> with _BlockRowBuild {
       if (!_stylableBlockTypes.contains(b.type)) continue;
       final qc = _quillByBlockId[b.id];
       if (qc == null) continue;
+
+      final debounceActive = _quillDebounceByBlockId[b.id]?.isActive ?? false;
+      if (debounceActive) continue;
+
+      final blockIdx = page.blocks.indexWhere((x) => x.id == b.id);
+      if (blockIdx >= 0 &&
+          blockIdx < _focusNodes.length &&
+          _focusNodes[blockIdx].hasFocus) {
+        continue;
+      }
+      if (_pendingFocusBlockId == b.id) continue;
+      final pendingIdx = _pendingFocusIndex;
+      if (pendingIdx != null &&
+          pendingIdx >= 0 &&
+          pendingIdx < page.blocks.length &&
+          page.blocks[pendingIdx].id == b.id) {
+        continue;
+      }
+
       final last = _quillLastMdByBlockId[b.id];
       if (last == b.text) continue;
       if (last != null &&
@@ -1718,6 +1766,15 @@ class BlockEditorState extends State<BlockEditor> with _BlockRowBuild {
         final at = o.clamp(0, newPlain.length);
         qc.updateSelection(
           TextSelection.collapsed(offset: at),
+          quill.ChangeSource.remote,
+        );
+      } else if (newPlain.trim().isNotEmpty) {
+        var end = newPlain.length;
+        if (newPlain.endsWith('\n') && end > 0) {
+          end -= 1;
+        }
+        qc.updateSelection(
+          TextSelection.collapsed(offset: end),
           quill.ChangeSource.remote,
         );
       }
@@ -1756,8 +1813,19 @@ class BlockEditorState extends State<BlockEditor> with _BlockRowBuild {
       if (_stylableBlockTypes.contains(block.type)) {
         final qc = _quillByBlockId[bid];
         if (qc != null) {
-          final plainLen = qc.document.toPlainText().length;
-          final o = (off ?? plainLen).clamp(0, plainLen);
+          var plain = qc.document.toPlainText();
+          final plainLen = plain.length;
+          var plainContentLen = plainLen;
+          if (plain.endsWith('\n') && plainContentLen > 0) {
+            plainContentLen -= 1;
+          }
+          final liveOff = _focusNodes[iFocus].hasFocus && qc.selection.isValid
+              ? qc.selection.baseOffset.clamp(0, plainLen)
+              : null;
+          var o = (liveOff ?? off ?? plainContentLen).clamp(0, plainLen);
+          if (o == 0 && plainContentLen > 0 && liveOff == null) {
+            o = plainContentLen;
+          }
           qc.updateSelection(
             TextSelection.collapsed(offset: o),
             quill.ChangeSource.remote,
@@ -3319,6 +3387,7 @@ class BlockEditorState extends State<BlockEditor> with _BlockRowBuild {
       _quillByBlockId.clear();
       _quillDebounceByBlockId.clear();
       _quillPersistByBlockId.clear();
+      _quillFlushNowByBlockId.clear();
     });
   }
 
@@ -3779,10 +3848,7 @@ class BlockEditorState extends State<BlockEditor> with _BlockRowBuild {
       final j = page.blocks.indexWhere((b) => b.id == pendingBlockId);
       if (j >= 0) {
         focusIdx = j;
-        focusOff ??= _controllers[j].selection.baseOffset.clamp(
-          0,
-          _controllers[j].text.length,
-        );
+        focusOff ??= _liveCaretPlainOffset(pendingBlockId);
       }
     }
 
@@ -3793,6 +3859,11 @@ class BlockEditorState extends State<BlockEditor> with _BlockRowBuild {
         idxToFocus < _focusNodes.length) {
       _pendingFocusIndex = idxToFocus;
       _pendingCursorOffset = offToFocus;
+      if (pendingBlockId != null) {
+        _pendingFocusBlockId = pendingBlockId;
+      } else if (idxToFocus < page.blocks.length) {
+        _pendingFocusBlockId = page.blocks[idxToFocus].id;
+      }
     }
   }
 
@@ -3898,6 +3969,103 @@ class BlockEditorState extends State<BlockEditor> with _BlockRowBuild {
     _selectionActiveBlockId = bid;
     setState(() {});
     _updateFormatToolbarOverlay();
+  }
+
+  /// Solo pruebas: offset del caret en texto plano del bloque Quill activo.
+  @visibleForTesting
+  int? debugLiveQuillCaretOffsetForBlock(String blockId) {
+    final page = _s.selectedPage;
+    if (page == null) return null;
+    FolioBlock? block;
+    for (final b in page.blocks) {
+      if (b.id == blockId) {
+        block = b;
+        break;
+      }
+    }
+    if (block == null || !_stylableBlockTypes.contains(block.type)) return null;
+    if (!_quillByBlockId.containsKey(blockId)) {
+      _ensureQuillController(pageId: page.id, block: block);
+    }
+    return _liveCaretPlainOffset(blockId);
+  }
+
+  /// Solo pruebas: escribe texto en un bloque Quill y vacía el debounce.
+  @visibleForTesting
+  void debugSimulateQuillTypingForTest(String blockId, String text) {
+    final page = _s.selectedPage;
+    if (page == null || text.isEmpty) return;
+    FolioBlock? block;
+    for (final b in page.blocks) {
+      if (b.id == blockId) {
+        block = b;
+        break;
+      }
+    }
+    if (block == null || !_stylableBlockTypes.contains(block.type)) return;
+    final qc = _ensureQuillController(pageId: page.id, block: block);
+    var plain = qc.document.toPlainText();
+    if (plain.endsWith('\n')) {
+      plain = plain.substring(0, plain.length - 1);
+    }
+    final offset = qc.selection.isValid
+        ? qc.selection.baseOffset.clamp(0, plain.length)
+        : plain.length;
+    qc.replaceText(offset, 0, text, null);
+    final after = qc.document.toPlainText();
+    var end = after.length;
+    if (after.endsWith('\n') && end > 0) {
+      end -= 1;
+    }
+    qc.updateSelection(
+      TextSelection.collapsed(offset: end),
+      quill.ChangeSource.local,
+    );
+    _quillFlushNowByBlockId[blockId]?.call();
+  }
+
+  /// Solo pruebas: prepara centinela sin ejecutar el post-frame de foco.
+  @visibleForTesting
+  int? debugPrepareTrailingSentinelCaretTest(String blockId) {
+    final page = _s.selectedPage;
+    if (page == null) return null;
+    FolioBlock? block;
+    for (final b in page.blocks) {
+      if (b.id == blockId) {
+        block = b;
+        break;
+      }
+    }
+    if (block == null || !_stylableBlockTypes.contains(block.type)) return null;
+    final qc = _ensureQuillController(pageId: page.id, block: block);
+    final idx = page.blocks.indexWhere((b) => b.id == blockId);
+    if (idx >= 0 && idx < _focusNodes.length) {
+      _focusNodes[idx].requestFocus();
+    }
+    qc.replaceText(0, 0, 'hola', null);
+    qc.updateSelection(
+      const TextSelection.collapsed(offset: 4),
+      quill.ChangeSource.local,
+    );
+    _quillFlushNowByBlockId[blockId]?.call();
+    if (!_ensureTrailingSentinel(page)) {
+      final pageAfter = _s.selectedPage;
+      if (pageAfter != null && _controllersMismatchPage(pageAfter)) {
+        if (_canReorderControllersOnly(pageAfter)) {
+          _reorderControllersLikePage(pageAfter);
+        } else {
+          _syncControllers();
+        }
+      }
+    }
+    return _pendingCursorOffset;
+  }
+
+  @visibleForTesting
+  int? debugQuillRawCaretForTest(String blockId) {
+    final qc = _quillByBlockId[blockId];
+    if (qc == null || !qc.selection.isValid) return null;
+    return qc.selection.baseOffset;
   }
 
   /// Solo pruebas: misma inserción que Enter / Ctrl+Enter en el bloque enfocado.

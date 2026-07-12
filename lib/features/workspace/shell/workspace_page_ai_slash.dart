@@ -40,6 +40,12 @@ extension _WorkspacePageAiSlashModule on _WorkspacePageState {
             ? 'Mejora redacción, claridad y tono profesional sin cambiar el significado:\n\n$body'
             : 'Improve wording, clarity, and professional tone without changing meaning:\n\n$body';
       case AiSlashIntent.translate:
+        final pageLevel = body.trim().isEmpty;
+        if (pageLevel) {
+          return isEs
+              ? 'Traduce la página abierta en modo bilingüe: inserta cada bloque traducido justo después del original en la misma página. No crees una página nueva.\n\n$body'
+              : 'Translate the open page in bilingual mode: insert each translated block right after the original on the same page. Do not create a new page.\n\n$body';
+        }
         return isEs
             ? 'Traduce el siguiente texto al idioma del usuario salvo que pida otro explícitamente:\n\n$body'
             : 'Translate the following into the user’s language unless another is explicitly requested:\n\n$body';

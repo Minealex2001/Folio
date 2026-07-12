@@ -88,7 +88,10 @@ extension VaultSessionAi on VaultSession {
         '- ${isEs ? 'Si el contexto de páginas está desactivado, no cites notas existentes; aun así puedes usar create_page cuando el usuario pida crear una página nueva.' : 'If page context is disabled, do not reference existing notes; you may still use create_page when the user asks for a new page.'}',
       )
       ..writeln(
-        '- ${isEs ? 'Prioridad de decision: create_page > edit_current > append/replace/summarize > chat.' : 'Decision priority: create_page > edit_current > append/replace/summarize > chat.'}',
+        '- ${isEs ? 'Si el usuario pide traducir la página abierta e insertar cada bloque traducido justo después del original (bilingüe, mismo sitio), usa edit_current con operations insert_after por cada blockId; NUNCA uses create_page ni append_current al final.' : 'If the user asks to translate the open page and insert each translated block right after the original (bilingual, same place), use edit_current with insert_after operations per blockId; NEVER use create_page or append_current at the end.'}',
+      )
+      ..writeln(
+        '- ${isEs ? 'Prioridad de decision: si el usuario referencia la pagina abierta para transformar/traducir in-place, edit_current/replace_current > create_page; si pide nota nueva explicita, create_page > edit_current > append/replace/summarize > chat.' : 'Decision priority: if the user references the open page for in-place transform/translate, edit_current/replace_current > create_page; if they explicitly ask for a new note, create_page > edit_current > append/replace/summarize > chat.'}',
       )
       ..writeln(
         '- ${isEs ? 'Si el usuario pide crear una nota/pagina nueva, usa create_page.' : 'If the user asks to create a new note/page, use create_page.'}',
@@ -323,6 +326,86 @@ extension VaultSessionAi on VaultSession {
       ),
     );
     return (text: result.text.trim(), usage: result.usage);
+  }
+
+  Future<({int insertedCount, AiTokenUsage? usage})> translatePageBilinguallyWithAi({
+    required String pageId,
+    required String prompt,
+    List<AiFileAttachment> attachments = const [],
+    String languageCode = 'es',
+  }) async {
+    if (_state != VaultFlowState.unlocked ||
+        (vaultUsesEncryption && _dek == null)) {
+      throw StateError('Debes desbloquear la libreta para usar IA.');
+    }
+    final ai = _aiService;
+    if (ai == null) throw StateError('IA no configurada.');
+    final page = _pageById(pageId);
+    if (page == null) throw StateError('Página no encontrada.');
+
+    final sourceBlocks = <Map<String, dynamic>>[];
+    for (final b in page.blocks) {
+      if (!QuillToolExecutor.translatableBlockTypes.contains(b.type)) continue;
+      final text = b.text.trim();
+      if (text.isEmpty) continue;
+      sourceBlocks.add({
+        'blockId': b.id,
+        'type': b.type,
+        'text': text,
+      });
+    }
+    if (sourceBlocks.isEmpty) {
+      return (insertedCount: 0, usage: null);
+    }
+
+    final isEs = languageCode.toLowerCase().startsWith('es');
+    final languageRule = _aiLanguageRule(languageCode, isEsInstruction: isEs);
+    final fullPrompt = StringBuffer()
+      ..writeln(isEs ? VaultSession._quillIdentityLeadEs : VaultSession._quillIdentityLeadEn)
+      ..writeln(languageRule)
+      ..writeln(
+        isEs
+            ? 'Traduce cada bloque de la página abierta e inserta la traducción justo después del original (modo bilingüe).'
+            : 'Translate each block of the open page and insert the translation right after the original (bilingual mode).',
+      )
+      ..writeln(
+        isEs
+            ? 'Devuelve SOLO JSON válido con forma {"translations":[{"blockId":"id_real","text":"texto traducido"},...]}.'
+            : 'Return ONLY valid JSON shaped as {"translations":[{"blockId":"real_id","text":"translated text"},...]}.',
+      )
+      ..writeln(
+        isEs
+            ? 'Usa los blockId exactos del origen. No inventes ids. Traduce todo el texto de cada bloque.'
+            : 'Use the exact source blockIds. Do not invent ids. Translate the full text of each block.',
+      )
+      ..writeln()
+      ..writeln(isEs ? 'Bloques fuente:' : 'Source blocks:')
+      ..writeln(jsonEncode(sourceBlocks))
+      ..writeln()
+      ..writeln('${isEs ? 'Solicitud del usuario' : 'User request'}: ${prompt.trim()}');
+
+    final result = await ai.complete(
+      AiCompletionRequest(
+        prompt: fullPrompt.toString().trim(),
+        model: 'auto',
+        attachments: attachments,
+        cloudInkOperation: 'translate_bilingual',
+        temperature: 0.1,
+      ),
+    );
+    final translations = _parseBilingualTranslationResponse(
+      result.text,
+      allowedBlockIds: sourceBlocks.map((b) => b['blockId'] as String).toSet(),
+    );
+    final inserted = QuillToolExecutor.insertBilingualTranslations(
+      this,
+      pageId: pageId,
+      translations: translations,
+    );
+    if (inserted > 0) {
+      scheduleSave(trackRevisionForPageId: pageId);
+    }
+    return (insertedCount: inserted, usage: result.usage);
   }
 
   Future<void> generateContentWithAi({
@@ -663,10 +746,18 @@ For images/blocks: use the + button or / command in a paragraph.
       prompt,
       languageCode: languageCode,
     );
+    final wantsBilingualTranslate =
+        scopePage != null &&
+        includePageContext &&
+        _looksLikeBilingualTranslateIntent(
+          prompt,
+          languageCode: languageCode,
+        );
     final wantsEditExistingBlocks =
         scopePage != null &&
         includePageContext &&
-        _looksLikeEditIntent(prompt, languageCode: languageCode);
+        (wantsBilingualTranslate ||
+            _looksLikeEditIntent(prompt, languageCode: languageCode));
     final promptTrimmed = prompt.trim();
     AppLogger.info(
       'Agent chat started',
@@ -678,6 +769,7 @@ For images/blocks: use the + button or / command in a paragraph.
         'contextPageCount': effectiveContextIds.length,
         'wantsSubpage': wantsSubpage,
         'wantsCreatePage': wantsCreatePage,
+        'wantsBilingualTranslate': wantsBilingualTranslate,
         'wantsEditExistingBlocks': wantsEditExistingBlocks,
         'promptPreview': promptTrimmed.length > 140
             ? '${promptTrimmed.substring(0, 140)}...'
@@ -711,6 +803,32 @@ For images/blocks: use the + button or / command in a paragraph.
     }
 
     try {
+      if (wantsBilingualTranslate && scopePage != null) {
+        final bilingual = await translatePageBilinguallyWithAi(
+          pageId: scopePage.id,
+          prompt: prompt,
+          attachments: attachments,
+          languageCode: languageCode,
+        );
+        lastUsage = bilingual.usage ?? lastUsage;
+        return finish(
+          _formatAgentDecisionReply(
+            mode: 'edit_current',
+            reason: isEs
+                ? 'Detecté traducción bilingüe en la página abierta e inserté cada bloque traducido tras el original.'
+                : 'Detected bilingual translation on the open page and inserted each translated block after the original.',
+            reply: bilingual.insertedCount > 0
+                ? (isEs
+                      ? 'He insertado ${bilingual.insertedCount} bloque(s) traducido(s) en la misma página, justo después de cada original.'
+                      : 'I inserted ${bilingual.insertedCount} translated block(s) on the same page, right after each original.')
+                : (isEs
+                      ? 'No encontré bloques con texto traducible en la página abierta.'
+                      : 'No translatable text blocks were found on the open page.'),
+            isEs: isEs,
+          ),
+        );
+      }
+
       if (wantsCreatePage) {
         if (wantsSubpage && scopePage == null) {
           return finish(
@@ -1049,6 +1167,7 @@ For images/blocks: use the + button or / command in a paragraph.
 
       if (reply.isNotEmpty) {
         if (mode == 'chat' &&
+            !wantsBilingualTranslate &&
             _looksLikeCreatePageIntent(prompt, languageCode: languageCode)) {
           if (wantsSubpage && scopePage == null) {
             return finish(
@@ -1712,6 +1831,12 @@ For images/blocks: use the + button or / command in a paragraph.
       'avoid ',
     ];
     if (negationPrefixes.any(p.startsWith)) return false;
+    if (_looksLikeBilingualTranslateIntent(
+      prompt,
+      languageCode: languageCode,
+    )) {
+      return true;
+    }
     if (_looksLikeCreatePageIntent(prompt, languageCode: languageCode)) {
       return false;
     }
@@ -1758,6 +1883,12 @@ For images/blocks: use the + button or / command in a paragraph.
     String prompt, {
     required String languageCode,
   }) {
+    if (_looksLikeBilingualTranslateIntent(
+      prompt,
+      languageCode: languageCode,
+    )) {
+      return false;
+    }
     final p = _normalizeIntentText(prompt);
     const weakConversationalStarts = [
       'que es',
@@ -1793,6 +1924,85 @@ For images/blocks: use the + button or / command in a paragraph.
         _containsIntentPhrase(p, 'from scratch') ||
         _containsIntentPhrase(p, 'desde cero');
     return hasPagina && hasCreateVerb;
+  }
+
+  bool _looksLikeBilingualTranslateIntent(
+    String prompt, {
+    required String languageCode,
+  }) {
+    final p = _normalizeIntentText(prompt);
+    const translateVerbs = [
+      'traducir',
+      'traduce',
+      'traduci',
+      'translate',
+      'translation',
+    ];
+    final hasTranslate = translateVerbs.any((v) => _containsIntentPhrase(p, v));
+    if (!hasTranslate) return false;
+
+    final hints = AiIntentHints.hintsFor(
+      intent: AiIntentHints.translateBilingual,
+      languageCode: languageCode,
+    );
+    if (hints.any((h) => _containsIntentPhrase(p, h))) return true;
+
+    final hasPageRef =
+        _containsIntentPhrase(p, 'pagina') ||
+        _containsIntentPhrase(p, 'page') ||
+        _containsIntentPhrase(p, 'nota') ||
+        _containsIntentPhrase(p, 'note');
+    final hasInPlace =
+        _containsIntentPhrase(p, 'misma') ||
+        _containsIntentPhrase(p, 'same') ||
+        _containsIntentPhrase(p, 'insert') ||
+        _containsIntentPhrase(p, 'insertar') ||
+        _containsIntentPhrase(p, 'inserta') ||
+        _containsIntentPhrase(p, 'sitio') ||
+        _containsIntentPhrase(p, 'place');
+    return hasPageRef && hasInPlace;
+  }
+
+  List<BilingualBlockTranslation> _parseBilingualTranslationResponse(
+    String raw, {
+    required Set<String> allowedBlockIds,
+  }) {
+    final out = <BilingualBlockTranslation>[];
+    dynamic decoded;
+    try {
+      decoded = jsonDecode(raw.trim());
+    } catch (_) {
+      final firstObj = raw.indexOf('{');
+      final lastObj = raw.lastIndexOf('}');
+      if (firstObj >= 0 && lastObj > firstObj) {
+        try {
+          decoded = jsonDecode(raw.substring(firstObj, lastObj + 1));
+        } catch (_) {
+          return out;
+        }
+      } else {
+        return out;
+      }
+    }
+
+    List<dynamic>? items;
+    if (decoded is Map) {
+      final list = decoded['translations'];
+      if (list is List) items = list;
+    } else if (decoded is List) {
+      items = decoded;
+    }
+    if (items == null) return out;
+
+    for (final item in items) {
+      if (item is! Map) continue;
+      final blockId = (item['blockId'] as String? ?? '').trim();
+      final text = (item['text'] as String? ?? '').trim();
+      if (blockId.isEmpty || text.isEmpty) continue;
+      if (!allowedBlockIds.contains(blockId)) continue;
+      out.add(BilingualBlockTranslation(blockId: blockId, text: text));
+    }
+    return out;
   }
 
   bool _looksLikeSubpageIntent(String prompt, {required String languageCode}) {
@@ -2637,6 +2847,24 @@ For images/blocks: use the + button or / command in a paragraph.
     String prompt, {
     String languageCode = 'es',
   }) => _looksLikeSubpageIntent(prompt, languageCode: languageCode);
+
+  @visibleForTesting
+  bool detectBilingualTranslateIntentForTesting(
+    String prompt, {
+    String languageCode = 'es',
+  }) => _looksLikeBilingualTranslateIntent(
+    prompt,
+    languageCode: languageCode,
+  );
+
+  @visibleForTesting
+  List<BilingualBlockTranslation> parseBilingualTranslationResponseForTesting(
+    String raw, {
+    Set<String> allowedBlockIds = const {},
+  }) => _parseBilingualTranslationResponse(
+    raw,
+    allowedBlockIds: allowedBlockIds,
+  );
 
   bool _aiBlockTypeAllowsEmptyText(String type, {required String url}) {
     if (type == 'divider' || type == 'table') return true;

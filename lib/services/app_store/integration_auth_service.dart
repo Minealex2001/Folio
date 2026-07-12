@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
 
@@ -8,6 +9,10 @@ import '../../models/folio_app_package.dart';
 
 const _keyOAuthTokens = 'folio_oauth_tokens';
 const _keyApiKeys = 'folio_app_api_keys';
+
+const _secureStorage = FlutterSecureStorage(
+  aOptions: AndroidOptions(encryptedSharedPreferences: true),
+);
 
 /// Estado de conexión de una integración.
 enum IntegrationAuthState { notConnected, connecting, connected, error }
@@ -28,8 +33,9 @@ class IntegrationAuthStatus {
 
 /// Gestiona tokens OAuth2 y API keys de las integraciones de apps.
 ///
-/// Los tokens se guardan en SharedPreferences (sin cifrar).
-/// TODO (seguridad): migrar a flutter_secure_storage en producción.
+/// Los tokens se guardan en el almacén seguro del SO (Keychain / Keystore /
+/// DPAPI) vía `flutter_secure_storage`. Los datos que quedaran de versiones
+/// anteriores en SharedPreferences se migran automáticamente en [load].
 class IntegrationAuthService extends ChangeNotifier {
   IntegrationAuthService._();
 
@@ -43,7 +49,12 @@ class IntegrationAuthService extends ChangeNotifier {
   final Map<String, String> _apiKeys = {};
 
   Future<void> load() async {
+    _oauthTokens.addAll(await _readSecureMap(_keyOAuthTokens));
+    _apiKeys.addAll(await _readSecureMap(_keyApiKeys));
+
+    // Migración desde SharedPreferences (versiones anteriores, sin cifrar).
     final prefs = await SharedPreferences.getInstance();
+    var migrated = false;
 
     final tokensRaw = prefs.getString(_keyOAuthTokens);
     if (tokensRaw != null) {
@@ -53,7 +64,9 @@ class IntegrationAuthService extends ChangeNotifier {
             (jsonDecode(tokensRaw) as Map).cast<String, String>(),
           ),
         );
+        migrated = true;
       } catch (_) {}
+      await prefs.remove(_keyOAuthTokens);
     }
 
     final keysRaw = prefs.getString(_keyApiKeys);
@@ -64,10 +77,29 @@ class IntegrationAuthService extends ChangeNotifier {
             (jsonDecode(keysRaw) as Map).cast<String, String>(),
           ),
         );
+        migrated = true;
       } catch (_) {}
+      await prefs.remove(_keyApiKeys);
+    }
+
+    if (migrated) {
+      await _persistTokens();
+      await _persistApiKeys();
     }
 
     notifyListeners();
+  }
+
+  static Future<Map<String, String>> _readSecureMap(String key) async {
+    try {
+      final raw = await _secureStorage.read(key: key);
+      if (raw == null || raw.isEmpty) return const {};
+      return Map<String, String>.from(
+        (jsonDecode(raw) as Map).cast<String, String>(),
+      );
+    } catch (_) {
+      return const {};
+    }
   }
 
   // ── Estado ────────────────────────────────────────────────────────────────
@@ -133,13 +165,17 @@ class IntegrationAuthService extends ChangeNotifier {
   // ── Persistencia ──────────────────────────────────────────────────────────
 
   Future<void> _persistTokens() async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString(_keyOAuthTokens, jsonEncode(_oauthTokens));
+    await _secureStorage.write(
+      key: _keyOAuthTokens,
+      value: jsonEncode(_oauthTokens),
+    );
   }
 
   Future<void> _persistApiKeys() async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString(_keyApiKeys, jsonEncode(_apiKeys));
+    await _secureStorage.write(
+      key: _keyApiKeys,
+      value: jsonEncode(_apiKeys),
+    );
   }
 
   // ── Seguridad ─────────────────────────────────────────────────────────────

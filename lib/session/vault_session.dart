@@ -54,6 +54,7 @@ import '../services/ai/ai_safety_policy.dart';
 import '../services/ai/ai_service.dart';
 import '../services/ai/ai_intent_hints.dart';
 import '../services/ai/ai_types.dart';
+import '../services/ai/quill_tools.dart';
 import '../services/integrations/integrations_markdown_codec.dart';
 import '../services/app_logger.dart';
 import '../services/quick_unlock_storage.dart';
@@ -1294,6 +1295,8 @@ class VaultSession extends ChangeNotifier {
     try {
       await extractBackupArchiveToDirectory(File(archivePath), temp);
       await validateImportZip(temp, backupPassword);
+      // Evita que un autosave pendiente pise los archivos recién importados.
+      _persistence.cancelPendingSave();
       await applyImportFromDirectory(temp);
       await bootstrap();
     } finally {
@@ -1315,6 +1318,8 @@ class VaultSession extends ChangeNotifier {
       throw StateError('La libreta debe estar desbloqueada para importar.');
     }
     await validateImportZip(extractedDir, backupPassword);
+    // Evita que un autosave pendiente pise los archivos recién importados.
+    _persistence.cancelPendingSave();
     await applyImportFromDirectory(extractedDir);
     await bootstrap();
   }
@@ -1434,9 +1439,17 @@ class VaultSession extends ChangeNotifier {
         (vaultUsesEncryption && _dek == null)) {
       throw StateError('Debes desbloquear la libreta para importar.');
     }
+    // Volcar cambios pendientes para que el backup pre-import los incluya.
+    await flushPendingSave();
     try {
       await createPreImportBackupZip();
-    } catch (_) {}
+    } catch (e) {
+      AppLogger.warn(
+        'No se pudo crear el backup pre-import',
+        tag: 'vault',
+        context: {'error': '$e'},
+      );
+    }
     final temp = await Directory.systemTemp.createTemp('folio_notion_import_');
     try {
       await extractNotionZipToDirectory(File(zipPath), temp);
@@ -1794,10 +1807,19 @@ class VaultSession extends ChangeNotifier {
 
   void onAppBackgrounded() {
     if (_state != VaultFlowState.unlocked) return;
-    unawaited(flushPendingSave());
-    if (_lockOnAppBackground) {
-      unawaited(lock());
-    }
+    // Secuencial: primero volcar cambios pendientes y solo después bloquear.
+    // Si corrieran en paralelo, lock() podría vaciar la DEK/páginas mientras
+    // el guardado aún construye el payload (riesgo de corrupción/pérdida).
+    unawaited(() async {
+      try {
+        await flushPendingSave();
+      } catch (_) {
+        // No impedir el bloqueo si el volcado falla.
+      }
+      if (_lockOnAppBackground && _state == VaultFlowState.unlocked) {
+        await lock();
+      }
+    }());
   }
 
   void _restartIdleLockTimer() {
@@ -1855,6 +1877,12 @@ class VaultSession extends ChangeNotifier {
 
   Future<void> revokePasskey() async {
     await _rp.clearPasskey();
+    // Seguridad: al revocar la passkey, la DEK de desbloqueo rápido asociada
+    // deja de ser válida; se elimina para exigir la contraseña maestra.
+    final vid = _vaultId;
+    if (vid != null && vid.isNotEmpty) {
+      await _quick.disable(vid);
+    }
     notifyListeners();
   }
 
@@ -4525,7 +4553,12 @@ class VaultSession extends ChangeNotifier {
     if (_state != VaultFlowState.unlocked) return;
     _searchIndex.rebuildFromPages(_pages);
     final id = _vaultId;
-    if (id != null) {
+    if (id == null) return;
+    if (_vaultUsesEncryption) {
+      // Seguridad: nunca persistir el índice (títulos/fragmentos en claro)
+      // de una libreta cifrada; se regenera en memoria al desbloquear.
+      unawaited(VaultSearchIndex.deleteFromVault(id));
+    } else {
       unawaited(_searchIndex.persistToVault(id));
     }
   }

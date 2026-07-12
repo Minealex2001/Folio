@@ -183,7 +183,7 @@ class _DrivePageState extends State<DrivePage> {
             ),
             FilledButton(
               onPressed: () => Navigator.of(ctx2).pop<String?>(text),
-              child: const Text('OK'),
+              child: Text(l10n.ok),
             ),
           ],
         ),
@@ -228,7 +228,7 @@ class _DrivePageState extends State<DrivePage> {
             ),
             FilledButton(
               onPressed: () => Navigator.of(ctx2).pop<String?>(text),
-              child: const Text('OK'),
+              child: Text(l10n.ok),
             ),
           ],
         ),
@@ -307,7 +307,7 @@ class _DrivePageState extends State<DrivePage> {
             ),
             FilledButton(
               onPressed: () => Navigator.of(ctx2).pop<String?>(text),
-              child: const Text('OK'),
+              child: Text(l10n.ok),
             ),
           ],
         ),
@@ -1211,7 +1211,7 @@ class _FolderContextMenuButton extends StatelessWidget {
       iconSize: 16,
       itemBuilder: (_) => [
         PopupMenuItem(value: 'rename', child: Text(l10n.rename)),
-        PopupMenuItem(value: 'color', child: const Text('Change color')),
+        PopupMenuItem(value: 'color', child: Text(l10n.driveFolderColor)),
         PopupMenuItem(value: 'delete', child: Text(l10n.driveDeleteConfirm)),
       ],
       onSelected: (v) {
@@ -1465,7 +1465,7 @@ class _FileAreaState extends State<_FileArea> {
                   visualDensity: VisualDensity.compact,
                 ),
                 icon: const Icon(Icons.close_rounded, size: 16),
-                label: const Text('Cancelar'),
+                label: Text(widget.l10n.cancel),
                 onPressed: widget.onClearMultiSelect,
               ),
             ],
@@ -1711,7 +1711,7 @@ class _FileAreaState extends State<_FileArea> {
         children: [
           SimpleDialogOption(
             onPressed: () => Navigator.pop(ctx, ''),
-            child: const Text('/ (raíz)'),
+            child: Text(l10n.driveRootPath),
           ),
           for (final f in folders)
             SimpleDialogOption(
@@ -2205,9 +2205,9 @@ class _FileContextMenuState extends State<_FileContextMenu> {
           if (widget.folders.isNotEmpty)
             PopupMenuItem(value: 'move', child: Text(widget.l10n.driveMoveTo)),
           const PopupMenuDivider(),
-          const PopupMenuItem(
+          PopupMenuItem(
             value: 'export',
-            child: Text('Exportar al disco…'),
+            child: Text(widget.l10n.driveExportToDisk),
           ),
           const PopupMenuDivider(),
           PopupMenuItem(
@@ -2250,18 +2250,18 @@ class _FileContextMenuState extends State<_FileContextMenu> {
           enabled: false,
           padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
           child: Text(
-            '¿Eliminar "${widget.entry.name}"?',
+            widget.l10n.driveDeleteEntryNamed(widget.entry.name),
             style: textTheme.bodySmall,
           ),
         ),
         PopupMenuItem<bool>(
           value: true,
           child: Text(
-            'Eliminar',
+            widget.l10n.delete,
             style: TextStyle(color: scheme.error, fontWeight: FontWeight.w600),
           ),
         ),
-        PopupMenuItem<bool>(value: false, child: const Text('Cancelar')),
+        PopupMenuItem<bool>(value: false, child: Text(widget.l10n.cancel)),
       ],
     ).then((ok) {
       if (ok == true) widget.onDelete(widget.entry);
@@ -2278,7 +2278,7 @@ class _FileContextMenuState extends State<_FileContextMenu> {
         children: [
           SimpleDialogOption(
             onPressed: () => Navigator.pop(dialogCtx, ''),
-            child: const Text('/ (root)'),
+            child: Text(widget.l10n.driveRootPath),
           ),
           for (final f in widget.folders)
             SimpleDialogOption(
@@ -2616,7 +2616,7 @@ class _DriveDetailsPanel extends StatelessWidget {
           ),
           child: Row(
             children: [
-              Text('Details', style: theme.textTheme.titleSmall),
+              Text(l10n.driveDetailsTitle, style: theme.textTheme.titleSmall),
               const Spacer(),
               IconButton(
                 icon: const Icon(Icons.close_rounded, size: 18),
@@ -2673,14 +2673,16 @@ class _DriveDetailsPanel extends StatelessWidget {
               const Divider(),
               // Details rows.
               _DetailRow(
-                label: 'Type',
-                value: isFolder ? 'Folder' : _fileTypeName(entry!.fileType),
+                label: l10n.driveDetailType,
+                value: isFolder
+                    ? l10n.driveDetailFolderType
+                    : _fileTypeName(l10n, entry!.fileType),
                 scheme: scheme,
                 theme: theme,
               ),
               if (entry != null) ...[
                 _DetailRow(
-                  label: 'Size',
+                  label: l10n.driveDetailSize,
                   value: entry.sizeBytes != null
                       ? _formatSize(entry.sizeBytes!)
                       : '—',
@@ -2688,7 +2690,7 @@ class _DriveDetailsPanel extends StatelessWidget {
                   theme: theme,
                 ),
                 _DetailRow(
-                  label: 'Added',
+                  label: l10n.driveDetailAdded,
                   value: entry.addedAtMs != null
                       ? DateFormat('MMM d, yyyy').format(
                           DateTime.fromMillisecondsSinceEpoch(entry.addedAtMs!),
@@ -2698,17 +2700,17 @@ class _DriveDetailsPanel extends StatelessWidget {
                   theme: theme,
                 ),
                 _DetailRow(
-                  label: 'Source',
+                  label: l10n.driveDetailSource,
                   value: entry.sourcePageId != null
-                      ? 'Imported from vault'
-                      : 'Uploaded',
+                      ? l10n.driveDetailSourceImported
+                      : l10n.driveDetailSourceUploaded,
                   scheme: scheme,
                   theme: theme,
                 ),
               ],
               if (isFolder) ...[
                 _DetailRow(
-                  label: 'Folders',
+                  label: l10n.driveDetailFolders,
                   value: data.folders
                       .where((f) => f.parentId == folder!.id)
                       .length
@@ -2717,7 +2719,7 @@ class _DriveDetailsPanel extends StatelessWidget {
                   theme: theme,
                 ),
                 _DetailRow(
-                  label: 'Files',
+                  label: l10n.driveDetailFiles,
                   value: data.entries
                       .where((e) => e.folderId == folder!.id)
                       .length
@@ -2774,7 +2776,7 @@ class _DriveDetailsPanel extends StatelessWidget {
                   child: OutlinedButton.icon(
                     onPressed: () => onExportEntry(entry),
                     icon: const Icon(Icons.download_rounded, size: 18),
-                    label: const Text('Exportar al disco…'),
+                    label: Text(l10n.driveExportToDisk),
                   ),
                 ),
                 Padding(
@@ -2830,7 +2832,7 @@ class _DriveDetailsPanel extends StatelessWidget {
                       );
                     },
                     icon: const Icon(Icons.color_lens_outlined, size: 18),
-                    label: const Text('Change color'),
+                    label: Text(l10n.driveFolderColor),
                   ),
                 ),
                 Padding(
@@ -2859,16 +2861,16 @@ class _DriveDetailsPanel extends StatelessWidget {
     );
   }
 
-  String _fileTypeName(FolioDriveFileType type) {
+  String _fileTypeName(AppLocalizations l10n, FolioDriveFileType type) {
     switch (type) {
       case FolioDriveFileType.image:
-        return 'Image';
+        return l10n.driveFileTypeImage;
       case FolioDriveFileType.video:
-        return 'Video';
+        return l10n.driveFileTypeVideo;
       case FolioDriveFileType.audio:
-        return 'Audio';
+        return l10n.driveFileTypeAudio;
       case FolioDriveFileType.file:
-        return 'File';
+        return l10n.driveFileTypeFile;
     }
   }
 
@@ -2880,7 +2882,7 @@ class _DriveDetailsPanel extends StatelessWidget {
         children: [
           SimpleDialogOption(
             onPressed: () => Navigator.pop(ctx, ''),
-            child: const Text('/ (root)'),
+            child: Text(l10n.driveRootPath),
           ),
           for (final f in data.folders)
             SimpleDialogOption(
@@ -2923,6 +2925,7 @@ class _DeleteConfirmAnchorState extends State<_DeleteConfirmAnchor> {
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     final theme = Theme.of(context);
+    final l10n = AppLocalizations.of(context);
     return MenuAnchor(
       controller: _menuController,
       alignmentOffset: const Offset(0, 4),
@@ -2936,7 +2939,7 @@ class _DeleteConfirmAnchorState extends State<_DeleteConfirmAnchor> {
               mainAxisSize: MainAxisSize.min,
               children: [
                 Text(
-                  '¿Eliminar "${widget.label}"?',
+                  l10n.driveDeleteEntryNamed(widget.label),
                   style: theme.textTheme.bodySmall,
                 ),
                 const SizedBox(height: 10),
@@ -2945,7 +2948,7 @@ class _DeleteConfirmAnchorState extends State<_DeleteConfirmAnchor> {
                   children: [
                     TextButton(
                       onPressed: () => _menuController.close(),
-                      child: const Text('Cancelar'),
+                      child: Text(l10n.cancel),
                     ),
                     const SizedBox(width: 6),
                     FilledButton(
@@ -2963,7 +2966,7 @@ class _DeleteConfirmAnchorState extends State<_DeleteConfirmAnchor> {
                         _menuController.close();
                         widget.onConfirm();
                       },
-                      child: const Text('Eliminar'),
+                      child: Text(l10n.delete),
                     ),
                   ],
                 ),

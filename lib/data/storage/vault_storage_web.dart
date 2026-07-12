@@ -21,6 +21,14 @@ class VaultStorage {
   static const _attachmentsDir = 'attachments';
   static const _uuid = Uuid();
 
+  /// Archivos críticos: antes de sobrescribir se rota una copia `.bak`
+  /// (paridad con la escritura atómica de la implementación nativa).
+  static const Set<String> _backedUpVaultFiles = {
+    'vault.bin',
+    'vault.keys',
+    'vault.mode',
+  };
+
   Database? _db;
 
   Future<Database> _open() async {
@@ -70,6 +78,13 @@ class VaultStorage {
     Uint8List data,
   ) async {
     await _tx<void>(idbModeReadWrite, (store) async {
+      if (_backedUpVaultFiles.contains(filename)) {
+        // Rota el valor anterior a `.bak` en la misma transacción.
+        final prev = await store.getObject(_key(vaultId, filename));
+        if (prev is Uint8List) {
+          await store.put(prev, _key(vaultId, '$filename.bak'));
+        }
+      }
       await store.put(data, _key(vaultId, filename));
     });
   }

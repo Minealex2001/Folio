@@ -14728,6 +14728,108 @@ abstract class AppLocalizations {
   /// In es, this message translates to:
   /// **'Dictar por voz'**
   String get aiDictationRecordingMicTooltip;
+
+  /// No description provided for @driveExportToDisk.
+  ///
+  /// In es, this message translates to:
+  /// **'Exportar al disco…'**
+  String get driveExportToDisk;
+
+  /// No description provided for @driveRootPath.
+  ///
+  /// In es, this message translates to:
+  /// **'/ (raíz)'**
+  String get driveRootPath;
+
+  /// No description provided for @driveDetailsTitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Detalles'**
+  String get driveDetailsTitle;
+
+  /// No description provided for @driveDetailType.
+  ///
+  /// In es, this message translates to:
+  /// **'Tipo'**
+  String get driveDetailType;
+
+  /// No description provided for @driveDetailSize.
+  ///
+  /// In es, this message translates to:
+  /// **'Tamaño'**
+  String get driveDetailSize;
+
+  /// No description provided for @driveDetailAdded.
+  ///
+  /// In es, this message translates to:
+  /// **'Añadido'**
+  String get driveDetailAdded;
+
+  /// No description provided for @driveDetailSource.
+  ///
+  /// In es, this message translates to:
+  /// **'Origen'**
+  String get driveDetailSource;
+
+  /// No description provided for @driveDetailSourceImported.
+  ///
+  /// In es, this message translates to:
+  /// **'Importado desde la libreta'**
+  String get driveDetailSourceImported;
+
+  /// No description provided for @driveDetailSourceUploaded.
+  ///
+  /// In es, this message translates to:
+  /// **'Subido'**
+  String get driveDetailSourceUploaded;
+
+  /// No description provided for @driveDetailFolders.
+  ///
+  /// In es, this message translates to:
+  /// **'Carpetas'**
+  String get driveDetailFolders;
+
+  /// No description provided for @driveDetailFiles.
+  ///
+  /// In es, this message translates to:
+  /// **'Archivos'**
+  String get driveDetailFiles;
+
+  /// No description provided for @driveDetailFolderType.
+  ///
+  /// In es, this message translates to:
+  /// **'Carpeta'**
+  String get driveDetailFolderType;
+
+  /// No description provided for @driveFileTypeImage.
+  ///
+  /// In es, this message translates to:
+  /// **'Imagen'**
+  String get driveFileTypeImage;
+
+  /// No description provided for @driveFileTypeVideo.
+  ///
+  /// In es, this message translates to:
+  /// **'Vídeo'**
+  String get driveFileTypeVideo;
+
+  /// No description provided for @driveFileTypeAudio.
+  ///
+  /// In es, this message translates to:
+  /// **'Audio'**
+  String get driveFileTypeAudio;
+
+  /// No description provided for @driveFileTypeFile.
+  ///
+  /// In es, this message translates to:
+  /// **'Archivo'**
+  String get driveFileTypeFile;
+
+  /// No description provided for @driveDeleteEntryNamed.
+  ///
+  /// In es, this message translates to:
+  /// **'¿Eliminar \"{name}\"?'**
+  String driveDeleteEntryNamed(String name);
 }
 
 class _AppLocalizationsDelegate

@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:cryptography/cryptography.dart' show Sha256;
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:http/http.dart' as http;
 import 'package:package_info_plus/package_info_plus.dart';
@@ -18,6 +19,12 @@ class GitHubReleaseUpdater {
     required this.repo,
     http.Client? httpClient,
   }) : _httpClient = httpClient ?? http.Client();
+
+  /// Timeout para llamadas a la API de GitHub.
+  static const Duration _apiTimeout = Duration(seconds: 30);
+
+  /// Timeout para la descarga del instalador (archivos grandes).
+  static const Duration _downloadTimeout = Duration(minutes: 10);
 
   final String owner;
   final String repo;
@@ -96,6 +103,7 @@ class GitHubReleaseUpdater {
       releaseNotes: release.body,
       installerAssetName: releaseAsset.name,
       installerUrl: releaseAsset.browserDownloadUrl,
+      installerSha256: releaseAsset.sha256Digest,
       publishedAt: release.publishedAt,
       isPrerelease: releaseIsPrerelease,
     );
@@ -193,7 +201,9 @@ class GitHubReleaseUpdater {
         'api.github.com',
         '/repos/$owner/$repo/releases/tags/$tag',
       );
-      final response = await _httpClient.get(uri, headers: _headers());
+      final response = await _httpClient
+          .get(uri, headers: _headers())
+          .timeout(_apiTimeout);
       if (response.statusCode == 404) {
         continue;
       }
@@ -230,11 +240,35 @@ class GitHubReleaseUpdater {
     final installerPath = p.join(tempDir.path, safeName);
     final file = File(installerPath);
     final uri = Uri.parse(update.installerUrl!);
-    final response = await _httpClient.get(uri, headers: _headers());
+    final response = await _httpClient
+        .get(uri, headers: _headers())
+        .timeout(_downloadTimeout);
     if (response.statusCode < 200 || response.statusCode >= 300) {
       throw HttpException(
         'Error al descargar instalador: HTTP ${response.statusCode}',
         uri: uri,
+      );
+    }
+    // Integridad: verificar SHA-256 contra el digest publicado por GitHub
+    // antes de escribir/ejecutar nada.
+    final expected = (update.installerSha256 ?? '').trim().toLowerCase();
+    if (expected.isNotEmpty) {
+      final hash = await Sha256().hash(response.bodyBytes);
+      final actual = hash.bytes
+          .map((b) => b.toRadixString(16).padLeft(2, '0'))
+          .join();
+      if (actual != expected) {
+        throw UpdateIntegrityException(
+          'El instalador descargado no coincide con el checksum SHA-256 '
+          'publicado (esperado $expected, obtenido $actual). '
+          'Descarga cancelada por seguridad.',
+        );
+      }
+    } else {
+      AppLogger.warn(
+        'Release sin digest SHA-256; no se pudo verificar integridad',
+        tag: 'updater',
+        context: {'asset': safeName},
       );
     }
     await file.writeAsBytes(response.bodyBytes, flush: true);
@@ -283,7 +317,9 @@ class GitHubReleaseUpdater {
       'api.github.com',
       '/repos/$owner/$repo/releases/latest',
     );
-    final response = await _httpClient.get(uri, headers: _headers());
+    final response = await _httpClient
+        .get(uri, headers: _headers())
+        .timeout(_apiTimeout);
     if (response.statusCode < 200 || response.statusCode >= 300) {
       throw HttpException(
         'No se pudo consultar releases en GitHub: HTTP ${response.statusCode}',
@@ -304,7 +340,9 @@ class GitHubReleaseUpdater {
       '/repos/$owner/$repo/releases',
       const {'per_page': '30'},
     );
-    final response = await _httpClient.get(uri, headers: _headers());
+    final response = await _httpClient
+        .get(uri, headers: _headers())
+        .timeout(_apiTimeout);
     if (response.statusCode < 200 || response.statusCode >= 300) {
       throw HttpException(
         'No se pudo listar releases en GitHub: HTTP ${response.statusCode}',
@@ -388,6 +426,7 @@ class UpdateCheckResult {
     this.releaseNotes,
     this.installerAssetName,
     this.installerUrl,
+    this.installerSha256,
     this.reason,
     this.publishedAt,
     this.isPrerelease = false,
@@ -420,6 +459,7 @@ class UpdateCheckResult {
     required String installerAssetName,
     required String installerUrl,
     required DateTime? publishedAt,
+    String? installerSha256,
     bool isPrerelease = false,
   }) {
     return UpdateCheckResult(
@@ -431,6 +471,7 @@ class UpdateCheckResult {
       releaseNotes: releaseNotes,
       installerAssetName: installerAssetName,
       installerUrl: installerUrl,
+      installerSha256: installerSha256,
       publishedAt: publishedAt,
       isPrerelease: isPrerelease,
     );
@@ -444,9 +485,21 @@ class UpdateCheckResult {
   final String? releaseNotes;
   final String? installerAssetName;
   final String? installerUrl;
+
+  /// SHA-256 (hex) esperado del instalador, según el digest del asset.
+  final String? installerSha256;
   final String? reason;
   final DateTime? publishedAt;
   final bool isPrerelease;
+}
+
+/// El archivo descargado no supera la verificación de integridad.
+class UpdateIntegrityException implements Exception {
+  const UpdateIntegrityException(this.message);
+  final String message;
+
+  @override
+  String toString() => message;
 }
 
 class ReleaseNotesResult {
@@ -517,16 +570,32 @@ class _GitHubRelease {
 }
 
 class _GitHubReleaseAsset {
-  _GitHubReleaseAsset({required this.name, required this.browserDownloadUrl});
+  _GitHubReleaseAsset({
+    required this.name,
+    required this.browserDownloadUrl,
+    this.digest,
+  });
 
   factory _GitHubReleaseAsset.fromJson(Map<String, dynamic> json) {
     return _GitHubReleaseAsset(
       name: (json['name'] as String? ?? '').trim(),
       browserDownloadUrl: (json['browser_download_url'] as String? ?? '')
           .trim(),
+      digest: (json['digest'] as String?)?.trim(),
     );
   }
 
   final String name;
   final String browserDownloadUrl;
+
+  /// Digest del asset según la API de GitHub, formato `sha256:<hex>`.
+  final String? digest;
+
+  /// SHA-256 en hex minúsculas, o `null` si GitHub no publicó digest.
+  String? get sha256Digest {
+    final d = (digest ?? '').trim().toLowerCase();
+    if (!d.startsWith('sha256:')) return null;
+    final hex = d.substring('sha256:'.length);
+    return hex.length == 64 ? hex : null;
+  }
 }

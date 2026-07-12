@@ -71,9 +71,36 @@ class VaultRepository {
   }
 
   Future<Uint8List> unlockWithPassword(String password) async {
-    final wrapped = await VaultPaths.readWrappedDek();
-    if (wrapped == null) throw StateError('vault.keys no encontrado');
-    return VaultCrypto.unwrapDek(wrapped: wrapped, password: password);
+    var wrapped = await VaultPaths.readWrappedDek();
+    if (wrapped == null) {
+      // Recuperación: si el archivo principal falta, intenta la copia .bak.
+      wrapped = await VaultPaths.readWrappedDekBackup();
+      if (wrapped == null) throw StateError('vault.keys no encontrado');
+      await VaultPaths.restoreWrappedDekFromBackup();
+    }
+    try {
+      return await VaultCrypto.unwrapDek(wrapped: wrapped, password: password);
+    } on VaultCryptoException {
+      // Puede ser contraseña incorrecta o vault.keys corrupto: probar .bak
+      // solo si difiere del principal (evita segundo intento inútil).
+      final backup = await VaultPaths.readWrappedDekBackup();
+      if (backup == null || _bytesEqual(backup, wrapped)) rethrow;
+      final dek = await VaultCrypto.unwrapDek(
+        wrapped: backup,
+        password: password,
+      );
+      // El backup funciona y el principal no: restaurar el principal.
+      await VaultPaths.restoreWrappedDekFromBackup();
+      return dek;
+    }
+  }
+
+  static bool _bytesEqual(Uint8List a, Uint8List b) {
+    if (a.length != b.length) return false;
+    for (var i = 0; i < a.length; i++) {
+      if (a[i] != b[i]) return false;
+    }
+    return true;
   }
 
   Future<VaultPayload> loadPayload(List<int>? dekBytes) async {
@@ -145,9 +172,22 @@ class VaultRepository {
     await VaultPaths.writeCipherPayload(enc);
   }
 
-  /// Restaura `vault.bin` desde la copia `.bak` local.
-  Future<bool> restoreCipherPayloadFromLocalBackup() =>
-      VaultPaths.restoreCipherPayloadFromBackup();
+  /// Restaura `vault.bin` desde la copia `.bak` local. También intenta
+  /// recuperar `vault.keys` y `vault.mode` si faltan y tienen `.bak`.
+  Future<bool> restoreCipherPayloadFromLocalBackup() async {
+    final restored = await VaultPaths.restoreCipherPayloadFromBackup();
+    try {
+      if (await VaultPaths.readWrappedDek() == null) {
+        await VaultPaths.restoreWrappedDekFromBackup();
+      }
+      if (await VaultPaths.readVaultMode() == null) {
+        await VaultPaths.restoreVaultModeFromBackup();
+      }
+    } catch (_) {
+      // La restauración de keys/mode es best-effort.
+    }
+    return restored;
+  }
 
   Future<void> rewrapDek({
     required String currentPassword,

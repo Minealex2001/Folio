@@ -166,7 +166,9 @@ class CommunityTemplateStore {
 
   /// Descarga el archivo público y parsea. No modifica el vault.
   Future<FolioPageTemplate> downloadTemplate(String downloadUrl) async {
-    final response = await http.get(Uri.parse(downloadUrl));
+    final response = await http
+        .get(Uri.parse(downloadUrl))
+        .timeout(const Duration(seconds: 30));
     if (response.statusCode < 200 || response.statusCode >= 300) {
       throw StateError('HTTP ${response.statusCode}');
     }

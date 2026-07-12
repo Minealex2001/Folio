@@ -10,6 +10,7 @@ class SyncPeer {
     required this.paired,
     required this.source,
     this.pairingCode,
+    this.publicKeyB64,
   });
 
   final String peerId;
@@ -19,6 +20,9 @@ class SyncPeer {
   final SyncPeerDiscoverySource source;
   final String? pairingCode;
 
+  /// Clave pública X25519 anclada (trust-on-first-use) para cifrar el canal.
+  final String? publicKeyB64;
+
   SyncPeer copyWith({
     String? peerId,
     String? deviceName,
@@ -26,6 +30,7 @@ class SyncPeer {
     bool? paired,
     SyncPeerDiscoverySource? source,
     String? pairingCode,
+    String? publicKeyB64,
   }) {
     return SyncPeer(
       peerId: peerId ?? this.peerId,
@@ -34,6 +39,7 @@ class SyncPeer {
       paired: paired ?? this.paired,
       source: source ?? this.source,
       pairingCode: pairingCode ?? this.pairingCode,
+      publicKeyB64: publicKeyB64 ?? this.publicKeyB64,
     );
   }
 
@@ -46,6 +52,8 @@ class SyncPeer {
       'source': source.name,
       if (pairingCode != null && pairingCode!.isNotEmpty)
         'pairingCode': pairingCode,
+      if (publicKeyB64 != null && publicKeyB64!.isNotEmpty)
+        'publicKeyB64': publicKeyB64,
     };
   }
 
@@ -62,6 +70,7 @@ class SyncPeer {
       paired: raw['paired'] == true,
       source: source,
       pairingCode: (raw['pairingCode'] as String?)?.trim(),
+      publicKeyB64: (raw['publicKeyB64'] as String?)?.trim(),
     );
   }
 }

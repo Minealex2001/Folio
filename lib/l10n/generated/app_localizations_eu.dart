@@ -8419,4 +8419,57 @@ class AppLocalizationsEu extends AppLocalizations {
 
   @override
   String get aiDictationRecordingMicTooltip => 'Diktatu ahotsez';
+
+  @override
+  String get driveExportToDisk => 'Esportatu diskora…';
+
+  @override
+  String get driveRootPath => '/ (erroa)';
+
+  @override
+  String get driveDetailsTitle => 'Xehetasunak';
+
+  @override
+  String get driveDetailType => 'Mota';
+
+  @override
+  String get driveDetailSize => 'Tamaina';
+
+  @override
+  String get driveDetailAdded => 'Gehituta';
+
+  @override
+  String get driveDetailSource => 'Iturria';
+
+  @override
+  String get driveDetailSourceImported => 'Koadernotik inportatua';
+
+  @override
+  String get driveDetailSourceUploaded => 'Igotua';
+
+  @override
+  String get driveDetailFolders => 'Karpetak';
+
+  @override
+  String get driveDetailFiles => 'Fitxategiak';
+
+  @override
+  String get driveDetailFolderType => 'Karpeta';
+
+  @override
+  String get driveFileTypeImage => 'Irudia';
+
+  @override
+  String get driveFileTypeVideo => 'Bideoa';
+
+  @override
+  String get driveFileTypeAudio => 'Audioa';
+
+  @override
+  String get driveFileTypeFile => 'Fitxategia';
+
+  @override
+  String driveDeleteEntryNamed(String name) {
+    return 'Ezabatu \"$name\"?';
+  }
 }

@@ -29,11 +29,16 @@ class WebDavDestination implements BackupDestination {
     if (url.isEmpty) {
       throw VaultBackupException('La URL de WebDAV no está configurada.');
     }
-    return webdav.newClient(
+    final client = webdav.newClient(
       url.endsWith('/') ? url : '$url/',
       user: username.trim(),
       password: password,
     );
+    // Timeouts: sin ellos un NAS caído puede colgar el backup indefinidamente.
+    client.setConnectTimeout(15000);
+    client.setSendTimeout(120000);
+    client.setReceiveTimeout(120000);
+    return client;
   }
 
   String _normalizedRemoteDir() {

@@ -152,6 +152,16 @@ class VaultSearchIndex {
     return out.take(limit).toList(growable: false);
   }
 
+  /// Elimina el índice persistido en disco (usado en libretas cifradas para
+  /// no dejar texto en claro fuera del blob cifrado).
+  static Future<void> deleteFromVault(String vaultId) async {
+    try {
+      await VaultStorage.instance.deleteVaultFile(vaultId, indexFileName);
+    } catch (_) {
+      // Best-effort: si no existe o no se puede borrar, no bloquea el flujo.
+    }
+  }
+
   Future<void> persistToVault(String vaultId) async {
     final payload = jsonEncode({
       'version': _version,

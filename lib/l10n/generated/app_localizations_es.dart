@@ -8390,4 +8390,57 @@ class AppLocalizationsEs extends AppLocalizations {
 
   @override
   String get aiDictationRecordingMicTooltip => 'Dictar por voz';
+
+  @override
+  String get driveExportToDisk => 'Exportar al disco…';
+
+  @override
+  String get driveRootPath => '/ (raíz)';
+
+  @override
+  String get driveDetailsTitle => 'Detalles';
+
+  @override
+  String get driveDetailType => 'Tipo';
+
+  @override
+  String get driveDetailSize => 'Tamaño';
+
+  @override
+  String get driveDetailAdded => 'Añadido';
+
+  @override
+  String get driveDetailSource => 'Origen';
+
+  @override
+  String get driveDetailSourceImported => 'Importado desde la libreta';
+
+  @override
+  String get driveDetailSourceUploaded => 'Subido';
+
+  @override
+  String get driveDetailFolders => 'Carpetas';
+
+  @override
+  String get driveDetailFiles => 'Archivos';
+
+  @override
+  String get driveDetailFolderType => 'Carpeta';
+
+  @override
+  String get driveFileTypeImage => 'Imagen';
+
+  @override
+  String get driveFileTypeVideo => 'Vídeo';
+
+  @override
+  String get driveFileTypeAudio => 'Audio';
+
+  @override
+  String get driveFileTypeFile => 'Archivo';
+
+  @override
+  String driveDeleteEntryNamed(String name) {
+    return '¿Eliminar \"$name\"?';
+  }
 }

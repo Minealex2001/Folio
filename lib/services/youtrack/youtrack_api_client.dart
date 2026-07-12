@@ -260,6 +260,9 @@ class YouTrackApiClient {
   })  : _http = httpClient ?? http.Client(),
         _connection = connection;
 
+  /// Límite común para llamadas HTTP; evita cuelgues si YouTrack no responde.
+  static const Duration _httpTimeout = Duration(seconds: 30);
+
   final http.Client _http;
   final YouTrackConnection _connection;
 
@@ -289,7 +292,9 @@ class YouTrackApiClient {
   }
 
   Future<Map<String, dynamic>> _getJson(Uri uri) async {
-    final resp = await _http.get(uri, headers: _headers());
+    final resp = await _http
+        .get(uri, headers: _headers())
+        .timeout(_httpTimeout);
     if (resp.statusCode < 200 || resp.statusCode >= 300) {
       throw YouTrackApiException(
         'GET failed',
@@ -307,7 +312,9 @@ class YouTrackApiClient {
   }
 
   Future<List<dynamic>> _getList(Uri uri) async {
-    final resp = await _http.get(uri, headers: _headers());
+    final resp = await _http
+        .get(uri, headers: _headers())
+        .timeout(_httpTimeout);
     if (resp.statusCode < 200 || resp.statusCode >= 300) {
       throw YouTrackApiException(
         'GET failed',
@@ -325,11 +332,13 @@ class YouTrackApiClient {
   }
 
   Future<Map<String, dynamic>> _postJson(Uri uri, Map<String, Object?> body) async {
-    final resp = await _http.post(
-      uri,
-      headers: _headers(),
-      body: jsonEncode(body),
-    );
+    final resp = await _http
+        .post(
+          uri,
+          headers: _headers(),
+          body: jsonEncode(body),
+        )
+        .timeout(_httpTimeout);
     if (resp.statusCode < 200 || resp.statusCode >= 300) {
       throw YouTrackApiException(
         'POST failed',
@@ -493,7 +502,9 @@ class YouTrackApiClient {
     final uri = _apiBase().replace(
       path: '${_apiBase().path}/issues/$issueIdOrKey',
     );
-    final resp = await _http.delete(uri, headers: _headers());
+    final resp = await _http
+        .delete(uri, headers: _headers())
+        .timeout(_httpTimeout);
     if (resp.statusCode < 200 || resp.statusCode >= 300) {
       throw YouTrackApiException(
         'DELETE issue failed',

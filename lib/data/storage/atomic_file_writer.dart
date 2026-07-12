@@ -25,8 +25,10 @@ class AtomicFileWriter {
           await bak.delete();
         }
         await target.copy(bak.path);
-        await target.delete();
       }
+      // `rename` reemplaza el destino existente de forma atómica (POSIX
+      // rename / MoveFileEx en Windows); no borrar antes: eso abriría una
+      // ventana en la que el archivo principal no existe.
       await tmp.rename(target.path);
     } catch (e) {
       if (tmp.existsSync()) {
@@ -42,10 +44,17 @@ class AtomicFileWriter {
   static Future<bool> restoreFromBackup(File target) async {
     final bak = File(backupPathFor(target.path));
     if (!bak.existsSync()) return false;
-    if (target.existsSync()) {
-      await target.delete();
+    // Copia a tmp y renombra: nunca dejar el destino inexistente a medias.
+    final tmp = File('${target.path}.tmp.${_uuid.v4()}');
+    try {
+      await bak.copy(tmp.path);
+      await tmp.rename(target.path);
+      return true;
+    } catch (_) {
+      try {
+        if (tmp.existsSync()) await tmp.delete();
+      } catch (_) {}
+      rethrow;
     }
-    await bak.copy(target.path);
-    return true;
   }
 }

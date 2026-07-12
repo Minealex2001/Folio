@@ -45,6 +45,15 @@ class VaultPaths {
   static Future<Uint8List?> readWrappedDek() =>
       VaultStorage.instance.readVaultFile(_assertVaultId(), wrappedDekFile);
 
+  static Future<Uint8List?> readWrappedDekBackup() => VaultStorage.instance
+      .readVaultFileBackup(_assertVaultId(), wrappedDekFile);
+
+  static Future<bool> restoreWrappedDekFromBackup() => VaultStorage.instance
+      .restoreVaultFileFromBackup(_assertVaultId(), wrappedDekFile);
+
+  static Future<bool> restoreVaultModeFromBackup() => VaultStorage.instance
+      .restoreVaultFileFromBackup(_assertVaultId(), vaultModeFile);
+
   static Future<void> writeWrappedDek(Uint8List data) => VaultStorage.instance
       .writeVaultFile(_assertVaultId(), wrappedDekFile, data);
 
