@@ -3226,6 +3226,58 @@ class AppLocalizationsEn extends AppLocalizations {
   String get folioCloudSubscribeMonthly => 'Folio Cloud €4.99/mo';
 
   @override
+  String get folioCloudSubscribeFamily =>
+      'Family Plan (€4.99 + €2.99/member/mo)';
+
+  @override
+  String get folioCloudSubscribeStudent => 'Student Tier (€2.49/mo)';
+
+  @override
+  String get folioCloudPlanActiveStudent => 'Student Subscription Active';
+
+  @override
+  String get folioCloudPlanActiveFamily => 'Family Subscription Active';
+
+  @override
+  String get folioCloudPlanActiveFamilyMember => 'Family Subscription (Member)';
+
+  @override
+  String get folioCloudFamilyTitle => 'Family Management';
+
+  @override
+  String folioCloudFamilyOwnerNote(int seats, int count) {
+    return 'Family plan active. Seats purchased: $seats. Members added: $count/$seats.';
+  }
+
+  @override
+  String folioCloudFamilyMemberNote(String owner) {
+    return 'You are a member of the family of $owner.';
+  }
+
+  @override
+  String get folioCloudFamilyEmailPlaceholder =>
+      'Email of the member to invite';
+
+  @override
+  String get folioCloudFamilyInviteButton => 'Invite member';
+
+  @override
+  String get folioCloudFamilyRemoveButton => 'Remove';
+
+  @override
+  String get folioCloudFamilyLeaveButton => 'Leave family';
+
+  @override
+  String get folioCloudStudentVerifyButton => 'Verify student email';
+
+  @override
+  String get folioCloudStudentVerifySuccess => 'Student account verified!';
+
+  @override
+  String get folioCloudStudentVerifyFail =>
+      'Email does not qualify as student (.edu or similar).';
+
+  @override
   String get folioCloudPitchScreenTitle => 'Folio Cloud';
 
   @override

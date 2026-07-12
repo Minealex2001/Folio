@@ -23,6 +23,10 @@ bool _microsoftStoreProductConfigured(FolioCheckoutKind kind) {
       return FolioMicrosoftStoreProducts.inkMedium.trim().isNotEmpty;
     case FolioCheckoutKind.inkLarge:
       return FolioMicrosoftStoreProducts.inkLarge.trim().isNotEmpty;
+    case FolioCheckoutKind.folioFamilyMonthly:
+      return false;
+    case FolioCheckoutKind.folioStudentMonthly:
+      return false;
     case FolioCheckoutKind.backupStoragePackSmall:
       return FolioMicrosoftStoreProducts.backupStoragePackSmall.trim().isNotEmpty;
     case FolioCheckoutKind.backupStoragePackMedium:

@@ -6,6 +6,8 @@ import 'folio_cloud_callable.dart';
 /// Must match [CheckoutKind] in Cloud Functions (`createCheckoutSession`).
 enum FolioCheckoutKind {
   folioCloudMonthly,
+  folioFamilyMonthly,
+  folioStudentMonthly,
   inkSmall,
   inkMedium,
   inkLarge,
@@ -18,6 +20,10 @@ String _kindParam(FolioCheckoutKind k) {
   switch (k) {
     case FolioCheckoutKind.folioCloudMonthly:
       return 'folio_cloud_monthly';
+    case FolioCheckoutKind.folioFamilyMonthly:
+      return 'folio_family_monthly';
+    case FolioCheckoutKind.folioStudentMonthly:
+      return 'folio_student_monthly';
     case FolioCheckoutKind.inkSmall:
       return 'ink_small';
     case FolioCheckoutKind.inkMedium:

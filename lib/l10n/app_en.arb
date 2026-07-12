@@ -1083,6 +1083,23 @@
   ,"@folioCloudInkCount": {"placeholders": {"count": {"type": "int"}}}
   ,"folioCloudPlanActiveHeadline": "Folio Cloud monthly plan active"
   ,"folioCloudSubscribeMonthly": "Folio Cloud €4.99/mo"
+  ,"folioCloudSubscribeFamily": "Family Plan (€4.99 + €2.99/member/mo)"
+  ,"folioCloudSubscribeStudent": "Student Tier (€2.49/mo)"
+  ,"folioCloudPlanActiveStudent": "Student Subscription Active"
+  ,"folioCloudPlanActiveFamily": "Family Subscription Active"
+  ,"folioCloudPlanActiveFamilyMember": "Family Subscription (Member)"
+  ,"folioCloudFamilyTitle": "Family Management"
+  ,"folioCloudFamilyOwnerNote": "Family plan active. Seats purchased: {seats}. Members added: {count}/{seats}."
+  ,"@folioCloudFamilyOwnerNote": {"placeholders": {"seats": {"type": "int"}, "count": {"type": "int"}}}
+  ,"folioCloudFamilyMemberNote": "You are a member of the family of {owner}."
+  ,"@folioCloudFamilyMemberNote": {"placeholders": {"owner": {"type": "String"}}}
+  ,"folioCloudFamilyEmailPlaceholder": "Email of the member to invite"
+  ,"folioCloudFamilyInviteButton": "Invite member"
+  ,"folioCloudFamilyRemoveButton": "Remove"
+  ,"folioCloudFamilyLeaveButton": "Leave family"
+  ,"folioCloudStudentVerifyButton": "Verify student email"
+  ,"folioCloudStudentVerifySuccess": "Student account verified!"
+  ,"folioCloudStudentVerifyFail": "Email does not qualify as student (.edu or similar)."
   ,"folioCloudPitchScreenTitle": "Folio Cloud"
   ,"folioCloudPitchHeadline": "Your vault stays local. The cloud works when you want it."
   ,"folioCloudPitchSubhead": "One monthly plan unlocks encrypted backups, hosted cloud AI with a monthly ink allowance, and publishing to the web—only for what you choose to share."

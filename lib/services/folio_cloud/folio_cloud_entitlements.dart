@@ -184,6 +184,11 @@ class FolioCloudSnapshot {
     this.backupUsedBytes = 0,
     this.backupPurchasedBytes = 0,
     this.backupSubscriptionExtraBytes = 0,
+    this.isFamily = false,
+    this.isStudent = false,
+    this.isStudentVerified = false,
+    this.familyOwnerUid,
+    this.familySeats = 0,
     FolioInkSnapshot? ink,
   }) : _ink = ink;
 
@@ -196,6 +201,12 @@ class FolioCloudSnapshot {
   final bool cloudAi;
   final bool publishWeb;
   final bool realtimeCollab;
+
+  final bool isFamily;
+  final bool isStudent;
+  final bool isStudentVerified;
+  final String? familyOwnerUid;
+  final int familySeats;
 
   /// Cuota de copias en la nube (bytes); `folioBackup.quotaBytes` en Firestore.
   final int backupQuotaBytes;
@@ -243,6 +254,11 @@ class FolioCloudSnapshot {
     backupUsedBytes: 0,
     backupPurchasedBytes: 0,
     backupSubscriptionExtraBytes: 0,
+    isFamily: false,
+    isStudent: false,
+    isStudentVerified: false,
+    familyOwnerUid: null,
+    familySeats: 0,
   );
 
   static int _folioBackupIntField(Map<String, dynamic>? data, String field) {
@@ -272,6 +288,11 @@ class FolioCloudSnapshot {
         backupPurchasedBytes: _folioBackupIntField(data, 'purchasedBytes'),
         backupSubscriptionExtraBytes:
             _folioBackupIntField(data, 'stripeSubscriptionExtraBytes'),
+        isFamily: false,
+        isStudent: false,
+        isStudentVerified: false,
+        familyOwnerUid: null,
+        familySeats: 0,
         ink: FolioInkSnapshot.fromUserDoc(data),
       );
     }
@@ -288,6 +309,15 @@ class FolioCloudSnapshot {
             statusNorm == 'past_due')) {
       active = true;
     }
+    int seatsVal = 0;
+    final sVal = m['familySeats'];
+    if (sVal is int) {
+      seatsVal = sVal;
+    } else if (sVal is num) {
+      seatsVal = sVal.toInt();
+    } else if (sVal != null) {
+      seatsVal = int.tryParse(sVal.toString()) ?? 0;
+    }
     return FolioCloudSnapshot(
       active: active,
       subscriptionStatus: m['subscriptionStatus']?.toString(),
@@ -301,6 +331,11 @@ class FolioCloudSnapshot {
       backupPurchasedBytes: _folioBackupIntField(data, 'purchasedBytes'),
       backupSubscriptionExtraBytes:
           _folioBackupIntField(data, 'stripeSubscriptionExtraBytes'),
+      isFamily: _folioBool(m['isFamily']),
+      isStudent: _folioBool(m['isStudent']),
+      isStudentVerified: _folioBool(m['studentVerified']),
+      familyOwnerUid: m['familyOwnerUid']?.toString(),
+      familySeats: seatsVal,
       ink: FolioInkSnapshot.fromUserDoc(data),
     );
   }
@@ -691,6 +726,15 @@ class FolioCloudEntitlementsController extends ChangeNotifier {
   Future<void> _subscribeUserDoc(String uid) async {
     Map<String, dynamic>? serverData =
         await _fetchUserDocFromServerWithRetries(uid);
+    if (FirebaseAuth.instance.currentUser?.uid != uid) return;
+    if (serverData == null) {
+      try {
+        await callFolioHttpsCallable('ensureUserDocExists');
+        serverData = await _fetchUserDocFromServerWithRetries(uid);
+      } catch (e) {
+        // Ignorar
+      }
+    }
     if (FirebaseAuth.instance.currentUser?.uid != uid) return;
     if (serverData != null) {
       final parsed = FolioCloudSnapshot.fromUserDoc(serverData);

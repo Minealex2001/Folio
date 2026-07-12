@@ -2204,6 +2204,57 @@ class _SettingsPageState extends State<SettingsPage> {
     }
   }
 
+  Future<void> _inviteFamilyMember(String email) async {
+    if (_folioCloudActionBusy) return;
+    setState(() => _folioCloudActionBusy = true);
+    try {
+      await callFolioHttpsCallable('inviteFamilyMember', {'email': email});
+      _snack('Familiar invitado correctamente.');
+      await _folio.refreshFolioCloudBillingFromServers();
+    } catch (e) {
+      if (mounted) _snack('$e');
+    } finally {
+      if (mounted) setState(() => _folioCloudActionBusy = false);
+    }
+  }
+
+  Future<void> _removeFamilyMember(String memberUid) async {
+    if (_folioCloudActionBusy) return;
+    setState(() => _folioCloudActionBusy = true);
+    try {
+      await callFolioHttpsCallable('removeFamilyMember', {'memberUid': memberUid});
+      _snack('Acción realizada correctamente.');
+      await _folio.refreshFolioCloudBillingFromServers();
+    } catch (e) {
+      if (mounted) _snack('$e');
+    } finally {
+      if (mounted) setState(() => _folioCloudActionBusy = false);
+    }
+  }
+
+  Future<void> _verifyStudentStatus(String email) async {
+    if (_folioCloudActionBusy) return;
+    setState(() => _folioCloudActionBusy = true);
+    try {
+      final res = await callFolioHttpsCallable('verifyStudentStatus', {'email': email});
+      final verified = (res as Map?)?.cast<String, dynamic>()['verified'] == true;
+      if (verified) {
+        _snack('¡Verificación completada con éxito!');
+        await _folio.refreshFolioCloudBillingFromServers();
+        if (mounted) {
+          await _openFolioCheckout(FolioCheckoutKind.folioStudentMonthly);
+        }
+      } else {
+        _snack('El correo ingresado no es válido para estudiantes.');
+      }
+    } catch (e) {
+      if (mounted) _snack('$e');
+    } finally {
+      if (mounted) setState(() => _folioCloudActionBusy = false);
+    }
+  }
+
+
   /// Devuelve false si el usuario cancela o hay salida anticipa sin error.
   Future<bool> _uploadFolioCloudBackup({
     bool suppressSuccessSnack = false,
@@ -5177,6 +5228,19 @@ class _SettingsPageState extends State<SettingsPage> {
                                               _openFolioCloudBackupsDialog,
                                           onPublishedPages:
                                               _openPublishedPagesDialog,
+                                          onSubscribeFamily: () =>
+                                              _openFolioCheckout(
+                                                FolioCheckoutKind
+                                                    .folioFamilyMonthly,
+                                              ),
+                                          onSubscribeStudent: () =>
+                                              _openFolioCheckout(
+                                                FolioCheckoutKind
+                                                    .folioStudentMonthly,
+                                              ),
+                                          onVerifyStudent: _verifyStudentStatus,
+                                          onRemoveFamilyMember: _removeFamilyMember,
+                                          onInviteFamilyMember: _inviteFamilyMember,
                                         );
                                       },
                                     ),
@@ -11531,6 +11595,11 @@ class _FolioCloudSubscriptionPanel extends StatelessWidget {
     required this.busy,
     required this.showMicrosoftStoreBillingNote,
     required this.onSubscribeMonthly,
+    required this.onSubscribeFamily,
+    required this.onSubscribeStudent,
+    required this.onVerifyStudent,
+    required this.onRemoveFamilyMember,
+    required this.onInviteFamilyMember,
     required this.onOpenPitch,
     required this.onInkSmall,
     required this.onInkMedium,
@@ -11550,6 +11619,11 @@ class _FolioCloudSubscriptionPanel extends StatelessWidget {
   final bool busy;
   final bool showMicrosoftStoreBillingNote;
   final VoidCallback onSubscribeMonthly;
+  final VoidCallback onSubscribeFamily;
+  final VoidCallback onSubscribeStudent;
+  final ValueChanged<String> onVerifyStudent;
+  final ValueChanged<String> onRemoveFamilyMember;
+  final ValueChanged<String> onInviteFamilyMember;
   final VoidCallback onOpenPitch;
   final VoidCallback onInkSmall;
   final VoidCallback onInkMedium;
@@ -11867,9 +11941,15 @@ class _FolioCloudSubscriptionPanel extends StatelessWidget {
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Text(
-                                snap.active
-                                    ? l10n.folioCloudPlanActiveHeadline
-                                    : l10n.folioCloudSubscriptionNoneTitle,
+                                () {
+                                  if (!snap.active) return l10n.folioCloudSubscriptionNoneTitle;
+                                  if (snap.isStudent) return l10n.folioCloudPlanActiveStudent;
+                                  if (snap.isFamily) {
+                                    if (snap.familyOwnerUid != null) return l10n.folioCloudPlanActiveFamilyMember;
+                                    return l10n.folioCloudPlanActiveFamily;
+                                  }
+                                  return l10n.folioCloudPlanActiveHeadline;
+                                }(),
                                 style: theme.textTheme.titleMedium?.copyWith(
                                   fontWeight: FontWeight.w900,
                                   color: snap.active ? Colors.white : scheme.onSurface,
@@ -11878,9 +11958,17 @@ class _FolioCloudSubscriptionPanel extends StatelessWidget {
                               ),
                               const SizedBox(height: 6),
                               Text(
-                                snap.active
-                                    ? l10n.folioCloudSubscriptionActive
-                                    : l10n.folioCloudSubscriptionNoneSubtitle,
+                                () {
+                                  if (!snap.active) return l10n.folioCloudSubscriptionNoneSubtitle;
+                                  if (snap.isStudent) return '1000 gotas/mes • 15 GB espacio de copias';
+                                  if (snap.isFamily) {
+                                    if (snap.familyOwnerUid != null) {
+                                      return l10n.folioCloudFamilyMemberNote(snap.familyOwnerUid!);
+                                    }
+                                    return '500 gotas/mes • 5 GB espacio de copias • Admin';
+                                  }
+                                  return l10n.folioCloudSubscriptionActive;
+                                }(),
                                 style: theme.textTheme.bodySmall?.copyWith(
                                   color: snap.active
                                       ? Colors.white.withValues(alpha: 0.85)
@@ -11924,48 +12012,126 @@ class _FolioCloudSubscriptionPanel extends StatelessWidget {
                       ),
                     ],
                     const SizedBox(height: 14),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: FilledButton.icon(
-                            onPressed: busy
-                                ? null
-                                : (snap.active
-                                      ? onBillingPortal
-                                      : onSubscribeMonthly),
-                            icon: Icon(
-                              snap.active
-                                  ? Icons.payments_outlined
-                                  : Icons.subscriptions_outlined,
-                              size: 20,
+                    if (snap.active) ...[
+                      Row(
+                        children: [
+                          Expanded(
+                            child: FilledButton.icon(
+                              onPressed: busy
+                                  ? null
+                                  : () {
+                                      if (snap.isFamily && snap.familyOwnerUid != null) {
+                                        final uid = FirebaseAuth.instance.currentUser?.uid;
+                                        if (uid != null) {
+                                          onRemoveFamilyMember(uid);
+                                        }
+                                      } else {
+                                        onBillingPortal();
+                                      }
+                                    },
+                              icon: Icon(
+                                (snap.isFamily && snap.familyOwnerUid != null)
+                                    ? Icons.logout_rounded
+                                    : Icons.payments_outlined,
+                                size: 20,
+                              ),
+                              label: Text(
+                                (snap.isFamily && snap.familyOwnerUid != null)
+                                    ? l10n.folioCloudFamilyLeaveButton
+                                    : l10n.folioCloudManageSubscription,
+                              ),
+                              style: FilledButton.styleFrom(
+                                backgroundColor: Colors.white,
+                                foregroundColor: scheme.primary,
+                              ),
                             ),
-                            label: Text(
-                              snap.active
-                                  ? l10n.folioCloudManageSubscription
-                                  : l10n.folioCloudSubscribeMonthly,
-                            ),
-                            style: snap.active
-                                ? FilledButton.styleFrom(
-                                    backgroundColor: Colors.white,
-                                    foregroundColor: scheme.primary,
-                                  )
-                                : null,
                           ),
-                        ),
-                        const SizedBox(width: 10),
-                        OutlinedButton.icon(
-                          onPressed: busy ? null : onRefreshBilling,
-                          icon: const Icon(Icons.sync, size: 20),
-                          label: Text(l10n.folioCloudRefreshFromStripe),
-                          style: snap.active
-                              ? OutlinedButton.styleFrom(
-                                  foregroundColor: Colors.white,
-                                  side: const BorderSide(color: Colors.white30),
+                          const SizedBox(width: 10),
+                          OutlinedButton.icon(
+                            onPressed: busy ? null : onRefreshBilling,
+                            icon: const Icon(Icons.sync, size: 20),
+                            label: Text(l10n.folioCloudRefreshFromStripe),
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: Colors.white,
+                              side: const BorderSide(color: Colors.white30),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ] else ...[
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          FilledButton.icon(
+                            onPressed: busy ? null : onSubscribeMonthly,
+                            icon: const Icon(Icons.subscriptions_outlined, size: 20),
+                            label: Text(l10n.folioCloudSubscribeMonthly),
+                          ),
+                          const SizedBox(height: 8),
+                          Row(
+                            children: [
+                              Expanded(
+                                child: FilledButton.icon(
+                                  onPressed: busy
+                                      ? null
+                                      : (snap.isStudentVerified
+                                          ? onSubscribeStudent
+                                          : () => _showStudentVerificationDialog(context)),
+                                  icon: const Icon(Icons.school_outlined, size: 20),
+                                  label: Text(l10n.folioCloudSubscribeStudent),
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              if (snap.isStudentVerified)
+                                Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 10,
+                                    vertical: 6,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: Colors.green.withValues(alpha: 0.15),
+                                    borderRadius: BorderRadius.circular(12),
+                                    border: Border.all(
+                                      color: Colors.green.withValues(alpha: 0.4),
+                                    ),
+                                  ),
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      const Icon(
+                                        Icons.check_circle_outline_rounded,
+                                        color: Colors.green,
+                                        size: 16,
+                                      ),
+                                      const SizedBox(width: 4),
+                                      Text(
+                                        'Verificado',
+                                        style: theme.textTheme.labelMedium?.copyWith(
+                                          color: Colors.green,
+                                          fontWeight: FontWeight.w700,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
                                 )
-                              : null,
-                        ),
-                      ],
-                    ),
+                              else
+                                OutlinedButton(
+                                  onPressed: busy
+                                      ? null
+                                      : () => _showStudentVerificationDialog(context),
+                                  child: Text(l10n.folioCloudStudentVerifyButton),
+                                ),
+                            ],
+                          ),
+                          const SizedBox(height: 8),
+                          OutlinedButton.icon(
+                            onPressed: busy ? null : onRefreshBilling,
+                            icon: const Icon(Icons.sync, size: 20),
+                            label: Text(l10n.folioCloudRefreshFromStripe),
+                          ),
+                        ],
+                      ),
+                    ],
                     if (showMicrosoftStoreBillingNote) ...[
                       const SizedBox(height: 10),
                       Text(
@@ -11979,6 +12145,28 @@ class _FolioCloudSubscriptionPanel extends StatelessWidget {
                   ],
                 ),
               ),
+              if (snap.active && snap.familyOwnerUid == null && !snap.isStudent) ...[
+                const SizedBox(height: 16),
+                Card(
+                  margin: EdgeInsets.zero,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(FolioRadius.xl),
+                    side: BorderSide(
+                      color: scheme.outlineVariant.withValues(alpha: 0.5),
+                    ),
+                  ),
+                  child: Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: _FamilyManagerWidget(
+                      scheme: scheme,
+                      l10n: l10n,
+                      snap: snap,
+                      onRemoveMember: onRemoveFamilyMember,
+                      onInviteMember: onInviteFamilyMember,
+                    ),
+                  ),
+                ),
+              ],
               const SizedBox(height: 12),
               // Ink shop
               Row(
@@ -12391,6 +12579,302 @@ class _FolioCloudSubscriptionPanel extends StatelessWidget {
           onTap: busy || !snap.canPublishToWeb ? null : onPublishedPages,
         ),
         const SizedBox(height: 8),
+      ],
+    );
+  }
+
+  void _showStudentVerificationDialog(BuildContext context) {
+    final controller = TextEditingController();
+    showDialog<void>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(l10n.folioCloudStudentVerifyButton),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            const Text('Ingresa tu correo de estudiante para verificar tu estado (Demo/Simulado):'),
+            const SizedBox(height: 10),
+            TextField(
+              controller: controller,
+              decoration: const InputDecoration(
+                hintText: 'ejemplo@universidad.edu',
+                border: OutlineInputBorder(),
+              ),
+              keyboardType: TextInputType.emailAddress,
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(),
+            child: Text(l10n.cancel),
+          ),
+          FilledButton(
+            onPressed: () {
+              final email = controller.text.trim();
+              if (email.isNotEmpty) {
+                Navigator.of(ctx).pop();
+                onVerifyStudent(email);
+              }
+            },
+            child: const Text('Verificar'),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _FamilyManagerWidget extends StatefulWidget {
+  const _FamilyManagerWidget({
+    required this.scheme,
+    required this.l10n,
+    required this.snap,
+    required this.onRemoveMember,
+    required this.onInviteMember,
+  });
+
+  final ColorScheme scheme;
+  final AppLocalizations l10n;
+  final FolioCloudSnapshot snap;
+  final ValueChanged<String> onRemoveMember;
+  final ValueChanged<String> onInviteMember;
+
+  @override
+  State<_FamilyManagerWidget> createState() => _FamilyManagerWidgetState();
+}
+
+class _FamilyManagerWidgetState extends State<_FamilyManagerWidget> {
+  final _emailController = TextEditingController();
+  bool _loading = true;
+  String? _error;
+  List<String> _members = [];
+  Map<String, dynamic> _membersInfo = {};
+
+  @override
+  void initState() {
+    super.initState();
+    _loadFamilyData();
+  }
+
+  @override
+  void dispose() {
+    _emailController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _loadFamilyData() async {
+    if (mounted) {
+      setState(() {
+        _loading = true;
+        _error = null;
+      });
+    }
+
+    try {
+      final res = await callFolioHttpsCallable(
+        'getFamilyDetails',
+        <String, dynamic>{},
+      );
+      final map = (res as Map?)?.cast<String, dynamic>() ?? {};
+      final members = (map['members'] as List?)?.cast<String>() ?? [];
+      final membersInfo =
+          (map['membersInfo'] as Map?)?.cast<String, dynamic>() ?? {};
+
+      if (mounted) {
+        setState(() {
+          _members = members;
+          _membersInfo = membersInfo;
+          _loading = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _error = e.toString();
+          _loading = false;
+        });
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final ownerUid = FirebaseAuth.instance.currentUser?.uid;
+    if (ownerUid == null) return const SizedBox.shrink();
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Row(
+          children: [
+            Icon(Icons.people_outline, color: widget.scheme.primary),
+            const SizedBox(width: 8),
+            Text(
+              widget.l10n.folioCloudFamilyTitle,
+              style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                    fontWeight: FontWeight.w900,
+                  ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        Builder(
+          builder: (context) {
+            if (_error != null) {
+              return Padding(
+                padding: const EdgeInsets.symmetric(vertical: 8),
+                child: Text(
+                  'Error al cargar miembros: $_error',
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: widget.scheme.error,
+                      ),
+                ),
+              );
+            }
+
+            if (_loading) {
+              return const Padding(
+                padding: EdgeInsets.symmetric(vertical: 12),
+                child: Center(child: CircularProgressIndicator(strokeWidth: 2)),
+              );
+            }
+
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Text(
+                  widget.l10n.folioCloudFamilyOwnerNote(
+                    widget.snap.familySeats,
+                    _members.length,
+                  ),
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: widget.scheme.onSurfaceVariant,
+                      ),
+                ),
+                const SizedBox(height: 12),
+                if (_members.isEmpty)
+                  Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 8),
+                    child: Text(
+                      'No hay miembros en tu familia aún.',
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                            fontStyle: FontStyle.italic,
+                            color: widget.scheme.onSurfaceVariant,
+                          ),
+                    ),
+                  )
+                else
+                  ListView.separated(
+                    shrinkWrap: true,
+                    physics: const NeverScrollableScrollPhysics(),
+                    itemCount: _members.length,
+                    separatorBuilder: (_, __) => const Divider(height: 1),
+                    itemBuilder: (context, index) {
+                      final mUid = _members[index];
+                      final info = _membersInfo[mUid] as Map?;
+                      final email = info?['email']?.toString() ?? 'Sin correo';
+                      final displayName = info?['displayName']?.toString() ?? '';
+
+                      return Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 8),
+                        child: Row(
+                          children: [
+                            CircleAvatar(
+                              radius: 16,
+                              backgroundColor: widget.scheme.primaryContainer,
+                              child: Icon(
+                                Icons.person,
+                                size: 16,
+                                color: widget.scheme.onPrimaryContainer,
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  if (displayName.isNotEmpty)
+                                    Text(
+                                      displayName,
+                                      style: Theme.of(context)
+                                          .textTheme
+                                          .bodyMedium
+                                          ?.copyWith(fontWeight: FontWeight.w600),
+                                    ),
+                                  Text(
+                                    email,
+                                    style: Theme.of(context)
+                                        .textTheme
+                                        .bodySmall
+                                        ?.copyWith(
+                                          color: widget.scheme.onSurfaceVariant,
+                                        ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            IconButton(
+                              icon: Icon(
+                                Icons.delete_outline,
+                                color: widget.scheme.error,
+                                size: 20,
+                              ),
+                              onPressed: () async {
+                                widget.onRemoveMember(mUid);
+                                await Future<void>.delayed(
+                                    const Duration(seconds: 1));
+                                _loadFamilyData();
+                              },
+                              tooltip: widget.l10n.folioCloudFamilyRemoveButton,
+                            ),
+                          ],
+                        ),
+                      );
+                    },
+                  ),
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    Expanded(
+                      child: TextField(
+                        controller: _emailController,
+                        decoration: InputDecoration(
+                          hintText: widget.l10n.folioCloudFamilyEmailPlaceholder,
+                          isDense: true,
+                          contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 10,
+                          ),
+                          border: const OutlineInputBorder(),
+                        ),
+                        keyboardType: TextInputType.emailAddress,
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    FilledButton(
+                      onPressed: () async {
+                        final email = _emailController.text.trim();
+                        if (email.isNotEmpty) {
+                          widget.onInviteMember(email);
+                          _emailController.clear();
+                          await Future<void>.delayed(
+                              const Duration(seconds: 1));
+                          _loadFamilyData();
+                        }
+                      },
+                      style: FilledButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(horizontal: 16),
+                      ),
+                      child: Text(widget.l10n.folioCloudFamilyInviteButton),
+                    ),
+                  ],
+                ),
+              ],
+            );
+          },
+        ),
       ],
     );
   }

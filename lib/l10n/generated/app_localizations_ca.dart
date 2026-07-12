@@ -3274,6 +3274,60 @@ class AppLocalizationsCa extends AppLocalizations {
   String get folioCloudSubscribeMonthly => 'Folio Cloud 4,99 €/mes';
 
   @override
+  String get folioCloudSubscribeFamily =>
+      'Plan Familiar (4,99 € + 2,99 €/miembro al mes)';
+
+  @override
+  String get folioCloudSubscribeStudent => 'Tarifa Estudiante (2,49 €/mes)';
+
+  @override
+  String get folioCloudPlanActiveStudent => 'Suscripción de Estudiante Activa';
+
+  @override
+  String get folioCloudPlanActiveFamily => 'Suscripción Familiar Activa';
+
+  @override
+  String get folioCloudPlanActiveFamilyMember =>
+      'Suscripción Familiar (Miembro)';
+
+  @override
+  String get folioCloudFamilyTitle => 'Gestión Familiar';
+
+  @override
+  String folioCloudFamilyOwnerNote(int seats, int count) {
+    return 'Suscripción familiar activa. Ranuras contratadas: $seats. Miembros añadidos: $count/$seats.';
+  }
+
+  @override
+  String folioCloudFamilyMemberNote(String owner) {
+    return 'Eres miembro de la familia de $owner.';
+  }
+
+  @override
+  String get folioCloudFamilyEmailPlaceholder =>
+      'Correo del familiar a invitar';
+
+  @override
+  String get folioCloudFamilyInviteButton => 'Invitar familiar';
+
+  @override
+  String get folioCloudFamilyRemoveButton => 'Eliminar';
+
+  @override
+  String get folioCloudFamilyLeaveButton => 'Salir de la familia';
+
+  @override
+  String get folioCloudStudentVerifyButton => 'Verificar correo estudiante';
+
+  @override
+  String get folioCloudStudentVerifySuccess =>
+      '¡Cuenta de estudiante verificada!';
+
+  @override
+  String get folioCloudStudentVerifyFail =>
+      'El correo no califica como estudiante (.edu o similar).';
+
+  @override
   String get folioCloudPitchScreenTitle => 'Folio Cloud';
 
   @override

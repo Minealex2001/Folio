@@ -1,1 +1,73 @@
-{}
+{
+  "ca": [
+    "folioCloudSubscribeFamily",
+    "folioCloudSubscribeStudent",
+    "folioCloudPlanActiveStudent",
+    "folioCloudPlanActiveFamily",
+    "folioCloudPlanActiveFamilyMember",
+    "folioCloudFamilyTitle",
+    "folioCloudFamilyOwnerNote",
+    "folioCloudFamilyMemberNote",
+    "folioCloudFamilyEmailPlaceholder",
+    "folioCloudFamilyInviteButton",
+    "folioCloudFamilyRemoveButton",
+    "folioCloudFamilyLeaveButton",
+    "folioCloudStudentVerifyButton",
+    "folioCloudStudentVerifySuccess",
+    "folioCloudStudentVerifyFail"
+  ],
+
+  "eu": [
+    "folioCloudSubscribeFamily",
+    "folioCloudSubscribeStudent",
+    "folioCloudPlanActiveStudent",
+    "folioCloudPlanActiveFamily",
+    "folioCloudPlanActiveFamilyMember",
+    "folioCloudFamilyTitle",
+    "folioCloudFamilyOwnerNote",
+    "folioCloudFamilyMemberNote",
+    "folioCloudFamilyEmailPlaceholder",
+    "folioCloudFamilyInviteButton",
+    "folioCloudFamilyRemoveButton",
+    "folioCloudFamilyLeaveButton",
+    "folioCloudStudentVerifyButton",
+    "folioCloudStudentVerifySuccess",
+    "folioCloudStudentVerifyFail"
+  ],
+
+  "gl": [
+    "folioCloudSubscribeFamily",
+    "folioCloudSubscribeStudent",
+    "folioCloudPlanActiveStudent",
+    "folioCloudPlanActiveFamily",
+    "folioCloudPlanActiveFamilyMember",
+    "folioCloudFamilyTitle",
+    "folioCloudFamilyOwnerNote",
+    "folioCloudFamilyMemberNote",
+    "folioCloudFamilyEmailPlaceholder",
+    "folioCloudFamilyInviteButton",
+    "folioCloudFamilyRemoveButton",
+    "folioCloudFamilyLeaveButton",
+    "folioCloudStudentVerifyButton",
+    "folioCloudStudentVerifySuccess",
+    "folioCloudStudentVerifyFail"
+  ],
+
+  "pt": [
+    "folioCloudSubscribeFamily",
+    "folioCloudSubscribeStudent",
+    "folioCloudPlanActiveStudent",
+    "folioCloudPlanActiveFamily",
+    "folioCloudPlanActiveFamilyMember",
+    "folioCloudFamilyTitle",
+    "folioCloudFamilyOwnerNote",
+    "folioCloudFamilyMemberNote",
+    "folioCloudFamilyEmailPlaceholder",
+    "folioCloudFamilyInviteButton",
+    "folioCloudFamilyRemoveButton",
+    "folioCloudFamilyLeaveButton",
+    "folioCloudStudentVerifyButton",
+    "folioCloudStudentVerifySuccess",
+    "folioCloudStudentVerifyFail"
+  ]
+}

@@ -1083,6 +1083,23 @@
   ,"@folioCloudInkCount": {"placeholders": {"count": {"type": "int"}}}
   ,"folioCloudPlanActiveHeadline": "Plan mensual Folio Cloud activo"
   ,"folioCloudSubscribeMonthly": "Folio Cloud 4,99 €/mes"
+  ,"folioCloudSubscribeFamily": "Plan Familiar (4,99 € + 2,99 €/miembro al mes)"
+  ,"folioCloudSubscribeStudent": "Tarifa Estudiante (2,49 €/mes)"
+  ,"folioCloudPlanActiveStudent": "Suscripción de Estudiante Activa"
+  ,"folioCloudPlanActiveFamily": "Suscripción Familiar Activa"
+  ,"folioCloudPlanActiveFamilyMember": "Suscripción Familiar (Miembro)"
+  ,"folioCloudFamilyTitle": "Gestión Familiar"
+  ,"folioCloudFamilyOwnerNote": "Suscripción familiar activa. Ranuras contratadas: {seats}. Miembros añadidos: {count}/{seats}."
+  ,"@folioCloudFamilyOwnerNote": {"placeholders": {"seats": {"type": "int"}, "count": {"type": "int"}}}
+  ,"folioCloudFamilyMemberNote": "Eres miembro de la familia de {owner}."
+  ,"@folioCloudFamilyMemberNote": {"placeholders": {"owner": {"type": "String"}}}
+  ,"folioCloudFamilyEmailPlaceholder": "Correo del familiar a invitar"
+  ,"folioCloudFamilyInviteButton": "Invitar familiar"
+  ,"folioCloudFamilyRemoveButton": "Eliminar"
+  ,"folioCloudFamilyLeaveButton": "Salir de la familia"
+  ,"folioCloudStudentVerifyButton": "Verificar correo estudiante"
+  ,"folioCloudStudentVerifySuccess": "¡Cuenta de estudiante verificada!"
+  ,"folioCloudStudentVerifyFail": "El correo no califica como estudiante (.edu o similar)."
   ,"folioCloudPitchScreenTitle": "Folio Cloud"
   ,"folioCloudPitchHeadline": "Tu libreta sigue en el dispositivo. La nube entra cuando tú quieres."
   ,"folioCloudPitchSubhead": "Un plan mensual desbloquea copias cifradas, IA alojada en la nube con recarga mensual de tinta y publicación web: solo lo que decidas compartir."

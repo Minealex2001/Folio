@@ -47,6 +47,15 @@ service cloud.firestore {
       allow write: if false;
     }
 
+    // Familias: lectura permitida para el dueño o miembros del grupo
+    match /families/{ownerUid} {
+      allow read: if request.auth != null && (
+        request.auth.uid == ownerUid
+        || (resource.data != null && request.auth.uid in resource.data.members)
+      );
+      allow write: if false;
+    }
+
     // Idempotencia de webhooks Stripe (solo backend).
     match /stripeWebhookEvents/{eventId} {
       allow read, write: if false;

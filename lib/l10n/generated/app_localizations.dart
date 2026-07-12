@@ -5780,6 +5780,96 @@ abstract class AppLocalizations {
   /// **'Folio Cloud 4,99 €/mes'**
   String get folioCloudSubscribeMonthly;
 
+  /// No description provided for @folioCloudSubscribeFamily.
+  ///
+  /// In es, this message translates to:
+  /// **'Plan Familiar (4,99 € + 2,99 €/miembro al mes)'**
+  String get folioCloudSubscribeFamily;
+
+  /// No description provided for @folioCloudSubscribeStudent.
+  ///
+  /// In es, this message translates to:
+  /// **'Tarifa Estudiante (2,49 €/mes)'**
+  String get folioCloudSubscribeStudent;
+
+  /// No description provided for @folioCloudPlanActiveStudent.
+  ///
+  /// In es, this message translates to:
+  /// **'Suscripción de Estudiante Activa'**
+  String get folioCloudPlanActiveStudent;
+
+  /// No description provided for @folioCloudPlanActiveFamily.
+  ///
+  /// In es, this message translates to:
+  /// **'Suscripción Familiar Activa'**
+  String get folioCloudPlanActiveFamily;
+
+  /// No description provided for @folioCloudPlanActiveFamilyMember.
+  ///
+  /// In es, this message translates to:
+  /// **'Suscripción Familiar (Miembro)'**
+  String get folioCloudPlanActiveFamilyMember;
+
+  /// No description provided for @folioCloudFamilyTitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Gestión Familiar'**
+  String get folioCloudFamilyTitle;
+
+  /// No description provided for @folioCloudFamilyOwnerNote.
+  ///
+  /// In es, this message translates to:
+  /// **'Suscripción familiar activa. Ranuras contratadas: {seats}. Miembros añadidos: {count}/{seats}.'**
+  String folioCloudFamilyOwnerNote(int seats, int count);
+
+  /// No description provided for @folioCloudFamilyMemberNote.
+  ///
+  /// In es, this message translates to:
+  /// **'Eres miembro de la familia de {owner}.'**
+  String folioCloudFamilyMemberNote(String owner);
+
+  /// No description provided for @folioCloudFamilyEmailPlaceholder.
+  ///
+  /// In es, this message translates to:
+  /// **'Correo del familiar a invitar'**
+  String get folioCloudFamilyEmailPlaceholder;
+
+  /// No description provided for @folioCloudFamilyInviteButton.
+  ///
+  /// In es, this message translates to:
+  /// **'Invitar familiar'**
+  String get folioCloudFamilyInviteButton;
+
+  /// No description provided for @folioCloudFamilyRemoveButton.
+  ///
+  /// In es, this message translates to:
+  /// **'Eliminar'**
+  String get folioCloudFamilyRemoveButton;
+
+  /// No description provided for @folioCloudFamilyLeaveButton.
+  ///
+  /// In es, this message translates to:
+  /// **'Salir de la familia'**
+  String get folioCloudFamilyLeaveButton;
+
+  /// No description provided for @folioCloudStudentVerifyButton.
+  ///
+  /// In es, this message translates to:
+  /// **'Verificar correo estudiante'**
+  String get folioCloudStudentVerifyButton;
+
+  /// No description provided for @folioCloudStudentVerifySuccess.
+  ///
+  /// In es, this message translates to:
+  /// **'¡Cuenta de estudiante verificada!'**
+  String get folioCloudStudentVerifySuccess;
+
+  /// No description provided for @folioCloudStudentVerifyFail.
+  ///
+  /// In es, this message translates to:
+  /// **'El correo no califica como estudiante (.edu o similar).'**
+  String get folioCloudStudentVerifyFail;
+
   /// No description provided for @folioCloudPitchScreenTitle.
   ///
   /// In es, this message translates to:
