@@ -665,8 +665,11 @@ async function verifiedUidFromBearerToken(authHeader) {
         throw new AiHttpsError("unauthenticated", "Login required");
     }
 }
+function isEmulatorMode(isDebug) {
+    return isDebug === true || process.env.FUNCTIONS_EMULATOR === "true";
+}
 function stripeClient(isDebug) {
-    const key = stripeSecret(isDebug);
+    const key = stripeSecret(isEmulatorMode(isDebug));
     if (!key)
         return null;
     return new stripe_1.default(key, { apiVersion: "2025-02-24.acacia" });
@@ -683,49 +686,49 @@ function stripeCallErrorMessage(err) {
 }
 function priceFolioCloudMonthly(isDebug) {
     var _a, _b, _c, _d;
-    if (isDebug) {
+    if (isEmulatorMode(isDebug)) {
         return ((_a = process.env.STRIPE_TEST_PRICE_FOLIO_CLOUD_MONTHLY) === null || _a === void 0 ? void 0 : _a.trim()) || ((_b = process.env.STRIPE_PRICE_FOLIO_CLOUD_MONTHLY) === null || _b === void 0 ? void 0 : _b.trim()) || "";
     }
     return (_d = (_c = process.env.STRIPE_PRICE_FOLIO_CLOUD_MONTHLY) === null || _c === void 0 ? void 0 : _c.trim()) !== null && _d !== void 0 ? _d : "";
 }
 function priceFolioCloudFamily(isDebug) {
     var _a, _b, _c, _d;
-    if (isDebug) {
+    if (isEmulatorMode(isDebug)) {
         return ((_a = process.env.STRIPE_TEST_PRICE_FOLIO_CLOUD_FAMILY) === null || _a === void 0 ? void 0 : _a.trim()) || ((_b = process.env.STRIPE_PRICE_FOLIO_CLOUD_FAMILY) === null || _b === void 0 ? void 0 : _b.trim()) || "";
     }
     return (_d = (_c = process.env.STRIPE_PRICE_FOLIO_CLOUD_FAMILY) === null || _c === void 0 ? void 0 : _c.trim()) !== null && _d !== void 0 ? _d : "";
 }
 function priceFolioCloudFamilyMember(isDebug) {
     var _a, _b, _c, _d;
-    if (isDebug) {
+    if (isEmulatorMode(isDebug)) {
         return ((_a = process.env.STRIPE_TEST_PRICE_FOLIO_CLOUD_FAMILY_MEMBER) === null || _a === void 0 ? void 0 : _a.trim()) || ((_b = process.env.STRIPE_PRICE_FOLIO_CLOUD_FAMILY_MEMBER) === null || _b === void 0 ? void 0 : _b.trim()) || "";
     }
     return (_d = (_c = process.env.STRIPE_PRICE_FOLIO_CLOUD_FAMILY_MEMBER) === null || _c === void 0 ? void 0 : _c.trim()) !== null && _d !== void 0 ? _d : "";
 }
 function priceFolioCloudStudent(isDebug) {
     var _a, _b, _c, _d;
-    if (isDebug) {
+    if (isEmulatorMode(isDebug)) {
         return ((_a = process.env.STRIPE_TEST_PRICE_FOLIO_CLOUD_STUDENT) === null || _a === void 0 ? void 0 : _a.trim()) || ((_b = process.env.STRIPE_PRICE_FOLIO_CLOUD_STUDENT) === null || _b === void 0 ? void 0 : _b.trim()) || "";
     }
     return (_d = (_c = process.env.STRIPE_PRICE_FOLIO_CLOUD_STUDENT) === null || _c === void 0 ? void 0 : _c.trim()) !== null && _d !== void 0 ? _d : "";
 }
 function priceInkSmall(isDebug) {
     var _a, _b, _c, _d;
-    if (isDebug) {
+    if (isEmulatorMode(isDebug)) {
         return ((_a = process.env.STRIPE_TEST_PRICE_INK_SMALL) === null || _a === void 0 ? void 0 : _a.trim()) || ((_b = process.env.STRIPE_PRICE_INK_SMALL) === null || _b === void 0 ? void 0 : _b.trim()) || "";
     }
     return (_d = (_c = process.env.STRIPE_PRICE_INK_SMALL) === null || _c === void 0 ? void 0 : _c.trim()) !== null && _d !== void 0 ? _d : "";
 }
 function priceInkMedium(isDebug) {
     var _a, _b, _c, _d;
-    if (isDebug) {
+    if (isEmulatorMode(isDebug)) {
         return ((_a = process.env.STRIPE_TEST_PRICE_INK_MEDIUM) === null || _a === void 0 ? void 0 : _a.trim()) || ((_b = process.env.STRIPE_PRICE_INK_MEDIUM) === null || _b === void 0 ? void 0 : _b.trim()) || "";
     }
     return (_d = (_c = process.env.STRIPE_PRICE_INK_MEDIUM) === null || _c === void 0 ? void 0 : _c.trim()) !== null && _d !== void 0 ? _d : "";
 }
 function priceInkLarge(isDebug) {
     var _a, _b, _c, _d;
-    if (isDebug) {
+    if (isEmulatorMode(isDebug)) {
         return ((_a = process.env.STRIPE_TEST_PRICE_INK_LARGE) === null || _a === void 0 ? void 0 : _a.trim()) || ((_b = process.env.STRIPE_PRICE_INK_LARGE) === null || _b === void 0 ? void 0 : _b.trim()) || "";
     }
     return (_d = (_c = process.env.STRIPE_PRICE_INK_LARGE) === null || _c === void 0 ? void 0 : _c.trim()) !== null && _d !== void 0 ? _d : "";
@@ -733,7 +736,7 @@ function priceInkLarge(isDebug) {
 /** Precio Stripe recurrente (mensual) — librería pequeña: +20 GB. Hereda STRIPE_PRICE_BACKUP_STORAGE_PACK si no hay _SMALL. */
 function priceBackupStoragePackSmall(isDebug) {
     var _a, _b, _c, _d, _e, _f;
-    if (isDebug) {
+    if (isEmulatorMode(isDebug)) {
         return (((_a = process.env.STRIPE_TEST_PRICE_BACKUP_STORAGE_PACK_SMALL) === null || _a === void 0 ? void 0 : _a.trim()) ||
             ((_b = process.env.STRIPE_TEST_PRICE_BACKUP_STORAGE_PACK) === null || _b === void 0 ? void 0 : _b.trim()) ||
             ((_c = process.env.STRIPE_PRICE_BACKUP_STORAGE_PACK_SMALL) === null || _c === void 0 ? void 0 : _c.trim()) ||
@@ -746,14 +749,14 @@ function priceBackupStoragePackSmall(isDebug) {
 }
 function priceBackupStoragePackMedium(isDebug) {
     var _a, _b, _c, _d;
-    if (isDebug) {
+    if (isEmulatorMode(isDebug)) {
         return ((_a = process.env.STRIPE_TEST_PRICE_BACKUP_STORAGE_PACK_MEDIUM) === null || _a === void 0 ? void 0 : _a.trim()) || ((_b = process.env.STRIPE_PRICE_BACKUP_STORAGE_PACK_MEDIUM) === null || _b === void 0 ? void 0 : _b.trim()) || "";
     }
     return (_d = (_c = process.env.STRIPE_PRICE_BACKUP_STORAGE_PACK_MEDIUM) === null || _c === void 0 ? void 0 : _c.trim()) !== null && _d !== void 0 ? _d : "";
 }
 function priceBackupStoragePackLarge(isDebug) {
     var _a, _b, _c, _d;
-    if (isDebug) {
+    if (isEmulatorMode(isDebug)) {
         return ((_a = process.env.STRIPE_TEST_PRICE_BACKUP_STORAGE_PACK_LARGE) === null || _a === void 0 ? void 0 : _a.trim()) || ((_b = process.env.STRIPE_PRICE_BACKUP_STORAGE_PACK_LARGE) === null || _b === void 0 ? void 0 : _b.trim()) || "";
     }
     return (_d = (_c = process.env.STRIPE_PRICE_BACKUP_STORAGE_PACK_LARGE) === null || _c === void 0 ? void 0 : _c.trim()) !== null && _d !== void 0 ? _d : "";

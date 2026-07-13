@@ -140,7 +140,8 @@ class _FolioInAppCheckoutDialogState extends State<FolioInAppCheckoutDialog> {
     }
 
     // 2. Cancel detection: Stripe cancel redirects containing cancel keyword.
-    if (cleanUrl.contains('cancel') || cleanUrl.endsWith('/cancel')) {
+    if ((cleanUrl.contains('cancel') || cleanUrl.endsWith('/cancel')) &&
+        !cleanUrl.contains('billing.stripe.com')) {
       debugPrint('FolioInAppCheckoutDialog: Intercepted cancel URL. Popping false.');
       if (mounted) {
         Navigator.of(context).pop(false);

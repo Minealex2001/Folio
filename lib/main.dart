@@ -143,6 +143,7 @@ Future<void> main() async {
 
       final cloudAccountController = CloudAccountController();
       final folioCloudEntitlements = FolioCloudEntitlementsController();
+      folioCloudEntitlements.listenToCloudAccount(cloudAccountController);
       final runtimeConfig = await FolioRuntimeConfig.load();
       final appSettings = AppSettings(
         integrationSecret: runtimeConfig.integrationSecret,

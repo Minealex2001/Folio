@@ -784,8 +784,12 @@ async function verifiedUidFromBearerToken(
   }
 }
 
+function isEmulatorMode(isDebug?: boolean): boolean {
+  return isDebug === true || process.env.FUNCTIONS_EMULATOR === "true";
+}
+
 function stripeClient(isDebug?: boolean): Stripe | null {
-  const key = stripeSecret(isDebug);
+  const key = stripeSecret(isEmulatorMode(isDebug));
   if (!key) return null;
   return new Stripe(key, { apiVersion: "2025-02-24.acacia" });
 }
@@ -802,49 +806,49 @@ function stripeCallErrorMessage(err: unknown): string {
 }
 
 function priceFolioCloudMonthly(isDebug?: boolean): string {
-  if (isDebug) {
+  if (isEmulatorMode(isDebug)) {
     return process.env.STRIPE_TEST_PRICE_FOLIO_CLOUD_MONTHLY?.trim() || process.env.STRIPE_PRICE_FOLIO_CLOUD_MONTHLY?.trim() || "";
   }
   return process.env.STRIPE_PRICE_FOLIO_CLOUD_MONTHLY?.trim() ?? "";
 }
 
 function priceFolioCloudFamily(isDebug?: boolean): string {
-  if (isDebug) {
+  if (isEmulatorMode(isDebug)) {
     return process.env.STRIPE_TEST_PRICE_FOLIO_CLOUD_FAMILY?.trim() || process.env.STRIPE_PRICE_FOLIO_CLOUD_FAMILY?.trim() || "";
   }
   return process.env.STRIPE_PRICE_FOLIO_CLOUD_FAMILY?.trim() ?? "";
 }
 
 function priceFolioCloudFamilyMember(isDebug?: boolean): string {
-  if (isDebug) {
+  if (isEmulatorMode(isDebug)) {
     return process.env.STRIPE_TEST_PRICE_FOLIO_CLOUD_FAMILY_MEMBER?.trim() || process.env.STRIPE_PRICE_FOLIO_CLOUD_FAMILY_MEMBER?.trim() || "";
   }
   return process.env.STRIPE_PRICE_FOLIO_CLOUD_FAMILY_MEMBER?.trim() ?? "";
 }
 
 function priceFolioCloudStudent(isDebug?: boolean): string {
-  if (isDebug) {
+  if (isEmulatorMode(isDebug)) {
     return process.env.STRIPE_TEST_PRICE_FOLIO_CLOUD_STUDENT?.trim() || process.env.STRIPE_PRICE_FOLIO_CLOUD_STUDENT?.trim() || "";
   }
   return process.env.STRIPE_PRICE_FOLIO_CLOUD_STUDENT?.trim() ?? "";
 }
 
 function priceInkSmall(isDebug?: boolean): string {
-  if (isDebug) {
+  if (isEmulatorMode(isDebug)) {
     return process.env.STRIPE_TEST_PRICE_INK_SMALL?.trim() || process.env.STRIPE_PRICE_INK_SMALL?.trim() || "";
   }
   return process.env.STRIPE_PRICE_INK_SMALL?.trim() ?? "";
 }
 
 function priceInkMedium(isDebug?: boolean): string {
-  if (isDebug) {
+  if (isEmulatorMode(isDebug)) {
     return process.env.STRIPE_TEST_PRICE_INK_MEDIUM?.trim() || process.env.STRIPE_PRICE_INK_MEDIUM?.trim() || "";
   }
   return process.env.STRIPE_PRICE_INK_MEDIUM?.trim() ?? "";
 }
 
 function priceInkLarge(isDebug?: boolean): string {
-  if (isDebug) {
+  if (isEmulatorMode(isDebug)) {
     return process.env.STRIPE_TEST_PRICE_INK_LARGE?.trim() || process.env.STRIPE_PRICE_INK_LARGE?.trim() || "";
   }
   return process.env.STRIPE_PRICE_INK_LARGE?.trim() ?? "";
@@ -852,7 +856,7 @@ function priceInkLarge(isDebug?: boolean): string {
 
 /** Precio Stripe recurrente (mensual) — librería pequeña: +20 GB. Hereda STRIPE_PRICE_BACKUP_STORAGE_PACK si no hay _SMALL. */
 function priceBackupStoragePackSmall(isDebug?: boolean): string {
-  if (isDebug) {
+  if (isEmulatorMode(isDebug)) {
     return (
       process.env.STRIPE_TEST_PRICE_BACKUP_STORAGE_PACK_SMALL?.trim() ||
       process.env.STRIPE_TEST_PRICE_BACKUP_STORAGE_PACK?.trim() ||
@@ -869,14 +873,14 @@ function priceBackupStoragePackSmall(isDebug?: boolean): string {
 }
 
 function priceBackupStoragePackMedium(isDebug?: boolean): string {
-  if (isDebug) {
+  if (isEmulatorMode(isDebug)) {
     return process.env.STRIPE_TEST_PRICE_BACKUP_STORAGE_PACK_MEDIUM?.trim() || process.env.STRIPE_PRICE_BACKUP_STORAGE_PACK_MEDIUM?.trim() || "";
   }
   return process.env.STRIPE_PRICE_BACKUP_STORAGE_PACK_MEDIUM?.trim() ?? "";
 }
 
 function priceBackupStoragePackLarge(isDebug?: boolean): string {
-  if (isDebug) {
+  if (isEmulatorMode(isDebug)) {
     return process.env.STRIPE_TEST_PRICE_BACKUP_STORAGE_PACK_LARGE?.trim() || process.env.STRIPE_PRICE_BACKUP_STORAGE_PACK_LARGE?.trim() || "";
   }
   return process.env.STRIPE_PRICE_BACKUP_STORAGE_PACK_LARGE?.trim() ?? "";

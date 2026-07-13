@@ -7,6 +7,7 @@ import 'package:flutter/foundation.dart';
 
 import '../../app/folio_distribution.dart';
 import '../folio_firestore_support.dart';
+import '../cloud_account/cloud_account_controller.dart';
 import 'folio_cloud_billing.dart';
 import 'folio_cloud_callable.dart';
 import 'folio_firestore_rest.dart';
@@ -349,6 +350,13 @@ class FolioCloudEntitlementsController extends ChangeNotifier {
   }
 
   StreamSubscription<User?>? _authSub;
+
+  void listenToCloudAccount(CloudAccountController cloud) {
+    cloud.addListener(() {
+      _onUser(cloud.user);
+    });
+    _onUser(cloud.user);
+  }
   StreamSubscription<DocumentSnapshot<Map<String, dynamic>>>? _docSub;
   Timer? _userDocPollTimer;
 
@@ -737,6 +745,7 @@ class FolioCloudEntitlementsController extends ChangeNotifier {
     }
     if (FirebaseAuth.instance.currentUser?.uid != uid) return;
     if (serverData != null) {
+      debugPrint('FolioCloudEntitlements: Server user doc: $serverData');
       final parsed = FolioCloudSnapshot.fromUserDoc(serverData);
       snapshot = parsed;
       _serverFetchTruth = parsed;
