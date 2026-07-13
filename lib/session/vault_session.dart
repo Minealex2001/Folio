@@ -3831,6 +3831,17 @@ class VaultSession extends ChangeNotifier {
     scheduleSave(trackRevisionForPageId: pageId);
   }
 
+  void setBlockCodeWrap(String pageId, String blockId, bool wrap) {
+    final page = _pageById(pageId);
+    if (page == null) return;
+    final b = _blockById(page, blockId);
+    if (b == null || b.type != 'code') return;
+    _rememberUndoBeforePageMutation(pageId);
+    b.codeWrap = wrap;
+    notifyListeners();
+    scheduleSave(trackRevisionForPageId: pageId);
+  }
+
   void insertBlockAfter({
     required String pageId,
     required String afterBlockId,

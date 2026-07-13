@@ -3326,6 +3326,28 @@ class AppLocalizationsGl extends AppLocalizations {
       'El correo no califica como estudiante (.edu o similar).';
 
   @override
+  String get folioCloudStudentVerifyDialogTitle => 'Verificación de estudiante';
+
+  @override
+  String get folioCloudStudentVerifyDialogDesc =>
+      'Introduce tu dirección de correo electrónico institucional para verificar tu elegibilidad en la tarifa para estudiantes de Folio Cloud.';
+
+  @override
+  String get folioCloudStudentVerifyDialogLabel =>
+      'Correo electrónico institucional';
+
+  @override
+  String get folioCloudStudentVerifyDialogHint =>
+      'usuario@uji.es, usuario@universidad.edu';
+
+  @override
+  String get folioCloudStudentVerifyDialogHelp =>
+      'Soporta dominios académicos universitarios españoles y dominios globales.';
+
+  @override
+  String get folioCloudStudentVerifyDialogAction => 'Verificar ahora';
+
+  @override
   String get folioCloudPitchScreenTitle => 'Folio Cloud';
 
   @override

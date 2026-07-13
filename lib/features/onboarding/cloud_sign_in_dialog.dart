@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 
 import '../../app/widgets/folio_dialog.dart';
 import '../../app/widgets/folio_password_field.dart';
+import '../../app/widgets/folio_error_card.dart';
 import '../../l10n/generated/app_localizations.dart';
 import '../../services/cloud_account/cloud_account_controller.dart';
 
@@ -26,14 +27,43 @@ class _CloudSignInDialogState extends State<CloudSignInDialog> {
   final _formKey = GlobalKey<FormState>();
   final _email = TextEditingController();
   final _password = TextEditingController();
+  final _emailFocus = FocusNode();
+  final _passwordFocus = FocusNode();
   var _obscure = true;
   var _loading = false;
 
+  String? _emailError;
+  String? _passwordError;
+  String? _generalError;
+
+  @override
+  void initState() {
+    super.initState();
+    _emailFocus.addListener(_onEmailFocusChange);
+    _passwordFocus.addListener(_onPasswordFocusChange);
+  }
+
   @override
   void dispose() {
+    _emailFocus.removeListener(_onEmailFocusChange);
+    _passwordFocus.removeListener(_onPasswordFocusChange);
+    _emailFocus.dispose();
+    _passwordFocus.dispose();
     _email.dispose();
     _password.dispose();
     super.dispose();
+  }
+
+  void _onEmailFocusChange() {
+    if (!_emailFocus.hasFocus) {
+      _formKey.currentState?.validate();
+    }
+  }
+
+  void _onPasswordFocusChange() {
+    if (!_passwordFocus.hasFocus) {
+      _formKey.currentState?.validate();
+    }
   }
 
   bool _isValidEmail(String s) {
@@ -43,7 +73,14 @@ class _CloudSignInDialogState extends State<CloudSignInDialog> {
   }
 
   Future<void> _submit() async {
+    setState(() {
+      _emailError = null;
+      _passwordError = null;
+      _generalError = null;
+    });
+
     if (!(_formKey.currentState?.validate() ?? false)) return;
+
     setState(() => _loading = true);
     try {
       await widget.cloud.signInWithEmailAndPassword(
@@ -53,24 +90,30 @@ class _CloudSignInDialogState extends State<CloudSignInDialog> {
       if (mounted) Navigator.of(context).pop(true);
     } on FirebaseAuthException catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            behavior: SnackBarBehavior.floating,
-            content: Text(widget.onAuthError(e.code)),
-          ),
-        );
+        setState(() {
+          final errorMsg = widget.onAuthError(e.code);
+          if (e.code == 'wrong-password' || e.code == 'invalid-credential') {
+            _passwordError = errorMsg;
+          } else if (e.code == 'invalid-email' || e.code == 'user-not-found') {
+            _emailError = errorMsg;
+          } else {
+            _generalError = errorMsg;
+          }
+          _loading = false;
+        });
+        _formKey.currentState?.validate();
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            behavior: SnackBarBehavior.floating,
-            content: Text('$e'),
-          ),
-        );
+        setState(() {
+          _generalError = '$e';
+          _loading = false;
+        });
       }
     } finally {
-      if (mounted) setState(() => _loading = false);
+      if (mounted && _loading) {
+        setState(() => _loading = false);
+      }
     }
   }
 
@@ -90,6 +133,7 @@ class _CloudSignInDialogState extends State<CloudSignInDialog> {
       content: SingleChildScrollView(
         child: Form(
           key: _formKey,
+          autovalidateMode: AutovalidateMode.onUserInteraction,
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
@@ -101,13 +145,26 @@ class _CloudSignInDialogState extends State<CloudSignInDialog> {
                     ),
               ),
               const SizedBox(height: 16),
+              if (_generalError != null) ...[
+                FolioErrorCard(
+                  title: 'Error de autenticación',
+                  message: _generalError!,
+                  margin: const EdgeInsets.only(bottom: 12),
+                ),
+              ],
               TextFormField(
                 controller: _email,
+                focusNode: _emailFocus,
                 enabled: !_loading,
                 keyboardType: TextInputType.emailAddress,
                 autocorrect: false,
                 autofillHints: const [AutofillHints.email],
                 textInputAction: TextInputAction.next,
+                onChanged: (_) {
+                  if (_emailError != null) {
+                    setState(() => _emailError = null);
+                  }
+                },
                 decoration: InputDecoration(
                   labelText: l10n.cloudAccountEmailLabel,
                   border: const OutlineInputBorder(),
@@ -117,12 +174,14 @@ class _CloudSignInDialogState extends State<CloudSignInDialog> {
                   final s = v?.trim() ?? '';
                   if (s.isEmpty) return l10n.cloudAuthValidationRequired;
                   if (!_isValidEmail(s)) return l10n.cloudAuthErrorInvalidEmail;
+                  if (_emailError != null) return _emailError;
                   return null;
                 },
               ),
               const SizedBox(height: 12),
               FolioPasswordField(
                 controller: _password,
+                focusNode: _passwordFocus,
                 labelText: l10n.cloudAccountPasswordLabel,
                 obscureText: _obscure,
                 onToggleObscure: () => setState(() => _obscure = !_obscure),
@@ -131,6 +190,17 @@ class _CloudSignInDialogState extends State<CloudSignInDialog> {
                 enabled: !_loading,
                 textInputAction: TextInputAction.done,
                 onSubmitted: (_) => _submit(),
+                onChanged: (_) {
+                  if (_passwordError != null) {
+                    setState(() => _passwordError = null);
+                  }
+                },
+                validator: (v) {
+                  final s = v ?? '';
+                  if (s.isEmpty) return l10n.cloudAuthValidationRequired;
+                  if (_passwordError != null) return _passwordError;
+                  return null;
+                },
               ),
             ],
           ),
@@ -155,4 +225,3 @@ class _CloudSignInDialogState extends State<CloudSignInDialog> {
     );
   }
 }
-

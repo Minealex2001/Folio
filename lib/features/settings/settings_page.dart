@@ -25,6 +25,8 @@ import '../../app/widgets/folio_icon_token_view.dart';
 import '../../app/widgets/folio_password_field.dart';
 import '../../app/widgets/vault_backup_progress_dialog.dart';
 import '../../app/widgets/folio_in_app_checkout_dialog.dart';
+import '../../app/widgets/folio_skeletons.dart';
+import '../../app/widgets/folio_error_card.dart';
 import 'in_app_shortcut_capture_dialog.dart';
 import '../../crypto/vault_crypto.dart';
 import '../../data/notion_import/notion_importer.dart';
@@ -2055,8 +2057,8 @@ class _SettingsPageState extends State<SettingsPage> {
                 if (snapshot.connectionState == ConnectionState.waiting &&
                     !snapshot.hasData) {
                   return const Padding(
-                    padding: EdgeInsets.symmetric(vertical: 24),
-                    child: Center(child: CircularProgressIndicator()),
+                    padding: EdgeInsets.symmetric(vertical: 12),
+                    child: FolioPricingTableSkeleton(),
                   );
                 }
 
@@ -9286,26 +9288,26 @@ class _SettingsPageState extends State<SettingsPage> {
                                           ],
                                         ),
                                       ),
-                                    ],
-                                    const Divider(height: 1),
-                                    ListTile(
-                                      leading: const Icon(
-                                        Icons.system_update_rounded,
+                                      const Divider(height: 1),
+                                      ListTile(
+                                        leading: const Icon(
+                                          Icons.system_update_rounded,
+                                        ),
+                                        title: Text(l10n.checkUpdates),
+                                        trailing: _checkingUpdates
+                                            ? const SizedBox(
+                                                height: 20,
+                                                width: 20,
+                                                child: CircularProgressIndicator(
+                                                  strokeWidth: 2,
+                                                ),
+                                              )
+                                            : null,
+                                        onTap: _checkingUpdates
+                                            ? null
+                                            : _checkUpdatesNow,
                                       ),
-                                      title: Text(l10n.checkUpdates),
-                                      trailing: _checkingUpdates
-                                          ? const SizedBox(
-                                              height: 20,
-                                              width: 20,
-                                              child: CircularProgressIndicator(
-                                                strokeWidth: 2,
-                                              ),
-                                            )
-                                          : null,
-                                      onTap: _checkingUpdates
-                                          ? null
-                                          : _checkUpdatesNow,
-                                    ),
+                                    ],
                                   ],
                                 ),
                               ),
@@ -11679,8 +11681,8 @@ class _FolioCloudSubscriptionPanel extends StatelessWidget {
                 if (snapshot.connectionState == ConnectionState.waiting &&
                     !snapshot.hasData) {
                   return const Padding(
-                    padding: EdgeInsets.symmetric(vertical: 24),
-                    child: Center(child: CircularProgressIndicator()),
+                    padding: EdgeInsets.symmetric(vertical: 12),
+                    child: FolioPricingTableSkeleton(),
                   );
                 }
 
@@ -12587,41 +12589,74 @@ class _FolioCloudSubscriptionPanel extends StatelessWidget {
     final controller = TextEditingController();
     showDialog<void>(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: Text(l10n.folioCloudStudentVerifyButton),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            const Text('Ingresa tu correo de estudiante para verificar tu estado (Demo/Simulado):'),
-            const SizedBox(height: 10),
-            TextField(
-              controller: controller,
-              decoration: const InputDecoration(
-                hintText: 'ejemplo@universidad.edu',
-                border: OutlineInputBorder(),
+      builder: (ctx) {
+        final theme = Theme.of(ctx);
+        final scheme = theme.colorScheme;
+        return AlertDialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
+          ),
+          title: Row(
+            children: [
+              Icon(Icons.school_rounded, color: scheme.primary, size: 28),
+              const SizedBox(width: 12),
+              Text(l10n.folioCloudStudentVerifyDialogTitle),
+            ],
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Text(
+                l10n.folioCloudStudentVerifyDialogDesc,
+                style: const TextStyle(height: 1.4),
               ),
-              keyboardType: TextInputType.emailAddress,
+              const SizedBox(height: 16),
+              TextField(
+                controller: controller,
+                decoration: InputDecoration(
+                  labelText: l10n.folioCloudStudentVerifyDialogLabel,
+                  hintText: l10n.folioCloudStudentVerifyDialogHint,
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  prefixIcon: const Icon(Icons.email_outlined),
+                ),
+                keyboardType: TextInputType.emailAddress,
+                autofocus: true,
+              ),
+              const SizedBox(height: 8),
+              Text(
+                l10n.folioCloudStudentVerifyDialogHelp,
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: scheme.onSurfaceVariant,
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(ctx).pop(),
+              child: Text(l10n.cancel),
+            ),
+            FilledButton(
+              onPressed: () {
+                final email = controller.text.trim();
+                if (email.isNotEmpty) {
+                  Navigator.of(ctx).pop();
+                  onVerifyStudent(email);
+                }
+              },
+              style: FilledButton.styleFrom(
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10),
+                ),
+              ),
+              child: Text(l10n.folioCloudStudentVerifyDialogAction),
             ),
           ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(),
-            child: Text(l10n.cancel),
-          ),
-          FilledButton(
-            onPressed: () {
-              final email = controller.text.trim();
-              if (email.isNotEmpty) {
-                Navigator.of(ctx).pop();
-                onVerifyStudent(email);
-              }
-            },
-            child: const Text('Verificar'),
-          ),
-        ],
-      ),
+        );
+      },
     );
   }
 }
@@ -12723,21 +12758,18 @@ class _FamilyManagerWidgetState extends State<_FamilyManagerWidget> {
         Builder(
           builder: (context) {
             if (_error != null) {
-              return Padding(
-                padding: const EdgeInsets.symmetric(vertical: 8),
-                child: Text(
-                  'Error al cargar miembros: $_error',
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: widget.scheme.error,
-                      ),
-                ),
+              return FolioErrorCard(
+                title: 'Error al cargar miembros',
+                message: _error!,
+                icon: Icons.people_outline,
+                onRetry: _loadFamilyData,
               );
             }
 
             if (_loading) {
               return const Padding(
-                padding: EdgeInsets.symmetric(vertical: 12),
-                child: Center(child: CircularProgressIndicator(strokeWidth: 2)),
+                padding: EdgeInsets.symmetric(vertical: 8),
+                child: FolioFamilySeatsSkeleton(),
               );
             }
 

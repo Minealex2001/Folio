@@ -69,6 +69,7 @@ class FolioBlock {
     this.checked,
     this.expanded,
     this.codeLanguage,
+    this.codeWrap,
     this.depth = 0,
     this.icon,
     this.url,
@@ -99,6 +100,9 @@ class FolioBlock {
 
   /// Id de gramática highlight (`dart`, `javascript`, …); solo para `type == 'code'`.
   String? codeLanguage;
+
+  /// wrap option for code blocks
+  bool? codeWrap;
 
   /// Nivel de indentación visual del bloque (default: 0)
   int depth;
@@ -134,6 +138,7 @@ class FolioBlock {
     if (checked != null) 'checked': checked,
     if (expanded != null) 'expanded': expanded,
     if (codeLanguage != null) 'codeLanguage': codeLanguage,
+    if (codeWrap != null) 'codeWrap': codeWrap,
     if (depth > 0) 'depth': depth,
     if (icon != null) 'icon': icon,
     if (url != null) 'url': url,
@@ -168,6 +173,7 @@ class FolioBlock {
       checked: j['checked'] as bool?,
       expanded: j['expanded'] as bool?,
       codeLanguage: j['codeLanguage'] as String?,
+      codeWrap: j['codeWrap'] as bool?,
       depth: j['depth'] as int? ?? 0,
       icon: j['icon'] as String?,
       url: j['url'] as String?,
@@ -189,6 +195,7 @@ class FolioBlock {
     bool? checked,
     bool? expanded,
     String? codeLanguage,
+    bool? codeWrap,
     int? depth,
     String? icon,
     String? url,
@@ -207,6 +214,7 @@ class FolioBlock {
       checked: checked ?? this.checked,
       expanded: expanded ?? this.expanded,
       codeLanguage: codeLanguage ?? this.codeLanguage,
+      codeWrap: codeWrap ?? this.codeWrap,
       depth: depth ?? this.depth,
       icon: icon ?? this.icon,
       url: url ?? this.url,

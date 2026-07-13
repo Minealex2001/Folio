@@ -2504,6 +2504,15 @@ class BlockEditorState extends State<BlockEditor> with _BlockRowBuild {
     if (mounted) setState(() {});
   }
 
+  void _onCodeWrapToggled(
+    String pageId,
+    String blockId,
+    bool currentWrap,
+  ) {
+    _s.setBlockCodeWrap(pageId, blockId, !currentWrap);
+    if (mounted) setState(() {});
+  }
+
   Future<String?> _openCodeLanguageSheet(
     BuildContext context,
     FolioBlock block,
@@ -3721,7 +3730,7 @@ class BlockEditorState extends State<BlockEditor> with _BlockRowBuild {
 
       final fn = FocusNode(
         onKeyEvent: (node, event) {
-          if (event is! KeyDownEvent) return KeyEventResult.ignored;
+          if (event is! KeyDownEvent && event is! KeyRepeatEvent) return KeyEventResult.ignored;
           final p = _s.selectedPage;
           if (p?.id != pid) return KeyEventResult.ignored;
           final idx = p!.blocks.indexWhere((x) => x.id == bid);
@@ -4098,7 +4107,7 @@ class BlockEditorState extends State<BlockEditor> with _BlockRowBuild {
     String blockId,
     int index,
     TextEditingController ctrl,
-    KeyDownEvent event,
+    KeyEvent event,
   ) {
     if (event.logicalKey == LogicalKeyboardKey.tab) {
       if (ctrl is CopilotTextEditingController && ctrl.suggestion.isNotEmpty) {
@@ -5506,32 +5515,10 @@ class BlockEditorState extends State<BlockEditor> with _BlockRowBuild {
       WidgetsBinding.instance.addPostFrameCallback((_) async {
         if (!mounted) return;
         final l10n = AppLocalizations.of(context);
-        final tc = TextEditingController();
         final groupId = await showDialog<String>(
           context: context,
-          builder: (ctx) => AlertDialog(
-            title: Text(l10n.syncedBlockInsertTitle),
-            content: TextField(
-              controller: tc,
-              autofocus: true,
-              decoration: InputDecoration(
-                labelText: l10n.syncedBlockIdLabel,
-                hintText: l10n.syncedBlockIdHint,
-              ),
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(ctx),
-                child: Text(l10n.cancel),
-              ),
-              FilledButton(
-                onPressed: () => Navigator.pop(ctx, tc.text.trim()),
-                child: Text(l10n.continueAction),
-              ),
-            ],
-          ),
+          builder: (ctx) => _SyncedBlockInsertDialog(l10n: l10n),
         );
-        WidgetsBinding.instance.addPostFrameCallback((_) => tc.dispose());
         if (!mounted || groupId == null || groupId.isEmpty) return;
         final ok = _s.insertSyncedBlock(page.id, b.id, groupId);
         if (!mounted) return;
@@ -6406,6 +6393,55 @@ class BlockEditorState extends State<BlockEditor> with _BlockRowBuild {
           ),
         ],
       ),
+    );
+  }
+}
+
+class _SyncedBlockInsertDialog extends StatefulWidget {
+  final AppLocalizations l10n;
+  const _SyncedBlockInsertDialog({required this.l10n});
+
+  @override
+  State<_SyncedBlockInsertDialog> createState() => _SyncedBlockInsertDialogState();
+}
+
+class _SyncedBlockInsertDialogState extends State<_SyncedBlockInsertDialog> {
+  late final TextEditingController tc;
+
+  @override
+  void initState() {
+    super.initState();
+    tc = TextEditingController();
+  }
+
+  @override
+  void dispose() {
+    tc.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: Text(widget.l10n.syncedBlockInsertTitle),
+      content: TextField(
+        controller: tc,
+        autofocus: true,
+        decoration: InputDecoration(
+          labelText: widget.l10n.syncedBlockIdLabel,
+          hintText: widget.l10n.syncedBlockIdHint,
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: Text(widget.l10n.cancel),
+        ),
+        FilledButton(
+          onPressed: () => Navigator.pop(context, tc.text.trim()),
+          child: Text(widget.l10n.continueAction),
+        ),
+      ],
     );
   }
 }

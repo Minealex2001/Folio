@@ -12,6 +12,8 @@ import '../../../services/folio_cloud/folio_cloud_reachability.dart';
 import '../../../services/community_templates/community_template_store.dart';
 import '../../../session/vault_session.dart';
 import '../../onboarding/cloud_sign_in_dialog.dart';
+import '../../../app/widgets/folio_skeletons.dart';
+import '../../../app/widgets/folio_error_card.dart';
 
 /// Pantalla completa de galería de plantillas (locales y comunidad).
 
@@ -768,26 +770,24 @@ class _TemplateGalleryPageState extends State<TemplateGalleryPage>
     }
 
     if (_communityLoading && _communityEntries.isEmpty) {
-      return const Center(child: CircularProgressIndicator());
+      return const Padding(
+        padding: EdgeInsets.symmetric(horizontal: 16),
+        child: FolioTemplateGallerySkeleton(),
+      );
     }
 
     if (_communityError != null && _communityEntries.isEmpty) {
       return Center(
         child: Padding(
           padding: const EdgeInsets.all(24),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                l10n.templateCommunityLoadError(_communityError!),
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 12),
-              FilledButton.tonal(
-                onPressed: _loadCommunityTemplates,
-                child: Text(l10n.templateCommunityRetry),
-              ),
-            ],
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 400),
+            child: FolioErrorCard(
+              title: l10n.templateCommunityRefresh,
+              message: l10n.templateCommunityLoadError(_communityError!),
+              icon: Icons.cloud_off_rounded,
+              onRetry: _loadCommunityTemplates,
+            ),
           ),
         ),
       );

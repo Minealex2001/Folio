@@ -804,7 +804,7 @@ class FolioCloudEntitlementsController extends ChangeNotifier {
     Map<String, dynamic>? serverData,
   ) async {
     if (FirebaseAuth.instance.currentUser?.uid != uid) return;
-    if (snapshot.active) return;
+    if (snapshot.active && (snapshot.isStudent || !snapshot.isStudentVerified)) return;
     final cid = serverData?['stripeCustomerId'];
     if (cid is! String || cid.trim().isEmpty) return;
     final now = DateTime.now();

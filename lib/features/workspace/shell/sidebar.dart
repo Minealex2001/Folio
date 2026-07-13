@@ -60,6 +60,8 @@ class _SidebarState extends State<Sidebar> {
   String _lastSidebarFingerprint = '';
   Set<String> _lastPageIds = const {};
   final ScrollController _pagesScrollController = ScrollController();
+  final TextEditingController _searchController = TextEditingController();
+  String _searchQuery = '';
   String? _loadedCollapsedVaultId;
   final List<RecentPageVisit> _recentVisits = <RecentPageVisit>[];
   String? _loadedRecentVaultId;
@@ -71,6 +73,7 @@ class _SidebarState extends State<Sidebar> {
   void initState() {
     super.initState();
     session.addListener(_onSession);
+    _searchController.addListener(_onSearchChanged);
     unawaited(_loadCollapsedState());
     unawaited(_loadRecentState());
     _reloadVaults();
@@ -79,8 +82,16 @@ class _SidebarState extends State<Sidebar> {
   @override
   void dispose() {
     session.removeListener(_onSession);
+    _searchController.removeListener(_onSearchChanged);
+    _searchController.dispose();
     _pagesScrollController.dispose();
     super.dispose();
+  }
+
+  void _onSearchChanged() {
+    setState(() {
+      _searchQuery = _searchController.text;
+    });
   }
 
   void _onSession() {
@@ -241,11 +252,41 @@ class _SidebarState extends State<Sidebar> {
     unawaited(_persistCollapsedState());
   }
 
+  void _toggleExpandCollapseAll() {
+    final pagesWithChildren = session.pages.where((p) {
+      final childCounts = <String, int>{};
+      for (final pg in session.pages) {
+        final pid = pg.parentId;
+        if (pid != null) {
+          childCounts[pid] = (childCounts[pid] ?? 0) + 1;
+        }
+      }
+      return (childCounts[p.id] ?? 0) > 0 || p.isFolder;
+    }).map((p) => p.id).toSet();
+
+    setState(() {
+      final allCollapsed = pagesWithChildren.every((id) => _collapsedPageIds.contains(id));
+      if (allCollapsed) {
+        _collapsedPageIds.clear();
+      } else {
+        _collapsedPageIds.addAll(pagesWithChildren);
+      }
+    });
+    unawaited(_persistCollapsedState());
+  }
+
   ({List<_VisiblePageRow> rows, Map<String, bool> hasChildrenById})
-  _buildVisiblePageRows(List<FolioPage> pages, {String? tagFilter}) {
-    // When a tag filter is active, show a flat list of matching pages.
-    if (tagFilter != null) {
-      final matched = pages.where((p) => p.tags.contains(tagFilter)).toList();
+  _buildVisiblePageRows(List<FolioPage> pages, {String? tagFilter, String? searchQuery}) {
+    // When a tag filter or a search query is active, show matching pages.
+    if ((tagFilter != null && tagFilter.isNotEmpty) || (searchQuery != null && searchQuery.isNotEmpty)) {
+      var matched = pages;
+      if (tagFilter != null && tagFilter.isNotEmpty) {
+        matched = matched.where((p) => p.tags.contains(tagFilter)).toList();
+      }
+      if (searchQuery != null && searchQuery.isNotEmpty) {
+        final query = searchQuery.toLowerCase();
+        matched = matched.where((p) => p.title.toLowerCase().contains(query)).toList();
+      }
       final rows = matched
           .map((p) => _VisiblePageRow(page: p, indent: 4))
           .toList();
@@ -1054,8 +1095,21 @@ class _SidebarState extends State<Sidebar> {
     final visible = _buildVisiblePageRows(
       session.pages,
       tagFilter: _selectedTagFilter,
+      searchQuery: _searchQuery,
     );
     _hasChildrenById = visible.hasChildrenById;
+
+    final pagesWithChildren = session.pages.where((p) {
+      final childCounts = <String, int>{};
+      for (final pg in session.pages) {
+        final pid = pg.parentId;
+        if (pid != null) {
+          childCounts[pid] = (childCounts[pid] ?? 0) + 1;
+        }
+      }
+      return (childCounts[p.id] ?? 0) > 0 || p.isFolder;
+    }).map((p) => p.id).toSet();
+    final allCollapsed = pagesWithChildren.every((id) => _collapsedPageIds.contains(id));
 
     return LayoutBuilder(
       builder: (context, constraints) {
@@ -1086,10 +1140,44 @@ class _SidebarState extends State<Sidebar> {
                     children: [
                       if (widget.onSearch != null)
                         Expanded(
-                          child: FilledButton.tonalIcon(
-                            onPressed: widget.onSearch,
-                            icon: const Icon(Icons.search_rounded),
-                            label: Text(l10n.search),
+                          child: Container(
+                            decoration: BoxDecoration(
+                              color: scheme.surfaceContainerLow,
+                              borderRadius: BorderRadius.circular(FolioRadius.md),
+                              border: Border.all(
+                                color: scheme.outlineVariant.withValues(alpha: 0.3),
+                              ),
+                            ),
+                            padding: const EdgeInsets.symmetric(horizontal: FolioSpace.sm),
+                            child: Row(
+                              children: [
+                                Icon(
+                                  Icons.search_rounded,
+                                  size: 18,
+                                  color: scheme.onSurfaceVariant,
+                                ),
+                                const SizedBox(width: FolioSpace.xs),
+                                Expanded(
+                                  child: TextField(
+                                    controller: _searchController,
+                                    style: Theme.of(context).textTheme.bodyMedium,
+                                    decoration: InputDecoration(
+                                      hintText: l10n.search,
+                                      border: InputBorder.none,
+                                      isDense: true,
+                                      contentPadding: const EdgeInsets.symmetric(vertical: 8),
+                                    ),
+                                  ),
+                                ),
+                                if (_searchQuery.isNotEmpty)
+                                  IconButton(
+                                    icon: const Icon(Icons.clear_rounded, size: 16),
+                                    visualDensity: VisualDensity.compact,
+                                    padding: EdgeInsets.zero,
+                                    onPressed: () => _searchController.clear(),
+                                  ),
+                              ],
+                            ),
                           ),
                         ),
                       if (widget.onSearch != null &&
@@ -1162,21 +1250,22 @@ class _SidebarState extends State<Sidebar> {
                     ),
                   ),
                   IconButton(
+                    icon: Icon(
+                      allCollapsed ? Icons.unfold_more_rounded : Icons.unfold_less_rounded,
+                      size: 20,
+                    ),
+                    tooltip: allCollapsed ? l10n.aiExpand : l10n.aiCollapse,
+                    onPressed: _toggleExpandCollapseAll,
+                  ),
+                  IconButton(
                     icon: const Icon(Icons.layers_outlined, size: 20),
                     tooltip: l10n.templateFromGallery,
                     onPressed: () => _openTemplateGallery(context),
                   ),
-                  const SizedBox(width: 4),
-                  Flexible(
-                    child: FilledButton.tonalIcon(
-                      onPressed: () => session.addPage(parentId: null),
-                      icon: const Icon(Icons.add_rounded),
-                      label: Text(
-                        l10n.createPage,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
+                  IconButton(
+                    icon: const Icon(Icons.note_add_outlined, size: 20),
+                    tooltip: l10n.createPage,
+                    onPressed: () => session.addPage(parentId: null),
                   ),
                   const SizedBox(width: 6),
                   IconButton(
@@ -1243,11 +1332,11 @@ class _SidebarState extends State<Sidebar> {
                       decoration: BoxDecoration(
                         borderRadius: BorderRadius.circular(FolioRadius.xl),
                         border: hoveringRoot
-                            ? Border.all(
-                                color: scheme.primary.withValues(alpha: 0.25),
-                                width: 2,
-                              )
-                            : null,
+                          ? Border.all(
+                              color: scheme.primary.withValues(alpha: 0.25),
+                              width: 2,
+                            )
+                          : null,
                       ),
                       child: visible.rows.isEmpty && _selectedTagFilter != null
                           ? Center(
@@ -1526,6 +1615,17 @@ class _SidebarTileState extends State<_SidebarTile> {
                         showRowActions && constraints.maxWidth >= 200.0;
                     return Row(
                       children: [
+                        // Selection bar indicator
+                        AnimatedContainer(
+                          duration: const Duration(milliseconds: 200),
+                          width: selected ? 3 : 0,
+                          height: selected ? 16 : 0,
+                          margin: EdgeInsets.only(right: selected ? 6 : 0),
+                          decoration: BoxDecoration(
+                            color: scheme.primary,
+                            borderRadius: BorderRadius.circular(999),
+                          ),
+                        ),
                         Expanded(
                           child: Row(
                             children: [
@@ -1612,84 +1712,108 @@ class _SidebarTileState extends State<_SidebarTile> {
                                   child: Row(
                                     mainAxisSize: MainAxisSize.min,
                                     children: [
-                                      IconButton(
+                                      if (isFolder && widget.onAddSubpage != null)
+                                        IconButton(
+                                          icon: const Icon(Icons.add, size: 18),
+                                          tooltip: l10n.subpage,
+                                          visualDensity: VisualDensity.compact,
+                                          color: selected
+                                              ? scheme.onSecondaryContainer
+                                              : scheme.onSurfaceVariant,
+                                          onPressed: widget.onAddSubpage,
+                                        ),
+                                      PopupMenuButton<String>(
                                         icon: const Icon(
-                                          Icons.emoji_emotions_outlined,
+                                          Icons.more_horiz_rounded,
                                           size: 18,
                                         ),
-                                        tooltip: l10n.sidebarPageIconTitle,
-                                        visualDensity: VisualDensity.compact,
-                                        color: selected
-                                            ? scheme.onSecondaryContainer
-                                            : scheme.onSurfaceVariant,
-                                        onPressed: widget.onSetEmoji,
-                                      ),
-                                      IconButton(
-                                        icon: const Icon(Icons.add, size: 18),
-                                        tooltip: l10n.subpage,
-                                        visualDensity: VisualDensity.compact,
-                                        color: selected
-                                            ? scheme.onSecondaryContainer
-                                            : scheme.onSurfaceVariant,
-                                        onPressed: widget.onAddSubpage,
-                                      ),
-                                      IconButton(
-                                        icon: const Icon(
-                                          Icons.drive_file_move_outline,
-                                          size: 18,
+                                        tooltip: l10n.workspaceMoreActionsTooltip,
+                                        shape: RoundedRectangleBorder(
+                                          borderRadius: BorderRadius.circular(FolioRadius.md),
                                         ),
-                                        tooltip: l10n.move,
-                                        visualDensity: VisualDensity.compact,
-                                        color: selected
+                                        color: scheme.surfaceContainerHighest,
+                                        iconColor: selected
                                             ? scheme.onSecondaryContainer
                                             : scheme.onSurfaceVariant,
-                                        onPressed: widget.onMove,
-                                      ),
-                                      IconButton(
-                                        icon: const Icon(
-                                          Icons.edit_outlined,
-                                          size: 18,
-                                        ),
-                                        tooltip: l10n.rename,
-                                        visualDensity: VisualDensity.compact,
-                                        color: selected
-                                            ? scheme.onSecondaryContainer
-                                            : scheme.onSurfaceVariant,
-                                        onPressed: widget.onRename,
-                                      ),
-                                      IconButton(
-                                        icon: const Icon(
-                                          Icons.bookmark_add_outlined,
-                                          size: 18,
-                                        ),
-                                        tooltip: l10n.saveAsTemplate,
-                                        visualDensity: VisualDensity.compact,
-                                        color: selected
-                                            ? scheme.onSecondaryContainer
-                                            : scheme.onSurfaceVariant,
-                                        onPressed: widget.onSaveAsTemplate,
-                                      ),
-                                      Builder(
-                                        builder: (btnCtx) {
-                                          return IconButton(
-                                            icon: const Icon(
-                                              Icons.delete_outline,
-                                              size: 18,
-                                            ),
-                                            tooltip: l10n.delete,
-                                            visualDensity:
-                                                VisualDensity.compact,
-                                            color: selected
-                                                ? scheme.onSecondaryContainer
-                                                : scheme.onSurfaceVariant,
-                                            onPressed:
-                                                widget.onDeleteRequest != null
-                                                ? () => widget.onDeleteRequest!(
-                                                    btnCtx,
-                                                  )
-                                                : null,
-                                          );
+                                        onSelected: (value) {
+                                          switch (value) {
+                                            case 'emoji':
+                                              widget.onSetEmoji();
+                                              break;
+                                            case 'move':
+                                              widget.onMove();
+                                              break;
+                                            case 'rename':
+                                              widget.onRename();
+                                              break;
+                                            case 'template':
+                                              widget.onSaveAsTemplate();
+                                              break;
+                                            case 'delete':
+                                              if (widget.onDeleteRequest != null) {
+                                                widget.onDeleteRequest!(context);
+                                              }
+                                              break;
+                                          }
                                         },
+                                        itemBuilder: (ctx) => [
+                                          PopupMenuItem(
+                                            value: 'emoji',
+                                            child: Row(
+                                              children: [
+                                                const Icon(Icons.emoji_emotions_outlined, size: 18),
+                                                const SizedBox(width: 8),
+                                                Text(l10n.sidebarPageIconTitle),
+                                              ],
+                                            ),
+                                          ),
+                                          PopupMenuItem(
+                                            value: 'move',
+                                            child: Row(
+                                              children: [
+                                                const Icon(Icons.drive_file_move_outline, size: 18),
+                                                const SizedBox(width: 8),
+                                                Text(l10n.move),
+                                              ],
+                                            ),
+                                          ),
+                                          PopupMenuItem(
+                                            value: 'rename',
+                                            child: Row(
+                                              children: [
+                                                const Icon(Icons.edit_outlined, size: 18),
+                                                const SizedBox(width: 8),
+                                                Text(l10n.rename),
+                                              ],
+                                            ),
+                                          ),
+                                          PopupMenuItem(
+                                            value: 'template',
+                                            child: Row(
+                                              children: [
+                                                const Icon(Icons.bookmark_add_outlined, size: 18),
+                                                const SizedBox(width: 8),
+                                                Text(l10n.saveAsTemplate),
+                                              ],
+                                            ),
+                                          ),
+                                          if (widget.onDeleteRequest != null) ...[
+                                            const PopupMenuDivider(),
+                                            PopupMenuItem(
+                                              value: 'delete',
+                                              child: Row(
+                                                children: [
+                                                  Icon(Icons.delete_outline, size: 18, color: scheme.error),
+                                                  const SizedBox(width: 8),
+                                                  Text(
+                                                    l10n.delete,
+                                                    style: TextStyle(color: scheme.error),
+                                                  ),
+                                                ],
+                                              ),
+                                            ),
+                                          ],
+                                        ],
                                       ),
                                     ],
                                   ),
@@ -1776,22 +1900,42 @@ class _TagFilterBar extends StatelessWidget {
     return GestureDetector(
       onTap: onTap,
       child: AnimatedContainer(
-        duration: const Duration(milliseconds: 140),
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
+        duration: const Duration(milliseconds: 200),
+        curve: Curves.easeInOut,
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
         decoration: BoxDecoration(
           color: isSelected
               ? scheme.primaryContainer
-              : scheme.surfaceContainerHigh,
-          borderRadius: BorderRadius.circular(FolioRadius.lg),
-        ),
-        child: Text(
-          label,
-          style: textTheme.labelSmall?.copyWith(
+              : scheme.surfaceContainerLow,
+          borderRadius: BorderRadius.circular(FolioRadius.md),
+          border: Border.all(
             color: isSelected
-                ? scheme.onPrimaryContainer
-                : scheme.onSurfaceVariant,
-            fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
+                ? scheme.primary.withValues(alpha: 0.2)
+                : scheme.outlineVariant.withValues(alpha: 0.4),
+            width: 1,
           ),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (isSelected) ...[
+              Icon(
+                Icons.check_rounded,
+                size: 12,
+                color: scheme.onPrimaryContainer,
+              ),
+              const SizedBox(width: 4),
+            ],
+            Text(
+              label,
+              style: textTheme.labelSmall?.copyWith(
+                color: isSelected
+                    ? scheme.onPrimaryContainer
+                    : scheme.onSurfaceVariant,
+                fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+              ),
+            ),
+          ],
         ),
       ),
     );

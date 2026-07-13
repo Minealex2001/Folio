@@ -3278,6 +3278,28 @@ class AppLocalizationsEn extends AppLocalizations {
       'Email does not qualify as student (.edu or similar).';
 
   @override
+  String get folioCloudStudentVerifyDialogTitle => 'Student verification';
+
+  @override
+  String get folioCloudStudentVerifyDialogDesc =>
+      'Enter your institutional email address to verify your eligibility for the Folio Cloud student rate.';
+
+  @override
+  String get folioCloudStudentVerifyDialogLabel =>
+      'Institutional email address';
+
+  @override
+  String get folioCloudStudentVerifyDialogHint =>
+      'user@uji.es, user@university.edu';
+
+  @override
+  String get folioCloudStudentVerifyDialogHelp =>
+      'Supports Spanish university academic domains and global domains.';
+
+  @override
+  String get folioCloudStudentVerifyDialogAction => 'Verify now';
+
+  @override
   String get folioCloudPitchScreenTitle => 'Folio Cloud';
 
   @override

@@ -5870,6 +5870,42 @@ abstract class AppLocalizations {
   /// **'El correo no califica como estudiante (.edu o similar).'**
   String get folioCloudStudentVerifyFail;
 
+  /// No description provided for @folioCloudStudentVerifyDialogTitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Verificación de estudiante'**
+  String get folioCloudStudentVerifyDialogTitle;
+
+  /// No description provided for @folioCloudStudentVerifyDialogDesc.
+  ///
+  /// In es, this message translates to:
+  /// **'Introduce tu dirección de correo electrónico institucional para verificar tu elegibilidad en la tarifa para estudiantes de Folio Cloud.'**
+  String get folioCloudStudentVerifyDialogDesc;
+
+  /// No description provided for @folioCloudStudentVerifyDialogLabel.
+  ///
+  /// In es, this message translates to:
+  /// **'Correo electrónico institucional'**
+  String get folioCloudStudentVerifyDialogLabel;
+
+  /// No description provided for @folioCloudStudentVerifyDialogHint.
+  ///
+  /// In es, this message translates to:
+  /// **'usuario@uji.es, usuario@universidad.edu'**
+  String get folioCloudStudentVerifyDialogHint;
+
+  /// No description provided for @folioCloudStudentVerifyDialogHelp.
+  ///
+  /// In es, this message translates to:
+  /// **'Soporta dominios académicos universitarios españoles y dominios globales.'**
+  String get folioCloudStudentVerifyDialogHelp;
+
+  /// No description provided for @folioCloudStudentVerifyDialogAction.
+  ///
+  /// In es, this message translates to:
+  /// **'Verificar ahora'**
+  String get folioCloudStudentVerifyDialogAction;
+
   /// No description provided for @folioCloudPitchScreenTitle.
   ///
   /// In es, this message translates to:

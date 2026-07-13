@@ -14,6 +14,8 @@ import '../../services/backup_destinations/backup_destination.dart';
 import '../../services/backup_destinations/backup_export_runner.dart';
 import '../../services/secure_credential_storage.dart';
 import '../../session/vault_session.dart';
+import '../../app/widgets/folio_skeletons.dart';
+import '../../app/widgets/folio_error_card.dart';
 
 enum _RemoteBackupRestoreSource { folder, webdav }
 
@@ -292,10 +294,21 @@ class _RemoteBackupRestoreDialogState extends State<RemoteBackupRestoreDialog> {
 
   Widget _buildBody(AppLocalizations l10n) {
     if (_loading) {
-      return const Center(child: CircularProgressIndicator());
+      return const Padding(
+        padding: EdgeInsets.symmetric(horizontal: 8),
+        child: FolioSkeletonList(),
+      );
     }
     if (_error != null) {
-      return Center(child: Text(_error!));
+      return Padding(
+        padding: const EdgeInsets.all(16),
+        child: FolioErrorCard(
+          title: 'Error al listar copias de seguridad',
+          message: _error!,
+          icon: Icons.backup_outlined,
+          onRetry: _reload,
+        ),
+      );
     }
     if (_entries.isEmpty) {
       return Center(child: Text(l10n.remoteBackupRestoreEmpty));

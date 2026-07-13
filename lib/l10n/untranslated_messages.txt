@@ -14,7 +14,13 @@
     "folioCloudFamilyLeaveButton",
     "folioCloudStudentVerifyButton",
     "folioCloudStudentVerifySuccess",
-    "folioCloudStudentVerifyFail"
+    "folioCloudStudentVerifyFail",
+    "folioCloudStudentVerifyDialogTitle",
+    "folioCloudStudentVerifyDialogDesc",
+    "folioCloudStudentVerifyDialogLabel",
+    "folioCloudStudentVerifyDialogHint",
+    "folioCloudStudentVerifyDialogHelp",
+    "folioCloudStudentVerifyDialogAction"
   ],
 
   "eu": [
@@ -32,7 +38,13 @@
     "folioCloudFamilyLeaveButton",
     "folioCloudStudentVerifyButton",
     "folioCloudStudentVerifySuccess",
-    "folioCloudStudentVerifyFail"
+    "folioCloudStudentVerifyFail",
+    "folioCloudStudentVerifyDialogTitle",
+    "folioCloudStudentVerifyDialogDesc",
+    "folioCloudStudentVerifyDialogLabel",
+    "folioCloudStudentVerifyDialogHint",
+    "folioCloudStudentVerifyDialogHelp",
+    "folioCloudStudentVerifyDialogAction"
   ],
 
   "gl": [
@@ -50,7 +62,13 @@
     "folioCloudFamilyLeaveButton",
     "folioCloudStudentVerifyButton",
     "folioCloudStudentVerifySuccess",
-    "folioCloudStudentVerifyFail"
+    "folioCloudStudentVerifyFail",
+    "folioCloudStudentVerifyDialogTitle",
+    "folioCloudStudentVerifyDialogDesc",
+    "folioCloudStudentVerifyDialogLabel",
+    "folioCloudStudentVerifyDialogHint",
+    "folioCloudStudentVerifyDialogHelp",
+    "folioCloudStudentVerifyDialogAction"
   ],
 
   "pt": [
@@ -68,6 +86,12 @@
     "folioCloudFamilyLeaveButton",
     "folioCloudStudentVerifyButton",
     "folioCloudStudentVerifySuccess",
-    "folioCloudStudentVerifyFail"
+    "folioCloudStudentVerifyFail",
+    "folioCloudStudentVerifyDialogTitle",
+    "folioCloudStudentVerifyDialogDesc",
+    "folioCloudStudentVerifyDialogLabel",
+    "folioCloudStudentVerifyDialogHint",
+    "folioCloudStudentVerifyDialogHelp",
+    "folioCloudStudentVerifyDialogAction"
   ]
 }
