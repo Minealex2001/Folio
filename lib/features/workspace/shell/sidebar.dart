@@ -772,126 +772,57 @@ class _SidebarState extends State<Sidebar> {
 
   /// Mismo patrón que exportar página: [showMenu] anclado + [BlockEditorFloatingPanel].
   Future<void> _showDeletePageConfirmMenu(
-    BuildContext anchorContext,
     FolioPage page,
   ) async {
-    final hasChildren = _hasChildrenById[page.id] ?? false;
-    final isFolderWithChildren = page.isFolder && hasChildren;
-    final l10n = AppLocalizations.of(anchorContext);
-    final theme = Theme.of(anchorContext);
-    final scheme = theme.colorScheme;
-    final label = _sidebarDeleteLabel(page, l10n);
+    try {
+      debugPrint('DEBUG: _showDeletePageConfirmMenu starting for page: ${page.title}');
+      final hasChildren = _hasChildrenById[page.id] ?? false;
+      final isFolderWithChildren = page.isFolder && hasChildren;
+      final l10n = AppLocalizations.of(context);
+      final theme = Theme.of(context);
+      final scheme = theme.colorScheme;
+      final label = _sidebarDeleteLabel(page, l10n);
 
-    final buttonBox = anchorContext.findRenderObject() as RenderBox?;
-    final overlayBox =
-        Overlay.of(anchorContext).context.findRenderObject() as RenderBox?;
-    if (buttonBox == null || overlayBox == null) return;
-
-    final buttonRect =
-        buttonBox.localToGlobal(Offset.zero, ancestor: overlayBox) &
-        buttonBox.size;
-    final position = RelativeRect.fromRect(
-      buttonRect,
-      Offset.zero & overlayBox.size,
-    );
-
-    final maxW = math.min(420.0, overlayBox.size.width - 24.0);
-    final menuW = maxW.clamp(280.0, 420.0);
-    final maxH = math.min(320.0, overlayBox.size.height - 24.0);
-
-    final confirmed = await showMenu<bool>(
-      context: anchorContext,
-      position: position,
-      useRootNavigator: true,
-      constraints: BoxConstraints.tightFor(width: menuW),
-      items: [
-        PopupMenuItem<bool>(
-          enabled: false,
-          height: 240,
-          padding: EdgeInsets.zero,
-          child: ConstrainedBox(
-            constraints: BoxConstraints(maxHeight: maxH),
-            child: BlockEditorFloatingPanel(
-              scheme: scheme,
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(10, 10, 10, 10),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    Padding(
-                      padding: const EdgeInsets.fromLTRB(8, 2, 8, 8),
-                      child: Text(
-                        isFolderWithChildren
-                            ? l10n.sidebarDeleteFolderMenuTitle
-                            : l10n.sidebarDeletePageMenuTitle,
-                        style: theme.textTheme.titleSmall?.copyWith(
-                          fontWeight: FontWeight.w700,
-                          letterSpacing: -0.2,
-                        ),
-                      ),
-                    ),
-                    Padding(
-                      padding: const EdgeInsets.fromLTRB(8, 0, 8, 12),
-                      child: Text(
-                        isFolderWithChildren
-                            ? l10n.sidebarDeleteFolderConfirmInline(label)
-                            : l10n.sidebarDeletePageConfirmInline(label),
-                        style: theme.textTheme.bodySmall?.copyWith(
-                          color: scheme.onSurfaceVariant,
-                          height: 1.35,
-                        ),
-                      ),
-                    ),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.end,
-                      children: [
-                        Builder(
-                          builder: (menuCtx) {
-                            return TextButton(
-                              onPressed: () {
-                                Navigator.of(
-                                  menuCtx,
-                                  rootNavigator: true,
-                                ).pop(false);
-                              },
-                              child: Text(l10n.cancel),
-                            );
-                          },
-                        ),
-                        const SizedBox(width: 8),
-                        Builder(
-                          builder: (menuCtx) {
-                            return FilledButton(
-                              style: FilledButton.styleFrom(
-                                backgroundColor: scheme.error,
-                                foregroundColor: scheme.onError,
-                              ),
-                              onPressed: () {
-                                Navigator.of(
-                                  menuCtx,
-                                  rootNavigator: true,
-                                ).pop(true);
-                              },
-                              child: Text(l10n.delete),
-                            );
-                          },
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-            ),
+      debugPrint('DEBUG: showing dialog with context mounted: ${context.mounted}');
+      final confirmed = await showDialog<bool>(
+        context: context,
+        builder: (ctx) => FolioDialog(
+          title: Text(
+            isFolderWithChildren
+                ? l10n.sidebarDeleteFolderMenuTitle
+                : l10n.sidebarDeletePageMenuTitle,
           ),
+          content: Text(
+            isFolderWithChildren
+                ? l10n.sidebarDeleteFolderConfirmInline(label)
+                : l10n.sidebarDeletePageConfirmInline(label),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: Text(l10n.cancel),
+            ),
+            FilledButton(
+              style: FilledButton.styleFrom(
+                backgroundColor: scheme.error,
+                foregroundColor: scheme.onError,
+              ),
+              onPressed: () => Navigator.pop(ctx, true),
+              child: Text(l10n.delete),
+            ),
+          ],
         ),
-      ],
-    );
-    if (confirmed != true || !mounted) return;
-    if (isFolderWithChildren) {
-      session.deleteFolderMoveChildrenToRoot(page.id);
-    } else {
-      session.deletePage(page.id);
+      );
+
+      debugPrint('DEBUG: dialog closed, confirmed: $confirmed');
+      if (confirmed != true || !mounted) return;
+      if (isFolderWithChildren) {
+        session.deleteFolderMoveChildrenToRoot(page.id);
+      } else {
+        session.deletePage(page.id);
+      }
+    } catch (e, stack) {
+      debugPrint('ERROR in _showDeletePageConfirmMenu: $e\n$stack');
     }
   }
 
@@ -937,7 +868,7 @@ class _SidebarState extends State<Sidebar> {
         onRename: () => _rename(context, page),
         onSaveAsTemplate: () => _savePageAsTemplate(context, page),
         onDeleteRequest: interactive && canDelete
-            ? (btnCtx) => unawaited(_showDeletePageConfirmMenu(btnCtx, page))
+            ? () => unawaited(_showDeletePageConfirmMenu(page))
             : null,
       );
     }
@@ -1017,6 +948,9 @@ class _SidebarState extends State<Sidebar> {
   }
 
   Widget _recentPagesSection(BuildContext context) {
+    if (!widget.appSettings.workspaceSidebarShowRecentPages) {
+      return const SizedBox.shrink();
+    }
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
     final pagesById = <String, FolioPage>{
@@ -1028,6 +962,9 @@ class _SidebarState extends State<Sidebar> {
         .whereType<FolioPage>()
         .toList(growable: false);
     if (recentPages.isEmpty) return const SizedBox.shrink();
+
+    final isCollapsed = widget.appSettings.workspaceSidebarRecentPagesCollapsed;
+
     return Padding(
       padding: const EdgeInsets.fromLTRB(
         FolioSpace.sm,
@@ -1044,39 +981,65 @@ class _SidebarState extends State<Sidebar> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              AppLocalizations.of(context).workspaceRecentPagesSectionTitle,
-              style: theme.textTheme.labelLarge?.copyWith(
-                color: scheme.onSurfaceVariant,
-                fontWeight: FontWeight.w700,
-              ),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Expanded(
+                  child: Text(
+                    AppLocalizations.of(context).workspaceRecentPagesSectionTitle,
+                    style: theme.textTheme.labelLarge?.copyWith(
+                      color: scheme.onSurfaceVariant,
+                      fontWeight: FontWeight.w700,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+                IconButton(
+                  icon: Icon(
+                    isCollapsed
+                        ? Icons.keyboard_arrow_down_rounded
+                        : Icons.keyboard_arrow_up_rounded,
+                    size: 16,
+                  ),
+                  visualDensity: VisualDensity.compact,
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(),
+                  onPressed: () {
+                    widget.appSettings.setWorkspaceSidebarRecentPagesCollapsed(!isCollapsed);
+                    setState(() {});
+                  },
+                ),
+              ],
             ),
-            const SizedBox(height: FolioSpace.xs),
-            Wrap(
-              spacing: FolioSpace.xs,
-              runSpacing: FolioSpace.xs,
-              children: recentPages
-                  .map((page) {
-                    return ActionChip(
-                      onPressed: () => session.selectPage(page.id),
-                      avatar: FolioIconTokenView(
-                        appSettings: widget.appSettings,
-                        token: page.emoji,
-                        fallbackText: '📄',
-                        size: 16,
-                      ),
-                      label: ConstrainedBox(
-                        constraints: const BoxConstraints(maxWidth: 150),
-                        child: Text(
-                          page.title,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
+            if (!isCollapsed) ...[
+              const SizedBox(height: FolioSpace.xs),
+              Wrap(
+                spacing: FolioSpace.xs,
+                runSpacing: FolioSpace.xs,
+                children: recentPages
+                    .map((page) {
+                      return ActionChip(
+                        onPressed: () => session.selectPage(page.id),
+                        avatar: FolioIconTokenView(
+                          appSettings: widget.appSettings,
+                          token: page.emoji,
+                          fallbackText: '📄',
+                          size: 16,
                         ),
-                      ),
-                    );
-                  })
-                  .toList(growable: false),
-            ),
+                        label: ConstrainedBox(
+                          constraints: const BoxConstraints(maxWidth: 150),
+                          child: Text(
+                            page.title,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      );
+                    })
+                    .toList(growable: false),
+              ),
+            ],
           ],
         ),
       ),
@@ -1275,6 +1238,28 @@ class _SidebarState extends State<Sidebar> {
                     ),
                     tooltip: l10n.driveNewFolder,
                     onPressed: () => session.addFolder(parentId: null),
+                  ),
+                  PopupMenuButton<String>(
+                    icon: const Icon(Icons.settings_outlined, size: 20),
+                    tooltip: l10n.settings,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(FolioRadius.md),
+                    ),
+                    color: scheme.surfaceContainerHighest,
+                    onSelected: (value) {
+                      if (value == 'show_recents') {
+                        final next = !widget.appSettings.workspaceSidebarShowRecentPages;
+                        widget.appSettings.setWorkspaceSidebarShowRecentPages(next);
+                        setState(() {});
+                      }
+                    },
+                    itemBuilder: (context) => [
+                      CheckedPopupMenuItem(
+                        value: 'show_recents',
+                        checked: widget.appSettings.workspaceSidebarShowRecentPages,
+                        child: Text(AppLocalizations.of(context).workspaceRecentPagesSectionTitle),
+                      ),
+                    ],
                   ),
                 ],
               ),
@@ -1535,7 +1520,7 @@ class _SidebarTile extends StatefulWidget {
   final VoidCallback onMove;
   final VoidCallback onRename;
   final VoidCallback onSaveAsTemplate;
-  final void Function(BuildContext btnCtx)? onDeleteRequest;
+  final VoidCallback? onDeleteRequest;
 
   @override
   State<_SidebarTile> createState() => _SidebarTileState();
@@ -1543,6 +1528,7 @@ class _SidebarTile extends StatefulWidget {
 
 class _SidebarTileState extends State<_SidebarTile> {
   bool _hovered = false;
+  bool _menuOpen = false;
 
   @override
   Widget build(BuildContext context) {
@@ -1612,7 +1598,7 @@ class _SidebarTileState extends State<_SidebarTile> {
                     // Durante el resize del panel el ancho puede ser muy pequeño; la fila de
                     // acciones tiene ancho intrínseco alto y provoca overflow si no se omite.
                     final allowInlineActions =
-                        showRowActions && constraints.maxWidth >= 200.0;
+                        (showRowActions || _menuOpen) && constraints.maxWidth >= 200.0;
                     return Row(
                       children: [
                         // Selection bar indicator
@@ -1735,26 +1721,34 @@ class _SidebarTileState extends State<_SidebarTile> {
                                         iconColor: selected
                                             ? scheme.onSecondaryContainer
                                             : scheme.onSurfaceVariant,
+                                        onOpened: () => WidgetsBinding.instance.addPostFrameCallback((_) {
+                                          if (mounted) setState(() => _menuOpen = true);
+                                        }),
+                                        onCanceled: () => WidgetsBinding.instance.addPostFrameCallback((_) {
+                                          if (mounted) setState(() => _menuOpen = false);
+                                        }),
                                         onSelected: (value) {
-                                          switch (value) {
-                                            case 'emoji':
-                                              widget.onSetEmoji();
-                                              break;
-                                            case 'move':
-                                              widget.onMove();
-                                              break;
-                                            case 'rename':
-                                              widget.onRename();
-                                              break;
-                                            case 'template':
-                                              widget.onSaveAsTemplate();
-                                              break;
-                                            case 'delete':
-                                              if (widget.onDeleteRequest != null) {
-                                                widget.onDeleteRequest!(context);
-                                              }
-                                              break;
-                                          }
+                                          WidgetsBinding.instance.addPostFrameCallback((_) {
+                                            if (!mounted) return;
+                                            setState(() => _menuOpen = false);
+                                            switch (value) {
+                                              case 'emoji':
+                                                widget.onSetEmoji();
+                                                break;
+                                              case 'move':
+                                                widget.onMove();
+                                                break;
+                                              case 'rename':
+                                                widget.onRename();
+                                                break;
+                                              case 'template':
+                                                widget.onSaveAsTemplate();
+                                                break;
+                                              case 'delete':
+                                                widget.onDeleteRequest?.call();
+                                                break;
+                                            }
+                                          });
                                         },
                                         itemBuilder: (ctx) => [
                                           PopupMenuItem(

@@ -1,4 +1,4 @@
-﻿# Script de compilación y publicación multiplataforma para Folio
+# Script de compilación y publicación multiplataforma para Folio
 # Ver docs/RELEASES.md → sección FOLIO_DISTRIBUTION
 #
 # Uso interactivo (menú):   .\builld_all.ps1
@@ -378,13 +378,9 @@ function Build-WindowsInstaller {
     param(
         [switch] $ForceRebuild
     )
-    $release = Join-Path $RepoRoot 'build\windows\x64\runner\Release'
-    if ($ForceRebuild -or -not (Test-Path -LiteralPath $release)) {
-        Build-WindowsGitHub
-    } else {
-        Write-Host "Reutilizando build existente en $release (usa -Clean para recompilar)." -ForegroundColor DarkGray
-    }
+    Build-WindowsGitHub
 
+    $release = Join-Path $RepoRoot 'build\windows\x64\runner\Release'
     $iscc = Find-Iscc
     if (-not $iscc) {
         throw "No se encontro ISCC.exe (Inno Setup). Instalalo con 'winget install JRSoftware.InnoSetup' o 'choco install innosetup'."
