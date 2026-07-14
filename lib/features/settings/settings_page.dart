@@ -42,6 +42,7 @@ import '../../services/ai/lmstudio_ai_service.dart';
 import '../../services/ai/ollama_ai_service.dart';
 import '../../services/ai/openai_compatible_ai_service.dart';
 import '../../services/custom_icon_import_service.dart';
+import 'widgets/iconify_icon_browser.dart';
 import '../../services/cloud_account/cloud_account_controller.dart';
 import '../../services/folio_cloud/folio_cloud_reachability.dart';
 import '../../services/folio_cloud/folio_cloud_backup.dart';
@@ -7002,6 +7003,20 @@ class _SettingsPageState extends State<SettingsPage> {
                                                   ),
                                                 ],
                                               ),
+                                            ),
+                                          ),
+                                          Padding(
+                                            padding: const EdgeInsets.fromLTRB(
+                                              16,
+                                              0,
+                                              16,
+                                              16,
+                                            ),
+                                            child: IconifyIconBrowser(
+                                              appSettings: _app,
+                                              importService:
+                                                  _customIconImportService,
+                                              onSnack: _snack,
                                             ),
                                           ),
                                           Padding(

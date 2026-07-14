@@ -11054,7 +11054,7 @@ abstract class AppLocalizations {
   /// No description provided for @settingsCustomIconsDescription.
   ///
   /// In es, this message translates to:
-  /// **'Importa una URL PNG, GIF o WebP, o un data:image compatible copiado desde páginas como notionicons.so. Después podrás usarlo como icono de página o de callout.'**
+  /// **'Importa una URL PNG, GIF o WebP, un data:image compatible copiado desde páginas como notionicons.so, o busca iconos open source con el explorador Iconify. Después podrás usarlos como icono de página o de callout.'**
   String get settingsCustomIconsDescription;
 
   /// No description provided for @settingsCustomIconsSavedCount.
@@ -11164,6 +11164,132 @@ abstract class AppLocalizations {
   /// In es, this message translates to:
   /// **'Copiar token'**
   String get settingsCustomIconsCopyToken;
+
+  /// No description provided for @settingsIconifyTitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Explorador Iconify'**
+  String get settingsIconifyTitle;
+
+  /// No description provided for @settingsIconifyDescription.
+  ///
+  /// In es, this message translates to:
+  /// **'Busca entre miles de iconos open source (Lucide, Tabler, Material, Phosphor…). Al elegir uno se importa a tu biblioteca local.'**
+  String get settingsIconifyDescription;
+
+  /// No description provided for @settingsIconifySearchHint.
+  ///
+  /// In es, this message translates to:
+  /// **'Buscar iconos'**
+  String get settingsIconifySearchHint;
+
+  /// No description provided for @settingsIconifyCollectionLabel.
+  ///
+  /// In es, this message translates to:
+  /// **'Colección'**
+  String get settingsIconifyCollectionLabel;
+
+  /// No description provided for @settingsIconifyCollectionAll.
+  ///
+  /// In es, this message translates to:
+  /// **'Todas'**
+  String get settingsIconifyCollectionAll;
+
+  /// No description provided for @settingsIconifyCollectionLucide.
+  ///
+  /// In es, this message translates to:
+  /// **'Lucide'**
+  String get settingsIconifyCollectionLucide;
+
+  /// No description provided for @settingsIconifyCollectionTabler.
+  ///
+  /// In es, this message translates to:
+  /// **'Tabler'**
+  String get settingsIconifyCollectionTabler;
+
+  /// No description provided for @settingsIconifyCollectionMdi.
+  ///
+  /// In es, this message translates to:
+  /// **'Material Design'**
+  String get settingsIconifyCollectionMdi;
+
+  /// No description provided for @settingsIconifyCollectionPhosphor.
+  ///
+  /// In es, this message translates to:
+  /// **'Phosphor'**
+  String get settingsIconifyCollectionPhosphor;
+
+  /// No description provided for @settingsIconifyCollectionRemix.
+  ///
+  /// In es, this message translates to:
+  /// **'Remix'**
+  String get settingsIconifyCollectionRemix;
+
+  /// No description provided for @settingsIconifyCollectionCarbon.
+  ///
+  /// In es, this message translates to:
+  /// **'Carbon'**
+  String get settingsIconifyCollectionCarbon;
+
+  /// No description provided for @settingsIconifyCollectionIconoir.
+  ///
+  /// In es, this message translates to:
+  /// **'Iconoir'**
+  String get settingsIconifyCollectionIconoir;
+
+  /// No description provided for @settingsIconifyCollectionFluent.
+  ///
+  /// In es, this message translates to:
+  /// **'Fluent UI'**
+  String get settingsIconifyCollectionFluent;
+
+  /// No description provided for @settingsIconifyCollectionSolar.
+  ///
+  /// In es, this message translates to:
+  /// **'Solar'**
+  String get settingsIconifyCollectionSolar;
+
+  /// No description provided for @settingsIconifyEmpty.
+  ///
+  /// In es, this message translates to:
+  /// **'No hay resultados para esa búsqueda.'**
+  String get settingsIconifyEmpty;
+
+  /// No description provided for @settingsIconifyImportSucceeded.
+  ///
+  /// In es, this message translates to:
+  /// **'Icono importado desde Iconify.'**
+  String get settingsIconifyImportSucceeded;
+
+  /// No description provided for @settingsIconifyImportFailed.
+  ///
+  /// In es, this message translates to:
+  /// **'No se pudo importar el icono.'**
+  String get settingsIconifyImportFailed;
+
+  /// No description provided for @settingsIconifyAttribution.
+  ///
+  /// In es, this message translates to:
+  /// **'Iconos por Iconify (open source)'**
+  String get settingsIconifyAttribution;
+
+  /// No description provided for @settingsIconifyOffline.
+  ///
+  /// In es, this message translates to:
+  /// **'Sin conexión. Necesitas red para buscar en Iconify.'**
+  String get settingsIconifyOffline;
+
+  /// No description provided for @settingsIconifySearchFailed.
+  ///
+  /// In es, this message translates to:
+  /// **'No se pudo completar la búsqueda.'**
+  String get settingsIconifySearchFailed;
+
+  /// No description provided for @settingsIconifyLoadMore.
+  ///
+  /// In es, this message translates to:
+  /// **'Cargar más'**
+  String get settingsIconifyLoadMore;
 
   /// No description provided for @settingsAiHeroQuillWithLocalAlt.
   ///

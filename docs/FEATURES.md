@@ -866,6 +866,19 @@ Picker con tres pestañas:
 - Opción "Quitar" para eliminar el icono.
 - Implementado en `showFolioIconPicker()`.
 
+### Explorador Iconify en Ajustes
+
+En **Ajustes → Iconos personalizados**, debajo del formulario de importación manual:
+
+- Búsqueda con debounce sobre la API pública gratuita de [Iconify](https://iconify.design) (`api.iconify.design`).
+- Filtro por colección curada (Lucide, Tabler, Material Design, Phosphor, Remix, Carbon, Iconoir, Fluent UI, Solar o todas).
+- Vista en grid con previsualización SVG; paginación «Cargar más».
+- Al pulsar un icono: descarga SVG → `CustomIconImportService.importFromBytes()` → biblioteca local (`custom_icon:{uuid}`).
+- Los iconos importados aparecen en la pestaña **Importados** del picker de página/callout.
+- Requiere conexión a internet para buscar/descargar; tras importar funcionan offline.
+- Atribución visible a Iconify (colecciones open source con licencias MIT/Apache/ISC según el set).
+- Implementación: `lib/services/iconify/iconify_catalog_service.dart`, `lib/features/settings/widgets/iconify_icon_browser.dart`.
+
 ---
 
 ## 34. Onboarding

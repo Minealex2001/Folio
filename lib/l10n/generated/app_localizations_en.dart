@@ -6182,7 +6182,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get settingsCustomIconsDescription =>
-      'Import a PNG, GIF, or WebP URL, or a compatible data:image copied from sites like notionicons.so. You can then use it as a page or callout icon.';
+      'Import a PNG, GIF, or WebP URL, a compatible data:image copied from sites like notionicons.so, or search open-source icons with the Iconify browser. You can then use them as page or callout icons.';
 
   @override
   String settingsCustomIconsSavedCount(int count) {
@@ -6242,6 +6242,71 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get settingsCustomIconsCopyToken => 'Copy token';
+
+  @override
+  String get settingsIconifyTitle => 'Iconify browser';
+
+  @override
+  String get settingsIconifyDescription =>
+      'Search thousands of open-source icons (Lucide, Tabler, Material, Phosphor…). Selecting one imports it into your local library.';
+
+  @override
+  String get settingsIconifySearchHint => 'Search icons';
+
+  @override
+  String get settingsIconifyCollectionLabel => 'Collection';
+
+  @override
+  String get settingsIconifyCollectionAll => 'All';
+
+  @override
+  String get settingsIconifyCollectionLucide => 'Lucide';
+
+  @override
+  String get settingsIconifyCollectionTabler => 'Tabler';
+
+  @override
+  String get settingsIconifyCollectionMdi => 'Material Design';
+
+  @override
+  String get settingsIconifyCollectionPhosphor => 'Phosphor';
+
+  @override
+  String get settingsIconifyCollectionRemix => 'Remix';
+
+  @override
+  String get settingsIconifyCollectionCarbon => 'Carbon';
+
+  @override
+  String get settingsIconifyCollectionIconoir => 'Iconoir';
+
+  @override
+  String get settingsIconifyCollectionFluent => 'Fluent UI';
+
+  @override
+  String get settingsIconifyCollectionSolar => 'Solar';
+
+  @override
+  String get settingsIconifyEmpty => 'No results for that search.';
+
+  @override
+  String get settingsIconifyImportSucceeded => 'Icon imported from Iconify.';
+
+  @override
+  String get settingsIconifyImportFailed => 'Could not import the icon.';
+
+  @override
+  String get settingsIconifyAttribution => 'Icons by Iconify (open source)';
+
+  @override
+  String get settingsIconifyOffline =>
+      'Offline. You need a network connection to search Iconify.';
+
+  @override
+  String get settingsIconifySearchFailed => 'Search could not be completed.';
+
+  @override
+  String get settingsIconifyLoadMore => 'Load more';
 
   @override
   String get settingsAiHeroQuillWithLocalAlt =>

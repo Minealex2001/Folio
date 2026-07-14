@@ -3275,79 +3275,78 @@ class AppLocalizationsCa extends AppLocalizations {
 
   @override
   String get folioCloudSubscribeFamily =>
-      'Plan Familiar (4,99 € + 2,99 €/miembro al mes)';
+      'Pla Familiar (4,99 € + 2,99 €/membre al mes)';
 
   @override
-  String get folioCloudSubscribeStudent => 'Tarifa Estudiante (2,49 €/mes)';
+  String get folioCloudSubscribeStudent => 'Tarifa Estudiant (2,49 €/mes)';
 
   @override
-  String get folioCloudPlanActiveStudent => 'Suscripción de Estudiante Activa';
+  String get folioCloudPlanActiveStudent => 'Subscripció d\'Estudiant Activa';
 
   @override
-  String get folioCloudPlanActiveFamily => 'Suscripción Familiar Activa';
+  String get folioCloudPlanActiveFamily => 'Subscripció Familiar Activa';
 
   @override
   String get folioCloudPlanActiveFamilyMember =>
-      'Suscripción Familiar (Miembro)';
+      'Subscripció Familiar (Membre)';
 
   @override
-  String get folioCloudFamilyTitle => 'Gestión Familiar';
+  String get folioCloudFamilyTitle => 'Gestió Familiar';
 
   @override
   String folioCloudFamilyOwnerNote(int seats, int count) {
-    return 'Suscripción familiar activa. Ranuras contratadas: $seats. Miembros añadidos: $count/$seats.';
+    return 'Subscripció familiar activa. Places contractades: $seats. Membres afegits: $count/$seats.';
   }
 
   @override
   String folioCloudFamilyMemberNote(String owner) {
-    return 'Eres miembro de la familia de $owner.';
+    return 'Ets membre de la família de $owner.';
   }
 
   @override
   String get folioCloudFamilyEmailPlaceholder =>
-      'Correo del familiar a invitar';
+      'Correu del familiar a convidar';
 
   @override
-  String get folioCloudFamilyInviteButton => 'Invitar familiar';
+  String get folioCloudFamilyInviteButton => 'Convidar familiar';
 
   @override
   String get folioCloudFamilyRemoveButton => 'Eliminar';
 
   @override
-  String get folioCloudFamilyLeaveButton => 'Salir de la familia';
+  String get folioCloudFamilyLeaveButton => 'Sortir de la família';
 
   @override
-  String get folioCloudStudentVerifyButton => 'Verificar correo estudiante';
+  String get folioCloudStudentVerifyButton => 'Verificar correu estudiant';
 
   @override
-  String get folioCloudStudentVerifySuccess =>
-      '¡Cuenta de estudiante verificada!';
+  String get folioCloudStudentVerifySuccess => 'Compte d\'estudiant verificat!';
 
   @override
   String get folioCloudStudentVerifyFail =>
-      'El correo no califica como estudiante (.edu o similar).';
+      'El correu no qualifica com a estudiant (.edu o similar).';
 
   @override
-  String get folioCloudStudentVerifyDialogTitle => 'Verificación de estudiante';
+  String get folioCloudStudentVerifyDialogTitle => 'Verificació d\'estudiant';
 
   @override
   String get folioCloudStudentVerifyDialogDesc =>
-      'Introduce tu dirección de correo electrónico institucional para verificar tu elegibilidad en la tarifa para estudiantes de Folio Cloud.';
+      'Introdueix la teva adreça de correu electrònic institucional per verificar la teva elegibilitat a la tarifa per a estudiants de Folio Cloud.';
 
   @override
   String get folioCloudStudentVerifyDialogLabel =>
-      'Correo electrónico institucional';
+      'Correu electrònic institucional';
 
   @override
   String get folioCloudStudentVerifyDialogHint =>
-      'usuario@uji.es, usuario@universidad.edu';
+      'usuari@uji.es, usuari@universitat.edu';
 
   @override
   String get folioCloudStudentVerifyDialogHelp =>
-      'Soporta dominios académicos universitarios españoles y dominios globales.';
+      'Admet dominis acadèmics universitaris espanyols i dominis globals.';
 
   @override
-  String get folioCloudStudentVerifyDialogAction => 'Verificar ahora';
+  String get folioCloudStudentVerifyDialogAction => 'Verificar ara';
 
   @override
   String get folioCloudPitchScreenTitle => 'Folio Cloud';
@@ -6261,7 +6260,7 @@ class AppLocalizationsCa extends AppLocalizations {
 
   @override
   String get settingsCustomIconsDescription =>
-      'Importa una URL PNG, GIF o WebP, o un data:image compatible copiat des de llocs com notionicons.so. Després la podràs usar com a icona de pàgina o callout.';
+      'Importa una URL PNG, GIF o WebP, un data:image compatible copiat des de llocs com notionicons.so, o cerca icones open source amb l\'explorador Iconify. Després les podràs usar com a icona de pàgina o callout.';
 
   @override
   String settingsCustomIconsSavedCount(int count) {
@@ -6321,6 +6320,73 @@ class AppLocalizationsCa extends AppLocalizations {
 
   @override
   String get settingsCustomIconsCopyToken => 'Copiar token';
+
+  @override
+  String get settingsIconifyTitle => 'Explorador Iconify';
+
+  @override
+  String get settingsIconifyDescription =>
+      'Cerca entre milers d\'icones open source (Lucide, Tabler, Material, Phosphor…). En triar-ne una s\'importa a la teva biblioteca local.';
+
+  @override
+  String get settingsIconifySearchHint => 'Cercar icones';
+
+  @override
+  String get settingsIconifyCollectionLabel => 'Col·lecció';
+
+  @override
+  String get settingsIconifyCollectionAll => 'Totes';
+
+  @override
+  String get settingsIconifyCollectionLucide => 'Lucide';
+
+  @override
+  String get settingsIconifyCollectionTabler => 'Tabler';
+
+  @override
+  String get settingsIconifyCollectionMdi => 'Material Design';
+
+  @override
+  String get settingsIconifyCollectionPhosphor => 'Phosphor';
+
+  @override
+  String get settingsIconifyCollectionRemix => 'Remix';
+
+  @override
+  String get settingsIconifyCollectionCarbon => 'Carbon';
+
+  @override
+  String get settingsIconifyCollectionIconoir => 'Iconoir';
+
+  @override
+  String get settingsIconifyCollectionFluent => 'Fluent UI';
+
+  @override
+  String get settingsIconifyCollectionSolar => 'Solar';
+
+  @override
+  String get settingsIconifyEmpty => 'No hi ha resultats per a aquesta cerca.';
+
+  @override
+  String get settingsIconifyImportSucceeded =>
+      'Icona importada des d\'Iconify.';
+
+  @override
+  String get settingsIconifyImportFailed => 'No s\'ha pogut importar la icona.';
+
+  @override
+  String get settingsIconifyAttribution => 'Icones per Iconify (open source)';
+
+  @override
+  String get settingsIconifyOffline =>
+      'Sense connexió. Cal xarxa per cercar a Iconify.';
+
+  @override
+  String get settingsIconifySearchFailed =>
+      'No s\'ha pogut completar la cerca.';
+
+  @override
+  String get settingsIconifyLoadMore => 'Carregar més';
 
   @override
   String get settingsAiHeroQuillWithLocalAlt =>
