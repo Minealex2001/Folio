@@ -36,7 +36,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.ensureUserDocExists = exports.onUserCreated = exports.getFamilyDetails = exports.verifyStudentStatus = exports.removeFamilyMember = exports.inviteFamilyMember = exports.folioReportDiagnostic = exports.folioJiraExchangeOAuth = exports.folioCloudAiCompleteHttp = exports.folioCloudAiComplete = exports.monthlyInkRefill = exports.folioCloudTranscribeChunk = exports.createBillingPortalSession = exports.folioTrimVaultBackups = exports.folioRecordVaultBackupMeta = exports.folioGetLatestVaultBackupMeta = exports.folioUpsertVaultBackupIndex = exports.folioListBackupVaults = exports.folioTrimVaultBackupsByBytes = exports.folioListVaultBackups = exports.folioGetBackupStorageUsage = exports.folioFinalizeCloudPack = exports.folioCheckCloudPackBlobsExist = exports.folioGetCloudPackRestoreWrap = exports.folioGetLatestCloudPackMeta = exports.validateMicrosoftStoreEntitlements = exports.syncFolioCloudSubscriptionFromStripe = exports.createCheckoutSession = exports.closeCollabRoom = exports.removeCollabMember = exports.inviteCollabMember = exports.commitCollabMediaUpload = exports.prepareCollabMediaUpload = exports.joinCollabRoomByCode = exports.createCollabRoom = exports.stripeWebhook = exports.folioCloudAiPricing = exports.onTelemetryEventCreated = exports.aggregateGlobalTelemetryStats = exports.aggregateDailyTelemetryStats = void 0;
+exports.ensureUserDocExists = exports.onUserCreated = exports.getFamilyDetails = exports.verifyStudentStatus = exports.removeFamilyMember = exports.inviteFamilyMember = exports.folioReportDiagnostic = exports.folioJiraExchangeOAuth = exports.folioCloudAiCompleteHttp = exports.folioCloudAiComplete = exports.monthlyInkRefill = exports.folioCloudTranscribeChunk = exports.createBillingPortalSession = exports.folioTrimVaultBackups = exports.folioRecordVaultBackupMeta = exports.folioGetLatestVaultBackupMeta = exports.folioUpsertVaultBackupIndex = exports.folioListBackupVaults = exports.folioTrimVaultBackupsByBytes = exports.folioDeleteVaultLegacyBackup = exports.folioDeleteVaultCloudPack = exports.folioListVaultBackups = exports.folioGetBackupStorageUsage = exports.folioFinalizeCloudPack = exports.folioCheckCloudPackBlobsExist = exports.folioGetCloudPackRestoreWrap = exports.folioGetLatestCloudPackMeta = exports.validateMicrosoftStoreEntitlements = exports.syncFolioCloudSubscriptionFromStripe = exports.createCheckoutSession = exports.closeCollabRoom = exports.removeCollabMember = exports.inviteCollabMember = exports.commitCollabMediaUpload = exports.prepareCollabMediaUpload = exports.joinCollabRoomByCode = exports.createCollabRoom = exports.stripeWebhook = exports.folioCloudAiPricing = exports.onTelemetryEventCreated = exports.aggregateGlobalTelemetryStats = exports.aggregateDailyTelemetryStats = void 0;
 const path = __importStar(require("path"));
 const dotenv_1 = require("dotenv");
 // Carga `functions/.env` (gitignored). En deploy, Firebase también inyecta estas variables.
@@ -2687,6 +2687,208 @@ exports.folioListVaultBackups = (0, https_1.onCall)({ cors: true, invoker: "publ
         };
     }
     return { items, cloudPack };
+});
+function storageObjectSizeBytes(f) {
+    var _a;
+    const meta = ((_a = f.metadata) !== null && _a !== void 0 ? _a : {});
+    const raw = meta["size"];
+    const n = typeof raw === "number" ? raw : typeof raw === "string" ? Number(raw) : 0;
+    return Number.isFinite(n) && n > 0 ? n : 0;
+}
+/** Borra Storage + índice + meta Firestore de una libreta sin copias. */
+async function purgeVaultCloudBackupPresence(uid, vaultId) {
+    const bucket = admin.storage().bucket();
+    const vaultPrefix = `users/${uid}/vaults/${vaultId}/`;
+    const [allFiles] = await bucket.getFiles({
+        prefix: vaultPrefix,
+        autoPaginate: true,
+    });
+    const files = allFiles.filter((f) => !f.name.endsWith("/"));
+    let freedBytes = 0;
+    const failed = [];
+    for (const f of files) {
+        freedBytes += storageObjectSizeBytes(f);
+        try {
+            await f.delete();
+        }
+        catch (e) {
+            console.warn("purgeVaultCloudBackupPresence: delete failed", f.name, e);
+            failed.push(f.name);
+        }
+    }
+    const userRef = db.collection("users").doc(uid);
+    const vaultBackupRef = userRef.collection("vaultBackups").doc(vaultId);
+    try {
+        const itemsSnap = await vaultBackupRef.collection("items").get();
+        const batch = db.batch();
+        for (const d of itemsSnap.docs) {
+            batch.delete(d.ref);
+        }
+        batch.delete(vaultBackupRef);
+        batch.delete(userRef.collection("vaultBackupIndex").doc(vaultId));
+        await batch.commit();
+    }
+    catch (e) {
+        console.warn("purgeVaultCloudBackupPresence: firestore purge failed", vaultId, e);
+    }
+    return { freedBytes, failed };
+}
+async function vaultCloudBackupHasRemainingFiles(uid, vaultId) {
+    const bucket = admin.storage().bucket();
+    for (const sub of ["backups/", "cloud-packs/"]) {
+        const prefix = `users/${uid}/vaults/${vaultId}/${sub}`;
+        const [files] = await bucket.getFiles({
+            prefix,
+            autoPaginate: false,
+            maxResults: 5,
+        });
+        if (files.some((f) => !f.name.endsWith("/")))
+            return true;
+    }
+    return false;
+}
+/** Borra el cloud-pack (blobs + snapshots) de una libreta y ajusta la cuota. */
+exports.folioDeleteVaultCloudPack = (0, https_1.onCall)({ cors: true, invoker: "public" }, async (request) => {
+    var _a, _b, _c, _d;
+    if (!((_a = request.auth) === null || _a === void 0 ? void 0 : _a.uid)) {
+        throw new https_1.HttpsError("unauthenticated", "Login required");
+    }
+    const uid = request.auth.uid;
+    await assertFolioCloudBackupAllowed(uid);
+    const vaultId = assertValidVaultId((_b = request.data) === null || _b === void 0 ? void 0 : _b.vaultId);
+    const packPrefix = `users/${uid}/vaults/${vaultId}/cloud-packs/`;
+    const bucket = admin.storage().bucket();
+    const [packFiles] = await bucket.getFiles({
+        prefix: packPrefix,
+        autoPaginate: true,
+    });
+    const files = packFiles.filter((f) => !f.name.endsWith("/"));
+    let freedBytes = 0;
+    const errors = [];
+    for (const f of files) {
+        freedBytes += storageObjectSizeBytes(f);
+        try {
+            await f.delete();
+        }
+        catch (e) {
+            console.warn("folioDeleteVaultCloudPack: delete failed", f.name, e);
+            errors.push(f.name);
+        }
+    }
+    const userRef = db.collection("users").doc(uid);
+    const userSnap = await userRef.get();
+    const udata = ((_c = userSnap.data()) !== null && _c !== void 0 ? _c : {});
+    let used = folioBackupUsedField(udata);
+    let newUsed = Math.max(0, used - freedBytes);
+    await userRef.update({
+        "folioBackup.usedBytes": newUsed,
+        "folioBackup.updatedAt": FieldValue.serverTimestamp(),
+    });
+    const vaultBackupRef = userRef.collection("vaultBackups").doc(vaultId);
+    await vaultBackupRef.set({
+        latestCloudPackSnapshotPath: FieldValue.delete(),
+        latestCloudPackSnapshotSizeBytes: FieldValue.delete(),
+        latestCloudPackContentFingerprint: FieldValue.delete(),
+        latestCloudPackUpdatedAt: FieldValue.delete(),
+        cloudPackRestoreWrapB64: FieldValue.delete(),
+        cloudPackRestoreWrapKind: FieldValue.delete(),
+    }, { merge: true });
+    let vaultRemoved = false;
+    if (errors.length === 0) {
+        const stillHas = await vaultCloudBackupHasRemainingFiles(uid, vaultId);
+        if (!stillHas) {
+            const purged = await purgeVaultCloudBackupPresence(uid, vaultId);
+            // Los bytes del cloud-pack ya se restaron; el purge solo limpia restos (cuota legacy no usa usedBytes).
+            errors.push(...purged.failed);
+            vaultRemoved = purged.failed.length === 0;
+            const refreshed = await userRef.get();
+            newUsed = folioBackupUsedField(((_d = refreshed.data()) !== null && _d !== void 0 ? _d : {}));
+        }
+    }
+    return {
+        ok: errors.length === 0,
+        freedBytes,
+        usedBytes: newUsed,
+        deletedFiles: files.length - errors.length,
+        vaultRemoved,
+        failed: errors.slice(0, 10),
+    };
+});
+/**
+ * Borra un archivo legacy (ZIP/TAR.GZ) de copias. Si la libreta se queda sin
+ * copias, elimina la presencia completa de esa libreta en Folio Cloud.
+ */
+exports.folioDeleteVaultLegacyBackup = (0, https_1.onCall)({ cors: true, invoker: "public" }, async (request) => {
+    var _a, _b, _c, _d, _e, _f;
+    if (!((_a = request.auth) === null || _a === void 0 ? void 0 : _a.uid)) {
+        throw new https_1.HttpsError("unauthenticated", "Login required");
+    }
+    const uid = request.auth.uid;
+    await assertFolioCloudBackupAllowed(uid);
+    const vaultId = assertValidVaultId((_b = request.data) === null || _b === void 0 ? void 0 : _b.vaultId);
+    const storagePathRaw = (_c = request.data) === null || _c === void 0 ? void 0 : _c.storagePath;
+    const storagePath = typeof storagePathRaw === "string" ? storagePathRaw.trim() : "";
+    const okPrefix = `users/${uid}/vaults/${vaultId}/backups/`;
+    if (!storagePath ||
+        !storagePath.startsWith(okPrefix) ||
+        storagePath.includes("..") ||
+        storagePath.endsWith("/")) {
+        throw new https_1.HttpsError("invalid-argument", "storagePath invalid");
+    }
+    const bucket = admin.storage().bucket();
+    const file = bucket.file(storagePath);
+    const [exists] = await file.exists();
+    if (exists) {
+        try {
+            await file.delete();
+        }
+        catch (e) {
+            console.warn("folioDeleteVaultLegacyBackup: delete failed", storagePath, e);
+            throw new https_1.HttpsError("internal", "Failed to delete backup file");
+        }
+    }
+    const fileName = (_d = storagePath.split("/").pop()) !== null && _d !== void 0 ? _d : "";
+    const userRef = db.collection("users").doc(uid);
+    const vaultBackupRef = userRef.collection("vaultBackups").doc(vaultId);
+    if (fileName) {
+        try {
+            await vaultBackupRef.collection("items").doc(fileName).delete();
+        }
+        catch (_) {
+            // ignore missing item meta
+        }
+    }
+    const vaultSnap = await vaultBackupRef.get();
+    const vd = ((_e = vaultSnap.data()) !== null && _e !== void 0 ? _e : {});
+    if (typeof vd.latestStoragePath === "string" &&
+        vd.latestStoragePath.trim() === storagePath) {
+        await vaultBackupRef.set({
+            latestFileName: FieldValue.delete(),
+            latestStoragePath: FieldValue.delete(),
+            latestFingerprint: FieldValue.delete(),
+            latestContainerFormat: FieldValue.delete(),
+            latestSizeBytes: FieldValue.delete(),
+            latestUpdatedAt: FieldValue.delete(),
+        }, { merge: true });
+    }
+    let vaultRemoved = false;
+    const stillHas = await vaultCloudBackupHasRemainingFiles(uid, vaultId);
+    if (!stillHas) {
+        const purged = await purgeVaultCloudBackupPresence(uid, vaultId);
+        if (purged.failed.length === 0) {
+            vaultRemoved = true;
+        }
+        // Si había cloud-pack residual rarísimo, restar cuota.
+        if (purged.freedBytes > 0) {
+            const userSnap = await userRef.get();
+            const used = folioBackupUsedField(((_f = userSnap.data()) !== null && _f !== void 0 ? _f : {}));
+            await userRef.update({
+                "folioBackup.usedBytes": Math.max(0, used - purged.freedBytes),
+                "folioBackup.updatedAt": FieldValue.serverTimestamp(),
+            });
+        }
+    }
+    return { ok: true, vaultRemoved };
 });
 exports.folioTrimVaultBackupsByBytes = (0, https_1.onCall)({ cors: true, invoker: "public" }, async (request) => {
     var _a, _b, _c;

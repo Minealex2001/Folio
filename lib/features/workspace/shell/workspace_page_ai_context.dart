@@ -55,7 +55,7 @@ extension _WorkspacePageAiContextModule on _WorkspacePageState {
             ? l10n.aiContextCurrentPageChip(_s.selectedPage!.title)
             : l10n.aiContextCurrentPageFallback,
       ),
-      ..._s.pages.map(
+      ..._s.activePages.map(
         (page) => _AiContextItem(
           kind: _AiContextItemKind.page,
           id: page.id,
@@ -64,7 +64,7 @@ extension _WorkspacePageAiContextModule on _WorkspacePageState {
       ),
     ];
     if (needle.isEmpty) return suggestions.take(8).toList();
-    final ranked = FolioVaultLightSearch(_s.pages).rankPageIds(needle, maxResults: 6);
+    final ranked = FolioVaultLightSearch(_s.activePages).rankPageIds(needle, maxResults: 6);
     final rankedSet = ranked.toSet();
     final merged = <_AiContextItem>[];
     for (final id in ranked) {

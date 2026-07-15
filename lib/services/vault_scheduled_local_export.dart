@@ -10,8 +10,13 @@ import 'folio_cloud/folio_cloud_backup.dart';
 import 'folio_cloud/folio_cloud_pack_sync.dart';
 import 'folio_cloud/folio_cloud_entitlements.dart';
 import 'secure_credential_storage.dart';
+import 'vault_pack/vault_pack_destinations.dart';
+import 'vault_pack/vault_pack_sync.dart';
 
 /// Escribe un ZIP de copia programada en los destinos de red configurados.
+///
+/// Uso legados / export manual a NAS. La copia programada automática usa pack
+/// incremental ([runScheduledFolderVaultExport]).
 Future<void> exportScheduledVaultZipToConfiguredFolder({
   required VaultSession session,
   required VaultBackupPrefs prefs,
@@ -32,9 +37,9 @@ Future<void> exportScheduledVaultZipToConfiguredFolder({
 
 /// Exporta la libreta **abierta** según las opciones configuradas en [AppSettings]
 /// para la libreta identificada por [vaultId]:
-/// - Backup a carpeta local/red (ZIP) si está activo.
-/// - Backup WebDAV si está activo.
-/// - Backup a la nube si [VaultBackupPrefs.alsoCloud] y hay entitlement.
+/// - Pack incremental a carpeta local/red si está activo.
+/// - Pack incremental a WebDAV si está activo.
+/// - Cloud-pack a la nube si [VaultBackupPrefs.alsoCloud] y hay entitlement.
 Future<void> runScheduledFolderVaultExport({
   required VaultSession session,
   required AppSettings appSettings,
@@ -61,13 +66,23 @@ Future<void> runScheduledFolderVaultExport({
     throw VaultBackupException('No hay destino de copia configurado.');
   }
 
-  final runner = BackupExportRunner(credentials: credentials);
+  final creds = credentials ?? SecureCredentialStorage();
   if (wantFolder || wantWebdav) {
-    await runner.exportToDestinations(
-      session: session,
+    if (vid.isEmpty) {
+      throw VaultBackupException('No hay libreta activa.');
+    }
+    final transports = await VaultPackDestinations.fromPrefs(
       prefs: prefs,
       vaultId: vid,
+      credentials: creds,
     );
+    for (final t in transports) {
+      await uploadOpenVaultPack(
+        session: session,
+        transport: t,
+        retentionCount: prefs.retentionCount,
+      );
+    }
   }
 
   if (wantCloud) {

@@ -109,7 +109,7 @@ extension _SettingsPageCloudVaultActions on _SettingsPageState {
       context: context,
       builder: (ctx) {
         final l10nD = AppLocalizations.of(ctx);
-        return AlertDialog(
+        return FolioDialog(
           title: Text(l10nD.settingsDeviceNameTitle),
           content: TextFormField(
             initialValue: draft,
@@ -175,7 +175,7 @@ extension _SettingsPageCloudVaultActions on _SettingsPageState {
       context: context,
       builder: (ctx) {
         final l10nP = AppLocalizations.of(ctx);
-        return AlertDialog(
+        return FolioDialog(
           title: Text(l10nP.settingsConfirmPairingTitle),
           content: Column(
             mainAxisSize: MainAxisSize.min,
@@ -244,7 +244,7 @@ extension _SettingsPageCloudVaultActions on _SettingsPageState {
       context: context,
       builder: (ctx) {
         final l10nC = AppLocalizations.of(ctx);
-        return AlertDialog(
+        return FolioDialog(
           title: Text(l10nC.settingsResolveConflictsTitle),
           content: SizedBox(
             width: 560,

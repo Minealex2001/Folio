@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import '../../app/widgets/folio_dialog.dart';
 import '../../app/widgets/folio_password_field.dart';
 import '../../app/widgets/folio_error_card.dart';
+import '../../app/widgets/folio_skeletons.dart';
 import '../../l10n/generated/app_localizations.dart';
 import '../../services/cloud_account/cloud_account_controller.dart';
 
@@ -245,11 +246,7 @@ class _FolioCloudReauthDialogState extends State<FolioCloudReauthDialog> {
         FilledButton(
           onPressed: _loading ? null : _submit,
           child: _loading
-              ? const SizedBox(
-                  width: 22,
-                  height: 22,
-                  child: CircularProgressIndicator(strokeWidth: 2),
-                )
+              ? const FolioLoadingIndicator(size: FolioLoadingSize.small)
               : Text(l10n.verifyAndContinue),
         ),
       ],

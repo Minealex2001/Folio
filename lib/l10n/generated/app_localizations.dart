@@ -2866,6 +2866,18 @@ abstract class AppLocalizations {
   /// **'Colapsar'**
   String get aiCollapse;
 
+  /// No description provided for @sidebarItemExpandedSemantics.
+  ///
+  /// In es, this message translates to:
+  /// **'Expandido'**
+  String get sidebarItemExpandedSemantics;
+
+  /// No description provided for @sidebarItemCollapsedSemantics.
+  ///
+  /// In es, this message translates to:
+  /// **'Colapsado'**
+  String get sidebarItemCollapsedSemantics;
+
   /// No description provided for @aiDeleteCurrentChat.
   ///
   /// In es, this message translates to:
@@ -3823,7 +3835,7 @@ abstract class AppLocalizations {
   /// No description provided for @scheduledVaultBackupFolderSubtitle.
   ///
   /// In es, this message translates to:
-  /// **'Guarda una copia cifrada en ZIP en la carpeta configurada en cada intervalo.'**
+  /// **'Guarda una copia cifrada incremental (pack) en la carpeta configurada.'**
   String get scheduledVaultBackupFolderSubtitle;
 
   /// No description provided for @scheduledVaultBackupChooseFolder.
@@ -3847,7 +3859,7 @@ abstract class AppLocalizations {
   /// No description provided for @scheduledVaultBackupCloudOnlySubtitle.
   ///
   /// In es, this message translates to:
-  /// **'No guarda ZIPs en disco. Sube copias solo a la nube.'**
+  /// **'No guarda copias en disco. Sube copias incrementales solo a la nube.'**
   String get scheduledVaultBackupCloudOnlySubtitle;
 
   /// No description provided for @scheduledVaultBackupIntervalLabel.
@@ -3855,6 +3867,12 @@ abstract class AppLocalizations {
   /// In es, this message translates to:
   /// **'Intervalo entre copias'**
   String get scheduledVaultBackupIntervalLabel;
+
+  /// No description provided for @scheduledVaultBackupEveryChange.
+  ///
+  /// In es, this message translates to:
+  /// **'En cada cambio'**
+  String get scheduledVaultBackupEveryChange;
 
   /// No description provided for @scheduledVaultBackupEveryNMinutes.
   ///
@@ -4167,6 +4185,18 @@ abstract class AppLocalizations {
   /// In es, this message translates to:
   /// **'Restaurar desde NAS o servidor'**
   String get remoteBackupRestoreOpen;
+
+  /// No description provided for @remoteBackupRestoreIncrementalPackTitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Copia incremental ({vaultId})'**
+  String remoteBackupRestoreIncrementalPackTitle(String vaultId);
+
+  /// No description provided for @remoteBackupRestoreIncrementalPackSubtitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Pack incremental'**
+  String get remoteBackupRestoreIncrementalPackSubtitle;
 
   /// No description provided for @remoteBackupExportDestinationTitle.
   ///
@@ -6119,7 +6149,7 @@ abstract class AppLocalizations {
   /// No description provided for @scheduledVaultBackupCloudSyncSubtitle.
   ///
   /// In es, this message translates to:
-  /// **'En cada intervalo programado, sube automáticamente una copia cifrada a tu cuenta de Folio Cloud.'**
+  /// **'Sube automáticamente una copia cifrada incremental a tu cuenta de Folio Cloud (según el intervalo o en cada cambio).'**
   String get scheduledVaultBackupCloudSyncSubtitle;
 
   /// No description provided for @folioCloudCloudBackupsList.
@@ -6937,6 +6967,18 @@ abstract class AppLocalizations {
   /// In es, this message translates to:
   /// **'Muestra alertas nativas de Windows cuando una tarea vence hoy o está vencida'**
   String get settingsWindowsNotificationsSubtitle;
+
+  /// No description provided for @settingsLaunchAtStartup.
+  ///
+  /// In es, this message translates to:
+  /// **'Iniciar con Windows'**
+  String get settingsLaunchAtStartup;
+
+  /// No description provided for @settingsLaunchAtStartupSubtitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Abre Folio automáticamente al iniciar sesión en Windows'**
+  String get settingsLaunchAtStartupSubtitle;
 
   /// No description provided for @title.
   ///
@@ -9519,6 +9561,12 @@ abstract class AppLocalizations {
   /// **'Confirmar endpoint remoto'**
   String get confirmRemoteEndpointTitle;
 
+  /// No description provided for @confirmRemoteEndpointBody.
+  ///
+  /// In es, this message translates to:
+  /// **'Vas a habilitar la IA con un host remoto ({host}). El contenido que envíes puede salir de este equipo.\n\n¿Continuar?'**
+  String confirmRemoteEndpointBody(Object host);
+
   /// No description provided for @shortcutGlobalSearchKeyChord.
   ///
   /// In es, this message translates to:
@@ -10694,26 +10742,98 @@ abstract class AppLocalizations {
   /// No description provided for @sidebarDeletePageMenuTitle.
   ///
   /// In es, this message translates to:
-  /// **'Eliminar página'**
+  /// **'Mover a la papelera'**
   String get sidebarDeletePageMenuTitle;
 
   /// No description provided for @sidebarDeleteFolderMenuTitle.
   ///
   /// In es, this message translates to:
-  /// **'Quitar carpeta'**
+  /// **'Mover carpeta a la papelera'**
   String get sidebarDeleteFolderMenuTitle;
 
   /// No description provided for @sidebarDeletePageConfirmInline.
   ///
   /// In es, this message translates to:
-  /// **'¿Eliminar «{title}»? No se puede deshacer.'**
+  /// **'¿Mover «{title}» a la papelera? Podrás restaurarla durante 30 días.'**
   String sidebarDeletePageConfirmInline(Object title);
 
   /// No description provided for @sidebarDeleteFolderConfirmInline.
   ///
   /// In es, this message translates to:
-  /// **'¿Quitar carpeta «{title}»? Las subpáginas pasan a la raíz de la libreta.'**
+  /// **'¿Mover la carpeta «{title}» y su contenido a la papelera? Podrás restaurarla durante 30 días.'**
   String sidebarDeleteFolderConfirmInline(Object title);
+
+  /// No description provided for @sidebarTrashTitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Papelera'**
+  String get sidebarTrashTitle;
+
+  /// No description provided for @sidebarTrashEmpty.
+  ///
+  /// In es, this message translates to:
+  /// **'La papelera está vacía'**
+  String get sidebarTrashEmpty;
+
+  /// No description provided for @sidebarTrashRetentionHint.
+  ///
+  /// In es, this message translates to:
+  /// **'Los elementos se eliminan automáticamente a los 30 días.'**
+  String get sidebarTrashRetentionHint;
+
+  /// No description provided for @sidebarTrashRestore.
+  ///
+  /// In es, this message translates to:
+  /// **'Restaurar'**
+  String get sidebarTrashRestore;
+
+  /// No description provided for @sidebarTrashDeleteForever.
+  ///
+  /// In es, this message translates to:
+  /// **'Eliminar definitivamente'**
+  String get sidebarTrashDeleteForever;
+
+  /// No description provided for @sidebarTrashEmptyAction.
+  ///
+  /// In es, this message translates to:
+  /// **'Vaciar papelera'**
+  String get sidebarTrashEmptyAction;
+
+  /// No description provided for @sidebarTrashEmptyConfirm.
+  ///
+  /// In es, this message translates to:
+  /// **'¿Vaciar la papelera? Esta acción no se puede deshacer.'**
+  String get sidebarTrashEmptyConfirm;
+
+  /// No description provided for @sidebarTrashDeleteForeverConfirm.
+  ///
+  /// In es, this message translates to:
+  /// **'¿Eliminar «{title}» de forma definitiva? Esta acción no se puede deshacer.'**
+  String sidebarTrashDeleteForeverConfirm(Object title);
+
+  /// No description provided for @sidebarTrashDaysLeft.
+  ///
+  /// In es, this message translates to:
+  /// **'Quedan {days} días'**
+  String sidebarTrashDaysLeft(int days);
+
+  /// No description provided for @sidebarTrashOpenTooltip.
+  ///
+  /// In es, this message translates to:
+  /// **'Abrir papelera'**
+  String get sidebarTrashOpenTooltip;
+
+  /// No description provided for @sidebarTrashCountBadge.
+  ///
+  /// In es, this message translates to:
+  /// **'{count}'**
+  String sidebarTrashCountBadge(int count);
+
+  /// No description provided for @sidebarTrashClose.
+  ///
+  /// In es, this message translates to:
+  /// **'Cerrar'**
+  String get sidebarTrashClose;
 
   /// No description provided for @settingsStripeSubscriptionRefreshed.
   ///
@@ -10811,6 +10931,12 @@ abstract class AppLocalizations {
   /// **'Copia borrada.'**
   String get settingsCloudBackupDeletedSnack;
 
+  /// No description provided for @settingsCloudBackupVaultRemovedSnack.
+  ///
+  /// In es, this message translates to:
+  /// **'Copia borrada. La libreta ya no tiene copias en Folio Cloud y se eliminó de la nube.'**
+  String get settingsCloudBackupVaultRemovedSnack;
+
   /// No description provided for @settingsCloudBackupImportedSnack.
   ///
   /// In es, this message translates to:
@@ -10852,6 +10978,30 @@ abstract class AppLocalizations {
   /// In es, this message translates to:
   /// **'¿Seguro que quieres borrar esta copia de la nube? Esta acción no se puede deshacer.'**
   String get settingsCloudBackupDeleteWarning;
+
+  /// No description provided for @settingsCloudBackupDeleteCloudPackWarning.
+  ///
+  /// In es, this message translates to:
+  /// **'¿Seguro que quieres borrar la copia incremental de esta libreta? Se eliminarán todos sus datos en la nube y no podrás restaurarla hasta que subas una nueva. Esta acción no se puede deshacer.'**
+  String get settingsCloudBackupDeleteCloudPackWarning;
+
+  /// No description provided for @settingsCloudBackupsManageHint.
+  ///
+  /// In es, this message translates to:
+  /// **'Gestiona las copias de esta libreta. Al borrar se libera espacio de tu cuota.'**
+  String get settingsCloudBackupsManageHint;
+
+  /// No description provided for @settingsCloudBackupDeleteTooltip.
+  ///
+  /// In es, this message translates to:
+  /// **'Borrar copia'**
+  String get settingsCloudBackupDeleteTooltip;
+
+  /// No description provided for @settingsCloudBackupsSheetTitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Copias en la nube'**
+  String get settingsCloudBackupsSheetTitle;
 
   /// No description provided for @settingsPublishedRequiresPlan.
   ///

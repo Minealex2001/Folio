@@ -1080,6 +1080,7 @@ class BlockEditorState extends State<BlockEditor> with _BlockRowBuild {
   List<FolioPage> _catalogFilteredForMention(String query) {
     final q = query.trim().toLowerCase();
     final items = _s.pages.where((p) {
+      if (p.isTrashed) return false;
       if (q.isEmpty) return true;
       final title = p.title.trim().toLowerCase();
       return title.contains(q);
@@ -1443,7 +1444,7 @@ class BlockEditorState extends State<BlockEditor> with _BlockRowBuild {
     try {
       final ok = await showDialog<bool>(
         context: context,
-        builder: (ctx) => AlertDialog(
+        builder: (ctx) => FolioDialog(
           title: Text(AppLocalizations.of(context).urlLabel),
           content: TextField(
             controller: c,
@@ -1498,7 +1499,7 @@ class BlockEditorState extends State<BlockEditor> with _BlockRowBuild {
     try {
       final ok = await showDialog<bool>(
         context: context,
-        builder: (ctx) => AlertDialog(
+        builder: (ctx) => FolioDialog(
           title: Text(AppLocalizations.of(context).urlLabel),
           content: TextField(
             controller: c,
@@ -2360,7 +2361,7 @@ class BlockEditorState extends State<BlockEditor> with _BlockRowBuild {
     BuildContext context, {
     required String excludeId,
   }) {
-    final pages = _s.pages.where((p) => p.id != excludeId).toList();
+    final pages = _s.pages.where((p) => !p.isTrashed && p.id != excludeId).toList();
     if (pages.isEmpty) return Future.value(null);
     return showModalBottomSheet<String>(
       context: context,
@@ -2387,7 +2388,7 @@ class BlockEditorState extends State<BlockEditor> with _BlockRowBuild {
     final l10n = AppLocalizations.of(context);
     final ok = await showDialog<bool>(
       context: context,
-      builder: (ctx) => AlertDialog(
+      builder: (ctx) => FolioDialog(
         title: Text(l10n.blockEditorTemplateButtonTitle),
         content: TextField(
           controller: labelCtrl,
@@ -2738,7 +2739,7 @@ class BlockEditorState extends State<BlockEditor> with _BlockRowBuild {
           if (!snap.hasData) {
             return const SizedBox(
               height: 100,
-              child: Center(child: CircularProgressIndicator()),
+              child: FolioLoadingIndicator(centered: true),
             );
           }
           final bytes = snap.data;
@@ -2827,7 +2828,7 @@ class BlockEditorState extends State<BlockEditor> with _BlockRowBuild {
         if (!isRemote && !snap.hasData) {
           return const SizedBox(
             height: 100,
-            child: Center(child: CircularProgressIndicator()),
+            child: FolioLoadingIndicator(centered: true),
           );
         }
         File? file;
@@ -5177,7 +5178,7 @@ class BlockEditorState extends State<BlockEditor> with _BlockRowBuild {
         final rewriteL10n = AppLocalizations.of(menuContext);
         final go = await showDialog<bool>(
           context: menuContext,
-          builder: (ctx) => AlertDialog(
+          builder: (ctx) => FolioDialog(
             title: Text(rewriteL10n.aiRewriteDialogTitle),
             content: TextField(
               controller: c,
@@ -5222,7 +5223,7 @@ class BlockEditorState extends State<BlockEditor> with _BlockRowBuild {
           final accept = await showDialog<bool>(
             context: menuContext,
             builder: (ctx) {
-              return AlertDialog(
+              return FolioDialog(
                 title: Text(previewL10n.aiPreviewTitle),
                 content: ConstrainedBox(
                   constraints: const BoxConstraints(maxWidth: 720),
@@ -6021,7 +6022,7 @@ class BlockEditorState extends State<BlockEditor> with _BlockRowBuild {
       builder: (ctx) {
         return StatefulBuilder(
           builder: (ctx, setS) {
-            return AlertDialog(
+            return FolioDialog(
               title: Text(l10n.meetingNoteSendToAi),
               content: ConstrainedBox(
                 constraints: const BoxConstraints(maxWidth: 480),
@@ -6159,7 +6160,7 @@ class BlockEditorState extends State<BlockEditor> with _BlockRowBuild {
       final meetingPreviewL10n = AppLocalizations.of(context);
       final accept = await showDialog<bool>(
         context: context,
-        builder: (ctx) => AlertDialog(
+        builder: (ctx) => FolioDialog(
           title: Text(meetingPreviewL10n.aiPreviewTitle),
           content: ConstrainedBox(
             constraints: const BoxConstraints(maxWidth: 720),
@@ -6216,7 +6217,7 @@ class BlockEditorState extends State<BlockEditor> with _BlockRowBuild {
           setState(() {});
         }
       });
-      return const Center(child: CircularProgressIndicator());
+      return const FolioLoadingIndicator(centered: true);
     }
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
@@ -6422,7 +6423,7 @@ class _SyncedBlockInsertDialogState extends State<_SyncedBlockInsertDialog> {
 
   @override
   Widget build(BuildContext context) {
-    return AlertDialog(
+    return FolioDialog(
       title: Text(widget.l10n.syncedBlockInsertTitle),
       content: TextField(
         controller: tc,

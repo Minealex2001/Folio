@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 
+import '../../app/widgets/folio_dialog.dart';
 import '../../l10n/generated/app_localizations.dart';
 import '../../models/folio_app_package.dart';
 import '../../models/folio_app_registry_entry.dart';
@@ -169,25 +170,11 @@ class _AppStoreScreenState extends State<AppStoreScreen>
     if (!mounted) return;
 
     final l10n = AppLocalizations.of(context);
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (ctx) {
-        final innerL10n = AppLocalizations.of(ctx);
-        return AlertDialog(
-          title: Text(innerL10n.appStoreInstallConfirmTitle),
-          content: Text(innerL10n.appStoreInstallConfirmBody),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(ctx).pop(false),
-              child: Text(innerL10n.cancel),
-            ),
-            FilledButton(
-              onPressed: () => Navigator.of(ctx).pop(true),
-              child: Text(innerL10n.appStoreInstallButton),
-            ),
-          ],
-        );
-      },
+    final confirmed = await FolioDialog.confirm(
+      context,
+      title: Text(l10n.appStoreInstallConfirmTitle),
+      content: Text(l10n.appStoreInstallConfirmBody),
+      confirmLabel: l10n.appStoreInstallButton,
     );
     if (confirmed != true || !mounted) return;
 
@@ -430,28 +417,13 @@ class _InstalledTab extends StatelessWidget {
     AppStoreService store,
     InstalledFolioApp app,
   ) async {
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (ctx) {
-        final innerL10n = AppLocalizations.of(ctx);
-        return AlertDialog(
-          title: Text(innerL10n.appStoreUninstallTitle),
-          content: Text(innerL10n.appStoreUninstallBody(app.package.name)),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(ctx).pop(false),
-              child: Text(innerL10n.cancel),
-            ),
-            FilledButton(
-              style: FilledButton.styleFrom(
-                backgroundColor: Theme.of(ctx).colorScheme.error,
-              ),
-              onPressed: () => Navigator.of(ctx).pop(true),
-              child: Text(innerL10n.appStoreUninstallButton),
-            ),
-          ],
-        );
-      },
+    final l10n = AppLocalizations.of(context);
+    final confirmed = await FolioDialog.confirm(
+      context,
+      title: Text(l10n.appStoreUninstallTitle),
+      content: Text(l10n.appStoreUninstallBody(app.package.name)),
+      confirmLabel: l10n.appStoreUninstallButton,
+      destructive: true,
     );
     if (confirmed == true) {
       await store.uninstall(app.package.id);

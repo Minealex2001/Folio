@@ -1,5 +1,166 @@
 part of 'settings_page.dart';
 
+/// Rail de navegación persistente para Settings en ventanas de escritorio
+/// anchas (>= [FolioDesktop.mediumBreakpoint]): sustituye a la rejilla de
+/// tarjetas + drill-in total que se usa en anchos menores.
+class _SettingsSectionRail extends StatelessWidget {
+  const _SettingsSectionRail({
+    required this.sections,
+    required this.selectedId,
+    required this.onSelect,
+    required this.scheme,
+    required this.searchController,
+    required this.l10n,
+  });
+
+  final List<_SettingsSectionNavItem> sections;
+  final _SettingsSectionId selectedId;
+  final ValueChanged<_SettingsSectionId> onSelect;
+  final ColorScheme scheme;
+  final TextEditingController searchController;
+  final AppLocalizations l10n;
+
+  static IconData _iconFor(_SettingsSectionId id) {
+    switch (id) {
+      case _SettingsSectionId.cloud:
+        return Icons.cloud_outlined;
+      case _SettingsSectionId.vault:
+        return Icons.lock_outline_rounded;
+      case _SettingsSectionId.uiWorkspace:
+        return Icons.palette_outlined;
+      case _SettingsSectionId.ai:
+        return Icons.psychology_outlined;
+      case _SettingsSectionId.sync:
+        return Icons.sync_rounded;
+      case _SettingsSectionId.about:
+        return Icons.info_outline_rounded;
+      case _SettingsSectionId.integrations:
+        return Icons.extension_outlined;
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: FolioDesktop.settingsRailWidth,
+      child: ListView(
+        padding: const EdgeInsets.symmetric(
+          vertical: FolioSpace.md,
+          horizontal: FolioSpace.sm,
+        ),
+        children: [
+          Padding(
+            padding: const EdgeInsets.only(bottom: FolioSpace.sm),
+            child: Semantics(
+              label: l10n.settingsSearchSections,
+              textField: true,
+              child: TextField(
+                controller: searchController,
+                decoration: InputDecoration(
+                  isDense: true,
+                  prefixIcon: const Icon(Icons.search_rounded, size: 18),
+                  hintText: l10n.settingsSearchSectionsHint,
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(FolioRadius.md),
+                  ),
+                ),
+              ),
+            ),
+          ),
+          for (final sec in sections)
+            Padding(
+              padding: const EdgeInsets.only(bottom: FolioSpace.xxs),
+              child: _SettingsRailTile(
+                sec: sec,
+                icon: _iconFor(sec.id),
+                selected: sec.id == selectedId,
+                scheme: scheme,
+                onTap: () => onSelect(sec.id),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+class _SettingsRailTile extends StatefulWidget {
+  const _SettingsRailTile({
+    required this.sec,
+    required this.icon,
+    required this.selected,
+    required this.scheme,
+    required this.onTap,
+  });
+
+  final _SettingsSectionNavItem sec;
+  final IconData icon;
+  final bool selected;
+  final ColorScheme scheme;
+  final VoidCallback onTap;
+
+  @override
+  State<_SettingsRailTile> createState() => _SettingsRailTileState();
+}
+
+class _SettingsRailTileState extends State<_SettingsRailTile> {
+  bool _isHovered = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = widget.scheme;
+    final selected = widget.selected;
+    final fg = selected ? scheme.onSecondaryContainer : scheme.onSurface;
+    return MouseRegion(
+      onEnter: (_) => setState(() => _isHovered = true),
+      onExit: (_) => setState(() => _isHovered = false),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(FolioRadius.md),
+          onTap: widget.onTap,
+          child: AnimatedContainer(
+            duration: FolioMotion.short2,
+            padding: const EdgeInsets.symmetric(
+              horizontal: FolioSpace.sm,
+              vertical: FolioSpace.sm,
+            ),
+            decoration: BoxDecoration(
+              color: selected
+                  ? scheme.secondaryContainer
+                  : (_isHovered
+                        ? scheme.surfaceContainer
+                        : Colors.transparent),
+              borderRadius: BorderRadius.circular(FolioRadius.md),
+            ),
+            child: Row(
+              children: [
+                Icon(
+                  widget.icon,
+                  size: 20,
+                  color: selected ? fg : scheme.onSurfaceVariant,
+                ),
+                const SizedBox(width: FolioSpace.sm),
+                Expanded(
+                  child: Text(
+                    widget.sec.label,
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      fontWeight: selected ? FontWeight.bold : FontWeight.w500,
+                      color: fg,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 class _SettingsMenuTile extends StatefulWidget {
   const _SettingsMenuTile({
     required this.sec,

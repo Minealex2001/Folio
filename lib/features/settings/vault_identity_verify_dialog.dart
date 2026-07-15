@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:passkeys/exceptions.dart';
 
+import '../../app/widgets/folio_dialog.dart';
 import '../../app/widgets/folio_password_field.dart';
 import '../../l10n/generated/app_localizations.dart';
 import '../../session/vault_session.dart';
@@ -104,7 +105,7 @@ class _VaultIdentityVerifyDialogState extends State<VaultIdentityVerifyDialog> {
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
     final scheme = Theme.of(context).colorScheme;
-    return AlertDialog(
+    return FolioDialog(
       title: widget.title,
       content: SingleChildScrollView(
         child: Column(

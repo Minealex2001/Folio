@@ -17,6 +17,7 @@ import '../../data/vault_paths.dart';
 import '../../session/vault_session.dart';
 import '../folio_telemetry.dart';
 import '../app_logger.dart';
+import '../vault_pack/vault_pack_builder.dart';
 import 'folio_cloud_backup.dart';
 import 'folio_cloud_callable.dart';
 import '../../crypto/vault_crypto.dart';
@@ -177,132 +178,36 @@ Future<String?> uploadOpenVaultCloudPack({
   }
   rep(VaultCloudPackProgressStep.indexingLocal, 0.135);
 
-  final wrapped = await VaultPaths.wrappedDekPath();
-  final cipher = await VaultPaths.cipherPayloadPath();
-  final modeFile = await VaultPaths.vaultModePath();
-  if (!cipher.existsSync()) {
-    throw StateError('No hay libreta para exportar.');
-  }
-  final plain = _modeFileIsPlainCloud(modeFile);
-  if (!plain && !wrapped.existsSync()) {
-    throw StateError('No hay libreta para exportar.');
-  }
-
-  final vaultDir = await VaultPaths.vaultDirectory();
-  final attDir = Directory(
-    p.join(vaultDir.path, VaultPaths.attachmentsDirName),
+  final built = await buildVaultPackSnapshot(
+    packKey: packKey,
+    contentFingerprint: contentFp,
   );
-  final attPaths = <String>[];
-  if (attDir.existsSync()) {
-    await for (final entity in attDir.list(
-      recursive: true,
-      followLinks: false,
-    )) {
-      if (entity is! File) continue;
-      final rel = p
-          .relative(entity.path, from: attDir.path)
-          .replaceAll(r'\', '/');
-      attPaths.add('${VaultPaths.attachmentsDirName}/$rel');
-    }
-    attPaths.sort();
-  }
-
-  final manifestJson = jsonEncode(<String, Object?>{
-    'formatVersion': kVaultBackupFormatVersion,
-    'exportedAt': DateTime.now().toUtc().toIso8601String(),
-    'appName': 'Folio',
-  });
-  final manifestPlain = utf8.encode(manifestJson);
-
-  final items = <FolioCloudPackSnapshotItem>[];
-  final includeVaultKeys = !plain && wrapped.existsSync();
-  final includeVaultMode = modeFile.existsSync();
-  final totalBlobs = 1 +
-      (includeVaultKeys ? 1 : 0) +
-      1 +
-      (includeVaultMode ? 1 : 0) +
-      attPaths.length;
+  final items = built.manifest.items;
+  final snapClear = built.manifest;
+  final totalBlobs = built.blobs.length;
   var blobsDone = 0;
 
-  Future<void> addBlob({
-    required FolioCloudPackBlobRole role,
-    required List<int> plainBytes,
-    String? attachmentPosix,
-  }) async {
-    final cipherBytes = await cloudPackEncryptPlainBlob(
-      plain: plainBytes,
-      packKey: packKey,
-      role: role.name,
-    );
-    final id = await cloudPackBlobIdFromCipherBytes(cipherBytes);
-    items.add(
-      FolioCloudPackSnapshotItem(
-        role: role,
-        blobId: id,
-        relativePath: attachmentPosix,
-      ),
-    );
+  for (final b in built.blobs) {
     await _ensureBlobUploaded(
       uid: user.uid,
       vaultId: vaultId,
-      blobId: id,
-      bytes: cipherBytes,
+      blobId: b.item.blobId,
+      bytes: b.cipherBytes,
     );
     blobsDone++;
     final frac = totalBlobs <= 0 ? 1.0 : blobsDone / totalBlobs;
-    final p = 0.15 + 0.58 * frac;
     onProgress?.call(
       VaultCloudPackProgress(
-        progress: p.clamp(0.0, 0.93),
+        progress: (0.15 + 0.58 * frac).clamp(0.0, 0.93),
         step: VaultCloudPackProgressStep.uploadingBlob,
-        blobRole: role,
-        attachmentRelativePath: attachmentPosix,
+        blobRole: b.item.role,
+        attachmentRelativePath: b.item.relativePath,
         blobsCompleted: blobsDone,
         blobsTotal: totalBlobs,
       ),
     );
   }
 
-  await addBlob(
-    role: FolioCloudPackBlobRole.backupManifest,
-    plainBytes: manifestPlain,
-  );
-
-  if (includeVaultKeys) {
-    await addBlob(
-      role: FolioCloudPackBlobRole.vaultKeys,
-      plainBytes: await wrapped.readAsBytes(),
-    );
-  }
-
-  await addBlob(
-    role: FolioCloudPackBlobRole.vaultBin,
-    plainBytes: await cipher.readAsBytes(),
-  );
-
-  if (includeVaultMode) {
-    await addBlob(
-      role: FolioCloudPackBlobRole.vaultMode,
-      plainBytes: await modeFile.readAsBytes(),
-    );
-  }
-
-  for (final posix in attPaths) {
-    final f = File(p.join(vaultDir.path, posix));
-    if (!f.existsSync()) continue;
-    await addBlob(
-      role: FolioCloudPackBlobRole.attachment,
-      plainBytes: await f.readAsBytes(),
-      attachmentPosix: posix,
-    );
-  }
-
-  final snapClear = FolioCloudPackSnapshotManifest(
-    formatVersion: kFolioCloudPackFormatVersion,
-    createdAtUtc: DateTime.now().toUtc().toIso8601String(),
-    items: items,
-    contentFingerprint: contentFp,
-  );
   final snapCipher = await cloudPackEncryptSnapshotManifest(snapClear, packKey);
 
   final stamp = DateTime.now().toUtc().toIso8601String().replaceAll(':', '-');
@@ -440,11 +345,6 @@ Future<String?> uploadOpenVaultCloudPack({
     );
     rethrow;
   }
-}
-
-bool _modeFileIsPlainCloud(File modeFile) {
-  if (!modeFile.existsSync()) return false;
-  return modeFile.readAsStringSync().trim().toLowerCase() == 'plain';
 }
 
 int _parseInt(dynamic v) {

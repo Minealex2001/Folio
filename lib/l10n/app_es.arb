@@ -547,6 +547,8 @@
   ,"quillTourDismiss": "Entendido"
   ,"aiExpand": "Expandir"
   ,"aiCollapse": "Colapsar"
+  ,"sidebarItemExpandedSemantics": "Expandido"
+  ,"sidebarItemCollapsedSemantics": "Colapsado"
   ,"aiDeleteCurrentChat": "Borrar chat actual"
   ,"aiNewChat": "Nuevo"
   ,"aiAttach": "Adjuntar"
@@ -714,12 +716,13 @@
   "scheduledVaultBackupTitle": "Copia cifrada programada",
   "scheduledVaultBackupSubtitle": "Con la libreta desbloqueada, Folio la copia automáticamente en el intervalo elegido. Activa carpeta de red, WebDAV, Folio Cloud, o varias a la vez.",
   "scheduledVaultBackupFolderTitle": "Copia en carpeta",
-  "scheduledVaultBackupFolderSubtitle": "Guarda una copia cifrada en ZIP en la carpeta configurada en cada intervalo.",
+  "scheduledVaultBackupFolderSubtitle": "Guarda una copia cifrada incremental (pack) en la carpeta configurada.",
   "scheduledVaultBackupChooseFolder": "Carpeta de copias",
   "scheduledVaultBackupClearFolderTooltip": "Quitar carpeta",
   "scheduledVaultBackupCloudOnlyTitle": "Copias programadas solo en la nube",
-  "scheduledVaultBackupCloudOnlySubtitle": "No guarda ZIPs en disco. Sube copias solo a la nube.",
+  "scheduledVaultBackupCloudOnlySubtitle": "No guarda copias en disco. Sube copias incrementales solo a la nube.",
   "scheduledVaultBackupIntervalLabel": "Intervalo entre copias",
+  "scheduledVaultBackupEveryChange": "En cada cambio",
   "scheduledVaultBackupEveryNMinutes": "{n, plural, one{1 minuto} other{{n} minutos}}",
   "@scheduledVaultBackupEveryNMinutes": {
     "placeholders": {
@@ -787,6 +790,13 @@
   "remoteBackupRestoreImportNew": "Importar como libreta nueva",
   "remoteBackupRestoreImportOverwrite": "Sobrescribir libreta activa",
   "remoteBackupRestoreOpen": "Restaurar desde NAS o servidor",
+  "remoteBackupRestoreIncrementalPackTitle": "Copia incremental ({vaultId})",
+  "@remoteBackupRestoreIncrementalPackTitle": {
+    "placeholders": {
+      "vaultId": {"type": "String"}
+    }
+  },
+  "remoteBackupRestoreIncrementalPackSubtitle": "Pack incremental",
   "remoteBackupExportDestinationTitle": "¿Dónde guardar la copia?",
   "remoteBackupExportToLocalFile": "Archivo en este equipo",
   "remoteBackupExportToFolder": "Carpeta o NAS configurados",
@@ -1148,7 +1158,7 @@
   },
   "folioCloudUploadSnackOk": "Copia de la libreta guardada en la nube."
   ,"scheduledVaultBackupCloudSyncTitle": "Copia en Folio Cloud"
-  ,"scheduledVaultBackupCloudSyncSubtitle": "En cada intervalo programado, sube automáticamente una copia cifrada a tu cuenta de Folio Cloud."
+  ,"scheduledVaultBackupCloudSyncSubtitle": "Sube automáticamente una copia cifrada incremental a tu cuenta de Folio Cloud (según el intervalo o en cada cambio)."
   ,"folioCloudCloudBackupsList": "Copias en la nube"
   ,"folioCloudBackupsUsed": "Usadas"
   ,"folioCloudBackupsLimit": "Límite"
@@ -1289,6 +1299,8 @@
   ,"taskDueTodayReminder": "Vence hoy"
   ,"settingsWindowsNotifications": "Notificaciones de Windows"
   ,"settingsWindowsNotificationsSubtitle": "Muestra alertas nativas de Windows cuando una tarea vence hoy o está vencida"
+  ,"settingsLaunchAtStartup": "Iniciar con Windows"
+  ,"settingsLaunchAtStartupSubtitle": "Abre Folio automáticamente al iniciar sesión en Windows"
   ,"title": "Título"
   ,"description": "Descripción"
   ,"priority": "Prioridad"
@@ -1742,6 +1754,8 @@
   ,"createAction": "Crear"
   ,"confirmAction": "Confirmar"
   ,"confirmRemoteEndpointTitle": "Confirmar endpoint remoto"
+  ,"confirmRemoteEndpointBody": "Vas a habilitar la IA con un host remoto ({host}). El contenido que envíes puede salir de este equipo.\n\n¿Continuar?"
+  ,"@confirmRemoteEndpointBody": {"placeholders": {"host": {}}}
   ,"shortcutGlobalSearchKeyChord": "Ctrl + Shift + F"
   ,"updateChannelRelease": "Release"
   ,"updateChannelBeta": "Beta"
@@ -1965,12 +1979,27 @@
   ,"sidebarPageIconTabImported": "Importados"
   ,"sidebarPageIconTabAll": "Todos"
   ,"sidebarPageIconEmptyImported": "Todavía no has importado iconos en Ajustes."
-  ,"sidebarDeletePageMenuTitle": "Eliminar página"
-  ,"sidebarDeleteFolderMenuTitle": "Quitar carpeta"
-  ,"sidebarDeletePageConfirmInline": "¿Eliminar «{title}»? No se puede deshacer."
+  ,"sidebarDeletePageMenuTitle": "Mover a la papelera"
+  ,"sidebarDeleteFolderMenuTitle": "Mover carpeta a la papelera"
+  ,"sidebarDeletePageConfirmInline": "¿Mover «{title}» a la papelera? Podrás restaurarla durante 30 días."
   ,"@sidebarDeletePageConfirmInline": {"placeholders": {"title": {}}}
-  ,"sidebarDeleteFolderConfirmInline": "¿Quitar carpeta «{title}»? Las subpáginas pasan a la raíz de la libreta."
+  ,"sidebarDeleteFolderConfirmInline": "¿Mover la carpeta «{title}» y su contenido a la papelera? Podrás restaurarla durante 30 días."
   ,"@sidebarDeleteFolderConfirmInline": {"placeholders": {"title": {}}}
+  ,"sidebarTrashTitle": "Papelera"
+  ,"sidebarTrashEmpty": "La papelera está vacía"
+  ,"sidebarTrashRetentionHint": "Los elementos se eliminan automáticamente a los 30 días."
+  ,"sidebarTrashRestore": "Restaurar"
+  ,"sidebarTrashDeleteForever": "Eliminar definitivamente"
+  ,"sidebarTrashEmptyAction": "Vaciar papelera"
+  ,"sidebarTrashEmptyConfirm": "¿Vaciar la papelera? Esta acción no se puede deshacer."
+  ,"sidebarTrashDeleteForeverConfirm": "¿Eliminar «{title}» de forma definitiva? Esta acción no se puede deshacer."
+  ,"@sidebarTrashDeleteForeverConfirm": {"placeholders": {"title": {}}}
+  ,"sidebarTrashDaysLeft": "Quedan {days} días"
+  ,"@sidebarTrashDaysLeft": {"placeholders": {"days": {"type": "int"}}}
+  ,"sidebarTrashOpenTooltip": "Abrir papelera"
+  ,"sidebarTrashCountBadge": "{count}"
+  ,"@sidebarTrashCountBadge": {"placeholders": {"count": {"type": "int"}}}
+  ,"sidebarTrashClose": "Cerrar"
   ,"settingsStripeSubscriptionRefreshed": "Facturación Folio Cloud actualizada."
   ,"settingsStripeBillingPortalUnavailable": "Portal de facturación no disponible."
   ,"settingsCouldNotOpenLink": "No se pudo abrir el enlace."
@@ -1988,6 +2017,7 @@
   ,"settingsCloudBackupSaveDialogTitle": "Guardar copia"
   ,"settingsCloudBackupDownloadedSnack": "Copia descargada."
   ,"settingsCloudBackupDeletedSnack": "Copia borrada."
+  ,"settingsCloudBackupVaultRemovedSnack": "Copia borrada. La libreta ya no tiene copias en Folio Cloud y se eliminó de la nube."
   ,"settingsCloudBackupImportedSnack": "Importación completada."
   ,"settingsCloudBackupVaultMustBeUnlocked": "La libreta debe estar desbloqueada."
   ,"settingsCloudBackupsTotalLabel": "Total: {size}"
@@ -1996,6 +2026,10 @@
   ,"settingsCloudBackupImportOverwriteBody": "Esto reemplazará (machacará) el contenido de la libreta activa. Asegúrate de tener una copia local antes de continuar."
   ,"settingsCloudBackupImportRemoteCloudPackIntro": "Esta copia incremental es de otra libreta de tu cuenta Folio Cloud. Introduce la contraseña de esa libreta para descargarla (déjala en blanco si no está cifrada)."
   ,"settingsCloudBackupDeleteWarning": "¿Seguro que quieres borrar esta copia de la nube? Esta acción no se puede deshacer."
+  ,"settingsCloudBackupDeleteCloudPackWarning": "¿Seguro que quieres borrar la copia incremental de esta libreta? Se eliminarán todos sus datos en la nube y no podrás restaurarla hasta que subas una nueva. Esta acción no se puede deshacer."
+  ,"settingsCloudBackupsManageHint": "Gestiona las copias de esta libreta. Al borrar se libera espacio de tu cuota."
+  ,"settingsCloudBackupDeleteTooltip": "Borrar copia"
+  ,"settingsCloudBackupsSheetTitle": "Copias en la nube"
   ,"settingsPublishedRequiresPlan": "Necesitas Folio Cloud con publicación web activa."
   ,"settingsPublishedPagesTitle": "Páginas publicadas"
   ,"settingsPublishedPagesEmpty": "Aún no hay páginas publicadas."

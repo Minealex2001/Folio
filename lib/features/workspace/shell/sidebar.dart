@@ -11,6 +11,7 @@ import '../../../app/app_settings.dart';
 import '../../../app/ui_tokens.dart';
 import '../../../app/widgets/folio_feedback.dart';
 import '../../../app/widgets/folio_dialog.dart';
+import '../../../app/widgets/folio_interactions.dart';
 import '../../../app/widgets/folio_icon_picker.dart';
 import '../../../app/widgets/folio_icon_token_view.dart';
 import '../../../data/vault_registry.dart';
@@ -21,6 +22,7 @@ import '../templates/template_gallery_page.dart';
 import '../../../l10n/generated/app_localizations.dart';
 import '../../../models/folio_page.dart';
 import '../../../session/vault_session.dart';
+import 'page_trash_sheet.dart';
 
 class Sidebar extends StatefulWidget {
   const Sidebar({
@@ -140,6 +142,8 @@ class _SidebarState extends State<Sidebar> {
       buf.write(':');
       buf.write(p.parentId ?? '');
       buf.write(':');
+      buf.write(p.trashedAt?.millisecondsSinceEpoch ?? '');
+      buf.write(':');
       buf.write(p.tags.join(','));
       buf.write('|');
     }
@@ -148,7 +152,7 @@ class _SidebarState extends State<Sidebar> {
 
   Future<void> _loadCollapsedState() async {
     final vaultId = session.activeVaultId;
-    final validPageIds = session.pages.map((p) => p.id).toSet();
+    final validPageIds = session.activePages.map((p) => p.id).toSet();
     final restored = await widget.appSettings
         .loadWorkspaceSidebarCollapsedPageIds(
           vaultId: vaultId,
@@ -172,7 +176,7 @@ class _SidebarState extends State<Sidebar> {
 
   Future<void> _loadRecentState() async {
     final vaultId = session.activeVaultId;
-    final validPageIds = session.pages.map((p) => p.id).toSet();
+    final validPageIds = session.activePages.map((p) => p.id).toSet();
     final restored = await RecentPageVisitsStore.load(
       vaultId: vaultId,
       validPageIds: validPageIds,
@@ -196,7 +200,7 @@ class _SidebarState extends State<Sidebar> {
   }
 
   void _registerRecentPage(String pageId) {
-    if (!session.pages.any((p) => p.id == pageId)) return;
+    if (!session.activePages.any((p) => p.id == pageId)) return;
     setState(() {
       final next = RecentPageVisitsStore.withNewVisit(
         _recentVisits,
@@ -212,7 +216,7 @@ class _SidebarState extends State<Sidebar> {
 
   Future<void> _reloadVaults() async {
     final list = await session.listVaultEntries();
-    final validPageIds = session.pages.map((p) => p.id).toSet();
+    final validPageIds = session.activePages.map((p) => p.id).toSet();
     var changedCollapsedState = false;
     _collapsedPageIds.removeWhere((id) {
       final remove = !validPageIds.contains(id);
@@ -253,9 +257,9 @@ class _SidebarState extends State<Sidebar> {
   }
 
   void _toggleExpandCollapseAll() {
-    final pagesWithChildren = session.pages.where((p) {
+    final pagesWithChildren = session.activePages.where((p) {
       final childCounts = <String, int>{};
-      for (final pg in session.pages) {
+      for (final pg in session.activePages) {
         final pid = pg.parentId;
         if (pid != null) {
           childCounts[pid] = (childCounts[pid] ?? 0) + 1;
@@ -492,26 +496,31 @@ class _SidebarState extends State<Sidebar> {
         ),
         child: Semantics(
           label: l10n.sidebarVaultsEmpty,
-          child: Container(
-            padding: const EdgeInsets.all(FolioSpace.sm),
-            decoration: BoxDecoration(
-              color: scheme.surfaceContainerHigh,
-              borderRadius: BorderRadius.circular(FolioRadius.md),
-            ),
-            child: Row(
-              children: [
-                Icon(Icons.folder_off_outlined, color: scheme.onSurfaceVariant),
-                const SizedBox(width: FolioSpace.sm),
-                Expanded(
-                  child: Text(
-                    l10n.sidebarVaultsEmpty,
-                    style: textTheme.bodySmall?.copyWith(
-                      color: scheme.onSurfaceVariant,
-                      fontWeight: FontWeight.w600,
+          child: FadingEmptyState(
+            child: Container(
+              padding: const EdgeInsets.all(FolioSpace.sm),
+              decoration: BoxDecoration(
+                color: scheme.surfaceContainerHigh,
+                borderRadius: BorderRadius.circular(FolioRadius.md),
+              ),
+              child: Row(
+                children: [
+                  Icon(
+                    Icons.folder_off_outlined,
+                    color: scheme.onSurfaceVariant,
+                  ),
+                  const SizedBox(width: FolioSpace.sm),
+                  Expanded(
+                    child: Text(
+                      l10n.sidebarVaultsEmpty,
+                      style: textTheme.bodySmall?.copyWith(
+                        color: scheme.onSurfaceVariant,
+                        fontWeight: FontWeight.w600,
+                      ),
                     ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
         ),
@@ -716,7 +725,7 @@ class _SidebarState extends State<Sidebar> {
     final l10n = AppLocalizations.of(context);
     final options = <MapEntry<String?, String>>[
       MapEntry(null, l10n.rootPage),
-      ...session.pages
+      ...session.activePages
           .where(
             (p) =>
                 p.id != page.id &&
@@ -729,14 +738,9 @@ class _SidebarState extends State<Sidebar> {
       builder: (ctx) {
         return FolioDialog(
           title: Text(l10n.movePageTitle(page.title)),
-          content: ConstrainedBox(
-            constraints: BoxConstraints(
-              maxWidth: 420,
-              maxHeight: math.min(
-                480,
-                math.max(160, options.length * 56 + 24),
-              ),
-            ),
+          contentWidth: 420,
+          content: SizedBox(
+            height: math.min(480, math.max(160, options.length * 56 + 24)),
             child: ListView.builder(
               itemCount: options.length,
               itemBuilder: (context, i) {
@@ -775,7 +779,6 @@ class _SidebarState extends State<Sidebar> {
     FolioPage page,
   ) async {
     try {
-      debugPrint('DEBUG: _showDeletePageConfirmMenu starting for page: ${page.title}');
       final hasChildren = _hasChildrenById[page.id] ?? false;
       final isFolderWithChildren = page.isFolder && hasChildren;
       final l10n = AppLocalizations.of(context);
@@ -783,7 +786,6 @@ class _SidebarState extends State<Sidebar> {
       final scheme = theme.colorScheme;
       final label = _sidebarDeleteLabel(page, l10n);
 
-      debugPrint('DEBUG: showing dialog with context mounted: ${context.mounted}');
       final confirmed = await showDialog<bool>(
         context: context,
         builder: (ctx) => FolioDialog(
@@ -808,19 +810,14 @@ class _SidebarState extends State<Sidebar> {
                 foregroundColor: scheme.onError,
               ),
               onPressed: () => Navigator.pop(ctx, true),
-              child: Text(l10n.delete),
+              child: Text(l10n.sidebarDeletePageMenuTitle),
             ),
           ],
         ),
       );
 
-      debugPrint('DEBUG: dialog closed, confirmed: $confirmed');
       if (confirmed != true || !mounted) return;
-      if (isFolderWithChildren) {
-        session.deleteFolderMoveChildrenToRoot(page.id);
-      } else {
-        session.deletePage(page.id);
-      }
+      session.movePageToTrash(page.id);
     } catch (e, stack) {
       debugPrint('ERROR in _showDeletePageConfirmMenu: $e\n$stack');
     }
@@ -843,8 +840,7 @@ class _SidebarState extends State<Sidebar> {
     final selected = page.id == session.selectedPageId;
     final hasChildren = _hasChildrenById[page.id] ?? false;
     final collapsed = _isCollapsed(page.id);
-    final canDelete =
-        session.pages.length > 1 && (!hasChildren || page.isFolder);
+    final canDelete = session.canMovePageToTrash(page.id);
 
     // Builds a tile widget. interactive=false for drag feedback / ghost copies.
     _SidebarTile buildTile({bool interactive = true}) {
@@ -954,7 +950,7 @@ class _SidebarState extends State<Sidebar> {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
     final pagesById = <String, FolioPage>{
-      for (final p in session.pages) p.id: p,
+      for (final p in session.activePages) p.id: p,
     };
     final recentPages = _recentVisits
         .take(kRecentPageVisitsSidebarDisplayLimit)
@@ -1056,15 +1052,15 @@ class _SidebarState extends State<Sidebar> {
     final scheme = Theme.of(context).colorScheme;
 
     final visible = _buildVisiblePageRows(
-      session.pages,
+      session.activePages,
       tagFilter: _selectedTagFilter,
       searchQuery: _searchQuery,
     );
     _hasChildrenById = visible.hasChildrenById;
 
-    final pagesWithChildren = session.pages.where((p) {
+    final pagesWithChildren = session.activePages.where((p) {
       final childCounts = <String, int>{};
-      for (final pg in session.pages) {
+      for (final pg in session.activePages) {
         final pid = pg.parentId;
         if (pid != null) {
           childCounts[pid] = (childCounts[pid] ?? 0) + 1;
@@ -1073,6 +1069,7 @@ class _SidebarState extends State<Sidebar> {
       return (childCounts[p.id] ?? 0) > 0 || p.isFolder;
     }).map((p) => p.id).toSet();
     final allCollapsed = pagesWithChildren.every((id) => _collapsedPageIds.contains(id));
+    final trashCount = session.trashedPages.length;
 
     return LayoutBuilder(
       builder: (context, constraints) {
@@ -1080,7 +1077,9 @@ class _SidebarState extends State<Sidebar> {
         // width can be tiny (a few pixels). Rendering the full Column in
         // that state causes a RenderFlex overflow because Wrap stacks all
         // chips vertically. Return an empty box to avoid the assertion.
-        if (constraints.maxWidth < 32) return const SizedBox.shrink();
+        if (constraints.maxWidth < FolioSidebar.collapseThreshold) {
+          return const SizedBox.shrink();
+        }
         return Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
@@ -1324,20 +1323,22 @@ class _SidebarState extends State<Sidebar> {
                           : null,
                       ),
                       child: visible.rows.isEmpty && _selectedTagFilter != null
-                          ? Center(
-                              child: Padding(
-                                padding: const EdgeInsets.all(FolioSpace.md),
-                                child: Text(
-                                  AppLocalizations.of(
-                                    context,
-                                  ).tagNoPagesForFilter,
-                                  style: Theme.of(context).textTheme.bodySmall
-                                      ?.copyWith(
-                                        color: Theme.of(
-                                          context,
-                                        ).colorScheme.onSurfaceVariant,
-                                      ),
-                                  textAlign: TextAlign.center,
+                          ? FadingEmptyState(
+                              child: Center(
+                                child: Padding(
+                                  padding: const EdgeInsets.all(FolioSpace.md),
+                                  child: Text(
+                                    AppLocalizations.of(
+                                      context,
+                                    ).tagNoPagesForFilter,
+                                    style: Theme.of(context).textTheme.bodySmall
+                                        ?.copyWith(
+                                          color: Theme.of(
+                                            context,
+                                          ).colorScheme.onSurfaceVariant,
+                                        ),
+                                    textAlign: TextAlign.center,
+                                  ),
                                 ),
                               ),
                             )
@@ -1451,6 +1452,28 @@ class _SidebarState extends State<Sidebar> {
                   ),
                 ),
               ),
+            Padding(
+              padding: EdgeInsets.fromLTRB(
+                FolioSpace.sm,
+                0,
+                FolioSpace.sm,
+                widget.onOpenSettings != null ? FolioSpace.xs : FolioSpace.sm,
+              ),
+              child: FilledButton.tonalIcon(
+                onPressed: () => unawaited(
+                  showPageTrashSheet(context: context, session: session),
+                ),
+                icon: Badge(
+                  isLabelVisible: trashCount > 0,
+                  label: Text(
+                    l10n.sidebarTrashCountBadge(trashCount),
+                    style: const TextStyle(fontSize: 10),
+                  ),
+                  child: const Icon(Icons.delete_outline_rounded),
+                ),
+                label: Text(l10n.sidebarTrashTitle),
+              ),
+            ),
             if (widget.onOpenSettings != null)
               Padding(
                 padding: const EdgeInsets.fromLTRB(
@@ -1586,7 +1609,9 @@ class _SidebarTileState extends State<_SidebarTile> {
               button: true,
               label: page.title,
               value: hasChildren
-                  ? (collapsed ? 'Colapsado' : 'Expandido')
+                  ? (collapsed
+                        ? l10n.sidebarItemCollapsedSemantics
+                        : l10n.sidebarItemExpandedSemantics)
                   : null,
               child: Padding(
                 padding: const EdgeInsets.symmetric(
@@ -1598,7 +1623,8 @@ class _SidebarTileState extends State<_SidebarTile> {
                     // Durante el resize del panel el ancho puede ser muy pequeño; la fila de
                     // acciones tiene ancho intrínseco alto y provoca overflow si no se omite.
                     final allowInlineActions =
-                        (showRowActions || _menuOpen) && constraints.maxWidth >= 200.0;
+                        (showRowActions || _menuOpen) &&
+                        constraints.maxWidth >= FolioSidebar.tileActionsMinWidth;
                     return Row(
                       children: [
                         // Selection bar indicator

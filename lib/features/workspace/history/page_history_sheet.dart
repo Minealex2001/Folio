@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart'
     show TargetPlatform, defaultTargetPlatform;
 
+import '../../../app/widgets/folio_dialog.dart';
 import '../../../l10n/generated/app_localizations.dart';
 import '../../../models/folio_page.dart';
 import '../../../models/folio_page_revision.dart';
@@ -69,26 +70,15 @@ class PageHistoryScreen extends StatelessWidget {
     FolioPageRevision rev,
   ) async {
     final l10n = AppLocalizations.of(screenContext);
-    final ok = await showDialog<bool>(
-      context: screenContext,
-      builder: (ctx) => AlertDialog(
-        icon: Icon(
-          Icons.restore_rounded,
-          color: Theme.of(ctx).colorScheme.primary,
-        ),
-        title: Text(l10n.restoreVersionTitle),
-        content: Text(l10n.restoreVersionBody),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: Text(l10n.cancel),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(ctx, true),
-            child: Text(l10n.restore),
-          ),
-        ],
+    final ok = await FolioDialog.confirm(
+      screenContext,
+      icon: Icon(
+        Icons.restore_rounded,
+        color: Theme.of(screenContext).colorScheme.primary,
       ),
+      title: Text(l10n.restoreVersionTitle),
+      content: Text(l10n.restoreVersionBody),
+      confirmLabel: l10n.restore,
     );
     if (ok != true || !screenContext.mounted) return;
     session.restorePageRevision(page.id, rev.revisionId);
@@ -101,27 +91,13 @@ class PageHistoryScreen extends StatelessWidget {
   ) async {
     final l10n = AppLocalizations.of(screenContext);
     final scheme = Theme.of(screenContext).colorScheme;
-    final ok = await showDialog<bool>(
-      context: screenContext,
-      builder: (ctx) => AlertDialog(
-        icon: Icon(Icons.delete_outline_rounded, color: scheme.error),
-        title: Text(l10n.deleteVersionTitle),
-        content: Text(l10n.deleteVersionBody),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: Text(l10n.cancel),
-          ),
-          FilledButton(
-            style: FilledButton.styleFrom(
-              backgroundColor: scheme.error,
-              foregroundColor: scheme.onError,
-            ),
-            onPressed: () => Navigator.pop(ctx, true),
-            child: Text(l10n.delete),
-          ),
-        ],
-      ),
+    final ok = await FolioDialog.confirm(
+      screenContext,
+      icon: Icon(Icons.delete_outline_rounded, color: scheme.error),
+      title: Text(l10n.deleteVersionTitle),
+      content: Text(l10n.deleteVersionBody),
+      confirmLabel: l10n.delete,
+      destructive: true,
     );
     if (ok != true || !screenContext.mounted) return;
     session.deletePageRevision(page.id, rev.revisionId);

@@ -547,6 +547,8 @@
   "quillTourDismiss": "Got it",
   "aiExpand": "Expand",
   "aiCollapse": "Collapse",
+  "sidebarItemExpandedSemantics": "Expanded",
+  "sidebarItemCollapsedSemantics": "Collapsed",
   "aiDeleteCurrentChat": "Delete current chat",
   "aiNewChat": "New",
   "aiAttach": "Attach",
@@ -714,12 +716,13 @@
   "scheduledVaultBackupTitle": "Scheduled encrypted backup",
   "scheduledVaultBackupSubtitle": "While the vault is unlocked, Folio automatically backs it up on the chosen interval. Enable folder backup, cloud backup, or both below.",
   "scheduledVaultBackupFolderTitle": "Backup to folder",
-  "scheduledVaultBackupFolderSubtitle": "Save an encrypted ZIP backup to the configured folder on each interval.",
+  "scheduledVaultBackupFolderSubtitle": "Save an encrypted incremental pack backup to the configured folder.",
   "scheduledVaultBackupChooseFolder": "Backup folder",
   "scheduledVaultBackupClearFolderTooltip": "Clear folder",
   "scheduledVaultBackupCloudOnlyTitle": "Cloud-only scheduled backups",
-  "scheduledVaultBackupCloudOnlySubtitle": "Do not write ZIP files to disk. Upload backups to the cloud only.",
+  "scheduledVaultBackupCloudOnlySubtitle": "Do not write backups to disk. Upload incremental backups to the cloud only.",
   "scheduledVaultBackupIntervalLabel": "Backup interval",
+  "scheduledVaultBackupEveryChange": "On every change",
   "scheduledVaultBackupEveryNMinutes": "{n, plural, one{1 minute} other{{n} minutes}}",
   "@scheduledVaultBackupEveryNMinutes": {
     "placeholders": {
@@ -787,6 +790,13 @@
   "remoteBackupRestoreImportNew": "Import as new vault",
   "remoteBackupRestoreImportOverwrite": "Overwrite active vault",
   "remoteBackupRestoreOpen": "Restore from NAS or server",
+  "remoteBackupRestoreIncrementalPackTitle": "Incremental backup ({vaultId})",
+  "@remoteBackupRestoreIncrementalPackTitle": {
+    "placeholders": {
+      "vaultId": {"type": "String"}
+    }
+  },
+  "remoteBackupRestoreIncrementalPackSubtitle": "Incremental pack",
   "remoteBackupExportDestinationTitle": "Where should the backup be saved?",
   "remoteBackupExportToLocalFile": "File on this device",
   "remoteBackupExportToFolder": "Configured folder or NAS",
@@ -1148,7 +1158,7 @@
   },
   "folioCloudUploadSnackOk": "Vault backup saved to the cloud."
   ,"scheduledVaultBackupCloudSyncTitle": "Backup to Folio Cloud"
-  ,"scheduledVaultBackupCloudSyncSubtitle": "After each scheduled backup interval, automatically uploads an encrypted backup to your Folio Cloud account."
+  ,"scheduledVaultBackupCloudSyncSubtitle": "Automatically uploads an encrypted incremental backup to your Folio Cloud account (on the chosen interval or on every change)."
   ,"folioCloudCloudBackupsList": "Cloud backups"
   ,"folioCloudBackupsUsed": "Used"
   ,"folioCloudBackupsLimit": "Limit"
@@ -1289,6 +1299,8 @@
   ,"taskDueTodayReminder": "Due today"
   ,"settingsWindowsNotifications": "Windows Notifications"
   ,"settingsWindowsNotificationsSubtitle": "Show native Windows alerts when a task is due today or overdue"
+  ,"settingsLaunchAtStartup": "Launch at Windows startup"
+  ,"settingsLaunchAtStartupSubtitle": "Automatically open Folio when you sign in to Windows"
   ,"title": "Title"
   ,"description": "Description"
   ,"priority": "Priority"
@@ -1742,6 +1754,8 @@
   ,"createAction": "Create"
   ,"confirmAction": "Confirm"
   ,"confirmRemoteEndpointTitle": "Confirm remote endpoint"
+  ,"confirmRemoteEndpointBody": "You're about to enable AI with a remote host ({host}). Content you send may leave this device.\n\nContinue?"
+  ,"@confirmRemoteEndpointBody": {"placeholders": {"host": {}}}
   ,"shortcutGlobalSearchKeyChord": "Ctrl + Shift + F"
   ,"updateChannelRelease": "Release"
   ,"updateChannelBeta": "Beta"
@@ -1965,12 +1979,27 @@
   ,"sidebarPageIconTabImported": "Imported"
   ,"sidebarPageIconTabAll": "All"
   ,"sidebarPageIconEmptyImported": "You have not imported icons in Settings yet."
-  ,"sidebarDeletePageMenuTitle": "Delete page"
-  ,"sidebarDeleteFolderMenuTitle": "Remove folder"
-  ,"sidebarDeletePageConfirmInline": "Delete «{title}»? This cannot be undone."
+  ,"sidebarDeletePageMenuTitle": "Move to trash"
+  ,"sidebarDeleteFolderMenuTitle": "Move folder to trash"
+  ,"sidebarDeletePageConfirmInline": "Move «{title}» to the trash? You can restore it for 30 days."
   ,"@sidebarDeletePageConfirmInline": {"placeholders": {"title": {}}}
-  ,"sidebarDeleteFolderConfirmInline": "Remove folder «{title}»? Subpages will move to the notebook root."
+  ,"sidebarDeleteFolderConfirmInline": "Move folder «{title}» and its contents to the trash? You can restore it for 30 days."
   ,"@sidebarDeleteFolderConfirmInline": {"placeholders": {"title": {}}}
+  ,"sidebarTrashTitle": "Trash"
+  ,"sidebarTrashEmpty": "Trash is empty"
+  ,"sidebarTrashRetentionHint": "Items are automatically deleted after 30 days."
+  ,"sidebarTrashRestore": "Restore"
+  ,"sidebarTrashDeleteForever": "Delete permanently"
+  ,"sidebarTrashEmptyAction": "Empty trash"
+  ,"sidebarTrashEmptyConfirm": "Empty the trash? This cannot be undone."
+  ,"sidebarTrashDeleteForeverConfirm": "Permanently delete «{title}»? This cannot be undone."
+  ,"@sidebarTrashDeleteForeverConfirm": {"placeholders": {"title": {}}}
+  ,"sidebarTrashDaysLeft": "{days} days left"
+  ,"@sidebarTrashDaysLeft": {"placeholders": {"days": {"type": "int"}}}
+  ,"sidebarTrashOpenTooltip": "Open trash"
+  ,"sidebarTrashCountBadge": "{count}"
+  ,"@sidebarTrashCountBadge": {"placeholders": {"count": {"type": "int"}}}
+  ,"sidebarTrashClose": "Close"
   ,"settingsStripeSubscriptionRefreshed": "Folio Cloud billing updated."
   ,"settingsStripeBillingPortalUnavailable": "Billing portal unavailable."
   ,"settingsCouldNotOpenLink": "Could not open the link."
@@ -1988,6 +2017,7 @@
   ,"settingsCloudBackupSaveDialogTitle": "Save backup"
   ,"settingsCloudBackupDownloadedSnack": "Backup downloaded."
   ,"settingsCloudBackupDeletedSnack": "Backup deleted."
+  ,"settingsCloudBackupVaultRemovedSnack": "Backup deleted. This notebook no longer has cloud backups and was removed from Folio Cloud."
   ,"settingsCloudBackupImportedSnack": "Import completed."
   ,"settingsCloudBackupVaultMustBeUnlocked": "The vault must be unlocked."
   ,"settingsCloudBackupsTotalLabel": "Total: {size}"
@@ -1996,6 +2026,10 @@
   ,"settingsCloudBackupImportOverwriteBody": "This will overwrite the contents of the currently open vault. Make sure you have a local backup before continuing."
   ,"settingsCloudBackupImportRemoteCloudPackIntro": "This incremental backup belongs to another notebook in your Folio Cloud account. Enter that notebook’s vault password to download it (leave blank if that notebook is not encrypted)."
   ,"settingsCloudBackupDeleteWarning": "Are you sure you want to delete this cloud backup? This action cannot be undone."
+  ,"settingsCloudBackupDeleteCloudPackWarning": "Are you sure you want to delete this notebook's incremental backup? All of its cloud data will be removed and you won't be able to restore it until you upload a new one. This action cannot be undone."
+  ,"settingsCloudBackupsManageHint": "Manage backups for this notebook. Deleting frees space in your quota."
+  ,"settingsCloudBackupDeleteTooltip": "Delete backup"
+  ,"settingsCloudBackupsSheetTitle": "Cloud backups"
   ,"settingsPublishedRequiresPlan": "You need Folio Cloud with web publishing enabled."
   ,"settingsPublishedPagesTitle": "Published pages"
   ,"settingsPublishedPagesEmpty": "No published pages yet."

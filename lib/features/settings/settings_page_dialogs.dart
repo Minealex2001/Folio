@@ -303,11 +303,7 @@ class _CloudAuthDialogState extends State<_CloudAuthDialog> {
         FilledButton(
           onPressed: _loading ? null : _submit,
           child: _loading
-              ? const SizedBox(
-                  height: 22,
-                  width: 22,
-                  child: CircularProgressIndicator(strokeWidth: 2),
-                )
+              ? const FolioLoadingIndicator(size: FolioLoadingSize.small)
               : Text(
                   _modeRegister
                       ? l10n.cloudAccountCreateAccount

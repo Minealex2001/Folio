@@ -1533,6 +1533,12 @@ class AppLocalizationsEs extends AppLocalizations {
   String get aiCollapse => 'Colapsar';
 
   @override
+  String get sidebarItemExpandedSemantics => 'Expandido';
+
+  @override
+  String get sidebarItemCollapsedSemantics => 'Colapsado';
+
+  @override
   String get aiDeleteCurrentChat => 'Borrar chat actual';
 
   @override
@@ -2067,7 +2073,7 @@ class AppLocalizationsEs extends AppLocalizations {
 
   @override
   String get scheduledVaultBackupFolderSubtitle =>
-      'Guarda una copia cifrada en ZIP en la carpeta configurada en cada intervalo.';
+      'Guarda una copia cifrada incremental (pack) en la carpeta configurada.';
 
   @override
   String get scheduledVaultBackupChooseFolder => 'Carpeta de copias';
@@ -2081,10 +2087,13 @@ class AppLocalizationsEs extends AppLocalizations {
 
   @override
   String get scheduledVaultBackupCloudOnlySubtitle =>
-      'No guarda ZIPs en disco. Sube copias solo a la nube.';
+      'No guarda copias en disco. Sube copias incrementales solo a la nube.';
 
   @override
   String get scheduledVaultBackupIntervalLabel => 'Intervalo entre copias';
+
+  @override
+  String get scheduledVaultBackupEveryChange => 'En cada cambio';
 
   @override
   String scheduledVaultBackupEveryNMinutes(int n) {
@@ -2283,6 +2292,14 @@ class AppLocalizationsEs extends AppLocalizations {
 
   @override
   String get remoteBackupRestoreOpen => 'Restaurar desde NAS o servidor';
+
+  @override
+  String remoteBackupRestoreIncrementalPackTitle(String vaultId) {
+    return 'Copia incremental ($vaultId)';
+  }
+
+  @override
+  String get remoteBackupRestoreIncrementalPackSubtitle => 'Pack incremental';
 
   @override
   String get remoteBackupExportDestinationTitle => '¿Dónde guardar la copia?';
@@ -3451,7 +3468,7 @@ class AppLocalizationsEs extends AppLocalizations {
 
   @override
   String get scheduledVaultBackupCloudSyncSubtitle =>
-      'En cada intervalo programado, sube automáticamente una copia cifrada a tu cuenta de Folio Cloud.';
+      'Sube automáticamente una copia cifrada incremental a tu cuenta de Folio Cloud (según el intervalo o en cada cambio).';
 
   @override
   String get folioCloudCloudBackupsList => 'Copias en la nube';
@@ -3915,6 +3932,13 @@ class AppLocalizationsEs extends AppLocalizations {
   @override
   String get settingsWindowsNotificationsSubtitle =>
       'Muestra alertas nativas de Windows cuando una tarea vence hoy o está vencida';
+
+  @override
+  String get settingsLaunchAtStartup => 'Iniciar con Windows';
+
+  @override
+  String get settingsLaunchAtStartupSubtitle =>
+      'Abre Folio automáticamente al iniciar sesión en Windows';
 
   @override
   String get title => 'Título';
@@ -5323,6 +5347,11 @@ class AppLocalizationsEs extends AppLocalizations {
   String get confirmRemoteEndpointTitle => 'Confirmar endpoint remoto';
 
   @override
+  String confirmRemoteEndpointBody(Object host) {
+    return 'Vas a habilitar la IA con un host remoto ($host). El contenido que envíes puede salir de este equipo.\n\n¿Continuar?';
+  }
+
+  @override
   String get shortcutGlobalSearchKeyChord => 'Ctrl + Shift + F';
 
   @override
@@ -6024,20 +6053,64 @@ class AppLocalizationsEs extends AppLocalizations {
       'Todavía no has importado iconos en Ajustes.';
 
   @override
-  String get sidebarDeletePageMenuTitle => 'Eliminar página';
+  String get sidebarDeletePageMenuTitle => 'Mover a la papelera';
 
   @override
-  String get sidebarDeleteFolderMenuTitle => 'Quitar carpeta';
+  String get sidebarDeleteFolderMenuTitle => 'Mover carpeta a la papelera';
 
   @override
   String sidebarDeletePageConfirmInline(Object title) {
-    return '¿Eliminar «$title»? No se puede deshacer.';
+    return '¿Mover «$title» a la papelera? Podrás restaurarla durante 30 días.';
   }
 
   @override
   String sidebarDeleteFolderConfirmInline(Object title) {
-    return '¿Quitar carpeta «$title»? Las subpáginas pasan a la raíz de la libreta.';
+    return '¿Mover la carpeta «$title» y su contenido a la papelera? Podrás restaurarla durante 30 días.';
   }
+
+  @override
+  String get sidebarTrashTitle => 'Papelera';
+
+  @override
+  String get sidebarTrashEmpty => 'La papelera está vacía';
+
+  @override
+  String get sidebarTrashRetentionHint =>
+      'Los elementos se eliminan automáticamente a los 30 días.';
+
+  @override
+  String get sidebarTrashRestore => 'Restaurar';
+
+  @override
+  String get sidebarTrashDeleteForever => 'Eliminar definitivamente';
+
+  @override
+  String get sidebarTrashEmptyAction => 'Vaciar papelera';
+
+  @override
+  String get sidebarTrashEmptyConfirm =>
+      '¿Vaciar la papelera? Esta acción no se puede deshacer.';
+
+  @override
+  String sidebarTrashDeleteForeverConfirm(Object title) {
+    return '¿Eliminar «$title» de forma definitiva? Esta acción no se puede deshacer.';
+  }
+
+  @override
+  String sidebarTrashDaysLeft(int days) {
+    return 'Quedan $days días';
+  }
+
+  @override
+  String get sidebarTrashOpenTooltip => 'Abrir papelera';
+
+  @override
+  String sidebarTrashCountBadge(int count) {
+    return '$count';
+  }
+
+  @override
+  String get sidebarTrashClose => 'Cerrar';
 
   @override
   String get settingsStripeSubscriptionRefreshed =>
@@ -6095,6 +6168,10 @@ class AppLocalizationsEs extends AppLocalizations {
   String get settingsCloudBackupDeletedSnack => 'Copia borrada.';
 
   @override
+  String get settingsCloudBackupVaultRemovedSnack =>
+      'Copia borrada. La libreta ya no tiene copias en Folio Cloud y se eliminó de la nube.';
+
+  @override
   String get settingsCloudBackupImportedSnack => 'Importación completada.';
 
   @override
@@ -6120,6 +6197,20 @@ class AppLocalizationsEs extends AppLocalizations {
   @override
   String get settingsCloudBackupDeleteWarning =>
       '¿Seguro que quieres borrar esta copia de la nube? Esta acción no se puede deshacer.';
+
+  @override
+  String get settingsCloudBackupDeleteCloudPackWarning =>
+      '¿Seguro que quieres borrar la copia incremental de esta libreta? Se eliminarán todos sus datos en la nube y no podrás restaurarla hasta que subas una nueva. Esta acción no se puede deshacer.';
+
+  @override
+  String get settingsCloudBackupsManageHint =>
+      'Gestiona las copias de esta libreta. Al borrar se libera espacio de tu cuota.';
+
+  @override
+  String get settingsCloudBackupDeleteTooltip => 'Borrar copia';
+
+  @override
+  String get settingsCloudBackupsSheetTitle => 'Copias en la nube';
 
   @override
   String get settingsPublishedRequiresPlan =>

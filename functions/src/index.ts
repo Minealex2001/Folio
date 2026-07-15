@@ -3177,6 +3177,251 @@ export const folioListVaultBackups = onCall(
   }
 );
 
+function storageObjectSizeBytes(f: {
+  metadata?: Record<string, unknown>;
+}): number {
+  const meta = (f.metadata ?? {}) as Record<string, unknown>;
+  const raw = meta["size"];
+  const n =
+    typeof raw === "number" ? raw : typeof raw === "string" ? Number(raw) : 0;
+  return Number.isFinite(n) && n > 0 ? n : 0;
+}
+
+/** Borra Storage + índice + meta Firestore de una libreta sin copias. */
+async function purgeVaultCloudBackupPresence(
+  uid: string,
+  vaultId: string
+): Promise<{ freedBytes: number; failed: string[] }> {
+  const bucket = admin.storage().bucket();
+  const vaultPrefix = `users/${uid}/vaults/${vaultId}/`;
+  const [allFiles] = await bucket.getFiles({
+    prefix: vaultPrefix,
+    autoPaginate: true,
+  });
+  const files = allFiles.filter((f) => !f.name.endsWith("/"));
+  let freedBytes = 0;
+  const failed: string[] = [];
+  for (const f of files) {
+    freedBytes += storageObjectSizeBytes(f);
+    try {
+      await f.delete();
+    } catch (e: unknown) {
+      console.warn("purgeVaultCloudBackupPresence: delete failed", f.name, e);
+      failed.push(f.name);
+    }
+  }
+
+  const userRef = db.collection("users").doc(uid);
+  const vaultBackupRef = userRef.collection("vaultBackups").doc(vaultId);
+  try {
+    const itemsSnap = await vaultBackupRef.collection("items").get();
+    const batch = db.batch();
+    for (const d of itemsSnap.docs) {
+      batch.delete(d.ref);
+    }
+    batch.delete(vaultBackupRef);
+    batch.delete(userRef.collection("vaultBackupIndex").doc(vaultId));
+    await batch.commit();
+  } catch (e: unknown) {
+    console.warn(
+      "purgeVaultCloudBackupPresence: firestore purge failed",
+      vaultId,
+      e
+    );
+  }
+
+  return { freedBytes, failed };
+}
+
+async function vaultCloudBackupHasRemainingFiles(
+  uid: string,
+  vaultId: string
+): Promise<boolean> {
+  const bucket = admin.storage().bucket();
+  for (const sub of ["backups/", "cloud-packs/"] as const) {
+    const prefix = `users/${uid}/vaults/${vaultId}/${sub}`;
+    const [files] = await bucket.getFiles({
+      prefix,
+      autoPaginate: false,
+      maxResults: 5,
+    });
+    if (files.some((f) => !f.name.endsWith("/"))) return true;
+  }
+  return false;
+}
+
+/** Borra el cloud-pack (blobs + snapshots) de una libreta y ajusta la cuota. */
+export const folioDeleteVaultCloudPack = onCall(
+  { cors: true, invoker: "public" },
+  async (request) => {
+    if (!request.auth?.uid) {
+      throw new HttpsError("unauthenticated", "Login required");
+    }
+    const uid = request.auth.uid;
+    await assertFolioCloudBackupAllowed(uid);
+    const vaultId = assertValidVaultId((request.data as any)?.vaultId);
+
+    const packPrefix = `users/${uid}/vaults/${vaultId}/cloud-packs/`;
+    const bucket = admin.storage().bucket();
+    const [packFiles] = await bucket.getFiles({
+      prefix: packPrefix,
+      autoPaginate: true,
+    });
+    const files = packFiles.filter((f) => !f.name.endsWith("/"));
+
+    let freedBytes = 0;
+    const errors: string[] = [];
+    for (const f of files) {
+      freedBytes += storageObjectSizeBytes(f);
+      try {
+        await f.delete();
+      } catch (e: unknown) {
+        console.warn("folioDeleteVaultCloudPack: delete failed", f.name, e);
+        errors.push(f.name);
+      }
+    }
+
+    const userRef = db.collection("users").doc(uid);
+    const userSnap = await userRef.get();
+    const udata = (userSnap.data() ?? {}) as Record<string, unknown>;
+    let used = folioBackupUsedField(udata);
+    let newUsed = Math.max(0, used - freedBytes);
+    await userRef.update({
+      "folioBackup.usedBytes": newUsed,
+      "folioBackup.updatedAt": FieldValue.serverTimestamp(),
+    });
+
+    const vaultBackupRef = userRef.collection("vaultBackups").doc(vaultId);
+    await vaultBackupRef.set(
+      {
+        latestCloudPackSnapshotPath: FieldValue.delete(),
+        latestCloudPackSnapshotSizeBytes: FieldValue.delete(),
+        latestCloudPackContentFingerprint: FieldValue.delete(),
+        latestCloudPackUpdatedAt: FieldValue.delete(),
+        cloudPackRestoreWrapB64: FieldValue.delete(),
+        cloudPackRestoreWrapKind: FieldValue.delete(),
+      },
+      { merge: true }
+    );
+
+    let vaultRemoved = false;
+    if (errors.length === 0) {
+      const stillHas = await vaultCloudBackupHasRemainingFiles(uid, vaultId);
+      if (!stillHas) {
+        const purged = await purgeVaultCloudBackupPresence(uid, vaultId);
+        // Los bytes del cloud-pack ya se restaron; el purge solo limpia restos (cuota legacy no usa usedBytes).
+        errors.push(...purged.failed);
+        vaultRemoved = purged.failed.length === 0;
+        const refreshed = await userRef.get();
+        newUsed = folioBackupUsedField(
+          (refreshed.data() ?? {}) as Record<string, unknown>
+        );
+      }
+    }
+
+    return {
+      ok: errors.length === 0,
+      freedBytes,
+      usedBytes: newUsed,
+      deletedFiles: files.length - errors.length,
+      vaultRemoved,
+      failed: errors.slice(0, 10),
+    };
+  }
+);
+
+/**
+ * Borra un archivo legacy (ZIP/TAR.GZ) de copias. Si la libreta se queda sin
+ * copias, elimina la presencia completa de esa libreta en Folio Cloud.
+ */
+export const folioDeleteVaultLegacyBackup = onCall(
+  { cors: true, invoker: "public" },
+  async (request) => {
+    if (!request.auth?.uid) {
+      throw new HttpsError("unauthenticated", "Login required");
+    }
+    const uid = request.auth.uid;
+    await assertFolioCloudBackupAllowed(uid);
+    const vaultId = assertValidVaultId((request.data as any)?.vaultId);
+    const storagePathRaw = (request.data as any)?.storagePath;
+    const storagePath =
+      typeof storagePathRaw === "string" ? storagePathRaw.trim() : "";
+    const okPrefix = `users/${uid}/vaults/${vaultId}/backups/`;
+    if (
+      !storagePath ||
+      !storagePath.startsWith(okPrefix) ||
+      storagePath.includes("..") ||
+      storagePath.endsWith("/")
+    ) {
+      throw new HttpsError("invalid-argument", "storagePath invalid");
+    }
+
+    const bucket = admin.storage().bucket();
+    const file = bucket.file(storagePath);
+    const [exists] = await file.exists();
+    if (exists) {
+      try {
+        await file.delete();
+      } catch (e: unknown) {
+        console.warn("folioDeleteVaultLegacyBackup: delete failed", storagePath, e);
+        throw new HttpsError("internal", "Failed to delete backup file");
+      }
+    }
+
+    const fileName = storagePath.split("/").pop() ?? "";
+    const userRef = db.collection("users").doc(uid);
+    const vaultBackupRef = userRef.collection("vaultBackups").doc(vaultId);
+    if (fileName) {
+      try {
+        await vaultBackupRef.collection("items").doc(fileName).delete();
+      } catch (_) {
+        // ignore missing item meta
+      }
+    }
+
+    const vaultSnap = await vaultBackupRef.get();
+    const vd = (vaultSnap.data() ?? {}) as Record<string, unknown>;
+    if (
+      typeof vd.latestStoragePath === "string" &&
+      vd.latestStoragePath.trim() === storagePath
+    ) {
+      await vaultBackupRef.set(
+        {
+          latestFileName: FieldValue.delete(),
+          latestStoragePath: FieldValue.delete(),
+          latestFingerprint: FieldValue.delete(),
+          latestContainerFormat: FieldValue.delete(),
+          latestSizeBytes: FieldValue.delete(),
+          latestUpdatedAt: FieldValue.delete(),
+        },
+        { merge: true }
+      );
+    }
+
+    let vaultRemoved = false;
+    const stillHas = await vaultCloudBackupHasRemainingFiles(uid, vaultId);
+    if (!stillHas) {
+      const purged = await purgeVaultCloudBackupPresence(uid, vaultId);
+      if (purged.failed.length === 0) {
+        vaultRemoved = true;
+      }
+      // Si había cloud-pack residual rarísimo, restar cuota.
+      if (purged.freedBytes > 0) {
+        const userSnap = await userRef.get();
+        const used = folioBackupUsedField(
+          (userSnap.data() ?? {}) as Record<string, unknown>
+        );
+        await userRef.update({
+          "folioBackup.usedBytes": Math.max(0, used - purged.freedBytes),
+          "folioBackup.updatedAt": FieldValue.serverTimestamp(),
+        });
+      }
+    }
+
+    return { ok: true as const, vaultRemoved };
+  }
+);
+
 export const folioTrimVaultBackupsByBytes = onCall(
   { cors: true, invoker: "public" },
   async (request) => {

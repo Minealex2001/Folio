@@ -9,6 +9,8 @@ import 'package:webview_windows/webview_windows.dart';
 
 import '../../l10n/generated/app_localizations.dart';
 import '../ui_tokens.dart';
+import 'folio_dialog.dart';
+import 'folio_skeletons.dart';
 
 /// Modal dialog that loads Stripe Checkout or Billing Portal in an in-app WebView.
 /// On success/cancel navigation patterns, it automatically pops and returns [true] or [false].
@@ -170,29 +172,16 @@ class _FolioInAppCheckoutDialogState extends State<FolioInAppCheckoutDialog> {
   }
 
   Future<bool> _showExitConfirmation() async {
-    final confirm = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(FolioRadius.lg),
-          side: BorderSide(color: widget.scheme.outlineVariant.withValues(alpha: 0.35)),
-        ),
-        title: Text(_t('¿Cancelar Pago?', 'Cancel Payment?')),
-        content: Text(_t(
-          'Se interrumpirá la transacción en curso. ¿Estás seguro de que deseas salir?',
-          'The ongoing transaction will be interrupted. Are you sure you want to exit?',
-        )),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(false),
-            child: Text(_t('No, continuar', 'No, continue')),
-          ),
-          FilledButton.tonal(
-            onPressed: () => Navigator.of(ctx).pop(true),
-            child: Text(_t('Sí, salir', 'Yes, exit')),
-          ),
-        ],
-      ),
+    final confirm = await FolioDialog.confirm(
+      context,
+      title: Text(_t('¿Cancelar Pago?', 'Cancel Payment?')),
+      content: Text(_t(
+        'Se interrumpirá la transacción en curso. ¿Estás seguro de que deseas salir?',
+        'The ongoing transaction will be interrupted. Are you sure you want to exit?',
+      )),
+      cancelLabel: _t('No, continuar', 'No, continue'),
+      confirmLabel: _t('Sí, salir', 'Yes, exit'),
+      destructive: true,
     );
     return confirm ?? false;
   }
@@ -287,7 +276,7 @@ class _FolioInAppCheckoutDialogState extends State<FolioInAppCheckoutDialog> {
             permissionRequested: (controller, url, kind) async => WebviewPermissionDecision.allow,
           );
         } else {
-          webViewWidget = const Center(child: CircularProgressIndicator());
+          webViewWidget = const FolioLoadingIndicator(centered: true);
         }
       } else if (_useMobileWebView && _mobile != null) {
         webViewWidget = WebViewWidget(controller: _mobile!);
@@ -404,10 +393,12 @@ class _FolioInAppCheckoutDialogState extends State<FolioInAppCheckoutDialog> {
       body: body,
     );
 
-    final wrappedContent = WillPopScope(
-      onWillPop: () async {
+    final wrappedContent = PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, result) async {
+        if (didPop) return;
         final confirm = await _showExitConfirmation();
-        return confirm;
+        if (confirm && context.mounted) Navigator.of(context).pop();
       },
       child: wide
           ? Dialog(

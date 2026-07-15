@@ -559,7 +559,7 @@ class _CloudPackWrapPasswordDialogState extends State<_CloudPackWrapPasswordDial
   @override
   Widget build(BuildContext context) {
     final l10nDlg = widget.l10n;
-    return AlertDialog(
+    return FolioDialog(
       title: Text(l10nDlg.settingsCloudBackupWrapPasswordTitle),
       content: Column(
         mainAxisSize: MainAxisSize.min,

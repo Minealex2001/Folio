@@ -1527,6 +1527,12 @@ class AppLocalizationsEn extends AppLocalizations {
   String get aiCollapse => 'Collapse';
 
   @override
+  String get sidebarItemExpandedSemantics => 'Expanded';
+
+  @override
+  String get sidebarItemCollapsedSemantics => 'Collapsed';
+
+  @override
   String get aiDeleteCurrentChat => 'Delete current chat';
 
   @override
@@ -2056,7 +2062,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get scheduledVaultBackupFolderSubtitle =>
-      'Save an encrypted ZIP backup to the configured folder on each interval.';
+      'Save an encrypted incremental pack backup to the configured folder.';
 
   @override
   String get scheduledVaultBackupChooseFolder => 'Backup folder';
@@ -2070,10 +2076,13 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get scheduledVaultBackupCloudOnlySubtitle =>
-      'Do not write ZIP files to disk. Upload backups to the cloud only.';
+      'Do not write backups to disk. Upload incremental backups to the cloud only.';
 
   @override
   String get scheduledVaultBackupIntervalLabel => 'Backup interval';
+
+  @override
+  String get scheduledVaultBackupEveryChange => 'On every change';
 
   @override
   String scheduledVaultBackupEveryNMinutes(int n) {
@@ -2270,6 +2279,14 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get remoteBackupRestoreOpen => 'Restore from NAS or server';
+
+  @override
+  String remoteBackupRestoreIncrementalPackTitle(String vaultId) {
+    return 'Incremental backup ($vaultId)';
+  }
+
+  @override
+  String get remoteBackupRestoreIncrementalPackSubtitle => 'Incremental pack';
 
   @override
   String get remoteBackupExportDestinationTitle =>
@@ -3420,7 +3437,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get scheduledVaultBackupCloudSyncSubtitle =>
-      'After each scheduled backup interval, automatically uploads an encrypted backup to your Folio Cloud account.';
+      'Automatically uploads an encrypted incremental backup to your Folio Cloud account (on the chosen interval or on every change).';
 
   @override
   String get folioCloudCloudBackupsList => 'Cloud backups';
@@ -3880,6 +3897,13 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get settingsWindowsNotificationsSubtitle =>
       'Show native Windows alerts when a task is due today or overdue';
+
+  @override
+  String get settingsLaunchAtStartup => 'Launch at Windows startup';
+
+  @override
+  String get settingsLaunchAtStartupSubtitle =>
+      'Automatically open Folio when you sign in to Windows';
 
   @override
   String get title => 'Title';
@@ -5278,6 +5302,11 @@ class AppLocalizationsEn extends AppLocalizations {
   String get confirmRemoteEndpointTitle => 'Confirm remote endpoint';
 
   @override
+  String confirmRemoteEndpointBody(Object host) {
+    return 'You\'re about to enable AI with a remote host ($host). Content you send may leave this device.\n\nContinue?';
+  }
+
+  @override
   String get shortcutGlobalSearchKeyChord => 'Ctrl + Shift + F';
 
   @override
@@ -5970,20 +5999,64 @@ class AppLocalizationsEn extends AppLocalizations {
       'You have not imported icons in Settings yet.';
 
   @override
-  String get sidebarDeletePageMenuTitle => 'Delete page';
+  String get sidebarDeletePageMenuTitle => 'Move to trash';
 
   @override
-  String get sidebarDeleteFolderMenuTitle => 'Remove folder';
+  String get sidebarDeleteFolderMenuTitle => 'Move folder to trash';
 
   @override
   String sidebarDeletePageConfirmInline(Object title) {
-    return 'Delete «$title»? This cannot be undone.';
+    return 'Move «$title» to the trash? You can restore it for 30 days.';
   }
 
   @override
   String sidebarDeleteFolderConfirmInline(Object title) {
-    return 'Remove folder «$title»? Subpages will move to the notebook root.';
+    return 'Move folder «$title» and its contents to the trash? You can restore it for 30 days.';
   }
+
+  @override
+  String get sidebarTrashTitle => 'Trash';
+
+  @override
+  String get sidebarTrashEmpty => 'Trash is empty';
+
+  @override
+  String get sidebarTrashRetentionHint =>
+      'Items are automatically deleted after 30 days.';
+
+  @override
+  String get sidebarTrashRestore => 'Restore';
+
+  @override
+  String get sidebarTrashDeleteForever => 'Delete permanently';
+
+  @override
+  String get sidebarTrashEmptyAction => 'Empty trash';
+
+  @override
+  String get sidebarTrashEmptyConfirm =>
+      'Empty the trash? This cannot be undone.';
+
+  @override
+  String sidebarTrashDeleteForeverConfirm(Object title) {
+    return 'Permanently delete «$title»? This cannot be undone.';
+  }
+
+  @override
+  String sidebarTrashDaysLeft(int days) {
+    return '$days days left';
+  }
+
+  @override
+  String get sidebarTrashOpenTooltip => 'Open trash';
+
+  @override
+  String sidebarTrashCountBadge(int count) {
+    return '$count';
+  }
+
+  @override
+  String get sidebarTrashClose => 'Close';
 
   @override
   String get settingsStripeSubscriptionRefreshed =>
@@ -6041,6 +6114,10 @@ class AppLocalizationsEn extends AppLocalizations {
   String get settingsCloudBackupDeletedSnack => 'Backup deleted.';
 
   @override
+  String get settingsCloudBackupVaultRemovedSnack =>
+      'Backup deleted. This notebook no longer has cloud backups and was removed from Folio Cloud.';
+
+  @override
   String get settingsCloudBackupImportedSnack => 'Import completed.';
 
   @override
@@ -6066,6 +6143,20 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get settingsCloudBackupDeleteWarning =>
       'Are you sure you want to delete this cloud backup? This action cannot be undone.';
+
+  @override
+  String get settingsCloudBackupDeleteCloudPackWarning =>
+      'Are you sure you want to delete this notebook\'s incremental backup? All of its cloud data will be removed and you won\'t be able to restore it until you upload a new one. This action cannot be undone.';
+
+  @override
+  String get settingsCloudBackupsManageHint =>
+      'Manage backups for this notebook. Deleting frees space in your quota.';
+
+  @override
+  String get settingsCloudBackupDeleteTooltip => 'Delete backup';
+
+  @override
+  String get settingsCloudBackupsSheetTitle => 'Cloud backups';
 
   @override
   String get settingsPublishedRequiresPlan =>

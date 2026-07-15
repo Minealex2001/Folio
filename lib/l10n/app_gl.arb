@@ -549,6 +549,8 @@
   "quillTourDismiss": "Entendido",
   "aiExpand": "Expandir",
   "aiCollapse": "Contraer",
+  "sidebarItemExpandedSemantics": "Expandido",
+  "sidebarItemCollapsedSemantics": "Colapsado",
   "aiDeleteCurrentChat": "Eliminar chat actual",
   "aiNewChat": "Novo",
   "aiAttach": "Adxuntar",
@@ -716,12 +718,13 @@
   "scheduledVaultBackupTitle": "Copia cifrada programada",
   "scheduledVaultBackupSubtitle": "Mentres a caixa forte estea desbloqueada, Folio cópiaa automáticamente co intervalo escollido. Activa a copia en carpeta, na nube, ou as dúas.",
   "scheduledVaultBackupFolderTitle": "Copia en carpeta",
-  "scheduledVaultBackupFolderSubtitle": "Garda unha copia cifrada en ZIP na carpeta configurada en cada intervalo.",
+  "scheduledVaultBackupFolderSubtitle": "Garda unha copia cifrada incremental (pack) na carpeta configurada.",
   "scheduledVaultBackupChooseFolder": "Carpeta de copia",
   "scheduledVaultBackupClearFolderTooltip": "Quitar carpeta",
   "scheduledVaultBackupCloudOnlyTitle": "Copias programadas só na nube",
-  "scheduledVaultBackupCloudOnlySubtitle": "Non garda ZIPs no disco. Sobe copias só á nube.",
+  "scheduledVaultBackupCloudOnlySubtitle": "Non garda copias no disco. Sobe copias incrementais só á nube.",
   "scheduledVaultBackupIntervalLabel": "Intervalo entre copias",
+  "scheduledVaultBackupEveryChange": "En cada cambio",
   "scheduledVaultBackupEveryNMinutes": "{n, plural, one{1 minuto} other{{n} minutos}}",
   "@scheduledVaultBackupEveryNMinutes": {
     "placeholders": {
@@ -789,6 +792,13 @@
   "remoteBackupRestoreImportNew": "Importar como caderno novo",
   "remoteBackupRestoreImportOverwrite": "Sobrescribir caderno activo",
   "remoteBackupRestoreOpen": "Restaurar desde NAS ou servidor",
+  "remoteBackupRestoreIncrementalPackTitle": "Copia incremental ({vaultId})",
+  "@remoteBackupRestoreIncrementalPackTitle": {
+    "placeholders": {
+      "vaultId": {"type": "String"}
+    }
+  },
+  "remoteBackupRestoreIncrementalPackSubtitle": "Pack incremental",
   "remoteBackupExportDestinationTitle": "Onde gardar a copia?",
   "remoteBackupExportToLocalFile": "Ficheiro neste equipo",
   "remoteBackupExportToFolder": "Cartafol ou NAS configurados",
@@ -1150,7 +1160,7 @@
   },
   "folioCloudUploadSnackOk": "Copia da caixa forte gardada na nube."
   ,"scheduledVaultBackupCloudSyncTitle": "Copia en Folio Cloud"
-  ,"scheduledVaultBackupCloudSyncSubtitle": "En cada intervalo programado, sobe automáticamente unha copia cifrada á túa conta de Folio Cloud."
+  ,"scheduledVaultBackupCloudSyncSubtitle": "Sobe automáticamente unha copia cifrada incremental á túa conta de Folio Cloud (segundo o intervalo ou en cada cambio)."
   ,"folioCloudCloudBackupsList": "Copias na nube"
   ,"folioCloudBackupsUsed": "Usado"
   ,"folioCloudBackupsLimit": "Límite"
@@ -1291,6 +1301,8 @@
   ,"taskDueTodayReminder": "Vence hoxe"
   ,"settingsWindowsNotifications": "Notificacións de Windows"
   ,"settingsWindowsNotificationsSubtitle": "Mostra alertas nativas de Windows cando unha tarefa vence hoxe ou está vencida"
+  ,"settingsLaunchAtStartup": "Iniciar con Windows"
+  ,"settingsLaunchAtStartupSubtitle": "Abre Folio automaticamente ao iniciar sesión en Windows"
   ,"title": "Título"
   ,"description": "Descrición"
   ,"priority": "Prioridade"
@@ -1742,6 +1754,8 @@
   ,"createAction": "Crear"
   ,"confirmAction": "Confirmar"
   ,"confirmRemoteEndpointTitle": "Confirmar endpoint remoto"
+  ,"confirmRemoteEndpointBody": "Vas activar a IA cun host remoto ({host}). O contido que envíes pode saír deste equipo.\n\nContinuar?"
+  ,"@confirmRemoteEndpointBody": {"placeholders": {"host": {}}}
   ,"shortcutGlobalSearchKeyChord": "Ctrl + Maiús + F"
   ,"updateChannelRelease": "Release"
   ,"updateChannelBeta": "Beta"
@@ -1965,12 +1979,27 @@
   ,"sidebarPageIconTabImported": "Importados"
   ,"sidebarPageIconTabAll": "Todos"
   ,"sidebarPageIconEmptyImported": "Aínda non importaches iconas en Axustes."
-  ,"sidebarDeletePageMenuTitle": "Eliminar páxina"
-  ,"sidebarDeleteFolderMenuTitle": "Quitar cartafol"
-  ,"sidebarDeletePageConfirmInline": "Eliminar «{title}»? Non se pode desfacer."
+  ,"sidebarDeletePageMenuTitle": "Mover ao lixo"
+  ,"sidebarDeleteFolderMenuTitle": "Mover cartafol ao lixo"
+  ,"sidebarDeletePageConfirmInline": "Mover «{title}» ao lixo? Poderás restauralo durante 30 días."
   ,"@sidebarDeletePageConfirmInline": {"placeholders": {"title": {}}}
-  ,"sidebarDeleteFolderConfirmInline": "Quitar cartafol «{title}»? As subpáxinas pasan á raíz do caderno."
+  ,"sidebarDeleteFolderConfirmInline": "Mover o cartafol «{title}» e o seu contido ao lixo? Poderás restauralo durante 30 días."
   ,"@sidebarDeleteFolderConfirmInline": {"placeholders": {"title": {}}}
+  ,"sidebarTrashTitle": "Lixo"
+  ,"sidebarTrashEmpty": "O lixo está baleiro"
+  ,"sidebarTrashRetentionHint": "Os elementos elimínanse automaticamente aos 30 días."
+  ,"sidebarTrashRestore": "Restaurar"
+  ,"sidebarTrashDeleteForever": "Eliminar definitivamente"
+  ,"sidebarTrashEmptyAction": "Baleirar o lixo"
+  ,"sidebarTrashEmptyConfirm": "Baleirar o lixo? Esta acción non se pode desfacer."
+  ,"sidebarTrashDeleteForeverConfirm": "Eliminar «{title}» de forma definitiva? Esta acción non se pode desfacer."
+  ,"@sidebarTrashDeleteForeverConfirm": {"placeholders": {"title": {}}}
+  ,"sidebarTrashDaysLeft": "Quedan {days} días"
+  ,"@sidebarTrashDaysLeft": {"placeholders": {"days": {"type": "int"}}}
+  ,"sidebarTrashOpenTooltip": "Abrir o lixo"
+  ,"sidebarTrashCountBadge": "{count}"
+  ,"@sidebarTrashCountBadge": {"placeholders": {"count": {"type": "int"}}}
+  ,"sidebarTrashClose": "Pechar"
   ,"settingsStripeSubscriptionRefreshed": "Facturación Folio Cloud actualizada."
   ,"settingsStripeBillingPortalUnavailable": "Portal de facturación non dispoñible."
   ,"settingsCouldNotOpenLink": "Non se puido abrir a ligazón."
@@ -1988,6 +2017,7 @@
   ,"settingsCloudBackupSaveDialogTitle": "Gardar copia"
   ,"settingsCloudBackupDownloadedSnack": "Copia descargada."
   ,"settingsCloudBackupDeletedSnack": "Copia borrada."
+  ,"settingsCloudBackupVaultRemovedSnack": "Copia borrada. Esta caderneta xa non ten copias en Folio Cloud e eliminouse da nube."
   ,"settingsCloudBackupImportedSnack": "Importación completada."
   ,"settingsCloudBackupVaultMustBeUnlocked": "A libreta debe estar desbloqueada."
   ,"settingsCloudBackupsTotalLabel": "Total: {size}"
@@ -1996,6 +2026,10 @@
   ,"settingsCloudBackupImportOverwriteBody": "Isto sobrescribirá o contido da libreta aberta. Asegúrate de ter unha copia local antes de continuar."
   ,"settingsCloudBackupImportRemoteCloudPackIntro": "Esta copia incremental é doutra libreta da túa conta Folio Cloud. Introduce o contrasinal desa libreta para descargala (deixa en branco se non está cifrada)."
   ,"settingsCloudBackupDeleteWarning": "Seguro que queres borrar esta copia da nube? Esta acción non se pode desfacer."
+  ,"settingsCloudBackupDeleteCloudPackWarning": "Seguro que queres borrar a copia incremental desta caderneta? Eliminaranse todos os seus datos na nube e non poderás restaurala ata que subas unha nova. Esta acción non se pode desfacer."
+  ,"settingsCloudBackupsManageHint": "Xestiona as copias desta caderneta. Ao borrar libérase espazo da túa cota."
+  ,"settingsCloudBackupDeleteTooltip": "Borrar copia"
+  ,"settingsCloudBackupsSheetTitle": "Copias na nube"
   ,"settingsPublishedRequiresPlan": "Necesitas Folio Cloud con publicación web activa."
   ,"settingsPublishedPagesTitle": "Páxinas publicadas"
   ,"settingsPublishedPagesEmpty": "Aínda non hai páxinas publicadas."

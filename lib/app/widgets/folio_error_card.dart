@@ -1,7 +1,11 @@
 import 'package:flutter/material.dart';
 
-/// Un contenedor de error agradable e inline para mostrar fallos en secciones del UI
-/// en lugar de presentar overlays invasivos a pantalla completa.
+import '../../l10n/generated/app_localizations.dart';
+
+/// Contenedor de error compacto para mostrar fallos inline dentro de un
+/// formulario, lista o panel, sin animación de entrada. Para el estado de
+/// error de una página o sección completa usa [AnimatedErrorState]
+/// (en `folio_interactions.dart`) en su lugar.
 class FolioErrorCard extends StatelessWidget {
   const FolioErrorCard({
     super.key,
@@ -22,6 +26,7 @@ class FolioErrorCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
+    final l10n = AppLocalizations.of(context);
 
     return Container(
       margin: margin,
@@ -96,9 +101,9 @@ class FolioErrorCard extends StatelessWidget {
                     ),
                   ),
                   icon: const Icon(Icons.refresh_rounded, size: 16),
-                  label: const Text(
-                    'Reintentar',
-                    style: TextStyle(fontWeight: FontWeight.w700),
+                  label: Text(
+                    l10n.retry,
+                    style: const TextStyle(fontWeight: FontWeight.w700),
                   ),
                 ),
               ],

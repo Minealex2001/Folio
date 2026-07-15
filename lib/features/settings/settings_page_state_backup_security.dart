@@ -131,6 +131,9 @@ extension _SettingsPageBackupSecurityActions on _SettingsPageState {
     AppLocalizations l10n,
     int minutes,
   ) {
+    if (AppSettings.isContinuousVaultBackupInterval(minutes)) {
+      return l10n.scheduledVaultBackupEveryChange;
+    }
     if (minutes < 60) {
       return l10n.scheduledVaultBackupEveryNMinutes(minutes);
     }
@@ -289,7 +292,7 @@ extension _SettingsPageBackupSecurityActions on _SettingsPageState {
       final send = await showDialog<bool>(
         context: context,
         builder: (ctx) {
-          return AlertDialog(
+          return FolioDialog(
             title: Text(l10n.settingsReportBugDialogTitle),
             content: SingleChildScrollView(
               child: Column(

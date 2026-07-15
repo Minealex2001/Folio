@@ -8,6 +8,7 @@ import 'package:markdown/markdown.dart' as md;
 import 'package:flutter_quill/flutter_quill.dart' as quill;
 import 'package:url_launcher/url_launcher.dart';
 
+import '../../../app/widgets/folio_dialog.dart';
 import '../../../data/folio_internal_link.dart';
 import '../../../l10n/generated/app_localizations.dart';
 import 'block_editor_support_widgets.dart';
@@ -872,7 +873,7 @@ class FolioQuillFormatToolbar extends StatelessWidget {
     try {
       final ok = await showDialog<bool>(
         context: context,
-        builder: (ctx) => AlertDialog(
+        builder: (ctx) => FolioDialog(
           title: Text(AppLocalizations.of(context).linkTitle),
           content: TextField(
             controller: urlCtrl,
@@ -1338,7 +1339,7 @@ class _FolioFormatToolbarState extends State<FolioFormatToolbar> {
     try {
       final ok = await showDialog<bool>(
         context: context,
-        builder: (ctx) => AlertDialog(
+        builder: (ctx) => FolioDialog(
           title: Text(AppLocalizations.of(context).linkTitle),
           content: Column(
             mainAxisSize: MainAxisSize.min,

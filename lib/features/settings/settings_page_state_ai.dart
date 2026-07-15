@@ -7,25 +7,13 @@ extension _SettingsPageAiActions on _SettingsPageState {
     final isRemote = !AiSafetyPolicy.isLocalhostHost(uri.host);
     if (!isRemote || _app.aiEndpointMode != AiEndpointMode.allowRemote) return;
     if (_app.aiRemoteEndpointConfirmed) return;
-    final go = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => FolioDialog(
-        title: const Text('Confirmar endpoint remoto'),
-        content: Text(
-          'Vas a habilitar IA con un host remoto (${uri.host}). '
-          'El contenido que envíes puede salir del equipo.\n\n¿Continuar?',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('Cancelar'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('Confirmar'),
-          ),
-        ],
-      ),
+    final l10n = AppLocalizations.of(context);
+    final go = await FolioDialog.confirm(
+      context,
+      title: Text(l10n.confirmRemoteEndpointTitle),
+      content: Text(l10n.confirmRemoteEndpointBody(uri.host)),
+      confirmLabel: l10n.confirmAction,
+      cancelLabel: l10n.cancel,
     );
     if (go == true) {
       await _app.setAiRemoteEndpointConfirmed(true);

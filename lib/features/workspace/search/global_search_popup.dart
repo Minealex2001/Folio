@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../../../app/app_settings.dart';
+import '../../../app/widgets/folio_dialog.dart';
 import '../../../l10n/generated/app_localizations.dart';
 import '../../../session/vault_session.dart';
 
@@ -580,7 +581,7 @@ class _MiniUnlockDialogState extends State<MiniUnlockDialog> {
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
-    return AlertDialog(
+    return FolioDialog(
       title: Text(l10n.unlockVaultTitle),
       content: ConstrainedBox(
         constraints: const BoxConstraints(maxWidth: 360),

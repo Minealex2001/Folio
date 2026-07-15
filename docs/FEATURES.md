@@ -50,6 +50,7 @@
 41. [Lienzo infinito (canvas)](#41-lienzo-infinito-canvas)
 42. [Pantalla de inicio (Home)](#42-pantalla-de-inicio-home)
 43. [Hub de tareas de la libreta](#43-hub-de-tareas-de-la-libreta)
+44. [Papelera de páginas](#44-papelera-de-páginas)
 
 **Apéndice:** [configuración persistida (`AppSettings`)](#apéndice-configuración-persistida-appsettings)
 
@@ -610,7 +611,10 @@ El usuario puede añadir contexto al chat IA usando el menú `@` en el campo de 
 
 ## 24.1 Copias en NAS / servidor externo
 
-Copias cifradas (ZIP con `vault.bin`, `vault.keys` y adjuntos) hacia destinos de red **sin depender de Folio Cloud**. Escritorio (Windows prioritario); no disponible en web.
+Copias cifradas hacia destinos de red **sin depender de Folio Cloud**. Escritorio (Windows prioritario); no disponible en web.
+
+- **Copia programada automática**: pack **incremental** (mismo formato conceptual que el cloud-pack: blobs content-addressed + snapshot cifrado) en carpeta/UNC y/o WebDAV bajo `folio-packs/<vaultId>/`.
+- **Exportación manual** y ZIPs legacy (`folio-scheduled-*` / `folio-backup-*`): siguen siendo ZIP completos.
 
 ### Destinos
 
@@ -625,18 +629,20 @@ Ambos pueden combinarse con la copia programada en **Folio Cloud** (suscripción
 
 - **Destino NAS o servidor** (carpeta de red y WebDAV): siempre visible; no requiere activar la copia programada. Sirve para restaurar, exportar manualmente o, si lo activas, incluir en copias automáticas.
 - **Copia cifrada programada**: interruptor aparte con intervalo y destinos activos en cada ejecución.
-
+- **Intervalo**: «En cada cambio» (debounce ~45 s tras persistir en disco) o 30 min…24 h. El modo continuo reutiliza el mismo runner pack/cloud; el timer de 15 min solo aplica a intervalos fijos.
 - **Configurar carpeta de red** / **Configurar WebDAV**: diálogo con credenciales y probar conexión (visible sin copia programada).
-- **Copias a conservar** por destino (retención; por defecto 10), en el diálogo de configuración.
-- **Restaurar desde NAS o servidor**: listar ZIP `folio-scheduled-*` / `folio-backup-*`, descargar, importar como libreta nueva o sobrescribir la activa.
-- Exportación manual: elegir archivo local, carpeta/NAS o WebDAV si están configurados.
+- **Copias a conservar** (`retentionCount`): número de snapshots pack retenidos (y GC de blobs no referenciados). Los ZIP legacy no se generan en el ciclo automático.
+- **Restaurar desde NAS o servidor**: listar packs incrementales (`folio-packs/…`) y ZIP `folio-scheduled-*` / `folio-backup-*`; importar como libreta nueva o sobrescribir la activa.
+- Exportación manual: elegir archivo local (ZIP), carpeta/NAS o WebDAV si están configurados.
 
 ### Implementación
 
-- Destinos: `lib/services/backup_destinations/` (`BackupDestination`, `LocalFolderDestination`, `WebDavDestination`, `BackupExportRunner`).
+- Pack local/WebDAV: `lib/services/vault_pack/` (`VaultPackTransport`, `FolderVaultPackTransport`, `WebDavVaultPackTransport`, `uploadOpenVaultPack`).
+- Builder compartido con Folio Cloud: `vault_pack_builder.dart` (usado también por `folio_cloud_pack_sync.dart`).
+- Destinos ZIP (manual/legacy): `lib/services/backup_destinations/` (`BackupDestination`, `LocalFolderDestination`, `WebDavDestination`, `BackupExportRunner`).
 - Credenciales: `lib/services/secure_credential_storage.dart`.
 - SMB Windows: MethodChannel `folio/smb_network` (`windows/runner/smb_network_plugin.cpp`).
-- Orquestación programada: `lib/services/vault_scheduled_local_export.dart`.
+- Orquestación programada/continua: `lib/services/vault_scheduled_local_export.dart` + hook `onPersisted` en `folio_app.dart`.
 - UI: `lib/features/settings/remote_backup_config_dialog.dart`, `remote_backup_restore_dialog.dart`.
 
 ### Ugreen NAS (orientativo)
@@ -672,8 +678,9 @@ Implementación cliente: `lib/services/folio_cloud/folio_cloud_entitlements.dart
 
 ### Copia cifrada en la nube
 
-- Subida manual y listado/descarga desde Ajustes; **restauración** desde onboarding o flujos de copia.
-- Tras un **backup programado** local, si el usuario activa «también subir a Folio Cloud» y tiene permiso, se reutiliza el mismo ZIP cifrado (`uploadEncryptedBackupFile` / índices en servidor).
+- Subida manual y **gestión** (listar / importar / descargar legacy / borrar) desde Ajustes en un panel tipo papelera; **restauración** también desde onboarding o flujos de copia.
+- Se pueden borrar tanto archivos **legacy** (ZIP/TAR.GZ) como la copia **incremental** (cloud-pack) de una libreta. El borrado del cloud-pack usa **`folioDeleteVaultCloudPack`**; el legacy, **`folioDeleteVaultLegacyBackup`**. Si tras borrar no queda ninguna copia, se **elimina por completo** la presencia de esa libreta en Folio Cloud (Storage bajo `vaults/{vaultId}/`, índice `vaultBackupIndex` y meta `vaultBackups`).
+- Tras un **backup programado** (intervalo o «en cada cambio»), si el usuario activa «también subir a Folio Cloud» y tiene permiso, se sube un **cloud-pack** incremental (`uploadOpenVaultCloudPack` / índices en servidor). La copia local/WebDAV del mismo ciclo usa el pack incremental bajo `folio-packs/` (no un ZIP nuevo).
 - En **Windows/Linux**, el SDK a veces no lista bien Storage; la app usa la callable **`folioListVaultBackups`** (lista con Admin SDK en servidor).
 - Subidas (`putData`/`putFile`) y descargas (`getData`/`writeToFile`) en escritorio van por REST autenticada con ID token, evitando los canales `taskEvent` del plugin C++.
 - **Cuota de almacenamiento** de copias y ampliaciones por suscripción («Biblioteca» pequeña/mediana/grande): catálogo en [FOLIO_CLOUD_STRIPE_PRODUCTS.md](FOLIO_CLOUD_STRIPE_PRODUCTS.md); callables de apoyo p. ej. `folioGetBackupStorageUsage`, `folioTrimVaultBackups`, `folioTrimVaultBackupsByBytes`, índice multi-libreta (`folioListBackupVaults`, `folioUpsertVaultBackupIndex`, …).
@@ -710,8 +717,8 @@ Implementación cliente: `lib/services/folio_cloud/folio_cloud_entitlements.dart
 |------|-----------|
 | Colaboración | `createCollabRoom`, `joinCollabRoomByCode`, `prepareCollabMediaUpload`, `commitCollabMediaUpload`, `inviteCollabMember`, `removeCollabMember`, `closeCollabRoom` |
 | Pagos y cuenta | `createCheckoutSession`, `createBillingPortalSession`, `stripeWebhook`, `syncFolioCloudSubscriptionFromStripe`, `validateMicrosoftStoreEntitlements` |
-| Copias / vault / almacenamiento | `folioListVaultBackups`, `folioGetBackupStorageUsage`, `folioTrimVaultBackups`, `folioTrimVaultBackupsByBytes`, `folioListBackupVaults`, `folioUpsertVaultBackupIndex`, `folioGetLatestVaultBackupMeta`, `folioRecordVaultBackupMeta`, … |
-| Cloud pack (metadatos/restore) | `folioGetLatestCloudPackMeta`, `folioGetCloudPackRestoreWrap`, `folioCheckCloudPackBlobsExist`, `folioFinalizeCloudPack` |
+| Copias / vault / almacenamiento | `folioListVaultBackups`, `folioDeleteVaultCloudPack`, `folioDeleteVaultLegacyBackup`, `folioGetBackupStorageUsage`, `folioTrimVaultBackups`, `folioTrimVaultBackupsByBytes`, `folioListBackupVaults`, `folioUpsertVaultBackupIndex`, `folioGetLatestVaultBackupMeta`, `folioRecordVaultBackupMeta`, … |
+| Cloud pack (metadatos/restore) | `folioGetLatestCloudPackMeta`, `folioGetCloudPackRestoreWrap`, `folioCheckCloudPackBlobsExist`, `folioFinalizeCloudPack`, `folioDeleteVaultCloudPack` |
 | IA | `folioCloudAiComplete`, `folioCloudAiCompleteHttp`, `folioCloudAiPricing`, `folioCloudTranscribeChunk` |
 | Operaciones | `monthlyInkRefill` (programada) |
 | Otras HTTP | `folioJiraExchangeOAuth`, `folioReportDiagnostic` (integración/diagnóstico; no son el núcleo «Folio Cloud» de suscripción) |
@@ -1077,6 +1084,37 @@ Definidos en `vault_task_entry_filters.dart` (`VaultTaskListPreset`):
 
 - Abrir la **página y bloque** de una tarea (`onOpenTaskInPage`).
 - **Mover** la tarea a otra página (diálogo de selección de página).
+
+---
+
+## 44. Papelera de páginas
+
+Soft-delete de páginas y carpetas con retención de **30 días**. El borrado desde el sidebar ya no es irreversible: mueve el elemento a la papelera.
+
+### Modelo y persistencia
+
+- Campo `FolioPage.trashedAt` (ISO-8601 UTC; ausente = página activa).
+- Esquema de vault **v8** (`kVaultPayloadVersion` en `vault_payload.dart`).
+- Las páginas en papelera siguen en el blob del vault (bloques, revisiones, ACL, comentarios y adjuntos se conservan hasta el borrado definitivo).
+
+### Comportamiento (`VaultSession`)
+
+| API | Efecto |
+|---|---|
+| `movePageToTrash(id)` | Marca `trashedAt` en la página **y todo su subárbol activo** |
+| `restoreFromTrash(id)` | Quita `trashedAt` del subárbol; si el padre ya no existe o sigue en papelera, la raíz vuelve a la raíz de la libreta |
+| `permanentlyDeleteFromTrash(id)` | Hard-delete del subárbol (adjuntos no referenciados, revisiones, ACL, comentarios) |
+| `emptyTrash()` | Hard-delete de todas las raíces en papelera |
+| `purgeExpiredTrash()` | Hard-delete de entradas con más de 30 días (`trashRetention`) al desbloquear / cargar la libreta |
+
+- Siempre debe quedar **≥1 página activa**.
+- Árbol del sidebar, Home, menciones, grafo, tareas e índice de búsqueda usan solo `activePages`.
+
+### UI
+
+- Confirmación del menú del tile: «Mover a la papelera» (subárbol completo para carpetas/páginas con hijas).
+- Entrada fija **Papelera** en el pie del sidebar (`showPageTrashSheet` en `page_trash_sheet.dart`): restaurar, eliminar definitivamente, vaciar, con aviso de retención 30 días.
+- Badge de conteo cuando hay elementos en papelera.
 
 ---
 

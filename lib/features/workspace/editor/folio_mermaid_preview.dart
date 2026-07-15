@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:archive/archive.dart';
 import 'package:flutter/material.dart';
 
+import '../../../app/widgets/folio_skeletons.dart';
 import '../../../l10n/generated/app_localizations.dart';
 
 /// Construye la URL PNG del servicio [mermaid.ink](https://mermaid.ink) (el diagrama sale del dispositivo).
@@ -73,7 +74,7 @@ void _showFolioMermaidExpanded(BuildContext context, String imageUrl) {
                   if (loadingProgress == null) return child;
                   return const Padding(
                     padding: EdgeInsets.all(48),
-                    child: CircularProgressIndicator(strokeWidth: 2),
+                    child: FolioLoadingIndicator(size: FolioLoadingSize.small),
                   );
                 },
                 errorBuilder: (context, error, stackTrace) {
@@ -153,8 +154,8 @@ class FolioMermaidPreview extends StatelessWidget {
                           child: Center(
                             child: Padding(
                               padding: const EdgeInsets.all(16),
-                              child: CircularProgressIndicator(
-                                strokeWidth: 2,
+                              child: FolioLoadingIndicator(
+                                size: FolioLoadingSize.small,
                                 value: loadingProgress.expectedTotalBytes != null
                                     ? loadingProgress.cumulativeBytesLoaded /
                                         loadingProgress.expectedTotalBytes!

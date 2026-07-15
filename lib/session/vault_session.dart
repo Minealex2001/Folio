@@ -179,7 +179,8 @@ class VaultSession extends ChangeNotifier {
   Future<void> _applyInitialPageSelection({
     required bool preferPersistedPreference,
   }) async {
-    if (_pages.isEmpty) {
+    final active = _pages.where((p) => !p.isTrashed).toList();
+    if (active.isEmpty) {
       _selectedPageId = null;
       return;
     }
@@ -194,14 +195,14 @@ class VaultSession extends ChangeNotifier {
         final saved = p.getString(key);
         if (saved != null &&
             saved.isNotEmpty &&
-            _pages.any((pg) => pg.id == saved)) {
+            active.any((pg) => pg.id == saved)) {
           _selectedPageId = saved;
           return;
         }
       }
     }
-    final roots = _pages.where((p) => p.parentId == null).toList();
-    _selectedPageId = roots.isNotEmpty ? roots.first.id : _pages.first.id;
+    final roots = active.where((p) => p.parentId == null).toList();
+    _selectedPageId = roots.isNotEmpty ? roots.first.id : active.first.id;
   }
 
   bool _isManagedAttachmentPath(String? path) {
@@ -418,6 +419,21 @@ class VaultSession extends ChangeNotifier {
 
   VaultFlowState get state => _state;
   List<FolioPage> get pages => List.unmodifiable(_pages);
+  List<FolioPage> get activePages =>
+      List.unmodifiable(_pages.where((p) => !p.isTrashed));
+  List<FolioPage> get trashedPages {
+    final list = _pages.where((p) => p.isTrashed).toList()
+      ..sort((a, b) {
+        final at = a.trashedAt!;
+        final bt = b.trashedAt!;
+        return bt.compareTo(at);
+      });
+    return List.unmodifiable(list);
+  }
+
+  /// Retención de la papelera (purga automática).
+  static const Duration trashRetention = Duration(days: 30);
+
   String? get selectedPageId => _selectedPageId;
 
   /// ID del perfil local activo (el primero de la lista, o 'local-default').
@@ -439,6 +455,7 @@ class VaultSession extends ChangeNotifier {
     final uriRe = RegExp(r'folio://[^\s)"]+');
     final result = <FolioPage>[];
     for (final page in _pages) {
+      if (page.isTrashed) continue;
       if (page.id == targetPageId) continue;
       var found = false;
       for (final block in page.blocks) {
@@ -711,7 +728,8 @@ class VaultSession extends ChangeNotifier {
   FolioPage? get selectedPage {
     if (_selectedPageId == null) return null;
     try {
-      return _pages.firstWhere((p) => p.id == _selectedPageId);
+      final p = _pages.firstWhere((p) => p.id == _selectedPageId);
+      return p.isTrashed ? null : p;
     } catch (_) {
       return null;
     }
@@ -813,6 +831,7 @@ class VaultSession extends ChangeNotifier {
           _ensureOrderForCurrentPages();
           await _applyInitialPageSelection(preferPersistedPreference: true);
           _state = VaultFlowState.unlocked;
+          purgeExpiredTrash();
           _restartIdleLockTimer();
           _rebuildSearchIndex();
           final vaultId = _vaultId;
@@ -1154,6 +1173,7 @@ class VaultSession extends ChangeNotifier {
     _ensureOrderForCurrentPages();
     await _applyInitialPageSelection(preferPersistedPreference: false);
     _state = VaultFlowState.unlocked;
+    purgeExpiredTrash();
     _restartIdleLockTimer();
     _resumeVaultIdAfterNewVault = null;
     notifyListeners();
@@ -1259,10 +1279,35 @@ class VaultSession extends ChangeNotifier {
     final temp = Directory.systemTemp.createTempSync('folio_import_new_');
     try {
       await extractBackupZipToDirectory(File(zipPath), temp);
-      await validateImportZip(temp, backupPassword);
+      return importVaultBackupAsNewFromExtractedDir(
+        temp,
+        backupPassword,
+        displayName: displayName,
+        deleteExtractedDir: false,
+      );
+    } finally {
+      try {
+        if (temp.existsSync()) {
+          await temp.delete(recursive: true);
+        }
+      } catch (_) {}
+    }
+  }
+
+  /// Como [importVaultBackupAsNew] pero el árbol de copia ya está materializado
+  /// (p. ej. pack incremental local/WebDAV).
+  Future<String> importVaultBackupAsNewFromExtractedDir(
+    Directory extractedDir,
+    String backupPassword, {
+    String? displayName,
+    bool deleteExtractedDir = false,
+  }) async {
+    if (kIsWeb) throw UnsupportedError('Backup import not available on web');
+    try {
+      await validateImportZip(extractedDir, backupPassword);
       final newId = _uuid.v4();
       final root = await VaultPaths.vaultDirectoryForId(newId);
-      await applyImportToVaultRoot(temp, root);
+      await applyImportToVaultRoot(extractedDir, root);
       await _registry.load();
       await _registry.add(
         VaultEntry(
@@ -1274,11 +1319,13 @@ class VaultSession extends ChangeNotifier {
       notifyListeners();
       return newId;
     } finally {
-      try {
-        if (temp.existsSync()) {
-          await temp.delete(recursive: true);
-        }
-      } catch (_) {}
+      if (deleteExtractedDir) {
+        try {
+          if (extractedDir.existsSync()) {
+            await extractedDir.delete(recursive: true);
+          }
+        } catch (_) {}
+      }
     }
   }
 
@@ -1645,6 +1692,7 @@ class VaultSession extends ChangeNotifier {
         _ensureOrderForCurrentPages();
         await _applyInitialPageSelection(preferPersistedPreference: true);
         _state = VaultFlowState.unlocked;
+        purgeExpiredTrash();
         _restartIdleLockTimer();
         notifyListeners();
       } on VaultCorruptionException {
@@ -1662,6 +1710,7 @@ class VaultSession extends ChangeNotifier {
       _ensureOrderForCurrentPages();
       await _applyInitialPageSelection(preferPersistedPreference: true);
       _state = VaultFlowState.unlocked;
+      purgeExpiredTrash();
       _restartIdleLockTimer();
       notifyListeners();
     } on VaultCorruptionException {
@@ -1702,6 +1751,7 @@ class VaultSession extends ChangeNotifier {
     _ensureOrderForCurrentPages();
     await _applyInitialPageSelection(preferPersistedPreference: true);
     _state = VaultFlowState.unlocked;
+    purgeExpiredTrash();
     _restartIdleLockTimer();
     notifyListeners();
   }
@@ -1729,6 +1779,7 @@ class VaultSession extends ChangeNotifier {
     _ensureOrderForCurrentPages();
     await _applyInitialPageSelection(preferPersistedPreference: true);
     _state = VaultFlowState.unlocked;
+    purgeExpiredTrash();
     _restartIdleLockTimer();
     notifyListeners();
   }
@@ -1887,7 +1938,8 @@ class VaultSession extends ChangeNotifier {
   }
 
   void selectPage(String id) {
-    if (_pages.every((p) => p.id != id)) return;
+    final page = _pageById(id);
+    if (page == null || page.isTrashed) return;
     touchActivity();
     _selectedPageId = id;
     notifyListeners();
@@ -3019,11 +3071,216 @@ class VaultSession extends ChangeNotifier {
     );
   }
 
-  bool _hasChildren(String id) => _pages.any((p) => p.parentId == id);
+  bool _hasChildren(String id) =>
+      _pages.any((p) => p.parentId == id && !p.isTrashed);
 
-  void deletePage(String id) {
-    if (_pages.length <= 1) return;
-    if (_hasChildren(id)) return;
+  bool _hasAnyChildrenIncludingTrashed(String id) =>
+      _pages.any((p) => p.parentId == id);
+
+  /// Ids del subárbol (raíz incluida), solo entre páginas con el mismo
+  /// criterio de "visible" que el árbol activo (no papelera).
+  List<String> activeSubtreeIds(String rootId) {
+    final root = _pageById(rootId);
+    if (root == null || root.isTrashed) return const [];
+    final byParent = <String?, List<String>>{};
+    for (final p in _pages) {
+      if (p.isTrashed) continue;
+      (byParent[p.parentId] ??= <String>[]).add(p.id);
+    }
+    final out = <String>[];
+    void walk(String id) {
+      out.add(id);
+      for (final childId in byParent[id] ?? const <String>[]) {
+        walk(childId);
+      }
+    }
+
+    walk(rootId);
+    return out;
+  }
+
+  List<String> _trashedSubtreeIds(String rootId) {
+    final root = _pageById(rootId);
+    if (root == null || !root.isTrashed) return const [];
+    final byParent = <String?, List<String>>{};
+    for (final p in _pages) {
+      if (!p.isTrashed) continue;
+      (byParent[p.parentId] ??= <String>[]).add(p.id);
+    }
+    final out = <String>[];
+    void walk(String id) {
+      out.add(id);
+      for (final childId in byParent[id] ?? const <String>[]) {
+        walk(childId);
+      }
+    }
+
+    walk(rootId);
+    return out;
+  }
+
+  int _pageDepth(String id) {
+    var depth = 0;
+    var cur = _pageById(id);
+    while (cur?.parentId != null) {
+      depth++;
+      cur = _pageById(cur!.parentId!);
+      if (depth > 10000) break;
+    }
+    return depth;
+  }
+
+  bool canMovePageToTrash(String id) {
+    final subtree = activeSubtreeIds(id);
+    if (subtree.isEmpty) return false;
+    return activePages.length - subtree.length >= 1;
+  }
+
+  /// Mueve la página y todo su subárbol activo a la papelera.
+  void movePageToTrash(String id) {
+    if (!canMovePageToTrash(id)) return;
+    final subtree = activeSubtreeIds(id);
+    final now = DateTime.now().toUtc();
+    var selectionHit = false;
+    for (final pageId in subtree) {
+      final p = _pageById(pageId);
+      if (p == null || p.isTrashed) continue;
+      p.trashedAt = now;
+      if (_selectedPageId == pageId) selectionHit = true;
+    }
+    if (selectionHit) {
+      _pickInitialSelection();
+      unawaited(_persistLastSelectedPageForActiveVault(_selectedPageId));
+    }
+    notifyListeners();
+    scheduleSave();
+  }
+
+  /// Raíces de la papelera: páginas trashed cuyo padre no está también en papelera.
+  List<FolioPage> get trashRootPages {
+    final trashedIds = {
+      for (final p in _pages)
+        if (p.isTrashed) p.id,
+    };
+    final roots = _pages.where((p) {
+      if (!p.isTrashed) return false;
+      final parentId = p.parentId;
+      if (parentId == null) return true;
+      return !trashedIds.contains(parentId);
+    }).toList()
+      ..sort((a, b) {
+        final at = a.trashedAt!;
+        final bt = b.trashedAt!;
+        return bt.compareTo(at);
+      });
+    return List.unmodifiable(roots);
+  }
+
+  void restoreFromTrash(String id) {
+    final root = _pageById(id);
+    if (root == null || !root.isTrashed) return;
+    final subtree = _trashedSubtreeIds(id);
+    if (subtree.isEmpty) return;
+    for (final pageId in subtree) {
+      final p = _pageById(pageId);
+      if (p == null) continue;
+      p.trashedAt = null;
+    }
+    final parentId = root.parentId;
+    final parent = parentId == null ? null : _pageById(parentId);
+    if (parent == null || parent.isTrashed) {
+      final oldParentId = root.parentId;
+      root.parentId = null;
+      if (oldParentId != null) {
+        _pageOrderByParent[_orderKeyForParent(oldParentId)]?.remove(id);
+      }
+      final rootKey = _orderKeyForParent(null);
+      final rootOrder = _pageOrderByParent.putIfAbsent(rootKey, () => <String>[]);
+      if (!rootOrder.contains(id)) rootOrder.add(id);
+    } else {
+      final key = _orderKeyForParent(parentId);
+      final order = _pageOrderByParent.putIfAbsent(key, () => <String>[]);
+      if (!order.contains(id)) order.add(id);
+    }
+    _ensureOrderForCurrentPages();
+    notifyListeners();
+    scheduleSave();
+  }
+
+  void permanentlyDeleteFromTrash(String id) {
+    final root = _pageById(id);
+    if (root == null || !root.isTrashed) return;
+    final ids = _trashedSubtreeIds(id);
+    if (ids.isEmpty) return;
+    final sorted = List<String>.from(ids)
+      ..sort((a, b) => _pageDepth(b).compareTo(_pageDepth(a)));
+    for (final pageId in sorted) {
+      _hardDeletePage(pageId);
+    }
+    notifyListeners();
+    scheduleSave();
+  }
+
+  void emptyTrash() {
+    final roots = trashRootPages.map((p) => p.id).toList();
+    if (roots.isEmpty) return;
+    for (final id in roots) {
+      if (_pageById(id)?.isTrashed != true) continue;
+      final ids = _trashedSubtreeIds(id);
+      final sorted = List<String>.from(ids)
+        ..sort((a, b) => _pageDepth(b).compareTo(_pageDepth(a)));
+      for (final pageId in sorted) {
+        _hardDeletePage(pageId);
+      }
+    }
+    notifyListeners();
+    scheduleSave();
+  }
+
+  /// Elimina de forma definitiva las páginas en papelera más antiguas que [retention].
+  void purgeExpiredTrash({Duration retention = trashRetention}) {
+    final cutoff = DateTime.now().toUtc().subtract(retention);
+    final expiredRoots = trashRootPages.where((p) {
+      final t = p.trashedAt;
+      return t != null && !t.isAfter(cutoff);
+    }).map((p) => p.id).toList();
+    if (expiredRoots.isEmpty) {
+      // También purgar hojas huérfanas expiradas (por si el padre se restauró).
+      final orphanExpired = _pages
+          .where(
+            (p) =>
+                p.isTrashed &&
+                p.trashedAt != null &&
+                !p.trashedAt!.isAfter(cutoff),
+          )
+          .map((p) => p.id)
+          .toList();
+      if (orphanExpired.isEmpty) return;
+      final sorted = orphanExpired
+        ..sort((a, b) => _pageDepth(b).compareTo(_pageDepth(a)));
+      for (final pageId in sorted) {
+        if (_pageById(pageId)?.isTrashed == true) {
+          _hardDeletePage(pageId);
+        }
+      }
+      notifyListeners();
+      scheduleSave();
+      return;
+    }
+    for (final id in expiredRoots) {
+      if (_pageById(id)?.isTrashed != true) continue;
+      final ids = _trashedSubtreeIds(id);
+      final sorted = List<String>.from(ids)
+        ..sort((a, b) => _pageDepth(b).compareTo(_pageDepth(a)));
+      for (final pageId in sorted) {
+        _hardDeletePage(pageId);
+      }
+    }
+    notifyListeners();
+    scheduleSave();
+  }
+
+  void _hardDeletePage(String id) {
     final idx = _pages.indexWhere((p) => p.id == id);
     if (idx < 0) return;
     final doomed = _pages[idx];
@@ -3068,6 +3325,22 @@ class VaultSession extends ChangeNotifier {
       _pickInitialSelection();
       unawaited(_persistLastSelectedPageForActiveVault(_selectedPageId));
     }
+  }
+
+  void deletePage(String id) {
+    if (activePages.length <= 1) return;
+    if (_hasAnyChildrenIncludingTrashed(id)) return;
+    final page = _pageById(id);
+    if (page == null) return;
+    if (page.isTrashed) {
+      _hardDeletePage(id);
+      notifyListeners();
+      scheduleSave();
+      return;
+    }
+    // Compat: hard-delete solo de hojas; la UI usa [movePageToTrash].
+    if (_hasChildren(id)) return;
+    _hardDeletePage(id);
     notifyListeners();
     scheduleSave();
   }
@@ -4562,7 +4835,7 @@ class VaultSession extends ChangeNotifier {
 
   void _rebuildSearchIndex() {
     if (_state != VaultFlowState.unlocked) return;
-    _searchIndex.rebuildFromPages(_pages);
+    _searchIndex.rebuildFromPages(_pages.where((p) => !p.isTrashed).toList());
     final id = _vaultId;
     if (id == null) return;
     if (_vaultUsesEncryption) {
@@ -5197,12 +5470,13 @@ class VaultSession extends ChangeNotifier {
 
   /// Selección por defecto sin leer preferencias (p. ej. tras borrar página).
   void _pickInitialSelection() {
-    if (_pages.isEmpty) {
+    final active = _pages.where((p) => !p.isTrashed).toList();
+    if (active.isEmpty) {
       _selectedPageId = null;
       return;
     }
-    final roots = _pages.where((p) => p.parentId == null).toList();
-    _selectedPageId = roots.isNotEmpty ? roots.first.id : _pages.first.id;
+    final roots = active.where((p) => p.parentId == null).toList();
+    _selectedPageId = roots.isNotEmpty ? roots.first.id : active.first.id;
   }
 
   @override

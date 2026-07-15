@@ -365,8 +365,38 @@ Future<void> downloadFolioCloudBackup({
   }
 }
 
-Future<void> deleteFolioCloudBackup({
+/// Elimina el cloud-pack incremental de una libreta (blobs + snapshot + cuota).
+///
+/// Devuelve `true` si la libreta quedó sin copias y se eliminó su presencia en
+/// Folio Cloud (índice + Storage + meta).
+Future<bool> deleteFolioCloudPack({
+  required String vaultId,
+  FolioCloudSnapshot? entitlementSnapshot,
+}) async {
+  _requireCloudBackupEntitlement(entitlementSnapshot);
+  if (Firebase.apps.isEmpty) {
+    throw StateError('Firebase not initialized');
+  }
+  if (FirebaseAuth.instance.currentUser == null) {
+    throw StateError('Not signed in');
+  }
+  final id = vaultId.trim();
+  if (id.isEmpty) {
+    throw ArgumentError('vaultId vacío');
+  }
+  final raw = await callFolioHttpsCallable(
+    'folioDeleteVaultCloudPack',
+    <String, dynamic>{'vaultId': id},
+  );
+  if (raw is Map && raw['vaultRemoved'] == true) return true;
+  return false;
+}
+
+/// Elimina una copia. Si era la última de la libreta, purga esa libreta de la
+/// nube. Devuelve `true` cuando la libreta desapareció del índice cloud.
+Future<bool> deleteFolioCloudBackup({
   required FolioCloudBackupEntry entry,
+  String? vaultId,
   FolioCloudSnapshot? entitlementSnapshot,
 }) async {
   _requireCloudBackupEntitlement(entitlementSnapshot);
@@ -375,8 +405,35 @@ Future<void> deleteFolioCloudBackup({
   }
   final user = FirebaseAuth.instance.currentUser;
   if (user == null) throw StateError('Not signed in');
-  final ref = FirebaseStorage.instance.ref(entry.storagePath);
-  await ref.delete();
+
+  var id = vaultId?.trim() ?? '';
+  if (id.isEmpty) {
+    final parts = entry.storagePath.split('/');
+    final vaultIdx = parts.indexOf('vaults');
+    id = vaultIdx >= 0 && vaultIdx + 1 < parts.length
+        ? parts[vaultIdx + 1]
+        : '';
+  }
+  if (id.isEmpty) {
+    throw StateError('No se pudo determinar la libreta de la copia.');
+  }
+
+  if (entry.isCloudPack) {
+    return deleteFolioCloudPack(
+      vaultId: id,
+      entitlementSnapshot: entitlementSnapshot,
+    );
+  }
+
+  final raw = await callFolioHttpsCallable(
+    'folioDeleteVaultLegacyBackup',
+    <String, dynamic>{
+      'vaultId': id,
+      'storagePath': entry.storagePath,
+    },
+  );
+  if (raw is Map && raw['vaultRemoved'] == true) return true;
+  return false;
 }
 
 Future<void> trimFolioCloudBackups({

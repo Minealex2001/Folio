@@ -80,7 +80,10 @@ class PageTreeController extends ChangeNotifier {
   List<FolioPage> childrenForParent(String? parentId) {
     ensureOrderForCurrentPages();
     final order = _orderProvider()[_orderKeyForParent(parentId)] ?? const [];
-    final byId = <String, FolioPage>{for (final p in _pagesProvider()) p.id: p};
+    final byId = <String, FolioPage>{
+      for (final p in _pagesProvider())
+        if (!p.isTrashed) p.id: p,
+    };
     return order
         .map((id) => byId[id])
         .whereType<FolioPage>()

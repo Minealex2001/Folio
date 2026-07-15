@@ -1529,6 +1529,12 @@ class AppLocalizationsPt extends AppLocalizations {
   String get aiCollapse => 'Recolher';
 
   @override
+  String get sidebarItemExpandedSemantics => 'Expandido';
+
+  @override
+  String get sidebarItemCollapsedSemantics => 'Recolhido';
+
+  @override
   String get aiDeleteCurrentChat => 'Excluir chat atual';
 
   @override
@@ -2066,7 +2072,7 @@ class AppLocalizationsPt extends AppLocalizations {
 
   @override
   String get scheduledVaultBackupFolderSubtitle =>
-      'Salva um backup cifrado em ZIP na pasta configurada a cada intervalo.';
+      'Salva um backup cifrado incremental (pack) na pasta configurada.';
 
   @override
   String get scheduledVaultBackupChooseFolder => 'Pasta de backup';
@@ -2080,10 +2086,13 @@ class AppLocalizationsPt extends AppLocalizations {
 
   @override
   String get scheduledVaultBackupCloudOnlySubtitle =>
-      'Não guarda ZIPs no disco. Envia backups apenas para a nuvem.';
+      'Não guarda backups no disco. Envia backups incrementais apenas para a nuvem.';
 
   @override
   String get scheduledVaultBackupIntervalLabel => 'Intervalo entre backups';
+
+  @override
+  String get scheduledVaultBackupEveryChange => 'A cada alteração';
 
   @override
   String scheduledVaultBackupEveryNMinutes(int n) {
@@ -2280,6 +2289,14 @@ class AppLocalizationsPt extends AppLocalizations {
 
   @override
   String get remoteBackupRestoreOpen => 'Restaurar do NAS ou servidor';
+
+  @override
+  String remoteBackupRestoreIncrementalPackTitle(String vaultId) {
+    return 'Backup incremental ($vaultId)';
+  }
+
+  @override
+  String get remoteBackupRestoreIncrementalPackSubtitle => 'Pack incremental';
 
   @override
   String get remoteBackupExportDestinationTitle => 'Onde guardar a cópia?';
@@ -3442,7 +3459,7 @@ class AppLocalizationsPt extends AppLocalizations {
 
   @override
   String get scheduledVaultBackupCloudSyncSubtitle =>
-      'Em cada intervalo agendado, envia automaticamente um backup cifrado para sua conta no Folio Cloud.';
+      'Envia automaticamente um backup cifrado incremental para a sua conta Folio Cloud (no intervalo escolhido ou a cada alteração).';
 
   @override
   String get folioCloudCloudBackupsList => 'Backups na nuvem';
@@ -3907,6 +3924,13 @@ class AppLocalizationsPt extends AppLocalizations {
   @override
   String get settingsWindowsNotificationsSubtitle =>
       'Mostra alertas nativas do Windows quando uma tarefa vence hoje ou está atrasada';
+
+  @override
+  String get settingsLaunchAtStartup => 'Iniciar com o Windows';
+
+  @override
+  String get settingsLaunchAtStartupSubtitle =>
+      'Abre o Folio automaticamente ao iniciar sessão no Windows';
 
   @override
   String get title => 'Título';
@@ -5316,6 +5340,11 @@ class AppLocalizationsPt extends AppLocalizations {
   String get confirmRemoteEndpointTitle => 'Confirmar endpoint remoto';
 
   @override
+  String confirmRemoteEndpointBody(Object host) {
+    return 'Você está prestes a ativar a IA com um host remoto ($host). O conteúdo que enviar pode sair deste dispositivo.\n\nContinuar?';
+  }
+
+  @override
   String get shortcutGlobalSearchKeyChord => 'Ctrl + Shift + F';
 
   @override
@@ -6016,20 +6045,64 @@ class AppLocalizationsPt extends AppLocalizations {
       'Ainda não importou ícones em Definições.';
 
   @override
-  String get sidebarDeletePageMenuTitle => 'Eliminar página';
+  String get sidebarDeletePageMenuTitle => 'Mover para a lixeira';
 
   @override
-  String get sidebarDeleteFolderMenuTitle => 'Remover pasta';
+  String get sidebarDeleteFolderMenuTitle => 'Mover pasta para a lixeira';
 
   @override
   String sidebarDeletePageConfirmInline(Object title) {
-    return 'Eliminar «$title»? Não é possível anular.';
+    return 'Mover «$title» para a lixeira? Poderá restaurá-la durante 30 dias.';
   }
 
   @override
   String sidebarDeleteFolderConfirmInline(Object title) {
-    return 'Remover pasta «$title»? As subpáginas passam para a raiz do caderno.';
+    return 'Mover a pasta «$title» e o seu conteúdo para a lixeira? Poderá restaurá-la durante 30 dias.';
   }
+
+  @override
+  String get sidebarTrashTitle => 'Lixeira';
+
+  @override
+  String get sidebarTrashEmpty => 'A lixeira está vazia';
+
+  @override
+  String get sidebarTrashRetentionHint =>
+      'Os itens são eliminados automaticamente após 30 dias.';
+
+  @override
+  String get sidebarTrashRestore => 'Restaurar';
+
+  @override
+  String get sidebarTrashDeleteForever => 'Eliminar definitivamente';
+
+  @override
+  String get sidebarTrashEmptyAction => 'Esvaziar lixeira';
+
+  @override
+  String get sidebarTrashEmptyConfirm =>
+      'Esvaziar a lixeira? Esta ação não pode ser anulada.';
+
+  @override
+  String sidebarTrashDeleteForeverConfirm(Object title) {
+    return 'Eliminar «$title» de forma definitiva? Esta ação não pode ser anulada.';
+  }
+
+  @override
+  String sidebarTrashDaysLeft(int days) {
+    return 'Restam $days dias';
+  }
+
+  @override
+  String get sidebarTrashOpenTooltip => 'Abrir lixeira';
+
+  @override
+  String sidebarTrashCountBadge(int count) {
+    return '$count';
+  }
+
+  @override
+  String get sidebarTrashClose => 'Fechar';
 
   @override
   String get settingsStripeSubscriptionRefreshed =>
@@ -6088,6 +6161,10 @@ class AppLocalizationsPt extends AppLocalizations {
   String get settingsCloudBackupDeletedSnack => 'Cópia eliminada.';
 
   @override
+  String get settingsCloudBackupVaultRemovedSnack =>
+      'Cópia eliminada. Este caderno já não tem cópias no Folio Cloud e foi removido da nuvem.';
+
+  @override
   String get settingsCloudBackupImportedSnack => 'Importação concluída.';
 
   @override
@@ -6113,6 +6190,20 @@ class AppLocalizationsPt extends AppLocalizations {
   @override
   String get settingsCloudBackupDeleteWarning =>
       'Tem a certeza de que quer eliminar esta cópia da nuvem? Esta ação não pode ser anulada.';
+
+  @override
+  String get settingsCloudBackupDeleteCloudPackWarning =>
+      'Tem a certeza de que quer eliminar a cópia incremental deste caderno? Todos os dados na nuvem serão removidos e não poderá restaurá-la até carregar uma nova. Esta ação não pode ser anulada.';
+
+  @override
+  String get settingsCloudBackupsManageHint =>
+      'Faça a gestão das cópias deste caderno. Ao eliminar, liberta espaço da sua cota.';
+
+  @override
+  String get settingsCloudBackupDeleteTooltip => 'Eliminar cópia';
+
+  @override
+  String get settingsCloudBackupsSheetTitle => 'Cópias na nuvem';
 
   @override
   String get settingsPublishedRequiresPlan =>

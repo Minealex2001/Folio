@@ -11,7 +11,8 @@ import '../services/ai/ai_types.dart';
 /// Esquema 4: chats de IA. Esquema 5: `FolioPage.collabRoomId` y comentarios de archivo collab.
 /// Esquema 6: orden persistido del árbol de páginas (sidebar) por `parentId`.
 /// Esquema 7: estado de integraciones nativas (Jira).
-const int kVaultPayloadVersion = 7;
+/// Esquema 8: papelera de páginas (`FolioPage.trashedAt`).
+const int kVaultPayloadVersion = 8;
 
 class VaultPayload {
   VaultPayload({

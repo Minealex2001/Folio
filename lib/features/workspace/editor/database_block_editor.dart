@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:uuid/uuid.dart';
 
+import '../../../app/widgets/folio_dialog.dart';
 import '../../../l10n/generated/app_localizations.dart';
 import '../../../models/folio_database_data.dart';
 import '../../../services/ai/ai_service.dart';
@@ -179,7 +180,7 @@ class _DatabaseBlockEditorState extends State<DatabaseBlockEditor> {
     var selectedType = active.type;
     final ok = await showDialog<bool>(
       context: context,
-      builder: (ctx) => AlertDialog(
+      builder: (ctx) => FolioDialog(
         title: Text(_t('Nueva vista', 'New view')),
         content: Column(
           mainAxisSize: MainAxisSize.min,
@@ -275,7 +276,7 @@ class _DatabaseBlockEditorState extends State<DatabaseBlockEditor> {
     final ctrl = TextEditingController(text: active.name);
     final ok = await showDialog<bool>(
       context: context,
-      builder: (ctx) => AlertDialog(
+      builder: (ctx) => FolioDialog(
         title: Text(_t('Renombrar vista', 'Rename view')),
         content: TextField(
           controller: ctrl,
@@ -1417,7 +1418,7 @@ class _DatabaseBlockEditorState extends State<DatabaseBlockEditor> {
                 final ctrl = TextEditingController();
                 final tag = await showDialog<String>(
                   context: context,
-                  builder: (ctx) => AlertDialog(
+                  builder: (ctx) => FolioDialog(
                     title: Text(_t('Añadir etiqueta', 'Add tag')),
                     content: TextField(
                       controller: ctrl,
@@ -1499,7 +1500,7 @@ class _DatabaseBlockEditorState extends State<DatabaseBlockEditor> {
     final ok = await showDialog<bool>(
       context: context,
       builder: (ctx) {
-        return AlertDialog(
+        return FolioDialog(
           title: Text(l10n.databaseNewPropertyDialogTitle),
           content: Column(
             mainAxisSize: MainAxisSize.min,
@@ -1561,7 +1562,7 @@ class _DatabaseBlockEditorState extends State<DatabaseBlockEditor> {
       context: context,
       builder: (ctx) {
         final dlgL10n = AppLocalizations.of(ctx);
-        return AlertDialog(
+        return FolioDialog(
           title: Text(dlgL10n.databaseConfigurePropertyTitle(property.name)),
           content: SizedBox(
             width: 520,
@@ -1755,7 +1756,7 @@ class _DatabaseBlockEditorState extends State<DatabaseBlockEditor> {
     await showDialog<void>(
       context: context,
       builder: (ctx) {
-        return AlertDialog(
+        return FolioDialog(
           title: Text(l10n.databaseRelateRowsTitle(relationProp.name)),
           content: SizedBox(
             width: 420,

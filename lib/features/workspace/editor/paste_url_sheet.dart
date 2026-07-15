@@ -141,7 +141,7 @@ Future<String?> showFolioPagePickerForMention(
   String? excludePageId,
 }) {
   final l10n = AppLocalizations.of(context);
-  final pages = session.pages;
+  final pages = session.activePages;
   return showModalBottomSheet<String>(
     context: context,
     showDragHandle: true,

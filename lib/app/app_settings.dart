@@ -1,9 +1,11 @@
 import 'dart:convert';
+import 'dart:io';
 import 'dart:ui' show PlatformDispatcher;
 
 import 'package:flutter/foundation.dart'
     show TargetPlatform, defaultTargetPlatform, kIsWeb, listEquals;
 import 'package:flutter/material.dart';
+import 'package:launch_at_startup/launch_at_startup.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:system_theme/system_theme.dart';
 
@@ -13,6 +15,7 @@ import 'folio_in_app_shortcuts.dart';
 import 'workspace_prefs_keys.dart';
 import '../models/folio_usage_intent.dart';
 import '../models/quill_system_prompt.dart';
+import '../services/app_logger.dart';
 import '../services/transcription_hardware_profile.dart';
 import '../services/updater/update_release_channel.dart';
 import '../services/whisper_service.dart';
@@ -271,6 +274,10 @@ class VaultBackupPrefs {
 
   static const VaultBackupPrefs defaults = VaultBackupPrefs();
 
+  /// Intervalo `0` = copia automática tras cada cambio (con debounce).
+  bool get isContinuous =>
+      AppSettings.isContinuousVaultBackupInterval(intervalMinutes);
+
   bool get hasFolderDestination => folderEnabled && directory.trim().isNotEmpty;
 
   bool get hasWebDavDestination =>
@@ -352,6 +359,7 @@ class AppSettings extends ChangeNotifier {
   static const _closeToTrayKey = 'folio_close_to_tray';
   static const _windowsNotificationsEnabledKey =
       'folio_windows_notifications_enabled';
+  static const _launchAtStartupEnabledKey = 'folio_launch_at_startup_enabled';
   static const _aiEnabledKey = 'folio_ai_enabled';
   static const _aiProviderKey = 'folio_ai_provider';
   static const _aiBaseUrlKey = 'folio_ai_base_url';
@@ -484,8 +492,9 @@ class AppSettings extends ChangeNotifier {
   static const String distributionChannelFromEnvironment =
       FolioDistribution.raw;
 
-  /// 30 min, luego cada hora hasta 24 h (índices del slider / menú).
+  /// `0` = en cada cambio; luego 30 min y cada hora hasta 24 h.
   static const List<int> scheduledVaultBackupIntervalChoicesMinutes = [
+    0,
     30,
     60,
     120,
@@ -513,12 +522,23 @@ class AppSettings extends ChangeNotifier {
     1440,
   ];
 
+  static const int continuousVaultBackupIntervalMinutes = 0;
+
   static const int defaultScheduledVaultBackupIntervalMinutes = 1440;
 
+  static bool isContinuousVaultBackupInterval(int minutes) =>
+      minutes == continuousVaultBackupIntervalMinutes;
+
   static int nearestScheduledBackupIntervalMinutes(int minutes) {
-    var best = scheduledVaultBackupIntervalChoicesMinutes.first;
+    if (isContinuousVaultBackupInterval(minutes)) {
+      return continuousVaultBackupIntervalMinutes;
+    }
+    var best = scheduledVaultBackupIntervalChoicesMinutes
+        .where((m) => m > 0)
+        .first;
     var bestDist = (minutes - best).abs();
     for (final m in scheduledVaultBackupIntervalChoicesMinutes) {
+      if (m == 0) continue;
       final d = (minutes - m).abs();
       if (d < bestDist) {
         best = m;
@@ -585,6 +605,7 @@ class AppSettings extends ChangeNotifier {
   bool _minimizeToTray = false;
   bool _closeToTray = true;
   bool _windowsNotificationsEnabled = false;
+  bool _launchAtStartupEnabled = false;
   bool _aiEnabled = false;
   AiProvider _aiProvider = AiProvider.none;
   String _aiBaseUrl = defaultOllamaUrl;
@@ -709,6 +730,7 @@ class AppSettings extends ChangeNotifier {
   bool get minimizeToTray => _minimizeToTray;
   bool get closeToTray => _closeToTray;
   bool get windowsNotificationsEnabled => _windowsNotificationsEnabled;
+  bool get launchAtStartupEnabled => _launchAtStartupEnabled;
   bool get aiEnabled => _aiEnabled;
   AiProvider get aiProvider => _aiProvider;
   String get aiBaseUrl => _aiBaseUrl;
@@ -906,6 +928,28 @@ class AppSettings extends ChangeNotifier {
     _closeToTray = p.getBool(_closeToTrayKey) ?? true;
     _windowsNotificationsEnabled =
         p.getBool(_windowsNotificationsEnabledKey) ?? false;
+    if (!kIsWeb && Platform.isWindows) {
+      try {
+        launchAtStartup.setup(
+          appName: 'Folio',
+          appPath: Platform.resolvedExecutable,
+          packageName: 'MinealexGames.Folio-PrivateWorkspace',
+        );
+        final actual = await launchAtStartup.isEnabled();
+        _launchAtStartupEnabled = actual;
+        final persisted = p.getBool(_launchAtStartupEnabledKey) ?? false;
+        if (actual != persisted) {
+          await p.setBool(_launchAtStartupEnabledKey, actual);
+        }
+      } catch (e, st) {
+        AppLogger.warn(
+          'launch_at_startup setup/self-heal failed',
+          tag: 'bootstrap',
+          context: {'error': '$e', 'stack': '$st'},
+        );
+        _launchAtStartupEnabled = p.getBool(_launchAtStartupEnabledKey) ?? false;
+      }
+    }
     _aiEnabled = p.getBool(_aiEnabledKey) ?? false;
     _aiProvider = _parseAiProvider(p.getString(_aiProviderKey));
     if (!aiLocalProvidersSupported &&
@@ -1590,6 +1634,28 @@ class AppSettings extends ChangeNotifier {
     notifyListeners();
     final p = await _prefs();
     await p.setBool(_windowsNotificationsEnabledKey, value);
+  }
+
+  Future<void> setLaunchAtStartupEnabled(bool value) async {
+    if (_launchAtStartupEnabled == value) return;
+    try {
+      if (value) {
+        await launchAtStartup.enable();
+      } else {
+        await launchAtStartup.disable();
+      }
+    } catch (e, st) {
+      AppLogger.warn(
+        'launch_at_startup toggle failed',
+        tag: 'settings',
+        context: {'error': '$e', 'stack': '$st'},
+      );
+      return;
+    }
+    _launchAtStartupEnabled = value;
+    notifyListeners();
+    final p = await _prefs();
+    await p.setBool(_launchAtStartupEnabledKey, value);
   }
 
   Future<void> setAiEnabled(bool value) async {

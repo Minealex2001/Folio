@@ -6,11 +6,19 @@ class RemoteBackupEntry {
     required this.name,
     this.modifiedAt,
     this.sizeBytes,
+    this.isIncrementalPack = false,
+    this.packVaultId,
   });
 
   final String name;
   final DateTime? modifiedAt;
   final int? sizeBytes;
+
+  /// Copia pack incremental (`folio-packs/<vaultId>/`), no un ZIP.
+  final bool isIncrementalPack;
+
+  /// Id de libreta del pack cuando [isIncrementalPack] es true.
+  final String? packVaultId;
 }
 
 /// Destino de copia de seguridad (carpeta local/UNC o WebDAV).

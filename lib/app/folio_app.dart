@@ -12,6 +12,8 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../core/bootstrap/app_bootstrap.dart';
 import '../core/bootstrap/bootstrap_phase.dart';
+import 'widgets/folio_dialog.dart';
+import 'widgets/folio_skeletons.dart';
 import '../data/vault_backup.dart';
 import '../desktop/desktop_integration.dart';
 import '../l10n/generated/app_localizations.dart';
@@ -97,6 +99,11 @@ class _FolioAppState extends State<FolioApp> with WidgetsBindingObserver {
   bool _releaseNotesShownThisRun = false;
   bool _handledInitialLaunchArgs = false;
   Timer? _scheduledVaultBackupTimer;
+  Timer? _continuousVaultBackupDebounce;
+  bool _continuousVaultBackupRunning = false;
+  bool _continuousVaultBackupDirty = false;
+  static const Duration _continuousVaultBackupDebounceDuration =
+      Duration(seconds: 45);
   TaskReminderService? _taskReminderService;
   StreamSubscription<List<TaskReminderEvent>>? _reminderSub;
 
@@ -233,7 +240,7 @@ class _FolioAppState extends State<FolioApp> with WidgetsBindingObserver {
     widget.session.onSyncConflictCountChanged = (count) {
       unawaited(widget.appSettings.setSyncPendingConflicts(count));
     };
-    widget.session.onPersisted = _deviceSyncController.onLocalSnapshotPersisted;
+    widget.session.onPersisted = _onVaultPersisted;
     _launchArgsSub = PlatformLaunchArguments.launchArguments().listen((args) {
       unawaited(_handleLaunchArguments(args, focusWindow: false));
     });
@@ -249,6 +256,7 @@ class _FolioAppState extends State<FolioApp> with WidgetsBindingObserver {
     _reminderSub?.cancel();
     _taskReminderService?.dispose();
     _scheduledVaultBackupTimer?.cancel();
+    _continuousVaultBackupDebounce?.cancel();
     _launchArgsSub?.cancel();
     _accentSub?.cancel();
     unawaited(_integrationsBridge.dispose());
@@ -435,6 +443,57 @@ class _FolioAppState extends State<FolioApp> with WidgetsBindingObserver {
     }
   }
 
+  void _onVaultPersisted() {
+    _deviceSyncController.onLocalSnapshotPersisted();
+    unawaited(_scheduleContinuousVaultBackupAfterPersist());
+  }
+
+  Future<void> _scheduleContinuousVaultBackupAfterPersist() async {
+    if (!mounted) return;
+    if (widget.session.state != VaultFlowState.unlocked) return;
+    final vaultId = widget.session.activeVaultId ?? '';
+    final prefs = await widget.appSettings.getVaultBackupPrefs(
+      vaultId.isEmpty ? null : vaultId,
+    );
+    if (!prefs.enabled || !prefs.isContinuous) return;
+    final canCloud =
+        Firebase.apps.isNotEmpty &&
+        FirebaseAuth.instance.currentUser != null &&
+        _folioCloudEntitlements.snapshot.canUseCloudBackup;
+    if (!scheduledVaultBackupHasDestination(prefs, canCloud: canCloud)) {
+      return;
+    }
+    _continuousVaultBackupDirty = true;
+    _continuousVaultBackupDebounce?.cancel();
+    _continuousVaultBackupDebounce = Timer(
+      _continuousVaultBackupDebounceDuration,
+      () => unawaited(_runContinuousVaultBackupIfNeeded()),
+    );
+  }
+
+  Future<void> _runContinuousVaultBackupIfNeeded() async {
+    if (!mounted) return;
+    if (_continuousVaultBackupRunning) {
+      _continuousVaultBackupDirty = true;
+      return;
+    }
+    if (!_continuousVaultBackupDirty) return;
+    _continuousVaultBackupDirty = false;
+    _continuousVaultBackupRunning = true;
+    try {
+      await _executeScheduledVaultBackup(showSuccessSnack: false);
+      if (_continuousVaultBackupDirty && mounted) {
+        _continuousVaultBackupDebounce?.cancel();
+        _continuousVaultBackupDebounce = Timer(
+          _continuousVaultBackupDebounceDuration,
+          () => unawaited(_runContinuousVaultBackupIfNeeded()),
+        );
+      }
+    } finally {
+      _continuousVaultBackupRunning = false;
+    }
+  }
+
   Future<void> _maybeRunScheduledVaultBackup() async {
     if (!mounted) return;
     if (widget.session.state != VaultFlowState.unlocked) return;
@@ -443,6 +502,8 @@ class _FolioAppState extends State<FolioApp> with WidgetsBindingObserver {
       vaultId.isEmpty ? null : vaultId,
     );
     if (!prefs.enabled) return;
+    // El modo continuo se dispara tras persist; el timer solo cubre intervalos fijos.
+    if (prefs.isContinuous) return;
     final canCloud =
         Firebase.apps.isNotEmpty &&
         FirebaseAuth.instance.currentUser != null &&
@@ -454,6 +515,13 @@ class _FolioAppState extends State<FolioApp> with WidgetsBindingObserver {
     final now = DateTime.now().millisecondsSinceEpoch;
     final last = prefs.lastMs;
     if (last > 0 && now - last < intervalMs) return;
+    await _executeScheduledVaultBackup(showSuccessSnack: true);
+  }
+
+  Future<void> _executeScheduledVaultBackup({
+    required bool showSuccessSnack,
+  }) async {
+    final vaultId = widget.session.activeVaultId ?? '';
     try {
       await runScheduledFolderVaultExport(
         session: widget.session,
@@ -461,6 +529,7 @@ class _FolioAppState extends State<FolioApp> with WidgetsBindingObserver {
         vaultId: vaultId.isEmpty ? null : vaultId,
         folioEntitlements: _folioCloudEntitlements,
       );
+      if (!showSuccessSnack) return;
       final okCtx = _navKey.currentContext;
       if (okCtx == null || !okCtx.mounted) return;
       _showSnack(AppLocalizations.of(okCtx).scheduledVaultBackupSnackOk);
@@ -539,7 +608,7 @@ class _FolioAppState extends State<FolioApp> with WidgetsBindingObserver {
         context: ctx,
         barrierDismissible: false,
         builder: (dialogCtx) {
-          return AlertDialog(
+          return FolioDialog(
             title: Text(isEs ? 'Solicitud de vinculacion' : 'Link request'),
             content: Column(
               mainAxisSize: MainAxisSize.min,
@@ -1164,31 +1233,19 @@ class _FolioAppState extends State<FolioApp> with WidgetsBindingObserver {
       final betaNote = result.isPrerelease
           ? '\n\n${l10n.updaterStartupDialogBetaNote}'
           : '';
-      final shouldInstall = await showDialog<bool>(
-        context: dialogCtx,
-        builder: (ctx) {
-          return AlertDialog(
-            title: Text(
-              result.isPrerelease
-                  ? l10n.updaterStartupDialogTitleBeta
-                  : l10n.updaterStartupDialogTitleStable,
-            ),
-            content: Text(
-              '${l10n.updaterStartupDialogBody(result.releaseVersion.toString())}$betaNote\n\n'
-              '${defaultTargetPlatform == TargetPlatform.android ? l10n.updaterOpenApkDownloadQuestion : l10n.updaterStartupDialogQuestion}',
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(ctx, false),
-                child: Text(l10n.updaterStartupDialogLater),
-              ),
-              FilledButton(
-                onPressed: () => Navigator.pop(ctx, true),
-                child: Text(l10n.updaterStartupDialogUpdateNow),
-              ),
-            ],
-          );
-        },
+      final shouldInstall = await FolioDialog.confirm(
+        dialogCtx,
+        title: Text(
+          result.isPrerelease
+              ? l10n.updaterStartupDialogTitleBeta
+              : l10n.updaterStartupDialogTitleStable,
+        ),
+        content: Text(
+          '${l10n.updaterStartupDialogBody(result.releaseVersion.toString())}$betaNote\n\n'
+          '${defaultTargetPlatform == TargetPlatform.android ? l10n.updaterOpenApkDownloadQuestion : l10n.updaterStartupDialogQuestion}',
+        ),
+        cancelLabel: l10n.updaterStartupDialogLater,
+        confirmLabel: l10n.updaterStartupDialogUpdateNow,
       );
       if (shouldInstall == true) {
         if (defaultTargetPlatform == TargetPlatform.android) {
@@ -1436,7 +1493,7 @@ class _IntegrationApprovalDialog extends StatelessWidget {
       );
     }
 
-    return AlertDialog(
+    return FolioDialog(
       insetPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
       content: SizedBox(
         width: 640,
@@ -1820,7 +1877,7 @@ class _HomeByState extends StatelessWidget {
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                CircularProgressIndicator(color: scheme.primary),
+                FolioLoadingIndicator(color: scheme.primary),
                 const SizedBox(height: 16),
                 Text(
                   l10n.loading,

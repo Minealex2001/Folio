@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
+import '../../../app/widgets/folio_dialog.dart';
 import '../../../l10n/generated/app_localizations.dart';
 import '../../../models/folio_app_package.dart';
 import '../../../models/folio_app_registry_entry.dart';
@@ -348,28 +349,13 @@ class _AppDetailSheetState extends State<AppDetailSheet> {
   }
 
   Future<void> _uninstall() async {
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (ctx) {
-        final innerL10n = AppLocalizations.of(ctx);
-        return AlertDialog(
-          title: Text(innerL10n.appStoreUninstallTitle),
-          content: Text(innerL10n.appStoreUninstallBody(_appName)),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(ctx).pop(false),
-              child: Text(innerL10n.cancel),
-            ),
-            FilledButton(
-              style: FilledButton.styleFrom(
-                backgroundColor: Theme.of(ctx).colorScheme.error,
-              ),
-              onPressed: () => Navigator.of(ctx).pop(true),
-              child: Text(innerL10n.appStoreUninstallButton),
-            ),
-          ],
-        );
-      },
+    final l10n = AppLocalizations.of(context);
+    final confirmed = await FolioDialog.confirm(
+      context,
+      title: Text(l10n.appStoreUninstallTitle),
+      content: Text(l10n.appStoreUninstallBody(_appName)),
+      confirmLabel: l10n.appStoreUninstallButton,
+      destructive: true,
     );
     if (confirmed != true || !mounted) return;
     await _store.uninstall(_appId);
@@ -417,41 +403,28 @@ class _AppDetailSheetState extends State<AppDetailSheet> {
     required String appName,
     required List<FolioAppPermission> permissions,
   }) async {
-    final result = await showDialog<bool>(
-      context: context,
-      builder: (ctx) {
-        final innerL10n = AppLocalizations.of(ctx);
-        return AlertDialog(
-          title: Text(innerL10n.appStoreInstallFromRegistryTitle(appName)),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(innerL10n.appStoreInstallUnverifiedLocalBody),
-              if (permissions.isNotEmpty) ...[
-                const SizedBox(height: 12),
-                Text(
-                  innerL10n.appStorePermissionsRequested,
-                  style: const TextStyle(fontWeight: FontWeight.w600),
-                ),
-                const SizedBox(height: 4),
-                for (final p in permissions)
-                  Text('• ${folioAppPermissionDisplayName(p)}'),
-              ],
-            ],
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(ctx).pop(false),
-              child: Text(innerL10n.cancel),
+    final l10n = AppLocalizations.of(context);
+    final result = await FolioDialog.confirm(
+      context,
+      title: Text(l10n.appStoreInstallFromRegistryTitle(appName)),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(l10n.appStoreInstallUnverifiedLocalBody),
+          if (permissions.isNotEmpty) ...[
+            const SizedBox(height: 12),
+            Text(
+              l10n.appStorePermissionsRequested,
+              style: const TextStyle(fontWeight: FontWeight.w600),
             ),
-            FilledButton(
-              onPressed: () => Navigator.of(ctx).pop(true),
-              child: Text(innerL10n.appStoreInstallButton),
-            ),
+            const SizedBox(height: 4),
+            for (final p in permissions)
+              Text('• ${folioAppPermissionDisplayName(p)}'),
           ],
-        );
-      },
+        ],
+      ),
+      confirmLabel: l10n.appStoreInstallButton,
     );
     return result == true;
   }

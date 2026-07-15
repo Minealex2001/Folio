@@ -2,6 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
+import '../../app/widgets/folio_skeletons.dart';
 import '../../l10n/generated/app_localizations.dart';
 import '../../services/folio_cloud/folio_cloud_entitlements.dart';
 import '../../services/folio_firestore_support.dart';
@@ -230,11 +231,7 @@ class _TelemetryDashboardPageState extends State<TelemetryDashboardPage> {
           if (_isFlushing)
             const Padding(
               padding: EdgeInsets.all(14),
-              child: SizedBox(
-                width: 20,
-                height: 20,
-                child: CircularProgressIndicator(strokeWidth: 2),
-              ),
+              child: FolioLoadingIndicator(size: FolioLoadingSize.small),
             )
           else
             IconButton(
@@ -259,7 +256,7 @@ class _TelemetryDashboardPageState extends State<TelemetryDashboardPage> {
               future: _loadData(),
               builder: (context, snapshot) {
                 if (snapshot.connectionState == ConnectionState.waiting) {
-                  return const Center(child: CircularProgressIndicator());
+                  return const FolioLoadingIndicator(centered: true);
                 }
                 if (snapshot.hasError) {
                   return Center(

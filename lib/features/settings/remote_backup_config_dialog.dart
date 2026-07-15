@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import '../../app/app_settings.dart';
 import '../../app/widgets/folio_dialog.dart';
 import '../../app/widgets/folio_password_field.dart';
+import '../../app/widgets/folio_skeletons.dart';
 import '../../data/vault_backup.dart';
 import '../../l10n/generated/app_localizations.dart';
 import '../../services/backup_destinations/local_folder_destination.dart';
@@ -381,11 +382,7 @@ class _RemoteBackupConfigDialogState extends State<RemoteBackupConfigDialog>
         OutlinedButton.icon(
           onPressed: _testing ? null : _testFolder,
           icon: _testing
-              ? const SizedBox(
-                  width: 16,
-                  height: 16,
-                  child: CircularProgressIndicator(strokeWidth: 2),
-                )
+              ? const FolioLoadingIndicator(size: FolioLoadingSize.small)
               : const Icon(Icons.lan_outlined),
           label: Text(l10n.remoteBackupTestConnection),
         ),
@@ -440,11 +437,7 @@ class _RemoteBackupConfigDialogState extends State<RemoteBackupConfigDialog>
         OutlinedButton.icon(
           onPressed: _testing ? null : _testWebdav,
           icon: _testing
-              ? const SizedBox(
-                  width: 16,
-                  height: 16,
-                  child: CircularProgressIndicator(strokeWidth: 2),
-                )
+              ? const FolioLoadingIndicator(size: FolioLoadingSize.small)
               : const Icon(Icons.cloud_outlined),
           label: Text(l10n.remoteBackupTestConnection),
         ),

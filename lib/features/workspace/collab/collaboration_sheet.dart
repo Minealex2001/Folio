@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../../../app/ui_tokens.dart';
+import '../../../app/widgets/folio_skeletons.dart';
 import '../../../l10n/generated/app_localizations.dart';
 import '../../../services/collab/collab_session_controller.dart';
 import '../editor/block_editor_support_widgets.dart';
@@ -294,11 +295,7 @@ class _CollaborationSheetBodyState extends State<CollaborationSheetBody> {
             ),
           ),
           if (_busy)
-            const SizedBox(
-              width: 22,
-              height: 22,
-              child: CircularProgressIndicator(strokeWidth: 2),
-            ),
+            const FolioLoadingIndicator(size: FolioLoadingSize.small),
           if (widget.embedded && widget.onRequestMinimize != null) ...[
             const SizedBox(width: 4),
             IconButton(

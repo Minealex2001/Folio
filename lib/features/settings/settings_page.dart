@@ -75,6 +75,7 @@ import '../../services/platform/browser_file_download.dart';
 import '../../services/secure_credential_storage.dart';
 import '../../services/backup_destinations/backup_export_runner.dart';
 import '../../services/backup_destinations/backup_destination.dart';
+import 'folio_cloud_backups_sheet.dart';
 import 'remote_backup_config_dialog.dart';
 import 'remote_backup_restore_dialog.dart';
 import 'remote_backup_export_destination_dialog.dart';
@@ -387,11 +388,7 @@ class _SettingsPageState extends State<SettingsPage> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const SizedBox(
-                width: 28,
-                height: 28,
-                child: CircularProgressIndicator(strokeWidth: 3),
-              ),
+              const FolioLoadingIndicator(),
               const SizedBox(height: 12),
               Text(l10n.loading),
             ],
@@ -404,6 +401,14 @@ class _SettingsPageState extends State<SettingsPage> {
     final showDesktopOnlySections = FolioAdaptive.shouldUseDesktopSections(
       windowWidth,
     );
+    final wide =
+        windowWidth >= FolioDesktop.mediumBreakpoint ||
+        FolioAdaptive.isAndroidDesktopLikeWidth(windowWidth);
+    final activeSection = wide
+        ? (_selectedMobileSection ?? _SettingsSectionId.cloud)
+        : _selectedMobileSection;
+    final searchingWide =
+        wide && _settingsSectionFilterController.text.trim().isNotEmpty;
     final desktopSections = <_SettingsSectionNavItem>[
       _SettingsSectionNavItem(
         id: _SettingsSectionId.cloud,
@@ -444,24 +449,26 @@ class _SettingsPageState extends State<SettingsPage> {
     return AnimatedBuilder(
       animation: _app,
       builder: (context, _) {
-        return WillPopScope(
-          onWillPop: () async {
-            if (_selectedMobileSection != null) {
+        return PopScope(
+          canPop: wide || _selectedMobileSection == null,
+          onPopInvokedWithResult: (didPop, result) {
+            if (didPop) return;
+            if (!wide && _selectedMobileSection != null) {
               setState(() {
                 _selectedMobileSection = null;
               });
-              return false;
             }
-            return true;
           },
           child: Scaffold(
             appBar: AppBar(
               title: Text(
-                (_selectedMobileSection != null)
+                wide
+                    ? _getSectionTitle(l10n, activeSection!)
+                    : (_selectedMobileSection != null)
                     ? _getSectionTitle(l10n, _selectedMobileSection!)
                     : l10n.settings,
               ),
-              leading: (_selectedMobileSection != null)
+              leading: (!wide && _selectedMobileSection != null)
                   ? IconButton(
                       icon: const Icon(Icons.arrow_back_rounded),
                       onPressed: () {
@@ -474,9 +481,6 @@ class _SettingsPageState extends State<SettingsPage> {
             ),
             body: LayoutBuilder(
               builder: (context, constraints) {
-                final wide =
-                    constraints.maxWidth >= FolioDesktop.mediumBreakpoint ||
-                    FolioAdaptive.isAndroidDesktopLikeWidth(constraints.maxWidth);
                 final settingsContent = ListenableBuilder(
                   listenable: _s,
                   builder: (context, _) {
@@ -514,7 +518,7 @@ class _SettingsPageState extends State<SettingsPage> {
                             );
                           },
                           child: ListView(
-                            key: ValueKey<String>('${wide}_${_selectedMobileSection?.name}'),
+                            key: ValueKey<String>('${wide}_${activeSection?.name}'),
                             controller: _settingsScrollController,
                             cacheExtent: 480,
                             padding: const EdgeInsets.symmetric(
@@ -522,7 +526,7 @@ class _SettingsPageState extends State<SettingsPage> {
                               horizontal: 16,
                             ),
                             children: [
-                              if (_selectedMobileSection == null) ...[
+                              if (!wide && _selectedMobileSection == null) ...[
                                 _SettingsOverviewBanner(
                                   appSettings: _app,
                                   session: _s,
@@ -598,10 +602,16 @@ class _SettingsPageState extends State<SettingsPage> {
                                 ],
                               ],
 
+                          if (searchingWide) ...[
+                            ..._buildSearchResults(
+                              context,
+                              _settingsSectionFilterController.text,
+                              l10n,
+                              scheme,
+                            ),
+                          ] else ...[
                           Visibility(
-                            visible:
-                                _selectedMobileSection ==
-                                    _SettingsSectionId.cloud,
+                            visible: activeSection == _SettingsSectionId.cloud,
                             maintainState: false,
                             child: KeyedSubtree(
                               key: const ValueKey(_SettingsSectionId.cloud),
@@ -1305,13 +1315,8 @@ class _SettingsPageState extends State<SettingsPage> {
                                                               ? null
                                                               : _linkFolioWebPortalAccount,
                                                           child: _webLinkBusy
-                                                              ? const SizedBox(
-                                                                  height: 22,
-                                                                  width: 22,
-                                                                  child: CircularProgressIndicator(
-                                                                    strokeWidth:
-                                                                        2,
-                                                                  ),
+                                                              ? const FolioLoadingIndicator(
+                                                                  size: FolioLoadingSize.small,
                                                                 )
                                                               : Text(
                                                                   panelL10n
@@ -1541,9 +1546,7 @@ class _SettingsPageState extends State<SettingsPage> {
                           ),
 
                           Visibility(
-                            visible:
-                                _selectedMobileSection ==
-                                    _SettingsSectionId.vault,
+                            visible: activeSection == _SettingsSectionId.vault,
                             maintainState: false,
                             child: KeyedSubtree(
                               key: const ValueKey(_SettingsSectionId.vault),
@@ -1626,38 +1629,15 @@ class _SettingsPageState extends State<SettingsPage> {
                                         trailing: _passkeyRegistered
                                             ? TextButton(
                                                 onPressed: () async {
-                                                  final ok = await showDialog<bool>(
-                                                    context: context,
-                                                    builder: (ctx) => AlertDialog(
-                                                      title: Text(
-                                                        l10n.passkeyRevokeConfirmTitle,
-                                                      ),
-                                                      content: Text(
-                                                        l10n.passkeyRevokeConfirmBody,
-                                                      ),
-                                                      actions: [
-                                                        TextButton(
-                                                          onPressed: () =>
-                                                              Navigator.of(
-                                                                ctx,
-                                                              ).pop(false),
-                                                          child: Text(
-                                                            AppLocalizations.of(
-                                                              ctx,
-                                                            ).cancel,
-                                                          ),
-                                                        ),
-                                                        FilledButton(
-                                                          onPressed: () =>
-                                                              Navigator.of(
-                                                                ctx,
-                                                              ).pop(true),
-                                                          child: Text(
-                                                            l10n.revoke,
-                                                          ),
-                                                        ),
-                                                      ],
+                                                  final ok = await FolioDialog.confirm(
+                                                    context,
+                                                    title: Text(
+                                                      l10n.passkeyRevokeConfirmTitle,
                                                     ),
+                                                    content: Text(
+                                                      l10n.passkeyRevokeConfirmBody,
+                                                    ),
+                                                    confirmLabel: l10n.revoke,
                                                   );
                                                   if (ok != true || !mounted) {
                                                     return;
@@ -2485,9 +2465,7 @@ class _SettingsPageState extends State<SettingsPage> {
                           ),
 
                           Visibility(
-                            visible:
-                                _selectedMobileSection ==
-                                    _SettingsSectionId.uiWorkspace,
+                            visible: activeSection == _SettingsSectionId.uiWorkspace,
                             maintainState: false,
                             child: KeyedSubtree(
                               key: const ValueKey(_SettingsSectionId.uiWorkspace),
@@ -2697,7 +2675,7 @@ class _SettingsPageState extends State<SettingsPage> {
                                           final picked = await showDialog<int>(
                                             context: context,
                                             builder: (ctx) {
-                                              return AlertDialog(
+                                              return FolioDialog(
                                                 title: Text(
                                                   l10n.settingsAccentPickColor,
                                                 ),
@@ -3253,13 +3231,8 @@ class _SettingsPageState extends State<SettingsPage> {
                                                                 ),
                                                           icon:
                                                               _importingCustomIcon
-                                                              ? const SizedBox(
-                                                                  width: 16,
-                                                                  height: 16,
-                                                                  child: CircularProgressIndicator(
-                                                                    strokeWidth:
-                                                                        2,
-                                                                  ),
+                                                              ? const FolioLoadingIndicator(
+                                                                  size: FolioLoadingSize.small,
                                                                 )
                                                               : const Icon(
                                                                   Icons
@@ -3770,6 +3743,21 @@ class _SettingsPageState extends State<SettingsPage> {
                                           onChanged: _app
                                               .setWindowsNotificationsEnabled,
                                         ),
+                                        const Divider(height: 1),
+                                        SwitchListTile(
+                                          secondary: const Icon(
+                                            Icons.rocket_launch_outlined,
+                                          ),
+                                          title: Text(
+                                            l10n.settingsLaunchAtStartup,
+                                          ),
+                                          subtitle: Text(
+                                            l10n.settingsLaunchAtStartupSubtitle,
+                                          ),
+                                          value: _app.launchAtStartupEnabled,
+                                          onChanged:
+                                              _app.setLaunchAtStartupEnabled,
+                                        ),
                                       ],
                                       const Divider(height: 1),
                                       Padding(
@@ -4166,9 +4154,7 @@ class _SettingsPageState extends State<SettingsPage> {
 
                           if (_app.isAiAvailable) ...[
                             Visibility(
-                              visible:
-                                  _selectedMobileSection ==
-                                      _SettingsSectionId.ai,
+                              visible: activeSection == _SettingsSectionId.ai,
                               maintainState: false,
                               child: KeyedSubtree(
                                 key: const ValueKey(_SettingsSectionId.ai),
@@ -4929,7 +4915,7 @@ class _SettingsPageState extends State<SettingsPage> {
 
                           // ─── Quill Instructions Section ───
                           Visibility(
-                            visible: _selectedMobileSection == _SettingsSectionId.ai,
+                            visible: activeSection == _SettingsSectionId.ai,
                             maintainState: false,
                             child: _SettingsPanel(
                               margin: const EdgeInsets.only(top: 16, bottom: 24),
@@ -5065,9 +5051,7 @@ class _SettingsPageState extends State<SettingsPage> {
                           ),
 
                           Visibility(
-                            visible:
-                                _selectedMobileSection ==
-                                    _SettingsSectionId.sync,
+                            visible: activeSection == _SettingsSectionId.sync,
                             maintainState: false,
                             child: KeyedSubtree(
                               key: const ValueKey(_SettingsSectionId.sync),
@@ -5453,9 +5437,7 @@ class _SettingsPageState extends State<SettingsPage> {
                           ),
 
                           Visibility(
-                            visible:
-                                _selectedMobileSection ==
-                                    _SettingsSectionId.about,
+                            visible: activeSection == _SettingsSectionId.about,
                             maintainState: false,
                             child: KeyedSubtree(
                               key: const ValueKey(_SettingsSectionId.about),
@@ -5486,13 +5468,7 @@ class _SettingsPageState extends State<SettingsPage> {
                                         l10n.settingsOpenReleaseNotes,
                                       ),
                                       trailing: _openingReleaseNotes
-                                          ? const SizedBox(
-                                              height: 20,
-                                              width: 20,
-                                              child: CircularProgressIndicator(
-                                                strokeWidth: 2,
-                                              ),
-                                            )
+                                          ? const FolioLoadingIndicator(size: FolioLoadingSize.small)
                                           : null,
                                       onTap: _openingReleaseNotes
                                           ? null
@@ -5597,13 +5573,7 @@ class _SettingsPageState extends State<SettingsPage> {
                                         ),
                                         title: Text(l10n.checkUpdates),
                                         trailing: _checkingUpdates
-                                            ? const SizedBox(
-                                                height: 20,
-                                                width: 20,
-                                                child: CircularProgressIndicator(
-                                                  strokeWidth: 2,
-                                                ),
-                                              )
+                                            ? const FolioLoadingIndicator(size: FolioLoadingSize.small)
                                             : null,
                                         onTap: _checkingUpdates
                                             ? null
@@ -5618,9 +5588,7 @@ class _SettingsPageState extends State<SettingsPage> {
 
                           if (showDesktopOnlySections) ...[
                             Visibility(
-                              visible:
-                                  _selectedMobileSection ==
-                                      _SettingsSectionId.integrations,
+                              visible: activeSection == _SettingsSectionId.integrations,
                               maintainState: false,
                               child: KeyedSubtree(
                                 key: const ValueKey(_SettingsSectionId.integrations),
@@ -5918,6 +5886,7 @@ class _SettingsPageState extends State<SettingsPage> {
                               ),
                             ),
                           ],
+                          ],
                           const SizedBox(height: 24),
                         ],
                       ),
@@ -5926,7 +5895,7 @@ class _SettingsPageState extends State<SettingsPage> {
                 );
                 },
               );
-              return Center(
+              final detailPane = Center(
                 child: ConstrainedBox(
                   constraints: const BoxConstraints(maxWidth: 1000),
                   child: Padding(
@@ -5934,6 +5903,30 @@ class _SettingsPageState extends State<SettingsPage> {
                     child: settingsContent,
                   ),
                 ),
+              );
+              if (!wide) return detailPane;
+              return Row(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  _SettingsSectionRail(
+                    sections: desktopSections,
+                    selectedId: activeSection!,
+                    onSelect: (id) {
+                      setState(() => _selectedMobileSection = id);
+                      if (_settingsScrollController.hasClients) {
+                        _settingsScrollController.jumpTo(0);
+                      }
+                    },
+                    scheme: scheme,
+                    searchController: _settingsSectionFilterController,
+                    l10n: l10n,
+                  ),
+                  VerticalDivider(
+                    width: 1,
+                    color: scheme.outlineVariant.withValues(alpha: 0.3),
+                  ),
+                  Expanded(child: detailPane),
+                ],
               );
             },
           ),

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../app/widgets/folio_dialog.dart';
 import '../../l10n/generated/app_localizations.dart';
 
 enum RemoteBackupExportChoice { localFile, configuredFolder, webdav }
@@ -35,7 +36,7 @@ class RemoteBackupExportDestinationDialog extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return AlertDialog(
+    return FolioDialog(
       title: Text(l10n.remoteBackupExportDestinationTitle),
       content: Column(
         mainAxisSize: MainAxisSize.min,

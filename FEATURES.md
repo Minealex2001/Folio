@@ -36,6 +36,12 @@
 - `createPreImportBackupZip()` en [`lib/data/vault_backup.dart`](lib/data/vault_backup.dart).
 - Se invoca antes de importaciones destructivas (p. ej. Notion → libreta actual).
 
+### Copia programada continua + pack incremental local
+
+- Intervalo `0` («En cada cambio»): tras `onPersisted`, debounce ~45 s y ejecuta el mismo runner que la copia programada.
+- Carpeta/WebDAV automáticos usan pack incremental (`lib/services/vault_pack/`), no ZIP por ciclo; Folio Cloud sigue con cloud-pack.
+- Detalle de producto: [`docs/FEATURES.md`](docs/FEATURES.md) §24.1 y §25.
+
 ### Controllers de aplicación
 
 - [`PageTreeController`](lib/application/page_tree_controller.dart): árbol de páginas.

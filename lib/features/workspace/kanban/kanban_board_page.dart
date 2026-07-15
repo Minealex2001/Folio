@@ -8,6 +8,7 @@ import 'package:url_launcher/url_launcher.dart';
 import '../../../app/app_settings.dart';
 import '../../../app/ui_tokens.dart';
 import '../../../app/widgets/folio_dialog.dart';
+import '../../../app/widgets/folio_skeletons.dart';
 import '../../../l10n/generated/app_localizations.dart';
 import '../../../models/block.dart';
 import '../../../models/folio_kanban_data.dart';
@@ -1695,11 +1696,7 @@ class _KanbanBoardPageState extends State<KanbanBoardPage> {
                     ? null
                     : () => _syncJira(jiraSourceId: data.jiraSourceId!.trim()),
                 icon: _jiraSyncBusy
-                    ? const SizedBox(
-                        width: 20,
-                        height: 20,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      )
+                    ? const FolioLoadingIndicator(size: FolioLoadingSize.small)
                     : const Icon(Icons.sync_rounded),
               ),
             if ((data.jiraSourceId ?? '').trim().isNotEmpty)
@@ -1713,11 +1710,7 @@ class _KanbanBoardPageState extends State<KanbanBoardPage> {
                     ? null
                     : () => _syncYouTrack(youtrackSourceId: data.youtrackSourceId!.trim()),
                 icon: _youtrackSyncBusy
-                    ? const SizedBox(
-                        width: 20,
-                        height: 20,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      )
+                    ? const FolioLoadingIndicator(size: FolioLoadingSize.small)
                     : const Icon(Icons.sync_rounded, color: Colors.orange),
               ),
             if ((data.youtrackSourceId ?? '').trim().isNotEmpty)
@@ -2969,22 +2962,12 @@ class _TaskDetailsContentState extends State<_TaskDetailsContent> {
               ? '¿Borrar la tarea en Folio?'
               : 'Delete this task in Folio?');
 
-    final confirm = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: Text(l10n.kanbanDeleteTaskTitle),
-        content: Text(confirmText),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(false),
-            child: Text(l10n.cancel),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.of(ctx).pop(true),
-            child: Text(l10n.kanbanDeleteTaskButton),
-          ),
-        ],
-      ),
+    final confirm = await FolioDialog.confirm(
+      context,
+      title: Text(l10n.kanbanDeleteTaskTitle),
+      content: Text(confirmText),
+      confirmLabel: l10n.kanbanDeleteTaskButton,
+      destructive: true,
     );
     if (confirm != true || !mounted) return;
 
@@ -3530,26 +3513,16 @@ class _TaskDetailsContentState extends State<_TaskDetailsContent> {
     if (data == null || ext == null || ext.provider != 'jira') return;
     final isEs = Localizations.localeOf(context).languageCode == 'es';
     final l10n = AppLocalizations.of(context);
-    final ok = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: Text(l10n.kanbanForcePushTitle),
-        content: Text(
-          isEs
-              ? 'Esto sobrescribirá en Jira los cambios remotos detectados para este issue con lo que tienes en Folio. ¿Continuar?'
-              : 'This will overwrite the remote Jira changes for this issue with your Folio version. Continue?',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(false),
-            child: Text(l10n.cancel),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.of(ctx).pop(true),
-            child: Text(l10n.kanbanForcePushButton),
-          ),
-        ],
+    final ok = await FolioDialog.confirm(
+      context,
+      title: Text(l10n.kanbanForcePushTitle),
+      content: Text(
+        isEs
+            ? 'Esto sobrescribirá en Jira los cambios remotos detectados para este issue con lo que tienes en Folio. ¿Continuar?'
+            : 'This will overwrite the remote Jira changes for this issue with your Folio version. Continue?',
       ),
+      confirmLabel: l10n.kanbanForcePushButton,
+      destructive: true,
     );
     if (ok != true || !mounted) return;
 
@@ -3761,11 +3734,7 @@ class _TaskDetailsContentState extends State<_TaskDetailsContent> {
                     tooltip: isEs ? 'Borrar tarea' : l10n.delete,
                     onPressed: _deleteBusy ? null : _deleteTaskWithJiraIfLinked,
                     icon: _deleteBusy
-                        ? const SizedBox(
-                            width: 18,
-                            height: 18,
-                            child: CircularProgressIndicator(strokeWidth: 2),
-                          )
+                        ? const FolioLoadingIndicator(size: FolioLoadingSize.small)
                         : const Icon(Icons.delete_outline_rounded),
                   ),
                   if (widget.onToggleFullScreen != null)
@@ -4530,11 +4499,7 @@ class _JiraDetailsSection extends StatelessWidget {
               OutlinedButton.icon(
                 onPressed: busy ? null : onRefresh,
                 icon: busy
-                    ? const SizedBox(
-                        width: 16,
-                        height: 16,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      )
+                    ? const FolioLoadingIndicator(size: FolioLoadingSize.small)
                     : const Icon(Icons.refresh_rounded, size: 18),
                     label: Text(l10n.kanbanPull),
               ),
@@ -5092,11 +5057,7 @@ class _YouTrackDetailsSection extends StatelessWidget {
               OutlinedButton.icon(
                 onPressed: busy ? null : onRefresh,
                 icon: busy
-                    ? const SizedBox(
-                        width: 16,
-                        height: 16,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      )
+                    ? const FolioLoadingIndicator(size: FolioLoadingSize.small)
                     : const Icon(Icons.refresh_rounded, size: 18),
                 label: Text(isEs ? 'Actualizar' : 'Refresh'),
               ),

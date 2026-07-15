@@ -4,6 +4,8 @@ import 'package:flutter/material.dart';
 import 'package:uuid/uuid.dart';
 
 import '../../app/app_settings.dart';
+import '../../app/widgets/folio_dialog.dart';
+import '../../app/widgets/folio_skeletons.dart';
 import '../../models/youtrack_integration_state.dart';
 import '../../services/youtrack/youtrack_api_client.dart';
 import '../../session/vault_session.dart';
@@ -183,7 +185,7 @@ class _YouTrackIntegrationConfigDialogState
   @override
   Widget build(BuildContext context) {
     final isEs = Localizations.localeOf(context).languageCode == 'es';
-    return AlertDialog(
+    return FolioDialog(
       title: Text(isEs ? 'Configuración de YouTrack' : 'YouTrack Configuration'),
       content: SizedBox(
         width: 760,
@@ -311,7 +313,7 @@ class _AddConnectionDialogState extends State<_AddConnectionDialog> {
   @override
   Widget build(BuildContext context) {
     final isEs = Localizations.localeOf(context).languageCode == 'es';
-    return AlertDialog(
+    return FolioDialog(
       title: Text(isEs ? 'Nueva conexión YouTrack' : 'New YouTrack Connection'),
       content: SizedBox(
         width: 480,
@@ -372,11 +374,7 @@ class _AddConnectionDialogState extends State<_AddConnectionDialog> {
         FilledButton(
           onPressed: _busy ? null : _submit,
           child: _busy
-              ? const SizedBox(
-                  width: 18,
-                  height: 18,
-                  child: CircularProgressIndicator(strokeWidth: 2),
-                )
+              ? const FolioLoadingIndicator(size: FolioLoadingSize.small)
               : Text(isEs ? 'Conectar y Guardar' : 'Connect & Save'),
         ),
       ],
@@ -574,7 +572,7 @@ class _AddSourceDialogState extends State<_AddSourceDialog> {
     final isEs = Localizations.localeOf(context).languageCode == 'es';
     final conns = widget.session.youtrackConnections;
 
-    return AlertDialog(
+    return FolioDialog(
       title: Text(isEs ? 'Añadir fuente YouTrack' : 'Add YouTrack Source'),
       content: SizedBox(
         width: 520,
@@ -629,7 +627,7 @@ class _AddSourceDialogState extends State<_AddSourceDialog> {
               const SizedBox(height: 12),
               if (_type == YouTrackSourceType.project) ...[
                 if (_loadingProjects)
-                  const Center(child: Padding(padding: EdgeInsets.all(12), child: CircularProgressIndicator()))
+                  const Padding(padding: EdgeInsets.all(12), child: FolioLoadingIndicator(centered: true))
                 else if (_loadError != null)
                   Text(_loadError!, style: const TextStyle(color: Colors.red, fontSize: 13))
                 else if (_projects.isEmpty)
@@ -721,7 +719,7 @@ class _EditMappingsDialogState extends State<_EditMappingsDialog> {
   @override
   Widget build(BuildContext context) {
     final isEs = Localizations.localeOf(context).languageCode == 'es';
-    return AlertDialog(
+    return FolioDialog(
       title: Text(isEs ? 'Configurar mappings y opciones' : 'Configure Mappings & Options'),
       content: SizedBox(
         width: 600,

@@ -12,6 +12,7 @@ import '../../../app/app_settings.dart';
 import '../../../app/workspace_prefs_keys.dart';
 import '../../../app/ui_tokens.dart';
 import '../../../app/widgets/folio_icon_token_view.dart';
+import '../../../app/widgets/folio_skeletons.dart';
 import '../../../l10n/generated/app_localizations.dart';
 import '../../../models/folio_page.dart';
 import '../../../models/vault_task_list_entry.dart';
@@ -133,7 +134,7 @@ class _WorkspaceHomeViewState extends State<WorkspaceHomeView> {
 
   void _onSession() {
     final vid = widget.session.activeVaultId;
-    final ids = {for (final p in widget.session.pages) p.id};
+    final ids = {for (final p in widget.session.activePages) p.id};
     if (vid != _lastVaultId || !setEquals(ids, _lastPageIds)) {
       final vaultChanged = vid != _lastVaultId;
       _lastVaultId = vid;
@@ -615,6 +616,9 @@ class _WorkspaceHomeViewState extends State<WorkspaceHomeView> {
   }
 
   String _backupIntervalLabel(AppLocalizations l10n, int intervalMinutes) {
+    if (AppSettings.isContinuousVaultBackupInterval(intervalMinutes)) {
+      return l10n.scheduledVaultBackupEveryChange;
+    }
     if (intervalMinutes < 60) {
       return l10n.scheduledVaultBackupEveryNMinutes(intervalMinutes);
     }
@@ -869,7 +873,7 @@ class _WorkspaceHomeViewState extends State<WorkspaceHomeView> {
     ColorScheme scheme,
     TextTheme textTheme,
   ) {
-    final pages = widget.session.pages;
+    final pages = widget.session.activePages;
     final hasPage = pages.isNotEmpty;
     final hasSubpage = pages.any((p) => p.parentId != null);
     final usedSearch = widget.appSettings.recentSearchQueries.isNotEmpty;
@@ -964,12 +968,9 @@ class _WorkspaceHomeViewState extends State<WorkspaceHomeView> {
         if (!snap.hasData) {
           return const SizedBox(
             height: 40,
-            child: Center(
-              child: SizedBox(
-                width: 22,
-                height: 22,
-                child: CircularProgressIndicator(strokeWidth: 2),
-              ),
+            child: FolioLoadingIndicator(
+              size: FolioLoadingSize.small,
+              centered: true,
             ),
           );
         }
@@ -1201,7 +1202,7 @@ class _WorkspaceHomeViewState extends State<WorkspaceHomeView> {
   }
 
   Future<void> _reloadRecents() async {
-    final valid = widget.session.pages.map((p) => p.id).toSet();
+    final valid = widget.session.activePages.map((p) => p.id).toSet();
     final loaded = await RecentPageVisitsStore.load(
       vaultId: widget.session.activeVaultId,
       validPageIds: valid,
@@ -1567,7 +1568,7 @@ class _WorkspaceHomeViewState extends State<WorkspaceHomeView> {
     final theme = Theme.of(context);
     final locale = Localizations.localeOf(context).toString();
     final pagesById = <String, FolioPage>{
-      for (final p in widget.session.pages) p.id: p,
+      for (final p in widget.session.activePages) p.id: p,
     };
     final query = _filterController.text.trim().toLowerCase();
     final filteredVisits = query.isEmpty
@@ -1593,7 +1594,7 @@ class _WorkspaceHomeViewState extends State<WorkspaceHomeView> {
         widget.appSettings.isAiRuntimeEnabled &&
         widget.session.aiEnabled;
 
-    final rootPages = widget.session.pages
+    final rootPages = widget.session.activePages
         .where((p) => p.parentId == null)
         .take(8)
         .toList(growable: false);
@@ -1824,7 +1825,7 @@ class _WorkspaceHomeViewState extends State<WorkspaceHomeView> {
               }
               return Text(
                 l10n.workspaceHomeMiniStats(
-                  widget.session.pages.length,
+                  widget.session.activePages.length,
                   upcoming.length,
                 ),
                 style: theme.textTheme.labelMedium?.copyWith(

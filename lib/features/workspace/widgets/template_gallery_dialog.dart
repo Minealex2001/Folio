@@ -1,6 +1,7 @@
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 
+import '../../../app/widgets/folio_dialog.dart';
 import '../../../l10n/generated/app_localizations.dart';
 import '../../../models/folio_page_template.dart';
 import '../../../session/vault_session.dart';
@@ -366,7 +367,7 @@ class _TemplateGalleryDialogState extends State<_TemplateGalleryDialog> {
     final shouldSave = await showDialog<bool>(
       context: context,
       builder: (dialogContext) => StatefulBuilder(
-        builder: (dialogContext, setDialogState) => AlertDialog(
+        builder: (dialogContext, setDialogState) => FolioDialog(
           title: Text(l10n.templateEdit),
           content: SizedBox(
             width: 420,
@@ -445,22 +446,12 @@ class _TemplateGalleryDialogState extends State<_TemplateGalleryDialog> {
 
   Future<void> _confirmDelete(FolioPageTemplate template) async {
     final l10n = AppLocalizations.of(context);
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (dialogContext) => AlertDialog(
-        title: Text(l10n.templateDeleteConfirmTitle),
-        content: Text(l10n.templateDeleteConfirmBody(template.name)),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(dialogContext, false),
-            child: Text(l10n.cancel),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(dialogContext, true),
-            child: Text(l10n.delete),
-          ),
-        ],
-      ),
+    final confirmed = await FolioDialog.confirm(
+      context,
+      title: Text(l10n.templateDeleteConfirmTitle),
+      content: Text(l10n.templateDeleteConfirmBody(template.name)),
+      confirmLabel: l10n.delete,
+      destructive: true,
     );
 
     if (confirmed != true || !mounted) return;

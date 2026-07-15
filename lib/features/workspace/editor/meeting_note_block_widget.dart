@@ -8,6 +8,7 @@ import 'package:path/path.dart' as p;
 import 'package:uuid/uuid.dart';
 
 import '../../../app/app_settings.dart';
+import '../../../app/widgets/folio_skeletons.dart';
 import '../../../data/vault_paths.dart';
 import '../../../l10n/generated/app_localizations.dart';
 import '../../../models/block.dart';
@@ -1057,13 +1058,9 @@ class _MeetingNoteBlockWidgetState extends State<MeetingNoteBlockWidget> {
                     padding: const EdgeInsets.only(top: 6),
                     child: Row(
                       children: [
-                        SizedBox(
-                          width: 12,
-                          height: 12,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 1.5,
-                            color: widget.scheme.primary,
-                          ),
+                        FolioLoadingIndicator(
+                          size: FolioLoadingSize.small,
+                          color: widget.scheme.primary,
                         ),
                         const SizedBox(width: 6),
                         Text(

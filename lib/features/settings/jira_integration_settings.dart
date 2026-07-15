@@ -5,6 +5,8 @@ import 'package:url_launcher/url_launcher.dart';
 import 'package:uuid/uuid.dart';
 
 import '../../app/app_settings.dart';
+import '../../app/widgets/folio_dialog.dart';
+import '../../app/widgets/folio_skeletons.dart';
 import '../../l10n/generated/app_localizations.dart';
 import '../../models/jira_integration_state.dart';
 import '../../services/jira/jira_auth_service.dart';
@@ -200,7 +202,7 @@ class _JiraIntegrationConfigDialogState extends State<JiraIntegrationConfigDialo
       final ctrl = TextEditingController();
       final entered = await showDialog<String?>(
         context: context,
-        builder: (ctx) => AlertDialog(
+        builder: (ctx) => FolioDialog(
           title: Text(
             l10n.jiraSetClientId,
           ),
@@ -287,15 +289,11 @@ class _JiraIntegrationConfigDialogState extends State<JiraIntegrationConfigDialo
       showDialog<void>(
         context: context,
         barrierDismissible: false,
-        builder: (ctx) => AlertDialog(
+        builder: (ctx) => FolioDialog(
           title: Text(l10n.jiraConnectingCloud),
           content: Row(
             children: [
-              const SizedBox(
-                width: 18,
-                height: 18,
-                child: CircularProgressIndicator(strokeWidth: 2),
-              ),
+              const FolioLoadingIndicator(size: FolioLoadingSize.small),
               const SizedBox(width: 12),
               Expanded(
                 child: Text(
@@ -381,7 +379,7 @@ class _JiraIntegrationConfigDialogState extends State<JiraIntegrationConfigDialo
     final tokenCtrl = TextEditingController();
     final result = await showDialog<({String label, String baseUrl, String pat})?>(
       context: context,
-      builder: (ctx) => AlertDialog(
+      builder: (ctx) => FolioDialog(
         title: Text(l10n.jiraNewServerConnection),
         content: SizedBox(
           width: 520,
@@ -480,7 +478,7 @@ class _JiraIntegrationConfigDialogState extends State<JiraIntegrationConfigDialo
     final isEs = Localizations.localeOf(context).languageCode == 'es';
     final connections = widget.session.jiraConnections;
     final sources = widget.session.jiraSources;
-    return AlertDialog(
+    return FolioDialog(
       insetPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
       content: SizedBox(
         width: 760,
@@ -542,7 +540,7 @@ class _JiraIntegrationConfigDialogState extends State<JiraIntegrationConfigDialo
                 controller: _tabs,
                 children: [
                   _busy
-                      ? const Center(child: CircularProgressIndicator())
+                      ? const FolioLoadingIndicator(centered: true)
                       : _ConnectionsTab(
                           connections: connections,
                           onConnectCloud: _connectCloud,
@@ -550,7 +548,7 @@ class _JiraIntegrationConfigDialogState extends State<JiraIntegrationConfigDialo
                           onDelete: widget.session.removeJiraConnection,
                         ),
                   _busy
-                      ? const Center(child: CircularProgressIndicator())
+                      ? const FolioLoadingIndicator(centered: true)
                       : _SourcesTab(
                           sources: sources,
                           connections: connections,
@@ -833,7 +831,7 @@ class _CreateOrEditSourceDialogState extends State<_CreateOrEditSourceDialog> {
       );
     }
 
-    return AlertDialog(
+    return FolioDialog(
       title: Text(l10n.jiraNewSource),
       content: SizedBox(
         width: 560,
@@ -866,11 +864,7 @@ class _CreateOrEditSourceDialogState extends State<_CreateOrEditSourceDialog> {
                   tooltip: l10n.jiraReload,
                   onPressed: _loading ? null : _reloadLists,
                   icon: _loading
-                      ? const SizedBox(
-                          width: 18,
-                          height: 18,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        )
+                      ? const FolioLoadingIndicator(size: FolioLoadingSize.small)
                       : const Icon(Icons.refresh_rounded),
                 ),
               ],
@@ -1267,7 +1261,7 @@ class _EditSourceMappingDialogState extends State<_EditSourceMappingDialog> {
   @override
   Widget build(BuildContext context) {
     final isEs = Localizations.localeOf(context).languageCode == 'es';
-    return AlertDialog(
+    return FolioDialog(
       title: Text(isEs ? 'Configurar fuente' : 'Configure source'),
       content: SizedBox(
         width: 720,

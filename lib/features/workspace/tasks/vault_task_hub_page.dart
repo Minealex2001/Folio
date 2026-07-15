@@ -77,7 +77,7 @@ class _VaultTaskHubPageState extends State<VaultTaskHubPage> {
 
   Future<void> _openMoveTaskDialog(VaultTaskListEntry e) async {
     final l10n = AppLocalizations.of(context);
-    final pages = widget.session.pages.toList();
+    final pages = widget.session.pages.where((p) => !p.isTrashed).toList();
     final picked = await showDialog<String>(
       context: context,
       builder: (ctx) => FolioDialog(

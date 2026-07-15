@@ -14,6 +14,7 @@ import 'package:uuid/uuid.dart';
 import '../../../app/app_settings.dart';
 import '../../../app/ui_tokens.dart';
 import '../../../app/widgets/folio_dialog.dart';
+import '../../../app/widgets/folio_skeletons.dart';
 import '../../../data/vault_paths.dart';
 import '../../../l10n/generated/app_localizations.dart';
 import '../../../models/block.dart';
@@ -329,22 +330,12 @@ class _DrivePageState extends State<DrivePage> {
 
   void _deleteEntry(FolioDriveEntry entry) {
     final l10n = AppLocalizations.of(context);
-    showDialog<bool?>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: Text(l10n.driveDeleteConfirm),
-        content: Text(entry.name),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop<bool?>(null),
-            child: Text(l10n.cancel),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.of(ctx).pop<bool?>(true),
-            child: Text(l10n.delete),
-          ),
-        ],
-      ),
+    FolioDialog.confirm(
+      context,
+      title: Text(l10n.driveDeleteConfirm),
+      content: Text(entry.name),
+      confirmLabel: l10n.delete,
+      destructive: true,
     ).then((confirmed) {
       if (confirmed != true) return;
       _persist(
@@ -907,11 +898,7 @@ class _DriveToolbar extends StatelessWidget {
           if (uploading)
             const Padding(
               padding: EdgeInsets.only(right: FolioSpace.xs),
-              child: SizedBox(
-                width: 18,
-                height: 18,
-                child: CircularProgressIndicator(strokeWidth: 2),
-              ),
+              child: FolioLoadingIndicator(size: FolioLoadingSize.small),
             ),
           FilledButton.tonalIcon(
             onPressed: uploading ? null : onUpload,
@@ -2399,7 +2386,7 @@ class _VaultImportDialogState extends State<_VaultImportDialog> {
   @override
   Widget build(BuildContext context) {
     final l10n = widget.l10n;
-    return AlertDialog(
+    return FolioDialog(
       title: Text(l10n.driveImportFromVault),
       content: SizedBox(
         width: 420,
@@ -3053,7 +3040,7 @@ class _FolderColorPicker extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
-    return AlertDialog(
+    return FolioDialog(
       title: Text(l10n.driveFolderColor),
       content: SizedBox(
         width: 280,

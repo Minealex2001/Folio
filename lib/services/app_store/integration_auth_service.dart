@@ -5,6 +5,8 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import '../../app/widgets/folio_dialog.dart';
+import '../../l10n/generated/app_localizations.dart';
 import '../../models/folio_app_package.dart';
 
 const _keyOAuthTokens = 'folio_oauth_tokens';
@@ -202,9 +204,10 @@ class IntegrationAuthService extends ChangeNotifier {
     required String label,
   }) async {
     String value = '';
+    final l10n = AppLocalizations.of(context);
     return showDialog<String>(
       context: context,
-      builder: (ctx) => AlertDialog(
+      builder: (ctx) => FolioDialog(
         title: Text(title),
         content: TextField(
           autofocus: true,
@@ -215,11 +218,11 @@ class IntegrationAuthService extends ChangeNotifier {
         actions: [
           TextButton(
             onPressed: () => Navigator.of(ctx).pop(),
-            child: const Text('Cancelar'),
+            child: Text(l10n.cancel),
           ),
           FilledButton(
             onPressed: () => Navigator.of(ctx).pop(value.trim()),
-            child: const Text('Guardar'),
+            child: Text(l10n.save),
           ),
         ],
       ),

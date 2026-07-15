@@ -13,6 +13,9 @@ import '../../l10n/generated/app_localizations.dart';
 import '../../services/backup_destinations/backup_destination.dart';
 import '../../services/backup_destinations/backup_export_runner.dart';
 import '../../services/secure_credential_storage.dart';
+import '../../services/vault_pack/vault_pack_destinations.dart';
+import '../../services/vault_pack/vault_pack_sync.dart';
+import '../../services/vault_pack/vault_pack_transport.dart';
 import '../../session/vault_session.dart';
 import '../../app/widgets/folio_skeletons.dart';
 import '../../app/widgets/folio_error_card.dart';
@@ -92,24 +95,72 @@ class _RemoteBackupRestoreDialogState extends State<RemoteBackupRestoreDialog> {
     );
   }
 
+  Future<VaultPackTransport?> _packTransportForEntry(
+    RemoteBackupEntry entry,
+  ) async {
+    final packVaultId =
+        (entry.packVaultId ?? vaultIdFromPackListEntryName(entry.name) ?? '')
+            .trim();
+    if (packVaultId.isEmpty) return null;
+    if (_source == _RemoteBackupRestoreSource.folder) {
+      return VaultPackDestinations.folderTransport(
+        prefs: widget.prefs,
+        vaultId: packVaultId,
+        credentials: widget.credentials,
+      );
+    }
+    return VaultPackDestinations.webdavTransport(
+      prefs: widget.prefs,
+      vaultId: packVaultId,
+      credentials: widget.credentials,
+    );
+  }
+
   Future<void> _reload() async {
     setState(() {
       _loading = true;
       _error = null;
     });
     try {
-      final dest = await _destinationForSource();
-      if (dest == null) {
+      final hasDest = _source == _RemoteBackupRestoreSource.folder
+          ? widget.prefs.hasConfiguredFolder
+          : widget.prefs.hasConfiguredWebDav;
+      if (!hasDest) {
         setState(() {
           _entries = const [];
           _loading = false;
         });
         return;
       }
-      final list = await dest.listZipBackups();
+
+      final zips = <RemoteBackupEntry>[];
+      final dest = await _destinationForSource();
+      if (dest != null) {
+        zips.addAll(await dest.listZipBackups());
+      }
+
+      final packs = _source == _RemoteBackupRestoreSource.folder
+          ? await listFolderPackBackupEntries(
+              prefs: widget.prefs,
+              vaultId: widget.vaultId,
+              credentials: widget.credentials,
+            )
+          : await listWebDavPackBackupEntries(
+              prefs: widget.prefs,
+              vaultId: widget.vaultId,
+              credentials: widget.credentials,
+            );
+
+      final merged = <RemoteBackupEntry>[...packs, ...zips];
+      merged.sort((a, b) {
+        final am = a.modifiedAt?.millisecondsSinceEpoch ?? 0;
+        final bm = b.modifiedAt?.millisecondsSinceEpoch ?? 0;
+        return bm.compareTo(am);
+      });
+
       if (!mounted) return;
       setState(() {
-        _entries = list;
+        _entries = merged;
         _loading = false;
       });
     } on VaultBackupException catch (e) {
@@ -127,7 +178,7 @@ class _RemoteBackupRestoreDialogState extends State<RemoteBackupRestoreDialog> {
     }
   }
 
-  Future<File> _downloadToTemp(RemoteBackupEntry entry) async {
+  Future<File> _downloadZipToTemp(RemoteBackupEntry entry) async {
     final dest = await _destinationForSource();
     if (dest == null) {
       throw VaultBackupException('No hay destino configurado.');
@@ -138,7 +189,31 @@ class _RemoteBackupRestoreDialogState extends State<RemoteBackupRestoreDialog> {
     return local;
   }
 
+  String? _lastAskedPassword;
+
+  Future<Directory> _materializePackToTemp(RemoteBackupEntry entry) async {
+    final transport = await _packTransportForEntry(entry);
+    if (transport == null) {
+      throw VaultBackupException('No hay pack incremental configurado.');
+    }
+    final password = await _askBackupPassword();
+    if (password == null) {
+      throw VaultBackupException('Restore cancelled');
+    }
+    _lastAskedPassword = password;
+    final extract = await Directory.systemTemp.createTemp(
+      'folio_pack_restore_',
+    );
+    await downloadVaultPackToDirectoryForRestore(
+      transport: transport,
+      restorePassword: password,
+      extractDir: extract,
+    );
+    return extract;
+  }
+
   Future<void> _downloadEntry(RemoteBackupEntry entry) async {
+    if (entry.isIncrementalPack) return;
     setState(() => _busyName = entry.name);
     try {
       final savePath = await FilePicker.saveFile(
@@ -196,20 +271,41 @@ class _RemoteBackupRestoreDialogState extends State<RemoteBackupRestoreDialog> {
   }
 
   Future<void> _importAsNew(RemoteBackupEntry entry) async {
-    final password = await _askBackupPassword();
-    if (password == null || !mounted) return;
     setState(() => _busyName = entry.name);
     try {
-      final local = await _downloadToTemp(entry);
-      await widget.session.importVaultBackupAsNew(local.path, password);
+      if (entry.isIncrementalPack) {
+        _lastAskedPassword = null;
+        final extract = await _materializePackToTemp(entry);
+        try {
+          final password = _lastAskedPassword;
+          if (password == null || !mounted) return;
+          await widget.session.importVaultBackupAsNewFromExtractedDir(
+            extract,
+            password,
+          );
+        } finally {
+          try {
+            if (extract.existsSync()) {
+              await extract.delete(recursive: true);
+            }
+          } catch (_) {}
+        }
+      } else {
+        final password = await _askBackupPassword();
+        if (password == null || !mounted) return;
+        final local = await _downloadZipToTemp(entry);
+        await widget.session.importVaultBackupAsNew(local.path, password);
+      }
       if (mounted) Navigator.pop(context);
     } on VaultBackupException catch (e) {
+      if ('$e'.contains('Restore cancelled')) return;
       if (mounted) {
         ScaffoldMessenger.of(
           context,
         ).showSnackBar(SnackBar(content: Text('$e')));
       }
     } finally {
+      _lastAskedPassword = null;
       if (mounted) setState(() => _busyName = null);
     }
   }
@@ -222,23 +318,44 @@ class _RemoteBackupRestoreDialogState extends State<RemoteBackupRestoreDialog> {
       confirmLabel: widget.l10n.settingsCloudBackupActionImportOverwrite,
     );
     if (sure != true || !mounted) return;
-    final password = await _askBackupPassword();
-    if (password == null || !mounted) return;
     setState(() => _busyName = entry.name);
     try {
-      final local = await _downloadToTemp(entry);
-      await widget.session.importVaultBackupOverwriteActive(
-        local.path,
-        password,
-      );
+      if (entry.isIncrementalPack) {
+        _lastAskedPassword = null;
+        final extract = await _materializePackToTemp(entry);
+        try {
+          final password = _lastAskedPassword;
+          if (password == null || !mounted) return;
+          await widget.session.importVaultBackupOverwriteActiveFromExtractedDir(
+            extract,
+            password,
+          );
+        } finally {
+          try {
+            if (extract.existsSync()) {
+              await extract.delete(recursive: true);
+            }
+          } catch (_) {}
+        }
+      } else {
+        final password = await _askBackupPassword();
+        if (password == null || !mounted) return;
+        final local = await _downloadZipToTemp(entry);
+        await widget.session.importVaultBackupOverwriteActive(
+          local.path,
+          password,
+        );
+      }
       if (mounted) Navigator.pop(context);
     } on VaultBackupException catch (e) {
+      if ('$e'.contains('Restore cancelled')) return;
       if (mounted) {
         ScaffoldMessenger.of(
           context,
         ).showSnackBar(SnackBar(content: Text('$e')));
       }
     } finally {
+      _lastAskedPassword = null;
       if (mounted) setState(() => _busyName = null);
     }
   }
@@ -303,7 +420,7 @@ class _RemoteBackupRestoreDialogState extends State<RemoteBackupRestoreDialog> {
       return Padding(
         padding: const EdgeInsets.all(16),
         child: FolioErrorCard(
-          title: 'Error al listar copias de seguridad',
+          title: l10n.remoteBackupRestoreTitle,
           message: _error!,
           icon: Icons.backup_outlined,
           onRetry: _reload,
@@ -319,19 +436,21 @@ class _RemoteBackupRestoreDialogState extends State<RemoteBackupRestoreDialog> {
       itemBuilder: (context, index) {
         final e = _entries[index];
         final busy = _busyName == e.name;
+        final title = e.isIncrementalPack
+            ? l10n.remoteBackupRestoreIncrementalPackTitle(
+                e.packVaultId ?? e.name,
+              )
+            : e.name;
         final subtitle = [
+          if (e.isIncrementalPack) l10n.remoteBackupRestoreIncrementalPackSubtitle,
           if (e.modifiedAt != null) e.modifiedAt!.toLocal().toString(),
           if (e.sizeBytes != null) '${e.sizeBytes} B',
         ].join(' · ');
         return ListTile(
-          title: Text(e.name),
+          title: Text(title),
           subtitle: subtitle.isEmpty ? null : Text(subtitle),
           trailing: busy
-              ? const SizedBox(
-                  width: 24,
-                  height: 24,
-                  child: CircularProgressIndicator(strokeWidth: 2),
-                )
+              ? const FolioLoadingIndicator(size: FolioLoadingSize.small)
               : PopupMenuButton<String>(
                   onSelected: (action) {
                     switch (action) {
@@ -344,10 +463,11 @@ class _RemoteBackupRestoreDialogState extends State<RemoteBackupRestoreDialog> {
                     }
                   },
                   itemBuilder: (ctx) => [
-                    PopupMenuItem(
-                      value: 'download',
-                      child: Text(l10n.remoteBackupRestoreDownload),
-                    ),
+                    if (!e.isIncrementalPack)
+                      PopupMenuItem(
+                        value: 'download',
+                        child: Text(l10n.remoteBackupRestoreDownload),
+                      ),
                     PopupMenuItem(
                       value: 'new',
                       child: Text(l10n.remoteBackupRestoreImportNew),

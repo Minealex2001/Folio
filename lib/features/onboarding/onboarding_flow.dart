@@ -10,7 +10,9 @@ import 'package:path/path.dart' as p;
 
 import '../../app/app_settings.dart';
 import '../../app/ui_tokens.dart';
+import '../../app/widgets/folio_dialog.dart';
 import '../../app/widgets/folio_password_field.dart';
+import '../../app/widgets/folio_skeletons.dart';
 import '../../crypto/vault_crypto.dart';
 import '../../data/notion_import/notion_importer.dart';
 import '../../data/vault_backup.dart';
@@ -222,11 +224,7 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
           style: _onboardingPrimaryButtonStyle,
           onPressed: primaryBusy ? null : onPrimary,
           child: primaryBusy
-              ? const SizedBox(
-                  width: 22,
-                  height: 22,
-                  child: CircularProgressIndicator(strokeWidth: 2),
-                )
+              ? const FolioLoadingIndicator(size: FolioLoadingSize.small)
               : (primaryChild ?? Text(primaryLabel ?? l10n.continueAction)),
         ),
       );
@@ -701,7 +699,7 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
     final l10n = AppLocalizations.of(context);
     await showDialog<void>(
       context: context,
-      builder: (ctx) => AlertDialog(
+      builder: (ctx) => FolioDialog(
         title: Row(
           children: [
             Icon(
@@ -1489,7 +1487,7 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
     ];
     final picked = await showDialog<int>(
       context: context,
-      builder: (ctx) => AlertDialog(
+      builder: (ctx) => FolioDialog(
         title: Text(l10n.settingsAccentPickColor),
         content: Wrap(
           spacing: 10,
@@ -1580,6 +1578,9 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
   }
 
   String _scheduledBackupIntervalSummary(AppLocalizations l10n, int minutes) {
+    if (AppSettings.isContinuousVaultBackupInterval(minutes)) {
+      return l10n.scheduledVaultBackupEveryChange;
+    }
     if (minutes < 60) {
       return l10n.scheduledVaultBackupEveryNMinutes(minutes);
     }
@@ -2739,7 +2740,7 @@ class _CloudBackupPickerDialog extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
-    return AlertDialog(
+    return FolioDialog(
       title: Text(
         l10n.folioCloudCloudBackupsList,
         style: theme.textTheme.titleLarge?.copyWith(
@@ -2801,7 +2802,7 @@ class _CloudVaultPickerDialog extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
-    return AlertDialog(
+    return FolioDialog(
       title: Text(
         l10n.folioCloudCloudBackupsList,
         style: theme.textTheme.titleLarge?.copyWith(

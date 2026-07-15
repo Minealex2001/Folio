@@ -1,5 +1,119 @@
 import 'package:flutter/material.dart';
-import 'folio_interactions.dart';
+
+/// Animated shimmer loading effect. Primitiva base de todos los skeletons de
+/// este archivo — envuelve cualquier child con un barrido de brillo animado.
+class ShimmerLoading extends StatefulWidget {
+  const ShimmerLoading({super.key, required this.child, this.enabled = true});
+
+  final Widget child;
+  final bool enabled;
+
+  @override
+  State<ShimmerLoading> createState() => _ShimmerLoadingState();
+}
+
+class _ShimmerLoadingState extends State<ShimmerLoading>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _controller;
+  late final Animation<double> _animation;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      duration: const Duration(milliseconds: 1500),
+      vsync: this,
+    )..repeat();
+    _animation = Tween<double>(
+      begin: -1,
+      end: 2,
+    ).animate(CurvedAnimation(parent: _controller, curve: Curves.linear));
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (!widget.enabled) return widget.child;
+
+    final scheme = Theme.of(context).colorScheme;
+    return AnimatedBuilder(
+      animation: _animation,
+      builder: (context, child) {
+        return ShaderMask(
+          shaderCallback: (bounds) {
+            return LinearGradient(
+              begin: Alignment(-1 - _animation.value, 0),
+              end: Alignment(1 - _animation.value, 0),
+              colors: [
+                Colors.transparent,
+                scheme.surfaceContainerHighest.withValues(alpha: 0.5),
+                Colors.transparent,
+              ],
+            ).createShader(bounds);
+          },
+          blendMode: BlendMode.srcOver,
+          child: child,
+        );
+      },
+      child: widget.child,
+    );
+  }
+}
+
+/// Tamaño estándar de [FolioLoadingIndicator]: [small] para spinners inline
+/// (dentro de un botón o fila), [normal] para el estado de carga de una
+/// página o sección completa.
+enum FolioLoadingSize { small, normal }
+
+/// Indicador de carga circular estándar del design system, con los tamaños y
+/// grosores de trazo que ya se repetían de forma ad hoc por toda la app.
+class FolioLoadingIndicator extends StatelessWidget {
+  const FolioLoadingIndicator({
+    super.key,
+    this.size = FolioLoadingSize.normal,
+    this.color,
+    this.centered = false,
+    this.value,
+  });
+
+  final FolioLoadingSize size;
+  final Color? color;
+  final bool centered;
+
+  /// Progreso determinado (0.0-1.0), p. ej. para descargas con porcentaje
+  /// conocido. `null` (por defecto) muestra el spinner indeterminado.
+  final double? value;
+
+  @override
+  Widget build(BuildContext context) {
+    final indicator = switch (size) {
+      FolioLoadingSize.small => SizedBox(
+        width: 20,
+        height: 20,
+        child: CircularProgressIndicator(
+          strokeWidth: 2,
+          color: color,
+          value: value,
+        ),
+      ),
+      FolioLoadingSize.normal => SizedBox(
+        width: 28,
+        height: 28,
+        child: CircularProgressIndicator(
+          strokeWidth: 3,
+          color: color,
+          value: value,
+        ),
+      ),
+    };
+    return centered ? Center(child: indicator) : indicator;
+  }
+}
 
 /// Un bloque de color de esqueleto con bordes redondeados.
 class FolioSkeletonBlock extends StatelessWidget {

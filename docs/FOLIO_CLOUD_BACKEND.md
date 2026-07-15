@@ -62,7 +62,7 @@ Si una política de organización impide `allUsers`, hay que alinear excepciones
 
 ## Storage y publicación web
 
-- **`users/{uid}/backups/**`**: escritura solo si `folioCloud.active` y `folioCloud.features.backup` (reglas en [`storage.rules`](../storage.rules)). En **Windows/Linux** el cliente no puede listar con `listAll()` (SDK C++ devuelve vacío); la app usa la callable **`folioListVaultBackups`**, que lista con Admin SDK (misma condición de plan en servidor).
+- **`users/{uid}/backups/**`** y **`users/{uid}/vaults/{vaultId}/backups/**` / **`cloud-packs/**`**: escritura solo si `folioCloud.active` y `folioCloud.features.backup` (reglas en [`storage.rules`](../storage.rules)). En **Windows/Linux** el cliente no puede listar con `listAll()` (SDK C++ devuelve vacío); la app usa la callable **`folioListVaultBackups`**, que lista con Admin SDK (misma condición de plan en servidor). Para borrar el cloud-pack incremental: **`folioDeleteVaultCloudPack`**. Para borrar un archivo legacy: **`folioDeleteVaultLegacyBackup`**. Si la libreta se queda sin copias, ambas purgan Storage + índice + meta (`vaultRemoved: true`).
 - **`published/{uid}/**`**: lectura pública; escritura solo con `features.publishWeb`. El índice Firestore `publishedPages` exige lo mismo (solo cliente con plan; el HTML sigue en Storage).
 
 ## Flujos en la app (cliente)

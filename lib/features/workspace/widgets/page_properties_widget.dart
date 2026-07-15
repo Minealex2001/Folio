@@ -4,6 +4,7 @@ import 'package:url_launcher/url_launcher.dart';
 import 'package:uuid/uuid.dart';
 
 import '../../../app/ui_tokens.dart';
+import '../../../app/widgets/folio_dialog.dart';
 import '../../../l10n/generated/app_localizations.dart';
 import '../../../models/folio_page.dart';
 import '../../../models/page_property.dart';
@@ -456,37 +457,17 @@ class _PropertyRow extends StatelessWidget {
     );
   }
 
-  void _showRenameDialog(BuildContext context) {
+  void _showRenameDialog(BuildContext context) async {
     final l10n = AppLocalizations.of(context);
-    final controller = TextEditingController(text: prop.name);
-    showDialog<void>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: Text(l10n.propRename),
-        content: TextField(
-          controller: controller,
-          autofocus: true,
-          decoration: InputDecoration(hintText: prop.name),
-          onSubmitted: (_) {
-            session.renamePageProperty(pageId, prop.id, controller.text);
-            Navigator.pop(ctx);
-          },
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: Text(MaterialLocalizations.of(ctx).cancelButtonLabel),
-          ),
-          FilledButton(
-            onPressed: () {
-              session.renamePageProperty(pageId, prop.id, controller.text);
-              Navigator.pop(ctx);
-            },
-            child: Text(MaterialLocalizations.of(ctx).okButtonLabel),
-          ),
-        ],
-      ),
+    final result = await FolioDialog.input(
+      context,
+      title: Text(l10n.propRename),
+      initialValue: prop.name,
+      hint: prop.name,
     );
+    if (result != null) {
+      session.renamePageProperty(pageId, prop.id, result);
+    }
   }
 }
 
@@ -727,7 +708,7 @@ class _ValueDisplay extends StatelessWidget {
     final ctrl = TextEditingController(text: prop.value as String? ?? '');
     final result = await showDialog<String>(
       context: context,
-      builder: (ctx) => AlertDialog(
+      builder: (ctx) => FolioDialog(
         title: Text(prop.name),
         content: TextField(
           controller: ctrl,
@@ -759,7 +740,7 @@ class _ValueDisplay extends StatelessWidget {
     );
     final result = await showDialog<String>(
       context: context,
-      builder: (ctx) => AlertDialog(
+      builder: (ctx) => FolioDialog(
         title: Text(prop.name),
         content: TextField(
           controller: ctrl,

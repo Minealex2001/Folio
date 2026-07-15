@@ -1098,10 +1098,7 @@ class _FolioCloudSubscriptionPanel extends StatelessWidget {
       builder: (ctx) {
         final theme = Theme.of(ctx);
         final scheme = theme.colorScheme;
-        return AlertDialog(
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(20),
-          ),
+        return FolioDialog(
           title: Row(
             children: [
               Icon(Icons.school_rounded, color: scheme.primary, size: 28),

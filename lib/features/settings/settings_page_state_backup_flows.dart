@@ -234,7 +234,7 @@ extension _SettingsPageBackupFlows on _SettingsPageState {
     final l10n = AppLocalizations.of(context);
     await showDialog<void>(
       context: context,
-      builder: (ctx) => AlertDialog(
+      builder: (ctx) => FolioDialog(
         title: Row(
           children: [
             Icon(

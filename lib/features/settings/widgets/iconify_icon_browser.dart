@@ -6,6 +6,7 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../../../app/app_settings.dart';
 import '../../../app/ui_tokens.dart';
+import '../../../app/widgets/folio_skeletons.dart';
 import '../../../l10n/generated/app_localizations.dart';
 import '../../../services/custom_icon_import_service.dart';
 import '../../../services/iconify/iconify_catalog_service.dart';
@@ -258,11 +259,7 @@ class _IconifyIconBrowserState extends State<IconifyIconBrowser> {
                     suffixIcon: _loading
                         ? const Padding(
                             padding: EdgeInsets.all(12),
-                            child: SizedBox(
-                              width: 18,
-                              height: 18,
-                              child: CircularProgressIndicator(strokeWidth: 2),
-                            ),
+                            child: FolioLoadingIndicator(size: FolioLoadingSize.small),
                           )
                         : null,
                   ),
@@ -327,11 +324,7 @@ class _IconifyIconBrowserState extends State<IconifyIconBrowser> {
             OutlinedButton.icon(
               onPressed: _loadingMore ? null : () => unawaited(_runSearch(reset: false)),
               icon: _loadingMore
-                  ? const SizedBox(
-                      width: 16,
-                      height: 16,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    )
+                  ? const FolioLoadingIndicator(size: FolioLoadingSize.small)
                   : const Icon(Icons.expand_more_rounded),
               label: Text(l10n.settingsIconifyLoadMore),
             ),
@@ -380,11 +373,7 @@ class _IconifyResultTile extends StatelessWidget {
           ),
           child: Center(
             child: importing
-                ? const SizedBox(
-                    width: 18,
-                    height: 18,
-                    child: CircularProgressIndicator(strokeWidth: 2),
-                  )
+                ? const FolioLoadingIndicator(size: FolioLoadingSize.small)
                 : SvgPicture.network(
                     previewUrl,
                     width: 28,

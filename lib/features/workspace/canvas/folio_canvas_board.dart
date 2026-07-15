@@ -9,6 +9,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:uuid/uuid.dart';
 
+import '../../../app/widgets/folio_dialog.dart';
 import '../../../l10n/generated/app_localizations.dart';
 import '../../../models/folio_canvas_data.dart';
 import '../../../services/platform/browser_file_download.dart';
@@ -705,7 +706,7 @@ class _FolioCanvasBoardState extends State<FolioCanvasBoard> {
     showDialog<void>(
       context: context,
       builder: (ctx) => StatefulBuilder(
-        builder: (ctx, setSt) => AlertDialog(
+        builder: (ctx, setSt) => FolioDialog(
           title: Text(l10n.canvasEdgeInspector),
           content: Column(
             mainAxisSize: MainAxisSize.min,

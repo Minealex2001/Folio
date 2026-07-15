@@ -154,7 +154,7 @@ extension _WorkspacePageAiThreadsModule on _WorkspacePageState {
       final result = await showDialog<String>(
         context: context,
         builder: (ctx) {
-          return AlertDialog(
+          return FolioDialog(
             title: Text(l10n.aiRenameChatDialogTitle),
             content: TextField(
               controller: controller,

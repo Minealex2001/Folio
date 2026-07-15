@@ -1542,6 +1542,12 @@ class AppLocalizationsEu extends AppLocalizations {
   String get aiCollapse => 'Tolestu';
 
   @override
+  String get sidebarItemExpandedSemantics => 'Zabalduta';
+
+  @override
+  String get sidebarItemCollapsedSemantics => 'Tolestuta';
+
+  @override
   String get aiDeleteCurrentChat => 'Ezabatu uneko txata';
 
   @override
@@ -2082,7 +2088,7 @@ class AppLocalizationsEu extends AppLocalizations {
 
   @override
   String get scheduledVaultBackupFolderSubtitle =>
-      'ZIP enkriptatua gordetzen du konfiguratutako karpetan intervalo bakoitzean.';
+      'Kopi inkremental zifratua (pack) gordetzen du konfiguratutako karpetan.';
 
   @override
   String get scheduledVaultBackupChooseFolder => 'Babeskopia-karpeta';
@@ -2096,10 +2102,13 @@ class AppLocalizationsEu extends AppLocalizations {
 
   @override
   String get scheduledVaultBackupCloudOnlySubtitle =>
-      'Ez du ZIPik gordetzen diskoan. Babeskopiak hodeira bakarrik igotzen ditu.';
+      'Ez du kopiarik gordetzen diskoan. Kopiak inkrementalak hodeira bakarrik igotzen ditu.';
 
   @override
   String get scheduledVaultBackupIntervalLabel => 'Maiztasuna';
+
+  @override
+  String get scheduledVaultBackupEveryChange => 'Aldaketa bakoitzean';
 
   @override
   String scheduledVaultBackupEveryNMinutes(int n) {
@@ -2301,6 +2310,14 @@ class AppLocalizationsEu extends AppLocalizations {
   @override
   String get remoteBackupRestoreOpen =>
       'Berreskuratu NASetik edo zerbitzaritik';
+
+  @override
+  String remoteBackupRestoreIncrementalPackTitle(String vaultId) {
+    return 'Kopia inkrementala ($vaultId)';
+  }
+
+  @override
+  String get remoteBackupRestoreIncrementalPackSubtitle => 'Pack inkrementala';
 
   @override
   String get remoteBackupExportDestinationTitle => 'Non gorde kopia?';
@@ -3471,7 +3488,7 @@ class AppLocalizationsEu extends AppLocalizations {
 
   @override
   String get scheduledVaultBackupCloudSyncSubtitle =>
-      'Programatutako intervalo bakoitzean, babeskopia enkriptatua automatikoki igotzen du zure Folio Cloud kontura.';
+      'Automatikoki igotzen du kopia inkremental zifratua zure Folio Cloud kontura (intervaloaren arabera edo aldaketa bakoitzean).';
 
   @override
   String get folioCloudCloudBackupsList => 'Hodeiko babeskopiak';
@@ -3937,6 +3954,13 @@ class AppLocalizationsEu extends AppLocalizations {
   @override
   String get settingsWindowsNotificationsSubtitle =>
       'Windows jakinarazpen natiboek erakutsiko dituzte gaur iraungitzen diren edo berandututa dauden zereginak';
+
+  @override
+  String get settingsLaunchAtStartup => 'Abiarazi Windows abioarekin';
+
+  @override
+  String get settingsLaunchAtStartupSubtitle =>
+      'Ireki Folio automatikoki Windows-en saioa hastean';
 
   @override
   String get title => 'Izenburua';
@@ -5349,6 +5373,11 @@ class AppLocalizationsEu extends AppLocalizations {
   String get confirmRemoteEndpointTitle => 'Berretsi urruneko amaiera-puntua';
 
   @override
+  String confirmRemoteEndpointBody(Object host) {
+    return 'IA urruneko ostalari batekin ($host) gaitzera zoaz. Bidaltzen duzun edukia gailu honetatik atera daiteke.\n\nJarraitu?';
+  }
+
+  @override
   String get shortcutGlobalSearchKeyChord => 'Ktrl + Maius + F';
 
   @override
@@ -6051,20 +6080,64 @@ class AppLocalizationsEu extends AppLocalizations {
       'Oraindik ez duzu ikonorik inportatu Ezarpenetan.';
 
   @override
-  String get sidebarDeletePageMenuTitle => 'Ezabatu orria';
+  String get sidebarDeletePageMenuTitle => 'Mugitu zakarrontzira';
 
   @override
-  String get sidebarDeleteFolderMenuTitle => 'Kendu karpeta';
+  String get sidebarDeleteFolderMenuTitle => 'Mugitu karpeta zakarrontzira';
 
   @override
   String sidebarDeletePageConfirmInline(Object title) {
-    return 'Ezabatu «$title»? Ezin da desegin.';
+    return '«$title» zakarrontzira eraman? 30 egunez berreskuratu ahal izango duzu.';
   }
 
   @override
   String sidebarDeleteFolderConfirmInline(Object title) {
-    return 'Kendu «$title» karpeta? Azpiorreak koadernoaren errorera pasatuko dira.';
+    return '«$title» karpeta eta bere edukia zakarrontzira eraman? 30 egunez berreskuratu ahal izango duzu.';
   }
+
+  @override
+  String get sidebarTrashTitle => 'Zakarrontzia';
+
+  @override
+  String get sidebarTrashEmpty => 'Zakarrontzia hutsik dago';
+
+  @override
+  String get sidebarTrashRetentionHint =>
+      'Elementuak automatikoki ezabatzen dira 30 egunen buruan.';
+
+  @override
+  String get sidebarTrashRestore => 'Berreskuratu';
+
+  @override
+  String get sidebarTrashDeleteForever => 'Betiko ezabatu';
+
+  @override
+  String get sidebarTrashEmptyAction => 'Zakarrontzia hustu';
+
+  @override
+  String get sidebarTrashEmptyConfirm =>
+      'Zakarrontzia hustu? Ekintza hau ezin da desegin.';
+
+  @override
+  String sidebarTrashDeleteForeverConfirm(Object title) {
+    return '«$title» betiko ezabatu? Ekintza hau ezin da desegin.';
+  }
+
+  @override
+  String sidebarTrashDaysLeft(int days) {
+    return '$days egun geratzen dira';
+  }
+
+  @override
+  String get sidebarTrashOpenTooltip => 'Ireki zakarrontzia';
+
+  @override
+  String sidebarTrashCountBadge(int count) {
+    return '$count';
+  }
+
+  @override
+  String get sidebarTrashClose => 'Itxi';
 
   @override
   String get settingsStripeSubscriptionRefreshed =>
@@ -6124,6 +6197,10 @@ class AppLocalizationsEu extends AppLocalizations {
   String get settingsCloudBackupDeletedSnack => 'Babeskopia ezabatu da.';
 
   @override
+  String get settingsCloudBackupVaultRemovedSnack =>
+      'Babeskopia ezabatu da. Koaderno honek jada ez du hodeiko babeskopiarik eta Folio Cloudetik kendu da.';
+
+  @override
   String get settingsCloudBackupImportedSnack => 'Inportazioa osatu da.';
 
   @override
@@ -6150,6 +6227,20 @@ class AppLocalizationsEu extends AppLocalizations {
   @override
   String get settingsCloudBackupDeleteWarning =>
       'Ziur hodeiko babeskopia hau ezabatu nahi duzula? Ekintza hau ezin da desegin.';
+
+  @override
+  String get settingsCloudBackupDeleteCloudPackWarning =>
+      'Ziur koaderno honen babeskopia inkrementala ezabatu nahi duzula? Hodeiko datu guztiak kenduko dira eta ezingo duzu berreskuratu berri bat igo arte. Ekintza hau ezin da desegin.';
+
+  @override
+  String get settingsCloudBackupsManageHint =>
+      'Kudeatu koaderno honen babeskopiak. Ezabatzeak zure kuotako tokia askatzen du.';
+
+  @override
+  String get settingsCloudBackupDeleteTooltip => 'Ezabatu babeskopia';
+
+  @override
+  String get settingsCloudBackupsSheetTitle => 'Hodeiko babeskopiak';
 
   @override
   String get settingsPublishedRequiresPlan =>

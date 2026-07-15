@@ -1019,13 +1019,7 @@ extension _WorkspacePageAiPanelModule on _WorkspacePageState {
                             if (_transcribingVoice)
                               const Padding(
                                 padding: EdgeInsets.all(12),
-                                child: SizedBox(
-                                  width: 20,
-                                  height: 20,
-                                  child: CircularProgressIndicator(
-                                    strokeWidth: 2,
-                                  ),
-                                ),
+                                child: FolioLoadingIndicator(size: FolioLoadingSize.small),
                               )
                             else
                               IconButton(
@@ -1089,13 +1083,9 @@ extension _WorkspacePageAiPanelModule on _WorkspacePageState {
                                 padding: EdgeInsets.zero,
                               ),
                               child: _aiChatBusy
-                                  ? const SizedBox(
-                                      width: 18,
-                                      height: 18,
-                                      child: CircularProgressIndicator(
-                                        strokeWidth: 2,
-                                        color: Colors.white,
-                                      ),
+                                  ? const FolioLoadingIndicator(
+                                      size: FolioLoadingSize.small,
+                                      color: Colors.white,
                                     )
                                   : const Icon(
                                       Icons.arrow_upward_rounded,

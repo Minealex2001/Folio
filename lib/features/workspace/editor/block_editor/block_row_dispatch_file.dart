@@ -69,9 +69,7 @@ Widget? _specialRowFile(_BlockRowScope s) {
                             builder: (context, snap) {
                               if (snap.connectionState ==
                                   ConnectionState.waiting) {
-                                return const Center(
-                                  child: CircularProgressIndicator(),
-                                );
+                                return const FolioLoadingIndicator(centered: true);
                               }
                               if (snap.hasError) {
                                 return Column(

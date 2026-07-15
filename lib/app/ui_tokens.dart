@@ -67,6 +67,19 @@ class FolioDesktop {
   static const double pageMaxWidth = 1440;
 }
 
+/// Umbrales de ancho específicos del panel lateral del workspace (no del
+/// ancho de ventana completa — para eso usar [FolioDesktop]).
+class FolioSidebar {
+  /// Por debajo de este ancho, el panel se considera "casi cerrado" (durante
+  /// la animación de apertura/cierre) y se omite el contenido para evitar
+  /// overflow.
+  static const double collapseThreshold = 32;
+
+  /// Ancho mínimo de una fila de página para mostrar sus acciones hover
+  /// inline (renombrar, mover, borrar, ...) sin que se produzca overflow.
+  static const double tileActionsMinWidth = 200;
+}
+
 class FolioAdaptive {
   // En Android, este ancho activa una UX similar a escritorio (tablet/Dex).
   static const double androidDesktopLikeBreakpoint = 1000;
