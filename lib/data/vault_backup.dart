@@ -7,19 +7,15 @@ import 'package:cryptography/cryptography.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:path/path.dart' as p;
 
+import '../core/errors/folio_exception.dart';
 import '../crypto/vault_crypto.dart';
 import 'storage/vault_storage.dart';
 import 'vault_payload.dart';
 import 'vault_paths.dart';
 
 /// Errores de exportación/importación de copia de la libreta (mensajes para la UI).
-class VaultBackupException implements Exception {
-  VaultBackupException(this.message);
-
-  final String message;
-
-  @override
-  String toString() => message;
+class VaultBackupException extends FolioException {
+  VaultBackupException(super.message);
 }
 
 const int kVaultBackupFormatVersion = 1;

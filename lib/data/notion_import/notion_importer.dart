@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:archive/archive_io.dart';
 import 'package:path/path.dart' as p;
 
+import '../../core/errors/folio_exception.dart';
 import '../../models/block.dart';
 import '../../models/folio_database_data.dart';
 
@@ -55,12 +56,8 @@ class NotionParsedDatabase {
   final FolioDatabaseData data;
 }
 
-class NotionImportException implements Exception {
-  NotionImportException(this.message);
-  final String message;
-
-  @override
-  String toString() => message;
+class NotionImportException extends FolioException {
+  NotionImportException(super.message);
 }
 
 Future<void> extractNotionZipToDirectory(File zipFile, Directory outDir) async {

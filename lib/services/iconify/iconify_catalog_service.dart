@@ -2,13 +2,10 @@ import 'dart:convert';
 
 import 'package:http/http.dart' as http;
 
-class IconifyCatalogException implements Exception {
-  const IconifyCatalogException(this.message);
+import '../../core/errors/folio_exception.dart';
 
-  final String message;
-
-  @override
-  String toString() => message;
+class IconifyCatalogException extends FolioException {
+  const IconifyCatalogException(super.message);
 }
 
 class IconifyCuratedCollection {

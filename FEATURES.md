@@ -43,11 +43,6 @@
 - [`VaultSyncController`](lib/application/vault_sync_controller.dart): conflictos/sync (base para extracción).
 - `VaultSession` compone controllers y mantiene API pública.
 
-### Riverpod (piloto)
-
-- `ProviderScope` en `FolioApp` con providers en [`lib/app/folio_providers.dart`](lib/app/folio_providers.dart):
-  - `vaultFlowStateProvider`, `selectedPageProvider`, `saveStatusProvider`, `vaultSessionProvider`.
-
 ### Índice de búsqueda
 
 - [`VaultSearchIndex`](lib/application/vault_search_index.dart): índice en memoria + `search_index.json` regenerable en carpeta de libreta.

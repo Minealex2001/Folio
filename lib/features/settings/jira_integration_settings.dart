@@ -273,6 +273,7 @@ class _JiraIntegrationConfigDialogState extends State<JiraIntegrationConfigDialo
       ctrl.dispose();
       if (!mounted || entered == null) return;
       await widget.appSettings.setJiraOAuthClientId(entered);
+      if (!mounted) return;
     }
     setState(() {
       _busy = true;

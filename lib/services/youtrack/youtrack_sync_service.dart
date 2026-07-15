@@ -1,7 +1,6 @@
 import 'package:collection/collection.dart';
 import '../../models/block.dart';
 import '../../models/folio_kanban_data.dart';
-import '../../models/folio_page.dart';
 import '../../models/folio_task_data.dart';
 import '../../models/youtrack_integration_state.dart';
 import '../../session/vault_session.dart';
@@ -432,7 +431,6 @@ class YouTrackSyncService {
     if (ext == null || pulledExt == null) return pulled;
 
     final localNeedsPush = (ext.syncState ?? '').trim() == 'needsPush';
-    final prevRemote = ext.remoteUpdatedAtMs;
     if (localNeedsPush) {
       final nextExt = ext.copyWith(
         remoteUpdatedAtMs: remoteUpdatedAtMs,

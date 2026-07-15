@@ -46,7 +46,9 @@ app.*.map.json
 .env
 .env.local
 
-# Secretos locales Dart (copiar desde lib/config/folio_local_secrets.example.dart)
+# NOTA: lib/config/folio_local_secrets.dart SÍ está versionado (con valores
+# vacíos) a propósito — ver FEATURES.md. No lo ignores aquí ni le pongas
+# valores reales: usa --dart-define para secretos reales en builds locales.
 
 # Folio Cloud / Firebase Functions (secrets locales)
 functions/.env
@@ -67,3 +69,7 @@ output/
 Output/
 lib.zip
 build_out.txt
+analyze_out.txt
+flutter_run.txt
+flutter_test_output*.txt
+flutter_*.png

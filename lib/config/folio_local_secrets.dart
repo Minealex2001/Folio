@@ -1,8 +1,10 @@
-﻿/// Secretos locales de desarrollo: **aquí es donde deben vivir** los valores
-/// que no quieres versionar (OAuth Jira, integración, etc.).
+﻿/// Placeholders de secretos locales (OAuth Jira, integración, etc.).
 ///
-/// **No versionar valores reales.** Rellena este archivo localmente o usa
-/// `--dart-define` al compilar. En **web** no hay lectura de `.env` en disco.
+/// **Este archivo SÍ está versionado en git, con valores vacíos.** No lo
+/// edites con valores reales y luego hagas commit — usa `--dart-define` al
+/// compilar para secretos reales; es la única vía pensada para no arriesgar
+/// que un `git add -A` local suba un secreto por accidente. En **web** no hay
+/// lectura de `.env` en disco, así que `--dart-define` es obligatorio ahí.
 ///
 /// Prioridad: `--dart-define` > `folio_local_secrets.dart` > `.env` / [LocalEnv]
 /// (solo escritorio/móvil con dart:io) > variables de entorno del proceso.

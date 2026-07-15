@@ -24,17 +24,6 @@ import 'folio_cloud_entitlements.dart';
 import 'folio_cloud_pack_crypto.dart';
 import '../vault_cloud_pack_progress.dart';
 
-List<int> _nonceBasisManifest() => utf8.encode('folio-pack:manifest');
-
-List<int> _nonceBasisVaultKeys() => utf8.encode('folio-pack:vault_keys');
-
-List<int> _nonceBasisVaultBin() => utf8.encode('folio-pack:vault_bin');
-
-List<int> _nonceBasisVaultMode() => utf8.encode('folio-pack:vault_mode');
-
-List<int> _nonceBasisAttachment(String posixPath) =>
-    utf8.encode('folio-pack:att:$posixPath');
-
 void _logSyncTelemetry(
   AppSettings? settings,
   String syncType,
@@ -238,13 +227,12 @@ Future<String?> uploadOpenVaultCloudPack({
   Future<void> addBlob({
     required FolioCloudPackBlobRole role,
     required List<int> plainBytes,
-    required List<int> nonceBasis,
     String? attachmentPosix,
   }) async {
     final cipherBytes = await cloudPackEncryptPlainBlob(
       plain: plainBytes,
       packKey: packKey,
-      nonceBasis: nonceBasis,
+      role: role.name,
     );
     final id = await cloudPackBlobIdFromCipherBytes(cipherBytes);
     items.add(
@@ -278,28 +266,24 @@ Future<String?> uploadOpenVaultCloudPack({
   await addBlob(
     role: FolioCloudPackBlobRole.backupManifest,
     plainBytes: manifestPlain,
-    nonceBasis: _nonceBasisManifest(),
   );
 
   if (includeVaultKeys) {
     await addBlob(
       role: FolioCloudPackBlobRole.vaultKeys,
       plainBytes: await wrapped.readAsBytes(),
-      nonceBasis: _nonceBasisVaultKeys(),
     );
   }
 
   await addBlob(
     role: FolioCloudPackBlobRole.vaultBin,
     plainBytes: await cipher.readAsBytes(),
-    nonceBasis: _nonceBasisVaultBin(),
   );
 
   if (includeVaultMode) {
     await addBlob(
       role: FolioCloudPackBlobRole.vaultMode,
       plainBytes: await modeFile.readAsBytes(),
-      nonceBasis: _nonceBasisVaultMode(),
     );
   }
 
@@ -309,7 +293,6 @@ Future<String?> uploadOpenVaultCloudPack({
     await addBlob(
       role: FolioCloudPackBlobRole.attachment,
       plainBytes: await f.readAsBytes(),
-      nonceBasis: _nonceBasisAttachment(posix),
       attachmentPosix: posix,
     );
   }
@@ -481,6 +464,20 @@ Future<Map<String, dynamic>?> _getLatestCloudPackMeta({
   final latest = raw['latest'];
   if (latest is! Map) return null;
   return Map<String, dynamic>.from(latest);
+}
+
+/// `true` si el último cloud-pack de [vaultId] es de una libreta sin cifrado
+/// (envoltorio de recuperación tipo `packKey`, contraseña vacía); `false` si
+/// es de una libreta cifrada (`vaultDek`, contraseña real); `null` si aún no
+/// hay envoltorio o no se pudo consultar. No requiere contraseña: solo lee
+/// metadatos, permite decidir si mostrar el campo de contraseña al restaurar
+/// (ver onboarding, "restaurar en otro dispositivo").
+Future<bool?> cloudPackRestoreIsPlainVault({required String vaultId}) async {
+  final latest = await _getLatestCloudPackMeta(vaultId: vaultId);
+  final kind = latest?['wrapKind']?.toString().trim() ?? '';
+  if (kind == 'packKey') return true;
+  if (kind == 'vaultDek') return false;
+  return null;
 }
 
 Future<FolioCloudPackSnapshotManifest?> _downloadDecryptManifest({

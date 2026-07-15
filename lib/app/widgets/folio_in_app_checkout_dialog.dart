@@ -386,7 +386,7 @@ class _FolioInAppCheckoutDialogState extends State<FolioInAppCheckoutDialog> {
             icon: const Icon(Icons.close_rounded),
             onPressed: () async {
               final confirm = await _showExitConfirmation();
-              if (confirm && mounted) {
+              if (confirm && mounted && context.mounted) {
                 Navigator.of(context).pop(false);
               }
             },

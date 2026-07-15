@@ -4,7 +4,6 @@ import 'package:flutter/material.dart';
 import 'package:uuid/uuid.dart';
 
 import '../../app/app_settings.dart';
-import '../../l10n/generated/app_localizations.dart';
 import '../../models/youtrack_integration_state.dart';
 import '../../services/youtrack/youtrack_api_client.dart';
 import '../../session/vault_session.dart';
@@ -18,7 +17,6 @@ class YouTrackIntegrationCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    final l10n = AppLocalizations.of(context);
     final isEs = Localizations.localeOf(context).languageCode == 'es';
     return ListenableBuilder(
       listenable: session,
@@ -456,7 +454,6 @@ class _SourcesTabState extends State<_SourcesTab> {
                   itemCount: sources.length,
                   itemBuilder: (context, i) {
                     final s = sources[i];
-                    final conn = widget.session.youtrackConnections.firstWhereOrNull((c) => c.id == s.connectionId);
                     return Card(
                       child: ListTile(
                         leading: const Icon(Icons.filter_alt_rounded),

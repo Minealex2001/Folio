@@ -6,15 +6,11 @@ import 'package:path_provider/path_provider.dart';
 import 'package:uuid/uuid.dart';
 
 import '../app/app_settings.dart' show CustomIconEntry;
+import '../core/errors/folio_exception.dart';
 import '../l10n/generated/app_localizations.dart';
 
-class CustomIconImportException implements Exception {
-  const CustomIconImportException(this.message);
-
-  final String message;
-
-  @override
-  String toString() => message;
+class CustomIconImportException extends FolioException {
+  const CustomIconImportException(super.message);
 }
 
 class CustomIconImportService {

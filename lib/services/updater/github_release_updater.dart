@@ -9,6 +9,7 @@ import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 import 'package:pub_semver/pub_semver.dart';
 
+import '../../core/errors/folio_exception.dart';
 import '../../app/folio_distribution.dart';
 import '../app_logger.dart';
 import 'update_release_channel.dart';
@@ -494,12 +495,8 @@ class UpdateCheckResult {
 }
 
 /// El archivo descargado no supera la verificación de integridad.
-class UpdateIntegrityException implements Exception {
-  const UpdateIntegrityException(this.message);
-  final String message;
-
-  @override
-  String toString() => message;
+class UpdateIntegrityException extends FolioException {
+  const UpdateIntegrityException(super.message);
 }
 
 class ReleaseNotesResult {

@@ -138,6 +138,12 @@ service cloud.firestore {
       allow read, write: if false;
     }
 
+    // Contador de intentos de unión por uid, para limitar fuerza bruta del
+    // código de invitación (solo Functions).
+    match /collabJoinAttempts/{uid} {
+      allow read, write: if false;
+    }
+
     // Salas de colaboración: alta solo Cloud Functions (admin); sync E2E o legado desde miembros.
     match /collabRooms/{roomId} {
       allow read: if collabMember(roomId);

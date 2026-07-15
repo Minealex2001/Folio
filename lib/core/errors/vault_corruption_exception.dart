@@ -1,8 +1,9 @@
-/// La libreta activa no se puede leer o decodificar (corrupción o corte de escritura).
-class VaultCorruptionException implements Exception {
-  VaultCorruptionException(this.message, {this.cause, this.restoredFromBackup = false});
+import 'folio_exception.dart';
 
-  final String message;
+/// La libreta activa no se puede leer o decodificar (corrupción o corte de escritura).
+class VaultCorruptionException extends FolioException {
+  VaultCorruptionException(super.message, {this.cause, this.restoredFromBackup = false});
+
   final Object? cause;
   final bool restoredFromBackup;
 

@@ -3,22 +3,22 @@ import 'dart:convert';
 import 'dart:io';
 import 'dart:math';
 
+import 'package:cryptography/cryptography.dart' show Sha256;
 import 'package:firebase_core/firebase_core.dart';
 import 'package:http/http.dart' as http;
 import 'package:url_launcher/url_launcher.dart';
 import 'package:uuid/uuid.dart';
 
 import '../../config/folio_local_secrets.dart';
+import '../../core/errors/folio_exception.dart';
 import '../../firebase_options.dart';
 import '../../models/jira_integration_state.dart';
 import '../app_logger.dart';
 import '../env/local_env.dart';
 import '../folio_cloud/folio_cloud_callable.dart';
 
-class JiraAuthCancelledException implements Exception {
-  const JiraAuthCancelledException();
-  @override
-  String toString() => 'OAuth cancelado por el usuario.';
+class JiraAuthCancelledException extends FolioException {
+  const JiraAuthCancelledException() : super('OAuth cancelado por el usuario.');
 }
 
 class JiraAuthCancelToken {
@@ -117,6 +117,11 @@ class JiraAuthService {
         Uri.parse('http://127.0.0.1:$_oauthLoopbackPort/callback');
 
     final state = _randomToken(16);
+    // PKCE real (RFC 7636): el redirect loopback exclusivo (RFC 8252) ya
+    // ayuda, pero el code_challenge evita que un proceso local que intercepte
+    // el `code` de la respuesta pueda canjearlo sin conocer el verifier.
+    final codeVerifier = _randomToken(64);
+    final codeChallenge = await _pkceCodeChallenge(codeVerifier);
 
     final authUri = Uri.https('auth.atlassian.com', '/authorize', {
       'audience': 'api.atlassian.com',
@@ -126,6 +131,8 @@ class JiraAuthService {
       'state': state,
       'response_type': 'code',
       'prompt': 'consent',
+      'code_challenge': codeChallenge,
+      'code_challenge_method': 'S256',
     });
 
     AppLogger.info(
@@ -170,6 +177,7 @@ class JiraAuthService {
               'client_secret': clientSecret,
               'code': code,
               'redirect_uri': redirectUri.toString(),
+              'code_verifier': codeVerifier,
             }),
           )
           .timeout(const Duration(seconds: 30));
@@ -184,6 +192,7 @@ class JiraAuthService {
         code: code,
         clientId: clientId,
         redirectUri: redirectUri,
+        codeVerifier: codeVerifier,
       );
     }
     final accessToken = (tokenJson['access_token'] as String? ?? '').trim();
@@ -274,6 +283,7 @@ class JiraAuthService {
     required String code,
     required String clientId,
     required Uri redirectUri,
+    required String codeVerifier,
   }) async {
     if (Firebase.apps.isEmpty) {
       throw StateError(
@@ -300,6 +310,7 @@ class JiraAuthService {
             'code': code,
             'redirectUri': redirectUri.toString(),
             'clientId': clientId,
+            'codeVerifier': codeVerifier,
           }),
         )
         .timeout(const Duration(seconds: 30));
@@ -431,6 +442,12 @@ class JiraAuthService {
     final r = Random.secure();
     final bytes = List<int>.generate(byteLength, (_) => r.nextInt(256));
     return base64UrlEncode(bytes).replaceAll('=', '');
+  }
+
+  /// `code_challenge` PKCE (RFC 7636, método S256) a partir del verifier.
+  static Future<String> _pkceCodeChallenge(String codeVerifier) async {
+    final hash = await Sha256().hash(utf8.encode(codeVerifier));
+    return base64UrlEncode(hash.bytes).replaceAll('=', '');
   }
 }
 

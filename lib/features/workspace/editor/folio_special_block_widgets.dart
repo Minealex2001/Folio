@@ -1498,7 +1498,9 @@ class _FolioTaskBlockBodyState extends State<FolioTaskBlockBody> {
                       firstDate: DateTime(2000),
                       lastDate: DateTime(2100),
                     );
-                    if (!mounted || picked == null) return;
+                    if (!mounted || !context.mounted || picked == null) {
+                      return;
+                    }
                     final existingDt = _data.dueDate != null
                         ? DateTime.tryParse(_data.dueDate!)
                         : null;

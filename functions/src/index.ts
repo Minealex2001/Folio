@@ -5,7 +5,7 @@ import { config as loadEnv } from "dotenv";
 loadEnv({ path: path.resolve(__dirname, "../.env") });
 
 import * as admin from "firebase-admin";
-import { createHash } from "crypto";
+import { createHash, randomInt } from "crypto";
 import * as functionsV1 from "firebase-functions/v1";
 import { onCall, HttpsError } from "firebase-functions/v2/https";
 import { onRequest } from "firebase-functions/v2/https";
@@ -2064,14 +2064,51 @@ function collabJoinCodeKey(norm: string): string {
   return createHash("sha256").update(norm, "utf8").digest("hex");
 }
 
+const COLLAB_JOIN_CODE_DIGITS = 6;
+const COLLAB_JOIN_MAX_ATTEMPTS = 8;
+const COLLAB_JOIN_WINDOW_MS = 5 * 60 * 1000;
+
 function generateCollabJoinCode(): string {
+  // CSPRNG (crypto.randomInt), no Math.random(): este código deriva la clave
+  // AES de la sala vía HKDF, así que necesita entropía impredecible además de
+  // espacio de búsqueda suficiente (2 emojis de 15 + 6 dígitos ≈ 225M combinaciones).
   const pick = () =>
-    COLLAB_JOIN_EMOJIS[Math.floor(Math.random() * COLLAB_JOIN_EMOJIS.length)] ??
-    "\u{2B50}";
+    COLLAB_JOIN_EMOJIS[randomInt(COLLAB_JOIN_EMOJIS.length)] ?? "\u{2B50}";
   const a = pick();
   const b = pick();
-  const n = String(Math.floor(Math.random() * 10000)).padStart(4, "0");
+  const n = String(randomInt(10 ** COLLAB_JOIN_CODE_DIGITS)).padStart(
+    COLLAB_JOIN_CODE_DIGITS,
+    "0"
+  );
   return `${a}${b}${n}`;
+}
+
+// Limita intentos de adivinar el código de unión por uid autenticado, ya que
+// el código deriva la clave E2E de la sala (no solo permiso de lectura).
+async function checkAndRecordCollabJoinAttempt(uid: string): Promise<void> {
+  const ref = db.collection("collabJoinAttempts").doc(uid);
+  const now = Date.now();
+  await db.runTransaction(async (tx) => {
+    const snap = await tx.get(ref);
+    const data = snap.exists ? snap.data() ?? {} : {};
+    const windowStart = (data.windowStart as number | undefined) ?? 0;
+    const count = (data.count as number | undefined) ?? 0;
+    if (now - windowStart > COLLAB_JOIN_WINDOW_MS) {
+      tx.set(ref, { windowStart: now, count: 1 });
+      return;
+    }
+    if (count >= COLLAB_JOIN_MAX_ATTEMPTS) {
+      throw new HttpsError(
+        "resource-exhausted",
+        "Too many join code attempts. Try again later."
+      );
+    }
+    tx.set(ref, { windowStart, count: count + 1 }, { merge: true });
+  });
+}
+
+async function clearCollabJoinAttempts(uid: string): Promise<void> {
+  await db.collection("collabJoinAttempts").doc(uid).delete().catch(() => {});
 }
 
 export const createCollabRoom = onCall({ invoker: "public" }, async (request) => {
@@ -2143,6 +2180,9 @@ export const joinCollabRoomByCode = onCall({ invoker: "public" }, async (request
     throw new HttpsError("unauthenticated", "Login required");
   }
   const uid = request.auth.uid;
+  await assertFolioRealtimeCollabAllowed(uid);
+  await checkAndRecordCollabJoinAttempt(uid);
+
   const raw =
     typeof request.data?.joinCode === "string"
       ? request.data.joinCode.trim()
@@ -2180,6 +2220,7 @@ export const joinCollabRoomByCode = onCall({ invoker: "public" }, async (request
       updatedAt: FieldValue.serverTimestamp(),
     });
   });
+  await clearCollabJoinAttempts(uid);
   return { roomId };
 });
 
@@ -2826,6 +2867,8 @@ export const folioGetLatestCloudPackMeta = onCall(
             : "",
         updatedAt: data.latestCloudPackUpdatedAt ?? null,
         hasRestoreWrap,
+        wrapKind:
+          wrapKind === "vaultDek" || wrapKind === "packKey" ? wrapKind : null,
       },
     };
   }
@@ -3945,6 +3988,9 @@ export const folioJiraExchangeOAuth = onRequest(
     let redirectUri = String(raw.redirectUri ?? "").trim();
     const clientIdRaw = String(raw.clientId ?? "").trim();
     const clientId = clientIdRaw || jiraOauthEnvClientId();
+    // PKCE (RFC 7636): opcional para no romper apps clientes viejas que aún
+    // no lo envían (esas tampoco mandaron code_challenge en /authorize).
+    const codeVerifier = String(raw.codeVerifier ?? "").trim();
     if (!code || !redirectUri) {
       res.status(400).json({ error: "missing_code_or_redirect" });
       return;
@@ -3983,6 +4029,7 @@ export const folioJiraExchangeOAuth = onRequest(
         client_secret: secret,
         code,
         redirect_uri: redirectUri,
+        ...(codeVerifier ? { code_verifier: codeVerifier } : {}),
       }),
     });
     const text = await tokenResp.text();

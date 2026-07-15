@@ -58,6 +58,7 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
   String? _notionZipPath;
   bool? _backupZipIsPlain;
   String? _onboardingCloudPackVaultId;
+  bool? _onboardingCloudPackIsPlain;
   String? _error;
   var _busy = false;
   var _obscurePassword = true;
@@ -73,7 +74,6 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
   /// Elección en onboarding (se persiste al salir del paso).
   /// Default: true (telemetría habilitada, puede desactivarse en Settings)
   var _onboardingTelemetryEnabled = true;
-  var _onboardingCloudSkipped = true;
 
   static const _minLen = 10;
 
@@ -280,6 +280,7 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
       _mode = _OnboardingMode.backupImport;
       _backupZipPath = null;
       _onboardingCloudPackVaultId = null;
+      _onboardingCloudPackIsPlain = null;
       _page = 2;
     });
   }
@@ -403,6 +404,20 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
       }
 
       if (chosen.isCloudPack) {
+        // Se consulta si el envoltorio de recuperación es de tipo `packKey`
+        // (libreta sin cifrado, contraseña vacía) para no pedirle al usuario
+        // una contraseña que no existe -- sin esto, el usuario escribía algo
+        // igualmente y fallaba con "Contraseña incorrecta o datos dañados"
+        // al no coincidir con el envoltorio real.
+        bool? cloudPackIsPlain;
+        try {
+          cloudPackIsPlain = await cloudPackRestoreIsPlainVault(
+            vaultId: chosenVaultId,
+          );
+        } catch (_) {
+          cloudPackIsPlain = null;
+        }
+        if (!mounted) return;
         setState(() {
           _busy = false;
           _error = null;
@@ -410,6 +425,7 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
           _backupZipPath = null;
           _backupZipIsPlain = null;
           _onboardingCloudPackVaultId = chosenVaultId;
+          _onboardingCloudPackIsPlain = cloudPackIsPlain;
           _page = 2;
         });
         return;
@@ -438,6 +454,7 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
         _backupZipPath = dest.path;
         _backupZipIsPlain = isPlain;
         _onboardingCloudPackVaultId = null;
+        _onboardingCloudPackIsPlain = null;
         _page = 2;
       });
     } catch (e) {
@@ -504,6 +521,7 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
         _backupZipPath = path;
         _backupZipIsPlain = null;
         _onboardingCloudPackVaultId = null;
+        _onboardingCloudPackIsPlain = null;
       });
       try {
         final plain = await isPlainBackupZip(File(path));
@@ -1506,50 +1524,6 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
     }
   }
 
-  Future<void> _applyAppearanceAndContinue() async {
-    await widget.appSettings.setThemeMode(_draftThemeMode);
-    await widget.appSettings.setAccentColorMode(_draftAccentMode);
-    if (_draftAccentMode == FolioAccentColorMode.custom) {
-      await widget.appSettings.setCustomAccentArgb(_draftCustomAccentArgb);
-    }
-    if (!mounted) return;
-    _goNext();
-  }
-
-  Future<void> _applySecurityAndContinue() async {
-    await widget.appSettings.setVaultIdleLockMinutes(_draftIdleLockMinutes);
-    await widget.appSettings.setVaultLockOnMinimize(_draftLockOnMinimize);
-    if (!mounted) return;
-    _goNext();
-  }
-
-  Future<void> _applyBackupsAndContinue() async {
-    await widget.appSettings.setScheduledVaultBackupEnabled(
-      _draftScheduledBackupEnabled,
-    );
-    await widget.appSettings.setScheduledVaultBackupIntervalMinutes(
-      _draftScheduledBackupIntervalMinutes,
-    );
-    await widget.appSettings.setScheduledVaultBackupDirectory(
-      _draftScheduledBackupDirectory,
-    );
-    await widget.appSettings.setScheduledVaultBackupAlsoUploadCloud(
-      _draftScheduledBackupAlsoUploadCloud,
-    );
-    if (!mounted) return;
-    _goNext();
-  }
-
-  Future<void> _applySystemAndContinue() async {
-    await widget.appSettings.setMinimizeToTray(_draftMinimizeToTray);
-    await widget.appSettings.setCloseToTray(_draftCloseToTray);
-    await widget.appSettings.setWindowsNotificationsEnabled(
-      _draftWindowsNotificationsEnabled,
-    );
-    if (!mounted) return;
-    _goNext();
-  }
-
   Future<void> _applyPersonalizeAndContinue() async {
     await widget.appSettings.setThemeMode(_draftThemeMode);
     await widget.appSettings.setAccentColorMode(_draftAccentMode);
@@ -1596,9 +1570,6 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
   }
 
   void _onFolioCloudStepContinue() {
-    setState(() {
-      _onboardingCloudSkipped = !_folio.snapshot.active;
-    });
     _goNext();
   }
 
@@ -2032,402 +2003,8 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
     );
   }
 
-  Widget _stepAppearance(BuildContext context) {
-    final l10n = AppLocalizations.of(context);
-    final scheme = Theme.of(context).colorScheme;
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        const SizedBox(height: FolioSpace.lg),
-        Icon(Icons.palette_outlined, size: 64, color: scheme.primary),
-        const SizedBox(height: FolioSpace.lg),
-        Text(
-          l10n.onboardingAppearanceTitle,
-          style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-            fontWeight: FontWeight.w700,
-          ),
-          textAlign: TextAlign.center,
-        ),
-        const SizedBox(height: FolioSpace.md),
-        Text(
-          l10n.onboardingAppearanceBody,
-          style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-            color: scheme.onSurfaceVariant,
-            height: 1.45,
-          ),
-          textAlign: TextAlign.center,
-        ),
-        const SizedBox(height: FolioSpace.lg),
-        Text(
-          l10n.settingsAppearanceChipTheme,
-          style: Theme.of(context).textTheme.titleSmall?.copyWith(
-            fontWeight: FontWeight.w800,
-          ),
-        ),
-        const SizedBox(height: FolioSpace.sm),
-        SegmentedButton<ThemeMode>(
-          segments: [
-            ButtonSegment<ThemeMode>(
-              value: ThemeMode.system,
-              label: Text(l10n.systemTheme),
-              icon: const Icon(Icons.brightness_auto, size: 18),
-            ),
-            ButtonSegment<ThemeMode>(
-              value: ThemeMode.light,
-              label: Text(l10n.lightTheme),
-              icon: const Icon(Icons.light_mode_outlined, size: 18),
-            ),
-            ButtonSegment<ThemeMode>(
-              value: ThemeMode.dark,
-              label: Text(l10n.darkTheme),
-              icon: const Icon(Icons.dark_mode_outlined, size: 18),
-            ),
-          ],
-          selected: {_draftThemeMode},
-          onSelectionChanged: (s) {
-            setState(() => _draftThemeMode = s.first);
-          },
-        ),
-        const SizedBox(height: FolioSpace.lg),
-        Text(
-          l10n.settingsAccentColorTitle,
-          style: Theme.of(context).textTheme.titleSmall?.copyWith(
-            fontWeight: FontWeight.w800,
-          ),
-        ),
-        const SizedBox(height: FolioSpace.sm),
-        SegmentedButton<FolioAccentColorMode>(
-          segments: [
-            ButtonSegment<FolioAccentColorMode>(
-              value: FolioAccentColorMode.followSystem,
-              label: Text(l10n.settingsAccentFollowSystem),
-              icon: const Icon(Icons.palette_outlined, size: 18),
-            ),
-            ButtonSegment<FolioAccentColorMode>(
-              value: FolioAccentColorMode.folioDefault,
-              label: Text(l10n.settingsAccentFolioDefault),
-              icon: const Icon(Icons.brush_outlined, size: 18),
-            ),
-            ButtonSegment<FolioAccentColorMode>(
-              value: FolioAccentColorMode.custom,
-              label: Text(l10n.settingsAccentCustom),
-              icon: const Icon(Icons.color_lens_outlined, size: 18),
-            ),
-          ],
-          selected: {_draftAccentMode},
-          onSelectionChanged: (s) {
-            setState(() => _draftAccentMode = s.first);
-          },
-        ),
-        if (_draftAccentMode == FolioAccentColorMode.custom) ...[
-          const SizedBox(height: FolioSpace.sm),
-          ListTile(
-            contentPadding: EdgeInsets.zero,
-            leading: Icon(Icons.color_lens, color: Color(_draftCustomAccentArgb)),
-            title: Text(l10n.settingsAccentPickColor),
-            trailing: const Icon(Icons.chevron_right),
-            onTap: () => unawaited(_pickDraftAccentPresets()),
-          ),
-        ],
-        const SizedBox(height: FolioSpace.xl),
-        _configStepActions(
-          onBack: _goBack,
-          onSkip: _skipConfigDraftStep,
-          onContinue: () => unawaited(_applyAppearanceAndContinue()),
-        ),
-      ],
-    );
-  }
 
-  Widget _stepSecurity(BuildContext context) {
-    final l10n = AppLocalizations.of(context);
-    final scheme = Theme.of(context).colorScheme;
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        const SizedBox(height: FolioSpace.lg),
-        Icon(Icons.lock_outline_rounded, size: 64, color: scheme.primary),
-        const SizedBox(height: FolioSpace.lg),
-        Text(
-          l10n.onboardingSecurityTitle,
-          style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-            fontWeight: FontWeight.w700,
-          ),
-          textAlign: TextAlign.center,
-        ),
-        const SizedBox(height: FolioSpace.md),
-        Text(
-          l10n.onboardingSecurityBody,
-          style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-            color: scheme.onSurfaceVariant,
-            height: 1.45,
-          ),
-          textAlign: TextAlign.center,
-        ),
-        const SizedBox(height: FolioSpace.lg),
-        Text(
-          l10n.lockAutoByInactivity,
-          style: Theme.of(context).textTheme.titleSmall?.copyWith(
-            fontWeight: FontWeight.w800,
-          ),
-        ),
-        const SizedBox(height: FolioSpace.sm),
-        InputDecorator(
-          decoration: InputDecoration(
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(FolioRadius.md),
-            ),
-            contentPadding: const EdgeInsets.symmetric(horizontal: 12),
-          ),
-          child: DropdownButtonHideUnderline(
-            child: DropdownButton<int>(
-              isExpanded: true,
-              value: _coerceIdleLockMinutes(_draftIdleLockMinutes),
-              items: _idleLockPresets
-                  .map(
-                    (m) => DropdownMenuItem<int>(
-                      value: m,
-                      child: Text(l10n.minutesShort(m)),
-                    ),
-                  )
-                  .toList(),
-              onChanged: _busy
-                  ? null
-                  : (v) {
-                      if (v == null) return;
-                      setState(() => _draftIdleLockMinutes = v);
-                    },
-            ),
-          ),
-        ),
-        const SizedBox(height: FolioSpace.md),
-        SwitchListTile(
-          contentPadding: EdgeInsets.zero,
-          secondary: const Icon(Icons.minimize_rounded),
-          title: Text(l10n.lockOnMinimize),
-          value: _draftLockOnMinimize,
-          onChanged: _busy
-              ? null
-              : (v) {
-                  setState(() => _draftLockOnMinimize = v);
-                },
-        ),
-        const SizedBox(height: FolioSpace.xl),
-        _configStepActions(
-          onBack: _goBack,
-          onSkip: _skipConfigDraftStep,
-          onContinue: () => unawaited(_applySecurityAndContinue()),
-        ),
-      ],
-    );
-  }
 
-  Widget _stepBackups(BuildContext context) {
-    final l10n = AppLocalizations.of(context);
-    final scheme = Theme.of(context).colorScheme;
-    final theme = Theme.of(context);
-    final choices = AppSettings.scheduledVaultBackupIntervalChoicesMinutes;
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        const SizedBox(height: FolioSpace.lg),
-        Icon(Icons.backup_outlined, size: 64, color: scheme.primary),
-        const SizedBox(height: FolioSpace.lg),
-        Text(
-          l10n.onboardingBackupsTitle,
-          style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-            fontWeight: FontWeight.w700,
-          ),
-          textAlign: TextAlign.center,
-        ),
-        const SizedBox(height: FolioSpace.md),
-        Text(
-          l10n.onboardingBackupsBody,
-          style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-            color: scheme.onSurfaceVariant,
-            height: 1.45,
-          ),
-          textAlign: TextAlign.center,
-        ),
-        const SizedBox(height: FolioSpace.lg),
-        SwitchListTile(
-          contentPadding: EdgeInsets.zero,
-          secondary: const Icon(Icons.schedule_rounded),
-          title: Text(l10n.scheduledVaultBackupTitle),
-          subtitle: Text(l10n.scheduledVaultBackupSubtitle),
-          value: _draftScheduledBackupEnabled,
-          onChanged: _busy
-              ? null
-              : (v) {
-                  setState(() => _draftScheduledBackupEnabled = v);
-                },
-        ),
-        AnimatedSize(
-          duration: FolioMotion.short2,
-          curve: FolioMotion.emphasized,
-          child: _draftScheduledBackupEnabled
-              ? Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    const SizedBox(height: FolioSpace.md),
-                    Text(
-                      l10n.scheduledVaultBackupIntervalLabel,
-                      style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                        fontWeight: FontWeight.w800,
-                      ),
-                    ),
-                    const SizedBox(height: FolioSpace.sm),
-                    Text(
-                      _scheduledBackupIntervalSummary(
-                        l10n,
-                        _draftScheduledBackupIntervalMinutes,
-                      ),
-                      style: theme.textTheme.bodyMedium?.copyWith(
-                        color: scheme.onSurfaceVariant,
-                      ),
-                    ),
-                    const SizedBox(height: FolioSpace.xs),
-                    SliderTheme(
-                      data: SliderTheme.of(context).copyWith(trackHeight: 3),
-                      child: Slider(
-                        min: 0,
-                        max: (choices.length - 1).toDouble(),
-                        divisions: choices.length - 1,
-                        value: AppSettings.vaultBackupIntervalChoiceIndex(
-                          _draftScheduledBackupIntervalMinutes,
-                        ).toDouble(),
-                        onChanged: _busy
-                            ? null
-                            : (v) {
-                                final i = v.round().clamp(
-                                  0,
-                                  choices.length - 1,
-                                );
-                                setState(
-                                  () => _draftScheduledBackupIntervalMinutes =
-                                      choices[i],
-                                );
-                              },
-                      ),
-                    ),
-                    const SizedBox(height: FolioSpace.md),
-                    OutlinedButton.icon(
-                      onPressed: _busy ? null : () => unawaited(_pickDraftBackupFolder()),
-                      icon: const Icon(Icons.folder_open_outlined),
-                      label: Text(l10n.scheduledVaultBackupChooseFolder),
-                    ),
-                    if (_draftScheduledBackupDirectory.isNotEmpty) ...[
-                      const SizedBox(height: FolioSpace.xs),
-                      Text(
-                        _draftScheduledBackupDirectory,
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                        style: Theme.of(context).textTheme.bodySmall,
-                      ),
-                    ],
-                    if (_folio.isAvailable) ...[
-                      const SizedBox(height: FolioSpace.md),
-                      SwitchListTile(
-                        contentPadding: EdgeInsets.zero,
-                        secondary: const Icon(Icons.cloud_upload_outlined),
-                        title: Text(l10n.scheduledVaultBackupCloudSyncTitle),
-                        subtitle: Text(
-                          l10n.scheduledVaultBackupCloudSyncSubtitle,
-                        ),
-                        value: _draftScheduledBackupAlsoUploadCloud,
-                        onChanged: _busy
-                            ? null
-                            : (v) {
-                                setState(
-                                  () =>
-                                      _draftScheduledBackupAlsoUploadCloud = v,
-                                );
-                              },
-                      ),
-                    ],
-                  ],
-                )
-              : const SizedBox.shrink(),
-        ),
-        const SizedBox(height: FolioSpace.xl),
-        _configStepActions(
-          onBack: _goBack,
-          onSkip: _skipConfigDraftStep,
-          onContinue: () => unawaited(_applyBackupsAndContinue()),
-        ),
-      ],
-    );
-  }
-
-  Widget _stepSystem(BuildContext context) {
-    final l10n = AppLocalizations.of(context);
-    final scheme = Theme.of(context).colorScheme;
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        const SizedBox(height: FolioSpace.lg),
-        Icon(Icons.desktop_windows_outlined, size: 64, color: scheme.primary),
-        const SizedBox(height: FolioSpace.lg),
-        Text(
-          l10n.onboardingSystemTitle,
-          style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-            fontWeight: FontWeight.w700,
-          ),
-          textAlign: TextAlign.center,
-        ),
-        const SizedBox(height: FolioSpace.md),
-        Text(
-          l10n.onboardingSystemBody,
-          style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-            color: scheme.onSurfaceVariant,
-            height: 1.45,
-          ),
-          textAlign: TextAlign.center,
-        ),
-        const SizedBox(height: FolioSpace.lg),
-        SwitchListTile(
-          contentPadding: EdgeInsets.zero,
-          secondary: const Icon(Icons.minimize_outlined),
-          title: Text(l10n.minimizeToTray),
-          value: _draftMinimizeToTray,
-          onChanged: _busy
-              ? null
-              : (v) {
-                  setState(() => _draftMinimizeToTray = v);
-                },
-        ),
-        SwitchListTile(
-          contentPadding: EdgeInsets.zero,
-          secondary: const Icon(Icons.close_fullscreen_outlined),
-          title: Text(l10n.closeToTray),
-          value: _draftCloseToTray,
-          onChanged: _busy
-              ? null
-              : (v) {
-                  setState(() => _draftCloseToTray = v);
-                },
-        ),
-        SwitchListTile(
-          contentPadding: EdgeInsets.zero,
-          secondary: const Icon(Icons.notifications_outlined),
-          title: Text(l10n.settingsWindowsNotifications),
-          subtitle: Text(l10n.settingsWindowsNotificationsSubtitle),
-          value: _draftWindowsNotificationsEnabled,
-          onChanged: _busy
-              ? null
-              : (v) {
-                  setState(() => _draftWindowsNotificationsEnabled = v);
-                },
-        ),
-        const SizedBox(height: FolioSpace.xl),
-        _configStepActions(
-          onBack: _goBack,
-          onSkip: _skipConfigDraftStep,
-          onContinue: () => unawaited(_applySystemAndContinue()),
-        ),
-      ],
-    );
-  }
 
   Widget _stepImportBackup(BuildContext context) {
     return Column(
@@ -2496,9 +2073,11 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
           const SizedBox(height: FolioSpace.md),
         ],
         const SizedBox(height: FolioSpace.lg),
-        if (_onboardingCloudPackVaultId == null &&
-            _backupZipPath != null &&
-            _backupZipIsPlain == true)
+        if ((_onboardingCloudPackVaultId == null &&
+                _backupZipPath != null &&
+                _backupZipIsPlain == true) ||
+            (_onboardingCloudPackVaultId != null &&
+                _onboardingCloudPackIsPlain == true))
           Text(
             AppLocalizations.of(context).backupPlainNoPasswordHint,
             style: Theme.of(context).textTheme.bodySmall?.copyWith(
@@ -2534,6 +2113,7 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
                     _mode = _OnboardingMode.importChooser;
                     _page = 1;
                     _onboardingCloudPackVaultId = null;
+                    _onboardingCloudPackIsPlain = null;
                   });
                 },
           onPrimary: _busy ? null : _finishImport,
@@ -2704,13 +2284,6 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
     );
   }
 
-  Future<void> _persistTelemetryAndGoNext() async {
-    await widget.appSettings.setTelemetryEnabled(_onboardingTelemetryEnabled);
-    await FolioTelemetry.onSettingsChanged(widget.appSettings);
-    if (!mounted) return;
-    _goNext();
-  }
-
   Widget _stepUsageProfile(BuildContext context) {
     final l10n = AppLocalizations.of(context);
     final scheme = Theme.of(context).colorScheme;
@@ -2835,65 +2408,6 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
     }
   }
 
-  Widget _stepTelemetry(BuildContext context) {
-    final l10n = AppLocalizations.of(context);
-    final scheme = Theme.of(context).colorScheme;
-    final theme = Theme.of(context);
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        const SizedBox(height: FolioSpace.xl),
-        Icon(Icons.analytics_outlined, size: 64, color: scheme.primary),
-        const SizedBox(height: FolioSpace.lg),
-        Text(
-          l10n.onboardingTelemetryTitle,
-          style: theme.textTheme.headlineMedium?.copyWith(
-            fontWeight: FontWeight.w700,
-          ),
-          textAlign: TextAlign.center,
-        ),
-        const SizedBox(height: FolioSpace.md),
-        Text(
-          l10n.onboardingTelemetryBody,
-          style: theme.textTheme.bodyLarge?.copyWith(
-            color: scheme.onSurfaceVariant,
-            height: 1.45,
-          ),
-          textAlign: TextAlign.center,
-        ),
-        const SizedBox(height: FolioSpace.lg),
-        SwitchListTile(
-          contentPadding: EdgeInsets.zero,
-          secondary: const Icon(Icons.insights_outlined),
-          title: Text(l10n.onboardingTelemetrySwitchTitle),
-          subtitle: Text(l10n.onboardingTelemetrySwitchSubtitle),
-          value: _onboardingTelemetryEnabled,
-          onChanged: _busy
-              ? null
-              : (v) {
-                  setState(() => _onboardingTelemetryEnabled = v);
-                },
-        ),
-        const SizedBox(height: FolioSpace.sm),
-        Text(
-          l10n.onboardingTelemetryFootnote,
-          style: theme.textTheme.bodySmall?.copyWith(
-            color: scheme.onSurfaceVariant,
-            height: 1.35,
-          ),
-          textAlign: TextAlign.center,
-        ),
-        const SizedBox(height: FolioSpace.xl),
-        _onboardingBottomActions(
-          onBack: _busy ? null : _goBack,
-          onPrimary: _busy
-              ? null
-              : () => unawaited(_persistTelemetryAndGoNext()),
-          primaryLabel: l10n.continueAction,
-        ),
-      ],
-    );
-  }
 
   Widget _stepFolioCloud(BuildContext context) {
     final l10n = AppLocalizations.of(context);

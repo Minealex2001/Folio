@@ -803,7 +803,7 @@ For images/blocks: use the + button or / command in a paragraph.
     }
 
     try {
-      if (wantsBilingualTranslate && scopePage != null) {
+      if (wantsBilingualTranslate) {
         final bilingual = await translatePageBilinguallyWithAi(
           pageId: scopePage.id,
           prompt: prompt,

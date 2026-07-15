@@ -316,6 +316,7 @@ class _KanbanBoardPageState extends State<KanbanBoardPage> {
         }
       }
     }
+    if (!mounted) return;
     await showTaskQuickAddDialog(
       context: context,
       session: widget.session,
@@ -617,11 +618,13 @@ class _KanbanBoardPageState extends State<KanbanBoardPage> {
             block: newBlock,
           );
         } catch (e) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('${isEs ? 'Error YouTrack' : 'YouTrack error'}: $e')),
-          );
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text('${isEs ? 'Error YouTrack' : 'YouTrack error'}: $e')),
+            );
+          }
         } finally {
-          setState(() => _youtrackSyncBusy = false);
+          if (mounted) setState(() => _youtrackSyncBusy = false);
         }
         return;
       }
@@ -792,6 +795,7 @@ class _KanbanBoardPageState extends State<KanbanBoardPage> {
           depth: 0,
         ),
       );
+      if (!mounted) return true;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
@@ -803,6 +807,7 @@ class _KanbanBoardPageState extends State<KanbanBoardPage> {
       );
       return true;
     } catch (e) {
+      if (!mounted) return false;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('${isEs ? 'Error YouTrack' : 'YouTrack error'}: $e')),
       );
@@ -934,6 +939,7 @@ class _KanbanBoardPageState extends State<KanbanBoardPage> {
           depth: 0,
         ),
       );
+      if (!mounted) return true;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
@@ -945,6 +951,7 @@ class _KanbanBoardPageState extends State<KanbanBoardPage> {
       );
       return true;
     } catch (e) {
+      if (!mounted) return false;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('${isEs ? 'Error Jira' : 'Jira error'}: $e')),
       );

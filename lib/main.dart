@@ -144,16 +144,46 @@ Future<void> main() async {
       final cloudAccountController = CloudAccountController();
       final folioCloudEntitlements = FolioCloudEntitlementsController();
       folioCloudEntitlements.listenToCloudAccount(cloudAccountController);
-      final runtimeConfig = await FolioRuntimeConfig.load();
-      final appSettings = AppSettings(
-        integrationSecret: runtimeConfig.integrationSecret,
-      );
-      await appSettings.load();
-      await FolioTelemetry.applyAfterSettingsLoaded(appSettings);
+
+      // A diferencia de las fases de arriba (env/.env, SystemTheme, Firebase),
+      // esta carga no estaba protegida: si algo aquí lanzaba, runApp() nunca se
+      // ejecutaba y el proceso quedaba sin ventana visible en vez de degradar
+      // con defaults (rompe el arranque-por-fases documentado en FEATURES.md).
+      AppSettings appSettings;
+      try {
+        final runtimeConfig = await FolioRuntimeConfig.load();
+        appSettings = AppSettings(
+          integrationSecret: runtimeConfig.integrationSecret,
+        );
+        await appSettings.load();
+        await FolioTelemetry.applyAfterSettingsLoaded(appSettings);
+      } catch (e, st) {
+        AppLogger.error(
+          'App settings bootstrap failed; continuing with defaults',
+          tag: 'bootstrap',
+          error: e,
+          stackTrace: st,
+        );
+        appSettings = AppSettings(integrationSecret: '');
+        // Best effort: si el fallo fue después de construir AppSettings (p.ej.
+        // en applyAfterSettingsLoaded), intenta igual cargar prefs guardadas.
+        try {
+          await appSettings.load();
+        } catch (_) {}
+      }
+
       FolioFirestoreSync.initialize();
       final session = VaultSession(titleLocale: appSettings.locale);
-      final initialLaunchArgs =
-          await PlatformLaunchArguments.initialArguments();
+      var initialLaunchArgs = const <String>[];
+      try {
+        initialLaunchArgs = await PlatformLaunchArguments.initialArguments();
+      } catch (e, st) {
+        AppLogger.warn(
+          'Reading initial launch arguments failed',
+          tag: 'bootstrap',
+          context: {'error': '$e', 'stack': '$st'},
+        );
+      }
       runApp(
         FolioApp(
           session: session,

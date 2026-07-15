@@ -2,9 +2,6 @@ import 'dart:async';
 import 'package:flutter/foundation.dart'
     show TargetPlatform, defaultTargetPlatform, kIsWeb;
 import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
-
-import 'folio_providers.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
@@ -221,7 +218,10 @@ class _FolioAppState extends State<FolioApp> with WidgetsBindingObserver {
       appInfoProvider: _integrationsAppInfo,
       resolveLocale: () => widget.appSettings.locale ?? const Locale('es'),
       onEvent: _showSnack,
-      allowedOrigins: const ['*'],
+      // Sin allowedOrigins: el bridge sirve a apps nativas/CLI locales, no a
+      // páginas web. Con '*' cualquier sitio abierto en el navegador del
+      // usuario podía hacer fetch() al puerto fijo del bridge y disparar el
+      // diálogo de aprobación con un nombre de app falsificado.
     );
     _deviceSyncController = DeviceSyncController(
       appSettings: widget.appSettings,
@@ -1226,14 +1226,7 @@ class _FolioAppState extends State<FolioApp> with WidgetsBindingObserver {
   @override
   Widget build(BuildContext context) {
     final seed = widget.appSettings.resolveAccentSeedColor();
-    return ProviderScope(
-      overrides: [
-        vaultSessionProvider.overrideWithValue(widget.session),
-        vaultFlowStateProvider.overrideWith((ref) => widget.session.state),
-        selectedPageProvider.overrideWith((ref) => widget.session.selectedPageId),
-        saveStatusProvider.overrideWith((ref) => widget.session.saveStatus),
-      ],
-      child: MaterialApp(
+    return MaterialApp(
       navigatorKey: _navKey,
       navigatorObservers: [_telemetryNavObserver],
       onGenerateTitle: (context) => AppLocalizations.of(context).appTitle,
@@ -1336,7 +1329,6 @@ class _FolioAppState extends State<FolioApp> with WidgetsBindingObserver {
         folioCloudEntitlements: _folioCloudEntitlements,
         onOpenSearch: _handleSearchRequested,
         onOpenReleaseNotes: _openReleaseNotesForUser,
-      ),
       ),
     );
   }

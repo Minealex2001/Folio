@@ -4,6 +4,8 @@ import 'dart:typed_data';
 
 import 'package:cryptography/cryptography.dart';
 
+import '../core/errors/folio_exception.dart';
+
 /// Cifrado E2E para salas `collabRooms`: el backend solo ve blobs AES-GCM.
 ///
 /// La clave de sala se envuelve con HKDF-SHA256 a partir del código de unión
@@ -210,10 +212,6 @@ class CollabE2eCrypto {
   }
 }
 
-class CollabE2eException implements Exception {
-  CollabE2eException(this.message);
-  final String message;
-
-  @override
-  String toString() => message;
+class CollabE2eException extends FolioException {
+  CollabE2eException(super.message);
 }

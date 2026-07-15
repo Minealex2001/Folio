@@ -328,6 +328,14 @@ class AppSettings extends ChangeNotifier {
   AppSettings({String integrationSecret = ''})
     : _configuredIntegrationSecret = integrationSecret.trim();
 
+  SharedPreferences? _cachedPrefs;
+
+  /// Cachea la instancia tras la primera resolución: cada setter la pedía por
+  /// separado (100+ sitios), y aunque el plugin memoiza internamente, esto
+  /// evita el `await` extra de ida y vuelta por el method channel en cada uno.
+  Future<SharedPreferences> _prefs() async =>
+      _cachedPrefs ??= await SharedPreferences.getInstance();
+
   static const _themeModeKey = 'folio_theme_mode';
   static const _oledThemeEnabledKey = 'folio_oled_theme_enabled';
   static const _uiScaleKey = 'folio_ui_scale';
@@ -777,7 +785,7 @@ class AppSettings extends ChangeNotifier {
     final next = value.trim();
     if (next == _jiraOAuthClientId) return;
     _jiraOAuthClientId = next;
-    final p = await SharedPreferences.getInstance();
+    final p = await _prefs();
     if (next.isEmpty) {
       await p.remove(_jiraOAuthClientIdKey);
     } else {
@@ -874,7 +882,7 @@ class AppSettings extends ChangeNotifier {
       describeActivator(inAppShortcut(id));
 
   Future<void> load() async {
-    final p = await SharedPreferences.getInstance();
+    final p = await _prefs();
     final raw = p.getString(_themeModeKey);
     _themeMode = _parseThemeMode(raw) ?? ThemeMode.system;
     _oledThemeEnabled = p.getBool(_oledThemeEnabledKey) ?? false;
@@ -1467,7 +1475,7 @@ class AppSettings extends ChangeNotifier {
         .toSet()
         .toList();
     cleaned.sort();
-    final sp = await SharedPreferences.getInstance();
+    final sp = await _prefs();
     await sp.setStringList(_aiModelsKeyForProvider(provider), cleaned);
     _cachedAiModelsByProvider[provider] = cleaned;
     notifyListeners();
@@ -1477,7 +1485,7 @@ class AppSettings extends ChangeNotifier {
     if (_themeMode == mode) return;
     _themeMode = mode;
     notifyListeners();
-    final p = await SharedPreferences.getInstance();
+    final p = await _prefs();
     final v = switch (mode) {
       ThemeMode.light => 'light',
       ThemeMode.dark => 'dark',
@@ -1490,7 +1498,7 @@ class AppSettings extends ChangeNotifier {
     if (_oledThemeEnabled == value) return;
     _oledThemeEnabled = value;
     notifyListeners();
-    final p = await SharedPreferences.getInstance();
+    final p = await _prefs();
     await p.setBool(_oledThemeEnabledKey, value);
   }
 
@@ -1499,7 +1507,7 @@ class AppSettings extends ChangeNotifier {
     if ((_uiScale - safe).abs() < 0.01) return;
     _uiScale = safe;
     notifyListeners();
-    final p = await SharedPreferences.getInstance();
+    final p = await _prefs();
     await p.setDouble(_uiScaleKey, safe);
   }
 
@@ -1507,7 +1515,7 @@ class AppSettings extends ChangeNotifier {
     if (_uiScaleMode == value) return;
     _uiScaleMode = value;
     notifyListeners();
-    final p = await SharedPreferences.getInstance();
+    final p = await _prefs();
     await p.setString(_uiScaleModeKey, value.name);
   }
 
@@ -1515,7 +1523,7 @@ class AppSettings extends ChangeNotifier {
     if (_locale == locale) return;
     _locale = locale;
     notifyListeners();
-    final p = await SharedPreferences.getInstance();
+    final p = await _prefs();
     final code = locale?.languageCode;
     if (code == null || code.isEmpty) {
       await p.remove(_localeCodeKey);
@@ -1529,7 +1537,7 @@ class AppSettings extends ChangeNotifier {
     if (_vaultIdleLockMinutes == safe) return;
     _vaultIdleLockMinutes = safe;
     notifyListeners();
-    final p = await SharedPreferences.getInstance();
+    final p = await _prefs();
     await p.setInt(_vaultIdleLockMinutesKey, safe);
   }
 
@@ -1537,7 +1545,7 @@ class AppSettings extends ChangeNotifier {
     if (_vaultLockOnMinimize == value) return;
     _vaultLockOnMinimize = value;
     notifyListeners();
-    final p = await SharedPreferences.getInstance();
+    final p = await _prefs();
     await p.setBool(_vaultLockOnMinimizeKey, value);
   }
 
@@ -1545,7 +1553,7 @@ class AppSettings extends ChangeNotifier {
     if (_enableGlobalSearchHotkey == value) return;
     _enableGlobalSearchHotkey = value;
     notifyListeners();
-    final p = await SharedPreferences.getInstance();
+    final p = await _prefs();
     await p.setBool(_enableGlobalSearchHotkeyKey, value);
   }
 
@@ -1556,7 +1564,7 @@ class AppSettings extends ChangeNotifier {
     if (_globalSearchHotkey == safe) return;
     _globalSearchHotkey = safe;
     notifyListeners();
-    final p = await SharedPreferences.getInstance();
+    final p = await _prefs();
     await p.setString(_globalSearchHotkeyKey, safe);
   }
 
@@ -1564,7 +1572,7 @@ class AppSettings extends ChangeNotifier {
     if (_minimizeToTray == value) return;
     _minimizeToTray = value;
     notifyListeners();
-    final p = await SharedPreferences.getInstance();
+    final p = await _prefs();
     await p.setBool(_minimizeToTrayKey, value);
   }
 
@@ -1572,7 +1580,7 @@ class AppSettings extends ChangeNotifier {
     if (_closeToTray == value) return;
     _closeToTray = value;
     notifyListeners();
-    final p = await SharedPreferences.getInstance();
+    final p = await _prefs();
     await p.setBool(_closeToTrayKey, value);
   }
 
@@ -1580,7 +1588,7 @@ class AppSettings extends ChangeNotifier {
     if (_windowsNotificationsEnabled == value) return;
     _windowsNotificationsEnabled = value;
     notifyListeners();
-    final p = await SharedPreferences.getInstance();
+    final p = await _prefs();
     await p.setBool(_windowsNotificationsEnabledKey, value);
   }
 
@@ -1588,7 +1596,7 @@ class AppSettings extends ChangeNotifier {
     if (_aiEnabled == value) return;
     _aiEnabled = value;
     notifyListeners();
-    final p = await SharedPreferences.getInstance();
+    final p = await _prefs();
     await p.setBool(_aiEnabledKey, value);
   }
 
@@ -1602,7 +1610,7 @@ class AppSettings extends ChangeNotifier {
     if (value == AiProvider.quillCloud) {
       _aiModel = defaultModelForProvider(value);
       notifyListeners();
-      final p = await SharedPreferences.getInstance();
+      final p = await _prefs();
       await p.setString(_aiProviderKey, value.name);
       return;
     }
@@ -1613,7 +1621,7 @@ class AppSettings extends ChangeNotifier {
       _aiModel = defaultModelForProvider(value);
     }
     notifyListeners();
-    final p = await SharedPreferences.getInstance();
+    final p = await _prefs();
     await p.setString(_aiProviderKey, value.name);
   }
 
@@ -1622,7 +1630,7 @@ class AppSettings extends ChangeNotifier {
     if (_aiApiKey == safe) return;
     _aiApiKey = safe;
     notifyListeners();
-    final p = await SharedPreferences.getInstance();
+    final p = await _prefs();
     await p.setString(_aiApiKeyKey, safe);
   }
 
@@ -1631,7 +1639,7 @@ class AppSettings extends ChangeNotifier {
     if (_aiPersona == safe) return;
     _aiPersona = safe;
     notifyListeners();
-    final p = await SharedPreferences.getInstance();
+    final p = await _prefs();
     await p.setString(_aiPersonaKey, safe);
   }
 
@@ -1639,7 +1647,7 @@ class AppSettings extends ChangeNotifier {
     if (_aiCustomSystemPrompt == value) return;
     _aiCustomSystemPrompt = value;
     notifyListeners();
-    final p = await SharedPreferences.getInstance();
+    final p = await _prefs();
     await p.setString(_aiCustomSystemPromptKey, value);
   }
 
@@ -1648,12 +1656,12 @@ class AppSettings extends ChangeNotifier {
     if (_activeQuillPromptId == safe) return;
     _activeQuillPromptId = safe;
     notifyListeners();
-    final p = await SharedPreferences.getInstance();
+    final p = await _prefs();
     await p.setString(_activeQuillPromptIdKey, safe);
   }
 
   Future<void> _saveQuillSystemPrompts() async {
-    final p = await SharedPreferences.getInstance();
+    final p = await _prefs();
     final encoded = jsonEncode(_quillSystemPrompts.map((e) => e.toJson()).toList());
     await p.setString(_quillSystemPromptsJsonKey, encoded);
   }
@@ -1677,7 +1685,7 @@ class AppSettings extends ChangeNotifier {
     _quillSystemPrompts.removeWhere((e) => e.id == id && !e.isSystemDefault);
     if (_activeQuillPromptId == id) {
       _activeQuillPromptId = 'quill_default';
-      final p = await SharedPreferences.getInstance();
+      final p = await _prefs();
       await p.setString(_activeQuillPromptIdKey, 'quill_default');
     }
     notifyListeners();
@@ -1689,7 +1697,7 @@ class AppSettings extends ChangeNotifier {
     if (safe.isEmpty || _aiBaseUrl == safe) return;
     _aiBaseUrl = safe;
     notifyListeners();
-    final p = await SharedPreferences.getInstance();
+    final p = await _prefs();
     await p.setString(_aiBaseUrlKey, safe);
   }
 
@@ -1706,7 +1714,7 @@ class AppSettings extends ChangeNotifier {
     if (safe.isEmpty || _aiModel == safe) return;
     _aiModel = safe;
     notifyListeners();
-    final p = await SharedPreferences.getInstance();
+    final p = await _prefs();
     await p.setString(_aiModelKey, safe);
   }
 
@@ -1715,7 +1723,7 @@ class AppSettings extends ChangeNotifier {
     if (_aiTimeoutMs == safe) return;
     _aiTimeoutMs = safe;
     notifyListeners();
-    final p = await SharedPreferences.getInstance();
+    final p = await _prefs();
     await p.setInt(_aiTimeoutMsKey, safe);
   }
 
@@ -1726,7 +1734,7 @@ class AppSettings extends ChangeNotifier {
       _aiRemoteEndpointConfirmed = false;
     }
     notifyListeners();
-    final p = await SharedPreferences.getInstance();
+    final p = await _prefs();
     await p.setString(_aiEndpointModeKey, value.name);
     if (value == AiEndpointMode.localhostOnly) {
       await p.setBool(_aiRemoteEndpointConfirmedKey, false);
@@ -1737,7 +1745,7 @@ class AppSettings extends ChangeNotifier {
     if (_aiRemoteEndpointConfirmed == value) return;
     _aiRemoteEndpointConfirmed = value;
     notifyListeners();
-    final p = await SharedPreferences.getInstance();
+    final p = await _prefs();
     await p.setBool(_aiRemoteEndpointConfirmedKey, value);
   }
 
@@ -1745,7 +1753,7 @@ class AppSettings extends ChangeNotifier {
     if (_aiAlwaysShowThought == value) return;
     _aiAlwaysShowThought = value;
     notifyListeners();
-    final p = await SharedPreferences.getInstance();
+    final p = await _prefs();
     await p.setBool(_aiAlwaysShowThoughtKey, value);
   }
 
@@ -1753,7 +1761,7 @@ class AppSettings extends ChangeNotifier {
     if (_aiLaunchProviderWithApp == value) return;
     _aiLaunchProviderWithApp = value;
     notifyListeners();
-    final p = await SharedPreferences.getInstance();
+    final p = await _prefs();
     await p.setBool(_aiLaunchProviderWithAppKey, value);
   }
 
@@ -1762,7 +1770,7 @@ class AppSettings extends ChangeNotifier {
     if (_aiContextWindowTokens == safe) return;
     _aiContextWindowTokens = safe;
     notifyListeners();
-    final p = await SharedPreferences.getInstance();
+    final p = await _prefs();
     await p.setInt(_aiContextWindowTokensKey, safe);
   }
 
@@ -1771,7 +1779,7 @@ class AppSettings extends ChangeNotifier {
     if (listEquals(_usageIntents, safe)) return;
     _usageIntents = List<FolioUsageIntent>.from(safe);
     notifyListeners();
-    final p = await SharedPreferences.getInstance();
+    final p = await _prefs();
     await p.setString(_usageIntentsKey, FolioUsageIntent.encodeList(safe));
   }
 
@@ -1779,7 +1787,7 @@ class AppSettings extends ChangeNotifier {
     if (_hasSeenQuillIntro == value) return;
     _hasSeenQuillIntro = value;
     notifyListeners();
-    final p = await SharedPreferences.getInstance();
+    final p = await _prefs();
     await p.setBool(_hasSeenQuillIntroKey, value);
   }
 
@@ -1788,7 +1796,7 @@ class AppSettings extends ChangeNotifier {
     if (_lockScreenAutoQuickUnlockDone) return;
     _lockScreenAutoQuickUnlockDone = true;
     notifyListeners();
-    final p = await SharedPreferences.getInstance();
+    final p = await _prefs();
     await p.setBool(_lockScreenAutoQuickUnlockDoneKey, true);
   }
 
@@ -1796,7 +1804,7 @@ class AppSettings extends ChangeNotifier {
     if (_hasSeenQuillWorkspaceTour == value) return;
     _hasSeenQuillWorkspaceTour = value;
     notifyListeners();
-    final p = await SharedPreferences.getInstance();
+    final p = await _prefs();
     await p.setBool(_hasSeenQuillWorkspaceTourKey, value);
   }
 
@@ -1804,7 +1812,7 @@ class AppSettings extends ChangeNotifier {
     if (_hasAcceptedQuillGlobalScope == value) return;
     _hasAcceptedQuillGlobalScope = value;
     notifyListeners();
-    final p = await SharedPreferences.getInstance();
+    final p = await _prefs();
     await p.setBool(_hasAcceptedQuillGlobalScopeKey, value);
   }
 
@@ -1812,7 +1820,7 @@ class AppSettings extends ChangeNotifier {
     if (_hasCompletedQuillSetup == value) return;
     _hasCompletedQuillSetup = value;
     notifyListeners();
-    final p = await SharedPreferences.getInstance();
+    final p = await _prefs();
     await p.setBool(_hasCompletedQuillSetupKey, value);
   }
 
@@ -1821,7 +1829,7 @@ class AppSettings extends ChangeNotifier {
     if (_lastSeenReleaseNotesVersion == safe) return;
     _lastSeenReleaseNotesVersion = safe;
     notifyListeners();
-    final p = await SharedPreferences.getInstance();
+    final p = await _prefs();
     if (safe.isEmpty) {
       await p.remove(_lastSeenReleaseNotesVersionKey);
     } else {
@@ -1833,7 +1841,7 @@ class AppSettings extends ChangeNotifier {
     if (_updateReleaseChannel == value) return;
     _updateReleaseChannel = value;
     notifyListeners();
-    final p = await SharedPreferences.getInstance();
+    final p = await _prefs();
     await p.setString(_updateReleaseChannelKey, value.name);
   }
 
@@ -1841,7 +1849,7 @@ class AppSettings extends ChangeNotifier {
     if (_betaBannerDismissed == value) return;
     _betaBannerDismissed = value;
     notifyListeners();
-    final p = await SharedPreferences.getInstance();
+    final p = await _prefs();
     await p.setBool(_betaBannerDismissedKey, value);
   }
 
@@ -1850,7 +1858,7 @@ class AppSettings extends ChangeNotifier {
     if ((_editorContentWidth - safe).abs() < 0.5) return;
     _editorContentWidth = safe;
     notifyListeners();
-    final p = await SharedPreferences.getInstance();
+    final p = await _prefs();
     await p.setDouble(_editorContentWidthKey, safe);
   }
 
@@ -1859,7 +1867,7 @@ class AppSettings extends ChangeNotifier {
     if ((_workspaceSidebarWidth - safe).abs() < 0.5) return;
     _workspaceSidebarWidth = safe;
     notifyListeners();
-    final p = await SharedPreferences.getInstance();
+    final p = await _prefs();
     await p.setDouble(_workspaceSidebarWidthKey, safe);
   }
 
@@ -1874,7 +1882,7 @@ class AppSettings extends ChangeNotifier {
     required String? vaultId,
     required Set<String> validPageIds,
   }) async {
-    final p = await SharedPreferences.getInstance();
+    final p = await _prefs();
     final saved =
         p.getStringList(_workspaceSidebarCollapsedPagesKey(vaultId)) ??
         const <String>[];
@@ -1885,7 +1893,7 @@ class AppSettings extends ChangeNotifier {
     required String? vaultId,
     required Set<String> collapsedPageIds,
   }) async {
-    final p = await SharedPreferences.getInstance();
+    final p = await _prefs();
     final sorted = collapsedPageIds.toList()..sort();
     await p.setStringList(_workspaceSidebarCollapsedPagesKey(vaultId), sorted);
   }
@@ -1894,7 +1902,7 @@ class AppSettings extends ChangeNotifier {
     if (_workspaceSidebarCollapsed == value) return;
     _workspaceSidebarCollapsed = value;
     notifyListeners();
-    final p = await SharedPreferences.getInstance();
+    final p = await _prefs();
     await p.setBool(_workspaceSidebarCollapsedKey, value);
   }
 
@@ -1902,7 +1910,7 @@ class AppSettings extends ChangeNotifier {
     if (_workspaceSidebarShowRecentPages == value) return;
     _workspaceSidebarShowRecentPages = value;
     notifyListeners();
-    final p = await SharedPreferences.getInstance();
+    final p = await _prefs();
     await p.setBool(_workspaceSidebarShowRecentPagesKey, value);
   }
 
@@ -1910,7 +1918,7 @@ class AppSettings extends ChangeNotifier {
     if (_workspaceSidebarRecentPagesCollapsed == value) return;
     _workspaceSidebarRecentPagesCollapsed = value;
     notifyListeners();
-    final p = await SharedPreferences.getInstance();
+    final p = await _prefs();
     await p.setBool(_workspaceSidebarRecentPagesCollapsedKey, value);
   }
 
@@ -1918,7 +1926,7 @@ class AppSettings extends ChangeNotifier {
     if (_aiChatPanelCollapsed == value) return;
     _aiChatPanelCollapsed = value;
     notifyListeners();
-    final p = await SharedPreferences.getInstance();
+    final p = await _prefs();
     await p.setBool(_aiChatPanelCollapsedKey, value);
   }
 
@@ -1927,7 +1935,7 @@ class AppSettings extends ChangeNotifier {
     if ((_aiChatPanelWidth - safe).abs() < 0.5) return;
     _aiChatPanelWidth = safe;
     notifyListeners();
-    final p = await SharedPreferences.getInstance();
+    final p = await _prefs();
     await p.setDouble(_aiChatPanelWidthKey, safe);
   }
 
@@ -1936,7 +1944,7 @@ class AppSettings extends ChangeNotifier {
     if ((_aiChatPanelHeight - safe).abs() < 0.5) return;
     _aiChatPanelHeight = safe;
     notifyListeners();
-    final p = await SharedPreferences.getInstance();
+    final p = await _prefs();
     await p.setDouble(_aiChatPanelHeightKey, safe);
   }
 
@@ -1944,7 +1952,7 @@ class AppSettings extends ChangeNotifier {
     if (_aiChatSplitView == value) return;
     _aiChatSplitView = value;
     notifyListeners();
-    final p = await SharedPreferences.getInstance();
+    final p = await _prefs();
     await p.setBool(_aiChatSplitViewKey, value);
   }
 
@@ -1952,7 +1960,7 @@ class AppSettings extends ChangeNotifier {
     if (_aiQuillCopilotExperimental == value) return;
     _aiQuillCopilotExperimental = value;
     notifyListeners();
-    final p = await SharedPreferences.getInstance();
+    final p = await _prefs();
     await p.setBool(_aiQuillCopilotExperimentalKey, value);
   }
 
@@ -1960,7 +1968,7 @@ class AppSettings extends ChangeNotifier {
     if (_workspaceSidebarAutoReveal == value) return;
     _workspaceSidebarAutoReveal = value;
     notifyListeners();
-    final p = await SharedPreferences.getInstance();
+    final p = await _prefs();
     await p.setBool(_workspaceSidebarAutoRevealKey, value);
   }
 
@@ -1968,7 +1976,7 @@ class AppSettings extends ChangeNotifier {
     if (_workspaceOpenToHome == value) return;
     _workspaceOpenToHome = value;
     notifyListeners();
-    final p = await SharedPreferences.getInstance();
+    final p = await _prefs();
     await p.setBool(WorkspacePrefsKeys.openWorkspaceToHome, value);
   }
 
@@ -1976,7 +1984,7 @@ class AppSettings extends ChangeNotifier {
     if (_workspacePageOutlineVisible == value) return;
     _workspacePageOutlineVisible = value;
     notifyListeners();
-    final p = await SharedPreferences.getInstance();
+    final p = await _prefs();
     await p.setBool(_workspacePageOutlineVisibleKey, value);
   }
 
@@ -1984,7 +1992,7 @@ class AppSettings extends ChangeNotifier {
     if (_workspaceBacklinksVisible == value) return;
     _workspaceBacklinksVisible = value;
     notifyListeners();
-    final p = await SharedPreferences.getInstance();
+    final p = await _prefs();
     await p.setBool(_workspaceBacklinksVisibleKey, value);
   }
 
@@ -1992,7 +2000,7 @@ class AppSettings extends ChangeNotifier {
     if (_workspaceCommentsVisible == value) return;
     _workspaceCommentsVisible = value;
     notifyListeners();
-    final p = await SharedPreferences.getInstance();
+    final p = await _prefs();
     await p.setBool(_workspaceCommentsVisibleKey, value);
   }
 
@@ -2000,7 +2008,7 @@ class AppSettings extends ChangeNotifier {
     if (_workspaceHomeShowFolioCloudCard == value) return;
     _workspaceHomeShowFolioCloudCard = value;
     notifyListeners();
-    final p = await SharedPreferences.getInstance();
+    final p = await _prefs();
     await p.setBool(_workspaceHomeShowFolioCloudCardKey, value);
   }
 
@@ -2008,7 +2016,7 @@ class AppSettings extends ChangeNotifier {
     if (_workspaceHomeShowRootPages == value) return;
     _workspaceHomeShowRootPages = value;
     notifyListeners();
-    final p = await SharedPreferences.getInstance();
+    final p = await _prefs();
     await p.setBool(_workspaceHomeShowRootPagesKey, value);
   }
 
@@ -2016,7 +2024,7 @@ class AppSettings extends ChangeNotifier {
     if (_workspaceHomeShowMiniStats == value) return;
     _workspaceHomeShowMiniStats = value;
     notifyListeners();
-    final p = await SharedPreferences.getInstance();
+    final p = await _prefs();
     await p.setBool(_workspaceHomeShowMiniStatsKey, value);
   }
 
@@ -2024,7 +2032,7 @@ class AppSettings extends ChangeNotifier {
     if (_workspaceHomeShowTasksSection == value) return;
     _workspaceHomeShowTasksSection = value;
     notifyListeners();
-    final p = await SharedPreferences.getInstance();
+    final p = await _prefs();
     await p.setBool(_workspaceHomeShowTasksSectionKey, value);
   }
 
@@ -2032,7 +2040,7 @@ class AppSettings extends ChangeNotifier {
     if (_workspaceHomeShowQuickActions == value) return;
     _workspaceHomeShowQuickActions = value;
     notifyListeners();
-    final p = await SharedPreferences.getInstance();
+    final p = await _prefs();
     await p.setBool(_workspaceHomeShowQuickActionsKey, value);
   }
 
@@ -2040,7 +2048,7 @@ class AppSettings extends ChangeNotifier {
     if (_workspaceHomeShowTip == value) return;
     _workspaceHomeShowTip = value;
     notifyListeners();
-    final p = await SharedPreferences.getInstance();
+    final p = await _prefs();
     await p.setBool(_workspaceHomeShowTipKey, value);
   }
 
@@ -2048,7 +2056,7 @@ class AppSettings extends ChangeNotifier {
     if (_workspaceHomeShowVaultStatus == value) return;
     _workspaceHomeShowVaultStatus = value;
     notifyListeners();
-    final p = await SharedPreferences.getInstance();
+    final p = await _prefs();
     await p.setBool(_workspaceHomeShowVaultStatusKey, value);
   }
 
@@ -2056,7 +2064,7 @@ class AppSettings extends ChangeNotifier {
     if (_workspaceHomeShowOnboarding == value) return;
     _workspaceHomeShowOnboarding = value;
     notifyListeners();
-    final p = await SharedPreferences.getInstance();
+    final p = await _prefs();
     await p.setBool(_workspaceHomeShowOnboardingKey, value);
   }
 
@@ -2064,7 +2072,7 @@ class AppSettings extends ChangeNotifier {
     if (_workspaceHomeShowWhatsNew == value) return;
     _workspaceHomeShowWhatsNew = value;
     notifyListeners();
-    final p = await SharedPreferences.getInstance();
+    final p = await _prefs();
     await p.setBool(_workspaceHomeShowWhatsNewKey, value);
   }
 
@@ -2074,7 +2082,7 @@ class AppSettings extends ChangeNotifier {
     if (_workspaceHomeColumnLayout == value) return;
     _workspaceHomeColumnLayout = value;
     notifyListeners();
-    final p = await SharedPreferences.getInstance();
+    final p = await _prefs();
     await p.setString(_workspaceHomeColumnLayoutKey, value.name);
   }
 
@@ -2082,7 +2090,7 @@ class AppSettings extends ChangeNotifier {
     if (_workspaceHomeClockShowSeconds == value) return;
     _workspaceHomeClockShowSeconds = value;
     notifyListeners();
-    final p = await SharedPreferences.getInstance();
+    final p = await _prefs();
     await p.setBool(_workspaceHomeClockShowSecondsKey, value);
   }
 
@@ -2090,7 +2098,7 @@ class AppSettings extends ChangeNotifier {
     if (_workspaceHomeClock24Hour == value) return;
     _workspaceHomeClock24Hour = value;
     notifyListeners();
-    final p = await SharedPreferences.getInstance();
+    final p = await _prefs();
     await p.setBool(_workspaceHomeClock24HourKey, value);
   }
 
@@ -2098,7 +2106,7 @@ class AppSettings extends ChangeNotifier {
     if (_workspaceHomeClockShowTimezone == value) return;
     _workspaceHomeClockShowTimezone = value;
     notifyListeners();
-    final p = await SharedPreferences.getInstance();
+    final p = await _prefs();
     await p.setBool(_workspaceHomeClockShowTimezoneKey, value);
   }
 
@@ -2109,7 +2117,7 @@ class AppSettings extends ChangeNotifier {
     if (_workspaceHomeWhatsNewDismissedVersion == safe) return;
     _workspaceHomeWhatsNewDismissedVersion = safe;
     notifyListeners();
-    final p = await SharedPreferences.getInstance();
+    final p = await _prefs();
     await p.setString(_workspaceHomeWhatsNewDismissedVersionKey, safe);
   }
 
@@ -2121,7 +2129,7 @@ class AppSettings extends ChangeNotifier {
     if (listEquals(_workspaceHomeLeftSectionOrder, next)) return;
     _workspaceHomeLeftSectionOrder = next;
     notifyListeners();
-    final p = await SharedPreferences.getInstance();
+    final p = await _prefs();
     await p.setString(_workspaceHomeLeftSectionOrderKey, jsonEncode(next));
   }
 
@@ -2133,7 +2141,7 @@ class AppSettings extends ChangeNotifier {
     if (listEquals(_workspaceHomeRightSectionOrder, next)) return;
     _workspaceHomeRightSectionOrder = next;
     notifyListeners();
-    final p = await SharedPreferences.getInstance();
+    final p = await _prefs();
     await p.setString(_workspaceHomeRightSectionOrderKey, jsonEncode(next));
   }
 
@@ -2141,7 +2149,7 @@ class AppSettings extends ChangeNotifier {
     if (_enterCreatesNewBlock == value) return;
     _enterCreatesNewBlock = value;
     notifyListeners();
-    final p = await SharedPreferences.getInstance();
+    final p = await _prefs();
     await p.setBool(_enterCreatesNewBlockKey, value);
   }
 
@@ -2149,7 +2157,7 @@ class AppSettings extends ChangeNotifier {
     if (_syncEnabled == value) return;
     _syncEnabled = value;
     notifyListeners();
-    final p = await SharedPreferences.getInstance();
+    final p = await _prefs();
     await p.setBool(_syncEnabledKey, value);
   }
 
@@ -2157,7 +2165,7 @@ class AppSettings extends ChangeNotifier {
     if (_syncRelayEnabled == value) return;
     _syncRelayEnabled = value;
     notifyListeners();
-    final p = await SharedPreferences.getInstance();
+    final p = await _prefs();
     await p.setBool(_syncRelayEnabledKey, value);
   }
 
@@ -2166,7 +2174,7 @@ class AppSettings extends ChangeNotifier {
     if (_syncDeviceName == safe) return;
     _syncDeviceName = safe;
     notifyListeners();
-    final p = await SharedPreferences.getInstance();
+    final p = await _prefs();
     await p.setString(_syncDeviceNameKey, safe);
   }
 
@@ -2175,7 +2183,7 @@ class AppSettings extends ChangeNotifier {
     if (_syncPendingConflicts == safe) return;
     _syncPendingConflicts = safe;
     notifyListeners();
-    final p = await SharedPreferences.getInstance();
+    final p = await _prefs();
     await p.setInt(_syncPendingConflictsKey, safe);
   }
 
@@ -2184,7 +2192,7 @@ class AppSettings extends ChangeNotifier {
     if (_syncLastSuccessMs == safe) return;
     _syncLastSuccessMs = safe;
     notifyListeners();
-    final p = await SharedPreferences.getInstance();
+    final p = await _prefs();
     await p.setInt(_syncLastSuccessMsKey, safe);
   }
 
@@ -2199,7 +2207,7 @@ class AppSettings extends ChangeNotifier {
     }
     _recentSearchQueries = next;
     notifyListeners();
-    final p = await SharedPreferences.getInstance();
+    final p = await _prefs();
     await p.setStringList(_recentSearchQueriesKey, _recentSearchQueries);
   }
 
@@ -2208,7 +2216,7 @@ class AppSettings extends ChangeNotifier {
     if (q.isEmpty) return;
     _recentSearchQueries = _recentSearchQueries.where((x) => x != q).toList();
     notifyListeners();
-    final p = await SharedPreferences.getInstance();
+    final p = await _prefs();
     await p.setStringList(_recentSearchQueriesKey, _recentSearchQueries);
   }
 
@@ -2216,7 +2224,7 @@ class AppSettings extends ChangeNotifier {
     if (_recentSearchQueries.isEmpty) return;
     _recentSearchQueries = const [];
     notifyListeners();
-    final p = await SharedPreferences.getInstance();
+    final p = await _prefs();
     await p.setStringList(_recentSearchQueriesKey, _recentSearchQueries);
   }
 
@@ -2227,7 +2235,7 @@ class AppSettings extends ChangeNotifier {
       _lastScheduledVaultBackupMs = DateTime.now().millisecondsSinceEpoch;
     }
     notifyListeners();
-    final p = await SharedPreferences.getInstance();
+    final p = await _prefs();
     await p.setBool(_scheduledVaultBackupEnabledKey, value);
     if (value && _lastScheduledVaultBackupMs != 0) {
       await p.setInt(
@@ -2242,7 +2250,7 @@ class AppSettings extends ChangeNotifier {
     if (_scheduledVaultBackupIntervalMinutes == safe) return;
     _scheduledVaultBackupIntervalMinutes = safe;
     notifyListeners();
-    final p = await SharedPreferences.getInstance();
+    final p = await _prefs();
     await p.setInt(_scheduledVaultBackupIntervalMinutesKey, safe);
     if (p.containsKey(_scheduledVaultBackupIntervalHoursKey)) {
       await p.remove(_scheduledVaultBackupIntervalHoursKey);
@@ -2254,7 +2262,7 @@ class AppSettings extends ChangeNotifier {
     if (_scheduledVaultBackupDirectory == safe) return;
     _scheduledVaultBackupDirectory = safe;
     notifyListeners();
-    final p = await SharedPreferences.getInstance();
+    final p = await _prefs();
     if (safe.isEmpty) {
       await p.remove(_scheduledVaultBackupDirectoryKey);
     } else {
@@ -2267,7 +2275,7 @@ class AppSettings extends ChangeNotifier {
     if (_lastScheduledVaultBackupMs == safe) return;
     _lastScheduledVaultBackupMs = safe;
     notifyListeners();
-    final p = await SharedPreferences.getInstance();
+    final p = await _prefs();
     await p.setInt(_lastScheduledVaultBackupMsKey, safe);
   }
 
@@ -2275,7 +2283,7 @@ class AppSettings extends ChangeNotifier {
     if (_scheduledVaultBackupAlsoUploadCloud == value) return;
     _scheduledVaultBackupAlsoUploadCloud = value;
     notifyListeners();
-    final p = await SharedPreferences.getInstance();
+    final p = await _prefs();
     await p.setBool(_scheduledVaultBackupAlsoUploadCloudKey, value);
   }
 
@@ -2283,7 +2291,7 @@ class AppSettings extends ChangeNotifier {
     if (_scheduledVaultBackupFolderEnabled == value) return;
     _scheduledVaultBackupFolderEnabled = value;
     notifyListeners();
-    final p = await SharedPreferences.getInstance();
+    final p = await _prefs();
     await p.setBool(_scheduledVaultBackupFolderEnabledKey, value);
   }
 
@@ -2292,7 +2300,7 @@ class AppSettings extends ChangeNotifier {
     if (_meetingNoteMicDeviceId == safe) return;
     _meetingNoteMicDeviceId = safe;
     notifyListeners();
-    final p = await SharedPreferences.getInstance();
+    final p = await _prefs();
     if (safe.isEmpty) {
       await p.remove(_meetingNoteMicDeviceIdKey);
     } else {
@@ -2305,7 +2313,7 @@ class AppSettings extends ChangeNotifier {
     if (_meetingNoteSystemDeviceId == safe) return;
     _meetingNoteSystemDeviceId = safe;
     notifyListeners();
-    final p = await SharedPreferences.getInstance();
+    final p = await _prefs();
     if (safe.isEmpty) {
       await p.remove(_meetingNoteSystemDeviceIdKey);
     } else {
@@ -2319,11 +2327,11 @@ class AppSettings extends ChangeNotifier {
     _meetingNoteModelId = safe;
     if (_meetingNoteAutoWhisperModel) {
       _meetingNoteAutoWhisperModel = false;
-      final prefs = await SharedPreferences.getInstance();
+      final prefs = await _prefs();
       await prefs.setBool(_meetingNoteAutoWhisperModelKey, false);
     }
     notifyListeners();
-    final p = await SharedPreferences.getInstance();
+    final p = await _prefs();
     await p.setString(_meetingNoteModelIdKey, safe);
   }
 
@@ -2331,7 +2339,7 @@ class AppSettings extends ChangeNotifier {
     if (_meetingNoteAutoWhisperModel == value) return;
     _meetingNoteAutoWhisperModel = value;
     notifyListeners();
-    final p = await SharedPreferences.getInstance();
+    final p = await _prefs();
     await p.setBool(_meetingNoteAutoWhisperModelKey, value);
   }
 
@@ -2339,7 +2347,7 @@ class AppSettings extends ChangeNotifier {
     if (_meetingNoteForceLocalTranscription == value) return;
     _meetingNoteForceLocalTranscription = value;
     notifyListeners();
-    final p = await SharedPreferences.getInstance();
+    final p = await _prefs();
     await p.setBool(_meetingNoteForceLocalTranscriptionKey, value);
   }
 
@@ -2347,7 +2355,7 @@ class AppSettings extends ChangeNotifier {
     if (_driveDeleteOriginalsOnUpload == value) return;
     _driveDeleteOriginalsOnUpload = value;
     notifyListeners();
-    final p = await SharedPreferences.getInstance();
+    final p = await _prefs();
     await p.setBool(_driveDeleteOriginalsOnUploadKey, value);
   }
 
@@ -2355,7 +2363,7 @@ class AppSettings extends ChangeNotifier {
     if (_telemetryEnabled == value) return;
     _telemetryEnabled = value;
     notifyListeners();
-    final p = await SharedPreferences.getInstance();
+    final p = await _prefs();
     await p.setBool(_telemetryEnabledKey, value);
   }
 
@@ -2363,7 +2371,7 @@ class AppSettings extends ChangeNotifier {
     if (_autoCrashReports == value) return;
     _autoCrashReports = value;
     notifyListeners();
-    final p = await SharedPreferences.getInstance();
+    final p = await _prefs();
     await p.setBool(_autoCrashReportsKey, value);
   }
 
@@ -2371,7 +2379,7 @@ class AppSettings extends ChangeNotifier {
     if (_accentColorMode == mode) return;
     _accentColorMode = mode;
     notifyListeners();
-    final p = await SharedPreferences.getInstance();
+    final p = await _prefs();
     final v = switch (mode) {
       FolioAccentColorMode.followSystem => 'followSystem',
       FolioAccentColorMode.folioDefault => 'folioDefault',
@@ -2384,7 +2392,7 @@ class AppSettings extends ChangeNotifier {
     if (_customAccentArgb == argb) return;
     _customAccentArgb = argb;
     notifyListeners();
-    final p = await SharedPreferences.getInstance();
+    final p = await _prefs();
     await p.setInt(_customAccentArgbKey, argb);
   }
 
@@ -2394,7 +2402,7 @@ class AppSettings extends ChangeNotifier {
   ) async {
     _inAppShortcuts[id] = activator;
     notifyListeners();
-    final p = await SharedPreferences.getInstance();
+    final p = await _prefs();
     await p.setString(
       _inAppShortcutsKey,
       serializeShortcutOverrides(_inAppShortcuts),
@@ -2404,7 +2412,7 @@ class AppSettings extends ChangeNotifier {
   Future<void> resetInAppShortcutsToDefaults() async {
     _inAppShortcuts = defaultShortcutMap();
     notifyListeners();
-    final p = await SharedPreferences.getInstance();
+    final p = await _prefs();
     await p.remove(_inAppShortcutsKey);
   }
 
@@ -2451,7 +2459,7 @@ class AppSettings extends ChangeNotifier {
       approvedAtMs: DateTime.now().millisecondsSinceEpoch,
     );
     notifyListeners();
-    final p = await SharedPreferences.getInstance();
+    final p = await _prefs();
     await p.setString(
       _approvedIntegrationAppsKey,
       jsonEncode(_serializeApprovedIntegrationApps()),
@@ -2463,7 +2471,7 @@ class AppSettings extends ChangeNotifier {
     if (key.isEmpty || !_approvedIntegrationApps.containsKey(key)) return;
     _approvedIntegrationApps.remove(key);
     notifyListeners();
-    final p = await SharedPreferences.getInstance();
+    final p = await _prefs();
     await p.setString(
       _approvedIntegrationAppsKey,
       jsonEncode(_serializeApprovedIntegrationApps()),
@@ -2497,7 +2505,7 @@ class AppSettings extends ChangeNotifier {
       approvedAtMs: current.approvedAtMs,
     );
     notifyListeners();
-    final p = await SharedPreferences.getInstance();
+    final p = await _prefs();
     await p.setString(
       _approvedIntegrationAppsKey,
       jsonEncode(_serializeApprovedIntegrationApps()),
@@ -2543,7 +2551,7 @@ class AppSettings extends ChangeNotifier {
     next.sort((a, b) => b.createdAtMs.compareTo(a.createdAtMs));
     _customIcons = next;
     notifyListeners();
-    final p = await SharedPreferences.getInstance();
+    final p = await _prefs();
     await p.setString(
       _customIconsKey,
       jsonEncode(_customIcons.map((icon) => icon.toJson()).toList()),
@@ -2557,7 +2565,7 @@ class AppSettings extends ChangeNotifier {
     if (next.length == _customIcons.length) return;
     _customIcons = next;
     notifyListeners();
-    final p = await SharedPreferences.getInstance();
+    final p = await _prefs();
     await p.setString(
       _customIconsKey,
       jsonEncode(_customIcons.map((icon) => icon.toJson()).toList()),
@@ -2573,7 +2581,7 @@ class AppSettings extends ChangeNotifier {
   }
 
   Future<void> _persistIntegrationCustomIconsByApp() async {
-    final p = await SharedPreferences.getInstance();
+    final p = await _prefs();
     await p.setString(
       _integrationCustomIconsKey,
       jsonEncode(_serializeIntegrationCustomIconsByApp()),
@@ -2736,7 +2744,7 @@ class AppSettings extends ChangeNotifier {
   Future<VaultBackupPrefs> getVaultBackupPrefs(String? vaultId) async {
     final vid = (vaultId ?? '').trim();
     if (vid.isEmpty) return VaultBackupPrefs.defaults;
-    final p = await SharedPreferences.getInstance();
+    final p = await _prefs();
     // Si ya hay configuración per-libreta, devolverla directamente.
     if (p.containsKey(_vbEnabledKey(vid))) {
       return _readVaultBackupPrefsFromStore(p, vid);
@@ -2838,7 +2846,7 @@ class AppSettings extends ChangeNotifier {
   Future<void> updateVaultBackupPrefs(String? vaultId, VaultBackupPrefs prefs) async {
     final vid = (vaultId ?? '').trim();
     if (vid.isEmpty) return;
-    final p = await SharedPreferences.getInstance();
+    final p = await _prefs();
     await _writeVaultBackupPrefs(p, vid, prefs);
     notifyListeners();
   }
@@ -2846,7 +2854,7 @@ class AppSettings extends ChangeNotifier {
   Future<void> setVaultBackupEnabled(String? vaultId, bool value) async {
     final vid = (vaultId ?? '').trim();
     if (vid.isEmpty) return;
-    final p = await SharedPreferences.getInstance();
+    final p = await _prefs();
     await p.setBool(_vbEnabledKey(vid), value);
     if (value && !(p.containsKey(_vbLastMsKey(vid)))) {
       await p.setInt(_vbLastMsKey(vid), DateTime.now().millisecondsSinceEpoch);
@@ -2857,7 +2865,7 @@ class AppSettings extends ChangeNotifier {
   Future<void> setVaultBackupFolderEnabled(String? vaultId, bool value) async {
     final vid = (vaultId ?? '').trim();
     if (vid.isEmpty) return;
-    final p = await SharedPreferences.getInstance();
+    final p = await _prefs();
     await p.setBool(_vbFolderEnabledKey(vid), value);
     notifyListeners();
   }
@@ -2866,7 +2874,7 @@ class AppSettings extends ChangeNotifier {
     final vid = (vaultId ?? '').trim();
     if (vid.isEmpty) return;
     final safe = _sanitizeScheduledVaultBackupIntervalMinutes(value);
-    final p = await SharedPreferences.getInstance();
+    final p = await _prefs();
     await p.setInt(_vbIntervalMinutesKey(vid), safe);
     notifyListeners();
   }
@@ -2875,7 +2883,7 @@ class AppSettings extends ChangeNotifier {
     final vid = (vaultId ?? '').trim();
     if (vid.isEmpty) return;
     final safe = path.trim();
-    final p = await SharedPreferences.getInstance();
+    final p = await _prefs();
     if (safe.isEmpty) {
       await p.remove(_vbDirectoryKey(vid));
     } else {
@@ -2887,7 +2895,7 @@ class AppSettings extends ChangeNotifier {
   Future<void> setVaultBackupLastMs(String? vaultId, int value) async {
     final vid = (vaultId ?? '').trim();
     if (vid.isEmpty) return;
-    final p = await SharedPreferences.getInstance();
+    final p = await _prefs();
     await p.setInt(_vbLastMsKey(vid), value < 0 ? 0 : value);
     notifyListeners();
   }
@@ -2895,7 +2903,7 @@ class AppSettings extends ChangeNotifier {
   Future<void> setVaultBackupAlsoCloud(String? vaultId, bool value) async {
     final vid = (vaultId ?? '').trim();
     if (vid.isEmpty) return;
-    final p = await SharedPreferences.getInstance();
+    final p = await _prefs();
     await p.setBool(_vbAlsoCloudKey(vid), value);
     notifyListeners();
   }
@@ -2903,7 +2911,7 @@ class AppSettings extends ChangeNotifier {
   Future<void> setVaultBackupWebdavEnabled(String? vaultId, bool value) async {
     final vid = (vaultId ?? '').trim();
     if (vid.isEmpty) return;
-    final p = await SharedPreferences.getInstance();
+    final p = await _prefs();
     await p.setBool(_vbWebdavEnabledKey(vid), value);
     notifyListeners();
   }
@@ -2911,7 +2919,7 @@ class AppSettings extends ChangeNotifier {
   Future<void> setVaultBackupRetentionCount(String? vaultId, int value) async {
     final vid = (vaultId ?? '').trim();
     if (vid.isEmpty) return;
-    final p = await SharedPreferences.getInstance();
+    final p = await _prefs();
     await p.setInt(_vbRetentionCountKey(vid), value.clamp(0, 999));
     notifyListeners();
   }
@@ -2937,7 +2945,7 @@ class AppSettings extends ChangeNotifier {
   Future<String?> getTaskInboxPageId(String? vaultId) async {
     final id = (vaultId ?? '').trim();
     if (id.isEmpty) return null;
-    final p = await SharedPreferences.getInstance();
+    final p = await _prefs();
     final v = (p.getString(_taskInboxPagePrefsKey(id)) ?? '').trim();
     return v.isEmpty ? null : v;
   }
@@ -2945,7 +2953,7 @@ class AppSettings extends ChangeNotifier {
   Future<void> setTaskInboxPageId(String? vaultId, String? pageId) async {
     final id = (vaultId ?? '').trim();
     if (id.isEmpty) return;
-    final p = await SharedPreferences.getInstance();
+    final p = await _prefs();
     final pid = pageId?.trim() ?? '';
     if (pid.isEmpty) {
       await p.remove(_taskInboxPagePrefsKey(id));
@@ -2958,7 +2966,7 @@ class AppSettings extends ChangeNotifier {
   Future<Map<String, String>> getTaskAliasPageMap(String? vaultId) async {
     final id = (vaultId ?? '').trim();
     if (id.isEmpty) return const {};
-    final p = await SharedPreferences.getInstance();
+    final p = await _prefs();
     final raw = p.getString(_taskAliasesPrefsKey(id));
     if (raw == null || raw.trim().isEmpty) return const {};
     try {
@@ -2984,7 +2992,7 @@ class AppSettings extends ChangeNotifier {
   ) async {
     final id = (vaultId ?? '').trim();
     if (id.isEmpty) return;
-    final p = await SharedPreferences.getInstance();
+    final p = await _prefs();
     final clean = <String, String>{};
     for (final e in map.entries) {
       final k = e.key.trim().toLowerCase();

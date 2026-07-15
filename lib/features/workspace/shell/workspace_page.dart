@@ -27,7 +27,6 @@ import '../../../app/widgets/folio_cloud_ai_ink_dialog.dart';
 import '../../../app/widgets/folio_dialog.dart';
 import '../../../services/whisper_service.dart';
 import '../../../app/widgets/folio_feedback.dart';
-import '../../../app/widgets/folio_in_app_checkout_dialog.dart';
 import '../../../models/folio_page.dart';
 import '../../../models/quill_system_prompt.dart';
 import '../../../models/block.dart';
@@ -41,7 +40,6 @@ import '../../../services/ai/folio_cloud_ai_service.dart';
 import '../../../services/cloud_account/cloud_account_controller.dart';
 import '../../../services/collab/collab_session_controller.dart';
 import '../../../services/folio_cloud/folio_cloud_conversion_flow.dart';
-import '../../../services/folio_cloud/folio_cloud_checkout.dart';
 import '../../../services/folio_cloud/folio_cloud_ai_pricing.dart';
 import '../../../services/folio_cloud/folio_cloud_entitlements.dart';
 import '../../../services/folio_cloud/folio_cloud_publish.dart';
@@ -1695,10 +1693,6 @@ class _WorkspacePageState extends State<WorkspacePage> {
     } finally {
       if (mounted) setState(() => _folioCloudCheckoutBusy = false);
     }
-  }
-
-  Future<void> _openFolioCloudMonthlyCheckout() async {
-    await _runFolioCloudMonthlyFunnel();
   }
 
   bool _isTextInputFocused() {
