@@ -3,6 +3,8 @@ import 'package:flutter/foundation.dart'
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import '../../app/folio_distribution.dart';
+import '../../app/widgets/folio_dialog.dart';
 import '../../app/widgets/folio_in_app_checkout_dialog.dart';
 import '../../features/onboarding/cloud_sign_in_dialog.dart';
 import '../../l10n/generated/app_localizations.dart';
@@ -61,6 +63,18 @@ class FolioCloudConversionFlow {
     BuildContext context, {
     required AppLocalizations l10n,
   }) async {
+    // Google Play exige Google Play Billing para suscripciones digitales
+    // compradas dentro de la app; no podemos abrir el checkout de Stripe
+    // aquí. El inicio de sesión (arriba en runMonthlySubscriptionFunnel)
+    // sigue disponible para cuentas ya suscritas desde otra plataforma.
+    if (FolioDistribution.isPlayStore) {
+      await FolioDialog.info(
+        context,
+        title: Text(l10n.folioCloudPlayStoreCheckoutUnavailableTitle),
+        content: Text(l10n.folioCloudPlayStoreCheckoutUnavailableBody),
+      );
+      return false;
+    }
     final uri = await createFolioCheckoutUri(FolioCheckoutKind.folioCloudMonthly);
     if (uri == null) {
       if (context.mounted) {

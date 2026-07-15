@@ -1228,6 +1228,8 @@
   "onboardingFolioCloudSkip": "Continuar sense núvol",
   "folioCloudPitchPremiumMonthlyLabel": "Pla Premium mensual",
   "folioCloudCheckoutSuccess": "Pagament completat amb èxit.",
+  "folioCloudPlayStoreCheckoutUnavailableTitle": "Subscripció disponible a l'app d'escriptori",
+  "folioCloudPlayStoreCheckoutUnavailableBody": "Les subscripcions a Folio Cloud encara no es poden comprar des d'aquesta versió d'Android. Subscriu-te des de l'app d'escriptori de Folio i després inicia sessió aquí amb el mateix compte.",
   "workspaceHomeCloudGuestTeaserCta": "Veure què inclou",
   "collabMenuAction": "Col·laboració en viu",
   "collabSheetTitle": "Col·laboració en viu",

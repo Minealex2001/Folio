@@ -6560,6 +6560,18 @@ abstract class AppLocalizations {
   /// **'Pago completado con éxito.'**
   String get folioCloudCheckoutSuccess;
 
+  /// No description provided for @folioCloudPlayStoreCheckoutUnavailableTitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Suscripción disponible en la app de escritorio'**
+  String get folioCloudPlayStoreCheckoutUnavailableTitle;
+
+  /// No description provided for @folioCloudPlayStoreCheckoutUnavailableBody.
+  ///
+  /// In es, this message translates to:
+  /// **'Las suscripciones a Folio Cloud aún no se pueden comprar desde esta versión de Android. Suscríbete desde la app de escritorio de Folio y después inicia sesión aquí con la misma cuenta.'**
+  String get folioCloudPlayStoreCheckoutUnavailableBody;
+
   /// No description provided for @workspaceHomeCloudGuestTeaserCta.
   ///
   /// In es, this message translates to:

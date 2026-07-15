@@ -3712,6 +3712,14 @@ class AppLocalizationsEs extends AppLocalizations {
   String get folioCloudCheckoutSuccess => 'Pago completado con éxito.';
 
   @override
+  String get folioCloudPlayStoreCheckoutUnavailableTitle =>
+      'Suscripción disponible en la app de escritorio';
+
+  @override
+  String get folioCloudPlayStoreCheckoutUnavailableBody =>
+      'Las suscripciones a Folio Cloud aún no se pueden comprar desde esta versión de Android. Suscríbete desde la app de escritorio de Folio y después inicia sesión aquí con la misma cuenta.';
+
+  @override
   String get workspaceHomeCloudGuestTeaserCta => 'Ver qué incluye';
 
   @override

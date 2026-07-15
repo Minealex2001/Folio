@@ -1229,6 +1229,8 @@
   "onboardingFolioCloudSkip": "Jarraitu hodeirik gabe",
   "folioCloudPitchPremiumMonthlyLabel": "Hileko Premium plana",
   "folioCloudCheckoutSuccess": "Ordainketa arrakastaz osatu da.",
+  "folioCloudPlayStoreCheckoutUnavailableTitle": "Harpidetza mahaigaineko aplikazioan",
+  "folioCloudPlayStoreCheckoutUnavailableBody": "Folio Cloud harpidetzak ezin dira oraindik erosi Androideko bertsio honetatik. Harpidetu Folioren mahaigaineko aplikaziotik, eta gero hasi saioa hemen kontu berarekin.",
   "workspaceHomeCloudGuestTeaserCta": "Ikusi zer sartzen den",
   "collabMenuAction": "Zuzeneko lankidetza",
   "collabSheetTitle": "Zuzeneko lankidetza",

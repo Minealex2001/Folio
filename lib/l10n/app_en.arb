@@ -1210,6 +1210,8 @@
   ,"onboardingFolioCloudLaterInSettings": "I’ll check in Settings"
   ,"folioCloudPitchPremiumMonthlyLabel": "Monthly Premium plan"
   ,"folioCloudCheckoutSuccess": "Payment completed successfully."
+  ,"folioCloudPlayStoreCheckoutUnavailableTitle": "Subscribe from the desktop app"
+  ,"folioCloudPlayStoreCheckoutUnavailableBody": "Folio Cloud subscriptions can't be purchased from this Android build yet. Subscribe from the Folio desktop app, then sign in here with the same account."
   ,"workspaceHomeCloudGuestTeaserCta": "See what's included"
   ,"onboardingPersonalizeTitle": "Make it yours"
   ,"onboardingPersonalizeBody": "Choose how Folio looks and when it locks. You can change this anytime in Settings."

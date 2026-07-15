@@ -3733,6 +3733,14 @@ class AppLocalizationsCa extends AppLocalizations {
   String get folioCloudCheckoutSuccess => 'Pagament completat amb èxit.';
 
   @override
+  String get folioCloudPlayStoreCheckoutUnavailableTitle =>
+      'Subscripció disponible a l\'app d\'escriptori';
+
+  @override
+  String get folioCloudPlayStoreCheckoutUnavailableBody =>
+      'Les subscripcions a Folio Cloud encara no es poden comprar des d\'aquesta versió d\'Android. Subscriu-te des de l\'app d\'escriptori de Folio i després inicia sessió aquí amb el mateix compte.';
+
+  @override
   String get workspaceHomeCloudGuestTeaserCta => 'Veure què inclou';
 
   @override

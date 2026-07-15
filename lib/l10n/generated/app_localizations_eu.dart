@@ -3734,6 +3734,14 @@ class AppLocalizationsEu extends AppLocalizations {
   String get folioCloudCheckoutSuccess => 'Ordainketa arrakastaz osatu da.';
 
   @override
+  String get folioCloudPlayStoreCheckoutUnavailableTitle =>
+      'Harpidetza mahaigaineko aplikazioan';
+
+  @override
+  String get folioCloudPlayStoreCheckoutUnavailableBody =>
+      'Folio Cloud harpidetzak ezin dira oraindik erosi Androideko bertsio honetatik. Harpidetu Folioren mahaigaineko aplikaziotik, eta gero hasi saioa hemen kontu berarekin.';
+
+  @override
   String get workspaceHomeCloudGuestTeaserCta => 'Ikusi zer sartzen den';
 
   @override
