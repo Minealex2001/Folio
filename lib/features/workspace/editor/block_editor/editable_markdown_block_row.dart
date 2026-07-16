@@ -129,101 +129,83 @@ Widget _buildEditableMarkdownBlockRow(_BlockRowScope s) {
 
           final showTransparentMarkdownPreview = showPreviewOverlay && !hasMarkdownBlocks;
 
-          final showQuillEditor = !showPreviewOverlay || showTransparentMarkdownPreview;
+          // El editor real permanece SIEMPRE presente en el árbol de hit-test
+          // (nunca `Offstage`/`IgnorePointer`) mientras el bloque se pueda
+          // editar. Así, el primer tap sobre la vista previa markdown llega
+          // también —gracias a `HitTestBehavior.translucent`— al gestor de
+          // selección de Quill y coloca el cursor de inmediato, en vez de
+          // requerir un segundo clic una vez que el editor se "activa" en el
+          // siguiente frame. Sólo se oculta visualmente (opacidad 0) cuando
+          // la vista previa no coincide con el texto crudo (encabezados,
+          // listas, checklists, tablas…), para no dejar ver la sintaxis
+          // markdown sin procesar debajo.
+          final visibleQuillEditor = !showPreviewOverlay || showTransparentMarkdownPreview;
 
            return Stack(
             children: [
               Offstage(
-                offstage: !showQuillEditor,
+                offstage: readOnlyMode,
                 child: NotificationListener<ScrollNotification>(
                   onNotification: (notification) => true,
                   child: Opacity(
-                    opacity: showQuillEditor ? 1 : 0,
-                    child: IgnorePointer(
-                      ignoring: !showQuillEditor,
-                      child: editor,
-                    ),
+                    opacity: visibleQuillEditor ? 1 : 0,
+                    child: editor,
                   ),
                 ),
               ),
               if (showPreviewOverlay)
-                showQuillEditor
-                    ? Positioned.fill(
-                        child: Stack(
-                          children: [
-                            if (showTransparentMarkdownPreview)
-                              Align(
-                                alignment: isTopAlignedSlashBlock
-                                    ? AlignmentDirectional.topStart
-                                    : AlignmentDirectional.centerStart,
-                                child: NotificationListener<ScrollNotification>(
-                                  onNotification: (notification) => true,
-                                  child: quill.QuillEditor.basic(
-                                    controller: c..readOnly = true,
-                                    focusNode: st._folioQuillPreviewFocusFor(block.id),
-                                    scrollController:
-                                        st._folioQuillPreviewScrollFor(block.id),
-                                    config: const quill.QuillEditorConfig(
-                                      expands: false,
-                                      padding: EdgeInsets.zero,
-                                      scrollable: false,
-                                      autoFocus: false,
-                                      showCursor: false,
-                                      enableInteractiveSelection: false,
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            Positioned.fill(
-                              child: Align(
-                                alignment: isTopAlignedSlashBlock
-                                    ? AlignmentDirectional.topStart
-                                    : AlignmentDirectional.centerStart,
-                                child: NotificationListener<ScrollNotification>(
-                                  onNotification: (notification) => true,
-                                  child: FolioMarkdownPreview(
-                                    data: ctrl.text,
-                                    styleSheet: mdSheet,
-                                    onFolioPageLink: st._s.selectPage,
-                                    isTransparentPreview: showTransparentMarkdownPreview,
-                                  ),
-                                ),
+                Positioned.fill(
+                  child: Stack(
+                    children: [
+                      if (showTransparentMarkdownPreview)
+                        Align(
+                          alignment: isTopAlignedSlashBlock
+                              ? AlignmentDirectional.topStart
+                              : AlignmentDirectional.centerStart,
+                          child: NotificationListener<ScrollNotification>(
+                            onNotification: (notification) => true,
+                            child: quill.QuillEditor.basic(
+                              controller: c..readOnly = true,
+                              focusNode: st._folioQuillPreviewFocusFor(block.id),
+                              scrollController:
+                                  st._folioQuillPreviewScrollFor(block.id),
+                              config: const quill.QuillEditorConfig(
+                                expands: false,
+                                padding: EdgeInsets.zero,
+                                scrollable: false,
+                                autoFocus: false,
+                                showCursor: false,
+                                enableInteractiveSelection: false,
                               ),
                             ),
-                            // Tap en cualquier zona no-link: entrar en edición.
-                            Positioned.fill(
-                              child: GestureDetector(
-                                behavior: HitTestBehavior.translucent,
-                                onTap: () => focus.requestFocus(),
-                              ),
-                            ),
-                          ],
+                          ),
                         ),
-                      )
-                    : Stack(
-                        children: [
-                          Align(
-                            alignment: isTopAlignedSlashBlock
-                                ? AlignmentDirectional.topStart
-                                : AlignmentDirectional.centerStart,
-                            child: NotificationListener<ScrollNotification>(
-                              onNotification: (notification) => true,
-                              child: FolioMarkdownPreview(
-                                data: ctrl.text,
-                                styleSheet: mdSheet,
-                                onFolioPageLink: st._s.selectPage,
-                                isTransparentPreview: showTransparentMarkdownPreview,
-                              ),
+                      Positioned.fill(
+                        child: Align(
+                          alignment: isTopAlignedSlashBlock
+                              ? AlignmentDirectional.topStart
+                              : AlignmentDirectional.centerStart,
+                          child: NotificationListener<ScrollNotification>(
+                            onNotification: (notification) => true,
+                            child: FolioMarkdownPreview(
+                              data: ctrl.text,
+                              styleSheet: mdSheet,
+                              onFolioPageLink: st._s.selectPage,
+                              isTransparentPreview: showTransparentMarkdownPreview,
                             ),
                           ),
-                          // Tap en cualquier zona no-link: entrar en edición.
-                          Positioned.fill(
-                            child: GestureDetector(
-                              behavior: HitTestBehavior.translucent,
-                              onTap: () => focus.requestFocus(),
-                            ),
-                          ),
-                        ],
+                        ),
+                      ),
+                      // Tap en cualquier zona no-link: entrar en edición. El
+                      // editor real de abajo (visible u oculto) recibe el
+                      // mismo tap gracias al `HitTestBehavior.translucent` y
+                      // coloca el cursor ahí mismo, sin necesitar un segundo
+                      // clic.
+                      Positioned.fill(
+                        child: GestureDetector(
+                          behavior: HitTestBehavior.translucent,
+                          onTap: () => focus.requestFocus(),
+                        ),
                       ),
             ],
           );

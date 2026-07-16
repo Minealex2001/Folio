@@ -675,7 +675,6 @@ class _FolioColumnListBlockBodyState extends State<FolioColumnListBlockBody> {
     }
     if (block.type == 'todo') {
       return Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Checkbox(
             value: block.checked ?? false,
