@@ -111,9 +111,7 @@ Widget? _specialRowMeetingNote(_BlockRowScope s) {
                                 ConnectionState.waiting) {
                               return const SizedBox(
                                 height: 48,
-                                child: Center(
-                                  child: CircularProgressIndicator(),
-                                ),
+                                child: FolioLoadingIndicator(centered: true),
                               );
                             }
                             return MeetingNoteBlockWidget(

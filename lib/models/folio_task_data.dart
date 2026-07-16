@@ -21,8 +21,84 @@ class FolioTaskData {
     this.timeSpentMinutes,
     this.external,
     this.jira,
+    this.youtrack,
     List<FolioTaskSubtask>? subtasks,
-  }) : subtasks = List<FolioTaskSubtask>.from(subtasks ?? const []);
+    List<String>? tags,
+    this.assignee,
+    this.estimatedMinutes,
+    this.storyPoints,
+    Map<String, Object?>? customProperties,
+    this.recurringRule,
+    List<String>? blockedByTaskIds,
+    this.aiGenerated = false,
+    this.createdFromBlockId,
+    this.aiContextPageId,
+    this.confidenceScore,
+    this.suggestedDueDate,
+  })  : subtasks = List<FolioTaskSubtask>.from(subtasks ?? const []),
+        tags = List<String>.unmodifiable(_normalizeTags(tags)),
+        customProperties = Map<String, Object?>.unmodifiable(
+          _normalizeCustomProperties(customProperties),
+        ),
+        blockedByTaskIds = List<String>.unmodifiable(
+          _normalizeIdList(blockedByTaskIds),
+        );
+
+  static const int _kMaxCustomPropertyKeys = 32;
+  static const int _kMaxTags = 64;
+
+  static List<String> _normalizeTags(List<String>? raw) {
+    if (raw == null || raw.isEmpty) return const [];
+    final out = <String>[];
+    final seen = <String>{};
+    for (final e in raw) {
+      final t = e.trim();
+      if (t.isEmpty) continue;
+      final key = t.toLowerCase();
+      if (seen.contains(key)) continue;
+      seen.add(key);
+      out.add(t);
+      if (out.length >= _kMaxTags) break;
+    }
+    return out;
+  }
+
+  static List<String> _normalizeIdList(List<String>? raw) {
+    if (raw == null || raw.isEmpty) return const [];
+    final out = <String>[];
+    final seen = <String>{};
+    for (final e in raw) {
+      final t = e.trim();
+      if (t.isEmpty) continue;
+      if (seen.contains(t)) continue;
+      seen.add(t);
+      out.add(t);
+      if (out.length >= 32) break;
+    }
+    return out;
+  }
+
+  static Map<String, Object?> _normalizeCustomProperties(
+    Map<String, Object?>? raw,
+  ) {
+    if (raw == null || raw.isEmpty) return const {};
+    final out = <String, Object?>{};
+    for (final e in raw.entries) {
+      final k = e.key.trim();
+      if (k.isEmpty) continue;
+      if (out.length >= _kMaxCustomPropertyKeys) break;
+      final v = e.value;
+      if (v == null ||
+          v is String ||
+          v is num ||
+          v is bool ||
+          v is List ||
+          v is Map) {
+        out[k] = v;
+      }
+    }
+    return out;
+  }
 
   /// Texto descriptivo de la tarea.
   final String title;
@@ -73,8 +149,47 @@ class FolioTaskData {
   /// Snapshot opcional de campos Jira para UI rica sin refetch constante.
   final FolioJiraIssueSnapshot? jira;
 
+  /// Snapshot opcional de campos YouTrack para UI rica sin refetch constante.
+  final FolioYouTrackIssueSnapshot? youtrack;
+
   /// Subtareas opcionales asociadas a la tarea principal.
   final List<FolioTaskSubtask> subtasks;
+
+  /// Etiquetas locales (no confundir con labels Jira en [jira]).
+  final List<String> tags;
+
+  /// Responsable u mención libre (texto).
+  final String? assignee;
+
+  /// Estimación de esfuerzo en minutos (p. ej. pomodoros × 25).
+  final int? estimatedMinutes;
+
+  /// Story points opcionales (p. ej. integración con tableros).
+  final double? storyPoints;
+
+  /// Propiedades flexibles serializables (tamaño acotado al guardar).
+  final Map<String, Object?> customProperties;
+
+  /// Regla RRULE opcional (iCalendar). Si está vacía, puede usarse [recurrence] legacy.
+  final String? recurringRule;
+
+  /// Ids de bloques `task` que bloquean esta tarea (dependencias).
+  final List<String> blockedByTaskIds;
+
+  /// Tarea generada o asistida por IA.
+  final bool aiGenerated;
+
+  /// Bloque de origen si la tarea se creó desde otro bloque.
+  final String? createdFromBlockId;
+
+  /// Página de contexto usada por la IA al crear la tarea.
+  final String? aiContextPageId;
+
+  /// Confianza del modelo al sugerir metadatos (0–1), opcional.
+  final double? confidenceScore;
+
+  /// Fecha sugerida por la IA (`YYYY-MM-DD` o ISO con tiempo).
+  final String? suggestedDueDate;
 
   static const _validStatuses = {'todo', 'in_progress', 'done'};
   static const _validPriorities = {
@@ -103,7 +218,20 @@ class FolioTaskData {
     timeSpentMinutes: null,
     external: null,
     jira: null,
+    youtrack: null,
     subtasks: const [],
+    tags: const [],
+    assignee: null,
+    estimatedMinutes: null,
+    storyPoints: null,
+    customProperties: const {},
+    recurringRule: null,
+    blockedByTaskIds: const [],
+    aiGenerated: false,
+    createdFromBlockId: null,
+    aiContextPageId: null,
+    confidenceScore: null,
+    suggestedDueDate: null,
   );
 
   FolioTaskData copyWith({
@@ -122,7 +250,20 @@ class FolioTaskData {
     Object? timeSpentMinutes = _sentinel,
     Object? external = _sentinel,
     Object? jira = _sentinel,
+    Object? youtrack = _sentinel,
     Object? subtasks = _sentinel,
+    Object? tags = _sentinel,
+    Object? assignee = _sentinel,
+    Object? estimatedMinutes = _sentinel,
+    Object? storyPoints = _sentinel,
+    Object? customProperties = _sentinel,
+    Object? recurringRule = _sentinel,
+    Object? blockedByTaskIds = _sentinel,
+    bool? aiGenerated,
+    Object? createdFromBlockId = _sentinel,
+    Object? aiContextPageId = _sentinel,
+    Object? confidenceScore = _sentinel,
+    Object? suggestedDueDate = _sentinel,
   }) {
     return FolioTaskData(
       title: title ?? this.title,
@@ -152,13 +293,75 @@ class FolioTaskData {
           ? this.external
           : external as FolioExternalTaskLink?,
       jira: jira == _sentinel ? this.jira : jira as FolioJiraIssueSnapshot?,
+      youtrack: youtrack == _sentinel ? this.youtrack : youtrack as FolioYouTrackIssueSnapshot?,
       subtasks: subtasks == _sentinel
           ? this.subtasks
           : (subtasks as List<FolioTaskSubtask>),
+      tags: tags == _sentinel
+          ? this.tags
+          : _normalizeTags(
+              tags is List<String>
+                  ? tags
+                  : (tags as List).map((e) => '$e').toList(growable: false),
+            ),
+      assignee: assignee == _sentinel
+          ? this.assignee
+          : assignee as String?,
+      estimatedMinutes: estimatedMinutes == _sentinel
+          ? this.estimatedMinutes
+          : estimatedMinutes as int?,
+      storyPoints: storyPoints == _sentinel
+          ? this.storyPoints
+          : (storyPoints as num?)?.toDouble(),
+      customProperties: customProperties == _sentinel
+          ? this.customProperties
+          : _normalizeCustomProperties(
+              customProperties as Map<String, Object?>?,
+            ),
+      recurringRule: recurringRule == _sentinel
+          ? this.recurringRule
+          : recurringRule as String?,
+      blockedByTaskIds: blockedByTaskIds == _sentinel
+          ? this.blockedByTaskIds
+          : _normalizeIdList(
+              switch (blockedByTaskIds) {
+                final List l => List<String>.from(l.map((e) => '$e')),
+                _ => null,
+              },
+            ),
+      aiGenerated: aiGenerated ?? this.aiGenerated,
+      createdFromBlockId: createdFromBlockId == _sentinel
+          ? this.createdFromBlockId
+          : createdFromBlockId as String?,
+      aiContextPageId: aiContextPageId == _sentinel
+          ? this.aiContextPageId
+          : aiContextPageId as String?,
+      confidenceScore: confidenceScore == _sentinel
+          ? this.confidenceScore
+          : confidenceScore as double?,
+      suggestedDueDate: suggestedDueDate == _sentinel
+          ? this.suggestedDueDate
+          : suggestedDueDate as String?,
     );
   }
 
   static const Object _sentinel = Object();
+
+  /// Alinea [columnId] con una columna del tablero; si el id es uno de los tres
+  /// legacy (`todo` / `in_progress` / `done`), también actualiza [status].
+  FolioTaskData withKanbanColumn(String columnId) {
+    final normalized = columnId.trim();
+    final nextStatus =
+        (normalized == 'todo' ||
+            normalized == 'in_progress' ||
+            normalized == 'done')
+        ? normalized
+        : status;
+    return copyWith(
+      columnId: normalized.isEmpty ? null : normalized,
+      status: nextStatus,
+    );
+  }
 
   /// Columna efectiva para la UI Kanban.
   String effectiveColumnId({Set<String>? allowedColumnIds}) {
@@ -173,7 +376,7 @@ class FolioTaskData {
   }
 
   String encode() => jsonEncode({
-    'v': 3,
+    'v': 4,
     'title': title,
     'status': status,
     if ((columnId ?? '').trim().isNotEmpty) 'columnId': columnId,
@@ -189,8 +392,25 @@ class FolioTaskData {
     if (timeSpentMinutes != null) 'timeSpentMinutes': timeSpentMinutes,
     if (external != null) 'external': external!.toJson(),
     if (jira != null) 'jira': jira!.toJson(),
+    if (youtrack != null) 'youtrack': youtrack!.toJson(),
     if (subtasks.isNotEmpty)
       'subtasks': subtasks.map((s) => s.toJson()).toList(growable: false),
+    if (tags.isNotEmpty) 'tags': tags.toList(growable: false),
+    if ((assignee ?? '').trim().isNotEmpty) 'assignee': assignee!.trim(),
+    if (estimatedMinutes != null) 'estimatedMinutes': estimatedMinutes,
+    if (storyPoints != null) 'storyPoints': storyPoints,
+    if (customProperties.isNotEmpty) 'customProperties': Map<String, Object?>.from(customProperties),
+    if ((recurringRule ?? '').trim().isNotEmpty) 'recurringRule': recurringRule!.trim(),
+    if (blockedByTaskIds.isNotEmpty)
+      'blockedByTaskIds': blockedByTaskIds.toList(growable: false),
+    if (aiGenerated) 'aiGenerated': true,
+    if ((createdFromBlockId ?? '').trim().isNotEmpty)
+      'createdFromBlockId': createdFromBlockId!.trim(),
+    if ((aiContextPageId ?? '').trim().isNotEmpty)
+      'aiContextPageId': aiContextPageId!.trim(),
+    if (confidenceScore != null) 'confidenceScore': confidenceScore,
+    if ((suggestedDueDate ?? '').trim().isNotEmpty)
+      'suggestedDueDate': suggestedDueDate!.trim(),
   });
 
   static FolioTaskData? tryParse(String raw) {
@@ -212,6 +432,7 @@ class FolioTaskData {
       final rawSubtasks = m['subtasks'];
       final rawExternal = m['external'];
       final rawJira = m['jira'];
+      final rawYouTrack = m['youtrack'];
       final subtasks = <FolioTaskSubtask>[];
       if (rawSubtasks is List) {
         for (final s in rawSubtasks) {
@@ -235,6 +456,51 @@ class FolioTaskData {
           Map<String, dynamic>.from(rawJira),
         );
       }
+      FolioYouTrackIssueSnapshot? youtrack;
+      if (rawYouTrack is Map) {
+        youtrack = FolioYouTrackIssueSnapshot.tryParse(
+          Map<String, dynamic>.from(rawYouTrack),
+        );
+      }
+      final rawTags = m['tags'];
+      final tagList = <String>[];
+      if (rawTags is List) {
+        for (final e in rawTags) {
+          final s = '$e'.trim();
+          if (s.isNotEmpty) tagList.add(s);
+        }
+      }
+      final assigneeRaw = (m['assignee'] as String?)?.trim();
+      final est = m['estimatedMinutes'];
+      final sp = m['storyPoints'];
+      final rawCp = m['customProperties'];
+      Map<String, Object?>? cp;
+      if (rawCp is Map) {
+        cp = Map<String, Object?>.from(
+          rawCp.map((k, v) => MapEntry(k.toString(), v)),
+        );
+      }
+      final recurringRuleRaw = (m['recurringRule'] as String?)?.trim();
+      final rawBlockedBy = m['blockedByTaskIds'];
+      final blockedBy = <String>[];
+      if (rawBlockedBy is List) {
+        for (final e in rawBlockedBy) {
+          final s = '$e'.trim();
+          if (s.isNotEmpty) blockedBy.add(s);
+        }
+      }
+      final aiGen = m['aiGenerated'] == true;
+      final fromBlock = (m['createdFromBlockId'] as String?)?.trim();
+      final aiCtx = (m['aiContextPageId'] as String?)?.trim();
+      final conf = m['confidenceScore'];
+      double? confScore;
+      if (conf is num) {
+        confScore = conf.toDouble();
+        if (confScore < 0) confScore = 0;
+        if (confScore > 1) confScore = 1;
+      }
+      final suggestedDue = (m['suggestedDueDate'] as String?)?.trim();
+
       return FolioTaskData(
         title: (m['title'] as String?) ?? '',
         status: _validStatuses.contains(rawStatus) ? rawStatus : 'todo',
@@ -253,7 +519,22 @@ class FolioTaskData {
         timeSpentMinutes: rawTimeSpent is num ? rawTimeSpent.toInt() : null,
         external: external,
         jira: jira,
+        youtrack: youtrack,
         subtasks: subtasks,
+        tags: tagList,
+        assignee: (assigneeRaw?.isEmpty ?? true) ? null : assigneeRaw,
+        estimatedMinutes: est is num ? est.toInt() : null,
+        storyPoints: sp is num ? sp.toDouble() : null,
+        customProperties: cp,
+        recurringRule: (recurringRuleRaw?.isEmpty ?? true)
+            ? null
+            : recurringRuleRaw,
+        blockedByTaskIds: blockedBy,
+        aiGenerated: aiGen,
+        createdFromBlockId: (fromBlock?.isEmpty ?? true) ? null : fromBlock,
+        aiContextPageId: (aiCtx?.isEmpty ?? true) ? null : aiCtx,
+        confidenceScore: confScore,
+        suggestedDueDate: (suggestedDue?.isEmpty ?? true) ? null : suggestedDue,
       );
     } catch (_) {
       return null;
@@ -646,6 +927,131 @@ class FolioTaskSubtask {
       timeSpentMinutes: map['timeSpentMinutes'] is num
           ? (map['timeSpentMinutes'] as num).toInt()
           : null,
+    );
+  }
+}
+
+class FolioYouTrackIssueSnapshot {
+  const FolioYouTrackIssueSnapshot({
+    this.projectId,
+    this.projectShortName,
+    this.projectName,
+    this.stateName,
+    this.priorityName,
+    this.assigneeName,
+    this.subsystem,
+    this.commentCount,
+    this.attachmentCount,
+    this.type,
+    this.fixVersions,
+    this.affectedVersions,
+    this.fixedInBuild,
+    this.estimation,
+    this.spentTime,
+  });
+
+  final String? projectId;
+  final String? projectShortName;
+  final String? projectName;
+  final String? stateName;
+  final String? priorityName;
+  final String? assigneeName;
+  final String? subsystem;
+  final int? commentCount;
+  final int? attachmentCount;
+  final String? type;
+  final String? fixVersions;
+  final String? affectedVersions;
+  final String? fixedInBuild;
+  final String? estimation;
+  final String? spentTime;
+
+  FolioYouTrackIssueSnapshot copyWith({
+    String? projectId,
+    String? projectShortName,
+    String? projectName,
+    String? stateName,
+    String? priorityName,
+    String? assigneeName,
+    String? subsystem,
+    int? commentCount,
+    int? attachmentCount,
+    String? type,
+    String? fixVersions,
+    String? affectedVersions,
+    String? fixedInBuild,
+    String? estimation,
+    String? spentTime,
+  }) {
+    return FolioYouTrackIssueSnapshot(
+      projectId: projectId ?? this.projectId,
+      projectShortName: projectShortName ?? this.projectShortName,
+      projectName: projectName ?? this.projectName,
+      stateName: stateName ?? this.stateName,
+      priorityName: priorityName ?? this.priorityName,
+      assigneeName: assigneeName ?? this.assigneeName,
+      subsystem: subsystem ?? this.subsystem,
+      commentCount: commentCount ?? this.commentCount,
+      attachmentCount: attachmentCount ?? this.attachmentCount,
+      type: type ?? this.type,
+      fixVersions: fixVersions ?? this.fixVersions,
+      affectedVersions: affectedVersions ?? this.affectedVersions,
+      fixedInBuild: fixedInBuild ?? this.fixedInBuild,
+      estimation: estimation ?? this.estimation,
+      spentTime: spentTime ?? this.spentTime,
+    );
+  }
+
+  Map<String, Object?> toJson() => <String, Object?>{
+        if ((projectId ?? '').trim().isNotEmpty) 'projectId': projectId,
+        if ((projectShortName ?? '').trim().isNotEmpty) 'projectShortName': projectShortName,
+        if ((projectName ?? '').trim().isNotEmpty) 'projectName': projectName,
+        if ((stateName ?? '').trim().isNotEmpty) 'stateName': stateName,
+        if ((priorityName ?? '').trim().isNotEmpty) 'priorityName': priorityName,
+        if ((assigneeName ?? '').trim().isNotEmpty) 'assigneeName': assigneeName,
+        if ((subsystem ?? '').trim().isNotEmpty) 'subsystem': subsystem,
+        if (commentCount != null) 'commentCount': commentCount,
+        if (attachmentCount != null) 'attachmentCount': attachmentCount,
+        if ((type ?? '').trim().isNotEmpty) 'type': type,
+        if ((fixVersions ?? '').trim().isNotEmpty) 'fixVersions': fixVersions,
+        if ((affectedVersions ?? '').trim().isNotEmpty) 'affectedVersions': affectedVersions,
+        if ((fixedInBuild ?? '').trim().isNotEmpty) 'fixedInBuild': fixedInBuild,
+        if ((estimation ?? '').trim().isNotEmpty) 'estimation': estimation,
+        if ((spentTime ?? '').trim().isNotEmpty) 'spentTime': spentTime,
+      };
+
+  static FolioYouTrackIssueSnapshot? tryParse(Map<String, dynamic> map) {
+    final projectId = (map['projectId'] as String?)?.trim();
+    final projectShortName = (map['projectShortName'] as String?)?.trim();
+    final projectName = (map['projectName'] as String?)?.trim();
+    final stateName = (map['stateName'] as String?)?.trim();
+    final priorityName = (map['priorityName'] as String?)?.trim();
+    final assigneeName = (map['assigneeName'] as String?)?.trim();
+    final subsystem = (map['subsystem'] as String?)?.trim();
+    final type = (map['type'] as String?)?.trim();
+    final fixVersions = (map['fixVersions'] as String?)?.trim();
+    final affectedVersions = (map['affectedVersions'] as String?)?.trim();
+    final fixedInBuild = (map['fixedInBuild'] as String?)?.trim();
+    final estimation = (map['estimation'] as String?)?.trim();
+    final spentTime = (map['spentTime'] as String?)?.trim();
+    int? asInt(Object? v) => v is num ? v.toInt() : null;
+
+    return FolioYouTrackIssueSnapshot(
+      projectId: (projectId?.isEmpty ?? true) ? null : projectId,
+      projectShortName: (projectShortName?.isEmpty ?? true) ? null : projectShortName,
+      projectName: (projectName?.isEmpty ?? true) ? null : projectName,
+      stateName: (stateName?.isEmpty ?? true) ? null : stateName,
+      priorityName: (priorityName?.isEmpty ?? true) ? null : priorityName,
+      assigneeName: (assigneeName?.isEmpty ?? true) ? null : assigneeName,
+      subsystem: (subsystem?.isEmpty ?? true) ? null : subsystem,
+      commentCount: asInt(map['commentCount']),
+      attachmentCount: asInt(map['attachmentCount']),
+      type: (type?.isEmpty ?? true) ? null : type,
+      fixVersions: (fixVersions?.isEmpty ?? true) ? null : fixVersions,
+      affectedVersions: (affectedVersions?.isEmpty ?? true) ? null : affectedVersions,
+      fixedInBuild: (fixedInBuild?.isEmpty ?? true) ? null : fixedInBuild,
+      estimation: (estimation?.isEmpty ?? true) ? null : estimation,
+      spentTime: (spentTime?.isEmpty ?? true) ? null : spentTime,
     );
   }
 }

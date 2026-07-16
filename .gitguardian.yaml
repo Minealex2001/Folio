@@ -1,0 +1,10 @@
+paths-ignore:
+  # Generated localization files - these are auto-generated and contain UI strings only
+  - lib/l10n/generated/
+  # Output and build artifacts
+  - build/
+  - output/
+  - Output/
+  - .dart_tool/
+  - pubspec.lock
+  - coverage/

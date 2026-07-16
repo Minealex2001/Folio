@@ -14,16 +14,23 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:cryptography/cryptography.dart';
 import 'package:uuid/uuid.dart';
 
+import '../application/page_tree_controller.dart';
+import '../application/vault_ai_controller.dart';
+import '../application/vault_persistence_controller.dart';
+import '../application/vault_search_index.dart';
+import '../core/errors/vault_corruption_exception.dart';
 import '../crypto/vault_crypto.dart';
 import '../data/vault_backup.dart';
 import '../data/notion_import/notion_importer.dart';
 import '../data/import/simple_html_blocks.dart';
+import '../app/workspace_prefs_keys.dart';
 import '../data/vault_paths.dart';
 import '../data/vault_payload.dart';
 import '../data/vault_registry.dart';
 import '../data/vault_repository.dart';
 import '../models/block.dart';
 import '../models/folio_page.dart';
+import '../models/folio_usage_intent.dart';
 import '../models/folio_page_revision.dart';
 import '../models/folio_database_data.dart';
 import '../models/local_collab.dart';
@@ -31,8 +38,10 @@ import '../models/folio_table_data.dart';
 import '../models/folio_toggle_data.dart';
 import '../models/folio_task_data.dart';
 import '../models/folio_drive_data.dart';
+import '../models/folio_canvas_data.dart';
 import '../models/folio_kanban_data.dart';
 import '../models/jira_integration_state.dart';
+import '../models/youtrack_integration_state.dart';
 import '../models/page_property.dart';
 import '../models/vault_task_list_entry.dart';
 import '../models/folio_columns_data.dart';
@@ -45,6 +54,7 @@ import '../services/ai/ai_safety_policy.dart';
 import '../services/ai/ai_service.dart';
 import '../services/ai/ai_intent_hints.dart';
 import '../services/ai/ai_types.dart';
+import '../services/ai/quill_tools.dart';
 import '../services/integrations/integrations_markdown_codec.dart';
 import '../services/app_logger.dart';
 import '../services/quick_unlock_storage.dart';
@@ -52,7 +62,13 @@ import '../l10n/generated/app_localizations.dart';
 
 part 'vault_session_ai.dart';
 
-enum VaultFlowState { initializing, needsOnboarding, locked, unlocked }
+enum VaultFlowState {
+  initializing,
+  needsOnboarding,
+  locked,
+  unlocked,
+  recovery,
+}
 
 enum VaultSearchMatchKind { title, content }
 
@@ -63,6 +79,7 @@ class VaultSearchResult {
     required this.snippet,
     required this.matchKind,
     this.blockId,
+    this.blockType,
     this.pageLastEditedMs = 0,
     this.score = 0,
   });
@@ -72,6 +89,7 @@ class VaultSearchResult {
   final String snippet;
   final VaultSearchMatchKind matchKind;
   final String? blockId;
+  final String? blockType;
   final int pageLastEditedMs;
   final int score;
 }
@@ -161,25 +179,30 @@ class VaultSession extends ChangeNotifier {
   Future<void> _applyInitialPageSelection({
     required bool preferPersistedPreference,
   }) async {
-    if (_pages.isEmpty) {
+    final active = _pages.where((p) => !p.isTrashed).toList();
+    if (active.isEmpty) {
       _selectedPageId = null;
       return;
     }
     if (preferPersistedPreference) {
+      final p = await SharedPreferences.getInstance();
+      if (p.getBool(WorkspacePrefsKeys.openWorkspaceToHome) ?? false) {
+        _selectedPageId = null;
+        return;
+      }
       final key = _lastSelectedPagePrefsKey(VaultPaths.activeVaultId);
       if (key != null) {
-        final p = await SharedPreferences.getInstance();
         final saved = p.getString(key);
         if (saved != null &&
             saved.isNotEmpty &&
-            _pages.any((pg) => pg.id == saved)) {
+            active.any((pg) => pg.id == saved)) {
           _selectedPageId = saved;
           return;
         }
       }
     }
-    final roots = _pages.where((p) => p.parentId == null).toList();
-    _selectedPageId = roots.isNotEmpty ? roots.first.id : _pages.first.id;
+    final roots = active.where((p) => p.parentId == null).toList();
+    _selectedPageId = roots.isNotEmpty ? roots.first.id : active.first.id;
   }
 
   bool _isManagedAttachmentPath(String? path) {
@@ -255,7 +278,7 @@ class VaultSession extends ChangeNotifier {
   }) : _repo = repository ?? VaultRepository(),
        _quick = quickUnlock ?? QuickUnlockStorage(),
        _rp = rpServer ?? FolioRpServer(),
-       _passkeys = passkeys ?? PasskeyAuthenticator(),
+       _passkeysOverride = passkeys,
        _localAuth = localAuth ?? LocalAuthentication() {
     final l10n = lookupAppLocalizations(titleLocale ?? const Locale('es'));
     _aiChatThreads = [
@@ -265,6 +288,31 @@ class VaultSession extends ChangeNotifier {
         messages: const [],
       ),
     ];
+    _persistence = VaultPersistenceController(
+      buildPayload: _buildVaultPayloadForPersist,
+      savePayload: (payload) => _repo.savePayload(payload, _dek),
+      canPersist: () =>
+          _state == VaultFlowState.unlocked &&
+          (!vaultUsesEncryption || _dek != null),
+    );
+    _persistence.addListener(_notifySessionListeners);
+    _persistence.onPersisted = () {
+      try {
+        onPersisted?.call();
+      } catch (_) {}
+    };
+    _pageTree = PageTreeController(
+      pagesProvider: () => _pages,
+      orderProvider: () => _pageOrderByParent,
+      orderUpdater: (order) {
+        _pageOrderByParent
+          ..clear()
+          ..addAll(order);
+      },
+      selectedIdProvider: () => _selectedPageId,
+      selectedIdUpdater: (id) => _selectedPageId = id,
+    );
+    _aiController = VaultAiController()..initializeThreads(_aiChatThreads);
   }
 
   /// Idioma para títulos por defecto (páginas nuevas, chats). Actualizar al cambiar el idioma de la app.
@@ -276,7 +324,14 @@ class VaultSession extends ChangeNotifier {
   final VaultRepository _repo;
   final QuickUnlockStorage _quick;
   final FolioRpServer _rp;
-  final PasskeyAuthenticator _passkeys;
+  final PasskeyAuthenticator? _passkeysOverride;
+  PasskeyAuthenticator? _passkeysLazy;
+
+  /// PasskeysDoctor se engancha en el constructor de [PasskeyAuthenticator]; aplazar
+  /// la creación evita trabajo nativo/Pigeon al arrancar la app (p. ej. Windows).
+  PasskeyAuthenticator get _passkeys =>
+      _passkeysOverride ?? (_passkeysLazy ??= PasskeyAuthenticator());
+
   final LocalAuthentication _localAuth;
   void Function()? onPersisted;
   void Function(int pendingConflicts)? onSyncConflictCountChanged;
@@ -300,13 +355,15 @@ class VaultSession extends ChangeNotifier {
   int _aiActiveChatIndex = 0;
   final List<FolioPageTemplate> _pageTemplates = [];
   JiraIntegrationState _jira = JiraIntegrationState.empty;
+  YouTrackIntegrationState _youtrack = YouTrackIntegrationState.empty;
   String? _selectedPageId;
-  Timer? _saveDebounce;
   Timer? _revisionIdleTimer;
   Timer? _idleLockTimer;
   final Set<String> _pageIdsPendingRevision = {};
-  int _persistDepth = 0;
-  int _suppressPersistedCallbackDepth = 0;
+  late final VaultPersistenceController _persistence;
+  final VaultSearchIndex _searchIndex = VaultSearchIndex();
+  late final PageTreeController _pageTree;
+  late final VaultAiController _aiController;
   String _syncBaselineFingerprint = '';
   int _syncPendingConflicts = 0;
   final List<SyncConflictEntry> _syncConflicts = [];
@@ -345,13 +402,38 @@ class VaultSession extends ChangeNotifier {
   static const Duration _revisionIdleDelay = Duration(milliseconds: 2500);
 
   /// Hay un guardado al disco programado (debounce) y aún no se ha ejecutado.
-  bool get hasPendingDiskSave => _saveDebounce != null;
+  bool get hasPendingDiskSave => _persistence.hasPendingDiskSave;
 
   /// Escritura cifrada de la libreta en curso (puede anidarse si varias rutas llaman a [persistNow]).
-  bool get isPersistingToDisk => _persistDepth > 0;
+  bool get isPersistingToDisk => _persistence.isPersistingToDisk;
+
+  SaveStatus get saveStatus => _persistence.status;
+
+  VaultPersistenceController get persistence => _persistence;
+
+  PageTreeController get pageTree => _pageTree;
+
+  VaultAiController get aiController => _aiController;
+
+  VaultSearchIndex get searchIndex => _searchIndex;
 
   VaultFlowState get state => _state;
   List<FolioPage> get pages => List.unmodifiable(_pages);
+  List<FolioPage> get activePages =>
+      List.unmodifiable(_pages.where((p) => !p.isTrashed));
+  List<FolioPage> get trashedPages {
+    final list = _pages.where((p) => p.isTrashed).toList()
+      ..sort((a, b) {
+        final at = a.trashedAt!;
+        final bt = b.trashedAt!;
+        return bt.compareTo(at);
+      });
+    return List.unmodifiable(list);
+  }
+
+  /// Retención de la papelera (purga automática).
+  static const Duration trashRetention = Duration(days: 30);
+
   String? get selectedPageId => _selectedPageId;
 
   /// ID del perfil local activo (el primero de la lista, o 'local-default').
@@ -373,10 +455,16 @@ class VaultSession extends ChangeNotifier {
     final uriRe = RegExp(r'folio://[^\s)"]+');
     final result = <FolioPage>[];
     for (final page in _pages) {
+      if (page.isTrashed) continue;
       if (page.id == targetPageId) continue;
       var found = false;
       for (final block in page.blocks) {
         if (found) break;
+        // Bloques child_page: su `text` es el id de la subpágina enlazada.
+        if (block.type == 'child_page' && block.text.trim() == targetPageId) {
+          found = true;
+          break;
+        }
         for (final match in uriRe.allMatches(block.text)) {
           final linked = folioPageIdFromFolioUri(match.group(0));
           if (linked == targetPageId) {
@@ -393,6 +481,7 @@ class VaultSession extends ChangeNotifier {
   Duration get idleLockDuration => _idleLockDuration;
   bool get lockOnAppBackground => _lockOnAppBackground;
   bool get aiEnabled => _aiService != null;
+  AiService? get aiService => _aiService;
   bool get vaultUsesEncryption => _vaultUsesEncryption;
   bool get isUnlocked => _state == VaultFlowState.unlocked;
 
@@ -439,6 +528,9 @@ class VaultSession extends ChangeNotifier {
   JiraIntegrationState get jiraIntegrationState => _jira;
   List<JiraConnection> get jiraConnections => _jira.connections;
   List<JiraSource> get jiraSources => _jira.sources;
+  YouTrackIntegrationState get youtrackIntegrationState => _youtrack;
+  List<YouTrackConnection> get youtrackConnections => _youtrack.connections;
+  List<YouTrackSource> get youtrackSources => _youtrack.sources;
   List<SyncConflictEntry> get syncConflicts =>
       List.unmodifiable(_syncConflicts);
 
@@ -636,7 +728,8 @@ class VaultSession extends ChangeNotifier {
   FolioPage? get selectedPage {
     if (_selectedPageId == null) return null;
     try {
-      return _pages.firstWhere((p) => p.id == _selectedPageId);
+      final p = _pages.firstWhere((p) => p.id == _selectedPageId);
+      return p.isTrashed ? null : p;
     } catch (_) {
       return null;
     }
@@ -730,20 +823,76 @@ class VaultSession extends ChangeNotifier {
       final plain = await _repo.isPlaintextVault();
       _vaultUsesEncryption = !plain;
       if (plain) {
-        final payload = await _repo.loadPayload(null);
-        _dek = null;
-        _pages = List.from(payload.pages);
-        _loadRevisionsFromPayload(payload);
-        _ensureOrderForCurrentPages();
-        await _applyInitialPageSelection(preferPersistedPreference: true);
-        _state = VaultFlowState.unlocked;
-        _restartIdleLockTimer();
+        try {
+          final payload = await _repo.loadPayload(null);
+          _dek = null;
+          _pages = List.from(payload.pages);
+          _loadRevisionsFromPayload(payload);
+          _ensureOrderForCurrentPages();
+          await _applyInitialPageSelection(preferPersistedPreference: true);
+          _state = VaultFlowState.unlocked;
+          purgeExpiredTrash();
+          _restartIdleLockTimer();
+          _rebuildSearchIndex();
+          final vaultId = _vaultId;
+          if (vaultId != null) {
+            unawaited(_searchIndex.loadFromVault(vaultId));
+          }
+        } on VaultCorruptionException {
+          _dek = null;
+          _pages = [];
+          _selectedPageId = null;
+          _state = VaultFlowState.recovery;
+        }
       } else {
         _state = VaultFlowState.locked;
         _dek = null;
       }
     }
     notifyListeners();
+  }
+
+  /// Restaura `vault.bin` desde la copia `.bak` local y reintenta el arranque.
+  Future<bool> restoreVaultFromLocalBackup() async {
+    final ok = await _repo.restoreCipherPayloadFromLocalBackup();
+    if (!ok) return false;
+    await bootstrap();
+    return _state != VaultFlowState.recovery;
+  }
+
+  /// Carpeta de datos de la libreta activa (nativo).
+  Future<String?> activeVaultDataDirectoryPath() async {
+    final id = _vaultId;
+    if (id == null || id.isEmpty) return null;
+    try {
+      final dir = await VaultPaths.vaultDirectoryForId(id);
+      return dir.path;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// Exporta una copia ZIP de emergencia de la libreta activa.
+  Future<String> exportEmergencyBackupZip(String zipPath) async {
+    await flushPendingSave();
+    await exportVaultBackup(zipPath);
+    return zipPath;
+  }
+
+  /// Restaura desde un ZIP de copia sobre la libreta activa (modo recuperación).
+  Future<void> restoreFromBackupZip(String zipPath, String password) async {
+    if (kIsWeb) throw UnsupportedError('Backup import not available on web');
+    final temp = Directory.systemTemp.createTempSync('folio_recovery_import_');
+    try {
+      await extractBackupZipToDirectory(File(zipPath), temp);
+      await validateImportZip(temp, password);
+      await applyImportFromDirectory(temp);
+      await bootstrap();
+    } finally {
+      try {
+        if (temp.existsSync()) await temp.delete(recursive: true);
+      } catch (_) {}
+    }
   }
 
   void _loadRevisionsFromPayload(VaultPayload payload) {
@@ -797,6 +946,7 @@ class VaultSession extends ChangeNotifier {
       ..clear()
       ..addAll(payload.pageTemplates);
     _jira = payload.jira;
+    _youtrack = payload.youtrack;
     _resetUndoRedoState();
   }
 
@@ -861,38 +1011,71 @@ class VaultSession extends ChangeNotifier {
     scheduleSave();
   }
 
+  void upsertYouTrackConnection(YouTrackConnection connection) {
+    if (_state != VaultFlowState.unlocked) return;
+    final next = List<YouTrackConnection>.from(_youtrack.connections);
+    final i = next.indexWhere((c) => c.id == connection.id);
+    if (i >= 0) {
+      next[i] = connection;
+    } else {
+      next.add(connection);
+    }
+    _youtrack = YouTrackIntegrationState(
+      connections: List.unmodifiable(next),
+      sources: _youtrack.sources,
+    );
+    notifyListeners();
+    scheduleSave();
+  }
+
+  void removeYouTrackConnection(String connectionId) {
+    if (_state != VaultFlowState.unlocked) return;
+    final nextConnections = _youtrack.connections
+        .where((c) => c.id != connectionId)
+        .toList();
+    final nextSources = _youtrack.sources
+        .where((s) => s.connectionId != connectionId)
+        .toList();
+    _youtrack = YouTrackIntegrationState(
+      connections: List.unmodifiable(nextConnections),
+      sources: List.unmodifiable(nextSources),
+    );
+    notifyListeners();
+    scheduleSave();
+  }
+
+  void upsertYouTrackSource(YouTrackSource source) {
+    if (_state != VaultFlowState.unlocked) return;
+    final next = List<YouTrackSource>.from(_youtrack.sources);
+    final i = next.indexWhere((s) => s.id == source.id);
+    if (i >= 0) {
+      next[i] = source;
+    } else {
+      next.add(source);
+    }
+    _youtrack = YouTrackIntegrationState(
+      connections: _youtrack.connections,
+      sources: List.unmodifiable(next),
+    );
+    notifyListeners();
+    scheduleSave();
+  }
+
+  void removeYouTrackSource(String sourceId) {
+    if (_state != VaultFlowState.unlocked) return;
+    final next = _youtrack.sources.where((s) => s.id != sourceId).toList();
+    _youtrack = YouTrackIntegrationState(
+      connections: _youtrack.connections,
+      sources: List.unmodifiable(next),
+    );
+    notifyListeners();
+    scheduleSave();
+  }
+
   String _orderKeyForParent(String? parentId) => parentId ?? '';
 
   void _ensureOrderForCurrentPages() {
-    final byId = <String, FolioPage>{for (final p in _pages) p.id: p};
-    // 1) Quitar ids inexistentes.
-    for (final entry in _pageOrderByParent.entries.toList()) {
-      final next = List<String>.from(entry.value)
-        ..removeWhere((id) => !byId.containsKey(id));
-      if (next.isEmpty) {
-        _pageOrderByParent.remove(entry.key);
-      } else {
-        _pageOrderByParent[entry.key] = next;
-      }
-    }
-    // 2) Asegurar lista por cada parent que tenga hijos.
-    final childrenByParent = <String, List<String>>{};
-    for (final p in _pages) {
-      final key = _orderKeyForParent(p.parentId);
-      (childrenByParent[key] ??= <String>[]).add(p.id);
-    }
-    for (final entry in childrenByParent.entries) {
-      final key = entry.key;
-      final existing = _pageOrderByParent.putIfAbsent(key, () => <String>[]);
-      // Preservar orden existente, y añadir faltantes al final siguiendo orden actual de _pages.
-      final present = existing.toSet();
-      for (final id in entry.value) {
-        if (!present.contains(id)) {
-          existing.add(id);
-          present.add(id);
-        }
-      }
-    }
+    _pageTree.ensureOrderForCurrentPages();
   }
 
   List<String> pageOrderForParent(String? parentId) {
@@ -950,6 +1133,8 @@ class VaultSession extends ChangeNotifier {
     String? password,
     bool encrypted = true,
     bool createStarterPages = true,
+    List<FolioUsageIntent> usageIntents = const [FolioUsageIntent.notes],
+    bool includeQuillStarterPage = false,
   }) async {
     await _registry.load();
     var id = VaultPaths.activeVaultId;
@@ -977,6 +1162,8 @@ class VaultSession extends ChangeNotifier {
           ? VaultStarterContent.enabled
           : VaultStarterContent.disabled,
       starterL10n: createStarterPages ? _titleL10n : null,
+      usageIntents: usageIntents,
+      includeQuillStarterPage: includeQuillStarterPage,
     );
     _vaultUsesEncryption = encrypted;
     _dek = dek?.toList();
@@ -986,6 +1173,7 @@ class VaultSession extends ChangeNotifier {
     _ensureOrderForCurrentPages();
     await _applyInitialPageSelection(preferPersistedPreference: false);
     _state = VaultFlowState.unlocked;
+    purgeExpiredTrash();
     _restartIdleLockTimer();
     _resumeVaultIdAfterNewVault = null;
     notifyListeners();
@@ -1091,10 +1279,35 @@ class VaultSession extends ChangeNotifier {
     final temp = Directory.systemTemp.createTempSync('folio_import_new_');
     try {
       await extractBackupZipToDirectory(File(zipPath), temp);
-      await validateImportZip(temp, backupPassword);
+      return importVaultBackupAsNewFromExtractedDir(
+        temp,
+        backupPassword,
+        displayName: displayName,
+        deleteExtractedDir: false,
+      );
+    } finally {
+      try {
+        if (temp.existsSync()) {
+          await temp.delete(recursive: true);
+        }
+      } catch (_) {}
+    }
+  }
+
+  /// Como [importVaultBackupAsNew] pero el árbol de copia ya está materializado
+  /// (p. ej. pack incremental local/WebDAV).
+  Future<String> importVaultBackupAsNewFromExtractedDir(
+    Directory extractedDir,
+    String backupPassword, {
+    String? displayName,
+    bool deleteExtractedDir = false,
+  }) async {
+    if (kIsWeb) throw UnsupportedError('Backup import not available on web');
+    try {
+      await validateImportZip(extractedDir, backupPassword);
       final newId = _uuid.v4();
       final root = await VaultPaths.vaultDirectoryForId(newId);
-      await applyImportToVaultRoot(temp, root);
+      await applyImportToVaultRoot(extractedDir, root);
       await _registry.load();
       await _registry.add(
         VaultEntry(
@@ -1106,11 +1319,13 @@ class VaultSession extends ChangeNotifier {
       notifyListeners();
       return newId;
     } finally {
-      try {
-        if (temp.existsSync()) {
-          await temp.delete(recursive: true);
-        }
-      } catch (_) {}
+      if (deleteExtractedDir) {
+        try {
+          if (extractedDir.existsSync()) {
+            await extractedDir.delete(recursive: true);
+          }
+        } catch (_) {}
+      }
     }
   }
 
@@ -1127,6 +1342,8 @@ class VaultSession extends ChangeNotifier {
     try {
       await extractBackupArchiveToDirectory(File(archivePath), temp);
       await validateImportZip(temp, backupPassword);
+      // Evita que un autosave pendiente pise los archivos recién importados.
+      _persistence.cancelPendingSave();
       await applyImportFromDirectory(temp);
       await bootstrap();
     } finally {
@@ -1148,6 +1365,8 @@ class VaultSession extends ChangeNotifier {
       throw StateError('La libreta debe estar desbloqueada para importar.');
     }
     await validateImportZip(extractedDir, backupPassword);
+    // Evita que un autosave pendiente pise los archivos recién importados.
+    _persistence.cancelPendingSave();
     await applyImportFromDirectory(extractedDir);
     await bootstrap();
   }
@@ -1266,6 +1485,17 @@ class VaultSession extends ChangeNotifier {
     if (_state != VaultFlowState.unlocked ||
         (vaultUsesEncryption && _dek == null)) {
       throw StateError('Debes desbloquear la libreta para importar.');
+    }
+    // Volcar cambios pendientes para que el backup pre-import los incluya.
+    await flushPendingSave();
+    try {
+      await createPreImportBackupZip();
+    } catch (e) {
+      AppLogger.warn(
+        'No se pudo crear el backup pre-import',
+        tag: 'vault',
+        context: {'error': '$e'},
+      );
     }
     final temp = await Directory.systemTemp.createTemp('folio_notion_import_');
     try {
@@ -1455,31 +1685,45 @@ class VaultSession extends ChangeNotifier {
   Future<void> unlockWithPassword(String password) async {
     if (!vaultUsesEncryption) {
       _dek = null;
-      final payload = await _repo.loadPayload(null);
+      try {
+        final payload = await _repo.loadPayload(null);
+        _pages = List.from(payload.pages);
+        _loadRevisionsFromPayload(payload);
+        _ensureOrderForCurrentPages();
+        await _applyInitialPageSelection(preferPersistedPreference: true);
+        _state = VaultFlowState.unlocked;
+        purgeExpiredTrash();
+        _restartIdleLockTimer();
+        notifyListeners();
+      } on VaultCorruptionException {
+        _state = VaultFlowState.recovery;
+        notifyListeners();
+      }
+      return;
+    }
+    try {
+      final dek = await _repo.unlockWithPassword(password);
+      _dek = dek.toList();
+      final payload = await _repo.loadPayload(_dek);
       _pages = List.from(payload.pages);
       _loadRevisionsFromPayload(payload);
       _ensureOrderForCurrentPages();
       await _applyInitialPageSelection(preferPersistedPreference: true);
       _state = VaultFlowState.unlocked;
+      purgeExpiredTrash();
       _restartIdleLockTimer();
       notifyListeners();
-      return;
+    } on VaultCorruptionException {
+      _dek = null;
+      _state = VaultFlowState.recovery;
+      notifyListeners();
     }
-    final dek = await _repo.unlockWithPassword(password);
-    _dek = dek.toList();
-    final payload = await _repo.loadPayload(_dek);
-    _pages = List.from(payload.pages);
-    _loadRevisionsFromPayload(payload);
-    _ensureOrderForCurrentPages();
-    await _applyInitialPageSelection(preferPersistedPreference: true);
-    _state = VaultFlowState.unlocked;
-    _restartIdleLockTimer();
-    notifyListeners();
   }
 
   Future<void> unlockWithDeviceAuth() async {
-    if (kIsWeb)
+    if (kIsWeb) {
       throw UnsupportedError('Device authentication is not available on web');
+    }
     final supported = await _localAuth.isDeviceSupported();
     if (!supported) {
       throw StateError('Este dispositivo no admite biometría o Windows Hello');
@@ -1507,6 +1751,7 @@ class VaultSession extends ChangeNotifier {
     _ensureOrderForCurrentPages();
     await _applyInitialPageSelection(preferPersistedPreference: true);
     _state = VaultFlowState.unlocked;
+    purgeExpiredTrash();
     _restartIdleLockTimer();
     notifyListeners();
   }
@@ -1534,14 +1779,14 @@ class VaultSession extends ChangeNotifier {
     _ensureOrderForCurrentPages();
     await _applyInitialPageSelection(preferPersistedPreference: true);
     _state = VaultFlowState.unlocked;
+    purgeExpiredTrash();
     _restartIdleLockTimer();
     notifyListeners();
   }
 
   /// Vacía el estado en memoria de la libreta (sin fijar [VaultFlowState]).
   void _clearVaultSessionMemory() {
-    _saveDebounce?.cancel();
-    _saveDebounce = null;
+    _persistence.cancelPendingSave();
     _revisionIdleTimer?.cancel();
     _revisionIdleTimer = null;
     _idleLockTimer?.cancel();
@@ -1569,9 +1814,23 @@ class VaultSession extends ChangeNotifier {
     _selectedPageId = null;
   }
 
+  /// Hooks que vacían a la sesión estado editable con debounce propio (p. ej.
+  /// los documentos Quill del editor de bloques) antes de un guardado forzado.
+  void addPendingFlushHook(void Function() hook) {
+    _persistence.addPendingFlushHook(hook);
+  }
+
+  void removePendingFlushHook(void Function() hook) {
+    _persistence.removePendingFlushHook(hook);
+  }
+
+  Future<void> flushPendingSave() => _persistence.flushPendingSave();
+
   Future<void> lock() async {
     if (!vaultUsesEncryption) return;
     await _persistLastSelectedPageBeforeLock();
+    // Vaciar el autosave pendiente antes de descartar la memoria de sesión.
+    await flushPendingSave();
     _clearVaultSessionMemory();
     _state = VaultFlowState.locked;
     notifyListeners();
@@ -1599,9 +1858,19 @@ class VaultSession extends ChangeNotifier {
 
   void onAppBackgrounded() {
     if (_state != VaultFlowState.unlocked) return;
-    if (_lockOnAppBackground) {
-      unawaited(lock());
-    }
+    // Secuencial: primero volcar cambios pendientes y solo después bloquear.
+    // Si corrieran en paralelo, lock() podría vaciar la DEK/páginas mientras
+    // el guardado aún construye el payload (riesgo de corrupción/pérdida).
+    unawaited(() async {
+      try {
+        await flushPendingSave();
+      } catch (_) {
+        // No impedir el bloqueo si el volcado falla.
+      }
+      if (_lockOnAppBackground && _state == VaultFlowState.unlocked) {
+        await lock();
+      }
+    }());
   }
 
   void _restartIdleLockTimer() {
@@ -1612,8 +1881,9 @@ class VaultSession extends ChangeNotifier {
   }
 
   Future<void> enableDeviceQuickUnlock() async {
-    if (kIsWeb)
+    if (kIsWeb) {
       throw UnsupportedError('Device authentication is not available on web');
+    }
     if (!vaultUsesEncryption) {
       throw StateError('El desbloqueo rápido requiere libreta cifrada');
     }
@@ -1658,11 +1928,18 @@ class VaultSession extends ChangeNotifier {
 
   Future<void> revokePasskey() async {
     await _rp.clearPasskey();
+    // Seguridad: al revocar la passkey, la DEK de desbloqueo rápido asociada
+    // deja de ser válida; se elimina para exigir la contraseña maestra.
+    final vid = _vaultId;
+    if (vid != null && vid.isNotEmpty) {
+      await _quick.disable(vid);
+    }
     notifyListeners();
   }
 
   void selectPage(String id) {
-    if (_pages.every((p) => p.id != id)) return;
+    final page = _pageById(id);
+    if (page == null || page.isTrashed) return;
     touchActivity();
     _selectedPageId = id;
     notifyListeners();
@@ -2794,11 +3071,216 @@ class VaultSession extends ChangeNotifier {
     );
   }
 
-  bool _hasChildren(String id) => _pages.any((p) => p.parentId == id);
+  bool _hasChildren(String id) =>
+      _pages.any((p) => p.parentId == id && !p.isTrashed);
 
-  void deletePage(String id) {
-    if (_pages.length <= 1) return;
-    if (_hasChildren(id)) return;
+  bool _hasAnyChildrenIncludingTrashed(String id) =>
+      _pages.any((p) => p.parentId == id);
+
+  /// Ids del subárbol (raíz incluida), solo entre páginas con el mismo
+  /// criterio de "visible" que el árbol activo (no papelera).
+  List<String> activeSubtreeIds(String rootId) {
+    final root = _pageById(rootId);
+    if (root == null || root.isTrashed) return const [];
+    final byParent = <String?, List<String>>{};
+    for (final p in _pages) {
+      if (p.isTrashed) continue;
+      (byParent[p.parentId] ??= <String>[]).add(p.id);
+    }
+    final out = <String>[];
+    void walk(String id) {
+      out.add(id);
+      for (final childId in byParent[id] ?? const <String>[]) {
+        walk(childId);
+      }
+    }
+
+    walk(rootId);
+    return out;
+  }
+
+  List<String> _trashedSubtreeIds(String rootId) {
+    final root = _pageById(rootId);
+    if (root == null || !root.isTrashed) return const [];
+    final byParent = <String?, List<String>>{};
+    for (final p in _pages) {
+      if (!p.isTrashed) continue;
+      (byParent[p.parentId] ??= <String>[]).add(p.id);
+    }
+    final out = <String>[];
+    void walk(String id) {
+      out.add(id);
+      for (final childId in byParent[id] ?? const <String>[]) {
+        walk(childId);
+      }
+    }
+
+    walk(rootId);
+    return out;
+  }
+
+  int _pageDepth(String id) {
+    var depth = 0;
+    var cur = _pageById(id);
+    while (cur?.parentId != null) {
+      depth++;
+      cur = _pageById(cur!.parentId!);
+      if (depth > 10000) break;
+    }
+    return depth;
+  }
+
+  bool canMovePageToTrash(String id) {
+    final subtree = activeSubtreeIds(id);
+    if (subtree.isEmpty) return false;
+    return activePages.length - subtree.length >= 1;
+  }
+
+  /// Mueve la página y todo su subárbol activo a la papelera.
+  void movePageToTrash(String id) {
+    if (!canMovePageToTrash(id)) return;
+    final subtree = activeSubtreeIds(id);
+    final now = DateTime.now().toUtc();
+    var selectionHit = false;
+    for (final pageId in subtree) {
+      final p = _pageById(pageId);
+      if (p == null || p.isTrashed) continue;
+      p.trashedAt = now;
+      if (_selectedPageId == pageId) selectionHit = true;
+    }
+    if (selectionHit) {
+      _pickInitialSelection();
+      unawaited(_persistLastSelectedPageForActiveVault(_selectedPageId));
+    }
+    notifyListeners();
+    scheduleSave();
+  }
+
+  /// Raíces de la papelera: páginas trashed cuyo padre no está también en papelera.
+  List<FolioPage> get trashRootPages {
+    final trashedIds = {
+      for (final p in _pages)
+        if (p.isTrashed) p.id,
+    };
+    final roots = _pages.where((p) {
+      if (!p.isTrashed) return false;
+      final parentId = p.parentId;
+      if (parentId == null) return true;
+      return !trashedIds.contains(parentId);
+    }).toList()
+      ..sort((a, b) {
+        final at = a.trashedAt!;
+        final bt = b.trashedAt!;
+        return bt.compareTo(at);
+      });
+    return List.unmodifiable(roots);
+  }
+
+  void restoreFromTrash(String id) {
+    final root = _pageById(id);
+    if (root == null || !root.isTrashed) return;
+    final subtree = _trashedSubtreeIds(id);
+    if (subtree.isEmpty) return;
+    for (final pageId in subtree) {
+      final p = _pageById(pageId);
+      if (p == null) continue;
+      p.trashedAt = null;
+    }
+    final parentId = root.parentId;
+    final parent = parentId == null ? null : _pageById(parentId);
+    if (parent == null || parent.isTrashed) {
+      final oldParentId = root.parentId;
+      root.parentId = null;
+      if (oldParentId != null) {
+        _pageOrderByParent[_orderKeyForParent(oldParentId)]?.remove(id);
+      }
+      final rootKey = _orderKeyForParent(null);
+      final rootOrder = _pageOrderByParent.putIfAbsent(rootKey, () => <String>[]);
+      if (!rootOrder.contains(id)) rootOrder.add(id);
+    } else {
+      final key = _orderKeyForParent(parentId);
+      final order = _pageOrderByParent.putIfAbsent(key, () => <String>[]);
+      if (!order.contains(id)) order.add(id);
+    }
+    _ensureOrderForCurrentPages();
+    notifyListeners();
+    scheduleSave();
+  }
+
+  void permanentlyDeleteFromTrash(String id) {
+    final root = _pageById(id);
+    if (root == null || !root.isTrashed) return;
+    final ids = _trashedSubtreeIds(id);
+    if (ids.isEmpty) return;
+    final sorted = List<String>.from(ids)
+      ..sort((a, b) => _pageDepth(b).compareTo(_pageDepth(a)));
+    for (final pageId in sorted) {
+      _hardDeletePage(pageId);
+    }
+    notifyListeners();
+    scheduleSave();
+  }
+
+  void emptyTrash() {
+    final roots = trashRootPages.map((p) => p.id).toList();
+    if (roots.isEmpty) return;
+    for (final id in roots) {
+      if (_pageById(id)?.isTrashed != true) continue;
+      final ids = _trashedSubtreeIds(id);
+      final sorted = List<String>.from(ids)
+        ..sort((a, b) => _pageDepth(b).compareTo(_pageDepth(a)));
+      for (final pageId in sorted) {
+        _hardDeletePage(pageId);
+      }
+    }
+    notifyListeners();
+    scheduleSave();
+  }
+
+  /// Elimina de forma definitiva las páginas en papelera más antiguas que [retention].
+  void purgeExpiredTrash({Duration retention = trashRetention}) {
+    final cutoff = DateTime.now().toUtc().subtract(retention);
+    final expiredRoots = trashRootPages.where((p) {
+      final t = p.trashedAt;
+      return t != null && !t.isAfter(cutoff);
+    }).map((p) => p.id).toList();
+    if (expiredRoots.isEmpty) {
+      // También purgar hojas huérfanas expiradas (por si el padre se restauró).
+      final orphanExpired = _pages
+          .where(
+            (p) =>
+                p.isTrashed &&
+                p.trashedAt != null &&
+                !p.trashedAt!.isAfter(cutoff),
+          )
+          .map((p) => p.id)
+          .toList();
+      if (orphanExpired.isEmpty) return;
+      final sorted = orphanExpired
+        ..sort((a, b) => _pageDepth(b).compareTo(_pageDepth(a)));
+      for (final pageId in sorted) {
+        if (_pageById(pageId)?.isTrashed == true) {
+          _hardDeletePage(pageId);
+        }
+      }
+      notifyListeners();
+      scheduleSave();
+      return;
+    }
+    for (final id in expiredRoots) {
+      if (_pageById(id)?.isTrashed != true) continue;
+      final ids = _trashedSubtreeIds(id);
+      final sorted = List<String>.from(ids)
+        ..sort((a, b) => _pageDepth(b).compareTo(_pageDepth(a)));
+      for (final pageId in sorted) {
+        _hardDeletePage(pageId);
+      }
+    }
+    notifyListeners();
+    scheduleSave();
+  }
+
+  void _hardDeletePage(String id) {
     final idx = _pages.indexWhere((p) => p.id == id);
     if (idx < 0) return;
     final doomed = _pages[idx];
@@ -2843,6 +3325,22 @@ class VaultSession extends ChangeNotifier {
       _pickInitialSelection();
       unawaited(_persistLastSelectedPageForActiveVault(_selectedPageId));
     }
+  }
+
+  void deletePage(String id) {
+    if (activePages.length <= 1) return;
+    if (_hasAnyChildrenIncludingTrashed(id)) return;
+    final page = _pageById(id);
+    if (page == null) return;
+    if (page.isTrashed) {
+      _hardDeletePage(id);
+      notifyListeners();
+      scheduleSave();
+      return;
+    }
+    // Compat: hard-delete solo de hojas; la UI usa [movePageToTrash].
+    if (_hasChildren(id)) return;
+    _hardDeletePage(id);
     notifyListeners();
     scheduleSave();
   }
@@ -3549,6 +4047,10 @@ class VaultSession extends ChangeNotifier {
       if (b.text.isEmpty || FolioFileDriveData.tryParse(b.text) == null) {
         b.text = FolioFileDriveData.defaults().encode();
       }
+    } else if (newType == 'canvas') {
+      if (b.text.isEmpty || FolioCanvasData.tryParse(b.text) == null) {
+        b.text = FolioCanvasData.defaults().encode();
+      }
     } else if (newType == 'image' && oldType != 'image') {
       b.text = '';
     }
@@ -3598,6 +4100,17 @@ class VaultSession extends ChangeNotifier {
     if (b == null || b.type != 'code') return;
     _rememberUndoBeforePageMutation(pageId);
     b.codeLanguage = languageId;
+    notifyListeners();
+    scheduleSave(trackRevisionForPageId: pageId);
+  }
+
+  void setBlockCodeWrap(String pageId, String blockId, bool wrap) {
+    final page = _pageById(pageId);
+    if (page == null) return;
+    final b = _blockById(page, blockId);
+    if (b == null || b.type != 'code') return;
+    _rememberUndoBeforePageMutation(pageId);
+    b.codeWrap = wrap;
     notifyListeners();
     scheduleSave(trackRevisionForPageId: pageId);
   }
@@ -3676,6 +4189,10 @@ class VaultSession extends ChangeNotifier {
             id: '${pageIdPrefix}_${_uuid.v4()}',
             type: b.type,
             text: b.text,
+            // Preserva el formato WYSIWYG (Quill Delta) al duplicar/clonar.
+            // syncGroupId se omite a propósito: un clon es independiente y no
+            // debe quedar vinculado en cascada al bloque original.
+            richTextDeltaJson: b.richTextDeltaJson,
             checked: b.checked,
             expanded: b.expanded,
             codeLanguage: b.codeLanguage,
@@ -3887,10 +4404,22 @@ class VaultSession extends ChangeNotifier {
 
   FolioTaskData _markTaskNeedsPushIfJiraLinked(FolioTaskData t) {
     final ext = t.external;
-    if (ext == null || ext.provider != 'jira') return t;
+    if (ext == null || (ext.provider != 'jira' && ext.provider != 'youtrack')) return t;
     final cur = (ext.syncState ?? '').trim();
     if (cur == 'conflict') return t;
     return t.copyWith(external: ext.copyWith(syncState: 'needsPush'));
+  }
+
+  /// Primera configuración `kanban` de la página, o valores por defecto.
+  FolioKanbanData kanbanDataForPage(String pageId) {
+    final page = _pageById(pageId);
+    if (page == null) return FolioKanbanData.defaults();
+    for (final b in page.blocks) {
+      if (b.type == 'kanban') {
+        return FolioKanbanData.tryParse(b.text) ?? FolioKanbanData.defaults();
+      }
+    }
+    return FolioKanbanData.defaults();
   }
 
   /// Mueve una tarjeta `task` a una columna Kanban (dinámica).
@@ -3901,17 +4430,7 @@ class VaultSession extends ChangeNotifier {
     if (b == null || b.type != 'task') return;
     _rememberUndoBeforePageMutation(pageId);
     final t = FolioTaskData.tryParse(b.text) ?? FolioTaskData.defaults();
-    final normalized = columnId.trim();
-    final nextStatus =
-        (normalized == 'todo' ||
-            normalized == 'in_progress' ||
-            normalized == 'done')
-        ? normalized
-        : null;
-    final next = t.copyWith(
-      columnId: normalized.isEmpty ? null : normalized,
-      status: nextStatus ?? t.status,
-    );
+    final next = t.withKanbanColumn(columnId);
     b.text = _markTaskNeedsPushIfJiraLinked(next).encode();
     notifyListeners();
     scheduleSave(trackRevisionForPageId: pageId);
@@ -3931,6 +4450,10 @@ class VaultSession extends ChangeNotifier {
     _rememberUndoBeforePageMutation(pageId);
     final cur = page.blocks[i];
     cur.text = before;
+    // El Delta previo cubría el texto completo; al partir, el Markdown `before`
+    // pasa a ser la fuente de verdad. Limpiar el Delta evita que al recargar se
+    // restaure el contenido completo anterior a la división.
+    cur.richTextDeltaJson = null;
     final sameListType =
         cur.type == 'bullet' || cur.type == 'todo' || cur.type == 'numbered';
     final sameCode = cur.type == 'code' || cur.type == 'equation';
@@ -3984,6 +4507,10 @@ class VaultSession extends ChangeNotifier {
     }
     _rememberUndoBeforePageMutation(pageId);
     prev.text = prev.text + cur.text;
+    // El Delta de `prev` solo cubría su contenido antiguo; tras fusionar, el
+    // Markdown combinado es la fuente de verdad. Limpiarlo evita perder el
+    // texto fusionado al recargar (donde el Delta tendría prioridad).
+    prev.richTextDeltaJson = null;
     page.blocks.removeAt(i);
     notifyListeners();
     scheduleSave(trackRevisionForPageId: pageId);
@@ -4047,6 +4574,60 @@ class VaultSession extends ChangeNotifier {
     page.blocks.insert(insertAt, b);
     notifyListeners();
     scheduleSave(trackRevisionForPageId: pageId);
+  }
+
+  /// Mueve un bloque a otra página. Regenera el id del bloque y limpia
+  /// [FolioTaskData.parentTaskId] / dependencias al cruzar de página.
+  void moveBlockToPage({
+    required String fromPageId,
+    required String toPageId,
+    required String blockId,
+  }) {
+    if (fromPageId == toPageId) return;
+    final from = _pageById(fromPageId);
+    final to = _pageById(toPageId);
+    if (from == null || to == null) return;
+    if (from.blocks.length <= 1) return;
+    final i = from.blocks.indexWhere((b) => b.id == blockId);
+    if (i < 0) return;
+    final b = from.blocks[i];
+    _rememberUndoBeforePageMutation(fromPageId);
+    _rememberUndoBeforePageMutation(toPageId);
+    from.blocks.removeAt(i);
+
+    final newId = _newBlockId(toPageId);
+    var payload = b.text;
+    if (b.type == 'task') {
+      final t = FolioTaskData.tryParse(b.text) ?? FolioTaskData.defaults();
+      payload = t
+          .copyWith(
+            parentTaskId: null,
+            blockedByTaskIds: const [],
+          )
+          .encode();
+    }
+
+    final moved = FolioBlock(
+      id: newId,
+      type: b.type,
+      text: payload,
+      richTextDeltaJson: b.richTextDeltaJson,
+      checked: b.checked,
+      expanded: b.expanded,
+      codeLanguage: b.codeLanguage,
+      depth: 0,
+      icon: b.icon,
+      url: b.url,
+      imageWidth: b.imageWidth,
+      appearance: b.appearance,
+      meetingNoteProvider: b.meetingNoteProvider,
+      meetingNoteTranscriptionEnabled: b.meetingNoteTranscriptionEnabled,
+      syncGroupId: b.syncGroupId,
+    );
+    to.blocks.add(moved);
+    notifyListeners();
+    scheduleSave(trackRevisionForPageId: fromPageId);
+    scheduleSave(trackRevisionForPageId: toPageId);
   }
 
   void removeBlockIfMultiple(String pageId, String blockId) {
@@ -4135,12 +4716,7 @@ class VaultSession extends ChangeNotifier {
         unawaited(_capturePendingRevisionsAndPersist());
       });
     }
-    _saveDebounce?.cancel();
-    _saveDebounce = Timer(const Duration(milliseconds: 450), () {
-      _saveDebounce = null;
-      notifyListeners();
-      unawaited(persistNow());
-    });
+    _persistence.scheduleSave();
     notifyListeners();
   }
 
@@ -4227,51 +4803,47 @@ class VaultSession extends ChangeNotifier {
     scheduleSave(trackRevisionForPageId: pageId);
   }
 
-  Future<void> persistNow() async {
-    if (vaultUsesEncryption && _dek == null) return;
-    var persisted = false;
-    _persistDepth++;
-    if (_persistDepth == 1) {
-      notifyListeners();
-    }
-    try {
-      await _repo.savePayload(
-        VaultPayload(
-          version: kVaultPayloadVersion,
-          pages: _pages,
-          pageOrderByParent: _pageOrderByParent,
-          pageRevisions: Map<String, List<FolioPageRevision>>.fromEntries(
-            _pageRevisions.entries.map(
-              (e) => MapEntry(e.key, List<FolioPageRevision>.from(e.value)),
-            ),
-          ),
-          pageAcl: Map<String, Map<String, String>>.fromEntries(
-            _pageAcl.entries.map(
-              (e) => MapEntry(e.key, Map<String, String>.from(e.value)),
-            ),
-          ),
-          localProfiles: List<LocalProfile>.from(_localProfiles),
-          comments: List<LocalPageComment>.from(_comments),
-          aiChatThreads: List<AiChatThreadData>.from(_aiChatThreads),
-          aiActiveChatIndex: _aiActiveChatIndex,
-          pageTemplates: List<FolioPageTemplate>.from(_pageTemplates),
-          jira: _jira,
+  VaultPayload _buildVaultPayloadForPersist() {
+    return VaultPayload(
+      version: kVaultPayloadVersion,
+      pages: _pages,
+      pageOrderByParent: _pageOrderByParent,
+      pageRevisions: Map<String, List<FolioPageRevision>>.fromEntries(
+        _pageRevisions.entries.map(
+          (e) => MapEntry(e.key, List<FolioPageRevision>.from(e.value)),
         ),
-        _dek,
-      );
-      persisted = true;
-    } finally {
-      _persistDepth--;
-      if (_persistDepth == 0) {
-        notifyListeners();
-      }
-    }
-    if (persisted && _suppressPersistedCallbackDepth == 0) {
-      try {
-        onPersisted?.call();
-      } catch (_) {
-        // No bloquea el guardado local si falla un listener externo.
-      }
+      ),
+      pageAcl: Map<String, Map<String, String>>.fromEntries(
+        _pageAcl.entries.map(
+          (e) => MapEntry(e.key, Map<String, String>.from(e.value)),
+        ),
+      ),
+      localProfiles: List<LocalProfile>.from(_localProfiles),
+      comments: List<LocalPageComment>.from(_comments),
+      aiChatThreads: List<AiChatThreadData>.from(_aiChatThreads),
+      aiActiveChatIndex: _aiActiveChatIndex,
+      pageTemplates: List<FolioPageTemplate>.from(_pageTemplates),
+      jira: _jira,
+      youtrack: _youtrack,
+    );
+  }
+
+  Future<void> persistNow() async {
+    await _persistence.persistNow();
+    _rebuildSearchIndex();
+  }
+
+  void _rebuildSearchIndex() {
+    if (_state != VaultFlowState.unlocked) return;
+    _searchIndex.rebuildFromPages(_pages.where((p) => !p.isTrashed).toList());
+    final id = _vaultId;
+    if (id == null) return;
+    if (_vaultUsesEncryption) {
+      // Seguridad: nunca persistir el índice (títulos/fragmentos en claro)
+      // de una libreta cifrada; se regenera en memoria al desbloquear.
+      unawaited(VaultSearchIndex.deleteFromVault(id));
+    } else {
+      unawaited(_searchIndex.persistToVault(id));
     }
   }
 
@@ -4298,6 +4870,7 @@ class VaultSession extends ChangeNotifier {
       aiActiveChatIndex: _aiActiveChatIndex,
       pageTemplates: List<FolioPageTemplate>.from(_pageTemplates),
       jira: _jira,
+      youtrack: _youtrack,
     );
     return payload.encodeUtf8();
   }
@@ -4437,12 +5010,8 @@ class VaultSession extends ChangeNotifier {
       _contentEpoch++;
     }
     notifyListeners();
-    _suppressPersistedCallbackDepth++;
-    try {
-      await persistNow();
-    } finally {
-      _suppressPersistedCallbackDepth--;
-    }
+    await _persistence.persistNowSuppressed();
+    _rebuildSearchIndex();
     _syncBaselineFingerprint = remoteFingerprint;
   }
 
@@ -4540,8 +5109,7 @@ class VaultSession extends ChangeNotifier {
 
   /// Borra la libreta **activa** por completo y actualiza el registro.
   Future<void> wipeVaultAndReset() async {
-    _saveDebounce?.cancel();
-    _saveDebounce = null;
+    _persistence.cancelPendingSave();
     _revisionIdleTimer?.cancel();
     _revisionIdleTimer = null;
     _pageIdsPendingRevision.clear();
@@ -4686,34 +5254,67 @@ class VaultSession extends ChangeNotifier {
     bool sortByRecency = false,
     bool tasksOnly = false,
   }) {
-    final q = query.trim().toLowerCase();
+    final queryLower = query.toLowerCase().trim();
     if (_state != VaultFlowState.unlocked ||
         (vaultUsesEncryption && _dek == null) ||
-        q.isEmpty ||
+        queryLower.isEmpty ||
         (!includeTitleMatches && !includeContentMatches)) {
       return const [];
     }
     touchActivity();
+    if (_searchIndex.version > 0) {
+      return _searchIndex.search(
+        query,
+        limit: limit,
+        includeTitleMatches: includeTitleMatches,
+        includeContentMatches: includeContentMatches,
+        sortByRecency: sortByRecency,
+        tasksOnly: tasksOnly,
+        lastEditedMs: _pageLastEditedMs,
+      );
+    }
+
+    final terms = queryLower
+        .split(RegExp(r'\s+'))
+        .where((t) => t.isNotEmpty)
+        .toList();
+    if (terms.isEmpty) {
+      return const [];
+    }
+
     final out = <VaultSearchResult>[];
     for (final page in _pages) {
       final pageTitle = page.title.trim().isEmpty ? 'Sin título' : page.title;
       final pageLastEditedMs = _pageLastEditedMs(page.id);
       final titleLower = pageTitle.toLowerCase();
-      if (includeTitleMatches && titleLower.contains(q)) {
-        final startsAt = titleLower.indexOf(q);
-        final titleScore =
-            220 - (startsAt.clamp(0, 200)) + (pageTitle.length <= 42 ? 15 : 0);
+      
+      final titleMatchesAll = terms.every((t) => titleLower.contains(t));
+      if (includeTitleMatches && titleMatchesAll) {
+        final exactIdx = titleLower.indexOf(queryLower);
+        var titleScore = 200;
+        if (exactIdx >= 0) {
+          titleScore += 100 + (30 - exactIdx.clamp(0, 30)) * 2;
+        } else {
+          var sumIdx = 0;
+          for (final t in terms) {
+            sumIdx += titleLower.indexOf(t).clamp(0, 200);
+          }
+          titleScore += 50 - (sumIdx ~/ terms.length);
+        }
+        if (pageTitle.length <= 42) titleScore += 15;
+
         out.add(
           VaultSearchResult(
             pageId: page.id,
             pageTitle: pageTitle,
-            snippet: _snippetAround(pageTitle, q),
+            snippet: _snippetAroundMulti(pageTitle, queryLower, terms),
             matchKind: VaultSearchMatchKind.title,
             pageLastEditedMs: pageLastEditedMs,
             score: titleScore,
           ),
         );
       }
+
       if (includeContentMatches) {
         for (final block in page.blocks) {
           if (tasksOnly && block.type != 'todo' && block.type != 'task') {
@@ -4721,16 +5322,31 @@ class VaultSession extends ChangeNotifier {
           }
           final haystack = _blockSearchText(block);
           final haystackLower = haystack.toLowerCase();
-          final idx = haystackLower.indexOf(q);
-          if (idx < 0) continue;
-          final snippet = _snippetAround(haystack, q);
-          final contentScore =
-              120 - (idx.clamp(0, 100)) + (snippet.length <= 88 ? 8 : 0);
+
+          final blockMatchesAll = terms.every((t) => haystackLower.contains(t));
+          if (!blockMatchesAll) continue;
+
+          final exactIdx = haystackLower.indexOf(queryLower);
+          var contentScore = 100;
+          if (exactIdx >= 0) {
+            contentScore += 50 + (30 - exactIdx.clamp(0, 30));
+          } else {
+            var sumIdx = 0;
+            for (final t in terms) {
+              sumIdx += haystackLower.indexOf(t).clamp(0, 100);
+            }
+            contentScore += 30 - (sumIdx ~/ terms.length);
+          }
+
+          final snippet = _snippetAroundMulti(haystack, queryLower, terms);
+          if (snippet.length <= 88) contentScore += 8;
+
           out.add(
             VaultSearchResult(
               pageId: page.id,
               pageTitle: pageTitle,
               blockId: block.id,
+              blockType: block.type,
               snippet: snippet,
               matchKind: VaultSearchMatchKind.content,
               pageLastEditedMs: pageLastEditedMs,
@@ -4777,6 +5393,7 @@ class VaultSession extends ChangeNotifier {
             id: '${id}_${_uuid.v4()}',
             type: b.type,
             text: b.text,
+            richTextDeltaJson: b.richTextDeltaJson,
             checked: b.checked,
             expanded: b.expanded,
             codeLanguage: b.codeLanguage,
@@ -4820,16 +5437,31 @@ class VaultSession extends ChangeNotifier {
     return latest;
   }
 
-  String _snippetAround(String text, String queryLower) {
+  String _snippetAroundMulti(String text, String queryLower, List<String> terms) {
     final clean = text.replaceAll('\n', ' ').trim();
     if (clean.isEmpty) return '';
     final lower = clean.toLowerCase();
-    final idx = lower.indexOf(queryLower);
+    
+    var idx = lower.indexOf(queryLower);
+    var matchedLength = queryLower.length;
+    
+    if (idx < 0 && terms.isNotEmpty) {
+      for (final term in terms) {
+        final tIdx = lower.indexOf(term);
+        if (tIdx >= 0) {
+          idx = tIdx;
+          matchedLength = term.length;
+          break;
+        }
+      }
+    }
+    
     if (idx < 0) {
       return clean.length <= 96 ? clean : '${clean.substring(0, 96)}...';
     }
+    
     final start = (idx - 28).clamp(0, clean.length);
-    final end = (idx + queryLower.length + 68).clamp(0, clean.length);
+    final end = (idx + matchedLength + 68).clamp(0, clean.length);
     final chunk = clean.substring(start, end).trim();
     final prefix = start > 0 ? '... ' : '';
     final suffix = end < clean.length ? ' ...' : '';
@@ -4838,18 +5470,18 @@ class VaultSession extends ChangeNotifier {
 
   /// Selección por defecto sin leer preferencias (p. ej. tras borrar página).
   void _pickInitialSelection() {
-    if (_pages.isEmpty) {
+    final active = _pages.where((p) => !p.isTrashed).toList();
+    if (active.isEmpty) {
       _selectedPageId = null;
       return;
     }
-    final roots = _pages.where((p) => p.parentId == null).toList();
-    _selectedPageId = roots.isNotEmpty ? roots.first.id : _pages.first.id;
+    final roots = active.where((p) => p.parentId == null).toList();
+    _selectedPageId = roots.isNotEmpty ? roots.first.id : active.first.id;
   }
 
   @override
   void dispose() {
-    _saveDebounce?.cancel();
-    _saveDebounce = null;
+    _persistence.dispose();
     _revisionIdleTimer?.cancel();
     _idleLockTimer?.cancel();
     super.dispose();

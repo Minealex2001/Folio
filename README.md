@@ -60,6 +60,12 @@ cd folio
 # 2. Install dependencies
 flutter pub get
 
+# 2b. Local dev secrets (optional but required for some integrations)
+# Copy the example and fill in if you use Jira OAuth, Folio integration secret, etc.
+# cp lib/config/folio_local_secrets.example.dart lib/config/folio_local_secrets.dart   # Unix
+# Copy-Item lib/config/folio_local_secrets.example.dart lib/config/folio_local_secrets.dart   # PowerShell
+# `folio_local_secrets.dart` is versioned with empty placeholders; copy from `.example` only if you need local overrides.
+
 # 3. Run static analysis
 flutter analyze
 
@@ -97,6 +103,7 @@ The core app (vault, editor, local device sync, local AI) works **without** Fire
 | [docs/FOLIO_CLOUD_STRIPE_SETUP.md](docs/FOLIO_CLOUD_STRIPE_SETUP.md) | Stripe: `.env`, webhook, Stripe CLI, emulador |
 | [docs/FOLIO_CLOUD_STRIPE_PRODUCTS.md](docs/FOLIO_CLOUD_STRIPE_PRODUCTS.md) | Stripe catalog (Folio Cloud + tinteros) and webhook notes |
 | [docs/FOLIO_CLOUD_BACKEND.md](docs/FOLIO_CLOUD_BACKEND.md) | Server-authoritative Folio Cloud (Firestore, ink, idempotency) |
+| [docs/MIGRACION_ELECTRON.md](docs/MIGRACION_ELECTRON.md) | Runbook (para IA) para migrar la app de Flutter a Electron |
 
 ---
 
@@ -191,7 +198,7 @@ Configure in Folio settings → AI Provider.
 - **Data Locality**: All content and processing occurs locally; no cloud synchronization required
 - **AI Integration**: Local AI providers (Ollama, LM Studio) run on your machine—no external API calls
 - **Encryption**: Cryptographic operations powered by trusted libraries
-- **No Telemetry**: No analytics, tracking, or data collection
+- **Privacy-First Telemetry**: Telemetry enabled by default to improve the app, but you can disable it anytime in Settings. See [TELEMETRY.md](docs/TELEMETRY.md) for details
 - **Safe Defaults**: Privacy-first settings out of the box
 
 **See [SECURITY.md](SECURITY.md) for detailed security policies and vulnerability reporting guidelines.**

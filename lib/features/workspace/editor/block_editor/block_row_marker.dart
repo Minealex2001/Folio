@@ -13,33 +13,38 @@ Widget _buildBlockRowMarker({
 }) {
   switch (block.type) {
     case 'todo':
+      final todoCol = compactReadOnlyMobile
+          ? 26.0
+          : (androidPhoneLayout
+                ? BlockEditorState._markerColumnWidthPhone + 6.0
+                : BlockEditorState._markerColumnWidth + 8.0);
       return SizedBox(
-        width: compactReadOnlyMobile
-            ? 20
-            : (androidPhoneLayout
-                  ? BlockEditorState._markerColumnWidthPhone
-                  : BlockEditorState._markerColumnWidth),
+        width: todoCol,
         child: Align(
           alignment: Alignment.centerLeft,
           child: Semantics(
             label: AppLocalizations.of(st.context).blockEditorMarkTaskComplete,
             toggled: block.checked ?? false,
             child: Transform.translate(
-              offset: const Offset(-2, 0),
+              offset: const Offset(-4, 0),
               child: MetaData(
                 metaData: folioInteractiveMetaDataTag,
                 behavior: HitTestBehavior.translucent,
-                child: Checkbox(
-                  materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                  visualDensity: VisualDensity.compact,
-                  value: block.checked ?? false,
-                  onChanged: readOnlyMode
-                      ? null
-                      : (v) {
-                          if (v != null) {
-                            st._s.setBlockChecked(page.id, block.id, v);
-                          }
-                        },
+                child: Transform.scale(
+                  scale: compactReadOnlyMobile ? 1.05 : 1.28,
+                  alignment: Alignment.centerLeft,
+                  child: Checkbox(
+                    materialTapTargetSize: MaterialTapTargetSize.padded,
+                    visualDensity: VisualDensity.standard,
+                    value: block.checked ?? false,
+                    onChanged: readOnlyMode
+                        ? null
+                        : (v) {
+                            if (v != null) {
+                              st._s.setBlockChecked(page.id, block.id, v);
+                            }
+                          },
+                  ),
                 ),
               ),
             ),

@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import '../../../app/ui_tokens.dart';
 import '../../../l10n/generated/app_localizations.dart';
 import '../../../models/block.dart';
-import 'block_editor.dart';
+import '../editor/block_editor.dart';
 import 'page_outline.dart';
 
 /// Panel lateral con índice automático de encabezados (estilo Notion).

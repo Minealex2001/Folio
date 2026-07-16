@@ -4,6 +4,8 @@ import 'dart:io';
 import 'dart:math' as math;
 
 import 'package:path/path.dart' as p;
+import 'package:record/record.dart';
+import 'package:path_provider/path_provider.dart';
 
 import 'package:collection/collection.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -18,26 +20,27 @@ import 'package:url_launcher/url_launcher.dart';
 import 'package:uuid/uuid.dart';
 
 import '../../../app/app_settings.dart';
-import '../../../app/folio_distribution.dart';
+import '../../../services/app_logger.dart';
 import '../../../app/folio_in_app_shortcuts.dart';
 import '../../../app/ui_tokens.dart';
 import '../../../app/widgets/folio_cloud_ai_ink_dialog.dart';
 import '../../../app/widgets/folio_dialog.dart';
+import '../../../app/widgets/folio_skeletons.dart';
+import '../../../services/whisper_service.dart';
 import '../../../app/widgets/folio_feedback.dart';
 import '../../../models/folio_page.dart';
+import '../../../models/quill_system_prompt.dart';
 import '../../../models/block.dart';
 import '../../../models/folio_columns_data.dart';
 import '../../../models/folio_template_button_data.dart';
 import '../../../models/folio_toggle_data.dart';
 import '../../../models/folio_kanban_data.dart';
 import '../../../services/ai/ai_types.dart';
+import '../../../services/ai/folio_vault_light_search.dart';
 import '../../../services/ai/folio_cloud_ai_service.dart';
 import '../../../services/cloud_account/cloud_account_controller.dart';
 import '../../../services/collab/collab_session_controller.dart';
-import '../../../services/folio_cloud/folio_cloud_checkout.dart';
-import '../../../services/folio_cloud/folio_cloud_purchase_channel_dialog.dart';
-import '../../../services/folio_cloud/folio_microsoft_store_channel.dart';
-import '../../../services/folio_cloud/folio_microsoft_store_sync.dart';
+import '../../../services/folio_cloud/folio_cloud_conversion_flow.dart';
 import '../../../services/folio_cloud/folio_cloud_ai_pricing.dart';
 import '../../../services/folio_cloud/folio_cloud_entitlements.dart';
 import '../../../services/folio_cloud/folio_cloud_publish.dart';
@@ -50,7 +53,7 @@ import '../../../services/integrations/integrations_markdown_codec.dart';
 import '../../../session/vault_session.dart';
 import '../../settings/folio_cloud_subscription_pitch_page.dart';
 import '../../settings/settings_page.dart' show SettingsPage;
-import 'ai_typing_indicator.dart';
+import 'ai_chat_reply_skeleton.dart';
 import '../editor/ai_typewriter_message.dart';
 import '../editor/block_editor.dart';
 import '../editor/block_editor_support_widgets.dart';
@@ -62,12 +65,17 @@ import '../history/page_outline_panel.dart';
 import '../history/backlinks_panel.dart';
 import '../history/comments_panel.dart';
 import '../collab/collaboration_sheet.dart';
+import 'save_status_chip.dart';
 import 'workspace_editor_surface.dart';
 import 'workspace_shell.dart';
 import '../tasks/task_quick_add_dialog.dart';
+import '../tasks/vault_task_hub_page.dart';
+import '../templates/template_gallery_page.dart';
 import '../drive/drive_page.dart';
 import '../kanban/kanban_board_page.dart';
+import '../canvas/canvas_page.dart';
 import '../widgets/page_properties_widget.dart';
+import '../ai/ai_slash_intent.dart';
 
 part 'workspace_page_ai_chat.dart';
 part 'workspace_page_ai_context.dart';
@@ -76,6 +84,7 @@ part 'workspace_page_collab.dart';
 part 'workspace_page_page_tools.dart';
 part 'workspace_page_ai_attachments.dart';
 part 'workspace_page_ai_panel.dart';
+part 'workspace_page_ai_slash.dart';
 
 class WorkspacePage extends StatefulWidget {
   const WorkspacePage({
@@ -86,6 +95,7 @@ class WorkspacePage extends StatefulWidget {
     required this.cloudAccountController,
     required this.folioCloudEntitlements,
     required this.onOpenSearch,
+    required this.onOpenReleaseNotes,
   });
 
   final VaultSession session;
@@ -93,13 +103,22 @@ class WorkspacePage extends StatefulWidget {
   final DeviceSyncController deviceSyncController;
   final CloudAccountController cloudAccountController;
   final FolioCloudEntitlementsController folioCloudEntitlements;
-  final VoidCallback onOpenSearch;
+  final void Function([String? initialQuery]) onOpenSearch;
+  final Future<void> Function(BuildContext context) onOpenReleaseNotes;
 
   @override
   State<WorkspacePage> createState() => _WorkspacePageState();
 }
 
-enum _AiContextItemKind { currentPage, page, file, addFile, meetingNote }
+enum _AiContextItemKind {
+  currentPage,
+  page,
+  file,
+  addFile,
+  meetingNote,
+  editorSelection,
+  lastMeetingOnPage,
+}
 
 enum _AiContextMenuView { root, pages }
 
@@ -122,6 +141,9 @@ class _AiContextItem {
 class _WorkspacePageState extends State<WorkspacePage> {
   late final TextEditingController _titleController;
   final _scaffoldKey = GlobalKey<ScaffoldState>();
+  final _audioRecorder = AudioRecorder();
+  bool _recordingVoice = false;
+  bool _transcribingVoice = false;
   final TextEditingController _chatInputController = TextEditingController();
   final FocusNode _chatInputFocusNode = FocusNode();
   final LayerLink _aiComposerLayerLink = LayerLink();
@@ -154,6 +176,9 @@ class _WorkspacePageState extends State<WorkspacePage> {
 
   /// Al abrir el editor clásico en una página con Drive, se guarda su id aquí.
   String? _driveClassicEditPageId;
+
+  /// Al abrir el editor clásico en una página con Canvas, se guarda su id aquí.
+  String? _canvasClassicEditPageId;
   final Set<String> _expandedThoughtMessageKeys = <String>{};
   final ScrollController _aiChatScrollController = ScrollController();
 
@@ -162,12 +187,14 @@ class _WorkspacePageState extends State<WorkspacePage> {
   String? _lastAiChatIdForScroll;
   int _lastAiChatMessageCount = -1;
   final Set<String> _aiTypewriterActiveMessageKeys = <String>{};
-  final Map<int, String?> _messageFeedback =
-      {}; // Track feedback for each message
   Timer? _draftSaveTimer;
   String _chatDraft = ''; // Auto-save draft
   int _aiContextMenuSelectedIndex = 0; // Keyboard navigation
   bool _aiContextMenuUsingKeyboard = false; // Track keyboard vs mouse
+  bool _aiAttachNextEditorSelection = false;
+  bool _aiAttachNextLastMeeting = false;
+  final TextEditingController _aiThreadSearchController =
+      TextEditingController();
   bool _mobileEditMode = false;
   String? _lastPageIdForMobileMode;
 
@@ -478,8 +505,33 @@ class _WorkspacePageState extends State<WorkspacePage> {
       content: old.content,
       timestamp: old.timestamp,
       feedback: feedback,
+      agentApplySnapshot: old.agentApplySnapshot,
     );
     _s.updateMessageInActiveAiChat(messageIndex, updated);
+  }
+
+  void _tryApplyAgentChatSnapshot(
+    AiChatMessage message,
+    AiAgentApplyKind kind,
+  ) {
+    final snap = message.agentApplySnapshot;
+    if (snap == null) return;
+    final pageId = _s.selectedPageId;
+    if (pageId == null || pageId.isEmpty) {
+      final l10n = AppLocalizations.of(context);
+      _snack(l10n.aiChatApplySnapshotFailure, error: true);
+      return;
+    }
+    final ok = _s.applyAgentChatSnapshotToPage(
+      pageId: pageId,
+      snapshot: snap,
+      kind: kind,
+    );
+    final l10n = AppLocalizations.of(context);
+    _snack(
+      ok ? l10n.aiChatApplySnapshotSuccess : l10n.aiChatApplySnapshotFailure,
+      error: !ok,
+    );
   }
 
   Widget _buildAiMessageRow(
@@ -502,7 +554,7 @@ class _WorkspacePageState extends State<WorkspacePage> {
         ? scheme.primaryContainer.withValues(alpha: 0.92)
         : scheme.surface;
     final textColor = isUser ? scheme.onPrimaryContainer : scheme.onSurface;
-    final feedback = _messageFeedback[messageIndex] ?? message.feedback;
+    final feedback = message.feedback;
     final isHelpful = feedback == 'helpful';
     final isNotHelpful = feedback == 'not_helpful';
 
@@ -688,24 +740,74 @@ class _WorkspacePageState extends State<WorkspacePage> {
                           const SizedBox(height: 12),
                           Row(
                             children: [
-                              IconButton(
-                                iconSize: 18,
+                              PopupMenuButton<void>(
                                 padding: EdgeInsets.zero,
-                                constraints: const BoxConstraints(
-                                  minWidth: 32,
-                                  minHeight: 32,
-                                ),
                                 icon: Icon(
-                                  Icons.content_copy_rounded,
+                                  Icons.more_vert_rounded,
+                                  size: 20,
                                   color: textColor.withValues(alpha: 0.7),
                                 ),
-                                tooltip: l10n.aiCopyMessage,
-                                onPressed: () => _copyToClipboard(
-                                  bodyContent.isEmpty
-                                      ? message.content
-                                      : bodyContent,
-                                  l10n.aiCopiedToClipboard,
-                                ),
+                                tooltip: l10n.aiMessageMoreActions,
+                                itemBuilder: (ctx) => [
+                                  PopupMenuItem<void>(
+                                    child: Text(l10n.aiMessageActionCopyReply),
+                                    onTap: () {
+                                      WidgetsBinding.instance
+                                          .addPostFrameCallback((_) {
+                                        if (!mounted) return;
+                                        final t = bodyContent.isEmpty
+                                            ? message.content
+                                            : bodyContent;
+                                        unawaited(
+                                          _copyToClipboard(
+                                            t,
+                                            l10n.aiCopiedToClipboard,
+                                          ),
+                                        );
+                                      });
+                                    },
+                                  ),
+                                  if (message.agentApplySnapshot != null)
+                                    PopupMenuItem<void>(
+                                      child: Text(
+                                        l10n.aiMessageActionCopyStructuredJson,
+                                      ),
+                                      onTap: () {
+                                        WidgetsBinding.instance
+                                            .addPostFrameCallback((_) {
+                                          if (!mounted) return;
+                                          try {
+                                            final s = JsonEncoder.withIndent(
+                                              '  ',
+                                            ).convert(
+                                              message.agentApplySnapshot!,
+                                            );
+                                            unawaited(
+                                              _copyToClipboard(
+                                                s,
+                                                l10n.aiCopiedToClipboard,
+                                              ),
+                                            );
+                                          } catch (_) {}
+                                        });
+                                      },
+                                    ),
+                                  PopupMenuItem<void>(
+                                    child: Text(l10n.aiMessageActionCopyFull),
+                                    onTap: () {
+                                      WidgetsBinding.instance
+                                          .addPostFrameCallback((_) {
+                                        if (!mounted) return;
+                                        unawaited(
+                                          _copyToClipboard(
+                                            message.content,
+                                            l10n.aiCopiedToClipboard,
+                                          ),
+                                        );
+                                      });
+                                    },
+                                  ),
+                                ],
                               ),
                               const SizedBox(width: 4),
                               IconButton(
@@ -728,10 +830,6 @@ class _WorkspacePageState extends State<WorkspacePage> {
                                   final newFeedback = isHelpful
                                       ? null
                                       : 'helpful';
-                                  setState(
-                                    () => _messageFeedback[messageIndex] =
-                                        newFeedback,
-                                  );
                                   _updateMessageFeedback(
                                     messageIndex,
                                     newFeedback,
@@ -759,10 +857,6 @@ class _WorkspacePageState extends State<WorkspacePage> {
                                   final newFeedback = isNotHelpful
                                       ? null
                                       : 'not_helpful';
-                                  setState(
-                                    () => _messageFeedback[messageIndex] =
-                                        newFeedback,
-                                  );
                                   _updateMessageFeedback(
                                     messageIndex,
                                     newFeedback,
@@ -771,6 +865,64 @@ class _WorkspacePageState extends State<WorkspacePage> {
                               ),
                             ],
                           ),
+                          if (message.agentApplySnapshot != null)
+                            Builder(
+                              builder: (ctx) {
+                                final snap = message.agentApplySnapshot!;
+                                final bl = snap['blocks'];
+                                final op = snap['operations'];
+                                final hasBlocks = bl is List && bl.isNotEmpty;
+                                final hasOps = op is List && op.isNotEmpty;
+                                if (!hasBlocks && !hasOps) {
+                                  return const SizedBox.shrink();
+                                }
+                                return Padding(
+                                  padding: const EdgeInsets.only(top: 10),
+                                  child: Wrap(
+                                    spacing: 8,
+                                    runSpacing: 8,
+                                    children: [
+                                      if (hasBlocks)
+                                        FilledButton.tonal(
+                                          onPressed: () =>
+                                              _tryApplyAgentChatSnapshot(
+                                                message,
+                                                AiAgentApplyKind
+                                                    .insertBlocksAtEnd,
+                                              ),
+                                          child: Text(
+                                            l10n.aiChatApplyInsertEnd,
+                                          ),
+                                        ),
+                                      if (hasBlocks)
+                                        OutlinedButton(
+                                          onPressed: () =>
+                                              _tryApplyAgentChatSnapshot(
+                                                message,
+                                                AiAgentApplyKind
+                                                    .replaceAllBlocks,
+                                              ),
+                                          child: Text(
+                                            l10n.aiChatApplyReplacePage,
+                                          ),
+                                        ),
+                                      if (hasOps)
+                                        FilledButton.tonal(
+                                          onPressed: () =>
+                                              _tryApplyAgentChatSnapshot(
+                                                message,
+                                                AiAgentApplyKind
+                                                    .applyEditOperations,
+                                              ),
+                                          child: Text(
+                                            l10n.aiChatApplyOperations,
+                                          ),
+                                        ),
+                                    ],
+                                  ),
+                                );
+                              },
+                            ),
                         ],
                       ],
                     ),
@@ -888,6 +1040,7 @@ class _WorkspacePageState extends State<WorkspacePage> {
     _titleController.dispose();
     _chatInputController.dispose();
     _chatInputFocusNode.dispose();
+    _aiThreadSearchController.dispose();
     _aiChatScrollController.dispose();
     super.dispose();
   }
@@ -937,6 +1090,7 @@ class _WorkspacePageState extends State<WorkspacePage> {
       _lastSessionPageIdForKanban = currentPageId;
       _kanbanClassicEditPageId = null;
       _driveClassicEditPageId = null;
+      _canvasClassicEditPageId = null;
     }
     if (currentPageId != _lastPageIdForMobileMode) {
       _lastPageIdForMobileMode = currentPageId;
@@ -981,12 +1135,17 @@ class _WorkspacePageState extends State<WorkspacePage> {
 
     // Fingerprint: solo llamar setState cuando algo visible en el build cambió.
     // Durante typing normal, nada de esto cambia → cero reconstrucciones del WorkspacePage.
+    // Incluir feedback por mensaje para que pulgares útil/no útil refresquen sin mapa local.
+    final aiMessageFeedbackFp = chat.messages
+        .map((m) => m.feedback ?? '-')
+        .join('|');
     final fp =
         '${_s.selectedPageId}|${_s.contentEpoch}'
         '|${_s.canUndoSelectedPage}|${_s.canRedoSelectedPage}'
         '|${_s.hasPendingDiskSave}|${_s.isPersistingToDisk}'
         '|${_s.aiEnabled}|${chat.id}|${chat.messages.length}'
-        '|${_s.selectedPage?.collabRoomId ?? ""}';
+        '|${_s.selectedPage?.collabRoomId ?? ""}'
+        '|$aiMessageFeedbackFp';
     if (fp != _lastWorkspaceFingerprint) {
       _lastWorkspaceFingerprint = fp;
       // Actualizar caché kanban solo cuando realmente reconstruimos.
@@ -1206,6 +1365,31 @@ class _WorkspacePageState extends State<WorkspacePage> {
     _chatInputFocusNode.requestFocus();
   }
 
+  void _openHomeAiTasksSummary() {
+    if (!mounted) return;
+    final l10n = AppLocalizations.of(context);
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final horizonEnd = today.add(const Duration(days: 14));
+    final lines = <String>[];
+    for (final e in _s.collectTaskBlocks(includeSimpleTodos: false)) {
+      if (e.isDone) continue;
+      final dStr = e.dueDate;
+      if (dStr == null || dStr.trim().isEmpty) continue;
+      final parsed = DateTime.tryParse(dStr.trim());
+      if (parsed == null) continue;
+      final day = DateTime(parsed.year, parsed.month, parsed.day);
+      if (day.isAfter(horizonEnd)) continue;
+      final title =
+          e.displayTitle.trim().isEmpty ? l10n.none : e.displayTitle;
+      lines.add('• $title (${e.pageTitle}) - $dStr');
+    }
+    final body = lines.isEmpty
+        ? l10n.workspaceHomeAiTasksPromptEmpty
+        : lines.join('\n');
+    _useQuillTourPrompt(l10n.workspaceHomeAiTasksPrompt(body));
+  }
+
   Widget _buildBetaBanner(ColorScheme scheme, AppLocalizations l10n) {
     return Material(
       color: scheme.tertiaryContainer,
@@ -1401,18 +1585,46 @@ class _WorkspacePageState extends State<WorkspacePage> {
     }
   }
 
-  void _openSettings() {
+  void _openSettings({String? initialSection}) {
     Navigator.of(context).push<void>(
       MaterialPageRoute<void>(
+        settings: const RouteSettings(name: 'settings'),
         builder: (ctx) => SettingsPage(
           session: _s,
           appSettings: widget.appSettings,
           deviceSyncController: widget.deviceSyncController,
           cloudAccountController: widget.cloudAccountController,
           folioCloudEntitlements: widget.folioCloudEntitlements,
+          initialSection: initialSection,
         ),
       ),
     );
+  }
+
+  void _openGraphView() {
+    Navigator.of(context).push<void>(
+      MaterialPageRoute<void>(
+        settings: const RouteSettings(name: 'graph_view'),
+        builder: (_) => GraphViewScreen(
+          session: _s,
+          onOpenPage: _s.selectPage,
+        ),
+      ),
+    );
+  }
+
+  Future<void> _openTemplateGalleryFromHome() async {
+    final result = await openTemplateGalleryPage(
+      context: context,
+      session: _s,
+      cloud: widget.cloudAccountController,
+    );
+    if (!mounted || result == null) return;
+    if (result.template != null) {
+      _s.addPageFromTemplate(result.template!);
+    } else {
+      _s.addPage(parentId: null);
+    }
   }
 
   void _openFolioCloudSubscriptionPitch() {
@@ -1421,6 +1633,7 @@ class _WorkspacePageState extends State<WorkspacePage> {
     final signedIn = widget.cloudAccountController.isSignedIn;
     Navigator.of(context).push<void>(
       MaterialPageRoute<void>(
+        settings: const RouteSettings(name: 'folio_cloud_pitch'),
         builder: (ctx) => FolioCloudSubscriptionPitchPage(
           busy: _folioCloudCheckoutBusy,
           primaryCtaLabel: signedIn
@@ -1432,69 +1645,52 @@ class _WorkspacePageState extends State<WorkspacePage> {
           onPrimaryCta: () {
             Navigator.of(ctx).pop();
             if (!mounted) return;
-            if (signedIn) {
-              unawaited(_openFolioCloudMonthlyCheckout());
-            } else {
-              _openSettings();
-              _snack(l10n.folioCloudPitchOpenSettingsToSignIn);
-            }
+            unawaited(_runFolioCloudMonthlyFunnel());
           },
         ),
       ),
     );
   }
 
-  Future<void> _openFolioCloudMonthlyCheckout() async {
-    if (_folioCloudCheckoutBusy) return;
-    var channel = FolioCloudPurchaseChannel.stripeInBrowser;
-    if (FolioMicrosoftStoreChannel.isRuntimeSupported &&
-        FolioDistribution.showMicrosoftStoreIntegration) {
-      final pick = await showFolioCloudPurchaseChannelDialog(
-        context,
-        checkoutKind: FolioCheckoutKind.folioCloudMonthly,
-      );
-      if (!mounted) return;
-      if (pick == null) return;
-      channel = pick;
+  String _cloudAuthErrorMessage(AppLocalizations l10n, String code) {
+    switch (code) {
+      case 'invalid-email':
+        return l10n.cloudAuthErrorInvalidEmail;
+      case 'user-not-found':
+      case 'wrong-password':
+        return l10n.cloudAuthErrorInvalidCredential;
+      case 'user-disabled':
+        return l10n.cloudAuthErrorUserDisabled;
+      case 'email-already-in-use':
+        return l10n.cloudAuthErrorEmailAlreadyInUse;
+      case 'weak-password':
+        return l10n.cloudAuthErrorWeakPassword;
+      case 'invalid-credential':
+        return l10n.cloudAuthErrorInvalidCredential;
+      case 'network-request-failed':
+        return l10n.cloudAuthErrorNetwork;
+      case 'too-many-requests':
+        return l10n.cloudAuthErrorTooManyRequests;
+      case 'operation-not-allowed':
+        return l10n.cloudAuthErrorOperationNotAllowed;
+      default:
+        return l10n.cloudAuthErrorGeneric;
     }
+  }
+
+  Future<void> _runFolioCloudMonthlyFunnel() async {
+    if (_folioCloudCheckoutBusy) return;
     setState(() => _folioCloudCheckoutBusy = true);
     try {
       final l10n = AppLocalizations.of(context);
-      if (channel == FolioCloudPurchaseChannel.microsoftStore) {
-        try {
-          await purchaseMicrosoftStoreMonthlyIfConfigured();
-          if (mounted) {
-            _snack(l10n.folioCloudMicrosoftStoreAppliedSnack);
-          }
-        } catch (e) {
-          _snack('$e', error: true);
-        }
-        return;
-      }
-      final uri = await createFolioCheckoutUri(
-        FolioCheckoutKind.folioCloudMonthly,
+      await FolioCloudConversionFlow(
+        cloud: widget.cloudAccountController,
+        folio: widget.folioCloudEntitlements,
+      ).runMonthlySubscriptionFunnel(
+        context,
+        l10n: l10n,
+        onAuthError: (c) => _cloudAuthErrorMessage(l10n, c),
       );
-      if (uri == null) {
-        _snack(
-          _t(
-            'Pago no disponible (configura Stripe en el servidor).',
-            'Checkout unavailable (configure Stripe on server).',
-          ),
-          error: true,
-        );
-        return;
-      }
-      final ok = await launchUrl(uri, mode: LaunchMode.externalApplication);
-      if (!ok) {
-        _snack(
-          _t('No se pudo abrir el enlace.', 'Could not open the link.'),
-          error: true,
-        );
-      } else {
-        widget.folioCloudEntitlements.scheduleStripeSyncOnNextResume();
-      }
-    } catch (e) {
-      _snack('$e', error: true);
     } finally {
       if (mounted) setState(() => _folioCloudCheckoutBusy = false);
     }
@@ -1659,11 +1855,13 @@ class _WorkspacePageState extends State<WorkspacePage> {
     if (kanbanPages.isEmpty) return;
 
     if (kanbanPages.length == 1) {
+      final pid = kanbanPages.single.id;
       await showTaskQuickAddDialog(
         context: context,
         session: _s,
         appSettings: widget.appSettings,
-        targetPageId: kanbanPages.single.id,
+        targetPageId: pid,
+        kanbanColumns: _s.kanbanDataForPage(pid).columns,
       );
     } else {
       final l10n = AppLocalizations.of(context);
@@ -1750,10 +1948,28 @@ class _WorkspacePageState extends State<WorkspacePage> {
           session: _s,
           appSettings: widget.appSettings,
           targetPageId: selected,
+          kanbanColumns: _s.kanbanDataForPage(selected).columns,
         );
       }
     }
     if (mounted) setState(() {});
+  }
+
+  void _openVaultTaskHub() {
+    if (!_s.isUnlocked) return;
+    unawaited(
+      Navigator.of(context).push<void>(
+        MaterialPageRoute<void>(
+          builder: (ctx) => VaultTaskHubPage(
+            session: _s,
+            onOpenTaskInPage: (pageId, blockId) {
+              _s.selectPage(pageId);
+              _s.requestScrollToBlock(blockId);
+            },
+          ),
+        ),
+      ),
+    );
   }
 
   @override
@@ -1773,8 +1989,7 @@ class _WorkspacePageState extends State<WorkspacePage> {
     final editorReadOnlyMode = verticalMobileWorkspace && !_mobileEditMode;
     final compact =
         width < FolioDesktop.compactBreakpoint || androidMobileWorkspace;
-    final aiSessionActive =
-        widget.appSettings.isAiRuntimeEnabled && _s.aiEnabled;
+    final aiSessionActive = widget.appSettings.isAiRuntimeEnabled;
     final useDesktopAiDock = !compact && aiSessionActive;
     final useMobileAiDock = compact && aiSessionActive;
     final cloudSignedIn =
@@ -1804,11 +2019,12 @@ class _WorkspacePageState extends State<WorkspacePage> {
           session: _s,
           appSettings: widget.appSettings,
           cloudAccountController: widget.cloudAccountController,
-          onSearch: widget.onOpenSearch,
+          onSearch: () => widget.onOpenSearch(),
           onForceSync: _forceSyncNow,
           onOpenSettings: _openSettings,
           onLock: () => unawaited(_s.lock()),
           onQuickAddTask: hasAnyKanbanPage ? _showQuickAddTask : null,
+          onOpenVaultTaskHub: _s.isUnlocked ? _openVaultTaskHub : null,
         ),
       ),
     );
@@ -1980,18 +2196,7 @@ class _WorkspacePageState extends State<WorkspacePage> {
             id: 'graph_view',
             label: l10n.graphViewTitle,
             icon: Icons.bubble_chart_rounded,
-            onPressed: () {
-              Navigator.of(context).push(
-                MaterialPageRoute<void>(
-                  builder: (_) => GraphViewScreen(
-                    session: _s,
-                    onOpenPage: (pageId) {
-                      _s.selectPage(pageId);
-                    },
-                  ),
-                ),
-              );
-            },
+            onPressed: _openGraphView,
             forcePrimary: false,
           ),
           if (page != null)
@@ -2152,66 +2357,12 @@ class _WorkspacePageState extends State<WorkspacePage> {
             ),
         ];
 
-        if (_s.hasPendingDiskSave || _s.isPersistingToDisk) {
-          widgets.add(
-            Padding(
-              padding: const EdgeInsetsDirectional.only(end: FolioSpace.xs),
-              child: Center(
-                child: Semantics(
-                  label: _s.isPersistingToDisk
-                      ? l10n.savingVaultTooltip
-                      : l10n.autosaveSoonTooltip,
-                  liveRegion: true,
-                  child: Tooltip(
-                    message: _s.isPersistingToDisk
-                        ? l10n.savingVaultTooltip
-                        : l10n.autosaveSoonTooltip,
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: FolioSpace.sm,
-                        vertical: FolioSpace.xs,
-                      ),
-                      decoration: BoxDecoration(
-                        color: scheme.surfaceContainerHigh,
-                        borderRadius: BorderRadius.circular(FolioRadius.xl),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          if (_s.isPersistingToDisk)
-                            SizedBox(
-                              width: 18,
-                              height: 18,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 2,
-                                color: scheme.primary,
-                              ),
-                            )
-                          else
-                            Icon(
-                              Icons.save_outlined,
-                              size: 20,
-                              color: scheme.primary.withValues(alpha: 0.85),
-                            ),
-                          const SizedBox(width: FolioSpace.xs),
-                          Text(
-                            _s.isPersistingToDisk
-                                ? l10n.saveInProgress
-                                : l10n.savePending,
-                            style: theme.textTheme.labelLarge?.copyWith(
-                              color: scheme.onSurfaceVariant,
-                              fontWeight: FontWeight.w700,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-            ),
-          );
-        }
+        widgets.add(
+          ListenableBuilder(
+            listenable: _s.persistence,
+            builder: (context, _) => SaveStatusChip(status: _s.saveStatus),
+          ),
+        );
         return widgets;
       }(),
     ];
@@ -2223,6 +2374,8 @@ class _WorkspacePageState extends State<WorkspacePage> {
 
     bool pageHasDrive(FolioPage p) => p.blocks.any((b) => b.type == 'drive');
 
+    bool pageHasCanvas(FolioPage p) => p.blocks.any((b) => b.type == 'canvas');
+
     final showKanbanBoard =
         page != null &&
         pageHasKanban(page) &&
@@ -2232,6 +2385,11 @@ class _WorkspacePageState extends State<WorkspacePage> {
         page != null &&
         pageHasDrive(page) &&
         _driveClassicEditPageId != page.id;
+
+    final showCanvasPage =
+        page != null &&
+        pageHasCanvas(page) &&
+        _canvasClassicEditPageId != page.id;
 
     Widget baseEditor = page == null
         ? const SizedBox.shrink()
@@ -2253,12 +2411,21 @@ class _WorkspacePageState extends State<WorkspacePage> {
                     onOpenClassicEditor: () =>
                         setState(() => _driveClassicEditPageId = page.id),
                   )
+                : showCanvasPage
+                ? CanvasPage(
+                    pageId: page.id,
+                    session: _s,
+                    appSettings: widget.appSettings,
+                    onOpenClassicEditor: () =>
+                        setState(() => _canvasClassicEditPageId = page.id),
+                  )
                 : BlockEditor(
                     key: activeBlockEditorKey,
                     session: _s,
                     appSettings: widget.appSettings,
                     readOnlyMode: editorReadOnlyMode,
                     folioCloudEntitlements: widget.folioCloudEntitlements,
+                    onAiSlashCommand: _handleFolioAiSlash,
                   ),
           );
 
@@ -2332,6 +2499,41 @@ class _WorkspacePageState extends State<WorkspacePage> {
       );
     }
 
+    if (page != null &&
+        pageHasCanvas(page) &&
+        _canvasClassicEditPageId == page.id) {
+      baseEditor = Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Material(
+            color: scheme.surfaceContainerHigh.withValues(alpha: 0.95),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(
+                horizontal: FolioSpace.md,
+                vertical: FolioSpace.sm,
+              ),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      l10n.canvasClassicModeBanner,
+                      style: theme.textTheme.bodyMedium,
+                    ),
+                  ),
+                  TextButton(
+                    onPressed: () =>
+                        setState(() => _canvasClassicEditPageId = null),
+                    child: Text(l10n.canvasBackToCanvas),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          Expanded(child: baseEditor),
+        ],
+      );
+    }
+
     final editorSurface = WorkspaceEditorSurface(
       compact: compact,
       mobileOptimized: androidMobileWorkspace,
@@ -2347,6 +2549,20 @@ class _WorkspacePageState extends State<WorkspacePage> {
       },
       onCreatePage: () => _s.addPage(parentId: null),
       onOpenSearch: widget.onOpenSearch,
+      onOpenSettings: _openSettings,
+      onOpenGraph: _openGraphView,
+      onOpenTemplateGallery: _openTemplateGalleryFromHome,
+      onLockVault: () => unawaited(_s.lock()),
+      onForceSyncDevices: _forceSyncNow,
+      onQuickAddTask: hasAnyKanbanPage ? _showQuickAddTask : null,
+      onOpenVaultTasks: _s.isUnlocked ? _openVaultTaskHub : null,
+      onAddRootFolder: () => _s.addFolder(parentId: null),
+      onImportMarkdown: _importDocumentFile,
+      onOpenFolioCloudPitch: _openFolioCloudSubscriptionPitch,
+      cloudAccount: widget.cloudAccountController,
+      folioCloudEntitlements: widget.folioCloudEntitlements,
+      mobilePreviewReadOnly: editorReadOnlyMode,
+      onOpenReleaseNotes: widget.onOpenReleaseNotes,
       editor: baseEditor,
       propertiesSection: page != null
           ? PagePropertiesWidget(
@@ -2355,6 +2571,14 @@ class _WorkspacePageState extends State<WorkspacePage> {
               readOnly: editorReadOnlyMode,
             )
           : null,
+      session: _s,
+      appSettings: widget.appSettings,
+      onSelectPage: _s.selectPage,
+      onOpenTaskInPage: (pageId, blockId) {
+        _s.selectPage(pageId);
+        _s.requestScrollToBlock(blockId);
+      },
+      onAskAiAboutUpcomingTasks: _openHomeAiTasksSummary,
     );
 
     final showOutlinePanel =
@@ -2363,6 +2587,7 @@ class _WorkspacePageState extends State<WorkspacePage> {
         page != null &&
         !showKanbanBoard &&
         !showDrivePage &&
+        !showCanvasPage &&
         widget.appSettings.workspacePageOutlineVisible;
 
     final showBacklinksPanel =
@@ -2371,6 +2596,7 @@ class _WorkspacePageState extends State<WorkspacePage> {
         page != null &&
         !showKanbanBoard &&
         !showDrivePage &&
+        !showCanvasPage &&
         widget.appSettings.workspaceBacklinksVisible;
 
     final showCommentsPanel =
@@ -2379,6 +2605,7 @@ class _WorkspacePageState extends State<WorkspacePage> {
         page != null &&
         !showKanbanBoard &&
         !showDrivePage &&
+        !showCanvasPage &&
         widget.appSettings.workspaceCommentsVisible;
 
     Widget editorWithPanels = editorSurface;
@@ -2418,6 +2645,66 @@ class _WorkspacePageState extends State<WorkspacePage> {
       );
     }
     final editorContent = editorWithPanels;
+    final useSplitAi =
+        useDesktopAiDock && !_zenMode && widget.appSettings.aiChatSplitView;
+    final Widget shellEditorBody;
+    if (_zenMode) {
+      shellEditorBody = Stack(
+        children: [
+          editorContent,
+          Positioned(
+            top: 8,
+            right: 12,
+            child: SafeArea(
+              child: AnimatedOpacity(
+                opacity: 0.85,
+                duration: const Duration(milliseconds: 200),
+                child: FilledButton.tonal(
+                  style: FilledButton.styleFrom(
+                    visualDensity: VisualDensity.compact,
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 6,
+                    ),
+                  ),
+                  onPressed: () => setState(() => _zenMode = false),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(Icons.fullscreen_exit_rounded, size: 16),
+                      const SizedBox(width: 6),
+                      Text(
+                        l10n.zenModeExit,
+                        style: const TextStyle(fontSize: 12),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ],
+      );
+    } else if (useSplitAi) {
+      shellEditorBody = Row(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Expanded(flex: 3, child: editorContent),
+          const VerticalDivider(width: 1),
+          SizedBox(
+            width: _aiPanelWidth.clamp(280.0, 520.0),
+            child: Material(
+              color: scheme.surfaceContainerLow,
+              child: _aiPanelCollapsed
+                  ? Center(child: _buildAiCollapsedFab(context, scheme))
+                  : _buildAiPanel(context),
+            ),
+          ),
+        ],
+      );
+    } else {
+      shellEditorBody = editorContent;
+    }
     return CallbackShortcuts(
       bindings: shortcutBindings,
       child: Scaffold(
@@ -2447,47 +2734,7 @@ class _WorkspacePageState extends State<WorkspacePage> {
           compact: compact,
           sidePanelWidth: effectiveSidebarW,
           sidePanel: sidePanel,
-          editorContent: _zenMode
-              ? Stack(
-                  children: [
-                    editorContent,
-                    Positioned(
-                      top: 8,
-                      right: 12,
-                      child: SafeArea(
-                        child: AnimatedOpacity(
-                          opacity: 0.85,
-                          duration: const Duration(milliseconds: 200),
-                          child: FilledButton.tonal(
-                            style: FilledButton.styleFrom(
-                              visualDensity: VisualDensity.compact,
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 12,
-                                vertical: 6,
-                              ),
-                            ),
-                            onPressed: () => setState(() => _zenMode = false),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                const Icon(
-                                  Icons.fullscreen_exit_rounded,
-                                  size: 16,
-                                ),
-                                const SizedBox(width: 6),
-                                Text(
-                                  l10n.zenModeExit,
-                                  style: const TextStyle(fontSize: 12),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
-                )
-              : editorContent,
+          editorContent: shellEditorBody,
           showSidebarResizeHandle:
               !compact &&
               !_zenMode &&
@@ -2520,7 +2767,7 @@ class _WorkspacePageState extends State<WorkspacePage> {
           betaBanner: widget.appSettings.shouldShowBetaBanner
               ? _buildBetaBanner(scheme, l10n)
               : null,
-          aiFloatingPanel: useDesktopAiDock && !_zenMode
+          aiFloatingPanel: useDesktopAiDock && !_zenMode && !useSplitAi
               ? (_aiPanelCollapsed
                     ? _buildAiCollapsedFab(context, scheme)
                     : _buildAiPanel(context))

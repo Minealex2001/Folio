@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:cryptography/cryptography.dart';
@@ -5,17 +6,28 @@ import 'package:cryptography/cryptography.dart';
 import '../../crypto/vault_crypto.dart';
 import '../../data/folio_cloud_pack_format.dart';
 
-/// Cifra un archivo del pack con nonce determinístico (deduplicación en Storage).
+/// Cifra un archivo del pack con nonce determinístico **derivado del contenido**
+/// (deduplicación real en Storage): mismo [plain] + mismo [role] -> mismo nonce
+/// -> mismo ciphertext -> mismo blobId (se omite la resubida). Un [plain] distinto
+/// siempre produce un nonce distinto, así que la misma clave nunca cifra dos
+/// plaintexts distintos bajo el mismo nonce (lo que rompería la autenticación de
+/// AES-GCM). No usar un nonceBasis estático por rol/ruta: eso sí reutiliza nonce
+/// cada vez que el contenido cambia.
 Future<Uint8List> cloudPackEncryptPlainBlob({
   required List<int> plain,
   required SecretKey packKey,
-  required List<int> nonceBasis,
-}) =>
-    VaultCrypto.encryptPayloadDeterministicPack(
-      plain: plain,
-      dek: packKey,
-      nonceBasis: nonceBasis,
-    );
+  required String role,
+}) async {
+  final contentHash = await Sha256().hash(plain);
+  final nonceBasis = utf8.encode(
+    'folio-pack:$role:${_hexLower(contentHash.bytes)}',
+  );
+  return VaultCrypto.encryptPayloadDeterministicPack(
+    plain: plain,
+    dek: packKey,
+    nonceBasis: nonceBasis,
+  );
+}
 
 /// Cifra el snapshot con nonce aleatorio (cada revisión es distinta).
 Future<Uint8List> cloudPackEncryptBytes({

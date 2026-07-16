@@ -48,7 +48,9 @@ jobs:
       - name: Install dependencies
         shell: bash
         working-directory: ${{ env.REPO_DIR }}
-        run: dart pub get --enforce-lockfile
+        run: |
+          cp -f lib/config/folio_local_secrets.example.dart lib/config/folio_local_secrets.dart
+          dart pub get --enforce-lockfile
 
       - name: Build iOS app (no codesign)
         shell: bash

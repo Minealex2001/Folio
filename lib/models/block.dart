@@ -69,6 +69,7 @@ class FolioBlock {
     this.checked,
     this.expanded,
     this.codeLanguage,
+    this.codeWrap,
     this.depth = 0,
     this.icon,
     this.url,
@@ -99,6 +100,9 @@ class FolioBlock {
 
   /// Id de gramática highlight (`dart`, `javascript`, …); solo para `type == 'code'`.
   String? codeLanguage;
+
+  /// wrap option for code blocks
+  bool? codeWrap;
 
   /// Nivel de indentación visual del bloque (default: 0)
   int depth;
@@ -134,6 +138,7 @@ class FolioBlock {
     if (checked != null) 'checked': checked,
     if (expanded != null) 'expanded': expanded,
     if (codeLanguage != null) 'codeLanguage': codeLanguage,
+    if (codeWrap != null) 'codeWrap': codeWrap,
     if (depth > 0) 'depth': depth,
     if (icon != null) 'icon': icon,
     if (url != null) 'url': url,
@@ -146,15 +151,29 @@ class FolioBlock {
     if (syncGroupId != null) 'syncGroupId': syncGroupId,
   };
 
+  static int _fallbackIdCounter = 0;
+
+  /// Lee un id de bloque de forma tolerante: acepta strings, numérico legacy o
+  /// nulo (genera un id de reserva) sin lanzar `CastError` que rompería la carga
+  /// completa del vault.
+  static String _readId(Object? raw) {
+    if (raw is String && raw.isNotEmpty) return raw;
+    final asStr = raw?.toString();
+    if (asStr != null && asStr.isNotEmpty) return asStr;
+    return 'block_fallback_${DateTime.now().microsecondsSinceEpoch}_'
+        '${_fallbackIdCounter++}';
+  }
+
   factory FolioBlock.fromJson(Map<String, dynamic> j) {
     return FolioBlock(
-      id: j['id'] as String,
+      id: _readId(j['id']),
       type: j['type'] as String? ?? 'paragraph',
       text: j['text'] as String? ?? '',
       richTextDeltaJson: j['richTextDeltaJson'] as String?,
       checked: j['checked'] as bool?,
       expanded: j['expanded'] as bool?,
       codeLanguage: j['codeLanguage'] as String?,
+      codeWrap: j['codeWrap'] as bool?,
       depth: j['depth'] as int? ?? 0,
       icon: j['icon'] as String?,
       url: j['url'] as String?,
@@ -176,6 +195,7 @@ class FolioBlock {
     bool? checked,
     bool? expanded,
     String? codeLanguage,
+    bool? codeWrap,
     int? depth,
     String? icon,
     String? url,
@@ -194,6 +214,7 @@ class FolioBlock {
       checked: checked ?? this.checked,
       expanded: expanded ?? this.expanded,
       codeLanguage: codeLanguage ?? this.codeLanguage,
+      codeWrap: codeWrap ?? this.codeWrap,
       depth: depth ?? this.depth,
       icon: icon ?? this.icon,
       url: url ?? this.url,
@@ -215,6 +236,7 @@ bool folioBlocksCanMerge(FolioBlock prev, FolioBlock cur) {
     'table',
     'database',
     'kanban',
+    'canvas',
     'mermaid',
     'bookmark',
     'embed',

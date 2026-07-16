@@ -3,22 +3,22 @@ import 'dart:convert';
 import 'dart:io';
 import 'dart:math';
 
+import 'package:cryptography/cryptography.dart' show Sha256;
 import 'package:firebase_core/firebase_core.dart';
 import 'package:http/http.dart' as http;
-import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:uuid/uuid.dart';
 
+import '../../config/folio_local_secrets.dart';
+import '../../core/errors/folio_exception.dart';
 import '../../firebase_options.dart';
 import '../../models/jira_integration_state.dart';
 import '../app_logger.dart';
 import '../env/local_env.dart';
 import '../folio_cloud/folio_cloud_callable.dart';
 
-class JiraAuthCancelledException implements Exception {
-  const JiraAuthCancelledException();
-  @override
-  String toString() => 'OAuth cancelado por el usuario.';
+class JiraAuthCancelledException extends FolioException {
+  const JiraAuthCancelledException() : super('OAuth cancelado por el usuario.');
 }
 
 class JiraAuthCancelToken {
@@ -54,14 +54,10 @@ class JiraAuthService {
   static String _readEnv(String key) {
     final define = String.fromEnvironment(key).trim();
     if (define.isNotEmpty) return define;
+    final fromDart = FolioLocalSecrets.valueForDefineKey(key).trim();
+    if (fromDart.isNotEmpty) return fromDart;
     final local = (LocalEnv.get(key) ?? '').trim();
     if (local.isNotEmpty) return local;
-    try {
-      final dot = (dotenv.env[key] ?? '').trim();
-      if (dot.isNotEmpty) return dot;
-    } catch (_) {
-      // flutter_dotenv puede no estar inicializado en algunos entornos/tests.
-    }
     return (Platform.environment[key] ?? '').trim();
   }
 
@@ -121,6 +117,11 @@ class JiraAuthService {
         Uri.parse('http://127.0.0.1:$_oauthLoopbackPort/callback');
 
     final state = _randomToken(16);
+    // PKCE real (RFC 7636): el redirect loopback exclusivo (RFC 8252) ya
+    // ayuda, pero el code_challenge evita que un proceso local que intercepte
+    // el `code` de la respuesta pueda canjearlo sin conocer el verifier.
+    final codeVerifier = _randomToken(64);
+    final codeChallenge = await _pkceCodeChallenge(codeVerifier);
 
     final authUri = Uri.https('auth.atlassian.com', '/authorize', {
       'audience': 'api.atlassian.com',
@@ -130,6 +131,8 @@ class JiraAuthService {
       'state': state,
       'response_type': 'code',
       'prompt': 'consent',
+      'code_challenge': codeChallenge,
+      'code_challenge_method': 'S256',
     });
 
     AppLogger.info(
@@ -160,21 +163,24 @@ class JiraAuthService {
 
     final Map<String, dynamic> tokenJson;
     if (clientSecret.isNotEmpty) {
-      final tokenResp = await _client.post(
-        Uri.https('auth.atlassian.com', '/oauth/token'),
-        headers: {
-          'content-type': 'application/json',
-          'authorization':
-              'Basic ${base64Encode(utf8.encode('$clientId:$clientSecret'))}',
-        },
-        body: jsonEncode({
-          'grant_type': 'authorization_code',
-          'client_id': clientId,
-          'client_secret': clientSecret,
-          'code': code,
-          'redirect_uri': redirectUri.toString(),
-        }),
-      );
+      final tokenResp = await _client
+          .post(
+            Uri.https('auth.atlassian.com', '/oauth/token'),
+            headers: {
+              'content-type': 'application/json',
+              'authorization':
+                  'Basic ${base64Encode(utf8.encode('$clientId:$clientSecret'))}',
+            },
+            body: jsonEncode({
+              'grant_type': 'authorization_code',
+              'client_id': clientId,
+              'client_secret': clientSecret,
+              'code': code,
+              'redirect_uri': redirectUri.toString(),
+              'code_verifier': codeVerifier,
+            }),
+          )
+          .timeout(const Duration(seconds: 30));
       if (tokenResp.statusCode < 200 || tokenResp.statusCode >= 300) {
         throw StateError(
           'OAuth token exchange falló (${tokenResp.statusCode}): ${tokenResp.body}',
@@ -186,6 +192,7 @@ class JiraAuthService {
         code: code,
         clientId: clientId,
         redirectUri: redirectUri,
+        codeVerifier: codeVerifier,
       );
     }
     final accessToken = (tokenJson['access_token'] as String? ?? '').trim();
@@ -199,10 +206,12 @@ class JiraAuthService {
         expiresIn > 0 ? nowMs + (expiresIn * 1000) : (nowMs + 55 * 60 * 1000);
 
     // Discover accessible resources (cloudId + URLs).
-    final resourcesResp = await _client.get(
-      Uri.https('api.atlassian.com', '/oauth/token/accessible-resources'),
-      headers: {'authorization': 'Bearer $accessToken'},
-    );
+    final resourcesResp = await _client
+        .get(
+          Uri.https('api.atlassian.com', '/oauth/token/accessible-resources'),
+          headers: {'authorization': 'Bearer $accessToken'},
+        )
+        .timeout(const Duration(seconds: 30));
     if (resourcesResp.statusCode < 200 || resourcesResp.statusCode >= 300) {
       throw StateError(
         'No se pudieron leer recursos accesibles (${resourcesResp.statusCode}): ${resourcesResp.body}',
@@ -274,12 +283,14 @@ class JiraAuthService {
     required String code,
     required String clientId,
     required Uri redirectUri,
+    required String codeVerifier,
   }) async {
     if (Firebase.apps.isEmpty) {
       throw StateError(
         'Falta JIRA_OAUTH_CLIENT_SECRET en este equipo y Firebase no está inicializado. '
-        'Opciones: crea %APPDATA%\\Folio\\.env con la variable, usa --dart-define al compilar, '
-        'o despliega Cloud Functions con JIRA_OAUTH_CLIENT_SECRET (folioJiraExchangeOAuth).',
+        'Opciones (en este orden de uso habitual): lib/config/folio_local_secrets.dart (copia desde .example), '
+        '--dart-define al compilar, %APPDATA%\\Folio\\.env en escritorio Windows, '
+        'o Cloud Functions con JIRA_OAUTH_CLIENT_SECRET (folioJiraExchangeOAuth).',
       );
     }
     final projectId = DefaultFirebaseOptions.currentPlatform.projectId;
@@ -291,15 +302,18 @@ class JiraAuthService {
       tag: 'jira',
       context: {'uri': uri.toString()},
     );
-    final resp = await _client.post(
-      uri,
-      headers: {'content-type': 'application/json; charset=utf-8'},
-      body: jsonEncode({
-        'code': code,
-        'redirectUri': redirectUri.toString(),
-        'clientId': clientId,
-      }),
-    );
+    final resp = await _client
+        .post(
+          uri,
+          headers: {'content-type': 'application/json; charset=utf-8'},
+          body: jsonEncode({
+            'code': code,
+            'redirectUri': redirectUri.toString(),
+            'clientId': clientId,
+            'codeVerifier': codeVerifier,
+          }),
+        )
+        .timeout(const Duration(seconds: 30));
     late final Map<String, dynamic> mapTry;
     try {
       final decoded = jsonDecode(resp.body);
@@ -316,7 +330,8 @@ class JiraAuthService {
         mapTry['error']?.toString() == 'jira_oauth_not_configured') {
       throw StateError(
         'El servidor Folio no tiene configurado JIRA_OAUTH_CLIENT_SECRET. '
-        'Contacta al administrador o define el secret localmente en %APPDATA%\\Folio\\.env.',
+        'Contacta al administrador o define el secret en lib/config/folio_local_secrets.dart '
+        '(preferido); en escritorio Windows también en %APPDATA%\\Folio\\.env.',
       );
     }
     if (resp.statusCode < 200 || resp.statusCode >= 300) {
@@ -427,6 +442,12 @@ class JiraAuthService {
     final r = Random.secure();
     final bytes = List<int>.generate(byteLength, (_) => r.nextInt(256));
     return base64UrlEncode(bytes).replaceAll('=', '');
+  }
+
+  /// `code_challenge` PKCE (RFC 7636, método S256) a partir del verifier.
+  static Future<String> _pkceCodeChallenge(String codeVerifier) async {
+    final hash = await Sha256().hash(utf8.encode(codeVerifier));
+    return base64UrlEncode(hash.bytes).replaceAll('=', '');
   }
 }
 

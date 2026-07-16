@@ -10,11 +10,14 @@ import 'package:path/path.dart' as p;
 
 import '../../app/app_settings.dart';
 import '../../app/ui_tokens.dart';
+import '../../app/widgets/folio_dialog.dart';
 import '../../app/widgets/folio_password_field.dart';
+import '../../app/widgets/folio_skeletons.dart';
 import '../../crypto/vault_crypto.dart';
 import '../../data/notion_import/notion_importer.dart';
 import '../../data/vault_backup.dart';
 import '../../l10n/generated/app_localizations.dart';
+import '../../models/folio_usage_intent.dart';
 import '../../session/vault_session.dart';
 import '../../services/cloud_account/cloud_account_controller.dart';
 import '../../services/folio_cloud/folio_cloud_backup.dart';
@@ -24,6 +27,7 @@ import '../../services/folio_cloud/folio_cloud_reachability.dart';
 import '../../services/folio_telemetry.dart';
 import '../settings/folio_cloud_reauth_dialog.dart';
 import 'cloud_sign_in_dialog.dart';
+import 'onboarding_cloud_pitch_step.dart';
 
 class OnboardingFlow extends StatefulWidget {
   const OnboardingFlow({
@@ -56,6 +60,7 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
   String? _notionZipPath;
   bool? _backupZipIsPlain;
   String? _onboardingCloudPackVaultId;
+  bool? _onboardingCloudPackIsPlain;
   String? _error;
   var _busy = false;
   var _obscurePassword = true;
@@ -65,9 +70,12 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
   var _obscureNotionConfirm = true;
   var _createWithoutEncryption = false;
   var _createStarterPages = true;
+  List<FolioUsageIntent> _selectedUsageIntents = const [FolioUsageIntent.notes];
+  String? _usageProfileError;
 
   /// Elección en onboarding (se persiste al salir del paso).
-  var _onboardingTelemetryEnabled = false;
+  /// Default: true (telemetría habilitada, puede desactivarse en Settings)
+  var _onboardingTelemetryEnabled = true;
 
   static const _minLen = 10;
 
@@ -75,6 +83,160 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
       _passwordStrengthFor(_password.text);
 
   bool get _shouldShowQuillIntro => !widget.appSettings.hasSeenQuillIntro;
+
+  bool get _isFirstOnboarding => !widget.session.canCancelNewVaultOnboarding;
+
+  /// Borradores de pasos de configuración (solo se persisten al pulsar Continuar).
+  late ThemeMode _draftThemeMode;
+  late FolioAccentColorMode _draftAccentMode;
+  late int _draftCustomAccentArgb;
+  late int _draftIdleLockMinutes;
+  late bool _draftLockOnMinimize;
+  late bool _draftScheduledBackupEnabled;
+  late int _draftScheduledBackupIntervalMinutes;
+  late String _draftScheduledBackupDirectory;
+  late bool _draftScheduledBackupAlsoUploadCloud;
+  late bool _draftMinimizeToTray;
+  late bool _draftCloseToTray;
+  late bool _draftWindowsNotificationsEnabled;
+
+  @override
+  void initState() {
+    super.initState();
+    _selectedUsageIntents = List<FolioUsageIntent>.from(
+      widget.appSettings.usageIntents,
+    );
+    _syncDraftsFromAppSettings();
+  }
+
+  void _syncDraftsFromAppSettings() {
+    final s = widget.appSettings;
+    _draftThemeMode = s.themeMode;
+    _draftAccentMode = s.accentColorMode;
+    _draftCustomAccentArgb = s.customAccentArgb;
+    _draftIdleLockMinutes = _coerceIdleLockMinutes(s.vaultIdleLockMinutes);
+    _draftLockOnMinimize = s.vaultLockOnMinimize;
+    _draftScheduledBackupEnabled = s.scheduledVaultBackupEnabled;
+    _draftScheduledBackupIntervalMinutes = s.scheduledVaultBackupIntervalMinutes;
+    _draftScheduledBackupDirectory = s.scheduledVaultBackupDirectory;
+    _draftScheduledBackupAlsoUploadCloud = s.scheduledVaultBackupAlsoUploadCloud;
+    _draftMinimizeToTray = s.minimizeToTray;
+    _draftCloseToTray = s.closeToTray;
+    _draftWindowsNotificationsEnabled = s.windowsNotificationsEnabled;
+  }
+
+  List<_OnboardingStepId> _buildFlowSteps() {
+    switch (_mode) {
+      case _OnboardingMode.importChooser:
+        return const [
+          _OnboardingStepId.welcome,
+          _OnboardingStepId.importChooser,
+        ];
+      case _OnboardingMode.backupImport:
+        return const [
+          _OnboardingStepId.welcome,
+          _OnboardingStepId.importChooser,
+          _OnboardingStepId.importBackupForm,
+        ];
+      case _OnboardingMode.notionImport:
+        return const [
+          _OnboardingStepId.welcome,
+          _OnboardingStepId.importChooser,
+          _OnboardingStepId.importNotionForm,
+        ];
+      case _OnboardingMode.create:
+        final steps = <_OnboardingStepId>[
+          _OnboardingStepId.welcome,
+          _OnboardingStepId.vaultSetup,
+        ];
+        if (_isFirstOnboarding) {
+          steps.add(_OnboardingStepId.usageProfile);
+          steps.addAll([
+            _OnboardingStepId.personalize,
+            _OnboardingStepId.reliability,
+            _OnboardingStepId.privacyTrust,
+            if (_folio.isAvailable) _OnboardingStepId.folioCloud,
+            if (_shouldShowQuillIntro) _OnboardingStepId.quillIntro,
+          ]);
+        } else {
+          steps.add(_OnboardingStepId.usageProfile);
+        }
+        steps.add(_OnboardingStepId.ready);
+        return steps;
+    }
+  }
+
+  List<_OnboardingStepId> get _flowSteps => _buildFlowSteps();
+
+  _OnboardingStepId get _currentStepId {
+    final steps = _flowSteps;
+    if (_page < 0 || _page >= steps.length) {
+      return steps.isNotEmpty ? steps.first : _OnboardingStepId.welcome;
+    }
+    return steps[_page];
+  }
+
+  void _goNext() {
+    final steps = _flowSteps;
+    if (_page < steps.length - 1) {
+      setState(() => _page++);
+    }
+  }
+
+  void _goBack() {
+    if (_page <= 0) return;
+    setState(() {
+      _page--;
+      _syncDraftsFromAppSettings();
+    });
+  }
+
+  ButtonStyle get _onboardingPrimaryButtonStyle => FilledButton.styleFrom(
+        minimumSize: const Size(120, 48),
+        padding: const EdgeInsets.symmetric(horizontal: FolioSpace.md),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(FolioRadius.md),
+        ),
+      );
+
+  /// Barra inferior unificada: [Atrás] · espacio · [widgets opcionales] · [principal].
+  Widget _onboardingBottomActions({
+    required VoidCallback? onBack,
+    VoidCallback? onPrimary,
+    String? primaryLabel,
+    Widget? primaryChild,
+    bool primaryBusy = false,
+    List<Widget>? beforePrimary,
+  }) {
+    final l10n = AppLocalizations.of(context);
+    final children = <Widget>[
+      TextButton(onPressed: onBack, child: Text(l10n.back)),
+      const Spacer(),
+    ];
+    if (beforePrimary != null) {
+      for (final w in beforePrimary) {
+        children.add(w);
+      }
+    }
+    if (onPrimary != null) {
+      children.add(
+        FilledButton(
+          style: _onboardingPrimaryButtonStyle,
+          onPressed: primaryBusy ? null : onPrimary,
+          child: primaryBusy
+              ? const FolioLoadingIndicator(size: FolioLoadingSize.small)
+              : (primaryChild ?? Text(primaryLabel ?? l10n.continueAction)),
+        ),
+      );
+    }
+    return Padding(
+      padding: const EdgeInsets.only(top: FolioSpace.xl),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: children,
+      ),
+    );
+  }
 
   @override
   void dispose() {
@@ -88,30 +250,26 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
     super.dispose();
   }
 
-  String get _stepLabel {
-    final l10n = AppLocalizations.of(context);
-    if (_mode == _OnboardingMode.backupImport ||
-        _mode == _OnboardingMode.notionImport) {
-      return l10n.stepOfTotal(_page + 1, 2);
-    }
-    // Create flow:
-    // 0 welcome, 1 password, 2 ready, 3 telemetry, 4 folio cloud, 5 quill intro (optional)
-    return l10n.stepOfTotal(_page + 1, _shouldShowQuillIntro ? 6 : 5);
-  }
-
-  void _goPage(int i) {
-    setState(() => _page = i);
-  }
-
   void _chooseCreateNew() {
     setState(() {
       _error = null;
       _mode = _OnboardingMode.create;
-      _createWithoutEncryption = false;
       _createStarterPages = true;
+      _selectedUsageIntents = List<FolioUsageIntent>.from(
+        widget.appSettings.usageIntents,
+      );
+      _usageProfileError = null;
       _onboardingTelemetryEnabled = widget.appSettings.telemetryEnabled;
+      _page = 1;
     });
-    _goPage(1);
+  }
+
+  void _chooseImportSource() {
+    setState(() {
+      _error = null;
+      _mode = _OnboardingMode.importChooser;
+      _page = 1;
+    });
   }
 
   void _chooseImportBackup() {
@@ -120,8 +278,9 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
       _mode = _OnboardingMode.backupImport;
       _backupZipPath = null;
       _onboardingCloudPackVaultId = null;
+      _onboardingCloudPackIsPlain = null;
+      _page = 2;
     });
-    _goPage(1);
   }
 
   String _cloudAuthErrorMessage(AppLocalizations l10n, String code) {
@@ -243,6 +402,20 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
       }
 
       if (chosen.isCloudPack) {
+        // Se consulta si el envoltorio de recuperación es de tipo `packKey`
+        // (libreta sin cifrado, contraseña vacía) para no pedirle al usuario
+        // una contraseña que no existe -- sin esto, el usuario escribía algo
+        // igualmente y fallaba con "Contraseña incorrecta o datos dañados"
+        // al no coincidir con el envoltorio real.
+        bool? cloudPackIsPlain;
+        try {
+          cloudPackIsPlain = await cloudPackRestoreIsPlainVault(
+            vaultId: chosenVaultId,
+          );
+        } catch (_) {
+          cloudPackIsPlain = null;
+        }
+        if (!mounted) return;
         setState(() {
           _busy = false;
           _error = null;
@@ -250,7 +423,8 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
           _backupZipPath = null;
           _backupZipIsPlain = null;
           _onboardingCloudPackVaultId = chosenVaultId;
-          _page = 1;
+          _onboardingCloudPackIsPlain = cloudPackIsPlain;
+          _page = 2;
         });
         return;
       }
@@ -278,7 +452,8 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
         _backupZipPath = dest.path;
         _backupZipIsPlain = isPlain;
         _onboardingCloudPackVaultId = null;
-        _page = 1;
+        _onboardingCloudPackIsPlain = null;
+        _page = 2;
       });
     } catch (e) {
       if (!mounted) return;
@@ -300,34 +475,33 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
       _notionZipPath = null;
       _notionPassword.clear();
       _notionConfirm.clear();
+      _page = 2;
     });
-    _goPage(1);
   }
 
   void _nextCreatePassword() {
     setState(() {
       _error = null;
-      if (_page == 1) {
-        if (_createWithoutEncryption) {
-          _page = 2;
-          return;
-        }
-        final p = _password.text;
-        final c = _confirm.text;
-        if (p.length < _minLen) {
-          _error = AppLocalizations.of(context).minCharactersError(_minLen);
-          return;
-        }
-        if (_passwordStrength != _PasswordStrength.strong) {
-          _error = AppLocalizations.of(context).passwordMustBeStrongError;
-          return;
-        }
-        if (p != c) {
-          _error = AppLocalizations.of(context).passwordMismatchError;
-          return;
-        }
+      if (_currentStepId != _OnboardingStepId.vaultSetup) return;
+      if (_createWithoutEncryption) {
+        _page++;
+        return;
       }
-      _page = 2;
+      final p = _password.text;
+      final c = _confirm.text;
+      if (p.length < _minLen) {
+        _error = AppLocalizations.of(context).minCharactersError(_minLen);
+        return;
+      }
+      if (!_meetsVaultMasterPasswordPolicy(_passwordStrength)) {
+        _error = AppLocalizations.of(context).passwordMustBeStrongError;
+        return;
+      }
+      if (p != c) {
+        _error = AppLocalizations.of(context).passwordMismatchError;
+        return;
+      }
+      _page++;
     });
   }
 
@@ -345,6 +519,7 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
         _backupZipPath = path;
         _backupZipIsPlain = null;
         _onboardingCloudPackVaultId = null;
+        _onboardingCloudPackIsPlain = null;
       });
       try {
         final plain = await isPlainBackupZip(File(path));
@@ -373,6 +548,7 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
           restorePassword: pwd,
           extractDir: tmp,
           entitlementSnapshot: _folio.snapshot,
+          telemetrySettings: widget.appSettings,
         );
         final isPlain = await isPlainExtractedBackupDirectory(tmp);
         final vaultPwd = isPlain ? '' : pwd;
@@ -484,7 +660,7 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
       setState(() => _error = l10n.minCharactersError(_minLen));
       return;
     }
-    if (_passwordStrengthFor(pwd) != _PasswordStrength.strong) {
+    if (!_meetsVaultMasterPasswordPolicy(_passwordStrengthFor(pwd))) {
       setState(() => _error = l10n.passwordMustBeStrongError);
       return;
     }
@@ -523,7 +699,7 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
     final l10n = AppLocalizations.of(context);
     await showDialog<void>(
       context: context,
-      builder: (ctx) => AlertDialog(
+      builder: (ctx) => FolioDialog(
         title: Row(
           children: [
             Icon(
@@ -579,6 +755,10 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
         password: _createWithoutEncryption ? null : _password.text,
         encrypted: !_createWithoutEncryption,
         createStarterPages: _createStarterPages,
+        usageIntents: _selectedUsageIntents,
+        includeQuillStarterPage: _flowSteps.contains(
+          _OnboardingStepId.quillIntro,
+        ),
       );
       await widget.appSettings.setHasSeenQuillIntro(true);
     } catch (e) {
@@ -616,7 +796,7 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
                 children: [
                   Center(
                     child: Text(
-                      'Folio',
+                      l10n.appTitle,
                       style: Theme.of(context).textTheme.headlineMedium
                           ?.copyWith(
                             fontWeight: FontWeight.w700,
@@ -625,19 +805,23 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
                     ),
                   ),
                   const SizedBox(height: FolioSpace.xs),
-                  Center(
-                    child: Text(
-                      _stepLabel,
-                      style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                        color: scheme.onSurfaceVariant,
-                      ),
+                  Semantics(
+                    label: l10n.onboardingProgressSemantics(
+                      _page + 1,
+                      _flowSteps.length,
+                    ),
+                    child: _StepSegments(
+                      current: _page + 1,
+                      total: _flowSteps.length,
                     ),
                   ),
                   const SizedBox(height: FolioSpace.lg),
                   AnimatedSwitcher(
                     duration: const Duration(milliseconds: 300),
                     child: KeyedSubtree(
-                      key: ValueKey('step_$_mode$_page'),
+                      key: ValueKey(
+                        'step_${_mode}_${_page}_${_currentStepId.name}',
+                      ),
                       child: _buildCurrentStep(context),
                     ),
                   ),
@@ -718,10 +902,7 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
                               borderRadius: BorderRadius.circular(24),
                             ),
                             child: Icon(
-                              _mode == _OnboardingMode.backupImport ||
-                                      _mode == _OnboardingMode.notionImport
-                                  ? Icons.archive_outlined
-                                  : Icons.shield_outlined,
+                              _leftPanelIcon(),
                               size: 34,
                               color: scheme.primary,
                             ),
@@ -748,9 +929,15 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
                             ),
                           ),
                           const SizedBox(height: FolioSpace.lg),
-                          Chip(
-                            avatar: const Icon(Icons.flag_outlined, size: 18),
-                            label: Text(_stepLabel),
+                          Semantics(
+                            label: l10n.onboardingProgressSemantics(
+                              _page + 1,
+                              _flowSteps.length,
+                            ),
+                            child: _StepSegments(
+                              current: _page + 1,
+                              total: _flowSteps.length,
+                            ),
                           ),
                         ],
                       ),
@@ -767,51 +954,125 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
   }
 
   Widget _buildCurrentStep(BuildContext context) {
-    if (_page == 0) {
-      return _stepWelcome(context);
+    switch (_currentStepId) {
+      case _OnboardingStepId.welcome:
+        return _stepWelcome(context);
+      case _OnboardingStepId.importChooser:
+        return _stepImportSource(context);
+      case _OnboardingStepId.importBackupForm:
+        return _stepImportBackup(context);
+      case _OnboardingStepId.importNotionForm:
+        return _stepImportNotion(context);
+      case _OnboardingStepId.vaultSetup:
+        return _stepPassword(context);
+      case _OnboardingStepId.ready:
+        return _stepReady(context);
+      case _OnboardingStepId.personalize:
+        return _stepPersonalize(context);
+      case _OnboardingStepId.reliability:
+        return _stepReliability(context);
+      case _OnboardingStepId.privacyTrust:
+        return _stepPrivacyTrust(context);
+      case _OnboardingStepId.folioCloud:
+        return _stepFolioCloud(context);
+      case _OnboardingStepId.quillIntro:
+        return _stepQuillIntro(context);
+      case _OnboardingStepId.usageProfile:
+        return _stepUsageProfile(context);
     }
-    if (_mode == _OnboardingMode.backupImport) {
-      return _stepImportBackup(context);
+  }
+
+  IconData _leftPanelIcon() {
+    switch (_currentStepId) {
+      case _OnboardingStepId.importChooser:
+      case _OnboardingStepId.importBackupForm:
+      case _OnboardingStepId.importNotionForm:
+        return Icons.archive_outlined;
+      case _OnboardingStepId.personalize:
+        return Icons.palette_outlined;
+      case _OnboardingStepId.reliability:
+        return Icons.backup_outlined;
+      case _OnboardingStepId.privacyTrust:
+        return Icons.verified_user_outlined;
+      case _OnboardingStepId.folioCloud:
+        return Icons.cloud_outlined;
+      case _OnboardingStepId.quillIntro:
+        return Icons.auto_awesome_rounded;
+      case _OnboardingStepId.usageProfile:
+        return Icons.tune_rounded;
+      case _OnboardingStepId.ready:
+        return Icons.celebration_outlined;
+      default:
+        return Icons.shield_outlined;
     }
-    if (_mode == _OnboardingMode.notionImport) {
-      return _stepImportNotion(context);
-    }
-    if (_page == 1) {
-      return _stepPassword(context);
-    }
-    if (_page == 2) {
-      return _stepReady(context);
-    }
-    if (_page == 3) {
-      return _stepTelemetry(context);
-    }
-    if (_page == 4) {
-      return _stepFolioCloudIntro(context);
-    }
-    if (_shouldShowQuillIntro && _page == 5) {
-      return _stepQuillIntro(context);
-    }
-    return _stepFolioCloudIntro(context);
   }
 
   String _leftPanelTitle(AppLocalizations l10n) {
-    switch (_mode) {
-      case _OnboardingMode.backupImport:
+    if (!_isFirstOnboarding &&
+        (_currentStepId == _OnboardingStepId.welcome ||
+            _currentStepId == _OnboardingStepId.vaultSetup ||
+            _currentStepId == _OnboardingStepId.usageProfile ||
+            _currentStepId == _OnboardingStepId.ready)) {
+      return l10n.newVaultLeftPanelTitle;
+    }
+    switch (_currentStepId) {
+      case _OnboardingStepId.importChooser:
+        return l10n.importSourceTitle;
+      case _OnboardingStepId.importBackupForm:
         return l10n.importBackupTitle;
-      case _OnboardingMode.notionImport:
+      case _OnboardingStepId.importNotionForm:
         return l10n.importNotionTitle;
-      case _OnboardingMode.create:
+      case _OnboardingStepId.personalize:
+        return l10n.onboardingPersonalizeTitle;
+      case _OnboardingStepId.reliability:
+        return l10n.onboardingReliabilityTitle;
+      case _OnboardingStepId.privacyTrust:
+        return l10n.onboardingPrivacyTrustTitle;
+      case _OnboardingStepId.folioCloud:
+        return l10n.onboardingFolioCloudTitle;
+      case _OnboardingStepId.quillIntro:
+        return l10n.quillIntroTitle;
+      case _OnboardingStepId.usageProfile:
+        return l10n.onboardingUsageProfileTitle;
+      case _OnboardingStepId.ready:
+        return l10n.readyTitle;
+      default:
         return l10n.welcomeTitle;
     }
   }
 
   String _leftPanelBody(AppLocalizations l10n) {
-    switch (_mode) {
-      case _OnboardingMode.backupImport:
+    if (!_isFirstOnboarding &&
+        (_currentStepId == _OnboardingStepId.welcome ||
+            _currentStepId == _OnboardingStepId.vaultSetup ||
+            _currentStepId == _OnboardingStepId.usageProfile ||
+            _currentStepId == _OnboardingStepId.ready)) {
+      return l10n.newVaultLeftPanelBody;
+    }
+    switch (_currentStepId) {
+      case _OnboardingStepId.importChooser:
+        return l10n.importSourceBody;
+      case _OnboardingStepId.importBackupForm:
         return l10n.importBackupBody;
-      case _OnboardingMode.notionImport:
+      case _OnboardingStepId.importNotionForm:
         return l10n.importNotionDialogBody;
-      case _OnboardingMode.create:
+      case _OnboardingStepId.personalize:
+        return l10n.onboardingPersonalizeBody;
+      case _OnboardingStepId.reliability:
+        return l10n.onboardingReliabilityBody;
+      case _OnboardingStepId.privacyTrust:
+        return l10n.onboardingPrivacyTrustBody;
+      case _OnboardingStepId.folioCloud:
+        return l10n.onboardingFolioCloudBody;
+      case _OnboardingStepId.quillIntro:
+        return l10n.quillIntroBody;
+      case _OnboardingStepId.usageProfile:
+        return l10n.onboardingUsageProfileBody;
+      case _OnboardingStepId.ready:
+        return _createWithoutEncryption
+            ? l10n.readyBodyPlainVault
+            : l10n.readyBody;
+      default:
         return l10n.welcomeBody;
     }
   }
@@ -855,128 +1116,896 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
                 },
         ),
         const SizedBox(height: FolioSpace.lg),
-        Row(
-          children: [
-            TextButton(
-              onPressed: () {
-                setState(() {
-                  _createWithoutEncryption = false;
-                  _page = 0;
-                });
-              },
-              child: Text(l10n.back),
-            ),
-            const SizedBox(width: FolioSpace.md),
-            FilledButton(
-              style: FilledButton.styleFrom(
-                minimumSize: const Size(120, 48),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(FolioRadius.md),
-                ),
-              ),
-              onPressed: _nextCreatePassword,
-              child: Text(l10n.continueAction),
-            ),
-          ],
+        _onboardingBottomActions(
+          onBack: () {
+            setState(() {
+              _createWithoutEncryption = false;
+              _page = 0;
+              _syncDraftsFromAppSettings();
+            });
+          },
+          onPrimary: _nextCreatePassword,
+          primaryLabel: l10n.continueAction,
         ),
       ],
     );
   }
 
-  Widget _stepWelcome(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.center,
-      children: [
-        const SizedBox(height: FolioSpace.xl),
-        Icon(
-          Icons.shield_outlined,
-          size: 80,
-          color: Theme.of(context).colorScheme.primary,
+  Widget _welcomeCreateCard(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+    final scheme = Theme.of(context).colorScheme;
+    return Container(
+      padding: const EdgeInsets.all(FolioSpace.md),
+      decoration: BoxDecoration(
+        color: scheme.primaryContainer.withValues(alpha: FolioAlpha.soft),
+        borderRadius: BorderRadius.circular(FolioRadius.xl),
+        border: Border.all(
+          color: scheme.primary.withValues(alpha: 0.55),
+          width: 2,
         ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            width: 48,
+            height: 48,
+            decoration: BoxDecoration(
+              color: scheme.primary.withValues(alpha: 0.12),
+              borderRadius: BorderRadius.circular(FolioRadius.md),
+            ),
+            child: Icon(
+              Icons.add_circle_outline_rounded,
+              color: scheme.primary,
+              size: 26,
+            ),
+          ),
+          const SizedBox(height: FolioSpace.sm),
+          Text(
+            l10n.welcomeOptionCreateTitle,
+            style: Theme.of(context).textTheme.titleLarge?.copyWith(
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+          const SizedBox(height: FolioSpace.xs),
+          Text(
+            l10n.welcomeOptionCreateBody,
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+              color: scheme.onSurfaceVariant,
+              height: 1.35,
+            ),
+          ),
+          const SizedBox(height: FolioSpace.sm),
+          SwitchListTile(
+            contentPadding: EdgeInsets.zero,
+            title: Text(l10n.createVaultWithoutEncryption),
+            subtitle: Text(
+              l10n.plainVaultSecurityNotice,
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                color: scheme.onSurfaceVariant,
+              ),
+              maxLines: 3,
+              overflow: TextOverflow.ellipsis,
+            ),
+            value: _createWithoutEncryption,
+            onChanged: (v) {
+              setState(() => _createWithoutEncryption = v);
+            },
+          ),
+          const SizedBox(height: FolioSpace.sm),
+          SizedBox(
+            width: double.infinity,
+            child: FilledButton(
+              style: _onboardingPrimaryButtonStyle,
+              onPressed: _chooseCreateNew,
+              child: Text(l10n.continueAction),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _welcomeChoiceCard({
+    required BuildContext context,
+    required IconData icon,
+    required String title,
+    required String subtitle,
+    required VoidCallback onTap,
+    required bool primary,
+  }) {
+    final scheme = Theme.of(context).colorScheme;
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(FolioRadius.xl),
+        child: Container(
+          padding: const EdgeInsets.all(FolioSpace.md),
+          decoration: BoxDecoration(
+            color: primary
+                ? scheme.primaryContainer.withValues(alpha: FolioAlpha.soft)
+                : scheme.surface,
+            borderRadius: BorderRadius.circular(FolioRadius.xl),
+            border: Border.all(
+              color: primary
+                  ? scheme.primary.withValues(alpha: 0.55)
+                  : scheme.outlineVariant.withValues(alpha: FolioAlpha.border),
+              width: primary ? 2 : 1,
+            ),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                width: 48,
+                height: 48,
+                decoration: BoxDecoration(
+                  color: scheme.primary.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(FolioRadius.md),
+                ),
+                child: Icon(icon, color: scheme.primary, size: 26),
+              ),
+              const SizedBox(height: FolioSpace.sm),
+              Text(
+                title,
+                style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+              const SizedBox(height: FolioSpace.xs),
+              Text(
+                subtitle,
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  color: scheme.onSurfaceVariant,
+                  height: 1.35,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _stepWelcome(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+    final first = _isFirstOnboarding;
+    final title = first ? l10n.welcomeTitle : l10n.welcomeNewVaultTitle;
+    final body = first ? l10n.welcomeBody : l10n.welcomeNewVaultBody;
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final wide = constraints.maxWidth >= 520;
+        final cards = wide
+            ? Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(child: _welcomeCreateCard(context)),
+                  const SizedBox(width: FolioSpace.md),
+                  Expanded(
+                    child: _welcomeChoiceCard(
+                      context: context,
+                      icon: Icons.download_outlined,
+                      title: l10n.welcomeOptionImportTitle,
+                      subtitle: l10n.welcomeOptionImportBody,
+                      primary: false,
+                      onTap: _chooseImportSource,
+                    ),
+                  ),
+                ],
+              )
+            : Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  _welcomeCreateCard(context),
+                  const SizedBox(height: FolioSpace.md),
+                  _welcomeChoiceCard(
+                    context: context,
+                    icon: Icons.download_outlined,
+                    title: l10n.welcomeOptionImportTitle,
+                    subtitle: l10n.welcomeOptionImportBody,
+                    primary: false,
+                    onTap: _chooseImportSource,
+                  ),
+                ],
+              );
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            const SizedBox(height: FolioSpace.xl),
+            Icon(
+              Icons.shield_outlined,
+              size: 80,
+              color: Theme.of(context).colorScheme.primary,
+            ),
+            const SizedBox(height: FolioSpace.lg),
+            Text(
+              title,
+              style: Theme.of(
+                context,
+              ).textTheme.headlineMedium?.copyWith(fontWeight: FontWeight.w700),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: FolioSpace.md),
+            Text(
+              body,
+              style: Theme.of(
+                context,
+              ).textTheme.bodyLarge?.copyWith(height: 1.45),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: FolioSpace.xl),
+            cards,
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _stepImportSource(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+    final scheme = Theme.of(context).colorScheme;
+    Widget tile({
+      required IconData icon,
+      required String title,
+      required String subtitle,
+      required VoidCallback onTap,
+    }) {
+      return Padding(
+        padding: const EdgeInsets.only(bottom: FolioSpace.sm),
+        child: Material(
+          color: scheme.surface,
+          borderRadius: BorderRadius.circular(FolioRadius.lg),
+          child: InkWell(
+            onTap: onTap,
+            borderRadius: BorderRadius.circular(FolioRadius.lg),
+            child: Container(
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(FolioRadius.lg),
+                border: Border.all(
+                  color: scheme.outlineVariant.withValues(
+                    alpha: FolioAlpha.border,
+                  ),
+                ),
+              ),
+              child: ListTile(
+                leading: Icon(icon, color: scheme.primary),
+                title: Text(title),
+                subtitle: Text(subtitle),
+                trailing: const Icon(Icons.chevron_right_rounded),
+              ),
+            ),
+          ),
+        ),
+      );
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
         const SizedBox(height: FolioSpace.lg),
         Text(
-          AppLocalizations.of(context).welcomeTitle,
+          l10n.importSourceTitle,
           style: Theme.of(
             context,
-          ).textTheme.headlineMedium?.copyWith(fontWeight: FontWeight.w700),
+          ).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w800),
           textAlign: TextAlign.center,
         ),
-        const SizedBox(height: FolioSpace.md),
+        const SizedBox(height: FolioSpace.sm),
         Text(
-          AppLocalizations.of(context).welcomeBody,
-          style: Theme.of(context).textTheme.bodyLarge?.copyWith(height: 1.45),
+          l10n.importSourceBody,
+          style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+            color: scheme.onSurfaceVariant,
+            height: 1.45,
+          ),
           textAlign: TextAlign.center,
         ),
-        const SizedBox(height: FolioSpace.xl),
-        FilledButton(
-          style: FilledButton.styleFrom(
-            minimumSize: const Size.fromHeight(56),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(FolioRadius.md),
-            ),
-          ),
-          onPressed: _chooseCreateNew,
-          child: Text(AppLocalizations.of(context).createNewVault),
+        const SizedBox(height: FolioSpace.lg),
+        tile(
+          icon: Icons.archive_outlined,
+          title: l10n.importBackupZip,
+          subtitle: l10n.importSourceBackupSubtitle,
+          onTap: _chooseImportBackup,
+        ),
+        tile(
+          icon: Icons.cloud_download_outlined,
+          title: l10n.onboardingCloudBackupCta,
+          subtitle: l10n.importSourceCloudSubtitle,
+          onTap: () => unawaited(_signInAndPickCloudBackup()),
+        ),
+        tile(
+          icon: Icons.note_alt_outlined,
+          title: l10n.importNotionTitle,
+          subtitle: l10n.importSourceNotionSubtitle,
+          onTap: _chooseImportNotion,
         ),
         const SizedBox(height: FolioSpace.md),
-        OutlinedButton(
-          style: OutlinedButton.styleFrom(
-            minimumSize: const Size.fromHeight(56),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(FolioRadius.md),
-            ),
-          ),
-          onPressed: () {
+        _onboardingBottomActions(
+          onBack: () {
             setState(() {
-              _error = null;
               _mode = _OnboardingMode.create;
-              _createWithoutEncryption = true;
-              _createStarterPages = true;
-              _onboardingTelemetryEnabled = widget.appSettings.telemetryEnabled;
+              _page = 0;
             });
-            _goPage(1);
           },
-          child: Text(
-            AppLocalizations.of(context).createVaultWithoutEncryption,
-          ),
-        ),
-        const SizedBox(height: FolioSpace.md),
-        OutlinedButton(
-          style: OutlinedButton.styleFrom(
-            minimumSize: const Size.fromHeight(56),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(FolioRadius.md),
-            ),
-          ),
-          onPressed: _chooseImportBackup,
-          child: Text(AppLocalizations.of(context).importBackupZip),
-        ),
-        const SizedBox(height: FolioSpace.md),
-        OutlinedButton.icon(
-          style: OutlinedButton.styleFrom(
-            minimumSize: const Size.fromHeight(56),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(FolioRadius.md),
-            ),
-          ),
-          onPressed: _busy ? null : _signInAndPickCloudBackup,
-          icon: const Icon(Icons.cloud_download_outlined),
-          label: Text(AppLocalizations.of(context).onboardingCloudBackupCta),
-        ),
-        const SizedBox(height: FolioSpace.md),
-        OutlinedButton(
-          style: OutlinedButton.styleFrom(
-            minimumSize: const Size.fromHeight(56),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(FolioRadius.md),
-            ),
-          ),
-          onPressed: _chooseImportNotion,
-          child: Text(AppLocalizations.of(context).importNotionTitle),
+          onPrimary: null,
         ),
       ],
     );
   }
+
+  static const List<int> _idleLockPresets = [1, 5, 10, 15, 30, 60];
+
+  int _coerceIdleLockMinutes(int minutes) {
+    if (_idleLockPresets.contains(minutes)) return minutes;
+    return AppSettings.defaultVaultIdleLockMinutes;
+  }
+
+  Widget _configStepActions({
+    required VoidCallback onBack,
+    required VoidCallback onSkip,
+    required VoidCallback onContinue,
+    String? continueLabel,
+    bool continueBusy = false,
+  }) {
+    final l10n = AppLocalizations.of(context);
+    return _onboardingBottomActions(
+      onBack: onBack,
+      onPrimary: onContinue,
+      primaryLabel: continueLabel,
+      primaryBusy: continueBusy,
+      beforePrimary: [
+        TextButton(onPressed: onSkip, child: Text(l10n.skip)),
+        const SizedBox(width: FolioSpace.xs),
+      ],
+    );
+  }
+
+  void _skipConfigDraftStep() {
+    setState(() {
+      _syncDraftsFromAppSettings();
+      if (_page < _flowSteps.length - 1) {
+        _page++;
+      }
+    });
+  }
+
+  Future<void> _pickDraftAccentPresets() async {
+    final l10n = AppLocalizations.of(context);
+    const presets = <int>[
+      0xFF455A64,
+      0xFF1565C0,
+      0xFF0277BD,
+      0xFF6A1B9A,
+      0xFFAD1457,
+      0xFF2E7D32,
+      0xFF558B2F,
+      0xFFBF360C,
+      0xFF00695C,
+      0xFF283593,
+      0xFF4E342E,
+      0xFF37474F,
+    ];
+    final picked = await showDialog<int>(
+      context: context,
+      builder: (ctx) => FolioDialog(
+        title: Text(l10n.settingsAccentPickColor),
+        content: Wrap(
+          spacing: 10,
+          runSpacing: 10,
+          children: [
+            for (final a in presets)
+              Material(
+                color: Color(a),
+                elevation: 2,
+                shape: const CircleBorder(),
+                child: InkWell(
+                  customBorder: const CircleBorder(),
+                  onTap: () => Navigator.pop(ctx, a),
+                  child: const SizedBox(width: 44, height: 44),
+                ),
+              ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: Text(l10n.cancel),
+          ),
+        ],
+      ),
+    );
+    if (picked != null && mounted) {
+      setState(() {
+        _draftCustomAccentArgb = picked;
+        _draftAccentMode = FolioAccentColorMode.custom;
+      });
+    }
+  }
+
+  Future<void> _applyPersonalizeAndContinue() async {
+    await widget.appSettings.setThemeMode(_draftThemeMode);
+    await widget.appSettings.setAccentColorMode(_draftAccentMode);
+    if (_draftAccentMode == FolioAccentColorMode.custom) {
+      await widget.appSettings.setCustomAccentArgb(_draftCustomAccentArgb);
+    }
+    if (!_createWithoutEncryption) {
+      await widget.appSettings.setVaultIdleLockMinutes(_draftIdleLockMinutes);
+      await widget.appSettings.setVaultLockOnMinimize(_draftLockOnMinimize);
+    }
+    if (!mounted) return;
+    _goNext();
+  }
+
+  Future<void> _applyReliabilityAndContinue() async {
+    await widget.appSettings.setScheduledVaultBackupEnabled(
+      _draftScheduledBackupEnabled,
+    );
+    await widget.appSettings.setScheduledVaultBackupIntervalMinutes(
+      _draftScheduledBackupIntervalMinutes,
+    );
+    await widget.appSettings.setScheduledVaultBackupDirectory(
+      _draftScheduledBackupDirectory,
+    );
+    await widget.appSettings.setScheduledVaultBackupAlsoUploadCloud(
+      _draftScheduledBackupAlsoUploadCloud,
+    );
+    if (defaultTargetPlatform == TargetPlatform.windows) {
+      await widget.appSettings.setMinimizeToTray(_draftMinimizeToTray);
+      await widget.appSettings.setCloseToTray(_draftCloseToTray);
+      await widget.appSettings.setWindowsNotificationsEnabled(
+        _draftWindowsNotificationsEnabled,
+      );
+    }
+    if (!mounted) return;
+    _goNext();
+  }
+
+  Future<void> _applyPrivacyTrustAndContinue() async {
+    await widget.appSettings.setTelemetryEnabled(_onboardingTelemetryEnabled);
+    await FolioTelemetry.onSettingsChanged(widget.appSettings);
+    if (!mounted) return;
+    _goNext();
+  }
+
+  void _onFolioCloudStepContinue() {
+    _goNext();
+  }
+
+  Future<void> _pickDraftBackupFolder() async {
+    final dir = await FilePicker.getDirectoryPath();
+    if (!mounted || dir == null) return;
+    setState(() => _draftScheduledBackupDirectory = dir);
+  }
+
+  String _scheduledBackupIntervalSummary(AppLocalizations l10n, int minutes) {
+    if (AppSettings.isContinuousVaultBackupInterval(minutes)) {
+      return l10n.scheduledVaultBackupEveryChange;
+    }
+    if (minutes < 60) {
+      return l10n.scheduledVaultBackupEveryNMinutes(minutes);
+    }
+    return l10n.scheduledVaultBackupEveryNHours(minutes ~/ 60);
+  }
+
+  Widget _stepPersonalize(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+    final scheme = Theme.of(context).colorScheme;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        const SizedBox(height: FolioSpace.lg),
+        Icon(Icons.palette_outlined, size: 64, color: scheme.primary),
+        const SizedBox(height: FolioSpace.lg),
+        Text(
+          l10n.onboardingPersonalizeTitle,
+          style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+            fontWeight: FontWeight.w700,
+          ),
+          textAlign: TextAlign.center,
+        ),
+        const SizedBox(height: FolioSpace.md),
+        Text(
+          l10n.onboardingPersonalizeBody,
+          style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+            color: scheme.onSurfaceVariant,
+            height: 1.45,
+          ),
+          textAlign: TextAlign.center,
+        ),
+        const SizedBox(height: FolioSpace.lg),
+        Text(
+          l10n.settingsAppearanceChipTheme,
+          style: Theme.of(context).textTheme.titleSmall?.copyWith(
+            fontWeight: FontWeight.w800,
+          ),
+        ),
+        const SizedBox(height: FolioSpace.sm),
+        SegmentedButton<ThemeMode>(
+          segments: [
+            ButtonSegment<ThemeMode>(
+              value: ThemeMode.system,
+              label: Text(l10n.systemTheme),
+              icon: const Icon(Icons.brightness_auto, size: 18),
+            ),
+            ButtonSegment<ThemeMode>(
+              value: ThemeMode.light,
+              label: Text(l10n.lightTheme),
+              icon: const Icon(Icons.light_mode_outlined, size: 18),
+            ),
+            ButtonSegment<ThemeMode>(
+              value: ThemeMode.dark,
+              label: Text(l10n.darkTheme),
+              icon: const Icon(Icons.dark_mode_outlined, size: 18),
+            ),
+          ],
+          selected: {_draftThemeMode},
+          onSelectionChanged: (s) {
+            setState(() => _draftThemeMode = s.first);
+          },
+        ),
+        const SizedBox(height: FolioSpace.lg),
+        Text(
+          l10n.settingsAccentColorTitle,
+          style: Theme.of(context).textTheme.titleSmall?.copyWith(
+            fontWeight: FontWeight.w800,
+          ),
+        ),
+        const SizedBox(height: FolioSpace.sm),
+        SegmentedButton<FolioAccentColorMode>(
+          segments: [
+            ButtonSegment<FolioAccentColorMode>(
+              value: FolioAccentColorMode.followSystem,
+              label: Text(l10n.settingsAccentFollowSystem),
+              icon: const Icon(Icons.palette_outlined, size: 18),
+            ),
+            ButtonSegment<FolioAccentColorMode>(
+              value: FolioAccentColorMode.folioDefault,
+              label: Text(l10n.settingsAccentFolioDefault),
+              icon: const Icon(Icons.brush_outlined, size: 18),
+            ),
+            ButtonSegment<FolioAccentColorMode>(
+              value: FolioAccentColorMode.custom,
+              label: Text(l10n.settingsAccentCustom),
+              icon: const Icon(Icons.color_lens_outlined, size: 18),
+            ),
+          ],
+          selected: {_draftAccentMode},
+          onSelectionChanged: (s) {
+            setState(() => _draftAccentMode = s.first);
+          },
+        ),
+        if (_draftAccentMode == FolioAccentColorMode.custom) ...[
+          const SizedBox(height: FolioSpace.sm),
+          ListTile(
+            contentPadding: EdgeInsets.zero,
+            leading: Icon(Icons.color_lens, color: Color(_draftCustomAccentArgb)),
+            title: Text(l10n.settingsAccentPickColor),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: () => unawaited(_pickDraftAccentPresets()),
+          ),
+        ],
+        if (!_createWithoutEncryption) ...[
+          const SizedBox(height: FolioSpace.lg),
+          Divider(color: scheme.outlineVariant.withValues(alpha: FolioAlpha.border)),
+          const SizedBox(height: FolioSpace.md),
+          Text(
+            l10n.onboardingSecurityTitle,
+            style: Theme.of(context).textTheme.titleSmall?.copyWith(
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+          const SizedBox(height: FolioSpace.sm),
+          Text(
+            l10n.lockAutoByInactivity,
+            style: Theme.of(context).textTheme.labelLarge,
+          ),
+          const SizedBox(height: FolioSpace.sm),
+          InputDecorator(
+            decoration: InputDecoration(
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(FolioRadius.md),
+              ),
+              contentPadding: const EdgeInsets.symmetric(horizontal: 12),
+            ),
+            child: DropdownButtonHideUnderline(
+              child: DropdownButton<int>(
+                isExpanded: true,
+                value: _coerceIdleLockMinutes(_draftIdleLockMinutes),
+                items: _idleLockPresets
+                    .map(
+                      (m) => DropdownMenuItem<int>(
+                        value: m,
+                        child: Text(l10n.minutesShort(m)),
+                      ),
+                    )
+                    .toList(),
+                onChanged: _busy
+                    ? null
+                    : (v) {
+                        if (v == null) return;
+                        setState(() => _draftIdleLockMinutes = v);
+                      },
+              ),
+            ),
+          ),
+          const SizedBox(height: FolioSpace.md),
+          SwitchListTile(
+            contentPadding: EdgeInsets.zero,
+            secondary: const Icon(Icons.minimize_rounded),
+            title: Text(l10n.lockOnMinimize),
+            value: _draftLockOnMinimize,
+            onChanged: _busy
+                ? null
+                : (v) {
+                    setState(() => _draftLockOnMinimize = v);
+                  },
+          ),
+        ],
+        const SizedBox(height: FolioSpace.xl),
+        _configStepActions(
+          onBack: _goBack,
+          onSkip: _skipConfigDraftStep,
+          onContinue: () => unawaited(_applyPersonalizeAndContinue()),
+        ),
+      ],
+    );
+  }
+
+  Widget _stepReliability(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+    final scheme = Theme.of(context).colorScheme;
+    final theme = Theme.of(context);
+    final choices = AppSettings.scheduledVaultBackupIntervalChoicesMinutes;
+    final isWindows = defaultTargetPlatform == TargetPlatform.windows;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        const SizedBox(height: FolioSpace.lg),
+        Icon(Icons.backup_outlined, size: 64, color: scheme.primary),
+        const SizedBox(height: FolioSpace.lg),
+        Text(
+          l10n.onboardingReliabilityTitle,
+          style: theme.textTheme.headlineMedium?.copyWith(
+            fontWeight: FontWeight.w700,
+          ),
+          textAlign: TextAlign.center,
+        ),
+        const SizedBox(height: FolioSpace.md),
+        Text(
+          l10n.onboardingReliabilityBody,
+          style: theme.textTheme.bodyLarge?.copyWith(
+            color: scheme.onSurfaceVariant,
+            height: 1.45,
+          ),
+          textAlign: TextAlign.center,
+        ),
+        const SizedBox(height: FolioSpace.lg),
+        SwitchListTile(
+          contentPadding: EdgeInsets.zero,
+          secondary: const Icon(Icons.schedule_rounded),
+          title: Text(l10n.scheduledVaultBackupTitle),
+          subtitle: Text(l10n.scheduledVaultBackupSubtitle),
+          value: _draftScheduledBackupEnabled,
+          onChanged: _busy
+              ? null
+              : (v) {
+                  setState(() => _draftScheduledBackupEnabled = v);
+                },
+        ),
+        if (_draftScheduledBackupEnabled) ...[
+          const SizedBox(height: FolioSpace.sm),
+          Text(
+            l10n.scheduledVaultBackupIntervalLabel,
+            style: theme.textTheme.titleSmall?.copyWith(
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+          const SizedBox(height: FolioSpace.sm),
+          InputDecorator(
+            decoration: InputDecoration(
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(FolioRadius.md),
+              ),
+              contentPadding: const EdgeInsets.symmetric(horizontal: 12),
+            ),
+            child: DropdownButtonHideUnderline(
+              child: DropdownButton<int>(
+                isExpanded: true,
+                value: choices.contains(_draftScheduledBackupIntervalMinutes)
+                    ? _draftScheduledBackupIntervalMinutes
+                    : choices.first,
+                items: choices
+                    .map(
+                      (m) => DropdownMenuItem<int>(
+                        value: m,
+                        child: Text(_scheduledBackupIntervalSummary(l10n, m)),
+                      ),
+                    )
+                    .toList(),
+                onChanged: _busy
+                    ? null
+                    : (v) {
+                        if (v == null) return;
+                        setState(
+                          () => _draftScheduledBackupIntervalMinutes = v,
+                        );
+                      },
+              ),
+            ),
+          ),
+          const SizedBox(height: FolioSpace.sm),
+          OutlinedButton.icon(
+            onPressed: _busy ? null : () => unawaited(_pickDraftBackupFolder()),
+            icon: const Icon(Icons.folder_open_outlined),
+            label: Text(l10n.scheduledVaultBackupChooseFolder),
+          ),
+          if (_draftScheduledBackupDirectory.isNotEmpty) ...[
+            const SizedBox(height: FolioSpace.xs),
+            Text(
+              _draftScheduledBackupDirectory,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: theme.textTheme.bodySmall,
+            ),
+          ],
+          if (_folio.isAvailable) ...[
+            const SizedBox(height: FolioSpace.md),
+            SwitchListTile(
+              contentPadding: EdgeInsets.zero,
+              secondary: const Icon(Icons.cloud_upload_outlined),
+              title: Text(l10n.scheduledVaultBackupCloudSyncTitle),
+              subtitle: Text(l10n.scheduledVaultBackupCloudSyncSubtitle),
+              value: _draftScheduledBackupAlsoUploadCloud,
+              onChanged: _busy
+                  ? null
+                  : (v) {
+                      setState(() => _draftScheduledBackupAlsoUploadCloud = v);
+                    },
+            ),
+          ],
+        ],
+        if (isWindows) ...[
+          const SizedBox(height: FolioSpace.lg),
+          Divider(color: scheme.outlineVariant.withValues(alpha: FolioAlpha.border)),
+          const SizedBox(height: FolioSpace.md),
+          Text(
+            l10n.onboardingSystemTitle,
+            style: theme.textTheme.titleSmall?.copyWith(
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+          const SizedBox(height: FolioSpace.sm),
+          SwitchListTile(
+            contentPadding: EdgeInsets.zero,
+            secondary: const Icon(Icons.minimize_outlined),
+            title: Text(l10n.minimizeToTray),
+            value: _draftMinimizeToTray,
+            onChanged: _busy
+                ? null
+                : (v) {
+                    setState(() => _draftMinimizeToTray = v);
+                  },
+          ),
+          SwitchListTile(
+            contentPadding: EdgeInsets.zero,
+            secondary: const Icon(Icons.close_fullscreen_outlined),
+            title: Text(l10n.closeToTray),
+            value: _draftCloseToTray,
+            onChanged: _busy
+                ? null
+                : (v) {
+                    setState(() => _draftCloseToTray = v);
+                  },
+          ),
+          SwitchListTile(
+            contentPadding: EdgeInsets.zero,
+            secondary: const Icon(Icons.notifications_outlined),
+            title: Text(l10n.settingsWindowsNotifications),
+            subtitle: Text(l10n.settingsWindowsNotificationsSubtitle),
+            value: _draftWindowsNotificationsEnabled,
+            onChanged: _busy
+                ? null
+                : (v) {
+                    setState(() => _draftWindowsNotificationsEnabled = v);
+                  },
+          ),
+        ],
+        const SizedBox(height: FolioSpace.xl),
+        _configStepActions(
+          onBack: _goBack,
+          onSkip: _skipConfigDraftStep,
+          onContinue: () => unawaited(_applyReliabilityAndContinue()),
+        ),
+      ],
+    );
+  }
+
+  Widget _stepPrivacyTrust(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+    final scheme = Theme.of(context).colorScheme;
+    final theme = Theme.of(context);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        const SizedBox(height: FolioSpace.lg),
+        Icon(Icons.verified_user_outlined, size: 64, color: scheme.primary),
+        const SizedBox(height: FolioSpace.lg),
+        Text(
+          l10n.onboardingPrivacyTrustTitle,
+          style: theme.textTheme.headlineMedium?.copyWith(
+            fontWeight: FontWeight.w700,
+          ),
+          textAlign: TextAlign.center,
+        ),
+        const SizedBox(height: FolioSpace.md),
+        Text(
+          l10n.onboardingPrivacyTrustBody,
+          style: theme.textTheme.bodyLarge?.copyWith(
+            color: scheme.onSurfaceVariant,
+            height: 1.45,
+          ),
+          textAlign: TextAlign.center,
+        ),
+        const SizedBox(height: FolioSpace.md),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+          decoration: BoxDecoration(
+            color: scheme.primaryContainer.withValues(alpha: 0.35),
+            borderRadius: BorderRadius.circular(FolioRadius.lg),
+            border: Border.all(
+              color: scheme.primary.withValues(alpha: 0.25),
+            ),
+          ),
+          child: Row(
+            children: [
+              Icon(Icons.shield_outlined, color: scheme.primary, size: 22),
+              const SizedBox(width: FolioSpace.sm),
+              Expanded(
+                child: Text(
+                  l10n.onboardingPrivacyTrustLocalFirstBadge,
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    fontWeight: FontWeight.w600,
+                    height: 1.35,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: FolioSpace.lg),
+        SwitchListTile(
+          contentPadding: EdgeInsets.zero,
+          secondary: const Icon(Icons.insights_outlined),
+          title: Text(l10n.onboardingTelemetrySwitchTitle),
+          subtitle: Text(l10n.onboardingTelemetrySwitchSubtitle),
+          value: _onboardingTelemetryEnabled,
+          onChanged: _busy
+              ? null
+              : (v) {
+                  setState(() => _onboardingTelemetryEnabled = v);
+                },
+        ),
+        const SizedBox(height: FolioSpace.sm),
+        Text(
+          l10n.onboardingTelemetryFootnote,
+          style: theme.textTheme.bodySmall?.copyWith(
+            color: scheme.onSurfaceVariant,
+            height: 1.35,
+          ),
+          textAlign: TextAlign.center,
+        ),
+        const SizedBox(height: FolioSpace.xl),
+        _configStepActions(
+          onBack: _goBack,
+          onSkip: _skipConfigDraftStep,
+          onContinue: () => unawaited(_applyPrivacyTrustAndContinue()),
+        ),
+      ],
+    );
+  }
+
+
+
 
   Widget _stepImportBackup(BuildContext context) {
     return Column(
@@ -1045,9 +2074,11 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
           const SizedBox(height: FolioSpace.md),
         ],
         const SizedBox(height: FolioSpace.lg),
-        if (_onboardingCloudPackVaultId == null &&
-            _backupZipPath != null &&
-            _backupZipIsPlain == true)
+        if ((_onboardingCloudPackVaultId == null &&
+                _backupZipPath != null &&
+                _backupZipIsPlain == true) ||
+            (_onboardingCloudPackVaultId != null &&
+                _onboardingCloudPackIsPlain == true))
           Text(
             AppLocalizations.of(context).backupPlainNoPasswordHint,
             style: Theme.of(context).textTheme.bodySmall?.copyWith(
@@ -1075,40 +2106,20 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
             },
           ),
         const SizedBox(height: FolioSpace.xl),
-        Row(
-          children: [
-            TextButton(
-              onPressed: _busy
-                  ? null
-                  : () {
-                      setState(() {
-                        _page = 0;
-                        _onboardingCloudPackVaultId = null;
-                      });
-                    },
-              child: Text(AppLocalizations.of(context).back),
-            ),
-            const SizedBox(width: FolioSpace.md),
-            FilledButton(
-              style: FilledButton.styleFrom(
-                minimumSize: const Size(120, 48),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(FolioRadius.md),
-                ),
-              ),
-              onPressed: _busy ? null : _finishImport,
-              child: _busy
-                  ? SizedBox(
-                      width: 22,
-                      height: 22,
-                      child: ScaleTransition(
-                        scale: AlwaysStoppedAnimation(1.0),
-                        child: const CircularProgressIndicator(strokeWidth: 2),
-                      ),
-                    )
-                  : Text(AppLocalizations.of(context).importVault),
-            ),
-          ],
+        _onboardingBottomActions(
+          onBack: _busy
+              ? null
+              : () {
+                  setState(() {
+                    _mode = _OnboardingMode.importChooser;
+                    _page = 1;
+                    _onboardingCloudPackVaultId = null;
+                    _onboardingCloudPackIsPlain = null;
+                  });
+                },
+          onPrimary: _busy ? null : _finishImport,
+          primaryLabel: AppLocalizations.of(context).importVault,
+          primaryBusy: _busy,
         ),
       ],
     );
@@ -1211,35 +2222,24 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
           onSubmitted: (_) => _nextCreatePassword(),
         ),
         const SizedBox(height: FolioSpace.xl),
-        Row(
-          children: [
-            TextButton(
-              onPressed: () {
-                setState(() {
-                  _page = 0;
-                  _mode = _OnboardingMode.create;
-                });
-              },
-              child: Text(AppLocalizations.of(context).back),
-            ),
-            const SizedBox(width: FolioSpace.md),
-            FilledButton(
-              style: FilledButton.styleFrom(
-                minimumSize: const Size(120, 48),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(FolioRadius.md),
-                ),
-              ),
-              onPressed: _nextCreatePassword,
-              child: Text(AppLocalizations.of(context).next),
-            ),
-          ],
+        _onboardingBottomActions(
+          onBack: _goBack,
+          onPrimary: _nextCreatePassword,
+          primaryLabel: AppLocalizations.of(context).next,
         ),
       ],
     );
   }
 
   Widget _stepReady(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+    final body = _createWithoutEncryption ? l10n.readyBodyPlainVault : l10n.readyBody;
+    final showCloudSummary = _isFirstOnboarding && _folio.isAvailable;
+    final cloudSummary = showCloudSummary
+        ? (_folio.snapshot.active
+            ? l10n.onboardingReadySummaryCloudActive
+            : l10n.onboardingReadySummaryCloudSkipped)
+        : null;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -1251,7 +2251,7 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
         ),
         const SizedBox(height: FolioSpace.lg),
         Text(
-          AppLocalizations.of(context).readyTitle,
+          l10n.readyTitle,
           style: Theme.of(
             context,
           ).textTheme.headlineMedium?.copyWith(fontWeight: FontWeight.w700),
@@ -1259,68 +2259,46 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
         ),
         const SizedBox(height: FolioSpace.md),
         Text(
-          AppLocalizations.of(context).readyBody,
+          body,
           style: Theme.of(context).textTheme.bodyLarge?.copyWith(height: 1.45),
           textAlign: TextAlign.center,
         ),
+        if (cloudSummary != null) ...[
+          const SizedBox(height: FolioSpace.md),
+          Text(
+            cloudSummary,
+            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+              color: Theme.of(context).colorScheme.onSurfaceVariant,
+              height: 1.4,
+            ),
+            textAlign: TextAlign.center,
+          ),
+        ],
         const SizedBox(height: FolioSpace.xl),
-        Row(
-          children: [
-            TextButton(
-              onPressed: () {
-                setState(() {
-                  _page = 1;
-                  _mode = _OnboardingMode.create;
-                });
-              },
-              child: Text(AppLocalizations.of(context).back),
-            ),
-            const SizedBox(width: FolioSpace.md),
-            FilledButton(
-              style: FilledButton.styleFrom(
-                minimumSize: const Size(120, 48),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(FolioRadius.md),
-                ),
-              ),
-              onPressed: _busy
-                  ? null
-                  : () {
-                      _goPage(3);
-                    },
-              child: _busy
-                  ? const SizedBox(
-                      width: 22,
-                      height: 22,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    )
-                  : Text(AppLocalizations.of(context).continueAction),
-            ),
-          ],
+        _onboardingBottomActions(
+          onBack: _busy ? null : _goBack,
+          onPrimary: _busy ? null : () => unawaited(_finishCreate()),
+          primaryLabel: l10n.createVault,
+          primaryBusy: _busy,
         ),
       ],
     );
   }
 
-  Future<void> _persistTelemetryAndGoToCloud() async {
-    await widget.appSettings.setTelemetryEnabled(_onboardingTelemetryEnabled);
-    await FolioTelemetry.onSettingsChanged(widget.appSettings);
-    if (!mounted) return;
-    _goPage(4);
-  }
-
-  Widget _stepTelemetry(BuildContext context) {
+  Widget _stepUsageProfile(BuildContext context) {
     final l10n = AppLocalizations.of(context);
     final scheme = Theme.of(context).colorScheme;
     final theme = Theme.of(context);
+    final intents = FolioUsageIntent.values;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         const SizedBox(height: FolioSpace.xl),
-        Icon(Icons.analytics_outlined, size: 64, color: scheme.primary),
+        Icon(Icons.tune_rounded, size: 64, color: scheme.primary),
         const SizedBox(height: FolioSpace.lg),
         Text(
-          l10n.onboardingTelemetryTitle,
+          l10n.onboardingUsageProfileTitle,
           style: theme.textTheme.headlineMedium?.copyWith(
             fontWeight: FontWeight.w700,
           ),
@@ -1328,195 +2306,120 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
         ),
         const SizedBox(height: FolioSpace.md),
         Text(
-          l10n.onboardingTelemetryBody,
+          l10n.onboardingUsageProfileBody,
           style: theme.textTheme.bodyLarge?.copyWith(
             color: scheme.onSurfaceVariant,
             height: 1.45,
           ),
           textAlign: TextAlign.center,
         ),
-        const SizedBox(height: FolioSpace.lg),
-        SwitchListTile(
-          contentPadding: EdgeInsets.zero,
-          secondary: const Icon(Icons.insights_outlined),
-          title: Text(l10n.onboardingTelemetrySwitchTitle),
-          subtitle: Text(l10n.onboardingTelemetrySwitchSubtitle),
-          value: _onboardingTelemetryEnabled,
-          onChanged: _busy
-              ? null
-              : (v) {
-                  setState(() => _onboardingTelemetryEnabled = v);
-                },
-        ),
         const SizedBox(height: FolioSpace.sm),
         Text(
-          l10n.onboardingTelemetryFootnote,
+          l10n.onboardingUsageProfileHint,
           style: theme.textTheme.bodySmall?.copyWith(
             color: scheme.onSurfaceVariant,
             height: 1.35,
           ),
           textAlign: TextAlign.center,
         ),
-        const SizedBox(height: FolioSpace.xl),
-        Row(
+        const SizedBox(height: FolioSpace.lg),
+        Wrap(
+          spacing: FolioSpace.sm,
+          runSpacing: FolioSpace.sm,
           children: [
-            TextButton(
-              onPressed: _busy ? null : () => _goPage(2),
-              child: Text(l10n.back),
-            ),
-            const SizedBox(width: FolioSpace.md),
-            FilledButton(
-              style: FilledButton.styleFrom(
-                minimumSize: const Size(120, 48),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(FolioRadius.md),
-                ),
+            for (final intent in intents)
+              FilterChip(
+                label: Text(_usageIntentTitle(l10n, intent)),
+                selected: _selectedUsageIntents.contains(intent),
+                onSelected: _busy
+                    ? null
+                    : (selected) {
+                        setState(() {
+                          _usageProfileError = null;
+                          if (selected) {
+                            if (_selectedUsageIntents.length >=
+                                FolioUsageIntent.maxSelection) {
+                              return;
+                            }
+                            _selectedUsageIntents = [
+                              ..._selectedUsageIntents,
+                              intent,
+                            ];
+                          } else {
+                            _selectedUsageIntents = _selectedUsageIntents
+                                .where((e) => e != intent)
+                                .toList();
+                          }
+                        });
+                      },
               ),
-              onPressed: _busy
-                  ? null
-                  : () => unawaited(_persistTelemetryAndGoToCloud()),
-              child: Text(l10n.continueAction),
-            ),
           ],
+        ),
+        if (_usageProfileError != null) ...[
+          const SizedBox(height: FolioSpace.sm),
+          Text(
+            _usageProfileError!,
+            style: theme.textTheme.bodySmall?.copyWith(color: scheme.error),
+            textAlign: TextAlign.center,
+          ),
+        ],
+        const SizedBox(height: FolioSpace.xl),
+        _onboardingBottomActions(
+          onBack: _busy ? null : _goBack,
+          onPrimary: _busy ? null : () => unawaited(_persistUsageProfileAndGoNext()),
+          primaryLabel: l10n.continueAction,
         ),
       ],
     );
   }
 
-  Widget _stepFolioCloudIntro(BuildContext context) {
-    final l10n = AppLocalizations.of(context);
-    final theme = Theme.of(context);
-    final scheme = theme.colorScheme;
-
-    Widget feature({
-      required IconData icon,
-      required String title,
-      required String body,
-    }) {
-      return Container(
-        padding: const EdgeInsets.all(14),
-        decoration: BoxDecoration(
-          color: scheme.surface,
-          borderRadius: BorderRadius.circular(FolioRadius.lg),
-          border: Border.all(
-            color: scheme.outlineVariant.withValues(alpha: FolioAlpha.border),
-          ),
-        ),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Container(
-              width: 34,
-              height: 34,
-              decoration: BoxDecoration(
-                color: scheme.primary.withValues(alpha: 0.10),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Icon(icon, color: scheme.primary, size: 18),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    title,
-                    style: theme.textTheme.titleSmall?.copyWith(
-                      fontWeight: FontWeight.w800,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    body,
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      color: scheme.onSurfaceVariant,
-                      height: 1.35,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-      );
+  Future<void> _persistUsageProfileAndGoNext() async {
+    final safe = FolioUsageIntent.sanitizeSelection(_selectedUsageIntents);
+    if (safe.isEmpty) {
+      setState(() {
+        _usageProfileError = AppLocalizations.of(
+          context,
+        ).onboardingUsageProfileMinSelectionError;
+      });
+      return;
     }
+    setState(() {
+      _selectedUsageIntents = List<FolioUsageIntent>.from(safe);
+      _usageProfileError = null;
+    });
+    await widget.appSettings.setUsageIntents(safe);
+    if (!mounted) return;
+    _goNext();
+  }
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        const SizedBox(height: FolioSpace.lg),
-        Icon(Icons.cloud_outlined, size: 64, color: scheme.primary),
-        const SizedBox(height: FolioSpace.lg),
-        Text(
-          l10n.onboardingFolioCloudTitle,
-          style: theme.textTheme.headlineMedium?.copyWith(
-            fontWeight: FontWeight.w700,
-          ),
-          textAlign: TextAlign.center,
-        ),
-        const SizedBox(height: FolioSpace.md),
-        Text(
-          l10n.onboardingFolioCloudBody,
-          style: theme.textTheme.bodyLarge?.copyWith(
-            color: scheme.onSurfaceVariant,
-            height: 1.45,
-          ),
-          textAlign: TextAlign.center,
-        ),
-        const SizedBox(height: FolioSpace.lg),
-        feature(
-          icon: Icons.backup_outlined,
-          title: l10n.onboardingFolioCloudFeatureBackupTitle,
-          body: l10n.onboardingFolioCloudFeatureBackupBody,
-        ),
-        const SizedBox(height: FolioSpace.sm),
-        feature(
-          icon: Icons.auto_awesome_outlined,
-          title: l10n.onboardingFolioCloudFeatureAiTitle,
-          body: l10n.onboardingFolioCloudFeatureAiBody,
-        ),
-        const SizedBox(height: FolioSpace.sm),
-        feature(
-          icon: Icons.public_outlined,
-          title: l10n.onboardingFolioCloudFeatureWebTitle,
-          body: l10n.onboardingFolioCloudFeatureWebBody,
-        ),
-        const SizedBox(height: FolioSpace.xl),
-        Row(
-          children: [
-            TextButton(
-              onPressed: _busy ? null : () => _goPage(3),
-              child: Text(l10n.back),
-            ),
-            const SizedBox(width: FolioSpace.md),
-            TextButton(
-              onPressed: _busy
-                  ? null
-                  : () {
-                      if (_shouldShowQuillIntro) {
-                        _goPage(5);
-                      } else {
-                        _finishCreate();
-                      }
-                    },
-              child: Text(l10n.onboardingFolioCloudLaterInSettings),
-            ),
-            const SizedBox(width: FolioSpace.md),
-            FilledButton(
-              onPressed: _busy
-                  ? null
-                  : () {
-                      if (_shouldShowQuillIntro) {
-                        _goPage(5);
-                      } else {
-                        _finishCreate();
-                      }
-                    },
-              child: Text(l10n.continueAction),
-            ),
-          ],
-        ),
-      ],
+  String _usageIntentTitle(AppLocalizations l10n, FolioUsageIntent intent) {
+    switch (intent) {
+      case FolioUsageIntent.notes:
+        return l10n.onboardingUsageIntentNotesTitle;
+      case FolioUsageIntent.tasks:
+        return l10n.onboardingUsageIntentTasksTitle;
+      case FolioUsageIntent.projects:
+        return l10n.onboardingUsageIntentProjectsTitle;
+      case FolioUsageIntent.knowledge:
+        return l10n.onboardingUsageIntentKnowledgeTitle;
+      case FolioUsageIntent.journal:
+        return l10n.onboardingUsageIntentJournalTitle;
+      case FolioUsageIntent.study:
+        return l10n.onboardingUsageIntentStudyTitle;
+    }
+  }
+
+
+  Widget _stepFolioCloud(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+    return OnboardingCloudPitchStep(
+      cloud: _cloud,
+      folio: _folio,
+      usageIntents: _selectedUsageIntents,
+      onAuthError: (c) => _cloudAuthErrorMessage(l10n, c),
+      onContinue: _onFolioCloudStepContinue,
+      onBack: _goBack,
+      busy: _busy,
     );
   }
 
@@ -1629,30 +2532,10 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
           textAlign: TextAlign.center,
         ),
         const SizedBox(height: FolioSpace.xl),
-        Row(
-          children: [
-            TextButton(
-              onPressed: _busy ? null : () => _goPage(4),
-              child: Text(l10n.back),
-            ),
-            const SizedBox(width: FolioSpace.md),
-            FilledButton(
-              style: FilledButton.styleFrom(
-                minimumSize: const Size(120, 48),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(FolioRadius.md),
-                ),
-              ),
-              onPressed: _busy ? null : _finishCreate,
-              child: _busy
-                  ? const SizedBox(
-                      width: 22,
-                      height: 22,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    )
-                  : Text(l10n.createVault),
-            ),
-          ],
+        _onboardingBottomActions(
+          onBack: _busy ? null : _goBack,
+          onPrimary: _busy ? null : _goNext,
+          primaryLabel: l10n.continueAction,
         ),
       ],
     );
@@ -1771,44 +2654,81 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
           },
         ),
         const SizedBox(height: FolioSpace.xl),
-        Row(
-          children: [
-            TextButton(
-              onPressed: _busy
-                  ? null
-                  : () {
-                      setState(() {
-                        _page = 0;
-                        _mode = _OnboardingMode.create;
-                      });
-                    },
-              child: Text(l10n.back),
-            ),
-            const SizedBox(width: FolioSpace.md),
-            FilledButton(
-              style: FilledButton.styleFrom(
-                minimumSize: const Size(120, 48),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(FolioRadius.md),
-                ),
-              ),
-              onPressed: _busy ? null : _finishNotionImport,
-              child: _busy
-                  ? const SizedBox(
-                      width: 22,
-                      height: 22,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    )
-                  : Text(l10n.importAction),
-            ),
-          ],
+        _onboardingBottomActions(
+          onBack: _busy
+              ? null
+              : () {
+                  setState(() {
+                    _mode = _OnboardingMode.importChooser;
+                    _page = 1;
+                  });
+                },
+          onPrimary: _busy ? null : () => unawaited(_finishNotionImport()),
+          primaryLabel: l10n.importAction,
+          primaryBusy: _busy,
         ),
       ],
     );
   }
 }
 
-enum _OnboardingMode { create, backupImport, notionImport }
+enum _OnboardingStepId {
+  welcome,
+  importChooser,
+  vaultSetup,
+  ready,
+  personalize,
+  reliability,
+  privacyTrust,
+  folioCloud,
+  quillIntro,
+  usageProfile,
+  importBackupForm,
+  importNotionForm,
+}
+
+enum _OnboardingMode { create, importChooser, backupImport, notionImport }
+
+class _StepSegments extends StatelessWidget {
+  const _StepSegments({required this.current, required this.total});
+
+  /// Paso actual (1-indexed).
+  final int current;
+  final int total;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    if (total <= 0) return const SizedBox.shrink();
+    final safeTotal = total;
+    final safeCurrent = current.clamp(1, safeTotal);
+    return Row(
+      children: List.generate(safeTotal, (i) {
+        final done = i < safeCurrent - 1;
+        final active = i == safeCurrent - 1;
+        final color = done
+            ? scheme.primary
+            : active
+                ? scheme.primary.withValues(alpha: 0.45)
+                : scheme.surfaceContainerHighest;
+        return Expanded(
+          child: Padding(
+            padding: EdgeInsets.only(left: i == 0 ? 0 : 4),
+            child: AnimatedContainer(
+              duration: FolioMotion.short2,
+              curve: FolioMotion.emphasized,
+              height: 6,
+              decoration: BoxDecoration(
+                color: color,
+                borderRadius: BorderRadius.circular(999),
+              ),
+            ),
+          ),
+        );
+      }),
+    );
+  }
+}
 
 class _CloudBackupPickerDialog extends StatelessWidget {
   const _CloudBackupPickerDialog({required this.l10n, required this.items});
@@ -1820,7 +2740,7 @@ class _CloudBackupPickerDialog extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
-    return AlertDialog(
+    return FolioDialog(
       title: Text(
         l10n.folioCloudCloudBackupsList,
         style: theme.textTheme.titleLarge?.copyWith(
@@ -1882,7 +2802,7 @@ class _CloudVaultPickerDialog extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
-    return AlertDialog(
+    return FolioDialog(
       title: Text(
         l10n.folioCloudCloudBackupsList,
         style: theme.textTheme.titleLarge?.copyWith(
@@ -1947,3 +2867,6 @@ _PasswordStrength _passwordStrengthFor(String text) {
   if (score == 3 || score == 4) return _PasswordStrength.fair;
   return _PasswordStrength.strong;
 }
+
+bool _meetsVaultMasterPasswordPolicy(_PasswordStrength strength) =>
+    strength == _PasswordStrength.fair || strength == _PasswordStrength.strong;

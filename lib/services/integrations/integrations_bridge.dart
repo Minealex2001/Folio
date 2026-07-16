@@ -6,6 +6,7 @@ import 'dart:io';
 import 'package:cryptography/cryptography.dart';
 import 'package:flutter/widgets.dart';
 
+import '../../core/errors/folio_exception.dart';
 import '../../l10n/generated/app_localizations.dart';
 import 'integrations_markdown_codec.dart';
 
@@ -1696,14 +1697,13 @@ class _IntegrationsClientAuth {
   final String? message;
 }
 
-class _IntegrationsPayloadException implements Exception {
+class _IntegrationsPayloadException extends FolioException {
   const _IntegrationsPayloadException({
     required this.statusCode,
     required this.error,
-    required this.message,
-  });
+    required String message,
+  }) : super(message);
 
   final int statusCode;
   final String error;
-  final String message;
 }

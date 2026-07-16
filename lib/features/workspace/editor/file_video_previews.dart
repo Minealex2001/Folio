@@ -8,6 +8,8 @@ import 'package:path/path.dart' as p;
 import 'package:syncfusion_flutter_pdfviewer/pdfviewer.dart';
 import 'package:video_player/video_player.dart';
 
+import '../../../app/widgets/folio_skeletons.dart';
+
 import 'folio_text_format.dart';
 import '../../../l10n/generated/app_localizations.dart';
 
@@ -97,7 +99,7 @@ class _FolioEmbeddedVideoPlayerState extends State<FolioEmbeddedVideoPlayer> {
       );
     }
     if (c == null || !c.value.isInitialized) {
-      return const Center(child: CircularProgressIndicator());
+      return const FolioLoadingIndicator(centered: true);
     }
 
     return Stack(
@@ -367,7 +369,7 @@ class _TextLikePreview extends StatelessWidget {
       future: _readText(),
       builder: (context, snap) {
         if (snap.connectionState != ConnectionState.done) {
-          return const Center(child: CircularProgressIndicator());
+          return const FolioLoadingIndicator(centered: true);
         }
         if (snap.hasError) {
           return Center(

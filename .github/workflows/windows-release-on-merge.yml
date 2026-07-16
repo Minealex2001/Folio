@@ -112,6 +112,12 @@ jobs:
         shell: pwsh
         run: dart pub get --enforce-lockfile
 
+      - name: Local secrets stub (gitignored file required for build)
+        if: steps.mode.outputs.changelog_only != 'true'
+        working-directory: ${{ env.REPO_DIR }}
+        shell: pwsh
+        run: Copy-Item -Force lib/config/folio_local_secrets.example.dart lib/config/folio_local_secrets.dart
+
       - name: Build Windows app
         if: steps.mode.outputs.changelog_only != 'true'
         working-directory: ${{ env.REPO_DIR }}

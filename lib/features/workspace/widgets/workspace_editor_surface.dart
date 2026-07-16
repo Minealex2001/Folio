@@ -194,23 +194,10 @@ class _WorkspaceEmptyState extends StatefulWidget {
 
 class _WorkspaceEmptyStateState extends State<_WorkspaceEmptyState>
     with SingleTickerProviderStateMixin {
-  static const _tipsEs = <String>[
-    'Tip: crea una página y usa / para insertar bloques rápidamente.',
-    'Folio guarda cambios automáticamente. Solo empieza a escribir.',
-    'Usa buscar para saltar entre páginas y volver al flujo rápido.',
-    'Las subpáginas te ayudan a mantener cada tema bien organizado.',
-  ];
-  static const _tipsEn = <String>[
-    'Tip: create a page and use / to insert blocks quickly.',
-    'Folio auto-saves your changes. Just start writing.',
-    'Use search to jump across pages and keep momentum.',
-    'Subpages help keep each topic clean and structured.',
-  ];
-
   late AnimationController _controller;
   late Animation<double> _iconScale;
   late Animation<Offset> _textSlide;
-  String? _selectedTip;
+  int? _selectedTipIndex;
 
   @override
   void initState() {
@@ -238,27 +225,26 @@ class _WorkspaceEmptyStateState extends State<_WorkspaceEmptyState>
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    if (_selectedTip != null) return;
-    final isEs = Localizations.localeOf(
-      context,
-    ).languageCode.toLowerCase().startsWith('es');
-    final tips = isEs ? _tipsEs : _tipsEn;
-    _selectedTip = tips[Random().nextInt(tips.length)];
+    if (_selectedTipIndex != null) return;
+    _selectedTipIndex = Random().nextInt(4);
   }
+
+  List<String> _tips(AppLocalizations l10n) => [
+    l10n.workspaceHomeTip0,
+    l10n.workspaceHomeTip1,
+    l10n.workspaceHomeTip2,
+    l10n.workspaceHomeTip3,
+  ];
 
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     final theme = Theme.of(context);
     final l10n = AppLocalizations.of(context);
-    final isEs = Localizations.localeOf(
-      context,
-    ).languageCode.toLowerCase().startsWith('es');
-    final tip = _selectedTip ?? _tipsEn.first;
-    final headline = isEs ? 'Tu espacio esta listo' : 'Your workspace is ready';
-    final subtitle = isEs
-        ? 'Crea una pagina para empezar a escribir o usa buscar para volver a una nota existente.'
-        : 'Create a page to start writing, or use search to jump back to an existing note.';
+    final tips = _tips(l10n);
+    final tip = tips[_selectedTipIndex ?? 0];
+    final headline = l10n.workspaceEditorReadyHeadline;
+    final subtitle = l10n.workspaceEditorReadySubtitle;
 
     return LayoutBuilder(
       builder: (context, constraints) => SingleChildScrollView(

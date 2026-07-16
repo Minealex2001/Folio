@@ -9,6 +9,7 @@ import 'package:uuid/uuid.dart';
 import '../../../app/ui_tokens.dart';
 import '../../../l10n/generated/app_localizations.dart';
 import '../history/page_outline.dart';
+import '../kanban/kanban_ui_helpers.dart';
 import '../../../models/block.dart';
 import '../../../models/folio_page.dart';
 import '../../../models/folio_columns_data.dart';
@@ -153,7 +154,7 @@ class FolioEquationPreview extends StatelessWidget {
     final t = latex.trim();
     if (t.isEmpty) {
       return Text(
-        'LaTeX…',
+        AppLocalizations.of(context).equationEmptyPlaceholder,
         style: textStyle?.copyWith(color: scheme.onSurfaceVariant),
       );
     }
@@ -195,8 +196,7 @@ class _FolioToggleBlockBodyState extends State<FolioToggleBlockBody> {
   @override
   void initState() {
     super.initState();
-    final d =
-        FolioToggleData.tryParse(widget.block.text) ?? FolioToggleData.empty();
+    final d = FolioToggleData.parseOrLegacy(widget.block.text);
     _title = TextEditingController(text: d.title);
     _body = TextEditingController(text: d.body);
   }
@@ -205,9 +205,7 @@ class _FolioToggleBlockBodyState extends State<FolioToggleBlockBody> {
   void didUpdateWidget(covariant FolioToggleBlockBody oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.block.text != widget.block.text) {
-      final d =
-          FolioToggleData.tryParse(widget.block.text) ??
-          FolioToggleData.empty();
+      final d = FolioToggleData.parseOrLegacy(widget.block.text);
       if (_title.text != d.title) _title.text = d.title;
       if (_body.text != d.body) _body.text = d.body;
     }
@@ -514,15 +512,10 @@ class _FolioColumnListBlockBodyState extends State<FolioColumnListBlockBody> {
     }
   }
 
-  String _t(String es, String en) {
-    return Localizations.localeOf(
-          context,
-        ).languageCode.toLowerCase().startsWith('es')
-        ? es
-        : en;
-  }
+  AppLocalizations get _l10n => AppLocalizations.of(context);
 
   String _typeLabel(String type) {
+    final l10n = _l10n;
     switch (type) {
       case 'h1':
         return 'H1';
@@ -531,23 +524,23 @@ class _FolioColumnListBlockBodyState extends State<FolioColumnListBlockBody> {
       case 'h3':
         return 'H3';
       case 'bullet':
-        return _t('Lista', 'Bullets');
+        return l10n.columnBlockTypeBullet;
       case 'numbered':
-        return _t('Numerada', 'Numbered');
+        return l10n.columnBlockTypeNumbered;
       case 'todo':
-        return _t('Tarea', 'Todo');
+        return l10n.columnBlockTypeTodo;
       case 'quote':
-        return _t('Cita', 'Quote');
+        return l10n.columnBlockTypeQuote;
       case 'callout':
-        return _t('Callout', 'Callout');
+        return l10n.columnBlockTypeCallout;
       case 'code':
-        return _t('Código', 'Code');
+        return l10n.columnBlockTypeCode;
       case 'equation':
-        return _t('Ecuación', 'Equation');
+        return l10n.columnBlockTypeEquation;
       case 'divider':
-        return _t('Divisor', 'Divider');
+        return l10n.columnBlockTypeDivider;
       default:
-        return _t('Texto', 'Text');
+        return l10n.columnBlockTypeText;
     }
   }
 
@@ -695,7 +688,7 @@ class _FolioColumnListBlockBodyState extends State<FolioColumnListBlockBody> {
               maxLines: 6,
               style: widget.textTheme.bodyMedium,
               decoration: InputDecoration(
-                labelText: _t('Contenido', 'Content'),
+                labelText: _l10n.columnBlockContentLabel,
                 border: const OutlineInputBorder(),
               ),
               onChanged: (value) => _setBlockText(block, value),
@@ -718,7 +711,7 @@ class _FolioColumnListBlockBodyState extends State<FolioColumnListBlockBody> {
           ? widget.textTheme.bodyMedium?.copyWith(fontFamily: 'monospace')
           : widget.textTheme.bodyMedium,
       decoration: InputDecoration(
-        labelText: _t('Contenido', 'Content'),
+        labelText: _l10n.columnBlockContentLabel,
         border: const OutlineInputBorder(),
         alignLabelWithHint: isCodeLike,
       ),
@@ -796,7 +789,7 @@ class _FolioColumnListBlockBodyState extends State<FolioColumnListBlockBody> {
               ),
               const Spacer(),
               IconButton(
-                tooltip: _t('Eliminar bloque', 'Remove block'),
+                tooltip: _l10n.columnListRemoveBlock,
                 onPressed: () => _removeBlock(columnIndex, blockIndex),
                 icon: const Icon(Icons.delete_outline_rounded),
               ),
@@ -978,7 +971,7 @@ class _FolioColumnListBlockBodyState extends State<FolioColumnListBlockBody> {
                     key: const ValueKey('columns_toolbar'),
                     children: [
                       Text(
-                        _t('Columnas', 'Columns'),
+                        _l10n.columnListColumnsTitle,
                         style: widget.textTheme.titleSmall?.copyWith(
                           fontWeight: FontWeight.w700,
                         ),
@@ -988,7 +981,7 @@ class _FolioColumnListBlockBodyState extends State<FolioColumnListBlockBody> {
                         FilledButton.tonalIcon(
                           onPressed: () => _setEditing(true),
                           icon: const Icon(Icons.edit_outlined, size: 18),
-                          label: Text(_t('Editar', 'Edit')),
+                          label: Text(_l10n.columnListEdit),
                         )
                       else ...[
                         if (_data.columns.length < 3)
@@ -998,7 +991,7 @@ class _FolioColumnListBlockBodyState extends State<FolioColumnListBlockBody> {
                               Icons.view_week_outlined,
                               size: 18,
                             ),
-                            label: Text(_t('Añadir columna', 'Add column')),
+                            label: Text(_l10n.columnListAddColumn),
                           ),
                         const SizedBox(width: 8),
                         OutlinedButton.icon(
@@ -1007,7 +1000,7 @@ class _FolioColumnListBlockBodyState extends State<FolioColumnListBlockBody> {
                             _setEditing(false);
                           },
                           icon: const Icon(Icons.check_rounded, size: 18),
-                          label: Text(_t('Hecho', 'Done')),
+                          label: Text(_l10n.columnListDone),
                         ),
                       ],
                     ],
@@ -1043,17 +1036,14 @@ class _FolioColumnListBlockBodyState extends State<FolioColumnListBlockBody> {
                               Row(
                                 children: [
                                   Text(
-                                    '${_t('Columna', 'Column')} ${i + 1}',
+                                    '${_l10n.columnListColumnLabel} ${i + 1}',
                                     style: widget.textTheme.titleSmall
                                         ?.copyWith(fontWeight: FontWeight.w700),
                                   ),
                                   const Spacer(),
                                   if (_data.columns.length > 2)
                                     IconButton(
-                                      tooltip: _t(
-                                        'Quitar columna',
-                                        'Remove column',
-                                      ),
+                                      tooltip: _l10n.columnListRemoveColumn,
                                       onPressed: () => _removeColumn(i),
                                       icon: const Icon(Icons.close_rounded),
                                     ),
@@ -1084,7 +1074,7 @@ class _FolioColumnListBlockBodyState extends State<FolioColumnListBlockBody> {
                                 child: FilledButton.tonalIcon(
                                   onPressed: () => _addBlock(i),
                                   icon: const Icon(Icons.add_rounded, size: 18),
-                                  label: Text(_t('Añadir bloque', 'Add block')),
+                                  label: Text(_l10n.columnListAddBlock),
                                 ),
                               ),
                             ],
@@ -1130,7 +1120,11 @@ class FolioTemplateButtonBlockBody extends StatelessWidget {
           templateBlockId: block.id,
         ),
         icon: const Icon(Icons.post_add_rounded),
-        label: Text(data.label.isEmpty ? 'Plantilla' : data.label),
+        label: Text(
+          data.label.isEmpty
+              ? AppLocalizations.of(context).templateButtonDefaultLabel
+              : data.label,
+        ),
       ),
     );
   }
@@ -1159,6 +1153,9 @@ class FolioTaskBlockBody extends StatefulWidget {
 class _FolioTaskBlockBodyState extends State<FolioTaskBlockBody> {
   static const _uuid = Uuid();
   late TextEditingController _title;
+  late TextEditingController _descCtrl;
+  late TextEditingController _tagsFieldCtrl;
+  late TextEditingController _assigneeFieldCtrl;
   late FolioTaskData _data;
 
   @override
@@ -1167,6 +1164,9 @@ class _FolioTaskBlockBodyState extends State<FolioTaskBlockBody> {
     _data =
         FolioTaskData.tryParse(widget.block.text) ?? FolioTaskData.defaults();
     _title = TextEditingController(text: _data.title);
+    _descCtrl = TextEditingController(text: _data.description);
+    _tagsFieldCtrl = TextEditingController(text: _data.tags.join(', '));
+    _assigneeFieldCtrl = TextEditingController(text: _data.assignee ?? '');
   }
 
   @override
@@ -1176,12 +1176,22 @@ class _FolioTaskBlockBodyState extends State<FolioTaskBlockBody> {
       _data =
           FolioTaskData.tryParse(widget.block.text) ?? FolioTaskData.defaults();
       if (_title.text != _data.title) _title.text = _data.title;
+      if (_descCtrl.text != _data.description) {
+        _descCtrl.text = _data.description;
+      }
+      final tagLine = _data.tags.join(', ');
+      if (_tagsFieldCtrl.text != tagLine) _tagsFieldCtrl.text = tagLine;
+      final a = _data.assignee ?? '';
+      if (_assigneeFieldCtrl.text != a) _assigneeFieldCtrl.text = a;
     }
   }
 
   @override
   void dispose() {
     _title.dispose();
+    _descCtrl.dispose();
+    _tagsFieldCtrl.dispose();
+    _assigneeFieldCtrl.dispose();
     super.dispose();
   }
 
@@ -1234,16 +1244,18 @@ class _FolioTaskBlockBodyState extends State<FolioTaskBlockBody> {
   static String _fmtDue(String due) => due.replaceFirst('T', ' ');
 
   Color _priorityColor(String? priority) {
-    switch (priority) {
-      case 'high':
-        return widget.scheme.error;
-      case 'medium':
-        return Colors.orange;
-      case 'low':
-        return widget.scheme.onSurfaceVariant;
-      default:
-        return widget.scheme.outlineVariant;
+    final p = (priority ?? '').trim().toLowerCase();
+    if (p.isEmpty) return widget.scheme.outlineVariant;
+    if (p == 'high' || p == 'highest' || p == 'critical' || p == 'showstopper' || p == 'major') {
+      return widget.scheme.error;
     }
+    if (p == 'medium' || p == 'normal') {
+      return Colors.orange;
+    }
+    if (p == 'low' || p == 'lowest' || p == 'minor' || p == 'minimal') {
+      return widget.scheme.onSurfaceVariant;
+    }
+    return widget.scheme.outlineVariant;
   }
 
   @override
@@ -1251,11 +1263,6 @@ class _FolioTaskBlockBodyState extends State<FolioTaskBlockBody> {
     final l10n = AppLocalizations.of(context);
     final scheme = widget.scheme;
     final tt = widget.textTheme;
-    final statusLabels = {
-      'todo': l10n.taskStatusTodo,
-      'in_progress': l10n.taskStatusInProgress,
-      'done': l10n.taskStatusDone,
-    };
     final priorityLabels = <String?, String?>{
       null: l10n.taskPriorityNone,
       'low': l10n.taskPriorityLow,
@@ -1264,115 +1271,218 @@ class _FolioTaskBlockBodyState extends State<FolioTaskBlockBody> {
     };
     final totalSubtasks = _data.subtasks.length;
     final doneSubtasks = _data.subtasks.where((s) => s.status == 'done').length;
-    return Card(
-      margin: const EdgeInsets.symmetric(vertical: 4),
-      color: scheme.surfaceContainerLow,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(FolioRadius.md),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(
-          FolioSpace.sm,
-          FolioSpace.xs,
-          FolioSpace.sm,
-          FolioSpace.sm,
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            // Status chips row
-            SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              child: Row(
-                children: [
-                  for (final entry in statusLabels.entries)
-                    Padding(
-                      padding: const EdgeInsets.only(right: FolioSpace.xs),
-                      child: ChoiceChip(
-                        label: Text(entry.value),
-                        selected: _data.status == entry.key,
-                        onSelected: (_) {
-                          setState(
-                            () => _data = _data.copyWith(status: entry.key),
-                          );
-                          _emit(_data);
-                        },
-                        selectedColor: entry.key == 'done'
-                            ? scheme.primaryContainer
-                            : entry.key == 'in_progress'
-                            ? scheme.secondaryContainer
-                            : scheme.surfaceContainerHighest,
-                        labelStyle: tt.labelSmall,
-                        visualDensity: VisualDensity.compact,
-                      ),
-                    ),
-                ],
-              ),
+    return ListenableBuilder(
+      listenable: widget.session,
+      builder: (context, _) {
+        final kanbanCols = widget.session.kanbanDataForPage(widget.pageId).columns;
+        final allowedIds = kanbanCols.map((c) => c.id).toSet();
+        final effectiveCol = _data.effectiveColumnId(allowedColumnIds: allowedIds);
+        return Card(
+          margin: const EdgeInsets.symmetric(vertical: 4),
+          color: scheme.surfaceContainerLow,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(FolioRadius.md),
+          ),
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(
+              FolioSpace.sm,
+              FolioSpace.xs,
+              FolioSpace.sm,
+              FolioSpace.sm,
             ),
-            const SizedBox(height: FolioSpace.xs),
-            // Title text field
-            TextField(
-              controller: _title,
-              style: tt.bodyMedium,
-              maxLines: null,
-              decoration: InputDecoration.collapsed(
-                hintText: l10n.taskTitleHint,
-                hintStyle: tt.bodyMedium?.copyWith(
-                  color: scheme.onSurfaceVariant,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: Row(
+                    children: [
+                      for (final spec in kanbanCols)
+                        Padding(
+                          padding: const EdgeInsets.only(right: FolioSpace.xs),
+                          child: ChoiceChip(
+                            label: Text(folioKanbanColumnLabel(spec, l10n)),
+                            selected: effectiveCol == spec.id,
+                            onSelected: (_) {
+                              setState(
+                                () => _data = _data.withKanbanColumn(spec.id),
+                              );
+                              _emit(_data);
+                            },
+                            selectedColor: folioKanbanColumnChipSelectedColor(
+                              spec,
+                              scheme,
+                            ),
+                            labelStyle: tt.labelSmall,
+                            visualDensity: VisualDensity.compact,
+                          ),
+                        ),
+                    ],
+                  ),
                 ),
+                const SizedBox(height: FolioSpace.xs),
+                TextField(
+                  controller: _title,
+                  style: tt.bodyMedium?.copyWith(
+                    color: _data.blocked ? scheme.error : null,
+                    decoration: _data.blocked
+                        ? TextDecoration.lineThrough
+                        : null,
+                    decorationColor: _data.blocked ? scheme.error : null,
+                  ),
+                  maxLines: null,
+                  decoration: InputDecoration.collapsed(
+                    hintText: l10n.taskTitleHint,
+                    hintStyle: tt.bodyMedium?.copyWith(
+                      color: scheme.onSurfaceVariant,
+                    ),
+                  ),
+                  onChanged: (v) {
+                    _data = _data.copyWith(title: v);
+                    _emit(_data);
+                  },
+                ),
+            const SizedBox(height: FolioSpace.xs),
+            ExpansionTile(
+              title: Text(l10n.taskBlockExpandDetailsTitle),
+              initiallyExpanded: _data.description.trim().isNotEmpty ||
+                  _data.tags.isNotEmpty ||
+                  (_data.assignee ?? '').trim().isNotEmpty,
+              childrenPadding: const EdgeInsets.only(
+                bottom: FolioSpace.sm,
               ),
-              onChanged: (v) {
-                _data = _data.copyWith(title: v);
-                _emit(_data);
-              },
+              children: [
+                TextField(
+                  controller: _descCtrl,
+                  minLines: 2,
+                  maxLines: 8,
+                  decoration: InputDecoration(
+                    labelText: l10n.description,
+                    border: const OutlineInputBorder(),
+                  ),
+                  onChanged: (v) {
+                    _data = _data.copyWith(description: v);
+                    _emit(_data);
+                  },
+                ),
+                const SizedBox(height: FolioSpace.sm),
+                TextField(
+                  controller: _tagsFieldCtrl,
+                  decoration: InputDecoration(
+                    labelText: l10n.taskQuickAddTagsLabel,
+                    hintText: l10n.taskQuickAddTagsHint,
+                    border: const OutlineInputBorder(),
+                  ),
+                  onChanged: (v) {
+                    final list = v
+                        .split(RegExp(r'[;,]'))
+                        .map((e) => e.trim())
+                        .where((e) => e.isNotEmpty)
+                        .toList(growable: false);
+                    _data = _data.copyWith(tags: list);
+                    _emit(_data);
+                  },
+                ),
+                const SizedBox(height: FolioSpace.sm),
+                TextField(
+                  controller: _assigneeFieldCtrl,
+                  decoration: InputDecoration(
+                    labelText: l10n.taskQuickAddAssigneeLabel,
+                    border: const OutlineInputBorder(),
+                  ),
+                  onChanged: (v) {
+                    final t = v.trim();
+                    _data = _data.copyWith(
+                      assignee: t.isEmpty ? null : t,
+                    );
+                    _emit(_data);
+                  },
+                ),
+              ],
             ),
             const SizedBox(height: FolioSpace.sm),
             // Priority + due date row
             Row(
               children: [
                 // Priority selector
-                PopupMenuButton<String?>(
-                  initialValue: _data.priority,
-                  tooltip: l10n.taskPriorityTooltip,
-                  onSelected: (p) {
-                    setState(() => _data = _data.copyWith(priority: p));
-                    _emit(_data);
-                  },
-                  itemBuilder: (_) => [
-                    for (final entry in priorityLabels.entries)
-                      PopupMenuItem<String?>(
-                        value: entry.key,
-                        child: Row(
-                          children: [
-                            Icon(
-                              Icons.flag_rounded,
-                              size: 16,
-                              color: _priorityColor(entry.key),
+                Builder(
+                  builder: (ctx) {
+                    final ext = _data.external;
+                    final isYouTrack = ext?.provider == 'youtrack';
+                    final isJira = ext?.provider == 'jira';
+
+                    final Map<String?, String?> dynamicPriorityLabels;
+                    if (isYouTrack) {
+                      dynamicPriorityLabels = {
+                        null: l10n.taskPriorityNone,
+                        'Showstopper': 'Showstopper',
+                        'Critical': 'Critical',
+                        'Major': 'Major',
+                        'Normal': 'Normal',
+                        'Minor': 'Minor',
+                        'Minimal': 'Minimal',
+                      };
+                    } else if (isJira) {
+                      dynamicPriorityLabels = {
+                        null: l10n.taskPriorityNone,
+                        'Highest': 'Highest',
+                        'High': 'High',
+                        'Medium': 'Medium',
+                        'Low': 'Low',
+                        'Lowest': 'Lowest',
+                      };
+                    } else {
+                      dynamicPriorityLabels = Map<String?, String?>.from(priorityLabels);
+                    }
+
+                    if (_data.priority != null && !dynamicPriorityLabels.containsKey(_data.priority)) {
+                      dynamicPriorityLabels[_data.priority] = _data.priority;
+                    }
+
+                    return PopupMenuButton<String?>(
+                      initialValue: _data.priority,
+                      tooltip: l10n.taskPriorityTooltip,
+                      onSelected: (p) {
+                        setState(() => _data = _data.copyWith(priority: p));
+                        _emit(_data);
+                      },
+                      itemBuilder: (_) => [
+                        for (final entry in dynamicPriorityLabels.entries)
+                          PopupMenuItem<String?>(
+                            value: entry.key,
+                            child: Row(
+                              children: [
+                                Icon(
+                                  Icons.flag_rounded,
+                                  size: 16,
+                                  color: _priorityColor(entry.key),
+                                ),
+                                const SizedBox(width: FolioSpace.xs),
+                                Text(entry.value ?? l10n.taskPriorityNone),
+                              ],
                             ),
-                            const SizedBox(width: FolioSpace.xs),
-                            Text(entry.value ?? l10n.taskPriorityNone),
-                          ],
-                        ),
+                          ),
+                      ],
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            Icons.flag_rounded,
+                            size: 16,
+                            color: _priorityColor(_data.priority),
+                          ),
+                          const SizedBox(width: FolioSpace.xxs),
+                          Text(
+                            dynamicPriorityLabels[_data.priority] ?? l10n.taskPriorityNone,
+                            style: tt.labelSmall?.copyWith(
+                              color: _priorityColor(_data.priority),
+                            ),
+                          ),
+                          const Icon(Icons.arrow_drop_down, size: 16),
+                        ],
                       ),
-                  ],
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(
-                        Icons.flag_rounded,
-                        size: 16,
-                        color: _priorityColor(_data.priority),
-                      ),
-                      const SizedBox(width: FolioSpace.xxs),
-                      Text(
-                        priorityLabels[_data.priority] ?? l10n.taskPriorityNone,
-                        style: tt.labelSmall?.copyWith(
-                          color: _priorityColor(_data.priority),
-                        ),
-                      ),
-                      const Icon(Icons.arrow_drop_down, size: 16),
-                    ],
-                  ),
+                    );
+                  },
                 ),
                 const SizedBox(width: FolioSpace.md),
                 // Due date
@@ -1388,7 +1498,9 @@ class _FolioTaskBlockBodyState extends State<FolioTaskBlockBody> {
                       firstDate: DateTime(2000),
                       lastDate: DateTime(2100),
                     );
-                    if (!mounted || picked == null) return;
+                    if (!mounted || !context.mounted || picked == null) {
+                      return;
+                    }
                     final existingDt = _data.dueDate != null
                         ? DateTime.tryParse(_data.dueDate!)
                         : null;
@@ -1548,6 +1660,8 @@ class _FolioTaskBlockBodyState extends State<FolioTaskBlockBody> {
           ],
         ),
       ),
+    );
+      },
     );
   }
 }

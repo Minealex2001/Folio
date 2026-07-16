@@ -5,6 +5,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_storage/firebase_storage.dart';
+import 'folio_storage_transport.dart';
 import 'package:path/path.dart' as p;
 
 import 'folio_cloud_callable.dart';
@@ -12,6 +13,7 @@ import 'folio_cloud_callable.dart';
 import '../../data/vault_backup.dart';
 import '../../session/vault_session.dart';
 import 'folio_cloud_entitlements.dart';
+import '../app_logger.dart';
 
 // Nota: listamos copias siempre vía callable (incluye sizeBytes y soporta escritorio).
 
@@ -36,6 +38,9 @@ Future<String> uploadEncryptedBackupFile(
   FolioCloudSnapshot? entitlementSnapshot,
 }) async {
   _requireCloudBackupEntitlement(entitlementSnapshot);
+  if (!await file.exists()) {
+    throw StateError('El archivo de copia no existe: ${file.path}');
+  }
   if (Firebase.apps.isEmpty) {
     throw StateError('Firebase not initialized');
   }
@@ -47,7 +52,7 @@ Future<String> uploadEncryptedBackupFile(
   final ref = FirebaseStorage.instance.ref().child(
     'users/${user.uid}/vaults/$vaultId/backups/$name',
   );
-  await ref.putFile(file);
+  await folioStoragePutFile(ref, file);
   return await ref.getDownloadURL();
 }
 
@@ -131,8 +136,7 @@ Future<String> uploadOpenVaultEncryptedToCloud({
     final ref = FirebaseStorage.instance.ref().child(
       'users/${user.uid}/vaults/$vaultId/backups/$name',
     );
-    final snap = await ref.putFile(tgzFile);
-    final sizeBytes = snap.totalBytes;
+    final sizeBytes = await folioStoragePutFile(ref, tgzFile);
     try {
       await _recordBackupMeta(
         vaultId: vaultId,
@@ -144,7 +148,13 @@ Future<String> uploadOpenVaultEncryptedToCloud({
         attachmentsBytes: fp.attachmentsBytes,
         containerFormat: 'tar.gz',
       );
-    } catch (_) {}
+    } catch (e) {
+      AppLogger.warn(
+        'Backup subido pero falló el registro de metadata',
+        tag: 'cloud-backup',
+        context: {'vaultId': vaultId, 'error': '$e'},
+      );
+    }
     return await ref.getDownloadURL();
   } finally {
     try {
@@ -324,7 +334,7 @@ Future<Uint8List> downloadFolioCloudBackupBytes({
   }
   final ref = FirebaseStorage.instance.ref(entry.storagePath);
   final maxBytes = _folioCloudBackupGetDataMaxBytes(entry);
-  final data = await ref.getData(maxBytes);
+  final data = await folioStorageGetData(ref, maxBytes);
   if (data == null || data.isEmpty) {
     throw StateError('La descarga no devolvió datos.');
   }
@@ -351,12 +361,42 @@ Future<void> downloadFolioCloudBackup({
     );
     await destinationFile.writeAsBytes(data, flush: true);
   } else {
-    await ref.writeToFile(destinationFile);
+    await folioStorageWriteToFile(ref, destinationFile);
   }
 }
 
-Future<void> deleteFolioCloudBackup({
+/// Elimina el cloud-pack incremental de una libreta (blobs + snapshot + cuota).
+///
+/// Devuelve `true` si la libreta quedó sin copias y se eliminó su presencia en
+/// Folio Cloud (índice + Storage + meta).
+Future<bool> deleteFolioCloudPack({
+  required String vaultId,
+  FolioCloudSnapshot? entitlementSnapshot,
+}) async {
+  _requireCloudBackupEntitlement(entitlementSnapshot);
+  if (Firebase.apps.isEmpty) {
+    throw StateError('Firebase not initialized');
+  }
+  if (FirebaseAuth.instance.currentUser == null) {
+    throw StateError('Not signed in');
+  }
+  final id = vaultId.trim();
+  if (id.isEmpty) {
+    throw ArgumentError('vaultId vacío');
+  }
+  final raw = await callFolioHttpsCallable(
+    'folioDeleteVaultCloudPack',
+    <String, dynamic>{'vaultId': id},
+  );
+  if (raw is Map && raw['vaultRemoved'] == true) return true;
+  return false;
+}
+
+/// Elimina una copia. Si era la última de la libreta, purga esa libreta de la
+/// nube. Devuelve `true` cuando la libreta desapareció del índice cloud.
+Future<bool> deleteFolioCloudBackup({
   required FolioCloudBackupEntry entry,
+  String? vaultId,
   FolioCloudSnapshot? entitlementSnapshot,
 }) async {
   _requireCloudBackupEntitlement(entitlementSnapshot);
@@ -365,8 +405,35 @@ Future<void> deleteFolioCloudBackup({
   }
   final user = FirebaseAuth.instance.currentUser;
   if (user == null) throw StateError('Not signed in');
-  final ref = FirebaseStorage.instance.ref(entry.storagePath);
-  await ref.delete();
+
+  var id = vaultId?.trim() ?? '';
+  if (id.isEmpty) {
+    final parts = entry.storagePath.split('/');
+    final vaultIdx = parts.indexOf('vaults');
+    id = vaultIdx >= 0 && vaultIdx + 1 < parts.length
+        ? parts[vaultIdx + 1]
+        : '';
+  }
+  if (id.isEmpty) {
+    throw StateError('No se pudo determinar la libreta de la copia.');
+  }
+
+  if (entry.isCloudPack) {
+    return deleteFolioCloudPack(
+      vaultId: id,
+      entitlementSnapshot: entitlementSnapshot,
+    );
+  }
+
+  final raw = await callFolioHttpsCallable(
+    'folioDeleteVaultLegacyBackup',
+    <String, dynamic>{
+      'vaultId': id,
+      'storagePath': entry.storagePath,
+    },
+  );
+  if (raw is Map && raw['vaultRemoved'] == true) return true;
+  return false;
 }
 
 Future<void> trimFolioCloudBackups({

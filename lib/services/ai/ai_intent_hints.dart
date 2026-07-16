@@ -2,6 +2,7 @@ class AiIntentHints {
   static const String edit = 'edit';
   static const String createPage = 'create_page';
   static const String subpage = 'subpage';
+  static const String translateBilingual = 'translate_bilingual';
 
   static const Map<String, Map<String, List<String>>> _catalog = {
     'es': {
@@ -37,6 +38,25 @@ class AiIntentHints {
         'pagina actual',
         'esta pagina',
         'texto actual',
+        'insertar',
+        'inserta',
+        'insertalo',
+      ],
+      translateBilingual: [
+        'traducir',
+        'traduce',
+        'traduci',
+        'translate',
+        'mismo sitio',
+        'misma pagina',
+        'esta pagina',
+        'pagina actual',
+        'insertar',
+        'inserta',
+        'insertalo',
+        'en la misma',
+        'bilingue',
+        'bilingual',
       ],
       createPage: [
         'genera una pagina',
@@ -84,6 +104,20 @@ class AiIntentHints {
         'blocks',
         'current page',
         'this page',
+        'insert',
+        'insert it',
+      ],
+      translateBilingual: [
+        'translate',
+        'translation',
+        'in place',
+        'same page',
+        'same place',
+        'this page',
+        'current page',
+        'insert',
+        'insert it',
+        'bilingual',
       ],
       createPage: [
         'new page',

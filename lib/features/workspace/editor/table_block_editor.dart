@@ -82,6 +82,7 @@ class _TableBlockEditorState extends State<TableBlockEditor> {
 
   Future<void> _pasteFromClipboard() async {
     final raw = await Clipboard.getData('text/plain');
+    if (!mounted) return;
     final text = (raw?.text ?? '').trim();
     if (text.isEmpty) return;
     final rows = _parseDelimitedRows(text);

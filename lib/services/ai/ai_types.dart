@@ -4,18 +4,21 @@ class AiChatMessage {
     required this.content,
     required this.timestamp,
     this.feedback,
+    this.agentApplySnapshot,
   });
 
   factory AiChatMessage.now({
     required String role,
     required String content,
     String? feedback,
+    Map<String, dynamic>? agentApplySnapshot,
   }) {
     return AiChatMessage(
       role: role,
       content: content,
       timestamp: DateTime.now(),
       feedback: feedback,
+      agentApplySnapshot: agentApplySnapshot,
     );
   }
 
@@ -24,14 +27,26 @@ class AiChatMessage {
   final DateTime timestamp;
   final String? feedback; // null, 'helpful', or 'not_helpful'
 
+  /// Si el agente respondió en modo `chat` pero incluyó `blocks` u `operations` en JSON,
+  /// la UI puede ofrecer aplicarlos manualmente a la página abierta.
+  final Map<String, dynamic>? agentApplySnapshot;
+
   Map<String, dynamic> toJson() => {
     'role': role,
     'content': content,
     'timestamp': timestamp.toIso8601String(),
     if (feedback != null) 'feedback': feedback,
+    if (agentApplySnapshot != null) 'agentApplySnapshot': agentApplySnapshot,
   };
 
   factory AiChatMessage.fromJson(Map<String, dynamic> json) {
+    final snap = json['agentApplySnapshot'];
+    Map<String, dynamic>? snapMap;
+    if (snap is Map) {
+      snapMap = Map<String, dynamic>.from(
+        snap.map((k, v) => MapEntry(k.toString(), v)),
+      );
+    }
     return AiChatMessage(
       role: json['role'] as String? ?? 'assistant',
       content: json['content'] as String? ?? '',
@@ -39,6 +54,7 @@ class AiChatMessage {
           ? DateTime.parse(json['timestamp'] as String)
           : DateTime.now(),
       feedback: json['feedback'] as String?,
+      agentApplySnapshot: snapMap,
     );
   }
 }
@@ -81,10 +97,24 @@ class AiServiceUnreachableException implements Exception {
 
 /// Resultado del chat con agente para la UI (texto mostrado + métricas del último `complete`).
 class AgentChatOutcome {
-  const AgentChatOutcome({required this.reply, this.usage});
+  const AgentChatOutcome({
+    required this.reply,
+    this.usage,
+    this.agentApplySnapshot,
+  });
 
   final String reply;
   final AiTokenUsage? usage;
+
+  /// Solo en modo `chat` con `blocks` u `operations` no auto-aplicadas.
+  final Map<String, dynamic>? agentApplySnapshot;
+}
+
+/// Acción manual sobre un [AgentChatOutcome.agentApplySnapshot] guardado en el mensaje.
+enum AiAgentApplyKind {
+  insertBlocksAtEnd,
+  replaceAllBlocks,
+  applyEditOperations,
 }
 
 class AiCompletionRequest {

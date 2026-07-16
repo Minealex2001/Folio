@@ -6,8 +6,11 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/foundation.dart';
 
 import '../../app/folio_distribution.dart';
+import '../folio_firestore_support.dart';
+import '../cloud_account/cloud_account_controller.dart';
 import 'folio_cloud_billing.dart';
 import 'folio_cloud_callable.dart';
+import 'folio_firestore_rest.dart';
 import 'folio_microsoft_store_channel.dart';
 import 'folio_microsoft_store_sync.dart';
 import 'folio_web_portal_api.dart';
@@ -177,12 +180,21 @@ class FolioCloudSnapshot {
     required this.cloudAi,
     required this.publishWeb,
     required this.realtimeCollab,
+    this.folioStaff = false,
     this.backupQuotaBytes = 0,
     this.backupUsedBytes = 0,
     this.backupPurchasedBytes = 0,
     this.backupSubscriptionExtraBytes = 0,
+    this.isFamily = false,
+    this.isStudent = false,
+    this.isStudentVerified = false,
+    this.familyOwnerUid,
+    this.familySeats = 0,
     FolioInkSnapshot? ink,
   }) : _ink = ink;
+
+  /// Staff/admin (Firestore `users/{uid}.folioStaff`): nube ilimitada sin plan.
+  final bool folioStaff;
 
   final bool active;
   final String? subscriptionStatus;
@@ -190,6 +202,12 @@ class FolioCloudSnapshot {
   final bool cloudAi;
   final bool publishWeb;
   final bool realtimeCollab;
+
+  final bool isFamily;
+  final bool isStudent;
+  final bool isStudentVerified;
+  final String? familyOwnerUid;
+  final int familySeats;
 
   /// Cuota de copias en la nube (bytes); `folioBackup.quotaBytes` en Firestore.
   final int backupQuotaBytes;
@@ -212,18 +230,18 @@ class FolioCloudSnapshot {
   /// Tras hot reload puede existir un snapshot antiguo sin tinta; nunca devolver null.
   FolioInkSnapshot get ink => _ink ?? FolioInkSnapshot.empty;
 
-  /// Alineado con reglas de Storage (`folioCloud.active` + feature).
-  bool get canUseCloudBackup => active && backup;
+  /// Alineado con reglas de Storage (`folioCloud.active` + feature o `folioStaff`).
+  bool get canUseCloudBackup => folioStaff || (active && backup);
 
   /// Publicación web (Storage `published/` + Firestore `publishedPages`).
-  bool get canPublishToWeb => active && publishWeb;
+  bool get canPublishToWeb => folioStaff || (active && publishWeb);
 
   /// Colaboración en vivo (Firestore `collabRooms`).
-  bool get canRealtimeCollab => active && realtimeCollab;
+  bool get canRealtimeCollab => folioStaff || (active && realtimeCollab);
 
-  /// Callable `folioCloudAiComplete`: suscripción con IA en la nube, o tinta comprada (sin suscripción).
+  /// Callable `folioCloudAiComplete`: suscripción con IA en la nube, tinta comprada, o staff.
   bool get canUseCloudAi =>
-      (active && cloudAi) || ink.purchasedBalance > 0;
+      folioStaff || (active && cloudAi) || ink.purchasedBalance > 0;
 
   static const FolioCloudSnapshot empty = FolioCloudSnapshot(
     active: false,
@@ -232,10 +250,16 @@ class FolioCloudSnapshot {
     cloudAi: false,
     publishWeb: false,
     realtimeCollab: false,
+    folioStaff: false,
     backupQuotaBytes: 0,
     backupUsedBytes: 0,
     backupPurchasedBytes: 0,
     backupSubscriptionExtraBytes: 0,
+    isFamily: false,
+    isStudent: false,
+    isStudentVerified: false,
+    familyOwnerUid: null,
+    familySeats: 0,
   );
 
   static int _folioBackupIntField(Map<String, dynamic>? data, String field) {
@@ -259,11 +283,17 @@ class FolioCloudSnapshot {
         cloudAi: false,
         publishWeb: false,
         realtimeCollab: false,
+        folioStaff: _folioBool(data['folioStaff']),
         backupQuotaBytes: _folioBackupIntField(data, 'quotaBytes'),
         backupUsedBytes: _folioBackupIntField(data, 'usedBytes'),
         backupPurchasedBytes: _folioBackupIntField(data, 'purchasedBytes'),
         backupSubscriptionExtraBytes:
             _folioBackupIntField(data, 'stripeSubscriptionExtraBytes'),
+        isFamily: false,
+        isStudent: false,
+        isStudentVerified: false,
+        familyOwnerUid: null,
+        familySeats: 0,
         ink: FolioInkSnapshot.fromUserDoc(data),
       );
     }
@@ -280,6 +310,15 @@ class FolioCloudSnapshot {
             statusNorm == 'past_due')) {
       active = true;
     }
+    int seatsVal = 0;
+    final sVal = m['familySeats'];
+    if (sVal is int) {
+      seatsVal = sVal;
+    } else if (sVal is num) {
+      seatsVal = sVal.toInt();
+    } else if (sVal != null) {
+      seatsVal = int.tryParse(sVal.toString()) ?? 0;
+    }
     return FolioCloudSnapshot(
       active: active,
       subscriptionStatus: m['subscriptionStatus']?.toString(),
@@ -287,11 +326,17 @@ class FolioCloudSnapshot {
       cloudAi: f('cloudAi'),
       publishWeb: f('publishWeb'),
       realtimeCollab: f('realtimeCollab'),
+      folioStaff: _folioBool(data['folioStaff']),
       backupQuotaBytes: _folioBackupIntField(data, 'quotaBytes'),
       backupUsedBytes: _folioBackupIntField(data, 'usedBytes'),
       backupPurchasedBytes: _folioBackupIntField(data, 'purchasedBytes'),
       backupSubscriptionExtraBytes:
           _folioBackupIntField(data, 'stripeSubscriptionExtraBytes'),
+      isFamily: _folioBool(m['isFamily']),
+      isStudent: _folioBool(m['isStudent']),
+      isStudentVerified: _folioBool(m['studentVerified']),
+      familyOwnerUid: m['familyOwnerUid']?.toString(),
+      familySeats: seatsVal,
       ink: FolioInkSnapshot.fromUserDoc(data),
     );
   }
@@ -305,6 +350,13 @@ class FolioCloudEntitlementsController extends ChangeNotifier {
   }
 
   StreamSubscription<User?>? _authSub;
+
+  void listenToCloudAccount(CloudAccountController cloud) {
+    cloud.addListener(() {
+      _onUser(cloud.user);
+    });
+    _onUser(cloud.user);
+  }
   StreamSubscription<DocumentSnapshot<Map<String, dynamic>>>? _docSub;
   Timer? _userDocPollTimer;
 
@@ -422,10 +474,47 @@ class FolioCloudEntitlementsController extends ChangeNotifier {
 
   static const int _firestoreServerFetchMaxAttempts = 7;
 
+  /// Lee `users/{uid}` por la API REST de Firestore (workaround para Windows,
+  /// donde el SDK nativo no está disponible). Reintentos suaves para el arranque
+  /// en frío del canal de red en escritorio.
+  Future<Map<String, dynamic>?> _fetchUserDocViaRest(
+    String uid, {
+    Duration leadingDelay = Duration.zero,
+  }) async {
+    if (kIsWeb) return null;
+    if (leadingDelay > Duration.zero) {
+      await Future<void>.delayed(leadingDelay);
+    }
+    for (var attempt = 0; attempt < _firestoreServerFetchMaxAttempts; attempt++) {
+      if (attempt > 0) {
+        await Future<void>.delayed(
+          Duration(milliseconds: 350 + 550 * attempt),
+        );
+      }
+      try {
+        final data = await folioFirestoreRestGetUserDoc(uid);
+        if (FirebaseAuth.instance.currentUser?.uid != uid) return null;
+        return data;
+      } catch (e) {
+        final canRetry = attempt < _firestoreServerFetchMaxAttempts - 1;
+        if (canRetry) continue;
+        debugPrint('FolioCloudEntitlements: REST fetch users/$uid: $e');
+        return null;
+      }
+    }
+    return null;
+  }
+
   Future<Map<String, dynamic>?> _fetchUserDocFromServerWithRetries(
     String uid, {
     Duration leadingDelay = Duration.zero,
   }) async {
+    // Windows: el SDK nativo de Firestore (C++) crashea. Como workaround leemos
+    // `users/{uid}` por la API REST de Firestore usando el ID token de Auth,
+    // que sí funciona en escritorio (igual que las Cloud Functions por HTTP).
+    if (!folioFirestoreSupported) {
+      return _fetchUserDocViaRest(uid, leadingDelay: leadingDelay);
+    }
     if (leadingDelay > Duration.zero) {
       await Future<void>.delayed(leadingDelay);
     }
@@ -461,7 +550,11 @@ class FolioCloudEntitlementsController extends ChangeNotifier {
               'FolioCloudEntitlements: server fetch falló; usando última caché local.',
             );
             return cached.data();
-          } catch (_) {/* ignore */}
+          } catch (cacheErr) {
+            debugPrint(
+              'FolioCloudEntitlements: caché local también falló: $cacheErr',
+            );
+          }
         }
         debugPrint(
           'FolioCloudEntitlements: fetch server users/$uid: $e',
@@ -519,6 +612,7 @@ class FolioCloudEntitlementsController extends ChangeNotifier {
         cloudAi: prev.cloudAi,
         publishWeb: prev.publishWeb,
         realtimeCollab: prev.realtimeCollab,
+        folioStaff: prev.folioStaff,
         backupQuotaBytes: quota,
         backupUsedBytes: used,
         backupPurchasedBytes: prev.backupPurchasedBytes,
@@ -550,6 +644,7 @@ class FolioCloudEntitlementsController extends ChangeNotifier {
       cloudAi: prev.cloudAi,
       publishWeb: prev.publishWeb,
       realtimeCollab: prev.realtimeCollab,
+      folioStaff: prev.folioStaff,
       backupQuotaBytes: prev.backupQuotaBytes,
       backupUsedBytes: prev.backupUsedBytes,
       backupPurchasedBytes: prev.backupPurchasedBytes,
@@ -604,7 +699,11 @@ class FolioCloudEntitlementsController extends ChangeNotifier {
   }
 
   void _onUser(User? user) {
-    unawaited(_docSub?.cancel());
+    unawaited(_handleUserChange(user));
+  }
+
+  Future<void> _handleUserChange(User? user) async {
+    await _docSub?.cancel();
     _docSub = null;
     _cancelUserDocPoll();
     if (user == null) {
@@ -627,7 +726,7 @@ class FolioCloudEntitlementsController extends ChangeNotifier {
       _clearWebPortalMirror();
       notifyListeners();
     }
-    unawaited(_subscribeUserDoc(user.uid));
+    await _subscribeUserDoc(user.uid);
     unawaited(refreshWebPortalEntitlement());
   }
 
@@ -636,7 +735,17 @@ class FolioCloudEntitlementsController extends ChangeNotifier {
     Map<String, dynamic>? serverData =
         await _fetchUserDocFromServerWithRetries(uid);
     if (FirebaseAuth.instance.currentUser?.uid != uid) return;
+    if (serverData == null) {
+      try {
+        await callFolioHttpsCallable('ensureUserDocExists');
+        serverData = await _fetchUserDocFromServerWithRetries(uid);
+      } catch (e) {
+        // Ignorar
+      }
+    }
+    if (FirebaseAuth.instance.currentUser?.uid != uid) return;
     if (serverData != null) {
+      debugPrint('FolioCloudEntitlements: Server user doc: $serverData');
       final parsed = FolioCloudSnapshot.fromUserDoc(serverData);
       snapshot = parsed;
       _serverFetchTruth = parsed;
@@ -695,7 +804,7 @@ class FolioCloudEntitlementsController extends ChangeNotifier {
     Map<String, dynamic>? serverData,
   ) async {
     if (FirebaseAuth.instance.currentUser?.uid != uid) return;
-    if (snapshot.active) return;
+    if (snapshot.active && (snapshot.isStudent || !snapshot.isStudentVerified)) return;
     final cid = serverData?['stripeCustomerId'];
     if (cid is! String || cid.trim().isEmpty) return;
     final now = DateTime.now();

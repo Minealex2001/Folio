@@ -4,7 +4,6 @@ import 'dart:math' as math;
 import 'package:flutter/foundation.dart'
     show TargetPlatform, defaultTargetPlatform, kIsWeb, setEquals;
 import 'package:flutter/material.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:url_launcher/url_launcher.dart';
 
@@ -12,15 +11,18 @@ import '../../../app/app_settings.dart';
 import '../../../app/ui_tokens.dart';
 import '../../../app/widgets/folio_feedback.dart';
 import '../../../app/widgets/folio_dialog.dart';
+import '../../../app/widgets/folio_interactions.dart';
 import '../../../app/widgets/folio_icon_picker.dart';
 import '../../../app/widgets/folio_icon_token_view.dart';
 import '../../../data/vault_registry.dart';
 import '../../../services/cloud_account/cloud_account_controller.dart';
 import '../editor/block_editor_support_widgets.dart';
+import '../recent_page_visits.dart';
 import '../templates/template_gallery_page.dart';
 import '../../../l10n/generated/app_localizations.dart';
 import '../../../models/folio_page.dart';
 import '../../../session/vault_session.dart';
+import 'page_trash_sheet.dart';
 
 class Sidebar extends StatefulWidget {
   const Sidebar({
@@ -33,6 +35,7 @@ class Sidebar extends StatefulWidget {
     this.onOpenSettings,
     this.onLock,
     this.onQuickAddTask,
+    this.onOpenVaultTaskHub,
   });
 
   final VaultSession session;
@@ -43,15 +46,13 @@ class Sidebar extends StatefulWidget {
   final VoidCallback? onOpenSettings;
   final VoidCallback? onLock;
   final VoidCallback? onQuickAddTask;
+  final VoidCallback? onOpenVaultTaskHub;
 
   @override
   State<Sidebar> createState() => _SidebarState();
 }
 
 class _SidebarState extends State<Sidebar> {
-  static const _recentPrefix = 'folio_sidebar_recent_pages_';
-  static const _recentLimit = 6;
-
   VaultSession get session => widget.session;
 
   List<VaultEntry> _vaults = [];
@@ -61,8 +62,10 @@ class _SidebarState extends State<Sidebar> {
   String _lastSidebarFingerprint = '';
   Set<String> _lastPageIds = const {};
   final ScrollController _pagesScrollController = ScrollController();
+  final TextEditingController _searchController = TextEditingController();
+  String _searchQuery = '';
   String? _loadedCollapsedVaultId;
-  final List<String> _recentPageIds = <String>[];
+  final List<RecentPageVisit> _recentVisits = <RecentPageVisit>[];
   String? _loadedRecentVaultId;
   String? _lastSelectedPageId;
   Map<String, bool> _hasChildrenById = const <String, bool>{};
@@ -72,6 +75,7 @@ class _SidebarState extends State<Sidebar> {
   void initState() {
     super.initState();
     session.addListener(_onSession);
+    _searchController.addListener(_onSearchChanged);
     unawaited(_loadCollapsedState());
     unawaited(_loadRecentState());
     _reloadVaults();
@@ -80,8 +84,16 @@ class _SidebarState extends State<Sidebar> {
   @override
   void dispose() {
     session.removeListener(_onSession);
+    _searchController.removeListener(_onSearchChanged);
+    _searchController.dispose();
     _pagesScrollController.dispose();
     super.dispose();
+  }
+
+  void _onSearchChanged() {
+    setState(() {
+      _searchQuery = _searchController.text;
+    });
   }
 
   void _onSession() {
@@ -130,22 +142,17 @@ class _SidebarState extends State<Sidebar> {
       buf.write(':');
       buf.write(p.parentId ?? '');
       buf.write(':');
+      buf.write(p.trashedAt?.millisecondsSinceEpoch ?? '');
+      buf.write(':');
       buf.write(p.tags.join(','));
       buf.write('|');
     }
     return buf.toString();
   }
 
-  String _recentPrefsKey(String? vaultId) {
-    final safeVault = (vaultId == null || vaultId.isEmpty)
-        ? 'default'
-        : vaultId;
-    return '$_recentPrefix$safeVault';
-  }
-
   Future<void> _loadCollapsedState() async {
     final vaultId = session.activeVaultId;
-    final validPageIds = session.pages.map((p) => p.id).toSet();
+    final validPageIds = session.activePages.map((p) => p.id).toSet();
     final restored = await widget.appSettings
         .loadWorkspaceSidebarCollapsedPageIds(
           vaultId: vaultId,
@@ -169,46 +176,47 @@ class _SidebarState extends State<Sidebar> {
 
   Future<void> _loadRecentState() async {
     final vaultId = session.activeVaultId;
-    final prefs = await SharedPreferences.getInstance();
-    final saved =
-        prefs.getStringList(_recentPrefsKey(vaultId)) ?? const <String>[];
-    final validPageIds = session.pages.map((p) => p.id).toSet();
-    final restored = saved
-        .where(validPageIds.contains)
-        .take(_recentLimit)
-        .toList();
+    final validPageIds = session.activePages.map((p) => p.id).toSet();
+    final restored = await RecentPageVisitsStore.load(
+      vaultId: vaultId,
+      validPageIds: validPageIds,
+      limit: kRecentPageVisitsStorageLimit,
+    );
     if (!mounted) return;
     setState(() {
       _loadedRecentVaultId = vaultId;
-      _recentPageIds
+      _recentVisits
         ..clear()
         ..addAll(restored);
     });
   }
 
   Future<void> _persistRecentState() async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setStringList(
-      _recentPrefsKey(session.activeVaultId),
-      _recentPageIds.take(_recentLimit).toList(growable: false),
+    await RecentPageVisitsStore.save(
+      vaultId: session.activeVaultId,
+      visits: _recentVisits,
+      limit: kRecentPageVisitsStorageLimit,
     );
   }
 
   void _registerRecentPage(String pageId) {
-    if (!session.pages.any((p) => p.id == pageId)) return;
+    if (!session.activePages.any((p) => p.id == pageId)) return;
     setState(() {
-      _recentPageIds.remove(pageId);
-      _recentPageIds.insert(0, pageId);
-      if (_recentPageIds.length > _recentLimit) {
-        _recentPageIds.removeRange(_recentLimit, _recentPageIds.length);
-      }
+      final next = RecentPageVisitsStore.withNewVisit(
+        _recentVisits,
+        pageId,
+        limit: kRecentPageVisitsStorageLimit,
+      );
+      _recentVisits
+        ..clear()
+        ..addAll(next);
     });
     unawaited(_persistRecentState());
   }
 
   Future<void> _reloadVaults() async {
     final list = await session.listVaultEntries();
-    final validPageIds = session.pages.map((p) => p.id).toSet();
+    final validPageIds = session.activePages.map((p) => p.id).toSet();
     var changedCollapsedState = false;
     _collapsedPageIds.removeWhere((id) {
       final remove = !validPageIds.contains(id);
@@ -219,8 +227,8 @@ class _SidebarState extends State<Sidebar> {
       unawaited(_persistCollapsedState());
     }
     var changedRecentState = false;
-    _recentPageIds.removeWhere((id) {
-      final remove = !validPageIds.contains(id);
+    _recentVisits.removeWhere((v) {
+      final remove = !validPageIds.contains(v.pageId);
       if (remove) changedRecentState = true;
       return remove;
     });
@@ -248,11 +256,41 @@ class _SidebarState extends State<Sidebar> {
     unawaited(_persistCollapsedState());
   }
 
+  void _toggleExpandCollapseAll() {
+    final pagesWithChildren = session.activePages.where((p) {
+      final childCounts = <String, int>{};
+      for (final pg in session.activePages) {
+        final pid = pg.parentId;
+        if (pid != null) {
+          childCounts[pid] = (childCounts[pid] ?? 0) + 1;
+        }
+      }
+      return (childCounts[p.id] ?? 0) > 0 || p.isFolder;
+    }).map((p) => p.id).toSet();
+
+    setState(() {
+      final allCollapsed = pagesWithChildren.every((id) => _collapsedPageIds.contains(id));
+      if (allCollapsed) {
+        _collapsedPageIds.clear();
+      } else {
+        _collapsedPageIds.addAll(pagesWithChildren);
+      }
+    });
+    unawaited(_persistCollapsedState());
+  }
+
   ({List<_VisiblePageRow> rows, Map<String, bool> hasChildrenById})
-  _buildVisiblePageRows(List<FolioPage> pages, {String? tagFilter}) {
-    // When a tag filter is active, show a flat list of matching pages.
-    if (tagFilter != null) {
-      final matched = pages.where((p) => p.tags.contains(tagFilter)).toList();
+  _buildVisiblePageRows(List<FolioPage> pages, {String? tagFilter, String? searchQuery}) {
+    // When a tag filter or a search query is active, show matching pages.
+    if ((tagFilter != null && tagFilter.isNotEmpty) || (searchQuery != null && searchQuery.isNotEmpty)) {
+      var matched = pages;
+      if (tagFilter != null && tagFilter.isNotEmpty) {
+        matched = matched.where((p) => p.tags.contains(tagFilter)).toList();
+      }
+      if (searchQuery != null && searchQuery.isNotEmpty) {
+        final query = searchQuery.toLowerCase();
+        matched = matched.where((p) => p.title.toLowerCase().contains(query)).toList();
+      }
       final rows = matched
           .map((p) => _VisiblePageRow(page: p, indent: 4))
           .toList();
@@ -458,26 +496,31 @@ class _SidebarState extends State<Sidebar> {
         ),
         child: Semantics(
           label: l10n.sidebarVaultsEmpty,
-          child: Container(
-            padding: const EdgeInsets.all(FolioSpace.sm),
-            decoration: BoxDecoration(
-              color: scheme.surfaceContainerHigh,
-              borderRadius: BorderRadius.circular(FolioRadius.md),
-            ),
-            child: Row(
-              children: [
-                Icon(Icons.folder_off_outlined, color: scheme.onSurfaceVariant),
-                const SizedBox(width: FolioSpace.sm),
-                Expanded(
-                  child: Text(
-                    l10n.sidebarVaultsEmpty,
-                    style: textTheme.bodySmall?.copyWith(
-                      color: scheme.onSurfaceVariant,
-                      fontWeight: FontWeight.w600,
+          child: FadingEmptyState(
+            child: Container(
+              padding: const EdgeInsets.all(FolioSpace.sm),
+              decoration: BoxDecoration(
+                color: scheme.surfaceContainerHigh,
+                borderRadius: BorderRadius.circular(FolioRadius.md),
+              ),
+              child: Row(
+                children: [
+                  Icon(
+                    Icons.folder_off_outlined,
+                    color: scheme.onSurfaceVariant,
+                  ),
+                  const SizedBox(width: FolioSpace.sm),
+                  Expanded(
+                    child: Text(
+                      l10n.sidebarVaultsEmpty,
+                      style: textTheme.bodySmall?.copyWith(
+                        color: scheme.onSurfaceVariant,
+                        fontWeight: FontWeight.w600,
+                      ),
                     ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
         ),
@@ -682,7 +725,7 @@ class _SidebarState extends State<Sidebar> {
     final l10n = AppLocalizations.of(context);
     final options = <MapEntry<String?, String>>[
       MapEntry(null, l10n.rootPage),
-      ...session.pages
+      ...session.activePages
           .where(
             (p) =>
                 p.id != page.id &&
@@ -695,24 +738,24 @@ class _SidebarState extends State<Sidebar> {
       builder: (ctx) {
         return FolioDialog(
           title: Text(l10n.movePageTitle(page.title)),
+          contentWidth: 420,
           content: SizedBox(
-            width: 420,
-            child: ListView(
-              shrinkWrap: true,
-              children: options
-                  .map(
-                    (e) => ListTile(
-                      title: Text(e.value),
-                      trailing: page.parentId == e.key
-                          ? const Icon(Icons.check, size: 20)
-                          : null,
-                      onTap: () {
-                        session.setPageParent(page.id, e.key);
-                        Navigator.pop(ctx);
-                      },
-                    ),
-                  )
-                  .toList(),
+            height: math.min(480, math.max(160, options.length * 56 + 24)),
+            child: ListView.builder(
+              itemCount: options.length,
+              itemBuilder: (context, i) {
+                final e = options[i];
+                return ListTile(
+                  title: Text(e.value),
+                  trailing: page.parentId == e.key
+                      ? const Icon(Icons.check, size: 20)
+                      : null,
+                  onTap: () {
+                    session.setPageParent(page.id, e.key);
+                    Navigator.pop(ctx);
+                  },
+                );
+              },
             ),
           ),
           actions: [
@@ -733,126 +776,50 @@ class _SidebarState extends State<Sidebar> {
 
   /// Mismo patrón que exportar página: [showMenu] anclado + [BlockEditorFloatingPanel].
   Future<void> _showDeletePageConfirmMenu(
-    BuildContext anchorContext,
     FolioPage page,
   ) async {
-    final hasChildren = _hasChildrenById[page.id] ?? false;
-    final isFolderWithChildren = page.isFolder && hasChildren;
-    final l10n = AppLocalizations.of(anchorContext);
-    final theme = Theme.of(anchorContext);
-    final scheme = theme.colorScheme;
-    final label = _sidebarDeleteLabel(page, l10n);
+    try {
+      final hasChildren = _hasChildrenById[page.id] ?? false;
+      final isFolderWithChildren = page.isFolder && hasChildren;
+      final l10n = AppLocalizations.of(context);
+      final theme = Theme.of(context);
+      final scheme = theme.colorScheme;
+      final label = _sidebarDeleteLabel(page, l10n);
 
-    final buttonBox = anchorContext.findRenderObject() as RenderBox?;
-    final overlayBox =
-        Overlay.of(anchorContext).context.findRenderObject() as RenderBox?;
-    if (buttonBox == null || overlayBox == null) return;
-
-    final buttonRect =
-        buttonBox.localToGlobal(Offset.zero, ancestor: overlayBox) &
-        buttonBox.size;
-    final position = RelativeRect.fromRect(
-      buttonRect,
-      Offset.zero & overlayBox.size,
-    );
-
-    final maxW = math.min(420.0, overlayBox.size.width - 24.0);
-    final menuW = maxW.clamp(280.0, 420.0);
-    final maxH = math.min(320.0, overlayBox.size.height - 24.0);
-
-    final confirmed = await showMenu<bool>(
-      context: anchorContext,
-      position: position,
-      useRootNavigator: true,
-      constraints: BoxConstraints.tightFor(width: menuW),
-      items: [
-        PopupMenuItem<bool>(
-          enabled: false,
-          height: 240,
-          padding: EdgeInsets.zero,
-          child: ConstrainedBox(
-            constraints: BoxConstraints(maxHeight: maxH),
-            child: BlockEditorFloatingPanel(
-              scheme: scheme,
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(10, 10, 10, 10),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    Padding(
-                      padding: const EdgeInsets.fromLTRB(8, 2, 8, 8),
-                      child: Text(
-                        isFolderWithChildren
-                            ? l10n.sidebarDeleteFolderMenuTitle
-                            : l10n.sidebarDeletePageMenuTitle,
-                        style: theme.textTheme.titleSmall?.copyWith(
-                          fontWeight: FontWeight.w700,
-                          letterSpacing: -0.2,
-                        ),
-                      ),
-                    ),
-                    Padding(
-                      padding: const EdgeInsets.fromLTRB(8, 0, 8, 12),
-                      child: Text(
-                        isFolderWithChildren
-                            ? l10n.sidebarDeleteFolderConfirmInline(label)
-                            : l10n.sidebarDeletePageConfirmInline(label),
-                        style: theme.textTheme.bodySmall?.copyWith(
-                          color: scheme.onSurfaceVariant,
-                          height: 1.35,
-                        ),
-                      ),
-                    ),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.end,
-                      children: [
-                        Builder(
-                          builder: (menuCtx) {
-                            return TextButton(
-                              onPressed: () {
-                                Navigator.of(
-                                  menuCtx,
-                                  rootNavigator: true,
-                                ).pop(false);
-                              },
-                              child: Text(l10n.cancel),
-                            );
-                          },
-                        ),
-                        const SizedBox(width: 8),
-                        Builder(
-                          builder: (menuCtx) {
-                            return FilledButton(
-                              style: FilledButton.styleFrom(
-                                backgroundColor: scheme.error,
-                                foregroundColor: scheme.onError,
-                              ),
-                              onPressed: () {
-                                Navigator.of(
-                                  menuCtx,
-                                  rootNavigator: true,
-                                ).pop(true);
-                              },
-                              child: Text(l10n.delete),
-                            );
-                          },
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-            ),
+      final confirmed = await showDialog<bool>(
+        context: context,
+        builder: (ctx) => FolioDialog(
+          title: Text(
+            isFolderWithChildren
+                ? l10n.sidebarDeleteFolderMenuTitle
+                : l10n.sidebarDeletePageMenuTitle,
           ),
+          content: Text(
+            isFolderWithChildren
+                ? l10n.sidebarDeleteFolderConfirmInline(label)
+                : l10n.sidebarDeletePageConfirmInline(label),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: Text(l10n.cancel),
+            ),
+            FilledButton(
+              style: FilledButton.styleFrom(
+                backgroundColor: scheme.error,
+                foregroundColor: scheme.onError,
+              ),
+              onPressed: () => Navigator.pop(ctx, true),
+              child: Text(l10n.sidebarDeletePageMenuTitle),
+            ),
+          ],
         ),
-      ],
-    );
-    if (confirmed != true || !mounted) return;
-    if (isFolderWithChildren) {
-      session.deleteFolderMoveChildrenToRoot(page.id);
-    } else {
-      session.deletePage(page.id);
+      );
+
+      if (confirmed != true || !mounted) return;
+      session.movePageToTrash(page.id);
+    } catch (e, stack) {
+      debugPrint('ERROR in _showDeletePageConfirmMenu: $e\n$stack');
     }
   }
 
@@ -873,8 +840,7 @@ class _SidebarState extends State<Sidebar> {
     final selected = page.id == session.selectedPageId;
     final hasChildren = _hasChildrenById[page.id] ?? false;
     final collapsed = _isCollapsed(page.id);
-    final canDelete =
-        session.pages.length > 1 && (!hasChildren || page.isFolder);
+    final canDelete = session.canMovePageToTrash(page.id);
 
     // Builds a tile widget. interactive=false for drag feedback / ghost copies.
     _SidebarTile buildTile({bool interactive = true}) {
@@ -898,7 +864,7 @@ class _SidebarState extends State<Sidebar> {
         onRename: () => _rename(context, page),
         onSaveAsTemplate: () => _savePageAsTemplate(context, page),
         onDeleteRequest: interactive && canDelete
-            ? (btnCtx) => unawaited(_showDeletePageConfirmMenu(btnCtx, page))
+            ? () => unawaited(_showDeletePageConfirmMenu(page))
             : null,
       );
     }
@@ -978,16 +944,23 @@ class _SidebarState extends State<Sidebar> {
   }
 
   Widget _recentPagesSection(BuildContext context) {
+    if (!widget.appSettings.workspaceSidebarShowRecentPages) {
+      return const SizedBox.shrink();
+    }
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
     final pagesById = <String, FolioPage>{
-      for (final p in session.pages) p.id: p,
+      for (final p in session.activePages) p.id: p,
     };
-    final recentPages = _recentPageIds
-        .map((id) => pagesById[id])
+    final recentPages = _recentVisits
+        .take(kRecentPageVisitsSidebarDisplayLimit)
+        .map((v) => pagesById[v.pageId])
         .whereType<FolioPage>()
         .toList(growable: false);
     if (recentPages.isEmpty) return const SizedBox.shrink();
+
+    final isCollapsed = widget.appSettings.workspaceSidebarRecentPagesCollapsed;
+
     return Padding(
       padding: const EdgeInsets.fromLTRB(
         FolioSpace.sm,
@@ -1004,39 +977,65 @@ class _SidebarState extends State<Sidebar> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              'Recientes',
-              style: theme.textTheme.labelLarge?.copyWith(
-                color: scheme.onSurfaceVariant,
-                fontWeight: FontWeight.w700,
-              ),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Expanded(
+                  child: Text(
+                    AppLocalizations.of(context).workspaceRecentPagesSectionTitle,
+                    style: theme.textTheme.labelLarge?.copyWith(
+                      color: scheme.onSurfaceVariant,
+                      fontWeight: FontWeight.w700,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+                IconButton(
+                  icon: Icon(
+                    isCollapsed
+                        ? Icons.keyboard_arrow_down_rounded
+                        : Icons.keyboard_arrow_up_rounded,
+                    size: 16,
+                  ),
+                  visualDensity: VisualDensity.compact,
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(),
+                  onPressed: () {
+                    widget.appSettings.setWorkspaceSidebarRecentPagesCollapsed(!isCollapsed);
+                    setState(() {});
+                  },
+                ),
+              ],
             ),
-            const SizedBox(height: FolioSpace.xs),
-            Wrap(
-              spacing: FolioSpace.xs,
-              runSpacing: FolioSpace.xs,
-              children: recentPages
-                  .map((page) {
-                    return ActionChip(
-                      onPressed: () => session.selectPage(page.id),
-                      avatar: FolioIconTokenView(
-                        appSettings: widget.appSettings,
-                        token: page.emoji,
-                        fallbackText: '📄',
-                        size: 16,
-                      ),
-                      label: ConstrainedBox(
-                        constraints: const BoxConstraints(maxWidth: 150),
-                        child: Text(
-                          page.title,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
+            if (!isCollapsed) ...[
+              const SizedBox(height: FolioSpace.xs),
+              Wrap(
+                spacing: FolioSpace.xs,
+                runSpacing: FolioSpace.xs,
+                children: recentPages
+                    .map((page) {
+                      return ActionChip(
+                        onPressed: () => session.selectPage(page.id),
+                        avatar: FolioIconTokenView(
+                          appSettings: widget.appSettings,
+                          token: page.emoji,
+                          fallbackText: '📄',
+                          size: 16,
                         ),
-                      ),
-                    );
-                  })
-                  .toList(growable: false),
-            ),
+                        label: ConstrainedBox(
+                          constraints: const BoxConstraints(maxWidth: 150),
+                          child: Text(
+                            page.title,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      );
+                    })
+                    .toList(growable: false),
+              ),
+            ],
           ],
         ),
       ),
@@ -1053,10 +1052,24 @@ class _SidebarState extends State<Sidebar> {
     final scheme = Theme.of(context).colorScheme;
 
     final visible = _buildVisiblePageRows(
-      session.pages,
+      session.activePages,
       tagFilter: _selectedTagFilter,
+      searchQuery: _searchQuery,
     );
     _hasChildrenById = visible.hasChildrenById;
+
+    final pagesWithChildren = session.activePages.where((p) {
+      final childCounts = <String, int>{};
+      for (final pg in session.activePages) {
+        final pid = pg.parentId;
+        if (pid != null) {
+          childCounts[pid] = (childCounts[pid] ?? 0) + 1;
+        }
+      }
+      return (childCounts[p.id] ?? 0) > 0 || p.isFolder;
+    }).map((p) => p.id).toSet();
+    final allCollapsed = pagesWithChildren.every((id) => _collapsedPageIds.contains(id));
+    final trashCount = session.trashedPages.length;
 
     return LayoutBuilder(
       builder: (context, constraints) {
@@ -1064,7 +1077,9 @@ class _SidebarState extends State<Sidebar> {
         // width can be tiny (a few pixels). Rendering the full Column in
         // that state causes a RenderFlex overflow because Wrap stacks all
         // chips vertically. Return an empty box to avoid the assertion.
-        if (constraints.maxWidth < 32) return const SizedBox.shrink();
+        if (constraints.maxWidth < FolioSidebar.collapseThreshold) {
+          return const SizedBox.shrink();
+        }
         return Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
@@ -1087,10 +1102,44 @@ class _SidebarState extends State<Sidebar> {
                     children: [
                       if (widget.onSearch != null)
                         Expanded(
-                          child: FilledButton.tonalIcon(
-                            onPressed: widget.onSearch,
-                            icon: const Icon(Icons.search_rounded),
-                            label: Text(l10n.search),
+                          child: Container(
+                            decoration: BoxDecoration(
+                              color: scheme.surfaceContainerLow,
+                              borderRadius: BorderRadius.circular(FolioRadius.md),
+                              border: Border.all(
+                                color: scheme.outlineVariant.withValues(alpha: 0.3),
+                              ),
+                            ),
+                            padding: const EdgeInsets.symmetric(horizontal: FolioSpace.sm),
+                            child: Row(
+                              children: [
+                                Icon(
+                                  Icons.search_rounded,
+                                  size: 18,
+                                  color: scheme.onSurfaceVariant,
+                                ),
+                                const SizedBox(width: FolioSpace.xs),
+                                Expanded(
+                                  child: TextField(
+                                    controller: _searchController,
+                                    style: Theme.of(context).textTheme.bodyMedium,
+                                    decoration: InputDecoration(
+                                      hintText: l10n.search,
+                                      border: InputBorder.none,
+                                      isDense: true,
+                                      contentPadding: const EdgeInsets.symmetric(vertical: 8),
+                                    ),
+                                  ),
+                                ),
+                                if (_searchQuery.isNotEmpty)
+                                  IconButton(
+                                    icon: const Icon(Icons.clear_rounded, size: 16),
+                                    visualDensity: VisualDensity.compact,
+                                    padding: EdgeInsets.zero,
+                                    onPressed: () => _searchController.clear(),
+                                  ),
+                              ],
+                            ),
                           ),
                         ),
                       if (widget.onSearch != null &&
@@ -1112,7 +1161,7 @@ class _SidebarState extends State<Sidebar> {
                   ),
                 ),
               ),
-            if (widget.onQuickAddTask != null)
+            if (widget.onQuickAddTask != null || widget.onOpenVaultTaskHub != null)
               Padding(
                 padding: const EdgeInsets.fromLTRB(
                   FolioSpace.sm,
@@ -1123,11 +1172,21 @@ class _SidebarState extends State<Sidebar> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    FilledButton.tonalIcon(
-                      onPressed: widget.onQuickAddTask,
-                      icon: const Icon(Icons.add_task_rounded, size: 20),
-                      label: Text(l10n.sidebarQuickAddTask),
-                    ),
+                    if (widget.onQuickAddTask != null)
+                      FilledButton.tonalIcon(
+                        onPressed: widget.onQuickAddTask,
+                        icon: const Icon(Icons.add_task_rounded, size: 20),
+                        label: Text(l10n.sidebarQuickAddTask),
+                      ),
+                    if (widget.onQuickAddTask != null &&
+                        widget.onOpenVaultTaskHub != null)
+                      const SizedBox(height: FolioSpace.xs),
+                    if (widget.onOpenVaultTaskHub != null)
+                      OutlinedButton.icon(
+                        onPressed: widget.onOpenVaultTaskHub,
+                        icon: const Icon(Icons.task_alt_outlined, size: 20),
+                        label: Text(l10n.sidebarTaskHub),
+                      ),
                   ],
                 ),
               ),
@@ -1153,21 +1212,22 @@ class _SidebarState extends State<Sidebar> {
                     ),
                   ),
                   IconButton(
+                    icon: Icon(
+                      allCollapsed ? Icons.unfold_more_rounded : Icons.unfold_less_rounded,
+                      size: 20,
+                    ),
+                    tooltip: allCollapsed ? l10n.aiExpand : l10n.aiCollapse,
+                    onPressed: _toggleExpandCollapseAll,
+                  ),
+                  IconButton(
                     icon: const Icon(Icons.layers_outlined, size: 20),
                     tooltip: l10n.templateFromGallery,
                     onPressed: () => _openTemplateGallery(context),
                   ),
-                  const SizedBox(width: 4),
-                  Flexible(
-                    child: FilledButton.tonalIcon(
-                      onPressed: () => session.addPage(parentId: null),
-                      icon: const Icon(Icons.add_rounded),
-                      label: Text(
-                        l10n.createPage,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
+                  IconButton(
+                    icon: const Icon(Icons.note_add_outlined, size: 20),
+                    tooltip: l10n.createPage,
+                    onPressed: () => session.addPage(parentId: null),
                   ),
                   const SizedBox(width: 6),
                   IconButton(
@@ -1177,6 +1237,28 @@ class _SidebarState extends State<Sidebar> {
                     ),
                     tooltip: l10n.driveNewFolder,
                     onPressed: () => session.addFolder(parentId: null),
+                  ),
+                  PopupMenuButton<String>(
+                    icon: const Icon(Icons.settings_outlined, size: 20),
+                    tooltip: l10n.settings,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(FolioRadius.md),
+                    ),
+                    color: scheme.surfaceContainerHighest,
+                    onSelected: (value) {
+                      if (value == 'show_recents') {
+                        final next = !widget.appSettings.workspaceSidebarShowRecentPages;
+                        widget.appSettings.setWorkspaceSidebarShowRecentPages(next);
+                        setState(() {});
+                      }
+                    },
+                    itemBuilder: (context) => [
+                      CheckedPopupMenuItem(
+                        value: 'show_recents',
+                        checked: widget.appSettings.workspaceSidebarShowRecentPages,
+                        child: Text(AppLocalizations.of(context).workspaceRecentPagesSectionTitle),
+                      ),
+                    ],
                   ),
                 ],
               ),
@@ -1234,27 +1316,29 @@ class _SidebarState extends State<Sidebar> {
                       decoration: BoxDecoration(
                         borderRadius: BorderRadius.circular(FolioRadius.xl),
                         border: hoveringRoot
-                            ? Border.all(
-                                color: scheme.primary.withValues(alpha: 0.25),
-                                width: 2,
-                              )
-                            : null,
+                          ? Border.all(
+                              color: scheme.primary.withValues(alpha: 0.25),
+                              width: 2,
+                            )
+                          : null,
                       ),
                       child: visible.rows.isEmpty && _selectedTagFilter != null
-                          ? Center(
-                              child: Padding(
-                                padding: const EdgeInsets.all(FolioSpace.md),
-                                child: Text(
-                                  AppLocalizations.of(
-                                    context,
-                                  ).tagNoPagesForFilter,
-                                  style: Theme.of(context).textTheme.bodySmall
-                                      ?.copyWith(
-                                        color: Theme.of(
-                                          context,
-                                        ).colorScheme.onSurfaceVariant,
-                                      ),
-                                  textAlign: TextAlign.center,
+                          ? FadingEmptyState(
+                              child: Center(
+                                child: Padding(
+                                  padding: const EdgeInsets.all(FolioSpace.md),
+                                  child: Text(
+                                    AppLocalizations.of(
+                                      context,
+                                    ).tagNoPagesForFilter,
+                                    style: Theme.of(context).textTheme.bodySmall
+                                        ?.copyWith(
+                                          color: Theme.of(
+                                            context,
+                                          ).colorScheme.onSurfaceVariant,
+                                        ),
+                                    textAlign: TextAlign.center,
+                                  ),
                                 ),
                               ),
                             )
@@ -1368,6 +1452,28 @@ class _SidebarState extends State<Sidebar> {
                   ),
                 ),
               ),
+            Padding(
+              padding: EdgeInsets.fromLTRB(
+                FolioSpace.sm,
+                0,
+                FolioSpace.sm,
+                widget.onOpenSettings != null ? FolioSpace.xs : FolioSpace.sm,
+              ),
+              child: FilledButton.tonalIcon(
+                onPressed: () => unawaited(
+                  showPageTrashSheet(context: context, session: session),
+                ),
+                icon: Badge(
+                  isLabelVisible: trashCount > 0,
+                  label: Text(
+                    l10n.sidebarTrashCountBadge(trashCount),
+                    style: const TextStyle(fontSize: 10),
+                  ),
+                  child: const Icon(Icons.delete_outline_rounded),
+                ),
+                label: Text(l10n.sidebarTrashTitle),
+              ),
+            ),
             if (widget.onOpenSettings != null)
               Padding(
                 padding: const EdgeInsets.fromLTRB(
@@ -1437,7 +1543,7 @@ class _SidebarTile extends StatefulWidget {
   final VoidCallback onMove;
   final VoidCallback onRename;
   final VoidCallback onSaveAsTemplate;
-  final void Function(BuildContext btnCtx)? onDeleteRequest;
+  final VoidCallback? onDeleteRequest;
 
   @override
   State<_SidebarTile> createState() => _SidebarTileState();
@@ -1445,6 +1551,7 @@ class _SidebarTile extends StatefulWidget {
 
 class _SidebarTileState extends State<_SidebarTile> {
   bool _hovered = false;
+  bool _menuOpen = false;
 
   @override
   Widget build(BuildContext context) {
@@ -1502,7 +1609,9 @@ class _SidebarTileState extends State<_SidebarTile> {
               button: true,
               label: page.title,
               value: hasChildren
-                  ? (collapsed ? 'Colapsado' : 'Expandido')
+                  ? (collapsed
+                        ? l10n.sidebarItemCollapsedSemantics
+                        : l10n.sidebarItemExpandedSemantics)
                   : null,
               child: Padding(
                 padding: const EdgeInsets.symmetric(
@@ -1514,9 +1623,21 @@ class _SidebarTileState extends State<_SidebarTile> {
                     // Durante el resize del panel el ancho puede ser muy pequeño; la fila de
                     // acciones tiene ancho intrínseco alto y provoca overflow si no se omite.
                     final allowInlineActions =
-                        showRowActions && constraints.maxWidth >= 200.0;
+                        (showRowActions || _menuOpen) &&
+                        constraints.maxWidth >= FolioSidebar.tileActionsMinWidth;
                     return Row(
                       children: [
+                        // Selection bar indicator
+                        AnimatedContainer(
+                          duration: const Duration(milliseconds: 200),
+                          width: selected ? 3 : 0,
+                          height: selected ? 16 : 0,
+                          margin: EdgeInsets.only(right: selected ? 6 : 0),
+                          decoration: BoxDecoration(
+                            color: scheme.primary,
+                            borderRadius: BorderRadius.circular(999),
+                          ),
+                        ),
                         Expanded(
                           child: Row(
                             children: [
@@ -1603,84 +1724,116 @@ class _SidebarTileState extends State<_SidebarTile> {
                                   child: Row(
                                     mainAxisSize: MainAxisSize.min,
                                     children: [
-                                      IconButton(
+                                      if (isFolder && widget.onAddSubpage != null)
+                                        IconButton(
+                                          icon: const Icon(Icons.add, size: 18),
+                                          tooltip: l10n.subpage,
+                                          visualDensity: VisualDensity.compact,
+                                          color: selected
+                                              ? scheme.onSecondaryContainer
+                                              : scheme.onSurfaceVariant,
+                                          onPressed: widget.onAddSubpage,
+                                        ),
+                                      PopupMenuButton<String>(
                                         icon: const Icon(
-                                          Icons.emoji_emotions_outlined,
+                                          Icons.more_horiz_rounded,
                                           size: 18,
                                         ),
-                                        tooltip: l10n.sidebarPageIconTitle,
-                                        visualDensity: VisualDensity.compact,
-                                        color: selected
-                                            ? scheme.onSecondaryContainer
-                                            : scheme.onSurfaceVariant,
-                                        onPressed: widget.onSetEmoji,
-                                      ),
-                                      IconButton(
-                                        icon: const Icon(Icons.add, size: 18),
-                                        tooltip: l10n.subpage,
-                                        visualDensity: VisualDensity.compact,
-                                        color: selected
-                                            ? scheme.onSecondaryContainer
-                                            : scheme.onSurfaceVariant,
-                                        onPressed: widget.onAddSubpage,
-                                      ),
-                                      IconButton(
-                                        icon: const Icon(
-                                          Icons.drive_file_move_outline,
-                                          size: 18,
+                                        tooltip: l10n.workspaceMoreActionsTooltip,
+                                        shape: RoundedRectangleBorder(
+                                          borderRadius: BorderRadius.circular(FolioRadius.md),
                                         ),
-                                        tooltip: l10n.move,
-                                        visualDensity: VisualDensity.compact,
-                                        color: selected
+                                        color: scheme.surfaceContainerHighest,
+                                        iconColor: selected
                                             ? scheme.onSecondaryContainer
                                             : scheme.onSurfaceVariant,
-                                        onPressed: widget.onMove,
-                                      ),
-                                      IconButton(
-                                        icon: const Icon(
-                                          Icons.edit_outlined,
-                                          size: 18,
-                                        ),
-                                        tooltip: l10n.rename,
-                                        visualDensity: VisualDensity.compact,
-                                        color: selected
-                                            ? scheme.onSecondaryContainer
-                                            : scheme.onSurfaceVariant,
-                                        onPressed: widget.onRename,
-                                      ),
-                                      IconButton(
-                                        icon: const Icon(
-                                          Icons.bookmark_add_outlined,
-                                          size: 18,
-                                        ),
-                                        tooltip: l10n.saveAsTemplate,
-                                        visualDensity: VisualDensity.compact,
-                                        color: selected
-                                            ? scheme.onSecondaryContainer
-                                            : scheme.onSurfaceVariant,
-                                        onPressed: widget.onSaveAsTemplate,
-                                      ),
-                                      Builder(
-                                        builder: (btnCtx) {
-                                          return IconButton(
-                                            icon: const Icon(
-                                              Icons.delete_outline,
-                                              size: 18,
-                                            ),
-                                            tooltip: l10n.delete,
-                                            visualDensity:
-                                                VisualDensity.compact,
-                                            color: selected
-                                                ? scheme.onSecondaryContainer
-                                                : scheme.onSurfaceVariant,
-                                            onPressed:
-                                                widget.onDeleteRequest != null
-                                                ? () => widget.onDeleteRequest!(
-                                                    btnCtx,
-                                                  )
-                                                : null,
-                                          );
+                                        onOpened: () => WidgetsBinding.instance.addPostFrameCallback((_) {
+                                          if (mounted) setState(() => _menuOpen = true);
+                                        }),
+                                        onCanceled: () => WidgetsBinding.instance.addPostFrameCallback((_) {
+                                          if (mounted) setState(() => _menuOpen = false);
+                                        }),
+                                        onSelected: (value) {
+                                          WidgetsBinding.instance.addPostFrameCallback((_) {
+                                            if (!mounted) return;
+                                            setState(() => _menuOpen = false);
+                                            switch (value) {
+                                              case 'emoji':
+                                                widget.onSetEmoji();
+                                                break;
+                                              case 'move':
+                                                widget.onMove();
+                                                break;
+                                              case 'rename':
+                                                widget.onRename();
+                                                break;
+                                              case 'template':
+                                                widget.onSaveAsTemplate();
+                                                break;
+                                              case 'delete':
+                                                widget.onDeleteRequest?.call();
+                                                break;
+                                            }
+                                          });
                                         },
+                                        itemBuilder: (ctx) => [
+                                          PopupMenuItem(
+                                            value: 'emoji',
+                                            child: Row(
+                                              children: [
+                                                const Icon(Icons.emoji_emotions_outlined, size: 18),
+                                                const SizedBox(width: 8),
+                                                Text(l10n.sidebarPageIconTitle),
+                                              ],
+                                            ),
+                                          ),
+                                          PopupMenuItem(
+                                            value: 'move',
+                                            child: Row(
+                                              children: [
+                                                const Icon(Icons.drive_file_move_outline, size: 18),
+                                                const SizedBox(width: 8),
+                                                Text(l10n.move),
+                                              ],
+                                            ),
+                                          ),
+                                          PopupMenuItem(
+                                            value: 'rename',
+                                            child: Row(
+                                              children: [
+                                                const Icon(Icons.edit_outlined, size: 18),
+                                                const SizedBox(width: 8),
+                                                Text(l10n.rename),
+                                              ],
+                                            ),
+                                          ),
+                                          PopupMenuItem(
+                                            value: 'template',
+                                            child: Row(
+                                              children: [
+                                                const Icon(Icons.bookmark_add_outlined, size: 18),
+                                                const SizedBox(width: 8),
+                                                Text(l10n.saveAsTemplate),
+                                              ],
+                                            ),
+                                          ),
+                                          if (widget.onDeleteRequest != null) ...[
+                                            const PopupMenuDivider(),
+                                            PopupMenuItem(
+                                              value: 'delete',
+                                              child: Row(
+                                                children: [
+                                                  Icon(Icons.delete_outline, size: 18, color: scheme.error),
+                                                  const SizedBox(width: 8),
+                                                  Text(
+                                                    l10n.delete,
+                                                    style: TextStyle(color: scheme.error),
+                                                  ),
+                                                ],
+                                              ),
+                                            ),
+                                          ],
+                                        ],
                                       ),
                                     ],
                                   ),
@@ -1767,22 +1920,42 @@ class _TagFilterBar extends StatelessWidget {
     return GestureDetector(
       onTap: onTap,
       child: AnimatedContainer(
-        duration: const Duration(milliseconds: 140),
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
+        duration: const Duration(milliseconds: 200),
+        curve: Curves.easeInOut,
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
         decoration: BoxDecoration(
           color: isSelected
               ? scheme.primaryContainer
-              : scheme.surfaceContainerHigh,
-          borderRadius: BorderRadius.circular(FolioRadius.lg),
-        ),
-        child: Text(
-          label,
-          style: textTheme.labelSmall?.copyWith(
+              : scheme.surfaceContainerLow,
+          borderRadius: BorderRadius.circular(FolioRadius.md),
+          border: Border.all(
             color: isSelected
-                ? scheme.onPrimaryContainer
-                : scheme.onSurfaceVariant,
-            fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
+                ? scheme.primary.withValues(alpha: 0.2)
+                : scheme.outlineVariant.withValues(alpha: 0.4),
+            width: 1,
           ),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (isSelected) ...[
+              Icon(
+                Icons.check_rounded,
+                size: 12,
+                color: scheme.onPrimaryContainer,
+              ),
+              const SizedBox(width: 4),
+            ],
+            Text(
+              label,
+              style: textTheme.labelSmall?.copyWith(
+                color: isSelected
+                    ? scheme.onPrimaryContainer
+                    : scheme.onSurfaceVariant,
+                fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+              ),
+            ),
+          ],
         ),
       ),
     );

@@ -14,6 +14,7 @@ import 'package:uuid/uuid.dart';
 import '../../../app/app_settings.dart';
 import '../../../app/ui_tokens.dart';
 import '../../../app/widgets/folio_dialog.dart';
+import '../../../app/widgets/folio_skeletons.dart';
 import '../../../data/vault_paths.dart';
 import '../../../l10n/generated/app_localizations.dart';
 import '../../../models/block.dart';
@@ -179,11 +180,11 @@ class _DrivePageState extends State<DrivePage> {
           actions: [
             TextButton(
               onPressed: () => Navigator.of(ctx2).pop<String?>(null),
-              child: const Text('Cancel'),
+              child: Text(l10n.cancel),
             ),
             FilledButton(
               onPressed: () => Navigator.of(ctx2).pop<String?>(text),
-              child: const Text('OK'),
+              child: Text(l10n.ok),
             ),
           ],
         ),
@@ -224,11 +225,11 @@ class _DrivePageState extends State<DrivePage> {
           actions: [
             TextButton(
               onPressed: () => Navigator.of(ctx2).pop<String?>(null),
-              child: const Text('Cancel'),
+              child: Text(l10n.cancel),
             ),
             FilledButton(
               onPressed: () => Navigator.of(ctx2).pop<String?>(text),
-              child: const Text('OK'),
+              child: Text(l10n.ok),
             ),
           ],
         ),
@@ -303,11 +304,11 @@ class _DrivePageState extends State<DrivePage> {
           actions: [
             TextButton(
               onPressed: () => Navigator.of(ctx2).pop<String?>(null),
-              child: const Text('Cancel'),
+              child: Text(l10n.cancel),
             ),
             FilledButton(
               onPressed: () => Navigator.of(ctx2).pop<String?>(text),
-              child: const Text('OK'),
+              child: Text(l10n.ok),
             ),
           ],
         ),
@@ -329,22 +330,12 @@ class _DrivePageState extends State<DrivePage> {
 
   void _deleteEntry(FolioDriveEntry entry) {
     final l10n = AppLocalizations.of(context);
-    showDialog<bool?>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: Text(l10n.driveDeleteConfirm),
-        content: Text(entry.name),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop<bool?>(null),
-            child: const Text('Cancel'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.of(ctx).pop<bool?>(true),
-            child: const Text('Delete'),
-          ),
-        ],
-      ),
+    FolioDialog.confirm(
+      context,
+      title: Text(l10n.driveDeleteConfirm),
+      content: Text(entry.name),
+      confirmLabel: l10n.delete,
+      destructive: true,
     ).then((confirmed) {
       if (confirmed != true) return;
       _persist(
@@ -743,6 +734,7 @@ class _DrivePageState extends State<DrivePage> {
                         _selectedFolderId = id;
                         _selectedItem = null;
                       }),
+                      l10n: l10n,
                       scheme: scheme,
                       theme: theme,
                     ),
@@ -906,11 +898,7 @@ class _DriveToolbar extends StatelessWidget {
           if (uploading)
             const Padding(
               padding: EdgeInsets.only(right: FolioSpace.xs),
-              child: SizedBox(
-                width: 18,
-                height: 18,
-                child: CircularProgressIndicator(strokeWidth: 2),
-              ),
+              child: FolioLoadingIndicator(size: FolioLoadingSize.small),
             ),
           FilledButton.tonalIcon(
             onPressed: uploading ? null : onUpload,
@@ -960,6 +948,30 @@ class _DriveToolbar extends StatelessWidget {
 
 // ── Folder tree ───────────────────────────────────────────────────────────────
 
+class _FlatFolderNode {
+  const _FlatFolderNode({required this.folder, required this.depth});
+  final FolioDriveFolder folder;
+  final int depth;
+}
+
+List<_FlatFolderNode> _flattenDriveFolderSubtree(
+  List<FolioDriveFolder> all,
+  List<FolioDriveFolder> roots,
+) {
+  final out = <_FlatFolderNode>[];
+  void walk(FolioDriveFolder folder, int depth) {
+    out.add(_FlatFolderNode(folder: folder, depth: depth));
+    final children = all.where((f) => f.parentId == folder.id).toList();
+    for (final child in children) {
+      walk(child, depth + 1);
+    }
+  }
+  for (final root in roots) {
+    walk(root, 0);
+  }
+  return out;
+}
+
 class _FolderTree extends StatelessWidget {
   const _FolderTree({
     required this.data,
@@ -994,12 +1006,13 @@ class _FolderTree extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final rootFolders = data.folders.where((f) => f.parentId == null).toList();
+    final flatFolders = _flattenDriveFolderSubtree(data.folders, rootFolders);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         // "All files" root item.
         _FolderTreeItem(
-          label: 'All files',
+          label: l10n.driveAllFilesRoot,
           labelOverride: null,
           icon: Icons.drive_folder_upload_rounded,
           isSelected: selectedFolderId == null,
@@ -1014,126 +1027,49 @@ class _FolderTree extends StatelessWidget {
         ),
         const Divider(height: 1, indent: FolioSpace.xs),
         Expanded(
-          child: ListView(
+          child: ListView.builder(
             padding: const EdgeInsets.only(bottom: FolioSpace.md),
-            children: [
-              for (final folder in rootFolders)
-                _FolderTreeItemRecursive(
-                  folder: folder,
-                  allFolders: data.folders,
-                  selectedFolderId: selectedFolderId,
-                  depth: 0,
-                  onSelectFolder: onSelectFolder,
-                  onRenameFolder: onRenameFolder,
-                  onDeleteFolder: onDeleteFolder,
-                  onMoveFolder: onMoveFolder,
-                  onMoveEntry: onMoveEntryToFolder,
-                  onChangeColor: onChangeColor,
-                  data: data,
-                  l10n: l10n,
-                  scheme: scheme,
-                  theme: theme,
+            itemCount: flatFolders.length,
+            itemBuilder: (context, index) {
+              final node = flatFolders[index];
+              final folder = node.folder;
+              return Padding(
+                padding: EdgeInsets.only(left: node.depth * 12.0),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: _FolderTreeItem(
+                        label: folder.name,
+                        icon: Icons.folder_rounded,
+                        iconColor: folder.colorValue != null
+                            ? Color(folder.colorValue!)
+                            : null,
+                        isSelected: selectedFolderId == folder.id,
+                        folderId: folder.id,
+                        onTap: () => onSelectFolder(folder.id),
+                        onMoveEntry: onMoveEntryToFolder,
+                        onMoveFolder: onMoveFolder,
+                        canAcceptCycle: (f) =>
+                            !data.wouldCreateCycle(f.id, folder.id),
+                        l10n: l10n,
+                        scheme: scheme,
+                        theme: theme,
+                      ),
+                    ),
+                    _FolderContextMenuButton(
+                      folder: folder,
+                      onRename: onRenameFolder,
+                      onDelete: onDeleteFolder,
+                      onChangeColor: onChangeColor,
+                      l10n: l10n,
+                      scheme: scheme,
+                    ),
+                  ],
                 ),
-            ],
+              );
+            },
           ),
         ),
-      ],
-    );
-  }
-}
-
-// (removed unused constant)
-
-class _FolderTreeItemRecursive extends StatelessWidget {
-  const _FolderTreeItemRecursive({
-    required this.folder,
-    required this.allFolders,
-    required this.selectedFolderId,
-    required this.depth,
-    required this.onSelectFolder,
-    required this.onRenameFolder,
-    required this.onDeleteFolder,
-    required this.onMoveFolder,
-    required this.onMoveEntry,
-    required this.onChangeColor,
-    required this.data,
-    required this.l10n,
-    required this.scheme,
-    required this.theme,
-  });
-
-  final FolioDriveFolder folder;
-  final List<FolioDriveFolder> allFolders;
-  final String? selectedFolderId;
-  final int depth;
-  final ValueChanged<String?> onSelectFolder;
-  final ValueChanged<FolioDriveFolder> onRenameFolder;
-  final ValueChanged<FolioDriveFolder> onDeleteFolder;
-  final void Function(FolioDriveFolder, String?) onMoveFolder;
-  final void Function(FolioDriveEntry, String?) onMoveEntry;
-  final void Function(FolioDriveFolder, int?) onChangeColor;
-  final FolioFileDriveData data;
-  final AppLocalizations l10n;
-  final ColorScheme scheme;
-  final ThemeData theme;
-
-  @override
-  Widget build(BuildContext context) {
-    final children = allFolders.where((f) => f.parentId == folder.id).toList();
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        Padding(
-          padding: EdgeInsets.only(left: depth * 12.0),
-          child: Row(
-            children: [
-              Expanded(
-                child: _FolderTreeItem(
-                  label: folder.name,
-                  icon: Icons.folder_rounded,
-                  iconColor: folder.colorValue != null
-                      ? Color(folder.colorValue!)
-                      : null,
-                  isSelected: selectedFolderId == folder.id,
-                  folderId: folder.id,
-                  onTap: () => onSelectFolder(folder.id),
-                  onMoveEntry: onMoveEntry,
-                  onMoveFolder: onMoveFolder,
-                  canAcceptCycle: (f) =>
-                      !data.wouldCreateCycle(f.id, folder.id),
-                  l10n: l10n,
-                  scheme: scheme,
-                  theme: theme,
-                ),
-              ),
-              _FolderContextMenuButton(
-                folder: folder,
-                onRename: onRenameFolder,
-                onDelete: onDeleteFolder,
-                onChangeColor: onChangeColor,
-                l10n: l10n,
-                scheme: scheme,
-              ),
-            ],
-          ),
-        ),
-        for (final child in children)
-          _FolderTreeItemRecursive(
-            folder: child,
-            allFolders: allFolders,
-            selectedFolderId: selectedFolderId,
-            depth: depth + 1,
-            onSelectFolder: onSelectFolder,
-            onRenameFolder: onRenameFolder,
-            onDeleteFolder: onDeleteFolder,
-            onMoveFolder: onMoveFolder,
-            onMoveEntry: onMoveEntry,
-            onChangeColor: onChangeColor,
-            data: data,
-            l10n: l10n,
-            scheme: scheme,
-            theme: theme,
-          ),
       ],
     );
   }
@@ -1261,8 +1197,8 @@ class _FolderContextMenuButton extends StatelessWidget {
       icon: const Icon(Icons.more_vert, size: 16),
       iconSize: 16,
       itemBuilder: (_) => [
-        PopupMenuItem(value: 'rename', child: const Text('Rename')),
-        PopupMenuItem(value: 'color', child: const Text('Change color')),
+        PopupMenuItem(value: 'rename', child: Text(l10n.rename)),
+        PopupMenuItem(value: 'color', child: Text(l10n.driveFolderColor)),
         PopupMenuItem(value: 'delete', child: Text(l10n.driveDeleteConfirm)),
       ],
       onSelected: (v) {
@@ -1505,7 +1441,7 @@ class _FileAreaState extends State<_FileArea> {
                   visualDensity: VisualDensity.compact,
                 ),
                 icon: const Icon(Icons.drive_file_move_rounded, size: 16),
-                label: const Text('Mover a…'),
+                label: Text(widget.l10n.driveMoveTo),
                 onPressed: () =>
                     _showMultiMoveDialog(context, widget.data.folders),
               ),
@@ -1516,7 +1452,7 @@ class _FileAreaState extends State<_FileArea> {
                   visualDensity: VisualDensity.compact,
                 ),
                 icon: const Icon(Icons.close_rounded, size: 16),
-                label: const Text('Cancelar'),
+                label: Text(widget.l10n.cancel),
                 onPressed: widget.onClearMultiSelect,
               ),
             ],
@@ -1754,14 +1690,15 @@ class _FileAreaState extends State<_FileArea> {
     BuildContext context,
     List<FolioDriveFolder> folders,
   ) {
+    final l10n = AppLocalizations.of(context);
     showDialog<String?>(
       context: context,
       builder: (ctx) => SimpleDialog(
-        title: const Text('Mover a carpeta'),
+        title: Text(l10n.driveMoveToFolderTitle),
         children: [
           SimpleDialogOption(
             onPressed: () => Navigator.pop(ctx, ''),
-            child: const Text('/ (raíz)'),
+            child: Text(l10n.driveRootPath),
           ),
           for (final f in folders)
             SimpleDialogOption(
@@ -1931,7 +1868,7 @@ class _FileGridCard extends StatelessWidget {
     final isDraggingMultiple = isMultiSelected && multiSelectedCount > 1;
     return Draggable<FolioDriveEntry>(
       data: entry,
-      dragAnchorStrategy: (_, __, ___) => const Offset(40, 40),
+      dragAnchorStrategy: (_, _, _) => const Offset(40, 40),
       feedback: Material(
         color: Colors.transparent,
         child: Container(
@@ -2127,7 +2064,7 @@ class _FileListRow extends StatelessWidget {
     final isDraggingMultiple = isMultiSelected && multiSelectedCount > 1;
     return Draggable<FolioDriveEntry>(
       data: entry,
-      dragAnchorStrategy: (_, __, ___) => const Offset(20, 16),
+      dragAnchorStrategy: (_, _, _) => const Offset(20, 16),
       feedback: Material(
         color: Colors.transparent,
         child: Container(
@@ -2251,13 +2188,13 @@ class _FileContextMenuState extends State<_FileContextMenu> {
         padding: EdgeInsets.zero,
         itemBuilder: (_) => [
           PopupMenuItem(value: 'open', child: Text(widget.l10n.driveOpenFile)),
-          PopupMenuItem(value: 'rename', child: const Text('Rename')),
+          PopupMenuItem(value: 'rename', child: Text(widget.l10n.rename)),
           if (widget.folders.isNotEmpty)
             PopupMenuItem(value: 'move', child: Text(widget.l10n.driveMoveTo)),
           const PopupMenuDivider(),
-          const PopupMenuItem(
+          PopupMenuItem(
             value: 'export',
-            child: Text('Exportar al disco…'),
+            child: Text(widget.l10n.driveExportToDisk),
           ),
           const PopupMenuDivider(),
           PopupMenuItem(
@@ -2300,18 +2237,18 @@ class _FileContextMenuState extends State<_FileContextMenu> {
           enabled: false,
           padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
           child: Text(
-            '¿Eliminar "${widget.entry.name}"?',
+            widget.l10n.driveDeleteEntryNamed(widget.entry.name),
             style: textTheme.bodySmall,
           ),
         ),
         PopupMenuItem<bool>(
           value: true,
           child: Text(
-            'Eliminar',
+            widget.l10n.delete,
             style: TextStyle(color: scheme.error, fontWeight: FontWeight.w600),
           ),
         ),
-        PopupMenuItem<bool>(value: false, child: const Text('Cancelar')),
+        PopupMenuItem<bool>(value: false, child: Text(widget.l10n.cancel)),
       ],
     ).then((ok) {
       if (ok == true) widget.onDelete(widget.entry);
@@ -2328,7 +2265,7 @@ class _FileContextMenuState extends State<_FileContextMenu> {
         children: [
           SimpleDialogOption(
             onPressed: () => Navigator.pop(dialogCtx, ''),
-            child: const Text('/ (root)'),
+            child: Text(widget.l10n.driveRootPath),
           ),
           for (final f in widget.folders)
             SimpleDialogOption(
@@ -2449,7 +2386,7 @@ class _VaultImportDialogState extends State<_VaultImportDialog> {
   @override
   Widget build(BuildContext context) {
     final l10n = widget.l10n;
-    return AlertDialog(
+    return FolioDialog(
       title: Text(l10n.driveImportFromVault),
       content: SizedBox(
         width: 420,
@@ -2494,7 +2431,7 @@ class _VaultImportDialogState extends State<_VaultImportDialog> {
       actions: [
         TextButton(
           onPressed: () => Navigator.pop(context),
-          child: const Text('Cancel'),
+          child: Text(l10n.cancel),
         ),
         FilledButton(
           onPressed: _selected.isEmpty
@@ -2516,6 +2453,7 @@ class _BreadcrumbBar extends StatelessWidget {
     required this.data,
     required this.selectedFolderId,
     required this.onNavigate,
+    required this.l10n,
     required this.scheme,
     required this.theme,
   });
@@ -2523,6 +2461,7 @@ class _BreadcrumbBar extends StatelessWidget {
   final FolioFileDriveData data;
   final String? selectedFolderId;
   final ValueChanged<String?> onNavigate;
+  final AppLocalizations l10n;
   final ColorScheme scheme;
   final ThemeData theme;
 
@@ -2557,7 +2496,7 @@ class _BreadcrumbBar extends StatelessWidget {
                 padding: const EdgeInsets.symmetric(horizontal: FolioSpace.xxs),
               ),
               child: Text(
-                'All files',
+                l10n.driveAllFilesRoot,
                 style: theme.textTheme.labelMedium?.copyWith(
                   color: scheme.primary,
                 ),
@@ -2567,7 +2506,7 @@ class _BreadcrumbBar extends StatelessWidget {
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: FolioSpace.xxs),
               child: Text(
-                'All files',
+                l10n.driveAllFilesRoot,
                 style: theme.textTheme.labelMedium?.copyWith(
                   fontWeight: FontWeight.w600,
                 ),
@@ -2664,7 +2603,7 @@ class _DriveDetailsPanel extends StatelessWidget {
           ),
           child: Row(
             children: [
-              Text('Details', style: theme.textTheme.titleSmall),
+              Text(l10n.driveDetailsTitle, style: theme.textTheme.titleSmall),
               const Spacer(),
               IconButton(
                 icon: const Icon(Icons.close_rounded, size: 18),
@@ -2721,14 +2660,16 @@ class _DriveDetailsPanel extends StatelessWidget {
               const Divider(),
               // Details rows.
               _DetailRow(
-                label: 'Type',
-                value: isFolder ? 'Folder' : _fileTypeName(entry!.fileType),
+                label: l10n.driveDetailType,
+                value: isFolder
+                    ? l10n.driveDetailFolderType
+                    : _fileTypeName(l10n, entry!.fileType),
                 scheme: scheme,
                 theme: theme,
               ),
               if (entry != null) ...[
                 _DetailRow(
-                  label: 'Size',
+                  label: l10n.driveDetailSize,
                   value: entry.sizeBytes != null
                       ? _formatSize(entry.sizeBytes!)
                       : '—',
@@ -2736,7 +2677,7 @@ class _DriveDetailsPanel extends StatelessWidget {
                   theme: theme,
                 ),
                 _DetailRow(
-                  label: 'Added',
+                  label: l10n.driveDetailAdded,
                   value: entry.addedAtMs != null
                       ? DateFormat('MMM d, yyyy').format(
                           DateTime.fromMillisecondsSinceEpoch(entry.addedAtMs!),
@@ -2746,17 +2687,17 @@ class _DriveDetailsPanel extends StatelessWidget {
                   theme: theme,
                 ),
                 _DetailRow(
-                  label: 'Source',
+                  label: l10n.driveDetailSource,
                   value: entry.sourcePageId != null
-                      ? 'Imported from vault'
-                      : 'Uploaded',
+                      ? l10n.driveDetailSourceImported
+                      : l10n.driveDetailSourceUploaded,
                   scheme: scheme,
                   theme: theme,
                 ),
               ],
               if (isFolder) ...[
                 _DetailRow(
-                  label: 'Folders',
+                  label: l10n.driveDetailFolders,
                   value: data.folders
                       .where((f) => f.parentId == folder!.id)
                       .length
@@ -2765,7 +2706,7 @@ class _DriveDetailsPanel extends StatelessWidget {
                   theme: theme,
                 ),
                 _DetailRow(
-                  label: 'Files',
+                  label: l10n.driveDetailFiles,
                   value: data.entries
                       .where((e) => e.folderId == folder!.id)
                       .length
@@ -2799,7 +2740,7 @@ class _DriveDetailsPanel extends StatelessWidget {
                       Icons.drive_file_rename_outline_rounded,
                       size: 18,
                     ),
-                    label: const Text('Rename'),
+                    label: Text(l10n.rename),
                   ),
                 ),
                 if (data.folders.isNotEmpty)
@@ -2822,7 +2763,7 @@ class _DriveDetailsPanel extends StatelessWidget {
                   child: OutlinedButton.icon(
                     onPressed: () => onExportEntry(entry),
                     icon: const Icon(Icons.download_rounded, size: 18),
-                    label: const Text('Exportar al disco…'),
+                    label: Text(l10n.driveExportToDisk),
                   ),
                 ),
                 Padding(
@@ -2836,7 +2777,7 @@ class _DriveDetailsPanel extends StatelessWidget {
                     child: TextButton.icon(
                       onPressed: () {},
                       icon: const Icon(Icons.delete_outline_rounded, size: 18),
-                      label: const Text('Delete'),
+                      label: Text(l10n.delete),
                       style: TextButton.styleFrom(
                         foregroundColor: scheme.error,
                       ),
@@ -2858,7 +2799,7 @@ class _DriveDetailsPanel extends StatelessWidget {
                       Icons.drive_file_rename_outline_rounded,
                       size: 18,
                     ),
-                    label: const Text('Rename'),
+                    label: Text(l10n.rename),
                   ),
                 ),
                 Padding(
@@ -2878,7 +2819,7 @@ class _DriveDetailsPanel extends StatelessWidget {
                       );
                     },
                     icon: const Icon(Icons.color_lens_outlined, size: 18),
-                    label: const Text('Change color'),
+                    label: Text(l10n.driveFolderColor),
                   ),
                 ),
                 Padding(
@@ -2892,7 +2833,7 @@ class _DriveDetailsPanel extends StatelessWidget {
                     child: TextButton.icon(
                       onPressed: () {},
                       icon: const Icon(Icons.delete_outline_rounded, size: 18),
-                      label: const Text('Delete'),
+                      label: Text(l10n.delete),
                       style: TextButton.styleFrom(
                         foregroundColor: scheme.error,
                       ),
@@ -2907,16 +2848,16 @@ class _DriveDetailsPanel extends StatelessWidget {
     );
   }
 
-  String _fileTypeName(FolioDriveFileType type) {
+  String _fileTypeName(AppLocalizations l10n, FolioDriveFileType type) {
     switch (type) {
       case FolioDriveFileType.image:
-        return 'Image';
+        return l10n.driveFileTypeImage;
       case FolioDriveFileType.video:
-        return 'Video';
+        return l10n.driveFileTypeVideo;
       case FolioDriveFileType.audio:
-        return 'Audio';
+        return l10n.driveFileTypeAudio;
       case FolioDriveFileType.file:
-        return 'File';
+        return l10n.driveFileTypeFile;
     }
   }
 
@@ -2928,7 +2869,7 @@ class _DriveDetailsPanel extends StatelessWidget {
         children: [
           SimpleDialogOption(
             onPressed: () => Navigator.pop(ctx, ''),
-            child: const Text('/ (root)'),
+            child: Text(l10n.driveRootPath),
           ),
           for (final f in data.folders)
             SimpleDialogOption(
@@ -2971,6 +2912,7 @@ class _DeleteConfirmAnchorState extends State<_DeleteConfirmAnchor> {
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     final theme = Theme.of(context);
+    final l10n = AppLocalizations.of(context);
     return MenuAnchor(
       controller: _menuController,
       alignmentOffset: const Offset(0, 4),
@@ -2984,7 +2926,7 @@ class _DeleteConfirmAnchorState extends State<_DeleteConfirmAnchor> {
               mainAxisSize: MainAxisSize.min,
               children: [
                 Text(
-                  '¿Eliminar "${widget.label}"?',
+                  l10n.driveDeleteEntryNamed(widget.label),
                   style: theme.textTheme.bodySmall,
                 ),
                 const SizedBox(height: 10),
@@ -2993,7 +2935,7 @@ class _DeleteConfirmAnchorState extends State<_DeleteConfirmAnchor> {
                   children: [
                     TextButton(
                       onPressed: () => _menuController.close(),
-                      child: const Text('Cancelar'),
+                      child: Text(l10n.cancel),
                     ),
                     const SizedBox(width: 6),
                     FilledButton(
@@ -3011,7 +2953,7 @@ class _DeleteConfirmAnchorState extends State<_DeleteConfirmAnchor> {
                         _menuController.close();
                         widget.onConfirm();
                       },
-                      child: const Text('Eliminar'),
+                      child: Text(l10n.delete),
                     ),
                   ],
                 ),
@@ -3097,8 +3039,9 @@ class _FolderColorPicker extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return AlertDialog(
-      title: const Text('Folder color'),
+    final l10n = AppLocalizations.of(context);
+    return FolioDialog(
+      title: Text(l10n.driveFolderColor),
       content: SizedBox(
         width: 280,
         child: Wrap(
@@ -3122,7 +3065,7 @@ class _FolderColorPicker extends StatelessWidget {
       actions: [
         TextButton(
           onPressed: () => Navigator.of(context).pop(),
-          child: const Text('Cancel'),
+          child: Text(l10n.cancel),
         ),
       ],
     );

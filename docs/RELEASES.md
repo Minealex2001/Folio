@@ -41,6 +41,34 @@ El instalador de GitHub se compila con `--dart-define=FOLIO_DISTRIBUTION=github`
 | `play_store` | Reservado para builds Android publicados en Google Play (sin Microsoft Store). |
 | *(vacío)* | Legado / desarrollo local: en Windows puede ofrecerse Tienda además de Stripe si el runtime y los defines lo permiten. |
 
+En builds `microsoft_store` y `play_store`, la app **no** ofrece descarga/instalación de actualizaciones desde GitHub (`FolioDistribution.offersGitHubSelfUpdate`); las tiendas gestionan esas actualizaciones. Las **notas de versión** de la release en GitHub siguen pudiendo mostrarse (solo lectura). En Ajustes, **Buscar actualizaciones** abre la ficha en Microsoft Store o Google Play: en Windows Store define `FOLIO_MS_STORE_LISTING_PRODUCT_ID` (id de producto de Partner Center; `builld_all.ps1` lo lee también desde `functions/.env` si la línea está presente). En Play, por defecto se usa el `applicationId` de Android; opcional `--dart-define=FOLIO_PLAY_STORE_APP_ID=...`.
+
+## Publicación local con `builld_all.ps1`
+
+Además del CI, puedes compilar y publicar desde tu máquina con el menú interactivo del script:
+
+```powershell
+.\builld_all.ps1
+```
+
+- **Opción 1 (RELEASE estable):** compila `Folio-Setup-<semver>.exe` (Inno Setup) y ejecuta `gh release create v<semver> ... --generate-notes`.
+- **Opción 2 (PRE-RELEASE / Beta):** igual pero con `--prerelease` (marca la release como pre-release para el canal Beta descrito abajo).
+- **Opción 3 (solo notas):** crea la release/changelog sin adjuntar instalador.
+
+Modo directo (sin menú), útil para automatizar:
+
+```powershell
+# Release estable de la versión actual de pubspec.yaml
+.\builld_all.ps1 -Action release -Yes
+
+# Pre-release subiendo antes la versión
+.\builld_all.ps1 -Action prerelease -BumpVersion 1.4.0 -Yes
+```
+
+Requisitos: [GitHub CLI](https://cli.github.com/) (`gh`) autenticado (`gh auth login`) e [Inno Setup](https://jrsoftware.org/isinfo.php) (`ISCC.exe`) para el instalador. Parámetros útiles: `-ReleaseTag`, `-ReleaseTarget` (destino de la release; vacío = autodetecta la rama actual si está en el remoto, o la rama por defecto), `-DraftRelease`, `-Clean`.
+
+> El `target_commitish` se resuelve automáticamente: si omites `-ReleaseTarget`, el script usa la rama actual (si existe en `origin`) o la rama por defecto del remoto (`main`). GitHub crea el tag apuntando al **último commit de esa rama en el remoto**, así que empuja tus cambios antes de publicar.
+
 ## Workflow «Folio build all» (GitHub Actions)
 
 - Archivo: [`.github/workflows/folio-build-all.yml`](../.github/workflows/folio-build-all.yml) (manual: **Actions → Folio build all → Run workflow**).

@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter/services.dart';
@@ -89,5 +90,23 @@ void main() {
     expect(entry.mimeType, 'image/gif');
     expect(entry.filePath.endsWith('.gif'), isTrue);
     expect(File(entry.filePath).existsSync(), isTrue);
+  });
+
+  test('imports bytes as SVG', () async {
+    final service = CustomIconImportService();
+    const svg = '<svg xmlns="http://www.w3.org/2000/svg"></svg>';
+    final entry = await service.importFromBytes(
+      l10n: AppLocalizationsEn(),
+      bytes: utf8.encode(svg),
+      mimeType: 'image/svg+xml',
+      label: 'Home',
+      source: 'https://api.iconify.design/lucide/home.svg',
+    );
+
+    expect(entry.label, 'Home');
+    expect(entry.mimeType, 'image/svg+xml');
+    expect(entry.source, 'https://api.iconify.design/lucide/home.svg');
+    expect(entry.filePath.endsWith('.svg'), isTrue);
+    expect(File(entry.filePath).readAsStringSync(), svg);
   });
 }

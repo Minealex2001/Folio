@@ -14,6 +14,35 @@
   "continueAction": "Jarraitu",
   "cancel": "Utzi",
   "retry": "Saiatu berriro",
+  "skip": "Saltatu",
+  "onboardingProgressSemantics": "{current}. urratsa {total}tik",
+  "@onboardingProgressSemantics": {
+    "placeholders": {
+      "current": {"type": "int"},
+      "total": {"type": "int"}
+    }
+  },
+  "welcomeOptionCreateTitle": "Sortu koaderno berria",
+  "welcomeOptionCreateBody": "Hasi gailu honetan koaderno zifratu hutsez.",
+  "welcomeOptionImportTitle": "Inportatzeko datuak ditut",
+  "welcomeOptionImportBody": "Berreskuratu babeskopia fitxategitik, Folio Cloudetik edo Notion esportaziotik.",
+  "welcomeNewVaultTitle": "Koaderno berria",
+  "welcomeNewVaultBody": "Aukeratu pasahitz nagusia eta, nahi baduzu, hasierako laguntza orriak. Beste ezarpenak gero alda ditzakezu Ezarpenetan.",
+  "newVaultLeftPanelTitle": "Koaderno berria",
+  "newVaultLeftPanelBody": "Sortu koaderno zifratu gehigarria gailu honetan.",
+  "importSourceTitle": "Non daude zure datuak?",
+  "importSourceBody": "Aukeratu jatorria. Beste ezarpenak gero alda ditzakezu Ezarpenetan.",
+  "importSourceBackupSubtitle": "Beste gailu bateko Foliotik esportatutako .zip babeskopia.",
+  "importSourceCloudSubtitle": "Zerrendatu eta deskargatu babeskopia bat zure Folio Cloud kontutik.",
+  "importSourceNotionSubtitle": "Notion HTML/Markdown esportazioa .zip fitxategi batean.",
+  "onboardingAppearanceTitle": "Itxura",
+  "onboardingAppearanceBody": "Aukeratu gaiaren distira eta azentu-kolorea. Gero xehetu dezakezu Ezarpenetan.",
+  "onboardingSecurityTitle": "Segurtasuna",
+  "onboardingSecurityBody": "Konfiguratu blokeo automatikoa Folio irekita dagoenean eta leihoa minimizatzean.",
+  "onboardingBackupsTitle": "Programatutako babeskopiak",
+  "onboardingBackupsBody": "Aukeran gaitu automatikoki zifratutako babeskopiak tarte batean. Karpetak eta hodeira igotzea Ezarpenetan alda daitezke.",
+  "onboardingSystemTitle": "Windows-en portaera",
+  "onboardingSystemBody": "Erretilua eta jakinarazpenen hobespenak Windows-en.",
   "settings": "Ezarpenak",
   "lockNow": "Blokeatu",
   "pageHistory": "Orrialdearen historia",
@@ -44,12 +73,13 @@
     }
   },
   "createStarterPagesTitle": "Sortu hasierako laguntza-orriak",
-  "createStarterPagesBody": "Adibideak, lasterbideak eta Folioren gaitasunak biltzen dituen gida txiki bat gehitzen du. Orrialde horiek geroago ezaba ditzakezu.",
+  "createStarterPagesBody": "Gehitu Folio nola erabiliko duzun arabera pertsonalizatutako hasierako gida. Orrialde horiek geroago ezaba ditzakezu.",
   "passwordLabel": "Pasahitza",
   "confirmPasswordLabel": "Berretsi pasahitza",
   "next": "Hurrengoa",
   "readyTitle": "Dena prest",
   "readyBody": "Gorde-leku enkriptatu bat sortuko da gailu honetan. Geroago, Windows Hello, biometria edo sarbide-gako bat gehitu ahal izango duzu desblokeatze azkarragoa izateko (Ezarpenak).",
+  "readyBodyPlainVault": "Enkriptatu gabeko gorde-leku bat sortuko da gailu honetan. Aukera gehiago alda ditzakezu Ezarpenetan nahi duzunean.",
   "quillIntroTitle": "Ezagutu Quill",
   "quillIntroBody": "Quill Folioren laguntzaile integratua da. Zure orrialdeak idazten, editatzen eta ulertzen lagun zaitzake, eta aplikazioa erabiltzeari buruzko galderak erantzun ditzake.",
   "quillIntroCapabilityWrite": "Zure orrialdeen barruko edukia zirriborratu, laburtu edo berridatzi dezake.",
@@ -69,11 +99,11 @@
     }
   },
   "passwordMismatchError": "Pasahitzak ez datoz bat.",
-  "passwordMustBeStrongError": "Pasahitzak sendoa izan behar du jarraitzeko.",
+  "passwordMustBeStrongError": "Pasahitzak gutxienez Ondo izan behar du jarraitzeko.",
   "passwordStrengthLabel": "Indarra",
   "passwordStrengthVeryWeak": "Oso ahula",
   "passwordStrengthWeak": "Ahula",
-  "passwordStrengthFair": "Onargarria",
+  "passwordStrengthFair": "Ondo",
   "passwordStrengthStrong": "Sendoa",
   "showPassword": "Erakutsi pasahitza",
   "hidePassword": "Ezkutatu pasahitza",
@@ -95,6 +125,8 @@
   "systemTheme": "Sistemarena",
   "lightTheme": "Argia",
   "darkTheme": "Iluna",
+  "settingsOledThemeTitle": "OLED gaia",
+  "settingsOledThemeBody": "Erabili beltz purua modu ilunean bateria aurrezteko eta distira murrizteko.",
   "language": "Hizkuntza",
   "useSystemLanguage": "Erabili sistemaren hizkuntza",
   "spanishLanguage": "Gaztelania",
@@ -135,7 +167,7 @@
   "@passwordStrengthWithValue": {"placeholders": {"value": {}}},
   "fillAllFieldsError": "Bete eremu guztiak.",
   "newPasswordsMismatchError": "Pasahitz berriak ez datoz bat.",
-  "newPasswordMustBeStrongError": "Pasahitz berriak sendoa izan behar du.",
+  "newPasswordMustBeStrongError": "Pasahitz berriak gutxienez Ondo izan behar du.",
   "newPasswordMustDifferError": "Pasahitz berriak ezberdina izan behar du.",
   "incorrectPasswordError": "Pasahitz okerra.",
   "useHelloBiometrics": "Erabili Hello / biometria",
@@ -194,12 +226,13 @@
   "sidebarVaultsLoading": "Gorde-lekuak kargatzen…",
   "sidebarVaultsEmpty": "Ez dago gorde-lekurik eskuragarri",
   "forceSyncTooltip": "Behartu sinkronizazioa",
-  "searchDialogFooterHint": "Sartu-k nabarmendutako emaitza irekitzen du · Ctrl+↑ / Ctrl+↓ nabigatzeko · Esc itxi",
+  "searchDialogFooterHint": "Sartu-k nabarmendutako emaitza irekitzen du · ↑ / ↓ nabigatzeko · Esc itxi",
   "searchFilterTasks": "Atazak",
   "searchRecentQueries": "Azken bilaketak",
+  "searchClearRecent": "Garbitu azken bilaketak",
   "searchShortcutsHelpTooltip": "Teklatuko lasterbideak",
   "searchShortcutsHelpTitle": "Bilaketa orokorra",
-  "searchShortcutsHelpBody": "Sartu: ireki nabarmendutako emaitza\nCtrl+↑ edo Ctrl+↓: aurreko / hurrengo emaitza\nEsc: itxi",
+  "searchShortcutsHelpBody": "Sartu: ireki nabarmendutako emaitza\n↑ edo ↓: aurreko / hurrengo emaitza\nEsc: itxi",
   "renamePageTitle": "Aldatu orrialdearen izena",
   "titleLabel": "Izenburua",
   "rootPage": "Erroa",
@@ -515,6 +548,8 @@
   "quillTourDismiss": "Ulertuta",
   "aiExpand": "Zabaldu",
   "aiCollapse": "Tolestu",
+  "sidebarItemExpandedSemantics": "Zabalduta",
+  "sidebarItemCollapsedSemantics": "Tolestuta",
   "aiDeleteCurrentChat": "Ezabatu uneko txata",
   "aiNewChat": "Berria",
   "aiAttach": "Erantsi",
@@ -529,6 +564,8 @@
   "aiContextCurrentPageFallback": "Uneko orrialdea",
   "aiContextAddFile": "Erantsi fitxategia",
   "aiContextAddPage": "Erantsi orrialdea",
+  "aiContextEditorSelection": "Sartu editorearen hautapena (hurrengo bidalketa)",
+  "aiContextLastMeetingOnPage": "Sartu orrialdeko azken bilera (hurrengo bidalketa)",
   "aiShowPanel": "Erakutsi AA panela",
   "aiHidePanel": "Ezkutatu AA panela",
   "aiPanelResizeHandle": "Aldatu AA panelaren tamaina",
@@ -625,6 +662,12 @@
   "taskQuickAddConfirm": "Gehitu",
   "taskQuickAddSuccess": "Zeregina gehituta.",
   "taskQuickAddAliasTargetMissing": "Aliasaren helburuko orria jada ez dago.",
+  "taskQuickAddTagsLabel": "Etiketak",
+  "taskQuickAddTagsHint": "Komatxiz bereiziak (adib.: lana, bezeroa)",
+  "taskQuickAddAssigneeLabel": "Esleituta",
+  "taskQuickAddStoryPointsLabel": "Story points",
+  "taskQuickAddEstimatedMinutesLabel": "Estimatutako minutuak",
+  "taskBlockExpandDetailsTitle": "Oharrak, etiketak eta esleipena",
   "taskHubTitle": "Zeregin guztiak",
   "taskHubClose": "Itxi ikuspegia",
   "taskHubDashboardHelpTitle": "Dashboard estiloko ideiak",
@@ -639,6 +682,11 @@
   "taskHubOpen": "Ireki",
   "taskHubMarkDone": "Eginda",
   "taskHubIncludeTodos": "Sartu kontrol-zerrendak",
+  "vaultTaskHubSearchHint": "Bilatu izenburu, orri, etiketa edo esleipenaren arabera",
+  "vaultTaskPresetNext7Days": "Hurrengo 7 egunak",
+  "vaultTaskPresetNoDueDate": "Data gabe",
+  "taskVaultMoveToPage": "Beste orri batera eraman…",
+  "taskVaultMovePickTitle": "Aukeratu helburuko orria",
   "sidebarQuickAddTask": "Zeregin azkarra",
   "sidebarTaskHub": "Zeregin guztiak",
   "shortcutTestAction": "Probatu",
@@ -669,12 +717,13 @@
   "scheduledVaultBackupTitle": "Programatutako babeskopia enkriptatua",
   "scheduledVaultBackupSubtitle": "Gorde-lekua desblokeatuta dagoen bitartean, Foliok automatikoki egiten du babeskopia aukeratutako maiztasunarekin. Aktibatu karpetako babeskopia, hodeikoa, edo biak.",
   "scheduledVaultBackupFolderTitle": "Babeskopia karpetan",
-  "scheduledVaultBackupFolderSubtitle": "ZIP enkriptatua gordetzen du konfiguratutako karpetan intervalo bakoitzean.",
+  "scheduledVaultBackupFolderSubtitle": "Kopi inkremental zifratua (pack) gordetzen du konfiguratutako karpetan.",
   "scheduledVaultBackupChooseFolder": "Babeskopia-karpeta",
   "scheduledVaultBackupClearFolderTooltip": "Karpeta garbitu",
   "scheduledVaultBackupCloudOnlyTitle": "Programatutako babeskopiak hodeian soilik",
-  "scheduledVaultBackupCloudOnlySubtitle": "Ez du ZIPik gordetzen diskoan. Babeskopiak hodeira bakarrik igotzen ditu.",
+  "scheduledVaultBackupCloudOnlySubtitle": "Ez du kopiarik gordetzen diskoan. Kopiak inkrementalak hodeira bakarrik igotzen ditu.",
   "scheduledVaultBackupIntervalLabel": "Maiztasuna",
+  "scheduledVaultBackupEveryChange": "Aldaketa bakoitzean",
   "scheduledVaultBackupEveryNMinutes": "{n, plural, one{1 minutu} other{{n} minutu}}",
   "@scheduledVaultBackupEveryNMinutes": {
     "placeholders": {
@@ -700,6 +749,84 @@
   "vaultBackupRunNowTile": "Exekutatu programatutako babeskopia orain",
   "vaultBackupRunNowSubtitle": "Exekutatu programatutako babeskopia orain (diskoan eta/edo hodeian) itxaron gabe.",
   "vaultBackupRunNowNeedFolder": "Hautatu tokiko babeskopia-karpeta bat, edo aktibatu “Igo Folio Cloud-era ere” hodeian soilik gordetzeko.",
+  "vaultBackupProgressDialogTitle": "Babeskopia abian",
+  "vaultBackupProgressCompactHint": "Xehetasunak arazketa-kontsolan agertzen dira.",
+  "vaultBackupProgressLocalZipStart": "ZIP-a konfiguratutako karpetan sortzen…",
+  "vaultBackupProgressLocalZipDone": "Karpetako ZIP-a amaituta.",
+  "vaultBackupProgressNetworkStart": "Sareko helmugara kopia bidaltzen…",
+  "vaultBackupProgressNetworkDone": "Sareko helmugako kopia amaituta.",
+  "vaultBackupRunNowNeedDestination": "Konfiguratu sareko karpeta bat, WebDAV edo aktibatu «Folio Cloud kopia».",
+  "remoteBackupConfigTitle": "NAS edo zerbitzari helmuga",
+  "remoteBackupTabFolder": "Sareko karpeta",
+  "remoteBackupTabWebdav": "WebDAV",
+  "remoteBackupNetworkPathLabel": "Karpetaren bidea",
+  "remoteBackupNetworkPathHint": "Adib. Z:\\backups\\folio edo \\\\nas\\backups\\folio",
+  "remoteBackupCredentialsTitle": "Zerbitzariaren kredentzialak",
+  "remoteBackupUsernameLabel": "Erabiltzailea",
+  "remoteBackupPasswordLabel": "Pasahitza",
+  "remoteBackupDomainLabel": "Domeinua",
+  "remoteBackupDomainOptional": "Aukerakoa (Windows/SMB)",
+  "remoteBackupRequiresAuth": "Zerbitzariak erabiltzailea eta pasahitza eskatzen ditu",
+  "remoteBackupRequiresAuthSubtitle": "Aktibatu Folio-k autentifikatu behar badu (programatutako kopiak unitatea muntatu gabe).",
+  "remoteBackupMountedDriveHint": "Sistemak unitatea muntatuta baduzu, kredentzialak hutsik utzi ditzakezu.",
+  "remoteBackupTestConnection": "Konexioa probatu",
+  "remoteBackupTestConnectionOk": "Konexioa ondo.",
+  "remoteBackupTestConnectionFail": "Ezin izan da konektatu: {error}",
+  "@remoteBackupTestConnectionFail": {"placeholders": {"error": {}}},
+  "remoteBackupWebdavUrlLabel": "WebDAV zerbitzariaren URLa",
+  "remoteBackupWebdavPathLabel": "Urruneko karpeta",
+  "remoteBackupWebdavTitle": "WebDAV kopia",
+  "remoteBackupWebdavSubtitle": "Igo zifratutako kopiak NASera edo zerbitzarira (Ugreen: gaitu WebDAV panelan, 5005/5006 portuak).",
+  "remoteBackupRetentionLabel": "Gordetzeko kopiak",
+  "remoteBackupRetentionSubtitle": "Sareko helmuga bakoitzeko; 0 = mugarik gabe.",
+  "remoteBackupUgreenHelp": "Ugreen NASean: sortu idazketa baimena duen erabiltzaile bat eta erabili HTTPS eskuragarri badago.",
+  "remoteBackupSave": "Helmuga gorde",
+  "remoteBackupConfigureFolder": "Sareko karpeta konfiguratu",
+  "remoteBackupConfigureWebdav": "WebDAV konfiguratu",
+  "remoteBackupRestoreTitle": "NASeko edo zerbitzariko kopiak",
+  "remoteBackupRestoreFromFolder": "Karpeta",
+  "remoteBackupRestoreFromWebdav": "WebDAV",
+  "remoteBackupRestoreEmpty": "Ez dago Folio kopiak helmuga honetan.",
+  "remoteBackupRestoreDownload": "Deskargatu",
+  "remoteBackupRestoreImportNew": "Inportatu koaderno berri gisa",
+  "remoteBackupRestoreImportOverwrite": "Gainidatzi koaderno aktiboa",
+  "remoteBackupRestoreOpen": "Berreskuratu NASetik edo zerbitzaritik",
+  "remoteBackupRestoreIncrementalPackTitle": "Kopia inkrementala ({vaultId})",
+  "@remoteBackupRestoreIncrementalPackTitle": {
+    "placeholders": {
+      "vaultId": {"type": "String"}
+    }
+  },
+  "remoteBackupRestoreIncrementalPackSubtitle": "Pack inkrementala",
+  "remoteBackupExportDestinationTitle": "Non gorde kopia?",
+  "remoteBackupExportToLocalFile": "Fitxategia gailu honetan",
+  "remoteBackupExportToFolder": "Konfiguratutako karpeta edo NAS",
+  "remoteBackupExportToWebdav": "Konfiguratutako WebDAV zerbitzaria",
+  "remoteBackupEnterNetworkPath": "Sareko bidea sartu",
+  "remoteBackupDialogClose": "Itxi",
+  "remoteBackupDialogRefresh": "Freskatu",
+  "vaultCloudPackProgressPreparing": "Hodeira igotzeko prestatzen…",
+  "vaultCloudPackProgressPersisting": "Gordelekuaren tokiko aldaketak gordetzen…",
+  "vaultCloudPackProgressFingerprint": "Edukiaren hatz digitala kalkulatzen…",
+  "vaultCloudPackProgressFetchingMeta": "Folio Cloud-en egoera kontsultatzen…",
+  "vaultCloudPackProgressSkippedUpToDate": "Ez dago igo beharrik: hodeiak bertsio hau dueneko.",
+  "vaultCloudPackProgressRestoreWrap": "Beste gailuetarako berreskuratze-gakoak prestatzen…",
+  "vaultCloudPackProgressIndexingLocal": "Tokiko fitxategiak inbentariatzen…",
+  "vaultCloudPackProgressDownloadingManifest": "Hodeiko aurreko inbentarioa deskargatzen…",
+  "vaultCloudPackProgressBlobManifest": "Babeskopiaren manifestua",
+  "vaultCloudPackProgressBlobVaultKeys": "Gordelekuaren gakoak (vault.keys)",
+  "vaultCloudPackProgressBlobVaultData": "Gordelekuaren datu enkriptatuak (vault.bin)",
+  "vaultCloudPackProgressBlobVaultMode": "Gordelekuaren modua",
+  "vaultCloudPackProgressBlobAttachment": "Eranskina: {name}",
+  "@vaultCloudPackProgressBlobAttachment": {"placeholders": {"name": {"type": "String"}}},
+  "vaultCloudPackProgressBlobAttachmentAnonymous": "Eranskina",
+  "vaultCloudPackProgressUploadingBlobProgress": "{total}tik {current}. zatia igotzen: {part}",
+  "@vaultCloudPackProgressUploadingBlobProgress": {"placeholders": {"current": {"type": "int"}, "total": {"type": "int"}, "part": {"type": "String"}}},
+  "vaultCloudPackProgressUploadingSnapshot": "Babeskopiaren snapshot-a igotzen…",
+  "vaultCloudPackProgressFinalizing": "Babeskopia zerbitzarian erregistratzen…",
+  "vaultCloudPackProgressCleaningBlobs": "Hodeiko datu zaharrak kentzen…",
+  "vaultCloudPackProgressUpdatingIndex": "Babeskopien indizea eguneratzen…",
+  "vaultCloudPackProgressComplete": "Hodeiko babeskopia osatuta.",
   "vaultIdentitySyncTitle": "Sinkronizazioa",
   "vaultIdentitySyncBody": "Sartu gorde-lekuaren pasahitza (edo Hello / sarbide-gakoa) jarraitzeko.",
   "vaultIdentityCloudBackupTitle": "Hodeiko babeskopiak",
@@ -967,6 +1094,29 @@
   "@folioCloudInkCount": {"placeholders": {"count": {"type": "int"}}},
   "folioCloudPlanActiveHeadline": "Folio Cloud hileko plan aktiboa",
   "folioCloudSubscribeMonthly": "Folio Cloud 4,99 €/hilean",
+  "folioCloudSubscribeFamily": "Familia Plana (4,99 € + 2,99 €/kidea hilean)",
+  "folioCloudSubscribeStudent": "Ikasle Tarifa (2,49 €/hilean)",
+  "folioCloudPlanActiveStudent": "Ikasle Harpidetza Aktiboa",
+  "folioCloudPlanActiveFamily": "Familia Harpidetza Aktiboa",
+  "folioCloudPlanActiveFamilyMember": "Familia Harpidetza (Kidea)",
+  "folioCloudFamilyTitle": "Familia Kudeaketa",
+  "folioCloudFamilyOwnerNote": "Familia harpidetza aktiboa. Kontratatutako lekuak: {seats}. Gehitutako kideak: {count}/{seats}.",
+  "@folioCloudFamilyOwnerNote": {"placeholders": {"seats": {"type": "int"}, "count": {"type": "int"}}},
+  "folioCloudFamilyMemberNote": "{owner} familiako kidea zara.",
+  "@folioCloudFamilyMemberNote": {"placeholders": {"owner": {"type": "String"}}},
+  "folioCloudFamilyEmailPlaceholder": "Gonbidatu behar den familiako kidearen posta",
+  "folioCloudFamilyInviteButton": "Familiako kidea gonbidatu",
+  "folioCloudFamilyRemoveButton": "Ezabatu",
+  "folioCloudFamilyLeaveButton": "Familiatik irten",
+  "folioCloudStudentVerifyButton": "Ikasle posta egiaztatu",
+  "folioCloudStudentVerifySuccess": "Ikasle kontua egiaztatuta!",
+  "folioCloudStudentVerifyFail": "Posta ez da ikaslea (.edu edo antzekoa).",
+  "folioCloudStudentVerifyDialogTitle": "Ikasle egiaztapena",
+  "folioCloudStudentVerifyDialogDesc": "Sartu zure erakundeko helbide elektronikoa Folio Cloud ikasle tarifarako egiaztatzeko.",
+  "folioCloudStudentVerifyDialogLabel": "Erakundeko helbide elektronikoa",
+  "folioCloudStudentVerifyDialogHint": "erabiltzaile@uji.es, erabiltzaile@unibertsitate.edu",
+  "folioCloudStudentVerifyDialogHelp": "Espainiako unibertsitate domeinu akademikoak eta domeinu globalak onartzen ditu.",
+  "folioCloudStudentVerifyDialogAction": "Egiaztatu orain",
   "folioCloudPitchScreenTitle": "Folio Cloud",
   "folioCloudPitchHeadline": "Zure gorde-lekua lokala da. Hodeiak nahi duzunean funtzionatzen du.",
   "folioCloudPitchSubhead": "Hileko plan batek babeskopia enkriptatuak, hodeiko AA hileroko ink kargarekin eta web-argitalpena desblokeatzen ditu — partekatu nahi duzunarentzat bakarrik.",
@@ -999,11 +1149,17 @@
   "folioCloudPurchaseChannelStoreNotConfigured": "Dendaren aukera ez dago konfiguratuta konpilazio honetan (produktu-id-ak falta dira).",
   "folioCloudPurchaseChannelStoreNotConfiguredHint": "Konpilatu --dart-define=MS_STORE_…-rekin edo erabili nabigatzaileko ordainketa.",
   "folioCloudMicrosoftStoreSyncHint": "Windows-en, «Eguneratu» Microsoft Store ere sinkronizatzen du (Stripe-rekin botoi bera).",
-  "folioCloudUploadEncryptedBackup": "Egin babeskopia hodeian orain",
-  "folioCloudUploadEncryptedBackupSubtitle": "Foliok irekita duzun gorde-lekuaren babeskopia enkriptatu bat sortu eta igotzen du — ZIP esportazio eskuzkorik gabe.",
+  "folioCloudIncrementalBackupManualHint": "Orain babeskopia inkremental enkriptatu bat igotzeko (.zip esportatu gabe), joan Ezarpenak → Gordelekura eta sakatu «{actionTitle}»; han konfiguratzen duzu tokiko karpeta eta/edo Folio Cloud.",
+  "@folioCloudIncrementalBackupManualHint": {
+    "placeholders": {
+      "actionTitle": {
+        "type": "String"
+      }
+    }
+  },
   "folioCloudUploadSnackOk": "Gorde-lekuaren babeskopia hodeian gordeta.",
   "scheduledVaultBackupCloudSyncTitle": "Babeskopia Folio Cloud-en",
-  "scheduledVaultBackupCloudSyncSubtitle": "Programatutako intervalo bakoitzean, babeskopia enkriptatua automatikoki igotzen du zure Folio Cloud kontura.",
+  "scheduledVaultBackupCloudSyncSubtitle": "Automatikoki igotzen du kopia inkremental zifratua zure Folio Cloud kontura (intervaloaren arabera edo aldaketa bakoitzean).",
   "folioCloudCloudBackupsList": "Hodeiko babeskopiak",
   "folioCloudBackupsUsed": "Erabilita",
   "folioCloudBackupsLimit": "Muga",
@@ -1025,6 +1181,7 @@
   "onboardingCloudBackupNeedLegacyArchive": "Koaderno honek babeskopi inkrementala soilik du hodeian. Gailu berri bat konfiguratzeko, deskargatu (.tar.gz) fitxategi oso bat Folio duen beste gailu batetik edo sortu ezarpenak → esportatu ataletik.",
   "onboardingCloudBackupNeedRestoreWrap": "Babeskopi inkremental honek oraindik ez du berreskuratze-giltza hodeian. Sortu zenuen gailuan, ireki Folio → Ezarpenak → igo babeskopia hodeira (sartu koadernoaren pasahitza eskatzen dizunean). (.zip) fitxategi oso bat ere erabil dezakezu baduzu.",
   "onboardingCloudBackupIncrementalRestoreBody": "Hodeiko babeskopi inkrementala prest. Sartu koadernoaren pasahitza (desblokeatzeko erabiltzen duzuna). Koadernoa zifratu gabe bazegoen, erabili igoeran ezarri zenuen berreskuratze-pasahitza.",
+  "cloudPackRestorePasswordHelper": "Pasahitzik gabe → utzi hutsik",
   "settingsCloudBackupWrapPasswordTitle": "Berreskuratzea beste gailuetan",
   "settingsCloudBackupWrapPasswordBody": "Sartu koaderno honen pasahitza. Zure kontuan zifratuta gordeko da babeskopi inkrementala Folio gailu berri batean instalatzean leheneratzeko.",
   "settingsCloudBackupWrapPasswordRequired": "Koadernoaren pasahitza beharrezkoa da.",
@@ -1052,6 +1209,29 @@
   "onboardingFolioCloudFeatureWebTitle": "Web-argitalpena",
   "onboardingFolioCloudFeatureWebBody": "Argitaratu hautatutako orrialdeak eta kontrolatu zer bihurtzen den publiko. Gainerako gorde-lekua ez da partekatzen.",
   "onboardingFolioCloudLaterInSettings": "Geroago ikusiko dut Ezarpenetan",
+  "onboardingPersonalizeTitle": "Egokitu zuretzat",
+  "onboardingPersonalizeBody": "Aukeratu nola ikusten den Folio eta noiz blokeatzen den. Ezarpenetan alda dezakezu edonoiz.",
+  "onboardingReliabilityTitle": "Babeskopiak eta mahaigaina",
+  "onboardingReliabilityBody": "Programatutako babeskopi zifratuak eta Windows bandeja aukerak. Saltatu geroago konfiguratu nahi baduzu.",
+  "onboardingPrivacyTrustTitle": "Pribatutasuna eta konfiantza",
+  "onboardingPrivacyTrustBody": "Zure oharrak gailu honetan geratzen dira. Estatistika anonimoak aukerakoak dira Folio hobetzen laguntzeko—zu erabakitzen duzu.",
+  "onboardingPrivacyTrustLocalFirstBadge": "Local-first: Folio osoan funtzionatzen du hodeirik gabe.",
+  "onboardingReadySummaryCloudActive": "Folio Cloud plana aktibo—babeskopiak, hodeiko AA eta argitalpena eskuragarri.",
+  "onboardingReadySummaryCloudSkipped": "Folio Cloud edonoiz arakatu dezakezu Ezarpenetatik.",
+  "onboardingFolioCloudPitchForNotes": "Babestu zure oharrak hodeiko babeskopi zifratuekin kopia gehigarri bat nahi duzunean.",
+  "onboardingFolioCloudPitchForJournal": "Babestu zure egunkaria zuk kontrolatutako babeskopi zifratuekin.",
+  "onboardingFolioCloudPitchForTasks": "Partekatu proiektuak eta argitaratu orriak webean prest zaudenean.",
+  "onboardingFolioCloudPitchForProjects": "Elkarlanean aritu eta argitaratu hautatutako orriak—zure gorde-leku osoa pribatua da.",
+  "onboardingFolioCloudPitchForKnowledge": "Erabili hodeiko AA zure ezagutza-basea antolatzeko eta arakatzeko.",
+  "onboardingFolioCloudPitchForStudy": "Ikasi hobeto AA ostatatua eta hilabeteko tinta berritzearekin.",
+  "onboardingFolioCloudCtaSubscribe": "Harpidetu — 4,99 €/hil",
+  "onboardingFolioCloudCtaCreateAccount": "Kontua sortu eta arakatu",
+  "onboardingFolioCloudSkip": "Jarraitu hodeirik gabe",
+  "folioCloudPitchPremiumMonthlyLabel": "Hileko Premium plana",
+  "folioCloudCheckoutSuccess": "Ordainketa arrakastaz osatu da.",
+  "folioCloudPlayStoreCheckoutUnavailableTitle": "Harpidetza mahaigaineko aplikazioan",
+  "folioCloudPlayStoreCheckoutUnavailableBody": "Folio Cloud harpidetzak ezin dira oraindik erosi Androideko bertsio honetatik. Harpidetu Folioren mahaigaineko aplikaziotik, eta gero hasi saioa hemen kontu berarekin.",
+  "workspaceHomeCloudGuestTeaserCta": "Ikusi zer sartzen den",
   "collabMenuAction": "Zuzeneko lankidetza",
   "collabSheetTitle": "Zuzeneko lankidetza",
   "collabHeaderSubtitle": "Folio kontua behar da. Hostatzeak plan bat behar du; unetzeak kodea bakarrik. Edukia eta txata muturretik muturrera enkriptatuta daude; zerbitzariak ezin du zure testua ikusi.",
@@ -1087,6 +1267,8 @@
   "updaterOpenApkDownloadQuestion": "Ireki APKaren deskarga orain?",
   "updaterManualCheckUnsupportedPlatform": "Barne eguneratzailea Windows eta Android-en soilik dago erabilgarri.",
   "updaterManualCheckAlreadyLatest": "Azken bertsioa duzu jada.",
+  "updaterStoreListingOpenFailed": "Ezin izan da denda ireki.",
+  "updaterMicrosoftStoreListingMissing": "Konpilazio honek ez dauka Microsoft Store-ko aplikazio-orrirarako esteka.",
   "updaterDialogLineCurrentVersion": "Uneko bertsioa: {currentVersion}",
   "@updaterDialogLineCurrentVersion": {"placeholders": {"currentVersion": {}}},
   "updaterDialogLineNewVersion": "Bertsio berria: {releaseVersion}",
@@ -1120,6 +1302,8 @@
   "taskDueTodayReminder": "Gaur iraungitzen da",
   "settingsWindowsNotifications": "Windows jakinarazpenak",
   "settingsWindowsNotificationsSubtitle": "Windows jakinarazpen natiboek erakutsiko dituzte gaur iraungitzen diren edo berandututa dauden zereginak",
+  "settingsLaunchAtStartup": "Abiarazi Windows abioarekin",
+  "settingsLaunchAtStartupSubtitle": "Ireki Folio automatikoki Windows-en saioa hastean",
   "title": "Izenburua",
   "description": "Deskribapena",
   "priority": "Lehentasuna",
@@ -1144,12 +1328,27 @@
   "calloutTypeWarning": "Abisua",
   "calloutTypeError": "Errorea",
   "calloutTypeNote": "Oharra",
-  "blockEditorEnterHintNewBlock": "Sartu: bloke berria (kodean: Sartu = lerroa)",
+  "blockEditorEnterHintNewBlock": "Sartu: bloke berria gaituta dagoenean (Ktrl+Sartu / Cmd+Sartu: beti) · kodean: Sartu = lerroa",
   "blockEditorEnterHintNewLine": "Sartu: lerro berria",
-  "blockEditorShortcutsHintMobile": "{enterHint} · / blokeetarako · sakatu blokeari ekintza gehiagorako",
+  "blockEditorSlashNoMatches": "Bat etortzerik ez",
+  "blockEditorShortcutsHintMobile": "{enterHint} · Ktrl+Sartu / Cmd+Sartu: bloke berria · / blokeetarako · sakatu blokeari ekintza gehiagorako",
   "@blockEditorShortcutsHintMobile": {"placeholders": {"enterHint": {"type": "String"}}},
-  "blockEditorShortcutsHintDesktop": "{enterHint} · Maius+Sartu: lerroa · / motak · # izenburua (lerro berean) · - · * · [] · ``` taula/irudia / · formatua: fokuratzean barra edo ** _ <u> ` ~~",
+  "blockEditorShortcutsHintDesktop": "{enterHint} · Ktrl+Sartu / Cmd+Sartu: beti bloke berria · Maius+Sartu: lerroa · / motak · # izenburua (lerro berean) · - · * · [] · ``` taula/irudia / · formatua: testua hautatzean barra flotatzailea edo ** _ <u> ` ~~",
   "@blockEditorShortcutsHintDesktop": {"placeholders": {"enterHint": {"type": "String"}}},
+  "formatToolbarQuillUnlink": "Kendu esteka",
+  "formatToolbarQuillTextColor": "Testuaren kolorea",
+  "formatToolbarQuillFillColor": "Atzeko kolorea",
+  "formatToolbarQuillHighlight": "Nabarmentzea",
+  "formatToolbarQuillHeading1": "1. izenburua",
+  "formatToolbarQuillHeading2": "2. izenburua",
+  "formatToolbarQuillHeading3": "3. izenburua",
+  "formatToolbarQuillBulletList": "Buletadun zerrenda",
+  "formatToolbarQuillNumberedList": "Zenbakidun zerrenda",
+  "formatToolbarQuillChecklist": "Eginkizun-zerrenda",
+  "formatToolbarQuillQuote": "Aipua",
+  "formatToolbarQuillIndentMore": "Handitu koska",
+  "formatToolbarQuillIndentLess": "Txikiagotu koska",
+  "formatToolbarQuillClear": "Garbitu formatua",
   "blockEditorSelectedBlocksBanner": "{count} bloke hautatuak · Maius: tartea · Ktrl/Cmd: txandakatu",
   "@blockEditorSelectedBlocksBanner": {"placeholders": {"count": {"type": "int"}}},
   "blockEditorDuplicate": "Bikoiztu",
@@ -1217,7 +1416,53 @@
   "blockEditorCmdMentionPageHint": "Txertatu barne-esteka orrialde batera",
   "blockEditorCmdTurnInto": "Bihurtu blokea",
   "blockEditorCmdTurnIntoHint": "Aukeratu bloke mota hautatzailean",
+  "blockEditorCmdAiSummarize": "Quill: laburtu",
+  "blockEditorCmdAiSummarizeHint": "/ai summarize · laburtu orria edo hautapena",
+  "blockEditorCmdAiContinue": "Quill: jarraitu",
+  "blockEditorCmdAiContinueHint": "/ai continue · idatzi jarraitu kurtsoretik",
+  "blockEditorCmdAiExplain": "Quill: azaldu",
+  "blockEditorCmdAiExplainHint": "/ai explain · azaldu paragrafoa edo hautapena",
+  "blockEditorCmdAiActionItems": "Quill: action items",
+  "blockEditorCmdAiActionItemsHint": "/ai action items · atera zereginak testutik",
+  "blockEditorCmdAiTodo": "Quill: zeregin zerrenda",
+  "blockEditorCmdAiTodoHint": "/ai todo · bihurtu hautapena zereginetan",
+  "blockEditorCmdAiMindmap": "Quill: gogoeta-map",
+  "blockEditorCmdAiMindmapHint": "/ai mindmap · egitura hierarkikoa edo canvas",
+  "blockEditorCmdAiTable": "Quill: taula",
+  "blockEditorCmdAiTableHint": "/ai table · taula testutik",
+  "blockEditorCmdAiImprove": "Quill: hobetu idazkera",
+  "blockEditorCmdAiImproveHint": "/ai improve · argitasuna eta tonu profesionala",
+  "blockEditorCmdAiTranslate": "Quill: itzuli",
+  "blockEditorCmdAiTranslateHint": "/ai translate · itzuli hautapena edo blokea",
+  "blockEditorAiSlashUnavailable": "Editoreko Quill komandoak ez daude ikuspegi honetan konektatuta.",
+  "blockEditorAskQuillTooltip": "Galdetu Quill-i hautapenari buruz",
+  "aiChatSplitViewTooltip": "Banatutako ikuspegia: editorea eta txat batera",
+  "aiThreadSearchHint": "Bilatu hariak…",
+  "settingsAiChatSplitViewTitle": "Quill txat ikuspegi banatuan",
+  "settingsAiChatSplitViewSubtitle": "Mahaigainean txat-panela editorearen ondoan erakusten du.",
+  "settingsAiQuillCopilotExperimentalTitle": "Quill Copilot (esperimentala)",
+  "settingsAiQuillCopilotExperimentalSubtitle": "Denbora errealeko iradokizunetarako erreserbatuta (inferentzia automatikorik gabe oraindik).",
+  "aiChatApplyInsertEnd": "Txertatu blokeak amaieran",
+  "aiChatApplyReplacePage": "Ordezkatu orrialdea",
+  "aiChatApplyOperations": "Ezarri eragiketak",
+  "aiChatApplySnapshotSuccess": "Aldaketak irekitako orrian aplikatu dira.",
+  "aiChatApplySnapshotFailure": "Ezin izan dira aldaketak aplikatu (egiaztatu orria edo JSONa).",
+  "aiChatHeaderMenuTooltip": "Laguntzailearen xehetasunak",
+  "aiChatHeaderDetailsTitle": "Laguntzailea eta tinta",
+  "aiChatHeaderProviderSection": "Hornitzailea",
+  "aiChatThreadsListTitle": "Elkarrizket hariak",
+  "aiChatThreadsEmptySearch": "Ez dago bilaketarekin bat datorren haririk.",
+  "aiChatThreadsPickerTooltip": "Hari zerrenda",
+  "aiChatComposerContextTileTitle": "Testuingurua, tinta eta eranskinak",
+  "aiChatComposerContextTileSubtitle": "Sakatu zabaltzeko edo tolesteko",
+  "aiMessageActionCopyReply": "Kopiatu erantzuna",
+  "aiMessageActionCopyStructuredJson": "Kopiatu JSON egituratua",
+  "aiMessageActionCopyFull": "Kopiatu mezu osoa",
+  "aiMessageMoreActions": "Ekintza gehiago",
+  "aiChatInkEstimatedCost": "Mezu honen kostu estimatua: {cost} tanta.",
+  "@aiChatInkEstimatedCost": {"placeholders": {"cost": {"type": "int"}}},
   "blockEditorMarkTaskComplete": "Markatu ataza osatuta",
+  "blockEditorTodoPlaceholder": "Ataza…",
   "blockEditorCalloutIconPickerTitle": "Callout ikonoa",
   "blockEditorCalloutIconPickerHelper": "Aukeratu ikono bat callout blokearen tonu bisuala aldatzeko.",
   "blockEditorIconPickerCustomEmoji": "Emoji pertsonalizatua",
@@ -1230,6 +1475,7 @@
   "blockTypeSectionMedia": "Multimedia eta datuak",
   "blockTypeSectionAdvanced": "Aurreratua eta diseinua",
   "blockTypeSectionEmbeds": "Integrazioak",
+  "blockTypeSectionAiQuill": "Quill (IA)",
   "blockTypeParagraphLabel": "Testua",
   "blockTypeParagraphHint": "Paragrafoa",
   "blockTypeChildPageLabel": "Orrialdea",
@@ -1285,6 +1531,84 @@
   "kanbanBackToBoard": "Itzuli tablerora",
   "kanbanMultipleBlocksSnack": "Orrialde honek Kanban bloke bat baino gehiago ditu; lehena erabiltzen da.",
   "kanbanEmptyColumn": "Zereginik ez",
+  "blockTypeCanvasLabel": "Mihise infinitua",
+  "blockTypeCanvasHint": "Arbela librea nodoekin, formen eta gezietan",
+  "canvasBlockRowTitle": "Mihise infinitua",
+  "canvasBlockRowSubtitle": "{nodes} nodo · {strokes} lerro",
+  "@canvasBlockRowSubtitle": {"placeholders": {"nodes": {"type": "int"}, "strokes": {"type": "int"}}},
+  "canvasToolbarOpenEditor": "Ireki bloke editorea",
+  "canvasToolbarAddNode": "Gehitu oharra",
+  "canvasToolbarAddShape": "Gehitu forma",
+  "canvasToolbarDraw": "Marraztu",
+  "canvasToolbarSelect": "Hautatu",
+  "canvasToolbarExport": "Esportatu irudi gisa",
+  "canvasToolbarConnect": "Lotu nodoak",
+  "canvasToolbarAddBlock": "Blokea gehitu",
+  "canvasClassicModeBanner": "Bloke editorea: Mihise blokea mugitu edo ezabatu dezakezu.",
+  "canvasBackToCanvas": "Itzuli mihisera",
+  "canvasMultipleBlocksSnack": "Orrialde honek Mihise bloke bat baino gehiago ditu; lehena erabiltzen da.",
+  "canvasExportSuccess": "Mihisea ondo esportatu da",
+  "canvasExportError": "Errorea mihisea esportatzerakoan",
+  "canvasDeleteNodeConfirm": "Nodo hau ezabatu?",
+  "canvasConnectTapTarget": "Sakatu helburuko nodoa konektatzeko",
+  "canvasEmptyNotePlaceholder": "(ohar hutsa)",
+  "canvasEmptyBlockPlaceholder": "(hutsik)",
+  "canvasColorPickerTooltip": "Kolorea",
+  "canvasFolioHintWriteHere": "Idatzi hemen…",
+  "canvasToolbarMarquee": "Hautapen laukizuzena",
+  "canvasToolbarAddFrame": "Gehitu markoa",
+  "canvasToolbarLayers": "Geruzak",
+  "canvasToolbarGroup": "Taldekatu",
+  "canvasToolbarUngroup": "Desagertu taldea",
+  "canvasToolbarUndo": "Desegin",
+  "canvasToolbarRedo": "Berregin",
+  "canvasToolbarRotate": "Biratu 15°",
+  "canvasToolbarSnap": "Lauki-saretara egokitu",
+  "canvasToolbarTemplate": "Txantiloia",
+  "canvasTemplateDialogTitle": "Txertatu txantiloia",
+  "canvasTemplateMergeHint": "Elementu berriak mihisera gehituko dira.",
+  "canvasExportPng": "PNG irudia",
+  "canvasExportSvg": "SVG",
+  "canvasExportPdf": "PDF",
+  "canvasLayersTitle": "Geruzak",
+  "canvasLayerImageBrief": "Irudia",
+  "canvasEdgeInspector": "Konektoreak",
+  "canvasEdgeStyleStraight": "Zuzena",
+  "canvasEdgeStyleArrow": "Gezia",
+  "canvasEdgeStyleCurve": "Kurbatu",
+  "canvasEdgeStyleBezier": "Bezier",
+  "canvasEdgeLabelHint": "Etiketa",
+  "canvasDrawInk": "Arkatza",
+  "canvasDrawHighlighter": "Nabarmentzailea",
+  "canvasDrawEraser": "Ezabatzailea",
+  "canvasCollabRemoteUpdate": "Mihisea lankidetzatik eguneratu da",
+  "canvasFrameLabel": "Markoa",
+  "canvasRichEmbedBadge": "Eduki aberastua",
+  "canvasMarqueeHint": "Arrastatu hutsunean hautatzeko",
+  "canvasTplMindmapBranch": "Adarra",
+  "canvasTplFlowStart": "Hasiera",
+  "canvasTplFlowProcess": "Prozesua",
+  "canvasTplFlowDecision": "Erabakia?",
+  "canvasTplFlowBranchYes": "Bai adarra",
+  "canvasTplFlowEnd": "Amaiera",
+  "canvasTplFlowNo": "Ez",
+  "canvasTplFlowEdgeYes": "Bai",
+  "canvasTplFlowEdgeNo": "Ez",
+  "canvasTplJourneyTitle": "User journey",
+  "canvasTplJourneyDiscover": "Aurkitzea",
+  "canvasTplJourneyConsider": "Kontuan hartzea",
+  "canvasTplJourneyBuy": "Erosketa",
+  "canvasTplJourneyRetain": "Atxikitzea",
+  "canvasTplSwotTitle": "SWOT analisia",
+  "canvasTplSwotStrengths": "Indarrak",
+  "canvasTplSwotWeaknesses": "Ahultasunak",
+  "canvasTplSwotOpportunities": "Aukerak",
+  "canvasTplSwotThreats": "Mehatxuak",
+  "canvasTemplateMindmap": "Gogoeta-maparen mapa",
+  "canvasTemplateFlowchart": "Fluxu diagrama",
+  "canvasTemplateUserJourney": "User journey",
+  "canvasTemplateSwot": "SWOT",
+  "canvasTplMindmapCenter": "Gai nagusia",
   "blockTypeDriveLabel": "Fitxategi Drive",
   "blockTypeDriveHint": "Fitxategi kudeatzailea orri honetarako",
   "driveBlockRowTitle": "Fitxategi Drive",
@@ -1305,6 +1629,7 @@
   "driveMultipleBlocksSnack": "Orri honek Drive bloke bat baino gehiago ditu; lehena erabiltzen da.",
   "driveDeleteOriginalsTitle": "Originalak inportatzean ezabatu",
   "driveDeleteOriginalsSubtitle": "Fitxategiak drivera igotzerakoan, originalak automatikoki ezabatzen dira diskotik.",
+  "driveAllFilesRoot": "Fitxategi guztiak",
   "blockTypeEquationLabel": "Ekuazioa (LaTeX)",
   "blockTypeEquationHint": "Matematika-formulak",
   "blockTypeMermaidLabel": "Diagrama (Mermaid)",
@@ -1430,6 +1755,8 @@
   "createAction": "Sortu",
   "confirmAction": "Berretsi",
   "confirmRemoteEndpointTitle": "Berretsi urruneko amaiera-puntua",
+  "confirmRemoteEndpointBody": "IA urruneko ostalari batekin ({host}) gaitzera zoaz. Bidaltzen duzun edukia gailu honetatik atera daiteke.\n\nJarraitu?",
+  "@confirmRemoteEndpointBody": {"placeholders": {"host": {}}},
   "shortcutGlobalSearchKeyChord": "Ktrl + Maius + F",
   "updateChannelRelease": "Release",
   "updateChannelBeta": "Beta",
@@ -1595,7 +1922,7 @@
   "settingsSectionUiWorkspace": "Interfazea eta mahaigaina",
   "settingsSectionUiWorkspaceHeroDescription": "Gaia, hizkuntza, eskala, editorea, mahaigaineko aukerak eta teklatuko lasterbideak.",
   "settingsSubsectionVaultBackupImport": "Babeskopiak eta inportazioa",
-  "settingsSubsectionVaultScheduledLocal": "Programatutako babeskopia (lokala)",
+  "settingsSubsectionVaultScheduledLocal": "Programatutako babeskopia",
   "settingsSubsectionDrive": "Drive",
   "settingsSubsectionVaultData": "Datuak (arrisku-eremua)",
   "folioCloudSubsectionAccount": "Kontua",
@@ -1653,12 +1980,27 @@
   "sidebarPageIconTabImported": "Inportatuak",
   "sidebarPageIconTabAll": "Denak",
   "sidebarPageIconEmptyImported": "Oraindik ez duzu ikonorik inportatu Ezarpenetan.",
-  "sidebarDeletePageMenuTitle": "Ezabatu orria",
-  "sidebarDeleteFolderMenuTitle": "Kendu karpeta",
-  "sidebarDeletePageConfirmInline": "Ezabatu «{title}»? Ezin da desegin.",
+  "sidebarDeletePageMenuTitle": "Mugitu zakarrontzira",
+  "sidebarDeleteFolderMenuTitle": "Mugitu karpeta zakarrontzira",
+  "sidebarDeletePageConfirmInline": "«{title}» zakarrontzira eraman? 30 egunez berreskuratu ahal izango duzu.",
   "@sidebarDeletePageConfirmInline": {"placeholders": {"title": {}}},
-  "sidebarDeleteFolderConfirmInline": "Kendu «{title}» karpeta? Azpiorreak koadernoaren errorera pasatuko dira.",
+  "sidebarDeleteFolderConfirmInline": "«{title}» karpeta eta bere edukia zakarrontzira eraman? 30 egunez berreskuratu ahal izango duzu.",
   "@sidebarDeleteFolderConfirmInline": {"placeholders": {"title": {}}},
+  "sidebarTrashTitle": "Zakarrontzia",
+  "sidebarTrashEmpty": "Zakarrontzia hutsik dago",
+  "sidebarTrashRetentionHint": "Elementuak automatikoki ezabatzen dira 30 egunen buruan.",
+  "sidebarTrashRestore": "Berreskuratu",
+  "sidebarTrashDeleteForever": "Betiko ezabatu",
+  "sidebarTrashEmptyAction": "Zakarrontzia hustu",
+  "sidebarTrashEmptyConfirm": "Zakarrontzia hustu? Ekintza hau ezin da desegin.",
+  "sidebarTrashDeleteForeverConfirm": "«{title}» betiko ezabatu? Ekintza hau ezin da desegin.",
+  "@sidebarTrashDeleteForeverConfirm": {"placeholders": {"title": {}}},
+  "sidebarTrashDaysLeft": "{days} egun geratzen dira",
+  "@sidebarTrashDaysLeft": {"placeholders": {"days": {"type": "int"}}},
+  "sidebarTrashOpenTooltip": "Ireki zakarrontzia",
+  "sidebarTrashCountBadge": "{count}",
+  "@sidebarTrashCountBadge": {"placeholders": {"count": {"type": "int"}}},
+  "sidebarTrashClose": "Itxi",
   "settingsStripeSubscriptionRefreshed": "Folio Cloud-eko fakturazioa eguneratu da.",
   "settingsStripeBillingPortalUnavailable": "Fakturazio-portala ez dago erabilgarri.",
   "settingsCouldNotOpenLink": "Ezin izan da esteka ireki.",
@@ -1676,6 +2018,7 @@
   "settingsCloudBackupSaveDialogTitle": "Gorde babeskopia",
   "settingsCloudBackupDownloadedSnack": "Babeskopia deskargatu da.",
   "settingsCloudBackupDeletedSnack": "Babeskopia ezabatu da.",
+  "settingsCloudBackupVaultRemovedSnack": "Babeskopia ezabatu da. Koaderno honek jada ez du hodeiko babeskopiarik eta Folio Cloudetik kendu da.",
   "settingsCloudBackupImportedSnack": "Inportazioa osatu da.",
   "settingsCloudBackupVaultMustBeUnlocked": "Libreta desblokeatuta egon behar da.",
   "settingsCloudBackupsTotalLabel": "Guztira: {size}",
@@ -1684,6 +2027,10 @@
   "settingsCloudBackupImportOverwriteBody": "Honek irekitako libretaren edukia gainidatziko du. Ziurtatu jarraitu aurretik kopia lokal bat duzula.",
   "settingsCloudBackupImportRemoteCloudPackIntro": "Inkrementu babeskopia hau zure Folio Cloud kontuko beste libreta batekoa da. Sartu libreta horren pasahitza deskargatzeko (hutsik utzi zifratu gabe badago).",
   "settingsCloudBackupDeleteWarning": "Ziur hodeiko babeskopia hau ezabatu nahi duzula? Ekintza hau ezin da desegin.",
+  "settingsCloudBackupDeleteCloudPackWarning": "Ziur koaderno honen babeskopia inkrementala ezabatu nahi duzula? Hodeiko datu guztiak kenduko dira eta ezingo duzu berreskuratu berri bat igo arte. Ekintza hau ezin da desegin.",
+  "settingsCloudBackupsManageHint": "Kudeatu koaderno honen babeskopiak. Ezabatzeak zure kuotako tokia askatzen du.",
+  "settingsCloudBackupDeleteTooltip": "Ezabatu babeskopia",
+  "settingsCloudBackupsSheetTitle": "Hodeiko babeskopiak",
   "settingsPublishedRequiresPlan": "Folio Cloud behar duzu web-argitalpen aktiborekin.",
   "settingsPublishedPagesTitle": "Argitaratutako orriak",
   "settingsPublishedPagesEmpty": "Oraindik ez dago orri argitaraturik.",
@@ -1719,7 +2066,7 @@
   "settingsEnterCreatesNewBlockSubtitleWhenDisabled": "Orain Enter-k lerro-jauzia txertatzen du. Maius+Enter-k ere funtzionatzen du.",
   "settingsWorkspaceSubsection": "Lan-eremua",
   "settingsCustomIconsTitle": "Ikon pertsonalizatuak",
-  "settingsCustomIconsDescription": "Inportatu PNG, GIF edo WebP URL bat, edo notionicons.so bezalako guneetatik kopiatutako data:image bateragarri bat. Ondoren orri edo callout ikono gisa erabil dezakezu.",
+  "settingsCustomIconsDescription": "Inportatu PNG, GIF edo WebP URL bat, notionicons.so bezalako guneetatik kopiatutako data:image bateragarri bat, edo bilatu ikono open source-ak Iconify esploratzailearekin. Ondoren orri edo callout ikono gisa erabil ditzakezu.",
   "settingsCustomIconsSavedCount": "{count} gordeta",
   "@settingsCustomIconsSavedCount": {"placeholders": {"count": {"type": "int"}}},
   "settingsCustomIconsChipUrl": "PNG, GIF edo WebP URL",
@@ -1739,6 +2086,27 @@
   "settingsCustomIconsDeleteTooltip": "Ezabatu ikonoa",
   "settingsCustomIconsReferenceCopiedSnack": "Erreferentzia kopiatu da.",
   "settingsCustomIconsCopyToken": "Kopiatu tokena",
+  "settingsIconifyTitle": "Iconify esploratzailea",
+  "settingsIconifyDescription": "Bilatu milaka ikono open source (Lucide, Tabler, Material, Phosphor…). Bat hautatzean zure liburutegi lokalean inportatzen da.",
+  "settingsIconifySearchHint": "Bilatu ikonoak",
+  "settingsIconifyCollectionLabel": "Bilduma",
+  "settingsIconifyCollectionAll": "Guztiak",
+  "settingsIconifyCollectionLucide": "Lucide",
+  "settingsIconifyCollectionTabler": "Tabler",
+  "settingsIconifyCollectionMdi": "Material Design",
+  "settingsIconifyCollectionPhosphor": "Phosphor",
+  "settingsIconifyCollectionRemix": "Remix",
+  "settingsIconifyCollectionCarbon": "Carbon",
+  "settingsIconifyCollectionIconoir": "Iconoir",
+  "settingsIconifyCollectionFluent": "Fluent UI",
+  "settingsIconifyCollectionSolar": "Solar",
+  "settingsIconifyEmpty": "Ez dago emaitzarik bilaketa horretarako.",
+  "settingsIconifyImportSucceeded": "Ikono inportatu da Iconify-tik.",
+  "settingsIconifyImportFailed": "Ezin izan da ikonoa inportatu.",
+  "settingsIconifyAttribution": "Ikonoak Iconify-tik (open source)",
+  "settingsIconifyOffline": "Konexiorik gabe. Sarera behar duzu Iconify-n bilatzeko.",
+  "settingsIconifySearchFailed": "Ezin izan da bilaketa osatu.",
+  "settingsIconifyLoadMore": "Kargatu gehiago",
   "settingsAiHeroQuillWithLocalAlt": "AA Quill Cloud-en exekutatzen da (hodeiko AA harpidetza edo erositako tinta). Aukeratu beste hornitzaile bat behean Ollama edo LM Studio lokalarentzat.",
   "settingsAiHeroQuillCloudOnly": "AA Quill Cloud-en exekutatzen da (hodeiko AA harpidetza edo erositako tinta).",
   "settingsAiHeroLocalDefault": "Konektatu Ollama edo LM Studio lokalean; laguntzaileak hemen konfiguratzen duzun eredil eta testuingurua erabiltzen ditu.",
@@ -1748,7 +2116,7 @@
   "settingsAiSnackSignInCloudAccount": "Hasi saioa hodeiko kontuan (Ezarpenak).",
   "settingsAiProviderSwitchFailed": "Ezin izan da AA hornitzailea aldatu: {error}",
   "@settingsAiProviderSwitchFailed": {"placeholders": {"error": {}}},
-  "settingsAboutHeroDescription": "Instalatutako bertsioa, eguneratzeen jatorria eta berritasunen eskuzko egiaztapena.",
+  "settingsAboutHeroDescription": "Build-aren bertsioa, argitalpen-oharrak eta eguneratze-kanala. Ekintzak beheko zerrendan daude.",
   "settingsOpenReleaseNotes": "Ikusi bertsio-oharrak",
   "settingsUpdateChannelLabel": "Kanala",
   "settingsUpdateChannelRelease": "Release",
@@ -1756,6 +2124,9 @@
   "settingsDataHeroDescription": "Fitxategi lokalen gaineko ekintza iraunkorrak. Ezabatu aurretik egin babeskopia bat.",
   "settingsDangerZoneTitle": "Arrisku-eremua",
   "settingsDesktopHeroDescription": "Lasterbide orokorrak, erretilua eta leihoaren portaera mahaigainean.",
+  "settingsDesktopHeroChipGlobalSearch": "Bilaketa-lasterbidea",
+  "settingsDesktopHeroChipMinimizeTray": "Minimizatzeko jokabidea",
+  "settingsDesktopHeroChipCloseTray": "Ixteko jokabidea",
   "settingsShortcutsHeroDescription": "Folio barruko konbinazioak soilik. Probatu tekla bat gorde aurretik.",
   "settingsShortcutsTestChip": "Probatu",
   "settingsIntegrationsChipApprovedPermissions": "Onartutako baimenak",
@@ -1821,12 +2192,12 @@
   "settingsAccentPickColor": "Aurrezarritako kolorea aukeratu",
   "settingsPrivacySectionTitle": "Pribatutasuna eta diagnostikoak",
   "settingsTelemetryTitle": "Erabilera-estatistika anonimoak",
-  "settingsTelemetrySubtitle": "Instalazioak eta eginbideen erabilera neurtzen laguntzen du. Ez da koaderno-edukirik edo izenbururik bidaltzen.",
+  "settingsTelemetrySubtitle": "Aktibatuta badago, eginbideen erabilera neurtzen laguntzen du. Beti bidaltzen da instalazio seinale anonimo bakarra. Ez da koaderno-edukirik edo izenbururik bidaltzen.",
   "onboardingTelemetryTitle": "Erabilera estatistikak",
-  "onboardingTelemetryBody": "Foliok analitika anonimoa bidali dezake aplikazioa nola erabiltzen den ulertzeko. Edozein unetan alda dezakezu Ezarpenetan.",
+  "onboardingTelemetryBody": "Aktibatuta badago, Foliok analitika anonimoa bidali dezake aplikazioa nola erabiltzen den ulertzeko. Lehen abioan halere bidaltzen da instalazio seinale anonimo bakarra. Erabilera-estatistikak edozein unetan alda ditzakezu Ezarpenetan.",
   "onboardingTelemetrySwitchTitle": "Erabilera-estatistika anonimoak",
-  "onboardingTelemetrySwitchSubtitle": "Instalazioak eta eginbideen erabilera neurtzen laguntzen du. Ez da koaderno-edukirik edo izenbururik bidaltzen.",
-  "onboardingTelemetryFootnote": "Ez da koaderno-edukirik edo orrien izenbururik bidaltzen.",
+  "onboardingTelemetrySwitchSubtitle": "Aktibatuta badago, eginbideen erabilera neurtzen laguntzen du. Desgaituz ere, instalazio anonimo bakarra erregistratzen da. Ez da koaderno-edukirik edo izenbururik bidaltzen.",
+  "onboardingTelemetryFootnote": "Ez da koaderno-edukirik edo orrien izenbururik bidaltzen. Instalazio gertaera anonimo bat bidaltzen da instalazio bakoitzean behin, ezarpen honetatik independentea.",
   "settingsAutoCrashReportsTitle": "Bidali hondamen-diagnostikoak automatikoki",
   "settingsAutoCrashReportsSubtitle": "Akats larri bat gertatzen bada, logaren zati bat bidaltzen zaio Folioren (aukerakoa, saio bakoitzeko mugatua).",
   "settingsReportBugButton": "Akats baten berri eman",
@@ -1865,4 +2236,544 @@
   ,"@importPdfFailed": {"placeholders": {"error": {"type": "String"}}}
   ,"importPdfNoText": "PDFak ez du testu erauzigarririk"
   ,"downloadDesktopApp": "Deskargatu mahaigaineko aplikazioa"
+  ,"appStoreTitle": "App Denda"
+  ,"appStoreTabExplore": "Arakatu"
+  ,"appStoreTabInstalled": "Instalatuta ({count})"
+  ,"@appStoreTabInstalled": {"placeholders": {"count": {"type": "int"}}}
+  ,"appStoreTooltipRefresh": "Freskatu"
+  ,"appStoreTooltipInstallFile": "Instalatu fitxategitik (.folioapp)"
+  ,"appStoreSearchHint": "Bilatu appak…"
+  ,"appStoreNoResults": "Ez da appaik aurkitu."
+  ,"appStoreSectionOfficials": "Ofizialak"
+  ,"appStoreSectionOfficialsSubtitle": "Folio-n integratuta · Deskargaketarik gabe"
+  ,"appStoreSectionCommunity": "Community"
+  ,"appStoreSectionCommunitySubtitle": "Erregistro publikoan argitaratuta"
+  ,"appStoreInstallConfirmTitle": "Tokiko app instalatu"
+  ,"appStoreInstallConfirmBody": "App hau ez da egiaztatu. Instalatu fidatzen zaren iturburuetako fitxategiak soilik."
+  ,"appStoreInstallButton": "Instalatu"
+  ,"appStoreInstalledChip": "Instalatuta"
+  ,"appStoreInstallSuccess": "\"{name}\" behar bezala instalatu da."
+  ,"@appStoreInstallSuccess": {"placeholders": {"name": {"type": "String"}}}
+  ,"appStoreInstallError": "Errorea: {message}"
+  ,"@appStoreInstallError": {"placeholders": {"message": {"type": "String"}}}
+  ,"appStoreUninstallTitle": "Desinstalatu app"
+  ,"appStoreUninstallBody": "\"{name}\" desinstalatu? Fitxategiak ezabatuko dira."
+  ,"@appStoreUninstallBody": {"placeholders": {"name": {"type": "String"}}}
+  ,"appStoreUninstallButton": "Desinstalatu"
+  ,"appStoreInstalledEmpty": "Ez dago appaik instalatuta.\nArakatu denda edo instalatu .folioapp bat."
+  ,"appStoreRegistryLoadError": "Errorea {statusCode} registrya kargatzean."
+  ,"@appStoreRegistryLoadError": {"placeholders": {"statusCode": {"type": "int"}}}
+  ,"appStoreRegistryOfflineCache": "Konexiorik gabe. Cache lokala erakusten."
+  ,"appStoreLoadError": "Errorea denda kargatzean: {error}"
+  ,"@appStoreLoadError": {"placeholders": {"error": {"type": "String"}}}
+  ,"appStoreVerifiedByFolio": "Foliok egiaztatua"
+  ,"appStoreCapabilitiesTitle": "Gaitasunak"
+  ,"appStoreConnectionsTitle": "Konexioak"
+  ,"appStoreConnected": "Konektatuta"
+  ,"appStoreNotConnected": "Ez konektatuta"
+  ,"appStoreDisconnect": "Deskonektatu"
+  ,"appStoreConnect": "Konektatu"
+  ,"appStoreInstallFromRegistryTitle": "Instalatu \"{name}\""
+  ,"@appStoreInstallFromRegistryTitle": {"placeholders": {"name": {"type": "String"}}}
+  ,"appStoreInstallUnverifiedLocalBody": "App hau ez da lokalki egiaztatu. Konfiantza duzun iturrietako appak bakarrik instalatu."
+  ,"appStorePermissionsRequested": "Eskatutako baimenak:"
+  ,"appStoreCapabilityBlockTypes": "{count} bloke mota"
+  ,"@appStoreCapabilityBlockTypes": {"placeholders": {"count": {"type": "int"}}}
+  ,"appStoreCapabilitySlashCommands": "{count} slash komando"
+  ,"@appStoreCapabilitySlashCommands": {"placeholders": {"count": {"type": "int"}}}
+  ,"appStoreCapabilityIntegrations": "{count} integrazio"
+  ,"@appStoreCapabilityIntegrations": {"placeholders": {"count": {"type": "int"}}}
+  ,"appStoreCapabilityAiTransformers": "{count} IA transformadore"
+  ,"@appStoreCapabilityAiTransformers": {"placeholders": {"count": {"type": "int"}}}
+  ,"appStorePasteAccessToken": "Itsatsi zure access token"
+  ,"appStoreTokenLabel": "{name} tokena"
+  ,"@appStoreTokenLabel": {"placeholders": {"name": {"type": "String"}}}
+  ,"appStoreApiKeyTitle": "API Key"
+  ,"appStoreUninstallTooltip": "Desinstalatu"
+  ,"appStoreVersionPrefix": "v{version}"
+  ,"@appStoreVersionPrefix": {"placeholders": {"version": {"type": "String"}}}
+  ,"releaseNotesTitle": "Bertsio oharrak"
+  ,"releaseNotesContinue": "Jarraitu"
+  ,"workspaceEditorReadyHeadline": "Zure espazioa prest dago"
+  ,"settingsIntegrationsNativeTitle": "Jatorrizko integrazioak"
+  ,"telemetryDashboardTitle": "Telemetria-panela"
+  ,"telemetryDashboardAccessDenied": "Sarbidea ukatuta"
+  ,"telemetryDashboardStaffOnlyBody": "Folioko langileek bakarrik ireki dezakete pantaila hau."
+  ,"telemetryDashboardFlushTooltip": "Bidali zain dauden gertaerak eta eguneratu"
+  ,"telemetryDashboardErrorLoading": "Ezin izan dira datuak kargatu"
+  ,"telemetryDashboardErrorDetail": "{detail}"
+  ,"@telemetryDashboardErrorDetail": {"placeholders": {"detail": {"type": "String"}}}
+  ,"telemetryDashboardNoDataForDate": "Daturik ez {date} egunerako"
+  ,"@telemetryDashboardNoDataForDate": {"placeholders": {"date": {"type": "String"}}}
+  ,"telemetryDashboardNoDataHint": "Erabili bidalketa-ikonoarekin zain dauden gertaerak husteko eta gero eguneratu.\nGlobalen guztizkoak orduro eguneratzen dira (UTC) gaurko eta atzoko egunerako."
+  ,"telemetryDashboardFlushRefresh": "Hustu eta eguneratu"
+  ,"telemetryDashboardSectionGlobalTitle": "Estatistika globalak (erabiltzaile guztiak)"
+  ,"telemetryDashboardSectionGlobalSubtitle": "Orduroko biltze-lanaren guztizkoak (UTC)."
+  ,"telemetryDashboardMetricUsers": "Erabiltzaileak"
+  ,"telemetryDashboardMetricEvents": "Gertaerak"
+  ,"telemetryDashboardMetricErrors": "Erroreak"
+  ,"telemetryDashboardByType": "Mota bidez"
+  ,"telemetryDashboardNoEventBreakdown": "Ez dago gertaera-motaren zatiketarik."
+  ,"telemetryDashboardEventTypeUnknown": "Ezezaguna"
+  ,"settingsTelemetryDashboardListSubtitle": "Ikusi erabilera globalaren estatistikak bilduta."
+  ,"telemetryDashboardGlobalMissingHint": "Oraindik ez dago UTC data honetarako guztizko agregaturik. Behean erabiltzaileko eta gertaera gordinak ikus ditzakezu."
+  ,"telemetryDashboardPerUserDayTitle": "Erabiltzaileka (aukeratutako eguna)"
+  ,"telemetryDashboardPerUserDaySubtitle": "Eguneko estatistikak {date} egunerako (analytics_events/*/stats)."
+  ,"@telemetryDashboardPerUserDaySubtitle": {"placeholders": {"date": {"type": "String"}}}
+  ,"telemetryDashboardRecentEventsTitle": "Azken gertaera gordinak"
+  ,"telemetryDashboardRecentEventsSubtitle": "Saioa duten erabiltzaile guztien azken 80 gertaera."
+  ,"telemetryDashboardNoPerUserStats": "Ez dago erabiltzaileko estatistikarik data honetarako."
+  ,"telemetryDashboardNoRecentEvents": "Ez dago gertaerarik Firestore-n."
+  ,"telemetryDashboardColUser": "Erabiltzailea"
+  ,"telemetryDashboardColEvents": "Gertaerak"
+  ,"telemetryDashboardColErrors": "Erroreak"
+  ,"telemetryDashboardColTime": "Ordua"
+  ,"telemetryDashboardColType": "Mota"
+  ,"telemetryDashboardColSummary": "Laburpena"
+  ,"telemetryDashboardEmptyAll": "Ez dago erakusteko daturik. Probatu beste data bat, hustu zain dauden gertaerak edo egiaztatu Firestore-ren indizeak hedatuta daudela."
+  ,"telemetrySentDataCategoriesTitle": "Telemetria-kategorien adibideak"
+  ,"telemetrySentDataFeatureUsageTitle": "Ezaugarrien erabilera"
+  ,"telemetrySentDataFeatureUsageBody": "Editorea, taula, bilaketa, ezarpenak edo beste ezaugarri batzuk irekitzean."
+  ,"telemetrySentDataContentActionsTitle": "Edukiaren gaineko ekintzak"
+  ,"telemetrySentDataContentActionsBody": "Ohar eta taulak sortzea, editatzea edo ezabatzea."
+  ,"telemetrySentDataSearchesTitle": "Bilaketak"
+  ,"telemetrySentDataSearchesBody": "Bilaketa-kontsultak eta iragazkien erabilera."
+  ,"telemetrySentDataSyncTitle": "Sinkronizazioa"
+  ,"telemetrySentDataSyncBody": "Hodeiko babes-kopiaren egoera eta iraupena."
+  ,"telemetrySentDataPerformanceTitle": "Errendimendua"
+  ,"telemetrySentDataPerformanceBody": "Eragiketen iraupena eta errendimendu-seinale oinarrizkoak."
+  ,"telemetrySentDataErrorsTitle": "Erroreak"
+  ,"telemetrySentDataErrorsBody": "Aplikazioaren erroreak eta ustekabeko itxierak (erabilera-estatistikak aktibo badaude)."
+  ,"telemetrySentDataPrivacyNote": "Zure pribatutasuna garrantzitsua da. Ez ditugu datu hauek saltzen edo publizitaterako erabiltzen."
+  ,"telemetrySentDataChannelsNote": "Firebase Analytics-ek instalazioaren ID anonimo bat erabiltzen du. folio_install gertaera behin bidaltzen da instalazio bakoitzean erabilera-estatistikak desgaituta egon arren. Firestorera kopiatutako beste gertaerak Folio Cloud-en saioa hasita baduzu bakarrik bidaltzen dira."
+  ,"telemetrySentDataViewTechnicalDetails": "Ikusi xehetasun teknikoak"
+  ,"telemetrySentDataHideTechnicalDetails": "Ezkutatu xehetasun teknikoak"
+  ,"telemetrySentDataNoEventsYet": "Oraindik ez dago tokian tokiko gertaerarik gordeta."
+  ,"workspaceRecentPagesSectionTitle": "Azkenak"
+  ,"workspaceHomeHeadline": "Zure tokia"
+  ,"workspaceHomeSubtitle": "Berkatu utzitako tokian, bilatu edo hasi zerbait berria."
+  ,"workspaceHomeSearchHint": "Bilatu…"
+  ,"workspaceHomeNoRecentPages": "Oraindik ez dago azken orririk. Sortu bat edo erabili bilatzailea."
+  ,"workspaceHomeVisitedAt": "Irekita {dateTime}"
+  ,"@workspaceHomeVisitedAt": {"placeholders": {"dateTime": {"type": "String"}}}
+  ,"workspaceHomeTip0": "Aholkua: sortu orri bat eta erabili / blokeak azkar txertatzeko."
+  ,"workspaceHomeTip1": "Foliok automatikoki gordetzen ditu aldaketak. Hasi idazten."
+  ,"workspaceHomeTip2": "Erabili bilaketa orrietan salto egiteko."
+  ,"workspaceHomeTip3": "Azpiorriek gai bakoitza antolatuta mantentzen laguntzen dute."
+  ,"workspaceHomeTip4": "Antolatu orriak alboko barratik eta mantendu kutxa garbi hazten den heinean."
+  ,"workspaceHomeTip5": "Txantiloiek egitura errepikatuak azkartzen dituzte; ireki ekintza azkarretatik."
+  ,"workspaceHomeTip6": "Grafo ikuspegiak orrien arteko loturak erakusten ditu; erabili galtzen bazara."
+  ,"workspaceHomeTip7": "Nahastu izenburuak, zerrendak eta bloke aberastuak oharrak erraz irakurtzeko."
+  ,"workspaceHomeTip8": "Data duten zereginak hasieran agertzen dira; ezarri data Kanban edo zeregin blokeetatik."
+  ,"workspaceHomeTip9": "Blokeatu kutxa gailutik aldentzen zarenean; pasahitza ez da gailu honetatik ateratzen."
+  ,"workspaceHomeTip10": "Esportatu orria Markdown edo PDFra barratik partekatu nahi duzunean."
+  ,"workspaceHomeTip11": "Gailuen arteko sinkronizazioak babeskopiak lerrokatzen ditu; behartu sinkronizazioa alboko barran parekatu ondoren."
+  ,"settingsWorkspaceOpenToHomeTitle": "Ireki hasieran"
+  ,"settingsWorkspaceOpenToHomeSubtitle": "Desblokeatu ondoren, erakutsi hasierako pantaila azken irekitako orria beharrean."
+  ,"workspaceHomeGreetingMorning": "Egun on"
+  ,"workspaceHomeGreetingAfternoon": "Arratsalde on"
+  ,"workspaceHomeGreetingEvening": "Arratsalde on"
+  ,"workspaceHomeGreetingNight": "Gabon"
+  ,"workspaceHomeNoRecentMatch": "Ez dago iragazkiarekin bat datorren azken orririk."
+  ,"workspaceHomeGlobalSearchTooltip": "Bilatu kutxa osoan"
+  ,"workspaceHomeSearchSemanticsLabel": "Iragazi azken orriak idatzi ahala; erabili eremuaren amaierako botoia bilaketa orokorrerako"
+  ,"workspaceHomeQuickActionsTitle": "Ekintza azkarrak"
+  ,"workspaceHomeQuickSettings": "Ezarpenak"
+  ,"workspaceHomeQuickGraph": "Grafo ikuspegia"
+  ,"workspaceHomeQuickTemplates": "Txantiloiak"
+  ,"workspaceHomeQuickLock": "Blokeatu kutxa"
+  ,"workspaceHomeQuickSync": "Sinkronizatu gailuak"
+  ,"workspaceHomeQuickTask": "Zeregin azkarra"
+  ,"workspaceHomeQuickVaultTasks": "Zeregin guztiak"
+  ,"workspaceHomeQuickFolder": "Karpeta berria"
+  ,"workspaceHomeQuickImport": "Inportatu Markdown"
+  ,"workspaceHomeRootPagesTitle": "Erroko orriak"
+  ,"workspaceHomeMiniStats": "{pageCount} orri · {taskCount} data duten zeregin (14 egun)"
+  ,"@workspaceHomeMiniStats": {"placeholders": {"pageCount": {"type": "int"}, "taskCount": {"type": "int"}}}
+  ,"workspaceHomeUpcomingTasksTitle": "Hurrengo zereginak (14 egun)"
+  ,"workspaceHomeUpcomingTasksEmpty": "Ez dago data duten zereginik hurrengo bi asteetan."
+  ,"workspaceHomeAiTasksChipLabel": "Galdetu Quill-i zeregin hauei buruz"
+  ,"workspaceHomeAiTasksPrompt": "Hauek dira data duten nire zereginak (hurrengoak eta atzeratuak):\n\n{taskList}\n\nZer lehenetsi beharko nuke gaur?"
+  ,"@workspaceHomeAiTasksPrompt": {"placeholders": {"taskList": {"type": "String"}}}
+  ,"workspaceHomeAiTasksPromptEmpty": "(Ez dago data duten zereginik hurrengo bi asteetan.)"
+  ,"workspaceHomeCustomizeTooltip": "Pertsonalizatu hasiera"
+  ,"workspaceHomeCustomizeTitle": "Hasierako pantaila"
+  ,"workspaceHomeToggleFolioCloudTitle": "Folio Cloud laburpena"
+  ,"workspaceHomeToggleFolioCloudSubtitle": "Tinta eta hodeiko babeskopiaren tokia saioa hasita badago"
+  ,"workspaceHomeToggleRootPagesTitle": "Erroko orriak"
+  ,"workspaceHomeToggleRootPagesSubtitle": "Lehen mailako orrien chip horizontalak"
+  ,"workspaceHomeToggleMiniStatsTitle": "Zenbatzaileak"
+  ,"workspaceHomeToggleMiniStatsSubtitle": "Orri kopurua eta data duten zereginak (14 egun)"
+  ,"workspaceHomeToggleTasksTitle": "Hurrengo zereginak"
+  ,"workspaceHomeToggleTasksSubtitle": "Bi asteko barra eta zereginen zerrenda"
+  ,"workspaceHomeToggleQuickActionsTitle": "Ekintza azkarrak"
+  ,"workspaceHomeToggleQuickActionsSubtitle": "Lasterbideen sareta edo menua"
+  ,"workspaceHomeToggleTipTitle": "Eguneko aholkua"
+  ,"workspaceHomeToggleTipSubtitle": "Laneko espazioaren aholku aldakorra"
+  ,"workspaceHomeCloudCardTitle": "Folio Cloud"
+  ,"workspaceHomeCloudStaffShort": "Staff sarbidea"
+  ,"workspaceHomeCloudOpenSettings": "Ireki ezarpenak"
+  ,"workspaceHomeVaultStatusTitle": "Kutxaren egoera"
+  ,"workspaceHomeVaultBackupOff": "Programatutako babeskopiak desgaituta daude koaderno honetan."
+  ,"workspaceHomeVaultBackupNeverRun": "Oraindik ez da babeskopiarik exekutatu uneko ezarpenekin."
+  ,"workspaceHomeVaultBackupLast": "Azken babeskopia: {when}"
+  ,"@workspaceHomeVaultBackupLast": {"placeholders": {"when": {"type": "String"}}}
+  ,"workspaceHomeVaultBackupEvery": "Bitartea: {label}"
+  ,"@workspaceHomeVaultBackupEvery": {"placeholders": {"label": {"type": "String"}}}
+  ,"workspaceHomeVaultSyncConflicts": "{count, plural, one{1 sinkronizazio gatazka zain} other{{count} sinkronizazio gatazka zain}}"
+  ,"@workspaceHomeVaultSyncConflicts": {"placeholders": {"count": {"type": "int"}}}
+  ,"workspaceHomeVaultReadOnlyHint": "Irakurketa soilik ikuspegia; gaitu edizioa laneko barratik."
+  ,"workspaceHomeOnboardingTitle": "Lehen astea"
+  ,"workspaceHomeOnboardingHint": "Folio erabiltzen duzun heinean automatikoki osatzen dira."
+  ,"workspaceHomeOnboardingStepPage": "Sortu orri bat"
+  ,"workspaceHomeOnboardingStepSubpage": "Sortu azpiorri bat orri baten azpian"
+  ,"workspaceHomeOnboardingStepSearch": "Erabili bilaketa orokorra behin"
+  ,"workspaceHomeOnboardingStepCloudExplore": "Ikusi zer sartzen den Folio Cloud-en"
+  ,"workspaceHomeOnboardingDismiss": "Ezkutatu zerrenda"
+  ,"workspaceHomeWhatsNewTitle": "Berriak"
+  ,"workspaceHomeWhatsNewVersion": "{version} bertsioa"
+  ,"@workspaceHomeWhatsNewVersion": {"placeholders": {"version": {"type": "String"}}}
+  ,"workspaceHomeWhatsNewUnread": "Oraindik ez duzu bertsio honetako oharrak ireki."
+  ,"workspaceHomeWhatsNewCurrent": "Ikusi bertsio honetako aldaketak."
+  ,"workspaceHomeWhatsNewOpen": "Ireki bertsio-oharrak"
+  ,"workspaceHomeToggleVaultStatusTitle": "Kutxaren egoera"
+  ,"workspaceHomeToggleVaultStatusSubtitle": "Babeskopiak, gatazkak, irakurketa soilik"
+  ,"workspaceHomeToggleOnboardingTitle": "Lehen asteko zerrenda"
+  ,"workspaceHomeToggleOnboardingSubtitle": "Helburu laburrak (7 egunetan ezkutatzen da)"
+  ,"workspaceHomeToggleWhatsNewTitle": "Berriak"
+  ,"workspaceHomeToggleWhatsNewSubtitle": "Erakutsi txartela bertsio berri bat irakurri gabe dagoenean"
+  ,"workspaceHomeWhatsNewDismissTooltip": "Ezkutatu hurrengo eguneratu arte"
+  ,"workspaceHomeReorderSectionsTitle": "Berrantolatu hasierako atalak"
+  ,"workspaceHomeReorderMainColumn": "Zutabe nagusia"
+  ,"workspaceHomeReorderSideColumn": "Alboko zutabea"
+  ,"workspaceHomeColumnLayoutTitle": "Zutabeak"
+  ,"workspaceHomeColumnLayoutSubtitle": "Nola banatzen den diseinua pantaila zabaletan"
+  ,"workspaceHomeColumnLayoutAuto": "Automatikoa"
+  ,"workspaceHomeColumnLayoutSingle": "Zutabe bakarra"
+  ,"workspaceHomeColumnLayoutDual": "Bi zutabe"
+  ,"workspaceHomeClockShowSecondsTitle": "Erlojua: erakutsi segunduak"
+  ,"workspaceHomeClockShowSecondsSubtitle": "Ordua segundoro eguneratzen du"
+  ,"workspaceHomeClock24HourTitle": "24 orduko ordua"
+  ,"workspaceHomeClock24HourSubtitle": "Erabili 24 orduko formatua AM/PM ordez"
+  ,"workspaceHomeClockShowTimezoneTitle": "Erakutsi ordu-zona"
+  ,"workspaceHomeClockShowTimezoneSubtitle": "Izena eta UTC desplazamendua erlojuaren azpian"
+  ,"workspaceHomeClockTimezoneLine": "{zoneName} ({offset})"
+  ,"@workspaceHomeClockTimezoneLine": {"placeholders": {"zoneName": {"type": "String"}, "offset": {"type": "String"}}}
+  ,"workspaceHomeSectionLabelSearch": "Bilaketa-eremua"
+  ,"workspaceHomeSectionLabelCreatePage": "Orri berriaren botoia"
+  ,"driveMoveToFolderTitle": "Karpeta batera eraman"
+  ,"driveFolderColor": "Karpetaren kolorea"
+  ,"workspaceEditorReadySubtitle": "Sortu orri bat idazten hasteko edo erabili bilaketa lehendik dagoen oharrera itzultzeko."
+  ,"releaseNotesEmpty": "Ez dago bertsio oharrik eskuragarri bertsio honetarako."
+  ,"kanbanJiraError": "Jira errorea: {error}"
+  ,"@kanbanJiraError": {"placeholders": {"error": {"type": "String"}}}
+  ,"kanbanJiraSyncingPull": "Jira: sinkronizatzen (pull)…"
+  ,"kanbanJiraPullOkPush": "Jira: pull OK · orain push…"
+  ,"kanbanJiraNewIssue": "Jira issue berria"
+  ,"kanbanJiraCreate": "Sortu"
+  ,"kanbanNone": "Bat ere ez"
+  ,"kanbanConflict": "Gatazka"
+  ,"kanbanNeedsPush": "Push zain"
+  ,"kanbanNeedsPull": "Pull zain"
+  ,"kanbanDeleteTaskTitle": "Zeregina ezabatu"
+  ,"kanbanDeleteTaskButton": "Ezabatu"
+  ,"kanbanTaskDeleted": "Zeregina ezabatuta."
+  ,"kanbanForcePushTitle": "Jira-ra push behartu"
+  ,"kanbanForcePushButton": "Push behartu"
+  ,"kanbanPull": "Pull"
+  ,"kanbanTitle": "Izenburua"
+  ,"kanbanDescription": "Deskribapena"
+  ,"kanbanPriority": "Lehentasuna"
+  ,"kanbanStatusColumn": "Egoera/zutabea"
+  ,"kanbanDueDate": "Epemuga"
+  ,"kanbanKeepJiraPull": "Jira mantendu (Pull)"
+  ,"kanbanStatus": "Egoera"
+  ,"jiraIntegrationTitle": "Jira integrazioa"
+  ,"jiraConnectionsTab": "Konexioak"
+  ,"jiraSourcesTab": "Iturriak"
+  ,"jiraCreateConnectionFirst": "Sortu konexio bat lehenik."
+  ,"jiraConnectingCloud": "Jira Cloud konektatzen…"
+  ,"jiraConnectionCreated": "Jira Cloud konexioa sortuta."
+  ,"jiraNewServerConnection": "Server/DC konexio berria"
+  ,"jiraNewSource": "Iturri berria"
+  ,"jiraConfigure": "Konfiguratu"
+  ,"jiraSetClientId": "Client ID konfiguratu"
+  ,"jiraOpenDeveloperConsole": "Atlassian Developer Console ireki"
+  ,"jiraStartingCloudConnection": "Jira Cloud konexioa hasten…"
+  ,"jiraSave": "Gorde"
+  ,"jiraName": "Izena"
+  ,"jiraBaseUrl": "Base URL"
+  ,"jiraTokenPat": "Token / PAT"
+  ,"jiraProject": "Proiektua"
+  ,"jiraBoard": "Taula"
+  ,"jiraConnection": "Konexioa"
+  ,"jiraType": "Mota"
+  ,"jiraSearchByName": "Idatzi bilatzeko (izena)…"
+  ,"jiraReload": "Berriz kargatu"
+  ,"jiraCloudMissingOAuthSecret": "JIRA_OAUTH_CLIENT_SECRET falta du. Batez ere lib/config/folio_local_secrets.dart-en ezarri (.example-tik kopiatu). Mahaigainean .env ere erabili dezakezu abioan; web-en fitxategi hori edo --dart-define eta berreraiki. Berrabiarazi app-a; mahaigainean .env erabiltzen baduzu, egiaztatu folio.env loga."
+  ,"columnBlockTypeBullet": "Zerrenda"
+  ,"columnBlockTypeNumbered": "Zenbakiduna"
+  ,"columnBlockTypeTodo": "Zeregina"
+  ,"columnBlockTypeQuote": "Aipua"
+  ,"columnBlockTypeCallout": "Callout"
+  ,"columnBlockTypeCode": "Kodea"
+  ,"columnBlockTypeEquation": "Ekuazioa"
+  ,"columnBlockTypeDivider": "Banatzailea"
+  ,"columnBlockTypeText": "Testua"
+  ,"columnBlockContentLabel": "Edukia"
+  ,"columnListRemoveBlock": "Kendu blokea"
+  ,"columnListColumnsTitle": "Zutabeak"
+  ,"columnListEdit": "Editatu"
+  ,"columnListAddColumn": "Gehitu zutabea"
+  ,"columnListRemoveColumn": "Kendu zutabea"
+  ,"columnListDone": "Eginda"
+  ,"columnListColumnLabel": "Zutabea"
+  ,"columnListAddBlock": "Gehitu blokea"
+  ,"equationEmptyPlaceholder": "LaTeX…"
+  ,"equationLatexLabel": "LaTeX"
+  ,"mermaidInlineLoadError": "Ezin izan da diagrama erakutsi. Egiaztatu Mermaid sintaxia edo konexioa.",
+  "onboardingUsageProfileTitle": "Nola erabiliko duzu Folio?",
+  "onboardingUsageProfileBody": "Zuretzat egokitutako hasierako laguntza-orriak aukeratuko ditugu. Nahi duzunean ezaba ditzakezu edo editatu.",
+  "onboardingUsageProfileHint": "Aukeratu gehienez 3 erabilera nagusi.",
+  "onboardingUsageProfileMinSelectionError": "Hautatu gutxienez erabilera bat jarraitzeko.",
+  "onboardingUsageIntentNotesTitle": "Ohar pertsonalak",
+  "onboardingUsageIntentTasksTitle": "Zereginak",
+  "onboardingUsageIntentProjectsTitle": "Proiektuak",
+  "onboardingUsageIntentKnowledgeTitle": "Ezagutza-basea",
+  "onboardingUsageIntentJournalTitle": "Egunkaria",
+  "onboardingUsageIntentStudyTitle": "Ikasketa",
+  "vaultStarterHomeIntroNotes": "Folio ideiak harrapatzeko, pentsamenduak lotzeko eta ohar pertsonalak antolatzeko leku ona da. Hasierako orri hauek egitura zorrotzik gabe idazten hasteko pentsatu dira.",
+  "vaultStarterHomeIntroTasks": "Folio-k oharak eta zeregin-zerrendak koaderno berean konbinatzen laguntzen dizu. Hasierako orri hauek jarraipena, lehentasunak eta berrikuspen aldizkakoa lehenesten dituzte.",
+  "vaultStarterHomeIntroProjects": "Antolatu lana proiektuen, bilera eta entregableen arabera orrien zuhaitz batean. Hasierako orri hauek fokurarekin hasteko eskema bat uzten dizute.",
+  "vaultStarterHomeIntroKnowledge": "Eraiki wiki pertsonala indizeekin, gai-fitxekin eta irakurketa-oharrekin. Hasierako orri hauek gaien arteko loturak eta berrikuspena bultzatzen dituzte.",
+  "vaultStarterHomeIntroJournal": "Erabili Folio eguneroko gogoeta eta hileroko berrikuspenerako espazio gisa. Hasierako orri hauek ohitura mantentzeko errutina arinak proposatzen dituzte.",
+  "vaultStarterHomeIntroStudy": "Zentralizatu apunteak, ikasketa-planak eta berrikuspenak leku bakarrean. Hasierako orri hauek ikastaroetara eta prestakuntzara orientatuta daude.",
+  "vaultStarterHomeTodoNotes1": "Bota hiru ideia askatu ideien sarreran",
+  "vaultStarterHomeTodoNotes2": "Sortu harrapaketa azkarreko ohar bat / menuarekin",
+  "vaultStarterHomeTodoNotes3": "Lotu bi orri alboko paneletik",
+  "vaultStarterHomeTodoTasks1": "Gehitu hiru zeregin zeregin-panelean",
+  "vaultStarterHomeTodoTasks2": "Markatu zeregin bat eginda eta beste bat datarekin",
+  "vaultStarterHomeTodoTasks3": "Planifikatu asteko berrikuspena",
+  "vaultStarterHomeTodoProjects1": "Sortu proiektu baten lehen orria",
+  "vaultStarterHomeTodoProjects2": "Probatu bilera-oharren txantiloia",
+  "vaultStarterHomeTodoProjects3": "Definitu hurrengo mugarria proiektuen hub-ean",
+  "vaultStarterHomeTodoKnowledge1": "Gehitu hiru gai eduki-indizean",
+  "vaultStarterHomeTodoKnowledge2": "Sortu gai-fitxa bat loturekin",
+  "vaultStarterHomeTodoKnowledge3": "Erregistratu abian dagoen irakurketa bat",
+  "vaultStarterHomeTodoJournal1": "Idatzi gaurko egunkari-sarrera",
+  "vaultStarterHomeTodoJournal2": "Erantzun gogoeta-galderak",
+  "vaultStarterHomeTodoJournal3": "Berrikusi aurreko hilabeteko laburpena",
+  "vaultStarterHomeTodoStudy1": "Sortu uneko ikastaroaren orria",
+  "vaultStarterHomeTodoStudy2": "Gehitu hiru kontzeptu gako apunteetan",
+  "vaultStarterHomeTodoStudy3": "Definitu aste honetako ikasketa-plana",
+  "vaultStarterShortcutsTitle": "Laster-teklak eta lehen urratsak",
+  "vaultStarterShortcutsSectionMain": "Folio-ren oinarriak",
+  "vaultStarterShortcutsBullet1": "Orri bakoitza blokez osatuta dago: paragrafoak, izenburuak, zerrendak, taulak eta gehiago.",
+  "vaultStarterShortcutsBullet2": "Alboko panelak orriak eta azpiorriak zuhaitz batean antolatzen ditu.",
+  "vaultStarterShortcutsBullet3": "Bilaketak eta historialak testuingurua azkar berreskuratzen laguntzen dizute.",
+  "vaultStarterShortcutsSectionKeys": "Laster-teklak erabilgarriak",
+  "vaultStarterShortcutsKeyN": "Ctrl+N orri berria sortzen du.",
+  "vaultStarterShortcutsKeySearch": "Ctrl+K edo Ctrl+F bilaketa irekitzen du.",
+  "vaultStarterShortcutsKeySettings": "Ctrl+, Ezarpenak irekitzen ditu eta Ctrl+L koadernoa blokeatzen du.",
+  "vaultStarterShortcutsCallout": "Sakatu / paragrafo baten barruan teklatutik irten gabe blokeak txertatzeko.",
+  "vaultStarterNotesInboxTitle": "Ideien sarrera",
+  "vaultStarterNotesInboxHeading": "Harrapatu iragazkirik gabe",
+  "vaultStarterNotesInboxIntro": "Erabili orri hau sarrera gisa: idatzi ideia askatuak, loturak eta geroago berrikusteko pentsamenduak.",
+  "vaultStarterNotesInboxSection": "Nola erabili",
+  "vaultStarterNotesInboxBullet1": "Idatzi ideia bat bulet bakoitzeko edo paragrafo labur bakoitzeko.",
+  "vaultStarterNotesInboxBullet2": "Ideia bat heldu denean, sortu orri dedikatu bat eta lotu.",
+  "vaultStarterNotesInboxBullet3": "Hustu sarrera asteko berrikuspen laburretan.",
+  "vaultStarterNotesInboxTodo1": "Gehitu hiru ideia berri",
+  "vaultStarterNotesInboxTodo2": "Mugitu ideia bat bere orrira",
+  "vaultStarterNotesInboxCallout": "Ez bilatu perfekzioa botatzean: sarrera pentsatzen ozen egiteko da.",
+  "vaultStarterNotesCaptureTitle": "Harrapaketa azkarra",
+  "vaultStarterNotesCaptureHeading": "Ohar bat segundo batzuetan",
+  "vaultStarterNotesCaptureIntro": "Txantiloi minimoa zerbait testuinguruarekin, iturriarekin eta hurrengo urratsak erregistratzeko.",
+  "vaultStarterNotesCaptureSection": "Egitura iradokia",
+  "vaultStarterNotesCaptureBullet1": "Izenburu laburra eta paragrafoa xehetasun nagusiarekin.",
+  "vaultStarterNotesCaptureBullet2": "Aipamen- edo callout-blokea ondorio nagusiarentzat.",
+  "vaultStarterNotesCaptureBullet3": "Ekintza-zerrenda aukerakoa, aplikatzen bada.",
+  "vaultStarterNotesCaptureTodo1": "Osatu paragrafo nagusia",
+  "vaultStarterNotesCaptureTodo2": "Gehitu etiketak edo lotu erlazionatutako orriak",
+  "vaultStarterNotesCaptureCallout": "Probatu / menua zerrenda edo taula txertatzeko blokea aldatu gabe.",
+  "vaultStarterTasksDashboardTitle": "Zeregin-panela",
+  "vaultStarterTasksDashboardHeading": "Zer egin orain",
+  "vaultStarterTasksDashboardIntro": "Zentralizatu zain daudenak todo-blokeekin, propietateetako dataekin eta lehentasun bisualekin.",
+  "vaultStarterTasksDashboardSection": "Praktika onak",
+  "vaultStarterTasksDashboardBullet1": "Bereizi gaurko, aste honetako eta noizbait zereginak.",
+  "vaultStarterTasksDashboardBullet2": "Erabili checklistenak urrats txiki eta errepikagarrietarako.",
+  "vaultStarterTasksDashboardBullet3": "Ireki koadernoko zeregin-ikuspegia dena elkarrekin ikusteko.",
+  "vaultStarterTasksDashboardTodo1": "Gehitu hiru zeregin lehentasun desberdinekin",
+  "vaultStarterTasksDashboardTodo2": "Markatu bat osatuta",
+  "vaultStarterTasksDashboardCallout": "Zereginak proiektu-orrietan ere bizi daitezke.",
+  "vaultStarterTasksWeeklyTitle": "Asteko berrikuspena",
+  "vaultStarterTasksWeeklyHeading": "Itxi astea argitasunez",
+  "vaultStarterTasksWeeklyIntro": "Berrikusi egindakoa, zain dagoena eta hurrengo astean sartzen dena.",
+  "vaultStarterTasksWeeklySection": "Agenda iradokia",
+  "vaultStarterTasksWeeklyBullet1": "Asteko lorpenen eta blokeoen zerrenda.",
+  "vaultStarterTasksWeeklyBullet2": "Hurrengo zazpi egunetarako hiru lehentasun.",
+  "vaultStarterTasksWeeklyBullet3": "Ohar laburrak delegatzeko edo atzeratzeko.",
+  "vaultStarterTasksWeeklyTodo1": "Osatu asteko laburpena",
+  "vaultStarterTasksWeeklyTodo2": "Aukeratu asteleheneko lehentasun nagusia",
+  "vaultStarterTasksWeeklyCallout": "15 minutuko berrikuspen bat askotan nahikoa da sistema bizirik mantentzeko.",
+  "vaultStarterProjectsHubTitle": "Proiektuen hub-a",
+  "vaultStarterProjectsHubHeading": "Lanaren ikuspegi orokorra",
+  "vaultStarterProjectsHubIntro": "Taldekatu helburua, egoera, arriskuak eta proiektu bakoitzeko orri umeen loturak.",
+  "vaultStarterProjectsHubSection": "Atal erabilgarriak",
+  "vaultStarterProjectsHubBullet1": "Laburpen exekutiboa lehen paragrafoan.",
+  "vaultStarterProjectsHubBullet2": "Entregableen zerrenda checklistenekin.",
+  "vaultStarterProjectsHubBullet3": "Loturak bileretara, erabakietara eta dokumentaziora.",
+  "vaultStarterProjectsHubTodo1": "Definitu proiektuaren helburua",
+  "vaultStarterProjectsHubTodo2": "Sortu lehen entregable azpiorria",
+  "vaultStarterProjectsHubCallout": "Bikoiztu orri hau txantiloi gisa proiektu berrientzat.",
+  "vaultStarterProjectsMeetingTitle": "Bilera-oharrak",
+  "vaultStarterProjectsMeetingHeading": "Bilera testuinguruarekin",
+  "vaultStarterProjectsMeetingIntro": "Txantiloia parte-hartzaileentzat, agendarentzat, erabakientzat eta arduradunarekin ekintzetarako.",
+  "vaultStarterProjectsMeetingSection": "Bileran zehar",
+  "vaultStarterProjectsMeetingBullet1": "Idatzi erabakiak calloutetan geroago aurkitzeko.",
+  "vaultStarterProjectsMeetingBullet2": "Bihurtu akordioak data duten todo gisa, aplikatzen bada.",
+  "vaultStarterProjectsMeetingBullet3": "Lotu bilera proiektuaren hub-etik.",
+  "vaultStarterProjectsMeetingTodo1": "Osatu parte-hartzaileak eta agenda",
+  "vaultStarterProjectsMeetingTodo2": "Erregistratu gutxienez ekintza bat arduradunarekin",
+  "vaultStarterProjectsMeetingCallout": "Audioa grabatzen baduzu, transkripzioa duten bilera-ohar blokeak erabil ditzakezu.",
+  "vaultStarterKnowledgeIndexTitle": "Eduki-indizea",
+  "vaultStarterKnowledgeIndexHeading": "Zure ezagutzaren mapa",
+  "vaultStarterKnowledgeIndexIntro": "Indize-orria gai, eremu eta ohar-bildumetarako loturekin.",
+  "vaultStarterKnowledgeIndexSection": "Nola mantendu",
+  "vaultStarterKnowledgeIndexBullet1": "Taldekatu eremu zabaletan eta lotu fitxa umeak.",
+  "vaultStarterKnowledgeIndexBullet2": "Gehitu laburpen-lerro bat lotura bakoitzaren azpian.",
+  "vaultStarterKnowledgeIndexBullet3": "Berrikusi indizea orri berriak sortzen dituzunean.",
+  "vaultStarterKnowledgeIndexTodo1": "Gehitu hiru gai indizean",
+  "vaultStarterKnowledgeIndexTodo2": "Sortu lehen gai-fitxa",
+  "vaultStarterKnowledgeIndexCallout": "Indize on batek ideia zaharrak bilatzean murrizten du frikzioa.",
+  "vaultStarterKnowledgeTopicTitle": "Gai-fitxa",
+  "vaultStarterKnowledgeTopicHeading": "Sakondu kontzeptu batean",
+  "vaultStarterKnowledgeTopicIntro": "Egitura gai bat definitzeko, adibideztatzeko eta besteekin lotzeko.",
+  "vaultStarterKnowledgeTopicSection": "Atal iradokiak",
+  "vaultStarterKnowledgeTopicBullet1": "Definizio laburra eta zergatik garrantzitsua den.",
+  "vaultStarterKnowledgeTopicBullet2": "Adibideak, kontra-adibideak eta erreferentziak.",
+  "vaultStarterKnowledgeTopicBullet3": "Galdera irekiak edo ikertzeko hutsuneak.",
+  "vaultStarterKnowledgeTopicTodo1": "Idatzi definizioa esaldi batean",
+  "vaultStarterKnowledgeTopicTodo2": "Lotu bi gai erlazionatu",
+  "vaultStarterKnowledgeTopicCallout": "Fitxek denborarekin heldutzen dira: itzuli irakurri edo esperimentatu ondoren.",
+  "vaultStarterKnowledgeReadingTitle": "Irakurketa-oharrak",
+  "vaultStarterKnowledgeReadingHeading": "Zer irakurtzen ari zaren",
+  "vaultStarterKnowledgeReadingIntro": "Erregistratu iturria, ideia gakoak eta nola aplikatu zure lanean edo ikasketan.",
+  "vaultStarterKnowledgeReadingSection": "Txantiloia",
+  "vaultStarterKnowledgeReadingBullet1": "Metadatuak: izenburua, egilea eta lotura.",
+  "vaultStarterKnowledgeReadingBullet2": "Gorde nahi dituzun hiru ideiak.",
+  "vaultStarterKnowledgeReadingBullet3": "Ekintza zehatz bat amaitzean.",
+  "vaultStarterKnowledgeReadingTodo1": "Idatzi uneko iturria",
+  "vaultStarterKnowledgeReadingTodo2": "Atera gutxienez bi aipamen edo ideia",
+  "vaultStarterKnowledgeReadingCallout": "Lotu irakurketak indizetik zure liburutegi bizia ikusteko.",
+  "vaultStarterJournalDailyTitle": "Eguneroko egunkaria",
+  "vaultStarterJournalDailyHeading": "Gaur orri batean",
+  "vaultStarterJournalDailyIntro": "Espazio laburra eguna nola joan den, zer ikasi duzun eta zer eskertzen duzun erregistratzeko.",
+  "vaultStarterJournalDailySection": "Galdera aukerakoak",
+  "vaultStarterJournalDailyBullet1": "Zer izan da gaurko garrantzitsuena?",
+  "vaultStarterJournalDailyBullet2": "Zer kostatu zait espero baino gehiago?",
+  "vaultStarterJournalDailyBullet3": "Zer nahi dut bihar errepikatu edo saihestu?",
+  "vaultStarterJournalDailyTodo1": "Idatzi gutxienez hiru lerro gaurri buruz",
+  "vaultStarterJournalDailyTodo2": "Gehitu une nabarmen bat",
+  "vaultStarterJournalDailyCallout": "Konstantziak luzera baino garrantziago du: paragrafo zintzo bat nahikoa da.",
+  "vaultStarterJournalMonthlyTitle": "Hileroko gogoeta",
+  "vaultStarterJournalMonthlyHeading": "Hilabidea begiratuz",
+  "vaultStarterJournalMonthlyIntro": "Itxi hilabetea lorpenak, ikasketak eta hurrengorako doikuntzak berrikusiz.",
+  "vaultStarterJournalMonthlySection": "Bloke iradokiak",
+  "vaultStarterJournalMonthlyBullet1": "Gogoratu nahi dituzun hiru une.",
+  "vaultStarterJournalMonthlyBullet2": "Ondo funtzionatu duen ohitura bat eta aldatzeko beste bat.",
+  "vaultStarterJournalMonthlyBullet3": "Hurrengo hilabeterako helburu errealista bat.",
+  "vaultStarterJournalMonthlyTodo1": "Zerrendatu hilabeteko bi lorpen",
+  "vaultStarterJournalMonthlyTodo2": "Aukeratu hurrengo hilabeterako fokua",
+  "vaultStarterJournalMonthlyCallout": "Orri hau hilero bikoiztu dezakezu eta historiala gorde.",
+  "vaultStarterStudyCourseTitle": "Ikastaro-apunteak",
+  "vaultStarterStudyCourseHeading": "Ikastaro bat, erro-orri bat",
+  "vaultStarterStudyCourseIntro": "Antolatu moduluak, kontzeptuak eta ariketak ikastaro-orri baten azpian.",
+  "vaultStarterStudyCourseSection": "Egitura",
+  "vaultStarterStudyCourseBullet1": "Gaien laburpena eta egutegia.",
+  "vaultStarterStudyCourseBullet2": "Azpiorriak gai edo saio bakoitzeko.",
+  "vaultStarterStudyCourseBullet3": "Zain dauden zalantzen zerrenda.",
+  "vaultStarterStudyCourseTodo1": "Izendatu ikastaroa eta irakaslea edo plataforma",
+  "vaultStarterStudyCourseTodo2": "Sortu lehen gai azpiorria",
+  "vaultStarterStudyCourseCallout": "Konbinatu apunteak kode- edo ekuazio-blokeekin behar denean.",
+  "vaultStarterStudyPlanTitle": "Ikasketa-plana",
+  "vaultStarterStudyPlanHeading": "Aste honetako ikasketa",
+  "vaultStarterStudyPlanIntro": "Planifikatu saioak, berrikuspenak eta ebaluazioak todo eta dataekin.",
+  "vaultStarterStudyPlanSection": "Erritmo iradokia",
+  "vaultStarterStudyPlanBullet1": "25–50 minutuko ikasketa-blokeak.",
+  "vaultStarterStudyPlanBullet2": "Aurreko gaien berrikuspen tartekatua.",
+  "vaultStarterStudyPlanBullet3": "Simulakroak edo autoebaluazioa azterketen aurretik.",
+  "vaultStarterStudyPlanTodo1": "Definitu hiru ikasketa-saio",
+  "vaultStarterStudyPlanTodo2": "Markatu hurrengo berrikuspena egutegian",
+  "vaultStarterStudyPlanCallout": "Doitu plana igande bakoitzean: testu gutxi, argitasun asko.",
+  "vaultRecoveryTitle": "Arazoa koadernoa irekitzean",
+  "vaultRecoveryBody": "Ezin izan da koaderno aktiboa irakurri. Saiatu kopia lokala leheneratzen, babeskopia inportatzen edo diskoan geratzen dena esportatzen.",
+  "vaultRecoveryRestoreBak": "Kopia lokala leheneratu (.bak)",
+  "vaultRecoveryRestoreBakFail": "Ez dago .bak kopia baliodunik edo leheneratzeak huts egin du.",
+  "vaultRecoveryRestoreZip": "Babeskopia fitxategitik leheneratu",
+  "vaultRecoveryExportEmergency": "Larrialdiko babeskopia esportatu",
+  "vaultRecoveryExportOk": "Babeskopia gordeta: {path}",
+  "@vaultRecoveryExportOk": {
+    "placeholders": {
+      "path": {"type": "String"}
+    }
+  },
+  "vaultRecoveryOpenDataFolder": "Datuen karpeta ireki",
+  "saveStatusIdle": "Gordeta",
+  "saveStatusPending": "Aldaketak zain",
+  "saveStatusSaving": "Gordetzen…",
+  "saveStatusSaved": "Gordeta",
+  "saveStatusError": "Errorea gordetzean",
+  "settingsSearchNoResults": "Ez da bat datorren ezarpenik aurkitu",
+  "settingsSearchResultsTitle": "Bilaketaren emaitzak",
+  "settingsSearchThemeTitle": "Aplikazioaren gaia",
+  "settingsSearchThemeDesc": "Aukeratu argia, iluna edo sistemaren gaia lehenetsi bezala.",
+  "settingsSearchLangTitle": "Aplikazioaren hizkuntza",
+  "settingsSearchLangDesc": "Aldatu interfazeko hizkuntza lehenetsia.",
+  "settingsSearchAiTitle": "Gaitu adimen artifizialeko zerbitzuak",
+  "settingsSearchAiDesc": "Gaitu edo desgaitu tokiko edo hodeiko hizkuntza ereduak integratzea.",
+  "settingsSearchQuickUnlockTitle": "Desblokeatze azkarra",
+  "settingsSearchQuickUnlockDesc": "Konfiguratu hatz-marka, aurpegi-ezagutza edo desblokeatzeko PIN kodea.",
+  "settingsSearchCloudBackupTitle": "Babeskopia automatikoa hodeian",
+  "settingsSearchCloudBackupDesc": "Gorde zure liburuak modu seguruan denbora errealeko sinkronizazioarekin.",
+  "settingsSearchJiraTitle": "Konektatu Jira",
+  "settingsSearchJiraDesc": "Inportatu zure zereginak eta gorabeherak zuzenean Folio-ra.",
+  "settingsSearchYouTrackTitle": "Konektatu YouTrack",
+  "settingsSearchYouTrackDesc": "Kudeatu zure garapen-zereginak Folio-tik.",
+  "aiPersonaLabel": "Laguntzailearen nortasuna (Persona)",
+  "aiPersonaQuill": "Quill (Folioren laguntzaile orokorra)",
+  "aiPersonaQuillShort": "Quill (Laguntzaile orokorra)",
+  "aiPersonaTranslator": "Itzultzailea (Testuak itzultzea)",
+  "aiPersonaTranslatorShort": "Itzultzaile aditua",
+  "aiPersonaSummarizer": "Laburtzailea (Puntu garrantzitsuak sortzea)",
+  "aiPersonaSummarizerShort": "Testu laburtzailea",
+  "aiPersonaCoder": "Programatzailea (Laguntza teknikoa eta kodea)",
+  "aiPersonaCoderShort": "Programatzaile teknikoa",
+  "aiPersonaCustom": "Prompt pertsonalizatua (Konfiguratu zeure arauak)",
+  "aiPersonaCustomShort": "Prompt pertsonalizatua",
+  "aiPersonaCustomPromptLabel": "Sistemaren argibide pertsonalizatuak (System Prompt):",
+  "aiPersonaCustomPromptHint": "Adib. Matematikako irakasle aditua zara...",
+  "aiDictationMicError": "Mikrofonorako sarbidea ukatu da.",
+  "aiDictationWhisperNotReady": "Whisper eredua ez dago prest. Deskargatu Ezarpenak -> Transkripzioa atalean.",
+  "aiDictationNoVoiceDetected": "Ez da ahotsik detektatu edo errorea gertatu da transkripzioan.",
+  "aiDictationRecordingStopTooltip": "Gelditu grabazioa",
+  "aiDictationRecordingMicTooltip": "Diktatu ahotsez",
+  "driveExportToDisk": "Esportatu diskora…",
+  "driveRootPath": "/ (erroa)",
+  "driveDetailsTitle": "Xehetasunak",
+  "driveDetailType": "Mota",
+  "driveDetailSize": "Tamaina",
+  "driveDetailAdded": "Gehituta",
+  "driveDetailSource": "Iturria",
+  "driveDetailSourceImported": "Koadernotik inportatua",
+  "driveDetailSourceUploaded": "Igotua",
+  "driveDetailFolders": "Karpetak",
+  "driveDetailFiles": "Fitxategiak",
+  "driveDetailFolderType": "Karpeta",
+  "driveFileTypeImage": "Irudia",
+  "driveFileTypeVideo": "Bideoa",
+  "driveFileTypeAudio": "Audioa",
+  "driveFileTypeFile": "Fitxategia",
+  "driveDeleteEntryNamed": "Ezabatu \"{name}\"?",
+  "@driveDeleteEntryNamed": {"placeholders": {"name": {"type": "String"}}}
 }

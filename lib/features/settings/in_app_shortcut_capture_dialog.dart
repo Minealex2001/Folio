@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 
 import '../../l10n/generated/app_localizations.dart';
 import '../../app/folio_in_app_shortcuts.dart';
+import '../../app/widgets/folio_dialog.dart';
 
 /// Diálogo modal: captura una pulsación y devuelve [SingleActivator].
 class InAppShortcutCaptureDialog extends StatefulWidget {
@@ -35,7 +36,7 @@ class _InAppShortcutCaptureDialogState
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
-    return AlertDialog(
+    return FolioDialog(
       title: Text(l10n.shortcutsCaptureTitle),
       content: SizedBox(
         width: 320,

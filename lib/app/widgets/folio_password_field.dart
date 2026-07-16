@@ -15,6 +15,9 @@ class FolioPasswordField extends StatelessWidget {
     this.textInputAction,
     this.autofocus = false,
     this.helperText,
+    this.validator,
+    this.errorText,
+    this.focusNode,
   });
 
   final TextEditingController controller;
@@ -29,20 +32,26 @@ class FolioPasswordField extends StatelessWidget {
   final TextInputAction? textInputAction;
   final bool autofocus;
   final String? helperText;
+  final String? Function(String?)? validator;
+  final String? errorText;
+  final FocusNode? focusNode;
 
   @override
   Widget build(BuildContext context) {
-    return TextField(
+    return TextFormField(
       controller: controller,
       obscureText: obscureText,
       enabled: enabled,
       autofocus: autofocus,
       textInputAction: textInputAction,
-      onSubmitted: onSubmitted,
+      onFieldSubmitted: onSubmitted,
       onChanged: onChanged,
+      validator: validator,
+      focusNode: focusNode,
       decoration: InputDecoration(
         labelText: labelText,
         helperText: helperText,
+        errorText: errorText,
         border: const OutlineInputBorder(),
         suffixIcon: IconButton(
           onPressed: enabled ? onToggleObscure : null,

@@ -13,11 +13,15 @@ extension VaultSessionAi on VaultSession {
     required String pageBlocksContext,
     required List<AiFileAttachment> attachments,
     required String cloudInkOperation,
+    String extraContextSections = '',
+    String systemPromptOverride = '',
   }) {
     final isFirstTurn = conversationMessages.isEmpty;
-    final agentIdentity = isEs
-        ? 'Eres Quill, la asistente de IA integrada en Folio (notas locales, árbol de páginas, editor por bloques, búsqueda, libreta con cifrado opcional, panel de chat a la derecha). Ayudas con el contenido de las notas y con cómo usar la app; en modo chat sé clara, útil y natural.'
-        : 'You are Quill, Folio\'s built-in AI assistant (local notes, page tree, block editor, search, optional encrypted vault, chat panel on the side). You help with note content and how to use the app; in chat mode be clear, helpful, and natural.';
+    final agentIdentity = systemPromptOverride.isNotEmpty
+        ? systemPromptOverride
+        : (isEs
+            ? 'Eres Quill, la asistente de IA integrada en Folio (notas locales, árbol de páginas, editor por bloques, búsqueda, libreta con cifrado opcional, panel de chat a la derecha). Ayudas con el contenido de las notas y con cómo usar la app; en modo chat sé clara, útil y natural.'
+            : 'You are Quill, Folio\'s built-in AI assistant (local notes, page tree, block editor, search, optional encrypted vault, chat panel on the side). You help with note content and how to use the app; in chat mode be clear, helpful, and natural.');
 
     final schema = _agentResponseSchema;
 
@@ -54,7 +58,7 @@ extension VaultSessionAi on VaultSession {
         '"threadTitle":"${isEs ? 'opcional (2-8 palabras) para renombrar la pestaña del chat SOLO en el primer turno; cadena vacía si no aplica' : 'optional (2-8 words) to rename the chat tab ONLY on the first turn; empty string if N/A'}",',
       )
       ..writeln(
-        '"blocks":[{"type":"paragraph|h1|h2|h3|bullet|numbered|todo|quote|code|callout|toggle|divider|table|image|file|video|audio|meeting_note|bookmark|embed|equation|mermaid","text":"...","checked":false,"expanded":true,"codeLanguage":"dart","depth":0,"icon":"emoji","url":"https://...","imageWidth":0.8,"cols":2,"rows":[["a","b"]]}],',
+        '"blocks":[{"type":"paragraph|h1|h2|h3|bullet|numbered|todo|task|quote|code|callout|toggle|divider|table|image|file|video|audio|meeting_note|bookmark|embed|equation|mermaid|database|canvas","text":"... (para database/canvas/task: JSON Folio válido en text; task puede ser título plano o JSON FolioTaskData)","checked":false,"expanded":true,"codeLanguage":"dart","depth":0,"icon":"emoji","url":"https://...","imageWidth":0.8,"cols":2,"rows":[["a","b"]]}],',
       )
       ..writeln(
         '"operations":[{"kind":"update_page_title|update_block_text|update_block|replace_block|insert_after|insert_before|move_block|delete_block|table_add_column|table_set_cell","title":"${isEs ? 'nuevo título (solo update_page_title)' : 'new title (update_page_title only)'}","blockId":"id","text":"...","checked":false,"expanded":true,"codeLanguage":"dart","depth":0,"icon":"emoji","url":"https://...","imageWidth":0.8,"targetIndex":0,"block":{},"blocks":[],"header":"...","values":[],"row":0,"col":0,"value":"..."}]',
@@ -84,7 +88,10 @@ extension VaultSessionAi on VaultSession {
         '- ${isEs ? 'Si el contexto de páginas está desactivado, no cites notas existentes; aun así puedes usar create_page cuando el usuario pida crear una página nueva.' : 'If page context is disabled, do not reference existing notes; you may still use create_page when the user asks for a new page.'}',
       )
       ..writeln(
-        '- ${isEs ? 'Prioridad de decision: create_page > edit_current > append/replace/summarize > chat.' : 'Decision priority: create_page > edit_current > append/replace/summarize > chat.'}',
+        '- ${isEs ? 'Si el usuario pide traducir la página abierta e insertar cada bloque traducido justo después del original (bilingüe, mismo sitio), usa edit_current con operations insert_after por cada blockId; NUNCA uses create_page ni append_current al final.' : 'If the user asks to translate the open page and insert each translated block right after the original (bilingual, same place), use edit_current with insert_after operations per blockId; NEVER use create_page or append_current at the end.'}',
+      )
+      ..writeln(
+        '- ${isEs ? 'Prioridad de decision: si el usuario referencia la pagina abierta para transformar/traducir in-place, edit_current/replace_current > create_page; si pide nota nueva explicita, create_page > edit_current > append/replace/summarize > chat.' : 'Decision priority: if the user references the open page for in-place transform/translate, edit_current/replace_current > create_page; if they explicitly ask for a new note, create_page > edit_current > append/replace/summarize > chat.'}',
       )
       ..writeln(
         '- ${isEs ? 'Si el usuario pide crear una nota/pagina nueva, usa create_page.' : 'If the user asks to create a new note/page, use create_page.'}',
@@ -102,7 +109,16 @@ extension VaultSessionAi on VaultSession {
             ? 'Contenido de páginas (referencia; puede haber varias):'
             : 'Page contents (reference; there may be several):',
       )
-      ..writeln(referencePagesText)
+      ..writeln(referencePagesText);
+    final extra = extraContextSections.trim();
+    if (extra.isNotEmpty) {
+      contextMessage.writeln();
+      contextMessage.writeln(
+        isEs ? 'Contexto adicional explícito:' : 'Explicit extra context:',
+      );
+      contextMessage.writeln(extra);
+    }
+    contextMessage
       ..writeln()
       ..writeln(editTargetLine)
       ..writeln(
@@ -310,6 +326,86 @@ extension VaultSessionAi on VaultSession {
       ),
     );
     return (text: result.text.trim(), usage: result.usage);
+  }
+
+  Future<({int insertedCount, AiTokenUsage? usage})> translatePageBilinguallyWithAi({
+    required String pageId,
+    required String prompt,
+    List<AiFileAttachment> attachments = const [],
+    String languageCode = 'es',
+  }) async {
+    if (_state != VaultFlowState.unlocked ||
+        (vaultUsesEncryption && _dek == null)) {
+      throw StateError('Debes desbloquear la libreta para usar IA.');
+    }
+    final ai = _aiService;
+    if (ai == null) throw StateError('IA no configurada.');
+    final page = _pageById(pageId);
+    if (page == null) throw StateError('Página no encontrada.');
+
+    final sourceBlocks = <Map<String, dynamic>>[];
+    for (final b in page.blocks) {
+      if (!QuillToolExecutor.translatableBlockTypes.contains(b.type)) continue;
+      final text = b.text.trim();
+      if (text.isEmpty) continue;
+      sourceBlocks.add({
+        'blockId': b.id,
+        'type': b.type,
+        'text': text,
+      });
+    }
+    if (sourceBlocks.isEmpty) {
+      return (insertedCount: 0, usage: null);
+    }
+
+    final isEs = languageCode.toLowerCase().startsWith('es');
+    final languageRule = _aiLanguageRule(languageCode, isEsInstruction: isEs);
+    final fullPrompt = StringBuffer()
+      ..writeln(isEs ? VaultSession._quillIdentityLeadEs : VaultSession._quillIdentityLeadEn)
+      ..writeln(languageRule)
+      ..writeln(
+        isEs
+            ? 'Traduce cada bloque de la página abierta e inserta la traducción justo después del original (modo bilingüe).'
+            : 'Translate each block of the open page and insert the translation right after the original (bilingual mode).',
+      )
+      ..writeln(
+        isEs
+            ? 'Devuelve SOLO JSON válido con forma {"translations":[{"blockId":"id_real","text":"texto traducido"},...]}.'
+            : 'Return ONLY valid JSON shaped as {"translations":[{"blockId":"real_id","text":"translated text"},...]}.',
+      )
+      ..writeln(
+        isEs
+            ? 'Usa los blockId exactos del origen. No inventes ids. Traduce todo el texto de cada bloque.'
+            : 'Use the exact source blockIds. Do not invent ids. Translate the full text of each block.',
+      )
+      ..writeln()
+      ..writeln(isEs ? 'Bloques fuente:' : 'Source blocks:')
+      ..writeln(jsonEncode(sourceBlocks))
+      ..writeln()
+      ..writeln('${isEs ? 'Solicitud del usuario' : 'User request'}: ${prompt.trim()}');
+
+    final result = await ai.complete(
+      AiCompletionRequest(
+        prompt: fullPrompt.toString().trim(),
+        model: 'auto',
+        attachments: attachments,
+        cloudInkOperation: 'translate_bilingual',
+        temperature: 0.1,
+      ),
+    );
+    final translations = _parseBilingualTranslationResponse(
+      result.text,
+      allowedBlockIds: sourceBlocks.map((b) => b['blockId'] as String).toSet(),
+    );
+    final inserted = QuillToolExecutor.insertBilingualTranslations(
+      this,
+      pageId: pageId,
+      translations: translations,
+    );
+    if (inserted > 0) {
+      scheduleSave(trackRevisionForPageId: pageId);
+    }
+    return (insertedCount: inserted, usage: result.usage);
   }
 
   Future<void> generateContentWithAi({
@@ -616,6 +712,8 @@ For images/blocks: use the + button or / command in a paragraph.
     List<AiFileAttachment> attachments = const [],
     String languageCode = 'es',
     String? cloudInkOperation,
+    String extraContextSections = '',
+    String systemPromptOverride = '',
   }) async {
     if (_state != VaultFlowState.unlocked ||
         (vaultUsesEncryption && _dek == null)) {
@@ -625,8 +723,14 @@ For images/blocks: use the + button or / command in a paragraph.
     if (ai == null) throw StateError('IA no configurada.');
     await pingAi();
     AiTokenUsage? lastUsage;
-    AgentChatOutcome finish(String reply) =>
-        AgentChatOutcome(reply: reply, usage: lastUsage);
+    AgentChatOutcome finish(
+      String reply, {
+      Map<String, dynamic>? agentApplySnapshot,
+    }) => AgentChatOutcome(
+      reply: reply,
+      usage: lastUsage,
+      agentApplySnapshot: agentApplySnapshot,
+    );
     final isEs = languageCode.toLowerCase().startsWith('es');
     final scopePage = scopePageId == null ? null : _pageById(scopePageId);
     final effectiveContextIds = _resolveAiChatContextPageIds(
@@ -642,10 +746,18 @@ For images/blocks: use the + button or / command in a paragraph.
       prompt,
       languageCode: languageCode,
     );
+    final wantsBilingualTranslate =
+        scopePage != null &&
+        includePageContext &&
+        _looksLikeBilingualTranslateIntent(
+          prompt,
+          languageCode: languageCode,
+        );
     final wantsEditExistingBlocks =
         scopePage != null &&
         includePageContext &&
-        _looksLikeEditIntent(prompt, languageCode: languageCode);
+        (wantsBilingualTranslate ||
+            _looksLikeEditIntent(prompt, languageCode: languageCode));
     final promptTrimmed = prompt.trim();
     AppLogger.info(
       'Agent chat started',
@@ -657,6 +769,7 @@ For images/blocks: use the + button or / command in a paragraph.
         'contextPageCount': effectiveContextIds.length,
         'wantsSubpage': wantsSubpage,
         'wantsCreatePage': wantsCreatePage,
+        'wantsBilingualTranslate': wantsBilingualTranslate,
         'wantsEditExistingBlocks': wantsEditExistingBlocks,
         'promptPreview': promptTrimmed.length > 140
             ? '${promptTrimmed.substring(0, 140)}...'
@@ -690,6 +803,32 @@ For images/blocks: use the + button or / command in a paragraph.
     }
 
     try {
+      if (wantsBilingualTranslate) {
+        final bilingual = await translatePageBilinguallyWithAi(
+          pageId: scopePage.id,
+          prompt: prompt,
+          attachments: attachments,
+          languageCode: languageCode,
+        );
+        lastUsage = bilingual.usage ?? lastUsage;
+        return finish(
+          _formatAgentDecisionReply(
+            mode: 'edit_current',
+            reason: isEs
+                ? 'Detecté traducción bilingüe en la página abierta e inserté cada bloque traducido tras el original.'
+                : 'Detected bilingual translation on the open page and inserted each translated block after the original.',
+            reply: bilingual.insertedCount > 0
+                ? (isEs
+                      ? 'He insertado ${bilingual.insertedCount} bloque(s) traducido(s) en la misma página, justo después de cada original.'
+                      : 'I inserted ${bilingual.insertedCount} translated block(s) on the same page, right after each original.')
+                : (isEs
+                      ? 'No encontré bloques con texto traducible en la página abierta.'
+                      : 'No translatable text blocks were found on the open page.'),
+            isEs: isEs,
+          ),
+        );
+      }
+
       if (wantsCreatePage) {
         if (wantsSubpage && scopePage == null) {
           return finish(
@@ -737,6 +876,8 @@ For images/blocks: use the + button or / command in a paragraph.
           editTargetLine: editTargetLine,
           pageBlocksContext: pageBlocksContext,
           attachments: attachments,
+          extraContextSections: extraContextSections,
+          systemPromptOverride: systemPromptOverride,
         ),
       );
       lastUsage = result.usage ?? lastUsage;
@@ -1026,6 +1167,7 @@ For images/blocks: use the + button or / command in a paragraph.
 
       if (reply.isNotEmpty) {
         if (mode == 'chat' &&
+            !wantsBilingualTranslate &&
             _looksLikeCreatePageIntent(prompt, languageCode: languageCode)) {
           if (wantsSubpage && scopePage == null) {
             return finish(
@@ -1052,7 +1194,7 @@ For images/blocks: use the + button or / command in a paragraph.
               prompt:
                   '${isEs ? VaultSession._quillIdentityLeadEs : VaultSession._quillIdentityLeadEn}'
                   '${isEs ? 'Respondiste en modo chat, pero el usuario quiere crear una nueva página. Devuelve SOLO JSON con mode=create_page, el título en "title" y los bloques en "blocks" usando el formato nativo de Folio. Por defecto genera contenido detallado y completo (mínimo 10-15 bloques), salvo que el mensaje original pida algo corto.' : 'You responded in chat mode, but the user wants to create a new page. Return ONLY JSON with mode=create_page, the title in "title" and the blocks in "blocks" using Folio native block format. By default generate detailed, comprehensive content (minimum 10-15 blocks), unless the original message asked for something short.'}\n'
-                  '${isEs ? 'Formato de bloque nativo:' : 'Native block format:'} {"type":"paragraph|h1|h2|h3|bullet|numbered|todo|quote|code|callout|toggle|divider|table|image|file|video|audio|meeting_note|bookmark|embed|equation|mermaid","text":"...","checked":false,"expanded":true,"codeLanguage":"dart","depth":0,"icon":"emoji","url":"https://...","imageWidth":0.8,"cols":2,"rows":[["a","b"]]}\n'
+                  '${isEs ? 'Formato de bloque nativo:' : 'Native block format:'} {"type":"paragraph|h1|h2|h3|bullet|numbered|todo|quote|code|callout|toggle|divider|table|image|file|video|audio|meeting_note|bookmark|embed|equation|mermaid|database|canvas","text":"...","checked":false,"expanded":true,"codeLanguage":"dart","depth":0,"icon":"emoji","url":"https://...","imageWidth":0.8,"cols":2,"rows":[["a","b"]]}\n'
                   '${isEs ? 'No uses markdown fences ni texto fuera del JSON.' : 'Do not use markdown fences or text outside JSON.'}\n\n'
                   '${_titleL10n.aiPromptOriginalMessage}\n${prompt.trim()}',
               model: 'auto',
@@ -1134,6 +1276,11 @@ For images/blocks: use the + button or / command in a paragraph.
             reason: reason,
             reply: reply,
             isEs: isEs,
+          ),
+          agentApplySnapshot: _folioChatAgentApplySnapshotFromDecoded(
+            scopePage: scopePage,
+            mode: mode,
+            decoded: decoded,
           ),
         );
       }
@@ -1270,7 +1417,7 @@ For images/blocks: use the + button or / command in a paragraph.
             prompt:
                 '${isEs ? VaultSession._quillIdentityLeadEs : VaultSession._quillIdentityLeadEn}'
                 '${isEs ? 'La respuesta anterior no fue JSON válido. El usuario quiere crear una página. Devuelve SOLO JSON con mode=create_page, el título en "title" y los bloques en "blocks". Por defecto genera contenido detallado y completo (mínimo 10-15 bloques), salvo que el mensaje original pida algo corto.' : 'The previous response was not valid JSON. The user wants to create a page. Return ONLY JSON with mode=create_page, the title in "title" and the blocks in "blocks". By default generate detailed, comprehensive content (minimum 10-15 blocks), unless the original message asked for something short.'}\n'
-                '${isEs ? 'Formato de bloque:' : 'Block format:'} {"type":"paragraph|h1|h2|h3|bullet|numbered|todo|quote|code|callout|toggle|divider|table|image|file|video|audio|meeting_note|bookmark|embed|equation|mermaid","text":"...","checked":false,"expanded":true,"codeLanguage":"dart","depth":0,"icon":"emoji","url":"https://...","imageWidth":0.8,"cols":2,"rows":[["a","b"]]}\n'
+                '${isEs ? 'Formato de bloque:' : 'Block format:'} {"type":"paragraph|h1|h2|h3|bullet|numbered|todo|quote|code|callout|toggle|divider|table|image|file|video|audio|meeting_note|bookmark|embed|equation|mermaid|database|canvas","text":"...","checked":false,"expanded":true,"codeLanguage":"dart","depth":0,"icon":"emoji","url":"https://...","imageWidth":0.8,"cols":2,"rows":[["a","b"]]}\n'
                 '${isEs ? 'No uses markdown fences ni texto fuera del JSON.' : 'Do not use markdown fences or text outside JSON.'}\n\n'
                 '${_titleL10n.aiPromptOriginalMessage}\n${prompt.trim()}',
             model: 'auto',
@@ -1684,6 +1831,12 @@ For images/blocks: use the + button or / command in a paragraph.
       'avoid ',
     ];
     if (negationPrefixes.any(p.startsWith)) return false;
+    if (_looksLikeBilingualTranslateIntent(
+      prompt,
+      languageCode: languageCode,
+    )) {
+      return true;
+    }
     if (_looksLikeCreatePageIntent(prompt, languageCode: languageCode)) {
       return false;
     }
@@ -1730,6 +1883,12 @@ For images/blocks: use the + button or / command in a paragraph.
     String prompt, {
     required String languageCode,
   }) {
+    if (_looksLikeBilingualTranslateIntent(
+      prompt,
+      languageCode: languageCode,
+    )) {
+      return false;
+    }
     final p = _normalizeIntentText(prompt);
     const weakConversationalStarts = [
       'que es',
@@ -1765,6 +1924,85 @@ For images/blocks: use the + button or / command in a paragraph.
         _containsIntentPhrase(p, 'from scratch') ||
         _containsIntentPhrase(p, 'desde cero');
     return hasPagina && hasCreateVerb;
+  }
+
+  bool _looksLikeBilingualTranslateIntent(
+    String prompt, {
+    required String languageCode,
+  }) {
+    final p = _normalizeIntentText(prompt);
+    const translateVerbs = [
+      'traducir',
+      'traduce',
+      'traduci',
+      'translate',
+      'translation',
+    ];
+    final hasTranslate = translateVerbs.any((v) => _containsIntentPhrase(p, v));
+    if (!hasTranslate) return false;
+
+    final hints = AiIntentHints.hintsFor(
+      intent: AiIntentHints.translateBilingual,
+      languageCode: languageCode,
+    );
+    if (hints.any((h) => _containsIntentPhrase(p, h))) return true;
+
+    final hasPageRef =
+        _containsIntentPhrase(p, 'pagina') ||
+        _containsIntentPhrase(p, 'page') ||
+        _containsIntentPhrase(p, 'nota') ||
+        _containsIntentPhrase(p, 'note');
+    final hasInPlace =
+        _containsIntentPhrase(p, 'misma') ||
+        _containsIntentPhrase(p, 'same') ||
+        _containsIntentPhrase(p, 'insert') ||
+        _containsIntentPhrase(p, 'insertar') ||
+        _containsIntentPhrase(p, 'inserta') ||
+        _containsIntentPhrase(p, 'sitio') ||
+        _containsIntentPhrase(p, 'place');
+    return hasPageRef && hasInPlace;
+  }
+
+  List<BilingualBlockTranslation> _parseBilingualTranslationResponse(
+    String raw, {
+    required Set<String> allowedBlockIds,
+  }) {
+    final out = <BilingualBlockTranslation>[];
+    dynamic decoded;
+    try {
+      decoded = jsonDecode(raw.trim());
+    } catch (_) {
+      final firstObj = raw.indexOf('{');
+      final lastObj = raw.lastIndexOf('}');
+      if (firstObj >= 0 && lastObj > firstObj) {
+        try {
+          decoded = jsonDecode(raw.substring(firstObj, lastObj + 1));
+        } catch (_) {
+          return out;
+        }
+      } else {
+        return out;
+      }
+    }
+
+    List<dynamic>? items;
+    if (decoded is Map) {
+      final list = decoded['translations'];
+      if (list is List) items = list;
+    } else if (decoded is List) {
+      items = decoded;
+    }
+    if (items == null) return out;
+
+    for (final item in items) {
+      if (item is! Map) continue;
+      final blockId = (item['blockId'] as String? ?? '').trim();
+      final text = (item['text'] as String? ?? '').trim();
+      if (blockId.isEmpty || text.isEmpty) continue;
+      if (!allowedBlockIds.contains(blockId)) continue;
+      out.add(BilingualBlockTranslation(blockId: blockId, text: text));
+    }
+    return out;
   }
 
   bool _looksLikeSubpageIntent(String prompt, {required String languageCode}) {
@@ -2150,7 +2388,7 @@ For images/blocks: use the + button or / command in a paragraph.
             '"operations":[{"kind":"update_page_title|append_blocks|replace_page","title":"nuevo título si renombrar","blocks":[...]}]'
             '}\n'
             'Para renombrar la página usa una operación {"kind":"update_page_title","title":"..."} (puede ir sola o junto a otras).\n'
-            'Bloques permitidos: paragraph,h1,h2,h3,bullet,numbered,todo,quote,code,callout,toggle,divider,table,image,file,video,audio,meeting_note,bookmark,embed,equation,mermaid.\n'
+            'Bloques permitidos: paragraph,h1,h2,h3,bullet,numbered,todo,task,quote,code,callout,toggle,divider,table,image,file,video,audio,meeting_note,bookmark,embed,equation,mermaid.\n'
             'Para table usa: {"type":"table","cols":N,"rows":[["c1","c2"],["v1","v2"]]}.\n'
             'Para code puedes añadir codeLanguage. Para todo puedes añadir checked.\n'
             'No uses markdown ni texto fuera del JSON.\n\n'
@@ -2305,6 +2543,49 @@ For images/blocks: use the + button or / command in a paragraph.
             tableRows: rows,
           ),
         );
+        continue;
+      }
+      if (type == 'database') {
+        final rawText = (map['text'] as String? ?? '').trim();
+        final db = rawText.isNotEmpty
+            ? FolioDatabaseData.tryParse(rawText)
+            : null;
+        blocks.add(
+          _AiBlockSpec(
+            type: 'database',
+            text: (db ?? FolioDatabaseData.empty()).encode(),
+          ),
+        );
+        continue;
+      }
+      if (type == 'canvas') {
+        final rawText = (map['text'] as String? ?? '').trim();
+        final cv = rawText.isNotEmpty
+            ? FolioCanvasData.tryParse(rawText)
+            : null;
+        blocks.add(
+          _AiBlockSpec(
+            type: 'canvas',
+            text: (cv ?? FolioCanvasData.defaults()).encode(),
+          ),
+        );
+        continue;
+      }
+      if (type == 'task') {
+        final rawText = (map['text'] as String? ?? '').trim();
+        final titleFromMap = (map['title'] as String? ?? '').trim();
+        FolioTaskData task;
+        if (rawText.startsWith('{')) {
+          task =
+              FolioTaskData.tryParse(rawText) ??
+              FolioTaskData.defaults().copyWith(title: titleFromMap);
+        } else if (rawText.isNotEmpty) {
+          task = FolioTaskData(title: rawText, status: 'todo');
+        } else {
+          task = FolioTaskData(title: titleFromMap, status: 'todo');
+        }
+        if (task.title.trim().isEmpty) continue;
+        blocks.add(_AiBlockSpec(type: 'task', text: task.encode()));
         continue;
       }
       final text = (map['text'] as String? ?? '').trim();
@@ -2465,6 +2746,13 @@ For images/blocks: use the + button or / command in a paragraph.
     return out;
   }
 
+  String _materializeAiTaskBlockText(String raw) {
+    final parsed = FolioTaskData.tryParse(raw);
+    if (parsed != null) return parsed.encode();
+    final title = raw.trim();
+    return FolioTaskData(title: title, status: 'todo').encode();
+  }
+
   List<FolioBlock> _materializeAiBlocks(
     String pageId,
     List<_AiBlockSpec> specs,
@@ -2487,6 +2775,7 @@ For images/blocks: use the + button or / command in a paragraph.
       final canUseUrlOnly = urlOnlyTypes.contains(type) && hasUrl;
       if (type != 'divider' &&
           type != 'table' &&
+          type != 'task' &&
           text.isEmpty &&
           !canUseUrlOnly) {
         continue;
@@ -2497,7 +2786,11 @@ For images/blocks: use the + button or / command in a paragraph.
           type: type,
           text: type == 'divider'
               ? ''
-              : (type == 'table' ? _buildTableBlockText(s) : text),
+              : (type == 'table'
+                    ? _buildTableBlockText(s)
+                    : (type == 'task'
+                          ? _materializeAiTaskBlockText(s.text)
+                          : text)),
           checked: type == 'todo' ? (s.checked ?? false) : null,
           codeLanguage: type == 'code'
               ? (s.codeLanguage?.trim().isEmpty ?? true
@@ -2555,6 +2848,24 @@ For images/blocks: use the + button or / command in a paragraph.
     String languageCode = 'es',
   }) => _looksLikeSubpageIntent(prompt, languageCode: languageCode);
 
+  @visibleForTesting
+  bool detectBilingualTranslateIntentForTesting(
+    String prompt, {
+    String languageCode = 'es',
+  }) => _looksLikeBilingualTranslateIntent(
+    prompt,
+    languageCode: languageCode,
+  );
+
+  @visibleForTesting
+  List<BilingualBlockTranslation> parseBilingualTranslationResponseForTesting(
+    String raw, {
+    Set<String> allowedBlockIds = const {},
+  }) => _parseBilingualTranslationResponse(
+    raw,
+    allowedBlockIds: allowedBlockIds,
+  );
+
   bool _aiBlockTypeAllowsEmptyText(String type, {required String url}) {
     if (type == 'divider' || type == 'table') return true;
     if (url.isEmpty) return false;
@@ -2578,6 +2889,7 @@ For images/blocks: use the + button or / command in a paragraph.
       'bullet',
       'numbered',
       'todo',
+      'task',
       'toggle',
       'code',
       'quote',
@@ -2593,6 +2905,8 @@ For images/blocks: use the + button or / command in a paragraph.
       'equation',
       'mermaid',
       'meeting_note',
+      'database',
+      'canvas',
     };
     final normalized = raw.trim().toLowerCase();
     final type = normalized.contains('|')
@@ -2623,6 +2937,62 @@ For images/blocks: use the + button or / command in a paragraph.
     }
     return FolioTableData(cols: cols, cells: cells).encode();
   }
+
+  /// Aplica en la página indicada el JSON que el agente devolvió en modo `chat`
+  /// (bloques u operaciones) cuando no se auto-materializó.
+  bool applyAgentChatSnapshotToPage({
+    required String pageId,
+    required Map<String, dynamic> snapshot,
+    required AiAgentApplyKind kind,
+  }) {
+    if (_state != VaultFlowState.unlocked ||
+        (vaultUsesEncryption && _dek == null)) {
+      return false;
+    }
+    final page = _pageById(pageId);
+    if (page == null) return false;
+    try {
+      if (kind == AiAgentApplyKind.insertBlocksAtEnd) {
+        final raw = snapshot['blocks'];
+        if (raw is! List || raw.isEmpty) return false;
+        final specs = _parseAiBlocksFromDynamicList(raw);
+        if (specs.isEmpty) return false;
+        page.blocks.addAll(_materializeAiBlocks(page.id, specs));
+      } else if (kind == AiAgentApplyKind.replaceAllBlocks) {
+        final raw = snapshot['blocks'];
+        if (raw is! List || raw.isEmpty) return false;
+        final specs = _parseAiBlocksFromDynamicList(raw);
+        if (specs.isEmpty) return false;
+        page.blocks = _materializeAiBlocks(page.id, specs);
+      } else if (kind == AiAgentApplyKind.applyEditOperations) {
+        final raw = snapshot['operations'];
+        if (raw is! List || raw.isEmpty) return false;
+        if (!_applyAgentEditOperations(page, raw)) return false;
+      }
+      _notifySessionListeners();
+      scheduleSave(trackRevisionForPageId: page.id);
+      return true;
+    } catch (_) {
+      return false;
+    }
+  }
+}
+
+Map<String, dynamic>? _folioChatAgentApplySnapshotFromDecoded({
+  required FolioPage? scopePage,
+  required String mode,
+  required Map<String, dynamic> decoded,
+}) {
+  if (scopePage == null || mode != 'chat') return null;
+  final rawBlocks = decoded['blocks'];
+  final rawOps = decoded['operations'];
+  final hasB = rawBlocks is List && rawBlocks.isNotEmpty;
+  final hasO = rawOps is List && rawOps.isNotEmpty;
+  if (!hasB && !hasO) return null;
+  return <String, dynamic>{
+    if (hasB) 'blocks': jsonDecode(jsonEncode(rawBlocks)),
+    if (hasO) 'operations': jsonDecode(jsonEncode(rawOps)),
+  };
 }
 
 class _AiPageDraft {

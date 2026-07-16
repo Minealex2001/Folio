@@ -5,6 +5,7 @@ import 'package:flutter/foundation.dart' show TargetPlatform, defaultTargetPlatf
 import 'package:flutter/material.dart';
 import 'package:uuid/uuid.dart';
 
+import '../../../app/widgets/folio_dialog.dart';
 import '../../../l10n/generated/app_localizations.dart';
 import '../../../models/folio_page_template.dart';
 import '../../../services/cloud_account/cloud_account_controller.dart';
@@ -12,6 +13,8 @@ import '../../../services/folio_cloud/folio_cloud_reachability.dart';
 import '../../../services/community_templates/community_template_store.dart';
 import '../../../session/vault_session.dart';
 import '../../onboarding/cloud_sign_in_dialog.dart';
+import '../../../app/widgets/folio_skeletons.dart';
+import '../../../app/widgets/folio_error_card.dart';
 
 /// Pantalla completa de galería de plantillas (locales y comunidad).
 
@@ -289,22 +292,11 @@ class _TemplateGalleryPageState extends State<TemplateGalleryPage>
       await _openCloudSignIn();
       if (!widget.cloud.isSignedIn || !mounted) return;
     }
-    final confirm = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: Text(l10n.templateCommunityShareTitle),
-        content: Text(l10n.templateCommunityShareBody),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: Text(l10n.cancel),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(ctx, true),
-            child: Text(l10n.templateCommunityShareConfirm),
-          ),
-        ],
-      ),
+    final confirm = await FolioDialog.confirm(
+      context,
+      title: Text(l10n.templateCommunityShareTitle),
+      content: Text(l10n.templateCommunityShareBody),
+      confirmLabel: l10n.templateCommunityShareConfirm,
     );
     if (confirm != true || !mounted) return;
     try {
@@ -376,22 +368,12 @@ class _TemplateGalleryPageState extends State<TemplateGalleryPage>
   Future<void> _deleteCommunityListing(CommunityTemplateEntry entry) async {
     final l10n = AppLocalizations.of(context);
     if (!widget.cloud.isSignedIn) return;
-    final ok = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: Text(l10n.templateCommunityDeleteTitle),
-        content: Text(l10n.templateCommunityDeleteBody(entry.name)),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: Text(l10n.cancel),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(ctx, true),
-            child: Text(l10n.delete),
-          ),
-        ],
-      ),
+    final ok = await FolioDialog.confirm(
+      context,
+      title: Text(l10n.templateCommunityDeleteTitle),
+      content: Text(l10n.templateCommunityDeleteBody(entry.name)),
+      confirmLabel: l10n.delete,
+      destructive: true,
     );
     if (ok != true || !mounted) return;
     try {
@@ -536,13 +518,9 @@ class _TemplateGalleryPageState extends State<TemplateGalleryPage>
                           )
                         : null,
                     child: _communityUseBusy
-                        ? SizedBox(
-                            width: 20,
-                            height: 20,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2,
-                              color: scheme.onPrimary,
-                            ),
+                        ? FolioLoadingIndicator(
+                            size: FolioLoadingSize.small,
+                            color: scheme.onPrimary,
                           )
                         : Text(l10n.templateUse),
                   ),
@@ -768,26 +746,24 @@ class _TemplateGalleryPageState extends State<TemplateGalleryPage>
     }
 
     if (_communityLoading && _communityEntries.isEmpty) {
-      return const Center(child: CircularProgressIndicator());
+      return const Padding(
+        padding: EdgeInsets.symmetric(horizontal: 16),
+        child: FolioTemplateGallerySkeleton(),
+      );
     }
 
     if (_communityError != null && _communityEntries.isEmpty) {
       return Center(
         child: Padding(
           padding: const EdgeInsets.all(24),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                l10n.templateCommunityLoadError(_communityError!),
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 12),
-              FilledButton.tonal(
-                onPressed: _loadCommunityTemplates,
-                child: Text(l10n.templateCommunityRetry),
-              ),
-            ],
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 400),
+            child: FolioErrorCard(
+              title: l10n.templateCommunityRefresh,
+              message: l10n.templateCommunityLoadError(_communityError!),
+              icon: Icons.cloud_off_rounded,
+              onRetry: _loadCommunityTemplates,
+            ),
           ),
         ),
       );
@@ -1032,7 +1008,7 @@ class _TemplateGalleryPageState extends State<TemplateGalleryPage>
     final shouldSave = await showDialog<bool>(
       context: context,
       builder: (dialogContext) => StatefulBuilder(
-        builder: (dialogContext, setDialogState) => AlertDialog(
+        builder: (dialogContext, setDialogState) => FolioDialog(
           title: Text(l10n.templateEdit),
           content: SizedBox(
             width: 420,
@@ -1113,22 +1089,12 @@ class _TemplateGalleryPageState extends State<TemplateGalleryPage>
 
   Future<void> _confirmDelete(FolioPageTemplate template) async {
     final l10n = AppLocalizations.of(context);
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (dialogContext) => AlertDialog(
-        title: Text(l10n.templateDeleteConfirmTitle),
-        content: Text(l10n.templateDeleteConfirmBody(template.name)),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(dialogContext, false),
-            child: Text(l10n.cancel),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(dialogContext, true),
-            child: Text(l10n.delete),
-          ),
-        ],
-      ),
+    final confirmed = await FolioDialog.confirm(
+      context,
+      title: Text(l10n.templateDeleteConfirmTitle),
+      content: Text(l10n.templateDeleteConfirmBody(template.name)),
+      confirmLabel: l10n.delete,
+      destructive: true,
     );
 
     if (confirmed != true || !mounted) return;

@@ -79,17 +79,56 @@ class FolioColumnsData {
           ],
         );
       }).toList();
+      final List<FolioColumnData> normalized;
       if (cols.length < 2) {
-        return FolioColumnsData(
-          columns: [cols.elementAt(0), FolioColumnData.empty()],
-        );
+        normalized = [cols.elementAt(0), FolioColumnData.empty()];
+      } else if (cols.length > 3) {
+        normalized = cols.take(3).toList();
+      } else {
+        normalized = cols;
       }
-      if (cols.length > 3) {
-        return FolioColumnsData(columns: cols.take(3).toList());
-      }
-      return FolioColumnsData(columns: cols);
+      return FolioColumnsData(columns: _withUniqueBlockIds(normalized));
     } catch (_) {
       return null;
     }
+  }
+
+  /// Garantiza que todos los bloques (de todas las columnas) tengan un id único.
+  /// IDs duplicados (p. ej. de un import/JSON corrupto) harían que compartieran
+  /// el mismo `TextEditingController` en el editor; se reasigna un id nuevo a los
+  /// duplicados o vacíos conservando el contenido.
+  static List<FolioColumnData> _withUniqueBlockIds(
+    List<FolioColumnData> columns,
+  ) {
+    final seen = <String>{};
+    var counter = 0;
+    return columns.map((col) {
+      final blocks = col.blocks.map((b) {
+        if (b.id.isNotEmpty && seen.add(b.id)) {
+          return b;
+        }
+        final newId =
+            'col_${DateTime.now().microsecondsSinceEpoch}_${counter++}';
+        seen.add(newId);
+        return FolioBlock(
+          id: newId,
+          type: b.type,
+          text: b.text,
+          richTextDeltaJson: b.richTextDeltaJson,
+          checked: b.checked,
+          expanded: b.expanded,
+          codeLanguage: b.codeLanguage,
+          depth: b.depth,
+          icon: b.icon,
+          url: b.url,
+          imageWidth: b.imageWidth,
+          appearance: b.appearance,
+          meetingNoteProvider: b.meetingNoteProvider,
+          meetingNoteTranscriptionEnabled: b.meetingNoteTranscriptionEnabled,
+          syncGroupId: b.syncGroupId,
+        );
+      }).toList();
+      return FolioColumnData(blocks: blocks);
+    }).toList();
   }
 }

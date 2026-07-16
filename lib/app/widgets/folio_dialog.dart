@@ -3,23 +3,40 @@ import 'package:flutter/material.dart';
 class FolioDialog extends StatelessWidget {
   const FolioDialog({
     super.key,
-    required this.title,
+    this.icon,
+    this.title,
     required this.content,
-    required this.actions,
+    this.actions = const [],
     this.contentWidth,
+    this.insetPadding,
   });
 
-  final Widget title;
+  final Widget? icon;
+  final Widget? title;
   final Widget content;
+
+  /// Vacío por defecto: para diálogos cuyo cierre vive dentro del propio
+  /// [content] (por ejemplo un botón de cerrar en la cabecera) en vez de en
+  /// una fila de acciones al pie.
   final List<Widget> actions;
   final double? contentWidth;
+
+  /// Pasa a través al [AlertDialog] subyacente para diálogos anchos que
+  /// necesitan controlar su margen respecto a los bordes de la pantalla.
+  final EdgeInsets? insetPadding;
 
   @override
   Widget build(BuildContext context) {
     final body = contentWidth == null
         ? content
         : SizedBox(width: contentWidth, child: content);
-    return AlertDialog(title: title, content: body, actions: actions);
+    return AlertDialog(
+      icon: icon,
+      title: title,
+      content: body,
+      actions: actions,
+      insetPadding: insetPadding,
+    );
   }
 
   // ---------------------------------------------------------------------------
@@ -31,6 +48,7 @@ class FolioDialog extends StatelessWidget {
   /// Devuelve `true` si el usuario confirma, `false`/`null` si cancela.
   static Future<bool?> confirm(
     BuildContext context, {
+    Widget? icon,
     required Widget title,
     required Widget content,
     required String confirmLabel,
@@ -47,6 +65,7 @@ class FolioDialog extends StatelessWidget {
       builder: (ctx) {
         final l10n = cancelLabel;
         return AlertDialog(
+          icon: icon,
           title: title,
           content: content,
           actions: [

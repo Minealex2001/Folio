@@ -125,6 +125,34 @@ class FolioRpServer {
     return jsonEncode(request);
   }
 
+  Map<String, dynamic> _decodeClientDataJson(String clientDataJSON) {
+    final raw = addBase64Padding(clientDataJSON);
+    return jsonDecode(String.fromCharCodes(base64.decode(raw)))
+        as Map<String, dynamic>;
+  }
+
+  void _assertPasskeyClientData({
+    required Map<String, dynamic> clientData,
+    required String expectedChallenge,
+    required String expectedType,
+  }) {
+    final type = clientData['type'] as String?;
+    if (type != expectedType) {
+      throw StateError('Tipo WebAuthn inválido');
+    }
+    final challenge = clientData['challenge'] as String?;
+    if (challenge == null || challenge != expectedChallenge) {
+      throw StateError('Challenge passkey inválido');
+    }
+    final origin = clientData['origin'] as String?;
+    if (origin != null &&
+        origin.isNotEmpty &&
+        !origin.contains(folioRpId) &&
+        folioRpId != 'localhost') {
+      throw StateError('Origen passkey no confiable');
+    }
+  }
+
   Future<void> finishPasskeyRegister({required String response}) async {
     final responseMap = jsonDecode(response) as Map<String, dynamic>;
     final responseData = responseMap['response'] as Map<String, dynamic>;
@@ -132,16 +160,21 @@ class FolioRpServer {
     final id = responseMap['id'] as String;
     final transports = responseData['transports'] as List<dynamic>?;
 
-    final raw = addBase64Padding(clientDataJSON);
-    final clientData =
-        jsonDecode(String.fromCharCodes(base64.decode(raw)))
-            as Map<String, dynamic>;
+    if (id.isEmpty) {
+      throw StateError('Credential ID vacío');
+    }
 
+    final clientData = _decodeClientDataJson(clientDataJSON);
     final challenge = clientData['challenge'] as String;
     final user = _inFlight[challenge];
     if (user == null) {
       throw StateError('Estado passkey inválido');
     }
+    _assertPasskeyClientData(
+      clientData: clientData,
+      expectedChallenge: challenge,
+      expectedType: 'webauthn.create',
+    );
 
     user
       ..credentialID = id
@@ -181,16 +214,26 @@ class FolioRpServer {
     final responseMap = jsonDecode(response) as Map<String, dynamic>;
     final responseData = responseMap['response'] as Map<String, dynamic>;
     final clientDataJSON = responseData['clientDataJSON'] as String;
+    final credentialId = responseMap['id'] as String?;
 
-    final raw = addBase64Padding(clientDataJSON);
-    final clientData =
-        jsonDecode(String.fromCharCodes(base64.decode(raw)))
-            as Map<String, dynamic>;
-
+    final clientData = _decodeClientDataJson(clientDataJSON);
     final challenge = clientData['challenge'] as String;
     final user = _inFlight[challenge];
     if (user == null) {
       throw StateError('Estado passkey inválido');
+    }
+    _assertPasskeyClientData(
+      clientData: clientData,
+      expectedChallenge: challenge,
+      expectedType: 'webauthn.get',
+    );
+    final expectedId = user.credentialID;
+    if (expectedId == null ||
+        expectedId.isEmpty ||
+        credentialId == null ||
+        credentialId.isEmpty ||
+        credentialId != expectedId) {
+      throw StateError('Credential ID no coincide');
     }
     _inFlight.remove(challenge);
   }

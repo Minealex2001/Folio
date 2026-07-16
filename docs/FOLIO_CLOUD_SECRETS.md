@@ -14,6 +14,7 @@ Folio es **open source**. Ninguna credencial con poder real debe estar en el rep
 ## Firebase en el cliente
 
 - `lib/firebase_options.dart` identifica el proyecto. Restringe en [Firebase Console](https://console.firebase.google.com) por app (SHA-256 Android, bundle iOS, etc.).
+- **Google Analytics (GA4) en todas las plataformas** (iOS `GoogleService-Info.plist`, web `measurementId`, macOS bundle, etc.): checklist en [TELEMETRY.md](TELEMETRY.md) sección *Google Analytics on every platform*.
 - Para forks: genera el tuyo con `flutterfire configure` o usa un proyecto de desarrollo aparte.
 - Opcional: no commitear `firebase_options.dart` de producción y generarlo en CI con secretos (añade el archivo a `.gitignore` solo si adoptáis ese flujo).
 

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../l10n/generated/app_localizations.dart';
+import 'folio_dialog.dart';
 
 Future<void> showFolioCloudAiInkExhaustedDialog(
   BuildContext context, {
@@ -10,7 +11,7 @@ Future<void> showFolioCloudAiInkExhaustedDialog(
   final l10n = AppLocalizations.of(context);
   return showDialog<void>(
     context: context,
-    builder: (ctx) => AlertDialog(
+    builder: (ctx) => FolioDialog(
       title: Text(l10n.folioCloudAiNoInkTitle),
       content: Text(l10n.folioCloudAiNoInkBody),
       actions: [

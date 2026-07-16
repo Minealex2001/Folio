@@ -4,6 +4,8 @@ import 'dart:typed_data';
 
 import 'package:cryptography/cryptography.dart';
 
+import '../core/errors/folio_exception.dart';
+
 /// Argon2id + AES-256-GCM for Folio vault (DEK wrapping and payload encryption).
 class VaultCrypto {
   VaultCrypto._();
@@ -97,7 +99,12 @@ class VaultCrypto {
 
   /// Cifrado determinístico para blobs de copia incremental en la nube: mismo
   /// plaintext y misma base de nonce → mismo ciphertext (deduplicación en Storage).
-  /// [nonceBasis] debe incluir contexto único por archivo (p. ej. rol + ruta).
+  /// SEGURIDAD: [nonceBasis] DEBE derivarse del contenido de [plain] (p. ej. su
+  /// hash), no solo de un rol/ruta estático — de lo contrario, dos llamadas con
+  /// el mismo [dek] y el mismo [nonceBasis] pero [plain] distinto reutilizan
+  /// nonce bajo AES-GCM, lo que permite forjar blobs auténticos falsos. Ver
+  /// `cloudPackEncryptPlainBlob` para la construcción correcta (basis = rol +
+  /// hash del contenido).
   static Future<Uint8List> encryptPayloadDeterministicPack({
     required List<int> plain,
     required SecretKey dek,
@@ -139,10 +146,6 @@ class VaultCrypto {
   }
 }
 
-class VaultCryptoException implements Exception {
-  VaultCryptoException(this.message);
-  final String message;
-
-  @override
-  String toString() => message;
+class VaultCryptoException extends FolioException {
+  VaultCryptoException(super.message);
 }

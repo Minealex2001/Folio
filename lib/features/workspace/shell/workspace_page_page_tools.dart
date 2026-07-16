@@ -366,7 +366,7 @@ extension _WorkspacePageToolsModule on _WorkspacePageState {
     // Ask user: full text or annotations only?
     final annotationsOnly = await showDialog<bool>(
       context: ctx,
-      builder: (dialogCtx) => AlertDialog(
+      builder: (dialogCtx) => FolioDialog(
         title: Text(l10n.importPdfDialogTitle),
         content: Column(
           mainAxisSize: MainAxisSize.min,

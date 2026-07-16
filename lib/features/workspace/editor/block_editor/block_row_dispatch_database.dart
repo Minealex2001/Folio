@@ -1,7 +1,6 @@
 part of 'package:folio/features/workspace/editor/block_editor.dart';
 // ignore_for_file: unused_local_variable
 
-
 Widget? _specialRowDatabase(_BlockRowScope s) {
   if (s.block.type != 'database') return null;
   final st = s.st;
@@ -39,7 +38,9 @@ Widget? _specialRowDatabase(_BlockRowScope s) {
             scheme: scheme,
             textTheme: theme.textTheme,
             controlsVisible: showInlineEditControls,
-            onChanged: (enc) => st._onTableEncoded(page.id, block.id, index, enc),
+            aiService: s.st.widget.session.aiService,
+            onChanged: (enc) =>
+                st._onTableEncoded(page.id, block.id, index, enc),
           ),
         ),
       ),

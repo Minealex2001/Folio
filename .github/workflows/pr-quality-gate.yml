@@ -57,6 +57,16 @@ jobs:
         shell: pwsh
         run: dart pub get --enforce-lockfile
 
+      - name: Local secrets stub (copy example for analyze if missing)
+        working-directory: ${{ env.REPO_DIR }}
+        shell: pwsh
+        run: Copy-Item -Force lib/config/folio_local_secrets.example.dart lib/config/folio_local_secrets.dart
+
+      - name: Localization key parity
+        working-directory: ${{ env.REPO_DIR }}
+        shell: pwsh
+        run: powershell -ExecutionPolicy Bypass -File tool/check_arb_parity.ps1
+
       - name: Static analysis
         working-directory: ${{ env.REPO_DIR }}
         shell: pwsh

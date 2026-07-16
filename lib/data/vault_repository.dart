@@ -2,202 +2,17 @@ import 'dart:typed_data';
 
 import 'package:flutter/widgets.dart' show Locale;
 
+import '../core/errors/vault_corruption_exception.dart';
 import '../crypto/vault_crypto.dart';
+import '../domain/vault/vault_migration.dart';
 import '../l10n/generated/app_localizations.dart';
-import '../models/block.dart';
 import '../models/folio_page.dart';
+import '../models/folio_usage_intent.dart';
 import 'vault_payload.dart';
 import 'vault_paths.dart';
+import 'vault_starter_pages.dart';
 
-enum VaultStarterContent {
-  enabled,
-  disabled,
-}
-
-List<FolioPage> buildVaultStarterPages(
-  VaultStarterContent starterContent,
-  AppLocalizations l10n,
-) {
-  if (starterContent == VaultStarterContent.disabled) {
-    return const [];
-  }
-  return [
-    FolioPage(
-      id: 'starter_home',
-      title: l10n.vaultStarterHomeTitle,
-      blocks: [
-        FolioBlock(
-          id: 'starter_home_b0',
-          type: 'h1',
-          text: l10n.vaultStarterHomeHeading,
-        ),
-        FolioBlock(
-          id: 'starter_home_b1',
-          type: 'paragraph',
-          text: l10n.vaultStarterHomeIntro,
-        ),
-        FolioBlock(
-          id: 'starter_home_b2',
-          type: 'callout',
-          text: l10n.vaultStarterHomeCallout,
-          icon: '💡',
-        ),
-        FolioBlock(
-          id: 'starter_home_b3',
-          type: 'h2',
-          text: l10n.vaultStarterHomeSectionTips,
-        ),
-        FolioBlock(
-          id: 'starter_home_b4',
-          type: 'bullet',
-          text: l10n.vaultStarterHomeBulletSlash,
-        ),
-        FolioBlock(
-          id: 'starter_home_b5',
-          type: 'bullet',
-          text: l10n.vaultStarterHomeBulletSidebar,
-        ),
-        FolioBlock(
-          id: 'starter_home_b6',
-          type: 'bullet',
-          text: l10n.vaultStarterHomeBulletSettings,
-        ),
-        FolioBlock(
-          id: 'starter_home_b7',
-          type: 'divider',
-          text: '',
-        ),
-        FolioBlock(
-          id: 'starter_home_b8',
-          type: 'todo',
-          text: l10n.vaultStarterHomeTodo1,
-          checked: false,
-        ),
-        FolioBlock(
-          id: 'starter_home_b9',
-          type: 'todo',
-          text: l10n.vaultStarterHomeTodo2,
-          checked: false,
-        ),
-        FolioBlock(
-          id: 'starter_home_b10',
-          type: 'todo',
-          text: l10n.vaultStarterHomeTodo3,
-          checked: false,
-        ),
-      ],
-    ),
-    FolioPage(
-      id: 'starter_capabilities',
-      title: l10n.vaultStarterCapabilitiesTitle,
-      blocks: [
-        FolioBlock(
-          id: 'starter_capabilities_b0',
-          type: 'h2',
-          text: l10n.vaultStarterCapabilitiesSectionMain,
-        ),
-        FolioBlock(
-          id: 'starter_capabilities_b1',
-          type: 'bullet',
-          text: l10n.vaultStarterCapabilitiesBullet1,
-        ),
-        FolioBlock(
-          id: 'starter_capabilities_b2',
-          type: 'bullet',
-          text: l10n.vaultStarterCapabilitiesBullet2,
-        ),
-        FolioBlock(
-          id: 'starter_capabilities_b3',
-          type: 'bullet',
-          text: l10n.vaultStarterCapabilitiesBullet3,
-        ),
-        FolioBlock(
-          id: 'starter_capabilities_b4',
-          type: 'bullet',
-          text: l10n.vaultStarterCapabilitiesBullet4,
-        ),
-        FolioBlock(
-          id: 'starter_capabilities_b5',
-          type: 'h2',
-          text: l10n.vaultStarterCapabilitiesSectionShortcuts,
-        ),
-        FolioBlock(
-          id: 'starter_capabilities_b6',
-          type: 'bullet',
-          text: l10n.vaultStarterCapabilitiesShortcutN,
-        ),
-        FolioBlock(
-          id: 'starter_capabilities_b7',
-          type: 'bullet',
-          text: l10n.vaultStarterCapabilitiesShortcutSearch,
-        ),
-        FolioBlock(
-          id: 'starter_capabilities_b8',
-          type: 'bullet',
-          text: l10n.vaultStarterCapabilitiesShortcutSettings,
-        ),
-        FolioBlock(
-          id: 'starter_capabilities_b9',
-          type: 'callout',
-          text: l10n.vaultStarterCapabilitiesAiCallout,
-          icon: '🧠',
-        ),
-      ],
-    ),
-    FolioPage(
-      id: 'starter_quill',
-      title: l10n.vaultStarterQuillTitle,
-      blocks: [
-        FolioBlock(
-          id: 'starter_quill_b0',
-          type: 'h2',
-          text: l10n.vaultStarterQuillSectionWhat,
-        ),
-        FolioBlock(
-          id: 'starter_quill_b1',
-          type: 'bullet',
-          text: l10n.vaultStarterQuillBullet1,
-        ),
-        FolioBlock(
-          id: 'starter_quill_b2',
-          type: 'bullet',
-          text: l10n.vaultStarterQuillBullet2,
-        ),
-        FolioBlock(
-          id: 'starter_quill_b3',
-          type: 'bullet',
-          text: l10n.vaultStarterQuillBullet3,
-        ),
-        FolioBlock(
-          id: 'starter_quill_b4',
-          type: 'h2',
-          text: l10n.vaultStarterQuillSectionPrivacy,
-        ),
-        FolioBlock(
-          id: 'starter_quill_b5',
-          type: 'paragraph',
-          text: l10n.vaultStarterQuillPrivacyBody,
-        ),
-        FolioBlock(
-          id: 'starter_quill_b6',
-          type: 'callout',
-          text: l10n.vaultStarterQuillBackupCallout,
-          icon: '🔐',
-        ),
-        FolioBlock(
-          id: 'starter_quill_b7',
-          type: 'paragraph',
-          text: l10n.vaultStarterQuillMermaidCaption,
-        ),
-        FolioBlock(
-          id: 'starter_quill_b8',
-          type: 'mermaid',
-          text: l10n.vaultStarterQuillMermaidSource,
-        ),
-      ],
-    ),
-  ];
-}
+export 'vault_starter_pages.dart' show VaultStarterContent, buildVaultStarterPages;
 
 class VaultRepository {
   static const String _modeEncrypted = 'encrypted';
@@ -216,10 +31,19 @@ class VaultRepository {
     List<FolioPage>? initialPages,
     VaultStarterContent starterContent = VaultStarterContent.enabled,
     AppLocalizations? starterL10n,
+    List<FolioUsageIntent> usageIntents = const [FolioUsageIntent.notes],
+    bool includeQuillStarterPage = false,
   }) async {
     final l10n = starterL10n ?? lookupAppLocalizations(const Locale('es'));
     final payload = VaultPayload(
-      pages: initialPages ?? buildVaultStarterPages(starterContent, l10n),
+      pages:
+          initialPages ??
+          buildVaultStarterPages(
+            starterContent: starterContent,
+            l10n: l10n,
+            usageIntents: usageIntents,
+            includeQuillPage: includeQuillStarterPage,
+          ),
     );
     if (encrypted) {
       if (password == null || password.isEmpty) {
@@ -247,23 +71,89 @@ class VaultRepository {
   }
 
   Future<Uint8List> unlockWithPassword(String password) async {
-    final wrapped = await VaultPaths.readWrappedDek();
-    if (wrapped == null) throw StateError('vault.keys no encontrado');
-    return VaultCrypto.unwrapDek(wrapped: wrapped, password: password);
+    var wrapped = await VaultPaths.readWrappedDek();
+    if (wrapped == null) {
+      // Recuperación: si el archivo principal falta, intenta la copia .bak.
+      wrapped = await VaultPaths.readWrappedDekBackup();
+      if (wrapped == null) throw StateError('vault.keys no encontrado');
+      await VaultPaths.restoreWrappedDekFromBackup();
+    }
+    try {
+      return await VaultCrypto.unwrapDek(wrapped: wrapped, password: password);
+    } on VaultCryptoException {
+      // Puede ser contraseña incorrecta o vault.keys corrupto: probar .bak
+      // solo si difiere del principal (evita segundo intento inútil).
+      final backup = await VaultPaths.readWrappedDekBackup();
+      if (backup == null || _bytesEqual(backup, wrapped)) rethrow;
+      final dek = await VaultCrypto.unwrapDek(
+        wrapped: backup,
+        password: password,
+      );
+      // El backup funciona y el principal no: restaurar el principal.
+      await VaultPaths.restoreWrappedDekFromBackup();
+      return dek;
+    }
+  }
+
+  static bool _bytesEqual(Uint8List a, Uint8List b) {
+    if (a.length != b.length) return false;
+    for (var i = 0; i < a.length; i++) {
+      if (a[i] != b[i]) return false;
+    }
+    return true;
   }
 
   Future<VaultPayload> loadPayload(List<int>? dekBytes) async {
-    final raw = await VaultPaths.readCipherPayload();
-    if (raw == null) throw StateError('vault.bin no encontrado');
-    if (await isPlaintextVault()) {
-      return VaultPayload.decodeUtf8(raw);
+    final primary = await VaultPaths.readCipherPayload();
+    if (primary == null) {
+      throw StateError('vault.bin no encontrado');
     }
-    if (dekBytes == null) {
-      throw StateError('Se requiere DEK para abrir libreta cifrada');
+    try {
+      return await _decodeAndMigrate(primary, dekBytes);
+    } on VaultCorruptionException {
+      final backup = await VaultPaths.readCipherPayloadBackup();
+      if (backup == null) rethrow;
+      return await _decodeAndMigrate(
+        backup,
+        dekBytes,
+        restoredFromBackup: true,
+      );
     }
-    final dek = await VaultCrypto.dekFromBytes(dekBytes);
-    final clear = await VaultCrypto.decryptPayload(blob: raw, dek: dek);
-    return VaultPayload.decodeUtf8(clear);
+  }
+
+  Future<VaultPayload> _decodeAndMigrate(
+    Uint8List raw,
+    List<int>? dekBytes, {
+    bool restoredFromBackup = false,
+  }) async {
+    try {
+      final VaultPayload payload;
+      if (await isPlaintextVault()) {
+        payload = VaultPayload.decodeUtf8(raw);
+      } else {
+        if (dekBytes == null) {
+          throw StateError('Se requiere DEK para abrir libreta cifrada');
+        }
+        final dek = await VaultCrypto.dekFromBytes(dekBytes);
+        final clear = await VaultCrypto.decryptPayload(blob: raw, dek: dek);
+        payload = VaultPayload.decodeUtf8(clear);
+      }
+      return migrateVaultPayload(payload);
+    } on VaultCorruptionException {
+      rethrow;
+    } on VaultCryptoException catch (e) {
+      throw VaultCorruptionException(
+        'No se pudo descifrar la libreta',
+        cause: e,
+        restoredFromBackup: restoredFromBackup,
+      );
+    } catch (e) {
+      throw VaultCorruptionException(
+        'No se pudo leer la libreta',
+        cause: e,
+        restoredFromBackup: restoredFromBackup,
+      );
+    }
   }
 
   Future<void> savePayload(VaultPayload payload, List<int>? dekBytes) async {
@@ -280,6 +170,23 @@ class VaultRepository {
       dek: dek,
     );
     await VaultPaths.writeCipherPayload(enc);
+  }
+
+  /// Restaura `vault.bin` desde la copia `.bak` local. También intenta
+  /// recuperar `vault.keys` y `vault.mode` si faltan y tienen `.bak`.
+  Future<bool> restoreCipherPayloadFromLocalBackup() async {
+    final restored = await VaultPaths.restoreCipherPayloadFromBackup();
+    try {
+      if (await VaultPaths.readWrappedDek() == null) {
+        await VaultPaths.restoreWrappedDekFromBackup();
+      }
+      if (await VaultPaths.readVaultMode() == null) {
+        await VaultPaths.restoreVaultModeFromBackup();
+      }
+    } catch (_) {
+      // La restauración de keys/mode es best-effort.
+    }
+    return restored;
   }
 
   Future<void> rewrapDek({

@@ -4,21 +4,27 @@ import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:local_notifier/local_notifier.dart';
 
 /// Wrapper sobre [LocalNotifier] para notificaciones nativas de escritorio.
-/// Actualmente solo activo en Windows; en otras plataformas todas las llamadas
-/// son no-op para evitar complejidad de permisos / setup adicional.
+/// Activo en Windows, macOS y Linux vía `local_notifier`. En web y móvil
+/// las llamadas son no-op (móvil puede integrarse con otro plugin aparte).
 class PlatformNotificationService {
   PlatformNotificationService._();
 
   static bool _initialized = false;
 
-  /// true si la plataforma actual puede mostrar notificaciones nativas.
-  static bool get supported => !kIsWeb && Platform.isWindows;
+  /// true si la plataforma actual puede mostrar notificaciones de escritorio.
+  static bool get supported =>
+      !kIsWeb &&
+      (Platform.isWindows || Platform.isMacOS || Platform.isLinux);
 
   /// Inicializa el plugin. Debe llamarse una sola vez desde [FolioApp].
   static Future<void> init() async {
     if (!supported || _initialized) return;
-    await localNotifier.setup(appName: 'Folio');
-    _initialized = true;
+    try {
+      await localNotifier.setup(appName: 'Folio');
+      _initialized = true;
+    } catch (_) {
+      // Permisos o entorno sin bandeja de notificaciones: no bloquear arranque.
+    }
   }
 
   /// Muestra una notificación nativa con [title] y [body].

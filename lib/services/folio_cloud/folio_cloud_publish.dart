@@ -4,7 +4,9 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_storage/firebase_storage.dart';
+import 'folio_storage_transport.dart';
 
+import '../folio_firestore_support.dart';
 import 'folio_cloud_entitlements.dart';
 
 class FolioPublishResult {
@@ -38,6 +40,16 @@ void _requirePublishWebEntitlement(FolioCloudSnapshot? snapshot) {
   }
 }
 
+/// Windows: Firestore no está disponible (crash nativo del SDK C++), así que la
+/// publicación web (índice en `publishedPages`) queda deshabilitada.
+void _requireFirestoreSupported() {
+  if (!folioFirestoreSupported) {
+    throw StateError(
+      'La publicación web no está disponible en esta plataforma.',
+    );
+  }
+}
+
 /// Publishes HTML to public Storage path and indexes metadata in Firestore.
 /// Si [entitlementSnapshot] no es null, comprueba [FolioCloudSnapshot.canPublishToWeb].
 Future<FolioPublishResult> publishHtmlPage({
@@ -46,6 +58,7 @@ Future<FolioPublishResult> publishHtmlPage({
   FolioCloudSnapshot? entitlementSnapshot,
 }) async {
   _requirePublishWebEntitlement(entitlementSnapshot);
+  _requireFirestoreSupported();
   if (Firebase.apps.isEmpty) {
     throw StateError('Firebase not initialized');
   }
@@ -57,9 +70,10 @@ Future<FolioPublishResult> publishHtmlPage({
   }
   final path = 'published/${user.uid}/$safeSlug.html';
   final ref = FirebaseStorage.instance.ref().child(path);
-  await ref.putData(
+  await folioStoragePutData(
+    ref,
     utf8.encode(html),
-    SettableMetadata(contentType: 'text/html; charset=utf-8'),
+    metadata: SettableMetadata(contentType: 'text/html; charset=utf-8'),
   );
   final url = await ref.getDownloadURL();
   final uri = Uri.parse(url);
@@ -76,6 +90,8 @@ Future<FolioPublishResult> publishHtmlPage({
 
 /// Entradas de [publishedPages] del usuario actual (orden aproximado por [updatedAt] en cliente).
 Future<List<PublishedPageEntry>> listMyPublishedPages() async {
+  // Windows: sin Firestore no hay índice de páginas publicadas.
+  if (!folioFirestoreSupported) return const <PublishedPageEntry>[];
   if (Firebase.apps.isEmpty) {
     throw StateError('Firebase not initialized');
   }
@@ -124,6 +140,7 @@ Future<void> deletePublishedPage(
   FolioCloudSnapshot? entitlementSnapshot,
 }) async {
   _requirePublishWebEntitlement(entitlementSnapshot);
+  _requireFirestoreSupported();
   if (Firebase.apps.isEmpty) {
     throw StateError('Firebase not initialized');
   }

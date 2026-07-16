@@ -2,7 +2,6 @@ import 'dart:async';
 import 'dart:typed_data';
 
 import 'package:idb_shim/idb_browser.dart';
-import 'package:idb_shim/idb_shim.dart';
 import 'package:uuid/uuid.dart';
 
 /// Web (IndexedDB) implementation of VaultStorage.
@@ -10,7 +9,7 @@ import 'package:uuid/uuid.dart';
 /// Data layout:
 ///   Database name : 'folio_vault_store' (version 1)
 ///   Object store  : 'vault_files'
-///   Key pattern   : '<vaultId>/<filename>'
+///   Key pattern   : 'vaultId/filename'
 ///                   e.g. 'abc123/vault.bin'
 ///                        'abc123/attachments/img.png'
 class VaultStorage {
@@ -21,6 +20,14 @@ class VaultStorage {
   static const _storeName = 'vault_files';
   static const _attachmentsDir = 'attachments';
   static const _uuid = Uuid();
+
+  /// Archivos críticos: antes de sobrescribir se rota una copia `.bak`
+  /// (paridad con la escritura atómica de la implementación nativa).
+  static const Set<String> _backedUpVaultFiles = {
+    'vault.bin',
+    'vault.keys',
+    'vault.mode',
+  };
 
   Database? _db;
 
@@ -70,12 +77,33 @@ class VaultStorage {
     String filename,
     Uint8List data,
   ) async {
-    await _tx<void>(
-      idbModeReadWrite,
-      (store) async {
-        await store.put(data, _key(vaultId, filename));
-      },
-    );
+    await _tx<void>(idbModeReadWrite, (store) async {
+      if (_backedUpVaultFiles.contains(filename)) {
+        // Rota el valor anterior a `.bak` en la misma transacción.
+        final prev = await store.getObject(_key(vaultId, filename));
+        if (prev is Uint8List) {
+          await store.put(prev, _key(vaultId, '$filename.bak'));
+        }
+      }
+      await store.put(data, _key(vaultId, filename));
+    });
+  }
+
+  Future<Uint8List?> readVaultFileBackup(
+    String vaultId,
+    String filename,
+  ) async {
+    return readVaultFile(vaultId, '$filename.bak');
+  }
+
+  Future<bool> restoreVaultFileFromBackup(
+    String vaultId,
+    String filename,
+  ) async {
+    final bak = await readVaultFileBackup(vaultId, filename);
+    if (bak == null) return false;
+    await writeVaultFile(vaultId, filename, bak);
+    return true;
   }
 
   Future<bool> vaultFileExists(String vaultId, String filename) async {
@@ -87,12 +115,9 @@ class VaultStorage {
   }
 
   Future<void> deleteVaultFile(String vaultId, String filename) async {
-    await _tx<void>(
-      idbModeReadWrite,
-      (store) async {
-        await store.delete(_key(vaultId, filename));
-      },
-    );
+    await _tx<void>(idbModeReadWrite, (store) async {
+      await store.delete(_key(vaultId, filename));
+    });
   }
 
   Future<int> vaultFileSize(String vaultId, String filename) async {
@@ -122,7 +147,7 @@ class VaultStorage {
     await for (final cursor in request) {
       final key = cursor.key as String?;
       if (key != null && key.startsWith(prefix)) {
-        keysToDelete.add(cursor.key!);
+        keysToDelete.add(cursor.key);
       }
       cursor.next();
     }
@@ -163,10 +188,7 @@ class VaultStorage {
     return relative;
   }
 
-  Future<Uint8List?> readAttachment(
-    String vaultId,
-    String relativePath,
-  ) async {
+  Future<Uint8List?> readAttachment(String vaultId, String relativePath) async {
     if (!relativePath.startsWith('$_attachmentsDir/')) return null;
     return readVaultFile(vaultId, relativePath);
   }
@@ -186,7 +208,7 @@ class VaultStorage {
     await for (final c in cursor) {
       final key = c.key as String?;
       if (key != null && key.startsWith(prefix)) {
-        keysToDelete.add(c.key!);
+        keysToDelete.add(c.key);
       }
       c.next();
     }

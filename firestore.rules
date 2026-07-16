@@ -8,18 +8,24 @@ service cloud.firestore {
 
     function folioPublishWebOk() {
       let d = userData(request.auth.uid);
-      return d.folioCloud != null
-        && d.folioCloud.active == true
-        && d.folioCloud.features != null
-        && d.folioCloud.features.publishWeb == true;
+      return d.folioStaff == true
+        || (
+          d.folioCloud != null
+          && d.folioCloud.active == true
+          && d.folioCloud.features != null
+          && d.folioCloud.features.publishWeb == true
+        );
     }
 
     function folioRealtimeCollabOk() {
       let d = userData(request.auth.uid);
-      return d.folioCloud != null
-        && d.folioCloud.active == true
-        && d.folioCloud.features != null
-        && d.folioCloud.features.realtimeCollab == true;
+      return d.folioStaff == true
+        || (
+          d.folioCloud != null
+          && d.folioCloud.active == true
+          && d.folioCloud.features != null
+          && d.folioCloud.features.realtimeCollab == true
+        );
     }
 
     function collabRoomDoc(roomId) {
@@ -38,6 +44,15 @@ service cloud.firestore {
     // Per-user profile: folioCloud, ink, stripeCustomerId — solo escritura por Cloud Functions (webhooks/callables).
     match /users/{userId} {
       allow read: if request.auth != null && request.auth.uid == userId;
+      allow write: if false;
+    }
+
+    // Familias: lectura permitida para el dueño o miembros del grupo
+    match /families/{ownerUid} {
+      allow read: if request.auth != null && (
+        request.auth.uid == ownerUid
+        || (resource.data != null && request.auth.uid in resource.data.members)
+      );
       allow write: if false;
     }
 
@@ -120,6 +135,12 @@ service cloud.firestore {
 
     // Índice código → sala (solo Functions).
     match /collabJoinIndex/{key} {
+      allow read, write: if false;
+    }
+
+    // Contador de intentos de unión por uid, para limitar fuerza bruta del
+    // código de invitación (solo Functions).
+    match /collabJoinAttempts/{uid} {
       allow read, write: if false;
     }
 
@@ -270,6 +291,37 @@ service cloud.firestore {
 
         allow create, update, delete: if false;
       }
+    }
+
+    // Telemetría: cada usuario puede escribir/leer sus propios eventos; staff puede leer todos.
+    function isStaff() {
+      return request.auth != null && userData(request.auth.uid).folioStaff == true;
+    }
+
+    match /analytics_events/{userId} {
+      allow read: if request.auth != null && (request.auth.uid == userId || isStaff());
+
+      match /events/{eventId} {
+        allow read: if request.auth != null && (request.auth.uid == userId || isStaff());
+        allow create: if request.auth != null && request.auth.uid == userId;
+        allow update, delete: if false;
+      }
+
+      match /stats/{dateStr} {
+        allow read: if request.auth != null && (request.auth.uid == userId || isStaff());
+        allow write: if false; // Solo Cloud Functions
+      }
+    }
+
+    // Estadísticas globales de telemetría (solo staff)
+    match /telemetryGlobalStats/{dateStr} {
+      allow read: if isStaff();
+      allow write: if false; // Solo Cloud Functions
+    }
+
+    // Índice diario UID → agregación (solo backend; actualizado por trigger CF)
+    match /telemetryDailyUserIndex/{dateStr} {
+      allow read, write: if false;
     }
   }
 }

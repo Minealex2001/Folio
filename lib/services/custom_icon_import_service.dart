@@ -6,15 +6,11 @@ import 'package:path_provider/path_provider.dart';
 import 'package:uuid/uuid.dart';
 
 import '../app/app_settings.dart' show CustomIconEntry;
+import '../core/errors/folio_exception.dart';
 import '../l10n/generated/app_localizations.dart';
 
-class CustomIconImportException implements Exception {
-  const CustomIconImportException(this.message);
-
-  final String message;
-
-  @override
-  String toString() => message;
+class CustomIconImportException extends FolioException {
+  const CustomIconImportException(super.message);
 }
 
 class CustomIconImportService {
@@ -26,6 +22,55 @@ class CustomIconImportService {
     'image/gif',
     'image/webp',
   };
+
+  Future<CustomIconEntry> importFromBytes({
+    required AppLocalizations l10n,
+    required List<int> bytes,
+    required String mimeType,
+    String? label,
+    String? source,
+  }) async {
+    final normalizedMime = mimeType.toLowerCase().trim();
+    if (!_supportedMimeTypes.contains(normalizedMime)) {
+      throw CustomIconImportException(l10n.customIconImportUnsupportedFormat);
+    }
+    if (bytes.isEmpty) {
+      throw CustomIconImportException(l10n.customIconImportUnsupportedFormat);
+    }
+    if (bytes.length > maxBytes) {
+      throw CustomIconImportException(
+        normalizedMime == 'image/svg+xml'
+            ? l10n.customIconImportSvgTooLarge
+            : l10n.customIconImportEmbeddedImageTooLarge,
+      );
+    }
+    if (normalizedMime == 'image/svg+xml' && !_looksLikeSvg(bytes)) {
+      throw CustomIconImportException(l10n.customIconImportInvalidSvg);
+    }
+    final extension = _extensionForMimeType(normalizedMime);
+    if (extension == null) {
+      throw CustomIconImportException(l10n.customIconImportUnsupportedFormat);
+    }
+    final id = _uuid.v4();
+    final file = await _createTargetFile(id, extension);
+    if (normalizedMime == 'image/svg+xml') {
+      final svg = utf8.decode(bytes, allowMalformed: true).trim();
+      await file.writeAsString(svg, flush: true);
+    } else {
+      await file.writeAsBytes(bytes, flush: true);
+    }
+    return CustomIconEntry(
+      id: id,
+      label: _sanitizeLabel(
+        label,
+        fallback: l10n.customIconLabelImported,
+      ),
+      source: source?.trim() ?? '',
+      filePath: file.path,
+      mimeType: normalizedMime,
+      createdAtMs: DateTime.now().millisecondsSinceEpoch,
+    );
+  }
 
   Future<CustomIconEntry> importFromSource({
     required AppLocalizations l10n,

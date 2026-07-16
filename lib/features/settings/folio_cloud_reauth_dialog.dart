@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 
 import '../../app/widgets/folio_dialog.dart';
 import '../../app/widgets/folio_password_field.dart';
+import '../../app/widgets/folio_error_card.dart';
+import '../../app/widgets/folio_skeletons.dart';
 import '../../l10n/generated/app_localizations.dart';
 import '../../services/cloud_account/cloud_account_controller.dart';
 
@@ -29,8 +31,14 @@ class _FolioCloudReauthDialogState extends State<FolioCloudReauthDialog> {
   final _formKey = GlobalKey<FormState>();
   final _email = TextEditingController();
   final _password = TextEditingController();
+  final _emailFocus = FocusNode();
+  final _passwordFocus = FocusNode();
   var _obscure = true;
   var _loading = false;
+
+  String? _emailError;
+  String? _passwordError;
+  String? _generalError;
 
   bool get _emailLocked =>
       (widget.initialEmail?.trim().isNotEmpty ?? false);
@@ -42,13 +50,31 @@ class _FolioCloudReauthDialogState extends State<FolioCloudReauthDialog> {
     if (e != null && e.isNotEmpty) {
       _email.text = e;
     }
+    _emailFocus.addListener(_onEmailFocusChange);
+    _passwordFocus.addListener(_onPasswordFocusChange);
   }
 
   @override
   void dispose() {
+    _emailFocus.removeListener(_onEmailFocusChange);
+    _passwordFocus.removeListener(_onPasswordFocusChange);
+    _emailFocus.dispose();
+    _passwordFocus.dispose();
     _email.dispose();
     _password.dispose();
     super.dispose();
+  }
+
+  void _onEmailFocusChange() {
+    if (!_emailFocus.hasFocus) {
+      _formKey.currentState?.validate();
+    }
+  }
+
+  void _onPasswordFocusChange() {
+    if (!_passwordFocus.hasFocus) {
+      _formKey.currentState?.validate();
+    }
   }
 
   bool _isValidEmail(String s) {
@@ -58,7 +84,14 @@ class _FolioCloudReauthDialogState extends State<FolioCloudReauthDialog> {
   }
 
   Future<void> _submit() async {
+    setState(() {
+      _emailError = null;
+      _passwordError = null;
+      _generalError = null;
+    });
+
     if (!(_formKey.currentState?.validate() ?? false)) return;
+
     final email = _email.text.trim();
     final pass = _password.text;
     setState(() => _loading = true);
@@ -70,24 +103,30 @@ class _FolioCloudReauthDialogState extends State<FolioCloudReauthDialog> {
       if (mounted) Navigator.of(context).pop(true);
     } on FirebaseAuthException catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            behavior: SnackBarBehavior.floating,
-            content: Text(widget.onAuthError(e.code)),
-          ),
-        );
+        setState(() {
+          final errorMsg = widget.onAuthError(e.code);
+          if (e.code == 'wrong-password' || e.code == 'invalid-credential') {
+            _passwordError = errorMsg;
+          } else if (e.code == 'invalid-email' || e.code == 'user-not-found') {
+            _emailError = errorMsg;
+          } else {
+            _generalError = errorMsg;
+          }
+          _loading = false;
+        });
+        _formKey.currentState?.validate();
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            behavior: SnackBarBehavior.floating,
-            content: Text('$e'),
-          ),
-        );
+        setState(() {
+          _generalError = '$e';
+          _loading = false;
+        });
       }
     } finally {
-      if (mounted) setState(() => _loading = false);
+      if (mounted && _loading) {
+        setState(() => _loading = false);
+      }
     }
   }
 
@@ -106,6 +145,7 @@ class _FolioCloudReauthDialogState extends State<FolioCloudReauthDialog> {
       content: SingleChildScrollView(
         child: Form(
           key: _formKey,
+          autovalidateMode: AutovalidateMode.onUserInteraction,
           child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -118,6 +158,13 @@ class _FolioCloudReauthDialogState extends State<FolioCloudReauthDialog> {
                 ),
               ),
               const SizedBox(height: 18),
+              if (_generalError != null) ...[
+                FolioErrorCard(
+                  title: 'Error de verificación',
+                  message: _generalError!,
+                  margin: const EdgeInsets.only(bottom: 12),
+                ),
+              ],
               if (_emailLocked)
                 InputDecorator(
                   decoration: InputDecoration(
@@ -136,11 +183,17 @@ class _FolioCloudReauthDialogState extends State<FolioCloudReauthDialog> {
               else
                 TextFormField(
                   controller: _email,
+                  focusNode: _emailFocus,
                   enabled: !_loading,
                   keyboardType: TextInputType.emailAddress,
                   autocorrect: false,
                   autofillHints: const [AutofillHints.email],
                   textInputAction: TextInputAction.next,
+                  onChanged: (_) {
+                    if (_emailError != null) {
+                      setState(() => _emailError = null);
+                    }
+                  },
                   decoration: InputDecoration(
                     labelText: l10n.cloudAccountEmailLabel,
                     border: const OutlineInputBorder(),
@@ -152,12 +205,14 @@ class _FolioCloudReauthDialogState extends State<FolioCloudReauthDialog> {
                     if (!_isValidEmail(s)) {
                       return l10n.cloudAuthErrorInvalidEmail;
                     }
+                    if (_emailError != null) return _emailError;
                     return null;
                   },
                 ),
               const SizedBox(height: 12),
               FolioPasswordField(
                 controller: _password,
+                focusNode: _passwordFocus,
                 labelText: l10n.cloudAccountPasswordLabel,
                 obscureText: _obscure,
                 onToggleObscure: () => setState(() => _obscure = !_obscure),
@@ -167,6 +222,17 @@ class _FolioCloudReauthDialogState extends State<FolioCloudReauthDialog> {
                 autofocus: _emailLocked,
                 textInputAction: TextInputAction.done,
                 onSubmitted: (_) => _submit(),
+                onChanged: (_) {
+                  if (_passwordError != null) {
+                    setState(() => _passwordError = null);
+                  }
+                },
+                validator: (v) {
+                  final s = v ?? '';
+                  if (s.isEmpty) return l10n.cloudAuthValidationRequired;
+                  if (_passwordError != null) return _passwordError;
+                  return null;
+                },
               ),
             ],
           ),
@@ -180,11 +246,7 @@ class _FolioCloudReauthDialogState extends State<FolioCloudReauthDialog> {
         FilledButton(
           onPressed: _loading ? null : _submit,
           child: _loading
-              ? const SizedBox(
-                  width: 22,
-                  height: 22,
-                  child: CircularProgressIndicator(strokeWidth: 2),
-                )
+              ? const FolioLoadingIndicator(size: FolioLoadingSize.small)
               : Text(l10n.verifyAndContinue),
         ),
       ],

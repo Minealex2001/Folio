@@ -1,13 +1,18 @@
 import 'dart:async';
+import 'dart:typed_data';
 import 'dart:ui';
 
+import 'package:flutter/services.dart';
+
+import 'package:firebase_auth_platform_interface/firebase_auth_platform_interface.dart';
 import 'package:firebase_core/firebase_core.dart';
-import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:flutter/foundation.dart'
+    show TargetPlatform, defaultTargetPlatform, kIsWeb;
 import 'package:flutter/material.dart';
-import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:system_theme/system_theme.dart';
 
 import 'app/app_settings.dart';
+import 'config/folio_local_secrets.dart';
 import 'app/folio_app.dart';
 import 'app/folio_runtime_config.dart';
 import 'firebase_options.dart';
@@ -15,6 +20,7 @@ import 'services/app_log_file_sink.dart';
 import 'services/app_logger.dart';
 import 'services/folio_diagnostic_reporter.dart';
 import 'services/folio_telemetry.dart';
+import 'services/folio_firestore_sync.dart';
 import 'services/cloud_account/cloud_account_controller.dart';
 import 'services/env/local_env_loader.dart';
 import 'services/env/local_env.dart';
@@ -28,43 +34,40 @@ Future<void> main() async {
       WidgetsFlutterBinding.ensureInitialized();
       if (!kIsWeb) AppLogger.setSink(await AppLogFileSink.init());
 
-      // Cargar variables locales (no versionadas) desde `.env`.
-      try {
-        final res = await LocalEnvLoader.loadLocalEnv(filename: '.env');
-        if (res.loaded) {
-          AppLogger.info(
-            'dotenv loaded',
-            tag: 'env',
-            context: {'path': res.path ?? '—'},
-          );
-          // No loguear valores; solo presencia.
-          AppLogger.info(
-            'dotenv keys present',
-            tag: 'env',
-            context: {
-              'hasClientId':
-                  LocalEnv.has('JIRA_OAUTH_CLIENT_ID') ||
-                      (dotenv.env['JIRA_OAUTH_CLIENT_ID'] ?? '').trim().isNotEmpty,
-              'hasClientSecret':
-                  LocalEnv.has('JIRA_OAUTH_CLIENT_SECRET') ||
-                      (dotenv.env['JIRA_OAUTH_CLIENT_SECRET'] ?? '').trim().isNotEmpty,
-            },
-          );
+      // Opcional: `.env` en disco (solo dart:io). Los secretos habituales van en
+      // `lib/config/folio_local_secrets.dart` (y en web solo eso o --dart-define).
+      if (!kIsWeb) {
+        try {
+          final res = await LocalEnvLoader.loadLocalEnv(filename: '.env');
+          if (res.loaded) {
+            AppLogger.info(
+              'local env file loaded',
+              tag: 'env',
+              context: {'path': res.path ?? '—'},
+            );
+            // No loguear valores; solo presencia.
+            AppLogger.info(
+              'local env keys present',
+              tag: 'env',
+              context: {
+                'hasClientId': _hasJiraClientId(),
+                'hasClientSecret': _hasJiraClientSecret(),
+              },
+            );
+            // ignore: avoid_print
+            print(
+              '[folio.env] keys present hasClientId=${_hasJiraClientId()} '
+              'hasClientSecret=${_hasJiraClientSecret()}',
+            );
+          } else {
+            AppLogger.warn('local env file not found', tag: 'env');
+          }
+        } catch (e, st) {
+          AppLogger.warn('local env load failed', tag: 'env', context: {'error': '$e'});
+          AppLogger.debug('local env load stack', tag: 'env', context: {'stack': '$st'});
           // ignore: avoid_print
-          print(
-            '[folio.env] keys present hasClientId='
-            '${LocalEnv.has('JIRA_OAUTH_CLIENT_ID') || (dotenv.env['JIRA_OAUTH_CLIENT_ID'] ?? '').trim().isNotEmpty} '
-            'hasClientSecret='
-            '${LocalEnv.has('JIRA_OAUTH_CLIENT_SECRET') || (dotenv.env['JIRA_OAUTH_CLIENT_SECRET'] ?? '').trim().isNotEmpty}',
-          );
-        } else {
-          AppLogger.warn('dotenv not found', tag: 'env');
+          print('[folio.env] load failed error=$e');
         }
-      } catch (e, st) {
-        AppLogger.warn('dotenv load failed', tag: 'env', context: {'error': '$e'});
-        AppLogger.debug('dotenv load stack', tag: 'env', context: {'stack': '$st'});
-        // ignore: avoid_print
-        print('[folio.env] load failed error=$e');
       }
 
       FlutterError.onError = (details) {
@@ -99,12 +102,36 @@ Future<void> main() async {
       };
 
       SystemTheme.fallbackColor = const Color(0xFF455A64);
-      await SystemTheme.accentColor.load();
+      try {
+        await SystemTheme.accentColor.load();
+      } catch (e, st) {
+        AppLogger.warn(
+          'SystemTheme accent load failed',
+          tag: 'theme',
+          context: {'error': '$e'},
+        );
+        AppLogger.debug(
+          'SystemTheme accent stack',
+          tag: 'theme',
+          context: {'stack': '$st'},
+        );
+      }
 
       try {
+        if (!kIsWeb && defaultTargetPlatform == TargetPlatform.windows) {
+          FirebaseAuthPlatform.disableIdTokenChannelOnWindows = true;
+        }
         await Firebase.initializeApp(
           options: DefaultFirebaseOptions.currentPlatform,
         );
+
+        // Parche de seguridad adicional: si algún código sigue usando el plugin
+        // nativo (p. ej. delete/getDownloadURL), reencola mensajes taskEvent en el
+        // isolate principal. Las subidas/descargas en escritorio usan REST vía
+        // folio_storage_transport.dart y no deberían abrir taskEvent.
+        if (!kIsWeb) {
+          _patchFirebaseStorageTaskEventChannels();
+        }
       } catch (e, st) {
         AppLogger.error(
           'Firebase init failed',
@@ -116,15 +143,47 @@ Future<void> main() async {
 
       final cloudAccountController = CloudAccountController();
       final folioCloudEntitlements = FolioCloudEntitlementsController();
-      final runtimeConfig = await FolioRuntimeConfig.load();
-      final appSettings = AppSettings(
-        integrationSecret: runtimeConfig.integrationSecret,
-      );
-      await appSettings.load();
-      await FolioTelemetry.applyAfterSettingsLoaded(appSettings);
+      folioCloudEntitlements.listenToCloudAccount(cloudAccountController);
+
+      // A diferencia de las fases de arriba (env/.env, SystemTheme, Firebase),
+      // esta carga no estaba protegida: si algo aquí lanzaba, runApp() nunca se
+      // ejecutaba y el proceso quedaba sin ventana visible en vez de degradar
+      // con defaults (rompe el arranque-por-fases documentado en FEATURES.md).
+      AppSettings appSettings;
+      try {
+        final runtimeConfig = await FolioRuntimeConfig.load();
+        appSettings = AppSettings(
+          integrationSecret: runtimeConfig.integrationSecret,
+        );
+        await appSettings.load();
+        await FolioTelemetry.applyAfterSettingsLoaded(appSettings);
+      } catch (e, st) {
+        AppLogger.error(
+          'App settings bootstrap failed; continuing with defaults',
+          tag: 'bootstrap',
+          error: e,
+          stackTrace: st,
+        );
+        appSettings = AppSettings(integrationSecret: '');
+        // Best effort: si el fallo fue después de construir AppSettings (p.ej.
+        // en applyAfterSettingsLoaded), intenta igual cargar prefs guardadas.
+        try {
+          await appSettings.load();
+        } catch (_) {}
+      }
+
+      FolioFirestoreSync.initialize();
       final session = VaultSession(titleLocale: appSettings.locale);
-      final initialLaunchArgs =
-          await PlatformLaunchArguments.initialArguments();
+      var initialLaunchArgs = const <String>[];
+      try {
+        initialLaunchArgs = await PlatformLaunchArguments.initialArguments();
+      } catch (e, st) {
+        AppLogger.warn(
+          'Reading initial launch arguments failed',
+          tag: 'bootstrap',
+          context: {'error': '$e', 'stack': '$st'},
+        );
+      }
       runApp(
         FolioApp(
           session: session,
@@ -147,4 +206,81 @@ Future<void> main() async {
       );
     },
   );
+}
+
+bool _hasJiraClientId() {
+  if (const String.fromEnvironment('JIRA_OAUTH_CLIENT_ID').trim().isNotEmpty) {
+    return true;
+  }
+  if (FolioLocalSecrets.valueForDefineKey('JIRA_OAUTH_CLIENT_ID')
+      .trim()
+      .isNotEmpty) {
+    return true;
+  }
+  return LocalEnv.has('JIRA_OAUTH_CLIENT_ID');
+}
+
+bool _hasJiraClientSecret() {
+  if (const String.fromEnvironment('JIRA_OAUTH_CLIENT_SECRET')
+      .trim()
+      .isNotEmpty) {
+    return true;
+  }
+  if (FolioLocalSecrets.valueForDefineKey('JIRA_OAUTH_CLIENT_SECRET')
+      .trim()
+      .isNotEmpty) {
+    return true;
+  }
+  return LocalEnv.has('JIRA_OAUTH_CLIENT_SECRET');
+}
+
+/// Patches the `firebase_storage/taskEvent/*` method channels so that messages
+/// arriving from the native side on a background thread are re-dispatched on
+/// the main UI isolate before they reach Flutter's codec / element tree.
+///
+/// Background: the Windows (and sometimes iOS/macOS) implementation of
+/// `firebase_storage` calls back on a background C++ thread instead of the
+/// platform thread, which triggers the Flutter assertion
+/// `'_elements.contains(element)': is not true` during warm-up frame builds.
+///
+/// The workaround intercepts [PlatformDispatcher.instance.onPlatformMessage]
+/// — the single global raw message hook — and for channels whose name starts
+/// with the storage taskEvent prefix it re-enqueues the message on the Dart
+/// event loop via [scheduleMicrotask] before forwarding it to the
+/// framework's registered handler through [ChannelBuffers.push].
+///
+/// All other channels are forwarded synchronously as normal.
+void _patchFirebaseStorageTaskEventChannels() {
+  const _kStorageTaskPrefix =
+      'plugins.flutter.io/firebase_storage/taskEvent/';
+
+  // Save whatever handler may already be installed (usually null at this point).
+  final previousHandler = PlatformDispatcher.instance.onPlatformMessage;
+
+  PlatformDispatcher.instance.onPlatformMessage = (
+    String name,
+    ByteData? data,
+    PlatformMessageResponseCallback? callback,
+  ) {
+    if (name.startsWith(_kStorageTaskPrefix)) {
+      // Re-enqueue on the Dart microtask queue so it is guaranteed to run
+      // on the main isolate / event loop, not the background native thread.
+      scheduleMicrotask(() {
+        ServicesBinding.instance.channelBuffers.push(
+          name,
+          data,
+          callback ?? (_) {},
+        );
+      });
+    } else if (previousHandler != null) {
+      previousHandler(name, data, callback);
+    } else {
+      // Default: let the framework handle it normally.
+      ServicesBinding.instance.channelBuffers.push(
+        name,
+        data,
+        callback ?? (_) {},
+      );
+    }
+  };
 }

@@ -60,6 +60,22 @@ Future<void> verifyFolioCloudPasswordViaIdentityToolkit({
       stackTrace: st,
     );
     throw FirebaseAuthException(code: 'network-request-failed');
+  } on http.ClientException catch (e, st) {
+    log(
+      'IdentityToolkit client error posting to ${uri.host}.',
+      name: 'FolioCloudAuth',
+      error: e,
+      stackTrace: st,
+    );
+    throw FirebaseAuthException(code: 'network-request-failed');
+  } catch (e, st) {
+    log(
+      'IdentityToolkit unexpected error posting to ${uri.host}.',
+      name: 'FolioCloudAuth',
+      error: e,
+      stackTrace: st,
+    );
+    throw FirebaseAuthException(code: 'network-request-failed');
   }
   final body = jsonDecode(res.body);
   if (body is! Map<String, dynamic>) {

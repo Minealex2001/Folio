@@ -6,6 +6,10 @@ import '../editor/folio_mermaid_preview.dart';
 
 /// Sustituye bloques ```mermaid por [FolioMermaidPreview]; el resto de `pre` sigue el render por defecto.
 class FolioMermaidMarkdownBuilder extends MarkdownElementBuilder {
+  FolioMermaidMarkdownBuilder({this.isTransparent = false});
+
+  final bool isTransparent;
+
   @override
   bool isBlockElement() => true;
 
@@ -18,6 +22,7 @@ class FolioMermaidMarkdownBuilder extends MarkdownElementBuilder {
   ) {
     if (element.tag != 'pre') return null;
     if (_fencedLanguageFromPre(element) != 'mermaid') return null;
+    if (isTransparent) return const SizedBox.shrink();
     final src = _extractPreText(element);
     return Padding(
       padding: const EdgeInsets.only(top: 6, bottom: 10),

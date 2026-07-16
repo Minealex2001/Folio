@@ -4,8 +4,10 @@ import '../../../app/app_settings.dart';
 import '../../../app/widgets/folio_dialog.dart';
 import '../../../app/widgets/folio_feedback.dart';
 import '../../../l10n/generated/app_localizations.dart';
+import '../../../models/folio_kanban_data.dart';
 import '../../../models/folio_task_data.dart';
 import '../../../services/tasks/task_quick_capture_parser.dart';
+import '../kanban/kanban_ui_helpers.dart';
 import '../../../session/vault_session.dart';
 
 String? _isoDateOrNull(DateTime? d) {
@@ -32,7 +34,10 @@ DateTime? _tryParseIsoDate(String? iso) {
 
 /// Editor UI de tarea (reemplaza el input por texto como flujo principal).
 class _TaskQuickAddDialog extends StatefulWidget {
-  const _TaskQuickAddDialog();
+  const _TaskQuickAddDialog({this.kanbanColumns});
+
+  /// Columnas del tablero de la página destino (si se conocen).
+  final List<FolioKanbanColumnSpec>? kanbanColumns;
 
   @override
   State<_TaskQuickAddDialog> createState() => _TaskQuickAddDialogState();
@@ -42,6 +47,10 @@ class _TaskQuickAddDialogState extends State<_TaskQuickAddDialog> {
   late final TextEditingController _titleCtrl = TextEditingController();
   late final TextEditingController _descCtrl = TextEditingController();
   late final TextEditingController _timeCtrl = TextEditingController();
+  late final TextEditingController _tagsCtrl = TextEditingController();
+  late final TextEditingController _assigneeCtrl = TextEditingController();
+  late final TextEditingController _storyPointsCtrl = TextEditingController();
+  late final TextEditingController _estimateCtrl = TextEditingController();
   String _status = 'todo';
   String? _priority;
   DateTime? _start;
@@ -49,10 +58,24 @@ class _TaskQuickAddDialogState extends State<_TaskQuickAddDialog> {
   final List<FolioTaskSubtask> _subtasks = <FolioTaskSubtask>[];
 
   @override
+  void initState() {
+    super.initState();
+    final cols = widget.kanbanColumns ?? FolioKanbanData.defaultColumns;
+    final ids = cols.map((c) => c.id).toSet();
+    if (!ids.contains(_status)) {
+      _status = cols.isNotEmpty ? cols.first.id : 'todo';
+    }
+  }
+
+  @override
   void dispose() {
     _titleCtrl.dispose();
     _descCtrl.dispose();
     _timeCtrl.dispose();
+    _tagsCtrl.dispose();
+    _assigneeCtrl.dispose();
+    _storyPointsCtrl.dispose();
+    _estimateCtrl.dispose();
     super.dispose();
   }
 
@@ -64,18 +87,49 @@ class _TaskQuickAddDialogState extends State<_TaskQuickAddDialog> {
     return v;
   }
 
+  int? _estimateMinutesOrNull() {
+    final raw = _estimateCtrl.text.trim();
+    if (raw.isEmpty) return null;
+    final v = int.tryParse(raw);
+    if (v == null || v < 0) return null;
+    return v;
+  }
+
+  double? _storyPointsOrNull() {
+    final raw = _storyPointsCtrl.text.trim();
+    if (raw.isEmpty) return null;
+    final v = double.tryParse(raw.replaceAll(',', '.'));
+    if (v == null || v < 0) return null;
+    return v;
+  }
+
+  List<String> _tagsFromField() {
+    final raw = _tagsCtrl.text.trim();
+    if (raw.isEmpty) return const [];
+    return raw
+        .split(RegExp(r'[;,]'))
+        .map((e) => e.trim())
+        .where((e) => e.isNotEmpty)
+        .toList(growable: false);
+  }
+
   FolioTaskData _buildTask() {
+    final assignee = _assigneeCtrl.text.trim();
     return FolioTaskData(
       title: _titleCtrl.text.trim(),
-      status: _status,
-      columnId: _status,
+      status: 'todo',
+      columnId: null,
       priority: _priority,
       description: _descCtrl.text,
       startDate: _isoDateOrNull(_start),
       dueDate: _isoDateOrNull(_due),
       timeSpentMinutes: _timeMinutesOrNull(),
+      estimatedMinutes: _estimateMinutesOrNull(),
+      storyPoints: _storyPointsOrNull(),
+      tags: _tagsFromField(),
+      assignee: assignee.isEmpty ? null : assignee,
       subtasks: List<FolioTaskSubtask>.from(_subtasks),
-    );
+    ).withKanbanColumn(_status);
   }
 
   void _submit() {
@@ -154,14 +208,16 @@ class _TaskQuickAddDialogState extends State<_TaskQuickAddDialog> {
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
+    final cols = widget.kanbanColumns ?? FolioKanbanData.defaultColumns;
     return FolioDialog(
       title: Text(l10n.taskQuickAddTitle),
       content: SizedBox(
         width: 640,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
             Row(
               children: [
                 Expanded(
@@ -228,26 +284,25 @@ class _TaskQuickAddDialogState extends State<_TaskQuickAddDialog> {
                 const SizedBox(width: 10),
                 Expanded(
                   child: DropdownButtonFormField<String>(
-                    initialValue: _status,
+                    key: ValueKey(
+                      'quickadd-status-${cols.map((c) => c.id).join('|')}',
+                    ),
+                    // ignore: deprecated_member_use
+                    value: _status,
                     decoration: InputDecoration(
                       labelText: l10n.status,
                       border: const OutlineInputBorder(),
                     ),
                     items: [
-                      DropdownMenuItem(
-                        value: 'todo',
-                        child: Text(l10n.taskStatusTodo),
-                      ),
-                      DropdownMenuItem(
-                        value: 'in_progress',
-                        child: Text(l10n.taskStatusInProgress),
-                      ),
-                      DropdownMenuItem(
-                        value: 'done',
-                        child: Text(l10n.taskStatusDone),
-                      ),
+                      for (final c in cols)
+                        DropdownMenuItem(
+                          value: c.id,
+                          child: Text(folioKanbanColumnLabel(c, l10n)),
+                        ),
                     ],
-                    onChanged: (v) => setState(() => _status = v ?? 'todo'),
+                    onChanged: (v) => setState(
+                      () => _status = v ?? (cols.isNotEmpty ? cols.first.id : 'todo'),
+                    ),
                   ),
                 ),
               ],
@@ -275,6 +330,51 @@ class _TaskQuickAddDialogState extends State<_TaskQuickAddDialog> {
                       _due == null
                           ? l10n.dueDate
                           : '${l10n.dueDate}: ${_isoDateOrNull(_due)}',
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 10),
+            TextField(
+              controller: _tagsCtrl,
+              decoration: InputDecoration(
+                labelText: l10n.taskQuickAddTagsLabel,
+                hintText: l10n.taskQuickAddTagsHint,
+                border: const OutlineInputBorder(),
+              ),
+            ),
+            const SizedBox(height: 10),
+            TextField(
+              controller: _assigneeCtrl,
+              decoration: InputDecoration(
+                labelText: l10n.taskQuickAddAssigneeLabel,
+                border: const OutlineInputBorder(),
+              ),
+            ),
+            const SizedBox(height: 10),
+            Row(
+              children: [
+                Expanded(
+                  child: TextField(
+                    controller: _estimateCtrl,
+                    keyboardType: TextInputType.number,
+                    decoration: InputDecoration(
+                      labelText: l10n.taskQuickAddEstimatedMinutesLabel,
+                      border: const OutlineInputBorder(),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: TextField(
+                    controller: _storyPointsCtrl,
+                    keyboardType: const TextInputType.numberWithOptions(
+                      decimal: true,
+                    ),
+                    decoration: InputDecoration(
+                      labelText: l10n.taskQuickAddStoryPointsLabel,
+                      border: const OutlineInputBorder(),
                     ),
                   ),
                 ),
@@ -375,6 +475,7 @@ class _TaskQuickAddDialogState extends State<_TaskQuickAddDialog> {
             ],
           ],
         ),
+        ),
       ),
       actions: [
         TextButton(
@@ -396,11 +497,13 @@ Future<void> showTaskQuickAddDialog({
   required AppSettings appSettings,
   /// Si se indica, la tarea se añade en esta página (sin bandeja ni alias como destino).
   String? targetPageId,
+  /// Columnas Kanban de la página destino (p. ej. desde [VaultSession.kanbanDataForPage]).
+  List<FolioKanbanColumnSpec>? kanbanColumns,
 }) async {
   final l10n = AppLocalizations.of(context);
   final task = await showDialog<FolioTaskData?>(
         context: context,
-        builder: (_) => const _TaskQuickAddDialog(),
+        builder: (_) => _TaskQuickAddDialog(kanbanColumns: kanbanColumns),
       );
 
   if (task == null || task.title.trim().isEmpty) return;

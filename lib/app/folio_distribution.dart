@@ -22,6 +22,19 @@ abstract final class FolioDistribution {
   /// Build pensado para distribución en Google Play (Android).
   static bool get isPlayStore => _normalized == 'play_store';
 
+  /// Comprobar versiones nuevas y descargar instalador/APK desde GitHub Releases.
+  ///
+  /// Falso en [isMicrosoftStore] e [isPlayStore]: las tiendas distribuyen actualizaciones.
+  /// Las **notas de versión** del release en GitHub pueden seguir mostrándose en esos builds
+  /// (solo lectura); ver [GitHubReleaseUpdater.fetchReleaseNotesForVersion].
+  ///
+  /// Verdadero en [isGitHub] y en modo legado (cadena vacía u otro valor).
+  static bool get offersGitHubSelfUpdate {
+    if (isMicrosoftStore) return false;
+    if (isPlayStore) return false;
+    return true;
+  }
+
   /// IAP y sincronización con Microsoft Store en Windows.
   ///
   /// Falso en [isGitHub] y [isPlayStore]. Verdadero en [isMicrosoftStore],

@@ -45,6 +45,9 @@ class FolioKanbanData {
     this.jiraSourceId,
     this.jiraAutoImport = false,
     this.jiraCreateIssuesOnQuickAdd = false,
+    this.youtrackSourceId,
+    this.youtrackAutoImport = false,
+    this.youtrackCreateIssuesOnQuickAdd = false,
     List<FolioKanbanColumnSpec>? columns,
   }) : columns = List.unmodifiable(columns ?? defaultColumns);
 
@@ -71,6 +74,16 @@ class FolioKanbanData {
   /// el tablero tiene [jiraSourceId] configurado.
   final bool jiraCreateIssuesOnQuickAdd;
 
+  /// Referencia a una “fuente” YouTrack preconfigurada en Ajustes → Integraciones.
+  final String? youtrackSourceId;
+
+  /// Si true, el tablero puede auto-importar/refrescar issues desde YouTrack.
+  final bool youtrackAutoImport;
+
+  /// Si true, al usar Quick Add en Kanban se crea un issue en YouTrack cuando
+  /// el tablero tiene [youtrackSourceId] configurado.
+  final bool youtrackCreateIssuesOnQuickAdd;
+
   static FolioKanbanData defaults() => FolioKanbanData();
 
   FolioKanbanData copyWith({
@@ -80,6 +93,9 @@ class FolioKanbanData {
     Object? jiraSourceId = _sentinel,
     bool? jiraAutoImport,
     bool? jiraCreateIssuesOnQuickAdd,
+    Object? youtrackSourceId = _sentinel,
+    bool? youtrackAutoImport,
+    bool? youtrackCreateIssuesOnQuickAdd,
     List<FolioKanbanColumnSpec>? columns,
   }) {
     return FolioKanbanData(
@@ -91,6 +107,11 @@ class FolioKanbanData {
       jiraAutoImport: jiraAutoImport ?? this.jiraAutoImport,
       jiraCreateIssuesOnQuickAdd:
           jiraCreateIssuesOnQuickAdd ?? this.jiraCreateIssuesOnQuickAdd,
+      youtrackSourceId:
+          youtrackSourceId == _sentinel ? this.youtrackSourceId : youtrackSourceId as String?,
+      youtrackAutoImport: youtrackAutoImport ?? this.youtrackAutoImport,
+      youtrackCreateIssuesOnQuickAdd:
+          youtrackCreateIssuesOnQuickAdd ?? this.youtrackCreateIssuesOnQuickAdd,
       columns: columns ?? this.columns,
     );
   }
@@ -104,6 +125,9 @@ class FolioKanbanData {
         if ((jiraSourceId ?? '').trim().isNotEmpty) 'jiraSourceId': jiraSourceId,
         if (jiraAutoImport) 'jiraAutoImport': true,
         if (jiraCreateIssuesOnQuickAdd) 'jiraCreateIssuesOnQuickAdd': true,
+        if ((youtrackSourceId ?? '').trim().isNotEmpty) 'youtrackSourceId': youtrackSourceId,
+        if (youtrackAutoImport) 'youtrackAutoImport': true,
+        if (youtrackCreateIssuesOnQuickAdd) 'youtrackCreateIssuesOnQuickAdd': true,
         'columns': columns.map((c) => c.toJson()).toList(),
       });
 
@@ -130,6 +154,7 @@ class FolioKanbanData {
         orElse: () => FolioKanbanViewMode.kanban,
       );
       final sourceId = (m['jiraSourceId'] as String?)?.trim();
+      final ytSourceId = (m['youtrackSourceId'] as String?)?.trim();
       return FolioKanbanData(
         v: (m['v'] as num?)?.toInt() ?? 2,
         includeSimpleTodos: m['includeSimpleTodos'] as bool? ?? true,
@@ -138,6 +163,10 @@ class FolioKanbanData {
         jiraAutoImport: m['jiraAutoImport'] as bool? ?? false,
         jiraCreateIssuesOnQuickAdd:
             m['jiraCreateIssuesOnQuickAdd'] as bool? ?? false,
+        youtrackSourceId: (ytSourceId?.isEmpty ?? true) ? null : ytSourceId,
+        youtrackAutoImport: m['youtrackAutoImport'] as bool? ?? false,
+        youtrackCreateIssuesOnQuickAdd:
+            m['youtrackCreateIssuesOnQuickAdd'] as bool? ?? false,
         columns: useDefaults ? defaultColumns : cols,
       );
     } catch (_) {

@@ -1,19 +1,99 @@
 import 'dart:convert';
+import 'dart:io';
+import 'dart:ui' show PlatformDispatcher;
 
 import 'package:flutter/foundation.dart'
-    show TargetPlatform, defaultTargetPlatform, kIsWeb;
+    show TargetPlatform, defaultTargetPlatform, kIsWeb, listEquals;
 import 'package:flutter/material.dart';
+import 'package:launch_at_startup/launch_at_startup.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:system_theme/system_theme.dart';
 
 import 'folio_build_flags.dart';
 import 'folio_distribution.dart';
 import 'folio_in_app_shortcuts.dart';
+import 'workspace_prefs_keys.dart';
+import '../models/folio_usage_intent.dart';
+import '../models/quill_system_prompt.dart';
+import '../services/app_logger.dart';
 import '../services/transcription_hardware_profile.dart';
 import '../services/updater/update_release_channel.dart';
 import '../services/whisper_service.dart';
 
-enum AiProvider { none, ollama, lmStudio, quillCloud }
+enum AiProvider { none, ollama, lmStudio, quillCloud, openAi, gemini }
+
+/// Disposición de columnas en la pantalla de inicio del workspace.
+enum WorkspaceHomeColumnLayout { auto, single, dual }
+
+/// IDs de módulos ordenables en la columna izquierda/derecha del inicio.
+abstract final class WorkspaceHomeSectionIds {
+  static const folioCloud = 'folio_cloud';
+  static const vaultStatus = 'vault_status';
+  static const onboarding = 'onboarding';
+  static const whatsNew = 'whats_new';
+  static const search = 'search';
+  static const rootPages = 'root_pages';
+  static const miniStats = 'mini_stats';
+  static const recents = 'recents';
+  static const tasks = 'tasks';
+  static const quickActions = 'quick_actions';
+  static const tip = 'tip';
+  static const createPage = 'create_page';
+
+  static const List<String> defaultLeft = [
+    folioCloud,
+    vaultStatus,
+    onboarding,
+    whatsNew,
+    search,
+    rootPages,
+    miniStats,
+    recents,
+  ];
+
+  static const List<String> defaultRight = [
+    tasks,
+    quickActions,
+    tip,
+    createPage,
+  ];
+
+  static List<String> sanitizeOrder(String? raw, List<String> canonical) {
+    if (raw == null || raw.trim().isEmpty) {
+      return List<String>.from(canonical);
+    }
+    try {
+      final decoded = jsonDecode(raw);
+      if (decoded is! List) return List<String>.from(canonical);
+      final list = decoded.map((e) => '$e'.trim()).where((e) => e.isNotEmpty).toList();
+      final out = <String>[];
+      for (final id in list) {
+        if (canonical.contains(id) && !out.contains(id)) {
+          out.add(id);
+        }
+      }
+      for (final id in canonical) {
+        if (!out.contains(id)) {
+          out.add(id);
+        }
+      }
+      return out;
+    } catch (_) {
+      return List<String>.from(canonical);
+    }
+  }
+}
+
+WorkspaceHomeColumnLayout _parseWorkspaceHomeColumnLayout(String? raw) {
+  switch ((raw ?? '').trim().toLowerCase()) {
+    case 'single':
+      return WorkspaceHomeColumnLayout.single;
+    case 'dual':
+      return WorkspaceHomeColumnLayout.dual;
+    default:
+      return WorkspaceHomeColumnLayout.auto;
+  }
+}
 
 /// Ollama y LM Studio solo en escritorio y web; en Android/iOS Quill usa Folio Cloud.
 bool get aiLocalProvidersSupported {
@@ -167,6 +247,14 @@ class VaultBackupPrefs {
     this.directory = '',
     this.lastMs = 0,
     this.alsoCloud = false,
+    this.folderRequiresAuth = false,
+    this.folderUsername = '',
+    this.folderDomain = '',
+    this.webdavEnabled = false,
+    this.webdavBaseUrl = '',
+    this.webdavRemotePath = '/folio-backups',
+    this.webdavUsername = '',
+    this.retentionCount = 10,
   });
 
   final bool enabled;
@@ -175,8 +263,37 @@ class VaultBackupPrefs {
   final String directory;
   final int lastMs;
   final bool alsoCloud;
+  final bool folderRequiresAuth;
+  final String folderUsername;
+  final String folderDomain;
+  final bool webdavEnabled;
+  final String webdavBaseUrl;
+  final String webdavRemotePath;
+  final String webdavUsername;
+  final int retentionCount;
 
   static const VaultBackupPrefs defaults = VaultBackupPrefs();
+
+  /// Intervalo `0` = copia automática tras cada cambio (con debounce).
+  bool get isContinuous =>
+      AppSettings.isContinuousVaultBackupInterval(intervalMinutes);
+
+  bool get hasFolderDestination => folderEnabled && directory.trim().isNotEmpty;
+
+  bool get hasWebDavDestination =>
+      webdavEnabled && webdavBaseUrl.trim().isNotEmpty;
+
+  bool get hasNetworkDestination => hasFolderDestination || hasWebDavDestination;
+
+  /// Carpeta de red configurada (independiente de la copia programada).
+  bool get hasConfiguredFolder => directory.trim().isNotEmpty;
+
+  /// WebDAV configurado (independiente de la copia programada).
+  bool get hasConfiguredWebDav => webdavBaseUrl.trim().isNotEmpty;
+
+  /// Hay algún destino NAS/servidor configurado para restaurar o exportar manual.
+  bool get hasConfiguredNetworkDestination =>
+      hasConfiguredFolder || hasConfiguredWebDav;
 
   VaultBackupPrefs copyWith({
     bool? enabled,
@@ -185,6 +302,14 @@ class VaultBackupPrefs {
     String? directory,
     int? lastMs,
     bool? alsoCloud,
+    bool? folderRequiresAuth,
+    String? folderUsername,
+    String? folderDomain,
+    bool? webdavEnabled,
+    String? webdavBaseUrl,
+    String? webdavRemotePath,
+    String? webdavUsername,
+    int? retentionCount,
   }) {
     return VaultBackupPrefs(
       enabled: enabled ?? this.enabled,
@@ -193,6 +318,14 @@ class VaultBackupPrefs {
       directory: directory ?? this.directory,
       lastMs: lastMs ?? this.lastMs,
       alsoCloud: alsoCloud ?? this.alsoCloud,
+      folderRequiresAuth: folderRequiresAuth ?? this.folderRequiresAuth,
+      folderUsername: folderUsername ?? this.folderUsername,
+      folderDomain: folderDomain ?? this.folderDomain,
+      webdavEnabled: webdavEnabled ?? this.webdavEnabled,
+      webdavBaseUrl: webdavBaseUrl ?? this.webdavBaseUrl,
+      webdavRemotePath: webdavRemotePath ?? this.webdavRemotePath,
+      webdavUsername: webdavUsername ?? this.webdavUsername,
+      retentionCount: retentionCount ?? this.retentionCount,
     );
   }
 }
@@ -202,7 +335,16 @@ class AppSettings extends ChangeNotifier {
   AppSettings({String integrationSecret = ''})
     : _configuredIntegrationSecret = integrationSecret.trim();
 
+  SharedPreferences? _cachedPrefs;
+
+  /// Cachea la instancia tras la primera resolución: cada setter la pedía por
+  /// separado (100+ sitios), y aunque el plugin memoiza internamente, esto
+  /// evita el `await` extra de ida y vuelta por el method channel en cada uno.
+  Future<SharedPreferences> _prefs() async =>
+      _cachedPrefs ??= await SharedPreferences.getInstance();
+
   static const _themeModeKey = 'folio_theme_mode';
+  static const _oledThemeEnabledKey = 'folio_oled_theme_enabled';
   static const _uiScaleKey = 'folio_ui_scale';
   static const _uiScaleModeKey = 'folio_ui_scale_mode';
   static const _localeCodeKey = 'folio_locale_code';
@@ -217,6 +359,7 @@ class AppSettings extends ChangeNotifier {
   static const _closeToTrayKey = 'folio_close_to_tray';
   static const _windowsNotificationsEnabledKey =
       'folio_windows_notifications_enabled';
+  static const _launchAtStartupEnabledKey = 'folio_launch_at_startup_enabled';
   static const _aiEnabledKey = 'folio_ai_enabled';
   static const _aiProviderKey = 'folio_ai_provider';
   static const _aiBaseUrlKey = 'folio_ai_base_url';
@@ -229,7 +372,13 @@ class AppSettings extends ChangeNotifier {
   static const _aiLaunchProviderWithAppKey =
       'folio_ai_launch_provider_with_app';
   static const _aiContextWindowTokensKey = 'folio_ai_context_window_tokens';
+  static const _aiApiKeyKey = 'folio_ai_api_key';
+  static const _aiPersonaKey = 'folio_ai_persona';
+  static const _aiCustomSystemPromptKey = 'folio_ai_custom_system_prompt';
+  static const _activeQuillPromptIdKey = 'folio_active_quill_prompt_id';
+  static const _quillSystemPromptsJsonKey = 'folio_quill_system_prompts_json';
   static const _aiModelsPrefix = 'folio_ai_models_';
+  static const _usageIntentsKey = 'folio_usage_intents';
   static const _hasSeenQuillIntroKey = 'folio_has_seen_quill_intro';
   static const _hasSeenQuillWorkspaceTourKey =
       'folio_has_seen_quill_workspace_tour';
@@ -249,6 +398,10 @@ class AppSettings extends ChangeNotifier {
       'folio_workspace_sidebar_collapsed';
   static const _workspaceSidebarAutoRevealKey =
       'folio_workspace_sidebar_auto_reveal';
+  static const _workspaceSidebarShowRecentPagesKey =
+      'folio_workspace_sidebar_show_recent_pages';
+  static const _workspaceSidebarRecentPagesCollapsedKey =
+      'folio_workspace_sidebar_recent_pages_collapsed';
   static const _workspaceSidebarCollapsedPagesPrefix =
       'folio_workspace_sidebar_collapsed_pages_';
   static const _workspacePageOutlineVisibleKey =
@@ -257,9 +410,43 @@ class AppSettings extends ChangeNotifier {
       'folio_workspace_backlinks_visible';
   static const _workspaceCommentsVisibleKey =
       'folio_workspace_comments_visible';
+  static const _workspaceHomeShowFolioCloudCardKey =
+      'folio_workspace_home_show_cloud_card';
+  static const _workspaceHomeShowRootPagesKey =
+      'folio_workspace_home_show_root_pages';
+  static const _workspaceHomeShowMiniStatsKey =
+      'folio_workspace_home_show_mini_stats';
+  static const _workspaceHomeShowTasksSectionKey =
+      'folio_workspace_home_show_tasks';
+  static const _workspaceHomeShowQuickActionsKey =
+      'folio_workspace_home_show_quick_actions';
+  static const _workspaceHomeShowTipKey = 'folio_workspace_home_show_tip';
+  static const _workspaceHomeShowVaultStatusKey =
+      'folio_workspace_home_show_vault_status';
+  static const _workspaceHomeShowOnboardingKey =
+      'folio_workspace_home_show_onboarding';
+  static const _workspaceHomeShowWhatsNewKey =
+      'folio_workspace_home_show_whats_new';
+  static const _workspaceHomeColumnLayoutKey =
+      'folio_workspace_home_column_layout';
+  static const _workspaceHomeClockShowSecondsKey =
+      'folio_workspace_home_clock_show_seconds';
+  static const _workspaceHomeClock24HourKey =
+      'folio_workspace_home_clock_24h';
+  static const _workspaceHomeClockShowTimezoneKey =
+      'folio_workspace_home_clock_show_timezone';
+  static const _workspaceHomeWhatsNewDismissedVersionKey =
+      'folio_workspace_home_whats_new_dismissed_version';
+  static const _workspaceHomeLeftSectionOrderKey =
+      'folio_workspace_home_left_section_order';
+  static const _workspaceHomeRightSectionOrderKey =
+      'folio_workspace_home_right_section_order';
   static const _aiChatPanelCollapsedKey = 'folio_ai_chat_panel_collapsed';
   static const _aiChatPanelWidthKey = 'folio_ai_chat_panel_width';
   static const _aiChatPanelHeightKey = 'folio_ai_chat_panel_height';
+  static const _aiChatSplitViewKey = 'folio_ai_chat_split_view';
+  static const _aiQuillCopilotExperimentalKey =
+      'folio_ai_quill_copilot_experimental';
   static const _customIconsKey = 'folio_custom_icons_v1';
   static const _integrationCustomIconsKey =
       'folio_integration_custom_icons_by_app_v1';
@@ -305,8 +492,9 @@ class AppSettings extends ChangeNotifier {
   static const String distributionChannelFromEnvironment =
       FolioDistribution.raw;
 
-  /// 30 min, luego cada hora hasta 24 h (índices del slider / menú).
+  /// `0` = en cada cambio; luego 30 min y cada hora hasta 24 h.
   static const List<int> scheduledVaultBackupIntervalChoicesMinutes = [
+    0,
     30,
     60,
     120,
@@ -334,12 +522,23 @@ class AppSettings extends ChangeNotifier {
     1440,
   ];
 
+  static const int continuousVaultBackupIntervalMinutes = 0;
+
   static const int defaultScheduledVaultBackupIntervalMinutes = 1440;
 
+  static bool isContinuousVaultBackupInterval(int minutes) =>
+      minutes == continuousVaultBackupIntervalMinutes;
+
   static int nearestScheduledBackupIntervalMinutes(int minutes) {
-    var best = scheduledVaultBackupIntervalChoicesMinutes.first;
+    if (isContinuousVaultBackupInterval(minutes)) {
+      return continuousVaultBackupIntervalMinutes;
+    }
+    var best = scheduledVaultBackupIntervalChoicesMinutes
+        .where((m) => m > 0)
+        .first;
     var bestDist = (minutes - best).abs();
     for (final m in scheduledVaultBackupIntervalChoicesMinutes) {
+      if (m == 0) continue;
       final d = (minutes - m).abs();
       if (d < bestDist) {
         best = m;
@@ -394,6 +593,7 @@ class AppSettings extends ChangeNotifier {
   );
 
   ThemeMode _themeMode = ThemeMode.system;
+  bool _oledThemeEnabled = false;
   double _uiScale = defaultUiScale;
   UiScaleMode _uiScaleMode = UiScaleMode.manual;
   Locale? _locale;
@@ -402,9 +602,10 @@ class AppSettings extends ChangeNotifier {
   bool _lockScreenAutoQuickUnlockDone = false;
   bool _enableGlobalSearchHotkey = true;
   String _globalSearchHotkey = defaultGlobalSearchHotkey;
-  bool _minimizeToTray = true;
+  bool _minimizeToTray = false;
   bool _closeToTray = true;
   bool _windowsNotificationsEnabled = false;
+  bool _launchAtStartupEnabled = false;
   bool _aiEnabled = false;
   AiProvider _aiProvider = AiProvider.none;
   String _aiBaseUrl = defaultOllamaUrl;
@@ -415,7 +616,13 @@ class AppSettings extends ChangeNotifier {
   bool _aiAlwaysShowThought = false;
   bool _aiLaunchProviderWithApp = false;
   int _aiContextWindowTokens = defaultAiContextWindowTokens;
+  String _aiApiKey = '';
+  String _aiPersona = 'quill';
+  String _aiCustomSystemPrompt = '';
+  String _activeQuillPromptId = 'quill_default';
+  List<QuillSystemPrompt> _quillSystemPrompts = [];
   final Map<AiProvider, List<String>> _cachedAiModelsByProvider = {};
+  List<FolioUsageIntent> _usageIntents = const [FolioUsageIntent.notes];
   bool _hasSeenQuillIntro = false;
   bool _hasSeenQuillWorkspaceTour = false;
   bool _hasAcceptedQuillGlobalScope = false;
@@ -427,12 +634,36 @@ class AppSettings extends ChangeNotifier {
   double _workspaceSidebarWidth = defaultWorkspaceSidebarWidth;
   bool _workspaceSidebarCollapsed = false;
   bool _workspaceSidebarAutoReveal = false;
+  bool _workspaceSidebarShowRecentPages = true;
+  bool _workspaceSidebarRecentPagesCollapsed = false;
+  bool _workspaceOpenToHome = false;
   bool _workspacePageOutlineVisible = true;
   bool _workspaceBacklinksVisible = false;
   bool _workspaceCommentsVisible = false;
+  bool _workspaceHomeShowFolioCloudCard = true;
+  bool _workspaceHomeShowRootPages = true;
+  bool _workspaceHomeShowMiniStats = true;
+  bool _workspaceHomeShowTasksSection = true;
+  bool _workspaceHomeShowQuickActions = true;
+  bool _workspaceHomeShowTip = true;
+  bool _workspaceHomeShowVaultStatus = true;
+  bool _workspaceHomeShowOnboarding = true;
+  bool _workspaceHomeShowWhatsNew = true;
+  WorkspaceHomeColumnLayout _workspaceHomeColumnLayout =
+      WorkspaceHomeColumnLayout.auto;
+  bool _workspaceHomeClockShowSeconds = false;
+  bool _workspaceHomeClock24Hour = false;
+  bool _workspaceHomeClockShowTimezone = false;
+  String _workspaceHomeWhatsNewDismissedVersion = '';
+  List<String> _workspaceHomeLeftSectionOrder =
+      List<String>.from(WorkspaceHomeSectionIds.defaultLeft);
+  List<String> _workspaceHomeRightSectionOrder =
+      List<String>.from(WorkspaceHomeSectionIds.defaultRight);
   bool _aiChatPanelCollapsed = false;
   double _aiChatPanelWidth = defaultAiChatPanelWidth;
   double _aiChatPanelHeight = defaultAiChatPanelHeight;
+  bool _aiChatSplitView = false;
+  bool _aiQuillCopilotExperimental = false;
   Map<FolioInAppShortcut, SingleActivator> _inAppShortcuts =
       defaultShortcutMap();
   final String _configuredIntegrationSecret;
@@ -463,12 +694,13 @@ class AppSettings extends ChangeNotifier {
   bool _meetingNoteAutoWhisperModel = false;
   bool _meetingNoteForceLocalTranscription = false;
   bool _driveDeleteOriginalsOnUpload = false;
-  bool _telemetryEnabled = false;
+  bool _telemetryEnabled = true;
   bool _autoCrashReports = false;
   FolioAccentColorMode _accentColorMode = FolioAccentColorMode.followSystem;
   int _customAccentArgb = 0xFF455A64;
 
   ThemeMode get themeMode => _themeMode;
+  bool get oledThemeEnabled => _oledThemeEnabled;
 
   /// Semilla de color para temas claro/oscuro (Material 3).
   Color resolveAccentSeedColor() {
@@ -498,6 +730,7 @@ class AppSettings extends ChangeNotifier {
   bool get minimizeToTray => _minimizeToTray;
   bool get closeToTray => _closeToTray;
   bool get windowsNotificationsEnabled => _windowsNotificationsEnabled;
+  bool get launchAtStartupEnabled => _launchAtStartupEnabled;
   bool get aiEnabled => _aiEnabled;
   AiProvider get aiProvider => _aiProvider;
   String get aiBaseUrl => _aiBaseUrl;
@@ -508,8 +741,15 @@ class AppSettings extends ChangeNotifier {
   bool get aiAlwaysShowThought => _aiAlwaysShowThought;
   bool get aiLaunchProviderWithApp => _aiLaunchProviderWithApp;
   int get aiContextWindowTokens => _aiContextWindowTokens;
+  String get aiApiKey => _aiApiKey;
+  String get aiPersona => _aiPersona;
+  String get aiCustomSystemPrompt => _aiCustomSystemPrompt;
+  String get activeQuillPromptId => _activeQuillPromptId;
+  List<QuillSystemPrompt> get quillSystemPrompts => _quillSystemPrompts;
   bool get isAiAvailable => true;
   bool get isAiRuntimeEnabled => _aiEnabled;
+  List<FolioUsageIntent> get usageIntents =>
+      List<FolioUsageIntent>.unmodifiable(_usageIntents);
   bool get hasSeenQuillIntro => _hasSeenQuillIntro;
   bool get hasSeenQuillWorkspaceTour => _hasSeenQuillWorkspaceTour;
   bool get hasAcceptedQuillGlobalScope => _hasAcceptedQuillGlobalScope;
@@ -517,18 +757,45 @@ class AppSettings extends ChangeNotifier {
   String get lastSeenReleaseNotesVersion => _lastSeenReleaseNotesVersion;
   String get updaterGithubOwner => defaultUpdaterGithubOwner;
   String get updaterGithubRepo => defaultUpdaterGithubRepo;
-  bool get checkUpdatesOnStartup => defaultCheckUpdatesOnStartup;
+  bool get checkUpdatesOnStartup =>
+      defaultCheckUpdatesOnStartup && FolioDistribution.offersGitHubSelfUpdate;
   UpdateReleaseChannel get updateReleaseChannel => _updateReleaseChannel;
   double get editorContentWidth => _editorContentWidth;
   double get workspaceSidebarWidth => _workspaceSidebarWidth;
   bool get workspaceSidebarCollapsed => _workspaceSidebarCollapsed;
   bool get workspaceSidebarAutoReveal => _workspaceSidebarAutoReveal;
+  bool get workspaceSidebarShowRecentPages => _workspaceSidebarShowRecentPages;
+  bool get workspaceSidebarRecentPagesCollapsed => _workspaceSidebarRecentPagesCollapsed;
+  bool get workspaceOpenToHome => _workspaceOpenToHome;
   bool get workspacePageOutlineVisible => _workspacePageOutlineVisible;
   bool get workspaceBacklinksVisible => _workspaceBacklinksVisible;
   bool get workspaceCommentsVisible => _workspaceCommentsVisible;
+  bool get workspaceHomeShowFolioCloudCard =>
+      _workspaceHomeShowFolioCloudCard;
+  bool get workspaceHomeShowRootPages => _workspaceHomeShowRootPages;
+  bool get workspaceHomeShowMiniStats => _workspaceHomeShowMiniStats;
+  bool get workspaceHomeShowTasksSection => _workspaceHomeShowTasksSection;
+  bool get workspaceHomeShowQuickActions => _workspaceHomeShowQuickActions;
+  bool get workspaceHomeShowTip => _workspaceHomeShowTip;
+  bool get workspaceHomeShowVaultStatus => _workspaceHomeShowVaultStatus;
+  bool get workspaceHomeShowOnboarding => _workspaceHomeShowOnboarding;
+  bool get workspaceHomeShowWhatsNew => _workspaceHomeShowWhatsNew;
+  WorkspaceHomeColumnLayout get workspaceHomeColumnLayout =>
+      _workspaceHomeColumnLayout;
+  bool get workspaceHomeClockShowSeconds => _workspaceHomeClockShowSeconds;
+  bool get workspaceHomeClock24Hour => _workspaceHomeClock24Hour;
+  bool get workspaceHomeClockShowTimezone => _workspaceHomeClockShowTimezone;
+  String get workspaceHomeWhatsNewDismissedVersion =>
+      _workspaceHomeWhatsNewDismissedVersion;
+  List<String> get workspaceHomeLeftSectionOrder =>
+      List<String>.unmodifiable(_workspaceHomeLeftSectionOrder);
+  List<String> get workspaceHomeRightSectionOrder =>
+      List<String>.unmodifiable(_workspaceHomeRightSectionOrder);
   bool get aiChatPanelCollapsed => _aiChatPanelCollapsed;
   double get aiChatPanelWidth => _aiChatPanelWidth;
   double get aiChatPanelHeight => _aiChatPanelHeight;
+  bool get aiChatSplitView => _aiChatSplitView;
+  bool get aiQuillCopilotExperimental => _aiQuillCopilotExperimental;
   String get integrationSecret => _integrationSecret;
 
   /// Temporal: `client_id` para OAuth 3LO de Jira Cloud configurado por usuario.
@@ -540,7 +807,7 @@ class AppSettings extends ChangeNotifier {
     final next = value.trim();
     if (next == _jiraOAuthClientId) return;
     _jiraOAuthClientId = next;
-    final p = await SharedPreferences.getInstance();
+    final p = await _prefs();
     if (next.isEmpty) {
       await p.remove(_jiraOAuthClientIdKey);
     } else {
@@ -637,9 +904,10 @@ class AppSettings extends ChangeNotifier {
       describeActivator(inAppShortcut(id));
 
   Future<void> load() async {
-    final p = await SharedPreferences.getInstance();
+    final p = await _prefs();
     final raw = p.getString(_themeModeKey);
     _themeMode = _parseThemeMode(raw) ?? ThemeMode.system;
+    _oledThemeEnabled = p.getBool(_oledThemeEnabledKey) ?? false;
     _uiScale = _sanitizeUiScale(p.getDouble(_uiScaleKey));
     _uiScaleMode = _parseUiScaleMode(p.getString(_uiScaleModeKey));
     final localeCode = p.getString(_localeCodeKey);
@@ -656,10 +924,32 @@ class AppSettings extends ChangeNotifier {
     _enableGlobalSearchHotkey = p.getBool(_enableGlobalSearchHotkeyKey) ?? true;
     _globalSearchHotkey =
         p.getString(_globalSearchHotkeyKey) ?? defaultGlobalSearchHotkey;
-    _minimizeToTray = p.getBool(_minimizeToTrayKey) ?? true;
+    _minimizeToTray = p.getBool(_minimizeToTrayKey) ?? false;
     _closeToTray = p.getBool(_closeToTrayKey) ?? true;
     _windowsNotificationsEnabled =
         p.getBool(_windowsNotificationsEnabledKey) ?? false;
+    if (!kIsWeb && Platform.isWindows) {
+      try {
+        launchAtStartup.setup(
+          appName: 'Folio',
+          appPath: Platform.resolvedExecutable,
+          packageName: 'MinealexGames.Folio-PrivateWorkspace',
+        );
+        final actual = await launchAtStartup.isEnabled();
+        _launchAtStartupEnabled = actual;
+        final persisted = p.getBool(_launchAtStartupEnabledKey) ?? false;
+        if (actual != persisted) {
+          await p.setBool(_launchAtStartupEnabledKey, actual);
+        }
+      } catch (e, st) {
+        AppLogger.warn(
+          'launch_at_startup setup/self-heal failed',
+          tag: 'bootstrap',
+          context: {'error': '$e', 'stack': '$st'},
+        );
+        _launchAtStartupEnabled = p.getBool(_launchAtStartupEnabledKey) ?? false;
+      }
+    }
     _aiEnabled = p.getBool(_aiEnabledKey) ?? false;
     _aiProvider = _parseAiProvider(p.getString(_aiProviderKey));
     if (!aiLocalProvidersSupported &&
@@ -686,6 +976,65 @@ class AppSettings extends ChangeNotifier {
     _aiContextWindowTokens = _sanitizeContextWindowTokens(
       p.getInt(_aiContextWindowTokensKey),
     );
+    _aiApiKey = p.getString(_aiApiKeyKey) ?? '';
+    _aiPersona = p.getString(_aiPersonaKey) ?? 'quill';
+    _aiCustomSystemPrompt = p.getString(_aiCustomSystemPromptKey) ?? '';
+    _activeQuillPromptId = p.getString(_activeQuillPromptIdKey) ?? 'quill_default';
+
+    final promptsJson = p.getString(_quillSystemPromptsJsonKey);
+    if (promptsJson != null) {
+      try {
+        final decoded = jsonDecode(promptsJson) as List<dynamic>;
+        _quillSystemPrompts = decoded
+            .map((item) => QuillSystemPrompt.fromJson(item as Map<String, dynamic>))
+            .toList();
+      } catch (_) {
+        _quillSystemPrompts = [];
+      }
+    }
+
+    final locale = PlatformDispatcher.instance.locale.languageCode;
+    final isEs = locale == 'es';
+
+    final List<QuillSystemPrompt> defaultPrompts = [
+      QuillSystemPrompt(
+        id: 'quill_default',
+        name: isEs ? 'Quill (Predeterminado)' : 'Quill (Default)',
+        prompt: isEs
+            ? 'Eres Quill, la asistente de IA integrada en Folio (notas locales, árbol de páginas, editor por bloques, búsqueda, libreta con cifrado opcional, panel de chat a la derecha). Ayudas con el contenido de las notas y con cómo usar la app; en modo chat sé clara, útil y natural.'
+            : 'You are Quill, Folio\'s built-in AI assistant (local notes, page tree, block editor, search, optional encrypted vault, chat panel on the side). You help with note content and how to use the app; in chat mode be clear, helpful, and natural.',
+        isSystemDefault: true,
+      ),
+      QuillSystemPrompt(
+        id: 'quill_translator',
+        name: isEs ? 'Traductor' : 'Translator',
+        prompt: isEs
+            ? 'Eres un Traductor experto. Traduce el texto que te pase el usuario al idioma que solicite o al español/inglés por defecto. Mantén el formato original del texto.'
+            : 'You are an expert Translator. Translate the user\'s text to their requested language, or English/Spanish by default. Maintain the original formatting.',
+        isSystemDefault: true,
+      ),
+      QuillSystemPrompt(
+        id: 'quill_summarizer',
+        name: isEs ? 'Resumidor' : 'Summarizer',
+        prompt: isEs
+            ? 'Eres un Asistente experto en resúmenes. Extrae las ideas clave, conclusiones y puntos de acción del texto de forma clara, concisa y estructurada (con viñetas).'
+            : 'You are an expert Summarizer. Extract key ideas, conclusions, and action points from the text in a clear, concise, and structured bulleted way.',
+        isSystemDefault: true,
+      ),
+      QuillSystemPrompt(
+        id: 'quill_coder',
+        name: isEs ? 'Programador' : 'Coder',
+        prompt: isEs
+            ? 'Eres un Programador y asistente de código experto. Proporciona explicaciones técnicas claras, código limpio y bien estructurado.'
+            : 'You are an expert Software Developer and code assistant. Provide clear technical explanations, clean and well-structured code.',
+        isSystemDefault: true,
+      ),
+    ];
+
+    _quillSystemPrompts.removeWhere((p) => p.isSystemDefault);
+    _quillSystemPrompts.insertAll(0, defaultPrompts);
+
+    _usageIntents = FolioUsageIntent.parseList(p.getString(_usageIntentsKey));
     _hasSeenQuillIntro = p.getBool(_hasSeenQuillIntroKey) ?? false;
     _hasSeenQuillWorkspaceTour =
         p.getBool(_hasSeenQuillWorkspaceTourKey) ?? false;
@@ -708,12 +1057,54 @@ class AppSettings extends ChangeNotifier {
         p.getBool(_workspaceSidebarCollapsedKey) ?? false;
     _workspaceSidebarAutoReveal =
         p.getBool(_workspaceSidebarAutoRevealKey) ?? false;
+    _workspaceSidebarShowRecentPages =
+        p.getBool(_workspaceSidebarShowRecentPagesKey) ?? true;
+    _workspaceSidebarRecentPagesCollapsed =
+        p.getBool(_workspaceSidebarRecentPagesCollapsedKey) ?? false;
+    _workspaceOpenToHome =
+        p.getBool(WorkspacePrefsKeys.openWorkspaceToHome) ?? false;
     _workspacePageOutlineVisible =
         p.getBool(_workspacePageOutlineVisibleKey) ?? true;
     _workspaceBacklinksVisible =
         p.getBool(_workspaceBacklinksVisibleKey) ?? false;
     _workspaceCommentsVisible =
         p.getBool(_workspaceCommentsVisibleKey) ?? false;
+    _workspaceHomeShowFolioCloudCard =
+        p.getBool(_workspaceHomeShowFolioCloudCardKey) ?? true;
+    _workspaceHomeShowRootPages =
+        p.getBool(_workspaceHomeShowRootPagesKey) ?? true;
+    _workspaceHomeShowMiniStats =
+        p.getBool(_workspaceHomeShowMiniStatsKey) ?? true;
+    _workspaceHomeShowTasksSection =
+        p.getBool(_workspaceHomeShowTasksSectionKey) ?? true;
+    _workspaceHomeShowQuickActions =
+        p.getBool(_workspaceHomeShowQuickActionsKey) ?? true;
+    _workspaceHomeShowTip = p.getBool(_workspaceHomeShowTipKey) ?? true;
+    _workspaceHomeShowVaultStatus =
+        p.getBool(_workspaceHomeShowVaultStatusKey) ?? true;
+    _workspaceHomeShowOnboarding =
+        p.getBool(_workspaceHomeShowOnboardingKey) ?? true;
+    _workspaceHomeShowWhatsNew =
+        p.getBool(_workspaceHomeShowWhatsNewKey) ?? true;
+    _workspaceHomeColumnLayout = _parseWorkspaceHomeColumnLayout(
+      p.getString(_workspaceHomeColumnLayoutKey),
+    );
+    _workspaceHomeClockShowSeconds =
+        p.getBool(_workspaceHomeClockShowSecondsKey) ?? false;
+    _workspaceHomeClock24Hour =
+        p.getBool(_workspaceHomeClock24HourKey) ?? false;
+    _workspaceHomeClockShowTimezone =
+        p.getBool(_workspaceHomeClockShowTimezoneKey) ?? false;
+    _workspaceHomeWhatsNewDismissedVersion =
+        (p.getString(_workspaceHomeWhatsNewDismissedVersionKey) ?? '').trim();
+    _workspaceHomeLeftSectionOrder = WorkspaceHomeSectionIds.sanitizeOrder(
+      p.getString(_workspaceHomeLeftSectionOrderKey),
+      WorkspaceHomeSectionIds.defaultLeft,
+    );
+    _workspaceHomeRightSectionOrder = WorkspaceHomeSectionIds.sanitizeOrder(
+      p.getString(_workspaceHomeRightSectionOrderKey),
+      WorkspaceHomeSectionIds.defaultRight,
+    );
     _aiChatPanelCollapsed = p.getBool(_aiChatPanelCollapsedKey) ?? false;
     _aiChatPanelWidth = _sanitizeAiChatPanelWidth(
       p.getDouble(_aiChatPanelWidthKey),
@@ -721,6 +1112,9 @@ class AppSettings extends ChangeNotifier {
     _aiChatPanelHeight = _sanitizeAiChatPanelHeight(
       p.getDouble(_aiChatPanelHeightKey),
     );
+    _aiChatSplitView = p.getBool(_aiChatSplitViewKey) ?? false;
+    _aiQuillCopilotExperimental =
+        p.getBool(_aiQuillCopilotExperimentalKey) ?? false;
     _inAppShortcuts = parseShortcutOverrides(
       p.getString(_inAppShortcutsKey),
       defaultShortcutMap(),
@@ -790,7 +1184,7 @@ class AppSettings extends ChangeNotifier {
         p.getBool(_meetingNoteForceLocalTranscriptionKey) ?? false;
     _driveDeleteOriginalsOnUpload =
         p.getBool(_driveDeleteOriginalsOnUploadKey) ?? false;
-    _telemetryEnabled = p.getBool(_telemetryEnabledKey) ?? false;
+    _telemetryEnabled = p.getBool(_telemetryEnabledKey) ?? true;
     _autoCrashReports = p.getBool(_autoCrashReportsKey) ?? false;
     _accentColorMode =
         _parseAccentColorMode(p.getString(_accentColorModeKey)) ??
@@ -889,6 +1283,14 @@ class AppSettings extends ChangeNotifier {
           p.getStringList(_aiModelsKeyForProvider(AiProvider.quillCloud)) ??
               const <String>['quill-cloud'],
         ),
+        AiProvider.openAi: List<String>.from(
+          p.getStringList(_aiModelsKeyForProvider(AiProvider.openAi)) ??
+              const <String>['gpt-4o-mini', 'gpt-4o', 'gpt-4-turbo', 'gpt-4', 'gpt-3.5-turbo'],
+        ),
+        AiProvider.gemini: List<String>.from(
+          p.getStringList(_aiModelsKeyForProvider(AiProvider.gemini)) ??
+              const <String>['gemini-1.5-flash', 'gemini-1.5-pro', 'gemini-2.0-flash-exp', 'gemini-2.5-flash'],
+        ),
       });
     notifyListeners();
   }
@@ -927,6 +1329,10 @@ class AppSettings extends ChangeNotifier {
         return AiProvider.lmStudio;
       case 'quillCloud':
         return AiProvider.quillCloud;
+      case 'openAi':
+        return AiProvider.openAi;
+      case 'gemini':
+        return AiProvider.gemini;
       default:
         return AiProvider.none;
     }
@@ -1067,6 +1473,10 @@ class AppSettings extends ChangeNotifier {
         return defaultLmStudioUrl;
       case AiProvider.quillCloud:
         return '';
+      case AiProvider.openAi:
+        return 'https://api.openai.com';
+      case AiProvider.gemini:
+        return 'https://generativelanguage.googleapis.com/v1beta/openai';
       case AiProvider.none:
         return defaultOllamaUrl;
     }
@@ -1080,6 +1490,10 @@ class AppSettings extends ChangeNotifier {
         return defaultLmStudioModel;
       case AiProvider.quillCloud:
         return 'quill-cloud';
+      case AiProvider.openAi:
+        return 'gpt-4o-mini';
+      case AiProvider.gemini:
+        return 'gemini-1.5-flash';
       case AiProvider.none:
         return defaultOllamaModel;
     }
@@ -1105,7 +1519,7 @@ class AppSettings extends ChangeNotifier {
         .toSet()
         .toList();
     cleaned.sort();
-    final sp = await SharedPreferences.getInstance();
+    final sp = await _prefs();
     await sp.setStringList(_aiModelsKeyForProvider(provider), cleaned);
     _cachedAiModelsByProvider[provider] = cleaned;
     notifyListeners();
@@ -1115,7 +1529,7 @@ class AppSettings extends ChangeNotifier {
     if (_themeMode == mode) return;
     _themeMode = mode;
     notifyListeners();
-    final p = await SharedPreferences.getInstance();
+    final p = await _prefs();
     final v = switch (mode) {
       ThemeMode.light => 'light',
       ThemeMode.dark => 'dark',
@@ -1124,12 +1538,20 @@ class AppSettings extends ChangeNotifier {
     await p.setString(_themeModeKey, v);
   }
 
+  Future<void> setOledThemeEnabled(bool value) async {
+    if (_oledThemeEnabled == value) return;
+    _oledThemeEnabled = value;
+    notifyListeners();
+    final p = await _prefs();
+    await p.setBool(_oledThemeEnabledKey, value);
+  }
+
   Future<void> setUiScale(double value) async {
     final safe = _sanitizeUiScale(value);
     if ((_uiScale - safe).abs() < 0.01) return;
     _uiScale = safe;
     notifyListeners();
-    final p = await SharedPreferences.getInstance();
+    final p = await _prefs();
     await p.setDouble(_uiScaleKey, safe);
   }
 
@@ -1137,7 +1559,7 @@ class AppSettings extends ChangeNotifier {
     if (_uiScaleMode == value) return;
     _uiScaleMode = value;
     notifyListeners();
-    final p = await SharedPreferences.getInstance();
+    final p = await _prefs();
     await p.setString(_uiScaleModeKey, value.name);
   }
 
@@ -1145,7 +1567,7 @@ class AppSettings extends ChangeNotifier {
     if (_locale == locale) return;
     _locale = locale;
     notifyListeners();
-    final p = await SharedPreferences.getInstance();
+    final p = await _prefs();
     final code = locale?.languageCode;
     if (code == null || code.isEmpty) {
       await p.remove(_localeCodeKey);
@@ -1159,7 +1581,7 @@ class AppSettings extends ChangeNotifier {
     if (_vaultIdleLockMinutes == safe) return;
     _vaultIdleLockMinutes = safe;
     notifyListeners();
-    final p = await SharedPreferences.getInstance();
+    final p = await _prefs();
     await p.setInt(_vaultIdleLockMinutesKey, safe);
   }
 
@@ -1167,7 +1589,7 @@ class AppSettings extends ChangeNotifier {
     if (_vaultLockOnMinimize == value) return;
     _vaultLockOnMinimize = value;
     notifyListeners();
-    final p = await SharedPreferences.getInstance();
+    final p = await _prefs();
     await p.setBool(_vaultLockOnMinimizeKey, value);
   }
 
@@ -1175,7 +1597,7 @@ class AppSettings extends ChangeNotifier {
     if (_enableGlobalSearchHotkey == value) return;
     _enableGlobalSearchHotkey = value;
     notifyListeners();
-    final p = await SharedPreferences.getInstance();
+    final p = await _prefs();
     await p.setBool(_enableGlobalSearchHotkeyKey, value);
   }
 
@@ -1186,7 +1608,7 @@ class AppSettings extends ChangeNotifier {
     if (_globalSearchHotkey == safe) return;
     _globalSearchHotkey = safe;
     notifyListeners();
-    final p = await SharedPreferences.getInstance();
+    final p = await _prefs();
     await p.setString(_globalSearchHotkeyKey, safe);
   }
 
@@ -1194,7 +1616,7 @@ class AppSettings extends ChangeNotifier {
     if (_minimizeToTray == value) return;
     _minimizeToTray = value;
     notifyListeners();
-    final p = await SharedPreferences.getInstance();
+    final p = await _prefs();
     await p.setBool(_minimizeToTrayKey, value);
   }
 
@@ -1202,7 +1624,7 @@ class AppSettings extends ChangeNotifier {
     if (_closeToTray == value) return;
     _closeToTray = value;
     notifyListeners();
-    final p = await SharedPreferences.getInstance();
+    final p = await _prefs();
     await p.setBool(_closeToTrayKey, value);
   }
 
@@ -1210,15 +1632,37 @@ class AppSettings extends ChangeNotifier {
     if (_windowsNotificationsEnabled == value) return;
     _windowsNotificationsEnabled = value;
     notifyListeners();
-    final p = await SharedPreferences.getInstance();
+    final p = await _prefs();
     await p.setBool(_windowsNotificationsEnabledKey, value);
+  }
+
+  Future<void> setLaunchAtStartupEnabled(bool value) async {
+    if (_launchAtStartupEnabled == value) return;
+    try {
+      if (value) {
+        await launchAtStartup.enable();
+      } else {
+        await launchAtStartup.disable();
+      }
+    } catch (e, st) {
+      AppLogger.warn(
+        'launch_at_startup toggle failed',
+        tag: 'settings',
+        context: {'error': '$e', 'stack': '$st'},
+      );
+      return;
+    }
+    _launchAtStartupEnabled = value;
+    notifyListeners();
+    final p = await _prefs();
+    await p.setBool(_launchAtStartupEnabledKey, value);
   }
 
   Future<void> setAiEnabled(bool value) async {
     if (_aiEnabled == value) return;
     _aiEnabled = value;
     notifyListeners();
-    final p = await SharedPreferences.getInstance();
+    final p = await _prefs();
     await p.setBool(_aiEnabledKey, value);
   }
 
@@ -1232,7 +1676,7 @@ class AppSettings extends ChangeNotifier {
     if (value == AiProvider.quillCloud) {
       _aiModel = defaultModelForProvider(value);
       notifyListeners();
-      final p = await SharedPreferences.getInstance();
+      final p = await _prefs();
       await p.setString(_aiProviderKey, value.name);
       return;
     }
@@ -1243,8 +1687,75 @@ class AppSettings extends ChangeNotifier {
       _aiModel = defaultModelForProvider(value);
     }
     notifyListeners();
-    final p = await SharedPreferences.getInstance();
+    final p = await _prefs();
     await p.setString(_aiProviderKey, value.name);
+  }
+
+  Future<void> setAiApiKey(String value) async {
+    final safe = value.trim();
+    if (_aiApiKey == safe) return;
+    _aiApiKey = safe;
+    notifyListeners();
+    final p = await _prefs();
+    await p.setString(_aiApiKeyKey, safe);
+  }
+
+  Future<void> setAiPersona(String value) async {
+    final safe = value.trim().toLowerCase();
+    if (_aiPersona == safe) return;
+    _aiPersona = safe;
+    notifyListeners();
+    final p = await _prefs();
+    await p.setString(_aiPersonaKey, safe);
+  }
+
+  Future<void> setAiCustomSystemPrompt(String value) async {
+    if (_aiCustomSystemPrompt == value) return;
+    _aiCustomSystemPrompt = value;
+    notifyListeners();
+    final p = await _prefs();
+    await p.setString(_aiCustomSystemPromptKey, value);
+  }
+
+  Future<void> setActiveQuillPromptId(String value) async {
+    final safe = value.trim();
+    if (_activeQuillPromptId == safe) return;
+    _activeQuillPromptId = safe;
+    notifyListeners();
+    final p = await _prefs();
+    await p.setString(_activeQuillPromptIdKey, safe);
+  }
+
+  Future<void> _saveQuillSystemPrompts() async {
+    final p = await _prefs();
+    final encoded = jsonEncode(_quillSystemPrompts.map((e) => e.toJson()).toList());
+    await p.setString(_quillSystemPromptsJsonKey, encoded);
+  }
+
+  Future<void> addQuillSystemPrompt(QuillSystemPrompt prompt) async {
+    _quillSystemPrompts.add(prompt);
+    notifyListeners();
+    await _saveQuillSystemPrompts();
+  }
+
+  Future<void> updateQuillSystemPrompt(QuillSystemPrompt prompt) async {
+    final idx = _quillSystemPrompts.indexWhere((e) => e.id == prompt.id);
+    if (idx != -1) {
+      _quillSystemPrompts[idx] = prompt;
+      notifyListeners();
+      await _saveQuillSystemPrompts();
+    }
+  }
+
+  Future<void> deleteQuillSystemPrompt(String id) async {
+    _quillSystemPrompts.removeWhere((e) => e.id == id && !e.isSystemDefault);
+    if (_activeQuillPromptId == id) {
+      _activeQuillPromptId = 'quill_default';
+      final p = await _prefs();
+      await p.setString(_activeQuillPromptIdKey, 'quill_default');
+    }
+    notifyListeners();
+    await _saveQuillSystemPrompts();
   }
 
   Future<void> setAiBaseUrl(String value) async {
@@ -1252,7 +1763,7 @@ class AppSettings extends ChangeNotifier {
     if (safe.isEmpty || _aiBaseUrl == safe) return;
     _aiBaseUrl = safe;
     notifyListeners();
-    final p = await SharedPreferences.getInstance();
+    final p = await _prefs();
     await p.setString(_aiBaseUrlKey, safe);
   }
 
@@ -1269,7 +1780,7 @@ class AppSettings extends ChangeNotifier {
     if (safe.isEmpty || _aiModel == safe) return;
     _aiModel = safe;
     notifyListeners();
-    final p = await SharedPreferences.getInstance();
+    final p = await _prefs();
     await p.setString(_aiModelKey, safe);
   }
 
@@ -1278,7 +1789,7 @@ class AppSettings extends ChangeNotifier {
     if (_aiTimeoutMs == safe) return;
     _aiTimeoutMs = safe;
     notifyListeners();
-    final p = await SharedPreferences.getInstance();
+    final p = await _prefs();
     await p.setInt(_aiTimeoutMsKey, safe);
   }
 
@@ -1289,7 +1800,7 @@ class AppSettings extends ChangeNotifier {
       _aiRemoteEndpointConfirmed = false;
     }
     notifyListeners();
-    final p = await SharedPreferences.getInstance();
+    final p = await _prefs();
     await p.setString(_aiEndpointModeKey, value.name);
     if (value == AiEndpointMode.localhostOnly) {
       await p.setBool(_aiRemoteEndpointConfirmedKey, false);
@@ -1300,7 +1811,7 @@ class AppSettings extends ChangeNotifier {
     if (_aiRemoteEndpointConfirmed == value) return;
     _aiRemoteEndpointConfirmed = value;
     notifyListeners();
-    final p = await SharedPreferences.getInstance();
+    final p = await _prefs();
     await p.setBool(_aiRemoteEndpointConfirmedKey, value);
   }
 
@@ -1308,7 +1819,7 @@ class AppSettings extends ChangeNotifier {
     if (_aiAlwaysShowThought == value) return;
     _aiAlwaysShowThought = value;
     notifyListeners();
-    final p = await SharedPreferences.getInstance();
+    final p = await _prefs();
     await p.setBool(_aiAlwaysShowThoughtKey, value);
   }
 
@@ -1316,7 +1827,7 @@ class AppSettings extends ChangeNotifier {
     if (_aiLaunchProviderWithApp == value) return;
     _aiLaunchProviderWithApp = value;
     notifyListeners();
-    final p = await SharedPreferences.getInstance();
+    final p = await _prefs();
     await p.setBool(_aiLaunchProviderWithAppKey, value);
   }
 
@@ -1325,15 +1836,24 @@ class AppSettings extends ChangeNotifier {
     if (_aiContextWindowTokens == safe) return;
     _aiContextWindowTokens = safe;
     notifyListeners();
-    final p = await SharedPreferences.getInstance();
+    final p = await _prefs();
     await p.setInt(_aiContextWindowTokensKey, safe);
+  }
+
+  Future<void> setUsageIntents(List<FolioUsageIntent> intents) async {
+    final safe = FolioUsageIntent.sanitizeSelection(intents);
+    if (listEquals(_usageIntents, safe)) return;
+    _usageIntents = List<FolioUsageIntent>.from(safe);
+    notifyListeners();
+    final p = await _prefs();
+    await p.setString(_usageIntentsKey, FolioUsageIntent.encodeList(safe));
   }
 
   Future<void> setHasSeenQuillIntro(bool value) async {
     if (_hasSeenQuillIntro == value) return;
     _hasSeenQuillIntro = value;
     notifyListeners();
-    final p = await SharedPreferences.getInstance();
+    final p = await _prefs();
     await p.setBool(_hasSeenQuillIntroKey, value);
   }
 
@@ -1342,7 +1862,7 @@ class AppSettings extends ChangeNotifier {
     if (_lockScreenAutoQuickUnlockDone) return;
     _lockScreenAutoQuickUnlockDone = true;
     notifyListeners();
-    final p = await SharedPreferences.getInstance();
+    final p = await _prefs();
     await p.setBool(_lockScreenAutoQuickUnlockDoneKey, true);
   }
 
@@ -1350,7 +1870,7 @@ class AppSettings extends ChangeNotifier {
     if (_hasSeenQuillWorkspaceTour == value) return;
     _hasSeenQuillWorkspaceTour = value;
     notifyListeners();
-    final p = await SharedPreferences.getInstance();
+    final p = await _prefs();
     await p.setBool(_hasSeenQuillWorkspaceTourKey, value);
   }
 
@@ -1358,7 +1878,7 @@ class AppSettings extends ChangeNotifier {
     if (_hasAcceptedQuillGlobalScope == value) return;
     _hasAcceptedQuillGlobalScope = value;
     notifyListeners();
-    final p = await SharedPreferences.getInstance();
+    final p = await _prefs();
     await p.setBool(_hasAcceptedQuillGlobalScopeKey, value);
   }
 
@@ -1366,7 +1886,7 @@ class AppSettings extends ChangeNotifier {
     if (_hasCompletedQuillSetup == value) return;
     _hasCompletedQuillSetup = value;
     notifyListeners();
-    final p = await SharedPreferences.getInstance();
+    final p = await _prefs();
     await p.setBool(_hasCompletedQuillSetupKey, value);
   }
 
@@ -1375,7 +1895,7 @@ class AppSettings extends ChangeNotifier {
     if (_lastSeenReleaseNotesVersion == safe) return;
     _lastSeenReleaseNotesVersion = safe;
     notifyListeners();
-    final p = await SharedPreferences.getInstance();
+    final p = await _prefs();
     if (safe.isEmpty) {
       await p.remove(_lastSeenReleaseNotesVersionKey);
     } else {
@@ -1387,7 +1907,7 @@ class AppSettings extends ChangeNotifier {
     if (_updateReleaseChannel == value) return;
     _updateReleaseChannel = value;
     notifyListeners();
-    final p = await SharedPreferences.getInstance();
+    final p = await _prefs();
     await p.setString(_updateReleaseChannelKey, value.name);
   }
 
@@ -1395,7 +1915,7 @@ class AppSettings extends ChangeNotifier {
     if (_betaBannerDismissed == value) return;
     _betaBannerDismissed = value;
     notifyListeners();
-    final p = await SharedPreferences.getInstance();
+    final p = await _prefs();
     await p.setBool(_betaBannerDismissedKey, value);
   }
 
@@ -1404,7 +1924,7 @@ class AppSettings extends ChangeNotifier {
     if ((_editorContentWidth - safe).abs() < 0.5) return;
     _editorContentWidth = safe;
     notifyListeners();
-    final p = await SharedPreferences.getInstance();
+    final p = await _prefs();
     await p.setDouble(_editorContentWidthKey, safe);
   }
 
@@ -1413,7 +1933,7 @@ class AppSettings extends ChangeNotifier {
     if ((_workspaceSidebarWidth - safe).abs() < 0.5) return;
     _workspaceSidebarWidth = safe;
     notifyListeners();
-    final p = await SharedPreferences.getInstance();
+    final p = await _prefs();
     await p.setDouble(_workspaceSidebarWidthKey, safe);
   }
 
@@ -1428,7 +1948,7 @@ class AppSettings extends ChangeNotifier {
     required String? vaultId,
     required Set<String> validPageIds,
   }) async {
-    final p = await SharedPreferences.getInstance();
+    final p = await _prefs();
     final saved =
         p.getStringList(_workspaceSidebarCollapsedPagesKey(vaultId)) ??
         const <String>[];
@@ -1439,7 +1959,7 @@ class AppSettings extends ChangeNotifier {
     required String? vaultId,
     required Set<String> collapsedPageIds,
   }) async {
-    final p = await SharedPreferences.getInstance();
+    final p = await _prefs();
     final sorted = collapsedPageIds.toList()..sort();
     await p.setStringList(_workspaceSidebarCollapsedPagesKey(vaultId), sorted);
   }
@@ -1448,15 +1968,31 @@ class AppSettings extends ChangeNotifier {
     if (_workspaceSidebarCollapsed == value) return;
     _workspaceSidebarCollapsed = value;
     notifyListeners();
-    final p = await SharedPreferences.getInstance();
+    final p = await _prefs();
     await p.setBool(_workspaceSidebarCollapsedKey, value);
+  }
+
+  Future<void> setWorkspaceSidebarShowRecentPages(bool value) async {
+    if (_workspaceSidebarShowRecentPages == value) return;
+    _workspaceSidebarShowRecentPages = value;
+    notifyListeners();
+    final p = await _prefs();
+    await p.setBool(_workspaceSidebarShowRecentPagesKey, value);
+  }
+
+  Future<void> setWorkspaceSidebarRecentPagesCollapsed(bool value) async {
+    if (_workspaceSidebarRecentPagesCollapsed == value) return;
+    _workspaceSidebarRecentPagesCollapsed = value;
+    notifyListeners();
+    final p = await _prefs();
+    await p.setBool(_workspaceSidebarRecentPagesCollapsedKey, value);
   }
 
   Future<void> setAiChatPanelCollapsed(bool value) async {
     if (_aiChatPanelCollapsed == value) return;
     _aiChatPanelCollapsed = value;
     notifyListeners();
-    final p = await SharedPreferences.getInstance();
+    final p = await _prefs();
     await p.setBool(_aiChatPanelCollapsedKey, value);
   }
 
@@ -1465,7 +2001,7 @@ class AppSettings extends ChangeNotifier {
     if ((_aiChatPanelWidth - safe).abs() < 0.5) return;
     _aiChatPanelWidth = safe;
     notifyListeners();
-    final p = await SharedPreferences.getInstance();
+    final p = await _prefs();
     await p.setDouble(_aiChatPanelWidthKey, safe);
   }
 
@@ -1474,23 +2010,47 @@ class AppSettings extends ChangeNotifier {
     if ((_aiChatPanelHeight - safe).abs() < 0.5) return;
     _aiChatPanelHeight = safe;
     notifyListeners();
-    final p = await SharedPreferences.getInstance();
+    final p = await _prefs();
     await p.setDouble(_aiChatPanelHeightKey, safe);
+  }
+
+  Future<void> setAiChatSplitView(bool value) async {
+    if (_aiChatSplitView == value) return;
+    _aiChatSplitView = value;
+    notifyListeners();
+    final p = await _prefs();
+    await p.setBool(_aiChatSplitViewKey, value);
+  }
+
+  Future<void> setAiQuillCopilotExperimental(bool value) async {
+    if (_aiQuillCopilotExperimental == value) return;
+    _aiQuillCopilotExperimental = value;
+    notifyListeners();
+    final p = await _prefs();
+    await p.setBool(_aiQuillCopilotExperimentalKey, value);
   }
 
   Future<void> setWorkspaceSidebarAutoReveal(bool value) async {
     if (_workspaceSidebarAutoReveal == value) return;
     _workspaceSidebarAutoReveal = value;
     notifyListeners();
-    final p = await SharedPreferences.getInstance();
+    final p = await _prefs();
     await p.setBool(_workspaceSidebarAutoRevealKey, value);
+  }
+
+  Future<void> setWorkspaceOpenToHome(bool value) async {
+    if (_workspaceOpenToHome == value) return;
+    _workspaceOpenToHome = value;
+    notifyListeners();
+    final p = await _prefs();
+    await p.setBool(WorkspacePrefsKeys.openWorkspaceToHome, value);
   }
 
   Future<void> setWorkspacePageOutlineVisible(bool value) async {
     if (_workspacePageOutlineVisible == value) return;
     _workspacePageOutlineVisible = value;
     notifyListeners();
-    final p = await SharedPreferences.getInstance();
+    final p = await _prefs();
     await p.setBool(_workspacePageOutlineVisibleKey, value);
   }
 
@@ -1498,7 +2058,7 @@ class AppSettings extends ChangeNotifier {
     if (_workspaceBacklinksVisible == value) return;
     _workspaceBacklinksVisible = value;
     notifyListeners();
-    final p = await SharedPreferences.getInstance();
+    final p = await _prefs();
     await p.setBool(_workspaceBacklinksVisibleKey, value);
   }
 
@@ -1506,15 +2066,156 @@ class AppSettings extends ChangeNotifier {
     if (_workspaceCommentsVisible == value) return;
     _workspaceCommentsVisible = value;
     notifyListeners();
-    final p = await SharedPreferences.getInstance();
+    final p = await _prefs();
     await p.setBool(_workspaceCommentsVisibleKey, value);
+  }
+
+  Future<void> setWorkspaceHomeShowFolioCloudCard(bool value) async {
+    if (_workspaceHomeShowFolioCloudCard == value) return;
+    _workspaceHomeShowFolioCloudCard = value;
+    notifyListeners();
+    final p = await _prefs();
+    await p.setBool(_workspaceHomeShowFolioCloudCardKey, value);
+  }
+
+  Future<void> setWorkspaceHomeShowRootPages(bool value) async {
+    if (_workspaceHomeShowRootPages == value) return;
+    _workspaceHomeShowRootPages = value;
+    notifyListeners();
+    final p = await _prefs();
+    await p.setBool(_workspaceHomeShowRootPagesKey, value);
+  }
+
+  Future<void> setWorkspaceHomeShowMiniStats(bool value) async {
+    if (_workspaceHomeShowMiniStats == value) return;
+    _workspaceHomeShowMiniStats = value;
+    notifyListeners();
+    final p = await _prefs();
+    await p.setBool(_workspaceHomeShowMiniStatsKey, value);
+  }
+
+  Future<void> setWorkspaceHomeShowTasksSection(bool value) async {
+    if (_workspaceHomeShowTasksSection == value) return;
+    _workspaceHomeShowTasksSection = value;
+    notifyListeners();
+    final p = await _prefs();
+    await p.setBool(_workspaceHomeShowTasksSectionKey, value);
+  }
+
+  Future<void> setWorkspaceHomeShowQuickActions(bool value) async {
+    if (_workspaceHomeShowQuickActions == value) return;
+    _workspaceHomeShowQuickActions = value;
+    notifyListeners();
+    final p = await _prefs();
+    await p.setBool(_workspaceHomeShowQuickActionsKey, value);
+  }
+
+  Future<void> setWorkspaceHomeShowTip(bool value) async {
+    if (_workspaceHomeShowTip == value) return;
+    _workspaceHomeShowTip = value;
+    notifyListeners();
+    final p = await _prefs();
+    await p.setBool(_workspaceHomeShowTipKey, value);
+  }
+
+  Future<void> setWorkspaceHomeShowVaultStatus(bool value) async {
+    if (_workspaceHomeShowVaultStatus == value) return;
+    _workspaceHomeShowVaultStatus = value;
+    notifyListeners();
+    final p = await _prefs();
+    await p.setBool(_workspaceHomeShowVaultStatusKey, value);
+  }
+
+  Future<void> setWorkspaceHomeShowOnboarding(bool value) async {
+    if (_workspaceHomeShowOnboarding == value) return;
+    _workspaceHomeShowOnboarding = value;
+    notifyListeners();
+    final p = await _prefs();
+    await p.setBool(_workspaceHomeShowOnboardingKey, value);
+  }
+
+  Future<void> setWorkspaceHomeShowWhatsNew(bool value) async {
+    if (_workspaceHomeShowWhatsNew == value) return;
+    _workspaceHomeShowWhatsNew = value;
+    notifyListeners();
+    final p = await _prefs();
+    await p.setBool(_workspaceHomeShowWhatsNewKey, value);
+  }
+
+  Future<void> setWorkspaceHomeColumnLayout(
+    WorkspaceHomeColumnLayout value,
+  ) async {
+    if (_workspaceHomeColumnLayout == value) return;
+    _workspaceHomeColumnLayout = value;
+    notifyListeners();
+    final p = await _prefs();
+    await p.setString(_workspaceHomeColumnLayoutKey, value.name);
+  }
+
+  Future<void> setWorkspaceHomeClockShowSeconds(bool value) async {
+    if (_workspaceHomeClockShowSeconds == value) return;
+    _workspaceHomeClockShowSeconds = value;
+    notifyListeners();
+    final p = await _prefs();
+    await p.setBool(_workspaceHomeClockShowSecondsKey, value);
+  }
+
+  Future<void> setWorkspaceHomeClock24Hour(bool value) async {
+    if (_workspaceHomeClock24Hour == value) return;
+    _workspaceHomeClock24Hour = value;
+    notifyListeners();
+    final p = await _prefs();
+    await p.setBool(_workspaceHomeClock24HourKey, value);
+  }
+
+  Future<void> setWorkspaceHomeClockShowTimezone(bool value) async {
+    if (_workspaceHomeClockShowTimezone == value) return;
+    _workspaceHomeClockShowTimezone = value;
+    notifyListeners();
+    final p = await _prefs();
+    await p.setBool(_workspaceHomeClockShowTimezoneKey, value);
+  }
+
+  Future<void> setWorkspaceHomeWhatsNewDismissedForVersion(
+    String versionLabel,
+  ) async {
+    final safe = versionLabel.trim();
+    if (_workspaceHomeWhatsNewDismissedVersion == safe) return;
+    _workspaceHomeWhatsNewDismissedVersion = safe;
+    notifyListeners();
+    final p = await _prefs();
+    await p.setString(_workspaceHomeWhatsNewDismissedVersionKey, safe);
+  }
+
+  Future<void> setWorkspaceHomeLeftSectionOrder(List<String> value) async {
+    final next = WorkspaceHomeSectionIds.sanitizeOrder(
+      jsonEncode(value),
+      WorkspaceHomeSectionIds.defaultLeft,
+    );
+    if (listEquals(_workspaceHomeLeftSectionOrder, next)) return;
+    _workspaceHomeLeftSectionOrder = next;
+    notifyListeners();
+    final p = await _prefs();
+    await p.setString(_workspaceHomeLeftSectionOrderKey, jsonEncode(next));
+  }
+
+  Future<void> setWorkspaceHomeRightSectionOrder(List<String> value) async {
+    final next = WorkspaceHomeSectionIds.sanitizeOrder(
+      jsonEncode(value),
+      WorkspaceHomeSectionIds.defaultRight,
+    );
+    if (listEquals(_workspaceHomeRightSectionOrder, next)) return;
+    _workspaceHomeRightSectionOrder = next;
+    notifyListeners();
+    final p = await _prefs();
+    await p.setString(_workspaceHomeRightSectionOrderKey, jsonEncode(next));
   }
 
   Future<void> setEnterCreatesNewBlock(bool value) async {
     if (_enterCreatesNewBlock == value) return;
     _enterCreatesNewBlock = value;
     notifyListeners();
-    final p = await SharedPreferences.getInstance();
+    final p = await _prefs();
     await p.setBool(_enterCreatesNewBlockKey, value);
   }
 
@@ -1522,7 +2223,7 @@ class AppSettings extends ChangeNotifier {
     if (_syncEnabled == value) return;
     _syncEnabled = value;
     notifyListeners();
-    final p = await SharedPreferences.getInstance();
+    final p = await _prefs();
     await p.setBool(_syncEnabledKey, value);
   }
 
@@ -1530,7 +2231,7 @@ class AppSettings extends ChangeNotifier {
     if (_syncRelayEnabled == value) return;
     _syncRelayEnabled = value;
     notifyListeners();
-    final p = await SharedPreferences.getInstance();
+    final p = await _prefs();
     await p.setBool(_syncRelayEnabledKey, value);
   }
 
@@ -1539,7 +2240,7 @@ class AppSettings extends ChangeNotifier {
     if (_syncDeviceName == safe) return;
     _syncDeviceName = safe;
     notifyListeners();
-    final p = await SharedPreferences.getInstance();
+    final p = await _prefs();
     await p.setString(_syncDeviceNameKey, safe);
   }
 
@@ -1548,7 +2249,7 @@ class AppSettings extends ChangeNotifier {
     if (_syncPendingConflicts == safe) return;
     _syncPendingConflicts = safe;
     notifyListeners();
-    final p = await SharedPreferences.getInstance();
+    final p = await _prefs();
     await p.setInt(_syncPendingConflictsKey, safe);
   }
 
@@ -1557,7 +2258,7 @@ class AppSettings extends ChangeNotifier {
     if (_syncLastSuccessMs == safe) return;
     _syncLastSuccessMs = safe;
     notifyListeners();
-    final p = await SharedPreferences.getInstance();
+    final p = await _prefs();
     await p.setInt(_syncLastSuccessMsKey, safe);
   }
 
@@ -1572,7 +2273,24 @@ class AppSettings extends ChangeNotifier {
     }
     _recentSearchQueries = next;
     notifyListeners();
-    final p = await SharedPreferences.getInstance();
+    final p = await _prefs();
+    await p.setStringList(_recentSearchQueriesKey, _recentSearchQueries);
+  }
+
+  Future<void> removeRecentSearchQuery(String raw) async {
+    final q = raw.trim();
+    if (q.isEmpty) return;
+    _recentSearchQueries = _recentSearchQueries.where((x) => x != q).toList();
+    notifyListeners();
+    final p = await _prefs();
+    await p.setStringList(_recentSearchQueriesKey, _recentSearchQueries);
+  }
+
+  Future<void> clearRecentSearchQueries() async {
+    if (_recentSearchQueries.isEmpty) return;
+    _recentSearchQueries = const [];
+    notifyListeners();
+    final p = await _prefs();
     await p.setStringList(_recentSearchQueriesKey, _recentSearchQueries);
   }
 
@@ -1583,7 +2301,7 @@ class AppSettings extends ChangeNotifier {
       _lastScheduledVaultBackupMs = DateTime.now().millisecondsSinceEpoch;
     }
     notifyListeners();
-    final p = await SharedPreferences.getInstance();
+    final p = await _prefs();
     await p.setBool(_scheduledVaultBackupEnabledKey, value);
     if (value && _lastScheduledVaultBackupMs != 0) {
       await p.setInt(
@@ -1598,7 +2316,7 @@ class AppSettings extends ChangeNotifier {
     if (_scheduledVaultBackupIntervalMinutes == safe) return;
     _scheduledVaultBackupIntervalMinutes = safe;
     notifyListeners();
-    final p = await SharedPreferences.getInstance();
+    final p = await _prefs();
     await p.setInt(_scheduledVaultBackupIntervalMinutesKey, safe);
     if (p.containsKey(_scheduledVaultBackupIntervalHoursKey)) {
       await p.remove(_scheduledVaultBackupIntervalHoursKey);
@@ -1610,7 +2328,7 @@ class AppSettings extends ChangeNotifier {
     if (_scheduledVaultBackupDirectory == safe) return;
     _scheduledVaultBackupDirectory = safe;
     notifyListeners();
-    final p = await SharedPreferences.getInstance();
+    final p = await _prefs();
     if (safe.isEmpty) {
       await p.remove(_scheduledVaultBackupDirectoryKey);
     } else {
@@ -1623,7 +2341,7 @@ class AppSettings extends ChangeNotifier {
     if (_lastScheduledVaultBackupMs == safe) return;
     _lastScheduledVaultBackupMs = safe;
     notifyListeners();
-    final p = await SharedPreferences.getInstance();
+    final p = await _prefs();
     await p.setInt(_lastScheduledVaultBackupMsKey, safe);
   }
 
@@ -1631,7 +2349,7 @@ class AppSettings extends ChangeNotifier {
     if (_scheduledVaultBackupAlsoUploadCloud == value) return;
     _scheduledVaultBackupAlsoUploadCloud = value;
     notifyListeners();
-    final p = await SharedPreferences.getInstance();
+    final p = await _prefs();
     await p.setBool(_scheduledVaultBackupAlsoUploadCloudKey, value);
   }
 
@@ -1639,7 +2357,7 @@ class AppSettings extends ChangeNotifier {
     if (_scheduledVaultBackupFolderEnabled == value) return;
     _scheduledVaultBackupFolderEnabled = value;
     notifyListeners();
-    final p = await SharedPreferences.getInstance();
+    final p = await _prefs();
     await p.setBool(_scheduledVaultBackupFolderEnabledKey, value);
   }
 
@@ -1648,7 +2366,7 @@ class AppSettings extends ChangeNotifier {
     if (_meetingNoteMicDeviceId == safe) return;
     _meetingNoteMicDeviceId = safe;
     notifyListeners();
-    final p = await SharedPreferences.getInstance();
+    final p = await _prefs();
     if (safe.isEmpty) {
       await p.remove(_meetingNoteMicDeviceIdKey);
     } else {
@@ -1661,7 +2379,7 @@ class AppSettings extends ChangeNotifier {
     if (_meetingNoteSystemDeviceId == safe) return;
     _meetingNoteSystemDeviceId = safe;
     notifyListeners();
-    final p = await SharedPreferences.getInstance();
+    final p = await _prefs();
     if (safe.isEmpty) {
       await p.remove(_meetingNoteSystemDeviceIdKey);
     } else {
@@ -1675,11 +2393,11 @@ class AppSettings extends ChangeNotifier {
     _meetingNoteModelId = safe;
     if (_meetingNoteAutoWhisperModel) {
       _meetingNoteAutoWhisperModel = false;
-      final prefs = await SharedPreferences.getInstance();
+      final prefs = await _prefs();
       await prefs.setBool(_meetingNoteAutoWhisperModelKey, false);
     }
     notifyListeners();
-    final p = await SharedPreferences.getInstance();
+    final p = await _prefs();
     await p.setString(_meetingNoteModelIdKey, safe);
   }
 
@@ -1687,7 +2405,7 @@ class AppSettings extends ChangeNotifier {
     if (_meetingNoteAutoWhisperModel == value) return;
     _meetingNoteAutoWhisperModel = value;
     notifyListeners();
-    final p = await SharedPreferences.getInstance();
+    final p = await _prefs();
     await p.setBool(_meetingNoteAutoWhisperModelKey, value);
   }
 
@@ -1695,7 +2413,7 @@ class AppSettings extends ChangeNotifier {
     if (_meetingNoteForceLocalTranscription == value) return;
     _meetingNoteForceLocalTranscription = value;
     notifyListeners();
-    final p = await SharedPreferences.getInstance();
+    final p = await _prefs();
     await p.setBool(_meetingNoteForceLocalTranscriptionKey, value);
   }
 
@@ -1703,7 +2421,7 @@ class AppSettings extends ChangeNotifier {
     if (_driveDeleteOriginalsOnUpload == value) return;
     _driveDeleteOriginalsOnUpload = value;
     notifyListeners();
-    final p = await SharedPreferences.getInstance();
+    final p = await _prefs();
     await p.setBool(_driveDeleteOriginalsOnUploadKey, value);
   }
 
@@ -1711,7 +2429,7 @@ class AppSettings extends ChangeNotifier {
     if (_telemetryEnabled == value) return;
     _telemetryEnabled = value;
     notifyListeners();
-    final p = await SharedPreferences.getInstance();
+    final p = await _prefs();
     await p.setBool(_telemetryEnabledKey, value);
   }
 
@@ -1719,7 +2437,7 @@ class AppSettings extends ChangeNotifier {
     if (_autoCrashReports == value) return;
     _autoCrashReports = value;
     notifyListeners();
-    final p = await SharedPreferences.getInstance();
+    final p = await _prefs();
     await p.setBool(_autoCrashReportsKey, value);
   }
 
@@ -1727,7 +2445,7 @@ class AppSettings extends ChangeNotifier {
     if (_accentColorMode == mode) return;
     _accentColorMode = mode;
     notifyListeners();
-    final p = await SharedPreferences.getInstance();
+    final p = await _prefs();
     final v = switch (mode) {
       FolioAccentColorMode.followSystem => 'followSystem',
       FolioAccentColorMode.folioDefault => 'folioDefault',
@@ -1740,7 +2458,7 @@ class AppSettings extends ChangeNotifier {
     if (_customAccentArgb == argb) return;
     _customAccentArgb = argb;
     notifyListeners();
-    final p = await SharedPreferences.getInstance();
+    final p = await _prefs();
     await p.setInt(_customAccentArgbKey, argb);
   }
 
@@ -1750,7 +2468,7 @@ class AppSettings extends ChangeNotifier {
   ) async {
     _inAppShortcuts[id] = activator;
     notifyListeners();
-    final p = await SharedPreferences.getInstance();
+    final p = await _prefs();
     await p.setString(
       _inAppShortcutsKey,
       serializeShortcutOverrides(_inAppShortcuts),
@@ -1760,7 +2478,7 @@ class AppSettings extends ChangeNotifier {
   Future<void> resetInAppShortcutsToDefaults() async {
     _inAppShortcuts = defaultShortcutMap();
     notifyListeners();
-    final p = await SharedPreferences.getInstance();
+    final p = await _prefs();
     await p.remove(_inAppShortcutsKey);
   }
 
@@ -1807,7 +2525,7 @@ class AppSettings extends ChangeNotifier {
       approvedAtMs: DateTime.now().millisecondsSinceEpoch,
     );
     notifyListeners();
-    final p = await SharedPreferences.getInstance();
+    final p = await _prefs();
     await p.setString(
       _approvedIntegrationAppsKey,
       jsonEncode(_serializeApprovedIntegrationApps()),
@@ -1819,7 +2537,7 @@ class AppSettings extends ChangeNotifier {
     if (key.isEmpty || !_approvedIntegrationApps.containsKey(key)) return;
     _approvedIntegrationApps.remove(key);
     notifyListeners();
-    final p = await SharedPreferences.getInstance();
+    final p = await _prefs();
     await p.setString(
       _approvedIntegrationAppsKey,
       jsonEncode(_serializeApprovedIntegrationApps()),
@@ -1853,7 +2571,7 @@ class AppSettings extends ChangeNotifier {
       approvedAtMs: current.approvedAtMs,
     );
     notifyListeners();
-    final p = await SharedPreferences.getInstance();
+    final p = await _prefs();
     await p.setString(
       _approvedIntegrationAppsKey,
       jsonEncode(_serializeApprovedIntegrationApps()),
@@ -1899,7 +2617,7 @@ class AppSettings extends ChangeNotifier {
     next.sort((a, b) => b.createdAtMs.compareTo(a.createdAtMs));
     _customIcons = next;
     notifyListeners();
-    final p = await SharedPreferences.getInstance();
+    final p = await _prefs();
     await p.setString(
       _customIconsKey,
       jsonEncode(_customIcons.map((icon) => icon.toJson()).toList()),
@@ -1913,7 +2631,7 @@ class AppSettings extends ChangeNotifier {
     if (next.length == _customIcons.length) return;
     _customIcons = next;
     notifyListeners();
-    final p = await SharedPreferences.getInstance();
+    final p = await _prefs();
     await p.setString(
       _customIconsKey,
       jsonEncode(_customIcons.map((icon) => icon.toJson()).toList()),
@@ -1929,7 +2647,7 @@ class AppSettings extends ChangeNotifier {
   }
 
   Future<void> _persistIntegrationCustomIconsByApp() async {
-    final p = await SharedPreferences.getInstance();
+    final p = await _prefs();
     await p.setString(
       _integrationCustomIconsKey,
       jsonEncode(_serializeIntegrationCustomIconsByApp()),
@@ -2043,6 +2761,48 @@ class AppSettings extends ChangeNotifier {
       'folio_vault_backup_last_ms_v2_$vid';
   static String _vbAlsoCloudKey(String vid) =>
       'folio_vault_backup_cloud_v2_$vid';
+  static String _vbFolderRequiresAuthKey(String vid) =>
+      'folio_vault_backup_folder_auth_v3_$vid';
+  static String _vbFolderUsernameKey(String vid) =>
+      'folio_vault_backup_folder_user_v3_$vid';
+  static String _vbFolderDomainKey(String vid) =>
+      'folio_vault_backup_folder_domain_v3_$vid';
+  static String _vbWebdavEnabledKey(String vid) =>
+      'folio_vault_backup_webdav_enabled_v3_$vid';
+  static String _vbWebdavBaseUrlKey(String vid) =>
+      'folio_vault_backup_webdav_url_v3_$vid';
+  static String _vbWebdavRemotePathKey(String vid) =>
+      'folio_vault_backup_webdav_path_v3_$vid';
+  static String _vbWebdavUsernameKey(String vid) =>
+      'folio_vault_backup_webdav_user_v3_$vid';
+  static String _vbRetentionCountKey(String vid) =>
+      'folio_vault_backup_retention_v3_$vid';
+
+  VaultBackupPrefs _readVaultBackupPrefsFromStore(
+    SharedPreferences p,
+    String vid,
+  ) {
+    return VaultBackupPrefs(
+      enabled: p.getBool(_vbEnabledKey(vid)) ?? false,
+      folderEnabled: p.getBool(_vbFolderEnabledKey(vid)) ?? false,
+      intervalMinutes: _sanitizeScheduledVaultBackupIntervalMinutes(
+        p.getInt(_vbIntervalMinutesKey(vid)) ??
+            defaultScheduledVaultBackupIntervalMinutes,
+      ),
+      directory: (p.getString(_vbDirectoryKey(vid)) ?? '').trim(),
+      lastMs: p.getInt(_vbLastMsKey(vid)) ?? 0,
+      alsoCloud: p.getBool(_vbAlsoCloudKey(vid)) ?? false,
+      folderRequiresAuth: p.getBool(_vbFolderRequiresAuthKey(vid)) ?? false,
+      folderUsername: (p.getString(_vbFolderUsernameKey(vid)) ?? '').trim(),
+      folderDomain: (p.getString(_vbFolderDomainKey(vid)) ?? '').trim(),
+      webdavEnabled: p.getBool(_vbWebdavEnabledKey(vid)) ?? false,
+      webdavBaseUrl: (p.getString(_vbWebdavBaseUrlKey(vid)) ?? '').trim(),
+      webdavRemotePath:
+          (p.getString(_vbWebdavRemotePathKey(vid)) ?? '/folio-backups').trim(),
+      webdavUsername: (p.getString(_vbWebdavUsernameKey(vid)) ?? '').trim(),
+      retentionCount: (p.getInt(_vbRetentionCountKey(vid)) ?? 10).clamp(0, 999),
+    );
+  }
 
   /// Devuelve la configuración de backup automático para la libreta [vaultId].
   /// Si no existe configuración per-libreta pero hay ajustes globales legacy,
@@ -2050,20 +2810,10 @@ class AppSettings extends ChangeNotifier {
   Future<VaultBackupPrefs> getVaultBackupPrefs(String? vaultId) async {
     final vid = (vaultId ?? '').trim();
     if (vid.isEmpty) return VaultBackupPrefs.defaults;
-    final p = await SharedPreferences.getInstance();
+    final p = await _prefs();
     // Si ya hay configuración per-libreta, devolverla directamente.
     if (p.containsKey(_vbEnabledKey(vid))) {
-      return VaultBackupPrefs(
-        enabled: p.getBool(_vbEnabledKey(vid)) ?? false,
-        folderEnabled: p.getBool(_vbFolderEnabledKey(vid)) ?? false,
-        intervalMinutes: _sanitizeScheduledVaultBackupIntervalMinutes(
-          p.getInt(_vbIntervalMinutesKey(vid)) ??
-              defaultScheduledVaultBackupIntervalMinutes,
-        ),
-        directory: (p.getString(_vbDirectoryKey(vid)) ?? '').trim(),
-        lastMs: p.getInt(_vbLastMsKey(vid)) ?? 0,
-        alsoCloud: p.getBool(_vbAlsoCloudKey(vid)) ?? false,
-      );
+      return _readVaultBackupPrefsFromStore(p, vid);
     }
     // Migración: si había configuración global legacy, moverla a esta libreta.
     final globalEnabled = p.getBool(_scheduledVaultBackupEnabledKey) ?? false;
@@ -2129,12 +2879,48 @@ class AppSettings extends ChangeNotifier {
     }
     await p.setInt(_vbLastMsKey(vid), prefs.lastMs < 0 ? 0 : prefs.lastMs);
     await p.setBool(_vbAlsoCloudKey(vid), prefs.alsoCloud);
+    await p.setBool(_vbFolderRequiresAuthKey(vid), prefs.folderRequiresAuth);
+    if (prefs.folderUsername.isEmpty) {
+      await p.remove(_vbFolderUsernameKey(vid));
+    } else {
+      await p.setString(_vbFolderUsernameKey(vid), prefs.folderUsername);
+    }
+    if (prefs.folderDomain.isEmpty) {
+      await p.remove(_vbFolderDomainKey(vid));
+    } else {
+      await p.setString(_vbFolderDomainKey(vid), prefs.folderDomain);
+    }
+    await p.setBool(_vbWebdavEnabledKey(vid), prefs.webdavEnabled);
+    if (prefs.webdavBaseUrl.isEmpty) {
+      await p.remove(_vbWebdavBaseUrlKey(vid));
+    } else {
+      await p.setString(_vbWebdavBaseUrlKey(vid), prefs.webdavBaseUrl);
+    }
+    if (prefs.webdavRemotePath.isEmpty) {
+      await p.remove(_vbWebdavRemotePathKey(vid));
+    } else {
+      await p.setString(_vbWebdavRemotePathKey(vid), prefs.webdavRemotePath);
+    }
+    if (prefs.webdavUsername.isEmpty) {
+      await p.remove(_vbWebdavUsernameKey(vid));
+    } else {
+      await p.setString(_vbWebdavUsernameKey(vid), prefs.webdavUsername);
+    }
+    await p.setInt(_vbRetentionCountKey(vid), prefs.retentionCount.clamp(0, 999));
+  }
+
+  Future<void> updateVaultBackupPrefs(String? vaultId, VaultBackupPrefs prefs) async {
+    final vid = (vaultId ?? '').trim();
+    if (vid.isEmpty) return;
+    final p = await _prefs();
+    await _writeVaultBackupPrefs(p, vid, prefs);
+    notifyListeners();
   }
 
   Future<void> setVaultBackupEnabled(String? vaultId, bool value) async {
     final vid = (vaultId ?? '').trim();
     if (vid.isEmpty) return;
-    final p = await SharedPreferences.getInstance();
+    final p = await _prefs();
     await p.setBool(_vbEnabledKey(vid), value);
     if (value && !(p.containsKey(_vbLastMsKey(vid)))) {
       await p.setInt(_vbLastMsKey(vid), DateTime.now().millisecondsSinceEpoch);
@@ -2145,7 +2931,7 @@ class AppSettings extends ChangeNotifier {
   Future<void> setVaultBackupFolderEnabled(String? vaultId, bool value) async {
     final vid = (vaultId ?? '').trim();
     if (vid.isEmpty) return;
-    final p = await SharedPreferences.getInstance();
+    final p = await _prefs();
     await p.setBool(_vbFolderEnabledKey(vid), value);
     notifyListeners();
   }
@@ -2154,7 +2940,7 @@ class AppSettings extends ChangeNotifier {
     final vid = (vaultId ?? '').trim();
     if (vid.isEmpty) return;
     final safe = _sanitizeScheduledVaultBackupIntervalMinutes(value);
-    final p = await SharedPreferences.getInstance();
+    final p = await _prefs();
     await p.setInt(_vbIntervalMinutesKey(vid), safe);
     notifyListeners();
   }
@@ -2163,7 +2949,7 @@ class AppSettings extends ChangeNotifier {
     final vid = (vaultId ?? '').trim();
     if (vid.isEmpty) return;
     final safe = path.trim();
-    final p = await SharedPreferences.getInstance();
+    final p = await _prefs();
     if (safe.isEmpty) {
       await p.remove(_vbDirectoryKey(vid));
     } else {
@@ -2175,7 +2961,7 @@ class AppSettings extends ChangeNotifier {
   Future<void> setVaultBackupLastMs(String? vaultId, int value) async {
     final vid = (vaultId ?? '').trim();
     if (vid.isEmpty) return;
-    final p = await SharedPreferences.getInstance();
+    final p = await _prefs();
     await p.setInt(_vbLastMsKey(vid), value < 0 ? 0 : value);
     notifyListeners();
   }
@@ -2183,8 +2969,24 @@ class AppSettings extends ChangeNotifier {
   Future<void> setVaultBackupAlsoCloud(String? vaultId, bool value) async {
     final vid = (vaultId ?? '').trim();
     if (vid.isEmpty) return;
-    final p = await SharedPreferences.getInstance();
+    final p = await _prefs();
     await p.setBool(_vbAlsoCloudKey(vid), value);
+    notifyListeners();
+  }
+
+  Future<void> setVaultBackupWebdavEnabled(String? vaultId, bool value) async {
+    final vid = (vaultId ?? '').trim();
+    if (vid.isEmpty) return;
+    final p = await _prefs();
+    await p.setBool(_vbWebdavEnabledKey(vid), value);
+    notifyListeners();
+  }
+
+  Future<void> setVaultBackupRetentionCount(String? vaultId, int value) async {
+    final vid = (vaultId ?? '').trim();
+    if (vid.isEmpty) return;
+    final p = await _prefs();
+    await p.setInt(_vbRetentionCountKey(vid), value.clamp(0, 999));
     notifyListeners();
   }
 
@@ -2209,7 +3011,7 @@ class AppSettings extends ChangeNotifier {
   Future<String?> getTaskInboxPageId(String? vaultId) async {
     final id = (vaultId ?? '').trim();
     if (id.isEmpty) return null;
-    final p = await SharedPreferences.getInstance();
+    final p = await _prefs();
     final v = (p.getString(_taskInboxPagePrefsKey(id)) ?? '').trim();
     return v.isEmpty ? null : v;
   }
@@ -2217,7 +3019,7 @@ class AppSettings extends ChangeNotifier {
   Future<void> setTaskInboxPageId(String? vaultId, String? pageId) async {
     final id = (vaultId ?? '').trim();
     if (id.isEmpty) return;
-    final p = await SharedPreferences.getInstance();
+    final p = await _prefs();
     final pid = pageId?.trim() ?? '';
     if (pid.isEmpty) {
       await p.remove(_taskInboxPagePrefsKey(id));
@@ -2230,7 +3032,7 @@ class AppSettings extends ChangeNotifier {
   Future<Map<String, String>> getTaskAliasPageMap(String? vaultId) async {
     final id = (vaultId ?? '').trim();
     if (id.isEmpty) return const {};
-    final p = await SharedPreferences.getInstance();
+    final p = await _prefs();
     final raw = p.getString(_taskAliasesPrefsKey(id));
     if (raw == null || raw.trim().isEmpty) return const {};
     try {
@@ -2256,7 +3058,7 @@ class AppSettings extends ChangeNotifier {
   ) async {
     final id = (vaultId ?? '').trim();
     if (id.isEmpty) return;
-    final p = await SharedPreferences.getInstance();
+    final p = await _prefs();
     final clean = <String, String>{};
     for (final e in map.entries) {
       final k = e.key.trim().toLowerCase();

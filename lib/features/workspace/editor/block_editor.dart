@@ -31,6 +31,9 @@ import 'package:url_launcher/url_launcher.dart';
 import 'package:intl/intl.dart';
 
 import '../../../app/app_settings.dart';
+import '../../../services/folio_cloud/folio_storage_transport.dart';
+import '../../../app/widgets/folio_dialog.dart';
+import '../../../app/widgets/folio_skeletons.dart';
 import '../../../app/widgets/folio_icon_picker.dart';
 import '../../../app/widgets/folio_icon_token_view.dart';
 import '../../../crypto/collab_e2e_crypto.dart';
@@ -43,6 +46,7 @@ import '../../../models/folio_template_button_data.dart';
 import '../../../models/folio_database_data.dart';
 import '../../../models/folio_drive_data.dart';
 import '../../../models/folio_kanban_data.dart';
+import '../../../models/folio_canvas_data.dart';
 import '../../../models/folio_page.dart';
 import '../../../models/folio_table_data.dart';
 import '../../../services/integrations/integrations_markdown_codec.dart';
@@ -50,6 +54,7 @@ import '../../../session/vault_session.dart';
 import '../../../services/ai/ai_types.dart';
 import '../../../services/folio_cloud/folio_cloud_callable.dart';
 import '../../../services/folio_cloud/folio_cloud_entitlements.dart';
+import '../../../services/folio_firestore_support.dart';
 import 'code_block_languages.dart';
 import 'block_editor_support_widgets.dart';
 import 'block_type_catalog.dart';
@@ -66,8 +71,13 @@ import 'meeting_note_block_widget.dart';
 import 'table_block_editor.dart';
 import 'ai_typewriter_message.dart';
 import 'block_editor/block_row_registry.dart';
+import '../ai/ai_slash_intent.dart';
+import 'block_editor/block_editor_text_helpers.dart' as folio_slash;
 import 'block_editor/block_editor_callout.dart';
 import 'block_editor/block_row_chrome.dart';
+import 'block_editor/copilot_text_controller.dart';
+import '../../../services/app_store/app_extension_registry.dart';
+import '../widgets/custom_app_block_widget.dart';
 import 'package:flutter_quill/flutter_quill.dart' as quill;
 import 'richtext/markdown_quill_codec.dart';
 
@@ -95,6 +105,7 @@ part 'block_editor/block_row_dispatch_child_page.dart';
 part 'block_editor/block_row_dispatch_template_button.dart';
 part 'block_editor/block_row_dispatch_task.dart';
 part 'block_editor/block_row_dispatch_drive.dart';
+part 'block_editor/block_row_dispatch_canvas.dart';
 part 'block_editor/block_row_dispatch_column_list.dart';
 part 'block_editor/editable_markdown_block_row.dart';
 part 'block_editor/block_row_extensions.dart';
@@ -103,64 +114,14 @@ part 'block_editor/block_list_row.dart';
 part 'block_editor/special_row_chrome.dart';
 part 'block_editor/state_tail_and_fill.dart';
 
-/// `null` si el texto del bloque no es comando `/…`; si no, filtro tras la `/` (puede ser vacío).
-String? _slashFilterFromBlockText(String text) {
-  // Quill/WYSIWYG suele añadir `\n` final aunque sea una sola línea.
-  // Para slash-commands queremos permitir SOLO saltos finales, pero seguir
-  // rechazando comandos multilínea reales.
-  final t = text.replaceAll(RegExp(r'[\r\n]+$'), '');
-  if (!t.startsWith('/')) return null;
-  if (t.contains('\n') || t.contains('\r')) return null;
-  final tail = t.substring(1);
-  if (tail.contains(' ')) return null;
-  return tail;
-}
+String? _slashFilterFromBlockText(String text) =>
+    folio_slash.slashFilterFromBlockText(text);
 
-/// Filtro `/comando` usando la **línea del cursor** en texto plano (p. ej. Quill).
-///
-/// Permite varias líneas en el bloque mientras el `/…` está en la línea activa.
 String? _slashFilterFromPlainTextAndSelection(
   String plain,
   TextSelection selection,
-) {
-  if (!selection.isValid || !selection.isCollapsed) return null;
-  final caret = selection.baseOffset.clamp(0, plain.length);
-  var lineStart = 0;
-  for (var i = caret - 1; i >= 0; i--) {
-    final ch = plain.codeUnitAt(i);
-    if (ch == 0x0A || ch == 0x0D) {
-      lineStart = i + 1;
-      if (ch == 0x0D &&
-          lineStart < plain.length &&
-          plain.codeUnitAt(lineStart) == 0x0A) {
-        lineStart++;
-      }
-      break;
-    }
-  }
-  var lineEnd = plain.length;
-  for (var i = caret; i < plain.length; i++) {
-    final ch = plain.codeUnitAt(i);
-    if (ch == 0x0A || ch == 0x0D) {
-      lineEnd = i;
-      break;
-    }
-  }
-  if (lineEnd < lineStart) return null;
-  var line = plain.substring(lineStart, lineEnd);
-  if (line.endsWith('\r')) {
-    line = line.substring(0, line.length - 1);
-  }
-  if (!line.startsWith('/')) return null;
-  final relCaret = caret - lineStart;
-  if (relCaret < 1) {
-    return '';
-  }
-  final prefix = line.substring(0, relCaret);
-  if (!prefix.startsWith('/')) return null;
-  if (prefix.contains(' ')) return null;
-  return prefix.substring(1);
-}
+) =>
+    folio_slash.slashFilterFromPlainTextAndSelection(plain, selection);
 
 int? _mentionTriggerStartFromSelection(String text, TextSelection selection) {
   if (!selection.isValid || !selection.isCollapsed) return null;
@@ -228,6 +189,69 @@ const _blockBackgroundRoles = <String?>[
 
 List<BlockTypeDef> _inlineSlashActionCatalog(AppLocalizations l10n) => [
   BlockTypeDef(
+    key: 'cmd_ai_summarize',
+    label: l10n.blockEditorCmdAiSummarize,
+    hint: l10n.blockEditorCmdAiSummarizeHint,
+    icon: Icons.summarize_rounded,
+    section: BlockTypeSection.aiQuill,
+  ),
+  BlockTypeDef(
+    key: 'cmd_ai_continue',
+    label: l10n.blockEditorCmdAiContinue,
+    hint: l10n.blockEditorCmdAiContinueHint,
+    icon: Icons.auto_awesome_motion_rounded,
+    section: BlockTypeSection.aiQuill,
+  ),
+  BlockTypeDef(
+    key: 'cmd_ai_explain',
+    label: l10n.blockEditorCmdAiExplain,
+    hint: l10n.blockEditorCmdAiExplainHint,
+    icon: Icons.help_outline_rounded,
+    section: BlockTypeSection.aiQuill,
+  ),
+  BlockTypeDef(
+    key: 'cmd_ai_action_items',
+    label: l10n.blockEditorCmdAiActionItems,
+    hint: l10n.blockEditorCmdAiActionItemsHint,
+    icon: Icons.checklist_rounded,
+    section: BlockTypeSection.aiQuill,
+  ),
+  BlockTypeDef(
+    key: 'cmd_ai_todo',
+    label: l10n.blockEditorCmdAiTodo,
+    hint: l10n.blockEditorCmdAiTodoHint,
+    icon: Icons.task_alt_rounded,
+    section: BlockTypeSection.aiQuill,
+  ),
+  BlockTypeDef(
+    key: 'cmd_ai_mindmap',
+    label: l10n.blockEditorCmdAiMindmap,
+    hint: l10n.blockEditorCmdAiMindmapHint,
+    icon: Icons.account_tree_rounded,
+    section: BlockTypeSection.aiQuill,
+  ),
+  BlockTypeDef(
+    key: 'cmd_ai_table',
+    label: l10n.blockEditorCmdAiTable,
+    hint: l10n.blockEditorCmdAiTableHint,
+    icon: Icons.table_chart_rounded,
+    section: BlockTypeSection.aiQuill,
+  ),
+  BlockTypeDef(
+    key: 'cmd_ai_improve',
+    label: l10n.blockEditorCmdAiImprove,
+    hint: l10n.blockEditorCmdAiImproveHint,
+    icon: Icons.edit_note_rounded,
+    section: BlockTypeSection.aiQuill,
+  ),
+  BlockTypeDef(
+    key: 'cmd_ai_translate',
+    label: l10n.blockEditorCmdAiTranslate,
+    hint: l10n.blockEditorCmdAiTranslateHint,
+    icon: Icons.translate_rounded,
+    section: BlockTypeSection.aiQuill,
+  ),
+  BlockTypeDef(
     key: 'cmd_duplicate_prev',
     label: l10n.blockEditorCmdDuplicatePrev,
     hint: l10n.blockEditorCmdDuplicatePrevHint,
@@ -280,12 +304,16 @@ class BlockEditor extends StatefulWidget {
     required this.appSettings,
     this.readOnlyMode = false,
     this.folioCloudEntitlements,
+    this.onAiSlashCommand,
   });
 
   final VaultSession session;
   final AppSettings appSettings;
   final bool readOnlyMode;
   final FolioCloudEntitlementsController? folioCloudEntitlements;
+
+  /// Comandos slash `cmd_ai_*`: el editor envía intención + texto; el workspace ejecuta Quill.
+  final Future<void> Function(FolioAiSlashParams params)? onAiSlashCommand;
 
   @override
   State<BlockEditor> createState() => BlockEditorState();

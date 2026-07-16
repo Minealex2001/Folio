@@ -14,6 +14,35 @@
   "continueAction": "Continue",
   "cancel": "Cancel",
   "retry": "Retry",
+  "skip": "Skip",
+  "onboardingProgressSemantics": "Step {current} of {total}",
+  "@onboardingProgressSemantics": {
+    "placeholders": {
+      "current": {"type": "int"},
+      "total": {"type": "int"}
+    }
+  },
+  "welcomeOptionCreateTitle": "Create a new vault",
+  "welcomeOptionCreateBody": "Start with a blank encrypted vault on this device.",
+  "welcomeOptionImportTitle": "I have data to import",
+  "welcomeOptionImportBody": "Restore from a backup file, Folio Cloud, or a Notion export.",
+  "welcomeNewVaultTitle": "New vault",
+  "welcomeNewVaultBody": "Choose a master password and optional starter pages. You can change other settings later in Settings.",
+  "newVaultLeftPanelTitle": "New vault",
+  "newVaultLeftPanelBody": "Create an additional encrypted vault on this device.",
+  "importSourceTitle": "Where is your data?",
+  "importSourceBody": "Pick a source. You can change other settings later in Settings.",
+  "importSourceBackupSubtitle": "A .zip backup you exported from Folio on another device.",
+  "importSourceCloudSubtitle": "List and download a backup from your Folio Cloud account.",
+  "importSourceNotionSubtitle": "A Notion HTML/Markdown export as a .zip file.",
+  "onboardingAppearanceTitle": "Appearance",
+  "onboardingAppearanceBody": "Choose theme brightness and accent color. You can refine this later in Settings.",
+  "onboardingSecurityTitle": "Security",
+  "onboardingSecurityBody": "Configure automatic locking while Folio is open and when you minimize the window.",
+  "onboardingBackupsTitle": "Scheduled backups",
+  "onboardingBackupsBody": "Optionally enable automatic encrypted backups on an interval. You can change folders and cloud upload in Settings.",
+  "onboardingSystemTitle": "Windows behavior",
+  "onboardingSystemBody": "Tray and notification preferences for Folio on Windows.",
   "settings": "Settings",
   "lockNow": "Lock",
   "pageHistory": "Page history",
@@ -44,12 +73,13 @@
     }
   },
   "createStarterPagesTitle": "Create starter help pages",
-  "createStarterPagesBody": "Adds a small guide with examples, shortcuts, and Folio capabilities. You can delete those pages later.",
+  "createStarterPagesBody": "Adds a personalized starter guide based on how you plan to use Folio. You can delete those pages later.",
   "passwordLabel": "Password",
   "confirmPasswordLabel": "Confirm password",
   "next": "Next",
   "readyTitle": "All set",
   "readyBody": "An encrypted vault will be created on this device. Later you can add Windows Hello, biometrics, or a passkey for faster unlock (Settings).",
+  "readyBodyPlainVault": "A non-encrypted vault will be created on this device. You can change more options in Settings whenever you like.",
   "quillIntroTitle": "Meet Quill",
   "quillIntroBody": "Quill is Folio's built-in assistant. It can help you write, edit, and understand your pages, and also answer questions about how to use the app.",
   "quillIntroCapabilityWrite": "It can draft, summarize, or rewrite content inside your pages.",
@@ -69,11 +99,11 @@
     }
   },
   "passwordMismatchError": "Passwords do not match.",
-  "passwordMustBeStrongError": "Password must be Strong to continue.",
+  "passwordMustBeStrongError": "Password must be at least Good to continue.",
   "passwordStrengthLabel": "Strength",
   "passwordStrengthVeryWeak": "Very weak",
   "passwordStrengthWeak": "Weak",
-  "passwordStrengthFair": "Fair",
+  "passwordStrengthFair": "Good",
   "passwordStrengthStrong": "Strong",
   "showPassword": "Show password",
   "hidePassword": "Hide password",
@@ -95,6 +125,8 @@
   "systemTheme": "System",
   "lightTheme": "Light",
   "darkTheme": "Dark",
+  "settingsOledThemeTitle": "OLED theme",
+  "settingsOledThemeBody": "Use pure black in dark mode to save battery and reduce glow.",
   "language": "Language",
   "useSystemLanguage": "Use system language",
   "spanishLanguage": "Spanish",
@@ -135,7 +167,7 @@
   "@passwordStrengthWithValue": {"placeholders": {"value": {}}},
   "fillAllFieldsError": "Fill in all fields.",
   "newPasswordsMismatchError": "New passwords do not match.",
-  "newPasswordMustBeStrongError": "The new password must be Strong.",
+  "newPasswordMustBeStrongError": "The new password must be at least Good.",
   "newPasswordMustDifferError": "The new password must be different.",
   "incorrectPasswordError": "Incorrect password.",
   "useHelloBiometrics": "Use Hello / biometrics",
@@ -194,12 +226,13 @@
   "sidebarVaultsLoading": "Loading vaults…",
   "sidebarVaultsEmpty": "No vaults available",
   "forceSyncTooltip": "Force sync",
-  "searchDialogFooterHint": "Enter opens the highlighted result · Ctrl+↑ / Ctrl+↓ navigate · Esc closes",
+  "searchDialogFooterHint": "Enter opens the highlighted result · ↑ / ↓ navigate · Esc closes",
   "searchFilterTasks": "Tasks",
   "searchRecentQueries": "Recent searches",
+  "searchClearRecent": "Clear recent searches",
   "searchShortcutsHelpTooltip": "Keyboard shortcuts",
   "searchShortcutsHelpTitle": "Global search",
-  "searchShortcutsHelpBody": "Enter: open the highlighted result\nCtrl+↑ or Ctrl+↓: previous / next result\nEsc: close",
+  "searchShortcutsHelpBody": "Enter: open the highlighted result\n↑ or ↓: previous / next result\nEsc: close",
   "renamePageTitle": "Rename page",
   "titleLabel": "Title",
   "rootPage": "Root",
@@ -514,6 +547,8 @@
   "quillTourDismiss": "Got it",
   "aiExpand": "Expand",
   "aiCollapse": "Collapse",
+  "sidebarItemExpandedSemantics": "Expanded",
+  "sidebarItemCollapsedSemantics": "Collapsed",
   "aiDeleteCurrentChat": "Delete current chat",
   "aiNewChat": "New",
   "aiAttach": "Attach",
@@ -528,6 +563,8 @@
   "aiContextCurrentPageFallback": "Current page",
   "aiContextAddFile": "Attach file",
   "aiContextAddPage": "Attach page",
+  "aiContextEditorSelection": "Include editor selection (next send)",
+  "aiContextLastMeetingOnPage": "Include last meeting on page (next send)",
   "aiShowPanel": "Show AI panel",
   "aiHidePanel": "Hide AI panel",
   "aiPanelResizeHandle": "Resize AI panel",
@@ -624,6 +661,12 @@
   "taskQuickAddConfirm": "Add",
   "taskQuickAddSuccess": "Task added.",
   "taskQuickAddAliasTargetMissing": "The alias target page no longer exists.",
+  "taskQuickAddTagsLabel": "Tags",
+  "taskQuickAddTagsHint": "Comma-separated (e.g. work, client)",
+  "taskQuickAddAssigneeLabel": "Assignee",
+  "taskQuickAddStoryPointsLabel": "Story points",
+  "taskQuickAddEstimatedMinutesLabel": "Estimated minutes",
+  "taskBlockExpandDetailsTitle": "Notes, tags & assignee",
   "taskHubTitle": "All tasks",
   "taskHubClose": "Close view",
   "taskHubDashboardHelpTitle": "Dashboard-style ideas",
@@ -638,6 +681,11 @@
   "taskHubOpen": "Open",
   "taskHubMarkDone": "Done",
   "taskHubIncludeTodos": "Include checklist items",
+  "vaultTaskHubSearchHint": "Search by title, page, tag or assignee",
+  "vaultTaskPresetNext7Days": "Next 7 days",
+  "vaultTaskPresetNoDueDate": "No due date",
+  "taskVaultMoveToPage": "Move to another page…",
+  "taskVaultMovePickTitle": "Choose destination page",
   "sidebarQuickAddTask": "Quick task",
   "sidebarTaskHub": "All tasks",
   "shortcutTestAction": "Test",
@@ -668,12 +716,13 @@
   "scheduledVaultBackupTitle": "Scheduled encrypted backup",
   "scheduledVaultBackupSubtitle": "While the vault is unlocked, Folio automatically backs it up on the chosen interval. Enable folder backup, cloud backup, or both below.",
   "scheduledVaultBackupFolderTitle": "Backup to folder",
-  "scheduledVaultBackupFolderSubtitle": "Save an encrypted ZIP backup to the configured folder on each interval.",
+  "scheduledVaultBackupFolderSubtitle": "Save an encrypted incremental pack backup to the configured folder.",
   "scheduledVaultBackupChooseFolder": "Backup folder",
   "scheduledVaultBackupClearFolderTooltip": "Clear folder",
   "scheduledVaultBackupCloudOnlyTitle": "Cloud-only scheduled backups",
-  "scheduledVaultBackupCloudOnlySubtitle": "Do not write ZIP files to disk. Upload backups to the cloud only.",
+  "scheduledVaultBackupCloudOnlySubtitle": "Do not write backups to disk. Upload incremental backups to the cloud only.",
   "scheduledVaultBackupIntervalLabel": "Backup interval",
+  "scheduledVaultBackupEveryChange": "On every change",
   "scheduledVaultBackupEveryNMinutes": "{n, plural, one{1 minute} other{{n} minutes}}",
   "@scheduledVaultBackupEveryNMinutes": {
     "placeholders": {
@@ -699,6 +748,84 @@
   "vaultBackupRunNowTile": "Run scheduled backup now",
   "vaultBackupRunNowSubtitle": "Run the scheduled backup now (disk and/or cloud, depending on your settings) without waiting for the interval.",
   "vaultBackupRunNowNeedFolder": "Pick a local backup folder, or turn on “Also upload to Folio Cloud” for cloud-only backups.",
+  "vaultBackupProgressDialogTitle": "Backup in progress",
+  "vaultBackupProgressCompactHint": "Details appear in the debug console.",
+  "vaultBackupProgressLocalZipStart": "Creating scheduled ZIP in the configured folder…",
+  "vaultBackupProgressLocalZipDone": "Folder ZIP backup finished.",
+  "vaultBackupProgressNetworkStart": "Sending backup to network destination…",
+  "vaultBackupProgressNetworkDone": "Network backup finished.",
+  "vaultBackupRunNowNeedDestination": "Configure a network folder, WebDAV, or enable «Folio Cloud backup».",
+  "remoteBackupConfigTitle": "NAS or server destination",
+  "remoteBackupTabFolder": "Network folder",
+  "remoteBackupTabWebdav": "WebDAV",
+  "remoteBackupNetworkPathLabel": "Folder path",
+  "remoteBackupNetworkPathHint": "E.g. Z:\\backups\\folio or \\\\nas\\backups\\folio",
+  "remoteBackupCredentialsTitle": "Server credentials",
+  "remoteBackupUsernameLabel": "Username",
+  "remoteBackupPasswordLabel": "Password",
+  "remoteBackupDomainLabel": "Domain",
+  "remoteBackupDomainOptional": "Optional (Windows/SMB)",
+  "remoteBackupRequiresAuth": "Server requires username and password",
+  "remoteBackupRequiresAuthSubtitle": "Enable if Folio must authenticate (scheduled backups without a mounted drive).",
+  "remoteBackupMountedDriveHint": "If the drive is already mounted in the OS, you can leave credentials empty.",
+  "remoteBackupTestConnection": "Test connection",
+  "remoteBackupTestConnectionOk": "Connection successful.",
+  "remoteBackupTestConnectionFail": "Could not connect: {error}",
+  "@remoteBackupTestConnectionFail": {"placeholders": {"error": {}}},
+  "remoteBackupWebdavUrlLabel": "WebDAV server URL",
+  "remoteBackupWebdavPathLabel": "Remote folder",
+  "remoteBackupWebdavTitle": "WebDAV backup",
+  "remoteBackupWebdavSubtitle": "Upload encrypted backups to your NAS or server (Ugreen: enable WebDAV in the panel, ports 5005/5006).",
+  "remoteBackupRetentionLabel": "Backups to keep",
+  "remoteBackupRetentionSubtitle": "Per network destination; 0 = no limit.",
+  "remoteBackupUgreenHelp": "On Ugreen NAS: create a user with write access and use HTTPS when available.",
+  "remoteBackupSave": "Save destination",
+  "remoteBackupConfigureFolder": "Configure network folder",
+  "remoteBackupConfigureWebdav": "Configure WebDAV",
+  "remoteBackupRestoreTitle": "Backups on NAS or server",
+  "remoteBackupRestoreFromFolder": "Folder",
+  "remoteBackupRestoreFromWebdav": "WebDAV",
+  "remoteBackupRestoreEmpty": "No Folio backups found at this destination.",
+  "remoteBackupRestoreDownload": "Download",
+  "remoteBackupRestoreImportNew": "Import as new vault",
+  "remoteBackupRestoreImportOverwrite": "Overwrite active vault",
+  "remoteBackupRestoreOpen": "Restore from NAS or server",
+  "remoteBackupRestoreIncrementalPackTitle": "Incremental backup ({vaultId})",
+  "@remoteBackupRestoreIncrementalPackTitle": {
+    "placeholders": {
+      "vaultId": {"type": "String"}
+    }
+  },
+  "remoteBackupRestoreIncrementalPackSubtitle": "Incremental pack",
+  "remoteBackupExportDestinationTitle": "Where should the backup be saved?",
+  "remoteBackupExportToLocalFile": "File on this device",
+  "remoteBackupExportToFolder": "Configured folder or NAS",
+  "remoteBackupExportToWebdav": "Configured WebDAV server",
+  "remoteBackupEnterNetworkPath": "Enter network path",
+  "remoteBackupDialogClose": "Close",
+  "remoteBackupDialogRefresh": "Refresh",
+  "vaultCloudPackProgressPreparing": "Preparing cloud upload…",
+  "vaultCloudPackProgressPersisting": "Saving local vault changes…",
+  "vaultCloudPackProgressFingerprint": "Computing content fingerprint…",
+  "vaultCloudPackProgressFetchingMeta": "Checking Folio Cloud state…",
+  "vaultCloudPackProgressSkippedUpToDate": "Nothing to upload: cloud already has this version.",
+  "vaultCloudPackProgressRestoreWrap": "Preparing recovery keys for other devices…",
+  "vaultCloudPackProgressIndexingLocal": "Indexing local files…",
+  "vaultCloudPackProgressDownloadingManifest": "Downloading previous cloud inventory…",
+  "vaultCloudPackProgressBlobManifest": "Backup manifest",
+  "vaultCloudPackProgressBlobVaultKeys": "Vault keys (vault.keys)",
+  "vaultCloudPackProgressBlobVaultData": "Encrypted vault data (vault.bin)",
+  "vaultCloudPackProgressBlobVaultMode": "Vault mode",
+  "vaultCloudPackProgressBlobAttachment": "Attachment: {name}",
+  "@vaultCloudPackProgressBlobAttachment": {"placeholders": {"name": {"type": "String"}}},
+  "vaultCloudPackProgressBlobAttachmentAnonymous": "Attachment",
+  "vaultCloudPackProgressUploadingBlobProgress": "Uploading part {current} of {total}: {part}",
+  "@vaultCloudPackProgressUploadingBlobProgress": {"placeholders": {"current": {"type": "int"}, "total": {"type": "int"}, "part": {"type": "String"}}},
+  "vaultCloudPackProgressUploadingSnapshot": "Uploading backup snapshot…",
+  "vaultCloudPackProgressFinalizing": "Registering backup on the server…",
+  "vaultCloudPackProgressCleaningBlobs": "Removing old cloud data…",
+  "vaultCloudPackProgressUpdatingIndex": "Updating backup index…",
+  "vaultCloudPackProgressComplete": "Cloud backup complete.",
   "vaultIdentitySyncTitle": "Synchronization",
   "vaultIdentitySyncBody": "Enter your vault password (or Hello / passkey) to continue.",
   "vaultIdentityCloudBackupTitle": "Cloud backups",
@@ -966,6 +1093,29 @@
   ,"@folioCloudInkCount": {"placeholders": {"count": {"type": "int"}}}
   ,"folioCloudPlanActiveHeadline": "Folio Cloud monthly plan active"
   ,"folioCloudSubscribeMonthly": "Folio Cloud €4.99/mo"
+  ,"folioCloudSubscribeFamily": "Family Plan (€4.99 + €2.99/member/mo)"
+  ,"folioCloudSubscribeStudent": "Student Tier (€2.49/mo)"
+  ,"folioCloudPlanActiveStudent": "Student Subscription Active"
+  ,"folioCloudPlanActiveFamily": "Family Subscription Active"
+  ,"folioCloudPlanActiveFamilyMember": "Family Subscription (Member)"
+  ,"folioCloudFamilyTitle": "Family Management"
+  ,"folioCloudFamilyOwnerNote": "Family plan active. Seats purchased: {seats}. Members added: {count}/{seats}."
+  ,"@folioCloudFamilyOwnerNote": {"placeholders": {"seats": {"type": "int"}, "count": {"type": "int"}}}
+  ,"folioCloudFamilyMemberNote": "You are a member of the family of {owner}."
+  ,"@folioCloudFamilyMemberNote": {"placeholders": {"owner": {"type": "String"}}}
+  ,"folioCloudFamilyEmailPlaceholder": "Email of the member to invite"
+  ,"folioCloudFamilyInviteButton": "Invite member"
+  ,"folioCloudFamilyRemoveButton": "Remove"
+  ,"folioCloudFamilyLeaveButton": "Leave family"
+  ,"folioCloudStudentVerifyButton": "Verify student email"
+  ,"folioCloudStudentVerifySuccess": "Student account verified!"
+  ,"folioCloudStudentVerifyFail": "Email does not qualify as student (.edu or similar)."
+  ,"folioCloudStudentVerifyDialogTitle": "Student verification"
+  ,"folioCloudStudentVerifyDialogDesc": "Enter your institutional email address to verify your eligibility for the Folio Cloud student rate."
+  ,"folioCloudStudentVerifyDialogLabel": "Institutional email address"
+  ,"folioCloudStudentVerifyDialogHint": "user@uji.es, user@university.edu"
+  ,"folioCloudStudentVerifyDialogHelp": "Supports Spanish university academic domains and global domains."
+  ,"folioCloudStudentVerifyDialogAction": "Verify now"
   ,"folioCloudPitchScreenTitle": "Folio Cloud"
   ,"folioCloudPitchHeadline": "Your vault stays local. The cloud works when you want it."
   ,"folioCloudPitchSubhead": "One monthly plan unlocks encrypted backups, hosted cloud AI with a monthly ink allowance, and publishing to the web—only for what you choose to share."
@@ -998,11 +1148,17 @@
   ,"folioCloudPurchaseChannelStoreNotConfigured": "The Store option is not configured in this build (product ids missing)."
   ,"folioCloudPurchaseChannelStoreNotConfiguredHint": "Build with --dart-define=MS_STORE_… or use browser checkout."
   ,"folioCloudMicrosoftStoreSyncHint": "On Windows, Refresh also syncs the Microsoft Store (same button as Stripe)."
-  ,"folioCloudUploadEncryptedBackup": "Back up to cloud now"
-  ,"folioCloudUploadEncryptedBackupSubtitle": "Folio uploads an incremental encrypted cloud backup of your open vault (only changed blobs)—no manual export."
-  ,"folioCloudUploadSnackOk": "Vault backup saved to the cloud."
+  ,"folioCloudIncrementalBackupManualHint": "To upload an incremental encrypted backup now (no .zip export), go to Settings → Notebook and tap {actionTitle}; there you enable a local folder and/or Folio Cloud."
+  ,"@folioCloudIncrementalBackupManualHint": {
+    "placeholders": {
+      "actionTitle": {
+        "type": "String"
+      }
+    }
+  },
+  "folioCloudUploadSnackOk": "Vault backup saved to the cloud."
   ,"scheduledVaultBackupCloudSyncTitle": "Backup to Folio Cloud"
-  ,"scheduledVaultBackupCloudSyncSubtitle": "After each scheduled backup interval, automatically uploads an encrypted backup to your Folio Cloud account."
+  ,"scheduledVaultBackupCloudSyncSubtitle": "Automatically uploads an encrypted incremental backup to your Folio Cloud account (on the chosen interval or on every change)."
   ,"folioCloudCloudBackupsList": "Cloud backups"
   ,"folioCloudBackupsUsed": "Used"
   ,"folioCloudBackupsLimit": "Limit"
@@ -1052,6 +1208,29 @@
   ,"onboardingFolioCloudFeatureWebTitle": "Web publishing"
   ,"onboardingFolioCloudFeatureWebBody": "Publish selected pages and control what becomes public. The rest of your vault is not shared."
   ,"onboardingFolioCloudLaterInSettings": "I’ll check in Settings"
+  ,"folioCloudPitchPremiumMonthlyLabel": "Monthly Premium plan"
+  ,"folioCloudCheckoutSuccess": "Payment completed successfully."
+  ,"folioCloudPlayStoreCheckoutUnavailableTitle": "Subscribe from the desktop app"
+  ,"folioCloudPlayStoreCheckoutUnavailableBody": "Folio Cloud subscriptions can't be purchased from this Android build yet. Subscribe from the Folio desktop app, then sign in here with the same account."
+  ,"workspaceHomeCloudGuestTeaserCta": "See what's included"
+  ,"onboardingPersonalizeTitle": "Make it yours"
+  ,"onboardingPersonalizeBody": "Choose how Folio looks and when it locks. You can change this anytime in Settings."
+  ,"onboardingReliabilityTitle": "Backups and desktop"
+  ,"onboardingReliabilityBody": "Optional scheduled encrypted backups and Windows tray options. Skip if you prefer to set this up later."
+  ,"onboardingPrivacyTrustTitle": "Privacy and trust"
+  ,"onboardingPrivacyTrustBody": "Your notes stay on this device. Optional anonymous usage statistics help improve Folio—you control this."
+  ,"onboardingPrivacyTrustLocalFirstBadge": "Local-first: Folio works fully without the cloud."
+  ,"onboardingReadySummaryCloudActive": "Folio Cloud plan active—backups, cloud AI, and publishing are available."
+  ,"onboardingReadySummaryCloudSkipped": "You can explore Folio Cloud anytime in Settings."
+  ,"onboardingFolioCloudPitchForNotes": "Keep your notes safe with encrypted cloud backups when you want an extra copy."
+  ,"onboardingFolioCloudPitchForJournal": "Protect your journal with encrypted backups you control."
+  ,"onboardingFolioCloudPitchForTasks": "Share projects and publish pages on the web when you are ready."
+  ,"onboardingFolioCloudPitchForProjects": "Collaborate and publish selected pages—your full vault stays private."
+  ,"onboardingFolioCloudPitchForKnowledge": "Use cloud AI to organize and explore your knowledge base."
+  ,"onboardingFolioCloudPitchForStudy": "Study smarter with hosted AI and monthly ink refills."
+  ,"onboardingFolioCloudCtaSubscribe": "Subscribe — 4.99 €/month"
+  ,"onboardingFolioCloudCtaCreateAccount": "Create account and explore"
+  ,"onboardingFolioCloudSkip": "Continue without cloud"
   ,"collabMenuAction": "Live collaboration"
   ,"collabSheetTitle": "Live collaboration"
   ,"collabHeaderSubtitle": "Folio account required. Hosting needs a plan with collaboration; joining only needs a code. Room content and chat are end-to-end encrypted; the server never sees your text."
@@ -1087,6 +1266,8 @@
   ,"updaterOpenApkDownloadQuestion": "Open the APK download now?"
   ,"updaterManualCheckUnsupportedPlatform": "The built-in updater is only available on Windows and Android."
   ,"updaterManualCheckAlreadyLatest": "You already have the latest version."
+  ,"updaterStoreListingOpenFailed": "Could not open the store."
+  ,"updaterMicrosoftStoreListingMissing": "This build is missing the Microsoft Store listing link."
   ,"updaterDialogLineCurrentVersion": "Current version: {currentVersion}"
   ,"@updaterDialogLineCurrentVersion": {"placeholders": {"currentVersion": {}}}
   ,"updaterDialogLineNewVersion": "New version: {releaseVersion}"
@@ -1120,6 +1301,8 @@
   ,"taskDueTodayReminder": "Due today"
   ,"settingsWindowsNotifications": "Windows Notifications"
   ,"settingsWindowsNotificationsSubtitle": "Show native Windows alerts when a task is due today or overdue"
+  ,"settingsLaunchAtStartup": "Launch at Windows startup"
+  ,"settingsLaunchAtStartupSubtitle": "Automatically open Folio when you sign in to Windows"
   ,"title": "Title"
   ,"description": "Description"
   ,"priority": "Priority"
@@ -1144,12 +1327,27 @@
   ,"calloutTypeWarning": "Warning"
   ,"calloutTypeError": "Error"
   ,"calloutTypeNote": "Note"
-  ,"blockEditorEnterHintNewBlock": "Enter: new block (in code: Enter = line)"
+  ,"blockEditorEnterHintNewBlock": "Enter: new block when enabled (Ctrl+Enter / Cmd+Enter: always) · in code blocks: Enter = line"
   ,"blockEditorEnterHintNewLine": "Enter: new line"
-  ,"blockEditorShortcutsHintMobile": "{enterHint} · / for blocks · tap a block for more actions"
+  ,"blockEditorSlashNoMatches": "No matches"
+  ,"blockEditorShortcutsHintMobile": "{enterHint} · Ctrl+Enter / Cmd+Enter: new block · / for blocks · tap a block for more actions"
   ,"@blockEditorShortcutsHintMobile": {"placeholders": {"enterHint": {"type": "String"}}}
-  ,"blockEditorShortcutsHintDesktop": "{enterHint} · Shift+Enter: line · / types · # heading (same line) · - · * · [] · ``` space · table/image under / · format: toolbar on focus or ** _ <u> ` ~~"
+  ,"blockEditorShortcutsHintDesktop": "{enterHint} · Ctrl+Enter / Cmd+Enter: always new block · Shift+Enter: line · / types · # heading (same line) · - · * · [] · ``` space · table/image under / · format: floating toolbar on text selection or ** _ <u> ` ~~"
   ,"@blockEditorShortcutsHintDesktop": {"placeholders": {"enterHint": {"type": "String"}}}
+  ,"formatToolbarQuillUnlink": "Remove link"
+  ,"formatToolbarQuillTextColor": "Text color"
+  ,"formatToolbarQuillFillColor": "Fill color"
+  ,"formatToolbarQuillHighlight": "Highlight"
+  ,"formatToolbarQuillHeading1": "Heading 1"
+  ,"formatToolbarQuillHeading2": "Heading 2"
+  ,"formatToolbarQuillHeading3": "Heading 3"
+  ,"formatToolbarQuillBulletList": "Bulleted list"
+  ,"formatToolbarQuillNumberedList": "Numbered list"
+  ,"formatToolbarQuillChecklist": "Checklist"
+  ,"formatToolbarQuillQuote": "Quote"
+  ,"formatToolbarQuillIndentMore": "Indent"
+  ,"formatToolbarQuillIndentLess": "Outdent"
+  ,"formatToolbarQuillClear": "Clear formatting"
   ,"blockEditorSelectedBlocksBanner": "{count} blocks selected · Shift: range · Ctrl/Cmd: toggle"
   ,"@blockEditorSelectedBlocksBanner": {"placeholders": {"count": {"type": "int"}}}
   ,"blockEditorDuplicate": "Duplicate"
@@ -1217,7 +1415,53 @@
   ,"blockEditorCmdMentionPageHint": "Insert internal link to a page"
   ,"blockEditorCmdTurnInto": "Turn into…"
   ,"blockEditorCmdTurnIntoHint": "Pick a block type from the picker"
+  ,"blockEditorCmdAiSummarize": "Quill: summarize"
+  ,"blockEditorCmdAiSummarizeHint": "/ai summarize · summarize the page or selection"
+  ,"blockEditorCmdAiContinue": "Quill: continue"
+  ,"blockEditorCmdAiContinueHint": "/ai continue · keep writing from the cursor"
+  ,"blockEditorCmdAiExplain": "Quill: explain"
+  ,"blockEditorCmdAiExplainHint": "/ai explain · explain the paragraph or selection"
+  ,"blockEditorCmdAiActionItems": "Quill: action items"
+  ,"blockEditorCmdAiActionItemsHint": "/ai action items · extract tasks from text"
+  ,"blockEditorCmdAiTodo": "Quill: to-do list"
+  ,"blockEditorCmdAiTodoHint": "/ai todo · turn selection into tasks"
+  ,"blockEditorCmdAiMindmap": "Quill: mind map"
+  ,"blockEditorCmdAiMindmapHint": "/ai mindmap · hierarchical outline or canvas"
+  ,"blockEditorCmdAiTable": "Quill: table"
+  ,"blockEditorCmdAiTableHint": "/ai table · build a table from text"
+  ,"blockEditorCmdAiImprove": "Quill: improve writing"
+  ,"blockEditorCmdAiImproveHint": "/ai improve · clarity and professional tone"
+  ,"blockEditorCmdAiTranslate": "Quill: translate"
+  ,"blockEditorCmdAiTranslateHint": "/ai translate · translate selection or block"
+  ,"blockEditorAiSlashUnavailable": "Editor Quill slash commands are not wired in this view."
+  ,"blockEditorAskQuillTooltip": "Ask Quill about the selection"
+  ,"aiChatSplitViewTooltip": "Split view: editor and chat side by side"
+  ,"aiThreadSearchHint": "Search threads…"
+  ,"settingsAiChatSplitViewTitle": "Quill chat split view"
+  ,"settingsAiChatSplitViewSubtitle": "Shows the chat panel beside the editor on desktop."
+  ,"settingsAiQuillCopilotExperimentalTitle": "Quill Copilot (experimental)"
+  ,"settingsAiQuillCopilotExperimentalSubtitle": "Reserved for live writing suggestions (no auto inference yet)."
+  ,"aiChatApplyInsertEnd": "Insert blocks at end"
+  ,"aiChatApplyReplacePage": "Replace page blocks"
+  ,"aiChatApplyOperations": "Apply edit operations"
+  ,"aiChatApplySnapshotSuccess": "Changes applied to the open page."
+  ,"aiChatApplySnapshotFailure": "Could not apply changes (check the page or JSON)."
+  ,"aiChatHeaderMenuTooltip": "Assistant details"
+  ,"aiChatHeaderDetailsTitle": "Assistant and ink"
+  ,"aiChatHeaderProviderSection": "Provider"
+  ,"aiChatThreadsListTitle": "Conversation threads"
+  ,"aiChatThreadsEmptySearch": "No threads match your search."
+  ,"aiChatThreadsPickerTooltip": "Thread list"
+  ,"aiChatComposerContextTileTitle": "Context, ink, and attachments"
+  ,"aiChatComposerContextTileSubtitle": "Tap to expand or collapse"
+  ,"aiMessageActionCopyReply": "Copy reply"
+  ,"aiMessageActionCopyStructuredJson": "Copy structured JSON"
+  ,"aiMessageActionCopyFull": "Copy full message"
+  ,"aiMessageMoreActions": "More actions"
+  ,"aiChatInkEstimatedCost": "Estimated cost for this message: {cost} ink."
+  ,"@aiChatInkEstimatedCost": {"placeholders": {"cost": {"type": "int"}}}
   ,"blockEditorMarkTaskComplete": "Mark task complete"
+  ,"blockEditorTodoPlaceholder": "Task…"
   ,"blockEditorCalloutIconPickerTitle": "Callout icon"
   ,"blockEditorCalloutIconPickerHelper": "Select an icon to change the visual tone of the callout block."
   ,"blockEditorIconPickerCustomEmoji": "Custom emoji"
@@ -1230,6 +1474,7 @@
   ,"blockTypeSectionMedia": "Media and data"
   ,"blockTypeSectionAdvanced": "Advanced and layout"
   ,"blockTypeSectionEmbeds": "Integrations"
+  ,"blockTypeSectionAiQuill": "Quill (AI)"
   ,"blockTypeParagraphLabel": "Text"
   ,"blockTypeParagraphHint": "Paragraph"
   ,"blockTypeChildPageLabel": "Page"
@@ -1285,6 +1530,84 @@
   ,"kanbanBackToBoard": "Back to board"
   ,"kanbanMultipleBlocksSnack": "This page has more than one Kanban block; using the first one."
   ,"kanbanEmptyColumn": "No tasks"
+  ,"blockTypeCanvasLabel": "Infinite canvas"
+  ,"blockTypeCanvasHint": "Free-form whiteboard with nodes, shapes, and arrows"
+  ,"canvasBlockRowTitle": "Infinite canvas"
+  ,"canvasBlockRowSubtitle": "{nodes} nodes · {strokes} strokes"
+  ,"@canvasBlockRowSubtitle": {"placeholders": {"nodes": {"type": "int"}, "strokes": {"type": "int"}}}
+  ,"canvasToolbarOpenEditor": "Open block editor"
+  ,"canvasToolbarAddNode": "Add note"
+  ,"canvasToolbarAddShape": "Add shape"
+  ,"canvasToolbarDraw": "Draw"
+  ,"canvasToolbarSelect": "Select"
+  ,"canvasToolbarExport": "Export as image"
+  ,"canvasToolbarConnect": "Connect nodes"
+  ,"canvasToolbarAddBlock": "Add block"
+  ,"canvasClassicModeBanner": "Block editor: you can move or delete the Canvas block."
+  ,"canvasBackToCanvas": "Back to canvas"
+  ,"canvasMultipleBlocksSnack": "This page has more than one Canvas block; using the first one."
+  ,"canvasExportSuccess": "Canvas exported successfully"
+  ,"canvasExportError": "Error exporting the canvas"
+  ,"canvasDeleteNodeConfirm": "Delete this node?"
+  ,"canvasConnectTapTarget": "Tap the destination node to connect"
+  ,"canvasEmptyNotePlaceholder": "(empty note)"
+  ,"canvasEmptyBlockPlaceholder": "(empty)"
+  ,"canvasColorPickerTooltip": "Color"
+  ,"canvasFolioHintWriteHere": "Write here…"
+  ,"canvasToolbarMarquee": "Rectangular selection"
+  ,"canvasToolbarAddFrame": "Add frame"
+  ,"canvasToolbarLayers": "Layers"
+  ,"canvasToolbarGroup": "Group"
+  ,"canvasToolbarUngroup": "Ungroup"
+  ,"canvasToolbarUndo": "Undo"
+  ,"canvasToolbarRedo": "Redo"
+  ,"canvasToolbarRotate": "Rotate 15°"
+  ,"canvasToolbarSnap": "Snap to grid"
+  ,"canvasToolbarTemplate": "Template"
+  ,"canvasTemplateDialogTitle": "Insert template"
+  ,"canvasTemplateMergeHint": "New items will be added to the canvas."
+  ,"canvasExportPng": "PNG image"
+  ,"canvasExportSvg": "SVG"
+  ,"canvasExportPdf": "PDF"
+  ,"canvasLayersTitle": "Layers"
+  ,"canvasLayerImageBrief": "Image"
+  ,"canvasEdgeInspector": "Connectors"
+  ,"canvasEdgeStyleStraight": "Straight"
+  ,"canvasEdgeStyleArrow": "Arrow"
+  ,"canvasEdgeStyleCurve": "Curved"
+  ,"canvasEdgeStyleBezier": "Bezier"
+  ,"canvasEdgeLabelHint": "Label"
+  ,"canvasDrawInk": "Pen"
+  ,"canvasDrawHighlighter": "Highlighter"
+  ,"canvasDrawEraser": "Eraser"
+  ,"canvasCollabRemoteUpdate": "Canvas updated from collaboration"
+  ,"canvasFrameLabel": "Frame"
+  ,"canvasRichEmbedBadge": "Rich content"
+  ,"canvasMarqueeHint": "Drag on empty area to select"
+  ,"canvasTplMindmapBranch": "Branch"
+  ,"canvasTplFlowStart": "Start"
+  ,"canvasTplFlowProcess": "Process"
+  ,"canvasTplFlowDecision": "Decision?"
+  ,"canvasTplFlowBranchYes": "Yes branch"
+  ,"canvasTplFlowEnd": "End"
+  ,"canvasTplFlowNo": "No"
+  ,"canvasTplFlowEdgeYes": "Yes"
+  ,"canvasTplFlowEdgeNo": "No"
+  ,"canvasTplJourneyTitle": "User journey"
+  ,"canvasTplJourneyDiscover": "Discovery"
+  ,"canvasTplJourneyConsider": "Consideration"
+  ,"canvasTplJourneyBuy": "Purchase"
+  ,"canvasTplJourneyRetain": "Retention"
+  ,"canvasTplSwotTitle": "SWOT analysis"
+  ,"canvasTplSwotStrengths": "Strengths"
+  ,"canvasTplSwotWeaknesses": "Weaknesses"
+  ,"canvasTplSwotOpportunities": "Opportunities"
+  ,"canvasTplSwotThreats": "Threats"
+  ,"canvasTemplateMindmap": "Mind map"
+  ,"canvasTemplateFlowchart": "Flowchart"
+  ,"canvasTemplateUserJourney": "User journey"
+  ,"canvasTemplateSwot": "SWOT"
+  ,"canvasTplMindmapCenter": "Central topic"
   ,"blockTypeDriveLabel": "File Drive"
   ,"blockTypeDriveHint": "Integrated file manager"
   ,"driveBlockRowTitle": "File drive"
@@ -1300,11 +1623,14 @@
   ,"driveDeleteConfirm": "Delete this file?"
   ,"driveOpenFile": "Open file"
   ,"driveMoveTo": "Move to…"
+  ,"driveMoveToFolderTitle": "Move to folder"
+  ,"driveFolderColor": "Folder color"
   ,"driveClassicModeBanner": "Block editor: you can move or delete the Drive block."
   ,"driveBackToDrive": "Back to drive"
   ,"driveMultipleBlocksSnack": "This page has more than one Drive block; using the first one."
   ,"driveDeleteOriginalsTitle": "Delete originals on import"
   ,"driveDeleteOriginalsSubtitle": "When uploading files to the drive, the originals are automatically deleted from disk."
+  ,"driveAllFilesRoot": "All files"
   ,"blockTypeEquationLabel": "Equation (LaTeX)"
   ,"blockTypeEquationHint": "Math formulas"
   ,"blockTypeMermaidLabel": "Diagram (Mermaid)"
@@ -1430,6 +1756,8 @@
   ,"createAction": "Create"
   ,"confirmAction": "Confirm"
   ,"confirmRemoteEndpointTitle": "Confirm remote endpoint"
+  ,"confirmRemoteEndpointBody": "You're about to enable AI with a remote host ({host}). Content you send may leave this device.\n\nContinue?"
+  ,"@confirmRemoteEndpointBody": {"placeholders": {"host": {}}}
   ,"shortcutGlobalSearchKeyChord": "Ctrl + Shift + F"
   ,"updateChannelRelease": "Release"
   ,"updateChannelBeta": "Beta"
@@ -1595,7 +1923,7 @@
   ,"settingsSectionUiWorkspace": "Interface & desktop"
   ,"settingsSectionUiWorkspaceHeroDescription": "Theme, language, scaling, editor layout, desktop options, and keyboard shortcuts."
   ,"settingsSubsectionVaultBackupImport": "Backups & import"
-  ,"settingsSubsectionVaultScheduledLocal": "Scheduled backup (local)"
+  ,"settingsSubsectionVaultScheduledLocal": "Scheduled backup"
   ,"settingsSubsectionDrive": "Drive"
   ,"settingsSubsectionVaultData": "Data (danger zone)"
   ,"folioCloudSubsectionAccount": "Account"
@@ -1653,12 +1981,27 @@
   ,"sidebarPageIconTabImported": "Imported"
   ,"sidebarPageIconTabAll": "All"
   ,"sidebarPageIconEmptyImported": "You have not imported icons in Settings yet."
-  ,"sidebarDeletePageMenuTitle": "Delete page"
-  ,"sidebarDeleteFolderMenuTitle": "Remove folder"
-  ,"sidebarDeletePageConfirmInline": "Delete «{title}»? This cannot be undone."
+  ,"sidebarDeletePageMenuTitle": "Move to trash"
+  ,"sidebarDeleteFolderMenuTitle": "Move folder to trash"
+  ,"sidebarDeletePageConfirmInline": "Move «{title}» to the trash? You can restore it for 30 days."
   ,"@sidebarDeletePageConfirmInline": {"placeholders": {"title": {}}}
-  ,"sidebarDeleteFolderConfirmInline": "Remove folder «{title}»? Subpages will move to the notebook root."
+  ,"sidebarDeleteFolderConfirmInline": "Move folder «{title}» and its contents to the trash? You can restore it for 30 days."
   ,"@sidebarDeleteFolderConfirmInline": {"placeholders": {"title": {}}}
+  ,"sidebarTrashTitle": "Trash"
+  ,"sidebarTrashEmpty": "Trash is empty"
+  ,"sidebarTrashRetentionHint": "Items are automatically deleted after 30 days."
+  ,"sidebarTrashRestore": "Restore"
+  ,"sidebarTrashDeleteForever": "Delete permanently"
+  ,"sidebarTrashEmptyAction": "Empty trash"
+  ,"sidebarTrashEmptyConfirm": "Empty the trash? This cannot be undone."
+  ,"sidebarTrashDeleteForeverConfirm": "Permanently delete «{title}»? This cannot be undone."
+  ,"@sidebarTrashDeleteForeverConfirm": {"placeholders": {"title": {}}}
+  ,"sidebarTrashDaysLeft": "{days} days left"
+  ,"@sidebarTrashDaysLeft": {"placeholders": {"days": {"type": "int"}}}
+  ,"sidebarTrashOpenTooltip": "Open trash"
+  ,"sidebarTrashCountBadge": "{count}"
+  ,"@sidebarTrashCountBadge": {"placeholders": {"count": {"type": "int"}}}
+  ,"sidebarTrashClose": "Close"
   ,"settingsStripeSubscriptionRefreshed": "Folio Cloud billing updated."
   ,"settingsStripeBillingPortalUnavailable": "Billing portal unavailable."
   ,"settingsCouldNotOpenLink": "Could not open the link."
@@ -1676,6 +2019,7 @@
   ,"settingsCloudBackupSaveDialogTitle": "Save backup"
   ,"settingsCloudBackupDownloadedSnack": "Backup downloaded."
   ,"settingsCloudBackupDeletedSnack": "Backup deleted."
+  ,"settingsCloudBackupVaultRemovedSnack": "Backup deleted. This notebook no longer has cloud backups and was removed from Folio Cloud."
   ,"settingsCloudBackupImportedSnack": "Import completed."
   ,"settingsCloudBackupVaultMustBeUnlocked": "The vault must be unlocked."
   ,"settingsCloudBackupsTotalLabel": "Total: {size}"
@@ -1684,6 +2028,10 @@
   ,"settingsCloudBackupImportOverwriteBody": "This will overwrite the contents of the currently open vault. Make sure you have a local backup before continuing."
   ,"settingsCloudBackupImportRemoteCloudPackIntro": "This incremental backup belongs to another notebook in your Folio Cloud account. Enter that notebook’s vault password to download it (leave blank if that notebook is not encrypted)."
   ,"settingsCloudBackupDeleteWarning": "Are you sure you want to delete this cloud backup? This action cannot be undone."
+  ,"settingsCloudBackupDeleteCloudPackWarning": "Are you sure you want to delete this notebook's incremental backup? All of its cloud data will be removed and you won't be able to restore it until you upload a new one. This action cannot be undone."
+  ,"settingsCloudBackupsManageHint": "Manage backups for this notebook. Deleting frees space in your quota."
+  ,"settingsCloudBackupDeleteTooltip": "Delete backup"
+  ,"settingsCloudBackupsSheetTitle": "Cloud backups"
   ,"settingsPublishedRequiresPlan": "You need Folio Cloud with web publishing enabled."
   ,"settingsPublishedPagesTitle": "Published pages"
   ,"settingsPublishedPagesEmpty": "No published pages yet."
@@ -1719,7 +2067,7 @@
   ,"settingsEnterCreatesNewBlockSubtitleWhenDisabled": "Enter now inserts a line break. Shift+Enter still works."
   ,"settingsWorkspaceSubsection": "Workspace"
   ,"settingsCustomIconsTitle": "Custom icons"
-  ,"settingsCustomIconsDescription": "Import a PNG, GIF, or WebP URL, or a compatible data:image copied from sites like notionicons.so. You can then use it as a page or callout icon."
+  ,"settingsCustomIconsDescription": "Import a PNG, GIF, or WebP URL, a compatible data:image copied from sites like notionicons.so, or search open-source icons with the Iconify browser. You can then use them as page or callout icons."
   ,"settingsCustomIconsSavedCount": "{count} saved"
   ,"@settingsCustomIconsSavedCount": {"placeholders": {"count": {"type": "int"}}}
   ,"settingsCustomIconsChipUrl": "PNG, GIF, or WebP URL"
@@ -1739,6 +2087,27 @@
   ,"settingsCustomIconsDeleteTooltip": "Delete icon"
   ,"settingsCustomIconsReferenceCopiedSnack": "Reference copied."
   ,"settingsCustomIconsCopyToken": "Copy token"
+  ,"settingsIconifyTitle": "Iconify browser"
+  ,"settingsIconifyDescription": "Search thousands of open-source icons (Lucide, Tabler, Material, Phosphor…). Selecting one imports it into your local library."
+  ,"settingsIconifySearchHint": "Search icons"
+  ,"settingsIconifyCollectionLabel": "Collection"
+  ,"settingsIconifyCollectionAll": "All"
+  ,"settingsIconifyCollectionLucide": "Lucide"
+  ,"settingsIconifyCollectionTabler": "Tabler"
+  ,"settingsIconifyCollectionMdi": "Material Design"
+  ,"settingsIconifyCollectionPhosphor": "Phosphor"
+  ,"settingsIconifyCollectionRemix": "Remix"
+  ,"settingsIconifyCollectionCarbon": "Carbon"
+  ,"settingsIconifyCollectionIconoir": "Iconoir"
+  ,"settingsIconifyCollectionFluent": "Fluent UI"
+  ,"settingsIconifyCollectionSolar": "Solar"
+  ,"settingsIconifyEmpty": "No results for that search."
+  ,"settingsIconifyImportSucceeded": "Icon imported from Iconify."
+  ,"settingsIconifyImportFailed": "Could not import the icon."
+  ,"settingsIconifyAttribution": "Icons by Iconify (open source)"
+  ,"settingsIconifyOffline": "Offline. You need a network connection to search Iconify."
+  ,"settingsIconifySearchFailed": "Search could not be completed."
+  ,"settingsIconifyLoadMore": "Load more"
   ,"settingsAiHeroQuillWithLocalAlt": "AI runs on Quill Cloud (subscription with cloud AI or purchased ink). Pick another provider below for local Ollama or LM Studio."
   ,"settingsAiHeroQuillCloudOnly": "AI runs on Quill Cloud (subscription with cloud AI or purchased ink)."
   ,"settingsAiHeroLocalDefault": "Connect Ollama or LM Studio locally; the assistant uses the model and context you set here."
@@ -1748,7 +2117,7 @@
   ,"settingsAiSnackSignInCloudAccount": "Sign in to your cloud account (Settings)."
   ,"settingsAiProviderSwitchFailed": "Could not switch AI provider: {error}"
   ,"@settingsAiProviderSwitchFailed": {"placeholders": {"error": {}}}
-  ,"settingsAboutHeroDescription": "Installed version, update source, and manual checks for new releases."
+  ,"settingsAboutHeroDescription": "Build version, release notes, and your update channel. Use the list below to check for updates."
   ,"settingsOpenReleaseNotes": "Open release notes"
   ,"settingsUpdateChannelLabel": "Channel"
   ,"settingsUpdateChannelRelease": "Release"
@@ -1756,6 +2125,9 @@
   ,"settingsDataHeroDescription": "Permanent actions on local files. Make a backup before deleting."
   ,"settingsDangerZoneTitle": "Danger zone"
   ,"settingsDesktopHeroDescription": "Global shortcuts, system tray, and window behavior on desktop."
+  ,"settingsDesktopHeroChipGlobalSearch": "Search shortcut"
+  ,"settingsDesktopHeroChipMinimizeTray": "Minimize behavior"
+  ,"settingsDesktopHeroChipCloseTray": "Close behavior"
   ,"settingsShortcutsHeroDescription": "Shortcuts only inside Folio. Test a key before saving it."
   ,"settingsShortcutsTestChip": "Test"
   ,"settingsIntegrationsChipApprovedPermissions": "Approved permissions"
@@ -1821,12 +2193,12 @@
   ,"settingsAccentPickColor": "Choose preset color"
   ,"settingsPrivacySectionTitle": "Privacy and diagnostics"
   ,"settingsTelemetryTitle": "Anonymous usage statistics"
-  ,"settingsTelemetrySubtitle": "Helps measure installs and feature usage. No notebook content or titles are sent."
+  ,"settingsTelemetrySubtitle": "When enabled, helps measure feature usage. A one-time anonymous install signal is always sent. No notebook content or titles are sent."
   ,"onboardingTelemetryTitle": "Usage statistics"
-  ,"onboardingTelemetryBody": "Folio can send anonymous analytics so we understand how the app is used. You can change this anytime in Settings."
+  ,"onboardingTelemetryBody": "When enabled, Folio can send anonymous analytics so we understand how the app is used. A one-time anonymous install signal is sent on first launch either way. You can change usage statistics anytime in Settings."
   ,"onboardingTelemetrySwitchTitle": "Anonymous usage statistics"
-  ,"onboardingTelemetrySwitchSubtitle": "Helps measure installs and feature usage. No notebook content or titles are sent."
-  ,"onboardingTelemetryFootnote": "No notebook content or page titles are sent."
+  ,"onboardingTelemetrySwitchSubtitle": "When enabled, helps measure feature usage. A one-time anonymous install is still recorded if you turn this off. No notebook content or titles are sent."
+  ,"onboardingTelemetryFootnote": "No notebook content or page titles are sent. One anonymous install event is sent once per installation regardless of this setting."
   ,"settingsAutoCrashReportsTitle": "Send crash diagnostics automatically"
   ,"settingsAutoCrashReportsSubtitle": "When a crash occurs, sends a short log excerpt to Folio (opt-in, limited per session)."
   ,"settingsReportBugButton": "Report a bug"
@@ -1865,4 +2237,542 @@
   ,"@importPdfFailed": {"placeholders": {"error": {"type": "String"}}}
   ,"importPdfNoText": "The PDF contains no extractable text"
   ,"downloadDesktopApp": "Download desktop app"
+  ,"appStoreTitle": "App Store"
+  ,"appStoreTabExplore": "Explore"
+  ,"appStoreTabInstalled": "Installed ({count})"
+  ,"@appStoreTabInstalled": {"placeholders": {"count": {"type": "int"}}}
+  ,"appStoreTooltipRefresh": "Refresh"
+  ,"appStoreTooltipInstallFile": "Install from file (.folioapp)"
+  ,"appStoreSearchHint": "Search apps\u2026"
+  ,"appStoreNoResults": "No apps found."
+  ,"appStoreSectionOfficials": "Official"
+  ,"appStoreSectionOfficialsSubtitle": "Built into Folio · No download required"
+  ,"appStoreSectionCommunity": "Community"
+  ,"appStoreSectionCommunitySubtitle": "Published in the public registry"
+  ,"appStoreInstallConfirmTitle": "Install local app"
+  ,"appStoreInstallConfirmBody": "This app has not been verified. Only install files from sources you trust."
+  ,"appStoreInstallButton": "Install"
+  ,"appStoreInstalledChip": "Installed"
+  ,"appStoreInstallSuccess": "\"{name}\" installed successfully."
+  ,"@appStoreInstallSuccess": {"placeholders": {"name": {"type": "String"}}}
+  ,"appStoreInstallError": "Error: {message}"
+  ,"@appStoreInstallError": {"placeholders": {"message": {"type": "String"}}}
+  ,"appStoreUninstallTitle": "Uninstall app"
+  ,"appStoreUninstallBody": "Uninstall \"{name}\"? Its files will be deleted."
+  ,"@appStoreUninstallBody": {"placeholders": {"name": {"type": "String"}}}
+  ,"appStoreUninstallButton": "Uninstall"
+  ,"appStoreInstalledEmpty": "No apps installed.\nExplore the store or install a .folioapp."
+  ,"appStoreRegistryLoadError": "Error {statusCode} loading the registry."
+  ,"@appStoreRegistryLoadError": {"placeholders": {"statusCode": {"type": "int"}}}
+  ,"appStoreRegistryOfflineCache": "Offline. Showing local cache."
+  ,"appStoreLoadError": "Error loading the store: {error}"
+  ,"@appStoreLoadError": {"placeholders": {"error": {"type": "String"}}}
+  ,"appStoreVerifiedByFolio": "Verified by Folio"
+  ,"appStoreCapabilitiesTitle": "Capabilities"
+  ,"appStoreConnectionsTitle": "Connections"
+  ,"appStoreConnected": "Connected"
+  ,"appStoreNotConnected": "Not connected"
+  ,"appStoreDisconnect": "Disconnect"
+  ,"appStoreConnect": "Connect"
+  ,"appStoreInstallFromRegistryTitle": "Install \"{name}\""
+  ,"@appStoreInstallFromRegistryTitle": {"placeholders": {"name": {"type": "String"}}}
+  ,"appStoreInstallUnverifiedLocalBody": "This app has not been verified locally. Only install apps from sources you trust."
+  ,"appStorePermissionsRequested": "Requested permissions:"
+  ,"appStoreCapabilityBlockTypes": "{count} block type(s)"
+  ,"@appStoreCapabilityBlockTypes": {"placeholders": {"count": {"type": "int"}}}
+  ,"appStoreCapabilitySlashCommands": "{count} slash command(s)"
+  ,"@appStoreCapabilitySlashCommands": {"placeholders": {"count": {"type": "int"}}}
+  ,"appStoreCapabilityIntegrations": "{count} integration(s)"
+  ,"@appStoreCapabilityIntegrations": {"placeholders": {"count": {"type": "int"}}}
+  ,"appStoreCapabilityAiTransformers": "{count} AI transformer(s)"
+  ,"@appStoreCapabilityAiTransformers": {"placeholders": {"count": {"type": "int"}}}
+  ,"appStorePasteAccessToken": "Paste your access token"
+  ,"appStoreTokenLabel": "Token for {name}"
+  ,"@appStoreTokenLabel": {"placeholders": {"name": {"type": "String"}}}
+  ,"appStoreApiKeyTitle": "API Key"
+  ,"appStoreUninstallTooltip": "Uninstall"
+  ,"appStoreVersionPrefix": "v{version}"
+  ,"@appStoreVersionPrefix": {"placeholders": {"version": {"type": "String"}}}
+  ,"releaseNotesTitle": "Release notes"
+  ,"releaseNotesContinue": "Continue"
+  ,"workspaceEditorReadyHeadline": "Your workspace is ready"
+  ,"workspaceEditorReadySubtitle": "Create a page to start writing, or use search to jump back to an existing note."
+  ,"releaseNotesEmpty": "No release notes are available for this version."
+  ,"settingsIntegrationsNativeTitle": "Native integrations"
+  ,"telemetryDashboardTitle": "Telemetry dashboard"
+  ,"telemetryDashboardAccessDenied": "Access denied"
+  ,"telemetryDashboardStaffOnlyBody": "Only Folio staff can open this screen."
+  ,"telemetryDashboardFlushTooltip": "Send pending events and refresh"
+  ,"telemetryDashboardErrorLoading": "Could not load data"
+  ,"telemetryDashboardErrorDetail": "{detail}"
+  ,"@telemetryDashboardErrorDetail": {"placeholders": {"detail": {"type": "String"}}}
+  ,"telemetryDashboardNoDataForDate": "No data for {date}"
+  ,"@telemetryDashboardNoDataForDate": {"placeholders": {"date": {"type": "String"}}}
+  ,"telemetryDashboardNoDataHint": "Use the send icon to flush pending events, then refresh.\nGlobal totals update hourly (UTC) for today and yesterday."
+  ,"telemetryDashboardFlushRefresh": "Flush and refresh"
+  ,"telemetryDashboardSectionGlobalTitle": "Global stats (all users)"
+  ,"telemetryDashboardSectionGlobalSubtitle": "Totals from the hourly aggregation job (UTC)."
+  ,"telemetryDashboardMetricUsers": "Users"
+  ,"telemetryDashboardMetricEvents": "Events"
+  ,"telemetryDashboardMetricErrors": "Errors"
+  ,"telemetryDashboardByType": "By type"
+  ,"telemetryDashboardNoEventBreakdown": "No event type breakdown."
+  ,"telemetryDashboardEventTypeUnknown": "Unknown"
+  ,"settingsTelemetryDashboardListSubtitle": "View aggregated global usage statistics."
+  ,"telemetryDashboardGlobalMissingHint": "Global totals for this UTC date are not available yet. You can still review per-user and raw events below."
+  ,"telemetryDashboardPerUserDayTitle": "By user (selected day)"
+  ,"telemetryDashboardPerUserDaySubtitle": "Daily stats for {date} (analytics_events/*/stats)."
+  ,"@telemetryDashboardPerUserDaySubtitle": {"placeholders": {"date": {"type": "String"}}}
+  ,"telemetryDashboardRecentEventsTitle": "Latest raw events"
+  ,"telemetryDashboardRecentEventsSubtitle": "Up to 80 most recent events across all signed-in users."
+  ,"telemetryDashboardNoPerUserStats": "No per-user stats for this date."
+  ,"telemetryDashboardNoRecentEvents": "No events in Firestore."
+  ,"telemetryDashboardColUser": "User"
+  ,"telemetryDashboardColEvents": "Events"
+  ,"telemetryDashboardColErrors": "Errors"
+  ,"telemetryDashboardColTime": "Time"
+  ,"telemetryDashboardColType": "Type"
+  ,"telemetryDashboardColSummary": "Summary"
+  ,"telemetryDashboardEmptyAll": "Nothing to show for this view. Try another date, flush pending events, or confirm Firestore indexes are deployed."
+  ,"telemetrySentDataCategoriesTitle": "Examples of telemetry categories"
+  ,"telemetrySentDataFeatureUsageTitle": "Feature usage"
+  ,"telemetrySentDataFeatureUsageBody": "When you open the editor, board, search, settings, and other features."
+  ,"telemetrySentDataContentActionsTitle": "Content actions"
+  ,"telemetrySentDataContentActionsBody": "Creating, editing, or deleting notes and boards."
+  ,"telemetrySentDataSearchesTitle": "Searches"
+  ,"telemetrySentDataSearchesBody": "Search queries and filter usage."
+  ,"telemetrySentDataSyncTitle": "Sync events"
+  ,"telemetrySentDataSyncBody": "Cloud backup status and duration."
+  ,"telemetrySentDataPerformanceTitle": "Performance"
+  ,"telemetrySentDataPerformanceBody": "Operation duration and basic performance signals."
+  ,"telemetrySentDataErrorsTitle": "Errors"
+  ,"telemetrySentDataErrorsBody": "App errors and crashes (when usage statistics are enabled)."
+  ,"telemetrySentDataPrivacyNote": "Your privacy matters. We do not sell this data or use it for ads."
+  ,"telemetrySentDataChannelsNote": "Firebase Analytics uses an anonymous installation ID. A one-time folio_install event is sent once per installation even when usage statistics are off. Other events copied to Firestore are only sent while you are signed in to Folio Cloud."
+  ,"telemetrySentDataViewTechnicalDetails": "View technical details"
+  ,"telemetrySentDataHideTechnicalDetails": "Hide technical details"
+  ,"telemetrySentDataNoEventsYet": "No events recorded locally yet."
+  ,"workspaceRecentPagesSectionTitle": "Recent"
+  ,"workspaceHomeHeadline": "Your space"
+  ,"workspaceHomeSubtitle": "Pick up where you left off, search, or start something new."
+  ,"workspaceHomeSearchHint": "Search…"
+  ,"workspaceHomeNoRecentPages": "No recent pages yet. Create one or use search."
+  ,"workspaceHomeVisitedAt": "Opened {dateTime}"
+  ,"@workspaceHomeVisitedAt": {"placeholders": {"dateTime": {"type": "String"}}}
+  ,"workspaceHomeTip0": "Tip: create a page and use / to insert blocks quickly."
+  ,"workspaceHomeTip1": "Folio auto-saves your changes. Just start writing."
+  ,"workspaceHomeTip2": "Use search to jump across pages and keep momentum."
+  ,"workspaceHomeTip3": "Subpages help keep each topic clean and structured."
+  ,"workspaceHomeTip4": "Reorder pages from the sidebar and keep your vault tidy as it grows."
+  ,"workspaceHomeTip5": "Templates speed up recurring structures—open the gallery from quick actions."
+  ,"workspaceHomeTip6": "Graph view shows how pages link together; use it when navigation gets complex."
+  ,"workspaceHomeTip7": "Mix headings, lists, and embeds so long notes stay easy to scan."
+  ,"workspaceHomeTip8": "Tasks with due dates surface on home—set dates from Kanban or task blocks."
+  ,"workspaceHomeTip9": "Lock the vault when you step away; your passphrase stays on this device."
+  ,"workspaceHomeTip10": "Export a page to Markdown or PDF from the toolbar when you need to share."
+  ,"workspaceHomeTip11": "Device sync aligns vault snapshots—use force sync in the sidebar after pairing."
+  ,"settingsWorkspaceOpenToHomeTitle": "Open to home"
+  ,"settingsWorkspaceOpenToHomeSubtitle": "After unlock, show the home screen instead of the last opened page."
+  ,"workspaceHomeGreetingMorning": "Good morning"
+  ,"workspaceHomeGreetingAfternoon": "Good afternoon"
+  ,"workspaceHomeGreetingEvening": "Good evening"
+  ,"workspaceHomeGreetingNight": "Good night"
+  ,"workspaceHomeNoRecentMatch": "No recent pages match your filter."
+  ,"workspaceHomeGlobalSearchTooltip": "Search everywhere in the vault"
+  ,"workspaceHomeSearchSemanticsLabel": "Filter recent pages as you type; use the button at the end of the field for global search"
+  ,"workspaceHomeQuickActionsTitle": "Quick actions"
+  ,"workspaceHomeQuickSettings": "Settings"
+  ,"workspaceHomeQuickGraph": "Graph view"
+  ,"workspaceHomeQuickTemplates": "Templates"
+  ,"workspaceHomeQuickLock": "Lock vault"
+  ,"workspaceHomeQuickSync": "Sync devices"
+  ,"workspaceHomeQuickTask": "Quick task"
+  ,"workspaceHomeQuickVaultTasks": "All tasks"
+  ,"workspaceHomeQuickFolder": "New folder"
+  ,"workspaceHomeQuickImport": "Import Markdown"
+  ,"workspaceHomeRootPagesTitle": "Top-level pages"
+  ,"workspaceHomeMiniStats": "{pageCount} pages · {taskCount} tasks with due dates (14 days)"
+  ,"@workspaceHomeMiniStats": {"placeholders": {"pageCount": {"type": "int"}, "taskCount": {"type": "int"}}}
+  ,"workspaceHomeUpcomingTasksTitle": "Upcoming tasks (14 days)"
+  ,"workspaceHomeUpcomingTasksEmpty": "No tasks with a due date in the next two weeks."
+  ,"workspaceHomeAiTasksChipLabel": "Ask Quill about these tasks"
+  ,"workspaceHomeAiTasksPrompt": "Here are my tasks with dates (upcoming and overdue):\n\n{taskList}\n\nWhat should I prioritize today?"
+  ,"@workspaceHomeAiTasksPrompt": {"placeholders": {"taskList": {"type": "String"}}}
+  ,"workspaceHomeAiTasksPromptEmpty": "(No dated tasks in the next two weeks.)"
+  ,"workspaceHomeCustomizeTooltip": "Personalize home"
+  ,"workspaceHomeCustomizeTitle": "Home screen"
+  ,"workspaceHomeToggleFolioCloudTitle": "Folio Cloud summary"
+  ,"workspaceHomeToggleFolioCloudSubtitle": "Ink and cloud backup space when you are signed in"
+  ,"workspaceHomeToggleRootPagesTitle": "Top-level pages"
+  ,"workspaceHomeToggleRootPagesSubtitle": "Horizontal chips for root pages"
+  ,"workspaceHomeToggleMiniStatsTitle": "Counts"
+  ,"workspaceHomeToggleMiniStatsSubtitle": "Page count and dated tasks (14 days)"
+  ,"workspaceHomeToggleTasksTitle": "Upcoming tasks"
+  ,"workspaceHomeToggleTasksSubtitle": "Two-week strip and task list"
+  ,"workspaceHomeToggleQuickActionsTitle": "Quick actions"
+  ,"workspaceHomeToggleQuickActionsSubtitle": "Shortcuts grid or menu"
+  ,"workspaceHomeToggleTipTitle": "Tip of the day"
+  ,"workspaceHomeToggleTipSubtitle": "Rotating workspace tip"
+  ,"workspaceHomeCloudCardTitle": "Folio Cloud"
+  ,"workspaceHomeCloudStaffShort": "Staff access"
+  ,"workspaceHomeCloudOpenSettings": "Open Settings"
+  ,"workspaceHomeVaultStatusTitle": "Vault status"
+  ,"workspaceHomeVaultBackupOff": "Scheduled backups are off for this vault."
+  ,"workspaceHomeVaultBackupNeverRun": "No backup has run yet with the current settings."
+  ,"workspaceHomeVaultBackupLast": "Last backup: {when}"
+  ,"@workspaceHomeVaultBackupLast": {"placeholders": {"when": {"type": "String"}}}
+  ,"workspaceHomeVaultBackupEvery": "Every {label}"
+  ,"@workspaceHomeVaultBackupEvery": {"placeholders": {"label": {"type": "String"}}}
+  ,"workspaceHomeVaultSyncConflicts": "{count, plural, one{1 pending sync conflict} other{{count} pending sync conflicts}}"
+  ,"@workspaceHomeVaultSyncConflicts": {"placeholders": {"count": {"type": "int"}}}
+  ,"workspaceHomeVaultReadOnlyHint": "Read-only preview on this screen—enable editing from the workspace bar."
+  ,"workspaceHomeOnboardingTitle": "First week"
+  ,"workspaceHomeOnboardingHint": "These complete on their own as you use Folio."
+  ,"workspaceHomeOnboardingStepPage": "Create a page"
+  ,"workspaceHomeOnboardingStepSubpage": "Create a subpage under a page"
+  ,"workspaceHomeOnboardingStepSearch": "Use global search once"
+  ,"workspaceHomeOnboardingStepCloudExplore": "See what Folio Cloud includes"
+  ,"workspaceHomeOnboardingDismiss": "Hide checklist"
+  ,"workspaceHomeWhatsNewTitle": "What's new"
+  ,"workspaceHomeWhatsNewVersion": "Version {version}"
+  ,"@workspaceHomeWhatsNewVersion": {"placeholders": {"version": {"type": "String"}}}
+  ,"workspaceHomeWhatsNewUnread": "You have not opened the release notes for this version yet."
+  ,"workspaceHomeWhatsNewCurrent": "See what changed in this version."
+  ,"workspaceHomeWhatsNewOpen": "Open release notes"
+  ,"workspaceHomeToggleVaultStatusTitle": "Vault status"
+  ,"workspaceHomeToggleVaultStatusSubtitle": "Backups, sync conflicts, read-only"
+  ,"workspaceHomeToggleOnboardingTitle": "First-week checklist"
+  ,"workspaceHomeToggleOnboardingSubtitle": "Short goals for new vaults (auto-hides after 7 days)"
+  ,"workspaceHomeToggleWhatsNewTitle": "What's new"
+  ,"workspaceHomeToggleWhatsNewSubtitle": "Show the update card when a new version has not been read yet"
+  ,"workspaceHomeWhatsNewDismissTooltip": "Hide until the next update"
+  ,"workspaceHomeReorderSectionsTitle": "Reorder home sections"
+  ,"workspaceHomeReorderMainColumn": "Main column"
+  ,"workspaceHomeReorderSideColumn": "Side column"
+  ,"workspaceHomeColumnLayoutTitle": "Columns"
+  ,"workspaceHomeColumnLayoutSubtitle": "How wide the layout splits on large screens"
+  ,"workspaceHomeColumnLayoutAuto": "Automatic"
+  ,"workspaceHomeColumnLayoutSingle": "Single column"
+  ,"workspaceHomeColumnLayoutDual": "Two columns"
+  ,"workspaceHomeClockShowSecondsTitle": "Clock: show seconds"
+  ,"workspaceHomeClockShowSecondsSubtitle": "Updates the time every second"
+  ,"workspaceHomeClock24HourTitle": "24-hour time"
+  ,"workspaceHomeClock24HourSubtitle": "Use 24-hour format instead of AM/PM"
+  ,"workspaceHomeClockShowTimezoneTitle": "Show time zone"
+  ,"workspaceHomeClockShowTimezoneSubtitle": "Name and UTC offset under the clock"
+  ,"workspaceHomeClockTimezoneLine": "{zoneName} ({offset})"
+  ,"@workspaceHomeClockTimezoneLine": {"placeholders": {"zoneName": {"type": "String"}, "offset": {"type": "String"}}}
+  ,"workspaceHomeSectionLabelSearch": "Search field"
+  ,"workspaceHomeSectionLabelCreatePage": "New page button"
+  ,"jiraCloudMissingOAuthSecret": "Missing JIRA_OAUTH_CLIENT_SECRET. Define it primarily in lib/config/folio_local_secrets.dart (copy from the .example file). On desktop you may also use a .env file at startup; on web use that file or --dart-define and rebuild. Restart the app; if you use .env on desktop, check the folio.env log."
+  ,"kanbanJiraError": "Jira error: {error}"
+  ,"@kanbanJiraError": {"placeholders": {"error": {"type": "String"}}}
+  ,"kanbanJiraSyncingPull": "Jira: syncing (pull)…"
+  ,"kanbanJiraPullOkPush": "Jira: pull OK · now push…"
+  ,"kanbanJiraNewIssue": "New Jira issue"
+  ,"kanbanJiraCreate": "Create"
+  ,"kanbanNone": "None"
+  ,"kanbanConflict": "Conflict"
+  ,"kanbanNeedsPush": "Needs push"
+  ,"kanbanNeedsPull": "Needs pull"
+  ,"kanbanDeleteTaskTitle": "Delete task"
+  ,"kanbanDeleteTaskButton": "Delete"
+  ,"kanbanTaskDeleted": "Task deleted."
+  ,"kanbanForcePushTitle": "Force push to Jira"
+  ,"kanbanForcePushButton": "Force push"
+  ,"kanbanPull": "Pull"
+  ,"kanbanTitle": "Title"
+  ,"kanbanDescription": "Description"
+  ,"kanbanPriority": "Priority"
+  ,"kanbanStatusColumn": "Status/column"
+  ,"kanbanDueDate": "Due date"
+  ,"kanbanKeepJiraPull": "Keep Jira (Pull)"
+  ,"kanbanStatus": "Status"
+  ,"jiraIntegrationTitle": "Jira integration"
+  ,"jiraConnectionsTab": "Connections"
+  ,"jiraSourcesTab": "Sources"
+  ,"jiraCreateConnectionFirst": "Create a connection first."
+  ,"jiraConnectingCloud": "Connecting Jira Cloud…"
+  ,"jiraConnectionCreated": "Jira Cloud connection created."
+  ,"jiraNewServerConnection": "New Server/DC connection"
+  ,"jiraNewSource": "New source"
+  ,"jiraConfigure": "Configure"
+  ,"jiraSetClientId": "Set Client ID"
+  ,"jiraOpenDeveloperConsole": "Open Atlassian Developer Console"
+  ,"jiraStartingCloudConnection": "Starting Jira Cloud connection…"
+  ,"jiraSave": "Save"
+  ,"jiraName": "Name"
+  ,"jiraBaseUrl": "Base URL"
+  ,"jiraTokenPat": "Token / PAT"
+  ,"jiraProject": "Project"
+  ,"jiraBoard": "Board"
+  ,"jiraConnection": "Connection"
+  ,"jiraType": "Type"
+  ,"jiraSearchByName": "Type to search (name)…"
+  ,"jiraReload": "Reload"
+  ,"columnBlockTypeBullet": "Bullets"
+  ,"columnBlockTypeNumbered": "Numbered"
+  ,"columnBlockTypeTodo": "Todo"
+  ,"columnBlockTypeQuote": "Quote"
+  ,"columnBlockTypeCallout": "Callout"
+  ,"columnBlockTypeCode": "Code"
+  ,"columnBlockTypeEquation": "Equation"
+  ,"columnBlockTypeDivider": "Divider"
+  ,"columnBlockTypeText": "Text"
+  ,"columnBlockContentLabel": "Content"
+  ,"columnListRemoveBlock": "Remove block"
+  ,"columnListColumnsTitle": "Columns"
+  ,"columnListEdit": "Edit"
+  ,"columnListAddColumn": "Add column"
+  ,"columnListRemoveColumn": "Remove column"
+  ,"columnListDone": "Done"
+  ,"columnListColumnLabel": "Column"
+  ,"columnListAddBlock": "Add block"
+  ,"equationEmptyPlaceholder": "LaTeX…"
+  ,"equationLatexLabel": "LaTeX"
+  ,"mermaidInlineLoadError": "Couldn't display the diagram. Check the Mermaid syntax or your connection.",
+  "onboardingUsageProfileTitle": "How will you use Folio?",
+  "onboardingUsageProfileBody": "We will add starter help pages tailored to you. You can delete or edit them anytime.",
+  "onboardingUsageProfileHint": "Choose up to 3 main uses.",
+  "onboardingUsageProfileMinSelectionError": "Select at least one use to continue.",
+  "onboardingUsageIntentNotesTitle": "Personal notes",
+  "onboardingUsageIntentTasksTitle": "Tasks",
+  "onboardingUsageIntentProjectsTitle": "Projects",
+  "onboardingUsageIntentKnowledgeTitle": "Knowledge base",
+  "onboardingUsageIntentJournalTitle": "Journal",
+  "onboardingUsageIntentStudyTitle": "Study",
+  "vaultStarterHomeIntroNotes": "Folio is a great place to capture ideas, link thoughts, and organize personal notes. These starter pages help you begin writing without a rigid structure.",
+  "vaultStarterHomeIntroTasks": "Folio helps you combine notes and task lists in the same vault. These starter pages focus on tracking, priorities, and regular review.",
+  "vaultStarterHomeIntroProjects": "Organize work by projects, meetings, and deliverables inside a page tree. These starter pages give you a focused starting outline.",
+  "vaultStarterHomeIntroKnowledge": "Build a personal wiki with indexes, topic sheets, and reading notes. These starter pages encourage linking topics and review.",
+  "vaultStarterHomeIntroJournal": "Use Folio as a space for daily reflection and monthly review. These starter pages suggest light routines to keep the habit.",
+  "vaultStarterHomeIntroStudy": "Centralize class notes, study plans, and reviews in one place. These starter pages are oriented to courses and preparation.",
+  "vaultStarterHomeTodoNotes1": "Dump three loose ideas into the idea inbox",
+  "vaultStarterHomeTodoNotes2": "Create a quick-capture note with the / menu",
+  "vaultStarterHomeTodoNotes3": "Link two pages from the sidebar",
+  "vaultStarterHomeTodoTasks1": "Add three tasks to the task board",
+  "vaultStarterHomeTodoTasks2": "Mark one task done and set a date on another",
+  "vaultStarterHomeTodoTasks3": "Plan the weekly review",
+  "vaultStarterHomeTodoProjects1": "Create the first page for a project",
+  "vaultStarterHomeTodoProjects2": "Try the meeting notes template",
+  "vaultStarterHomeTodoProjects3": "Define the next milestone in the project hub",
+  "vaultStarterHomeTodoKnowledge1": "Add three topics to the content index",
+  "vaultStarterHomeTodoKnowledge2": "Create a topic sheet with links",
+  "vaultStarterHomeTodoKnowledge3": "Log a reading in progress",
+  "vaultStarterHomeTodoJournal1": "Write today's journal entry",
+  "vaultStarterHomeTodoJournal2": "Answer the reflection prompts",
+  "vaultStarterHomeTodoJournal3": "Review last month's summary",
+  "vaultStarterHomeTodoStudy1": "Create the current course page",
+  "vaultStarterHomeTodoStudy2": "Add three key concepts to your notes",
+  "vaultStarterHomeTodoStudy3": "Define this week's study plan",
+  "vaultStarterShortcutsTitle": "Shortcuts and first steps",
+  "vaultStarterShortcutsSectionMain": "Folio essentials",
+  "vaultStarterShortcutsBullet1": "Each page is made of blocks: paragraphs, headings, lists, tables, and more.",
+  "vaultStarterShortcutsBullet2": "The sidebar organizes pages and subpages in a tree.",
+  "vaultStarterShortcutsBullet3": "Search and history help you regain context quickly.",
+  "vaultStarterShortcutsSectionKeys": "Useful shortcuts",
+  "vaultStarterShortcutsKeyN": "Ctrl+N creates a new page.",
+  "vaultStarterShortcutsKeySearch": "Ctrl+K or Ctrl+F opens search.",
+  "vaultStarterShortcutsKeySettings": "Ctrl+, opens Settings and Ctrl+L locks the vault.",
+  "vaultStarterShortcutsCallout": "Press / inside a paragraph to insert blocks without leaving the keyboard.",
+  "vaultStarterNotesInboxTitle": "Idea inbox",
+  "vaultStarterNotesInboxHeading": "Capture without filtering",
+  "vaultStarterNotesInboxIntro": "Use this page as an inbox: jot loose ideas, links, and thoughts to review later.",
+  "vaultStarterNotesInboxSection": "How to use it",
+  "vaultStarterNotesInboxBullet1": "Write one idea per bullet or short paragraph.",
+  "vaultStarterNotesInboxBullet2": "When an idea matures, create a dedicated page and link it.",
+  "vaultStarterNotesInboxBullet3": "Clear the inbox in brief weekly reviews.",
+  "vaultStarterNotesInboxTodo1": "Add three new ideas",
+  "vaultStarterNotesInboxTodo2": "Move one idea to its own page",
+  "vaultStarterNotesInboxCallout": "Do not aim for perfection when dumping: the inbox is for thinking out loud.",
+  "vaultStarterNotesCaptureTitle": "Quick capture",
+  "vaultStarterNotesCaptureHeading": "A note in seconds",
+  "vaultStarterNotesCaptureIntro": "Minimal template to note something with context, source, and next steps.",
+  "vaultStarterNotesCaptureSection": "Suggested structure",
+  "vaultStarterNotesCaptureBullet1": "Short title and paragraph with the main detail.",
+  "vaultStarterNotesCaptureBullet2": "Quote or callout block for the key takeaway.",
+  "vaultStarterNotesCaptureBullet3": "Optional action list if it applies.",
+  "vaultStarterNotesCaptureTodo1": "Complete the main paragraph",
+  "vaultStarterNotesCaptureTodo2": "Add tags or link related pages",
+  "vaultStarterNotesCaptureCallout": "Try the / menu to insert a list or table without changing blocks.",
+  "vaultStarterTasksDashboardTitle": "Task board",
+  "vaultStarterTasksDashboardHeading": "What to do now",
+  "vaultStarterTasksDashboardIntro": "Centralize todos with todo blocks, dates in properties, and visual priority.",
+  "vaultStarterTasksDashboardSection": "Good practices",
+  "vaultStarterTasksDashboardBullet1": "Separate today, this week, and someday tasks.",
+  "vaultStarterTasksDashboardBullet2": "Use checklists for small repeatable steps.",
+  "vaultStarterTasksDashboardBullet3": "Open the vault task view to see everything together.",
+  "vaultStarterTasksDashboardTodo1": "Add three tasks with different priority",
+  "vaultStarterTasksDashboardTodo2": "Mark one as completed",
+  "vaultStarterTasksDashboardCallout": "Tasks can also live inside project pages.",
+  "vaultStarterTasksWeeklyTitle": "Weekly review",
+  "vaultStarterTasksWeeklyHeading": "Close the week with clarity",
+  "vaultStarterTasksWeeklyIntro": "Review what was done, what is pending, and what comes next week.",
+  "vaultStarterTasksWeeklySection": "Suggested agenda",
+  "vaultStarterTasksWeeklyBullet1": "List of wins and blockers from the week.",
+  "vaultStarterTasksWeeklyBullet2": "Three priorities for the next seven days.",
+  "vaultStarterTasksWeeklyBullet3": "Short notes to delegate or postpone.",
+  "vaultStarterTasksWeeklyTodo1": "Complete the week summary",
+  "vaultStarterTasksWeeklyTodo2": "Pick the number one Monday priority",
+  "vaultStarterTasksWeeklyCallout": "A 15-minute review is usually enough to keep the system alive.",
+  "vaultStarterProjectsHubTitle": "Project hub",
+  "vaultStarterProjectsHubHeading": "Work overview",
+  "vaultStarterProjectsHubIntro": "Group goal, status, risks, and links to child pages for each project.",
+  "vaultStarterProjectsHubSection": "Useful sections",
+  "vaultStarterProjectsHubBullet1": "Executive summary in the first paragraph.",
+  "vaultStarterProjectsHubBullet2": "Deliverable list with checklists.",
+  "vaultStarterProjectsHubBullet3": "Links to meetings, decisions, and docs.",
+  "vaultStarterProjectsHubTodo1": "Define the project goal",
+  "vaultStarterProjectsHubTodo2": "Create the first deliverable subpage",
+  "vaultStarterProjectsHubCallout": "Duplicate this page as a template for new projects.",
+  "vaultStarterProjectsMeetingTitle": "Meeting notes",
+  "vaultStarterProjectsMeetingHeading": "Meeting with context",
+  "vaultStarterProjectsMeetingIntro": "Template for attendees, agenda, decisions, and actions with owner.",
+  "vaultStarterProjectsMeetingSection": "During the meeting",
+  "vaultStarterProjectsMeetingBullet1": "Note decisions in callouts to find them later.",
+  "vaultStarterProjectsMeetingBullet2": "Turn agreements into todos with dates if needed.",
+  "vaultStarterProjectsMeetingBullet3": "Link the meeting from the project hub.",
+  "vaultStarterProjectsMeetingTodo1": "Fill attendees and agenda",
+  "vaultStarterProjectsMeetingTodo2": "Log at least one action with owner",
+  "vaultStarterProjectsMeetingCallout": "If you record audio, try meeting note blocks with transcription.",
+  "vaultStarterKnowledgeIndexTitle": "Content index",
+  "vaultStarterKnowledgeIndexHeading": "Map of your knowledge",
+  "vaultStarterKnowledgeIndexIntro": "Index page with links to topics, areas, and note collections.",
+  "vaultStarterKnowledgeIndexSection": "How to maintain it",
+  "vaultStarterKnowledgeIndexBullet1": "Group by broad areas and link child sheets.",
+  "vaultStarterKnowledgeIndexBullet2": "Add a one-line summary under each link.",
+  "vaultStarterKnowledgeIndexBullet3": "Review the index when creating new pages.",
+  "vaultStarterKnowledgeIndexTodo1": "Add three topics to the index",
+  "vaultStarterKnowledgeIndexTodo2": "Create the first topic sheet",
+  "vaultStarterKnowledgeIndexCallout": "A good index reduces friction when finding old ideas.",
+  "vaultStarterKnowledgeTopicTitle": "Topic sheet",
+  "vaultStarterKnowledgeTopicHeading": "Go deeper on a concept",
+  "vaultStarterKnowledgeTopicIntro": "Structure to define, exemplify, and link a topic with others.",
+  "vaultStarterKnowledgeTopicSection": "Suggested sections",
+  "vaultStarterKnowledgeTopicBullet1": "Brief definition and why it matters.",
+  "vaultStarterKnowledgeTopicBullet2": "Examples, counterexamples, and references.",
+  "vaultStarterKnowledgeTopicBullet3": "Open questions or gaps to research.",
+  "vaultStarterKnowledgeTopicTodo1": "Write the definition in one sentence",
+  "vaultStarterKnowledgeTopicTodo2": "Link two related topics",
+  "vaultStarterKnowledgeTopicCallout": "Sheets mature over time: revisit them after reading or experimenting.",
+  "vaultStarterKnowledgeReadingTitle": "Reading notes",
+  "vaultStarterKnowledgeReadingHeading": "What you are reading",
+  "vaultStarterKnowledgeReadingIntro": "Log source, key ideas, and how to apply them in work or study.",
+  "vaultStarterKnowledgeReadingSection": "Template",
+  "vaultStarterKnowledgeReadingBullet1": "Metadata: title, author, and link.",
+  "vaultStarterKnowledgeReadingBullet2": "Three ideas you want to keep.",
+  "vaultStarterKnowledgeReadingBullet3": "One concrete action after finishing.",
+  "vaultStarterKnowledgeReadingTodo1": "Note the current source",
+  "vaultStarterKnowledgeReadingTodo2": "Extract at least two quotes or ideas",
+  "vaultStarterKnowledgeReadingCallout": "Link readings from the index to see your living library.",
+  "vaultStarterJournalDailyTitle": "Daily journal",
+  "vaultStarterJournalDailyHeading": "Today on one page",
+  "vaultStarterJournalDailyIntro": "Brief space to record how the day went, what you learned, and what you appreciate.",
+  "vaultStarterJournalDailySection": "Optional prompts",
+  "vaultStarterJournalDailyBullet1": "What mattered most today?",
+  "vaultStarterJournalDailyBullet2": "What was harder than expected?",
+  "vaultStarterJournalDailyBullet3": "What do I want to repeat or avoid tomorrow?",
+  "vaultStarterJournalDailyTodo1": "Write at least three lines about today",
+  "vaultStarterJournalDailyTodo2": "Add one highlight moment",
+  "vaultStarterJournalDailyCallout": "Consistency matters more than length: one honest paragraph is enough.",
+  "vaultStarterJournalMonthlyTitle": "Monthly reflection",
+  "vaultStarterJournalMonthlyHeading": "Look back at the month",
+  "vaultStarterJournalMonthlyIntro": "Close the month reviewing wins, learnings, and adjustments for the next.",
+  "vaultStarterJournalMonthlySection": "Suggested blocks",
+  "vaultStarterJournalMonthlyBullet1": "Three moments you want to remember.",
+  "vaultStarterJournalMonthlyBullet2": "One habit that worked and one to change.",
+  "vaultStarterJournalMonthlyBullet3": "One realistic goal for the coming month.",
+  "vaultStarterJournalMonthlyTodo1": "List two wins from the month",
+  "vaultStarterJournalMonthlyTodo2": "Pick one focus for next month",
+  "vaultStarterJournalMonthlyCallout": "You can duplicate this page each month and keep the history.",
+  "vaultStarterStudyCourseTitle": "Course notes",
+  "vaultStarterStudyCourseHeading": "One course, one root page",
+  "vaultStarterStudyCourseIntro": "Organize modules, concepts, and exercises under a course page.",
+  "vaultStarterStudyCourseSection": "Structure",
+  "vaultStarterStudyCourseBullet1": "Syllabus summary and calendar.",
+  "vaultStarterStudyCourseBullet2": "Subpages per topic or session.",
+  "vaultStarterStudyCourseBullet3": "List of open questions.",
+  "vaultStarterStudyCourseTodo1": "Name the course and teacher or platform",
+  "vaultStarterStudyCourseTodo2": "Create the first topic subpage",
+  "vaultStarterStudyCourseCallout": "Combine notes with code or equation blocks when needed.",
+  "vaultStarterStudyPlanTitle": "Study plan",
+  "vaultStarterStudyPlanHeading": "This study week",
+  "vaultStarterStudyPlanIntro": "Plan sessions, reviews, and assessments with todos and dates.",
+  "vaultStarterStudyPlanSection": "Suggested rhythm",
+  "vaultStarterStudyPlanBullet1": "25–50 minute study blocks.",
+  "vaultStarterStudyPlanBullet2": "Spaced review of previous topics.",
+  "vaultStarterStudyPlanBullet3": "Practice tests before exams.",
+  "vaultStarterStudyPlanTodo1": "Define three study sessions",
+  "vaultStarterStudyPlanTodo2": "Mark the next review on the calendar",
+  "vaultStarterStudyPlanCallout": "Adjust the plan each Sunday: little text, lots of clarity.",
+  "vaultRecoveryTitle": "Could not open vault",
+  "vaultRecoveryBody": "The active vault could not be read. Try restoring a local copy, importing a backup, or exporting what remains on disk.",
+  "vaultRecoveryRestoreBak": "Restore local copy (.bak)",
+  "vaultRecoveryRestoreBakFail": "No valid .bak copy or restore failed.",
+  "vaultRecoveryRestoreZip": "Restore from backup file",
+  "vaultRecoveryExportEmergency": "Export emergency backup",
+  "vaultRecoveryExportOk": "Backup saved: {path}",
+  "@vaultRecoveryExportOk": {
+    "placeholders": {
+      "path": {"type": "String"}
+    }
+  },
+  "vaultRecoveryOpenDataFolder": "Open data folder",
+  "saveStatusIdle": "Saved",
+  "saveStatusPending": "Pending changes",
+  "saveStatusSaving": "Saving…",
+  "saveStatusSaved": "Saved",
+  "saveStatusError": "Save failed",
+  "settingsSearchNoResults": "No matching settings found",
+  "settingsSearchResultsTitle": "Search Results",
+  "settingsSearchThemeTitle": "App Theme",
+  "settingsSearchThemeDesc": "Choose between light, dark, or system default theme.",
+  "settingsSearchLangTitle": "App Language",
+  "settingsSearchLangDesc": "Change the default language of the interface.",
+  "settingsSearchAiTitle": "Enable AI Services",
+  "settingsSearchAiDesc": "Enable or disable integration with local or cloud language models.",
+  "settingsSearchQuickUnlockTitle": "Quick Unlock",
+  "settingsSearchQuickUnlockDesc": "Configure fingerprint, face recognition, or PIN unlock.",
+  "settingsSearchCloudBackupTitle": "Cloud Backup",
+  "settingsSearchCloudBackupDesc": "Automatically backup your vaults securely in real-time.",
+  "settingsSearchJiraTitle": "Connect Jira",
+  "settingsSearchJiraDesc": "Import your tasks and issues directly into Folio.",
+  "settingsSearchYouTrackTitle": "Connect YouTrack",
+  "settingsSearchYouTrackDesc": "Manage your development issues from within Folio.",
+  "aiPersonaLabel": "Assistant Personality (Persona)",
+  "aiPersonaQuill": "Quill (Folio general assistant)",
+  "aiPersonaQuillShort": "Quill (General assistant)",
+  "aiPersonaTranslator": "Translator (Text translation)",
+  "aiPersonaTranslatorShort": "Expert translator",
+  "aiPersonaSummarizer": "Summarizer (Key bullet points generation)",
+  "aiPersonaSummarizerShort": "Text summarizer",
+  "aiPersonaCoder": "Coder (Technical assistance and code)",
+  "aiPersonaCoderShort": "Technical developer",
+  "aiPersonaCustom": "Custom prompt (Set your own rules)",
+  "aiPersonaCustomShort": "Custom prompt",
+  "aiPersonaCustomPromptLabel": "Custom system instructions (System Prompt):",
+  "aiPersonaCustomPromptHint": "E.g. You are an expert math teacher...",
+  "aiDictationMicError": "Microphone access denied.",
+  "aiDictationWhisperNotReady": "Whisper model not ready. Please download it in Settings -> Transcription.",
+  "aiDictationNoVoiceDetected": "No voice detected or error during transcription.",
+  "aiDictationRecordingStopTooltip": "Stop recording",
+  "aiDictationRecordingMicTooltip": "Voice dictation",
+  "driveExportToDisk": "Export to disk…",
+  "driveRootPath": "/ (root)",
+  "driveDetailsTitle": "Details",
+  "driveDetailType": "Type",
+  "driveDetailSize": "Size",
+  "driveDetailAdded": "Added",
+  "driveDetailSource": "Source",
+  "driveDetailSourceImported": "Imported from vault",
+  "driveDetailSourceUploaded": "Uploaded",
+  "driveDetailFolders": "Folders",
+  "driveDetailFiles": "Files",
+  "driveDetailFolderType": "Folder",
+  "driveFileTypeImage": "Image",
+  "driveFileTypeVideo": "Video",
+  "driveFileTypeAudio": "Audio",
+  "driveFileTypeFile": "File",
+  "driveDeleteEntryNamed": "Delete \"{name}\"?",
+  "@driveDeleteEntryNamed": {"placeholders": {"name": {"type": "String"}}}
 }

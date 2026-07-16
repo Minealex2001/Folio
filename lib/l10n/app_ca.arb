@@ -14,6 +14,35 @@
   "continueAction": "Continua",
   "cancel": "Cancel·la",
   "retry": "Torna-ho a provar",
+  "skip": "Omet",
+  "onboardingProgressSemantics": "Pas {current} de {total}",
+  "@onboardingProgressSemantics": {
+    "placeholders": {
+      "current": {"type": "int"},
+      "total": {"type": "int"}
+    }
+  },
+  "welcomeOptionCreateTitle": "Crea un quadern nou",
+  "welcomeOptionCreateBody": "Comença amb un quadern buit xifrat en aquest dispositiu.",
+  "welcomeOptionImportTitle": "Tinc dades per importar",
+  "welcomeOptionImportBody": "Restaura des d’una còpia, Folio Cloud o una exportació de Notion.",
+  "welcomeNewVaultTitle": "Quadern nou",
+  "welcomeNewVaultBody": "Trieu una contrasenya mestra i, si voleu, pàgines d’ajuda inicials. La resta d’ajustos es poden canviar després a Configuració.",
+  "newVaultLeftPanelTitle": "Quadern nou",
+  "newVaultLeftPanelBody": "Crea un quadern xifrat addicional en aquest dispositiu.",
+  "importSourceTitle": "On són les teves dades?",
+  "importSourceBody": "Trieu un origen. La resta d’ajustos es poden canviar després a Configuració.",
+  "importSourceBackupSubtitle": "Una còpia .zip exportada des de Folio en un altre dispositiu.",
+  "importSourceCloudSubtitle": "Llista i descarrega una còpia des del compte de Folio Cloud.",
+  "importSourceNotionSubtitle": "Una exportació HTML/Markdown de Notion en un fitxer .zip.",
+  "onboardingAppearanceTitle": "Aparença",
+  "onboardingAppearanceBody": "Trieu el brill del tema i el color d’accent. Es pot afinar després a Configuració.",
+  "onboardingSecurityTitle": "Seguretat",
+  "onboardingSecurityBody": "Configureu el bloqueig automàtic mentre Folio està obert i en minimitzar la finestra.",
+  "onboardingBackupsTitle": "Còpies programades",
+  "onboardingBackupsBody": "Opcionalment activeu còpies xifrades automàtiques en un interval. Les carpetes i la pujada al núvol es poden canviar a Configuració.",
+  "onboardingSystemTitle": "Comportament a Windows",
+  "onboardingSystemBody": "Preferències de safata i notificacions de Folio a Windows.",
   "settings": "Configuració",
   "lockNow": "Bloqueja",
   "pageHistory": "Historial de la pàgina",
@@ -44,12 +73,13 @@
     }
   },
   "createStarterPagesTitle": "Crea pàgines d'ajuda inicials",
-  "createStarterPagesBody": "Afegeix una petita guia amb exemples, dreceres i capacitats del Folio. Pots suprimir aquestes pàgines més tard.",
+  "createStarterPagesBody": "Afegeix una guia inicial personalitzada segons com faràs servir Folio. Pots suprimir aquestes pàgines més tard.",
   "passwordLabel": "Contrasenya",
   "confirmPasswordLabel": "Confirma la contrasenya",
   "next": "Següent",
   "readyTitle": "Tot a punt",
   "readyBody": "Es crearà una caixa forta xifrada en aquest dispositiu. Més tard podràs afegir Windows Hello, biometria o una clau de pas per a un desbloqueig més ràpid (Configuració).",
+  "readyBodyPlainVault": "Es crearà una caixa forta sense xifrar en aquest dispositiu. Podràs canviar més opcions a Configuració quan vulguis.",
   "quillIntroTitle": "Coneix el Quill",
   "quillIntroBody": "El Quill és l'assistent integrat del Folio. Pot ajudar-te a escriure, editar i entendre les teves pàgines, i també respondre preguntes sobre com utilitzar l'aplicació.",
   "quillIntroCapabilityWrite": "Pot redactar, resumir o reescriure contingut dins de les teves pàgines.",
@@ -69,11 +99,11 @@
     }
   },
   "passwordMismatchError": "Les contrasenyes no coincideixen.",
-  "passwordMustBeStrongError": "La contrasenya ha de ser forta per continuar.",
+  "passwordMustBeStrongError": "La contrasenya ha de ser com a mínim Bona per continuar.",
   "passwordStrengthLabel": "Seguretat",
   "passwordStrengthVeryWeak": "Molt feble",
   "passwordStrengthWeak": "Feble",
-  "passwordStrengthFair": "Acceptable",
+  "passwordStrengthFair": "Bona",
   "passwordStrengthStrong": "Forta",
   "showPassword": "Mostra la contrasenya",
   "hidePassword": "Amaga la contrasenya",
@@ -95,6 +125,8 @@
   "systemTheme": "Sistema",
   "lightTheme": "Clar",
   "darkTheme": "Fosc",
+  "settingsOledThemeTitle": "Tema OLED",
+  "settingsOledThemeBody": "Fes servir negre pur en mode fosc per estalviar bateria i reduir halos.",
   "language": "Idioma",
   "useSystemLanguage": "Utilitza l'idioma del sistema",
   "spanishLanguage": "Castellà",
@@ -135,7 +167,7 @@
   "@passwordStrengthWithValue": {"placeholders": {"value": {}}},
   "fillAllFieldsError": "Emplena tots els camps.",
   "newPasswordsMismatchError": "Les noves contrasenyes no coincideixen.",
-  "newPasswordMustBeStrongError": "La nova contrasenya ha de ser forta.",
+  "newPasswordMustBeStrongError": "La nova contrasenya ha de ser com a mínim Bona.",
   "newPasswordMustDifferError": "La nova contrasenya ha de ser diferent.",
   "incorrectPasswordError": "Contrasenya incorrecta.",
   "useHelloBiometrics": "Utilitza Hello / biometria",
@@ -194,12 +226,13 @@
   "sidebarVaultsLoading": "Carregant caixes fortes…",
   "sidebarVaultsEmpty": "No hi ha caixes fortes disponibles",
   "forceSyncTooltip": "Força la sincronització",
-  "searchDialogFooterHint": "Retorn obre el resultat destacat · Ctrl+↑ / Ctrl+↓ per navegar · Esc tanca",
+  "searchDialogFooterHint": "Retorn obre el resultat destacat · ↑ / ↓ per navegar · Esc tanca",
   "searchFilterTasks": "Tasques",
   "searchRecentQueries": "Cerques recents",
+  "searchClearRecent": "Esborra les cerques recents",
   "searchShortcutsHelpTooltip": "Dreceres de teclat",
   "searchShortcutsHelpTitle": "Cerca global",
-  "searchShortcutsHelpBody": "Retorn: obre el resultat destacat\nCtrl+↑ o Ctrl+↓: anterior / següent resultat\nEsc: tanca",
+  "searchShortcutsHelpBody": "Retorn: obre el resultat destacat\n↑ o ↓: anterior / següent resultat\nEsc: tanca",
   "renamePageTitle": "Reanomena la pàgina",
   "titleLabel": "Títol",
   "rootPage": "Arrel",
@@ -514,6 +547,8 @@
   "quillTourDismiss": "Entesos",
   "aiExpand": "Expandeix",
   "aiCollapse": "Replega",
+  "sidebarItemExpandedSemantics": "Expandit",
+  "sidebarItemCollapsedSemantics": "Replegat",
   "aiDeleteCurrentChat": "Suprimeix el xat actual",
   "aiNewChat": "Nou",
   "aiAttach": "Adjunta",
@@ -528,6 +563,8 @@
   "aiContextCurrentPageFallback": "Pàgina actual",
   "aiContextAddFile": "Adjunta un fitxer",
   "aiContextAddPage": "Adjunta una pàgina",
+  "aiContextEditorSelection": "Inclou la selecció de l’editor (proper enviament)",
+  "aiContextLastMeetingOnPage": "Inclou l’última reunió de la pàgina (proper enviament)",
   "aiShowPanel": "Mostra el panell d'IA",
   "aiHidePanel": "Amaga el panell d'IA",
   "aiPanelResizeHandle": "Redimensiona el panell d'IA",
@@ -624,6 +661,12 @@
   "taskQuickAddConfirm": "Afegir",
   "taskQuickAddSuccess": "Tasca afegida.",
   "taskQuickAddAliasTargetMissing": "La pàgina d'aquest àlies ja no existeix.",
+  "taskQuickAddTagsLabel": "Etiquetes",
+  "taskQuickAddTagsHint": "Separades per comes (ex.: feina, client)",
+  "taskQuickAddAssigneeLabel": "Assignat a",
+  "taskQuickAddStoryPointsLabel": "Story points",
+  "taskQuickAddEstimatedMinutesLabel": "Minuts estimats",
+  "taskBlockExpandDetailsTitle": "Notes, etiquetes i assignació",
   "taskHubTitle": "Totes les tasques",
   "taskHubClose": "Tancar vista",
   "taskHubDashboardHelpTitle": "Idees tipus dashboard",
@@ -638,6 +681,11 @@
   "taskHubOpen": "Obrir",
   "taskHubMarkDone": "Fet",
   "taskHubIncludeTodos": "Incloure checklists",
+  "vaultTaskHubSearchHint": "Cerca per títol, pàgina, etiqueta o assignat",
+  "vaultTaskPresetNext7Days": "Propers 7 dies",
+  "vaultTaskPresetNoDueDate": "Sense data",
+  "taskVaultMoveToPage": "Mou a una altra pàgina…",
+  "taskVaultMovePickTitle": "Trieu la pàgina de destinació",
   "sidebarQuickAddTask": "Tasca ràpida",
   "sidebarTaskHub": "Totes les tasques",
   "shortcutTestAction": "Prova",
@@ -668,12 +716,13 @@
   "scheduledVaultBackupTitle": "Còpia xifrada programada",
   "scheduledVaultBackupSubtitle": "Mentre la caixa forta estigui desbloquejada, el Folio la copia automàticament amb l'interval triat. Activa la còpia a carpeta, al núvol, o totes dues.",
   "scheduledVaultBackupFolderTitle": "Còpia a carpeta",
-  "scheduledVaultBackupFolderSubtitle": "Desa una còpia xifrada en ZIP a la carpeta configurada a cada interval.",
+  "scheduledVaultBackupFolderSubtitle": "Desa una còpia xifrada incremental (pack) a la carpeta configurada.",
   "scheduledVaultBackupChooseFolder": "Carpeta de còpia de seguretat",
   "scheduledVaultBackupClearFolderTooltip": "Treure carpeta",
   "scheduledVaultBackupCloudOnlyTitle": "Còpies programades només al núvol",
-  "scheduledVaultBackupCloudOnlySubtitle": "No desa ZIPs al disc. Puja còpies només al núvol.",
+  "scheduledVaultBackupCloudOnlySubtitle": "No desa còpies al disc. Puja còpies incrementals només al núvol.",
   "scheduledVaultBackupIntervalLabel": "Interval entre còpies",
+  "scheduledVaultBackupEveryChange": "En cada canvi",
   "scheduledVaultBackupEveryNMinutes": "{n, plural, one{1 minut} other{{n} minuts}}",
   "@scheduledVaultBackupEveryNMinutes": {
     "placeholders": {
@@ -699,6 +748,84 @@
   "vaultBackupRunNowTile": "Executa la còpia programada ara",
   "vaultBackupRunNowSubtitle": "Executa la còpia de seguretat ara (al disc i/o al núvol) sense esperar a l'interval.",
   "vaultBackupRunNowNeedFolder": "Tria una carpeta local o activa “Puja també a Folio Cloud” per a còpies només al núvol.",
+  "vaultBackupProgressDialogTitle": "Còpia en curs",
+  "vaultBackupProgressCompactHint": "Els detalls apareixen a la consola de depuració.",
+  "vaultBackupProgressLocalZipStart": "S’està creant el ZIP a la carpeta configurada…",
+  "vaultBackupProgressLocalZipDone": "ZIP a la carpeta finalitzat.",
+  "vaultBackupProgressNetworkStart": "Enviant còpia al destí de xarxa…",
+  "vaultBackupProgressNetworkDone": "Còpia al destí de xarxa finalitzada.",
+  "vaultBackupRunNowNeedDestination": "Configura una carpeta de xarxa, WebDAV o activa «Còpia a Folio Cloud».",
+  "remoteBackupConfigTitle": "Destí NAS o servidor",
+  "remoteBackupTabFolder": "Carpeta de xarxa",
+  "remoteBackupTabWebdav": "WebDAV",
+  "remoteBackupNetworkPathLabel": "Ruta de carpeta",
+  "remoteBackupNetworkPathHint": "Ex. Z:\\backups\\folio o \\\\nas\\backups\\folio",
+  "remoteBackupCredentialsTitle": "Credencials del servidor",
+  "remoteBackupUsernameLabel": "Usuari",
+  "remoteBackupPasswordLabel": "Contrasenya",
+  "remoteBackupDomainLabel": "Domini",
+  "remoteBackupDomainOptional": "Opcional (Windows/SMB)",
+  "remoteBackupRequiresAuth": "El servidor requereix usuari i contrasenya",
+  "remoteBackupRequiresAuthSubtitle": "Activa-ho si Folio ha d'autenticar-se (còpies programades sense unitat montada).",
+  "remoteBackupMountedDriveHint": "Si ja has muntat la unitat al sistema, pots deixar les credencials buides.",
+  "remoteBackupTestConnection": "Provar connexió",
+  "remoteBackupTestConnectionOk": "Connexió correcta.",
+  "remoteBackupTestConnectionFail": "No s'ha pogut connectar: {error}",
+  "@remoteBackupTestConnectionFail": {"placeholders": {"error": {}}},
+  "remoteBackupWebdavUrlLabel": "URL del servidor WebDAV",
+  "remoteBackupWebdavPathLabel": "Carpeta remota",
+  "remoteBackupWebdavTitle": "Còpia a WebDAV",
+  "remoteBackupWebdavSubtitle": "Puja còpies xifrades al NAS o servidor (Ugreen: activa WebDAV al panell, ports 5005/5006).",
+  "remoteBackupRetentionLabel": "Còpies a conservar",
+  "remoteBackupRetentionSubtitle": "A cada destí de xarxa; 0 = sense límit.",
+  "remoteBackupUgreenHelp": "A Ugreen NAS: crea un usuari amb permís d'escriptura i usa HTTPS si està disponible.",
+  "remoteBackupSave": "Desar destí",
+  "remoteBackupConfigureFolder": "Configurar carpeta de xarxa",
+  "remoteBackupConfigureWebdav": "Configurar WebDAV",
+  "remoteBackupRestoreTitle": "Còpies al NAS o servidor",
+  "remoteBackupRestoreFromFolder": "Carpeta",
+  "remoteBackupRestoreFromWebdav": "WebDAV",
+  "remoteBackupRestoreEmpty": "No hi ha còpies Folio en aquest destí.",
+  "remoteBackupRestoreDownload": "Descarregar",
+  "remoteBackupRestoreImportNew": "Importar com a llibreta nova",
+  "remoteBackupRestoreImportOverwrite": "Sobreescriure llibreta activa",
+  "remoteBackupRestoreOpen": "Restaurar des del NAS o servidor",
+  "remoteBackupRestoreIncrementalPackTitle": "Còpia incremental ({vaultId})",
+  "@remoteBackupRestoreIncrementalPackTitle": {
+    "placeholders": {
+      "vaultId": {"type": "String"}
+    }
+  },
+  "remoteBackupRestoreIncrementalPackSubtitle": "Pack incremental",
+  "remoteBackupExportDestinationTitle": "On vols desar la còpia?",
+  "remoteBackupExportToLocalFile": "Fitxer en aquest equip",
+  "remoteBackupExportToFolder": "Carpeta o NAS configurats",
+  "remoteBackupExportToWebdav": "Servidor WebDAV configurat",
+  "remoteBackupEnterNetworkPath": "Introduir ruta de xarxa",
+  "remoteBackupDialogClose": "Tancar",
+  "remoteBackupDialogRefresh": "Actualitzar",
+  "vaultCloudPackProgressPreparing": "S’està preparant la pujada al núvol…",
+  "vaultCloudPackProgressPersisting": "S’estan desant els canvis locals de la caixa…",
+  "vaultCloudPackProgressFingerprint": "S’està calculant la petjada del contingut…",
+  "vaultCloudPackProgressFetchingMeta": "S’està consultant l’estat a Folio Cloud…",
+  "vaultCloudPackProgressSkippedUpToDate": "Res a pujar: el núvol ja té aquesta versió.",
+  "vaultCloudPackProgressRestoreWrap": "S’estan preparant les claus de recuperació per altres dispositius…",
+  "vaultCloudPackProgressIndexingLocal": "S’està inventariant els fitxers locals…",
+  "vaultCloudPackProgressDownloadingManifest": "S’està descarregant l’inventari anterior del núvol…",
+  "vaultCloudPackProgressBlobManifest": "Manifest de la còpia",
+  "vaultCloudPackProgressBlobVaultKeys": "Claus de la caixa (vault.keys)",
+  "vaultCloudPackProgressBlobVaultData": "Dades xifrades de la caixa (vault.bin)",
+  "vaultCloudPackProgressBlobVaultMode": "Mode de la caixa",
+  "vaultCloudPackProgressBlobAttachment": "Adjunt: {name}",
+  "@vaultCloudPackProgressBlobAttachment": {"placeholders": {"name": {"type": "String"}}},
+  "vaultCloudPackProgressBlobAttachmentAnonymous": "Adjunt",
+  "vaultCloudPackProgressUploadingBlobProgress": "S’està pujant la part {current} de {total}: {part}",
+  "@vaultCloudPackProgressUploadingBlobProgress": {"placeholders": {"current": {"type": "int"}, "total": {"type": "int"}, "part": {"type": "String"}}},
+  "vaultCloudPackProgressUploadingSnapshot": "S’està pujant l’índex de la còpia (snapshot)…",
+  "vaultCloudPackProgressFinalizing": "S’està registrant la còpia al servidor…",
+  "vaultCloudPackProgressCleaningBlobs": "S’estan eliminant dades antigues al núvol…",
+  "vaultCloudPackProgressUpdatingIndex": "S’està actualitzant l’índex de còpies…",
+  "vaultCloudPackProgressComplete": "Còpia al núvol completada.",
   "vaultIdentitySyncTitle": "Sincronització",
   "vaultIdentitySyncBody": "Introdueix la contrasenya de la caixa (o Hello / clau de pas) per continuar.",
   "vaultIdentityCloudBackupTitle": "Còpies al núvol",
@@ -966,6 +1093,29 @@
   "@folioCloudInkCount": {"placeholders": {"count": {"type": "int"}}},
   "folioCloudPlanActiveHeadline": "Pla mensual de Folio Cloud actiu",
   "folioCloudSubscribeMonthly": "Folio Cloud 4,99 €/mes",
+  "folioCloudSubscribeFamily": "Pla Familiar (4,99 € + 2,99 €/membre al mes)",
+  "folioCloudSubscribeStudent": "Tarifa Estudiant (2,49 €/mes)",
+  "folioCloudPlanActiveStudent": "Subscripció d'Estudiant Activa",
+  "folioCloudPlanActiveFamily": "Subscripció Familiar Activa",
+  "folioCloudPlanActiveFamilyMember": "Subscripció Familiar (Membre)",
+  "folioCloudFamilyTitle": "Gestió Familiar",
+  "folioCloudFamilyOwnerNote": "Subscripció familiar activa. Places contractades: {seats}. Membres afegits: {count}/{seats}.",
+  "@folioCloudFamilyOwnerNote": {"placeholders": {"seats": {"type": "int"}, "count": {"type": "int"}}},
+  "folioCloudFamilyMemberNote": "Ets membre de la família de {owner}.",
+  "@folioCloudFamilyMemberNote": {"placeholders": {"owner": {"type": "String"}}},
+  "folioCloudFamilyEmailPlaceholder": "Correu del familiar a convidar",
+  "folioCloudFamilyInviteButton": "Convidar familiar",
+  "folioCloudFamilyRemoveButton": "Eliminar",
+  "folioCloudFamilyLeaveButton": "Sortir de la família",
+  "folioCloudStudentVerifyButton": "Verificar correu estudiant",
+  "folioCloudStudentVerifySuccess": "Compte d'estudiant verificat!",
+  "folioCloudStudentVerifyFail": "El correu no qualifica com a estudiant (.edu o similar).",
+  "folioCloudStudentVerifyDialogTitle": "Verificació d'estudiant",
+  "folioCloudStudentVerifyDialogDesc": "Introdueix la teva adreça de correu electrònic institucional per verificar la teva elegibilitat a la tarifa per a estudiants de Folio Cloud.",
+  "folioCloudStudentVerifyDialogLabel": "Correu electrònic institucional",
+  "folioCloudStudentVerifyDialogHint": "usuari@uji.es, usuari@universitat.edu",
+  "folioCloudStudentVerifyDialogHelp": "Admet dominis acadèmics universitaris espanyols i dominis globals.",
+  "folioCloudStudentVerifyDialogAction": "Verificar ara",
   "folioCloudPitchScreenTitle": "Folio Cloud",
   "folioCloudPitchHeadline": "La teva caixa es manté local. El núvol funciona quan tu vols.",
   "folioCloudPitchSubhead": "Un pla mensual desbloqueja còpies xifrades, IA al núvol amb saldo mensual d'ink i publicació web — només per al que decideixis compartir.",
@@ -998,11 +1148,17 @@
   "folioCloudPurchaseChannelStoreNotConfigured": "L’opció de la Botiga no està configurada en aquesta compilació (manquen ids de producte).",
   "folioCloudPurchaseChannelStoreNotConfiguredHint": "Compila amb --dart-define=MS_STORE_… o usa el pagament al navegador.",
   "folioCloudMicrosoftStoreSyncHint": "A Windows, «Actualitzar» també sincronitza la Microsoft Store (mateix botó que Stripe).",
-  "folioCloudUploadEncryptedBackup": "Fes una còpia al núvol ara",
-  "folioCloudUploadEncryptedBackupSubtitle": "Folio crea una còpia xifrada de la caixa oberta i la puja — sense exportació ZIP manual.",
+  "folioCloudIncrementalBackupManualHint": "Per pujar ara una còpia incremental xifrada (sense exportar .zip), ves a Configuració → Llibreta i toca «{actionTitle}»; allà configures carpeta local i/o Folio Cloud.",
+  "@folioCloudIncrementalBackupManualHint": {
+    "placeholders": {
+      "actionTitle": {
+        "type": "String"
+      }
+    }
+  },
   "folioCloudUploadSnackOk": "S'ha desat la còpia de la caixa al núvol.",
   "scheduledVaultBackupCloudSyncTitle": "Còpia a Folio Cloud",
-  "scheduledVaultBackupCloudSyncSubtitle": "En cada interval programat, puja automàticament una còpia xifrada al teu compte de Folio Cloud.",
+  "scheduledVaultBackupCloudSyncSubtitle": "Puja automàticament una còpia xifrada incremental al teu compte de Folio Cloud (segons l'interval o en cada canvi).",
   "folioCloudCloudBackupsList": "Còpies al núvol",
   "folioCloudBackupsUsed": "Utilitzat",
   "folioCloudBackupsLimit": "Límit",
@@ -1024,6 +1180,7 @@
   "onboardingCloudBackupNeedLegacyArchive": "Aquesta llibreta només té una còpia incremental al núvol. Per configurar un dispositiu nou, baixa un arxiu complet (.tar.gz) des d'un altre dispositiu amb Folio o crea'l des de Configuració → exportar.",
   "onboardingCloudBackupNeedRestoreWrap": "Aquesta còpia incremental encara no té clau de recuperació al núvol. Al dispositiu on la vas crear, obre Folio → Configuració → puja la còpia al núvol (introdueix la contrasenya de la llibreta quan es demani). També pots usar un arxiu complet (.zip) si en tens un.",
   "onboardingCloudBackupIncrementalRestoreBody": "Còpia incremental al núvol llesta. Introdueix la contrasenya de la llibreta (la mateixa que fas servir per desbloquejar-la). Si la llibreta era sense xifrar, usa la contrasenya de recuperació que vas definir en pujar la còpia.",
+  "cloudPackRestorePasswordHelper": "Sense contrasenya → deixa-ho en blanc",
   "settingsCloudBackupWrapPasswordTitle": "Recuperació en altres dispositius",
   "settingsCloudBackupWrapPasswordBody": "Introdueix la contrasenya d'aquesta llibreta. Es desarà xifrada al teu compte per restaurar la còpia incremental en instal·lar Folio en un dispositiu nou.",
   "settingsCloudBackupWrapPasswordRequired": "Cal la contrasenya de la llibreta.",
@@ -1051,6 +1208,29 @@
   "onboardingFolioCloudFeatureWebTitle": "Publicació web",
   "onboardingFolioCloudFeatureWebBody": "Publica les pàgines que vulguis i controla què es fa públic. La resta de la teva caixa no es comparteix.",
   "onboardingFolioCloudLaterInSettings": "Ho miraré més tard a Configuració",
+  "onboardingPersonalizeTitle": "Fes-lo teu",
+  "onboardingPersonalizeBody": "Tria com es veu Folio i quan es bloqueja. Pots canviar-ho a Configuració quan vulguis.",
+  "onboardingReliabilityTitle": "Còpies i escriptori",
+  "onboardingReliabilityBody": "Còpies xifrades programades i opcions de la safata a Windows. Omet si prefereixes configurar-ho més tard.",
+  "onboardingPrivacyTrustTitle": "Privadesa i confiança",
+  "onboardingPrivacyTrustBody": "Les teves notes romanen en aquest dispositiu. Les estadístiques anònimes opcionals ajuden a millorar Folio—tu decideixes.",
+  "onboardingPrivacyTrustLocalFirstBadge": "Local-first: Folio funciona completament sense el núvol.",
+  "onboardingReadySummaryCloudActive": "Pla Folio Cloud actiu—còpies, IA al núvol i publicació disponibles.",
+  "onboardingReadySummaryCloudSkipped": "Pots explorar Folio Cloud en qualsevol moment des de Configuració.",
+  "onboardingFolioCloudPitchForNotes": "Protegeix les teves notes amb còpies xifrades al núvol quan vulguis una còpia extra.",
+  "onboardingFolioCloudPitchForJournal": "Protegeix el teu diari amb còpies xifrades sota el teu control.",
+  "onboardingFolioCloudPitchForTasks": "Comparteix projectes i publica pàgines al web quan estiguis preparat.",
+  "onboardingFolioCloudPitchForProjects": "Col·labora i publica pàgines seleccionades—la teva llibreta completa segueix sent privada.",
+  "onboardingFolioCloudPitchForKnowledge": "Usa la IA al núvol per organitzar i explorar la teva base de coneixement.",
+  "onboardingFolioCloudPitchForStudy": "Estudia millor amb IA allotjada i recàrrega mensual de tinta.",
+  "onboardingFolioCloudCtaSubscribe": "Subscriure's — 4,99 €/mes",
+  "onboardingFolioCloudCtaCreateAccount": "Crear compte i explorar",
+  "onboardingFolioCloudSkip": "Continuar sense núvol",
+  "folioCloudPitchPremiumMonthlyLabel": "Pla Premium mensual",
+  "folioCloudCheckoutSuccess": "Pagament completat amb èxit.",
+  "folioCloudPlayStoreCheckoutUnavailableTitle": "Subscripció disponible a l'app d'escriptori",
+  "folioCloudPlayStoreCheckoutUnavailableBody": "Les subscripcions a Folio Cloud encara no es poden comprar des d'aquesta versió d'Android. Subscriu-te des de l'app d'escriptori de Folio i després inicia sessió aquí amb el mateix compte.",
+  "workspaceHomeCloudGuestTeaserCta": "Veure què inclou",
   "collabMenuAction": "Col·laboració en viu",
   "collabSheetTitle": "Col·laboració en viu",
   "collabHeaderSubtitle": "Requereix compte de Folio. Hostatjar requereix un pla; unir-se només requereix el codi. El contingut i el xat estan xifrats d'extrem a extrem; el servidor mai veu el teu text.",
@@ -1086,6 +1266,8 @@
   "updaterOpenApkDownloadQuestion": "Vols obrir la descàrrega de l'APK ara?",
   "updaterManualCheckUnsupportedPlatform": "L'actualitzador integrat només està disponible a Windows i Android.",
   "updaterManualCheckAlreadyLatest": "Ja tens la versió més recent.",
+  "updaterStoreListingOpenFailed": "No s'ha pogut obrir la botiga.",
+  "updaterMicrosoftStoreListingMissing": "Aquesta compilació no inclou l'enllaç a la fitxa de Microsoft Store.",
   "updaterDialogLineCurrentVersion": "Versió actual: {currentVersion}",
   "@updaterDialogLineCurrentVersion": {"placeholders": {"currentVersion": {}}},
   "updaterDialogLineNewVersion": "Versió nova: {releaseVersion}",
@@ -1119,6 +1301,8 @@
   "taskDueTodayReminder": "Venç avui",
   "settingsWindowsNotifications": "Notificacions de Windows",
   "settingsWindowsNotificationsSubtitle": "Mostra alertes natives de Windows quan una tasca venci avui o estigui vençuda",
+  "settingsLaunchAtStartup": "Inicia amb el Windows",
+  "settingsLaunchAtStartupSubtitle": "Obre Folio automàticament en iniciar sessió al Windows",
   "title": "Títol",
   "description": "Descripció",
   "priority": "Prioritat",
@@ -1143,12 +1327,27 @@
   "calloutTypeWarning": "Avís",
   "calloutTypeError": "Error",
   "calloutTypeNote": "Nota",
-  "blockEditorEnterHintNewBlock": "Retorn: bloc nou (en codi: Retorn = línia)",
+  "blockEditorEnterHintNewBlock": "Retorn: bloc nou si està activat (Ctrl+Retorn / Cmd+Retorn: sempre) · en codi: Retorn = línia",
   "blockEditorEnterHintNewLine": "Retorn: línia nova",
-  "blockEditorShortcutsHintMobile": "{enterHint} · / per a blocs · toca el bloc per a més accions",
+  "blockEditorSlashNoMatches": "Sense coincidències",
+  "blockEditorShortcutsHintMobile": "{enterHint} · Ctrl+Retorn / Cmd+Retorn: bloc nou · / per a blocs · toca el bloc per a més accions",
   "@blockEditorShortcutsHintMobile": {"placeholders": {"enterHint": {"type": "String"}}},
-  "blockEditorShortcutsHintDesktop": "{enterHint} · Maj+Retorn: línia · / tipus · # títol (mateixa línia) · - · * · [] · ``` espai · taula/imatge a / · format: barra en enfocar o ** _ <u> ` ~~",
+  "blockEditorShortcutsHintDesktop": "{enterHint} · Ctrl+Retorn / Cmd+Retorn: sempre bloc nou · Maj+Retorn: línia · / tipus · # títol (mateixa línia) · - · * · [] · ``` espai · taula/imatge a / · format: barra flotant en seleccionar text o ** _ <u> ` ~~",
   "@blockEditorShortcutsHintDesktop": {"placeholders": {"enterHint": {"type": "String"}}},
+  "formatToolbarQuillUnlink": "Treure l'enllaç",
+  "formatToolbarQuillTextColor": "Color del text",
+  "formatToolbarQuillFillColor": "Color de fons",
+  "formatToolbarQuillHighlight": "Ressaltar",
+  "formatToolbarQuillHeading1": "Títol 1",
+  "formatToolbarQuillHeading2": "Títol 2",
+  "formatToolbarQuillHeading3": "Títol 3",
+  "formatToolbarQuillBulletList": "Llista amb pics",
+  "formatToolbarQuillNumberedList": "Llista numerada",
+  "formatToolbarQuillChecklist": "Llista de tasques",
+  "formatToolbarQuillQuote": "Cita",
+  "formatToolbarQuillIndentMore": "Augmentar la indentació",
+  "formatToolbarQuillIndentLess": "Reduir la indentació",
+  "formatToolbarQuillClear": "Netejar el format",
   "blockEditorSelectedBlocksBanner": "{count} blocs seleccionats · Maj: interval · Ctrl/Cmd: alternar",
   "@blockEditorSelectedBlocksBanner": {"placeholders": {"count": {"type": "int"}}},
   "blockEditorDuplicate": "Duplicar",
@@ -1216,7 +1415,53 @@
   "blockEditorCmdMentionPageHint": "Insereix un enllaç intern a una pàgina",
   "blockEditorCmdTurnInto": "Converteix el bloc",
   "blockEditorCmdTurnIntoHint": "Tria el tipus de bloc al selector",
+  "blockEditorCmdAiSummarize": "Quill: resumir",
+  "blockEditorCmdAiSummarizeHint": "/ai summarize · resume la pàgina o la selecció",
+  "blockEditorCmdAiContinue": "Quill: continuar",
+  "blockEditorCmdAiContinueHint": "/ai continue · continua escrivint des del cursor",
+  "blockEditorCmdAiExplain": "Quill: explicar",
+  "blockEditorCmdAiExplainHint": "/ai explain · explica el paràgraf o la selecció",
+  "blockEditorCmdAiActionItems": "Quill: action items",
+  "blockEditorCmdAiActionItemsHint": "/ai action items · extreu tasques del text",
+  "blockEditorCmdAiTodo": "Quill: llista de tasques",
+  "blockEditorCmdAiTodoHint": "/ai todo · converteix la selecció en tasques",
+  "blockEditorCmdAiMindmap": "Quill: mapa mental",
+  "blockEditorCmdAiMindmapHint": "/ai mindmap · estructura jeràrquica o canvas",
+  "blockEditorCmdAiTable": "Quill: taula",
+  "blockEditorCmdAiTableHint": "/ai table · taula des de text",
+  "blockEditorCmdAiImprove": "Quill: millorar redacció",
+  "blockEditorCmdAiImproveHint": "/ai improve · claredat i to professional",
+  "blockEditorCmdAiTranslate": "Quill: traduir",
+  "blockEditorCmdAiTranslateHint": "/ai translate · tradueix la selecció o el bloc",
+  "blockEditorAiSlashUnavailable": "Les ordres Quill de l’editor no estan connectades en aquesta vista.",
+  "blockEditorAskQuillTooltip": "Pregunta a Quill sobre la selecció",
+  "aiChatSplitViewTooltip": "Vista dividida: editor i xat alhora",
+  "aiThreadSearchHint": "Cercar fils…",
+  "settingsAiChatSplitViewTitle": "Xat Quill en vista dividida",
+  "settingsAiChatSplitViewSubtitle": "Mostra el xat al costat de l’editor a escriptori.",
+  "settingsAiQuillCopilotExperimentalTitle": "Copilot Quill (experimental)",
+  "settingsAiQuillCopilotExperimentalSubtitle": "Reservat per a suggeriments en temps real (sense inferència automàtica encara).",
+  "aiChatApplyInsertEnd": "Inserir blocs al final",
+  "aiChatApplyReplacePage": "Substituir la pàgina",
+  "aiChatApplyOperations": "Aplicar operacions",
+  "aiChatApplySnapshotSuccess": "Canvis aplicats a la pàgina oberta.",
+  "aiChatApplySnapshotFailure": "No s’han pogut aplicar els canvis (revisa la pàgina o el JSON).",
+  "aiChatHeaderMenuTooltip": "Detalls de l’assistent",
+  "aiChatHeaderDetailsTitle": "Assistent i tinta",
+  "aiChatHeaderProviderSection": "Proveïdor",
+  "aiChatThreadsListTitle": "Fil de conversa",
+  "aiChatThreadsEmptySearch": "Cap fil coincideix amb la cerca.",
+  "aiChatThreadsPickerTooltip": "Llista de fils",
+  "aiChatComposerContextTileTitle": "Context, tinta i adjunts",
+  "aiChatComposerContextTileSubtitle": "Toca per expandir o plegar",
+  "aiMessageActionCopyReply": "Copiar resposta",
+  "aiMessageActionCopyStructuredJson": "Copiar JSON estructurat",
+  "aiMessageActionCopyFull": "Copiar missatge complet",
+  "aiMessageMoreActions": "Més accions",
+  "aiChatInkEstimatedCost": "Cost estimat d’aquest missatge: {cost} gotes.",
+  "@aiChatInkEstimatedCost": {"placeholders": {"cost": {"type": "int"}}},
   "blockEditorMarkTaskComplete": "Marca la tasca com a feta",
+  "blockEditorTodoPlaceholder": "Tasca…",
   "blockEditorCalloutIconPickerTitle": "Icona de l’avís",
   "blockEditorCalloutIconPickerHelper": "Trieu una icona per canviar el to visual del bloc d’avís.",
   "blockEditorIconPickerCustomEmoji": "Emoji personalitzat",
@@ -1229,6 +1474,7 @@
   "blockTypeSectionMedia": "Multimèdia i dades",
   "blockTypeSectionAdvanced": "Avançat i disseny",
   "blockTypeSectionEmbeds": "Integracions",
+  "blockTypeSectionAiQuill": "Quill (IA)",
   "blockTypeParagraphLabel": "Text",
   "blockTypeParagraphHint": "Paràgraf",
   "blockTypeChildPageLabel": "Pàgina",
@@ -1284,6 +1530,84 @@
   "kanbanBackToBoard": "Tornar al tauler",
   "kanbanMultipleBlocksSnack": "Aquesta pàgina té més d'un bloc Kanban; s'utilitza el primer.",
   "kanbanEmptyColumn": "Sense tasques",
+  "blockTypeCanvasLabel": "Llenç infinit",
+  "blockTypeCanvasHint": "Pissarra lliure amb nodes, formes i fletxes",
+  "canvasBlockRowTitle": "Llenç infinit",
+  "canvasBlockRowSubtitle": "{nodes} nodes · {strokes} traços",
+  "@canvasBlockRowSubtitle": {"placeholders": {"nodes": {"type": "int"}, "strokes": {"type": "int"}}},
+  "canvasToolbarOpenEditor": "Obre l'editor de blocs",
+  "canvasToolbarAddNode": "Afegir nota",
+  "canvasToolbarAddShape": "Afegir forma",
+  "canvasToolbarDraw": "Dibuixar",
+  "canvasToolbarSelect": "Seleccionar",
+  "canvasToolbarExport": "Exportar com a imatge",
+  "canvasToolbarConnect": "Connectar nodes",
+  "canvasToolbarAddBlock": "Afegir bloc",
+  "canvasClassicModeBanner": "Editor de blocs: pots moure o eliminar el bloc Llenç.",
+  "canvasBackToCanvas": "Tornar al llenç",
+  "canvasMultipleBlocksSnack": "Aquesta pàgina té més d'un bloc Llenç; s'utilitza el primer.",
+  "canvasExportSuccess": "Llenç exportat correctament",
+  "canvasExportError": "Error en exportar el llenç",
+  "canvasDeleteNodeConfirm": "Eliminar aquest node?",
+  "canvasConnectTapTarget": "Toca el node de destinació per connectar",
+  "canvasEmptyNotePlaceholder": "(nota buida)",
+  "canvasEmptyBlockPlaceholder": "(buit)",
+  "canvasColorPickerTooltip": "Color",
+  "canvasFolioHintWriteHere": "Escriu aquí…",
+  "canvasToolbarMarquee": "Selecció rectangular",
+  "canvasToolbarAddFrame": "Afegir marc",
+  "canvasToolbarLayers": "Capes",
+  "canvasToolbarGroup": "Agrupar",
+  "canvasToolbarUngroup": "Desagrupar",
+  "canvasToolbarUndo": "Desfer",
+  "canvasToolbarRedo": "Refer",
+  "canvasToolbarRotate": "Girar 15°",
+  "canvasToolbarSnap": "Ajustar a la graella",
+  "canvasToolbarTemplate": "Plantilla",
+  "canvasTemplateDialogTitle": "Inserir plantilla",
+  "canvasTemplateMergeHint": "S'afegiran elements al llenç.",
+  "canvasExportPng": "Imatge PNG",
+  "canvasExportSvg": "SVG",
+  "canvasExportPdf": "PDF",
+  "canvasLayersTitle": "Capes",
+  "canvasLayerImageBrief": "Imatge",
+  "canvasEdgeInspector": "Connectors",
+  "canvasEdgeStyleStraight": "Recte",
+  "canvasEdgeStyleArrow": "Fletxa",
+  "canvasEdgeStyleCurve": "Corba",
+  "canvasEdgeStyleBezier": "Bezier",
+  "canvasEdgeLabelHint": "Etiqueta",
+  "canvasDrawInk": "Bolígraf",
+  "canvasDrawHighlighter": "Ressaltador",
+  "canvasDrawEraser": "Esborrador",
+  "canvasCollabRemoteUpdate": "Llenç actualitzat des de la col·laboració",
+  "canvasFrameLabel": "Marc",
+  "canvasRichEmbedBadge": "Contingut enriquit",
+  "canvasMarqueeHint": "Arrossega en l'àrea buida per seleccionar",
+  "canvasTplMindmapBranch": "Branca",
+  "canvasTplFlowStart": "Inici",
+  "canvasTplFlowProcess": "Procés",
+  "canvasTplFlowDecision": "Decisió?",
+  "canvasTplFlowBranchYes": "Branca sí",
+  "canvasTplFlowEnd": "Fi",
+  "canvasTplFlowNo": "No",
+  "canvasTplFlowEdgeYes": "Sí",
+  "canvasTplFlowEdgeNo": "No",
+  "canvasTplJourneyTitle": "User journey",
+  "canvasTplJourneyDiscover": "Descobriment",
+  "canvasTplJourneyConsider": "Consideració",
+  "canvasTplJourneyBuy": "Compra",
+  "canvasTplJourneyRetain": "Retenció",
+  "canvasTplSwotTitle": "Anàlisi SWOT",
+  "canvasTplSwotStrengths": "Fortaleses",
+  "canvasTplSwotWeaknesses": "Debilitats",
+  "canvasTplSwotOpportunities": "Oportunitats",
+  "canvasTplSwotThreats": "Amenaces",
+  "canvasTemplateMindmap": "Mapa mental",
+  "canvasTemplateFlowchart": "Diagrama de flux",
+  "canvasTemplateUserJourney": "User journey",
+  "canvasTemplateSwot": "SWOT",
+  "canvasTplMindmapCenter": "Tema central",
   "blockTypeDriveLabel": "Fitxer Drive",
   "blockTypeDriveHint": "Gestor de fitxers integrat",
   "driveBlockRowTitle": "Fitxer Drive",
@@ -1304,6 +1628,7 @@
   "driveMultipleBlocksSnack": "Aquesta pàgina té més d'un bloc Drive; s'usa el primer.",
   "driveDeleteOriginalsTitle": "Eliminar originals en importar",
   "driveDeleteOriginalsSubtitle": "En pujar fitxers al drive, els originals s'eliminen automàticament del disc.",
+  "driveAllFilesRoot": "Tots els fitxers",
   "blockTypeEquationLabel": "Equació (LaTeX)",
   "blockTypeEquationHint": "Fórmules matemàtiques",
   "blockTypeMermaidLabel": "Diagrama (Mermaid)",
@@ -1429,6 +1754,8 @@
   "createAction": "Crear",
   "confirmAction": "Confirmar",
   "confirmRemoteEndpointTitle": "Confirmar endpoint remot",
+  "confirmRemoteEndpointBody": "Estàs a punt d'habilitar la IA amb un host remot ({host}). El contingut que enviïs pot sortir d'aquest equip.\n\nContinuar?",
+  "@confirmRemoteEndpointBody": {"placeholders": {"host": {}}},
   "shortcutGlobalSearchKeyChord": "Ctrl + Maj + F",
   "updateChannelRelease": "Release",
   "updateChannelBeta": "Beta",
@@ -1594,7 +1921,7 @@
   "settingsSectionUiWorkspace": "Interfície i escriptori",
   "settingsSectionUiWorkspaceHeroDescription": "Tema, idioma, escala, editor, opcions d'escriptori i dreceres de teclat.",
   "settingsSubsectionVaultBackupImport": "Còpies i importació",
-  "settingsSubsectionVaultScheduledLocal": "Còpia programada (local)",
+  "settingsSubsectionVaultScheduledLocal": "Còpia programada",
   "settingsSubsectionDrive": "Drive",
   "settingsSubsectionVaultData": "Dades (zona de perill)",
   "folioCloudSubsectionAccount": "Compte",
@@ -1652,12 +1979,27 @@
   "sidebarPageIconTabImported": "Importats",
   "sidebarPageIconTabAll": "Tots",
   "sidebarPageIconEmptyImported": "Encara no has importat icones a Ajustos.",
-  "sidebarDeletePageMenuTitle": "Suprimir pàgina",
-  "sidebarDeleteFolderMenuTitle": "Suprimir carpeta",
-  "sidebarDeletePageConfirmInline": "Vols suprimir «{title}»? No es pot desfer.",
+  "sidebarDeletePageMenuTitle": "Moure a la paperera",
+  "sidebarDeleteFolderMenuTitle": "Moure carpeta a la paperera",
+  "sidebarDeletePageConfirmInline": "Vols moure «{title}» a la paperera? La podràs restaurar durant 30 dies.",
   "@sidebarDeletePageConfirmInline": {"placeholders": {"title": {}}},
-  "sidebarDeleteFolderConfirmInline": "Vols suprimir la carpeta «{title}»? Les subpàgines passen a l'arrel del quadern.",
+  "sidebarDeleteFolderConfirmInline": "Vols moure la carpeta «{title}» i el seu contingut a la paperera? La podràs restaurar durant 30 dies.",
   "@sidebarDeleteFolderConfirmInline": {"placeholders": {"title": {}}},
+  "sidebarTrashTitle": "Paperera",
+  "sidebarTrashEmpty": "La paperera està buida",
+  "sidebarTrashRetentionHint": "Els elements s'eliminen automàticament al cap de 30 dies.",
+  "sidebarTrashRestore": "Restaurar",
+  "sidebarTrashDeleteForever": "Eliminar definitivament",
+  "sidebarTrashEmptyAction": "Buidar paperera",
+  "sidebarTrashEmptyConfirm": "Vols buidar la paperera? Aquesta acció no es pot desfer.",
+  "sidebarTrashDeleteForeverConfirm": "Vols eliminar «{title}» de forma definitiva? Aquesta acció no es pot desfer.",
+  "@sidebarTrashDeleteForeverConfirm": {"placeholders": {"title": {}}},
+  "sidebarTrashDaysLeft": "Queden {days} dies",
+  "@sidebarTrashDaysLeft": {"placeholders": {"days": {"type": "int"}}},
+  "sidebarTrashOpenTooltip": "Obrir paperera",
+  "sidebarTrashCountBadge": "{count}",
+  "@sidebarTrashCountBadge": {"placeholders": {"count": {"type": "int"}}},
+  "sidebarTrashClose": "Tancar",
   "settingsStripeSubscriptionRefreshed": "Facturació Folio Cloud actualitzada.",
   "settingsStripeBillingPortalUnavailable": "Portal de facturació no disponible.",
   "settingsCouldNotOpenLink": "No s'ha pogut obrir l'enllaç.",
@@ -1675,6 +2017,7 @@
   "settingsCloudBackupSaveDialogTitle": "Desar còpia",
   "settingsCloudBackupDownloadedSnack": "Còpia descarregada.",
   "settingsCloudBackupDeletedSnack": "Còpia eliminada.",
+  "settingsCloudBackupVaultRemovedSnack": "Còpia eliminada. Aquesta llibreta ja no té còpies a Folio Cloud i s'ha eliminat del núvol.",
   "settingsCloudBackupImportedSnack": "Importació completada.",
   "settingsCloudBackupVaultMustBeUnlocked": "La llibreta ha d'estar desbloquejada.",
   "settingsCloudBackupsTotalLabel": "Total: {size}",
@@ -1683,6 +2026,10 @@
   "settingsCloudBackupImportOverwriteBody": "Això sobreescriurà el contingut de la llibreta oberta. Assegura't de tenir una còpia local abans de continuar.",
   "settingsCloudBackupImportRemoteCloudPackIntro": "Aquesta còpia incremental és d'una altra llibreta del teu compte Folio Cloud. Introdueix la contrasenya d'aquesta llibreta per baixar-la (deixa-la en blanc si no està xifrada).",
   "settingsCloudBackupDeleteWarning": "Segur que vols eliminar aquesta còpia del núvol? Aquesta acció no es pot desfer.",
+  "settingsCloudBackupDeleteCloudPackWarning": "Segur que vols eliminar la còpia incremental d'aquesta llibreta? Se n'eliminaran totes les dades al núvol i no la podràs restaurar fins que en puges una de nova. Aquesta acció no es pot desfer.",
+  "settingsCloudBackupsManageHint": "Gestiona les còpies d'aquesta llibreta. En eliminar-ne, s'allibera espai de la teva quota.",
+  "settingsCloudBackupDeleteTooltip": "Eliminar còpia",
+  "settingsCloudBackupsSheetTitle": "Còpies al núvol",
   "settingsPublishedRequiresPlan": "Necessites Folio Cloud amb publicació web activa.",
   "settingsPublishedPagesTitle": "Pàgines publicades",
   "settingsPublishedPagesEmpty": "Encara no hi ha pàgines publicades.",
@@ -1718,7 +2065,7 @@
   "settingsEnterCreatesNewBlockSubtitleWhenDisabled": "Ara Retorn insereix un salt de línia. Maj+Retorn també funciona.",
   "settingsWorkspaceSubsection": "Espai de treball",
   "settingsCustomIconsTitle": "Icones personalitzades",
-  "settingsCustomIconsDescription": "Importa una URL PNG, GIF o WebP, o un data:image compatible copiat des de llocs com notionicons.so. Després la podràs usar com a icona de pàgina o callout.",
+  "settingsCustomIconsDescription": "Importa una URL PNG, GIF o WebP, un data:image compatible copiat des de llocs com notionicons.so, o cerca icones open source amb l'explorador Iconify. Després les podràs usar com a icona de pàgina o callout.",
   "settingsCustomIconsSavedCount": "{count} desats",
   "@settingsCustomIconsSavedCount": {"placeholders": {"count": {"type": "int"}}},
   "settingsCustomIconsChipUrl": "URL PNG, GIF o WebP",
@@ -1738,6 +2085,27 @@
   "settingsCustomIconsDeleteTooltip": "Eliminar icona",
   "settingsCustomIconsReferenceCopiedSnack": "Referència copiada.",
   "settingsCustomIconsCopyToken": "Copiar token",
+  "settingsIconifyTitle": "Explorador Iconify",
+  "settingsIconifyDescription": "Cerca entre milers d'icones open source (Lucide, Tabler, Material, Phosphor…). En triar-ne una s'importa a la teva biblioteca local.",
+  "settingsIconifySearchHint": "Cercar icones",
+  "settingsIconifyCollectionLabel": "Col·lecció",
+  "settingsIconifyCollectionAll": "Totes",
+  "settingsIconifyCollectionLucide": "Lucide",
+  "settingsIconifyCollectionTabler": "Tabler",
+  "settingsIconifyCollectionMdi": "Material Design",
+  "settingsIconifyCollectionPhosphor": "Phosphor",
+  "settingsIconifyCollectionRemix": "Remix",
+  "settingsIconifyCollectionCarbon": "Carbon",
+  "settingsIconifyCollectionIconoir": "Iconoir",
+  "settingsIconifyCollectionFluent": "Fluent UI",
+  "settingsIconifyCollectionSolar": "Solar",
+  "settingsIconifyEmpty": "No hi ha resultats per a aquesta cerca.",
+  "settingsIconifyImportSucceeded": "Icona importada des d'Iconify.",
+  "settingsIconifyImportFailed": "No s'ha pogut importar la icona.",
+  "settingsIconifyAttribution": "Icones per Iconify (open source)",
+  "settingsIconifyOffline": "Sense connexió. Cal xarxa per cercar a Iconify.",
+  "settingsIconifySearchFailed": "No s'ha pogut completar la cerca.",
+  "settingsIconifyLoadMore": "Carregar més",
   "settingsAiHeroQuillWithLocalAlt": "La IA s'executa a Quill Cloud (subscripció amb IA al núvol o tinta comprada). Tria un altre proveïdor a sota per Ollama o LM Studio en local.",
   "settingsAiHeroQuillCloudOnly": "La IA s'executa a Quill Cloud (subscripció amb IA al núvol o tinta comprada).",
   "settingsAiHeroLocalDefault": "Connecta Ollama o LM Studio en local; l'assistent usa el model i el context que configuris aquí.",
@@ -1747,7 +2115,7 @@
   "settingsAiSnackSignInCloudAccount": "Inicia sessió al compte al núvol (Ajustos).",
   "settingsAiProviderSwitchFailed": "No s'ha pogut canviar el proveïdor d'IA: {error}",
   "@settingsAiProviderSwitchFailed": {"placeholders": {"error": {}}},
-  "settingsAboutHeroDescription": "Versió instal·lada, origen d'actualitzacions i comprovació manual de novetats.",
+  "settingsAboutHeroDescription": "Versió del build, notes de la versió i canal d'actualització. Les accions són a la llista de sota.",
   "settingsOpenReleaseNotes": "Veure notes de la versió",
   "settingsUpdateChannelLabel": "Canal",
   "settingsUpdateChannelRelease": "Release",
@@ -1755,6 +2123,9 @@
   "settingsDataHeroDescription": "Accions permanents sobre fitxers locals. Fes una còpia de seguretat abans d'esborrar.",
   "settingsDangerZoneTitle": "Zona de perill",
   "settingsDesktopHeroDescription": "Dreceres globals, safata del sistema i comportament de la finestra a l'escriptori.",
+  "settingsDesktopHeroChipGlobalSearch": "Drecera de cerca",
+  "settingsDesktopHeroChipMinimizeTray": "Comportament en minimitzar",
+  "settingsDesktopHeroChipCloseTray": "Comportament en tancar",
   "settingsShortcutsHeroDescription": "Combinacions només dins de Folio. Prova una tecla abans de desar-la.",
   "settingsShortcutsTestChip": "Provar",
   "settingsIntegrationsChipApprovedPermissions": "Permisos aprovats",
@@ -1820,12 +2191,12 @@
   "settingsAccentPickColor": "Trieu un color predefinit",
   "settingsPrivacySectionTitle": "Privacitat i diagnòstics",
   "settingsTelemetryTitle": "Estadístiques d'ús anònimes",
-  "settingsTelemetrySubtitle": "Ajuda a mesurar instal·lacions i ús de funcions. No s'envia contingut del quadern ni títols.",
+  "settingsTelemetrySubtitle": "Si està actiu, ajuda a mesurar l'ús de funcions. Sempre s'envia un senyal anònim únic d'instal·lació. No es envia contingut del quadern ni títols.",
   "onboardingTelemetryTitle": "Estadístiques d'ús",
-  "onboardingTelemetryBody": "Folio pot enviar analítica anònima per entendre com s'utilitza l'app. Pots canviar-ho en qualsevol moment a Configuració.",
+  "onboardingTelemetryBody": "Si està actiu, Folio pot enviar analítica anònima per entendre com s'utilitza l'app. En el primer inici s'envia igualment un senyal anònim únic d'instal·lació. Pots canviar les estadístiques d'ús en qualsevol moment a Configuració.",
   "onboardingTelemetrySwitchTitle": "Estadístiques d'ús anònimes",
-  "onboardingTelemetrySwitchSubtitle": "Ajuda a mesurar instal·lacions i ús de funcions. No s'envia contingut del quadern ni títols.",
-  "onboardingTelemetryFootnote": "No s'envia contingut del quadern ni títols de pàgines.",
+  "onboardingTelemetrySwitchSubtitle": "Si està actiu, ajuda a mesurar l'ús de funcions. Encara que ho desactivis, es registra una instal·lació anònima única. No es envia contingut del quadern ni títols.",
+  "onboardingTelemetryFootnote": "No es envia contingut del quadern ni títols de pàgines. S'envia un esdeveniment anònim d'instal·lació una vegada per instal·lació, independentment d'aquest ajust.",
   "settingsAutoCrashReportsTitle": "Enviar diagnòstics de fallades automàticament",
   "settingsAutoCrashReportsSubtitle": "Si hi ha un error greu, s'envia un tall del registre a Folio (opcional, limitat per sessió).",
   "settingsReportBugButton": "Informar d'un error",
@@ -1864,4 +2235,544 @@
   ,"@importPdfFailed": {"placeholders": {"error": {"type": "String"}}}
   ,"importPdfNoText": "El PDF no conté text extrectable"
   ,"downloadDesktopApp": "Descarrega l'aplicació d'escriptori"
+  ,"appStoreTitle": "Botiga d'apps"
+  ,"appStoreTabExplore": "Explorar"
+  ,"appStoreTabInstalled": "Instal·lades ({count})"
+  ,"@appStoreTabInstalled": {"placeholders": {"count": {"type": "int"}}}
+  ,"appStoreTooltipRefresh": "Actualitzar"
+  ,"appStoreTooltipInstallFile": "Instal·lar des d'arxiu (.folioapp)"
+  ,"appStoreSearchHint": "Cerca apps…"
+  ,"appStoreNoResults": "No s'han trobat apps."
+  ,"appStoreSectionOfficials": "Oficials"
+  ,"appStoreSectionOfficialsSubtitle": "Integrades a Folio · Sense descàrrega"
+  ,"appStoreSectionCommunity": "Community"
+  ,"appStoreSectionCommunitySubtitle": "Publicades al registry públic"
+  ,"appStoreInstallConfirmTitle": "Instal·lar app local"
+  ,"appStoreInstallConfirmBody": "Aquesta app no ha estat verificada. Instal·la nomsés arxius de fonts de confiança."
+  ,"appStoreInstallButton": "Instal·lar"
+  ,"appStoreInstalledChip": "Instal·lada"
+  ,"appStoreInstallSuccess": "\"{name}\" instal·lada correctament."
+  ,"@appStoreInstallSuccess": {"placeholders": {"name": {"type": "String"}}}
+  ,"appStoreInstallError": "Error: {message}"
+  ,"@appStoreInstallError": {"placeholders": {"message": {"type": "String"}}}
+  ,"appStoreUninstallTitle": "Desinstal·lar app"
+  ,"appStoreUninstallBody": "Desinstal·lar \"{name}\"? S'eliminaran els seus fitxers."
+  ,"@appStoreUninstallBody": {"placeholders": {"name": {"type": "String"}}}
+  ,"appStoreUninstallButton": "Desinstal·lar"
+  ,"appStoreInstalledEmpty": "No hi ha apps instal·lades.\nExplora la botiga o instal·la un .folioapp."
+  ,"appStoreRegistryLoadError": "Error {statusCode} en carregar el registry."
+  ,"@appStoreRegistryLoadError": {"placeholders": {"statusCode": {"type": "int"}}}
+  ,"appStoreRegistryOfflineCache": "Sense connexió. Mostrant la memòria cau local."
+  ,"appStoreLoadError": "Error en carregar la botiga: {error}"
+  ,"@appStoreLoadError": {"placeholders": {"error": {"type": "String"}}}
+  ,"appStoreVerifiedByFolio": "Verificat per Folio"
+  ,"appStoreCapabilitiesTitle": "Capacitats"
+  ,"appStoreConnectionsTitle": "Connexions"
+  ,"appStoreConnected": "Connectat"
+  ,"appStoreNotConnected": "No connectat"
+  ,"appStoreDisconnect": "Desconnectar"
+  ,"appStoreConnect": "Connectar"
+  ,"appStoreInstallFromRegistryTitle": "Instal·lar \"{name}\""
+  ,"@appStoreInstallFromRegistryTitle": {"placeholders": {"name": {"type": "String"}}}
+  ,"appStoreInstallUnverifiedLocalBody": "Aquesta app no s'ha verificat localment. Instal·la només apps de fonts en què confiïs."
+  ,"appStorePermissionsRequested": "Permisos que sol·licita:"
+  ,"appStoreCapabilityBlockTypes": "{count} tipus de bloc"
+  ,"@appStoreCapabilityBlockTypes": {"placeholders": {"count": {"type": "int"}}}
+  ,"appStoreCapabilitySlashCommands": "{count} ordre(s) slash"
+  ,"@appStoreCapabilitySlashCommands": {"placeholders": {"count": {"type": "int"}}}
+  ,"appStoreCapabilityIntegrations": "{count} integració(ns)"
+  ,"@appStoreCapabilityIntegrations": {"placeholders": {"count": {"type": "int"}}}
+  ,"appStoreCapabilityAiTransformers": "{count} transformador(s) IA"
+  ,"@appStoreCapabilityAiTransformers": {"placeholders": {"count": {"type": "int"}}}
+  ,"appStorePasteAccessToken": "Enganxa el teu access token"
+  ,"appStoreTokenLabel": "Token de {name}"
+  ,"@appStoreTokenLabel": {"placeholders": {"name": {"type": "String"}}}
+  ,"appStoreApiKeyTitle": "API Key"
+  ,"appStoreUninstallTooltip": "Desinstal·lar"
+  ,"appStoreVersionPrefix": "v{version}"
+  ,"@appStoreVersionPrefix": {"placeholders": {"version": {"type": "String"}}}
+  ,"releaseNotesTitle": "Notes de la versió"
+  ,"releaseNotesContinue": "Continuar"
+  ,"workspaceEditorReadyHeadline": "El teu espai està llest"
+  ,"settingsIntegrationsNativeTitle": "Integracions natives"
+  ,"telemetryDashboardTitle": "Tauler de telemetria"
+  ,"telemetryDashboardAccessDenied": "Accés denegat"
+  ,"telemetryDashboardStaffOnlyBody": "Només el personal de Folio pot obrir aquesta pantalla."
+  ,"telemetryDashboardFlushTooltip": "Enviar esdeveniments pendents i actualitzar"
+  ,"telemetryDashboardErrorLoading": "No s'han pogut carregar les dades"
+  ,"telemetryDashboardErrorDetail": "{detail}"
+  ,"@telemetryDashboardErrorDetail": {"placeholders": {"detail": {"type": "String"}}}
+  ,"telemetryDashboardNoDataForDate": "Sense dades per a {date}"
+  ,"@telemetryDashboardNoDataForDate": {"placeholders": {"date": {"type": "String"}}}
+  ,"telemetryDashboardNoDataHint": "Utilitza la icona d'enviament per buidar esdeveniments pendents i després actualitza.\nEls totals globals s'actualitzen cada hora (UTC) per a avui i ahir."
+  ,"telemetryDashboardFlushRefresh": "Buidar i actualitzar"
+  ,"telemetryDashboardSectionGlobalTitle": "Estadístiques globals (tots els usuaris)"
+  ,"telemetryDashboardSectionGlobalSubtitle": "Totals de l'agregació horària (UTC)."
+  ,"telemetryDashboardMetricUsers": "Usuaris"
+  ,"telemetryDashboardMetricEvents": "Esdeveniments"
+  ,"telemetryDashboardMetricErrors": "Errors"
+  ,"telemetryDashboardByType": "Per tipus"
+  ,"telemetryDashboardNoEventBreakdown": "Sense desglossament per tipus d'esdeveniment."
+  ,"telemetryDashboardEventTypeUnknown": "Desconegut"
+  ,"settingsTelemetryDashboardListSubtitle": "Mostra estadístiques globals d'ús agregades."
+  ,"telemetryDashboardGlobalMissingHint": "Encara no hi ha totals globals per a aquesta data UTC. Pots revisar dades per usuari i esdeveniments en brut a continuació."
+  ,"telemetryDashboardPerUserDayTitle": "Per usuari (dia seleccionat)"
+  ,"telemetryDashboardPerUserDaySubtitle": "Estadístiques diàries per a {date} (analytics_events/*/stats)."
+  ,"@telemetryDashboardPerUserDaySubtitle": {"placeholders": {"date": {"type": "String"}}}
+  ,"telemetryDashboardRecentEventsTitle": "Últims esdeveniments en brut"
+  ,"telemetryDashboardRecentEventsSubtitle": "Fins a 80 esdeveniments més recents de tots els usuaris amb sessió."
+  ,"telemetryDashboardNoPerUserStats": "No hi ha estadístiques per usuari per a aquesta data."
+  ,"telemetryDashboardNoRecentEvents": "No hi ha esdeveniments a Firestore."
+  ,"telemetryDashboardColUser": "Usuari"
+  ,"telemetryDashboardColEvents": "Esdeveniments"
+  ,"telemetryDashboardColErrors": "Errors"
+  ,"telemetryDashboardColTime": "Hora"
+  ,"telemetryDashboardColType": "Tipus"
+  ,"telemetryDashboardColSummary": "Resum"
+  ,"telemetryDashboardEmptyAll": "No hi ha dades que mostrar. Prova una altra data, buida esdeveniments pendents o comprova que els índexs de Firestore estiguin desplegats."
+  ,"telemetrySentDataCategoriesTitle": "Exemples de categories de telemetria"
+  ,"telemetrySentDataFeatureUsageTitle": "Ús de funcions"
+  ,"telemetrySentDataFeatureUsageBody": "Quan obres l’editor, el tauler, la cerca, els ajustos o altres funcions."
+  ,"telemetrySentDataContentActionsTitle": "Accions sobre el contingut"
+  ,"telemetrySentDataContentActionsBody": "Crear, editar o eliminar notes i taulers."
+  ,"telemetrySentDataSearchesTitle": "Cerques"
+  ,"telemetrySentDataSearchesBody": "Consultes de cerca i ús de filtres."
+  ,"telemetrySentDataSyncTitle": "Sincronització"
+  ,"telemetrySentDataSyncBody": "Estat i durada de la còpia al núvol."
+  ,"telemetrySentDataPerformanceTitle": "Rendiment"
+  ,"telemetrySentDataPerformanceBody": "Durada d’operacions i senyals bàsiques de rendiment."
+  ,"telemetrySentDataErrorsTitle": "Errors"
+  ,"telemetrySentDataErrorsBody": "Errors de l’app i tancaments inesperats (si les estadístiques d'ús estan actives)."
+  ,"telemetrySentDataPrivacyNote": "La teva privacitat importa. No venem aquestes dades ni les usem per a publicitat."
+  ,"telemetrySentDataChannelsNote": "Firebase Analytics usa un identificador anònim d’instal·lació. S'envia una vegada per instal·lació l'esdeveniment folio_install encara que les estadístiques d'ús estiguin desactivades. La resta d'esdeveniments copiats a Firestore només s'envien amb sessió iniciada a Folio Cloud."
+  ,"telemetrySentDataViewTechnicalDetails": "Veure detalls tècnics"
+  ,"telemetrySentDataHideTechnicalDetails": "Amagar detalls tècnics"
+  ,"telemetrySentDataNoEventsYet": "Encara no hi ha esdeveniments desats localment."
+  ,"workspaceRecentPagesSectionTitle": "Recents"
+  ,"workspaceHomeHeadline": "El teu espai"
+  ,"workspaceHomeSubtitle": "Reprèn on ho vas deixar, cerca o comença alguna cosa nova."
+  ,"workspaceHomeSearchHint": "Cercar…"
+  ,"workspaceHomeNoRecentPages": "Encara no hi ha pàgines recents. Crea’n una o usa el cercador."
+  ,"workspaceHomeVisitedAt": "Oberta {dateTime}"
+  ,"@workspaceHomeVisitedAt": {"placeholders": {"dateTime": {"type": "String"}}}
+  ,"workspaceHomeTip0": "Consell: crea una pàgina i usa / per inserir blocs ràpidament."
+  ,"workspaceHomeTip1": "Folio desa els canvis automàticament. Només comença a escriure."
+  ,"workspaceHomeTip2": "Usa cercar per saltar entre pàgines sense perdre el ritme."
+  ,"workspaceHomeTip3": "Les subpàgines ajuden a mantenir cada tema ordenat."
+  ,"workspaceHomeTip4": "Reorganitza pàgines des de la barra lateral i mantén el cofre net en créixer."
+  ,"workspaceHomeTip5": "Les plantilles agilitzen estructures repetides; obre-les des d'accions ràpides."
+  ,"workspaceHomeTip6": "La vista de graf mostra com es enllacen les pàgines; usa-la si et perds."
+  ,"workspaceHomeTip7": "Combina títols, llistes i blocs enriquits perquè les notes llargues es llegeixin millor."
+  ,"workspaceHomeTip8": "Les tasques amb data surten a l'inici; posa dates des de Kanban o blocs de tasca."
+  ,"workspaceHomeTip9": "Bloqueja el cofre en allunyar-te del lloc; la contrasenya no surt d'aquest dispositiu."
+  ,"workspaceHomeTip10": "Exporta una pàgina a Markdown o PDF des de la barra quan vulguis compartir-la."
+  ,"workspaceHomeTip11": "La sincronització entre dispositius alinea còpies; força la sincronització a la barra lateral després d'emparellar."
+  ,"settingsWorkspaceOpenToHomeTitle": "Obrir a l’inici"
+  ,"settingsWorkspaceOpenToHomeSubtitle": "Després de desbloquejar, mostra la pantalla d’inici en lloc de l’última pàgina oberta."
+  ,"workspaceHomeGreetingMorning": "Bon dia"
+  ,"workspaceHomeGreetingAfternoon": "Bona tarda"
+  ,"workspaceHomeGreetingEvening": "Bona tarda"
+  ,"workspaceHomeGreetingNight": "Bona nit"
+  ,"workspaceHomeNoRecentMatch": "Cap pàgina recent coincideix amb el filtre."
+  ,"workspaceHomeGlobalSearchTooltip": "Cerca a tot el cofre"
+  ,"workspaceHomeSearchSemanticsLabel": "Filtra pàgines recents mentre escrius; usa el botó al final del camp per a la cerca global"
+  ,"workspaceHomeQuickActionsTitle": "Accions ràpides"
+  ,"workspaceHomeQuickSettings": "Ajustos"
+  ,"workspaceHomeQuickGraph": "Vista de graf"
+  ,"workspaceHomeQuickTemplates": "Plantilles"
+  ,"workspaceHomeQuickLock": "Bloquejar cofre"
+  ,"workspaceHomeQuickSync": "Sincronitzar dispositius"
+  ,"workspaceHomeQuickTask": "Tasca ràpida"
+  ,"workspaceHomeQuickVaultTasks": "Totes les tasques"
+  ,"workspaceHomeQuickFolder": "Carpeta nova"
+  ,"workspaceHomeQuickImport": "Importar Markdown"
+  ,"workspaceHomeRootPagesTitle": "Pàgines arrel"
+  ,"workspaceHomeMiniStats": "{pageCount} pàgines · {taskCount} tasques amb data (14 dies)"
+  ,"@workspaceHomeMiniStats": {"placeholders": {"pageCount": {"type": "int"}, "taskCount": {"type": "int"}}}
+  ,"workspaceHomeUpcomingTasksTitle": "Tasques properes (14 dies)"
+  ,"workspaceHomeUpcomingTasksEmpty": "No hi ha tasques amb data en les pròximes dues setmanes."
+  ,"workspaceHomeAiTasksChipLabel": "Pregunta a Quill sobre aquestes tasques"
+  ,"workspaceHomeAiTasksPrompt": "Aquestes són les meves tasques amb data (properes i endarrerides):\n\n{taskList}\n\nQuè hauria de prioritzar avui?"
+  ,"@workspaceHomeAiTasksPrompt": {"placeholders": {"taskList": {"type": "String"}}}
+  ,"workspaceHomeAiTasksPromptEmpty": "(No hi ha tasques amb data en les pròximes dues setmanes.)"
+  ,"workspaceHomeCustomizeTooltip": "Personalitzar inici"
+  ,"workspaceHomeCustomizeTitle": "Pantalla d'inici"
+  ,"workspaceHomeToggleFolioCloudTitle": "Resum Folio Cloud"
+  ,"workspaceHomeToggleFolioCloudSubtitle": "Tinta i espai de còpies al núvol si has iniciat sessió"
+  ,"workspaceHomeToggleRootPagesTitle": "Pàgines arrel"
+  ,"workspaceHomeToggleRootPagesSubtitle": "Xips horitzontals de pàgines de primer nivell"
+  ,"workspaceHomeToggleMiniStatsTitle": "Comptadors"
+  ,"workspaceHomeToggleMiniStatsSubtitle": "Nombre de pàgines i tasques amb data (14 dies)"
+  ,"workspaceHomeToggleTasksTitle": "Tasques properes"
+  ,"workspaceHomeToggleTasksSubtitle": "Franja de dues setmanes i llista"
+  ,"workspaceHomeToggleQuickActionsTitle": "Accions ràpides"
+  ,"workspaceHomeToggleQuickActionsSubtitle": "Graella o menú d'accessos"
+  ,"workspaceHomeToggleTipTitle": "Consell del dia"
+  ,"workspaceHomeToggleTipSubtitle": "Consell rotatiu de l'espai de treball"
+  ,"workspaceHomeCloudCardTitle": "Folio Cloud"
+  ,"workspaceHomeCloudStaffShort": "Accés staff"
+  ,"workspaceHomeCloudOpenSettings": "Obrir ajustos"
+  ,"workspaceHomeVaultStatusTitle": "Estat del cofre"
+  ,"workspaceHomeVaultBackupOff": "Les còpies programades estan desactivades per a aquesta llibreta."
+  ,"workspaceHomeVaultBackupNeverRun": "Encara no s'ha executat cap còpia amb la configuració actual."
+  ,"workspaceHomeVaultBackupLast": "Última còpia: {when}"
+  ,"@workspaceHomeVaultBackupLast": {"placeholders": {"when": {"type": "String"}}}
+  ,"workspaceHomeVaultBackupEvery": "Cada {label}"
+  ,"@workspaceHomeVaultBackupEvery": {"placeholders": {"label": {"type": "String"}}}
+  ,"workspaceHomeVaultSyncConflicts": "{count, plural, one{1 conflicte de sincronització pendent} other{{count} conflictes de sincronització pendents}}"
+  ,"@workspaceHomeVaultSyncConflicts": {"placeholders": {"count": {"type": "int"}}}
+  ,"workspaceHomeVaultReadOnlyHint": "Vista només de lectura; activa l'edició des de la barra de treball."
+  ,"workspaceHomeOnboardingTitle": "Primera setmana"
+  ,"workspaceHomeOnboardingHint": "Es completen sols mentre fas servir Folio."
+  ,"workspaceHomeOnboardingStepPage": "Crea una pàgina"
+  ,"workspaceHomeOnboardingStepSubpage": "Crea una subpàgina sota una pàgina"
+  ,"workspaceHomeOnboardingStepSearch": "Usa la cerca global una vegada"
+  ,"workspaceHomeOnboardingStepCloudExplore": "Mira què inclou Folio Cloud"
+  ,"workspaceHomeOnboardingDismiss": "Amagar llista"
+  ,"workspaceHomeWhatsNewTitle": "Novetats"
+  ,"workspaceHomeWhatsNewVersion": "Versió {version}"
+  ,"@workspaceHomeWhatsNewVersion": {"placeholders": {"version": {"type": "String"}}}
+  ,"workspaceHomeWhatsNewUnread": "Encara no has obert les notes d'aquesta versió."
+  ,"workspaceHomeWhatsNewCurrent": "Consulta els canvis d'aquesta versió."
+  ,"workspaceHomeWhatsNewOpen": "Obrir notes de la versió"
+  ,"workspaceHomeToggleVaultStatusTitle": "Estat del cofre"
+  ,"workspaceHomeToggleVaultStatusSubtitle": "Còpies, conflictes, només lectura"
+  ,"workspaceHomeToggleOnboardingTitle": "Llista primera setmana"
+  ,"workspaceHomeToggleOnboardingSubtitle": "Objectius breus (s'amaga sola als 7 dies)"
+  ,"workspaceHomeToggleWhatsNewTitle": "Novetats"
+  ,"workspaceHomeToggleWhatsNewSubtitle": "Mostra la targeta quan hi hagi una versió nova sense llegir"
+  ,"workspaceHomeWhatsNewDismissTooltip": "Amaga fins a la propera actualització"
+  ,"workspaceHomeReorderSectionsTitle": "Reordenar seccions de l'inici"
+  ,"workspaceHomeReorderMainColumn": "Columna principal"
+  ,"workspaceHomeReorderSideColumn": "Columna lateral"
+  ,"workspaceHomeColumnLayoutTitle": "Columnes"
+  ,"workspaceHomeColumnLayoutSubtitle": "Com es divideix el disseny en pantalles amples"
+  ,"workspaceHomeColumnLayoutAuto": "Automàtic"
+  ,"workspaceHomeColumnLayoutSingle": "Una columna"
+  ,"workspaceHomeColumnLayoutDual": "Dues columnes"
+  ,"workspaceHomeClockShowSecondsTitle": "Rellotge: mostrar segons"
+  ,"workspaceHomeClockShowSecondsSubtitle": "Actualitza l'hora cada segon"
+  ,"workspaceHomeClock24HourTitle": "Hora en 24 h"
+  ,"workspaceHomeClock24HourSubtitle": "Usar format 24 h en lloc d'AM/PM"
+  ,"workspaceHomeClockShowTimezoneTitle": "Mostrar zona horària"
+  ,"workspaceHomeClockShowTimezoneSubtitle": "Nom i desfasament UTC sota el rellotge"
+  ,"workspaceHomeClockTimezoneLine": "{zoneName} ({offset})"
+  ,"@workspaceHomeClockTimezoneLine": {"placeholders": {"zoneName": {"type": "String"}, "offset": {"type": "String"}}}
+  ,"workspaceHomeSectionLabelSearch": "Camp de cerca"
+  ,"workspaceHomeSectionLabelCreatePage": "Botó pàgina nova"
+  ,"driveMoveToFolderTitle": "Moure a carpeta"
+  ,"driveFolderColor": "Color de carpeta"
+  ,"workspaceEditorReadySubtitle": "Crea una pàgina per començar a escriure o usa la cerca per tornar a una nota existent."
+  ,"releaseNotesEmpty": "No hi ha notes de versió disponibles per a aquesta versió."
+  ,"kanbanJiraError": "Error Jira: {error}"
+  ,"@kanbanJiraError": {"placeholders": {"error": {"type": "String"}}}
+  ,"kanbanJiraSyncingPull": "Jira: sincronitzant (pull)…"
+  ,"kanbanJiraPullOkPush": "Jira: pull OK · ara push…"
+  ,"kanbanJiraNewIssue": "Nou issue a Jira"
+  ,"kanbanJiraCreate": "Crear"
+  ,"kanbanNone": "Cap"
+  ,"kanbanConflict": "Conflicte"
+  ,"kanbanNeedsPush": "Pendent push"
+  ,"kanbanNeedsPull": "Pendent pull"
+  ,"kanbanDeleteTaskTitle": "Esborrar tasca"
+  ,"kanbanDeleteTaskButton": "Esborrar"
+  ,"kanbanTaskDeleted": "Tasca esborrada."
+  ,"kanbanForcePushTitle": "Forçar push a Jira"
+  ,"kanbanForcePushButton": "Forçar push"
+  ,"kanbanPull": "Pull"
+  ,"kanbanTitle": "Títol"
+  ,"kanbanDescription": "Descripció"
+  ,"kanbanPriority": "Prioritat"
+  ,"kanbanStatusColumn": "Estat/columna"
+  ,"kanbanDueDate": "Data límit"
+  ,"kanbanKeepJiraPull": "Mantenir Jira (Pull)"
+  ,"kanbanStatus": "Estat"
+  ,"jiraIntegrationTitle": "Integració Jira"
+  ,"jiraConnectionsTab": "Connexions"
+  ,"jiraSourcesTab": "Fonts"
+  ,"jiraCreateConnectionFirst": "Crea una connexió primer."
+  ,"jiraConnectingCloud": "Connectant Jira Cloud…"
+  ,"jiraConnectionCreated": "Connexió Jira Cloud creada."
+  ,"jiraNewServerConnection": "Nova connexió Server/DC"
+  ,"jiraNewSource": "Nova font"
+  ,"jiraConfigure": "Configurar"
+  ,"jiraSetClientId": "Configurar Client ID"
+  ,"jiraOpenDeveloperConsole": "Obrir Atlassian Developer Console"
+  ,"jiraStartingCloudConnection": "Iniciant connexió amb Jira Cloud…"
+  ,"jiraSave": "Desar"
+  ,"jiraName": "Nom"
+  ,"jiraBaseUrl": "Base URL"
+  ,"jiraTokenPat": "Token / PAT"
+  ,"jiraProject": "Projecte"
+  ,"jiraBoard": "Tauler"
+  ,"jiraConnection": "Connexió"
+  ,"jiraType": "Tipus"
+  ,"jiraSearchByName": "Escriu per cercar (nom)…"
+  ,"jiraReload": "Recarregar"
+  ,"jiraCloudMissingOAuthSecret": "Falta JIRA_OAUTH_CLIENT_SECRET. Defineix-lo sobretot a lib/config/folio_local_secrets.dart (còpia des de l'arxiu .example). A escriptori també pots usar un .env en arrencar; a web només aquest fitxer o --dart-define i recompilar. Reinicia l'app; si uses .env a escriptori, revisa el registre folio.env."
+  ,"columnBlockTypeBullet": "Llista"
+  ,"columnBlockTypeNumbered": "Numerada"
+  ,"columnBlockTypeTodo": "Tasca"
+  ,"columnBlockTypeQuote": "Cita"
+  ,"columnBlockTypeCallout": "Callout"
+  ,"columnBlockTypeCode": "Codi"
+  ,"columnBlockTypeEquation": "Equació"
+  ,"columnBlockTypeDivider": "Divisor"
+  ,"columnBlockTypeText": "Text"
+  ,"columnBlockContentLabel": "Contingut"
+  ,"columnListRemoveBlock": "Elimina el bloc"
+  ,"columnListColumnsTitle": "Columnes"
+  ,"columnListEdit": "Edita"
+  ,"columnListAddColumn": "Afegeix columna"
+  ,"columnListRemoveColumn": "Elimina la columna"
+  ,"columnListDone": "Fet"
+  ,"columnListColumnLabel": "Columna"
+  ,"columnListAddBlock": "Afegeix bloc"
+  ,"equationEmptyPlaceholder": "LaTeX…"
+  ,"equationLatexLabel": "LaTeX"
+  ,"mermaidInlineLoadError": "No s'ha pogut mostrar el diagrama. Comprova la sintaxi Mermaid o la connexió.",
+  "onboardingUsageProfileTitle": "Com utilitzaràs Folio?",
+  "onboardingUsageProfileBody": "Triarem unes pàgines d'ajuda inicials adaptades a tu. Pots esborrar-les o editar-les quan vulguis.",
+  "onboardingUsageProfileHint": "Tria fins a 3 usos principals.",
+  "onboardingUsageProfileMinSelectionError": "Selecciona almenys un ús per continuar.",
+  "onboardingUsageIntentNotesTitle": "Notes personals",
+  "onboardingUsageIntentTasksTitle": "Tasques",
+  "onboardingUsageIntentProjectsTitle": "Projectes",
+  "onboardingUsageIntentKnowledgeTitle": "Base de coneixement",
+  "onboardingUsageIntentJournalTitle": "Diari",
+  "onboardingUsageIntentStudyTitle": "Estudi",
+  "vaultStarterHomeIntroNotes": "Folio és un bon lloc per capturar idees, enllaçar pensaments i ordenar notes personals. Aquestes pàgines inicials estan pensades perquè comencis a escriure sense una estructura rígida.",
+  "vaultStarterHomeIntroTasks": "Folio t'ajuda a combinar notes i llistes de tasques al mateix quadern. Aquestes pàgines inicials prioritzen el seguiment, les prioritats i la revisió periòdica.",
+  "vaultStarterHomeIntroProjects": "Organitza la feina per projectes, reunions i lliurables dins d'un arbre de pàgines. Aquestes pàgines inicials et deixen un esquema per arrencar amb foc.",
+  "vaultStarterHomeIntroKnowledge": "Construeix una wiki personal amb índexs, fitxes i notes de lectura. Aquestes pàgines inicials afavoreixen enllaços entre temes i revisió.",
+  "vaultStarterHomeIntroJournal": "Fes servir Folio com a espai de reflexió diària i repàs mensual. Aquestes pàgines inicials proposen rutines lleugeres per mantenir l'hàbit.",
+  "vaultStarterHomeIntroStudy": "Centralitza apunts, plans d'estudi i repassos en un sol lloc. Aquestes pàgines inicials estan orientades a cursos i preparació.",
+  "vaultStarterHomeTodoNotes1": "Abocar tres idees soltes a la safata d'idees",
+  "vaultStarterHomeTodoNotes2": "Crear una nota de captura ràpida amb el menú /",
+  "vaultStarterHomeTodoNotes3": "Enllaçar dues pàgines des del panell lateral",
+  "vaultStarterHomeTodoTasks1": "Afegir tres tasques al panell de tasques",
+  "vaultStarterHomeTodoTasks2": "Marcar una tasca com a feta i una altra amb data",
+  "vaultStarterHomeTodoTasks3": "Planificar la revisió setmanal",
+  "vaultStarterHomeTodoProjects1": "Crear la primera pàgina d'un projecte",
+  "vaultStarterHomeTodoProjects2": "Provar la plantilla de notes de reunió",
+  "vaultStarterHomeTodoProjects3": "Definir el següent hito al hub de projectes",
+  "vaultStarterHomeTodoKnowledge1": "Afegir tres temes a l'índex de continguts",
+  "vaultStarterHomeTodoKnowledge2": "Crear una fitxa de tema amb enllaços",
+  "vaultStarterHomeTodoKnowledge3": "Registrar una lectura en curs",
+  "vaultStarterHomeTodoJournal1": "Escriure l'entrada d'avui al diari",
+  "vaultStarterHomeTodoJournal2": "Respondre a les preguntes de reflexió",
+  "vaultStarterHomeTodoJournal3": "Revisar el resum del mes anterior",
+  "vaultStarterHomeTodoStudy1": "Crear la pàgina del curs actual",
+  "vaultStarterHomeTodoStudy2": "Afegir tres conceptes clau als apunts",
+  "vaultStarterHomeTodoStudy3": "Definir el pla d'estudi d'aquesta setmana",
+  "vaultStarterShortcutsTitle": "Dreceres i primers passos",
+  "vaultStarterShortcutsSectionMain": "L'essencial de Folio",
+  "vaultStarterShortcutsBullet1": "Cada pàgina es compon de blocs: paràgrafs, títols, llistes, taules i més.",
+  "vaultStarterShortcutsBullet2": "El panell lateral organitza pàgines i subpàgines en un arbre.",
+  "vaultStarterShortcutsBullet3": "La cerca i l'historial t'ajuden a recuperar el context ràpidament.",
+  "vaultStarterShortcutsSectionKeys": "Dreceres útils",
+  "vaultStarterShortcutsKeyN": "Ctrl+N crea una pàgina nova.",
+  "vaultStarterShortcutsKeySearch": "Ctrl+K o Ctrl+F obre la cerca.",
+  "vaultStarterShortcutsKeySettings": "Ctrl+, obre Ajustos i Ctrl+L bloqueja el quadern.",
+  "vaultStarterShortcutsCallout": "Prem / dins d'un paràgraf per inserir blocs sense sortir del teclat.",
+  "vaultStarterNotesInboxTitle": "Safata d'idees",
+  "vaultStarterNotesInboxHeading": "Captura sense filtrar",
+  "vaultStarterNotesInboxIntro": "Fes servir aquesta pàgina com a inbox: anota idees soltes, enllaços i pensaments per revisar més tard.",
+  "vaultStarterNotesInboxSection": "Com utilitzar-la",
+  "vaultStarterNotesInboxBullet1": "Escriu una idea per vinyeta o paràgraf curt.",
+  "vaultStarterNotesInboxBullet2": "Quan una idea maduri, crea una pàgina dedicada i enllaça-la.",
+  "vaultStarterNotesInboxBullet3": "Buida la safata en revisions breus setmanals.",
+  "vaultStarterNotesInboxTodo1": "Afegir tres idees noves",
+  "vaultStarterNotesInboxTodo2": "Moure una idea a la seva pròpia pàgina",
+  "vaultStarterNotesInboxCallout": "No busquis perfecció en abocar: la safata és per pensar en veu alta.",
+  "vaultStarterNotesCaptureTitle": "Captura ràpida",
+  "vaultStarterNotesCaptureHeading": "Una nota en segons",
+  "vaultStarterNotesCaptureIntro": "Plantilla mínima per anotar alguna cosa amb context, font i passos següents.",
+  "vaultStarterNotesCaptureSection": "Estructura suggerida",
+  "vaultStarterNotesCaptureBullet1": "Títol breu i paràgraf amb el detall principal.",
+  "vaultStarterNotesCaptureBullet2": "Bloc de cita o callout per a la conclusió clau.",
+  "vaultStarterNotesCaptureBullet3": "Llista d'accions opcionals si escau.",
+  "vaultStarterNotesCaptureTodo1": "Completar el paràgraf principal",
+  "vaultStarterNotesCaptureTodo2": "Afegir etiquetes o enllaçar pàgines relacionades",
+  "vaultStarterNotesCaptureCallout": "Prova el menú / per inserir una llista o taula sense canviar de bloc.",
+  "vaultStarterTasksDashboardTitle": "Panell de tasques",
+  "vaultStarterTasksDashboardHeading": "Què fer ara",
+  "vaultStarterTasksDashboardIntro": "Centralitza pendents amb blocs todo, dates en propietats i prioritat visual.",
+  "vaultStarterTasksDashboardSection": "Bones pràctiques",
+  "vaultStarterTasksDashboardBullet1": "Separa tasques d'avui, aquesta setmana i algun dia.",
+  "vaultStarterTasksDashboardBullet2": "Fes servir checklists per a passos petits i repetibles.",
+  "vaultStarterTasksDashboardBullet3": "Obre la vista de tasques del quadern per veure-ho tot junts.",
+  "vaultStarterTasksDashboardTodo1": "Afegir tres tasques amb prioritat diferent",
+  "vaultStarterTasksDashboardTodo2": "Marcar-ne una com a completada",
+  "vaultStarterTasksDashboardCallout": "Les tasques també poden viure dins de pàgines de projecte.",
+  "vaultStarterTasksWeeklyTitle": "Revisió setmanal",
+  "vaultStarterTasksWeeklyHeading": "Tancar la setmana amb claredat",
+  "vaultStarterTasksWeeklyIntro": "Repassa el fet, el pendent i el que entra la propera setmana.",
+  "vaultStarterTasksWeeklySection": "Agenda suggerida",
+  "vaultStarterTasksWeeklyBullet1": "Llista d'assoliments i bloquejos de la setmana.",
+  "vaultStarterTasksWeeklyBullet2": "Tres prioritats per als propers set dies.",
+  "vaultStarterTasksWeeklyBullet3": "Notes breus per delegar o ajornar.",
+  "vaultStarterTasksWeeklyTodo1": "Completar el resum de la setmana",
+  "vaultStarterTasksWeeklyTodo2": "Triar la prioritat número u del dilluns",
+  "vaultStarterTasksWeeklyCallout": "Una revisió de 15 minuts sol bastar per mantenir el sistema viu.",
+  "vaultStarterProjectsHubTitle": "Hub de projectes",
+  "vaultStarterProjectsHubHeading": "Vista general de la feina",
+  "vaultStarterProjectsHubIntro": "Agrupa objectiu, estat, riscos i enllaços a pàgines filles de cada projecte.",
+  "vaultStarterProjectsHubSection": "Seccions útils",
+  "vaultStarterProjectsHubBullet1": "Resum executiu al primer paràgraf.",
+  "vaultStarterProjectsHubBullet2": "Llista de lliurables amb checklists.",
+  "vaultStarterProjectsHubBullet3": "Enllaços a reunions, decisions i documentació.",
+  "vaultStarterProjectsHubTodo1": "Definir l'objectiu del projecte",
+  "vaultStarterProjectsHubTodo2": "Crear la primera subpàgina de lliurable",
+  "vaultStarterProjectsHubCallout": "Duplica aquesta pàgina com a plantilla per a nous projectes.",
+  "vaultStarterProjectsMeetingTitle": "Notes de reunió",
+  "vaultStarterProjectsMeetingHeading": "Reunió amb context",
+  "vaultStarterProjectsMeetingIntro": "Plantilla per a assistents, agenda, decisions i accions amb responsable.",
+  "vaultStarterProjectsMeetingSection": "Durant la reunió",
+  "vaultStarterProjectsMeetingBullet1": "Anota decisions en callouts per trobar-les després.",
+  "vaultStarterProjectsMeetingBullet2": "Converteix acords en todos amb data si escau.",
+  "vaultStarterProjectsMeetingBullet3": "Enllaça la reunió des del hub del projecte.",
+  "vaultStarterProjectsMeetingTodo1": "Completar assistents i agenda",
+  "vaultStarterProjectsMeetingTodo2": "Registrar almenys una acció amb responsable",
+  "vaultStarterProjectsMeetingCallout": "Si graves àudio, pots fer servir blocs de nota de reunió amb transcripció.",
+  "vaultStarterKnowledgeIndexTitle": "Índex de continguts",
+  "vaultStarterKnowledgeIndexHeading": "Mapa del teu coneixement",
+  "vaultStarterKnowledgeIndexIntro": "Pàgina índex amb enllaços a temes, àrees i col·leccions de notes.",
+  "vaultStarterKnowledgeIndexSection": "Com mantenir-lo",
+  "vaultStarterKnowledgeIndexBullet1": "Agrupa per àrees àmplies i enllaça fitxes filles.",
+  "vaultStarterKnowledgeIndexBullet2": "Afegeix una línia de resum sota cada enllaç.",
+  "vaultStarterKnowledgeIndexBullet3": "Revisa l'índex quan creïs pàgines noves.",
+  "vaultStarterKnowledgeIndexTodo1": "Afegir tres temes a l'índex",
+  "vaultStarterKnowledgeIndexTodo2": "Crear la primera fitxa de tema",
+  "vaultStarterKnowledgeIndexCallout": "Un bon índex redueix la fricció en buscar idees antigues.",
+  "vaultStarterKnowledgeTopicTitle": "Fitxa de tema",
+  "vaultStarterKnowledgeTopicHeading": "Aprofundir en un concepte",
+  "vaultStarterKnowledgeTopicIntro": "Estructura per definir, exemplificar i enllaçar un tema amb altres.",
+  "vaultStarterKnowledgeTopicSection": "Apartats suggerits",
+  "vaultStarterKnowledgeTopicBullet1": "Definició breu i per què importa.",
+  "vaultStarterKnowledgeTopicBullet2": "Exemples, contraexemples i referències.",
+  "vaultStarterKnowledgeTopicBullet3": "Preguntes obertes o llacunes per investigar.",
+  "vaultStarterKnowledgeTopicTodo1": "Escriure la definició en una frase",
+  "vaultStarterKnowledgeTopicTodo2": "Enllaçar dos temes relacionats",
+  "vaultStarterKnowledgeTopicCallout": "Les fitxes maduren amb el temps: torna-hi després de llegir o experimentar.",
+  "vaultStarterKnowledgeReadingTitle": "Notes de lectura",
+  "vaultStarterKnowledgeReadingHeading": "El que estàs llegint",
+  "vaultStarterKnowledgeReadingIntro": "Registra font, idees clau i com aplicar-les a la teva feina o estudi.",
+  "vaultStarterKnowledgeReadingSection": "Plantilla",
+  "vaultStarterKnowledgeReadingBullet1": "Metadades: títol, autor i enllaç.",
+  "vaultStarterKnowledgeReadingBullet2": "Tres idees que vulguis conservar.",
+  "vaultStarterKnowledgeReadingBullet3": "Una acció concreta en acabar.",
+  "vaultStarterKnowledgeReadingTodo1": "Anotar la font actual",
+  "vaultStarterKnowledgeReadingTodo2": "Extreure almenys dues cites o idees",
+  "vaultStarterKnowledgeReadingCallout": "Enllaça lectures des de l'índex per veure la teva biblioteca viva.",
+  "vaultStarterJournalDailyTitle": "Diari diari",
+  "vaultStarterJournalDailyHeading": "Avui en una pàgina",
+  "vaultStarterJournalDailyIntro": "Espai breu per registrar com ha anat el dia, què has après i què agraeixes.",
+  "vaultStarterJournalDailySection": "Preguntes opcionals",
+  "vaultStarterJournalDailyBullet1": "Què ha estat el més important avui?",
+  "vaultStarterJournalDailyBullet2": "Què m'ha costat més del previst?",
+  "vaultStarterJournalDailyBullet3": "Què vull repetir o evitar demà?",
+  "vaultStarterJournalDailyTodo1": "Escriure almenys tres línies sobre avui",
+  "vaultStarterJournalDailyTodo2": "Afegir un moment destacat",
+  "vaultStarterJournalDailyCallout": "La constància importa més que l'extensió: un paràgraf honest n'hi ha prou.",
+  "vaultStarterJournalMonthlyTitle": "Reflexió mensual",
+  "vaultStarterJournalMonthlyHeading": "Mirada al mes",
+  "vaultStarterJournalMonthlyIntro": "Tanca el mes repassant assoliments, aprenentatges i ajustos per al següent.",
+  "vaultStarterJournalMonthlySection": "Blocs suggerits",
+  "vaultStarterJournalMonthlyBullet1": "Tres moments que vulguis recordar.",
+  "vaultStarterJournalMonthlyBullet2": "Un hàbit que ha funcionat i un altre a canviar.",
+  "vaultStarterJournalMonthlyBullet3": "Un objectiu realista per al mes entrant.",
+  "vaultStarterJournalMonthlyTodo1": "Llistar dos assoliments del mes",
+  "vaultStarterJournalMonthlyTodo2": "Triar un focus per al proper mes",
+  "vaultStarterJournalMonthlyCallout": "Pots duplicar aquesta pàgina cada mes i conservar l'historial.",
+  "vaultStarterStudyCourseTitle": "Apunts de curs",
+  "vaultStarterStudyCourseHeading": "Un curs, una pàgina arrel",
+  "vaultStarterStudyCourseIntro": "Organitza mòduls, conceptes i exercicis sota una pàgina de curs.",
+  "vaultStarterStudyCourseSection": "Estructura",
+  "vaultStarterStudyCourseBullet1": "Resum del temari i calendari.",
+  "vaultStarterStudyCourseBullet2": "Subpàgines per tema o sessió.",
+  "vaultStarterStudyCourseBullet3": "Llista de dubtes pendents.",
+  "vaultStarterStudyCourseTodo1": "Anomenar el curs i el professor o plataforma",
+  "vaultStarterStudyCourseTodo2": "Crear la primera subpàgina de tema",
+  "vaultStarterStudyCourseCallout": "Combina apunts amb blocs de codi o equació quan calgui.",
+  "vaultStarterStudyPlanTitle": "Pla d'estudi",
+  "vaultStarterStudyPlanHeading": "Aquesta setmana d'estudi",
+  "vaultStarterStudyPlanIntro": "Planifica sessions, repassos i avaluacions amb todos i dates.",
+  "vaultStarterStudyPlanSection": "Ritme suggerit",
+  "vaultStarterStudyPlanBullet1": "Blocs d'estudi de 25–50 minuts.",
+  "vaultStarterStudyPlanBullet2": "Repàs espaiat de temes anteriors.",
+  "vaultStarterStudyPlanBullet3": "Simulacres o autoavaluació abans d'exàmens.",
+  "vaultStarterStudyPlanTodo1": "Definir tres sessions d'estudi",
+  "vaultStarterStudyPlanTodo2": "Marcar el proper repàs al calendari",
+  "vaultStarterStudyPlanCallout": "Ajusta el pla cada diumenge: poc text, molta claredat.",
+  "vaultRecoveryTitle": "Problema en obrir la llibreta",
+  "vaultRecoveryBody": "No s'ha pogut llegir la llibreta activa. Pots provar de restaurar una còpia local, importar una còpia de seguretat o exportar el que quedi al disc.",
+  "vaultRecoveryRestoreBak": "Restaurar còpia local (.bak)",
+  "vaultRecoveryRestoreBakFail": "No hi ha còpia .bak vàlida o la restauració ha fallat.",
+  "vaultRecoveryRestoreZip": "Restaurar des d'un fitxer de còpia",
+  "vaultRecoveryExportEmergency": "Exportar còpia d'emergència",
+  "vaultRecoveryExportOk": "Còpia desada: {path}",
+  "@vaultRecoveryExportOk": {
+    "placeholders": {
+      "path": {"type": "String"}
+    }
+  },
+  "vaultRecoveryOpenDataFolder": "Obrir carpeta de dades",
+  "saveStatusIdle": "Desat",
+  "saveStatusPending": "Canvis pendents",
+  "saveStatusSaving": "Desant…",
+  "saveStatusSaved": "Desat",
+  "saveStatusError": "Error en desar",
+  "settingsSearchNoResults": "No s'han trobat paràmetres coincidents",
+  "settingsSearchResultsTitle": "Resultats de la cerca",
+  "settingsSearchThemeTitle": "Tema de l'aplicació",
+  "settingsSearchThemeDesc": "Tria entre el tema clar, fosc o el per defecte del sistema.",
+  "settingsSearchLangTitle": "Idioma de l'aplicació",
+  "settingsSearchLangDesc": "Canvia l'idioma per defecte de la interfície.",
+  "settingsSearchAiTitle": "Habilita els serveis d'IA",
+  "settingsSearchAiDesc": "Activa o desactiva la integració amb models de llenguatge locals o al núvol.",
+  "settingsSearchQuickUnlockTitle": "Desbloqueig ràpid",
+  "settingsSearchQuickUnlockDesc": "Configura l'empremta digital, el reconeixement facial o el PIN de desbloqueig.",
+  "settingsSearchCloudBackupTitle": "Copia de seguretat automàtica al núvol",
+  "settingsSearchCloudBackupDesc": "Desa les teves llibretes de manera segura amb sincronització en tempo real.",
+  "settingsSearchJiraTitle": "Connecta Jira",
+  "settingsSearchJiraDesc": "Importa les teves tasques i incidències directament a Folio.",
+  "settingsSearchYouTrackTitle": "Connecta YouTrack",
+  "settingsSearchYouTrackDesc": "Gestiona les teves tasques de desenvolupament des de Folio.",
+  "aiPersonaLabel": "Personalitat de l'Assistent (Persona)",
+  "aiPersonaQuill": "Quill (Assistent general de Folio)",
+  "aiPersonaQuillShort": "Quill (Assistent general)",
+  "aiPersonaTranslator": "Traductor (Traducció de textos)",
+  "aiPersonaTranslatorShort": "Traductor expert",
+  "aiPersonaSummarizer": "Resumidor (Generació de punts clau)",
+  "aiPersonaSummarizerShort": "Resumidor de textos",
+  "aiPersonaCoder": "Programador (Assistència tècnica i codi)",
+  "aiPersonaCoderShort": "Programador tècnic",
+  "aiPersonaCustom": "Prompt personalitzat (Configura les teves pròpies regles)",
+  "aiPersonaCustomShort": "Prompt personalitzat",
+  "aiPersonaCustomPromptLabel": "Instruccions personalitzades del sistema (System Prompt):",
+  "aiPersonaCustomPromptHint": "Ex. Ets un expert professor de matemàtiques...",
+  "aiDictationMicError": "Accés al micròfon denegat.",
+  "aiDictationWhisperNotReady": "Model de Whisper no llast. Si us plau, descarrega'l a Ajustos -> Transcripció.",
+  "aiDictationNoVoiceDetected": "No s'ha detectat veu o hi ha hagut un error en la transcripció.",
+  "aiDictationRecordingStopTooltip": "Aturar la gravació",
+  "aiDictationRecordingMicTooltip": "Dictar per veu",
+  "driveExportToDisk": "Exportar al disc…",
+  "driveRootPath": "/ (arrel)",
+  "driveDetailsTitle": "Detalls",
+  "driveDetailType": "Tipus",
+  "driveDetailSize": "Mida",
+  "driveDetailAdded": "Afegit",
+  "driveDetailSource": "Origen",
+  "driveDetailSourceImported": "Importat des de la llibreta",
+  "driveDetailSourceUploaded": "Pujat",
+  "driveDetailFolders": "Carpetes",
+  "driveDetailFiles": "Fitxers",
+  "driveDetailFolderType": "Carpeta",
+  "driveFileTypeImage": "Imatge",
+  "driveFileTypeVideo": "Vídeo",
+  "driveFileTypeAudio": "Àudio",
+  "driveFileTypeFile": "Fitxer",
+  "driveDeleteEntryNamed": "Eliminar \"{name}\"?",
+  "@driveDeleteEntryNamed": {"placeholders": {"name": {"type": "String"}}}
 }

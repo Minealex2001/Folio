@@ -10,6 +10,11 @@ set(BINARY_NAME "folio")
 # versions of CMake.
 cmake_policy(VERSION 3.14...3.25)
 
+# Evita avisos CMP0175 desde plugins (p. ej. webview_windows) con CMake reciente.
+if(POLICY CMP0175)
+  cmake_policy(SET CMP0175 NEW)
+endif()
+
 # Define build configuration option.
 get_property(IS_MULTICONFIG GLOBAL PROPERTY GENERATOR_IS_MULTI_CONFIG)
 if(IS_MULTICONFIG)
@@ -31,6 +36,12 @@ set(CMAKE_CXX_FLAGS_PROFILE "${CMAKE_CXX_FLAGS_RELEASE}")
 
 # Use Unicode for all projects.
 add_definitions(-DUNICODE -D_UNICODE)
+
+# MSVC 14.51+ (VS 18) convierte <experimental/coroutine> en error fatal (STL1011).
+# Varios plugins (audioplayers_windows, local_auth_windows, webview_windows) aún
+# usan el header experimental vía C++/WinRT, así que silenciamos la deprecación
+# de forma global para que compilen con toolchains recientes.
+add_definitions(-D_SILENCE_EXPERIMENTAL_COROUTINE_DEPRECATION_WARNINGS)
 
 # Compilation settings that should be applied to most targets.
 #
@@ -89,6 +100,9 @@ endif()
 
 # Copy the native assets provided by the build.dart from all packages.
 set(NATIVE_ASSETS_DIR "${PROJECT_BUILD_DIR}native_assets/windows/")
+# Ensure the directory exists so `install(DIRECTORY ...)` doesn't fail on debug
+# builds that produce no native assets.
+file(MAKE_DIRECTORY "${NATIVE_ASSETS_DIR}")
 install(DIRECTORY "${NATIVE_ASSETS_DIR}"
    DESTINATION "${INSTALL_BUNDLE_LIB_DIR}"
    COMPONENT Runtime)

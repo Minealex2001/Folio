@@ -51,7 +51,7 @@ class _GraphViewScreenState extends State<GraphViewScreen>
   }
 
   void _buildGraph() {
-    final pages = widget.session.pages;
+    final pages = widget.session.pages.where((p) => !p.isTrashed).toList();
     final edgeSet = <String>{};
     final edges = <_GraphEdge>[];
     final linkedPageIds = <String>{};
@@ -313,9 +313,8 @@ class _GraphViewScreenState extends State<GraphViewScreen>
 }
 
 class _GraphNode {
-  _GraphNode({required this.id, required this.label, required Offset pos})
-    : pos = pos,
-      vel = Offset.zero;
+  _GraphNode({required this.id, required this.label, required this.pos})
+    : vel = Offset.zero;
 
   final String id;
   final String label;

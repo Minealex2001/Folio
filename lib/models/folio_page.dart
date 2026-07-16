@@ -14,6 +14,7 @@ class FolioPage {
     this.lastImportInfo,
     this.collabRoomId,
     this.collabJoinCode,
+    this.trashedAt,
     List<FolioBlock>? blocks,
     List<FolioPageProperty>? properties,
     List<String>? tags,
@@ -37,6 +38,10 @@ class FolioPage {
 
   /// Código de unión (solo en la libreta local; no se sube a Firestore).
   String? collabJoinCode;
+
+  /// Si no es null, la página está en la papelera (UTC).
+  DateTime? trashedAt;
+
   List<FolioBlock> blocks;
 
   /// Structured frontmatter properties (text, date, status, etc.).
@@ -44,6 +49,8 @@ class FolioPage {
 
   /// User-defined tags for filtering and organisation.
   List<String> tags;
+
+  bool get isTrashed => trashedAt != null;
 
   Map<String, dynamic> toJson() => {
     'id': id,
@@ -56,6 +63,7 @@ class FolioPage {
       'collabRoomId': collabRoomId!.trim(),
     if (collabJoinCode != null && collabJoinCode!.trim().isNotEmpty)
       'collabJoinCode': collabJoinCode!.trim(),
+    if (trashedAt != null) 'trashedAt': trashedAt!.toUtc().toIso8601String(),
     'blocks': blocks.map((b) => b.toJson()).toList(),
     if (properties.isNotEmpty)
       'properties': properties.map((p) => p.toJson()).toList(),
@@ -71,11 +79,26 @@ class FolioPage {
                 (e) => FolioBlock.fromJson(Map<String, dynamic>.from(e as Map)),
               )
               .toList();
-    final id = j['id'] as String;
+    final rawId = j['id'];
+    final id = (rawId is String && rawId.isNotEmpty)
+        ? rawId
+        : (rawId?.toString().isNotEmpty ?? false)
+        ? rawId.toString()
+        : 'page_fallback_${DateTime.now().microsecondsSinceEpoch}';
     final rawRoom = j['collabRoomId'] as String?;
     final roomId = rawRoom?.trim();
     final rawJoin = j['collabJoinCode'] as String?;
     final joinCode = rawJoin?.trim();
+    DateTime? trashedAt;
+    final rawTrashed = j['trashedAt'];
+    if (rawTrashed is String && rawTrashed.trim().isNotEmpty) {
+      trashedAt = DateTime.tryParse(rawTrashed.trim())?.toUtc();
+    } else if (rawTrashed is num) {
+      trashedAt = DateTime.fromMillisecondsSinceEpoch(
+        rawTrashed.toInt(),
+        isUtc: true,
+      );
+    }
     return FolioPage(
       id: id,
       title: j['title'] as String? ?? 'Untitled',
@@ -95,6 +118,7 @@ class FolioPage {
                 : null),
       collabRoomId: (roomId == null || roomId.isEmpty) ? null : roomId,
       collabJoinCode: (joinCode == null || joinCode.isEmpty) ? null : joinCode,
+      trashedAt: trashedAt,
       blocks: blocks,
       properties:
           (j['properties'] as List<dynamic>?)
@@ -105,7 +129,7 @@ class FolioPage {
               )
               .toList() ??
           [],
-      tags: (j['tags'] as List<dynamic>?)?.cast<String>() ?? [],
+      tags: (j['tags'] as List<dynamic>?)?.whereType<String>().toList() ?? [],
     );
   }
 

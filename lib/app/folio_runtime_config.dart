@@ -2,6 +2,9 @@ import 'dart:io';
 
 import 'package:flutter/foundation.dart' show kIsWeb;
 
+import '../config/folio_local_secrets.dart';
+import '../services/env/local_env.dart';
+
 class FolioRuntimeConfig {
   const FolioRuntimeConfig({required this.integrationSecret});
 
@@ -13,6 +16,19 @@ class FolioRuntimeConfig {
     ).trim();
     if (defineSecret.isNotEmpty) {
       return FolioRuntimeConfig(integrationSecret: defineSecret);
+    }
+
+    final dartSecret = FolioLocalSecrets.valueForDefineKey(
+      'FOLIO_INTEGRATION_SECRET',
+    ).trim();
+    if (dartSecret.isNotEmpty) {
+      return FolioRuntimeConfig(integrationSecret: dartSecret);
+    }
+
+    final localEnvSecret =
+        (LocalEnv.get('FOLIO_INTEGRATION_SECRET') ?? '').trim();
+    if (localEnvSecret.isNotEmpty) {
+      return FolioRuntimeConfig(integrationSecret: localEnvSecret);
     }
 
     if (!kIsWeb) {

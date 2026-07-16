@@ -10,6 +10,10 @@ import 'package:package_info_plus/package_info_plus.dart';
 import 'package:system_theme/system_theme.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import '../core/bootstrap/app_bootstrap.dart';
+import '../core/bootstrap/bootstrap_phase.dart';
+import 'widgets/folio_dialog.dart';
+import 'widgets/folio_skeletons.dart';
 import '../data/vault_backup.dart';
 import '../desktop/desktop_integration.dart';
 import '../l10n/generated/app_localizations.dart';
@@ -18,12 +22,15 @@ import '../services/ai/ai_provider_launcher.dart';
 import '../services/ai/ai_safety_policy.dart';
 import '../services/ai/lmstudio_ai_service.dart';
 import '../services/ai/ollama_ai_service.dart';
+import '../services/ai/openai_compatible_ai_service.dart';
 import '../services/platform/launch_arguments.dart';
 import '../services/cloud_account/cloud_account_controller.dart';
 import '../services/ai/folio_cloud_ai_service.dart';
 import '../services/folio_cloud/folio_cloud_entitlements.dart';
+import '../services/app_logger.dart';
 import '../services/folio_diagnostic_reporter.dart';
 import '../services/folio_telemetry.dart';
+import '../services/folio_telemetry_navigator_observer.dart';
 import '../services/vault_scheduled_local_export.dart';
 import '../services/tasks/task_reminder_service.dart';
 import '../services/tasks/platform_notification_service.dart';
@@ -32,10 +39,14 @@ import '../services/device_sync/device_sync_controller.dart';
 import '../services/device_sync/device_sync_models.dart';
 import '../services/integrations/integrations_bridge.dart';
 import '../services/integrations/integrations_markdown_codec.dart';
+import '../services/app_store/app_store_service.dart';
+import '../services/app_store/app_extension_registry.dart';
+import '../services/app_store/integration_auth_service.dart';
 import '../services/updater/github_release_updater.dart';
 import '../features/release_notes/release_notes_page.dart';
 import '../features/lock/lock_screen.dart';
 import '../features/onboarding/onboarding_flow.dart';
+import '../features/vault/recovery_screen.dart';
 import '../features/workspace/workspace.dart';
 import '../session/vault_session.dart';
 import 'app_settings.dart';
@@ -88,12 +99,109 @@ class _FolioAppState extends State<FolioApp> with WidgetsBindingObserver {
   bool _releaseNotesShownThisRun = false;
   bool _handledInitialLaunchArgs = false;
   Timer? _scheduledVaultBackupTimer;
+  Timer? _continuousVaultBackupDebounce;
+  bool _continuousVaultBackupRunning = false;
+  bool _continuousVaultBackupDirty = false;
+  static const Duration _continuousVaultBackupDebounceDuration =
+      Duration(seconds: 45);
   TaskReminderService? _taskReminderService;
   StreamSubscription<List<TaskReminderEvent>>? _reminderSub;
+
+  late final FolioTelemetryNavigatorObserver _telemetryNavObserver;
+  late final AppBootstrap _appBootstrap;
+  VaultFlowState? _lastVaultFlowForTelemetry;
+
+  Future<void> _runVaultBootstrap() async {
+    final result = await _appBootstrap.runVaultPhase();
+    if (!mounted) return;
+    if (result.failedPhases.contains(BootstrapPhase.vaultOpen)) {
+      AppLogger.warn(
+        'Vault bootstrap degraded',
+        tag: 'bootstrap',
+        context: {'state': '${widget.session.state}'},
+      );
+    }
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      unawaited(_runSecondaryBootstrap());
+    });
+  }
+
+  Future<void> _runSecondaryBootstrap() async {
+    if (!mounted) return;
+    final bootstrap = _appBootstrap;
+    await bootstrap.runSecondaryPhase(
+      BootstrapPhase.deviceSync,
+      () => _deviceSyncController.load(),
+    );
+    if (!mounted) return;
+    _applySessionSecurityPolicy();
+    _folioCloudEntitlements.addListener(_onFolioCloudEntitlements);
+    _folioCloudEntitlements.setWebPortalBaseUrlResolver(
+      () => AppSettings.folioWebPortalLinkEnabled
+          ? widget.appSettings.folioWebPortalBaseUrlEffective
+          : '',
+    );
+    await bootstrap.runSecondaryPhase(
+      BootstrapPhase.firebase,
+      () => _folioCloudEntitlements.refreshWebPortalEntitlement(),
+    );
+    if (!mounted) return;
+    _applyAiSettings();
+    _applyDeviceSyncSettings();
+    _maybeLaunchAiProvider();
+    await bootstrap.runSecondaryPhase(
+      BootstrapPhase.integrations,
+      () async {
+        await IntegrationAuthService.instance.load();
+        await AppStoreService.instance.init();
+        AppExtensionRegistry.instance.loadFromInstalledApps(
+          AppStoreService.instance.installedApps,
+        );
+        AppStoreService.instance.addListener(() {
+          AppExtensionRegistry.instance.loadFromInstalledApps(
+            AppStoreService.instance.installedApps,
+          );
+        });
+      },
+    );
+    if (!mounted) return;
+    await bootstrap.runSecondaryPhase(
+      BootstrapPhase.desktop,
+      _initDesktopIntegration,
+    );
+    if (!mounted) return;
+    await bootstrap.runSecondaryPhase(
+      BootstrapPhase.integrations,
+      _startIntegrationsBridge,
+    );
+    if (!mounted) return;
+    unawaited(_loadInstalledVersionInfo());
+    unawaited(_handleInitialLaunchArgs());
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      unawaited(_checkForUpdatesOnStartup());
+    });
+    unawaited(_maybeOpenReleaseNotesPage());
+    _scheduledVaultBackupTimer = Timer.periodic(
+      const Duration(minutes: 15),
+      (_) => unawaited(_maybeRunScheduledVaultBackup()),
+    );
+    unawaited(_maybeRunScheduledVaultBackup());
+    await bootstrap.runSecondaryPhase(
+      BootstrapPhase.background,
+      _initPlatformNotifications,
+    );
+  }
 
   @override
   void initState() {
     super.initState();
+    _appBootstrap = AppBootstrap(
+      session: widget.session,
+      appSettings: widget.appSettings,
+    );
+    _telemetryNavObserver =
+        FolioTelemetryNavigatorObserver(() => widget.appSettings);
+    _lastVaultFlowForTelemetry = widget.session.state;
     FolioDiagnosticReporter.bindAppSettings(widget.appSettings);
     WidgetsBinding.instance.addObserver(this);
     widget.session.titleLocale = widget.appSettings.locale;
@@ -117,7 +225,10 @@ class _FolioAppState extends State<FolioApp> with WidgetsBindingObserver {
       appInfoProvider: _integrationsAppInfo,
       resolveLocale: () => widget.appSettings.locale ?? const Locale('es'),
       onEvent: _showSnack,
-      allowedOrigins: const ['*'],
+      // Sin allowedOrigins: el bridge sirve a apps nativas/CLI locales, no a
+      // páginas web. Con '*' cualquier sitio abierto en el navegador del
+      // usuario podía hacer fetch() al puerto fijo del bridge y disparar el
+      // diálogo de aprobación con un nombre de app falsificado.
     );
     _deviceSyncController = DeviceSyncController(
       appSettings: widget.appSettings,
@@ -129,37 +240,11 @@ class _FolioAppState extends State<FolioApp> with WidgetsBindingObserver {
     widget.session.onSyncConflictCountChanged = (count) {
       unawaited(widget.appSettings.setSyncPendingConflicts(count));
     };
-    widget.session.onPersisted = _deviceSyncController.onLocalSnapshotPersisted;
-    unawaited(_deviceSyncController.load());
-    _applySessionSecurityPolicy();
-    _folioCloudEntitlements.addListener(_onFolioCloudEntitlements);
-    _folioCloudEntitlements.setWebPortalBaseUrlResolver(
-      () => AppSettings.folioWebPortalLinkEnabled
-          ? widget.appSettings.folioWebPortalBaseUrlEffective
-          : '',
-    );
-    unawaited(_folioCloudEntitlements.refreshWebPortalEntitlement());
-    _applyAiSettings();
-    _applyDeviceSyncSettings();
-    _maybeLaunchAiProvider();
-    widget.session.bootstrap();
-    unawaited(_loadInstalledVersionInfo());
-    unawaited(_startIntegrationsBridge());
-    _initDesktopIntegration();
+    widget.session.onPersisted = _onVaultPersisted;
     _launchArgsSub = PlatformLaunchArguments.launchArguments().listen((args) {
       unawaited(_handleLaunchArguments(args, focusWindow: false));
     });
-    unawaited(_handleInitialLaunchArgs());
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      unawaited(_checkForUpdatesOnStartup());
-    });
-    unawaited(_maybeOpenReleaseNotesPage());
-    _scheduledVaultBackupTimer = Timer.periodic(
-      const Duration(minutes: 15),
-      (_) => unawaited(_maybeRunScheduledVaultBackup()),
-    );
-    unawaited(_maybeRunScheduledVaultBackup());
-    unawaited(_initPlatformNotifications());
+    unawaited(_runVaultBootstrap());
     _accentSub = SystemTheme.onChange.listen((_) {
       if (mounted) setState(() {});
     });
@@ -171,6 +256,7 @@ class _FolioAppState extends State<FolioApp> with WidgetsBindingObserver {
     _reminderSub?.cancel();
     _taskReminderService?.dispose();
     _scheduledVaultBackupTimer?.cancel();
+    _continuousVaultBackupDebounce?.cancel();
     _launchArgsSub?.cancel();
     _accentSub?.cancel();
     unawaited(_integrationsBridge.dispose());
@@ -188,6 +274,19 @@ class _FolioAppState extends State<FolioApp> with WidgetsBindingObserver {
   }
 
   void _onSession() {
+    final nextVault = widget.session.state;
+    if (_lastVaultFlowForTelemetry != nextVault) {
+      if (_lastVaultFlowForTelemetry != null) {
+        unawaited(
+          FolioTelemetry.logNavigation(
+            widget.appSettings,
+            _vaultTelemetryScreen(_lastVaultFlowForTelemetry!),
+            _vaultTelemetryScreen(nextVault),
+          ),
+        );
+      }
+      _lastVaultFlowForTelemetry = nextVault;
+    }
     if (widget.session.state == VaultFlowState.locked) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         final nav = _navKey.currentState;
@@ -199,6 +298,43 @@ class _FolioAppState extends State<FolioApp> with WidgetsBindingObserver {
     }
     unawaited(_maybeOpenReleaseNotesPage());
     if (mounted) setState(() {});
+  }
+
+  Future<void> _openReleaseNotesForUser(BuildContext context) async {
+    try {
+      final info = await PackageInfo.fromPlatform();
+      final appVersion = info.version.trim();
+      final buildNumber = info.buildNumber.trim();
+      if (appVersion.isEmpty) return;
+      final versionLabel = appVersion;
+      final updater = GitHubReleaseUpdater(
+        owner: widget.appSettings.updaterGithubOwner,
+        repo: widget.appSettings.updaterGithubRepo,
+      );
+      ReleaseNotesResult? release;
+      try {
+        release = await updater.fetchReleaseNotesForVersion(
+          appVersion: appVersion,
+          buildNumber: buildNumber,
+        );
+      } catch (_) {
+        release = null;
+      }
+      if (!context.mounted) return;
+      await Navigator.of(context).push<void>(
+        MaterialPageRoute<void>(
+          builder: (ctx) => ReleaseNotesPage(
+            versionLabel: versionLabel,
+            releaseTitle: release?.releaseName,
+            releaseNotes: release?.releaseNotes ?? '',
+            publishedAt: release?.publishedAt,
+            tagName: release?.tagName,
+          ),
+          settings: const RouteSettings(name: 'release_notes'),
+        ),
+      );
+      await widget.appSettings.setLastSeenReleaseNotesVersion(versionLabel);
+    } catch (_) {}
   }
 
   Future<void> _maybeOpenReleaseNotesPage() async {
@@ -218,9 +354,7 @@ class _FolioAppState extends State<FolioApp> with WidgetsBindingObserver {
       final appVersion = info.version.trim();
       final buildNumber = info.buildNumber.trim();
       if (appVersion.isEmpty) return;
-      final versionLabel = buildNumber.isEmpty
-          ? appVersion
-          : '$appVersion+$buildNumber';
+      final versionLabel = appVersion;
       final lastSeen = widget.appSettings.lastSeenReleaseNotesVersion.trim();
 
       // Inicializa el marcador en instalaciones nuevas para no abrir en el primer arranque.
@@ -294,11 +428,65 @@ class _FolioAppState extends State<FolioApp> with WidgetsBindingObserver {
         'ca' => event.isOverdue ? 'Tasca vençuda' : 'Tasca per avui',
         'pt' => event.isOverdue ? 'Tarefa vencida' : 'Tarefa para hoje',
         'gl' => event.isOverdue ? 'Tarefa vencida' : 'Tarefa para hoxe',
-        'eu' => event.isOverdue ? 'Epemuga igarotako zeregina' : 'Gaurko zeregina',
+        'eu' =>
+          event.isOverdue ? 'Epemuga igarotako zeregina' : 'Gaurko zeregina',
         _ => event.isOverdue ? 'Tarea vencida' : 'Tarea para hoy',
       };
       final body = '${event.pageTitle}: ${event.taskTitle}';
-      unawaited(PlatformNotificationService.show(id: id, title: title, body: body));
+      unawaited(
+        PlatformNotificationService.show(id: id, title: title, body: body),
+      );
+    }
+  }
+
+  void _onVaultPersisted() {
+    _deviceSyncController.onLocalSnapshotPersisted();
+    unawaited(_scheduleContinuousVaultBackupAfterPersist());
+  }
+
+  Future<void> _scheduleContinuousVaultBackupAfterPersist() async {
+    if (!mounted) return;
+    if (widget.session.state != VaultFlowState.unlocked) return;
+    final vaultId = widget.session.activeVaultId ?? '';
+    final prefs = await widget.appSettings.getVaultBackupPrefs(
+      vaultId.isEmpty ? null : vaultId,
+    );
+    if (!prefs.enabled || !prefs.isContinuous) return;
+    final canCloud =
+        Firebase.apps.isNotEmpty &&
+        FirebaseAuth.instance.currentUser != null &&
+        _folioCloudEntitlements.snapshot.canUseCloudBackup;
+    if (!scheduledVaultBackupHasDestination(prefs, canCloud: canCloud)) {
+      return;
+    }
+    _continuousVaultBackupDirty = true;
+    _continuousVaultBackupDebounce?.cancel();
+    _continuousVaultBackupDebounce = Timer(
+      _continuousVaultBackupDebounceDuration,
+      () => unawaited(_runContinuousVaultBackupIfNeeded()),
+    );
+  }
+
+  Future<void> _runContinuousVaultBackupIfNeeded() async {
+    if (!mounted) return;
+    if (_continuousVaultBackupRunning) {
+      _continuousVaultBackupDirty = true;
+      return;
+    }
+    if (!_continuousVaultBackupDirty) return;
+    _continuousVaultBackupDirty = false;
+    _continuousVaultBackupRunning = true;
+    try {
+      await _executeScheduledVaultBackup(showSuccessSnack: false);
+      if (_continuousVaultBackupDirty && mounted) {
+        _continuousVaultBackupDebounce?.cancel();
+        _continuousVaultBackupDebounce = Timer(
+          _continuousVaultBackupDebounceDuration,
+          () => unawaited(_runContinuousVaultBackupIfNeeded()),
+        );
+      }
+    } finally {
+      _continuousVaultBackupRunning = false;
     }
   }
 
@@ -310,17 +498,26 @@ class _FolioAppState extends State<FolioApp> with WidgetsBindingObserver {
       vaultId.isEmpty ? null : vaultId,
     );
     if (!prefs.enabled) return;
+    // El modo continuo se dispara tras persist; el timer solo cubre intervalos fijos.
+    if (prefs.isContinuous) return;
     final canCloud =
         Firebase.apps.isNotEmpty &&
         FirebaseAuth.instance.currentUser != null &&
         _folioCloudEntitlements.snapshot.canUseCloudBackup;
-    final willDoFolder = prefs.folderEnabled && prefs.directory.isNotEmpty;
+    final willDoFolder = prefs.hasNetworkDestination;
     final willDoCloud = prefs.alsoCloud && canCloud;
     if (!willDoFolder && !willDoCloud) return;
     final intervalMs = prefs.intervalMinutes * 60 * 1000;
     final now = DateTime.now().millisecondsSinceEpoch;
     final last = prefs.lastMs;
     if (last > 0 && now - last < intervalMs) return;
+    await _executeScheduledVaultBackup(showSuccessSnack: true);
+  }
+
+  Future<void> _executeScheduledVaultBackup({
+    required bool showSuccessSnack,
+  }) async {
+    final vaultId = widget.session.activeVaultId ?? '';
     try {
       await runScheduledFolderVaultExport(
         session: widget.session,
@@ -328,6 +525,7 @@ class _FolioAppState extends State<FolioApp> with WidgetsBindingObserver {
         vaultId: vaultId.isEmpty ? null : vaultId,
         folioEntitlements: _folioCloudEntitlements,
       );
+      if (!showSuccessSnack) return;
       final okCtx = _navKey.currentContext;
       if (okCtx == null || !okCtx.mounted) return;
       _showSnack(AppLocalizations.of(okCtx).scheduledVaultBackupSnackOk);
@@ -350,8 +548,46 @@ class _FolioAppState extends State<FolioApp> with WidgetsBindingObserver {
     return widget.session.exportSyncSnapshotBytes();
   }
 
+  String _vaultTelemetryScreen(VaultFlowState s) {
+    switch (s) {
+      case VaultFlowState.initializing:
+        return 'vault_initializing';
+      case VaultFlowState.needsOnboarding:
+        return 'vault_onboarding';
+      case VaultFlowState.locked:
+        return 'vault_locked';
+      case VaultFlowState.unlocked:
+        return 'workspace';
+      case VaultFlowState.recovery:
+        return 'vault_recovery';
+    }
+  }
+
   Future<bool> _importSyncSnapshot(List<int> snapshot, String _) async {
-    return widget.session.applySyncSnapshotBytes(snapshot);
+    final sw = Stopwatch()..start();
+    try {
+      final ok = await widget.session.applySyncSnapshotBytes(snapshot);
+      unawaited(
+        FolioTelemetry.logSyncEvent(
+          widget.appSettings,
+          'device_lan_import',
+          ok,
+          durationMs: sw.elapsedMilliseconds,
+        ),
+      );
+      return ok;
+    } catch (e) {
+      unawaited(
+        FolioTelemetry.logSyncEvent(
+          widget.appSettings,
+          'device_lan_import',
+          false,
+          errorMessage: '$e',
+          durationMs: sw.elapsedMilliseconds,
+        ),
+      );
+      rethrow;
+    }
   }
 
   void _showIncomingPairRequestDialog(IncomingPairRequest request) {
@@ -368,7 +604,7 @@ class _FolioAppState extends State<FolioApp> with WidgetsBindingObserver {
         context: ctx,
         barrierDismissible: false,
         builder: (dialogCtx) {
-          return AlertDialog(
+          return FolioDialog(
             title: Text(isEs ? 'Solicitud de vinculacion' : 'Link request'),
             content: Column(
               mainAxisSize: MainAxisSize.min,
@@ -455,7 +691,7 @@ class _FolioAppState extends State<FolioApp> with WidgetsBindingObserver {
       final info = await PackageInfo.fromPlatform();
       if (!mounted) return;
       setState(() {
-        _installedVersionLabel = '${info.version}+${info.buildNumber}';
+        _installedVersionLabel = info.version;
       });
     } catch (_) {
       _installedVersionLabel ??= 'unknown';
@@ -554,54 +790,49 @@ class _FolioAppState extends State<FolioApp> with WidgetsBindingObserver {
   }
 
   void _applyAiSettings() {
-    if (!aiLocalProvidersSupported) {
-      if (!widget.appSettings.isAiRuntimeEnabled) {
-        widget.session.setAiService(null);
-        return;
-      }
-      if (widget.appSettings.aiProvider == AiProvider.quillCloud) {
-        if (_folioCloudEntitlements.snapshot.canUseCloudAi) {
-          widget.session.setAiService(
-            FolioCloudAiService(entitlements: _folioCloudEntitlements),
-          );
-        } else {
-          widget.session.setAiService(null);
-        }
-        return;
-      }
-      widget.session.setAiService(null);
-      return;
-    }
     if (!widget.appSettings.isAiRuntimeEnabled) {
       widget.session.setAiService(null);
       return;
     }
-    switch (widget.appSettings.aiProvider) {
-      case AiProvider.none:
-        widget.session.setAiService(null);
-        return;
-      case AiProvider.quillCloud:
-        if (!_folioCloudEntitlements.snapshot.canUseCloudAi) {
-          widget.session.setAiService(null);
-          return;
-        }
-        widget.session.setAiService(
-          FolioCloudAiService(entitlements: _folioCloudEntitlements),
-        );
-        return;
-      case AiProvider.ollama:
-      case AiProvider.lmStudio:
-        break;
-    }
-    final endpointError = AiSafetyPolicy.validateEndpointIssue(
-      rawUrl: widget.appSettings.aiBaseUrl,
-      mode: widget.appSettings.aiEndpointMode,
-      remoteConfirmed: widget.appSettings.aiRemoteEndpointConfirmed,
-    );
-    if (endpointError != null) {
+
+    final provider = widget.appSettings.aiProvider;
+    if (provider == AiProvider.none) {
       widget.session.setAiService(null);
       return;
     }
+
+    // Quill Cloud
+    if (provider == AiProvider.quillCloud) {
+      if (_folioCloudEntitlements.snapshot.canUseCloudAi) {
+        widget.session.setAiService(
+          FolioCloudAiService(entitlements: _folioCloudEntitlements),
+        );
+      } else {
+        widget.session.setAiService(null);
+      }
+      return;
+    }
+
+    // Local providers check (Ollama and LM Studio are only supported on desktop/web)
+    final isLocalProvider = provider == AiProvider.ollama || provider == AiProvider.lmStudio;
+    if (isLocalProvider && !aiLocalProvidersSupported) {
+      widget.session.setAiService(null);
+      return;
+    }
+
+    // Validate endpoint only for local providers
+    if (isLocalProvider) {
+      final endpointError = AiSafetyPolicy.validateEndpointIssue(
+        rawUrl: widget.appSettings.aiBaseUrl,
+        mode: widget.appSettings.aiEndpointMode,
+        remoteConfirmed: widget.appSettings.aiRemoteEndpointConfirmed,
+      );
+      if (endpointError != null) {
+        widget.session.setAiService(null);
+        return;
+      }
+    }
+
     final uri = AiSafetyPolicy.parseAndNormalizeUrl(
       widget.appSettings.aiBaseUrl,
     );
@@ -609,8 +840,9 @@ class _FolioAppState extends State<FolioApp> with WidgetsBindingObserver {
       widget.session.setAiService(null);
       return;
     }
+
     final timeout = Duration(milliseconds: widget.appSettings.aiTimeoutMs);
-    switch (widget.appSettings.aiProvider) {
+    switch (provider) {
       case AiProvider.ollama:
         widget.session.setAiService(
           OllamaAiService(
@@ -629,8 +861,20 @@ class _FolioAppState extends State<FolioApp> with WidgetsBindingObserver {
           ),
         );
         break;
-      case AiProvider.none:
-      case AiProvider.quillCloud:
+      case AiProvider.openAi:
+      case AiProvider.gemini:
+        widget.session.setAiService(
+          OpenAiCompatibleAiService(
+            baseUrl: uri,
+            timeout: timeout,
+            defaultModel: widget.appSettings.aiModel,
+            apiKey: widget.appSettings.aiApiKey,
+            provider: provider.name,
+          ),
+        );
+        break;
+      default:
+        widget.session.setAiService(null);
         break;
     }
   }
@@ -645,7 +889,16 @@ class _FolioAppState extends State<FolioApp> with WidgetsBindingObserver {
       labelsBuilder: _desktopLabels,
     );
     _desktop = desktop;
-    await desktop.initialize();
+    try {
+      await desktop.initialize();
+    } catch (e, st) {
+      AppLogger.error(
+        'Desktop integration init failed',
+        tag: 'desktop',
+        error: e,
+        stackTrace: st,
+      );
+    }
     _desktopSettingsSignature = _buildDesktopSettingsSignature();
   }
 
@@ -672,7 +925,7 @@ class _FolioAppState extends State<FolioApp> with WidgetsBindingObserver {
     );
   }
 
-  Future<void> _handleSearchRequested() async {
+  Future<void> _handleSearchRequested([String? initialQuery]) async {
     if (_openingByHotkey) return;
     _openingByHotkey = true;
     try {
@@ -687,12 +940,17 @@ class _FolioAppState extends State<FolioApp> with WidgetsBindingObserver {
         if (unlocked != true) return;
       }
       if (!mounted || widget.session.state != VaultFlowState.unlocked) return;
+      unawaited(
+        FolioTelemetry.logFeatureUsed(widget.appSettings, 'global_search'),
+      );
+      final q = initialQuery?.trim();
       await showDialog<bool>(
         context: _navKey.currentContext ?? context,
         barrierDismissible: true,
         builder: (ctx) => GlobalSearchPopup(
           session: widget.session,
           appSettings: widget.appSettings,
+          initialQuery: (q == null || q.isEmpty) ? null : q,
         ),
       );
     } finally {
@@ -971,31 +1229,19 @@ class _FolioAppState extends State<FolioApp> with WidgetsBindingObserver {
       final betaNote = result.isPrerelease
           ? '\n\n${l10n.updaterStartupDialogBetaNote}'
           : '';
-      final shouldInstall = await showDialog<bool>(
-        context: dialogCtx,
-        builder: (ctx) {
-          return AlertDialog(
-            title: Text(
-              result.isPrerelease
-                  ? l10n.updaterStartupDialogTitleBeta
-                  : l10n.updaterStartupDialogTitleStable,
-            ),
-            content: Text(
-              '${l10n.updaterStartupDialogBody(result.releaseVersion.toString())}$betaNote\n\n'
-              '${defaultTargetPlatform == TargetPlatform.android ? l10n.updaterOpenApkDownloadQuestion : l10n.updaterStartupDialogQuestion}',
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(ctx, false),
-                child: Text(l10n.updaterStartupDialogLater),
-              ),
-              FilledButton(
-                onPressed: () => Navigator.pop(ctx, true),
-                child: Text(l10n.updaterStartupDialogUpdateNow),
-              ),
-            ],
-          );
-        },
+      final shouldInstall = await FolioDialog.confirm(
+        dialogCtx,
+        title: Text(
+          result.isPrerelease
+              ? l10n.updaterStartupDialogTitleBeta
+              : l10n.updaterStartupDialogTitleStable,
+        ),
+        content: Text(
+          '${l10n.updaterStartupDialogBody(result.releaseVersion.toString())}$betaNote\n\n'
+          '${defaultTargetPlatform == TargetPlatform.android ? l10n.updaterOpenApkDownloadQuestion : l10n.updaterStartupDialogQuestion}',
+        ),
+        cancelLabel: l10n.updaterStartupDialogLater,
+        confirmLabel: l10n.updaterStartupDialogUpdateNow,
       );
       if (shouldInstall == true) {
         if (defaultTargetPlatform == TargetPlatform.android) {
@@ -1021,7 +1267,8 @@ class _FolioAppState extends State<FolioApp> with WidgetsBindingObserver {
     }
     if (state == AppLifecycleState.inactive ||
         state == AppLifecycleState.paused ||
-        state == AppLifecycleState.hidden) {
+        state == AppLifecycleState.hidden ||
+        state == AppLifecycleState.detached) {
       widget.session.onAppBackgrounded();
       if (widget.appSettings.minimizeToTray) {
         unawaited(_desktop?.hideToTray());
@@ -1034,9 +1281,12 @@ class _FolioAppState extends State<FolioApp> with WidgetsBindingObserver {
     final seed = widget.appSettings.resolveAccentSeedColor();
     return MaterialApp(
       navigatorKey: _navKey,
+      navigatorObservers: [_telemetryNavObserver],
       onGenerateTitle: (context) => AppLocalizations.of(context).appTitle,
       theme: folioLightTheme(seed),
-      darkTheme: folioDarkTheme(seed),
+      darkTheme: widget.appSettings.oledThemeEnabled
+          ? folioOledTheme(seed)
+          : folioDarkTheme(seed),
       themeMode: widget.appSettings.themeMode,
       locale: widget.appSettings.locale,
       supportedLocales: AppLocalizations.supportedLocales,
@@ -1052,27 +1302,32 @@ class _FolioAppState extends State<FolioApp> with WidgetsBindingObserver {
           isWindows: !kIsWeb && defaultTargetPlatform == TargetPlatform.windows,
           devicePixelRatio: media.devicePixelRatio,
         );
-        Widget content = child ?? const SizedBox.shrink();
-        if ((uiScale - 1.0).abs() > 0.001) {
-          content = ClipRect(
-            child: OverflowBox(
+        // La estructura del árbol se mantiene SIEMPRE igual (aunque la escala
+        // sea 1.0) para no re-parentar el subárbol que contiene el Navigator y
+        // sus FocusScope. Cambiar la profundidad del árbol al cruzar el límite
+        // de 1.0 provocaba la aserción '_elements.contains(element)' del
+        // framework al mover elementos con GlobalKey.
+        final double effectiveScale = (uiScale - 1.0).abs() > 0.001
+            ? uiScale
+            : 1.0;
+        final Widget content = ClipRect(
+          child: OverflowBox(
+            alignment: Alignment.topLeft,
+            minWidth: 0,
+            minHeight: 0,
+            maxWidth: double.infinity,
+            maxHeight: double.infinity,
+            child: Transform.scale(
               alignment: Alignment.topLeft,
-              minWidth: 0,
-              minHeight: 0,
-              maxWidth: double.infinity,
-              maxHeight: double.infinity,
-              child: Transform.scale(
-                alignment: Alignment.topLeft,
-                scale: uiScale,
-                child: SizedBox(
-                  width: media.size.width / uiScale,
-                  height: media.size.height / uiScale,
-                  child: content,
-                ),
+              scale: effectiveScale,
+              child: SizedBox(
+                width: media.size.width / effectiveScale,
+                height: media.size.height / effectiveScale,
+                child: child ?? const SizedBox.shrink(),
               ),
             ),
-          );
-        }
+          ),
+        );
         return Shortcuts(
           shortcuts: const <ShortcutActivator, Intent>{
             SingleActivator(LogicalKeyboardKey.equal, control: true):
@@ -1126,6 +1381,7 @@ class _FolioAppState extends State<FolioApp> with WidgetsBindingObserver {
         cloudAccountController: widget.cloudAccountController,
         folioCloudEntitlements: _folioCloudEntitlements,
         onOpenSearch: _handleSearchRequested,
+        onOpenReleaseNotes: _openReleaseNotesForUser,
       ),
     );
   }
@@ -1233,7 +1489,7 @@ class _IntegrationApprovalDialog extends StatelessWidget {
       );
     }
 
-    return AlertDialog(
+    return FolioDialog(
       insetPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
       content: SizedBox(
         width: 640,
@@ -1594,6 +1850,7 @@ class _HomeByState extends StatelessWidget {
     required this.cloudAccountController,
     required this.folioCloudEntitlements,
     required this.onOpenSearch,
+    required this.onOpenReleaseNotes,
   });
 
   final VaultSession session;
@@ -1601,7 +1858,8 @@ class _HomeByState extends StatelessWidget {
   final DeviceSyncController deviceSyncController;
   final CloudAccountController cloudAccountController;
   final FolioCloudEntitlementsController folioCloudEntitlements;
-  final VoidCallback onOpenSearch;
+  final void Function([String? initialQuery]) onOpenSearch;
+  final Future<void> Function(BuildContext context) onOpenReleaseNotes;
 
   @override
   Widget build(BuildContext context) {
@@ -1615,7 +1873,7 @@ class _HomeByState extends StatelessWidget {
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                CircularProgressIndicator(color: scheme.primary),
+                FolioLoadingIndicator(color: scheme.primary),
                 const SizedBox(height: 16),
                 Text(
                   l10n.loading,
@@ -1631,6 +1889,8 @@ class _HomeByState extends StatelessWidget {
         return OnboardingFlow(session: session, appSettings: appSettings);
       case VaultFlowState.locked:
         return LockScreen(session: session, appSettings: appSettings);
+      case VaultFlowState.recovery:
+        return RecoveryScreen(session: session, appSettings: appSettings);
       case VaultFlowState.unlocked:
         return WorkspacePage(
           session: session,
@@ -1639,6 +1899,7 @@ class _HomeByState extends StatelessWidget {
           cloudAccountController: cloudAccountController,
           folioCloudEntitlements: folioCloudEntitlements,
           onOpenSearch: onOpenSearch,
+          onOpenReleaseNotes: onOpenReleaseNotes,
         );
     }
   }

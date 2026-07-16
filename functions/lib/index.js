@@ -36,7 +36,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.folioReportDiagnostic = exports.folioJiraExchangeOAuth = exports.folioCloudAiCompleteHttp = exports.folioCloudAiComplete = exports.monthlyInkRefill = exports.folioCloudTranscribeChunk = exports.createBillingPortalSession = exports.folioTrimVaultBackups = exports.folioRecordVaultBackupMeta = exports.folioGetLatestVaultBackupMeta = exports.folioUpsertVaultBackupIndex = exports.folioListBackupVaults = exports.folioTrimVaultBackupsByBytes = exports.folioListVaultBackups = exports.folioGetBackupStorageUsage = exports.folioFinalizeCloudPack = exports.folioCheckCloudPackBlobsExist = exports.folioGetCloudPackRestoreWrap = exports.folioGetLatestCloudPackMeta = exports.validateMicrosoftStoreEntitlements = exports.syncFolioCloudSubscriptionFromStripe = exports.createCheckoutSession = exports.closeCollabRoom = exports.removeCollabMember = exports.inviteCollabMember = exports.commitCollabMediaUpload = exports.prepareCollabMediaUpload = exports.joinCollabRoomByCode = exports.createCollabRoom = exports.stripeWebhook = exports.folioCloudAiPricing = void 0;
+exports.ensureUserDocExists = exports.onUserCreated = exports.getFamilyDetails = exports.verifyStudentStatus = exports.removeFamilyMember = exports.inviteFamilyMember = exports.folioReportDiagnostic = exports.folioJiraExchangeOAuth = exports.folioCloudAiCompleteHttp = exports.folioCloudAiComplete = exports.monthlyInkRefill = exports.folioCloudTranscribeChunk = exports.createBillingPortalSession = exports.folioTrimVaultBackups = exports.folioRecordVaultBackupMeta = exports.folioGetLatestVaultBackupMeta = exports.folioUpsertVaultBackupIndex = exports.folioListBackupVaults = exports.folioTrimVaultBackupsByBytes = exports.folioDeleteVaultLegacyBackup = exports.folioDeleteVaultCloudPack = exports.folioListVaultBackups = exports.folioGetBackupStorageUsage = exports.folioFinalizeCloudPack = exports.folioCheckCloudPackBlobsExist = exports.folioGetCloudPackRestoreWrap = exports.folioGetLatestCloudPackMeta = exports.validateMicrosoftStoreEntitlements = exports.syncFolioCloudSubscriptionFromStripe = exports.createCheckoutSession = exports.closeCollabRoom = exports.removeCollabMember = exports.inviteCollabMember = exports.commitCollabMediaUpload = exports.prepareCollabMediaUpload = exports.joinCollabRoomByCode = exports.createCollabRoom = exports.stripeWebhook = exports.folioCloudAiPricing = exports.onTelemetryEventCreated = exports.aggregateGlobalTelemetryStats = exports.aggregateDailyTelemetryStats = void 0;
 const path = __importStar(require("path"));
 const dotenv_1 = require("dotenv");
 // Carga `functions/.env` (gitignored). En deploy, Firebase también inyecta estas variables.
@@ -49,6 +49,10 @@ const https_2 = require("firebase-functions/v2/https");
 const scheduler_1 = require("firebase-functions/v2/scheduler");
 const stripe_1 = __importDefault(require("stripe"));
 const microsoft_store_1 = require("./microsoft_store");
+var telemetry_1 = require("./telemetry");
+Object.defineProperty(exports, "aggregateDailyTelemetryStats", { enumerable: true, get: function () { return telemetry_1.aggregateDailyTelemetryStats; } });
+Object.defineProperty(exports, "aggregateGlobalTelemetryStats", { enumerable: true, get: function () { return telemetry_1.aggregateGlobalTelemetryStats; } });
+Object.defineProperty(exports, "onTelemetryEventCreated", { enumerable: true, get: function () { return telemetry_1.onTelemetryEventCreated; } });
 admin.initializeApp();
 const db = admin.firestore();
 const FieldValue = admin.firestore.FieldValue;
@@ -56,6 +60,8 @@ const FieldValue = admin.firestore.FieldValue;
 const AiHttpsError = functionsV1.https.HttpsError;
 /** Suscripción Folio Cloud: 500 gotas/mes (recarga día 1 + alta). */
 const MONTHLY_INK_ALLOWANCE = 500;
+const STUDENT_INK_ALLOWANCE = 1000;
+const STUDENT_BACKUP_BASE_QUOTA_BYTES = 15 * 1024 * 1024 * 1024;
 const INK_TIMEZONE = "Europe/Madrid";
 /** Coste base por tipo de operación (cliente envía `operationKind`; desconocidos → `default`). */
 const INK_COST_BY_OPERATION = {
@@ -80,13 +86,19 @@ const INK_EXTRA_FOR_LONG_PROMPT = 2;
 /** Tras inferencia remota (Quill Cloud), cargo extra por volumen de tokens (`usage.total_tokens`). */
 const INK_TOKENS_PER_SURCHARGE_UNIT = 6000;
 const INK_MAX_TOKEN_SURCHARGE = 10;
-function stripeSecret() {
-    var _a, _b;
-    return (_b = (_a = process.env.STRIPE_SECRET_KEY) === null || _a === void 0 ? void 0 : _a.trim()) !== null && _b !== void 0 ? _b : "";
+function stripeSecret(isDebug) {
+    var _a, _b, _c, _d;
+    if (isDebug) {
+        return ((_a = process.env.STRIPE_TEST_SECRET_KEY) === null || _a === void 0 ? void 0 : _a.trim()) || ((_b = process.env.STRIPE_SECRET_KEY) === null || _b === void 0 ? void 0 : _b.trim()) || "";
+    }
+    return (_d = (_c = process.env.STRIPE_SECRET_KEY) === null || _c === void 0 ? void 0 : _c.trim()) !== null && _d !== void 0 ? _d : "";
 }
-function webhookSecret() {
-    var _a, _b;
-    return (_b = (_a = process.env.STRIPE_WEBHOOK_SECRET) === null || _a === void 0 ? void 0 : _a.trim()) !== null && _b !== void 0 ? _b : "";
+function webhookSecret(isTest) {
+    var _a, _b, _c, _d;
+    if (isTest) {
+        return ((_a = process.env.STRIPE_TEST_WEBHOOK_SECRET) === null || _a === void 0 ? void 0 : _a.trim()) || ((_b = process.env.STRIPE_WEBHOOK_SECRET) === null || _b === void 0 ? void 0 : _b.trim()) || "";
+    }
+    return (_d = (_c = process.env.STRIPE_WEBHOOK_SECRET) === null || _c === void 0 ? void 0 : _c.trim()) !== null && _d !== void 0 ? _d : "";
 }
 function openAiApiKey() {
     var _a, _b;
@@ -487,9 +499,14 @@ async function refundInkDropCharge(uid, amount) {
     }, { merge: true });
 }
 async function chargeInkExtraIfPossible(uid, extra, allowSubscriptionInk) {
+    var _a;
     if (extra <= 0)
         return 0;
     const ref = db.collection("users").doc(uid);
+    const pre = await ref.get();
+    if (isFolioStaffUser(((_a = pre.data()) !== null && _a !== void 0 ? _a : {}))) {
+        return 0;
+    }
     let charged = 0;
     await db.runTransaction(async (tx) => {
         var _a;
@@ -540,10 +557,27 @@ function promptLengthForInk(input) {
     return n;
 }
 async function runFolioCloudAiForUid(uid, input, operationKind) {
-    var _a;
+    var _a, _b, _c;
     const baseCost = resolveInkCost(operationKind, promptLengthForInk(input));
     const ref = db.collection("users").doc(uid);
     const inkExhaustedMsg = "Insufficient ink. Buy an ink pack in Folio Cloud settings, wait for your monthly refill with an active subscription, or switch to a local AI provider (Ollama / LM Studio).";
+    const preSnap = await ref.get();
+    const preData = ((_a = preSnap.data()) !== null && _a !== void 0 ? _a : {});
+    if (isFolioStaffUser(preData)) {
+        const { text } = await callOpenAiChatStructured(input);
+        const finalSnap = await ref.get();
+        const inkOut = readInkBalances(((_b = finalSnap.data()) !== null && _b !== void 0 ? _b : {}));
+        return {
+            text,
+            ink: {
+                monthlyBalance: inkOut.monthly,
+                purchasedBalance: inkOut.purchased,
+            },
+            inkCharged: 0,
+            inkBaseCharged: 0,
+            inkTokenSurcharge: 0,
+        };
+    }
     let allowSubscriptionInk = false;
     await db.runTransaction(async (tx) => {
         var _a;
@@ -582,7 +616,7 @@ async function runFolioCloudAiForUid(uid, input, operationKind) {
         const extraWant = tokenSurchargeInk(totalTokenCount);
         const extraCharged = await chargeInkExtraIfPossible(uid, extraWant, allowSubscriptionInk);
         const finalSnap = await ref.get();
-        const inkOut = readInkBalances(((_a = finalSnap.data()) !== null && _a !== void 0 ? _a : {}));
+        const inkOut = readInkBalances(((_c = finalSnap.data()) !== null && _c !== void 0 ? _c : {}));
         return {
             text,
             ink: {
@@ -631,8 +665,11 @@ async function verifiedUidFromBearerToken(authHeader) {
         throw new AiHttpsError("unauthenticated", "Login required");
     }
 }
-function stripeClient() {
-    const key = stripeSecret();
+function isEmulatorMode(isDebug) {
+    return isDebug === true || process.env.FUNCTIONS_EMULATOR === "true";
+}
+function stripeClient(isDebug) {
+    const key = stripeSecret(isEmulatorMode(isDebug));
     if (!key)
         return null;
     return new stripe_1.default(key, { apiVersion: "2025-02-24.acacia" });
@@ -647,39 +684,90 @@ function stripeCallErrorMessage(err) {
     }
     return "Unknown error";
 }
-function priceFolioCloudMonthly() {
-    var _a, _b;
-    return (_b = (_a = process.env.STRIPE_PRICE_FOLIO_CLOUD_MONTHLY) === null || _a === void 0 ? void 0 : _a.trim()) !== null && _b !== void 0 ? _b : "";
+function priceFolioCloudMonthly(isDebug) {
+    var _a, _b, _c, _d;
+    if (isEmulatorMode(isDebug)) {
+        return ((_a = process.env.STRIPE_TEST_PRICE_FOLIO_CLOUD_MONTHLY) === null || _a === void 0 ? void 0 : _a.trim()) || ((_b = process.env.STRIPE_PRICE_FOLIO_CLOUD_MONTHLY) === null || _b === void 0 ? void 0 : _b.trim()) || "";
+    }
+    return (_d = (_c = process.env.STRIPE_PRICE_FOLIO_CLOUD_MONTHLY) === null || _c === void 0 ? void 0 : _c.trim()) !== null && _d !== void 0 ? _d : "";
 }
-function priceInkSmall() {
-    var _a, _b;
-    return (_b = (_a = process.env.STRIPE_PRICE_INK_SMALL) === null || _a === void 0 ? void 0 : _a.trim()) !== null && _b !== void 0 ? _b : "";
+function priceFolioCloudFamily(isDebug) {
+    var _a, _b, _c, _d;
+    if (isEmulatorMode(isDebug)) {
+        return ((_a = process.env.STRIPE_TEST_PRICE_FOLIO_CLOUD_FAMILY) === null || _a === void 0 ? void 0 : _a.trim()) || ((_b = process.env.STRIPE_PRICE_FOLIO_CLOUD_FAMILY) === null || _b === void 0 ? void 0 : _b.trim()) || "";
+    }
+    return (_d = (_c = process.env.STRIPE_PRICE_FOLIO_CLOUD_FAMILY) === null || _c === void 0 ? void 0 : _c.trim()) !== null && _d !== void 0 ? _d : "";
 }
-function priceInkMedium() {
-    var _a, _b;
-    return (_b = (_a = process.env.STRIPE_PRICE_INK_MEDIUM) === null || _a === void 0 ? void 0 : _a.trim()) !== null && _b !== void 0 ? _b : "";
+function priceFolioCloudFamilyMember(isDebug) {
+    var _a, _b, _c, _d;
+    if (isEmulatorMode(isDebug)) {
+        return ((_a = process.env.STRIPE_TEST_PRICE_FOLIO_CLOUD_FAMILY_MEMBER) === null || _a === void 0 ? void 0 : _a.trim()) || ((_b = process.env.STRIPE_PRICE_FOLIO_CLOUD_FAMILY_MEMBER) === null || _b === void 0 ? void 0 : _b.trim()) || "";
+    }
+    return (_d = (_c = process.env.STRIPE_PRICE_FOLIO_CLOUD_FAMILY_MEMBER) === null || _c === void 0 ? void 0 : _c.trim()) !== null && _d !== void 0 ? _d : "";
 }
-function priceInkLarge() {
-    var _a, _b;
-    return (_b = (_a = process.env.STRIPE_PRICE_INK_LARGE) === null || _a === void 0 ? void 0 : _a.trim()) !== null && _b !== void 0 ? _b : "";
+function priceFolioCloudStudent(isDebug) {
+    var _a, _b, _c, _d;
+    if (isEmulatorMode(isDebug)) {
+        return ((_a = process.env.STRIPE_TEST_PRICE_FOLIO_CLOUD_STUDENT) === null || _a === void 0 ? void 0 : _a.trim()) || ((_b = process.env.STRIPE_PRICE_FOLIO_CLOUD_STUDENT) === null || _b === void 0 ? void 0 : _b.trim()) || "";
+    }
+    return (_d = (_c = process.env.STRIPE_PRICE_FOLIO_CLOUD_STUDENT) === null || _c === void 0 ? void 0 : _c.trim()) !== null && _d !== void 0 ? _d : "";
+}
+function priceInkSmall(isDebug) {
+    var _a, _b, _c, _d;
+    if (isEmulatorMode(isDebug)) {
+        return ((_a = process.env.STRIPE_TEST_PRICE_INK_SMALL) === null || _a === void 0 ? void 0 : _a.trim()) || ((_b = process.env.STRIPE_PRICE_INK_SMALL) === null || _b === void 0 ? void 0 : _b.trim()) || "";
+    }
+    return (_d = (_c = process.env.STRIPE_PRICE_INK_SMALL) === null || _c === void 0 ? void 0 : _c.trim()) !== null && _d !== void 0 ? _d : "";
+}
+function priceInkMedium(isDebug) {
+    var _a, _b, _c, _d;
+    if (isEmulatorMode(isDebug)) {
+        return ((_a = process.env.STRIPE_TEST_PRICE_INK_MEDIUM) === null || _a === void 0 ? void 0 : _a.trim()) || ((_b = process.env.STRIPE_PRICE_INK_MEDIUM) === null || _b === void 0 ? void 0 : _b.trim()) || "";
+    }
+    return (_d = (_c = process.env.STRIPE_PRICE_INK_MEDIUM) === null || _c === void 0 ? void 0 : _c.trim()) !== null && _d !== void 0 ? _d : "";
+}
+function priceInkLarge(isDebug) {
+    var _a, _b, _c, _d;
+    if (isEmulatorMode(isDebug)) {
+        return ((_a = process.env.STRIPE_TEST_PRICE_INK_LARGE) === null || _a === void 0 ? void 0 : _a.trim()) || ((_b = process.env.STRIPE_PRICE_INK_LARGE) === null || _b === void 0 ? void 0 : _b.trim()) || "";
+    }
+    return (_d = (_c = process.env.STRIPE_PRICE_INK_LARGE) === null || _c === void 0 ? void 0 : _c.trim()) !== null && _d !== void 0 ? _d : "";
 }
 /** Precio Stripe recurrente (mensual) — librería pequeña: +20 GB. Hereda STRIPE_PRICE_BACKUP_STORAGE_PACK si no hay _SMALL. */
-function priceBackupStoragePackSmall() {
-    var _a, _b;
-    return (((_a = process.env.STRIPE_PRICE_BACKUP_STORAGE_PACK_SMALL) === null || _a === void 0 ? void 0 : _a.trim()) ||
-        ((_b = process.env.STRIPE_PRICE_BACKUP_STORAGE_PACK) === null || _b === void 0 ? void 0 : _b.trim()) ||
+function priceBackupStoragePackSmall(isDebug) {
+    var _a, _b, _c, _d, _e, _f;
+    if (isEmulatorMode(isDebug)) {
+        return (((_a = process.env.STRIPE_TEST_PRICE_BACKUP_STORAGE_PACK_SMALL) === null || _a === void 0 ? void 0 : _a.trim()) ||
+            ((_b = process.env.STRIPE_TEST_PRICE_BACKUP_STORAGE_PACK) === null || _b === void 0 ? void 0 : _b.trim()) ||
+            ((_c = process.env.STRIPE_PRICE_BACKUP_STORAGE_PACK_SMALL) === null || _c === void 0 ? void 0 : _c.trim()) ||
+            ((_d = process.env.STRIPE_PRICE_BACKUP_STORAGE_PACK) === null || _d === void 0 ? void 0 : _d.trim()) ||
+            "");
+    }
+    return (((_e = process.env.STRIPE_PRICE_BACKUP_STORAGE_PACK_SMALL) === null || _e === void 0 ? void 0 : _e.trim()) ||
+        ((_f = process.env.STRIPE_PRICE_BACKUP_STORAGE_PACK) === null || _f === void 0 ? void 0 : _f.trim()) ||
         "");
 }
-function priceBackupStoragePackMedium() {
-    var _a, _b;
-    return (_b = (_a = process.env.STRIPE_PRICE_BACKUP_STORAGE_PACK_MEDIUM) === null || _a === void 0 ? void 0 : _a.trim()) !== null && _b !== void 0 ? _b : "";
+function priceBackupStoragePackMedium(isDebug) {
+    var _a, _b, _c, _d;
+    if (isEmulatorMode(isDebug)) {
+        return ((_a = process.env.STRIPE_TEST_PRICE_BACKUP_STORAGE_PACK_MEDIUM) === null || _a === void 0 ? void 0 : _a.trim()) || ((_b = process.env.STRIPE_PRICE_BACKUP_STORAGE_PACK_MEDIUM) === null || _b === void 0 ? void 0 : _b.trim()) || "";
+    }
+    return (_d = (_c = process.env.STRIPE_PRICE_BACKUP_STORAGE_PACK_MEDIUM) === null || _c === void 0 ? void 0 : _c.trim()) !== null && _d !== void 0 ? _d : "";
 }
-function priceBackupStoragePackLarge() {
-    var _a, _b;
-    return (_b = (_a = process.env.STRIPE_PRICE_BACKUP_STORAGE_PACK_LARGE) === null || _a === void 0 ? void 0 : _a.trim()) !== null && _b !== void 0 ? _b : "";
+function priceBackupStoragePackLarge(isDebug) {
+    var _a, _b, _c, _d;
+    if (isEmulatorMode(isDebug)) {
+        return ((_a = process.env.STRIPE_TEST_PRICE_BACKUP_STORAGE_PACK_LARGE) === null || _a === void 0 ? void 0 : _a.trim()) || ((_b = process.env.STRIPE_PRICE_BACKUP_STORAGE_PACK_LARGE) === null || _b === void 0 ? void 0 : _b.trim()) || "";
+    }
+    return (_d = (_c = process.env.STRIPE_PRICE_BACKUP_STORAGE_PACK_LARGE) === null || _c === void 0 ? void 0 : _c.trim()) !== null && _d !== void 0 ? _d : "";
 }
 /** 5 GiB base con suscripción Folio Cloud (backup). */
 const FOLIO_BACKUP_BASE_QUOTA_BYTES = 5 * 1024 * 1024 * 1024;
+/** Cuota efectiva para cuentas staff (`users/{uid}.folioStaff`): sin límite práctico en servidor. */
+const FOLIO_STAFF_BACKUP_QUOTA_BYTES = Number.MAX_SAFE_INTEGER;
+function isFolioStaffUser(data) {
+    return data.folioStaff === true;
+}
 const BACKUP_STORAGE_GRANT_SMALL_BYTES = 20 * 1024 * 1024 * 1024;
 const BACKUP_STORAGE_GRANT_MEDIUM_BYTES = 75 * 1024 * 1024 * 1024;
 const BACKUP_STORAGE_GRANT_LARGE_BYTES = 250 * 1024 * 1024 * 1024;
@@ -747,14 +835,22 @@ async function isMonthlySubscriptionPrice(stripe, priceId) {
     if (!priceId)
         return false;
     const explicit = priceFolioCloudMonthly();
-    if (explicit) {
-        return catalogMatchesPrice(stripe, explicit, priceId);
+    if (explicit && (await catalogMatchesPrice(stripe, explicit, priceId))) {
+        return true;
+    }
+    const family = priceFolioCloudFamily();
+    if (family && (await catalogMatchesPrice(stripe, family, priceId))) {
+        return true;
+    }
+    const student = priceFolioCloudStudent();
+    if (student && (await catalogMatchesPrice(stripe, student, priceId))) {
+        return true;
     }
     const legacy = stripePriceIdsLegacy();
     return legacy.length > 0 && legacy.includes(priceId);
 }
 /** Suscripción Stripe que lleva el precio mensual Folio Cloud (no ampliaciones de copias). */
-function pickFolioCloudMainSubscriptionFromList(list, monthlyPriceId) {
+function pickFolioCloudMainSubscriptionFromList(list, monthlyPriceId, studentPriceId) {
     const priority = ["active", "trialing", "past_due", "unpaid"];
     const leg = stripePriceIdsLegacy();
     for (const st of priority) {
@@ -767,6 +863,8 @@ function pickFolioCloudMainSubscriptionFromList(list, monthlyPriceId) {
                 if (!pid)
                     return false;
                 if (monthlyPriceId && pid === monthlyPriceId)
+                    return true;
+                if (studentPriceId && pid === studentPriceId)
                     return true;
                 if (leg.length > 0 && leg.includes(pid))
                     return true;
@@ -789,7 +887,17 @@ async function findFolioCloudMainSubscription(stripe, uid, customerId, initialLi
             monthlyPriceId = null;
         }
     }
-    let chosen = pickFolioCloudMainSubscriptionFromList(initialList, monthlyPriceId);
+    let studentPriceId = null;
+    const rawStudent = priceFolioCloudStudent();
+    if (rawStudent) {
+        try {
+            studentPriceId = await resolveCatalogIdToPriceId(stripe, rawStudent);
+        }
+        catch {
+            studentPriceId = null;
+        }
+    }
+    let chosen = pickFolioCloudMainSubscriptionFromList(initialList, monthlyPriceId, studentPriceId);
     if (chosen)
         return chosen;
     const escapedUid = uid.replace(/\\/g, "\\\\").replace(/'/g, "\\'");
@@ -798,7 +906,7 @@ async function findFolioCloudMainSubscription(stripe, uid, customerId, initialLi
             query: `metadata['firebase_uid']:'${escapedUid}'`,
             limit: 20,
         });
-        chosen = pickFolioCloudMainSubscriptionFromList(byMeta.data, monthlyPriceId);
+        chosen = pickFolioCloudMainSubscriptionFromList(byMeta.data, monthlyPriceId, studentPriceId);
     }
     catch (e) {
         console.warn("findFolioCloudMainSubscription: search fallback failed", e);
@@ -954,6 +1062,20 @@ async function updateFolioBackupQuotaBytes(uid) {
         var _a;
         const snap = await tx.get(ref);
         const data = ((_a = snap.data()) !== null && _a !== void 0 ? _a : {});
+        if (isFolioStaffUser(data)) {
+            const purchased = folioBackupPurchasedField(data);
+            const subExtra = folioBackupStripeSubscriptionExtraField(data);
+            const used = folioBackupUsedField(data);
+            tx.set(ref, {
+                folioBackup: {
+                    purchasedBytes: purchased,
+                    usedBytes: used,
+                    quotaBytes: FOLIO_STAFF_BACKUP_QUOTA_BYTES,
+                    updatedAt: FieldValue.serverTimestamp(),
+                },
+            }, { merge: true });
+            return;
+        }
         const fc = data.folioCloud;
         const features = fc === null || fc === void 0 ? void 0 : fc.features;
         const active = (fc === null || fc === void 0 ? void 0 : fc.active) === true;
@@ -961,8 +1083,12 @@ async function updateFolioBackupQuotaBytes(uid) {
         const purchased = folioBackupPurchasedField(data);
         const subExtra = folioBackupStripeSubscriptionExtraField(data);
         const used = folioBackupUsedField(data);
+        const isStudent = (fc === null || fc === void 0 ? void 0 : fc.isStudent) === true;
+        const baseQuota = isStudent
+            ? STUDENT_BACKUP_BASE_QUOTA_BYTES
+            : FOLIO_BACKUP_BASE_QUOTA_BYTES;
         const quotaBytes = active && backupOk
-            ? FOLIO_BACKUP_BASE_QUOTA_BYTES + purchased + subExtra
+            ? baseQuota + purchased + subExtra
             : 0;
         tx.set(ref, {
             folioBackup: {
@@ -991,34 +1117,66 @@ function monthPeriodKeyEuropeMadrid(d = new Date()) {
  * Sin Stripe en servidor: solo se considera el slice de Microsoft Store + legacy.
  */
 async function recomputeEffectiveFolioCloud(uid) {
-    var _a, _b, _c, _d;
+    var _a, _b, _c, _d, _e, _f, _g, _h, _j, _k, _l, _m;
     const stripe = stripeClient();
+    let email = "";
+    try {
+        const userRec = await admin.auth().getUser(uid);
+        email = (_a = userRec.email) !== null && _a !== void 0 ? _a : "";
+    }
+    catch (e) {
+        // Ignorar
+    }
     const ref = db.collection("users").doc(uid);
     const snap = await ref.get();
-    const data = ((_a = snap.data()) !== null && _a !== void 0 ? _a : {});
-    const billing = (_b = data.billing) !== null && _b !== void 0 ? _b : {};
+    const data = ((_b = snap.data()) !== null && _b !== void 0 ? _b : {});
+    const billing = (_c = data.billing) !== null && _c !== void 0 ? _c : {};
     const stripeBilling = billing.stripe;
     const msBilling = billing.microsoftStore;
+    const familyOwnerUid = data.familyOwnerUid;
+    let isFamilyMemberActive = false;
+    let ownerFc = null;
+    if (familyOwnerUid) {
+        const ownerSnap = await db.collection("users").doc(familyOwnerUid).get();
+        if (ownerSnap.exists) {
+            ownerFc = (_d = ownerSnap.data()) === null || _d === void 0 ? void 0 : _d.folioCloud;
+            isFamilyMemberActive = (ownerFc === null || ownerFc === void 0 ? void 0 : ownerFc.active) === true;
+        }
+    }
     let stripeStatus = "canceled";
     let stripePriceId;
     let stripeActiveFlag = false;
-    if (stripeBilling) {
-        stripeStatus = String((_c = stripeBilling.subscriptionStatus) !== null && _c !== void 0 ? _c : "canceled");
-        const sp = stripeBilling.subscriptionPriceId;
-        stripePriceId = typeof sp === "string" && sp ? sp : undefined;
-        stripeActiveFlag = Boolean(stripeBilling.active);
+    let isFamily = false;
+    let isStudent = false;
+    if (familyOwnerUid) {
+        stripeStatus = (_e = ownerFc === null || ownerFc === void 0 ? void 0 : ownerFc.subscriptionStatus) !== null && _e !== void 0 ? _e : "canceled";
+        stripePriceId = (_f = ownerFc === null || ownerFc === void 0 ? void 0 : ownerFc.subscriptionPriceId) !== null && _f !== void 0 ? _f : undefined;
+        stripeActiveFlag = isFamilyMemberActive;
+        isFamily = true;
+        isStudent = false;
     }
     else {
-        const fc = data.folioCloud;
-        if (fc) {
-            stripeStatus = String((_d = fc.subscriptionStatus) !== null && _d !== void 0 ? _d : "canceled");
-            const sp = fc.subscriptionPriceId;
+        if (stripeBilling) {
+            stripeStatus = String((_g = stripeBilling.subscriptionStatus) !== null && _g !== void 0 ? _g : "canceled");
+            const sp = stripeBilling.subscriptionPriceId;
             stripePriceId = typeof sp === "string" && sp ? sp : undefined;
-            stripeActiveFlag =
-                Boolean(fc.active) && stripeStatus !== "canceled";
+            stripeActiveFlag = Boolean(stripeBilling.active);
+        }
+        else {
+            const fc = data.folioCloud;
+            if (fc) {
+                stripeStatus = String((_h = fc.subscriptionStatus) !== null && _h !== void 0 ? _h : "canceled");
+                const sp = fc.subscriptionPriceId;
+                stripePriceId = typeof sp === "string" && sp ? sp : undefined;
+                stripeActiveFlag =
+                    Boolean(fc.active) && stripeStatus !== "canceled";
+            }
         }
     }
     const msMonthlyActive = Boolean(msBilling === null || msBilling === void 0 ? void 0 : msBilling.subscriptionActive);
+    if (!familyOwnerUid && stripe && stripePriceId && stripeActiveFlag) {
+        isStudent = await catalogMatchesPrice(stripe, priceFolioCloudStudent(), stripePriceId);
+    }
     let stripeFeatures = {
         backup: false,
         cloudAi: false,
@@ -1058,15 +1216,33 @@ async function recomputeEffectiveFolioCloud(uid) {
         stripeMonthlyActive = await isMonthlySubscriptionPrice(stripe, stripePriceId);
     }
     const needsMonthlyInk = stripeMonthlyActive || msMonthlyActive;
-    await ref.set({
+    let familySeats = 0;
+    if (familyOwnerUid) {
+        familySeats = Number((_j = ownerFc === null || ownerFc === void 0 ? void 0 : ownerFc.familySeats) !== null && _j !== void 0 ? _j : 0);
+    }
+    else {
+        familySeats = Number((_k = stripeBilling === null || stripeBilling === void 0 ? void 0 : stripeBilling.familySeats) !== null && _k !== void 0 ? _k : 0);
+    }
+    isFamily = !!familyOwnerUid || (familySeats > 0);
+    const studentVerified = Boolean((stripeBilling === null || stripeBilling === void 0 ? void 0 : stripeBilling.studentVerified) || (billing === null || billing === void 0 ? void 0 : billing.studentVerified));
+    const setPayload = {
         folioCloud: {
             subscriptionStatus,
             active: folioActive,
             features,
             subscriptionPriceId: stripePriceId !== null && stripePriceId !== void 0 ? stripePriceId : null,
+            isFamily,
+            isStudent,
+            studentVerified,
+            familyOwnerUid: familyOwnerUid !== null && familyOwnerUid !== void 0 ? familyOwnerUid : null,
+            familySeats,
             updatedAt: FieldValue.serverTimestamp(),
         },
-    }, { merge: true });
+    };
+    if (email) {
+        setPayload.email = email;
+    }
+    await ref.set(setPayload, { merge: true });
     if (needsMonthlyInk) {
         const currentPeriodKey = monthPeriodKeyEuropeMadrid();
         const FieldPath = admin.firestore.FieldPath;
@@ -1095,9 +1271,10 @@ async function recomputeEffectiveFolioCloud(uid) {
                 : "";
             const existingPeriodKey = rawKey || dottedKey;
             const shouldRefill = !existingPeriodKey || existingPeriodKey !== currentPeriodKey;
+            const refillAllowance = isStudent ? STUDENT_INK_ALLOWANCE : MONTHLY_INK_ALLOWANCE;
             tx.set(ref, {
                 ink: {
-                    monthlyBalance: shouldRefill ? MONTHLY_INK_ALLOWANCE : monthlyBalance,
+                    monthlyBalance: shouldRefill ? refillAllowance : monthlyBalance,
                     purchasedBalance,
                     monthlyPeriodKey: currentPeriodKey,
                     updatedAt: FieldValue.serverTimestamp(),
@@ -1152,9 +1329,44 @@ async function recomputeEffectiveFolioCloud(uid) {
         });
     }
     await updateFolioBackupQuotaBytes(uid);
+    // Si es dueño del plan familiar, actualiza recursivamente los derechos de los miembros
+    if (isFamily && !familyOwnerUid) {
+        const familySnap = await db.collection("families").doc(uid).get();
+        if (familySnap.exists) {
+            const members = (_m = (_l = familySnap.data()) === null || _l === void 0 ? void 0 : _l.members) !== null && _m !== void 0 ? _m : [];
+            for (const memberUid of members) {
+                await recomputeEffectiveFolioCloud(memberUid);
+            }
+        }
+    }
 }
-async function syncSubscriptionToUser(stripe, uid, status, priceId) {
+async function syncSubscriptionToUser(stripe, uid, status, priceId, subObj) {
+    var _a;
     const active = status === "active" || status === "trialing" || status === "past_due";
+    let familySeats = 0;
+    if (active) {
+        let sub = subObj;
+        if (!sub) {
+            const ref = db.collection("users").doc(uid);
+            const snap = await ref.get();
+            const customerId = snap.get("stripeCustomerId");
+            if (customerId === null || customerId === void 0 ? void 0 : customerId.trim()) {
+                const subs = await stripe.subscriptions.list({
+                    customer: customerId.trim(),
+                    status: "active",
+                    limit: 100,
+                });
+                sub = subs.data.find((s) => s.items.data.some((it) => { var _a; return ((_a = it.price) === null || _a === void 0 ? void 0 : _a.id) === priceId; }));
+            }
+        }
+        if (sub) {
+            const seatPriceId = priceFolioCloudFamilyMember();
+            const seatItem = sub.items.data.find((item) => { var _a; return ((_a = item.price) === null || _a === void 0 ? void 0 : _a.id) === seatPriceId; });
+            if (seatItem) {
+                familySeats = Math.min(10, (_a = seatItem.quantity) !== null && _a !== void 0 ? _a : 0);
+            }
+        }
+    }
     const ref = db.collection("users").doc(uid);
     await ref.set({
         billing: {
@@ -1162,6 +1374,7 @@ async function syncSubscriptionToUser(stripe, uid, status, priceId) {
                 subscriptionStatus: status,
                 subscriptionPriceId: priceId !== null && priceId !== void 0 ? priceId : null,
                 active,
+                familySeats,
                 updatedAt: FieldValue.serverTimestamp(),
             },
         },
@@ -1356,7 +1569,7 @@ async function handleCheckoutSessionCompleted(stripe, session) {
         const isMainMonthly = await isMonthlySubscriptionPrice(stripe, priceId);
         const backupTier = await backupStorageBytesForPriceId(stripe, priceId);
         if (isMainMonthly) {
-            await syncSubscriptionToUser(stripe, uid, sub.status, priceId);
+            await syncSubscriptionToUser(stripe, uid, sub.status, priceId, sub);
         }
         else if (backupTier > 0) {
             await recomputeStripeBackupSubscriptionExtraBytes(stripe, uid);
@@ -1396,31 +1609,45 @@ exports.stripeWebhook = (0, https_2.onRequest)(
         res.status(405).send("Method Not Allowed");
         return;
     }
-    const stripe = stripeClient();
-    const whSecret = webhookSecret();
-    if (!stripe || !whSecret) {
-        console.warn("Stripe webhook: missing STRIPE_SECRET_KEY or STRIPE_WEBHOOK_SECRET");
-        res.status(503).send("Stripe not configured");
-        return;
-    }
+    let stripe = stripeClient();
+    let whSecret = webhookSecret();
     const sig = req.headers["stripe-signature"];
     if (!sig || typeof sig !== "string") {
         res.status(400).send("Missing stripe-signature");
         return;
     }
+    const rawBody = req.rawBody;
+    if (!rawBody) {
+        res.status(400).send("Missing raw body");
+        return;
+    }
     let event;
     try {
-        const rawBody = req.rawBody;
-        if (!rawBody) {
-            res.status(400).send("Missing raw body");
-            return;
+        if (!stripe || !whSecret) {
+            throw new Error("Missing config");
         }
         event = stripe.webhooks.constructEvent(rawBody, sig, whSecret);
     }
     catch (err) {
-        console.error("Webhook signature verification failed", err);
-        res.status(400).send("Invalid signature");
-        return;
+        const testStripe = stripeClient(true);
+        const testWhSecret = webhookSecret(true);
+        if (testStripe && testWhSecret && (testStripe !== stripe || testWhSecret !== whSecret)) {
+            try {
+                event = testStripe.webhooks.constructEvent(rawBody, sig, testWhSecret);
+                stripe = testStripe;
+                console.log("Stripe webhook: verified signature using test secret key/webhook secret");
+            }
+            catch (testErr) {
+                console.error("Webhook signature verification failed for both live and test secrets", err, testErr);
+                res.status(400).send("Invalid signature");
+                return;
+            }
+        }
+        else {
+            console.error("Webhook signature verification failed", err);
+            res.status(400).send("Invalid signature");
+            return;
+        }
     }
     const stripeEventId = event.id;
     if (await isWebhookAlreadyProcessed(stripeEventId)) {
@@ -1451,7 +1678,7 @@ exports.stripeWebhook = (0, https_2.onRequest)(
                     : sub.status;
                 const isMain = await isMonthlySubscriptionPrice(stripe, priceId);
                 if (isMain) {
-                    await syncSubscriptionToUser(stripe, subUid, statusForBilling, priceId);
+                    await syncSubscriptionToUser(stripe, subUid, statusForBilling, priceId, sub);
                 }
                 await recomputeStripeBackupSubscriptionExtraBytes(stripe, subUid);
                 break;
@@ -1472,6 +1699,9 @@ async function assertFolioCloudBackupAllowed(uid) {
     var _a;
     const snap = await db.collection("users").doc(uid).get();
     const data = (_a = snap.data()) !== null && _a !== void 0 ? _a : {};
+    if (isFolioStaffUser(data)) {
+        return;
+    }
     const fc = data.folioCloud;
     const features = fc === null || fc === void 0 ? void 0 : fc.features;
     if ((fc === null || fc === void 0 ? void 0 : fc.active) !== true || (features === null || features === void 0 ? void 0 : features.backup) !== true) {
@@ -1483,6 +1713,9 @@ async function assertFolioRealtimeCollabAllowed(uid) {
     var _a;
     const snap = await db.collection("users").doc(uid).get();
     const data = (_a = snap.data()) !== null && _a !== void 0 ? _a : {};
+    if (isFolioStaffUser(data)) {
+        return;
+    }
     const fc = data.folioCloud;
     const features = fc === null || fc === void 0 ? void 0 : fc.features;
     if ((fc === null || fc === void 0 ? void 0 : fc.active) !== true || (features === null || features === void 0 ? void 0 : features.realtimeCollab) !== true) {
@@ -1516,15 +1749,42 @@ function normalizeCollabJoinCode(raw) {
 function collabJoinCodeKey(norm) {
     return (0, crypto_1.createHash)("sha256").update(norm, "utf8").digest("hex");
 }
+const COLLAB_JOIN_CODE_DIGITS = 6;
+const COLLAB_JOIN_MAX_ATTEMPTS = 8;
+const COLLAB_JOIN_WINDOW_MS = 5 * 60 * 1000;
 function generateCollabJoinCode() {
-    const pick = () => {
-        var _a;
-        return (_a = COLLAB_JOIN_EMOJIS[Math.floor(Math.random() * COLLAB_JOIN_EMOJIS.length)]) !== null && _a !== void 0 ? _a : "\u{2B50}";
-    };
+    // CSPRNG (crypto.randomInt), no Math.random(): este código deriva la clave
+    // AES de la sala vía HKDF, así que necesita entropía impredecible además de
+    // espacio de búsqueda suficiente (2 emojis de 15 + 6 dígitos ≈ 225M combinaciones).
+    const pick = () => { var _a; return (_a = COLLAB_JOIN_EMOJIS[(0, crypto_1.randomInt)(COLLAB_JOIN_EMOJIS.length)]) !== null && _a !== void 0 ? _a : "\u{2B50}"; };
     const a = pick();
     const b = pick();
-    const n = String(Math.floor(Math.random() * 10000)).padStart(4, "0");
+    const n = String((0, crypto_1.randomInt)(10 ** COLLAB_JOIN_CODE_DIGITS)).padStart(COLLAB_JOIN_CODE_DIGITS, "0");
     return `${a}${b}${n}`;
+}
+// Limita intentos de adivinar el código de unión por uid autenticado, ya que
+// el código deriva la clave E2E de la sala (no solo permiso de lectura).
+async function checkAndRecordCollabJoinAttempt(uid) {
+    const ref = db.collection("collabJoinAttempts").doc(uid);
+    const now = Date.now();
+    await db.runTransaction(async (tx) => {
+        var _a, _b, _c;
+        const snap = await tx.get(ref);
+        const data = snap.exists ? (_a = snap.data()) !== null && _a !== void 0 ? _a : {} : {};
+        const windowStart = (_b = data.windowStart) !== null && _b !== void 0 ? _b : 0;
+        const count = (_c = data.count) !== null && _c !== void 0 ? _c : 0;
+        if (now - windowStart > COLLAB_JOIN_WINDOW_MS) {
+            tx.set(ref, { windowStart: now, count: 1 });
+            return;
+        }
+        if (count >= COLLAB_JOIN_MAX_ATTEMPTS) {
+            throw new https_1.HttpsError("resource-exhausted", "Too many join code attempts. Try again later.");
+        }
+        tx.set(ref, { windowStart, count: count + 1 }, { merge: true });
+    });
+}
+async function clearCollabJoinAttempts(uid) {
+    await db.collection("collabJoinAttempts").doc(uid).delete().catch(() => { });
 }
 exports.createCollabRoom = (0, https_1.onCall)({ invoker: "public" }, async (request) => {
     var _a, _b;
@@ -1593,6 +1853,8 @@ exports.joinCollabRoomByCode = (0, https_1.onCall)({ invoker: "public" }, async 
         throw new https_1.HttpsError("unauthenticated", "Login required");
     }
     const uid = request.auth.uid;
+    await assertFolioRealtimeCollabAllowed(uid);
+    await checkAndRecordCollabJoinAttempt(uid);
     const raw = typeof ((_b = request.data) === null || _b === void 0 ? void 0 : _b.joinCode) === "string"
         ? request.data.joinCode.trim()
         : "";
@@ -1630,6 +1892,7 @@ exports.joinCollabRoomByCode = (0, https_1.onCall)({ invoker: "public" }, async 
             updatedAt: FieldValue.serverTimestamp(),
         });
     });
+    await clearCollabJoinAttempts(uid);
     return { roomId };
 });
 exports.prepareCollabMediaUpload = (0, https_1.onCall)({ invoker: "public" }, async (request) => {
@@ -1875,36 +2138,77 @@ function assertValidVaultId(raw) {
     }
     return vaultId;
 }
+function isStudentEmail(email) {
+    var _a, _b;
+    const domain = (_b = (_a = email.split("@").pop()) === null || _a === void 0 ? void 0 : _a.toLowerCase()) !== null && _b !== void 0 ? _b : "";
+    if (/\.edu(\.[a-z]{2})?$/i.test(domain)) {
+        return true;
+    }
+    const spanishUniversities = new Set([
+        "uji.es", "uoc.edu", "upc.edu", "ub.edu", "uam.es", "uc3m.es", "upv.es",
+        "uv.es", "ua.es", "um.es", "us.es", "uma.es", "unizar.es", "ehu.eus",
+        "ehu.es", "uab.cat", "uab.es", "urjc.es", "ucm.es", "upf.edu", "uah.es",
+        "ull.es", "unican.es", "unovi.es", "usal.es", "uva.es", "udc.es", "usc.es",
+        "uvigo.es", "unex.es", "uca.es", "uco.es", "ugr.es", "uhu.es", "ujaen.es",
+        "ual.es", "uclm.es", "unirioja.es", "upct.es", "upna.es", "udl.cat",
+        "udl.es", "urv.cat", "urv.es", "udg.edu", "udg.es", "uib.es", "uib.cat",
+        "uned.es"
+    ]);
+    if (spanishUniversities.has(domain)) {
+        return true;
+    }
+    for (const uni of spanishUniversities) {
+        if (domain.endsWith("." + uni)) {
+            return true;
+        }
+    }
+    return false;
+}
 /**
  * Callable v2 corre en Cloud Run (2nd gen). Para soportar escritorio vía HTTP callable
  * (`Authorization: Bearer <ID token>`), el servicio debe permitir invocación pública
  * o Cloud Run devolverá 401 HTML antes de ejecutar la función.
  */
 exports.createCheckoutSession = (0, https_1.onCall)({ invoker: "public" }, async (request) => {
-    var _a, _b, _c, _d, _e, _f, _g;
+    var _a, _b, _c, _d, _e, _f, _g, _h, _j;
     if (!((_a = request.auth) === null || _a === void 0 ? void 0 : _a.uid)) {
         throw new https_1.HttpsError("unauthenticated", "Login required");
     }
-    const stripe = stripeClient();
+    const isDebug = ((_b = request.data) === null || _b === void 0 ? void 0 : _b.debug) === true;
+    const stripe = stripeClient(isDebug);
     if (!stripe) {
         throw new https_1.HttpsError("failed-precondition", "Stripe not configured on server");
     }
     const uid = request.auth.uid;
-    let kindRaw = (_c = (_b = request.data) === null || _b === void 0 ? void 0 : _b.kind) !== null && _c !== void 0 ? _c : "folio_cloud_monthly";
+    let kindRaw = (_d = (_c = request.data) === null || _c === void 0 ? void 0 : _c.kind) !== null && _d !== void 0 ? _d : "folio_cloud_monthly";
     if (kindRaw === "backup_storage_pack") {
         kindRaw = "backup_storage_pack_small";
     }
     const kind = kindRaw;
+    if (kind === "folio_student_monthly") {
+        const userRef = db.collection("users").doc(uid);
+        const userSnap = await userRef.get();
+        const userData = (_e = userSnap.data()) !== null && _e !== void 0 ? _e : {};
+        const billing = userData.billing;
+        const studentVerified = (billing === null || billing === void 0 ? void 0 : billing.studentVerified) === true;
+        const email = request.auth.token.email;
+        const isStudent = studentVerified || (email && isStudentEmail(email));
+        if (!isStudent) {
+            throw new https_1.HttpsError("failed-precondition", "Para contratar la suscripción de estudiantes debes usar un correo de estudiante verificado.");
+        }
+    }
     const priceIdMap = {
-        folio_cloud_monthly: priceFolioCloudMonthly(),
-        ink_small: priceInkSmall(),
-        ink_medium: priceInkMedium(),
-        ink_large: priceInkLarge(),
-        backup_storage_pack_small: priceBackupStoragePackSmall(),
-        backup_storage_pack_medium: priceBackupStoragePackMedium(),
-        backup_storage_pack_large: priceBackupStoragePackLarge(),
+        folio_cloud_monthly: priceFolioCloudMonthly(isDebug),
+        folio_family_monthly: priceFolioCloudFamily(isDebug),
+        folio_student_monthly: priceFolioCloudStudent(isDebug),
+        ink_small: priceInkSmall(isDebug),
+        ink_medium: priceInkMedium(isDebug),
+        ink_large: priceInkLarge(isDebug),
+        backup_storage_pack_small: priceBackupStoragePackSmall(isDebug),
+        backup_storage_pack_medium: priceBackupStoragePackMedium(isDebug),
+        backup_storage_pack_large: priceBackupStoragePackLarge(isDebug),
     };
-    const rawCatalogId = (_d = priceIdMap[kind]) === null || _d === void 0 ? void 0 : _d.trim();
+    const rawCatalogId = (_f = priceIdMap[kind]) === null || _f === void 0 ? void 0 : _f.trim();
     if (!rawCatalogId) {
         throw new https_1.HttpsError("failed-precondition", `Stripe catalog id not configured for kind: ${kind}`);
     }
@@ -1918,11 +2222,13 @@ exports.createCheckoutSession = (0, https_1.onCall)({ invoker: "public" }, async
         console.error("resolveCatalogIdToPriceId", e);
         throw new https_1.HttpsError("failed-precondition", `Stripe: ${stripeCallErrorMessage(e)}`);
     }
-    const successUrl = ((_e = process.env.STRIPE_CHECKOUT_SUCCESS_URL) === null || _e === void 0 ? void 0 : _e.trim()) ||
-        ((_f = process.env.BILLING_PORTAL_RETURN_URL) === null || _f === void 0 ? void 0 : _f.trim()) ||
+    const successUrl = ((_g = process.env.STRIPE_CHECKOUT_SUCCESS_URL) === null || _g === void 0 ? void 0 : _g.trim()) ||
+        ((_h = process.env.BILLING_PORTAL_RETURN_URL) === null || _h === void 0 ? void 0 : _h.trim()) ||
         "https://folio.app";
-    const cancelUrl = ((_g = process.env.STRIPE_CHECKOUT_CANCEL_URL) === null || _g === void 0 ? void 0 : _g.trim()) || successUrl;
+    const cancelUrl = ((_j = process.env.STRIPE_CHECKOUT_CANCEL_URL) === null || _j === void 0 ? void 0 : _j.trim()) || successUrl;
     const isSubscription = kind === "folio_cloud_monthly" ||
+        kind === "folio_family_monthly" ||
+        kind === "folio_student_monthly" ||
         kind === "backup_storage_pack_small" ||
         kind === "backup_storage_pack_medium" ||
         kind === "backup_storage_pack_large";
@@ -1949,6 +2255,11 @@ exports.createCheckoutSession = (0, https_1.onCall)({ invoker: "public" }, async
                     metadata: { firebase_uid: uid },
                 }
                 : undefined,
+            managed_payments: {
+                enabled: true,
+            },
+        }, {
+            apiVersion: "2025-03-31.basil",
         });
     }
     catch (e) {
@@ -1961,11 +2272,12 @@ exports.createCheckoutSession = (0, https_1.onCall)({ invoker: "public" }, async
     return { url: session.url };
 });
 exports.syncFolioCloudSubscriptionFromStripe = (0, https_1.onCall)({ invoker: "public" }, async (request) => {
-    var _a, _b, _c;
+    var _a, _b, _c, _d;
     if (!((_a = request.auth) === null || _a === void 0 ? void 0 : _a.uid)) {
         throw new https_1.HttpsError("unauthenticated", "Login required");
     }
-    const stripe = stripeClient();
+    const isDebug = ((_b = request.data) === null || _b === void 0 ? void 0 : _b.debug) === true;
+    const stripe = stripeClient(isDebug);
     if (!stripe) {
         throw new https_1.HttpsError("failed-precondition", "Stripe not configured on server");
     }
@@ -1989,8 +2301,8 @@ exports.syncFolioCloudSubscriptionFromStripe = (0, https_1.onCall)({ invoker: "p
                 .doc(uid)
                 .set({ stripeCustomerId: cid }, { merge: true });
         }
-        const priceId = (_c = (_b = chosen.items.data[0]) === null || _b === void 0 ? void 0 : _b.price) === null || _c === void 0 ? void 0 : _c.id;
-        await syncSubscriptionToUser(stripe, uid, chosen.status, priceId);
+        const priceId = (_d = (_c = chosen.items.data[0]) === null || _c === void 0 ? void 0 : _c.price) === null || _d === void 0 ? void 0 : _d.id;
+        await syncSubscriptionToUser(stripe, uid, chosen.status, priceId, chosen);
         return { ok: true, status: chosen.status };
     }
     await syncSubscriptionToUser(stripe, uid, "canceled", undefined);
@@ -2065,6 +2377,9 @@ function parseCloudPackBlobSizeList(raw) {
     return out;
 }
 function effectiveBackupQuotaBytes(data) {
+    if (isFolioStaffUser(data)) {
+        return FOLIO_STAFF_BACKUP_QUOTA_BYTES;
+    }
     const fb = data.folioBackup;
     const q = fb === null || fb === void 0 ? void 0 : fb.quotaBytes;
     if (typeof q === "number" && Number.isFinite(q) && q >= 0) {
@@ -2114,6 +2429,7 @@ exports.folioGetLatestCloudPackMeta = (0, https_1.onCall)({ cors: true, invoker:
                 : "",
             updatedAt: (_d = data.latestCloudPackUpdatedAt) !== null && _d !== void 0 ? _d : null,
             hasRestoreWrap,
+            wrapKind: wrapKind === "vaultDek" || wrapKind === "packKey" ? wrapKind : null,
         },
     };
 });
@@ -2372,6 +2688,208 @@ exports.folioListVaultBackups = (0, https_1.onCall)({ cors: true, invoker: "publ
     }
     return { items, cloudPack };
 });
+function storageObjectSizeBytes(f) {
+    var _a;
+    const meta = ((_a = f.metadata) !== null && _a !== void 0 ? _a : {});
+    const raw = meta["size"];
+    const n = typeof raw === "number" ? raw : typeof raw === "string" ? Number(raw) : 0;
+    return Number.isFinite(n) && n > 0 ? n : 0;
+}
+/** Borra Storage + índice + meta Firestore de una libreta sin copias. */
+async function purgeVaultCloudBackupPresence(uid, vaultId) {
+    const bucket = admin.storage().bucket();
+    const vaultPrefix = `users/${uid}/vaults/${vaultId}/`;
+    const [allFiles] = await bucket.getFiles({
+        prefix: vaultPrefix,
+        autoPaginate: true,
+    });
+    const files = allFiles.filter((f) => !f.name.endsWith("/"));
+    let freedBytes = 0;
+    const failed = [];
+    for (const f of files) {
+        freedBytes += storageObjectSizeBytes(f);
+        try {
+            await f.delete();
+        }
+        catch (e) {
+            console.warn("purgeVaultCloudBackupPresence: delete failed", f.name, e);
+            failed.push(f.name);
+        }
+    }
+    const userRef = db.collection("users").doc(uid);
+    const vaultBackupRef = userRef.collection("vaultBackups").doc(vaultId);
+    try {
+        const itemsSnap = await vaultBackupRef.collection("items").get();
+        const batch = db.batch();
+        for (const d of itemsSnap.docs) {
+            batch.delete(d.ref);
+        }
+        batch.delete(vaultBackupRef);
+        batch.delete(userRef.collection("vaultBackupIndex").doc(vaultId));
+        await batch.commit();
+    }
+    catch (e) {
+        console.warn("purgeVaultCloudBackupPresence: firestore purge failed", vaultId, e);
+    }
+    return { freedBytes, failed };
+}
+async function vaultCloudBackupHasRemainingFiles(uid, vaultId) {
+    const bucket = admin.storage().bucket();
+    for (const sub of ["backups/", "cloud-packs/"]) {
+        const prefix = `users/${uid}/vaults/${vaultId}/${sub}`;
+        const [files] = await bucket.getFiles({
+            prefix,
+            autoPaginate: false,
+            maxResults: 5,
+        });
+        if (files.some((f) => !f.name.endsWith("/")))
+            return true;
+    }
+    return false;
+}
+/** Borra el cloud-pack (blobs + snapshots) de una libreta y ajusta la cuota. */
+exports.folioDeleteVaultCloudPack = (0, https_1.onCall)({ cors: true, invoker: "public" }, async (request) => {
+    var _a, _b, _c, _d;
+    if (!((_a = request.auth) === null || _a === void 0 ? void 0 : _a.uid)) {
+        throw new https_1.HttpsError("unauthenticated", "Login required");
+    }
+    const uid = request.auth.uid;
+    await assertFolioCloudBackupAllowed(uid);
+    const vaultId = assertValidVaultId((_b = request.data) === null || _b === void 0 ? void 0 : _b.vaultId);
+    const packPrefix = `users/${uid}/vaults/${vaultId}/cloud-packs/`;
+    const bucket = admin.storage().bucket();
+    const [packFiles] = await bucket.getFiles({
+        prefix: packPrefix,
+        autoPaginate: true,
+    });
+    const files = packFiles.filter((f) => !f.name.endsWith("/"));
+    let freedBytes = 0;
+    const errors = [];
+    for (const f of files) {
+        freedBytes += storageObjectSizeBytes(f);
+        try {
+            await f.delete();
+        }
+        catch (e) {
+            console.warn("folioDeleteVaultCloudPack: delete failed", f.name, e);
+            errors.push(f.name);
+        }
+    }
+    const userRef = db.collection("users").doc(uid);
+    const userSnap = await userRef.get();
+    const udata = ((_c = userSnap.data()) !== null && _c !== void 0 ? _c : {});
+    let used = folioBackupUsedField(udata);
+    let newUsed = Math.max(0, used - freedBytes);
+    await userRef.update({
+        "folioBackup.usedBytes": newUsed,
+        "folioBackup.updatedAt": FieldValue.serverTimestamp(),
+    });
+    const vaultBackupRef = userRef.collection("vaultBackups").doc(vaultId);
+    await vaultBackupRef.set({
+        latestCloudPackSnapshotPath: FieldValue.delete(),
+        latestCloudPackSnapshotSizeBytes: FieldValue.delete(),
+        latestCloudPackContentFingerprint: FieldValue.delete(),
+        latestCloudPackUpdatedAt: FieldValue.delete(),
+        cloudPackRestoreWrapB64: FieldValue.delete(),
+        cloudPackRestoreWrapKind: FieldValue.delete(),
+    }, { merge: true });
+    let vaultRemoved = false;
+    if (errors.length === 0) {
+        const stillHas = await vaultCloudBackupHasRemainingFiles(uid, vaultId);
+        if (!stillHas) {
+            const purged = await purgeVaultCloudBackupPresence(uid, vaultId);
+            // Los bytes del cloud-pack ya se restaron; el purge solo limpia restos (cuota legacy no usa usedBytes).
+            errors.push(...purged.failed);
+            vaultRemoved = purged.failed.length === 0;
+            const refreshed = await userRef.get();
+            newUsed = folioBackupUsedField(((_d = refreshed.data()) !== null && _d !== void 0 ? _d : {}));
+        }
+    }
+    return {
+        ok: errors.length === 0,
+        freedBytes,
+        usedBytes: newUsed,
+        deletedFiles: files.length - errors.length,
+        vaultRemoved,
+        failed: errors.slice(0, 10),
+    };
+});
+/**
+ * Borra un archivo legacy (ZIP/TAR.GZ) de copias. Si la libreta se queda sin
+ * copias, elimina la presencia completa de esa libreta en Folio Cloud.
+ */
+exports.folioDeleteVaultLegacyBackup = (0, https_1.onCall)({ cors: true, invoker: "public" }, async (request) => {
+    var _a, _b, _c, _d, _e, _f;
+    if (!((_a = request.auth) === null || _a === void 0 ? void 0 : _a.uid)) {
+        throw new https_1.HttpsError("unauthenticated", "Login required");
+    }
+    const uid = request.auth.uid;
+    await assertFolioCloudBackupAllowed(uid);
+    const vaultId = assertValidVaultId((_b = request.data) === null || _b === void 0 ? void 0 : _b.vaultId);
+    const storagePathRaw = (_c = request.data) === null || _c === void 0 ? void 0 : _c.storagePath;
+    const storagePath = typeof storagePathRaw === "string" ? storagePathRaw.trim() : "";
+    const okPrefix = `users/${uid}/vaults/${vaultId}/backups/`;
+    if (!storagePath ||
+        !storagePath.startsWith(okPrefix) ||
+        storagePath.includes("..") ||
+        storagePath.endsWith("/")) {
+        throw new https_1.HttpsError("invalid-argument", "storagePath invalid");
+    }
+    const bucket = admin.storage().bucket();
+    const file = bucket.file(storagePath);
+    const [exists] = await file.exists();
+    if (exists) {
+        try {
+            await file.delete();
+        }
+        catch (e) {
+            console.warn("folioDeleteVaultLegacyBackup: delete failed", storagePath, e);
+            throw new https_1.HttpsError("internal", "Failed to delete backup file");
+        }
+    }
+    const fileName = (_d = storagePath.split("/").pop()) !== null && _d !== void 0 ? _d : "";
+    const userRef = db.collection("users").doc(uid);
+    const vaultBackupRef = userRef.collection("vaultBackups").doc(vaultId);
+    if (fileName) {
+        try {
+            await vaultBackupRef.collection("items").doc(fileName).delete();
+        }
+        catch (_) {
+            // ignore missing item meta
+        }
+    }
+    const vaultSnap = await vaultBackupRef.get();
+    const vd = ((_e = vaultSnap.data()) !== null && _e !== void 0 ? _e : {});
+    if (typeof vd.latestStoragePath === "string" &&
+        vd.latestStoragePath.trim() === storagePath) {
+        await vaultBackupRef.set({
+            latestFileName: FieldValue.delete(),
+            latestStoragePath: FieldValue.delete(),
+            latestFingerprint: FieldValue.delete(),
+            latestContainerFormat: FieldValue.delete(),
+            latestSizeBytes: FieldValue.delete(),
+            latestUpdatedAt: FieldValue.delete(),
+        }, { merge: true });
+    }
+    let vaultRemoved = false;
+    const stillHas = await vaultCloudBackupHasRemainingFiles(uid, vaultId);
+    if (!stillHas) {
+        const purged = await purgeVaultCloudBackupPresence(uid, vaultId);
+        if (purged.failed.length === 0) {
+            vaultRemoved = true;
+        }
+        // Si había cloud-pack residual rarísimo, restar cuota.
+        if (purged.freedBytes > 0) {
+            const userSnap = await userRef.get();
+            const used = folioBackupUsedField(((_f = userSnap.data()) !== null && _f !== void 0 ? _f : {}));
+            await userRef.update({
+                "folioBackup.usedBytes": Math.max(0, used - purged.freedBytes),
+                "folioBackup.updatedAt": FieldValue.serverTimestamp(),
+            });
+        }
+    }
+    return { ok: true, vaultRemoved };
+});
 exports.folioTrimVaultBackupsByBytes = (0, https_1.onCall)({ cors: true, invoker: "public" }, async (request) => {
     var _a, _b, _c;
     if (!((_a = request.auth) === null || _a === void 0 ? void 0 : _a.uid)) {
@@ -2628,11 +3146,12 @@ exports.folioTrimVaultBackups = (0, https_1.onCall)({ cors: true, invoker: "publ
     return { ok: errors.length === 0, deleted, failed: errors.slice(0, 10) };
 });
 exports.createBillingPortalSession = (0, https_1.onCall)({ invoker: "public" }, async (request) => {
-    var _a, _b;
+    var _a, _b, _c;
     if (!((_a = request.auth) === null || _a === void 0 ? void 0 : _a.uid)) {
         throw new https_1.HttpsError("unauthenticated", "Login required");
     }
-    const stripe = stripeClient();
+    const isDebug = ((_b = request.data) === null || _b === void 0 ? void 0 : _b.debug) === true;
+    const stripe = stripeClient(isDebug);
     if (!stripe) {
         throw new https_1.HttpsError("failed-precondition", "Stripe not configured on server");
     }
@@ -2641,7 +3160,7 @@ exports.createBillingPortalSession = (0, https_1.onCall)({ invoker: "public" }, 
     if (!customerId) {
         throw new https_1.HttpsError("failed-precondition", "No Stripe customer yet. Complete checkout first.");
     }
-    const baseUrl = ((_b = process.env.BILLING_PORTAL_RETURN_URL) === null || _b === void 0 ? void 0 : _b.trim()) || "https://folio.app";
+    const baseUrl = ((_c = process.env.BILLING_PORTAL_RETURN_URL) === null || _c === void 0 ? void 0 : _c.trim()) || "https://folio.app";
     let session;
     try {
         session = await stripe.billingPortal.sessions.create({
@@ -2725,7 +3244,7 @@ async function _diarizeSegmentsWithGpt(segments, inferenceApiKey) {
  * En caso de fallo de transcripción, reembolsa la tinta cobrada.
  */
 exports.folioCloudTranscribeChunk = (0, https_1.onCall)({ cors: true, invoker: "public", memory: "512MiB", timeoutSeconds: 60 }, async (request) => {
-    var _a, _b, _c, _d, _e;
+    var _a, _b, _c, _d, _e, _f;
     if (!((_a = request.auth) === null || _a === void 0 ? void 0 : _a.uid)) {
         throw new https_1.HttpsError("unauthenticated", "Login required");
     }
@@ -2746,43 +3265,47 @@ exports.folioCloudTranscribeChunk = (0, https_1.onCall)({ cors: true, invoker: "
         ? Math.ceil(inkAmountRaw)
         : baseInkCost;
     let inkDebited = false;
-    // ── Debitar Tinta si se solicita ─────────────────────────────────────────
+    // ── Debitar Tinta si se solicita (cuentas staff: sin cargo) ──────────────
     if (chargeInk) {
-        const inkExhaustedMsg = "Tinta insuficiente para la transcripción en la nube. Compra un tintero, " +
-            "espera la recarga mensual con suscripción activa, o usa transcripción local.";
         const userRef = db.collection("users").doc(uid);
-        await db.runTransaction(async (tx) => {
-            var _a, _b;
-            const snap = await tx.get(userRef);
-            const dataDoc = (_a = snap.data()) !== null && _a !== void 0 ? _a : {};
-            const fc = dataDoc.folioCloud;
-            const hasSubCloudAi = (fc === null || fc === void 0 ? void 0 : fc.active) === true &&
-                ((_b = fc === null || fc === void 0 ? void 0 : fc.features) === null || _b === void 0 ? void 0 : _b.cloudAi) === true;
-            const { monthly, purchased } = readInkBalances(dataDoc);
-            if (hasSubCloudAi) {
-                if (monthly + purchased < inkCost) {
-                    throw new https_1.HttpsError("resource-exhausted", inkExhaustedMsg);
+        const preStaffSnap = await userRef.get();
+        const skipInkForStaff = isFolioStaffUser(((_c = preStaffSnap.data()) !== null && _c !== void 0 ? _c : {}));
+        if (!skipInkForStaff) {
+            const inkExhaustedMsg = "Tinta insuficiente para la transcripción en la nube. Compra un tintero, " +
+                "espera la recarga mensual con suscripción activa, o usa transcripción local.";
+            await db.runTransaction(async (tx) => {
+                var _a, _b;
+                const snap = await tx.get(userRef);
+                const dataDoc = (_a = snap.data()) !== null && _a !== void 0 ? _a : {};
+                const fc = dataDoc.folioCloud;
+                const hasSubCloudAi = (fc === null || fc === void 0 ? void 0 : fc.active) === true &&
+                    ((_b = fc === null || fc === void 0 ? void 0 : fc.features) === null || _b === void 0 ? void 0 : _b.cloudAi) === true;
+                const { monthly, purchased } = readInkBalances(dataDoc);
+                if (hasSubCloudAi) {
+                    if (monthly + purchased < inkCost) {
+                        throw new https_1.HttpsError("resource-exhausted", inkExhaustedMsg);
+                    }
+                    const next = debitInkBalances(monthly, purchased, inkCost);
+                    tx.update(userRef, {
+                        "ink.monthlyBalance": next.monthly,
+                        "ink.purchasedBalance": next.purchased,
+                        "ink.updatedAt": FieldValue.serverTimestamp(),
+                    });
                 }
-                const next = debitInkBalances(monthly, purchased, inkCost);
-                tx.update(userRef, {
-                    "ink.monthlyBalance": next.monthly,
-                    "ink.purchasedBalance": next.purchased,
-                    "ink.updatedAt": FieldValue.serverTimestamp(),
-                });
-            }
-            else {
-                if (purchased < inkCost) {
-                    throw new https_1.HttpsError("resource-exhausted", inkExhaustedMsg);
+                else {
+                    if (purchased < inkCost) {
+                        throw new https_1.HttpsError("resource-exhausted", inkExhaustedMsg);
+                    }
+                    const next = debitInkBalances(0, purchased, inkCost);
+                    tx.update(userRef, {
+                        "ink.monthlyBalance": 0,
+                        "ink.purchasedBalance": next.purchased,
+                        "ink.updatedAt": FieldValue.serverTimestamp(),
+                    });
                 }
-                const next = debitInkBalances(0, purchased, inkCost);
-                tx.update(userRef, {
-                    "ink.monthlyBalance": 0,
-                    "ink.purchasedBalance": next.purchased,
-                    "ink.updatedAt": FieldValue.serverTimestamp(),
-                });
-            }
-        });
-        inkDebited = true;
+            });
+            inkDebited = true;
+        }
     }
     // ── Transcripción de audio (endpoint del proveedor Quill Cloud) ───────────
     const inferenceApiKey = openAiApiKey();
@@ -2815,8 +3338,8 @@ exports.folioCloudTranscribeChunk = (0, https_1.onCall)({ cors: true, invoker: "
             throw new https_1.HttpsError("internal", `Transcription failed (${resp.status})`);
         }
         const verboseResult = (await resp.json());
-        const rawText = ((_c = verboseResult.text) !== null && _c !== void 0 ? _c : "").trim();
-        const segments = (_d = verboseResult.segments) !== null && _d !== void 0 ? _d : [];
+        const rawText = ((_d = verboseResult.text) !== null && _d !== void 0 ? _d : "").trim();
+        const segments = (_e = verboseResult.segments) !== null && _e !== void 0 ? _e : [];
         if (rawText.length === 0) {
             transcript = "";
         }
@@ -2845,7 +3368,7 @@ exports.folioCloudTranscribeChunk = (0, https_1.onCall)({ cors: true, invoker: "
     }
     // ── Leer saldos finales ───────────────────────────────────────────────────
     const finalSnap = await db.collection("users").doc(uid).get();
-    const inkOut = readInkBalances(((_e = finalSnap.data()) !== null && _e !== void 0 ? _e : {}));
+    const inkOut = readInkBalances(((_f = finalSnap.data()) !== null && _f !== void 0 ? _f : {}));
     return {
         transcript,
         ink: {
@@ -2861,17 +3384,25 @@ exports.monthlyInkRefill = (0, scheduler_1.onSchedule)({
 }, async () => {
     const stripe = stripeClient();
     const monthlyRaw = priceFolioCloudMonthly();
-    if (!monthlyRaw || !stripe) {
-        console.warn("monthlyInkRefill: STRIPE_PRICE_FOLIO_CLOUD_MONTHLY or Stripe key not set");
+    const studentRaw = priceFolioCloudStudent();
+    const familyRaw = priceFolioCloudFamily();
+    if (!stripe) {
+        console.warn("monthlyInkRefill: Stripe key not set");
         return;
     }
-    let monthlyResolved;
+    let monthlyResolved = null;
+    let studentResolved = null;
+    let familyResolved = null;
     try {
-        monthlyResolved = await resolveCatalogIdToPriceId(stripe, monthlyRaw);
+        if (monthlyRaw)
+            monthlyResolved = await resolveCatalogIdToPriceId(stripe, monthlyRaw);
+        if (studentRaw)
+            studentResolved = await resolveCatalogIdToPriceId(stripe, studentRaw);
+        if (familyRaw)
+            familyResolved = await resolveCatalogIdToPriceId(stripe, familyRaw);
     }
     catch (e) {
-        console.error("monthlyInkRefill: resolveCatalogIdToPriceId", e);
-        return;
+        console.error("monthlyInkRefill: resolve prices", e);
     }
     const indexSnap = await db.collection("folioCloudSubscribers").get();
     const periodKey = monthPeriodKeyEuropeMadrid();
@@ -2880,15 +3411,17 @@ exports.monthlyInkRefill = (0, scheduler_1.onSchedule)({
     for (const doc of indexSnap.docs) {
         const uid = doc.id;
         const data = doc.data();
-        const stripeMatch = data.subscriptionPriceId &&
-            data.subscriptionPriceId === monthlyResolved;
+        const priceId = data.subscriptionPriceId;
         const msMonthly = data.microsoftStoreMonthly === true;
-        if (!stripeMatch && !msMonthly) {
+        const isMonthly = msMonthly || (priceId && (priceId === monthlyResolved || priceId === familyResolved));
+        const isStudent = priceId && priceId === studentResolved;
+        if (!isMonthly && !isStudent) {
             continue;
         }
+        const refillAllowance = isStudent ? STUDENT_INK_ALLOWANCE : MONTHLY_INK_ALLOWANCE;
         const ref = db.collection("users").doc(uid);
         batch.set(ref, {
-            "ink.monthlyBalance": MONTHLY_INK_ALLOWANCE,
+            "ink.monthlyBalance": refillAllowance,
             "ink.monthlyPeriodKey": periodKey,
             "ink.updatedAt": FieldValue.serverTimestamp(),
         }, { merge: true });
@@ -3004,7 +3537,7 @@ function jiraOauthEnvClientSecret() {
  * debe ser loopback Folio (mismo puerto que el cliente).
  */
 exports.folioJiraExchangeOAuth = (0, https_2.onRequest)({ cors: true, memory: "256MiB", invoker: "public" }, async (req, res) => {
-    var _a, _b, _c, _d;
+    var _a, _b, _c, _d, _e;
     res.set("Access-Control-Allow-Origin", "*");
     res.set("Access-Control-Allow-Headers", "Content-Type");
     res.set("Access-Control-Allow-Methods", "POST, OPTIONS");
@@ -3035,6 +3568,9 @@ exports.folioJiraExchangeOAuth = (0, https_2.onRequest)({ cors: true, memory: "2
     let redirectUri = String((_c = raw.redirectUri) !== null && _c !== void 0 ? _c : "").trim();
     const clientIdRaw = String((_d = raw.clientId) !== null && _d !== void 0 ? _d : "").trim();
     const clientId = clientIdRaw || jiraOauthEnvClientId();
+    // PKCE (RFC 7636): opcional para no romper apps clientes viejas que aún
+    // no lo envían (esas tampoco mandaron code_challenge en /authorize).
+    const codeVerifier = String((_e = raw.codeVerifier) !== null && _e !== void 0 ? _e : "").trim();
     if (!code || !redirectUri) {
         res.status(400).json({ error: "missing_code_or_redirect" });
         return;
@@ -3072,6 +3608,7 @@ exports.folioJiraExchangeOAuth = (0, https_2.onRequest)({ cors: true, memory: "2
             client_secret: secret,
             code,
             redirect_uri: redirectUri,
+            ...(codeVerifier ? { code_verifier: codeVerifier } : {}),
         }),
     });
     const text = await tokenResp.text();
@@ -3097,7 +3634,7 @@ exports.folioJiraExchangeOAuth = (0, https_2.onRequest)({ cors: true, memory: "2
  * Sin autenticación Firebase: no incluir datos de libreta; solo metadatos y trozo de log.
  */
 exports.folioReportDiagnostic = (0, https_2.onRequest)({ cors: true, memory: "256MiB", invoker: "public" }, async (req, res) => {
-    var _a, _b, _c, _d, _e, _f, _g, _h;
+    var _a, _b, _c, _d, _e, _f, _g, _h, _j, _k, _l;
     res.set("Access-Control-Allow-Origin", "*");
     res.set("Access-Control-Allow-Headers", "Content-Type");
     res.set("Access-Control-Allow-Methods", "POST, OPTIONS");
@@ -3131,22 +3668,280 @@ exports.folioReportDiagnostic = (0, https_2.onRequest)({ cors: true, memory: "25
         return;
     }
     try {
-        await db.collection("folio_diagnostics").add({
-            createdAt: FieldValue.serverTimestamp(),
-            installId,
-            kind,
-            appVersion,
-            platform,
-            channel,
-            userNote,
-            logExcerpt,
-            telemetryEnabled: Boolean(raw.telemetryEnabled),
-        });
-        res.status(200).json({ ok: true });
+        const ytBaseUrl = ((_j = process.env.YOUTRACK_BASE_URL) !== null && _j !== void 0 ? _j : "").trim();
+        const ytToken = ((_k = process.env.YOUTRACK_TOKEN) !== null && _k !== void 0 ? _k : "").trim();
+        const ytProjectId = ((_l = process.env.YOUTRACK_PROJECT_ID) !== null && _l !== void 0 ? _l : "").trim();
+        let savedToYouTrack = false;
+        if (ytBaseUrl && ytToken && ytProjectId) {
+            const cleanBaseUrl = ytBaseUrl.replace(/\/+$/, "");
+            const summary = `Diagnostic Report (${kind}): ${platform} - ${appVersion}`;
+            const description = [
+                `# Diagnostic Report`,
+                `**Install ID:** ${installId}`,
+                `**Kind:** ${kind}`,
+                `**App Version:** ${appVersion}`,
+                `**Platform:** ${platform}`,
+                `**Channel:** ${channel}`,
+                `**Telemetry Enabled:** ${Boolean(raw.telemetryEnabled)}`,
+                ``,
+                `## User Note`,
+                userNote ? userNote : `*No user note provided*`,
+                ``,
+                `## Log Excerpt`,
+                `\`\`\``,
+                logExcerpt ? logExcerpt : `*No logs provided*`,
+                `\`\`\``
+            ].join("\n");
+            try {
+                const ytResponse = await fetch(`${cleanBaseUrl}/api/issues`, {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json",
+                        Authorization: `Bearer ${ytToken}`,
+                    },
+                    body: JSON.stringify({
+                        project: { id: ytProjectId },
+                        summary,
+                        description,
+                    }),
+                });
+                if (ytResponse.ok) {
+                    savedToYouTrack = true;
+                }
+                else {
+                    const errText = await ytResponse.text();
+                    console.error(`YouTrack issue creation failed: ${ytResponse.status} ${errText}`);
+                }
+            }
+            catch (ytErr) {
+                console.error("YouTrack integration error", ytErr);
+            }
+        }
+        if (!savedToYouTrack) {
+            await db.collection("folio_diagnostics").add({
+                createdAt: FieldValue.serverTimestamp(),
+                installId,
+                kind,
+                appVersion,
+                platform,
+                channel,
+                userNote,
+                logExcerpt,
+                telemetryEnabled: Boolean(raw.telemetryEnabled),
+            });
+        }
+        res.status(200).json({ ok: true, savedToYouTrack });
     }
     catch (e) {
         console.error("folioReportDiagnostic", e);
         res.status(500).json({ error: "write_failed" });
     }
+});
+// ─── Lógica para Gestión de Familia y Estudiantes ────────────────────────────
+exports.inviteFamilyMember = (0, https_1.onCall)({ invoker: "public" }, async (request) => {
+    var _a, _b, _c, _d, _e, _f, _g, _h, _j;
+    if (!((_a = request.auth) === null || _a === void 0 ? void 0 : _a.uid)) {
+        throw new https_1.HttpsError("unauthenticated", "Login required");
+    }
+    const email = String((_c = (_b = request.data) === null || _b === void 0 ? void 0 : _b.email) !== null && _c !== void 0 ? _c : "").trim().toLowerCase();
+    if (!email) {
+        throw new https_1.HttpsError("invalid-argument", "Email is required");
+    }
+    const callerUid = request.auth.uid;
+    const isDebug = ((_d = request.data) === null || _d === void 0 ? void 0 : _d.debug) === true;
+    const stripe = stripeClient(isDebug);
+    if (!stripe) {
+        throw new https_1.HttpsError("failed-precondition", "Stripe not configured.");
+    }
+    let targetUser;
+    try {
+        targetUser = await admin.auth().getUserByEmail(email);
+    }
+    catch (e) {
+        if (e.code === "auth/user-not-found") {
+            throw new https_1.HttpsError("not-found", "El usuario con este correo no está registrado en Folio Cloud.");
+        }
+        throw new https_1.HttpsError("internal", `Error buscando usuario: ${e.message}`);
+    }
+    const targetUid = targetUser.uid;
+    if (targetUid === callerUid) {
+        throw new https_1.HttpsError("invalid-argument", "No puedes invitarte a ti mismo.");
+    }
+    const ownerRef = db.collection("users").doc(callerUid);
+    const targetRef = db.collection("users").doc(targetUid);
+    const familyRef = db.collection("families").doc(callerUid);
+    const ownerSnap = await ownerRef.get();
+    const ownerData = (_e = ownerSnap.data()) !== null && _e !== void 0 ? _e : {};
+    const fc = ownerData.folioCloud;
+    const isMember = !!(fc === null || fc === void 0 ? void 0 : fc.familyOwnerUid);
+    if (isMember) {
+        throw new https_1.HttpsError("failed-precondition", "Los miembros de una familia no pueden invitar a otras personas.");
+    }
+    const active = (fc === null || fc === void 0 ? void 0 : fc.active) === true;
+    if (!active) {
+        throw new https_1.HttpsError("failed-precondition", "Debes tener una suscripción activa para invitar miembros.");
+    }
+    if ((fc === null || fc === void 0 ? void 0 : fc.isStudent) === true) {
+        throw new https_1.HttpsError("failed-precondition", "La suscripción de estudiantes no admite añadir miembros familiares.");
+    }
+    const billing = ownerData.billing;
+    const stripeBilling = billing === null || billing === void 0 ? void 0 : billing.stripe;
+    const familySeats = Number((_f = stripeBilling === null || stripeBilling === void 0 ? void 0 : stripeBilling.familySeats) !== null && _f !== void 0 ? _f : 0);
+    const familySnap = await familyRef.get();
+    const familyData = (_g = familySnap.data()) !== null && _g !== void 0 ? _g : { members: [] };
+    const currentMembers = (_h = familyData.members) !== null && _h !== void 0 ? _h : [];
+    if (currentMembers.length >= familySeats) {
+        throw new https_1.HttpsError("resource-exhausted", `Has alcanzado el límite de miembros permitidos por tus ranuras contratadas (${familySeats}). Adquiere más ranuras en los ajustes de facturación.`);
+    }
+    if (currentMembers.length >= 10) {
+        throw new https_1.HttpsError("resource-exhausted", "Has alcanzado el límite máximo absoluto de 10 miembros familiares.");
+    }
+    const targetSnap = await targetRef.get();
+    const targetData = (_j = targetSnap.data()) !== null && _j !== void 0 ? _j : {};
+    const targetFamilyOwner = targetData.familyOwnerUid;
+    if (targetFamilyOwner) {
+        if (targetFamilyOwner === callerUid) {
+            throw new https_1.HttpsError("already-exists", "El usuario ya está en tu familia.");
+        }
+        throw new https_1.HttpsError("already-exists", "El usuario ya pertenece a otra familia.");
+    }
+    const targetFc = targetData.folioCloud;
+    if ((targetFc === null || targetFc === void 0 ? void 0 : targetFc.active) === true && !(targetFc === null || targetFc === void 0 ? void 0 : targetFc.familyOwnerUid)) {
+        throw new https_1.HttpsError("failed-precondition", "El usuario ya tiene una suscripción premium activa.");
+    }
+    await db.runTransaction(async (tx) => {
+        tx.set(targetRef, {
+            familyOwnerUid: callerUid,
+        }, { merge: true });
+        tx.set(familyRef, {
+            ownerUid: callerUid,
+            members: FieldValue.arrayUnion(targetUid),
+            [`membersInfo.${targetUid}`]: {
+                email: targetUser.email || email,
+                displayName: targetUser.displayName || "",
+            },
+        }, { merge: true });
+    });
+    await recomputeEffectiveFolioCloud(targetUid);
+    await recomputeEffectiveFolioCloud(callerUid);
+    return { ok: true };
+});
+exports.removeFamilyMember = (0, https_1.onCall)({ invoker: "public" }, async (request) => {
+    var _a, _b, _c, _d, _e;
+    if (!((_a = request.auth) === null || _a === void 0 ? void 0 : _a.uid)) {
+        throw new https_1.HttpsError("unauthenticated", "Login required");
+    }
+    const memberUid = String((_c = (_b = request.data) === null || _b === void 0 ? void 0 : _b.memberUid) !== null && _c !== void 0 ? _c : "").trim();
+    if (!memberUid) {
+        throw new https_1.HttpsError("invalid-argument", "memberUid is required");
+    }
+    const callerUid = request.auth.uid;
+    const isDebug = ((_d = request.data) === null || _d === void 0 ? void 0 : _d.debug) === true;
+    const stripe = stripeClient(isDebug);
+    if (!stripe) {
+        throw new https_1.HttpsError("failed-precondition", "Stripe not configured.");
+    }
+    const targetRef = db.collection("users").doc(memberUid);
+    const targetSnap = await targetRef.get();
+    if (!targetSnap.exists) {
+        throw new https_1.HttpsError("not-found", "Miembro no encontrado.");
+    }
+    const targetData = (_e = targetSnap.data()) !== null && _e !== void 0 ? _e : {};
+    const familyOwnerUid = targetData.familyOwnerUid;
+    if (!familyOwnerUid) {
+        throw new https_1.HttpsError("failed-precondition", "El usuario no pertenece a ninguna familia.");
+    }
+    if (callerUid !== familyOwnerUid && callerUid !== memberUid) {
+        throw new https_1.HttpsError("permission-denied", "No tienes permiso para eliminar a este miembro de la familia.");
+    }
+    // No direct Stripe operations on member removal. The slot is freed up in Firestore.
+    // To stop paying for the slot, the owner manages seats inside the Stripe Billing Portal.
+    await db.runTransaction(async (tx) => {
+        const familyRef = db.collection("families").doc(familyOwnerUid);
+        tx.update(familyRef, {
+            members: FieldValue.arrayRemove(memberUid),
+            [`membersInfo.${memberUid}`]: FieldValue.delete(),
+        });
+        tx.update(targetRef, {
+            familyOwnerUid: FieldValue.delete(),
+        });
+    });
+    await recomputeEffectiveFolioCloud(memberUid);
+    await recomputeEffectiveFolioCloud(familyOwnerUid);
+    return { ok: true };
+});
+exports.verifyStudentStatus = (0, https_1.onCall)({ invoker: "public" }, async (request) => {
+    var _a, _b, _c;
+    if (!((_a = request.auth) === null || _a === void 0 ? void 0 : _a.uid)) {
+        throw new https_1.HttpsError("unauthenticated", "Login required");
+    }
+    const uid = request.auth.uid;
+    const customEmail = String((_c = (_b = request.data) === null || _b === void 0 ? void 0 : _b.email) !== null && _c !== void 0 ? _c : "").trim().toLowerCase();
+    const email = customEmail || request.auth.token.email;
+    if (!email) {
+        throw new https_1.HttpsError("invalid-argument", "No email found. Provide an email.");
+    }
+    const verified = isStudentEmail(email);
+    if (verified) {
+        const ref = db.collection("users").doc(uid);
+        await ref.set({
+            billing: {
+                studentVerified: true,
+            },
+        }, { merge: true });
+        await recomputeEffectiveFolioCloud(uid);
+    }
+    return { ok: true, verified };
+});
+exports.getFamilyDetails = (0, https_1.onCall)({ invoker: "public" }, async (request) => {
+    var _a, _b, _c, _d, _e;
+    if (!((_a = request.auth) === null || _a === void 0 ? void 0 : _a.uid)) {
+        throw new https_1.HttpsError("unauthenticated", "Login required");
+    }
+    const uid = request.auth.uid;
+    const userSnap = await db.collection("users").doc(uid).get();
+    const userData = (_b = userSnap.data()) !== null && _b !== void 0 ? _b : {};
+    const familyOwnerUid = userData.familyOwnerUid;
+    const ownerUid = familyOwnerUid || uid;
+    const familySnap = await db.collection("families").doc(ownerUid).get();
+    if (!familySnap.exists) {
+        return { members: [], membersInfo: {} };
+    }
+    const familyData = (_c = familySnap.data()) !== null && _c !== void 0 ? _c : {};
+    return {
+        members: (_d = familyData.members) !== null && _d !== void 0 ? _d : [],
+        membersInfo: (_e = familyData.membersInfo) !== null && _e !== void 0 ? _e : {},
+    };
+});
+exports.onUserCreated = functionsV1.auth.user().onCreate(async (user) => {
+    var _a, _b;
+    const uid = user.uid;
+    const ref = db.collection("users").doc(uid);
+    const snap = await ref.get();
+    if (!snap.exists) {
+        await ref.set({
+            email: (_a = user.email) !== null && _a !== void 0 ? _a : "",
+            displayName: (_b = user.displayName) !== null && _b !== void 0 ? _b : "",
+            createdAt: admin.firestore.FieldValue.serverTimestamp(),
+        }, { merge: true });
+        await recomputeEffectiveFolioCloud(uid);
+    }
+});
+exports.ensureUserDocExists = (0, https_1.onCall)({ invoker: "public" }, async (request) => {
+    var _a, _b;
+    if (!((_a = request.auth) === null || _a === void 0 ? void 0 : _a.uid)) {
+        throw new https_1.HttpsError("unauthenticated", "Login required");
+    }
+    const uid = request.auth.uid;
+    const ref = db.collection("users").doc(uid);
+    const snap = await ref.get();
+    if (!snap.exists) {
+        await ref.set({
+            email: (_b = request.auth.token.email) !== null && _b !== void 0 ? _b : "",
+            createdAt: admin.firestore.FieldValue.serverTimestamp(),
+        }, { merge: true });
+        await recomputeEffectiveFolioCloud(uid);
+    }
+    return { ok: true };
 });
 //# sourceMappingURL=index.js.map

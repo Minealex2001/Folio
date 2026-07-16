@@ -51,7 +51,7 @@ Widget? _specialRowAudio(_BlockRowScope s) {
                       scheme,
                     ),
                     if (snap.connectionState == ConnectionState.waiting)
-                      const Center(child: CircularProgressIndicator())
+                      const FolioLoadingIndicator(centered: true)
                     else if (snap.data == null)
                       Column(
                         crossAxisAlignment: CrossAxisAlignment.stretch,

@@ -7,6 +7,7 @@ import 'package:url_launcher/url_launcher.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 import 'package:webview_windows/webview_windows.dart';
 
+import '../../../app/widgets/folio_skeletons.dart';
 import '../../../l10n/generated/app_localizations.dart';
 
 /// Vista web embebida cuando la plataforma lo permite (Windows WebView2, Android, iOS, macOS).
@@ -107,7 +108,7 @@ class _FolioEmbedWebViewState extends State<FolioEmbedWebView> {
     if (_useWindows) {
       final c = _windows;
       if (c == null || !_winReady) {
-        return const Center(child: CircularProgressIndicator());
+        return const FolioLoadingIndicator(centered: true);
       }
       return Webview(
         c,

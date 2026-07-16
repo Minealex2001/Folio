@@ -65,8 +65,9 @@ class LmStudioAiService implements AiService {
       if (request.temperature != null) payload['temperature'] = request.temperature;
       if (request.topK != null) payload['top_k'] = request.topK;
       if (request.topP != null) payload['top_p'] = request.topP;
-      if (request.stop != null && request.stop!.isNotEmpty)
+      if (request.stop != null && request.stop!.isNotEmpty) {
         payload['stop'] = request.stop;
+      }
       if (request.responseSchema != null) {
         payload['response_format'] = <String, dynamic>{
           'type': 'json_schema',

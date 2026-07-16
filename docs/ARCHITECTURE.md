@@ -42,6 +42,31 @@ including:
 - hotkeys and system tray
 - AI configuration
 
+## Multi-package pairs that look redundant but aren't
+
+A few `pubspec.yaml` entries look like duplicated functionality at a glance.
+They're intentional; keep both unless the reason below stops applying:
+
+- **`webview_flutter` + `webview_windows`**: `webview_flutter` has no native
+  Windows embedding, so `webview_windows` is used there instead. Selection is
+  platform-driven at runtime (see `_useWindows` in
+  `lib/features/workspace/editor/folio_embed_webview.dart`), not a leftover
+  from a migration.
+- **`markdown` + `flutter_markdown_plus`**: `markdown` is the AST parser,
+  used directly where Folio needs to walk/transform markdown itself (e.g.
+  `lib/features/workspace/history/mermaid_markdown_builder.dart`).
+  `flutter_markdown_plus` is the rendering widget for markdown *preview* UI.
+  Different jobs, not two competing renderers.
+- **`syncfusion_flutter_pdfviewer` + `syncfusion_flutter_pdf` + `pdf`**: three
+  non-overlapping PDF jobs, not a triplicated stack. `syncfusion_flutter_pdfviewer`
+  renders an interactive PDF viewer (`lib/features/workspace/editor/file_video_previews.dart`).
+  `syncfusion_flutter_pdf` reads/annotates existing PDFs — text extraction and
+  markup/popup annotations — inside `lib/features/workspace/shell/workspace_page.dart`
+  and its `part` files (`workspace_page_page_tools.dart`). `pdf` (pure Dart, no
+  Flutter widgets) *generates* new PDFs when exporting a Folio page
+  (`lib/services/folio_cloud/folio_page_pdf_export.dart`). None of the three can
+  substitute for another.
+
 ## Testing
 
 The `test/` folder mirrors key functional domains (`data`, `models`,

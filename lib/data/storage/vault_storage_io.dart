@@ -5,6 +5,8 @@ import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 import 'package:uuid/uuid.dart';
 
+import 'atomic_file_writer.dart';
+
 /// Native (dart:io) implementation of VaultStorage.
 class VaultStorage {
   VaultStorage._();
@@ -13,6 +15,13 @@ class VaultStorage {
   static const String _container = 'folio_vaults';
   static const String _attachmentsDir = 'attachments';
   static const _uuid = Uuid();
+
+  /// Archivos críticos de la libreta: escritura atómica con rotación `.bak`.
+  static const Set<String> _atomicVaultFiles = {
+    'vault.bin',
+    'vault.keys',
+    'vault.mode',
+  };
 
   // ── Internal helpers ─────────────────────────────────────────────────
 
@@ -43,7 +52,31 @@ class VaultStorage {
     Uint8List data,
   ) async {
     final f = await _file(vaultId, filename);
+    if (_atomicVaultFiles.contains(filename)) {
+      await AtomicFileWriter.writeAtomic(f, data);
+      return;
+    }
     await f.writeAsBytes(data, flush: true);
+  }
+
+  /// Lee una copia `.bak` del archivo de libreta, si existe.
+  Future<Uint8List?> readVaultFileBackup(
+    String vaultId,
+    String filename,
+  ) async {
+    final dir = await _vaultDirPath(vaultId);
+    final bak = File(AtomicFileWriter.backupPathFor(p.join(dir, filename)));
+    if (!bak.existsSync()) return null;
+    return bak.readAsBytes();
+  }
+
+  /// Restaura el archivo principal desde su `.bak`.
+  Future<bool> restoreVaultFileFromBackup(
+    String vaultId,
+    String filename,
+  ) async {
+    final f = await _file(vaultId, filename);
+    return AtomicFileWriter.restoreFromBackup(f);
   }
 
   Future<bool> vaultFileExists(String vaultId, String filename) async {

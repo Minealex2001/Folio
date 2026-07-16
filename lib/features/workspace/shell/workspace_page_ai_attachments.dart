@@ -88,7 +88,7 @@ extension _WorkspacePageAiAttachmentsModule on _WorkspacePageState {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => StatefulBuilder(
-        builder: (ctx, setS) => AlertDialog(
+        builder: (ctx, setS) => FolioDialog(
           title: Text(l10n.meetingNoteSendToAi),
           content: ConstrainedBox(
             constraints: const BoxConstraints(maxWidth: 480),

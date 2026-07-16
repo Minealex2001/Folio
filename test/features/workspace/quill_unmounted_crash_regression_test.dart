@@ -30,12 +30,16 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    // Entra en edición tocando el texto.
-    await tester.tap(find.textContaining('hola').first);
+    final editorState = tester.state<BlockEditorState>(find.byType(BlockEditor));
+    editorState.debugShowFormatToolbarOverlayForTest();
     await tester.pumpAndSettle();
 
-    // Pulsa negrita (IconButton). En desktop lo activamos en pointerDown.
-    await tester.tap(find.byIcon(Icons.format_bold_rounded).first);
+    final boldIcon = find.descendant(
+      of: find.byType(Overlay),
+      matching: find.byIcon(Icons.format_bold_rounded),
+    );
+    expect(boldIcon, findsOneWidget);
+    await tester.tap(boldIcon);
     await tester.pump();
 
     // Fuerza rebuild por notifyListeners típico tras mutación.

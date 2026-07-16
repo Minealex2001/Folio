@@ -5,6 +5,8 @@ import 'package:url_launcher/url_launcher.dart';
 import 'package:uuid/uuid.dart';
 
 import '../../app/app_settings.dart';
+import '../../app/widgets/folio_dialog.dart';
+import '../../app/widgets/folio_skeletons.dart';
 import '../../l10n/generated/app_localizations.dart';
 import '../../models/jira_integration_state.dart';
 import '../../services/jira/jira_auth_service.dart';
@@ -107,7 +109,7 @@ class JiraIntegrationCard extends StatelessWidget {
                             )
                         : null,
                     icon: const Icon(Icons.tune_rounded, size: 18),
-                    label: Text(isEs ? 'Configurar' : l10n.settings),
+                    label: Text(l10n.jiraConfigure),
                   ),
                 ],
               ),
@@ -183,10 +185,11 @@ class _JiraIntegrationConfigDialogState extends State<JiraIntegrationConfigDialo
 
   Future<void> _connectCloud() async {
     final isEs = Localizations.localeOf(context).languageCode == 'es';
+    final l10n = AppLocalizations.of(context);
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(
-          isEs ? 'Iniciando conexión con Jira Cloud…' : 'Starting Jira Cloud connection…',
+          l10n.jiraStartingCloudConnection,
         ),
       ),
     );
@@ -199,9 +202,9 @@ class _JiraIntegrationConfigDialogState extends State<JiraIntegrationConfigDialo
       final ctrl = TextEditingController();
       final entered = await showDialog<String?>(
         context: context,
-        builder: (ctx) => AlertDialog(
+        builder: (ctx) => FolioDialog(
           title: Text(
-            isEs ? 'Configurar Client ID' : 'Set Client ID',
+            l10n.jiraSetClientId,
           ),
           content: SizedBox(
             width: 560,
@@ -236,7 +239,7 @@ class _JiraIntegrationConfigDialogState extends State<JiraIntegrationConfigDialo
                   },
                   icon: const Icon(Icons.open_in_new_rounded, size: 18),
                   label: Text(
-                    isEs ? 'Abrir Atlassian Developer Console' : 'Open Atlassian Developer Console',
+                    l10n.jiraOpenDeveloperConsole,
                   ),
                 ),
                 const SizedBox(height: 10),
@@ -260,11 +263,11 @@ class _JiraIntegrationConfigDialogState extends State<JiraIntegrationConfigDialo
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(ctx, null),
-              child: Text(isEs ? 'Cancelar' : 'Cancel'),
+              child: Text(l10n.cancel),
             ),
             FilledButton(
               onPressed: () => Navigator.pop(ctx, ctrl.text),
-              child: Text(isEs ? 'Guardar' : 'Save'),
+              child: Text(l10n.jiraSave),
             ),
           ],
         ),
@@ -272,6 +275,7 @@ class _JiraIntegrationConfigDialogState extends State<JiraIntegrationConfigDialo
       ctrl.dispose();
       if (!mounted || entered == null) return;
       await widget.appSettings.setJiraOAuthClientId(entered);
+      if (!mounted) return;
     }
     setState(() {
       _busy = true;
@@ -285,15 +289,11 @@ class _JiraIntegrationConfigDialogState extends State<JiraIntegrationConfigDialo
       showDialog<void>(
         context: context,
         barrierDismissible: false,
-        builder: (ctx) => AlertDialog(
-          title: Text(isEs ? 'Conectando Jira Cloud…' : 'Connecting Jira Cloud…'),
+        builder: (ctx) => FolioDialog(
+          title: Text(l10n.jiraConnectingCloud),
           content: Row(
             children: [
-              const SizedBox(
-                width: 18,
-                height: 18,
-                child: CircularProgressIndicator(strokeWidth: 2),
-              ),
+              const FolioLoadingIndicator(size: FolioLoadingSize.small),
               const SizedBox(width: 12),
               Expanded(
                 child: Text(
@@ -310,7 +310,7 @@ class _JiraIntegrationConfigDialogState extends State<JiraIntegrationConfigDialo
                 cancelToken.cancel();
                 Navigator.of(ctx, rootNavigator: true).pop();
               },
-              child: Text(isEs ? 'Cancelar' : 'Cancel'),
+              child: Text(l10n.cancel),
             ),
           ],
         ),
@@ -331,7 +331,7 @@ class _JiraIntegrationConfigDialogState extends State<JiraIntegrationConfigDialo
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
-              isEs ? 'Conexión Jira Cloud creada.' : 'Jira Cloud connection created.',
+              l10n.jiraConnectionCreated,
             ),
           ),
         );
@@ -356,9 +356,7 @@ class _JiraIntegrationConfigDialogState extends State<JiraIntegrationConfigDialo
                 ? 'Timeout conectando Jira Cloud. Si no se abre el navegador, revisa que Windows permita abrir enlaces externos.'
                 : 'Timeout connecting Jira Cloud. If the browser does not open, check Windows allows opening external links.')
             : isMissingSecret
-            ? (isEs
-                ? 'Falta JIRA_OAUTH_CLIENT_SECRET. Folio carga `.env` al arrancar: reinicia la app y verifica el log `folio.env` ("dotenv loaded").'
-                : 'Missing JIRA_OAUTH_CLIENT_SECRET. Folio loads `.env` on startup: restart the app and check the `folio.env` log ("dotenv loaded").')
+            ? l10n.jiraCloudMissingOAuthSecret
             : (isEs
                 ? 'Error conectando Jira Cloud: $e'
                 : 'Error connecting Jira Cloud: $e');
@@ -374,14 +372,15 @@ class _JiraIntegrationConfigDialogState extends State<JiraIntegrationConfigDialo
   }
 
   Future<void> _connectServer() async {
+    final l10n = AppLocalizations.of(context);
     final isEs = Localizations.localeOf(context).languageCode == 'es';
     final labelCtrl = TextEditingController(text: 'Jira Server');
     final baseCtrl = TextEditingController();
     final tokenCtrl = TextEditingController();
     final result = await showDialog<({String label, String baseUrl, String pat})?>(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: Text(isEs ? 'Nueva conexión Server/DC' : 'New Server/DC connection'),
+      builder: (ctx) => FolioDialog(
+        title: Text(l10n.jiraNewServerConnection),
         content: SizedBox(
           width: 520,
           child: Column(
@@ -454,10 +453,11 @@ class _JiraIntegrationConfigDialogState extends State<JiraIntegrationConfigDialo
   }
 
   Future<void> _createSource() async {
+    final l10n = AppLocalizations.of(context);
     final isEs = Localizations.localeOf(context).languageCode == 'es';
     final connections = widget.session.jiraConnections;
     if (connections.isEmpty) {
-      _setError(isEs ? 'Crea una conexión primero.' : 'Create a connection first.');
+      _setError(l10n.jiraCreateConnectionFirst);
       return;
     }
     final created = await showDialog<JiraSource?>(
@@ -474,10 +474,11 @@ class _JiraIntegrationConfigDialogState extends State<JiraIntegrationConfigDialo
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
+    final l10n = AppLocalizations.of(context);
     final isEs = Localizations.localeOf(context).languageCode == 'es';
     final connections = widget.session.jiraConnections;
     final sources = widget.session.jiraSources;
-    return AlertDialog(
+    return FolioDialog(
       insetPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
       content: SizedBox(
         width: 760,
@@ -494,7 +495,7 @@ class _JiraIntegrationConfigDialogState extends State<JiraIntegrationConfigDialo
                 const SizedBox(width: 10),
                 Expanded(
                   child: Text(
-                    isEs ? 'Integración Jira' : 'Jira integration',
+                    l10n.jiraIntegrationTitle,
                     style: Theme.of(context).textTheme.titleLarge?.copyWith(
                           fontWeight: FontWeight.w800,
                         ),
@@ -511,8 +512,8 @@ class _JiraIntegrationConfigDialogState extends State<JiraIntegrationConfigDialo
             TabBar(
               controller: _tabs,
               tabs: [
-                Tab(text: isEs ? 'Conexiones' : 'Connections'),
-                Tab(text: isEs ? 'Fuentes' : 'Sources'),
+                Tab(text: l10n.jiraConnectionsTab),
+                Tab(text: l10n.jiraSourcesTab),
               ],
             ),
             const SizedBox(height: 12),
@@ -539,7 +540,7 @@ class _JiraIntegrationConfigDialogState extends State<JiraIntegrationConfigDialo
                 controller: _tabs,
                 children: [
                   _busy
-                      ? const Center(child: CircularProgressIndicator())
+                      ? const FolioLoadingIndicator(centered: true)
                       : _ConnectionsTab(
                           connections: connections,
                           onConnectCloud: _connectCloud,
@@ -547,7 +548,7 @@ class _JiraIntegrationConfigDialogState extends State<JiraIntegrationConfigDialo
                           onDelete: widget.session.removeJiraConnection,
                         ),
                   _busy
-                      ? const Center(child: CircularProgressIndicator())
+                      ? const FolioLoadingIndicator(centered: true)
                       : _SourcesTab(
                           sources: sources,
                           connections: connections,
@@ -665,6 +666,7 @@ class _CreateOrEditSourceDialogState extends State<_CreateOrEditSourceDialog> {
   @override
   Widget build(BuildContext context) {
     final isEs = widget.isEs;
+    final l10n = AppLocalizations.of(context);
     final scheme = Theme.of(context).colorScheme;
 
     final projectHint = isEs
@@ -780,7 +782,7 @@ class _CreateOrEditSourceDialogState extends State<_CreateOrEditSourceDialog> {
                 _projectCtrl.text = b.projectKey!;
               }
               if (_nameCtrl.text.trim().isEmpty) {
-                _nameCtrl.text = '${b.name}';
+                _nameCtrl.text = b.name;
               }
               setState(() {});
             },
@@ -829,8 +831,8 @@ class _CreateOrEditSourceDialogState extends State<_CreateOrEditSourceDialog> {
       );
     }
 
-    return AlertDialog(
-      title: Text(isEs ? 'Nueva fuente' : 'New source'),
+    return FolioDialog(
+      title: Text(l10n.jiraNewSource),
       content: SizedBox(
         width: 560,
         child: Column(
@@ -840,7 +842,7 @@ class _CreateOrEditSourceDialogState extends State<_CreateOrEditSourceDialog> {
               children: [
                 Expanded(
                   child: DropdownButtonFormField<JiraConnection>(
-                    value: _selected,
+                    initialValue: _selected,
                     decoration: InputDecoration(
                       labelText: isEs ? 'Conexión' : 'Connection',
                       border: const OutlineInputBorder(),
@@ -859,14 +861,10 @@ class _CreateOrEditSourceDialogState extends State<_CreateOrEditSourceDialog> {
                 ),
                 const SizedBox(width: 10),
                 IconButton(
-                  tooltip: isEs ? 'Recargar' : 'Reload',
+                  tooltip: l10n.jiraReload,
                   onPressed: _loading ? null : _reloadLists,
                   icon: _loading
-                      ? const SizedBox(
-                          width: 18,
-                          height: 18,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        )
+                      ? const FolioLoadingIndicator(size: FolioLoadingSize.small)
                       : const Icon(Icons.refresh_rounded),
                 ),
               ],
@@ -884,7 +882,7 @@ class _CreateOrEditSourceDialogState extends State<_CreateOrEditSourceDialog> {
             ],
             const SizedBox(height: 10),
             DropdownButtonFormField<JiraSourceType>(
-              value: _type,
+              initialValue: _type,
               decoration: InputDecoration(
                 labelText: isEs ? 'Tipo' : 'Type',
                 border: const OutlineInputBorder(),
@@ -989,7 +987,7 @@ class _ConnectionsTab extends StatelessWidget {
                 )
               : ListView.separated(
                   itemCount: connections.length,
-                  separatorBuilder: (_, __) => const SizedBox(height: 10),
+                  separatorBuilder: (_, _) => const SizedBox(height: 10),
                   itemBuilder: (context, i) {
                     final c = connections[i];
                     final subtitle = c.deployment == JiraDeployment.cloud
@@ -1112,7 +1110,7 @@ class _SourcesTab extends StatelessWidget {
                 )
               : ListView.separated(
                   itemCount: sources.length,
-                  separatorBuilder: (_, __) => const SizedBox(height: 10),
+                  separatorBuilder: (_, _) => const SizedBox(height: 10),
                   itemBuilder: (context, i) {
                     final s = sources[i];
                     final subtitle = switch (s.type) {
@@ -1263,7 +1261,7 @@ class _EditSourceMappingDialogState extends State<_EditSourceMappingDialog> {
   @override
   Widget build(BuildContext context) {
     final isEs = Localizations.localeOf(context).languageCode == 'es';
-    return AlertDialog(
+    return FolioDialog(
       title: Text(isEs ? 'Configurar fuente' : 'Configure source'),
       content: SizedBox(
         width: 720,

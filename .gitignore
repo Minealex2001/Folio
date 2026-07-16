@@ -32,6 +32,7 @@ migrate_working_dir/
 .pub/
 /build/
 /coverage/
+lib/l10n/generated/
 
 # Symbolication related
 app.*.symbols
@@ -46,6 +47,10 @@ app.*.map.json
 .env
 .env.local
 
+# NOTA: lib/config/folio_local_secrets.dart SÍ está versionado (con valores
+# vacíos) a propósito — ver FEATURES.md. No lo ignores aquí ni le pongas
+# valores reales: usa --dart-define para secretos reales en builds locales.
+
 # Folio Cloud / Firebase Functions (secrets locales)
 functions/.env
 functions/.secret.local
@@ -56,7 +61,21 @@ secrets/
 *.pfx
 *.p12
 
+# Firma de release de Android (no versionar)
+android/key.properties
+*.jks
+*.keystore
+
 # Opcional: no versionar firebase_options de producción si generáis en CI
 # lib/firebase_options.dart
 docs/postman/Run2Doc-Folio.postman_collection.json
+
+# Artefactos de build/instaladores (usar GitHub Releases, no git)
 output/
+Output/
+lib.zip
+build_out.txt
+analyze_out.txt
+flutter_run.txt
+flutter_test_output*.txt
+flutter_*.png

@@ -71,6 +71,11 @@ jobs:
             Write-Host 'Sin secret FOLIO_MS_STORE_ENV: el build Store no tendrá dart-define MS_STORE_* (puedes usar -Skip MSIX si falla).'
           }
 
+      - name: Local secrets stub (gitignored file required for build)
+        shell: pwsh
+        working-directory: ${{ env.REPO_DIR }}
+        run: Copy-Item -Force lib/config/folio_local_secrets.example.dart lib/config/folio_local_secrets.dart
+
       - name: Run builld_all.ps1 (solo Windows)
         shell: pwsh
         working-directory: ${{ env.REPO_DIR }}
@@ -135,6 +140,7 @@ jobs:
         shell: bash
         working-directory: ${{ env.REPO_DIR }}
         run: |
+          cp -f lib/config/folio_local_secrets.example.dart lib/config/folio_local_secrets.dart
           dart pub get --enforce-lockfile
           flutter build apk --release --dart-define=FOLIO_DISTRIBUTION=play_store
 
@@ -191,6 +197,7 @@ jobs:
         shell: bash
         working-directory: ${{ env.REPO_DIR }}
         run: |
+          cp -f lib/config/folio_local_secrets.example.dart lib/config/folio_local_secrets.dart
           dart pub get --enforce-lockfile
           flutter build linux --release --dart-define=FOLIO_DISTRIBUTION=github
 

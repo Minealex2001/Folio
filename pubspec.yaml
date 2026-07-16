@@ -2,7 +2,7 @@ name: folio
 description: "Folio is designed for users who value privacy, control, and productivity. Whether you're managing notes, organizing files, or leveraging local AI for content enhancement, Folio provides a seamless desktop-first experience with no cloud dependencies by default."
 # The following line prevents the package from being accidentally published to
 # pub.dev using `flutter pub publish`. This is preferred for private packages.
-publish_to: 'none' # Remove this line if you wish to publish to pub.dev
+publish_to: "none" # Remove this line if you wish to publish to pub.dev
 
 # The following defines the version and build number for your application.
 # A version number is three numbers separated by dots, like 1.2.43
@@ -16,7 +16,7 @@ publish_to: 'none' # Remove this line if you wish to publish to pub.dev
 # https://developer.apple.com/library/archive/documentation/General/Reference/InfoPlistKeyReference/Articles/CoreFoundationKeys.html
 # In Windows, build-name is used as the major, minor, and patch parts
 # of the product and file versions while build-number is used as the build suffix.
-version: 0.0.3+5
+version: 0.5.2+1
 
 environment:
   sdk: ^3.11.1
@@ -61,10 +61,12 @@ dependencies:
   hotkey_manager: ^0.2.3
   window_manager: ^0.5.1
   tray_manager: ^0.5.1
+  launch_at_startup: ^0.5.1
   syncfusion_flutter_pdf: ^33.1.49
   printing: ^5.14.3
   http: ^1.5.0
-  flutter_dotenv: ^6.0.0
+  flutter_secure_storage: ^9.2.4
+  webdav_client: ^1.2.2
   # 10.x requiere win32 ^6; file_picker 11 aún usa win32 ^5 (incompatible en pub).
   package_info_plus: ^9.0.0
   pub_semver: ^2.2.0
@@ -76,18 +78,25 @@ dependencies:
   audioplayers: ^6.6.0
   record: ^6.2.0
   intl: ^0.20.2
-  firebase_core: ^4.6.0
-  firebase_auth: ^6.3.0
-  cloud_firestore: ^6.2.0
-  firebase_storage: ^13.2.0
-  cloud_functions: ^6.1.0
-  flutter_quill: ^11.5.0
+  firebase_core: ^4.10.0
+  firebase_auth: ^6.5.0
+  # Declarado para `FirebaseAuthPlatform.disableIdTokenChannelOnWindows` en main
+  # (fork local vendorizado en Windows, ver dependency_overrides).
+  firebase_auth_platform_interface: ^9.0.0
+  cloud_firestore: ^6.5.0
+  firebase_storage: ^13.4.0
+  cloud_functions: ^6.3.0
+  flutter_quill: ^11.4.0
   cross_file: ^0.3.4+2
   desktop_drop: ^0.4.4
   super_clipboard: ^0.8.9
   firebase_analytics: ^12.3.0
   local_notifier: ^0.1.6
   idb_shim: ^2.6.1
+  dart_quill_delta: ^10.8.3
+  flutter_colorpicker: ^1.1.0
+  pdf: ^3.12.0
+  http_parser: ^4.1.2
 
 dev_dependencies:
   flutter_test:
@@ -107,6 +116,12 @@ dev_dependencies:
 # win32 ^5, so we stay on package_info_plus 9.x and override device_info to 12.x.
 dependency_overrides:
   device_info_plus: ^12.4.0
+  # Windows: evita el fast-fail (0xC0000409) del engine cuando firebase_auth
+  # emite por los EventChannel `id-token`/`auth-state` desde un hilo no-plataforma
+  # (firebase/flutterfire#18210 / #18226 / flutter/flutter#134346). Fork local
+  # (basado en hughesyadaddy@b897f94) que además omite el canal `auth-state`.
+  firebase_auth_platform_interface:
+    path: vendor/firebase_auth_platform_interface
 
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec
@@ -123,6 +138,7 @@ flutter:
   assets:
     - assets/icons/folio.ico
     - appLogos/jira.png
+    - appLogos/youtrack.png
 
   # An image asset can refer to one or more resolution-specific "variants", see
   # https://flutter.dev/to/resolution-aware-images
@@ -150,25 +166,29 @@ flutter:
   # For details regarding fonts from package dependencies,
   # see https://flutter.dev/to/font-from-package
 
-# Genera iconos de launcher en Android a partir del mismo arte que iOS.
+# Genera iconos de launcher en Android a partir del logo de Folio (assets/icons/folio.png),
+# el mismo arte que usa el .ico de Windows.
 flutter_launcher_icons:
   android: true
   ios: false
-  image_path: ios/Runner/Assets.xcassets/AppIcon.appiconset/Icon-App-1024x1024@1x.png
-  adaptive_icon_background: "#ffffff"
-  adaptive_icon_foreground: ios/Runner/Assets.xcassets/AppIcon.appiconset/Icon-App-1024x1024@1x.png
+  image_path: assets/icons/folio.png
+  adaptive_icon_background: "#3E2F54"
+  adaptive_icon_foreground: assets/icons/folio.png
 
 # MSIX: con store:false el paquete se firma con cert. de prueba (instalable en tu PC).
 # Para el MSIX que subes a Partner Center usa: dart run msix:create --store
 # (ese artefacto no está pensado para doble clic local; Microsoft lo firma al publicar).
 # msix_version: último segmento 0 según políticas de versión de la Store.
+# builld_all.ps1 lo sobrescribe con <version de arriba>.0 al crear el MSIX (--version),
+# así se evita subir dos paquetes con el mismo full name a Partner Center.
+# Debe ser SIEMPRE mayor que la última versión publicada en la Store.
 msix_config:
   display_name: Folio - Private Workspace
   publisher_display_name: Minealex Games
   # Estos 3 valores deben coincidir 1:1 con Partner Center → Product identity
   identity_name: MinealexGames.Folio-PrivateWorkspace
   publisher: CN=EFF3F915-1B14-4A6A-B8F6-8F232E1B13B0
-  msix_version: 0.3.5.0
+  msix_version: 0.5.0.0
   logo_path: assets/icons/folio.ico
   capabilities: internetClient, microphone
   store: true

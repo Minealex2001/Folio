@@ -4,10 +4,12 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_storage/firebase_storage.dart';
+import '../folio_cloud/folio_storage_transport.dart';
 import 'package:http/http.dart' as http;
 import 'package:uuid/uuid.dart';
 
 import '../../models/folio_page_template.dart';
+import '../folio_firestore_support.dart';
 
 const String kCommunityTemplatesCollection = 'communityTemplates';
 
@@ -79,9 +81,18 @@ class CommunityTemplateStore {
 
   static bool get isFirebaseReady => Firebase.apps.isNotEmpty;
 
+  /// Windows: Firestore no está disponible (crash nativo del SDK C++), así que
+  /// la galería comunitaria queda deshabilitada.
+  static bool get isStoreAvailable => isFirebaseReady && folioFirestoreSupported;
+
   /// Sube la plantilla y crea el documento índice. [tpl] puede tener cualquier id local;
   /// el archivo publicado usa [docId] como id Folio en el JSON.
   Future<String> publishTemplate(FolioPageTemplate tpl) async {
+    if (!folioFirestoreSupported) {
+      throw StateError(
+        'La galería comunitaria no está disponible en esta plataforma.',
+      );
+    }
     if (!isFirebaseReady) {
       throw StateError('Firebase not initialized');
     }
@@ -103,9 +114,10 @@ class CommunityTemplateStore {
     );
     final bytes = utf8.encode(published.encodeAsFile());
     final ref = FirebaseStorage.instance.ref().child(path);
-    await ref.putData(
+    await folioStoragePutData(
+      ref,
       bytes,
-      SettableMetadata(contentType: 'application/json; charset=utf-8'),
+      metadata: SettableMetadata(contentType: 'application/json; charset=utf-8'),
     );
     final downloadUrl = await ref.getDownloadURL();
     final batch = <String, dynamic>{
@@ -132,6 +144,8 @@ class CommunityTemplateStore {
 
   /// Listado reciente para la galería (sin filtro Firestore por categoría; filtrar en cliente).
   Future<List<CommunityTemplateEntry>> listRecent({int limit = 80}) async {
+    // Windows: sin Firestore devolvemos una galería vacía en lugar de crashear.
+    if (!folioFirestoreSupported) return const <CommunityTemplateEntry>[];
     if (!isFirebaseReady) {
       throw StateError('Firebase not initialized');
     }
@@ -152,7 +166,9 @@ class CommunityTemplateStore {
 
   /// Descarga el archivo público y parsea. No modifica el vault.
   Future<FolioPageTemplate> downloadTemplate(String downloadUrl) async {
-    final response = await http.get(Uri.parse(downloadUrl));
+    final response = await http
+        .get(Uri.parse(downloadUrl))
+        .timeout(const Duration(seconds: 30));
     if (response.statusCode < 200 || response.statusCode >= 300) {
       throw StateError('HTTP ${response.statusCode}');
     }
@@ -182,6 +198,11 @@ class CommunityTemplateStore {
     required String docId,
     required String storagePath,
   }) async {
+    if (!folioFirestoreSupported) {
+      throw StateError(
+        'La galería comunitaria no está disponible en esta plataforma.',
+      );
+    }
     if (!isFirebaseReady) {
       throw StateError('Firebase not initialized');
     }

@@ -30,6 +30,34 @@ ThemeData folioDarkTheme(Color seedColor) {
   return _folioThemeFromBase(base, colorScheme);
 }
 
+ThemeData folioOledTheme(Color seedColor) {
+  final baseScheme = ColorScheme.fromSeed(
+    seedColor: seedColor,
+    brightness: Brightness.dark,
+    dynamicSchemeVariant: DynamicSchemeVariant.expressive,
+  );
+  final oledScheme = baseScheme.copyWith(
+    surface: Colors.black,
+    surfaceDim: const Color(0xFF000000),
+    surfaceBright: const Color(0xFF101010),
+    surfaceContainerLowest: const Color(0xFF000000),
+    surfaceContainerLow: const Color(0xFF050505),
+    surfaceContainer: const Color(0xFF0A0A0A),
+    surfaceContainerHigh: const Color(0xFF0F0F0F),
+    surfaceContainerHighest: const Color(0xFF141414),
+    inverseSurface: const Color(0xFFE6E6E6),
+    onInverseSurface: const Color(0xFF111111),
+  );
+  final base = ThemeData(
+    useMaterial3: true,
+    colorScheme: oledScheme,
+    brightness: Brightness.dark,
+  );
+  return _folioThemeFromBase(base, oledScheme).copyWith(
+    scaffoldBackgroundColor: Colors.black,
+  );
+}
+
 ThemeData _folioThemeFromBase(ThemeData base, ColorScheme colorScheme) {
   final expressiveText = GoogleFonts.outfitTextTheme(base.textTheme).copyWith(
     displayLarge: base.textTheme.displayLarge?.copyWith(
