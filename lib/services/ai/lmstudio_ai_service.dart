@@ -18,6 +18,11 @@ class LmStudioAiService implements AiService {
   @override
   String get providerName => 'lmstudio';
 
+  // TODO(quill-tools): best-effort nativo pendiente de sondeo de capacidad
+  // del runtime cargado; de momento cae a la emulación JSON.
+  @override
+  bool get supportsNativeToolCalling => false;
+
   @override
   Future<AiCompletionResult> complete(AiCompletionRequest request) async {
     final client = HttpClient();
@@ -142,6 +147,20 @@ class LmStudioAiService implements AiService {
     } finally {
       client.close(force: true);
     }
+  }
+
+  // TODO(quill-tools): streaming real pendiente (requiere parsear SSE del
+  // runtime cargado); de momento emite el resultado completo como un único
+  // chunk final, igual que Folio Cloud.
+  @override
+  Stream<AiCompletionChunk> completeStream(AiCompletionRequest request) async* {
+    final result = await complete(request);
+    yield AiCompletionChunk(
+      textDelta: result.text,
+      isFinal: true,
+      usage: result.usage,
+      toolCalls: result.toolCalls,
+    );
   }
 
   @override

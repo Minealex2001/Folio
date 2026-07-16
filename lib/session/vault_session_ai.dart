@@ -450,7 +450,18 @@ extension VaultSessionAi on VaultSession {
     }
   }
 
-  Future<String> generateStandalonePageWithAi({
+  static const _generateStandalonePagePromptPrefix =
+      '${VaultSession._quillIdentityLeadEs}'
+      'Genera una página completa de notas. Por defecto sé detallado y exhaustivo (mínimo 10-15 bloques): párrafo introductorio, secciones con h2/h3, párrafos elaborados, listas y bloques de código si aplica. Si el usuario pide «corto» o «breve» limita a ~5 bloques. Adapta la extensión exactamente a lo que pida el usuario.\n'
+      'Salida preferida: JSON válido con forma {"title":"...","blocks":[{"type":"paragraph|h1|h2|h3|bullet|todo|quote|code|callout|divider","text":"...","checked":false,"codeLanguage":"dart","depth":0,"icon":"emoji"}]}.\n'
+      'Si no puedes JSON, devuelve markdown estructurado. Sin markdown fences.\n\n';
+
+  /// Devuelve el id de la página creada y cuántos bloques de contenido se
+  /// generaron realmente — para que el llamador pueda avisar honestamente si
+  /// la generación de contenido falló en vez de fingir éxito (bug real:
+  /// antes el mensaje de "he creado la página" era fijo y no reflejaba si el
+  /// modelo había devuelto contenido de verdad o solo un título vacío).
+  Future<({String pageId, int blockCount})> generateStandalonePageWithAi({
     required String prompt,
     String? parentId,
     List<AiFileAttachment> attachments = const [],
@@ -461,24 +472,40 @@ extension VaultSessionAi on VaultSession {
     }
     final ai = _aiService;
     if (ai == null) throw StateError('IA no configurada.');
-    final result = await ai.complete(
-      AiCompletionRequest(
-        prompt:
-            '${VaultSession._quillIdentityLeadEs}'
-            'Genera una página completa de notas. Por defecto sé detallado y exhaustivo (mínimo 10-15 bloques): párrafo introductorio, secciones con h2/h3, párrafos elaborados, listas y bloques de código si aplica. Si el usuario pide «corto» o «breve» limita a ~5 bloques. Adapta la extensión exactamente a lo que pida el usuario.\n'
-            'Salida preferida: JSON válido con forma {"title":"...","blocks":[{"type":"paragraph|h1|h2|h3|bullet|todo|quote|code|callout|divider","text":"...","checked":false,"codeLanguage":"dart","depth":0,"icon":"emoji"}]}.\n'
-            'Si no puedes JSON, devuelve markdown estructurado. Sin markdown fences.\n\n'
-            'Solicitud:\n${prompt.trim()}',
-        model: 'auto',
-        attachments: attachments,
-        cloudInkOperation: 'generate_page',
-      ),
-    );
-    final draft = _parseAiHybridOutput(
-      result.text,
-      defaultTitle: 'Nueva página IA',
-    );
+
+    Future<_AiPageDraft> generateOnce(String userPrompt) async {
+      final result = await ai.complete(
+        AiCompletionRequest(
+          prompt: '$_generateStandalonePagePromptPrefix'
+              'Solicitud:\n${userPrompt.trim()}',
+          model: 'auto',
+          attachments: attachments,
+          cloudInkOperation: 'generate_page',
+        ),
+      );
+      return _parseAiHybridOutput(result.text, defaultTitle: 'Nueva página IA');
+    }
+
+    var draft = await generateOnce(prompt);
+    if (draft.blocks.isEmpty) {
+      // El modelo devolvió título sin contenido (le pasa sobre todo a
+      // modelos más débiles con peticiones amplias) — un reintento con una
+      // instrucción más insistente suele bastar antes de rendirse.
+      final retryPrompt =
+          '$prompt\n\n'
+          'IMPORTANTE: en tu respuesta anterior "blocks" vino vacío. Esta vez '
+          'DEBES incluir al menos 8 bloques de contenido real y detallado sobre '
+          'el tema pedido, no solo un título.';
+      draft = await generateOnce(retryPrompt);
+    }
+
     final id = VaultSession._uuid.v4();
+    // `blockCount` cuenta los bloques generados de verdad (`draft.blocks`),
+    // no el resultado de `_materializeAiBlocks`: ese método siempre añade un
+    // párrafo vacío de relleno si no hay ninguno, así que contar sobre su
+    // salida escondería el caso "no se generó contenido" que este método
+    // necesita detectar para avisar al usuario en vez de fingir éxito.
+    final generatedBlockCount = draft.blocks.length;
     final blocks = _materializeAiBlocks(id, draft.blocks);
     _pages.add(
       FolioPage(
@@ -491,7 +518,7 @@ extension VaultSessionAi on VaultSession {
     _selectedPageId = id;
     _notifySessionListeners();
     scheduleSave(trackRevisionForPageId: id);
-    return id;
+    return (pageId: id, blockCount: generatedBlockCount);
   }
 
   List<String> _resolveAiChatContextPageIds({
@@ -703,6 +730,132 @@ For images/blocks: use the + button or / command in a paragraph.
     return (text: result.text.trim(), usage: result.usage);
   }
 
+  /// Camino nuevo (Fase 1 del tool-calling de Quill): en vez del JSON único
+  /// + reintentos manuales del camino legado, el modelo pide acciones
+  /// declaradas (`FolioToolRegistry`) una a una a través de [runToolLoop],
+  /// viendo el resultado real de cada una antes de decidir la siguiente o
+  /// cerrar con una respuesta en texto. Vive detrás de `useToolCalling` para
+  /// poder convivir con el camino legado durante el dogfood (ver
+  /// `AppSettings.quillToolCallingEnabled`).
+  Future<AgentChatOutcome> _agentChatWithAiToolLoop({
+    required AiService ai,
+    required List<AiChatMessage> messages,
+    required String prompt,
+    String? scopePageId,
+    required bool includePageContext,
+    required List<String> contextPageIds,
+    required List<AiFileAttachment> attachments,
+    required String languageCode,
+    String? cloudInkOperation,
+    String systemPromptOverride = '',
+    String extraContextSections = '',
+    void Function(AiToolLoopEvent event)? onToolEvent,
+  }) async {
+    final isEs = languageCode.toLowerCase().startsWith('es');
+    final effectiveContextIds = _resolveAiChatContextPageIds(
+      includePageContext: includePageContext,
+      contextPageIds: contextPageIds,
+      scopePageId: scopePageId,
+    );
+    final referencePagesText = includePageContext
+        ? _buildAiChatPagesTextContext(
+            effectiveContextIds,
+            isEs: isEs,
+            activePageId: scopePageId,
+          )
+        : (isEs
+              ? 'El usuario desactivó el contexto de páginas: no debes asumir ni citar contenido de notas.'
+              : 'The user disabled page context: do not assume or quote note contents.');
+
+    final agentIdentity = systemPromptOverride.isNotEmpty
+        ? systemPromptOverride
+        : (isEs
+              ? 'Eres Quill, la asistente de IA integrada en Folio (notas locales, árbol de páginas, editor por bloques, búsqueda, libreta con cifrado opcional, panel de chat a la derecha). Ayudas con el contenido de las notas y con cómo usar la app.'
+              : 'You are Quill, Folio\'s built-in AI assistant (local notes, page tree, block editor, search, optional encrypted vault, chat panel on the side). You help with note content and how to use the app.');
+
+    final systemPrompt = StringBuffer()
+      ..writeln(agentIdentity)
+      ..writeln()
+      ..writeln(_aiLanguageRule(languageCode, isEsInstruction: isEs))
+      ..writeln()
+      ..writeln(referencePagesText);
+    if (extraContextSections.trim().isNotEmpty) {
+      systemPrompt
+        ..writeln()
+        ..writeln(extraContextSections.trim());
+    }
+
+    final registry = FolioToolRegistry(this, scopePageId: scopePageId);
+    final toolAi = withToolCallingSupport(ai, isEs: isEs);
+
+    // Folio Cloud cobra tinta por cada llamada a la IA (mismo `operationKind`
+    // en cada paso del bucle); los proveedores locales no tienen ese coste.
+    // Se limita el número de pasos para Folio Cloud para no disparar el
+    // consumo de tinta en un turno con muchas acciones encadenadas.
+    final maxSteps = ai.providerName == 'folio_cloud' ? 3 : 6;
+
+    final baseRequest = AiCompletionRequest(
+      prompt: prompt.trim(),
+      model: 'auto',
+      systemPrompt: systemPrompt.toString(),
+      messages: messages,
+      attachments: attachments,
+      cloudInkOperation: (cloudInkOperation ?? '').trim().isEmpty
+          ? 'agent_main'
+          : cloudInkOperation!.trim(),
+      tools: registry.definitions,
+      toolChoice: 'auto',
+    );
+
+    final outcome = await runToolLoop(
+      ai: toolAi,
+      baseRequest: baseRequest,
+      tools: registry.definitions,
+      executeTool: registry.execute,
+      onEvent: onToolEvent,
+      maxSteps: maxSteps,
+    );
+
+    var reply = outcome.finalText.trim();
+    if (reply.isEmpty && outcome.hasToolCalls) {
+      reply = isEs
+          ? 'Listo, he aplicado los cambios solicitados.'
+          : 'Done, I applied the requested changes.';
+    }
+
+    return AgentChatOutcome(
+      reply: reply,
+      usage: outcome.usage,
+      toolCalls: outcome.steps.map((s) => s.call).toList(),
+      toolErrors: outcome.errors.isEmpty ? null : outcome.errors,
+    );
+  }
+
+  /// Fase 3 (Q&A fundamentado): si [prompt] tiene forma de pregunta sobre la
+  /// app ("¿cómo hago X en Folio?"), busca las secciones más relevantes de
+  /// `docs/FEATURES.md` y las devuelve como bloque de contexto adicional
+  /// para inyectar en el prompt del modelo. Devuelve `''` si el mensaje no
+  /// parece una pregunta sobre la app, o si no hay secciones relevantes —
+  /// para no gastar contexto en algo que no ayuda.
+  Future<String> _maybeBuildAppDocsContext(
+    String prompt, {
+    required String languageCode,
+  }) async {
+    if (!AiAppQuestionDetector.looksLikeAppQuestion(prompt, languageCode: languageCode)) {
+      return '';
+    }
+    final grounding = await FolioDocsGroundingLoader.load();
+    if (grounding == null) return '';
+    final sections = grounding.matchSections(prompt);
+    if (sections.isEmpty) return '';
+    final isEs = languageCode.toLowerCase().startsWith('es');
+    final header = isEs
+        ? 'Documentación de Folio relevante a la pregunta (puede no ser exhaustiva; no la cites como si fuera absoluta):'
+        : 'Relevant Folio documentation for this question (may not be exhaustive; do not cite it as absolute):';
+    final body = sections.map((s) => s.toContextBlock()).join('\n\n');
+    return '$header\n\n$body';
+  }
+
   Future<AgentChatOutcome> agentChatWithAi({
     required List<AiChatMessage> messages,
     required String prompt,
@@ -714,6 +867,14 @@ For images/blocks: use the + button or / command in a paragraph.
     String? cloudInkOperation,
     String extraContextSections = '',
     String systemPromptOverride = '',
+    /// Flag de dogfood (`AppSettings.quillToolCallingEnabled`): si es `true`,
+    /// delega en el bucle de tool-calling real (`_agentChatWithAiToolLoop`)
+    /// en vez del camino JSON legado de más abajo. Default `false` para no
+    /// cambiar el comportamiento de nadie que no lo haya activado a propósito.
+    bool useToolCalling = false,
+    /// Solo con [useToolCalling]: notifica cada inicio/resultado de tool-call
+    /// para que la UI muestre feedback en vivo (`ai_tool_activity_indicator.dart`).
+    void Function(AiToolLoopEvent event)? onToolEvent,
   }) async {
     if (_state != VaultFlowState.unlocked ||
         (vaultUsesEncryption && _dek == null)) {
@@ -722,6 +883,32 @@ For images/blocks: use the + button or / command in a paragraph.
     final ai = _aiService;
     if (ai == null) throw StateError('IA no configurada.');
     await pingAi();
+
+    final appDocsContext = await _maybeBuildAppDocsContext(
+      prompt,
+      languageCode: languageCode,
+    );
+    final combinedExtraContextSections = [extraContextSections, appDocsContext]
+        .where((s) => s.trim().isNotEmpty)
+        .join('\n\n');
+
+    if (useToolCalling) {
+      return _agentChatWithAiToolLoop(
+        ai: ai,
+        messages: messages,
+        prompt: prompt,
+        scopePageId: scopePageId,
+        includePageContext: includePageContext,
+        contextPageIds: contextPageIds,
+        attachments: attachments,
+        languageCode: languageCode,
+        cloudInkOperation: cloudInkOperation,
+        systemPromptOverride: systemPromptOverride,
+        extraContextSections: combinedExtraContextSections,
+        onToolEvent: onToolEvent,
+      );
+    }
+
     AiTokenUsage? lastUsage;
     AgentChatOutcome finish(
       String reply, {
@@ -845,21 +1032,29 @@ For images/blocks: use the + button or / command in a paragraph.
           );
         }
 
-        final createdId = await generateStandalonePageWithAi(
+        final generated = await generateStandalonePageWithAi(
           prompt: prompt,
           parentId: wantsSubpage ? scopePage?.id : null,
           attachments: attachments,
         );
-        final created = _pageById(createdId);
+        final created = _pageById(generated.pageId);
+        final title = created?.title ?? (isEs ? 'Nueva página IA' : 'New AI page');
+        final contentGenerationFailed = generated.blockCount == 0;
         return finish(
           _formatAgentDecisionReply(
             mode: 'create_page',
             reason: isEs
                 ? 'Detecté intención de crear página y ejecuté creación directa.'
                 : 'Detected page creation intent and executed direct creation.',
-            reply: isEs
-                ? 'He creado la página "${created?.title ?? 'Nueva página IA'}" con contenido inicial.'
-                : 'I created the page "${created?.title ?? 'New AI page'}" with initial content.',
+            reply: contentGenerationFailed
+                ? (isEs
+                      ? 'He creado la página "$title", pero no conseguí generar contenido automáticamente. '
+                            'Prueba a pedírmelo de nuevo o sé más específico sobre lo que quieres que incluya.'
+                      : 'I created the page "$title", but I couldn\'t generate content automatically. '
+                            'Try asking again or be more specific about what you want it to include.')
+                : (isEs
+                      ? 'He creado la página "$title" con ${generated.blockCount} bloque(s) de contenido inicial.'
+                      : 'I created the page "$title" with ${generated.blockCount} block(s) of initial content.'),
             isEs: isEs,
           ),
         );
@@ -876,7 +1071,7 @@ For images/blocks: use the + button or / command in a paragraph.
           editTargetLine: editTargetLine,
           pageBlocksContext: pageBlocksContext,
           attachments: attachments,
-          extraContextSections: extraContextSections,
+          extraContextSections: combinedExtraContextSections,
           systemPromptOverride: systemPromptOverride,
         ),
       );
@@ -2462,9 +2657,11 @@ For images/blocks: use the + button or / command in a paragraph.
       final title = (map['title'] as String? ?? defaultTitle).trim();
       final blocksRaw = map['blocks'] as List<dynamic>? ?? const [];
       final blocks = _parseAiBlocksFromDynamicList(blocksRaw);
-      if (blocks.isEmpty) {
-        blocks.addAll(_parseMarkdownToSpecs(cleaned));
-      }
+      // Sin fallback a markdown aquí: si el JSON decodificó bien pero no
+      // trae bloques, el modelo simplemente no generó contenido — reinterpretar
+      // ese mismo texto JSON como markdown solo producía un bloque de párrafo
+      // con el JSON literal como texto (peor que devolver 0 bloques, que el
+      // llamador puede detectar y reintentar).
       return _AiPageDraft(title: title, blocks: blocks);
     } catch (_) {
       final recoveredBlocks = _recoverBlocksFromMalformedJson(cleaned);
@@ -2476,19 +2673,10 @@ For images/blocks: use the + button or / command in a paragraph.
     }
   }
 
-  Map<String, dynamic> _decodeJsonObjectLenient(String raw) {
-    try {
-      return jsonDecode(raw) as Map<String, dynamic>;
-    } catch (_) {
-      final first = raw.indexOf('{');
-      final last = raw.lastIndexOf('}');
-      if (first >= 0 && last > first) {
-        final slice = raw.substring(first, last + 1);
-        return jsonDecode(slice) as Map<String, dynamic>;
-      }
-      rethrow;
-    }
-  }
+  /// Delegado a la utilidad compartida ([json_lenient_decoder.dart]) también
+  /// usada por la emulación de tool-calling (`ai_tool_json_emulation.dart`).
+  Map<String, dynamic> _decodeJsonObjectLenient(String raw) =>
+      decodeJsonObjectLenient(raw);
 
   List<_AiBlockSpec> _recoverBlocksFromMalformedJson(String raw) {
     final out = <_AiBlockSpec>[];

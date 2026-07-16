@@ -42,9 +42,9 @@ class YouTrackIntegrationCard extends StatelessWidget {
                   color: scheme.surface,
                   borderRadius: BorderRadius.circular(16),
                 ),
-                child: const Padding(
-                  padding: EdgeInsets.all(8),
-                  child: Icon(Icons.grid_view_rounded, color: Colors.orange), // fallback icon, user will place appLogos/youtrack.png later
+                child: Padding(
+                  padding: const EdgeInsets.all(8),
+                  child: Image.asset('appLogos/youtrack.png'),
                 ),
               ),
               const SizedBox(width: 12),

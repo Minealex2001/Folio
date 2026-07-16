@@ -582,6 +582,20 @@
   "aiServiceUnreachable": "Ezin izan da AA zerbitzuarekin harremanetan jarri konfiguratutako helbidean. Abiarazi Ollama edo LM Studio eta egiaztatu URLa.",
   "aiLaunchProviderWithApp": "Ireki AA aplikazioa Folio abiaraztean",
   "aiLaunchProviderWithAppHint": "Ollama edo LM Studio Windows-en abiarazten saiatzen da helbidea localhost denean. LM Studio-k bere zerbitzaria eskuz abiaraztea behar izan dezake oraindik.",
+  "settingsMcpServerTitle": "MCP zerbitzari lokala (beta)",
+  "settingsMcpServerSubtitle": "MCP bezero kanpokoei (Cursor, Claude Desktop, Claude Code…) orriak eta koadernoak kudeatzeko aukera ematen die. Ordenagailu honetan soilik.",
+  "settingsMcpServerRunningDetails": "Aktibo hemen: {endpoint}\nTokena: {token}",
+  "@settingsMcpServerRunningDetails": {
+    "placeholders": {
+      "endpoint": {"type": "String"},
+      "token": {"type": "String"}
+    }
+  },
+  "settingsMcpCopyCursorConfig": "Kopiatu Cursor konfigurazioa",
+  "settingsMcpCopyClaudeConfig": "Kopiatu Claude Desktop JSONa",
+  "settingsMcpCopyCursorConfigDone": "Cursor MCP konfigurazioa kopiatuta. Itsatsi ~/.cursor/mcp.json fitxategian (beste zerbitzariekin bateratu).",
+  "settingsMcpCopyClaudeConfigDone": "Claude Desktop JSONa kopiatuta (mcp-remote). Itsatsi %APPDATA%\\Claude\\claude_desktop_config.json fitxategian. Node.js/npx behar da. Ez erabili «Konektore pertsonalizatua» formularioa localhost-ekin.",
+  "settingsMcpClaudeCustomConnectorHint": "Claude-ren «Gehitu konektore pertsonalizatua» elkarrizketak Anthropic-en zerbitzariek irisgarri duten HTTPS URL publikoa behar du. Folio-ren MCP tokikoa da soilik (127.0.0.1), beraz formulario horrek ezin du erabili. PC honetan, erabili «Kopiatu Claude Desktop JSONa» eta itsatsi claude_desktop_config.json fitxategian.",
   "aiContextWindowTokens": "Ereduaren testuinguru-leihoa (tokenak)",
   "aiContextWindowTokensHint": "AA txataren testuinguru-barrarako erabiltzen da. Zure ereduarekin bat etorri behar du (adib: 8192, 131072).",
   "aiContextUsageUnavailable": "Ez da token erabileraren berri eman azken erantzunean.",
@@ -2236,62 +2250,7 @@
   ,"@importPdfFailed": {"placeholders": {"error": {"type": "String"}}}
   ,"importPdfNoText": "PDFak ez du testu erauzigarririk"
   ,"downloadDesktopApp": "Deskargatu mahaigaineko aplikazioa"
-  ,"appStoreTitle": "App Denda"
-  ,"appStoreTabExplore": "Arakatu"
-  ,"appStoreTabInstalled": "Instalatuta ({count})"
-  ,"@appStoreTabInstalled": {"placeholders": {"count": {"type": "int"}}}
   ,"appStoreTooltipRefresh": "Freskatu"
-  ,"appStoreTooltipInstallFile": "Instalatu fitxategitik (.folioapp)"
-  ,"appStoreSearchHint": "Bilatu appak…"
-  ,"appStoreNoResults": "Ez da appaik aurkitu."
-  ,"appStoreSectionOfficials": "Ofizialak"
-  ,"appStoreSectionOfficialsSubtitle": "Folio-n integratuta · Deskargaketarik gabe"
-  ,"appStoreSectionCommunity": "Community"
-  ,"appStoreSectionCommunitySubtitle": "Erregistro publikoan argitaratuta"
-  ,"appStoreInstallConfirmTitle": "Tokiko app instalatu"
-  ,"appStoreInstallConfirmBody": "App hau ez da egiaztatu. Instalatu fidatzen zaren iturburuetako fitxategiak soilik."
-  ,"appStoreInstallButton": "Instalatu"
-  ,"appStoreInstalledChip": "Instalatuta"
-  ,"appStoreInstallSuccess": "\"{name}\" behar bezala instalatu da."
-  ,"@appStoreInstallSuccess": {"placeholders": {"name": {"type": "String"}}}
-  ,"appStoreInstallError": "Errorea: {message}"
-  ,"@appStoreInstallError": {"placeholders": {"message": {"type": "String"}}}
-  ,"appStoreUninstallTitle": "Desinstalatu app"
-  ,"appStoreUninstallBody": "\"{name}\" desinstalatu? Fitxategiak ezabatuko dira."
-  ,"@appStoreUninstallBody": {"placeholders": {"name": {"type": "String"}}}
-  ,"appStoreUninstallButton": "Desinstalatu"
-  ,"appStoreInstalledEmpty": "Ez dago appaik instalatuta.\nArakatu denda edo instalatu .folioapp bat."
-  ,"appStoreRegistryLoadError": "Errorea {statusCode} registrya kargatzean."
-  ,"@appStoreRegistryLoadError": {"placeholders": {"statusCode": {"type": "int"}}}
-  ,"appStoreRegistryOfflineCache": "Konexiorik gabe. Cache lokala erakusten."
-  ,"appStoreLoadError": "Errorea denda kargatzean: {error}"
-  ,"@appStoreLoadError": {"placeholders": {"error": {"type": "String"}}}
-  ,"appStoreVerifiedByFolio": "Foliok egiaztatua"
-  ,"appStoreCapabilitiesTitle": "Gaitasunak"
-  ,"appStoreConnectionsTitle": "Konexioak"
-  ,"appStoreConnected": "Konektatuta"
-  ,"appStoreNotConnected": "Ez konektatuta"
-  ,"appStoreDisconnect": "Deskonektatu"
-  ,"appStoreConnect": "Konektatu"
-  ,"appStoreInstallFromRegistryTitle": "Instalatu \"{name}\""
-  ,"@appStoreInstallFromRegistryTitle": {"placeholders": {"name": {"type": "String"}}}
-  ,"appStoreInstallUnverifiedLocalBody": "App hau ez da lokalki egiaztatu. Konfiantza duzun iturrietako appak bakarrik instalatu."
-  ,"appStorePermissionsRequested": "Eskatutako baimenak:"
-  ,"appStoreCapabilityBlockTypes": "{count} bloke mota"
-  ,"@appStoreCapabilityBlockTypes": {"placeholders": {"count": {"type": "int"}}}
-  ,"appStoreCapabilitySlashCommands": "{count} slash komando"
-  ,"@appStoreCapabilitySlashCommands": {"placeholders": {"count": {"type": "int"}}}
-  ,"appStoreCapabilityIntegrations": "{count} integrazio"
-  ,"@appStoreCapabilityIntegrations": {"placeholders": {"count": {"type": "int"}}}
-  ,"appStoreCapabilityAiTransformers": "{count} IA transformadore"
-  ,"@appStoreCapabilityAiTransformers": {"placeholders": {"count": {"type": "int"}}}
-  ,"appStorePasteAccessToken": "Itsatsi zure access token"
-  ,"appStoreTokenLabel": "{name} tokena"
-  ,"@appStoreTokenLabel": {"placeholders": {"name": {"type": "String"}}}
-  ,"appStoreApiKeyTitle": "API Key"
-  ,"appStoreUninstallTooltip": "Desinstalatu"
-  ,"appStoreVersionPrefix": "v{version}"
-  ,"@appStoreVersionPrefix": {"placeholders": {"version": {"type": "String"}}}
   ,"releaseNotesTitle": "Bertsio oharrak"
   ,"releaseNotesContinue": "Jarraitu"
   ,"workspaceEditorReadyHeadline": "Zure espazioa prest dago"
@@ -2477,6 +2436,11 @@
   ,"kanbanNeedsPull": "Pull zain"
   ,"kanbanDeleteTaskTitle": "Zeregina ezabatu"
   ,"kanbanDeleteTaskButton": "Ezabatu"
+  ,"taskDetailsTitle": "Zereginaren xehetasunak"
+  ,"taskDetailsDeleteTooltip": "Zeregina ezabatu"
+  ,"taskDetailsEnterFullscreen": "Pantaila osoa"
+  ,"taskDetailsExitFullscreen": "Tamaina berreskuratu"
+  ,"taskDetailsCloseTooltip": "Itxi"
   ,"kanbanTaskDeleted": "Zeregina ezabatuta."
   ,"kanbanForcePushTitle": "Jira-ra push behartu"
   ,"kanbanForcePushButton": "Push behartu"

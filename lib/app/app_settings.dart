@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:io';
+import 'dart:math';
 import 'dart:ui' show PlatformDispatcher;
 
 import 'package:flutter/foundation.dart'
@@ -100,6 +101,16 @@ bool get aiLocalProvidersSupported {
   if (kIsWeb) return true;
   return defaultTargetPlatform != TargetPlatform.android &&
       defaultTargetPlatform != TargetPlatform.iOS;
+}
+
+/// El servidor MCP local (Fase 5) necesita un socket TCP real del SO
+/// (`dart:io.HttpServer`), así que a diferencia de [aiLocalProvidersSupported]
+/// no aplica a web ni a móvil — solo desktop.
+bool get mcpServerSupported {
+  if (kIsWeb) return false;
+  return defaultTargetPlatform == TargetPlatform.windows ||
+      defaultTargetPlatform == TargetPlatform.macOS ||
+      defaultTargetPlatform == TargetPlatform.linux;
 }
 
 enum AiEndpointMode { localhostOnly, allowRemote }
@@ -369,6 +380,9 @@ class AppSettings extends ChangeNotifier {
   static const _aiRemoteEndpointConfirmedKey =
       'folio_ai_remote_endpoint_confirmed';
   static const _aiAlwaysShowThoughtKey = 'folio_ai_always_show_thought';
+  static const _quillToolCallingEnabledKey = 'folio_quill_tool_calling_enabled';
+  static const _mcpServerEnabledKey = 'folio_mcp_server_enabled';
+  static const _mcpServerAuthTokenKey = 'folio_mcp_server_auth_token';
   static const _aiLaunchProviderWithAppKey =
       'folio_ai_launch_provider_with_app';
   static const _aiContextWindowTokensKey = 'folio_ai_context_window_tokens';
@@ -614,6 +628,19 @@ class AppSettings extends ChangeNotifier {
   AiEndpointMode _aiEndpointMode = AiEndpointMode.localhostOnly;
   bool _aiRemoteEndpointConfirmed = false;
   bool _aiAlwaysShowThought = false;
+  /// Flag de dogfood/rollout del bucle de tool-calling real de Quill
+  /// (`runToolLoop` + `FolioToolRegistry`), detrás del cual convive con el
+  /// camino JSON legado de `agentChatWithAi`. Default `false`: por defecto
+  /// el comportamiento de Quill no cambia hasta activarlo explícitamente.
+  bool _quillToolCallingEnabled = false;
+  /// Fase 5: servidor MCP local (desktop-only) que expone el catálogo de
+  /// acciones de Quill a clientes MCP externos (Claude Desktop, Claude Code...).
+  /// Default `false`: opt-in explícito, nunca arranca un servidor local sin
+  /// que el usuario lo pida.
+  bool _mcpServerEnabled = false;
+  /// Token Bearer persistente del servidor MCP (mismo valor entre arranques
+  /// para que `mcp.json` de Cursor no haya que regenerarlo cada vez).
+  String _mcpServerAuthToken = '';
   bool _aiLaunchProviderWithApp = false;
   int _aiContextWindowTokens = defaultAiContextWindowTokens;
   String _aiApiKey = '';
@@ -739,6 +766,9 @@ class AppSettings extends ChangeNotifier {
   AiEndpointMode get aiEndpointMode => _aiEndpointMode;
   bool get aiRemoteEndpointConfirmed => _aiRemoteEndpointConfirmed;
   bool get aiAlwaysShowThought => _aiAlwaysShowThought;
+  bool get quillToolCallingEnabled => _quillToolCallingEnabled;
+  bool get mcpServerEnabled => _mcpServerEnabled;
+  String get mcpServerAuthToken => _mcpServerAuthToken;
   bool get aiLaunchProviderWithApp => _aiLaunchProviderWithApp;
   int get aiContextWindowTokens => _aiContextWindowTokens;
   String get aiApiKey => _aiApiKey;
@@ -972,6 +1002,9 @@ class AppSettings extends ChangeNotifier {
     _aiRemoteEndpointConfirmed =
         p.getBool(_aiRemoteEndpointConfirmedKey) ?? false;
     _aiAlwaysShowThought = p.getBool(_aiAlwaysShowThoughtKey) ?? false;
+    _quillToolCallingEnabled = p.getBool(_quillToolCallingEnabledKey) ?? false;
+    _mcpServerEnabled = p.getBool(_mcpServerEnabledKey) ?? false;
+    _mcpServerAuthToken = p.getString(_mcpServerAuthTokenKey) ?? '';
     _aiLaunchProviderWithApp = p.getBool(_aiLaunchProviderWithAppKey) ?? false;
     _aiContextWindowTokens = _sanitizeContextWindowTokens(
       p.getInt(_aiContextWindowTokensKey),
@@ -1821,6 +1854,54 @@ class AppSettings extends ChangeNotifier {
     notifyListeners();
     final p = await _prefs();
     await p.setBool(_aiAlwaysShowThoughtKey, value);
+  }
+
+  Future<void> setQuillToolCallingEnabled(bool value) async {
+    if (_quillToolCallingEnabled == value) return;
+    _quillToolCallingEnabled = value;
+    notifyListeners();
+    final p = await _prefs();
+    await p.setBool(_quillToolCallingEnabledKey, value);
+  }
+
+  Future<void> setMcpServerEnabled(bool value) async {
+    if (_mcpServerEnabled == value) return;
+    _mcpServerEnabled = value;
+    if (value) {
+      // Genera el token antes del notify para que Ajustes pueda mostrarlo
+      // en el mismo frame (sin esperar al bind del socket).
+      await ensureMcpServerAuthToken(notify: false);
+    }
+    notifyListeners();
+    final p = await _prefs();
+    await p.setBool(_mcpServerEnabledKey, value);
+  }
+
+  /// Garantiza un token MCP persistente. Si aún no hay, genera uno y lo guarda.
+  /// [notify] = false evita reentrar en listeners (p. ej. al arrancar el servidor).
+  Future<String> ensureMcpServerAuthToken({bool notify = true}) async {
+    if (_mcpServerAuthToken.trim().isNotEmpty) return _mcpServerAuthToken;
+    final rnd = Random.secure();
+    final bytes = List<int>.generate(24, (_) => rnd.nextInt(256));
+    final token = base64Url.encode(bytes);
+    _mcpServerAuthToken = token;
+    if (notify) notifyListeners();
+    final p = await _prefs();
+    await p.setString(_mcpServerAuthTokenKey, token);
+    return token;
+  }
+
+  Future<void> setMcpServerAuthToken(String value) async {
+    final trimmed = value.trim();
+    if (_mcpServerAuthToken == trimmed) return;
+    _mcpServerAuthToken = trimmed;
+    notifyListeners();
+    final p = await _prefs();
+    if (trimmed.isEmpty) {
+      await p.remove(_mcpServerAuthTokenKey);
+    } else {
+      await p.setString(_mcpServerAuthTokenKey, trimmed);
+    }
   }
 
   Future<void> setAiLaunchProviderWithApp(bool value) async {

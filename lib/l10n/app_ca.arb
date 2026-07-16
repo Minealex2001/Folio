@@ -581,6 +581,20 @@
   "aiServiceUnreachable": "No s'ha pogut contactar amb el servei d'IA a l'adreça configurada. Inicia Ollama o LM Studio i comprova la URL.",
   "aiLaunchProviderWithApp": "Obre l'aplicació d'IA quan s'iniciï el Folio",
   "aiLaunchProviderWithAppHint": "Intenta iniciar Ollama o LM Studio a Windows quan l'adreça és localhost. LM Studio pot necessitar que el seu servidor s'iniciï manualment.",
+  "settingsMcpServerTitle": "Servidor MCP local (beta)",
+  "settingsMcpServerSubtitle": "Permet que clients MCP externs (Cursor, Claude Desktop, Claude Code…) gestionin les teves pàgines i llibretes. Només en aquest equip.",
+  "settingsMcpServerRunningDetails": "Actiu a {endpoint}\nToken: {token}",
+  "@settingsMcpServerRunningDetails": {
+    "placeholders": {
+      "endpoint": {"type": "String"},
+      "token": {"type": "String"}
+    }
+  },
+  "settingsMcpCopyCursorConfig": "Copia la config de Cursor",
+  "settingsMcpCopyClaudeConfig": "Copia el JSON de Claude Desktop",
+  "settingsMcpCopyCursorConfigDone": "Config MCP de Cursor copiada. Enganxa-la a ~/.cursor/mcp.json (fusiona amb els servidors existents).",
+  "settingsMcpCopyClaudeConfigDone": "JSON de Claude Desktop copiat (mcp-remote). Enganxa’l a %APPDATA%\\Claude\\claude_desktop_config.json. Cal Node.js/npx. No facis servir el formulari «Connector personalitzat» amb localhost.",
+  "settingsMcpClaudeCustomConnectorHint": "El diàleg «Afegeix un connector personalitzat» de Claude exigeix una URL HTTPS pública accessible des dels servidors d’Anthropic. L’MCP de Folio és només local (127.0.0.1), així que aquest formulari no el pot fer servir. En aquest PC, usa «Copia el JSON de Claude Desktop» i enganxa’l a claude_desktop_config.json.",
   "aiContextWindowTokens": "Finestra de context del model (tokens)",
   "aiContextWindowTokensHint": "S'utilitza per a la barra de context al xat d'IA. Ha de coincidir amb el teu model (p. ex. 8192, 131072).",
   "aiContextUsageUnavailable": "No s'ha informat de l'ús de tokens en l'última resposta.",
@@ -2235,62 +2249,7 @@
   ,"@importPdfFailed": {"placeholders": {"error": {"type": "String"}}}
   ,"importPdfNoText": "El PDF no conté text extrectable"
   ,"downloadDesktopApp": "Descarrega l'aplicació d'escriptori"
-  ,"appStoreTitle": "Botiga d'apps"
-  ,"appStoreTabExplore": "Explorar"
-  ,"appStoreTabInstalled": "Instal·lades ({count})"
-  ,"@appStoreTabInstalled": {"placeholders": {"count": {"type": "int"}}}
   ,"appStoreTooltipRefresh": "Actualitzar"
-  ,"appStoreTooltipInstallFile": "Instal·lar des d'arxiu (.folioapp)"
-  ,"appStoreSearchHint": "Cerca apps…"
-  ,"appStoreNoResults": "No s'han trobat apps."
-  ,"appStoreSectionOfficials": "Oficials"
-  ,"appStoreSectionOfficialsSubtitle": "Integrades a Folio · Sense descàrrega"
-  ,"appStoreSectionCommunity": "Community"
-  ,"appStoreSectionCommunitySubtitle": "Publicades al registry públic"
-  ,"appStoreInstallConfirmTitle": "Instal·lar app local"
-  ,"appStoreInstallConfirmBody": "Aquesta app no ha estat verificada. Instal·la nomsés arxius de fonts de confiança."
-  ,"appStoreInstallButton": "Instal·lar"
-  ,"appStoreInstalledChip": "Instal·lada"
-  ,"appStoreInstallSuccess": "\"{name}\" instal·lada correctament."
-  ,"@appStoreInstallSuccess": {"placeholders": {"name": {"type": "String"}}}
-  ,"appStoreInstallError": "Error: {message}"
-  ,"@appStoreInstallError": {"placeholders": {"message": {"type": "String"}}}
-  ,"appStoreUninstallTitle": "Desinstal·lar app"
-  ,"appStoreUninstallBody": "Desinstal·lar \"{name}\"? S'eliminaran els seus fitxers."
-  ,"@appStoreUninstallBody": {"placeholders": {"name": {"type": "String"}}}
-  ,"appStoreUninstallButton": "Desinstal·lar"
-  ,"appStoreInstalledEmpty": "No hi ha apps instal·lades.\nExplora la botiga o instal·la un .folioapp."
-  ,"appStoreRegistryLoadError": "Error {statusCode} en carregar el registry."
-  ,"@appStoreRegistryLoadError": {"placeholders": {"statusCode": {"type": "int"}}}
-  ,"appStoreRegistryOfflineCache": "Sense connexió. Mostrant la memòria cau local."
-  ,"appStoreLoadError": "Error en carregar la botiga: {error}"
-  ,"@appStoreLoadError": {"placeholders": {"error": {"type": "String"}}}
-  ,"appStoreVerifiedByFolio": "Verificat per Folio"
-  ,"appStoreCapabilitiesTitle": "Capacitats"
-  ,"appStoreConnectionsTitle": "Connexions"
-  ,"appStoreConnected": "Connectat"
-  ,"appStoreNotConnected": "No connectat"
-  ,"appStoreDisconnect": "Desconnectar"
-  ,"appStoreConnect": "Connectar"
-  ,"appStoreInstallFromRegistryTitle": "Instal·lar \"{name}\""
-  ,"@appStoreInstallFromRegistryTitle": {"placeholders": {"name": {"type": "String"}}}
-  ,"appStoreInstallUnverifiedLocalBody": "Aquesta app no s'ha verificat localment. Instal·la només apps de fonts en què confiïs."
-  ,"appStorePermissionsRequested": "Permisos que sol·licita:"
-  ,"appStoreCapabilityBlockTypes": "{count} tipus de bloc"
-  ,"@appStoreCapabilityBlockTypes": {"placeholders": {"count": {"type": "int"}}}
-  ,"appStoreCapabilitySlashCommands": "{count} ordre(s) slash"
-  ,"@appStoreCapabilitySlashCommands": {"placeholders": {"count": {"type": "int"}}}
-  ,"appStoreCapabilityIntegrations": "{count} integració(ns)"
-  ,"@appStoreCapabilityIntegrations": {"placeholders": {"count": {"type": "int"}}}
-  ,"appStoreCapabilityAiTransformers": "{count} transformador(s) IA"
-  ,"@appStoreCapabilityAiTransformers": {"placeholders": {"count": {"type": "int"}}}
-  ,"appStorePasteAccessToken": "Enganxa el teu access token"
-  ,"appStoreTokenLabel": "Token de {name}"
-  ,"@appStoreTokenLabel": {"placeholders": {"name": {"type": "String"}}}
-  ,"appStoreApiKeyTitle": "API Key"
-  ,"appStoreUninstallTooltip": "Desinstal·lar"
-  ,"appStoreVersionPrefix": "v{version}"
-  ,"@appStoreVersionPrefix": {"placeholders": {"version": {"type": "String"}}}
   ,"releaseNotesTitle": "Notes de la versió"
   ,"releaseNotesContinue": "Continuar"
   ,"workspaceEditorReadyHeadline": "El teu espai està llest"
@@ -2476,6 +2435,11 @@
   ,"kanbanNeedsPull": "Pendent pull"
   ,"kanbanDeleteTaskTitle": "Esborrar tasca"
   ,"kanbanDeleteTaskButton": "Esborrar"
+  ,"taskDetailsTitle": "Detall de la tasca"
+  ,"taskDetailsDeleteTooltip": "Esborrar tasca"
+  ,"taskDetailsEnterFullscreen": "Pantalla completa"
+  ,"taskDetailsExitFullscreen": "Restaurar mida"
+  ,"taskDetailsCloseTooltip": "Tancar"
   ,"kanbanTaskDeleted": "Tasca esborrada."
   ,"kanbanForcePushTitle": "Forçar push a Jira"
   ,"kanbanForcePushButton": "Forçar push"

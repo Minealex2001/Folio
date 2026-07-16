@@ -51,6 +51,8 @@ extension _WorkspacePageAiChatModule on _WorkspacePageState {
           role: 'assistant',
           content: outcome.reply,
           agentApplySnapshot: outcome.agentApplySnapshot,
+          toolCalls: outcome.toolCalls,
+          toolErrors: outcome.toolErrors,
         ),
       );
     } catch (e) {
@@ -67,8 +69,24 @@ extension _WorkspacePageAiChatModule on _WorkspacePageState {
       }
     } finally {
       if (mounted) {
-        _setStateSafe(() => _aiChatBusy = false);
+        _setStateSafe(() {
+          _aiChatBusy = false;
+          _aiToolActivityLabel = null;
+        });
       }
+    }
+  }
+
+  void _onAiToolEvent(AiToolLoopEvent event) {
+    if (!mounted) return;
+    final isEs = Localizations.localeOf(context).languageCode.toLowerCase().startsWith('es');
+    switch (event.kind) {
+      case AiToolLoopEventKind.toolCallStart:
+        _setStateSafe(() {
+          _aiToolActivityLabel = aiToolActivityLabel(toolName: event.call.name, isEs: isEs);
+        });
+      case AiToolLoopEventKind.toolCallResult:
+        _setStateSafe(() => _aiToolActivityLabel = null);
     }
   }
 
@@ -103,6 +121,8 @@ extension _WorkspacePageAiChatModule on _WorkspacePageState {
       cloudInkOperation: op,
       extraContextSections: extra,
       systemPromptOverride: preset.prompt,
+      useToolCalling: widget.appSettings.quillToolCallingEnabled,
+      onToolEvent: _onAiToolEvent,
     );
   }
 

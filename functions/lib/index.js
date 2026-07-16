@@ -256,7 +256,7 @@ function tokenSurchargeInk(totalTokenCount) {
     return Math.min(INK_MAX_TOKEN_SURCHARGE, Math.floor(totalTokenCount / INK_TOKENS_PER_SURCHARGE_UNIT));
 }
 function parseOpenAiSuccessResponse(raw) {
-    var _a, _b, _c, _d, _e, _f, _g;
+    var _a, _b, _c, _d, _e, _f;
     let json;
     try {
         json = JSON.parse(raw);
@@ -268,20 +268,22 @@ function parseOpenAiSuccessResponse(raw) {
         console.error("Quill Cloud API error object", json.error);
         throw new AiHttpsError("internal", "AI provider error");
     }
-    const content = (_d = (_c = (_b = json.choices) === null || _b === void 0 ? void 0 : _b[0]) === null || _c === void 0 ? void 0 : _c.message) === null || _d === void 0 ? void 0 : _d.content;
+    const message = (_c = (_b = json.choices) === null || _b === void 0 ? void 0 : _b[0]) === null || _c === void 0 ? void 0 : _c.message;
+    const content = message === null || message === void 0 ? void 0 : message.content;
     const text = typeof content === "string" ? content : "";
-    if (!text.trim()) {
-        const reason = (_f = (_e = json.choices) === null || _e === void 0 ? void 0 : _e[0]) === null || _f === void 0 ? void 0 : _f.finish_reason;
+    const toolCalls = normalizeOpenAiToolCalls(message === null || message === void 0 ? void 0 : message.tool_calls);
+    if (!text.trim() && !toolCalls) {
+        const reason = (_e = (_d = json.choices) === null || _d === void 0 ? void 0 : _d[0]) === null || _e === void 0 ? void 0 : _e.finish_reason;
         console.warn("Quill Cloud empty model output", { reason });
         const hint = reason === "content_filter"
             ? " (contenido filtrado por políticas del proveedor)"
             : "";
         throw new AiHttpsError("internal", `Empty AI response. Try a shorter prompt.${hint}`);
     }
-    const totalTokenCount = typeof ((_g = json.usage) === null || _g === void 0 ? void 0 : _g.total_tokens) === "number"
+    const totalTokenCount = typeof ((_f = json.usage) === null || _f === void 0 ? void 0 : _f.total_tokens) === "number"
         ? json.usage.total_tokens
         : undefined;
-    return { text: text.trim(), totalTokenCount };
+    return { text: text.trim(), totalTokenCount, toolCalls };
 }
 /**
  * Inferencia Quill Cloud (chat completions; mismo path y cuerpo que APIs compatibles).
@@ -318,10 +320,35 @@ async function callOpenAiGenerate(prompt) {
 }
 function normalizeOpenAiRole(raw) {
     const r = typeof raw === "string" ? raw.trim().toLowerCase() : "";
-    if (r === "system" || r === "user" || r === "assistant")
+    if (r === "system" || r === "user" || r === "assistant" || r === "tool")
         return r;
     return null;
 }
+function normalizeOpenAiToolCalls(raw) {
+    var _a, _b;
+    if (!Array.isArray(raw))
+        return undefined;
+    const out = [];
+    for (const item of raw) {
+        if (!item || typeof item !== "object")
+            continue;
+        const c = item;
+        const id = typeof c.id === "string" ? c.id.trim() : "";
+        const name = typeof ((_a = c.function) === null || _a === void 0 ? void 0 : _a.name) === "string" ? c.function.name.trim() : "";
+        const args = typeof ((_b = c.function) === null || _b === void 0 ? void 0 : _b.arguments) === "string" ? c.function.arguments : "";
+        if (!id || !name)
+            continue;
+        out.push({ id, type: "function", function: { name, arguments: args } });
+    }
+    return out.length > 0 ? out : undefined;
+}
+/**
+ * A diferencia del resto de mensajes, los de `role: "assistant"` con
+ * `tool_calls` pueden llevar `content` vacío (el modelo no dijo nada en
+ * texto, solo pidió invocar una acción), y los de `role: "tool"` necesitan
+ * `tool_call_id` para que el proveedor los empareje con la tool call que
+ * responden — sin eso, la API de OpenAI rechaza la petición.
+ */
 function normalizeOpenAiMessages(raw) {
     if (!Array.isArray(raw))
         return [];
@@ -331,12 +358,55 @@ function normalizeOpenAiMessages(raw) {
             continue;
         const m = item;
         const role = normalizeOpenAiRole(m.role);
+        if (!role)
+            continue;
         const content = typeof m.content === "string" ? m.content.trim() : "";
-        if (!role || !content)
+        if (role === "tool") {
+            const toolCallId = typeof m.tool_call_id === "string" ? m.tool_call_id.trim() : "";
+            if (!toolCallId || !content)
+                continue;
+            out.push({ role, content, tool_call_id: toolCallId });
+            continue;
+        }
+        if (role === "assistant") {
+            const toolCalls = normalizeOpenAiToolCalls(m.tool_calls);
+            if (!content && !toolCalls)
+                continue;
+            out.push({ role, content, ...(toolCalls ? { tool_calls: toolCalls } : {}) });
+            continue;
+        }
+        if (!content)
             continue;
         out.push({ role, content });
     }
     return out;
+}
+/** Tools declaradas por el cliente (mismo formato que OpenAI-compatible local). */
+function normalizeOpenAiTools(raw) {
+    if (!Array.isArray(raw) || raw.length === 0)
+        return undefined;
+    const out = [];
+    for (const item of raw) {
+        if (!item || typeof item !== "object" || Array.isArray(item))
+            continue;
+        const t = item;
+        const fn = t.function;
+        if (t.type !== "function" || !fn || typeof fn.name !== "string" || !fn.name.trim()) {
+            continue;
+        }
+        out.push(t);
+        // Límite defensivo: un catálogo desproporcionado infla el prompt y el
+        // riesgo de abuso del endpoint más de lo que cualquier turno legítimo necesita.
+        if (out.length >= 40)
+            break;
+    }
+    return out.length > 0 ? out : undefined;
+}
+function normalizeOpenAiToolChoice(raw) {
+    const v = typeof raw === "string" ? raw.trim().toLowerCase() : "";
+    if (v === "auto" || v === "none" || v === "required")
+        return v;
+    return undefined;
 }
 function normalizeOptionalString(raw, maxLen) {
     const s = typeof raw === "string" ? raw.trim() : "";
@@ -432,14 +502,16 @@ function enforceStrictObjectSchema(node) {
     return clone;
 }
 async function callOpenAiChatStructured(input) {
-    var _a, _b, _c, _d, _e, _f;
+    var _a, _b, _c, _d, _e, _f, _g;
     const key = openAiApiKey();
     if (!key) {
         throw new AiHttpsError("failed-precondition", "Quill Cloud: inferencia no configurada en Cloud Functions (clave API del proveedor).");
     }
     const systemPrompt = ((_a = input.systemPrompt) !== null && _a !== void 0 ? _a : "").trim();
     const prompt = ((_b = input.prompt) !== null && _b !== void 0 ? _b : "").trim();
-    const normalizedMsgs = ((_c = input.messages) !== null && _c !== void 0 ? _c : []).filter((m) => m.content.trim());
+    // No filtrar por `content` a secas: un turno `assistant` de solo tool-calls
+    // tiene `content` vacío legítimamente (ya lo valida normalizeOpenAiMessages).
+    const normalizedMsgs = ((_c = input.messages) !== null && _c !== void 0 ? _c : []).filter((m) => m.content.trim() || (m.tool_calls && m.tool_calls.length > 0));
     const messages = [];
     if (systemPrompt)
         messages.push({ role: "system", content: systemPrompt });
@@ -469,6 +541,10 @@ async function callOpenAiChatStructured(input) {
                 strict: true,
             },
         };
+    }
+    if (input.tools && input.tools.length > 0) {
+        body.tools = input.tools;
+        body.tool_choice = (_g = input.toolChoice) !== null && _g !== void 0 ? _g : "auto";
     }
     let r429 = 0;
     for (let spin = 0; spin < OPENAI_MAX_SPIN_GUARD; spin++) {
@@ -564,11 +640,12 @@ async function runFolioCloudAiForUid(uid, input, operationKind) {
     const preSnap = await ref.get();
     const preData = ((_a = preSnap.data()) !== null && _a !== void 0 ? _a : {});
     if (isFolioStaffUser(preData)) {
-        const { text } = await callOpenAiChatStructured(input);
+        const { text, toolCalls } = await callOpenAiChatStructured(input);
         const finalSnap = await ref.get();
         const inkOut = readInkBalances(((_b = finalSnap.data()) !== null && _b !== void 0 ? _b : {}));
         return {
             text,
+            toolCalls,
             ink: {
                 monthlyBalance: inkOut.monthly,
                 purchasedBalance: inkOut.purchased,
@@ -612,13 +689,14 @@ async function runFolioCloudAiForUid(uid, input, operationKind) {
         }
     });
     try {
-        const { text, totalTokenCount } = await callOpenAiChatStructured(input);
+        const { text, totalTokenCount, toolCalls } = await callOpenAiChatStructured(input);
         const extraWant = tokenSurchargeInk(totalTokenCount);
         const extraCharged = await chargeInkExtraIfPossible(uid, extraWant, allowSubscriptionInk);
         const finalSnap = await ref.get();
         const inkOut = readInkBalances(((_c = finalSnap.data()) !== null && _c !== void 0 ? _c : {}));
         return {
             text,
+            toolCalls,
             ink: {
                 monthlyBalance: inkOut.monthly,
                 purchasedBalance: inkOut.purchased,
@@ -3455,6 +3533,8 @@ exports.folioCloudAiComplete = functionsV1
     const responseSchema = normalizeResponseSchema(data === null || data === void 0 ? void 0 : data.responseSchema);
     const maxTokens = normalizeClientMaxTokens(data === null || data === void 0 ? void 0 : data.maxTokens);
     const temperature = normalizeClientTemperature(data === null || data === void 0 ? void 0 : data.temperature);
+    const tools = normalizeOpenAiTools(data === null || data === void 0 ? void 0 : data.tools);
+    const toolChoice = normalizeOpenAiToolChoice(data === null || data === void 0 ? void 0 : data.toolChoice);
     if (!prompt && messages.length === 0) {
         throw new AiHttpsError("invalid-argument", "Missing prompt/messages");
     }
@@ -3466,6 +3546,8 @@ exports.folioCloudAiComplete = functionsV1
         responseSchema,
         maxTokens,
         temperature,
+        tools,
+        toolChoice,
     }, operationKind);
 });
 /**
@@ -3495,6 +3577,8 @@ exports.folioCloudAiCompleteHttp = functionsV1
         const responseSchema = normalizeResponseSchema(payload.responseSchema);
         const maxTokens = normalizeClientMaxTokens(payload.maxTokens);
         const temperature = normalizeClientTemperature(payload.temperature);
+        const tools = normalizeOpenAiTools(payload.tools);
+        const toolChoice = normalizeOpenAiToolChoice(payload.toolChoice);
         if (!prompt && messages.length === 0) {
             throw new AiHttpsError("invalid-argument", "Missing prompt/messages");
         }
@@ -3506,6 +3590,8 @@ exports.folioCloudAiCompleteHttp = functionsV1
             responseSchema,
             maxTokens,
             temperature,
+            tools,
+            toolChoice,
         }, operationKind);
         res.status(200).json({ result });
     }

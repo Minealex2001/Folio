@@ -125,7 +125,12 @@ extension _WorkspacePageAiPanelModule on _WorkspacePageState {
                     FolioRadius.lg,
                   ).copyWith(topLeft: Radius.zero),
                 ),
-                child: FolioAiChatReplySkeleton(colorScheme: scheme),
+                child: _aiToolActivityLabel != null
+                    ? AiToolActivityIndicator(
+                        label: _aiToolActivityLabel!,
+                        colorScheme: scheme,
+                      )
+                    : FolioAiChatReplySkeleton(colorScheme: scheme),
               ),
             ),
           ),

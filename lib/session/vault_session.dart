@@ -53,7 +53,13 @@ import '../services/folio_rp_server.dart';
 import '../services/ai/ai_safety_policy.dart';
 import '../services/ai/ai_service.dart';
 import '../services/ai/ai_intent_hints.dart';
+import '../services/ai/ai_app_question_detector.dart';
+import '../services/ai/ai_tool_json_emulation.dart';
+import '../services/ai/ai_tool_loop.dart';
 import '../services/ai/ai_types.dart';
+import '../services/ai/folio_docs_grounding_loader.dart';
+import '../services/ai/folio_tool_registry.dart';
+import '../services/ai/json_lenient_decoder.dart';
 import '../services/ai/quill_tools.dart';
 import '../services/integrations/integrations_markdown_codec.dart';
 import '../services/app_logger.dart';
@@ -514,10 +520,11 @@ class VaultSession extends ChangeNotifier {
     return SecretKey(h2.bytes);
   }
 
-  /// Para tests que llaman a [collectTaskBlocks] sin [bootstrap].
+  /// Para tests que operan sobre el vault sin pasar por [bootstrap].
   @visibleForTesting
   void debugMarkUnlockedForTests() {
     _state = VaultFlowState.unlocked;
+    _vaultUsesEncryption = false;
   }
 
   List<AiChatThreadData> get aiChatThreads => List.unmodifiable(_aiChatThreads);
@@ -2300,7 +2307,9 @@ class VaultSession extends ChangeNotifier {
     scheduleSave(trackRevisionForPageId: id);
   }
 
-  void addFolder({String? parentId}) {
+  /// Devuelve el id de la carpeta creada (los llamadores existentes que no lo
+  /// necesitan simplemente ignoran el valor de retorno).
+  String addFolder({String? parentId}) {
     final id = _uuid.v4();
     _pages.add(
       FolioPage(
@@ -2311,6 +2320,26 @@ class VaultSession extends ChangeNotifier {
         blocks: [FolioBlock(id: '${id}_b0', type: 'paragraph', text: '')],
       ),
     );
+    _pageOrderByParent
+        .putIfAbsent(_orderKeyForParent(parentId), () => <String>[])
+        .add(id);
+    notifyListeners();
+    scheduleSave(trackRevisionForPageId: id);
+    return id;
+  }
+
+  /// Crea una página con [id], [title] y [blocks] específicos — a diferencia
+  /// de [addPage], que siempre crea una página en blanco con título por
+  /// defecto y la selecciona. Pensado para tools de creación de contenido
+  /// del agente IA de Quill, donde el [id] ya se usó para construir los
+  /// bloques antes de llamar a este método.
+  void createPageWithId({
+    required String id,
+    required String title,
+    String? parentId,
+    required List<FolioBlock> blocks,
+  }) {
+    _pages.add(FolioPage(id: id, title: title, parentId: parentId, blocks: blocks));
     _pageOrderByParent
         .putIfAbsent(_orderKeyForParent(parentId), () => <String>[])
         .add(id);
@@ -4130,6 +4159,42 @@ class VaultSession extends ChangeNotifier {
     scheduleSave(trackRevisionForPageId: pageId);
   }
 
+  void insertBlockBefore({
+    required String pageId,
+    required String beforeBlockId,
+    required FolioBlock block,
+  }) {
+    final page = _pageById(pageId);
+    if (page == null) return;
+    final i = page.blocks.indexWhere((b) => b.id == beforeBlockId);
+    if (i < 0) return;
+    _rememberUndoBeforePageMutation(pageId);
+    page.blocks.insert(i, block);
+    notifyListeners();
+    scheduleSave(trackRevisionForPageId: pageId);
+  }
+
+  /// Aplica una mutación arbitraria sobre la lista de bloques de [pageId],
+  /// preservando undo/persistencia igual que el resto de mutaciones de bloque.
+  /// Punto de extensión genérico para operaciones del agente IA (Fase 1/2 del
+  /// tool-calling de Quill) que no tienen un método dedicado (borrar bloque,
+  /// reemplazar bloque, mover dentro de la página, editar celdas de tabla...).
+  void mutatePageBlocks(
+    String pageId,
+    void Function(List<FolioBlock> blocks) mutate,
+  ) {
+    final page = _pageById(pageId);
+    if (page == null) return;
+    _rememberUndoBeforePageMutation(pageId);
+    mutate(page.blocks);
+    notifyListeners();
+    scheduleSave(trackRevisionForPageId: pageId);
+  }
+
+  /// Páginas hijas directas de [pageId] (no incluye descendientes indirectos).
+  List<FolioPage> childrenOf(String pageId) =>
+      _pages.where((p) => p.parentId == pageId).toList(growable: false);
+
   void insertBlocksAfterMany({
     required String pageId,
     required String afterBlockId,
@@ -5383,9 +5448,11 @@ class VaultSession extends ChangeNotifier {
     return out;
   }
 
-  void createPageFromTemplate(String sourcePageId, {String? parentId}) {
+  /// Devuelve el id de la copia creada, o `null` si [sourcePageId] no existe
+  /// (los llamadores existentes que no lo necesitan ignoran el retorno).
+  String? createPageFromTemplate(String sourcePageId, {String? parentId}) {
     final src = _pageById(sourcePageId);
-    if (src == null) return;
+    if (src == null) return null;
     final id = _uuid.v4();
     final copiedBlocks = src.blocks
         .map(
@@ -5418,6 +5485,7 @@ class VaultSession extends ChangeNotifier {
     _selectedPageId = id;
     notifyListeners();
     scheduleSave(trackRevisionForPageId: id);
+    return id;
   }
 
   String _blockSearchText(FolioBlock b) {

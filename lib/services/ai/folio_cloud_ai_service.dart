@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:cloud_functions/cloud_functions.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
@@ -81,8 +83,14 @@ String _mapFolioCloudAiError(FirebaseFunctionsException e) {
 /// Hosted AI via Cloud Functions (keys stay on server). Requires Folio Cloud
 /// subscription with cloud AI, or purchased ink without subscription.
 ///
-/// La callable solo recibe texto (`prompt` + `operationKind`): no se envían adjuntos ni
-/// historial estructurado; el historial se aplana en [_mergePrompt].
+/// Cuando la petición trae `systemPrompt`/`messages`/`responseSchema`/`tools`
+/// (turnos con historial o del bucle de tool-calling), se envían estructurados
+/// tal cual a la Cloud Function, que a su vez los reenvía a la API de OpenAI
+/// sin diferencia funcional con `openai_compatible_ai_service.dart`. Solo el
+/// modo "simple" sin nada de eso aplana el historial en texto plano vía
+/// [_mergePrompt] (compatibilidad con llamadas antiguas sin turno estructurado).
+/// No se envían adjuntos de archivo/imagen a la nube (limitación existente,
+/// no introducida por el tool-calling).
 class FolioCloudAiService implements AiService {
   FolioCloudAiService({FolioCloudEntitlementsController? entitlements})
       : _entitlements = entitlements;
@@ -91,6 +99,28 @@ class FolioCloudAiService implements AiService {
 
   @override
   String get providerName => 'folio_cloud';
+
+  // La Cloud Function `folioCloudAiComplete` (functions/src/index.ts) reenvía
+  // `tools`/`toolChoice` tal cual a la API de chat completions de OpenAI y
+  // devuelve `toolCalls` ya parseadas — mismo nivel de soporte que el
+  // proveedor OpenAI-compatible local, no una emulación de segunda categoría.
+  @override
+  bool get supportsNativeToolCalling => true;
+
+  // TODO(quill-tools): streaming real requiere un transporte distinto al de
+  // una Cloud Function `onCall` (que devuelve una única respuesta, no SSE) —
+  // deliberadamente fuera de alcance de la paridad de tool-calling. De
+  // momento emite el resultado completo como un único chunk final.
+  @override
+  Stream<AiCompletionChunk> completeStream(AiCompletionRequest request) async* {
+    final result = await complete(request);
+    yield AiCompletionChunk(
+      textDelta: result.text,
+      isFinal: true,
+      usage: result.usage,
+      toolCalls: result.toolCalls,
+    );
+  }
 
   /// El turno actual del usuario ya va dentro de [AiCompletionRequest.prompt] (p. ej.
   /// «Mensaje del usuario:» en el agente o guía + mensaje en chat); no duplicar el último
@@ -110,6 +140,58 @@ class FolioCloudAiService implements AiService {
     return b.toString();
   }
 
+  /// Codifica un mensaje del historial para la Cloud Function, incluyendo
+  /// tool-calls del asistente y resultados de tool — mismo formato que
+  /// `openai_compatible_ai_service.dart`, porque el backend los reenvía tal
+  /// cual a la misma API de OpenAI.
+  Map<String, dynamic> _encodeHistoryMessage(AiChatMessage m) {
+    if (m.role == 'tool') {
+      return {
+        'role': 'tool',
+        'tool_call_id': m.toolCallId ?? '',
+        'content': m.content,
+      };
+    }
+    if (m.role == 'assistant' && m.toolCalls != null && m.toolCalls!.isNotEmpty) {
+      return {
+        'role': 'assistant',
+        'content': m.content,
+        'tool_calls': m.toolCalls!
+            .map(
+              (c) => {
+                'id': c.id,
+                'function': {'name': c.name, 'arguments': jsonEncode(c.arguments)},
+              },
+            )
+            .toList(),
+      };
+    }
+    return {'role': m.role, 'content': m.content};
+  }
+
+  List<AiToolCall>? _parseToolCalls(dynamic raw) {
+    if (raw is! List || raw.isEmpty) return null;
+    return raw.whereType<Map>().map((entry) {
+      final fn = (entry['function'] as Map?) ?? const {};
+      Map<String, dynamic> args = const {};
+      final rawArgs = fn['arguments'];
+      if (rawArgs is String && rawArgs.trim().isNotEmpty) {
+        try {
+          final decoded = jsonDecode(rawArgs);
+          if (decoded is Map) args = Map<String, dynamic>.from(decoded);
+        } catch (_) {
+          // El modelo devolvió argumentos no-JSON; se deja vacío y el
+          // ejecutor del tool decide cómo reaccionar.
+        }
+      }
+      return AiToolCall(
+        id: entry['id'] as String? ?? '',
+        name: fn['name'] as String? ?? '',
+        arguments: args,
+      );
+    }).toList();
+  }
+
   @override
   Future<AiCompletionResult> complete(AiCompletionRequest request) async {
     if (Firebase.apps.isEmpty) {
@@ -122,24 +204,22 @@ class FolioCloudAiService implements AiService {
               request.systemPrompt!.trim().isNotEmpty) ||
           request.responseSchema != null ||
           request.temperature != null ||
-          request.maxTokens != null;
+          request.maxTokens != null ||
+          request.tools.isNotEmpty;
       final payload = <String, dynamic>{
         'prompt': (hasStructured ? request.prompt.trim() : _mergePrompt(request)),
         'operationKind': request.cloudInkOperation ?? 'default',
         if (request.systemPrompt != null && request.systemPrompt!.trim().isNotEmpty)
           'systemPrompt': request.systemPrompt!.trim(),
         if (request.messages.isNotEmpty)
-          'messages': request.messages
-              .map(
-                (m) => <String, dynamic>{
-                  'role': m.role,
-                  'content': m.content,
-                },
-              )
-              .toList(),
+          'messages': request.messages.map(_encodeHistoryMessage).toList(),
         if (request.responseSchema != null) 'responseSchema': request.responseSchema,
         if (request.temperature != null) 'temperature': request.temperature,
         if (request.maxTokens != null) 'maxTokens': request.maxTokens,
+        if (request.tools.isNotEmpty) ...{
+          'tools': request.tools.map((t) => t.toJsonSchema()).toList(),
+          'toolChoice': request.toolChoice ?? 'auto',
+        },
       };
       final res = await callFolioHttpsCallable(
         'folioCloudAiComplete',
@@ -147,6 +227,7 @@ class FolioCloudAiService implements AiService {
       );
       final raw = res;
       final text = raw is Map ? '${raw['text'] ?? ''}' : '';
+      final toolCalls = raw is Map ? _parseToolCalls(raw['toolCalls']) : null;
       final inkRaw = raw is Map ? raw['ink'] : null;
       final ent = _entitlements;
       if (inkRaw is Map && ent != null) {
@@ -163,6 +244,7 @@ class FolioCloudAiService implements AiService {
         text: text.trim(),
         provider: providerName,
         model: request.model,
+        toolCalls: toolCalls,
       );
     } on FirebaseFunctionsException catch (e) {
       throw FolioCloudAiException(

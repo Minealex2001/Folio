@@ -135,8 +135,9 @@ El editor es completamente personalizado (no usa un widget de terceros como edit
 
 - Configuración serializada en `block.text` como `FolioKanbanData` (`lib/models/folio_kanban_data.dart`).
 - Vista de página: `KanbanBoardPage` (`lib/features/workspace/kanban/kanban_board_page.dart`) — columnas, tarjetas vinculadas a tareas, conmutación entre vista tablero y editor clásico (banner `kanbanClassicModeBanner`, acciones `kanbanToolbarOpenEditor` / `kanbanToolbarAddTask`).
+- **Creación de tareas**: «Añadir tarea» y el «+» de columna crean un borrador local (`FolioTaskData.defaults`) y abren el mismo panel/sheet de detalle que al editar una tarjeta (`task_details_panel.dart`); no hay diálogos de creación aparte.
 - Detalle de tarea en el tablero: fechas inicio/vencimiento, bloqueo y motivo, **recurrencia** (diaria / semanal / mensual / anual o derivada de `recurringRule` RRULE), **recordatorio** (icono compacto junto al selector; ver [§31](#31-captura-rápida-de-tarea)), tiempo invertido, prioridad, descripción, subtareas, integración Jira cuando aplica.
-- El **selector de estado / columna** de una tarea sigue las columnas del **primer** bloque `kanban` de esa página (`VaultSession.kanbanDataForPage`): chips en el editor del bloque `task`, desplegable en el panel de detalle del tablero y lista desplegable en la captura rápida cuando se conoce la página destino; si el usuario añade columnas personalizadas al tablero, la UI se actualiza al vuelo (notificación de sesión).
+- El **selector de estado / columna** de una tarea sigue las columnas del **primer** bloque `kanban` de esa página (`VaultSession.kanbanDataForPage`): chips en el editor del bloque `task` y desplegable en el panel de detalle; si el usuario añade columnas personalizadas al tablero, la UI se actualiza al vuelo (notificación de sesión).
 - Tarjetas **bloqueadas** (`FolioTaskData.blocked`): título en **rojo** y **tachado** en las vistas del tablero (columnas, lista, cuadrícula y línea de tiempo), en el hub global de tareas, en el bloque dentro del editor y en el campo título del detalle; no se pueden arrastrar entre columnas mientras siguen bloqueadas.
 - Varias instancias del bloque en la misma página: aviso `kanbanMultipleBlocksSnack` (se usa el primero).
 
@@ -807,13 +808,9 @@ Implementada en `lib/services/jira/` (3 ficheros: `jira_auth_service.dart`, `jir
 
 ## 31. Captura rápida de tarea
 
-- Atajo por defecto: `Ctrl+Shift+T`.
-- Diálogo de captura (`task_quick_add_dialog.dart`) integrado con **`TaskQuickCaptureParser`** (`lib/services/tasks/task_quick_capture_parser.dart`): título, prioridad heurística, estado, fecha/hora y etiquetas sin escribir JSON a mano.
-- **Fechas**: `due: YYYY-MM-DD` / `vence:` / `para:`; expresiones relativas **`hoy` / `today`**, **`mañana` / `tomorrow`**, **`pasado mañana`**, **`esta semana` / `this week`**, **`próxima semana` / `next week`**; hora en 12 h/24 h (`@ 3pm`, `14:30`) que se anexa a la fecha ISO como sufijo `T…`.
-- **Prioridad**: `!!` → `highest`; palabras tipo `p1`, `urgente`, `high`, `p2`, `p3`, `baja`, etc.
-- **Estado**: frases `en progreso` / `in progress` / `doing` / `wip` → `in_progress`.
-- **`#etiquetas`** en línea → campo `tags` de `FolioTaskData`.
-- **Alias de página**: sufijo `#slug` o `@slug` al final de la línea, resuelto contra un mapa de alias → **destino distinto** (`targetPageIdFromAlias`) para crear la tarea en otra página sin abrirla.
+- Atajo por defecto: `Ctrl+Shift+T` (también desde el sidebar).
+- Flujo unificado con el detalle de tarea: se crea un **borrador** en la página Kanban destino y se abre el panel/sheet `task_details_panel.dart` (el mismo que al editar una tarjeta). Si hay varios tableros Kanban, primero se elige la página destino.
+- El parser NLP **`TaskQuickCaptureParser`** (`lib/services/tasks/task_quick_capture_parser.dart`) sigue disponible en el código (fechas relativas, prioridad, estado, `#etiquetas`, alias de página) para usos futuros; ya no es el diálogo principal de captura.
 - Servicios en `lib/services/tasks/`: recordatorios, notificaciones de escritorio (ver abajo), tests del parser y de recurrencia.
 
 ### Recordatorios y notificaciones
@@ -1118,6 +1115,105 @@ Soft-delete de páginas y carpetas con retención de **30 días**. El borrado de
 
 ---
 
+## 45. Servidor MCP local de Folio
+
+Folio puede exponer el mismo catálogo de acciones que usa Quill internamente (crear/editar páginas, gestionar libretas, buscar, etc.) a clientes MCP externos — Claude Desktop, Claude Code, Cursor, o cualquier otro cliente que hable el [Model Context Protocol](https://modelcontextprotocol.io) — para que puedan leer y gestionar tu libreta directamente, no solo el chat de Quill dentro de la app.
+
+Es una capacidad **desactivada por defecto y solo disponible en desktop** (Windows/Mac/Linux; no aplica a web ni móvil, porque necesita abrir un socket TCP real del sistema operativo).
+
+### Cómo activarlo
+
+1. Ajustes → sección de IA → interruptor **«Servidor MCP local (beta)»**.
+2. Al activarlo, Folio arranca un servidor HTTP en `127.0.0.1:45832` (puerto **fijo**) y usa un **token Bearer persistente** (se genera una vez y se reutiliza entre arranques).
+3. En Ajustes se muestran el endpoint y el token activos (`http://127.0.0.1:45832/mcp`), necesarios para configurar el cliente MCP externo.
+4. Al desactivarlo (o cerrar Folio), el servidor se detiene — el token guardado sigue válido la próxima vez que se active.
+
+### Configuración en Cursor (`mcp.json`)
+
+En **Ajustes → IA**, con el servidor activo:
+
+- **«Copiar config de Cursor»** — JSON con `url` + `Authorization` (HTTP local; Cursor lo admite).
+- **«Copiar JSON de Claude Desktop»** — JSON stdio vía `npx mcp-remote` + `--allow-http` para pegar en `%APPDATA%\Claude\claude_desktop_config.json` (requiere Node.js/npx).
+
+**Importante — «Conector personalizado» de Claude:** ese formulario (Settings → Connectors → Add custom connector) conecta desde **los servidores de Anthropic**, no desde tu PC. Exige una URL **HTTPS pública**; `http(s)://127.0.0.1` **no funciona** (Anthropic no puede alcanzar tu máquina). El MCP de Folio es deliberadamente solo loopback, así que **no se puede configurar ahí**. Para Claude Desktop en el mismo equipo, usa el JSON de desarrollador (`claude_desktop_config.json`), no el conector personalizado.
+
+Pégalo en `~/.cursor/mcp.json` / `%APPDATA%\Claude\claude_desktop_config.json`, fusionando con otros `mcpServers` si ya existen.
+
+Ejemplo Cursor:
+
+```json
+{
+  "mcpServers": {
+    "folio": {
+      "url": "http://127.0.0.1:45832/mcp",
+      "headers": {
+        "Authorization": "Bearer <token>"
+      }
+    }
+  }
+}
+```
+
+Ejemplo Claude Desktop (puente HTTP→stdio):
+
+```json
+{
+  "mcpServers": {
+    "folio": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "mcp-remote@latest",
+        "http://127.0.0.1:45832/mcp",
+        "--allow-http",
+        "--header",
+        "Authorization:${AUTH_HEADER}"
+      ],
+      "env": {
+        "AUTH_HEADER": "Bearer <token>"
+      }
+    }
+  }
+}
+```
+
+Folio debe estar abierto con el interruptor MCP activado. Tras guardar, recarga MCP en el cliente.
+
+### Protocolo y transporte
+
+- JSON-RPC 2.0 sobre Streamable HTTP local (endpoint único `POST /mcp`): métodos `initialize`, `tools/list`, `tools/call`, `ping`, y notificaciones sin respuesta (`notifications/initialized`).
+- Respuestas JSON (`application/json`); `GET`/`DELETE` responden `405` (sin SSE). Tras `initialize` se envía `Mcp-Session-Id`.
+- Versiones de protocolo negociadas: `2024-11-05`, `2025-03-26`, `2025-06-18`, `2025-11-25` (preferida `2025-03-26`).
+- Toda petición requiere la cabecera `Authorization: Bearer <token>`; sin ella, o con un token distinto, el servidor responde `401` y un error JSON-RPC `-32001`.
+- El servidor **solo** bindea a `127.0.0.1` (loopback) — nunca escucha en una interfaz de red. Valida `Origin` si viene presente (solo localhost / 127.0.0.1).
+
+### Catálogo de acciones expuestas
+
+El mismo `FolioToolRegistry` que usa el bucle de tool-calling interno de Quill (ver sección 23): creación y edición de contenido (`create_page`, `append_blocks_to_page`, `replace_page_blocks`, `edit_page_blocks`, `insert_blocks_at_position`, `insert_todos`, `insert_tasks`, `translate_page_bilingual`) y gestión de libretas/páginas (`create_folder`, `rename_page`, `move_page`, `reorder_page`, `duplicate_page`, `set_page_emoji`, `add_page_tag`/`remove_page_tag`, `trash_page`/`restore_page`/`permanently_delete_page`/`empty_trash`, `delete_folder_flatten_children`, `search_pages`, `list_children`). Un cliente MCP los descubre llamando a `tools/list`, que devuelve cada uno con su `inputSchema` (JSON Schema de argumentos).
+
+A diferencia del chat interno de Quill, un cliente MCP no tiene "página actual": debe pasar siempre un `pageId` explícito en los argumentos de cada tool que lo requiera.
+
+### Permisos: aprobación como con cualquier otra integración
+
+El servidor MCP **no ejecuta ninguna acción para un cliente hasta que el usuario lo aprueba explícitamente** — mismo mecanismo de permisos que ya usan los demás puentes locales de Folio (el bridge de Integraciones y Run2Doc):
+
+1. Cuando un cliente MCP se conecta por primera vez (llamada `initialize`, con su `clientInfo.name`/`version`), Folio muestra un diálogo de permiso describiendo qué podrá hacer el cliente (crear/editar páginas, gestionar libretas, buscar) y qué no (el servidor nunca escucha fuera de este equipo).
+2. Si el usuario deniega, la conexión falla con un error MCP (`-32001`) y no se guarda nada.
+3. Si el usuario permite, la aprobación se guarda igual que cualquier app aprobada (`AppSettings.approveIntegrationApp`, con el id `mcp:<nombre-del-cliente>`) y las siguientes conexiones de ese mismo cliente no vuelven a preguntar.
+4. Si se llama a cualquier tool antes de `initialize`, o el cliente identificado no está aprobado, el servidor responde con un error MCP (`-32002` sin `initialize`, `-32001` sin aprobar) en vez de ejecutar la acción.
+
+**Revocar el acceso:** como cualquier otra integración aprobada, los clientes MCP aprobados aparecen en **Ajustes → Integraciones**, junto a Run2Doc y el resto de apps aprobadas, con un botón para revocar el acceso en cualquier momento. Revocar borra la aprobación guardada; la próxima vez que ese cliente se conecte, tendrá que pedir permiso de nuevo.
+
+### Seguridad — resumen
+
+- Apagado por defecto (opt-in explícito).
+- Solo loopback, nunca red.
+- Puerto fijo `45832`; token Bearer persistente (no rota en cada arranque).
+- Aprobación explícita por cliente antes de ejecutar cualquier tool, revocable desde Ajustes → Integraciones en cualquier momento.
+- No hay límite de "cuánto" puede hacer un cliente aprobado dentro del catálogo de tools — la aprobación es a nivel de cliente, no de acción; revocar es la forma de cortar el acceso.
+
+---
+
 ## Apéndice: configuración persistida (`AppSettings`)
 
 | Clave | Tipo | Descripción |
@@ -1135,6 +1231,9 @@ Soft-delete de páginas y carpetas con retención de **30 días**. El borrado de
 | `syncLastSuccessMs` | int | Timestamp del último sync exitoso |
 | `enterCreatesNewBlock` | bool | `Enter` crea nuevo bloque (vs salto de línea) |
 | `windowsNotificationsEnabled` | bool | Notificaciones de escritorio para recordatorios de tareas (Windows / macOS / Linux vía `local_notifier`) |
+| `quillToolCallingEnabled` | bool | Flag de dogfood: bucle de tool-calling real de Quill en vez del camino JSON legado (sección 23) |
+| `mcpServerEnabled` | bool | Servidor MCP local activado (sección 45); desktop-only |
+| `mcpServerAuthToken` | String | Token Bearer persistente del servidor MCP local (sección 45) |
 
 ---
 

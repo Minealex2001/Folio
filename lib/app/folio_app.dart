@@ -20,9 +20,12 @@ import '../l10n/generated/app_localizations.dart';
 import '../models/block.dart';
 import '../services/ai/ai_provider_launcher.dart';
 import '../services/ai/ai_safety_policy.dart';
+import '../services/ai/folio_tool_registry.dart';
 import '../services/ai/lmstudio_ai_service.dart';
 import '../services/ai/ollama_ai_service.dart';
 import '../services/ai/openai_compatible_ai_service.dart';
+import '../services/mcp/folio_mcp_server.dart';
+import '../services/mcp/folio_mcp_server_status.dart';
 import '../services/platform/launch_arguments.dart';
 import '../services/cloud_account/cloud_account_controller.dart';
 import '../services/ai/folio_cloud_ai_service.dart';
@@ -39,9 +42,6 @@ import '../services/device_sync/device_sync_controller.dart';
 import '../services/device_sync/device_sync_models.dart';
 import '../services/integrations/integrations_bridge.dart';
 import '../services/integrations/integrations_markdown_codec.dart';
-import '../services/app_store/app_store_service.dart';
-import '../services/app_store/app_extension_registry.dart';
-import '../services/app_store/integration_auth_service.dart';
 import '../services/updater/github_release_updater.dart';
 import '../features/release_notes/release_notes_page.dart';
 import '../features/lock/lock_screen.dart';
@@ -80,6 +80,8 @@ class _FolioAppState extends State<FolioApp> with WidgetsBindingObserver {
   StreamSubscription<List<String>>? _launchArgsSub;
   final GlobalKey<NavigatorState> _navKey = GlobalKey<NavigatorState>();
   FolioCloudEntitlementsController? _folioCloudEntitlementsInstance;
+  FolioMcpServer? _mcpServer;
+  Future<void>? _mcpServerApplyInFlight;
 
   /// Inicialización perezosa: tras hot reload [initState] no se vuelve a llamar y un `late final` fallaría.
   FolioCloudEntitlementsController get _folioCloudEntitlements {
@@ -148,23 +150,8 @@ class _FolioAppState extends State<FolioApp> with WidgetsBindingObserver {
     if (!mounted) return;
     _applyAiSettings();
     _applyDeviceSyncSettings();
+    unawaited(_applyMcpServerSettings());
     _maybeLaunchAiProvider();
-    await bootstrap.runSecondaryPhase(
-      BootstrapPhase.integrations,
-      () async {
-        await IntegrationAuthService.instance.load();
-        await AppStoreService.instance.init();
-        AppExtensionRegistry.instance.loadFromInstalledApps(
-          AppStoreService.instance.installedApps,
-        );
-        AppStoreService.instance.addListener(() {
-          AppExtensionRegistry.instance.loadFromInstalledApps(
-            AppStoreService.instance.installedApps,
-          );
-        });
-      },
-    );
-    if (!mounted) return;
     await bootstrap.runSecondaryPhase(
       BootstrapPhase.desktop,
       _initDesktopIntegration,
@@ -268,6 +255,8 @@ class _FolioAppState extends State<FolioApp> with WidgetsBindingObserver {
     widget.cloudAccountController.dispose();
     _folioCloudEntitlements.removeListener(_onFolioCloudEntitlements);
     _folioCloudEntitlementsInstance?.dispose();
+    unawaited(_mcpServer?.stop());
+    folioMcpServerStatus.value = null;
     widget.appSettings.removeListener(_onSettings);
     widget.session.removeListener(_onSession);
     super.dispose();
@@ -722,9 +711,86 @@ class _FolioAppState extends State<FolioApp> with WidgetsBindingObserver {
     _applyAiSettings();
     _applyDeviceSyncSettings();
     _applyDesktopSettingsIfNeeded();
+    unawaited(_applyMcpServerSettings());
     FolioDiagnosticReporter.bindAppSettings(widget.appSettings);
     unawaited(FolioTelemetry.onSettingsChanged(widget.appSettings));
     if (mounted) setState(() {});
+  }
+
+  /// Fase 5: arranca/para el servidor MCP local según
+  /// `AppSettings.mcpServerEnabled` — nunca corre sin que el usuario lo pida
+  /// explícitamente, y nunca fuera de desktop (`mcpServerSupported`).
+  Future<void> _applyMcpServerSettings() {
+    final inFlight = _mcpServerApplyInFlight;
+    if (inFlight != null) return inFlight;
+    final run = _applyMcpServerSettingsBody();
+    _mcpServerApplyInFlight = run.whenComplete(() {
+      if (identical(_mcpServerApplyInFlight, run)) {
+        _mcpServerApplyInFlight = null;
+      }
+    });
+    return _mcpServerApplyInFlight!;
+  }
+
+  Future<void> _applyMcpServerSettingsBody() async {
+    final wantsEnabled = widget.appSettings.mcpServerEnabled && mcpServerSupported;
+    final server = _mcpServer;
+    if (!wantsEnabled) {
+      if (server != null && server.isRunning) {
+        await server.stop();
+      }
+      _mcpServer = null;
+      folioMcpServerStatus.value = null;
+      return;
+    }
+    // Sin notify: si generamos token aquí, notifyListeners reentraría en
+    // `_onSettings` → otro `_applyMcpServerSettings` y el 2º bind a 45832 falla.
+    final token = await widget.appSettings.ensureMcpServerAuthToken(notify: false);
+    // Reinicia si ya corría en otro puerto/token (migración a puerto fijo).
+    if (server != null && server.isRunning) {
+      final samePort = server.port == FolioMcpServer.defaultPort;
+      final sameToken = server.authToken == token;
+      if (samePort && sameToken) {
+        folioMcpServerStatus.value = FolioMcpServerInfo(
+          port: server.port!,
+          authToken: server.authToken!,
+        );
+        return;
+      }
+      await server.stop();
+      _mcpServer = null;
+    }
+    final active = FolioMcpServer(
+      FolioToolRegistry(widget.session),
+      onApproveClient: _approveMcpClient,
+      isClientApproved: _isMcpClientApproved,
+      onClientObserved: _syncObservedMcpClient,
+    );
+    _mcpServer = active;
+    try {
+      final port = await active.start(
+        port: FolioMcpServer.defaultPort,
+        authToken: token,
+      );
+      folioMcpServerStatus.value = FolioMcpServerInfo(
+        port: port,
+        authToken: active.authToken!,
+      );
+      AppLogger.info(
+        'Servidor MCP local en ${FolioMcpServer.endpointUrl(port: port)}',
+        tag: 'mcp',
+      );
+      if (mounted) setState(() {});
+    } catch (e) {
+      _mcpServer = null;
+      // Aun si el bind falla, publicamos el token persistido para que Ajustes
+      // pueda mostrar la config de `mcp.json` (el puerto es fijo).
+      folioMcpServerStatus.value = FolioMcpServerInfo(
+        port: FolioMcpServer.defaultPort,
+        authToken: token,
+      );
+      AppLogger.error('No se pudo arrancar el servidor MCP local', tag: 'mcp', error: e);
+    }
   }
 
   void _applyDeviceSyncSettings() {
@@ -1093,6 +1159,52 @@ class _FolioAppState extends State<FolioApp> with WidgetsBindingObserver {
     return widget.appSettings.removeIntegrationCustomIconForApp(
       request.clientAppId,
       request.emojiId,
+    );
+  }
+
+  /// Igual que `_approveIntegrationsClient`/Run2Doc, pero para clientes MCP
+  /// (Fase 5): la primera vez que un cliente MCP se conecta (`initialize`),
+  /// se pide permiso explícito y la aprobación se guarda en el mismo sistema
+  /// que el resto de integraciones — así aparece y se puede revocar desde
+  /// Ajustes → Integraciones sin código nuevo en esa pantalla.
+  Future<bool> _approveMcpClient(McpClientIdentity client) async {
+    if (widget.appSettings.isIntegrationAppApproved(
+      client.appId,
+      integrationVersion: FolioMcpServer.protocolVersion,
+    )) {
+      return true;
+    }
+    final ctx = _navKey.currentContext ?? context;
+    final approved = await showDialog<bool>(
+      context: ctx,
+      barrierDismissible: false,
+      builder: (dialogContext) => _McpApprovalDialog(client: client),
+    );
+    if (approved == true) {
+      await widget.appSettings.approveIntegrationApp(
+        appId: client.appId,
+        appName: client.appName,
+        appVersion: client.appVersion,
+        integrationVersion: FolioMcpServer.protocolVersion,
+      );
+      return true;
+    }
+    return false;
+  }
+
+  bool _isMcpClientApproved(McpClientIdentity client) {
+    return widget.appSettings.isIntegrationAppApproved(
+      client.appId,
+      integrationVersion: FolioMcpServer.protocolVersion,
+    );
+  }
+
+  Future<void> _syncObservedMcpClient(McpClientIdentity client) {
+    return widget.appSettings.syncApprovedIntegrationAppObservation(
+      appId: client.appId,
+      appName: client.appName,
+      appVersion: client.appVersion,
+      integrationVersion: FolioMcpServer.protocolVersion,
     );
   }
 
@@ -1766,6 +1878,195 @@ class _IntegrationApprovalDialog extends StatelessWidget {
                 ? l10n.integrationApprovalApproveUpdate
                 : l10n.integrationApprovalApprove,
           ),
+        ),
+      ],
+    );
+  }
+}
+
+/// Diálogo de permiso para un cliente MCP conectando por primera vez (Fase 5)
+/// — mismo propósito que `_IntegrationApprovalDialog` para los bridges de
+/// Integraciones/Run2Doc, pero describiendo el catálogo de tools de Quill en
+/// vez de la importación de markdown.
+class _McpApprovalDialog extends StatelessWidget {
+  const _McpApprovalDialog({required this.client});
+
+  final McpClientIdentity client;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    final isEs = Localizations.localeOf(context).languageCode.toLowerCase().startsWith('es');
+    final appVersion = client.appVersion.trim().isEmpty
+        ? (isEs ? 'desconocida' : 'unknown')
+        : client.appVersion.trim();
+
+    Widget capabilityRow(IconData icon, String title, String description, {required Color accent, bool danger = false}) {
+      return Container(
+        margin: const EdgeInsets.only(bottom: 10),
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: danger ? scheme.errorContainer.withValues(alpha: 0.24) : scheme.surfaceContainerLow,
+          borderRadius: BorderRadius.circular(FolioRadius.lg),
+          border: Border.all(
+            color: danger ? scheme.error.withValues(alpha: 0.18) : scheme.outlineVariant.withValues(alpha: 0.45),
+          ),
+        ),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Container(
+              width: 34,
+              height: 34,
+              decoration: BoxDecoration(
+                color: accent.withValues(alpha: 0.12),
+                borderRadius: BorderRadius.circular(FolioRadius.md),
+              ),
+              child: Icon(icon, size: 18, color: accent),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(title, style: theme.textTheme.labelLarge?.copyWith(fontWeight: FontWeight.w700)),
+                  const SizedBox(height: 4),
+                  Text(
+                    description,
+                    style: theme.textTheme.bodySmall?.copyWith(color: scheme.onSurfaceVariant, height: 1.35),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    return FolioDialog(
+      insetPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
+      content: SizedBox(
+        width: 620,
+        child: SingleChildScrollView(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(18),
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [scheme.secondaryContainer.withValues(alpha: 0.7), scheme.surfaceContainerHigh],
+                  ),
+                  borderRadius: BorderRadius.circular(FolioRadius.xl),
+                  border: Border.all(color: scheme.outlineVariant.withValues(alpha: 0.45)),
+                ),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Container(
+                      width: 46,
+                      height: 46,
+                      decoration: BoxDecoration(color: scheme.surface, borderRadius: BorderRadius.circular(FolioRadius.lg)),
+                      child: Icon(Icons.dns_rounded, color: scheme.primary),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            isEs
+                                ? '¿Permitir que "${client.appName}" gestione tu libreta?'
+                                : 'Allow "${client.appName}" to manage your notebook?',
+                            style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w800, letterSpacing: -0.2),
+                          ),
+                          const SizedBox(height: 6),
+                          Text(
+                            isEs
+                                ? 'Este cliente MCP quiere conectarse al servidor local de Folio. Versión: $appVersion.'
+                                : 'This MCP client wants to connect to Folio\'s local server. Version: $appVersion.',
+                            style: theme.textTheme.bodyMedium?.copyWith(color: scheme.onSurfaceVariant, height: 1.4),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 14),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  _IntegrationApprovalChip(
+                    icon: Icons.laptop_windows_rounded,
+                    label: isEs ? 'Solo este equipo' : 'This machine only',
+                  ),
+                  _IntegrationApprovalChip(
+                    icon: Icons.verified_user_outlined,
+                    label: isEs ? 'Aprobación revocable' : 'Revocable approval',
+                  ),
+                  _IntegrationApprovalChip(
+                    icon: Icons.key_outlined,
+                    label: isEs ? 'Requiere token' : 'Token required',
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+              Text(
+                isEs ? 'Qué podrá hacer' : 'What it will be able to do',
+                style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w800),
+              ),
+              const SizedBox(height: 10),
+              capabilityRow(
+                Icons.edit_note_rounded,
+                isEs ? 'Crear y editar páginas' : 'Create and edit pages',
+                isEs
+                    ? 'Puede crear, resumir, traducir y editar el contenido de tus páginas.'
+                    : 'Can create, summarize, translate, and edit your page content.',
+                accent: scheme.primary,
+              ),
+              capabilityRow(
+                Icons.account_tree_outlined,
+                isEs ? 'Gestionar libretas y carpetas' : 'Manage notebooks and folders',
+                isEs
+                    ? 'Puede mover, renombrar, duplicar, etiquetar y enviar páginas a la papelera.'
+                    : 'Can move, rename, duplicate, tag, and trash pages.',
+                accent: scheme.primary,
+              ),
+              capabilityRow(
+                Icons.search_rounded,
+                isEs ? 'Buscar en tu libreta' : 'Search your notebook',
+                isEs ? 'Puede buscar páginas por título o contenido.' : 'Can search pages by title or content.',
+                accent: scheme.primary,
+              ),
+              const SizedBox(height: 8),
+              capabilityRow(
+                Icons.public_off_outlined,
+                isEs ? 'No sale de este equipo' : 'Never leaves this machine',
+                isEs
+                    ? 'El servidor solo escucha en 127.0.0.1: ningún dispositivo de red externo puede conectarse.'
+                    : 'The server only listens on 127.0.0.1: no external network device can connect.',
+                accent: scheme.error,
+                danger: true,
+              ),
+            ],
+          ),
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context, false),
+          child: Text(isEs ? 'Denegar' : 'Deny'),
+        ),
+        FilledButton(
+          onPressed: () => Navigator.pop(context, true),
+          child: Text(isEs ? 'Permitir' : 'Allow'),
         ),
       ],
     );

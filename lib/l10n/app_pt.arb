@@ -581,6 +581,20 @@
   "aiServiceUnreachable": "Não foi possível alcançar o serviço de IA no endpoint configurado. Inicie o Ollama ou LM Studio e verifique a URL.",
   "aiLaunchProviderWithApp": "Abrir app de IA quando o Folio iniciar",
   "aiLaunchProviderWithAppHint": "Tenta iniciar o Ollama ou LM Studio no Windows quando o endpoint é localhost. O LM Studio ainda pode precisar que seu servidor seja iniciado manualmente.",
+  "settingsMcpServerTitle": "Servidor MCP local (beta)",
+  "settingsMcpServerSubtitle": "Permite que clientes MCP externos (Cursor, Claude Desktop, Claude Code…) gerenciem suas páginas e cadernos. Apenas neste computador.",
+  "settingsMcpServerRunningDetails": "Ativo em {endpoint}\nToken: {token}",
+  "@settingsMcpServerRunningDetails": {
+    "placeholders": {
+      "endpoint": {"type": "String"},
+      "token": {"type": "String"}
+    }
+  },
+  "settingsMcpCopyCursorConfig": "Copiar config do Cursor",
+  "settingsMcpCopyClaudeConfig": "Copiar JSON do Claude Desktop",
+  "settingsMcpCopyCursorConfigDone": "Config MCP do Cursor copiada. Cole em ~/.cursor/mcp.json (mescle com os servidores existentes).",
+  "settingsMcpCopyClaudeConfigDone": "JSON do Claude Desktop copiado (mcp-remote). Cole em %APPDATA%\\Claude\\claude_desktop_config.json. Requer Node.js/npx. Não use o formulário «Conector personalizado» com localhost.",
+  "settingsMcpClaudeCustomConnectorHint": "O diálogo «Adicionar conector personalizado» do Claude exige uma URL HTTPS pública alcançável pelos servidores da Anthropic. O MCP do Folio é apenas local (127.0.0.1), então esse formulário não pode usá-lo. Neste PC, use «Copiar JSON do Claude Desktop» e cole em claude_desktop_config.json.",
   "aiContextWindowTokens": "Janela de contexto do modelo (tokens)",
   "aiContextWindowTokensHint": "Usado para a barra de contexto no chat de IA. Deve corresponder ao seu modelo (ex: 8192, 131072).",
   "aiContextUsageUnavailable": "O uso de tokens não foi relatado para a última resposta.",
@@ -2235,62 +2249,7 @@
   ,"@importPdfFailed": {"placeholders": {"error": {"type": "String"}}}
   ,"importPdfNoText": "O PDF não contém texto extraível"
   ,"downloadDesktopApp": "Baixar aplicativo para desktop"
-  ,"appStoreTitle": "Loja de apps"
-  ,"appStoreTabExplore": "Explorar"
-  ,"appStoreTabInstalled": "Instalados ({count})"
-  ,"@appStoreTabInstalled": {"placeholders": {"count": {"type": "int"}}}
   ,"appStoreTooltipRefresh": "Atualizar"
-  ,"appStoreTooltipInstallFile": "Instalar de arquivo (.folioapp)"
-  ,"appStoreSearchHint": "Buscar apps…"
-  ,"appStoreNoResults": "Nenhum app encontrado."
-  ,"appStoreSectionOfficials": "Oficiais"
-  ,"appStoreSectionOfficialsSubtitle": "Integradas no Folio · Sem download"
-  ,"appStoreSectionCommunity": "Community"
-  ,"appStoreSectionCommunitySubtitle": "Publicadas no registry público"
-  ,"appStoreInstallConfirmTitle": "Instalar app local"
-  ,"appStoreInstallConfirmBody": "Este app não foi verificado. Instale apenas arquivos de fontes confiáveis."
-  ,"appStoreInstallButton": "Instalar"
-  ,"appStoreInstalledChip": "Instalado"
-  ,"appStoreInstallSuccess": "\"{name}\" instalado com sucesso."
-  ,"@appStoreInstallSuccess": {"placeholders": {"name": {"type": "String"}}}
-  ,"appStoreInstallError": "Erro: {message}"
-  ,"@appStoreInstallError": {"placeholders": {"message": {"type": "String"}}}
-  ,"appStoreUninstallTitle": "Desinstalar app"
-  ,"appStoreUninstallBody": "Desinstalar \"{name}\"? Seus arquivos serão excluídos."
-  ,"@appStoreUninstallBody": {"placeholders": {"name": {"type": "String"}}}
-  ,"appStoreUninstallButton": "Desinstalar"
-  ,"appStoreInstalledEmpty": "Nenhum app instalado.\nExplore a loja ou instale um .folioapp."
-  ,"appStoreRegistryLoadError": "Erro {statusCode} ao carregar o registry."
-  ,"@appStoreRegistryLoadError": {"placeholders": {"statusCode": {"type": "int"}}}
-  ,"appStoreRegistryOfflineCache": "Sem ligação. A mostrar cache local."
-  ,"appStoreLoadError": "Erro ao carregar a loja: {error}"
-  ,"@appStoreLoadError": {"placeholders": {"error": {"type": "String"}}}
-  ,"appStoreVerifiedByFolio": "Verificado pela Folio"
-  ,"appStoreCapabilitiesTitle": "Capacidades"
-  ,"appStoreConnectionsTitle": "Ligações"
-  ,"appStoreConnected": "Ligado"
-  ,"appStoreNotConnected": "Não ligado"
-  ,"appStoreDisconnect": "Desligar"
-  ,"appStoreConnect": "Ligar"
-  ,"appStoreInstallFromRegistryTitle": "Instalar \"{name}\""
-  ,"@appStoreInstallFromRegistryTitle": {"placeholders": {"name": {"type": "String"}}}
-  ,"appStoreInstallUnverifiedLocalBody": "Esta app não foi verificada localmente. Instale apenas apps de fontes em que confie."
-  ,"appStorePermissionsRequested": "Permissões solicitadas:"
-  ,"appStoreCapabilityBlockTypes": "{count} tipo(s) de bloco"
-  ,"@appStoreCapabilityBlockTypes": {"placeholders": {"count": {"type": "int"}}}
-  ,"appStoreCapabilitySlashCommands": "{count} comando(s) slash"
-  ,"@appStoreCapabilitySlashCommands": {"placeholders": {"count": {"type": "int"}}}
-  ,"appStoreCapabilityIntegrations": "{count} integração(ões)"
-  ,"@appStoreCapabilityIntegrations": {"placeholders": {"count": {"type": "int"}}}
-  ,"appStoreCapabilityAiTransformers": "{count} transformador(es) IA"
-  ,"@appStoreCapabilityAiTransformers": {"placeholders": {"count": {"type": "int"}}}
-  ,"appStorePasteAccessToken": "Cole o seu access token"
-  ,"appStoreTokenLabel": "Token de {name}"
-  ,"@appStoreTokenLabel": {"placeholders": {"name": {"type": "String"}}}
-  ,"appStoreApiKeyTitle": "API Key"
-  ,"appStoreUninstallTooltip": "Desinstalar"
-  ,"appStoreVersionPrefix": "v{version}"
-  ,"@appStoreVersionPrefix": {"placeholders": {"version": {"type": "String"}}}
   ,"releaseNotesTitle": "Notas da versão"
   ,"releaseNotesContinue": "Continuar"
   ,"workspaceEditorReadyHeadline": "O seu espaço está pronto"
@@ -2476,6 +2435,11 @@
   ,"kanbanNeedsPull": "Pendente pull"
   ,"kanbanDeleteTaskTitle": "Apagar tarefa"
   ,"kanbanDeleteTaskButton": "Apagar"
+  ,"taskDetailsTitle": "Detalhes da tarefa"
+  ,"taskDetailsDeleteTooltip": "Apagar tarefa"
+  ,"taskDetailsEnterFullscreen": "Ecrã completo"
+  ,"taskDetailsExitFullscreen": "Restaurar tamanho"
+  ,"taskDetailsCloseTooltip": "Fechar"
   ,"kanbanTaskDeleted": "Tarefa apagada."
   ,"kanbanForcePushTitle": "Forçar push para Jira"
   ,"kanbanForcePushButton": "Forçar push"

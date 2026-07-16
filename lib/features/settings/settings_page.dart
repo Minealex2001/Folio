@@ -14,6 +14,8 @@ import 'package:url_launcher/url_launcher.dart';
 import 'package:path/path.dart' as p;
 
 import '../../app/app_settings.dart';
+import '../../services/mcp/folio_mcp_server.dart';
+import '../../services/mcp/folio_mcp_server_status.dart';
 import '../../models/quill_system_prompt.dart';
 import '../../app/folio_build_flags.dart';
 import '../../app/folio_distribution.dart';
@@ -79,9 +81,6 @@ import 'folio_cloud_backups_sheet.dart';
 import 'remote_backup_config_dialog.dart';
 import 'remote_backup_restore_dialog.dart';
 import 'remote_backup_export_destination_dialog.dart';
-import '../../services/app_store/app_store_service.dart';
-import '../../services/app_store/folio_built_in_apps.dart';
-import '../app_store/app_store_screen.dart';
 import 'widgets/telemetry_sent_data_widget.dart';
 import '../telemetry_dashboard/telemetry_dashboard_page.dart';
 import '../../services/folio_firestore_sync.dart';
@@ -157,6 +156,101 @@ class _SettingsPageState extends State<SettingsPage> {
   DeviceSyncController get _sync => widget.deviceSyncController;
   CloudAccountController get _cloud => widget.cloudAccountController;
   FolioCloudEntitlementsController get _folio => widget.folioCloudEntitlements;
+
+  /// Fase 5: toggle del servidor MCP local (desktop-only). Muestra el
+  /// puerto/token en ejecución vía `folioMcpServerStatus` (el servidor en sí
+  /// vive en `_FolioAppState`, no aquí, para sobrevivir a esta pantalla).
+  Widget _buildMcpServerToggle(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
+    return ValueListenableBuilder<FolioMcpServerInfo?>(
+      valueListenable: folioMcpServerStatus,
+      builder: (context, info, _) {
+        final enabled = _app.mcpServerEnabled;
+        final endpoint = FolioMcpServer.endpointUrl(
+          port: info?.port ?? FolioMcpServer.defaultPort,
+        );
+        final token = (info?.authToken ?? _app.mcpServerAuthToken).trim();
+        final showDetails = enabled && token.isNotEmpty;
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            SwitchListTile(
+              secondary: const Icon(Icons.dns_outlined),
+              title: Text(l10n.settingsMcpServerTitle),
+              subtitle: Text(l10n.settingsMcpServerSubtitle),
+              value: enabled,
+              onChanged: (v) async {
+                await _app.setMcpServerEnabled(v);
+                if (mounted) setState(() {});
+              },
+            ),
+            if (showDetails) ...[
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+                child: SelectableText(
+                  l10n.settingsMcpServerRunningDetails(endpoint, token),
+                  style: Theme.of(context).textTheme.bodySmall,
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+                child: Text(
+                  l10n.settingsMcpClaudeCustomConnectorHint,
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  ),
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+                child: Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
+                    OutlinedButton.icon(
+                      onPressed: () => _copyMcpClientConfig(
+                        context,
+                        json: FolioMcpServer.cursorClientConfigJson(
+                          endpoint: endpoint,
+                          authToken: token,
+                        ),
+                        snackMessage: l10n.settingsMcpCopyCursorConfigDone,
+                      ),
+                      icon: const Icon(Icons.content_copy_outlined, size: 18),
+                      label: Text(l10n.settingsMcpCopyCursorConfig),
+                    ),
+                    OutlinedButton.icon(
+                      onPressed: () => _copyMcpClientConfig(
+                        context,
+                        json: FolioMcpServer.claudeDesktopClientConfigJson(
+                          endpoint: endpoint,
+                          authToken: token,
+                        ),
+                        snackMessage: l10n.settingsMcpCopyClaudeConfigDone,
+                      ),
+                      icon: const Icon(Icons.content_copy_outlined, size: 18),
+                      label: Text(l10n.settingsMcpCopyClaudeConfig),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ],
+        );
+      },
+    );
+  }
+
+  Future<void> _copyMcpClientConfig(
+    BuildContext context, {
+    required String json,
+    required String snackMessage,
+  }) async {
+    await Clipboard.setData(ClipboardData(text: json));
+    if (!context.mounted) return;
+    _snack(snackMessage);
+  }
+
   final ScrollController _settingsScrollController = ScrollController();
   final TextEditingController _settingsSectionFilterController =
       TextEditingController();
@@ -440,11 +534,10 @@ class _SettingsPageState extends State<SettingsPage> {
         label: l10n.settingsSectionDeviceSyncNav,
       ),
       _SettingsSectionNavItem(id: _SettingsSectionId.about, label: l10n.about),
-      if (showDesktopOnlySections)
-        _SettingsSectionNavItem(
-          id: _SettingsSectionId.integrations,
-          label: l10n.integrations,
-        ),
+      _SettingsSectionNavItem(
+        id: _SettingsSectionId.integrations,
+        label: l10n.integrations,
+      ),
     ];
     return AnimatedBuilder(
       animation: _app,
@@ -4541,6 +4634,10 @@ class _SettingsPageState extends State<SettingsPage> {
                                               }
                                             : null,
                                       ),
+                                      if (mcpServerSupported) ...[
+                                        const Divider(height: 1),
+                                        _buildMcpServerToggle(context),
+                                      ],
                                       if (aiLocalProvidersSupported &&
                                           _app.aiProvider !=
                                               AiProvider.quillCloud) ...[
@@ -5586,8 +5683,7 @@ class _SettingsPageState extends State<SettingsPage> {
                             ),
                           ),
 
-                          if (showDesktopOnlySections) ...[
-                            Visibility(
+                          Visibility(
                               visible: activeSection == _SettingsSectionId.integrations,
                               maintainState: false,
                               child: KeyedSubtree(
@@ -5597,52 +5693,6 @@ class _SettingsPageState extends State<SettingsPage> {
                                       CrossAxisAlignment.stretch,
                                   mainAxisSize: MainAxisSize.min,
                                   children: [
-                                    _SettingsPanel(
-                                      margin: const EdgeInsets.only(bottom: 24),
-                                      child: Column(
-                                        crossAxisAlignment:
-                                            CrossAxisAlignment.stretch,
-                                        children: [
-                                          ListenableBuilder(
-                                            listenable:
-                                                AppStoreService.instance,
-                                            builder: (context, _) {
-                                              final installed = AppStoreService
-                                                  .instance
-                                                  .installedApps;
-                                              return ListTile(
-                                                leading: const Icon(
-                                                  Icons.extension_outlined,
-                                                ),
-                                                title: const Text(
-                                                  'Tienda de Apps',
-                                                ),
-                                                subtitle: Text(
-                                                  installed.isEmpty
-                                                      ? 'Sin apps instaladas'
-                                                      : '${installed.length} app${installed.length == 1 ? '' : 's'} instalada${installed.length == 1 ? '' : 's'}',
-                                                ),
-                                                trailing: FilledButton.tonal(
-                                                  onPressed: () {
-                                                    Navigator.of(
-                                                      context,
-                                                    ).push<void>(
-                                                      MaterialPageRoute<void>(
-                                                        builder: (_) =>
-                                                            const AppStoreScreen(),
-                                                      ),
-                                                    );
-                                                  },
-                                                  child: const Text(
-                                                    'Abrir tienda',
-                                                  ),
-                                                ),
-                                              );
-                                            },
-                                          ),
-                                        ],
-                                      ),
-                                    ),
                                     _SettingsPanel(
                                       margin: const EdgeInsets.only(bottom: 24),
                                       child: Column(
@@ -5687,69 +5737,33 @@ class _SettingsPageState extends State<SettingsPage> {
                                               crossAxisAlignment:
                                                   CrossAxisAlignment.start,
                                               children: [
-                                                ListenableBuilder(
-                                                  listenable:
-                                                      AppStoreService.instance,
-                                                  builder: (context, _) {
-                                                    final jiraInstalled =
-                                                        AppStoreService.instance
-                                                            .isInstalled(
-                                                              FolioBuiltInApps
-                                                                  .jiraId,
-                                                            );
-                                                    final youtrackInstalled =
-                                                        AppStoreService.instance
-                                                            .isInstalled(
-                                                              FolioBuiltInApps
-                                                                  .youtrackId,
-                                                            );
-                                                    if (!jiraInstalled &&
-                                                        !youtrackInstalled) {
-                                                      return const SizedBox.shrink();
-                                                    }
-                                                    return Column(
-                                                      crossAxisAlignment:
-                                                          CrossAxisAlignment
-                                                              .start,
-                                                      children: [
-                                                        Text(
-                                                          l10n.settingsIntegrationsNativeTitle,
-                                                          style: Theme.of(context)
-                                                              .textTheme
-                                                              .titleSmall
-                                                              ?.copyWith(
-                                                                fontWeight:
-                                                                    FontWeight
-                                                                        .w800,
-                                                              ),
-                                                        ),
-                                                        const SizedBox(
-                                                          height: 10,
-                                                        ),
-                                                        if (jiraInstalled) ...[
-                                                          JiraIntegrationCard(
-                                                            session: _s,
-                                                            appSettings: _app,
+                                                Column(
+                                                  crossAxisAlignment:
+                                                      CrossAxisAlignment.start,
+                                                  children: [
+                                                    Text(
+                                                      l10n.settingsIntegrationsNativeTitle,
+                                                      style: Theme.of(context)
+                                                          .textTheme
+                                                          .titleSmall
+                                                          ?.copyWith(
+                                                            fontWeight:
+                                                                FontWeight.w800,
                                                           ),
-                                                          const SizedBox(
-                                                            height: 10,
-                                                          ),
-                                                        ],
-                                                        if (youtrackInstalled) ...[
-                                                          YouTrackIntegrationCard(
-                                                            session: _s,
-                                                            appSettings: _app,
-                                                          ),
-                                                          const SizedBox(
-                                                            height: 10,
-                                                          ),
-                                                        ],
-                                                        const SizedBox(
-                                                          height: 8,
-                                                        ),
-                                                      ],
-                                                    );
-                                                  },
+                                                    ),
+                                                    const SizedBox(height: 10),
+                                                    JiraIntegrationCard(
+                                                      session: _s,
+                                                      appSettings: _app,
+                                                    ),
+                                                    const SizedBox(height: 10),
+                                                    YouTrackIntegrationCard(
+                                                      session: _s,
+                                                      appSettings: _app,
+                                                    ),
+                                                    const SizedBox(height: 10),
+                                                    const SizedBox(height: 8),
+                                                  ],
                                                 ),
                                                 Row(
                                                   children: [
@@ -5885,7 +5899,6 @@ class _SettingsPageState extends State<SettingsPage> {
                                 ),
                               ),
                             ),
-                          ],
                           ],
                           const SizedBox(height: 24),
                         ],

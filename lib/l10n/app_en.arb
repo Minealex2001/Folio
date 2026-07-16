@@ -581,6 +581,20 @@
   "aiServiceUnreachable": "Could not reach the AI service at the configured endpoint. Start Ollama or LM Studio and check the URL.",
   "aiLaunchProviderWithApp": "Open AI app when Folio starts",
   "aiLaunchProviderWithAppHint": "Tries to launch Ollama or LM Studio on Windows when the endpoint is localhost. LM Studio may still need its server started manually.",
+  "settingsMcpServerTitle": "Local MCP server (beta)",
+  "settingsMcpServerSubtitle": "Lets external MCP clients (Cursor, Claude Desktop, Claude Code…) manage your pages and notebooks. This machine only.",
+  "settingsMcpServerRunningDetails": "Active at {endpoint}\nToken: {token}",
+  "@settingsMcpServerRunningDetails": {
+    "placeholders": {
+      "endpoint": {"type": "String"},
+      "token": {"type": "String"}
+    }
+  },
+  "settingsMcpCopyCursorConfig": "Copy Cursor config",
+  "settingsMcpCopyClaudeConfig": "Copy Claude Desktop JSON",
+  "settingsMcpCopyCursorConfigDone": "Cursor MCP config copied. Paste it into ~/.cursor/mcp.json (merge with existing servers).",
+  "settingsMcpCopyClaudeConfigDone": "Claude Desktop JSON copied (mcp-remote). Paste into %APPDATA%\\Claude\\claude_desktop_config.json. Requires Node.js/npx. Do not use Claude’s “Custom connector” form with localhost.",
+  "settingsMcpClaudeCustomConnectorHint": "Claude’s “Add custom connector” dialog needs a public HTTPS URL that Anthropic’s servers can reach. Folio’s MCP is local-only (127.0.0.1), so that form cannot use it. For Claude Desktop on this PC, use “Copy Claude Desktop JSON” and paste it into claude_desktop_config.json.",
   "aiContextWindowTokens": "Model context window (tokens)",
   "aiContextWindowTokensHint": "Used for the context bar in AI chat. Match your model (e.g. 8192, 131072).",
   "aiContextUsageUnavailable": "Token usage was not reported for the last reply.",
@@ -2237,62 +2251,7 @@
   ,"@importPdfFailed": {"placeholders": {"error": {"type": "String"}}}
   ,"importPdfNoText": "The PDF contains no extractable text"
   ,"downloadDesktopApp": "Download desktop app"
-  ,"appStoreTitle": "App Store"
-  ,"appStoreTabExplore": "Explore"
-  ,"appStoreTabInstalled": "Installed ({count})"
-  ,"@appStoreTabInstalled": {"placeholders": {"count": {"type": "int"}}}
   ,"appStoreTooltipRefresh": "Refresh"
-  ,"appStoreTooltipInstallFile": "Install from file (.folioapp)"
-  ,"appStoreSearchHint": "Search apps\u2026"
-  ,"appStoreNoResults": "No apps found."
-  ,"appStoreSectionOfficials": "Official"
-  ,"appStoreSectionOfficialsSubtitle": "Built into Folio · No download required"
-  ,"appStoreSectionCommunity": "Community"
-  ,"appStoreSectionCommunitySubtitle": "Published in the public registry"
-  ,"appStoreInstallConfirmTitle": "Install local app"
-  ,"appStoreInstallConfirmBody": "This app has not been verified. Only install files from sources you trust."
-  ,"appStoreInstallButton": "Install"
-  ,"appStoreInstalledChip": "Installed"
-  ,"appStoreInstallSuccess": "\"{name}\" installed successfully."
-  ,"@appStoreInstallSuccess": {"placeholders": {"name": {"type": "String"}}}
-  ,"appStoreInstallError": "Error: {message}"
-  ,"@appStoreInstallError": {"placeholders": {"message": {"type": "String"}}}
-  ,"appStoreUninstallTitle": "Uninstall app"
-  ,"appStoreUninstallBody": "Uninstall \"{name}\"? Its files will be deleted."
-  ,"@appStoreUninstallBody": {"placeholders": {"name": {"type": "String"}}}
-  ,"appStoreUninstallButton": "Uninstall"
-  ,"appStoreInstalledEmpty": "No apps installed.\nExplore the store or install a .folioapp."
-  ,"appStoreRegistryLoadError": "Error {statusCode} loading the registry."
-  ,"@appStoreRegistryLoadError": {"placeholders": {"statusCode": {"type": "int"}}}
-  ,"appStoreRegistryOfflineCache": "Offline. Showing local cache."
-  ,"appStoreLoadError": "Error loading the store: {error}"
-  ,"@appStoreLoadError": {"placeholders": {"error": {"type": "String"}}}
-  ,"appStoreVerifiedByFolio": "Verified by Folio"
-  ,"appStoreCapabilitiesTitle": "Capabilities"
-  ,"appStoreConnectionsTitle": "Connections"
-  ,"appStoreConnected": "Connected"
-  ,"appStoreNotConnected": "Not connected"
-  ,"appStoreDisconnect": "Disconnect"
-  ,"appStoreConnect": "Connect"
-  ,"appStoreInstallFromRegistryTitle": "Install \"{name}\""
-  ,"@appStoreInstallFromRegistryTitle": {"placeholders": {"name": {"type": "String"}}}
-  ,"appStoreInstallUnverifiedLocalBody": "This app has not been verified locally. Only install apps from sources you trust."
-  ,"appStorePermissionsRequested": "Requested permissions:"
-  ,"appStoreCapabilityBlockTypes": "{count} block type(s)"
-  ,"@appStoreCapabilityBlockTypes": {"placeholders": {"count": {"type": "int"}}}
-  ,"appStoreCapabilitySlashCommands": "{count} slash command(s)"
-  ,"@appStoreCapabilitySlashCommands": {"placeholders": {"count": {"type": "int"}}}
-  ,"appStoreCapabilityIntegrations": "{count} integration(s)"
-  ,"@appStoreCapabilityIntegrations": {"placeholders": {"count": {"type": "int"}}}
-  ,"appStoreCapabilityAiTransformers": "{count} AI transformer(s)"
-  ,"@appStoreCapabilityAiTransformers": {"placeholders": {"count": {"type": "int"}}}
-  ,"appStorePasteAccessToken": "Paste your access token"
-  ,"appStoreTokenLabel": "Token for {name}"
-  ,"@appStoreTokenLabel": {"placeholders": {"name": {"type": "String"}}}
-  ,"appStoreApiKeyTitle": "API Key"
-  ,"appStoreUninstallTooltip": "Uninstall"
-  ,"appStoreVersionPrefix": "v{version}"
-  ,"@appStoreVersionPrefix": {"placeholders": {"version": {"type": "String"}}}
   ,"releaseNotesTitle": "Release notes"
   ,"releaseNotesContinue": "Continue"
   ,"workspaceEditorReadyHeadline": "Your workspace is ready"
@@ -2477,6 +2436,11 @@
   ,"kanbanNeedsPull": "Needs pull"
   ,"kanbanDeleteTaskTitle": "Delete task"
   ,"kanbanDeleteTaskButton": "Delete"
+  ,"taskDetailsTitle": "Task details"
+  ,"taskDetailsDeleteTooltip": "Delete task"
+  ,"taskDetailsEnterFullscreen": "Full screen"
+  ,"taskDetailsExitFullscreen": "Restore size"
+  ,"taskDetailsCloseTooltip": "Close"
   ,"kanbanTaskDeleted": "Task deleted."
   ,"kanbanForcePushTitle": "Force push to Jira"
   ,"kanbanForcePushButton": "Force push"

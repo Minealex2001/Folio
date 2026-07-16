@@ -270,7 +270,13 @@ function tokenSurchargeInk(totalTokenCount: number | undefined): number {
 
 type OpenAiOkJson = {
   choices?: Array<{
-    message?: { content?: string | null };
+    message?: {
+      content?: string | null;
+      tool_calls?: Array<{
+        id?: string;
+        function?: { name?: string; arguments?: string };
+      }>;
+    };
     finish_reason?: string;
   }>;
   usage?: { total_tokens?: number };
@@ -280,6 +286,7 @@ type OpenAiOkJson = {
 function parseOpenAiSuccessResponse(raw: string): {
   text: string;
   totalTokenCount?: number;
+  toolCalls?: OpenAiToolCall[];
 } {
   let json: OpenAiOkJson;
   try {
@@ -291,9 +298,12 @@ function parseOpenAiSuccessResponse(raw: string): {
     console.error("Quill Cloud API error object", json.error);
     throw new AiHttpsError("internal", "AI provider error");
   }
-  const content = json.choices?.[0]?.message?.content;
+  const message = json.choices?.[0]?.message;
+  const content = message?.content;
   const text = typeof content === "string" ? content : "";
-  if (!text.trim()) {
+  const toolCalls = normalizeOpenAiToolCalls(message?.tool_calls);
+
+  if (!text.trim() && !toolCalls) {
     const reason = json.choices?.[0]?.finish_reason;
     console.warn("Quill Cloud empty model output", { reason });
     const hint =
@@ -309,7 +319,7 @@ function parseOpenAiSuccessResponse(raw: string): {
     typeof json.usage?.total_tokens === "number"
       ? json.usage.total_tokens
       : undefined;
-  return { text: text.trim(), totalTokenCount };
+  return { text: text.trim(), totalTokenCount, toolCalls };
 }
 
 /**
@@ -361,29 +371,111 @@ async function callOpenAiGenerate(prompt: string): Promise<{
   );
 }
 
+/** Tool call tal como lo devuelve/espera la API de chat completions de OpenAI. */
+type OpenAiToolCall = {
+  id: string;
+  type: "function";
+  function: { name: string; arguments: string };
+};
+
 type OpenAiChatMessage = {
-  role: "system" | "user" | "assistant";
+  role: "system" | "user" | "assistant" | "tool";
   content: string;
+  /** Solo `role: "assistant"` cuando el turno anterior invocó una o más tools. */
+  tool_calls?: OpenAiToolCall[];
+  /** Solo `role: "tool"`: id de la tool call cuyo resultado transporta este mensaje. */
+  tool_call_id?: string;
 };
 
 function normalizeOpenAiRole(raw: unknown): OpenAiChatMessage["role"] | null {
   const r = typeof raw === "string" ? raw.trim().toLowerCase() : "";
-  if (r === "system" || r === "user" || r === "assistant") return r;
+  if (r === "system" || r === "user" || r === "assistant" || r === "tool") return r;
   return null;
 }
 
+function normalizeOpenAiToolCalls(raw: unknown): OpenAiToolCall[] | undefined {
+  if (!Array.isArray(raw)) return undefined;
+  const out: OpenAiToolCall[] = [];
+  for (const item of raw) {
+    if (!item || typeof item !== "object") continue;
+    const c = item as {
+      id?: unknown;
+      function?: { name?: unknown; arguments?: unknown };
+    };
+    const id = typeof c.id === "string" ? c.id.trim() : "";
+    const name = typeof c.function?.name === "string" ? c.function.name.trim() : "";
+    const args = typeof c.function?.arguments === "string" ? c.function.arguments : "";
+    if (!id || !name) continue;
+    out.push({ id, type: "function", function: { name, arguments: args } });
+  }
+  return out.length > 0 ? out : undefined;
+}
+
+/**
+ * A diferencia del resto de mensajes, los de `role: "assistant"` con
+ * `tool_calls` pueden llevar `content` vacío (el modelo no dijo nada en
+ * texto, solo pidió invocar una acción), y los de `role: "tool"` necesitan
+ * `tool_call_id` para que el proveedor los empareje con la tool call que
+ * responden — sin eso, la API de OpenAI rechaza la petición.
+ */
 function normalizeOpenAiMessages(raw: unknown): OpenAiChatMessage[] {
   if (!Array.isArray(raw)) return [];
   const out: OpenAiChatMessage[] = [];
   for (const item of raw) {
     if (!item || typeof item !== "object") continue;
-    const m = item as { role?: unknown; content?: unknown };
+    const m = item as {
+      role?: unknown;
+      content?: unknown;
+      tool_calls?: unknown;
+      tool_call_id?: unknown;
+    };
     const role = normalizeOpenAiRole(m.role);
+    if (!role) continue;
     const content = typeof m.content === "string" ? m.content.trim() : "";
-    if (!role || !content) continue;
+
+    if (role === "tool") {
+      const toolCallId = typeof m.tool_call_id === "string" ? m.tool_call_id.trim() : "";
+      if (!toolCallId || !content) continue;
+      out.push({ role, content, tool_call_id: toolCallId });
+      continue;
+    }
+
+    if (role === "assistant") {
+      const toolCalls = normalizeOpenAiToolCalls(m.tool_calls);
+      if (!content && !toolCalls) continue;
+      out.push({ role, content, ...(toolCalls ? { tool_calls: toolCalls } : {}) });
+      continue;
+    }
+
+    if (!content) continue;
     out.push({ role, content });
   }
   return out;
+}
+
+/** Tools declaradas por el cliente (mismo formato que OpenAI-compatible local). */
+function normalizeOpenAiTools(raw: unknown): Array<Record<string, unknown>> | undefined {
+  if (!Array.isArray(raw) || raw.length === 0) return undefined;
+  const out: Array<Record<string, unknown>> = [];
+  for (const item of raw) {
+    if (!item || typeof item !== "object" || Array.isArray(item)) continue;
+    const t = item as Record<string, unknown>;
+    const fn = t.function as Record<string, unknown> | undefined;
+    if (t.type !== "function" || !fn || typeof fn.name !== "string" || !fn.name.trim()) {
+      continue;
+    }
+    out.push(t);
+    // Límite defensivo: un catálogo desproporcionado infla el prompt y el
+    // riesgo de abuso del endpoint más de lo que cualquier turno legítimo necesita.
+    if (out.length >= 40) break;
+  }
+  return out.length > 0 ? out : undefined;
+}
+
+function normalizeOpenAiToolChoice(raw: unknown): "auto" | "none" | "required" | undefined {
+  const v = typeof raw === "string" ? raw.trim().toLowerCase() : "";
+  if (v === "auto" || v === "none" || v === "required") return v;
+  return undefined;
 }
 
 function normalizeOptionalString(raw: unknown, maxLen: number): string {
@@ -494,7 +586,9 @@ async function callOpenAiChatStructured(input: {
   responseSchema?: Record<string, unknown> | null;
   maxTokens?: number;
   temperature?: number;
-}): Promise<{ text: string; totalTokenCount?: number }> {
+  tools?: Array<Record<string, unknown>>;
+  toolChoice?: "auto" | "none" | "required";
+}): Promise<{ text: string; totalTokenCount?: number; toolCalls?: OpenAiToolCall[] }> {
   const key = openAiApiKey();
   if (!key) {
     throw new AiHttpsError(
@@ -505,7 +599,11 @@ async function callOpenAiChatStructured(input: {
 
   const systemPrompt = (input.systemPrompt ?? "").trim();
   const prompt = (input.prompt ?? "").trim();
-  const normalizedMsgs = (input.messages ?? []).filter((m) => m.content.trim());
+  // No filtrar por `content` a secas: un turno `assistant` de solo tool-calls
+  // tiene `content` vacío legítimamente (ya lo valida normalizeOpenAiMessages).
+  const normalizedMsgs = (input.messages ?? []).filter(
+    (m) => m.content.trim() || (m.tool_calls && m.tool_calls.length > 0)
+  );
 
   const messages: OpenAiChatMessage[] = [];
   if (systemPrompt) messages.push({ role: "system", content: systemPrompt });
@@ -537,6 +635,11 @@ async function callOpenAiChatStructured(input: {
         strict: true,
       },
     };
+  }
+
+  if (input.tools && input.tools.length > 0) {
+    body.tools = input.tools;
+    body.tool_choice = input.toolChoice ?? "auto";
   }
 
   let r429 = 0;
@@ -650,10 +753,13 @@ async function runFolioCloudAiForUid(
     responseSchema?: Record<string, unknown> | null;
     maxTokens?: number;
     temperature?: number;
+    tools?: Array<Record<string, unknown>>;
+    toolChoice?: "auto" | "none" | "required";
   },
   operationKind: string
 ): Promise<{
   text: string;
+  toolCalls?: OpenAiToolCall[];
   ink: { monthlyBalance: number; purchasedBalance: number };
   inkCharged: number;
   inkBaseCharged: number;
@@ -668,13 +774,14 @@ async function runFolioCloudAiForUid(
   const preSnap = await ref.get();
   const preData = (preSnap.data() ?? {}) as Record<string, unknown>;
   if (isFolioStaffUser(preData)) {
-    const { text } = await callOpenAiChatStructured(input);
+    const { text, toolCalls } = await callOpenAiChatStructured(input);
     const finalSnap = await ref.get();
     const inkOut = readInkBalances(
       (finalSnap.data() ?? {}) as Record<string, unknown>
     );
     return {
       text,
+      toolCalls,
       ink: {
         monthlyBalance: inkOut.monthly,
         purchasedBalance: inkOut.purchased,
@@ -721,7 +828,7 @@ async function runFolioCloudAiForUid(
   });
 
   try {
-    const { text, totalTokenCount } = await callOpenAiChatStructured(input);
+    const { text, totalTokenCount, toolCalls } = await callOpenAiChatStructured(input);
     const extraWant = tokenSurchargeInk(totalTokenCount);
     const extraCharged = await chargeInkExtraIfPossible(
       uid,
@@ -734,6 +841,7 @@ async function runFolioCloudAiForUid(
     );
     return {
       text,
+      toolCalls,
       ink: {
         monthlyBalance: inkOut.monthly,
         purchasedBalance: inkOut.purchased,
@@ -4103,6 +4211,8 @@ export const folioCloudAiComplete = functionsV1
     const responseSchema = normalizeResponseSchema(data?.responseSchema);
     const maxTokens = normalizeClientMaxTokens(data?.maxTokens);
     const temperature = normalizeClientTemperature(data?.temperature);
+    const tools = normalizeOpenAiTools(data?.tools);
+    const toolChoice = normalizeOpenAiToolChoice(data?.toolChoice);
     if (!prompt && messages.length === 0) {
       throw new AiHttpsError("invalid-argument", "Missing prompt/messages");
     }
@@ -4116,6 +4226,8 @@ export const folioCloudAiComplete = functionsV1
         responseSchema,
         maxTokens,
         temperature,
+        tools,
+        toolChoice,
       },
       operationKind
     );
@@ -4153,6 +4265,8 @@ export const folioCloudAiCompleteHttp = functionsV1
       const responseSchema = normalizeResponseSchema(payload.responseSchema);
       const maxTokens = normalizeClientMaxTokens(payload.maxTokens);
       const temperature = normalizeClientTemperature(payload.temperature);
+      const tools = normalizeOpenAiTools(payload.tools);
+      const toolChoice = normalizeOpenAiToolChoice(payload.toolChoice);
       if (!prompt && messages.length === 0) {
         throw new AiHttpsError("invalid-argument", "Missing prompt/messages");
       }
@@ -4166,6 +4280,8 @@ export const folioCloudAiCompleteHttp = functionsV1
           responseSchema,
           maxTokens,
           temperature,
+          tools,
+          toolChoice,
         },
         operationKind
       );

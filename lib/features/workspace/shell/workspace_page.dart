@@ -35,6 +35,7 @@ import '../../../models/folio_columns_data.dart';
 import '../../../models/folio_template_button_data.dart';
 import '../../../models/folio_toggle_data.dart';
 import '../../../models/folio_kanban_data.dart';
+import '../../../services/ai/ai_tool_loop.dart';
 import '../../../services/ai/ai_types.dart';
 import '../../../services/ai/folio_vault_light_search.dart';
 import '../../../services/ai/folio_cloud_ai_service.dart';
@@ -54,6 +55,7 @@ import '../../../session/vault_session.dart';
 import '../../settings/folio_cloud_subscription_pitch_page.dart';
 import '../../settings/settings_page.dart' show SettingsPage;
 import 'ai_chat_reply_skeleton.dart';
+import 'ai_tool_activity_indicator.dart';
 import '../editor/ai_typewriter_message.dart';
 import '../editor/block_editor.dart';
 import '../editor/block_editor_support_widgets.dart';
@@ -68,7 +70,7 @@ import '../collab/collaboration_sheet.dart';
 import 'save_status_chip.dart';
 import 'workspace_editor_surface.dart';
 import 'workspace_shell.dart';
-import '../tasks/task_quick_add_dialog.dart';
+import '../tasks/task_details_panel.dart';
 import '../tasks/vault_task_hub_page.dart';
 import '../templates/template_gallery_page.dart';
 import '../drive/drive_page.dart';
@@ -156,6 +158,7 @@ class _WorkspacePageState extends State<WorkspacePage> {
   final Map<String, String> _aiMeetingTranscripts = {};
   late String _attachmentsBoundChatId;
   bool _aiChatBusy = false;
+  String? _aiToolActivityLabel;
   AiTokenUsage? _lastChatTokenUsage;
   String _aiInkEstimateOperationKind = 'chat_turn';
   double _aiPanelWidth = 360;
@@ -736,6 +739,12 @@ class _WorkspacePageState extends State<WorkspacePage> {
                             );
                           },
                         ),
+                        if (!isUser &&
+                            message.toolErrors != null &&
+                            message.toolErrors!.isNotEmpty)
+                          ...message.toolErrors!.map(
+                            (err) => AiToolErrorChip(message: err, colorScheme: scheme),
+                          ),
                         if (!isUser) ...[
                           const SizedBox(height: 12),
                           Row(
@@ -1854,15 +1863,21 @@ class _WorkspacePageState extends State<WorkspacePage> {
         .toList();
     if (kanbanPages.isEmpty) return;
 
-    if (kanbanPages.length == 1) {
-      final pid = kanbanPages.single.id;
-      await showTaskQuickAddDialog(
+    Future<void> createOnPage(String pageId) async {
+      final page = _s.pages.where((p) => p.id == pageId).firstOrNull;
+      if (page == null) return;
+      final kanbanBlock = page.blocks.where((b) => b.type == 'kanban').firstOrNull;
+      await createTaskDraftAndOpenDetails(
         context: context,
         session: _s,
-        appSettings: widget.appSettings,
-        targetPageId: pid,
-        kanbanColumns: _s.kanbanDataForPage(pid).columns,
+        pageId: pageId,
+        afterBlockId: kanbanBlock?.id,
+        selectPage: true,
       );
+    }
+
+    if (kanbanPages.length == 1) {
+      await createOnPage(kanbanPages.single.id);
     } else {
       final l10n = AppLocalizations.of(context);
       final selected = await showModalBottomSheet<String>(
@@ -1943,13 +1958,7 @@ class _WorkspacePageState extends State<WorkspacePage> {
         },
       );
       if (selected != null && mounted) {
-        await showTaskQuickAddDialog(
-          context: context,
-          session: _s,
-          appSettings: widget.appSettings,
-          targetPageId: selected,
-          kanbanColumns: _s.kanbanDataForPage(selected).columns,
-        );
+        await createOnPage(selected);
       }
     }
     if (mounted) setState(() {});

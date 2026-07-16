@@ -76,8 +76,6 @@ import 'block_editor/block_editor_text_helpers.dart' as folio_slash;
 import 'block_editor/block_editor_callout.dart';
 import 'block_editor/block_row_chrome.dart';
 import 'block_editor/copilot_text_controller.dart';
-import '../../../services/app_store/app_extension_registry.dart';
-import '../widgets/custom_app_block_widget.dart';
 import 'package:flutter_quill/flutter_quill.dart' as quill;
 import 'richtext/markdown_quill_codec.dart';
 
