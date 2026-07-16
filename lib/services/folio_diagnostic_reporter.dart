@@ -118,7 +118,7 @@ class FolioDiagnosticReporter {
       final body = jsonEncode({
         'installId': installId,
         'kind': kind.trim().isEmpty ? 'manual' : kind.trim(),
-        'appVersion': '${info.version}+${info.buildNumber}',
+        'appVersion': info.version,
         'platform': defaultTargetPlatform.name,
         'channel': AppSettings.distributionChannelFromEnvironment.trim(),
         'telemetryEnabled': settings.telemetryEnabled,

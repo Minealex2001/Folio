@@ -306,9 +306,7 @@ class _FolioAppState extends State<FolioApp> with WidgetsBindingObserver {
       final appVersion = info.version.trim();
       final buildNumber = info.buildNumber.trim();
       if (appVersion.isEmpty) return;
-      final versionLabel = buildNumber.isEmpty
-          ? appVersion
-          : '$appVersion+$buildNumber';
+      final versionLabel = appVersion;
       final updater = GitHubReleaseUpdater(
         owner: widget.appSettings.updaterGithubOwner,
         repo: widget.appSettings.updaterGithubRepo,
@@ -356,9 +354,7 @@ class _FolioAppState extends State<FolioApp> with WidgetsBindingObserver {
       final appVersion = info.version.trim();
       final buildNumber = info.buildNumber.trim();
       if (appVersion.isEmpty) return;
-      final versionLabel = buildNumber.isEmpty
-          ? appVersion
-          : '$appVersion+$buildNumber';
+      final versionLabel = appVersion;
       final lastSeen = widget.appSettings.lastSeenReleaseNotesVersion.trim();
 
       // Inicializa el marcador en instalaciones nuevas para no abrir en el primer arranque.
@@ -695,7 +691,7 @@ class _FolioAppState extends State<FolioApp> with WidgetsBindingObserver {
       final info = await PackageInfo.fromPlatform();
       if (!mounted) return;
       setState(() {
-        _installedVersionLabel = '${info.version}+${info.buildNumber}';
+        _installedVersionLabel = info.version;
       });
     } catch (_) {
       _installedVersionLabel ??= 'unknown';

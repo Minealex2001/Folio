@@ -476,9 +476,7 @@ extension _SettingsPageBackupFlows on _SettingsPageState {
         _snack(l10nRn.settingsCouldNotReadInstalledVersion);
         return;
       }
-      final versionLabel = buildNumber.isEmpty
-          ? appVersion
-          : '$appVersion+$buildNumber';
+      final versionLabel = appVersion;
 
       final updater = _buildUpdater();
       ReleaseNotesResult? release;
