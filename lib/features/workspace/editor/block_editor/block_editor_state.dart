@@ -574,17 +574,7 @@ class BlockEditorState extends State<BlockEditor> with _BlockRowBuild {
       focusId = last.id;
       focusOff = _liveCaretPlainOffset(last.id);
     }
-    // Sólo fijamos un objetivo de foco "por defecto" (el bloque que ya lo
-    // tenía visualmente) si nadie más pidió ya moverlo a otra parte. Si un
-    // caller como `_tryInsertNewBlockFromCurrentCaret` ya dejó pendiente
-    // "mover el foco al bloque nuevo" (p. ej. tras partir un bloque),
-    // sobrescribirlo aquí con el bloque viejo cancelaría esa intención: el
-    // foco (y el flush posterior al perderlo) volvería al bloque de origen
-    // en vez de al nuevo, y ese flush espurio podía pisar el contenido que
-    // el split ya había dejado correcto en el bloque de origen.
-    if (focusId != null &&
-        _pendingFocusBlockId == null &&
-        _pendingFocusIndex == null) {
+    if (focusId != null) {
       _pendingFocusBlockId = focusId;
       _pendingCursorOffset = focusOff ?? 0;
     }
@@ -3536,8 +3526,6 @@ class BlockEditorState extends State<BlockEditor> with _BlockRowBuild {
     if (_controllersMismatchPage(page)) {
       if (_canReorderControllersOnly(page)) {
         _reorderControllersLikePage(page);
-      } else if (_canAppendControllersOnly(page)) {
-        _appendControllersForNewTailBlocks(page);
       } else {
         _syncControllers();
       }
@@ -3652,123 +3640,38 @@ class BlockEditorState extends State<BlockEditor> with _BlockRowBuild {
     );
 
     for (final b in page.blocks) {
-      _appendControllerEntryFor(page, b);
-    }
-
-    var focusIdx = pendingIdx;
-    var focusOff = pendingOff;
-    if (pendingBlockId != null) {
-      final j = page.blocks.indexWhere((b) => b.id == pendingBlockId);
-      if (j >= 0) {
-        focusIdx = j;
-        focusOff ??= _liveCaretPlainOffset(pendingBlockId);
+      final bid = b.id;
+      final pid = page.id;
+      if (_stylableBlockTypes.contains(b.type)) {
+        // Asegurar controlador WYSIWYG y sincronizar desde el modelo si cambió
+        // (p. ej. undo/redo o cambios remotos).
+        final qc = _ensureQuillController(pageId: pid, block: b);
+        final last = _quillLastMdByBlockId[bid];
+        if (last != null && last != b.text) {
+          if (_quillMarkdownNormalize(last) ==
+              _quillMarkdownNormalize(b.text)) {
+            _quillLastMdByBlockId[bid] = b.text;
+          } else {
+            final oldPlain = qc.document.toPlainText();
+            final oldSel = qc.selection;
+            qc.document = FolioMarkdownQuillCodec.markdownToDocument(b.text);
+            _quillLastMdByBlockId[bid] = b.text;
+            _quillDebounceByBlockId[bid]?.cancel();
+            final newPlain = qc.document.toPlainText();
+            if (newPlain == oldPlain && oldSel.isValid) {
+              qc.updateSelection(oldSel, quill.ChangeSource.remote);
+            } else if (oldSel.isValid) {
+              final o = oldSel.baseOffset.clamp(0, oldPlain.length);
+              final at = o.clamp(0, newPlain.length);
+              qc.updateSelection(
+                TextSelection.collapsed(offset: at),
+                quill.ChangeSource.remote,
+              );
+            }
+          }
+        }
       }
-    }
-
-    final idxToFocus = focusIdx;
-    final offToFocus = focusOff;
-    if (idxToFocus != null &&
-        idxToFocus >= 0 &&
-        idxToFocus < _focusNodes.length) {
-      _pendingFocusIndex = idxToFocus;
-      _pendingCursorOffset = offToFocus;
-      if (pendingBlockId != null) {
-        _pendingFocusBlockId = pendingBlockId;
-      } else if (idxToFocus < page.blocks.length) {
-        _pendingFocusBlockId = page.blocks[idxToFocus].id;
-      }
-    }
-  }
-
-  /// Sólo bloques nuevos añadidos al final: todos los ids/orden/tipo que ya
-  /// teníamos en `_controllerBlockIds` siguen presentes tal cual, y la
-  /// página sólo tiene bloques adicionales al final (p. ej. el sentinela
-  /// final automático de [_ensureTrailingSentinel], o "Enter"/`/` creando
-  /// un bloque nuevo al final de la página). A diferencia de
-  /// [_syncControllers], no pasa por [_disposeControllers]: ningún
-  /// controller/FocusNode/[quill.QuillController] existente se destruye, así
-  /// que el bloque que el usuario esté editando activamente en ese momento
-  /// no pierde el foco ni el caret.
-  bool _canAppendControllersOnly(FolioPage page) {
-    if (page.id != _boundPageId) return false;
-    if (page.blocks.length <= _controllerBlockIds.length) return false;
-    for (var i = 0; i < _controllerBlockIds.length; i++) {
-      if (page.blocks[i].id != _controllerBlockIds[i]) return false;
-      final wantCode = _usesCodeControllerForBlockType(page.blocks[i].type);
-      final hasCode = _controllers[i] is CodeController;
-      if (wantCode != hasCode) return false;
-    }
-    return true;
-  }
-
-  void _appendControllersForNewTailBlocks(FolioPage page) {
-    // Los bloques que ya teníamos pueden haber cambiado de texto por la
-    // misma mutación de modelo que trajo los bloques nuevos (p. ej. un
-    // split de bloque reparte el texto original entre el bloque existente y
-    // uno nuevo) — reconciliar su `QuillController` para no dejarlo con
-    // contenido obsoleto que luego se flushee de vuelta al modelo.
-    for (var i = 0; i < _controllerBlockIds.length; i++) {
-      _reconcileQuillControllerFor(page, page.blocks[i]);
-    }
-    for (var i = _controllerBlockIds.length; i < page.blocks.length; i++) {
-      _appendControllerEntryFor(page, page.blocks[i]);
-    }
-  }
-
-  /// Asegura (creándolo si hace falta) el `QuillController` WYSIWYG de un
-  /// bloque y lo sincroniza con el modelo si su markdown cambió por una vía
-  /// que no pasó por el propio Quill (p. ej. undo/redo, un `split`/`merge`
-  /// de bloques, o cambios remotos). Incondicional: a diferencia de
-  /// [_reconcileStylableQuillDocumentsWithModel], no se salta bloques con
-  /// foco — se usa justo después de una mutación de modelo (split/merge/
-  /// inserción) donde el foco "viejo" todavía no se movió al bloque nuevo,
-  /// así que saltarlo dejaría el documento Quill desactualizado hasta el
-  /// siguiente flush (que sobrescribiría el modelo con contenido obsoleto).
-  void _reconcileQuillControllerFor(FolioPage page, FolioBlock b) {
-    if (!_stylableBlockTypes.contains(b.type)) return;
-    final bid = b.id;
-    final qc = _ensureQuillController(pageId: page.id, block: b);
-    final last = _quillLastMdByBlockId[bid];
-    if (last == null || last == b.text) return;
-    if (_quillMarkdownNormalize(last) == _quillMarkdownNormalize(b.text)) {
-      _quillLastMdByBlockId[bid] = b.text;
-      return;
-    }
-    final oldPlain = qc.document.toPlainText();
-    final oldSel = qc.selection;
-    qc.document = FolioMarkdownQuillCodec.markdownToDocument(b.text);
-    _quillLastMdByBlockId[bid] = b.text;
-    final newPlain = qc.document.toPlainText();
-    if (newPlain == oldPlain && oldSel.isValid) {
-      qc.updateSelection(oldSel, quill.ChangeSource.remote);
-    } else if (oldSel.isValid) {
-      final o = oldSel.baseOffset.clamp(0, oldPlain.length);
-      final at = o.clamp(0, newPlain.length);
-      qc.updateSelection(
-        TextSelection.collapsed(offset: at),
-        quill.ChangeSource.remote,
-      );
-    }
-    // `qc.document =` y `qc.updateSelection(...)` disparan el listener que
-    // Quill usa también para tipeo real, el cual reprograma el debounce de
-    // flush sin condición. Cancelarlo aquí, al final (no antes de esas
-    // llamadas), evita que ese flush reprogramado vuelva a escribir en el
-    // modelo el resultado de serializar el documento recién reconciliado —
-    // para un bloque vacío eso sería `"\n"`, no `""`, y pisaría el valor
-    // correcto que acabamos de fijar desde el modelo.
-    _quillDebounceByBlockId[bid]?.cancel();
-  }
-
-  /// Construye (o reutiliza, para el `QuillController`) el controller,
-  /// `FocusNode` y listeners de un bloque, y los añade al final de los
-  /// arrays paralelos `_controllers`/`_focusNodes`/`_controllerBlockIds`.
-  /// Extraído de [_syncControllers] para poder reutilizarlo también en
-  /// [_appendControllersForNewTailBlocks] sin duplicar la lógica.
-  void _appendControllerEntryFor(FolioPage page, FolioBlock b) {
-    final bid = b.id;
-    final pid = page.id;
-    _reconcileQuillControllerFor(page, b);
-    final TextEditingController c = _usesCodeControllerForBlockType(b.type)
+      final TextEditingController c = _usesCodeControllerForBlockType(b.type)
           ? CodeController(
               text: b.text,
               language: modeForLanguageId(
@@ -3853,35 +3756,19 @@ class BlockEditorState extends State<BlockEditor> with _BlockRowBuild {
               final md = FolioMarkdownQuillCodec.documentToMarkdown(
                 qc.document,
               );
-              final lastKnown = _quillLastMdByBlockId[bid];
-              // Si el documento ya coincide con lo último conocido (p. ej.
-              // porque `_reconcileQuillControllerFor` acaba de resincronizarlo
-              // desde un cambio de modelo ajeno a Quill, como un split/merge
-              // de bloques), no hay nada que escribir: hacerlo igualmente
-              // sobrescribiría el modelo con el resultado de serializar un
-              // documento vacío/"sin tocar" (que Quill representa como
-              // `"\n"`, no como cadena vacía), perdiendo el valor correcto.
-              final unchanged =
-                  lastKnown != null &&
-                  _quillMarkdownNormalize(lastKnown) ==
-                      _quillMarkdownNormalize(md);
-              if (unchanged) {
-                _quillLastMdByBlockId[bid] = md;
-              } else {
-                final deltaStr = jsonEncode(qc.document.toDelta().toJson());
-                _quillLastMdByBlockId[bid] = md;
-                _runWithShortcutsIgnored(() {
-                  _s.updateBlockTextFull(pid, bid, md, deltaStr);
-                  final idx = _controllerBlockIds.indexOf(bid);
-                  if (idx >= 0 && idx < _controllers.length) {
-                    final caret = qc.selection.baseOffset.clamp(0, md.length);
-                    _controllers[idx].value = TextEditingValue(
-                      text: md,
-                      selection: TextSelection.collapsed(offset: caret),
-                    );
-                  }
-                });
-              }
+              final deltaStr = jsonEncode(qc.document.toDelta().toJson());
+              _quillLastMdByBlockId[bid] = md;
+              _runWithShortcutsIgnored(() {
+                _s.updateBlockTextFull(pid, bid, md, deltaStr);
+                final idx = _controllerBlockIds.indexOf(bid);
+                if (idx >= 0 && idx < _controllers.length) {
+                  final caret = qc.selection.baseOffset.clamp(0, md.length);
+                  _controllers[idx].value = TextEditingValue(
+                    text: md,
+                    selection: TextSelection.collapsed(offset: caret),
+                  );
+                }
+              });
             }
           }
           final touched = _tailTapTransientTouchedByBlockId[bid];
@@ -3960,9 +3847,34 @@ class BlockEditorState extends State<BlockEditor> with _BlockRowBuild {
       fn.addListener(focusDecorListener);
       _focusDecorListeners.add(focusDecorListener);
 
-    _controllers.add(c);
-    _focusNodes.add(fn);
-    _controllerBlockIds.add(bid);
+      _controllers.add(c);
+      _focusNodes.add(fn);
+      _controllerBlockIds.add(bid);
+    }
+
+    var focusIdx = pendingIdx;
+    var focusOff = pendingOff;
+    if (pendingBlockId != null) {
+      final j = page.blocks.indexWhere((b) => b.id == pendingBlockId);
+      if (j >= 0) {
+        focusIdx = j;
+        focusOff ??= _liveCaretPlainOffset(pendingBlockId);
+      }
+    }
+
+    final idxToFocus = focusIdx;
+    final offToFocus = focusOff;
+    if (idxToFocus != null &&
+        idxToFocus >= 0 &&
+        idxToFocus < _focusNodes.length) {
+      _pendingFocusIndex = idxToFocus;
+      _pendingCursorOffset = offToFocus;
+      if (pendingBlockId != null) {
+        _pendingFocusBlockId = pendingBlockId;
+      } else if (idxToFocus < page.blocks.length) {
+        _pendingFocusBlockId = page.blocks[idxToFocus].id;
+      }
+    }
   }
 
   /// Inserta un bloque nuevo debajo (o divide en el cursor) usando la misma lógica

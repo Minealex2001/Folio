@@ -978,7 +978,9 @@ class _WorkspaceHomeViewState extends State<WorkspaceHomeView> {
         final appVersion = info.version.trim();
         final buildNumber = info.buildNumber.trim();
         if (appVersion.isEmpty) return const SizedBox.shrink();
-        final versionLabel = appVersion;
+        final versionLabel = buildNumber.isEmpty
+            ? appVersion
+            : '$appVersion+$buildNumber';
         final lastSeen = widget.appSettings.lastSeenReleaseNotesVersion.trim();
         final unread =
             lastSeen.isNotEmpty && lastSeen != versionLabel;

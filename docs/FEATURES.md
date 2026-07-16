@@ -1113,7 +1113,6 @@ Soft-delete de páginas y carpetas con retención de **30 días**. El borrado de
 ### UI
 
 - Confirmación del menú del tile: «Mover a la papelera» (subárbol completo para carpetas/páginas con hijas).
-- Menú ⋯ del tile del sidebar (icono, mover, renombrar, plantilla, papelera): en escritorio aparece al **hover**; en **iOS/Android** queda **siempre visible** (no hay hover táctil).
 - Entrada fija **Papelera** en el pie del sidebar (`showPageTrashSheet` en `page_trash_sheet.dart`): restaurar, eliminar definitivamente, vaciar, con aviso de retención 30 días.
 - Badge de conteo cuando hay elementos en papelera.
 

@@ -18,18 +18,8 @@ Widget _buildBlockRowMarker({
           : (androidPhoneLayout
                 ? BlockEditorState._markerColumnWidthPhone + 6.0
                 : BlockEditorState._markerColumnWidth + 8.0);
-      // El `Checkbox` de Material reserva un tap target de ~48dp de alto
-      // (incluso escalado visualmente), muy por encima de una línea de
-      // texto. Si dejamos que el `SizedBox` tome esa altura, la fila entera
-      // (con `CrossAxisAlignment.start`) alinea su borde superior con el
-      // texto en vez de centrar el check con la primera línea. Fijamos la
-      // altura del marcador a la de una línea de texto y dejamos que el
-      // `Align` centre el checkbox (más alto) dentro, sin cambiar su área
-      // de toque.
-      final lineHeight = (style.fontSize ?? 15.0) * (style.height ?? 1.2);
       return SizedBox(
         width: todoCol,
-        height: lineHeight,
         child: Align(
           alignment: Alignment.centerLeft,
           child: Semantics(

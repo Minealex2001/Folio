@@ -273,7 +273,7 @@ extension _SettingsPageBackupSecurityActions on _SettingsPageState {
       final info = await PackageInfo.fromPlatform();
       if (!mounted) return;
       _rebuild(() {
-        _installedVersionLabel = info.version;
+        _installedVersionLabel = '${info.version}+${info.buildNumber}';
       });
       await _refreshReleaseReadiness();
     } catch (_) {

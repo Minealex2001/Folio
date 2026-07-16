@@ -1553,12 +1553,6 @@ class _SidebarTileState extends State<_SidebarTile> {
   bool _hovered = false;
   bool _menuOpen = false;
 
-  /// En iOS/Android no hay hover; el menú ⋯ debe quedar visible.
-  static bool _preferPersistentRowActions() {
-    return defaultTargetPlatform == TargetPlatform.iOS ||
-        defaultTargetPlatform == TargetPlatform.android;
-  }
-
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
@@ -1568,7 +1562,7 @@ class _SidebarTileState extends State<_SidebarTile> {
     final hasChildren = widget.hasChildren;
     final collapsed = widget.collapsed;
     final isFolder = page.isFolder;
-    final showRowActions = _hovered || _preferPersistentRowActions();
+    final showRowActions = _hovered;
 
     return Padding(
       padding: EdgeInsets.fromLTRB(widget.indent, 0, 0, FolioSpace.xs),
@@ -1628,13 +1622,9 @@ class _SidebarTileState extends State<_SidebarTile> {
                   builder: (context, constraints) {
                     // Durante el resize del panel el ancho puede ser muy pequeño; la fila de
                     // acciones tiene ancho intrínseco alto y provoca overflow si no se omite.
-                    // En móvil el umbral es más bajo: el ⋯ debe seguir siendo alcanzable.
-                    final minActionsWidth = _preferPersistentRowActions()
-                        ? 120.0
-                        : FolioSidebar.tileActionsMinWidth;
                     final allowInlineActions =
                         (showRowActions || _menuOpen) &&
-                        constraints.maxWidth >= minActionsWidth;
+                        constraints.maxWidth >= FolioSidebar.tileActionsMinWidth;
                     return Row(
                       children: [
                         // Selection bar indicator
