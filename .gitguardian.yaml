@@ -1,0 +1,15 @@
+paths-ignore:
+  # Generated localization files - these contain UI strings, not secrets
+  - lib/l10n/generated/
+  # Output and build artifacts
+  - build/
+  - output/
+  - Output/
+  - .dart_tool/
+  - pubspec.lock
+
+known-secrets:
+  # These are false positives: they are UI localization strings for password field labels
+  - 32399004  # "Contraseña" in Basque localization
+  - 32399005  # "Contraseña" in Catalan localization
+  - 32399006  # "Contraseña" in Spanish localization
