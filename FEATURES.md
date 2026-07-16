@@ -1,5 +1,10 @@
 # Folio — Features técnicas
 
+## Sidebar móvil — menú del tile
+
+- El menú ⋯ de cada página/carpeta (icono, mover, renombrar, plantilla, papelera) en escritorio sigue mostrando las acciones al hover.
+- En **iOS/Android** las acciones permanecen visibles sin hover (`_SidebarTile` en `lib/features/workspace/shell/sidebar.dart`), con umbral de ancho más bajo para anidación profunda.
+
 ## Refuerzo de base (v0.5.x)
 
 ### Escritura atómica de libreta
