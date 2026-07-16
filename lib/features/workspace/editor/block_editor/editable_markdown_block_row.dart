@@ -207,6 +207,9 @@ Widget _buildEditableMarkdownBlockRow(_BlockRowScope s) {
                           onTap: () => focus.requestFocus(),
                         ),
                       ),
+                    ],
+                  ),
+                ),
             ],
           );
         }()
