@@ -141,7 +141,7 @@ Widget _buildEditableMarkdownBlockRow(_BlockRowScope s) {
           // markdown sin procesar debajo.
           final visibleQuillEditor = !showPreviewOverlay || showTransparentMarkdownPreview;
 
-          return Stack(
+           return Stack(
             children: [
               Offstage(
                 offstage: readOnlyMode,
@@ -207,9 +207,6 @@ Widget _buildEditableMarkdownBlockRow(_BlockRowScope s) {
                           onTap: () => focus.requestFocus(),
                         ),
                       ),
-                    ],
-                  ),
-                ),
             ],
           );
         }()
