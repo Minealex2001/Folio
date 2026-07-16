@@ -241,6 +241,18 @@ function Copy-AndroidApk {
     Write-Host "[ok] APK: $dest" -ForegroundColor Green
 }
 
+function Copy-AndroidAab {
+    $aab = Join-Path $RepoRoot 'build\app\outputs\bundle\release\app-release.aab'
+    if (-not (Test-Path -LiteralPath $aab)) {
+        Write-Warning "No se encontro $aab ; se omite copia AAB."
+        return
+    }
+    $verSafe = Get-VersionForFileName (Get-PubspecVersionRaw)
+    $dest = Join-Path $OutputDir "Folio-Android-PlayStore-${verSafe}.aab"
+    Copy-Item -LiteralPath $aab -Destination $dest -Force
+    Write-Host "[ok] AAB: $dest" -ForegroundColor Green
+}
+
 function Copy-MsixToOutput {
     $release = Join-Path $RepoRoot 'build\windows\x64\runner\Release'
     if (-not (Test-Path -LiteralPath $release)) {
@@ -320,8 +332,17 @@ function Build-Android {
     )
     & flutter @apkArgs
     Assert-LastExitCode 'flutter build apk'
-    Write-Host 'Android listo.' -ForegroundColor Green
+    Write-Host 'Android APK listo.' -ForegroundColor Green
     Copy-AndroidApk
+
+    Write-Host "`n[android] Compilando Android (AAB Release)..." -ForegroundColor Cyan
+    $aabArgs = Merge-FlutterDartDefines @('build', 'appbundle', '--release') @(
+        (Get-FolioDistributionArg $DistributionAndroid)
+    )
+    & flutter @aabArgs
+    Assert-LastExitCode 'flutter build appbundle'
+    Write-Host 'Android AAB listo.' -ForegroundColor Green
+    Copy-AndroidAab
 }
 
 function Build-Linux {
@@ -606,6 +627,16 @@ function Invoke-BuildAll {
         Write-Host "`n[warn] Omitiendo Linux: no se detecto entorno Linux/WSL." -ForegroundColor Magenta
         Write-Host "Pista: para compilar Linux desde Windows, usa WSL (Ubuntu/Debian)." -ForegroundColor Gray
     }
+
+    # Generar instalador de Windows
+    Write-Host "`n[installer] Generando instalador de Windows..." -ForegroundColor Yellow
+    $iscc = Find-Iscc
+    if ($iscc) {
+        Build-WindowsInstaller -ForceRebuild:$false
+    } else {
+        Write-Host "[warn] No se encontro Inno Setup (iscc.exe). Omitiendo instalador." -ForegroundColor Magenta
+        Write-Host "Instala Inno Setup desde: https://jrsoftware.org/isdl.php" -ForegroundColor Gray
+    }
 }
 
 # ---------------------------------------------------------------------------
@@ -625,11 +656,11 @@ function Show-Menu {
     Write-Host "   3) Publicar solo notas (changelog) sin instalador"
     Write-Host ""
     Write-Host "  COMPILAR (local, sin publicar)" -ForegroundColor Yellow
-    Write-Host "   4) Compilar TODO (Windows ZIP + MSIX + APK + Linux)"
+    Write-Host "   4) Compilar TODO (Windows ZIP + MSIX + APK + AAB + Linux + Instalador)"
     Write-Host "   5) Generar solo instalador Windows (.exe)"
     Write-Host "   6) Windows (canal GitHub) -> ZIP"
     Write-Host "   7) Windows (Microsoft Store) -> MSIX"
-    Write-Host "   8) Android (APK)"
+    Write-Host "   8) Android (APK + AAB)"
     Write-Host "   9) Linux (bundle -> ZIP)"
     Write-Host ""
     Write-Host "  MANTENIMIENTO" -ForegroundColor Yellow
