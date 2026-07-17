@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:cryptography/cryptography.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_storage/firebase_storage.dart';
@@ -21,7 +22,10 @@ import 'folio_storage_transport.dart';
 
 /// Sincronización multi-dispositivo vía Folio Cloud (pack cifrado + señal Firestore).
 ///
-/// Solo sube cuando el fingerprint del contenido local cambia. Logs mínimos.
+/// Cifrado con la DEK en memoria (libreta desbloqueada) o clave derivada estable
+/// del vault en claro. **Nunca pide contraseña** ni usa restore-wrap de cloud-pack.
+/// Solo sube cuando el fingerprint del contenido local cambia. Logs mínimos;
+/// los fallos de fondo no spamean snacks (solo log).
 class FolioCloudDeviceSyncController extends ChangeNotifier {
   FolioCloudDeviceSyncController({
     required AppSettings appSettings,
@@ -56,6 +60,8 @@ class FolioCloudDeviceSyncController extends ChangeNotifier {
   String _cachedPackPath = '';
   int _cachedPackSize = 0;
   String _status = '';
+  /// Evita spamear el mismo error en snacks.
+  String _lastNotifiedError = '';
 
   String get statusMessage => _status;
   int get lastRemoteRev => _lastRemoteRev;
@@ -79,6 +85,7 @@ class FolioCloudDeviceSyncController extends ChangeNotifier {
   Future<void> start() async {
     await stopWatching();
     if (!isEnabled) return;
+    if (_session.state != VaultFlowState.unlocked) return;
     final vaultId = VaultPaths.activeVaultId;
     if (vaultId == null || vaultId.isEmpty) return;
     _boundVaultId = vaultId;
@@ -108,6 +115,11 @@ class FolioCloudDeviceSyncController extends ChangeNotifier {
           );
     } else {
       _startPolling();
+    }
+    // Si no hay pack remoto (o aún no hemos subido), sembrar sin esperar a un edit.
+    if (_lastPushedFingerprint.isEmpty && _lastAppliedFingerprint.isEmpty) {
+      _dirty = true;
+      unawaited(_pushIfNeeded());
     }
   }
 
@@ -227,6 +239,9 @@ class FolioCloudDeviceSyncController extends ChangeNotifier {
     _dirty = false;
     _pushInFlight = true;
     try {
+      final packKey = await _resolvePackKeyQuietly();
+      if (packKey == null) return;
+
       final raw = await _session.exportSyncSnapshotBytes();
       if (raw == null || raw.isEmpty) return;
 
@@ -244,7 +259,6 @@ class FolioCloudDeviceSyncController extends ChangeNotifier {
         '(prev=$_lastPushedFingerprint) pages=${pack.payload.pages.length}',
       );
 
-      final packKey = await _session.cloudPackEncryptionKey();
       final cipher = await cloudPackEncryptBytes(
         plain: raw,
         packKey: packKey,
@@ -286,6 +300,7 @@ class FolioCloudDeviceSyncController extends ChangeNotifier {
       _lastAppliedFingerprint = fp;
       _cachedPackPath = path;
       _cachedPackSize = cipher.length;
+      _lastNotifiedError = '';
       if (finalize is Map) {
         final rev = _asInt(finalize['rev']);
         if (rev > _lastRemoteRev) _lastRemoteRev = rev;
@@ -306,7 +321,7 @@ class FolioCloudDeviceSyncController extends ChangeNotifier {
       debugPrint('[cloud_sync] push FAILED: $e');
       _dirty = true;
       _setStatus('error');
-      _onEvent?.call('Folio Cloud sync push failed: $e');
+      _notifyErrorOnce('push', e);
     } finally {
       _pushInFlight = false;
       if (_dirty) {
@@ -331,7 +346,11 @@ class FolioCloudDeviceSyncController extends ChangeNotifier {
     _setStatus('pulling');
     debugPrint('[cloud_sync] pull rev=$rev fp=$fingerprint');
     try {
-      final packKey = await _session.cloudPackEncryptionKey();
+      final packKey = await _resolvePackKeyQuietly();
+      if (packKey == null) {
+        _setStatus('idle');
+        return;
+      }
       final cipher = await folioStorageGetData(
         FirebaseStorage.instance.ref().child(packStoragePath),
         _maxPackBytes,
@@ -354,6 +373,7 @@ class FolioCloudDeviceSyncController extends ChangeNotifier {
       _lastAppliedFingerprint = fingerprint;
       if (rev > _lastRemoteRev) _lastRemoteRev = rev;
       _cachedPackPath = packStoragePath;
+      _lastNotifiedError = '';
       await _settings.setSyncLastSuccessMs(
         DateTime.now().millisecondsSinceEpoch,
       );
@@ -382,10 +402,47 @@ class FolioCloudDeviceSyncController extends ChangeNotifier {
       );
       debugPrint('[cloud_sync] pull FAILED: $e');
       _setStatus('error');
-      _onEvent?.call('Folio Cloud sync pull failed: $e');
+      _notifyErrorOnce('pull', e);
     } finally {
       _pullInFlight = false;
     }
+  }
+
+  /// Clave de cifrado de sync: DEK en memoria o derivada del vault en claro.
+  /// No pide contraseña; si la libreta no está lista, retorna null.
+  Future<SecretKey?> _resolvePackKeyQuietly() async {
+    if (_session.state != VaultFlowState.unlocked) return null;
+    if (_session.vaultUsesEncryption &&
+        _session.cloudPackRestoreDekMaterial == null) {
+      AppLogger.warn(
+        'device sync skipped: encrypted vault without DEK in memory',
+        tag: 'cloud_sync',
+      );
+      return null;
+    }
+    try {
+      return await _session.cloudPackEncryptionKey();
+    } catch (e) {
+      AppLogger.warn(
+        'device sync pack key unavailable',
+        tag: 'cloud_sync',
+        context: {'error': '$e'},
+      );
+      return null;
+    }
+  }
+
+  void _notifyErrorOnce(String phase, Object e) {
+    final msg = '$e'.trim();
+    // Nunca mostrar el error de restore-wrap/contraseña aquí: no aplica a device-sync.
+    if (msg.contains('contraseña de la libreta') ||
+        (msg.contains('restore') && msg.contains('wrap'))) {
+      return;
+    }
+    final key = '$phase|$msg';
+    if (key == _lastNotifiedError) return;
+    _lastNotifiedError = key;
+    _onEvent?.call('Folio Cloud sync $phase failed: $e');
   }
 
   void _setStatus(String s) {

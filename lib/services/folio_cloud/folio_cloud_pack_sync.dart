@@ -47,10 +47,10 @@ void _logSyncTelemetry(
 
 /// Sube la libreta abierta como cloud-pack incremental (blobs cifrados + snapshot).
 ///
-/// [restoreWrapPassword]: contraseña de la libreta (cifrada) o contraseña de recuperación
-/// (sin cifrado) para guardar en el servidor un envoltorio que permite restaurar en un
-/// dispositivo nuevo. Si es null y hace falta el primer envoltorio en una libreta cifrada,
-/// la subida fallará con un error explícito.
+/// El envoltorio de recuperación se obtiene sin pedir contraseña:
+/// - Libreta cifrada: copia de `vault.keys` (igual que el pack local/WebDAV).
+/// - Libreta en claro: wrap de la pack key con contraseña vacía (o [restoreWrapPassword]
+///   si el usuario eligió una de recuperación en la subida manual).
 Future<String?> uploadOpenVaultCloudPack({
   required VaultSession session,
   required String vaultId,
@@ -92,15 +92,12 @@ Future<String?> uploadOpenVaultCloudPack({
   final latest = await _getLatestCloudPackMeta(vaultId: vaultId);
   final hasRestoreWrap = latest?['hasRestoreWrap'] == true;
   final pw = restoreWrapPassword?.trim() ?? '';
-  if (pw.isEmpty && session.vaultUsesEncryption && !hasRestoreWrap) {
-    throw StateError(
-      'Se necesita la contraseña de la libreta una vez para permitir restaurar '
-      'esta copia incremental en otro dispositivo.',
-    );
-  }
   final plainNeedsWrap = !session.vaultUsesEncryption && !hasRestoreWrap;
+  final encryptedNeedsWrap = session.vaultUsesEncryption && !hasRestoreWrap;
   final mustNotSkipUploadForWrap =
-      (pw.isNotEmpty && !hasRestoreWrap) || plainNeedsWrap;
+      (pw.isNotEmpty && !hasRestoreWrap) ||
+      plainNeedsWrap ||
+      encryptedNeedsWrap;
   final latestFp = latest?['contentFingerprint']?.toString().trim() ?? '';
   if (!mustNotSkipUploadForWrap &&
       latestFp.isNotEmpty &&
@@ -131,14 +128,19 @@ Future<String?> uploadOpenVaultCloudPack({
 
   final packKey = await session.cloudPackEncryptionKey();
 
-  if (pw.isNotEmpty || plainNeedsWrap) {
+  if (encryptedNeedsWrap || plainNeedsWrap || pw.isNotEmpty) {
     rep(VaultCloudPackProgressStep.restoreWrap, 0.11);
   }
 
   Uint8List? restoreWrapBytes;
   String? restoreWrapKind;
-  if (pw.isNotEmpty) {
-    if (session.vaultUsesEncryption) {
+  if (session.vaultUsesEncryption && !hasRestoreWrap) {
+    // Igual que el pack local: vault.keys ya está envuelto con la contraseña.
+    final wrapped = await VaultPaths.readWrappedDek();
+    if (wrapped != null && wrapped.isNotEmpty) {
+      restoreWrapBytes = wrapped;
+      restoreWrapKind = 'vaultDek';
+    } else if (pw.isNotEmpty) {
       final dek = session.cloudPackRestoreDekMaterial;
       if (dek == null) {
         throw StateError(
@@ -147,17 +149,16 @@ Future<String?> uploadOpenVaultCloudPack({
       }
       restoreWrapBytes = await VaultCrypto.wrapDek(dek: dek, password: pw);
       restoreWrapKind = 'vaultDek';
-    } else {
-      final rawPk = await packKey.extractBytes();
-      restoreWrapBytes = await VaultCrypto.wrapDek(
-        dek: Uint8List.fromList(rawPk),
-        password: pw,
-      );
-      restoreWrapKind = 'packKey';
     }
+  } else if (pw.isNotEmpty && !session.vaultUsesEncryption) {
+    final rawPk = await packKey.extractBytes();
+    restoreWrapBytes = await VaultCrypto.wrapDek(
+      dek: Uint8List.fromList(rawPk),
+      password: pw,
+    );
+    restoreWrapKind = 'packKey';
   } else if (plainNeedsWrap) {
-    // Libreta sin cifrado: crear restore wrap con contraseña vacía para
-    // permitir restaurar en otro dispositivo sin necesidad de contraseña.
+    // Libreta sin cifrado: wrap con contraseña vacía para restaurar sin pedir nada.
     final rawPk = await packKey.extractBytes();
     restoreWrapBytes = await VaultCrypto.wrapDek(
       dek: Uint8List.fromList(rawPk),

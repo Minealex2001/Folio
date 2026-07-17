@@ -695,8 +695,9 @@ Implementación cliente: `lib/services/folio_cloud/folio_cloud_entitlements.dart
 Distinta de la **copia/restauración** (reemplazo consciente): la sync automática **siempre hace merge** con el mismo motor que P2P.
 
 - Cliente: `lib/services/folio_cloud/folio_cloud_device_sync.dart` (`FolioCloudDeviceSyncController`).
-- Tras persistir (debounce ~2 s), sube un pack cifrado a `users/{uid}/vaults/{vaultId}/device-sync/packs/` y finaliza con **`folioFinalizeDeviceSync`** (señal en Firestore `users/{uid}/vaultSync/{vaultId}`).
-- Otros dispositivos escuchan el doc (`snapshots`) o, en Windows/Linux, hacen **polling REST ~3 s**; descargan, descifran y llaman a `VaultSession.applySyncSnapshotBytes` (merge + adjuntos).
+- Tras persistir (debounce ~3 s), sube un pack cifrado a `users/{uid}/vaults/{vaultId}/device-sync/packs/` y finaliza con **`folioFinalizeDeviceSync`** (señal en Firestore `users/{uid}/vaultSync/{vaultId}`). Al arrancar la sync (toggle o desbloqueo) también siembra un push si aún no hay fingerprint local.
+- Cifrado con la **DEK en memoria** (libreta ya desbloqueada) o clave derivada del vault en claro; **no pide contraseña** ni depende del restore-wrap del cloud-pack.
+- Otros dispositivos escuchan el doc (`snapshots`) o, en Windows/Linux, hacen **polling REST ~10 s**; descargan, descifran y llaman a `VaultSession.applySyncSnapshotBytes` (merge + adjuntos).
 - Toggle en Ajustes → Folio Cloud: `AppSettings.cloudDeviceSyncEnabled` (requiere `canUseCloudBackup`).
 - Callables: `folioGetDeviceSyncMeta`, `folioFinalizeDeviceSync`.
 
@@ -719,7 +720,7 @@ Backup cifrado de **preferencias** (no del contenido de la libreta), separado en
 
 - Subida manual y **gestión** (listar / importar / descargar legacy / borrar) desde Ajustes en un panel tipo papelera; **restauración** también desde onboarding o flujos de copia.
 - Se pueden borrar tanto archivos **legacy** (ZIP/TAR.GZ) como la copia **incremental** (cloud-pack) de una libreta. El borrado del cloud-pack usa **`folioDeleteVaultCloudPack`**; el legacy, **`folioDeleteVaultLegacyBackup`**. Si tras borrar no queda ninguna copia, se **elimina por completo** la presencia de esa libreta en Folio Cloud (Storage bajo `vaults/{vaultId}/`, índice `vaultBackupIndex` y meta `vaultBackups`).
-- Tras un **backup programado** (intervalo o «en cada cambio»), si el usuario activa «también subir a Folio Cloud» y tiene permiso, se sube un **cloud-pack** incremental (`uploadOpenVaultCloudPack` / índices en servidor). La copia local/WebDAV del mismo ciclo usa el pack incremental bajo `folio-packs/` (no un ZIP nuevo).
+- Tras un **backup programado** (intervalo o «en cada cambio»), si el usuario activa «también subir a Folio Cloud» y tiene permiso, se sube un **cloud-pack** incremental (`uploadOpenVaultCloudPack` / índices en servidor). La copia local/WebDAV del mismo ciclo usa el pack incremental bajo `folio-packs/` (no un ZIP nuevo). El envoltorio de recuperación del cloud-pack se toma de `vault.keys` (libreta cifrada) o se genera automáticamente (libreta en claro); **no se pide contraseña** en la copia programada ni en la sync.
 - En **Windows/Linux**, el SDK a veces no lista bien Storage; la app usa la callable **`folioListVaultBackups`** (lista con Admin SDK en servidor).
 - Subidas (`putData`/`putFile`) y descargas (`getData`/`writeToFile`) en escritorio van por REST autenticada con ID token, evitando los canales `taskEvent` del plugin C++.
 - **Cuota de almacenamiento** de copias y ampliaciones por suscripción («Biblioteca» pequeña/mediana/grande): catálogo en [FOLIO_CLOUD_STRIPE_PRODUCTS.md](FOLIO_CLOUD_STRIPE_PRODUCTS.md); callables de apoyo p. ej. `folioGetBackupStorageUsage`, `folioTrimVaultBackups`, `folioTrimVaultBackupsByBytes`, índice multi-libreta (`folioListBackupVaults`, `folioUpsertVaultBackupIndex`, …).

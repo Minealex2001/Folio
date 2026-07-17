@@ -442,6 +442,8 @@ extension _SettingsPageFolioCloudActions on _SettingsPageState {
         );
       } catch (_) {}
       String? restoreWrapPassword;
+      // El envoltorio de recuperación se toma de vault.keys (cifrada) o se
+      // genera vacío (en claro); no hace falta pedir contraseña al subir.
       try {
         final raw = await callFolioHttpsCallable(
           'folioGetLatestCloudPackMeta',
@@ -450,25 +452,22 @@ extension _SettingsPageFolioCloudActions on _SettingsPageState {
         final latest = raw is Map ? raw['latest'] : null;
         final hasRestoreWrap =
             latest is Map && latest['hasRestoreWrap'] == true;
-        if (!hasRestoreWrap && mounted) {
+        // Solo en libreta en claro sin wrap: opcional contraseña de recuperación.
+        if (!hasRestoreWrap &&
+            !_s.vaultUsesEncryption &&
+            mounted) {
           final l10nDlg = AppLocalizations.of(context);
-          final encrypted = _s.vaultUsesEncryption;
           final pwd = await showDialog<String?>(
             context: context,
-            barrierDismissible: false,
+            barrierDismissible: true,
             builder: (ctx) => _CloudPackWrapPasswordDialog(
               l10n: l10nDlg,
-              encrypted: encrypted,
+              encrypted: false,
             ),
           );
-          if (pwd == null) return false;
-          if (encrypted && pwd.isEmpty) {
-            if (mounted) {
-              _snack(l10n.settingsCloudBackupWrapPasswordRequired);
-            }
-            return false;
+          if (pwd != null && pwd.trim().isNotEmpty) {
+            restoreWrapPassword = pwd.trim();
           }
-          restoreWrapPassword = pwd.isEmpty ? null : pwd;
         }
       } catch (_) {
         // Si falla el meta, uploadOpenVaultCloudPack volverá a comprobar.
